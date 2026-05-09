@@ -75,9 +75,9 @@ fn introduce_candidates_basic() {
 		],
 	};
 
-	world.activate_leaf(&leaf_a, &test_state);
-	world.activate_leaf(&leaf_b, &test_state);
-	world.activate_leaf(&leaf_c, &test_state);
+	world.activate_leaf(&leaf_a, &test_state.params);
+	world.activate_leaf(&leaf_b, &test_state.params);
+	world.activate_leaf(&leaf_c, &test_state.params);
 
 	let (candidate_a1, pvd_a1) = make_candidate(
 		leaf_a.hash,
@@ -85,7 +85,7 @@ fn introduce_candidates_basic() {
 		chain_a,
 		HeadData(vec![1, 2, 3]),
 		HeadData(vec![1]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	let candidate_hash_a1 = candidate_a1.hash();
 	let response_a1 = vec![BackableCandidateRef {
@@ -99,7 +99,7 @@ fn introduce_candidates_basic() {
 		chain_b,
 		HeadData(vec![2, 3, 4]),
 		HeadData(vec![2]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	let candidate_hash_a2 = candidate_a2.hash();
 	let response_a2 = vec![BackableCandidateRef {
@@ -113,7 +113,7 @@ fn introduce_candidates_basic() {
 		chain_a,
 		HeadData(vec![3, 4, 5]),
 		HeadData(vec![3]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	let candidate_hash_b = candidate_b.hash();
 	let response_b = vec![BackableCandidateRef {
@@ -127,7 +127,7 @@ fn introduce_candidates_basic() {
 		chain_b,
 		HeadData(vec![6, 7, 8]),
 		HeadData(vec![4]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	let candidate_hash_c = candidate_c.hash();
 	let response_c = vec![BackableCandidateRef {
@@ -200,7 +200,7 @@ fn introduce_candidates_error() {
 		],
 	};
 
-	world.activate_leaf(&leaf_a, &test_state);
+	world.activate_leaf(&leaf_a, &test_state.params);
 
 	// Candidate A: directly buildable from `[1,2,3]` (the leaf's required_parent).
 	let (candidate_a, pvd_a) = make_candidate(
@@ -209,7 +209,7 @@ fn introduce_candidates_error() {
 		ParaId::from(1),
 		HeadData(vec![1, 2, 3]),
 		HeadData(vec![1]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	// Candidate B: child of A.
 	let (candidate_b, pvd_b) = make_candidate(
@@ -218,7 +218,7 @@ fn introduce_candidates_error() {
 		ParaId::from(1),
 		HeadData(vec![1]),
 		HeadData(vec![1; 20480]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	// Candidate C: oversized head data, fails the constraint check.
 	let (candidate_c, pvd_c) = make_candidate(
@@ -227,7 +227,7 @@ fn introduce_candidates_error() {
 		ParaId::from(1),
 		HeadData(vec![1; 20480]),
 		HeadData(vec![0; 20485]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 
 	// Hypothetical membership: A directly addable, B potential. Both report leaf_a.hash.
@@ -288,7 +288,7 @@ fn introduce_candidate_multiple_times() {
 			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
 		],
 	};
-	world.activate_leaf(&leaf_a, &test_state);
+	world.activate_leaf(&leaf_a, &test_state.params);
 
 	let (candidate_a, pvd_a) = make_candidate(
 		leaf_a.hash,
@@ -296,7 +296,7 @@ fn introduce_candidate_multiple_times() {
 		ParaId::from(1),
 		HeadData(vec![1, 2, 3]),
 		HeadData(vec![1]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	let candidate_hash_a = candidate_a.hash();
 	let response_a = vec![BackableCandidateRef {
@@ -349,8 +349,8 @@ fn introduce_candidate_on_multiple_forks() {
 		],
 	};
 
-	world.activate_leaf(&leaf_a, &test_state);
-	world.activate_leaf(&leaf_b, &test_state);
+	world.activate_leaf(&leaf_a, &test_state.params);
+	world.activate_leaf(&leaf_b, &test_state.params);
 
 	let (candidate_a, pvd_a) = make_candidate(
 		leaf_a.hash,
@@ -358,7 +358,7 @@ fn introduce_candidate_on_multiple_forks() {
 		ParaId::from(1),
 		HeadData(vec![1, 2, 3]),
 		HeadData(vec![1]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	let candidate_hash_a = candidate_a.hash();
 	let response_a = vec![BackableCandidateRef {

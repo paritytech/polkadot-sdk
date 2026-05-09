@@ -44,7 +44,7 @@ fn introduce_v3_candidate_with_older_relay_parent() {
 	let para_id = ParaId::from(1);
 	let mut test_state = TestState::default();
 	// Allow relay parents back to the older block via constraints' min_relay_parent_number.
-	test_state.min_relay_parent_number_override = Some(OLDER_RELAY_PARENT_NUMBER);
+	test_state.set_min_relay_parent_number_override(OLDER_RELAY_PARENT_NUMBER);
 	let mut world = World::start(&test_state);
 
 	let leaf_a = TestLeaf {
@@ -55,7 +55,7 @@ fn introduce_v3_candidate_with_older_relay_parent() {
 			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
 		],
 	};
-	world.activate_leaf(&leaf_a, &test_state);
+	world.activate_leaf(&leaf_a, &test_state.params);
 
 	// Older relay parent: register it in the chain so prospective's
 	// AncestorRelayParentInfo / SessionIndexForChild lookups resolve.
@@ -66,7 +66,7 @@ fn introduce_v3_candidate_with_older_relay_parent() {
 			older_relay_parent,
 			Hash::zero(),
 			OLDER_RELAY_PARENT_NUMBER,
-			Some(test_state.session_index),
+			Some(test_state.session_index()),
 		);
 	}
 
@@ -77,7 +77,7 @@ fn introduce_v3_candidate_with_older_relay_parent() {
 		para_id,
 		HeadData(vec![1, 2, 3]),
 		HeadData(vec![1]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	let candidate_hash_a = candidate_a.hash();
 
@@ -110,7 +110,7 @@ fn introduce_v3_candidate_with_older_relay_parent() {
 fn get_pvd_for_candidate_with_older_relay_parent() {
 	let para_id = ParaId::from(1);
 	let mut test_state = TestState::default();
-	test_state.min_relay_parent_number_override = Some(OLDER_RELAY_PARENT_NUMBER);
+	test_state.set_min_relay_parent_number_override(OLDER_RELAY_PARENT_NUMBER);
 	let mut world = World::start(&test_state);
 
 	let leaf_a = TestLeaf {
@@ -121,7 +121,7 @@ fn get_pvd_for_candidate_with_older_relay_parent() {
 			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
 		],
 	};
-	world.activate_leaf(&leaf_a, &test_state);
+	world.activate_leaf(&leaf_a, &test_state.params);
 
 	let older_relay_parent = Hash::from_low_u64_be(9999);
 	{
@@ -130,7 +130,7 @@ fn get_pvd_for_candidate_with_older_relay_parent() {
 			older_relay_parent,
 			Hash::zero(),
 			OLDER_RELAY_PARENT_NUMBER,
-			Some(test_state.session_index),
+			Some(test_state.session_index()),
 		);
 	}
 
@@ -141,11 +141,11 @@ fn get_pvd_for_candidate_with_older_relay_parent() {
 		para_id,
 		HeadData(vec![1, 2, 3]),
 		HeadData(vec![1]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	assert!(world.introduce_seconded_candidate(candidate_a, pvd_a));
 
-	let pvd = world.get_pvd(para_id, older_relay_parent, HeadData(vec![1]), test_state.session_index);
+	let pvd = world.get_pvd(para_id, older_relay_parent, HeadData(vec![1]), test_state.session_index());
 	assert_eq!(
 		pvd,
 		Some(PersistedValidationData {

@@ -55,17 +55,18 @@ pub use polkadot_subsystem_test_sim::world_base::{
 
 /// Suite-wide state mirroring the in-crate `TestState`. Tests mutate this directly
 /// before activating leaves.
+///
+/// Wraps a [`LeafActivationParams`] (the bits `WorldBase::activate_leaf` consumes) plus
+/// the suite-wide claim queue. Accessor methods hide the field layout so tests don't
+/// break when `LeafActivationParams` gains new fields.
 pub struct TestState {
+	/// Leaf-activation parameters (validation code hash, session index, optional
+	/// `min_relay_parent_number` override). Pass `&test_state.params` to
+	/// `World::activate_leaf` etc.
+	pub params: LeafActivationParams,
 	/// Per-core claim queue applied to every leaf (overrideable per-leaf via the chain
 	/// model directly).
 	pub claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
-	/// Validation-code hash baked into every candidate the helpers build.
-	pub validation_code_hash: ValidationCodeHash,
-	/// Session index applied to every block. Defaults to 1.
-	pub session_index: SessionIndex,
-	/// Optional override for `min_relay_parent_number` in the synthesised backing
-	/// constraints. Defaults to `leaf.number - (scheduling_lookahead - 1)`.
-	pub min_relay_parent_number_override: Option<BlockNumber>,
 }
 
 impl Default for TestState {
@@ -81,23 +82,35 @@ impl Default for TestState {
 			CoreIndex(1),
 			std::iter::repeat(chain_b).take(DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
 		);
-		Self {
-			claim_queue,
-			validation_code_hash: dummy_validation_code().hash(),
-			session_index: 1,
-			min_relay_parent_number_override: None,
-		}
+		Self { params: LeafActivationParams::default(), claim_queue }
 	}
 }
 
 impl TestState {
-	/// Build the [`LeafActivationParams`] consumed by `WorldBase::activate_leaf`.
-	pub fn leaf_params(&self) -> LeafActivationParams {
-		LeafActivationParams {
-			validation_code_hash: self.validation_code_hash,
-			session_index: self.session_index,
-			min_relay_parent_number_override: self.min_relay_parent_number_override,
-		}
+	/// Validation-code hash baked into every candidate the helpers build.
+	pub fn validation_code_hash(&self) -> ValidationCodeHash {
+		self.params.validation_code_hash
+	}
+
+	/// Session index applied to every block.
+	pub fn session_index(&self) -> SessionIndex {
+		self.params.session_index
+	}
+
+	/// Optional override for `min_relay_parent_number` in the synthesised backing
+	/// constraints. Defaults to `leaf.number - (scheduling_lookahead - 1)`.
+	pub fn min_relay_parent_number_override(&self) -> Option<BlockNumber> {
+		self.params.min_relay_parent_number_override
+	}
+
+	/// Set the `min_relay_parent_number_override`.
+	pub fn set_min_relay_parent_number_override(&mut self, n: BlockNumber) {
+		self.params.min_relay_parent_number_override = Some(n);
+	}
+
+	/// Set the session index.
+	pub fn set_session_index(&mut self, session: SessionIndex) {
+		self.params.session_index = session;
 	}
 }
 
@@ -126,42 +139,10 @@ impl World {
 	pub fn start(test_state: &TestState) -> Self {
 		Self {
 			base: WorldBase::<ProspectiveParachains>::start(
-				test_state.session_index,
+				test_state.session_index(),
 				&test_state.claim_queue,
 			),
 		}
-	}
-
-	// =====================================================================================
-	// Convenience adapters bridging the `&TestState` callers pass to leaf-activation
-	// helpers into the [`LeafActivationParams`] the trait wants. Tests keep the original
-	// signatures (`activate_leaf(&leaf, &test_state)`); these wrappers do the params
-	// conversion + delegate to the trait method.
-	// =====================================================================================
-
-	/// Activate a leaf, taking a `&TestState` for params.
-	pub fn activate_leaf(&mut self, leaf: &TestLeaf, test_state: &TestState) {
-		<Self as HasBase>::activate_leaf(self, leaf, &test_state.leaf_params())
-	}
-
-	/// Activate a leaf with a custom parent-hash function.
-	pub fn activate_leaf_with_parent_hash_fn(
-		&mut self,
-		leaf: &TestLeaf,
-		test_state: &TestState,
-		parent_of: impl Fn(Hash) -> Hash,
-	) {
-		<Self as HasBase>::activate_leaf_with_parent_hash_fn(
-			self,
-			leaf,
-			&test_state.leaf_params(),
-			parent_of,
-		)
-	}
-
-	/// Register a leaf on the chain model + seed constraints, without signalling.
-	pub fn register_leaf_in_chain(&mut self, leaf: &TestLeaf, test_state: &TestState) {
-		<Self as HasBase>::register_leaf_in_chain(self, leaf, &test_state.leaf_params())
 	}
 
 	// =====================================================================================
@@ -269,7 +250,7 @@ macro_rules! make_and_back_candidate {
 			polkadot_primitives::Id::from(1),
 			$parent.commitments.head_data.clone(),
 			polkadot_primitives::HeadData(vec![$index]),
-			$test_state.validation_code_hash,
+			$test_state.validation_code_hash(),
 		);
 		candidate
 			.descriptor

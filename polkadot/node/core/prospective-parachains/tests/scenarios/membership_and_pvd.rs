@@ -60,8 +60,8 @@ fn check_hypothetical_membership_query() {
 		],
 	};
 
-	world.activate_leaf(&leaf_a, &test_state);
-	world.activate_leaf(&leaf_b, &test_state);
+	world.activate_leaf(&leaf_a, &test_state.params);
+	world.activate_leaf(&leaf_b, &test_state.params);
 
 	let (candidate_a, pvd_a) = make_candidate(
 		leaf_a.hash,
@@ -69,7 +69,7 @@ fn check_hypothetical_membership_query() {
 		ParaId::from(1),
 		HeadData(vec![1, 2, 3]),
 		HeadData(vec![1]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	let (candidate_b, pvd_b) = make_candidate(
 		leaf_a.hash,
@@ -77,7 +77,7 @@ fn check_hypothetical_membership_query() {
 		ParaId::from(1),
 		HeadData(vec![1]),
 		HeadData(vec![2]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	let (candidate_c, pvd_c) = make_candidate(
 		leaf_a.hash,
@@ -85,7 +85,7 @@ fn check_hypothetical_membership_query() {
 		ParaId::from(1),
 		HeadData(vec![2]),
 		HeadData(vec![3]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 
 	let assert_membership = |world: &mut World,
@@ -138,7 +138,7 @@ fn check_hypothetical_membership_query() {
 		ParaId::from(1),
 		HeadData(vec![1]),
 		HeadData(vec![2]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	assert!(!world.introduce_seconded_candidate(candidate_d, pvd_d));
 
@@ -149,7 +149,7 @@ fn check_hypothetical_membership_query() {
 		ParaId::from(1),
 		HeadData(vec![2]),
 		HeadData(vec![0; 20481]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	assert!(!world.introduce_seconded_candidate(candidate_e, pvd_e));
 
@@ -181,7 +181,7 @@ fn check_pvd_query() {
 			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
 		],
 	};
-	world.activate_leaf(&leaf_a, &test_state);
+	world.activate_leaf(&leaf_a, &test_state.params);
 
 	let (candidate_a, pvd_a) = make_candidate(
 		leaf_a.hash,
@@ -189,7 +189,7 @@ fn check_pvd_query() {
 		ParaId::from(1),
 		HeadData(vec![1, 2, 3]),
 		HeadData(vec![1]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	let (candidate_b, pvd_b) = make_candidate(
 		leaf_a.hash,
@@ -197,7 +197,7 @@ fn check_pvd_query() {
 		ParaId::from(1),
 		HeadData(vec![1]),
 		HeadData(vec![2]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	let (candidate_c, pvd_c) = make_candidate(
 		leaf_a.hash,
@@ -205,7 +205,7 @@ fn check_pvd_query() {
 		ParaId::from(1),
 		HeadData(vec![2]),
 		HeadData(vec![3]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	let (candidate_e, pvd_e) = make_candidate(
 		leaf_a.hash,
@@ -213,12 +213,12 @@ fn check_pvd_query() {
 		ParaId::from(1),
 		HeadData(vec![5]),
 		HeadData(vec![6]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 
 	// PVD of A before adding (parent_head matches the leaf's required_parent).
 	assert_eq!(
-		world.get_pvd(ParaId::from(1), leaf_a.hash, HeadData(vec![1, 2, 3]), test_state.session_index),
+		world.get_pvd(ParaId::from(1), leaf_a.hash, HeadData(vec![1, 2, 3]), test_state.session_index()),
 		Some(pvd_a.clone()),
 	);
 
@@ -227,42 +227,42 @@ fn check_pvd_query() {
 
 	// PVD of A after adding.
 	assert_eq!(
-		world.get_pvd(ParaId::from(1), leaf_a.hash, HeadData(vec![1, 2, 3]), test_state.session_index),
+		world.get_pvd(ParaId::from(1), leaf_a.hash, HeadData(vec![1, 2, 3]), test_state.session_index()),
 		Some(pvd_a.clone()),
 	);
 
 	// PVD of B before adding (parent is A's head_data).
 	assert_eq!(
-		world.get_pvd(ParaId::from(1), leaf_a.hash, HeadData(vec![1]), test_state.session_index),
+		world.get_pvd(ParaId::from(1), leaf_a.hash, HeadData(vec![1]), test_state.session_index()),
 		Some(pvd_b.clone()),
 	);
 	assert!(world.introduce_seconded_candidate(candidate_b, pvd_b.clone()));
 	assert_eq!(
-		world.get_pvd(ParaId::from(1), leaf_a.hash, HeadData(vec![1]), test_state.session_index),
+		world.get_pvd(ParaId::from(1), leaf_a.hash, HeadData(vec![1]), test_state.session_index()),
 		Some(pvd_b.clone()),
 	);
 
 	// PVD of C before adding.
 	assert_eq!(
-		world.get_pvd(ParaId::from(1), leaf_a.hash, HeadData(vec![2]), test_state.session_index),
+		world.get_pvd(ParaId::from(1), leaf_a.hash, HeadData(vec![2]), test_state.session_index()),
 		Some(pvd_c.clone()),
 	);
 	assert!(world.introduce_seconded_candidate(candidate_c, pvd_c.clone()));
 	assert_eq!(
-		world.get_pvd(ParaId::from(1), leaf_a.hash, HeadData(vec![2]), test_state.session_index),
+		world.get_pvd(ParaId::from(1), leaf_a.hash, HeadData(vec![2]), test_state.session_index()),
 		Some(pvd_c),
 	);
 
 	// E's parent isn't known yet.
 	assert_eq!(
-		world.get_pvd(ParaId::from(1), leaf_a.hash, HeadData(vec![5]), test_state.session_index),
+		world.get_pvd(ParaId::from(1), leaf_a.hash, HeadData(vec![5]), test_state.session_index()),
 		None,
 	);
 
 	// Add E and re-query.
 	assert!(world.introduce_seconded_candidate(candidate_e, pvd_e.clone()));
 	assert_eq!(
-		world.get_pvd(ParaId::from(1), leaf_a.hash, HeadData(vec![5]), test_state.session_index),
+		world.get_pvd(ParaId::from(1), leaf_a.hash, HeadData(vec![5]), test_state.session_index()),
 		Some(pvd_e),
 	);
 

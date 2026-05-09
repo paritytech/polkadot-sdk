@@ -69,18 +69,18 @@ fn correctly_updates_leaves() {
 		],
 	};
 
-	world.activate_leaf(&leaf_a, &test_state);
-	world.activate_leaf(&leaf_b, &test_state);
+	world.activate_leaf(&leaf_a, &test_state.params);
+	world.activate_leaf(&leaf_b, &test_state.params);
 	// Activating the same leaf again is a no-op for the subsystem; world tracks the
 	// signal regardless. Recompute leaf list count expectation accordingly.
-	world.activate_leaf(&leaf_b, &test_state);
+	world.activate_leaf(&leaf_b, &test_state.params);
 
 	// Empty update.
 	world.signal_active_leaves(ActiveLeavesUpdate::default());
 
 	// Activate leaf_c and deactivate leaf_b in a single update. Register leaf_c on the
 	// chain first so prospective's per-leaf init can resolve its queries.
-	world.register_leaf_in_chain(&leaf_c, &test_state);
+	world.register_leaf_in_chain(&leaf_c, &test_state.params);
 	world.signal_active_leaves(ActiveLeavesUpdate {
 		activated: Some(new_leaf(leaf_c.hash, leaf_c.number)),
 		deactivated: [leaf_b.hash][..].into(),
@@ -128,7 +128,7 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 		hash: Hash::from_low_u64_be(1 << 20),
 		para_data: vec![(para_id, PerParaData::new(HeadData(vec![1, 2, 3])))],
 	};
-	world.activate_leaf(&leaf_a, &test_state);
+	world.activate_leaf(&leaf_a, &test_state.params);
 
 	let (candidate_a, pvd_a) = make_candidate(
 		leaf_a.hash,
@@ -136,7 +136,7 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 		para_id,
 		HeadData(vec![1, 2, 3]),
 		HeadData(vec![1]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	let candidate_hash_a = candidate_a.hash();
 	assert!(world.introduce_seconded_candidate(candidate_a.clone(), pvd_a));
@@ -192,7 +192,7 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 	};
 	let leaf_a_hash = leaf_a.hash;
 	let leaf_b_hash = leaf_b.hash;
-	world.activate_leaf_with_parent_hash_fn(&leaf_b, &test_state, |hash| {
+	world.activate_leaf_with_parent_hash_fn(&leaf_b, &test_state.params, |hash| {
 		if hash == leaf_b_hash {
 			leaf_a_hash
 		} else {
@@ -253,7 +253,7 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 	};
 	let leaf_a_hash = leaf_a.hash;
 	let leaf_c_hash = leaf_c.hash;
-	world.activate_leaf_with_parent_hash_fn(&leaf_c, &test_state, |hash| {
+	world.activate_leaf_with_parent_hash_fn(&leaf_c, &test_state.params, |hash| {
 		if hash == leaf_c_hash {
 			leaf_a_hash
 		} else {
@@ -282,7 +282,7 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 	// inherited.
 	world.deactivate_leaf(leaf_c.hash);
 	let (candidate_e, _) = make_and_back_candidate!(test_state, world, leaf_a, &candidate_d, 5);
-	world.activate_leaf_with_parent_hash_fn(&leaf_c, &test_state, |hash| {
+	world.activate_leaf_with_parent_hash_fn(&leaf_c, &test_state.params, |hash| {
 		if hash == leaf_c_hash {
 			leaf_a_hash
 		} else {
@@ -350,7 +350,7 @@ fn handle_active_leaves_update_bounded_implicit_view() {
 
 	// Activate all 10.
 	for leaf in &leaves {
-		world.activate_leaf(leaf, &test_state);
+		world.activate_leaf(leaf, &test_state.params);
 	}
 
 	// Deactivate first 9, leaving only the latest.
@@ -401,7 +401,7 @@ fn persists_pending_availability_candidate() {
 	let leaf_b_hash = Hash::from_low_u64_be(1);
 	let leaf_b_number = leaf_a.number + 1;
 
-	world.activate_leaf(&leaf_a, &test_state);
+	world.activate_leaf(&leaf_a, &test_state.params);
 
 	let (candidate_a, pvd_a) = make_candidate(
 		candidate_relay_parent,
@@ -409,7 +409,7 @@ fn persists_pending_availability_candidate() {
 		para_id,
 		para_head.clone(),
 		HeadData(vec![1]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	let candidate_hash_a = candidate_a.hash();
 
@@ -419,7 +419,7 @@ fn persists_pending_availability_candidate() {
 		para_id,
 		HeadData(vec![1]),
 		HeadData(vec![2]),
-		test_state.validation_code_hash,
+		test_state.validation_code_hash(),
 	);
 	let candidate_hash_b = candidate_b.hash();
 
@@ -442,7 +442,7 @@ fn persists_pending_availability_candidate() {
 		)],
 	};
 	// leaf_b's parent is leaf_a so prospective inherits leaf_a's view.
-	world.activate_leaf_with_parent_hash_fn(&leaf_b, &test_state, |hash| {
+	world.activate_leaf_with_parent_hash_fn(&leaf_b, &test_state.params, |hash| {
 		if hash == leaf_b_hash {
 			leaf_a_hash
 		} else {
@@ -481,10 +481,10 @@ fn uses_ancestry_only_within_session() {
 	let mut test_state = TestState::default();
 	// Empty claim queue — original test passes empty BTreeMap on ClaimQueue.
 	test_state.claim_queue.clear();
-	test_state.session_index = 2;
+	test_state.set_session_index(2);
 	let mut world = World::start(&test_state);
 
-	let session: SessionIndex = test_state.session_index;
+	let session: SessionIndex = test_state.session_index();
 	let leaf_number = 5;
 	let leaf_hash = Hash::repeat_byte(5);
 	// Register session - 1 so the chain model can answer queries about ancestors before
