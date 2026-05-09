@@ -18,6 +18,7 @@
 //! validator does have scheduled paras. Validator disconnects the peer. Sanity counterpart
 //! pins the assertion to "wrong para" rather than "any declare".
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V1,
 	harness::CollatorSut,

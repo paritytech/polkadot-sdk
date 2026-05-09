@@ -24,6 +24,7 @@
 //! worth affecting reputations"). The rep emission divergence is documented in
 //! [`crate::scenarios::divergent::reputation_emission`].
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::{Candidate, ProtocolVersion::V2},
 	chain::CoreSchedule,
@@ -53,8 +54,8 @@ fn re_advertising_after_can_second_false_does_not_refetch<S: CollatorSut>() {
 		candidate.hash(),
 		polkadot_primitives::HeadData(Vec::new()).hash(),
 	);
-	w.sim.advance(Duration::from_millis(100));
-	w.sim.expect_count(
+	w.base.sim.advance(Duration::from_millis(100));
+	w.base.sim.expect_count(
 		|e| matches!(e, Effect::SendRequest { .. }),
 		0,
 		"SendRequest after CanSecond=false (must be zero)",
@@ -67,8 +68,8 @@ fn re_advertising_after_can_second_false_does_not_refetch<S: CollatorSut>() {
 		candidate.hash(),
 		polkadot_primitives::HeadData(Vec::new()).hash(),
 	);
-	w.sim.advance(Duration::from_millis(200));
-	w.sim.expect_count(
+	w.base.sim.advance(Duration::from_millis(200));
+	w.base.sim.expect_count(
 		|e| matches!(e, Effect::SendRequest { .. }),
 		0,
 		"SendRequest after duplicate advertisement (must be zero — first dropped, second too)",

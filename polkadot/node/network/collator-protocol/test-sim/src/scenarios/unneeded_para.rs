@@ -19,6 +19,7 @@
 //! Empty claim queue (no schedule installed) → every para is unneeded. ActiveLeaves
 //! preamble (built into `activated_world`) clears both impls' startup-init guard.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V1,
 	harness::CollatorSut,

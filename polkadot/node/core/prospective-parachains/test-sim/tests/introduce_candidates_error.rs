@@ -27,7 +27,7 @@
 use polkadot_node_subsystem::messages::{Ancestors, BackableCandidateRef};
 use polkadot_primitives::{CoreIndex, HeadData, Hash, Id as ParaId, DEFAULT_SCHEDULING_LOOKAHEAD};
 use polkadot_primitives_test_helpers::make_candidate;
-use polkadot_prospective_parachains_test_sim::world::{PerParaData, TestLeaf, TestState, World};
+use polkadot_prospective_parachains_test_sim::world::{WorldExt as _, PerParaData, TestLeaf, TestState, World};
 
 #[test]
 fn introduce_candidates_error() {
@@ -122,5 +122,5 @@ fn introduce_candidates_error() {
 		],
 	);
 
-	assert_eq!(world.leaves.len(), 1);
+	assert_eq!(world.base.leaves.len(), 1);
 }

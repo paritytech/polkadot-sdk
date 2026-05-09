@@ -23,7 +23,7 @@ use polkadot_primitives::{
 use polkadot_primitives_test_helpers::make_candidate;
 use polkadot_prospective_parachains_test_sim::{
 	make_and_back_candidate,
-	world::{PerParaData, TestLeaf, TestState, World},
+	world::{PerParaData, TestLeaf, TestState, World, WorldExt as _},
 };
 
 #[test]
@@ -322,5 +322,5 @@ fn check_backable_query_multiple_candidates() {
 		)
 		.is_empty());
 
-	assert_eq!(world.leaves.len(), 1);
+	assert_eq!(world.base.leaves.len(), 1);
 }

@@ -23,6 +23,7 @@
 //! persistent rep store silently. The rep emission divergence is documented in
 //! [`crate::scenarios::divergent::reputation_emission`].
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::{Candidate, ProtocolVersion::V1},
 	contract::{Effect, WireMsgKind},
@@ -48,16 +49,16 @@ fn v1_advertise_fetch_second_and_collator_notified<S: CollatorSut>() {
 	w.outputs.insert(candidate.hash(), candidate.commitments.clone(), candidate.pvd.clone());
 
 	let peer = w.declared_peer(PARA, V1);
-	w.sim.send(peer.advertise(leaf, None, None));
+	w.base.sim.send(peer.advertise(leaf, None, None));
 	let (_, request_id, _) = w.expect_any_fetch();
 	w.respond_fetch_v1(request_id, candidate.receipt.clone(), Candidate::empty_pov());
 	w.expect_second(&candidate);
 
 	// Let the back-notification flow through statement-distribution-noop and back to
 	// collator-protocol.
-	w.sim.advance(Duration::from_millis(100));
+	w.base.sim.advance(Duration::from_millis(100));
 
-	let _ = w.sim.expect(
+	let _ = w.base.sim.expect(
 		|e| matches!(
 			e,
 			Effect::SendCollation {

@@ -18,7 +18,7 @@
 
 use polkadot_primitives::{HeadData, Hash, Id as ParaId};
 use polkadot_primitives_test_helpers::make_candidate;
-use polkadot_prospective_parachains_test_sim::world::{
+use polkadot_prospective_parachains_test_sim::world::{WorldExt as _, 
 	get_parent_hash, PerParaData, TestLeaf, TestState, World,
 };
 use std::collections::HashSet;
@@ -151,5 +151,5 @@ fn check_hypothetical_membership_query() {
 		assert_membership(&mut world, candidate, pvd, vec![leaf_a.hash, leaf_b.hash]);
 	}
 
-	assert_eq!(world.leaves.len(), 2);
+	assert_eq!(world.base.leaves.len(), 2);
 }

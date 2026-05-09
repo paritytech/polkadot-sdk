@@ -52,6 +52,7 @@
 //! The chain model gained `set_finalized` and `set_candidate_events` to drive this path
 //! end-to-end without test shortcuts.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V2,
 	contract::Effect,
@@ -96,7 +97,7 @@ fn higher_score_peer_fetches_first_fresh_peer_waits_in_penalty_box<S: CollatorSu
 
 	// --- Drive finalization: candidate is included at leaf0; finalize leaf0 ---
 	{
-		let mut chain = w.chain.lock();
+		let mut chain = w.base.chain.lock();
 		chain.set_pending_availability(PARA, vec![cand_a.committed()]);
 		chain.set_candidate_events(
 			leaf0,
@@ -109,9 +110,9 @@ fn higher_score_peer_fetches_first_fresh_peer_waits_in_penalty_box<S: CollatorSu
 		);
 		chain.set_finalized(leaf0);
 	}
-	w.sim.signal(OverseerSignal::BlockFinalized(leaf0, w.leaf_number()));
+	w.base.sim.signal(OverseerSignal::BlockFinalized(leaf0, w.leaf_number()));
 	// Let the peer_manager finalization handler complete its runtime-API round trip.
-	w.sim.advance(Duration::from_millis(50));
+	w.base.sim.advance(Duration::from_millis(50));
 
 	// --- Round 2: extend chain, activate new leaf, both peers advertise there ---
 	let leaf1 = w.extend_and_activate_with(leaf0, &[leaf0], |_chain, _h, _n| {});
@@ -119,7 +120,7 @@ fn higher_score_peer_fetches_first_fresh_peer_waits_in_penalty_box<S: CollatorSu
 	// Capture sim_t at the moment of advertisement so we can measure the fetch latency
 	// against the leaf's activation. (The penalty box delay is measured from
 	// `activated_at` of the scheduling parent, not advertisement arrival.)
-	let activation_t = w.sim.now_sim_t();
+	let activation_t = w.base.sim.now_sim_t();
 
 	let peer_b = w.declared_peer(PARA, V2); // fresh peer, score = 0
 	let cand_a2 = w
@@ -142,7 +143,7 @@ fn higher_score_peer_fetches_first_fresh_peer_waits_in_penalty_box<S: CollatorSu
 	w.advertise_with_parent_head(&peer_b, leaf1, cand_b.hash(), cand_b.parent_head_hash());
 
 	// A's fetch must fire promptly — score ≥ INSTANT_FETCH_REP_THRESHOLD.
-	let a_fetch = w.sim.expect(
+	let a_fetch = w.base.sim.expect(
 		|e| matches!(
 			e,
 			Effect::SendRequest { candidate_hash: Some(c), .. } if *c == cand_a2.hash(),
@@ -151,7 +152,7 @@ fn higher_score_peer_fetches_first_fresh_peer_waits_in_penalty_box<S: CollatorSu
 		"peer A's fetch fires within 50ms (score >= 1 bypasses penalty box)",
 	);
 	let _ = a_fetch;
-	let a_fetch_t = w.sim.now_sim_t() - activation_t;
+	let a_fetch_t = w.base.sim.now_sim_t() - activation_t;
 	assert!(
 		a_fetch_t < MAX_FETCH_DELAY,
 		"peer A's fetch fired at {:?} after leaf activation; expected < {:?}",
@@ -160,7 +161,7 @@ fn higher_score_peer_fetches_first_fresh_peer_waits_in_penalty_box<S: CollatorSu
 	);
 
 	// B's fetch must wait at least MAX_FETCH_DELAY (penalty box).
-	let _b_fetch = w.sim.expect(
+	let _b_fetch = w.base.sim.expect(
 		|e| matches!(
 			e,
 			Effect::SendRequest { candidate_hash: Some(c), .. } if *c == cand_b.hash(),
@@ -168,7 +169,7 @@ fn higher_score_peer_fetches_first_fresh_peer_waits_in_penalty_box<S: CollatorSu
 		MAX_FETCH_DELAY + Duration::from_millis(200),
 		"peer B's fetch fires within 500ms (penalty box releases at 300ms)",
 	);
-	let b_fetch_t = w.sim.now_sim_t() - activation_t;
+	let b_fetch_t = w.base.sim.now_sim_t() - activation_t;
 	assert!(
 		b_fetch_t >= MAX_FETCH_DELAY,
 		"peer B's fetch fired at {:?} after leaf activation; expected >= {:?} (penalty box)",
@@ -207,7 +208,7 @@ fn slashed_peer_loses_priority<S: CollatorSut>() {
 	w.outputs.insert(cand_a.hash(), cand_a.commitments.clone(), cand_a.pvd.clone());
 	w.full_second(&peer_a, &cand_a);
 	{
-		let mut chain = w.chain.lock();
+		let mut chain = w.base.chain.lock();
 		chain.set_pending_availability(PARA, vec![cand_a.committed()]);
 		chain.set_candidate_events(
 			leaf0,
@@ -220,8 +221,8 @@ fn slashed_peer_loses_priority<S: CollatorSut>() {
 		);
 		chain.set_finalized(leaf0);
 	}
-	w.sim.signal(OverseerSignal::BlockFinalized(leaf0, w.leaf_number()));
-	w.sim.advance(Duration::from_millis(50));
+	w.base.sim.signal(OverseerSignal::BlockFinalized(leaf0, w.leaf_number()));
+	w.base.sim.advance(Duration::from_millis(50));
 
 	// --- Ramp peer B: bypass full_second; seed an "included" candidate and finalize ---
 	//
@@ -239,7 +240,7 @@ fn slashed_peer_loses_priority<S: CollatorSut>() {
 		.approved_peer(peer_b.peer_id)
 		.build();
 	{
-		let mut chain = w.chain.lock();
+		let mut chain = w.base.chain.lock();
 		chain.set_pending_availability(PARA, vec![cand_b_seed.committed()]);
 		chain.set_candidate_events(
 			leaf1,
@@ -252,8 +253,8 @@ fn slashed_peer_loses_priority<S: CollatorSut>() {
 		);
 		chain.set_finalized(leaf1);
 	}
-	w.sim.signal(OverseerSignal::BlockFinalized(leaf1, w.leaves[w.leaves.len() - 1].number));
-	w.sim.advance(Duration::from_millis(50));
+	w.base.sim.signal(OverseerSignal::BlockFinalized(leaf1, w.base.leaves[w.base.leaves.len() - 1].number));
+	w.base.sim.advance(Duration::from_millis(50));
 
 	// --- Slash leaf: A advertises a new candidate; validator fetches; we don't respond ---
 	let leaf2 = w.extend_and_activate_with(leaf1, &[leaf0, leaf1], |_chain, _h, _n| {});
@@ -273,12 +274,12 @@ fn slashed_peer_loses_priority<S: CollatorSut>() {
 	// Cancel the fetch — drops the response oneshot, which resolves on the subsystem
 	// side as `RequestError::Canceled`. Experimental classifies that as a timeout
 	// (`is_timed_out() == true`) and applies `FAILED_FETCH_SLASH` to peer A.
-	w.sim.cancel_fetch(req_id);
-	w.sim.advance(Duration::from_millis(50));
+	w.base.sim.cancel_fetch(req_id);
+	w.base.sim.advance(Duration::from_millis(50));
 
 	// --- Outcome leaf: A and B both advertise; B wins, A waits in penalty box ---
 	let leaf3 = w.extend_and_activate_with(leaf2, &[leaf1, leaf2], |_chain, _h, _n| {});
-	let activation_t = w.sim.now_sim_t();
+	let activation_t = w.base.sim.now_sim_t();
 	let cand_a_after = w
 		.candidate_at(leaf3)
 		.para(PARA)
@@ -310,7 +311,7 @@ fn slashed_peer_loses_priority<S: CollatorSut>() {
 	);
 
 	// B fetches first — score 1 ≥ INSTANT_FETCH_REP_THRESHOLD.
-	let _ = w.sim.expect(
+	let _ = w.base.sim.expect(
 		|e| matches!(
 			e,
 			Effect::SendRequest { candidate_hash: Some(c), .. } if *c == cand_b_after.hash(),
@@ -318,7 +319,7 @@ fn slashed_peer_loses_priority<S: CollatorSut>() {
 		Duration::from_millis(50),
 		"peer B's fetch fires within 50ms (score 1 bypasses penalty box)",
 	);
-	let b_fetch_t = w.sim.now_sim_t() - activation_t;
+	let b_fetch_t = w.base.sim.now_sim_t() - activation_t;
 	assert!(
 		b_fetch_t < MAX_FETCH_DELAY,
 		"peer B's fetch fired at {:?} after leaf activation; expected < {:?}",
@@ -327,7 +328,7 @@ fn slashed_peer_loses_priority<S: CollatorSut>() {
 	);
 
 	// A's fetch is delayed — score 0 (slashed) and max-for-para = 1.
-	let _ = w.sim.expect(
+	let _ = w.base.sim.expect(
 		|e| matches!(
 			e,
 			Effect::SendRequest { candidate_hash: Some(c), .. } if *c == cand_a_after.hash(),
@@ -335,7 +336,7 @@ fn slashed_peer_loses_priority<S: CollatorSut>() {
 		MAX_FETCH_DELAY + Duration::from_millis(200),
 		"peer A's fetch fires within 500ms (penalty box releases at 300ms)",
 	);
-	let a_fetch_t = w.sim.now_sim_t() - activation_t;
+	let a_fetch_t = w.base.sim.now_sim_t() - activation_t;
 	assert!(
 		a_fetch_t >= MAX_FETCH_DELAY,
 		"peer A's fetch fired at {:?} after leaf activation; expected >= {:?} (slashed → penalty box)",

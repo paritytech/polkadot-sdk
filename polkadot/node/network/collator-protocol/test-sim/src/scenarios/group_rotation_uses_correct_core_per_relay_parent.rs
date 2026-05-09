@@ -23,6 +23,7 @@
 //! Setup: para A on core 0, para B on core 2. Two active leaves at sequential blocks where
 //! group 0 is on core 0 then core 2.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V2,
 	chain::CoreSchedule,
@@ -57,8 +58,8 @@ fn group_rotation_uses_correct_core_per_relay_parent<S: CollatorSut>() {
 		.with_group_rotation_frequency(1);
 	let mut w = build_multi_leaf_world_with_config::<S>(3, config);
 
-	let block1 = w.leaves[0].hash; // group 0 → core 2 → PARA_B
-	let block3 = w.leaves[2].hash; // group 0 → core 0 → PARA_A
+	let block1 = w.base.leaves[0].hash; // group 0 → core 2 → PARA_B
+	let block3 = w.base.leaves[2].hash; // group 0 → core 0 → PARA_A
 
 	let peer_a = w.declared_peer(PARA_A, V2);
 	let peer_b = w.declared_peer(PARA_B, V2);

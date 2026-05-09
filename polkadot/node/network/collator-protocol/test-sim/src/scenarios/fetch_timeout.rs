@@ -18,6 +18,7 @@
 //! After [`MAX_UNSHARED_DOWNLOAD_TIME`] the per-fetch deadline expires and the validator
 //! fetches from the other peer.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::{Candidate, ProtocolVersion::V2},
 	harness::CollatorSut,
@@ -40,14 +41,14 @@ fn fetch_timeout_advances_to_next_peer<S: CollatorSut>() {
 	let peer_a = w.declared_peer(PARA, V2);
 	let peer_b = w.declared_peer(PARA, V2);
 	for peer in [&peer_a, &peer_b] {
-		w.sim.send(peer.advertise(leaf, Some(candidate.hash()), Some(head_hash)));
+		w.base.sim.send(peer.advertise(leaf, Some(candidate.hash()), Some(head_hash)));
 	}
 
 	let (first_peer, _, _) = w.expect_any_fetch();
 	let other_peer = if first_peer == peer_a.peer_id { peer_b.peer_id } else { peer_a.peer_id };
 
 	// Don't respond. Advance past the per-fetch deadline.
-	w.sim.advance(MAX_UNSHARED_DOWNLOAD_TIME + Duration::from_millis(100));
+	w.base.sim.advance(MAX_UNSHARED_DOWNLOAD_TIME + Duration::from_millis(100));
 
 	let _ = w.expect_fetch_to(other_peer);
 }

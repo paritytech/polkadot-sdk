@@ -20,6 +20,7 @@
 //! Peer for A advertises a 2nd → queued. Peer for B advertises → queued. After A1
 //! seconds, the next fetch goes to **B** (CQ position 0 — earlier wins), not A2.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V2,
 	chain::CoreSchedule,
@@ -74,7 +75,7 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue<S: CollatorSut>() {
 	w.advertise_with_parent_head(&peer_a, leaf, a2.hash(), a2.parent_head_hash());
 	w.advertise_with_parent_head(&peer_b, leaf, b1.hash(), b1.parent_head_hash());
 	// One fetch in flight.
-	w.sim.expect_count(
+	w.base.sim.expect_count(
 		|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV2, .. }),
 		1,
 		"exactly 1 fetch in flight while A1 is being fetched",
@@ -85,7 +86,7 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue<S: CollatorSut>() {
 	let barrier = w.recorder_barrier();
 	w.respond_fetch_v2(a1_req, a1.receipt.clone(), crate::builders::Candidate::empty_pov());
 	w.expect_second(&a1);
-	w.sim.advance(Duration::from_millis(50));
+	w.base.sim.advance(Duration::from_millis(50));
 
 	let next = w.first_fetch_after(barrier).expect("a fetch fires after A1 seconding");
 	assert_eq!(

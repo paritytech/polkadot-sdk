@@ -55,6 +55,7 @@
 //! legacy) and `__silent` (only on experimental). They share a setup helper so the
 //! divergence is purely the assertion.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::{Candidate, Peer, ProtocolVersion::V2},
 	contract::{Effect, RepBucket},
@@ -130,9 +131,9 @@ fn mismatched_hash_no_bus_event<S: CollatorSut>() {
 fn setup_declare_twice_unneeded<S: CollatorSut>() -> (crate::scenarios::shared::World<S>, Peer) {
 	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA_A)]);
 	let peer = Peer::new(WRONG, V2);
-	w.sim.send(peer.connected());
-	w.sim.send(peer.declare());
-	w.sim.send(peer.declare());
+	w.base.sim.send(peer.connected());
+	w.base.sim.send(peer.declare());
+	w.base.sim.send(peer.declare());
 	(w, peer)
 }
 
@@ -141,7 +142,7 @@ fn declare_twice_unneeded_emits_one_batched_rep<S: CollatorSut>() {
 	let (mut w, peer) = setup_declare_twice_unneeded::<S>();
 
 	// Buffered until the flush.
-	w.sim.expect_count(
+	w.base.sim.expect_count(
 		|e| matches!(
 			e,
 			Effect::Reputation { peer: p, bucket: RepBucket::Performance } if *p == peer.peer_id,
@@ -151,8 +152,8 @@ fn declare_twice_unneeded_emits_one_batched_rep<S: CollatorSut>() {
 	);
 
 	// Advance past the flush interval; aggregator dispatches one Batch.
-	w.sim.advance(REPUTATION_CHANGE_INTERVAL + Duration::from_secs(1));
-	w.sim.expect_count(
+	w.base.sim.advance(REPUTATION_CHANGE_INTERVAL + Duration::from_secs(1));
+	w.base.sim.expect_count(
 		|e| matches!(
 			e,
 			Effect::Reputation { peer: p, bucket: RepBucket::Performance } if *p == peer.peer_id,
@@ -169,8 +170,8 @@ fn declare_twice_unneeded_no_rep_event<S: CollatorSut>() {
 	// No rep event ever fires on experimental for "wrong para" misbehaviour — that's
 	// just disconnect-without-slash on this side. Advance well past any flush window
 	// the legacy side would have used and confirm silence.
-	w.sim.advance(REPUTATION_CHANGE_INTERVAL + Duration::from_secs(1));
-	w.sim.expect_count(
+	w.base.sim.advance(REPUTATION_CHANGE_INTERVAL + Duration::from_secs(1));
+	w.base.sim.expect_count(
 		|e| matches!(
 			e,
 			Effect::Reputation { peer: p, .. } if *p == peer.peer_id,

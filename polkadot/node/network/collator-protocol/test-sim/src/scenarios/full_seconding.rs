@@ -18,6 +18,7 @@
 //! backing + always-valid validation stub. Includes a sanity counterpart that pins the
 //! "Reputation::Malicious only on Invalid" semantics.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::{Candidate, ProtocolVersion::V2},
 	contract::RepBucket,

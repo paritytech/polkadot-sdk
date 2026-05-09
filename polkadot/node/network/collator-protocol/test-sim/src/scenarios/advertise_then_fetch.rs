@@ -20,6 +20,7 @@
 //! First scenario that drives the full hybrid harness — chain model + real
 //! prospective-parachains + real candidate-backing — through to `SendRequest`.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V2,
 	harness::CollatorSut,

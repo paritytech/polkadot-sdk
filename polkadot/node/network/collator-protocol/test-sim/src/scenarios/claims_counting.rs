@@ -20,6 +20,7 @@
 //! `claims_above_are_counted_correctly`, and `claim_fills_last_free_slot`. With
 //! `lookahead=3` and `CQ=[A,A,A]` total per-para capacity is 3 across leaf + ancestor.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V2,
 	harness::CollatorSut,

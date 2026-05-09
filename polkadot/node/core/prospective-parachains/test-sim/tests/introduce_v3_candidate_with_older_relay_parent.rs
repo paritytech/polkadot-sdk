@@ -21,7 +21,7 @@ use polkadot_primitives::{
 	BlockNumber, HeadData, Hash, Id as ParaId, DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use polkadot_primitives_test_helpers::make_candidate_v3;
-use polkadot_prospective_parachains_test_sim::world::{PerParaData, TestLeaf, TestState, World};
+use polkadot_prospective_parachains_test_sim::world::{WorldExt as _, PerParaData, TestLeaf, TestState, World};
 use std::collections::HashSet;
 
 const LEAF_NUMBER: BlockNumber = 100;
@@ -50,7 +50,7 @@ fn introduce_v3_candidate_with_older_relay_parent() {
 	// AncestorRelayParentInfo / SessionIndexForChild lookups resolve.
 	let older_relay_parent = Hash::from_low_u64_be(9999);
 	{
-		let mut chain = world.chain.lock();
+		let mut chain = world.base.chain.lock();
 		chain.register_block_with_session(
 			older_relay_parent,
 			Hash::zero(),
@@ -92,5 +92,5 @@ fn introduce_v3_candidate_with_older_relay_parent() {
 		[leaf_a.hash].into_iter().collect::<HashSet<_>>(),
 	);
 
-	assert_eq!(world.leaves.len(), 1);
+	assert_eq!(world.base.leaves.len(), 1);
 }

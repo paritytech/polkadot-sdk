@@ -18,6 +18,7 @@
 //! (one in-flight per RP). The cap relaxes only after the first fetch resolves and
 //! seconds; this scenario pins the in-flight cap, not the post-second behaviour.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V1,
 	contract::{Effect, ReqKind},
@@ -35,12 +36,12 @@ fn one_fetch_per_relay_parent_until_seconded<S: CollatorSut>() {
 
 	let peer_b = w.declared_peer(PARA, V1);
 	let peer_c = w.declared_peer(PARA, V1);
-	w.sim.send(peer_b.advertise(leaf, None, None));
-	w.sim.send(peer_c.advertise(leaf, None, None));
+	w.base.sim.send(peer_b.advertise(leaf, None, None));
+	w.base.sim.send(peer_c.advertise(leaf, None, None));
 
 	let _ = w.expect_any_fetch();
 
-	w.sim.expect_count(
+	w.base.sim.expect_count(
 		|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
 		1,
 		"SendRequest while one fetch is in flight (no second concurrent fetch allowed)",

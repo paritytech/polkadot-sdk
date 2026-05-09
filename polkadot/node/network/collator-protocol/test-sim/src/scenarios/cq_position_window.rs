@@ -21,6 +21,7 @@
 //! seconded candidates count toward per-para capacity (not just in-flight fetches); V1
 //! single-shot prevents two concurrent V1 fetches for the same `(sp, para)`.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::{Candidate, ProtocolVersion::V1, ProtocolVersion::V2},
 	contract::Effect,
@@ -166,13 +167,13 @@ fn v1_single_shot_per_sp_para_round<S: CollatorSut>() {
 	let peer_a = w.declared_peer(PARA_A, V1);
 	let peer_b = w.declared_peer(PARA_A, V1);
 
-	w.sim.send(peer_a.advertise(w.leaf(), None, None));
-	w.sim.send(peer_b.advertise(w.leaf(), None, None));
+	w.base.sim.send(peer_a.advertise(w.leaf(), None, None));
+	w.base.sim.send(peer_b.advertise(w.leaf(), None, None));
 
 	// Exactly one V1 fetch this round.
 	let _ = w.expect_any_fetch();
 	let _ = Candidate::for_para_at(PARA_A, w.leaf()); // unused — keeps the explicit "V1 dedup" intent visible
-	w.sim.expect_count(
+	w.base.sim.expect_count(
 		|e| matches!(e, Effect::SendRequest { .. }),
 		1,
 		"exactly one V1 fetch despite two V1 advertisements at the same (sp, para)",

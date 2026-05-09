@@ -33,6 +33,7 @@
 //! The rep emission divergence is documented in
 //! [`crate::scenarios::divergent::reputation_emission`].
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V3,
 	contract::Effect,
@@ -68,7 +69,7 @@ fn v3_candidate<S: CollatorSut>(
 ) -> (CandidateReceiptV2, polkadot_primitives::CandidateHash) {
 	let pvd = PersistedValidationData {
 		parent_head: HeadData(Vec::new()),
-		relay_parent_number: w.chain.lock().block(&relay_parent).unwrap().number,
+		relay_parent_number: w.base.chain.lock().block(&relay_parent).unwrap().number,
 		relay_parent_storage_root: Hash::zero(),
 		max_pov_size: 5 * 1024 * 1024,
 	};
@@ -96,8 +97,8 @@ fn assert_rejected<S: CollatorSut>(
 ) {
 	// Settle long enough that any in-flight effects from the advertise step have
 	// drained, then assert no fetch was emitted for the rejected advertisement.
-	w.sim.advance(Duration::from_millis(200));
-	w.sim.expect_count(
+	w.base.sim.advance(Duration::from_millis(200));
+	w.base.sim.expect_count(
 		|e| matches!(e, Effect::SendRequest { .. }),
 		0,
 		"SendRequest after V3 rejection (must be zero)",
@@ -121,7 +122,7 @@ fn v3_world<S: CollatorSut>(
 		.with_genesis_slot(Slot::from(0))
 		.with_v3_descriptors_enabled();
 	let mut w = build_with_ancestors_world_with_config::<S>(n_ancestors, config);
-	w.sim.advance(slot_to_wall_ms(current_slot));
+	w.base.sim.advance(slot_to_wall_ms(current_slot));
 	w
 }
 
@@ -131,7 +132,7 @@ fn assert_accepted<S: CollatorSut>(
 	candidate_hash: polkadot_primitives::CandidateHash,
 	context: &'static str,
 ) {
-	let _ = w.sim.expect(
+	let _ = w.base.sim.expect(
 		|e| matches!(
 			e,
 			Effect::SendRequest { candidate_hash: Some(c), .. } if *c == candidate_hash,

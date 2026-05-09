@@ -42,6 +42,7 @@
 //! - [`fork_drop_reclaims_capacity_and_disconnects_peers`] — dropping a leaf reclaims
 //!   its capacity and disconnects its peer.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V2,
 	chain::CoreSchedule,
@@ -86,8 +87,8 @@ fn core_rotation_accepts_candidates_for_both_cores<S: CollatorSut>() {
 		.with_group_rotation_frequency(1);
 	let mut w = build_multi_leaf_world_with_config::<S>(2, config);
 
-	let leaf_1 = w.leaves[0].hash; // we own core 2 → PARA_A
-	let leaf_2 = w.leaves[1].hash; // we own core 1 → PARA_B
+	let leaf_1 = w.base.leaves[0].hash; // we own core 2 → PARA_A
+	let leaf_2 = w.base.leaves[1].hash; // we own core 1 → PARA_B
 
 	let peer_a = w.declared_peer(PARA_A, V2);
 	let cand_a = w.advertise(&peer_a, leaf_1, PARA_A);
@@ -128,8 +129,8 @@ fn cross_core_reservation_does_not_consume_other_cores_slots<S: CollatorSut>() {
 		.with_validator_groups(validator_groups)
 		.with_group_rotation_frequency(1);
 	let mut w = build_multi_leaf_world_with_config::<S>(2, config);
-	let leaf_1 = w.leaves[0].hash; // own core 2
-	let leaf_2 = w.leaves[1].hash; // own core 1
+	let leaf_1 = w.base.leaves[0].hash; // own core 2
+	let leaf_2 = w.base.leaves[1].hash; // own core 1
 
 	let peer_old = w.declared_peer(PARA_X_LOCAL, V2);
 	let cand_old = w.advertise(&peer_old, leaf_1, PARA_X_LOCAL);
@@ -172,8 +173,8 @@ fn linear_multi_sp_same_para_capacity_not_double_counted<S: CollatorSut>() {
 	for (peer, cand) in peers.iter().zip(cands.iter()) {
 		w.advertise_with_parent_head(peer, cand.relay_parent(), cand.hash(), cand.parent_head_hash());
 	}
-	w.sim.advance(Duration::from_millis(300));
-	w.sim.expect_count(
+	w.base.sim.advance(Duration::from_millis(300));
+	w.base.sim.expect_count(
 		|e| matches!(e, Effect::SendRequest { .. }),
 		2,
 		"exactly 2 fetches (leaf CQ has 2 slots for PARA_A)",
@@ -208,8 +209,8 @@ fn linear_multi_sp_no_under_fetch_when_wide_and_narrow_compete<S: CollatorSut>()
 		cand_narrow.parent_head_hash(),
 	);
 	w.advertise_with_parent_head(&peer_wide, leaf, cand_wide.hash(), cand_wide.parent_head_hash());
-	w.sim.advance(Duration::from_millis(300));
-	w.sim.expect_count(
+	w.base.sim.advance(Duration::from_millis(300));
+	w.base.sim.expect_count(
 		|e| matches!(e, Effect::SendRequest { .. }),
 		2,
 		"both narrow- and wide-window ads must fetch (no under-fetch)",
@@ -268,7 +269,7 @@ fn fork_assignments_are_union_of_leaves<S: CollatorSut>() {
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
 	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
 	let fork_a = w.leaf();
-	let common = w.chain.lock().genesis();
+	let common = w.base.chain.lock().genesis();
 	let fork_b = w.extend_and_activate_with(common, &[fork_a], |chain, h, _n| {
 		let mut q = BTreeMap::new();
 		q.insert(CoreIndex(0), VecDeque::from(vec![PARA_Y, PARA_Y, PARA_Y]));
@@ -283,7 +284,7 @@ fn fork_assignments_are_union_of_leaves<S: CollatorSut>() {
 	w.expect_no_disconnect(&peer_y, Duration::from_millis(200));
 
 	// Drop fork_b: send OurViewChange covering only fork_a.
-	w.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
+	w.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
 		NetworkBridgeEvent::OurViewChange(
 			polkadot_node_network_protocol::OurView::new(std::iter::once(fork_a), 0),
 		),
@@ -315,7 +316,7 @@ fn fork_capacity_uses_longest_window_across_paths<S: CollatorSut>() {
 		.with_claim_queue_at(LeafSelector::Leaf, leaf_q.clone());
 	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
 	let fork_a = w.leaf();
-	let common = w.chain.lock().genesis();
+	let common = w.base.chain.lock().genesis();
 	// fork_b at depth 2 from common.
 	let fork_b_mid = w.extend_and_activate_with(common, &[fork_a], |chain, h, _n| {
 		chain.set_claim_queue_at(h, leaf_q.clone());
@@ -331,8 +332,8 @@ fn fork_capacity_uses_longest_window_across_paths<S: CollatorSut>() {
 	let cand_b = w.candidate_at(common).para(PARA_X).head_data(HeadData(vec![2])).build();
 	w.advertise_with_parent_head(&peer_a, common, cand_a.hash(), cand_a.parent_head_hash());
 	w.advertise_with_parent_head(&peer_b, common, cand_b.hash(), cand_b.parent_head_hash());
-	w.sim.advance(Duration::from_millis(300));
-	w.sim.expect_count(
+	w.base.sim.advance(Duration::from_millis(300));
+	w.base.sim.expect_count(
 		|e| matches!(e, Effect::SendRequest { .. }),
 		2,
 		"both ads at common ancestor fetch (longest-window across forks = 2)",
@@ -358,7 +359,7 @@ fn fork_shared_sp_capacity_not_double_counted<S: CollatorSut>() {
 		.with_claim_queue_at(LeafSelector::Leaf, leaf_q.clone());
 	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
 	let fork_a = w.leaf();
-	let common = w.chain.lock().genesis();
+	let common = w.base.chain.lock().genesis();
 	let _fork_b = w.extend_and_activate_with(common, &[fork_a], |chain, h, _n| {
 		chain.set_claim_queue_at(h, leaf_q);
 	});
@@ -370,8 +371,8 @@ fn fork_shared_sp_capacity_not_double_counted<S: CollatorSut>() {
 	for (peer, cand) in peers.iter().zip(cands.iter()) {
 		w.advertise_with_parent_head(peer, common, cand.hash(), cand.parent_head_hash());
 	}
-	w.sim.advance(Duration::from_millis(300));
-	w.sim.expect_count(
+	w.base.sim.advance(Duration::from_millis(300));
+	w.base.sim.expect_count(
 		|e| matches!(e, Effect::SendRequest { .. }),
 		2,
 		"shared ancestor capacity = 2 (not 4 — one bucket across both forks)",
@@ -395,7 +396,7 @@ fn fork_drop_reclaims_capacity_and_disconnects_peers<S: CollatorSut>() {
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
 	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
 	let fork_a = w.leaf();
-	let common = w.chain.lock().genesis();
+	let common = w.base.chain.lock().genesis();
 	let fork_b = w.extend_and_activate_with(common, &[fork_a], |chain, h, _n| {
 		let mut q = BTreeMap::new();
 		q.insert(CoreIndex(0), VecDeque::from(vec![PARA_Y, PARA_Y, PARA_Y]));
@@ -412,7 +413,7 @@ fn fork_drop_reclaims_capacity_and_disconnects_peers<S: CollatorSut>() {
 	// Drop fork_b: send OurViewChange excluding it. The validator should:
 	// - cancel the in-flight fetch (no second emitted),
 	// - disconnect peer_y (its para no longer scheduled at any active leaf).
-	w.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
+	w.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
 		NetworkBridgeEvent::OurViewChange(
 			polkadot_node_network_protocol::OurView::new(std::iter::once(fork_a), 0),
 		),

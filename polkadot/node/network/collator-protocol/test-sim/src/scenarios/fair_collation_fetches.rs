@@ -25,6 +25,7 @@
 //! After all 3 slots are full, further advertisements at the leaf get silently dropped —
 //! claim queue exhausted.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::{Candidate, ProtocolVersion::V2},
 	chain::CoreSchedule,

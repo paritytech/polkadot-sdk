@@ -23,7 +23,7 @@
 use polkadot_node_subsystem::ActiveLeavesUpdate;
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_primitives::{HeadData, Hash, Id as ParaId};
-use polkadot_prospective_parachains_test_sim::world::{PerParaData, TestLeaf, TestState, World};
+use polkadot_prospective_parachains_test_sim::world::{WorldExt as _, PerParaData, TestLeaf, TestState, World};
 
 #[test]
 fn correctly_updates_leaves() {
@@ -92,5 +92,5 @@ fn correctly_updates_leaves() {
 
 	// world.leaves tracks signals; subsystem's internal `active_leaves.len()` is private.
 	// Final state: zero active leaves.
-	assert!(world.leaves.is_empty());
+	assert!(world.base.leaves.is_empty());
 }

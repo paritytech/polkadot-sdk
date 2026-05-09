@@ -29,6 +29,7 @@
 //! Marked `bug_on = "experimental"` so the suite stays green while the bug is open;
 //! when fixed, the `should_panic` flips and the marker must be removed.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V1,
 	contract::RepBucket,
@@ -46,7 +47,7 @@ const PARA: ParaId = ParaId::new(2000);
 fn declare_with_bad_signature_yields_malicious_reputation<S: CollatorSut>() {
 	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
 	let peer = w.connected_peer(PARA, V1);
-	w.sim.send(peer.declare_with_bad_signature());
+	w.base.sim.send(peer.declare_with_bad_signature());
 	w.expect_rep(&peer, RepBucket::Malicious);
 }
 

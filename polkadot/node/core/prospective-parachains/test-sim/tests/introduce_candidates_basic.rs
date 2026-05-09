@@ -36,7 +36,7 @@
 use polkadot_node_subsystem::messages::{Ancestors, BackableCandidateRef};
 use polkadot_primitives::{CoreIndex, HeadData, Hash, Id as ParaId};
 use polkadot_primitives_test_helpers::make_candidate;
-use polkadot_prospective_parachains_test_sim::world::{PerParaData, TestLeaf, TestState, World};
+use polkadot_prospective_parachains_test_sim::world::{WorldExt as _, PerParaData, TestLeaf, TestState, World};
 use std::collections::{BTreeMap, VecDeque};
 
 #[test]
@@ -177,5 +177,5 @@ fn introduce_candidates_basic() {
 	// `view.active_leaves.len() == 3`. With access only to the public surface, the proof
 	// that all three are active is that each leaf-keyed `GetBackableCandidates` query
 	// returned the right candidate (would return empty for an unknown leaf).
-	assert_eq!(world.leaves.len(), 3);
+	assert_eq!(world.base.leaves.len(), 3);
 }

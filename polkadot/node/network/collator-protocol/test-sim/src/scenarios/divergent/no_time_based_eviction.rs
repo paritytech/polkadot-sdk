@@ -35,6 +35,7 @@
 //! relevant policy window and asserts `DisconnectPeers`. The experimental variant
 //! advances the same distance and asserts the absence of any disconnect.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::{Peer, ProtocolVersion::V1},
 	contract::Effect,
@@ -61,7 +62,7 @@ fn setup_undeclared<S: CollatorSut>() -> (World<S>, Peer) {
 #[crate::sim_test(only = "legacy")]
 fn undeclared_peer_disconnected_after_window<S: CollatorSut>() {
 	let (mut w, peer) = setup_undeclared::<S>();
-	w.sim.advance(CollatorEvictionPolicy::default().undeclared + Duration::from_millis(500));
+	w.base.sim.advance(CollatorEvictionPolicy::default().undeclared + Duration::from_millis(500));
 	w.expect_disconnect(&peer);
 }
 
@@ -86,7 +87,7 @@ fn setup_inactive<S: CollatorSut>() -> (World<S>, Peer) {
 #[crate::sim_test(only = "legacy")]
 fn declared_but_inactive_peer_evicted_after_window<S: CollatorSut>() {
 	let (mut w, peer) = setup_inactive::<S>();
-	w.sim.advance(CollatorEvictionPolicy::default().inactive_collator + Duration::from_secs(1));
+	w.base.sim.advance(CollatorEvictionPolicy::default().inactive_collator + Duration::from_secs(1));
 	w.expect_disconnect(&peer);
 }
 
@@ -117,12 +118,12 @@ fn activity_extends_life_then_silence_evicts<S: CollatorSut>() {
 	let inactive = CollatorEvictionPolicy::default().inactive_collator;
 	let step = inactive * 2 / 3;
 	for i in 0..3 {
-		w.sim.advance(step);
-		w.sim.send(peer.advertise(w.leaves[i].hash, None, None));
+		w.base.sim.advance(step);
+		w.base.sim.send(peer.advertise(w.base.leaves[i].hash, None, None));
 	}
 
 	// After ~2× the window of continuous activity, peer must still be connected.
-	w.sim.expect_count(
+	w.base.sim.expect_count(
 		|e| matches!(
 			e,
 			Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&peer.peer_id),
@@ -132,6 +133,6 @@ fn activity_extends_life_then_silence_evicts<S: CollatorSut>() {
 	);
 
 	// Fall silent — advance well past the window; peer must be disconnected.
-	w.sim.advance(inactive + Duration::from_secs(1));
+	w.base.sim.advance(inactive + Duration::from_secs(1));
 	w.expect_disconnect(&peer);
 }

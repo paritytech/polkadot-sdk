@@ -20,10 +20,10 @@
 //! from
 //!
 //! ```ignore
-//! world.sim.send(peer.connected());
-//! world.sim.send(peer.declare());
-//! world.sim.send(peer.advertise(rp, Some(c.hash()), Some(parent_head_hash)));
-//! let send_request = world.sim.expect(
+//! world.base.sim.send(peer.connected());
+//! world.base.sim.send(peer.declare());
+//! world.base.sim.send(peer.advertise(rp, Some(c.hash()), Some(parent_head_hash)));
+//! let send_request = world.base.sim.expect(
 //!     |e| matches!(e, Effect::SendRequest { .. } if /* ... */),
 //!     Duration::from_millis(500),
 //!     "...",
@@ -39,8 +39,8 @@
 //! let _ = w.fetch_request(&cand);
 //! ```
 //!
-//! Scenarios that need the raw API still have `world.sim.send(...)` /
-//! `world.sim.expect(...)` available — these helpers are additive, not gating.
+//! Scenarios that need the raw API still have `world.base.sim.send(...)` /
+//! `world.base.sim.expect(...)` available — these helpers are additive, not gating.
 
 use crate::{
 	builders::{Candidate, CandidateBuilder, Peer, ProtocolVersion},
@@ -73,7 +73,7 @@ impl<S: CollatorSut> World<S> {
 	/// real prospective.
 	pub fn candidate_at(&self, relay_parent: Hash) -> CandidateBuilder {
 		let n = self
-			.chain
+			.base.chain
 			.lock()
 			.block(&relay_parent)
 			.unwrap_or_else(|| {
@@ -91,7 +91,7 @@ impl<S: CollatorSut> World<S> {
 	/// the [`Peer`] for further use (advertise, expect-rep, etc.).
 	pub fn declared_peer(&mut self, para: ParaId, version: ProtocolVersion) -> Peer {
 		let peer = self.connected_peer(para, version);
-		self.sim.send(peer.declare());
+		self.base.sim.send(peer.declare());
 		peer
 	}
 
@@ -123,14 +123,14 @@ impl<S: CollatorSut> World<S> {
 		use polkadot_overseer::ActiveLeavesUpdate;
 
 		let (new_leaf_hash, new_leaf_n) = {
-			let mut chain = self.chain.lock();
+			let mut chain = self.base.chain.lock();
 			let h = chain.extend(parent);
 			let n = chain.block(&h).expect("just extended").number;
 			mutate(&mut *chain, h, n);
 			(h, n)
 		};
 
-		self.sim.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
+		self.base.sim.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
 			new_leaf(new_leaf_hash, new_leaf_n),
 		)));
 
@@ -138,14 +138,14 @@ impl<S: CollatorSut> World<S> {
 		let view_leaves: Vec<_> = active_after.iter().chain(std::iter::once(&new_leaf_hash))
 			.copied()
 			.collect();
-		self.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
+		self.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
 			NetworkBridgeEvent::OurViewChange(
 				polkadot_node_network_protocol::OurView::new(view_leaves, 0),
 			),
 		));
 
 		// Update the World's leaves view.
-		self.leaves.push(crate::scenarios::shared::Leaf {
+		self.base.leaves.push(crate::scenarios::shared::Leaf {
 			hash: new_leaf_hash,
 			number: new_leaf_n,
 		});
@@ -158,7 +158,7 @@ impl<S: CollatorSut> World<S> {
 	/// hand.
 	pub fn connected_peer(&mut self, para: ParaId, version: ProtocolVersion) -> Peer {
 		let peer = Peer::new(para, version);
-		self.sim.send(peer.connected());
+		self.base.sim.send(peer.connected());
 		peer
 	}
 
@@ -173,7 +173,7 @@ impl<S: CollatorSut> World<S> {
 	pub fn advertise(&mut self, peer: &Peer, relay_parent: Hash, para: ParaId) -> Candidate {
 		let candidate = Candidate::for_para_at(para, relay_parent);
 		let parent_head_hash = HeadData(Vec::new()).hash();
-		self.sim.send(peer.advertise(
+		self.base.sim.send(peer.advertise(
 			relay_parent,
 			Some(candidate.hash()),
 			Some(parent_head_hash),
@@ -191,7 +191,7 @@ impl<S: CollatorSut> World<S> {
 		candidate_hash: CandidateHash,
 		parent_head_hash: Hash,
 	) {
-		self.sim.send(peer.advertise(
+		self.base.sim.send(peer.advertise(
 			relay_parent,
 			Some(candidate_hash),
 			Some(parent_head_hash),
@@ -209,7 +209,7 @@ impl<S: CollatorSut> World<S> {
 		parent_head_hash: Hash,
 		descriptor_version: polkadot_primitives::CandidateDescriptorVersion,
 	) {
-		self.sim.send(peer.advertise_v3(
+		self.base.sim.send(peer.advertise_v3(
 			scheduling_parent,
 			relay_parent,
 			candidate_hash,
@@ -223,7 +223,7 @@ impl<S: CollatorSut> World<S> {
 	/// scenario step. Sim time alone doesn't separate events recorded inside a single
 	/// `drain` cycle (they all carry the same `sim_t`); the entry index does.
 	pub fn recorder_barrier(&self) -> usize {
-		self.sim.recorder().entries().len()
+		self.base.sim.recorder().entries().len()
 	}
 
 	/// Find the first `Effect::SendRequest CollationFetchingV{1,2}` recorded at or after
@@ -233,7 +233,7 @@ impl<S: CollatorSut> World<S> {
 		&self,
 		barrier: usize,
 	) -> Option<(sc_network_types::PeerId, Option<polkadot_primitives::CandidateHash>)> {
-		self.sim.recorder().entries().iter().skip(barrier).find_map(|o| {
+		self.base.sim.recorder().entries().iter().skip(barrier).find_map(|o| {
 			let crate::harness::Observation::Effect(s) = o;
 			if let Effect::SendRequest {
 				kind: ReqKind::CollationFetchingV1 | ReqKind::CollationFetchingV2,
@@ -256,7 +256,7 @@ impl<S: CollatorSut> World<S> {
 		&mut self,
 		candidate_hash: polkadot_primitives::CandidateHash,
 	) -> RequestId {
-		let send_request = self.sim.expect(
+		let send_request = self.base.sim.expect(
 			|e| matches!(
 				e,
 				Effect::SendRequest {
@@ -274,7 +274,7 @@ impl<S: CollatorSut> World<S> {
 	/// Wait for `Effect::SendRequest CollationFetchingV{1,2}` targeting `peer`. Use when
 	/// the candidate hash is unknown (the test only cares about which peer was picked).
 	pub fn expect_fetch_to(&mut self, peer: sc_network_types::PeerId) -> RequestId {
-		let send_request = self.sim.expect(
+		let send_request = self.base.sim.expect(
 			|e| matches!(
 				e,
 				Effect::SendRequest {
@@ -299,7 +299,7 @@ impl<S: CollatorSut> World<S> {
 	pub fn expect_any_fetch(
 		&mut self,
 	) -> (sc_network_types::PeerId, RequestId, Option<polkadot_primitives::CandidateHash>) {
-		let send_request = self.sim.expect(
+		let send_request = self.base.sim.expect(
 			|e| matches!(
 				e,
 				Effect::SendRequest {
@@ -321,7 +321,7 @@ impl<S: CollatorSut> World<S> {
 	/// `candidate`. Returns the [`RequestId`] so the test can later
 	/// [`Self::respond_fetch_collation`] or drop it on the floor.
 	pub fn fetch_request(&mut self, candidate: &Candidate) -> RequestId {
-		let send_request = self.sim.expect(
+		let send_request = self.base.sim.expect(
 			|e| match e {
 				Effect::SendRequest {
 					kind: ReqKind::CollationFetchingV1, candidate_hash: None, ..
@@ -339,7 +339,7 @@ impl<S: CollatorSut> World<S> {
 
 	/// Assert that **no** fetch fires for `candidate` within `within`.
 	pub fn no_fetch_for(&mut self, candidate: &Candidate, within: Duration) {
-		self.sim.expect_no(
+		self.base.sim.expect_no(
 			|e| matches!(
 				e,
 				Effect::SendRequest { candidate_hash: Some(c), .. } if *c == candidate.hash(),
@@ -352,7 +352,7 @@ impl<S: CollatorSut> World<S> {
 	/// Assert that **no** fetch of any kind fires within `within`. Useful when a scenario's
 	/// invariant is "advertisement was rejected; nothing happened downstream."
 	pub fn no_fetch_within(&mut self, within: Duration) {
-		self.sim.expect_no(
+		self.base.sim.expect_no(
 			|e| matches!(e, Effect::SendRequest { .. }),
 			within,
 			"any SendRequest (must NOT fire)",
@@ -368,7 +368,7 @@ impl<S: CollatorSut> World<S> {
 		pov: PoV,
 	) {
 		let response = protocol_v2::CollationFetchingResponse::Collation(receipt, pov);
-		self.sim
+		self.base.sim
 			.respond_fetch(request_id, Ok((response.encode(), ProtocolName::from(""))));
 	}
 
@@ -380,7 +380,7 @@ impl<S: CollatorSut> World<S> {
 		pov: PoV,
 	) {
 		let response = protocol_v1::CollationFetchingResponse::Collation(receipt.into(), pov);
-		self.sim
+		self.base.sim
 			.respond_fetch(request_id, Ok((response.encode(), ProtocolName::from(""))));
 	}
 
@@ -400,7 +400,7 @@ impl<S: CollatorSut> World<S> {
 			pov,
 			parent_head_data,
 		};
-		self.sim
+		self.base.sim
 			.respond_fetch(request_id, Ok((response.encode(), ProtocolName::from(""))));
 	}
 
@@ -436,12 +436,12 @@ impl<S: CollatorSut> World<S> {
 		// and forwarded `IntroduceSecondedCandidate` to prospective. Subsequent calls in a
 		// fragment chain need prospective to have absorbed this candidate, so we let the
 		// downstream pipeline flush before returning.
-		self.sim.advance(Duration::from_millis(200));
+		self.base.sim.advance(Duration::from_millis(200));
 	}
 
 	/// Wait for `Effect::SecondCandidate` whose candidate hash equals `candidate`'s.
 	pub fn expect_second(&mut self, candidate: &Candidate) {
-		let _ = self.sim.expect(
+		let _ = self.base.sim.expect(
 			|e| matches!(
 				e,
 				Effect::SecondCandidate { candidate_hash, .. } if candidate_hash == &candidate.hash()
@@ -457,7 +457,7 @@ impl<S: CollatorSut> World<S> {
 	/// asserts the (impl-specific) reputation effect. Both impls agree on the negative
 	/// observation; only the *signal* of rejection differs.
 	pub fn expect_no_second(&mut self, candidate: &Candidate, within: Duration) {
-		self.sim.expect_no(
+		self.base.sim.expect_no(
 			|e| matches!(
 				e,
 				Effect::SecondCandidate { candidate_hash, .. } if candidate_hash == &candidate.hash()
@@ -475,7 +475,7 @@ impl<S: CollatorSut> World<S> {
 	/// Variant of [`Self::expect_rep`] that takes a `PeerId` directly. Useful when the
 	/// scenario obtained the id from an effect rather than from a `Peer` builder.
 	pub fn expect_rep_id(&mut self, peer_id: sc_network_types::PeerId, bucket: RepBucket) {
-		let _ = self.sim.expect(
+		let _ = self.base.sim.expect(
 			|e| matches!(
 				e,
 				Effect::Reputation { peer: p, bucket: b } if *p == peer_id && *b == bucket,
@@ -488,7 +488,7 @@ impl<S: CollatorSut> World<S> {
 	/// Assert that **no** `Effect::Reputation` for `peer` with the given `bucket` fires
 	/// within [`NEGATIVE_TIMEOUT`].
 	pub fn expect_no_rep(&mut self, peer: &Peer, bucket: RepBucket) {
-		self.sim.expect_no(
+		self.base.sim.expect_no(
 			|e| matches!(
 				e,
 				Effect::Reputation { peer: p, bucket: b } if *p == peer.peer_id && *b == bucket,
@@ -501,7 +501,7 @@ impl<S: CollatorSut> World<S> {
 	/// Wait for `Effect::DisconnectPeers` on the Collation peer-set carrying `peer`.
 	pub fn expect_disconnect(&mut self, peer: &Peer) {
 		use polkadot_node_network_protocol::peer_set::PeerSet;
-		let _ = self.sim.expect(
+		let _ = self.base.sim.expect(
 			|e| matches!(
 				e,
 				Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation }
@@ -515,7 +515,7 @@ impl<S: CollatorSut> World<S> {
 	/// Assert that **no** `Effect::DisconnectPeers` carrying `peer` fires within `within`.
 	pub fn expect_no_disconnect(&mut self, peer: &Peer, within: Duration) {
 		use polkadot_node_network_protocol::peer_set::PeerSet;
-		self.sim.expect_no(
+		self.base.sim.expect_no(
 			|e| matches!(
 				e,
 				Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation }

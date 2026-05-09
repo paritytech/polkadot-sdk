@@ -22,7 +22,7 @@ use polkadot_primitives::{
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use polkadot_primitives_test_helpers::make_candidate;
-use polkadot_prospective_parachains_test_sim::world::{
+use polkadot_prospective_parachains_test_sim::world::{WorldExt as _, 
 	get_parent_hash, PerParaData, TestLeaf, TestState, World,
 };
 

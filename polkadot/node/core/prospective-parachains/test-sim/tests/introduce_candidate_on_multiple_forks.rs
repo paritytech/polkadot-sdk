@@ -22,7 +22,7 @@
 use polkadot_node_subsystem::messages::{Ancestors, BackableCandidateRef};
 use polkadot_primitives::{HeadData, Hash, Id as ParaId};
 use polkadot_primitives_test_helpers::make_candidate;
-use polkadot_prospective_parachains_test_sim::world::{
+use polkadot_prospective_parachains_test_sim::world::{WorldExt as _, 
 	get_parent_hash, PerParaData, TestLeaf, TestState, World,
 };
 
@@ -78,5 +78,5 @@ fn introduce_candidate_on_multiple_forks() {
 		response_a,
 	);
 
-	assert_eq!(world.leaves.len(), 2);
+	assert_eq!(world.base.leaves.len(), 2);
 }

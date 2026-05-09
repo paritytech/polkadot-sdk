@@ -22,6 +22,7 @@
 //! and that's tested in [`crate::scenarios::divergent::reputation_emission`]. Here we
 //! assert only the shared invariant: no fetch.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V1,
 	contract::Effect,
@@ -39,10 +40,10 @@ fn v1_advertisement_at_parent_of_leaf_is_rejected<S: CollatorSut>() {
 	let parent = w.ancestors()[0];
 
 	let peer = w.declared_peer(PARA, V1);
-	w.sim.send(peer.advertise(parent, None, None));
+	w.base.sim.send(peer.advertise(parent, None, None));
 
 	// No fetch should fire for the misuse advertisement.
-	w.sim.expect_no(
+	w.base.sim.expect_no(
 		|e| matches!(e, Effect::SendRequest { .. }),
 		Duration::from_millis(300),
 		"SendRequest after V1 advertisement at non-leaf (must NOT fire)",

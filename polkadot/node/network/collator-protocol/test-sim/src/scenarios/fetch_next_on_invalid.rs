@@ -22,6 +22,7 @@
 //! persistent rep store silently. The rep emission divergence is documented in
 //! [`crate::scenarios::divergent::reputation_emission`].
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::{Candidate, ProtocolVersion::V1},
 	harness::CollatorSut,
@@ -40,8 +41,8 @@ fn invalid_signal_fetches_next<S: CollatorSut>() {
 
 	let peer_b = w.declared_peer(PARA, V1);
 	let peer_c = w.declared_peer(PARA, V1);
-	w.sim.send(peer_b.advertise(leaf, None, None));
-	w.sim.send(peer_c.advertise(leaf, None, None));
+	w.base.sim.send(peer_b.advertise(leaf, None, None));
+	w.base.sim.send(peer_c.advertise(leaf, None, None));
 
 	// One fetch fires (whichever peer wins the queue).
 	let (first_peer, request_id, _) = w.expect_any_fetch();
@@ -52,6 +53,6 @@ fn invalid_signal_fetches_next<S: CollatorSut>() {
 
 	// Invalid signal → next fetch fires for the other peer. Rep emission (if any) is
 	// covered by the divergent suite.
-	w.sim.send(CollatorProtocolMessage::Invalid(leaf, candidate.receipt.clone().into()));
+	w.base.sim.send(CollatorProtocolMessage::Invalid(leaf, candidate.receipt.clone().into()));
 	let _ = w.expect_fetch_to(other_peer);
 }

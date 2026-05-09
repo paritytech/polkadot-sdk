@@ -26,7 +26,7 @@ use polkadot_primitives::{
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use polkadot_primitives_test_helpers::make_candidate_v3;
-use polkadot_prospective_parachains_test_sim::world::{PerParaData, TestLeaf, TestState, World};
+use polkadot_prospective_parachains_test_sim::world::{WorldExt as _, PerParaData, TestLeaf, TestState, World};
 
 const LEAF_NUMBER: BlockNumber = 100;
 const OLDER_RELAY_PARENT_NUMBER: BlockNumber =
@@ -52,7 +52,7 @@ fn get_pvd_for_candidate_with_older_relay_parent() {
 
 	let older_relay_parent = Hash::from_low_u64_be(9999);
 	{
-		let mut chain = world.chain.lock();
+		let mut chain = world.base.chain.lock();
 		chain.register_block_with_session(
 			older_relay_parent,
 			Hash::zero(),

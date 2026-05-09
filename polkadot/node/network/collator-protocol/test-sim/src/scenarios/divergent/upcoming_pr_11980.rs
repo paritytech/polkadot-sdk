@@ -24,6 +24,7 @@
 //! ranking. They're additionally `bug_on = "experimental"` until PR #11980 lands —
 //! pre-#11980 the wide-window peer wins regardless of score.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V2,
 	contract::Effect,
@@ -70,7 +71,7 @@ fn high_rep_peer_at_ancestor_wins_over_low_rep_at_leaf<S: CollatorSut>() {
 	w.outputs.insert(cand_seed.hash(), cand_seed.commitments.clone(), cand_seed.pvd.clone());
 	w.full_second(&peer_high, &cand_seed);
 	{
-		let mut chain = w.chain.lock();
+		let mut chain = w.base.chain.lock();
 		chain.set_pending_availability(PARA_A, vec![cand_seed.committed()]);
 		chain.set_candidate_events(
 			leaf0,
@@ -83,8 +84,8 @@ fn high_rep_peer_at_ancestor_wins_over_low_rep_at_leaf<S: CollatorSut>() {
 		);
 		chain.set_finalized(leaf0);
 	}
-	w.sim.signal(OverseerSignal::BlockFinalized(leaf0, w.leaf_number()));
-	w.sim.advance(Duration::from_millis(50));
+	w.base.sim.signal(OverseerSignal::BlockFinalized(leaf0, w.leaf_number()));
+	w.base.sim.advance(Duration::from_millis(50));
 
 	// New leaf for the arbitration round; rebuild leaf-q on the new leaf too.
 	let leaf1 = w.extend_and_activate_with(leaf0, &[leaf0], |chain, h, _n| {
@@ -119,10 +120,10 @@ fn high_rep_peer_at_ancestor_wins_over_low_rep_at_leaf<S: CollatorSut>() {
 		cand_high.parent_head_hash(),
 	);
 	w.advertise_with_parent_head(&peer_low, leaf1, cand_low.hash(), cand_low.parent_head_hash());
-	w.sim.advance(Duration::from_millis(50));
+	w.base.sim.advance(Duration::from_millis(50));
 
 	let _ = w.expect_fetch_to(peer_high.peer_id);
-	w.sim.expect_count(
+	w.base.sim.expect_count(
 		|e| matches!(e, Effect::SendRequest { .. }),
 		1,
 		"single fetch goes to high-rep ancestor peer (slot count = 1)",

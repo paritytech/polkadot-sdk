@@ -26,6 +26,7 @@
 //! 2. Drive each through full advertise → fetch → second via `World::full_second`.
 //! 3. Issue a 4th advertisement; assert no fetch fires (claim slots exhausted).
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::{Candidate, ProtocolVersion::V2},
 	harness::CollatorSut,

@@ -19,7 +19,7 @@
 use polkadot_node_subsystem::messages::{Ancestors, BackableCandidateRef};
 use polkadot_primitives::{HeadData, Hash, Id as ParaId};
 use polkadot_primitives_test_helpers::make_candidate;
-use polkadot_prospective_parachains_test_sim::world::{PerParaData, TestLeaf, TestState, World};
+use polkadot_prospective_parachains_test_sim::world::{WorldExt as _, PerParaData, TestLeaf, TestState, World};
 
 #[test]
 fn introduce_candidate_parent_leaving_view() {
@@ -146,5 +146,5 @@ fn introduce_candidate_parent_leaving_view() {
 	assert!(world.get_backable_candidates(leaf_b.hash, ParaId::from(1), 5, Ancestors::default()).is_empty());
 	assert!(world.get_backable_candidates(leaf_c.hash, ParaId::from(2), 5, Ancestors::default()).is_empty());
 
-	assert_eq!(world.leaves.len(), 0);
+	assert_eq!(world.base.leaves.len(), 0);
 }

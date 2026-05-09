@@ -22,6 +22,7 @@
 //! `scheduled_para`; peer declares for `unscheduled_para`. Exercises the view-update →
 //! unrelated-declare path.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V2,
 	harness::CollatorSut,

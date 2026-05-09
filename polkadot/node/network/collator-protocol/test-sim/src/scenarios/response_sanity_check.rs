@@ -38,6 +38,7 @@
 //! once in [`crate::scenarios::divergent::reputation_emission`]. These regression
 //! scenarios assert only the shared invariant: the bad candidate is not seconded.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::{Candidate, ProtocolVersion::V2},
 	harness::CollatorSut,
@@ -237,7 +238,7 @@ fn v3_descriptor_rejected_on_wrong_protocol_helper<S: CollatorSut>(
 	match wire {
 		ProtocolKind::V1 => {
 			// V1 advertisement carries no candidate_hash on the wire.
-			w.sim.send(peer.advertise(leaf, None, None));
+			w.base.sim.send(peer.advertise(leaf, None, None));
 			let (_, request_id, _) = w.expect_any_fetch();
 			w.respond_fetch_v1(request_id, receipt, Candidate::empty_pov());
 		},

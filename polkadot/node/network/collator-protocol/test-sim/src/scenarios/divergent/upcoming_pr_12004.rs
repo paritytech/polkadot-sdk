@@ -29,6 +29,7 @@
 //!   have the same offer, the rep-best peer serves. (experimental-only; depends on
 //!   experimental's score store.)
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::{ProtocolVersion::V2, ProtocolVersion::V3},
 	contract::Effect,
@@ -62,9 +63,9 @@ fn v2_same_candidate_from_multiple_peers_fetched_once<S: CollatorSut>() {
 	w.advertise_with_parent_head(&peer_b, leaf, cand.hash(), cand.parent_head_hash());
 
 	// Settle long enough that any second concurrent fetch would have fired.
-	w.sim.advance(Duration::from_millis(300));
+	w.base.sim.advance(Duration::from_millis(300));
 
-	w.sim.expect_count(
+	w.base.sim.expect_count(
 		|e| matches!(e, Effect::SendRequest { .. }),
 		1,
 		"exactly one fetch for the shared V2 candidate (must NOT fire one per carrier)",
@@ -87,8 +88,8 @@ fn cross_protocol_version_carriers_fetched_once<S: CollatorSut>() {
 	let cand = w.candidate_at(leaf).para(PARA).build();
 	w.advertise_with_parent_head(&peer_v2, leaf, cand.hash(), cand.parent_head_hash());
 	w.advertise_with_parent_head(&peer_v3, leaf, cand.hash(), cand.parent_head_hash());
-	w.sim.advance(Duration::from_millis(300));
-	w.sim.expect_count(
+	w.base.sim.advance(Duration::from_millis(300));
+	w.base.sim.expect_count(
 		|e| matches!(e, Effect::SendRequest { .. }),
 		1,
 		"exactly one fetch across V2 + V3 carriers (offer-keyed dedup)",
@@ -116,7 +117,7 @@ fn v2_co_carrier_rep_arbitration_picks_high_rep_peer<S: CollatorSut>() {
 	w.outputs.insert(cand_seed.hash(), cand_seed.commitments.clone(), cand_seed.pvd.clone());
 	w.full_second(&peer_high, &cand_seed);
 	{
-		let mut chain = w.chain.lock();
+		let mut chain = w.base.chain.lock();
 		chain.set_pending_availability(PARA, vec![cand_seed.committed()]);
 		chain.set_candidate_events(
 			leaf0,
@@ -129,8 +130,8 @@ fn v2_co_carrier_rep_arbitration_picks_high_rep_peer<S: CollatorSut>() {
 		);
 		chain.set_finalized(leaf0);
 	}
-	w.sim.signal(OverseerSignal::BlockFinalized(leaf0, w.leaf_number()));
-	w.sim.advance(Duration::from_millis(50));
+	w.base.sim.signal(OverseerSignal::BlockFinalized(leaf0, w.leaf_number()));
+	w.base.sim.advance(Duration::from_millis(50));
 
 	// New leaf for the arbitration round.
 	let leaf1 = w.extend_and_activate_with(leaf0, &[leaf0], |_chain, _h, _n| {});
@@ -145,11 +146,11 @@ fn v2_co_carrier_rep_arbitration_picks_high_rep_peer<S: CollatorSut>() {
 		.build();
 	w.advertise_with_parent_head(&peer_high, leaf1, cand.hash(), cand.parent_head_hash());
 	w.advertise_with_parent_head(&peer_low, leaf1, cand.hash(), cand.parent_head_hash());
-	w.sim.advance(Duration::from_millis(50));
+	w.base.sim.advance(Duration::from_millis(50));
 
 	// Exactly one fetch, targeted at peer_high.
 	let _ = w.expect_fetch_to(peer_high.peer_id);
-	w.sim.expect_count(
+	w.base.sim.expect_count(
 		|e| matches!(e, Effect::SendRequest { .. }),
 		1,
 		"exactly one fetch and it goes to the rep-best peer",

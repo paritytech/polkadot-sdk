@@ -22,7 +22,7 @@ use polkadot_primitives::{
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use polkadot_primitives_test_helpers::make_candidate;
-use polkadot_prospective_parachains_test_sim::world::{PerParaData, TestLeaf, TestState, World};
+use polkadot_prospective_parachains_test_sim::world::{WorldExt as _, PerParaData, TestLeaf, TestState, World};
 
 #[test]
 fn check_backable_query_single_candidate() {
@@ -133,5 +133,5 @@ fn check_backable_query_single_candidate() {
 		}],
 	);
 
-	assert_eq!(world.leaves.len(), 1);
+	assert_eq!(world.base.leaves.len(), 1);
 }

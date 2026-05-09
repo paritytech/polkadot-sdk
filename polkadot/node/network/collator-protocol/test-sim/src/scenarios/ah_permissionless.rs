@@ -26,6 +26,7 @@
 //! * `permissionless_claims_the_whole_cq`
 //! * `permissionless_are_held_off_only_once`
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::{Candidate, Peer, ProtocolVersion::V2},
 	chain::CoreSchedule,
@@ -90,13 +91,13 @@ fn permissionless_collators_are_rejected_when_connection_limit_is_hit<S: Collato
 	let connection_limit = MAX_AUTHORITY_INCOMING_STREAMS - 10 - invulnerables_len;
 	for _ in 0..connection_limit {
 		let peer = Peer::new(PARA_AH, V2);
-		w.sim.send(peer.connected());
-		w.sim.send(peer.declare());
+		w.base.sim.send(peer.connected());
+		w.base.sim.send(peer.declare());
 	}
 
 	// Connecting one more permissionless collator should be rejected (DisconnectPeers).
 	let extra = PeerId::random();
-	w.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
+	w.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
 		NetworkBridgeEvent::PeerConnected(
 			extra,
 			ObservedRole::Full,
@@ -104,7 +105,7 @@ fn permissionless_collators_are_rejected_when_connection_limit_is_hit<S: Collato
 			None,
 		),
 	));
-	let _ = w.sim.expect(
+	let _ = w.base.sim.expect(
 		|e| matches!(
 			e,
 			Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&extra),
@@ -115,8 +116,8 @@ fn permissionless_collators_are_rejected_when_connection_limit_is_hit<S: Collato
 
 	// An invulnerable collator can still connect+declare. Use the well-known peer id.
 	let inv_peer = Peer::new(PARA_AH, V2).with_peer_id(invulnerable);
-	w.sim.send(inv_peer.connected());
-	w.sim.send(inv_peer.declare());
+	w.base.sim.send(inv_peer.connected());
+	w.base.sim.send(inv_peer.declare());
 	w.expect_no_disconnect(&inv_peer, Duration::from_millis(200));
 }
 
@@ -133,8 +134,8 @@ fn invulnerable_collations_are_preferred_over_permissionless_ones<S: CollatorSut
 	let inv_peer = Peer::new(PARA_AH, V2).with_peer_id(invulnerable);
 	let perm_peer = Peer::new(PARA_AH, V2);
 	for p in [&inv_peer, &perm_peer] {
-		w.sim.send(p.connected());
-		w.sim.send(p.declare());
+		w.base.sim.send(p.connected());
+		w.base.sim.send(p.declare());
 	}
 
 	// Build two distinct candidates for the same para; advertise both at the leaf.
@@ -153,8 +154,8 @@ fn invulnerable_collations_are_preferred_over_permissionless_ones<S: CollatorSut
 	let perm_parent_hash = perm_cand.parent_head_hash();
 	let inv_msg = inv_peer.advertise(leaf, Some(inv_cand.hash()), Some(inv_parent_hash));
 	let perm_msg = perm_peer.advertise(leaf, Some(perm_cand.hash()), Some(perm_parent_hash));
-	w.sim.send(inv_msg);
-	w.sim.send(perm_msg);
+	w.base.sim.send(inv_msg);
+	w.base.sim.send(perm_msg);
 
 	// First fetch must be for the invulnerable's candidate.
 	let (first_peer, _, first_hash) = w.expect_any_fetch();
@@ -190,9 +191,9 @@ fn permissionless_are_held_off_only_once<S: CollatorSut>() {
 	w.outputs.insert(cand1.hash(), cand1.commitments.clone(), cand1.pvd.clone());
 	w.advertise_with_parent_head(&perm_peer, leaf, cand1.hash(), cand1.parent_head_hash());
 
-	let fetch_sim_t_before = w.sim.now_sim_t();
+	let fetch_sim_t_before = w.base.sim.now_sim_t();
 	let req1 = w.fetch_request(&cand1);
-	let fetch_sim_t_after = w.sim.now_sim_t();
+	let fetch_sim_t_after = w.base.sim.now_sim_t();
 	assert!(
 		fetch_sim_t_after - fetch_sim_t_before >= HOLD_OFF_DURATION_DEFAULT_VALUE,
 		"first permissionless fetch must wait at least {:?} (held-off); waited {:?}",
@@ -203,7 +204,7 @@ fn permissionless_are_held_off_only_once<S: CollatorSut>() {
 	w.expect_second(&cand1);
 	// Let the validation cycle settle so the next advertisement is processed against a
 	// clean per-RP state.
-	w.sim.advance(Duration::from_millis(200));
+	w.base.sim.advance(Duration::from_millis(200));
 
 	// Chain a child candidate (cand1's output_head becomes cand2's parent_head). Per-RP
 	// hold-off state is `Done` after cand1 completed, so cand2's fetch fires without any
@@ -216,8 +217,8 @@ fn permissionless_are_held_off_only_once<S: CollatorSut>() {
 		.build();
 	w.outputs.insert(cand2.hash(), cand2.commitments.clone(), cand2.pvd.clone());
 	w.advertise_with_parent_head(&perm_peer, leaf, cand2.hash(), cand2.parent_head_hash());
-	let bypass_t_before = w.sim.now_sim_t();
-	let _req2 = w.sim.expect(
+	let bypass_t_before = w.base.sim.now_sim_t();
+	let _req2 = w.base.sim.expect(
 		|e| matches!(
 			e,
 			crate::contract::Effect::SendRequest { candidate_hash: Some(c), .. } if *c == cand2.hash(),
@@ -225,7 +226,7 @@ fn permissionless_are_held_off_only_once<S: CollatorSut>() {
 		Duration::from_millis(50),
 		"cand2 fetch fires within 50ms (no further hold-off)",
 	);
-	let bypass_elapsed = w.sim.now_sim_t() - bypass_t_before;
+	let bypass_elapsed = w.base.sim.now_sim_t() - bypass_t_before;
 	assert!(
 		bypass_elapsed < HOLD_OFF_DURATION_DEFAULT_VALUE,
 		"second fetch must bypass hold-off; waited {:?}",

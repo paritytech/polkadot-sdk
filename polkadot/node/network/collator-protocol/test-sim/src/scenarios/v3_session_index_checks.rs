@@ -26,6 +26,7 @@
 //! experimental silent) — see [`crate::scenarios::divergent::reputation_emission`]. Here
 //! we assert only the shared invariant: no `SecondCandidate`.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::{Candidate, ProtocolVersion::V2},
 	harness::CollatorSut,

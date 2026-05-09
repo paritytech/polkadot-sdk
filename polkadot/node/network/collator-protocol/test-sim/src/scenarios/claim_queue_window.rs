@@ -33,6 +33,7 @@
 //! before the window check runs. See
 //! `project_collator_experimental_no_ancestor_rp_advertise.md`.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V2,
 	chain::CoreSchedule,

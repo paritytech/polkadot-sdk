@@ -20,6 +20,7 @@
 //! candidate descriptor. Validator must detect V1 (non-zero reserved bytes) and second
 //! the candidate via the legacy PVD path → emits `Effect::SecondCandidate`.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::{Candidate, ProtocolVersion::V1},
 	chain::CoreSchedule,
@@ -84,7 +85,7 @@ fn v1_shape_descriptor_via_v1_protocol_under_v3_node_feature<S: CollatorSut>() {
 	let candidate = Candidate::from_receipt(receipt_v2.clone());
 
 	let peer = w.declared_peer(PARA, V1);
-	w.sim.send(peer.advertise(leaf, None, None));
+	w.base.sim.send(peer.advertise(leaf, None, None));
 	let request_id = w.fetch_request(&candidate);
 	w.respond_fetch_v1(request_id, receipt_v2, PoV { block_data: BlockData(vec![1]) });
 	w.expect_second(&candidate);

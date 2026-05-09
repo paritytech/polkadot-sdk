@@ -18,6 +18,7 @@
 //! peer_a's fetch resolves and its candidate is seconded, no SendRequest fires for
 //! peer_b — the disconnect cleared peer_b's queued advertisement.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::{Candidate, ProtocolVersion::V1},
 	contract::Effect,
@@ -47,12 +48,12 @@ fn disconnect_clears_queued_advertisement<S: CollatorSut>() {
 	let peer_b = w.declared_peer(PARA, V1);
 
 	// peer_a advertises; first fetch fires for peer_a (only declared peer with an ad).
-	w.sim.send(peer_a.advertise(leaf, None, None));
+	w.base.sim.send(peer_a.advertise(leaf, None, None));
 	let request_id = w.fetch_request(&candidate);
 
 	// peer_b queues behind peer_a, then disconnects.
-	w.sim.send(peer_b.advertise(leaf, None, None));
-	w.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
+	w.base.sim.send(peer_b.advertise(leaf, None, None));
+	w.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
 		NetworkBridgeEvent::PeerDisconnected(peer_b.peer_id),
 	));
 
@@ -61,7 +62,7 @@ fn disconnect_clears_queued_advertisement<S: CollatorSut>() {
 	w.expect_second(&candidate);
 
 	// No fetch ever targets peer_b.
-	w.sim.expect_no(
+	w.base.sim.expect_no(
 		|e| matches!(e, Effect::SendRequest { to, .. } if *to == peer_b.peer_id),
 		Duration::from_millis(100),
 		"SendRequest targeting peer_b after peer_b disconnected its advertisement",

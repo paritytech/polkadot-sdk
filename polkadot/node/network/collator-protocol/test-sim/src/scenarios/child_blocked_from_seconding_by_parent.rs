@@ -24,6 +24,7 @@
 //! - `valid_parent=false`: parent A is reported `Invalid` after fetch → B never seconds;
 //!   parent's collator gets a Malicious rep hit.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::{Candidate, ProtocolVersion::V2},
 	harness::CollatorSut,
@@ -91,11 +92,11 @@ fn child_remains_blocked_when_parent_reported_invalid<S: CollatorSut>() {
 	w.advertise_with_parent_head(&peer, leaf, parent.hash(), parent.parent_head_hash());
 
 	// Drive Invalid signal for parent (upstream test's `valid_parent=false`).
-	w.sim
+	w.base.sim
 		.send(CollatorProtocolMessage::Invalid(leaf, parent.receipt.clone().into()));
 
 	// Parent never seconded → child never seconded.
-	w.sim.expect_no(
+	w.base.sim.expect_no(
 		|e| matches!(
 			e,
 			crate::contract::Effect::SecondCandidate { candidate_hash, .. } if candidate_hash == &child.hash()

@@ -20,6 +20,7 @@
 //! we don't respond. After `MAX_UNSHARED_DOWNLOAD_TIME` the validator falls back to
 //! another peer. Property under test: a stalled fetch doesn't block the queue forever.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V1,
 	contract::{Effect, ReqKind},
@@ -43,16 +44,16 @@ fn stalled_fetch_falls_back_to_next_peer_after_timeout<S: CollatorSut>() {
 		w.declared_peer(PARA, V1),
 	];
 	for p in &peers {
-		w.sim.send(p.advertise(leaf, None, None));
+		w.base.sim.send(p.advertise(leaf, None, None));
 	}
 
 	// First fetch fires (which peer is unspecified).
 	let (_first_peer, _, _) = w.expect_any_fetch();
 
 	// Don't respond. Advance past the deadline; ≥1 follow-up fetch must fire.
-	let barrier = w.sim.now_sim_t();
-	w.sim.advance(MAX_UNSHARED_DOWNLOAD_TIME + Duration::from_millis(100));
-	w.sim.expect_at_least_after(
+	let barrier = w.base.sim.now_sim_t();
+	w.base.sim.advance(MAX_UNSHARED_DOWNLOAD_TIME + Duration::from_millis(100));
+	w.base.sim.expect_at_least_after(
 		barrier,
 		|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
 		1,

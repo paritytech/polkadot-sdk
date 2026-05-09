@@ -24,7 +24,7 @@ use polkadot_primitives::{
 use polkadot_primitives_test_helpers::make_candidate;
 use polkadot_prospective_parachains_test_sim::{
 	make_and_back_candidate,
-	world::{get_parent_hash, PerParaData, TestLeaf, TestState, World},
+	world::{get_parent_hash, PerParaData, TestLeaf, TestState, World, WorldExt as _},
 };
 use std::collections::BTreeMap;
 

@@ -23,7 +23,7 @@
 
 use polkadot_node_subsystem::messages::Ancestors;
 use polkadot_primitives::{HeadData, Hash, Id as ParaId};
-use polkadot_prospective_parachains_test_sim::world::{
+use polkadot_prospective_parachains_test_sim::world::{WorldExt as _, 
 	get_parent_hash, PerParaData, TestLeaf, TestState, World,
 };
 
@@ -74,5 +74,5 @@ fn handle_active_leaves_update_bounded_implicit_view() {
 		assert!(world.get_backable_candidates(leaf.hash, para_id, 5, Ancestors::default()).is_empty());
 	}
 
-	assert_eq!(world.leaves.len(), 1);
+	assert_eq!(world.base.leaves.len(), 1);
 }

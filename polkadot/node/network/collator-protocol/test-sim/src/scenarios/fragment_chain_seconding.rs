@@ -22,6 +22,7 @@
 //!
 //! Framework-level proof of correctness for `World::full_second` chained.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::{Candidate, ProtocolVersion::V2},
 	harness::CollatorSut,

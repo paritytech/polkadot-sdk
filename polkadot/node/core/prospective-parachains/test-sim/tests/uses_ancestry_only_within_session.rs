@@ -28,7 +28,7 @@ use polkadot_node_subsystem::ActiveLeavesUpdate;
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_node_subsystem::OverseerSignal;
 use polkadot_primitives::{Hash, SessionIndex, DEFAULT_SCHEDULING_LOOKAHEAD};
-use polkadot_prospective_parachains_test_sim::world::{TestState, World};
+use polkadot_prospective_parachains_test_sim::world::{WorldExt as _, TestState, World};
 use polkadot_subsystem_test_sim::chain::SessionInfo;
 
 #[test]
@@ -45,7 +45,7 @@ fn uses_ancestry_only_within_session() {
 	// Register session - 1 so the chain model can answer queries about ancestors before
 	// the session change.
 	{
-		let mut chain = world.chain.lock();
+		let mut chain = world.base.chain.lock();
 		chain.add_session(
 			session - 1,
 			SessionInfo {
@@ -74,7 +74,7 @@ fn uses_ancestry_only_within_session() {
 		}
 	}
 
-	world.sim.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+	world.base.sim.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 		leaf_hash,
 		leaf_number,
 	))));

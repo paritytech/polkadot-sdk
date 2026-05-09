@@ -24,6 +24,7 @@
 //! Boils down to: validator's seconded count is computed across the whole in-view path,
 //! not just the current leaf.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V2,
 	chain::CoreSchedule,

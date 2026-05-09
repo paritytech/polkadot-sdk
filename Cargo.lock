@@ -17209,7 +17209,6 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "polkadot-subsystem-test-sim",
- "sp-consensus-slots",
 ]
 
 [[package]]

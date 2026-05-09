@@ -21,6 +21,7 @@
 //! - leaf3 CQ=[B,A,B] activated. With A=2, B=1 already counted, no new ads accepted.
 //! - leaf4 CQ=[A,B,A] activated. Old leaf2 ages out → second 1× B + 1× A. Then no more.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V2,
 	chain::CoreSchedule,

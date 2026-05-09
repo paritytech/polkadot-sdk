@@ -18,6 +18,7 @@
 //! validator disconnects the now-irrelevant peer. Sanity counterpart pins the assertion
 //! to the view change rather than to the test setup itself.
 
+use crate::scenarios::shared::WorldExt as _;
 use crate::{
 	builders::ProtocolVersion::V1,
 	harness::CollatorSut,
@@ -35,7 +36,7 @@ fn empty_view_disconnects_declared_peer<S: CollatorSut>() {
 	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
 	let peer = w.declared_peer(PARA, V1);
 
-	w.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
+	w.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
 		NetworkBridgeEvent::OurViewChange(OurView::new(std::iter::empty(), 0)),
 	));
 
