@@ -14,25 +14,25 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Real subsystems wired into the harness as auxiliary slots.
+//! Auxiliary subsystem helpers.
 //!
-//! Each module spawns a production subsystem on the [`Sim`]'s `Executor` and exposes a
-//! `register_*` helper that returns a `(Slot, outbound_rx)` pair to hand to
-//! [`Sim::register_aux`].
+//! - Stubs / noops with no production-crate deps live here in the test-sim core (they're
+//!   reusable across tenants).
+//! - Real-subsystem spawners (prospective-parachains, candidate-backing) live in their
+//!   per-tenant consumer crates. The generic [`spawn_aux`] helper builds the boilerplate
+//!   so each consumer's spawn function is a one-liner.
 //!
 //! [`Sim`]: crate::harness::Sim
 //! [`Sim::register_aux`]: crate::harness::Sim::register_aux
 
 pub mod availability_store;
-pub mod backing;
 pub mod can_second_stub;
 pub mod candidate_validation;
 pub mod noop;
-pub mod prospective;
+pub mod spawn;
 
 pub use availability_store::AvailabilityStoreStub;
-pub use backing::CandidateBackingAux;
 pub use can_second_stub::CanSecondStub;
 pub use candidate_validation::{CandidateOutputs, CandidateValidationStub, Verdict};
 pub use noop::{AvailabilityDistributionNoop, ProvisionerNoop, StatementDistributionNoop};
-pub use prospective::ProspectiveParachainsAux;
+pub use spawn::{spawn_aux, AuxSlot};

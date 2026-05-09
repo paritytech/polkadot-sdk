@@ -19,19 +19,15 @@ polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-overseer = { workspace = true, default-features = true }
-polkadot-node-core-backing = { workspace = true, default-features = true }
-polkadot-node-core-prospective-parachains = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true, features = ["test"] }
 polkadot-primitives-test-helpers = { workspace = true }
-sc-keystore = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sc-network-types = { workspace = true, default-features = true }
 sp-consensus-babe = { workspace = true, default-features = true }
 sp-consensus-slots = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }

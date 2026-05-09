@@ -44,10 +44,23 @@
 #![deny(unused_crate_dependencies)]
 
 // Subsystem-agnostic core re-exported under the same paths the legacy crate exposed, so
-// scenarios that import via `crate::aux`, `crate::chain`, etc. keep compiling unchanged.
+// scenarios that import via `crate::chain`, `crate::contract`, etc. keep compiling unchanged.
 pub use polkadot_subsystem_test_sim::{
-	aux, chain, contract, report, responder, runtime, BoxedDelay, Clock,
+	chain, contract, report, responder, runtime, BoxedDelay, Clock,
 };
+
+/// Aux subsystem helpers: the test-sim core's stubs/noops, plus collator-flavoured
+/// real-subsystem spawners (prospective + backing) implemented via
+/// [`polkadot_subsystem_test_sim::aux::spawn_aux`].
+pub mod aux {
+	pub use polkadot_subsystem_test_sim::aux::*;
+	pub use crate::aux_real::{
+		backing::{spawn_backing_aux, spawn_backing_aux_with_keystore, CandidateBackingAux},
+		prospective::{spawn_prospective_aux, ProspectiveParachainsAux},
+	};
+}
+
+mod aux_real;
 
 pub mod builders;
 pub mod clock_adapter;
