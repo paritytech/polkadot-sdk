@@ -15,7 +15,9 @@ workspace = true
 codec = { features = ["derive"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }
-serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
+serde = { optional = true, features = [
+	"derive",
+], workspace = true, default-features = true }
 serde_json = { features = ["alloc"], workspace = true }
 tracing = { workspace = true }
 
@@ -28,6 +30,7 @@ frame-system = { workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
+pallet-accumulate-and-forward = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
@@ -42,6 +45,7 @@ sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
+sp-dap = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
 sp-io = { workspace = true }
@@ -124,7 +128,9 @@ snowbridge-system-v2-runtime-api = { workspace = true }
 
 [dev-dependencies]
 bridge-hub-test-utils = { workspace = true, default-features = true }
-bridge-runtime-common = { features = ["integrity-test"], workspace = true, default-features = true }
+bridge-runtime-common = { features = [
+	"integrity-test",
+], workspace = true, default-features = true }
 pallet-bridge-relayers = { features = ["integrity-test"], workspace = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
 snowbridge-runtime-test-common = { workspace = true, default-features = true }
@@ -166,6 +172,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime?/std",
+	"pallet-accumulate-and-forward/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
@@ -213,6 +220,7 @@ std = [
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
+	"sp-dap/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-io/std",
@@ -248,6 +256,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-accumulate-and-forward/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-grandpa/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
@@ -296,6 +305,7 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-accumulate-and-forward/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",

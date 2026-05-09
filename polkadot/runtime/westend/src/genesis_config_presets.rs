@@ -17,8 +17,9 @@
 //! Genesis configs presets for the Westend runtime
 
 use crate::{
-	BabeConfig, BalancesConfig, ConfigurationConfig, RegistrarConfig, RuntimeGenesisConfig,
-	SessionConfig, SessionKeys, StakingConfig, SudoConfig, BABE_GENESIS_EPOCH_CONFIG,
+	BabeConfig, BalancesConfig, ConfigurationConfig, ExistentialDeposit, RegistrarConfig, Runtime,
+	RuntimeGenesisConfig, SessionConfig, SessionKeys, StakingConfig, SudoConfig,
+	BABE_GENESIS_EPOCH_CONFIG,
 };
 #[cfg(not(feature = "std"))]
 use alloc::format;
@@ -35,6 +36,10 @@ use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::Perbill;
 use westend_runtime_constants::currency::UNITS as WND;
+
+fn accumulation_account() -> AccountId {
+	pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account()
+}
 
 /// Helper function to generate stash, controller and session key from seed
 fn get_authority_keys_from_seed(
@@ -175,7 +180,11 @@ fn westend_testnet_genesis(
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
-			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
+			balances: endowed_accounts
+				.iter()
+				.map(|k| (k.clone(), ENDOWMENT))
+				.chain(core::iter::once((accumulation_account(), ExistentialDeposit::get())))
+				.collect::<Vec<_>>(),
 		},
 		session: SessionConfig {
 			keys: initial_authorities
@@ -346,6 +355,7 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 				.iter()
 				.map(|k: &AccountId| (k.clone(), ENDOWMENT))
 				.chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
+				.chain(core::iter::once((accumulation_account(), ExistentialDeposit::get())))
 				.collect::<Vec<_>>(),
 		},
 		session: SessionConfig {

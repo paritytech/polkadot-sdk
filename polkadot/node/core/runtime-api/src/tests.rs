@@ -336,7 +336,7 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		todo!("Not required for tests")
 	}
 
-	async fn allowed_relay_parent_info(
+	async fn ancestor_relay_parent_info(
 		&self,
 		_: Hash,
 		_: SessionIndex,
