@@ -37,7 +37,7 @@ fn check_backable_query_single_candidate() {
 	let mut world = World::start(config);
 
 	let leaf_a = world
-		.new_leaf()
+		.new_block()
 		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
 		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
 		.activate();
@@ -147,7 +147,7 @@ fn check_backable_query_multiple_candidates() {
 	let mut world = World::start(config);
 
 	let leaf_a = world
-		.new_leaf()
+		.new_block()
 		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
 		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
 		.activate();
@@ -440,7 +440,7 @@ fn fragment_chain_chain_length_is_bounded() {
 	let mut world = World::start(config);
 
 	let leaf_a = world
-		.new_leaf()
+		.new_block()
 		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
 		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
 		.activate();
@@ -527,7 +527,7 @@ fn unconnected_candidates_become_connected() {
 	let mut world = World::start(config);
 
 	let leaf_a = world
-		.new_leaf()
+		.new_block()
 		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
 		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
 		.activate();
@@ -616,18 +616,24 @@ fn introduce_candidate_parent_leaving_view() {
 	let config = default_world_config();
 	let mut world = World::start(config);
 
+	// Three coexisting active leaves require sibling forks of a common non-leaf ancestor —
+	// a linear chain of `.activate()` calls auto-deactivates each previous leaf.
+	let common = world.new_block().register();
 	let leaf_a = world
-		.new_leaf()
+		.new_block()
+		.from_parent(common.hash)
 		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
 		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
 		.activate();
 	let leaf_b = world
-		.new_leaf()
+		.new_block()
+		.from_parent(common.hash)
 		.with_head_data(ParaId::from(1), HeadData(vec![3, 4, 5]))
 		.with_head_data(ParaId::from(2), HeadData(vec![4, 5, 6]))
 		.activate();
 	let leaf_c = world
-		.new_leaf()
+		.new_block()
+		.from_parent(common.hash)
 		.with_head_data(ParaId::from(1), HeadData(vec![5, 6, 7]))
 		.with_head_data(ParaId::from(2), HeadData(vec![6, 7, 8]))
 		.activate();

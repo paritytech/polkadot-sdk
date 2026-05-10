@@ -39,7 +39,7 @@ fn introduce_v3_candidate_with_older_relay_parent() {
 	let mut world = World::start(config);
 
 	let leaf_a = world
-		.new_leaf()
+		.new_block()
 		.with_head_data(para_id, HeadData(vec![1, 2, 3]))
 		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
 		.activate();
@@ -115,7 +115,7 @@ fn get_pvd_for_candidate_with_older_relay_parent() {
 		let mut world = World::start(config);
 
 		let leaf_a = world
-			.new_leaf()
+			.new_block()
 			.with_head_data(para_id, HeadData(vec![1, 2, 3]))
 			.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
 			.activate();

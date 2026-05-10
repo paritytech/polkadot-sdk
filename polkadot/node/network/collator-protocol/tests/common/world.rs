@@ -138,7 +138,7 @@ where
 	// `ActiveLeaves::start_work`. The harness pushes the resulting `LeafRef` onto
 	// `world.base.leaves`.
 	for _ in 0..n_leaves {
-		world.new_leaf().activate();
+		world.new_block().activate();
 	}
 
 	let view: Vec<Hash> = world.base.leaves.iter().map(|l| l.hash).collect();
@@ -309,7 +309,7 @@ where
 	// land on the chain BEFORE `ActiveLeaves::start_work` because the subsystem
 	// snapshots the schedule at activation. `register_only()` is exactly that:
 	// "leaf is on the chain, subsystem doesn't know yet."
-	let leaf = world.new_leaf().register_only();
+	let leaf = world.new_block().register();
 
 	// Per-block claim-queue overrides. `LeafSelector::Ancestor(0)` is the leaf's
 	// direct parent — i.e. the *last* extend before the leaf.
@@ -350,7 +350,7 @@ where
 ///
 /// Aux subsystems and the `OurViewChange` signal are layered on top by the calling
 /// helper via [`spawn_default_aux`] / `world.base.sim.send(...)`.
-fn bootstrap_world<S>(config: &ChainConfig) -> World<S>
+pub(crate) fn bootstrap_world<S>(config: &ChainConfig) -> World<S>
 where
 	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
 	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
@@ -376,7 +376,7 @@ where
 /// real `prospective-parachains`, real `candidate-backing` (or a `CanSecondStub` if
 /// `config.can_second_stub` is set), `CandidateValidationStub::always_valid`, an
 /// `AvailabilityStoreStub`, and noop stubs for the remaining downstream subsystems.
-fn spawn_default_aux<S>(world: &mut World<S>, config: &ChainConfig)
+pub(crate) fn spawn_default_aux<S>(world: &mut World<S>, config: &ChainConfig)
 where
 	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
 	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,

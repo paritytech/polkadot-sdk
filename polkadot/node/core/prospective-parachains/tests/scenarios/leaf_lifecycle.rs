@@ -40,55 +40,59 @@ fn correctly_updates_leaves() {
 	let config = default_world_config();
 	let mut world = World::start(config);
 
+	// Linear chain progression: a → b → c. Each `.activate()` mirrors the production
+	// `block_imported` signal — `start_work(child) + deactivated=[parent]` in a
+	// single `ActiveLeavesUpdate`. Mirror state after each step:
+	//   * after leaf_a.activate(): [a]
+	//   * after leaf_b.activate(): [b]   (a auto-deactivated as parent)
+	//   * after leaf_c.activate(): [c]
 	let leaf_a = world
-		.new_leaf()
+		.new_block()
 		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
 		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
 		.activate();
+	assert_eq!(world.base.leaves.iter().map(|l| l.hash).collect::<Vec<_>>(), vec![leaf_a.hash]);
+
 	let leaf_b = world
-		.new_leaf()
+		.new_block()
 		.with_head_data(ParaId::from(1), HeadData(vec![3, 4, 5]))
 		.with_head_data(ParaId::from(2), HeadData(vec![4, 5, 6]))
 		.activate();
-	// Activating the same leaf again is a no-op for the subsystem; world tracks the
-	// signal regardless. Recompute leaf list count expectation accordingly.
-	world.signal_active_leaves(ActiveLeavesUpdate::start_work(new_leaf(leaf_b.hash, leaf_b.number)));
+	assert_eq!(world.base.leaves.iter().map(|l| l.hash).collect::<Vec<_>>(), vec![leaf_b.hash]);
 
-	// Empty update.
-	world.signal_active_leaves(ActiveLeavesUpdate::default());
-
-	// Activate leaf_c and deactivate leaf_b in a single update. Register leaf_c on the
-	// chain first so prospective's per-leaf init can resolve its queries.
 	let leaf_c = world
-		.new_leaf()
+		.new_block()
 		.with_head_data(ParaId::from(1), HeadData(vec![5, 6, 7]))
 		.with_head_data(ParaId::from(2), HeadData(vec![6, 7, 8]))
-		.register_only();
-	world.signal_active_leaves(ActiveLeavesUpdate {
-		activated: Some(new_leaf(leaf_c.hash, leaf_c.number)),
-		deactivated: [leaf_b.hash][..].into(),
-	});
+		.activate();
+	assert_eq!(world.base.leaves.iter().map(|l| l.hash).collect::<Vec<_>>(), vec![leaf_c.hash]);
 
-	// Deactivate leaf_a and leaf_c together.
-	world.signal_active_leaves(ActiveLeavesUpdate {
-		deactivated: [leaf_a.hash, leaf_c.hash][..].into(),
-		..Default::default()
-	});
+	// Finalisation: when leaf_c is finalized while still the active tip, the
+	// finalized block stays (it equals the finalized hash and is still a leaf —
+	// production keeps it). No leaves get pruned.
+	world.finalize(leaf_c.hash);
+	assert_eq!(world.base.leaves.iter().map(|l| l.hash).collect::<Vec<_>>(), vec![leaf_c.hash]);
 
-	// Activate and deactivate leaf_a in the same update.
-	world.signal_active_leaves(ActiveLeavesUpdate {
-		activated: Some(new_leaf(leaf_a.hash, leaf_a.number)),
-		deactivated: [leaf_a.hash][..].into(),
-	});
+	// A deeper finalisation that prunes orphaned leaves on a divergent fork: build
+	// a sibling fork off leaf_b, activate it (so we have two active leaves on
+	// different branches at number > leaf_b.number), then finalize on one branch.
+	let leaf_d = world
+		.new_block()
+		.from_parent(leaf_b.hash)
+		.with_head_data(ParaId::from(1), HeadData(vec![7, 8, 9]))
+		.with_head_data(ParaId::from(2), HeadData(vec![8, 9, 10]))
+		.activate();
+	assert_eq!(
+		world.base.leaves.iter().map(|l| l.hash).collect::<HashSet<_>>(),
+		[leaf_c.hash, leaf_d.hash].into_iter().collect::<HashSet<_>>(),
+	);
 
-	// Deactivate everything (with extra unknown hashes, which is allowed).
-	world.signal_active_leaves(ActiveLeavesUpdate {
-		deactivated: [leaf_a.hash, leaf_b.hash, leaf_c.hash][..].into(),
-		..Default::default()
-	});
+	// Deactivate via stop_work — covers the path where the overseer issues a leaf
+	// deactivation without an accompanying activation (e.g. cleanup on shutdown).
+	world.deactivate_leaf(leaf_d.hash);
+	assert_eq!(world.base.leaves.iter().map(|l| l.hash).collect::<Vec<_>>(), vec![leaf_c.hash]);
 
-	// world.leaves tracks signals; subsystem's internal `active_leaves.len()` is private.
-	// Final state: zero active leaves.
+	world.deactivate_leaf(leaf_c.hash);
 	assert!(world.base.leaves.is_empty());
 }
 
@@ -106,7 +110,7 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 	}
 	let mut world = World::start(config);
 
-	let leaf_a = world.new_leaf().with_head_data(para_id, HeadData(vec![1, 2, 3])).activate();
+	let leaf_a = world.new_block().with_head_data(para_id, HeadData(vec![1, 2, 3])).activate();
 
 	let (candidate_a, pvd_a) = make_candidate(
 		leaf_a.hash,
@@ -142,8 +146,11 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 	// Activate leaf B as a child of leaf A so it inherits leaf_a's per-scheduling-parent
 	// fragment chain (the original test relies on this implicit ancestry to expose
 	// leaf_a's C, D under leaf_b). A and B become pending-availability under it.
+	// This activation also auto-deactivates leaf_a — production `block_imported` semantics
+	// for a child of an active leaf. Inheritance still works because prospective-parachains
+	// walks chain ancestors itself; it doesn't depend on the parent staying active.
 	let leaf_b = world
-		.new_leaf()
+		.new_block()
 		.from_parent(leaf_a.hash)
 		.with_head_data(para_id, HeadData(vec![1, 2, 3]))
 		.with_pending(
@@ -187,14 +194,9 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 	// Empty ancestors at leaf_b → still empty.
 	assert!(world.get_backable_candidates(leaf_b.hash, para_id, 5, Ancestors::default()).is_empty());
 
-	// leaf_a is still active and returns the full chain.
-	assert_eq!(
-		world.get_backable_candidates(leaf_a.hash, para_id, 5, Ancestors::default()),
-		all_candidates_resp,
-	);
-
-	// Deactivate leaf_a.
-	world.deactivate_leaf(leaf_a.hash);
+	// leaf_a is no longer an active leaf (auto-deactivated when leaf_b — its child — was
+	// activated). Querying it returns empty, just like any deactivated leaf.
+	assert!(world.get_backable_candidates(leaf_a.hash, para_id, 5, Ancestors::default()).is_empty());
 
 	// leaf_b still empty without ancestors; with [A,B] → C,D.
 	assert!(world.get_backable_candidates(leaf_b.hash, para_id, 5, Ancestors::default()).is_empty());
@@ -214,7 +216,7 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 	// Activate leaf_c as a sibling fork of leaf_b (shared parent: leaf_a). leaf_c inherits
 	// leaf_a's candidates.
 	let leaf_c = world
-		.new_leaf()
+		.new_block()
 		.from_parent(leaf_a.hash)
 		.with_head_data(para_id, HeadData(vec![1, 2, 3]))
 		.with_pending(para_id, vec![])
@@ -294,49 +296,57 @@ fn handle_active_leaves_update_bounded_implicit_view() {
 
 	// Build linear chain of 10 leaves, oldest first. All share the same `parent_head`
 	// so candidates rooted at any of them have a consistent required-parent chain.
+	// Each `.activate()` auto-deactivates its parent — production `block_imported`
+	// semantics. We seed the candidates at the moment their relay parent is the
+	// current active leaf, so the introduce path accepts them under that leaf's
+	// scheduling-parent slot. Once the chain has progressed past, the candidates
+	// remain in the fragment-chain index — only their visibility from later leaves
+	// is bounded.
 	let head_data = HeadData(vec![1, 2, 3]);
-	let mut leaves: Vec<TestLeaf> = Vec::new();
-	for _ in 0..10 {
-		let leaf = world.new_leaf().with_head_data(para_id, head_data.clone()).activate();
-		leaves.push(leaf);
-	}
-	let latest = &leaves[9];
-
 	let lookahead = DEFAULT_SCHEDULING_LOOKAHEAD as usize;
-	// In-view boundary leaf: distance from latest = lookahead - 1.
-	let in_view_leaf = &leaves[9 - (lookahead - 1)];
-	// Just-past boundary: distance = lookahead.
-	let past_view_leaf = &leaves[9 - lookahead];
-
 	let vch = world.validation_code_hash();
 
-	// Candidate rooted at the in-view ancestor. Distinct head byte so its hash
-	// differs from the past-boundary candidate.
-	let (cand_in, pvd_in) = make_candidate(
-		in_view_leaf.hash,
-		in_view_leaf.number,
-		para_id,
-		head_data.clone(),
-		HeadData(vec![0xAA]),
-		vch,
-	);
-	let cand_in_hash = cand_in.hash();
-	assert!(world.introduce_seconded_candidate(cand_in.clone(), pvd_in));
-	world.back_candidate(para_id, cand_in_hash);
+	let mut leaves: Vec<TestLeaf> = Vec::new();
+	let mut cand_in_hash = None;
+	let mut cand_out_hash = None;
+	for i in 0..10 {
+		let leaf = world.new_block().with_head_data(para_id, head_data.clone()).activate();
+		leaves.push(leaf);
 
-	let (cand_out, pvd_out) = make_candidate(
-		past_view_leaf.hash,
-		past_view_leaf.number,
-		para_id,
-		head_data.clone(),
-		HeadData(vec![0xBB]),
-		vch,
-	);
-	let cand_out_hash = cand_out.hash();
-	// past-boundary leaf is *itself* an active leaf, so the subsystem accepts the
-	// candidate under that leaf's scheduling-parent slot.
-	assert!(world.introduce_seconded_candidate(cand_out.clone(), pvd_out));
-	world.back_candidate(para_id, cand_out_hash);
+		// Just-past boundary: introduce + back when this leaf is the *current* tip.
+		if i == 9 - lookahead {
+			let (cand_out, pvd_out) = make_candidate(
+				leaf.hash,
+				leaf.number,
+				para_id,
+				head_data.clone(),
+				HeadData(vec![0xBB]),
+				vch,
+			);
+			let h = cand_out.hash();
+			assert!(world.introduce_seconded_candidate(cand_out, pvd_out));
+			world.back_candidate(para_id, h);
+			cand_out_hash = Some(h);
+		}
+		// In-view boundary: same trick.
+		if i == 9 - (lookahead - 1) {
+			let (cand_in, pvd_in) = make_candidate(
+				leaf.hash,
+				leaf.number,
+				para_id,
+				head_data.clone(),
+				HeadData(vec![0xAA]),
+				vch,
+			);
+			let h = cand_in.hash();
+			assert!(world.introduce_seconded_candidate(cand_in, pvd_in));
+			world.back_candidate(para_id, h);
+			cand_in_hash = Some(h);
+		}
+	}
+	let latest = &leaves[9];
+	let cand_in_hash = cand_in_hash.expect("in-view candidate introduced");
+	let cand_out_hash = cand_out_hash.expect("past-boundary candidate introduced");
 
 	// Querying backables on the latest leaf: in-view candidate appears; past-boundary
 	// candidate is filtered out because its scheduling parent is no longer in the
@@ -402,11 +412,18 @@ fn persists_pending_availability_candidate() {
 		}
 	}
 
+	// leaf_b is a sibling fork of leaf_a (same parent: the intermediate block at
+	// `leaf_a_number - 1`), so activating leaf_b doesn't auto-deactivate leaf_a — both
+	// stay active. Production analogue: a relay-chain reorg surface where two competing
+	// children of a common parent both get signalled. The original test wanted leaf_b to
+	// be a *child* of leaf_a, but production `block_imported` semantics no longer let a
+	// child of an active leaf coexist with its parent on the active set.
 	let leaf_b_hash = Hash::from_low_u64_be(1);
-	let leaf_b_number = leaf_a_number + 1;
+	let leaf_b_number = leaf_a_number;
+	let shared_parent_hash = Hash::from_low_u64_be(0xA0_00 + (leaf_a_number - 1) as u64);
 
 	let leaf_a = world
-		.new_leaf()
+		.new_block()
 		.with_hash_and_number(leaf_a_hash, leaf_a_number)
 		.with_head_data(para_id, para_head.clone())
 		.activate();
@@ -441,20 +458,20 @@ fn persists_pending_availability_candidate() {
 		relay_parent_number: candidate_relay_parent_number,
 		max_pov_size: MAX_POV_SIZE,
 	};
-	// Register leaf_b in the chain as a child of leaf_a so prospective inherits leaf_a's
-	// view; pin its literal hash via `with_hash_and_number` to match the test's
-	// `make_candidate(leaf_b_hash, ...)` call above.
+	// Register leaf_b in the chain as a sibling fork of leaf_a (shared parent at
+	// `leaf_a_number - 1`). Pin its literal hash via `with_hash_and_number` so it
+	// matches the test's `make_candidate(leaf_b_hash, ...)` call above.
 	{
 		let mut chain = world.base.chain.lock();
 		chain.register_block_with_session(
 			leaf_b_hash,
-			leaf_a_hash,
+			shared_parent_hash,
 			leaf_b_number,
 			Some(world.session_index()),
 		);
 	}
 	let leaf_b = world
-		.new_leaf()
+		.new_block()
 		.with_hash_and_number(leaf_b_hash, leaf_b_number)
 		.with_head_data(para_id, para_head.clone())
 		.with_pending(para_id, vec![candidate_a_pending_av])
@@ -560,7 +577,7 @@ fn uses_ancestry_only_within_session() {
 	}
 
 	let _leaf = world
-		.new_leaf()
+		.new_block()
 		.with_hash_and_number(leaf_hash, 5)
 		.with_head_data(para_id, parent_head.clone())
 		.activate();

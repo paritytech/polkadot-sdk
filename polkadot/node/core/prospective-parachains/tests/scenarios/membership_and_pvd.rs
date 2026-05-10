@@ -26,36 +26,47 @@ fn check_hypothetical_membership_query() {
 	let config = default_world_config();
 	let mut world = World::start(config);
 
+	// Two coexisting active leaves require sibling forks of a common non-leaf ancestor —
+	// a linear chain of `.activate()` calls auto-deactivates the previous leaf. The
+	// candidates are anchored at `common` so they sit in both forks' implicit views and
+	// hypothetical-membership queries return both leaves.
+	let common = world
+		.new_block()
+		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
+		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
+		.register();
 	let leaf_a = world
-		.new_leaf()
+		.new_block()
+		.from_parent(common.hash)
 		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
 		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
 		.activate();
 	let leaf_b = world
-		.new_leaf()
+		.new_block()
+		.from_parent(common.hash)
 		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
 		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
 		.activate();
 
 	let (candidate_a, pvd_a) = make_candidate(
-		leaf_a.hash,
-		leaf_a.number,
+		common.hash,
+		common.number,
 		ParaId::from(1),
 		HeadData(vec![1, 2, 3]),
 		HeadData(vec![1]),
 		world.validation_code_hash(),
 	);
 	let (candidate_b, pvd_b) = make_candidate(
-		leaf_a.hash,
-		leaf_a.number,
+		common.hash,
+		common.number,
 		ParaId::from(1),
 		HeadData(vec![1]),
 		HeadData(vec![2]),
 		world.validation_code_hash(),
 	);
 	let (candidate_c, pvd_c) = make_candidate(
-		leaf_a.hash,
-		leaf_a.number,
+		common.hash,
+		common.number,
 		ParaId::from(1),
 		HeadData(vec![2]),
 		HeadData(vec![3]),
@@ -148,7 +159,7 @@ fn check_pvd_query() {
 	let mut world = World::start(config);
 
 	let leaf_a = world
-		.new_leaf()
+		.new_block()
 		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
 		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
 		.activate();

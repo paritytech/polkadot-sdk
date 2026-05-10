@@ -379,7 +379,7 @@ use crate::{
 	common::builders::ProtocolVersion::V2,
 	common::chain::CoreSchedule,
 	common::harness::CollatorSut,
-	common::world::{build_multi_leaf_world_with_config, ChainConfig},
+	common::world::{build_multi_leaf_world_with_config, ChainConfig, WorldExt as _},
 };
 use polkadot_primitives::{CoreIndex, Id as ParaId, ValidatorIndex};
 
@@ -409,8 +409,13 @@ fn group_rotation_uses_correct_core_per_relay_parent<S: CollatorSut>() {
 		.with_group_rotation_frequency(1);
 	let mut w = build_multi_leaf_world_with_config::<S>(3, config);
 
-	let block1 = w.base.leaves[0].hash; // group 0 → core 2 → PARA_B
-	let block3 = w.base.leaves[2].hash; // group 0 → core 0 → PARA_A
+	// Linear chain: under production `block_imported` semantics each `.activate()`
+	// auto-deactivates its parent, so only block 3 is an active leaf in
+	// `world.base.leaves`. Blocks 1 and 2 stay in chain ancestry — block 1 is reachable
+	// via `ancestors()[1]`, in the active leaf's implicit view, and the legacy subsystem
+	// accepts advertisements at ancestor RPs there.
+	let block3 = w.leaf(); // group 0 → core 0 → PARA_A
+	let block1 = w.ancestors()[1]; // group 0 → core 2 → PARA_B
 
 	let peer_a = w.declared_peer(PARA_A, V2);
 	let peer_b = w.declared_peer(PARA_B, V2);

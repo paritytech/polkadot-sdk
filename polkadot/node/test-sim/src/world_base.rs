@@ -275,26 +275,80 @@ where
 	/// Shared base, mutable.
 	fn base_mut(&mut self) -> &mut WorldBase<Self::Sut>;
 
-	/// Begin building a new leaf. By default the leaf extends the chain's current
-	/// tip via [`ChainModel::extend`]; use [`LeafBuilder::from_parent`] to fork from
-	/// a specific block. Per-(rp, para) head data and pending availability accumulate
-	/// on the builder and are written to the chain model on `.activate()` /
-	/// `.register_only()`.
-	fn new_leaf(&mut self) -> LeafBuilder<'_, Self::Sut> {
-		LeafBuilder::new(self.base_mut())
+	/// Begin building a new block. The block is extended onto the chain's current
+	/// tip via [`ChainModel::extend`]; use [`BlockBuilder::from_parent`] to extend
+	/// from a non-tip parent (forks, or non-linear extensions). Per-(rp, para) head
+	/// data + pending availability + claim queue accumulate on the builder and are
+	/// written to the chain model when the builder finalises.
+	///
+	/// Two terminal verbs:
+	///
+	/// * [`BlockBuilder::register`] — writes the block to the chain model only. The
+	///   subsystem is **not** told. Use this for ancestor blocks that should exist
+	///   in the chain history but were never independently signalled as active
+	///   leaves (skipped activations, fast-sync gaps, blocks that were never tip).
+	///
+	/// * [`BlockBuilder::activate`] — `register` + signal
+	///   `OverseerSignal::ActiveLeaves(start_work(new), deactivated=[parent if it
+	///   was an active leaf])`. Mirrors the production `block_imported` signal:
+	///   when a child of an active leaf is imported, the parent stops being a leaf
+	///   in the same `ActiveLeavesUpdate`.
+	fn new_block(&mut self) -> BlockBuilder<'_, Self::Sut> {
+		BlockBuilder::new(self.base_mut())
 	}
 
-	/// Deactivate a leaf via `ActiveLeavesUpdate::stop_work`.
+	/// Deactivate a leaf via `ActiveLeavesUpdate::stop_work`. Mostly useful for
+	/// tests that drive deactivation without an accompanying activation; normal
+	/// linear chain progression deactivates the parent automatically via
+	/// [`BlockBuilder::activate`].
 	fn deactivate_leaf(&mut self, hash: Hash) {
 		let base = self.base_mut();
 		base.sim.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::stop_work(hash)));
 		base.leaves.retain(|l| l.hash != hash);
 	}
 
-	/// Send a raw `OverseerSignal::ActiveLeaves` update. Used by scenarios that need
-	/// to activate + deactivate atomically or send empty updates. Newly-activated
-	/// leaves must first be registered via [`HasBase::new_leaf`]+`.register_only()`
-	/// (or by direct `chain.lock()` mutation for the rare pinned-hash case).
+	/// Signal `OverseerSignal::BlockFinalized(hash, number)` followed by an
+	/// `ActiveLeavesUpdate` that prunes orphaned leaves. Mirrors the production
+	/// `block_finalized` path:
+	///
+	/// * any active leaf at `number <= finalized.number` other than the finalized
+	///   block itself is removed (those leaves are on branches that can no longer
+	///   extend the finalized chain);
+	/// * the finalized block itself stays an active leaf if it currently is one;
+	/// * higher-numbered orphan leaves stay until they fall below a future
+	///   finalized number — production accepts that and so do we.
+	///
+	/// The empty-update case (no leaves to prune) skips the second signal,
+	/// matching production behaviour.
+	fn finalize(&mut self, hash: Hash) {
+		let number = {
+			let chain = self.base().chain.lock();
+			chain.block(&hash).expect("finalized hash must be a registered block").number
+		};
+		let base = self.base_mut();
+		base.sim.signal(OverseerSignal::BlockFinalized(hash, number));
+
+		let mut deactivated = Vec::new();
+		base.leaves.retain(|l| {
+			if l.number <= number && l.hash != hash {
+				deactivated.push(l.hash);
+				false
+			} else {
+				true
+			}
+		});
+		if !deactivated.is_empty() {
+			let update = ActiveLeavesUpdate {
+				activated: None,
+				deactivated: deactivated.into(),
+			};
+			base.sim.signal(OverseerSignal::ActiveLeaves(update));
+		}
+	}
+
+	/// Send a raw `OverseerSignal::ActiveLeaves` update. Escape hatch for tests
+	/// that need to construct an update shape outside the [`BlockBuilder`] /
+	/// [`HasBase::deactivate_leaf`] / [`HasBase::finalize`] vocabulary (rare).
 	fn signal_active_leaves(&mut self, update: ActiveLeavesUpdate) {
 		let base = self.base_mut();
 		if let Some(activated) = &update.activated {
@@ -363,25 +417,32 @@ where
 	}
 }
 
-/// Fluent builder for a new leaf. Accumulates per-para head data + pending
-/// availability, then on `.activate()` / `.register_only()`:
+/// Fluent builder for a new block. Accumulates per-para head data + pending
+/// availability, then on `.register()` / `.activate()`:
 ///
-/// 1. Allocates the leaf hash + number via [`ChainModel::extend`] (or honours an
+/// 1. Allocates the block's hash + number via [`ChainModel::extend`] (or honours an
 ///    explicitly-pinned hash via [`Self::with_hash_and_number`]).
 /// 2. Writes per-para head data + pending availability to the chain model.
 /// 3. Synthesises permissive backing constraints (using `world.config`'s
 ///    `validation_code_hash` + optional `min_relay_parent_number_override`) and writes
 ///    them to the chain model.
-/// 4. (`activate` only) Signals `ActiveLeaves::start_work` and pushes the leaf to
-///    `world.leaves`.
+/// 4. (`activate` only) Signals `OverseerSignal::ActiveLeaves` with
+///    `start_work(new)` plus `deactivated=[parent]` if the parent was an active
+///    leaf — mirroring the production `block_imported` signal.
 ///
-/// The builder is the **only** path through which leaves should normally be created —
-/// it keeps the single-source-of-truth invariant (chain state lives on the chain) and
-/// removes the manual ancestor-walk that earlier APIs required. The rare test that
-/// genuinely needs pinned hashes + an exotic ancestor chain (e.g. session-boundary
-/// edge cases) drops directly into `world.base.chain.lock()` + a raw
-/// [`HasBase::signal_active_leaves`].
-pub struct LeafBuilder<'w, S: SubsystemUnderTest>
+/// Two real-world flows the API mirrors:
+///
+/// * **Tip-following** = repeated `.activate()` calls. Each new block becomes the
+///   active leaf; its parent (the previous tip) is deactivated in the same signal.
+///   Models normal block production where the overseer always emits one
+///   `ActiveLeavesUpdate` per imported block.
+///
+/// * **Skipping** = `.register()` for intermediate blocks, `.activate()` only for
+///   the next tip the overseer announces. Models scenarios where the overseer
+///   doesn't emit a per-block signal — e.g. fast-syncing, restart catch-up, the
+///   parachains-API gap. Tests use this to verify the subsystem handles gaps in
+///   the activation sequence correctly via implicit view.
+pub struct BlockBuilder<'w, S: SubsystemUnderTest>
 where
 	AllMessages: From<<S::Message as AssociateOutgoing>::OutgoingMessages>,
 	AllMessages: From<S::Message>,
@@ -394,15 +455,15 @@ where
 	/// chain's current tip" — the common linear case.
 	parent: Option<Hash>,
 	/// `(para, head_data)` pairs to write via
-	/// `chain.set_backing_constraints_at(leaf, para, ..)` (head data becomes
+	/// `chain.set_backing_constraints_at(block, para, ..)` (head data becomes
 	/// `Constraints::required_parent`).
 	head_data: Vec<(ParaId, HeadData)>,
 	/// `(para, pending)` pairs to write via
-	/// `chain.set_pending_availability_at(leaf, para, ..)`.
+	/// `chain.set_pending_availability_at(block, para, ..)`.
 	pending: Vec<(ParaId, Vec<CandidatePendingAvailability>)>,
 }
 
-impl<'w, S: SubsystemUnderTest> LeafBuilder<'w, S>
+impl<'w, S: SubsystemUnderTest> BlockBuilder<'w, S>
 where
 	AllMessages: From<<S::Message as AssociateOutgoing>::OutgoingMessages>,
 	AllMessages: From<S::Message>,
@@ -417,7 +478,7 @@ where
 		}
 	}
 
-	/// Pin a literal hash + number for this leaf instead of having the chain
+	/// Pin a literal hash + number for this block instead of having the chain
 	/// auto-allocate one. Use only when the test asserts on a specific hash value
 	/// (rare). When pinning, the caller is responsible for any required ancestor
 	/// registration via direct `chain.lock()` mutation.
@@ -426,23 +487,22 @@ where
 		self
 	}
 
-	/// Fork this leaf from a specific parent block (instead of the chain's current
-	/// tip). Only meaningful in the auto-extend path. For sibling-fork tests the
-	/// caller passes a previously-activated leaf's hash here; the chain assigns the
-	/// new leaf a sibling-distinct hash via the existing sibling-index mechanism.
+	/// Extend from a specific parent block instead of the chain's current tip. Use
+	/// for non-linear extensions: the chain assigns the new block a sibling-distinct
+	/// hash via the existing sibling-index mechanism.
 	pub fn from_parent(mut self, parent: Hash) -> Self {
 		self.parent = Some(parent);
 		self
 	}
 
-	/// Seed the para's head data at the leaf's relay parent. Becomes
+	/// Seed the para's head data at this block's relay parent. Becomes
 	/// `Constraints::required_parent` in the synthesised backing constraints.
 	pub fn with_head_data(mut self, para: ParaId, head_data: HeadData) -> Self {
 		self.head_data.push((para, head_data));
 		self
 	}
 
-	/// Seed the para's pending-availability list at the leaf's relay parent.
+	/// Seed the para's pending-availability list at this block's relay parent.
 	pub fn with_pending(
 		mut self,
 		para: ParaId,
@@ -452,31 +512,59 @@ where
 		self
 	}
 
-	/// Finalise the leaf and signal `ActiveLeaves::start_work`. Returns the leaf's
-	/// identity.
+	/// Finalise the block on the chain model **without** telling the subsystem.
+	/// Use for ancestor blocks the test wants the chain to know about (so queries
+	/// for them resolve) but that were never independently signalled as active
+	/// leaves — e.g. blocks that were skipped during a fast-sync gap. Returns the
+	/// block's identity.
+	pub fn register(self) -> LeafRef {
+		let (_base, block) = self.flush_to_chain();
+		block
+	}
+
+	/// Finalise the block + signal `OverseerSignal::ActiveLeaves` with
+	/// `start_work(new)` plus `deactivated=[parent]` if the parent is currently an
+	/// active leaf in the harness mirror. Mirrors the production `block_imported`
+	/// signal exactly: a child of the current tip pushes the parent off the active
+	/// set in the same update.
+	///
+	/// Returns the new active leaf's identity.
 	pub fn activate(self) -> LeafRef {
 		let (base, leaf) = self.flush_to_chain();
-		base.sim
-			.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
-				leaf.hash, leaf.number,
-			))));
+		// Auto-deactivate parent if it's currently an active leaf. Production
+		// `block_imported` does the same: importing a child of an active leaf
+		// emits one `ActiveLeavesUpdate` carrying both `activated: Some(child)`
+		// and `deactivated: [parent]`.
+		let parent_hash = base
+			.chain
+			.lock()
+			.block(&leaf.hash)
+			.expect("just-extended block has a parent_hash")
+			.parent_hash;
+		let mut deactivated: Vec<Hash> = Vec::new();
+		base.leaves.retain(|l| {
+			if l.hash == parent_hash {
+				deactivated.push(l.hash);
+				false
+			} else {
+				true
+			}
+		});
+
+		let update = ActiveLeavesUpdate {
+			activated: Some(new_leaf(leaf.hash, leaf.number)),
+			deactivated: deactivated.into(),
+		};
+		base.sim.signal(OverseerSignal::ActiveLeaves(update));
 		base.leaves.push(leaf);
 		leaf
 	}
 
-	/// Finalise the leaf without signalling `ActiveLeaves::start_work`. Companion
-	/// to [`HasBase::signal_active_leaves`] for tests that bundle a leaf activation
-	/// with other deactivations into a single update.
-	pub fn register_only(self) -> LeafRef {
-		let (_base, leaf) = self.flush_to_chain();
-		leaf
-	}
-
-	/// Resolve the leaf's hash + number (extending the chain if needed) and write
+	/// Resolve the block's hash + number (extending the chain if needed) and write
 	/// per-para state + synthesised constraints to the chain model. Returns
 	/// `&mut WorldBase` so `.activate()` can re-borrow the sim.
 	fn flush_to_chain(self) -> (&'w mut WorldBase<S>, LeafRef) {
-		let LeafBuilder { base, hash_and_number, parent, head_data, pending } = self;
+		let BlockBuilder { base, hash_and_number, parent, head_data, pending } = self;
 		let validation_code_hash = base.config.validation_code_hash;
 		let min_relay_parent_number_override = base.config.min_relay_parent_number_override;
 

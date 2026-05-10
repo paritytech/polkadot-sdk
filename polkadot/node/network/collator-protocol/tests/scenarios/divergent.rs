@@ -22,7 +22,7 @@ use crate::{
 	common::builders::{Peer, ProtocolVersion::V1},
 	common::contract::Effect,
 	common::harness::CollatorSut,
-	common::world::{activated_world, build_multi_leaf_world, World},
+	common::world::{activated_world, World, WorldExt as _},
 };
 use polkadot_collator_protocol::CollatorEvictionPolicy;
 use polkadot_node_network_protocol::peer_set::PeerSet;
@@ -94,14 +94,37 @@ fn declared_but_inactive_peer_kept_indefinitely<S: CollatorSut>() {
 /// here rather than write a vacuous experimental variant.
 #[crate::sim_test(only = "legacy")]
 fn activity_extends_life_then_silence_evicts<S: CollatorSut>() {
-	let mut w = build_multi_leaf_world::<S>(3, &[(CoreIndex(0), PARA)]);
+	use crate::common::chain::CoreSchedule;
+	use crate::common::world::{bootstrap_world, spawn_default_aux, ChainConfig};
+	use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
+	use polkadot_primitives::Hash;
+
+	// V1 advertisements must reference an *active leaf* (legacy explicitly rejects
+	// non-leaf RPs as `ProtocolMisuse`). The original test built a linear chain of
+	// three blocks and treated each as an active leaf — production `block_imported`
+	// semantics no longer permit that (each child activation deactivates its parent).
+	// Three sibling forks of a common non-leaf ancestor preserve the "three coexisting
+	// active leaves" intent and let V1 advertisements at all three RPs land.
+	let config = ChainConfig::default().with_schedule(CoreIndex(0), CoreSchedule::always(PARA));
+	let mut w: World<S> = bootstrap_world::<S>(&config);
+	spawn_default_aux(&mut w, &config);
+	let common = w.new_block().register();
+	let leaf_a = w.new_block().from_parent(common.hash).activate();
+	let leaf_b = w.new_block().from_parent(common.hash).activate();
+	let leaf_c = w.new_block().from_parent(common.hash).activate();
+	let view: Vec<Hash> = w.base.leaves.iter().map(|l| l.hash).collect();
+	w.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
+		NetworkBridgeEvent::OurViewChange(polkadot_node_network_protocol::OurView::new(view, 0)),
+	));
+
 	let peer = w.declared_peer(PARA, V1);
+	let rps = [leaf_a.hash, leaf_b.hash, leaf_c.hash];
 
 	let inactive = CollatorEvictionPolicy::default().inactive_collator;
 	let step = inactive * 2 / 3;
 	for i in 0..3 {
 		w.base.sim.advance(step);
-		w.base.sim.send(peer.advertise(w.base.leaves[i].hash, None, None));
+		w.base.sim.send(peer.advertise(rps[i], None, None));
 	}
 
 	// After ~2× the window of continuous activity, peer must still be connected.
@@ -587,10 +610,9 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::{
 		build_multi_leaf_world_with_config, build_with_ancestors_world_with_config,
-		ChainConfig, LeafSelector,
+		ChainConfig, LeafSelector, WorldExt as _,
 	},
 };
-use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId, ValidatorIndex};
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -625,8 +647,13 @@ fn core_rotation_accepts_candidates_for_both_cores<S: CollatorSut>() {
 		.with_group_rotation_frequency(1);
 	let mut w = build_multi_leaf_world_with_config::<S>(2, config);
 
-	let leaf_1 = w.base.leaves[0].hash; // we own core 2 → PARA_A
-	let leaf_2 = w.base.leaves[1].hash; // we own core 1 → PARA_B
+	// `build_multi_leaf_world_with_config` builds a *linear* chain via repeated
+	// `.activate()`. Under production `block_imported` semantics, each child activation
+	// auto-deactivates its parent — so only the latest block is an active leaf. Block 1
+	// stays in the chain (and in the leaf's implicit view), but it's no longer in
+	// `world.base.leaves`. We pull it from the chain ancestry instead.
+	let leaf_2 = w.leaf(); // active leaf, block 2 — we own core 1 → PARA_B
+	let leaf_1 = w.ancestors()[0]; // chain ancestor, block 1 — we own core 2 → PARA_A
 
 	let peer_a = w.declared_peer(PARA_A, V2);
 	let cand_a = w.advertise(&peer_a, leaf_1, PARA_A);
@@ -667,8 +694,10 @@ fn cross_core_reservation_does_not_consume_other_cores_slots<S: CollatorSut>() {
 		.with_validator_groups(validator_groups)
 		.with_group_rotation_frequency(1);
 	let mut w = build_multi_leaf_world_with_config::<S>(2, config);
-	let leaf_1 = w.base.leaves[0].hash; // own core 2
-	let leaf_2 = w.base.leaves[1].hash; // own core 1
+	// Linear chain: only the latest block is an active leaf under production semantics.
+	// Block 1 lives in the leaf's implicit view via chain ancestry.
+	let leaf_2 = w.leaf(); // active leaf, block 2 — we own core 1
+	let leaf_1 = w.ancestors()[0]; // chain ancestor, block 1 — we own core 2
 
 	let peer_old = w.declared_peer(PARA_X_LOCAL, V2);
 	let cand_old = w.advertise(&peer_old, leaf_1, PARA_X_LOCAL);

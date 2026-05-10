@@ -35,18 +35,25 @@ fn introduce_candidates_basic() {
 
 	let mut world = World::start(config);
 
+	// Three coexisting active leaves require sibling forks of a common non-leaf ancestor.
+	// A linear chain of `.activate()` calls auto-deactivates each previous leaf — the
+	// production `block_imported` semantics.
+	let common = world.new_block().register();
 	let leaf_a = world
-		.new_leaf()
+		.new_block()
+		.from_parent(common.hash)
 		.with_head_data(chain_a, HeadData(vec![1, 2, 3]))
 		.with_head_data(chain_b, HeadData(vec![2, 3, 4]))
 		.activate();
 	let leaf_b = world
-		.new_leaf()
+		.new_block()
+		.from_parent(common.hash)
 		.with_head_data(chain_a, HeadData(vec![3, 4, 5]))
 		.with_head_data(chain_b, HeadData(vec![4, 5, 6]))
 		.activate();
 	let leaf_c = world
-		.new_leaf()
+		.new_block()
+		.from_parent(common.hash)
 		.with_head_data(chain_a, HeadData(vec![5, 6, 7]))
 		.with_head_data(chain_b, HeadData(vec![6, 7, 8]))
 		.activate();
@@ -164,7 +171,7 @@ fn introduce_candidates_error() {
 	let mut world = World::start(config);
 
 	let leaf_a = world
-		.new_leaf()
+		.new_block()
 		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
 		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
 		.activate();
@@ -248,7 +255,7 @@ fn introduce_candidate_multiple_times() {
 	let mut world = World::start(config);
 
 	let leaf_a = world
-		.new_leaf()
+		.new_block()
 		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
 		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
 		.activate();
@@ -294,20 +301,30 @@ fn introduce_candidate_on_multiple_forks() {
 	let config = default_world_config();
 	let mut world = World::start(config);
 
+	// Two coexisting active leaves require sibling forks of a common non-leaf ancestor —
+	// a linear chain of `.activate()` calls auto-deactivates the previous leaf. The
+	// shared candidate is rooted at `common` so it lives in both forks' implicit views.
+	let common = world
+		.new_block()
+		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
+		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
+		.register();
 	let leaf_a = world
-		.new_leaf()
+		.new_block()
+		.from_parent(common.hash)
 		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
 		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
 		.activate();
 	let leaf_b = world
-		.new_leaf()
+		.new_block()
+		.from_parent(common.hash)
 		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
 		.with_head_data(ParaId::from(2), HeadData(vec![4, 5, 6]))
 		.activate();
 
 	let (candidate_a, pvd_a) = make_candidate(
-		leaf_a.hash,
-		leaf_a.number,
+		common.hash,
+		common.number,
 		ParaId::from(1),
 		HeadData(vec![1, 2, 3]),
 		HeadData(vec![1]),
@@ -316,7 +333,7 @@ fn introduce_candidate_on_multiple_forks() {
 	let candidate_hash_a = candidate_a.hash();
 	let response_a = vec![BackableCandidateRef {
 		candidate_hash: candidate_hash_a,
-		scheduling_parent: leaf_a.hash,
+		scheduling_parent: common.hash,
 	}];
 
 	assert!(world.introduce_seconded_candidate(candidate_a.clone(), pvd_a));

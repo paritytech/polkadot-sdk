@@ -18,7 +18,7 @@
 //! scaffolding and adds prospective-specific fluent verbs (introduce / back / queries).
 //!
 //! Tests boot a `World` via [`World::start`], create leaves via the
-//! `HasBase`-provided `world.new_leaf().with_head_data(...).activate()` builder, then
+//! `HasBase`-provided `world.new_block().with_head_data(...).activate()` builder, then
 //! drive prospective-flavoured queries directly through this struct's inherent
 //! methods.
 
