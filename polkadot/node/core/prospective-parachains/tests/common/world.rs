@@ -84,7 +84,7 @@ impl HasBase for World {
 
 impl World {
 	/// Start a new world from a [`WorldConfig`]. No leaves active until
-	/// [`HasBase::new_leaf`] (`...activate()`) runs. Mid-test config / chain changes
+	/// [`HasBase::new_block`] (`...activate()`) runs. Mid-test config / chain changes
 	/// go through `world.base.chain.lock()` (e.g. `add_session`, `set_claim_queue_at`);
 	/// the [`WorldConfig`] copy on [`WorldBase::config`] stays frozen as the
 	/// activation defaults.

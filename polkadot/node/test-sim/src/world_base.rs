@@ -33,7 +33,7 @@
 //!     fn base_mut(&mut self) -> &mut WorldBase<Self::Sut> { &mut self.base }
 //! }
 //!
-//! // Tenant scenarios call `world.new_leaf().with_head_data(...).activate()` —
+//! // Tenant scenarios call `world.new_block().with_head_data(...).activate()` —
 //! // single fluent builder. Forks via `.from_parent(prev_leaf.hash)`.
 //! ```
 
@@ -134,7 +134,7 @@ impl Default for WorldConfig {
 /// the activated leaves, and the suite-wide [`WorldConfig`].
 ///
 /// Per-tenant `World` types compose this as a field and impl [`HasBase`] to gain the
-/// shared methods (`new_leaf`, `deactivate_leaf`, etc.) directly on `world.foo()`.
+/// shared methods (`new_block`, `deactivate_leaf`, `finalize`, etc.) directly on `world.foo()`.
 pub struct WorldBase<S: SubsystemUnderTest>
 where
 	AllMessages: From<<S::Message as AssociateOutgoing>::OutgoingMessages>,
@@ -163,7 +163,7 @@ where
 	/// configured genesis slot, session info (validators, groups, rotation), per-core
 	/// claim queue, runtime API version, and node features; installs the chain model +
 	/// a fallback `PanicResponder` as the simulation's responder graph; and spins up
-	/// the `Sim`. No leaves are active until [`HasBase::new_leaf`] is called.
+	/// the `Sim`. No leaves are active until [`HasBase::new_block`] is called.
 	pub fn start(config: WorldConfig) -> Self {
 		let chain = build_chain_model(&config);
 		let mut responder = LayeredResponder::new();
