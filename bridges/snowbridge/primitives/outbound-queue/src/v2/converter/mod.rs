@@ -135,7 +135,11 @@ where
 		);
 		ensure!(result.is_err(), SendError::NotApplicable);
 
-		let mut converter = XcmConverter::<ConvertAssetId, ()>::new(&message, expected_network);
+		let mut converter = XcmConverter::<ConvertAssetId, ()>::new(
+			&message,
+			expected_network,
+			AssetHubParaId::get(),
+		);
 		let message = converter.convert().map_err(|err| {
 			tracing::error!(target: TARGET, error=?err, "unroutable due to pattern matching.");
 			SendError::Unroutable

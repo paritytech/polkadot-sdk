@@ -5,14 +5,14 @@
 use codec::DecodeAll;
 use core::slice::Iter;
 use frame_support::{ensure, BoundedVec};
-use snowbridge_core::{AgentIdOf, TokenId, TokenIdOf};
+use snowbridge_core::{AgentIdOf, ParaId, TokenId, TokenIdOf};
 
 use crate::v2::{
 	message::{Command, Message},
 	ContractCall,
 };
+use crate::v2::converter::TARGET;
 
-use crate::v2::convert::XcmConverterError::{AssetResolutionFailed, FilterDoesNotConsumeAllAssets};
 use sp_core::H160;
 use sp_runtime::traits::MaybeConvert;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
@@ -60,16 +60,22 @@ macro_rules! match_expression {
 pub struct XcmConverter<'a, ConvertAssetId, Call> {
 	iter: Peekable<Iter<'a, Instruction<Call>>>,
 	ethereum_network: NetworkId,
+	asset_hub_para_id: ParaId,
 	_marker: PhantomData<ConvertAssetId>,
 }
 impl<'a, ConvertAssetId, Call> XcmConverter<'a, ConvertAssetId, Call>
 where
 	ConvertAssetId: MaybeConvert<TokenId, Location>,
 {
-	pub fn new(message: &'a Xcm<Call>, ethereum_network: NetworkId) -> Self {
+	pub fn new(
+		message: &'a Xcm<Call>,
+		ethereum_network: NetworkId,
+		asset_hub_para_id: ParaId,
+	) -> Self {
 		Self {
 			iter: message.inner().iter().peekable(),
 			ethereum_network,
+			asset_hub_para_id,
 			_marker: Default::default(),
 		}
 	}
@@ -245,7 +251,12 @@ where
 		// Check AliasOrigin.
 		let origin_location = match_expression!(self.next()?, AliasOrigin(origin), origin)
 			.ok_or(AliasOriginExpected)?;
+
+		let asset_hub_location = Location::new(1, [Parachain(self.asset_hub_para_id.into())]);
+		ensure!(origin_location != &asset_hub_location, InvalidOrigin);
+
 		let origin = AgentIdOf::convert_location(origin_location).ok_or(InvalidOrigin)?;
+		tracing::trace!(target: TARGET,"Origin resolved to {:?}", origin);
 
 		let (deposit_assets, beneficiary) = match_expression!(
 			self.next()?,
