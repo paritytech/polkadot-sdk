@@ -162,6 +162,12 @@ pub struct ChainModel {
 	finalized: Hash,
 	genesis: Hash,
 	tip: Hash,
+	/// Effective `RuntimeApiRequest` version reported by the model. Controls
+	/// `NotSupported` dispatch for newer APIs. Tests parameterising over runtime
+	/// versions (e.g. exercising both the `AncestorRelayParentInfo` path and the
+	/// chain-header fallback path) override this. Defaults to the highest version the
+	/// chain model implements end-to-end.
+	runtime_api_version: u32,
 }
 
 impl ChainModel {
@@ -200,7 +206,16 @@ impl ChainModel {
 			finalized: genesis_hash,
 			genesis: genesis_hash,
 			tip: genesis_hash,
+			runtime_api_version:
+				polkadot_node_subsystem::messages::RuntimeApiRequest::ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT,
 		}
+	}
+
+	/// Override the runtime API version reported. Lets a test exercise the
+	/// `NotSupported` fallback path for newer APIs (e.g.
+	/// `AncestorRelayParentInfo`).
+	pub fn set_runtime_api_version(&mut self, version: u32) {
+		self.runtime_api_version = version;
 	}
 
 	/// Genesis hash.
@@ -578,21 +593,35 @@ impl ChainModel {
 				let _ = tx.send(Ok(None));
 			},
 			RuntimeApiRequest::AncestorRelayParentInfo(_session, queried_relay_parent, tx) => {
-				// Return None if querying about self (a block isn't in its own
-				// `AllowedRelayParents`); otherwise return the queried block's RelayParentInfo
-				// when we know it. Other-session queries are disambiguated by the runtime;
-				// our chain model only has one session so we ignore the session arg.
-				let answer = if queried_relay_parent == parent {
-					None
+				// If the configured `runtime_api_version` is below the requirement, the
+				// real runtime would return `NotSupported`; mirror that so callers
+				// exercise the chain-header fallback path.
+				if self.runtime_api_version
+					< RuntimeApiRequest::ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT
+				{
+					let _ = tx.send(Err(
+						polkadot_node_subsystem::errors::RuntimeApiError::NotSupported {
+							runtime_api_name: "AncestorRelayParentInfo",
+						},
+					));
 				} else {
-					self.blocks.get(&queried_relay_parent).map(|info| {
-						polkadot_primitives::vstaging::RelayParentInfo {
-							number: info.number,
-							state_root: Hash::zero(),
-						}
-					})
-				};
-				let _ = tx.send(Ok(answer));
+					// Return None if querying about self (a block isn't in its own
+					// `AllowedRelayParents`); otherwise return the queried block's
+					// RelayParentInfo when we know it. Other-session queries are
+					// disambiguated by the runtime; our chain model only has one
+					// session so we ignore the session arg.
+					let answer = if queried_relay_parent == parent {
+						None
+					} else {
+						self.blocks.get(&queried_relay_parent).map(|info| {
+							polkadot_primitives::vstaging::RelayParentInfo {
+								number: info.number,
+								state_root: Hash::zero(),
+							}
+						})
+					};
+					let _ = tx.send(Ok(answer));
+				}
 			},
 			other => panic!(
 				"ChainModel does not implement RuntimeApiRequest::{:?} yet — extend the model when a subsystem starts asking for it",

@@ -118,10 +118,11 @@ pub struct LeafRef {
 /// Suite-wide world configuration consumed once at [`WorldBase::start`]. Holds the
 /// initial chain/runtime state every leaf activation reads from: session index applied
 /// to leaf-registered blocks, suite-wide claim queue installed as the global per-core
-/// schedule, validation-code hash baked into synthesised backing constraints, and the
-/// optional `min_relay_parent_number` override. Single source of truth — no duplicate
-/// passed on each `activate_leaf` call. Mid-test changes flow directly through
-/// [`crate::chain::ChainModel`] (`add_session`, `set_claim_queue_at`, etc.).
+/// schedule, validation-code hash baked into synthesised backing constraints, optional
+/// `min_relay_parent_number` override, and the runtime API version reported by the
+/// chain model. Single source of truth — no duplicate passed on each `activate_leaf`
+/// call. Mid-test changes flow directly through [`crate::chain::ChainModel`]
+/// (`add_session`, `set_claim_queue_at`, `set_runtime_api_version`, etc.).
 #[derive(Clone, Debug)]
 pub struct WorldConfig {
 	/// Session index applied to every block registered while activating leaves. Mid-test
@@ -138,6 +139,11 @@ pub struct WorldConfig {
 	/// Optional override for `min_relay_parent_number` in the synthesised backing
 	/// constraints. Defaults to `leaf.number - (scheduling_lookahead - 1)`.
 	pub min_relay_parent_number_override: Option<BlockNumber>,
+	/// Runtime API version reported by the chain model. Lets tests exercise the
+	/// `NotSupported` fallback path for APIs the configured runtime does not yet
+	/// implement (e.g. `AncestorRelayParentInfo`). Defaults to the highest version
+	/// the chain model implements end-to-end.
+	pub runtime_api_version: u32,
 }
 
 impl Default for WorldConfig {
@@ -147,6 +153,8 @@ impl Default for WorldConfig {
 			claim_queue: BTreeMap::new(),
 			validation_code_hash: dummy_validation_code().hash(),
 			min_relay_parent_number_override: None,
+			runtime_api_version:
+				polkadot_node_subsystem::messages::RuntimeApiRequest::ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT,
 		}
 	}
 }
@@ -210,6 +218,7 @@ where
 				chain.set_core_schedule(*core, CoreSchedule::cycling(cycle));
 			}
 		}
+		chain.set_runtime_api_version(config.runtime_api_version);
 		let chain = SharedChain::new(chain);
 
 		let mut responder = LayeredResponder::new();

@@ -100,53 +100,75 @@ fn introduce_v3_candidate_with_older_relay_parent() {
 	assert_eq!(world.base.leaves.len(), 1);
 }
 
+// Contract: `GetProspectiveValidationData` for a child of an older-RP candidate
+// returns the same PVD regardless of which underlying runtime API path resolved the
+// older relay-parent's block info — the modern `AncestorRelayParentInfo` runtime API
+// or the chain-header fallback for runtimes that don't support it. Pinning both
+// branches catches regressions where the dispatch logic diverges.
 #[test]
 fn get_pvd_for_candidate_with_older_relay_parent() {
-	let para_id = ParaId::from(1);
-	let mut config = default_world_config();
-	config.min_relay_parent_number_override = Some(OLDER_RELAY_PARENT_NUMBER);
-	let mut world = World::start(config);
+	use polkadot_node_subsystem::messages::RuntimeApiRequest;
 
-	let leaf_a = TestLeaf {
-		number: LEAF_NUMBER,
-		hash: Hash::from_low_u64_be(1 << 20),
-		para_data: vec![
-			(para_id, PerParaData::new(HeadData(vec![1, 2, 3]))),
-			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
-		],
-	};
-	world.activate_leaf(&leaf_a);
+	for runtime_api_version in [
+		// Pre-`AncestorRelayParentInfo`: forces the chain-header fallback path.
+		RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT,
+		// Has `AncestorRelayParentInfo`: exercises the runtime-API path.
+		RuntimeApiRequest::ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT,
+	] {
+		let para_id = ParaId::from(1);
+		let mut config = default_world_config();
+		config.min_relay_parent_number_override = Some(OLDER_RELAY_PARENT_NUMBER);
+		config.runtime_api_version = runtime_api_version;
+		let mut world = World::start(config);
 
-	let older_relay_parent = Hash::from_low_u64_be(9999);
-	{
-		let mut chain = world.base.chain.lock();
-		chain.register_block_with_session(
+		let leaf_a = TestLeaf {
+			number: LEAF_NUMBER,
+			hash: Hash::from_low_u64_be(1 << 20),
+			para_data: vec![
+				(para_id, PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
+			],
+		};
+		world.activate_leaf(&leaf_a);
+
+		let older_relay_parent = Hash::from_low_u64_be(9999);
+		{
+			let mut chain = world.base.chain.lock();
+			chain.register_block_with_session(
+				older_relay_parent,
+				Hash::zero(),
+				OLDER_RELAY_PARENT_NUMBER,
+				Some(world.session_index()),
+			);
+		}
+
+		let (candidate_a, pvd_a) = make_candidate_v3(
 			older_relay_parent,
-			Hash::zero(),
 			OLDER_RELAY_PARENT_NUMBER,
-			Some(world.session_index()),
+			leaf_a.hash,
+			para_id,
+			HeadData(vec![1, 2, 3]),
+			HeadData(vec![1]),
+			world.validation_code_hash(),
+		);
+		assert!(
+			world.introduce_seconded_candidate(candidate_a, pvd_a),
+			"introduce must succeed at runtime_api_version = {}",
+			runtime_api_version
+		);
+
+		let pvd =
+			world.get_pvd(para_id, older_relay_parent, HeadData(vec![1]), world.session_index());
+		assert_eq!(
+			pvd,
+			Some(PersistedValidationData {
+				parent_head: HeadData(vec![1]),
+				relay_parent_number: OLDER_RELAY_PARENT_NUMBER,
+				relay_parent_storage_root: Hash::zero(),
+				max_pov_size: MAX_POV_SIZE,
+			}),
+			"PVD must match across runtime API versions (got mismatch at version {})",
+			runtime_api_version,
 		);
 	}
-
-	let (candidate_a, pvd_a) = make_candidate_v3(
-		older_relay_parent,
-		OLDER_RELAY_PARENT_NUMBER,
-		leaf_a.hash,
-		para_id,
-		HeadData(vec![1, 2, 3]),
-		HeadData(vec![1]),
-		world.validation_code_hash(),
-	);
-	assert!(world.introduce_seconded_candidate(candidate_a, pvd_a));
-
-	let pvd = world.get_pvd(para_id, older_relay_parent, HeadData(vec![1]), world.session_index());
-	assert_eq!(
-		pvd,
-		Some(PersistedValidationData {
-			parent_head: HeadData(vec![1]),
-			relay_parent_number: OLDER_RELAY_PARENT_NUMBER,
-			relay_parent_storage_root: Hash::zero(),
-			max_pov_size: MAX_POV_SIZE,
-		}),
-	);
 }
