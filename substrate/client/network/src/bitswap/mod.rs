@@ -553,6 +553,87 @@ mod tests {
 		}
 	}
 
+	#[tokio::test]
+	async fn transaction_not_found_sends_dont_have_when_requested() {
+		let client = TestClientBuilder::with_tx_storage(u32::MAX).build();
+		let (mut bitswap, _config) = BitswapRequestHandler::new(Arc::new(client));
+		let cid = cid::Cid::new_v1(
+			0x70,
+			cid::multihash::Multihash::wrap(u64::from(Code::Blake2b256), &[0u8; 32]).unwrap(),
+		);
+		let request = BitswapMessage {
+			wantlist: Some(Wantlist {
+				entries: vec![Entry {
+					block: cid.to_bytes(),
+					send_dont_have: true,
+					..Default::default()
+				}],
+				full: false,
+			}),
+			..Default::default()
+		}
+		.encode_to_vec();
+
+		let response = BitswapMessage::decode(
+			bitswap.handle_message(&PeerId::random(), &request).unwrap().as_slice(),
+		)
+		.unwrap();
+
+		assert!(response.payload.is_empty());
+		assert_eq!(response.block_presences.len(), 1);
+		assert_eq!(response.block_presences[0].cid, cid.to_bytes());
+		assert_eq!(response.block_presences[0].r#type, BlockPresenceType::DontHave as i32);
+	}
+
+	#[tokio::test]
+	async fn transaction_found_sends_have_for_want_have() {
+		let client = TestClientBuilder::with_tx_storage(u32::MAX).build();
+		let mut block_builder = BlockBuilderBuilder::new(&client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(0)
+			.build()
+			.unwrap();
+
+		let ext = ExtrinsicBuilder::new_indexed_call(vec![0x13, 0x37, 0x13, 0x38]).build();
+		let pattern_index = ext.encoded_size() - 4;
+		let cid = cid::Cid::new_v1(
+			0x70,
+			cid::multihash::Multihash::wrap(
+				u64::from(Code::Blake2b256),
+				&sp_crypto_hashing::blake2_256(&ext.encode()[pattern_index..]),
+			)
+			.unwrap(),
+		);
+
+		block_builder.push(ext).unwrap();
+		let block = block_builder.build().unwrap().block;
+		client.import(BlockOrigin::File, block).await.unwrap();
+
+		let (mut bitswap, _config) = BitswapRequestHandler::new(Arc::new(client));
+		let request = BitswapMessage {
+			wantlist: Some(Wantlist {
+				entries: vec![Entry {
+					block: cid.to_bytes(),
+					want_type: WantType::Have as i32,
+					..Default::default()
+				}],
+				full: false,
+			}),
+			..Default::default()
+		}
+		.encode_to_vec();
+
+		let response = BitswapMessage::decode(
+			bitswap.handle_message(&PeerId::random(), &request).unwrap().as_slice(),
+		)
+		.unwrap();
+
+		assert!(response.payload.is_empty());
+		assert_eq!(response.block_presences.len(), 1);
+		assert_eq!(response.block_presences[0].cid, cid.to_bytes());
+		assert_eq!(response.block_presences[0].r#type, BlockPresenceType::Have as i32);
+	}
+
 	#[test]
 	fn is_cid_supported_accepts_all_three_supported_hashings() {
 		use cid::multihash::Multihash;
