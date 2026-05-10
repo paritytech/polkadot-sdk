@@ -42,7 +42,16 @@ use sp_runtime::traits::Block as BlockT;
 use std::{io, sync::Arc, time::Duration};
 use unsigned_varint::encode as varint_encode;
 
-mod schema;
+/// Bitswap client.
+pub mod client;
+pub(crate) mod schema;
+
+pub use client::{
+	fetch_many, fetch_many_unverified, BitswapError, BitswapRequestSender, FetchOutcome,
+	MAX_WANTED_BLOCKS_PER_REQUEST,
+};
+
+pub(crate) use schema::bitswap::Message as BitswapProtoMessage;
 
 const LOG_TARGET: &str = "bitswap";
 
@@ -59,16 +68,21 @@ const MAX_REQUEST_QUEUE: usize = 20;
 const MAX_WANTED_BLOCKS: usize = 16;
 
 /// Bitswap protocol name
-const PROTOCOL_NAME: &'static str = "/ipfs/bitswap/1.2.0";
+pub(crate) const PROTOCOL_NAME: &'static str = "/ipfs/bitswap/1.2.0";
 
-/// Check if a CID is supported by the bitswap protocol.
+/// Check if a CID is supported by the bitswap protocol — CIDv1, 32-byte digest, with a
+/// multihash code that maps to a supported [`HashingAlgorithm`] (Blake2b-256, SHA2-256, or
+/// Keccak-256).
 pub fn is_cid_supported(cid: &Cid) -> bool {
-	cid.version() != CidVersion::V0 && cid.hash().size() == 32
+	cid.version() != CidVersion::V0 &&
+		cid.hash().size() == 32 &&
+		sp_transaction_storage_proof::HashingAlgorithm::from_multihash_code(cid.hash().code())
+			.is_some()
 }
 
 /// Prefix represents all metadata of a CID, without the actual content.
 #[derive(PartialEq, Eq, Clone, Debug)]
-struct Prefix {
+pub(crate) struct Prefix {
 	/// The version of CID.
 	pub version: CidVersion,
 	/// The codec of CID.
@@ -81,7 +95,7 @@ struct Prefix {
 
 impl Prefix {
 	/// Convert the prefix to encoded bytes.
-	pub fn to_bytes(&self) -> Vec<u8> {
+	pub(crate) fn to_bytes(&self) -> Vec<u8> {
 		let mut res = Vec::with_capacity(4);
 		let mut buf = varint_encode::u64_buffer();
 		let version = varint_encode::u64(self.version.into(), &mut buf);
@@ -142,7 +156,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 						Err(_) => debug!(
 							target: LOG_TARGET,
 							"Failed to handle light client request from {peer}: {}",
-							BitswapError::SendResponse,
+							RequestHandlerError::SendResponse,
 						),
 					}
 				},
@@ -161,7 +175,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 						debug!(
 							target: LOG_TARGET,
 							"Failed to handle bitswap request from {peer}: {}",
-							BitswapError::SendResponse,
+							RequestHandlerError::SendResponse,
 						);
 					}
 				},
@@ -174,7 +188,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 		&mut self,
 		peer: &PeerId,
 		payload: &Vec<u8>,
-	) -> Result<Vec<u8>, BitswapError> {
+	) -> Result<Vec<u8>, RequestHandlerError> {
 		let request = schema::bitswap::Message::decode(&payload[..])?;
 
 		trace!(target: LOG_TARGET, "Received request: {:?} from {}", request, peer);
@@ -185,13 +199,13 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 			Some(wantlist) => wantlist,
 			None => {
 				debug!(target: LOG_TARGET, "Unexpected bitswap message from {}", peer);
-				return Err(BitswapError::InvalidWantList);
+				return Err(RequestHandlerError::InvalidWantList);
 			},
 		};
 
 		if wantlist.entries.len() > MAX_WANTED_BLOCKS {
 			trace!(target: LOG_TARGET, "Ignored request: too many entries");
-			return Err(BitswapError::TooManyEntries);
+			return Err(RequestHandlerError::TooManyEntries);
 		}
 
 		for entry in wantlist.entries {
@@ -258,7 +272,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 
 /// Bitswap protocol error.
 #[derive(Debug, thiserror::Error)]
-pub enum BitswapError {
+enum RequestHandlerError {
 	/// Protobuf decoding error.
 	#[error("Failed to decode request: {0}.")]
 	DecodeProto(#[from] prost::DecodeError),
@@ -534,5 +548,31 @@ mod tests {
 		} else {
 			panic!("invalid event received");
 		}
+	}
+
+	#[test]
+	fn is_cid_supported_accepts_all_three_supported_hashings() {
+		use cid::multihash::Multihash;
+		const RAW_CODEC: u64 = 0x55;
+		for algo in [
+			sp_transaction_storage_proof::HashingAlgorithm::Blake2b256,
+			sp_transaction_storage_proof::HashingAlgorithm::Sha2_256,
+			sp_transaction_storage_proof::HashingAlgorithm::Keccak256,
+		] {
+			let digest = [9u8; 32];
+			let mh = Multihash::<64>::wrap(algo.multihash_code(), &digest).unwrap();
+			let cid = Cid::new_v1(RAW_CODEC, mh);
+			assert!(is_cid_supported(&cid), "{algo:?} CID should be supported");
+		}
+	}
+
+	#[test]
+	fn is_cid_supported_rejects_unknown_multihash_code() {
+		use cid::multihash::Multihash;
+		const RAW_CODEC: u64 = 0x55;
+		let digest = [9u8; 32];
+		let mh = Multihash::<64>::wrap(0x99, &digest).unwrap();
+		let cid = Cid::new_v1(RAW_CODEC, mh);
+		assert!(!is_cid_supported(&cid));
 	}
 }
