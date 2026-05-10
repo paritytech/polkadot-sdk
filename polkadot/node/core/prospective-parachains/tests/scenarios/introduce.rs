@@ -17,15 +17,9 @@
 //! `IntroduceSecondedCandidate` accept/reject behaviour, idempotence, and visibility
 //! across multiple leaves / sibling forks.
 
-use crate::common::world::{
-	default_world_config, get_parent_hash, PerParaData, TestLeaf, World, WorldExt as _,
-};
+use crate::common::world::{default_world_config, World, WorldExt as _};
 use polkadot_node_subsystem::messages::{Ancestors, BackableCandidateRef};
-use polkadot_primitives::{
-	CoreIndex, HeadData,
-	Hash, Id as ParaId,
-	DEFAULT_SCHEDULING_LOOKAHEAD,
-};
+use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId, DEFAULT_SCHEDULING_LOOKAHEAD};
 use polkadot_primitives_test_helpers::make_candidate;
 use std::collections::{BTreeMap, VecDeque};
 
@@ -41,34 +35,21 @@ fn introduce_candidates_basic() {
 
 	let mut world = World::start(config);
 
-	let leaf_a = TestLeaf {
-		number: 100,
-		hash: Hash::from_low_u64_be(1 << 20),
-		para_data: vec![
-			(chain_a, PerParaData::new(HeadData(vec![1, 2, 3]))),
-			(chain_b, PerParaData::new(HeadData(vec![2, 3, 4]))),
-		],
-	};
-	let leaf_b = TestLeaf {
-		number: 101,
-		hash: Hash::from_low_u64_be(2 << 20),
-		para_data: vec![
-			(chain_a, PerParaData::new(HeadData(vec![3, 4, 5]))),
-			(chain_b, PerParaData::new(HeadData(vec![4, 5, 6]))),
-		],
-	};
-	let leaf_c = TestLeaf {
-		number: 102,
-		hash: Hash::from_low_u64_be(3 << 20),
-		para_data: vec![
-			(chain_a, PerParaData::new(HeadData(vec![5, 6, 7]))),
-			(chain_b, PerParaData::new(HeadData(vec![6, 7, 8]))),
-		],
-	};
-
-	world.activate_leaf(&leaf_a);
-	world.activate_leaf(&leaf_b);
-	world.activate_leaf(&leaf_c);
+	let leaf_a = world
+		.new_leaf()
+		.with_head_data(chain_a, HeadData(vec![1, 2, 3]))
+		.with_head_data(chain_b, HeadData(vec![2, 3, 4]))
+		.activate();
+	let leaf_b = world
+		.new_leaf()
+		.with_head_data(chain_a, HeadData(vec![3, 4, 5]))
+		.with_head_data(chain_b, HeadData(vec![4, 5, 6]))
+		.activate();
+	let leaf_c = world
+		.new_leaf()
+		.with_head_data(chain_a, HeadData(vec![5, 6, 7]))
+		.with_head_data(chain_b, HeadData(vec![6, 7, 8]))
+		.activate();
 
 	let (candidate_a1, pvd_a1) = make_candidate(
 		leaf_a.hash,
@@ -182,16 +163,11 @@ fn introduce_candidates_error() {
 
 	let mut world = World::start(config);
 
-	let leaf_a = TestLeaf {
-		number: 100,
-		hash: Hash::from_low_u64_be(1 << 20),
-		para_data: vec![
-			(ParaId::from(1), PerParaData::new(HeadData(vec![1, 2, 3]))),
-			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
-		],
-	};
-
-	world.activate_leaf(&leaf_a);
+	let leaf_a = world
+		.new_leaf()
+		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
+		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
+		.activate();
 
 	// Candidate A: directly buildable from `[1,2,3]` (the leaf's required_parent).
 	let (candidate_a, pvd_a) = make_candidate(
@@ -271,15 +247,11 @@ fn introduce_candidate_multiple_times() {
 	let config = default_world_config();
 	let mut world = World::start(config);
 
-	let leaf_a = TestLeaf {
-		number: 100,
-		hash: Hash::from_low_u64_be(1 << 20),
-		para_data: vec![
-			(ParaId::from(1), PerParaData::new(HeadData(vec![1, 2, 3]))),
-			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
-		],
-	};
-	world.activate_leaf(&leaf_a);
+	let leaf_a = world
+		.new_leaf()
+		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
+		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
+		.activate();
 
 	let (candidate_a, pvd_a) = make_candidate(
 		leaf_a.hash,
@@ -322,26 +294,16 @@ fn introduce_candidate_on_multiple_forks() {
 	let config = default_world_config();
 	let mut world = World::start(config);
 
-	let leaf_b_hash = Hash::from_low_u64_be(1 << 20);
-	let leaf_b = TestLeaf {
-		number: 101,
-		hash: leaf_b_hash,
-		para_data: vec![
-			(ParaId::from(1), PerParaData::new(HeadData(vec![1, 2, 3]))),
-			(ParaId::from(2), PerParaData::new(HeadData(vec![4, 5, 6]))),
-		],
-	};
-	let leaf_a = TestLeaf {
-		number: 100,
-		hash: get_parent_hash(leaf_b_hash),
-		para_data: vec![
-			(ParaId::from(1), PerParaData::new(HeadData(vec![1, 2, 3]))),
-			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
-		],
-	};
-
-	world.activate_leaf(&leaf_a);
-	world.activate_leaf(&leaf_b);
+	let leaf_a = world
+		.new_leaf()
+		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
+		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
+		.activate();
+	let leaf_b = world
+		.new_leaf()
+		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
+		.with_head_data(ParaId::from(2), HeadData(vec![4, 5, 6]))
+		.activate();
 
 	let (candidate_a, pvd_a) = make_candidate(
 		leaf_a.hash,

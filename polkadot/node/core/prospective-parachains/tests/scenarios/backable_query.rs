@@ -17,13 +17,10 @@
 //! What `GetBackableCandidates` returns under various fragment-chain shapes,
 //! ancestor sets, counts, and view shifts (parent leaving view).
 
-use crate::common::world::{
-	default_world_config, PerParaData, TestLeaf, World, WorldExt as _,
-};
+use crate::common::world::{default_world_config, World, WorldExt as _};
 use polkadot_node_subsystem::messages::{Ancestors, BackableCandidateRef};
 use polkadot_primitives::{
-	CandidateHash, CoreIndex, HeadData,
-	Hash, Id as ParaId, MutateDescriptorV2,
+	CandidateHash, CoreIndex, HeadData, Hash, Id as ParaId, MutateDescriptorV2,
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use polkadot_primitives_test_helpers::make_candidate;
@@ -39,15 +36,11 @@ fn check_backable_query_single_candidate() {
 	);
 	let mut world = World::start(config);
 
-	let leaf_a = TestLeaf {
-		number: 100,
-		hash: Hash::from_low_u64_be(1 << 20),
-		para_data: vec![
-			(ParaId::from(1), PerParaData::new(HeadData(vec![1, 2, 3]))),
-			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
-		],
-	};
-	world.activate_leaf(&leaf_a);
+	let leaf_a = world
+		.new_leaf()
+		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
+		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
+		.activate();
 
 	let (candidate_a, pvd_a) = make_candidate(
 		leaf_a.hash,
@@ -153,15 +146,11 @@ fn check_backable_query_multiple_candidates() {
 	}
 	let mut world = World::start(config);
 
-	let leaf_a = TestLeaf {
-		number: 100,
-		hash: Hash::from_low_u64_be(1 << 20),
-		para_data: vec![
-			(ParaId::from(1), PerParaData::new(HeadData(vec![1, 2, 3]))),
-			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
-		],
-	};
-	world.activate_leaf(&leaf_a);
+	let leaf_a = world
+		.new_leaf()
+		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
+		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
+		.activate();
 
 	let (candidate_a, pvd_a) = make_candidate(
 		leaf_a.hash,
@@ -450,15 +439,11 @@ fn fragment_chain_chain_length_is_bounded() {
 	);
 	let mut world = World::start(config);
 
-	let leaf_a = TestLeaf {
-		number: 100,
-		hash: Hash::from_low_u64_be(1 << 20),
-		para_data: vec![
-			(ParaId::from(1), PerParaData::new(HeadData(vec![1, 2, 3]))),
-			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
-		],
-	};
-	world.activate_leaf(&leaf_a);
+	let leaf_a = world
+		.new_leaf()
+		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
+		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
+		.activate();
 
 	// A, B, C form a chain.
 	let (candidate_a, pvd_a) = make_candidate(
@@ -541,15 +526,11 @@ fn unconnected_candidates_become_connected() {
 	}
 	let mut world = World::start(config);
 
-	let leaf_a = TestLeaf {
-		number: 100,
-		hash: Hash::from_low_u64_be(1 << 20),
-		para_data: vec![
-			(ParaId::from(1), PerParaData::new(HeadData(vec![1, 2, 3]))),
-			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
-		],
-	};
-	world.activate_leaf(&leaf_a);
+	let leaf_a = world
+		.new_leaf()
+		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
+		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
+		.activate();
 
 	let (candidate_a, pvd_a) = make_candidate(
 		leaf_a.hash,
@@ -635,34 +616,21 @@ fn introduce_candidate_parent_leaving_view() {
 	let config = default_world_config();
 	let mut world = World::start(config);
 
-	let leaf_a = TestLeaf {
-		number: 100,
-		hash: Hash::from_low_u64_be(1 << 20),
-		para_data: vec![
-			(ParaId::from(1), PerParaData::new(HeadData(vec![1, 2, 3]))),
-			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
-		],
-	};
-	let leaf_b = TestLeaf {
-		number: 101,
-		hash: Hash::from_low_u64_be(2 << 20),
-		para_data: vec![
-			(ParaId::from(1), PerParaData::new(HeadData(vec![3, 4, 5]))),
-			(ParaId::from(2), PerParaData::new(HeadData(vec![4, 5, 6]))),
-		],
-	};
-	let leaf_c = TestLeaf {
-		number: 102,
-		hash: Hash::from_low_u64_be(3 << 20),
-		para_data: vec![
-			(ParaId::from(1), PerParaData::new(HeadData(vec![5, 6, 7]))),
-			(ParaId::from(2), PerParaData::new(HeadData(vec![6, 7, 8]))),
-		],
-	};
-
-	world.activate_leaf(&leaf_a);
-	world.activate_leaf(&leaf_b);
-	world.activate_leaf(&leaf_c);
+	let leaf_a = world
+		.new_leaf()
+		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
+		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
+		.activate();
+	let leaf_b = world
+		.new_leaf()
+		.with_head_data(ParaId::from(1), HeadData(vec![3, 4, 5]))
+		.with_head_data(ParaId::from(2), HeadData(vec![4, 5, 6]))
+		.activate();
+	let leaf_c = world
+		.new_leaf()
+		.with_head_data(ParaId::from(1), HeadData(vec![5, 6, 7]))
+		.with_head_data(ParaId::from(2), HeadData(vec![6, 7, 8]))
+		.activate();
 
 	let (candidate_a1, pvd_a1) = make_candidate(
 		leaf_a.hash,

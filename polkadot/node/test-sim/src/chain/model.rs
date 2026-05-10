@@ -302,6 +302,16 @@ impl ChainModel {
 		self.sessions.insert(session_index, info);
 	}
 
+	/// Update the session index recorded for an already-registered block. Used by
+	/// `WorldBase::start` to align the genesis block with the configured world session
+	/// so subsequent `extend(...)` calls inherit the test-suite session, not the
+	/// hardcoded genesis-default 0.
+	pub fn set_block_session(&mut self, hash: Hash, session: SessionIndex) {
+		if let Some(info) = self.blocks.get_mut(&hash) {
+			info.session_index = session;
+		}
+	}
+
 	/// Install a per-core schedule. The claim queue at any block is derived from this
 	/// schedule at the block's number unless [`Self::set_claim_queue_at`] sets an explicit
 	/// override.

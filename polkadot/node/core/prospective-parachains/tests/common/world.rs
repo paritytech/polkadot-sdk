@@ -17,10 +17,10 @@
 //! Prospective-parachains-flavoured `World`. Composes [`WorldBase`] for shared
 //! scaffolding and adds prospective-specific fluent verbs (introduce / back / queries).
 //!
-//! Tests boot a `World` via [`World::start`], populate it via the `HasBase`-provided
-//! `activate_leaf` / `activate_leaf_with_parent_hash_fn` / `signal_active_leaves` /
-//! `register_leaf_in_chain` methods, then drive prospective-flavoured queries directly
-//! through this struct's inherent methods.
+//! Tests boot a `World` via [`World::start`], create leaves via the
+//! `HasBase`-provided `world.new_leaf().with_head_data(...).activate()` builder, then
+//! drive prospective-flavoured queries directly through this struct's inherent
+//! methods.
 
 use super::ProspectiveParachains;
 use futures::channel::oneshot;
@@ -35,21 +35,16 @@ use polkadot_primitives::{
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use polkadot_primitives_test_helpers::make_candidate;
-use polkadot_subsystem_test_sim::world_base::{HasBase, WorldBase, WorldConfig};
+use polkadot_subsystem_test_sim::world_base::{HasBase, LeafRef, WorldBase, WorldConfig};
 
-// Re-export `HasBase` so tests' `use ...world::HasBase` brings trait methods
-// (`sim_mut`, `chain`, `leaves`, `signal_active_leaves`, `deactivate_leaf`,
-// `validation_code_hash`, `session_index`, `min_relay_parent_number_override`) into scope.
+// Re-export `HasBase` so tests' `use ...world::WorldExt` brings trait methods
+// (`new_leaf`, `signal_active_leaves`, `deactivate_leaf`, `validation_code_hash`,
+// `session_index`, `min_relay_parent_number_override`) into scope.
 pub use polkadot_subsystem_test_sim::world_base::HasBase as WorldExt;
 use std::{collections::BTreeMap, sync::Arc};
 
-// Re-exports so existing tests' `use ...world::{TestLeaf, PerParaData, get_parent_hash}`
-// paths keep resolving. `TestLeaf` and `TestLeafRef` aliases preserve the in-crate
-// prospective tests' naming.
-pub use polkadot_subsystem_test_sim::world_base::{
-	default_parent_hash as get_parent_hash, LeafConfig as TestLeaf,
-	PerParaData,
-};
+/// Convenience alias preserving the in-crate prospective tests' `TestLeaf` naming.
+pub type TestLeaf = LeafRef;
 
 /// Suite-wide default [`WorldConfig`] for prospective scenarios — populates the standard
 /// two-para claim queue (`chain_a` on core 0, `chain_b` on core 1, depth =
@@ -91,10 +86,10 @@ impl HasBase for World {
 
 impl World {
 	/// Start a new world from a [`WorldConfig`]. No leaves active until
-	/// [`HasBase::activate_leaf`] (or a sibling) is called. Mid-test config / chain
-	/// changes go through `world.base.chain.lock()` (e.g. `add_session`,
-	/// `set_claim_queue_at`); the [`WorldConfig`] copy on [`WorldBase::config`] stays
-	/// frozen as the activation defaults.
+	/// [`HasBase::new_leaf`] (`...activate()`) runs. Mid-test config / chain changes
+	/// go through `world.base.chain.lock()` (e.g. `add_session`, `set_claim_queue_at`);
+	/// the [`WorldConfig`] copy on [`WorldBase::config`] stays frozen as the
+	/// activation defaults.
 	pub fn start(config: WorldConfig) -> Self {
 		Self { base: WorldBase::<ProspectiveParachains>::start(config) }
 	}

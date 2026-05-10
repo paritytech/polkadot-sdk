@@ -16,13 +16,8 @@
 
 //! Read-only queries: `GetHypotheticalMembership` and `GetProspectiveValidationData`.
 
-use crate::common::world::{
-	default_world_config, get_parent_hash, PerParaData, TestLeaf, World, WorldExt as _,
-};
-use polkadot_primitives::{
-	HeadData,
-	Hash, Id as ParaId,
-};
+use crate::common::world::{default_world_config, World, WorldExt as _};
+use polkadot_primitives::{HeadData, Hash, Id as ParaId};
 use polkadot_primitives_test_helpers::make_candidate;
 use std::collections::HashSet;
 
@@ -31,26 +26,16 @@ fn check_hypothetical_membership_query() {
 	let config = default_world_config();
 	let mut world = World::start(config);
 
-	let leaf_b_hash = Hash::from_low_u64_be(1 << 20);
-	let leaf_b = TestLeaf {
-		number: 101,
-		hash: leaf_b_hash,
-		para_data: vec![
-			(ParaId::from(1), PerParaData::new(HeadData(vec![1, 2, 3]))),
-			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
-		],
-	};
-	let leaf_a = TestLeaf {
-		number: 100,
-		hash: get_parent_hash(leaf_b_hash),
-		para_data: vec![
-			(ParaId::from(1), PerParaData::new(HeadData(vec![1, 2, 3]))),
-			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
-		],
-	};
-
-	world.activate_leaf(&leaf_a);
-	world.activate_leaf(&leaf_b);
+	let leaf_a = world
+		.new_leaf()
+		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
+		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
+		.activate();
+	let leaf_b = world
+		.new_leaf()
+		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
+		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
+		.activate();
 
 	let (candidate_a, pvd_a) = make_candidate(
 		leaf_a.hash,
@@ -162,15 +147,11 @@ fn check_pvd_query() {
 	let config = default_world_config();
 	let mut world = World::start(config);
 
-	let leaf_a = TestLeaf {
-		number: 100,
-		hash: Hash::from_low_u64_be(1 << 20),
-		para_data: vec![
-			(ParaId::from(1), PerParaData::new(HeadData(vec![1, 2, 3]))),
-			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
-		],
-	};
-	world.activate_leaf(&leaf_a);
+	let leaf_a = world
+		.new_leaf()
+		.with_head_data(ParaId::from(1), HeadData(vec![1, 2, 3]))
+		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
+		.activate();
 
 	let (candidate_a, pvd_a) = make_candidate(
 		leaf_a.hash,

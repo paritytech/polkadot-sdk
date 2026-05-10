@@ -16,13 +16,10 @@
 
 //! V3 candidates whose `relay_parent` is older than the scheduling lookahead.
 
-use crate::common::world::{
-	default_world_config, PerParaData, TestLeaf, World, WorldExt as _,
-};
+use crate::common::world::{default_world_config, World, WorldExt as _};
 use polkadot_node_subsystem::messages::{Ancestors, BackableCandidateRef};
 use polkadot_primitives::{
-	BlockNumber, HeadData,
-	Hash, Id as ParaId, PersistedValidationData,
+	BlockNumber, HeadData, Hash, Id as ParaId, PersistedValidationData,
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use polkadot_primitives_test_helpers::make_candidate_v3;
@@ -41,15 +38,11 @@ fn introduce_v3_candidate_with_older_relay_parent() {
 	config.min_relay_parent_number_override = Some(OLDER_RELAY_PARENT_NUMBER);
 	let mut world = World::start(config);
 
-	let leaf_a = TestLeaf {
-		number: LEAF_NUMBER,
-		hash: Hash::from_low_u64_be(1 << 20),
-		para_data: vec![
-			(para_id, PerParaData::new(HeadData(vec![1, 2, 3]))),
-			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
-		],
-	};
-	world.activate_leaf(&leaf_a);
+	let leaf_a = world
+		.new_leaf()
+		.with_head_data(para_id, HeadData(vec![1, 2, 3]))
+		.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
+		.activate();
 
 	// Older relay parent: register it in the chain so prospective's
 	// AncestorRelayParentInfo / SessionIndexForChild lookups resolve.
@@ -121,15 +114,11 @@ fn get_pvd_for_candidate_with_older_relay_parent() {
 		config.runtime_api_version = runtime_api_version;
 		let mut world = World::start(config);
 
-		let leaf_a = TestLeaf {
-			number: LEAF_NUMBER,
-			hash: Hash::from_low_u64_be(1 << 20),
-			para_data: vec![
-				(para_id, PerParaData::new(HeadData(vec![1, 2, 3]))),
-				(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
-			],
-		};
-		world.activate_leaf(&leaf_a);
+		let leaf_a = world
+			.new_leaf()
+			.with_head_data(para_id, HeadData(vec![1, 2, 3]))
+			.with_head_data(ParaId::from(2), HeadData(vec![2, 3, 4]))
+			.activate();
 
 		let older_relay_parent = Hash::from_low_u64_be(9999);
 		{
