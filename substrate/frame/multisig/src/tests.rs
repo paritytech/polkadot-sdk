@@ -1430,3 +1430,121 @@ fn poke_deposit_handles_insufficient_balance() {
 		);
 	});
 }
+
+#[cfg(feature = "try-runtime")]
+mod migration_v1_to_v2_tests {
+	use super::*;
+	use crate::migrations::v2::LazyMigrationV1ToV2;
+	use frame::deps::frame_support::{
+		migrations::SteppedMigration,
+		traits::ReservableCurrency,
+		weights::WeightMeter,
+	};
+
+	type Migration = LazyMigrationV1ToV2<Test, Balances>;
+
+	fn insert_multisig_entry(multisig: u64, depositor: u64, deposit: u64, salt: u8) {
+		let call_hash = [salt; 32];
+		// `Multisig` in this scope is the runtime alias from `construct_runtime!`;
+		// the data struct lives at `crate::Multisig`.
+		let entry = crate::Multisig::<u32, u64, u64, ConstU32<3>> {
+			when: Timepoint { height: 1, index: 0 },
+			deposit,
+			depositor,
+			approvals: Default::default(),
+		};
+		Multisigs::<Test>::insert(multisig, call_hash, entry);
+	}
+
+	fn run_migration_to_completion() {
+		let mut cursor = None;
+		let mut meter = WeightMeter::new();
+		// One step is enough with an unbounded meter, but loop defensively in case
+		// the implementation ever changes.
+		for _ in 0..16 {
+			match Migration::step(cursor, &mut meter).expect("step succeeds") {
+				Some(c) => cursor = Some(c),
+				None => return,
+			}
+		}
+		panic!("migration did not converge");
+	}
+
+	#[test]
+	fn full_reserve_migrates_and_post_upgrade_passes() {
+		new_test_ext().execute_with(|| {
+			// Account 1 has free balance 10. Reserve exactly the recorded deposit.
+			let depositor = 1u64;
+			let deposit = 5u64;
+			assert_ok!(<Balances as ReservableCurrency<_>>::reserve(&depositor, deposit));
+
+			let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
+			insert_multisig_entry(multi, depositor, deposit, 0xAA);
+
+			let pre_state = Migration::pre_upgrade().expect("pre_upgrade ok");
+			run_migration_to_completion();
+
+			// The full deposit ended up in a typed hold under MultisigOperation.
+			assert_eq!(
+				Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &depositor),
+				deposit,
+			);
+			Migration::post_upgrade(pre_state).expect("post_upgrade ok");
+		});
+	}
+
+	#[test]
+	fn partial_reserve_does_not_panic_post_upgrade() {
+		// Regression for "Hold amount insufficient for depositor": when a
+		// depositor's reserved balance is smaller than the recorded deposit
+		// (e.g. account reaped or reserves slashed since deposit creation),
+		// the migration holds only what `unreserve` actually freed and the
+		// post-upgrade check must tolerate that under-migration.
+		new_test_ext().execute_with(|| {
+			let depositor = 1u64;
+			let actual_reserved = 3u64;
+			let recorded_deposit = 8u64;
+			assert!(actual_reserved < recorded_deposit);
+
+			assert_ok!(<Balances as ReservableCurrency<_>>::reserve(&depositor, actual_reserved));
+
+			let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
+			insert_multisig_entry(multi, depositor, recorded_deposit, 0xBB);
+
+			let pre_state = Migration::pre_upgrade().expect("pre_upgrade ok");
+			run_migration_to_completion();
+
+			// The hold equals what was actually reserved, not the recorded deposit.
+			assert_eq!(
+				Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &depositor),
+				actual_reserved,
+			);
+			// Pre-fix this would panic with "Hold amount insufficient for depositor".
+			Migration::post_upgrade(pre_state).expect("post_upgrade tolerates partial migration");
+		});
+	}
+
+	#[test]
+	fn multiple_entries_per_depositor_aggregate() {
+		new_test_ext().execute_with(|| {
+			let depositor = 1u64;
+			let deposit_per_entry = 3u64;
+			let total = deposit_per_entry * 2;
+			assert_ok!(<Balances as ReservableCurrency<_>>::reserve(&depositor, total));
+
+			let multi_a = Multisig::multi_account_id(&[1, 2, 3][..], 2);
+			let multi_b = Multisig::multi_account_id(&[1, 2, 3][..], 3);
+			insert_multisig_entry(multi_a, depositor, deposit_per_entry, 0x01);
+			insert_multisig_entry(multi_b, depositor, deposit_per_entry, 0x02);
+
+			let pre_state = Migration::pre_upgrade().expect("pre_upgrade ok");
+			run_migration_to_completion();
+
+			assert_eq!(
+				Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &depositor),
+				total,
+			);
+			Migration::post_upgrade(pre_state).expect("post_upgrade ok");
+		});
+	}
+}

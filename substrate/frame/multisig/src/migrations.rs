@@ -154,17 +154,27 @@ pub mod v2 {
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			use codec::Encode;
 
-			// Collect all depositors and their total deposits
-			let mut depositor_totals: BTreeMap<Vec<u8>, BalanceOf<T>> = BTreeMap::new();
+			// Per depositor, record the sum of recorded deposits and the reserved
+			// balance observed at pre-migration time. The migration can hold at most
+			// `min(sum_deposits, reserved_at_pre)` because `unreserve` only frees
+			// what is actually reserved — accounts whose reserves were slashed or
+			// reaped between deposit creation and migration may have less.
+			let mut depositor_state: BTreeMap<Vec<u8>, (BalanceOf<T>, BalanceOf<T>)> =
+				BTreeMap::new();
 			let mut entry_count: u64 = 0;
 
 			for (_multisig, _call_hash, multisig_data) in Multisigs::<T>::iter() {
 				if !multisig_data.deposit.is_zero() {
 					let depositor_key = multisig_data.depositor.encode();
-					depositor_totals
+					depositor_state
 						.entry(depositor_key)
-						.and_modify(|total| *total = total.saturating_add(multisig_data.deposit))
-						.or_insert(multisig_data.deposit);
+						.and_modify(|(sum, _)| {
+							*sum = sum.saturating_add(multisig_data.deposit)
+						})
+						.or_insert_with(|| {
+							let reserved = OldCurrency::reserved_balance(&multisig_data.depositor);
+							(multisig_data.deposit, reserved)
+						});
 					entry_count += 1;
 				}
 			}
@@ -173,10 +183,10 @@ pub mod v2 {
 				info,
 				"Pre-upgrade: Found {} multisig entries with deposits across {} depositors",
 				entry_count,
-				depositor_totals.len()
+				depositor_state.len()
 			);
 
-			Ok((depositor_totals, entry_count).encode())
+			Ok((depositor_state, entry_count).encode())
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -184,32 +194,40 @@ pub mod v2 {
 			use codec::Decode;
 			use frame::traits::fungible::InspectHold;
 
-			let (depositor_totals, entry_count): (BTreeMap<Vec<u8>, BalanceOf<T>>, u64) =
-				Decode::decode(&mut &state[..]).expect("pre_upgrade provides valid state; qed");
+			let (depositor_state, entry_count): (
+				BTreeMap<Vec<u8>, (BalanceOf<T>, BalanceOf<T>)>,
+				u64,
+			) = Decode::decode(&mut &state[..])
+				.expect("pre_upgrade provides valid state; qed");
 
-			// Verify each depositor has at least the expected hold amount
-			for (depositor_key, expected_hold) in depositor_totals.iter() {
+			for (depositor_key, (sum_deposits, reserved_at_pre)) in depositor_state.iter() {
 				let depositor: T::AccountId = Decode::decode(&mut &depositor_key[..])
 					.expect("depositor was encoded correctly; qed");
 				let actual_hold =
 					T::Fungible::balance_on_hold(&HoldReason::MultisigOperation.into(), &depositor);
 
-				// The hold should be at least what we expected to migrate
-				// (could be more if there were existing holds)
-				ensure!(actual_hold >= *expected_hold, "Hold amount insufficient for depositor");
+				// Cap the expectation at the depositor's pre-migration reserved
+				// balance: the migration cannot hold more than `unreserve` was able
+				// to free.
+				let expected_hold = (*sum_deposits).min(*reserved_at_pre);
+				ensure!(actual_hold >= expected_hold, "Hold amount insufficient for depositor");
 
-				log!(
-					debug,
-					"Post-upgrade: Depositor has hold {:?} (expected >= {:?})",
-					actual_hold,
-					expected_hold
-				);
+				if *sum_deposits > *reserved_at_pre {
+					log!(
+						warn,
+						"Post-upgrade: depositor under-migrated by {:?} (recorded \
+						 deposits {:?} exceed pre-migration reserved balance {:?})",
+						sum_deposits.saturating_sub(*reserved_at_pre),
+						sum_deposits,
+						reserved_at_pre
+					);
+				}
 			}
 
 			log!(
 				info,
 				"Post-upgrade: Successfully verified {} depositors from {} entries",
-				depositor_totals.len(),
+				depositor_state.len(),
 				entry_count
 			);
 
