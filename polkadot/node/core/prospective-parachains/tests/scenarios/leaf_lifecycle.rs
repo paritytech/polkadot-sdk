@@ -21,7 +21,6 @@
 use crate::common::world::{
 	default_world_config, get_parent_hash, PerParaData, TestLeaf, World, WorldExt as _,
 };
-use crate::make_and_back_candidate;
 use polkadot_node_subsystem::{
 	messages::{Ancestors, BackableCandidateRef},
 	ActiveLeavesUpdate, OverseerSignal,
@@ -143,11 +142,11 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 	world.back_candidate(para_id, candidate_hash_a);
 
 	let (candidate_b, candidate_hash_b) =
-		make_and_back_candidate!(world, leaf_a, &candidate_a, 2);
+		world.make_and_back_candidate(&leaf_a, &candidate_a, 2);
 	let (candidate_c, candidate_hash_c) =
-		make_and_back_candidate!(world, leaf_a, &candidate_b, 3);
+		world.make_and_back_candidate(&leaf_a, &candidate_b, 3);
 	let (candidate_d, candidate_hash_d) =
-		make_and_back_candidate!(world, leaf_a, &candidate_c, 4);
+		world.make_and_back_candidate(&leaf_a, &candidate_c, 4);
 
 	let mut all_candidates_resp = vec![
 		BackableCandidateRef { candidate_hash: candidate_hash_a, scheduling_parent: leaf_a.hash },
@@ -281,7 +280,7 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 	// Deactivate leaf_c, add a candidate E on leaf_a, reactivate leaf_c. E should be
 	// inherited.
 	world.deactivate_leaf(leaf_c.hash);
-	let (candidate_e, _) = make_and_back_candidate!(world, leaf_a, &candidate_d, 5);
+	let (candidate_e, _) = world.make_and_back_candidate(&leaf_a, &candidate_d, 5);
 	world.activate_leaf_with_parent_hash_fn(&leaf_c, |hash| {
 		if hash == leaf_c_hash {
 			leaf_a_hash

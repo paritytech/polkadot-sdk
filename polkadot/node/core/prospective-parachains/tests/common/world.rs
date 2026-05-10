@@ -31,9 +31,10 @@ use polkadot_node_subsystem::messages::{
 };
 use polkadot_primitives::{
 	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, HeadData,
-	Hash, Id as ParaId, PersistedValidationData, SessionIndex,
+	Hash, Id as ParaId, MutateDescriptorV2, PersistedValidationData, SessionIndex,
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
+use polkadot_primitives_test_helpers::make_candidate;
 use polkadot_subsystem_test_sim::world_base::{HasBase, WorldBase, WorldConfig};
 
 // Re-export `HasBase` so tests' `use ...world::HasBase` brings trait methods
@@ -190,31 +191,32 @@ impl World {
 			.send(ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx));
 		rx.now_or_never_ok().expect("subsystem replied to GetProspectiveValidationData")
 	}
-}
 
-/// Helper macro mirroring the in-crate test's `make_and_back_candidate!`. Reads the
-/// validation-code hash off `$world` (via the [`HasBase`]-trait accessor) so callers
-/// don't have to thread a separate state argument through.
-#[macro_export]
-macro_rules! make_and_back_candidate {
-	($world:ident, $leaf:ident, $parent:expr, $index:expr) => {{
-		use polkadot_primitives::MutateDescriptorV2;
-		let (mut candidate, pvd) = polkadot_primitives_test_helpers::make_candidate(
-			$leaf.hash,
-			$leaf.number,
-			polkadot_primitives::Id::from(1),
-			$parent.commitments.head_data.clone(),
-			polkadot_primitives::HeadData(vec![$index]),
-			$world.validation_code_hash(),
+	/// Build a child candidate of `parent` on `leaf`, introduce it as seconded, then back
+	/// it. Mirrors the in-crate test helper of the same name. `index` is used for both
+	/// the candidate's head data (`vec![index]`) and its `para_head` low-u64 hash —
+	/// ensures distinct candidate hashes per index.
+	pub fn make_and_back_candidate(
+		&mut self,
+		leaf: &TestLeaf,
+		parent: &CommittedCandidateReceipt,
+		index: u8,
+	) -> (CommittedCandidateReceipt, CandidateHash) {
+		let para = ParaId::from(1);
+		let (mut candidate, pvd) = make_candidate(
+			leaf.hash,
+			leaf.number,
+			para,
+			parent.commitments.head_data.clone(),
+			HeadData(vec![index]),
+			self.validation_code_hash(),
 		);
-		candidate
-			.descriptor
-			.set_para_head(polkadot_primitives::Hash::from_low_u64_le($index));
+		candidate.descriptor.set_para_head(Hash::from_low_u64_le(index as u64));
 		let candidate_hash = candidate.hash();
-		assert!($world.introduce_seconded_candidate(candidate.clone(), pvd));
-		$world.back_candidate(polkadot_primitives::Id::from(1), candidate_hash);
+		assert!(self.introduce_seconded_candidate(candidate.clone(), pvd));
+		self.back_candidate(para, candidate_hash);
 		(candidate, candidate_hash)
-	}};
+	}
 }
 
 /// Helper to extract a oneshot::Receiver value the harness has settled into ready state.
