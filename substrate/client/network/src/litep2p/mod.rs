@@ -26,7 +26,7 @@ use crate::{
 	error::Error,
 	event::{DhtEvent, Event},
 	litep2p::{
-		bitswap::{BitswapService, LiteBitswapConfig},
+		bitswap::BitswapService,
 		discovery::{Discovery, DiscoveryEvent},
 		ipfs_dht::IpfsDht,
 		peerstore::Peerstore,
@@ -346,7 +346,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 	type RequestResponseProtocolConfig = RequestResponseConfig;
 	type NetworkService<Block, Hash> = Arc<Litep2pNetworkService>;
 	type PeerStore = Peerstore;
-	type BitswapConfig = LiteBitswapConfig;
+	type BitswapConfig = bitswap::BitswapConfig;
 
 	fn new(mut params: Params<B, H, Self>) -> Result<Self, Error>
 	where

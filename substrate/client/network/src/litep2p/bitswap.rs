@@ -75,7 +75,7 @@ struct PendingBatch {
 /// Carries the native litep2p [`Config`] and the sender half of the command
 /// channel so that [`super::service::Litep2pNetworkService`] can forward
 /// client-side bitswap requests.
-pub struct LiteBitswapConfig {
+pub struct BitswapConfig {
 	pub(crate) litep2p_config: Config,
 	pub(crate) cmd_tx: mpsc::Sender<BitswapOutboundCmd>,
 }
@@ -95,15 +95,15 @@ impl<Block: BlockT> BitswapService<Block> {
 	/// Create a new bidirectional bitswap service.
 	///
 	/// Returns the boxed task future (to be spawned on the executor) and the
-	/// [`LiteBitswapConfig`] to be passed into the litep2p config builder.
+	/// [`BitswapConfig`] to be passed into the litep2p config builder.
 	pub(crate) fn new(
 		client: Arc<dyn BlockBackend<Block> + Send + Sync>,
-	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, LiteBitswapConfig) {
+	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, BitswapConfig) {
 		let (litep2p_config, handle) = Config::new();
 		let (cmd_tx, cmd_rx) = mpsc::channel(CMD_CHANNEL_CAPACITY);
 		let service = Self { handle, client, cmd_rx, pending: Vec::new() };
 		let future = Box::pin(async move { service.run().await });
-		let config = LiteBitswapConfig { litep2p_config, cmd_tx };
+		let config = BitswapConfig { litep2p_config, cmd_tx };
 		(future, config)
 	}
 

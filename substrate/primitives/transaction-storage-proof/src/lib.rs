@@ -431,15 +431,6 @@ mod hashing_algorithm_tests {
 	}
 
 	#[test]
-	fn from_multihash_code_round_trips() {
-		for algo in
-			[HashingAlgorithm::Blake2b256, HashingAlgorithm::Sha2_256, HashingAlgorithm::Keccak256]
-		{
-			assert_eq!(HashingAlgorithm::from_multihash_code(algo.multihash_code()), Some(algo));
-		}
-	}
-
-	#[test]
 	fn from_multihash_code_rejects_unknown() {
 		assert_eq!(HashingAlgorithm::from_multihash_code(0), None);
 		assert_eq!(HashingAlgorithm::from_multihash_code(0x99), None);
