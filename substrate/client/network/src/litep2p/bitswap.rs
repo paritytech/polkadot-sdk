@@ -33,7 +33,7 @@
 //!    delivery failure event).
 
 use crate::{
-	bitswap::{is_cid_supported, BitswapProtoMessage, Prefix, PROTOCOL_NAME},
+	bitswap::{is_cid_supported, BitswapProtoMessage, Prefix, LOG_TARGET, PROTOCOL_NAME},
 	request_responses::RequestFailure,
 	OutboundFailure, ProtocolName, MAX_RESPONSE_SIZE,
 };
@@ -54,8 +54,6 @@ use std::{
 	time::{Duration, Instant},
 };
 use tokio::sync::mpsc;
-
-const LOG_TARGET: &str = "sub-libp2p::bitswap";
 
 const CMD_CHANNEL_CAPACITY: usize = 256;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);

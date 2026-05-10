@@ -54,7 +54,7 @@ pub use client::{
 
 pub(crate) use schema::bitswap::Message as BitswapProtoMessage;
 
-const LOG_TARGET: &str = "bitswap";
+pub(crate) const LOG_TARGET: &str = "sub-libp2p::bitswap";
 
 // Undocumented, but according to JS the bitswap messages have a max size of 512*1024 bytes
 // https://github.com/ipfs/js-ipfs-bitswap/blob/

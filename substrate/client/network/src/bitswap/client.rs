@@ -23,8 +23,6 @@ use prost::Message;
 use sc_network_types::PeerId;
 use std::collections::{HashMap, HashSet};
 
-const LOG_TARGET: &str = "bitswap";
-
 use super::{
 	is_cid_supported, is_supported_multihash_code,
 	schema::bitswap::{
@@ -34,7 +32,7 @@ use super::{
 		},
 		Message as BitswapMessage,
 	},
-	Prefix, PROTOCOL_NAME, RAW_CODEC,
+	Prefix, LOG_TARGET, PROTOCOL_NAME, RAW_CODEC,
 };
 
 /// Multihash code for BLAKE2b-256.
