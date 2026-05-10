@@ -324,8 +324,12 @@ impl ChainModel {
 		self.set_core_schedule(core, CoreSchedule::always(para));
 	}
 
-	/// Override the claim queue at a specific block. Tests use this for exotic shapes the
-	/// cycle abstraction doesn't capture.
+	/// Override the claim queue at a specific block. Single-block snapshot — does
+	/// **not** propagate to subsequent blocks; the next block reverts to the
+	/// per-core schedule unless it too sets an override. Models exceptions to the
+	/// suite-wide cycle (coretime expiry, on-demand cores, scheduler edge cases).
+	/// For evolving shapes, set an override at every block where the queue
+	/// diverges from the schedule.
 	pub fn set_claim_queue_at(
 		&mut self,
 		block: Hash,

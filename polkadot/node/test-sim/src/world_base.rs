@@ -53,6 +53,7 @@ use polkadot_primitives::{
 };
 use polkadot_primitives_test_helpers::dummy_validation_code;
 use sp_consensus_slots::Slot;
+use std::collections::{BTreeMap, VecDeque};
 
 /// Identity of a leaf the harness has signalled `ActiveLeaves::start_work` for. Returned
 /// from [`LeafBuilder::activate`] / [`LeafBuilder::register_only`] and held by tests.
@@ -459,6 +460,11 @@ where
 	/// `(para, pending)` pairs to write via
 	/// `chain.set_pending_availability_at(block, para, ..)`.
 	pending: Vec<(ParaId, Vec<CandidatePendingAvailability>)>,
+	/// Optional per-block claim-queue override. When set, written via
+	/// `chain.set_claim_queue_at(block, queue)` and takes precedence over the
+	/// suite-wide schedule for this block only — subsequent blocks revert to the
+	/// schedule unless they too set an override.
+	claim_queue: Option<BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 }
 
 impl<'w, S: SubsystemUnderTest> BlockBuilder<'w, S>
@@ -473,6 +479,7 @@ where
 			parent: None,
 			head_data: Vec::new(),
 			pending: Vec::new(),
+			claim_queue: None,
 		}
 	}
 
@@ -507,6 +514,18 @@ where
 		candidates: Vec<CandidatePendingAvailability>,
 	) -> Self {
 		self.pending.push((para, candidates));
+		self
+	}
+
+	/// Override the claim queue at this block. Takes precedence over the suite-wide
+	/// schedule for this block only — subsequent blocks revert to the schedule
+	/// unless they too set an override. Use when modelling exceptions to the
+	/// suite-wide cycle (coretime expiry, on-demand cores, scheduler edge cases).
+	pub fn with_claim_queue(
+		mut self,
+		queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+	) -> Self {
+		self.claim_queue = Some(queue);
 		self
 	}
 
@@ -562,7 +581,14 @@ where
 	/// per-para state + synthesised constraints to the chain model. Returns
 	/// `&mut WorldBase` so `.activate()` can re-borrow the sim.
 	fn flush_to_chain(self) -> (&'w mut WorldBase<S>, LeafRef) {
-		let BlockBuilder { base, hash_and_number, parent, head_data, pending } = self;
+		let BlockBuilder {
+			base,
+			hash_and_number,
+			parent,
+			head_data,
+			pending,
+			claim_queue,
+		} = self;
 		let validation_code_hash = base.config.validation_code_hash;
 		let min_relay_parent_number_override = base.config.min_relay_parent_number_override;
 
@@ -600,6 +626,9 @@ where
 					})
 					.collect();
 				chain.set_pending_availability_at(hash, para, receipts);
+			}
+			if let Some(queue) = claim_queue {
+				chain.set_claim_queue_at(hash, queue);
 			}
 			LeafRef { hash, number }
 		};
