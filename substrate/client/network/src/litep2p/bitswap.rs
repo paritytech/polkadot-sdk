@@ -64,7 +64,7 @@ pub(crate) type ResponseSender = oneshot::Sender<Result<(Vec<u8>, ProtocolName),
 /// Outbound bitswap command sent from [`super::service::Litep2pNetworkService`].
 pub(crate) struct BitswapOutboundCmd {
 	pub(crate) peer: litep2p::PeerId,
-	pub(crate) cids: Vec<Cid>,
+	pub(crate) wants: Vec<(Cid, WantType)>,
 	pub(crate) response_tx: ResponseSender,
 }
 
@@ -130,8 +130,8 @@ impl<Block: BlockT> BitswapService<Block> {
 					},
 				},
 				cmd = self.cmd_rx.recv() => match cmd {
-					Some(BitswapOutboundCmd { peer, cids, response_tx }) =>
-						self.handle_outbound_cmd(peer, cids, response_tx).await,
+					Some(BitswapOutboundCmd { peer, wants, response_tx }) =>
+						self.handle_outbound_cmd(peer, wants, response_tx).await,
 					None => {
 						log::debug!(target: LOG_TARGET, "bitswap cmd channel closed");
 						return;
@@ -176,25 +176,24 @@ impl<Block: BlockT> BitswapService<Block> {
 	async fn handle_outbound_cmd(
 		&mut self,
 		peer: litep2p::PeerId,
-		cids: Vec<Cid>,
+		wants: Vec<(Cid, WantType)>,
 		response_tx: ResponseSender,
 	) {
 		log::debug!(
 			target: LOG_TARGET,
 			"bitswap: outbound WANT for {} CIDs to {peer:?}",
-			cids.len(),
+			wants.len(),
 		);
+		let cids: Vec<_> = wants.iter().map(|(cid, _)| *cid).collect();
 		self.pending.push(PendingBatch {
 			peer,
-			cids: cids.clone(),
+			cids,
 			responses: HashMap::new(),
 			response_bytes: 0,
 			response_tx,
 			inserted: Instant::now(),
 		});
-		self.handle
-			.send_request(peer, cids.into_iter().map(|cid| (cid, WantType::Block)).collect())
-			.await;
+		self.handle.send_request(peer, wants).await;
 	}
 }
 

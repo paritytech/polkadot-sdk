@@ -47,7 +47,8 @@ pub mod client;
 pub(crate) mod schema;
 
 pub use client::{
-	fetch_many, fetch_many_unverified, raw_cid_from_digest, BitswapError, FetchOutcome,
+	fetch_many, fetch_many_unverified, fetch_many_wants, fetch_many_wants_unverified,
+	raw_cid_from_digest, BitswapError, BitswapWant, BitswapWantType, FetchOutcome,
 	BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, MAX_WANTED_BLOCKS_PER_REQUEST,
 	SHA2_256_MULTIHASH_CODE,
 };

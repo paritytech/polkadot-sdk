@@ -19,6 +19,7 @@
 //! `NetworkService` implementation for `litep2p`.
 
 use crate::{
+	bitswap::BitswapWantType,
 	config::MultiaddrWithPeerId,
 	litep2p::shim::{
 		notification::{config::ProtocolControlHandle, peerset::PeersetCommand},
@@ -60,6 +61,15 @@ use std::{
 
 /// Logging target for the file.
 const LOG_TARGET: &str = "sub-libp2p";
+
+impl From<BitswapWantType> for litep2p::protocol::libp2p::bitswap::WantType {
+	fn from(want_type: BitswapWantType) -> Self {
+		match want_type {
+			BitswapWantType::Block => Self::Block,
+			BitswapWantType::Have => Self::Have,
+		}
+	}
+}
 
 /// Commands sent by [`Litep2pNetworkService`] to
 /// [`Litep2pNetworkBackend`](super::Litep2pNetworkBackend).
@@ -261,7 +271,7 @@ impl Litep2pNetworkService {
 				target: LOG_TARGET,
 				"bitswap: received outbound request but BitswapService is not configured"
 			);
-			let _ = sender.send(Err(RequestFailure::NotConnected));
+			let _ = sender.send(Err(RequestFailure::UnknownProtocol));
 			return;
 		};
 
@@ -296,12 +306,18 @@ impl Litep2pNetworkService {
 					return;
 				},
 			};
-			cids.push(cid);
+			let want_type = litep2p::protocol::libp2p::bitswap::WantType::from(
+				BitswapWantType::from(entry.want_type),
+			);
+			cids.push((cid, want_type));
 		}
 
-		let litep2p_peer: litep2p::PeerId = peer.into();
-		let cmd =
-			super::bitswap::BitswapOutboundCmd { peer: litep2p_peer, cids, response_tx: sender };
+		let cmd = super::bitswap::BitswapOutboundCmd {
+			peer: peer.into(),
+			wants: cids,
+			response_tx: sender,
+		};
+
 		if let Err(e) = cmd_tx.try_send(cmd) {
 			log::warn!(
 				target: LOG_TARGET,

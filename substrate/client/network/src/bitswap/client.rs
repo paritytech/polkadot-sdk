@@ -27,7 +27,7 @@ use super::{
 	is_cid_supported, is_supported_multihash_code,
 	schema::bitswap::{
 		message::{
-			wantlist::{Entry, WantType},
+			wantlist::{Entry, WantType as ProtoWantType},
 			BlockPresence, BlockPresenceType, Wantlist,
 		},
 		Message as BitswapMessage,
@@ -42,15 +42,75 @@ pub const SHA2_256_MULTIHASH_CODE: u64 = 0x12;
 /// Multihash code for Keccak-256.
 pub const KECCAK_256_MULTIHASH_CODE: u64 = 0x1b;
 
-/// Maximum entries per `WANT-BLOCK` request. Bigger requests get rejected by the peer
+/// Maximum entries per Bitswap wantlist. Bigger requests get rejected by the peer
 /// (see `MAX_WANTED_BLOCKS` in `bitswap/mod.rs`).
 pub const MAX_WANTED_BLOCKS_PER_REQUEST: usize = 16;
+
+/// Type of Bitswap want for a CID.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BitswapWantType {
+	/// Request the full block payload.
+	Block,
+	/// Request only a presence response.
+	Have,
+}
+
+impl From<BitswapWantType> for ProtoWantType {
+	fn from(want_type: BitswapWantType) -> Self {
+		match want_type {
+			BitswapWantType::Block => Self::Block,
+			BitswapWantType::Have => Self::Have,
+		}
+	}
+}
+
+impl From<ProtoWantType> for BitswapWantType {
+	fn from(want_type: ProtoWantType) -> Self {
+		match want_type {
+			ProtoWantType::Block => Self::Block,
+			ProtoWantType::Have => Self::Have,
+		}
+	}
+}
+
+impl From<i32> for BitswapWantType {
+	fn from(want_type: i32) -> Self {
+		if want_type == ProtoWantType::Have as i32 {
+			Self::Have
+		} else {
+			Self::Block
+		}
+	}
+}
+
+/// One CID request in a Bitswap wantlist.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct BitswapWant {
+	/// Requested CID.
+	pub cid: Cid,
+	/// Requested response type.
+	pub want_type: BitswapWantType,
+}
+
+impl BitswapWant {
+	/// Create a `WANT-BLOCK` entry.
+	pub fn block(cid: Cid) -> Self {
+		Self { cid, want_type: BitswapWantType::Block }
+	}
+
+	/// Create a `WANT-HAVE` entry.
+	pub fn have(cid: Cid) -> Self {
+		Self { cid, want_type: BitswapWantType::Have }
+	}
+}
 
 /// Per-CID outcome from a [`fetch_many`] call.
 #[derive(Debug)]
 pub enum FetchOutcome {
 	/// Peer returned bytes for the requested CID.
 	Block(Vec<u8>),
+	/// Peer indicated it has this CID, without returning bytes.
+	Have,
 	/// Peer explicitly indicated it does not have this CID.
 	DontHave,
 	/// Peer didn't acknowledge this CID, or its response was malformed.
@@ -82,11 +142,20 @@ fn validate_wantlist_size(len: usize) -> Result<(), BitswapError> {
 	Ok(())
 }
 
-fn validate_cids(cids: &[Cid]) -> Result<(), BitswapError> {
-	validate_wantlist_size(cids.len())?;
-	for cid in cids {
-		if !is_cid_supported(cid) {
-			return Err(BitswapError::UnsupportedHashing { multihash_code: cid.hash().code() });
+fn validate_wants(wants: &[BitswapWant]) -> Result<(), BitswapError> {
+	validate_wantlist_size(wants.len())?;
+	let mut seen = HashSet::with_capacity(wants.len());
+	for want in wants {
+		if !is_cid_supported(&want.cid) {
+			return Err(BitswapError::UnsupportedHashing {
+				multihash_code: want.cid.hash().code(),
+			});
+		}
+		if !seen.insert(want.cid) {
+			return Err(BitswapError::DecodeError(format!(
+				"duplicate CID in wantlist: {}",
+				want.cid,
+			)));
 		}
 	}
 	Ok(())
@@ -107,10 +176,27 @@ pub async fn fetch_many<N>(
 where
 	N: NetworkRequest + ?Sized,
 {
-	validate_cids(cids)?;
+	let wants: Vec<_> = cids.iter().copied().map(BitswapWant::block).collect();
+	fetch_many_wants(network, peer, &wants).await
+}
 
-	let wanted: HashSet<Cid> = cids.iter().copied().collect();
-	let response = send_request(network, peer, cids).await?;
+/// Send one Bitswap request for `wants` to `peer` and classify the response.
+///
+/// Returned blocks are verified by recomputing the CID from the response prefix and bytes.
+/// Blocks whose recomputed CID was not requested are ignored.
+/// Every want asks the peer to send `DONT_HAVE` when the CID is unavailable.
+pub async fn fetch_many_wants<N>(
+	network: &N,
+	peer: PeerId,
+	wants: &[BitswapWant],
+) -> Result<HashMap<Cid, FetchOutcome>, BitswapError>
+where
+	N: NetworkRequest + ?Sized,
+{
+	validate_wants(wants)?;
+
+	let wanted: HashSet<Cid> = wants.iter().map(|want| want.cid).collect();
+	let response = send_request(network, peer, wants).await?;
 	Ok(classify_response(response, &wanted, peer))
 }
 
@@ -127,25 +213,42 @@ pub async fn fetch_many_unverified<N>(
 where
 	N: NetworkRequest + ?Sized,
 {
-	validate_cids(cids)?;
+	let wants: Vec<_> = cids.iter().copied().map(BitswapWant::block).collect();
+	fetch_many_wants_unverified(network, peer, &wants).await
+}
 
-	let response = send_request(network, peer, cids).await?;
-	Ok(classify_response_unverified(response, cids, peer))
+/// Like [`fetch_many_wants`], but does NOT recompute or verify the hash of received bytes.
+///
+/// The response is matched by request order and CID prefix only; integrity verification is
+/// delegated to the caller. Every want asks the peer to send `DONT_HAVE` when the CID is
+/// unavailable.
+pub async fn fetch_many_wants_unverified<N>(
+	network: &N,
+	peer: PeerId,
+	wants: &[BitswapWant],
+) -> Result<HashMap<Cid, FetchOutcome>, BitswapError>
+where
+	N: NetworkRequest + ?Sized,
+{
+	validate_wants(wants)?;
+
+	let response = send_request(network, peer, wants).await?;
+	Ok(classify_response_unverified(response, wants, peer))
 }
 
 async fn send_request<N>(
 	network: &N,
 	peer: PeerId,
-	cids: &[Cid],
+	wants: &[BitswapWant],
 ) -> Result<BitswapMessage, BitswapError>
 where
 	N: NetworkRequest + ?Sized,
 {
-	let entries: Vec<Entry> = cids
+	let entries: Vec<Entry> = wants
 		.iter()
-		.map(|cid| Entry {
-			block: cid.to_bytes(),
-			want_type: WantType::Block as i32,
+		.map(|want| Entry {
+			block: want.cid.to_bytes(),
+			want_type: ProtoWantType::from(want.want_type) as i32,
 			send_dont_have: true,
 			..Default::default()
 		})
@@ -155,8 +258,8 @@ where
 
 	trace!(
 		target: LOG_TARGET,
-		"client: sending WANT-BLOCK for {} CIDs to {peer}, protocol {PROTOCOL_NAME}",
-		cids.len(),
+		"client: sending Bitswap wantlist for {} CIDs to {peer}, protocol {PROTOCOL_NAME}",
+		wants.len(),
 	);
 
 	let payload = match network
@@ -211,12 +314,12 @@ fn classify_response(
 /// Classify an unverified response via order-based correlation.
 fn classify_response_unverified(
 	response: BitswapMessage,
-	wanted: &[Cid],
+	wants: &[BitswapWant],
 	peer: PeerId,
 ) -> HashMap<Cid, FetchOutcome> {
-	let mut result: HashMap<Cid, FetchOutcome> = HashMap::with_capacity(wanted.len());
-	let wanted_set: HashSet<Cid> = wanted.iter().copied().collect();
-	let mut dont_have_cids: HashSet<Cid> = HashSet::with_capacity(wanted.len());
+	let mut result: HashMap<Cid, FetchOutcome> = HashMap::with_capacity(wants.len());
+	let wanted_set: HashSet<Cid> = wants.iter().map(|want| want.cid).collect();
+	let mut dont_have_cids: HashSet<Cid> = HashSet::with_capacity(wants.len());
 
 	for presence in response.block_presences {
 		let Ok(cid) = Cid::read_bytes(presence.cid.as_slice()).inspect_err(|err| {
@@ -232,13 +335,19 @@ fn classify_response_unverified(
 			debug!(target: LOG_TARGET, "client: {peer} DONT_HAVE for CID {cid}");
 			dont_have_cids.insert(cid);
 			result.insert(cid, FetchOutcome::DontHave);
+		} else if presence.r#type == BlockPresenceType::Have as i32 {
+			debug!(target: LOG_TARGET, "client: {peer} HAVE for CID {cid}");
+			result.entry(cid).or_insert(FetchOutcome::Have);
 		} else {
 			warn!(target: LOG_TARGET, "client: {peer} unexpected presence type {} for CID {cid}", presence.r#type);
-			result.insert(cid, FetchOutcome::Missing);
 		}
 	}
 
-	let mut expected_payload_order = wanted.iter().filter(|cid| !dont_have_cids.contains(cid));
+	let mut expected_payload_order = wants
+		.iter()
+		.filter(|want| want.want_type == BitswapWantType::Block)
+		.map(|want| &want.cid)
+		.filter(|cid| !dont_have_cids.contains(cid));
 
 	for block in response.payload {
 		let Some(expected_cid) = expected_payload_order.next() else {
@@ -264,11 +373,11 @@ fn classify_response_unverified(
 			"client: {peer} returned {} unverified bytes for CID {expected_cid}",
 			block.data.len(),
 		);
-		result.entry(*expected_cid).or_insert(FetchOutcome::Block(block.data.clone()));
+		result.insert(*expected_cid, FetchOutcome::Block(block.data.clone()));
 	}
 
-	for cid in wanted {
-		result.entry(*cid).or_insert(FetchOutcome::Missing);
+	for want in wants {
+		result.entry(want.cid).or_insert(FetchOutcome::Missing);
 	}
 
 	result
@@ -296,6 +405,9 @@ fn apply_presences_and_fill_missing(
 		let outcome = if presence.r#type == BlockPresenceType::DontHave as i32 {
 			debug!(target: LOG_TARGET, "client: {peer} DONT_HAVE for CID {cid}");
 			FetchOutcome::DontHave
+		} else if presence.r#type == BlockPresenceType::Have as i32 {
+			debug!(target: LOG_TARGET, "client: {peer} HAVE for CID {cid}");
+			FetchOutcome::Have
 		} else {
 			debug!(target: LOG_TARGET, "client: {peer} unexpected presence type {} for CID {cid}", presence.r#type);
 			FetchOutcome::Missing
@@ -394,11 +506,22 @@ mod tests {
 		Block as MessageBlock, BlockPresence, BlockPresenceType,
 	};
 
-	struct StubSender(Mutex<VecDeque<Result<Vec<u8>, RequestFailure>>>);
+	struct StubSender {
+		responses: Mutex<VecDeque<Result<Vec<u8>, RequestFailure>>>,
+		requests: Mutex<Vec<Vec<u8>>>,
+	}
 
 	impl StubSender {
 		fn new(responses: impl IntoIterator<Item = Result<Vec<u8>, RequestFailure>>) -> Self {
-			Self(Mutex::new(responses.into_iter().collect()))
+			Self {
+				responses: Mutex::new(responses.into_iter().collect()),
+				requests: Mutex::new(Vec::new()),
+			}
+		}
+
+		fn pop_request(&self) -> BitswapMessage {
+			let bytes = self.requests.lock().unwrap().pop().expect("request should be recorded");
+			BitswapMessage::decode(bytes.as_slice()).expect("request should decode")
 		}
 	}
 
@@ -408,11 +531,12 @@ mod tests {
 			&self,
 			_target: PeerId,
 			_protocol: ProtocolName,
-			_request: Vec<u8>,
+			request: Vec<u8>,
 			_fallback_request: Option<(Vec<u8>, ProtocolName)>,
 			_connect: IfDisconnected,
 		) -> Result<(Vec<u8>, ProtocolName), RequestFailure> {
-			self.0
+			self.requests.lock().unwrap().push(request);
+			self.responses
 				.lock()
 				.unwrap()
 				.pop_front()
@@ -424,13 +548,14 @@ mod tests {
 			&self,
 			_peer: PeerId,
 			_protocol: ProtocolName,
-			_payload: Vec<u8>,
+			payload: Vec<u8>,
 			_fallback_request: Option<(Vec<u8>, ProtocolName)>,
 			tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 			_connect: IfDisconnected,
 		) {
+			self.requests.lock().unwrap().push(payload);
 			let resp = self
-				.0
+				.responses
 				.lock()
 				.unwrap()
 				.pop_front()
@@ -537,6 +662,44 @@ mod tests {
 	}
 
 	#[tokio::test]
+	async fn fetch_many_wants_encodes_mixed_want_types() {
+		let cid_a = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [1u8; 32]);
+		let cid_b = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [2u8; 32]);
+		let stub = StubSender::new([Ok(BitswapMessage::default().encode_to_vec())]);
+
+		let result = fetch_many_wants(
+			&stub,
+			PeerId::random(),
+			&[BitswapWant::block(cid_a), BitswapWant::have(cid_b)],
+		)
+		.await
+		.expect("mixed want request should encode");
+
+		assert!(matches!(result.get(&cid_a), Some(FetchOutcome::Missing)));
+		assert!(matches!(result.get(&cid_b), Some(FetchOutcome::Missing)));
+
+		let request = stub.pop_request();
+		let entries = request.wantlist.expect("wantlist should be present").entries;
+		assert_eq!(entries.len(), 2);
+		assert_eq!(entries[0].want_type, ProtoWantType::Block as i32);
+		assert_eq!(entries[1].want_type, ProtoWantType::Have as i32);
+	}
+
+	#[tokio::test]
+	async fn fetch_many_wants_classifies_have_presence() {
+		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [3u8; 32]);
+		let response = encode_response(&[], &[(cid, BlockPresenceType::Have as i32)]);
+		let stub = StubSender::new([Ok(response)]);
+
+		let result = fetch_many_wants(&stub, PeerId::random(), &[BitswapWant::have(cid)])
+			.await
+			.expect("HAVE response should classify successfully");
+
+		assert_eq!(result.len(), 1);
+		assert!(matches!(result.get(&cid), Some(FetchOutcome::Have)));
+	}
+
+	#[tokio::test]
 	async fn fetch_many_unverified_accepts_bytes_without_hash_recompute() {
 		let data = b"sha2-digest-but-blake2b-request-prefix".to_vec();
 		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, sp_crypto_hashing::sha2_256(&data));
@@ -579,6 +742,21 @@ mod tests {
 	}
 
 	#[tokio::test]
+	async fn fetch_many_wants_duplicate_cids_error() {
+		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [9u8; 32]);
+		let stub = StubSender::new(std::iter::empty());
+
+		let err = fetch_many_wants(
+			&stub,
+			PeerId::random(),
+			&[BitswapWant::block(cid), BitswapWant::have(cid)],
+		)
+		.await
+		.expect_err("duplicate wants are ambiguous for CID-keyed outcomes");
+		assert!(matches!(err, BitswapError::DecodeError(msg) if msg.starts_with("duplicate CID")));
+	}
+
+	#[tokio::test]
 	async fn fetch_many_unverified_multi_want_all_served_in_request_order() {
 		let data_a = b"first-unverified-payload".to_vec();
 		let data_b = b"second-unverified-payload".to_vec();
@@ -607,6 +785,31 @@ mod tests {
 		assert!(matches!(result.get(&cid_a), Some(FetchOutcome::Block(d)) if *d == data_a));
 		assert!(matches!(result.get(&cid_b), Some(FetchOutcome::Block(d)) if *d == data_b));
 		assert!(matches!(result.get(&cid_c), Some(FetchOutcome::Block(d)) if *d == data_c));
+	}
+
+	#[tokio::test]
+	async fn fetch_many_wants_unverified_have_want_does_not_shift_block_payload_order() {
+		let data = b"block-after-have-want".to_vec();
+		let have_cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [4u8; 32]);
+		let block_cid =
+			cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, sp_crypto_hashing::sha2_256(&data));
+		let response = encode_response(
+			&[(BLAKE2B_256_MULTIHASH_CODE, data.clone())],
+			&[(have_cid, BlockPresenceType::Have as i32)],
+		);
+		let stub = StubSender::new([Ok(response)]);
+
+		let result = fetch_many_wants_unverified(
+			&stub,
+			PeerId::random(),
+			&[BitswapWant::have(have_cid), BitswapWant::block(block_cid)],
+		)
+		.await
+		.expect("mixed unverified wants should classify successfully");
+
+		assert_eq!(result.len(), 2);
+		assert!(matches!(result.get(&have_cid), Some(FetchOutcome::Have)));
+		assert!(matches!(result.get(&block_cid), Some(FetchOutcome::Block(d)) if *d == data));
 	}
 
 	#[tokio::test]
