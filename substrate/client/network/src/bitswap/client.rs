@@ -297,7 +297,7 @@ fn apply_presences_and_fill_missing(
 			debug!(target: LOG_TARGET, "client: {peer} DONT_HAVE for CID {cid}");
 			FetchOutcome::DontHave
 		} else {
-			warn!(target: LOG_TARGET, "client: {peer} unexpected presence type {} for CID {cid}", presence.r#type);
+			debug!(target: LOG_TARGET, "client: {peer} unexpected presence type {} for CID {cid}", presence.r#type);
 			FetchOutcome::Missing
 		};
 		result.insert(cid, outcome);
@@ -317,17 +317,15 @@ fn prefix_matches_cid(prefix: &Prefix, cid: &Cid) -> bool {
 
 fn cid_from_block_prefix(prefix: &[u8], data: &[u8]) -> Result<Cid, BitswapError> {
 	let prefix = decode_prefix(prefix)?;
+	if prefix.version != CidVersion::V1 {
+		return Err(BitswapError::UnsupportedCidVersion { version: prefix.version.into() });
+	}
+
 	let hash = hash_for_multihash_code(prefix.mh_type, data)
 		.ok_or(BitswapError::UnsupportedHashing { multihash_code: prefix.mh_type })?;
 	let multihash = Multihash::wrap(prefix.mh_type, &hash)
 		.map_err(|err| BitswapError::DecodeError(err.to_string()))?;
-
-	match prefix.version {
-		CidVersion::V1 => Ok(Cid::new_v1(prefix.codec, multihash)),
-		CidVersion::V0 => {
-			Err(BitswapError::DecodeError("bitswap block prefix used unsupported CIDv0".into()))
-		},
-	}
+	Ok(Cid::new_v1(prefix.codec, multihash))
 }
 
 fn hash_for_multihash_code(multihash_code: u64, data: &[u8]) -> Option<[u8; 32]> {
@@ -357,7 +355,7 @@ fn decode_prefix(mut bytes: &[u8]) -> Result<Prefix, BitswapError> {
 	}
 
 	let version = CidVersion::try_from(version)
-		.map_err(|_| BitswapError::DecodeError(format!("unsupported CID version {version}")))?;
+		.map_err(|_| BitswapError::UnsupportedCidVersion { version })?;
 	let mh_len = u8::try_from(mh_len).map_err(|_| {
 		BitswapError::DecodeError(format!("multihash length {mh_len} does not fit into u8"))
 	})?;
@@ -376,6 +374,11 @@ pub enum BitswapError {
 	UnsupportedHashing {
 		/// The unrecognised IPFS multihash code.
 		multihash_code: u64,
+	},
+	/// CID version is unsupported for this bitswap client.
+	UnsupportedCidVersion {
+		/// The unsupported CID version number.
+		version: u64,
 	},
 }
 
@@ -761,5 +764,20 @@ mod tests {
 
 		assert_eq!(result.len(), 1);
 		assert!(matches!(result.get(&wanted_cid), Some(FetchOutcome::Missing)));
+	}
+
+	#[test]
+	fn cid_from_block_prefix_rejects_cid_v0_as_unsupported() {
+		let prefix = Prefix {
+			version: CidVersion::V0,
+			codec: RAW_CODEC,
+			mh_type: BLAKE2B_256_MULTIHASH_CODE,
+			mh_len: 32,
+		}
+		.to_bytes();
+
+		let err =
+			cid_from_block_prefix(&prefix, b"payload").expect_err("CIDv0 must be unsupported");
+		assert!(matches!(err, BitswapError::UnsupportedCidVersion { version: 0 }));
 	}
 }
