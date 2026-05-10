@@ -48,7 +48,8 @@ use polkadot_overseer::AssociateOutgoing;
 use polkadot_primitives::{
 	async_backing::{CandidatePendingAvailability, Constraints, InboundHrmpLimitations},
 	BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, HeadData,
-	Hash, Id as ParaId, SessionIndex, ValidationCodeHash, DEFAULT_SCHEDULING_LOOKAHEAD,
+	Hash, Id as ParaId, SessionIndex, ValidatorId, ValidatorIndex, ValidationCodeHash,
+	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use polkadot_primitives_test_helpers::dummy_validation_code;
 use sp_consensus_slots::Slot;
@@ -89,6 +90,25 @@ pub struct WorldConfig {
 	/// implement (e.g. `AncestorRelayParentInfo`). Defaults to the highest version
 	/// the chain model implements end-to-end.
 	pub runtime_api_version: u32,
+	/// Validators reported in the runtime's session info. Empty by default —
+	/// scenarios that exercise validator-side behaviour (groups, signatures,
+	/// rotation) populate this.
+	pub validators: Vec<ValidatorId>,
+	/// Validator groups reported in the runtime's session info. Empty by default.
+	/// Multiple groups + matching `group_rotation_frequency` enables per-block
+	/// group rotation across cores.
+	pub validator_groups: Vec<Vec<ValidatorIndex>>,
+	/// Group rotation frequency reported in the runtime's session info. Defaults
+	/// to 1 (rotates every block). Set to a large number to keep group 0 stable
+	/// across an ancestry chain.
+	pub group_rotation_frequency: u32,
+	/// Slot of the genesis block. Each subsequent `chain.extend(...)` bumps the
+	/// slot by one. Defaults to 0. Increase this for V3 tests that need
+	/// leaf-parent / leaf at specific slots.
+	pub genesis_slot: Slot,
+	/// Set the `CandidateReceiptV2` node feature flag (`FeatureIndex::CandidateReceiptV2 = 3`).
+	/// V3 advertisements / descriptors are gated on this. Defaults to `false`.
+	pub enable_v3_node_feature: bool,
 }
 
 impl Default for WorldConfig {
@@ -100,6 +120,11 @@ impl Default for WorldConfig {
 			min_relay_parent_number_override: None,
 			runtime_api_version:
 				polkadot_node_subsystem::messages::RuntimeApiRequest::ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT,
+			validators: Vec::new(),
+			validator_groups: Vec::new(),
+			group_rotation_frequency: 1,
+			genesis_slot: Slot::from(0),
+			enable_v3_node_feature: false,
 		}
 	}
 }
@@ -133,49 +158,17 @@ where
 	AllMessages: From<<S::Message as AssociateOutgoing>::OutgoingMessages>,
 	AllMessages: From<S::Message>,
 {
-	/// Start a new world from a [`WorldConfig`]. Seeds the chain with a session at
-	/// `config.session_index` (and at session 0 so the genesis-default register-block
-	/// path resolves), installs `config.claim_queue` as the global per-core schedule,
-	/// and spins up the simulation. No leaves are active until [`HasBase::new_leaf`]
-	/// is called.
+	/// Start a new world from a [`WorldConfig`]. Seeds the chain model with the
+	/// configured genesis slot, session info (validators, groups, rotation), per-core
+	/// claim queue, runtime API version, and node features; installs the chain model +
+	/// a fallback `PanicResponder` as the simulation's responder graph; and spins up
+	/// the `Sim`. No leaves are active until [`HasBase::new_leaf`] is called.
 	pub fn start(config: WorldConfig) -> Self {
-		let mut chain = ChainModel::new(Slot::from(0));
-		// Register session info at both `0` (default for genesis-disconnected synthetic
-		// ancestors) and `config.session_index` (for blocks the test activates).
-		let session_info = SessionInfo {
-			validators: Vec::new(),
-			validator_groups: Vec::new(),
-			group_rotation_info: polkadot_primitives::GroupRotationInfo {
-				session_start_block: 0,
-				group_rotation_frequency: 1,
-				now: 0,
-			},
-		};
-		chain.add_session(0, session_info.clone());
-		if config.session_index != 0 {
-			chain.add_session(config.session_index, session_info);
-		}
-		// Align the genesis block's session with the configured world session so that
-		// `chain.extend(...)` (which inherits the parent's session) produces blocks in
-		// `config.session_index`. Without this, auto-allocated leaves report session 0,
-		// out of sync with `world.session_index()`.
-		let genesis = chain.genesis();
-		chain.set_block_session(genesis, config.session_index);
-		for (core, paras) in &config.claim_queue {
-			let cycle: Vec<ParaId> = paras.iter().copied().collect();
-			if !cycle.is_empty() {
-				chain.set_core_schedule(*core, CoreSchedule::cycling(cycle));
-			}
-		}
-		chain.set_runtime_api_version(config.runtime_api_version);
-		let chain = SharedChain::new(chain);
-
+		let chain = build_chain_model(&config);
 		let mut responder = LayeredResponder::new();
 		responder.push(chain.clone());
 		responder.push(PanicResponder);
-
-		let sim = Sim::<S>::start(SimConfig::default(), responder);
-		Self { sim, chain, leaves: Vec::new(), config }
+		Self::start_with_responder(responder, chain, config)
 	}
 
 	/// Start a new world with a caller-supplied responder chain. Use when the chain
@@ -189,6 +182,50 @@ where
 		let sim = Sim::<S>::start(SimConfig::default(), responder);
 		Self { sim, chain, leaves: Vec::new(), config }
 	}
+}
+
+/// Build a `SharedChain` from a [`WorldConfig`]. Tenants whose responder graph needs
+/// extra layers in front of the chain (e.g. a `CanSecond` query stub) build their
+/// own [`LayeredResponder`] and pass `chain.clone()` into [`WorldBase::start_with_responder`].
+/// Most tenants use [`WorldBase::start`] and don't touch this directly.
+pub fn build_chain_model(config: &WorldConfig) -> SharedChain {
+	let mut chain = ChainModel::new(config.genesis_slot);
+	let session_info = SessionInfo {
+		validators: config.validators.clone(),
+		validator_groups: config.validator_groups.clone(),
+		group_rotation_info: polkadot_primitives::GroupRotationInfo {
+			session_start_block: 0,
+			group_rotation_frequency: config.group_rotation_frequency,
+			now: 0,
+		},
+	};
+	// Register session info at both `0` (default for genesis-disconnected synthetic
+	// ancestors) and `config.session_index` (for blocks the test activates).
+	chain.add_session(0, session_info.clone());
+	if config.session_index != 0 {
+		chain.add_session(config.session_index, session_info);
+	}
+	// Align the genesis block's session with the configured world session so that
+	// `chain.extend(...)` (which inherits the parent's session) produces blocks in
+	// `config.session_index`. Without this, auto-allocated leaves report session 0,
+	// out of sync with `world.session_index()`.
+	let genesis = chain.genesis();
+	chain.set_block_session(genesis, config.session_index);
+	for (core, paras) in &config.claim_queue {
+		let cycle: Vec<ParaId> = paras.iter().copied().collect();
+		if !cycle.is_empty() {
+			chain.set_core_schedule(*core, CoreSchedule::cycling(cycle));
+		}
+	}
+	chain.set_runtime_api_version(config.runtime_api_version);
+	if config.enable_v3_node_feature {
+		let mut features = polkadot_primitives::NodeFeatures::EMPTY;
+		// FeatureIndex::CandidateReceiptV2 = 3
+		features.resize(4, false);
+		features.set(3, true);
+		chain.set_node_features(features);
+	}
+	SharedChain::new(chain)
 }
 
 /// Synthesise a permissive backing-constraints record. `valid_watermarks =

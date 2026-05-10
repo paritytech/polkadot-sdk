@@ -19,7 +19,7 @@
 //! [`CollatorSut`] convenience alias used by `#[sim_test]` scenarios.
 
 pub use polkadot_subsystem_test_sim::harness::{
-	LayeredResponder, Observation, Sim, SimConfig, SubsystemUnderTest,
+	LayeredResponder, Observation, SubsystemUnderTest,
 };
 
 mod collator_sut;
