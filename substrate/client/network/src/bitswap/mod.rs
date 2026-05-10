@@ -47,9 +47,9 @@ pub mod client;
 pub(crate) mod schema;
 
 pub use client::{
-	fetch_many, fetch_many_unverified, raw_cid_from_digest, BitswapError, BitswapRequestSender,
-	FetchOutcome, BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE,
-	MAX_WANTED_BLOCKS_PER_REQUEST, SHA2_256_MULTIHASH_CODE,
+	fetch_many, fetch_many_unverified, raw_cid_from_digest, BitswapError, FetchOutcome,
+	BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, MAX_WANTED_BLOCKS_PER_REQUEST,
+	SHA2_256_MULTIHASH_CODE,
 };
 
 pub(crate) use schema::bitswap::Message as BitswapProtoMessage;

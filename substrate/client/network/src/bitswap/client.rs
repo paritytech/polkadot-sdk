@@ -15,10 +15,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::{IfDisconnected, NetworkRequest, ProtocolName, RequestFailure};
+use crate::{IfDisconnected, NetworkRequest, ProtocolName};
 
 use cid::{multihash::Multihash as CidMultihash, Cid, Version as CidVersion};
-use futures::channel::oneshot;
 use log::{debug, trace, warn};
 use prost::Message;
 use sc_network_types::PeerId;
@@ -61,35 +60,6 @@ pub enum FetchOutcome {
 }
 
 type Multihash = CidMultihash<64>;
-
-/// Outbound bitswap request transport. Blanket-implemented for any [`NetworkRequest`].
-pub trait BitswapRequestSender {
-	/// Start a request-response exchange with a peer.
-	fn start_bitswap_request(
-		&self,
-		peer: PeerId,
-		protocol: ProtocolName,
-		payload: Vec<u8>,
-		tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
-		connect: IfDisconnected,
-	);
-}
-
-impl<T> BitswapRequestSender for T
-where
-	T: NetworkRequest + ?Sized,
-{
-	fn start_bitswap_request(
-		&self,
-		peer: PeerId,
-		protocol: ProtocolName,
-		payload: Vec<u8>,
-		tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
-		connect: IfDisconnected,
-	) {
-		self.start_request(peer, protocol, payload, None, tx, connect);
-	}
-}
 
 /// Build a raw-codec CID from a 32-byte digest and supported multihash code.
 pub fn raw_cid_from_digest(multihash_code: u64, digest: [u8; 32]) -> Result<Cid, BitswapError> {
@@ -137,7 +107,7 @@ pub async fn fetch_many<N>(
 	cids: &[Cid],
 ) -> Result<HashMap<Cid, FetchOutcome>, BitswapError>
 where
-	N: BitswapRequestSender + ?Sized,
+	N: NetworkRequest + ?Sized,
 {
 	validate_cids(cids)?;
 
@@ -157,7 +127,7 @@ pub async fn fetch_many_unverified<N>(
 	cids: &[Cid],
 ) -> Result<HashMap<Cid, FetchOutcome>, BitswapError>
 where
-	N: BitswapRequestSender + ?Sized,
+	N: NetworkRequest + ?Sized,
 {
 	validate_cids(cids)?;
 
@@ -171,7 +141,7 @@ async fn send_request<N>(
 	cids: &[Cid],
 ) -> Result<BitswapMessage, BitswapError>
 where
-	N: BitswapRequestSender + ?Sized,
+	N: NetworkRequest + ?Sized,
 {
 	let entries: Vec<Entry> = cids
 		.iter()
@@ -191,23 +161,19 @@ where
 		cids.len(),
 	);
 
-	let (tx, rx) = oneshot::channel();
-	network.start_bitswap_request(
-		peer,
-		ProtocolName::from(PROTOCOL_NAME),
-		request.encode_to_vec(),
-		tx,
-		IfDisconnected::TryConnect,
-	);
-
-	let payload = match rx.await {
-		Ok(Ok((payload, _))) => payload,
-		Ok(Err(err)) => {
-			debug!(target: LOG_TARGET, "client: batch request to {peer} rejected by network: {err:?}");
-			return Err(BitswapError::RequestFailed(err.to_string()));
-		},
+	let payload = match network
+		.request(
+			peer,
+			ProtocolName::from(PROTOCOL_NAME),
+			request.encode_to_vec(),
+			None,
+			IfDisconnected::TryConnect,
+		)
+		.await
+	{
+		Ok((payload, _)) => payload,
 		Err(err) => {
-			debug!(target: LOG_TARGET, "client: batch response channel for {peer} cancelled: {err}");
+			debug!(target: LOG_TARGET, "client: batch request to {peer} rejected by network: {err:?}");
 			return Err(BitswapError::RequestFailed(err.to_string()));
 		},
 	};
@@ -418,7 +384,8 @@ pub enum BitswapError {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::RequestFailure;
+	use crate::{OutboundFailure, RequestFailure};
+	use futures::channel::oneshot;
 	use sc_network_types::PeerId;
 	use std::{collections::VecDeque, sync::Mutex};
 
@@ -434,12 +401,30 @@ mod tests {
 		}
 	}
 
-	impl BitswapRequestSender for StubSender {
-		fn start_bitswap_request(
+	#[async_trait::async_trait]
+	impl NetworkRequest for StubSender {
+		async fn request(
+			&self,
+			_target: PeerId,
+			_protocol: ProtocolName,
+			_request: Vec<u8>,
+			_fallback_request: Option<(Vec<u8>, ProtocolName)>,
+			_connect: IfDisconnected,
+		) -> Result<(Vec<u8>, ProtocolName), RequestFailure> {
+			self.0
+				.lock()
+				.unwrap()
+				.pop_front()
+				.expect("StubSender: no canned response queued")
+				.map(|bytes| (bytes, ProtocolName::from(PROTOCOL_NAME)))
+		}
+
+		fn start_request(
 			&self,
 			_peer: PeerId,
 			_protocol: ProtocolName,
 			_payload: Vec<u8>,
+			_fallback_request: Option<(Vec<u8>, ProtocolName)>,
 			tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 			_connect: IfDisconnected,
 		) {
@@ -720,14 +705,27 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn fetch_many_channel_cancelled_propagates() {
-		struct DroppingSender;
-		impl BitswapRequestSender for DroppingSender {
-			fn start_bitswap_request(
+	async fn fetch_many_request_failure_propagates() {
+		struct FailingSender;
+		#[async_trait::async_trait]
+		impl NetworkRequest for FailingSender {
+			async fn request(
+				&self,
+				_target: PeerId,
+				_protocol: ProtocolName,
+				_request: Vec<u8>,
+				_fallback_request: Option<(Vec<u8>, ProtocolName)>,
+				_connect: IfDisconnected,
+			) -> Result<(Vec<u8>, ProtocolName), RequestFailure> {
+				Err(RequestFailure::Network(OutboundFailure::ConnectionClosed))
+			}
+
+			fn start_request(
 				&self,
 				_peer: PeerId,
 				_protocol: ProtocolName,
 				_payload: Vec<u8>,
+				_fallback_request: Option<(Vec<u8>, ProtocolName)>,
 				tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 				_connect: IfDisconnected,
 			) {
@@ -736,9 +734,9 @@ mod tests {
 		}
 
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, b"any");
-		let err = fetch_many(&DroppingSender, PeerId::random(), &[cid])
+		let err = fetch_many(&FailingSender, PeerId::random(), &[cid])
 			.await
-			.expect_err("dropped channel must surface as RequestFailed");
+			.expect_err("request failure must surface as RequestFailed");
 		assert!(matches!(err, BitswapError::RequestFailed(_)));
 	}
 
