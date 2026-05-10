@@ -23,6 +23,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::activated_world,
 };
+use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 
 const PARA: ParaId = ParaId::new(2000);
@@ -44,6 +45,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::{build_with_ancestors_world_with_config, ChainConfig},
 };
+use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;
 
@@ -96,6 +98,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::build_with_ancestors_world,
 };
+use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;
 
@@ -129,6 +132,7 @@ use crate::{
 		build_with_ancestors_world_with_config, ChainConfig, LeafSelector,
 	},
 };
+use crate::common::world::WorldExt as _;
 use polkadot_collator_protocol::validator_side_consts::{
 	ASSET_HUB_PARA_ID, HOLD_OFF_DURATION_DEFAULT_VALUE,
 };

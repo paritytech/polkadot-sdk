@@ -24,6 +24,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::activated_world,
 };
+use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 
 const PARA: ParaId = ParaId::new(2000);
@@ -55,6 +56,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::activated_world,
 };
+use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
 
 const PARA_A: ParaId = ParaId::new(2000);
@@ -92,6 +94,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::activated_world,
 };
+use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
 use std::time::Duration;
 
@@ -142,6 +145,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::activated_world,
 };
+use crate::common::world::WorldExt as _;
 use polkadot_node_subsystem::messages::CollatorProtocolMessage;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
 use std::time::Duration;
@@ -186,6 +190,7 @@ fn child_remains_blocked_when_parent_reported_invalid<S: CollatorSut>() {
 		common::chain::CoreSchedule,
 		common::world::{build_with_ancestors_world_with_config, ChainConfig},
 	};
+use crate::common::world::WorldExt as _;
 	let config = ChainConfig::default()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA))
 		.with_can_second_stub(false);
@@ -226,6 +231,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::activated_world,
 };
+use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
 use std::time::Duration;
 

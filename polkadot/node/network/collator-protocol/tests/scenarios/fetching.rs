@@ -24,6 +24,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::activated_world,
 };
+use crate::common::world::WorldExt as _;
 use polkadot_collator_protocol::validator_side_consts::MAX_UNSHARED_DOWNLOAD_TIME;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;
@@ -65,6 +66,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::activated_world,
 };
+use crate::common::world::WorldExt as _;
 use polkadot_node_subsystem::messages::CollatorProtocolMessage;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 
@@ -101,6 +103,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::activated_world,
 };
+use crate::common::world::WorldExt as _;
 use polkadot_collator_protocol::validator_side_consts::MAX_UNSHARED_DOWNLOAD_TIME;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;
@@ -138,6 +141,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::activated_world,
 };
+use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 
 const PARA: ParaId = ParaId::new(2000);
@@ -169,6 +173,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::{build_with_ancestors_world_with_config, ChainConfig, LeafSelector},
 };
+use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CandidateHash, CoreIndex, HeadData, Hash, Id as ParaId};
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -289,6 +294,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::activated_world,
 };
+use crate::common::world::WorldExt as _;
 use std::time::Duration;
 
 /// Window for the "candidate not seconded" assertion. Long enough that a working impl
@@ -504,6 +510,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::{build_with_ancestors_world_with_config, ChainConfig, LeafSelector},
 };
+use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -580,6 +587,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::{build_with_ancestors_world_with_config, ChainConfig, LeafSelector},
 };
+use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -670,6 +678,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::{build_with_ancestors_world_with_config, ChainConfig, LeafSelector},
 };
+use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
 use std::{
 	collections::{BTreeMap, VecDeque},

@@ -119,6 +119,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::activated_world,
 };
+use crate::common::world::WorldExt as _;
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;

@@ -24,6 +24,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::{build_with_ancestors_world_with_config, ChainConfig},
 };
+use crate::common::world::WorldExt as _;
 use polkadot_node_primitives::{BlockData, PoV};
 use polkadot_primitives::{
 	CandidateCommitments, CollatorId, CollatorSignature, CoreIndex, HeadData, Id as ParaId,
@@ -95,6 +96,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::activated_world,
 };
+use crate::common::world::WorldExt as _;
 use polkadot_node_primitives::{BlockData, PoV};
 use polkadot_primitives::{
 	CandidateReceiptV2, CoreIndex, HeadData, Id as ParaId, MutateDescriptorV2,

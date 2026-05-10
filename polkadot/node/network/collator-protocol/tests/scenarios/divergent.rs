@@ -127,6 +127,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::activated_world,
 };
+use crate::common::world::WorldExt as _;
 use polkadot_node_subsystem::OverseerSignal;
 use polkadot_primitives::{
 	CandidateEvent, CoreIndex, GroupIndex, HeadData, Id as ParaId,
@@ -421,6 +422,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::activated_world,
 };
+use crate::common::world::WorldExt as _;
 use polkadot_node_subsystem_util::reputation::REPUTATION_CHANGE_INTERVAL;
 use polkadot_primitives::{
 	CandidateHash, CandidateReceiptV2, CoreIndex, Hash, HeadData, Id as ParaId,
@@ -588,6 +590,7 @@ use crate::{
 		ChainConfig, LeafSelector,
 	},
 };
+use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId, ValidatorIndex};
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -969,6 +972,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::{build_with_ancestors_world_with_config, ChainConfig, LeafSelector},
 };
+use crate::common::world::WorldExt as _;
 use polkadot_node_subsystem::OverseerSignal;
 use polkadot_primitives::{
 	CandidateEvent, CoreIndex, GroupIndex, HeadData, Id as ParaId,
@@ -1096,6 +1100,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::activated_world,
 };
+use crate::common::world::WorldExt as _;
 use polkadot_node_subsystem::OverseerSignal;
 use polkadot_primitives::{
 	CandidateEvent, CoreIndex, GroupIndex, HeadData, Id as ParaId,

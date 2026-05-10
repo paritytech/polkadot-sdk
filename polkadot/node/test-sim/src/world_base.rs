@@ -270,6 +270,41 @@ where
 	}
 
 	// =====================================================================================
+	// Active-leaf accessors. Subsystem-agnostic: read `base().leaves` + `base().chain`.
+	// =====================================================================================
+
+	/// Hash of the first (and, for most scenarios, only) active leaf. Panics if no
+	/// leaf has been activated.
+	fn leaf(&self) -> Hash {
+		self.base().leaves[0].hash
+	}
+
+	/// Block number of the first active leaf. Panics if no leaf has been activated.
+	fn leaf_number(&self) -> BlockNumber {
+		self.base().leaves[0].number
+	}
+
+	/// Walk back from the first active leaf, returning up to
+	/// `chain.allowed_ancestry_len()` ancestors. `ancestors()[0]` is the leaf's
+	/// parent. Mirrors what real `prospective-parachains` returns for
+	/// `known_allowed_relay_parents_under(leaf)` (excluding the leaf itself).
+	fn ancestors(&self) -> Vec<Hash> {
+		self.ancestors_of(0)
+	}
+
+	/// Walk back from `leaves[idx]`, returning up to
+	/// `chain.allowed_ancestry_len()` ancestors.
+	fn ancestors_of(&self, idx: usize) -> Vec<Hash> {
+		let leaf_hash = self.base().leaves[idx].hash;
+		let chain = self.base().chain.lock();
+		// `allowed_ancestry_len + 1` is the depth budget — `chain.ancestors(_, k)`
+		// returns up to k blocks excluding the queried hash; the implicit view
+		// typically resolves `allowed_ancestry_len` of those.
+		let k = chain.allowed_ancestry_len() as usize + 1;
+		chain.ancestors(leaf_hash, k)
+	}
+
+	// =====================================================================================
 	// Read accessors for suite-wide config — hide field layout of `WorldConfig` so tests
 	// don't break when fields are added or moved.
 	// =====================================================================================

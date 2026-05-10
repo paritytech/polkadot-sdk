@@ -36,7 +36,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_overseer::ActiveLeavesUpdate;
 use polkadot_primitives::{
-	CoreIndex, GroupRotationInfo, Hash, Id as ParaId, ValidatorIndex,
+	CoreIndex, GroupRotationInfo, Id as ParaId, ValidatorIndex,
 };
 use sp_consensus_slots::Slot;
 use std::collections::{BTreeMap, VecDeque};
@@ -49,10 +49,10 @@ pub type Leaf = LeafRef;
 /// Collator-flavoured test world. Composes [`WorldBase`] for shared scaffolding (`Sim`,
 /// `SharedChain`, leaf bookkeeping) and adds the collator-specific `outputs` registry.
 ///
-/// Scenarios access `Sim` via `world.base.sim`, the chain via `world.base.chain`, leaves
-/// via `world.base.leaves` (all from the [`HasBase`] trait), and direct collator-specific
-/// state via `world.outputs` and the inherent `world.leaf()` / `world.ancestors()`
-/// helpers.
+/// Scenarios access `Sim` via `world.base.sim`, the chain via `world.base.chain`,
+/// leaves via `world.base.leaves`, leaf-derived helpers (`world.leaf()`,
+/// `world.ancestors()`) via the [`HasBase`] trait, and direct collator-specific state
+/// via `world.outputs`.
 pub struct World<S: SubsystemUnderTest>
 where
 	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
@@ -80,45 +80,9 @@ where
 	}
 }
 
-impl<S: SubsystemUnderTest> World<S>
-where
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	/// Hash of the first (and, for most scenarios, only) active leaf.
-	pub fn leaf(&self) -> Hash {
-		self.base.leaves[0].hash
-	}
-
-	/// Block number of the first active leaf.
-	pub fn leaf_number(&self) -> u32 {
-		self.base.leaves[0].number
-	}
-
-	/// Walk back `k` blocks from the first leaf. `ancestors()[0]` is the leaf's parent.
-	/// Reads [`SharedChain`] on demand — no cached state.
-	pub fn ancestors(&self) -> Vec<Hash> {
-		self.ancestors_of(0)
-	}
-
-	/// Walk back from `leaves[idx]`. Returns up to
-	/// [`crate::common::chain::ChainModel`]'s configured `allowed_ancestry_len` blocks. The result
-	/// matches what real `prospective-parachains` would return for
-	/// `known_allowed_relay_parents_under(leaf)` (excluding the leaf itself).
-	pub fn ancestors_of(&self, idx: usize) -> Vec<Hash> {
-		let leaf_hash = self.base.leaves[idx].hash;
-		let chain = self.base.chain.lock();
-		// Use `allowed_ancestry_len + 1` as the depth budget — chain.ancestors(_, k) returns
-		// up to k blocks excluding the queried hash; the implicit view typically resolves
-		// `allowed_ancestry_len` of those. We lean on the chain to bound at genesis.
-		let k = chain.allowed_ancestry_len() as usize + 1;
-		chain.ancestors(leaf_hash, k)
-	}
-}
-
 /// Re-export `HasBase` so scenarios' `use ...world::WorldExt` brings trait methods
-/// (`sim_mut`, `chain`, `leaves`, `signal_active_leaves`, `deactivate_leaf`,
-/// `activate_leaf*`, `register_leaf_in_chain`) into scope.
+/// (`new_leaf`, `signal_active_leaves`, `deactivate_leaf`, `leaf`, `leaf_number`,
+/// `ancestors`, `ancestors_of`, config accessors) into scope.
 pub use polkadot_subsystem_test_sim::world_base::HasBase as WorldExt;
 
 /// Build a Sim with the standard validator-side world: one leaf, one session, one validator

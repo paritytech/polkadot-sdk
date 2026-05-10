@@ -27,6 +27,7 @@ use crate::{
 		LeafSelector,
 	},
 };
+use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -114,6 +115,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::build_with_ancestors_world,
 };
+use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
 use std::time::Duration;
 
@@ -218,6 +220,7 @@ use crate::{
 	common::harness::CollatorSut,
 	common::world::{build_with_ancestors_world_with_config, ChainConfig, LeafSelector},
 };
+use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -436,6 +439,7 @@ use crate::{
 		build_with_ancestors_world_with_config, ChainConfig,
 	},
 };
+use crate::common::world::WorldExt as _;
 use polkadot_primitives::{
 	CandidateDescriptorVersion, CandidateReceiptV2, CoreIndex, HeadData, Hash, Id as ParaId,
 	MutateDescriptorV2, PersistedValidationData, RELAY_CHAIN_SLOT_DURATION_MILLIS,
