@@ -27,13 +27,13 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_primitives::{
-	async_backing::CandidatePendingAvailability, BlockNumber, CoreIndex, HeadData,
+	async_backing::CandidatePendingAvailability, BlockNumber, CandidateHash, CoreIndex, HeadData,
 	Hash, Id as ParaId, SessionIndex,
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use polkadot_primitives_test_helpers::make_candidate;
 use polkadot_subsystem_test_sim::chain::SessionInfo;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 const MAX_POV_SIZE: u32 = 1_000_000;
 
@@ -316,6 +316,17 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 	assert!(world.get_backable_candidates(leaf_a.hash, para_id, 5, Ancestors::new()).is_empty());
 }
 
+// Contract: a leaf's implicit-view depth is bounded at `scheduling_lookahead`
+// ancestors. Observable effect: when `get_backable_candidates` is queried on the
+// latest leaf, candidates whose `scheduling_parent` (= their relay parent for V2) is
+// older than `lookahead - 1` blocks behind the latest leaf are excluded — even if
+// those ancestor leaves are themselves still active (so the candidate IS in the
+// fragment-chain index, just not visible from this leaf).
+//
+// Probe: activate 10 linear leaves. Introduce + back two candidates: one at the
+// just-in-view boundary (`leaves[N-1 - (lookahead - 1)]`) and one one block past
+// (`leaves[N-1 - lookahead]`). Query `get_backable_candidates` at the latest leaf —
+// the in-view candidate must appear, the past-boundary one must not.
 #[test]
 fn handle_active_leaves_update_bounded_implicit_view() {
 	let para_id = ParaId::from(1);
@@ -325,42 +336,87 @@ fn handle_active_leaves_update_bounded_implicit_view() {
 	assert_eq!(config.claim_queue.len(), 1);
 	let mut world = World::start(config);
 
-	// Build linear chain of 10 leaves, oldest first.
+	// Build linear chain of 10 leaves, oldest first. All share the same `parent_head`
+	// so candidates rooted at any of them have a consistent required-parent chain.
+	let head_data = HeadData(vec![1, 2, 3]);
 	let leaves: Vec<TestLeaf> = {
 		let mut v = vec![TestLeaf {
 			number: 100,
 			hash: Hash::from_low_u64_be(1 << 20),
-			para_data: vec![(para_id, PerParaData::new(HeadData(vec![1, 2, 3])))],
+			para_data: vec![(para_id, PerParaData::new(head_data.clone()))],
 		}];
 		for i in 1..10 {
 			let prev = &v[i - 1];
 			v.push(TestLeaf {
 				number: prev.number - 1,
 				hash: get_parent_hash(prev.hash),
-				para_data: vec![(para_id, PerParaData::new(HeadData(vec![1, 2, 3])))],
+				para_data: vec![(para_id, PerParaData::new(head_data.clone()))],
 			});
 		}
 		v.reverse();
 		v
 	};
 
-	// Activate all 10.
 	for leaf in &leaves {
 		world.activate_leaf(leaf);
 	}
+	let latest = &leaves[9];
 
-	// Deactivate first 9, leaving only the latest.
-	for leaf in &leaves[0..9] {
-		world.deactivate_leaf(leaf.hash);
-	}
+	let lookahead = DEFAULT_SCHEDULING_LOOKAHEAD as usize;
+	// In-view boundary leaf: distance from latest = lookahead - 1.
+	let in_view_leaf = &leaves[9 - (lookahead - 1)];
+	// Just-past boundary: distance = lookahead.
+	let past_view_leaf = &leaves[9 - lookahead];
 
-	// Latest leaf is queryable; deactivated ones return empty.
-	let _ = world.get_backable_candidates(leaves[9].hash, para_id, 5, Ancestors::default());
-	for leaf in &leaves[0..9] {
-		assert!(world.get_backable_candidates(leaf.hash, para_id, 5, Ancestors::default()).is_empty());
-	}
+	let vch = world.validation_code_hash();
 
-	assert_eq!(world.base.leaves.len(), 1);
+	// Candidate rooted at the in-view ancestor. Distinct head byte so its hash
+	// differs from the past-boundary candidate.
+	let (cand_in, pvd_in) = make_candidate(
+		in_view_leaf.hash,
+		in_view_leaf.number,
+		para_id,
+		head_data.clone(),
+		HeadData(vec![0xAA]),
+		vch,
+	);
+	let cand_in_hash = cand_in.hash();
+	assert!(world.introduce_seconded_candidate(cand_in.clone(), pvd_in));
+	world.back_candidate(para_id, cand_in_hash);
+
+	let (cand_out, pvd_out) = make_candidate(
+		past_view_leaf.hash,
+		past_view_leaf.number,
+		para_id,
+		head_data.clone(),
+		HeadData(vec![0xBB]),
+		vch,
+	);
+	let cand_out_hash = cand_out.hash();
+	// past-boundary leaf is *itself* an active leaf, so the subsystem accepts the
+	// candidate under that leaf's scheduling-parent slot.
+	assert!(world.introduce_seconded_candidate(cand_out.clone(), pvd_out));
+	world.back_candidate(para_id, cand_out_hash);
+
+	// Querying backables on the latest leaf: in-view candidate appears; past-boundary
+	// candidate is filtered out because its scheduling parent is no longer in the
+	// latest leaf's bounded implicit view.
+	let backables = world.get_backable_candidates(
+		latest.hash,
+		para_id,
+		10,
+		Ancestors::default(),
+	);
+	let returned: HashSet<CandidateHash> = backables.iter().map(|b| b.candidate_hash).collect();
+	assert!(
+		returned.contains(&cand_in_hash),
+		"in-view candidate must be visible from the latest leaf"
+	);
+	assert!(
+		!returned.contains(&cand_out_hash),
+		"past-boundary candidate must NOT be visible from the latest leaf \
+		 (implicit view is bounded at `scheduling_lookahead`)"
+	);
 }
 
 #[test]
