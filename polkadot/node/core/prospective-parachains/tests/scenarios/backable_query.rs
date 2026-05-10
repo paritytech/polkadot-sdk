@@ -21,19 +21,14 @@ use crate::common::world::{default_world_config, World, WorldExt as _};
 use polkadot_node_subsystem::messages::{Ancestors, BackableCandidateRef};
 use polkadot_primitives::{
 	CandidateHash, CoreIndex, HeadData, Hash, Id as ParaId, MutateDescriptorV2,
-	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
+use polkadot_subsystem_test_sim::chain::CoreSchedule;
 use polkadot_primitives_test_helpers::make_candidate;
 
 #[test]
 fn check_backable_query_single_candidate() {
 	let mut config = default_world_config();
-	config.claim_queue.insert(
-		CoreIndex(2),
-		std::iter::repeat(ParaId::from(1))
-			.take(DEFAULT_SCHEDULING_LOOKAHEAD as _)
-			.collect(),
-	);
+	config.schedule.push((CoreIndex(2), CoreSchedule::always(ParaId::from(1))));
 	let mut world = World::start(config);
 
 	let leaf_a = world
@@ -137,12 +132,7 @@ fn check_backable_query_single_candidate() {
 fn check_backable_query_multiple_candidates() {
 	let mut config = default_world_config();
 	for i in 2..=4 {
-		config.claim_queue.insert(
-			CoreIndex(i),
-			std::iter::repeat(ParaId::from(1))
-				.take(DEFAULT_SCHEDULING_LOOKAHEAD as _)
-				.collect(),
-		);
+		config.schedule.push((CoreIndex(i), CoreSchedule::always(ParaId::from(1))));
 	}
 	let mut world = World::start(config);
 
@@ -431,12 +421,7 @@ fn check_backable_query_multiple_candidates() {
 #[test]
 fn fragment_chain_chain_length_is_bounded() {
 	let mut config = default_world_config();
-	config.claim_queue.insert(
-		CoreIndex(2),
-		std::iter::repeat(ParaId::from(1))
-			.take(DEFAULT_SCHEDULING_LOOKAHEAD as _)
-			.collect(),
-	);
+	config.schedule.push((CoreIndex(2), CoreSchedule::always(ParaId::from(1))));
 	let mut world = World::start(config);
 
 	let leaf_a = world
@@ -517,12 +502,7 @@ fn fragment_chain_chain_length_is_bounded() {
 fn unconnected_candidates_become_connected() {
 	let mut config = default_world_config();
 	for i in 2..=4 {
-		config.claim_queue.insert(
-			CoreIndex(i),
-			std::iter::repeat(ParaId::from(1))
-				.take(DEFAULT_SCHEDULING_LOOKAHEAD as _)
-				.collect(),
-		);
+		config.schedule.push((CoreIndex(i), CoreSchedule::always(ParaId::from(1))));
 	}
 	let mut world = World::start(config);
 

@@ -80,8 +80,8 @@ where
 }
 
 /// Re-export `HasBase` so scenarios' `use ...world::WorldExt` brings trait methods
-/// (`new_leaf`, `signal_active_leaves`, `deactivate_leaf`, `leaf`, `leaf_number`,
-/// `ancestors`, `ancestors_of`, config accessors) into scope.
+/// (`new_block`, `signal_active_leaves`, `deactivate_leaf`, `finalize`, `leaf`,
+/// `leaf_number`, `ancestors`, `ancestors_of`, config accessors) into scope.
 pub use polkadot_subsystem_test_sim::world_base::HasBase as WorldExt;
 
 /// Build a Sim with the standard validator-side world: one leaf, one session, one validator
@@ -99,14 +99,14 @@ where
 }
 
 
-/// Build a multi-leaf world: extends the chain `n_leaves` times on top of genesis,
-/// installs the claim queue at every leaf, signals `ActiveLeaves::start_work` for each
-/// leaf in extend order, and pushes an `OurViewChange` containing all of them.
+/// Build a world with a linear chain of `n_blocks` blocks on top of genesis. Each
+/// block is `.activate()`-ed in order, mirroring production `block_imported`
+/// semantics: each child activation auto-deactivates its parent. Only the latest
+/// block stays an active leaf at the end. The blocks below the tip remain in chain
+/// history (reachable via `world.ancestors()`).
 ///
-/// All leaves form a single linear chain — `leaves[i+1]` is `leaves[i]`'s direct child.
-/// Multi-fork scenarios (separate chains under genesis with no shared parent) are not
-/// supported; that's a separate extension.
-pub fn build_multi_leaf_world<S>(n_leaves: usize, paras: &[(CoreIndex, ParaId)]) -> World<S>
+/// `OurViewChange` carries the resulting view (one entry — the active tip).
+pub fn build_linear_chain_world<S>(n_blocks: usize, paras: &[(CoreIndex, ParaId)]) -> World<S>
 where
 	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
 	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
@@ -116,12 +116,12 @@ where
 	for (core, para) in paras {
 		config = config.with_schedule(*core, CoreSchedule::always(*para));
 	}
-	build_multi_leaf_world_with_config::<S>(n_leaves, config)
+	build_linear_chain_world_with_config::<S>(n_blocks, config)
 }
 
-/// Variant of [`build_multi_leaf_world`] that takes a [`ChainConfig`]. Lets multi-leaf
-/// tests dial in `validator_groups`, `group_rotation_frequency`, etc.
-pub fn build_multi_leaf_world_with_config<S>(n_leaves: usize, config: ChainConfig) -> World<S>
+/// Variant of [`build_linear_chain_world`] that takes a [`ChainConfig`]. Lets tests
+/// dial in `validator_groups`, `group_rotation_frequency`, etc.
+pub fn build_linear_chain_world_with_config<S>(n_blocks: usize, config: ChainConfig) -> World<S>
 where
 	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
 	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
@@ -129,15 +129,17 @@ where
 {
 	use polkadot_node_subsystem::messages::NetworkBridgeEvent;
 
-	assert!(n_leaves >= 1, "build_multi_leaf_world requires at least one leaf");
+	assert!(n_blocks >= 1, "build_linear_chain_world requires at least one block");
 
 	let mut world = bootstrap_world::<S>(&config);
 	spawn_default_aux(&mut world, &config);
 
-	// Linear chain: each `new_leaf().activate()` extends the current tip and signals
-	// `ActiveLeaves::start_work`. The harness pushes the resulting `LeafRef` onto
-	// `world.base.leaves`.
-	for _ in 0..n_leaves {
+	// Linear chain: each `new_block().activate()` extends the current tip and signals
+	// `OverseerSignal::ActiveLeaves` with `start_work(child)` plus
+	// `deactivated=[parent]` if the parent was the previous active leaf — mirroring
+	// production `block_imported`. After the loop only the latest block is an active
+	// leaf (`world.leaf()`); earlier blocks live as ancestors (`world.ancestors()`).
+	for _ in 0..n_blocks {
 		world.new_block().activate();
 	}
 
@@ -154,9 +156,6 @@ where
 /// settings *before* signalling `ActiveLeaves` / `OurViewChange` — so the subsystems'
 /// caches see the configured shape, not a default-then-overridden one.
 pub struct ChainConfig {
-	/// Per-core schedule installed on the chain at startup. Each entry calls
-	/// [`crate::common::chain::ChainModel::set_core_schedule`].
-	pub schedule: Vec<(CoreIndex, CoreSchedule)>,
 	/// Per-block claim-queue overrides. The block referenced here may be either the
 	/// leaf returned by the helper or any of its ancestors.
 	pub claim_queue_overrides: Vec<(LeafSelector, BTreeMap<CoreIndex, VecDeque<ParaId>>)>,
@@ -166,16 +165,16 @@ pub struct ChainConfig {
 	/// verdict that real backing wouldn't produce in our minimal chain shape.
 	pub can_second_stub: Option<bool>,
 	/// Suite-wide chain/runtime config consumed by the framework's
-	/// [`build_chain_model`] / [`WorldBase::start_with_responder`]: validators,
-	/// validator groups, genesis slot, V3 node feature flag, etc. Tenants nudge
-	/// individual fields rather than the chain-level helpers re-defining them.
+	/// [`build_chain_model`] / [`WorldBase::start_with_responder`]: per-core
+	/// schedule, validators, validator groups, genesis slot, V3 node feature flag,
+	/// etc. Tenants nudge individual fields rather than the chain-level helpers
+	/// re-defining them.
 	pub world: WorldConfig,
 }
 
 impl Default for ChainConfig {
 	fn default() -> Self {
 		Self {
-			schedule: Vec::new(),
 			claim_queue_overrides: Vec::new(),
 			can_second_stub: None,
 			world: WorldConfig {
@@ -192,9 +191,9 @@ impl Default for ChainConfig {
 }
 
 impl ChainConfig {
-	/// Add a per-core schedule.
+	/// Add a per-core schedule. Convenience over `self.world.schedule.push(...)`.
 	pub fn with_schedule(mut self, core: CoreIndex, schedule: CoreSchedule) -> Self {
-		self.schedule.push((core, schedule));
+		self.world.schedule.push((core, schedule));
 		self
 	}
 
@@ -344,9 +343,10 @@ where
 
 /// Bootstrap a `World<S>` from a collator-flavoured [`ChainConfig`]:
 /// * delegate chain construction to [`build_chain_model`] (handles validators,
-///   groups, genesis slot, runtime API version, V3 node feature);
-/// * apply the tenant's per-core schedule on top;
-/// * spin up the `Sim` via [`WorldBase::start_with_responder`] (chain + `PanicResponder`).
+///   groups, genesis slot, runtime API version, V3 node feature, per-core
+///   schedule);
+/// * spin up the `Sim` via [`WorldBase::start_with_responder`] (chain +
+///   `PanicResponder`).
 ///
 /// Aux subsystems and the `OurViewChange` signal are layered on top by the calling
 /// helper via [`spawn_default_aux`] / `world.base.sim.send(...)`.
@@ -357,12 +357,6 @@ where
 	AllMessages: From<S::Message>,
 {
 	let chain = build_chain_model(&config.world);
-	{
-		let mut c = chain.lock();
-		for (core, schedule) in &config.schedule {
-			c.set_core_schedule(*core, schedule.clone());
-		}
-	}
 
 	let mut responder = LayeredResponder::new();
 	responder.push(chain.clone());

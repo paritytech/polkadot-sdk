@@ -53,7 +53,6 @@ use polkadot_primitives::{
 };
 use polkadot_primitives_test_helpers::dummy_validation_code;
 use sp_consensus_slots::Slot;
-use std::collections::{BTreeMap, VecDeque};
 
 /// Identity of a leaf the harness has signalled `ActiveLeaves::start_work` for. Returned
 /// from [`LeafBuilder::activate`] / [`LeafBuilder::register_only`] and held by tests.
@@ -74,10 +73,12 @@ pub struct WorldConfig {
 	/// Session index applied to every block produced via `chain.extend(...)`. Mid-test
 	/// session changes go through `chain.add_session(...)` + per-block session overrides.
 	pub session_index: SessionIndex,
-	/// Per-core claim queue installed as the global per-core schedule on
-	/// [`WorldBase::start`]. Per-leaf overrides go through
-	/// [`crate::chain::ChainModel::set_claim_queue_at`].
-	pub claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+	/// Per-core schedule — write-side scheduling primitive. Each entry is a
+	/// [`CoreSchedule`] that defines how the chain model derives the runtime's
+	/// `ClaimQueue` at every block (the queue rotates per block according to the
+	/// cycle pattern). Per-block claim-queue overrides take precedence; set them
+	/// via [`crate::chain::ChainModel::set_claim_queue_at`] on the chain.
+	pub schedule: Vec<(CoreIndex, CoreSchedule)>,
 	/// Validation-code hash baked into the synthesised backing constraints — must
 	/// match what `make_candidate(.., validation_code_hash)` produces or candidates
 	/// fail constraints' `ValidationCodeMismatch` check.
@@ -115,7 +116,7 @@ impl Default for WorldConfig {
 	fn default() -> Self {
 		Self {
 			session_index: 1,
-			claim_queue: BTreeMap::new(),
+			schedule: Vec::new(),
 			validation_code_hash: dummy_validation_code().hash(),
 			min_relay_parent_number_override: None,
 			runtime_api_version:
@@ -211,11 +212,8 @@ pub fn build_chain_model(config: &WorldConfig) -> SharedChain {
 	// out of sync with `world.session_index()`.
 	let genesis = chain.genesis();
 	chain.set_block_session(genesis, config.session_index);
-	for (core, paras) in &config.claim_queue {
-		let cycle: Vec<ParaId> = paras.iter().copied().collect();
-		if !cycle.is_empty() {
-			chain.set_core_schedule(*core, CoreSchedule::cycling(cycle));
-		}
+	for (core, schedule) in &config.schedule {
+		chain.set_core_schedule(*core, schedule.clone());
 	}
 	chain.set_runtime_api_version(config.runtime_api_version);
 	if config.enable_v3_node_feature {

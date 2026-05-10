@@ -379,7 +379,7 @@ use crate::{
 	common::builders::ProtocolVersion::V2,
 	common::chain::CoreSchedule,
 	common::harness::CollatorSut,
-	common::world::{build_multi_leaf_world_with_config, ChainConfig, WorldExt as _},
+	common::world::{build_linear_chain_world_with_config, ChainConfig, WorldExt as _},
 };
 use polkadot_primitives::{CoreIndex, Id as ParaId, ValidatorIndex};
 
@@ -407,7 +407,7 @@ fn group_rotation_uses_correct_core_per_relay_parent<S: CollatorSut>() {
 		.with_schedule(CoreIndex(2), CoreSchedule::always(PARA_B))
 		.with_validator_groups(validator_groups)
 		.with_group_rotation_frequency(1);
-	let mut w = build_multi_leaf_world_with_config::<S>(3, config);
+	let mut w = build_linear_chain_world_with_config::<S>(3, config);
 
 	// Linear chain: under production `block_imported` semantics each `.activate()`
 	// auto-deactivates its parent, so only block 3 is an active leaf in

@@ -32,37 +32,35 @@ use polkadot_node_subsystem::messages::{
 use polkadot_primitives::{
 	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, HeadData,
 	Hash, Id as ParaId, MutateDescriptorV2, PersistedValidationData, SessionIndex,
-	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use polkadot_primitives_test_helpers::make_candidate;
-use polkadot_subsystem_test_sim::world_base::{HasBase, LeafRef, WorldBase, WorldConfig};
+use polkadot_subsystem_test_sim::{
+	chain::CoreSchedule,
+	world_base::{HasBase, LeafRef, WorldBase, WorldConfig},
+};
 
 // Re-export `HasBase` so tests' `use ...world::WorldExt` brings trait methods
-// (`new_leaf`, `signal_active_leaves`, `deactivate_leaf`, `validation_code_hash`,
+// (`new_block`, `signal_active_leaves`, `deactivate_leaf`, `validation_code_hash`,
 // `session_index`, `min_relay_parent_number_override`) into scope.
 pub use polkadot_subsystem_test_sim::world_base::HasBase as WorldExt;
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
 
 /// Convenience alias preserving the in-crate prospective tests' `TestLeaf` naming.
 pub type TestLeaf = LeafRef;
 
-/// Suite-wide default [`WorldConfig`] for prospective scenarios — populates the standard
-/// two-para claim queue (`chain_a` on core 0, `chain_b` on core 1, depth =
-/// [`DEFAULT_SCHEDULING_LOOKAHEAD`]) and leaves the rest at [`WorldConfig::default`].
-/// Tests that need a different shape construct their own [`WorldConfig`] inline.
+/// Suite-wide default [`WorldConfig`] for prospective scenarios — schedules
+/// `chain_a` on core 0 and `chain_b` on core 1 for every block. Tests that need a
+/// different shape construct their own [`WorldConfig`] inline.
 pub fn default_world_config() -> WorldConfig {
 	let chain_a = ParaId::from(1);
 	let chain_b = ParaId::from(2);
-	let mut claim_queue = BTreeMap::new();
-	claim_queue.insert(
-		CoreIndex(0),
-		std::iter::repeat(chain_a).take(DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
-	);
-	claim_queue.insert(
-		CoreIndex(1),
-		std::iter::repeat(chain_b).take(DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
-	);
-	WorldConfig { claim_queue, ..WorldConfig::default() }
+	WorldConfig {
+		schedule: vec![
+			(CoreIndex(0), CoreSchedule::always(chain_a)),
+			(CoreIndex(1), CoreSchedule::always(chain_b)),
+		],
+		..WorldConfig::default()
+	}
 }
 
 /// Prospective-parachains-flavoured `World`. Composes [`WorldBase`] for shared

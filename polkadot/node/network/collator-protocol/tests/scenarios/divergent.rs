@@ -609,7 +609,7 @@ use crate::{
 	common::contract::Effect,
 	common::harness::CollatorSut,
 	common::world::{
-		build_multi_leaf_world_with_config, build_with_ancestors_world_with_config,
+		build_linear_chain_world_with_config, build_with_ancestors_world_with_config,
 		ChainConfig, LeafSelector, WorldExt as _,
 	},
 };
@@ -645,9 +645,9 @@ fn core_rotation_accepts_candidates_for_both_cores<S: CollatorSut>() {
 		.with_schedule(CoreIndex(1), CoreSchedule::always(PARA_B))
 		.with_validator_groups(validator_groups)
 		.with_group_rotation_frequency(1);
-	let mut w = build_multi_leaf_world_with_config::<S>(2, config);
+	let mut w = build_linear_chain_world_with_config::<S>(2, config);
 
-	// `build_multi_leaf_world_with_config` builds a *linear* chain via repeated
+	// `build_linear_chain_world_with_config` builds a *linear* chain via repeated
 	// `.activate()`. Under production `block_imported` semantics, each child activation
 	// auto-deactivates its parent — so only the latest block is an active leaf. Block 1
 	// stays in the chain (and in the leaf's implicit view), but it's no longer in
@@ -693,7 +693,7 @@ fn cross_core_reservation_does_not_consume_other_cores_slots<S: CollatorSut>() {
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_FILLER))
 		.with_validator_groups(validator_groups)
 		.with_group_rotation_frequency(1);
-	let mut w = build_multi_leaf_world_with_config::<S>(2, config);
+	let mut w = build_linear_chain_world_with_config::<S>(2, config);
 	// Linear chain: only the latest block is an active leaf under production semantics.
 	// Block 1 lives in the leaf's implicit view via chain ancestry.
 	let leaf_2 = w.leaf(); // active leaf, block 2 — we own core 1

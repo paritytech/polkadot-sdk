@@ -28,9 +28,10 @@ use polkadot_primitives::{
 	async_backing::CandidatePendingAvailability, BlockNumber, CandidateHash, CoreIndex, HeadData,
 	Hash, Id as ParaId, SessionIndex, DEFAULT_SCHEDULING_LOOKAHEAD,
 };
+use polkadot_subsystem_test_sim::chain::CoreSchedule;
 use polkadot_primitives_test_helpers::make_candidate;
 use polkadot_subsystem_test_sim::chain::SessionInfo;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 
 const MAX_POV_SIZE: u32 = 1_000_000;
 
@@ -101,12 +102,9 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 	let para_id = ParaId::from(1);
 
 	let mut config = default_world_config();
-	config.claim_queue = BTreeMap::new();
+	config.schedule.clear();
 	for i in 0..=4 {
-		config.claim_queue.insert(
-			CoreIndex(i),
-			std::iter::repeat(para_id).take(DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
-		);
+		config.schedule.push((CoreIndex(i), CoreSchedule::always(para_id)));
 	}
 	let mut world = World::start(config);
 
@@ -289,9 +287,8 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 fn handle_active_leaves_update_bounded_implicit_view() {
 	let para_id = ParaId::from(1);
 	let mut config = default_world_config();
-	config.claim_queue
-		.retain(|_, paras| matches!(paras.front(), Some(p) if p == &para_id));
-	assert_eq!(config.claim_queue.len(), 1);
+	config.schedule.retain(|(_, s)| s.cycle.first() == Some(&para_id));
+	assert_eq!(config.schedule.len(), 1);
 	let mut world = World::start(config);
 
 	// Build linear chain of 10 leaves, oldest first. All share the same `parent_head`
@@ -373,9 +370,8 @@ fn handle_active_leaves_update_bounded_implicit_view() {
 fn persists_pending_availability_candidate() {
 	let para_id = ParaId::from(1);
 	let mut config = default_world_config();
-	config.claim_queue
-		.retain(|_, paras| matches!(paras.front(), Some(p) if p == &para_id));
-	assert_eq!(config.claim_queue.len(), 1);
+	config.schedule.retain(|(_, s)| s.cycle.first() == Some(&para_id));
+	assert_eq!(config.schedule.len(), 1);
 	let mut world = World::start(config);
 
 	let para_head = HeadData(vec![1, 2, 3]);
@@ -516,11 +512,8 @@ fn uses_ancestry_only_within_session() {
 	let mut config = default_world_config();
 	// Single-para schedule on one core: keep the probe focused on the session-boundary
 	// invariant rather than multi-core scheduling.
-	config.claim_queue.clear();
-	config.claim_queue.insert(
-		CoreIndex(0),
-		std::iter::repeat(para_id).take(DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
-	);
+	config.schedule.clear();
+	config.schedule.push((CoreIndex(0), CoreSchedule::always(para_id)));
 	config.session_index = 2;
 	let mut world = World::start(config);
 

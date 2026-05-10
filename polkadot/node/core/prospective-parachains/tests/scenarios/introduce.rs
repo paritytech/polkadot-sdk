@@ -19,9 +19,9 @@
 
 use crate::common::world::{default_world_config, World, WorldExt as _};
 use polkadot_node_subsystem::messages::{Ancestors, BackableCandidateRef};
-use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId, DEFAULT_SCHEDULING_LOOKAHEAD};
+use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
+use polkadot_subsystem_test_sim::chain::CoreSchedule;
 use polkadot_primitives_test_helpers::make_candidate;
-use std::collections::{BTreeMap, VecDeque};
 
 #[test]
 fn introduce_candidates_basic() {
@@ -29,9 +29,7 @@ fn introduce_candidates_basic() {
 
 	let chain_a = ParaId::from(1);
 	let chain_b = ParaId::from(2);
-	let mut claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>> = BTreeMap::new();
-	claim_queue.insert(CoreIndex(0), [chain_a, chain_b].into_iter().collect());
-	config.claim_queue = claim_queue;
+	config.schedule = vec![(CoreIndex(0), CoreSchedule::cycling(vec![chain_a, chain_b]))];
 
 	let mut world = World::start(config);
 
@@ -161,12 +159,7 @@ fn introduce_candidates_basic() {
 #[test]
 fn introduce_candidates_error() {
 	let mut config = default_world_config();
-	config.claim_queue.insert(
-		CoreIndex(2),
-		std::iter::repeat(ParaId::from(1))
-			.take(DEFAULT_SCHEDULING_LOOKAHEAD as _)
-			.collect(),
-	);
+	config.schedule.push((CoreIndex(2), CoreSchedule::always(ParaId::from(1))));
 
 	let mut world = World::start(config);
 
