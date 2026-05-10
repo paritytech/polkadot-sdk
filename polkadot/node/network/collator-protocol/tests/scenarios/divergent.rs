@@ -95,9 +95,7 @@ fn declared_but_inactive_peer_kept_indefinitely<S: CollatorSut>() {
 #[crate::sim_test(only = "legacy")]
 fn activity_extends_life_then_silence_evicts<S: CollatorSut>() {
 	use crate::common::chain::CoreSchedule;
-	use crate::common::world::{bootstrap_world, spawn_default_aux, ChainConfig};
-	use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
-	use polkadot_primitives::Hash;
+	use crate::common::world::{bootstrap_world, collator_world_config};
 
 	// V1 advertisements must reference an *active leaf* (legacy explicitly rejects
 	// non-leaf RPs as `ProtocolMisuse`). The original test built a linear chain of
@@ -105,17 +103,14 @@ fn activity_extends_life_then_silence_evicts<S: CollatorSut>() {
 	// semantics no longer permit that (each child activation deactivates its parent).
 	// Three sibling forks of a common non-leaf ancestor preserve the "three coexisting
 	// active leaves" intent and let V1 advertisements at all three RPs land.
-	let config = ChainConfig::default().with_schedule(CoreIndex(0), CoreSchedule::always(PARA));
-	let mut w: World<S> = bootstrap_world::<S>(&config);
-	spawn_default_aux(&mut w, &config);
+	let config =
+		collator_world_config().with_schedule(CoreIndex(0), CoreSchedule::always(PARA));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
 	let common = w.new_block().register();
 	let leaf_a = w.new_block().from_parent(common.hash).activate();
 	let leaf_b = w.new_block().from_parent(common.hash).activate();
 	let leaf_c = w.new_block().from_parent(common.hash).activate();
-	let view: Vec<Hash> = w.base.leaves.iter().map(|l| l.hash).collect();
-	w.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
-		NetworkBridgeEvent::OurViewChange(polkadot_node_network_protocol::OurView::new(view, 0)),
-	));
+	w.emit_our_view_change();
 
 	let peer = w.declared_peer(PARA, V1);
 	let rps = [leaf_a.hash, leaf_b.hash, leaf_c.hash];
@@ -608,10 +603,7 @@ use crate::{
 	common::chain::CoreSchedule,
 	common::contract::Effect,
 	common::harness::CollatorSut,
-	common::world::{
-		build_linear_chain_world_with_config, build_with_ancestors_world_with_config,
-		ChainConfig, LeafSelector, WorldExt as _,
-	},
+	common::world::{bootstrap_world, collator_world_config, World, WorldExt as _},
 };
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId, ValidatorIndex};
 use std::{
@@ -640,18 +632,22 @@ fn core_rotation_accepts_candidates_for_both_cores<S: CollatorSut>() {
 	// - block 2: own core 1 (PARA_B)
 	let validator_groups =
 		vec![vec![ValidatorIndex(0)], vec![ValidatorIndex(1)], vec![ValidatorIndex(2)]];
-	let config = ChainConfig::default()
+	let config = collator_world_config()
 		.with_schedule(CoreIndex(2), CoreSchedule::always(PARA_A))
 		.with_schedule(CoreIndex(1), CoreSchedule::always(PARA_B))
 		.with_validator_groups(validator_groups)
 		.with_group_rotation_frequency(1);
-	let mut w = build_linear_chain_world_with_config::<S>(2, config);
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	for _ in 0..2 {
+		w.new_block().activate();
+	}
+	w.emit_our_view_change();
 
-	// `build_linear_chain_world_with_config` builds a *linear* chain via repeated
-	// `.activate()`. Under production `block_imported` semantics, each child activation
-	// auto-deactivates its parent — so only the latest block is an active leaf. Block 1
-	// stays in the chain (and in the leaf's implicit view), but it's no longer in
-	// `world.base.leaves`. We pull it from the chain ancestry instead.
+	// Linear chain via repeated `.activate()`: under production `block_imported`
+	// semantics, each child activation auto-deactivates its parent — so only the
+	// latest block is an active leaf. Block 1 stays in the chain (and in the leaf's
+	// implicit view), but it's no longer in `world.base.leaves`. We pull it from
+	// the chain ancestry instead.
 	let leaf_2 = w.leaf(); // active leaf, block 2 — we own core 1 → PARA_B
 	let leaf_1 = w.ancestors()[0]; // chain ancestor, block 1 — we own core 2 → PARA_A
 
@@ -687,13 +683,17 @@ fn cross_core_reservation_does_not_consume_other_cores_slots<S: CollatorSut>() {
 	const PARA_FILLER: ParaId = ParaId::new(600);
 	let validator_groups =
 		vec![vec![ValidatorIndex(0)], vec![ValidatorIndex(1)], vec![ValidatorIndex(2)]];
-	let config = ChainConfig::default()
+	let config = collator_world_config()
 		.with_schedule(CoreIndex(1), CoreSchedule::always(PARA_X_LOCAL))
 		.with_schedule(CoreIndex(2), CoreSchedule::always(PARA_X_LOCAL))
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_FILLER))
 		.with_validator_groups(validator_groups)
 		.with_group_rotation_frequency(1);
-	let mut w = build_linear_chain_world_with_config::<S>(2, config);
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	for _ in 0..2 {
+		w.new_block().activate();
+	}
+	w.emit_our_view_change();
 	// Linear chain: only the latest block is an active leaf under production semantics.
 	// Block 1 lives in the leaf's implicit view via chain ancestry.
 	let leaf_2 = w.leaf(); // active leaf, block 2 — we own core 1
@@ -718,10 +718,14 @@ fn cross_core_reservation_does_not_consume_other_cores_slots<S: CollatorSut>() {
 fn linear_multi_sp_same_para_capacity_not_double_counted<S: CollatorSut>() {
 	let mut leaf_q = BTreeMap::new();
 	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_A, ParaId::new(200), PARA_A]));
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A))
-		.with_claim_queue_at(LeafSelector::Leaf, leaf_q);
-	let mut w = build_with_ancestors_world_with_config::<S>(2, config);
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	for _ in 0..2 {
+		w.new_block().register();
+	}
+	w.new_block().with_claim_queue(leaf_q).activate();
+	w.emit_our_view_change();
 	let leaf = w.leaf();
 	let parent = w.ancestors()[0];
 	let grandparent = w.ancestors()[1];
@@ -758,10 +762,14 @@ fn linear_multi_sp_same_para_capacity_not_double_counted<S: CollatorSut>() {
 fn linear_multi_sp_no_under_fetch_when_wide_and_narrow_compete<S: CollatorSut>() {
 	let mut leaf_q = BTreeMap::new();
 	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_A, ParaId::new(200), PARA_A]));
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A))
-		.with_claim_queue_at(LeafSelector::Leaf, leaf_q);
-	let mut w = build_with_ancestors_world_with_config::<S>(2, config);
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	for _ in 0..2 {
+		w.new_block().register();
+	}
+	w.new_block().with_claim_queue(leaf_q).activate();
+	w.emit_our_view_change();
 	let leaf = w.leaf();
 	let grandparent = w.ancestors()[1]; // window len 1
 
@@ -799,10 +807,14 @@ fn linear_multi_sp_no_under_fetch_when_wide_and_narrow_compete<S: CollatorSut>()
 fn short_claim_queue_does_not_reject_ancestor_advertisements<S: CollatorSut>() {
 	let mut leaf_q = BTreeMap::new();
 	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_A]));
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A))
-		.with_claim_queue_at(LeafSelector::Leaf, leaf_q);
-	let mut w = build_with_ancestors_world_with_config::<S>(2, config);
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	for _ in 0..2 {
+		w.new_block().register();
+	}
+	w.new_block().with_claim_queue(leaf_q).activate();
+	w.emit_our_view_change();
 	let grandparent = w.ancestors()[1];
 	let peer = w.declared_peer(PARA_A, V2);
 	let cand = w.candidate_at(grandparent).para(PARA_A).build();
@@ -832,9 +844,11 @@ const PARA_Y: ParaId = ParaId::new(200);
 fn fork_assignments_are_union_of_leaves<S: CollatorSut>() {
 	use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
 
-	let config = ChainConfig::default()
+	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
-	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	w.new_block().activate();
+	w.emit_our_view_change();
 	let fork_a = w.leaf();
 	let common = w.base.chain.lock().genesis();
 	let fork_b = w.extend_and_activate_with(common, &[fork_a], |chain, h, _n| {
@@ -878,10 +892,11 @@ fn fork_assignments_are_union_of_leaves<S: CollatorSut>() {
 fn fork_capacity_uses_longest_window_across_paths<S: CollatorSut>() {
 	let mut leaf_q = BTreeMap::new();
 	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_X, PARA_X, PARA_X]));
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X))
-		.with_claim_queue_at(LeafSelector::Leaf, leaf_q.clone());
-	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	w.new_block().with_claim_queue(leaf_q.clone()).activate();
+	w.emit_our_view_change();
 	let fork_a = w.leaf();
 	let common = w.base.chain.lock().genesis();
 	// fork_b at depth 2 from common.
@@ -921,10 +936,11 @@ fn fork_capacity_uses_longest_window_across_paths<S: CollatorSut>() {
 fn fork_shared_sp_capacity_not_double_counted<S: CollatorSut>() {
 	let mut leaf_q = BTreeMap::new();
 	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_X, PARA_X, PARA_X]));
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X))
-		.with_claim_queue_at(LeafSelector::Leaf, leaf_q.clone());
-	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	w.new_block().with_claim_queue(leaf_q.clone()).activate();
+	w.emit_our_view_change();
 	let fork_a = w.leaf();
 	let common = w.base.chain.lock().genesis();
 	let _fork_b = w.extend_and_activate_with(common, &[fork_a], |chain, h, _n| {
@@ -959,9 +975,11 @@ fn fork_shared_sp_capacity_not_double_counted<S: CollatorSut>() {
 fn fork_drop_reclaims_capacity_and_disconnects_peers<S: CollatorSut>() {
 	use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
 
-	let config = ChainConfig::default()
+	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
-	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	w.new_block().activate();
+	w.emit_our_view_change();
 	let fork_a = w.leaf();
 	let common = w.base.chain.lock().genesis();
 	let fork_b = w.extend_and_activate_with(common, &[fork_a], |chain, h, _n| {
@@ -999,7 +1017,7 @@ use crate::{
 	common::builders::ProtocolVersion::V2,
 	common::contract::Effect,
 	common::harness::CollatorSut,
-	common::world::{build_with_ancestors_world_with_config, ChainConfig, LeafSelector},
+	common::world::{bootstrap_world, collator_world_config, World},
 };
 use crate::common::world::WorldExt as _;
 use polkadot_node_subsystem::OverseerSignal;
@@ -1023,10 +1041,12 @@ const PARA_OTHER: ParaId = ParaId::new(200);
 fn high_rep_peer_at_ancestor_wins_over_low_rep_at_leaf<S: CollatorSut>() {
 	let mut leaf_q = BTreeMap::new();
 	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_A, PARA_OTHER, PARA_OTHER]));
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A))
-		.with_claim_queue_at(LeafSelector::Leaf, leaf_q);
-	let mut w = build_with_ancestors_world_with_config::<S>(1, config);
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	w.new_block().activate();
+	w.new_block().with_claim_queue(leaf_q).activate();
+	w.emit_our_view_change();
 	let leaf0 = w.leaf();
 	let parent = w.ancestors()[0];
 

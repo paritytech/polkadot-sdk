@@ -22,7 +22,7 @@ use crate::{
 	common::builders::{Candidate, ProtocolVersion::V1},
 	common::chain::CoreSchedule,
 	common::harness::CollatorSut,
-	common::world::{build_with_ancestors_world_with_config, ChainConfig},
+	common::world::{bootstrap_world, collator_world_config, World},
 };
 use crate::common::world::WorldExt as _;
 use polkadot_node_primitives::{BlockData, PoV};
@@ -35,10 +35,12 @@ const PARA: ParaId = ParaId::new(2000);
 
 #[crate::sim_test]
 fn v1_shape_descriptor_via_v1_protocol_under_v3_node_feature<S: CollatorSut>() {
-	let config = ChainConfig::default()
+	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA))
 		.with_v3_descriptors_enabled();
-	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	w.new_block().activate();
+	w.emit_our_view_change();
 	let leaf = w.leaf();
 
 	// Build a V1-shape descriptor with non-zero reserved bytes (so V1 detection hits even

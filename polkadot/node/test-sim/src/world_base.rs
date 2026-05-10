@@ -131,6 +131,68 @@ impl Default for WorldConfig {
 	}
 }
 
+impl WorldConfig {
+	/// Add a per-core schedule entry. Convenience over `self.schedule.push(...)`.
+	pub fn with_schedule(mut self, core: CoreIndex, schedule: CoreSchedule) -> Self {
+		self.schedule.push((core, schedule));
+		self
+	}
+
+	/// Set the session index applied to every leaf-registered block.
+	pub fn with_session_index(mut self, session_index: SessionIndex) -> Self {
+		self.session_index = session_index;
+		self
+	}
+
+	/// Set the validators reported in the runtime's session info.
+	pub fn with_validators(mut self, validators: Vec<ValidatorId>) -> Self {
+		self.validators = validators;
+		self
+	}
+
+	/// Override the validator groups list. Used by multi-core, multi-group tests
+	/// where per-block group rotation matters.
+	pub fn with_validator_groups(mut self, groups: Vec<Vec<ValidatorIndex>>) -> Self {
+		self.validator_groups = groups;
+		self
+	}
+
+	/// Override the group rotation frequency. Defaults to 1 (rotates every block);
+	/// set to a large number to keep group 0 stable across an ancestry chain.
+	pub fn with_group_rotation_frequency(mut self, freq: u32) -> Self {
+		self.group_rotation_frequency = freq;
+		self
+	}
+
+	/// Set the slot of the genesis block. Each subsequent `chain.extend(...)`
+	/// bumps the slot by one.
+	pub fn with_genesis_slot(mut self, slot: Slot) -> Self {
+		self.genesis_slot = slot;
+		self
+	}
+
+	/// Enable the `CandidateReceiptV2` node feature (FeatureIndex 3) on the chain.
+	/// Required for any scenario that exercises a V3 candidate descriptor.
+	pub fn with_v3_descriptors_enabled(mut self) -> Self {
+		self.enable_v3_node_feature = true;
+		self
+	}
+
+	/// Override the runtime API version reported by the chain model. Lets tests
+	/// exercise the `NotSupported` fallback path for APIs the configured runtime
+	/// does not yet implement.
+	pub fn with_runtime_api_version(mut self, version: u32) -> Self {
+		self.runtime_api_version = version;
+		self
+	}
+
+	/// Override `min_relay_parent_number` in the synthesised backing constraints.
+	pub fn with_min_relay_parent_number(mut self, n: BlockNumber) -> Self {
+		self.min_relay_parent_number_override = Some(n);
+		self
+	}
+}
+
 /// Subsystem-agnostic shared test-world state: the running `Sim`, the chain model,
 /// the activated leaves, and the suite-wide [`WorldConfig`].
 ///

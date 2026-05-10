@@ -32,13 +32,9 @@ use polkadot_subsystem_test_sim::world_base::{
 	build_chain_model, HasBase, LeafRef, WorldBase, WorldConfig,
 };
 use polkadot_node_subsystem::messages::{AllMessages, CollatorProtocolMessage};
-use polkadot_node_subsystem_test_helpers::mock::new_leaf;
-use polkadot_overseer::ActiveLeavesUpdate;
 use polkadot_primitives::{
 	CoreIndex, Hash, Id as ParaId, ValidatorIndex,
 };
-use sp_consensus_slots::Slot;
-use std::collections::{BTreeMap, VecDeque};
 
 /// Local alias mirroring the previous `Leaf` shape so existing scenarios that destructure
 /// `world.base.leaves[i].{hash, number}` keep working unchanged (the field names match
@@ -84,293 +80,67 @@ where
 /// `leaf_number`, `ancestors`, `ancestors_of`, config accessors) into scope.
 pub use polkadot_subsystem_test_sim::world_base::HasBase as WorldExt;
 
-/// Build a Sim with the standard validator-side world: one leaf, one session, one validator
-/// group containing Alice (validator index 0). The claim queue at the leaf schedules `paras`
-/// on `cores` (one core per `paras` entry, depth 3 per core). The activated-leaves signal
-/// and OurViewChange are injected; both real prospective-parachains and candidate-backing
-/// are spawned.
-pub fn activated_world<S>(paras: &[(CoreIndex, ParaId)]) -> World<S>
-where
-	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	build_with_ancestors_world::<S>(0, paras)
-}
-
-
-/// Build a world with a linear chain of `n_blocks` blocks on top of genesis. Each
-/// block is `.activate()`-ed in order, mirroring production `block_imported`
-/// semantics: each child activation auto-deactivates its parent. Only the latest
-/// block stays an active leaf at the end. The blocks below the tip remain in chain
-/// history (reachable via `world.ancestors()`).
+/// Default [`WorldConfig`] for collator scenarios. Sets:
+/// * `session_index = 0` — the whole synthetic chain runs in session 0; collator
+///   tests' validator-side infra (group rotation, etc.) was tuned against that.
+/// * `validators` = the standard test fixture (Alice, Bob, …).
+/// * `validator_groups = [[0, 1]]` — Alice + Bob in one group.
 ///
-/// `OurViewChange` carries the resulting view (one entry — the active tip).
-pub fn build_linear_chain_world<S>(n_blocks: usize, paras: &[(CoreIndex, ParaId)]) -> World<S>
-where
-	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	let mut config = ChainConfig::default();
-	for (core, para) in paras {
-		config = config.with_schedule(*core, CoreSchedule::always(*para));
-	}
-	build_linear_chain_world_with_config::<S>(n_blocks, config)
+/// Tests further nudge fields via the chained [`WorldConfig::with_*`] API.
+pub fn collator_world_config() -> WorldConfig {
+	WorldConfig::default()
+		.with_session_index(0)
+		.with_validators(crate::common::builders::fixtures::default_validators())
+		.with_validator_groups(vec![vec![ValidatorIndex(0), ValidatorIndex(1)]])
 }
 
-/// Variant of [`build_linear_chain_world`] that takes a [`ChainConfig`]. Lets tests
-/// dial in `validator_groups`, `group_rotation_frequency`, etc.
-pub fn build_linear_chain_world_with_config<S>(n_blocks: usize, config: ChainConfig) -> World<S>
-where
-	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	use polkadot_node_subsystem::messages::NetworkBridgeEvent;
-
-	assert!(n_blocks >= 1, "build_linear_chain_world requires at least one block");
-
-	let mut world = bootstrap_world::<S>(&config);
-	spawn_default_aux(&mut world, &config);
-
-	// Linear chain: each `new_block().activate()` extends the current tip and signals
-	// `OverseerSignal::ActiveLeaves` with `start_work(child)` plus
-	// `deactivated=[parent]` if the parent was the previous active leaf — mirroring
-	// production `block_imported`. After the loop only the latest block is an active
-	// leaf (`world.leaf()`); earlier blocks live as ancestors (`world.ancestors()`).
-	for _ in 0..n_blocks {
-		world.new_block().activate();
-	}
-
-	let view: Vec<Hash> = world.base.leaves.iter().map(|l| l.hash).collect();
-	world.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
-		NetworkBridgeEvent::OurViewChange(polkadot_node_network_protocol::OurView::new(view, 0)),
-	));
-
-	world
-}
-
-/// Pre-activation chain configuration. Tests construct this, hand it to
-/// [`build_with_ancestors_world_with_config`] (or its sibling), and the helper applies all
-/// settings *before* signalling `ActiveLeaves` / `OurViewChange` — so the subsystems'
-/// caches see the configured shape, not a default-then-overridden one.
-pub struct ChainConfig {
-	/// Per-block claim-queue overrides. The block referenced here may be either the
-	/// leaf returned by the helper or any of its ancestors.
-	pub claim_queue_overrides: Vec<(LeafSelector, BTreeMap<CoreIndex, VecDeque<ParaId>>)>,
-	/// If `Some(verdict)`, replace real `candidate-backing` with a `CanSecond`-only
-	/// stub that always answers with `verdict`. Drops every other `CandidateBacking`
-	/// message. Use when a scenario specifically needs a `CanSecond=false` (or `=true`)
-	/// verdict that real backing wouldn't produce in our minimal chain shape.
-	pub can_second_stub: Option<bool>,
-	/// Suite-wide chain/runtime config consumed by the framework's
-	/// [`build_chain_model`] / [`WorldBase::start_with_responder`]: per-core
-	/// schedule, validators, validator groups, genesis slot, V3 node feature flag,
-	/// etc. Tenants nudge individual fields rather than the chain-level helpers
-	/// re-defining them.
-	pub world: WorldConfig,
-}
-
-impl Default for ChainConfig {
-	fn default() -> Self {
-		Self {
-			claim_queue_overrides: Vec::new(),
-			can_second_stub: None,
-			world: WorldConfig {
-				// Collator scenarios run their whole synthetic chain in session 0 — the
-				// real validator-side infra (validator group rotation, etc.) was tuned
-				// against that. Stay there to preserve test semantics.
-				session_index: 0,
-				validators: crate::common::builders::fixtures::default_validators(),
-				validator_groups: vec![vec![ValidatorIndex(0), ValidatorIndex(1)]],
-				..WorldConfig::default()
-			},
-		}
-	}
-}
-
-impl ChainConfig {
-	/// Add a per-core schedule. Convenience over `self.world.schedule.push(...)`.
-	pub fn with_schedule(mut self, core: CoreIndex, schedule: CoreSchedule) -> Self {
-		self.world.schedule.push((core, schedule));
-		self
-	}
-
-	/// Override the claim queue at a relative-position selector.
-	pub fn with_claim_queue_at(
-		mut self,
-		at: LeafSelector,
-		queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
-	) -> Self {
-		self.claim_queue_overrides.push((at, queue));
-		self
-	}
-
-	/// Replace real `candidate-backing` with a `CanSecond`-only stub.
-	pub fn with_can_second_stub(mut self, verdict: bool) -> Self {
-		self.can_second_stub = Some(verdict);
-		self
-	}
-
-	/// Set the slot of the genesis block. Each `chain.extend(...)` bumps the slot by one.
-	pub fn with_genesis_slot(mut self, slot: Slot) -> Self {
-		self.world.genesis_slot = slot;
-		self
-	}
-
-	/// Override the validator groups list. Used for multi-core, multi-group tests where
-	/// per-block group rotation matters (e.g.
-	/// `group_rotation_uses_correct_core_per_relay_parent`).
-	pub fn with_validator_groups(mut self, groups: Vec<Vec<ValidatorIndex>>) -> Self {
-		self.world.validator_groups = groups;
-		self
-	}
-
-	/// Override the group rotation frequency.
-	pub fn with_group_rotation_frequency(mut self, freq: u32) -> Self {
-		self.world.group_rotation_frequency = freq;
-		self
-	}
-
-	/// Enable the `CandidateReceiptV2` node feature (FeatureIndex 3) on the chain.
-	/// Required for any scenario that exercises a V3 candidate descriptor — the
-	/// validator gates V3 acceptance on this feature being set in the relay-chain
-	/// runtime API's `NodeFeatures` response.
-	pub fn with_v3_descriptors_enabled(mut self) -> Self {
-		self.world.enable_v3_node_feature = true;
-		self
-	}
-}
-
-/// Identifies a block in the configured chain by its position. Used by
-/// [`ChainConfig::with_claim_queue_at`] so tests can install a custom claim queue at
-/// either the leaf or one of its ancestors before activation.
-#[derive(Clone, Copy, Debug)]
-#[allow(dead_code)] // `Ancestor` is part of the public surface; kept for future scenarios.
-pub enum LeafSelector {
-	/// The active leaf.
-	Leaf,
-	/// `Ancestor(n)`: the n-th ancestor of the leaf. `Ancestor(0)` is the leaf's direct parent.
-	Ancestor(usize),
-}
-
-/// Build a world with a single active leaf and a chain of ancestors. Same claim queue is
-/// installed at the leaf and every ancestor so advertisements at any of them get the same
-/// schedule.
-pub fn build_with_ancestors_world<S>(
-	n_ancestors: usize,
-	paras: &[(CoreIndex, ParaId)],
+/// Bootstrap a `World<S>` from a [`WorldConfig`] and spawn the standard
+/// collator-side aux subsystem graph on it. Returns a fully-wired world with no
+/// active leaves yet — tests build the chain via `world.new_block().activate()` /
+/// `.register()`, then trigger the collator-specific
+/// [`World::emit_our_view_change`] when the view shape is final.
+///
+/// `can_second_verdict` controls how the `CandidateBacking::CanSecond` query
+/// resolves:
+/// * `None` — spawn the real `candidate-backing` subsystem; CanSecond is answered
+///   by the production code path against the chain's actual claim-queue +
+///   constraints state. The default for almost every scenario.
+/// * `Some(true)` / `Some(false)` — replace `candidate-backing` with a stub that
+///   answers every `CanSecond` query with the given verdict and drops every other
+///   `CandidateBacking` message. Use only when a scenario specifically needs a
+///   verdict that real backing would not produce in our minimal chain shape (e.g.
+///   forcing a "would-not-second" path that depends on chain state we don't
+///   model).
+///
+/// The standard aux graph: real `prospective-parachains`, real `candidate-backing`
+/// (or the `CanSecond` stub above), `CandidateValidationStub::always_valid`, an
+/// `AvailabilityStoreStub`, and noop stubs for `statement-distribution`,
+/// `provisioner`, and `availability-distribution` (they receive collator-side
+/// fan-out but don't drive any contract under test).
+pub fn bootstrap_world<S>(
+	config: WorldConfig,
+	can_second_verdict: Option<bool>,
 ) -> World<S>
 where
 	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
 	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
 	AllMessages: From<S::Message>,
 {
-	let mut config = ChainConfig::default();
-	for (core, para) in paras {
-		config = config.with_schedule(*core, CoreSchedule::always(*para));
-	}
-	build_with_ancestors_world_with_config::<S>(n_ancestors, config)
-}
-
-/// Variant of [`build_with_ancestors_world`] that takes a [`ChainConfig`]. All schedule
-/// installs and claim-queue overrides are applied **before** the helper signals
-/// `ActiveLeaves` / `OurViewChange` so the subsystems' caches see the configured shape.
-pub fn build_with_ancestors_world_with_config<S>(
-	n_ancestors: usize,
-	config: ChainConfig,
-) -> World<S>
-where
-	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	use polkadot_node_subsystem::messages::NetworkBridgeEvent;
-
-	let claim_queue_overrides = config.claim_queue_overrides.clone();
-	let mut world = bootstrap_world::<S>(&config);
-	spawn_default_aux(&mut world, &config);
-
-	// Build the chain: ancestors → leaf. Ancestors are *not* signalled as active
-	// leaves — they're just intermediate blocks the chain model answers queries for.
-	let mut ancestors_in_extend_order = Vec::with_capacity(n_ancestors);
-	{
-		let mut chain = world.base.chain.lock();
-		let mut current = chain.tip();
-		for _ in 0..n_ancestors {
-			current = chain.extend(current);
-			ancestors_in_extend_order.push(current);
-		}
-	}
-
-	// Build the leaf without signalling yet — per-leaf claim-queue overrides have to
-	// land on the chain BEFORE `ActiveLeaves::start_work` because the subsystem
-	// snapshots the schedule at activation. `register_only()` is exactly that:
-	// "leaf is on the chain, subsystem doesn't know yet."
-	let leaf = world.new_block().register();
-
-	// Per-block claim-queue overrides. `LeafSelector::Ancestor(0)` is the leaf's
-	// direct parent — i.e. the *last* extend before the leaf.
-	{
-		let mut chain = world.base.chain.lock();
-		for (selector, queue) in claim_queue_overrides {
-			let target = match selector {
-				LeafSelector::Leaf => leaf.hash,
-				LeafSelector::Ancestor(n) => {
-					let idx = ancestors_in_extend_order.len().checked_sub(1 + n).expect(
-						"ChainConfig: Ancestor index out of range; n_ancestors too small",
-					);
-					ancestors_in_extend_order[idx]
-				},
-			};
-			chain.set_claim_queue_at(target, queue);
-		}
-	}
-
-	world
-		.signal_active_leaves(ActiveLeavesUpdate::start_work(new_leaf(leaf.hash, leaf.number)));
-
-	world.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
-		NetworkBridgeEvent::OurViewChange(polkadot_node_network_protocol::OurView::new(
-			std::iter::once(leaf.hash),
-			0,
-		)),
-	));
-
-	world
-}
-
-/// Bootstrap a `World<S>` from a collator-flavoured [`ChainConfig`]:
-/// * delegate chain construction to [`build_chain_model`] (handles validators,
-///   groups, genesis slot, runtime API version, V3 node feature, per-core
-///   schedule);
-/// * spin up the `Sim` via [`WorldBase::start_with_responder`] (chain +
-///   `PanicResponder`).
-///
-/// Aux subsystems and the `OurViewChange` signal are layered on top by the calling
-/// helper via [`spawn_default_aux`] / `world.base.sim.send(...)`.
-pub(crate) fn bootstrap_world<S>(config: &ChainConfig) -> World<S>
-where
-	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	let chain = build_chain_model(&config.world);
+	let chain = build_chain_model(&config);
 
 	let mut responder = LayeredResponder::new();
 	responder.push(chain.clone());
 	responder.push(PanicResponder);
 
-	let base = WorldBase::<S>::start_with_responder(responder, chain, config.world.clone());
-	World { base, outputs: CandidateOutputs::default() }
+	let base = WorldBase::<S>::start_with_responder(responder, chain, config);
+	let mut world = World { base, outputs: CandidateOutputs::default() };
+	spawn_default_aux(&mut world, can_second_verdict);
+	world
 }
 
-/// Spawn the standard collator-side aux subsystems on `world.base.sim`:
-/// real `prospective-parachains`, real `candidate-backing` (or a `CanSecondStub` if
-/// `config.can_second_stub` is set), `CandidateValidationStub::always_valid`, an
-/// `AvailabilityStoreStub`, and noop stubs for the remaining downstream subsystems.
-pub(crate) fn spawn_default_aux<S>(world: &mut World<S>, config: &ChainConfig)
+/// Spawn the standard collator-side aux subsystems on `world.base.sim`. Internal
+/// helper for [`bootstrap_world`]; tests don't call it directly.
+fn spawn_default_aux<S>(world: &mut World<S>, can_second_verdict: Option<bool>)
 where
 	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
 	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
@@ -382,7 +152,7 @@ where
 
 	// Either install a CanSecond stub (registered FIRST so it wins the slot order
 	// against any later backing aux) or spawn real candidate-backing.
-	if let Some(verdict) = config.can_second_stub {
+	if let Some(verdict) = can_second_verdict {
 		sim.register_aux_slot_only(crate::common::aux::CanSecondStub::new(verdict));
 	} else {
 		let (cb, cb_rx) = CandidateBackingAux::spawn(sim);
@@ -396,5 +166,45 @@ where
 	sim.register_aux_slot_only(StatementDistributionNoop::new());
 	sim.register_aux_slot_only(ProvisionerNoop::new());
 	sim.register_aux_slot_only(AvailabilityDistributionNoop::new());
+}
+
+impl<S: SubsystemUnderTest<Message = CollatorProtocolMessage>> World<S>
+where
+	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
+	/// Emit `CollatorProtocolMessage::NetworkBridgeUpdate(OurViewChange(...))`
+	/// covering this world's currently active leaves. Collator-specific stimulus
+	/// that informs the validator subsystem of the network's view; tests call this
+	/// once after the chain shape is final (typically after the last
+	/// `new_block().activate()`).
+	pub fn emit_our_view_change(&mut self) {
+		use polkadot_node_subsystem::messages::NetworkBridgeEvent;
+		let view: Vec<Hash> = self.base.leaves.iter().map(|l| l.hash).collect();
+		self.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
+			NetworkBridgeEvent::OurViewChange(polkadot_node_network_protocol::OurView::new(
+				view, 0,
+			)),
+		));
+	}
+}
+
+/// Convenience: bootstrap + extend a single block + activate it + emit
+/// `OurViewChange`. Terse path for tests that don't need ancestors or
+/// claim-queue overrides.
+pub fn activated_world<S>(paras: &[(CoreIndex, ParaId)]) -> World<S>
+where
+	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
+	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
+	let mut config = collator_world_config();
+	for (core, para) in paras {
+		config = config.with_schedule(*core, CoreSchedule::always(*para));
+	}
+	let mut world = bootstrap_world::<S>(config, None);
+	world.new_block().activate();
+	world.emit_our_view_change();
+	world
 }
 

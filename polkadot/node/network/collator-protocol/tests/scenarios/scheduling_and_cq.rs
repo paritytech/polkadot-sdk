@@ -22,10 +22,7 @@ use crate::{
 	common::builders::ProtocolVersion::V2,
 	common::chain::CoreSchedule,
 	common::harness::CollatorSut,
-	common::world::{
-		build_with_ancestors_world, build_with_ancestors_world_with_config, ChainConfig,
-		LeafSelector,
-	},
+	common::world::{bootstrap_world, collator_world_config, World},
 };
 use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
@@ -39,16 +36,45 @@ const PARA_B: ParaId = ParaId::new(999);
 
 /// Builds a world with `n_ancestors` ancestors, schedule defaults to B on core 0, and the
 /// leaf claim queue overridden to `cq`. Used by all three scenarios in this file.
+///
+/// Ancestors are `.register()`-ed (chain-known, never independently signalled as active
+/// leaves), matching the old `build_with_ancestors_world_with_config` semantics — the
+/// validator processes ancestor-RP advertisements through the active leaf's implicit
+/// view, not via per-ancestor activation.
 fn world_with_leaf_cq<S: CollatorSut>(
 	n_ancestors: usize,
 	cq: [ParaId; 3],
 ) -> crate::common::world::World<S> {
 	let mut leaf_q = BTreeMap::new();
 	leaf_q.insert(CoreIndex(0), VecDeque::from(cq.to_vec()));
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_B))
-		.with_claim_queue_at(LeafSelector::Leaf, leaf_q);
-	build_with_ancestors_world_with_config::<S>(n_ancestors, config)
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_B));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	for _ in 0..n_ancestors {
+		w.new_block().register();
+	}
+	w.new_block().with_claim_queue(leaf_q).activate();
+	w.emit_our_view_change();
+	w
+}
+
+/// Builds a world with `n_ancestors + 1` blocks (linear), the same single para
+/// scheduled on `core` at every block. Replaces the removed
+/// `build_with_ancestors_world` helper. Ancestors are `register()`-ed so only the
+/// leaf is signalled active — same as the old helper.
+fn linear_para_world<S: CollatorSut>(
+	n_ancestors: usize,
+	core: CoreIndex,
+	para: ParaId,
+) -> crate::common::world::World<S> {
+	let config = collator_world_config().with_schedule(core, CoreSchedule::always(para));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	for _ in 0..n_ancestors {
+		w.new_block().register();
+	}
+	w.new_block().activate();
+	w.emit_our_view_change();
+	w
 }
 
 #[crate::sim_test]
@@ -64,9 +90,9 @@ fn para_at_last_claim_queue_position_accepts_at_leaf<S: CollatorSut>() {
 	bug_url = "memory:project_collator_experimental_no_ancestor_rp_advertise"
 )]
 fn ancestor_with_para_at_valid_position_accepts<S: CollatorSut>() {
-	// Plain build_with_ancestors_world: same para A scheduled at every block. Ancestor R
-	// has para A at position 0 → in-window for the offset=1 ancestor.
-	let mut w = build_with_ancestors_world::<S>(1, &[(CoreIndex(0), PARA_A)]);
+	// Linear chain, same para A scheduled at every block. Ancestor R has para A at
+	// position 0 → in-window for the offset=1 ancestor.
+	let mut w = linear_para_world::<S>(1, CoreIndex(0), PARA_A);
 	let peer = w.declared_peer(PARA_A, V2);
 	let r = w.ancestors()[0];
 	let cand = w.advertise(&peer, r, PARA_A);
@@ -96,7 +122,7 @@ fn ancestor_with_para_at_obsolete_position_rejects<S: CollatorSut>() {
 	bug_url = "memory:project_collator_experimental_no_ancestor_rp_advertise"
 )]
 fn ancestor_advertisements_at_parent_and_grandparent_both_fetch<S: CollatorSut>() {
-	let mut w = build_with_ancestors_world::<S>(2, &[(CoreIndex(0), PARA_A)]);
+	let mut w = linear_para_world::<S>(2, CoreIndex(0), PARA_A);
 	let peer = w.declared_peer(PARA_A, V2);
 	let parent = w.ancestors()[0];
 	let grandparent = w.ancestors()[1];
@@ -112,14 +138,33 @@ fn ancestor_advertisements_at_parent_and_grandparent_both_fetch<S: CollatorSut>(
 mod claims_counting {
 use crate::{
 	common::builders::ProtocolVersion::V2,
+	common::chain::CoreSchedule,
 	common::harness::CollatorSut,
-	common::world::build_with_ancestors_world,
+	common::world::{bootstrap_world, collator_world_config, World},
 };
 use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
 use std::time::Duration;
 
 const PARA: ParaId = ParaId::new(2000);
+
+/// Builds a linear chain world with `n_ancestors + 1` blocks, the same para scheduled
+/// on `core` at every block. Ancestors are `register()`-ed so only the leaf is
+/// signalled active — same as the old `build_with_ancestors_world` helper.
+fn linear_para_world<S: CollatorSut>(
+	n_ancestors: usize,
+	core: CoreIndex,
+	para: ParaId,
+) -> crate::common::world::World<S> {
+	let config = collator_world_config().with_schedule(core, CoreSchedule::always(para));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	for _ in 0..n_ancestors {
+		w.new_block().register();
+	}
+	w.new_block().activate();
+	w.emit_our_view_change();
+	w
+}
 
 /// 2 seconded at the ancestor + 1 at the leaf = 3 total. 4th at leaf rejected.
 ///
@@ -131,7 +176,7 @@ const PARA: ParaId = ParaId::new(2000);
 	bug_url = "memory:project_collator_experimental_no_ancestor_rp_advertise"
 )]
 fn claims_below_are_counted_correctly<S: CollatorSut>() {
-	let mut w = build_with_ancestors_world::<S>(1, &[(CoreIndex(0), PARA)]);
+	let mut w = linear_para_world::<S>(1, CoreIndex(0), PARA);
 	let leaf = w.leaf();
 	let ancestor = w.ancestors()[0];
 
@@ -158,7 +203,7 @@ fn claims_below_are_counted_correctly<S: CollatorSut>() {
 /// All 3 claims at the leaf → ancestor advertisement rejected (capacity full above).
 #[crate::sim_test]
 fn claims_above_are_counted_correctly<S: CollatorSut>() {
-	let mut w = build_with_ancestors_world::<S>(1, &[(CoreIndex(0), PARA)]);
+	let mut w = linear_para_world::<S>(1, CoreIndex(0), PARA);
 	let leaf = w.leaf();
 	let ancestor = w.ancestors()[0];
 
@@ -189,7 +234,7 @@ fn claims_above_are_counted_correctly<S: CollatorSut>() {
 	bug_url = "memory:project_collator_experimental_no_ancestor_rp_advertise"
 )]
 fn claim_fills_last_free_slot<S: CollatorSut>() {
-	let mut w = build_with_ancestors_world::<S>(2, &[(CoreIndex(0), PARA)]);
+	let mut w = linear_para_world::<S>(2, CoreIndex(0), PARA);
 	let leaf = w.leaf();
 	let parent = w.ancestors()[0];
 	let grandparent = w.ancestors()[1];
@@ -218,7 +263,7 @@ use crate::{
 	common::builders::{Candidate, ProtocolVersion::V1, ProtocolVersion::V2},
 	common::contract::Effect,
 	common::harness::CollatorSut,
-	common::world::{build_with_ancestors_world_with_config, ChainConfig, LeafSelector},
+	common::world::{bootstrap_world, collator_world_config, World},
 };
 use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
@@ -240,10 +285,11 @@ fn last_claim_queue_position_accepted_at_leaf<S: CollatorSut>() {
 		CoreIndex(0),
 		VecDeque::from(vec![PARA_OTHER, PARA_OTHER, PARA_A]),
 	);
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A))
-		.with_claim_queue_at(LeafSelector::Leaf, leaf_q);
-	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	w.new_block().with_claim_queue(leaf_q).activate();
+	w.emit_our_view_change();
 
 	let peer = w.declared_peer(PARA_A, V2);
 	let cand = w.advertise(&peer, w.leaf(), PARA_A);
@@ -257,10 +303,11 @@ fn last_claim_queue_position_accepted_at_leaf<S: CollatorSut>() {
 fn seconded_candidates_consume_capacity<S: CollatorSut>() {
 	let mut leaf_q = BTreeMap::new();
 	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_A, PARA_OTHER, PARA_A]));
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A))
-		.with_claim_queue_at(LeafSelector::Leaf, leaf_q);
-	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	w.new_block().with_claim_queue(leaf_q).activate();
+	w.emit_our_view_change();
 	let leaf = w.leaf();
 
 	let peer_a = w.declared_peer(PARA_A, V2);
@@ -308,10 +355,12 @@ fn seconded_candidates_consume_capacity<S: CollatorSut>() {
 fn non_obsolete_position_accepted<S: CollatorSut>() {
 	let mut leaf_q = BTreeMap::new();
 	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_A, PARA_OTHER, PARA_A]));
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A))
-		.with_claim_queue_at(LeafSelector::Leaf, leaf_q);
-	let mut w = build_with_ancestors_world_with_config::<S>(1, config);
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	w.new_block().register();
+	w.new_block().with_claim_queue(leaf_q).activate();
+	w.emit_our_view_change();
 	let parent = w.ancestors()[0];
 	let peer = w.declared_peer(PARA_A, V2);
 	let cand = w.candidate_at(parent).para(PARA_A).build();
@@ -334,10 +383,12 @@ fn obsolete_positions_rejected<S: CollatorSut>() {
 		CoreIndex(0),
 		VecDeque::from(vec![PARA_OTHER, PARA_OTHER, PARA_A]),
 	);
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A))
-		.with_claim_queue_at(LeafSelector::Leaf, leaf_q);
-	let mut w = build_with_ancestors_world_with_config::<S>(1, config);
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	w.new_block().register();
+	w.new_block().with_claim_queue(leaf_q).activate();
+	w.emit_our_view_change();
 	let parent = w.ancestors()[0];
 	let peer = w.declared_peer(PARA_A, V2);
 	let cand = w.candidate_at(parent).para(PARA_A).build();
@@ -352,10 +403,11 @@ fn obsolete_positions_rejected<S: CollatorSut>() {
 fn v1_single_shot_per_sp_para_round<S: CollatorSut>() {
 	let mut leaf_q = BTreeMap::new();
 	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_A, PARA_A, PARA_OTHER]));
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A))
-		.with_claim_queue_at(LeafSelector::Leaf, leaf_q);
-	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	w.new_block().with_claim_queue(leaf_q).activate();
+	w.emit_our_view_change();
 
 	let peer_a = w.declared_peer(PARA_A, V1);
 	let peer_b = w.declared_peer(PARA_A, V1);
@@ -379,7 +431,7 @@ use crate::{
 	common::builders::ProtocolVersion::V2,
 	common::chain::CoreSchedule,
 	common::harness::CollatorSut,
-	common::world::{build_linear_chain_world_with_config, ChainConfig, WorldExt as _},
+	common::world::{bootstrap_world, collator_world_config, World, WorldExt as _},
 };
 use polkadot_primitives::{CoreIndex, Id as ParaId, ValidatorIndex};
 
@@ -402,12 +454,16 @@ fn group_rotation_uses_correct_core_per_relay_parent<S: CollatorSut>() {
 	// - block 3 (leaves[2]): we own core 0 (para A is here)
 	let validator_groups =
 		vec![vec![ValidatorIndex(0)], vec![ValidatorIndex(1)], vec![ValidatorIndex(2)]];
-	let config = ChainConfig::default()
+	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A))
 		.with_schedule(CoreIndex(2), CoreSchedule::always(PARA_B))
 		.with_validator_groups(validator_groups)
 		.with_group_rotation_frequency(1);
-	let mut w = build_linear_chain_world_with_config::<S>(3, config);
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	for _ in 0..3 {
+		w.new_block().activate();
+	}
+	w.emit_our_view_change();
 
 	// Linear chain: under production `block_imported` semantics each `.activate()`
 	// auto-deactivates its parent, so only block 3 is an active leaf in
@@ -440,9 +496,7 @@ use crate::{
 	common::builders::ProtocolVersion::V3,
 	common::contract::Effect,
 	common::harness::CollatorSut,
-	common::world::{
-		build_with_ancestors_world_with_config, ChainConfig,
-	},
+	common::world::{bootstrap_world, collator_world_config, World},
 };
 use crate::common::world::WorldExt as _;
 use polkadot_primitives::{
@@ -520,11 +574,16 @@ fn v3_world<S: CollatorSut>(
 	n_ancestors: usize,
 	current_slot: u64,
 ) -> crate::common::world::World<S> {
-	let config = ChainConfig::default()
+	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A))
 		.with_genesis_slot(Slot::from(0))
 		.with_v3_descriptors_enabled();
-	let mut w = build_with_ancestors_world_with_config::<S>(n_ancestors, config);
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	for _ in 0..n_ancestors {
+		w.new_block().register();
+	}
+	w.new_block().activate();
+	w.emit_our_view_change();
 	w.base.sim.advance(slot_to_wall_ms(current_slot));
 	w
 }

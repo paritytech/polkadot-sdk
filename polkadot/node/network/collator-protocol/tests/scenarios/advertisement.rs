@@ -43,7 +43,7 @@ use crate::{
 	common::chain::CoreSchedule,
 	common::contract::Effect,
 	common::harness::CollatorSut,
-	common::world::{build_with_ancestors_world_with_config, ChainConfig},
+	common::world::{bootstrap_world, collator_world_config, World},
 };
 use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
@@ -53,10 +53,11 @@ const PARA: ParaId = ParaId::new(2000);
 
 #[crate::sim_test]
 fn re_advertising_after_can_second_false_does_not_refetch<S: CollatorSut>() {
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA))
-		.with_can_second_stub(false);
-	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA));
+	let mut w: World<S> = bootstrap_world::<S>(config, Some(false));
+	w.new_block().activate();
+	w.emit_our_view_change();
 
 	let candidate = Candidate::for_para_at(PARA, w.leaf());
 	let peer = w.declared_peer(PARA, V2);
@@ -94,9 +95,10 @@ fn re_advertising_after_can_second_false_does_not_refetch<S: CollatorSut>() {
 mod v1_advertise_on_non_leaf {
 use crate::{
 	common::builders::ProtocolVersion::V1,
+	common::chain::CoreSchedule,
 	common::contract::Effect,
 	common::harness::CollatorSut,
-	common::world::build_with_ancestors_world,
+	common::world::{bootstrap_world, collator_world_config, World},
 };
 use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
@@ -106,7 +108,13 @@ const PARA: ParaId = ParaId::new(2000);
 
 #[crate::sim_test]
 fn v1_advertisement_at_parent_of_leaf_is_rejected<S: CollatorSut>() {
-	let mut w = build_with_ancestors_world::<S>(1, &[(CoreIndex(0), PARA)]);
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	for _ in 0..2 {
+		w.new_block().activate();
+	}
+	w.emit_our_view_change();
 	let parent = w.ancestors()[0];
 
 	let peer = w.declared_peer(PARA, V1);
@@ -128,9 +136,7 @@ use crate::{
 	common::contract::Effect,
 	common::harness::CollatorSut,
 	common::impls::{set_legacy_per_test_config, LegacyValidatorConfig},
-	common::world::{
-		build_with_ancestors_world_with_config, ChainConfig, LeafSelector,
-	},
+	common::world::{bootstrap_world, collator_world_config, World},
 };
 use crate::common::world::WorldExt as _;
 use polkadot_collator_protocol::validator_side_consts::{
@@ -165,10 +171,12 @@ fn ah_world<S: CollatorSut>(
 	});
 	let mut leaf_q = BTreeMap::new();
 	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_AH, PARA_AH, PARA_AH]));
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_AH))
-		.with_claim_queue_at(LeafSelector::Leaf, leaf_q);
-	build_with_ancestors_world_with_config::<S>(0, config)
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_AH));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	w.new_block().with_claim_queue(leaf_q).activate();
+	w.emit_our_view_change();
+	w
 }
 
 /// Mirrors `permissionless_collators_are_rejected_when_connection_limit_is_hit`.

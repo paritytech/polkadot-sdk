@@ -171,7 +171,7 @@ use crate::{
 	common::builders::{Candidate, ProtocolVersion::V2},
 	common::chain::CoreSchedule,
 	common::harness::CollatorSut,
-	common::world::{build_with_ancestors_world_with_config, ChainConfig, LeafSelector},
+	common::world::{bootstrap_world, collator_world_config, World},
 };
 use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CandidateHash, CoreIndex, HeadData, Hash, Id as ParaId};
@@ -186,10 +186,12 @@ const PARA_B: ParaId = ParaId::new(2001);
 fn shared_core_world<S: CollatorSut>() -> crate::common::world::World<S> {
 	let mut leaf_q = BTreeMap::new();
 	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_B, PARA_A, PARA_A]));
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A))
-		.with_claim_queue_at(LeafSelector::Leaf, leaf_q);
-	build_with_ancestors_world_with_config::<S>(0, config)
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	w.new_block().with_claim_queue(leaf_q).activate();
+	w.emit_our_view_change();
+	w
 }
 
 #[crate::sim_test]
@@ -508,7 +510,7 @@ use crate::{
 	common::builders::ProtocolVersion::V2,
 	common::chain::CoreSchedule,
 	common::harness::CollatorSut,
-	common::world::{build_with_ancestors_world_with_config, ChainConfig, LeafSelector},
+	common::world::{bootstrap_world, collator_world_config, World},
 };
 use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
@@ -531,10 +533,11 @@ const PARA_B: ParaId = ParaId::new(2001);
 fn seconded_per_para_counted_across_whole_view<S: CollatorSut>() {
 	let mut leaf_q = BTreeMap::new();
 	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_B, PARA_A, PARA_A]));
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A))
-		.with_claim_queue_at(LeafSelector::Leaf, leaf_q);
-	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	w.new_block().with_claim_queue(leaf_q).activate();
+	w.emit_our_view_change();
 	let leaf0 = w.leaf();
 
 	// Second 1× A and 1× B at leaf0.
@@ -585,7 +588,7 @@ use crate::{
 	common::builders::ProtocolVersion::V2,
 	common::chain::CoreSchedule,
 	common::harness::CollatorSut,
-	common::world::{build_with_ancestors_world_with_config, ChainConfig, LeafSelector},
+	common::world::{bootstrap_world, collator_world_config, World},
 };
 use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
@@ -614,10 +617,11 @@ fn cq_for(paras: [ParaId; 3]) -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
 )]
 fn old_claims_age_out_only_on_view_shift<S: CollatorSut>() {
 	// Initial leaf with CQ=[A,B,A].
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A))
-		.with_claim_queue_at(LeafSelector::Leaf, cq_for([PARA_A, PARA_B, PARA_A]));
-	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	w.new_block().with_claim_queue(cq_for([PARA_A, PARA_B, PARA_A])).activate();
+	w.emit_our_view_change();
 	let leaf2 = w.leaf();
 
 	let peer_a = w.declared_peer(PARA_A, V2);
@@ -676,7 +680,7 @@ use crate::{
 	common::chain::CoreSchedule,
 	common::contract::{Effect, ReqKind},
 	common::harness::CollatorSut,
-	common::world::{build_with_ancestors_world_with_config, ChainConfig, LeafSelector},
+	common::world::{bootstrap_world, collator_world_config, World},
 };
 use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
@@ -698,10 +702,11 @@ const PARA_B: ParaId = ParaId::new(2001);
 fn collation_fetching_prefer_entries_earlier_in_claim_queue<S: CollatorSut>() {
 	let mut leaf_q = BTreeMap::new();
 	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_B, PARA_A, PARA_A]));
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A))
-		.with_claim_queue_at(LeafSelector::Leaf, leaf_q);
-	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	w.new_block().with_claim_queue(leaf_q).activate();
+	w.emit_our_view_change();
 	let leaf = w.leaf();
 
 	let a1 = w.candidate_at(leaf)

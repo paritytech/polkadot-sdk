@@ -188,13 +188,14 @@ fn child_advertised_first_blocks_then_unblocks_after_parent_seconds<S: CollatorS
 fn child_remains_blocked_when_parent_reported_invalid<S: CollatorSut>() {
 	use crate::{
 		common::chain::CoreSchedule,
-		common::world::{build_with_ancestors_world_with_config, ChainConfig},
+		common::world::{bootstrap_world, collator_world_config, World},
 	};
-use crate::common::world::WorldExt as _;
-	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA))
-		.with_can_second_stub(false);
-	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
+	use crate::common::world::WorldExt as _;
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA));
+	let mut w: World<S> = bootstrap_world::<S>(config, Some(false));
+	w.new_block().activate();
+	w.emit_our_view_change();
 	let leaf = w.leaf();
 
 	let parent = w.candidate_at(leaf)
