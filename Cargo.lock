@@ -21639,7 +21639,6 @@ dependencies = [
  "sp-crypto-hashing 0.1.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
- "sp-transaction-storage-proof",
  "substrate-prometheus-endpoint 0.17.0",
  "substrate-test-runtime",
  "substrate-test-runtime-client",

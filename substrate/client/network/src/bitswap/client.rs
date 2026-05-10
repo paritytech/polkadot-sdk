@@ -22,13 +22,12 @@ use futures::channel::oneshot;
 use log::{debug, trace, warn};
 use prost::Message;
 use sc_network_types::PeerId;
-use sp_transaction_storage_proof::{ContentHash, HashingAlgorithm};
 use std::collections::{HashMap, HashSet};
 
 const LOG_TARGET: &str = "bitswap";
 
 use super::{
-	is_cid_supported,
+	is_cid_supported, is_supported_multihash_code,
 	schema::bitswap::{
 		message::{
 			wantlist::{Entry, WantType},
@@ -36,10 +35,15 @@ use super::{
 		},
 		Message as BitswapMessage,
 	},
-	Prefix, PROTOCOL_NAME,
+	Prefix, PROTOCOL_NAME, RAW_CODEC,
 };
 
-const RAW_CODEC: u64 = 0x55;
+/// Multihash code for BLAKE2b-256.
+pub const BLAKE2B_256_MULTIHASH_CODE: u64 = 0xb220;
+/// Multihash code for SHA2-256.
+pub const SHA2_256_MULTIHASH_CODE: u64 = 0x12;
+/// Multihash code for Keccak-256.
+pub const KECCAK_256_MULTIHASH_CODE: u64 = 0x1b;
 
 /// Maximum entries per `WANT-BLOCK` request. Bigger requests get rejected by the peer
 /// (see `MAX_WANTED_BLOCKS` in `bitswap/mod.rs`).
@@ -48,7 +52,7 @@ pub const MAX_WANTED_BLOCKS_PER_REQUEST: usize = 16;
 /// Per-CID outcome from a [`fetch_many`] call.
 #[derive(Debug)]
 pub enum FetchOutcome {
-	/// Peer returned valid bytes whose CID matched the request.
+	/// Peer returned bytes for the requested CID.
 	Block(Vec<u8>),
 	/// Peer explicitly indicated it does not have this CID.
 	DontHave,
@@ -87,6 +91,17 @@ where
 	}
 }
 
+/// Build a raw-codec CID from a 32-byte digest and supported multihash code.
+pub fn raw_cid_from_digest(multihash_code: u64, digest: [u8; 32]) -> Result<Cid, BitswapError> {
+	if !is_supported_multihash_code(multihash_code) {
+		return Err(BitswapError::UnsupportedHashing { multihash_code });
+	}
+
+	let multihash = Multihash::wrap(multihash_code, &digest)
+		.map_err(|err| BitswapError::DecodeError(err.to_string()))?;
+	Ok(Cid::new_v1(RAW_CODEC, multihash))
+}
+
 fn validate_wantlist_size(len: usize) -> Result<(), BitswapError> {
 	if len == 0 {
 		return Err(BitswapError::DecodeError("empty wantlist".into()));
@@ -99,95 +114,55 @@ fn validate_wantlist_size(len: usize) -> Result<(), BitswapError> {
 	Ok(())
 }
 
-/// Send one `WANT-BLOCK` request for `wants` to `peer` and classify the response.
+fn validate_cids(cids: &[Cid]) -> Result<(), BitswapError> {
+	validate_wantlist_size(cids.len())?;
+	for cid in cids {
+		if !is_cid_supported(cid) {
+			return Err(BitswapError::UnsupportedHashing { multihash_code: cid.hash().code() });
+		}
+	}
+	Ok(())
+}
+
+/// Send one `WANT-BLOCK` request for `cids` to `peer` and classify the response.
 ///
-/// Returns a map with an outcome per requested hash. Bad blocks from the peer affect
-/// only their own entry, never others.
+/// Returned blocks are verified by recomputing the CID from the response prefix and bytes.
+/// Blocks whose recomputed CID was not requested are ignored.
 ///
-/// Errors if `wants` is empty or larger than [`MAX_WANTED_BLOCKS_PER_REQUEST`].
+/// Errors if `cids` is empty, larger than [`MAX_WANTED_BLOCKS_PER_REQUEST`], or contains an
+/// unsupported CID.
 pub async fn fetch_many<N>(
 	network: &N,
 	peer: PeerId,
-	wants: &[(ContentHash, HashingAlgorithm)],
-) -> Result<HashMap<ContentHash, FetchOutcome>, BitswapError>
+	cids: &[Cid],
+) -> Result<HashMap<Cid, FetchOutcome>, BitswapError>
 where
 	N: BitswapRequestSender + ?Sized,
 {
-	validate_wantlist_size(wants.len())?;
+	validate_cids(cids)?;
 
-	let wanted = build_wanted_map(wants)?;
-	let cids: Vec<Cid> = wanted.keys().copied().collect();
-	let response = send_request(network, peer, &cids).await?;
+	let wanted: HashSet<Cid> = cids.iter().copied().collect();
+	let response = send_request(network, peer, cids).await?;
 	Ok(classify_response(response, &wanted, peer))
 }
 
 /// Like [`fetch_many`], but does NOT recompute or verify the hash of received bytes.
 ///
-/// Use when the requester does not know the hashing algorithm (e.g., bytes were sourced from a
-/// `sp_io::transaction_index::renew` host call, which carries only the 32-byte `ContentHash`
-/// and no `HashingAlgorithm`). The substrate bitswap server is algorithm-agnostic (looks up by
-/// 32-byte digest only) and echoes the requester's CID prefix back in the response.
-///
-/// **Order-based response correlation.** The bitswap `MessageBlock` protobuf carries only
-/// `{ prefix, data }` — no digest. Multiple blocks with the same echoed prefix would be
-/// indistinguishable if matched purely by prefix. This implementation therefore correlates
-/// payload blocks to wants by **position**: it walks `block_presences` first to identify which
-/// wants the peer reported as `DontHave`, then attributes the i-th payload block to the i-th
-/// remaining want in send-order. This relies on two contracts the substrate bitswap server
-/// satisfies (`bitswap/mod.rs:211-267`):
-///
-/// 1. The server preserves request-order when pushing matched blocks to `payload`.
-/// 2. The server pushes a `DontHave` presence for every wanted entry it does not have, when
-///    the requester sets `send_dont_have == true` (which this client always does).
-///
-/// A misbehaving peer that violates either contract can misattribute hash↔data. The unverified
-/// path explicitly delegates integrity verification to the caller — typically a post-commit
-/// runtime-API cross-check via `TransactionStorageApi::indexed_transactions` — which catches
-/// any misattribution before the data influences anything observable beyond local storage.
-///
-/// Returns a map with an outcome per requested hash. Bad blocks from the peer affect only
-/// their own entry, never others.
-///
-/// Errors if `wants` is empty or larger than [`MAX_WANTED_BLOCKS_PER_REQUEST`].
+/// Use this when the requester must fetch by CID-shaped identifiers before it can verify the
+/// returned bytes through an external authority. The response is matched by request order and CID
+/// prefix only; integrity verification is delegated to the caller.
 pub async fn fetch_many_unverified<N>(
 	network: &N,
 	peer: PeerId,
-	wants: &[ContentHash],
-) -> Result<HashMap<ContentHash, FetchOutcome>, BitswapError>
+	cids: &[Cid],
+) -> Result<HashMap<Cid, FetchOutcome>, BitswapError>
 where
 	N: BitswapRequestSender + ?Sized,
 {
-	validate_wantlist_size(wants.len())?;
+	validate_cids(cids)?;
 
-	let wanted = build_unverified_wanted_vec(wants)?;
-	let cids: Vec<Cid> = wanted.iter().map(|(cid, _)| *cid).collect();
-	let response = send_request(network, peer, &cids).await?;
-	Ok(classify_response_unverified(response, &wanted, peer))
-}
-
-fn build_wanted_map(
-	wants: &[(ContentHash, HashingAlgorithm)],
-) -> Result<HashMap<Cid, (ContentHash, HashingAlgorithm)>, BitswapError> {
-	let mut wanted = HashMap::with_capacity(wants.len());
-	for &(content_hash, hashing) in wants {
-		let cid = cid_for_hash(content_hash, hashing)?;
-		wanted.insert(cid, (content_hash, hashing));
-	}
-	Ok(wanted)
-}
-
-/// Build the unverified wanted-list as an ordered `Vec`. Order is preserved from the input
-/// slice because [`classify_response_unverified`] uses positional correlation to attribute
-/// payload blocks to wants.
-fn build_unverified_wanted_vec(
-	wants: &[ContentHash],
-) -> Result<Vec<(Cid, ContentHash)>, BitswapError> {
-	wants
-		.iter()
-		.map(|&content_hash| {
-			cid_for_hash(content_hash, HashingAlgorithm::Blake2b256).map(|cid| (cid, content_hash))
-		})
-		.collect()
+	let response = send_request(network, peer, cids).await?;
+	Ok(classify_response_unverified(response, cids, peer))
 }
 
 async fn send_request<N>(
@@ -228,17 +203,11 @@ where
 	let payload = match rx.await {
 		Ok(Ok((payload, _))) => payload,
 		Ok(Err(err)) => {
-			debug!(
-				target: LOG_TARGET,
-				"client: batch request to {peer} rejected by network: {err:?}",
-			);
+			debug!(target: LOG_TARGET, "client: batch request to {peer} rejected by network: {err:?}");
 			return Err(BitswapError::RequestFailed(err.to_string()));
 		},
 		Err(err) => {
-			debug!(
-				target: LOG_TARGET,
-				"client: batch response channel for {peer} cancelled: {err}",
-			);
+			debug!(target: LOG_TARGET, "client: batch response channel for {peer} cancelled: {err}");
 			return Err(BitswapError::RequestFailed(err.to_string()));
 		},
 	};
@@ -251,11 +220,10 @@ where
 
 fn classify_response(
 	response: BitswapMessage,
-	wanted: &HashMap<Cid, (ContentHash, HashingAlgorithm)>,
+	wanted: &HashSet<Cid>,
 	peer: PeerId,
-) -> HashMap<ContentHash, FetchOutcome> {
-	let mut result: HashMap<ContentHash, FetchOutcome> = HashMap::with_capacity(wanted.len());
-	let extract_hash = |v: &(ContentHash, HashingAlgorithm)| v.0;
+) -> HashMap<Cid, FetchOutcome> {
+	let mut result: HashMap<Cid, FetchOutcome> = HashMap::with_capacity(wanted.len());
 
 	for block in response.payload {
 		let Ok(cid) = cid_from_block_prefix(&block.prefix, &block.data).inspect_err(|err| {
@@ -263,46 +231,27 @@ fn classify_response(
 		}) else {
 			continue;
 		};
-		let Some(content_hash) = lookup_wanted(wanted, &cid, peer, "block", &extract_hash) else {
+		if !wanted.contains(&cid) {
+			debug!(target: LOG_TARGET, "client: {peer} returned unsolicited block for CID {cid}");
 			continue;
-		};
-		debug!(
-			target: LOG_TARGET,
-			"client: {peer} returned {} bytes for CID {cid}",
-			block.data.len(),
-		);
-		result.insert(content_hash, FetchOutcome::Block(block.data));
+		}
+		debug!(target: LOG_TARGET, "client: {peer} returned {} bytes for CID {cid}", block.data.len());
+		result.insert(cid, FetchOutcome::Block(block.data));
 	}
 
-	apply_presences_and_fill_missing(
-		response.block_presences,
-		wanted,
-		peer,
-		&mut result,
-		&extract_hash,
-	);
+	apply_presences_and_fill_missing(response.block_presences, wanted, peer, &mut result);
 
 	result
 }
 
-/// Classify an unverified response via order-based correlation. See [`fetch_many_unverified`]
-/// for the full contract; in short:
-///
-/// 1. Walk `block_presences`, recording which wanted CIDs the peer reported as `DontHave`.
-///    Unsolicited / malformed presences are dropped.
-/// 2. Compute the **expected payload order**: the wants in send-order, minus the DontHaves.
-/// 3. Walk `response.payload`, attributing the i-th block to the i-th expected-order entry.
-///    The block's prefix must match the expected entry's CID prefix; otherwise drop and stop
-///    advancing (a prefix mismatch indicates the peer is sending a payload for something we
-///    didn't ask for or under a different mh_type — either way we can no longer trust positional
-///    correlation for the rest of the response).
-/// 4. Final-fill any remaining wants as [`FetchOutcome::Missing`].
+/// Classify an unverified response via order-based correlation.
 fn classify_response_unverified(
 	response: BitswapMessage,
-	wanted: &[(Cid, ContentHash)],
+	wanted: &[Cid],
 	peer: PeerId,
-) -> HashMap<ContentHash, FetchOutcome> {
-	let mut result: HashMap<ContentHash, FetchOutcome> = HashMap::with_capacity(wanted.len());
+) -> HashMap<Cid, FetchOutcome> {
+	let mut result: HashMap<Cid, FetchOutcome> = HashMap::with_capacity(wanted.len());
+	let wanted_set: HashSet<Cid> = wanted.iter().copied().collect();
 	let mut dont_have_cids: HashSet<Cid> = HashSet::with_capacity(wanted.len());
 
 	for presence in response.block_presences {
@@ -311,43 +260,25 @@ fn classify_response_unverified(
 		}) else {
 			continue;
 		};
-		if !is_cid_supported(&cid) {
-			debug!(
-				target: LOG_TARGET,
-				"client: {peer} returned unsupported CID {cid} in presence",
-			);
+		if !wanted_set.contains(&cid) {
+			debug!(target: LOG_TARGET, "client: {peer} returned unsolicited presence for CID {cid}");
 			continue;
 		}
-		let Some(&(_, content_hash)) = wanted.iter().find(|(c, _)| c == &cid) else {
-			debug!(
-				target: LOG_TARGET,
-				"client: {peer} returned unsolicited presence for CID {cid}",
-			);
-			continue;
-		};
 		if presence.r#type == BlockPresenceType::DontHave as i32 {
 			debug!(target: LOG_TARGET, "client: {peer} DONT_HAVE for CID {cid}");
 			dont_have_cids.insert(cid);
-			result.insert(content_hash, FetchOutcome::DontHave);
+			result.insert(cid, FetchOutcome::DontHave);
 		} else {
-			warn!(
-				target: LOG_TARGET,
-				"client: {peer} unexpected presence type {} for CID {cid}",
-				presence.r#type,
-			);
-			result.insert(content_hash, FetchOutcome::Missing);
+			warn!(target: LOG_TARGET, "client: {peer} unexpected presence type {} for CID {cid}", presence.r#type);
+			result.insert(cid, FetchOutcome::Missing);
 		}
 	}
 
-	let mut expected_payload_order =
-		wanted.iter().filter(|(cid, _)| !dont_have_cids.contains(cid));
+	let mut expected_payload_order = wanted.iter().filter(|cid| !dont_have_cids.contains(cid));
 
 	for block in response.payload {
-		let Some((expected_cid, content_hash)) = expected_payload_order.next() else {
-			debug!(
-				target: LOG_TARGET,
-				"client: {peer} returned more payload blocks than expected; dropping extras",
-			);
+		let Some(expected_cid) = expected_payload_order.next() else {
+			debug!(target: LOG_TARGET, "client: {peer} returned more payload blocks than expected; dropping extras");
 			break;
 		};
 		let Ok(prefix) = decode_prefix(&block.prefix).inspect_err(|err| {
@@ -369,26 +300,21 @@ fn classify_response_unverified(
 			"client: {peer} returned {} unverified bytes for CID {expected_cid}",
 			block.data.len(),
 		);
-		result.entry(*content_hash).or_insert(FetchOutcome::Block(block.data.clone()));
+		result.entry(*expected_cid).or_insert(FetchOutcome::Block(block.data.clone()));
 	}
 
-	for (_, content_hash) in wanted {
-		result.entry(*content_hash).or_insert(FetchOutcome::Missing);
+	for cid in wanted {
+		result.entry(*cid).or_insert(FetchOutcome::Missing);
 	}
 
 	result
 }
 
-/// Runs the presence-loop and fills any unanswered wants with [`FetchOutcome::Missing`].
-/// Shared between [`classify_response`] and [`classify_response_unverified`]; the only difference
-/// between the two paths is how each looks up a CID's content-hash in the wanted map, which is
-/// passed in as `extract_hash`.
-fn apply_presences_and_fill_missing<V>(
+fn apply_presences_and_fill_missing(
 	presences: Vec<BlockPresence>,
-	wanted: &HashMap<Cid, V>,
+	wanted: &HashSet<Cid>,
 	peer: PeerId,
-	result: &mut HashMap<ContentHash, FetchOutcome>,
-	extract_hash: &impl Fn(&V) -> ContentHash,
+	result: &mut HashMap<Cid, FetchOutcome>,
 ) {
 	for presence in presences {
 		let Ok(cid) = Cid::read_bytes(presence.cid.as_slice()).inspect_err(|err| {
@@ -396,28 +322,25 @@ fn apply_presences_and_fill_missing<V>(
 		}) else {
 			continue;
 		};
-		let Some(content_hash) = lookup_wanted(wanted, &cid, peer, "presence", extract_hash) else {
+		if !wanted.contains(&cid) {
+			debug!(target: LOG_TARGET, "client: {peer} returned unsolicited presence for CID {cid}");
 			continue;
-		};
-		if result.contains_key(&content_hash) {
+		}
+		if result.contains_key(&cid) {
 			continue;
 		}
 		let outcome = if presence.r#type == BlockPresenceType::DontHave as i32 {
 			debug!(target: LOG_TARGET, "client: {peer} DONT_HAVE for CID {cid}");
 			FetchOutcome::DontHave
 		} else {
-			warn!(
-				target: LOG_TARGET,
-				"client: {peer} unexpected presence type {} for CID {cid}",
-				presence.r#type,
-			);
+			warn!(target: LOG_TARGET, "client: {peer} unexpected presence type {} for CID {cid}", presence.r#type);
 			FetchOutcome::Missing
 		};
-		result.insert(content_hash, outcome);
+		result.insert(cid, outcome);
 	}
 
-	for value in wanted.values() {
-		result.entry(extract_hash(value)).or_insert(FetchOutcome::Missing);
+	for cid in wanted {
+		result.entry(*cid).or_insert(FetchOutcome::Missing);
 	}
 }
 
@@ -428,17 +351,10 @@ fn prefix_matches_cid(prefix: &Prefix, cid: &Cid) -> bool {
 		prefix.mh_len == cid.hash().size()
 }
 
-fn cid_for_hash(content_hash: ContentHash, hashing: HashingAlgorithm) -> Result<Cid, BitswapError> {
-	let multihash = Multihash::wrap(hashing.multihash_code(), &content_hash)
-		.map_err(|err| BitswapError::DecodeError(err.to_string()))?;
-	Ok(Cid::new_v1(RAW_CODEC, multihash))
-}
-
 fn cid_from_block_prefix(prefix: &[u8], data: &[u8]) -> Result<Cid, BitswapError> {
 	let prefix = decode_prefix(prefix)?;
-	let hashing = HashingAlgorithm::from_multihash_code(prefix.mh_type)
+	let hash = hash_for_multihash_code(prefix.mh_type, data)
 		.ok_or(BitswapError::UnsupportedHashing { multihash_code: prefix.mh_type })?;
-	let hash = hashing.hash(data);
 	let multihash = Multihash::wrap(prefix.mh_type, &hash)
 		.map_err(|err| BitswapError::DecodeError(err.to_string()))?;
 
@@ -450,23 +366,12 @@ fn cid_from_block_prefix(prefix: &[u8], data: &[u8]) -> Result<Cid, BitswapError
 	}
 }
 
-fn lookup_wanted<V>(
-	wanted: &HashMap<Cid, V>,
-	cid: &Cid,
-	peer: PeerId,
-	role: &str,
-	extract_hash: impl Fn(&V) -> ContentHash,
-) -> Option<ContentHash> {
-	if !is_cid_supported(cid) {
-		debug!(target: LOG_TARGET, "client: {peer} returned unsupported CID {cid} in {role}");
-		return None;
-	}
-	match wanted.get(cid) {
-		Some(value) => Some(extract_hash(value)),
-		None => {
-			debug!(target: LOG_TARGET, "client: {peer} returned unsolicited {role} for CID {cid}");
-			None
-		},
+fn hash_for_multihash_code(multihash_code: u64, data: &[u8]) -> Option<[u8; 32]> {
+	match multihash_code {
+		BLAKE2B_256_MULTIHASH_CODE => Some(sp_crypto_hashing::blake2_256(data)),
+		SHA2_256_MULTIHASH_CODE => Some(sp_crypto_hashing::sha2_256(data)),
+		KECCAK_256_MULTIHASH_CODE => Some(sp_crypto_hashing::keccak_256(data)),
+		_ => None,
 	}
 }
 
@@ -503,8 +408,7 @@ pub enum BitswapError {
 	DecodeError(String),
 	/// Request/response exchange failed.
 	RequestFailed(String),
-	/// Block prefix declared a multihash code that does not map to any supported
-	/// `HashingAlgorithm`.
+	/// Block prefix declared an unsupported multihash code.
 	UnsupportedHashing {
 		/// The unrecognised IPFS multihash code.
 		multihash_code: u64,
@@ -549,38 +453,31 @@ mod tests {
 		}
 	}
 
-	fn prefix_for(hashing: HashingAlgorithm) -> Vec<u8> {
-		Prefix {
-			version: CidVersion::V1,
-			codec: RAW_CODEC,
-			mh_type: hashing.multihash_code(),
-			mh_len: 32,
-		}
-		.to_bytes()
+	fn prefix_for(multihash_code: u64) -> Vec<u8> {
+		Prefix { version: CidVersion::V1, codec: RAW_CODEC, mh_type: multihash_code, mh_len: 32 }
+			.to_bytes()
 	}
 
-	fn cid_for(hash: ContentHash, hashing: HashingAlgorithm) -> Cid {
-		let mh = Multihash::wrap(hashing.multihash_code(), &hash).unwrap();
-		Cid::new_v1(RAW_CODEC, mh)
+	fn cid_for_data(multihash_code: u64, data: &[u8]) -> Cid {
+		raw_cid_from_digest(multihash_code, hash_for_multihash_code(multihash_code, data).unwrap())
+			.unwrap()
 	}
 
-	fn encode_response(
-		blocks: &[(HashingAlgorithm, Vec<u8>)],
-		presences: &[(ContentHash, HashingAlgorithm, i32)],
-	) -> Vec<u8> {
+	fn cid_for_digest(multihash_code: u64, digest: [u8; 32]) -> Cid {
+		raw_cid_from_digest(multihash_code, digest).unwrap()
+	}
+
+	fn encode_response(blocks: &[(u64, Vec<u8>)], presences: &[(Cid, i32)]) -> Vec<u8> {
 		let payload = blocks
 			.iter()
-			.map(|(hashing, data)| MessageBlock {
-				prefix: prefix_for(*hashing),
+			.map(|(multihash_code, data)| MessageBlock {
+				prefix: prefix_for(*multihash_code),
 				data: data.clone(),
 			})
 			.collect();
 		let block_presences = presences
 			.iter()
-			.map(|(hash, hashing, ptype)| BlockPresence {
-				cid: cid_for(*hash, *hashing).to_bytes(),
-				r#type: *ptype,
-			})
+			.map(|(cid, ptype)| BlockPresence { cid: cid.to_bytes(), r#type: *ptype })
 			.collect();
 		BitswapMessage { payload, block_presences, ..Default::default() }.encode_to_vec()
 	}
@@ -590,205 +487,99 @@ mod tests {
 		let data_a = b"hash-a-payload".to_vec();
 		let data_b = b"hash-b-payload".to_vec();
 		let data_c = b"hash-c-payload".to_vec();
-		let hash_a = HashingAlgorithm::Blake2b256.hash(&data_a);
-		let hash_b = HashingAlgorithm::Blake2b256.hash(&data_b);
-		let hash_c = HashingAlgorithm::Blake2b256.hash(&data_c);
+		let cid_a = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data_a);
+		let cid_b = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data_b);
+		let cid_c = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data_c);
 
 		let response = encode_response(
 			&[
-				(HashingAlgorithm::Blake2b256, data_a.clone()),
-				(HashingAlgorithm::Blake2b256, data_b.clone()),
-				(HashingAlgorithm::Blake2b256, data_c.clone()),
+				(BLAKE2B_256_MULTIHASH_CODE, data_a.clone()),
+				(BLAKE2B_256_MULTIHASH_CODE, data_b.clone()),
+				(BLAKE2B_256_MULTIHASH_CODE, data_c.clone()),
 			],
 			&[],
 		);
 		let stub = StubSender::new([Ok(response)]);
 
-		let result = fetch_many(
-			&stub,
-			PeerId::random(),
-			&[
-				(hash_a, HashingAlgorithm::Blake2b256),
-				(hash_b, HashingAlgorithm::Blake2b256),
-				(hash_c, HashingAlgorithm::Blake2b256),
-			],
-		)
-		.await
-		.expect("fetch_many should succeed");
+		let result = fetch_many(&stub, PeerId::random(), &[cid_a, cid_b, cid_c])
+			.await
+			.expect("fetch_many should succeed");
 
 		assert_eq!(result.len(), 3);
-		assert!(matches!(result.get(&hash_a), Some(FetchOutcome::Block(d)) if *d == data_a));
-		assert!(matches!(result.get(&hash_b), Some(FetchOutcome::Block(d)) if *d == data_b));
-		assert!(matches!(result.get(&hash_c), Some(FetchOutcome::Block(d)) if *d == data_c));
+		assert!(matches!(result.get(&cid_a), Some(FetchOutcome::Block(d)) if *d == data_a));
+		assert!(matches!(result.get(&cid_b), Some(FetchOutcome::Block(d)) if *d == data_b));
+		assert!(matches!(result.get(&cid_c), Some(FetchOutcome::Block(d)) if *d == data_c));
 	}
 
 	#[tokio::test]
 	async fn fetch_many_partial_dont_have() {
 		let data_a = b"a".to_vec();
 		let data_b = b"b".to_vec();
-		let hash_a = HashingAlgorithm::Blake2b256.hash(&data_a);
-		let hash_b = HashingAlgorithm::Blake2b256.hash(&data_b);
-		let hash_c = HashingAlgorithm::Blake2b256.hash(b"c-not-served");
+		let cid_a = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data_a);
+		let cid_b = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data_b);
+		let cid_c = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, b"c-not-served");
 
 		let response = encode_response(
 			&[
-				(HashingAlgorithm::Blake2b256, data_a.clone()),
-				(HashingAlgorithm::Blake2b256, data_b.clone()),
+				(BLAKE2B_256_MULTIHASH_CODE, data_a.clone()),
+				(BLAKE2B_256_MULTIHASH_CODE, data_b.clone()),
 			],
-			&[(hash_c, HashingAlgorithm::Blake2b256, BlockPresenceType::DontHave as i32)],
+			&[(cid_c, BlockPresenceType::DontHave as i32)],
 		);
 		let stub = StubSender::new([Ok(response)]);
 
-		let result = fetch_many(
-			&stub,
-			PeerId::random(),
-			&[
-				(hash_a, HashingAlgorithm::Blake2b256),
-				(hash_b, HashingAlgorithm::Blake2b256),
-				(hash_c, HashingAlgorithm::Blake2b256),
-			],
-		)
-		.await
-		.unwrap();
+		let result = fetch_many(&stub, PeerId::random(), &[cid_a, cid_b, cid_c]).await.unwrap();
 
 		assert_eq!(result.len(), 3);
-		assert!(matches!(result.get(&hash_a), Some(FetchOutcome::Block(_))));
-		assert!(matches!(result.get(&hash_b), Some(FetchOutcome::Block(_))));
-		assert!(matches!(result.get(&hash_c), Some(FetchOutcome::DontHave)));
+		assert!(matches!(result.get(&cid_a), Some(FetchOutcome::Block(_))));
+		assert!(matches!(result.get(&cid_b), Some(FetchOutcome::Block(_))));
+		assert!(matches!(result.get(&cid_c), Some(FetchOutcome::DontHave)));
 	}
 
 	#[tokio::test]
 	async fn fetch_many_corrupted_data_dropped_as_unsolicited() {
-		// Wanted hash is for the correct payload.
 		let real_data = b"real-payload".to_vec();
-		let wanted_hash = HashingAlgorithm::Blake2b256.hash(&real_data);
-
-		// Peer sends a block whose prefix structure is well-formed but whose data does not hash
-		// to wanted_hash. `cid_from_block_prefix` will derive a CID for the corrupted data
-		// (different from the wanted CID) and the block falls into "unsolicited block, drop"
-		// rather than serving the wanted entry.
+		let wanted_cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &real_data);
 		let corrupted_data = b"i-am-not-the-real-payload".to_vec();
-		let response = encode_response(&[(HashingAlgorithm::Blake2b256, corrupted_data)], &[]);
+		let response = encode_response(&[(BLAKE2B_256_MULTIHASH_CODE, corrupted_data)], &[]);
 		let stub = StubSender::new([Ok(response)]);
 
-		let result =
-			fetch_many(&stub, PeerId::random(), &[(wanted_hash, HashingAlgorithm::Blake2b256)])
-				.await
-				.unwrap();
+		let result = fetch_many(&stub, PeerId::random(), &[wanted_cid]).await.unwrap();
 
 		assert_eq!(result.len(), 1);
-		assert!(matches!(result.get(&wanted_hash), Some(FetchOutcome::Missing)));
+		assert!(matches!(result.get(&wanted_cid), Some(FetchOutcome::Missing)));
 	}
 
 	#[tokio::test]
-	async fn fetch_many_unsolicited_block_dropped() {
-		let wanted_data = b"wanted".to_vec();
-		let wanted_hash = HashingAlgorithm::Blake2b256.hash(&wanted_data);
-		let extra_data = b"extra-not-asked-for".to_vec();
-
-		let response = encode_response(
-			&[
-				(HashingAlgorithm::Blake2b256, wanted_data.clone()),
-				(HashingAlgorithm::Blake2b256, extra_data),
-			],
-			&[],
-		);
+	async fn fetch_many_unverified_accepts_bytes_without_hash_recompute() {
+		let data = b"sha2-digest-but-blake2b-request-prefix".to_vec();
+		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, sp_crypto_hashing::sha2_256(&data));
+		let response = encode_response(&[(BLAKE2B_256_MULTIHASH_CODE, data.clone())], &[]);
 		let stub = StubSender::new([Ok(response)]);
 
-		let result =
-			fetch_many(&stub, PeerId::random(), &[(wanted_hash, HashingAlgorithm::Blake2b256)])
-				.await
-				.unwrap();
-
-		assert_eq!(result.len(), 1);
-		assert!(
-			matches!(result.get(&wanted_hash), Some(FetchOutcome::Block(d)) if *d == wanted_data)
-		);
-	}
-
-	#[tokio::test]
-	async fn fetch_many_silent_omission_becomes_missing() {
-		let data_a = b"a".to_vec();
-		let hash_a = HashingAlgorithm::Blake2b256.hash(&data_a);
-		let hash_b = HashingAlgorithm::Blake2b256.hash(b"b-omitted");
-		let hash_c = HashingAlgorithm::Blake2b256.hash(b"c-omitted");
-
-		let response = encode_response(&[(HashingAlgorithm::Blake2b256, data_a)], &[]);
-		let stub = StubSender::new([Ok(response)]);
-
-		let result = fetch_many(
-			&stub,
-			PeerId::random(),
-			&[
-				(hash_a, HashingAlgorithm::Blake2b256),
-				(hash_b, HashingAlgorithm::Blake2b256),
-				(hash_c, HashingAlgorithm::Blake2b256),
-			],
-		)
-		.await
-		.unwrap();
-
-		assert_eq!(result.len(), 3);
-		assert!(matches!(result.get(&hash_a), Some(FetchOutcome::Block(_))));
-		assert!(matches!(result.get(&hash_b), Some(FetchOutcome::Missing)));
-		assert!(matches!(result.get(&hash_c), Some(FetchOutcome::Missing)));
-	}
-
-	#[tokio::test]
-	async fn fetch_many_empty_wants_errors() {
-		let stub = StubSender::new(std::iter::empty());
-
-		let err = fetch_many(&stub, PeerId::random(), &[])
+		let result = fetch_many_unverified(&stub, PeerId::random(), &[cid])
 			.await
-			.expect_err("empty wantlist must error");
-		assert!(matches!(err, BitswapError::DecodeError(_)));
-	}
-
-	#[tokio::test]
-	async fn fetch_many_unverified_returns_block_for_wanted_hash() {
-		let data = b"unverified-blake2b-payload".to_vec();
-		let hash = HashingAlgorithm::Blake2b256.hash(&data);
-		let response = encode_response(&[(HashingAlgorithm::Blake2b256, data.clone())], &[]);
-		let stub = StubSender::new([Ok(response)]);
-
-		let result = fetch_many_unverified(&stub, PeerId::random(), &[hash])
-			.await
-			.expect("unverified fetch should succeed");
+			.expect("unverified fetch should not recompute hashes");
 
 		assert_eq!(result.len(), 1);
-		assert!(matches!(result.get(&hash), Some(FetchOutcome::Block(d)) if *d == data));
-	}
-
-	#[tokio::test]
-	async fn fetch_many_unverified_accepts_response_when_real_algorithm_differs() {
-		let data = b"sha2-hashed-but-blake2b-tagged".to_vec();
-		let real_hash = HashingAlgorithm::Sha2_256.hash(&data);
-		let response = encode_response(&[(HashingAlgorithm::Blake2b256, data.clone())], &[]);
-		let stub = StubSender::new([Ok(response)]);
-
-		let result = fetch_many_unverified(&stub, PeerId::random(), &[real_hash])
-			.await
-			.expect("unverified fetch should not recompute Blake2b-256 over the payload");
-
-		assert_eq!(result.len(), 1);
-		assert!(matches!(result.get(&real_hash), Some(FetchOutcome::Block(d)) if *d == data));
+		assert!(matches!(result.get(&cid), Some(FetchOutcome::Block(d)) if *d == data));
 	}
 
 	#[tokio::test]
 	async fn fetch_many_unverified_dont_have_returned_as_missing() {
-		let hash = HashingAlgorithm::Sha2_256.hash(b"pruned-unverified-payload");
-		let response = encode_response(
-			&[],
-			&[(hash, HashingAlgorithm::Blake2b256, BlockPresenceType::DontHave as i32)],
+		let cid = cid_for_digest(
+			BLAKE2B_256_MULTIHASH_CODE,
+			sp_crypto_hashing::sha2_256(b"pruned-unverified-payload"),
 		);
+		let response = encode_response(&[], &[(cid, BlockPresenceType::DontHave as i32)]);
 		let stub = StubSender::new([Ok(response)]);
 
-		let result = fetch_many_unverified(&stub, PeerId::random(), &[hash])
+		let result = fetch_many_unverified(&stub, PeerId::random(), &[cid])
 			.await
 			.expect("unverified DONT_HAVE should classify successfully");
 
 		assert_eq!(result.len(), 1);
-		assert!(matches!(result.get(&hash), Some(FetchOutcome::DontHave)));
+		assert!(matches!(result.get(&cid), Some(FetchOutcome::DontHave)));
 	}
 
 	#[tokio::test]
@@ -806,89 +597,58 @@ mod tests {
 		let data_a = b"first-unverified-payload".to_vec();
 		let data_b = b"second-unverified-payload".to_vec();
 		let data_c = b"third-unverified-payload".to_vec();
-		let hash_a = HashingAlgorithm::Sha2_256.hash(&data_a);
-		let hash_b = HashingAlgorithm::Keccak256.hash(&data_b);
-		let hash_c = HashingAlgorithm::Blake2b256.hash(&data_c);
+		let cid_a =
+			cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, sp_crypto_hashing::sha2_256(&data_a));
+		let cid_b =
+			cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, sp_crypto_hashing::keccak_256(&data_b));
+		let cid_c = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data_c);
 
-		// Server echoes our request prefix (Blake2b-256 placeholder) for each block, in the
-		// order we sent the wants. This is exactly what the substrate server does at
-		// bitswap/mod.rs:211-267.
 		let response = encode_response(
 			&[
-				(HashingAlgorithm::Blake2b256, data_a.clone()),
-				(HashingAlgorithm::Blake2b256, data_b.clone()),
-				(HashingAlgorithm::Blake2b256, data_c.clone()),
+				(BLAKE2B_256_MULTIHASH_CODE, data_a.clone()),
+				(BLAKE2B_256_MULTIHASH_CODE, data_b.clone()),
+				(BLAKE2B_256_MULTIHASH_CODE, data_c.clone()),
+			],
+			&[],
+		);
+		let stub = StubSender::new([Ok(response)]);
+
+		let result = fetch_many_unverified(&stub, PeerId::random(), &[cid_a, cid_b, cid_c])
+			.await
+			.expect("multi-want unverified must succeed via positional correlation");
+
+		assert_eq!(result.len(), 3);
+		assert!(matches!(result.get(&cid_a), Some(FetchOutcome::Block(d)) if *d == data_a));
+		assert!(matches!(result.get(&cid_b), Some(FetchOutcome::Block(d)) if *d == data_b));
+		assert!(matches!(result.get(&cid_c), Some(FetchOutcome::Block(d)) if *d == data_c));
+	}
+
+	#[tokio::test]
+	async fn fetch_many_dispatches_per_entry_multihash() {
+		let data_b2 = b"blake2b-payload".to_vec();
+		let data_sha = b"sha2-256-payload".to_vec();
+		let data_kec = b"keccak-256-payload".to_vec();
+		let cid_b2 = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data_b2);
+		let cid_sha = cid_for_data(SHA2_256_MULTIHASH_CODE, &data_sha);
+		let cid_kec = cid_for_data(KECCAK_256_MULTIHASH_CODE, &data_kec);
+
+		let response = encode_response(
+			&[
+				(BLAKE2B_256_MULTIHASH_CODE, data_b2.clone()),
+				(SHA2_256_MULTIHASH_CODE, data_sha.clone()),
+				(KECCAK_256_MULTIHASH_CODE, data_kec.clone()),
 			],
 			&[],
 		);
 		let stub = StubSender::new([Ok(response)]);
 
 		let result =
-			fetch_many_unverified(&stub, PeerId::random(), &[hash_a, hash_b, hash_c])
-				.await
-				.expect("multi-want unverified must succeed via positional correlation");
+			fetch_many(&stub, PeerId::random(), &[cid_b2, cid_sha, cid_kec]).await.unwrap();
 
 		assert_eq!(result.len(), 3);
-		assert!(matches!(result.get(&hash_a), Some(FetchOutcome::Block(d)) if *d == data_a));
-		assert!(matches!(result.get(&hash_b), Some(FetchOutcome::Block(d)) if *d == data_b));
-		assert!(matches!(result.get(&hash_c), Some(FetchOutcome::Block(d)) if *d == data_c));
-	}
-
-	#[tokio::test]
-	async fn fetch_many_unverified_multi_want_mixed_block_and_dont_have_attributed_correctly() {
-		let data_a = b"a-served".to_vec();
-		let data_c = b"c-served".to_vec();
-		let hash_a = HashingAlgorithm::Sha2_256.hash(&data_a);
-		let hash_b = HashingAlgorithm::Sha2_256.hash(b"b-pruned");
-		let hash_c = HashingAlgorithm::Sha2_256.hash(&data_c);
-
-		// Server has A and C but not B. Per the substrate server, it pushes blocks for A and C
-		// to `payload` in request-order, and a DontHave presence for B to `block_presences`.
-		// Crucially: the DontHave's CID is built using the same Blake2b-256 placeholder mh_type
-		// the requester used (the server echoes that in `cid: cid.to_bytes()`).
-		let response = encode_response(
-			&[
-				(HashingAlgorithm::Blake2b256, data_a.clone()),
-				(HashingAlgorithm::Blake2b256, data_c.clone()),
-			],
-			&[(hash_b, HashingAlgorithm::Blake2b256, BlockPresenceType::DontHave as i32)],
-		);
-		let stub = StubSender::new([Ok(response)]);
-
-		let result =
-			fetch_many_unverified(&stub, PeerId::random(), &[hash_a, hash_b, hash_c])
-				.await
-				.expect("mixed Block/DontHave must classify via order minus DontHaves");
-
-		assert_eq!(result.len(), 3);
-		assert!(matches!(result.get(&hash_a), Some(FetchOutcome::Block(d)) if *d == data_a));
-		assert!(matches!(result.get(&hash_b), Some(FetchOutcome::DontHave)));
-		assert!(matches!(result.get(&hash_c), Some(FetchOutcome::Block(d)) if *d == data_c));
-	}
-
-	#[tokio::test]
-	async fn fetch_many_unverified_multi_want_truncated_response_marks_remainder_missing() {
-		let data_a = b"only-the-first".to_vec();
-		let hash_a = HashingAlgorithm::Sha2_256.hash(&data_a);
-		let hash_b = HashingAlgorithm::Sha2_256.hash(b"b-silently-omitted");
-		let hash_c = HashingAlgorithm::Sha2_256.hash(b"c-silently-omitted");
-
-		// Misbehaving peer: returns a block for A but no presences for B or C and no payload
-		// for them either. Our positional correlation can attribute payload[0] to A; B and C
-		// have no presence and no payload of their own, so they fall through to the final-fill
-		// pass as `Missing`.
-		let response = encode_response(&[(HashingAlgorithm::Blake2b256, data_a.clone())], &[]);
-		let stub = StubSender::new([Ok(response)]);
-
-		let result =
-			fetch_many_unverified(&stub, PeerId::random(), &[hash_a, hash_b, hash_c])
-				.await
-				.expect("truncated response must classify without panicking");
-
-		assert_eq!(result.len(), 3);
-		assert!(matches!(result.get(&hash_a), Some(FetchOutcome::Block(d)) if *d == data_a));
-		assert!(matches!(result.get(&hash_b), Some(FetchOutcome::Missing)));
-		assert!(matches!(result.get(&hash_c), Some(FetchOutcome::Missing)));
+		assert!(matches!(result.get(&cid_b2), Some(FetchOutcome::Block(d)) if *d == data_b2));
+		assert!(matches!(result.get(&cid_sha), Some(FetchOutcome::Block(d)) if *d == data_sha));
+		assert!(matches!(result.get(&cid_kec), Some(FetchOutcome::Block(d)) if *d == data_kec));
 	}
 
 	#[tokio::test]
@@ -897,7 +657,7 @@ mod tests {
 			.map(|i| {
 				let mut h = [0u8; 32];
 				h[0] = i;
-				(h, HashingAlgorithm::Blake2b256)
+				cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, h)
 			})
 			.collect();
 		let stub = StubSender::new(std::iter::empty());
@@ -909,67 +669,51 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn fetch_many_dispatches_per_entry_hashing() {
-		let data_b2 = b"blake2b-payload".to_vec();
-		let data_sha = b"sha2-256-payload".to_vec();
-		let data_kec = b"keccak-256-payload".to_vec();
-		let hash_b2 = HashingAlgorithm::Blake2b256.hash(&data_b2);
-		let hash_sha = HashingAlgorithm::Sha2_256.hash(&data_sha);
-		let hash_kec = HashingAlgorithm::Keccak256.hash(&data_kec);
+	async fn fetch_many_at_exactly_max_wanted_blocks_succeeds() {
+		let mut wants = Vec::with_capacity(MAX_WANTED_BLOCKS_PER_REQUEST);
+		let mut blocks = Vec::with_capacity(MAX_WANTED_BLOCKS_PER_REQUEST);
+		for i in 0..MAX_WANTED_BLOCKS_PER_REQUEST {
+			let data = format!("payload-{i}").into_bytes();
+			wants.push(cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data));
+			blocks.push((BLAKE2B_256_MULTIHASH_CODE, data));
+		}
 
-		let response = encode_response(
-			&[
-				(HashingAlgorithm::Blake2b256, data_b2.clone()),
-				(HashingAlgorithm::Sha2_256, data_sha.clone()),
-				(HashingAlgorithm::Keccak256, data_kec.clone()),
-			],
-			&[],
-		);
+		let response = encode_response(&blocks, &[]);
 		let stub = StubSender::new([Ok(response)]);
 
-		let result = fetch_many(
-			&stub,
-			PeerId::random(),
-			&[
-				(hash_b2, HashingAlgorithm::Blake2b256),
-				(hash_sha, HashingAlgorithm::Sha2_256),
-				(hash_kec, HashingAlgorithm::Keccak256),
-			],
-		)
-		.await
-		.unwrap();
+		let result = fetch_many(&stub, PeerId::random(), &wants)
+			.await
+			.expect("exactly MAX_WANTED_BLOCKS_PER_REQUEST must succeed");
 
-		assert_eq!(result.len(), 3);
-		assert!(matches!(result.get(&hash_b2), Some(FetchOutcome::Block(d)) if *d == data_b2));
-		assert!(matches!(result.get(&hash_sha), Some(FetchOutcome::Block(d)) if *d == data_sha));
-		assert!(matches!(result.get(&hash_kec), Some(FetchOutcome::Block(d)) if *d == data_kec));
+		assert_eq!(result.len(), MAX_WANTED_BLOCKS_PER_REQUEST);
+		for cid in &wants {
+			assert!(matches!(result.get(cid), Some(FetchOutcome::Block(_))));
+		}
 	}
 
 	#[tokio::test]
 	async fn fetch_many_block_beats_presence_for_same_cid() {
 		let data = b"both-block-and-presence".to_vec();
-		let hash = HashingAlgorithm::Blake2b256.hash(&data);
+		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
 		let response = encode_response(
-			&[(HashingAlgorithm::Blake2b256, data.clone())],
-			&[(hash, HashingAlgorithm::Blake2b256, BlockPresenceType::DontHave as i32)],
+			&[(BLAKE2B_256_MULTIHASH_CODE, data.clone())],
+			&[(cid, BlockPresenceType::DontHave as i32)],
 		);
 		let stub = StubSender::new([Ok(response)]);
 
-		let result = fetch_many(&stub, PeerId::random(), &[(hash, HashingAlgorithm::Blake2b256)])
-			.await
-			.unwrap();
+		let result = fetch_many(&stub, PeerId::random(), &[cid]).await.unwrap();
 
 		assert_eq!(result.len(), 1);
-		assert!(matches!(result.get(&hash), Some(FetchOutcome::Block(d)) if *d == data));
+		assert!(matches!(result.get(&cid), Some(FetchOutcome::Block(d)) if *d == data));
 	}
 
 	#[tokio::test]
 	async fn fetch_many_response_decode_failure() {
 		let stub = StubSender::new([Ok(vec![0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff])]);
+		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, b"any");
 
-		let hash = HashingAlgorithm::Blake2b256.hash(b"any");
-		let err = fetch_many(&stub, PeerId::random(), &[(hash, HashingAlgorithm::Blake2b256)])
+		let err = fetch_many(&stub, PeerId::random(), &[cid])
 			.await
 			.expect_err("malformed response bytes must surface as DecodeError");
 		assert!(matches!(err, BitswapError::DecodeError(_)));
@@ -991,22 +735,17 @@ mod tests {
 			}
 		}
 
-		let hash = HashingAlgorithm::Blake2b256.hash(b"any");
-		let err =
-			fetch_many(&DroppingSender, PeerId::random(), &[(hash, HashingAlgorithm::Blake2b256)])
-				.await
-				.expect_err("dropped channel must surface as RequestFailed");
+		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, b"any");
+		let err = fetch_many(&DroppingSender, PeerId::random(), &[cid])
+			.await
+			.expect_err("dropped channel must surface as RequestFailed");
 		assert!(matches!(err, BitswapError::RequestFailed(_)));
 	}
 
 	#[tokio::test]
 	async fn fetch_many_unsupported_multihash_in_block_dropped() {
 		let wanted_data = b"wanted".to_vec();
-		let wanted_hash = HashingAlgorithm::Blake2b256.hash(&wanted_data);
-
-		// Peer sends a block whose prefix declares multihash code 0x99 (no `HashingAlgorithm`
-		// maps to it). `cid_from_block_prefix` rejects with `UnsupportedHashing` and the block
-		// is dropped, leaving the wanted entry unfilled and the backfill marks it `Missing`.
+		let wanted_cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &wanted_data);
 		const UNSUPPORTED_MH_CODE: u64 = 0x99;
 		let bad_prefix = Prefix {
 			version: CidVersion::V1,
@@ -1020,109 +759,11 @@ mod tests {
 		payload_msg.payload =
 			vec![MessageBlock { prefix: bad_prefix, data: b"some-bytes".to_vec() }];
 		let response = payload_msg.encode_to_vec();
-
 		let stub = StubSender::new([Ok(response)]);
 
-		let result =
-			fetch_many(&stub, PeerId::random(), &[(wanted_hash, HashingAlgorithm::Blake2b256)])
-				.await
-				.unwrap();
+		let result = fetch_many(&stub, PeerId::random(), &[wanted_cid]).await.unwrap();
 
 		assert_eq!(result.len(), 1);
-		assert!(matches!(result.get(&wanted_hash), Some(FetchOutcome::Missing)));
-	}
-
-	#[tokio::test]
-	async fn fetch_many_at_exactly_max_wanted_blocks_succeeds() {
-		let mut wants: Vec<(ContentHash, HashingAlgorithm)> =
-			Vec::with_capacity(MAX_WANTED_BLOCKS_PER_REQUEST);
-		let mut blocks: Vec<(HashingAlgorithm, Vec<u8>)> =
-			Vec::with_capacity(MAX_WANTED_BLOCKS_PER_REQUEST);
-		for i in 0..MAX_WANTED_BLOCKS_PER_REQUEST {
-			let data = format!("payload-{i}").into_bytes();
-			let hash = HashingAlgorithm::Blake2b256.hash(&data);
-			wants.push((hash, HashingAlgorithm::Blake2b256));
-			blocks.push((HashingAlgorithm::Blake2b256, data));
-		}
-
-		let response = encode_response(&blocks, &[]);
-		let stub = StubSender::new([Ok(response)]);
-
-		let result = fetch_many(&stub, PeerId::random(), &wants)
-			.await
-			.expect("exactly MAX_WANTED_BLOCKS_PER_REQUEST must succeed");
-
-		assert_eq!(result.len(), MAX_WANTED_BLOCKS_PER_REQUEST);
-		for (hash, _) in &wants {
-			assert!(matches!(result.get(hash), Some(FetchOutcome::Block(_))));
-		}
-	}
-
-	#[tokio::test]
-	async fn fetch_many_malformed_presence_cid_dropped() {
-		let wanted_data = b"wanted".to_vec();
-		let wanted_hash = HashingAlgorithm::Blake2b256.hash(&wanted_data);
-
-		// Peer puts garbage bytes in `presence.cid`. `Cid::read_bytes` errors, the presence is
-		// dropped, the wanted entry is backfilled as `Missing`.
-		let mut response_msg = BitswapMessage::default();
-		response_msg.block_presences = vec![BlockPresence {
-			cid: vec![0xde, 0xad, 0xbe, 0xef],
-			r#type: BlockPresenceType::DontHave as i32,
-		}];
-		let response = response_msg.encode_to_vec();
-		let stub = StubSender::new([Ok(response)]);
-
-		let result =
-			fetch_many(&stub, PeerId::random(), &[(wanted_hash, HashingAlgorithm::Blake2b256)])
-				.await
-				.unwrap();
-
-		assert_eq!(result.len(), 1);
-		assert!(matches!(result.get(&wanted_hash), Some(FetchOutcome::Missing)));
-	}
-
-	#[tokio::test]
-	async fn fetch_many_mostly_presences_response() {
-		let served_data = b"the-only-served".to_vec();
-		let served_hash = HashingAlgorithm::Blake2b256.hash(&served_data);
-		let pruned_a = HashingAlgorithm::Blake2b256.hash(b"pruned-a");
-		let pruned_b = HashingAlgorithm::Blake2b256.hash(b"pruned-b");
-		let pruned_c = HashingAlgorithm::Blake2b256.hash(b"pruned-c");
-		let pruned_d = HashingAlgorithm::Blake2b256.hash(b"pruned-d");
-
-		let response = encode_response(
-			&[(HashingAlgorithm::Blake2b256, served_data.clone())],
-			&[
-				(pruned_a, HashingAlgorithm::Blake2b256, BlockPresenceType::DontHave as i32),
-				(pruned_b, HashingAlgorithm::Blake2b256, BlockPresenceType::DontHave as i32),
-				(pruned_c, HashingAlgorithm::Blake2b256, BlockPresenceType::DontHave as i32),
-				(pruned_d, HashingAlgorithm::Blake2b256, BlockPresenceType::DontHave as i32),
-			],
-		);
-		let stub = StubSender::new([Ok(response)]);
-
-		let result = fetch_many(
-			&stub,
-			PeerId::random(),
-			&[
-				(served_hash, HashingAlgorithm::Blake2b256),
-				(pruned_a, HashingAlgorithm::Blake2b256),
-				(pruned_b, HashingAlgorithm::Blake2b256),
-				(pruned_c, HashingAlgorithm::Blake2b256),
-				(pruned_d, HashingAlgorithm::Blake2b256),
-			],
-		)
-		.await
-		.unwrap();
-
-		assert_eq!(result.len(), 5);
-		assert!(
-			matches!(result.get(&served_hash), Some(FetchOutcome::Block(d)) if *d == served_data)
-		);
-		assert!(matches!(result.get(&pruned_a), Some(FetchOutcome::DontHave)));
-		assert!(matches!(result.get(&pruned_b), Some(FetchOutcome::DontHave)));
-		assert!(matches!(result.get(&pruned_c), Some(FetchOutcome::DontHave)));
-		assert!(matches!(result.get(&pruned_d), Some(FetchOutcome::DontHave)));
+		assert!(matches!(result.get(&wanted_cid), Some(FetchOutcome::Missing)));
 	}
 }

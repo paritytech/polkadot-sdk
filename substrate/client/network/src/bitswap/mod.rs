@@ -19,7 +19,7 @@
 //!
 //! Allows querying transactions by hash over standard bitswap protocol
 //! Only supports bitswap 1.2.0.
-//! CID is expected to reference 256-bit Blake2b transaction hash.
+//! CID is expected to reference a supported 256-bit transaction hash.
 
 use crate::{
 	request_responses::{IncomingRequest, OutgoingResponse, ProtocolConfig},
@@ -47,8 +47,9 @@ pub mod client;
 pub(crate) mod schema;
 
 pub use client::{
-	fetch_many, fetch_many_unverified, BitswapError, BitswapRequestSender, FetchOutcome,
-	MAX_WANTED_BLOCKS_PER_REQUEST,
+	fetch_many, fetch_many_unverified, raw_cid_from_digest, BitswapError, BitswapRequestSender,
+	FetchOutcome, BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE,
+	MAX_WANTED_BLOCKS_PER_REQUEST, SHA2_256_MULTIHASH_CODE,
 };
 
 pub(crate) use schema::bitswap::Message as BitswapProtoMessage;
@@ -70,14 +71,19 @@ const MAX_WANTED_BLOCKS: usize = 16;
 /// Bitswap protocol name
 pub(crate) const PROTOCOL_NAME: &'static str = "/ipfs/bitswap/1.2.0";
 
+/// IPFS raw multicodec used for indexed transaction payload bytes.
+pub const RAW_CODEC: u64 = 0x55;
+
 /// Check if a CID is supported by the bitswap protocol — CIDv1, 32-byte digest, with a
-/// multihash code that maps to a supported [`HashingAlgorithm`] (Blake2b-256, SHA2-256, or
-/// Keccak-256).
+/// supported multihash code (Blake2b-256, SHA2-256, or Keccak-256).
 pub fn is_cid_supported(cid: &Cid) -> bool {
 	cid.version() != CidVersion::V0 &&
 		cid.hash().size() == 32 &&
-		sp_transaction_storage_proof::HashingAlgorithm::from_multihash_code(cid.hash().code())
-			.is_some()
+		is_supported_multihash_code(cid.hash().code())
+}
+
+pub(crate) fn is_supported_multihash_code(code: u64) -> bool {
+	matches!(code, BLAKE2B_256_MULTIHASH_CODE | SHA2_256_MULTIHASH_CODE | KECCAK_256_MULTIHASH_CODE)
 }
 
 /// Prefix represents all metadata of a CID, without the actual content.
@@ -553,23 +559,19 @@ mod tests {
 	#[test]
 	fn is_cid_supported_accepts_all_three_supported_hashings() {
 		use cid::multihash::Multihash;
-		const RAW_CODEC: u64 = 0x55;
-		for algo in [
-			sp_transaction_storage_proof::HashingAlgorithm::Blake2b256,
-			sp_transaction_storage_proof::HashingAlgorithm::Sha2_256,
-			sp_transaction_storage_proof::HashingAlgorithm::Keccak256,
-		] {
+		for multihash_code in
+			[BLAKE2B_256_MULTIHASH_CODE, SHA2_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE]
+		{
 			let digest = [9u8; 32];
-			let mh = Multihash::<64>::wrap(algo.multihash_code(), &digest).unwrap();
+			let mh = Multihash::<64>::wrap(multihash_code, &digest).unwrap();
 			let cid = Cid::new_v1(RAW_CODEC, mh);
-			assert!(is_cid_supported(&cid), "{algo:?} CID should be supported");
+			assert!(is_cid_supported(&cid), "{multihash_code} CID should be supported");
 		}
 	}
 
 	#[test]
 	fn is_cid_supported_rejects_unknown_multihash_code() {
 		use cid::multihash::Multihash;
-		const RAW_CODEC: u64 = 0x55;
 		let digest = [9u8; 32];
 		let mh = Multihash::<64>::wrap(0x99, &digest).unwrap();
 		let cid = Cid::new_v1(RAW_CODEC, mh);

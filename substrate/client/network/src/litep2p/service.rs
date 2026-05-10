@@ -285,25 +285,32 @@ impl Litep2pNetworkService {
 			},
 		};
 
-		let entry = &wantlist.entries[0];
-		let cid = match cid::Cid::read_bytes(entry.block.as_slice()) {
-			Ok(c) => c,
-			Err(e) => {
-				log::warn!(target: LOG_TARGET, "bitswap: invalid CID in WANT entry: {e}");
-				let _ =
-					sender.send(Err(RequestFailure::Network(OutboundFailure::ConnectionClosed)));
-				return;
-			},
-		};
+		let mut cids = Vec::with_capacity(wantlist.entries.len());
+		for entry in wantlist.entries {
+			let cid = match cid::Cid::read_bytes(entry.block.as_slice()) {
+				Ok(c) => c,
+				Err(e) => {
+					log::warn!(target: LOG_TARGET, "bitswap: invalid CID in WANT entry: {e}");
+					let _ = sender
+						.send(Err(RequestFailure::Network(OutboundFailure::ConnectionClosed)));
+					return;
+				},
+			};
+			cids.push(cid);
+		}
 
 		let litep2p_peer: litep2p::PeerId = peer.into();
 		let cmd =
-			super::bitswap::BitswapOutboundCmd { peer: litep2p_peer, cid, response_tx: sender };
+			super::bitswap::BitswapOutboundCmd { peer: litep2p_peer, cids, response_tx: sender };
 		if let Err(e) = cmd_tx.try_send(cmd) {
 			log::warn!(
 				target: LOG_TARGET,
 				"bitswap cmd channel full or closed; dropping request for {peer:?}: {e}",
 			);
+			let cmd = e.into_inner();
+			let _ = cmd
+				.response_tx
+				.send(Err(RequestFailure::Network(OutboundFailure::ConnectionClosed)));
 		}
 	}
 }

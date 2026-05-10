@@ -25,8 +25,8 @@
 //! Outbound flow:
 //! 1. [`Litep2pNetworkService::start_request`] decodes the WANT protobuf and forwards a
 //!    [`BitswapOutboundCmd`] on the command channel.
-//! 2. [`BitswapService::run`] consumes the command, records the pending `(peer, cid) ->
-//!    response_tx` entry, and calls `handle.send_request`.
+//! 2. [`BitswapService::run`] consumes the command, records the pending batch, and calls
+//!    `handle.send_request`.
 //! 3. When litep2p fires a [`BitswapEvent::Response`], the service correlates responses by CID,
 //!    re-encodes each as a [`BitswapProtoMessage`], and resolves the oneshot senders.
 //! 4. Stale entries are reaped by a periodic ticker (avoids leak since `send_request` has no
@@ -35,7 +35,7 @@
 use crate::{
 	bitswap::{is_cid_supported, BitswapProtoMessage, Prefix, PROTOCOL_NAME},
 	request_responses::RequestFailure,
-	OutboundFailure, ProtocolName,
+	OutboundFailure, ProtocolName, MAX_RESPONSE_SIZE,
 };
 use cid::Cid;
 use futures::{channel::oneshot, StreamExt};
@@ -66,8 +66,17 @@ pub(crate) type ResponseSender = oneshot::Sender<Result<(Vec<u8>, ProtocolName),
 /// Outbound bitswap command sent from [`super::service::Litep2pNetworkService`].
 pub(crate) struct BitswapOutboundCmd {
 	pub(crate) peer: litep2p::PeerId,
-	pub(crate) cid: Cid,
+	pub(crate) cids: Vec<Cid>,
 	pub(crate) response_tx: ResponseSender,
+}
+
+pub(crate) struct PendingBatch {
+	peer: litep2p::PeerId,
+	cids: Vec<Cid>,
+	responses: HashMap<Cid, ResponseType>,
+	response_bytes: usize,
+	response_tx: ResponseSender,
+	inserted: Instant,
 }
 
 /// Litep2p-specific bitswap configuration returned by [`BitswapService::new`].
@@ -80,13 +89,13 @@ pub struct LiteBitswapConfig {
 	pub(crate) cmd_tx: mpsc::Sender<BitswapOutboundCmd>,
 }
 
-type PendingMap = HashMap<(litep2p::PeerId, Cid), Vec<(ResponseSender, Instant)>>;
+pub(crate) type PendingBatches = Vec<PendingBatch>;
 
 pub struct BitswapService<Block: BlockT> {
 	handle: BitswapHandle,
 	client: Arc<dyn BlockBackend<Block> + Send + Sync>,
 	cmd_rx: mpsc::Receiver<BitswapOutboundCmd>,
-	pending: PendingMap,
+	pending: PendingBatches,
 }
 
 impl<Block: BlockT> BitswapService<Block> {
@@ -99,7 +108,7 @@ impl<Block: BlockT> BitswapService<Block> {
 	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, LiteBitswapConfig) {
 		let (litep2p_config, handle) = Config::new();
 		let (cmd_tx, cmd_rx) = mpsc::channel(CMD_CHANNEL_CAPACITY);
-		let service = Self { handle, client, cmd_rx, pending: HashMap::new() };
+		let service = Self { handle, client, cmd_rx, pending: Vec::new() };
 		let future = Box::pin(async move { service.run().await });
 		let config = LiteBitswapConfig { litep2p_config, cmd_tx };
 		(future, config)
@@ -123,8 +132,8 @@ impl<Block: BlockT> BitswapService<Block> {
 					},
 				},
 				cmd = self.cmd_rx.recv() => match cmd {
-					Some(BitswapOutboundCmd { peer, cid, response_tx }) =>
-						self.handle_outbound_cmd(peer, cid, response_tx).await,
+					Some(BitswapOutboundCmd { peer, cids, response_tx }) =>
+						self.handle_outbound_cmd(peer, cids, response_tx).await,
 					None => {
 						log::debug!(target: LOG_TARGET, "bitswap cmd channel closed");
 						return;
@@ -169,12 +178,25 @@ impl<Block: BlockT> BitswapService<Block> {
 	async fn handle_outbound_cmd(
 		&mut self,
 		peer: litep2p::PeerId,
-		cid: Cid,
+		cids: Vec<Cid>,
 		response_tx: ResponseSender,
 	) {
-		log::debug!(target: LOG_TARGET, "bitswap: outbound WANT for {cid} to {peer:?}");
-		self.pending.entry((peer, cid)).or_default().push((response_tx, Instant::now()));
-		self.handle.send_request(peer, vec![(cid, WantType::Block)]).await;
+		log::debug!(
+			target: LOG_TARGET,
+			"bitswap: outbound WANT for {} CIDs to {peer:?}",
+			cids.len(),
+		);
+		self.pending.push(PendingBatch {
+			peer,
+			cids: cids.clone(),
+			responses: HashMap::new(),
+			response_bytes: 0,
+			response_tx,
+			inserted: Instant::now(),
+		});
+		self.handle
+			.send_request(peer, cids.into_iter().map(|cid| (cid, WantType::Block)).collect())
+			.await;
 	}
 }
 
@@ -207,13 +229,21 @@ pub(crate) fn select_best_response_per_cid(
 
 /// Route a [`BitswapEvent::Response`] to waiting oneshot senders.
 ///
-/// For each (peer, cid) key in the response, re-encodes the best response as a
-/// [`BitswapProtoMessage`] and delivers to all waiters. Expired / closed
-/// waiters are dropped.
+/// Accumulates per-CID responses by peer, re-encodes complete batches as a
+/// [`BitswapProtoMessage`], and resolves the corresponding waiter.
 pub(crate) fn handle_inbound_response(
-	pending: &mut PendingMap,
+	pending: &mut PendingBatches,
 	peer: litep2p::PeerId,
 	responses: Vec<ResponseType>,
+) {
+	handle_inbound_response_with_limit(pending, peer, responses, MAX_RESPONSE_SIZE as usize)
+}
+
+fn handle_inbound_response_with_limit(
+	pending: &mut PendingBatches,
+	peer: litep2p::PeerId,
+	responses: Vec<ResponseType>,
+	max_response_bytes: usize,
 ) {
 	log::debug!(
 		target: LOG_TARGET,
@@ -222,93 +252,103 @@ pub(crate) fn handle_inbound_response(
 	);
 
 	let best = select_best_response_per_cid(responses);
-	for (cid, resp) in best {
-		let Some(waiters) = pending.remove(&(peer, cid)) else {
-			log::trace!(target: LOG_TARGET, "bitswap: no waiters for {cid} from {peer:?}");
+	let mut index = 0;
+	while index < pending.len() {
+		if pending[index].peer != peer {
+			index += 1;
 			continue;
-		};
-
-		let encoded = match encode_response_as_bitswap_message(&resp) {
-			Ok(bytes) => bytes,
-			Err(e) => {
-				log::warn!(target: LOG_TARGET, "bitswap: failed to encode response for {cid}: {e:?}");
-				for (tx, _) in waiters {
-					let _ =
-						tx.send(Err(RequestFailure::Network(OutboundFailure::ConnectionClosed)));
-				}
-				let _ = e;
-				continue;
-			},
-		};
-
-		for (tx, _inserted) in waiters {
-			let _ = tx.send(Ok((encoded.clone(), ProtocolName::from(PROTOCOL_NAME))));
 		}
+
+		for cid in pending[index].cids.clone() {
+			if pending[index].responses.contains_key(&cid) {
+				continue;
+			}
+			let Some(resp) = best.get(&cid) else { continue };
+			pending[index].response_bytes =
+				pending[index].response_bytes.saturating_add(response_retained_bytes(resp));
+			pending[index].responses.insert(cid, resp.clone());
+		}
+
+		if pending[index].response_bytes > max_response_bytes {
+			let batch = pending.remove(index);
+			log::warn!(
+				target: LOG_TARGET,
+				"bitswap: response from {peer:?} exceeded pending batch byte limit: {} > {}",
+				batch.response_bytes,
+				max_response_bytes,
+			);
+			let _ = batch
+				.response_tx
+				.send(Err(RequestFailure::Network(OutboundFailure::ConnectionClosed)));
+		} else if pending[index].cids.iter().all(|cid| pending[index].responses.contains_key(cid)) {
+			let batch = pending.remove(index);
+			let responses: Vec<ResponseType> =
+				batch.cids.iter().filter_map(|cid| batch.responses.get(cid).cloned()).collect();
+			let encoded = encode_responses_as_bitswap_message(&responses);
+			let _ = batch.response_tx.send(Ok((encoded, ProtocolName::from(PROTOCOL_NAME))));
+		} else {
+			index += 1;
+		}
+	}
+}
+
+fn response_retained_bytes(response: &ResponseType) -> usize {
+	match response {
+		ResponseType::Block { block, .. } => block.len(),
+		ResponseType::Presence { .. } => 0,
 	}
 }
 
 /// Remove pending entries older than `timeout`; send [`RequestFailure::Network`] timeout
 /// failures to their waiters.
-pub(crate) fn reap_expired_pending(pending: &mut PendingMap, timeout: Duration, now: Instant) {
-	let mut drop_keys = Vec::new();
-	for ((peer, cid), waiters) in pending.iter_mut() {
-		let original_len = waiters.len();
-		let mut i = waiters.len();
-		while i > 0 {
-			i -= 1;
-			if now.duration_since(waiters[i].1) >= timeout {
-				let (tx, _) = waiters.remove(i);
-				let _ = tx.send(Err(RequestFailure::Network(OutboundFailure::Timeout)));
-			}
-		}
-		if waiters.is_empty() {
-			drop_keys.push((*peer, *cid));
-		} else if waiters.len() != original_len {
-			log::trace!(
+pub(crate) fn reap_expired_pending(pending: &mut PendingBatches, timeout: Duration, now: Instant) {
+	let mut index = pending.len();
+	while index > 0 {
+		index -= 1;
+		if now.duration_since(pending[index].inserted) >= timeout {
+			let batch = pending.remove(index);
+			let _ = batch.response_tx.send(Err(RequestFailure::Network(OutboundFailure::Timeout)));
+			log::debug!(
 				target: LOG_TARGET,
-				"bitswap: reaped {} expired waiters for {cid} from {peer:?}",
-				original_len - waiters.len(),
+				"bitswap: expired pending batch for {} CIDs from {:?}",
+				batch.cids.len(),
+				batch.peer,
 			);
 		}
 	}
-	for key in drop_keys {
-		pending.remove(&key);
-		log::debug!(target: LOG_TARGET, "bitswap: expired pending entry for {key:?}");
-	}
 }
 
-/// Encode a litep2p [`ResponseType`] into a [`BitswapProtoMessage`] byte vector
-/// matching what [`crate::bitswap::BitswapClient::fetch`] expects to decode.
-pub(crate) fn encode_response_as_bitswap_message(
-	resp: &ResponseType,
-) -> Result<Vec<u8>, RequestFailure> {
+/// Encode litep2p [`ResponseType`] values into a [`BitswapProtoMessage`] byte vector.
+pub(crate) fn encode_responses_as_bitswap_message(responses: &[ResponseType]) -> Vec<u8> {
 	use crate::bitswap::schema::bitswap::message::{
 		Block as MessageBlock, BlockPresence, BlockPresenceType as ProtoPresenceType,
 	};
 
 	let mut msg = BitswapProtoMessage::default();
 
-	match resp {
-		ResponseType::Block { cid, block } => {
-			let prefix = Prefix {
-				version: cid.version(),
-				codec: cid.codec(),
-				mh_type: cid.hash().code(),
-				mh_len: cid.hash().size(),
-			};
-			msg.payload
-				.push(MessageBlock { prefix: prefix.to_bytes(), data: block.clone() });
-		},
-		ResponseType::Presence { cid, presence } => {
-			let r#type = match presence {
-				BlockPresenceType::Have => ProtoPresenceType::Have as i32,
-				BlockPresenceType::DontHave => ProtoPresenceType::DontHave as i32,
-			};
-			msg.block_presences.push(BlockPresence { cid: cid.to_bytes(), r#type });
-		},
+	for resp in responses {
+		match resp {
+			ResponseType::Block { cid, block } => {
+				let prefix = Prefix {
+					version: cid.version(),
+					codec: cid.codec(),
+					mh_type: cid.hash().code(),
+					mh_len: cid.hash().size(),
+				};
+				msg.payload
+					.push(MessageBlock { prefix: prefix.to_bytes(), data: block.clone() });
+			},
+			ResponseType::Presence { cid, presence } => {
+				let r#type = match presence {
+					BlockPresenceType::Have => ProtoPresenceType::Have as i32,
+					BlockPresenceType::DontHave => ProtoPresenceType::DontHave as i32,
+				};
+				msg.block_presences.push(BlockPresence { cid: cid.to_bytes(), r#type });
+			},
+		}
 	}
 
-	Ok(msg.encode_to_vec())
+	msg.encode_to_vec()
 }
 
 #[cfg(test)]
@@ -326,32 +366,40 @@ mod tests {
 		Cid::new_v1(0x55, mh)
 	}
 
-	#[test]
-	fn encode_block_response_is_decodable() {
-		let cid = make_cid(1);
-		let data = b"block-data-payload".to_vec();
-		let resp = ResponseType::Block { cid, block: data.clone() };
+	fn pending_batch(
+		peer: litep2p::PeerId,
+		cids: Vec<Cid>,
+		response_tx: ResponseSender,
+		inserted: Instant,
+	) -> PendingBatch {
+		PendingBatch {
+			peer,
+			cids,
+			responses: HashMap::new(),
+			response_bytes: 0,
+			response_tx,
+			inserted,
+		}
+	}
 
-		let bytes = encode_response_as_bitswap_message(&resp).unwrap();
+	#[test]
+	fn encode_responses_are_decodable() {
+		use crate::bitswap::schema::bitswap::message::BlockPresenceType as ProtoPresenceType;
+		let block_cid = make_cid(1);
+		let presence_cid = make_cid(2);
+		let data = b"block-data-payload".to_vec();
+		let responses = vec![
+			ResponseType::Block { cid: block_cid, block: data.clone() },
+			ResponseType::Presence { cid: presence_cid, presence: BlockPresenceType::DontHave },
+		];
+
+		let bytes = encode_responses_as_bitswap_message(&responses);
 		let msg = BitswapProtoMessage::decode(bytes.as_slice()).unwrap();
 
 		assert_eq!(msg.payload.len(), 1);
 		assert_eq!(msg.payload[0].data, data);
-		assert!(msg.block_presences.is_empty());
-	}
-
-	#[test]
-	fn encode_presence_dont_have_response() {
-		use crate::bitswap::schema::bitswap::message::BlockPresenceType as ProtoPresenceType;
-		let cid = make_cid(2);
-		let resp = ResponseType::Presence { cid, presence: BlockPresenceType::DontHave };
-
-		let bytes = encode_response_as_bitswap_message(&resp).unwrap();
-		let msg = BitswapProtoMessage::decode(bytes.as_slice()).unwrap();
-
 		assert_eq!(msg.block_presences.len(), 1);
 		assert_eq!(msg.block_presences[0].r#type, ProtoPresenceType::DontHave as i32);
-		assert!(msg.payload.is_empty());
 	}
 
 	#[test]
@@ -401,14 +449,13 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn pending_map_single_request_resolves() {
+	async fn pending_batch_single_request_resolves() {
 		let peer = make_peer();
 		let cid = make_cid(7);
 		let data = b"resolved-data".to_vec();
 
 		let (tx, rx) = oneshot::channel();
-		let mut pending: PendingMap = HashMap::new();
-		pending.insert((peer, cid), vec![(tx, Instant::now())]);
+		let mut pending = vec![pending_batch(peer, vec![cid], tx, Instant::now())];
 
 		handle_inbound_response(
 			&mut pending,
@@ -424,15 +471,17 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn pending_map_duplicate_requests_both_resolve() {
+	async fn pending_batch_duplicate_requests_both_resolve() {
 		let peer = make_peer();
 		let cid = make_cid(8);
 		let data = b"shared-blob".to_vec();
 
 		let (tx_a, rx_a) = oneshot::channel();
 		let (tx_b, rx_b) = oneshot::channel();
-		let mut pending: PendingMap = HashMap::new();
-		pending.insert((peer, cid), vec![(tx_a, Instant::now()), (tx_b, Instant::now())]);
+		let mut pending = vec![
+			pending_batch(peer, vec![cid], tx_a, Instant::now()),
+			pending_batch(peer, vec![cid], tx_b, Instant::now()),
+		];
 
 		handle_inbound_response(
 			&mut pending,
@@ -450,35 +499,89 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn pending_map_expiry_sends_failure() {
+	async fn pending_batch_multi_want_waits_for_all_cids() {
+		let peer = make_peer();
+		let cid_a = make_cid(11);
+		let cid_b = make_cid(12);
+		let data_a = b"first".to_vec();
+		let data_b = b"second".to_vec();
+
+		let (tx, rx) = oneshot::channel();
+		let mut pending = vec![pending_batch(peer, vec![cid_a, cid_b], tx, Instant::now())];
+
+		handle_inbound_response(
+			&mut pending,
+			peer,
+			vec![ResponseType::Block { cid: cid_a, block: data_a.clone() }],
+		);
+		assert_eq!(pending.len(), 1);
+
+		handle_inbound_response(
+			&mut pending,
+			peer,
+			vec![ResponseType::Block { cid: cid_b, block: data_b.clone() }],
+		);
+
+		let (payload, _) = rx.await.unwrap().unwrap();
+		let msg = BitswapProtoMessage::decode(payload.as_slice()).unwrap();
+		assert_eq!(msg.payload.len(), 2);
+		assert_eq!(msg.payload[0].data, data_a);
+		assert_eq!(msg.payload[1].data, data_b);
+		assert!(pending.is_empty());
+	}
+
+	#[tokio::test]
+	async fn pending_batch_fails_when_partial_responses_exceed_byte_limit() {
+		let peer = make_peer();
+		let cid_a = make_cid(13);
+		let cid_b = make_cid(14);
+
+		let (tx, rx) = oneshot::channel();
+		let mut pending = vec![pending_batch(peer, vec![cid_a, cid_b], tx, Instant::now())];
+
+		handle_inbound_response_with_limit(
+			&mut pending,
+			peer,
+			vec![ResponseType::Block { cid: cid_a, block: vec![0u8; 8] }],
+			4,
+		);
+
+		let result = rx.await.unwrap();
+		assert!(matches!(result, Err(RequestFailure::Network(OutboundFailure::ConnectionClosed))));
+		assert!(pending.is_empty());
+	}
+
+	#[tokio::test]
+	async fn pending_batch_expiry_sends_failure() {
 		let peer = make_peer();
 		let cid = make_cid(9);
 
 		let (tx_stale, rx_stale) = oneshot::channel();
-		let (tx_fresh, mut rx_fresh) = oneshot::channel();
+		let (tx_fresh, rx_fresh) = oneshot::channel();
 		let past = Instant::now() - Duration::from_secs(60);
 		let fresh_time = Instant::now();
 
-		let mut pending: PendingMap = HashMap::new();
-		pending.insert((peer, cid), vec![(tx_stale, past), (tx_fresh, fresh_time)]);
+		let mut pending = vec![
+			pending_batch(peer, vec![cid], tx_stale, past),
+			pending_batch(peer, vec![cid], tx_fresh, fresh_time),
+		];
 
 		reap_expired_pending(&mut pending, Duration::from_secs(30), Instant::now());
 
 		let stale_result = rx_stale.await.unwrap();
 		assert!(matches!(stale_result, Err(RequestFailure::Network(OutboundFailure::Timeout))));
-		assert_eq!(pending.get(&(peer, cid)).map(|v| v.len()), Some(1));
-		assert!(rx_fresh.try_recv().is_err() || rx_fresh.try_recv().unwrap().is_none());
+		assert_eq!(pending.len(), 1);
+		drop(rx_fresh);
 	}
 
 	#[tokio::test]
-	async fn pending_map_mismatched_peer_does_not_resolve() {
+	async fn pending_batch_mismatched_peer_does_not_resolve() {
 		let peer_a = make_peer();
 		let peer_b = make_peer();
 		let cid = make_cid(10);
 
 		let (tx, mut rx) = oneshot::channel();
-		let mut pending: PendingMap = HashMap::new();
-		pending.insert((peer_a, cid), vec![(tx, Instant::now())]);
+		let mut pending = vec![pending_batch(peer_a, vec![cid], tx, Instant::now())];
 
 		handle_inbound_response(
 			&mut pending,
@@ -486,7 +589,7 @@ mod tests {
 			vec![ResponseType::Block { cid, block: b"data".to_vec() }],
 		);
 
-		assert!(pending.contains_key(&(peer_a, cid)));
+		assert_eq!(pending.len(), 1);
 		assert!(rx.try_recv().unwrap().is_none());
 	}
 }
