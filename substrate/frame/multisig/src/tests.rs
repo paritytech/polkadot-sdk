@@ -1436,9 +1436,7 @@ mod migration_v1_to_v2_tests {
 	use super::*;
 	use crate::migrations::v2::LazyMigrationV1ToV2;
 	use frame::deps::frame_support::{
-		migrations::SteppedMigration,
-		traits::ReservableCurrency,
-		weights::WeightMeter,
+		migrations::SteppedMigration, traits::ReservableCurrency, weights::WeightMeter,
 	};
 
 	type Migration = LazyMigrationV1ToV2<Test, Balances>;

@@ -168,9 +168,7 @@ pub mod v2 {
 					let depositor_key = multisig_data.depositor.encode();
 					depositor_state
 						.entry(depositor_key)
-						.and_modify(|(sum, _)| {
-							*sum = sum.saturating_add(multisig_data.deposit)
-						})
+						.and_modify(|(sum, _)| *sum = sum.saturating_add(multisig_data.deposit))
 						.or_insert_with(|| {
 							let reserved = OldCurrency::reserved_balance(&multisig_data.depositor);
 							(multisig_data.deposit, reserved)
@@ -197,8 +195,7 @@ pub mod v2 {
 			let (depositor_state, entry_count): (
 				BTreeMap<Vec<u8>, (BalanceOf<T>, BalanceOf<T>)>,
 				u64,
-			) = Decode::decode(&mut &state[..])
-				.expect("pre_upgrade provides valid state; qed");
+			) = Decode::decode(&mut &state[..]).expect("pre_upgrade provides valid state; qed");
 
 			for (depositor_key, (sum_deposits, reserved_at_pre)) in depositor_state.iter() {
 				let depositor: T::AccountId = Decode::decode(&mut &depositor_key[..])
