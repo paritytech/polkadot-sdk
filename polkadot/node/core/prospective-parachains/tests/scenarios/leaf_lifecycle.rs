@@ -23,7 +23,7 @@ use crate::common::world::{
 };
 use polkadot_node_subsystem::{
 	messages::{Ancestors, BackableCandidateRef},
-	ActiveLeavesUpdate, OverseerSignal,
+	ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_primitives::{
@@ -469,54 +469,118 @@ fn persists_pending_availability_candidate() {
 	);
 }
 
+// Contract: subsystem's per-leaf ancestor walk stops at a session boundary, so blocks
+// before the session change never enter the leaf's implicit-view scope. Observable
+// effect: introducing a seconded candidate whose `relay_parent` lies before the session
+// boundary is rejected, even when the chain model would otherwise accept it (claim
+// queue + backing constraints are seeded for that RP — only "RP is out of any active
+// leaf's scope" can reject it). A positive probe at an in-session ancestor confirms the
+// rest of the setup is sound.
 #[test]
 fn uses_ancestry_only_within_session() {
+	let para_id = ParaId::from(1);
 	let mut config = default_world_config();
-	// Empty claim queue — original test passes empty BTreeMap on ClaimQueue.
+	// Single-para schedule on one core: keep the probe focused on the session-boundary
+	// invariant rather than multi-core scheduling.
 	config.claim_queue.clear();
+	config.claim_queue.insert(
+		CoreIndex(0),
+		std::iter::repeat(para_id).take(DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
+	);
 	config.session_index = 2;
 	let mut world = World::start(config);
 
 	let session: SessionIndex = world.session_index();
-	let leaf_number = 5;
+	let session_minus_one_info = SessionInfo {
+		validators: Vec::new(),
+		validator_groups: Vec::new(),
+		group_rotation_info: polkadot_primitives::GroupRotationInfo {
+			session_start_block: 0,
+			group_rotation_frequency: 1,
+			now: 0,
+		},
+	};
+
+	// Chain shape: leaf=5 (session 2) → 4 (session 2) → 3 (session 1, the boundary) →
+	// 2 (session 1) → 1 (session 1). With `scheduling_lookahead = 3`, the leaf's
+	// implicit view reaches blocks `{leaf, parent, grandparent}` *unless* the session
+	// boundary cuts it shorter. Hash 4 is in-session; hash 2 is two blocks past the
+	// boundary.
 	let leaf_hash = Hash::repeat_byte(5);
-	// Register session - 1 so the chain model can answer queries about ancestors before
-	// the session change.
+	let in_session_rp = Hash::repeat_byte(4);
+	let past_boundary_rp = Hash::repeat_byte(2);
+	let parent_head = HeadData(vec![1, 2, 3]);
+	let leaf = TestLeaf {
+		number: 5,
+		hash: leaf_hash,
+		para_data: vec![(para_id, PerParaData::new(parent_head.clone()))],
+	};
+
 	{
 		let mut chain = world.base.chain.lock();
-		chain.add_session(
-			session - 1,
-			SessionInfo {
-				validators: Vec::new(),
-				validator_groups: Vec::new(),
-				group_rotation_info: polkadot_primitives::GroupRotationInfo {
-					session_start_block: 0,
-					group_rotation_frequency: 1,
-					now: 0,
-				},
-			},
-		);
-
-		// Build the ancestry chain: leaf at session, ancestors hash 4, 3, 2 with hash 3
-		// flipping to session - 1.
-		let session_change_hash = Hash::repeat_byte(3);
-		let chain_path = [
+		chain.add_session(session - 1, session_minus_one_info);
+		// Override the default parent-walk by registering the chain explicitly so we can
+		// flip session at hash 3.
+		for (hash, parent, number, sess) in [
 			(Hash::repeat_byte(5), Hash::repeat_byte(4), 5u32, session),
 			(Hash::repeat_byte(4), Hash::repeat_byte(3), 4u32, session),
 			(Hash::repeat_byte(3), Hash::repeat_byte(2), 3u32, session - 1),
 			(Hash::repeat_byte(2), Hash::repeat_byte(1), 2u32, session - 1),
-		];
-		for (hash, parent, number, sess) in chain_path {
-			let _ = session_change_hash;
+		] {
 			chain.register_block_with_session(hash, parent, number, Some(sess));
+		}
+
+		// Seed valid backing constraints at *both* probe RPs (in-session and
+		// past-boundary). If the subsystem walks past the session change (the bug we're
+		// pinning), it would query these and find them — and the past-boundary candidate
+		// would be accepted. The contract under test is that it does NOT walk past.
+		let vch = world.base.config.validation_code_hash;
+		for (rp, rp_number) in [(in_session_rp, 4u32), (past_boundary_rp, 2u32)] {
+			let constraints = polkadot_subsystem_test_sim::world_base::synthesise_constraints(
+				rp_number.saturating_sub(DEFAULT_SCHEDULING_LOOKAHEAD - 1),
+				vec![rp_number],
+				parent_head.clone(),
+				vch,
+			);
+			chain.set_backing_constraints_at(rp, para_id, constraints);
+			chain.set_pending_availability_at(rp, para_id, Vec::new());
 		}
 	}
 
-	world.base.sim.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
-		leaf_hash,
-		leaf_number,
-	))));
+	world.activate_leaf(&leaf);
+	let vch = world.validation_code_hash();
 
-	// Subsystem settled cleanly without panicking; that's the contract this test pins.
-	let _ = DEFAULT_SCHEDULING_LOOKAHEAD;
+	// Positive probe: in-session ancestor. The candidate's RP is inside the implicit
+	// view, so the subsystem accepts the seconded candidate. This confirms setup is
+	// sound — without it, a "negative-only" probe could pass for the wrong reason
+	// (e.g. unrelated rejection in the introduce path).
+	let (cand_in, pvd_in) = make_candidate(
+		in_session_rp,
+		4,
+		para_id,
+		parent_head.clone(),
+		HeadData(vec![0xAA]),
+		vch,
+	);
+	assert!(
+		world.introduce_seconded_candidate(cand_in, pvd_in),
+		"in-session ancestor must be in implicit view (positive control)"
+	);
+
+	// Negative probe: past-boundary ancestor. If the subsystem walked the ancestor
+	// chain past the session boundary, this RP would also be in scope and the
+	// candidate would be accepted. Stopping at the boundary means the RP is out of
+	// scope and the introduce is rejected.
+	let (cand_out, pvd_out) = make_candidate(
+		past_boundary_rp,
+		2,
+		para_id,
+		parent_head.clone(),
+		HeadData(vec![0xBB]),
+		vch,
+	);
+	assert!(
+		!world.introduce_seconded_candidate(cand_out, pvd_out),
+		"past-boundary ancestor must NOT be in implicit view"
+	);
 }

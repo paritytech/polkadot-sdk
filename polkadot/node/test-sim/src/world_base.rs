@@ -244,7 +244,7 @@ pub fn default_parent_hash(hash: Hash) -> Hash {
 /// matches `hrmp_watermark = relay_parent_number` in default `make_candidate(...)` output;
 /// `required_parent = head_data` ties acceptance to the leaf-flavoured head_data the test
 /// declares.
-pub(crate) fn synthesise_constraints(
+pub fn synthesise_constraints(
 	min_relay_parent_number: BlockNumber,
 	valid_watermarks: Vec<BlockNumber>,
 	required_parent: HeadData,
