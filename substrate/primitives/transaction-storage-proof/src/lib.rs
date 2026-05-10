@@ -45,8 +45,7 @@ pub type ChunkIndex = u32;
 /// Hash of indexed data; the algorithm is reported in [`HashingAlgorithm`].
 pub type ContentHash = [u8; 32];
 
-/// IPFS [multicodec](https://github.com/multiformats/multicodec) content-type
-/// identifier for an indexed payload. Full list of values [here](https://github.com/multiformats/multicodec/blob/master/table.csv).
+/// IPFS multicodec content-type identifier for an indexed payload.
 pub type CidCodec = u64;
 
 /// Hashing algorithm used to compute a [`ContentHash`].
@@ -154,6 +153,7 @@ pub struct InherentDataProvider {
 
 #[cfg(feature = "std")]
 impl InherentDataProvider {
+	/// Create an `InherentDataProvider` from an optional proof.
 	pub fn new(proof: Option<TransactionStorageProof>) -> Self {
 		InherentDataProvider { proof }
 	}
@@ -265,7 +265,7 @@ pub mod registration {
 		random_hash: &[u8],
 		transactions: Vec<Vec<u8>>,
 	) -> Result<Option<TransactionStorageProof>, Error> {
-		// Get total chunks, we will need it to generate a random chunk index.
+		// Total chunks for random selection.
 		let total_chunks: ChunkIndex =
 			transactions.iter().map(|t| num_chunks(t.len() as u32)).sum();
 		if total_chunks.is_zero() {
@@ -273,7 +273,7 @@ pub mod registration {
 		}
 		let selected_chunk_index = random_chunk(random_hash, total_chunks);
 
-		// Generate tries for each transaction.
+		// Build tries for each transaction.
 		let mut chunk_index = 0;
 		for transaction in transactions {
 			let mut selected_chunk_and_key = None;

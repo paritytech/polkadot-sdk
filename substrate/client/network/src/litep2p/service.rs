@@ -62,6 +62,7 @@ use std::{
 /// Logging target for the file.
 const LOG_TARGET: &str = "sub-libp2p";
 
+/// Convert a bitswap want type to the litep2p equivalent.
 impl From<BitswapWantType> for litep2p::protocol::libp2p::bitswap::WantType {
 	fn from(want_type: BitswapWantType) -> Self {
 		match want_type {
@@ -258,6 +259,10 @@ impl Litep2pNetworkService {
 		}
 	}
 
+	/// Route an outbound request whose protocol name matches the bitswap protocol.
+	///
+	/// Native bitswap is not registered as a generic request-response protocol, so this bridges
+	/// the `NetworkRequest` payload to the litep2p bitswap service.
 	fn route_bitswap_request(
 		&self,
 		peer: PeerId,

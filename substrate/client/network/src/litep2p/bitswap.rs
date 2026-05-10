@@ -18,19 +18,8 @@
 
 //! Bidirectional bitswap shim for litep2p.
 //!
-//! Wraps litep2p's native [`BitswapHandle`] to provide both server-side
-//! (inbound WANT handling) and client-side (outbound WANT dispatch + response
-//! correlation) functionality.
-//!
-//! Outbound flow:
-//! 1. [`Litep2pNetworkService::start_request`] decodes the WANT protobuf and forwards a
-//!    [`BitswapOutboundCmd`] on the command channel.
-//! 2. [`BitswapService::run`] consumes the command, records the pending batch, and calls
-//!    `handle.send_request`.
-//! 3. When litep2p fires a [`BitswapEvent::Response`], the service correlates responses by CID,
-//!    re-encodes each as a [`BitswapProtoMessage`], and resolves the oneshot senders.
-//! 4. Stale entries are reaped by a periodic ticker (avoids leak since `send_request` has no
-//!    delivery failure event).
+//! Wraps litep2p's native [`BitswapHandle`] to provide both server-side (inbound WANT handling)
+//! and client-side (outbound WANT dispatch + response correlation) functionality.
 
 use crate::{
 	bitswap::{is_cid_supported, BitswapProtoMessage, Prefix, LOG_TARGET, PROTOCOL_NAME},
@@ -55,8 +44,11 @@ use std::{
 };
 use tokio::sync::mpsc;
 
+/// Command channel capacity.
 const CMD_CHANNEL_CAPACITY: usize = 256;
+/// Timeout for pending bitswap requests.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+/// Interval for reaping expired pending batches.
 const EXPIRY_TICK_INTERVAL: Duration = Duration::from_secs(10);
 
 pub(crate) type ResponseSender = oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>;
@@ -68,7 +60,8 @@ pub(crate) struct BitswapOutboundCmd {
 	pub(crate) response_tx: ResponseSender,
 }
 
-pub(crate) struct PendingBatch {
+/// Pending outbound WANT batch.
+struct PendingBatch {
 	peer: litep2p::PeerId,
 	cids: Vec<Cid>,
 	responses: HashMap<Cid, ResponseType>,
@@ -87,9 +80,11 @@ pub struct LiteBitswapConfig {
 	pub(crate) cmd_tx: mpsc::Sender<BitswapOutboundCmd>,
 }
 
-pub(crate) type PendingBatches = Vec<PendingBatch>;
+/// Type alias for the pending-batches queue.
+type PendingBatches = Vec<PendingBatch>;
 
-pub struct BitswapService<Block: BlockT> {
+/// Bidirectional bitswap service for litep2p.
+pub(crate) struct BitswapService<Block: BlockT> {
 	handle: BitswapHandle,
 	client: Arc<dyn BlockBackend<Block> + Send + Sync>,
 	cmd_rx: mpsc::Receiver<BitswapOutboundCmd>,
@@ -101,7 +96,7 @@ impl<Block: BlockT> BitswapService<Block> {
 	///
 	/// Returns the boxed task future (to be spawned on the executor) and the
 	/// [`LiteBitswapConfig`] to be passed into the litep2p config builder.
-	pub fn new(
+	pub(crate) fn new(
 		client: Arc<dyn BlockBackend<Block> + Send + Sync>,
 	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, LiteBitswapConfig) {
 		let (litep2p_config, handle) = Config::new();
@@ -112,6 +107,7 @@ impl<Block: BlockT> BitswapService<Block> {
 		(future, config)
 	}
 
+	/// Run the bitswap event loop.
 	async fn run(mut self) {
 		log::debug!(target: LOG_TARGET, "starting bidirectional bitswap service");
 		let mut expiry_ticker = tokio::time::interval(EXPIRY_TICK_INTERVAL);
@@ -144,6 +140,7 @@ impl<Block: BlockT> BitswapService<Block> {
 		}
 	}
 
+	/// Handle an inbound bitswap WANT request from `peer`.
 	async fn handle_inbound_request(&mut self, peer: litep2p::PeerId, cids: Vec<(Cid, WantType)>) {
 		log::debug!(target: LOG_TARGET, "bitswap: handle inbound request from {peer:?} for {cids:?}");
 
@@ -173,6 +170,7 @@ impl<Block: BlockT> BitswapService<Block> {
 		self.handle.send_response(peer, response).await;
 	}
 
+	/// Handle an outbound bitswap command from the network service.
 	async fn handle_outbound_cmd(
 		&mut self,
 		peer: litep2p::PeerId,
@@ -199,9 +197,7 @@ impl<Block: BlockT> BitswapService<Block> {
 
 /// Collapse a response list into at most one entry per CID, preferring `Block`
 /// over `Presence` when both arrive for the same CID.
-pub(crate) fn select_best_response_per_cid(
-	responses: Vec<ResponseType>,
-) -> HashMap<Cid, ResponseType> {
+fn select_best_response_per_cid(responses: Vec<ResponseType>) -> HashMap<Cid, ResponseType> {
 	let mut best: HashMap<Cid, ResponseType> = HashMap::new();
 	for resp in responses {
 		let cid = match &resp {
@@ -228,7 +224,7 @@ pub(crate) fn select_best_response_per_cid(
 ///
 /// Accumulates per-CID responses by peer, re-encodes complete batches as a
 /// [`BitswapProtoMessage`], and resolves the corresponding waiter.
-pub(crate) fn handle_inbound_response(
+fn handle_inbound_response(
 	pending: &mut PendingBatches,
 	peer: litep2p::PeerId,
 	responses: Vec<ResponseType>,
@@ -236,6 +232,7 @@ pub(crate) fn handle_inbound_response(
 	handle_inbound_response_with_limit(pending, peer, responses, MAX_RESPONSE_SIZE as usize)
 }
 
+/// Route a response to the matching pending batch, capped at `max_response_bytes`.
 fn handle_inbound_response_with_limit(
 	pending: &mut PendingBatches,
 	peer: litep2p::PeerId,
@@ -289,6 +286,7 @@ fn handle_inbound_response_with_limit(
 	}
 }
 
+/// Return the byte size of a response that counts toward the pending batch cap.
 fn response_retained_bytes(response: &ResponseType) -> usize {
 	match response {
 		ResponseType::Block { block, .. } => block.len(),
@@ -298,7 +296,7 @@ fn response_retained_bytes(response: &ResponseType) -> usize {
 
 /// Remove pending entries older than `timeout`; send [`RequestFailure::Network`] timeout
 /// failures to their waiters.
-pub(crate) fn reap_expired_pending(pending: &mut PendingBatches, timeout: Duration, now: Instant) {
+fn reap_expired_pending(pending: &mut PendingBatches, timeout: Duration, now: Instant) {
 	let mut index = pending.len();
 	while index > 0 {
 		index -= 1;
@@ -316,7 +314,7 @@ pub(crate) fn reap_expired_pending(pending: &mut PendingBatches, timeout: Durati
 }
 
 /// Encode litep2p [`ResponseType`] values into a [`BitswapProtoMessage`] byte vector.
-pub(crate) fn encode_responses_as_bitswap_message(responses: &[ResponseType]) -> Vec<u8> {
+fn encode_responses_as_bitswap_message(responses: &[ResponseType]) -> Vec<u8> {
 	use crate::bitswap::schema::bitswap::message::{
 		Block as MessageBlock, BlockPresence, BlockPresenceType as ProtoPresenceType,
 	};

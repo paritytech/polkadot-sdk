@@ -24,7 +24,7 @@ use sc_network_types::PeerId;
 use std::collections::{HashMap, HashSet};
 
 use super::{
-	is_cid_supported, is_supported_multihash_code,
+	is_cid_supported,
 	schema::bitswap::{
 		message::{
 			wantlist::{Entry, WantType as ProtoWantType},
@@ -32,7 +32,7 @@ use super::{
 		},
 		Message as BitswapMessage,
 	},
-	Prefix, LOG_TARGET, PROTOCOL_NAME, RAW_CODEC,
+	Prefix, LOG_TARGET, PROTOCOL_NAME,
 };
 
 /// Multihash code for BLAKE2b-256.
@@ -117,19 +117,10 @@ pub enum FetchOutcome {
 	Missing,
 }
 
+/// Multihash type with a 64-byte digest capacity.
 type Multihash = CidMultihash<64>;
 
-/// Build a raw-codec CID from a 32-byte digest and supported multihash code.
-pub fn raw_cid_from_digest(multihash_code: u64, digest: [u8; 32]) -> Result<Cid, BitswapError> {
-	if !is_supported_multihash_code(multihash_code) {
-		return Err(BitswapError::UnsupportedHashing { multihash_code });
-	}
-
-	let multihash = Multihash::wrap(multihash_code, &digest)
-		.map_err(|err| BitswapError::DecodeError(err.to_string()))?;
-	Ok(Cid::new_v1(RAW_CODEC, multihash))
-}
-
+/// Validate the wantlist length is within bounds.
 fn validate_wantlist_size(len: usize) -> Result<(), BitswapError> {
 	if len == 0 {
 		return Err(BitswapError::DecodeError("empty wantlist".into()));
@@ -142,6 +133,7 @@ fn validate_wantlist_size(len: usize) -> Result<(), BitswapError> {
 	Ok(())
 }
 
+/// Validate wants: length, CID support, and uniqueness.
 fn validate_wants(wants: &[BitswapWant]) -> Result<(), BitswapError> {
 	validate_wantlist_size(wants.len())?;
 	let mut seen = HashSet::with_capacity(wants.len());
@@ -200,7 +192,7 @@ where
 	Ok(classify_response(response, &wanted, peer))
 }
 
-/// Like [`fetch_many`], but does NOT recompute or verify the hash of received bytes.
+/// Like [`fetch_many`], but does not recompute or verify the hash of received bytes.
 ///
 /// Use this when the requester must fetch by CID-shaped identifiers before it can verify the
 /// returned bytes through an external authority. The response is matched by request order and CID
@@ -217,7 +209,7 @@ where
 	fetch_many_wants_unverified(network, peer, &wants).await
 }
 
-/// Like [`fetch_many_wants`], but does NOT recompute or verify the hash of received bytes.
+/// Like [`fetch_many_wants`], but does not recompute or verify the hash of received bytes.
 ///
 /// The response is matched by request order and CID prefix only; integrity verification is
 /// delegated to the caller. Every want asks the peer to send `DONT_HAVE` when the CID is
@@ -236,6 +228,7 @@ where
 	Ok(classify_response_unverified(response, wants, peer))
 }
 
+/// Dispatch a bitswap WANT request to `peer` and decode the response.
 async fn send_request<N>(
 	network: &N,
 	peer: PeerId,
@@ -285,6 +278,7 @@ where
 	})
 }
 
+/// Classify the response by verifying each block's CID against the wanted set.
 fn classify_response(
 	response: BitswapMessage,
 	wanted: &HashSet<Cid>,
@@ -383,6 +377,7 @@ fn classify_response_unverified(
 	result
 }
 
+/// Apply presence responses and fill missing CIDs.
 fn apply_presences_and_fill_missing(
 	presences: Vec<BlockPresence>,
 	wanted: &HashSet<Cid>,
@@ -420,6 +415,7 @@ fn apply_presences_and_fill_missing(
 	}
 }
 
+/// Check that a decoded prefix matches a CID's version, codec, and multihash metadata.
 fn prefix_matches_cid(prefix: &Prefix, cid: &Cid) -> bool {
 	prefix.version == cid.version() &&
 		prefix.codec == cid.codec() &&
@@ -427,6 +423,7 @@ fn prefix_matches_cid(prefix: &Prefix, cid: &Cid) -> bool {
 		prefix.mh_len == cid.hash().size()
 }
 
+/// Reconstruct a CID from a block's prefix bytes and payload data.
 fn cid_from_block_prefix(prefix: &[u8], data: &[u8]) -> Result<Cid, BitswapError> {
 	let prefix = decode_prefix(prefix)?;
 	if prefix.version != CidVersion::V1 {
@@ -440,6 +437,7 @@ fn cid_from_block_prefix(prefix: &[u8], data: &[u8]) -> Result<Cid, BitswapError
 	Ok(Cid::new_v1(prefix.codec, multihash))
 }
 
+/// Compute a 32-byte hash for the given multihash code.
 fn hash_for_multihash_code(multihash_code: u64, data: &[u8]) -> Option<[u8; 32]> {
 	match multihash_code {
 		BLAKE2B_256_MULTIHASH_CODE => Some(sp_crypto_hashing::blake2_256(data)),
@@ -449,6 +447,7 @@ fn hash_for_multihash_code(multihash_code: u64, data: &[u8]) -> Option<[u8; 32]>
 	}
 }
 
+/// Decode varint-encoded CID prefix bytes.
 fn decode_prefix(mut bytes: &[u8]) -> Result<Prefix, BitswapError> {
 	let mut read_varint = || -> Result<u64, BitswapError> {
 		let (v, rest) = unsigned_varint::decode::u64(bytes)
@@ -502,9 +501,21 @@ mod tests {
 	use sc_network_types::PeerId;
 	use std::{collections::VecDeque, sync::Mutex};
 
-	use super::super::schema::bitswap::message::{
-		Block as MessageBlock, BlockPresence, BlockPresenceType,
+	use super::super::{
+		is_supported_multihash_code,
+		schema::bitswap::message::{Block as MessageBlock, BlockPresence, BlockPresenceType},
+		RAW_CODEC,
 	};
+
+	/// Build a raw-codec CID from a 32-byte digest and supported multihash code.
+	fn raw_cid_from_digest(multihash_code: u64, digest: [u8; 32]) -> Result<Cid, BitswapError> {
+		if !is_supported_multihash_code(multihash_code) {
+			return Err(BitswapError::UnsupportedHashing { multihash_code });
+		}
+		let multihash = CidMultihash::wrap(multihash_code, &digest)
+			.map_err(|e| BitswapError::DecodeError(e.to_string()))?;
+		Ok(Cid::new_v1(RAW_CODEC, multihash))
+	}
 
 	struct StubSender {
 		responses: Mutex<VecDeque<Result<Vec<u8>, RequestFailure>>>,

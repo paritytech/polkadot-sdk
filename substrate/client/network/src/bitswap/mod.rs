@@ -17,9 +17,8 @@
 
 //! Bitswap server for Substrate.
 //!
-//! Allows querying transactions by hash over standard bitswap protocol
-//! Only supports bitswap 1.2.0.
-//! CID is expected to reference a supported 256-bit transaction hash.
+//! Supports querying indexed transactions by hash over the standard bitswap protocol (v1.2.0).
+//! CIDs must reference a supported 256-bit transaction hash.
 
 use crate::{
 	request_responses::{IncomingRequest, OutgoingResponse, ProtocolConfig},
@@ -43,33 +42,29 @@ use std::{io, sync::Arc, time::Duration};
 use unsigned_varint::encode as varint_encode;
 
 /// Bitswap client.
-pub mod client;
+mod client;
 pub(crate) mod schema;
 
 pub use client::{
-	fetch_many, fetch_many_unverified, fetch_many_wants, fetch_many_wants_unverified,
-	raw_cid_from_digest, BitswapError, BitswapWant, BitswapWantType, FetchOutcome,
-	BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, MAX_WANTED_BLOCKS_PER_REQUEST,
-	SHA2_256_MULTIHASH_CODE,
+	fetch_many, fetch_many_unverified, fetch_many_wants, fetch_many_wants_unverified, BitswapError,
+	BitswapWant, BitswapWantType, FetchOutcome, BLAKE2B_256_MULTIHASH_CODE,
+	KECCAK_256_MULTIHASH_CODE, MAX_WANTED_BLOCKS_PER_REQUEST, SHA2_256_MULTIHASH_CODE,
 };
 
 pub(crate) use schema::bitswap::Message as BitswapProtoMessage;
 
 pub(crate) const LOG_TARGET: &str = "sub-libp2p::bitswap";
 
-// Undocumented, but according to JS the bitswap messages have a max size of 512*1024 bytes
-// https://github.com/ipfs/js-ipfs-bitswap/blob/
-// d8f80408aadab94c962f6b88f343eb9f39fa0fcc/src/decision-engine/index.js#L16
-// We set it to the same value as max substrate protocol message
+// Use the network-wide response cap for Bitswap messages.
 const MAX_PACKET_SIZE: u64 = MAX_RESPONSE_SIZE;
 
 /// Max number of queued responses before denying requests.
 const MAX_REQUEST_QUEUE: usize = 20;
 
-/// Max number of blocks per wantlist
+/// Max number of blocks per wantlist.
 const MAX_WANTED_BLOCKS: usize = 16;
 
-/// Bitswap protocol name
+/// Bitswap protocol name.
 pub(crate) const PROTOCOL_NAME: &'static str = "/ipfs/bitswap/1.2.0";
 
 /// IPFS raw multicodec used for indexed transaction payload bytes.
@@ -83,11 +78,12 @@ pub fn is_cid_supported(cid: &Cid) -> bool {
 		is_supported_multihash_code(cid.hash().code())
 }
 
+/// Return `true` if `code` is a supported multihash code.
 pub(crate) fn is_supported_multihash_code(code: u64) -> bool {
 	matches!(code, BLAKE2B_256_MULTIHASH_CODE | SHA2_256_MULTIHASH_CODE | KECCAK_256_MULTIHASH_CODE)
 }
 
-/// Prefix represents all metadata of a CID, without the actual content.
+/// CID metadata without the actual content bytes.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub(crate) struct Prefix {
 	/// The version of CID.
@@ -120,15 +116,15 @@ impl Prefix {
 	}
 }
 
-/// Bitswap request handler
-pub struct BitswapRequestHandler<B> {
+/// Bitswap request handler.
+pub(crate) struct BitswapRequestHandler<B> {
 	client: Arc<dyn BlockBackend<B> + Send + Sync>,
 	request_receiver: async_channel::Receiver<IncomingRequest>,
 }
 
 impl<B: BlockT> BitswapRequestHandler<B> {
 	/// Create a new [`BitswapRequestHandler`].
-	pub fn new(client: Arc<dyn BlockBackend<B> + Send + Sync>) -> (Self, ProtocolConfig) {
+	pub(crate) fn new(client: Arc<dyn BlockBackend<B> + Send + Sync>) -> (Self, ProtocolConfig) {
 		let (tx, request_receiver) = async_channel::bounded(MAX_REQUEST_QUEUE);
 
 		let config = ProtocolConfig {
@@ -144,7 +140,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 	}
 
 	/// Run [`BitswapRequestHandler`].
-	pub async fn run(mut self) {
+	pub(crate) async fn run(mut self) {
 		while let Some(request) = self.request_receiver.next().await {
 			let IncomingRequest { peer, payload, pending_response } = request;
 
@@ -162,7 +158,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 						},
 						Err(_) => debug!(
 							target: LOG_TARGET,
-							"Failed to handle light client request from {peer}: {}",
+							"Failed to handle bitswap request from {peer}: {}",
 							RequestHandlerError::SendResponse,
 						),
 					}
@@ -194,9 +190,9 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 	fn handle_message(
 		&mut self,
 		peer: &PeerId,
-		payload: &Vec<u8>,
+		payload: &[u8],
 	) -> Result<Vec<u8>, RequestHandlerError> {
-		let request = schema::bitswap::Message::decode(&payload[..])?;
+		let request = schema::bitswap::Message::decode(payload)?;
 
 		trace!(target: LOG_TARGET, "Received request: {:?} from {}", request, peer);
 
