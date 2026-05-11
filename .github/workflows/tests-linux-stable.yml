@@ -108,7 +108,7 @@ jobs:
             ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-x86_64-unknown-linux-musl"
             echo "Downloading resolc v$VERSION from $ASSET_URL"
             curl -Lsf --show-error \
-              --retry 5 --retry-delay 5 --retry-connrefused \
+              --retry 5 --retry-delay 5 --retry-connrefused --retry-all-errors \
               -o /usr/local/bin/resolc "$ASSET_URL"
             chmod +x /usr/local/bin/resolc
             resolc --version
@@ -169,7 +169,7 @@ jobs:
             ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-x86_64-unknown-linux-musl"
             echo "Downloading resolc v$VERSION from $ASSET_URL"
             curl -Lsf --show-error \
-              --retry 5 --retry-delay 5 --retry-connrefused \
+              --retry 5 --retry-delay 5 --retry-connrefused --retry-all-errors \
               -o /usr/local/bin/resolc "$ASSET_URL"
             chmod +x /usr/local/bin/resolc
             resolc --version

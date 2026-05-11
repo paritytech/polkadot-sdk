@@ -26,7 +26,12 @@ use zombienet_sdk::{
 	LocalFileSystem, Network, NetworkConfigBuilder,
 };
 
+use sc_statement_store::subxt_client::CustomConfig;
+use statement_store_subxt::OnlineClient;
 pub(super) const RPC_POOL_SIZE: usize = 10000;
+pub(super) const COLLATOR_INFO_LOG_FILTER: &str = "info,statement-store=info,statement-gossip=info";
+pub(super) const COLLATOR_TRACE_LOG_FILTER: &str =
+	"info,statement-store=trace,statement-gossip=trace";
 
 pub(super) async fn submit_statement(
 	rpc: &RpcClient,
@@ -196,21 +201,19 @@ pub(super) fn create_chain_spec_with_allowances(
 	Ok(chain_spec_path)
 }
 
-pub(super) fn collator_default_args(participant_count: u32) -> Vec<zombienet_sdk::Arg> {
-	let max_subs_per_conn = (participant_count * 16 / RPC_POOL_SIZE as u32).max(32);
-	[
+/// Builds the standard collator CLI args for the statement-store zombienet tests
+pub(super) fn collator_args(participant_count: u32, log_filter: &str) -> Vec<zombienet_sdk::Arg> {
+	let mut args: Vec<String> = vec![
 		"--force-authoring".to_string(),
 		"--authoring=slot-based".to_string(),
 		"--max-runtime-instances=32".to_string(),
-		// TODO: we need trace only for statement_store_crash_mid_sync
-		"-linfo,statement-store=trace,statement-gossip=trace".to_string(),
+		format!("-l{log_filter}"),
 		"--enable-statement-store".to_string(),
-		format!("--rpc-max-connections={}", participant_count + 1000),
-		format!("--rpc-max-subscriptions-per-connection={max_subs_per_conn}"),
-	]
-	.iter()
-	.map(|s| s.as_str().into())
-	.collect()
+	];
+	let max_subs_per_conn = (participant_count * 16 / RPC_POOL_SIZE as u32).max(32);
+	args.push(format!("--rpc-max-connections={}", participant_count + 1000));
+	args.push(format!("--rpc-max-subscriptions-per-connection={max_subs_per_conn}"));
+	args.iter().map(|s| s.as_str().into()).collect()
 }
 
 pub(super) fn base_dir() -> Result<PathBuf, anyhow::Error> {
@@ -228,16 +231,14 @@ pub(super) fn format_build_errors(errors: Vec<anyhow::Error>) -> anyhow::Error {
 	anyhow!("config errs: {errs}")
 }
 
-/// Spawns a zombienet network with a custom chain spec containing injected statement allowances
-pub(super) async fn spawn_network_with_injected_allowances(
+/// Builds the network config, initialises the network, and waits for it to come up
+async fn launch_network(
 	collators: &[&str],
-	participant_count: u32,
+	chain_spec_path: &Path,
+	collator_args: Vec<zombienet_sdk::Arg>,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
-	assert!(!collators.is_empty());
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let base_dir = base_dir()?;
-	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
-	let default_args = collator_default_args(participant_count);
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
@@ -254,7 +255,7 @@ pub(super) async fn spawn_network_with_injected_allowances(
 				.with_chain_spec_path(chain_spec_path.to_str().expect("Valid UTF-8 path"))
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_default_args(default_args)
+				.with_default_args(collator_args)
 				.with_collator(|n| n.with_name(collators[0]));
 
 			collators[1..]
@@ -271,7 +272,6 @@ pub(super) async fn spawn_network_with_injected_allowances(
 
 	let network = crate::utils::initialize_network(config).await?;
 	assert!(network.wait_until_is_up(60).await.is_ok());
-
 	Ok(network)
 }
 
@@ -279,71 +279,85 @@ pub(super) async fn spawn_network_with_injected_allowances(
 pub(super) async fn spawn_network_sudo(
 	collators: &[&str],
 	allowance_items: Vec<(Vec<u8>, Vec<u8>)>,
+	log_filter: &str,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
-	let images = zombienet_sdk::environment::get_images_from_env();
+	let network = spawn_network_inner(collators, allowance_items.len(), log_filter).await?;
+	let node = network.get_node(collators[0])?;
+	sc_statement_store::subxt_client::set_allowances_via_sudo(node.ws_uri(), allowance_items)
+		.await?;
+
+	Ok(network)
+}
+
+/// Spawns a zombienet network with a custom chain spec containing injected statement allowances
+pub(super) async fn spawn_network_with_injected_allowances(
+	collators: &[&str],
+	participant_count: u32,
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	assert!(!collators.is_empty());
 	let base_dir = base_dir()?;
+	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
+	let args = collator_args(participant_count, COLLATOR_TRACE_LOG_FILTER);
+	launch_network(collators, &chain_spec_path, args).await
+}
 
-	let participant_count = allowance_items.len();
-
+/// Spawns a network using `people-westend-local-spec.json`, waits for block production
+async fn spawn_network_inner(
+	collators: &[&str],
+	participant_count: usize,
+	log_filter: &str,
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	let base_dir = base_dir()?;
 	let chain_spec_template = include_str!("people-westend-local-spec.json");
 	let chain_spec_path = base_dir.join("people-westend-local-spec.json");
 	std::fs::write(&chain_spec_path, chain_spec_template)
 		.map_err(|e| anyhow!("Failed to write chain spec to file: {}", e))?;
 
-	let config = NetworkConfigBuilder::new()
-		.with_relaychain(|r| {
-			r.with_chain("westend-local")
-				.with_default_command("polkadot")
-				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec!["-lparachain=debug".into()])
-				.with_validator(|node| node.with_name("validator-0"))
-				.with_validator(|node| node.with_name("validator-1"))
-		})
-		.with_parachain(|p| {
-			let p = p
-				.with_id(1004)
-				.with_chain_spec_path(chain_spec_path.to_str().expect("Valid UTF-8 path"))
-				.with_default_command("polkadot-parachain")
-				.with_default_image(images.cumulus.as_str())
-				.with_default_args(vec![
-					"--force-authoring".into(),
-					"--authoring".into(),
-					"slot-based".into(),
-					"--max-runtime-instances=32".into(),
-					"-linfo,statement-store=trace,statement-gossip=trace".into(),
-					"--enable-statement-store".into(),
-					format!("--rpc-max-connections={}", participant_count + 1000).as_str().into(),
-					format!(
-						"--rpc-max-subscriptions-per-connection={}",
-						(participant_count * 16).max(32)
-					)
-					.as_str()
-					.into(),
-				])
-				.with_collator(|n| n.with_name(collators[0]));
-
-			collators[1..]
-				.iter()
-				.fold(p, |acc, &name| acc.with_collator(|n| n.with_name(name)))
-		})
-		.with_global_settings(|global_settings| {
-			global_settings.with_base_dir(base_dir.to_str().expect("Valid UTF-8 path"))
-		})
-		.build()
-		.map_err(format_build_errors)?;
-
-	let network = crate::utils::initialize_network(config).await?;
-	assert!(network.wait_until_is_up(60).await.is_ok());
+	let participant_count_u32 = u32::try_from(participant_count)
+		.expect("participant_count must fit in u32 for collator args");
+	let args = collator_args(participant_count_u32, log_filter);
+	let network = launch_network(collators, &chain_spec_path, args).await?;
 
 	info!("Waiting for parachain to produce blocks...");
-	let first_collator = collators[0];
-	let node = network.get_node(first_collator)?;
-	node.wait_metric_with_timeout("block_height{status=\"best\"}", |height| height >= 1.0, 300u64)
+	let node = network.get_node(collators[0])?;
+	node.wait_metric_with_timeout(crate::utils::BEST_BLOCK_METRIC, |height| height >= 1.0, 300u64)
 		.await?;
 	info!("Parachain is producing blocks");
 
-	sc_statement_store::subxt_client::set_allowances_via_sudo(node.ws_uri(), allowance_items)
-		.await?;
-
 	Ok(network)
+}
+
+/// Spawns a network without pre-injected allowances
+pub(super) async fn spawn_network(
+	collators: &[&str],
+	log_filter: &str,
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	spawn_network_inner(collators, 0, log_filter).await
+}
+
+pub(super) async fn online_client_from_node(
+	node: &zombienet_sdk::NetworkNode,
+) -> Result<OnlineClient<CustomConfig>, anyhow::Error> {
+	OnlineClient::<CustomConfig>::from_insecure_url_with_config(
+		CustomConfig::default(),
+		node.ws_uri(),
+	)
+	.await
+	.map_err(Into::into)
+}
+
+/// Waits up to `timeout_secs` for each node to produce at least one block
+pub(super) async fn wait_for_first_block(
+	nodes: &[&zombienet_sdk::NetworkNode],
+	timeout_secs: u64,
+) -> Result<(), anyhow::Error> {
+	for node in nodes {
+		node.wait_metric_with_timeout(
+			crate::utils::BEST_BLOCK_METRIC,
+			|height| height >= 1.0,
+			timeout_secs,
+		)
+		.await?;
+	}
+	Ok(())
 }
