@@ -1,0 +1,21 @@
+title: 'bandersnatch: z=0-safe projective FFI codec for mul/msm host calls'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Route the `ed_on_bls12_381_bandersnatch_mul` and
+    `ed_on_bls12_381_bandersnatch_msm` host calls through a new
+    `bandersnatch_codec` that can round-trip the `z = 0` exceptional
+    projective states HWCD arithmetic can produce on inputs outside the
+    prime-order subgroup (e.g. anything from
+    `deserialize_with_mode(.., Validate::No)`).
+
+    The previous implementation hit `z.inverse().unwrap()` inside arkworks'
+    `From<Projective> for Affine` and panicked before the bytes ever
+    crossed the FFI. The host functions now use a 64-byte wire format that
+    reuses the spare top bit of each `Fq` slot (`MODULUS_BIT_SIZE = 255`)
+    as a 2-bit tag for the three `z = 0` exception shapes; the normal `z != 0`
+    row is byte-identical to arkworks' uncompressed affine encoding, so
+    well-behaved subgroup inputs remain wire-compatible.
+crates:
+- name: sp-crypto-ec-utils
+  bump: minor
