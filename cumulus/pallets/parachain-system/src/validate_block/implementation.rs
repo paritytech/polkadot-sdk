@@ -564,9 +564,12 @@ fn host_default_child_storage_get(storage_key: &[u8], key: &[u8]) -> Option<Vec<
 fn host_default_child_storage_get_with_status(
 	storage_key: &[u8],
 	key: &[u8],
-) -> StateLoad<Option<Vec<u8>>> {
+) -> StateLoad<Option<bytes::Bytes>> {
 	let child_info = ChildInfo::new_default(storage_key);
-	with_externalities(|ext| ext.child_storage_with_status(&child_info, key))
+	with_externalities(|ext| {
+		let result = ext.child_storage_with_status(&child_info, key);
+		StateLoad { data: result.data.map(Into::into), is_cold: result.is_cold }
+	})
 }
 
 fn host_default_child_storage_read(
