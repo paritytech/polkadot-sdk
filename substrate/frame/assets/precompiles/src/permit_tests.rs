@@ -679,25 +679,25 @@ fn encoded_length_constants_are_correct() {
 	assert_eq!(permit::DIGEST_PREFIX_LEN, 66);
 }
 
-// =============================================================================
-// Precompile integration tests
-// =============================================================================
-//
-// The tests above exercise `permit::Pallet` directly in isolation. The tests
-// in this submodule drive the same logic end-to-end through the precompile
-// dispatcher via `bare_call`, signing each digest at runtime with Hardhat
-// account #0's private key. They cover precompile-level concerns the pallet
-// tests cannot:
-//
-//   * the allowance-update branches in `permit()` (fresh-approve, revoke, noop,
-//     cancel-then-approve), each pinned by a dedicated test
-//   * `with_transaction` rollback (nonce, allowance, deposit, contract events)
-//   * Approval event emission
-//   * the dispatcher's revert-reason mapping
-//   * cross-prefix (verifying-contract) domain separation
-//
-// Wrapped in a submodule so we can import alloy's `U256` without conflicting
-// with the `sp_core::U256` used by the pallet-level tests above.
+/// Precompile integration tests.
+///
+/// The tests outside this submodule exercise `permit::Pallet` directly in
+/// isolation. The tests in this submodule drive the same logic end-to-end
+/// through the precompile dispatcher via `bare_call`, signing each digest
+/// at runtime with Hardhat account #0's private key. They cover
+/// precompile-level concerns the pallet tests cannot:
+///
+///   * the allowance-update branches in `permit()` (fresh-approve, revoke,
+///     noop, cancel-then-approve), each pinned by a dedicated test
+///   * `with_transaction` rollback (nonce, allowance, deposit, contract
+///     events)
+///   * Approval event emission
+///   * the dispatcher's revert-reason mapping
+///   * cross-prefix (verifying-contract) domain separation
+///
+/// Wrapped in a submodule so we can import alloy's `U256` without
+/// conflicting with the `sp_core::U256` used by the pallet-level tests
+/// above.
 mod precompile {
 	use super::*;
 	use crate::{
