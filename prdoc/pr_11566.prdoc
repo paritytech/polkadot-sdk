@@ -1,4 +1,4 @@
-title: Use the host configuration of the session of the candidate for getting execution relevant information
+title: Use the candidate's session host configuration in candidate validation
 
 doc:
   - audience: [Node Dev, Runtime Dev]

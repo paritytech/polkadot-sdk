@@ -176,8 +176,8 @@ where
 /// All fields are sourced from the candidate's execution (relay-parent) session:
 ///
 /// - `executor_params`: relay-parent (execution) session.
-/// - `validation_code_bomb_limit`: relay-parent (execution) session — dispatched at the
-///   candidate's relay parent so the runtime returns the execution-session `ActiveConfig`.
+/// - `validation_code_bomb_limit`: relay-parent (execution) session — dispatched at the candidate's
+///   relay parent so the runtime returns the execution-session `ActiveConfig`.
 ///
 /// For V1 descriptors execution and scheduling session are identical.
 struct SessionParams {
