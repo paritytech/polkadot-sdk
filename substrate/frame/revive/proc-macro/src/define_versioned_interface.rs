@@ -60,8 +60,7 @@ fn generate_versioned_enum(
 			),
 		));
 	};
-	let latest_version =
-		version_value_u32(latest_item.payload_name().version(), latest_item.item())?;
+	let latest_version = latest_item.payload_name().version().value();
 	let generated_name = generated_interface_name(&input.name);
 	let enum_ident =
 		Ident::new(&format!("Versioned{}{}", generated_name, side.name_suffix()), input.name_span);
@@ -93,7 +92,7 @@ fn generate_versioned_enum(
 
 			#(#constructors)*
 
-			pub fn version(&self) -> usize {
+			pub fn version(&self) -> u32 {
 				match self {
 					#(#version_arms,)*
 				}
@@ -152,16 +151,6 @@ fn side_items(
 /// Returns the public generated family name for an interface payload family.
 fn generated_interface_name(payload_family_name: &str) -> &str {
 	payload_family_name.strip_suffix("Versioned").unwrap_or(payload_family_name)
-}
-
-/// Returns a public version value for generated interface APIs.
-fn version_value_u32(version: Version, item: &ItemStruct) -> Result<u32> {
-	u32::try_from(version.value()).map_err(|_| {
-		syn::Error::new_spanned(
-			&item.ident,
-			"versioned interface payload versions must fit in a u32",
-		)
-	})
 }
 
 /// Returns the payload map for the provided side.
@@ -825,7 +814,7 @@ impl PayloadSide {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct Version {
 	/// The numeric value of the version suffix.
-	value: usize,
+	value: u32,
 }
 
 impl Version {
@@ -845,7 +834,7 @@ impl Version {
 			));
 		}
 
-		let value = version_suffix.parse::<usize>().map_err(|_| {
+		let value = version_suffix.parse::<u32>().map_err(|_| {
 			syn::Error::new_spanned(
 				ident,
 				"versioned interface payload names must end with `V` followed by a positive \
@@ -865,7 +854,7 @@ impl Version {
 
 	/// Returns the numeric version value.
 	#[must_use]
-	fn value(self) -> usize {
+	fn value(self) -> u32 {
 		self.value
 	}
 

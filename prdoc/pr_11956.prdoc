@@ -1,0 +1,61 @@
+title: '[pallet-revive]: Introduce versioned types'
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    Part of https://github.com/paritytech/polkadot-sdk/issues/11923 and builds on https://github.com/paritytech/polkadot-sdk/pull/11944
+
+    This PR introduces `pallet-revive-types`, a new crate for stable pallet-revive client-facing types.
+
+    The crate contains two main surfaces:
+
+    - `runtime_api`, for versioned runtime API input/output payloads and the reusable types nested inside them.
+    - `storage`, for client-facing models of pallet-revive storage values that need stronger stability guarantees than ordinary execution-only types.
+
+    This PR defines the type layer only. It does not introduce the new versioned runtime API functions, switch existing runtime API functions to these payloads, add conversion logic between execution and client-facing types, or perform any storage migration. Those are intended to land in later PRs.
+
+    ## Integration
+
+    Downstream users do not need to change any existing pallet-revive code for this PR.
+
+    The new public surface is `pallet-revive-types`. Off-chain clients may depend on this crate to construct runtime API payloads, decode responses, inspect supported payload versions, and use stable client-facing storage models without depending on pallet-revive execution internals.
+
+    `pallet-revive` now depends on `pallet-revive-types` so later PRs can start wiring the versioned runtime API and storage conversion layers against the shared type definitions.
+
+    The crate is `no_std` capable and has a default `std` feature. Its `std` feature forwards to the `std` features of its dependencies.
+
+    ## Review Notes
+
+    > [!TIP]
+    > The crate-level documentation in `pallet-revive-types` describes the compatibility model, the distinction between client-facing types and execution types, and the rules for evolving released payloads. That is the best starting point for reviewing this PR.
+
+    The runtime API payloads are declared with `define_versioned_interface!`. Each runtime API function gets paired input/output payload structs and generated boxed versioned enums, including `LATEST_VERSION` constants and latest-version aliases.
+
+    The PR adds payload declarations for the pallet-revive runtime API surface, including:
+
+    - account and address helpers;
+    - block, gas, balance, nonce, code, and storage queries;
+    - contract call and instantiate payloads;
+    - code upload payloads;
+    - eth transaction, estimate gas, pre-dispatch weight, and receipt data payloads;
+    - tracing payloads for block, transaction, and call tracing.
+
+    The reusable runtime API types are declared with `define_versioned_type!`. These include transaction models, block models, storage keys, contract return models, receipt gas info, state overrides, tracing configuration/result models, code upload results, and stable error/result payload types.
+
+    The storage module defines client-facing storage models separately from runtime API payloads. This keeps storage stability concerns separate from runtime API versioning, even when the current shapes happen to overlap.
+
+    The common module contains byte-oriented types shared by runtime API and storage models.
+
+    `PalletReviveRuntimeApiPayloadVersions` provides the payload-version discovery value that runtimes can return to clients. It records the latest supported payload version for each versioned runtime API function and exposes typed getters for each declared function.
+
+    All newly defined types derive the expected codec, metadata, serialization, comparison, clone/debug, and `MaxEncodedLen` traits where appropriate.
+crates:
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-types
+  bump: minor
+- name: polkadot-sdk
+  bump: minor
+- name: pallet-revive-proc-macro
+  bump: minor
