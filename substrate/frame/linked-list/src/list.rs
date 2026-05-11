@@ -132,14 +132,12 @@ fn try_reanchor_inconsistent<T: Config>(
 	list_id: &T::ListId,
 	priority: &T::Priority,
 	current: &mut Position<T::ItemId>,
-	prev_node: &Option<Node<T::ItemId, T::Priority>>,
-	next_node: &Option<Node<T::ItemId, T::Priority>>,
+	prev_node: Option<&Node<T::ItemId, T::Priority>>,
+	next_node: Option<&Node<T::ItemId, T::Priority>>,
 ) -> bool {
 	let prev_links_match = prev_node
-		.as_ref()
 		.map_or_else(|| ListHeads::<T>::get(list_id) == current.next, |pn| pn.next == current.next);
 	let next_links_match = next_node
-		.as_ref()
 		.map_or_else(|| ListTails::<T>::get(list_id) == current.prev, |nn| nn.prev == current.prev);
 
 	if prev_links_match && next_links_match {
@@ -174,14 +172,14 @@ fn try_reanchor_inconsistent<T: Config>(
 fn try_walk_priority<T: Config>(
 	priority: &T::Priority,
 	current: &mut Position<T::ItemId>,
-	prev_node: &Option<Node<T::ItemId, T::Priority>>,
-	next_node: &Option<Node<T::ItemId, T::Priority>>,
+	prev_node: Option<&Node<T::ItemId, T::Priority>>,
+	next_node: Option<&Node<T::ItemId, T::Priority>>,
 ) -> bool {
-	if let Some(pn) = prev_node.as_ref().filter(|n| n.priority < *priority) {
+	if let Some(pn) = prev_node.filter(|n| n.priority < *priority) {
 		current.next = current.prev.take();
 		current.prev = pn.prev.clone();
 		true
-	} else if let Some(nn) = next_node.as_ref().filter(|n| *priority <= n.priority) {
+	} else if let Some(nn) = next_node.filter(|n| *priority <= n.priority) {
 		current.prev = current.next.take();
 		current.next = nn.next.clone();
 		true
@@ -211,8 +209,9 @@ pub fn walk_repair<T: Config>(
 		let progressed = try_clamp_dangling::<T>(list_id, &mut current) || {
 			let prev_node = current.prev.as_ref().and_then(|p| ListNodes::<T>::get(list_id, p));
 			let next_node = current.next.as_ref().and_then(|n| ListNodes::<T>::get(list_id, n));
-			try_reanchor_inconsistent::<T>(list_id, priority, &mut current, &prev_node, &next_node) ||
-				try_walk_priority::<T>(priority, &mut current, &prev_node, &next_node)
+			let (pn, nn) = (prev_node.as_ref(), next_node.as_ref());
+			try_reanchor_inconsistent::<T>(list_id, priority, &mut current, pn, nn) ||
+				try_walk_priority::<T>(priority, &mut current, pn, nn)
 		};
 		if !progressed {
 			// Links are consistent and neither side's priority drives a walk,
@@ -235,11 +234,11 @@ pub fn walk_repair<T: Config>(
 /// ensuring the position is valid; errors if `item` is already in the list.
 pub fn insert_at<T: Config>(
 	list_id: &T::ListId,
-	item: T::ItemId,
+	item: &T::ItemId,
 	priority: T::Priority,
 	position: Position<T::ItemId>,
 ) -> Result<(), Error<T>> {
-	if ListNodes::<T>::contains_key(list_id, &item) {
+	if ListNodes::<T>::contains_key(list_id, item) {
 		return Err(Error::<T>::ItemAlreadyExists);
 	}
 	let new_size = ListSizes::<T>::get(list_id).checked_add(1).ok_or(Error::<T>::ListTooLong)?;
@@ -264,7 +263,7 @@ pub fn insert_at<T: Config>(
 			n.next = Some(item.clone());
 			ListNodes::<T>::insert(list_id, p, n);
 		},
-		None => ListHeads::<T>::insert(list_id, &item),
+		None => ListHeads::<T>::insert(list_id, item),
 	}
 	// Symmetric on the tail side.
 	match next_node {
@@ -272,12 +271,12 @@ pub fn insert_at<T: Config>(
 			node.prev = Some(item.clone());
 			ListNodes::<T>::insert(list_id, n, node);
 		},
-		None => ListTails::<T>::insert(list_id, &item),
+		None => ListTails::<T>::insert(list_id, item),
 	}
 
 	ListNodes::<T>::insert(
 		list_id,
-		&item,
+		item,
 		Node { prev: position.prev, next: position.next, priority },
 	);
 	ListSizes::<T>::insert(list_id, new_size);
@@ -287,27 +286,27 @@ pub fn insert_at<T: Config>(
 /// Remove `item` from `list_id`. Cleans up the list's
 /// `ListHeads`/`ListTails`/`ListSizes` rows when it becomes empty. Errors if
 /// `item` is not in the list.
-pub fn remove_at<T: Config>(list_id: &T::ListId, item: T::ItemId) -> Result<(), Error<T>> {
+pub fn remove_at<T: Config>(list_id: &T::ListId, item: &T::ItemId) -> Result<(), Error<T>> {
 	let Node { prev: removed_prev, next: removed_next, .. } =
-		ListNodes::<T>::get(list_id, &item).ok_or(Error::<T>::ItemNotFound)?;
+		ListNodes::<T>::get(list_id, item).ok_or(Error::<T>::ItemNotFound)?;
 	// Defensive: by `try_state` invariant 1, a present node implies `ListSizes >= 1`.
 	let new_size = ListSizes::<T>::get(list_id)
 		.checked_sub(1)
 		.defensive_ok_or(Error::<T>::CorruptList)?;
-	if removed_prev.as_ref() == Some(&item) || removed_next.as_ref() == Some(&item) {
+	if removed_prev.as_ref() == Some(item) || removed_next.as_ref() == Some(item) {
 		return Err(Error::<T>::CorruptList);
 	}
 
 	let prev_node = fetch_neighbor::<T>(list_id, removed_prev.clone())?;
 	let next_node = fetch_neighbor::<T>(list_id, removed_next.clone())?;
 
-	if prev_node.as_ref().is_some_and(|(_, node)| node.next.as_ref() != Some(&item)) ||
-		next_node.as_ref().is_some_and(|(_, node)| node.prev.as_ref() != Some(&item))
+	if prev_node.as_ref().is_some_and(|(_, node)| node.next.as_ref() != Some(item)) ||
+		next_node.as_ref().is_some_and(|(_, node)| node.prev.as_ref() != Some(item))
 	{
 		return Err(Error::<T>::CorruptList);
 	}
 
-	ListNodes::<T>::remove(list_id, &item);
+	ListNodes::<T>::remove(list_id, item);
 
 	// Splice past `item` on the head side: rewrite prev's `.next` to skip us,
 	// or rewrite the head pointer to `removed_next` (which clears it when the

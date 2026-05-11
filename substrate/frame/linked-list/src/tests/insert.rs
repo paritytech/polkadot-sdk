@@ -134,7 +134,7 @@ fn insert_does_not_saturate_size_counter() {
 fn insert_at_missing_neighbor_returns_corrupt_list() {
 	build_and_execute_no_post_check(|| {
 		assert_storage_noop!(assert!(matches!(
-			list::insert_at::<Test>(&1, 200, 50, Position::at_tail(100)),
+			list::insert_at::<Test>(&1, &200, 50, Position::at_tail(100)),
 			Err(Error::<Test>::CorruptList)
 		)));
 		assert!(!ListNodes::<Test>::contains_key(1, 200));
