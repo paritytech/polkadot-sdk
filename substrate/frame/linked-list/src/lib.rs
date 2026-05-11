@@ -301,10 +301,8 @@ pub mod pallet {
 			hint_next: Option<T::ItemId>,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
-			let steps = crate::dispatchables::reprioritize_internal::<T>(
-				&list_id, &item, hint_prev, hint_next,
-			)?;
-			Ok(Some(T::WeightInfo::reprioritize(steps)).into())
+			let actual_weight = Self::do_reprioritize(&list_id, &item, hint_prev, hint_next)?;
+			Ok(Some(actual_weight).into())
 		}
 	}
 }
