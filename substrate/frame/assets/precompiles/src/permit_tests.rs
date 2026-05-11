@@ -678,4 +678,3 @@ fn encoded_length_constants_are_correct() {
 	assert_eq!(permit::PERMIT_STRUCT_ENCODED_LEN, 192);
 	assert_eq!(permit::DIGEST_PREFIX_LEN, 66);
 }
-
