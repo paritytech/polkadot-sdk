@@ -145,7 +145,7 @@ impl<S: CollatorSut> World<S> {
 		));
 
 		// Update the World's leaves view.
-		self.base.leaves.push(crate::common::world::Leaf {
+		self.base.leaves.push(polkadot_subsystem_test_sim::world_base::LeafRef {
 			hash: new_leaf_hash,
 			number: new_leaf_n,
 		});

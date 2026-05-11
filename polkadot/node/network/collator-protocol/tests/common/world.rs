@@ -29,17 +29,12 @@ use crate::{
 	common::responder::PanicResponder,
 };
 use polkadot_subsystem_test_sim::world_base::{
-	build_chain_model, HasBase, LeafRef, WorldBase, WorldConfig,
+	build_chain_model, HasBase, WorldBase, WorldConfig,
 };
 use polkadot_node_subsystem::messages::{AllMessages, CollatorProtocolMessage};
 use polkadot_primitives::{
 	CoreIndex, Hash, Id as ParaId, ValidatorIndex,
 };
-
-/// Local alias mirroring the previous `Leaf` shape so existing scenarios that destructure
-/// `world.base.leaves[i].{hash, number}` keep working unchanged (the field names match
-/// `LeafRef`'s).
-pub type Leaf = LeafRef;
 
 /// Collator-flavoured test world. Composes [`WorldBase`] for shared scaffolding (`Sim`,
 /// `SharedChain`, leaf bookkeeping) and adds the collator-specific `outputs` registry.
