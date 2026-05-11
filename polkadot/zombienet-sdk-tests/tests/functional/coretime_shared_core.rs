@@ -124,10 +124,11 @@ async fn coretime_shared_core_inner(number_of_paras: u32) -> Result<(), anyhow::
 	let exp = 40u32 / number_of_paras;
 	// use 85% as min
 	let min = (exp as f64 * 0.85).round() as u32;
-	log::info!("Checking parachain block production with range ({min}..{exp})");
+	let max = exp + 1;
+	log::info!("Checking parachain block production with range ({min}..{max})");
 	let mut para_throughput_map: HashMap<ParaId, Range<u32>> = Default::default();
 	for id in para_ids.iter() {
-		para_throughput_map.insert(ParaId::from(*id), min..exp);
+		para_throughput_map.insert(ParaId::from(*id), min..max);
 	}
 
 	assert_para_throughput(&relay_client, 40, para_throughput_map, []).await?;
