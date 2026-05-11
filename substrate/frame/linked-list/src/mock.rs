@@ -115,13 +115,13 @@ pub(crate) fn set_real_priority(list_id: ListId, item: ItemId, priority: Priorit
 	});
 }
 
-/// Convenience: insert via the `SortedListInterface` with hints fetched from
-/// `find_position`. Returns the `repair_steps` count.
+/// Convenience: insert via the `SortedListInterface` with the hint fetched
+/// from `find_position`. Returns the `repair_steps` count.
 pub(crate) fn insert(list_id: ListId, item: ItemId, priority: Priority) -> u32 {
 	use pallet_linked_list::SortedListInterface;
-	let (prev, next) =
+	let hint =
 		<LinkedList as SortedListInterface<ListId, ItemId>>::find_position(&list_id, priority);
-	LinkedList::insert(list_id, item, priority, prev, next).expect("insert succeeds in tests")
+	LinkedList::insert(list_id, item, priority, hint).expect("insert succeeds in tests")
 }
 
 /// Items in `list_id` head-to-tail.

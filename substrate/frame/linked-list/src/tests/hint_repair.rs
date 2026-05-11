@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{mock::*, Error, SortedListInterface};
+use crate::{mock::*, Error, Position, SortedListInterface};
 use frame::testing_prelude::assert_storage_noop;
 
 fn build_chain(priorities: &[(ItemId, Priority)]) {
@@ -43,8 +43,8 @@ fn stale_hint_within_budget_repairs_succeeds() {
 
 		// Stale hint: caller thinks pos is between 1 and 2 (head region).
 		// Real pos is between 4 and 5: 3 nodes away, within the 4-step budget.
-		let steps =
-			LinkedList::insert(1, 100, 15, Some(1), Some(2)).expect("repair walks within budget");
+		let steps = LinkedList::insert(1, 100, 15, Position::between(1, 2))
+			.expect("repair walks within budget");
 		assert!(steps > 0 && steps <= MaxHintRepairSteps::get());
 		assert_eq!(dump(1), vec![(1, 100), (2, 80), (3, 50), (4, 20), (100, 15), (5, 10)]);
 	});
@@ -57,7 +57,7 @@ fn stale_hint_beyond_budget_returns_invalid_hints() {
 		// head-region hint within `MaxHintRepairSteps`.
 		build_long_chain();
 		assert_storage_noop!(assert!(matches!(
-			LinkedList::insert(1, 99, 5, None, Some(1)),
+			LinkedList::insert(1, 99, 5, Position::at_head(1)),
 			Err(Error::<Test>::InvalidPositionHints)
 		)));
 	});
@@ -71,8 +71,7 @@ fn repair_steps_needed_zero_for_valid_hint() {
 			<LinkedList as SortedListInterface<_, _>>::repair_steps_needed(
 				&1,
 				80,
-				Some(1),
-				Some(2)
+				Position::between(1, 2),
 			),
 			0
 		);
@@ -83,8 +82,11 @@ fn repair_steps_needed_zero_for_valid_hint() {
 fn repair_steps_needed_positive_for_stale_hint() {
 	build_and_execute(|| {
 		build_chain(&[(1, 90), (2, 70), (3, 50)]);
-		let n =
-			<LinkedList as SortedListInterface<_, _>>::repair_steps_needed(&1, 60, None, Some(1));
+		let n = <LinkedList as SortedListInterface<_, _>>::repair_steps_needed(
+			&1,
+			60,
+			Position::at_head(1),
+		);
 		assert!(n > 0);
 	});
 }
@@ -103,8 +105,7 @@ fn repair_steps_needed_counts_dangling_hint_clamp() {
 		let n = <LinkedList as SortedListInterface<_, _>>::repair_steps_needed(
 			&1,
 			80,
-			Some(1),
-			Some(999),
+			Position::between(1, 999),
 		);
 		assert!(n > 0);
 	});
@@ -115,8 +116,11 @@ fn repair_steps_needed_exceeds_budget_signals_infeasible() {
 	build_and_execute(|| {
 		build_long_chain();
 		// priority=5 is tail; hint claims head. Distance > `MaxHintRepairSteps`.
-		let n =
-			<LinkedList as SortedListInterface<_, _>>::repair_steps_needed(&1, 5, None, Some(1));
+		let n = <LinkedList as SortedListInterface<_, _>>::repair_steps_needed(
+			&1,
+			5,
+			Position::at_head(1),
+		);
 		assert!(n > MaxHintRepairSteps::get());
 	});
 }
@@ -134,7 +138,7 @@ fn inconsistent_hint_one_side_stale_re_anchors() {
 		build_long_chain();
 		let chain_len = MaxHintRepairSteps::get() + 4;
 		let stale_prev = u64::from(chain_len); // tail item id
-		let steps = LinkedList::insert(1, 99, 85, Some(stale_prev), Some(3))
+		let steps = LinkedList::insert(1, 99, 85, Position::between(stale_prev, 3))
 			.expect("re-anchor handles partially-stale hint within budget");
 		assert!(steps > 0 && steps <= MaxHintRepairSteps::get());
 		// Head→tail: (1,100), (2,90), the inserted (99,85), then the unchanged

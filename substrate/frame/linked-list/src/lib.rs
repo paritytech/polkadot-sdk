@@ -23,8 +23,9 @@
 //! side of their cluster, so tail-first iteration is LIFO within a priority
 //! cluster.
 //!
-//! Insertion accepts a `(prev, next)` hint and repairs stale hints on-chain up
-//! to `MaxHintRepairSteps`. Endpoints are encoded as `None`.
+//! Insertion accepts a [`Position`] hint (a typed `(prev, next)` pair where
+//! endpoints are encoded as `None`) and repairs stale hints on-chain up to
+//! `MaxHintRepairSteps`.
 //!
 //! ## Overview
 //!
@@ -50,6 +51,7 @@ use frame::prelude::*;
 pub use list::Node;
 pub use pallet::*;
 pub use sorted_list_interface::{PriorityProvider, SortedListInterface};
+pub use types::{Position, Side};
 
 /// Benchmark fixture: overrides the authoritative priority used by
 /// [`PriorityProvider`] so the `reprioritize` benchmark can simulate priority drift.
@@ -62,6 +64,7 @@ mod dispatchables;
 mod list;
 mod sorted_list_interface;
 mod try_state;
+mod types;
 mod view_helpers;
 pub mod weights;
 
@@ -93,7 +96,7 @@ mod benchmarking;
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use crate::weights::WeightInfo as _;
+	use crate::weights::WeightInfo;
 
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -104,10 +107,10 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Outer key partitioning the lists.
-		type ListId: Parameter + Member + MaxEncodedLen;
+		type ListId: Parameter + Member + MaxEncodedLen + Copy;
 
 		/// Inner key identifying an item within a list.
-		type ItemId: Parameter + Member + MaxEncodedLen;
+		type ItemId: Parameter + Member + MaxEncodedLen + Copy;
 
 		/// Sort key. Higher priorities are closer to the head, lower priorities closer
 		/// to the tail.
@@ -225,10 +228,7 @@ pub mod pallet {
 		}
 
 		/// Current `(prev, next)` neighbors of `(list_id, item)`, if present.
-		pub fn neighbors(
-			list_id: T::ListId,
-			item: T::ItemId,
-		) -> Option<(Option<T::ItemId>, Option<T::ItemId>)> {
+		pub fn neighbors(list_id: T::ListId, item: T::ItemId) -> Option<Position<T::ItemId>> {
 			<Self as SortedListInterface<T::ListId, T::ItemId>>::neighbors(&list_id, &item)
 		}
 
@@ -244,22 +244,18 @@ pub mod pallet {
 			<Self as SortedListInterface<T::ListId, T::ItemId>>::iter_from_tail(&list_id, n)
 		}
 
-		/// `(prev, next)` insertion position for `priority` in `list_id`.
-		/// Endpoints are returned as `None`.
-		pub fn find_position(
-			list_id: T::ListId,
-			priority: T::Priority,
-		) -> (Option<T::ItemId>, Option<T::ItemId>) {
+		/// Insertion [`Position`] for `priority` in `list_id`.
+		pub fn find_position(list_id: T::ListId, priority: T::Priority) -> Position<T::ItemId> {
 			<Self as SortedListInterface<T::ListId, T::ItemId>>::find_position(&list_id, priority)
 		}
 
-		/// `(prev, next)` position `(list_id, item)` should occupy at
-		/// `new_priority`. Returns `None` if the item is not in the list.
+		/// Position `(list_id, item)` should occupy at `new_priority`. Returns
+		/// `None` if the item is not in the list.
 		pub fn find_re_insert_position(
 			list_id: T::ListId,
 			item: T::ItemId,
 			new_priority: T::Priority,
-		) -> Option<(Option<T::ItemId>, Option<T::ItemId>)> {
+		) -> Option<Position<T::ItemId>> {
 			<Self as SortedListInterface<T::ListId, T::ItemId>>::find_re_insert_position(
 				&list_id,
 				&item,
@@ -267,18 +263,16 @@ pub mod pallet {
 			)
 		}
 
-		/// Steps the on-chain repair walk would take from
-		/// `(hint_prev, hint_next)` to reach the position for `priority`. Returns
-		/// `0` if the hint is already valid, or a value greater than
-		/// `MaxHintRepairSteps` if the call would fail.
+		/// Steps the on-chain repair walk would take from `hint` to reach the
+		/// position for `priority`. Returns `0` if the hint is already valid,
+		/// or a value greater than `MaxHintRepairSteps` if the call would fail.
 		pub fn repair_steps_needed(
 			list_id: T::ListId,
 			priority: T::Priority,
-			hint_prev: Option<T::ItemId>,
-			hint_next: Option<T::ItemId>,
+			hint: Position<T::ItemId>,
 		) -> u32 {
 			<Self as SortedListInterface<T::ListId, T::ItemId>>::repair_steps_needed(
-				&list_id, priority, hint_prev, hint_next,
+				&list_id, priority, hint,
 			)
 		}
 	}
@@ -288,8 +282,8 @@ pub mod pallet {
 		/// Reposition `(list_id, item)` after its authoritative priority, fetched
 		/// from [`PriorityProvider`], has drifted from the stored priority.
 		///
-		/// Anyone can call this. The caller supplies a `(hint_prev, hint_next)`
-		/// for the new position; stale hints are repaired up to
+		/// Anyone can call this. The caller supplies a [`Position`] hint for
+		/// the new position; stale hints are repaired up to
 		/// `MaxHintRepairSteps`.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::reprioritize(T::MaxHintRepairSteps::get()))]
@@ -297,11 +291,10 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			list_id: T::ListId,
 			item: T::ItemId,
-			hint_prev: Option<T::ItemId>,
-			hint_next: Option<T::ItemId>,
+			hint: Position<T::ItemId>,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
-			let actual_weight = Self::do_reprioritize(&list_id, &item, hint_prev, hint_next)?;
+			let actual_weight = Self::do_reprioritize(list_id, item, hint)?;
 			Ok(Some(actual_weight).into())
 		}
 	}

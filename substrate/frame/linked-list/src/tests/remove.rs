@@ -15,7 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{mock::*, Error, Event, ListHeads, ListSizes, ListTails, SortedListInterface};
+use crate::{
+	mock::*, Error, Event, ListHeads, ListNodes, ListSizes, ListTails, SortedListInterface,
+};
 use frame::testing_prelude::{assert_ok, assert_storage_noop, hypothetically};
 
 #[test]
@@ -113,5 +115,17 @@ fn pop_tail_is_lifo_for_same_priority_cluster() {
 		assert_eq!(LinkedList::pop_tail(&1).unwrap(), Some((30, 50)));
 		assert_eq!(LinkedList::pop_tail(&1).unwrap(), Some((20, 50)));
 		assert_eq!(dump(1), vec![(10, 50)]);
+	});
+}
+
+#[test]
+fn remove_missing_neighbor_returns_corrupt_list_without_splicing() {
+	build_and_execute_no_post_check(|| {
+		insert(1, 100, 90);
+		insert(1, 200, 50);
+		ListNodes::<Test>::remove(1, 100);
+
+		assert!(matches!(LinkedList::remove(&1, &200), Err(Error::<Test>::CorruptList)));
+		assert!(ListNodes::<Test>::contains_key(1, 200));
 	});
 }

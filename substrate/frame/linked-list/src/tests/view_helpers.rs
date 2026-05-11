@@ -15,12 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{mock::*, SortedListInterface};
+use crate::{mock::*, Position, SortedListInterface};
 
 #[test]
 fn find_position_empty_list_returns_none_none() {
 	build_and_execute(|| {
-		assert_eq!(<LinkedList as SortedListInterface<_, _>>::find_position(&1, 50), (None, None));
+		assert_eq!(
+			<LinkedList as SortedListInterface<_, _>>::find_position(&1, 50),
+			Position::endpoints_only()
+		);
 	});
 }
 
@@ -32,7 +35,7 @@ fn find_position_above_all_returns_none_some_head() {
 		// priority 100 is greater than head (90), so prev=None, next=head=1.
 		assert_eq!(
 			<LinkedList as SortedListInterface<_, _>>::find_position(&1, 100),
-			(None, Some(1))
+			Position::at_head(1)
 		);
 	});
 }
@@ -45,7 +48,7 @@ fn find_position_below_all_returns_some_tail_none() {
 		// priority 5 is less than tail (50), so prev=tail=2, next=None.
 		assert_eq!(
 			<LinkedList as SortedListInterface<_, _>>::find_position(&1, 5),
-			(Some(2), None)
+			Position::at_tail(2)
 		);
 	});
 }
@@ -58,7 +61,7 @@ fn find_position_middle() {
 		insert(1, 3, 10);
 		assert_eq!(
 			<LinkedList as SortedListInterface<_, _>>::find_position(&1, 70),
-			(Some(1), Some(2))
+			Position::between(1, 2)
 		);
 	});
 }
@@ -75,7 +78,7 @@ fn find_position_same_priority_lands_at_tail_side() {
 		// walking), and stop at 3.
 		assert_eq!(
 			<LinkedList as SortedListInterface<_, _>>::find_position(&1, 50),
-			(Some(2), Some(3))
+			Position::between(2, 3)
 		);
 	});
 }
@@ -90,7 +93,7 @@ fn find_re_insert_position_treats_item_as_logically_removed() {
 		// next=1. The algorithm must skip 2 itself.
 		assert_eq!(
 			<LinkedList as SortedListInterface<_, _>>::find_re_insert_position(&1, &2, 95),
-			Some((None, Some(1)))
+			Some(Position::at_head(1))
 		);
 	});
 }
@@ -111,7 +114,7 @@ fn neighbors_returns_links_for_known_item() {
 		insert(1, 3, 10);
 		assert_eq!(
 			<LinkedList as SortedListInterface<_, _>>::neighbors(&1, &2),
-			Some((Some(1), Some(3)))
+			Some(Position::between(1, 3))
 		);
 	});
 }

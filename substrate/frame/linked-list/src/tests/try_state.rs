@@ -21,7 +21,9 @@
 
 #![cfg(feature = "try-runtime")]
 
-use crate::{mock::*, ListHeads, ListNodes, ListSizes, ListTails, Node, SortedListInterface};
+use crate::{
+	mock::*, ListHeads, ListNodes, ListSizes, ListTails, Node, Position, SortedListInterface,
+};
 
 #[test]
 fn consistent_after_random_op_sequence() {
@@ -36,7 +38,7 @@ fn consistent_after_random_op_sequence() {
 		<LinkedList>::do_try_state().unwrap();
 
 		LinkedList::remove(&1, &3).unwrap();
-		LinkedList::re_insert(1, 2, 5, None, None).unwrap();
+		LinkedList::re_insert(1, 2, 5, Position::endpoints_only()).unwrap();
 	});
 }
 

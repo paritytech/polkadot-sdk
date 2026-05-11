@@ -16,14 +16,15 @@
 // limitations under the License.
 
 use crate::{
-	mock::*, Error, Event, ListHeads, ListNodes, ListSizes, ListTails, SortedListInterface,
+	list, mock::*, Error, Event, ListHeads, ListNodes, ListSizes, ListTails, Position,
+	SortedListInterface,
 };
 use frame::testing_prelude::{assert_ok, assert_storage_noop, hypothetically};
 
 #[test]
 fn insert_into_empty_list_sets_head_tail_size() {
 	build_and_execute(|| {
-		let steps = LinkedList::insert(1, 100, 50, None, None).unwrap();
+		let steps = LinkedList::insert(1, 100, 50, Position::endpoints_only()).unwrap();
 		assert_eq!(steps, 0);
 		assert_eq!(ListHeads::<Test>::get(1), Some(100));
 		assert_eq!(ListTails::<Test>::get(1), Some(100));
@@ -36,7 +37,7 @@ fn insert_into_empty_list_sets_head_tail_size() {
 		// Re-inserting the same `(list_id, item)` rejects without touching state.
 		hypothetically!({
 			assert_storage_noop!(assert!(matches!(
-				LinkedList::insert(1, 100, 50, None, None),
+				LinkedList::insert(1, 100, 50, Position::endpoints_only()),
 				Err(Error::<Test>::ItemAlreadyExists)
 			)));
 		});
@@ -49,7 +50,7 @@ fn insert_with_valid_hints_o1() {
 		insert(1, 100, 90); // head
 		insert(1, 200, 50); // tail
 
-		let steps = LinkedList::insert(1, 150, 70, Some(100), Some(200)).unwrap();
+		let steps = LinkedList::insert(1, 150, 70, Position::between(100, 200)).unwrap();
 		assert_eq!(steps, 0);
 		assert_eq!(dump(1), vec![(100, 90), (150, 70), (200, 50)]);
 	});
@@ -59,7 +60,7 @@ fn insert_with_valid_hints_o1() {
 fn insert_at_head() {
 	build_and_execute(|| {
 		insert(1, 100, 50);
-		assert_ok!(LinkedList::insert(1, 200, 90, None, Some(100)));
+		assert_ok!(LinkedList::insert(1, 200, 90, Position::at_head(100)));
 		assert_eq!(ListHeads::<Test>::get(1), Some(200));
 		assert_eq!(dump(1), vec![(200, 90), (100, 50)]);
 	});
@@ -69,7 +70,7 @@ fn insert_at_head() {
 fn insert_at_tail() {
 	build_and_execute(|| {
 		insert(1, 100, 90);
-		assert_ok!(LinkedList::insert(1, 200, 10, Some(100), None));
+		assert_ok!(LinkedList::insert(1, 200, 10, Position::at_tail(100)));
 		assert_eq!(ListTails::<Test>::get(1), Some(200));
 		assert_eq!(dump(1), vec![(100, 90), (200, 10)]);
 	});
@@ -91,7 +92,7 @@ fn insert_existing_item_errors() {
 	build_and_execute(|| {
 		insert(1, 100, 50);
 		assert_storage_noop!(assert!(matches!(
-			LinkedList::insert(1, 100, 50, None, None),
+			LinkedList::insert(1, 100, 50, Position::endpoints_only()),
 			Err(Error::<Test>::ItemAlreadyExists)
 		)));
 	});
@@ -107,7 +108,7 @@ fn insert_existing_item_errors_before_hint_repair() {
 			insert(1, u64::from(i), 100 - 10 * i + 10);
 		}
 		assert_storage_noop!(assert!(matches!(
-			LinkedList::insert(1, 1, 5, None, Some(1)),
+			LinkedList::insert(1, 1, 5, Position::at_head(1)),
 			Err(Error::<Test>::ItemAlreadyExists)
 		)));
 	});
@@ -120,11 +121,22 @@ fn insert_does_not_saturate_size_counter() {
 	build_and_execute_no_post_check(|| {
 		ListSizes::<Test>::insert(1, u32::MAX);
 		assert_storage_noop!(assert!(matches!(
-			LinkedList::insert(1, 100, 50, None, None),
+			LinkedList::insert(1, 100, 50, Position::endpoints_only()),
 			Err(Error::<Test>::ListTooLong)
 		)));
 		assert!(!ListNodes::<Test>::contains_key(1, 100));
 		assert!(ListHeads::<Test>::get(1).is_none());
 		assert!(ListTails::<Test>::get(1).is_none());
+	});
+}
+
+#[test]
+fn insert_at_missing_neighbor_returns_corrupt_list() {
+	build_and_execute_no_post_check(|| {
+		assert_storage_noop!(assert!(matches!(
+			list::insert_at::<Test>(&1, 200, 50, Position::at_tail(100)),
+			Err(Error::<Test>::CorruptList)
+		)));
+		assert!(!ListNodes::<Test>::contains_key(1, 200));
 	});
 }

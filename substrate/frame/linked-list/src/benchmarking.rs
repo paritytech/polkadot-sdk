@@ -38,11 +38,10 @@ where
 	for i in 0..count {
 		let item: T::ItemId = i.into();
 		let priority: T::Priority = ((count - i) * 10 + 100).into();
-		let (prev, next) = <Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::find_position(
+		let hint = <Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::find_position(
 			list_id, priority,
 		);
-		Pallet::<T>::insert(list_id.clone(), item.clone(), priority, prev, next)
-			.expect("benchmark seed insert");
+		Pallet::<T>::insert(*list_id, item, priority, hint).expect("benchmark seed insert");
 		items.push(item);
 	}
 	items
@@ -71,19 +70,14 @@ mod benchmarks {
 		let seeded = seed_chain::<T>(&list_id, s + 2);
 		let new_item: T::ItemId = u32::MAX.into();
 		let new_priority: T::Priority = 1_000_000u32.into(); // above every seed priority
-		let hint_prev = if s_idx == 0 { None } else { Some(seeded[s_idx - 1].clone()) };
-		let hint_next = Some(seeded[s_idx].clone());
+		let hint = Position {
+			prev: if s_idx == 0 { None } else { Some(seeded[s_idx - 1]) },
+			next: Some(seeded[s_idx]),
+		};
 
 		#[block]
 		{
-			Pallet::<T>::insert(
-				list_id.clone(),
-				new_item.clone(),
-				new_priority,
-				hint_prev,
-				hint_next,
-			)
-			.unwrap();
+			Pallet::<T>::insert(list_id, new_item, new_priority, hint).unwrap();
 		}
 
 		assert_eq!(ListHeads::<T>::get(&list_id), Some(new_item));
@@ -95,7 +89,7 @@ mod benchmarks {
 	fn remove() {
 		let list_id: T::ListId = 0u32.into();
 		let seeded = seed_chain::<T>(&list_id, 4);
-		let middle = seeded[1].clone();
+		let middle = seeded[1];
 
 		#[block]
 		{
@@ -111,13 +105,13 @@ mod benchmarks {
 	fn re_insert_in_place() {
 		let list_id: T::ListId = 0u32.into();
 		let seeded = seed_chain::<T>(&list_id, 5);
-		let middle = seeded[2].clone();
+		let middle = seeded[2];
 		// `seed_chain` priorities middle/neighbors at 130/(140, 120); 125 stays between.
 		let new_priority: T::Priority = 125u32.into();
 
 		#[block]
 		{
-			Pallet::<T>::re_insert(list_id.clone(), middle.clone(), new_priority, None, None)
+			Pallet::<T>::re_insert(list_id, middle, new_priority, Position::endpoints_only())
 				.unwrap();
 		}
 
@@ -138,21 +132,16 @@ mod benchmarks {
 		let list_id: T::ListId = 0u32.into();
 		let s_idx = s as usize;
 		let seeded = seed_chain::<T>(&list_id, s + 2);
-		let target = seeded[s_idx + 1].clone();
+		let target = seeded[s_idx + 1];
 		let new_priority: T::Priority = 1_000_000u32.into(); // above every seed priority
-		let hint_prev = if s_idx == 0 { None } else { Some(seeded[s_idx - 1].clone()) };
-		let hint_next = Some(seeded[s_idx].clone());
+		let hint = Position {
+			prev: if s_idx == 0 { None } else { Some(seeded[s_idx - 1]) },
+			next: Some(seeded[s_idx]),
+		};
 
 		#[block]
 		{
-			Pallet::<T>::re_insert(
-				list_id.clone(),
-				target.clone(),
-				new_priority,
-				hint_prev,
-				hint_next,
-			)
-			.unwrap();
+			Pallet::<T>::re_insert(list_id, target, new_priority, hint).unwrap();
 		}
 
 		assert_eq!(ListHeads::<T>::get(&list_id), Some(target));
@@ -171,14 +160,16 @@ mod benchmarks {
 		let list_id: T::ListId = 0u32.into();
 		let s_idx = s as usize;
 		let seeded = seed_chain::<T>(&list_id, s + 2);
-		let target = seeded[s_idx].clone();
+		let target = seeded[s_idx];
 		T::BenchmarkHelper::set_priority(&list_id, &target, 10_000u32.into());
 		let caller: T::AccountId = whitelisted_caller();
-		let hint_prev = if s_idx == 0 { None } else { Some(seeded[s_idx - 1].clone()) };
-		let hint_next = Some(seeded[s_idx + 1].clone());
+		let hint = Position {
+			prev: if s_idx == 0 { None } else { Some(seeded[s_idx - 1]) },
+			next: Some(seeded[s_idx + 1]),
+		};
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), list_id.clone(), target.clone(), hint_prev, hint_next);
+		_(RawOrigin::Signed(caller), list_id, target, hint);
 
 		assert_eq!(ListHeads::<T>::get(&list_id), Some(target));
 		Ok(())

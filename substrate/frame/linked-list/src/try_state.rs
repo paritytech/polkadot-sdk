@@ -112,7 +112,7 @@ impl<T: Config> Pallet<T> {
 		let cap = stored_size.saturating_add(1) as usize;
 		let mut forward: alloc::vec::Vec<T::ItemId> = alloc::vec::Vec::with_capacity(cap);
 		let mut prev: Option<T::ItemId> = None;
-		let mut cursor = Some(head_id.clone());
+		let mut cursor = Some(head_id);
 		let mut last_priority: Option<T::Priority> = None;
 		while let Some(cur) = cursor {
 			if forward.len() >= cap {
@@ -123,16 +123,16 @@ impl<T: Config> Pallet<T> {
 			if node.prev != prev {
 				return Err("forward walk: node.prev != expected".into());
 			}
-			if let Some(p) = node.prev.as_ref() {
-				if p == &cur {
+			if let Some(p) = node.prev {
+				if p == cur {
 					return Err("self-loop on prev".into());
 				}
 				if !ListNodes::<T>::contains_key(list_id, p) {
 					return Err("prev points to missing node".into());
 				}
 			}
-			if let Some(n) = node.next.as_ref() {
-				if n == &cur {
+			if let Some(n) = node.next {
+				if n == cur {
 					return Err("self-loop on next".into());
 				}
 				if !ListNodes::<T>::contains_key(list_id, n) {
@@ -145,7 +145,7 @@ impl<T: Config> Pallet<T> {
 				}
 			}
 			last_priority = Some(node.priority);
-			forward.push(cur.clone());
+			forward.push(cur);
 			prev = Some(cur);
 			cursor = node.next;
 		}

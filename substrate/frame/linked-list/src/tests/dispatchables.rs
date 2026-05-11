@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{mock::*, Error, Event};
+use crate::{mock::*, Error, Event, Position};
 use frame::testing_prelude::{assert_noop, assert_ok};
 
 #[test]
@@ -23,7 +23,12 @@ fn reprioritize_no_op_when_priority_unchanged() {
 	build_and_execute(|| {
 		insert(1, 100, 50);
 		set_real_priority(1, 100, 50);
-		assert_ok!(LinkedList::reprioritize(RuntimeOrigin::signed(1), 1, 100, None, None));
+		assert_ok!(LinkedList::reprioritize(
+			RuntimeOrigin::signed(1),
+			1,
+			100,
+			Position::endpoints_only()
+		));
 		assert_eq!(dump(1), vec![(100, 50)]);
 	});
 }
@@ -37,7 +42,7 @@ fn reprioritize_repositions_when_priority_changes() {
 		// Real priority for item 2 just rose to 99; reprioritize should move it to head.
 		set_real_priority(1, 2, 99);
 		// Hint: target's new neighbors (None, Some(1)): head insertion.
-		assert_ok!(LinkedList::reprioritize(RuntimeOrigin::signed(1), 1, 2, None, Some(1)));
+		assert_ok!(LinkedList::reprioritize(RuntimeOrigin::signed(1), 1, 2, Position::at_head(1)));
 		assert_eq!(dump(1), vec![(2, 99), (1, 90), (3, 10)]);
 		System::assert_has_event(
 			Event::Reprioritized { list_id: 1, item: 2, new_priority: 99 }.into(),
@@ -50,7 +55,7 @@ fn reprioritize_unknown_item_errors() {
 	build_and_execute(|| {
 		// No priority in StaticPriorities → PriorityProvider returns None.
 		assert_noop!(
-			LinkedList::reprioritize(RuntimeOrigin::signed(1), 1, 100, None, None),
+			LinkedList::reprioritize(RuntimeOrigin::signed(1), 1, 100, Position::endpoints_only()),
 			Error::<Test>::ItemNotFound
 		);
 	});
@@ -63,7 +68,12 @@ fn reprioritize_removes_existing_item_when_priority_disappears() {
 		insert(1, 2, 50);
 		insert(1, 3, 10);
 
-		assert_ok!(LinkedList::reprioritize(RuntimeOrigin::signed(1), 1, 2, None, None));
+		assert_ok!(LinkedList::reprioritize(
+			RuntimeOrigin::signed(1),
+			1,
+			2,
+			Position::endpoints_only()
+		));
 
 		assert_eq!(dump(1), vec![(1, 90), (3, 10)]);
 		System::assert_has_event(Event::ItemRemoved { list_id: 1, item: 2 }.into());
@@ -79,7 +89,7 @@ fn reprioritize_with_stale_hint_within_budget_succeeds() {
 		// Real priority for item 2 just rose to 99; the caller's hint is stale
 		// (tail region) but the correct head position is within budget.
 		set_real_priority(1, 2, 99);
-		assert_ok!(LinkedList::reprioritize(RuntimeOrigin::signed(1), 1, 2, Some(3), None));
+		assert_ok!(LinkedList::reprioritize(RuntimeOrigin::signed(1), 1, 2, Position::at_tail(3)));
 		assert_eq!(dump(1), vec![(2, 99), (1, 90), (3, 10)]);
 	});
 }
@@ -98,7 +108,12 @@ fn reprioritize_with_hint_beyond_budget_errors() {
 		let tail = u64::from(chain_len);
 		set_real_priority(1, tail, 200);
 		assert_noop!(
-			LinkedList::reprioritize(RuntimeOrigin::signed(1), 1, tail, Some(tail - 1), None),
+			LinkedList::reprioritize(
+				RuntimeOrigin::signed(1),
+				1,
+				tail,
+				Position::at_tail(tail - 1)
+			),
 			Error::<Test>::InvalidPositionHints
 		);
 	});

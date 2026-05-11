@@ -17,7 +17,7 @@
 
 //! Implementation of the [`Pallet::reprioritize`] dispatchable.
 
-use crate::{pallet::*, weights::WeightInfo, PriorityProvider, SortedListInterface};
+use crate::{pallet::*, weights::WeightInfo, Position, PriorityProvider, SortedListInterface};
 use frame::prelude::*;
 
 impl<T: Config> Pallet<T> {
@@ -25,14 +25,13 @@ impl<T: Config> Pallet<T> {
 	/// and reposition it via [`SortedListInterface::re_insert`]. Returns the
 	/// actual dispatch weight to report for refunding.
 	pub(crate) fn do_reprioritize(
-		list_id: &T::ListId,
-		item: &T::ItemId,
-		hint_prev: Option<T::ItemId>,
-		hint_next: Option<T::ItemId>,
+		list_id: T::ListId,
+		item: T::ItemId,
+		hint: Position<T::ItemId>,
 	) -> Result<Weight, Error<T>> {
 		let stored = ListNodes::<T>::get(list_id, item).ok_or(Error::<T>::ItemNotFound)?;
-		let Some(real_priority) = T::PriorityProvider::priority(list_id, item) else {
-			Pallet::<T>::remove(list_id, item)?;
+		let Some(real_priority) = T::PriorityProvider::priority(&list_id, &item) else {
+			Self::remove(&list_id, &item)?;
 			return Ok(T::WeightInfo::reprioritize(T::MaxHintRepairSteps::get()));
 		};
 
@@ -46,19 +45,9 @@ impl<T: Config> Pallet<T> {
 			real_priority,
 		);
 
-		let steps = Pallet::<T>::re_insert(
-			list_id.clone(),
-			item.clone(),
-			real_priority,
-			hint_prev,
-			hint_next,
-		)?;
+		let steps = Self::re_insert(list_id, item, real_priority, hint)?;
 
-		Pallet::<T>::deposit_event(Event::Reprioritized {
-			list_id: list_id.clone(),
-			item: item.clone(),
-			new_priority: real_priority,
-		});
+		Self::deposit_event(Event::Reprioritized { list_id, item, new_priority: real_priority });
 		Ok(T::WeightInfo::reprioritize(steps))
 	}
 }
