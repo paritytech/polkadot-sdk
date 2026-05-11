@@ -579,15 +579,18 @@ where
 		self
 	}
 
-	/// Override the claim queue at this block. Takes precedence over the suite-wide
-	/// schedule for this block only — subsequent blocks revert to the schedule
-	/// unless they too set an override. Use when modelling exceptions to the
-	/// suite-wide cycle (coretime expiry, on-demand cores, scheduler edge cases).
-	pub fn with_claim_queue(
+	/// Override the claim queue at this block for a single core. Takes precedence
+	/// over the suite-wide schedule for this block only — subsequent blocks revert
+	/// to the schedule unless they too set an override. Use when modelling
+	/// exceptions to the suite-wide cycle (coretime expiry, on-demand cores,
+	/// scheduler edge cases). Call repeatedly for multi-core overrides.
+	pub fn with_claim_queue_at(
 		mut self,
-		queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+		core: CoreIndex,
+		paras: impl IntoIterator<Item = ParaId>,
 	) -> Self {
-		self.claim_queue = Some(queue);
+		let queue = self.claim_queue.get_or_insert_with(BTreeMap::new);
+		queue.insert(core, paras.into_iter().collect());
 		self
 	}
 

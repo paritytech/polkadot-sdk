@@ -95,64 +95,6 @@ impl<S: CollatorSut> World<S> {
 		peer
 	}
 
-	/// Activate a new leaf: extend the chain on top of `parent`, signal `ActiveLeaves`,
-	/// and push an `OurViewChange` covering `active_after` plus the new leaf.
-	///
-	/// Returns the new leaf's hash. The closure receives `(chain, new_leaf, leaf_number)`
-	/// and runs **between** `extend` and the `ActiveLeaves` signal — use it to install a
-	/// custom claim queue at the new leaf so the validator's first read of it sees the
-	/// configured shape. Pass `|_, _, _| {}` if defaults are fine.
-	pub fn extend_and_activate_with<F>(
-		&mut self,
-		parent: polkadot_primitives::Hash,
-		active_after: &[polkadot_primitives::Hash],
-		mutate: F,
-	) -> polkadot_primitives::Hash
-	where
-		F: FnOnce(
-			&mut crate::common::chain::ChainModel,
-			polkadot_primitives::Hash,
-			u32,
-		),
-	{
-		use polkadot_node_subsystem::{
-			messages::{CollatorProtocolMessage, NetworkBridgeEvent},
-			OverseerSignal,
-		};
-		use polkadot_node_subsystem_test_helpers::mock::new_leaf;
-		use polkadot_overseer::ActiveLeavesUpdate;
-
-		let (new_leaf_hash, new_leaf_n) = {
-			let mut chain = self.base.chain.lock();
-			let h = chain.extend(parent);
-			let n = chain.block(&h).expect("just extended").number;
-			mutate(&mut *chain, h, n);
-			(h, n)
-		};
-
-		self.base.sim.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
-			new_leaf(new_leaf_hash, new_leaf_n),
-		)));
-
-		// OurViewChange covering the new active leaf set.
-		let view_leaves: Vec<_> = active_after.iter().chain(std::iter::once(&new_leaf_hash))
-			.copied()
-			.collect();
-		self.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
-			NetworkBridgeEvent::OurViewChange(
-				polkadot_node_network_protocol::OurView::new(view_leaves, 0),
-			),
-		));
-
-		// Update the World's leaves view.
-		self.base.leaves.push(polkadot_subsystem_test_sim::world_base::LeafRef {
-			hash: new_leaf_hash,
-			number: new_leaf_n,
-		});
-
-		new_leaf_hash
-	}
-
 	/// Connect a peer without declaring. Useful for bad-signature tests, undeclared-eviction
 	/// tests, and any other scenario that wants to drive the connect/declare boundary by
 	/// hand.

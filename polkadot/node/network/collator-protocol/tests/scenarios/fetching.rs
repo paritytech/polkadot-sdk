@@ -175,21 +175,18 @@ use crate::{
 };
 use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CandidateHash, CoreIndex, HeadData, Hash, Id as ParaId};
-use std::{
-	collections::{BTreeMap, VecDeque},
-	time::Duration,
-};
+use std::time::Duration;
 
 const PARA_A: ParaId = ParaId::new(2000);
 const PARA_B: ParaId = ParaId::new(2001);
 
 fn shared_core_world<S: CollatorSut>() -> crate::common::world::World<S> {
-	let mut leaf_q = BTreeMap::new();
-	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_B, PARA_A, PARA_A]));
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
-	w.new_block().with_claim_queue(leaf_q).activate();
+	w.new_block()
+		.with_claim_queue_at(CoreIndex(0), [PARA_B, PARA_A, PARA_A])
+		.activate();
 	w.emit_our_view_change();
 	w
 }
@@ -514,10 +511,7 @@ use crate::{
 };
 use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
-use std::{
-	collections::{BTreeMap, VecDeque},
-	time::Duration,
-};
+use std::time::Duration;
 
 const PARA_A: ParaId = ParaId::new(2000);
 const PARA_B: ParaId = ParaId::new(2001);
@@ -531,12 +525,12 @@ const PARA_B: ParaId = ParaId::new(2001);
 	bug_url = "memory:project_collator_experimental_seconded_count_lost_across_view"
 )]
 fn seconded_per_para_counted_across_whole_view<S: CollatorSut>() {
-	let mut leaf_q = BTreeMap::new();
-	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_B, PARA_A, PARA_A]));
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
-	w.new_block().with_claim_queue(leaf_q).activate();
+	w.new_block()
+		.with_claim_queue_at(CoreIndex(0), [PARA_B, PARA_A, PARA_A])
+		.activate();
 	w.emit_our_view_change();
 	let leaf0 = w.leaf();
 
@@ -552,16 +546,15 @@ fn seconded_per_para_counted_across_whole_view<S: CollatorSut>() {
 	w.full_second(&peer_a, &a1);
 	w.full_second(&peer_b, &b1);
 
-	// Activate a child of leaf0 — the view becomes {leaf0, leaf1}; previously seconded
-	// candidates remain in scope. New leaf inherits same CQ shape [B,A,A].
-	let leaf1 = w.extend_and_activate_with(leaf0, &[leaf0], |chain, h, _n| {
-		let mut q = std::collections::BTreeMap::new();
-		q.insert(
-			CoreIndex(0),
-			std::collections::VecDeque::from(vec![PARA_B, PARA_A, PARA_A]),
-		);
-		chain.set_claim_queue_at(h, q);
-	});
+	// Activate a child of leaf0; previously seconded candidates remain in scope via the
+	// new leaf's implicit view. New leaf inherits same CQ shape [B,A,A].
+	let leaf1 = w
+		.new_block()
+		.from_parent(leaf0)
+		.with_claim_queue_at(CoreIndex(0), [PARA_B, PARA_A, PARA_A])
+		.activate()
+		.hash;
+	w.emit_our_view_change();
 
 	// Advertise another A at leaf1 — this lands in CQ position 1 or 2; A still has 1
 	// remaining slot (3 total in CQ minus 1 already counted).
@@ -592,19 +585,10 @@ use crate::{
 };
 use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
-use std::{
-	collections::{BTreeMap, VecDeque},
-	time::Duration,
-};
+use std::time::Duration;
 
 const PARA_A: ParaId = ParaId::new(2000);
 const PARA_B: ParaId = ParaId::new(2001);
-
-fn cq_for(paras: [ParaId; 3]) -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
-	let mut q = BTreeMap::new();
-	q.insert(CoreIndex(0), VecDeque::from(paras.to_vec()));
-	q
-}
 
 /// KNOWN BUG (experimental): the multi-step setup (full-second across view shifts) doesn't
 /// complete on experimental — most likely the same view-shift counting bug as
@@ -620,7 +604,9 @@ fn old_claims_age_out_only_on_view_shift<S: CollatorSut>() {
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
-	w.new_block().with_claim_queue(cq_for([PARA_A, PARA_B, PARA_A])).activate();
+	w.new_block()
+		.with_claim_queue_at(CoreIndex(0), [PARA_A, PARA_B, PARA_A])
+		.activate();
 	w.emit_our_view_change();
 	let leaf2 = w.leaf();
 
@@ -641,9 +627,13 @@ fn old_claims_age_out_only_on_view_shift<S: CollatorSut>() {
 
 	// Activate leaf3 (child of leaf2) with CQ=[B,A,B]. With A=2 already seconded and
 	// only A=1 in this CQ, A's claim is full; B=1 already → CQ has 2 B slots, 1 free.
-	let leaf3 = w.extend_and_activate_with(leaf2, &[leaf2], |chain, h, _n| {
-		chain.set_claim_queue_at(h, cq_for([PARA_B, PARA_A, PARA_B]));
-	});
+	let leaf3 = w
+		.new_block()
+		.from_parent(leaf2)
+		.with_claim_queue_at(CoreIndex(0), [PARA_B, PARA_A, PARA_B])
+		.activate()
+		.hash;
+	w.emit_our_view_change();
 
 	// Per upstream, no new ads should fetch at leaf3 — across the view {leaf2, leaf3} the
 	// total seconded count for each para already meets/exceeds the CQ's per-para count.
@@ -655,9 +645,13 @@ fn old_claims_age_out_only_on_view_shift<S: CollatorSut>() {
 	// Now activate leaf4 (child of leaf3) with CQ=[A,B,A]. Per upstream, leaf2 ages out
 	// of allowed ancestry (depth > allowed_ancestry_len=2) → its seconded count drops.
 	// With leaf2 out, only leaf3+leaf4 ancestry counts — fresh budget for B and A.
-	let leaf4 = w.extend_and_activate_with(leaf3, &[leaf3], |chain, h, _n| {
-		chain.set_claim_queue_at(h, cq_for([PARA_A, PARA_B, PARA_A]));
-	});
+	let leaf4 = w
+		.new_block()
+		.from_parent(leaf3)
+		.with_claim_queue_at(CoreIndex(0), [PARA_A, PARA_B, PARA_A])
+		.activate()
+		.hash;
+	w.emit_our_view_change();
 
 	let b2 = w.candidate_at(leaf4)
 		.para(PARA_B).parent_head(b1.output_head()).head_data(HeadData(vec![11])).build();
@@ -684,10 +678,7 @@ use crate::{
 };
 use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
-use std::{
-	collections::{BTreeMap, VecDeque},
-	time::Duration,
-};
+use std::time::Duration;
 
 const PARA_A: ParaId = ParaId::new(2000);
 const PARA_B: ParaId = ParaId::new(2001);
@@ -700,12 +691,12 @@ const PARA_B: ParaId = ParaId::new(2001);
 /// see `memory:project_collator_experimental_concurrent_fetches_violation`.
 #[crate::sim_test(only = "legacy")]
 fn collation_fetching_prefer_entries_earlier_in_claim_queue<S: CollatorSut>() {
-	let mut leaf_q = BTreeMap::new();
-	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_B, PARA_A, PARA_A]));
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
-	w.new_block().with_claim_queue(leaf_q).activate();
+	w.new_block()
+		.with_claim_queue_at(CoreIndex(0), [PARA_B, PARA_A, PARA_A])
+		.activate();
 	w.emit_our_view_change();
 	let leaf = w.leaf();
 

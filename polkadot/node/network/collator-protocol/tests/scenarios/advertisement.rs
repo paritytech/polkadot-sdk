@@ -149,10 +149,7 @@ use polkadot_node_network_protocol::{
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use sc_network_types::PeerId;
-use std::{
-	collections::{BTreeMap, HashSet, VecDeque},
-	time::Duration,
-};
+use std::{collections::HashSet, time::Duration};
 
 const PARA_AH: ParaId = ASSET_HUB_PARA_ID;
 
@@ -169,12 +166,12 @@ fn ah_world<S: CollatorSut>(
 		invulnerables,
 		collator_protocol_hold_off: hold_off,
 	});
-	let mut leaf_q = BTreeMap::new();
-	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_AH, PARA_AH, PARA_AH]));
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_AH));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
-	w.new_block().with_claim_queue(leaf_q).activate();
+	w.new_block()
+		.with_claim_queue_at(CoreIndex(0), [PARA_AH, PARA_AH, PARA_AH])
+		.activate();
 	w.emit_our_view_change();
 	w
 }

@@ -202,7 +202,8 @@ fn higher_score_peer_fetches_first_fresh_peer_waits_in_penalty_box<S: CollatorSu
 	w.base.sim.advance(Duration::from_millis(50));
 
 	// --- Round 2: extend chain, activate new leaf, both peers advertise there ---
-	let leaf1 = w.extend_and_activate_with(leaf0, &[leaf0], |_chain, _h, _n| {});
+	let leaf1 = w.new_block().from_parent(leaf0).activate().hash;
+	w.emit_our_view_change();
 
 	// Capture sim_t at the moment of advertisement so we can measure the fetch latency
 	// against the leaf's activation. (The penalty box delay is measured from
@@ -319,7 +320,8 @@ fn slashed_peer_loses_priority<S: CollatorSut>() {
 	// pending_availability + candidate_events agree on the receipt + parent_rp, the bump
 	// fires for whatever peer the receipt names.
 	let peer_b = w.declared_peer(PARA, V2);
-	let leaf1 = w.extend_and_activate_with(leaf0, &[leaf0], |_chain, _h, _n| {});
+	let leaf1 = w.new_block().from_parent(leaf0).activate().hash;
+	w.emit_our_view_change();
 	let cand_b_seed = w
 		.candidate_at(leaf1)
 		.para(PARA)
@@ -344,7 +346,8 @@ fn slashed_peer_loses_priority<S: CollatorSut>() {
 	w.base.sim.advance(Duration::from_millis(50));
 
 	// --- Slash leaf: A advertises a new candidate; validator fetches; we don't respond ---
-	let leaf2 = w.extend_and_activate_with(leaf1, &[leaf0, leaf1], |_chain, _h, _n| {});
+	let leaf2 = w.new_block().from_parent(leaf1).activate().hash;
+	w.emit_our_view_change();
 	let cand_a_slash = w
 		.candidate_at(leaf2)
 		.para(PARA)
@@ -365,7 +368,8 @@ fn slashed_peer_loses_priority<S: CollatorSut>() {
 	w.base.sim.advance(Duration::from_millis(50));
 
 	// --- Outcome leaf: A and B both advertise; B wins, A waits in penalty box ---
-	let leaf3 = w.extend_and_activate_with(leaf2, &[leaf1, leaf2], |_chain, _h, _n| {});
+	let leaf3 = w.new_block().from_parent(leaf2).activate().hash;
+	w.emit_our_view_change();
 	let activation_t = w.base.sim.now_sim_t();
 	let cand_a_after = w
 		.candidate_at(leaf3)
@@ -606,10 +610,7 @@ use crate::{
 	common::world::{bootstrap_world, collator_world_config, World, WorldExt as _},
 };
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId, ValidatorIndex};
-use std::{
-	collections::{BTreeMap, VecDeque},
-	time::Duration,
-};
+use std::time::Duration;
 
 const PARA_A: ParaId = ParaId::new(100);
 const PARA_B: ParaId = ParaId::new(600);
@@ -716,15 +717,15 @@ fn cross_core_reservation_does_not_consume_other_cores_slots<S: CollatorSut>() {
 	bug_url = "github:paritytech/polkadot-sdk#11967"
 )]
 fn linear_multi_sp_same_para_capacity_not_double_counted<S: CollatorSut>() {
-	let mut leaf_q = BTreeMap::new();
-	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_A, ParaId::new(200), PARA_A]));
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
 	for _ in 0..2 {
 		w.new_block().register();
 	}
-	w.new_block().with_claim_queue(leaf_q).activate();
+	w.new_block()
+		.with_claim_queue_at(CoreIndex(0), [PARA_A, ParaId::new(200), PARA_A])
+		.activate();
 	w.emit_our_view_change();
 	let leaf = w.leaf();
 	let parent = w.ancestors()[0];
@@ -760,15 +761,15 @@ fn linear_multi_sp_same_para_capacity_not_double_counted<S: CollatorSut>() {
 	bug_url = "github:paritytech/polkadot-sdk#11967"
 )]
 fn linear_multi_sp_no_under_fetch_when_wide_and_narrow_compete<S: CollatorSut>() {
-	let mut leaf_q = BTreeMap::new();
-	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_A, ParaId::new(200), PARA_A]));
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
 	for _ in 0..2 {
 		w.new_block().register();
 	}
-	w.new_block().with_claim_queue(leaf_q).activate();
+	w.new_block()
+		.with_claim_queue_at(CoreIndex(0), [PARA_A, ParaId::new(200), PARA_A])
+		.activate();
 	w.emit_our_view_change();
 	let leaf = w.leaf();
 	let grandparent = w.ancestors()[1]; // window len 1
@@ -805,15 +806,13 @@ fn linear_multi_sp_no_under_fetch_when_wide_and_narrow_compete<S: CollatorSut>()
 	bug_url = "github:paritytech/polkadot-sdk#11967"
 )]
 fn short_claim_queue_does_not_reject_ancestor_advertisements<S: CollatorSut>() {
-	let mut leaf_q = BTreeMap::new();
-	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_A]));
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
 	for _ in 0..2 {
 		w.new_block().register();
 	}
-	w.new_block().with_claim_queue(leaf_q).activate();
+	w.new_block().with_claim_queue_at(CoreIndex(0), [PARA_A]).activate();
 	w.emit_our_view_change();
 	let grandparent = w.ancestors()[1];
 	let peer = w.declared_peer(PARA_A, V2);
@@ -851,11 +850,13 @@ fn fork_assignments_are_union_of_leaves<S: CollatorSut>() {
 	w.emit_our_view_change();
 	let fork_a = w.leaf();
 	let common = w.base.chain.lock().genesis();
-	let fork_b = w.extend_and_activate_with(common, &[fork_a], |chain, h, _n| {
-		let mut q = BTreeMap::new();
-		q.insert(CoreIndex(0), VecDeque::from(vec![PARA_Y, PARA_Y, PARA_Y]));
-		chain.set_claim_queue_at(h, q);
-	});
+	let fork_b = w
+		.new_block()
+		.from_parent(common)
+		.with_claim_queue_at(CoreIndex(0), [PARA_Y, PARA_Y, PARA_Y])
+		.activate()
+		.hash;
+	w.emit_our_view_change();
 
 	let peer_x = w.declared_peer(PARA_X, V2);
 	let peer_y = w.declared_peer(PARA_Y, V2);
@@ -890,22 +891,30 @@ fn fork_assignments_are_union_of_leaves<S: CollatorSut>() {
 	bug_url = "github:paritytech/polkadot-sdk#11967"
 )]
 fn fork_capacity_uses_longest_window_across_paths<S: CollatorSut>() {
-	let mut leaf_q = BTreeMap::new();
-	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_X, PARA_X, PARA_X]));
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
-	w.new_block().with_claim_queue(leaf_q.clone()).activate();
+	w.new_block()
+		.with_claim_queue_at(CoreIndex(0), [PARA_X, PARA_X, PARA_X])
+		.activate();
 	w.emit_our_view_change();
-	let fork_a = w.leaf();
+	let _fork_a = w.leaf();
 	let common = w.base.chain.lock().genesis();
 	// fork_b at depth 2 from common.
-	let fork_b_mid = w.extend_and_activate_with(common, &[fork_a], |chain, h, _n| {
-		chain.set_claim_queue_at(h, leaf_q.clone());
-	});
-	let fork_b_tip = w.extend_and_activate_with(fork_b_mid, &[fork_a, fork_b_mid], |chain, h, _n| {
-		chain.set_claim_queue_at(h, leaf_q.clone());
-	});
+	let fork_b_mid = w
+		.new_block()
+		.from_parent(common)
+		.with_claim_queue_at(CoreIndex(0), [PARA_X, PARA_X, PARA_X])
+		.activate()
+		.hash;
+	w.emit_our_view_change();
+	let fork_b_tip = w
+		.new_block()
+		.from_parent(fork_b_mid)
+		.with_claim_queue_at(CoreIndex(0), [PARA_X, PARA_X, PARA_X])
+		.activate()
+		.hash;
+	w.emit_our_view_change();
 	let _ = fork_b_tip;
 
 	let peer_a = w.declared_peer(PARA_X, V2);
@@ -934,18 +943,22 @@ fn fork_capacity_uses_longest_window_across_paths<S: CollatorSut>() {
 	bug_url = "github:paritytech/polkadot-sdk#11967"
 )]
 fn fork_shared_sp_capacity_not_double_counted<S: CollatorSut>() {
-	let mut leaf_q = BTreeMap::new();
-	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_X, PARA_X, PARA_X]));
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
-	w.new_block().with_claim_queue(leaf_q.clone()).activate();
+	w.new_block()
+		.with_claim_queue_at(CoreIndex(0), [PARA_X, PARA_X, PARA_X])
+		.activate();
 	w.emit_our_view_change();
-	let fork_a = w.leaf();
+	let _fork_a = w.leaf();
 	let common = w.base.chain.lock().genesis();
-	let _fork_b = w.extend_and_activate_with(common, &[fork_a], |chain, h, _n| {
-		chain.set_claim_queue_at(h, leaf_q);
-	});
+	let _fork_b = w
+		.new_block()
+		.from_parent(common)
+		.with_claim_queue_at(CoreIndex(0), [PARA_X, PARA_X, PARA_X])
+		.activate()
+		.hash;
+	w.emit_our_view_change();
 
 	let peers: Vec<_> = (0..4).map(|_| w.declared_peer(PARA_X, V2)).collect();
 	let cands: Vec<_> = (0..4)
@@ -982,11 +995,13 @@ fn fork_drop_reclaims_capacity_and_disconnects_peers<S: CollatorSut>() {
 	w.emit_our_view_change();
 	let fork_a = w.leaf();
 	let common = w.base.chain.lock().genesis();
-	let fork_b = w.extend_and_activate_with(common, &[fork_a], |chain, h, _n| {
-		let mut q = BTreeMap::new();
-		q.insert(CoreIndex(0), VecDeque::from(vec![PARA_Y, PARA_Y, PARA_Y]));
-		chain.set_claim_queue_at(h, q);
-	});
+	let fork_b = w
+		.new_block()
+		.from_parent(common)
+		.with_claim_queue_at(CoreIndex(0), [PARA_Y, PARA_Y, PARA_Y])
+		.activate()
+		.hash;
+	w.emit_our_view_change();
 
 	let peer_y = w.declared_peer(PARA_Y, V2);
 
@@ -1024,10 +1039,7 @@ use polkadot_node_subsystem::OverseerSignal;
 use polkadot_primitives::{
 	CandidateEvent, CoreIndex, GroupIndex, HeadData, Id as ParaId,
 };
-use std::{
-	collections::{BTreeMap, VecDeque},
-	time::Duration,
-};
+use std::time::Duration;
 
 const PARA_A: ParaId = ParaId::new(100);
 const PARA_OTHER: ParaId = ParaId::new(200);
@@ -1039,13 +1051,13 @@ const PARA_OTHER: ParaId = ParaId::new(200);
 #[crate::sim_test(only = "experimental", bug_on = "experimental",
 	bug_url = "github:paritytech/polkadot-sdk#11980")]
 fn high_rep_peer_at_ancestor_wins_over_low_rep_at_leaf<S: CollatorSut>() {
-	let mut leaf_q = BTreeMap::new();
-	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_A, PARA_OTHER, PARA_OTHER]));
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
 	w.new_block().activate();
-	w.new_block().with_claim_queue(leaf_q).activate();
+	w.new_block()
+		.with_claim_queue_at(CoreIndex(0), [PARA_A, PARA_OTHER, PARA_OTHER])
+		.activate();
 	w.emit_our_view_change();
 	let leaf0 = w.leaf();
 	let parent = w.ancestors()[0];
@@ -1079,11 +1091,13 @@ fn high_rep_peer_at_ancestor_wins_over_low_rep_at_leaf<S: CollatorSut>() {
 	w.base.sim.advance(Duration::from_millis(50));
 
 	// New leaf for the arbitration round; rebuild leaf-q on the new leaf too.
-	let leaf1 = w.extend_and_activate_with(leaf0, &[leaf0], |chain, h, _n| {
-		let mut q = BTreeMap::new();
-		q.insert(CoreIndex(0), VecDeque::from(vec![PARA_A, PARA_OTHER, PARA_OTHER]));
-		chain.set_claim_queue_at(h, q);
-	});
+	let leaf1 = w
+		.new_block()
+		.from_parent(leaf0)
+		.with_claim_queue_at(CoreIndex(0), [PARA_A, PARA_OTHER, PARA_OTHER])
+		.activate()
+		.hash;
+	w.emit_our_view_change();
 	let parent_of_leaf1 = leaf0;
 	let _ = parent;
 
@@ -1248,7 +1262,8 @@ fn v2_co_carrier_rep_arbitration_picks_high_rep_peer<S: CollatorSut>() {
 	w.base.sim.advance(Duration::from_millis(50));
 
 	// New leaf for the arbitration round.
-	let leaf1 = w.extend_and_activate_with(leaf0, &[leaf0], |_chain, _h, _n| {});
+	let leaf1 = w.new_block().from_parent(leaf0).activate().hash;
+	w.emit_our_view_change();
 	let peer_low = w.declared_peer(PARA, V2);
 
 	// Both carriers offer the same new candidate.

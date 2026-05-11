@@ -26,10 +26,7 @@ use crate::{
 };
 use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
-use std::{
-	collections::{BTreeMap, VecDeque},
-	time::Duration,
-};
+use std::time::Duration;
 
 const PARA_A: ParaId = ParaId::new(2000);
 const PARA_B: ParaId = ParaId::new(999);
@@ -45,15 +42,13 @@ fn world_with_leaf_cq<S: CollatorSut>(
 	n_ancestors: usize,
 	cq: [ParaId; 3],
 ) -> crate::common::world::World<S> {
-	let mut leaf_q = BTreeMap::new();
-	leaf_q.insert(CoreIndex(0), VecDeque::from(cq.to_vec()));
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_B));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
 	for _ in 0..n_ancestors {
 		w.new_block().register();
 	}
-	w.new_block().with_claim_queue(leaf_q).activate();
+	w.new_block().with_claim_queue_at(CoreIndex(0), cq).activate();
 	w.emit_our_view_change();
 	w
 }
@@ -267,10 +262,7 @@ use crate::{
 };
 use crate::common::world::WorldExt as _;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
-use std::{
-	collections::{BTreeMap, VecDeque},
-	time::Duration,
-};
+use std::time::Duration;
 
 const PARA_A: ParaId = ParaId::new(100);
 const PARA_OTHER: ParaId = ParaId::new(200);
@@ -280,15 +272,12 @@ const PARA_OTHER: ParaId = ParaId::new(200);
 /// para A at index 2 must accept an advertisement at the leaf.
 #[crate::sim_test]
 fn last_claim_queue_position_accepted_at_leaf<S: CollatorSut>() {
-	let mut leaf_q = BTreeMap::new();
-	leaf_q.insert(
-		CoreIndex(0),
-		VecDeque::from(vec![PARA_OTHER, PARA_OTHER, PARA_A]),
-	);
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
-	w.new_block().with_claim_queue(leaf_q).activate();
+	w.new_block()
+		.with_claim_queue_at(CoreIndex(0), [PARA_OTHER, PARA_OTHER, PARA_A])
+		.activate();
 	w.emit_our_view_change();
 
 	let peer = w.declared_peer(PARA_A, V2);
@@ -301,12 +290,12 @@ fn last_claim_queue_position_accepted_at_leaf<S: CollatorSut>() {
 /// advertisement at the same RP for the same para must NOT trigger a fetch — capacity full.
 #[crate::sim_test]
 fn seconded_candidates_consume_capacity<S: CollatorSut>() {
-	let mut leaf_q = BTreeMap::new();
-	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_A, PARA_OTHER, PARA_A]));
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
-	w.new_block().with_claim_queue(leaf_q).activate();
+	w.new_block()
+		.with_claim_queue_at(CoreIndex(0), [PARA_A, PARA_OTHER, PARA_A])
+		.activate();
 	w.emit_our_view_change();
 	let leaf = w.leaf();
 
@@ -353,13 +342,13 @@ fn seconded_candidates_consume_capacity<S: CollatorSut>() {
 	bug_url = "memory:project_collator_experimental_no_ancestor_rp_advertise"
 )]
 fn non_obsolete_position_accepted<S: CollatorSut>() {
-	let mut leaf_q = BTreeMap::new();
-	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_A, PARA_OTHER, PARA_A]));
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
 	w.new_block().register();
-	w.new_block().with_claim_queue(leaf_q).activate();
+	w.new_block()
+		.with_claim_queue_at(CoreIndex(0), [PARA_A, PARA_OTHER, PARA_A])
+		.activate();
 	w.emit_our_view_change();
 	let parent = w.ancestors()[0];
 	let peer = w.declared_peer(PARA_A, V2);
@@ -378,16 +367,13 @@ fn non_obsolete_position_accepted<S: CollatorSut>() {
 /// green.
 #[crate::sim_test]
 fn obsolete_positions_rejected<S: CollatorSut>() {
-	let mut leaf_q = BTreeMap::new();
-	leaf_q.insert(
-		CoreIndex(0),
-		VecDeque::from(vec![PARA_OTHER, PARA_OTHER, PARA_A]),
-	);
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
 	w.new_block().register();
-	w.new_block().with_claim_queue(leaf_q).activate();
+	w.new_block()
+		.with_claim_queue_at(CoreIndex(0), [PARA_OTHER, PARA_OTHER, PARA_A])
+		.activate();
 	w.emit_our_view_change();
 	let parent = w.ancestors()[0];
 	let peer = w.declared_peer(PARA_A, V2);
@@ -401,12 +387,12 @@ fn obsolete_positions_rejected<S: CollatorSut>() {
 /// `prospective_candidate`, so the validator can't tell them apart and serializes).
 #[crate::sim_test]
 fn v1_single_shot_per_sp_para_round<S: CollatorSut>() {
-	let mut leaf_q = BTreeMap::new();
-	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_A, PARA_A, PARA_OTHER]));
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
-	w.new_block().with_claim_queue(leaf_q).activate();
+	w.new_block()
+		.with_claim_queue_at(CoreIndex(0), [PARA_A, PARA_A, PARA_OTHER])
+		.activate();
 	w.emit_our_view_change();
 
 	let peer_a = w.declared_peer(PARA_A, V1);
