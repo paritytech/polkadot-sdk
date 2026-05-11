@@ -663,9 +663,10 @@ where
 	///
 	/// Returns the collector alongside an asynchronous task. The task shall be polled by caller.
 	pub fn new_with_worker(metrics: MetricsLink) -> (Self, EventsMetricsCollectorTask) {
-		const QUEUE_WARN_SIZE: usize = 100_000;
+		const EVENT_METRICS_COLLECTOR_CHANNEL: mpsc::ChannelPolicy =
+			mpsc::ChannelPolicy::bounded("txpool-event-metrics-collector", 100_000);
 		let (metrics_message_sink, rx) =
-			mpsc::tracing_unbounded("txpool-event-metrics-collector", QUEUE_WARN_SIZE);
+			mpsc::tracing_unbounded_with_policy(EVENT_METRICS_COLLECTOR_CHANNEL);
 		let task = Self::task(rx, metrics);
 
 		(Self { metrics_message_sink: Some(metrics_message_sink) }, task.boxed())

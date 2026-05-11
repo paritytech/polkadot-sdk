@@ -49,7 +49,9 @@ use futures_timer::Delay;
 use litep2p::protocol::notification::NotificationError;
 
 use sc_network_types::PeerId;
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -65,6 +67,8 @@ use std::{
 
 /// Logging target for the file.
 const LOG_TARGET: &str = "sub-libp2p::peerset";
+const PEERSET_PROTOCOL_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc-peerset-protocol", 100_000);
 
 /// Default backoff for connection re-attempts.
 const DEFAULT_BACKOFF: Duration = Duration::from_secs(5);
@@ -413,7 +417,7 @@ impl Peerset {
 		connected_peers: Arc<AtomicUsize>,
 		peerstore_handle: Arc<dyn PeerStoreProvider>,
 	) -> (Self, TracingUnboundedSender<PeersetCommand>) {
-		let (cmd_tx, cmd_rx) = tracing_unbounded("mpsc-peerset-protocol", 100_000);
+		let (cmd_tx, cmd_rx) = tracing_unbounded_with_policy(PEERSET_PROTOCOL_CHANNEL);
 		let peers = reserved_peers
 			.iter()
 			.map(|peer| (*peer, PeerState::Disconnected))

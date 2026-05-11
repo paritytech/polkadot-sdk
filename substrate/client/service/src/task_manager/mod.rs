@@ -29,7 +29,9 @@ use prometheus_endpoint::{
 	exponential_buckets, register, CounterVec, HistogramOpts, HistogramVec, Opts, PrometheusError,
 	Registry, U64,
 };
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
 use std::{
 	collections::{hash_map::Entry, HashMap},
 	panic,
@@ -46,6 +48,8 @@ mod tests;
 
 /// Default task group name.
 pub const DEFAULT_GROUP_NAME: &str = "default";
+const ESSENTIAL_TASKS_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_essential_tasks", 100);
 
 /// The name of a group a task belongs to.
 ///
@@ -345,7 +349,7 @@ impl TaskManager {
 
 		// A side-channel for essential tasks to communicate shutdown.
 		let (essential_failed_tx, essential_failed_rx) =
-			tracing_unbounded("mpsc_essential_tasks", 100);
+			tracing_unbounded_with_policy(ESSENTIAL_TASKS_CHANNEL);
 
 		let metrics = prometheus_registry.map(Metrics::register).transpose()?;
 

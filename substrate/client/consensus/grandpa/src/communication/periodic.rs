@@ -28,11 +28,16 @@ use std::{
 };
 
 use sc_network_types::PeerId;
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 use super::gossip::{GossipMessage, NeighborPacket};
 use crate::LOG_TARGET;
+
+const GRANDPA_NEIGHBOR_PACKET_WORKER_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_grandpa_neighbor_packet_worker", 100_000);
 
 /// A sender used to send neighbor packets to a background job.
 #[derive(Clone)]
@@ -68,10 +73,10 @@ impl<B: BlockT> Unpin for NeighborPacketWorker<B> {}
 
 impl<B: BlockT> NeighborPacketWorker<B> {
 	pub(super) fn new(rebroadcast_period: Duration) -> (Self, NeighborPacketSender<B>) {
-		let (tx, rx) = tracing_unbounded::<(Vec<PeerId>, NeighborPacket<NumberFor<B>>)>(
-			"mpsc_grandpa_neighbor_packet_worker",
-			100_000,
-		);
+		let (tx, rx) = tracing_unbounded_with_policy::<(
+			Vec<PeerId>,
+			NeighborPacket<NumberFor<B>>,
+		)>(GRANDPA_NEIGHBOR_PACKET_WORKER_CHANNEL);
 		let delay = Delay::new(rebroadcast_period);
 
 		(

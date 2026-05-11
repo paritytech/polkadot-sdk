@@ -95,7 +95,9 @@ use sc_network_common::role::ObservedRole;
 use sc_network_gossip::{MessageIntent, ValidatorContext};
 use sc_network_types::PeerId;
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG};
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
 use sp_consensus_grandpa::AuthorityId;
 use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
 
@@ -113,6 +115,8 @@ const CATCH_UP_PROCESS_TIMEOUT: Duration = Duration::from_secs(30);
 /// Maximum number of rounds we are behind a peer before issuing a
 /// catch up request.
 const CATCH_UP_THRESHOLD: u64 = 2;
+const GRANDPA_GOSSIP_VALIDATOR_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_grandpa_gossip_validator", 100_000);
 
 /// The total round duration measured in periods of gossip duration:
 /// 2 gossip durations for prevote timer
@@ -1346,7 +1350,7 @@ impl<Block: BlockT> GossipValidator<Block> {
 			None => None,
 		};
 
-		let (tx, rx) = tracing_unbounded("mpsc_grandpa_gossip_validator", 100_000);
+		let (tx, rx) = tracing_unbounded_with_policy(GRANDPA_GOSSIP_VALIDATOR_CHANNEL);
 		let val = GossipValidator {
 			inner: parking_lot::RwLock::new(Inner::new(config)),
 			set_state,

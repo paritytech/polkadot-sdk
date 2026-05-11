@@ -341,11 +341,10 @@ where
 	/// this stream.
 	fn event_stream() -> (StreamOfDropped<C>, Controller<Command<C>>) {
 		// note: 64 allows to avoid warning messages during execution of unit tests.
-		const CHANNEL_SIZE: usize = 64;
-		let (sender, command_receiver) = sc_utils::mpsc::tracing_unbounded::<Command<C>>(
-			"tx-pool-dropped-watcher-cmd-stream",
-			CHANNEL_SIZE,
-		);
+		const DROPPED_WATCHER_COMMAND_CHANNEL: mpsc::ChannelPolicy =
+			mpsc::ChannelPolicy::bounded("tx-pool-dropped-watcher-cmd-stream", 64);
+		let (sender, command_receiver) =
+			mpsc::tracing_unbounded_with_policy::<Command<C>>(DROPPED_WATCHER_COMMAND_CHANNEL);
 
 		let ctx = Self {
 			stream_map: StreamMap::new(),

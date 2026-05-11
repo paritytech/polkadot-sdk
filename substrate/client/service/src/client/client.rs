@@ -58,7 +58,9 @@ use sp_blockchain::{
 };
 use sp_consensus::{BlockOrigin, BlockStatus, Error as ConsensusError};
 
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedSender,
+};
 use sp_core::{
 	storage::{ChildInfo, ChildType, PrefixedStorageKey, StorageChild, StorageData, StorageKey},
 	traits::{CallContext, SpawnNamed},
@@ -90,6 +92,15 @@ use super::call_executor::LocalCallExecutor;
 use sp_core::traits::CodeExecutor;
 
 type NotificationSinks<T> = Mutex<Vec<TracingUnboundedSender<T>>>;
+
+const IMPORT_NOTIFICATION_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_import_notification_stream", 100_000);
+const EVERY_IMPORT_NOTIFICATION_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_every_import_notification_stream", 100_000);
+const FINALITY_NOTIFICATION_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_finality_notification_stream", 100_000);
+const NOTIFICATION_PINNING_WORKER_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("notification-pinning-worker-channel", 10_000);
 
 /// Substrate Client
 pub struct Client<B, E, Block, RA>
@@ -399,10 +410,10 @@ where
 			backend.commit_operation(op)?;
 		}
 
-		let (unpin_worker_sender, rx) = tracing_unbounded::<UnpinWorkerMessage<Block>>(
-			"notification-pinning-worker-channel",
-			10_000,
-		);
+		let (unpin_worker_sender, rx) =
+			tracing_unbounded_with_policy::<UnpinWorkerMessage<Block>>(
+				NOTIFICATION_PINNING_WORKER_CHANNEL,
+			);
 		let unpin_worker = NotificationPinningWorker::new(rx, backend.clone());
 		spawn_handle.spawn("notification-pinning-worker", None, Box::pin(unpin_worker.run()));
 		let code_provider = CodeProvider::new(&config, executor.clone(), backend.clone())?;
@@ -1933,19 +1944,19 @@ where
 {
 	/// Get block import event stream.
 	fn import_notification_stream(&self) -> ImportNotifications<Block> {
-		let (sink, stream) = tracing_unbounded("mpsc_import_notification_stream", 100_000);
+		let (sink, stream) = tracing_unbounded_with_policy(IMPORT_NOTIFICATION_CHANNEL);
 		self.import_notification_sinks.lock().push(sink);
 		stream
 	}
 
 	fn every_import_notification_stream(&self) -> ImportNotifications<Block> {
-		let (sink, stream) = tracing_unbounded("mpsc_every_import_notification_stream", 100_000);
+		let (sink, stream) = tracing_unbounded_with_policy(EVERY_IMPORT_NOTIFICATION_CHANNEL);
 		self.every_import_notification_sinks.lock().push(sink);
 		stream
 	}
 
 	fn finality_notification_stream(&self) -> FinalityNotifications<Block> {
-		let (sink, stream) = tracing_unbounded("mpsc_finality_notification_stream", 100_000);
+		let (sink, stream) = tracing_unbounded_with_policy(FINALITY_NOTIFICATION_CHANNEL);
 		self.finality_notification_sinks.lock().push(sink);
 		stream
 	}

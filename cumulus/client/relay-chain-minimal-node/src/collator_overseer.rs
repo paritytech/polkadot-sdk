@@ -25,11 +25,14 @@ use polkadot_service::overseer::{collator_overseer_builder, OverseerGenArgs};
 
 use sc_network::{request_responses::IncomingRequest, service::traits::NetworkService};
 use sc_service::TaskManager;
-use sc_utils::mpsc::tracing_unbounded;
+use sc_utils::mpsc::{tracing_unbounded_with_policy, ChannelPolicy};
 
 use cumulus_relay_chain_interface::RelayChainError;
 
 use crate::BlockChainRpcClient;
+
+const COLLATOR_DUMMY_UNPIN_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("does-not-matter", 42);
 
 fn build_overseer(
 	connector: OverseerConnector,
@@ -104,7 +107,7 @@ async fn forward_collator_events(
 	let mut finality = client.finality_notification_stream().await?.fuse();
 	let mut imports = client.import_notification_stream().await?.fuse();
 	// Collators do no need to pin any specific blocks
-	let (dummy_sink, _) = tracing_unbounded("does-not-matter", 42);
+	let (dummy_sink, _) = tracing_unbounded_with_policy(COLLATOR_DUMMY_UNPIN_CHANNEL);
 	let dummy_unpin_handle = UnpinHandle::new(Default::default(), dummy_sink);
 
 	loop {

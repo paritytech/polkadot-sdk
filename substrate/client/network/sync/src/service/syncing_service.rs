@@ -25,7 +25,7 @@ use sc_consensus::{
 	BlockImportError, BlockImportStatus, JustificationImportResult, JustificationSyncLink, Link,
 };
 use sc_network::{NetworkBlock, NetworkSyncForkRequest};
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
+use sc_utils::mpsc::{tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedSender};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 use std::{
@@ -212,7 +212,7 @@ impl<B: BlockT> Link<B> for SyncingService<B> {
 impl<B: BlockT> SyncEventStream for SyncingService<B> {
 	/// Get syncing event stream.
 	fn event_stream(&self, name: &'static str) -> Pin<Box<dyn Stream<Item = SyncEvent> + Send>> {
-		let (tx, rx) = tracing_unbounded(name, 100_000);
+		let (tx, rx) = tracing_unbounded_with_policy(ChannelPolicy::bounded(name, 100_000));
 		let _ = self.tx.unbounded_send(ToServiceCommand::EventStream(tx));
 		Box::pin(rx)
 	}

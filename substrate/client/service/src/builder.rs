@@ -84,7 +84,9 @@ use sc_rpc_spec_v2::{
 use sc_telemetry::{telemetry, ConnectionMessage, Telemetry, TelemetryHandle, SUBSTRATE_INFO};
 use sc_tracing::block::TracingExecuteBlock;
 use sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool};
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedSender,
+};
 use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::block_validation::{
@@ -103,6 +105,7 @@ use std::{
 /// Cap the maximum number of blocks advertized to IPFS to two weeks at 6-second block time.
 /// Block pruning depth will be used if it is shorter.
 const IPFS_MAX_BLOCKS: u32 = 201600;
+const SYSTEM_RPC_CHANNEL: ChannelPolicy = ChannelPolicy::bounded("mpsc_system_rpc", 10_000);
 
 /// Full client type.
 pub type TFullClient<TBl, TRtApi, TExec> =
@@ -1320,7 +1323,7 @@ where
 		async move { import_queue.run(sync_service.as_ref()).await }
 	});
 
-	let (system_rpc_tx, system_rpc_rx) = tracing_unbounded("mpsc_system_rpc", 10_000);
+	let (system_rpc_tx, system_rpc_rx) = tracing_unbounded_with_policy(SYSTEM_RPC_CHANNEL);
 	spawn_handle.spawn(
 		"system-rpc-handler",
 		Some("networking"),

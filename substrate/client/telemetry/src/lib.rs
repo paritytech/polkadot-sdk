@@ -40,7 +40,9 @@ use futures::{channel::mpsc, prelude::*};
 use libp2p::Multiaddr;
 use log::{error, warn};
 use parking_lot::Mutex;
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
 use serde::Serialize;
 use std::{
 	collections::{
@@ -52,6 +54,9 @@ use std::{
 
 pub use log;
 pub use serde_json;
+
+const TELEMETRY_REGISTER_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_telemetry_register", 10_000);
 
 mod endpoints;
 mod error;
@@ -165,7 +170,7 @@ impl TelemetryWorker {
 		let _transport = initialize_transport()?;
 		let (message_sender, message_receiver) = mpsc::channel(buffer_size);
 		let (register_sender, register_receiver) =
-			tracing_unbounded("mpsc_telemetry_register", 10_000);
+			tracing_unbounded_with_policy(TELEMETRY_REGISTER_CHANNEL);
 
 		Ok(Self {
 			message_receiver,

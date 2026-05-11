@@ -40,7 +40,9 @@
 
 use crate::import_queue::{JustificationImportResult, Link, RuntimeOrigin};
 use futures::prelude::*;
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 use std::{
 	pin::Pin,
@@ -55,7 +57,10 @@ use super::BlockImportResult;
 pub fn buffered_link<B: BlockT>(
 	queue_size_warning: usize,
 ) -> (BufferedLinkSender<B>, BufferedLinkReceiver<B>) {
-	let (tx, rx) = tracing_unbounded("mpsc_buffered_link", queue_size_warning);
+	let (tx, rx) = tracing_unbounded_with_policy(ChannelPolicy::bounded(
+		"mpsc_buffered_link",
+		queue_size_warning,
+	));
 	let tx = BufferedLinkSender { tx };
 	let rx = BufferedLinkReceiver { rx: rx.fuse() };
 	(tx, rx)

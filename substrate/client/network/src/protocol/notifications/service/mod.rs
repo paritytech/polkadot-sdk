@@ -39,7 +39,9 @@ use parking_lot::Mutex;
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
 
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
@@ -53,6 +55,7 @@ const LOG_TARGET: &str = "sub-libp2p::notification::service";
 
 /// Default command queue size.
 const COMMAND_QUEUE_SIZE: usize = 64;
+const EVENT_QUEUE_WARNING: usize = 100_000;
 
 /// Type representing subscribers of a notification protocol.
 type Subscribers = Arc<Mutex<Vec<TracingUnboundedSender<InnerNotificationEvent>>>>;
@@ -349,7 +352,10 @@ impl NotificationService for NotificationHandle {
 	fn clone(&mut self) -> Result<Box<dyn NotificationService>, ()> {
 		let mut subscribers = self.subscribers.lock();
 
-		let (event_tx, event_rx) = tracing_unbounded(self.rx.name(), 100_000);
+		let (event_tx, event_rx) = tracing_unbounded_with_policy(ChannelPolicy::bounded(
+			self.rx.name(),
+			EVENT_QUEUE_WARNING,
+		));
 		subscribers.push(event_tx);
 
 		Ok(Box::new(NotificationHandle {
@@ -637,8 +643,10 @@ pub fn notification_service(
 ) -> (ProtocolHandlePair, Box<dyn NotificationService>) {
 	let (cmd_tx, cmd_rx) = mpsc::channel(COMMAND_QUEUE_SIZE);
 
-	let (event_tx, event_rx) =
-		tracing_unbounded(metric_label_for_protocol(&protocol).leak(), 100_000);
+	let (event_tx, event_rx) = tracing_unbounded_with_policy(ChannelPolicy::bounded(
+		metric_label_for_protocol(&protocol).leak(),
+		EVENT_QUEUE_WARNING,
+	));
 	let subscribers = Arc::new(Mutex::new(vec![event_tx]));
 
 	(

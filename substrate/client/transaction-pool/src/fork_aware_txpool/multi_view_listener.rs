@@ -550,11 +550,11 @@ where
 			Controller<ExternalWatcherCommand<ChainApi>>,
 		>::default()));
 
-		const CONTROLLER_QUEUE_WARN_SIZE: usize = 100_000;
-		let (tx, rx) = mpsc::tracing_unbounded(
+		const CONTROLLER_CHANNEL: mpsc::ChannelPolicy = mpsc::ChannelPolicy::bounded(
 			"txpool-multi-view-listener-task-controller",
-			CONTROLLER_QUEUE_WARN_SIZE,
+			100_000,
 		);
+		let (tx, rx) = mpsc::tracing_unbounded_with_policy(CONTROLLER_CHANNEL);
 		let task = Self::task(external_controllers.clone(), rx, events_metrics_collector);
 
 		(Self { external_controllers, controller: tx }, task.boxed())
@@ -577,11 +577,9 @@ where
 		let external_ctx = match self.external_controllers.write().entry(tx_hash) {
 			Entry::Occupied(_) => return None,
 			Entry::Vacant(entry) => {
-				const EXT_CONTROLLER_QUEUE_WARN_THRESHOLD: usize = 128;
-				let (tx, rx) = mpsc::tracing_unbounded(
-					"txpool-multi-view-listener",
-					EXT_CONTROLLER_QUEUE_WARN_THRESHOLD,
-				);
+				const EXT_CONTROLLER_CHANNEL: mpsc::ChannelPolicy =
+					mpsc::ChannelPolicy::bounded("txpool-multi-view-listener", 128);
+				let (tx, rx) = mpsc::tracing_unbounded_with_policy(EXT_CONTROLLER_CHANNEL);
 				entry.insert(tx);
 				ExternalWatcherContext::new(tx_hash, rx)
 			},

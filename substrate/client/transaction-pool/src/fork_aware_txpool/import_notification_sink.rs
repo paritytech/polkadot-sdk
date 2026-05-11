@@ -97,8 +97,10 @@ where
 	/// It returns a tuple containing the output stream and the command controller, allowing
 	/// external components to control this stream.
 	fn event_stream() -> (StreamOf<I>, Controller<Command<K, I>>) {
+		const IMPORT_NOTIFICATION_SINK_CHANNEL: mpsc::ChannelPolicy =
+			mpsc::ChannelPolicy::bounded("import-notification-sink", 16);
 		let (sender, receiver) =
-			sc_utils::mpsc::tracing_unbounded::<Command<K, I>>("import-notification-sink", 16);
+			mpsc::tracing_unbounded_with_policy::<Command<K, I>>(IMPORT_NOTIFICATION_SINK_CHANNEL);
 
 		let ctx = Self { stream_map: StreamMap::new(), command_receiver: receiver };
 

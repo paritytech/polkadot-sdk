@@ -39,7 +39,7 @@ use sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotificatio
 use sc_consensus::BlockImport;
 use sc_network::{NetworkRequest, NotificationService, ProtocolName};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
+use sc_utils::mpsc::{tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus::{Error as ConsensusError, SyncOracle};
@@ -87,6 +87,8 @@ mod fisherman;
 mod tests;
 
 const LOG_TARGET: &str = "beefy";
+const BEEFY_NOTIFICATION_TRANSFORMER_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("beefy-notification-transformer-channel", 10000);
 
 const HEADER_SYNC_DELAY: Duration = Duration::from_secs(60);
 
@@ -666,7 +668,7 @@ fn finality_notification_transformer_future<B>(
 where
 	B: Block,
 {
-	let (tx, rx) = tracing_unbounded("beefy-notification-transformer-channel", 10000);
+	let (tx, rx) = tracing_unbounded_with_policy(BEEFY_NOTIFICATION_TRANSFORMER_CHANNEL);
 	let transformer_fut = async move {
 		while let Some(notification) = finality_notifications.next().await {
 			debug!(target: LOG_TARGET, "🥩 Transforming grandpa notification. #{}({:?})", notification.header.number(), notification.hash);

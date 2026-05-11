@@ -47,7 +47,7 @@ use std::cell::RefCell;
 
 use crate::{
 	id_sequence::SeqID,
-	mpsc::{TracingUnboundedReceiver, TracingUnboundedSender},
+	mpsc::{ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender},
 };
 
 #[cfg(test)]
@@ -177,7 +177,10 @@ impl<M, R> Hub<M, R> {
 		// have the sink disposed.
 		shared_borrowed.registry.subscribe(subs_key, subs_id);
 
-		let (tx, rx) = crate::mpsc::tracing_unbounded(self.tracing_key, queue_size_warning);
+		let (tx, rx) = crate::mpsc::tracing_unbounded_with_policy(ChannelPolicy::bounded(
+			self.tracing_key,
+			queue_size_warning,
+		));
 		assert!(shared_borrowed.sinks.insert(subs_id, tx).is_none(), "Used IDSequence to create another ID. Should be unique until u64 is overflowed. Should be unique.");
 
 		Receiver { shared: Arc::downgrade(&self.shared), subs_id, rx }
