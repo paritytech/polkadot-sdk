@@ -649,47 +649,45 @@ where
 	}
 
 	/// Execute the name call.
+	///
+	/// Returns the asset's metadata name. Real ERC-20s never revert on
+	/// introspection, so an asset with no metadata row (e.g. a foreign
+	/// asset registered before metadata is set) returns the empty string —
+	/// matching the path used by `domain_separator`. Non-UTF-8 bytes are
+	/// replaced with the Unicode replacement character rather than
+	/// reverting; the ABI return type is `string` and on-chain metadata is
+	/// not UTF-8-validated at write time, so a lossy decode is the
+	/// pragmatic boundary.
 	fn name(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
-
-		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
-			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
-
-		let name = alloc::string::String::from_utf8(metadata.name.to_vec())
-			.map_err(|_| Error::Revert(Revert { reason: "Invalid UTF-8 in name".into() }))?;
-
+		let name_bytes = pallet_assets::Pallet::<Runtime, Instance>::name(asset_id);
+		let name = alloc::string::String::from_utf8_lossy(&name_bytes).into_owned();
 		Ok(IERC20::nameCall::abi_encode_returns(&name))
 	}
 
-	/// Execute the symbol call.
+	/// Execute the symbol call. See `name` for the missing-metadata and
+	/// non-UTF-8 contracts.
 	fn symbol(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
-
-		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
-			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
-
-		let symbol = alloc::string::String::from_utf8(metadata.symbol.to_vec())
-			.map_err(|_| Error::Revert(Revert { reason: "Invalid UTF-8 in symbol".into() }))?;
-
+		let symbol_bytes = pallet_assets::Pallet::<Runtime, Instance>::symbol(asset_id);
+		let symbol = alloc::string::String::from_utf8_lossy(&symbol_bytes).into_owned();
 		Ok(IERC20::symbolCall::abi_encode_returns(&symbol))
 	}
 
-	/// Execute the decimals call.
+	/// Execute the decimals call. Returns `0` for assets with no metadata
+	/// row, mirroring the empty-string behaviour of `name`/`symbol`.
 	fn decimals(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
-
-		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
-			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
-
-		Ok(IERC20::decimalsCall::abi_encode_returns(&metadata.decimals))
+		let decimals = pallet_assets::Pallet::<Runtime, Instance>::decimals(asset_id);
+		Ok(IERC20::decimalsCall::abi_encode_returns(&decimals))
 	}
 }
