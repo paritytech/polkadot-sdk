@@ -388,7 +388,7 @@ where
 			// overwrite (not accumulate) — matching ERC-20 spec semantics.
 			// NOTE: This does not mitigate the well-known ERC-20 approve front-running
 			// race condition. Callers concerned about this should approve to 0 first,
-			// or use increaseAllowance/decreaseAllowance if available.
+			// or use `permit()` to atomically authorize a new allowance.
 			if !current.is_zero() {
 				pallet_assets::Pallet::<Runtime, Instance>::do_cancel_approval(
 					&asset_id,
