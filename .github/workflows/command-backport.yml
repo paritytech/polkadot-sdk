@@ -75,7 +75,7 @@ jobs:
 
 
       - name: Create backport pull requests
-        uses: korthout/backport-action@ad30f01dbe543be4a24431001c38f3617af8c745 # v4.4.0
+        uses: korthout/backport-action@bf97bcfb53d5250af8b9a15fab0f56158a63b224 # v4.5.1
         id: backport
         with:
           target_branches: ${{ steps.branches.outputs.BACKPORT_BRANCHES }}
