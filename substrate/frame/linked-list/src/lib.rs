@@ -53,9 +53,6 @@ pub use sorted_list_interface::{PriorityProvider, SortedListInterface};
 
 /// Benchmark fixture: overrides the authoritative priority used by
 /// [`PriorityProvider`] so the `reprioritize` benchmark can simulate priority drift.
-///
-/// `ListId`/`ItemId`/`Priority` values are minted directly via `From<u32>` bounds
-/// in the benchmark module; no helper indirection needed.
 #[cfg(feature = "runtime-benchmarks")]
 pub trait BenchmarkHelper<ListId, ItemId, Priority> {
 	fn set_priority(list_id: &ListId, item: &ItemId, priority: Priority);

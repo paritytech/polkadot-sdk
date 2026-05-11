@@ -17,7 +17,7 @@
 
 //! Implementation of the [`Pallet::reprioritize`] dispatchable.
 
-use crate::{pallet::*, SortedListInterface};
+use crate::{pallet::*, PriorityProvider, SortedListInterface};
 use frame::prelude::*;
 
 /// Refresh `(list_id, item)`'s stored priority from [`crate::PriorityProvider`] and
@@ -30,10 +30,7 @@ pub(crate) fn reprioritize_internal<T: Config>(
 	hint_next: Option<T::ItemId>,
 ) -> Result<u32, Error<T>> {
 	let stored = ListNodes::<T>::get(list_id, item).ok_or(Error::<T>::ItemNotFound)?;
-	let Some(real_priority) = <T::PriorityProvider as crate::PriorityProvider<
-		T::ListId,
-		T::ItemId,
-	>>::priority(list_id, item) else {
+	let Some(real_priority) = T::PriorityProvider::priority(list_id, item) else {
 		<Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::remove(list_id, item)?;
 		return Ok(0);
 	};

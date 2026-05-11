@@ -184,8 +184,6 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 
 	fn pop_tail(list_id: &T::ListId) -> Result<Option<(T::ItemId, T::Priority)>, Error<T>> {
 		let Some(item) = ListTails::<T>::get(list_id) else { return Ok(None) };
-		// Defensive: by `try_state` invariant 1, `ListTails` always points to a
-		// present node.
 		let priority = ListNodes::<T>::get(list_id, &item)
 			.defensive_ok_or(Error::<T>::CorruptList)?
 			.priority;
