@@ -337,6 +337,8 @@ fn classify_response_unverified(
 		}
 	}
 
+	// Unverified payloads cannot be matched by recomputing their CID from bytes, so attribute
+	// each block to the next requested WANT-BLOCK whose CID metadata matches the payload prefix.
 	let mut expected_payload_order = wants
 		.iter()
 		.filter(|want| want.want_type == BitswapWantType::Block)
