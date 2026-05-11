@@ -152,10 +152,10 @@ jobs:
             echo "REF2: ${REF2}"
           fi
           echo "REL_TAG=$REF2" >> $GITHUB_ENV
-          export VERSION=$(echo "$REF2" | sed -E 's/.*((un)?stable[0-9]{4}(-[0-9]+)?).*$/\1/')
+          export VERSION=$(echo "$REF2" | sed -E 's/^(polkadot-)?((un)?stable[0-9]{4}(-[0-9]+)?).*$/\2/')
           echo "Version: $VERSION"
 
-          export STABLE_VERSION=$(sed -E 's/.*((un)?stable[0-9]{4}).*$/\1/' <<< "$VERSION")
+          export STABLE_VERSION=$(sed -E 's/^((un)?stable[0-9]{4}).*$/\1/' <<< "$VERSION")
           export NODE_VERSION=v$(get_polkadot_node_version_from_code)
 
           ./scripts/release/build-changelogs.sh
