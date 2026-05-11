@@ -167,7 +167,7 @@ impl ToTokens for DefineVersionedTypeItem {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct Version {
 	/// The numeric value of the version suffix.
-	value: usize,
+	value: u32,
 }
 
 impl Version {
@@ -187,7 +187,7 @@ impl Version {
 			));
 		}
 
-		let value = version_suffix.parse::<usize>().map_err(|_| {
+		let value = version_suffix.parse::<u32>().map_err(|_| {
 			syn::Error::new_spanned(
 				ident,
 				"versioned type names must end with `V` followed by a positive integer",
@@ -203,7 +203,7 @@ impl Version {
 
 	/// Returns the numeric version value.
 	#[must_use]
-	pub(super) fn value(self) -> usize {
+	pub(super) fn value(self) -> u32 {
 		self.value
 	}
 
