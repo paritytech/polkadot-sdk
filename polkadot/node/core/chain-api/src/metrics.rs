@@ -42,6 +42,12 @@ impl Metrics {
 		}
 	}
 
+	pub fn on_cached_request(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.chain_api_requests.with_label_values(&["cached"]).inc();
+		}
+	}
+
 	/// Provide a timer for `block_number` which observes on drop.
 	pub fn time_block_number(&self) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
 		self.0.as_ref().map(|metrics| metrics.block_number.start_timer())

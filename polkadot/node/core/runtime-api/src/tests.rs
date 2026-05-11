@@ -35,12 +35,14 @@ use sp_api::ApiError;
 use sp_core::testing::TaskExecutor;
 use std::{
 	collections::{BTreeMap, HashMap, VecDeque},
+	sync::atomic::{AtomicUsize, Ordering},
 	sync::{Arc, Mutex},
 };
 
 #[derive(Default)]
 struct MockSubsystemClient {
 	submitted_pvf_check_statement: Arc<Mutex<Vec<(PvfCheckStatement, ValidatorSignature)>>>,
+	api_version_requests: Arc<AtomicUsize>,
 	authorities: Vec<AuthorityDiscoveryId>,
 	validators: Vec<ValidatorId>,
 	validator_groups: Vec<Vec<ValidatorIndex>>,
@@ -55,6 +57,7 @@ struct MockSubsystemClient {
 	hrmp_channels: HashMap<ParaId, BTreeMap<ParaId, Vec<InboundHrmpMessage>>>,
 	validation_code_by_hash: HashMap<ValidationCodeHash, ValidationCode>,
 	availability_cores_wait: Arc<Mutex<()>>,
+	availability_cores_requests: Arc<AtomicUsize>,
 	babe_epoch: Option<BabeEpoch>,
 	pvfs_require_precheck: Vec<ValidationCodeHash>,
 	validation_code_hash: HashMap<ParaId, ValidationCodeHash>,
@@ -65,6 +68,7 @@ struct MockSubsystemClient {
 #[async_trait::async_trait]
 impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	async fn api_version_parachain_host(&self, _: Hash) -> Result<Option<u32>, ApiError> {
+		self.api_version_requests.fetch_add(1, Ordering::SeqCst);
 		Ok(Some(5))
 	}
 
@@ -86,6 +90,7 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		&self,
 		_: Hash,
 	) -> Result<Vec<CoreState<Hash, BlockNumber>>, ApiError> {
+		self.availability_cores_requests.fetch_add(1, Ordering::SeqCst);
 		let _lock = self.availability_cores_wait.lock().unwrap();
 		Ok(self.availability_cores.clone())
 	}
@@ -393,7 +398,7 @@ fn requests_validators() {
 			})
 			.await;
 
-		assert_eq!(rx.await.unwrap().unwrap(), subsystem_client.validators);
+		assert_eq!(rx.await.unwrap().unwrap(), subsystem_client.validators.clone());
 
 		ctx_handle.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
 	};
@@ -420,7 +425,7 @@ fn requests_validator_groups() {
 			})
 			.await;
 
-		assert_eq!(rx.await.unwrap().unwrap().0, subsystem_client.validator_groups);
+		assert_eq!(rx.await.unwrap().unwrap().0, subsystem_client.validator_groups.clone());
 
 		ctx_handle.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
 	};
@@ -971,6 +976,7 @@ fn multiple_requests_in_parallel_are_working() {
 	let relay_parent = [1; 32].into();
 	let spawner = sp_core::testing::TaskExecutor::new();
 	let mutex = subsystem_client.availability_cores_wait.clone();
+	let request_count = subsystem_client.availability_cores_requests.clone();
 
 	let subsystem =
 		RuntimeApiSubsystem::new(subsystem_client.clone(), Metrics(None), SpawnGlue(spawner));
@@ -1011,6 +1017,43 @@ fn multiple_requests_in_parallel_are_working() {
 		join.await
 			.into_iter()
 			.for_each(|r| assert_eq!(r.unwrap().unwrap(), subsystem_client.availability_cores));
+		assert_eq!(request_count.load(Ordering::SeqCst), 1);
+
+		ctx_handle.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
+	};
+
+	futures::executor::block_on(future::join(subsystem_task, test_task));
+}
+
+#[test]
+fn runtime_api_version_is_cached_for_regular_requests() {
+	let (ctx, mut ctx_handle) = make_subsystem_context(TaskExecutor::new());
+	let subsystem_client = Arc::new(MockSubsystemClient::default());
+	let version_request_count = subsystem_client.api_version_requests.clone();
+	let relay_parent = [1; 32].into();
+	let spawner = sp_core::testing::TaskExecutor::new();
+
+	let subsystem =
+		RuntimeApiSubsystem::new(subsystem_client.clone(), Metrics(None), SpawnGlue(spawner));
+	let subsystem_task = run(ctx, subsystem).map(|x| x.unwrap());
+	let test_task = async move {
+		let (tx, rx) = oneshot::channel();
+		ctx_handle
+			.send(FromOrchestra::Communication {
+				msg: RuntimeApiMessage::Request(relay_parent, Request::Validators(tx)),
+			})
+			.await;
+		assert_eq!(rx.await.unwrap().unwrap(), subsystem_client.validators.clone());
+
+		let (tx, rx) = oneshot::channel();
+		ctx_handle
+			.send(FromOrchestra::Communication {
+				msg: RuntimeApiMessage::Request(relay_parent, Request::ValidatorGroups(tx)),
+			})
+			.await;
+		assert_eq!(rx.await.unwrap().unwrap().0, subsystem_client.validator_groups.clone());
+
+		assert_eq!(version_request_count.load(Ordering::SeqCst), 1);
 
 		ctx_handle.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
 	};

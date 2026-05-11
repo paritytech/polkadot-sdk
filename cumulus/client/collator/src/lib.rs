@@ -31,12 +31,14 @@ pub mod service;
 pub mod relay_chain_driven {
 	use futures::{
 		channel::{mpsc, oneshot},
+		lock::Mutex,
 		prelude::*,
 	};
 	use polkadot_node_primitives::{CollationGenerationConfig, CollationResult};
 	use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
 	use polkadot_overseer::Handle as OverseerHandle;
 	use polkadot_primitives::{CollatorPair, Id as ParaId};
+	use std::sync::Arc;
 
 	use cumulus_primitives_core::{relay_chain::Hash as PHash, PersistedValidationData};
 
@@ -76,24 +78,23 @@ pub mod relay_chain_driven {
 		let mut overseer_handle = overseer_handle;
 
 		let (stream_tx, stream_rx) = mpsc::channel(0);
+		let stream_tx = Arc::new(Mutex::new(stream_tx));
 		let config = CollationGenerationConfig {
 			key,
 			para_id,
 			collator: Some(Box::new(move |relay_parent, validation_data| {
-				// Cloning the channel on each usage effectively makes the channel
-				// unbounded. The channel is actually bounded by the block production
-				// and consensus systems of Polkadot, which limits the amount of possible
-				// blocks.
-				let mut stream_tx = stream_tx.clone();
+				let stream_tx = stream_tx.clone();
 				let validation_data = validation_data.clone();
 				Box::pin(async move {
 					let (this_tx, this_rx) = oneshot::channel();
 					let request =
 						CollationRequest { relay_parent, pvd: validation_data, sender: this_tx };
 
+					let mut stream_tx = stream_tx.lock().await;
 					if stream_tx.send(request).await.is_err() {
 						return None;
 					}
+					drop(stream_tx);
 
 					this_rx.await.ok().flatten()
 				})

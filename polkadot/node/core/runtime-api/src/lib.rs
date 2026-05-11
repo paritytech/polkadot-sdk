@@ -22,6 +22,7 @@
 #![deny(unused_crate_dependencies)]
 #![warn(missing_docs)]
 
+use codec::Encode;
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	messages::{RuntimeApiMessage, RuntimeApiRequest as Request},
@@ -31,8 +32,8 @@ use polkadot_node_subsystem_types::RuntimeApiSubsystemClient;
 use polkadot_primitives::Hash;
 
 use cache::{RequestResult, RequestResultCache};
-use futures::{channel::oneshot, prelude::*, select, stream::FuturesUnordered};
-use std::sync::Arc;
+use futures::{channel::oneshot, future::BoxFuture, prelude::*, select, stream::FuturesUnordered};
+use std::{collections::BTreeMap, sync::Arc};
 
 mod cache;
 
@@ -51,13 +52,448 @@ const MAX_PARALLEL_REQUESTS: usize = 4;
 /// The name of the blocking task that executes a runtime API request.
 const API_REQUEST_TASK_NAME: &str = "polkadot-runtime-api-request";
 
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+struct InFlightRequestKey {
+	relay_parent: Hash,
+	request: Vec<u8>,
+}
+
+impl InFlightRequestKey {
+	fn without_args(relay_parent: Hash, discriminator: u8) -> Self {
+		Self { relay_parent, request: vec![discriminator] }
+	}
+
+	fn with_args<T: Encode>(relay_parent: Hash, discriminator: u8, args: T) -> Self {
+		let mut request = vec![discriminator];
+		request.extend(args.encode());
+		Self { relay_parent, request }
+	}
+
+	fn new(relay_parent: Hash, request: &Request) -> Option<Self> {
+		Some(match request {
+			Request::Version(_) => Self::without_args(relay_parent, 0),
+			Request::Authorities(_) => Self::without_args(relay_parent, 1),
+			Request::Validators(_) => Self::without_args(relay_parent, 2),
+			Request::ValidatorGroups(_) => Self::without_args(relay_parent, 3),
+			Request::AvailabilityCores(_) => Self::without_args(relay_parent, 4),
+			Request::PersistedValidationData(para, assumption, _) => {
+				Self::with_args(relay_parent, 5, (para, assumption))
+			},
+			Request::AssumedValidationData(para, persisted_validation_data_hash, _) => {
+				Self::with_args(relay_parent, 6, (para, persisted_validation_data_hash))
+			},
+			Request::CheckValidationOutputs(para, commitments, _) => {
+				Self::with_args(relay_parent, 7, (para, commitments))
+			},
+			Request::SessionIndexForChild(_) => Self::without_args(relay_parent, 8),
+			Request::ValidationCode(para, assumption, _) => {
+				Self::with_args(relay_parent, 9, (para, assumption))
+			},
+			Request::ValidationCodeByHash(validation_code_hash, _) => {
+				Self::with_args(relay_parent, 10, validation_code_hash)
+			},
+			Request::CandidatePendingAvailability(para, _) => {
+				Self::with_args(relay_parent, 11, para)
+			},
+			Request::CandidateEvents(_) => Self::without_args(relay_parent, 12),
+			Request::SessionExecutorParams(session_index, _) => {
+				Self::with_args(relay_parent, 13, session_index)
+			},
+			Request::SessionInfo(session_index, _) => {
+				Self::with_args(relay_parent, 14, session_index)
+			},
+			Request::DmqContents(para, _) => Self::with_args(relay_parent, 15, para),
+			Request::InboundHrmpChannelsContents(para, _) => {
+				Self::with_args(relay_parent, 16, para)
+			},
+			Request::CurrentBabeEpoch(_) => Self::without_args(relay_parent, 17),
+			Request::FetchOnChainVotes(_) => Self::without_args(relay_parent, 18),
+			Request::SubmitPvfCheckStatement(_, _, _) => return None,
+			Request::PvfsRequirePrecheck(_) => Self::without_args(relay_parent, 20),
+			Request::ValidationCodeHash(para, assumption, _) => {
+				Self::with_args(relay_parent, 21, (para, assumption))
+			},
+			Request::Disputes(_) => Self::without_args(relay_parent, 22),
+			Request::UnappliedSlashes(_) => Self::without_args(relay_parent, 23),
+			Request::KeyOwnershipProof(validator, _) => {
+				Self::with_args(relay_parent, 24, validator)
+			},
+			Request::SubmitReportDisputeLost(_, _, _) => return None,
+			Request::MinimumBackingVotes(session_index, _) => {
+				Self::with_args(relay_parent, 26, session_index)
+			},
+			Request::DisabledValidators(_) => Self::without_args(relay_parent, 27),
+			Request::ParaBackingState(para, _) => Self::with_args(relay_parent, 28, para),
+			Request::AsyncBackingParams(_) => Self::without_args(relay_parent, 29),
+			Request::NodeFeatures(session_index, _) => {
+				Self::with_args(relay_parent, 30, session_index)
+			},
+			Request::ApprovalVotingParams(session_index, _) => {
+				Self::with_args(relay_parent, 31, session_index)
+			},
+			Request::ClaimQueue(_) => Self::without_args(relay_parent, 32),
+			Request::CandidatesPendingAvailability(para, _) => {
+				Self::with_args(relay_parent, 33, para)
+			},
+			Request::BackingConstraints(para, _) => Self::with_args(relay_parent, 34, para),
+			Request::SchedulingLookahead(session_index, _) => {
+				Self::with_args(relay_parent, 35, session_index)
+			},
+			Request::ValidationCodeBombLimit(session_index, _) => {
+				Self::with_args(relay_parent, 36, session_index)
+			},
+			Request::ParaIds(session_index, _) => Self::with_args(relay_parent, 37, session_index),
+			Request::UnappliedSlashesV2(_) => Self::without_args(relay_parent, 38),
+			Request::MaxRelayParentSessionAge(session_index, _) => {
+				Self::with_args(relay_parent, 39, session_index)
+			},
+			Request::AncestorRelayParentInfo(session_index, queried_relay_parent, _) => {
+				Self::with_args(relay_parent, 40, (session_index, queried_relay_parent))
+			},
+		})
+	}
+}
+
+struct CompletedRequest {
+	relay_parent: Hash,
+	key: Option<InFlightRequestKey>,
+	api_version: Option<u32>,
+	response: Result<RequestResult, RuntimeApiError>,
+}
+
+fn send_error(request: Request, error: RuntimeApiError) {
+	match request {
+		Request::Version(sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::Authorities(sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::Validators(sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::ValidatorGroups(sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::AvailabilityCores(sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::PersistedValidationData(_, _, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::AssumedValidationData(_, _, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::CheckValidationOutputs(_, _, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::SessionIndexForChild(sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::ValidationCode(_, _, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::ValidationCodeByHash(_, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::CandidatePendingAvailability(_, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::CandidateEvents(sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::SessionExecutorParams(_, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::SessionInfo(_, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::DmqContents(_, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::InboundHrmpChannelsContents(_, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::CurrentBabeEpoch(sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::FetchOnChainVotes(sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::SubmitPvfCheckStatement(_, _, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::PvfsRequirePrecheck(sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::ValidationCodeHash(_, _, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::Disputes(sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::UnappliedSlashes(sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::KeyOwnershipProof(_, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::SubmitReportDisputeLost(_, _, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::MinimumBackingVotes(_, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::DisabledValidators(sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::ParaBackingState(_, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::AsyncBackingParams(sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::NodeFeatures(_, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::ApprovalVotingParams(_, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::ClaimQueue(sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::CandidatesPendingAvailability(_, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::BackingConstraints(_, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::SchedulingLookahead(_, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::ValidationCodeBombLimit(_, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::ParaIds(_, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::UnappliedSlashesV2(sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::MaxRelayParentSessionAge(_, sender) => {
+			let _ = sender.send(Err(error));
+		},
+		Request::AncestorRelayParentInfo(_, _, sender) => {
+			let _ = sender.send(Err(error));
+		},
+	}
+}
+
+fn send_success(request: Request, result: &RequestResult) {
+	match (request, result) {
+		(Request::Version(sender), RequestResult::Version(_, value)) => {
+			let _ = sender.send(Ok(*value));
+		},
+		(Request::Authorities(sender), RequestResult::Authorities(_, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(Request::Validators(sender), RequestResult::Validators(_, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(Request::ValidatorGroups(sender), RequestResult::ValidatorGroups(_, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(Request::AvailabilityCores(sender), RequestResult::AvailabilityCores(_, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(
+			Request::PersistedValidationData(_, _, sender),
+			RequestResult::PersistedValidationData(_, _, _, value),
+		) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(
+			Request::AssumedValidationData(_, _, sender),
+			RequestResult::AssumedValidationData(_, _, _, value),
+		) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(
+			Request::CheckValidationOutputs(_, _, sender),
+			RequestResult::CheckValidationOutputs(_, _, _, value),
+		) => {
+			let _ = sender.send(Ok(*value));
+		},
+		(Request::SessionIndexForChild(sender), RequestResult::SessionIndexForChild(_, value)) => {
+			let _ = sender.send(Ok(*value));
+		},
+		(Request::ValidationCode(_, _, sender), RequestResult::ValidationCode(_, _, _, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(
+			Request::ValidationCodeByHash(_, sender),
+			RequestResult::ValidationCodeByHash(_, _, value),
+		) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(
+			Request::CandidatePendingAvailability(_, sender),
+			RequestResult::CandidatePendingAvailability(_, _, value),
+		) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(Request::CandidateEvents(sender), RequestResult::CandidateEvents(_, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(
+			Request::SessionExecutorParams(_, sender),
+			RequestResult::SessionExecutorParams(_, _, value),
+		) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(Request::SessionInfo(_, sender), RequestResult::SessionInfo(_, _, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(Request::DmqContents(_, sender), RequestResult::DmqContents(_, _, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(
+			Request::InboundHrmpChannelsContents(_, sender),
+			RequestResult::InboundHrmpChannelsContents(_, _, value),
+		) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(Request::CurrentBabeEpoch(sender), RequestResult::CurrentBabeEpoch(_, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(Request::FetchOnChainVotes(sender), RequestResult::FetchOnChainVotes(_, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(
+			Request::SubmitPvfCheckStatement(_, _, sender),
+			RequestResult::SubmitPvfCheckStatement(()),
+		) => {
+			let _ = sender.send(Ok(()));
+		},
+		(Request::PvfsRequirePrecheck(sender), RequestResult::PvfsRequirePrecheck(_, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(
+			Request::ValidationCodeHash(_, _, sender),
+			RequestResult::ValidationCodeHash(_, _, _, value),
+		) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(Request::Disputes(sender), RequestResult::Disputes(_, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(Request::UnappliedSlashes(sender), RequestResult::UnappliedSlashes(_, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(Request::KeyOwnershipProof(_, sender), RequestResult::KeyOwnershipProof(_, _, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(
+			Request::SubmitReportDisputeLost(_, _, sender),
+			RequestResult::SubmitReportDisputeLost(value),
+		) => {
+			let _ = sender.send(Ok(*value));
+		},
+		(Request::MinimumBackingVotes(_, sender), RequestResult::MinimumBackingVotes(_, value)) => {
+			let _ = sender.send(Ok(*value));
+		},
+		(Request::DisabledValidators(sender), RequestResult::DisabledValidators(_, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(Request::ParaBackingState(_, sender), RequestResult::ParaBackingState(_, _, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(Request::AsyncBackingParams(sender), RequestResult::AsyncBackingParams(_, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(Request::NodeFeatures(_, sender), RequestResult::NodeFeatures(_, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(
+			Request::ApprovalVotingParams(_, sender),
+			RequestResult::ApprovalVotingParams(_, _, value),
+		) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(Request::ClaimQueue(sender), RequestResult::ClaimQueue(_, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(
+			Request::CandidatesPendingAvailability(_, sender),
+			RequestResult::CandidatesPendingAvailability(_, _, value),
+		) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(
+			Request::BackingConstraints(_, sender),
+			RequestResult::BackingConstraints(_, _, value),
+		) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(Request::SchedulingLookahead(_, sender), RequestResult::SchedulingLookahead(_, value)) => {
+			let _ = sender.send(Ok(*value));
+		},
+		(
+			Request::ValidationCodeBombLimit(_, sender),
+			RequestResult::ValidationCodeBombLimit(_, value),
+		) => {
+			let _ = sender.send(Ok(*value));
+		},
+		(Request::ParaIds(_, sender), RequestResult::ParaIds(_, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(Request::UnappliedSlashesV2(sender), RequestResult::UnappliedSlashesV2(_, value)) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(
+			Request::MaxRelayParentSessionAge(_, sender),
+			RequestResult::MaxRelayParentSessionAge(_, value),
+		) => {
+			let _ = sender.send(Ok(*value));
+		},
+		(
+			Request::AncestorRelayParentInfo(_, _, sender),
+			RequestResult::AncestorRelayParentInfo(_, _, _, value),
+		) => {
+			let _ = sender.send(Ok(value.clone()));
+		},
+		(request, result) => {
+			gum::debug!(
+				target: LOG_TARGET,
+				request = ?request,
+				result = ?std::mem::discriminant(result),
+				"coalesced runtime API response did not match waiting request"
+			);
+		},
+	}
+}
+
+fn send_response(request: Request, response: &Result<RequestResult, RuntimeApiError>) {
+	match response {
+		Ok(result) => send_success(request, result),
+		Err(error) => send_error(request, error.clone()),
+	}
+}
+
 /// The `RuntimeApiSubsystem`. See module docs for more details.
 pub struct RuntimeApiSubsystem<Client> {
 	client: Arc<Client>,
 	metrics: Metrics,
 	spawn_handle: Box<dyn overseer::gen::Spawner>,
 	/// All the active runtime API requests that are currently being executed.
-	active_requests: FuturesUnordered<oneshot::Receiver<Option<RequestResult>>>,
+	active_requests: FuturesUnordered<
+		BoxFuture<
+			'static,
+			(Option<InFlightRequestKey>, Result<CompletedRequest, oneshot::Canceled>),
+		>,
+	>,
+	/// Requests that are waiting for an identical active request to finish.
+	in_flight_requests: BTreeMap<InFlightRequestKey, Vec<Request>>,
 	/// Requests results cache
 	requests_cache: RequestResultCache,
 }
@@ -74,6 +510,7 @@ impl<Client> RuntimeApiSubsystem<Client> {
 			metrics,
 			spawn_handle: Box::new(spawner),
 			active_requests: Default::default(),
+			in_flight_requests: Default::default(),
 			requests_cache: RequestResultCache::default(),
 		}
 	}
@@ -486,16 +923,42 @@ where
 			Some(request) => request,
 			None => return,
 		};
+		let request_key = InFlightRequestKey::new(relay_parent, &request);
+
+		if let Some(key) = request_key.clone() {
+			if let Some(waiters) = self.in_flight_requests.get_mut(&key) {
+				waiters.push(request);
+				self.metrics.on_coalesced_request();
+				return;
+			}
+
+			self.in_flight_requests.insert(key, Vec::new());
+		}
+		let cached_api_version = self.requests_cache.version(&relay_parent).copied();
+		let active_request_key = request_key.clone();
 
 		let request = async move {
-			let result = make_runtime_api_request(client, metrics, relay_parent, request).await;
-			let _ = sender.send(result);
+			let outcome = make_runtime_api_request(
+				client,
+				metrics,
+				relay_parent,
+				request,
+				cached_api_version,
+			)
+			.await;
+			let _ = sender.send(CompletedRequest {
+				relay_parent,
+				key: request_key,
+				api_version: outcome.api_version,
+				response: outcome.response,
+			});
 		}
 		.boxed();
 
 		self.spawn_handle
 			.spawn_blocking(API_REQUEST_TASK_NAME, Some("runtime-api"), request);
-		self.active_requests.push(receiver);
+		self.active_requests
+			.push(async move { (active_request_key, receiver.await) }.boxed());
 	}
 
 	/// Poll the active runtime API requests.
@@ -507,8 +970,43 @@ where
 
 		// If there are active requests, this will always resolve to `Some(_)` when a request is
 		// finished.
-		if let Some(Ok(Some(result))) = self.active_requests.next().await {
-			self.store_cache(result);
+		if let Some((key, completed)) = self.active_requests.next().await {
+			let completed = match completed {
+				Ok(completed) => completed,
+				Err(_) => {
+					if let Some(waiters) =
+						key.as_ref().and_then(|key| self.in_flight_requests.remove(key))
+					{
+						let error = RuntimeApiError::Execution {
+							runtime_api_name: "runtime-api-request",
+							source: Arc::new(std::io::Error::new(
+								std::io::ErrorKind::Interrupted,
+								"runtime API request task was canceled",
+							)),
+						};
+						for request in waiters {
+							send_error(request, error.clone());
+						}
+					}
+					return;
+				},
+			};
+
+			if let Some(waiters) =
+				completed.key.as_ref().and_then(|key| self.in_flight_requests.remove(key))
+			{
+				for request in waiters {
+					send_response(request, &completed.response);
+				}
+			}
+
+			if let Some(version) = completed.api_version {
+				self.requests_cache.cache_version(completed.relay_parent, version);
+			}
+
+			if let Ok(result) = completed.response {
+				self.store_cache(result);
+			}
 		}
 	}
 
@@ -554,12 +1052,18 @@ where
 	}
 }
 
+struct RuntimeApiRequestOutcome {
+	api_version: Option<u32>,
+	response: Result<RequestResult, RuntimeApiError>,
+}
+
 async fn make_runtime_api_request<Client>(
 	client: Arc<Client>,
 	metrics: Metrics,
 	relay_parent: Hash,
 	request: Request,
-) -> Option<RequestResult>
+	cached_api_version: Option<u32>,
+) -> RuntimeApiRequestOutcome
 where
 	Client: RuntimeApiSubsystemClient + 'static,
 {
@@ -572,23 +1076,28 @@ where
 		($req_variant:ident, $api_name:ident ($($param:expr),*), ver = $version:expr, $sender:expr, result = ( $($results:expr),* ) ) => {{
 			let sender = $sender;
 			let version: u32 = $version; // enforce type for the version expression
-			let runtime_version = client.api_version_parachain_host(relay_parent).await
-				.unwrap_or_else(|e| {
-					gum::warn!(
-						target: LOG_TARGET,
-						api = ?stringify!($api_name),
-						"cannot query the runtime API version: {}",
-						e,
-					);
-					Some(0)
-				})
-				.unwrap_or_else(|| {
-					gum::warn!(
-						target: LOG_TARGET,
-						"no runtime version is reported"
-					);
-					0
-				});
+			let (runtime_version, api_version) = match cached_api_version {
+				Some(runtime_version) => (runtime_version, None),
+				None => match client.api_version_parachain_host(relay_parent).await {
+					Ok(Some(runtime_version)) => (runtime_version, Some(runtime_version)),
+					Ok(None) => {
+						gum::warn!(
+							target: LOG_TARGET,
+							"no runtime version is reported"
+						);
+						(0, None)
+					},
+					Err(e) => {
+						gum::warn!(
+							target: LOG_TARGET,
+							api = ?stringify!($api_name),
+							"cannot query the runtime API version: {}",
+							e,
+						);
+						(0, None)
+					},
+				},
+			};
 
 			let res = if runtime_version >= version {
 				client.$api_name(relay_parent $(, $param.clone() )*).await
@@ -604,7 +1113,10 @@ where
 			metrics.on_request(res.is_ok());
 			let _ = sender.send(res.clone());
 
-			res.ok().map(|res| RequestResult::$req_variant($( $results, )* res))
+			RuntimeApiRequestOutcome {
+				api_version,
+				response: res.map(|res| RequestResult::$req_variant($( $results, )* res)),
+			}
 		}}
 	}
 
@@ -620,7 +1132,10 @@ where
 			};
 
 			let _ = sender.send(runtime_version.clone());
-			runtime_version.ok().map(|v| RequestResult::Version(relay_parent, v))
+			RuntimeApiRequestOutcome {
+				api_version: runtime_version.as_ref().ok().copied(),
+				response: runtime_version.map(|v| RequestResult::Version(relay_parent, v)),
+			}
 		},
 
 		Request::Authorities(sender) => query!(Authorities, authorities(), ver = 1, sender),

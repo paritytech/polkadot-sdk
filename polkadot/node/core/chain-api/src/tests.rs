@@ -18,7 +18,13 @@ use super::*;
 
 use codec::Encode;
 use futures::{channel::oneshot, future::BoxFuture};
-use std::collections::BTreeMap;
+use std::{
+	collections::BTreeMap,
+	sync::{
+		atomic::{AtomicUsize, Ordering},
+		Arc,
+	},
+};
 
 use polkadot_node_primitives::BlockWeight;
 use polkadot_node_subsystem_test_helpers::{make_subsystem_context, TestSubsystemContextHandle};
@@ -33,6 +39,7 @@ struct TestClient {
 	block_weights: BTreeMap<Hash, BlockWeight>,
 	finalized_blocks: BTreeMap<BlockNumber, Hash>,
 	headers: BTreeMap<Hash, Header>,
+	header_requests: Arc<AtomicUsize>,
 }
 
 const GENESIS: Hash = Hash::repeat_byte(0xAA);
@@ -102,6 +109,7 @@ impl Default for TestClient {
 					..default_header()
 				}
 			},
+			header_requests: Arc::new(AtomicUsize::new(0)),
 		}
 	}
 }
@@ -135,6 +143,7 @@ impl sp_blockchain::HeaderBackend<Block> for TestClient {
 		Ok(self.finalized_blocks.get(&number).copied())
 	}
 	fn header(&self, hash: Hash) -> sp_blockchain::Result<Option<Header>> {
+		let _ = self.header_requests.fetch_add(1, Ordering::SeqCst);
 		if hash.is_zero() {
 			Err(sp_blockchain::Error::Backend("Zero hashes are illegal!".into()))
 		} else {
@@ -159,7 +168,7 @@ fn test_harness(
 	let chain_api_task = run(ctx, subsystem).map(|x| x.unwrap());
 	let test_task = test(client, ctx_handle);
 
-	futures::executor::block_on(future::join(chain_api_task, test_task));
+	let _ = futures::executor::block_on(future::join(chain_api_task, test_task));
 }
 
 impl AuxStore for TestClient {
@@ -317,7 +326,7 @@ fn request_last_finalized_number() {
 
 #[test]
 fn request_ancestors() {
-	test_harness(|_client, mut sender| {
+	test_harness(|client, mut sender| {
 		async move {
 			let (tx, rx) = oneshot::channel();
 			sender
@@ -326,6 +335,7 @@ fn request_ancestors() {
 				})
 				.await;
 			assert_eq!(rx.await.unwrap().unwrap(), vec![TWO, ONE, GENESIS]);
+			assert_eq!(client.header_requests.load(Ordering::SeqCst), 4);
 
 			// Limit the number of ancestors.
 			let (tx, rx) = oneshot::channel();
@@ -335,6 +345,7 @@ fn request_ancestors() {
 				})
 				.await;
 			assert_eq!(rx.await.unwrap().unwrap(), vec![ONE]);
+			assert_eq!(client.header_requests.load(Ordering::SeqCst), 4);
 
 			// Ancestor of block #1 is returned.
 			let (tx, rx) = oneshot::channel();
@@ -344,6 +355,7 @@ fn request_ancestors() {
 				})
 				.await;
 			assert_eq!(rx.await.unwrap().unwrap(), vec![GENESIS]);
+			assert_eq!(client.header_requests.load(Ordering::SeqCst), 4);
 
 			// No ancestors of genesis block.
 			let (tx, rx) = oneshot::channel();
@@ -353,6 +365,7 @@ fn request_ancestors() {
 				})
 				.await;
 			assert_eq!(rx.await.unwrap().unwrap(), Vec::new());
+			assert_eq!(client.header_requests.load(Ordering::SeqCst), 4);
 
 			let (tx, rx) = oneshot::channel();
 			sender

@@ -35,13 +35,14 @@ use std::sync::Arc;
 
 use futures::prelude::*;
 use sc_client_api::AuxStore;
+use schnellru::{ByLength, LruMap};
 
-use futures::stream::StreamExt;
 use polkadot_node_subsystem::{
-	messages::ChainApiMessage, overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem,
-	SubsystemError, SubsystemResult,
+	errors::ChainApiError, messages::ChainApiMessage, overseer, FromOrchestra, OverseerSignal,
+	SpawnedSubsystem, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_types::ChainApiBackend;
+use polkadot_primitives::{Hash, Header};
 
 mod metrics;
 use self::metrics::Metrics;
@@ -51,16 +52,65 @@ mod tests;
 
 const LOG_TARGET: &str = "parachain::chain-api";
 
+/// Keep enough hot headers for repeated active-leaf ancestry walks without turning the
+/// chain API into a second block database.
+const HEADER_CACHE_CAP: u32 = 1024;
+
 /// The Chain API Subsystem implementation.
 pub struct ChainApiSubsystem<Client> {
 	client: Arc<Client>,
 	metrics: Metrics,
+	header_cache: LruMap<Hash, Header>,
 }
 
 impl<Client> ChainApiSubsystem<Client> {
 	/// Create a new Chain API subsystem with the given client.
 	pub fn new(client: Arc<Client>, metrics: Metrics) -> Self {
-		ChainApiSubsystem { client, metrics }
+		ChainApiSubsystem {
+			client,
+			metrics,
+			header_cache: LruMap::new(ByLength::new(HEADER_CACHE_CAP)),
+		}
+	}
+}
+
+impl<Client> ChainApiSubsystem<Client>
+where
+	Client: ChainApiBackend,
+{
+	async fn cached_header(&mut self, hash: Hash) -> Result<Option<Header>, ChainApiError> {
+		if let Some(header) = self.header_cache.get(&hash).map(|header| (*header).clone()) {
+			self.metrics.on_cached_request();
+			return Ok(Some(header));
+		}
+
+		let header =
+			self.client.header(hash).await.map_err(|e| ChainApiError::from(e.to_string()))?;
+		if let Some(header) = &header {
+			let _ = self.header_cache.insert(hash, header.clone());
+		}
+
+		Ok(header)
+	}
+
+	async fn ancestors(&mut self, hash: Hash, k: usize) -> Result<Vec<Hash>, ChainApiError> {
+		let mut ancestors = Vec::with_capacity(k);
+		let mut hash = hash;
+
+		for _ in 0..k {
+			let Some(header) = self.cached_header(hash).await? else {
+				break;
+			};
+
+			if header.number == 0 {
+				break;
+			}
+
+			hash = header.parent_hash;
+			ancestors.push(hash);
+		}
+
+		Ok(ancestors)
 	}
 }
 
@@ -80,7 +130,7 @@ where
 #[overseer::contextbounds(ChainApi, prefix = self::overseer)]
 async fn run<Client, Context>(
 	mut ctx: Context,
-	subsystem: ChainApiSubsystem<Client>,
+	mut subsystem: ChainApiSubsystem<Client>,
 ) -> SubsystemResult<()>
 where
 	Client: ChainApiBackend + AuxStore,
@@ -100,8 +150,7 @@ where
 				},
 				ChainApiMessage::BlockHeader(hash, response_channel) => {
 					let _timer = subsystem.metrics.time_block_header();
-					let result =
-						subsystem.client.header(hash).await.map_err(|e| e.to_string().into());
+					let result = subsystem.cached_header(hash).await;
 					subsystem.metrics.on_request(result.is_ok());
 					let _ = response_channel.send(result);
 				},
@@ -135,31 +184,7 @@ where
 					let _timer = subsystem.metrics.time_ancestors();
 					gum::trace!(target: LOG_TARGET, hash=%hash, k=k, "ChainApiMessage::Ancestors");
 
-					let next_parent_stream = futures::stream::unfold(
-						(hash, subsystem.client.clone()),
-						|(hash, client)| async move {
-							let maybe_header = client.header(hash).await;
-							match maybe_header {
-								// propagate the error
-								Err(e) => {
-									let e = e.to_string().into();
-									Some((Err(e), (hash, client)))
-								},
-								// fewer than `k` ancestors are available
-								Ok(None) => None,
-								Ok(Some(header)) => {
-									// stop at the genesis header.
-									if header.number == 0 {
-										None
-									} else {
-										Some((Ok(header.parent_hash), (header.parent_hash, client)))
-									}
-								},
-							}
-						},
-					);
-
-					let result = next_parent_stream.take(k).try_collect().await;
+					let result = subsystem.ancestors(hash, k).await;
 					subsystem.metrics.on_request(result.is_ok());
 					let _ = response_channel.send(result);
 				},

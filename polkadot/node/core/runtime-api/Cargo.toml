@@ -12,6 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+codec = { workspace = true, default-features = true }
 futures = { workspace = true }
 gum = { workspace = true, default-features = true }
 schnellru = { workspace = true }

@@ -43,6 +43,12 @@ impl Metrics {
 			.map(|metrics| metrics.chain_api_requests.with_label_values(&["cached"]).inc());
 	}
 
+	pub fn on_coalesced_request(&self) {
+		self.0
+			.as_ref()
+			.map(|metrics| metrics.chain_api_requests.with_label_values(&["coalesced"]).inc());
+	}
+
 	/// Provide a timer for `make_runtime_api_request` which observes on drop.
 	pub fn time_make_runtime_api_request(
 		&self,
