@@ -48,7 +48,7 @@ fn removing_from_one_list_leaves_other_intact() {
 	build_and_execute(|| {
 		insert(1, 100, 50);
 		insert(2, 100, 70);
-		assert_ok!(<LinkedList as SortedListInterface<_, _>>::remove(&1, &100));
+		assert_ok!(LinkedList::remove(&1, &100));
 		assert_eq!(dump(1), vec![]);
 		assert_eq!(dump(2), vec![(100, 70)]);
 	});

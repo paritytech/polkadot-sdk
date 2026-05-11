@@ -31,7 +31,7 @@ pub(crate) fn reprioritize_internal<T: Config>(
 ) -> Result<u32, Error<T>> {
 	let stored = ListNodes::<T>::get(list_id, item).ok_or(Error::<T>::ItemNotFound)?;
 	let Some(real_priority) = T::PriorityProvider::priority(list_id, item) else {
-		<Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::remove(list_id, item)?;
+		Pallet::<T>::remove(list_id, item)?;
 		return Ok(0);
 	};
 
@@ -45,13 +45,8 @@ pub(crate) fn reprioritize_internal<T: Config>(
 		real_priority,
 	);
 
-	let steps = <Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::re_insert(
-		list_id.clone(),
-		item.clone(),
-		real_priority,
-		hint_prev,
-		hint_next,
-	)?;
+	let steps =
+		Pallet::<T>::re_insert(list_id.clone(), item.clone(), real_priority, hint_prev, hint_next)?;
 
 	Pallet::<T>::deposit_event(Event::Reprioritized {
 		list_id: list_id.clone(),

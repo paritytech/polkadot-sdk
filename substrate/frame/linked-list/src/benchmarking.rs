@@ -41,14 +41,8 @@ where
 		let (prev, next) = <Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::find_position(
 			list_id, priority,
 		);
-		<Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::insert(
-			list_id.clone(),
-			item.clone(),
-			priority,
-			prev,
-			next,
-		)
-		.expect("benchmark seed insert");
+		Pallet::<T>::insert(list_id.clone(), item.clone(), priority, prev, next)
+			.expect("benchmark seed insert");
 		items.push(item);
 	}
 	items
@@ -82,7 +76,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			<Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::insert(
+			Pallet::<T>::insert(
 				list_id.clone(),
 				new_item.clone(),
 				new_priority,
@@ -105,8 +99,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			<Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::remove(&list_id, &middle)
-				.unwrap();
+			Pallet::<T>::remove(&list_id, &middle).unwrap();
 		}
 
 		assert!(!ListNodes::<T>::contains_key(&list_id, &middle));
@@ -124,14 +117,8 @@ mod benchmarks {
 
 		#[block]
 		{
-			<Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::re_insert(
-				list_id.clone(),
-				middle.clone(),
-				new_priority,
-				None,
-				None,
-			)
-			.unwrap();
+			Pallet::<T>::re_insert(list_id.clone(), middle.clone(), new_priority, None, None)
+				.unwrap();
 		}
 
 		assert_eq!(ListNodes::<T>::get(&list_id, &middle).map(|n| n.priority), Some(new_priority),);
@@ -158,7 +145,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			<Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::re_insert(
+			Pallet::<T>::re_insert(
 				list_id.clone(),
 				target.clone(),
 				new_priority,

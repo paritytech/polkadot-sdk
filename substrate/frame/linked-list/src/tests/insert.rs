@@ -23,8 +23,7 @@ use frame::testing_prelude::{assert_ok, assert_storage_noop, hypothetically};
 #[test]
 fn insert_into_empty_list_sets_head_tail_size() {
 	build_and_execute(|| {
-		let steps =
-			<LinkedList as SortedListInterface<_, _>>::insert(1, 100, 50, None, None).unwrap();
+		let steps = LinkedList::insert(1, 100, 50, None, None).unwrap();
 		assert_eq!(steps, 0);
 		assert_eq!(ListHeads::<Test>::get(1), Some(100));
 		assert_eq!(ListTails::<Test>::get(1), Some(100));
@@ -37,7 +36,7 @@ fn insert_into_empty_list_sets_head_tail_size() {
 		// Re-inserting the same `(list_id, item)` rejects without touching state.
 		hypothetically!({
 			assert_storage_noop!(assert!(matches!(
-				<LinkedList as SortedListInterface<_, _>>::insert(1, 100, 50, None, None),
+				LinkedList::insert(1, 100, 50, None, None),
 				Err(Error::<Test>::ItemAlreadyExists)
 			)));
 		});
@@ -50,9 +49,7 @@ fn insert_with_valid_hints_o1() {
 		insert(1, 100, 90); // head
 		insert(1, 200, 50); // tail
 
-		let steps =
-			<LinkedList as SortedListInterface<_, _>>::insert(1, 150, 70, Some(100), Some(200))
-				.unwrap();
+		let steps = LinkedList::insert(1, 150, 70, Some(100), Some(200)).unwrap();
 		assert_eq!(steps, 0);
 		assert_eq!(dump(1), vec![(100, 90), (150, 70), (200, 50)]);
 	});
@@ -62,7 +59,7 @@ fn insert_with_valid_hints_o1() {
 fn insert_at_head() {
 	build_and_execute(|| {
 		insert(1, 100, 50);
-		assert_ok!(<LinkedList as SortedListInterface<_, _>>::insert(1, 200, 90, None, Some(100)));
+		assert_ok!(LinkedList::insert(1, 200, 90, None, Some(100)));
 		assert_eq!(ListHeads::<Test>::get(1), Some(200));
 		assert_eq!(dump(1), vec![(200, 90), (100, 50)]);
 	});
@@ -72,7 +69,7 @@ fn insert_at_head() {
 fn insert_at_tail() {
 	build_and_execute(|| {
 		insert(1, 100, 90);
-		assert_ok!(<LinkedList as SortedListInterface<_, _>>::insert(1, 200, 10, Some(100), None));
+		assert_ok!(LinkedList::insert(1, 200, 10, Some(100), None));
 		assert_eq!(ListTails::<Test>::get(1), Some(200));
 		assert_eq!(dump(1), vec![(100, 90), (200, 10)]);
 	});
@@ -94,7 +91,7 @@ fn insert_existing_item_errors() {
 	build_and_execute(|| {
 		insert(1, 100, 50);
 		assert_storage_noop!(assert!(matches!(
-			<LinkedList as SortedListInterface<_, _>>::insert(1, 100, 50, None, None),
+			LinkedList::insert(1, 100, 50, None, None),
 			Err(Error::<Test>::ItemAlreadyExists)
 		)));
 	});
@@ -110,7 +107,7 @@ fn insert_existing_item_errors_before_hint_repair() {
 			insert(1, u64::from(i), 100 - 10 * i + 10);
 		}
 		assert_storage_noop!(assert!(matches!(
-			<LinkedList as SortedListInterface<_, _>>::insert(1, 1, 5, None, Some(1)),
+			LinkedList::insert(1, 1, 5, None, Some(1)),
 			Err(Error::<Test>::ItemAlreadyExists)
 		)));
 	});
@@ -123,7 +120,7 @@ fn insert_does_not_saturate_size_counter() {
 	build_and_execute_no_post_check(|| {
 		ListSizes::<Test>::insert(1, u32::MAX);
 		assert_storage_noop!(assert!(matches!(
-			<LinkedList as SortedListInterface<_, _>>::insert(1, 100, 50, None, None),
+			LinkedList::insert(1, 100, 50, None, None),
 			Err(Error::<Test>::ListTooLong)
 		)));
 		assert!(!ListNodes::<Test>::contains_key(1, 100));

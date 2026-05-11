@@ -35,8 +35,8 @@ fn consistent_after_random_op_sequence() {
 		insert(2, 1, 100);
 		<LinkedList>::do_try_state().unwrap();
 
-		<LinkedList as SortedListInterface<_, _>>::remove(&1, &3).unwrap();
-		<LinkedList as SortedListInterface<_, _>>::re_insert(1, 2, 5, None, None).unwrap();
+		LinkedList::remove(&1, &3).unwrap();
+		LinkedList::re_insert(1, 2, 5, None, None).unwrap();
 	});
 }
 

@@ -121,8 +121,7 @@ pub(crate) fn insert(list_id: ListId, item: ItemId, priority: Priority) -> u32 {
 	use pallet_linked_list::SortedListInterface;
 	let (prev, next) =
 		<LinkedList as SortedListInterface<ListId, ItemId>>::find_position(&list_id, priority);
-	<LinkedList as SortedListInterface<ListId, ItemId>>::insert(list_id, item, priority, prev, next)
-		.expect("insert succeeds in tests")
+	LinkedList::insert(list_id, item, priority, prev, next).expect("insert succeeds in tests")
 }
 
 /// Items in `list_id` head-to-tail.

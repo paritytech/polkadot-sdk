@@ -43,8 +43,8 @@ fn stale_hint_within_budget_repairs_succeeds() {
 
 		// Stale hint: caller thinks pos is between 1 and 2 (head region).
 		// Real pos is between 4 and 5: 3 nodes away, within the 4-step budget.
-		let steps = <LinkedList as SortedListInterface<_, _>>::insert(1, 100, 15, Some(1), Some(2))
-			.expect("repair walks within budget");
+		let steps =
+			LinkedList::insert(1, 100, 15, Some(1), Some(2)).expect("repair walks within budget");
 		assert!(steps > 0 && steps <= MaxHintRepairSteps::get());
 		assert_eq!(dump(1), vec![(1, 100), (2, 80), (3, 50), (4, 20), (100, 15), (5, 10)]);
 	});
@@ -57,7 +57,7 @@ fn stale_hint_beyond_budget_returns_invalid_hints() {
 		// head-region hint within `MaxHintRepairSteps`.
 		build_long_chain();
 		assert_storage_noop!(assert!(matches!(
-			<LinkedList as SortedListInterface<_, _>>::insert(1, 99, 5, None, Some(1)),
+			LinkedList::insert(1, 99, 5, None, Some(1)),
 			Err(Error::<Test>::InvalidPositionHints)
 		)));
 	});
@@ -134,9 +134,8 @@ fn inconsistent_hint_one_side_stale_re_anchors() {
 		build_long_chain();
 		let chain_len = MaxHintRepairSteps::get() + 4;
 		let stale_prev = u64::from(chain_len); // tail item id
-		let steps =
-			<LinkedList as SortedListInterface<_, _>>::insert(1, 99, 85, Some(stale_prev), Some(3))
-				.expect("re-anchor handles partially-stale hint within budget");
+		let steps = LinkedList::insert(1, 99, 85, Some(stale_prev), Some(3))
+			.expect("re-anchor handles partially-stale hint within budget");
 		assert!(steps > 0 && steps <= MaxHintRepairSteps::get());
 		// Head→tail: (1,100), (2,90), the inserted (99,85), then the unchanged
 		// tail-side suffix (3,80), (4,70), …
