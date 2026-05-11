@@ -17,9 +17,10 @@
 
 //! Benchmarks for `pallet-linked-list`.
 //!
-//! Covers the trait surface (`insert`, `remove`, `re_insert`) on both the fast
-//! and worst-case paths, plus the `reprioritize` dispatchable parametric over
-//! hint-repair walk length.
+//! Covers the trait surface (`insert`, `remove`, `re_insert`) — the path with a
+//! hint-repair walk is parametric over the walk length so consumers can refund
+//! unused weight directly from the linear formula — plus the `reprioritize`
+//! dispatchable, parametric on the same parameter.
 
 #![cfg(feature = "runtime-benchmarks")]
 
@@ -62,14 +63,22 @@ where
 mod benchmarks {
 	use super::*;
 
-	/// `insert` at the head with a valid hint: pure splice, no repair walk.
+	/// `insert` parametric over the hint-repair walk length `s`.
+	///
+	/// Setup: seed `s + 2` items at strictly descending priorities and insert a
+	/// new item with priority above the head. The hint
+	/// `(seeded[s - 1], seeded[s])` (or `(None, seeded[0])` for `s = 0`) sits
+	/// exactly `s` head-ward steps from the correct slot, so the walk runs for
+	/// exactly `s` steps. `s = 0` exercises the immediate-valid-hint path.
 	#[benchmark]
-	fn insert_terminal() {
+	fn insert(s: Linear<0, { T::MaxHintRepairSteps::get() }>) -> Result<(), BenchmarkError> {
 		let list_id: T::ListId = 0u32.into();
-		let _seed = seed_chain::<T>(&list_id, 4);
-		let head = ListHeads::<T>::get(&list_id);
-		let new_item: T::ItemId = 99u32.into();
-		let new_priority: T::Priority = 10_000u32.into(); // higher than every seed priority
+		let s_idx = s as usize;
+		let seeded = seed_chain::<T>(&list_id, s + 2);
+		let new_item: T::ItemId = u32::MAX.into();
+		let new_priority: T::Priority = 1_000_000u32.into(); // above every seed priority
+		let hint_prev = if s_idx == 0 { None } else { Some(seeded[s_idx - 1].clone()) };
+		let hint_next = Some(seeded[s_idx].clone());
 
 		#[block]
 		{
@@ -77,40 +86,14 @@ mod benchmarks {
 				list_id.clone(),
 				new_item.clone(),
 				new_priority,
-				None,
-				head,
-			)
-			.unwrap();
-		}
-
-		assert_eq!(ListHeads::<T>::get(&list_id), Some(new_item));
-	}
-
-	/// `insert` with a hint that requires a full `MaxHintRepairSteps` walk.
-	#[benchmark]
-	fn insert_worst_case() {
-		let list_id: T::ListId = 0u32.into();
-		let budget = T::MaxHintRepairSteps::get();
-		// Position the real insert slot exactly `budget` steps from the hint.
-		let seeded = seed_chain::<T>(&list_id, budget + 2);
-		let new_item: T::ItemId = budget.saturating_add(2).into();
-		let between_priority: T::Priority = (2 * 10 + 100 - 5).into();
-		let hint_prev = Some(seeded[0].clone());
-		let hint_next = Some(seeded[1].clone());
-
-		#[block]
-		{
-			<Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::insert(
-				list_id.clone(),
-				new_item.clone(),
-				between_priority,
 				hint_prev,
 				hint_next,
 			)
 			.unwrap();
 		}
 
-		assert!(ListNodes::<T>::contains_key(&list_id, &new_item));
+		assert_eq!(ListHeads::<T>::get(&list_id), Some(new_item));
+		Ok(())
 	}
 
 	/// `remove` a middle node.
@@ -154,35 +137,39 @@ mod benchmarks {
 		assert_eq!(ListNodes::<T>::get(&list_id, &middle).map(|n| n.priority), Some(new_priority),);
 	}
 
-	/// `re_insert` slow path: priority change forces splice + repair + insert.
+	/// `re_insert` slow path parametric over the hint-repair walk length `s`.
+	///
+	/// Setup: seed `s + 2` items at strictly descending priorities, target the
+	/// tail (`seeded[s + 1]`) so its current neighbors cannot admit the new
+	/// priority (forcing the slow path), and supply a hint that, after the
+	/// internal splice, sits exactly `s` head-ward steps from the new position.
+	/// `s = 0` exercises the splice + immediate-valid-hint path.
 	#[benchmark]
-	fn re_insert_relocate() {
+	fn re_insert_relocate(
+		s: Linear<0, { T::MaxHintRepairSteps::get() }>,
+	) -> Result<(), BenchmarkError> {
 		let list_id: T::ListId = 0u32.into();
-		let seeded = seed_chain::<T>(&list_id, 5);
-		let middle = seeded[2].clone();
-		// Push the priority above the head; hint comes from `find_re_insert_position`.
-		let new_priority: T::Priority = 10_000u32.into();
-		let (prev, next) =
-			<Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::find_re_insert_position(
-				&list_id,
-				&middle,
-				new_priority,
-			)
-			.unwrap();
+		let s_idx = s as usize;
+		let seeded = seed_chain::<T>(&list_id, s + 2);
+		let target = seeded[s_idx + 1].clone();
+		let new_priority: T::Priority = 1_000_000u32.into(); // above every seed priority
+		let hint_prev = if s_idx == 0 { None } else { Some(seeded[s_idx - 1].clone()) };
+		let hint_next = Some(seeded[s_idx].clone());
 
 		#[block]
 		{
 			<Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::re_insert(
 				list_id.clone(),
-				middle.clone(),
+				target.clone(),
 				new_priority,
-				prev,
-				next,
+				hint_prev,
+				hint_next,
 			)
 			.unwrap();
 		}
 
-		assert_eq!(ListHeads::<T>::get(&list_id), Some(middle));
+		assert_eq!(ListHeads::<T>::get(&list_id), Some(target));
+		Ok(())
 	}
 
 	/// `reprioritize` parametric over the hint-repair walk length `s`.
