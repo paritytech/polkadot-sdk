@@ -1,9 +1,7 @@
 title: '[WIP] Network: Add bitswap client'
 doc:
 - audience: Node Dev
-  description: TBD for now CI
+  description: Adds a Bitswap client API to fetch CID-addressed blocks, including WANT-HAVE support and litep2p Bitswap routing for outbound requests.
 crates:
 - name: sc-network
-  bump: patch
-- name: sp-transaction-storage-proof
-  bump: patch
+  bump: minor
