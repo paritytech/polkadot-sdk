@@ -107,10 +107,10 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Outer key partitioning the lists.
-		type ListId: Parameter + Member + MaxEncodedLen + Copy;
+		type ListId: Parameter + Member + MaxEncodedLen;
 
 		/// Inner key identifying an item within a list.
-		type ItemId: Parameter + Member + MaxEncodedLen + Copy;
+		type ItemId: Parameter + Member + MaxEncodedLen;
 
 		/// Sort key. Higher priorities are closer to the head, lower priorities closer
 		/// to the tail.

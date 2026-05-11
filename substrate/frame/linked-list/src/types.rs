@@ -40,7 +40,6 @@ use frame::prelude::*;
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
-	Copy,
 	PartialEq,
 	Eq,
 	Debug,

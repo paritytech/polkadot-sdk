@@ -29,7 +29,7 @@ impl<T: Config> Pallet<T> {
 		item: T::ItemId,
 		hint: Position<T::ItemId>,
 	) -> Result<Weight, Error<T>> {
-		let stored = ListNodes::<T>::get(list_id, item).ok_or(Error::<T>::ItemNotFound)?;
+		let stored = ListNodes::<T>::get(&list_id, &item).ok_or(Error::<T>::ItemNotFound)?;
 		let Some(real_priority) = T::PriorityProvider::priority(&list_id, &item) else {
 			Self::remove(&list_id, &item)?;
 			return Ok(T::WeightInfo::reprioritize(T::MaxHintRepairSteps::get()));
@@ -45,7 +45,7 @@ impl<T: Config> Pallet<T> {
 			real_priority,
 		);
 
-		let steps = Self::re_insert(list_id, item, real_priority, hint)?;
+		let steps = Self::re_insert(list_id.clone(), item.clone(), real_priority, hint)?;
 
 		Self::deposit_event(Event::Reprioritized { list_id, item, new_priority: real_priority });
 		Ok(T::WeightInfo::reprioritize(steps))

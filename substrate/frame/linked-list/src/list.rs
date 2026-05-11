@@ -22,7 +22,7 @@
 //! [`ListTails`] and [`ListSizes`] storage maps and are wrapped by the trait
 //! impl in [`super::sorted_list_interface`].
 
-use crate::{pallet::*, Position, Side};
+use crate::{pallet::*, Position};
 use frame::{deps::frame_support::traits::DefensiveOption, prelude::*};
 
 /// Fetch a neighbor's stored node, returning `CorruptList` if `id` is `Some` but
@@ -32,62 +32,8 @@ fn fetch_neighbor<T: Config>(
 	list_id: &T::ListId,
 	id: Option<T::ItemId>,
 ) -> Result<Option<(T::ItemId, Node<T::ItemId, T::Priority>)>, Error<T>> {
-	id.map(|i| ListNodes::<T>::get(list_id, i).ok_or(Error::<T>::CorruptList).map(|n| (i, n)))
+	id.map(|i| ListNodes::<T>::get(list_id, &i).ok_or(Error::<T>::CorruptList).map(|n| (i, n)))
 		.transpose()
-}
-
-/// Write or clear `ListHeads[list_id]` based on whether `item` is `Some`.
-#[inline]
-fn set_head<T: Config>(list_id: &T::ListId, item: Option<T::ItemId>) {
-	match item {
-		Some(i) => ListHeads::<T>::insert(list_id, i),
-		None => ListHeads::<T>::remove(list_id),
-	}
-}
-
-/// Write or clear `ListTails[list_id]` based on whether `item` is `Some`.
-#[inline]
-fn set_tail<T: Config>(list_id: &T::ListId, item: Option<T::ItemId>) {
-	match item {
-		Some(i) => ListTails::<T>::insert(list_id, i),
-		None => ListTails::<T>::remove(list_id),
-	}
-}
-
-/// Splice `inserted` in on the head side: if `prev_neighbor` is `Some`, point
-/// its cached `.next` at `inserted` and write back; otherwise `inserted`
-/// becomes the new list head.
-///
-/// Caller must have validated the position upfront; this only mutates.
-#[inline]
-fn link_prev_side<T: Config>(
-	list_id: &T::ListId,
-	prev_neighbor: Option<(T::ItemId, Node<T::ItemId, T::Priority>)>,
-	inserted: T::ItemId,
-) {
-	match prev_neighbor {
-		Some((p, mut node)) => {
-			node.next = Some(inserted);
-			ListNodes::<T>::insert(list_id, p, node);
-		},
-		None => ListHeads::<T>::insert(list_id, inserted),
-	}
-}
-
-/// Symmetric: splice `inserted` in on the tail side.
-#[inline]
-fn link_next_side<T: Config>(
-	list_id: &T::ListId,
-	next_neighbor: Option<(T::ItemId, Node<T::ItemId, T::Priority>)>,
-	inserted: T::ItemId,
-) {
-	match next_neighbor {
-		Some((n, mut node)) => {
-			node.prev = Some(inserted);
-			ListNodes::<T>::insert(list_id, n, node);
-		},
-		None => ListTails::<T>::insert(list_id, inserted),
-	}
 }
 
 /// One node of a per-list sorted list.
@@ -116,7 +62,7 @@ pub fn is_position_valid<T: Config>(
 	priority: &T::Priority,
 	pos: &Position<T::ItemId>,
 ) -> bool {
-	let prev_ok = pos.prev.map_or_else(
+	let prev_ok = pos.prev.as_ref().map_or_else(
 		|| ListHeads::<T>::get(list_id) == pos.next,
 		|p| {
 			ListNodes::<T>::get(list_id, p)
@@ -127,7 +73,7 @@ pub fn is_position_valid<T: Config>(
 		return false;
 	}
 
-	pos.next.map_or_else(
+	pos.next.as_ref().map_or_else(
 		|| ListTails::<T>::get(list_id) == pos.prev,
 		|n| {
 			ListNodes::<T>::get(list_id, n)
@@ -144,13 +90,104 @@ pub fn neighbor_priorities_admit<T: Config>(
 	priority: &T::Priority,
 	pos: &Position<T::ItemId>,
 ) -> bool {
-	let prev_ok = pos
-		.prev
-		.map_or(true, |p| ListNodes::<T>::get(list_id, p).is_some_and(|n| n.priority >= *priority));
-	let next_ok = pos.next.map_or(true, |n| {
+	let prev_ok = pos.prev.as_ref().is_none_or(|p| {
+		ListNodes::<T>::get(list_id, p).is_some_and(|n| n.priority >= *priority)
+	});
+	let next_ok = pos.next.as_ref().is_none_or(|n| {
 		ListNodes::<T>::get(list_id, n).is_some_and(|node| *priority > node.priority)
 	});
 	prev_ok && next_ok
+}
+
+// Each `try_*` returns `true` iff it applied a one-step mutation to `current`.
+// [`walk_repair`] dispatches them in order — clamp dangling refs, then
+// re-anchor inconsistent links, then walk by priority — and treats all three
+// returning `false` as a contract violation (the cursor is rejected by
+// [`is_position_valid`] yet no repair step applies).
+
+/// If `current` references a removed node, clear that side. Tries `prev` then
+/// `next`; clears at most one side per call so each clamp counts as a distinct
+/// repair step.
+fn try_clamp_dangling<T: Config>(list_id: &T::ListId, current: &mut Position<T::ItemId>) -> bool {
+	if let Some(p) = current.prev.as_ref() {
+		if !ListNodes::<T>::contains_key(list_id, p) {
+			current.prev = None;
+			return true;
+		}
+	}
+	if let Some(n) = current.next.as_ref() {
+		if !ListNodes::<T>::contains_key(list_id, n) {
+			current.next = None;
+			return true;
+		}
+	}
+	false
+}
+
+/// If `current.prev` and `current.next` are not adjacent via their cached
+/// links, re-anchor on whichever side's cached link admits `priority`
+/// (preferring `prev` on ties). Returns `false` when the links are already
+/// consistent.
+fn try_reanchor_inconsistent<T: Config>(
+	list_id: &T::ListId,
+	priority: &T::Priority,
+	current: &mut Position<T::ItemId>,
+	prev_node: &Option<Node<T::ItemId, T::Priority>>,
+	next_node: &Option<Node<T::ItemId, T::Priority>>,
+) -> bool {
+	let prev_links_match = prev_node
+		.as_ref()
+		.map_or_else(|| ListHeads::<T>::get(list_id) == current.next, |pn| pn.next == current.next);
+	let next_links_match = next_node
+		.as_ref()
+		.map_or_else(|| ListTails::<T>::get(list_id) == current.prev, |nn| nn.prev == current.prev);
+
+	if prev_links_match && next_links_match {
+		return false;
+	}
+
+	match (prev_node, next_node) {
+		(Some(pn), Some(nn)) => {
+			if pn.priority >= *priority {
+				current.next = pn.next.clone();
+			} else if *priority > nn.priority {
+				current.prev = nn.prev.clone();
+			} else {
+				current.next = pn.next.clone();
+			}
+		},
+		(Some(pn), None) => current.next = pn.next.clone(),
+		(None, Some(nn)) => current.prev = nn.prev.clone(),
+		(None, None) => {
+			current.prev = None;
+			current.next = ListHeads::<T>::get(list_id);
+		},
+	}
+	true
+}
+
+/// Walk one node head-ward (if `prev.priority < priority`) or tail-ward (if
+/// `priority <= next.priority`). The `<=` preserves the `>=`/`>` asymmetry of
+/// [`is_position_valid`]. Returns `false` when neither side admits a walk —
+/// only reachable when links are consistent yet the position is rejected,
+/// which the caller treats as a contract violation.
+fn try_walk_priority<T: Config>(
+	priority: &T::Priority,
+	current: &mut Position<T::ItemId>,
+	prev_node: &Option<Node<T::ItemId, T::Priority>>,
+	next_node: &Option<Node<T::ItemId, T::Priority>>,
+) -> bool {
+	if let Some(pn) = prev_node.as_ref().filter(|n| n.priority < *priority) {
+		current.next = current.prev.take();
+		current.prev = pn.prev.clone();
+		true
+	} else if let Some(nn) = next_node.as_ref().filter(|n| *priority <= n.priority) {
+		current.prev = current.next.take();
+		current.next = nn.next.clone();
+		true
+	} else {
+		false
+	}
 }
 
 /// Walk from `hint` toward the correct insert position for `priority`, taking
@@ -164,120 +201,29 @@ pub fn walk_repair<T: Config>(
 	priority: &T::Priority,
 	hint: Position<T::ItemId>,
 ) -> Result<(Position<T::ItemId>, u32), Error<T>> {
-	let Position { mut prev, mut next } = hint;
-	// Helper closure: package the loop-local cursor as a `Position` for the
-	// `is_position_valid` boundary, which the rest of the module expects.
-	let valid = |p, n, prio| is_position_valid::<T>(list_id, prio, &Position { prev: p, next: n });
-	if valid(prev, next, priority) {
-		return Ok((Position { prev, next }, 0));
+	let mut current = hint;
+	if is_position_valid::<T>(list_id, priority, &current) {
+		return Ok((current, 0));
 	}
 
 	let budget = T::MaxHintRepairSteps::get();
-	let mut steps = 0u32;
-
-	while steps < budget {
-		// Clamp dangling hints (caller referenced a removed node) to `None`.
-		if let Some(p) = prev {
-			if !ListNodes::<T>::contains_key(list_id, p) {
-				prev = None;
-				steps = steps.saturating_add(1);
-				if valid(prev, next, priority) {
-					return Ok((Position { prev, next }, steps));
-				}
-				continue;
-			}
-		}
-		if let Some(n) = next {
-			if !ListNodes::<T>::contains_key(list_id, n) {
-				next = None;
-				steps = steps.saturating_add(1);
-				if valid(prev, next, priority) {
-					return Ok((Position { prev, next }, steps));
-				}
-				continue;
-			}
-		}
-
-		let prev_node = prev.and_then(|p| ListNodes::<T>::get(list_id, p));
-		let next_node = next.and_then(|n| ListNodes::<T>::get(list_id, n));
-
-		// Detect link inconsistency: are `prev` and `next` actually adjacent?
-		let prev_links_match = prev_node
-			.as_ref()
-			.map_or_else(|| ListHeads::<T>::get(list_id) == next, |pn| pn.next == next);
-		let next_links_match = next_node
-			.as_ref()
-			.map_or_else(|| ListTails::<T>::get(list_id) == prev, |nn| nn.prev == prev);
-
-		if !prev_links_match || !next_links_match {
-			// Pick whichever side satisfies its own role in
-			// `prev.priority >= priority > next.priority`. If both are priority-correct,
-			// trust prev (its cached `next` brings us into the right region).
-			// If neither is, trust whichever exists (prev preferred).
-			match (prev_node, next_node) {
-				(Some(pn), Some(nn)) => {
-					if pn.priority >= *priority {
-						next = pn.next;
-					} else if *priority > nn.priority {
-						prev = nn.prev;
-					} else {
-						next = pn.next;
-					}
-				},
-				(Some(pn), None) => {
-					next = pn.next;
-				},
-				(None, Some(nn)) => {
-					prev = nn.prev;
-				},
-				(None, None) => {
-					prev = None;
-					next = ListHeads::<T>::get(list_id);
-				},
-			}
-
-			steps = steps.saturating_add(1);
-			if valid(prev, next, priority) {
-				return Ok((Position { prev, next }, steps));
-			}
-			continue;
-		}
-
-		// Links are consistent: walk based on priority. Step head-ward if
-		// `prev.priority < priority`, tail-ward if `priority <= next.priority`. The
-		// `<=` keeps the `>=`/`>` asymmetry.
-		let walk_toward = if prev_node.as_ref().is_some_and(|n| n.priority < *priority) {
-			Some(Side::Head)
-		} else if next_node.as_ref().is_some_and(|n| *priority <= n.priority) {
-			Some(Side::Tail)
-		} else {
-			None
+	for steps in 1..=budget {
+		let progressed = try_clamp_dangling::<T>(list_id, &mut current) || {
+			let prev_node = current.prev.as_ref().and_then(|p| ListNodes::<T>::get(list_id, p));
+			let next_node = current.next.as_ref().and_then(|n| ListNodes::<T>::get(list_id, n));
+			try_reanchor_inconsistent::<T>(list_id, priority, &mut current, &prev_node, &next_node) ||
+				try_walk_priority::<T>(priority, &mut current, &prev_node, &next_node)
 		};
-
-		match walk_toward {
-			Some(Side::Head) => {
-				next = prev.take();
-				prev = prev_node.expect("Side::Head implies prev_node.is_some(); qed").prev;
-			},
-			Some(Side::Tail) => {
-				prev = next.take();
-				next = next_node.expect("Side::Tail implies next_node.is_some(); qed").next;
-			},
-			None => {
-				// With consistent links, an invalid position must drive the
-				// cursor head- or tail-ward; reaching here means a contract
-				// violation. Log it and reset to the head so the loop still
-				// terminates.
-				defensive!("walk_repair: links consistent but neither side admits priority");
-				prev = None;
-				next = ListHeads::<T>::get(list_id);
-			},
+		if !progressed {
+			// Links are consistent and neither side's priority drives a walk,
+			// yet `is_position_valid` rejects us. Reset to the head so the
+			// loop still terminates within the budget.
+			defensive!("walk_repair: no repair step applicable, resetting to head");
+			current.prev = None;
+			current.next = ListHeads::<T>::get(list_id);
 		}
-
-		steps = steps.saturating_add(1);
-
-		if valid(prev, next, priority) {
-			return Ok((Position { prev, next }, steps));
+		if is_position_valid::<T>(list_id, priority, &current) {
+			return Ok((current, steps));
 		}
 	}
 
@@ -293,13 +239,13 @@ pub fn insert_at<T: Config>(
 	priority: T::Priority,
 	position: Position<T::ItemId>,
 ) -> Result<(), Error<T>> {
-	if ListNodes::<T>::contains_key(list_id, item) {
+	if ListNodes::<T>::contains_key(list_id, &item) {
 		return Err(Error::<T>::ItemAlreadyExists);
 	}
 	let new_size = ListSizes::<T>::get(list_id).checked_add(1).ok_or(Error::<T>::ListTooLong)?;
 
-	let prev_node = fetch_neighbor::<T>(list_id, position.prev)?;
-	let next_node = fetch_neighbor::<T>(list_id, position.next)?;
+	let prev_node = fetch_neighbor::<T>(list_id, position.prev.clone())?;
+	let next_node = fetch_neighbor::<T>(list_id, position.next.clone())?;
 
 	if prev_node.as_ref().is_some_and(|(_, node)| node.next != position.next) ||
 		next_node.as_ref().is_some_and(|(_, node)| node.prev != position.prev)
@@ -311,12 +257,27 @@ pub fn insert_at<T: Config>(
 	// benchmarked without `debug_assertions`.
 	debug_assert!(is_position_valid::<T>(list_id, &priority, &position));
 
-	link_prev_side::<T>(list_id, prev_node, item);
-	link_next_side::<T>(list_id, next_node, item);
+	// Splice in on the head side: rewrite prev's `.next` to point at `item`,
+	// or promote `item` to head if there's no prev.
+	match prev_node {
+		Some((p, mut n)) => {
+			n.next = Some(item.clone());
+			ListNodes::<T>::insert(list_id, p, n);
+		},
+		None => ListHeads::<T>::insert(list_id, &item),
+	}
+	// Symmetric on the tail side.
+	match next_node {
+		Some((n, mut node)) => {
+			node.prev = Some(item.clone());
+			ListNodes::<T>::insert(list_id, n, node);
+		},
+		None => ListTails::<T>::insert(list_id, &item),
+	}
 
 	ListNodes::<T>::insert(
 		list_id,
-		item,
+		&item,
 		Node { prev: position.prev, next: position.next, priority },
 	);
 	ListSizes::<T>::insert(list_id, new_size);
@@ -328,36 +289,38 @@ pub fn insert_at<T: Config>(
 /// `item` is not in the list.
 pub fn remove_at<T: Config>(list_id: &T::ListId, item: T::ItemId) -> Result<(), Error<T>> {
 	let Node { prev: removed_prev, next: removed_next, .. } =
-		ListNodes::<T>::get(list_id, item).ok_or(Error::<T>::ItemNotFound)?;
+		ListNodes::<T>::get(list_id, &item).ok_or(Error::<T>::ItemNotFound)?;
 	// Defensive: by `try_state` invariant 1, a present node implies `ListSizes >= 1`.
 	let new_size = ListSizes::<T>::get(list_id)
 		.checked_sub(1)
 		.defensive_ok_or(Error::<T>::CorruptList)?;
-	if removed_prev == Some(item) || removed_next == Some(item) {
+	if removed_prev.as_ref() == Some(&item) || removed_next.as_ref() == Some(&item) {
 		return Err(Error::<T>::CorruptList);
 	}
 
-	let prev_node = fetch_neighbor::<T>(list_id, removed_prev)?;
-	let next_node = fetch_neighbor::<T>(list_id, removed_next)?;
+	let prev_node = fetch_neighbor::<T>(list_id, removed_prev.clone())?;
+	let next_node = fetch_neighbor::<T>(list_id, removed_next.clone())?;
 
-	if prev_node.as_ref().is_some_and(|(_, node)| node.next != Some(item)) ||
-		next_node.as_ref().is_some_and(|(_, node)| node.prev != Some(item))
+	if prev_node.as_ref().is_some_and(|(_, node)| node.next.as_ref() != Some(&item)) ||
+		next_node.as_ref().is_some_and(|(_, node)| node.prev.as_ref() != Some(&item))
 	{
 		return Err(Error::<T>::CorruptList);
 	}
 
-	ListNodes::<T>::remove(list_id, item);
+	ListNodes::<T>::remove(list_id, &item);
 
-	// Splice the head side: rewrite the left neighbor's `.next` to bypass us
-	// (or, if there's no left neighbor, promote `removed_next` to the head —
-	// which `set_head` also handles when `removed_next` is `None`, tearing the
-	// head pointer down for an emptied list).
+	// Splice past `item` on the head side: rewrite prev's `.next` to skip us,
+	// or rewrite the head pointer to `removed_next` (which clears it when the
+	// list emptied).
 	match prev_node {
 		Some((p, mut left)) => {
 			left.next = removed_next;
 			ListNodes::<T>::insert(list_id, p, left);
 		},
-		None => set_head::<T>(list_id, removed_next),
+		None => match removed_next {
+			Some(new_head) => ListHeads::<T>::insert(list_id, new_head),
+			None => ListHeads::<T>::remove(list_id),
+		},
 	}
 	// Symmetric on the tail side.
 	match next_node {
@@ -365,7 +328,10 @@ pub fn remove_at<T: Config>(list_id: &T::ListId, item: T::ItemId) -> Result<(), 
 			right.prev = removed_prev;
 			ListNodes::<T>::insert(list_id, n, right);
 		},
-		None => set_tail::<T>(list_id, removed_prev),
+		None => match removed_prev {
+			Some(new_tail) => ListTails::<T>::insert(list_id, new_tail),
+			None => ListTails::<T>::remove(list_id),
+		},
 	}
 
 	if new_size == 0 {

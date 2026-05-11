@@ -123,16 +123,16 @@ impl<T: Config> Pallet<T> {
 			if node.prev != prev {
 				return Err("forward walk: node.prev != expected".into());
 			}
-			if let Some(p) = node.prev {
-				if p == cur {
+			if let Some(p) = node.prev.as_ref() {
+				if p == &cur {
 					return Err("self-loop on prev".into());
 				}
 				if !ListNodes::<T>::contains_key(list_id, p) {
 					return Err("prev points to missing node".into());
 				}
 			}
-			if let Some(n) = node.next {
-				if n == cur {
+			if let Some(n) = node.next.as_ref() {
+				if n == &cur {
 					return Err("self-loop on next".into());
 				}
 				if !ListNodes::<T>::contains_key(list_id, n) {
@@ -145,9 +145,9 @@ impl<T: Config> Pallet<T> {
 				}
 			}
 			last_priority = Some(node.priority);
-			forward.push(cur);
-			prev = Some(cur);
+			prev = Some(cur.clone());
 			cursor = node.next;
+			forward.push(cur);
 		}
 		if u32::try_from(forward.len()).map_or(true, |n| n != stored_size) {
 			return Err("forward walk count != ListSizes".into());
