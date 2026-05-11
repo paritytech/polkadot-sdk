@@ -7538,6 +7538,7 @@ dependencies = [
  "polkadot-jemalloc-shim",
  "sc-chain-spec 50.0.0",
  "sc-cli",
+ "sp-crypto-ec-utils",
  "sp-genesis-builder 0.23.0",
  "sp-runtime 47.0.0",
  "sp-statement-store",
