@@ -6881,14 +6881,8 @@ dependencies = [
  "polkadot-jemalloc-shim",
  "sc-chain-spec 49.0.0",
  "sc-cli",
-<<<<<<< HEAD
  "sp-genesis-builder 0.22.0",
  "sp-runtime 46.0.0",
-=======
- "sp-crypto-ec-utils",
- "sp-genesis-builder 0.8.0",
- "sp-runtime 31.0.1",
->>>>>>> d803f1b (omni-bencher: expose BLS host functions (#12035))
  "sp-statement-store",
  "tempfile",
  "tracing-subscriber 0.3.19",
