@@ -24,14 +24,12 @@
 use frame::prelude::*;
 
 pub trait WeightInfo {
-	/// `insert` with a perfectly valid hint (no repair walk).
-	fn insert_terminal() -> Weight;
-
-	/// `insert` with a hint that requires the full `MaxHintRepairSteps` walk.
-	/// Consumers calling [`crate::SortedListInterface::insert`] should charge
-	/// this up front and refund the unused portion using the `u32` step count
-	/// returned from the call.
-	fn insert_worst_case() -> Weight;
+	/// `insert` weight after a hint-repair walk of `repair_steps` steps. The
+	/// benchmark is parametric over `repair_steps`, so this yields a linear
+	/// formula. Consumers calling [`crate::SortedListInterface::insert`] should
+	/// charge `insert(MaxHintRepairSteps)` up front and refund the unused
+	/// portion using the `u32` step count returned from the call.
+	fn insert(repair_steps: u32) -> Weight;
 
 	/// `remove` of a node from the middle of the list.
 	fn remove() -> Weight;
@@ -40,8 +38,12 @@ pub trait WeightInfo {
 	/// unchanged.
 	fn re_insert_in_place() -> Weight;
 
-	/// `re_insert` slow path: splice + repair walk + insert.
-	fn re_insert_relocate() -> Weight;
+	/// `re_insert` slow path weight after a hint-repair walk of `repair_steps`
+	/// steps. The benchmark is parametric over `repair_steps`, so this yields a
+	/// linear formula. Consumers calling [`crate::SortedListInterface::re_insert`]
+	/// should charge `re_insert_relocate(MaxHintRepairSteps)` up front and refund
+	/// the unused portion using the `u32` step count returned from the call.
+	fn re_insert_relocate(repair_steps: u32) -> Weight;
 
 	/// `reprioritize` weight after a hint-repair walk of `repair_steps` steps. The
 	/// benchmark is parametric over `repair_steps`, so this yields a linear
@@ -52,10 +54,7 @@ pub trait WeightInfo {
 }
 
 impl WeightInfo for () {
-	fn insert_terminal() -> Weight {
-		Weight::MAX
-	}
-	fn insert_worst_case() -> Weight {
+	fn insert(_repair_steps: u32) -> Weight {
 		Weight::MAX
 	}
 	fn remove() -> Weight {
@@ -64,7 +63,7 @@ impl WeightInfo for () {
 	fn re_insert_in_place() -> Weight {
 		Weight::MAX
 	}
-	fn re_insert_relocate() -> Weight {
+	fn re_insert_relocate(_repair_steps: u32) -> Weight {
 		Weight::MAX
 	}
 	fn reprioritize(_repair_steps: u32) -> Weight {
