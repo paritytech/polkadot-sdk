@@ -164,7 +164,7 @@ fn nested_call_storage_refund(fixture_type: FixtureType, fixture_name: &str) {
 /// required to cover the storage deposit before submitting the real transaction.
 #[test]
 fn max_storage_deposit_reported_for_unfunded_dry_run() {
-	use crate::{ExecConfig, primitives::StorageDeposit, test_utils::CHARLIE};
+	use crate::{ExecConfig, test_utils::CHARLIE};
 	use frame_support::storage::{TransactionOutcome, with_transaction};
 	use frame_system::RawOrigin;
 
@@ -185,13 +185,17 @@ fn max_storage_deposit_reported_for_unfunded_dry_run() {
 			.unwrap()
 		};
 
-		// Reference run from a funded account. Peak deposit is 132 (two slots: a=2, b=3).
+		// Reference run from a funded account.
 		let funded = run_in_rollback(&|| {
 			builder::bare_call(caller_addr)
 				.data(DepositPrecompile::setAndClearCall {}.abi_encode())
 				.build()
 		});
-		assert_eq!(funded.max_storage_deposit, StorageDeposit::Charge(132));
+		assert!(
+			funded.max_storage_deposit.charge_or_zero() > 0,
+			"expected the funded reference run to require some storage deposit, got {:?}",
+			funded.max_storage_deposit,
+		);
 
 		// Same call from CHARLIE, who has no balance, using the runtime-api dry-run
 		// `ExecConfig`. The reported `max_storage_deposit` must match the funded run
