@@ -113,7 +113,9 @@ impl Multihash {
 
 	/// Wraps the digest in a multihash.
 	pub fn wrap(code: u64, input_digest: &[u8]) -> Result<Self, Error> {
-		LiteP2pMultihash::<64>::wrap(code, input_digest).map(Into::into).map_err(Into::into)
+		LiteP2pMultihash::<64>::wrap(code, input_digest)
+			.map(Into::into)
+			.map_err(Into::into)
 	}
 
 	/// Parses a multihash from bytes.
