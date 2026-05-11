@@ -109,7 +109,7 @@ async fn coretime_shared_core_inner(number_of_paras: u32) -> Result<(), anyhow::
 	log::info!("Core 0 assignment shared for all paras completed");
 
 	// Wait for PVF preparation to complete.
-	wait_for_pvf_prepare(&network, number_of_paras).await?;
+	wait_for_pvf_prepare(&network, 1).await?;
 
 	// Wait 1 sessions for registration/core assignment
 	log::info!("Waiting for 1 session boundaries");
