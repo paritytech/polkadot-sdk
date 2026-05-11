@@ -22,7 +22,9 @@
 //! and client-side (outbound WANT dispatch + response correlation) functionality.
 
 use crate::{
-	bitswap::{is_cid_supported, BitswapProtoMessage, Prefix, LOG_TARGET, PROTOCOL_NAME},
+	bitswap::{
+		is_cid_supported, BitswapProtoMessage, Prefix, LOG_TARGET, MAX_WANTED_BLOCKS, PROTOCOL_NAME,
+	},
 	request_responses::RequestFailure,
 	OutboundFailure, ProtocolName, MAX_RESPONSE_SIZE,
 };
@@ -275,6 +277,12 @@ impl<Block: BlockT> BitswapService<Block> {
 
 	/// Handle an inbound bitswap WANT request from `peer`.
 	async fn handle_inbound_request(&mut self, peer: litep2p::PeerId, cids: Vec<(Cid, WantType)>) {
+		let want_count = cids.len();
+		if inbound_wantlist_exceeds_limit(want_count) {
+			log::trace!(target: LOG_TARGET, "bitswap: ignored inbound request with {want_count} entries");
+			return;
+		}
+
 		log::debug!(target: LOG_TARGET, "bitswap: handle inbound request from {peer:?} for {cids:?}");
 
 		let response: Vec<ResponseType> = cids
@@ -318,6 +326,10 @@ impl<Block: BlockT> BitswapService<Block> {
 		self.pending.insert(peer, PendingBatch::new(cids, response_tx, Instant::now()));
 		self.handle.send_request(peer, wants).await;
 	}
+}
+
+fn inbound_wantlist_exceeds_limit(len: usize) -> bool {
+	len > MAX_WANTED_BLOCKS
 }
 
 /// Collapse a response list into at most one entry per CID, preferring `Block`
@@ -399,6 +411,12 @@ mod tests {
 		let digest = [byte; 32];
 		let mh = CidMultihash::<64>::wrap(0xb220, &digest).unwrap();
 		Cid::new_v1(0x55, mh)
+	}
+
+	#[test]
+	fn inbound_wantlist_limit_rejects_only_over_cap_requests() {
+		assert!(!inbound_wantlist_exceeds_limit(MAX_WANTED_BLOCKS));
+		assert!(inbound_wantlist_exceeds_limit(MAX_WANTED_BLOCKS + 1));
 	}
 
 	fn pending_batch(
