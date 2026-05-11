@@ -420,6 +420,7 @@ members = [
 	"substrate/frame/proxy",
 	"substrate/frame/psm",
 	"substrate/frame/psm/remote-tests",
+	"substrate/frame/pusd-primitives",
 	"substrate/frame/ranked-collective",
 	"substrate/frame/recovery",
 	"substrate/frame/referenda",
@@ -484,6 +485,7 @@ members = [
 	"substrate/frame/tx-pause",
 	"substrate/frame/uniques",
 	"substrate/frame/utility",
+	"substrate/frame/vaults",
 	"substrate/frame/verify-signature",
 	"substrate/frame/vesting",
 	"substrate/frame/vesting/precompiles",
@@ -1047,6 +1049,7 @@ pallet-preimage = { path = "substrate/frame/preimage", default-features = false 
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false }
 pallet-psm = { path = "substrate/frame/psm", default-features = false }
 pallet-psm-remote-tests = { path = "substrate/frame/psm/remote-tests" }
+pusd-primitives = { path = "substrate/frame/pusd-primitives", default-features = false }
 pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default-features = false }
 pallet-recovery = { path = "substrate/frame/recovery", default-features = false }
 pallet-referenda = { path = "substrate/frame/referenda", default-features = false }
@@ -1083,6 +1086,7 @@ pallet-transaction-payment-rpc-runtime-api = { path = "substrate/frame/transacti
 pallet-treasury = { path = "substrate/frame/treasury", default-features = false }
 pallet-uniques = { path = "substrate/frame/uniques", default-features = false }
 pallet-utility = { path = "substrate/frame/utility", default-features = false }
+pallet-vaults = { path = "substrate/frame/vaults", default-features = false }
 pallet-verify-signature = { path = "substrate/frame/verify-signature", default-features = false }
 pallet-vesting = { path = "substrate/frame/vesting", default-features = false }
 pallet-vesting-precompiles = { path = "substrate/frame/vesting/precompiles", default-features = false }

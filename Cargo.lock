@@ -15099,6 +15099,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-vaults"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "pallet-assets",
+ "pallet-assets-holder",
+ "pallet-balances",
+ "pallet-linked-list",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "pusd-primitives",
+ "scale-info",
+]
+
+[[package]]
 name = "pallet-verify-signature"
 version = "1.0.0"
 dependencies = [
@@ -19108,6 +19124,15 @@ dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
+]
+
+[[package]]
+name = "pusd-primitives"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
 ]
 
 [[package]]
