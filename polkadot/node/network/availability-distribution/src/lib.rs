@@ -154,6 +154,7 @@ impl AvailabilityDistributionSubsystem {
 			};
 			match message {
 				FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
+					runtime.note_active_leaves_update(&update);
 					log_error(
 						requester
 							.get_mut()
@@ -163,7 +164,8 @@ impl AvailabilityDistributionSubsystem {
 						&mut warn_freq,
 					)?;
 				},
-				FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, _finalized_number)) => {
+				FromOrchestra::Signal(OverseerSignal::BlockFinalized(hash, finalized_number)) => {
+					runtime.note_block_finalized(hash, finalized_number);
 				},
 				FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 				FromOrchestra::Communication {

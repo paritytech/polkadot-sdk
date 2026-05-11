@@ -29,16 +29,12 @@ pub mod service;
 /// This method of driving collators is not suited to anything but the most simple parachain
 /// consensus mechanisms, and this module may soon be deprecated.
 pub mod relay_chain_driven {
-	use futures::{
-		channel::{mpsc, oneshot},
-		lock::Mutex,
-		prelude::*,
-	};
+	use futures::channel::{mpsc, oneshot};
 	use polkadot_node_primitives::{CollationGenerationConfig, CollationResult};
 	use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
 	use polkadot_overseer::Handle as OverseerHandle;
 	use polkadot_primitives::{CollatorPair, Id as ParaId};
-	use std::sync::Arc;
+	use sc_utils::mpsc::{shared_capacity_channel, ChannelPolicy};
 
 	use cumulus_primitives_core::{relay_chain::Hash as PHash, PersistedValidationData};
 
@@ -77,8 +73,8 @@ pub mod relay_chain_driven {
 	) -> mpsc::Receiver<CollationRequest> {
 		let mut overseer_handle = overseer_handle;
 
-		let (stream_tx, stream_rx) = mpsc::channel(0);
-		let stream_tx = Arc::new(Mutex::new(stream_tx));
+		let (stream_tx, stream_rx) =
+			shared_capacity_channel(ChannelPolicy::bounded("relay-chain-driven-collation", 0));
 		let config = CollationGenerationConfig {
 			key,
 			para_id,
@@ -90,11 +86,9 @@ pub mod relay_chain_driven {
 					let request =
 						CollationRequest { relay_parent, pvd: validation_data, sender: this_tx };
 
-					let mut stream_tx = stream_tx.lock().await;
 					if stream_tx.send(request).await.is_err() {
 						return None;
 					}
-					drop(stream_tx);
 
 					this_rx.await.ok().flatten()
 				})

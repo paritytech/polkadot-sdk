@@ -25,7 +25,7 @@
 use codec::Encode;
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
-	messages::{RuntimeApiMessage, RuntimeApiRequest as Request},
+	messages::{RuntimeApiFeature, RuntimeApiMessage, RuntimeApiRequest as Request},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_types::RuntimeApiSubsystemClient;
@@ -1187,7 +1187,7 @@ where
 		Request::CandidatesPendingAvailability(para, sender) => query!(
 			CandidatesPendingAvailability,
 			candidates_pending_availability(para),
-			ver = Request::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT,
+			ver = RuntimeApiFeature::CANDIDATES_PENDING_AVAILABILITY.required_version(),
 			sender
 		),
 		Request::CandidateEvents(sender) => {
@@ -1199,7 +1199,7 @@ where
 		Request::SessionExecutorParams(session_index, sender) => query!(
 			SessionExecutorParams,
 			session_executor_params(session_index),
-			ver = Request::EXECUTOR_PARAMS_RUNTIME_REQUIREMENT,
+			ver = RuntimeApiFeature::EXECUTOR_PARAMS.required_version(),
 			sender
 		),
 		Request::DmqContents(id, sender) => query!(DmqContents, dmq_contents(id), ver = 1, sender),
@@ -1228,53 +1228,58 @@ where
 			query!(ValidationCodeHash, validation_code_hash(para, assumption), ver = 2, sender)
 		},
 		Request::Disputes(sender) => {
-			query!(Disputes, disputes(), ver = Request::DISPUTES_RUNTIME_REQUIREMENT, sender)
+			query!(
+				Disputes,
+				disputes(),
+				ver = RuntimeApiFeature::DISPUTES.required_version(),
+				sender
+			)
 		},
 		Request::UnappliedSlashes(sender) => query!(
 			UnappliedSlashes,
 			unapplied_slashes(),
-			ver = Request::UNAPPLIED_SLASHES_RUNTIME_REQUIREMENT,
+			ver = RuntimeApiFeature::UNAPPLIED_SLASHES.required_version(),
 			sender
 		),
 		Request::KeyOwnershipProof(validator_id, sender) => query!(
 			KeyOwnershipProof,
 			key_ownership_proof(validator_id),
-			ver = Request::KEY_OWNERSHIP_PROOF_RUNTIME_REQUIREMENT,
+			ver = RuntimeApiFeature::KEY_OWNERSHIP_PROOF.required_version(),
 			sender
 		),
 		Request::ApprovalVotingParams(session_index, sender) => {
 			query!(
 				ApprovalVotingParams,
 				approval_voting_params(session_index),
-				ver = Request::APPROVAL_VOTING_PARAMS_REQUIREMENT,
+				ver = RuntimeApiFeature::APPROVAL_VOTING_PARAMS.required_version(),
 				sender
 			)
 		},
 		Request::SubmitReportDisputeLost(dispute_proof, key_ownership_proof, sender) => query!(
 			SubmitReportDisputeLost,
 			submit_report_dispute_lost(dispute_proof, key_ownership_proof),
-			ver = Request::SUBMIT_REPORT_DISPUTE_LOST_RUNTIME_REQUIREMENT,
+			ver = RuntimeApiFeature::SUBMIT_REPORT_DISPUTE_LOST.required_version(),
 			sender,
 			result = ()
 		),
 		Request::MinimumBackingVotes(index, sender) => query!(
 			MinimumBackingVotes,
 			minimum_backing_votes(index),
-			ver = Request::MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT,
+			ver = RuntimeApiFeature::MINIMUM_BACKING_VOTES.required_version(),
 			sender,
 			result = (index)
 		),
 		Request::DisabledValidators(sender) => query!(
 			DisabledValidators,
 			disabled_validators(),
-			ver = Request::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT,
+			ver = RuntimeApiFeature::DISABLED_VALIDATORS.required_version(),
 			sender
 		),
 		Request::ParaBackingState(para, sender) => {
 			query!(
 				ParaBackingState,
 				para_backing_state(para),
-				ver = Request::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT,
+				ver = RuntimeApiFeature::ASYNC_BACKING_STATE.required_version(),
 				sender
 			)
 		},
@@ -1282,70 +1287,70 @@ where
 			query!(
 				AsyncBackingParams,
 				async_backing_params(),
-				ver = Request::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT,
+				ver = RuntimeApiFeature::ASYNC_BACKING_STATE.required_version(),
 				sender
 			)
 		},
 		Request::NodeFeatures(index, sender) => query!(
 			NodeFeatures,
 			node_features(),
-			ver = Request::NODE_FEATURES_RUNTIME_REQUIREMENT,
+			ver = RuntimeApiFeature::NODE_FEATURES.required_version(),
 			sender,
 			result = (index)
 		),
 		Request::ClaimQueue(sender) => query!(
 			ClaimQueue,
 			claim_queue(),
-			ver = Request::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
+			ver = RuntimeApiFeature::CLAIM_QUEUE.required_version(),
 			sender
 		),
 		Request::BackingConstraints(para, sender) => {
 			query!(
 				BackingConstraints,
 				backing_constraints(para),
-				ver = Request::CONSTRAINTS_RUNTIME_REQUIREMENT,
+				ver = RuntimeApiFeature::BACKING_CONSTRAINTS.required_version(),
 				sender
 			)
 		},
 		Request::SchedulingLookahead(index, sender) => query!(
 			SchedulingLookahead,
 			scheduling_lookahead(),
-			ver = Request::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT,
+			ver = RuntimeApiFeature::SCHEDULING_LOOKAHEAD.required_version(),
 			sender,
 			result = (index)
 		),
 		Request::ValidationCodeBombLimit(index, sender) => query!(
 			ValidationCodeBombLimit,
 			validation_code_bomb_limit(),
-			ver = Request::VALIDATION_CODE_BOMB_LIMIT_RUNTIME_REQUIREMENT,
+			ver = RuntimeApiFeature::VALIDATION_CODE_BOMB_LIMIT.required_version(),
 			sender,
 			result = (index)
 		),
 		Request::ParaIds(index, sender) => query!(
 			ParaIds,
 			para_ids(),
-			ver = Request::PARAIDS_RUNTIME_REQUIREMENT,
+			ver = RuntimeApiFeature::PARA_IDS.required_version(),
 			sender,
 			result = (index)
 		),
 		Request::MaxRelayParentSessionAge(index, sender) => query!(
 			MaxRelayParentSessionAge,
 			max_relay_parent_session_age(),
-			ver = Request::MAX_RELAY_PARENT_SESSION_AGE_RUNTIME_REQUIREMENT,
+			ver = RuntimeApiFeature::MAX_RELAY_PARENT_SESSION_AGE.required_version(),
 			sender,
 			result = (index)
 		),
 		Request::AncestorRelayParentInfo(session_index, queried_relay_parent, sender) => query!(
 			AncestorRelayParentInfo,
 			ancestor_relay_parent_info(session_index, queried_relay_parent),
-			ver = Request::ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT,
+			ver = RuntimeApiFeature::ANCESTOR_RELAY_PARENT_INFO.required_version(),
 			sender,
 			result = (relay_parent, session_index, queried_relay_parent)
 		),
 		Request::UnappliedSlashesV2(sender) => query!(
 			UnappliedSlashesV2,
 			unapplied_slashes_v2(),
-			ver = Request::UNAPPLIED_SLASHES_V2_RUNTIME_REQUIREMENT,
+			ver = RuntimeApiFeature::UNAPPLIED_SLASHES_V2.required_version(),
 			sender
 		),
 	}

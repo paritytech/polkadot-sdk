@@ -29,7 +29,7 @@ use cumulus_primitives_core::{
 	relay_chain::Header as RelayHeader, BlockT, KeyToIncludeInRelayProof, RelayProofRequest,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
-use polkadot_node_subsystem::messages::{CollatorProtocolMessage, RuntimeApiRequest};
+use polkadot_node_subsystem::messages::{CollatorProtocolMessage, RuntimeApiFeature};
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	Hash as RelayHash, Id as ParaId, OccupiedCoreAssumption, ValidationCodeHash,
@@ -175,8 +175,7 @@ async fn scheduling_lookahead(
 		)
 		.unwrap_or_default();
 
-	if parachain_host_runtime_api_version <
-		RuntimeApiRequest::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT
+	if !RuntimeApiFeature::SCHEDULING_LOOKAHEAD.is_supported_by(parachain_host_runtime_api_version)
 	{
 		return None;
 	}

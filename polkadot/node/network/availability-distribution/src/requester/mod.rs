@@ -35,8 +35,7 @@ use polkadot_node_subsystem::{
 	overseer, ActivatedLeaf, ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_util::{
-	availability_chunks::availability_chunk_index,
-	runtime::{get_occupied_cores, RuntimeInfo},
+	availability_chunks::availability_chunk_index, runtime::RuntimeInfo,
 };
 use polkadot_primitives::{CandidateHash, CoreIndex, Hash, OccupiedCore, SessionIndex};
 
@@ -146,7 +145,7 @@ impl Requester {
 
 		// Also spawn or bump tasks for candidates in ancestry in the same session.
 		for hash in std::iter::once(leaf).chain(ancestors_in_session) {
-			let cores = get_occupied_cores(sender, hash).await?;
+			let cores = runtime.get_occupied_cores(sender, hash).await?;
 			gum::trace!(
 				target: LOG_TARGET,
 				occupied_cores = ?cores,

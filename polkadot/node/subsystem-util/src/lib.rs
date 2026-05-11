@@ -31,7 +31,9 @@ pub use overseer::{
 };
 use polkadot_node_subsystem::{
 	errors::{RuntimeApiError, SubsystemError},
-	messages::{ChainApiMessage, RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
+	messages::{
+		ChainApiMessage, RuntimeApiFeature, RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender,
+	},
 	overseer, SubsystemSender,
 };
 
@@ -239,6 +241,28 @@ where
 			false
 		},
 	}
+}
+
+/// Verifies if a typed `ParachainHost` runtime feature is supported at `relay_parent`.
+pub async fn has_runtime_feature<Sender>(
+	sender: &mut Sender,
+	relay_parent: Hash,
+	feature: RuntimeApiFeature,
+) -> bool
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	let supported = has_required_runtime(sender, relay_parent, feature.required_version()).await;
+	gum::trace!(
+		target: LOG_TARGET,
+		?relay_parent,
+		feature = feature.name(),
+		surface = ?feature.surface(),
+		required_runtime_version = feature.required_version(),
+		supported,
+		"Checked runtime compatibility feature"
+	);
+	supported
 }
 
 /// Construct specialized request functions for the runtime.

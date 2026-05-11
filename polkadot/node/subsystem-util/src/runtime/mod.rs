@@ -25,34 +25,38 @@ use sp_core::crypto::ByteArray;
 use sp_keystore::{Keystore, KeystorePtr};
 
 use polkadot_node_subsystem::{
+	SubsystemSender,
 	errors::RuntimeApiError,
 	messages::{RuntimeApiMessage, RuntimeApiRequest},
-	overseer, SubsystemSender,
+	overseer,
 };
-use polkadot_node_subsystem_types::UnpinHandle;
+use polkadot_node_subsystem_types::{ActiveLeavesUpdate, UnpinHandle};
 use polkadot_primitives::{
-	node_features::FeatureIndex, slashing, CandidateEvent, CandidateHash, CoreIndex, CoreState,
+	BlockNumber, CandidateEvent, CandidateHash, CoreIndex, CoreState, DEFAULT_SCHEDULING_LOOKAHEAD,
 	EncodeAs, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures,
-	OccupiedCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed, SigningContext,
-	UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	DEFAULT_SCHEDULING_LOOKAHEAD,
+	OccupiedCore, OccupiedCoreAssumption, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
+	SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, node_features::FeatureIndex, slashing,
 };
 
 use std::collections::{BTreeMap, VecDeque};
 
 use crate::{
 	request_availability_cores, request_candidate_events, request_claim_queue,
-	request_disabled_validators, request_from_runtime, request_key_ownership_proof,
-	request_node_features, request_on_chain_votes, request_session_index_for_child,
-	request_session_info, request_submit_report_dispute_lost, request_unapplied_slashes,
-	request_unapplied_slashes_v2, request_validation_code_by_hash, request_validator_groups,
+	request_from_runtime, request_key_ownership_proof, request_on_chain_votes,
+	request_submit_report_dispute_lost, request_unapplied_slashes, request_unapplied_slashes_v2,
+	request_validation_code_by_hash, request_validator_groups,
 };
 
+mod broker;
 /// Errors that can happen on runtime fetches.
 mod error;
 
+pub use broker::{
+	RelayParentContext, RelayParentContextBroker, SessionRuntimeContext, ValidationCodeMetadata,
+};
 use error::Result;
-pub use error::{recv_runtime, Error, FatalError, JfyiError};
+pub use error::{Error, FatalError, JfyiError, recv_runtime};
 
 const LOG_TARGET: &'static str = "parachain::runtime-info";
 
@@ -71,16 +75,8 @@ pub struct Config {
 ///
 /// It should be ensured that a cached session stays live in the cache as long as we might need it.
 pub struct RuntimeInfo {
-	/// Get the session index for a given relay parent.
-	///
-	/// We query this up to a 100 times per block, so caching it here without roundtrips over the
-	/// overseer seems sensible.
-	session_index_cache: LruMap<Hash, SessionIndex>,
-
-	/// In the happy case, we do not query disabled validators at all. In the worst case, we can
-	/// query it order of `n_cores` times `n_validators` per block, so caching it here seems
-	/// sensible.
-	disabled_validators_cache: LruMap<Hash, Vec<ValidatorIndex>>,
+	/// Shared relay-parent/session context broker.
+	context_broker: RelayParentContextBroker,
 
 	/// Look up cached sessions by `SessionIndex`.
 	session_info_cache: LruMap<SessionIndex, ExtendedSessionInfo>,
@@ -131,18 +127,32 @@ impl RuntimeInfo {
 
 	/// Create with more elaborate configuration options.
 	pub fn new_with_config(cfg: Config) -> Self {
+		let relay_parent_cache_lru_size = cfg.session_cache_lru_size.max(2 * MAX_FINALITY_LAG);
 		Self {
-			// Usually messages are processed for blocks pointing to hashes from last finalized
-			// block to to best, so make this cache large enough to hold at least this amount of
-			// hashes, so that we get the benefit of caching even when finality lag is large.
-			session_index_cache: LruMap::new(ByLength::new(
-				cfg.session_cache_lru_size.max(2 * MAX_FINALITY_LAG),
-			)),
+			context_broker: RelayParentContextBroker::new(
+				cfg.session_cache_lru_size,
+				relay_parent_cache_lru_size,
+			),
 			session_info_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
-			disabled_validators_cache: LruMap::new(ByLength::new(100)),
 			pinned_blocks: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
 			keystore: cfg.keystore,
 		}
+	}
+
+	/// Update relay-parent context lifetime from an active-leaves signal.
+	pub fn note_active_leaves_update(&mut self, update: &ActiveLeavesUpdate) {
+		if let Some(activated) = update.activated.as_ref() {
+			self.context_broker.note_relay_parent(activated.hash, activated.number);
+		}
+
+		for relay_parent in &update.deactivated {
+			self.context_broker.remove_relay_parent(*relay_parent);
+		}
+	}
+
+	/// Update relay-parent context lifetime from a finality signal.
+	pub fn note_block_finalized(&mut self, relay_parent: Hash, block_number: BlockNumber) {
+		self.context_broker.note_block_finalized(relay_parent, block_number);
 	}
 
 	/// Returns the session index expected at any child of the `parent` block.
@@ -155,15 +165,7 @@ impl RuntimeInfo {
 	where
 		Sender: SubsystemSender<RuntimeApiMessage>,
 	{
-		match self.session_index_cache.get(&parent) {
-			Some(index) => Ok(*index),
-			None => {
-				let index =
-					recv_runtime(request_session_index_for_child(parent, sender).await).await?;
-				self.session_index_cache.insert(parent, index);
-				Ok(index)
-			},
-		}
+		self.context_broker.session_index_for_child(sender, parent).await
 	}
 
 	/// Pin a given block in the given session if none are pinned in that session.
@@ -200,15 +202,107 @@ impl RuntimeInfo {
 	where
 		Sender: SubsystemSender<RuntimeApiMessage>,
 	{
-		match self.disabled_validators_cache.get(&relay_parent).cloned() {
-			Some(result) => Ok(result),
-			None => {
-				let disabled_validators =
-					request_disabled_validators(relay_parent, sender).await.await??;
-				self.disabled_validators_cache.insert(relay_parent, disabled_validators.clone());
-				Ok(disabled_validators)
-			},
-		}
+		self.context_broker.disabled_validators(sender, relay_parent).await
+	}
+
+	/// Get availability cores at the relay parent.
+	pub async fn get_availability_cores<Sender>(
+		&mut self,
+		sender: &mut Sender,
+		relay_parent: Hash,
+	) -> Result<Vec<CoreState>>
+	where
+		Sender: SubsystemSender<RuntimeApiMessage>,
+	{
+		self.context_broker.availability_cores(sender, relay_parent).await
+	}
+
+	/// Get occupied availability cores at the relay parent.
+	pub async fn get_occupied_cores<Sender>(
+		&mut self,
+		sender: &mut Sender,
+		relay_parent: Hash,
+	) -> Result<Vec<(CoreIndex, OccupiedCore)>>
+	where
+		Sender: SubsystemSender<RuntimeApiMessage>,
+	{
+		let cores = self.get_availability_cores(sender, relay_parent).await?;
+		Ok(cores
+			.into_iter()
+			.enumerate()
+			.filter_map(|(core_index, core_state)| {
+				if let CoreState::Occupied(occupied) = core_state {
+					Some((CoreIndex(core_index as u32), occupied))
+				} else {
+					None
+				}
+			})
+			.collect())
+	}
+
+	/// Get the claim queue at the relay parent.
+	pub async fn get_claim_queue<Sender>(
+		&mut self,
+		sender: &mut Sender,
+		relay_parent: Hash,
+	) -> Result<ClaimQueueSnapshot>
+	where
+		Sender: SubsystemSender<RuntimeApiMessage>,
+	{
+		self.context_broker.claim_queue(sender, relay_parent).await
+	}
+
+	/// Get validator groups and group rotation info at the relay parent.
+	pub async fn get_validator_groups<Sender>(
+		&mut self,
+		sender: &mut Sender,
+		relay_parent: Hash,
+	) -> Result<(Vec<Vec<ValidatorIndex>>, GroupRotationInfo)>
+	where
+		Sender: SubsystemSender<RuntimeApiMessage>,
+	{
+		self.context_broker.validator_groups(sender, relay_parent).await
+	}
+
+	/// Get group rotation info at the relay parent.
+	pub async fn get_group_rotation_info<Sender>(
+		&mut self,
+		sender: &mut Sender,
+		relay_parent: Hash,
+	) -> Result<GroupRotationInfo>
+	where
+		Sender: SubsystemSender<RuntimeApiMessage>,
+	{
+		let (_, info) = self.get_validator_groups(sender, relay_parent).await?;
+		Ok(info)
+	}
+
+	/// Get validation-code hash metadata for a para at the relay parent.
+	pub async fn get_validation_code_hash<Sender>(
+		&mut self,
+		sender: &mut Sender,
+		relay_parent: Hash,
+		para_id: ParaId,
+		assumption: OccupiedCoreAssumption,
+	) -> Result<Option<ValidationCodeHash>>
+	where
+		Sender: SubsystemSender<RuntimeApiMessage>,
+	{
+		self.context_broker
+			.validation_code_hash(sender, relay_parent, para_id, assumption)
+			.await
+	}
+
+	/// Get a typed relay-parent runtime snapshot.
+	pub async fn get_relay_parent_context<Sender>(
+		&mut self,
+		sender: &mut Sender,
+		relay_parent: Hash,
+	) -> Result<RelayParentContext>
+	where
+		Sender: SubsystemSender<RuntimeApiMessage>,
+	{
+		self.context_broker.relay_parent_context(sender, relay_parent).await
 	}
 
 	/// Get `ExtendedSessionInfo` by session index.
@@ -225,15 +319,13 @@ impl RuntimeInfo {
 		Sender: SubsystemSender<RuntimeApiMessage>,
 	{
 		if self.session_info_cache.get(&session_index).is_none() {
-			let session_info =
-				recv_runtime(request_session_info(parent, session_index, sender).await)
-					.await?
-					.ok_or(JfyiError::NoSuchSession(session_index))?;
+			let session_context =
+				self.context_broker.session_context(sender, parent, session_index).await?;
+			let session_info = session_context.session_info;
 
 			let validator_info = self.get_validator_info(&session_info)?;
 
-			let node_features =
-				request_node_features(parent, session_index, sender).await.await??;
+			let node_features = session_context.node_features;
 			let last_set_index = node_features.iter_ones().last().unwrap_or_default();
 			if last_set_index >= FeatureIndex::FirstUnassigned as usize {
 				gum::warn!(target: LOG_TARGET, "Runtime requires feature bit {} that node doesn't support, please upgrade node version", last_set_index);
@@ -278,11 +370,7 @@ impl RuntimeInfo {
 			let our_group =
 				session_info.validator_groups.iter().enumerate().find_map(|(i, g)| {
 					g.iter().find_map(|v| {
-						if *v == our_index {
-							Some(GroupIndex(i as u32))
-						} else {
-							None
-						}
+						if *v == our_index { Some(GroupIndex(i as u32)) } else { None }
 					})
 				});
 			let info = ValidatorInfo { our_index: Some(our_index), our_group };

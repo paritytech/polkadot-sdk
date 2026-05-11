@@ -27,13 +27,14 @@
 use std::{collections::BTreeMap, fmt::Debug, future::Future, ops::RangeInclusive, time::Duration};
 
 use async_trait::async_trait;
-use futures::{channel::mpsc::unbounded, future::FutureExt, stream::StreamExt};
+use futures::{channel::mpsc::Sender, future::FutureExt, stream::StreamExt};
 
 use bp_messages::{MessageNonce, UnrewardedRelayersState, Weight};
 use relay_utils::{
-	interval, metrics::MetricsParams, process_future_result, relay_loop::Client as RelayClient,
-	retry_backoff, FailedClient, TransactionTracker,
+	FailedClient, TransactionTracker, interval, metrics::MetricsParams, process_future_result,
+	relay_loop::Client as RelayClient, retry_backoff,
 };
+use sc_utils::mpsc::{ChannelPolicy, bounded_channel};
 
 use crate::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
@@ -41,6 +42,27 @@ use crate::{
 	message_race_receiving::run as run_message_receiving_race,
 	metrics::{Labeled, MessageLaneLoopMetrics},
 };
+
+const DELIVERY_SOURCE_STATE_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("bridge-message-delivery-source-state", 16);
+const DELIVERY_TARGET_STATE_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("bridge-message-delivery-target-state", 16);
+const RECEIVING_SOURCE_STATE_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("bridge-message-receiving-source-state", 16);
+const RECEIVING_TARGET_STATE_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("bridge-message-receiving-target-state", 16);
+
+fn try_send_state_update<T: Debug>(sender: &mut Sender<T>, policy: ChannelPolicy, state: T) {
+	if let Err(error) = sender.try_send(state) {
+		tracing::warn!(
+			target: "bridge",
+			channel = policy.name(),
+			capacity = policy.capacity(),
+			?error,
+			"Dropping bridge relay state update because the channel is full or closed",
+		);
+	}
+}
 
 /// Message lane loop configuration params.
 #[derive(Debug, Clone)]
@@ -330,9 +352,12 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 	let target_tick_stream = interval(params.target_tick).fuse();
 
 	let (
-		(delivery_source_state_sender, delivery_source_state_receiver),
-		(delivery_target_state_sender, delivery_target_state_receiver),
-	) = (unbounded(), unbounded());
+		(mut delivery_source_state_sender, delivery_source_state_receiver),
+		(mut delivery_target_state_sender, delivery_target_state_receiver),
+	) = (
+		bounded_channel(DELIVERY_SOURCE_STATE_CHANNEL),
+		bounded_channel(DELIVERY_TARGET_STATE_CHANNEL),
+	);
 	let delivery_race_loop = run_message_delivery_race(
 		source_client.clone(),
 		delivery_source_state_receiver,
@@ -344,9 +369,12 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 	.fuse();
 
 	let (
-		(receiving_source_state_sender, receiving_source_state_receiver),
-		(receiving_target_state_sender, receiving_target_state_receiver),
-	) = (unbounded(), unbounded());
+		(mut receiving_source_state_sender, receiving_source_state_receiver),
+		(mut receiving_target_state_sender, receiving_target_state_receiver),
+	) = (
+		bounded_channel(RECEIVING_SOURCE_STATE_CHANNEL),
+		bounded_channel(RECEIVING_TARGET_STATE_CHANNEL),
+	);
 	let receiving_race_loop = run_message_receiving_race(
 		source_client.clone(),
 		receiving_source_state_receiver,
@@ -385,8 +413,16 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 							?new_source_state,
 							"Received state"
 						);
-						let _ = delivery_source_state_sender.unbounded_send(new_source_state.clone());
-						let _ = receiving_source_state_sender.unbounded_send(new_source_state.clone());
+						try_send_state_update(
+							&mut delivery_source_state_sender,
+							DELIVERY_SOURCE_STATE_CHANNEL,
+							new_source_state.clone(),
+						);
+						try_send_state_update(
+							&mut receiving_source_state_sender,
+							RECEIVING_SOURCE_STATE_CHANNEL,
+							new_source_state.clone(),
+						);
 
 						if let Some(metrics_msg) = metrics_msg.as_ref() {
 							metrics_msg.update_source_state::<P>(new_source_state);
@@ -416,8 +452,16 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 							?new_target_state,
 							"Received state"
 						);
-						let _ = delivery_target_state_sender.unbounded_send(new_target_state.clone());
-						let _ = receiving_target_state_sender.unbounded_send(new_target_state.clone());
+						try_send_state_update(
+							&mut delivery_target_state_sender,
+							DELIVERY_TARGET_STATE_CHANNEL,
+							new_target_state.clone(),
+						);
+						try_send_state_update(
+							&mut receiving_target_state_sender,
+							RECEIVING_TARGET_STATE_CHANNEL,
+							new_target_state.clone(),
+						);
 
 						if let Some(metrics_msg) = metrics_msg.as_ref() {
 							metrics_msg.update_target_state::<P>(new_target_state);
@@ -472,7 +516,7 @@ pub(crate) mod tests {
 	use std::sync::Arc;
 
 	use bp_messages::{HashedLaneId, LaneIdType, LegacyLaneId};
-	use futures::stream::StreamExt;
+	use futures::{channel::mpsc::unbounded, stream::StreamExt};
 	use parking_lot::Mutex;
 	use relay_utils::{HeaderId, MaybeConnectionError, TrackedTransactionStatus};
 
@@ -1068,8 +1112,8 @@ pub(crate) mod tests {
 				data.source_state.best_finalized_self = data.source_state.best_self;
 				// syncing target headers -> source chain
 				if let Some(last_requirement) = data.target_to_source_header_requirements.last() {
-					if *last_requirement !=
-						data.source_state.best_finalized_peer_at_best_self.unwrap()
+					if *last_requirement
+						!= data.source_state.best_finalized_peer_at_best_self.unwrap()
 					{
 						data.source_state.best_finalized_peer_at_best_self =
 							Some(*last_requirement);
@@ -1091,8 +1135,8 @@ pub(crate) mod tests {
 				data.target_state.best_finalized_self = data.target_state.best_self;
 				// syncing source headers -> target chain
 				if let Some(last_requirement) = data.source_to_target_header_requirements.last() {
-					if *last_requirement !=
-						data.target_state.best_finalized_peer_at_best_self.unwrap()
+					if *last_requirement
+						!= data.target_state.best_finalized_peer_at_best_self.unwrap()
 					{
 						data.target_state.best_finalized_peer_at_best_self =
 							Some(*last_requirement);
@@ -1148,15 +1192,15 @@ pub(crate) mod tests {
 				// headers relay must only be started when we need new target headers at source node
 				if data.target_to_source_header_required.is_some() {
 					assert!(
-						data.source_state.best_finalized_peer_at_best_self.unwrap().0 <
-							data.target_state.best_self.0
+						data.source_state.best_finalized_peer_at_best_self.unwrap().0
+							< data.target_state.best_self.0
 					);
 					data.target_to_source_header_required = None;
 				}
 				// syncing target headers -> source chain
 				if let Some(last_requirement) = data.target_to_source_header_requirements.last() {
-					if *last_requirement !=
-						data.source_state.best_finalized_peer_at_best_self.unwrap()
+					if *last_requirement
+						!= data.source_state.best_finalized_peer_at_best_self.unwrap()
 					{
 						data.source_state.best_finalized_peer_at_best_self =
 							Some(*last_requirement);
@@ -1172,15 +1216,15 @@ pub(crate) mod tests {
 				// headers relay must only be started when we need new source headers at target node
 				if data.source_to_target_header_required.is_some() {
 					assert!(
-						data.target_state.best_finalized_peer_at_best_self.unwrap().0 <
-							data.source_state.best_self.0
+						data.target_state.best_finalized_peer_at_best_self.unwrap().0
+							< data.source_state.best_self.0
 					);
 					data.source_to_target_header_required = None;
 				}
 				// syncing source headers -> target chain
 				if let Some(last_requirement) = data.source_to_target_header_requirements.last() {
-					if *last_requirement !=
-						data.target_state.best_finalized_peer_at_best_self.unwrap()
+					if *last_requirement
+						!= data.target_state.best_finalized_peer_at_best_self.unwrap()
 					{
 						data.target_state.best_finalized_peer_at_best_self =
 							Some(*last_requirement);
@@ -1282,10 +1326,12 @@ pub(crate) mod tests {
 
 	#[test]
 	fn metrics_prefix_is_valid() {
-		assert!(MessageLaneLoopMetrics::new(Some(&metrics_prefix::<TestMessageLane>(
-			&HashedLaneId::try_new(1, 2).unwrap()
-		)))
-		.is_ok());
+		assert!(
+			MessageLaneLoopMetrics::new(Some(&metrics_prefix::<TestMessageLane>(
+				&HashedLaneId::try_new(1, 2).unwrap()
+			)))
+			.is_ok()
+		);
 
 		// with LegacyLaneId
 		#[derive(Clone)]
@@ -1306,9 +1352,11 @@ pub(crate) mod tests {
 
 			type LaneId = LegacyLaneId;
 		}
-		assert!(MessageLaneLoopMetrics::new(Some(&metrics_prefix::<LegacyTestMessageLane>(
-			&LegacyLaneId([0, 0, 0, 1])
-		)))
-		.is_ok());
+		assert!(
+			MessageLaneLoopMetrics::new(Some(&metrics_prefix::<LegacyTestMessageLane>(
+				&LegacyLaneId([0, 0, 0, 1])
+			)))
+			.is_ok()
+		);
 	}
 }

@@ -913,6 +913,173 @@ impl RuntimeApiRequest {
 	pub const ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT: u32 = 16;
 }
 
+/// Runtime compatibility surface a feature belongs to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RuntimeCompatibilitySurface {
+	/// Relay-chain `ParachainHost` runtime API compatibility.
+	ParachainHost,
+	/// XCM runtime/API compatibility.
+	Xcm,
+	/// Bridge runtime/API compatibility.
+	Bridge,
+}
+
+/// A typed runtime compatibility catalog entry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RuntimeApiFeature {
+	name: &'static str,
+	surface: RuntimeCompatibilitySurface,
+	required_version: u32,
+}
+
+impl RuntimeApiFeature {
+	const fn new(
+		name: &'static str,
+		surface: RuntimeCompatibilitySurface,
+		required_version: u32,
+	) -> Self {
+		Self { name, surface, required_version }
+	}
+
+	const fn parachain_host(name: &'static str, required_version: u32) -> Self {
+		Self::new(name, RuntimeCompatibilitySurface::ParachainHost, required_version)
+	}
+
+	/// Human-readable feature name.
+	pub const fn name(self) -> &'static str {
+		self.name
+	}
+
+	/// Compatibility surface.
+	pub const fn surface(self) -> RuntimeCompatibilitySurface {
+		self.surface
+	}
+
+	/// Minimum runtime API version required for this feature.
+	pub const fn required_version(self) -> u32 {
+		self.required_version
+	}
+
+	/// Whether this feature is supported by `runtime_api_version`.
+	pub const fn is_supported_by(self, runtime_api_version: u32) -> bool {
+		runtime_api_version >= self.required_version
+	}
+
+	/// `Disputes`.
+	pub const DISPUTES: Self =
+		Self::parachain_host("disputes", RuntimeApiRequest::DISPUTES_RUNTIME_REQUIREMENT);
+
+	/// `SessionExecutorParams`.
+	pub const EXECUTOR_PARAMS: Self = Self::parachain_host(
+		"session_executor_params",
+		RuntimeApiRequest::EXECUTOR_PARAMS_RUNTIME_REQUIREMENT,
+	);
+
+	/// `UnappliedSlashes`.
+	pub const UNAPPLIED_SLASHES: Self = Self::parachain_host(
+		"unapplied_slashes",
+		RuntimeApiRequest::UNAPPLIED_SLASHES_RUNTIME_REQUIREMENT,
+	);
+
+	/// `KeyOwnershipProof`.
+	pub const KEY_OWNERSHIP_PROOF: Self = Self::parachain_host(
+		"key_ownership_proof",
+		RuntimeApiRequest::KEY_OWNERSHIP_PROOF_RUNTIME_REQUIREMENT,
+	);
+
+	/// `SubmitReportDisputeLost`.
+	pub const SUBMIT_REPORT_DISPUTE_LOST: Self = Self::parachain_host(
+		"submit_report_dispute_lost",
+		RuntimeApiRequest::SUBMIT_REPORT_DISPUTE_LOST_RUNTIME_REQUIREMENT,
+	);
+
+	/// `MinimumBackingVotes`.
+	pub const MINIMUM_BACKING_VOTES: Self = Self::parachain_host(
+		"minimum_backing_votes",
+		RuntimeApiRequest::MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT,
+	);
+
+	/// Asynchronous backing state calls.
+	pub const ASYNC_BACKING_STATE: Self = Self::parachain_host(
+		"async_backing_state",
+		RuntimeApiRequest::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT,
+	);
+
+	/// `DisabledValidators`.
+	pub const DISABLED_VALIDATORS: Self = Self::parachain_host(
+		"disabled_validators",
+		RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT,
+	);
+
+	/// `NodeFeatures`.
+	pub const NODE_FEATURES: Self =
+		Self::parachain_host("node_features", RuntimeApiRequest::NODE_FEATURES_RUNTIME_REQUIREMENT);
+
+	/// `ApprovalVotingParams`.
+	pub const APPROVAL_VOTING_PARAMS: Self = Self::parachain_host(
+		"approval_voting_params",
+		RuntimeApiRequest::APPROVAL_VOTING_PARAMS_REQUIREMENT,
+	);
+
+	/// `ClaimQueue`.
+	pub const CLAIM_QUEUE: Self =
+		Self::parachain_host("claim_queue", RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT);
+
+	/// `CandidatesPendingAvailability`.
+	pub const CANDIDATES_PENDING_AVAILABILITY: Self = Self::parachain_host(
+		"candidates_pending_availability",
+		RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT,
+	);
+
+	/// `ValidationCodeBombLimit`.
+	pub const VALIDATION_CODE_BOMB_LIMIT: Self = Self::parachain_host(
+		"validation_code_bomb_limit",
+		RuntimeApiRequest::VALIDATION_CODE_BOMB_LIMIT_RUNTIME_REQUIREMENT,
+	);
+
+	/// `BackingConstraints`.
+	pub const BACKING_CONSTRAINTS: Self = Self::parachain_host(
+		"backing_constraints",
+		RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT,
+	);
+
+	/// `SchedulingLookahead`.
+	pub const SCHEDULING_LOOKAHEAD: Self = Self::parachain_host(
+		"scheduling_lookahead",
+		RuntimeApiRequest::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT,
+	);
+
+	/// `ParaIds`.
+	pub const PARA_IDS: Self =
+		Self::parachain_host("para_ids", RuntimeApiRequest::PARAIDS_RUNTIME_REQUIREMENT);
+
+	/// `UnappliedSlashesV2`.
+	pub const UNAPPLIED_SLASHES_V2: Self = Self::parachain_host(
+		"unapplied_slashes_v2",
+		RuntimeApiRequest::UNAPPLIED_SLASHES_V2_RUNTIME_REQUIREMENT,
+	);
+
+	/// `MaxRelayParentSessionAge`.
+	pub const MAX_RELAY_PARENT_SESSION_AGE: Self = Self::parachain_host(
+		"max_relay_parent_session_age",
+		RuntimeApiRequest::MAX_RELAY_PARENT_SESSION_AGE_RUNTIME_REQUIREMENT,
+	);
+
+	/// `AncestorRelayParentInfo`.
+	pub const ANCESTOR_RELAY_PARENT_INFO: Self = Self::parachain_host(
+		"ancestor_relay_parent_info",
+		RuntimeApiRequest::ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT,
+	);
+
+	/// XCM runtime API surface marker used by compatibility checks outside `ParachainHost`.
+	pub const XCM_RUNTIME_APIS: Self =
+		Self::new("xcm_runtime_apis", RuntimeCompatibilitySurface::Xcm, 1);
+
+	/// Bridge runtime API surface marker used by bridge runtime compatibility checks.
+	pub const BRIDGE_RUNTIME_APIS: Self =
+		Self::new("bridge_runtime_apis", RuntimeCompatibilitySurface::Bridge, 1);
+}
+
 /// A message to the Runtime API subsystem.
 #[derive(Debug)]
 pub enum RuntimeApiMessage {
@@ -1550,4 +1717,34 @@ pub enum ProspectiveParachainsMessage {
 		ProspectiveValidationDataRequest,
 		oneshot::Sender<Option<PersistedValidationData>>,
 	),
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn runtime_api_feature_catalog_tracks_existing_requirements() {
+		assert_eq!(
+			RuntimeApiFeature::CANDIDATES_PENDING_AVAILABILITY.required_version(),
+			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT,
+		);
+		assert_eq!(
+			RuntimeApiFeature::SCHEDULING_LOOKAHEAD.surface(),
+			RuntimeCompatibilitySurface::ParachainHost,
+		);
+		assert!(!RuntimeApiFeature::SCHEDULING_LOOKAHEAD
+			.is_supported_by(RuntimeApiRequest::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT - 1));
+		assert!(RuntimeApiFeature::SCHEDULING_LOOKAHEAD
+			.is_supported_by(RuntimeApiRequest::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT));
+	}
+
+	#[test]
+	fn catalog_has_xcm_and_bridge_surface_markers() {
+		assert_eq!(RuntimeApiFeature::XCM_RUNTIME_APIS.surface(), RuntimeCompatibilitySurface::Xcm);
+		assert_eq!(
+			RuntimeApiFeature::BRIDGE_RUNTIME_APIS.surface(),
+			RuntimeCompatibilitySurface::Bridge,
+		);
+	}
 }

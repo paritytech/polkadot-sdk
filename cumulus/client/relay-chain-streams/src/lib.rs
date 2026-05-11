@@ -21,7 +21,7 @@ use std::sync::Arc;
 
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use futures::{Stream, StreamExt};
-use polkadot_node_subsystem::messages::RuntimeApiRequest;
+use polkadot_node_subsystem::messages::RuntimeApiFeature;
 use polkadot_primitives::{
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash as PHash, Id as ParaId,
 	OccupiedCoreAssumption, SessionIndex,
@@ -77,8 +77,8 @@ pub async fn pending_candidates(
 
 			// If the relay chain runtime does not support the new runtime API, fallback to the
 			// deprecated one.
-			let pending_availability_result = if parachain_host_runtime_api_version <
-				RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
+			let pending_availability_result = if !RuntimeApiFeature::CANDIDATES_PENDING_AVAILABILITY
+				.is_supported_by(parachain_host_runtime_api_version)
 			{
 				#[allow(deprecated)]
 				client

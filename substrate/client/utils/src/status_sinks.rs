@@ -15,7 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use crate::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
 use futures::{lock::Mutex, prelude::*};
 use futures_timer::Delay;
 use std::{
@@ -57,7 +59,8 @@ impl<T> Default for StatusSinks<T> {
 impl<T> StatusSinks<T> {
 	/// Builds a new empty collection.
 	pub fn new() -> StatusSinks<T> {
-		let (entries_tx, entries_rx) = tracing_unbounded("status-sinks-entries", 100_000);
+		let (entries_tx, entries_rx) =
+			tracing_unbounded_with_policy(ChannelPolicy::bounded("status-sinks-entries", 100_000));
 
 		StatusSinks {
 			inner: Mutex::new(Inner { entries: stream::FuturesUnordered::new(), entries_rx }),

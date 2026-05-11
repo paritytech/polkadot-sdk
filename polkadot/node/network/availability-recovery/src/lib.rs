@@ -328,7 +328,9 @@ impl<Context> AvailabilityRecoverySubsystem {
 async fn handle_signal(state: &mut State, signal: OverseerSignal) -> bool {
 	match signal {
 		OverseerSignal::Conclude => true,
-		OverseerSignal::ActiveLeaves(ActiveLeavesUpdate { activated, .. }) => {
+		OverseerSignal::ActiveLeaves(update) => {
+			state.runtime_info.note_active_leaves_update(&update);
+			let ActiveLeavesUpdate { activated, .. } = update;
 			// if activated is non-empty, set state.live_block to the highest block in `activated`
 			if let Some(activated) = activated {
 				if activated.number > state.live_block.0 {
@@ -338,7 +340,10 @@ async fn handle_signal(state: &mut State, signal: OverseerSignal) -> bool {
 
 			false
 		},
-		OverseerSignal::BlockFinalized(_, _) => false,
+		OverseerSignal::BlockFinalized(hash, number) => {
+			state.runtime_info.note_block_finalized(hash, number);
+			false
+		},
 	}
 }
 
@@ -418,8 +423,8 @@ async fn handle_recover<Context>(
 					let mut small_pov_size = true;
 
 					match recovery_strategy_kind {
-						RecoveryStrategyKind::BackersFirstIfSizeLower(fetch_chunks_threshold) |
-						RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(
+						RecoveryStrategyKind::BackersFirstIfSizeLower(fetch_chunks_threshold)
+						| RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(
 							fetch_chunks_threshold,
 						) => {
 							// Get our own chunk size to get an estimate of the PoV size.
@@ -448,13 +453,13 @@ async fn handle_recover<Context>(
 					};
 
 					match (&recovery_strategy_kind, small_pov_size) {
-						(RecoveryStrategyKind::BackersFirstAlways, _) |
-						(RecoveryStrategyKind::BackersFirstIfSizeLower(_), true) |
-						(
+						(RecoveryStrategyKind::BackersFirstAlways, _)
+						| (RecoveryStrategyKind::BackersFirstIfSizeLower(_), true)
+						| (
 							RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(_),
 							true,
-						) |
-						(RecoveryStrategyKind::BackersThenSystematicChunks, _) => {
+						)
+						| (RecoveryStrategyKind::BackersThenSystematicChunks, _) => {
 							recovery_strategies.push_back(Box::new(FetchFull::new(
 								FetchFullParams { validators: backing_validators.to_vec() },
 							)))
@@ -480,9 +485,9 @@ async fn handle_recover<Context>(
 			if let Some(core_index) = maybe_core_index {
 				if matches!(
 					recovery_strategy_kind,
-					RecoveryStrategyKind::BackersThenSystematicChunks |
-						RecoveryStrategyKind::SystematicChunks |
-						RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(_)
+					RecoveryStrategyKind::BackersThenSystematicChunks
+						| RecoveryStrategyKind::SystematicChunks
+						| RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(_)
 				) && chunk_mapping_enabled
 				{
 					let chunk_indices =
@@ -508,8 +513,8 @@ async fn handle_recover<Context>(
 						.into_iter()
 						.filter(|(c_index, _)| {
 							usize::try_from(c_index.0)
-								.expect("usize is at least u32 bytes on all modern targets.") <
-								systematic_threshold
+								.expect("usize is at least u32 bytes on all modern targets.")
+								< systematic_threshold
 						})
 						.collect();
 

@@ -48,6 +48,8 @@ jobs:
         run: |
           cd substrate/
           ../.gitlab/ensure-deps.sh
+          cd ..
+          python3 .github/scripts/check-dependency-worlds.py .
   check-zepter:
     runs-on: ubuntu-latest
     timeout-minutes: 20

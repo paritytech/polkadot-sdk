@@ -255,6 +255,7 @@ where
 		match signal {
 			OverseerSignal::Conclude => return Ok(SignalResult::Conclude),
 			OverseerSignal::ActiveLeaves(ref update) => {
+				self.runtime.note_active_leaves_update(update);
 				// Detect V3 node feature on activated leaves (same approach as
 				// dispute-coordinator and candidate-validation).
 				if !self.v3_ever_seen.load(Ordering::Relaxed) {
@@ -287,7 +288,9 @@ where
 					.update_leaves(ctx, &mut self.runtime, update.clone())
 					.await?;
 			},
-			OverseerSignal::BlockFinalized(_, _) => {},
+			OverseerSignal::BlockFinalized(hash, number) => {
+				self.runtime.note_block_finalized(hash, number);
+			},
 		};
 		Ok(SignalResult::Continue)
 	}

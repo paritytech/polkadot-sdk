@@ -47,10 +47,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
-	runtime::{
-		fetch_claim_queue, get_candidate_events, get_group_rotation_info, ClaimQueueSnapshot,
-		RuntimeInfo,
-	},
+	runtime::{fetch_claim_queue, get_candidate_events, ClaimQueueSnapshot, RuntimeInfo},
 	TimeoutExt,
 };
 use polkadot_primitives::{
@@ -661,15 +658,14 @@ async fn determine_our_validators<Context>(
 		.await?
 		.session_info;
 	gum::debug!(target: LOG_TARGET, ?session_index, "Received session info");
-	let groups = &info.validator_groups;
+	let groups = info.validator_groups.clone();
+	let validators = info.discovery_keys.clone();
 	let num_cores = groups.len();
-	let rotation_info = get_group_rotation_info(ctx.sender(), relay_parent).await?;
+	let rotation_info = runtime.get_group_rotation_info(ctx.sender(), relay_parent).await?;
 
 	let current_group_index = rotation_info.group_for_core(core_index, num_cores);
 	let current_validators =
 		groups.get(current_group_index).map(|v| v.as_slice()).unwrap_or_default();
-
-	let validators = &info.discovery_keys;
 
 	let current_validators =
 		current_validators.iter().map(|i| validators[i.0 as usize].clone()).collect();
@@ -2038,11 +2034,13 @@ async fn run_inner<Context>(
 					)?;
 				},
 				FromOrchestra::Signal(ActiveLeaves(update)) => {
+					runtime.note_active_leaves_update(&update);
 					if update.activated.is_some() {
 						*reconnect_timeout = futures_timer::Delay::new(RECONNECT_AFTER_LEAF_TIMEOUT).fuse();
 					}
 				}
 				FromOrchestra::Signal(BlockFinalized(hash, number)) => {
+					runtime.note_block_finalized(hash, number);
 					let possibly_finalized = state.collation_tracker.drain_finalized(number);
 					process_possibly_finalized_collations(possibly_finalized, (hash, number), ctx.sender(), &metrics).await;
 				}

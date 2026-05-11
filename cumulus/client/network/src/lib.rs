@@ -30,7 +30,7 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_primitives::{CollationSecondedSignal, Statement};
-use polkadot_node_subsystem::messages::RuntimeApiRequest;
+use polkadot_node_subsystem::messages::RuntimeApiFeature;
 use polkadot_parachain_primitives::primitives::HeadData;
 use polkadot_primitives::{
 	CandidateReceiptV2 as CandidateReceipt, CompactStatement, Hash as PHash, Id as ParaId,
@@ -290,8 +290,8 @@ where
 
 		// If the relay chain runtime does not support the new runtime API, fallback to the
 		// deprecated one.
-		let candidate_receipts = if parachain_host_runtime_api_version <
-			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
+		let candidate_receipts = if !RuntimeApiFeature::CANDIDATES_PENDING_AVAILABILITY
+			.is_supported_by(parachain_host_runtime_api_version)
 		{
 			#[allow(deprecated)]
 			relay_chain_interface
