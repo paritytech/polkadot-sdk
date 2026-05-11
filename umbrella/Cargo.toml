@@ -104,6 +104,7 @@ std = [
 	"pallet-im-online?/std",
 	"pallet-indices?/std",
 	"pallet-insecure-randomness-collective-flip?/std",
+	"pallet-linked-list?/std",
 	"pallet-lottery?/std",
 	"pallet-membership?/std",
 	"pallet-message-queue?/std",
@@ -307,6 +308,7 @@ runtime-benchmarks = [
 	"pallet-identity?/runtime-benchmarks",
 	"pallet-im-online?/runtime-benchmarks",
 	"pallet-indices?/runtime-benchmarks",
+	"pallet-linked-list?/runtime-benchmarks",
 	"pallet-lottery?/runtime-benchmarks",
 	"pallet-membership?/runtime-benchmarks",
 	"pallet-message-queue?/runtime-benchmarks",
@@ -455,6 +457,7 @@ try-runtime = [
 	"pallet-im-online?/try-runtime",
 	"pallet-indices?/try-runtime",
 	"pallet-insecure-randomness-collective-flip?/try-runtime",
+	"pallet-linked-list?/try-runtime",
 	"pallet-lottery?/try-runtime",
 	"pallet-membership?/try-runtime",
 	"pallet-message-queue?/try-runtime",
@@ -675,6 +678,7 @@ runtime-full = [
 	"pallet-im-online",
 	"pallet-indices",
 	"pallet-insecure-randomness-collective-flip",
+	"pallet-linked-list",
 	"pallet-lottery",
 	"pallet-membership",
 	"pallet-message-queue",
@@ -1542,6 +1546,11 @@ path = "../substrate/frame/indices"
 default-features = false
 optional = true
 path = "../substrate/frame/insecure-randomness-collective-flip"
+
+[dependencies.pallet-linked-list]
+default-features = false
+optional = true
+path = "../substrate/frame/linked-list"
 
 [dependencies.pallet-lottery]
 default-features = false

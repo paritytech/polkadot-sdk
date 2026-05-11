@@ -523,6 +523,10 @@ pub use pallet_indices;
 #[cfg(feature = "pallet-insecure-randomness-collective-flip")]
 pub use pallet_insecure_randomness_collective_flip;
 
+/// FRAME linked-list pallet.
+#[cfg(feature = "pallet-linked-list")]
+pub use pallet_linked_list;
+
 /// FRAME Participation Lottery Pallet.
 #[cfg(feature = "pallet-lottery")]
 pub use pallet_lottery;

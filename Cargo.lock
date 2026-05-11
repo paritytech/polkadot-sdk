@@ -17450,6 +17450,7 @@ dependencies = [
  "pallet-im-online",
  "pallet-indices",
  "pallet-insecure-randomness-collective-flip",
+ "pallet-linked-list",
  "pallet-lottery",
  "pallet-membership",
  "pallet-message-queue",

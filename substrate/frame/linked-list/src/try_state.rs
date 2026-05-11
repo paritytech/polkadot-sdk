@@ -1,3 +1,20 @@
+// This file is part of Substrate.
+
+// Copyright (C) Amforc AG.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 //! `try-runtime` invariant checks.
 //!
 //! For every list with rows in any of [`ListNodes`], [`ListHeads`],
@@ -7,14 +24,16 @@
 //! 2. The head node has `prev = None` and the tail node has `next = None`.
 //! 3. Forward and reverse walks visit exactly `ListSizes[list_id]` nodes (capped at `size + 1` to
 //!    detect cycles).
-//! 4. Prioritys are non-increasing from head to tail.
+//! 4. Priorities are non-increasing from head to tail.
 //! 5. No node points to itself; every neighbor reference resolves to an existing node in the same
 //!    list.
 //! 6. `ListNodes` has no orphan rows.
 
 use crate::pallet::*;
+
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
+
 #[cfg(feature = "try-runtime")]
 use frame::try_runtime::TryRuntimeError;
 
