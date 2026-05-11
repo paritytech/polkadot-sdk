@@ -84,7 +84,7 @@ use polkadot_node_subsystem_types::messages::{
 	ChainApiMessage, ChainSelectionMessage, CollationGenerationMessage, CollatorProtocolMessage,
 	DisputeCoordinatorMessage, DisputeDistributionMessage, GossipSupportMessage,
 	NetworkBridgeRxMessage, NetworkBridgeTxMessage, ProspectiveParachainsMessage,
-	ProvisionerMessage, RuntimeApiMessage, StatementDistributionMessage,
+	ProvisionerMessage, RuntimeApiFeature, RuntimeApiMessage, StatementDistributionMessage,
 };
 
 pub use polkadot_node_subsystem_types::{
@@ -169,7 +169,9 @@ where
 {
 	async fn head_supports_parachains(&self, head: &Hash) -> bool {
 		// Check that the `ParachainHost` runtime api is at least with version 1 present on chain.
-		self.api_version_parachain_host(*head).await.ok().flatten().unwrap_or(0) >= 1
+		RuntimeApiFeature::PARACHAIN_HOST.is_supported_by(
+			self.api_version_parachain_host(*head).await.ok().flatten().unwrap_or(0),
+		)
 	}
 }
 

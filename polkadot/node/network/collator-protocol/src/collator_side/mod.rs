@@ -47,7 +47,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
-	runtime::{fetch_claim_queue, get_candidate_events, ClaimQueueSnapshot, RuntimeInfo},
+	runtime::{self, fetch_claim_queue, get_candidate_events, ClaimQueueSnapshot, RuntimeInfo},
 	TimeoutExt,
 };
 use polkadot_primitives::{
@@ -1139,9 +1139,9 @@ async fn handle_incoming_peer_message<Context>(
 	use protocol_v3::CollatorProtocolMessage as V3;
 
 	match msg {
-		CollationProtocols::V1(V1::Declare(..)) |
-		CollationProtocols::V2(V2::Declare(..)) |
-		CollationProtocols::V3(V3::Declare(..)) => {
+		CollationProtocols::V1(V1::Declare(..))
+		| CollationProtocols::V2(V2::Declare(..))
+		| CollationProtocols::V3(V3::Declare(..)) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -1155,9 +1155,9 @@ async fn handle_incoming_peer_message<Context>(
 			))
 			.await;
 		},
-		CollationProtocols::V1(V1::AdvertiseCollation(_)) |
-		CollationProtocols::V2(V2::AdvertiseCollation { .. }) |
-		CollationProtocols::V3(V3::AdvertiseCollation { .. }) => {
+		CollationProtocols::V1(V1::AdvertiseCollation(_))
+		| CollationProtocols::V2(V2::AdvertiseCollation { .. })
+		| CollationProtocols::V3(V3::AdvertiseCollation { .. }) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -1184,8 +1184,8 @@ async fn handle_incoming_peer_message<Context>(
 				"Collation seconded message received on unsupported protocol version 1",
 			);
 		},
-		CollationProtocols::V2(V2::CollationSeconded(scheduling_parent, statement)) |
-		CollationProtocols::V3(V3::CollationSeconded(scheduling_parent, statement)) => {
+		CollationProtocols::V2(V2::CollationSeconded(scheduling_parent, statement))
+		| CollationProtocols::V3(V3::CollationSeconded(scheduling_parent, statement)) => {
 			if !matches!(statement.unchecked_payload(), Statement::Seconded(_)) {
 				gum::warn!(
 					target: LOG_TARGET,
@@ -2013,7 +2013,10 @@ async fn run_inner<Context>(
 	let mut reputation_delay = new_reputation_delay();
 
 	let mut state = State::new(local_peer_id, collator_pair, metrics.clone(), reputation);
-	let mut runtime = RuntimeInfo::new(None);
+	let mut runtime = RuntimeInfo::new_with_config(runtime::Config {
+		relay_parent_context_metrics: metrics.relay_parent_context_metrics(),
+		..Default::default()
+	});
 
 	loop {
 		let reputation_changes = || vec![COST_INVALID_REQUEST];

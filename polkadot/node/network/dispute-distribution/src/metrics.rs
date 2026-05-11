@@ -20,6 +20,7 @@ use polkadot_node_subsystem_util::{
 		prometheus,
 		prometheus::{Counter, CounterVec, Opts, PrometheusError, Registry, U64},
 	},
+	runtime::RelayParentContextBrokerMetrics,
 };
 
 /// Label for success counters.
@@ -49,6 +50,9 @@ struct MetricsInner {
 
 	/// The duration of issued dispute request to response.
 	time_dispute_request: prometheus::Histogram,
+
+	/// Relay-parent runtime context cache metrics.
+	relay_parent_context: RelayParentContextBrokerMetrics,
 }
 
 impl Metrics {
@@ -84,6 +88,14 @@ impl Metrics {
 	/// Get a timer to time request/response duration.
 	pub fn time_dispute_request(&self) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
 		self.0.as_ref().map(|metrics| metrics.time_dispute_request.start_timer())
+	}
+
+	/// Metrics for relay-parent runtime context cache behavior.
+	pub fn relay_parent_context_metrics(&self) -> RelayParentContextBrokerMetrics {
+		self.0
+			.as_ref()
+			.map(|metrics| metrics.relay_parent_context.clone())
+			.unwrap_or_default()
 	}
 }
 
@@ -123,6 +135,10 @@ impl metrics::Metrics for Metrics {
 					"Time needed for dispute votes to get confirmed/fail getting transmitted.",
 				))?,
 				registry,
+			)?,
+			relay_parent_context: RelayParentContextBrokerMetrics::try_register_with_subsystem(
+				registry,
+				"dispute_distribution",
 			)?,
 		};
 		Ok(Metrics(Some(metrics)))

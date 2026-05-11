@@ -219,6 +219,7 @@ where
 				let mut session_info_provider = RuntimeInfo::new_with_config(RuntimeInfoConfig {
 					keystore: None,
 					session_cache_lru_size: DISPUTE_WINDOW.get(),
+					..Default::default()
 				});
 
 				loop {

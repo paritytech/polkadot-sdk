@@ -136,7 +136,10 @@ impl StatementDistributionSubsystem {
 		let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
 		let mut reputation_delay = new_reputation_delay();
 
-		let mut state = crate::v2::State::new(self.keystore.clone());
+		let mut state = crate::v2::State::new_with_runtime_metrics(
+			self.keystore.clone(),
+			self.metrics.relay_parent_context_metrics(),
+		);
 
 		// Sender/receiver for getting news from our candidate responder task.
 		let (res_sender, mut res_receiver) = mpsc::channel(1);

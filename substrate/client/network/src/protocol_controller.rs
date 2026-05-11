@@ -46,13 +46,21 @@ use crate::peer_store::{PeerStoreProvider, ProtocolHandle as ProtocolHandleT};
 use futures::{channel::oneshot, future::Either, FutureExt, StreamExt};
 use libp2p::PeerId;
 use log::{debug, error, trace, warn};
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
+#[cfg(test)]
+use sc_utils::mpsc::tracing_unbounded;
 use sp_arithmetic::traits::SaturatedConversion;
 use std::{
 	collections::{HashMap, HashSet},
 	sync::Arc,
 	time::{Duration, Instant},
 };
+
+const API_PROTOCOL_CHANNEL: ChannelPolicy = ChannelPolicy::bounded("mpsc_api_protocol", 10_000);
+const NOTIFICATIONS_PROTOCOL_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_notifications_protocol", 10_000);
 use wasm_timer::Delay;
 
 /// Log target for this file.
@@ -307,8 +315,8 @@ impl ProtocolController {
 		to_notifications: TracingUnboundedSender<Message>,
 		peer_store: Arc<dyn PeerStoreProvider>,
 	) -> (ProtocolHandle, ProtocolController) {
-		let (actions_tx, actions_rx) = tracing_unbounded("mpsc_api_protocol", 10_000);
-		let (events_tx, events_rx) = tracing_unbounded("mpsc_notifications_protocol", 10_000);
+		let (actions_tx, actions_rx) = tracing_unbounded_with_policy(API_PROTOCOL_CHANNEL);
+		let (events_tx, events_rx) = tracing_unbounded_with_policy(NOTIFICATIONS_PROTOCOL_CHANNEL);
 		let handle = ProtocolHandle { actions_tx, events_tx };
 		peer_store.register_protocol(Arc::new(handle.clone()));
 		let reserved_nodes =
@@ -518,8 +526,8 @@ impl ProtocolController {
 
 		if let PeerState::Connected(direction) = state {
 			// Disconnect if we're at (or over) the regular node limit
-			let disconnect = self.reserved_only ||
-				match direction {
+			let disconnect = self.reserved_only
+				|| match direction {
 					Direction::Inbound => self.num_in >= self.max_in,
 					Direction::Outbound => self.num_out >= self.max_out,
 				};
@@ -826,8 +834,8 @@ impl ProtocolController {
 			.outgoing_candidates(available_slots, ignored)
 			.into_iter()
 			.filter_map(|peer_id| {
-				(!self.reserved_nodes.contains_key(&peer_id.into()) &&
-					!self.nodes.contains_key(&peer_id.into()))
+				(!self.reserved_nodes.contains_key(&peer_id.into())
+					&& !self.nodes.contains_key(&peer_id.into()))
 				.then_some(peer_id)
 				.or_else(|| {
 					error!(

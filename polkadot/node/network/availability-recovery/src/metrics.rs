@@ -15,12 +15,15 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use polkadot_node_subsystem::prometheus::HistogramVec;
-use polkadot_node_subsystem_util::metrics::{
-	self,
-	prometheus::{
-		self, prometheus::HistogramTimer, Counter, CounterVec, Histogram, Opts, PrometheusError,
-		Registry, U64,
+use polkadot_node_subsystem_util::{
+	metrics::{
+		self,
+		prometheus::{
+			self, prometheus::HistogramTimer, Counter, CounterVec, Histogram, Opts,
+			PrometheusError, Registry, U64,
+		},
 	},
+	runtime::RelayParentContextBrokerMetrics,
 };
 
 /// Availability Distribution metrics.
@@ -108,12 +111,23 @@ struct MetricsInner {
 	/// Note: Those are only recoveries which could not get served locally already - so in other
 	/// words: Only real recoveries.
 	full_recoveries_started: Counter<U64>,
+
+	/// Relay-parent runtime context cache metrics.
+	relay_parent_context: RelayParentContextBrokerMetrics,
 }
 
 impl Metrics {
 	/// Create new dummy metrics, not reporting anything.
 	pub fn new_dummy() -> Self {
 		Metrics(None)
+	}
+
+	/// Metrics for relay-parent runtime context cache behavior.
+	pub fn relay_parent_context_metrics(&self) -> RelayParentContextBrokerMetrics {
+		self.0
+			.as_ref()
+			.map(|metrics| metrics.relay_parent_context.clone())
+			.unwrap_or_default()
 	}
 
 	/// Increment counter for chunk requests.
@@ -402,6 +416,10 @@ impl metrics::Metrics for Metrics {
 					"Total number of started recoveries.",
 				)?,
 				registry,
+			)?,
+			relay_parent_context: RelayParentContextBrokerMetrics::try_register_with_subsystem(
+				registry,
+				"availability_recovery",
 			)?,
 		};
 		Ok(Metrics(Some(metrics)))

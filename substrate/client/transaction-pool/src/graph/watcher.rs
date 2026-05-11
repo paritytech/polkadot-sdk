@@ -20,7 +20,12 @@
 
 use futures::Stream;
 use sc_transaction_pool_api::TransactionStatus;
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
+
+const TXPOOL_WATCHER_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_txpool_watcher", 100_000);
 
 /// Extrinsic watcher.
 ///
@@ -62,7 +67,7 @@ impl<H, BH> Default for Sender<H, BH> {
 impl<H: Clone, BH: Clone> Sender<H, BH> {
 	/// Add a new watcher to this sender object.
 	pub fn new_watcher(&mut self, hash: H) -> Watcher<H, BH> {
-		let (tx, receiver) = tracing_unbounded("mpsc_txpool_watcher", 100_000);
+		let (tx, receiver) = tracing_unbounded_with_policy(TXPOOL_WATCHER_CHANNEL);
 		self.receivers.push(tx);
 		Watcher { receiver, hash }
 	}

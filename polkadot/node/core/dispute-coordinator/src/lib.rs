@@ -225,6 +225,7 @@ impl DisputeCoordinatorSubsystem {
 			let mut runtime_info = RuntimeInfo::new_with_config(RuntimeInfoConfig {
 				keystore: None,
 				session_cache_lru_size: DISPUTE_WINDOW.get(),
+				..Default::default()
 			});
 			let mut overlay_db = OverlayedBackend::new(&mut backend);
 			let (

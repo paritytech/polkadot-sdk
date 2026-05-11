@@ -168,6 +168,7 @@ where
 		let runtime = RuntimeInfo::new_with_config(runtime::Config {
 			keystore: None,
 			session_cache_lru_size: DISPUTE_WINDOW.get(),
+			relay_parent_context_metrics: metrics.relay_parent_context_metrics(),
 		});
 		Self {
 			runtime,

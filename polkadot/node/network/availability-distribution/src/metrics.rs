@@ -20,6 +20,7 @@ use polkadot_node_subsystem_util::{
 		prometheus,
 		prometheus::{Counter, CounterVec, Opts, PrometheusError, Registry, U64},
 	},
+	runtime::RelayParentContextBrokerMetrics,
 };
 
 /// Label for success counters.
@@ -56,6 +57,9 @@ struct MetricsInner {
 	/// Number of times our first set of validators did not provide the needed chunk and we had to
 	/// query further validators.
 	retries: Counter<U64>,
+
+	/// Relay-parent runtime context cache metrics.
+	relay_parent_context: RelayParentContextBrokerMetrics,
 }
 
 impl Metrics {
@@ -97,6 +101,14 @@ impl Metrics {
 		if let Some(metrics) = &self.0 {
 			metrics.retries.inc()
 		}
+	}
+
+	/// Metrics for relay-parent runtime context cache behavior.
+	pub fn relay_parent_context_metrics(&self) -> RelayParentContextBrokerMetrics {
+		self.0
+			.as_ref()
+			.map(|metrics| metrics.relay_parent_context.clone())
+			.unwrap_or_default()
 	}
 }
 
@@ -149,6 +161,10 @@ impl metrics::Metrics for Metrics {
 					"Number of times we did not succeed in fetching a chunk and needed to try more backers.",
 				)?,
 				registry,
+			)?,
+			relay_parent_context: RelayParentContextBrokerMetrics::try_register_with_subsystem(
+				registry,
+				"availability_distribution",
 			)?,
 		};
 		Ok(Metrics(Some(metrics)))

@@ -915,8 +915,8 @@ impl NoShowStats {
 	// Print the no-show stats if NO_SHOW_DUMP_FREQUENCY blocks have passed since the last
 	// print.
 	fn maybe_print(&mut self, current_block_number: BlockNumber) {
-		if self.last_dumped_block_number > current_block_number ||
-			current_block_number - self.last_dumped_block_number < NO_SHOW_DUMP_FREQUENCY
+		if self.last_dumped_block_number > current_block_number
+			|| current_block_number - self.last_dumped_block_number < NO_SHOW_DUMP_FREQUENCY
 		{
 			return;
 		}
@@ -1271,6 +1271,7 @@ where
 	let mut session_info_provider = RuntimeInfo::new_with_config(RuntimeInfoConfig {
 		keystore: None,
 		session_cache_lru_size: DISPUTE_WINDOW.get(),
+		..Default::default()
 	});
 
 	let mut wakeups = Wakeups::default();
@@ -2981,8 +2982,8 @@ enum ApprovalStateTransition {
 impl ApprovalStateTransition {
 	fn validator_index(&self) -> Option<ValidatorIndex> {
 		match *self {
-			ApprovalStateTransition::RemoteApproval(v) |
-			ApprovalStateTransition::LocalApproval(v) => Some(v),
+			ApprovalStateTransition::RemoteApproval(v)
+			| ApprovalStateTransition::LocalApproval(v) => Some(v),
 			ApprovalStateTransition::WakeupProcessed => None,
 		}
 	}
@@ -3167,9 +3168,9 @@ where
 					.as_ref()
 					.map(|validator_index| fork_approval_entry.is_assigned(*validator_index))
 					.unwrap_or_default();
-				if wakeups.wakeup_for(*fork_block_hash, candidate_hash).is_none() &&
-					!fork_approval_entry.is_approved() &&
-					assigned_on_fork_block
+				if wakeups.wakeup_for(*fork_block_hash, candidate_hash).is_none()
+					&& !fork_approval_entry.is_approved()
+					&& assigned_on_fork_block
 				{
 					let fork_block_entry = db.load_block_entry(fork_block_hash);
 					if let Ok(Some(fork_block_entry)) = fork_block_entry {
@@ -3232,8 +3233,8 @@ fn should_trigger_assignment(
 				RequiredTranches::Pending { maximum_broadcast, clock_drift, .. } => {
 					let drifted_tranche_now =
 						tranche_now.saturating_sub(clock_drift as DelayTranche);
-					assignment.tranche() <= maximum_broadcast &&
-						assignment.tranche() <= drifted_tranche_now
+					assignment.tranche() <= maximum_broadcast
+						&& assignment.tranche() <= drifted_tranche_now
 				},
 				RequiredTranches::Exact { .. } => {
 					// indicates that no new assignments are needed at the moment.

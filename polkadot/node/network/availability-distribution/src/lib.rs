@@ -30,7 +30,7 @@ use polkadot_node_subsystem::{
 mod error;
 use error::{log_error, FatalError, Result};
 
-use polkadot_node_subsystem_util::runtime::RuntimeInfo;
+use polkadot_node_subsystem_util::runtime::{self, RuntimeInfo};
 
 /// `Requester` taking care of requesting chunks for candidates pending availability.
 mod requester;
@@ -95,7 +95,11 @@ impl AvailabilityDistributionSubsystem {
 		req_protocol_names: ReqProtocolNames,
 		metrics: Metrics,
 	) -> Self {
-		let runtime = RuntimeInfo::new(Some(keystore));
+		let runtime = RuntimeInfo::new_with_config(runtime::Config {
+			keystore: Some(keystore),
+			relay_parent_context_metrics: metrics.relay_parent_context_metrics(),
+			..Default::default()
+		});
 		Self { runtime, recvs, req_protocol_names, metrics }
 	}
 

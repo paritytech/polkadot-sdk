@@ -25,18 +25,17 @@ use sp_core::crypto::ByteArray;
 use sp_keystore::{Keystore, KeystorePtr};
 
 use polkadot_node_subsystem::{
-	SubsystemSender,
 	errors::RuntimeApiError,
 	messages::{RuntimeApiMessage, RuntimeApiRequest},
-	overseer,
+	overseer, SubsystemSender,
 };
 use polkadot_node_subsystem_types::{ActiveLeavesUpdate, UnpinHandle};
 use polkadot_primitives::{
-	BlockNumber, CandidateEvent, CandidateHash, CoreIndex, CoreState, DEFAULT_SCHEDULING_LOOKAHEAD,
-	EncodeAs, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures,
-	OccupiedCore, OccupiedCoreAssumption, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
-	SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
-	ValidatorIndex, node_features::FeatureIndex, slashing,
+	node_features::FeatureIndex, slashing, BlockNumber, CandidateEvent, CandidateHash, CoreIndex,
+	CoreState, EncodeAs, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec,
+	NodeFeatures, OccupiedCore, OccupiedCoreAssumption, ScrapedOnChainVotes, SessionIndex,
+	SessionInfo, Signed, SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 
 use std::collections::{BTreeMap, VecDeque};
@@ -53,10 +52,11 @@ mod broker;
 mod error;
 
 pub use broker::{
-	RelayParentContext, RelayParentContextBroker, SessionRuntimeContext, ValidationCodeMetadata,
+	RelayParentContext, RelayParentContextBroker, RelayParentContextBrokerMetrics,
+	SessionRuntimeContext, ValidationCodeMetadata,
 };
 use error::Result;
-pub use error::{Error, FatalError, JfyiError, recv_runtime};
+pub use error::{recv_runtime, Error, FatalError, JfyiError};
 
 const LOG_TARGET: &'static str = "parachain::runtime-info";
 
@@ -69,6 +69,9 @@ pub struct Config {
 
 	/// How many sessions should we keep in the cache?
 	pub session_cache_lru_size: u32,
+
+	/// Metrics for relay-parent context cache behavior.
+	pub relay_parent_context_metrics: RelayParentContextBrokerMetrics,
 }
 
 /// Caching of session info.
@@ -115,6 +118,7 @@ impl Default for Config {
 			keystore: None,
 			// Usually we need to cache the current and the last session.
 			session_cache_lru_size: 2,
+			relay_parent_context_metrics: RelayParentContextBrokerMetrics::new_dummy(),
 		}
 	}
 }
@@ -129,9 +133,10 @@ impl RuntimeInfo {
 	pub fn new_with_config(cfg: Config) -> Self {
 		let relay_parent_cache_lru_size = cfg.session_cache_lru_size.max(2 * MAX_FINALITY_LAG);
 		Self {
-			context_broker: RelayParentContextBroker::new(
+			context_broker: RelayParentContextBroker::new_with_metrics(
 				cfg.session_cache_lru_size,
 				relay_parent_cache_lru_size,
+				cfg.relay_parent_context_metrics,
 			),
 			session_info_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
 			pinned_blocks: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
@@ -142,12 +147,22 @@ impl RuntimeInfo {
 	/// Update relay-parent context lifetime from an active-leaves signal.
 	pub fn note_active_leaves_update(&mut self, update: &ActiveLeavesUpdate) {
 		if let Some(activated) = update.activated.as_ref() {
-			self.context_broker.note_relay_parent(activated.hash, activated.number);
+			self.note_relay_parent(activated.hash, activated.number);
 		}
 
 		for relay_parent in &update.deactivated {
-			self.context_broker.remove_relay_parent(*relay_parent);
+			self.remove_relay_parent(*relay_parent);
 		}
+	}
+
+	/// Remember a relay parent observed by a subsystem-specific active-leaf path.
+	pub fn note_relay_parent(&mut self, relay_parent: Hash, block_number: BlockNumber) {
+		self.context_broker.note_relay_parent(relay_parent, block_number);
+	}
+
+	/// Drop relay-parent-scoped runtime context for a block that is no longer live.
+	pub fn remove_relay_parent(&mut self, relay_parent: Hash) {
+		self.context_broker.remove_relay_parent(relay_parent);
 	}
 
 	/// Update relay-parent context lifetime from a finality signal.
@@ -370,7 +385,11 @@ impl RuntimeInfo {
 			let our_group =
 				session_info.validator_groups.iter().enumerate().find_map(|(i, g)| {
 					g.iter().find_map(|v| {
-						if *v == our_index { Some(GroupIndex(i as u32)) } else { None }
+						if *v == our_index {
+							Some(GroupIndex(i as u32))
+						} else {
+							None
+						}
 					})
 				});
 			let info = ValidatorInfo { our_index: Some(our_index), our_group };

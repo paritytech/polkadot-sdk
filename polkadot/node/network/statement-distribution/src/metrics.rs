@@ -14,7 +14,10 @@
 
 //! Metrics for the statement distribution module
 
-use polkadot_node_subsystem_util::metrics::{self, prometheus};
+use polkadot_node_subsystem_util::{
+	metrics::{self, prometheus},
+	runtime::RelayParentContextBrokerMetrics,
+};
 
 /// Buckets more suitable for checking the typical latency values
 const HISTOGRAM_LATENCY_BUCKETS: &[f64] = &[
@@ -37,6 +40,7 @@ struct MetricsInner {
 	// V2+
 	peer_rate_limit_request_drop: prometheus::Counter<prometheus::U64>,
 	max_parallel_requests_reached: prometheus::Counter<prometheus::U64>,
+	relay_parent_context: RelayParentContextBrokerMetrics,
 }
 
 /// Statement Distribution metrics.
@@ -143,6 +147,14 @@ impl Metrics {
 			metrics.max_parallel_requests_reached.inc();
 		}
 	}
+
+	/// Metrics for relay-parent runtime context cache behavior.
+	pub fn relay_parent_context_metrics(&self) -> RelayParentContextBrokerMetrics {
+		self.0
+			.as_ref()
+			.map(|metrics| metrics.relay_parent_context.clone())
+			.unwrap_or_default()
+	}
 }
 
 impl metrics::Metrics for Metrics {
@@ -235,6 +247,10 @@ impl metrics::Metrics for Metrics {
 					"Number of times the maximum number of parallel requests was reached.",
 				)?,
 				registry,
+			)?,
+			relay_parent_context: RelayParentContextBrokerMetrics::try_register_with_subsystem(
+				registry,
+				"statement_distribution",
 			)?,
 		};
 		Ok(Metrics(Some(metrics)))

@@ -36,7 +36,9 @@ use crate::{
 use indexmap::IndexMap;
 use parking_lot::Mutex;
 use sc_transaction_pool_api::{error::Error as TxPoolError, PoolStatus, TransactionStatus};
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
 	generic::BlockId, traits::Block as BlockT, transaction_validity::TransactionValidityError,
@@ -115,6 +117,10 @@ impl<ChainApi: graph::ChainApi> FinishRevalidationWorkerChannels<ChainApi> {
 pub(super) type TransactionStatusEvent<H, BH> = (H, TransactionStatus<H, BH>);
 /// Warning threshold for (unbounded) channel used in aggregated view's streams.
 const VIEW_STREAM_WARN_THRESHOLD: usize = 100_000;
+const TXPOOL_WATCHER_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_txpool_watcher", VIEW_STREAM_WARN_THRESHOLD);
+const TXPOOL_AGGREGATED_STREAM_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_txpool_aggregated_stream", VIEW_STREAM_WARN_THRESHOLD);
 
 /// Stream of events providing statuses of all the transactions within the pool.
 pub(super) type AggregatedStream<H, BH> = TracingUnboundedReceiver<TransactionStatusEvent<H, BH>>;
@@ -207,9 +213,9 @@ impl<ChainApi: graph::ChainApi> ViewPoolObserver<ChainApi> {
 		AggregatedStream<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
 	) {
 		let (dropped_stream_sink, dropped_stream) =
-			tracing_unbounded("mpsc_txpool_watcher", VIEW_STREAM_WARN_THRESHOLD);
+			tracing_unbounded_with_policy(TXPOOL_WATCHER_CHANNEL);
 		let (aggregated_stream_sink, aggregated_stream) =
-			tracing_unbounded("mpsc_txpool_aggregated_stream", VIEW_STREAM_WARN_THRESHOLD);
+			tracing_unbounded_with_policy(TXPOOL_AGGREGATED_STREAM_CHANNEL);
 
 		(Self { dropped_stream_sink, aggregated_stream_sink }, dropped_stream, aggregated_stream)
 	}

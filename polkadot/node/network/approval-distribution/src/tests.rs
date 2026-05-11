@@ -72,6 +72,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		let mut session_info_provider = RuntimeInfo::new_with_config(RuntimeInfoConfig {
 			keystore: None,
 			session_cache_lru_size: DISPUTE_WINDOW.get(),
+			..Default::default()
 		});
 
 		let (tx, rx) = oneshot::channel();
@@ -3854,6 +3855,7 @@ fn batch_test_round(message_count: usize) {
 	let mut session_info_provider = RuntimeInfo::new_with_config(RuntimeInfoConfig {
 		keystore: None,
 		session_cache_lru_size: DISPUTE_WINDOW.get(),
+		..Default::default()
 	});
 
 	let subsystem = subsystem.run_inner(

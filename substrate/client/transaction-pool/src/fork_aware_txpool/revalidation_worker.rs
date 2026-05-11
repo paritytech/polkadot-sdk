@@ -24,7 +24,9 @@
 use std::{marker::PhantomData, pin::Pin, sync::Arc};
 
 use crate::{graph::ChainApi, LOG_TARGET};
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::traits::Block as BlockT;
 
@@ -33,6 +35,9 @@ use futures::prelude::*;
 use tracing::{debug, warn};
 
 use super::view::{FinishRevalidationWorkerChannels, View};
+
+const REVALIDATION_QUEUE_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_revalidation_queue", 100_000);
 
 /// Revalidation request payload sent from the queue to the worker.
 enum WorkerPayload<Api, Block>
@@ -120,7 +125,7 @@ where
 	///
 	/// All validation requests will be executed in the background.
 	pub fn new_with_worker() -> (Self, Pin<Box<dyn Future<Output = ()> + Send>>) {
-		let (to_worker, from_queue) = tracing_unbounded("mpsc_revalidation_queue", 100_000);
+		let (to_worker, from_queue) = tracing_unbounded_with_policy(REVALIDATION_QUEUE_CHANNEL);
 		(Self { background: Some(to_worker) }, RevalidationWorker::new().run(from_queue).boxed())
 	}
 

@@ -23,7 +23,9 @@ use crate::graph::{
 };
 use futures::prelude::*;
 use indexmap::IndexMap;
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
 use sp_runtime::{
 	generic::BlockId, traits::SaturatedConversion, transaction_validity::TransactionValidityError,
 };
@@ -40,6 +42,8 @@ const BACKGROUND_REVALIDATION_INTERVAL: Duration = Duration::from_millis(200);
 const MIN_BACKGROUND_REVALIDATION_BATCH_SIZE: usize = 20;
 
 const LOG_TARGET: &str = "txpool::revalidation";
+const REVALIDATION_QUEUE_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_revalidation_queue", 100_000);
 
 type Pool<Api> = crate::graph::Pool<Api, ()>;
 
@@ -335,7 +339,7 @@ where
 		interval: Duration,
 		best_block: BlockHash<Api>,
 	) -> (Self, Pin<Box<dyn Future<Output = ()> + Send>>) {
-		let (to_worker, from_queue) = tracing_unbounded("mpsc_revalidation_queue", 100_000);
+		let (to_worker, from_queue) = tracing_unbounded_with_policy(REVALIDATION_QUEUE_CHANNEL);
 
 		let worker = RevalidationWorker::new(api.clone(), pool.clone(), best_block);
 

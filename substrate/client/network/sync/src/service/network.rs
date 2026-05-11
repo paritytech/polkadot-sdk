@@ -24,9 +24,14 @@ use sc_network::{
 	types::ProtocolName,
 	NetworkPeers, NetworkRequest, ReputationChange,
 };
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
 
 use std::sync::Arc;
+
+const NETWORK_SERVICE_PROVIDER_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_network_service_provider", 100_000);
 
 /// Network-related services required by `sc-network-sync`
 pub trait Network: NetworkPeers + NetworkRequest {}
@@ -102,7 +107,7 @@ impl NetworkServiceHandle {
 impl NetworkServiceProvider {
 	/// Create new `NetworkServiceProvider`
 	pub fn new() -> Self {
-		let (tx, rx) = tracing_unbounded("mpsc_network_service_provider", 100_000);
+		let (tx, rx) = tracing_unbounded_with_policy(NETWORK_SERVICE_PROVIDER_CHANNEL);
 
 		Self { rx, handle: NetworkServiceHandle::new(tx) }
 	}

@@ -61,7 +61,9 @@ use sc_network_common::{
 	sync::message::{BlockAnnounce, BlockAnnouncesHandshake, BlockState},
 };
 use sc_network_types::PeerId;
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
 use sp_blockchain::{Error as ClientError, HeaderMetadata};
 use sp_consensus::{block_validation::BlockAnnounceValidator, BlockOrigin};
 use sp_runtime::{
@@ -81,6 +83,7 @@ use std::{
 
 /// Interval at which we perform time based maintenance
 const TICK_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(1100);
+const CHAIN_SYNC_CHANNEL: ChannelPolicy = ChannelPolicy::bounded("mpsc_chain_sync", 100_000);
 
 /// Maximum number of known block hashes to keep for a peer.
 const MAX_KNOWN_BLOCKS: usize = 1024; // ~32kb per peer + LruHashSet overhead
@@ -290,8 +293,8 @@ where
 	where
 		N: NetworkBackend<B, <B as BlockT>::Hash>,
 	{
-		let cache_capacity = (net_config.network_config.default_peers_set.in_peers +
-			net_config.network_config.default_peers_set.out_peers)
+		let cache_capacity = (net_config.network_config.default_peers_set.in_peers
+			+ net_config.network_config.default_peers_set.out_peers)
 			.max(1);
 		let important_peers = {
 			let mut imp_p = HashSet::new();
@@ -328,8 +331,8 @@ where
 		let default_peers_set_num_full =
 			net_config.network_config.default_peers_set_num_full as usize;
 		let default_peers_set_num_light = {
-			let total = net_config.network_config.default_peers_set.out_peers +
-				net_config.network_config.default_peers_set.in_peers;
+			let total = net_config.network_config.default_peers_set.out_peers
+				+ net_config.network_config.default_peers_set.in_peers;
 			total.saturating_sub(net_config.network_config.default_peers_set_num_full) as usize
 		};
 
@@ -349,7 +352,7 @@ where
 			);
 
 		let block_announce_protocol_name = block_announce_config.protocol_name().clone();
-		let (tx, service_rx) = tracing_unbounded("mpsc_chain_sync", 100_000);
+		let (tx, service_rx) = tracing_unbounded_with_policy(CHAIN_SYNC_CHANNEL);
 		let num_connected = Arc::new(AtomicUsize::new(0));
 		let is_major_syncing = Arc::new(AtomicBool::new(false));
 
@@ -818,9 +821,9 @@ where
 			log::debug!(target: LOG_TARGET, "{peer_id} disconnected");
 		}
 
-		if !self.default_peers_set_no_slot_connected_peers.remove(&peer_id) &&
-			info.inbound &&
-			info.info.roles.is_full()
+		if !self.default_peers_set_no_slot_connected_peers.remove(&peer_id)
+			&& info.inbound
+			&& info.info.roles.is_full()
 		{
 			match self.num_in_peers.checked_sub(1) {
 				Some(value) => {
@@ -921,21 +924,21 @@ where
 		let no_slot_peer = self.default_peers_set_no_slot_peers.contains(&peer_id);
 		let this_peer_reserved_slot: usize = if no_slot_peer { 1 } else { 0 };
 
-		if handshake.roles.is_full() &&
-			self.strategy.num_peers() >=
-				self.default_peers_set_num_full +
-					self.default_peers_set_no_slot_connected_peers.len() +
-					this_peer_reserved_slot
+		if handshake.roles.is_full()
+			&& self.strategy.num_peers()
+				>= self.default_peers_set_num_full
+					+ self.default_peers_set_no_slot_connected_peers.len()
+					+ this_peer_reserved_slot
 		{
 			log::debug!(target: LOG_TARGET, "Too many full nodes, rejecting {peer_id}");
 			return Err(false);
 		}
 
 		// make sure to accept no more than `--in-peers` many full nodes
-		if !no_slot_peer &&
-			handshake.roles.is_full() &&
-			direction.is_inbound() &&
-			self.num_in_peers == self.max_in_peers
+		if !no_slot_peer
+			&& handshake.roles.is_full()
+			&& direction.is_inbound()
+			&& self.num_in_peers == self.max_in_peers
 		{
 			log::debug!(target: LOG_TARGET, "All inbound slots have been consumed, rejecting {peer_id}");
 			return Err(false);
@@ -945,8 +948,8 @@ where
 		//
 		// `ChainSync` only accepts full peers whereas `SyncingEngine` accepts both full and light
 		// peers. Verify that there is a slot in `SyncingEngine` for the inbound light peer
-		if handshake.roles.is_light() &&
-			(self.peers.len() - self.strategy.num_peers()) >= self.default_peers_set_num_light
+		if handshake.roles.is_light()
+			&& (self.peers.len() - self.strategy.num_peers()) >= self.default_peers_set_num_light
 		{
 			log::debug!(target: LOG_TARGET, "Too many light nodes, rejecting {peer_id}");
 			return Err(false);
@@ -1037,8 +1040,8 @@ where
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					},
-					RequestFailure::Network(OutboundFailure::ConnectionClosed) |
-					RequestFailure::NotConnected => {
+					RequestFailure::Network(OutboundFailure::ConnectionClosed)
+					| RequestFailure::NotConnected => {
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					},

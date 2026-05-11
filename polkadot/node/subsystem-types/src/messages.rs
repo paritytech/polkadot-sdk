@@ -945,6 +945,14 @@ impl RuntimeApiFeature {
 		Self::new(name, RuntimeCompatibilitySurface::ParachainHost, required_version)
 	}
 
+	const fn xcm(name: &'static str, required_version: u32) -> Self {
+		Self::new(name, RuntimeCompatibilitySurface::Xcm, required_version)
+	}
+
+	const fn bridge(name: &'static str, required_version: u32) -> Self {
+		Self::new(name, RuntimeCompatibilitySurface::Bridge, required_version)
+	}
+
 	/// Human-readable feature name.
 	pub const fn name(self) -> &'static str {
 		self.name
@@ -964,6 +972,9 @@ impl RuntimeApiFeature {
 	pub const fn is_supported_by(self, runtime_api_version: u32) -> bool {
 		runtime_api_version >= self.required_version
 	}
+
+	/// Base `ParachainHost` API presence.
+	pub const PARACHAIN_HOST: Self = Self::parachain_host("parachain_host", 1);
 
 	/// `Disputes`.
 	pub const DISPUTES: Self =
@@ -1072,12 +1083,106 @@ impl RuntimeApiFeature {
 	);
 
 	/// XCM runtime API surface marker used by compatibility checks outside `ParachainHost`.
-	pub const XCM_RUNTIME_APIS: Self =
-		Self::new("xcm_runtime_apis", RuntimeCompatibilitySurface::Xcm, 1);
+	pub const XCM_RUNTIME_APIS: Self = Self::xcm("xcm_runtime_apis", 1);
+
+	/// XCM payment runtime API.
+	pub const XCM_PAYMENT_API: Self = Self::xcm("xcm_payment_api", 1);
+
+	/// XCM dry-run runtime API.
+	pub const XCM_DRY_RUN_API: Self = Self::xcm("xcm_dry_run_api", 1);
+
+	/// XCM location-to-account runtime API.
+	pub const XCM_LOCATION_TO_ACCOUNT_API: Self = Self::xcm("xcm_location_to_account_api", 1);
 
 	/// Bridge runtime API surface marker used by bridge runtime compatibility checks.
-	pub const BRIDGE_RUNTIME_APIS: Self =
-		Self::new("bridge_runtime_apis", RuntimeCompatibilitySurface::Bridge, 1);
+	pub const BRIDGE_RUNTIME_APIS: Self = Self::bridge("bridge_runtime_apis", 1);
+
+	/// Bridge finality runtime API.
+	pub const BRIDGE_FINALITY_API: Self = Self::bridge("bridge_finality_api", 1);
+
+	/// Bridge messages runtime API.
+	pub const BRIDGE_MESSAGES_API: Self = Self::bridge("bridge_messages_api", 1);
+
+	/// Bridge parachains runtime API.
+	pub const BRIDGE_PARACHAINS_API: Self = Self::bridge("bridge_parachains_api", 1);
+
+	/// Snowbridge outbound queue runtime API.
+	pub const SNOWBRIDGE_OUTBOUND_QUEUE_API: Self =
+		Self::bridge("snowbridge_outbound_queue_api", 1);
+
+	/// ParachainHost features tracked by the catalog.
+	pub const PARACHAIN_HOST_FEATURES: &'static [Self] = &[
+		Self::PARACHAIN_HOST,
+		Self::DISPUTES,
+		Self::EXECUTOR_PARAMS,
+		Self::UNAPPLIED_SLASHES,
+		Self::KEY_OWNERSHIP_PROOF,
+		Self::SUBMIT_REPORT_DISPUTE_LOST,
+		Self::MINIMUM_BACKING_VOTES,
+		Self::ASYNC_BACKING_STATE,
+		Self::DISABLED_VALIDATORS,
+		Self::NODE_FEATURES,
+		Self::APPROVAL_VOTING_PARAMS,
+		Self::CLAIM_QUEUE,
+		Self::CANDIDATES_PENDING_AVAILABILITY,
+		Self::VALIDATION_CODE_BOMB_LIMIT,
+		Self::BACKING_CONSTRAINTS,
+		Self::SCHEDULING_LOOKAHEAD,
+		Self::PARA_IDS,
+		Self::UNAPPLIED_SLASHES_V2,
+		Self::MAX_RELAY_PARENT_SESSION_AGE,
+		Self::ANCESTOR_RELAY_PARENT_INFO,
+	];
+
+	/// XCM features tracked by the catalog.
+	pub const XCM_FEATURES: &'static [Self] = &[
+		Self::XCM_RUNTIME_APIS,
+		Self::XCM_PAYMENT_API,
+		Self::XCM_DRY_RUN_API,
+		Self::XCM_LOCATION_TO_ACCOUNT_API,
+	];
+
+	/// Bridge features tracked by the catalog.
+	pub const BRIDGE_FEATURES: &'static [Self] = &[
+		Self::BRIDGE_RUNTIME_APIS,
+		Self::BRIDGE_FINALITY_API,
+		Self::BRIDGE_MESSAGES_API,
+		Self::BRIDGE_PARACHAINS_API,
+		Self::SNOWBRIDGE_OUTBOUND_QUEUE_API,
+	];
+
+	/// All runtime compatibility features tracked by the node-side catalog.
+	pub const COMPATIBILITY_CATALOG: &'static [Self] = &[
+		Self::PARACHAIN_HOST,
+		Self::DISPUTES,
+		Self::EXECUTOR_PARAMS,
+		Self::UNAPPLIED_SLASHES,
+		Self::KEY_OWNERSHIP_PROOF,
+		Self::SUBMIT_REPORT_DISPUTE_LOST,
+		Self::MINIMUM_BACKING_VOTES,
+		Self::ASYNC_BACKING_STATE,
+		Self::DISABLED_VALIDATORS,
+		Self::NODE_FEATURES,
+		Self::APPROVAL_VOTING_PARAMS,
+		Self::CLAIM_QUEUE,
+		Self::CANDIDATES_PENDING_AVAILABILITY,
+		Self::VALIDATION_CODE_BOMB_LIMIT,
+		Self::BACKING_CONSTRAINTS,
+		Self::SCHEDULING_LOOKAHEAD,
+		Self::PARA_IDS,
+		Self::UNAPPLIED_SLASHES_V2,
+		Self::MAX_RELAY_PARENT_SESSION_AGE,
+		Self::ANCESTOR_RELAY_PARENT_INFO,
+		Self::XCM_RUNTIME_APIS,
+		Self::XCM_PAYMENT_API,
+		Self::XCM_DRY_RUN_API,
+		Self::XCM_LOCATION_TO_ACCOUNT_API,
+		Self::BRIDGE_RUNTIME_APIS,
+		Self::BRIDGE_FINALITY_API,
+		Self::BRIDGE_MESSAGES_API,
+		Self::BRIDGE_PARACHAINS_API,
+		Self::SNOWBRIDGE_OUTBOUND_QUEUE_API,
+	];
 }
 
 /// A message to the Runtime API subsystem.
@@ -1746,5 +1851,29 @@ mod tests {
 			RuntimeApiFeature::BRIDGE_RUNTIME_APIS.surface(),
 			RuntimeCompatibilitySurface::Bridge,
 		);
+	}
+
+	#[test]
+	fn catalog_lists_concrete_xcm_and_bridge_features() {
+		assert!(RuntimeApiFeature::XCM_FEATURES.contains(&RuntimeApiFeature::XCM_PAYMENT_API));
+		assert!(RuntimeApiFeature::XCM_FEATURES.contains(&RuntimeApiFeature::XCM_DRY_RUN_API));
+		assert!(
+			RuntimeApiFeature::BRIDGE_FEATURES.contains(&RuntimeApiFeature::BRIDGE_MESSAGES_API)
+		);
+		assert!(RuntimeApiFeature::BRIDGE_FEATURES
+			.contains(&RuntimeApiFeature::SNOWBRIDGE_OUTBOUND_QUEUE_API));
+		assert!(
+			RuntimeApiFeature::COMPATIBILITY_CATALOG.contains(&RuntimeApiFeature::PARACHAIN_HOST)
+		);
+		assert!(RuntimeApiFeature::COMPATIBILITY_CATALOG
+			.contains(&RuntimeApiFeature::XCM_LOCATION_TO_ACCOUNT_API));
+		assert!(!RuntimeApiFeature::BRIDGE_FINALITY_API.is_supported_by(0));
+		assert!(RuntimeApiFeature::BRIDGE_FINALITY_API.is_supported_by(1));
+		assert!(RuntimeApiFeature::XCM_FEATURES
+			.iter()
+			.all(|feature| feature.surface() == RuntimeCompatibilitySurface::Xcm));
+		assert!(RuntimeApiFeature::BRIDGE_FEATURES
+			.iter()
+			.all(|feature| feature.surface() == RuntimeCompatibilitySurface::Bridge));
 	}
 }

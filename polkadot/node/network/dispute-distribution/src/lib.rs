@@ -178,6 +178,7 @@ where
 		let runtime = RuntimeInfo::new_with_config(runtime::Config {
 			keystore: Some(keystore),
 			session_cache_lru_size: DISPUTE_WINDOW.get(),
+			relay_parent_context_metrics: metrics.relay_parent_context_metrics(),
 		});
 		let (tx, sender_rx) = NestingSender::new_root(1);
 		let disputes_sender = DisputeSender::new(tx, metrics.clone());

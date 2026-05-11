@@ -43,8 +43,10 @@ use polkadot_node_subsystem::{
 	overseer, ActivatedLeaf,
 };
 use polkadot_node_subsystem_util::{
-	backing_implicit_view::View as ImplicitView, reputation::ReputationAggregator,
-	request_min_backing_votes, runtime::ClaimQueueSnapshot,
+	backing_implicit_view::View as ImplicitView,
+	reputation::ReputationAggregator,
+	request_min_backing_votes,
+	runtime::{self, ClaimQueueSnapshot, RelayParentContextBrokerMetrics, RuntimeInfo},
 };
 use polkadot_primitives::{
 	transpose_claim_queue, AuthorityDiscoveryId, CandidateHash, CompactStatement, CoreIndex,
@@ -291,11 +293,21 @@ pub(crate) struct State {
 	authorities: HashMap<AuthorityDiscoveryId, PeerId>,
 	request_manager: RequestManager,
 	response_manager: ResponseManager,
+	runtime_info: RuntimeInfo,
 }
 
 impl State {
 	/// Create a new state.
+	#[cfg(test)]
 	pub(crate) fn new(keystore: KeystorePtr) -> Self {
+		Self::new_with_runtime_metrics(keystore, RelayParentContextBrokerMetrics::new_dummy())
+	}
+
+	/// Create a new state with RuntimeInfo metrics.
+	pub(crate) fn new_with_runtime_metrics(
+		keystore: KeystorePtr,
+		relay_parent_context_metrics: RelayParentContextBrokerMetrics,
+	) -> Self {
 		State {
 			implicit_view: Default::default(),
 			candidates: Default::default(),
@@ -307,6 +319,10 @@ impl State {
 			request_manager: RequestManager::new(),
 			response_manager: ResponseManager::new(),
 			unused_topologies: HashMap::new(),
+			runtime_info: RuntimeInfo::new_with_config(runtime::Config {
+				relay_parent_context_metrics,
+				..Default::default()
+			}),
 		}
 	}
 
@@ -535,40 +551,28 @@ async fn handle_active_leaf_update<Context>(
 	state: &mut State,
 	new_scheduling_parent: Hash,
 ) -> JfyiErrorResult<()> {
-	let disabled_validators: HashSet<_> =
-		polkadot_node_subsystem_util::request_disabled_validators(
-			new_scheduling_parent,
-			ctx.sender(),
-		)
+	let disabled_validators: HashSet<_> = state
+		.runtime_info
+		.get_disabled_validators(ctx.sender(), new_scheduling_parent)
 		.await
-		.await
-		.map_err(JfyiError::RuntimeApiUnavailable)?
-		.map_err(JfyiError::FetchDisabledValidators)?
+		.map_err(JfyiError::Runtime)?
 		.into_iter()
 		.collect();
 
-	let session_index = polkadot_node_subsystem_util::request_session_index_for_child(
-		new_scheduling_parent,
-		ctx.sender(),
-	)
-	.await
-	.await
-	.map_err(JfyiError::RuntimeApiUnavailable)?
-	.map_err(JfyiError::FetchSessionIndex)?;
+	let session_index = state
+		.runtime_info
+		.get_session_index_for_child(ctx.sender(), new_scheduling_parent)
+		.await
+		.map_err(JfyiError::Runtime)?;
 
 	if !state.per_session.contains_key(&session_index) {
-		let session_info = polkadot_node_subsystem_util::request_session_info(
-			new_scheduling_parent,
-			session_index,
-			ctx.sender(),
-		)
-		.await
-		.await
-		.map_err(JfyiError::RuntimeApiUnavailable)?
-		.map_err(JfyiError::FetchSessionInfo)?;
-
-		let session_info = match session_info {
-			None => {
+		let session_info = match state
+			.runtime_info
+			.get_session_info_by_index(ctx.sender(), new_scheduling_parent, session_index)
+			.await
+		{
+			Ok(session_info) => session_info.session_info.clone(),
+			Err(runtime::Error::NoSuchSession(_)) => {
 				gum::warn!(
 					target: LOG_TARGET,
 					scheduling_parent = ?new_scheduling_parent,
@@ -577,7 +581,7 @@ async fn handle_active_leaf_update<Context>(
 
 				return Ok(());
 			},
-			Some(s) => s,
+			Err(error) => return Err(JfyiError::Runtime(error)),
 		};
 
 		let minimum_backing_votes =
@@ -594,11 +598,6 @@ async fn handle_active_leaf_update<Context>(
 		state.per_session.insert(session_index, per_session_state);
 	}
 
-	let per_session = state
-		.per_session
-		.get_mut(&session_index)
-		.expect("either existed or just inserted; qed");
-
 	if !disabled_validators.is_empty() {
 		gum::debug!(
 			target: LOG_TARGET,
@@ -609,21 +608,22 @@ async fn handle_active_leaf_update<Context>(
 		);
 	}
 
-	let group_rotation_info =
-		polkadot_node_subsystem_util::request_validator_groups(new_scheduling_parent, ctx.sender())
-			.await
-			.await
-			.map_err(JfyiError::RuntimeApiUnavailable)?
-			.map_err(JfyiError::FetchValidatorGroups)?
-			.1;
+	let group_rotation_info = state
+		.runtime_info
+		.get_group_rotation_info(ctx.sender(), new_scheduling_parent)
+		.await
+		.map_err(JfyiError::Runtime)?;
 
-	let claim_queue = ClaimQueueSnapshot(
-		polkadot_node_subsystem_util::request_claim_queue(new_scheduling_parent, ctx.sender())
-			.await
-			.await
-			.map_err(JfyiError::RuntimeApiUnavailable)?
-			.map_err(JfyiError::FetchClaimQueue)?,
-	);
+	let claim_queue = state
+		.runtime_info
+		.get_claim_queue(ctx.sender(), new_scheduling_parent)
+		.await
+		.map_err(JfyiError::Runtime)?;
+
+	let per_session = state
+		.per_session
+		.get_mut(&session_index)
+		.expect("either existed or just inserted; qed");
 
 	let (groups_per_para, assignments_per_group) = determine_group_assignments(
 		per_session.groups.all().len(),
@@ -665,6 +665,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 	activated: &ActivatedLeaf,
 	metrics: &Metrics,
 ) -> JfyiErrorResult<()> {
+	state.runtime_info.note_relay_parent(activated.hash, activated.number);
 	state
 		.implicit_view
 		.activate_leaf(ctx.sender(), activated.hash)
@@ -761,6 +762,7 @@ pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 	for leaf in leaves {
 		let pruned = state.implicit_view.deactivate_leaf(*leaf);
 		for pruned_rp in pruned {
+			state.runtime_info.remove_relay_parent(pruned_rp);
 			// clean up per-scheduling-parent data based on everything removed.
 			state
 				.per_scheduling_parent
@@ -1167,8 +1169,8 @@ pub(crate) async fn share_local_statement<Context>(
 
 	let seconding_limit = local_assignments.len();
 
-	if is_seconded &&
-		per_scheduling_parent.statement_store.seconded_count(&local_index) >= seconding_limit
+	if is_seconded
+		&& per_scheduling_parent.statement_store.seconded_count(&local_index) >= seconding_limit
 	{
 		gum::warn!(
 			target: LOG_TARGET,
@@ -1178,8 +1180,8 @@ pub(crate) async fn share_local_statement<Context>(
 		return Err(JfyiError::InvalidShare);
 	}
 
-	if !local_assignments.contains(&expected_para) ||
-		scheduling_parent != expected_scheduling_parent
+	if !local_assignments.contains(&expected_para)
+		|| scheduling_parent != expected_scheduling_parent
 	{
 		return Err(JfyiError::InvalidShare);
 	}

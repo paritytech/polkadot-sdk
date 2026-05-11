@@ -83,7 +83,9 @@ use sc_network_common::{
 	role::{ObservedRole, Roles},
 	ExHashT,
 };
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
 use sp_runtime::traits::Block as BlockT;
 
 pub use behaviour::{InboundFailure, OutboundFailure, ResponseFailure};
@@ -112,6 +114,10 @@ pub mod traits;
 
 /// Logging target for the file.
 const LOG_TARGET: &str = "sub-libp2p";
+const NETWORK_WORKER_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_network_worker", 100_000);
+const PROTOCOL_CONTROLLERS_TO_NOTIFICATIONS_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_protocol_controllers_to_notifications", 10_000);
 
 struct Libp2pBandwidthSink {
 	#[allow(deprecated)]
@@ -325,7 +331,7 @@ where
 			&network_config.transport,
 		)?;
 
-		let (to_worker, from_service) = tracing_unbounded("mpsc_network_worker", 100_000);
+		let (to_worker, from_service) = tracing_unbounded_with_policy(NETWORK_WORKER_CHANNEL);
 
 		if let Some(path) = &network_config.net_config_path {
 			fs::create_dir_all(path)?;
@@ -348,7 +354,7 @@ where
 		};
 
 		let (to_notifications, from_protocol_controllers) =
-			tracing_unbounded("mpsc_protocol_controllers_to_notifications", 10_000);
+			tracing_unbounded_with_policy(PROTOCOL_CONTROLLERS_TO_NOTIFICATIONS_CHANNEL);
 
 		// We must prepend a hardcoded default peer set to notification protocols.
 		let all_peer_sets_iter = iter::once(&network_config.default_peers_set)
@@ -1828,9 +1834,9 @@ where
 						DialError::LocalPeerId { .. } => Some("local-peer-id"),
 						DialError::WrongPeerId { .. } => Some("invalid-peer-id"),
 						DialError::Transport(_) => Some("transport-error"),
-						DialError::NoAddresses |
-						DialError::DialPeerConditionFalse(_) |
-						DialError::Aborted => None, // ignore them
+						DialError::NoAddresses
+						| DialError::DialPeerConditionFalse(_)
+						| DialError::Aborted => None, // ignore them
 					};
 					if let Some(reason) = reason {
 						metrics.pending_connections_errors_total.with_label_values(&[reason]).inc();

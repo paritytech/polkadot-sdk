@@ -78,7 +78,7 @@ use sc_network_types::kad::{Key as RecordKey, PeerRecord, Record as P2PRecord};
 use sc_client_api::BlockBackend;
 use sc_network_common::{role::Roles, ExHashT};
 use sc_network_types::PeerId;
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
+use sc_utils::mpsc::{tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver};
 use sp_runtime::traits::Block as BlockT;
 
 use std::{
@@ -135,6 +135,10 @@ impl Executor for Litep2pExecutor {
 
 /// Logging target for the file.
 const LOG_TARGET: &str = "sub-libp2p";
+const LITEP2P_NETWORK_WORKER_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_network_worker", 100_000);
+const OUTBOUND_REQUESTS_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("outbound-requests", 10_000);
 
 /// Peer context.
 struct ConnectionContext {
@@ -209,11 +213,11 @@ impl Litep2pNetworkBackend {
 			.into_iter()
 			.filter_map(|address| match address.iter().next() {
 				Some(
-					Protocol::Dns(_) |
-					Protocol::Dns4(_) |
-					Protocol::Dns6(_) |
-					Protocol::Ip6(_) |
-					Protocol::Ip4(_),
+					Protocol::Dns(_)
+					| Protocol::Dns4(_)
+					| Protocol::Dns6(_)
+					| Protocol::Ip6(_)
+					| Protocol::Ip4(_),
 				) => match address.iter().find(|protocol| std::matches!(protocol, Protocol::P2p(_)))
 				{
 					Some(Protocol::P2p(multihash)) => PeerId::from_multihash(multihash.into())
@@ -357,7 +361,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 	{
 		let (keypair, local_peer_id) =
 			Self::get_keypair(&params.network_config.network_config.node_key)?;
-		let (cmd_tx, cmd_rx) = tracing_unbounded("mpsc_network_worker", 100_000);
+		let (cmd_tx, cmd_rx) = tracing_unbounded_with_policy(LITEP2P_NETWORK_WORKER_CHANNEL);
 
 		params.network_config.network_config.boot_nodes = params
 			.network_config
@@ -447,7 +451,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		) = request_response_protocols
 			.iter()
 			.map(|config| {
-				let (tx, rx) = tracing_unbounded("outbound-requests", 10_000);
+				let (tx, rx) = tracing_unbounded_with_policy(OUTBOUND_REQUESTS_CHANNEL);
 				((config.protocol_name.clone(), rx), (config.protocol_name.clone(), tx))
 			})
 			.unzip();

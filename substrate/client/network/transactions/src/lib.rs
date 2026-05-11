@@ -48,7 +48,9 @@ use sc_network::{
 use sc_network_common::{role::ObservedRole, ExHashT};
 use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
 use sp_runtime::traits::Block as BlockT;
 
 use std::{
@@ -67,6 +69,8 @@ pub type Transactions<E> = Vec<E>;
 
 /// Logging target for the file.
 const LOG_TARGET: &str = "sync";
+const TRANSACTIONS_HANDLER_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_transactions_handler", 100_000);
 
 mod rep {
 	use sc_network::ReputationChange as Rep;
@@ -185,7 +189,8 @@ impl TransactionsHandlerPrototype {
 		metrics_registry: Option<&Registry>,
 	) -> error::Result<(TransactionsHandler<B, H, N, S>, TransactionsHandlerController<H>)> {
 		let sync_event_stream = sync.event_stream("transactions-handler-sync");
-		let (to_handler, from_controller) = tracing_unbounded("mpsc_transactions_handler", 100_000);
+		let (to_handler, from_controller) =
+			tracing_unbounded_with_policy(TRANSACTIONS_HANDLER_CHANNEL);
 
 		let handler = TransactionsHandler {
 			protocol_name: self.protocol_name,

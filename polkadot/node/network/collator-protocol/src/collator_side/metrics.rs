@@ -20,7 +20,10 @@ use std::{
 };
 
 use polkadot_node_subsystem::prometheus::prometheus::HistogramTimer;
-use polkadot_node_subsystem_util::metrics::{self, prometheus};
+use polkadot_node_subsystem_util::{
+	metrics::{self, prometheus},
+	runtime::RelayParentContextBrokerMetrics,
+};
 use polkadot_primitives::{BlockNumber, CandidateReceiptV2 as CandidateReceipt, Hash};
 use sp_core::H256;
 
@@ -96,6 +99,14 @@ impl Metrics {
 			metrics.collation_expired_total.with_label_values(&[state]).observe(latency);
 		}
 	}
+
+	/// Metrics for relay-parent runtime context cache behavior.
+	pub fn relay_parent_context_metrics(&self) -> RelayParentContextBrokerMetrics {
+		self.0
+			.as_ref()
+			.map(|metrics| metrics.relay_parent_context.clone())
+			.unwrap_or_default()
+	}
 }
 
 #[derive(Clone)]
@@ -110,6 +121,7 @@ struct MetricsInner {
 	collation_backing_latency: prometheus::Histogram,
 	collation_inclusion_latency: prometheus::Histogram,
 	collation_expired_total: prometheus::HistogramVec,
+	relay_parent_context: RelayParentContextBrokerMetrics,
 }
 
 impl metrics::Metrics for Metrics {
@@ -222,6 +234,10 @@ impl metrics::Metrics for Metrics {
 					&["state"],
 				)?,
 				registry,
+			)?,
+			relay_parent_context: RelayParentContextBrokerMetrics::try_register_with_subsystem(
+				registry,
+				"collator_protocol_collator",
 			)?,
 		};
 

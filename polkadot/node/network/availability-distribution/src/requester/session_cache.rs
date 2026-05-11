@@ -20,7 +20,7 @@ use rand::{seq::SliceRandom, thread_rng};
 use schnellru::{ByLength, LruMap};
 
 use polkadot_node_subsystem::overseer;
-use polkadot_node_subsystem_util::{request_node_features, runtime::RuntimeInfo};
+use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
 	AuthorityDiscoveryId, GroupIndex, Hash, NodeFeatures, SessionIndex, ValidatorIndex,
 };
@@ -175,13 +175,9 @@ impl SessionCache {
 			.get_session_info_by_index(ctx.sender(), relay_parent, session_index)
 			.await?;
 
-		let node_features = request_node_features(relay_parent, session_index, ctx.sender())
-			.await
-			.await?
-			.map_err(Error::FailedNodeFeatures)?;
-
 		let discovery_keys = info.session_info.discovery_keys.clone();
 		let mut validator_groups = info.session_info.validator_groups.clone();
+		let node_features = info.node_features.clone();
 
 		if let Some(our_index) = info.validator_info.our_index {
 			// Get our group index:

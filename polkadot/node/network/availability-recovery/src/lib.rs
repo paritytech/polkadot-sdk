@@ -63,7 +63,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{
 	availability_chunks::availability_chunk_indices,
-	runtime::{ExtendedSessionInfo, RuntimeInfo},
+	runtime::{self, ExtendedSessionInfo, RelayParentContextBrokerMetrics, RuntimeInfo},
 };
 use polkadot_primitives::{
 	node_features, BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, ChunkIndex,
@@ -301,13 +301,16 @@ struct State {
 	runtime_info: RuntimeInfo,
 }
 
-impl Default for State {
-	fn default() -> Self {
+impl State {
+	fn new(relay_parent_context_metrics: RelayParentContextBrokerMetrics) -> Self {
 		Self {
 			ongoing_recoveries: FuturesUnordered::new(),
 			live_block: (0, Hash::default()),
 			availability_lru: LruMap::new(ByLength::new(LRU_SIZE)),
-			runtime_info: RuntimeInfo::new(None),
+			runtime_info: RuntimeInfo::new_with_config(runtime::Config {
+				relay_parent_context_metrics,
+				..Default::default()
+			}),
 		}
 	}
 }
@@ -675,7 +678,6 @@ impl AvailabilityRecoverySubsystem {
 
 	/// Starts the inner subsystem loop.
 	pub async fn run<Context>(self, mut ctx: Context) -> std::result::Result<(), FatalError> {
-		let mut state = State::default();
 		let Self {
 			mut req_receiver,
 			metrics,
@@ -685,6 +687,7 @@ impl AvailabilityRecoverySubsystem {
 			req_v1_protocol_name,
 			req_v2_protocol_name,
 		} = self;
+		let mut state = State::new(metrics.relay_parent_context_metrics());
 
 		let (erasure_task_tx, erasure_task_rx) = futures::channel::mpsc::channel(16);
 		let mut erasure_task_rx = erasure_task_rx.fuse();

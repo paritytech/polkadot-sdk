@@ -419,8 +419,8 @@ impl Knowledge {
 		// we need to share the same `MessageSubject` with the followup approval candidate index.
 		if kind == MessageKind::Assignment && success && message.1.count_ones() > 1 {
 			for candidate_index in message.1.iter_ones() {
-				success = success &&
-					self.insert(
+				success = success
+					&& self.insert(
 						MessageSubject(
 							message.0,
 							vec![candidate_index as u32].try_into().expect("Non-empty vec; qed"),
@@ -1300,8 +1300,8 @@ impl State {
 
 		let age = max_age.saturating_sub(min_age);
 
-		aggression_config.should_trigger_aggression(age) &&
-			topology.map(|topology| topology.is_validator(&peer)).unwrap_or(false)
+		aggression_config.should_trigger_aggression(age)
+			&& topology.map(|topology| topology.is_validator(&peer)).unwrap_or(false)
 	}
 
 	async fn import_and_circulate_assignment<A, N, RA, R>(
@@ -2282,11 +2282,11 @@ impl State {
 					})
 					.unwrap_or(true);
 
-				if resend == Resend::Yes &&
-					config.resend_unfinalized_period.as_ref().map_or(false, |p| {
-						block_age > 0 &&
-							block_age % p == 0 && diff_from_min_age == 0 &&
-							can_resend_at_this_age
+				if resend == Resend::Yes
+					&& config.resend_unfinalized_period.as_ref().map_or(false, |p| {
+						block_age > 0
+							&& block_age % p == 0 && diff_from_min_age == 0
+							&& can_resend_at_this_age
 					}) {
 					// Retry sending to all peers.
 					for (_, knowledge) in block_entry.known_by.iter_mut() {
@@ -2412,8 +2412,8 @@ impl State {
 		let mut sanitized_approvals = Vec::new();
 		for approval in approval.into_iter() {
 			let has_no_approved_candidates = approval.candidate_indices.first_one().is_none();
-			if approval.candidate_indices.len() as usize > MAX_BITFIELD_SIZE ||
-				has_no_approved_candidates
+			if approval.candidate_indices.len() as usize > MAX_BITFIELD_SIZE
+				|| has_no_approved_candidates
 			{
 				// Punish the peer for the invalid message.
 				modify_reputation(
@@ -2619,6 +2619,7 @@ impl ApprovalDistribution {
 		let mut session_info_provider = RuntimeInfo::new_with_config(RuntimeInfoConfig {
 			keystore: None,
 			session_cache_lru_size: DISPUTE_WINDOW.get(),
+			..Default::default()
 		});
 
 		self.run_inner(
@@ -2851,9 +2852,9 @@ const fn ensure_size_not_zero(size: usize) -> usize {
 /// assignments we send in a single message to peers. Exceeding `MAX_NOTIFICATION_SIZE` will violate
 /// the protocol configuration.
 pub const MAX_ASSIGNMENT_BATCH_SIZE: usize = ensure_size_not_zero(
-	MAX_NOTIFICATION_SIZE as usize /
-		std::mem::size_of::<(IndirectAssignmentCertV2, CandidateIndex)>() /
-		3,
+	MAX_NOTIFICATION_SIZE as usize
+		/ std::mem::size_of::<(IndirectAssignmentCertV2, CandidateIndex)>()
+		/ 3,
 );
 
 /// The maximum amount of approvals per batch is 33% of maximum allowed by protocol.
