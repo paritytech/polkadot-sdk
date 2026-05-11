@@ -1,0 +1,9 @@
+title: '[WIP] Network: Add bitswap client'
+doc:
+- audience: Node Dev
+  description: TBD for now CI
+crates:
+- name: sc-network
+  bump: patch
+- name: sp-transaction-storage-proof
+  bump: patch
