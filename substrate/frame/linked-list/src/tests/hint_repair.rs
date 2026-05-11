@@ -1,13 +1,13 @@
 use crate::{mock::*, Error, SortedListInterface};
 use frame::testing_prelude::assert_storage_noop;
 
-fn build_chain(scores: &[(ItemId, Score)]) {
-	for &(item, score) in scores {
-		insert(1, item, score);
+fn build_chain(priorities: &[(ItemId, Priority)]) {
+	for &(item, priority) in priorities {
+		insert(1, item, priority);
 	}
 }
 
-/// Items in head→tail score order, length deliberately greater than
+/// Items in head→tail priority order, length deliberately greater than
 /// `MaxHintRepairSteps` so that "wrong-end hint" tests cannot be bridged within
 /// the budget.
 fn build_long_chain() {
@@ -20,7 +20,8 @@ fn build_long_chain() {
 fn stale_hint_within_budget_repairs_succeeds() {
 	build_and_execute(|| {
 		// MaxHintRepairSteps = 4 (set in mock).
-		// 5 items; correct insert pos for score=15 is between 4 (score 20) and 5 (score 10).
+		// 5 items; correct insert pos for priority=15 is between 4 (priority 20) and 5 (priority
+		// 10).
 		build_chain(&[(1, 100), (2, 80), (3, 50), (4, 20), (5, 10)]);
 
 		// Stale hint: caller thinks pos is between 1 and 2 (head region).
@@ -35,7 +36,7 @@ fn stale_hint_within_budget_repairs_succeeds() {
 #[test]
 fn stale_hint_beyond_budget_returns_invalid_hints() {
 	build_and_execute(|| {
-		// Long chain so that score=5 (correct pos = tail) is unreachable from a
+		// Long chain so that priority=5 (correct pos = tail) is unreachable from a
 		// head-region hint within `MaxHintRepairSteps`.
 		build_long_chain();
 		assert_storage_noop!(assert!(matches!(
@@ -79,7 +80,7 @@ fn repair_steps_needed_positive_for_stale_hint() {
 fn repair_steps_needed_counts_dangling_hint_clamp() {
 	build_and_execute(|| {
 		build_chain(&[(1, 90), (2, 70), (3, 50)]);
-		// `Some(999)` is dangling. Even though score 80 is positionally between
+		// `Some(999)` is dangling. Even though priority 80 is positionally between
 		// (1, 2), `walk_repair` must spend at least one step clamping the
 		// invalid `next` before it can land on the correct position.
 		let n = <LinkedList as SortedListInterface<_, _>>::repair_steps_needed(
@@ -96,7 +97,7 @@ fn repair_steps_needed_counts_dangling_hint_clamp() {
 fn repair_steps_needed_exceeds_budget_signals_infeasible() {
 	build_and_execute(|| {
 		build_long_chain();
-		// score=5 is tail; hint claims head. Distance > `MaxHintRepairSteps`.
+		// priority=5 is tail; hint claims head. Distance > `MaxHintRepairSteps`.
 		let n =
 			<LinkedList as SortedListInterface<_, _>>::repair_steps_needed(&1, 5, None, Some(1));
 		assert!(n > MaxHintRepairSteps::get());
@@ -106,8 +107,8 @@ fn repair_steps_needed_exceeds_budget_signals_infeasible() {
 #[test]
 fn inconsistent_hint_one_side_stale_re_anchors() {
 	build_and_execute(|| {
-		// List head→tail: items 1..=N with scores 100, 90, 80, ..., chosen so that
-		// the correct insert position for score 85 is between item 2 (90) and
+		// List head→tail: items 1..=N with priorities 100, 90, 80, ..., chosen so that
+		// the correct insert position for priority 85 is between item 2 (90) and
 		// item 3 (80). The caller's hint claims (tail=last, Some(item 3)),
 		// which is link-inconsistent; the tail is not item 3's prev.
 		// Walking from prev=tail toward the head would need more than

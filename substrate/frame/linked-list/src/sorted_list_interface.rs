@@ -7,16 +7,16 @@ use frame::deps::frame_support::{
 	traits::DefensiveOption,
 };
 
-/// Authoritative source of the score for `(list_id, item)`. Consulted by
-/// [`crate::Pallet::relist`] to detect drift against stored node scores.
-pub trait ScoreProvider<ListId, ItemId> {
-	/// Score type used to order items.
-	type Score;
+/// Authoritative source of the priority for `(list_id, item)`. Consulted by
+/// [`crate::Pallet::reprioritize`] to detect drift against stored node priorities.
+pub trait PriorityProvider<ListId, ItemId> {
+	/// Priority type used to order items.
+	type Priority;
 
-	/// Current authoritative score for `(list_id, item)`.
+	/// Current authoritative priority for `(list_id, item)`.
 	///
 	/// Returns `None` when the item should not remain in the list.
-	fn score(list_id: &ListId, item: &ItemId) -> Option<Self::Score>;
+	fn priority(list_id: &ListId, item: &ItemId) -> Option<Self::Priority>;
 }
 
 /// Mutation and query surface for consumer pallets.
@@ -25,13 +25,13 @@ pub trait ScoreProvider<ListId, ItemId> {
 /// methods return the number of hint-repair steps actually walked so callers
 /// can refund unused weight via `PostDispatchInfo::actual_weight`.
 pub trait SortedListInterface<ListId, ItemId> {
-	/// Score type used to order items within a list.
-	type Score;
+	/// Priority type used to order items within a list.
+	type Priority;
 
 	/// Error type returned by mutating operations.
 	type Error;
 
-	/// Insert `(list_id, item)` at `score`, repairing stale hints if needed.
+	/// Insert `(list_id, item)` at `priority`, repairing stale hints if needed.
 	///
 	/// # Errors
 	///
@@ -41,7 +41,7 @@ pub trait SortedListInterface<ListId, ItemId> {
 	fn insert(
 		list_id: ListId,
 		item: ItemId,
-		score: Self::Score,
+		priority: Self::Priority,
 		hint_prev: Option<ItemId>,
 		hint_next: Option<ItemId>,
 	) -> Result<u32, Self::Error>;
@@ -57,15 +57,15 @@ pub trait SortedListInterface<ListId, ItemId> {
 	/// Remove and return the current tail item of `list_id`, or `None` if the
 	/// list is empty.
 	///
-	/// This is the LIFO primitive for consumers that insert equal-score items
+	/// This is the LIFO primitive for consumers that insert equal-priority items
 	/// and consume from the tail.
 	///
 	/// # Errors
 	///
 	/// - `CorruptList` if the tail pointer or list metadata is inconsistent.
-	fn pop_tail(list_id: &ListId) -> Result<Option<(ItemId, Self::Score)>, Self::Error>;
+	fn pop_tail(list_id: &ListId) -> Result<Option<(ItemId, Self::Priority)>, Self::Error>;
 
-	/// Re-insert `(list_id, item)` at `new_score`. Updates the score in place
+	/// Re-insert `(list_id, item)` at `new_priority`. Updates the priority in place
 	/// when the existing neighbors still admit it; otherwise splices the item
 	/// out and re-inserts at the hint.
 	///
@@ -78,15 +78,15 @@ pub trait SortedListInterface<ListId, ItemId> {
 	fn re_insert(
 		list_id: ListId,
 		item: ItemId,
-		new_score: Self::Score,
+		new_priority: Self::Priority,
 		hint_prev: Option<ItemId>,
 		hint_next: Option<ItemId>,
 	) -> Result<u32, Self::Error>;
 
-	/// Highest-score item in `list_id`, or `None` if empty.
+	/// Highest-priority item in `list_id`, or `None` if empty.
 	fn head(list_id: &ListId) -> Option<ItemId>;
 
-	/// Lowest-score item in `list_id`, or `None` if empty.
+	/// Lowest-priority item in `list_id`, or `None` if empty.
 	fn tail(list_id: &ListId) -> Option<ItemId>;
 
 	/// Number of items in `list_id`.
@@ -98,20 +98,23 @@ pub trait SortedListInterface<ListId, ItemId> {
 	/// Current `(prev, next)` neighbors of `(list_id, item)`, if present.
 	fn neighbors(list_id: &ListId, item: &ItemId) -> Option<(Option<ItemId>, Option<ItemId>)>;
 
-	/// Stored score cached on `(list_id, item)`'s node, or `None` if absent.
-	fn score(list_id: &ListId, item: &ItemId) -> Option<Self::Score>;
+	/// Stored priority cached on `(list_id, item)`'s node, or `None` if absent.
+	fn priority(list_id: &ListId, item: &ItemId) -> Option<Self::Priority>;
 
 	/// First `n` items of `list_id` walking from the tail. Returns fewer than
 	/// `n` if the list has fewer items.
 	fn iter_from_tail(list_id: &ListId, n: u32) -> Vec<ItemId>;
 
-	/// `(prev, next)` insertion position for `score` in `list_id`.
+	/// `(prev, next)` insertion position for `priority` in `list_id`.
 	///
 	/// Endpoints are returned as `None`. O(list size); intended for hint
 	/// preparation, not hot paths.
-	fn find_position(list_id: &ListId, score: Self::Score) -> (Option<ItemId>, Option<ItemId>);
+	fn find_position(
+		list_id: &ListId,
+		priority: Self::Priority,
+	) -> (Option<ItemId>, Option<ItemId>);
 
-	/// `(prev, next)` position `(list_id, item)` should occupy at `new_score`,
+	/// `(prev, next)` position `(list_id, item)` should occupy at `new_priority`,
 	/// skipping the item's own node.
 	///
 	/// Returns `None` if the item is not in the list. O(list size); intended
@@ -119,39 +122,40 @@ pub trait SortedListInterface<ListId, ItemId> {
 	fn find_re_insert_position(
 		list_id: &ListId,
 		item: &ItemId,
-		new_score: Self::Score,
+		new_priority: Self::Priority,
 	) -> Option<(Option<ItemId>, Option<ItemId>)>;
 
-	/// Steps needed to repair `(hint_prev, hint_next)` for `score` in
+	/// Steps needed to repair `(hint_prev, hint_next)` for `priority` in
 	/// `list_id`.
 	///
 	/// Returns `0` if the hint is already valid, or a value greater than
 	/// `MaxHintRepairSteps` if the same dispatch would fail.
 	fn repair_steps_needed(
 		list_id: &ListId,
-		score: Self::Score,
+		priority: Self::Priority,
 		hint_prev: Option<ItemId>,
 		hint_next: Option<ItemId>,
 	) -> u32;
 }
 
 impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
-	type Score = T::Score;
+	type Priority = T::Priority;
 	type Error = Error<T>;
 
 	fn insert(
 		list_id: T::ListId,
 		item: T::ItemId,
-		score: T::Score,
+		priority: T::Priority,
 		hint_prev: Option<T::ItemId>,
 		hint_next: Option<T::ItemId>,
 	) -> Result<u32, Error<T>> {
 		if ListNodes::<T>::contains_key(&list_id, &item) {
 			return Err(Error::<T>::ItemAlreadyExists);
 		}
-		let (prev, next, steps) = list::walk_repair::<T>(&list_id, &score, hint_prev, hint_next)?;
-		list::insert_at::<T>(&list_id, &item, score, prev, next)?;
-		Self::deposit_event(Event::ItemInserted { list_id, item, score });
+		let (prev, next, steps) =
+			list::walk_repair::<T>(&list_id, &priority, hint_prev, hint_next)?;
+		list::insert_at::<T>(&list_id, &item, priority, prev, next)?;
+		Self::deposit_event(Event::ItemInserted { list_id, item, priority });
 		Ok(steps)
 	}
 
@@ -161,41 +165,51 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 		Ok(())
 	}
 
-	fn pop_tail(list_id: &T::ListId) -> Result<Option<(T::ItemId, T::Score)>, Error<T>> {
+	fn pop_tail(list_id: &T::ListId) -> Result<Option<(T::ItemId, T::Priority)>, Error<T>> {
 		let Some(item) = ListTails::<T>::get(list_id) else { return Ok(None) };
 		// Defensive: by `try_state` invariant 1, `ListTails` always points to a
 		// present node.
-		let score = ListNodes::<T>::get(list_id, &item)
+		let priority = ListNodes::<T>::get(list_id, &item)
 			.defensive_ok_or(Error::<T>::CorruptList)?
-			.score;
+			.priority;
 		list::remove_at::<T>(list_id, &item)?;
 		Self::deposit_event(Event::ItemRemoved { list_id: list_id.clone(), item: item.clone() });
-		Ok(Some((item, score)))
+		Ok(Some((item, priority)))
 	}
 
 	fn re_insert(
 		list_id: T::ListId,
 		item: T::ItemId,
-		new_score: T::Score,
+		new_priority: T::Priority,
 		hint_prev: Option<T::ItemId>,
 		hint_next: Option<T::ItemId>,
 	) -> Result<u32, Error<T>> {
 		let existing = ListNodes::<T>::get(&list_id, &item).ok_or(Error::<T>::ItemNotFound)?;
-		let old_score = existing.score;
+		let old_priority = existing.priority;
 
-		// Fast path: same score.
-		if old_score == new_score {
+		// Fast path: same priority.
+		if old_priority == new_priority {
 			return Ok(0);
 		}
 
-		// Fast path: existing neighbors still admit the new score, mutate in place.
-		if list::neighbor_scores_admit::<T>(&list_id, &new_score, &existing.prev, &existing.next) {
+		// Fast path: existing neighbors still admit the new priority, mutate in place.
+		if list::neighbor_priorities_admit::<T>(
+			&list_id,
+			&new_priority,
+			&existing.prev,
+			&existing.next,
+		) {
 			ListNodes::<T>::mutate(&list_id, &item, |maybe| {
 				if let Some(n) = maybe {
-					n.score = new_score;
+					n.priority = new_priority;
 				}
 			});
-			Self::deposit_event(Event::ItemReinserted { list_id, item, old_score, new_score });
+			Self::deposit_event(Event::ItemReinserted {
+				list_id,
+				item,
+				old_priority,
+				new_priority,
+			});
 			return Ok(0);
 		}
 
@@ -205,8 +219,8 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 			let inner = (|| -> Result<u32, Error<T>> {
 				list::remove_at::<T>(&list_id, &item)?;
 				let (prev, next, steps) =
-					list::walk_repair::<T>(&list_id, &new_score, hint_prev, hint_next)?;
-				list::insert_at::<T>(&list_id, &item, new_score, prev, next)?;
+					list::walk_repair::<T>(&list_id, &new_priority, hint_prev, hint_next)?;
+				list::insert_at::<T>(&list_id, &item, new_priority, prev, next)?;
 				Ok(steps)
 			})();
 			if inner.is_ok() {
@@ -217,7 +231,7 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 		});
 		// `Err(())` only fires on transactional-layer nesting overflow.
 		let steps = outer.map_err(|()| Error::<T>::InvalidPositionHints)??;
-		Self::deposit_event(Event::ItemReinserted { list_id, item, old_score, new_score });
+		Self::deposit_event(Event::ItemReinserted { list_id, item, old_priority, new_priority });
 		Ok(steps)
 	}
 
@@ -244,8 +258,8 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 		ListNodes::<T>::get(list_id, item).map(|n| (n.prev, n.next))
 	}
 
-	fn score(list_id: &T::ListId, item: &T::ItemId) -> Option<T::Score> {
-		ListNodes::<T>::get(list_id, item).map(|n| n.score)
+	fn priority(list_id: &T::ListId, item: &T::ItemId) -> Option<T::Priority> {
+		ListNodes::<T>::get(list_id, item).map(|n| n.priority)
 	}
 
 	fn iter_from_tail(list_id: &T::ListId, n: u32) -> Vec<T::ItemId> {
@@ -254,25 +268,25 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 
 	fn find_position(
 		list_id: &T::ListId,
-		score: T::Score,
+		priority: T::Priority,
 	) -> (Option<T::ItemId>, Option<T::ItemId>) {
-		view_helpers::find_position::<T>(list_id, score)
+		view_helpers::find_position::<T>(list_id, priority)
 	}
 
 	fn find_re_insert_position(
 		list_id: &T::ListId,
 		item: &T::ItemId,
-		new_score: T::Score,
+		new_priority: T::Priority,
 	) -> Option<(Option<T::ItemId>, Option<T::ItemId>)> {
-		view_helpers::find_re_insert_position::<T>(list_id, item, new_score)
+		view_helpers::find_re_insert_position::<T>(list_id, item, new_priority)
 	}
 
 	fn repair_steps_needed(
 		list_id: &T::ListId,
-		score: T::Score,
+		priority: T::Priority,
 		hint_prev: Option<T::ItemId>,
 		hint_next: Option<T::ItemId>,
 	) -> u32 {
-		view_helpers::repair_steps_needed::<T>(list_id, score, hint_prev, hint_next)
+		view_helpers::repair_steps_needed::<T>(list_id, priority, hint_prev, hint_next)
 	}
 }

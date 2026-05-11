@@ -7,16 +7,16 @@
 use frame::prelude::*;
 
 pub trait WeightInfo {
-	/// `relist` weight after a hint-repair walk of `repair_steps` steps. The
+	/// `reprioritize` weight after a hint-repair walk of `repair_steps` steps. The
 	/// benchmark is parametric over `repair_steps`, so this yields a linear
 	/// formula. The dispatchable charges
-	/// `relist(MaxHintRepairSteps)` up front and refunds the unused portion via
+	/// `reprioritize(MaxHintRepairSteps)` up front and refunds the unused portion via
 	/// `PostDispatchInfo::actual_weight`.
-	fn relist(repair_steps: u32) -> Weight;
+	fn reprioritize(repair_steps: u32) -> Weight;
 }
 
 impl WeightInfo for () {
-	fn relist(_repair_steps: u32) -> Weight {
+	fn reprioritize(_repair_steps: u32) -> Weight {
 		Weight::MAX
 	}
 }

@@ -24,20 +24,20 @@ pub(crate) fn iter_from_tail<T: Config>(list_id: &T::ListId, n: u32) -> Vec<T::I
 	out
 }
 
-/// `(prev, next)` insert position for `score` in `list_id`. Walks from the
-/// head until `prev.score >= score > next.score` holds. Endpoints come back as
+/// `(prev, next)` insert position for `priority` in `list_id`. Walks from the
+/// head until `prev.priority >= priority > next.priority` holds. Endpoints come back as
 /// `None`.
 ///
 /// O(list size). Off-chain helper; not for hot paths.
 pub(crate) fn find_position<T: Config>(
 	list_id: &T::ListId,
-	score: T::Score,
+	priority: T::Priority,
 ) -> (Option<T::ItemId>, Option<T::ItemId>) {
 	let mut prev: Option<T::ItemId> = None;
 	let mut cursor = ListHeads::<T>::get(list_id);
 	while let Some(item) = cursor {
 		let Some(node) = ListNodes::<T>::get(list_id, &item) else { break };
-		if score > node.score {
+		if priority > node.priority {
 			return (prev, Some(item));
 		}
 		prev = Some(item);
@@ -47,12 +47,12 @@ pub(crate) fn find_position<T: Config>(
 }
 
 /// Like [`find_position`], but the result is the position `item` should
-/// re-occupy at `new_score` (i.e. `item`'s own node is skipped during the
+/// re-occupy at `new_priority` (i.e. `item`'s own node is skipped during the
 /// walk). `None` if the item is not in the list.
 pub(crate) fn find_re_insert_position<T: Config>(
 	list_id: &T::ListId,
 	item: &T::ItemId,
-	new_score: T::Score,
+	new_priority: T::Priority,
 ) -> Option<(Option<T::ItemId>, Option<T::ItemId>)> {
 	if !ListNodes::<T>::contains_key(list_id, item) {
 		return None;
@@ -65,7 +65,7 @@ pub(crate) fn find_re_insert_position<T: Config>(
 			continue;
 		}
 		let Some(node) = ListNodes::<T>::get(list_id, &cur) else { break };
-		if new_score > node.score {
+		if new_priority > node.priority {
 			return Some((prev, Some(cur)));
 		}
 		prev = Some(cur);
@@ -75,16 +75,16 @@ pub(crate) fn find_re_insert_position<T: Config>(
 }
 
 /// Steps the on-chain repair walk would take from `(hint_prev, hint_next)` to
-/// reach the position for `score`. `0` means the hint is already valid; any
+/// reach the position for `priority`. `0` means the hint is already valid; any
 /// value greater than `T::MaxHintRepairSteps` means a dispatch with the same
 /// hint would fail.
 pub(crate) fn repair_steps_needed<T: Config>(
 	list_id: &T::ListId,
-	score: T::Score,
+	priority: T::Priority,
 	hint_prev: Option<T::ItemId>,
 	hint_next: Option<T::ItemId>,
 ) -> u32 {
-	match list::walk_repair::<T>(list_id, &score, hint_prev, hint_next) {
+	match list::walk_repair::<T>(list_id, &priority, hint_prev, hint_next) {
 		Ok((_, _, steps)) => steps,
 		Err(_) => T::MaxHintRepairSteps::get().saturating_add(1),
 	}

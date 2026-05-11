@@ -29,9 +29,9 @@ fn iter_from_tail_n_greater_than_size_returns_all() {
 }
 
 #[test]
-fn iter_from_tail_respects_same_score_lifo() {
+fn iter_from_tail_respects_same_priority_lifo() {
 	build_and_execute(|| {
-		// Three same-score items; iter from tail returns LIFO.
+		// Three same-priority items; iter from tail returns LIFO.
 		insert(1, 10, 50);
 		insert(1, 20, 50);
 		insert(1, 30, 50);

@@ -65,7 +65,7 @@ fn pop_tail_empty_list_returns_none() {
 }
 
 #[test]
-fn pop_tail_removes_lowest_score_tail() {
+fn pop_tail_removes_lowest_priority_tail() {
 	build_and_execute(|| {
 		insert(1, 100, 90);
 		insert(1, 200, 50);
@@ -96,7 +96,7 @@ fn pop_tail_removes_lowest_score_tail() {
 }
 
 #[test]
-fn pop_tail_is_lifo_for_same_score_cluster() {
+fn pop_tail_is_lifo_for_same_priority_cluster() {
 	build_and_execute(|| {
 		insert(1, 10, 50);
 		insert(1, 20, 50);

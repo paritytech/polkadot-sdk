@@ -13,7 +13,9 @@ fn insert_into_empty_list_sets_head_tail_size() {
 		assert_eq!(ListTails::<Test>::get(1), Some(100));
 		assert_eq!(ListSizes::<Test>::get(1), 1);
 		assert_eq!(dump(1), vec![(100, 50)]);
-		System::assert_last_event(Event::ItemInserted { list_id: 1, item: 100, score: 50 }.into());
+		System::assert_last_event(
+			Event::ItemInserted { list_id: 1, item: 100, priority: 50 }.into(),
+		);
 
 		// Re-inserting the same `(list_id, item)` rejects without touching state.
 		hypothetically!({
@@ -60,7 +62,7 @@ fn insert_at_tail() {
 }
 
 #[test]
-fn insert_same_score_lands_at_tail_side_of_cluster() {
+fn insert_same_priority_lands_at_tail_side_of_cluster() {
 	build_and_execute(|| {
 		insert(1, 1, 50);
 		insert(1, 2, 50);

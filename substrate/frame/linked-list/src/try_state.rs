@@ -7,7 +7,7 @@
 //! 2. The head node has `prev = None` and the tail node has `next = None`.
 //! 3. Forward and reverse walks visit exactly `ListSizes[list_id]` nodes (capped at `size + 1` to
 //!    detect cycles).
-//! 4. Scores are non-increasing from head to tail.
+//! 4. Prioritys are non-increasing from head to tail.
 //! 5. No node points to itself; every neighbor reference resolves to an existing node in the same
 //!    list.
 //! 6. `ListNodes` has no orphan rows.
@@ -89,12 +89,12 @@ impl<T: Config> Pallet<T> {
 			return Err("tail node has non-None next".into());
 		}
 
-		// Forward walk: count, link consistency, monotone scores, no self-loops.
+		// Forward walk: count, link consistency, monotone priorities, no self-loops.
 		let cap = stored_size.saturating_add(1) as usize;
 		let mut forward: alloc::vec::Vec<T::ItemId> = alloc::vec::Vec::with_capacity(cap);
 		let mut prev: Option<T::ItemId> = None;
 		let mut cursor = Some(head_id.clone());
-		let mut last_score: Option<T::Score> = None;
+		let mut last_priority: Option<T::Priority> = None;
 		while let Some(cur) = cursor {
 			if forward.len() >= cap {
 				return Err("forward walk exceeded size+1 (cycle detected)".into());
@@ -120,12 +120,12 @@ impl<T: Config> Pallet<T> {
 					return Err("next points to missing node".into());
 				}
 			}
-			if let Some(ls) = last_score {
-				if node.score > ls {
-					return Err("scores not non-increasing head→tail".into());
+			if let Some(ls) = last_priority {
+				if node.priority > ls {
+					return Err("priorities not non-increasing head→tail".into());
 				}
 			}
-			last_score = Some(node.score);
+			last_priority = Some(node.priority);
 			forward.push(cur.clone());
 			prev = Some(cur);
 			cursor = node.next;

@@ -1,7 +1,7 @@
 //! Benchmarks for `pallet-linked-list`.
 //!
 //! Covers the trait surface (`insert`, `remove`, `re_insert`) on both the fast
-//! and worst-case paths, plus the `relist` dispatchable parametric over
+//! and worst-case paths, plus the `reprioritize` dispatchable parametric over
 //! hint-repair walk length.
 
 #![cfg(feature = "runtime-benchmarks")]
@@ -9,23 +9,24 @@
 use super::*;
 use frame::benchmarking::prelude::*;
 
-/// Seed `list_id` with `count` items at strictly descending scores
+/// Seed `list_id` with `count` items at strictly descending priorities
 /// `(count - i) * 10 + 100`. Returns the items in head→tail order.
 fn seed_chain<T: Config>(list_id: &T::ListId, count: u32) -> Vec<T::ItemId>
 where
 	T::ItemId: From<u32>,
-	T::Score: From<u32>,
+	T::Priority: From<u32>,
 {
 	let mut items = Vec::with_capacity(count as usize);
 	for i in 0..count {
 		let item: T::ItemId = i.into();
-		let score: T::Score = ((count - i) * 10 + 100).into();
-		let (prev, next) =
-			<Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::find_position(list_id, score);
+		let priority: T::Priority = ((count - i) * 10 + 100).into();
+		let (prev, next) = <Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::find_position(
+			list_id, priority,
+		);
 		<Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::insert(
 			list_id.clone(),
 			item.clone(),
-			score,
+			priority,
 			prev,
 			next,
 		)
@@ -39,7 +40,7 @@ where
 	where
 		T::ListId: From<u32>,
 		T::ItemId: From<u32>,
-		T::Score: From<u32>,
+		T::Priority: From<u32>,
 )]
 mod benchmarks {
 	use super::*;
@@ -51,14 +52,14 @@ mod benchmarks {
 		let _seed = seed_chain::<T>(&list_id, 4);
 		let head = ListHeads::<T>::get(&list_id);
 		let new_item: T::ItemId = 99u32.into();
-		let new_score: T::Score = 10_000u32.into(); // higher than every seed score
+		let new_priority: T::Priority = 10_000u32.into(); // higher than every seed priority
 
 		#[block]
 		{
 			<Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::insert(
 				list_id.clone(),
 				new_item.clone(),
-				new_score,
+				new_priority,
 				None,
 				head,
 			)
@@ -76,7 +77,7 @@ mod benchmarks {
 		// Position the real insert slot exactly `budget` steps from the hint.
 		let seeded = seed_chain::<T>(&list_id, budget + 2);
 		let new_item: T::ItemId = budget.saturating_add(2).into();
-		let between_score: T::Score = (2 * 10 + 100 - 5).into();
+		let between_priority: T::Priority = (2 * 10 + 100 - 5).into();
 		let hint_prev = Some(seeded[0].clone());
 		let hint_next = Some(seeded[1].clone());
 
@@ -85,7 +86,7 @@ mod benchmarks {
 			<Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::insert(
 				list_id.clone(),
 				new_item.clone(),
-				between_score,
+				between_priority,
 				hint_prev,
 				hint_next,
 			)
@@ -111,42 +112,44 @@ mod benchmarks {
 		assert!(!ListNodes::<T>::contains_key(&list_id, &middle));
 	}
 
-	/// `re_insert` fast path: new score still fits between the existing
-	/// neighbors, so only the node's `score` field is mutated.
+	/// `re_insert` fast path: new priority still fits between the existing
+	/// neighbors, so only the node's `priority` field is mutated.
 	#[benchmark]
 	fn re_insert_in_place() {
 		let list_id: T::ListId = 0u32.into();
 		let seeded = seed_chain::<T>(&list_id, 5);
 		let middle = seeded[2].clone();
-		// `seed_chain` scores middle/neighbors at 130/(140, 120); 125 stays between.
-		let new_score: T::Score = 125u32.into();
+		// `seed_chain` priorities middle/neighbors at 130/(140, 120); 125 stays between.
+		let new_priority: T::Priority = 125u32.into();
 
 		#[block]
 		{
 			<Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::re_insert(
 				list_id.clone(),
 				middle.clone(),
-				new_score,
+				new_priority,
 				None,
 				None,
 			)
 			.unwrap();
 		}
 
-		assert_eq!(ListNodes::<T>::get(&list_id, &middle).map(|n| n.score), Some(new_score),);
+		assert_eq!(ListNodes::<T>::get(&list_id, &middle).map(|n| n.priority), Some(new_priority),);
 	}
 
-	/// `re_insert` slow path: score change forces splice + repair + insert.
+	/// `re_insert` slow path: priority change forces splice + repair + insert.
 	#[benchmark]
 	fn re_insert_relocate() {
 		let list_id: T::ListId = 0u32.into();
 		let seeded = seed_chain::<T>(&list_id, 5);
 		let middle = seeded[2].clone();
-		// Push the score above the head; hint comes from `find_re_insert_position`.
-		let new_score: T::Score = 10_000u32.into();
+		// Push the priority above the head; hint comes from `find_re_insert_position`.
+		let new_priority: T::Priority = 10_000u32.into();
 		let (prev, next) =
 			<Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::find_re_insert_position(
-				&list_id, &middle, new_score,
+				&list_id,
+				&middle,
+				new_priority,
 			)
 			.unwrap();
 
@@ -155,7 +158,7 @@ mod benchmarks {
 			<Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::re_insert(
 				list_id.clone(),
 				middle.clone(),
-				new_score,
+				new_priority,
 				prev,
 				next,
 			)
@@ -165,20 +168,20 @@ mod benchmarks {
 		assert_eq!(ListHeads::<T>::get(&list_id), Some(middle));
 	}
 
-	/// `relist` parametric over the hint-repair walk length `s`.
+	/// `reprioritize` parametric over the hint-repair walk length `s`.
 	///
-	/// Setup: seed `s + 2` items at strictly descending scores, drift the
+	/// Setup: seed `s + 2` items at strictly descending priorities, drift the
 	/// item at index `s` above the head, and supply a hint that, after the
 	/// internal splice, sits exactly `s` head-ward steps away from the new
 	/// position. `s = 0` exercises the splice + immediate-valid-hint path.
-	/// Drift is set up via [`crate::BenchmarkHelper::set_score`].
+	/// Drift is set up via [`crate::BenchmarkHelper::set_priority`].
 	#[benchmark]
-	fn relist(s: Linear<0, { T::MaxHintRepairSteps::get() }>) -> Result<(), BenchmarkError> {
+	fn reprioritize(s: Linear<0, { T::MaxHintRepairSteps::get() }>) -> Result<(), BenchmarkError> {
 		let list_id: T::ListId = 0u32.into();
 		let s_idx = s as usize;
 		let seeded = seed_chain::<T>(&list_id, s + 2);
 		let target = seeded[s_idx].clone();
-		T::BenchmarkHelper::set_score(&list_id, &target, 10_000u32.into());
+		T::BenchmarkHelper::set_priority(&list_id, &target, 10_000u32.into());
 		let caller: T::AccountId = whitelisted_caller();
 		let hint_prev = if s_idx == 0 { None } else { Some(seeded[s_idx - 1].clone()) };
 		let hint_next = Some(seeded[s_idx + 1].clone());

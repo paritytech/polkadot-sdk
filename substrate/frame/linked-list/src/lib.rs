@@ -1,9 +1,9 @@
 //! # Linked-list pallet
 //!
 //! A generic per-list sorted doubly-linked list. Items live in independent
-//! lists keyed by `ListId`; within a list they are kept in strict score order,
-//! head (highest score) to tail (lowest). Same-score items land on the tail
-//! side of their cluster, so tail-first iteration is LIFO within a score
+//! lists keyed by `ListId`; within a list they are kept in strict priority order,
+//! head (highest priority) to tail (lowest). Same-priority items land on the tail
+//! side of their cluster, so tail-first iteration is LIFO within a priority
 //! cluster.
 //!
 //! Insertion accepts a `(prev, next)` hint and repairs stale hints on-chain up
@@ -12,8 +12,8 @@
 //! ## Overview
 //!
 //! Consumer pallets use the [`SortedListInterface`] trait. The single
-//! dispatchable, [`Pallet::relist`], is permissionless and re-fetches an
-//! item's authoritative score from [`ScoreProvider`] to correct drift.
+//! dispatchable, [`Pallet::reprioritize`], is permissionless and re-fetches an
+//! item's authoritative priority from [`PriorityProvider`] to correct drift.
 //!
 //! ## Interface
 //!
@@ -21,7 +21,7 @@
 //! - [`SortedListInterface::remove`]: O(1) splice.
 //! - [`SortedListInterface::pop_tail`]: O(1) tail pop for LIFO consumers.
 //! - [`SortedListInterface::re_insert`]: in-place when the existing position still admits the new
-//!   score, otherwise splice + repair + re-insert.
+//!   priority, otherwise splice + repair + re-insert.
 //! - [`SortedListInterface::iter_from_tail`]: bounded tail-first iteration.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -32,16 +32,16 @@ use frame::prelude::*;
 
 pub use list::Node;
 pub use pallet::*;
-pub use sorted_list_interface::{ScoreProvider, SortedListInterface};
+pub use sorted_list_interface::{PriorityProvider, SortedListInterface};
 
-/// Benchmark fixture: overrides the authoritative score used by
-/// [`ScoreProvider`] so the `relist` benchmark can simulate score drift.
+/// Benchmark fixture: overrides the authoritative priority used by
+/// [`PriorityProvider`] so the `reprioritize` benchmark can simulate priority drift.
 ///
-/// `ListId`/`ItemId`/`Score` values are minted directly via `From<u32>` bounds
+/// `ListId`/`ItemId`/`Priority` values are minted directly via `From<u32>` bounds
 /// in the benchmark module; no helper indirection needed.
 #[cfg(feature = "runtime-benchmarks")]
-pub trait BenchmarkHelper<ListId, ItemId, Score> {
-	fn set_score(list_id: &ListId, item: &ItemId, score: Score);
+pub trait BenchmarkHelper<ListId, ItemId, Priority> {
+	fn set_priority(list_id: &ListId, item: &ItemId, priority: Priority);
 }
 
 mod dispatchables;
@@ -92,13 +92,17 @@ pub mod pallet {
 		/// Inner key identifying an item within a list.
 		type ItemId: Parameter + Member + MaxEncodedLen;
 
-		/// Sort key. Higher scores are closer to the head, lower scores closer
+		/// Sort key. Higher priorities are closer to the head, lower priorities closer
 		/// to the tail.
-		type Score: Parameter + Member + Copy + Ord + MaxEncodedLen;
+		type Priority: Parameter + Member + Copy + Ord + MaxEncodedLen;
 
-		/// Authoritative source of an item's score. Consulted by
-		/// [`Pallet::relist`] to detect drift.
-		type ScoreProvider: ScoreProvider<Self::ListId, Self::ItemId, Score = Self::Score>;
+		/// Authoritative source of an item's priority. Consulted by
+		/// [`Pallet::reprioritize`] to detect drift.
+		type PriorityProvider: PriorityProvider<
+			Self::ListId,
+			Self::ItemId,
+			Priority = Self::Priority,
+		>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: weights::WeightInfo;
@@ -110,7 +114,7 @@ pub mod pallet {
 
 		/// Benchmark fixture used to mint test values.
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: crate::BenchmarkHelper<Self::ListId, Self::ItemId, Self::Score>;
+		type BenchmarkHelper: crate::BenchmarkHelper<Self::ListId, Self::ItemId, Self::Priority>;
 	}
 
 	/// Nodes of the per-list sorted list.
@@ -121,15 +125,15 @@ pub mod pallet {
 		T::ListId,
 		Blake2_128Concat,
 		T::ItemId,
-		Node<T::ItemId, T::Score>,
+		Node<T::ItemId, T::Priority>,
 		OptionQuery,
 	>;
 
-	/// Highest-score item in each non-empty list.
+	/// Highest-priority item in each non-empty list.
 	#[pallet::storage]
 	pub type ListHeads<T: Config> = StorageMap<_, Twox64Concat, T::ListId, T::ItemId, OptionQuery>;
 
-	/// Lowest-score item in each non-empty list.
+	/// Lowest-priority item in each non-empty list.
 	#[pallet::storage]
 	pub type ListTails<T: Config> = StorageMap<_, Twox64Concat, T::ListId, T::ItemId, OptionQuery>;
 
@@ -141,18 +145,18 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// An item was inserted into a list.
-		ItemInserted { list_id: T::ListId, item: T::ItemId, score: T::Score },
+		ItemInserted { list_id: T::ListId, item: T::ItemId, priority: T::Priority },
 		/// An item was removed from a list.
 		ItemRemoved { list_id: T::ListId, item: T::ItemId },
-		/// An item's score was changed.
+		/// An item's priority was changed.
 		ItemReinserted {
 			list_id: T::ListId,
 			item: T::ItemId,
-			old_score: T::Score,
-			new_score: T::Score,
+			old_priority: T::Priority,
+			new_priority: T::Priority,
 		},
-		/// An item was relisted after its authoritative score drifted.
-		Relisted { list_id: T::ListId, item: T::ItemId, new_score: T::Score },
+		/// An item was reprioritized after its authoritative priority drifted.
+		Reprioritized { list_id: T::ListId, item: T::ItemId, new_priority: T::Priority },
 	}
 
 	#[pallet::error]
@@ -183,12 +187,12 @@ pub mod pallet {
 
 	#[pallet::view_functions]
 	impl<T: Config> Pallet<T> {
-		/// Highest-score item in `list_id`, or `None` if empty.
+		/// Highest-priority item in `list_id`, or `None` if empty.
 		pub fn head(list_id: T::ListId) -> Option<T::ItemId> {
 			<Self as SortedListInterface<T::ListId, T::ItemId>>::head(&list_id)
 		}
 
-		/// Lowest-score item in `list_id`, or `None` if empty.
+		/// Lowest-priority item in `list_id`, or `None` if empty.
 		pub fn tail(list_id: T::ListId) -> Option<T::ItemId> {
 			<Self as SortedListInterface<T::ListId, T::ItemId>>::tail(&list_id)
 		}
@@ -211,10 +215,10 @@ pub mod pallet {
 			<Self as SortedListInterface<T::ListId, T::ItemId>>::neighbors(&list_id, &item)
 		}
 
-		/// Stored score cached on `(list_id, item)`'s node, or `None` if the
+		/// Stored priority cached on `(list_id, item)`'s node, or `None` if the
 		/// item is not in the list.
-		pub fn score(list_id: T::ListId, item: T::ItemId) -> Option<T::Score> {
-			<Self as SortedListInterface<T::ListId, T::ItemId>>::score(&list_id, &item)
+		pub fn priority(list_id: T::ListId, item: T::ItemId) -> Option<T::Priority> {
+			<Self as SortedListInterface<T::ListId, T::ItemId>>::priority(&list_id, &item)
 		}
 
 		/// First `n` items of `list_id` walking from the tail. Returns fewer
@@ -223,54 +227,56 @@ pub mod pallet {
 			<Self as SortedListInterface<T::ListId, T::ItemId>>::iter_from_tail(&list_id, n)
 		}
 
-		/// `(prev, next)` insertion position for `score` in `list_id`.
+		/// `(prev, next)` insertion position for `priority` in `list_id`.
 		/// Endpoints are returned as `None`.
 		pub fn find_position(
 			list_id: T::ListId,
-			score: T::Score,
+			priority: T::Priority,
 		) -> (Option<T::ItemId>, Option<T::ItemId>) {
-			<Self as SortedListInterface<T::ListId, T::ItemId>>::find_position(&list_id, score)
+			<Self as SortedListInterface<T::ListId, T::ItemId>>::find_position(&list_id, priority)
 		}
 
 		/// `(prev, next)` position `(list_id, item)` should occupy at
-		/// `new_score`. Returns `None` if the item is not in the list.
+		/// `new_priority`. Returns `None` if the item is not in the list.
 		pub fn find_re_insert_position(
 			list_id: T::ListId,
 			item: T::ItemId,
-			new_score: T::Score,
+			new_priority: T::Priority,
 		) -> Option<(Option<T::ItemId>, Option<T::ItemId>)> {
 			<Self as SortedListInterface<T::ListId, T::ItemId>>::find_re_insert_position(
-				&list_id, &item, new_score,
+				&list_id,
+				&item,
+				new_priority,
 			)
 		}
 
 		/// Steps the on-chain repair walk would take from
-		/// `(hint_prev, hint_next)` to reach the position for `score`. Returns
+		/// `(hint_prev, hint_next)` to reach the position for `priority`. Returns
 		/// `0` if the hint is already valid, or a value greater than
 		/// `MaxHintRepairSteps` if the call would fail.
 		pub fn repair_steps_needed(
 			list_id: T::ListId,
-			score: T::Score,
+			priority: T::Priority,
 			hint_prev: Option<T::ItemId>,
 			hint_next: Option<T::ItemId>,
 		) -> u32 {
 			<Self as SortedListInterface<T::ListId, T::ItemId>>::repair_steps_needed(
-				&list_id, score, hint_prev, hint_next,
+				&list_id, priority, hint_prev, hint_next,
 			)
 		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Reposition `(list_id, item)` after its authoritative score, fetched
-		/// from [`ScoreProvider`], has drifted from the stored score.
+		/// Reposition `(list_id, item)` after its authoritative priority, fetched
+		/// from [`PriorityProvider`], has drifted from the stored priority.
 		///
 		/// Anyone can call this. The caller supplies a `(hint_prev, hint_next)`
 		/// for the new position; stale hints are repaired up to
 		/// `MaxHintRepairSteps`.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::relist(T::MaxHintRepairSteps::get()))]
-		pub fn relist(
+		#[pallet::weight(T::WeightInfo::reprioritize(T::MaxHintRepairSteps::get()))]
+		pub fn reprioritize(
 			origin: OriginFor<T>,
 			list_id: T::ListId,
 			item: T::ItemId,
@@ -278,9 +284,10 @@ pub mod pallet {
 			hint_next: Option<T::ItemId>,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
-			let steps =
-				crate::dispatchables::relist_internal::<T>(&list_id, &item, hint_prev, hint_next)?;
-			Ok(Some(T::WeightInfo::relist(steps)).into())
+			let steps = crate::dispatchables::reprioritize_internal::<T>(
+				&list_id, &item, hint_prev, hint_next,
+			)?;
+			Ok(Some(T::WeightInfo::reprioritize(steps)).into())
 		}
 	}
 }

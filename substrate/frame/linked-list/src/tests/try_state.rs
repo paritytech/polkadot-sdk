@@ -77,7 +77,7 @@ fn dangling_node_pointer_detected() {
 		insert(1, 1, 50);
 		insert(1, 2, 30);
 		// 1.next points to a non-existent item.
-		ListNodes::<Test>::insert(1, 1, Node { prev: None, next: Some(999u64), score: 50u32 });
+		ListNodes::<Test>::insert(1, 1, Node { prev: None, next: Some(999u64), priority: 50u32 });
 		assert!(<LinkedList>::do_try_state().is_err());
 	});
 }
@@ -90,7 +90,7 @@ fn orphan_unreachable_node_detected() {
 		// Add a row not on the head→tail chain. The forward/reverse walks
 		// still see exactly the 2 reachable nodes and `ListSizes` agrees, so
 		// only the total-node-count check catches this.
-		ListNodes::<Test>::insert(1, 999u64, Node { prev: None, next: None, score: 100u32 });
+		ListNodes::<Test>::insert(1, 999u64, Node { prev: None, next: None, priority: 100u32 });
 		assert!(<LinkedList>::do_try_state().is_err());
 	});
 }

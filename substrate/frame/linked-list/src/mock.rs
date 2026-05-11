@@ -8,7 +8,7 @@ use frame::deps::sp_io::TestExternalities;
 
 pub type ListId = u32;
 pub type ItemId = u64;
-pub type Score = u32;
+pub type Priority = u32;
 
 type Block = MockBlock<Test>;
 
@@ -31,25 +31,25 @@ impl frame_system::Config for Test {
 }
 
 parameter_types! {
-	pub static StaticScores: BTreeMap<(ListId, ItemId), Score> = BTreeMap::new();
+	pub static StaticPriorities: BTreeMap<(ListId, ItemId), Priority> = BTreeMap::new();
 	pub const MaxHintRepairSteps: u32 = 4;
 }
 
-pub struct StaticScoreProvider;
-impl pallet_linked_list::ScoreProvider<ListId, ItemId> for StaticScoreProvider {
-	type Score = Score;
-	fn score(list_id: &ListId, item: &ItemId) -> Option<Score> {
-		StaticScores::get().get(&(*list_id, *item)).copied()
+pub struct StaticPriorityProvider;
+impl pallet_linked_list::PriorityProvider<ListId, ItemId> for StaticPriorityProvider {
+	type Priority = Priority;
+	fn priority(list_id: &ListId, item: &ItemId) -> Option<Priority> {
+		StaticPriorities::get().get(&(*list_id, *item)).copied()
 	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 pub struct LinkedListBenchHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_linked_list::BenchmarkHelper<ListId, ItemId, Score> for LinkedListBenchHelper {
-	fn set_score(list_id: &ListId, item: &ItemId, score: Score) {
-		StaticScores::mutate(|m| {
-			m.insert((*list_id, *item), score);
+impl pallet_linked_list::BenchmarkHelper<ListId, ItemId, Priority> for LinkedListBenchHelper {
+	fn set_priority(list_id: &ListId, item: &ItemId, priority: Priority) {
+		StaticPriorities::mutate(|m| {
+			m.insert((*list_id, *item), priority);
 		});
 	}
 }
@@ -58,9 +58,9 @@ impl pallet_linked_list::Config for Test {
 	type WeightInfo = ();
 	type ListId = ListId;
 	type ItemId = ItemId;
-	type Score = Score;
+	type Priority = Priority;
 	type MaxHintRepairSteps = MaxHintRepairSteps;
-	type ScoreProvider = StaticScoreProvider;
+	type PriorityProvider = StaticPriorityProvider;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = LinkedListBenchHelper;
 }
@@ -96,36 +96,36 @@ pub(crate) fn build_and_execute_no_post_check(test: impl FnOnce()) {
 	new_test_ext().execute_with(test);
 }
 
-/// Set the authoritative score for `(list_id, item)` so [`StaticScoreProvider`]
-/// reports it. Used in `dispatchables` tests for the `relist` flow.
+/// Set the authoritative priority for `(list_id, item)` so [`StaticPriorityProvider`]
+/// reports it. Used in `dispatchables` tests for the `reprioritize` flow.
 #[cfg(test)]
-pub(crate) fn set_real_score(list_id: ListId, item: ItemId, score: Score) {
-	StaticScores::mutate(|m| {
-		m.insert((list_id, item), score);
+pub(crate) fn set_real_priority(list_id: ListId, item: ItemId, priority: Priority) {
+	StaticPriorities::mutate(|m| {
+		m.insert((list_id, item), priority);
 	});
 }
 
 /// Convenience: insert via the `SortedListInterface` with hints fetched from
 /// `find_position`. Returns the `repair_steps` count.
 #[cfg(test)]
-pub(crate) fn insert(list_id: ListId, item: ItemId, score: Score) -> u32 {
+pub(crate) fn insert(list_id: ListId, item: ItemId, priority: Priority) -> u32 {
 	use pallet_linked_list::SortedListInterface;
 	let (prev, next) =
-		<LinkedList as SortedListInterface<ListId, ItemId>>::find_position(&list_id, score);
-	<LinkedList as SortedListInterface<ListId, ItemId>>::insert(list_id, item, score, prev, next)
+		<LinkedList as SortedListInterface<ListId, ItemId>>::find_position(&list_id, priority);
+	<LinkedList as SortedListInterface<ListId, ItemId>>::insert(list_id, item, priority, prev, next)
 		.expect("insert succeeds in tests")
 }
 
 /// Items in `list_id` head-to-tail.
 #[cfg(test)]
-pub(crate) fn dump(list_id: ListId) -> alloc::vec::Vec<(ItemId, Score)> {
+pub(crate) fn dump(list_id: ListId) -> alloc::vec::Vec<(ItemId, Priority)> {
 	let count = pallet_linked_list::ListSizes::<Test>::get(list_id);
 	let mut out = alloc::vec::Vec::with_capacity(count as usize);
 	let mut cursor = pallet_linked_list::ListHeads::<Test>::get(list_id);
 	while let Some(item) = cursor {
 		let node = pallet_linked_list::ListNodes::<Test>::get(list_id, item)
 			.expect("listed items are stored; qed");
-		out.push((item, node.score));
+		out.push((item, node.priority));
 		cursor = node.next;
 	}
 	out

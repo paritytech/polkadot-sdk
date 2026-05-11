@@ -11,35 +11,35 @@ use frame::{deps::frame_support::traits::DefensiveOption, prelude::*};
 
 /// One node of a per-list sorted list.
 ///
-/// `prev`/`next` are `None` at the head/tail endpoints. The score is cached
+/// `prev`/`next` are `None` at the head/tail endpoints. The priority is cached
 /// alongside the links so that position checks do not require a read into the
 /// consumer's source of truth.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
 )]
-pub struct Node<ItemId, Score> {
+pub struct Node<ItemId, Priority> {
 	pub prev: Option<ItemId>,
 	pub next: Option<ItemId>,
-	pub score: Score,
+	pub priority: Priority,
 }
 
-/// Whether `(prev, next)` is a valid insert position for `score` in `list_id`.
+/// Whether `(prev, next)` is a valid insert position for `priority` in `list_id`.
 ///
 /// Checks that the link structure is consistent with the list's head/tail
-/// pointers and that `prev.score >= score > next.score` (with endpoints
-/// treated as `+inf` / `-inf`). The `>=`/`>` asymmetry places same-score
+/// pointers and that `prev.priority >= priority > next.priority` (with endpoints
+/// treated as `+inf` / `-inf`). The `>=`/`>` asymmetry places same-priority
 /// inserts on the tail side of their cluster, yielding LIFO under tail-first
 /// iteration.
 pub(crate) fn is_position_valid<T: Config>(
 	list_id: &T::ListId,
-	score: &T::Score,
+	priority: &T::Priority,
 	prev: &Option<T::ItemId>,
 	next: &Option<T::ItemId>,
 ) -> bool {
 	let prev_ok = match prev {
 		None => &ListHeads::<T>::get(list_id) == next,
 		Some(p) => match ListNodes::<T>::get(list_id, p) {
-			Some(n) => &n.next == next && n.score >= *score,
+			Some(n) => &n.next == next && n.priority >= *priority,
 			None => return false,
 		},
 	};
@@ -50,44 +50,44 @@ pub(crate) fn is_position_valid<T: Config>(
 	match next {
 		None => &ListTails::<T>::get(list_id) == prev,
 		Some(n) => match ListNodes::<T>::get(list_id, n) {
-			Some(node) => &node.prev == prev && *score > node.score,
+			Some(node) => &node.prev == prev && *priority > node.priority,
 			None => false,
 		},
 	}
 }
 
-/// Score-only half of [`is_position_valid`]. Skips the link-consistency check
+/// Priority-only half of [`is_position_valid`]. Skips the link-consistency check
 /// and is used by `re_insert`'s in-place fast path, where the existing links
 /// are valid by construction.
-pub(crate) fn neighbor_scores_admit<T: Config>(
+pub(crate) fn neighbor_priorities_admit<T: Config>(
 	list_id: &T::ListId,
-	score: &T::Score,
+	priority: &T::Priority,
 	prev: &Option<T::ItemId>,
 	next: &Option<T::ItemId>,
 ) -> bool {
 	let prev_ok = match prev {
 		None => true,
-		Some(p) => ListNodes::<T>::get(list_id, p).is_some_and(|n| n.score >= *score),
+		Some(p) => ListNodes::<T>::get(list_id, p).is_some_and(|n| n.priority >= *priority),
 	};
 	let next_ok = match next {
 		None => true,
-		Some(n) => ListNodes::<T>::get(list_id, n).is_some_and(|node| *score > node.score),
+		Some(n) => ListNodes::<T>::get(list_id, n).is_some_and(|node| *priority > node.priority),
 	};
 	prev_ok && next_ok
 }
 
 /// Walk from `(hint_prev, hint_next)` toward the correct insert position for
-/// `score`, taking at most `MaxHintRepairSteps` steps.
+/// `priority`, taking at most `MaxHintRepairSteps` steps.
 ///
 /// Returns the corrected `(prev, next, steps_taken)`, or `InvalidPositionHints`
 /// if the budget is exhausted before a valid position is reached.
 pub(crate) fn walk_repair<T: Config>(
 	list_id: &T::ListId,
-	score: &T::Score,
+	priority: &T::Priority,
 	mut prev: Option<T::ItemId>,
 	mut next: Option<T::ItemId>,
 ) -> Result<(Option<T::ItemId>, Option<T::ItemId>, u32), Error<T>> {
-	if is_position_valid::<T>(list_id, score, &prev, &next) {
+	if is_position_valid::<T>(list_id, priority, &prev, &next) {
 		return Ok((prev, next, 0));
 	}
 
@@ -100,7 +100,7 @@ pub(crate) fn walk_repair<T: Config>(
 			if !ListNodes::<T>::contains_key(list_id, p) {
 				prev = None;
 				steps = steps.saturating_add(1);
-				if is_position_valid::<T>(list_id, score, &prev, &next) {
+				if is_position_valid::<T>(list_id, priority, &prev, &next) {
 					return Ok((prev, next, steps));
 				}
 				continue;
@@ -110,7 +110,7 @@ pub(crate) fn walk_repair<T: Config>(
 			if !ListNodes::<T>::contains_key(list_id, n) {
 				next = None;
 				steps = steps.saturating_add(1);
-				if is_position_valid::<T>(list_id, score, &prev, &next) {
+				if is_position_valid::<T>(list_id, priority, &prev, &next) {
 					return Ok((prev, next, steps));
 				}
 				continue;
@@ -132,14 +132,14 @@ pub(crate) fn walk_repair<T: Config>(
 
 		if !prev_links_match || !next_links_match {
 			// Pick whichever side satisfies its own role in
-			// `prev.score >= score > next.score`. If both are score-correct,
+			// `prev.priority >= priority > next.priority`. If both are priority-correct,
 			// trust prev (its cached `next` brings us into the right region).
 			// If neither is, trust whichever exists (prev preferred).
 			match (prev_node, next_node) {
 				(Some(pn), Some(nn)) => {
-					if pn.score >= *score {
+					if pn.priority >= *priority {
 						next = pn.next;
-					} else if *score > nn.score {
+					} else if *priority > nn.priority {
 						prev = nn.prev;
 					} else {
 						next = pn.next;
@@ -158,17 +158,17 @@ pub(crate) fn walk_repair<T: Config>(
 			}
 
 			steps = steps.saturating_add(1);
-			if is_position_valid::<T>(list_id, score, &prev, &next) {
+			if is_position_valid::<T>(list_id, priority, &prev, &next) {
 				return Ok((prev, next, steps));
 			}
 			continue;
 		}
 
-		// Links are consistent: walk based on score. Walk head-ward if
-		// `prev.score < score`, tail-ward if `score <= next.score`. The
+		// Links are consistent: walk based on priority. Walk head-ward if
+		// `prev.priority < priority`, tail-ward if `priority <= next.priority`. The
 		// `<=` keeps the `>=`/`>` asymmetry.
-		let go_head = prev_node.as_ref().is_some_and(|n| n.score < *score);
-		let go_tail = next_node.as_ref().is_some_and(|n| *score <= n.score);
+		let go_head = prev_node.as_ref().is_some_and(|n| n.priority < *priority);
+		let go_tail = next_node.as_ref().is_some_and(|n| *priority <= n.priority);
 
 		if go_head {
 			next = prev.take();
@@ -180,14 +180,14 @@ pub(crate) fn walk_repair<T: Config>(
 			// With consistent links, an invalid position must trigger `go_head`
 			// or `go_tail`; reaching here means a contract violation. Log it
 			// and reset to the head so the loop still terminates.
-			defensive!("walk_repair: links consistent but neither side admits score");
+			defensive!("walk_repair: links consistent but neither side admits priority");
 			prev = None;
 			next = ListHeads::<T>::get(list_id);
 		}
 
 		steps = steps.saturating_add(1);
 
-		if is_position_valid::<T>(list_id, score, &prev, &next) {
+		if is_position_valid::<T>(list_id, priority, &prev, &next) {
 			return Ok((prev, next, steps));
 		}
 	}
@@ -202,7 +202,7 @@ pub(crate) fn walk_repair<T: Config>(
 pub(crate) fn insert_at<T: Config>(
 	list_id: &T::ListId,
 	item: &T::ItemId,
-	score: T::Score,
+	priority: T::Priority,
 	prev: Option<T::ItemId>,
 	next: Option<T::ItemId>,
 ) -> Result<(), Error<T>> {
@@ -210,7 +210,7 @@ pub(crate) fn insert_at<T: Config>(
 		return Err(Error::<T>::ItemAlreadyExists);
 	}
 	let new_size = ListSizes::<T>::get(list_id).checked_add(1).ok_or(Error::<T>::ListTooLong)?;
-	debug_assert!(is_position_valid::<T>(list_id, &score, &prev, &next));
+	debug_assert!(is_position_valid::<T>(list_id, &priority, &prev, &next));
 
 	match prev.as_ref() {
 		Some(p) => ListNodes::<T>::mutate(list_id, p, |maybe| {
@@ -230,7 +230,7 @@ pub(crate) fn insert_at<T: Config>(
 		None => ListTails::<T>::insert(list_id, item.clone()),
 	}
 
-	ListNodes::<T>::insert(list_id, item, Node { prev, next, score });
+	ListNodes::<T>::insert(list_id, item, Node { prev, next, priority });
 	ListSizes::<T>::insert(list_id, new_size);
 	Ok(())
 }

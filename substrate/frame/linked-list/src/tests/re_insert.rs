@@ -2,7 +2,7 @@ use crate::{mock::*, Error, Event, SortedListInterface};
 use frame::testing_prelude::{assert_ok, assert_storage_noop};
 
 #[test]
-fn re_insert_unchanged_score_no_op() {
+fn re_insert_unchanged_priority_no_op() {
 	build_and_execute(|| {
 		insert(1, 100, 50);
 		let steps =
@@ -25,13 +25,14 @@ fn re_insert_in_place_when_position_still_valid() {
 		assert_eq!(steps, 0);
 		assert_eq!(dump(1), vec![(100, 90), (200, 30), (300, 10)]);
 		System::assert_has_event(
-			Event::ItemReinserted { list_id: 1, item: 200, old_score: 50, new_score: 30 }.into(),
+			Event::ItemReinserted { list_id: 1, item: 200, old_priority: 50, new_priority: 30 }
+				.into(),
 		);
 	});
 }
 
 #[test]
-fn re_insert_score_increase_moves_toward_head() {
+fn re_insert_priority_increase_moves_toward_head() {
 	build_and_execute(|| {
 		insert(1, 1, 90);
 		insert(1, 2, 50);
@@ -44,7 +45,7 @@ fn re_insert_score_increase_moves_toward_head() {
 }
 
 #[test]
-fn re_insert_score_decrease_moves_toward_tail() {
+fn re_insert_priority_decrease_moves_toward_tail() {
 	build_and_execute(|| {
 		insert(1, 1, 90);
 		insert(1, 2, 50);
@@ -78,7 +79,7 @@ fn re_insert_slow_path_failure_leaves_storage_untouched() {
 		for i in 1..=chain_len {
 			insert(1, u64::from(i), 100 - 10 * i + 10);
 		}
-		// Re-insert item 1 at score 5 (tail-ward) but supply head hints; the
+		// Re-insert item 1 at priority 5 (tail-ward) but supply head hints; the
 		// repair walk distance exceeds budget, so re_insert errors. The item
 		// must still be in the list at its old position.
 		assert_storage_noop!(assert!(matches!(
