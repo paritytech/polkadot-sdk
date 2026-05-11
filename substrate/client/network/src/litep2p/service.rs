@@ -284,8 +284,7 @@ impl Litep2pNetworkService {
 			Ok(m) => m,
 			Err(e) => {
 				log::warn!(target: LOG_TARGET, "bitswap: failed to decode WANT payload: {e}");
-				let _ =
-					sender.send(Err(RequestFailure::Network(OutboundFailure::ConnectionClosed)));
+				let _ = sender.send(Err(RequestFailure::InvalidRequest));
 				return;
 			},
 		};
@@ -294,8 +293,7 @@ impl Litep2pNetworkService {
 			Some(w) if !w.entries.is_empty() => w,
 			_ => {
 				log::warn!(target: LOG_TARGET, "bitswap: WANT message has no wantlist entries");
-				let _ =
-					sender.send(Err(RequestFailure::Network(OutboundFailure::ConnectionClosed)));
+				let _ = sender.send(Err(RequestFailure::InvalidRequest));
 				return;
 			},
 		};
@@ -306,8 +304,7 @@ impl Litep2pNetworkService {
 				Ok(c) => c,
 				Err(e) => {
 					log::warn!(target: LOG_TARGET, "bitswap: invalid CID in WANT entry: {e}");
-					let _ = sender
-						.send(Err(RequestFailure::Network(OutboundFailure::ConnectionClosed)));
+					let _ = sender.send(Err(RequestFailure::InvalidRequest));
 					return;
 				},
 			};

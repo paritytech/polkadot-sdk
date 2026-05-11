@@ -104,7 +104,7 @@ impl BitswapWant {
 	}
 }
 
-/// Per-CID outcome from a [`fetch_many`] call.
+/// Per-CID outcome from a [`request_bitswap_blocks`] call.
 #[derive(Debug)]
 pub enum FetchOutcome {
 	/// Peer returned bytes for the requested CID.
@@ -160,7 +160,7 @@ fn validate_wants(wants: &[BitswapWant]) -> Result<(), BitswapError> {
 ///
 /// Errors if `cids` is empty, larger than [`MAX_WANTED_BLOCKS_PER_REQUEST`], or contains an
 /// unsupported CID.
-pub async fn fetch_many<N>(
+pub async fn request_bitswap_blocks<N>(
 	network: &N,
 	peer: PeerId,
 	cids: &[Cid],
@@ -169,7 +169,7 @@ where
 	N: NetworkRequest + ?Sized,
 {
 	let wants: Vec<_> = cids.iter().copied().map(BitswapWant::block).collect();
-	fetch_many_wants(network, peer, &wants).await
+	request_bitswap(network, peer, &wants).await
 }
 
 /// Send one Bitswap request for `wants` to `peer` and classify the response.
@@ -177,7 +177,7 @@ where
 /// Returned blocks are verified by recomputing the CID from the response prefix and bytes.
 /// Blocks whose recomputed CID was not requested are ignored.
 /// Every want asks the peer to send `DONT_HAVE` when the CID is unavailable.
-pub async fn fetch_many_wants<N>(
+pub async fn request_bitswap<N>(
 	network: &N,
 	peer: PeerId,
 	wants: &[BitswapWant],
@@ -192,12 +192,12 @@ where
 	Ok(classify_response(response, &wanted, peer))
 }
 
-/// Like [`fetch_many`], but does not recompute or verify the hash of received bytes.
+/// Like [`request_bitswap_blocks`], but does not recompute or verify the hash of received bytes.
 ///
 /// Use this when the requester must fetch by CID-shaped identifiers before it can verify the
 /// returned bytes through an external authority. The response is matched by request order and CID
 /// prefix only; integrity verification is delegated to the caller.
-pub async fn fetch_many_unverified<N>(
+pub async fn request_bitswap_blocks_unverified<N>(
 	network: &N,
 	peer: PeerId,
 	cids: &[Cid],
@@ -206,15 +206,15 @@ where
 	N: NetworkRequest + ?Sized,
 {
 	let wants: Vec<_> = cids.iter().copied().map(BitswapWant::block).collect();
-	fetch_many_wants_unverified(network, peer, &wants).await
+	request_bitswap_unverified(network, peer, &wants).await
 }
 
-/// Like [`fetch_many_wants`], but does not recompute or verify the hash of received bytes.
+/// Like [`request_bitswap`], but does not recompute or verify the hash of received bytes.
 ///
 /// The response is matched by request order and CID prefix only; integrity verification is
 /// delegated to the caller. Every want asks the peer to send `DONT_HAVE` when the CID is
 /// unavailable.
-pub async fn fetch_many_wants_unverified<N>(
+pub async fn request_bitswap_unverified<N>(
 	network: &N,
 	peer: PeerId,
 	wants: &[BitswapWant],
@@ -605,7 +605,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn fetch_many_returns_blocks_for_all_wanted() {
+	async fn request_bitswap_blocks_returns_blocks_for_all_wanted() {
 		let data_a = b"hash-a-payload".to_vec();
 		let data_b = b"hash-b-payload".to_vec();
 		let data_c = b"hash-c-payload".to_vec();
@@ -623,9 +623,9 @@ mod tests {
 		);
 		let stub = StubSender::new([Ok(response)]);
 
-		let result = fetch_many(&stub, PeerId::random(), &[cid_a, cid_b, cid_c])
+		let result = request_bitswap_blocks(&stub, PeerId::random(), &[cid_a, cid_b, cid_c])
 			.await
-			.expect("fetch_many should succeed");
+			.expect("request_bitswap_blocks should succeed");
 
 		assert_eq!(result.len(), 3);
 		assert!(matches!(result.get(&cid_a), Some(FetchOutcome::Block(d)) if *d == data_a));
@@ -634,7 +634,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn fetch_many_partial_dont_have() {
+	async fn request_bitswap_blocks_partial_dont_have() {
 		let data_a = b"a".to_vec();
 		let data_b = b"b".to_vec();
 		let cid_a = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data_a);
@@ -650,7 +650,9 @@ mod tests {
 		);
 		let stub = StubSender::new([Ok(response)]);
 
-		let result = fetch_many(&stub, PeerId::random(), &[cid_a, cid_b, cid_c]).await.unwrap();
+		let result = request_bitswap_blocks(&stub, PeerId::random(), &[cid_a, cid_b, cid_c])
+			.await
+			.unwrap();
 
 		assert_eq!(result.len(), 3);
 		assert!(matches!(result.get(&cid_a), Some(FetchOutcome::Block(_))));
@@ -659,26 +661,26 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn fetch_many_corrupted_data_dropped_as_unsolicited() {
+	async fn request_bitswap_blocks_corrupted_data_dropped_as_unsolicited() {
 		let real_data = b"real-payload".to_vec();
 		let wanted_cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &real_data);
 		let corrupted_data = b"i-am-not-the-real-payload".to_vec();
 		let response = encode_response(&[(BLAKE2B_256_MULTIHASH_CODE, corrupted_data)], &[]);
 		let stub = StubSender::new([Ok(response)]);
 
-		let result = fetch_many(&stub, PeerId::random(), &[wanted_cid]).await.unwrap();
+		let result = request_bitswap_blocks(&stub, PeerId::random(), &[wanted_cid]).await.unwrap();
 
 		assert_eq!(result.len(), 1);
 		assert!(matches!(result.get(&wanted_cid), Some(FetchOutcome::Missing)));
 	}
 
 	#[tokio::test]
-	async fn fetch_many_wants_encodes_mixed_want_types() {
+	async fn request_bitswap_encodes_mixed_want_types() {
 		let cid_a = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [1u8; 32]);
 		let cid_b = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [2u8; 32]);
 		let stub = StubSender::new([Ok(BitswapMessage::default().encode_to_vec())]);
 
-		let result = fetch_many_wants(
+		let result = request_bitswap(
 			&stub,
 			PeerId::random(),
 			&[BitswapWant::block(cid_a), BitswapWant::have(cid_b)],
@@ -697,12 +699,12 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn fetch_many_wants_classifies_have_presence() {
+	async fn request_bitswap_classifies_have_presence() {
 		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [3u8; 32]);
 		let response = encode_response(&[], &[(cid, BlockPresenceType::Have as i32)]);
 		let stub = StubSender::new([Ok(response)]);
 
-		let result = fetch_many_wants(&stub, PeerId::random(), &[BitswapWant::have(cid)])
+		let result = request_bitswap(&stub, PeerId::random(), &[BitswapWant::have(cid)])
 			.await
 			.expect("HAVE response should classify successfully");
 
@@ -711,13 +713,13 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn fetch_many_unverified_accepts_bytes_without_hash_recompute() {
+	async fn request_bitswap_blocks_unverified_accepts_bytes_without_hash_recompute() {
 		let data = b"sha2-digest-but-blake2b-request-prefix".to_vec();
 		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, sp_crypto_hashing::sha2_256(&data));
 		let response = encode_response(&[(BLAKE2B_256_MULTIHASH_CODE, data.clone())], &[]);
 		let stub = StubSender::new([Ok(response)]);
 
-		let result = fetch_many_unverified(&stub, PeerId::random(), &[cid])
+		let result = request_bitswap_blocks_unverified(&stub, PeerId::random(), &[cid])
 			.await
 			.expect("unverified fetch should not recompute hashes");
 
@@ -726,7 +728,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn fetch_many_unverified_dont_have_returned_as_missing() {
+	async fn request_bitswap_blocks_unverified_dont_have_returned_as_missing() {
 		let cid = cid_for_digest(
 			BLAKE2B_256_MULTIHASH_CODE,
 			sp_crypto_hashing::sha2_256(b"pruned-unverified-payload"),
@@ -734,7 +736,7 @@ mod tests {
 		let response = encode_response(&[], &[(cid, BlockPresenceType::DontHave as i32)]);
 		let stub = StubSender::new([Ok(response)]);
 
-		let result = fetch_many_unverified(&stub, PeerId::random(), &[cid])
+		let result = request_bitswap_blocks_unverified(&stub, PeerId::random(), &[cid])
 			.await
 			.expect("unverified DONT_HAVE should classify successfully");
 
@@ -743,21 +745,21 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn fetch_many_unverified_empty_wants_errors() {
+	async fn request_bitswap_blocks_unverified_empty_wants_errors() {
 		let stub = StubSender::new(std::iter::empty());
 
-		let err = fetch_many_unverified(&stub, PeerId::random(), &[])
+		let err = request_bitswap_blocks_unverified(&stub, PeerId::random(), &[])
 			.await
 			.expect_err("empty wantlist must error");
 		assert!(matches!(err, BitswapError::DecodeError(msg) if msg == "empty wantlist"));
 	}
 
 	#[tokio::test]
-	async fn fetch_many_wants_duplicate_cids_error() {
+	async fn request_bitswap_duplicate_cids_error() {
 		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [9u8; 32]);
 		let stub = StubSender::new(std::iter::empty());
 
-		let err = fetch_many_wants(
+		let err = request_bitswap(
 			&stub,
 			PeerId::random(),
 			&[BitswapWant::block(cid), BitswapWant::have(cid)],
@@ -768,7 +770,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn fetch_many_unverified_multi_want_all_served_in_request_order() {
+	async fn request_bitswap_blocks_unverified_multi_want_all_served_in_request_order() {
 		let data_a = b"first-unverified-payload".to_vec();
 		let data_b = b"second-unverified-payload".to_vec();
 		let data_c = b"third-unverified-payload".to_vec();
@@ -788,9 +790,10 @@ mod tests {
 		);
 		let stub = StubSender::new([Ok(response)]);
 
-		let result = fetch_many_unverified(&stub, PeerId::random(), &[cid_a, cid_b, cid_c])
-			.await
-			.expect("multi-want unverified must succeed via positional correlation");
+		let result =
+			request_bitswap_blocks_unverified(&stub, PeerId::random(), &[cid_a, cid_b, cid_c])
+				.await
+				.expect("multi-want unverified must succeed via positional correlation");
 
 		assert_eq!(result.len(), 3);
 		assert!(matches!(result.get(&cid_a), Some(FetchOutcome::Block(d)) if *d == data_a));
@@ -799,7 +802,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn fetch_many_wants_unverified_have_want_does_not_shift_block_payload_order() {
+	async fn request_bitswap_unverified_have_want_does_not_shift_block_payload_order() {
 		let data = b"block-after-have-want".to_vec();
 		let have_cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [4u8; 32]);
 		let block_cid =
@@ -810,7 +813,7 @@ mod tests {
 		);
 		let stub = StubSender::new([Ok(response)]);
 
-		let result = fetch_many_wants_unverified(
+		let result = request_bitswap_unverified(
 			&stub,
 			PeerId::random(),
 			&[BitswapWant::have(have_cid), BitswapWant::block(block_cid)],
@@ -824,7 +827,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn fetch_many_dispatches_per_entry_multihash() {
+	async fn request_bitswap_blocks_dispatches_per_entry_multihash() {
 		let data_b2 = b"blake2b-payload".to_vec();
 		let data_sha = b"sha2-256-payload".to_vec();
 		let data_kec = b"keccak-256-payload".to_vec();
@@ -842,8 +845,9 @@ mod tests {
 		);
 		let stub = StubSender::new([Ok(response)]);
 
-		let result =
-			fetch_many(&stub, PeerId::random(), &[cid_b2, cid_sha, cid_kec]).await.unwrap();
+		let result = request_bitswap_blocks(&stub, PeerId::random(), &[cid_b2, cid_sha, cid_kec])
+			.await
+			.unwrap();
 
 		assert_eq!(result.len(), 3);
 		assert!(matches!(result.get(&cid_b2), Some(FetchOutcome::Block(d)) if *d == data_b2));
@@ -852,7 +856,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn fetch_many_over_cap_errors() {
+	async fn request_bitswap_blocks_over_cap_errors() {
 		let wants: Vec<_> = (0..(MAX_WANTED_BLOCKS_PER_REQUEST + 1) as u8)
 			.map(|i| {
 				let mut h = [0u8; 32];
@@ -862,14 +866,14 @@ mod tests {
 			.collect();
 		let stub = StubSender::new(std::iter::empty());
 
-		let err = fetch_many(&stub, PeerId::random(), &wants)
+		let err = request_bitswap_blocks(&stub, PeerId::random(), &wants)
 			.await
 			.expect_err("over-cap wantlist must error");
 		assert!(matches!(err, BitswapError::DecodeError(_)));
 	}
 
 	#[tokio::test]
-	async fn fetch_many_at_exactly_max_wanted_blocks_succeeds() {
+	async fn request_bitswap_blocks_at_exactly_max_wanted_blocks_succeeds() {
 		let mut wants = Vec::with_capacity(MAX_WANTED_BLOCKS_PER_REQUEST);
 		let mut blocks = Vec::with_capacity(MAX_WANTED_BLOCKS_PER_REQUEST);
 		for i in 0..MAX_WANTED_BLOCKS_PER_REQUEST {
@@ -881,7 +885,7 @@ mod tests {
 		let response = encode_response(&blocks, &[]);
 		let stub = StubSender::new([Ok(response)]);
 
-		let result = fetch_many(&stub, PeerId::random(), &wants)
+		let result = request_bitswap_blocks(&stub, PeerId::random(), &wants)
 			.await
 			.expect("exactly MAX_WANTED_BLOCKS_PER_REQUEST must succeed");
 
@@ -892,7 +896,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn fetch_many_block_beats_presence_for_same_cid() {
+	async fn request_bitswap_blocks_block_beats_presence_for_same_cid() {
 		let data = b"both-block-and-presence".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
@@ -902,25 +906,25 @@ mod tests {
 		);
 		let stub = StubSender::new([Ok(response)]);
 
-		let result = fetch_many(&stub, PeerId::random(), &[cid]).await.unwrap();
+		let result = request_bitswap_blocks(&stub, PeerId::random(), &[cid]).await.unwrap();
 
 		assert_eq!(result.len(), 1);
 		assert!(matches!(result.get(&cid), Some(FetchOutcome::Block(d)) if *d == data));
 	}
 
 	#[tokio::test]
-	async fn fetch_many_response_decode_failure() {
+	async fn request_bitswap_blocks_response_decode_failure() {
 		let stub = StubSender::new([Ok(vec![0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff])]);
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, b"any");
 
-		let err = fetch_many(&stub, PeerId::random(), &[cid])
+		let err = request_bitswap_blocks(&stub, PeerId::random(), &[cid])
 			.await
 			.expect_err("malformed response bytes must surface as DecodeError");
 		assert!(matches!(err, BitswapError::DecodeError(_)));
 	}
 
 	#[tokio::test]
-	async fn fetch_many_request_failure_propagates() {
+	async fn request_bitswap_blocks_request_failure_propagates() {
 		struct FailingSender;
 		#[async_trait::async_trait]
 		impl NetworkRequest for FailingSender {
@@ -949,14 +953,14 @@ mod tests {
 		}
 
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, b"any");
-		let err = fetch_many(&FailingSender, PeerId::random(), &[cid])
+		let err = request_bitswap_blocks(&FailingSender, PeerId::random(), &[cid])
 			.await
 			.expect_err("request failure must surface as RequestFailed");
 		assert!(matches!(err, BitswapError::RequestFailed(_)));
 	}
 
 	#[tokio::test]
-	async fn fetch_many_unsupported_multihash_in_block_dropped() {
+	async fn request_bitswap_blocks_unsupported_multihash_in_block_dropped() {
 		let wanted_data = b"wanted".to_vec();
 		let wanted_cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &wanted_data);
 		const UNSUPPORTED_MH_CODE: u64 = 0x99;
@@ -974,7 +978,7 @@ mod tests {
 		let response = payload_msg.encode_to_vec();
 		let stub = StubSender::new([Ok(response)]);
 
-		let result = fetch_many(&stub, PeerId::random(), &[wanted_cid]).await.unwrap();
+		let result = request_bitswap_blocks(&stub, PeerId::random(), &[wanted_cid]).await.unwrap();
 
 		assert_eq!(result.len(), 1);
 		assert!(matches!(result.get(&wanted_cid), Some(FetchOutcome::Missing)));
