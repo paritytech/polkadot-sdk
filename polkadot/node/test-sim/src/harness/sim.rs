@@ -84,6 +84,24 @@ where
 	/// Returns `Ok(inner)` if the message targets this subsystem, or `Err(msg)` to let the
 	/// router try other slots / fall through to classification.
 	fn try_extract_inbound(msg: AllMessages) -> Result<Self::Message, AllMessages>;
+
+	/// Build the subsystem-message envelope this subsystem would receive from the
+	/// production network bridge when the local node's view changes to `view`.
+	///
+	/// Mirrors the production fan-out: one `NetworkBridgeEvent::OurViewChange(view)`
+	/// gets wrapped per-subsystem as `<Self::Message>::NetworkBridgeUpdate(focused
+	/// event)`. The adapter (which knows the subsystem's wire-protocol type) does the
+	/// wrapping.
+	///
+	/// Default returns `None` — subsystems that don't consume network-bridge events
+	/// (e.g. `prospective-parachains`) leave this. Adapters for subsystems that DO
+	/// consume them override it; the framework's [`crate::world_base::BlockBuilder`]
+	/// automatically publishes the view on `.activate()` when this returns `Some`.
+	fn our_view_change(
+		_view: polkadot_node_network_protocol::OurView,
+	) -> Option<Self::Message> {
+		None
+	}
 }
 
 /// A running simulation around `S`.

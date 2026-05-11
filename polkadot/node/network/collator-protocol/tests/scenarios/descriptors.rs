@@ -40,7 +40,6 @@ fn v1_shape_descriptor_via_v1_protocol_under_v3_node_feature<S: CollatorSut>() {
 		.with_v3_descriptors_enabled();
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
 	w.new_block().activate();
-	w.emit_our_view_change();
 	let leaf = w.leaf();
 
 	// Build a V1-shape descriptor with non-zero reserved bytes (so V1 detection hits even

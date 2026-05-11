@@ -79,4 +79,12 @@ impl SubsystemUnderTest for ExperimentalValidator {
 			other => Err(other),
 		}
 	}
+
+	fn our_view_change(
+		view: polkadot_node_network_protocol::OurView,
+	) -> Option<Self::Message> {
+		Some(CollatorProtocolMessage::NetworkBridgeUpdate(
+			polkadot_node_subsystem::messages::NetworkBridgeEvent::OurViewChange(view),
+		))
+	}
 }

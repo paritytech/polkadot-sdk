@@ -49,7 +49,6 @@ fn world_with_leaf_cq<S: CollatorSut>(
 		w.new_block().register();
 	}
 	w.new_block().with_claim_queue_at(CoreIndex(0), cq).activate();
-	w.emit_our_view_change();
 	w
 }
 
@@ -68,7 +67,6 @@ fn linear_para_world<S: CollatorSut>(
 		w.new_block().register();
 	}
 	w.new_block().activate();
-	w.emit_our_view_change();
 	w
 }
 
@@ -157,7 +155,6 @@ fn linear_para_world<S: CollatorSut>(
 		w.new_block().register();
 	}
 	w.new_block().activate();
-	w.emit_our_view_change();
 	w
 }
 
@@ -278,7 +275,6 @@ fn last_claim_queue_position_accepted_at_leaf<S: CollatorSut>() {
 	w.new_block()
 		.with_claim_queue_at(CoreIndex(0), [PARA_OTHER, PARA_OTHER, PARA_A])
 		.activate();
-	w.emit_our_view_change();
 
 	let peer = w.declared_peer(PARA_A, V2);
 	let cand = w.advertise(&peer, w.leaf(), PARA_A);
@@ -296,7 +292,6 @@ fn seconded_candidates_consume_capacity<S: CollatorSut>() {
 	w.new_block()
 		.with_claim_queue_at(CoreIndex(0), [PARA_A, PARA_OTHER, PARA_A])
 		.activate();
-	w.emit_our_view_change();
 	let leaf = w.leaf();
 
 	let peer_a = w.declared_peer(PARA_A, V2);
@@ -349,7 +344,6 @@ fn non_obsolete_position_accepted<S: CollatorSut>() {
 	w.new_block()
 		.with_claim_queue_at(CoreIndex(0), [PARA_A, PARA_OTHER, PARA_A])
 		.activate();
-	w.emit_our_view_change();
 	let parent = w.ancestors()[0];
 	let peer = w.declared_peer(PARA_A, V2);
 	let cand = w.candidate_at(parent).para(PARA_A).build();
@@ -374,7 +368,6 @@ fn obsolete_positions_rejected<S: CollatorSut>() {
 	w.new_block()
 		.with_claim_queue_at(CoreIndex(0), [PARA_OTHER, PARA_OTHER, PARA_A])
 		.activate();
-	w.emit_our_view_change();
 	let parent = w.ancestors()[0];
 	let peer = w.declared_peer(PARA_A, V2);
 	let cand = w.candidate_at(parent).para(PARA_A).build();
@@ -393,7 +386,6 @@ fn v1_single_shot_per_sp_para_round<S: CollatorSut>() {
 	w.new_block()
 		.with_claim_queue_at(CoreIndex(0), [PARA_A, PARA_A, PARA_OTHER])
 		.activate();
-	w.emit_our_view_change();
 
 	let peer_a = w.declared_peer(PARA_A, V1);
 	let peer_b = w.declared_peer(PARA_A, V1);
@@ -449,7 +441,6 @@ fn group_rotation_uses_correct_core_per_relay_parent<S: CollatorSut>() {
 	for _ in 0..3 {
 		w.new_block().activate();
 	}
-	w.emit_our_view_change();
 
 	// Linear chain: under production `block_imported` semantics each `.activate()`
 	// auto-deactivates its parent, so only block 3 is an active leaf in
@@ -569,7 +560,6 @@ fn v3_world<S: CollatorSut>(
 		w.new_block().register();
 	}
 	w.new_block().activate();
-	w.emit_our_view_change();
 	w.base.sim.advance(slot_to_wall_ms(current_slot));
 	w
 }

@@ -187,7 +187,6 @@ fn shared_core_world<S: CollatorSut>() -> crate::common::world::World<S> {
 	w.new_block()
 		.with_claim_queue_at(CoreIndex(0), [PARA_B, PARA_A, PARA_A])
 		.activate();
-	w.emit_our_view_change();
 	w
 }
 
@@ -531,7 +530,6 @@ fn seconded_per_para_counted_across_whole_view<S: CollatorSut>() {
 	w.new_block()
 		.with_claim_queue_at(CoreIndex(0), [PARA_B, PARA_A, PARA_A])
 		.activate();
-	w.emit_our_view_change();
 	let leaf0 = w.leaf();
 
 	// Second 1× A and 1× B at leaf0.
@@ -554,7 +552,6 @@ fn seconded_per_para_counted_across_whole_view<S: CollatorSut>() {
 		.with_claim_queue_at(CoreIndex(0), [PARA_B, PARA_A, PARA_A])
 		.activate()
 		.hash;
-	w.emit_our_view_change();
 
 	// Advertise another A at leaf1 — this lands in CQ position 1 or 2; A still has 1
 	// remaining slot (3 total in CQ minus 1 already counted).
@@ -607,7 +604,6 @@ fn old_claims_age_out_only_on_view_shift<S: CollatorSut>() {
 	w.new_block()
 		.with_claim_queue_at(CoreIndex(0), [PARA_A, PARA_B, PARA_A])
 		.activate();
-	w.emit_our_view_change();
 	let leaf2 = w.leaf();
 
 	let peer_a = w.declared_peer(PARA_A, V2);
@@ -633,7 +629,6 @@ fn old_claims_age_out_only_on_view_shift<S: CollatorSut>() {
 		.with_claim_queue_at(CoreIndex(0), [PARA_B, PARA_A, PARA_B])
 		.activate()
 		.hash;
-	w.emit_our_view_change();
 
 	// Per upstream, no new ads should fetch at leaf3 — across the view {leaf2, leaf3} the
 	// total seconded count for each para already meets/exceeds the CQ's per-para count.
@@ -651,7 +646,6 @@ fn old_claims_age_out_only_on_view_shift<S: CollatorSut>() {
 		.with_claim_queue_at(CoreIndex(0), [PARA_A, PARA_B, PARA_A])
 		.activate()
 		.hash;
-	w.emit_our_view_change();
 
 	let b2 = w.candidate_at(leaf4)
 		.para(PARA_B).parent_head(b1.output_head()).head_data(HeadData(vec![11])).build();
@@ -697,7 +691,6 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue<S: CollatorSut>() {
 	w.new_block()
 		.with_claim_queue_at(CoreIndex(0), [PARA_B, PARA_A, PARA_A])
 		.activate();
-	w.emit_our_view_change();
 	let leaf = w.leaf();
 
 	let a1 = w.candidate_at(leaf)

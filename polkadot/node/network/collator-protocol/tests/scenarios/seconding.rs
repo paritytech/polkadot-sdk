@@ -195,7 +195,6 @@ fn child_remains_blocked_when_parent_reported_invalid<S: CollatorSut>() {
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA));
 	let mut w: World<S> = bootstrap_world::<S>(config, Some(false));
 	w.new_block().activate();
-	w.emit_our_view_change();
 	let leaf = w.leaf();
 
 	let parent = w.candidate_at(leaf)

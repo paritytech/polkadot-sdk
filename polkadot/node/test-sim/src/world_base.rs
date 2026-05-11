@@ -610,6 +610,11 @@ where
 	/// signal exactly: a child of the current tip pushes the parent off the active
 	/// set in the same update.
 	///
+	/// If the subsystem under test consumes network-bridge events (i.e.
+	/// [`SubsystemUnderTest::our_view_change`] returns `Some`), this also publishes
+	/// the new view to the subsystem — mirroring the production network bridge's
+	/// view-update fan-out that follows block import.
+	///
 	/// Returns the new active leaf's identity.
 	pub fn activate(self) -> LeafRef {
 		let (base, leaf) = self.flush_to_chain();
@@ -639,6 +644,18 @@ where
 		};
 		base.sim.signal(OverseerSignal::ActiveLeaves(update));
 		base.leaves.push(leaf);
+
+		// Publish the new view to the subsystem under test, if the adapter consumes
+		// network-bridge events. Mirrors the production sequence: overseer emits
+		// `ActiveLeaves`, network bridge separately broadcasts the new view.
+		let view = polkadot_node_network_protocol::OurView::new(
+			base.leaves.iter().map(|l| l.hash),
+			0,
+		);
+		if let Some(msg) = S::our_view_change(view) {
+			base.sim.send(msg);
+		}
+
 		leaf
 	}
 

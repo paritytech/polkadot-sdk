@@ -57,7 +57,6 @@ fn re_advertising_after_can_second_false_does_not_refetch<S: CollatorSut>() {
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA));
 	let mut w: World<S> = bootstrap_world::<S>(config, Some(false));
 	w.new_block().activate();
-	w.emit_our_view_change();
 
 	let candidate = Candidate::for_para_at(PARA, w.leaf());
 	let peer = w.declared_peer(PARA, V2);
@@ -114,7 +113,6 @@ fn v1_advertisement_at_parent_of_leaf_is_rejected<S: CollatorSut>() {
 	for _ in 0..2 {
 		w.new_block().activate();
 	}
-	w.emit_our_view_change();
 	let parent = w.ancestors()[0];
 
 	let peer = w.declared_peer(PARA, V1);
@@ -172,7 +170,6 @@ fn ah_world<S: CollatorSut>(
 	w.new_block()
 		.with_claim_queue_at(CoreIndex(0), [PARA_AH, PARA_AH, PARA_AH])
 		.activate();
-	w.emit_our_view_change();
 	w
 }
 

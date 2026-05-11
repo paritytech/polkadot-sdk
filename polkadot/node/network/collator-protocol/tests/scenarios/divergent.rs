@@ -110,7 +110,6 @@ fn activity_extends_life_then_silence_evicts<S: CollatorSut>() {
 	let leaf_a = w.new_block().from_parent(common.hash).activate();
 	let leaf_b = w.new_block().from_parent(common.hash).activate();
 	let leaf_c = w.new_block().from_parent(common.hash).activate();
-	w.emit_our_view_change();
 
 	let peer = w.declared_peer(PARA, V1);
 	let rps = [leaf_a.hash, leaf_b.hash, leaf_c.hash];
@@ -203,7 +202,6 @@ fn higher_score_peer_fetches_first_fresh_peer_waits_in_penalty_box<S: CollatorSu
 
 	// --- Round 2: extend chain, activate new leaf, both peers advertise there ---
 	let leaf1 = w.new_block().from_parent(leaf0).activate().hash;
-	w.emit_our_view_change();
 
 	// Capture sim_t at the moment of advertisement so we can measure the fetch latency
 	// against the leaf's activation. (The penalty box delay is measured from
@@ -321,7 +319,6 @@ fn slashed_peer_loses_priority<S: CollatorSut>() {
 	// fires for whatever peer the receipt names.
 	let peer_b = w.declared_peer(PARA, V2);
 	let leaf1 = w.new_block().from_parent(leaf0).activate().hash;
-	w.emit_our_view_change();
 	let cand_b_seed = w
 		.candidate_at(leaf1)
 		.para(PARA)
@@ -347,7 +344,6 @@ fn slashed_peer_loses_priority<S: CollatorSut>() {
 
 	// --- Slash leaf: A advertises a new candidate; validator fetches; we don't respond ---
 	let leaf2 = w.new_block().from_parent(leaf1).activate().hash;
-	w.emit_our_view_change();
 	let cand_a_slash = w
 		.candidate_at(leaf2)
 		.para(PARA)
@@ -369,7 +365,6 @@ fn slashed_peer_loses_priority<S: CollatorSut>() {
 
 	// --- Outcome leaf: A and B both advertise; B wins, A waits in penalty box ---
 	let leaf3 = w.new_block().from_parent(leaf2).activate().hash;
-	w.emit_our_view_change();
 	let activation_t = w.base.sim.now_sim_t();
 	let cand_a_after = w
 		.candidate_at(leaf3)
@@ -642,7 +637,6 @@ fn core_rotation_accepts_candidates_for_both_cores<S: CollatorSut>() {
 	for _ in 0..2 {
 		w.new_block().activate();
 	}
-	w.emit_our_view_change();
 
 	// Linear chain via repeated `.activate()`: under production `block_imported`
 	// semantics, each child activation auto-deactivates its parent — so only the
@@ -694,7 +688,6 @@ fn cross_core_reservation_does_not_consume_other_cores_slots<S: CollatorSut>() {
 	for _ in 0..2 {
 		w.new_block().activate();
 	}
-	w.emit_our_view_change();
 	// Linear chain: only the latest block is an active leaf under production semantics.
 	// Block 1 lives in the leaf's implicit view via chain ancestry.
 	let leaf_2 = w.leaf(); // active leaf, block 2 — we own core 1
@@ -726,7 +719,6 @@ fn linear_multi_sp_same_para_capacity_not_double_counted<S: CollatorSut>() {
 	w.new_block()
 		.with_claim_queue_at(CoreIndex(0), [PARA_A, ParaId::new(200), PARA_A])
 		.activate();
-	w.emit_our_view_change();
 	let leaf = w.leaf();
 	let parent = w.ancestors()[0];
 	let grandparent = w.ancestors()[1];
@@ -770,7 +762,6 @@ fn linear_multi_sp_no_under_fetch_when_wide_and_narrow_compete<S: CollatorSut>()
 	w.new_block()
 		.with_claim_queue_at(CoreIndex(0), [PARA_A, ParaId::new(200), PARA_A])
 		.activate();
-	w.emit_our_view_change();
 	let leaf = w.leaf();
 	let grandparent = w.ancestors()[1]; // window len 1
 
@@ -813,7 +804,6 @@ fn short_claim_queue_does_not_reject_ancestor_advertisements<S: CollatorSut>() {
 		w.new_block().register();
 	}
 	w.new_block().with_claim_queue_at(CoreIndex(0), [PARA_A]).activate();
-	w.emit_our_view_change();
 	let grandparent = w.ancestors()[1];
 	let peer = w.declared_peer(PARA_A, V2);
 	let cand = w.candidate_at(grandparent).para(PARA_A).build();
@@ -847,7 +837,6 @@ fn fork_assignments_are_union_of_leaves<S: CollatorSut>() {
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
 	w.new_block().activate();
-	w.emit_our_view_change();
 	let fork_a = w.leaf();
 	let common = w.base.chain.lock().genesis();
 	let fork_b = w
@@ -856,7 +845,6 @@ fn fork_assignments_are_union_of_leaves<S: CollatorSut>() {
 		.with_claim_queue_at(CoreIndex(0), [PARA_Y, PARA_Y, PARA_Y])
 		.activate()
 		.hash;
-	w.emit_our_view_change();
 
 	let peer_x = w.declared_peer(PARA_X, V2);
 	let peer_y = w.declared_peer(PARA_Y, V2);
@@ -897,7 +885,6 @@ fn fork_capacity_uses_longest_window_across_paths<S: CollatorSut>() {
 	w.new_block()
 		.with_claim_queue_at(CoreIndex(0), [PARA_X, PARA_X, PARA_X])
 		.activate();
-	w.emit_our_view_change();
 	let _fork_a = w.leaf();
 	let common = w.base.chain.lock().genesis();
 	// fork_b at depth 2 from common.
@@ -907,14 +894,12 @@ fn fork_capacity_uses_longest_window_across_paths<S: CollatorSut>() {
 		.with_claim_queue_at(CoreIndex(0), [PARA_X, PARA_X, PARA_X])
 		.activate()
 		.hash;
-	w.emit_our_view_change();
 	let fork_b_tip = w
 		.new_block()
 		.from_parent(fork_b_mid)
 		.with_claim_queue_at(CoreIndex(0), [PARA_X, PARA_X, PARA_X])
 		.activate()
 		.hash;
-	w.emit_our_view_change();
 	let _ = fork_b_tip;
 
 	let peer_a = w.declared_peer(PARA_X, V2);
@@ -949,7 +934,6 @@ fn fork_shared_sp_capacity_not_double_counted<S: CollatorSut>() {
 	w.new_block()
 		.with_claim_queue_at(CoreIndex(0), [PARA_X, PARA_X, PARA_X])
 		.activate();
-	w.emit_our_view_change();
 	let _fork_a = w.leaf();
 	let common = w.base.chain.lock().genesis();
 	let _fork_b = w
@@ -958,7 +942,6 @@ fn fork_shared_sp_capacity_not_double_counted<S: CollatorSut>() {
 		.with_claim_queue_at(CoreIndex(0), [PARA_X, PARA_X, PARA_X])
 		.activate()
 		.hash;
-	w.emit_our_view_change();
 
 	let peers: Vec<_> = (0..4).map(|_| w.declared_peer(PARA_X, V2)).collect();
 	let cands: Vec<_> = (0..4)
@@ -992,7 +975,6 @@ fn fork_drop_reclaims_capacity_and_disconnects_peers<S: CollatorSut>() {
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
 	let mut w: World<S> = bootstrap_world::<S>(config, None);
 	w.new_block().activate();
-	w.emit_our_view_change();
 	let fork_a = w.leaf();
 	let common = w.base.chain.lock().genesis();
 	let fork_b = w
@@ -1001,7 +983,6 @@ fn fork_drop_reclaims_capacity_and_disconnects_peers<S: CollatorSut>() {
 		.with_claim_queue_at(CoreIndex(0), [PARA_Y, PARA_Y, PARA_Y])
 		.activate()
 		.hash;
-	w.emit_our_view_change();
 
 	let peer_y = w.declared_peer(PARA_Y, V2);
 
@@ -1058,7 +1039,6 @@ fn high_rep_peer_at_ancestor_wins_over_low_rep_at_leaf<S: CollatorSut>() {
 	w.new_block()
 		.with_claim_queue_at(CoreIndex(0), [PARA_A, PARA_OTHER, PARA_OTHER])
 		.activate();
-	w.emit_our_view_change();
 	let leaf0 = w.leaf();
 	let parent = w.ancestors()[0];
 
@@ -1097,7 +1077,6 @@ fn high_rep_peer_at_ancestor_wins_over_low_rep_at_leaf<S: CollatorSut>() {
 		.with_claim_queue_at(CoreIndex(0), [PARA_A, PARA_OTHER, PARA_OTHER])
 		.activate()
 		.hash;
-	w.emit_our_view_change();
 	let parent_of_leaf1 = leaf0;
 	let _ = parent;
 
@@ -1263,7 +1242,6 @@ fn v2_co_carrier_rep_arbitration_picks_high_rep_peer<S: CollatorSut>() {
 
 	// New leaf for the arbitration round.
 	let leaf1 = w.new_block().from_parent(leaf0).activate().hash;
-	w.emit_our_view_change();
 	let peer_low = w.declared_peer(PARA, V2);
 
 	// Both carriers offer the same new candidate.

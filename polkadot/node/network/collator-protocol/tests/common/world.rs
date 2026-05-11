@@ -33,7 +33,7 @@ use polkadot_subsystem_test_sim::world_base::{
 };
 use polkadot_node_subsystem::messages::{AllMessages, CollatorProtocolMessage};
 use polkadot_primitives::{
-	CoreIndex, Hash, Id as ParaId, ValidatorIndex,
+	CoreIndex, Id as ParaId, ValidatorIndex,
 };
 
 /// Collator-flavoured test world. Composes [`WorldBase`] for shared scaffolding (`Sim`,
@@ -92,8 +92,9 @@ pub fn collator_world_config() -> WorldConfig {
 /// Bootstrap a `World<S>` from a [`WorldConfig`] and spawn the standard
 /// collator-side aux subsystem graph on it. Returns a fully-wired world with no
 /// active leaves yet — tests build the chain via `world.new_block().activate()` /
-/// `.register()`, then trigger the collator-specific
-/// [`World::emit_our_view_change`] when the view shape is final.
+/// `.register()`. The new view is broadcast to the SUT automatically on every
+/// `.activate()` via [`SubsystemUnderTest::our_view_change`] (the adapter wraps
+/// it as the right `NetworkBridgeUpdate` message).
 ///
 /// `can_second_verdict` controls how the `CandidateBacking::CanSecond` query
 /// resolves:
@@ -163,30 +164,9 @@ where
 	sim.register_aux_slot_only(AvailabilityDistributionNoop::new());
 }
 
-impl<S: SubsystemUnderTest<Message = CollatorProtocolMessage>> World<S>
-where
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	/// Emit `CollatorProtocolMessage::NetworkBridgeUpdate(OurViewChange(...))`
-	/// covering this world's currently active leaves. Collator-specific stimulus
-	/// that informs the validator subsystem of the network's view; tests call this
-	/// once after the chain shape is final (typically after the last
-	/// `new_block().activate()`).
-	pub fn emit_our_view_change(&mut self) {
-		use polkadot_node_subsystem::messages::NetworkBridgeEvent;
-		let view: Vec<Hash> = self.base.leaves.iter().map(|l| l.hash).collect();
-		self.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
-			NetworkBridgeEvent::OurViewChange(polkadot_node_network_protocol::OurView::new(
-				view, 0,
-			)),
-		));
-	}
-}
-
-/// Convenience: bootstrap + extend a single block + activate it + emit
-/// `OurViewChange`. Terse path for tests that don't need ancestors or
-/// claim-queue overrides.
+/// Convenience: bootstrap + extend a single block + activate it. View update is
+/// auto-broadcast by `.activate()` via the adapter's `our_view_change`. Terse path
+/// for tests that don't need ancestors or claim-queue overrides.
 pub fn activated_world<S>(paras: &[(CoreIndex, ParaId)]) -> World<S>
 where
 	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
@@ -199,7 +179,6 @@ where
 	}
 	let mut world = bootstrap_world::<S>(config, None);
 	world.new_block().activate();
-	world.emit_our_view_change();
 	world
 }
 
