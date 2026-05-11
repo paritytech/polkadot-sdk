@@ -296,8 +296,9 @@ pub enum BitswapError {
 mod tests {
 	use super::*;
 	use futures::channel::oneshot;
-	use litep2p::types::multihash::Code;
 	use sc_block_builder::BlockBuilderBuilder;
+
+	const BLAKE2B_256_MULTIHASH_CODE: u64 = 0xb220;
 	use schema::bitswap::{
 		message::{wantlist::Entry, Wantlist},
 		Message as BitswapMessage,
@@ -445,7 +446,7 @@ mod tests {
 							block: cid::Cid::new_v1(
 								0x70,
 								cid::multihash::Multihash::wrap(
-									u64::from(Code::Blake2b256),
+									BLAKE2B_256_MULTIHASH_CODE,
 									&[0u8; 32],
 								)
 								.unwrap(),
@@ -506,7 +507,7 @@ mod tests {
 							block: cid::Cid::new_v1(
 								0x70,
 								cid::multihash::Multihash::wrap(
-									u64::from(Code::Blake2b256),
+									BLAKE2B_256_MULTIHASH_CODE,
 									&sp_crypto_hashing::blake2_256(&ext.encode()[pattern_index..]),
 								)
 								.unwrap(),
