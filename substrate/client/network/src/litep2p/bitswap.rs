@@ -281,8 +281,7 @@ impl<Block: BlockT> BitswapService<Block> {
 			.into_iter()
 			.filter(|(cid, _)| is_cid_supported(&cid))
 			.map(|(cid, want_type)| {
-				let mut hash = H256::default();
-				hash.as_mut().copy_from_slice(&cid.hash().digest()[0..32]);
+				let hash = H256::from_slice(&cid.hash().digest()[0..32]);
 				let transaction = match self.client.indexed_transaction(hash) {
 					Ok(ex) => ex,
 					Err(error) => {
