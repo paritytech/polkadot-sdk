@@ -28,7 +28,9 @@ interface ISystem {
 	/// Checks whether the caller of the contract calling this function is root.
 	///
 	/// Note that only the origin of the call stack can be root. Hence this
-	/// function returning `true` implies that the contract is being called by the origin.
+	/// function returning `true` implies that the contract is being called by the origin,
+	/// either directly or through delegate-call frames such as upgradeable proxy dispatch.
+	/// Regular contract-to-contract call frames do not propagate root authority.
 	///
 	/// A return value of `true` indicates that this contract is being called by a root origin,
 	/// and `false` indicates that the caller is a signed origin.

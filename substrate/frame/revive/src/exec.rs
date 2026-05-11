@@ -2313,8 +2313,45 @@ where
 	}
 
 	fn caller_is_root(&self, use_caller_of_caller: bool) -> bool {
-		// if the caller isn't origin, then it can't be root.
-		self.caller_is_origin(use_caller_of_caller) && self.origin == Origin::Root
+		if self.origin != Origin::Root {
+			return false;
+		}
+
+		if !use_caller_of_caller {
+			return self.caller_is_origin(false);
+		}
+
+		if self.caller_is_origin(true) {
+			return true;
+		}
+
+		// System::callerIsRoot() asks whether the contract that called the System precompile is
+		// ultimately executing on behalf of the root origin. Upgradeable proxy patterns reach the
+		// implementation with delegate calls:
+		//
+		// 1. Root calls the proxy.
+		// 2. The proxy delegate-calls the implementation.
+		// 3. The implementation calls System::callerIsRoot().
+		//
+		// `frames()` starts at the System precompile frame, so skip it and then allow root
+		// authority to cross only delegate-call frames. A regular contract-to-contract call
+		// remains a hard boundary and must not inherit root authority.
+		let mut frames = self.frames().skip(1).peekable();
+
+		while let Some(frame) = frames.next() {
+			// The last remaining frame is the contract originally called by Root; reaching it means
+			// every frame between that contract and the System precompile was a delegate call.
+			// The frame stack is bounded or determined by CALL_STACK_DEPTH, so this walk is SAFE.
+			if frames.peek().is_none() {
+				return true;
+			}
+
+			if frame.delegate.is_none() {
+				return false;
+			}
+		}
+
+		true
 	}
 
 	fn balance(&self) -> U256 {

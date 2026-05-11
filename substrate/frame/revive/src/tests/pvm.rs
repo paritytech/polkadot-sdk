@@ -3630,6 +3630,176 @@ fn call_caller_is_root_from_non_root() {
 }
 
 #[test]
+fn call_caller_is_root_through_delegate_call() {
+	let (caller_code, _) = compile_module("delegate_call_caller_is_root").unwrap();
+	let (callee_code, _) = compile_module("call_caller_is_root").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: caller, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+		let Contract { addr: callee, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+
+		// Mirrors upgradeable proxy dispatch:
+		// 1. Root calls the proxy.
+		// 2. The proxy delegate-calls the implementation.
+		// 3. The implementation calls System::callerIsRoot().
+		let ret = builder::bare_call(caller)
+			.origin(RuntimeOrigin::root())
+			.data(callee.encode())
+			.build_and_unwrap_result();
+		let is_root = Bool::abi_decode(&ret.data).expect("decoding failed");
+		assert!(is_root);
+	});
+}
+
+#[test]
+fn call_caller_is_root_through_nested_delegate_calls() {
+	let (proxy_code, _) = compile_module("delegate_call_caller_is_root").unwrap();
+	let (implementation_code, _) = compile_module("call_caller_is_root").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let salt1 = [1; 32];
+		let salt2 = [2; 32];
+		let Contract { addr: first_proxy, .. } =
+			builder::bare_instantiate(Code::Upload(proxy_code.clone()))
+				.salt(Some(salt1))
+				.build_and_unwrap_contract();
+		let Contract { addr: second_proxy, .. } =
+			builder::bare_instantiate(Code::Upload(proxy_code))
+				.salt(Some(salt2))
+				.build_and_unwrap_contract();
+		let Contract { addr: implementation, .. } =
+			builder::bare_instantiate(Code::Upload(implementation_code))
+				.build_and_unwrap_contract();
+
+		// Covers delegate-heavy proxy layouts such as diamond/facet dispatch or proxy-to-proxy
+		// upgrade dispatch:
+		// 1. Root calls the first proxy.
+		// 2. The first proxy delegate-calls a second proxy or facet.
+		// 3. The second proxy or facet delegate-calls the implementation.
+		// 4. The implementation calls System::callerIsRoot().
+		let ret = builder::bare_call(first_proxy)
+			.origin(RuntimeOrigin::root())
+			.data(second_proxy.encode().into_iter().chain(implementation.encode()).collect())
+			.build_and_unwrap_result();
+		let is_root = Bool::abi_decode(&ret.data).expect("decoding failed");
+		assert!(is_root);
+	});
+}
+
+#[test]
+fn call_caller_is_root_through_delegate_call_from_non_root() {
+	let (caller_code, _) = compile_module("delegate_call_caller_is_root").unwrap();
+	let (callee_code, _) = compile_module("call_caller_is_root").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: caller, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+		let Contract { addr: callee, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+
+		// Delegatecall alone is not enough. The call-stack origin must still be Root.
+		let ret = builder::bare_call(caller).data(callee.encode()).build_and_unwrap_result();
+		let is_root = Bool::abi_decode(&ret.data).expect("decoding failed");
+		assert!(!is_root);
+	});
+}
+
+#[test]
+fn call_caller_is_root_through_nested_delegate_calls_from_non_root() {
+	let (proxy_code, _) = compile_module("delegate_call_caller_is_root").unwrap();
+	let (implementation_code, _) = compile_module("call_caller_is_root").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let salt1 = [1; 32];
+		let salt2 = [2; 32];
+
+		let Contract { addr: first_proxy, .. } =
+			builder::bare_instantiate(Code::Upload(proxy_code.clone()))
+				.salt(Some(salt1))
+				.build_and_unwrap_contract();
+		let Contract { addr: second_proxy, .. } =
+			builder::bare_instantiate(Code::Upload(proxy_code))
+				.salt(Some(salt2))
+				.build_and_unwrap_contract();
+		let Contract { addr: implementation, .. } =
+			builder::bare_instantiate(Code::Upload(implementation_code))
+				.build_and_unwrap_contract();
+
+		// Delegatecall chains preserve execution context, but they do not turn a signed origin into
+		// root.
+		let ret = builder::bare_call(first_proxy)
+			.data(second_proxy.encode().into_iter().chain(implementation.encode()).collect())
+			.build_and_unwrap_result();
+		let is_root = Bool::abi_decode(&ret.data).expect("decoding failed");
+		assert!(!is_root);
+	});
+}
+
+#[test]
+fn call_caller_is_root_does_not_cross_regular_call_frame() {
+	let (caller_code, _) = compile_module("call_and_return").unwrap();
+	let (callee_code, _) = compile_module("call_caller_is_root").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: caller, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+		let Contract { addr: callee, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+
+		// Root authority can cross proxy delegatecall frames, but not ordinary contract calls.
+		let ret = builder::bare_call(caller)
+			.origin(RuntimeOrigin::root())
+			.data((&callee, 0u64).encode())
+			.build_and_unwrap_result();
+		let is_root = Bool::abi_decode(&ret.data).expect("decoding failed");
+		assert!(!is_root);
+	});
+}
+
+#[test]
+fn call_caller_is_root_does_not_cross_regular_call_before_proxy() {
+	let (caller_code, _) = compile_module("call_and_return").unwrap();
+	let (proxy_code, _) = compile_module("delegate_call_caller_is_root").unwrap();
+	let (implementation_code, _) = compile_module("call_caller_is_root").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: caller, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+		let Contract { addr: proxy, .. } =
+			builder::bare_instantiate(Code::Upload(proxy_code)).build_and_unwrap_contract();
+		let Contract { addr: implementation, .. } =
+			builder::bare_instantiate(Code::Upload(implementation_code))
+				.build_and_unwrap_contract();
+
+		// A root-authenticated regular call into another contract must not leak root authority,
+		// even if the callee then enters an implementation through a UUPS/transparent-style proxy:
+		// 1. Root calls a contract.
+		// 2. That contract makes a regular call to a proxy.
+		// 3. The proxy delegate-calls the implementation.
+		// 4. The implementation calls System::callerIsRoot().
+		let ret = builder::bare_call(caller)
+			.origin(RuntimeOrigin::root())
+			.data((&proxy, 0u64).encode().into_iter().chain(implementation.encode()).collect())
+			.build_and_unwrap_result();
+		let is_root = Bool::abi_decode(&ret.data).expect("decoding failed");
+		assert!(!is_root);
+	});
+}
+
+#[test]
 fn call_caller_is_origin() {
 	let (code, _) = compile_module("call_caller_is_origin").unwrap();
 
