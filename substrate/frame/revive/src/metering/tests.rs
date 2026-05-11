@@ -159,6 +159,55 @@ fn nested_call_storage_refund(fixture_type: FixtureType, fixture_name: &str) {
 	});
 }
 
+/// A dry-run from an unfunded account should still report the `max_storage_deposit`
+/// that a successful run would need, so that the caller can size the allowance
+/// required to cover the storage deposit before submitting the real transaction.
+#[test]
+fn max_storage_deposit_reported_for_unfunded_dry_run() {
+	use crate::{ExecConfig, primitives::StorageDeposit, test_utils::CHARLIE};
+	use frame_support::storage::{TransactionOutcome, with_transaction};
+	use frame_system::RawOrigin;
+
+	let (code, _) = compile_module_with_type("DepositDirect", FixtureType::Resolc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Wrap each call in a rolled-back storage layer so state doesn't leak
+		// between them. Mirrors how a runtime API dispatches the dry-run.
+		let run_in_rollback = |build: &dyn Fn() -> _| {
+			with_transaction(|| {
+				TransactionOutcome::Rollback(Ok::<_, sp_runtime::DispatchError>(build()))
+			})
+			.unwrap()
+		};
+
+		// Reference run from a funded account. Peak deposit is 132 (two slots: a=2, b=3).
+		let funded = run_in_rollback(&|| {
+			builder::bare_call(caller_addr)
+				.data(DepositPrecompile::setAndClearCall {}.abi_encode())
+				.build()
+		});
+		assert_eq!(funded.max_storage_deposit, StorageDeposit::Charge(132));
+
+		// Same call from CHARLIE, who has no balance, using the runtime-api dry-run
+		// `ExecConfig`. The reported `max_storage_deposit` must match the funded run
+		// so the caller can size the allowance needed to cover the deposit.
+		let unfunded = run_in_rollback(&|| {
+			builder::bare_call(caller_addr)
+				.origin(RawOrigin::Signed(CHARLIE).into())
+				.data(DepositPrecompile::setAndClearCall {}.abi_encode())
+				.exec_config(ExecConfig::new_substrate_tx().with_dry_run(Default::default()))
+				.build()
+		});
+
+		assert_eq!(unfunded.max_storage_deposit, funded.max_storage_deposit);
+	});
+}
+
 #[test]
 fn substrate_metering_initialization_works() {
 	let gas_scale = <Test as Config>::GasScale::get().into();
