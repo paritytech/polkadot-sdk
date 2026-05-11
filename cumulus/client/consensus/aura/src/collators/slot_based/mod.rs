@@ -87,7 +87,7 @@ use sc_client_api::{
 };
 use sc_consensus::BlockImport;
 use sc_network_types::PeerId;
-use sc_utils::mpsc::tracing_unbounded;
+use sc_utils::mpsc::{tracing_unbounded_with_policy, ChannelPolicy};
 use sp_api::{ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_block_builder::BlockBuilder;
@@ -108,6 +108,9 @@ mod slot_timer;
 
 #[cfg(test)]
 mod tests;
+
+const BUILDER_TO_COLLATOR_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_builder_to_collator", 100);
 
 /// Parameters for [`run`].
 pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
@@ -214,7 +217,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	// Initialize proof size recording cleanup
 	register_proof_size_recording_cleanup(para_client.clone());
 
-	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
+	let (tx, rx) = tracing_unbounded_with_policy(BUILDER_TO_COLLATOR_CHANNEL);
 	let collator_task_params = collation_task::Params {
 		relay_client: relay_client.clone(),
 		collator_key,

@@ -70,7 +70,7 @@ use sc_consensus::BlockImport;
 use sc_network::{types::ProtocolName, NetworkBackend, NotificationService};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
+use sc_utils::mpsc::{tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver};
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppCrypto;
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata, Result as ClientResult};
@@ -95,6 +95,9 @@ use std::{
 	task::{Context, Poll},
 	time::Duration,
 };
+
+const GRANDPA_VOTER_COMMAND_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_grandpa_voter_command", 100_000);
 
 // utility logging macro that takes as first argument a conditional to
 // decide whether to log under debug or info level (useful to restrict
@@ -589,7 +592,7 @@ where
 		})?;
 
 	let (voter_commands_tx, voter_commands_rx) =
-		tracing_unbounded("mpsc_grandpa_voter_command", 100_000);
+		tracing_unbounded_with_policy(GRANDPA_VOTER_COMMAND_CHANNEL);
 
 	let (justification_sender, justification_stream) = GrandpaJustificationStream::channel();
 

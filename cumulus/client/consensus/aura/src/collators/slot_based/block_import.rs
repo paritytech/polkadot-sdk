@@ -26,7 +26,9 @@ use sc_client_api::{
 	HeaderBackend,
 };
 use sc_consensus::{BlockImport, StateAction};
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
 use sp_api::{
 	ApiExt, CallApiAt, CallContext, Core, ProofRecorder, ProofRecorderIgnoredNodes,
 	ProvideRuntimeApi, StorageProof,
@@ -36,6 +38,9 @@ use sp_consensus::BlockOrigin;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as _};
 use sp_trie::proof_size_extension::{ProofSizeExt, RecordingProofSizeProvider};
 use std::sync::Arc;
+
+const SLOT_BASED_BLOCK_IMPORT_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("SlotBasedBlockImportChannel", 1000);
 
 /// The aux storage key used to store the ignored nodes for the given block hash.
 fn ignored_nodes_key<H: Encode>(block_hash: H) -> Vec<u8> {
@@ -149,7 +154,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 	where
 		Client: PreCommitActions<Block> + HeaderBackend<Block> + 'static,
 	{
-		let (sender, receiver) = tracing_unbounded("SlotBasedBlockImportChannel", 1000);
+		let (sender, receiver) = tracing_unbounded_with_policy(SLOT_BASED_BLOCK_IMPORT_CHANNEL);
 
 		register_ignored_nodes_cleanup(client.clone());
 

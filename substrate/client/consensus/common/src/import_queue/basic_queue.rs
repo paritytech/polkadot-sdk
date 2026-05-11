@@ -21,7 +21,9 @@ use futures::{
 };
 use log::{debug, trace};
 use prometheus_endpoint::Registry;
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor},
@@ -39,6 +41,11 @@ use crate::{
 	},
 	metrics::Metrics,
 };
+
+const IMPORT_QUEUE_WORKER_JUSTIFICATION_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_import_queue_worker_justification", 100_000);
+const IMPORT_QUEUE_WORKER_BLOCKS_CHANNEL: ChannelPolicy =
+	ChannelPolicy::bounded("mpsc_import_queue_worker_blocks", 100_000);
 
 /// Interface to a basic block import queue that is importing blocks sequentially in a separate
 /// task, with plugable verification.
@@ -272,10 +279,10 @@ impl<B: BlockT> BlockImportWorker<B> {
 		use worker_messages::*;
 
 		let (justification_sender, mut justification_port) =
-			tracing_unbounded("mpsc_import_queue_worker_justification", 100_000);
+			tracing_unbounded_with_policy(IMPORT_QUEUE_WORKER_JUSTIFICATION_CHANNEL);
 
 		let (block_import_sender, block_import_receiver) =
-			tracing_unbounded("mpsc_import_queue_worker_blocks", 100_000);
+			tracing_unbounded_with_policy(IMPORT_QUEUE_WORKER_BLOCKS_CHANNEL);
 
 		let mut worker = BlockImportWorker { result_sender, justification_import, metrics };
 

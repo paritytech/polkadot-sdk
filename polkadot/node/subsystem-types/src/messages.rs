@@ -1086,13 +1086,19 @@ impl RuntimeApiFeature {
 	pub const XCM_RUNTIME_APIS: Self = Self::xcm("xcm_runtime_apis", 1);
 
 	/// XCM payment runtime API.
-	pub const XCM_PAYMENT_API: Self = Self::xcm("xcm_payment_api", 1);
+	pub const XCM_PAYMENT_API: Self = Self::xcm("xcm_payment_api", 2);
 
 	/// XCM dry-run runtime API.
-	pub const XCM_DRY_RUN_API: Self = Self::xcm("xcm_dry_run_api", 1);
+	pub const XCM_DRY_RUN_API: Self = Self::xcm("xcm_dry_run_api", 2);
 
 	/// XCM location-to-account runtime API.
 	pub const XCM_LOCATION_TO_ACCOUNT_API: Self = Self::xcm("xcm_location_to_account_api", 1);
+
+	/// XCM authorized-aliasers runtime API.
+	pub const XCM_AUTHORIZED_ALIASERS_API: Self = Self::xcm("xcm_authorized_aliasers_api", 1);
+
+	/// XCM trusted-query runtime API.
+	pub const XCM_TRUSTED_QUERY_API: Self = Self::xcm("xcm_trusted_query_api", 1);
 
 	/// Bridge runtime API surface marker used by bridge runtime compatibility checks.
 	pub const BRIDGE_RUNTIME_APIS: Self = Self::bridge("bridge_runtime_apis", 1);
@@ -1140,6 +1146,8 @@ impl RuntimeApiFeature {
 		Self::XCM_PAYMENT_API,
 		Self::XCM_DRY_RUN_API,
 		Self::XCM_LOCATION_TO_ACCOUNT_API,
+		Self::XCM_AUTHORIZED_ALIASERS_API,
+		Self::XCM_TRUSTED_QUERY_API,
 	];
 
 	/// Bridge features tracked by the catalog.
@@ -1177,6 +1185,8 @@ impl RuntimeApiFeature {
 		Self::XCM_PAYMENT_API,
 		Self::XCM_DRY_RUN_API,
 		Self::XCM_LOCATION_TO_ACCOUNT_API,
+		Self::XCM_AUTHORIZED_ALIASERS_API,
+		Self::XCM_TRUSTED_QUERY_API,
 		Self::BRIDGE_RUNTIME_APIS,
 		Self::BRIDGE_FINALITY_API,
 		Self::BRIDGE_MESSAGES_API,
@@ -1857,6 +1867,8 @@ mod tests {
 	fn catalog_lists_concrete_xcm_and_bridge_features() {
 		assert!(RuntimeApiFeature::XCM_FEATURES.contains(&RuntimeApiFeature::XCM_PAYMENT_API));
 		assert!(RuntimeApiFeature::XCM_FEATURES.contains(&RuntimeApiFeature::XCM_DRY_RUN_API));
+		assert_eq!(RuntimeApiFeature::XCM_PAYMENT_API.required_version(), 2);
+		assert_eq!(RuntimeApiFeature::XCM_DRY_RUN_API.required_version(), 2);
 		assert!(
 			RuntimeApiFeature::BRIDGE_FEATURES.contains(&RuntimeApiFeature::BRIDGE_MESSAGES_API)
 		);
@@ -1867,6 +1879,9 @@ mod tests {
 		);
 		assert!(RuntimeApiFeature::COMPATIBILITY_CATALOG
 			.contains(&RuntimeApiFeature::XCM_LOCATION_TO_ACCOUNT_API));
+		assert!(RuntimeApiFeature::COMPATIBILITY_CATALOG
+			.contains(&RuntimeApiFeature::XCM_AUTHORIZED_ALIASERS_API));
+		assert!(RuntimeApiFeature::XCM_FEATURES.contains(&RuntimeApiFeature::XCM_TRUSTED_QUERY_API));
 		assert!(!RuntimeApiFeature::BRIDGE_FINALITY_API.is_supported_by(0));
 		assert!(RuntimeApiFeature::BRIDGE_FINALITY_API.is_supported_by(1));
 		assert!(RuntimeApiFeature::XCM_FEATURES

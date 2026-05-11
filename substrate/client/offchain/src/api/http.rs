@@ -36,7 +36,9 @@ use hyper::body::Body as _;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use hyper_util::{client::legacy as client, rt::TokioExecutor};
 use once_cell::sync::Lazy;
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{
+	tracing_unbounded_with_policy, ChannelPolicy, TracingUnboundedReceiver, TracingUnboundedSender,
+};
 use sp_core::offchain::{HttpError, HttpRequestId, HttpRequestStatus, Timestamp};
 use std::{
 	fmt,
@@ -47,6 +49,8 @@ use std::{
 };
 
 const LOG_TARGET: &str = "offchain-worker::http";
+const OCW_TO_WORKER_CHANNEL: ChannelPolicy = ChannelPolicy::bounded("mpsc_ocw_to_worker", 100_000);
+const OCW_TO_API_CHANNEL: ChannelPolicy = ChannelPolicy::bounded("mpsc_ocw_to_api", 100_000);
 
 pub type Body = BoxBody<hyper::body::Bytes, hyper::Error>;
 
@@ -73,8 +77,8 @@ impl SharedClient {
 
 /// Creates a pair of [`HttpApi`] and [`HttpWorker`].
 pub fn http(shared_client: SharedClient) -> (HttpApi, HttpWorker) {
-	let (to_worker, from_api) = tracing_unbounded("mpsc_ocw_to_worker", 100_000);
-	let (to_api, from_worker) = tracing_unbounded("mpsc_ocw_to_api", 100_000);
+	let (to_worker, from_api) = tracing_unbounded_with_policy(OCW_TO_WORKER_CHANNEL);
+	let (to_api, from_worker) = tracing_unbounded_with_policy(OCW_TO_API_CHANNEL);
 
 	let api = HttpApi {
 		to_worker,
