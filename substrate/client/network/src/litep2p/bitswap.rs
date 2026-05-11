@@ -96,7 +96,7 @@ impl PendingBatch {
 	}
 
 	fn is_expired(&self, timeout: Duration, now: Instant) -> bool {
-		now.duration_since(self.inserted) >= timeout
+		now.saturating_duration_since(self.inserted) >= timeout
 	}
 
 	fn send_success(self) {
