@@ -1,10 +1,27 @@
+// This file is part of Substrate.
+
+// Copyright (C) Amforc AG.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Tests mock for `pallet-linked-list`.
+
+#![cfg(test)]
+
 use crate as pallet_linked_list;
 use alloc::collections::BTreeMap;
-
-pub use frame::{deps::frame_support::runtime, runtime::prelude::*, testing_prelude::*};
-
-#[cfg(test)]
-use frame::deps::sp_io::TestExternalities;
+use frame::testing_prelude::*;
 
 pub type ListId = u32;
 pub type ItemId = u64;
@@ -12,7 +29,7 @@ pub type Priority = u32;
 
 type Block = MockBlock<Test>;
 
-#[runtime]
+#[frame_construct_runtime]
 mod runtime {
 	#[runtime::runtime]
 	#[runtime::derive(RuntimeCall, RuntimeEvent, RuntimeError, RuntimeOrigin, RuntimeTask)]
@@ -45,6 +62,7 @@ impl pallet_linked_list::PriorityProvider<ListId, ItemId> for StaticPriorityProv
 
 #[cfg(feature = "runtime-benchmarks")]
 pub struct LinkedListBenchHelper;
+
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_linked_list::BenchmarkHelper<ListId, ItemId, Priority> for LinkedListBenchHelper {
 	fn set_priority(list_id: &ListId, item: &ItemId, priority: Priority) {
@@ -65,13 +83,8 @@ impl pallet_linked_list::Config for Test {
 	type BenchmarkHelper = LinkedListBenchHelper;
 }
 
-// Helpers below are only used by the test suite (the `#[cfg(test)]`-gated
-// `impl_benchmark_test_suite!` expansion in `benchmarking.rs` reaches them via
-// the same path). When the crate is compiled with only `runtime-benchmarks`
-// enabled, they're not referenced.
-#[cfg(test)]
-pub(crate) fn new_test_ext() -> TestExternalities {
-	let mut ext: TestExternalities =
+pub(crate) fn new_test_ext() -> TestState {
+	let mut ext: TestState =
 		frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext
@@ -79,7 +92,6 @@ pub(crate) fn new_test_ext() -> TestExternalities {
 
 /// Run `test` against a fresh externality and unconditionally re-check the
 /// pallet's invariants afterwards under `try-runtime`.
-#[cfg(test)]
 pub(crate) fn build_and_execute(test: impl FnOnce()) {
 	new_test_ext().execute_with(|| {
 		test();
@@ -91,14 +103,12 @@ pub(crate) fn build_and_execute(test: impl FnOnce()) {
 /// Like [`build_and_execute`], but skips the post-test invariant check. Use
 /// only for tests that deliberately leave storage corrupt to exercise
 /// `do_try_state` directly.
-#[cfg(test)]
 pub(crate) fn build_and_execute_no_post_check(test: impl FnOnce()) {
 	new_test_ext().execute_with(test);
 }
 
 /// Set the authoritative priority for `(list_id, item)` so [`StaticPriorityProvider`]
 /// reports it. Used in `dispatchables` tests for the `reprioritize` flow.
-#[cfg(test)]
 pub(crate) fn set_real_priority(list_id: ListId, item: ItemId, priority: Priority) {
 	StaticPriorities::mutate(|m| {
 		m.insert((list_id, item), priority);
@@ -107,7 +117,6 @@ pub(crate) fn set_real_priority(list_id: ListId, item: ItemId, priority: Priorit
 
 /// Convenience: insert via the `SortedListInterface` with hints fetched from
 /// `find_position`. Returns the `repair_steps` count.
-#[cfg(test)]
 pub(crate) fn insert(list_id: ListId, item: ItemId, priority: Priority) -> u32 {
 	use pallet_linked_list::SortedListInterface;
 	let (prev, next) =
@@ -117,7 +126,6 @@ pub(crate) fn insert(list_id: ListId, item: ItemId, priority: Priority) -> u32 {
 }
 
 /// Items in `list_id` head-to-tail.
-#[cfg(test)]
 pub(crate) fn dump(list_id: ListId) -> alloc::vec::Vec<(ItemId, Priority)> {
 	let count = pallet_linked_list::ListSizes::<Test>::get(list_id);
 	let mut out = alloc::vec::Vec::with_capacity(count as usize);

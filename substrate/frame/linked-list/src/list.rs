@@ -5,7 +5,6 @@
 //! [`ListTails`] and [`ListSizes`] storage maps and are wrapped by the trait
 //! impl in [`super::sorted_list_interface`].
 
-#[allow(clippy::wildcard_imports)]
 use crate::pallet::*;
 use frame::{deps::frame_support::traits::DefensiveOption, prelude::*};
 

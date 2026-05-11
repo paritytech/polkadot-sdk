@@ -67,7 +67,7 @@ macro_rules! log {
 	};
 }
 
-#[cfg(any(test, feature = "runtime-benchmarks"))]
+#[cfg(test)]
 mod mock;
 
 #[cfg(test)]
