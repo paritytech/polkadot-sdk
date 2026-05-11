@@ -219,6 +219,10 @@ pub use ethereum_standards;
 #[cfg(feature = "fork-tree")]
 pub use fork_tree;
 
+/// Primitives for Polkadot Coretime.
+#[cfg(feature = "fp-coretime")]
+pub use fp_coretime;
+
 /// Macro for benchmarking a FRAME runtime.
 #[cfg(feature = "frame-benchmarking")]
 pub use frame_benchmarking;
@@ -1331,10 +1335,6 @@ pub use sp_core_hashing;
 /// `sp-crypto-hashing-proc-macro`).
 #[cfg(feature = "sp-core-hashing-proc-macro")]
 pub use sp_core_hashing_proc_macro;
-
-/// Primitives for Polkadot Coretime.
-#[cfg(feature = "sp-coretime")]
-pub use sp_coretime;
 
 /// Host functions for common Arkworks elliptic curve operations.
 #[cfg(feature = "sp-crypto-ec-utils")]

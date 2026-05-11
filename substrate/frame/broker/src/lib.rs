@@ -44,7 +44,7 @@ pub use weights::WeightInfo;
 
 pub use adapt_price::*;
 pub use coretime_interface::*;
-pub use sp_coretime::{
+pub use fp_coretime::{
 	market, CoreIndex, CoreMask, PartsOf57600, PotentialRenewalId, RegionId, TaskId, Timeslice,
 	CORE_MASK_BITS,
 };

@@ -1,5 +1,5 @@
 [package]
-name = "sp-coretime"
+name = "fp-coretime"
 version = "0.1.0"
 description = "Primitives for Polkadot Coretime"
 authors.workspace = true

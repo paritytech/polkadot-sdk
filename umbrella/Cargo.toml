@@ -40,6 +40,7 @@ std = [
 	"cumulus-primitives-timestamp?/std",
 	"cumulus-primitives-utility?/std",
 	"cumulus-test-relay-sproof-builder?/std",
+	"fp-coretime?/std",
 	"frame-benchmarking-pallet-pov?/std",
 	"frame-benchmarking?/std",
 	"frame-election-provider-support?/std",
@@ -201,7 +202,6 @@ std = [
 	"sp-consensus-slots?/std",
 	"sp-core-hashing?/std",
 	"sp-core?/std",
-	"sp-coretime?/std",
 	"sp-crypto-ec-utils?/std",
 	"sp-crypto-hashing?/std",
 	"sp-debug-derive?/std",
@@ -604,6 +604,7 @@ runtime-full = [
 	"cumulus-primitives-timestamp",
 	"cumulus-primitives-utility",
 	"ethereum-standards",
+	"fp-coretime",
 	"frame-benchmarking",
 	"frame-benchmarking-pallet-pov",
 	"frame-election-provider-solution-type",
@@ -770,7 +771,6 @@ runtime-full = [
 	"sp-consensus-pow",
 	"sp-consensus-slots",
 	"sp-core",
-	"sp-coretime",
 	"sp-crypto-ec-utils",
 	"sp-crypto-hashing",
 	"sp-crypto-hashing-proc-macro",
@@ -816,6 +816,7 @@ runtime-full = [
 	"xcm-runtime-apis",
 ]
 runtime = [
+	"fp-coretime",
 	"frame-benchmarking",
 	"frame-benchmarking-pallet-pov",
 	"frame-election-provider-solution-type",
@@ -844,7 +845,6 @@ runtime = [
 	"sp-consensus-pow",
 	"sp-consensus-slots",
 	"sp-core",
-	"sp-coretime",
 	"sp-crypto-ec-utils",
 	"sp-crypto-hashing",
 	"sp-crypto-hashing-proc-macro",
@@ -1199,6 +1199,11 @@ path = "../cumulus/primitives/utility"
 default-features = false
 optional = true
 path = "../substrate/primitives/ethereum-standards"
+
+[dependencies.fp-coretime]
+default-features = false
+optional = true
+path = "../substrate/frame/primitives/coretime"
 
 [dependencies.frame-benchmarking]
 default-features = false
@@ -2029,11 +2034,6 @@ path = "../substrate/primitives/consensus/slots"
 default-features = false
 optional = true
 path = "../substrate/primitives/core"
-
-[dependencies.sp-coretime]
-default-features = false
-optional = true
-path = "../substrate/primitives/coretime"
 
 [dependencies.sp-crypto-ec-utils]
 default-features = false

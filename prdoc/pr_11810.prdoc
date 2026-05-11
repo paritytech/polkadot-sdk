@@ -1,22 +1,23 @@
-title: Introduce `sp-coretime` primitives crate
+title: Introduce `fp-coretime` primitives crate
 
 doc:
   - audience: Runtime Dev
     description: |
-      Introduces sp-coretime, a primitives crate for Polkadot Coretime types and traits.
-      Moves shared coretime types and the Market trait from pallet-broker into sp-coretime.
+      Introduces fp-coretime, a frame-primitives crate for Polkadot Coretime types and
+      traits. Moves shared coretime types and the Market trait from pallet-broker into
+      fp-coretime.
 
-      This allows market implementations (e.g. an RFC-17 pallet) to depend on sp-coretime
+      This allows market implementations (e.g. an RFC-17 pallet) to depend on fp-coretime
       instead of pallet-broker, avoiding a pallet dependency just for trait definitions and
       shared types.
 
-      pallet-broker re-exports everything from sp-coretime for backward
+      pallet-broker re-exports everything from fp-coretime for backward
       compatibility. No breaking changes. The major bump on pallet-broker is because
       type paths in the public API changed (e.g. RegionId now originates from
-      sp-coretime), which the semver tool picks up as a major change.
+      fp-coretime), which the semver tool picks up as a major change.
 
 crates:
-  - name: sp-coretime
+  - name: fp-coretime
     bump: patch
   - name: pallet-broker
     bump: major
