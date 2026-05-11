@@ -32,7 +32,7 @@ use super::{
 		},
 		Message as BitswapMessage,
 	},
-	Prefix, LOG_TARGET, PROTOCOL_NAME,
+	Prefix, LOG_TARGET, MAX_WANTED_BLOCKS, PROTOCOL_NAME,
 };
 
 /// Multihash code for BLAKE2b-256.
@@ -41,10 +41,6 @@ pub const BLAKE2B_256_MULTIHASH_CODE: u64 = 0xb220;
 pub const SHA2_256_MULTIHASH_CODE: u64 = 0x12;
 /// Multihash code for Keccak-256.
 pub const KECCAK_256_MULTIHASH_CODE: u64 = 0x1b;
-
-/// Maximum entries per Bitswap wantlist. Bigger requests get rejected by the peer
-/// (see `MAX_WANTED_BLOCKS` in `bitswap/mod.rs`).
-pub const MAX_WANTED_BLOCKS_PER_REQUEST: usize = 16;
 
 /// Type of Bitswap want for a CID.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -125,9 +121,9 @@ fn validate_wantlist_size(len: usize) -> Result<(), BitswapError> {
 	if len == 0 {
 		return Err(BitswapError::DecodeError("empty wantlist".into()));
 	}
-	if len > MAX_WANTED_BLOCKS_PER_REQUEST {
+	if len > MAX_WANTED_BLOCKS {
 		return Err(BitswapError::DecodeError(format!(
-			"wantlist too large: {len} > {MAX_WANTED_BLOCKS_PER_REQUEST}",
+			"wantlist too large: {len} > {MAX_WANTED_BLOCKS}",
 		)));
 	}
 	Ok(())
@@ -158,7 +154,7 @@ fn validate_wants(wants: &[BitswapWant]) -> Result<(), BitswapError> {
 /// Returned blocks are verified by recomputing the CID from the response prefix and bytes.
 /// Blocks whose recomputed CID was not requested are ignored.
 ///
-/// Errors if `cids` is empty, larger than [`MAX_WANTED_BLOCKS_PER_REQUEST`], or contains an
+/// Errors if `cids` is empty, larger than [`MAX_WANTED_BLOCKS`], or contains an
 /// unsupported CID.
 pub async fn request_bitswap_blocks<N>(
 	network: &N,
@@ -859,7 +855,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn request_bitswap_blocks_over_cap_errors() {
-		let wants: Vec<_> = (0..(MAX_WANTED_BLOCKS_PER_REQUEST + 1) as u8)
+		let wants: Vec<_> = (0..(MAX_WANTED_BLOCKS + 1) as u8)
 			.map(|i| {
 				let mut h = [0u8; 32];
 				h[0] = i;
@@ -876,9 +872,9 @@ mod tests {
 
 	#[tokio::test]
 	async fn request_bitswap_blocks_at_exactly_max_wanted_blocks_succeeds() {
-		let mut wants = Vec::with_capacity(MAX_WANTED_BLOCKS_PER_REQUEST);
-		let mut blocks = Vec::with_capacity(MAX_WANTED_BLOCKS_PER_REQUEST);
-		for i in 0..MAX_WANTED_BLOCKS_PER_REQUEST {
+		let mut wants = Vec::with_capacity(MAX_WANTED_BLOCKS);
+		let mut blocks = Vec::with_capacity(MAX_WANTED_BLOCKS);
+		for i in 0..MAX_WANTED_BLOCKS {
 			let data = format!("payload-{i}").into_bytes();
 			wants.push(cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data));
 			blocks.push((BLAKE2B_256_MULTIHASH_CODE, data));
@@ -889,9 +885,9 @@ mod tests {
 
 		let result = request_bitswap_blocks(&stub, PeerId::random(), &wants)
 			.await
-			.expect("exactly MAX_WANTED_BLOCKS_PER_REQUEST must succeed");
+			.expect("exactly MAX_WANTED_BLOCKS must succeed");
 
-		assert_eq!(result.len(), MAX_WANTED_BLOCKS_PER_REQUEST);
+		assert_eq!(result.len(), MAX_WANTED_BLOCKS);
 		for cid in &wants {
 			assert!(matches!(result.get(cid), Some(FetchOutcome::Block(_))));
 		}

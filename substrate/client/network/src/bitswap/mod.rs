@@ -48,8 +48,7 @@ pub(crate) mod schema;
 pub use client::{
 	request_bitswap, request_bitswap_blocks, request_bitswap_blocks_unverified,
 	request_bitswap_unverified, BitswapError, BitswapWant, BitswapWantType, FetchOutcome,
-	BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, MAX_WANTED_BLOCKS_PER_REQUEST,
-	SHA2_256_MULTIHASH_CODE,
+	BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, SHA2_256_MULTIHASH_CODE,
 };
 
 pub(crate) use schema::bitswap::Message as BitswapProtoMessage;
@@ -63,7 +62,7 @@ const MAX_PACKET_SIZE: u64 = MAX_RESPONSE_SIZE;
 const MAX_REQUEST_QUEUE: usize = 20;
 
 /// Max number of blocks per wantlist.
-const MAX_WANTED_BLOCKS: usize = 16;
+pub const MAX_WANTED_BLOCKS: usize = 16;
 
 /// Bitswap protocol name.
 pub(crate) const PROTOCOL_NAME: &'static str = "/ipfs/bitswap/1.2.0";
