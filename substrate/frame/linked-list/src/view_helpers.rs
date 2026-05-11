@@ -30,13 +30,11 @@ pub(crate) fn iter_from_tail<T: Config>(list_id: &T::ListId, n: u32) -> Vec<T::I
 	}
 	let mut out = Vec::with_capacity(n.min(ListSizes::<T>::get(list_id)) as usize);
 	let mut cursor = ListTails::<T>::get(list_id);
-	let mut remaining = n;
-	while remaining > 0 {
+	for _ in 0..n {
 		let Some(item) = cursor else { break };
 		let prev = ListNodes::<T>::get(list_id, &item).and_then(|node| node.prev);
 		out.push(item);
 		cursor = prev;
-		remaining = remaining.saturating_sub(1);
 	}
 	out
 }
