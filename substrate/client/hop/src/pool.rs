@@ -678,12 +678,14 @@ impl HopDataPool {
 	}
 
 	/// Check if data exists in the pool.
+	#[cfg(test)]
 	pub fn has(&self, hash: &HopHash) -> bool {
 		let index = self.index.lock();
 		index.contains_key(hash)
 	}
 
 	/// Remove data from the pool.
+	#[cfg(test)]
 	pub fn remove(&self, hash: &HopHash) -> Result<(), HopError> {
 		let meta = {
 			let mut index = self.index.lock();
