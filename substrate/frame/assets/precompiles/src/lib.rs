@@ -346,7 +346,7 @@ where
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		use frame_support::traits::fungibles::approvals::Inspect as ApprovalsInspect;
-		use sp_runtime::traits::Zero;
+		use sp_runtime::traits::{Bounded, Zero};
 
 		// Reserve worst-case gas upfront, then refund the unused portion.
 		let worst_case = <Runtime as Config<Instance>>::WeightInfo::allowance()
@@ -359,7 +359,12 @@ where
 			<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner);
 		let spender: H160 = call.spender.into_array().into();
 		let spender_account = env.to_account_id(&spender);
-		let new_amount = Self::to_balance(call.value)?;
+		// Saturate at `Balance::MAX`: `approve(uint256.max)` is the EVM
+		// "infinite allowance" idiom and must not revert.
+		let new_amount = call
+			.value
+			.try_into()
+			.unwrap_or_else(|_| <Runtime as Config<Instance>>::Balance::max_value());
 
 		let current = pallet_assets::Pallet::<Runtime, Instance>::allowance(
 			asset_id.clone(),
