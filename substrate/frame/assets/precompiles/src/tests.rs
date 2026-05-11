@@ -742,3 +742,124 @@ fn delegatecall_is_rejected() {
 		assert!(!ret.success, "DELEGATECALL to asset precompile must be rejected");
 	});
 }
+
+/// `approve(spender, type(uint256).max)` is the universal "infinite allowance"
+/// idiom in EVM tooling. The U256 max value doesn't fit in the runtime's
+/// `Balance` (`u64` in the mock); the precompile must saturate at
+/// `Balance::MAX` rather than revert at the conversion.
+///
+/// Pins both halves of the contract:
+///   1. The call itself succeeds (no trap, no revert).
+///   2. The on-chain allowance reads back as `Balance::MAX`, both via direct pallet-state read and
+///      via the precompile's `allowance()` selector.
+#[test]
+fn approve_saturates_on_uint256_max() {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+
+		let owner = 123456789;
+		let spender = 987654321;
+		Balances::make_free_balance_be(&owner, 100);
+
+		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+
+		let data =
+			IERC20::approveCall { spender: spender_addr.0.into(), value: U256::MAX }.abi_encode();
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(owner),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		);
+		assert!(result.result.is_ok(), "approve(uint256.max) must not trap: {:?}", result.result);
+		assert!(
+			!result.result.expect("checked above").did_revert(),
+			"approve(uint256.max) must not revert"
+		);
+
+		// Direct pallet read: allowance must be saturated to Balance::MAX.
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
+
+		// Read-back via the precompile must ABI-encode `Balance::MAX` lifted to U256
+		// (this is NOT `U256::MAX` — the chain's max balance is smaller).
+		let data =
+			IERC20::allowanceCall { owner: owner_addr.0.into(), spender: spender_addr.0.into() }
+				.abi_encode();
+		let bytes = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(owner),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.expect("allowance() must succeed")
+		.data;
+		let ret = IERC20::allowanceCall::abi_decode_returns(&bytes).unwrap();
+		assert_eq!(ret, U256::from(u64::MAX));
+	});
+}
+
+/// `name()`, `symbol()`, and `decimals()` must NOT revert when an asset has
+/// no metadata row — real ERC-20s never revert on introspection. The legitimate
+/// case is a foreign asset registered before metadata is set; reverting there
+/// breaks wallet/indexer token-discovery flows.
+///
+/// Pins the call-stable contract: all three selectors succeed, return defaults
+/// (`""`, `""`, `0`), and do not revert.
+#[test]
+fn metadata_returns_defaults_when_unset() {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let owner = 123456789;
+
+		// Create the asset but do NOT call `force_set_metadata`.
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+
+		let call_view = |data: Vec<u8>| -> Vec<u8> {
+			let result = pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(owner),
+				asset_addr,
+				0u32.into(),
+				TransactionLimits::WeightAndDeposit {
+					weight_limit: Weight::MAX,
+					deposit_limit: u64::MAX,
+				},
+				data,
+				&ExecConfig::new_substrate_tx(),
+			);
+			let exec = result.result.expect("metadata view must not trap");
+			assert!(
+				!exec.did_revert(),
+				"metadata view must not revert: 0x{}",
+				hex::encode(&exec.data)
+			);
+			exec.data
+		};
+
+		let name_bytes = call_view(IERC20::nameCall {}.abi_encode());
+		assert_eq!(IERC20::nameCall::abi_decode_returns(&name_bytes).unwrap(), "");
+
+		let symbol_bytes = call_view(IERC20::symbolCall {}.abi_encode());
+		assert_eq!(IERC20::symbolCall::abi_decode_returns(&symbol_bytes).unwrap(), "");
+
+		let decimals_bytes = call_view(IERC20::decimalsCall {}.abi_encode());
+		assert_eq!(IERC20::decimalsCall::abi_decode_returns(&decimals_bytes).unwrap(), 0u8);
+	});
+}
