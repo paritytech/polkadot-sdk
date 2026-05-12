@@ -179,6 +179,11 @@ impl<T: Config> Pallet<T> {
 		Self::slashable_balance_of_vote_weight(who, issuance)
 	}
 
+	/// Calculates the offence era from the slash application era.
+	pub(crate) fn offence_era_of(application_era: EraIndex) -> EraIndex {
+		application_era.saturating_sub(T::SlashDeferDuration::get())
+	}
+
 	/// Checks if a slash has been cancelled for the given era and slash parameters.
 	pub(crate) fn check_slash_cancelled(
 		era: EraIndex,
