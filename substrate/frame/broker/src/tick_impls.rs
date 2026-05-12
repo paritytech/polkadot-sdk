@@ -51,6 +51,7 @@ impl<T: Config> Pallet<T> {
 			meter.consume(T::WeightInfo::process_revenue());
 		}
 
+		// TODO: Fix gas charging.
 		if status.last_timeslice < Self::current_timeslice() {
 			status.last_timeslice.saturating_inc();
 			Self::last_timeslice_changed(&status, &mut meter);
@@ -197,9 +198,20 @@ impl<T: Config> Pallet<T> {
 				Self::refund(&who, amount).defensive_ok();
 			},
 			TickAction::ProcessAutoRenewals { after_timeslice, next_renewal_at } => {
-				// TODO: Consume weight.
+				let auto_renewals = AutoRenewals::<T>::get();
 
-				Self::renew_cores(after_timeslice, next_renewal_at);
+				meter.consume(T::WeightInfo::process_tick_action_process_auto_renewals(
+					auto_renewals.len().try_into().expect("Auto renewal count should fit u32"),
+				));
+
+				if let Ok(auto_renewals) =
+					Self::renew_cores(auto_renewals, after_timeslice, next_renewal_at)
+				{
+					AutoRenewals::<T>::set(auto_renewals);
+				} else {
+					Self::deposit_event(Event::<T>::AutoRenewalLimitReached);
+					return;
+				};
 			},
 			TickAction::SaleRotated { old_sale, new_sale } => {
 				if let Some(status) = Status::<T>::get() {
@@ -304,10 +316,12 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Renews all the cores which have auto-renewal enabled.
-	pub(crate) fn renew_cores(after_timeslice: Timeslice, next_renewal: Timeslice) {
-		let renewals = AutoRenewals::<T>::get();
-
-		let Ok(auto_renewals) = renewals
+	pub(crate) fn renew_cores(
+		auto_renewals: BoundedVec<AutoRenewalRecord, T::MaxAutoRenewals>,
+		after_timeslice: Timeslice,
+		next_renewal: Timeslice,
+	) -> Result<BoundedVec<AutoRenewalRecord, T::MaxAutoRenewals>, ()> {
+		auto_renewals
 			.into_iter()
 			.flat_map(|record| {
 				// Check if the next renewal is scheduled further in the future than the start of
@@ -351,12 +365,7 @@ impl<T: Config> Pallet<T> {
 			})
 			.collect::<Vec<AutoRenewalRecord>>()
 			.try_into()
-		else {
-			Self::deposit_event(Event::<T>::AutoRenewalLimitReached);
-			return;
-		};
-
-		AutoRenewals::<T>::set(auto_renewals);
+			.map_err(|_| ())
 	}
 
 	pub(crate) fn process_pool(when: Timeslice, status: &mut StatusRecord) {

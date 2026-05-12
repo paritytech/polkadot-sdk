@@ -38,6 +38,7 @@ use sp_runtime::{
 
 const SEED: u32 = 0;
 const MAX_CORE_COUNT: u16 = 1_000;
+const MAX_AUTO_RENEWAL_COUNT: u16 = 1_000;
 
 const REGION_PRICE: u32 = 10;
 const REGION_RENEWAL_PRICE: u32 = 20;
@@ -1260,6 +1261,81 @@ mod benches {
 			T::Currency::total_balance(&caller),
 			T::Currency::minimum_balance().saturating_add(DEPOSIT.into())
 		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn process_tick_action_process_auto_renewals(
+		n: Linear<0, { MAX_AUTO_RENEWAL_COUNT.into() }>,
+	) -> Result<(), BenchmarkError> {
+		let renewable_count = n;
+
+		setup_and_start_sale::<T>()?;
+		advance_to::<T>(2);
+
+		let region_end =
+			T::CoretimeMarket::get_region_end().map_err(|_| BenchmarkError::Weightless)?;
+		(0..renewable_count.into()).try_for_each(|indx| -> Result<(), BenchmarkError> {
+			let task = 1000 + indx;
+			let caller: T::AccountId = T::SovereignAccountOf::maybe_convert(task)
+				.expect("Failed to get sovereign account");
+			T::Currency::set_balance(
+				&caller.clone(),
+				T::Currency::minimum_balance()
+					.saturating_add(REGION_PRICE.into())
+					.saturating_add(REGION_PRICE.into()),
+			);
+
+			let region = purchase_and_get_region_id::<T>(caller.clone())
+				.expect("Offer not high enough for configuration.");
+
+			Broker::<T>::do_assign(region, None, task, Final)
+				.map_err(|_| BenchmarkError::Weightless)?;
+
+			Broker::<T>::do_enable_auto_renew(caller, region.core, task, Some(region_end))?;
+
+			Ok(())
+		})?;
+
+		let action = TickAction::ProcessAutoRenewals {
+			after_timeslice: region_end,
+			next_renewal_at: region_end.saturating_add(1),
+		};
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			Broker::<T>::process_tick_action(action, &mut meter);
+		}
+
+		let region_begin =
+			T::CoretimeMarket::get_region_begin().map_err(|_| BenchmarkError::Weightless)?;
+		let region_length = T::CoretimeMarket::get_region_end()
+			.map_err(|_| BenchmarkError::Weightless)?
+			.saturating_sub(region_begin);
+
+		// Make sure all cores got renewed:
+		(0..renewable_count).for_each(|indx| {
+			let task = 1000 + indx;
+			let who = T::SovereignAccountOf::maybe_convert(task)
+				.expect("Failed to get sovereign account");
+			assert_has_event::<T>(
+				Event::Renewed {
+					who,
+					old_core: indx as u16,
+					core: indx as u16,
+					price: REGION_PRICE.into(),
+					begin: region_begin,
+					duration: region_length,
+					workload: Schedule::truncate_from(vec![ScheduleItem {
+						assignment: Task(task),
+						mask: CoreMask::complete(),
+					}]),
+				}
+				.into(),
+			);
+		});
 
 		Ok(())
 	}

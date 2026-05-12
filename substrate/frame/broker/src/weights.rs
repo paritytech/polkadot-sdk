@@ -109,6 +109,7 @@ pub trait WeightInfo {
 	fn process_tick_action_renew_region() -> Weight;
 	fn process_tick_action_sell_region() -> Weight;
 	fn process_tick_action_refund() -> Weight;
+	fn process_tick_action_process_auto_renewals(n: u32) -> Weight;
 	fn process_tick_action_sale_rotated(n: u32) -> Weight;
 }
 
@@ -582,6 +583,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 
 	fn process_tick_action_refund() -> Weight {
+		Weight::zero()
+	}
+
+	fn process_tick_action_process_auto_renewals(n: u32) -> Weight {
 		Weight::zero()
 	}
 
@@ -1059,6 +1064,10 @@ impl WeightInfo for () {
 	}
 
 	fn process_tick_action_refund() -> Weight {
+		Weight::zero()
+	}
+
+	fn process_tick_action_process_auto_renewals(n: u32) -> Weight {
 		Weight::zero()
 	}
 
