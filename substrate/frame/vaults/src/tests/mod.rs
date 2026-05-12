@@ -19,6 +19,7 @@ mod interest_rate;
 mod last_vault;
 mod lifecycle;
 mod redemptions;
+mod redistribution_accounting;
 mod sorted_troves;
 
 use frame::deps::sp_runtime::FixedU128;

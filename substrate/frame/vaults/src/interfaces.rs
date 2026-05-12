@@ -3,6 +3,14 @@
 //! `VaultBadDebtInterface`.
 //!
 //! See `troves.md` §10.3, §10.4, §10.5.
+//!
+//! **FinalRecovery pricing (`troves.md` §7.6) is orchestrator-owned.** When
+//! the orchestrator calls `apply_redemption` against a `FinalRecovery` vault
+//! it is expected to have already applied the recovery-bonus / insurance-
+//! adjusted recovery-rate rules and pass the resulting `RedemptionAllocation`.
+//! The vault pallet treats FinalRecovery and ordinary vaults uniformly inside
+//! `apply_redemption` — only the redemption-order priority and stake exclusion
+//! differ.
 
 use crate::{
 	helpers, math,
@@ -111,6 +119,15 @@ where
 		if !redistributed_debt.is_zero() || !allocation.redistribution_collateral.is_zero() {
 			BranchStates::<T>::try_mutate(collateral_id, |maybe_bs| -> Result<_, DispatchError> {
 				let bs = maybe_bs.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
+				// Average recipient rate: weighted_stake_sum / total_stakes.
+				// This is the rate at which redistributed principal enters the
+				// branch's interest base. Per-vault reconciliation in
+				// `touch_vault` later replaces this avg-rate share with the
+				// recipient's own rate.
+				let avg_rate = math::average_branch_rate::<u128>(
+					bs.weighted_stake_sum.into(),
+					bs.total_stakes.into(),
+				);
 				BranchRedistStates::<T>::try_mutate(
 					collateral_id,
 					|maybe_redist| -> Result<_, DispatchError> {
@@ -148,6 +165,14 @@ where
 							redist.cumulative_redist_debt_time_per_stake = redist
 								.cumulative_redist_debt_time_per_stake
 								.saturating_add(now_fp.saturating_mul(debt_per_stake));
+							// Per-stake share of the avg-rate weighted contribution
+							// folded into the branch interest base. On touch, each
+							// recipient subtracts `stake * delta` from
+							// `weighted_interest_bearing_debt_sum` and adds back
+							// `applied_share * vault.annual_rate`.
+							redist.cumulative_redist_weight_per_stake = redist
+								.cumulative_redist_weight_per_stake
+								.saturating_add(debt_per_stake.saturating_mul(avg_rate));
 						}
 						Ok(())
 					},
@@ -155,11 +180,11 @@ where
 				bs.pending_redistribution_debt =
 					bs.pending_redistribution_debt.saturating_add(redistributed_debt);
 				bs.redist_epoch = bs.redist_epoch.saturating_add(1);
-				// Folded-in interest base immediately.
-				let weighted_share = math::weighted_stake::<u128>(
-					redistributed_debt.into(),
-					FixedU128::saturating_from_integer(1u128),
-				);
+				// Fold the redistributed principal into the branch interest base at
+				// the average recipient rate. Per-vault reconciliation in
+				// `touch_vault` replaces each recipient's share with its own rate.
+				let weighted_share =
+					math::weighted_stake::<u128>(redistributed_debt.into(), avg_rate);
 				bs.weighted_interest_bearing_debt_sum = bs
 					.weighted_interest_bearing_debt_sum
 					.saturating_add(BalanceOf::<T>::from(weighted_share));
@@ -181,7 +206,23 @@ where
 			)?;
 		}
 
-		// 3. Pay keeper.
+		// 3. Move offset.collateral to the offset recipient. The vault pallet
+		// owns this transfer so a buggy or stale orchestrator can't accidentally
+		// leak liquidated collateral back to the liquidatee as surplus.
+		if !allocation.offset.collateral.is_zero() {
+			let _ = T::CollateralAssets::transfer_on_hold(
+				collateral_id,
+				&HoldReason::VaultCollateral.into(),
+				&owner,
+				&allocation.offset.recipient,
+				allocation.offset.collateral,
+				Precision::Exact,
+				Restriction::Free,
+				Fortitude::Polite,
+			)?;
+		}
+
+		// 4. Pay keeper.
 		if !allocation.keeper.collateral.is_zero() {
 			let _ = T::CollateralAssets::transfer_on_hold(
 				collateral_id,
@@ -195,15 +236,12 @@ where
 			)?;
 		}
 
-		// 4. Surplus to owner (whatever is still on hold after offset/redist/keeper outflows).
+		// 5. Surplus to owner (whatever is still on hold after offset/redist/keeper outflows).
 		let after_outflow = T::CollateralAssets::balance_on_hold(
 			collateral_id,
 			&HoldReason::VaultCollateral.into(),
 			&owner,
 		);
-		// `offset.collateral` was assigned to the offset path; the
-		// orchestrator is expected to have already moved it. We release any
-		// remaining hold to the owner.
 		if !after_outflow.is_zero() {
 			T::CollateralAssets::release(
 				collateral_id,
@@ -214,7 +252,7 @@ where
 			)?;
 		}
 
-		// 5. Update branch collateral aggregate.
+		// 6. Update branch collateral aggregate.
 		BranchStates::<T>::mutate(collateral_id, |maybe| {
 			if let Some(bs) = maybe {
 				bs.total_collateral = bs
@@ -224,7 +262,7 @@ where
 			}
 		});
 
-		// 6. Remove vault row + redist snapshot.
+		// 7. Remove vault row + redist snapshot.
 		Vaults::<T>::remove(collateral_id, &owner);
 		VaultRedistSnapshots::<T>::remove(collateral_id, &owner);
 		Ok(())

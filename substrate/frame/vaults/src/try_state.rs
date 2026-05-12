@@ -4,23 +4,13 @@
 //! `next_block` and end-to-end by the runtime's pre-upgrade hook.
 
 use crate::{
-	pallet::{BalanceOf, BranchStates, Branches, Config, FinalRecoveryNodes, MomentOf, Vaults},
+	pallet::{BranchStates, Branches, Config, FinalRecoveryNodes, Vaults},
 	types::VaultStatus,
 };
-use frame::{
-	deps::sp_runtime::{
-		traits::{AtLeast32Bit, Saturating, Zero},
-		FixedU128,
-	},
-	try_runtime::TryRuntimeError,
-};
+use frame::try_runtime::TryRuntimeError;
 use pallet_linked_list::SortedListInterface;
 
-pub fn do_try_state<T: Config>() -> Result<(), TryRuntimeError>
-where
-	BalanceOf<T>: Copy + Zero + Saturating + Into<u128>,
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+pub fn do_try_state<T: Config>() -> Result<(), TryRuntimeError> {
 	let branches = Branches::<T>::get();
 	for c in branches.iter().copied() {
 		// (1) Per-vault membership rules.
@@ -72,7 +62,3 @@ where
 	}
 	Ok(())
 }
-
-// Silence unused-warning for `FixedU128` until additional invariants land.
-#[allow(unused_imports)]
-use FixedU128 as _Unused;

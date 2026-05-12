@@ -291,7 +291,7 @@ fn enable_frozen_mode_emits_mode_changed() {
 	});
 }
 
-// Governance setters emit ParameterUpdated.
+// Governance setters emit ParameterUpdated with the matching ParameterId.
 #[test]
 fn set_parameter_emits_parameter_updated() {
 	build_and_execute(|| {
@@ -301,7 +301,10 @@ fn set_parameter_emits_parameter_updated() {
 			DOT,
 			frame::deps::sp_runtime::FixedU128::from_rational(115u128, 100u128),
 		));
-		assert_event(crate::Event::ParameterUpdated { collateral_id: DOT });
+		assert_event(crate::Event::ParameterUpdated {
+			collateral_id: DOT,
+			parameter: crate::types::ParameterId::MinimumCollateralizationRatio,
+		});
 	});
 }
 

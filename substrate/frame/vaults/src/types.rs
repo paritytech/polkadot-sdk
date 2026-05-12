@@ -34,6 +34,10 @@ pub enum VaultStatus {
 
 /// Per-vault state. The vault's collateral lives on the `VaultCollateral`
 /// hold for `(owner, collateral_id)` and is intentionally NOT stored here.
+/// `stake` is the at-open snapshot of the vault's redistribution share — it
+/// is frozen for the vault's lifetime (deposits/withdrawals don't change it),
+/// matching `bs.total_stakes` accounting. Reads of "current collateral" go
+/// through `held_collateral(...)` not `vault.stake`.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
 )]
@@ -57,6 +61,10 @@ pub struct VaultRedistSnapshot {
 	pub collat_per_stake: FixedU128,
 	pub debt_per_stake: FixedU128,
 	pub debt_time_per_stake: FixedU128,
+	/// Snapshot of the branch's cumulative avg-rate weighted contribution per
+	/// stake. Used on touch to reconcile the recipient's share of the
+	/// avg-rate interest-base fold with the recipient's own rate.
+	pub weight_per_stake: FixedU128,
 }
 
 impl Default for VaultRedistSnapshot {
@@ -65,6 +73,7 @@ impl Default for VaultRedistSnapshot {
 			collat_per_stake: FixedU128::zero(),
 			debt_per_stake: FixedU128::zero(),
 			debt_time_per_stake: FixedU128::zero(),
+			weight_per_stake: FixedU128::zero(),
 		}
 	}
 }
@@ -113,12 +122,17 @@ pub struct BranchState<AccountId, Balance, Moment> {
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
 )]
-pub struct BranchRedistState<Balance> {
-	pub total_collateral_snapshot: Balance,
-	pub total_stakes_snapshot: Balance,
+pub struct BranchRedistState {
 	pub cumulative_redist_collat_per_stake: FixedU128,
 	pub cumulative_redist_debt_per_stake: FixedU128,
 	pub cumulative_redist_debt_time_per_stake: FixedU128,
+	/// Cumulative per-stake share of the avg-rate weighted contribution folded
+	/// into `weighted_interest_bearing_debt_sum` at liquidation. On vault
+	/// touch, `stake * (cumulative - snapshot)` is subtracted from
+	/// `weighted_interest_bearing_debt_sum` and the recipient's own-rate share
+	/// is added back. Tracks the "avg-rate at liquidation" delta that the
+	/// per-vault reconciliation needs to undo.
+	pub cumulative_redist_weight_per_stake: FixedU128,
 }
 
 /// FIFO node for the per-branch `FinalRecovery` queue.
@@ -129,6 +143,33 @@ pub struct FinalRecoveryNode<AccountId, Moment> {
 	pub prev: Option<AccountId>,
 	pub next: Option<AccountId>,
 	pub entered_at: Moment,
+}
+
+/// Identifier for the parameter changed by an `Event::ParameterUpdated`
+/// emission. Lets indexers filter governance changes without consulting the
+/// extrinsic call data.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Debug,
+)]
+pub enum ParameterId {
+	MinimumCollateralizationRatio,
+	InitialCollateralizationRatio,
+	SafetyCollateralizationRatio,
+	MinimumDebt,
+	MinimumCollateral,
+	BorrowRateBounds,
+	UpfrontFeePeriod,
+	RateAdjustmentCooldown,
+	RedistributionPenalty,
 }
 
 /// Manager-origin authorization tier.

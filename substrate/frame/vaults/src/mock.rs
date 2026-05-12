@@ -332,6 +332,7 @@ pub fn register_default_branch() {
 	)
 	.expect("register_branch ok");
 	set_price(DOT, FixedU128::from_rational(10u128, 1u128));
+	fund_redistribution_account_for(DOT);
 }
 
 pub fn register_branch_for(asset: AssetId) {
@@ -342,15 +343,31 @@ pub fn register_branch_for(asset: AssetId) {
 	)
 	.expect("register_branch ok");
 	set_price(asset, FixedU128::from_rational(10u128, 1u128));
+	fund_redistribution_account_for(asset);
 }
 
-// --- test helpers ---------------------------------------------------------
-//
-// These helpers cover the most common test setup primitives: time advance,
-// vault open with default hints, and trait-driven liquidation/redemption
-// (the pallet exposes both via traits, not extrinsics, because in production
-// the orchestration lives in `pallet-stability-pool` and `pallet-redemptions`
-// — pallets that don't yet exist).
+/// Mint a single existential deposit unit to the redistribution sub-account
+/// so it can receive on-hold transfers during a liquidation that redistributes
+/// collateral. The pallet's `register_branch` is expected to handle this in
+/// production (per DESIGN.md §5.3 "ensures the redistribution account can hold
+/// `c`") but currently doesn't — covered by Phase 3 grooming.
+pub fn fund_redistribution_account_for(asset: AssetId) {
+	use frame::deps::{
+		frame_support::traits::fungible::Mutate as FungibleMutate,
+		sp_runtime::traits::AccountIdConversion,
+	};
+	let pallet_account: AccountId = VaultsPalletId::get().into_account_truncating();
+	if asset == DOT {
+		let _ = <Balances as FungibleMutate<AccountId>>::mint_into(&pallet_account, 1);
+	} else {
+		let _ =
+			<Assets as frame::deps::frame_support::traits::fungibles::Mutate<AccountId>>::mint_into(
+				asset,
+				&pallet_account,
+				1,
+			);
+	}
+}
 
 /// Advance `pallet_timestamp` by `ms` milliseconds without touching block #.
 /// Use this for interest-accrual tests where only wall-clock matters.
@@ -401,10 +418,29 @@ pub fn liquidate(asset: AssetId, owner: AccountId) -> DispatchResult {
 			asset, owner,
 		)?;
 	let alloc = LiquidationAllocation {
-		offset: OffsetAllocation { debt: post_touch, collateral: 0 },
+		offset: OffsetAllocation { recipient: owner, debt: post_touch, collateral: 0 },
 		redistribution_collateral: 0,
 		keeper: KeeperCompensation { recipient: owner, collateral: 0 },
 	};
+	<Pallet<Test> as VaultLiquidationInterface<AccountId, AssetId, Balance>>::finalize_liquidation(
+		asset, owner, alloc,
+	)
+}
+
+/// Same as `liquidate` but the caller supplies the post-touch debt allocation.
+/// Used by redistribution-accounting tests that need an explicit
+/// offset / redistribution / keeper split. The `build` closure receives the
+/// post-touch debt and returns the `LiquidationAllocation`.
+pub fn liquidate_with(
+	asset: AssetId,
+	owner: AccountId,
+	build: impl FnOnce(Balance) -> LiquidationAllocation<AccountId, Balance>,
+) -> DispatchResult {
+	let post_touch =
+		<Pallet<Test> as VaultLiquidationInterface<AccountId, AssetId, Balance>>::prepare_liquidation(
+			asset, owner,
+		)?;
+	let alloc = build(post_touch);
 	<Pallet<Test> as VaultLiquidationInterface<AccountId, AssetId, Balance>>::finalize_liquidation(
 		asset, owner, alloc,
 	)
@@ -448,6 +484,12 @@ pub fn held(asset: AssetId, who: AccountId) -> Balance {
 		&HoldReason::VaultCollateral.into(),
 		&who,
 	)
+}
+
+/// Total balance of `(asset, who)` on the collateral surface (includes any hold).
+pub fn collateral_balance(asset: AssetId, who: AccountId) -> Balance {
+	use frame::deps::frame_support::traits::fungibles::Inspect as FungiblesInspect;
+	<VaultCollateralAssets as FungiblesInspect<AccountId>>::balance(asset, &who)
 }
 
 /// pUSD balance of `who`.

@@ -1,41 +1,16 @@
-//! `FinalRecovery` FIFO operations and settlement-pricing helpers.
+//! `FinalRecovery` FIFO operations.
 //!
-//! See `troves.md` §6 (FIFO ops) and §7.6 (recovery pricing).
+//! See `troves.md` §6 (FIFO ops). The §7.6 settlement-pricing surface is
+//! intentionally not implemented here — the redemption orchestrator pallet
+//! owns recovery-pricing math and passes the resulting `RedemptionAllocation`
+//! to `apply_redemption`.
 
 use crate::{
 	pallet::{BranchStates, Config, Error, Event, FinalRecoveryNodes, Pallet},
 	types::FinalRecoveryNode,
 };
 use alloc::vec::Vec;
-use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame::deps::{
-	frame_support::traits::Time,
-	sp_runtime::{
-		traits::{CheckedDiv, Saturating, Zero},
-		DispatchError, FixedPointNumber, FixedU128,
-	},
-};
-use scale_info::TypeInfo;
-
-/// Pricing regime applied to a `FinalRecovery` redemption / offset.
-#[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	Copy,
-	PartialEq,
-	Eq,
-	Debug,
-)]
-pub enum RecoveryPricing {
-	/// Vault CR >= 100%; redeemers receive face value plus a bounded bonus.
-	BonusAboveOneHundred,
-	/// Vault CR < 100%; redeemers receive `recovery_rate * x` collateral.
-	InsuranceAdjustedBelowOneHundred,
-}
+use frame::deps::{frame_support::traits::Time, sp_runtime::DispatchError};
 
 /// Append `owner` to the per-branch FIFO. Errors if already present.
 pub fn append<T: Config>(
@@ -150,100 +125,3 @@ pub fn queue_head<T: Config>(collateral_id: &T::AssetId, n: u32) -> Vec<T::Accou
 	out
 }
 
-/// Recovery settlement terms for a vault that's currently in `FinalRecovery`.
-///
-/// Computed from the vault's fully-accrued state at the current oracle price.
-/// The caller is expected to have already touched the vault before calling.
-#[allow(dead_code)]
-pub struct RecoveryTerms<Balance> {
-	pub pricing: RecoveryPricing,
-	/// Collateral the redeemer receives per pUSD burnt at the current oracle
-	/// price: in the bonus regime this is `(1 + bonus) / price`; in the
-	/// insurance-adjusted regime it is `recovery_rate / price`.
-	pub effective_per_pusd: FixedU128,
-	/// Maximum debt that can be cancelled in this settlement step.
-	pub max_cancellable_debt: Balance,
-	/// pUSD that the Insurance Fund must burn for residual bad debt — only
-	/// non-zero in the `InsuranceAdjustedBelowOneHundred` regime.
-	pub effective_cover: Balance,
-}
-
-/// Compute the settlement terms given the vault's accrued debt, current
-/// collateral, oracle price, redistribution penalty cap, and Insurance Fund
-/// balance.
-///
-/// Returns `None` if the price is zero (callers should treat that as
-/// `RecoveryPricingUnavailable`).
-#[allow(dead_code)]
-pub fn settlement_terms<Balance>(
-	debt: Balance,
-	collateral: Balance,
-	price: FixedU128,
-	redistribution_penalty: FixedU128,
-	insurance_fund_balance: Balance,
-) -> Option<RecoveryTerms<Balance>>
-where
-	Balance: Copy + Zero + Saturating + Ord + From<u128> + Into<u128>,
-{
-	if price.is_zero() {
-		return None;
-	}
-	let d: u128 = debt.into();
-	let c: u128 = collateral.into();
-	if d == 0 {
-		return Some(RecoveryTerms {
-			pricing: RecoveryPricing::BonusAboveOneHundred,
-			effective_per_pusd: FixedU128::zero(),
-			max_cancellable_debt: Balance::zero(),
-			effective_cover: Balance::zero(),
-		});
-	}
-
-	let collateral_value = price.saturating_mul(FixedU128::saturating_from_integer(c));
-	// `d > 0` is asserted at L193, so `denom_d` is non-zero. We still go through
-	// `checked_div` rather than `/` to avoid the panicking-on-overflow branch.
-	let denom_d = FixedU128::saturating_from_integer(d);
-	let cr = collateral_value.checked_div(&denom_d)?;
-	let one = FixedU128::saturating_from_integer(1u128);
-
-	if cr >= one {
-		let raw_bonus = cr.saturating_sub(one);
-		let bonus = raw_bonus.min(redistribution_penalty);
-		let multiplier = one.saturating_add(bonus);
-		// `price > 0` is asserted at L188-190, so this `checked_div` only
-		// returns `None` on overflow — propagate as `None` then.
-		let effective_per_pusd = multiplier.checked_div(&price)?;
-		Some(RecoveryTerms {
-			pricing: RecoveryPricing::BonusAboveOneHundred,
-			effective_per_pusd,
-			max_cancellable_debt: debt,
-			effective_cover: Balance::zero(),
-		})
-	} else {
-		let shortfall = d.saturating_sub(c);
-		let cover = core::cmp::min::<u128>(insurance_fund_balance.into(), shortfall);
-		let market_cancel_debt = d.saturating_sub(cover);
-		if market_cancel_debt == 0 {
-			return Some(RecoveryTerms {
-				pricing: RecoveryPricing::InsuranceAdjustedBelowOneHundred,
-				effective_per_pusd: FixedU128::zero(),
-				max_cancellable_debt: Balance::zero(),
-				effective_cover: Balance::from(cover),
-			});
-		}
-		let recovery_rate = if c == 0 {
-			FixedU128::zero()
-		} else {
-			// `market_cancel_debt > 0` per the early-return above.
-			FixedU128::saturating_from_integer(c)
-				.checked_div(&FixedU128::saturating_from_integer(market_cancel_debt))?
-		};
-		let effective_per_pusd = recovery_rate.checked_div(&price)?;
-		Some(RecoveryTerms {
-			pricing: RecoveryPricing::InsuranceAdjustedBelowOneHundred,
-			effective_per_pusd,
-			max_cancellable_debt: Balance::from(market_cancel_debt),
-			effective_cover: Balance::from(cover),
-		})
-	}
-}

@@ -7,10 +7,15 @@ use scale_info::TypeInfo;
 /// Debt cancelled by external pUSD (Stability Pool + JIT combined) and the
 /// matching collateral credited to the offset path. The orchestrator may
 /// internally split the collateral across standing depositors and JIT.
+///
+/// `recipient` is the account that receives `collateral` — the vault pallet
+/// moves it inline during `finalize_liquidation`, so the orchestrator never
+/// needs to take possession of liquidated collateral itself.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
 )]
-pub struct OffsetAllocation<Balance> {
+pub struct OffsetAllocation<AccountId, Balance> {
+	pub recipient: AccountId,
 	pub debt: Balance,
 	pub collateral: Balance,
 }
@@ -34,7 +39,7 @@ pub struct KeeperCompensation<AccountId, Balance> {
 	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
 )]
 pub struct LiquidationAllocation<AccountId, Balance> {
-	pub offset: OffsetAllocation<Balance>,
+	pub offset: OffsetAllocation<AccountId, Balance>,
 	pub redistribution_collateral: Balance,
 	pub keeper: KeeperCompensation<AccountId, Balance>,
 }

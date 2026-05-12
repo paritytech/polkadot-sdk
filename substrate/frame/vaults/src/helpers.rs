@@ -12,7 +12,7 @@ use crate::{
 	recovery,
 	types::{
 		BranchConfig, BranchMode, BranchState, FrozenReason, FrozenState, Vault,
-		VaultRedistSnapshot, VaultStatus, VaultsManagerLevel,
+		VaultRedistSnapshot, VaultStatus,
 	},
 	weights::WeightInfo,
 };
@@ -31,9 +31,8 @@ use frame::{
 			weights::Weight,
 		},
 		sp_runtime::{
-			helpers_128bit::multiply_by_rational_with_rounding,
 			traits::{AtLeast32Bit, CheckedDiv, Saturating, Zero},
-			DispatchError, FixedPointNumber, FixedU128, Permill, Rounding,
+			DispatchError, FixedPointNumber, FixedU128, Permill,
 		},
 	},
 	prelude::*,
@@ -310,14 +309,20 @@ where
 			bs.pending_redistribution_debt.saturating_sub(u128_to_b::<T>(actual));
 		bs.total_interest_bearing_debt =
 			bs.total_interest_bearing_debt.saturating_add(u128_to_b::<T>(actual));
-		// Reconcile weighted contribution: increment by floor(actual * rate).
-		let weighted_delta = math::weighted_stake::<u128>(actual, vault.annual_rate);
-		// `weighted_interest_bearing_debt_sum` already had this principal
-		// folded in at liquidation time, so we don't need to add again here.
-		// The redistribution pre-incremented based on `weighted_stake_sum`,
-		// not exact per-vault rate, so any difference is dust and stays in
-		// branch accounting.
-		let _ = weighted_delta;
+		// Reconcile this vault's share of the avg-rate weighted contribution
+		// that was folded into the branch interest base at liquidation. Subtract
+		// the avg-rate share, add the recipient-rate share.
+		let snap = VaultRedistSnapshots::<T>::get(collateral_id, owner).unwrap_or_default();
+		let delta_weight_per_stake =
+			redist.cumulative_redist_weight_per_stake.saturating_sub(snap.weight_per_stake);
+		let stake_fp = FixedU128::saturating_from_integer(b_to_u128::<T>(vault.stake));
+		let weight_to_remove =
+			delta_weight_per_stake.saturating_mul(stake_fp).saturating_mul_int(1u128);
+		let weight_to_add = math::weighted_stake::<u128>(actual, vault.annual_rate);
+		bs.weighted_interest_bearing_debt_sum = bs
+			.weighted_interest_bearing_debt_sum
+			.saturating_sub(u128_to_b::<T>(weight_to_remove))
+			.saturating_add(u128_to_b::<T>(weight_to_add));
 		vault.interest_bearing_debt =
 			vault.interest_bearing_debt.saturating_add(u128_to_b::<T>(actual));
 	}
@@ -349,6 +354,7 @@ where
 				collat_per_stake: redist.cumulative_redist_collat_per_stake,
 				debt_per_stake: redist.cumulative_redist_debt_per_stake,
 				debt_time_per_stake: redist.cumulative_redist_debt_time_per_stake,
+				weight_per_stake: redist.cumulative_redist_weight_per_stake,
 			},
 		);
 		// Re-stamp doesn't change `redist`'s accumulators; re-fetching is a
@@ -357,92 +363,13 @@ where
 	}
 	vault.last_interest_update = now;
 
-	// 5. If FinalRecovery and fully accrued CR >= MCR, exit FinalRecovery.
-	if matches!(vault.status, VaultStatus::FinalRecovery) {
-		if let Ok(price_feed) = T::Oracle::provide_price(&collateral_id) {
-			let cfg = branch_cfg_of::<T>(collateral_id)?;
-			let coll = held_collateral::<T>(collateral_id, owner);
-			let total_debt = vault.interest_bearing_debt.saturating_add(vault.accrued_interest);
-			if let Some(cr) =
-				math::collateralization_ratio::<BalanceOf<T>>(coll, total_debt, price_feed.price)
-			{
-				if cr >= cfg.minimum_collateralization_ratio {
-					// Exit recovery: remove from FIFO, return to rate index,
-					// re-add stake/weighted contribution.
-					let old_status = vault.status;
-					vault.status = VaultStatus::Active;
-					Vaults::<T>::insert(collateral_id, owner, vault.clone());
-					BranchStates::<T>::insert(collateral_id, &bs);
-					BranchRedistStates::<T>::insert(collateral_id, &redist);
-					recovery::remove::<T>(&collateral_id, owner)?;
-					BranchStates::<T>::try_mutate(
-						collateral_id,
-						|maybe| -> Result<_, DispatchError> {
-							let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-							bs.total_stakes = bs.total_stakes.saturating_add(vault.stake);
-							bs.weighted_stake_sum = bs.weighted_stake_sum.saturating_add(
-								u128_to_b::<T>(math::weighted_stake::<u128>(
-									b_to_u128::<T>(vault.stake),
-									vault.annual_rate,
-								)),
-							);
-							bs.weighted_interest_bearing_debt_sum = bs
-								.weighted_interest_bearing_debt_sum
-								.saturating_add(u128_to_b::<T>(math::weighted_stake::<u128>(
-									b_to_u128::<T>(vault.interest_bearing_debt),
-									vault.annual_rate,
-								)));
-							Ok(())
-						},
-					)?;
-					let position = T::RateIndex::find_position(&collateral_id, vault.annual_rate);
-					T::RateIndex::insert(collateral_id, owner.clone(), vault.annual_rate, position)
-						.map_err(|_| Error::<T>::InvalidPositionHints)?;
-					Pallet::<T>::deposit_event(Event::VaultStatusChanged {
-						collateral_id,
-						owner: owner.clone(),
-						old_status,
-						new_status: VaultStatus::Active,
-					});
-					return Ok(());
-				}
-			}
-		}
-	}
-
-	// 6. Persist.
+	// 5. Persist. FinalRecovery exit is no longer auto-applied here; callers
+	// (typically the dedicated `exit_final_recovery` extrinsic) own the
+	// rate-index reinsertion so the caller supplies the O(1) hints.
 	Vaults::<T>::insert(collateral_id, owner, vault);
 	BranchStates::<T>::insert(collateral_id, &bs);
 	BranchRedistStates::<T>::insert(collateral_id, &redist);
 	Ok(())
-}
-
-/// Compute a vault's stake from `(initial_collateral, branch_redist_state)`.
-///
-/// In Liquity V2's accounting, stake = collateral * stakes_snapshot /
-/// collateral_snapshot. Pre-liquidation, snapshot ratio is 1:1, so stake =
-/// collateral. We replicate the same formula here for forward-compatibility.
-pub fn compute_stake<T: Config>(
-	collateral: BalanceOf<T>,
-	redist: &crate::types::BranchRedistState<BalanceOf<T>>,
-) -> BalanceOf<T>
-where
-	BalanceOf<T>: Copy + Zero + Saturating + From<u128> + Into<u128>,
-{
-	let coll_snap = b_to_u128::<T>(redist.total_collateral_snapshot);
-	let stake_snap = b_to_u128::<T>(redist.total_stakes_snapshot);
-	let coll = b_to_u128::<T>(collateral);
-	if coll_snap == 0 || stake_snap == 0 {
-		return collateral;
-	}
-	// `coll * stake_snap / coll_snap` — done via `multiply_by_rational_with_rounding`
-	// (256-bit intermediate) so a saturating-multiply doesn't pin the
-	// numerator at `u128::MAX` and lose precision. Rounds DOWN — stake is
-	// in the protocol's favor only when smaller, mirroring Liquity V2's
-	// integer-division behavior on the same formula.
-	let raw = multiply_by_rational_with_rounding(coll, stake_snap, coll_snap, Rounding::Down)
-		.unwrap_or(u128::MAX);
-	u128_to_b::<T>(raw)
 }
 
 /// Validate the rate is within branch bounds.
@@ -544,10 +471,12 @@ where
 
 	let upfront_fee = open_upfront_fee::<T>(&bs_before, &cfg, initial_debt, annual_rate);
 
-	// Compute stake from current redist snapshot.
 	let redist =
 		BranchRedistStates::<T>::get(collateral_id).ok_or(Error::<T>::UnknownCollateral)?;
-	let stake = compute_stake::<T>(initial_collateral, &redist);
+	// Stake at open is the initial collateral; it stays frozen through the
+	// vault's lifetime so the per-stake redistribution math is internally
+	// consistent with `bs.total_stakes`. (See `Vault.stake` doc.)
+	let stake = initial_collateral;
 
 	// Build vault.
 	let vault = Vault {
@@ -612,6 +541,7 @@ where
 			collat_per_stake: redist.cumulative_redist_collat_per_stake,
 			debt_per_stake: redist.cumulative_redist_debt_per_stake,
 			debt_time_per_stake: redist.cumulative_redist_debt_time_per_stake,
+			weight_per_stake: redist.cumulative_redist_weight_per_stake,
 		},
 	);
 
@@ -640,6 +570,10 @@ where
 	Ok(())
 }
 
+/// Permissionless deposit. Intentionally accepts deposits to `Dormant` vaults
+/// without requiring same-op revival to `Debt >= MinimumDebt`: a deposit is
+/// strictly TCR-improving so there is no economic reason to gate it. (This
+/// is a deliberate relaxation of DESIGN.md §4.3.)
 pub fn deposit_collateral_for<T: Config>(
 	from: T::AccountId,
 	owner: T::AccountId,
@@ -690,13 +624,20 @@ where
 {
 	ensure_not_frozen::<T>(collateral_id)?;
 	let recipient = recipient.unwrap_or(owner.clone());
-	let mut vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
-	ensure!(!matches!(vault.status, VaultStatus::FinalRecovery), Error::<T>::VaultInFinalRecovery);
+	// Pre-touch status check; re-read after touch for fresh debt fields.
+	{
+		let pre_vault =
+			Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
+		ensure!(
+			!matches!(pre_vault.status, VaultStatus::FinalRecovery),
+			Error::<T>::VaultInFinalRecovery
+		);
+	}
 
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(collateral_id, now)?;
 	touch_vault::<T>(collateral_id, &owner, now)?;
-	vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
+	let vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
 
 	let cfg = branch_cfg_of::<T>(collateral_id)?;
 	let bs_before = branch_state_of::<T>(collateral_id)?;
@@ -1242,31 +1183,76 @@ where
 	Ok(())
 }
 
-pub fn refresh_branch<T: Config>(collateral_id: T::AssetId) -> Result<(), DispatchError>
+/// Permissionless explicit `FinalRecovery` exit. Touches the vault, checks
+/// the fully-accrued CR is at or above the MCR, then re-adds stake +
+/// weighted contributions and reinserts into the rate index using the
+/// caller-supplied `(hint_prev, hint_next)` hints so the operation is O(1)
+/// (or O(MaxHintRepairSteps) for stale hints, bounded by the linked-list
+/// crate's repair budget).
+pub fn exit_final_recovery<T: Config>(
+	owner: T::AccountId,
+	collateral_id: T::AssetId,
+	hint_prev: Option<T::AccountId>,
+	hint_next: Option<T::AccountId>,
+) -> Result<(), DispatchError>
 where
-	BalanceOf<T>: Copy + Zero + From<u128> + Into<u128>,
+	BalanceOf<T>: Copy + Zero + Saturating + Ord + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
-	let bs = branch_state_of::<T>(collateral_id)?;
-	let frozen = bs.frozen.ok_or(Error::<T>::BranchNotFrozen)?;
-	match frozen.reason {
-		FrozenReason::OracleFailure => {
-			// Verify oracle now provides a fresh price; if so, clear.
-			oracle_price::<T>(collateral_id)?;
-			BranchStates::<T>::mutate(collateral_id, |maybe| {
-				if let Some(b) = maybe {
-					b.frozen = None;
-				}
-			});
-			Pallet::<T>::deposit_event(Event::ModeChanged {
-				collateral_id,
-				old_mode: BranchMode::Frozen,
-				new_mode: BranchMode::Normal,
-			});
-			Ok(())
-		},
-		FrozenReason::Governance => Err(Error::<T>::FrozenStateUnresolvable.into()),
-	}
+	ensure_not_frozen::<T>(collateral_id)?;
+	let now = T::TimeProvider::now();
+	update_aggregate_interest::<T>(collateral_id, now)?;
+	touch_vault::<T>(collateral_id, &owner, now)?;
+	let mut vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
+	ensure!(
+		matches!(vault.status, VaultStatus::FinalRecovery),
+		Error::<T>::InvalidVaultStatus
+	);
+
+	let cfg = branch_cfg_of::<T>(collateral_id)?;
+	let coll = held_collateral::<T>(collateral_id, &owner);
+	let total_debt = vault.interest_bearing_debt.saturating_add(vault.accrued_interest);
+	let price = oracle_price::<T>(collateral_id)?.price;
+	let cr = math::collateralization_ratio::<BalanceOf<T>>(coll, total_debt, price)
+		.ok_or(Error::<T>::UnsafeCollateralizationRatio)?;
+	ensure!(cr >= cfg.minimum_collateralization_ratio, Error::<T>::UnsafeCollateralizationRatio);
+
+	// Remove from FIFO, restore stake + weighted contributions, reinsert into
+	// the rate index using caller-supplied hints.
+	recovery::remove::<T>(&collateral_id, &owner)?;
+	BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
+		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
+		bs.total_stakes = bs.total_stakes.saturating_add(vault.stake);
+		bs.weighted_stake_sum =
+			bs.weighted_stake_sum.saturating_add(u128_to_b::<T>(math::weighted_stake::<u128>(
+				b_to_u128::<T>(vault.stake),
+				vault.annual_rate,
+			)));
+		bs.weighted_interest_bearing_debt_sum = bs
+			.weighted_interest_bearing_debt_sum
+			.saturating_add(u128_to_b::<T>(math::weighted_stake::<u128>(
+				b_to_u128::<T>(vault.interest_bearing_debt),
+				vault.annual_rate,
+			)));
+		Ok(())
+	})?;
+	let old_status = vault.status;
+	vault.status = VaultStatus::Active;
+	Vaults::<T>::insert(collateral_id, &owner, &vault);
+	T::RateIndex::insert(
+		collateral_id,
+		owner.clone(),
+		vault.annual_rate,
+		Position { prev: hint_prev, next: hint_next },
+	)
+	.map_err(|_| Error::<T>::InvalidPositionHints)?;
+	Pallet::<T>::deposit_event(Event::VaultStatusChanged {
+		collateral_id,
+		owner,
+		old_status,
+		new_status: VaultStatus::Active,
+	});
+	Ok(())
 }
 
 pub fn register_branch<T: Config>(
@@ -1305,63 +1291,40 @@ where
 	BranchRedistStates::<T>::insert(
 		collateral_id,
 		crate::types::BranchRedistState {
-			total_collateral_snapshot: BalanceOf::<T>::zero(),
-			total_stakes_snapshot: BalanceOf::<T>::zero(),
 			cumulative_redist_collat_per_stake: FixedU128::zero(),
 			cumulative_redist_debt_per_stake: FixedU128::zero(),
 			cumulative_redist_debt_time_per_stake: FixedU128::zero(),
+			cumulative_redist_weight_per_stake: FixedU128::zero(),
 		},
 	);
 	Pallet::<T>::deposit_event(Event::BranchRegistered { collateral_id });
 	Ok(())
 }
 
-/// Apply a branch-config update under the given manager level. The closure
-/// returns whether the change is "defensive" — `true` iff the change either
-/// matches `Defensive`'s strictly-tightening contract or is one of the
-/// non-defensive parameters that callers have already pre-validated as Full.
-pub fn governance_set_param<T: Config, F>(
-	level: VaultsManagerLevel,
+/// Apply `mutator` to the branch config and emit `ParameterUpdated`. Caller
+/// is responsible for any defensive-action / authorization gating.
+pub fn update_branch_config<T: Config, F>(
 	collateral_id: T::AssetId,
+	parameter: crate::types::ParameterId,
 	mutator: F,
 ) -> Result<(), DispatchError>
 where
-	F: FnOnce(&mut BranchConfig<BalanceOf<T>, MomentOf<T>>) -> bool,
+	F: FnOnce(&mut BranchConfig<BalanceOf<T>, MomentOf<T>>),
 {
 	BranchConfigs::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
 		let cfg = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-		let is_defensive = mutator(cfg);
-		if matches!(level, VaultsManagerLevel::Defensive) && !is_defensive {
-			return Err(Error::<T>::DefensiveActionNotDefensive.into());
-		}
+		mutator(cfg);
 		Ok(())
 	})?;
-	Pallet::<T>::deposit_event(Event::ParameterUpdated { collateral_id });
+	Pallet::<T>::deposit_event(Event::ParameterUpdated { collateral_id, parameter });
 	Ok(())
 }
 
-pub fn governance_set_debt_ceiling<T: Config>(
-	level: VaultsManagerLevel,
+/// Convenience: read a branch's current config (or error `UnknownCollateral`).
+pub fn current_branch_config<T: Config>(
 	collateral_id: T::AssetId,
-	value: BalanceOf<T>,
-) -> Result<(), DispatchError>
-where
-	BalanceOf<T>: Copy + Ord,
-{
-	BranchConfigs::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
-		let cfg = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-		let old = cfg.debt_ceiling;
-		if matches!(level, VaultsManagerLevel::Defensive) && value > old {
-			return Err(Error::<T>::DefensiveActionNotDefensive.into());
-		}
-		cfg.debt_ceiling = value;
-		Pallet::<T>::deposit_event(Event::DebtCeilingUpdated {
-			collateral_id,
-			old_value: old,
-			new_value: value,
-		});
-		Ok(())
-	})
+) -> Result<BranchConfig<BalanceOf<T>, MomentOf<T>>, DispatchError> {
+	BranchConfigs::<T>::get(collateral_id).ok_or_else(|| Error::<T>::UnknownCollateral.into())
 }
 
 pub fn enable_frozen_mode<T: Config>(collateral_id: T::AssetId) -> Result<(), DispatchError>
@@ -1649,11 +1612,23 @@ where
 	}
 	let mut consumed = Weight::zero();
 	let mut budget = T::MaxOnIdleVaultRefresh::get();
+	let touch_one = |collateral_id: T::AssetId, owner: &T::AccountId| -> bool {
+		// Returns `true` iff a touch landed (budget consumed); `false` to stop.
+		if Vaults::<T>::get(collateral_id, owner).is_none() {
+			return true;
+		}
+		let now = T::TimeProvider::now();
+		if update_aggregate_interest::<T>(collateral_id, now).is_err() {
+			return false;
+		}
+		let _ = touch_vault::<T>(collateral_id, owner, now);
+		true
+	};
 	for collateral_id in Branches::<T>::get().into_iter() {
 		if budget == 0 || (remaining.saturating_sub(consumed)).any_lt(per_call) {
 			break;
 		}
-		// Pick the next owner to refresh: cursor or rate-index head.
+		// (1) Rate-index walk using the cursor.
 		let mut cursor =
 			OnIdleCursor::<T>::get(collateral_id).or_else(|| T::RateIndex::head(&collateral_id));
 		while budget > 0 {
@@ -1661,16 +1636,9 @@ where
 				Some(o) => o,
 				None => break,
 			};
-			if Vaults::<T>::get(collateral_id, &owner).is_none() {
-				cursor = None;
+			if !touch_one(collateral_id, &owner) {
 				break;
 			}
-			let now = T::TimeProvider::now();
-			if update_aggregate_interest::<T>(collateral_id, now).is_err() {
-				break;
-			}
-			let _ = touch_vault::<T>(collateral_id, &owner, now);
-			// Advance.
 			cursor = T::RateIndex::neighbors(&collateral_id, &owner).and_then(|p| p.next);
 			budget = budget.saturating_sub(1);
 			consumed = consumed.saturating_add(per_call);
@@ -1679,12 +1647,30 @@ where
 			}
 		}
 		OnIdleCursor::<T>::set(collateral_id, cursor);
+
+		// (2) FinalRecovery FIFO head — single touch per pass.
+		if budget > 0 && !(remaining.saturating_sub(consumed)).any_lt(per_call) {
+			if let Some(owner) = BranchStates::<T>::get(collateral_id)
+				.and_then(|s| s.final_recovery_head)
+			{
+				if touch_one(collateral_id, &owner) {
+					budget = budget.saturating_sub(1);
+					consumed = consumed.saturating_add(per_call);
+				}
+			}
+		}
+
+		// (3) Dormant continuation pointer — single touch per pass.
+		if budget > 0 && !(remaining.saturating_sub(consumed)).any_lt(per_call) {
+			if let Some(owner) = BranchStates::<T>::get(collateral_id)
+				.and_then(|s| s.last_dormant_vault_owner)
+			{
+				if touch_one(collateral_id, &owner) {
+					budget = budget.saturating_sub(1);
+					consumed = consumed.saturating_add(per_call);
+				}
+			}
+		}
 	}
 	consumed
-}
-
-#[cfg(any(test, feature = "runtime-benchmarks"))]
-#[allow(dead_code)]
-fn _hooks_smoke<T: Config>() {
-	let _ = <Pallet<T> as Hooks<frame_system::pallet_prelude::BlockNumberFor<T>>>::on_idle;
 }
