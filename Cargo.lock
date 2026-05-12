@@ -17506,7 +17506,6 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
- "pallet-transaction-storage",
  "pallet-treasury",
  "pallet-tx-pause",
  "pallet-uniques",
