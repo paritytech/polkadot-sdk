@@ -90,9 +90,10 @@ pub fn neighbor_priorities_admit<T: Config>(
 	priority: &T::Priority,
 	pos: &Position<T::ItemId>,
 ) -> bool {
-	let prev_ok = pos.prev.as_ref().is_none_or(|p| {
-		ListNodes::<T>::get(list_id, p).is_some_and(|n| n.priority >= *priority)
-	});
+	let prev_ok = pos
+		.prev
+		.as_ref()
+		.is_none_or(|p| ListNodes::<T>::get(list_id, p).is_some_and(|n| n.priority >= *priority));
 	let next_ok = pos.next.as_ref().is_none_or(|n| {
 		ListNodes::<T>::get(list_id, n).is_some_and(|node| *priority > node.priority)
 	});
@@ -109,13 +110,13 @@ pub fn neighbor_priorities_admit<T: Config>(
 /// `next`; clears at most one side per call so each clamp counts as a distinct
 /// repair step.
 fn try_clamp_dangling<T: Config>(list_id: &T::ListId, current: &mut Position<T::ItemId>) -> bool {
-	if let Some(p) = current.prev.as_ref() {
+	if let Some(p) = &current.prev {
 		if !ListNodes::<T>::contains_key(list_id, p) {
 			current.prev = None;
 			return true;
 		}
 	}
-	if let Some(n) = current.next.as_ref() {
+	if let Some(n) = &current.next {
 		if !ListNodes::<T>::contains_key(list_id, n) {
 			current.next = None;
 			return true;

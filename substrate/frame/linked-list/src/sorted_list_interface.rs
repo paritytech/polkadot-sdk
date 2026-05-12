@@ -17,7 +17,7 @@
 
 //! Consumer-facing trait surface for the sorted list.
 
-use crate::{list, pallet::*, view_helpers, Position};
+use crate::{list, pallet::*, view_helpers, Outcome, Position};
 use alloc::vec::Vec;
 use frame::deps::frame_support::{
 	storage::{transactional::with_transaction_opaque_err, TransactionOutcome},
@@ -85,7 +85,8 @@ pub trait SortedListInterface<ListId, ItemId> {
 
 	/// Re-insert `(list_id, item)` at `new_priority`. Updates the priority in place
 	/// when the existing neighbors still admit it; otherwise splices the item
-	/// out and re-inserts at the hint.
+	/// out and re-inserts at the hint. The returned [`Outcome`] tells the
+	/// caller which path ran so the matching weight can be charged.
 	///
 	/// # Errors
 	///
@@ -98,7 +99,7 @@ pub trait SortedListInterface<ListId, ItemId> {
 		item: ItemId,
 		new_priority: Self::Priority,
 		hint: Position<ItemId>,
-	) -> Result<u32, Self::Error>;
+	) -> Result<Outcome, Self::Error>;
 
 	/// Highest-priority item in `list_id`, or `None` if empty.
 	fn head(list_id: &ListId) -> Option<ItemId>;
@@ -188,13 +189,13 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 		item: T::ItemId,
 		new_priority: T::Priority,
 		hint: Position<T::ItemId>,
-	) -> Result<u32, Error<T>> {
+	) -> Result<Outcome, Error<T>> {
 		let existing = ListNodes::<T>::get(&list_id, &item).ok_or(Error::<T>::ItemNotFound)?;
 		let old_priority = existing.priority;
 
 		// Fast path: same priority.
 		if old_priority == new_priority {
-			return Ok(0);
+			return Ok(Outcome::InPlace);
 		}
 
 		// Fast path: existing neighbors still admit the new priority, mutate in place.
@@ -211,7 +212,7 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 				old_priority,
 				new_priority,
 			});
-			return Ok(0);
+			return Ok(Outcome::InPlace);
 		}
 
 		// Slow path: splice + re-insert. Wrapped in a nested storage layer so
@@ -232,7 +233,7 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 		// `Err(())` only fires on transactional-layer nesting overflow.
 		let steps = outer.map_err(|()| Error::<T>::InvalidPositionHints)??;
 		Self::deposit_event(Event::ItemReinserted { list_id, item, old_priority, new_priority });
-		Ok(steps)
+		Ok(Outcome::Relocated { steps })
 	}
 
 	fn head(list_id: &T::ListId) -> Option<T::ItemId> {

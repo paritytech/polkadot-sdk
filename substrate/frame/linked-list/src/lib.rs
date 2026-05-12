@@ -51,7 +51,7 @@ use frame::prelude::*;
 pub use list::Node;
 pub use pallet::*;
 pub use sorted_list_interface::{PriorityProvider, SortedListInterface};
-pub use types::{Position, Side};
+pub use types::{Outcome, Position, Side};
 
 /// Benchmark fixture: overrides the authoritative priority used by
 /// [`PriorityProvider`] so the `reprioritize` benchmark can simulate priority drift.
@@ -286,7 +286,12 @@ pub mod pallet {
 		/// the new position; stale hints are repaired up to
 		/// `MaxHintRepairSteps`.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::reprioritize(T::MaxHintRepairSteps::get()))]
+		#[pallet::weight(
+			T::WeightInfo::reprioritize_no_op()
+				.max(T::WeightInfo::reprioritize_in_place())
+				.max(T::WeightInfo::reprioritize_relocate(T::MaxHintRepairSteps::get()))
+				.max(T::WeightInfo::reprioritize_priority_removed())
+		)]
 		pub fn reprioritize(
 			origin: OriginFor<T>,
 			list_id: T::ListId,

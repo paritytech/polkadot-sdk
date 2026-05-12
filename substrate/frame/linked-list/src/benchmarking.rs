@@ -154,30 +154,109 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// `reprioritize` parametric over the hint-repair walk length `s`.
-	///
-	/// Setup: seed `s + 2` items at strictly descending priorities, drift the
-	/// item at index `s` above the head, and supply a hint that, after the
-	/// internal splice, sits exactly `s` head-ward steps away from the new
-	/// position. `s = 0` exercises the splice + immediate-valid-hint path.
-	/// Drift is set up via [`crate::BenchmarkHelper::set_priority`].
+	/// `reprioritize` when the stored priority already matches the authoritative
+	/// priority: one `ListNodes` read and an early return.
 	#[benchmark]
-	fn reprioritize(s: Linear<0, { T::MaxHintRepairSteps::get() }>) -> Result<(), BenchmarkError> {
+	fn reprioritize_no_op() -> Result<(), BenchmarkError> {
+		let list_id: T::ListId = 0u32.into();
+		let seeded = seed_chain::<T>(&list_id, 3);
+		let target = seeded[1].clone();
+		// `seed_chain` sets target's stored priority to 130; pin the authoritative
+		// priority to the same value so the drift check returns equal.
+		T::BenchmarkHelper::set_priority(&list_id, &target, 130u32.into());
+		let caller: T::AccountId = whitelisted_caller();
+
+		#[extrinsic_call]
+		reprioritize(
+			RawOrigin::Signed(caller),
+			list_id.clone(),
+			target.clone(),
+			Position::endpoints_only(),
+		);
+
+		assert_eq!(ListNodes::<T>::get(&list_id, &target).map(|n| n.priority), Some(130u32.into()));
+		Ok(())
+	}
+
+	/// `reprioritize` on the in-place fast path: the authoritative priority
+	/// differs from stored but still fits between the current neighbors, so
+	/// `re_insert` mutates the node without moving it.
+	#[benchmark]
+	fn reprioritize_in_place() -> Result<(), BenchmarkError> {
+		let list_id: T::ListId = 0u32.into();
+		let seeded = seed_chain::<T>(&list_id, 3);
+		let target = seeded[1].clone();
+		// `seed_chain` priorities target/neighbors at 130/(140, 120); 125 stays
+		// between, so `neighbor_priorities_admit` succeeds and `re_insert` takes
+		// the in-place fast path.
+		T::BenchmarkHelper::set_priority(&list_id, &target, 125u32.into());
+		let caller: T::AccountId = whitelisted_caller();
+
+		#[extrinsic_call]
+		reprioritize(
+			RawOrigin::Signed(caller),
+			list_id.clone(),
+			target.clone(),
+			Position::endpoints_only(),
+		);
+
+		assert_eq!(ListNodes::<T>::get(&list_id, &target).map(|n| n.priority), Some(125u32.into()));
+		// Order is unchanged: still head=seeded[0], tail=seeded[2].
+		assert_eq!(ListHeads::<T>::get(&list_id), Some(seeded[0].clone()));
+		assert_eq!(ListTails::<T>::get(&list_id), Some(seeded[2].clone()));
+		Ok(())
+	}
+
+	/// `reprioritize` on the slow splice path, parametric over the hint-repair
+	/// walk length `s`.
+	///
+	/// Setup: seed `s + 2` items at strictly descending priorities, target the
+	/// tail (`seeded[s + 1]`) so its current neighbors cannot admit the new
+	/// priority (forcing the splice path), drift the authoritative priority
+	/// above the head, and supply a hint that, after the internal splice, sits
+	/// exactly `s` head-ward steps from the new position. `s = 0` exercises the
+	/// splice + immediate-valid-hint path.
+	#[benchmark]
+	fn reprioritize_relocate(
+		s: Linear<0, { T::MaxHintRepairSteps::get() }>,
+	) -> Result<(), BenchmarkError> {
 		let list_id: T::ListId = 0u32.into();
 		let s_idx = s as usize;
 		let seeded = seed_chain::<T>(&list_id, s + 2);
-		let target = seeded[s_idx].clone();
-		T::BenchmarkHelper::set_priority(&list_id, &target, 10_000u32.into());
+		let target = seeded[s_idx + 1].clone();
+		T::BenchmarkHelper::set_priority(&list_id, &target, 1_000_000u32.into());
 		let caller: T::AccountId = whitelisted_caller();
 		let hint = Position {
 			prev: if s_idx == 0 { None } else { Some(seeded[s_idx - 1].clone()) },
-			next: Some(seeded[s_idx + 1].clone()),
+			next: Some(seeded[s_idx].clone()),
 		};
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), list_id.clone(), target.clone(), hint);
+		reprioritize(RawOrigin::Signed(caller), list_id.clone(), target.clone(), hint);
 
 		assert_eq!(ListHeads::<T>::get(&list_id), Some(target));
+		Ok(())
+	}
+
+	/// `reprioritize` when [`crate::PriorityProvider::priority`] returns `None`:
+	/// the item is removed from the list. No `set_priority` call is made, so
+	/// the static provider has no entry for `target`.
+	#[benchmark]
+	fn reprioritize_priority_removed() -> Result<(), BenchmarkError> {
+		let list_id: T::ListId = 0u32.into();
+		let seeded = seed_chain::<T>(&list_id, 3);
+		let target = seeded[1].clone();
+		let caller: T::AccountId = whitelisted_caller();
+
+		#[extrinsic_call]
+		reprioritize(
+			RawOrigin::Signed(caller),
+			list_id.clone(),
+			target.clone(),
+			Position::endpoints_only(),
+		);
+
+		assert!(!ListNodes::<T>::contains_key(&list_id, &target));
 		Ok(())
 	}
 

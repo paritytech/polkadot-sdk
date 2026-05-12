@@ -45,12 +45,27 @@ pub trait WeightInfo {
 	/// the unused portion using the `u32` step count returned from the call.
 	fn re_insert_relocate(repair_steps: u32) -> Weight;
 
-	/// `reprioritize` weight after a hint-repair walk of `repair_steps` steps. The
-	/// benchmark is parametric over `repair_steps`, so this yields a linear
-	/// formula. The dispatchable charges
-	/// `reprioritize(MaxHintRepairSteps)` up front and refunds the unused portion via
+	/// `reprioritize` weight when the stored priority already matches the
+	/// authoritative priority: a single `ListNodes` read and an early return,
+	/// no event deposits.
+	fn reprioritize_no_op() -> Weight;
+
+	/// `reprioritize` weight on the in-place fast path: the cached priority is
+	/// updated without moving the node, and both `ItemReinserted` and
+	/// `Reprioritized` events are deposited.
+	fn reprioritize_in_place() -> Weight;
+
+	/// `reprioritize` weight on the splice path after a hint-repair walk of
+	/// `repair_steps` steps. The benchmark is parametric over `repair_steps`,
+	/// so this yields a linear formula. The dispatchable charges
+	/// `reprioritize_relocate(MaxHintRepairSteps)` up front (as part of the
+	/// `.max()` of all four branches) and refunds the unused portion via
 	/// `PostDispatchInfo::actual_weight`.
-	fn reprioritize(repair_steps: u32) -> Weight;
+	fn reprioritize_relocate(repair_steps: u32) -> Weight;
+
+	/// `reprioritize` weight when [`crate::PriorityProvider::priority`] returns
+	/// `None` and the item is removed from the list.
+	fn reprioritize_priority_removed() -> Weight;
 }
 
 impl WeightInfo for () {
@@ -66,7 +81,16 @@ impl WeightInfo for () {
 	fn re_insert_relocate(_repair_steps: u32) -> Weight {
 		Weight::MAX
 	}
-	fn reprioritize(_repair_steps: u32) -> Weight {
+	fn reprioritize_no_op() -> Weight {
+		Weight::MAX
+	}
+	fn reprioritize_in_place() -> Weight {
+		Weight::MAX
+	}
+	fn reprioritize_relocate(_repair_steps: u32) -> Weight {
+		Weight::MAX
+	}
+	fn reprioritize_priority_removed() -> Weight {
 		Weight::MAX
 	}
 }

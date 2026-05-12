@@ -34,15 +34,7 @@ use frame::prelude::*;
 /// at the head of a non-empty list has `prev = None` and `next = Some(head)`;
 /// a position past the tail has `prev = Some(tail)` and `next = None`.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	PartialEq,
-	Eq,
-	Debug,
+	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
 )]
 pub struct Position<ItemId> {
 	/// Item immediately on the head side, or `None` if the position is at the head end.
@@ -116,4 +108,18 @@ impl Side {
 			Self::Tail => Self::Head,
 		}
 	}
+}
+
+/// Outcome of [`crate::SortedListInterface::re_insert`]. Distinguishes the
+/// in-place fast path from the splice path so callers can charge the matching
+/// weight.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Outcome {
+	/// The cached priority was updated without moving the node; neighbors
+	/// unchanged.
+	InPlace,
+	/// The node was spliced out and re-inserted. `steps` is the hint-repair
+	/// walk length and is suitable for refunding against
+	/// [`crate::weights::WeightInfo::re_insert_relocate`].
+	Relocated { steps: u32 },
 }
