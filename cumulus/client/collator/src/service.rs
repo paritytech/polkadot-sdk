@@ -53,6 +53,9 @@ pub trait ServiceInterface<Block: BlockT> {
 	/// that the underlying block has been fully imported into the underlying client,
 	/// as implementations will fetch underlying runtime API data.
 	///
+	/// `scheduling_proof` is `Some` for V3 candidates (produces [`ParachainBlockData::V2`])
+	/// and `None` for legacy candidates (produces [`ParachainBlockData::V1`]).
+	///
 	/// This also returns the unencoded parachain block data, in case that is desired.
 	fn build_collation(
 		&self,
@@ -66,6 +69,9 @@ pub trait ServiceInterface<Block: BlockT> {
 	///
 	/// Does the same as [`Self::build_collation`], but includes multiple blocks into one collation.
 	/// The given `parent_header` should be the header from the parent of the first block.
+	///
+	/// `scheduling_proof` is `Some` for V3 candidates (produces [`ParachainBlockData::V2`])
+	/// and `None` for legacy candidates (produces [`ParachainBlockData::V1`]).
 	fn build_multi_block_collation(
 		&self,
 		parent_header: &Block::Header,

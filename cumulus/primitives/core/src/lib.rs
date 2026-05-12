@@ -660,22 +660,36 @@ sp_api::decl_runtime_apis! {
 
 		/// Maximum claim queue offset for async backing flexibility.
 		///
-		/// This is the maximum additional offset into the claim queue that collators should use
-		/// beyond the relay parent offset. The effective claim queue depth is:
-		/// `relay_parent_offset + max_claim_queue_offset`
+		/// Bounds how far "into the future" a candidate may look in the claim queue when
+		/// selecting a core. The effective claim queue depth depends on the candidate version:
 		///
-		/// Collators may use lower offsets (down to 0) for optimistic scenarios where execution
-		/// is fast or earlier slots are available (e.g., chain startup, previous author missed
-		/// their slot).
+		/// - **V1/V2 candidates**: the claim queue is looked up at the candidate's `relay_parent`,
+		///   which is `relay_parent_offset` blocks behind the relay-chain tip. The effective
+		///   depth is `relay_parent_offset + max_claim_queue_offset`.
 		///
-		/// Typical values:
-		/// Values:
-		/// - Returns 2 for most cases - at worst case, if scheduling parent is picked from the previous finished slot, this is the safest to allow for candidates to be fetched/backed off-chain, before occupying the core.
-		/// - Higher values are rarely needed since V3 scheduling with scheduling_parent decouples
-		/// execution context from scheduling context.
+		/// - **V3 candidates**: the claim queue is looked up at the candidate's
+		///   `scheduling_parent` — the relay-chain block of the *last finished* slot, decoupled
+		///   from the execution-context `relay_parent`. The effective depth is just
+		///   `max_claim_queue_offset`.
 		///
-		/// Note: Collators calling this on runtimes with api_version < 2 will get an error
-		/// and should fall back to a default value of 2.
+		/// Collators select a core via an offset in `[0, max_claim_queue_offset]`.
+		///
+		/// - **V2 candidates**: `max_claim_queue_offset = 1` is sufficient. The claim queue is
+		///   looked up at `relay_parent`, which sits behind the tip. Offset 0 covers synchronous
+		///   backing in the next relay block; offset 1 covers asynchronous backing in the relay
+		///   block after that.
+		///
+		/// - **V3 candidates**: offset 0 is not reachable — the `scheduling_parent`
+		///   is usually the leaf when picked, but its child is already being built, so there is
+		///   no opportunity to land in the next relay block. Offset 1 is reachable under
+		///   synchronous-backing semantics. For elastic scaling the last block in the bundle is
+		///   built near the end of the current slot, which makes offset 1 too tight —
+		///   `max_claim_queue_offset = 2` is the minimum cap that keeps elastic scaling viable.
+		///
+		/// Note: this method was added in `api_version = 2`. Collators calling on runtimes that
+		/// only implement `api_version = 1` of [`RelayParentOffsetApi`] will receive an error
+		/// and should fall back to a sensible default (current collator defaults: `1` on the
+		/// V3 path, `0` on the V1/V2 path).
 		///
 		/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
 		#[api_version(2)]
