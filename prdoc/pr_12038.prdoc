@@ -4,4 +4,6 @@ doc:
   description: Adds a Bitswap client API to fetch CID-addressed blocks, including WANT-HAVE support and litep2p Bitswap routing for outbound requests.
 crates:
 - name: sc-network
-  bump: minor
+  bump: major
+- name: sc-network-sync
+  bump: patch

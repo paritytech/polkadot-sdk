@@ -35,7 +35,7 @@ use super::{
 	Prefix, LOG_TARGET, MAX_WANTED_BLOCKS, PROTOCOL_NAME,
 };
 
-/// Const from https://github.com/multiformats/multicodec/blame/master/table.csv
+/// Const from <https://github.com/multiformats/multicodec/blame/master/table.csv>
 /// Multihash code for BLAKE2b-256.
 pub const BLAKE2B_256_MULTIHASH_CODE: u64 = 0xb220;
 /// Multihash code for SHA2-256.
