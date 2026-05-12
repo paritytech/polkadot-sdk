@@ -22,7 +22,7 @@ use crate::statement::{
 };
 use futures::StreamExt;
 use jsonrpsee::ConnectionId;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 use sc_rpc::utils::Subscription;
 use sc_statement_store::{
 	AddFilterError, LiveEventStream, MultiFilterSubscriptionEvent, SubscriptionHandle,
@@ -30,122 +30,77 @@ use sc_statement_store::{
 use sp_statement_store::{FilterId, OptimizedTopicFilter};
 use std::{collections::HashMap, sync::Arc};
 
-use crate::common::connections::{RegisteredConnection, RpcConnections};
-
-pub const MAX_SUBSCRIPTIONS_PER_CONNECTION: usize = 16;
-
 pub(crate) enum AddFilterOutcome {
 	Added(FilterId),
 	LimitReached,
 }
 
-/// Per-subscription state shared between RPC handlers and the subscription task
-pub(crate) struct SubscriptionState {
-	handle: SubscriptionHandle,
-}
-
-impl SubscriptionState {
-	fn new(handle: SubscriptionHandle) -> Self {
-		Self { handle }
-	}
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-struct SubscriptionKey {
-	conn_id: ConnectionId,
-	sub_id: String,
-}
-
-impl SubscriptionKey {
-	fn new(conn_id: ConnectionId, sub_id: impl Into<String>) -> Self {
-		Self { conn_id, sub_id: sub_id.into() }
-	}
-}
-
-type SubscriptionStateRef = Arc<Mutex<SubscriptionState>>;
-type SubscriptionRegistry = Arc<RwLock<HashMap<SubscriptionKey, SubscriptionStateRef>>>;
+type SubscriptionStateRef = Arc<SubscriptionHandle>;
+type SubscriptionRegistry =
+	Arc<RwLock<HashMap<ConnectionId, HashMap<String, SubscriptionStateRef>>>>;
 
 /// Long-lived registry owned by the RPC server
 #[derive(Clone, Default)]
 pub struct StatementSubscriptions {
-	rpc_connections: RpcConnections,
 	registry: SubscriptionRegistry,
 }
 
 impl StatementSubscriptions {
 	pub fn new() -> Self {
-		Self {
-			registry: Arc::new(RwLock::new(HashMap::new())),
-			rpc_connections: RpcConnections::new(MAX_SUBSCRIPTIONS_PER_CONNECTION),
-		}
+		Self { registry: Arc::new(RwLock::new(HashMap::new())) }
 	}
 
-	/// Reserves a slot for a new subscription
-	pub fn reserve(&self, conn_id: ConnectionId) -> Option<ReservedSubscription> {
-		let reserved_token = self.rpc_connections.reserve_space(conn_id)?;
-		Some(ReservedSubscription {
-			conn_id,
-			token: Some(reserved_token),
-			registry: self.registry.clone(),
-		})
+	/// Registers a subscription owned by the connection
+	pub fn register(
+		&self,
+		conn_id: ConnectionId,
+		sub_id: String,
+		handle: SubscriptionHandle,
+	) -> Option<SubscriptionEntry> {
+		let state = Arc::new(handle);
+		let mut registry = self.registry.write();
+		let connection = registry.entry(conn_id).or_default();
+		if connection.contains_key(&sub_id) {
+			return None;
+		}
+
+		connection.insert(sub_id.clone(), state);
+		Some(SubscriptionEntry { conn_id, sub_id, registry: self.registry.clone() })
 	}
 
 	/// Gets a subscription owned by the connection
 	pub fn get(&self, conn_id: ConnectionId, sub_id: &str) -> Option<SubscriptionStateRef> {
-		if !self.rpc_connections.contains_identifier(conn_id, sub_id) {
-			return None;
-		}
-		self.registry.read().get(&SubscriptionKey::new(conn_id, sub_id)).cloned()
-	}
-}
-
-/// Reservation for one pending subscription
-pub struct ReservedSubscription {
-	conn_id: ConnectionId,
-	token: Option<crate::common::connections::ReservedConnection>,
-	registry: SubscriptionRegistry,
-}
-
-impl ReservedSubscription {
-	pub fn register(
-		mut self,
-		sub_id: String,
-		handle: SubscriptionHandle,
-	) -> Option<SubscriptionEntry> {
-		let token = self.token.take()?;
-		let registered = token.register(sub_id.clone())?;
-		let state = Arc::new(Mutex::new(SubscriptionState::new(handle)));
-		let key = SubscriptionKey::new(self.conn_id, sub_id);
-		{
-			let mut registry = self.registry.write();
-			if registry.contains_key(&key) {
-				return None;
-			}
-			registry.insert(key.clone(), state.clone());
-		}
-		Some(SubscriptionEntry { key, _registered: registered, registry: self.registry.clone() })
+		self.registry
+			.read()
+			.get(&conn_id)
+			.and_then(|connection| connection.get(sub_id).cloned())
 	}
 }
 
 /// Registered subscription entry
 pub struct SubscriptionEntry {
-	key: SubscriptionKey,
-	_registered: RegisteredConnection,
+	conn_id: ConnectionId,
+	sub_id: String,
 	registry: SubscriptionRegistry,
 }
 
 impl Drop for SubscriptionEntry {
 	fn drop(&mut self) {
-		self.registry.write().remove(&self.key);
+		let mut registry = self.registry.write();
+		if let Some(connection) = registry.get_mut(&self.conn_id) {
+			connection.remove(&self.sub_id);
+			if connection.is_empty() {
+				registry.remove(&self.conn_id);
+			}
+		}
 	}
 }
 
 pub(crate) fn add_filter_sync(
-	state: &Arc<Mutex<SubscriptionState>>,
+	state: &Arc<SubscriptionHandle>,
 	filter: OptimizedTopicFilter,
 ) -> Result<AddFilterOutcome, Error> {
-	let handle = state.lock().handle.clone();
-	match handle.add_filter(filter) {
+	match state.add_filter(filter) {
 		Ok(filter_id) => Ok(AddFilterOutcome::Added(filter_id)),
 		Err(AddFilterError::LimitReached) => Ok(AddFilterOutcome::LimitReached),
 		Err(AddFilterError::Store(e)) => {
@@ -154,11 +109,8 @@ pub(crate) fn add_filter_sync(
 	}
 }
 
-pub(crate) fn remove_filter_sync(
-	state: &Arc<Mutex<SubscriptionState>>,
-	filter_id: FilterId,
-) -> bool {
-	state.lock().handle.remove_filter(filter_id)
+pub(crate) fn remove_filter_sync(state: &Arc<SubscriptionHandle>, filter_id: FilterId) -> bool {
+	state.remove_filter(filter_id)
 }
 
 pub(crate) fn filter_id_to_string(id: FilterId) -> String {
@@ -230,7 +182,7 @@ mod tests {
 	use sc_statement_store::{MultiFilterSubscriptionApi, Store};
 	use std::sync::Arc;
 
-	fn empty_subscription_state() -> Arc<Mutex<SubscriptionState>> {
+	fn empty_subscription_state() -> Arc<SubscriptionHandle> {
 		let dir = tempfile::tempdir().expect("tempdir");
 		let mut db_path: std::path::PathBuf = dir.path().into();
 		db_path.push("db");
@@ -379,7 +331,7 @@ mod tests {
 		std::mem::forget(dir);
 
 		let (handle, _live) = store.create_subscription();
-		Arc::new(Mutex::new(SubscriptionState::new(handle)))
+		Arc::new(handle)
 	}
 
 	#[test]
@@ -389,19 +341,11 @@ mod tests {
 		let conn_b = ConnectionId(2);
 		let sub_id = "same-subscription-id".to_string();
 
-		let handle_a = empty_subscription_state().lock().handle.clone();
-		let handle_b = empty_subscription_state().lock().handle.clone();
+		let handle_a = (*empty_subscription_state()).clone();
+		let handle_b = (*empty_subscription_state()).clone();
 
-		let entry_a = subscriptions
-			.reserve(conn_a)
-			.unwrap()
-			.register(sub_id.clone(), handle_a)
-			.unwrap();
-		let _entry_b = subscriptions
-			.reserve(conn_b)
-			.unwrap()
-			.register(sub_id.clone(), handle_b)
-			.unwrap();
+		let entry_a = subscriptions.register(conn_a, sub_id.clone(), handle_a).unwrap();
+		let _entry_b = subscriptions.register(conn_b, sub_id.clone(), handle_b).unwrap();
 
 		let state_a = subscriptions.get(conn_a, &sub_id).unwrap();
 		let state_b = subscriptions.get(conn_b, &sub_id).unwrap();
@@ -410,5 +354,21 @@ mod tests {
 		drop(entry_a);
 		assert!(subscriptions.get(conn_a, &sub_id).is_none());
 		assert!(subscriptions.get(conn_b, &sub_id).is_some());
+	}
+
+	#[test]
+	fn duplicate_subscription_id_is_rejected_per_connection() {
+		let subscriptions = StatementSubscriptions::new();
+		let conn_a = ConnectionId(1);
+		let conn_b = ConnectionId(2);
+		let sub_id = "same-subscription-id".to_string();
+
+		let handle_a = (*empty_subscription_state()).clone();
+		let duplicate_handle = (*empty_subscription_state()).clone();
+		let handle_b = (*empty_subscription_state()).clone();
+
+		let _entry = subscriptions.register(conn_a, sub_id.clone(), handle_a).unwrap();
+		assert!(subscriptions.register(conn_a, sub_id.clone(), duplicate_handle).is_none());
+		assert!(subscriptions.register(conn_b, sub_id, handle_b).is_some());
 	}
 }

@@ -4,3 +4,4 @@
 mod bench;
 mod common;
 mod integration;
+mod unstable_bench;

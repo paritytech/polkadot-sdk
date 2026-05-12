@@ -39,7 +39,6 @@ const SUBSCRIPTION_BUFFER_SIZE: usize = 128;
 /// Maximum number of active filters attached to one statement subscription
 pub const MAX_FILTERS_PER_SUBSCRIPTION: usize = 128;
 const REPLAY_CHUNK_RAW_BYTES: usize = 4 * 1024 * 1024;
-const PENDING_REPLAYS_HARD_CAP: usize = MAX_FILTERS_PER_SUBSCRIPTION;
 const PENDING_LIVE_HARD_CAP: usize = 64 * 1024;
 const EMITTED_VIA_NEW_HARD_CAP: usize = 64 * 1024;
 
@@ -119,12 +118,21 @@ pub trait MultiFilterSubscriptionApi: Send + Sync {
 #[derive(Clone)]
 pub struct SubscriptionHandle {
 	pub(crate) sub_id: SeqID,
-	pub(crate) state: Arc<Mutex<MultiFilterSubscriptionState>>,
-	pub(crate) next_filter_id: Arc<AtomicU64>,
+	pub(crate) inner: Arc<Mutex<SubscriptionHandleState>>,
 	pub(crate) store: Arc<Store>,
 	pub(crate) matchers: SubscriptionsMatchersHandlers,
-	pub(crate) wake_tx: mpsc::UnboundedSender<()>,
-	pub(crate) add_filter_lock: Arc<Mutex<()>>,
+	pub(crate) control_tx: mpsc::UnboundedSender<SubscriptionControlMessage>,
+}
+
+pub(crate) struct SubscriptionHandleState {
+	active_filter_ids: HashSet<FilterId>,
+	next_filter_id: u64,
+}
+
+impl SubscriptionHandleState {
+	pub(crate) fn new() -> Self {
+		Self { active_filter_ids: HashSet::new(), next_filter_id: 0 }
+	}
 }
 
 impl SubscriptionHandle {
@@ -133,52 +141,49 @@ impl SubscriptionHandle {
 		&self,
 		filter: OptimizedTopicFilter,
 	) -> std::result::Result<FilterId, AddFilterError> {
-		let _guard = self.add_filter_lock.lock();
-		{
-			let state = self.state.lock();
-			if state.active_filter_ids.len() >= MAX_FILTERS_PER_SUBSCRIPTION ||
-				state.pending_replays.len() >= PENDING_REPLAYS_HARD_CAP
-			{
-				return Err(AddFilterError::LimitReached);
-			}
+		let mut inner = self.inner.lock();
+		if inner.active_filter_ids.len() >= MAX_FILTERS_PER_SUBSCRIPTION {
+			return Err(AddFilterError::LimitReached);
 		}
 
-		let filter_id =
-			FilterId::new(self.next_filter_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst));
+		let filter_id = FilterId::new(inner.next_filter_id);
+		let control_tx = self.control_tx.clone();
 		let matchers = self.matchers.clone();
 		let sub_id = self.sub_id;
 		let filter_to_register = filter.clone();
-		let state = self.state.clone();
-		let wake_tx = self.wake_tx.clone();
-		let mut register = move |snapshot| {
-			state.lock().record_filter_added(filter_id, snapshot);
+		let mut registered = false;
+		let mut register = |snapshot| {
+			inner.next_filter_id = inner.next_filter_id.wrapping_add(1);
+			inner.active_filter_ids.insert(filter_id);
+			let _ = control_tx.send(SubscriptionControlMessage::AddFilter { filter_id, snapshot });
 			matchers.send_by_seq_id(
 				sub_id,
 				MatcherMessage::AddFilter { sub_id, filter_id, filter: filter_to_register.clone() },
 			);
-			let _ = wake_tx.send(());
+			registered = true;
 		};
 		self.store.register_filter_with_snapshot(&filter, &mut register)?;
+		assert!(registered, "register_filter_with_snapshot always calls register; qed");
 		Ok(filter_id)
 	}
 
 	/// Removes a filter from this subscription
 	pub fn remove_filter(&self, filter_id: FilterId) -> bool {
-		let _guard = self.add_filter_lock.lock();
-		if !self.state.lock().record_filter_removed(filter_id) {
+		let mut inner = self.inner.lock();
+		if !inner.active_filter_ids.remove(&filter_id) {
 			return false;
 		}
+		let _ = self.control_tx.send(SubscriptionControlMessage::RemoveFilter { filter_id });
 		self.matchers.send_by_seq_id(
 			self.sub_id,
 			MatcherMessage::RemoveFilter { sub_id: self.sub_id, filter_id },
 		);
-		let _ = self.wake_tx.send(());
 		true
 	}
 
 	/// Returns active filter identifiers for this subscription
 	pub fn filter_ids(&self) -> Vec<FilterId> {
-		self.state.lock().active_filter_ids.iter().copied().collect()
+		self.inner.lock().active_filter_ids.iter().copied().collect()
 	}
 }
 
@@ -191,6 +196,11 @@ struct PendingLiveStatement {
 	hash: sp_statement_store::Hash,
 	encoded: Vec<u8>,
 	matched_filter_ids: Vec<FilterId>,
+}
+
+pub(crate) enum SubscriptionControlMessage {
+	AddFilter { filter_id: FilterId, snapshot: Vec<Vec<u8>> },
+	RemoveFilter { filter_id: FilterId },
 }
 
 pub(crate) struct MultiFilterSubscriptionState {
@@ -240,6 +250,17 @@ impl MultiFilterSubscriptionState {
 			!set.is_empty()
 		});
 		true
+	}
+
+	fn handle_control_message(&mut self, message: SubscriptionControlMessage) {
+		match message {
+			SubscriptionControlMessage::AddFilter { filter_id, snapshot } => {
+				self.record_filter_added(filter_id, snapshot);
+			},
+			SubscriptionControlMessage::RemoveFilter { filter_id } => {
+				let _ = self.record_filter_removed(filter_id);
+			},
+		}
 	}
 
 	fn next_event(&mut self) -> Option<MultiFilterSubscriptionEvent> {
@@ -401,10 +422,18 @@ pub enum MultiFilterSubscriptionEvent {
 /// Stream of multi-filter subscription events
 pub struct LiveEventStream {
 	rx: async_channel::Receiver<LiveStatementEvent>,
-	control_rx: mpsc::UnboundedReceiver<()>,
-	state: Arc<Mutex<MultiFilterSubscriptionState>>,
+	control_rx: mpsc::UnboundedReceiver<SubscriptionControlMessage>,
+	state: MultiFilterSubscriptionState,
 	sub_id: SeqID,
 	matchers: SubscriptionsMatchersHandlers,
+}
+
+impl LiveEventStream {
+	fn drain_ready_control_messages(&mut self) {
+		while let Ok(message) = self.control_rx.try_recv() {
+			self.state.handle_control_message(message);
+		}
+	}
 }
 
 impl Stream for LiveEventStream {
@@ -416,19 +445,22 @@ impl Stream for LiveEventStream {
 	) -> std::task::Poll<Option<Self::Item>> {
 		let this = self.get_mut();
 		loop {
-			if let Some(event) = this.state.lock().next_event() {
+			if let Some(event) = this.state.next_event() {
 				return Poll::Ready(Some(event));
 			}
 			match this.control_rx.poll_recv(cx) {
-				Poll::Ready(Some(())) => continue,
+				Poll::Ready(Some(message)) => {
+					this.state.handle_control_message(message);
+					continue;
+				},
 				Poll::Ready(None) | Poll::Pending => {},
 			}
 			match this.rx.poll_next_unpin(cx) {
 				Poll::Ready(Some(event)) => {
-					if let Some(event) = this.state.lock().handle_live_event(event) {
+					this.drain_ready_control_messages();
+					if let Some(event) = this.state.handle_live_event(event) {
 						return Poll::Ready(Some(event));
 					}
-					continue;
 				},
 				Poll::Ready(None) => return Poll::Ready(None),
 				Poll::Pending => return Poll::Pending,
@@ -569,17 +601,21 @@ impl SubscriptionsHandle {
 
 	pub(crate) fn subscribe_empty(
 		&self,
-		state: Arc<Mutex<MultiFilterSubscriptionState>>,
-		control_rx: mpsc::UnboundedReceiver<()>,
-	) -> (SeqID, LiveEventStream) {
+	) -> (SeqID, mpsc::UnboundedSender<SubscriptionControlMessage>, LiveEventStream) {
 		let sub_id = self.next_id();
 		let (tx, rx) = async_channel::bounded(SUBSCRIPTION_BUFFER_SIZE);
+		let (control_tx, control_rx) = tokio::sync::mpsc::unbounded_channel();
 		self.matchers
 			.send_by_seq_id(sub_id, MatcherMessage::SubscribeEmpty { seq_id: sub_id, tx });
 
-		let stream =
-			LiveEventStream { rx, control_rx, state, sub_id, matchers: self.matchers.clone() };
-		(sub_id, stream)
+		let stream = LiveEventStream {
+			rx,
+			control_rx,
+			state: MultiFilterSubscriptionState::new(),
+			sub_id,
+			matchers: self.matchers.clone(),
+		};
+		(sub_id, control_tx, stream)
 	}
 
 	pub(crate) fn notify(&self, statement: Statement) {
@@ -929,7 +965,9 @@ pub struct SubscriptionsMatchersHandlers {
 
 impl SubscriptionsMatchersHandlers {
 	/// Create new SubscriptionsMatchersHandlers with the given matcher task senders.
-	fn new(matchers: Vec<async_channel::Sender<MatcherMessage>>) -> SubscriptionsMatchersHandlers {
+	pub(crate) fn new(
+		matchers: Vec<async_channel::Sender<MatcherMessage>>,
+	) -> SubscriptionsMatchersHandlers {
 		SubscriptionsMatchersHandlers { matchers }
 	}
 
@@ -1092,6 +1130,71 @@ mod tests {
 		assert!(state.handle_live_event(overflow).is_none());
 		assert!(matches!(state.next_event(), Some(MultiFilterSubscriptionEvent::Stop)));
 		assert!(state.next_event().is_none());
+	}
+
+	#[test]
+	fn multi_filter_control_add_registers_replay_before_live_events() {
+		let mut state = MultiFilterSubscriptionState::new();
+		let filter_id = FilterId::new(7);
+		let snapshot = vec![vec![1, 2, 3]];
+
+		state.handle_control_message(SubscriptionControlMessage::AddFilter {
+			filter_id,
+			snapshot: snapshot.clone(),
+		});
+
+		assert!(state
+			.handle_live_event(LiveStatementEvent {
+				hash: sp_statement_store::hash_encoded(&snapshot[0]),
+				encoded: snapshot[0].clone(),
+				matched_filter_ids: vec![filter_id],
+			})
+			.is_none());
+
+		assert!(matches!(
+			state.next_event(),
+			Some(MultiFilterSubscriptionEvent::ReplayStatements {
+				filter_id: id,
+				statements,
+			}) if id == filter_id && statements == snapshot
+		));
+		assert!(matches!(
+			state.next_event(),
+			Some(MultiFilterSubscriptionEvent::ReplayDone { filter_id: id }) if id == filter_id
+		));
+		assert!(state.next_event().is_none());
+	}
+
+	#[tokio::test]
+	async fn live_stream_processes_filter_control_before_later_live_match() {
+		let filter_id = FilterId::new(7);
+		let live_statement = signed_statement(7);
+		let (tx, rx) = async_channel::bounded(SUBSCRIPTION_BUFFER_SIZE);
+		let (control_tx, control_rx) = tokio::sync::mpsc::unbounded_channel();
+		let (matcher_tx, _matcher_rx) = async_channel::bounded(MATCHERS_TASK_CHANNEL_BUFFER_SIZE);
+		let mut stream = LiveEventStream {
+			rx,
+			control_rx,
+			state: MultiFilterSubscriptionState::new(),
+			sub_id: SeqID::from(0),
+			matchers: SubscriptionsMatchersHandlers::new(vec![matcher_tx]),
+		};
+
+		control_tx
+			.send(SubscriptionControlMessage::AddFilter { filter_id, snapshot: Vec::new() })
+			.unwrap();
+		tx.send(live_event_for(&live_statement, vec![filter_id])).await.unwrap();
+
+		assert!(matches!(
+			stream.next().await,
+			Some(MultiFilterSubscriptionEvent::ReplayDone { filter_id: id }) if id == filter_id
+		));
+		assert!(matches!(
+			stream.next().await,
+			Some(MultiFilterSubscriptionEvent::NewStatement(event))
+				if event.hash == live_statement.hash() &&
+					event.matched_filter_ids == vec![filter_id]
+		));
 	}
 
 	#[test]

@@ -93,34 +93,20 @@ where
 	fn statement_unstable_subscribe(&self, pending: PendingSubscriptionSink, _ext: &Extensions) {
 		let subscriptions = self.subscriptions.clone();
 		let store = self.store.clone();
-		let executor = self.executor.clone();
+		let connection_id = pending.connection_id();
 
 		let fut = async move {
-			let connection_id = pending.connection_id();
-			let Some(reserved) = subscriptions.reserve(connection_id) else {
-				pending.reject(Error::ReachedLimits).await;
-				return;
-			};
-
 			let Ok(sink) = pending.accept().await.map(Subscription::from) else { return };
 			let sub_id = read_subscription_id_as_string(&sink);
-
 			let (handle, live_stream) = store.create_subscription();
-			let Some(entry) = reserved.register(sub_id.clone(), handle) else {
+
+			let Some(entry) = subscriptions.register(connection_id, sub_id.clone(), handle) else {
 				log::debug!(target: LOG_TARGET, "duplicate subscription id {sub_id}; aborting");
 				return;
 			};
 
-			let task = run_subscription_task(sink, live_stream);
-			executor.spawn(
-				"statement-unstable-subscribe",
-				Some("rpc"),
-				async move {
-					task.await;
-					drop(entry);
-				}
-				.boxed(),
-			);
+			run_subscription_task(sink, live_stream).await;
+			drop(entry);
 		};
 
 		self.executor

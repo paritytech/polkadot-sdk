@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::common::{
-	assert_no_more_statements, assert_statements_match, base_dir, collator_args,
-	create_chain_spec_with_allowances, expect_one_statement, expect_statements_unordered,
-	online_client_from_node, spawn_network, spawn_network_sudo,
-	spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
-	subscribe_topic_filter, wait_for_first_block, COLLATOR_INFO_LOG_FILTER,
+	add_filter_unstable, assert_no_more_statements, assert_statements_match, base_dir,
+	collator_args, create_chain_spec_with_allowances, expect_one_statement,
+	expect_statements_unordered, online_client_from_node, remove_filter_unstable, spawn_network,
+	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement,
+	submit_statement_unstable, subscribe_topic, subscribe_topic_filter, subscribe_unstable,
+	unstable_subscription_id, wait_for_first_block, UnstableAddFilterResponse,
+	UnstableNewStatement, UnstableStatementEvent, COLLATOR_INFO_LOG_FILTER,
 	COLLATOR_TRACE_LOG_FILTER,
 };
 use codec::Encode;
@@ -21,7 +23,6 @@ use sc_statement_store::{
 	test_utils::{create_allowance_items, create_test_statement, get_keypair},
 };
 use sp_core::{sr25519, Bytes, Pair};
-use sp_core::Bytes;
 use sp_runtime::BoundedVec;
 use sp_statement_store::{
 	RejectionReason, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
@@ -47,6 +48,26 @@ async fn expect_unstable_event(
 		.map_err(|_| anyhow::anyhow!("Timeout waiting for unstable statement event"))?
 		.ok_or_else(|| anyhow::anyhow!("Unstable statement subscription ended"))?
 		.map_err(|e| anyhow::anyhow!("Unstable statement subscription error: {}", e))
+}
+
+async fn expect_one_unstable_statement(
+	subscription: &mut zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<
+		UnstableStatementEvent,
+	>,
+	timeout_secs: u64,
+) -> Result<UnstableNewStatement, anyhow::Error> {
+	loop {
+		return match expect_unstable_event(subscription, timeout_secs).await? {
+			UnstableStatementEvent::NewStatements { statements } => {
+				if statements.is_empty() {
+					continue;
+				}
+				assert_eq!(statements.len(), 1);
+				Ok(statements.into_iter().next().unwrap())
+			},
+			event => anyhow::bail!("Expected unstable newStatements event, got {:?}", event),
+		};
+	}
 }
 
 async fn collect_unstable_replay(
@@ -124,6 +145,42 @@ async fn statement_store_basic_propagation() -> Result<(), anyhow::Error> {
 	let received = expect_one_statement(&mut sub, 20).await?;
 	assert_eq!(received, expected, "Statement data mismatch");
 	info!("Basic propagation: verified");
+
+	Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_unstable_basic_propagation() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	let network = spawn_network_with_injected_allowances(&["charlie", "dave"], 8).await?;
+
+	let charlie = network.get_node("charlie")?;
+	let dave = network.get_node("dave")?;
+
+	let charlie_rpc = charlie.rpc().await?;
+	let dave_rpc = dave.rpc().await?;
+
+	let topic: Topic = [0x55u8; 32].into();
+	let keypair = get_keypair(0);
+	let statement = create_test_statement(&keypair, &[topic], None, vec![1, 2, 3], u32::MAX, 0);
+	let expected: Bytes = statement.encode().into();
+
+	let mut subscription = subscribe_unstable(&dave_rpc).await?;
+	let subscription_id = unstable_subscription_id(&subscription)?;
+	let filter =
+		filter_id(add_filter_unstable(&dave_rpc, &subscription_id, match_all_filter(topic)).await?);
+	let replayed = collect_unstable_replay(&mut subscription, &filter).await?;
+	assert!(replayed.is_empty(), "Fresh unstable filter should not replay statements");
+
+	let result = submit_statement_unstable(&charlie_rpc, &statement).await?;
+	assert_eq!(result, SubmitResult::New);
+
+	let received = expect_one_unstable_statement(&mut subscription, 20).await?;
+	assert_eq!(received.statement, expected, "Unstable statement data mismatch");
+	assert_eq!(received.filter_ids, vec![filter], "Unexpected unstable filter ids");
 
 	Ok(())
 }

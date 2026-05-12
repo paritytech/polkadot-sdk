@@ -17,9 +17,8 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{
-	error::rpc_spec_v2::{INVALID_SUBSCRIPTION, REACHED_LIMITS},
+	error::rpc_spec_v2::INVALID_SUBSCRIPTION,
 	event::{NewStatementEntry, SubmitOutcome, SubscribeEvent},
-	subscription::MAX_SUBSCRIPTIONS_PER_CONNECTION,
 	StatementSpec, StatementSpecApiServer,
 };
 use codec::Encode;
@@ -477,21 +476,11 @@ async fn remove_filter_is_silent_for_unknown_subscription_and_filter() {
 }
 
 #[tokio::test]
-async fn per_connection_subscription_cap_returns_reached_limits() {
+async fn statement_subscribe_does_not_apply_local_subscription_cap() {
 	let rpc = make_server();
 
 	let mut subs = Vec::new();
-	for _ in 0..MAX_SUBSCRIPTIONS_PER_CONNECTION {
+	for _ in 0..17 {
 		subs.push(subscribe(&rpc).await);
 	}
-
-	let err = rpc
-		.subscribe_unbounded("statement_unstable_subscribe", jsonrpsee::rpc_params![])
-		.await
-		.expect_err("expected ReachedLimits at cap+1");
-	let object = match err {
-		MethodsError::JsonRpc(e) => e,
-		other => panic!("expected ErrorObject, got {other:?}"),
-	};
-	assert_eq!(object.code(), REACHED_LIMITS);
 }
