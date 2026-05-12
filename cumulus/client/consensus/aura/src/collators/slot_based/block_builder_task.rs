@@ -413,7 +413,7 @@ where
 				.map(|offset| offset as u32);
 			let (claim_queue_relay_block, claim_queue_offset) = if v3_enabled {
 				// V3: look up at scheduling_parent (fresh tip)
-				(&scheduling_parent_header, maybe_max_claim_queue_offset.unwrap_or(1))
+				(&scheduling_parent_header, maybe_max_claim_queue_offset.unwrap_or(2))
 			} else {
 				// V1/V2: look up at relay_parent, add relay_parent_offset
 				let total_offset = relay_parent_offset + maybe_max_claim_queue_offset.unwrap_or(0);

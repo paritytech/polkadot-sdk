@@ -239,7 +239,7 @@ impl crate::Config for Runtime {
 	type WeightInfo = ();
 	type ConsensusHook = crate::ExpectParentIncluded;
 	type RelayParentOffset = ();
-	type SchedulingV3Enabled = sp_core::ConstBool<false>;
+	type SchedulingV3Enabled = ();
 }
 
 impl test_pallet::Config for Runtime {}
@@ -302,7 +302,7 @@ pub mod only_operational_runtime {
 		type WeightInfo = ();
 		type ConsensusHook = crate::ExpectParentIncluded;
 		type RelayParentOffset = ();
-		type SchedulingV3Enabled = sp_core::ConstBool<false>;
+		type SchedulingV3Enabled = ();
 	}
 
 	impl super::test_pallet::Config for RuntimeOnlyOperational {}

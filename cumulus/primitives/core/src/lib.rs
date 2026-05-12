@@ -669,15 +669,13 @@ sp_api::decl_runtime_apis! {
 		/// their slot).
 		///
 		/// Typical values:
-		/// - Returns 1 for most cases, providing:
-		///   - Offset 0: Synchronous opportunity (backing in next relay block)
-		///   - Offset 1: Asynchronous opportunity (backing in relay block after next)
-		///
-		/// Higher values are rarely needed since V3 scheduling with scheduling_parent decouples
+		/// Values:
+		/// - Returns 2 for most cases - at worst case, if scheduling parent is picked from the previous finished slot, this is the safest to allow for candidates to be fetched/backed off-chain, before occupying the core.
+		/// - Higher values are rarely needed since V3 scheduling with scheduling_parent decouples
 		/// execution context from scheduling context.
 		///
 		/// Note: Collators calling this on runtimes with api_version < 2 will get an error
-		/// and should fall back to a default value of 1.
+		/// and should fall back to a default value of 2.
 		///
 		/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
 		#[api_version(2)]
