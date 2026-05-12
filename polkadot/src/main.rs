@@ -18,13 +18,11 @@
 
 #![warn(missing_docs)]
 
-use color_eyre::eyre;
+// Force the linker to keep the polkadot_jemalloc_shim crate (and its #[global_allocator]).
+#[cfg(target_os = "linux")]
+extern crate polkadot_jemalloc_shim;
 
-/// Global allocator. Changing it to another allocator will require changing
-/// `memory_stats::MemoryAllocationTracker`.
-#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-#[global_allocator]
-static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+use color_eyre::eyre;
 
 fn main() -> eyre::Result<()> {
 	color_eyre::install()?;

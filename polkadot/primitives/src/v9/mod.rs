@@ -32,7 +32,9 @@ use core::{
 	slice::{Iter, IterMut},
 };
 
-use sp_application_crypto::{ByteArray, KeyTypeId};
+#[cfg(feature = "test")]
+use sp_application_crypto::ByteArray;
+use sp_application_crypto::KeyTypeId;
 use sp_arithmetic::{
 	traits::{BaseArithmetic, Saturating},
 	Perbill,
@@ -40,7 +42,7 @@ use sp_arithmetic::{
 
 use bounded_collections::BoundedVec;
 use serde::{Deserialize, Serialize};
-use sp_core::{ConstU32, RuntimeDebug};
+use sp_core::ConstU32;
 use sp_inherents::InherentIdentifier;
 
 // ==========
@@ -75,7 +77,8 @@ pub mod slashing;
 
 pub use async_backing::AsyncBackingParams;
 pub use executor_params::{
-	ExecutorParam, ExecutorParamError, ExecutorParams, ExecutorParamsHash, ExecutorParamsPrepHash,
+	ExecutorHostFunction, ExecutorParam, ExecutorParamError, ExecutorParams, ExecutorParamsHash,
+	ExecutorParamsPrepHash,
 };
 
 mod metrics;
@@ -136,7 +139,7 @@ pub trait TypeIndex {
 	Decode,
 	DecodeWithMemTracking,
 	TypeInfo,
-	RuntimeDebug,
+	Debug,
 )]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash))]
 pub struct ValidatorIndex(pub u32);
@@ -147,7 +150,7 @@ pub struct ValidatorIndex(pub u32);
 /// the number of chunks will always be equal to the number of validators.
 /// However, the chunk index held by a validator may not always be equal to its `ValidatorIndex`, so
 /// we use a separate type to make code easier to read.
-#[derive(Eq, Ord, PartialEq, PartialOrd, Copy, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Eq, Ord, PartialEq, PartialOrd, Copy, Clone, Encode, Decode, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash))]
 pub struct ChunkIndex(pub u32);
 
@@ -425,6 +428,10 @@ pub mod well_known_keys {
 	}
 }
 
+/// Relay chain slot duration in milliseconds, which is the same
+/// value across all networks (e.g. Polkadot, Kusama, Westend, Rococo).
+pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
+
 /// Unique identifier for the Parachains Inherent
 pub const PARACHAINS_INHERENT_IDENTIFIER: InherentIdentifier = *b"parachn0";
 
@@ -441,9 +448,8 @@ pub const MIN_CODE_SIZE: u32 = 9;
 /// Used for:
 /// * initial genesis for the Parachains configuration
 /// * checking updates to this stored runtime configuration do not exceed this limit
-/// * when detecting a code decompression bomb in the client
 // NOTE: This value is used in the runtime so be careful when changing it.
-pub const MAX_CODE_SIZE: u32 = 3 * 1024 * 1024;
+pub const MAX_CODE_SIZE: u32 = 5 * 1024 * 1024;
 
 /// Maximum head data size we support right now.
 ///
@@ -469,10 +475,8 @@ pub const ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE: u32 = 10_000;
 
 /// Maximum for maximum queue size.
 ///
-/// Setting `on_demand_queue_max_size` to a value higher than this is unsound. This is more a
-/// theoretical limit, just below enough what the target type supports, so comparisons are possible
-/// even with indices that are overflowing the underyling type.
-pub const ON_DEMAND_MAX_QUEUE_MAX_SIZE: u32 = 1_000_000_000;
+/// We use this value for benchmarking.
+pub const ON_DEMAND_MAX_QUEUE_MAX_SIZE: u32 = 10_000;
 
 /// Backing votes threshold used from the host prior to runtime API version 6 and from the runtime
 /// prior to v9 configuration migration.
@@ -522,7 +526,7 @@ pub type CandidateIndex = u32;
 /// The `PersistedValidationData` should be relatively lightweight primarily because it is
 /// constructed during inclusion for each candidate and therefore lies on the critical path of
 /// inclusion.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(Default))]
 pub struct PersistedValidationData<H = Hash, N = BlockNumber> {
 	/// The parent head-data.
@@ -543,7 +547,7 @@ impl<H: Encode, N: Encode> PersistedValidationData<H, N> {
 }
 
 /// Commitments made in a `CandidateReceipt`. Many of these are outputs of validation.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(Default, Hash))]
 pub struct CandidateCommitments<N = BlockNumber> {
 	/// Messages destined to be interpreted by the Relay chain itself.
@@ -571,7 +575,7 @@ impl CandidateCommitments {
 /// A bitfield concerning availability of backed candidates.
 ///
 /// Every bit refers to an availability core index.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct AvailabilityBitfield(pub BitVec<u8, bitvec::order::Lsb0>);
 
 impl From<BitVec<u8, bitvec::order::Lsb0>> for AvailabilityBitfield {
@@ -621,7 +625,7 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 			group_len,
 			validator_indices.len(),
 		);
-		return Err(())
+		return Err(());
 	}
 
 	if validity_votes.len() > group_len {
@@ -631,7 +635,7 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 			group_len,
 			validity_votes.len(),
 		);
-		return Err(())
+		return Err(());
 	}
 
 	let mut signed = 0;
@@ -654,7 +658,7 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 				validator_id,
 				val_in_group_idx,
 			);
-			return Err(())
+			return Err(());
 		}
 	}
 
@@ -665,7 +669,7 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 			validity_votes.len(),
 			signed,
 		);
-		return Err(())
+		return Err(());
 	}
 
 	Ok(signed)
@@ -684,7 +688,7 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 	Clone,
 	Copy,
 	TypeInfo,
-	RuntimeDebug,
+	Debug,
 )]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct CoreIndex(pub u32);
@@ -732,11 +736,11 @@ impl TypeIndex for GroupIndex {
 }
 
 /// A claim on authoring the next block for a given parathread (on-demand parachain).
-#[derive(Clone, Encode, Decode, TypeInfo, PartialEq, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, TypeInfo, PartialEq, Debug)]
 pub struct ParathreadClaim(pub Id, pub Option<CollatorId>);
 
 /// An entry tracking a claim to ensure it does not pass the maximum number of retries.
-#[derive(Clone, Encode, Decode, TypeInfo, PartialEq, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, TypeInfo, PartialEq, Debug)]
 pub struct ParathreadEntry {
 	/// The claim.
 	pub claim: ParathreadClaim,
@@ -745,7 +749,7 @@ pub struct ParathreadEntry {
 }
 
 /// A helper data-type for tracking validator-group rotations.
-#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct GroupRotationInfo<N = BlockNumber> {
 	/// The block number where the session started.
@@ -763,10 +767,10 @@ impl GroupRotationInfo {
 	/// `core_index` should be less than `cores`, which is capped at `u32::max()`.
 	pub fn group_for_core(&self, core_index: CoreIndex, cores: usize) -> GroupIndex {
 		if self.group_rotation_frequency == 0 {
-			return GroupIndex(core_index.0)
+			return GroupIndex(core_index.0);
 		}
 		if cores == 0 {
-			return GroupIndex(0)
+			return GroupIndex(0);
 		}
 
 		let cores = core::cmp::min(cores, u32::MAX as usize);
@@ -785,10 +789,10 @@ impl GroupRotationInfo {
 	/// `core_index` should be less than `cores`, which is capped at `u32::max()`.
 	pub fn core_for_group(&self, group_index: GroupIndex, cores: usize) -> CoreIndex {
 		if self.group_rotation_frequency == 0 {
-			return CoreIndex(group_index.0)
+			return CoreIndex(group_index.0);
 		}
 		if cores == 0 {
-			return CoreIndex(0)
+			return CoreIndex(0);
 		}
 
 		let cores = core::cmp::min(cores, u32::MAX as usize);
@@ -833,7 +837,7 @@ impl<N: Saturating + BaseArithmetic + Copy> GroupRotationInfo<N> {
 }
 
 /// Information about a core which is currently occupied.
-#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct ScheduledCore {
 	/// The ID of a para scheduled.
@@ -845,7 +849,7 @@ pub struct ScheduledCore {
 }
 
 /// An assumption being made about the state of an occupied core.
-#[derive(Clone, Copy, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Clone, Copy, Encode, Decode, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(PartialEq, Eq, Hash))]
 pub enum OccupiedCoreAssumption {
 	/// The candidate occupying the core was made available and included to free the core.
@@ -860,7 +864,7 @@ pub enum OccupiedCoreAssumption {
 }
 
 /// A vote of approval on a candidate.
-#[derive(Clone, RuntimeDebug)]
+#[derive(Clone, Debug)]
 pub struct ApprovalVote(pub CandidateHash);
 
 impl ApprovalVote {
@@ -873,7 +877,7 @@ impl ApprovalVote {
 }
 
 /// A vote of approval for multiple candidates.
-#[derive(Clone, RuntimeDebug)]
+#[derive(Clone, Debug)]
 pub struct ApprovalVoteMultipleCandidates<'a>(pub &'a [CandidateHash]);
 
 impl<'a> ApprovalVoteMultipleCandidates<'a> {
@@ -894,7 +898,7 @@ impl<'a> ApprovalVoteMultipleCandidates<'a> {
 
 /// Approval voting configuration parameters
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Copy,
 	Clone,
 	PartialEq,
@@ -940,7 +944,7 @@ impl From<ValidityError> for u8 {
 
 /// Abridged version of `HostConfiguration` (from the `Configuration` parachains host runtime
 /// module) meant to be used by a parachain or PDK such as cumulus.
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct AbridgedHostConfiguration {
 	/// The maximum validation code size, in bytes.
@@ -975,7 +979,7 @@ pub struct AbridgedHostConfiguration {
 
 /// Abridged version of `HrmpChannel` (from the `Hrmp` parachains host runtime module) meant to be
 /// used by a parachain or PDK such as cumulus.
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Default, PartialEq))]
 pub struct AbridgedHrmpChannel {
 	/// The maximum number of messages that can be pending in the channel at once.
@@ -1001,7 +1005,7 @@ pub struct AbridgedHrmpChannel {
 }
 
 /// A possible upgrade restriction that prevents a parachain from performing an upgrade.
-#[derive(Copy, Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Encode, Decode, PartialEq, Debug, TypeInfo)]
 pub enum UpgradeRestriction {
 	/// There is an upgrade restriction and there are no details about its specifics nor how long
 	/// it could last.
@@ -1014,7 +1018,7 @@ pub enum UpgradeRestriction {
 ///
 /// This data type appears in the last step of the upgrade process. After the parachain observes it
 /// and reacts to it the upgrade process concludes.
-#[derive(Copy, Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Encode, Decode, PartialEq, Debug, TypeInfo)]
 pub enum UpgradeGoAhead {
 	/// Abort the upgrade process. There is something wrong with the validation code previously
 	/// submitted by the parachain. This variant can also be used to prevent upgrades by the
@@ -1067,8 +1071,9 @@ impl ConsensusLog {
 		digest_item: &sp_runtime::DigestItem,
 	) -> Result<Option<Self>, codec::Error> {
 		match digest_item {
-			sp_runtime::DigestItem::Consensus(id, encoded) if id == &POLKADOT_ENGINE_ID =>
-				Ok(Some(Self::decode(&mut &encoded[..])?)),
+			sp_runtime::DigestItem::Consensus(id, encoded) if id == &POLKADOT_ENGINE_ID => {
+				Ok(Some(Self::decode(&mut &encoded[..])?))
+			},
 			_ => Ok(None),
 		}
 	}
@@ -1083,7 +1088,7 @@ impl From<ConsensusLog> for sp_runtime::DigestItem {
 /// A statement about a candidate, to be used within the dispute resolution process.
 ///
 /// Statements are either in favor of the candidate's validity or against it.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Debug, TypeInfo)]
 pub enum DisputeStatement {
 	/// A valid statement, of the given kind.
 	#[codec(index = 0)]
@@ -1104,33 +1109,38 @@ impl DisputeStatement {
 		session: SessionIndex,
 	) -> Result<Vec<u8>, ()> {
 		match self {
-			DisputeStatement::Valid(ValidDisputeStatementKind::Explicit) =>
+			DisputeStatement::Valid(ValidDisputeStatementKind::Explicit) => {
 				Ok(ExplicitDisputeStatement { valid: true, candidate_hash, session }
-					.signing_payload()),
+					.signing_payload())
+			},
 			DisputeStatement::Valid(ValidDisputeStatementKind::BackingSeconded(
 				inclusion_parent,
 			)) => Ok(CompactStatement::Seconded(candidate_hash).signing_payload(&SigningContext {
 				session_index: session,
 				parent_hash: *inclusion_parent,
 			})),
-			DisputeStatement::Valid(ValidDisputeStatementKind::BackingValid(inclusion_parent)) =>
+			DisputeStatement::Valid(ValidDisputeStatementKind::BackingValid(inclusion_parent)) => {
 				Ok(CompactStatement::Valid(candidate_hash).signing_payload(&SigningContext {
 					session_index: session,
 					parent_hash: *inclusion_parent,
-				})),
-			DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalChecking) =>
-				Ok(ApprovalVote(candidate_hash).signing_payload(session)),
+				}))
+			},
+			DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalChecking) => {
+				Ok(ApprovalVote(candidate_hash).signing_payload(session))
+			},
 			DisputeStatement::Valid(
 				ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes),
-			) =>
+			) => {
 				if candidate_hashes.contains(&candidate_hash) {
 					Ok(ApprovalVoteMultipleCandidates(candidate_hashes).signing_payload(session))
 				} else {
 					Err(())
-				},
-			DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit) =>
+				}
+			},
+			DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit) => {
 				Ok(ExplicitDisputeStatement { valid: false, candidate_hash, session }
-					.signing_payload()),
+					.signing_payload())
+			},
 		}
 	}
 
@@ -1177,7 +1187,7 @@ impl DisputeStatement {
 }
 
 /// Different kinds of statements of validity on  a candidate.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Debug, TypeInfo)]
 pub enum ValidDisputeStatementKind {
 	/// An explicit statement issued as part of a dispute.
 	#[codec(index = 0)]
@@ -1213,7 +1223,7 @@ impl ValidDisputeStatementKind {
 }
 
 /// Different kinds of statements of invalidity on a candidate.
-#[derive(Encode, Decode, DecodeWithMemTracking, Copy, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Copy, Clone, PartialEq, Debug, TypeInfo)]
 pub enum InvalidDisputeStatementKind {
 	/// An explicit statement issued as part of a dispute.
 	#[codec(index = 0)]
@@ -1221,7 +1231,7 @@ pub enum InvalidDisputeStatementKind {
 }
 
 /// An explicit statement on a candidate issued as part of a dispute.
-#[derive(Clone, PartialEq, RuntimeDebug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct ExplicitDisputeStatement {
 	/// Whether the candidate is valid
 	pub valid: bool,
@@ -1241,7 +1251,7 @@ impl ExplicitDisputeStatement {
 }
 
 /// A set of statements about a specific candidate.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Debug, TypeInfo)]
 pub struct DisputeStatementSet {
 	/// The candidate referenced by this set.
 	pub candidate_hash: CandidateHash,
@@ -1267,7 +1277,7 @@ impl AsRef<DisputeStatementSet> for DisputeStatementSet {
 pub type MultiDisputeStatementSet = Vec<DisputeStatementSet>;
 
 /// A _checked_ set of dispute statements.
-#[derive(Clone, PartialEq, RuntimeDebug, Encode)]
+#[derive(Clone, PartialEq, Debug, Encode)]
 pub struct CheckedDisputeStatementSet(DisputeStatementSet);
 
 impl AsRef<DisputeStatementSet> for CheckedDisputeStatementSet {
@@ -1294,7 +1304,7 @@ impl CheckedDisputeStatementSet {
 pub type CheckedMultiDisputeStatementSet = Vec<CheckedDisputeStatementSet>;
 
 /// The entire state of a dispute.
-#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, TypeInfo)]
 pub struct DisputeState<N = BlockNumber> {
 	/// A bitfield indicating all validators for the candidate.
 	pub validators_for: BitVec<u8, bitvec::order::Lsb0>, // one bit per validator.
@@ -1308,7 +1318,7 @@ pub struct DisputeState<N = BlockNumber> {
 
 /// An either implicit or explicit attestation to the validity of a parachain
 /// candidate.
-#[derive(Clone, Eq, PartialEq, Decode, DecodeWithMemTracking, Encode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Decode, DecodeWithMemTracking, Encode, Debug, TypeInfo)]
 pub enum ValidityAttestation {
 	/// Implicit validity attestation by issuing.
 	/// This corresponds to issuance of a `Candidate` statement.
@@ -1349,16 +1359,18 @@ impl ValidityAttestation {
 		signing_context: &SigningContext<H>,
 	) -> Vec<u8> {
 		match *self {
-			ValidityAttestation::Implicit(_) =>
-				(CompactStatement::Seconded(candidate_hash), signing_context).encode(),
-			ValidityAttestation::Explicit(_) =>
-				(CompactStatement::Valid(candidate_hash), signing_context).encode(),
+			ValidityAttestation::Implicit(_) => {
+				(CompactStatement::Seconded(candidate_hash), signing_context).encode()
+			},
+			ValidityAttestation::Explicit(_) => {
+				(CompactStatement::Valid(candidate_hash), signing_context).encode()
+			},
 		}
 	}
 }
 
 /// A type returned by runtime with current session index and a parent hash.
-#[derive(Clone, Eq, PartialEq, Default, Decode, Encode, RuntimeDebug)]
+#[derive(Clone, Eq, PartialEq, Default, Decode, Encode, Debug)]
 pub struct SigningContext<H = Hash> {
 	/// Current session index.
 	pub session_index: sp_staking::SessionIndex,
@@ -1370,7 +1382,7 @@ const BACKING_STATEMENT_MAGIC: [u8; 4] = *b"BKNG";
 
 /// Statements that can be made about parachain candidates. These are the
 /// actual values that are signed.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, RuntimeDebug)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub enum CompactStatement {
 	/// Proposal of a parachain candidate.
@@ -1428,7 +1440,7 @@ impl codec::Decode for CompactStatement {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let maybe_magic = <[u8; 4]>::decode(input)?;
 		if maybe_magic != BACKING_STATEMENT_MAGIC {
-			return Err(codec::Error::from("invalid magic string"))
+			return Err(codec::Error::from("invalid magic string"));
 		}
 
 		Ok(match CompactStatementInner::decode(input)? {
@@ -1439,7 +1451,7 @@ impl codec::Decode for CompactStatement {
 }
 
 /// `IndexedVec` struct indexed by type specific indices.
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct IndexedVec<K, V>(Vec<V>, PhantomData<fn(K) -> K>);
 
@@ -1537,10 +1549,10 @@ pub fn effective_minimum_backing_votes(
 ///
 /// NOTE: `SessionInfo` is frozen. Do not include new fields, consider creating a separate runtime
 /// API. Reasoning and further outlook [here](https://github.com/paritytech/polkadot/issues/6586).
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct SessionInfo {
-	/****** New in v2 ****** */
+	/// **** New in v2 ******
 	/// All the validators actively participating in parachain consensus.
 	/// Indices are into the broader validator set.
 	pub active_validator_indices: Vec<ValidatorIndex>,
@@ -1549,7 +1561,7 @@ pub struct SessionInfo {
 	/// The amount of sessions to keep for disputes.
 	pub dispute_period: SessionIndex,
 
-	/****** Old fields ***** */
+	/// **** Old fields *****
 	/// Validators in canonical ordering.
 	///
 	/// NOTE: There might be more authorities in the current session, than `validators`
@@ -1597,7 +1609,7 @@ pub struct SessionInfo {
 
 /// A statement from the specified validator whether the given validation code passes PVF
 /// pre-checking or not anchored to the given session index.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Debug, TypeInfo)]
 pub struct PvfCheckStatement {
 	/// `true` if the subject passed pre-checking and `false` otherwise.
 	pub accept: bool,
@@ -1704,6 +1716,8 @@ pub type NodeFeatures = BitVec<u8, bitvec::order::Lsb0>;
 
 /// Module containing feature-specific bit indices into the `NodeFeatures` bitvec.
 pub mod node_features {
+	use crate::NodeFeatures;
+
 	/// A feature index used to identify a bit into the node_features array stored
 	/// in the HostConfiguration.
 	#[repr(u8)]
@@ -1726,16 +1740,25 @@ pub mod node_features {
 		/// See [RFC-103](https://github.com/polkadot-fellows/RFCs/pull/103) for details.
 		/// Only enable if at least 2/3 of nodes support the feature.
 		CandidateReceiptV2 = 3,
+		/// Enables support for scheduling information in the Candidate Descriptor.
+		CandidateReceiptV3 = 4,
 		/// First unassigned feature bit.
 		/// Every time a new feature flag is assigned it should take this value.
 		/// and this should be incremented.
-		FirstUnassigned = 4,
+		FirstUnassigned = 5,
+	}
+
+	impl FeatureIndex {
+		/// Check wheter the feature is enabled.
+		pub fn is_set(self, node_features: &NodeFeatures) -> bool {
+			node_features.get(self as usize).map(|v| *v).unwrap_or(false)
+		}
 	}
 }
 
 /// Scheduler configuration parameters. All coretime/ondemand parameters are here.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Copy,
 	Clone,
 	PartialEq,
@@ -1812,21 +1835,48 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 	}
 }
 
-/// A type representing the version of the candidate descriptor and internal version number.
-#[derive(
-	PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, RuntimeDebug, Copy,
-)]
-pub struct InternalVersion(pub u8);
-
 /// A type representing the version of the candidate descriptor.
-#[derive(PartialEq, Eq, Clone, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, TypeInfo, Debug, PartialOrd, Ord, Hash)]
 pub enum CandidateDescriptorVersion {
-	/// The old candidate descriptor version.
+	/// with deprecated collator id and collator signature.
 	V1,
-	/// The new `CandidateDescriptorV2`.
+	/// First properly versioned candidate.
+	///
+	/// - Removes collator signature and collator id fields.
+	/// - Introduces:
+	/// -- A version field.
+	/// -- session index field.
+	/// -- core index field.
 	V2,
-	/// An unknown version.
+	/// Candidate with scheduling info.
+	V3,
+	/// An unknown/not yet supported version.
+	///
+	/// Such a candidate must be dropped by the runtime and rejected by backers.
 	Unknown,
+}
+
+/// Error returned by [`CandidateDescriptorV2::check_version_acceptance`].
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum CandidateDescriptorVersionCheckError {
+	/// Old-style and new-style version detection disagree, and this is not the
+	/// expected V3 disagreement (old rules → V1, new rules → V3) with V3 enabled.
+	Inconsistency,
+	/// The descriptor is V3 but the V3 feature is not enabled.
+	V3NotEnabled,
+}
+
+// Manual Display impl required because this type is used in `no_std` runtime
+// code (paras_inherent) where thiserror::Error is not available.
+impl core::fmt::Display for CandidateDescriptorVersionCheckError {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		match self {
+			Self::Inconsistency => {
+				write!(f, "Descriptor version detection inconsistency (old vs new rules disagree)")
+			},
+			Self::V3NotEnabled => write!(f, "V3 candidate descriptor but V3 feature not enabled"),
+		}
+	}
 }
 
 /// A unique descriptor of the candidate receipt.
@@ -1840,13 +1890,18 @@ pub struct CandidateDescriptorV2<H = Hash> {
 	/// to determine the `CandidateDescriptorVersion`, see `fn version()`.
 	/// For the current version this field is set to `0` and will be incremented
 	/// by next versions.
-	pub(super) version: InternalVersion,
+	pub(super) version: u8,
 	/// The core index where the candidate is backed.
 	pub(super) core_index: u16,
 	/// The session index of the candidate relay parent.
 	session_index: SessionIndex,
+	/// Offset from `session_index` to derive the scheduling session (introduced in v3).
+	///
+	/// Stored as a `u8` offset rather than a full `SessionIndex` to fit within the
+	/// descriptor layout: `scheduling_session = session_index + scheduling_session_offset`.
+	scheduling_session_offset: u8,
 	/// Reserved bytes.
-	reserved1: [u8; 25],
+	reserved1: [u8; 24],
 	/// The blake2-256 hash of the persisted validation data. This is extra data derived from
 	/// relay-chain state which may vary based on bitfields included before the candidate.
 	/// Thus it cannot be derived entirely from the relay-parent.
@@ -1855,26 +1910,183 @@ pub struct CandidateDescriptorV2<H = Hash> {
 	pov_hash: Hash,
 	/// The root of a block's erasure encoding Merkle tree.
 	erasure_root: Hash,
+	/// The relay chain block determining scheduling.
+	scheduling_parent: H, // Introduced in v3
 	/// Reserved bytes.
-	reserved2: [u8; 64],
+	reserved2: [u8; 32],
 	/// Hash of the para header that is being generated by this candidate.
 	para_head: Hash,
 	/// The blake2-256 hash of the validation code bytes.
 	validation_code_hash: ValidationCodeHash,
 }
 
-impl<H> CandidateDescriptorV2<H> {
+impl<H: AsRef<[u8]>> CandidateDescriptorV2<H> {
 	/// Returns the candidate descriptor version.
 	///
-	/// The candidate is at version 2 if the reserved fields are zeroed out
-	/// and the internal `version` field is 0.
+	/// NOTE: The candidate descriptor versioning is subtle for as long as we
+	/// need to support the unversioned V1. The issue is that by default we
+	/// assume a V1 descriptor - as soon as any of the reserved bytes are
+	/// non-zero. Now if we introduce any new fields, then there will exist
+	/// candidates where any old node will think that descriptors of that new
+	/// version are actually V1 (non-zero contents), while upgraded nodes will
+	/// either see v3 or an unknown version.
+	///
+	/// We solve this by completely gating v3 behavior behind the v3 node
+	/// feature, which must only be enabled once enough validators have upgraded
+	/// to support it. Any backers still running on the old version are
+	/// protected by the relay chain runtime, which will drop any illegally
+	/// (under v3) backed candidates.
+	///
+	/// For this to work we now also require a present UMP signal for any
+	/// version higher or equal than V3. This is enforced by the runtime.
+	///
+	/// Via this, if an old node was presented a v3 candidate, which it would
+	/// consider a V1, it would either detect itself that it is invalid, because
+	/// of present UMP signals - which is illegal on v1 or the candidate would
+	/// get rejected by the runtime, because for v3 UMP signals are mandatory.
+	/// In both cases the backer wont't be slashed.
+	///
+	/// There are also candidates that would be treated as v1 by old nodes, but
+	/// would result in an Unknown version on updated clients. For this
+	/// scenario, also the runtime provides protection:
+	///
+	/// 1. Before the feature is enabled, all nodes will behave as if no v3
+	/// would exist - all nodes would detect a V1.
+	/// 2. After the upgrade, the runtime will also (in addition to upgraded
+	/// nodes) detect an unknown version and no v1 and thus would drop it.
+	///
+	/// TL;DR: Yes old nodes will errorneously treat v3 candidates as v1, but we
+	/// ensure via the relay chain runtime that this stays harmless for backers.
+	/// V2 approval voters would get disabled, which means a super majority must
+	/// have updated before enabling the v3 node feature.
+	///
+	/// Crucially for this to work: Behavior must not change before the node
+	/// feature is present and enabled, together with new UMP signal
+	/// requirements, the runtime can provide the necessary protection.
+	///
+	/// To ease future upgrades, we reduced the v1 check once v3 is enabled, so
+	/// some actually unused bytes are available (don't affect the v1 version
+	/// check).
+	///
+	/// Always uses the relaxed (v3-capable) detection logic. This means
+	/// version detection is self-contained and does not require knowing
+	/// whether the V3 node feature is enabled.
+	///
+	/// The safety invariant is maintained by the runtime and backing
+	/// subsystem: they reject candidates where `version()` and
+	/// `version_old_rules()` disagree when V3 is not yet enabled, and
+	/// reject V3 candidates outright when V3 is not enabled.
+	///
+	/// During the V3 transition, approval checkers, dispute participants,
+	/// and on-chain vote scrapers must use [`Self::version_for_candidate_validation`]
+	/// (and the corresponding `scheduling_parent_for_candidate_validation` /
+	/// `scheduling_session_for_candidate_validation`) instead of `version()`
+	/// directly. This ensures they match old backer semantics before the V3
+	/// node feature is confirmed enabled. See those methods for the full
+	/// safety argument.
 	pub fn version(&self) -> CandidateDescriptorVersion {
-		if self.reserved2 != [0u8; 64] || self.reserved1 != [0u8; 25] {
-			return CandidateDescriptorVersion::V1
+		self.v3_version()
+	}
+
+	/// Detect the version using the pre-V3 (stricter) rules.
+	///
+	/// Under these rules, all reserved fields, `scheduling_parent`, and
+	/// `scheduling_session_offset` must be zero for a descriptor to be
+	/// considered V2. Any non-zero value in those fields causes V1
+	/// detection. V3 descriptors appear as V1 under these rules.
+	///
+	/// Used together with `version()` in consistency checks: if the two
+	/// methods disagree, the candidate is ambiguous and must be rejected
+	/// when V3 is not enabled.
+	pub fn version_old_rules(&self) -> CandidateDescriptorVersion {
+		self.v2_version()
+	}
+
+	/// Returns `true` if the old-style and new-style version detection agree.
+	///
+	/// When V3 is not enabled, both runtime and backing must reject candidates
+	/// where this returns `false`, preventing ambiguous candidates from landing
+	/// on-chain. Once V3 is enabled, disagreement is expected for V3 candidates
+	/// (old rules see V1, new rules see V3) and this check is skipped.
+	pub fn check_version_consistency(&self) -> bool {
+		self.version() == self.version_old_rules()
+	}
+
+	/// Validates that the descriptor version is acceptable given whether V3 is enabled.
+	///
+	/// Used by both the runtime (`check_descriptor_version_and_signals`) and the
+	/// backing subsystem. Serves two distinct purposes:
+	///
+	/// 1. **V2 ambiguity protection (long-lived):** Old-style and new-style version detection must
+	///    agree, unless the candidate is V3 and V3 is enabled (the expected disagreement: old rules
+	///    see V1, new rules see V3). This prevents a crafted candidate from being treated as V2 (no
+	///    mandatory UMP signals) by new nodes but as V1 by old nodes. Needed as long as V1 exists
+	///    (maximum safety) or until we could have valiators not yet using the new rules.
+	///
+	/// 2. **V3 gating (transitional):** V3 candidates are rejected when V3 is not enabled.
+	///
+	/// Note: Consistent `Unknown` versions are not our concern here — they are caught upstream
+	/// by the runtime (`check_descriptor_version_and_signals`) and the collator
+	/// protocol (`descriptor_version_sanity_check`).
+	pub fn check_version_acceptance(
+		&self,
+		v3_enabled: bool,
+	) -> Result<(), CandidateDescriptorVersionCheckError> {
+		let version = self.version();
+
+		// Version consistency: old and new detection must agree, unless this is the
+		// expected V3 disagreement (old rules → V1, new rules → V3) with V3 enabled.
+		let is_expected_v3_disagreement = version == CandidateDescriptorVersion::V3 && v3_enabled;
+		if !self.check_version_consistency() && !is_expected_v3_disagreement {
+			return Err(CandidateDescriptorVersionCheckError::Inconsistency);
 		}
 
-		match self.version.0 {
+		// V3 gating: reject V3 candidates before the feature is enabled.
+		if version == CandidateDescriptorVersion::V3 && !v3_enabled {
+			return Err(CandidateDescriptorVersionCheckError::V3NotEnabled);
+		}
+
+		Ok(())
+	}
+
+	fn v2_version(&self) -> CandidateDescriptorVersion {
+		// V1 detected using the pre-v3 (stricter) check: all reserved and new
+		// fields must be zero. Once v3 is enabled, the v1 check is relaxed in
+		// `v3_version()` to free up more bytes for future use.
+		let old_v1_detected = self.reserved2 != [0u8; 32] ||
+			self.reserved1 != [0u8; 24] ||
+			self.scheduling_session_offset != 0 ||
+			self.scheduling_parent.as_ref() != &[0u8; 32];
+
+		if old_v1_detected {
+			return CandidateDescriptorVersion::V1;
+		}
+
+		match self.version {
 			0 => CandidateDescriptorVersion::V2,
+			_ => CandidateDescriptorVersion::Unknown,
+		}
+	}
+}
+
+impl<H> CandidateDescriptorV2<H> {
+	fn v3_version(&self) -> CandidateDescriptorVersion {
+		// Reduce checked bits for v1 significantly to make more bytes easier
+		// usable in future upgrades. 16 bytes is 32 hexadecimal digits which
+		// must all be 0 by accident to cause any issues. Bitcoin hardest
+		// difficulty so far has been 24 digits/12 bytes
+		//
+		// Impact if it still happened would also be fairly minimal: We would
+		// drop a parachain block, which is not a big deal on v1, where we are
+		// not aiming for perfect block confidence.
+		let new_v1_detected = self.reserved1[0..16] != [0u8; 16];
+
+		if new_v1_detected {
+			return CandidateDescriptorVersion::V1;
+		}
+		match self.version {
+			0 => CandidateDescriptorVersion::V2,
+			1 => CandidateDescriptorVersion::V3,
 			_ => CandidateDescriptorVersion::Unknown,
 		}
 	}
@@ -1889,7 +2101,7 @@ macro_rules! impl_getter {
 	};
 }
 
-impl<H: Copy> CandidateDescriptorV2<H> {
+impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 	impl_getter!(erasure_root, Hash);
 	impl_getter!(para_head, Hash);
 	impl_getter!(relay_parent, H);
@@ -1898,27 +2110,24 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	impl_getter!(pov_hash, Hash);
 	impl_getter!(validation_code_hash, ValidationCodeHash);
 
+	#[cfg(feature = "test")]
 	fn rebuild_collator_field(&self) -> CollatorId {
 		let mut collator_id = Vec::with_capacity(32);
 		let core_index: [u8; 2] = self.core_index.to_ne_bytes();
 		let session_index: [u8; 4] = self.session_index.to_ne_bytes();
 
-		collator_id.push(self.version.0);
+		collator_id.push(self.version);
 		collator_id.extend_from_slice(core_index.as_slice());
 		collator_id.extend_from_slice(session_index.as_slice());
+		collator_id.push(self.scheduling_session_offset);
 		collator_id.extend_from_slice(self.reserved1.as_slice());
 
 		CollatorId::from_slice(&collator_id.as_slice())
 			.expect("Slice size is exactly 32 bytes; qed")
 	}
 
-	#[cfg(feature = "test")]
-	#[doc(hidden)]
-	pub fn rebuild_collator_field_for_tests(&self) -> CollatorId {
-		self.rebuild_collator_field()
-	}
-
 	/// Returns the collator id if this is a v1 `CandidateDescriptor`
+	#[cfg(feature = "test")]
 	pub fn collator(&self) -> Option<CollatorId> {
 		if self.version() == CandidateDescriptorVersion::V1 {
 			Some(self.rebuild_collator_field())
@@ -1927,9 +2136,20 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 		}
 	}
 
+	#[cfg(feature = "test")]
 	fn rebuild_signature_field(&self) -> CollatorSignature {
-		CollatorSignature::from_slice(self.reserved2.as_slice())
+		let mut signature_bytes = Vec::with_capacity(64);
+		signature_bytes.extend_from_slice(self.scheduling_parent.as_ref());
+		signature_bytes.extend_from_slice(self.reserved2.as_slice());
+
+		CollatorSignature::from_slice(&signature_bytes)
 			.expect("Slice size is exactly 64 bytes; qed")
+	}
+
+	#[cfg(feature = "test")]
+	#[doc(hidden)]
+	pub fn rebuild_collator_field_for_tests(&self) -> CollatorId {
+		self.rebuild_collator_field()
 	}
 
 	#[cfg(feature = "test")]
@@ -1939,30 +2159,136 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	}
 
 	/// Returns the collator signature of `V1` candidate descriptors, `None` otherwise.
+	#[cfg(feature = "test")]
 	pub fn signature(&self) -> Option<CollatorSignature> {
 		if self.version() == CandidateDescriptorVersion::V1 {
-			return Some(self.rebuild_signature_field())
+			return Some(self.rebuild_signature_field());
 		}
 
 		None
 	}
 
-	/// Returns the `core_index` of `V2` candidate descriptors, `None` otherwise.
+	/// Returns the `core_index` of `V2` and `V3` candidate descriptors, `None` for `V1`.
 	pub fn core_index(&self) -> Option<CoreIndex> {
 		if self.version() == CandidateDescriptorVersion::V1 {
-			return None
+			return None;
 		}
 
 		Some(CoreIndex(self.core_index as u32))
 	}
 
-	/// Returns the `session_index` of `V2` candidate descriptors, `None` otherwise.
+	/// Returns the `session_index` of `V2` and `V3` candidate descriptors, `None` for `V1`.
 	pub fn session_index(&self) -> Option<SessionIndex> {
 		if self.version() == CandidateDescriptorVersion::V1 {
-			return None
+			return None;
 		}
 
 		Some(self.session_index)
+	}
+
+	/// Return the scheduling parent of the descriptor.
+	///
+	///
+	/// On v1 and v2 this function will return the relay parent as under these versions the relay
+	/// parent is also the scheduling parent.
+	pub fn scheduling_parent(&self) -> H {
+		match self.version() {
+			CandidateDescriptorVersion::V1 => self.relay_parent,
+			CandidateDescriptorVersion::V2 => self.relay_parent,
+			CandidateDescriptorVersion::V3 => self.scheduling_parent,
+			CandidateDescriptorVersion::Unknown => self.relay_parent,
+		}
+	}
+
+	/// Return the scheduling session index of the descriptor.
+	///
+	///
+	/// On v1: Return None.
+	/// On v2: Return the session index as it equals the scheduling session on v2.
+	/// On v3: Return the provided scheduling session index.
+	pub fn scheduling_session(&self) -> Option<SessionIndex> {
+		match self.version() {
+			CandidateDescriptorVersion::V1 => None,
+			CandidateDescriptorVersion::V2 => Some(self.session_index),
+			CandidateDescriptorVersion::V3 => {
+				Some(self.session_index.saturating_add(self.scheduling_session_offset as _))
+			},
+			CandidateDescriptorVersion::Unknown => None,
+		}
+	}
+
+	/// Version for use in candidate validation during the V3 transition period.
+	///
+	/// Before the `CandidateReceiptV3` node feature is observed, uses
+	/// [`Self::version_old_rules`] to match old backer behavior. After the feature
+	/// is seen, trusts [`Self::version`].
+	///
+	/// This prevents slashing honest old backers when a malicious collator crafts
+	/// a pseudo-V3 descriptor that old nodes interpret as V1 but new nodes would
+	/// interpret as V3 (different PVF inputs → dispute → 100% slash).
+	///
+	/// Safety argument: The node feature can only be enabled well after the runtime upgrade that
+	/// adds `check_version_acceptance()` protection at inclusion time. Once the feature is seen,
+	/// the runtime has long been upgraded and already rejecting pseudo-V3 candidates (candidates
+	/// that are valid v1 under the old rules, but are v3 without UMP signals under the new
+	/// rules), so no ambiguous candidates can exist on-chain.
+	///
+	/// Only needed during the V3 transition. Once V3 is universally deployed,
+	/// callers can switch to [`Self::version`] directly.
+	pub fn version_for_candidate_validation(
+		&self,
+		v3_ever_seen: bool,
+	) -> CandidateDescriptorVersion {
+		if v3_ever_seen {
+			self.version()
+		} else {
+			self.version_old_rules()
+		}
+	}
+
+	/// Scheduling parent for use in candidate validation.
+	///
+	/// See [`Self::version_for_candidate_validation`] for the safety argument.
+	pub fn scheduling_parent_for_candidate_validation(&self, v3_ever_seen: bool) -> H
+	where
+		H: Copy,
+	{
+		match self.version_for_candidate_validation(v3_ever_seen) {
+			CandidateDescriptorVersion::V3 => self.scheduling_parent,
+			_ => self.relay_parent,
+		}
+	}
+
+	/// Scheduling session for candidate validation.
+	///
+	/// See [`Self::version_for_candidate_validation`] for the safety argument.
+	pub fn scheduling_session_for_candidate_validation(
+		&self,
+		v3_ever_seen: bool,
+	) -> Option<SessionIndex> {
+		match self.version_for_candidate_validation(v3_ever_seen) {
+			CandidateDescriptorVersion::V1 => None,
+			CandidateDescriptorVersion::V2 => Some(self.session_index),
+			CandidateDescriptorVersion::V3 => {
+				Some(self.session_index.saturating_add(self.scheduling_session_offset as _))
+			},
+			CandidateDescriptorVersion::Unknown => None,
+		}
+	}
+
+	/// Session index (relay parent session) for candidate validation.
+	///
+	/// See [`Self::version_for_candidate_validation`] for the safety argument.
+	pub fn session_index_for_candidate_validation(
+		&self,
+		v3_ever_seen: bool,
+	) -> Option<SessionIndex> {
+		match self.version_for_candidate_validation(v3_ever_seen) {
+			CandidateDescriptorVersion::V1 | CandidateDescriptorVersion::Unknown => None,
+			CandidateDescriptorVersion::V2 | CandidateDescriptorVersion::V3 => {
+				Some(self.session_index)
+			},
+		}
 	}
 }
 
@@ -1971,7 +2297,9 @@ where
 	H: core::fmt::Debug,
 {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		match self.version() {
+		// A bit imprecise, but should not matter in practice for debug output. (Keeps trait bounds
+		// sane.)
+		match self.v3_version() {
 			CandidateDescriptorVersion::V1 => f
 				.debug_struct("CandidateDescriptorV1")
 				.field("para_id", &self.para_id)
@@ -1990,19 +2318,33 @@ where
 				.field("session_index", &self.session_index)
 				.field("persisted_validation_data_hash", &self.persisted_validation_data_hash)
 				.field("pov_hash", &self.pov_hash)
-				.field("erasure_root", &self.pov_hash)
+				.field("erasure_root", &self.erasure_root)
+				.field("para_head", &self.para_head)
+				.field("validation_code_hash", &self.validation_code_hash)
+				.finish(),
+			CandidateDescriptorVersion::V3 => f
+				.debug_struct("CandidateDescriptorV3")
+				.field("para_id", &self.para_id)
+				.field("relay_parent", &self.relay_parent)
+				.field("core_index", &self.core_index)
+				.field("session_index", &self.session_index)
+				.field("scheduling_session_offset", &self.scheduling_session_offset)
+				.field("persisted_validation_data_hash", &self.persisted_validation_data_hash)
+				.field("pov_hash", &self.pov_hash)
+				.field("erasure_root", &self.erasure_root)
+				.field("scheduling_parent", &self.scheduling_parent)
 				.field("para_head", &self.para_head)
 				.field("validation_code_hash", &self.validation_code_hash)
 				.finish(),
 			CandidateDescriptorVersion::Unknown => {
-				write!(f, "Invalid CandidateDescriptorVersion")
+				write!(f, "CandidateDescriptorV2(unknown version={})", self.version)
 			},
 		}
 	}
 }
 
 impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
-	/// Constructor
+	/// Constructor for V2 candidate descriptor (scheduling_parent = zero).
 	pub fn new(
 		para_id: Id,
 		relay_parent: H,
@@ -2013,18 +2355,94 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		erasure_root: Hash,
 		para_head: Hash,
 		validation_code_hash: ValidationCodeHash,
+	) -> Self
+	where
+		H: Default,
+	{
+		Self {
+			para_id,
+			relay_parent,
+			version: 0,
+			core_index: core_index.0 as u16,
+			session_index,
+			scheduling_session_offset: 0,
+			reserved1: [0; 24],
+			persisted_validation_data_hash,
+			pov_hash,
+			erasure_root,
+			scheduling_parent: H::default(),
+			reserved2: [0; 32],
+			para_head,
+			validation_code_hash,
+		}
+	}
+
+	/// Constructor for V3 candidate descriptor with explicit scheduling_parent.
+	///
+	/// V3 descriptors are identified by `version == 1` and have a non-zero scheduling_parent
+	/// field, which indicates the relay chain block that was used for scheduling (may differ
+	/// from relay_parent). V3 descriptors require UMP signals to be present.
+	pub fn new_v3(
+		para_id: Id,
+		relay_parent: H,
+		core_index: CoreIndex,
+		session_index: SessionIndex,
+		scheduling_session_index: SessionIndex,
+		persisted_validation_data_hash: Hash,
+		pov_hash: Hash,
+		erasure_root: Hash,
+		para_head: Hash,
+		validation_code_hash: ValidationCodeHash,
+		scheduling_parent: H,
 	) -> Self {
 		Self {
 			para_id,
 			relay_parent,
-			version: InternalVersion(0),
+			version: 1,
 			core_index: core_index.0 as u16,
 			session_index,
-			reserved1: [0; 25],
+			scheduling_session_offset: scheduling_session_index
+				.saturating_sub(session_index)
+				.try_into()
+				.expect("scheduling session offset should fit in u8"),
+			reserved1: [0; 24],
 			persisted_validation_data_hash,
 			pov_hash,
 			erasure_root,
-			reserved2: [0; 64],
+			scheduling_parent,
+			reserved2: [0; 32],
+			para_head,
+			validation_code_hash,
+		}
+	}
+
+	/// Constructor for a V1-like candidate descriptor with non-zero collator
+	/// fields so that `version()` returns [`CandidateDescriptorVersion::V1`].
+	pub fn new_v1(
+		para_id: Id,
+		relay_parent: H,
+		persisted_validation_data_hash: Hash,
+		pov_hash: Hash,
+		erasure_root: Hash,
+		para_head: Hash,
+		validation_code_hash: ValidationCodeHash,
+	) -> Self
+	where
+		H: Default,
+	{
+		Self {
+			para_id,
+			relay_parent,
+			version: 0,
+			core_index: 0,
+			session_index: 0,
+			scheduling_session_offset: 0,
+			reserved1: [1u8; 24],
+			persisted_validation_data_hash,
+			pov_hash,
+			erasure_root,
+			scheduling_parent: H::default(),
+			reserved2: [1u8; 32],
 			para_head,
 			validation_code_hash,
 		}
@@ -2035,14 +2453,16 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 	pub fn new_from_raw(
 		para_id: Id,
 		relay_parent: H,
-		version: InternalVersion,
+		version: u8,
 		core_index: u16,
 		session_index: SessionIndex,
-		reserved1: [u8; 25],
+		scheduling_session_offset: u8,
+		reserved1: [u8; 24],
 		persisted_validation_data_hash: Hash,
 		pov_hash: Hash,
 		erasure_root: Hash,
-		reserved2: [u8; 64],
+		scheduling_parent: H,
+		reserved2: [u8; 32],
 		para_head: Hash,
 		validation_code_hash: ValidationCodeHash,
 	) -> Self {
@@ -2052,10 +2472,12 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 			version,
 			core_index,
 			session_index,
+			scheduling_session_offset,
 			reserved1,
 			persisted_validation_data_hash,
 			pov_hash,
 			erasure_root,
+			scheduling_parent,
 			reserved2,
 			para_head,
 			validation_code_hash,
@@ -2072,8 +2494,8 @@ pub trait MutateDescriptorV2<H> {
 	fn set_para_id(&mut self, para_id: Id);
 	/// Set the PoV hash of the descriptor.
 	fn set_pov_hash(&mut self, pov_hash: Hash);
-	/// Set the version field of the descriptor.
-	fn set_version(&mut self, version: InternalVersion);
+	/// Set the raw version field of the descriptor.
+	fn set_version(&mut self, version: u8);
 	/// Set the PVD of the descriptor.
 	fn set_persisted_validation_data_hash(&mut self, persisted_validation_data_hash: Hash);
 	/// Set the validation code hash of the descriptor.
@@ -2087,7 +2509,11 @@ pub trait MutateDescriptorV2<H> {
 	/// Set the session index of the descriptor.
 	fn set_session_index(&mut self, session_index: SessionIndex);
 	/// Set the reserved2 field of the descriptor.
-	fn set_reserved2(&mut self, reserved2: [u8; 64]);
+	fn set_reserved2(&mut self, reserved2: [u8; 32]);
+	/// Set the scheduling parent of the descriptor.
+	fn set_scheduling_parent(&mut self, scheduling_parent: H);
+	/// Set the scheduling session offset of the descriptor.
+	fn set_scheduling_session_offset(&mut self, offset: u8);
 }
 
 #[cfg(feature = "test")]
@@ -2104,7 +2530,7 @@ impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
 		self.pov_hash = pov_hash;
 	}
 
-	fn set_version(&mut self, version: InternalVersion) {
+	fn set_version(&mut self, version: u8) {
 		self.version = version;
 	}
 
@@ -2132,13 +2558,21 @@ impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
 		self.para_head = para_head;
 	}
 
-	fn set_reserved2(&mut self, reserved2: [u8; 64]) {
+	fn set_reserved2(&mut self, reserved2: [u8; 32]) {
 		self.reserved2 = reserved2;
+	}
+
+	fn set_scheduling_parent(&mut self, scheduling_parent: H) {
+		self.scheduling_parent = scheduling_parent;
+	}
+
+	fn set_scheduling_session_offset(&mut self, offset: u8) {
+		self.scheduling_session_offset = offset;
 	}
 }
 
 /// A candidate-receipt at version 2.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
 pub struct CandidateReceiptV2<H = Hash> {
 	/// The descriptor of the candidate.
 	pub descriptor: CandidateDescriptorV2<H>,
@@ -2147,7 +2581,7 @@ pub struct CandidateReceiptV2<H = Hash> {
 }
 
 /// A candidate-receipt with commitments directly included.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
 pub struct CommittedCandidateReceiptV2<H = Hash> {
 	/// The descriptor of the candidate.
 	pub descriptor: CandidateDescriptorV2<H>,
@@ -2156,7 +2590,7 @@ pub struct CommittedCandidateReceiptV2<H = Hash> {
 }
 
 /// An event concerning a candidate.
-#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum CandidateEvent<H = Hash> {
 	/// This candidate receipt was backed in the most recent block.
@@ -2238,9 +2672,21 @@ impl Ord for CommittedCandidateReceiptV2 {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug, Copy)]
 pub struct CoreSelector(pub u8);
 
+impl From<u8> for CoreSelector {
+	fn from(value: u8) -> Self {
+		Self(value)
+	}
+}
+
 /// An offset in the relay chain claim queue.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug, Copy)]
 pub struct ClaimQueueOffset(pub u8);
+
+impl From<u8> for ClaimQueueOffset {
+	fn from(value: u8) -> Self {
+		Self(value)
+	}
+}
 
 /// Signals that a parachain can send to the relay chain via the UMP queue.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug)]
@@ -2262,7 +2708,7 @@ pub const DEFAULT_CLAIM_QUEUE_OFFSET: u8 = 0;
 /// it's too generic and extensible.
 pub type ApprovedPeerId = BoundedVec<u8, ConstU32<64>>;
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug, Default)]
 /// User-friendly representation of a candidate's UMP signals.
 pub struct CandidateUMPSignals {
 	pub(super) select_core: Option<(CoreSelector, ClaimQueueOffset)>,
@@ -2300,7 +2746,7 @@ impl CandidateUMPSignals {
 			},
 			_ => {
 				// This means that we got duplicate UMP signals.
-				return Err(CommittedCandidateReceiptError::DuplicateUMPSignal)
+				return Err(CommittedCandidateReceiptError::DuplicateUMPSignal);
 			},
 		};
 
@@ -2338,7 +2784,7 @@ impl CandidateCommitments {
 
 		if signals_iter.next().is_none() {
 			// No UMP separator
-			return Ok(res)
+			return Ok(res);
 		}
 
 		// Process first signal
@@ -2351,7 +2797,7 @@ impl CandidateCommitments {
 
 		// At most two signals are allowed
 		if signals_iter.next().is_some() {
-			return Err(CommittedCandidateReceiptError::TooManyUMPSignals)
+			return Err(CommittedCandidateReceiptError::TooManyUMPSignals);
 		}
 
 		Ok(res)
@@ -2359,7 +2805,7 @@ impl CandidateCommitments {
 }
 
 /// CommittedCandidateReceiptError construction errors.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub enum CommittedCandidateReceiptError {
 	/// The specified core index is invalid.
@@ -2390,7 +2836,7 @@ pub enum CommittedCandidateReceiptError {
 	NoAssignment,
 	/// Unknown version.
 	#[cfg_attr(feature = "std", error("Unknown internal version"))]
-	UnknownVersion(InternalVersion),
+	UnknownVersion(u8),
 	/// The allowed number of `UMPSignal` messages in the queue was exceeded.
 	#[cfg_attr(feature = "std", error("Too many UMP signals"))]
 	TooManyUMPSignals,
@@ -2400,10 +2846,24 @@ pub enum CommittedCandidateReceiptError {
 	/// If the parachain runtime started sending ump signals, v1 descriptors are no longer
 	/// allowed.
 	#[cfg_attr(feature = "std", error("Version 1 receipt does not support ump signals"))]
-	UMPSignalWithV1Decriptor,
+	UMPSignalWithV1Descriptor,
+	/// Starting with v3 ump signals are mandatory.
+	///
+	/// This is to avoid nodes only understanding v1 and v2 to getting tricked
+	/// into backing a candidate that looks like a valid v1 to them, but is
+	/// actually an invalid v3.
+	///
+	/// This is prevented by the runtime rejecting v3 candidates without ump
+	/// signals. Therefore a candidate that was erroneously backed as v1, while
+	/// it actually was a v3 would get rejected by the runtime due to missing
+	/// signals, thus preventing the backer from getting slashed. This is given,
+	/// because v1 and v2 only nodes would not back a v1 candidate with UMP
+	/// signals, as that is seen as invalid by them already.
+	#[cfg_attr(feature = "std", error("Version 3 receipt requires ump signals"))]
+	NoUMPSignalWithV3Descriptor,
 }
 
-impl<H: Copy> CommittedCandidateReceiptV2<H> {
+impl<H: Copy + AsRef<[u8]>> CommittedCandidateReceiptV2<H> {
 	/// Performs checks on the UMP signals and returns them.
 	///
 	/// Also checks if descriptor core index is equal to the committed core index.
@@ -2411,6 +2871,11 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 	/// Params:
 	/// - `cores_per_para` is a claim queue snapshot at the candidate's relay parent, stored as
 	/// a mapping between `ParaId` and the cores assigned per depth.
+	///
+	/// NOTE: This must only be called in the runtime and backing - never in approval voting nor
+	/// disputes! At least not as long as nodes exist which don't understand v3 candidate
+	/// descriptors. Not checking there is fine, because it is checked by the runtime - if it can be
+	/// disputed, it has been checked already!
 	pub fn parse_ump_signals(
 		&self,
 		cores_per_para: &TransposedClaimQueue,
@@ -2422,15 +2887,21 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 				// If the parachain runtime started sending ump signals, v1 descriptors are no
 				// longer allowed.
 				if !signals.is_empty() {
-					return Err(CommittedCandidateReceiptError::UMPSignalWithV1Decriptor)
+					return Err(CommittedCandidateReceiptError::UMPSignalWithV1Descriptor);
 				} else {
 					// Nothing else to check for v1 descriptors.
-					return Ok(CandidateUMPSignals::default())
+					return Ok(CandidateUMPSignals::default());
 				}
 			},
 			CandidateDescriptorVersion::V2 => {},
-			CandidateDescriptorVersion::Unknown =>
-				return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version)),
+			CandidateDescriptorVersion::Unknown => {
+				return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version))
+			},
+			_ if signals.is_empty() => {
+				// V3 and above require UMP signals.
+				return Err(CommittedCandidateReceiptError::NoUMPSignalWithV3Descriptor);
+			},
+			_ => {},
 		}
 
 		// Check the core index
@@ -2462,7 +2933,7 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			.ok_or(CommittedCandidateReceiptError::NoAssignment)?;
 
 		if assigned_cores.is_empty() {
-			return Err(CommittedCandidateReceiptError::NoAssignment)
+			return Err(CommittedCandidateReceiptError::NoAssignment);
 		}
 
 		let descriptor_core_index = CoreIndex(self.descriptor.core_index as u32);
@@ -2474,11 +2945,11 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			// We got more than one assigned core and no core selector. Special care is needed.
 			if !assigned_cores.contains(&descriptor_core_index) {
 				// core index in the descriptor is not assigned to the para. Error.
-				return Err(CommittedCandidateReceiptError::InvalidCoreIndex)
+				return Err(CommittedCandidateReceiptError::InvalidCoreIndex);
 			} else {
 				// the descriptor core index is indeed assigned to the para. This is the most we can
 				// check for now
-				return Ok(())
+				return Ok(());
 			}
 		} else {
 			// No core selector but there's only one assigned core, use it.
@@ -2495,7 +2966,7 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			return Err(CommittedCandidateReceiptError::CoreIndexMismatch {
 				descriptor: descriptor_core_index,
 				commitments: core_index,
-			})
+			});
 		}
 
 		Ok(())
@@ -2503,7 +2974,7 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 }
 
 /// A backed (or backable, depending on context) candidate.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub struct BackedCandidate<H = Hash> {
 	/// The candidate referred to.
 	candidate: CommittedCandidateReceiptV2<H>,
@@ -2516,7 +2987,7 @@ pub struct BackedCandidate<H = Hash> {
 }
 
 /// Parachains inherent-data passed into the runtime by a block author
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Debug, TypeInfo)]
 pub struct InherentData<HDR: HeaderT = Header> {
 	/// Signed bitfields by validators about availability.
 	pub bitfields: UncheckedSignedAvailabilityBitfields,
@@ -2632,7 +3103,7 @@ impl<H> BackedCandidate<H> {
 }
 
 /// Scraped runtime backing votes and resolved disputes.
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct ScrapedOnChainVotes<H: Encode + Decode = Hash> {
 	/// The session in which the block was included.
@@ -2648,7 +3119,7 @@ pub struct ScrapedOnChainVotes<H: Encode + Decode = Hash> {
 }
 
 /// Information about a core which is currently occupied.
-#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct OccupiedCore<H = Hash, N = BlockNumber> {
 	// NOTE: this has no ParaId as it can be deduced from the candidate descriptor.
@@ -2683,7 +3154,7 @@ impl<H, N> OccupiedCore<H, N> {
 }
 
 /// The state of a particular availability core.
-#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum CoreState<H = Hash, N = BlockNumber> {
 	/// The core is currently occupied.
@@ -2853,5 +3324,180 @@ pub mod tests {
 		let zero_u: usize = 0;
 
 		assert!(zero_b.leading_zeros() >= zero_u.leading_zeros());
+	}
+
+	fn make_v2_descriptor() -> CandidateDescriptorV2 {
+		CandidateDescriptorV2::new(
+			Id::from(1u32),
+			Hash::repeat_byte(1),
+			CoreIndex(0),
+			1,
+			Hash::repeat_byte(2),
+			Hash::repeat_byte(3),
+			Hash::repeat_byte(4),
+			Hash::repeat_byte(5),
+			ValidationCodeHash::from(Hash::repeat_byte(6)),
+		)
+	}
+
+	fn make_v3_descriptor() -> CandidateDescriptorV2 {
+		CandidateDescriptorV2::new_v3(
+			Id::from(1u32),
+			Hash::repeat_byte(1),
+			CoreIndex(0),
+			1, // session_index
+			1, // scheduling_session_index
+			Hash::repeat_byte(2),
+			Hash::repeat_byte(3),
+			Hash::repeat_byte(4),
+			Hash::repeat_byte(5),
+			ValidationCodeHash::from(Hash::repeat_byte(6)),
+			Hash::repeat_byte(7), // scheduling_parent
+		)
+	}
+
+	#[test]
+	fn check_version_acceptance_v1_consistent() {
+		// A V1 descriptor (created from old-style with non-zero collator fields)
+		// Both old and new rules agree → passes regardless of v3_enabled.
+		let mut desc = make_v2_descriptor();
+		// Put non-zero bytes in first 16 bytes of reserved1 to trigger V1 in both
+		// old and new detection.
+		desc.reserved1[0] = 0xFF;
+
+		assert_eq!(desc.version(), CandidateDescriptorVersion::V1);
+		assert_eq!(desc.version_old_rules(), CandidateDescriptorVersion::V1);
+		assert!(desc.check_version_consistency());
+
+		assert!(desc.check_version_acceptance(false).is_ok());
+		assert!(desc.check_version_acceptance(true).is_ok());
+	}
+
+	#[test]
+	fn check_version_acceptance_v2_consistent() {
+		// A clean V2 descriptor: both rules agree → passes always.
+		let desc = make_v2_descriptor();
+
+		assert_eq!(desc.version(), CandidateDescriptorVersion::V2);
+		assert_eq!(desc.version_old_rules(), CandidateDescriptorVersion::V2);
+		assert!(desc.check_version_consistency());
+
+		assert!(desc.check_version_acceptance(false).is_ok());
+		assert!(desc.check_version_acceptance(true).is_ok());
+	}
+
+	#[test]
+	fn check_version_acceptance_v3_when_enabled() {
+		// V3 descriptor with v3_enabled=true → passes.
+		let desc = make_v3_descriptor();
+
+		assert_eq!(desc.version(), CandidateDescriptorVersion::V3);
+		assert_eq!(desc.version_old_rules(), CandidateDescriptorVersion::V1);
+		assert!(!desc.check_version_consistency());
+
+		assert!(desc.check_version_acceptance(true).is_ok());
+	}
+
+	#[test]
+	fn check_version_acceptance_v3_when_disabled() {
+		// V3 descriptor with v3_enabled=false → rejected.
+		// The consistency check fires first (old rules see V1, new rules see V3,
+		// and V3 disagreement is not expected when v3_enabled=false).
+		let desc = make_v3_descriptor();
+
+		assert_eq!(desc.version(), CandidateDescriptorVersion::V3);
+		assert_eq!(
+			desc.check_version_acceptance(false),
+			Err(CandidateDescriptorVersionCheckError::Inconsistency)
+		);
+	}
+
+	#[test]
+	fn check_version_acceptance_ambiguous_rejected() {
+		// Craft descriptor where old rules see V1, new rules see V2.
+		// reserved1[16..24] non-zero, reserved1[0..16] all zero, version=0.
+		let mut desc = make_v2_descriptor();
+		desc.reserved1[16] = 0xFF; // triggers old V1 check but not new
+
+		assert_eq!(desc.version(), CandidateDescriptorVersion::V2);
+		assert_eq!(desc.version_old_rules(), CandidateDescriptorVersion::V1);
+		assert!(!desc.check_version_consistency());
+
+		// Rejected regardless of v3_enabled.
+		assert_eq!(
+			desc.check_version_acceptance(false),
+			Err(CandidateDescriptorVersionCheckError::Inconsistency)
+		);
+		assert_eq!(
+			desc.check_version_acceptance(true),
+			Err(CandidateDescriptorVersionCheckError::Inconsistency)
+		);
+	}
+
+	#[test]
+	fn check_version_consistency_v3_expected_disagreement() {
+		// V3 descriptor: version() returns V3, version_old_rules() returns V1.
+		// check_version_consistency() is false — but this is expected.
+		let desc = make_v3_descriptor();
+
+		assert_eq!(desc.version(), CandidateDescriptorVersion::V3);
+		assert_eq!(desc.version_old_rules(), CandidateDescriptorVersion::V1);
+		assert!(!desc.check_version_consistency());
+		// Accepted when V3 is enabled.
+		assert!(desc.check_version_acceptance(true).is_ok());
+	}
+
+	#[test]
+	fn v3_feature_activation_changes_descriptor_interpretation() {
+		let desc = make_v3_descriptor();
+
+		// Sanity: the descriptor IS V3 under new rules but looks like V1 under old rules.
+		assert_eq!(desc.version(), CandidateDescriptorVersion::V3);
+		assert_eq!(desc.version_old_rules(), CandidateDescriptorVersion::V1);
+
+		// Before V3 activation: descriptor is treated as V1 — relay_parent is used.
+		assert_eq!(desc.version_for_candidate_validation(false), CandidateDescriptorVersion::V1,);
+		assert_eq!(
+			desc.scheduling_parent_for_candidate_validation(false),
+			Hash::repeat_byte(1), // relay_parent
+		);
+		assert_eq!(
+			desc.scheduling_session_for_candidate_validation(false),
+			None,
+			"V1 has no embedded session — must be fetched from runtime",
+		);
+
+		// After V3 activation: descriptor is correctly identified as V3.
+		assert_eq!(desc.version_for_candidate_validation(true), CandidateDescriptorVersion::V3,);
+		assert_eq!(
+			desc.scheduling_parent_for_candidate_validation(true),
+			Hash::repeat_byte(7), // scheduling_parent
+		);
+		assert_eq!(
+			desc.scheduling_session_for_candidate_validation(true),
+			Some(1), // session_index from descriptor, offset=0
+		);
+	}
+
+	#[test]
+	fn check_version_acceptance_ambiguous_scheduling_parent_nonzero() {
+		// Descriptor with scheduling_parent non-zero but version=0.
+		// Old rules: V1 (scheduling_parent non-zero triggers old_v1_detected).
+		// New rules: V2 (only checks reserved1[0..16], which is zero).
+		let mut desc = make_v2_descriptor();
+		desc.scheduling_parent = Hash::repeat_byte(0xAB);
+
+		assert_eq!(desc.version(), CandidateDescriptorVersion::V2);
+		assert_eq!(desc.version_old_rules(), CandidateDescriptorVersion::V1);
+		assert!(!desc.check_version_consistency());
+
+		assert_eq!(
+			desc.check_version_acceptance(false),
+			Err(CandidateDescriptorVersionCheckError::Inconsistency)
+		);
+		assert_eq!(
+			desc.check_version_acceptance(true),
+			Err(CandidateDescriptorVersionCheckError::Inconsistency)
+		);
 	}
 }

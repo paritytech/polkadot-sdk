@@ -31,7 +31,7 @@ pub(crate) fn weight_witness_warning(
 	warnings: &mut Vec<Warning>,
 ) {
 	if dev_mode {
-		return
+		return;
 	}
 	let CallWeightDef::Immediate(w) = &method.weight else { return };
 
@@ -42,7 +42,7 @@ pub(crate) fn weight_witness_warning(
 
 	for (_, arg_ident, _) in method.args.iter() {
 		if !arg_ident.to_string().starts_with('_') || !contains_ident(w.clone(), &arg_ident) {
-			continue
+			continue;
 		}
 
 		let warning = partial_warning
@@ -62,7 +62,7 @@ pub(crate) fn weight_constant_warning(
 	warnings: &mut Vec<Warning>,
 ) {
 	if dev_mode {
-		return
+		return;
 	}
 	let syn::Expr::Lit(lit) = weight else { return };
 

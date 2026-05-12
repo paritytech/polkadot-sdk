@@ -37,10 +37,7 @@ pub fn ensure_is_remote(
 ) -> Result<(NetworkId, InteriorLocation), Location> {
 	let dest = dest.into();
 	let universal_local = universal_local.into();
-	let local_net = match universal_local.global_consensus() {
-		Ok(x) => x,
-		Err(_) => return Err(dest),
-	};
+	let Ok(local_net) = universal_local.global_consensus() else { return Err(dest) };
 	let universal_destination: InteriorLocation = universal_local
 		.into_location()
 		.appended_with(dest.clone())
@@ -285,7 +282,7 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		else {
 			// We need to make sure that msg is not consumed in case of `NotApplicable`.
 			*msg = Some(xcm);
-			return Err(NotApplicable)
+			return Err(NotApplicable);
 		};
 
 		// `xcm` should already end with `SetTopic` - if it does, then extract and derive into
@@ -385,7 +382,7 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		else {
 			// We need to make sure that msg is not consumed in case of `NotApplicable`.
 			*msg = Some(xcm);
-			return Err(NotApplicable)
+			return Err(NotApplicable);
 		};
 
 		// `xcm` should already end with `SetTopic` - if it does, then extract and derive into
@@ -626,7 +623,7 @@ impl<
 				},
 				Err((dest, _)) => {
 					*destination = Some(dest);
-					return Err(NotApplicable)
+					return Err(NotApplicable);
 				},
 			};
 
@@ -714,7 +711,7 @@ mod tests {
 		) -> SendResult<Self::Ticket> {
 			if let Some(d) = destination.as_ref() {
 				if Filter::contains(&d) {
-					return Ok(((), Assets::new()))
+					return Ok(((), Assets::new()));
 				}
 			}
 			Err(NotApplicable)
@@ -739,7 +736,7 @@ mod tests {
 		) -> SendResult<Self::Ticket> {
 			if let Some(d) = destination.as_ref() {
 				if Filter::contains(&(network, d.clone())) {
-					return Ok(((), Assets::new()))
+					return Ok(((), Assets::new()));
 				}
 			}
 			Err(NotApplicable)

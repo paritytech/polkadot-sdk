@@ -19,11 +19,13 @@ use crate::*;
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::{Pays, PostDispatchInfo, WithPostDispatchInfo},
+	storage,
 	traits::{OnRuntimeUpgrade, WhitelistedStorageKeys},
 };
 use mock::{RuntimeOrigin, *};
-use sp_core::{hexdisplay::HexDisplay, H256};
+use sp_core::{hexdisplay::HexDisplay, storage::well_known_keys, H256};
 use sp_runtime::{
+	generic::{Digest, DigestItem},
 	traits::{BlakeTwo256, Header},
 	DispatchError, DispatchErrorWithPostInfo,
 };
@@ -233,13 +235,13 @@ fn deposit_event_should_work() {
 		System::reset_events();
 		System::initialize(&1, &[0u8; 32].into(), &Default::default());
 		System::note_finished_extrinsics();
-		System::deposit_event(SysEvent::CodeUpdated);
+		System::deposit_event(SysEvent::CodeUpdated { hash: Default::default() });
 		System::finalize();
 		assert_eq!(
 			System::events(),
 			vec![EventRecord {
 				phase: Phase::Finalization,
-				event: SysEvent::CodeUpdated.into(),
+				event: SysEvent::CodeUpdated { hash: Default::default() }.into(),
 				topics: vec![],
 			}]
 		);
@@ -582,10 +584,10 @@ fn deposit_event_topics() {
 fn event_util_functions_should_work() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
-		System::deposit_event(SysEvent::CodeUpdated);
+		System::deposit_event(SysEvent::CodeUpdated { hash: Default::default() });
 
-		System::assert_has_event(SysEvent::CodeUpdated.into());
-		System::assert_last_event(SysEvent::CodeUpdated.into());
+		System::assert_has_event(SysEvent::CodeUpdated { hash: Default::default() }.into());
+		System::assert_last_event(SysEvent::CodeUpdated { hash: Default::default() }.into());
 	});
 }
 
@@ -685,11 +687,12 @@ fn set_code_with_real_wasm_blob() {
 		)
 		.unwrap();
 
+		let hash = BlakeTwo256::hash(&substrate_test_runtime_client::runtime::wasm_binary_unwrap());
 		assert_eq!(
 			System::events(),
 			vec![EventRecord {
 				phase: Phase::Initialization,
-				event: SysEvent::CodeUpdated.into(),
+				event: SysEvent::CodeUpdated { hash }.into(),
 				topics: vec![],
 			}],
 		);
@@ -752,8 +755,8 @@ fn set_code_via_authorization_works() {
 		);
 
 		// Can apply correct runtime
-		assert_ok!(System::apply_authorized_upgrade(RawOrigin::None.into(), runtime));
-		System::assert_has_event(SysEvent::CodeUpdated.into());
+		assert_ok!(System::apply_authorized_upgrade(RawOrigin::None.into(), runtime.to_vec()));
+		System::assert_has_event(SysEvent::CodeUpdated { hash }.into());
 		assert!(System::authorized_upgrade().is_none());
 	});
 }
@@ -875,7 +878,7 @@ fn last_runtime_upgrade_spec_version_usage() {
 			// a runtime upgrade in the pipeline of being applied, you should use the spec version
 			// of this upgrade.
 			if System::last_runtime_upgrade_spec_version() > 1337 {
-				return Weight::zero()
+				return Weight::zero();
 			}
 
 			// Do the migration.
@@ -975,5 +978,145 @@ fn initialize_block_number_must_be_sequential() {
 
 		// Try to initialize block 3, skipping block 2 - this should panic
 		System::initialize(&3, &[0u8; 32].into(), &Default::default());
+	});
+}
+
+#[test]
+fn set_code_version_3_schedules_and_applies_pending_code() {
+	let code = vec![1, 2, 3];
+	let mut ext = new_test_ext();
+	ext.execute_with(|| {
+		let mut version = Version::get();
+		version.system_version = 3;
+		Version::set(version);
+		// Move to block 1
+		crate::Pallet::<Test>::set_block_number(1);
+		// Schedule new code
+		assert_ok!(<() as crate::SetCode<Test>>::set_code(code.clone()));
+		// Pending code stored
+		let pending = storage::unhashed::get_raw(well_known_keys::PENDING_CODE)
+			.expect("Pending code should exist");
+		assert_eq!(pending, code.clone());
+		let pending_hash = BlakeTwo256::hash(&pending);
+
+		// BlocksTillUpgrade should be set to 2
+		assert_eq!(BlocksTillUpgrade::<Test>::get(), Some(2u8));
+		// Immediate code not updated
+		let current = storage::unhashed::get_raw(well_known_keys::CODE).unwrap_or_default();
+		assert_ne!(current, code.clone());
+		// RuntimeEnvironmentUpdated digest should already be present
+		assert!(System::digest()
+			.logs()
+			.iter()
+			.any(|d| *d == sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated));
+		// CodeUpdated event is emitted immediately when the upgrade is scheduled.
+		System::assert_has_event(SysEvent::CodeUpdated { hash: pending_hash }.into());
+		System::reset_events();
+
+		// First on_finalize (block N): counter goes 2 -> 1, no apply yet
+		crate::Pallet::<Test>::maybe_apply_pending_code_upgrade();
+		assert_eq!(BlocksTillUpgrade::<Test>::get(), Some(1u8));
+		// Code still not updated
+		let current = storage::unhashed::get_raw(well_known_keys::CODE).unwrap_or_default();
+		assert_ne!(current, code.clone());
+		// Second on_finalize (block N+1): counter goes 1 -> 0, apply
+		crate::Pallet::<Test>::maybe_apply_pending_code_upgrade();
+		// Code should now be updated
+		let updated =
+			storage::unhashed::get_raw(well_known_keys::CODE).expect("Code should be updated");
+		assert_eq!(updated, code);
+		// Pending code should be cleaned up
+		assert!(storage::unhashed::get_raw(well_known_keys::PENDING_CODE).is_none());
+		// BlocksTillUpgrade should be killed
+		assert_eq!(BlocksTillUpgrade::<Test>::get(), None);
+		// CodeUpdated event is not emitted again
+		assert!(System::events().is_empty());
+	});
+}
+
+#[test]
+fn preinherent_digest_is_preserved() {
+	new_test_ext().execute_with(|| {
+		let data = vec![42u8; 100];
+		let digest = Digest { logs: vec![DigestItem::PreRuntime(*b"test", data.clone())] };
+
+		System::initialize(&1, &[0u8; 32].into(), &digest);
+
+		let stored_digest = <crate::Digest<Test>>::get();
+		assert_eq!(stored_digest.logs.len(), 1);
+
+		if let Some(DigestItem::PreRuntime(id, stored_data)) = stored_digest.logs.first() {
+			assert_eq!(id, b"test");
+			assert_eq!(stored_data, &data);
+		} else {
+			panic!("Expected PreRuntime digest item");
+		}
+
+		let header = System::finalize();
+		assert_eq!(header.digest().logs.len(), 1);
+
+		if let Some(DigestItem::PreRuntime(id, header_data)) = header.digest().logs.first() {
+			assert_eq!(id, b"test");
+			assert_eq!(header_data, &data);
+		} else {
+			panic!("Expected PreRuntime digest item in finalized header");
+		}
+	});
+}
+
+#[test]
+fn block_size_includes_digest_and_header_overhead() {
+	new_test_ext().execute_with(|| {
+		let data = vec![42u8; 100];
+		let digest = Digest { logs: vec![DigestItem::PreRuntime(*b"test", data.clone())] };
+
+		System::initialize(&1, &[0u8; 32].into(), &digest);
+
+		let block_size = System::block_size();
+
+		let digest_size = digest.encoded_size();
+		use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+		let empty_header = <<Test as Config>::Block as BlockT>::Header::new(
+			1,
+			Default::default(),
+			Default::default(),
+			[0u8; 32].into(),
+			Default::default(),
+		);
+		let empty_header_size = empty_header.encoded_size();
+		let expected_overhead = digest_size + empty_header_size;
+
+		assert_eq!(block_size as usize, expected_overhead);
+		assert!(block_size > 100);
+	});
+}
+
+#[test]
+fn deposit_log_updates_block_size() {
+	new_test_ext().execute_with(|| {
+		System::initialize(&1, &[0u8; 32].into(), &Default::default());
+
+		let initial_len = System::block_size();
+
+		let log_data = vec![42u8; 1000];
+		let log_item = DigestItem::Other(log_data.clone());
+		let log_size = log_item.encoded_size();
+
+		System::deposit_log(log_item);
+
+		let new_len = System::block_size();
+		assert_eq!(new_len, initial_len + log_size as u32);
+	});
+}
+
+#[test]
+#[should_panic(expected = "Header size")]
+fn inherent_digest_exceeding_max_header_size_panics() {
+	new_test_ext().execute_with(|| {
+		let max_header_size = RuntimeBlockLength::get().max_header_size();
+		let large_data = vec![42u8; max_header_size as usize + 10];
+		let digest = Digest { logs: vec![DigestItem::PreRuntime(*b"test", large_data)] };
+
+		System::initialize(&1, &[0u8; 32].into(), &digest);
 	});
 }

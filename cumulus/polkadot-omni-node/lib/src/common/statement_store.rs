@@ -15,7 +15,7 @@
 // limitations under the License.
 
 use crate::common::{types::ParachainClient, ConstructNodeRuntimeApi, NodeBlock};
-use parachains_common::Hash;
+use parachains_common_types::Hash;
 use sc_network::{
 	config::FullNetworkConfiguration, service::traits::NetworkService, NetworkBackend,
 };
@@ -63,14 +63,15 @@ pub(crate) fn build_statement_store<
 	sync_service: Arc<sc_network_sync::service::syncing_service::SyncingService<Block>>,
 	local_keystore: Arc<sc_keystore::LocalKeystore>,
 	statement_handler_proto: sc_network_statement::StatementHandlerPrototype,
+	config: sc_statement_store::Config,
 ) -> sc_service::error::Result<Arc<Store>> {
 	let statement_store = sc_statement_store::Store::new_shared(
 		&parachain_config.data_path,
-		Default::default(),
+		config,
 		client,
 		local_keystore,
 		parachain_config.prometheus_registry(),
-		&task_manager.spawn_handle(),
+		Box::new(task_manager.spawn_handle()),
 	)
 	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 	let statement_protocol_executor = {
@@ -85,6 +86,8 @@ pub(crate) fn build_statement_store<
 		statement_store.clone(),
 		parachain_config.prometheus_registry(),
 		statement_protocol_executor,
+		config.network_workers,
+		config.rate_limit,
 	)?;
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",

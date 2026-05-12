@@ -153,6 +153,17 @@ pub enum StateAction<Block: BlockT> {
 	Skip,
 }
 
+impl<Block: BlockT> std::fmt::Debug for StateAction<Block> {
+	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+		match self {
+			Self::ApplyChanges(_) => fmt.write_str("ApplyChanges(..)"),
+			Self::Execute => fmt.write_str("Execute"),
+			Self::ExecuteIfPossible => fmt.write_str("ExecuteIfPossible"),
+			Self::Skip => fmt.write_str("Skip"),
+		}
+	}
+}
+
 impl<Block: BlockT> StateAction<Block> {
 	/// Check if execution checks that require runtime calls should be skipped.
 	pub fn skip_execution_checks(&self) -> bool {
@@ -161,6 +172,16 @@ impl<Block: BlockT> StateAction<Block> {
 			StateAction::Execute |
 			StateAction::ExecuteIfPossible => false,
 			StateAction::Skip => true,
+		}
+	}
+
+	/// Returns as storage changes.
+	pub fn as_storage_changes(
+		&self,
+	) -> Option<&sp_state_machine::StorageChanges<HashingFor<Block>>> {
+		match self {
+			StateAction::ApplyChanges(StorageChanges::Changes(changes)) => Some(&changes),
+			_ => None,
 		}
 	}
 }
@@ -244,13 +265,24 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			post_digests: Vec::new(),
 			body: None,
 			indexed_body: None,
-			state_action: StateAction::Execute,
+			// Warp sync blocks are already verified, skip execution.
+			state_action: if origin == BlockOrigin::WarpSync {
+				StateAction::Skip
+			} else {
+				StateAction::Execute
+			},
 			finalized: false,
 			intermediates: HashMap::new(),
 			auxiliary: Vec::new(),
 			fork_choice: None,
 			import_existing: false,
-			create_gap: true,
+			// Never create gaps for warp sync imported blocks.
+			// Warp sync downloads only session blocks. Gap sync to work needs one gap even if
+			// between gap start and gap end some blocks are existing. If each warp sync block
+			// created a gap, every new block import would override the previous gap, losing the
+			// real gap start. In case of warp sync a gap is created separately when the target
+			// block with state is imported.
+			create_gap: origin != BlockOrigin::WarpSync,
 			post_hash: None,
 		}
 	}

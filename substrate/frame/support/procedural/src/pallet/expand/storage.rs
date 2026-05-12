@@ -102,7 +102,6 @@ pub struct ResultOnEmptyStructMetadata {
 	pub span: proc_macro2::Span,
 }
 
-///
 /// * if generics are unnamed: replace the first generic `_` by the generated prefix structure
 /// * if generics are named: reorder the generic, remove their name, and add the missing ones.
 /// * Add `#[allow(type_alias_bounds)]`
@@ -380,7 +379,6 @@ fn augment_final_docs(def: &mut Def) {
 	});
 }
 
-///
 /// * generate StoragePrefix structs (e.g. for a storage `MyStorage` a struct with the name
 ///   `_GeneratedPrefixForStorage$NameOfStorage` is generated) and implements StorageInstance trait.
 /// * if generics are unnamed: replace the first generic `_` by the generated prefix structure

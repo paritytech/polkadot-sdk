@@ -90,11 +90,12 @@ impl BitfieldGossipMessage {
 		recipient_version: ProtocolVersion,
 	) -> net_protocol::BitfieldDistributionMessage {
 		match ValidationVersion::try_from(recipient_version).ok() {
-			Some(ValidationVersion::V3) =>
+			Some(ValidationVersion::V3) => {
 				ValidationProtocols::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
 					self.relay_parent,
 					self.signed_availability.into(),
-				)),
+				))
+			},
 			None => {
 				gum::warn!(
 					target: LOG_TARGET,
@@ -354,14 +355,14 @@ async fn handle_bitfield_distribution<Context>(
 			"Not supposed to work on relay parent related data",
 		);
 
-		return
+		return;
 	};
 
 	let session_idx = job_data.signing_context.session_index;
 	let validator_set = &job_data.validator_set;
 	if validator_set.is_empty() {
 		gum::debug!(target: LOG_TARGET, ?relay_parent, "validator set is empty");
-		return
+		return;
 	}
 
 	let validator_index = signed_availability.validator_index();
@@ -369,7 +370,7 @@ async fn handle_bitfield_distribution<Context>(
 		validator.clone()
 	} else {
 		gum::debug!(target: LOG_TARGET, validator_index = ?validator_index.0, "Could not find a validator for index");
-		return
+		return;
 	};
 
 	let msg = BitfieldGossipMessage { relay_parent, signed_availability };
@@ -512,7 +513,7 @@ async fn process_incoming_peer_message<Context>(
 			COST_NOT_IN_VIEW,
 		)
 		.await;
-		return
+		return;
 	}
 
 	// Ignore anything the overseer did not tell this subsystem to work on.
@@ -528,7 +529,7 @@ async fn process_incoming_peer_message<Context>(
 			COST_NOT_IN_VIEW,
 		)
 		.await;
-		return
+		return;
 	};
 
 	let validator_index = bitfield.unchecked_validator_index();
@@ -544,7 +545,7 @@ async fn process_incoming_peer_message<Context>(
 			COST_MISSING_PEER_SESSION_KEY,
 		)
 		.await;
-		return
+		return;
 	}
 
 	// Use the (untrusted) validator index provided by the signed payload
@@ -561,7 +562,7 @@ async fn process_incoming_peer_message<Context>(
 			COST_VALIDATOR_INDEX_INVALID,
 		)
 		.await;
-		return
+		return;
 	};
 
 	// Check if the peer already sent us a message for the validator denoted in the message earlier.
@@ -581,7 +582,7 @@ async fn process_incoming_peer_message<Context>(
 			COST_PEER_DUPLICATE_MESSAGE,
 		)
 		.await;
-		return
+		return;
 	};
 
 	let one_per_validator = &mut (job_data.one_per_validator);
@@ -603,7 +604,7 @@ async fn process_incoming_peer_message<Context>(
 			)
 			.await;
 		}
-		return
+		return;
 	}
 	let signed_availability = match bitfield.try_into_checked(&signing_context, &validator) {
 		Err(_) => {
@@ -615,7 +616,7 @@ async fn process_incoming_peer_message<Context>(
 				COST_SIGNATURE_INVALID,
 			)
 			.await;
-			return
+			return;
 		},
 		Ok(bitfield) => bitfield,
 	};
@@ -712,7 +713,7 @@ async fn handle_network_msg<Context>(
 					None => {
 						// For peers which are currently unknown, we'll send topology-related
 						// messages to them when they connect and send their first view update.
-						continue
+						continue;
 					},
 				};
 
@@ -729,8 +730,9 @@ async fn handle_network_msg<Context>(
 			gum::trace!(target: LOG_TARGET, ?new_view, "Our view change");
 			handle_our_view_change(state, new_view);
 		},
-		NetworkBridgeEvent::PeerMessage(remote, message) =>
-			process_incoming_peer_message(ctx, state, metrics, remote, message, rng).await,
+		NetworkBridgeEvent::PeerMessage(remote, message) => {
+			process_incoming_peer_message(ctx, state, metrics, remote, message, rng).await
+		},
 		NetworkBridgeEvent::UpdatedAuthorityIds(peer_id, authority_ids) => {
 			state
 				.topologies
@@ -783,7 +785,7 @@ async fn handle_peer_view_change<Context>(
 				"Attempted to update peer view for unknown peer."
 			);
 
-			return
+			return;
 		},
 		Some(pd) => pd,
 	};
@@ -803,7 +805,7 @@ async fn handle_peer_view_change<Context>(
 
 	if !lucky {
 		gum::trace!(target: LOG_TARGET, ?origin, "Peer view change is ignored");
-		return
+		return;
 	}
 
 	// Send all messages we've seen before and the peer is now interested
@@ -848,7 +850,7 @@ async fn send_tracked_gossip_message<Context>(
 	let job_data = if let Some(job_data) = state.per_relay_parent.get_mut(&message.relay_parent) {
 		job_data
 	} else {
-		return
+		return;
 	};
 
 	gum::trace!(
@@ -904,8 +906,9 @@ async fn query_basics<Context>(
 	.await;
 
 	match (validators_rx.await?, session_rx.await?) {
-		(Ok(validators), Ok(session_index)) =>
-			Ok(Some((validators, SigningContext { parent_hash: relay_parent, session_index }))),
+		(Ok(validators), Ok(session_index)) => {
+			Ok(Some((validators, SigningContext { parent_hash: relay_parent, session_index })))
+		},
 		(Err(err), _) | (_, Err(err)) => {
 			gum::warn!(
 				target: LOG_TARGET,

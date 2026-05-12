@@ -55,7 +55,6 @@
 //! > A notable Substrate-based blockchain that has built both custom FRAME pallets and custom
 //! > node-side components is <https://github.com/Cardinal-Cryptography/aleph-node>.
 #![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_dev.mmd")]
-//!
 //! ## Structure
 //!
 //! Substrate contains a large number of crates, therefore it is useful to have an overview of what
@@ -89,6 +88,15 @@
 //! wasm file is placed in `./target/{debug|release}/wbuild/{runtime_name}/{runtime_name}.wasm`.
 //!
 //! In order to ensure that the WASM build is **deterministic**, the [Substrate Runtime Toolbox (srtool)](https://github.com/paritytech/srtool) can be used.
+//!
+//! #### Building individual crates
+//!
+//! When building full runtimes, the WASM builder takes care of all required configuration.
+//! For individual crates, however, the `substrate_runtime` Rust flag is needed, e.g.:
+//!
+//! ```bash
+//! RUSTFLAGS="--cfg substrate_runtime" cargo build -p sp-io --target=wasm32-unknown-unknown --no-default-features
+//! ```
 //!
 //! ### Anatomy of a Binary Crate
 //!

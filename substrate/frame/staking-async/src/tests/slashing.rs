@@ -356,7 +356,7 @@ fn deferred_slashes_are_deferred() {
 				Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
 				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-				Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 7500 },
+				Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 0 },
 				Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
 			]
 		);
@@ -372,7 +372,7 @@ fn deferred_slashes_are_deferred() {
 				Event::SessionRotated { starting_session: 7, active_era: 2, planned_era: 3 },
 				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::SessionRotated { starting_session: 8, active_era: 2, planned_era: 3 },
-				Event::EraPaid { era_index: 2, validator_payout: 7500, remainder: 7500 },
+				Event::EraPaid { era_index: 2, validator_payout: 7500, remainder: 0 },
 				Event::SessionRotated { starting_session: 9, active_era: 3, planned_era: 3 }
 			]
 		);
@@ -431,7 +431,7 @@ fn retroactive_deferred_slashes_two_eras_before() {
 				Event::SessionRotated { starting_session: 7, active_era: 2, planned_era: 3 },
 				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::SessionRotated { starting_session: 8, active_era: 2, planned_era: 3 },
-				Event::EraPaid { era_index: 2, validator_payout: 7500, remainder: 7500 },
+				Event::EraPaid { era_index: 2, validator_payout: 7500, remainder: 0 },
 				Event::SessionRotated { starting_session: 9, active_era: 3, planned_era: 3 }
 			]
 		);
@@ -490,7 +490,7 @@ fn retroactive_deferred_slashes_one_before() {
 					Event::SessionRotated { starting_session: 10, active_era: 3, planned_era: 4 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 11, active_era: 3, planned_era: 4 },
-					Event::EraPaid { era_index: 3, validator_payout: 7500, remainder: 7500 },
+					Event::EraPaid { era_index: 3, validator_payout: 7500, remainder: 0 },
 					Event::SessionRotated { starting_session: 12, active_era: 4, planned_era: 4 }
 				]
 			);
@@ -510,42 +510,6 @@ fn retroactive_deferred_slashes_one_before() {
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 1000));
 			assert_eq!(Staking::ledger(11.into()).unwrap().total, 900);
 		})
-}
-
-#[test]
-fn invulnerables_are_not_slashed() {
-	// For invulnerable validators no slashing is performed.
-	ExtBuilder::default()
-		.invulnerables(vec![11])
-		.nominate(false)
-		.build_and_execute(|| {
-			assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
-			assert_eq!(asset::stakeable_balance::<T>(&21), 1000);
-
-			let initial_balance = Staking::slashable_balance_of(&21);
-
-			// slash both
-			add_slash(11);
-			add_slash(21);
-			Session::roll_next();
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![
-					Event::OffenceReported {
-						offence_era: 1,
-						validator: 21,
-						fraction: Perbill::from_percent(10)
-					},
-					Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 21, page: 0 },
-					Event::Slashed { staker: 21, amount: 100 }
-				]
-			);
-
-			// The validator 11 hasn't been slashed, but 21 has been.
-			assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
-			// 1000 - (0.1 * initial_balance)
-			assert_eq!(asset::stakeable_balance::<T>(&21), 1000 - (initial_balance / 10));
-		});
 }
 
 #[test]
@@ -907,10 +871,16 @@ fn garbage_collection_on_window_pruning() {
 
 		assert!(ValidatorSlashInEra::<T>::get(&now, &11).is_some());
 
-		// + 1 because we have to exit the bonding window.
-		for era in (0..(BondingDuration::get() + 1)).map(|offset| offset + now + 1) {
+		for era in (0..(HistoryDepth::get() + 1)).map(|offset| offset + now + 1) {
 			assert!(ValidatorSlashInEra::<T>::get(&now, &11).is_some());
 			Session::roll_until_active_era(era);
+		}
+
+		// After HistoryDepth + 1 eras, lazy pruning is triggered.
+		// We need to manually call prune_era_step to actually remove the data.
+		let prune_era = now;
+		while EraPruningState::<T>::get(prune_era).is_some() {
+			assert_ok!(Staking::prune_era_step(RuntimeOrigin::signed(10), prune_era));
 		}
 
 		assert!(ValidatorSlashInEra::<T>::get(&now, &11).is_none());
@@ -1732,6 +1702,69 @@ fn withdrawals_are_blocked_for_unprocessed_and_unapplied_slashes() {
 		});
 }
 
+#[test]
+fn apply_slash_paths_agree_on_unbonding_chunk_at_offence_era() {
+	// Both the public `apply_slash` extrinsic and the automatic `on_initialize` path drain
+	// the same UnappliedSlashes record and must produce identical on-ledger outcomes. The
+	// 30% fraction is chosen so the proportional branch in `Ledger::slash` actually hits the
+	// chunk; at 100% the active-first fallback would consume the chunk regardless and hide
+	// any path divergence.
+	ExtBuilder::default()
+		.slash_defer_duration(2)
+		.nominate(false)
+		.build_and_execute(|| {
+			let alice = 11; // validator
+			let offence_era = 2;
+			let slash_era = offence_era + SlashDeferDuration::get();
+			let chunk_unlock_era = offence_era + BondingDuration::get();
+
+			// GIVEN: alice has 500 active and a 500 chunk maturing at offence_era +
+			// BondingDuration, and a 30% offence is queued at offence_era.
+			assert_eq!(BondingDuration::get(), 3);
+			Session::roll_until_active_era(offence_era);
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(alice)));
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 500));
+			assert_eq!(
+				Staking::ledger(alice.into()).unwrap().unlocking.to_vec(),
+				vec![UnlockChunk { era: chunk_unlock_era, value: 500 }],
+			);
+			add_slash_in_era(alice, offence_era, Perbill::from_percent(30));
+			Session::roll_next();
+			assert_eq!(UnappliedSlashes::<T>::iter_prefix(&slash_era).count(), 1);
+
+			Session::roll_until_active_era(slash_era);
+
+			// Expected outcome under either path: 30% of (500 active + 500 chunk) = 300,
+			// split 150/150 by the proportional branch.
+			let assert_post_slash = || {
+				let ledger = Staking::ledger(alice.into()).unwrap();
+				assert_eq!(ledger.active, 350);
+				assert_eq!(
+					ledger.unlocking.to_vec(),
+					vec![UnlockChunk { era: chunk_unlock_era, value: 350 }],
+				);
+				assert_eq!(ledger.total, 700);
+			};
+
+			// WHEN: the permissionless extrinsic applies the slash before the auto path.
+			hypothetically!({
+				let (slash_key, _) =
+					UnappliedSlashes::<T>::iter_prefix(&slash_era).next().expect("queued");
+				assert_ok!(Staking::apply_slash(RuntimeOrigin::signed(1), slash_era, slash_key,));
+				// THEN: chunk is slashed proportionally.
+				assert_post_slash();
+			});
+
+			// WHEN: the auto path drains the record at the application era.
+			hypothetically!({
+				Session::roll_next();
+				assert_eq!(UnappliedSlashes::<T>::iter_prefix(&slash_era).count(), 0);
+				// THEN: same proportional outcome.
+				assert_post_slash();
+			});
+		});
+}
+
 mod paged_slashing {
 	use super::*;
 	use crate::slashing::OffenceRecord;
@@ -2176,4 +2209,73 @@ mod paged_slashing {
 			);
 		});
 	}
+}
+
+#[test]
+fn old_offences_rejected_with_zero_slash_defer_duration() {
+	// Regression test: with SlashDeferDuration=0, the oldest reportable offence era is
+	// `active_era - (BondingDuration - 2)`. Offences older than that are rejected.
+	ExtBuilder::default().nominate(false).build_and_execute(|| {
+		assert_eq!(SlashDeferDuration::get(), 0);
+		assert_eq!(BondingDuration::get(), 3);
+
+		// advance to era 5.
+		Session::roll_until_active_era(5);
+		assert_eq!(active_era(), 5);
+
+		// clear events from era transitions.
+		staking_events_since_last_call();
+
+		let offence_era = 3u32;
+
+		// WHEN: reporting offence for era 3 (outside the valid window).
+		// oldest_reportable = 5 - (3 - 2) = 4, so era 3 < 4 is too old.
+		add_slash_in_era(11, offence_era, Perbill::from_percent(10));
+
+		// THEN: correctly rejected as too old.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![Event::OffenceTooOld {
+				offence_era,
+				validator: 11,
+				fraction: Perbill::from_percent(10),
+			}]
+		);
+
+		// OffenceQueue and OffenceQueueEras remain consistent: no orphaned records.
+		assert!(OffenceQueue::<Test>::iter_prefix(offence_era).next().is_none());
+		assert!(!OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&offence_era));
+
+		// WHEN: reporting offence for era 4 (within the valid window, 4 >= 4).
+		add_slash_in_era(21, 4, Perbill::from_percent(10));
+
+		// THEN: offence is accepted and stored consistently.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![Event::OffenceReported {
+				offence_era: 4,
+				validator: 21,
+				fraction: Perbill::from_percent(10),
+			}]
+		);
+
+		// OffenceQueue has the record for era 4.
+		assert!(OffenceQueue::<Test>::iter_prefix(4).next().is_some());
+		// OffenceQueueEras tracks era 4.
+		assert!(OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&4));
+
+		// AND: computed in the next block.
+		Session::roll_next();
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::SlashComputed { offence_era: 4, slash_era: 4, offender: 21, page: 0 },
+				Event::Slashed { staker: 21, amount: 100 },
+			]
+		);
+
+		// After processing, both storages are cleaned up consistently.
+		assert!(OffenceQueue::<Test>::iter_prefix(4).next().is_none());
+		assert!(!OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&4));
+	});
 }

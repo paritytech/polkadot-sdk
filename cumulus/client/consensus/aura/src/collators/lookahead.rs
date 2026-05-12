@@ -35,10 +35,12 @@
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
-use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
+use cumulus_primitives_core::{
+	CollectCollationInfo, KeyToIncludeInRelayProof, PersistedValidationData,
+};
 use cumulus_relay_chain_interface::RelayChainInterface;
+use sp_consensus::Environment;
 
 use polkadot_node_primitives::SubmitCollationParams;
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
@@ -54,19 +56,22 @@ use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
 use sc_network_types::PeerId;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::{AuraApi, Slot};
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
+use sp_runtime::{
+	traits::{Block as BlockT, Header as HeaderT, Member},
+	Saturating,
+};
 use sp_timestamp::Timestamp;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 /// Parameters for [`run`].
-pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
+pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, ProposerFactory, CS> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
 	/// collator.
@@ -93,8 +98,8 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	pub overseer_handle: OverseerHandle,
 	/// The length of slots in the relay chain.
 	pub relay_chain_slot_duration: Duration,
-	/// The underlying block proposer this should call into.
-	pub proposer: Proposer,
+	/// The proposer for building blocks.
+	pub proposer: ProposerFactory,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
 	/// The amount of time to spend authoring each block.
@@ -126,7 +131,7 @@ where
 			Ok(sd) => sd,
 			Err(err) => {
 				tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to acquire parachain slot duration");
-				return None
+				return None;
 			},
 		};
 
@@ -164,14 +169,16 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
+	Client::Api: AuraApi<Block, P::Public>
+		+ CollectCollationInfo<Block>
+		+ AuraUnincludedSegmentApi<Block>
+		+ KeyToIncludeInRelayProof<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	Proposer: Environment<Block> + Clone + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
 	P: Pair + Send + Sync + 'static,
@@ -216,14 +223,16 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
+	Client::Api: AuraApi<Block, P::Public>
+		+ CollectCollationInfo<Block>
+		+ AuraUnincludedSegmentApi<Block>
+		+ KeyToIncludeInRelayProof<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	Proposer: Environment<Block> + Clone + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
 	P: Pair + Send + Sync + 'static,
@@ -249,7 +258,7 @@ where
 					"Failed to initialize consensus: no relay chain import notification stream"
 				);
 
-				return
+				return;
 			},
 		};
 
@@ -288,7 +297,7 @@ where
 					"Para is not scheduled on any core, skipping import notification",
 				);
 
-				continue
+				continue;
 			};
 
 			let max_pov_size = match params
@@ -304,82 +313,111 @@ where
 				Ok(Some(pvd)) => pvd.max_pov_size,
 				Err(err) => {
 					tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to gather information from relay-client");
-					continue
+					continue;
 				},
 			};
 
-			let (included_block, initial_parent) = match crate::collators::find_parent(
+			let session_index =
+				match params.relay_client.session_index_for_child(relay_parent).await {
+					Ok(session_index) => session_index,
+					Err(err) => {
+						tracing::error!(
+							target: crate::LOG_TARGET,
+							?err,
+							?relay_parent,
+							"Failed to fetch session index."
+						);
+						continue;
+					},
+				};
+
+			let parent_search_result = match crate::collators::find_parent(
 				relay_parent,
 				params.para_id,
 				&*params.para_backend,
 				&params.relay_client,
+				|_| true,
 			)
 			.await
 			{
-				Some(value) => value,
+				Some(result) => result,
 				None => continue,
 			};
 
+			let included_header = &parent_search_result.included_header;
 			let para_client = &*params.para_client;
 			let keystore = &params.keystore;
-			let can_build_upon = |block_hash| {
-				let (slot_now, relay_slot, timestamp) = get_parachain_slot::<_, _, P::Public>(
-					para_client,
-					block_hash,
-					&relay_parent_header,
-					params.relay_chain_slot_duration,
-				)?;
-
-				Some(super::can_build_upon::<_, _, P>(
-					slot_now,
-					relay_slot,
-					timestamp,
-					block_hash,
-					included_block.hash(),
-					para_client,
-					&keystore,
-				))
-			};
+			let included_block_hash = included_header.hash();
 
 			// Build in a loop until not allowed. Note that the authorities can change
 			// at any block, so we need to re-claim our slot every time.
-			let mut parent_hash = initial_parent.hash;
-			let mut parent_header = initial_parent.header;
+			let mut parent_hash = parent_search_result.best_parent_header.hash();
+			let mut parent_header = parent_search_result.best_parent_header;
+			// Distance from included block to best parent.
+			let initial_parent_depth =
+				(*parent_header.number()).saturating_sub(*included_header.number());
 			let overseer_handle = &mut params.overseer_handle;
 
 			// Do not try to build upon an unknown, pruned or bad block
 			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
-				continue
+				continue;
 			}
 
-			// Trigger pre-conect to backing groups if necessary.
-			if let (Some((slot_now, _relay_slot, _timestamp)), Ok(authorities)) = (
-				get_parachain_slot::<_, _, P::Public>(
-					para_client,
-					parent_hash,
-					&relay_parent_header,
-					params.relay_chain_slot_duration,
-				),
-				para_client.runtime_api().authorities(parent_hash),
+			// Trigger pre-connect to backing groups if necessary.
+			if let Some((slot_now, _relay_slot, _timestamp)) = get_parachain_slot::<_, _, P::Public>(
+				para_client,
+				parent_hash,
+				&relay_parent_header,
+				params.relay_chain_slot_duration,
 			) {
-				connection_helper.update::<P>(slot_now, &authorities).await;
+				let mut runtime_api = para_client.runtime_api();
+				runtime_api
+					.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
+				if let Ok(authorities) = runtime_api.authorities(parent_hash) {
+					connection_helper.update::<P>(slot_now, &authorities).await;
+				}
 			}
 
 			// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.
-			for n_built in 0..2 {
-				let slot_claim = match can_build_upon(parent_hash) {
-					Some(fut) => match fut.await {
-						None => break,
-						Some(c) => c,
-					},
-					None => break,
+			for n_built in 0..2u32 {
+				let Some((slot_now, relay_slot, timestamp)) = get_parachain_slot::<_, _, P::Public>(
+					para_client,
+					parent_hash,
+					&relay_parent_header,
+					params.relay_chain_slot_duration,
+				) else {
+					break;
 				};
+
+				let Some(slot_claim) = super::claim_slot::<_, _, P>(
+					slot_now,
+					timestamp,
+					parent_hash,
+					para_client,
+					&keystore,
+				)
+				.await
+				else {
+					break;
+				};
+
+				if !super::can_build_upon::<_, _>(
+					parent_hash,
+					included_block_hash,
+					relay_slot,
+					slot_now,
+					para_client,
+				)
+				.await
+				{
+					break;
+				}
 
 				tracing::debug!(
 					target: crate::LOG_TARGET,
 					?relay_parent,
-					unincluded_segment_len = initial_parent.depth + n_built,
+					unincluded_segment_len = ?initial_parent_depth.saturating_add(n_built.into()),
 					"Slot claimed. Building"
 				);
 
@@ -392,19 +430,23 @@ where
 
 				// Build and announce collations recursively until
 				// `can_build_upon` fails or building a collation fails.
+				let relay_proof_request =
+					super::get_relay_proof_request(&*params.para_client, parent_hash);
+
 				let (parachain_inherent_data, other_inherent_data) = match collator
 					.create_inherent_data(
 						relay_parent,
 						&validation_data,
 						parent_hash,
 						slot_claim.timestamp(),
+						relay_proof_request,
 						params.collator_peer_id,
 					)
 					.await
 				{
 					Err(err) => {
 						tracing::error!(target: crate::LOG_TARGET, ?err);
-						break
+						break;
 					},
 					Ok(x) => x,
 				};
@@ -413,7 +455,7 @@ where
 					params.code_hash_provider.code_hash_at(parent_hash)
 				else {
 					tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
-					break
+					break;
 				};
 
 				super::check_validation_code_or_log(
@@ -450,7 +492,7 @@ where
 							block_data.blocks().first().map(|b| b.header().clone())
 						else {
 							tracing::error!(target: crate::LOG_TARGET,  "Produced PoV doesn't contain any blocks");
-							break
+							break;
 						};
 
 						let new_block_hash = new_block_header.hash();
@@ -483,10 +525,12 @@ where
 									SubmitCollationParams {
 										relay_parent,
 										collation,
-										parent_head: parent_header.encode().into(),
 										validation_code_hash,
 										result_sender: None,
 										core_index,
+										scheduling_parent: None,
+										session_index,
+										validation_data,
 									},
 								),
 								"SubmitCollation",
@@ -498,11 +542,11 @@ where
 					},
 					Ok(None) => {
 						tracing::debug!(target: crate::LOG_TARGET, "No block proposal");
-						break
+						break;
 					},
 					Err(err) => {
 						tracing::error!(target: crate::LOG_TARGET, ?err);
-						break
+						break;
 					},
 				}
 			}

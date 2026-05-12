@@ -66,9 +66,9 @@ struct BenchmarkBounty<T: Config<I>, I: 'static> {
 	/// The kind of asset the child-/bounty is rewarded in.
 	asset_kind: T::AssetKind,
 	/// The amount that should be paid if the bounty is rewarded.
-	value: BalanceOf<T, I>,
+	value: T::Balance,
 	/// The amount that should be paid if the child-bounty is rewarded.
-	child_value: BalanceOf<T, I>,
+	child_value: T::Balance,
 	/// The child-/bounty beneficiary account.
 	beneficiary: T::Beneficiary,
 	/// Bounty metadata hash.
@@ -203,8 +203,8 @@ fn create_child_bounty<T: Config<I>, I: 'static>() -> Result<BenchmarkBounty<T, 
 		RawOrigin::Signed(s.curator.clone()).into(),
 		s.parent_bounty_id,
 		s.child_value,
-		Some(child_curator_lookup),
 		s.metadata,
+		Some(child_curator_lookup),
 	)?;
 	s.child_bounty_id =
 		pallet_bounties::TotalChildBountiesPerParent::<T, I>::get(s.parent_bounty_id) - 1;
@@ -270,16 +270,19 @@ pub fn set_status<T: Config<I>, I: 'static>(
 			.expect("no bounty");
 
 	let new_status = match bounty.3 {
-		BountyStatus::FundingAttempted { curator, .. } =>
-			BountyStatus::FundingAttempted { payment_status: new_payment_status, curator },
-		BountyStatus::RefundAttempted { curator, .. } =>
-			BountyStatus::RefundAttempted { payment_status: new_payment_status, curator },
-		BountyStatus::PayoutAttempted { curator, beneficiary, .. } =>
+		BountyStatus::FundingAttempted { curator, .. } => {
+			BountyStatus::FundingAttempted { payment_status: new_payment_status, curator }
+		},
+		BountyStatus::RefundAttempted { curator, .. } => {
+			BountyStatus::RefundAttempted { payment_status: new_payment_status, curator }
+		},
+		BountyStatus::PayoutAttempted { curator, beneficiary, .. } => {
 			BountyStatus::PayoutAttempted {
 				payment_status: new_payment_status,
 				curator,
 				beneficiary,
-			},
+			}
+		},
 		_ => return Err(BenchmarkError::Stop("unexpected bounty status")),
 	};
 
@@ -345,8 +348,8 @@ mod benchmarks {
 			RawOrigin::Signed(s.curator),
 			s.parent_bounty_id,
 			s.child_value,
-			Some(child_curator_lookup),
 			s.metadata,
+			Some(child_curator_lookup),
 		);
 
 		let child_bounty_id =

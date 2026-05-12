@@ -1,0 +1,11 @@
+title: Add rate-limiter for statement networking
+doc:
+- audience: Node Dev
+  description: "Adds a rate limiter for the statement networking protocol to prevent peers from bypassing the known-statements LRU cache by continuously sending valid statements, which would hit the slower statement-store index."
+crates:
+- name: sc-network-statement
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
+- name: staging-node-cli
+  bump: major

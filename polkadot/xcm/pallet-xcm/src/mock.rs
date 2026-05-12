@@ -21,7 +21,10 @@ use frame_support::{
 		fungible::HoldConsideration, AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals,
 		Everything, EverythingBut, Footprint, Nothing,
 	},
-	weights::Weight,
+	weights::{
+		constants::{WEIGHT_PROOF_SIZE_PER_MB, WEIGHT_REF_TIME_PER_SECOND},
+		Weight,
+	},
 };
 use frame_system::EnsureRoot;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
@@ -453,7 +456,7 @@ type LocalOriginConverter = (
 
 parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
-	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (AssetId(RelayLocation::get()), 1, 1);
+	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (AssetId(RelayLocation::get()), WEIGHT_REF_TIME_PER_SECOND.into(), WEIGHT_PROOF_SIZE_PER_MB.into());
 	pub TrustedLocal: (AssetFilter, Location) = (All.into(), Here.into());
 	pub TrustedSystemPara: (AssetFilter, Location) = (NativeAsset::get().into(), SystemParachainLocation::get());
 	pub TrustedUsdt: (AssetFilter, Location) = (Usdt::get().into(), UsdtTeleportLocation::get());
@@ -515,7 +518,6 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTrap = XcmPallet;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type AssetClaims = XcmPallet;
 	type SubscriptionService = XcmPallet;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
@@ -634,7 +636,7 @@ impl super::benchmarking::Config for Test {
 		))
 	}
 
-	fn set_up_complex_asset_transfer() -> Option<(Assets, AssetId, Location, Box<dyn FnOnce()>)> {
+	fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
 		use crate::tests::assets_transfer::{into_assets_checked, set_up_foreign_asset};
 		// Transfer native asset (local reserve) to `USDT_PARA_ID`. Using teleport-trusted USDT for
 		// fees.
@@ -662,7 +664,7 @@ impl super::benchmarking::Config for Test {
 
 		// native assets transfer destination is USDT chain (teleport trust only for USDT)
 		let dest = usdt_chain;
-		let (assets, fee_asset, _) = into_assets_checked(
+		let (assets, fee_index, _, _) = into_assets_checked(
 			// USDT for fees (is sufficient on local chain too) - teleported
 			(usdt_id_location.clone(), fee_amount).into(),
 			// native asset to transfer (not used for fees) - local reserve
@@ -684,7 +686,7 @@ impl super::benchmarking::Config for Test {
 				usdt_initial_local_amount - fee_amount
 			);
 		});
-		Some((assets, fee_asset.id, dest, verify))
+		Some((assets, fee_index as u32, dest, verify))
 	}
 
 	fn get_asset() -> Asset {
@@ -735,6 +737,7 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 	safe_xcm_version: Option<XcmVersion>,
 	supported_version: Vec<(Location, XcmVersion)>,
 ) -> sp_io::TestExternalities {
+	sp_tracing::try_init_simple();
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }

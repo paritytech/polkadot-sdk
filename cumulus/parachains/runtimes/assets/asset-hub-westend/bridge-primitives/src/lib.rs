@@ -28,7 +28,7 @@ pub use bp_xcm_bridge_hub_router::XcmBridgeHubRouterCall;
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::DispatchClass,
-	sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug, StateVersion},
+	sp_runtime::{MultiAddress, MultiSigner, StateVersion},
 };
 use scale_info::TypeInfo;
 use testnet_parachains_constants::westend::currency::UNITS;
@@ -84,7 +84,7 @@ pub fn build_congestion_message<RuntimeCall>(
 pub const ASSET_HUB_WESTEND_PARACHAIN_ID: u32 = 1000;
 
 /// AssetHubWestend parachain.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct AssetHubWestend;
 
 impl Chain for AssetHubWestend {

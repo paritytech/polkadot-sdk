@@ -20,8 +20,10 @@ use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain::{BlockNumber as RNumber, Hash as RHash, UMPSignal, UMP_SEPARATOR},
-	ClaimQueueOffset, CoreSelector, ParachainBlockData, PersistedValidationData,
+	relay_chain::{
+		BlockNumber as RNumber, Hash as RHash, UMPSignal, MAX_HEAD_DATA_SIZE, UMP_SEPARATOR,
+	},
+	ClaimQueueOffset, CoreSelector, CumulusDigestItem, ParachainBlockData, PersistedValidationData,
 };
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
@@ -122,6 +124,10 @@ where
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
 		cumulus_primitives_proof_size_hostfunction::storage_proof_size::host_storage_proof_size
 			.replace_implementation(host_storage_proof_size),
+		#[cfg(feature = "transaction-index")]
+		sp_io::transaction_index::host_index.replace_implementation(host_transaction_index_index),
+		#[cfg(feature = "transaction-index")]
+		sp_io::transaction_index::host_renew.replace_implementation(host_transaction_index_renew),
 	);
 
 	let block_data = codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(block_data)
@@ -138,26 +144,7 @@ where
 
 	let (blocks, proof) = block_data.into_inner();
 
-	assert_eq!(
-		*blocks
-			.first()
-			.expect("BlockData should have at least one block")
-			.header()
-			.parent_hash(),
-		parent_header.hash(),
-		"Parachain head needs to be the parent of the first block"
-	);
-
-	blocks.iter().fold(parent_header.hash(), |p, b| {
-		assert_eq!(
-			p,
-			*b.header().parent_hash(),
-			"Not a valid chain of blocks :(; {:?} not a parent of {:?}?",
-			array_bytes::bytes2hex("0x", p.as_ref()),
-			array_bytes::bytes2hex("0x", b.header().parent_hash().as_ref()),
-		);
-		b.header().hash()
-	});
+	verify_blocks_form_chain::<B>(&blocks, &parent_header);
 
 	let mut processed_downward_messages = 0;
 	let mut upward_messages = BoundedVec::default();
@@ -179,7 +166,7 @@ where
 	let cache_provider = trie_cache::CacheProvider::new();
 	let seen_nodes = SeenNodes::<HashingFor<B>>::default();
 
-	for (block_index, block) in blocks.into_iter().enumerate() {
+	for (block_index, mut block) in blocks.into_iter().enumerate() {
 		// We use the storage root of the `parent_head` to ensure that it is the correct root.
 		// This is already being done above while creating the in-memory db, but let's be paranoid!!
 		let backend = sp_state_machine::TrieBackendBuilder::new_with_cache(
@@ -189,9 +176,8 @@ where
 		)
 		.build();
 
-		// We use the same recorder when executing all blocks. So, each node only contributes once
-		// to the total size of the storage proof. This recorder should only be used for
-		// `execute_block`.
+		// Each node only contributes once to the total size of the storage proof. So, we keep track
+		// of them inside `seen_nodes` to always return the correct proof size.
 		let mut execute_recorder = SizeOnlyRecorderProvider::with_seen_nodes(seen_nodes.clone());
 		// `backend` with the `execute_recorder`. As the `execute_recorder`, this should only be
 		// used for `execute_block`.
@@ -199,11 +185,18 @@ where
 			.with_recorder(execute_recorder.clone())
 			.build();
 
-		// We let all blocks contribute to the same overlay. Data written by a previous block will
-		// be directly accessible without going to the db.
 		let mut overlay = OverlayedChanges::default();
 
 		parent_header = block.header().clone();
+
+		run_with_externalities_and_recorder::<B, _, _>(
+			&backend,
+			&mut Default::default(),
+			&mut Default::default(),
+			|| {
+				E::verify_and_remove_seal(&mut block);
+			},
+		);
 
 		run_with_externalities_and_recorder::<B, _, _>(
 			&execute_backend,
@@ -214,14 +207,21 @@ where
 			&mut execute_recorder,
 			&mut overlay,
 			|| {
-				E::execute_block(block);
+				E::execute_verified_block(block);
 			},
 		);
 
-		if overlay.storage(well_known_keys::CODE).is_some() && num_blocks > 1 {
-			panic!("When applying a runtime upgrade, only one block per PoV is allowed. Received {num_blocks}.")
+		let code_upgrade_detected =
+			if <PSC as frame_system::Config>::Version::get().system_version >= 3 {
+				overlay.storage(well_known_keys::PENDING_CODE).is_some()
+			} else {
+				overlay.storage(well_known_keys::CODE).is_some()
+			};
+		if code_upgrade_detected && num_blocks > 1 {
+			panic!(
+				"When applying a runtime upgrade, only one block per PoV is allowed. Received {num_blocks}."
+			)
 		}
-
 		run_with_externalities_and_recorder::<B, _, _>(
 			&backend,
 			&mut Default::default(),
@@ -250,9 +250,7 @@ where
 							found_separator = true;
 							None
 						} else if found_separator {
-							if upward_message_signals.iter().all(|s| *s != m) {
-								upward_message_signals.push(m);
-							}
+							upward_message_signals.push(m);
 							None
 						} else {
 							// No signal or separator
@@ -260,16 +258,17 @@ where
 						}
 					})
 					.for_each(|m| {
-						upward_messages.try_push(m)
-							.expect(
-								"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
-							)
+						upward_messages.try_push(m).expect(
+							"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
+						)
 					});
 
 				processed_downward_messages += crate::ProcessedDownwardMessages::<PSC>::get();
-				horizontal_messages.try_extend(crate::HrmpOutboundMessages::<PSC>::get().into_iter()).expect(
-					"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
-				);
+				horizontal_messages
+					.try_extend(crate::HrmpOutboundMessages::<PSC>::get().into_iter())
+					.expect(
+						"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
+					);
 				hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
 
 				if block_index + 1 == num_blocks {
@@ -339,10 +338,13 @@ where
 		upward_messages
 			.try_push(UMP_SEPARATOR)
 			.expect("UMPSignals does not fit in UMPMessages");
+
 		upward_messages
 			.try_extend(upward_message_signals.into_iter())
 			.expect("UMPSignals does not fit in UMPMessages");
 	}
+
+	horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));
 
 	ValidationResult {
 		head_data: head_data.expect("HeadData not set"),
@@ -369,6 +371,82 @@ fn validate_validation_data(
 	assert_eq!(
 		relay_parent_storage_root, validation_data.relay_parent_storage_root,
 		"Relay parent storage root doesn't match",
+	);
+}
+
+fn verify_blocks_form_chain<B: BlockT>(blocks: &[B::LazyBlock], parent_header: &B::Header) {
+	let num_blocks = blocks.len();
+
+	// Check first block's parent matches the given parent_header
+	assert_eq!(
+		*blocks
+			.first()
+			.expect("BlockData should have at least one block")
+			.header()
+			.parent_hash(),
+		parent_header.hash(),
+		"Parachain head needs to be the parent of the first block"
+	);
+
+	let mut first_block_has_bundle_info: Option<bool> = None;
+
+	blocks.iter().enumerate().fold(
+		parent_header.hash(),
+		|expected_parent, (block_index, block)| {
+			// Check chain validity
+			assert_eq!(
+				expected_parent,
+				*block.header().parent_hash(),
+				"Not a valid chain of blocks :(; {:?} not a parent of {:?}?",
+				array_bytes::bytes2hex("0x", expected_parent.as_ref()),
+				array_bytes::bytes2hex("0x", block.header().parent_hash().as_ref()),
+			);
+
+			let encoded_header_size = block.header().encoded_size();
+			assert!(
+				encoded_header_size <= MAX_HEAD_DATA_SIZE as usize,
+				"Header size {encoded_header_size} exceeds MAX_HEAD_DATA_SIZE {MAX_HEAD_DATA_SIZE}",
+			);
+
+			// Validate BlockBundleInfo consistency
+			let bundle_info = CumulusDigestItem::find_block_bundle_info(block.header().digest());
+			match (first_block_has_bundle_info, &bundle_info) {
+				(None, info) => {
+					first_block_has_bundle_info = Some(info.is_some());
+				},
+				(Some(true), None) => {
+					panic!("All blocks in a bundled PoV must include `BlockBundleInfo`");
+				},
+				(Some(false), _) => {
+					panic!("A PoV without `BlockBundleInfo` may only contain a single block");
+				},
+				_ => {},
+			}
+
+			if let Some(ref info) = bundle_info {
+				assert_eq!(
+					info.index as usize, block_index,
+					"BlockBundleInfo index mismatch: expected {block_index}, got {}",
+					info.index
+				);
+
+				if block_index + 1 < num_blocks {
+					assert!(
+						!CumulusDigestItem::is_last_block_in_core(block.header().digest()).unwrap_or(false),
+						"Intermediate block at index {block_index} is marked as last block in core, \
+						but more blocks follow in the PoV",
+					);
+				} else if !CumulusDigestItem::is_last_block_in_core(block.header().digest())
+					.unwrap_or(true)
+				{
+					panic!(
+						"Last block in PoV must include the digest that marks it as the last block in the core"
+					);
+				}
+			}
+
+			block.header().hash()
+		},
 	);
 }
 
@@ -539,3 +617,21 @@ fn host_default_child_storage_next_key(storage_key: &[u8], key: &[u8]) -> Option
 fn host_offchain_index_set(_key: &[u8], _value: &[u8]) {}
 
 fn host_offchain_index_clear(_key: &[u8]) {}
+
+/// Parachain validation does not require maintaining a transaction index,
+/// and indexing transactions does **not** contribute to the parachain state.
+/// However, the host environment still expects this function to exist,
+/// so we provide a no-op implementation.
+#[cfg(feature = "transaction-index")]
+fn host_transaction_index_index(_extrinsic: u32, _size: u32, _context_hash: [u8; 32]) {
+	// No-op host function used during parachain validation.
+}
+
+/// Parachain validation does not require maintaining a transaction index,
+/// and indexing transactions does **not** contribute to the parachain state.
+/// However, the host environment still expects this function to exist,
+/// so we provide a no-op implementation.
+#[cfg(feature = "transaction-index")]
+fn host_transaction_index_renew(_extrinsic: u32, _context_hash: [u8; 32]) {
+	// No-op host function used during parachain validation.
+}

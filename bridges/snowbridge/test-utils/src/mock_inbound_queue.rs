@@ -10,7 +10,7 @@ impl AddTip for MockOkInboundQueue {
 	fn add_tip(nonce: u64, _amount: u128) -> Result<(), AddTipError> {
 		// Force an error condition
 		if nonce == FAILING_NONCE {
-			return Err(AddTipError::NonceConsumed)
+			return Err(AddTipError::NonceConsumed);
 		}
 		Ok(())
 	}

@@ -25,7 +25,9 @@ use crate::collator::SlotClaim;
 use codec::Codec;
 use cumulus_client_consensus_common::{self as consensus_common, ParentSearchParams};
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
-use cumulus_primitives_core::{relay_chain::Header as RelayHeader, BlockT};
+use cumulus_primitives_core::{
+	relay_chain::Header as RelayHeader, BlockT, KeyToIncludeInRelayProof, RelayProofRequest,
+};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, RuntimeApiRequest};
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
@@ -33,28 +35,17 @@ use polkadot_primitives::{
 	Hash as RelayHash, Id as ParaId, OccupiedCoreAssumption, ValidationCodeHash,
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
+use sc_client_api::HeaderBackend;
 use sc_consensus_aura::{standalone as aura_internal, AuraApi};
 use sp_api::{ApiExt, ProvideRuntimeApi, RuntimeApiInfo};
 use sp_core::Pair;
 use sp_keystore::KeystorePtr;
+use sp_runtime::traits::Header;
 use sp_timestamp::Timestamp;
 
 pub mod basic;
 pub mod lookahead;
 pub mod slot_based;
-
-// This is an arbitrary value which is guaranteed to exceed the required depth for 500ms blocks
-// built with a relay parent offset of 1. It must be larger than the unincluded segment capacity.
-//
-// The formula we use to compute the capacity of the unincluded segment in the parachain runtime
-// is:
-// UNINCLUDED_SEGMENT_CAPACITY = (2 + RELAY_PARENT_OFFSET) * BLOCK_PROCESSING_VELOCITY + 1.
-//
-// Since we only search for parent blocks which have already been imported,
-// we can guarantee that all imported blocks respect the unincluded segment
-// rules specified by the parachain's runtime and thus will never be too deep. This is just an extra
-// sanity check.
-const PARENT_SEARCH_DEPTH: usize = 40;
 
 // Helper to pre-connect to the backing group we got assigned to and keep the connection
 // open until backing group changes or own slot ends.
@@ -82,7 +73,7 @@ impl BackingGroupConnectionHelper {
 		if Some(current_slot) <= self.our_slot {
 			// Current slot or next slot is ours.
 			// We already sent pre-connect message, no need to proceed further.
-			return
+			return;
 		}
 
 		let next_slot = current_slot + 1;
@@ -133,12 +124,12 @@ async fn check_validation_code_or_log(
 				%para_id,
 				"Failed to fetch validation code hash",
 			);
-			return
+			return;
 		},
 	};
 
 	match state_validation_code_hash {
-		Some(state) =>
+		Some(state) => {
 			if state != *local_validation_code_hash {
 				tracing::warn!(
 					target: super::LOG_TARGET,
@@ -148,7 +139,8 @@ async fn check_validation_code_or_log(
 					relay_validation_code_hash = ?state,
 					"Parachain code doesn't match validation code stored in the relay chain state.",
 				);
-			},
+			}
+		},
 		None => {
 			tracing::warn!(
 				target: super::LOG_TARGET,
@@ -186,7 +178,7 @@ async fn scheduling_lookahead(
 	if parachain_host_runtime_api_version <
 		RuntimeApiRequest::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT
 	{
-		return None
+		return None;
 	}
 
 	match relay_client.scheduling_lookahead(relay_parent).await {
@@ -223,59 +215,78 @@ async fn claim_queue_at(
 	}
 }
 
-// Checks if we own the slot at the given block and whether there
-// is space in the unincluded segment.
-async fn can_build_upon<Block: BlockT, Client, P>(
+// Checks if we own the slot at the given block.
+async fn claim_slot<Block: BlockT, Client, P>(
 	para_slot: Slot,
-	relay_slot: Slot,
 	timestamp: Timestamp,
 	parent_hash: Block::Hash,
-	included_block: Block::Hash,
 	client: &Client,
 	keystore: &KeystorePtr,
 ) -> Option<SlotClaim<P::Public>>
 where
 	Client: ProvideRuntimeApi<Block>,
-	Client::Api: AuraApi<Block, P::Public> + AuraUnincludedSegmentApi<Block> + ApiExt<Block>,
+	Client::Api: AuraApi<Block, P::Public> + ApiExt<Block>,
 	P: Pair,
 	P::Public: Codec,
 	P::Signature: Codec,
 {
-	let runtime_api = client.runtime_api();
+	let mut runtime_api = client.runtime_api();
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
 	let authorities = runtime_api.authorities(parent_hash).ok()?;
 	let author_pub = aura_internal::claim_slot::<P>(para_slot, &authorities, keystore).await?;
+	Some(SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp))
+}
 
+// Checks if there is space in the unincluded segment.
+async fn can_build_upon<Block: BlockT, Client>(
+	parent_hash: Block::Hash,
+	included_block: Block::Hash,
+	relay_slot: Slot,
+	para_slot: Slot,
+	client: &Client,
+) -> bool
+where
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: AuraUnincludedSegmentApi<Block> + ApiExt<Block>,
+{
 	// This function is typically called when we want to build block N. At that point, the
 	// unincluded segment in the runtime is unaware of the hash of block N-1. If the unincluded
 	// segment in the runtime is full, but block N-1 is the included block, the unincluded segment
 	// should have length 0 and we can build. Since the hash is not available to the runtime
 	// however, we need this extra check here.
 	if parent_hash == included_block {
-		return Some(SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp));
+		return true;
 	}
 
-	let api_version = runtime_api
+	let runtime_api = client.runtime_api();
+	let Some(api_version) = runtime_api
 		.api_version::<dyn AuraUnincludedSegmentApi<Block>>(parent_hash)
 		.ok()
-		.flatten()?;
+		.flatten()
+	else {
+		return false;
+	};
 
 	let slot = if api_version > 1 { relay_slot } else { para_slot };
 
 	runtime_api
 		.can_build_upon(parent_hash, included_block, slot)
-		.ok()?
-		.then(|| SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp))
+		.ok()
+		.unwrap_or(false)
 }
 
-/// Use [`cumulus_client_consensus_common::find_potential_parents`] to find parachain blocks that
-/// we can build on. Once a list of potential parents is retrieved, return the last one of the
-/// longest chain.
+/// Use [`cumulus_client_consensus_common::find_parent_for_building`] to find the best parachain
+/// block to build on.
+///
+/// If the best parent does not pass `filter_parent`, walks backwards through ancestors
+/// until finding one that does, or reaching the included block.
 async fn find_parent<Block>(
 	relay_parent: RelayHash,
 	para_id: ParaId,
 	para_backend: &impl sc_client_api::Backend<Block>,
 	relay_client: &impl RelayChainInterface,
-) -> Option<(<Block as BlockT>::Header, consensus_common::PotentialParent<Block>)>
+	filter_parent: impl Fn(&Block::Header) -> bool,
+) -> Option<consensus_common::ParentSearchResult<Block>>
 where
 	Block: BlockT,
 {
@@ -286,49 +297,69 @@ where
 			.await
 			.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
 			.saturating_sub(1) as usize,
-		max_depth: PARENT_SEARCH_DEPTH,
-		ignore_alternative_branches: true,
 	};
 
-	let potential_parents = cumulus_client_consensus_common::find_potential_parents::<Block>(
+	let mut result = match cumulus_client_consensus_common::find_parent_for_building::<Block>(
 		parent_search_params,
 		para_backend,
 		relay_client,
 	)
-	.await;
-
-	let potential_parents = match potential_parents {
+	.await
+	{
+		Ok(Some(result)) => result,
+		Ok(None) => {
+			tracing::warn!(
+				target: crate::LOG_TARGET,
+				?relay_parent,
+				"Could not find parent to build upon.",
+			);
+			return None;
+		},
 		Err(e) => {
 			tracing::error!(
 				target: crate::LOG_TARGET,
 				?relay_parent,
 				err = ?e,
-				"Could not fetch potential parents to build upon"
+				"Could not find parent to build upon"
 			);
-
-			return None
+			return None;
 		},
-		Ok(x) => x,
 	};
 
-	let included_block = potential_parents.iter().find(|x| x.depth == 0)?.header.clone();
-	potential_parents
-		.into_iter()
-		.max_by_key(|a| a.depth)
-		.map(|parent| (included_block, parent))
+	// If the best parent doesn't pass the filter (e.g. it's a middle block in a bundle),
+	// walk backwards towards the included block until we find one that does.
+	// This avoids falling all the way back to the included block when there are valid
+	// last-in-core ancestors closer to the chain tip.
+	while !filter_parent(&result.best_parent_header) {
+		let parent_hash = *result.best_parent_header.parent_hash();
+		match para_backend.blockchain().header(parent_hash) {
+			Ok(Some(header)) => {
+				result.best_parent_header = header;
+				if parent_hash == result.included_header.hash() {
+					break;
+				}
+			},
+			_ => {
+				result.best_parent_header = result.included_header.clone();
+				break;
+			},
+		}
+	}
+
+	Some(result)
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::collators::{can_build_upon, BackingGroupConnectionHelper};
+	use crate::collators::BackingGroupConnectionHelper;
 	use codec::Encode;
 	use cumulus_primitives_aura::Slot;
 	use cumulus_primitives_core::BlockT;
 	use cumulus_relay_chain_interface::PHash;
 	use cumulus_test_client::{
 		runtime::{Block, Hash},
-		Client, DefaultTestClientBuilderExt, InitBlockBuilder, TestClientBuilder,
+		BuildBlockBuilder, Client, DefaultTestClientBuilderExt, TestClientBuilder,
 		TestClientBuilderExt,
 	};
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
@@ -338,7 +369,6 @@ mod tests {
 	use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 	use sp_consensus::BlockOrigin;
 	use sp_keystore::{Keystore, KeystorePtr};
-	use sp_timestamp::Timestamp;
 	use std::sync::{Arc, Mutex};
 
 	async fn import_block<I: BlockImport<Block>>(
@@ -367,7 +397,11 @@ mod tests {
 	async fn build_and_import_block(client: &Client, included: Hash) -> Block {
 		let sproof = sproof_with_parent_by_hash(client, included);
 
-		let block_builder = client.init_block_builder(None, sproof).block_builder;
+		let block_builder = client
+			.init_block_builder_builder()
+			.with_relay_sproof_builder(sproof)
+			.build()
+			.block_builder;
 
 		let block = block_builder.build().unwrap().block;
 
@@ -396,23 +430,22 @@ mod tests {
 	/// we are ensuring on the node side that we are are always able to build on the included block.
 	#[tokio::test]
 	async fn test_can_build_upon() {
-		let (client, keystore) = set_up_components(6);
+		sp_tracing::try_init_simple();
+
+		let (client, _keystore) = set_up_components(6);
 
 		let genesis_hash = client.chain_info().genesis_hash;
 		let mut last_hash = genesis_hash;
 
 		// Fill up the unincluded segment tracker in the runtime.
-		while can_build_upon::<_, _, sp_consensus_aura::sr25519::AuthorityPair>(
-			Slot::from(u64::MAX),
-			Slot::from(u64::MAX),
-			Timestamp::default(),
+		while can_build_upon::<_, _>(
 			last_hash,
 			genesis_hash,
+			Slot::from(u64::MAX),
+			Slot::from(u64::MAX),
 			&*client,
-			&keystore,
 		)
 		.await
-		.is_some()
 		{
 			let block = build_and_import_block(&client, genesis_hash).await;
 			last_hash = block.header().hash();
@@ -420,17 +453,15 @@ mod tests {
 
 		// Blocks were built with the genesis hash set as included block.
 		// We call `can_build_upon` with the last built block as the included block.
-		let result = can_build_upon::<_, _, sp_consensus_aura::sr25519::AuthorityPair>(
-			Slot::from(u64::MAX),
-			Slot::from(u64::MAX),
-			Timestamp::default(),
+		let result = can_build_upon::<_, _>(
 			last_hash,
 			last_hash,
+			Slot::from(u64::MAX),
+			Slot::from(u64::MAX),
 			&*client,
-			&keystore,
 		)
 		.await;
-		assert!(result.is_some());
+		assert!(result);
 	}
 
 	/// Helper to create a mock overseer handle and message recorder
@@ -662,7 +693,33 @@ mod tests {
 	}
 }
 
+/// Fetches relay chain storage proof requests from the parachain runtime.
+///
+/// Queries the runtime API to determine which relay chain storage keys
+/// (both top-level and child trie keys) should be included in the relay chain state proof.
+///
+/// Falls back to an empty request if the runtime API call fails or is not implemented.
+pub(crate) fn get_relay_proof_request<Block, Client>(
+	client: &Client,
+	parent_hash: Block::Hash,
+) -> RelayProofRequest
+where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: KeyToIncludeInRelayProof<Block>,
+{
+	client.runtime_api().keys_to_prove(parent_hash).unwrap_or_else(|e| {
+		tracing::debug!(
+			target: crate::LOG_TARGET,
+			error = ?e,
+			"Failed to fetch relay proof requests from runtime, using empty request"
+		);
+		Default::default()
+	})
+}
+
 /// Holds a relay parent and its descendants.
+#[derive(Clone)]
 pub struct RelayParentData {
 	/// The relay parent block header
 	relay_parent: RelayHeader,
@@ -699,7 +756,7 @@ impl RelayParentData {
 		let Self { relay_parent, mut descendants } = self;
 
 		if descendants.is_empty() {
-			return Default::default()
+			return Default::default();
 		}
 
 		let mut result = vec![relay_parent];

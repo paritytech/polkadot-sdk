@@ -20,7 +20,6 @@ use frame_support_procedural_tools::get_doc_literals;
 use quote::ToTokens;
 use syn::{spanned::Spanned, Ident};
 
-///
 /// * add various derive trait on GenesisConfig struct.
 pub fn expand_genesis_config(def: &mut Def) -> proc_macro2::TokenStream {
 	let count = COUNTER.with(|counter| counter.borrow_mut().inc());
@@ -72,7 +71,7 @@ pub fn expand_genesis_config(def: &mut Def) -> proc_macro2::TokenStream {
 					#[doc(hidden)]
 					pub use #std_macro_ident as is_std_enabled_for_genesis;
 				}
-			}
+			};
 		};
 
 	let frame_support = &def.frame_support;

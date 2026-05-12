@@ -325,7 +325,7 @@ impl TestRun {
 							.expect("Sending response should succeed");
 					}
 				}
-				return (valid_responses == 0) && self.valid_chunks.is_empty()
+				return (valid_responses == 0) && self.valid_chunks.is_empty();
 			},
 			AllMessages::AvailabilityStore(AvailabilityStoreMessage::StoreChunk {
 				chunk,
@@ -334,11 +334,11 @@ impl TestRun {
 			}) => {
 				assert!(self.valid_chunks.contains(&chunk.chunk));
 				tx.send(Ok(())).expect("Answering fetching task should work");
-				return true
+				return true;
 			},
 			_ => {
 				gum::debug!(target: LOG_TARGET, "Unexpected message");
-				return false
+				return false;
 			},
 		}
 	}

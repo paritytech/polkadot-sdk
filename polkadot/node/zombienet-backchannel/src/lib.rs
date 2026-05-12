@@ -95,7 +95,7 @@ impl ZombienetBackchannel {
 			backchannel_port.parse::<u16>().map_err(|_| BackchannelError::InvalidPort)?;
 			// validate non empty string for host
 			if backchannel_host.trim().is_empty() {
-				return Err(BackchannelError::InvalidHost)
+				return Err(BackchannelError::InvalidHost);
 			};
 
 			let ws_url = format!("ws://{}:{}/ws", backchannel_host, backchannel_port);
@@ -112,11 +112,12 @@ impl ZombienetBackchannel {
 			tokio::spawn(async move {
 				while let Some(Ok(Message::Text(text))) = read.next().await {
 					match serde_json::from_str::<BackchannelItem>(&text) {
-						Ok(backchannel_item) =>
+						Ok(backchannel_item) => {
 							if tx1.send(backchannel_item).is_err() {
 								gum::error!(target: ZOMBIENET, "Error sending through the channel");
-								return
-							},
+								return;
+							}
+						},
 						Err(_) => {
 							gum::error!(target: ZOMBIENET, "Invalid payload received");
 						},
@@ -138,7 +139,7 @@ impl ZombienetBackchannel {
 			});
 
 			*zombienet_bkc = Some(ZombienetBackchannel { broadcast_tx: tx, ws_tx: tx_relay });
-			return Ok(())
+			return Ok(());
 		}
 
 		Err(BackchannelError::AlreadyInitialized)

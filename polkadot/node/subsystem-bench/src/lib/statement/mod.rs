@@ -364,7 +364,7 @@ pub async fn benchmark_statement_distribution(
 		{
 			let messages_sent_count = messages_tracker.get_mut(group_index).unwrap();
 			if *messages_sent_count == max_messages_per_candidate {
-				continue
+				continue;
 			}
 			*messages_sent_count += 1;
 
@@ -376,7 +376,7 @@ pub async fn benchmark_statement_distribution(
 				.unwrap()
 				.hash();
 			let manifest = BackedCandidateManifest {
-				relay_parent: block_info.hash,
+				scheduling_parent: block_info.hash,
 				candidate_hash,
 				group_index: GroupIndex(group_index as u32),
 				para_id: Id::new(group_index as u32 + 1),

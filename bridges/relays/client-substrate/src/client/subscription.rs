@@ -16,11 +16,8 @@
 
 use crate::error::Result as ClientResult;
 
-use async_std::{
-	channel::{bounded, Receiver, Sender},
-	stream::StreamExt,
-};
-use futures::{FutureExt, Stream};
+use async_channel::{bounded, Receiver, Sender};
+use futures::{FutureExt, Stream, StreamExt};
 use sp_runtime::DeserializeOwned;
 use std::{
 	fmt::Debug,
@@ -113,12 +110,12 @@ impl<T: 'static + Clone + DeserializeOwned + Send> SubscriptionBroadcaster<T> {
 	pub fn new(subscription: Subscription<T>) -> StdResult<Self, Subscription<T>> {
 		// It doesn't make sense to further broadcast a broadcasted subscription.
 		if subscription.is_broadcasted {
-			return Err(subscription)
+			return Err(subscription);
 		}
 
 		let desc = subscription.desc().clone();
 		let (subscribers_sender, subscribers_receiver) = bounded(CHANNEL_CAPACITY);
-		async_std::task::spawn(background_worker(subscription, subscribers_receiver));
+		tokio::spawn(background_worker(subscription, subscribers_receiver));
 		Ok(Self { desc, subscribers_sender })
 	}
 
@@ -192,12 +189,12 @@ async fn background_worker<T: 'static + Clone + DeserializeOwned + Send>(
 	}
 
 	// wait for first subscriber until actually starting subscription
-	let subscriber = match subscribers_receiver.next().await {
+	let subscriber: Sender<T> = match subscribers_receiver.next().await {
 		Some(subscriber) => subscriber,
 		None => {
 			// it means that the last subscriber/factory has been dropped, so we need to
 			// exit too
-			return log_task_exit(subscription.desc(), "client has stopped")
+			return log_task_exit(subscription.desc(), "client has stopped");
 		},
 	};
 

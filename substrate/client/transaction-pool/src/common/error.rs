@@ -24,7 +24,8 @@ use sc_transaction_pool_api::error::Error as TxPoolError;
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Transaction pool error type.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, strum::AsRefStr)]
+#[strum(serialize_all = "snake_case")]
 #[allow(missing_docs)]
 pub enum Error {
 	#[error("Transaction pool error: {0}")]
@@ -46,5 +47,11 @@ impl sc_transaction_pool_api::error::IntoPoolError for Error {
 			Error::Pool(e) => Ok(e),
 			e => Err(e),
 		}
+	}
+}
+
+impl sc_transaction_pool_api::error::IntoMetricsLabel for Error {
+	fn label(&self) -> String {
+		self.as_ref().to_string()
 	}
 }

@@ -112,7 +112,7 @@ pub mod v3 {
 						agenda.len(),
 						max_scheduled_per_block,
 					);
-					return Err("Agenda would overflow `MaxScheduledPerBlock`.".into())
+					return Err("Agenda would overflow `MaxScheduledPerBlock`.".into());
 				}
 			}
 			// Check that bounding the calls will not overflow `MAX_LENGTH`.
@@ -129,7 +129,7 @@ pub mod v3 {
 									block_number,
 									l,
 								);
-								return Err("Call is too large.".into())
+								return Err("Call is too large.".into());
 							}
 						},
 						_ => (),
@@ -149,7 +149,7 @@ pub mod v3 {
 				Expected version 3, found {:?}",
 					version,
 				);
-				return T::DbWeight::get().reads(1)
+				return T::DbWeight::get().reads(1);
 			}
 
 			crate::Pallet::<T>::migrate_v3_to_v4()
@@ -221,7 +221,7 @@ pub mod v4 {
 			let version = StorageVersion::get::<Pallet<T>>();
 			if version != 4 {
 				log::warn!(target: TARGET, "Skipping CleanupAgendas migration since it was run on the wrong version: {:?} != 4", version);
-				return T::DbWeight::get().reads(1)
+				return T::DbWeight::get().reads(1);
 			}
 
 			let keys = Agenda::<T>::iter_keys().collect::<Vec<_>>();

@@ -81,7 +81,7 @@ pub mod __private {
 	mod std_imports {
 		pub use hash_db::Hasher;
 		pub use sp_core::traits::CallContext;
-		pub use sp_externalities::{Extension, Extensions};
+		pub use sp_externalities::{Extension, Extensions, TransactionType};
 		pub use sp_runtime::StateVersion;
 		pub use sp_state_machine::{
 			Backend as StateBackend, InMemoryBackend, OverlayedChanges, StorageProof, TrieBackend,
@@ -684,7 +684,11 @@ pub trait CallApiAt<Block: BlockT> {
 	fn call_api_at(&self, params: CallApiAtParams<Block>) -> Result<Vec<u8>, ApiError>;
 
 	/// Returns the runtime version at the given block.
-	fn runtime_version_at(&self, at_hash: Block::Hash) -> Result<RuntimeVersion, ApiError>;
+	fn runtime_version_at(
+		&self,
+		at_hash: Block::Hash,
+		call_context: CallContext,
+	) -> Result<RuntimeVersion, ApiError>;
 
 	/// Get the state `at` the given block.
 	fn state_at(&self, at: Block::Hash) -> Result<Self::StateBackend, ApiError>;
@@ -708,8 +712,9 @@ impl<Block: BlockT, T: CallApiAt<Block>> CallApiAt<Block> for std::sync::Arc<T> 
 	fn runtime_version_at(
 		&self,
 		at_hash: <Block as BlockT>::Hash,
+		call_context: CallContext,
 	) -> Result<RuntimeVersion, ApiError> {
-		(**self).runtime_version_at(at_hash)
+		(**self).runtime_version_at(at_hash, call_context)
 	}
 
 	fn state_at(&self, at: <Block as BlockT>::Hash) -> Result<Self::StateBackend, ApiError> {

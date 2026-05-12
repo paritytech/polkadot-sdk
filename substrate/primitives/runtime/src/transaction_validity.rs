@@ -19,7 +19,7 @@
 
 use crate::{
 	codec::{Decode, Encode},
-	RuntimeDebug,
+	Debug,
 };
 use alloc::{vec, vec::Vec};
 use scale_info::TypeInfo;
@@ -36,8 +36,10 @@ pub type TransactionLongevity = u64;
 pub type TransactionTag = Vec<u8>;
 
 /// An invalid transaction validity.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "std", derive(strum::AsRefStr))]
+#[cfg_attr(feature = "std", strum(serialize_all = "snake_case"))]
 pub enum InvalidTransaction {
 	/// The call of the transaction is not expected.
 	Call,
@@ -110,25 +112,32 @@ impl From<InvalidTransaction> for &'static str {
 			InvalidTransaction::BadProof => "Transaction has a bad signature",
 			InvalidTransaction::AncientBirthBlock => "Transaction has an ancient birth block",
 			InvalidTransaction::ExhaustsResources => "Transaction would exhaust the block limits",
-			InvalidTransaction::Payment =>
-				"Inability to pay some fees (e.g. account balance too low)",
-			InvalidTransaction::BadMandatory =>
-				"A call was labelled as mandatory, but resulted in an Error.",
-			InvalidTransaction::MandatoryValidation =>
-				"Transaction dispatch is mandatory; transactions must not be validated.",
+			InvalidTransaction::Payment => {
+				"Inability to pay some fees (e.g. account balance too low)"
+			},
+			InvalidTransaction::BadMandatory => {
+				"A call was labelled as mandatory, but resulted in an Error."
+			},
+			InvalidTransaction::MandatoryValidation => {
+				"Transaction dispatch is mandatory; transactions must not be validated."
+			},
 			InvalidTransaction::Custom(_) => "InvalidTransaction custom error",
 			InvalidTransaction::BadSigner => "Invalid signing address",
-			InvalidTransaction::IndeterminateImplicit =>
-				"The implicit data was unable to be calculated",
-			InvalidTransaction::UnknownOrigin =>
-				"The transaction extension did not authorize any origin",
+			InvalidTransaction::IndeterminateImplicit => {
+				"The implicit data was unable to be calculated"
+			},
+			InvalidTransaction::UnknownOrigin => {
+				"The transaction extension did not authorize any origin"
+			},
 		}
 	}
 }
 
 /// An unknown transaction validity.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "std", derive(strum::AsRefStr))]
+#[cfg_attr(feature = "std", strum(serialize_all = "snake_case"))]
 pub enum UnknownTransaction {
 	/// Could not lookup some information that is required to validate the transaction.
 	CannotLookup,
@@ -141,17 +150,19 @@ pub enum UnknownTransaction {
 impl From<UnknownTransaction> for &'static str {
 	fn from(unknown: UnknownTransaction) -> &'static str {
 		match unknown {
-			UnknownTransaction::CannotLookup =>
-				"Could not lookup information required to validate the transaction",
-			UnknownTransaction::NoUnsignedValidator =>
-				"Could not find an unsigned validator for the unsigned transaction",
+			UnknownTransaction::CannotLookup => {
+				"Could not lookup information required to validate the transaction"
+			},
+			UnknownTransaction::NoUnsignedValidator => {
+				"Could not find an unsigned validator for the unsigned transaction"
+			},
 			UnknownTransaction::Custom(_) => "UnknownTransaction custom error",
 		}
 	}
 }
 
 /// Errors that can occur while checking the validity of a transaction.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TransactionValidityError {
 	/// The transaction is invalid.
@@ -240,7 +251,7 @@ impl From<UnknownTransaction> for TransactionValidity {
 /// Depending on the source we might apply different validation schemes.
 /// For instance we can disallow specific kinds of transactions if they were not produced
 /// by our local node (for instance off-chain workers).
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo, Hash)]
 pub enum TransactionSource {
 	/// Transaction is already included in block.
 	///
@@ -265,7 +276,7 @@ pub enum TransactionSource {
 }
 
 /// Information concerning a valid transaction.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub struct ValidTransaction {
 	/// Priority of the transaction.
 	///
@@ -353,7 +364,7 @@ impl ValidTransaction {
 ///
 /// Allows to easily construct `ValidTransaction` and most importantly takes care of
 /// prefixing `requires` and `provides` tags to avoid conflicts.
-#[derive(Default, Clone, RuntimeDebug)]
+#[derive(Default, Clone, Debug)]
 pub struct ValidTransactionBuilder {
 	prefix: Option<&'static str>,
 	validity: ValidTransaction,

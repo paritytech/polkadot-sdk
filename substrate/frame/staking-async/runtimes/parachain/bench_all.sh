@@ -2,16 +2,16 @@
 source ~/.zshrc
 
 STEPS=2
-REPEAT=2
+REPEAT=22
 
 # if any of the command line arguments are equal to `--log=X`, set X to the below log levels
-LOG="runtime::multiblock-election=info,runtime::staking-async=info,polkadot_sdk_frame::benchmark=info"
+LOG="runtime::multiblock-election=info,runtime::staking-async=info,frame::benchmark=info"
 
 if [[ "${NO_COMPILE}" == "1" ]]; then
     echo "Skipping compilation because 'NO_COMPILE' was set"
 else
 	cargo build --release -p frame-omni-bencher
-  	FORCE_WASM_BUILD=$RANDOM  WASMTIME_BACKTRACE_DETAILS=1 RUST_LOG=${LOG} cargo build --release -p pallet-staking-async-parachain-runtime --features runtime-benchmarks
+  	FORCE_WASM_BUILD=$RANDOM SKIP_PALLET_REVIVE_FIXTURES=1  WASMTIME_BACKTRACE_DETAILS=1 RUST_LOG=${LOG} cargo build --release -p pallet-staking-async-parachain-runtime --features runtime-benchmarks
 fi
 
 WASM_BLOB_PATH=../../../../../target/release/wbuild/pallet-staking-async-parachain-runtime/pallet_staking_async_parachain_runtime.compact.wasm
@@ -41,13 +41,13 @@ run_benchmark() {
     --output "$output_file"
 }
 
-# run_benchmark "pallet_staking_async" "fake-dot"
+run_benchmark "pallet_staking_async" "fake-dot"
 run_benchmark "pallet_election_provider_multi_block" "fake-dot"
 run_benchmark "pallet_election_provider_multi_block_signed" "fake-dot"
 run_benchmark "pallet_election_provider_multi_block_unsigned" "fake-dot"
 run_benchmark "pallet_election_provider_multi_block_verifier" "fake-dot"
 
-# run_benchmark "pallet_staking_async" "fake-ksm"
+run_benchmark "pallet_staking_async" "fake-ksm"
 run_benchmark "pallet_election_provider_multi_block" "fake-ksm"
 run_benchmark "pallet_election_provider_multi_block_signed" "fake-ksm"
 run_benchmark "pallet_election_provider_multi_block_unsigned" "fake-ksm"

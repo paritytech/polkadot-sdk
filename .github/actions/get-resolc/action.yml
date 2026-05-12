@@ -1,0 +1,37 @@
+name: "Install Revive Solidity Compiler"
+description: "Installs the resolc Revive Solidity compiler frontend executable"
+
+outputs:
+  resolc-path:
+    description: "Path to the installed resolc binary"
+    value: ${{ steps.install.outputs.resolc-path }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install resolc
+      id: install
+      shell: bash
+      run: |
+        source .github/env
+
+        if [[ "${{ runner.os }}" == "Linux" ]]; then
+          ASSET_NAME="resolc-x86_64-unknown-linux-musl"
+          INSTALL_DIR="/usr/local/bin"
+        else
+          source "$HOME/.cargo/env"
+          ASSET_NAME="resolc-universal-apple-darwin"
+          INSTALL_DIR="$HOME/.cargo/bin"
+        fi
+
+        ASSET_URL="https://github.com/paritytech/revive/releases/download/v$RESOLC_VERSION/$ASSET_NAME"
+        echo "Downloading resolc v$RESOLC_VERSION from $ASSET_URL"
+        curl -Lsf --show-error -o "$INSTALL_DIR/resolc" "$ASSET_URL"
+        chmod +x "$INSTALL_DIR/resolc"
+
+        if [[ "${{ runner.os }}" == "macOS" ]]; then
+          xattr -c "$INSTALL_DIR/resolc"
+        fi
+
+        resolc --version
+        echo "resolc-path=$INSTALL_DIR/resolc" >> "$GITHUB_OUTPUT"

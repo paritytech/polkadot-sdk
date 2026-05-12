@@ -516,7 +516,7 @@ where
 	) -> ValidateResult<Self::Val, <T as frame_system::Config>::RuntimeCall> {
 		// if the transaction is too big, just drop it.
 		if len > 200 {
-			return Err(InvalidTransaction::ExhaustsResources.into())
+			return Err(InvalidTransaction::ExhaustsResources.into());
 		}
 
 		// check for `set_dummy`
