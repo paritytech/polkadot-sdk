@@ -193,9 +193,9 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 		let existing = ListNodes::<T>::get(&list_id, &item).ok_or(Error::<T>::ItemNotFound)?;
 		let old_priority = existing.priority;
 
-		// Fast path: same priority.
+		// Fast path: same priority. No write, no event.
 		if old_priority == new_priority {
-			return Ok(Outcome::InPlace);
+			return Ok(Outcome::NoOp);
 		}
 
 		// Fast path: existing neighbors still admit the new priority, mutate in place.

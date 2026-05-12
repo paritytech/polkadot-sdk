@@ -31,28 +31,31 @@ impl<T: Config> Pallet<T> {
 		item: T::ItemId,
 		hint: Position<T::ItemId>,
 	) -> Result<Weight, Error<T>> {
-		let stored = ListNodes::<T>::get(&list_id, &item).ok_or(Error::<T>::ItemNotFound)?;
 		let Some(real_priority) = T::PriorityProvider::priority(&list_id, &item) else {
 			Self::remove(&list_id, &item)?;
 			return Ok(T::WeightInfo::reprioritize_priority_removed());
 		};
 
-		if stored.priority == real_priority {
-			return Ok(T::WeightInfo::reprioritize_no_op());
-		}
-		crate::log!(
-			debug,
-			"reprioritize: priority drift detected, repositioning (old={:?}, new={:?})",
-			stored.priority,
-			real_priority,
-		);
-
 		let outcome = Self::re_insert(list_id.clone(), item.clone(), real_priority, hint)?;
 
-		Self::deposit_event(Event::Reprioritized { list_id, item, new_priority: real_priority });
 		Ok(match outcome {
-			Outcome::InPlace => T::WeightInfo::reprioritize_in_place(),
-			Outcome::Relocated { steps } => T::WeightInfo::reprioritize_relocate(steps),
+			Outcome::NoOp => T::WeightInfo::reprioritize_no_op(),
+			Outcome::InPlace => {
+				Self::deposit_event(Event::Reprioritized {
+					list_id,
+					item,
+					new_priority: real_priority,
+				});
+				T::WeightInfo::reprioritize_in_place()
+			},
+			Outcome::Relocated { steps } => {
+				Self::deposit_event(Event::Reprioritized {
+					list_id,
+					item,
+					new_priority: real_priority,
+				});
+				T::WeightInfo::reprioritize_relocate(steps)
+			},
 		})
 	}
 }

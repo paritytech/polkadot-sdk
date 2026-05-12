@@ -111,10 +111,12 @@ impl Side {
 }
 
 /// Outcome of [`crate::SortedListInterface::re_insert`]. Distinguishes the
-/// in-place fast path from the splice path so callers can charge the matching
-/// weight.
+/// three branches so callers can charge the matching weight.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Outcome {
+	/// The new priority equalled the stored one; nothing was written and no
+	/// event was deposited.
+	NoOp,
 	/// The cached priority was updated without moving the node; neighbors
 	/// unchanged.
 	InPlace,

@@ -24,7 +24,7 @@ fn re_insert_unchanged_priority_no_op() {
 		insert(1, 100, 50);
 		assert!(matches!(
 			LinkedList::re_insert(1, 100, 50, Position::endpoints_only()),
-			Ok(Outcome::InPlace),
+			Ok(Outcome::NoOp),
 		));
 		assert_eq!(dump(1), vec![(100, 50)]);
 	});
