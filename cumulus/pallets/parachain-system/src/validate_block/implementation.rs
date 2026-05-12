@@ -90,14 +90,6 @@ where
 	let block_data = codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(block_data)
 		.expect("Invalid parachain block data");
 
-	// V3 scheduling validation.
-	let _validated_scheduling = scheduling::validate_v3_scheduling(
-		PSC::SchedulingV3Enabled::get(),
-		&extension.0,
-		block_data.scheduling_proof(),
-		PSC::RelayParentOffset::get(),
-	);
-
 	let _guard = (
 		// Replace storage calls with our own implementations
 		sp_io::storage::host_read.replace_implementation(host_storage_read),
@@ -142,6 +134,19 @@ where
 		#[cfg(feature = "transaction-index")]
 		sp_io::transaction_index::host_renew.replace_implementation(host_transaction_index_renew),
 	);
+
+	// V3 scheduling validation.
+	let validated_scheduling = scheduling::validate_v3_scheduling(
+		PSC::SchedulingV3Enabled::get(),
+		&extension.0,
+		block_data.scheduling_proof(),
+		PSC::RelayParentOffset::get(),
+	);
+	if let Some(result) = validated_scheduling {
+		if result.is_resubmission {
+			panic!("Resubmission not yet supported; reject candidate.");
+		}
+	}
 
 	// Initialize hashmaps randomness.
 	sp_trie::add_extra_randomness(build_seed_from_head_data::<B>(

@@ -248,7 +248,6 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 	)
 	.await?;
 
-	assert_validator_backed_candidates(relay_node, 24).await?;
 	for i in 0..6 {
 		let node = network.get_node(format!("validator-{i}"))?;
 		assert_validator_backed_candidates(node, 24).await?;

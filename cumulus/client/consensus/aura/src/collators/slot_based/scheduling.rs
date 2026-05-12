@@ -28,7 +28,7 @@ use polkadot_primitives::{node_features::FeatureIndex, Block as RelayBlock};
 use sc_consensus_aura::SlotDuration;
 use sp_runtime::traits::Header as HeaderT;
 use sp_timestamp::Timestamp;
-use std::{pin::Pin, time::Duration};
+use std::{marker::PhantomData, pin::Pin, time::Duration};
 
 fn get_current_relay_slot_at(
 	now: Duration,
@@ -62,27 +62,29 @@ fn get_current_relay_slot(slot_offset: Duration, relay_chain_slot_duration: Dura
 ///   not, we wait for it before building, so we don't end up using the previous slot's
 ///   relay block past our own slot. See
 ///   <https://github.com/paritytech/polkadot-sdk/pull/11453>.
-/// - **V3**: build on the *last finished* slot's relay block. No offset hack, no
-///   waiting: the relay block had a full slot to propagate, which is what slots are
-///   for. Matches the low-latency v2 design.
+/// - **V3**: build on the *last finished* slot's relay block. No offset hack, no waiting: the relay
+///   block had a full slot to propagate, which is what slots are for. Matches the low-latency v2
+///   design.
 ///
 /// Owns the relay chain new-best notification stream so `wait_for_scheduling_parent`
 /// can block for a fresh leaf. Initial state is a terminated empty stream — the caller
-/// must install one via [`Self::reset_best_notifications`] before the first call, and
+/// must install one via [`Self::reinit`] before the first call, and
 /// re-install whenever the stream terminates (checked via
-/// [`Self::should_reset_best_notifications`]).
-pub(crate) struct SchedulingInfo {
+/// [`Self::should_reinit`]).
+pub(crate) struct SchedulingInfo<RelayClient> {
 	best_notifications: Fuse<Pin<Box<dyn Stream<Item = RelayHeader> + Send>>>,
 	relay_slot_duration: Duration,
 	slot_offset: Duration,
 	maybe_best_relay_header: Option<RelayHeader>,
+
+	_phantom: PhantomData<RelayClient>,
 }
 
-impl SchedulingInfo {
+impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 	/// Create a new `SchedulingInfo` with no active notification stream.
 	///
-	/// The caller must call [`Self::reset_best_notifications`] before the first
-	/// `wait_for_scheduling_parent` invocation — [`Self::should_reset_best_notifications`]
+	/// The caller must call [`Self::reinit`] before the first
+	/// `wait_for_scheduling_parent` invocation — [`Self::should_reinit`]
 	/// will report `true` until then.
 	pub fn new(relay_chain_slot_duration: Duration, slot_offset: Duration) -> Self {
 		let stream: Pin<Box<dyn Stream<Item = RelayHeader> + Send>> =
@@ -97,6 +99,7 @@ impl SchedulingInfo {
 			relay_slot_duration: relay_chain_slot_duration,
 			slot_offset,
 			maybe_best_relay_header: None,
+			_phantom: Default::default(),
 		}
 	}
 
@@ -105,15 +108,68 @@ impl SchedulingInfo {
 	///
 	/// Returns `true` both at startup (the initial stream is a terminated empty stream)
 	/// and after the underlying subscription has ended.
-	pub fn should_reset_best_notifications(&self) -> bool {
+	pub fn should_reinit(&self) -> bool {
 		self.best_notifications.is_terminated()
 	}
 
-	pub fn reset_best_notifications(
+	pub fn reinit(
 		&mut self,
+		maybe_best_relay_header: Option<RelayHeader>,
 		best_notifications: Pin<Box<dyn Stream<Item = RelayHeader> + Send>>,
 	) {
+		self.maybe_best_relay_header = maybe_best_relay_header;
 		self.best_notifications = best_notifications.fuse();
+	}
+
+	pub async fn ensure_initialized(
+		&mut self,
+		relay_client: &RelayClient,
+		relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
+	) {
+		if !self.should_reinit() {
+			return;
+		}
+
+		match relay_client.new_best_notification_stream().await {
+			Ok(best_notifications) => {
+				self.best_notifications = best_notifications.fuse();
+			},
+			Err(err) => {
+				tracing::error!(
+					target: crate::LOG_TARGET,
+					?err,
+					"Failed to reset the relay chain best block notification stream. \
+					The current consensus iteration might fail."
+				);
+			},
+		};
+
+		self.maybe_best_relay_header = None;
+		let best_relay_hash = match relay_client.best_block_hash().await {
+			Ok(best_relay_hash) => best_relay_hash,
+			Err(err) => {
+				tracing::warn!(
+					target: crate::LOG_TARGET,
+					?err,
+					"Failed to get relay chain best block hash. \
+					`SchedulingInfo` is only partially initialized"
+				);
+				return;
+			},
+		};
+		let best_relay_block_data =
+			match relay_chain_data_cache.get_mut_by_hash(best_relay_hash).await {
+				Ok(best_relay_block_data) => best_relay_block_data,
+				Err(_err) => {
+					tracing::warn!(
+						target: crate::LOG_TARGET,
+						"Failed to fetch the `RelayChainData` for the best relay block. \
+						`SchedulingInfo` is only partially initialized"
+					);
+					return;
+				},
+			};
+		self.maybe_best_relay_header = Some(best_relay_block_data.relay_header.clone());
 	}
 
 	/// Pick a scheduling parent under the policy described on [`SchedulingInfo`],
@@ -127,15 +183,12 @@ impl SchedulingInfo {
 	///
 	/// Returns `Some((header, v3_used))`, or `None` on relay client error, a session
 	/// boundary, or a terminated notification stream.
-	pub(crate) async fn wait_for_scheduling_parent<RelayClient>(
+	pub(crate) async fn wait_for_scheduling_parent(
 		&mut self,
 		relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 		v3_enabled_on_para: bool,
-	) -> Option<(RelayHeader, bool)>
-	where
-		RelayClient: RelayChainInterface + 'static,
-	{
-		let mut maybe_best_relay_header = self.maybe_best_relay_header.clone();
+	) -> Option<(RelayHeader, bool)> {
+		let mut maybe_best_relay_header = self.maybe_best_relay_header.take();
 		let (best_relay_slot, best_relay_header_data) = loop {
 			// Drain buffered notifications.
 			while let Some(Some(header)) = self.best_notifications.next().now_or_never() {
@@ -146,7 +199,6 @@ impl SchedulingInfo {
 				Some(header) => header,
 				None => self.best_notifications.next().await?,
 			};
-			self.maybe_best_relay_header = Some(best_relay_header.clone());
 			let best_relay_header_data =
 				relay_chain_data_cache.get_mut_by_header(best_relay_header).await.ok()?;
 			let best_relay_slot = get_relay_slot(&best_relay_header_data.relay_header)?;
@@ -310,15 +362,17 @@ mod tests {
 
 		let mut scheduling_info =
 			SchedulingInfo::new(Duration::from_secs(6), Duration::from_secs(1));
-		assert_eq!(scheduling_info.should_reset_best_notifications(), true);
+		assert_eq!(scheduling_info.should_reinit(), true);
 
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
-		scheduling_info.reset_best_notifications(Box::pin(rx));
-		assert_eq!(scheduling_info.should_reset_best_notifications(), false);
+		let mock_header = tests::relay_header_with_slot(10, Default::default(), 0);
+		scheduling_info.reinit(Some(mock_header.clone()), Box::pin(rx));
+		assert_eq!(scheduling_info.maybe_best_relay_header.as_ref(), Some(&mock_header));
+		assert_eq!(scheduling_info.should_reinit(), false);
 
 		tx.close_channel();
 		scheduling_info.wait_for_scheduling_parent(&mut cache, false).await;
-		assert_eq!(scheduling_info.should_reset_best_notifications(), true);
+		assert_eq!(scheduling_info.should_reinit(), true);
 	}
 
 	/// Test the original bug scenario: relay block propagation exceeds `slot_offset`,
@@ -335,8 +389,7 @@ mod tests {
 
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration, slot_offset);
-		scheduling_info.maybe_best_relay_header = Some(headers[0].clone());
-		scheduling_info.reset_best_notifications(Box::pin(rx));
+		scheduling_info.reinit(Some(headers[0].clone()), Box::pin(rx));
 
 		let mut handle = tokio::spawn(async move {
 			scheduling_info.wait_for_scheduling_parent(&mut cache, false).await
@@ -378,8 +431,7 @@ mod tests {
 		let (_tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 
 		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration, slot_offset);
-		scheduling_info.maybe_best_relay_header = Some(headers[4].clone());
-		scheduling_info.reset_best_notifications(Box::pin(rx));
+		scheduling_info.reinit(Some(headers[4].clone()), Box::pin(rx));
 		let result = tokio::time::timeout(
 			Duration::from_millis(300),
 			scheduling_info.wait_for_scheduling_parent(&mut cache, false),
@@ -399,7 +451,7 @@ mod tests {
 
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration, slot_offset);
-		scheduling_info.reset_best_notifications(Box::pin(rx));
+		scheduling_info.reinit(None, Box::pin(rx));
 
 		let mut handle = tokio::spawn(async move {
 			scheduling_info.wait_for_scheduling_parent(&mut cache, true).await
@@ -429,7 +481,7 @@ mod tests {
 
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration, slot_offset);
-		scheduling_info.reset_best_notifications(Box::pin(rx));
+		scheduling_info.reinit(None, Box::pin(rx));
 
 		let mut handle = tokio::spawn(async move {
 			scheduling_info.wait_for_scheduling_parent(&mut cache, true).await
@@ -459,7 +511,7 @@ mod tests {
 
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration, slot_offset);
-		scheduling_info.reset_best_notifications(Box::pin(rx));
+		scheduling_info.reinit(None, Box::pin(rx));
 
 		// Simulate: receiving relay block with header 3 (fresh slot).
 		tx.unbounded_send(headers[3].clone()).unwrap();
@@ -479,7 +531,6 @@ mod tests {
 		cache.set_test_data(headers[4].clone(), vec![], node_features);
 
 		// Simulate: receiving the modified header 3 block.
-		scheduling_info.maybe_best_relay_header = None;
 		tx.unbounded_send(headers[3].clone()).unwrap();
 		let result = tokio::time::timeout(Duration::from_millis(300), async {
 			scheduling_info.wait_for_scheduling_parent(&mut cache, true).await
@@ -487,7 +538,6 @@ mod tests {
 		.await
 		.expect("Task should complete within timeout");
 		assert_eq!(result, None);
-		assert_eq!(scheduling_info.maybe_best_relay_header.as_ref(), Some(&headers[3]));
 
 		// Simulate: an even fresher block.
 		tx.unbounded_send(headers[4].clone()).unwrap();
@@ -497,6 +547,5 @@ mod tests {
 		.await
 		.expect("Task should complete within timeout");
 		assert_eq!(result, None);
-		assert_eq!(scheduling_info.maybe_best_relay_header.as_ref(), Some(&headers[4]));
 	}
 }

@@ -207,10 +207,22 @@ where
 		);
 
 		loop {
-			if scheduling_info.should_reset_best_notifications() {
+			if scheduling_info.should_reinit() {
+				let maybe_best_relay_header = 'get_best_relay_header: {
+					let Some(best_relay_hash) = relay_client.best_block_hash().await.ok() else {
+						break 'get_best_relay_header None;
+					};
+					let Some(best_relay_data) =
+						relay_chain_data_cache.get_mut_by_hash(best_relay_hash).await.ok()
+					else {
+						break 'get_best_relay_header None;
+					};
+					Some(best_relay_data.relay_header.clone())
+				};
+
 				match relay_client.new_best_notification_stream().await {
 					Ok(best_notifications) => {
-						scheduling_info.reset_best_notifications(best_notifications)
+						scheduling_info.reinit(maybe_best_relay_header, best_notifications)
 					},
 					Err(err) => {
 						tracing::error!(
@@ -612,7 +624,7 @@ async fn build_collation_for_core<
 		time_for_core: slot_time_for_core,
 		is_last_core_in_parachain_slot,
 		collator_peer_id,
-		relay_parent_data,
+		mut relay_parent_data,
 		total_number_of_blocks,
 		included_header_hash,
 		relay_slot,
@@ -667,6 +679,9 @@ where
 			// Initial submission: no signature needed, core selection from UMP signals
 			signed_scheduling_info: None,
 		});
+
+		// The relay parent descendants are only needed for v2.
+		relay_parent_data.descendants = vec![];
 	}
 
 	let Some(validation_code_hash) = code_hash_provider.code_hash_at(pov_parent_hash) else {
