@@ -360,7 +360,10 @@ where
 	/// Build the execution-relevant subset of this configuration for per-session
 	/// snapshotting.
 	pub(crate) fn session_execution_config(&self) -> SessionExecutionConfig {
-		SessionExecutionConfig { max_pov_size: self.max_pov_size }
+		SessionExecutionConfig {
+			max_pov_size: self.max_pov_size,
+			validation_code_bomb_limit: self.validation_code_bomb_limit(),
+		}
 	}
 
 	/// Checks that this instance is consistent with the requirements on each individual member.

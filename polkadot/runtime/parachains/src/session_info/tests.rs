@@ -219,6 +219,10 @@ fn session_execution_config_is_stored_per_session() {
 		let exec_config = SessionExecutionConfigs::<Test>::get(1).unwrap();
 		let active_config = configuration::ActiveConfig::<Test>::get();
 		assert_eq!(exec_config.max_pov_size, active_config.max_pov_size);
+		assert_eq!(
+			exec_config.validation_code_bomb_limit,
+			active_config.validation_code_bomb_limit()
+		);
 
 		// Change max_pov_size
 		Configuration::set_max_pov_size(RuntimeOrigin::root(), 1024).unwrap();
