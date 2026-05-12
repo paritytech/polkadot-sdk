@@ -50,12 +50,27 @@ fn get_current_relay_slot(slot_offset: Duration, relay_chain_slot_duration: Dura
 	)
 }
 
-/// Tracks relay chain scheduling information, including the relay best block hash
-/// and whether its slot is still in progress.
+/// Picks a scheduling parent for the next collation under V2 or V3 semantics.
 ///
-/// With elastic scaling (multiple cores), the para slot timer fires multiple times
-/// per relay chain slot. This struct provides methods to fetch and inspect relay
-/// chain state for scheduling decisions.
+/// The two policies differ in which relay block they build on, and consequently in
+/// how they tolerate relay block propagation delay. Selected per-call based on whether
+/// V3 is enabled on both the parachain (runtime API) and the relay chain
+/// (`CandidateReceiptV3` node feature):
+///
+/// - **V2**: build on the *current* slot's relay block. Tolerated via a fixed 1s
+///   `slot_offset` — the relay block must arrive within ~1s of the slot starting. If
+///   not, we wait for it before building, so we don't end up using the previous slot's
+///   relay block past our own slot. See
+///   <https://github.com/paritytech/polkadot-sdk/pull/11453>.
+/// - **V3**: build on the *last finished* slot's relay block. No offset hack, no
+///   waiting: the relay block had a full slot to propagate, which is what slots are
+///   for. Matches the low-latency v2 design.
+///
+/// Owns the relay chain new-best notification stream so `wait_for_scheduling_parent`
+/// can block for a fresh leaf. Initial state is a terminated empty stream — the caller
+/// must install one via [`Self::reset_best_notifications`] before the first call, and
+/// re-install whenever the stream terminates (checked via
+/// [`Self::should_reset_best_notifications`]).
 pub(crate) struct SchedulingInfo {
 	best_notifications: Fuse<Pin<Box<dyn Stream<Item = RelayHeader> + Send>>>,
 	relay_slot_duration: Duration,
@@ -64,11 +79,17 @@ pub(crate) struct SchedulingInfo {
 }
 
 impl SchedulingInfo {
+	/// Create a new `SchedulingInfo` with no active notification stream.
+	///
+	/// The caller must call [`Self::reset_best_notifications`] before the first
+	/// `wait_for_scheduling_parent` invocation — [`Self::should_reset_best_notifications`]
+	/// will report `true` until then.
 	pub fn new(relay_chain_slot_duration: Duration, slot_offset: Duration) -> Self {
 		let stream: Pin<Box<dyn Stream<Item = RelayHeader> + Send>> =
 			Box::pin(futures::stream::empty());
 		let mut stream = stream.fuse();
-		// Make sure the fused stream is marked as terminated.
+		// Force the fused stream into the terminated state so the first
+		// `should_reset_best_notifications` call returns `true`.
 		stream.next().now_or_never();
 
 		Self {
@@ -79,6 +100,11 @@ impl SchedulingInfo {
 		}
 	}
 
+	/// `true` if the best-block notification stream is terminated and must be replaced
+	/// before the next `wait_for_scheduling_parent` call.
+	///
+	/// Returns `true` both at startup (the initial stream is a terminated empty stream)
+	/// and after the underlying subscription has ended.
 	pub fn should_reset_best_notifications(&self) -> bool {
 		self.best_notifications.is_terminated()
 	}
@@ -90,17 +116,17 @@ impl SchedulingInfo {
 		self.best_notifications = best_notifications.fuse();
 	}
 
-	/// Wait until we find a scheduling parent block that is not stale.
+	/// Pick a scheduling parent under the policy described on [`SchedulingInfo`],
+	/// blocking on the notification stream until one is available.
 	///
-	/// For v2: If the current best block is already a valid scheduling parent, returns its hash
-	/// immediately. Otherwise, waits for a new-best notification and re-checks.
-	/// This ensures the collator doesn't build on a stale scheduling parent when
-	/// relay block propagation exceeds `slot_offset` at a slot boundary.
-	/// See: https://github.com/paritytech/polkadot-sdk/pull/11453
+	/// V3 is used iff `v3_enabled_on_para` is true *and* the relay chain has the
+	/// `CandidateReceiptV3` node feature set at the candidate block; otherwise V2.
+	/// Under V3, if the best leaf's slot is still in progress, walks back to its
+	/// parent — and aborts when that crosses a BABE epoch boundary, since the
+	/// scheduling parent must share a session with the active leaf.
 	///
-	/// For v3: This returns the relay header that has the most recently finished slot.
-	///
-	/// Returns `None` on error.
+	/// Returns `Some((header, v3_used))`, or `None` on relay client error, a session
+	/// boundary, or a terminated notification stream.
 	pub(crate) async fn wait_for_scheduling_parent<RelayClient>(
 		&mut self,
 		relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
