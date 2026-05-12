@@ -38,7 +38,7 @@ use frame::{
 	},
 	prelude::*,
 };
-use pallet_linked_list::SortedListInterface;
+use pallet_linked_list::{Position, SortedListInterface};
 use pusd_primitives::{PriceFeed, ProvidePrice};
 
 fn moment_to_millis<T: Config>(m: MomentOf<T>) -> u64
@@ -268,8 +268,7 @@ where
 		// FixedU128-to-integer-floor without bare `/ DIV`.
 		redist_debt_principal =
 			delta_debt_per_stake.saturating_mul(stake_fp).saturating_mul_int(1u128);
-		redist_collat =
-			delta_collat_per_stake.saturating_mul(stake_fp).saturating_mul_int(1u128);
+		redist_collat = delta_collat_per_stake.saturating_mul(stake_fp).saturating_mul_int(1u128);
 		// Interest accrued on redistributed debt from the time it was
 		// liquidated up to `now`. Approximated by:
 		// `delta_debt_per_stake * stake * annual_rate * (now - last_redist) / year`.
@@ -396,16 +395,9 @@ where
 							Ok(())
 						},
 					)?;
-					let (prev, next) =
-						T::RateIndex::find_position(&collateral_id, vault.annual_rate);
-					T::RateIndex::insert(
-						collateral_id,
-						owner.clone(),
-						vault.annual_rate,
-						prev,
-						next,
-					)
-					.map_err(|_| Error::<T>::InvalidPositionHints)?;
+					let position = T::RateIndex::find_position(&collateral_id, vault.annual_rate);
+					T::RateIndex::insert(collateral_id, owner.clone(), vault.annual_rate, position)
+						.map_err(|_| Error::<T>::InvalidPositionHints)?;
 					Pallet::<T>::deposit_event(Event::VaultStatusChanged {
 						collateral_id,
 						owner: owner.clone(),
@@ -628,8 +620,13 @@ where
 	);
 
 	// Insert into rate index.
-	T::RateIndex::insert(collateral_id, owner.clone(), annual_rate, hint_prev, hint_next)
-		.map_err(|_| Error::<T>::InvalidPositionHints)?;
+	T::RateIndex::insert(
+		collateral_id,
+		owner.clone(),
+		annual_rate,
+		Position { prev: hint_prev, next: hint_next },
+	)
+	.map_err(|_| Error::<T>::InvalidPositionHints)?;
 
 	Pallet::<T>::deposit_event(Event::Borrowed {
 		collateral_id,
@@ -873,8 +870,13 @@ where
 
 	if dormant_to_active {
 		// Insert/reinsert into the rate index at `new_rate`.
-		T::RateIndex::insert(collateral_id, owner.clone(), new_rate, hint_prev, hint_next)
-			.map_err(|_| Error::<T>::InvalidPositionHints)?;
+		T::RateIndex::insert(
+			collateral_id,
+			owner.clone(),
+			new_rate,
+			Position { prev: hint_prev, next: hint_next },
+		)
+		.map_err(|_| Error::<T>::InvalidPositionHints)?;
 		Pallet::<T>::deposit_event(Event::VaultStatusChanged {
 			collateral_id,
 			owner: owner.clone(),
@@ -890,8 +892,13 @@ where
 			}
 		});
 	} else if old_rate != new_rate {
-		T::RateIndex::re_insert(collateral_id, owner.clone(), new_rate, hint_prev, hint_next)
-			.map_err(|_| Error::<T>::InvalidPositionHints)?;
+		T::RateIndex::re_insert(
+			collateral_id,
+			owner.clone(),
+			new_rate,
+			Position { prev: hint_prev, next: hint_next },
+		)
+		.map_err(|_| Error::<T>::InvalidPositionHints)?;
 	}
 
 	if old_rate != new_rate {
@@ -1069,8 +1076,13 @@ where
 	vault.accrued_interest = vault.accrued_interest.saturating_add(upfront_fee);
 	Vaults::<T>::insert(collateral_id, &owner, &vault);
 
-	T::RateIndex::re_insert(collateral_id, owner.clone(), new_rate, hint_prev, hint_next)
-		.map_err(|_| Error::<T>::InvalidPositionHints)?;
+	T::RateIndex::re_insert(
+		collateral_id,
+		owner.clone(),
+		new_rate,
+		Position { prev: hint_prev, next: hint_next },
+	)
+	.map_err(|_| Error::<T>::InvalidPositionHints)?;
 	Pallet::<T>::deposit_event(Event::BorrowRateChanged {
 		collateral_id,
 		owner,
@@ -1489,22 +1501,22 @@ pub fn view_debt_in_front<T: Config>(collateral_id: &T::AssetId, rate: FixedU128
 where
 	BalanceOf<T>: Copy + Zero + Saturating,
 {
-	// Walk tail-first; sum interest_bearing_debt while node.score < rate.
+	// Walk tail-first; sum interest_bearing_debt while node.priority < rate.
 	let mut total = BalanceOf::<T>::zero();
 	let mut cursor = T::RateIndex::tail(collateral_id);
 	while let Some(o) = cursor {
-		let score = match T::RateIndex::score(collateral_id, &o) {
-			Some(s) => s,
+		let priority = match T::RateIndex::priority(collateral_id, &o) {
+			Some(p) => p,
 			None => break,
 		};
-		if score >= rate {
+		if priority >= rate {
 			break;
 		}
 		if let Some(v) = Vaults::<T>::get(collateral_id, &o) {
 			total = total.saturating_add(v.interest_bearing_debt);
 		}
 		cursor = match T::RateIndex::neighbors(collateral_id, &o) {
-			Some((prev, _)) => prev,
+			Some(p) => p.prev,
 			None => break,
 		};
 	}
@@ -1679,7 +1691,7 @@ where
 			}
 			let _ = touch_vault::<T>(collateral_id, &owner, now);
 			// Advance.
-			cursor = T::RateIndex::neighbors(&collateral_id, &owner).and_then(|(_, next)| next);
+			cursor = T::RateIndex::neighbors(&collateral_id, &owner).and_then(|p| p.next);
 			budget = budget.saturating_sub(1);
 			consumed = consumed.saturating_add(per_call);
 			if (remaining.saturating_sub(consumed)).any_lt(per_call) {

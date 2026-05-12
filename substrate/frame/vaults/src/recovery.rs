@@ -235,9 +235,8 @@ where
 			FixedU128::zero()
 		} else {
 			// `market_cancel_debt > 0` per the early-return above.
-			FixedU128::saturating_from_integer(c).checked_div(
-				&FixedU128::saturating_from_integer(market_cancel_debt),
-			)?
+			FixedU128::saturating_from_integer(c)
+				.checked_div(&FixedU128::saturating_from_integer(market_cancel_debt))?
 		};
 		let effective_per_pusd = recovery_rate.checked_div(&price)?;
 		Some(RecoveryTerms {

@@ -12,8 +12,8 @@
 //! Liquity error → polkadot Error mapping:
 //! - `TCRBelowCCR` → `SafetyModeTcrWorsening`
 //! - `ICRBelowMCR` → `UnsafeCollateralizationRatio`
-//! - `RepaymentNotMatchingCollWithdrawal` → no analog; the polkadot
-//!   `withdraw_collateral` reverts directly via the per-call TCR check.
+//! - `RepaymentNotMatchingCollWithdrawal` → no analog; the polkadot `withdraw_collateral` reverts
+//!   directly via the per-call TCR check.
 
 use crate::{
 	mock::*,
@@ -174,12 +174,7 @@ fn safety_mode_blocks_withdraw_alone() {
 	build_and_execute(|| {
 		enter_safety_mode_single_vault();
 		assert_noop!(
-			crate::Pallet::<Test>::withdraw_collateral(
-				RuntimeOrigin::signed(1),
-				DOT,
-				1,
-				None,
-			),
+			crate::Pallet::<Test>::withdraw_collateral(RuntimeOrigin::signed(1), DOT, 1, None,),
 			crate::Error::<Test>::SafetyModeTcrWorsening
 		);
 	});
@@ -374,15 +369,7 @@ fn safety_mode_blocks_borrow_when_cr_below_icr() {
 		// borrow(+0) revalidates CR without touching debt, so we use it as a
 		// gate-only probe. CR is below ICR → reverts.
 		assert_noop!(
-			crate::Pallet::<Test>::borrow(
-				RuntimeOrigin::signed(2),
-				DOT,
-				0,
-				None,
-				None,
-				None,
-				None,
-			),
+			crate::Pallet::<Test>::borrow(RuntimeOrigin::signed(2), DOT, 0, None, None, None, None,),
 			crate::Error::<Test>::UnsafeCollateralizationRatio
 		);
 
@@ -426,12 +413,7 @@ fn safety_mode_blocks_withdraw_when_cr_below_icr() {
 		// Withdrawing any collateral fails because post-CR < ICR (and so does
 		// pre-CR; the per-call gate uses the post-state).
 		assert_noop!(
-			crate::Pallet::<Test>::withdraw_collateral(
-				RuntimeOrigin::signed(2),
-				DOT,
-				1,
-				None,
-			),
+			crate::Pallet::<Test>::withdraw_collateral(RuntimeOrigin::signed(2), DOT, 1, None,),
 			crate::Error::<Test>::UnsafeCollateralizationRatio
 		);
 

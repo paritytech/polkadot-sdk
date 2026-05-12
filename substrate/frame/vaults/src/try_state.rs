@@ -4,9 +4,7 @@
 //! `next_block` and end-to-end by the runtime's pre-upgrade hook.
 
 use crate::{
-	pallet::{
-		BalanceOf, BranchStates, Branches, Config, FinalRecoveryNodes, MomentOf, Pallet, Vaults,
-	},
+	pallet::{BalanceOf, BranchStates, Branches, Config, FinalRecoveryNodes, MomentOf, Vaults},
 	types::VaultStatus,
 };
 use frame::{

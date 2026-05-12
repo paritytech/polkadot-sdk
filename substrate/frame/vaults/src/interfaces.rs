@@ -135,12 +135,10 @@ where
 							// increment as zero (defensive — accumulator is monotonically
 							// growing, an overflowed division means the input was already
 							// numerically saturated).
-							let debt_per_stake = debt_fp
-								.checked_div(&stakes_fp)
-								.unwrap_or_else(FixedU128::zero);
-							let coll_per_stake = coll_fp
-								.checked_div(&stakes_fp)
-								.unwrap_or_else(FixedU128::zero);
+							let debt_per_stake =
+								debt_fp.checked_div(&stakes_fp).unwrap_or_else(FixedU128::zero);
+							let coll_per_stake =
+								coll_fp.checked_div(&stakes_fp).unwrap_or_else(FixedU128::zero);
 							redist.cumulative_redist_debt_per_stake = redist
 								.cumulative_redist_debt_per_stake
 								.saturating_add(debt_per_stake);

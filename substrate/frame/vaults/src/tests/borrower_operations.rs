@@ -41,10 +41,7 @@ fn liquidate_last_trove_reverts() {
 		// Drive the price down so the lone vault is undercollateralised
 		// enough to look like a liquidation candidate.
 		set_price(DOT, frame::deps::sp_runtime::FixedU128::from_rational(5u128, 100u128));
-		assert_noop!(
-			liquidate(DOT, 1),
-			crate::Error::<Test>::LastVaultCannotBeLiquidated
-		);
+		assert_noop!(liquidate(DOT, 1), crate::Error::<Test>::LastVaultCannotBeLiquidated);
 	});
 }
 
@@ -76,12 +73,7 @@ fn withdraw_more_than_held_reverts() {
 		register_default_branch();
 		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
 		assert_noop!(
-			crate::Pallet::<Test>::withdraw_collateral(
-				RuntimeOrigin::signed(1),
-				DOT,
-				2_000,
-				None,
-			),
+			crate::Pallet::<Test>::withdraw_collateral(RuntimeOrigin::signed(1), DOT, 2_000, None,),
 			crate::Error::<Test>::InsufficientCollateral
 		);
 	});
@@ -159,11 +151,8 @@ fn zero_amount_ops_are_no_ops() {
 fn open_trove_charges_upfront_fee() {
 	build_and_execute(|| {
 		register_default_branch();
-		let predicted = crate::Pallet::<Test>::predict_open_upfront_fee(
-			DOT,
-			10_000,
-			rate_pct(5, 100),
-		);
+		let predicted =
+			crate::Pallet::<Test>::predict_open_upfront_fee(DOT, 10_000, rate_pct(5, 100));
 		assert!(predicted > 0, "open at 10k @ 5% must charge a non-trivial upfront fee");
 		assert_ok!(open(1, DOT, 5_000, 10_000, rate_pct(5, 100)));
 		let v = Vaults::<Test>::get(DOT, 1).expect("vault stored");
@@ -235,8 +224,8 @@ fn change_rate_to_same_rate_is_no_op() {
 // tests.md row 10: testAdjustInterestRateChargesUpfrontFeeWhenPremature.
 //
 // Two assertions:
-//   - inside the cooldown window the rate change charges a strictly positive
-//     fee matching `predict_rate_change_upfront_fee`,
+//   - inside the cooldown window the rate change charges a strictly positive fee matching
+//     `predict_rate_change_upfront_fee`,
 //   - after the cooldown elapses the fee is zero.
 //
 // Methodology note: `change_rate` internally calls `touch_vault`, which

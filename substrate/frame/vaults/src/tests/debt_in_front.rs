@@ -28,14 +28,12 @@ fn debt_in_front_sums_lower_rate_vaults_only() {
 
 		// Query: total debt at rates strictly < 0.7%.
 		// Sum of vaults 1..=4: 500+700+600+800 = 2600.
-		let in_front =
-			crate::Pallet::<Test>::debt_in_front(DOT, rate_pct(7, 1000));
+		let in_front = crate::Pallet::<Test>::debt_in_front(DOT, rate_pct(7, 1000));
 		assert_eq!(in_front, 2_600);
 
 		// Query: total debt at rates strictly < 0.6%.
 		// Sum of vaults 1..=2: 500+700 = 1200.
-		let in_front =
-			crate::Pallet::<Test>::debt_in_front(DOT, rate_pct(6, 1000));
+		let in_front = crate::Pallet::<Test>::debt_in_front(DOT, rate_pct(6, 1000));
 		assert_eq!(in_front, 1_200);
 
 		// Query: total debt at rates strictly < 1% (covers everything).

@@ -53,7 +53,7 @@ mod runtime {
 		RuntimeOrigin,
 		RuntimeTask,
 		RuntimeHoldReason,
-		RuntimeFreezeReason,
+		RuntimeFreezeReason
 	)]
 	pub struct Test;
 
@@ -130,9 +130,9 @@ impl pallet_linked_list::Config for Test {
 	type WeightInfo = ();
 	type ListId = AssetId;
 	type ItemId = AccountId;
-	type Score = FixedU128;
+	type Priority = FixedU128;
 	type MaxHintRepairSteps = MaxHintRepairSteps;
-	type ScoreProvider = pallet_vaults::Pallet<Test>;
+	type PriorityProvider = pallet_vaults::Pallet<Test>;
 }
 
 /// Routes `AssetId == 0` to native DOT (`Left(())`), every other id to the
@@ -142,7 +142,11 @@ impl pallet_linked_list::Config for Test {
 pub struct DotFromZero;
 impl Convert<AssetId, Either<(), AssetId>> for DotFromZero {
 	fn convert(asset: AssetId) -> Either<(), AssetId> {
-		if asset == 0 { Either::Left(()) } else { Either::Right(asset) }
+		if asset == 0 {
+			Either::Left(())
+		} else {
+			Either::Right(asset)
+		}
 	}
 }
 
@@ -259,10 +263,7 @@ pub const TOKEN_X: AssetId = 1;
 pub fn new_test_ext() -> TestState {
 	let t = RuntimeGenesisConfig {
 		assets: pallet_assets::GenesisConfig {
-			assets: vec![
-				(TOKEN_X, 1, true, 1),
-				(PusdAssetId::get(), 1, true, 1),
-			],
+			assets: vec![(TOKEN_X, 1, true, 1), (PusdAssetId::get(), 1, true, 1)],
 			metadata: vec![],
 			accounts: vec![],
 			next_asset_id: None,

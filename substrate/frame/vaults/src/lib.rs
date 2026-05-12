@@ -74,12 +74,15 @@ pub mod pallet {
 		},
 		prelude::*,
 	};
-	use pallet_linked_list::{ScoreProvider, SortedListInterface};
+	use pallet_linked_list::{Position, PriorityProvider, SortedListInterface};
 	use pusd_primitives::{BranchModeProvider, OnBranchYield, ProvidePrice};
 
-	pub type BalanceOf<T> = <<T as Config>::CollateralAssets as FungiblesInspect<<T as frame_system::Config>::AccountId>>::Balance;
+	pub type BalanceOf<T> = <<T as Config>::CollateralAssets as FungiblesInspect<
+		<T as frame_system::Config>::AccountId,
+	>>::Balance;
 	pub type MomentOf<T> = <<T as Config>::TimeProvider as Time>::Moment;
-	pub type StableCreditOf<T> = fungible::Credit<<T as frame_system::Config>::AccountId, <T as Config>::StableAsset>;
+	pub type StableCreditOf<T> =
+		fungible::Credit<<T as frame_system::Config>::AccountId, <T as Config>::StableAsset>;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -140,8 +143,8 @@ pub mod pallet {
 		/// Sorted-DLL backing the per-branch rate index. Configured by the
 		/// runtime to point at `pallet-linked-list` with
 		/// `ListId = Self::AssetId`, `ItemId = Self::AccountId`,
-		/// `Score = FixedU128`.
-		type RateIndex: SortedListInterface<Self::AssetId, Self::AccountId, Score = FixedU128>;
+		/// `Priority = FixedU128`.
+		type RateIndex: SortedListInterface<Self::AssetId, Self::AccountId, Priority = FixedU128>;
 
 		/// Maximum DLL traversal steps performed to repair a stale rate-index
 		/// hint inside a dispatch. Forwarded to `pallet-linked-list`'s
@@ -456,7 +459,8 @@ pub mod pallet {
 			collateral_id: T::AssetId,
 			rate: FixedU128,
 		) -> (Option<T::AccountId>, Option<T::AccountId>) {
-			T::RateIndex::find_position(&collateral_id, rate)
+			let position = T::RateIndex::find_position(&collateral_id, rate);
+			(position.prev, position.next)
 		}
 
 		/// Helper to get `(prev, next)` re-insert hints for moving
@@ -467,6 +471,7 @@ pub mod pallet {
 			new_rate: FixedU128,
 		) -> Option<(Option<T::AccountId>, Option<T::AccountId>)> {
 			T::RateIndex::find_re_insert_position(&collateral_id, &owner, new_rate)
+				.map(|p| (p.prev, p.next))
 		}
 
 		/// Steps the on-chain repair walk would take for `(rate, prev, next)`
@@ -477,7 +482,11 @@ pub mod pallet {
 			hint_prev: Option<T::AccountId>,
 			hint_next: Option<T::AccountId>,
 		) -> u32 {
-			T::RateIndex::repair_steps_needed(&collateral_id, rate, hint_prev, hint_next)
+			T::RateIndex::repair_steps_needed(
+				&collateral_id,
+				rate,
+				Position { prev: hint_prev, next: hint_next },
+			)
 		}
 
 		/// Current `(prev, next)` neighbors of `(collateral_id, owner)` in
@@ -486,7 +495,7 @@ pub mod pallet {
 			collateral_id: T::AssetId,
 			owner: T::AccountId,
 		) -> Option<(Option<T::AccountId>, Option<T::AccountId>)> {
-			T::RateIndex::neighbors(&collateral_id, &owner)
+			T::RateIndex::neighbors(&collateral_id, &owner).map(|p| (p.prev, p.next))
 		}
 
 		/// Total active-vault interest-bearing debt at rates strictly less
@@ -883,11 +892,11 @@ pub mod pallet {
 		}
 	}
 
-	/// `ScoreProvider` so `pallet-linked-list` can read authoritative rates
+	/// `PriorityProvider` so `pallet-linked-list` can read authoritative rates
 	/// from us when relisting a drifted node.
-	impl<T: Config> ScoreProvider<T::AssetId, T::AccountId> for Pallet<T> {
-		type Score = FixedU128;
-		fn score(list_id: &T::AssetId, item: &T::AccountId) -> Option<FixedU128> {
+	impl<T: Config> PriorityProvider<T::AssetId, T::AccountId> for Pallet<T> {
+		type Priority = FixedU128;
+		fn priority(list_id: &T::AssetId, item: &T::AccountId) -> Option<FixedU128> {
 			Vaults::<T>::get(list_id, item).map(|v| v.annual_rate)
 		}
 	}

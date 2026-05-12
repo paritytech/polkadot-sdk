@@ -43,11 +43,8 @@ fn open_vault_emits_canonical_events() {
 			amount: 2_000,
 		});
 		// Upfront fee is non-trivial after the math fix.
-		let predicted_fee = crate::Pallet::<Test>::predict_open_upfront_fee(
-			DOT,
-			2_000,
-			rate_pct(10, 100),
-		);
+		let predicted_fee =
+			crate::Pallet::<Test>::predict_open_upfront_fee(DOT, 2_000, rate_pct(10, 100));
 		assert!(predicted_fee > 0);
 		// We can't compute the predicted fee post-hoc (state changed), so
 		// we re-derive it before the open. To keep it simple, assert the
@@ -133,12 +130,7 @@ fn repay_emits_repaid() {
 		register_default_branch();
 		assert_ok!(open(1, DOT, 1_000, 1_000, rate_pct(5, 100)));
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(1), 1, DOT, 200));
-		assert_event(crate::Event::Repaid {
-			collateral_id: DOT,
-			owner: 1,
-			from: 1,
-			amount: 200,
-		});
+		assert_event(crate::Event::Repaid { collateral_id: DOT, owner: 1, from: 1, amount: 200 });
 	});
 }
 
@@ -175,11 +167,8 @@ fn premature_change_rate_emits_upfront_fee_charged() {
 		// Within the cooldown window — fee charged.
 		advance_time(12 * 3_600 * 1_000);
 		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(1), 1, DOT));
-		let predicted = crate::Pallet::<Test>::predict_rate_change_upfront_fee(
-			DOT,
-			1,
-			rate_pct(7, 100),
-		);
+		let predicted =
+			crate::Pallet::<Test>::predict_rate_change_upfront_fee(DOT, 1, rate_pct(7, 100));
 		assert!(predicted > 0);
 		assert_ok!(crate::Pallet::<Test>::change_rate(
 			RuntimeOrigin::signed(1),
@@ -243,11 +232,7 @@ fn close_vault_emits_vault_closed() {
 		);
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(2), 2, DOT, total));
 		assert_ok!(crate::Pallet::<Test>::close_vault(RuntimeOrigin::signed(2), DOT, None));
-		assert_event(crate::Event::VaultClosed {
-			collateral_id: DOT,
-			owner: 2,
-			recipient: 2,
-		});
+		assert_event(crate::Event::VaultClosed { collateral_id: DOT, owner: 2, recipient: 2 });
 	});
 }
 
@@ -325,11 +310,9 @@ fn set_parameter_emits_parameter_updated() {
 fn set_debt_ceiling_emits_debt_ceiling_updated() {
 	build_and_execute(|| {
 		register_default_branch();
-		assert_ok!(crate::Pallet::<Test>::set_debt_ceiling(
-			RuntimeOrigin::root(),
-			DOT,
-			50_000_000,
-		));
+		assert_ok!(
+			crate::Pallet::<Test>::set_debt_ceiling(RuntimeOrigin::root(), DOT, 50_000_000,)
+		);
 		assert_event(crate::Event::DebtCeilingUpdated {
 			collateral_id: DOT,
 			old_value: 100_000_000,
@@ -346,11 +329,7 @@ fn enter_final_recovery_emits_status_change_and_fifo_entry() {
 		// Single vault that we'll push into FinalRecovery via a price drop.
 		assert_ok!(open(1, DOT, 1_000, 2_000, rate_pct(5, 100)));
 		set_price(DOT, frame::deps::sp_runtime::FixedU128::from_rational(2u128, 100u128));
-		assert_ok!(crate::Pallet::<Test>::enter_final_recovery(
-			RuntimeOrigin::signed(2),
-			1,
-			DOT,
-		));
+		assert_ok!(crate::Pallet::<Test>::enter_final_recovery(RuntimeOrigin::signed(2), 1, DOT,));
 		assert_event(crate::Event::FinalRecoveryEntered { collateral_id: DOT, owner: 1 });
 		assert_event(crate::Event::VaultStatusChanged {
 			collateral_id: DOT,

@@ -9,12 +9,7 @@
 //! `find_rate_position` therefore can never return a Dormant vault — it's
 //! a structural invariant rather than a hint-helper filter.
 
-use crate::{
-	mock::*,
-	pallet::Vaults,
-	tests::rate_pct,
-	types::VaultStatus,
-};
+use crate::{mock::*, pallet::Vaults, tests::rate_pct, types::VaultStatus};
 use frame::deps::frame_support::assert_ok;
 use pallet_linked_list::SortedListInterface;
 
@@ -40,8 +35,7 @@ fn find_rate_position_skips_dormant_vaults() {
 
 		// Now query a hint at a rate near acct 1's old rate. The result
 		// must not name acct 1 — it's no longer in the index.
-		let (prev, next) =
-			crate::Pallet::<Test>::find_rate_position(DOT, rate_pct(15, 1000)); // 1.5%
+		let (prev, next) = crate::Pallet::<Test>::find_rate_position(DOT, rate_pct(15, 1000)); // 1.5%
 		assert_ne!(prev, Some(1));
 		assert_ne!(next, Some(1));
 	});

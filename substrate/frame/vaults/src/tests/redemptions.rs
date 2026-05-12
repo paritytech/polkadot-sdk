@@ -350,17 +350,9 @@ fn dormant_borrow_below_min_debt_reverts() {
 		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(1, 100)));
 		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(2, 100)));
 		assert_ok!(redeem(DOT, 3, 480)); // pushes acct 1 to Dormant with tiny debt
-		// Borrow 1 — total debt would be far below MinimumDebt 200.
+								   // Borrow 1 — total debt would be far below MinimumDebt 200.
 		assert_noop!(
-			crate::Pallet::<Test>::borrow(
-				RuntimeOrigin::signed(1),
-				DOT,
-				1,
-				None,
-				None,
-				None,
-				None,
-			),
+			crate::Pallet::<Test>::borrow(RuntimeOrigin::signed(1), DOT, 1, None, None, None, None,),
 			crate::Error::<Test>::DebtBelowMinimum
 		);
 	});

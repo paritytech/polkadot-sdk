@@ -104,8 +104,7 @@ fn open_inserts_to_correct_dll_position() {
 		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(1, 200)));
 		assert_ok!(open(5, DOT, 1_000, 500, rate_pct(40, 100)));
 		// Tail-first iteration yields ascending rate: 0.5% (acct 1) first.
-		let tail_first =
-			<LinkedList as SortedListInterface<u32, u64>>::iter_from_tail(&DOT, 10);
+		let tail_first = <LinkedList as SortedListInterface<u32, u64>>::iter_from_tail(&DOT, 10);
 		assert_eq!(tail_first, alloc::vec![1, 2, 3, 4, 5]);
 	});
 }
@@ -230,11 +229,8 @@ fn change_rate_premature_increases_recorded_debt_by_fee() {
 		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(1), 1, DOT));
 		let v_pre = Vaults::<Test>::get(DOT, 1).unwrap();
 
-		let predicted = crate::Pallet::<Test>::predict_rate_change_upfront_fee(
-			DOT,
-			1,
-			rate_pct(75, 100),
-		);
+		let predicted =
+			crate::Pallet::<Test>::predict_rate_change_upfront_fee(DOT, 1, rate_pct(75, 100));
 		assert!(predicted > 0, "premature change at debt=2000 must charge a fee");
 
 		assert_ok!(crate::Pallet::<Test>::change_rate(
@@ -299,8 +295,7 @@ fn collateral_or_debt_adjust_does_not_reorder_dll() {
 		for (who, pct) in [(1u64, 10), (2, 20), (3, 30), (4, 40), (5, 50)] {
 			assert_ok!(open(who, DOT, 1_000, 500, rate_pct(pct, 100)));
 		}
-		let order_before =
-			<LinkedList as SortedListInterface<u32, u64>>::iter_from_tail(&DOT, 10);
+		let order_before = <LinkedList as SortedListInterface<u32, u64>>::iter_from_tail(&DOT, 10);
 		// Various coll/debt adjusts — none of these touch the rate index.
 		assert_ok!(crate::Pallet::<Test>::deposit_collateral_for(
 			RuntimeOrigin::signed(1),
@@ -318,8 +313,7 @@ fn collateral_or_debt_adjust_does_not_reorder_dll() {
 			None,
 		));
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(3), 3, DOT, 50));
-		let order_after =
-			<LinkedList as SortedListInterface<u32, u64>>::iter_from_tail(&DOT, 10);
+		let order_after = <LinkedList as SortedListInterface<u32, u64>>::iter_from_tail(&DOT, 10);
 		assert_eq!(order_before, order_after);
 	});
 }
@@ -345,8 +339,7 @@ fn borrow_full_state_changes() {
 		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(1), 1, DOT));
 
 		let v_pre = Vaults::<Test>::get(DOT, 1).unwrap();
-		let predicted_fee =
-			crate::Pallet::<Test>::predict_borrow_upfront_fee(DOT, 1, 500, None);
+		let predicted_fee = crate::Pallet::<Test>::predict_borrow_upfront_fee(DOT, 1, 500, None);
 		let now_before_call = pallet_timestamp::Pallet::<Test>::get();
 
 		assert_ok!(crate::Pallet::<Test>::borrow(
@@ -623,11 +616,8 @@ fn open_mints_borrow_amount_with_fee_recorded_in_branch_state() {
 	build_and_execute(|| {
 		register_default_branch();
 		let total_pre = <Pusd as FungibleInspect<AccountId>>::total_issuance();
-		let predicted_fee = crate::Pallet::<Test>::predict_open_upfront_fee(
-			DOT,
-			2_000,
-			rate_pct(10, 100),
-		);
+		let predicted_fee =
+			crate::Pallet::<Test>::predict_open_upfront_fee(DOT, 2_000, rate_pct(10, 100));
 		assert!(predicted_fee > 0);
 		assert_ok!(open(1, DOT, 1_000, 2_000, rate_pct(10, 100)));
 		let total_post = <Pusd as FungibleInspect<AccountId>>::total_issuance();

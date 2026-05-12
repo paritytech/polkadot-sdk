@@ -64,13 +64,8 @@ where
 	}
 	let rate_times_delta = rate.into_inner().saturating_mul(delta_millis as u128);
 	let denom = FixedU128::DIV.saturating_mul(MILLIS_PER_YEAR as u128);
-	let raw = multiply_by_rational_with_rounding(
-		principal_u128,
-		rate_times_delta,
-		denom,
-		rounding,
-	)
-	.unwrap_or(u128::MAX);
+	let raw = multiply_by_rational_with_rounding(principal_u128, rate_times_delta, denom, rounding)
+		.unwrap_or(u128::MAX);
 	Balance::from(raw)
 }
 
@@ -131,8 +126,8 @@ where
 	if t.is_zero() {
 		return FixedU128::one();
 	}
-	let inner = multiply_by_rational_with_rounding(w, FixedU128::DIV, t, Rounding::Up)
-		.unwrap_or(u128::MAX);
+	let inner =
+		multiply_by_rational_with_rounding(w, FixedU128::DIV, t, Rounding::Up).unwrap_or(u128::MAX);
 	FixedU128::from_inner(inner)
 }
 
@@ -181,8 +176,7 @@ mod tests {
 		assert!(avg > FixedU128::from_rational(1u128, 3u128));
 		// And the over-shoot is bounded by one ULP.
 		assert!(
-			avg.saturating_sub(FixedU128::from_rational(1u128, 3u128)) <=
-				FixedU128::from_inner(1)
+			avg.saturating_sub(FixedU128::from_rational(1u128, 3u128)) <= FixedU128::from_inner(1)
 		);
 	}
 
