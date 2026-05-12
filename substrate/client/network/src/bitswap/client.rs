@@ -110,7 +110,7 @@ pub enum FetchOutcome {
 	Have,
 	/// Peer explicitly indicated it does not have this CID.
 	DontHave,
-	/// Peer didn't acknowledge this CID, or its response was malformed.
+	/// Peer didn't acknowledge this CID.
 	Missing,
 }
 
