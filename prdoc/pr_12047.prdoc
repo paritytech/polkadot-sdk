@@ -7,18 +7,6 @@ doc:
     Adds a regression test that verifies a `bare_call` dispatched with the
     runtime-api dry-run `ExecConfig` from an account with no balance still
     reports the same `max_storage_deposit` as a funded run on the same call.
-
-    This is the property wallets / SDKs rely on to size the allowance
-    needed to cover the storage deposit before submitting the real
-    transaction.
-
-    Each call is wrapped in a rolled-back storage layer so state from the
-    reference (funded) run doesn't leak into the unfunded run and skew its
-    deposit accounting.
-
-    ## Test plan
-
-    - [x] `SKIP_WASM_BUILD=1 cargo test -p pallet-revive --lib metering::tests::max_storage_deposit_reported_for_unfunded_dry_run`
 crates:
 - name: pallet-revive
   bump: patch
