@@ -234,7 +234,7 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	/// Number of inbound peers accepted so far.
 	num_in_peers: usize,
 
-	/// Runtime-managed no-slot peer set (see [`SyncingService::set_no_slot_peers`]).
+	/// Dynamic updatable no-slot peer set (see [`SyncingService::set_no_slot_peers`]).
 	/// Treated identically to `default_peers_set_no_slot_peers` for inbound slot accounting.
 	dynamic_no_slot_peers: HashSet<PeerId>,
 
@@ -742,51 +742,15 @@ where
 				let _ = tx.send(peers_info);
 			},
 			ToServiceCommand::SetNoSlotPeers(peers) => {
-				let mut moved_into_no_slot = 0;
-				let mut moved_out_of_no_slot = 0;
-
-				for (peer_id, peer) in self.peers.iter() {
-					let static_no_slot = self.default_peers_set_no_slot_peers.contains(peer_id);
-					let was_no_slot =
-						static_no_slot || self.dynamic_no_slot_peers.contains(peer_id);
-					let is_no_slot = static_no_slot || peers.contains(peer_id);
-					let affects_slots = peer.inbound && peer.info.roles.is_full();
-
-					match reconcile_no_slot(was_no_slot, is_no_slot) {
-						NoSlotReconcile::Promote => {
-							self.default_peers_set_no_slot_connected_peers.insert(*peer_id);
-							if affects_slots {
-								match self.num_in_peers.checked_sub(1) {
-									Some(n) => self.num_in_peers = n,
-									None => {
-										log::error!(
-											target: LOG_TARGET,
-											"num_in_peers underflow promoting {peer_id} to no-slot",
-										);
-										debug_assert!(false);
-									},
-								}
-								moved_into_no_slot += 1;
-							}
-						},
-						NoSlotReconcile::Demote => {
-							if self.default_peers_set_no_slot_connected_peers.remove(peer_id) &&
-								affects_slots
-							{
-								self.num_in_peers += 1;
-								moved_out_of_no_slot += 1;
-							}
-						},
-						NoSlotReconcile::Unchanged => {},
-					}
-				}
-
-				log::debug!(
-					target: LOG_TARGET,
-					"Dynamic no-slot peer set updated: {} peers: +{} in, -{} out",
-					peers.len(),
-					moved_into_no_slot,
-					moved_out_of_no_slot,
+				apply_no_slot_set(
+					self.peers.iter().map(|(peer_id, peer)| {
+						(*peer_id, peer.inbound && peer.info.roles.is_full())
+					}),
+					&self.default_peers_set_no_slot_peers,
+					&self.dynamic_no_slot_peers,
+					&peers,
+					&mut self.default_peers_set_no_slot_connected_peers,
+					&mut self.num_in_peers,
 				);
 				self.dynamic_no_slot_peers = peers;
 			},
@@ -1230,6 +1194,73 @@ fn reconcile_no_slot(was_no_slot: bool, is_no_slot: bool) -> NoSlotReconcile {
 	}
 }
 
+/// Reconcile per-peer slot accounting against a new dynamic no-slot set.
+///
+/// Input `connected_peers` is a list of `(peer_id, affects_slots)` where `affects_slots` is `true` iff the
+/// peer occupies an inbound full-node slot (the only kind that consumes a default-set slot).
+///
+/// For each connected peer:
+/// 1. Determine whether the peer was no-slot (member of either the static or the old dynamic set)
+///    and whether it is now no-slot (static set or new dynamic set).
+/// 2. Update `connected_no_slot` membership accordingly.
+/// 3. If the peer affects slots, adjust `num_in_peers` to keep the inbound slot count consistent.
+///
+/// The static set takes precedence: a peer in the static set is always no-slot regardless of the
+/// dynamic set, so removing it from the dynamic set must be a no-op for slot accounting.
+///
+/// Caller needs to update `dynamic_no_slot_peers` after calling this function.
+fn apply_no_slot_set(
+	connected_peers: impl Iterator<Item = (PeerId, bool)>,
+	static_no_slot: &HashSet<PeerId>,
+	old_dynamic_no_slot: &HashSet<PeerId>,
+	new_dynamic_no_slot: &HashSet<PeerId>,
+	connected_no_slot: &mut HashSet<PeerId>,
+	num_in_peers: &mut usize,
+) {
+	let mut promoted = 0;
+	let mut demoted = 0;
+
+	for (peer_id, affects_slots) in connected_peers {
+		let static_no_slot_peer = static_no_slot.contains(&peer_id);
+		let was_no_slot = static_no_slot_peer || old_dynamic_no_slot.contains(&peer_id);
+		let is_no_slot = static_no_slot_peer || new_dynamic_no_slot.contains(&peer_id);
+
+		match reconcile_no_slot(was_no_slot, is_no_slot) {
+			NoSlotReconcile::Promote => {
+				connected_no_slot.insert(peer_id);
+				if affects_slots {
+					match num_in_peers.checked_sub(1) {
+						Some(n) => *num_in_peers = n,
+						None => {
+							log::warn!(
+								target: LOG_TARGET,
+								"num_in_peers underflow promoting {peer_id} to no-slot",
+							);
+							debug_assert!(false);
+						},
+					}
+					promoted += 1;
+				}
+			},
+			NoSlotReconcile::Demote => {
+				if connected_no_slot.remove(&peer_id) && affects_slots {
+					*num_in_peers += 1;
+					demoted += 1;
+				}
+			},
+			NoSlotReconcile::Unchanged => {},
+		}
+	}
+
+	log::debug!(
+		target: LOG_TARGET,
+		"Dynamic no-slot peer set updated: {} peers: +{} in, -{} out",
+		new_dynamic_no_slot.len(),
+		promoted,
+		demoted,
+	);
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -1248,5 +1279,185 @@ mod tests {
 	fn reconcile_unchanged_when_stable() {
 		assert_eq!(reconcile_no_slot(false, false), NoSlotReconcile::Unchanged);
 		assert_eq!(reconcile_no_slot(true, true), NoSlotReconcile::Unchanged);
+	}
+
+	fn fresh_peers<const N: usize>() -> [PeerId; N] {
+		std::array::from_fn(|_| PeerId::random())
+	}
+
+	fn set_of<const N: usize>(peers: [PeerId; N]) -> HashSet<PeerId> {
+		peers.into_iter().collect()
+	}
+
+	/// Run [`apply_no_slot_set`] with the given initial state. Returns the final
+	/// `connected_no_slot` set and `num_in_peers`.
+	#[track_caller]
+	fn run_apply(
+		connected: Vec<(PeerId, bool)>,
+		static_no_slot: HashSet<PeerId>,
+		old_dynamic: HashSet<PeerId>,
+		new_dynamic: HashSet<PeerId>,
+		initial_connected_no_slot: HashSet<PeerId>,
+		initial_num_in_peers: usize,
+	) -> (HashSet<PeerId>, usize) {
+		let mut connected_no_slot = initial_connected_no_slot;
+		let mut num_in_peers = initial_num_in_peers;
+		apply_no_slot_set(
+			connected.into_iter(),
+			&static_no_slot,
+			&old_dynamic,
+			&new_dynamic,
+			&mut connected_no_slot,
+			&mut num_in_peers,
+		);
+		(connected_no_slot, num_in_peers)
+	}
+
+	#[test]
+	fn apply_promotes_multiple_inbound_full_peers() {
+		// `already` is in both old and new dynamic — it must stay in `connected_no_slot`
+		// without releasing another slot.
+		let [a, b, c, already] = fresh_peers();
+		let (connected_no_slot, num_in) = run_apply(
+			vec![(a, true), (b, true), (c, true), (already, true)],
+			HashSet::new(),
+			set_of([already]),
+			set_of([a, b, c, already]),
+			set_of([already]),
+			10,
+		);
+		assert_eq!(connected_no_slot, set_of([a, b, c, already]));
+		assert_eq!(num_in, 7);
+	}
+
+	#[test]
+	fn apply_demotes_multiple_inbound_full_peers() {
+		let [a, b, c, stays] = fresh_peers();
+		let (connected_no_slot, num_in) = run_apply(
+			vec![(a, true), (b, true), (c, true), (stays, true)],
+			HashSet::new(),
+			set_of([a, b, c, stays]),
+			set_of([stays]),
+			set_of([a, b, c, stays]),
+			2,
+		);
+		assert_eq!(connected_no_slot, set_of([stays]));
+		assert_eq!(num_in, 5);
+	}
+
+	#[test]
+	fn apply_ignores_non_slot_consuming_peers() {
+		// Outbound peers and inbound light peers both yield `affects_slots = false`. Either
+		// kind transitioning must update `connected_no_slot` but not move `num_in_peers`.
+		let [outbound, light] = fresh_peers();
+		let (connected_no_slot, num_in) = run_apply(
+			vec![(outbound, false), (light, false)],
+			HashSet::new(),
+			HashSet::new(),
+			set_of([outbound, light]),
+			HashSet::new(),
+			5,
+		);
+		assert_eq!(connected_no_slot, set_of([outbound, light]));
+		assert_eq!(num_in, 5);
+	}
+
+	#[test]
+	fn apply_static_peers_stay_no_slot_when_removed_from_dynamic() {
+		// `control` (dynamic-only) IS demoted, proving the wiring is live — the static peers
+		// must NOT be demoted because the static set takes precedence over the dynamic one.
+		let [s1, s2, control] = fresh_peers();
+		let (connected_no_slot, num_in) = run_apply(
+			vec![(s1, true), (s2, true), (control, true)],
+			set_of([s1, s2]),
+			set_of([s1, s2, control]),
+			HashSet::new(),
+			set_of([s1, s2, control]),
+			2,
+		);
+		assert_eq!(connected_no_slot, set_of([s1, s2]));
+		assert_eq!(num_in, 3);
+	}
+
+	#[test]
+	fn apply_static_peers_added_to_dynamic_are_unchanged() {
+		let [s1, s2] = fresh_peers();
+		let (connected_no_slot, num_in) = run_apply(
+			vec![(s1, true), (s2, true)],
+			set_of([s1, s2]),
+			HashSet::new(),
+			set_of([s1, s2]),
+			set_of([s1, s2]),
+			4,
+		);
+		assert_eq!(connected_no_slot, set_of([s1, s2]));
+		assert_eq!(num_in, 4);
+	}
+
+	#[test]
+	fn apply_unconnected_peers_in_new_set_are_ignored() {
+		// Unconnected peers go into `dynamic_no_slot_peers` (caller-installed) and take effect
+		// on connect; they must not appear in `connected_no_slot` here.
+		let [connected_a, connected_b] = fresh_peers();
+		let [unconnected_a, unconnected_b] = fresh_peers();
+		let (connected_no_slot, num_in) = run_apply(
+			vec![(connected_a, true), (connected_b, true)],
+			HashSet::new(),
+			HashSet::new(),
+			set_of([unconnected_a, unconnected_b]),
+			HashSet::new(),
+			3,
+		);
+		assert!(connected_no_slot.is_empty());
+		assert_eq!(num_in, 3);
+	}
+
+	#[test]
+	fn apply_idempotent_same_set() {
+		let [in_full, out_full, light] = fresh_peers();
+		let target = set_of([in_full, out_full, light]);
+		let (connected_no_slot, num_in) = run_apply(
+			vec![(in_full, true), (out_full, false), (light, false)],
+			HashSet::new(),
+			target.clone(),
+			target.clone(),
+			target.clone(),
+			2,
+		);
+		assert_eq!(connected_no_slot, target);
+		assert_eq!(num_in, 2);
+	}
+
+	#[test]
+	fn apply_empty_set_clears_dynamic_only_peers() {
+		let [in1, in2, out, light] = fresh_peers();
+		let [static_peer] = fresh_peers();
+		let old = set_of([in1, in2, out, light, static_peer]);
+		let (connected_no_slot, num_in) = run_apply(
+			vec![(in1, true), (in2, true), (out, false), (light, false), (static_peer, true)],
+			set_of([static_peer]),
+			old.clone(),
+			HashSet::new(),
+			old,
+			0,
+		);
+		assert_eq!(connected_no_slot, set_of([static_peer]));
+		assert_eq!(num_in, 2);
+	}
+
+	#[test]
+	fn apply_mixed_promote_and_demote() {
+		let [p1, p2] = fresh_peers();
+		let [d1, d2] = fresh_peers();
+		let (connected_no_slot, num_in) = run_apply(
+			vec![(p1, true), (p2, true), (d1, true), (d2, true)],
+			HashSet::new(),
+			set_of([d1, d2]),
+			set_of([p1, p2]),
+			set_of([d1, d2]),
+			5,
+		);
+		assert_eq!(connected_no_slot, set_of([p1, p2]));
+		assert_eq!(num_in, 5);
 	}
 }

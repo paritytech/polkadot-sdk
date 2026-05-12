@@ -57,8 +57,7 @@ pub enum ToServiceCommand<B: BlockT> {
 	NumSyncRequests(oneshot::Sender<usize>),
 	PeersInfo(oneshot::Sender<Vec<(PeerId, ExtendedPeerInfo<B>)>>),
 	OnBlockFinalized(B::Hash, B::Header),
-	/// Replace the runtime-managed no-slot peer set. Same semantics as
-	/// `--reserved-nodes` but updateable at runtime.
+	/// Dynamically update the no-slot peer set. Does not modify the static no-slot peer set.
 	SetNoSlotPeers(HashSet<PeerId>),
 	// Status {
 	// 	pending_response: oneshot::Sender<SyncStatus<B>>,
