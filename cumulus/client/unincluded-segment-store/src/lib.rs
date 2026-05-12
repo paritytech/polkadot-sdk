@@ -107,46 +107,22 @@ pub fn load_proof<H: Encode, B: AuxStore>(
 	}
 }
 
-/// Compute aux storage cleanup operations for a finality notification.
+/// Compute aux storage cleanup operations.
 ///
-/// Deletes entries for:
-/// - All stale blocks (loser forks)
-/// - All blocks on the tree route to the finalized head (intermediate finalized blocks)
-/// - The old finalized block (parent of the first tree route block, or parent of finalized)
-///
-/// Does NOT delete the just-finalized block, since new blocks can still be imported on top of it.
-fn aux_storage_cleanup<Block, C>(
-	notification: &FinalityNotification<Block>,
-	client: &C,
+/// Emits deletes for stale blocks, intermediate tree-route blocks, and the pre-finality head;
+/// does NOT delete the just-finalized block since it can still receive children.
+fn aux_storage_cleanup<H>(
+	old_finalized_hash: H,
+	tree_route: &[H],
+	stale_block_hashes: &[H],
 ) -> AuxDataOperations
 where
-	Block: BlockT,
-	C: HeaderBackend<Block>,
+	H: Encode + Copy,
 {
-	// The old finalized block is the parent of the first block in the tree route,
-	// or the parent of the finalized block if the tree route is empty.
-	let old_finalized_hash = notification
-		.tree_route
-		.first()
-		.and_then(|hash| client.header(*hash).ok().flatten())
-		.map(|h| *h.parent_hash())
-		.unwrap_or_else(|| *notification.header.parent_hash());
-
-	notification
-		.stale_blocks
+	stale_block_hashes
 		.iter()
-		// Delete entries for all stale blocks.
-		.map(|b| (unincluded_segment_key(b.hash), None))
-		// Delete entries for blocks on the route to the finalized parent.
-		// These can no longer become parents for new blocks.
-		.chain(
-			notification
-				.tree_route
-				.iter()
-				.copied()
-				.map(|hash| (unincluded_segment_key(hash), None)),
-		)
-		// Delete the old finalized block's entry.
+		.map(|hash| (unincluded_segment_key(*hash), None))
+		.chain(tree_route.iter().map(|hash| (unincluded_segment_key(*hash), None)))
 		.chain(std::iter::once((unincluded_segment_key(old_finalized_hash), None)))
 		.collect()
 }
@@ -162,7 +138,19 @@ where
 {
 	let client_for_closure = client.clone();
 	let on_finality = move |notification: &FinalityNotification<Block>| -> AuxDataOperations {
-		aux_storage_cleanup(notification, &*client_for_closure)
+		// The old finalized block is the parent of the first block in the tree route,
+		// or the parent of the finalized block if the tree route is empty.
+		let old_finalized_hash = notification
+			.tree_route
+			.first()
+			.and_then(|hash| client_for_closure.header(*hash).ok().flatten())
+			.map(|h| *h.parent_hash())
+			.unwrap_or_else(|| *notification.header.parent_hash());
+
+		let stale_block_hashes: Vec<_> = notification.stale_blocks.iter().map(|b| b.hash).collect();
+		let tree_route: Vec<_> = notification.tree_route.iter().copied().collect();
+
+		aux_storage_cleanup(old_finalized_hash, &tree_route, &stale_block_hashes)
 	};
 
 	client.register_finality_action(Box::new(on_finality));
@@ -283,65 +271,84 @@ mod tests {
 	}
 
 	#[test]
-	fn cleanup_computes_correct_deletions() {
-		let backend = TestBackend::new();
+	fn aux_storage_cleanup_includes_stale_blocks() {
+		let stale_1 = Hash::repeat_byte(0xAA);
+		let stale_2 = Hash::repeat_byte(0xBB);
+		let old_finalized = Hash::repeat_byte(0xF0);
 
-		let hash_c = Hash::repeat_byte(0xCC);
-		let hash_genesis = Hash::repeat_byte(0x00);
+		let ops = aux_storage_cleanup(old_finalized, &[], &[stale_1, stale_2]);
 
-		// Expected keys to delete:
-		let expected_stale_key = unincluded_segment_key(hash_c);
-		let expected_old_finalized_key = unincluded_segment_key(hash_genesis);
+		let keys: Vec<_> = ops.iter().map(|(k, _)| k.clone()).collect();
+		assert!(keys.contains(&unincluded_segment_key(stale_1)));
+		assert!(keys.contains(&unincluded_segment_key(stale_2)));
 
-		// Verify key format
-		assert_eq!(expected_stale_key, (b"cumulus_unincluded_segment_store", hash_c).encode());
-		assert_eq!(
-			expected_old_finalized_key,
-			(b"cumulus_unincluded_segment_store", hash_genesis).encode()
-		);
-
-		// Test that entries can be written and then "deleted" (set to None)
-		let entry = create_test_entry(111);
-		let key_c = unincluded_segment_key(hash_c);
-		AuxStore::insert_aux(&backend, &[(&key_c[..], entry.encode().as_slice())], &[])
-			.expect("insert should succeed");
-
-		// Verify entry exists
-		assert!(AuxStore::get_aux(&backend, &key_c).expect("get should succeed").is_some());
-
-		// Simulate deletion via AuxDataOperations
-		let delete_ops: AuxDataOperations = vec![(key_c.clone(), None)];
-		let deletes: Vec<&[u8]> = delete_ops
-			.iter()
-			.filter_map(|(k, v)| if v.is_none() { Some(k.as_slice()) } else { None })
-			.collect();
-		AuxStore::insert_aux(&backend, &[], &deletes).expect("delete should succeed");
-
-		// Verify entry is gone
-		assert!(AuxStore::get_aux(&backend, &key_c).expect("get should succeed").is_none());
+		// Verify all values are None (deletes)
+		assert!(ops.iter().all(|(_, v)| v.is_none()));
 	}
 
 	#[test]
-	fn cleanup_with_tree_route() {
-		// Test that cleanup includes tree_route blocks in deletions.
-		// This tests the logic without needing a real FinalityNotification.
+	fn aux_storage_cleanup_includes_tree_route() {
+		let route_1 = Hash::repeat_byte(0xC1);
+		let route_2 = Hash::repeat_byte(0xC2);
+		let old_finalized = Hash::repeat_byte(0xF0);
 
-		let hash_a = Hash::repeat_byte(0xAA);
-		let hash_b = Hash::repeat_byte(0xBB);
-		let hash_c = Hash::repeat_byte(0xCC);
+		let ops = aux_storage_cleanup(old_finalized, &[route_1, route_2], &[]);
 
-		// Generate keys for tree_route blocks
-		let key_a = unincluded_segment_key(hash_a);
-		let key_b = unincluded_segment_key(hash_b);
-		let key_c = unincluded_segment_key(hash_c);
+		let keys: Vec<_> = ops.iter().map(|(k, _)| k.clone()).collect();
+		assert!(keys.contains(&unincluded_segment_key(route_1)));
+		assert!(keys.contains(&unincluded_segment_key(route_2)));
 
-		// All keys should be distinct
-		assert_ne!(key_a, key_b);
-		assert_ne!(key_b, key_c);
-		assert_ne!(key_a, key_c);
+		// Verify all values are None (deletes)
+		assert!(ops.iter().all(|(_, v)| v.is_none()));
+	}
 
-		// Keys should be deterministic
-		assert_eq!(key_a, unincluded_segment_key(hash_a));
+	#[test]
+	fn aux_storage_cleanup_includes_old_finalized() {
+		let old_finalized = Hash::repeat_byte(0xF0);
+
+		let ops = aux_storage_cleanup(old_finalized, &[], &[]);
+
+		assert_eq!(ops.len(), 1);
+		assert_eq!(ops[0].0, unincluded_segment_key(old_finalized));
+		assert!(ops[0].1.is_none());
+	}
+
+	#[test]
+	fn aux_storage_cleanup_combines_all_three() {
+		let stale_1 = Hash::repeat_byte(0xAA);
+		let stale_2 = Hash::repeat_byte(0xBB);
+		let route_1 = Hash::repeat_byte(0xC1);
+		let route_2 = Hash::repeat_byte(0xC2);
+		let old_finalized = Hash::repeat_byte(0xF0);
+		let just_finalized = Hash::repeat_byte(0xFF);
+
+		let ops = aux_storage_cleanup(old_finalized, &[route_1, route_2], &[stale_1, stale_2]);
+
+		let keys: Vec<_> = ops.iter().map(|(k, _)| k.clone()).collect();
+
+		// Verify all expected keys are present
+		assert!(keys.contains(&unincluded_segment_key(stale_1)));
+		assert!(keys.contains(&unincluded_segment_key(stale_2)));
+		assert!(keys.contains(&unincluded_segment_key(route_1)));
+		assert!(keys.contains(&unincluded_segment_key(route_2)));
+		assert!(keys.contains(&unincluded_segment_key(old_finalized)));
+
+		// Verify the just-finalized block is NOT in the output
+		assert!(!keys.contains(&unincluded_segment_key(just_finalized)));
+
+		// Verify all values are None (deletes)
+		assert!(ops.iter().all(|(_, v)| v.is_none()));
+	}
+
+	#[test]
+	fn aux_storage_cleanup_handles_empty_inputs() {
+		let old_finalized = Hash::repeat_byte(0xF0);
+
+		let ops = aux_storage_cleanup(old_finalized, &[], &[]);
+
+		assert_eq!(ops.len(), 1);
+		assert_eq!(ops[0].0, unincluded_segment_key(old_finalized));
+		assert!(ops[0].1.is_none());
 	}
 
 	#[test]
