@@ -18,6 +18,7 @@
 use crate::LOG_TARGET;
 use codec::{Decode, Encode};
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
+use cumulus_client_unincluded_segment_store::prepare_unincluded_segment_aux_data;
 use cumulus_primitives_core::{BlockBundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
 use futures::{stream::FusedStream, StreamExt};
 use sc_client_api::{
@@ -35,7 +36,10 @@ use sp_blockchain::{Error as ClientError, Result as ClientResult};
 use sp_consensus::BlockOrigin;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as _};
 use sp_trie::proof_size_extension::{ProofSizeExt, RecordingProofSizeProvider};
-use std::sync::Arc;
+use std::{
+	sync::Arc,
+	time::{SystemTime, UNIX_EPOCH},
+};
 
 /// The aux storage key used to store the ignored nodes for the given block hash.
 fn ignored_nodes_key<H: Encode>(block_hash: H) -> Vec<u8> {
@@ -212,6 +216,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 	fn execute_block_and_collect_storage_proof(
 		&self,
 		params: &mut sc_consensus::BlockImportParams<Block>,
+		time_ms: u64,
 	) -> Result<(), sp_consensus::Error>
 	where
 		Client: ProvideRuntimeApi<Block>
@@ -315,6 +320,18 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 			});
 		}
 
+		prepare_unincluded_segment_aux_data(
+			block_hash,
+			time_ms,
+			// TODO(paritytech/polkadot-sdk#11624): populate with the relay parent's session
+			// once it is available from RelayChainDataCache.
+			None,
+			storage_proof.clone(),
+		)
+		.for_each(|(k, v)| {
+			params.auxiliary.push((k, Some(v)));
+		});
+
 		params.state_action =
 			StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(gen_storage_changes));
 
@@ -352,11 +369,16 @@ where
 		&self,
 		mut params: sc_consensus::BlockImportParams<Block>,
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
+		let time_ms = SystemTime::now()
+			.duration_since(UNIX_EPOCH)
+			.map(|d| d.as_millis() as u64)
+			.unwrap_or(0);
+
 		if !(params.origin == BlockOrigin::Own ||
 			params.with_state() ||
 			params.state_action.skip_execution_checks())
 		{
-			self.execute_block_and_collect_storage_proof(&mut params)?;
+			self.execute_block_and_collect_storage_proof(&mut params, time_ms)?;
 		}
 
 		self.inner.import_block(params).await.map_err(Into::into)
