@@ -4917,6 +4917,7 @@ dependencies = [
  "cumulus-client-consensus-common",
  "cumulus-client-parachain-inherent",
  "cumulus-client-proof-size-recording",
+ "cumulus-client-unincluded-segment-store",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
