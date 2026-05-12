@@ -60,8 +60,12 @@
   additional-env:
     OLD_SUFFIX: "-old"
 
-- job-name: "zombienet-polkadot-functional-0015-coretime-shared-core"
-  test-filter: "functional::coretime_shared_core::coretime_shared_core_test"
+- job-name: "zombienet-polkadot-functional-0015-coretime-shared-core-4-paras"
+  test-filter: "functional::coretime_shared_core::coretime_shared_core_test_4_paras"
+  runner-type: "large"
+
+- job-name: "zombienet-polkadot-functional-0016-coretime-shared-core-3-paras"
+  test-filter: "functional::coretime_shared_core::coretime_shared_core_test_3_paras"
   runner-type: "large"
 
 
