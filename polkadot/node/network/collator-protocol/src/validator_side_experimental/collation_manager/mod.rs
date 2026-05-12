@@ -527,11 +527,13 @@ impl CollationManager {
 					return CanSecond::No(Some(FAILED_FETCH_SLASH), reject_info);
 				}
 
+				let scheduling_session = per_sp.session_index;
+
 				// Sanity check of the candidate receipt version.
 				if let Err(err) = descriptor_version_sanity_check_with_params(
 					fetched_collation.candidate_receipt.descriptor(),
 					per_sp.core_index,
-					per_sp.session_index,
+					scheduling_session,
 					collation_version,
 				) {
 					gum::warn!(
@@ -545,6 +547,7 @@ impl CollationManager {
 
 				self.can_begin_seconding(
 					sender,
+					scheduling_session,
 					fetched_collation,
 					true,
 					reject_info,
@@ -645,8 +648,20 @@ impl CollationManager {
 				),
 				maybe_candidate_hash: Some(fetched_collation.candidate_receipt.hash()),
 			};
+			let Some(per_sp) =
+				self.per_scheduling_parent.get(&fetched_collation.scheduling_parent())
+			else {
+				continue;
+			};
 			let can_second = self
-				.can_begin_seconding(sender, fetched_collation, false, reject_info, core_index)
+				.can_begin_seconding(
+					sender,
+					per_sp.session_index,
+					fetched_collation,
+					false,
+					reject_info,
+					core_index,
+				)
 				.await;
 			unblocked_can_second.push(can_second)
 		}
@@ -791,6 +806,7 @@ impl CollationManager {
 	async fn can_begin_seconding<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
+		scheduling_session: SessionIndex,
 		fetched_collation: FetchedCollation,
 		queue_blocked_collations: bool,
 		reject_info: SecondingRejectionInfo,
@@ -813,6 +829,7 @@ impl CollationManager {
 		let fetch_pvd_res = fetch_pvd(
 			sender,
 			&fetched_collation.candidate_receipt,
+			scheduling_session,
 			fetched_collation.maybe_parent_head_data_hash,
 			fetched_collation.maybe_parent_head_data.clone(),
 		)
@@ -1179,6 +1196,7 @@ where
 async fn fetch_pvd<Sender: CollatorProtocolSenderTrait>(
 	sender: &mut Sender,
 	receipt: &CandidateReceipt,
+	scheduling_session: SessionIndex,
 	maybe_parent_head_data_hash: Option<Hash>,
 	maybe_parent_head_data: Option<HeadData>,
 ) -> std::result::Result<PersistedValidationData, SecondingError> {
@@ -1189,6 +1207,7 @@ async fn fetch_pvd<Sender: CollatorProtocolSenderTrait>(
 			let maybe_pvd = request_prospective_validation_data(
 				sender,
 				receipt.descriptor.relay_parent(),
+				receipt.descriptor.session_index().unwrap_or(scheduling_session),
 				parent_head_data_hash,
 				para_id,
 				maybe_parent_head_data.clone(),

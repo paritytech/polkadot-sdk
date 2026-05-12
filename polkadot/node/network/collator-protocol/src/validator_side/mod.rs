@@ -386,6 +386,15 @@ impl PeerData {
 						return Err(InsertAdvertisementError::PeerLimitReached);
 					}
 
+					gum::debug!(
+						target: LOG_TARGET,
+						?on_scheduling_parent,
+						?candidate_hash,
+						current_ads = candidates.len(),
+						max_ads,
+						"Tracking new advertisement from peer",
+					);
+
 					candidates.insert(candidate_hash);
 				} else {
 					if self.version != CollationVersion::V1 {
@@ -1659,6 +1668,14 @@ where
 	if peer_data.version == CollationVersion::V1 &&
 		!state.leaf_claim_queues.contains_key(&scheduling_parent)
 	{
+		gum::debug!(
+			target: LOG_TARGET,
+			?peer_id,
+			?scheduling_parent,
+			?prospective_candidate,
+			"V1 advertisement must use an active leaf as relay parent",
+		);
+
 		return Err(AdvertisementError::ProtocolMisuse);
 	}
 
@@ -1680,7 +1697,18 @@ where
 			&per_scheduling_parent,
 			&state.leaf_claim_queues,
 		)
-		.map_err(AdvertisementError::Invalid)?;
+		.map_err(|error| {
+			gum::debug!(
+				target: LOG_TARGET,
+				?peer_id,
+				?scheduling_parent,
+				?prospective_candidate,
+				?error,
+				"Failed to insert advertisement",
+			);
+
+			AdvertisementError::Invalid(error)
+		})?;
 
 	if hold_off_asset_hub_collation_if_needed(
 		state,
@@ -1691,6 +1719,14 @@ where
 		scheduling_parent, // For V1/V2, the relay parent is the same as the scheduling parent
 		None,              // V1/V2 don't have advertised descriptor version
 	) {
+		gum::debug!(
+			target: LOG_TARGET,
+			?peer_id,
+			?scheduling_parent,
+			?prospective_candidate,
+			"Collation held off, not processing advertisement further for now",
+		);
+
 		return Ok(());
 	}
 
@@ -1802,7 +1838,16 @@ where
 	// Check if there's a free slot accounting for obsolete positions and capacity.
 	// This happens AFTER hold-off logic (for AssetHub) has run, so held-off advertisements
 	// can be queued even when capacity is temporarily full.
-	is_slot_available(&scheduling_parent, para_id, state)?;
+	is_slot_available(&scheduling_parent, para_id, state).inspect_err(|error| {
+		gum::debug!(
+			target: LOG_TARGET,
+			?peer_id,
+			?scheduling_parent,
+			?para_id,
+			?error,
+			"Slot is not available",
+		);
+	})?;
 
 	if let Some((candidate_hash, parent_head_data_hash)) = prospective_candidate {
 		// Check if backing subsystem allows to second this candidate.
@@ -1813,6 +1858,16 @@ where
 				.await;
 
 		if !can_second {
+			gum::debug!(
+				target: LOG_TARGET,
+				?peer_id,
+				?scheduling_parent,
+				?para_id,
+				?candidate_hash,
+				?parent_head_data_hash,
+				"Backing subsystem does not allow seconding this candidate",
+			);
+
 			return Err(AdvertisementError::BlockedByBacking);
 		}
 	}
@@ -2615,6 +2670,7 @@ where
 pub async fn request_prospective_validation_data<Sender>(
 	sender: &mut Sender,
 	candidate_relay_parent: Hash,
+	session_index: SessionIndex,
 	parent_head_data_hash: Hash,
 	para_id: ParaId,
 	maybe_parent_head_data: Option<HeadData>,
@@ -2630,8 +2686,12 @@ where
 		ParentHeadData::OnlyHash(parent_head_data_hash)
 	};
 
-	let request =
-		ProspectiveValidationDataRequest { para_id, candidate_relay_parent, parent_head_data };
+	let request = ProspectiveValidationDataRequest {
+		para_id,
+		candidate_relay_parent,
+		session_index,
+		parent_head_data,
+	};
 
 	sender
 		.send_message(ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx))
@@ -2688,9 +2748,15 @@ async fn kick_off_seconding<Context>(
 				// we must pass the actual relay_parent (execution context), not the
 				// scheduling_parent. For V1/V2 these are identical; for V3 the
 				// relay_parent may be older.
+				let session_index = candidate_receipt
+					.descriptor()
+					.session_index()
+					.unwrap_or(per_scheduling_parent.session_index);
+
 				let pvd = request_prospective_validation_data(
 					ctx.sender(),
 					candidate_receipt.descriptor().relay_parent(),
+					session_index,
 					parent_head_data_hash,
 					para_id,
 					maybe_parent_head_data.clone(),

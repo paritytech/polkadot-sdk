@@ -76,6 +76,7 @@ use sc_rpc::{
 };
 use sc_rpc_spec_v2::{
 	archive::ArchiveApiServer,
+	bitswap::BitswapApiServer,
 	chain_head::ChainHeadApiServer,
 	chain_spec::ChainSpecApiServer,
 	transaction::{TransactionApiServer, TransactionBroadcastApiServer},
@@ -651,6 +652,7 @@ where
 			backend: backend.clone(),
 			rpc_builder: &*rpc_builder,
 			metrics: rpc_v2_metrics.clone(),
+			sync_oracle: sync_service.clone(),
 			tracing_execute_block: execute_block.clone(),
 		})
 	};
@@ -818,6 +820,8 @@ pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TRpc, TExPool> {
 	pub rpc_builder: &'a dyn Fn(SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>,
 	/// Transaction metrics handle.
 	pub metrics: Option<sc_rpc_spec_v2::transaction::TransactionMetrics>,
+	/// Sync oracle for determining sync status.
+	pub sync_oracle: Arc<dyn sp_consensus::SyncOracle + Send + Sync>,
 	/// Optional [`TracingExecuteBlock`] handle.
 	///
 	/// Will be used by the `trace_block` RPC to execute the actual block.
@@ -840,6 +844,7 @@ pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
 		backend,
 		rpc_builder,
 		metrics,
+		sync_oracle,
 		tracing_execute_block: execute_block,
 	}: GenRpcModuleParams<TBl, TBackend, TCl, TRpc, TExPool>,
 ) -> Result<RpcModule<()>, Error>
@@ -937,6 +942,9 @@ where
 	)
 	.into_rpc();
 
+	// Bitswap RPC-v2 (do not confuse with v1 from `bitswap_v1_get`).
+	let bitswap_v2 = sc_rpc_spec_v2::bitswap::Bitswap::new(client.clone(), sync_oracle).into_rpc();
+
 	let author = sc_rpc::author::Author::new(
 		client.clone(),
 		transaction_pool,
@@ -960,6 +968,7 @@ where
 		.map_err(|e| Error::Application(e.into()))?;
 	rpc_api.merge(chain_head_v2).map_err(|e| Error::Application(e.into()))?;
 	rpc_api.merge(chain_spec_v2).map_err(|e| Error::Application(e.into()))?;
+	rpc_api.merge(bitswap_v2).map_err(|e| Error::Application(e.into()))?;
 
 	// Part of the old RPC spec.
 	rpc_api.merge(chain).map_err(|e| Error::Application(e.into()))?;

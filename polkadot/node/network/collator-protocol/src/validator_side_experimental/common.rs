@@ -93,9 +93,11 @@ pub const CONNECTED_PEERS_LIMIT: NonZeroU16 = NonZeroU16::new(300).expect("300 i
 
 /// Limit for the total number of connected peers for a paraid.
 /// Must be smaller than `CONNECTED_PEERS_LIMIT`.
+/// The value is optimal for lookahead=5. In that case we can have no more than 5 parachains in the
+/// claim queue => 60 is a good value for per para limit.
 pub const CONNECTED_PEERS_PARA_LIMIT: NonZeroU16 = const {
-	assert!(CONNECTED_PEERS_LIMIT.get() >= 100);
-	NonZeroU16::new(100).expect("100 is greater than 0")
+	assert!(CONNECTED_PEERS_LIMIT.get() == 300);
+	NonZeroU16::new(60).expect("60 is greater than 0")
 };
 
 /// Maximum number of relay parents to process for reputation bumps on startup and between finality
