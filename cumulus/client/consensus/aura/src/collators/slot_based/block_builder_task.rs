@@ -207,33 +207,9 @@ where
 		);
 
 		loop {
-			if scheduling_info.should_reinit() {
-				let maybe_best_relay_header = 'get_best_relay_header: {
-					let Some(best_relay_hash) = relay_client.best_block_hash().await.ok() else {
-						break 'get_best_relay_header None;
-					};
-					let Some(best_relay_data) =
-						relay_chain_data_cache.get_mut_by_hash(best_relay_hash).await.ok()
-					else {
-						break 'get_best_relay_header None;
-					};
-					Some(best_relay_data.relay_header.clone())
-				};
-
-				match relay_client.new_best_notification_stream().await {
-					Ok(best_notifications) => {
-						scheduling_info.reinit(maybe_best_relay_header, best_notifications)
-					},
-					Err(err) => {
-						tracing::error!(
-							target: LOG_TARGET,
-							?err,
-							"Failed to reset the relay chain best block notification stream. \
-							The current consensus iteration might fail."
-						);
-					},
-				};
-			}
+			scheduling_info
+				.ensure_initialized(&relay_client, &mut relay_chain_data_cache)
+				.await;
 
 			// We wait here until the next slot arrives.
 			let Ok(slot_time) = slot_timer.wait_until_next_slot().await else {

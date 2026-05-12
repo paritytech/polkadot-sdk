@@ -66,11 +66,10 @@ fn get_current_relay_slot(slot_offset: Duration, relay_chain_slot_duration: Dura
 ///   block had a full slot to propagate, which is what slots are for. Matches the low-latency v2
 ///   design.
 ///
-/// Owns the relay chain new-best notification stream so `wait_for_scheduling_parent`
-/// can block for a fresh leaf. Initial state is a terminated empty stream — the caller
-/// must install one via [`Self::reinit`] before the first call, and
-/// re-install whenever the stream terminates (checked via
-/// [`Self::should_reinit`]).
+/// Owns the relay chain new-best notification stream so [`Self::wait_for_scheduling_parent`]
+/// can block for a fresh leaf. Initial state is a terminated empty stream. The caller
+/// must call [`Self::ensure_initialized`] before any call to [`Self::wait_for_scheduling_parent`],
+/// in order to make sure that the stream is installed/re-installed if needed.
 pub(crate) struct SchedulingInfo<RelayClient> {
 	best_notifications: Fuse<Pin<Box<dyn Stream<Item = RelayHeader> + Send>>>,
 	relay_slot_duration: Duration,
@@ -83,15 +82,14 @@ pub(crate) struct SchedulingInfo<RelayClient> {
 impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 	/// Create a new `SchedulingInfo` with no active notification stream.
 	///
-	/// The caller must call [`Self::reinit`] before the first
-	/// `wait_for_scheduling_parent` invocation — [`Self::should_reinit`]
-	/// will report `true` until then.
+	/// The caller must call [`Self::ensure_initialized`] before the first
+	/// `wait_for_scheduling_parent` invocation.
 	pub fn new(relay_chain_slot_duration: Duration, slot_offset: Duration) -> Self {
 		let stream: Pin<Box<dyn Stream<Item = RelayHeader> + Send>> =
 			Box::pin(futures::stream::empty());
 		let mut stream = stream.fuse();
 		// Force the fused stream into the terminated state so the first
-		// `should_reset_best_notifications` call returns `true`.
+		// `should_reinit` call returns `true`.
 		stream.next().now_or_never();
 
 		Self {
@@ -108,17 +106,8 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 	///
 	/// Returns `true` both at startup (the initial stream is a terminated empty stream)
 	/// and after the underlying subscription has ended.
-	pub fn should_reinit(&self) -> bool {
+	fn should_reinit(&self) -> bool {
 		self.best_notifications.is_terminated()
-	}
-
-	pub fn reinit(
-		&mut self,
-		maybe_best_relay_header: Option<RelayHeader>,
-		best_notifications: Pin<Box<dyn Stream<Item = RelayHeader> + Send>>,
-	) {
-		self.maybe_best_relay_header = maybe_best_relay_header;
-		self.best_notifications = best_notifications.fuse();
 	}
 
 	pub async fn ensure_initialized(
@@ -139,7 +128,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 					target: crate::LOG_TARGET,
 					?err,
 					"Failed to reset the relay chain best block notification stream. \
-					The current consensus iteration might fail."
+					The next call to `wait_for_scheduling_parent` might fail."
 				);
 			},
 		};
@@ -152,7 +141,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 					target: crate::LOG_TARGET,
 					?err,
 					"Failed to get relay chain best block hash. \
-					`SchedulingInfo` is only partially initialized"
+					The next call to `wait_for_scheduling_parent` might take longer."
 				);
 				return;
 			},
@@ -164,7 +153,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 					tracing::warn!(
 						target: crate::LOG_TARGET,
 						"Failed to fetch the `RelayChainData` for the best relay block. \
-						`SchedulingInfo` is only partially initialized"
+						The next call to `wait_for_scheduling_parent` might take longer."
 					);
 					return;
 				},
@@ -357,17 +346,30 @@ mod tests {
 
 	#[tokio::test]
 	async fn reset_best_notifications_works() {
-		let client = TestRelayClient::new(Default::default());
+		let best_header = tests::relay_header_with_slot(10, Default::default(), 0);
+		let mut client = TestRelayClient::new(Default::default());
 		let mut cache = RelayChainDataCache::new(client.clone(), 1.into());
+		cache.set_test_data(best_header.clone(), vec![], Default::default());
 
 		let mut scheduling_info =
 			SchedulingInfo::new(Duration::from_secs(6), Duration::from_secs(1));
 		assert_eq!(scheduling_info.should_reinit(), true);
+		assert_eq!(scheduling_info.maybe_best_relay_header, None);
 
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
-		let mock_header = tests::relay_header_with_slot(10, Default::default(), 0);
-		scheduling_info.reinit(Some(mock_header.clone()), Box::pin(rx));
-		assert_eq!(scheduling_info.maybe_best_relay_header.as_ref(), Some(&mock_header));
+		client.set_best_hash(Some(best_header.hash()));
+		client.set_best_notifications(Box::pin(rx));
+		scheduling_info.ensure_initialized(&client, &mut cache).await;
+		assert_eq!(scheduling_info.maybe_best_relay_header.as_ref(), Some(&best_header));
+		assert_eq!(scheduling_info.should_reinit(), false);
+
+		let best_header_2 = tests::relay_header_with_slot(11, Default::default(), 100);
+		let (_tx_2, rx_2) = futures::channel::mpsc::unbounded::<RelayHeader>();
+		client.set_best_hash(Some(best_header_2.hash()));
+		client.set_best_notifications(Box::pin(rx_2));
+		cache.set_test_data(best_header_2.clone(), vec![], Default::default());
+		scheduling_info.ensure_initialized(&client, &mut cache).await;
+		assert_eq!(scheduling_info.maybe_best_relay_header.as_ref(), Some(&best_header));
 		assert_eq!(scheduling_info.should_reinit(), false);
 
 		tx.close_channel();
@@ -385,11 +387,14 @@ mod tests {
 		let relay_slot_duration = Duration::from_secs(6);
 		let slot_offset = Duration::from_secs(1);
 
-		let (_client, mut cache, headers) = build_mock_chain(relay_slot_duration, false);
+		let (mut client, mut cache, headers) = build_mock_chain(relay_slot_duration, false);
 
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+		client.set_best_hash(Some(headers[0].hash()));
+		client.set_best_notifications(Box::pin(rx));
+
 		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration, slot_offset);
-		scheduling_info.reinit(Some(headers[0].clone()), Box::pin(rx));
+		scheduling_info.ensure_initialized(&client, &mut cache).await;
 
 		let mut handle = tokio::spawn(async move {
 			scheduling_info.wait_for_scheduling_parent(&mut cache, false).await
@@ -425,13 +430,15 @@ mod tests {
 		let relay_slot_duration = Duration::from_secs(6);
 		let slot_offset = Duration::from_secs(1);
 
-		let (_client, mut cache, headers) = build_mock_chain(relay_slot_duration, false);
+		let (mut client, mut cache, headers) = build_mock_chain(relay_slot_duration, false);
 
 		// Create a notification stream that will never produce (no sender).
 		let (_tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+		client.set_best_hash(Some(headers[4].hash()));
+		client.set_best_notifications(Box::pin(rx));
 
 		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration, slot_offset);
-		scheduling_info.reinit(Some(headers[4].clone()), Box::pin(rx));
+		scheduling_info.ensure_initialized(&client, &mut cache).await;
 		let result = tokio::time::timeout(
 			Duration::from_millis(300),
 			scheduling_info.wait_for_scheduling_parent(&mut cache, false),
@@ -447,11 +454,14 @@ mod tests {
 		let relay_slot_duration = Duration::from_secs(6);
 		let slot_offset = Duration::from_secs(1);
 
-		let (_client, mut cache, headers) = build_mock_chain(relay_slot_duration, true);
+		let (mut client, mut cache, headers) = build_mock_chain(relay_slot_duration, true);
 
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+		client.set_best_hash(None);
+		client.set_best_notifications(Box::pin(rx));
+
 		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration, slot_offset);
-		scheduling_info.reinit(None, Box::pin(rx));
+		scheduling_info.ensure_initialized(&client, &mut cache).await;
 
 		let mut handle = tokio::spawn(async move {
 			scheduling_info.wait_for_scheduling_parent(&mut cache, true).await
@@ -477,11 +487,14 @@ mod tests {
 		let relay_slot_duration = Duration::from_secs(6);
 		let slot_offset = Duration::from_secs(1);
 
-		let (_client, mut cache, headers) = build_mock_chain(relay_slot_duration, true);
+		let (mut client, mut cache, headers) = build_mock_chain(relay_slot_duration, true);
 
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+		client.set_best_hash(None);
+		client.set_best_notifications(Box::pin(rx));
+
 		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration, slot_offset);
-		scheduling_info.reinit(None, Box::pin(rx));
+		scheduling_info.ensure_initialized(&client, &mut cache).await;
 
 		let mut handle = tokio::spawn(async move {
 			scheduling_info.wait_for_scheduling_parent(&mut cache, true).await
@@ -507,11 +520,14 @@ mod tests {
 		let relay_slot_duration = Duration::from_secs(6);
 		let slot_offset = Duration::from_secs(1);
 
-		let (_client, mut cache, mut headers) = build_mock_chain(relay_slot_duration, true);
+		let (mut client, mut cache, mut headers) = build_mock_chain(relay_slot_duration, true);
 
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+		client.set_best_hash(None);
+		client.set_best_notifications(Box::pin(rx));
+
 		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration, slot_offset);
-		scheduling_info.reinit(None, Box::pin(rx));
+		scheduling_info.ensure_initialized(&client, &mut cache).await;
 
 		// Simulate: receiving relay block with header 3 (fresh slot).
 		tx.unbounded_send(headers[3].clone()).unwrap();

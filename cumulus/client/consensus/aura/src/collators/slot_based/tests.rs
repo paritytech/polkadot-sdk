@@ -38,6 +38,7 @@ use sp_version::RuntimeVersion;
 use std::{
 	collections::{BTreeMap, HashMap, VecDeque},
 	pin::Pin,
+	sync::{Arc, Mutex},
 };
 
 fn header_numbers(headers: &Vec<RelayHeader>) -> Vec<BlockNumber> {
@@ -283,16 +284,36 @@ async fn determine_core_no_cores_available() {
 #[derive(Clone)]
 pub struct TestRelayClient {
 	headers: HashMap<RelayHash, RelayHeader>,
-	best_hash: std::sync::Arc<std::sync::Mutex<Option<RelayHash>>>,
+	best_hash: Arc<Mutex<Option<RelayHash>>>,
+	best_notifications: Arc<Mutex<Option<Pin<Box<dyn Stream<Item = RelayHeader> + Send + Sync>>>>>,
 }
 
 impl TestRelayClient {
 	pub fn new(headers: HashMap<RelayHash, RelayHeader>) -> Self {
-		Self { headers, best_hash: Default::default() }
+		Self {
+			headers,
+			best_hash: Default::default(),
+			best_notifications: Arc::new(Mutex::new(None)),
+		}
 	}
 
 	pub fn new_with_best(headers: HashMap<RelayHash, RelayHeader>, best_hash: RelayHash) -> Self {
-		Self { headers, best_hash: std::sync::Arc::new(std::sync::Mutex::new(Some(best_hash))) }
+		Self {
+			headers,
+			best_hash: Arc::new(Mutex::new(Some(best_hash))),
+			best_notifications: Arc::new(Mutex::new(None)),
+		}
+	}
+
+	pub fn set_best_hash(&mut self, best_hash: Option<RelayHash>) {
+		self.best_hash = Arc::new(Mutex::new(best_hash));
+	}
+
+	pub fn set_best_notifications(
+		&mut self,
+		best_notifications: Pin<Box<dyn Stream<Item = RelayHeader> + Send + Sync>>,
+	) {
+		self.best_notifications = Arc::new(Mutex::new(Some(best_notifications)));
 	}
 }
 
@@ -429,7 +450,7 @@ impl RelayChainInterface for TestRelayClient {
 	async fn new_best_notification_stream(
 		&self,
 	) -> RelayChainResult<Pin<Box<dyn Stream<Item = PHeader> + Send>>> {
-		unimplemented!("Not needed for test")
+		Ok(self.best_notifications.lock().unwrap().take().unwrap())
 	}
 
 	async fn header(

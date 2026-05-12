@@ -9,7 +9,8 @@
 
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_throughput_with, assign_cores,
+	assert_finality_lag, assert_para_throughput_with, assign_cores, wait_for_first_session_change,
+	wait_for_pvf_prepare,
 };
 use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
 use rstest::rstest;
@@ -111,6 +112,12 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 
 	let para_v3 = ParaId::from(2700);
 	let para_v2 = ParaId::from(2500);
+
+	// Wait for the first session, block production on the parachain will start after that.
+	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
+	wait_for_first_session_change(&mut blocks_sub).await?;
+
+	wait_for_pvf_prepare(&network, 2).await?;
 
 	// Verify both V3 and V2 candidates are backed in the same relay chain block window.
 	assert_para_throughput_with(
