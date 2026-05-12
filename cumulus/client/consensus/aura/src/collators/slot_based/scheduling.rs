@@ -144,13 +144,7 @@ impl SchedulingInfo {
 
 			let best_relay_header = match maybe_best_relay_header.take() {
 				Some(header) => header,
-				None => {
-					if self.best_notifications.is_terminated() {
-						return None;
-					}
-
-					self.best_notifications.next().await?
-				},
+				None => self.best_notifications.next().await?,
 			};
 			self.maybe_best_relay_header = Some(best_relay_header.clone());
 			let best_relay_header_data =
