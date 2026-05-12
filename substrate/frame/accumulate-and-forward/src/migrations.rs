@@ -98,47 +98,59 @@ where
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 		let source: T::AccountId = LEGACY_TREASURY_PALLET_ID.into_account_truncating();
-		let balance = <T::Currency as Inspect<T::AccountId>>::reducible_balance(
+		let legacy_pre = <T::Currency as Inspect<T::AccountId>>::reducible_balance(
 			&source,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		);
+		let accum_pre = <T::Currency as Inspect<T::AccountId>>::reducible_balance(
+			&Pallet::<T>::accumulation_account(),
 			Preservation::Preserve,
 			Fortitude::Polite,
 		);
 		log::info!(
 			target: LOG_TARGET,
-			"DrainLegacyTreasuryToAccumulationAccount: pre-upgrade reducible balance = {balance:?}"
+			"DrainLegacyTreasuryToAccumulationAccount: pre-upgrade legacy reducible = {legacy_pre:?}, \
+			 accumulation reducible = {accum_pre:?}"
 		);
-		Ok(balance.encode())
+		Ok((legacy_pre, accum_pre).encode())
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		use codec::Decode;
 
-		let pre_balance: <T::Currency as Inspect<T::AccountId>>::Balance =
-			Decode::decode(&mut &state[..]).expect("pre_upgrade encoded the reducible balance");
+		type Balance<T> =
+			<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+		let (legacy_pre, accum_pre): (Balance<T>, Balance<T>) =
+			Decode::decode(&mut &state[..]).expect("pre_upgrade encoded (legacy_pre, accum_pre)");
+
 		let source: T::AccountId = LEGACY_TREASURY_PALLET_ID.into_account_truncating();
-		let post_balance = <T::Currency as Inspect<T::AccountId>>::reducible_balance(
+		let legacy_post = <T::Currency as Inspect<T::AccountId>>::reducible_balance(
 			&source,
 			Preservation::Preserve,
 			Fortitude::Polite,
 		);
 		frame_support::ensure!(
-			post_balance.is_zero(),
+			legacy_post.is_zero(),
 			"Legacy treasury reducible balance should be zero after migration"
 		);
 
 		let accumulation_account = Pallet::<T>::accumulation_account();
-		let accumulation_balance =
-			<T::Currency as Inspect<T::AccountId>>::total_balance(&accumulation_account);
+		let accum_post = <T::Currency as Inspect<T::AccountId>>::reducible_balance(
+			&accumulation_account,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		);
 		frame_support::ensure!(
-			accumulation_balance >= pre_balance,
-			"Accumulation account balance should have increased by at least the drained amount"
+			Some(accum_post) == accum_pre.checked_add(&legacy_pre),
+			"Accumulation account balance should have increased by exactly the drained amount"
 		);
 
 		log::info!(
 			target: LOG_TARGET,
 			"DrainLegacyTreasuryToAccumulationAccount: post-upgrade OK. \
-			 Legacy treasury reducible: {post_balance:?}, accumulation total: {accumulation_balance:?}"
+			 Legacy treasury reducible: {legacy_post:?}, accumulation reducible: {accum_post:?}"
 		);
 		Ok(())
 	}

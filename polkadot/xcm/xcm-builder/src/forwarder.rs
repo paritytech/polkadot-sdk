@@ -16,7 +16,7 @@
 
 //! XCM adapters for the accumulate-and-forward pallet.
 //!
-//! - [`TeleportForwarder`]: accumulation-account-side forwarding adapter.
+//! - [`TeleportForwarderForAccountId32`]: accumulation-account-side forwarding adapter.
 
 use alloc::vec;
 use core::marker::PhantomData;
@@ -31,16 +31,22 @@ use xcm_executor::XcmExecutor;
 
 const LOG_TARGET: &str = "xcm::accumulate-forward";
 
-/// XCM adapter that implements [`pallet_accumulate_and_forward::Forwarder`] by teleporting native
-/// tokens to a staging account on a destination chain. The execution is transactional:
-/// if anything fails, all local state changes are rolled back.
-pub struct TeleportForwarder<XcmConfig, Dest, NativeAsset, StagingLocation>(
+/// XCM adapter that implements [`pallet_accumulate_and_forward::Forwarder`] for AccountId32-type
+/// source accounts by teleporting native tokens to a target account on a destination chain.
+/// Local-execution failures roll back all local state changes. Once the local executor reports
+/// success, the message is queued and any destination-side rejection results in trapped assets
+/// at the destination with no automatic recovery path.
+///
+/// NOTE: This adapter passes `Weight::MAX` to the XCM executor, relying on the call site to
+/// enforce a weight budget before invoking it. It is designed to be called only from rate-limited
+/// internal hooks such as `on_idle` and should never be wired to user-callable extrinsics.
+pub struct TeleportForwarderForAccountId32<XcmConfig, Dest, NativeAsset, StagingLocation>(
 	PhantomData<(XcmConfig, Dest, NativeAsset, StagingLocation)>,
 );
 
 impl<XcmConfig, Dest, NativeAsset, StagingLocation, AccountId, Balance>
 	pallet_accumulate_and_forward::Forwarder<AccountId, Balance>
-	for TeleportForwarder<XcmConfig, Dest, NativeAsset, StagingLocation>
+	for TeleportForwarderForAccountId32<XcmConfig, Dest, NativeAsset, StagingLocation>
 where
 	XcmConfig: xcm_executor::Config,
 	Dest: Get<Location>,
