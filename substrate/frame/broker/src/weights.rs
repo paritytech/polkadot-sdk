@@ -94,6 +94,7 @@ pub trait WeightInfo {
 	fn request_core_count(n: u32, ) -> Weight;
 	fn process_core_count(n: u32, ) -> Weight;
 	fn process_revenue() -> Weight;
+	fn timeslice_commited() -> Weight;
 	fn request_revenue_info_at() -> Weight;
 	fn notify_core_count() -> Weight;
 	fn notify_revenue() -> Weight;
@@ -426,6 +427,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(39_956_000, 3593)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
+	fn timeslice_commited() -> Weight {
+		Weight::zero()
 	}
 	fn request_revenue_info_at() -> Weight {
 		// Proof Size summary in bytes:
@@ -907,6 +911,9 @@ impl WeightInfo for () {
 		Weight::from_parts(39_956_000, 3593)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+	fn timeslice_commited() -> Weight {
+		Weight::zero()
 	}
 	fn request_revenue_info_at() -> Weight {
 		// Proof Size summary in bytes:

@@ -862,6 +862,51 @@ mod benches {
 	}
 
 	#[benchmark]
+	fn timeslice_commited() {
+		let private_pool_size = 5u32.into();
+		let system_pool_size = 4u32.into();
+
+		let config = new_config_record::<T>();
+		let commit_timeslice = Broker::<T>::latest_timeslice_ready_to_commit(&config);
+		let last_committed_timeslice = commit_timeslice.saturating_sub(1);
+
+		let mut status = StatusRecord {
+			core_count: 5u16.into(),
+			private_pool_size,
+			system_pool_size,
+			last_committed_timeslice,
+			last_timeslice: Broker::<T>::current_timeslice(),
+		};
+
+		Workplan::<T>::insert((last_committed_timeslice, 4), new_schedule());
+
+		#[block]
+		{
+			Broker::<T>::timeslice_commited(last_committed_timeslice, &mut status);
+		}
+
+		assert!(InstaPoolHistory::<T>::get(last_committed_timeslice).is_some());
+		assert_has_event::<T>(
+			Event::HistoryInitialized {
+				when: last_committed_timeslice,
+				private_pool_size,
+				system_pool_size,
+			}
+			.into(),
+		);
+
+		assert_eq!(Workload::<T>::get(4).len(), CORE_MASK_BITS);
+
+		let mut assignment: Vec<(CoreAssignment, PartsOf57600)> = vec![];
+		for i in 0..CORE_MASK_BITS {
+			assignment.push((CoreAssignment::Task(i.try_into().unwrap()), 57600));
+		}
+		assert_has_event::<T>(
+			Event::CoreAssigned { core: 4, when: 0u32.into(), assignment }.into(),
+		);
+	}
+
+	#[benchmark]
 	fn request_revenue_info_at() {
 		let current_timeslice = Broker::<T>::current_timeslice();
 		let rc_block = T::TimeslicePeriod::get() * current_timeslice.into();

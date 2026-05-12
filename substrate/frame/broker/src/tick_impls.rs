@@ -61,11 +61,11 @@ impl<T: Config> Pallet<T> {
 
 		Self::process_market_logic(&mut meter);
 
-		// TODO: Consume weight.
 		if let Some(mut status) = Status::<T>::get() {
 			if let Some(commit_timeslice) = Self::next_timeslice_to_commit(&config, &status) {
-				status.last_committed_timeslice = commit_timeslice;
-				Self::timeslice_commited(&mut status);
+				meter.consume(T::WeightInfo::timeslice_commited());
+
+				Self::timeslice_commited(commit_timeslice, &mut status);
 			}
 			Status::<T>::put(status);
 		}
@@ -147,7 +147,9 @@ impl<T: Config> Pallet<T> {
 		meter.consume(T::WeightInfo::on_new_timeslice());
 	}
 
-	fn timeslice_commited(status: &mut StatusRecord) {
+	pub(crate) fn timeslice_commited(timeslice: Timeslice, status: &mut StatusRecord) {
+		status.last_committed_timeslice = timeslice;
+
 		Self::process_pool(status.last_committed_timeslice, status);
 
 		let timeslice_period = T::TimeslicePeriod::get();
