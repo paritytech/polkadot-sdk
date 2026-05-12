@@ -35,7 +35,10 @@ use frame_support::traits::Time;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Saturating;
 use sp_core::{H160, H256, U256, keccak_256};
-use sp_runtime::traits::{One, Zero};
+use sp_runtime::{
+	SaturatedConversion,
+	traits::{One, Zero},
+};
 
 const LOG_TARGET: &str = "runtime::revive::block_builder";
 
@@ -48,9 +51,9 @@ pub struct EthereumBlockBuilder<T> {
 	pub(crate) transaction_root_builder: IncrementalHashBuilder,
 	pub(crate) receipts_root_builder: IncrementalHashBuilder,
 	pub(crate) tx_hashes: Vec<H256>,
-	gas_used: U256,
+	gas_used: u64,
 	base_fee_per_gas: U256,
-	block_gas_limit: U256,
+	block_gas_limit: u64,
 	logs_bloom: LogsBloom,
 	gas_info: Vec<ReceiptGasInfo>,
 	_phantom: core::marker::PhantomData<T>,
@@ -64,12 +67,12 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 		EthereumBlockBuilderIR {
 			transaction_root_builder: self.transaction_root_builder.to_ir(),
 			receipts_root_builder: self.receipts_root_builder.to_ir(),
-			gas_used: self.gas_used,
+			gas_used: self.gas_used.into(),
 			tx_hashes: self.tx_hashes,
 			logs_bloom: self.logs_bloom.bloom,
 			gas_info: self.gas_info,
 			base_fee_per_gas: self.base_fee_per_gas,
-			block_gas_limit: self.block_gas_limit,
+			block_gas_limit: self.block_gas_limit.into(),
 			_phantom: core::marker::PhantomData,
 		}
 	}
@@ -81,9 +84,9 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 		Self {
 			transaction_root_builder: IncrementalHashBuilder::from_ir(ir.transaction_root_builder),
 			receipts_root_builder: IncrementalHashBuilder::from_ir(ir.receipts_root_builder),
-			gas_used: ir.gas_used,
+			gas_used: ir.gas_used.saturated_into(),
 			base_fee_per_gas: ir.base_fee_per_gas,
-			block_gas_limit: ir.block_gas_limit,
+			block_gas_limit: ir.block_gas_limit.saturated_into(),
 			tx_hashes: ir.tx_hashes,
 			logs_bloom: LogsBloom { bloom: ir.logs_bloom },
 			gas_info: ir.gas_info,
@@ -116,8 +119,9 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 		// Update the transaction trie.
 		let transaction_type = Self::extract_transaction_type(transaction_encoded.as_slice());
 
-		// Update gas and logs bloom.
-		self.gas_used = self.gas_used.saturating_add(receipt_gas_info.gas_used);
+		// Update gas and logs bloom. `ReceiptGasInfo.gas_used` is stored as `U256` for SCALE
+		// compatibility; the in-memory accumulator is `u64` since per-block gas fits.
+		self.gas_used = self.gas_used.saturating_add(receipt_gas_info.gas_used.saturated_into());
 		self.logs_bloom.accrue_bloom(&receipt_bloom);
 
 		// Update the receipt trie.
@@ -125,7 +129,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 			encoded_logs,
 			receipt_bloom,
 			success,
-			self.gas_used.as_u64(),
+			self.gas_used,
 			transaction_type,
 		);
 
@@ -175,7 +179,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 			parent_hash,
 			timestamp,
 			block_author,
-			self.block_gas_limit,
+			self.block_gas_limit.into(),
 		)
 	}
 
@@ -220,7 +224,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 
 			gas_limit: block_gas_limit,
 			base_fee_per_gas,
-			gas_used: self.gas_used,
+			gas_used: self.gas_used.into(),
 
 			logs_bloom: self.logs_bloom.bloom.into(),
 			transactions: HashesOrTransactionInfos::Hashes(tx_hashes),
@@ -288,7 +292,7 @@ impl<T: Config> Default for EthereumBlockBuilderIR<T> {
 			tx_hashes: Vec::new(),
 			gas_info: Vec::new(),
 			base_fee_per_gas: Pallet::<T>::evm_base_fee(),
-			block_gas_limit: Pallet::<T>::evm_block_gas_limit(),
+			block_gas_limit: Pallet::<T>::evm_block_gas_limit().into(),
 			_phantom: core::marker::PhantomData,
 		}
 	}
