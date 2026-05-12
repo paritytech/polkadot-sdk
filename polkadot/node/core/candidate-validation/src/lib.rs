@@ -40,7 +40,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{
 	self as util, request_node_features, request_session_execution_config,
-	request_session_executor_params,
+	request_session_executor_params, request_validation_code_bomb_limit,
 	runtime::{fetch_scheduling_lookahead, ClaimQueueSnapshot},
 };
 use polkadot_overseer::{ActivatedLeaf, ActiveLeavesUpdate};
@@ -225,7 +225,11 @@ where
 		Some(cfg) => cfg.validation_code_bomb_limit,
 		// Pre-v17 fallback: session-less legacy runtime API supplies the bomb limit,
 		// dispatched at `recent_leaf` so the lookup stays pruning-safe.
-		None => fetch_bomb_limit(recent_leaf, execution_session, sender).await?,
+		None => request_validation_code_bomb_limit(recent_leaf, execution_session, sender)
+			.await
+			.await
+			.map_err(|e| format!("Cannot fetch validation code bomb limit: channel error: {e:?}"))?
+			.map_err(|e| format!("Cannot fetch validation code bomb limit: runtime error: {e:?}"))?,
 	};
 
 	Ok(SessionParams { executor_params, validation_code_bomb_limit })
@@ -253,22 +257,6 @@ where
 		Err(RuntimeApiError::NotSupported { .. }) => Ok(None),
 		Err(e) => Err(format!("Cannot fetch session execution config: runtime error: {e:?}")),
 	}
-}
-
-/// Fetch the validation-code bomb limit via the legacy (session-less) runtime API.
-///
-/// Used only on pre-v17 runtimes where `SessionExecutionConfig` is unavailable.
-async fn fetch_bomb_limit<Sender>(
-	recent_leaf: Hash,
-	execution_session: SessionIndex,
-	sender: &mut Sender,
-) -> Result<u32, String>
-where
-	Sender: SubsystemSender<RuntimeApiMessage>,
-{
-	util::runtime::fetch_validation_code_bomb_limit(recent_leaf, execution_session, sender)
-		.await
-		.map_err(|_| "Cannot fetch validation code bomb limit from the runtime".to_string())
 }
 
 /// Output of [`pre_validate_candidate`]: data needed by PVF execution and
@@ -488,13 +476,14 @@ where
 				return;
 			};
 
-			// This will return a default value for the limit if runtime API is not available.
-			// however we still error out if there is a weird runtime API error.
-			let Ok(validation_code_bomb_limit) = util::runtime::fetch_validation_code_bomb_limit(
+			// Precheck operates at the current `relay_parent`/`session_index` so the direct
+			// session-keyed runtime API is sufficient — no cross-session reasoning needed.
+			let Ok(Ok(validation_code_bomb_limit)) = request_validation_code_bomb_limit(
 				relay_parent,
 				session_index,
 				&mut sender,
 			)
+			.await
 			.await
 			else {
 				let error = "cannot fetch validation code bomb limit from the runtime";
@@ -929,14 +918,26 @@ where
 
 		let Some(session_index) = get_session_index(sender, relay_parent).await else { continue };
 
-		let validation_code_bomb_limit = match util::runtime::fetch_validation_code_bomb_limit(
+		// Warm-up runs at the current `relay_parent`/`session_index`; the direct
+		// session-keyed runtime API is sufficient — no cross-session reasoning needed.
+		let validation_code_bomb_limit = match request_validation_code_bomb_limit(
 			relay_parent,
 			session_index,
 			sender,
 		)
 		.await
+		.await
 		{
-			Ok(limit) => limit,
+			Ok(Ok(limit)) => limit,
+			Ok(Err(err)) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?err,
+					"cannot fetch validation code bomb limit from runtime API",
+				);
+				continue;
+			},
 			Err(err) => {
 				gum::warn!(
 					target: LOG_TARGET,
