@@ -761,7 +761,7 @@ fn outlier_top_performer_scales_others_down() {
 
 #[test]
 fn uniform_performance_distributes_full_budget() {
-	// Pins the math constraint that motivated Approach D over a multiplicative
+	// Pins the math constraint that motivated p_i / max(p_j) over a multiplicative
 	// (p_i/Σp) split: when all validators perform equally, the full budget must be
 	// distributed, not budget/N.
 	ExtBuilder::default().build_and_execute(|| {
