@@ -118,9 +118,9 @@ pub(crate) fn insert(list_id: ListId, item: ItemId, priority: Priority) -> u32 {
 
 /// Items in `list_id` head-to-tail.
 pub(crate) fn dump(list_id: ListId) -> alloc::vec::Vec<(ItemId, Priority)> {
-	let count = pallet_linked_list::ListSizes::<Test>::get(list_id);
+	let count = LinkedList::count(list_id);
 	let mut out = alloc::vec::Vec::with_capacity(count as usize);
-	let mut cursor = pallet_linked_list::ListHeads::<Test>::get(list_id);
+	let mut cursor = LinkedList::head(list_id);
 	while let Some(item) = cursor {
 		let node = pallet_linked_list::ListNodes::<Test>::get(list_id, item)
 			.expect("listed items are stored; qed");

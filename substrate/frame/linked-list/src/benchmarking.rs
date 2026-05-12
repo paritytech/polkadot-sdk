@@ -82,7 +82,7 @@ mod benchmarks {
 			Pallet::<T>::insert(list_id.clone(), new_item.clone(), new_priority, hint).unwrap();
 		}
 
-		assert_eq!(ListHeads::<T>::get(&list_id), Some(new_item));
+		assert_eq!(Pallet::<T>::head(list_id), Some(new_item));
 		Ok(())
 	}
 
@@ -151,7 +151,7 @@ mod benchmarks {
 			Pallet::<T>::re_insert(list_id.clone(), target.clone(), new_priority, hint).unwrap();
 		}
 
-		assert_eq!(ListHeads::<T>::get(&list_id), Some(target));
+		assert_eq!(Pallet::<T>::head(list_id), Some(target));
 		Ok(())
 	}
 
@@ -203,8 +203,8 @@ mod benchmarks {
 
 		assert_eq!(ListNodes::<T>::get(&list_id, &target).map(|n| n.priority), Some(125u32.into()));
 		// Order is unchanged: still head=seeded[0], tail=seeded[2].
-		assert_eq!(ListHeads::<T>::get(&list_id), Some(seeded[0].clone()));
-		assert_eq!(ListTails::<T>::get(&list_id), Some(seeded[2].clone()));
+		assert_eq!(Pallet::<T>::head(list_id.clone()), Some(seeded[0].clone()));
+		assert_eq!(Pallet::<T>::tail(list_id), Some(seeded[2].clone()));
 		Ok(())
 	}
 
@@ -235,7 +235,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		reprioritize(RawOrigin::Signed(caller), list_id.clone(), target.clone(), hint);
 
-		assert_eq!(ListHeads::<T>::get(&list_id), Some(target));
+		assert_eq!(Pallet::<T>::head(list_id), Some(target));
 		Ok(())
 	}
 

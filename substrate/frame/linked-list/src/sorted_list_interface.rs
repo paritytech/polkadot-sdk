@@ -180,7 +180,7 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 	}
 
 	fn pop_tail(list_id: &T::ListId) -> Result<Option<(T::ItemId, T::Priority)>, Error<T>> {
-		let Some(item) = ListTails::<T>::get(list_id) else { return Ok(None) };
+		let Some(item) = ListMetas::<T>::get(list_id).and_then(|m| m.tail) else { return Ok(None) };
 		let priority = ListNodes::<T>::get(list_id, &item)
 			.defensive_ok_or(Error::<T>::CorruptList)?
 			.priority;
@@ -242,15 +242,15 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 	}
 
 	fn head(list_id: &T::ListId) -> Option<T::ItemId> {
-		ListHeads::<T>::get(list_id)
+		ListMetas::<T>::get(list_id).and_then(|m| m.head)
 	}
 
 	fn tail(list_id: &T::ListId) -> Option<T::ItemId> {
-		ListTails::<T>::get(list_id)
+		ListMetas::<T>::get(list_id).and_then(|m| m.tail)
 	}
 
 	fn count(list_id: &T::ListId) -> u32 {
-		ListSizes::<T>::get(list_id)
+		ListMetas::<T>::get(list_id).map_or(0, |m| m.len)
 	}
 
 	fn contains(list_id: &T::ListId, item: &T::ItemId) -> bool {

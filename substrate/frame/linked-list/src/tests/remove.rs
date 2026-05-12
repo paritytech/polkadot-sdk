@@ -15,9 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	mock::*, Error, Event, ListHeads, ListNodes, ListSizes, ListTails, SortedListInterface,
-};
+use crate::{mock::*, Error, Event, ListMetas, ListNodes, SortedListInterface};
 use frame::testing_prelude::{assert_ok, assert_storage_noop, hypothetically};
 
 #[test]
@@ -25,10 +23,10 @@ fn remove_only_item_clears_head_tail_size() {
 	build_and_execute(|| {
 		insert(1, 100, 50);
 		assert_ok!(LinkedList::remove(&1, &100));
-		assert!(ListHeads::<Test>::get(1).is_none());
-		assert!(ListTails::<Test>::get(1).is_none());
-		assert_eq!(ListSizes::<Test>::get(1), 0);
-		assert!(!ListSizes::<Test>::contains_key(1));
+		assert!(LinkedList::head(1).is_none());
+		assert!(LinkedList::tail(1).is_none());
+		assert_eq!(LinkedList::count(1), 0);
+		assert!(!ListMetas::<Test>::contains_key(1));
 		System::assert_last_event(Event::ItemRemoved { list_id: 1, item: 100 }.into());
 	});
 }
@@ -39,7 +37,7 @@ fn remove_head_promotes_next() {
 		insert(1, 100, 90);
 		insert(1, 200, 50);
 		assert_ok!(LinkedList::remove(&1, &100));
-		assert_eq!(ListHeads::<Test>::get(1), Some(200));
+		assert_eq!(LinkedList::head(1), Some(200));
 		assert_eq!(dump(1), vec![(200, 50)]);
 	});
 }
@@ -50,7 +48,7 @@ fn remove_tail_promotes_prev() {
 		insert(1, 100, 90);
 		insert(1, 200, 50);
 		assert_ok!(LinkedList::remove(&1, &200));
-		assert_eq!(ListTails::<Test>::get(1), Some(100));
+		assert_eq!(LinkedList::tail(1), Some(100));
 		assert_eq!(dump(1), vec![(100, 90)]);
 	});
 }
@@ -98,9 +96,9 @@ fn pop_tail_removes_lowest_priority_tail() {
 		hypothetically!({
 			assert_eq!(LinkedList::pop_tail(&1).unwrap(), Some((200, 50)));
 			assert_eq!(LinkedList::pop_tail(&1).unwrap(), Some((100, 90)));
-			assert!(ListHeads::<Test>::get(1).is_none());
-			assert!(ListTails::<Test>::get(1).is_none());
-			assert!(!ListSizes::<Test>::contains_key(1));
+			assert!(LinkedList::head(1).is_none());
+			assert!(LinkedList::tail(1).is_none());
+			assert!(!ListMetas::<Test>::contains_key(1));
 		});
 	});
 }

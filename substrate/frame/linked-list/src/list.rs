@@ -18,11 +18,11 @@
 //! Storage primitives for the sorted doubly-linked list.
 //!
 //! [`Node`] is the per-item storage value. [`insert_at`], [`remove_at`] and
-//! [`walk_repair`] mutate or read the per-list [`ListNodes`], [`ListHeads`],
-//! [`ListTails`] and [`ListSizes`] storage maps and are wrapped by the trait
-//! impl in [`super::sorted_list_interface`].
+//! [`walk_repair`] mutate or read the per-list [`ListNodes`] and [`ListMetas`]
+//! storage maps and are wrapped by the trait impl in
+//! [`super::sorted_list_interface`].
 
-use crate::{pallet::*, Position};
+use crate::{pallet::*, ListMeta, Position};
 use frame::{deps::frame_support::traits::DefensiveOption, prelude::*};
 
 /// Fetch a neighbor's stored node, returning `CorruptList` if `id` is `Some` but
@@ -61,9 +61,10 @@ pub fn is_position_valid<T: Config>(
 	list_id: &T::ListId,
 	priority: &T::Priority,
 	pos: &Position<T::ItemId>,
+	meta: Option<&ListMeta<T::ItemId>>,
 ) -> bool {
 	let prev_ok = pos.prev.as_ref().map_or_else(
-		|| ListHeads::<T>::get(list_id) == pos.next,
+		|| meta.and_then(|m| m.head.as_ref()) == pos.next.as_ref(),
 		|p| {
 			ListNodes::<T>::get(list_id, p)
 				.is_some_and(|n| n.next == pos.next && n.priority >= *priority)
@@ -74,7 +75,7 @@ pub fn is_position_valid<T: Config>(
 	}
 
 	pos.next.as_ref().map_or_else(
-		|| ListTails::<T>::get(list_id) == pos.prev,
+		|| meta.and_then(|m| m.tail.as_ref()) == pos.prev.as_ref(),
 		|n| {
 			ListNodes::<T>::get(list_id, n)
 				.is_some_and(|node| node.prev == pos.prev && *priority > node.priority)
@@ -130,16 +131,20 @@ fn try_clamp_dangling<T: Config>(list_id: &T::ListId, current: &mut Position<T::
 /// (preferring `prev` on ties). Returns `false` when the links are already
 /// consistent.
 fn try_reanchor_inconsistent<T: Config>(
-	list_id: &T::ListId,
 	priority: &T::Priority,
 	current: &mut Position<T::ItemId>,
 	prev_node: Option<&Node<T::ItemId, T::Priority>>,
 	next_node: Option<&Node<T::ItemId, T::Priority>>,
+	meta: Option<&ListMeta<T::ItemId>>,
 ) -> bool {
-	let prev_links_match = prev_node
-		.map_or_else(|| ListHeads::<T>::get(list_id) == current.next, |pn| pn.next == current.next);
-	let next_links_match = next_node
-		.map_or_else(|| ListTails::<T>::get(list_id) == current.prev, |nn| nn.prev == current.prev);
+	let prev_links_match = prev_node.map_or_else(
+		|| meta.and_then(|m| m.head.as_ref()) == current.next.as_ref(),
+		|pn| pn.next == current.next,
+	);
+	let next_links_match = next_node.map_or_else(
+		|| meta.and_then(|m| m.tail.as_ref()) == current.prev.as_ref(),
+		|nn| nn.prev == current.prev,
+	);
 
 	if prev_links_match && next_links_match {
 		return false;
@@ -159,7 +164,7 @@ fn try_reanchor_inconsistent<T: Config>(
 		(None, Some(nn)) => current.prev = nn.prev.clone(),
 		(None, None) => {
 			current.prev = None;
-			current.next = ListHeads::<T>::get(list_id);
+			current.next = meta.and_then(|m| m.head.clone());
 		},
 	}
 	true
@@ -200,8 +205,9 @@ pub fn walk_repair<T: Config>(
 	priority: &T::Priority,
 	hint: Position<T::ItemId>,
 ) -> Result<(Position<T::ItemId>, u32), Error<T>> {
+	let meta = ListMetas::<T>::get(list_id);
 	let mut current = hint;
-	if is_position_valid::<T>(list_id, priority, &current) {
+	if is_position_valid::<T>(list_id, priority, &current, meta.as_ref()) {
 		return Ok((current, 0));
 	}
 
@@ -211,7 +217,7 @@ pub fn walk_repair<T: Config>(
 			let prev_node = current.prev.as_ref().and_then(|p| ListNodes::<T>::get(list_id, p));
 			let next_node = current.next.as_ref().and_then(|n| ListNodes::<T>::get(list_id, n));
 			let (pn, nn) = (prev_node.as_ref(), next_node.as_ref());
-			try_reanchor_inconsistent::<T>(list_id, priority, &mut current, pn, nn) ||
+			try_reanchor_inconsistent::<T>(priority, &mut current, pn, nn, meta.as_ref()) ||
 				try_walk_priority::<T>(priority, &mut current, pn, nn)
 		};
 		if !progressed {
@@ -220,9 +226,9 @@ pub fn walk_repair<T: Config>(
 			// loop still terminates within the budget.
 			defensive!("walk_repair: no repair step applicable, resetting to head");
 			current.prev = None;
-			current.next = ListHeads::<T>::get(list_id);
+			current.next = meta.as_ref().and_then(|m| m.head.clone());
 		}
-		if is_position_valid::<T>(list_id, priority, &current) {
+		if is_position_valid::<T>(list_id, priority, &current, meta.as_ref()) {
 			return Ok((current, steps));
 		}
 	}
@@ -242,7 +248,6 @@ pub fn insert_at<T: Config>(
 	if ListNodes::<T>::contains_key(list_id, item) {
 		return Err(Error::<T>::ItemAlreadyExists);
 	}
-	let new_size = ListSizes::<T>::get(list_id).checked_add(1).ok_or(Error::<T>::ListTooLong)?;
 
 	let prev_node = fetch_neighbor::<T>(list_id, position.prev.clone())?;
 	let next_node = fetch_neighbor::<T>(list_id, position.next.clone())?;
@@ -255,24 +260,36 @@ pub fn insert_at<T: Config>(
 
 	// This reads storage and is intentionally debug-only; dispatch weights are
 	// benchmarked without `debug_assertions`.
-	debug_assert!(is_position_valid::<T>(list_id, &priority, &position));
+	debug_assert!({
+		let meta = ListMetas::<T>::get(list_id);
+		is_position_valid::<T>(list_id, &priority, &position, meta.as_ref())
+	});
 
-	// Splice in on the head side: rewrite prev's `.next` to point at `item`,
-	// or promote `item` to head if there's no prev.
-	match prev_node {
-		Some((p, mut n)) => {
-			n.next = Some(item.clone());
-			ListNodes::<T>::insert(list_id, p, n);
-		},
-		None => ListHeads::<T>::insert(list_id, item),
+	// Fold head, tail, and len updates into one `ListMetas` row write. The
+	// overflow check sits inside the closure so that on `ListTooLong` no row is
+	// written and the prior meta is preserved.
+	ListMetas::<T>::try_mutate_exists(list_id, |slot| -> Result<(), Error<T>> {
+		let mut meta = slot.take().unwrap_or_default();
+		meta.len = meta.len.checked_add(1).ok_or(Error::<T>::ListTooLong)?;
+		if position.prev.is_none() {
+			meta.head = Some(item.clone());
+		}
+		if position.next.is_none() {
+			meta.tail = Some(item.clone());
+		}
+		*slot = Some(meta);
+		Ok(())
+	})?;
+
+	// Splice in on the head side: rewrite prev's `.next` to point at `item`.
+	if let Some((p, mut n)) = prev_node {
+		n.next = Some(item.clone());
+		ListNodes::<T>::insert(list_id, p, n);
 	}
 	// Symmetric on the tail side.
-	match next_node {
-		Some((n, mut node)) => {
-			node.prev = Some(item.clone());
-			ListNodes::<T>::insert(list_id, n, node);
-		},
-		None => ListTails::<T>::insert(list_id, item),
+	if let Some((n, mut node)) = next_node {
+		node.prev = Some(item.clone());
+		ListNodes::<T>::insert(list_id, n, node);
 	}
 
 	ListNodes::<T>::insert(
@@ -280,20 +297,14 @@ pub fn insert_at<T: Config>(
 		item,
 		Node { prev: position.prev, next: position.next, priority },
 	);
-	ListSizes::<T>::insert(list_id, new_size);
 	Ok(())
 }
 
-/// Remove `item` from `list_id`. Cleans up the list's
-/// `ListHeads`/`ListTails`/`ListSizes` rows when it becomes empty. Errors if
-/// `item` is not in the list.
+/// Remove `item` from `list_id`. Drops the [`ListMetas`] row when the list
+/// becomes empty. Errors if `item` is not in the list.
 pub fn remove_at<T: Config>(list_id: &T::ListId, item: &T::ItemId) -> Result<(), Error<T>> {
 	let Node { prev: removed_prev, next: removed_next, .. } =
 		ListNodes::<T>::get(list_id, item).ok_or(Error::<T>::ItemNotFound)?;
-	// Defensive: by `try_state` invariant 1, a present node implies `ListSizes >= 1`.
-	let new_size = ListSizes::<T>::get(list_id)
-		.checked_sub(1)
-		.defensive_ok_or(Error::<T>::CorruptList)?;
 	if removed_prev.as_ref() == Some(item) || removed_next.as_ref() == Some(item) {
 		return Err(Error::<T>::CorruptList);
 	}
@@ -309,35 +320,35 @@ pub fn remove_at<T: Config>(list_id: &T::ListId, item: &T::ItemId) -> Result<(),
 
 	ListNodes::<T>::remove(list_id, item);
 
-	// Splice past `item` on the head side: rewrite prev's `.next` to skip us,
-	// or rewrite the head pointer to `removed_next` (which clears it when the
-	// list emptied).
-	match prev_node {
-		Some((p, mut left)) => {
-			left.next = removed_next;
-			ListNodes::<T>::insert(list_id, p, left);
-		},
-		None => match removed_next {
-			Some(new_head) => ListHeads::<T>::insert(list_id, new_head),
-			None => ListHeads::<T>::remove(list_id),
-		},
+	// Splice past `item` in the neighbors' node rows.
+	if let Some((p, mut left)) = prev_node {
+		left.next = removed_next.clone();
+		ListNodes::<T>::insert(list_id, p, left);
 	}
-	// Symmetric on the tail side.
-	match next_node {
-		Some((n, mut right)) => {
-			right.prev = removed_prev;
-			ListNodes::<T>::insert(list_id, n, right);
-		},
-		None => match removed_prev {
-			Some(new_tail) => ListTails::<T>::insert(list_id, new_tail),
-			None => ListTails::<T>::remove(list_id),
-		},
+	if let Some((n, mut right)) = next_node {
+		right.prev = removed_prev.clone();
+		ListNodes::<T>::insert(list_id, n, right);
 	}
 
-	if new_size == 0 {
-		ListSizes::<T>::remove(list_id);
-	} else {
-		ListSizes::<T>::insert(list_id, new_size);
-	}
-	Ok(())
+	// Fold head/tail/len updates into one row write; the row vanishes once the
+	// list empties.
+	ListMetas::<T>::try_mutate_exists(list_id, |slot| -> Result<(), Error<T>> {
+		// Defensive: by the all-or-nothing invariant a present node implies a
+		// present meta row with `len >= 1`.
+		let mut meta = slot.take().defensive_ok_or(Error::<T>::CorruptList)?;
+		meta.len = meta.len.checked_sub(1).defensive_ok_or(Error::<T>::CorruptList)?;
+		// We removed the head iff the removed node had no `prev`; the new head is
+		// then the removed item's `next` (`None` once the list empties).
+		if removed_prev.is_none() {
+			meta.head = removed_next.clone();
+		}
+		// Symmetric for the tail.
+		if removed_next.is_none() {
+			meta.tail = removed_prev.clone();
+		}
+		if meta.len > 0 {
+			*slot = Some(meta);
+		}
+		Ok(())
+	})
 }

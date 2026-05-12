@@ -51,7 +51,7 @@ use frame::prelude::*;
 pub use list::Node;
 pub use pallet::*;
 pub use sorted_list_interface::{PriorityProvider, SortedListInterface};
-pub use types::{Outcome, Position, Side};
+pub use types::{ListMeta, Outcome, Position, Side};
 
 mod dispatchables;
 mod list;
@@ -138,17 +138,11 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// Highest-priority item in each non-empty list.
+	/// Per-list head pointer, tail pointer, and item count. Removed when a list empties, absence
+	/// encodes the empty list.
 	#[pallet::storage]
-	pub type ListHeads<T: Config> = StorageMap<_, Twox64Concat, T::ListId, T::ItemId, OptionQuery>;
-
-	/// Lowest-priority item in each non-empty list.
-	#[pallet::storage]
-	pub type ListTails<T: Config> = StorageMap<_, Twox64Concat, T::ListId, T::ItemId, OptionQuery>;
-
-	/// Node count per list. Removed (not zeroed) when a list empties.
-	#[pallet::storage]
-	pub type ListSizes<T: Config> = StorageMap<_, Twox64Concat, T::ListId, u32, ValueQuery>;
+	pub type ListMetas<T: Config> =
+		StorageMap<_, Twox64Concat, T::ListId, ListMeta<T::ItemId>, OptionQuery>;
 
 	/// Authoritative priority backing for benchmarks. Production runtimes derive
 	/// the priority from external state (e.g. stake) via their own

@@ -28,8 +28,9 @@ pub fn iter_from_tail<T: Config>(list_id: &T::ListId, n: u32) -> Vec<T::ItemId> 
 	if n == 0 {
 		return Vec::new();
 	}
-	let mut out = Vec::with_capacity(n.min(ListSizes::<T>::get(list_id)) as usize);
-	let mut cursor = ListTails::<T>::get(list_id);
+	let meta = ListMetas::<T>::get(list_id);
+	let mut out = Vec::with_capacity(n.min(meta.as_ref().map_or(0, |m| m.len)) as usize);
+	let mut cursor = meta.and_then(|m| m.tail);
 	for _ in 0..n {
 		let Some(item) = cursor else { break };
 		let prev = ListNodes::<T>::get(list_id, &item).and_then(|node| node.prev);
@@ -46,7 +47,7 @@ pub fn iter_from_tail<T: Config>(list_id: &T::ListId, n: u32) -> Vec<T::ItemId> 
 /// O(list size). Off-chain helper; not for hot paths.
 pub fn find_position<T: Config>(list_id: &T::ListId, priority: T::Priority) -> Position<T::ItemId> {
 	let mut prev: Option<T::ItemId> = None;
-	let mut cursor = ListHeads::<T>::get(list_id);
+	let mut cursor = ListMetas::<T>::get(list_id).and_then(|m| m.head);
 	while let Some(item) = cursor {
 		let Some(node) = ListNodes::<T>::get(list_id, &item) else { break };
 		if priority > node.priority {
@@ -70,7 +71,7 @@ pub fn find_re_insert_position<T: Config>(
 		return None;
 	}
 	let mut prev: Option<T::ItemId> = None;
-	let mut cursor = ListHeads::<T>::get(list_id);
+	let mut cursor = ListMetas::<T>::get(list_id).and_then(|m| m.head);
 	while let Some(cur) = cursor {
 		if &cur == item {
 			cursor = ListNodes::<T>::get(list_id, &cur).and_then(|n| n.next);

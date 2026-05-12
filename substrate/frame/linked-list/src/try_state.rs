@@ -17,13 +17,14 @@
 
 //! `try-runtime` invariant checks.
 //!
-//! For every list with rows in any of [`ListNodes`], [`ListHeads`],
-//! [`ListTails`] or [`ListSizes`]:
+//! For every list with rows in either [`ListNodes`] or [`ListMetas`]:
 //!
-//! 1. Head/tail/size/nodes are all-or-nothing.
-//! 2. The head node has `prev = None` and the tail node has `next = None`.
-//! 3. Forward and reverse walks visit exactly `ListSizes[list_id]` nodes (capped at `size + 1` to
-//!    detect cycles).
+//! 1. The meta row and the node rows are all-or-nothing (`ListMetas[list_id]` present iff at least
+//!    one `ListNodes` row exists for `list_id`).
+//! 2. When the meta row exists, its `head`/`tail` are both `Some(_)` and `len >= 1`; the head node
+//!    has `prev = None` and the tail node has `next = None`.
+//! 3. Forward and reverse walks visit exactly `meta.len` nodes (capped at `len + 1` to detect
+//!    cycles).
 //! 4. Priorities are non-increasing from head to tail.
 //! 5. No node points to itself; every neighbor reference resolves to an existing node in the same
 //!    list.
@@ -49,13 +50,7 @@ impl<T: Config> Pallet<T> {
 				list_ids.push(list_id);
 			}
 		};
-		for k in ListHeads::<T>::iter_keys() {
-			push_unique(k, &mut list_ids);
-		}
-		for k in ListTails::<T>::iter_keys() {
-			push_unique(k, &mut list_ids);
-		}
-		for k in ListSizes::<T>::iter_keys() {
+		for k in ListMetas::<T>::iter_keys() {
 			push_unique(k, &mut list_ids);
 		}
 		for (b, _) in ListNodes::<T>::iter_keys() {
@@ -70,37 +65,31 @@ impl<T: Config> Pallet<T> {
 
 	#[cfg(feature = "try-runtime")]
 	fn try_state_list(list_id: &T::ListId) -> Result<(), TryRuntimeError> {
-		let head = ListHeads::<T>::get(list_id);
-		let tail = ListTails::<T>::get(list_id);
-		let stored_size = ListSizes::<T>::get(list_id);
+		let meta = ListMetas::<T>::get(list_id);
 		let nodes_present = ListNodes::<T>::iter_key_prefix(list_id).next().is_some();
 
-		let is_empty = head.is_none();
-		if is_empty {
-			if tail.is_some() {
-				return Err("ListTails set without ListHeads".into());
-			}
-			if stored_size != 0 {
-				return Err("ListSizes non-zero on empty list".into());
-			}
+		let Some(meta) = meta else {
 			if nodes_present {
-				return Err("ListNodes present on empty list".into());
+				return Err("ListNodes present without ListMetas".into());
 			}
 			return Ok(());
-		}
-		if tail.is_none() {
-			return Err("ListHeads set without ListTails".into());
-		}
-		if stored_size == 0 {
-			return Err("ListSizes is zero on non-empty list".into());
+		};
+		if !nodes_present {
+			return Err("ListMetas present without ListNodes".into());
 		}
 
-		let head_id = head.expect("checked above; qed");
-		let tail_id = tail.expect("checked above; qed");
+		let head_id =
+			meta.head.clone().ok_or::<TryRuntimeError>("ListMetas.head is None".into())?;
+		let tail_id =
+			meta.tail.clone().ok_or::<TryRuntimeError>("ListMetas.tail is None".into())?;
+		if meta.len == 0 {
+			return Err("ListMetas.len is zero on present row".into());
+		}
+		let stored_size = meta.len;
 		let head_node = ListNodes::<T>::get(list_id, &head_id)
-			.ok_or::<TryRuntimeError>("ListHeads points to missing node".into())?;
+			.ok_or::<TryRuntimeError>("ListMetas.head points to missing node".into())?;
 		let tail_node = ListNodes::<T>::get(list_id, &tail_id)
-			.ok_or::<TryRuntimeError>("ListTails points to missing node".into())?;
+			.ok_or::<TryRuntimeError>("ListMetas.tail points to missing node".into())?;
 		if head_node.prev.is_some() {
 			return Err("head node has non-None prev".into());
 		}
@@ -150,7 +139,7 @@ impl<T: Config> Pallet<T> {
 			forward.push(cur);
 		}
 		if u32::try_from(forward.len()).map_or(true, |n| n != stored_size) {
-			return Err("forward walk count != ListSizes".into());
+			return Err("forward walk count != ListMetas.len".into());
 		}
 
 		// Reverse walk must match the reverse of the forward walk.

@@ -24,8 +24,35 @@
 //!
 //! [`Side`] names the two ends of the list (head, tail) and is used by
 //! [`Position::is_endpoint`].
+//!
+//! [`ListMeta`] bundles the head pointer, tail pointer, and item count of a
+//! single list into one storage row so they can be read/written together.
 
 use frame::prelude::*;
+
+/// Per-list head/tail/length triple, stored as a single row in
+/// [`crate::ListMetas`]. Absence of the row encodes the empty list.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+	Debug,
+	DefaultNoBound,
+)]
+pub struct ListMeta<ItemId> {
+	/// Highest-priority item, or `None` only as a transient state during mutation.
+	pub head: Option<ItemId>,
+	/// Lowest-priority item, or `None` only as a transient state during mutation.
+	pub tail: Option<ItemId>,
+	/// Number of items in the list. `0` only as a transient state during mutation;
+	/// rows with `len == 0` are removed.
+	pub len: u32,
+}
 
 /// `(prev, next)` location of a candidate insertion site relative to the
 /// head→tail axis of a list.

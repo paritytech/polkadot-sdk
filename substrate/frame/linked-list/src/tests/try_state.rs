@@ -21,9 +21,7 @@
 
 #![cfg(feature = "try-runtime")]
 
-use crate::{
-	mock::*, ListHeads, ListNodes, ListSizes, ListTails, Node, Position, SortedListInterface,
-};
+use crate::{mock::*, ListMeta, ListMetas, ListNodes, Node, Position, SortedListInterface};
 
 #[test]
 fn consistent_after_random_op_sequence() {
@@ -48,7 +46,11 @@ fn corrupt_size_detected() {
 		insert(1, 1, 50);
 		insert(1, 2, 30);
 		// Force the count to lie.
-		ListSizes::<Test>::insert(1, 99u32);
+		ListMetas::<Test>::mutate(1, |maybe| {
+			if let Some(m) = maybe {
+				m.len = 99;
+			}
+		});
 		assert!(<LinkedList>::do_try_state().is_err());
 	});
 }
@@ -58,7 +60,11 @@ fn corrupt_head_tail_mismatch_detected() {
 	build_and_execute_no_post_check(|| {
 		insert(1, 1, 50);
 		// Tail set without head.
-		ListHeads::<Test>::remove(1);
+		ListMetas::<Test>::mutate(1, |maybe| {
+			if let Some(m) = maybe {
+				m.head = None;
+			}
+		});
 		assert!(<LinkedList>::do_try_state().is_err());
 	});
 }
@@ -74,10 +80,14 @@ fn corrupt_link_cycle_detected() {
 				n.next = Some(1);
 			}
 		});
-		// Patch the size and tail to match; the walk should still detect the
-		// cycle by exceeding the visited-count cap.
-		ListSizes::<Test>::insert(1, 99);
-		ListTails::<Test>::insert(1, 1);
+		// Patch the meta to match; the walk should still detect the cycle by
+		// exceeding the visited-count cap.
+		ListMetas::<Test>::mutate(1, |maybe| {
+			if let Some(m) = maybe {
+				m.len = 99;
+				m.tail = Some(1);
+			}
+		});
 		assert!(<LinkedList>::do_try_state().is_err());
 	});
 }
@@ -85,7 +95,7 @@ fn corrupt_link_cycle_detected() {
 #[test]
 fn empty_list_with_stale_size_detected() {
 	build_and_execute_no_post_check(|| {
-		ListSizes::<Test>::insert(1, 5);
+		ListMetas::<Test>::insert(1, ListMeta { len: 5, ..Default::default() });
 		assert!(<LinkedList>::do_try_state().is_err());
 	});
 }
@@ -107,8 +117,8 @@ fn orphan_unreachable_node_detected() {
 		insert(1, 1, 50);
 		insert(1, 2, 30);
 		// Add a row not on the head→tail chain. The forward/reverse walks
-		// still see exactly the 2 reachable nodes and `ListSizes` agrees, so
-		// only the total-node-count check catches this.
+		// still see exactly the 2 reachable nodes and `ListMetas.len` agrees,
+		// so only the total-node-count check catches this.
 		ListNodes::<Test>::insert(1, 999u64, Node { prev: None, next: None, priority: 100u32 });
 		assert!(<LinkedList>::do_try_state().is_err());
 	});

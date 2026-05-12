@@ -71,34 +71,32 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `LinkedList::ListNodes` (r:18 w:2)
 	/// Proof: `LinkedList::ListNodes` (`max_values`: None, `max_size`: Some(46), added: 2521, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListHeads` (r:1 w:1)
-	/// Proof: `LinkedList::ListHeads` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListSizes` (r:1 w:1)
-	/// Proof: `LinkedList::ListSizes` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
+	/// Storage: `LinkedList::ListMetas` (r:1 w:1)
+	/// Proof: `LinkedList::ListMetas` (`max_values`: None, `max_size`: Some(26), added: 2501, mode: `MaxEncodedLen`)
 	/// The range of component `s` is `[0, 16]`.
 	fn insert(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `257 + s * (38 ±0)`
+		//  Measured:  `194 + s * (38 ±0)`
 		//  Estimated: `6032 + s * (2521 ±0)`
-		// Minimum execution time: 27_531_000 picoseconds.
-		Weight::from_parts(31_242_087, 6032)
-			// Standard Error: 18_936
-			.saturating_add(Weight::from_parts(11_869_768, 0).saturating_mul(s.into()))
-			.saturating_add(T::DbWeight::get().reads(4_u64))
+		// Minimum execution time: 23_970_000 picoseconds.
+		Weight::from_parts(25_871_969, 6032)
+			// Standard Error: 13_732
+			.saturating_add(Weight::from_parts(11_456_114, 0).saturating_mul(s.into()))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(s.into())))
-			.saturating_add(T::DbWeight::get().writes(4_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
 			.saturating_add(Weight::from_parts(0, 2521).saturating_mul(s.into()))
 	}
 	/// Storage: `LinkedList::ListNodes` (r:3 w:3)
 	/// Proof: `LinkedList::ListNodes` (`max_values`: None, `max_size`: Some(46), added: 2521, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListSizes` (r:1 w:1)
-	/// Proof: `LinkedList::ListSizes` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
+	/// Storage: `LinkedList::ListMetas` (r:1 w:1)
+	/// Proof: `LinkedList::ListMetas` (`max_values`: None, `max_size`: Some(26), added: 2501, mode: `MaxEncodedLen`)
 	fn remove() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `332`
+		//  Measured:  `271`
 		//  Estimated: `8553`
-		// Minimum execution time: 27_140_000 picoseconds.
-		Weight::from_parts(29_980_000, 8553)
+		// Minimum execution time: 26_270_000 picoseconds.
+		Weight::from_parts(28_351_000, 8553)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
@@ -106,33 +104,29 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `LinkedList::ListNodes` (`max_values`: None, `max_size`: Some(46), added: 2521, mode: `MaxEncodedLen`)
 	fn re_insert_in_place() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `334`
+		//  Measured:  `264`
 		//  Estimated: `8553`
-		// Minimum execution time: 19_720_000 picoseconds.
-		Weight::from_parts(22_430_000, 8553)
+		// Minimum execution time: 19_610_000 picoseconds.
+		Weight::from_parts(21_830_000, 8553)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `LinkedList::ListNodes` (r:18 w:3)
 	/// Proof: `LinkedList::ListNodes` (`max_values`: None, `max_size`: Some(46), added: 2521, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListSizes` (r:1 w:1)
-	/// Proof: `LinkedList::ListSizes` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListHeads` (r:1 w:1)
-	/// Proof: `LinkedList::ListHeads` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListTails` (r:0 w:1)
-	/// Proof: `LinkedList::ListTails` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
+	/// Storage: `LinkedList::ListMetas` (r:1 w:1)
+	/// Proof: `LinkedList::ListMetas` (`max_values`: None, `max_size`: Some(26), added: 2501, mode: `MaxEncodedLen`)
 	/// The range of component `s` is `[0, 16]`.
 	fn re_insert_relocate(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `257 + s * (38 ±0)`
+		//  Measured:  `194 + s * (38 ±0)`
 		//  Estimated: `6032 + s * (2521 ±0)`
-		// Minimum execution time: 43_390_000 picoseconds.
-		Weight::from_parts(48_151_355, 6032)
-			// Standard Error: 18_180
-			.saturating_add(Weight::from_parts(12_017_669, 0).saturating_mul(s.into()))
-			.saturating_add(T::DbWeight::get().reads(4_u64))
+		// Minimum execution time: 36_809_000 picoseconds.
+		Weight::from_parts(40_286_949, 6032)
+			// Standard Error: 13_650
+			.saturating_add(Weight::from_parts(11_716_520, 0).saturating_mul(s.into()))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(s.into())))
-			.saturating_add(T::DbWeight::get().writes(6_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
 			.saturating_add(Weight::from_parts(0, 2521).saturating_mul(s.into()))
 	}
 	/// Storage: `LinkedList::BenchAuthoritativePriority` (r:1 w:0)
@@ -141,10 +135,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `LinkedList::ListNodes` (`max_values`: None, `max_size`: Some(46), added: 2521, mode: `MaxEncodedLen`)
 	fn reprioritize_no_op() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `350`
+		//  Measured:  `276`
 		//  Estimated: `8553`
-		// Minimum execution time: 28_200_000 picoseconds.
-		Weight::from_parts(31_771_000, 8553)
+		// Minimum execution time: 26_720_000 picoseconds.
+		Weight::from_parts(30_501_000, 8553)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -154,10 +148,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `LinkedList::ListNodes` (`max_values`: None, `max_size`: Some(46), added: 2521, mode: `MaxEncodedLen`)
 	fn reprioritize_in_place() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `350`
+		//  Measured:  `276`
 		//  Estimated: `8553`
-		// Minimum execution time: 27_940_000 picoseconds.
-		Weight::from_parts(32_629_000, 8553)
+		// Minimum execution time: 26_560_000 picoseconds.
+		Weight::from_parts(29_940_000, 8553)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -165,38 +159,34 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `LinkedList::BenchAuthoritativePriority` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	/// Storage: `LinkedList::ListNodes` (r:18 w:3)
 	/// Proof: `LinkedList::ListNodes` (`max_values`: None, `max_size`: Some(46), added: 2521, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListSizes` (r:1 w:1)
-	/// Proof: `LinkedList::ListSizes` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListHeads` (r:1 w:1)
-	/// Proof: `LinkedList::ListHeads` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListTails` (r:0 w:1)
-	/// Proof: `LinkedList::ListTails` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
+	/// Storage: `LinkedList::ListMetas` (r:1 w:1)
+	/// Proof: `LinkedList::ListMetas` (`max_values`: None, `max_size`: Some(26), added: 2501, mode: `MaxEncodedLen`)
 	/// The range of component `s` is `[0, 16]`.
 	fn reprioritize_relocate(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `317 + s * (38 ±0)`
+		//  Measured:  `251 + s * (38 ±0)`
 		//  Estimated: `6032 + s * (2521 ±0)`
-		// Minimum execution time: 52_891_000 picoseconds.
-		Weight::from_parts(62_721_058, 6032)
-			// Standard Error: 28_395
-			.saturating_add(Weight::from_parts(12_334_328, 0).saturating_mul(s.into()))
-			.saturating_add(T::DbWeight::get().reads(5_u64))
+		// Minimum execution time: 44_530_000 picoseconds.
+		Weight::from_parts(48_884_861, 6032)
+			// Standard Error: 13_239
+			.saturating_add(Weight::from_parts(11_587_681, 0).saturating_mul(s.into()))
+			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(s.into())))
-			.saturating_add(T::DbWeight::get().writes(6_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
 			.saturating_add(Weight::from_parts(0, 2521).saturating_mul(s.into()))
 	}
 	/// Storage: `LinkedList::BenchAuthoritativePriority` (r:1 w:0)
 	/// Proof: `LinkedList::BenchAuthoritativePriority` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	/// Storage: `LinkedList::ListNodes` (r:3 w:3)
 	/// Proof: `LinkedList::ListNodes` (`max_values`: None, `max_size`: Some(46), added: 2521, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListSizes` (r:1 w:1)
-	/// Proof: `LinkedList::ListSizes` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
+	/// Storage: `LinkedList::ListMetas` (r:1 w:1)
+	/// Proof: `LinkedList::ListMetas` (`max_values`: None, `max_size`: Some(26), added: 2501, mode: `MaxEncodedLen`)
 	fn reprioritize_priority_removed() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `294`
+		//  Measured:  `231`
 		//  Estimated: `8553`
-		// Minimum execution time: 32_380_000 picoseconds.
-		Weight::from_parts(36_230_000, 8553)
+		// Minimum execution time: 30_200_000 picoseconds.
+		Weight::from_parts(33_870_000, 8553)
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
@@ -206,34 +196,32 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	/// Storage: `LinkedList::ListNodes` (r:18 w:2)
 	/// Proof: `LinkedList::ListNodes` (`max_values`: None, `max_size`: Some(46), added: 2521, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListHeads` (r:1 w:1)
-	/// Proof: `LinkedList::ListHeads` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListSizes` (r:1 w:1)
-	/// Proof: `LinkedList::ListSizes` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
+	/// Storage: `LinkedList::ListMetas` (r:1 w:1)
+	/// Proof: `LinkedList::ListMetas` (`max_values`: None, `max_size`: Some(26), added: 2501, mode: `MaxEncodedLen`)
 	/// The range of component `s` is `[0, 16]`.
 	fn insert(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `257 + s * (38 ±0)`
+		//  Measured:  `194 + s * (38 ±0)`
 		//  Estimated: `6032 + s * (2521 ±0)`
-		// Minimum execution time: 27_531_000 picoseconds.
-		Weight::from_parts(31_242_087, 6032)
-			// Standard Error: 18_936
-			.saturating_add(Weight::from_parts(11_869_768, 0).saturating_mul(s.into()))
-			.saturating_add(RocksDbWeight::get().reads(4_u64))
+		// Minimum execution time: 23_970_000 picoseconds.
+		Weight::from_parts(25_871_969, 6032)
+			// Standard Error: 13_732
+			.saturating_add(Weight::from_parts(11_456_114, 0).saturating_mul(s.into()))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(s.into())))
-			.saturating_add(RocksDbWeight::get().writes(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 			.saturating_add(Weight::from_parts(0, 2521).saturating_mul(s.into()))
 	}
 	/// Storage: `LinkedList::ListNodes` (r:3 w:3)
 	/// Proof: `LinkedList::ListNodes` (`max_values`: None, `max_size`: Some(46), added: 2521, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListSizes` (r:1 w:1)
-	/// Proof: `LinkedList::ListSizes` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
+	/// Storage: `LinkedList::ListMetas` (r:1 w:1)
+	/// Proof: `LinkedList::ListMetas` (`max_values`: None, `max_size`: Some(26), added: 2501, mode: `MaxEncodedLen`)
 	fn remove() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `332`
+		//  Measured:  `271`
 		//  Estimated: `8553`
-		// Minimum execution time: 27_140_000 picoseconds.
-		Weight::from_parts(29_980_000, 8553)
+		// Minimum execution time: 26_270_000 picoseconds.
+		Weight::from_parts(28_351_000, 8553)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
@@ -241,33 +229,29 @@ impl WeightInfo for () {
 	/// Proof: `LinkedList::ListNodes` (`max_values`: None, `max_size`: Some(46), added: 2521, mode: `MaxEncodedLen`)
 	fn re_insert_in_place() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `334`
+		//  Measured:  `264`
 		//  Estimated: `8553`
-		// Minimum execution time: 19_720_000 picoseconds.
-		Weight::from_parts(22_430_000, 8553)
+		// Minimum execution time: 19_610_000 picoseconds.
+		Weight::from_parts(21_830_000, 8553)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `LinkedList::ListNodes` (r:18 w:3)
 	/// Proof: `LinkedList::ListNodes` (`max_values`: None, `max_size`: Some(46), added: 2521, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListSizes` (r:1 w:1)
-	/// Proof: `LinkedList::ListSizes` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListHeads` (r:1 w:1)
-	/// Proof: `LinkedList::ListHeads` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListTails` (r:0 w:1)
-	/// Proof: `LinkedList::ListTails` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
+	/// Storage: `LinkedList::ListMetas` (r:1 w:1)
+	/// Proof: `LinkedList::ListMetas` (`max_values`: None, `max_size`: Some(26), added: 2501, mode: `MaxEncodedLen`)
 	/// The range of component `s` is `[0, 16]`.
 	fn re_insert_relocate(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `257 + s * (38 ±0)`
+		//  Measured:  `194 + s * (38 ±0)`
 		//  Estimated: `6032 + s * (2521 ±0)`
-		// Minimum execution time: 43_390_000 picoseconds.
-		Weight::from_parts(48_151_355, 6032)
-			// Standard Error: 18_180
-			.saturating_add(Weight::from_parts(12_017_669, 0).saturating_mul(s.into()))
-			.saturating_add(RocksDbWeight::get().reads(4_u64))
+		// Minimum execution time: 36_809_000 picoseconds.
+		Weight::from_parts(40_286_949, 6032)
+			// Standard Error: 13_650
+			.saturating_add(Weight::from_parts(11_716_520, 0).saturating_mul(s.into()))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(s.into())))
-			.saturating_add(RocksDbWeight::get().writes(6_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
 			.saturating_add(Weight::from_parts(0, 2521).saturating_mul(s.into()))
 	}
 	/// Storage: `LinkedList::BenchAuthoritativePriority` (r:1 w:0)
@@ -276,10 +260,10 @@ impl WeightInfo for () {
 	/// Proof: `LinkedList::ListNodes` (`max_values`: None, `max_size`: Some(46), added: 2521, mode: `MaxEncodedLen`)
 	fn reprioritize_no_op() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `350`
+		//  Measured:  `276`
 		//  Estimated: `8553`
-		// Minimum execution time: 28_200_000 picoseconds.
-		Weight::from_parts(31_771_000, 8553)
+		// Minimum execution time: 26_720_000 picoseconds.
+		Weight::from_parts(30_501_000, 8553)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
@@ -289,10 +273,10 @@ impl WeightInfo for () {
 	/// Proof: `LinkedList::ListNodes` (`max_values`: None, `max_size`: Some(46), added: 2521, mode: `MaxEncodedLen`)
 	fn reprioritize_in_place() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `350`
+		//  Measured:  `276`
 		//  Estimated: `8553`
-		// Minimum execution time: 27_940_000 picoseconds.
-		Weight::from_parts(32_629_000, 8553)
+		// Minimum execution time: 26_560_000 picoseconds.
+		Weight::from_parts(29_940_000, 8553)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
@@ -300,38 +284,34 @@ impl WeightInfo for () {
 	/// Proof: `LinkedList::BenchAuthoritativePriority` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	/// Storage: `LinkedList::ListNodes` (r:18 w:3)
 	/// Proof: `LinkedList::ListNodes` (`max_values`: None, `max_size`: Some(46), added: 2521, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListSizes` (r:1 w:1)
-	/// Proof: `LinkedList::ListSizes` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListHeads` (r:1 w:1)
-	/// Proof: `LinkedList::ListHeads` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListTails` (r:0 w:1)
-	/// Proof: `LinkedList::ListTails` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
+	/// Storage: `LinkedList::ListMetas` (r:1 w:1)
+	/// Proof: `LinkedList::ListMetas` (`max_values`: None, `max_size`: Some(26), added: 2501, mode: `MaxEncodedLen`)
 	/// The range of component `s` is `[0, 16]`.
 	fn reprioritize_relocate(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `317 + s * (38 ±0)`
+		//  Measured:  `251 + s * (38 ±0)`
 		//  Estimated: `6032 + s * (2521 ±0)`
-		// Minimum execution time: 52_891_000 picoseconds.
-		Weight::from_parts(62_721_058, 6032)
-			// Standard Error: 28_395
-			.saturating_add(Weight::from_parts(12_334_328, 0).saturating_mul(s.into()))
-			.saturating_add(RocksDbWeight::get().reads(5_u64))
+		// Minimum execution time: 44_530_000 picoseconds.
+		Weight::from_parts(48_884_861, 6032)
+			// Standard Error: 13_239
+			.saturating_add(Weight::from_parts(11_587_681, 0).saturating_mul(s.into()))
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(s.into())))
-			.saturating_add(RocksDbWeight::get().writes(6_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
 			.saturating_add(Weight::from_parts(0, 2521).saturating_mul(s.into()))
 	}
 	/// Storage: `LinkedList::BenchAuthoritativePriority` (r:1 w:0)
 	/// Proof: `LinkedList::BenchAuthoritativePriority` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	/// Storage: `LinkedList::ListNodes` (r:3 w:3)
 	/// Proof: `LinkedList::ListNodes` (`max_values`: None, `max_size`: Some(46), added: 2521, mode: `MaxEncodedLen`)
-	/// Storage: `LinkedList::ListSizes` (r:1 w:1)
-	/// Proof: `LinkedList::ListSizes` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
+	/// Storage: `LinkedList::ListMetas` (r:1 w:1)
+	/// Proof: `LinkedList::ListMetas` (`max_values`: None, `max_size`: Some(26), added: 2501, mode: `MaxEncodedLen`)
 	fn reprioritize_priority_removed() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `294`
+		//  Measured:  `231`
 		//  Estimated: `8553`
-		// Minimum execution time: 32_380_000 picoseconds.
-		Weight::from_parts(36_230_000, 8553)
+		// Minimum execution time: 30_200_000 picoseconds.
+		Weight::from_parts(33_870_000, 8553)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
