@@ -58,13 +58,7 @@ impl pallet_linked_list::PriorityProvider<ListId, ItemId> for StaticPriorityProv
 	fn priority(list_id: &ListId, item: &ItemId) -> Option<Priority> {
 		StaticPriorities::get().get(&(*list_id, *item)).copied()
 	}
-}
 
-#[cfg(feature = "runtime-benchmarks")]
-pub struct LinkedListBenchHelper;
-
-#[cfg(feature = "runtime-benchmarks")]
-impl pallet_linked_list::BenchmarkHelper<ListId, ItemId, Priority> for LinkedListBenchHelper {
 	fn set_priority(list_id: &ListId, item: &ItemId, priority: Priority) {
 		StaticPriorities::mutate(|m| {
 			m.insert((*list_id, *item), priority);
@@ -79,8 +73,6 @@ impl pallet_linked_list::Config for Test {
 	type Priority = Priority;
 	type MaxHintRepairSteps = MaxHintRepairSteps;
 	type PriorityProvider = StaticPriorityProvider;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = LinkedListBenchHelper;
 }
 
 pub(crate) fn new_test_ext() -> TestState {

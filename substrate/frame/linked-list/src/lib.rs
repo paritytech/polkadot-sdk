@@ -53,13 +53,6 @@ pub use pallet::*;
 pub use sorted_list_interface::{PriorityProvider, SortedListInterface};
 pub use types::{Outcome, Position, Side};
 
-/// Benchmark fixture: overrides the authoritative priority used by
-/// [`PriorityProvider`] so the `reprioritize` benchmark can simulate priority drift.
-#[cfg(feature = "runtime-benchmarks")]
-pub trait BenchmarkHelper<ListId, ItemId, Priority> {
-	fn set_priority(list_id: &ListId, item: &ItemId, priority: Priority);
-}
-
 mod dispatchables;
 mod list;
 mod sorted_list_interface;
@@ -131,10 +124,6 @@ pub mod pallet {
 		/// failing with [`Error::InvalidPositionHints`].
 		#[pallet::constant]
 		type MaxHintRepairSteps: Get<u32>;
-
-		/// Benchmark fixture used to mint test values.
-		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: crate::BenchmarkHelper<Self::ListId, Self::ItemId, Self::Priority>;
 	}
 
 	/// Nodes of the per-list sorted list.
@@ -160,6 +149,22 @@ pub mod pallet {
 	/// Node count per list. Removed (not zeroed) when a list empties.
 	#[pallet::storage]
 	pub type ListSizes<T: Config> = StorageMap<_, Twox64Concat, T::ListId, u32, ValueQuery>;
+
+	/// Authoritative priority backing for benchmarks. Production runtimes derive
+	/// the priority from external state (e.g. stake) via their own
+	/// [`PriorityProvider`] impl; this storage exists so the pallet can be
+	/// benchmarked standalone, paired with [`crate::BenchPriorityProvider`].
+	#[cfg(feature = "runtime-benchmarks")]
+	#[pallet::storage]
+	pub type BenchAuthoritativePriority<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		T::ListId,
+		Blake2_128Concat,
+		T::ItemId,
+		T::Priority,
+		OptionQuery,
+	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -302,5 +307,22 @@ pub mod pallet {
 			let actual_weight = Self::do_reprioritize(list_id, item, hint)?;
 			Ok(Some(actual_weight).into())
 		}
+	}
+}
+
+/// [`PriorityProvider`] adapter backed by [`pallet::BenchAuthoritativePriority`].
+#[cfg(feature = "runtime-benchmarks")]
+pub struct BenchPriorityProvider<T>(core::marker::PhantomData<T>);
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config> PriorityProvider<T::ListId, T::ItemId> for BenchPriorityProvider<T> {
+	type Priority = T::Priority;
+
+	fn priority(list_id: &T::ListId, item: &T::ItemId) -> Option<T::Priority> {
+		pallet::BenchAuthoritativePriority::<T>::get(list_id, item)
+	}
+
+	fn set_priority(list_id: &T::ListId, item: &T::ItemId, priority: T::Priority) {
+		pallet::BenchAuthoritativePriority::<T>::insert(list_id, item, priority);
 	}
 }

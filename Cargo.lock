@@ -9817,6 +9817,7 @@ dependencies = [
  "node-primitives",
  "pallet-example-mbm",
  "pallet-example-tasks",
+ "pallet-linked-list",
  "parity-scale-codec",
  "polkadot-sdk",
  "primitive-types 0.13.1",

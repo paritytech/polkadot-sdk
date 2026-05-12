@@ -382,6 +382,34 @@ impl pallet_example_tasks::Config for Runtime {
 
 impl pallet_example_mbm::Config for Runtime {}
 
+parameter_types! {
+	pub const LinkedListMaxHintRepairSteps: u32 = 16;
+}
+
+impl pallet_linked_list::Config for Runtime {
+	type WeightInfo = ();
+	type ListId = u32;
+	type ItemId = u32;
+	type Priority = u32;
+	type MaxHintRepairSteps = LinkedListMaxHintRepairSteps;
+	#[cfg(feature = "runtime-benchmarks")]
+	type PriorityProvider = pallet_linked_list::BenchPriorityProvider<Runtime>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type PriorityProvider = LinkedListNoopPriorityProvider;
+}
+
+/// No-op `PriorityProvider` for kitchensink's non-benchmark builds: `linked-list`
+/// has no consumer pallet here, so every item is reported as "no authoritative
+/// priority" and `reprioritize` would always remove. Kitchensink just needs the
+/// pallet to compile and benchmark.
+pub struct LinkedListNoopPriorityProvider;
+impl pallet_linked_list::PriorityProvider<u32, u32> for LinkedListNoopPriorityProvider {
+	type Priority = u32;
+	fn priority(_list_id: &u32, _item: &u32) -> Option<u32> {
+		None
+	}
+}
+
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -2927,6 +2955,9 @@ mod runtime {
 
 	#[runtime::pallet_index(94)]
 	pub type Dap = pallet_dap::Pallet<Runtime>;
+
+	#[runtime::pallet_index(95)]
+	pub type LinkedList = pallet_linked_list::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3331,6 +3362,7 @@ mod benches {
 		[pallet_verify_signature, VerifySignature]
 		[pallet_meta_tx, MetaTx]
 		[pallet_psm, Psm]
+		[pallet_linked_list, LinkedList]
 	);
 }
 

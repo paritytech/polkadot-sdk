@@ -25,6 +25,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+use alloc::vec::Vec;
 use frame::benchmarking::prelude::*;
 
 /// Seed `list_id` with `count` items at strictly descending priorities
@@ -163,7 +164,7 @@ mod benchmarks {
 		let target = seeded[1].clone();
 		// `seed_chain` sets target's stored priority to 130; pin the authoritative
 		// priority to the same value so the drift check returns equal.
-		T::BenchmarkHelper::set_priority(&list_id, &target, 130u32.into());
+		T::PriorityProvider::set_priority(&list_id, &target, 130u32.into());
 		let caller: T::AccountId = whitelisted_caller();
 
 		#[extrinsic_call]
@@ -189,7 +190,7 @@ mod benchmarks {
 		// `seed_chain` priorities target/neighbors at 130/(140, 120); 125 stays
 		// between, so `neighbor_priorities_admit` succeeds and `re_insert` takes
 		// the in-place fast path.
-		T::BenchmarkHelper::set_priority(&list_id, &target, 125u32.into());
+		T::PriorityProvider::set_priority(&list_id, &target, 125u32.into());
 		let caller: T::AccountId = whitelisted_caller();
 
 		#[extrinsic_call]
@@ -224,7 +225,7 @@ mod benchmarks {
 		let s_idx = s as usize;
 		let seeded = seed_chain::<T>(&list_id, s + 2);
 		let target = seeded[s_idx + 1].clone();
-		T::BenchmarkHelper::set_priority(&list_id, &target, 1_000_000u32.into());
+		T::PriorityProvider::set_priority(&list_id, &target, 1_000_000u32.into());
 		let caller: T::AccountId = whitelisted_caller();
 		let hint = Position {
 			prev: if s_idx == 0 { None } else { Some(seeded[s_idx - 1].clone()) },
