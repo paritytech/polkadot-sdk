@@ -28,7 +28,7 @@ use crate::{
 		},
 		error::{Error, FatalResult, Result},
 	},
-	LeafSchedulingInfo, LOG_TARGET,
+	Clock, LeafSchedulingInfo, LOG_TARGET,
 };
 use fatality::Split;
 use futures::{channel::oneshot, stream::FusedStream};
@@ -58,6 +58,7 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::Either;
 use std::{
 	collections::{BTreeMap, BTreeSet, HashMap, VecDeque},
+	sync::Arc,
 	time::{Duration, Instant},
 };
 
@@ -110,6 +111,8 @@ pub struct CollationManager {
 	// Key store.
 	keystore: KeystorePtr,
 	leaf_scheduling_info: HashMap<Hash, LeafSchedulingInfo>,
+	// Clock for time reads (V3 scheduling-parent slot validation, advertisement timestamps).
+	clock: Arc<dyn Clock>,
 }
 
 impl CollationManager {
@@ -117,6 +120,7 @@ impl CollationManager {
 		sender: &mut Sender,
 		keystore: KeystorePtr,
 		active_leaf: ActivatedLeaf,
+		clock: Arc<dyn Clock>,
 	) -> FatalResult<Self> {
 		let mut instance = Self {
 			implicit_view: ImplicitView::new(),
@@ -127,6 +131,7 @@ impl CollationManager {
 			fetching: PendingRequests::default(),
 			keystore,
 			leaf_scheduling_info: HashMap::default(),
+			clock,
 		};
 
 		instance.update_view(sender, OurView::new([active_leaf.hash], 0)).await?;
@@ -246,8 +251,10 @@ impl CollationManager {
 						continue;
 					},
 				};
-				self.per_scheduling_parent
-					.insert(*ancestor, PerSchedulingParent::new(session_index, core));
+				self.per_scheduling_parent.insert(
+					*ancestor,
+					PerSchedulingParent::new(session_index, core, &*self.clock),
+				);
 			}
 
 			// Fetch and store the leaf's full per-core claim queue. Capacity at every
@@ -316,8 +323,11 @@ impl CollationManager {
 		// V3 candidate descriptors require scheduling_parent to be the block from the last
 		// finished relay chain slot.
 		if advertised_descriptor_version == Some(CandidateDescriptorVersion::V3) &&
-			!is_scheduling_parent_valid(&scheduling_parent, &self.leaf_scheduling_info)
-		{
+			!is_scheduling_parent_valid(
+				&*self.clock,
+				&scheduling_parent,
+				&self.leaf_scheduling_info,
+			) {
 			return Err(AdvertisementError::SchedulingParentNotValid);
 		}
 
@@ -343,7 +353,7 @@ impl CollationManager {
 			return Err(AdvertisementError::BlockedByBacking);
 		}
 
-		per_sp.add_advertisement(advertisement, Instant::now());
+		per_sp.add_advertisement(advertisement, self.clock.now());
 
 		Ok(())
 	}
@@ -407,7 +417,7 @@ impl CollationManager {
 		max_scores: HashMap<ParaId, Score>,
 		mut create_timer_fn: TimerFn,
 	) -> (Vec<Requests>, Option<Duration>) {
-		let now = Instant::now();
+		let now = self.clock.now();
 		let mut requests = vec![];
 		let mut maybe_min_delay = None;
 
@@ -1190,13 +1200,13 @@ struct PerSchedulingParent {
 }
 
 impl PerSchedulingParent {
-	fn new(session_index: SessionIndex, core_index: CoreIndex) -> Self {
+	fn new(session_index: SessionIndex, core_index: CoreIndex, clock: &dyn Clock) -> Self {
 		Self {
 			session_index,
 			core_index,
 			peer_advertisements: Default::default(),
 			fetched_collations: Default::default(),
-			activated_at: Instant::now(),
+			activated_at: clock.now(),
 		}
 	}
 
@@ -1674,13 +1684,14 @@ mod tests {
 			leaf_claim_queues: HashMap::new(),
 			per_scheduling_parent: HashMap::from([(
 				scheduling_parent,
-				PerSchedulingParent::new(0, CoreIndex(0)),
+				PerSchedulingParent::new(0, CoreIndex(0), &*crate::system_clock()),
 			)]),
 			blocked_from_seconding: HashMap::new(),
 			per_session: LruMap::new(ByLength::new(2)),
 			fetching: PendingRequests::default(),
 			keystore: Arc::new(sc_keystore::LocalKeystore::in_memory()),
 			leaf_scheduling_info: HashMap::default(),
+			clock: crate::system_clock(),
 		};
 
 		// No advertisements - returns Left(None).

@@ -1,0 +1,7 @@
+disallowed-methods = [
+    { path = "std::time::Instant::now", reason = "use Clock::now() — see src/clock.rs" },
+    { path = "std::time::SystemTime::now", reason = "use Clock::timestamp_millis() — see src/clock.rs" },
+    { path = "tokio::time::sleep", reason = "use Clock::delay() — see src/clock.rs" },
+    { path = "futures_timer::Delay::new", reason = "use Clock::delay() — see src/clock.rs" },
+    { path = "sp_timestamp::Timestamp::current", reason = "use Clock::timestamp_millis() — see src/clock.rs" },
+]

@@ -81,6 +81,8 @@ pub struct PeerManager<B> {
 	connected: ConnectedPeers,
 	/// The `SessionIndex` of the last finalized block
 	latest_finalized_session: Option<SessionIndex>,
+	/// Clock used for reputation timestamps (passed to `Backend::process_bumps`).
+	clock: std::sync::Arc<dyn crate::Clock>,
 }
 
 impl<B: Backend> PeerManager<B> {
@@ -90,6 +92,7 @@ impl<B: Backend> PeerManager<B> {
 		backend: B,
 		sender: &mut Sender,
 		scheduled_paras: BTreeSet<ParaId>,
+		clock: std::sync::Arc<dyn crate::Clock>,
 	) -> Result<Self> {
 		let mut instance = Self {
 			db: backend,
@@ -99,6 +102,7 @@ impl<B: Backend> PeerManager<B> {
 				CONNECTED_PEERS_PARA_LIMIT,
 			),
 			latest_finalized_session: None,
+			clock,
 		};
 
 		let (latest_finalized_block_number, latest_finalized_block_hash) =
@@ -123,7 +127,10 @@ impl<B: Backend> PeerManager<B> {
 		)
 		.await?;
 
-		instance.db.process_bumps(latest_finalized_block_number, bumps, None).await;
+		instance
+			.db
+			.process_bumps(latest_finalized_block_number, bumps, None, instance.clock.timestamp_millis())
+			.await;
 
 		if latest_finalized_block_number != processed_finalized_block_number {
 			gum::trace!(
@@ -155,9 +162,10 @@ impl<B: Backend> PeerManager<B> {
 		)
 		.await?;
 
+		let now_ms = self.clock.timestamp_millis();
 		let updates = self
 			.db
-			.process_bumps(finalized_block_number, bumps, Some(Score::new(INACTIVITY_DECAY)))
+			.process_bumps(finalized_block_number, bumps, Some(Score::new(INACTIVITY_DECAY)), now_ms)
 			.await;
 		for update in updates {
 			self.connected.update_reputation(update);

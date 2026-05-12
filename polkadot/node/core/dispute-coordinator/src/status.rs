@@ -14,11 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use polkadot_node_clock::Clock;
 use polkadot_node_primitives::{dispute_is_inactive, DisputeStatus, Timestamp};
 use polkadot_primitives::{CandidateHash, SessionIndex};
-use std::time::{SystemTime, UNIX_EPOCH};
-
-use crate::LOG_TARGET;
 
 /// Get active disputes as iterator, preserving its `DisputeStatus`.
 pub fn get_active_with_status(
@@ -28,31 +26,12 @@ pub fn get_active_with_status(
 	recent_disputes.filter(move |(_, status)| !dispute_is_inactive(status, &now))
 }
 
-pub trait Clock: Send + Sync {
-	fn now(&self) -> Timestamp;
-}
-
-pub struct SystemClock;
-
-impl Clock for SystemClock {
-	fn now(&self) -> Timestamp {
-		// `SystemTime` is notoriously non-monotonic, so our timers might not work
-		// exactly as expected.
-		//
-		// Regardless, disputes are considered active based on an order of minutes,
-		// so a few seconds of slippage in either direction shouldn't affect the
-		// amount of work the node is doing significantly.
-		match SystemTime::now().duration_since(UNIX_EPOCH) {
-			Ok(d) => d.as_secs(),
-			Err(e) => {
-				gum::warn!(
-					target: LOG_TARGET,
-					err = ?e,
-					"Current time is before unix epoch. Validation will not work correctly."
-				);
-
-				0
-			},
-		}
-	}
+/// Read the wall-clock timestamp in seconds since the UNIX epoch via the shared [`Clock`].
+///
+/// `SystemTime` is notoriously non-monotonic, so our timers might not work exactly as
+/// expected. Regardless, disputes are considered active based on an order of minutes, so a few
+/// seconds of slippage in either direction shouldn't affect the amount of work the node is
+/// doing significantly.
+pub fn timestamp_now(clock: &dyn Clock) -> Timestamp {
+	(clock.timestamp_millis() / 1000) as Timestamp
 }

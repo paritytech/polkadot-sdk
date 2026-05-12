@@ -19,6 +19,10 @@
 
 #![deny(missing_docs)]
 #![deny(unused_crate_dependencies)]
+#![deny(clippy::disallowed_methods)]
+// Tests still call `Instant::now`, `Delay::new`, etc directly. The deterministic-clock plumbing
+// is enforced for production code; legacy tests retain their original behavior.
+#![cfg_attr(test, allow(clippy::disallowed_methods))]
 #![recursion_limit = "256"]
 
 use std::{
@@ -49,6 +53,8 @@ use polkadot_node_subsystem::{
 use polkadot_primitives::{CollatorPair, Hash, RELAY_CHAIN_SLOT_DURATION_MILLIS};
 use sp_consensus_slots::SlotDuration;
 pub use validator_side_experimental::ReputationConfig;
+
+pub use polkadot_node_clock::{system_clock, BoxedDelay, Clock, SystemClock};
 
 mod collator_side;
 mod validator_side;
@@ -92,6 +98,8 @@ pub enum ProtocolSide {
 		invulnerables: HashSet<PeerId>,
 		/// Override for `HOLD_OFF_DURATION` constant .
 		collator_protocol_hold_off: Option<Duration>,
+		/// Clock used for all time reads. Production passes [`SystemClock`]; tests inject a mock.
+		clock: Arc<dyn Clock>,
 	},
 	/// Experimental variant of the validator side. Do not use in production.
 	ValidatorExperimental {
@@ -103,6 +111,8 @@ pub enum ProtocolSide {
 		db: Arc<dyn Database>,
 		/// Reputation configuration (column number).
 		reputation_config: validator_side_experimental::ReputationConfig,
+		/// Clock used for all time reads. Production passes [`SystemClock`]; tests inject a mock.
+		clock: Arc<dyn Clock>,
 	},
 	/// Collators operate on a parachain.
 	Collator {
@@ -114,6 +124,8 @@ pub enum ProtocolSide {
 		request_receiver_v2: IncomingRequestReceiver<protocol_v2::CollationFetchingRequest>,
 		/// Metrics.
 		metrics: collator_side::Metrics,
+		/// Clock used for all time reads. Production passes [`SystemClock`]; tests inject a mock.
+		clock: Arc<dyn Clock>,
 	},
 	/// No protocol side, just disable it.
 	None,
@@ -142,6 +154,7 @@ impl<Context> CollatorProtocolSubsystem {
 				metrics,
 				invulnerables,
 				collator_protocol_hold_off,
+				clock,
 			} => {
 				gum::trace!(
 					target: LOG_TARGET,
@@ -156,20 +169,43 @@ impl<Context> CollatorProtocolSubsystem {
 					metrics,
 					invulnerables,
 					collator_protocol_hold_off,
+					clock,
 				)
 				.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
 				.boxed()
 			},
-			ProtocolSide::ValidatorExperimental { keystore, metrics, db, reputation_config } => {
-				validator_side_experimental::run(ctx, keystore, metrics, db, reputation_config)
-					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
-					.boxed()
-			},
-			ProtocolSide::Collator { peer_id, collator_pair, request_receiver_v2, metrics } => {
-				collator_side::run(ctx, peer_id, collator_pair, request_receiver_v2, metrics)
-					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
-					.boxed()
-			},
+			ProtocolSide::ValidatorExperimental {
+				keystore,
+				metrics,
+				db,
+				reputation_config,
+				clock,
+			} => validator_side_experimental::run(
+				ctx,
+				keystore,
+				metrics,
+				db,
+				reputation_config,
+				clock,
+			)
+			.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
+			.boxed(),
+			ProtocolSide::Collator {
+				peer_id,
+				collator_pair,
+				request_receiver_v2,
+				metrics,
+				clock,
+			} => collator_side::run(
+				ctx,
+				peer_id,
+				collator_pair,
+				request_receiver_v2,
+				metrics,
+				clock,
+			)
+			.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
+			.boxed(),
 			ProtocolSide::None => return DummySubsystem.start(ctx),
 		};
 
@@ -195,21 +231,26 @@ async fn modify_reputation(
 }
 
 /// Wait until tick and return the timestamp for the following one.
-async fn wait_until_next_tick(last_poll: Instant, period: Duration) -> Instant {
-	let now = Instant::now();
+async fn wait_until_next_tick(
+	clock: &dyn Clock,
+	last_poll: Instant,
+	period: Duration,
+) -> Instant {
+	let now = clock.now();
 	let next_poll = last_poll + period;
 
 	if next_poll > now {
-		futures_timer::Delay::new(next_poll - now).await
+		clock.delay(next_poll - now).await
 	}
 
-	Instant::now()
+	clock.now()
 }
 
 /// Returns an infinite stream that yields with an interval of `period`.
-fn tick_stream(period: Duration) -> impl FusedStream<Item = ()> {
-	futures::stream::unfold(Instant::now(), move |next_check| async move {
-		Some(((), wait_until_next_tick(next_check, period).await))
+fn tick_stream(clock: Arc<dyn Clock>, period: Duration) -> impl FusedStream<Item = ()> {
+	futures::stream::unfold(clock.now(), move |next_check| {
+		let clock = clock.clone();
+		async move { Some(((), wait_until_next_tick(&*clock, next_check, period).await)) }
 	})
 	.fuse()
 }
@@ -240,12 +281,15 @@ pub(crate) async fn extract_leaf_scheduling_info<Sender: CollatorProtocolSenderT
 }
 
 pub(crate) fn is_scheduling_parent_valid(
+	clock: &dyn Clock,
 	scheduling_parent: &Hash,
 	leaf_scheduling_info: &HashMap<Hash, LeafSchedulingInfo>,
 ) -> bool {
 	let slot_duration = SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS);
-	let current_slot =
-		sp_consensus_slots::Slot::from_timestamp(sp_timestamp::Timestamp::current(), slot_duration);
+	let current_slot = sp_consensus_slots::Slot::from_timestamp(
+		sp_timestamp::Timestamp::new(clock.timestamp_millis() as u64),
+		slot_duration,
+	);
 	if let Some(info) = leaf_scheduling_info.get(scheduling_parent) {
 		// scheduling_parent is a leaf. This is allowed only when the leaf's slot is
 		// the previous slot.
