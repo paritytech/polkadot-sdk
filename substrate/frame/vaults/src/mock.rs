@@ -246,7 +246,6 @@ impl pallet_vaults::Config for Test {
 	type ManagerOrigin = VaultsManagerOrigin;
 	type PalletId = VaultsPalletId;
 	type RateIndex = LinkedList;
-	type MaxHintRepairSteps = MaxHintRepairSteps;
 	type MaxBranches = MaxBranches;
 	type MaxOnIdleVaultRefresh = MaxOnIdleVaultRefresh;
 	type WeightInfo = ();

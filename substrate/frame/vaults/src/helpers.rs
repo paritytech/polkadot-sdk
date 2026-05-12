@@ -506,10 +506,6 @@ where
 	Ok(())
 }
 
-// ---------------------------------------------------------------------------
-// Vault lifecycle extrinsics
-// ---------------------------------------------------------------------------
-
 pub fn open_vault<T: Config>(
 	owner: T::AccountId,
 	collateral_id: T::AssetId,
@@ -1252,7 +1248,7 @@ where
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	let bs = branch_state_of::<T>(collateral_id)?;
-	let frozen = bs.frozen.clone().ok_or(Error::<T>::BranchNotFrozen)?;
+	let frozen = bs.frozen.ok_or(Error::<T>::BranchNotFrozen)?;
 	match frozen.reason {
 		FrozenReason::OracleFailure => {
 			// Verify oracle now provides a fresh price; if so, clear.
@@ -1272,10 +1268,6 @@ where
 		FrozenReason::Governance => Err(Error::<T>::FrozenStateUnresolvable.into()),
 	}
 }
-
-// ---------------------------------------------------------------------------
-// Governance helpers
-// ---------------------------------------------------------------------------
 
 pub fn register_branch<T: Config>(
 	collateral_id: T::AssetId,
@@ -1393,10 +1385,6 @@ where
 	})
 }
 
-// ---------------------------------------------------------------------------
-// Mode rules
-// ---------------------------------------------------------------------------
-
 fn ensure_not_frozen<T: Config>(collateral_id: T::AssetId) -> Result<(), DispatchError> {
 	let bs = branch_state_of::<T>(collateral_id)?;
 	ensure!(bs.frozen.is_none(), Error::<T>::BranchFrozen);
@@ -1431,10 +1419,6 @@ pub fn enforce_mode_rules<T: Config>(
 	}
 	Ok(())
 }
-
-// ---------------------------------------------------------------------------
-// View helpers
-// ---------------------------------------------------------------------------
 
 pub fn view_vault_cr<T: Config>(
 	collateral_id: &T::AssetId,
@@ -1652,10 +1636,6 @@ where
 		moment_to_millis::<T>(cfg.upfront_fee_period),
 	))
 }
-
-// ---------------------------------------------------------------------------
-// On-idle housekeeping
-// ---------------------------------------------------------------------------
 
 /// Refresh the next handful of vaults across each branch using the cursor.
 pub fn on_idle_walk<T: Config>(remaining: Weight) -> Weight

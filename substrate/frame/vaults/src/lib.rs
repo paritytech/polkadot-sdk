@@ -146,13 +146,6 @@ pub mod pallet {
 		/// `Priority = FixedU128`.
 		type RateIndex: SortedListInterface<Self::AssetId, Self::AccountId, Priority = FixedU128>;
 
-		/// Maximum DLL traversal steps performed to repair a stale rate-index
-		/// hint inside a dispatch. Forwarded to `pallet-linked-list`'s
-		/// `MaxHintRepairSteps`; documented here so wallets can read it from
-		/// vault metadata too.
-		#[pallet::constant]
-		type MaxHintRepairSteps: Get<u32>;
-
 		/// Maximum registered collateral branches.
 		#[pallet::constant]
 		type MaxBranches: Get<u32>;
@@ -398,7 +391,6 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
-			assert!(T::MaxHintRepairSteps::get() > 0, "`MaxHintRepairSteps` must be > 0");
 			assert!(T::MaxBranches::get() > 0, "`MaxBranches` must be > 0");
 		}
 
