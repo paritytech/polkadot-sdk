@@ -252,24 +252,32 @@ pub fn insert_at<T: Config>(
 	let prev_node = fetch_neighbor::<T>(list_id, position.prev.clone())?;
 	let next_node = fetch_neighbor::<T>(list_id, position.next.clone())?;
 
-	if prev_node.as_ref().is_some_and(|(_, node)| node.next != position.next) ||
-		next_node.as_ref().is_some_and(|(_, node)| node.prev != position.prev)
+	// Adjacency + priority ordering on the `Some` side. `walk_repair` guarantees
+	// both on success; enforce them again so an invalid internal call surfaces
+	// as `CorruptList` rather than silently corrupting the list.
+	if prev_node
+		.as_ref()
+		.is_some_and(|(_, n)| n.next != position.next || n.priority < priority) ||
+		next_node
+			.as_ref()
+			.is_some_and(|(_, n)| n.prev != position.prev || priority <= n.priority)
 	{
 		return Err(Error::<T>::CorruptList);
 	}
 
-	// This reads storage and is intentionally debug-only; dispatch weights are
-	// benchmarked without `debug_assertions`.
-	debug_assert!({
-		let meta = ListMetas::<T>::get(list_id);
-		is_position_valid::<T>(list_id, &priority, &position, meta.as_ref())
-	});
-
-	// Fold head, tail, and len updates into one `ListMetas` row write. The
-	// overflow check sits inside the closure so that on `ListTooLong` no row is
+	// Fold the endpoint cross-check, overflow guard, and head/tail/len updates
+	// into one `ListMetas` row write. On any error inside the closure no row is
 	// written and the prior meta is preserved.
 	ListMetas::<T>::try_mutate_exists(list_id, |slot| -> Result<(), Error<T>> {
 		let mut meta = slot.take().unwrap_or_default();
+		// Endpoint cross-check: a `None`-side hint inserts at the head/tail, so
+		// the existing head/tail pointer must agree with the other side.
+		if position.prev.is_none() && meta.head != position.next {
+			return Err(Error::<T>::CorruptList);
+		}
+		if position.next.is_none() && meta.tail != position.prev {
+			return Err(Error::<T>::CorruptList);
+		}
 		meta.len = meta.len.checked_add(1).ok_or(Error::<T>::ListTooLong)?;
 		if position.prev.is_none() {
 			meta.head = Some(item.clone());
@@ -318,24 +326,21 @@ pub fn remove_at<T: Config>(list_id: &T::ListId, item: &T::ItemId) -> Result<(),
 		return Err(Error::<T>::CorruptList);
 	}
 
-	ListNodes::<T>::remove(list_id, item);
-
-	// Splice past `item` in the neighbors' node rows.
-	if let Some((p, mut left)) = prev_node {
-		left.next = removed_next.clone();
-		ListNodes::<T>::insert(list_id, p, left);
-	}
-	if let Some((n, mut right)) = next_node {
-		right.prev = removed_prev.clone();
-		ListNodes::<T>::insert(list_id, n, right);
-	}
-
-	// Fold head/tail/len updates into one row write; the row vanishes once the
-	// list empties.
+	// Validate endpoints and update the meta row first so that any cross-check
+	// failure surfaces as `CorruptList` before any node-row mutation happens.
+	// The row vanishes once the list empties.
 	ListMetas::<T>::try_mutate_exists(list_id, |slot| -> Result<(), Error<T>> {
 		// Defensive: by the all-or-nothing invariant a present node implies a
 		// present meta row with `len >= 1`.
 		let mut meta = slot.take().defensive_ok_or(Error::<T>::CorruptList)?;
+		// Endpoint cross-check: a `None`-side neighbor link means `item` must
+		// be the stored head/tail; otherwise storage is internally inconsistent.
+		if removed_prev.is_none() && meta.head.as_ref() != Some(item) {
+			return Err(Error::<T>::CorruptList);
+		}
+		if removed_next.is_none() && meta.tail.as_ref() != Some(item) {
+			return Err(Error::<T>::CorruptList);
+		}
 		meta.len = meta.len.checked_sub(1).defensive_ok_or(Error::<T>::CorruptList)?;
 		// We removed the head iff the removed node had no `prev`; the new head is
 		// then the removed item's `next` (`None` once the list empties).
@@ -350,5 +355,19 @@ pub fn remove_at<T: Config>(list_id: &T::ListId, item: &T::ItemId) -> Result<(),
 			*slot = Some(meta);
 		}
 		Ok(())
-	})
+	})?;
+
+	ListNodes::<T>::remove(list_id, item);
+
+	// Splice past `item` in the neighbors' node rows.
+	if let Some((p, mut left)) = prev_node {
+		left.next = removed_next;
+		ListNodes::<T>::insert(list_id, p, left);
+	}
+	if let Some((n, mut right)) = next_node {
+		right.prev = removed_prev;
+		ListNodes::<T>::insert(list_id, n, right);
+	}
+
+	Ok(())
 }

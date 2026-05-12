@@ -49,7 +49,7 @@ impl frame_system::Config for Test {
 
 parameter_types! {
 	pub static StaticPriorities: BTreeMap<(ListId, ItemId), Priority> = BTreeMap::new();
-	pub const MaxHintRepairSteps: u32 = 4;
+	pub static MaxHintRepairSteps: u32 = 4;
 }
 
 pub struct StaticPriorityProvider;

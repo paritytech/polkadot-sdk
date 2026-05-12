@@ -139,3 +139,51 @@ fn insert_at_missing_neighbor_returns_corrupt_list() {
 		assert!(!ListNodes::<Test>::contains_key(1, 200));
 	});
 }
+
+#[test]
+fn insert_at_endpoint_mismatch_returns_corrupt_list() {
+	build_and_execute(|| {
+		insert(1, 100, 90);
+		insert(1, 200, 50);
+		// `Position::endpoints_only()` on a non-empty list: `prev = next = None`
+		// would rewrite both head and tail. Endpoint cross-check must reject it.
+		assert_storage_noop!(assert!(matches!(
+			list::insert_at::<Test>(&1, &300, 70, Position::endpoints_only()),
+			Err(Error::<Test>::CorruptList)
+		)));
+		assert_eq!(dump(1), vec![(100, 90), (200, 50)]);
+		assert!(!ListNodes::<Test>::contains_key(1, 300));
+	});
+}
+
+#[test]
+fn insert_at_priority_above_prev_returns_corrupt_list() {
+	build_and_execute(|| {
+		insert(1, 100, 90);
+		insert(1, 200, 50);
+		// Priority 100 violates `prev.priority (90) >= priority (100)`; the
+		// extended adjacency check should reject it.
+		assert_storage_noop!(assert!(matches!(
+			list::insert_at::<Test>(&1, &300, 100, Position::between(100, 200)),
+			Err(Error::<Test>::CorruptList)
+		)));
+		assert_eq!(dump(1), vec![(100, 90), (200, 50)]);
+		assert!(!ListNodes::<Test>::contains_key(1, 300));
+	});
+}
+
+#[test]
+fn insert_at_priority_not_above_next_returns_corrupt_list() {
+	build_and_execute(|| {
+		insert(1, 100, 90);
+		insert(1, 200, 50);
+		// Priority 50 violates `priority (50) > next.priority (50)`; the
+		// extended adjacency check should reject it.
+		assert_storage_noop!(assert!(matches!(
+			list::insert_at::<Test>(&1, &300, 50, Position::between(100, 200)),
+			Err(Error::<Test>::CorruptList)
+		)));
+		assert_eq!(dump(1), vec![(100, 90), (200, 50)]);
+		assert!(!ListNodes::<Test>::contains_key(1, 300));
+	});
+}

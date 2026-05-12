@@ -122,6 +122,10 @@ pub mod pallet {
 
 		/// Maximum nodes the on-chain hint-repair walk may traverse before
 		/// failing with [`Error::InvalidPositionHints`].
+		///
+		/// `0` puts the pallet in strict mode: any non-valid hint fails
+		/// immediately with [`Error::InvalidPositionHints`], giving callers a
+		/// hard O(1) insertion guarantee at the cost of needing perfect hints.
 		#[pallet::constant]
 		type MaxHintRepairSteps: Get<u32>;
 	}
@@ -194,10 +198,6 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn integrity_test() {
-			assert!(T::MaxHintRepairSteps::get() > 0, "`MaxHintRepairSteps` must be > 0");
-		}
-
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_: BlockNumberFor<T>) -> Result<(), frame::try_runtime::TryRuntimeError> {
 			Self::do_try_state()

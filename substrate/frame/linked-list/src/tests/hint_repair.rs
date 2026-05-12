@@ -126,6 +126,26 @@ fn repair_steps_needed_exceeds_budget_signals_infeasible() {
 }
 
 #[test]
+fn strict_mode_zero_budget_accepts_valid_hint_rejects_invalid() {
+	build_and_execute(|| {
+		MaxHintRepairSteps::set(0);
+		// An empty-list insert with the empty-position hint is already valid.
+		let steps = LinkedList::insert(1, 100, 90, Position::endpoints_only()).expect("valid hint");
+		assert_eq!(steps, 0);
+
+		// A second insert at the tail with a perfect hint is also 0 steps.
+		let steps = LinkedList::insert(1, 200, 50, Position::at_tail(100)).expect("valid hint");
+		assert_eq!(steps, 0);
+
+		// Any stale hint must fail immediately — no walk loop runs at budget 0.
+		assert_storage_noop!(assert!(matches!(
+			LinkedList::insert(1, 300, 70, Position::at_head(100)),
+			Err(Error::<Test>::InvalidPositionHints)
+		)));
+	});
+}
+
+#[test]
 fn inconsistent_hint_one_side_stale_re_anchors() {
 	build_and_execute(|| {
 		// List head→tail: items 1..=N with priorities 100, 90, 80, ..., chosen so that

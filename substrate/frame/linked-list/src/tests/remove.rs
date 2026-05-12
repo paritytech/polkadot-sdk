@@ -127,3 +127,39 @@ fn remove_missing_neighbor_returns_corrupt_list_without_splicing() {
 		assert!(ListNodes::<Test>::contains_key(1, 200));
 	});
 }
+
+#[test]
+fn remove_at_node_with_none_prev_but_not_head_returns_corrupt_list() {
+	build_and_execute_no_post_check(|| {
+		insert(1, 100, 90);
+		insert(1, 200, 50);
+		// Corrupt node 200's `prev` to `None` so it falsely claims to be the head
+		// (the actual head is 100). The endpoint cross-check must reject removal.
+		ListNodes::<Test>::mutate(1, 200, |maybe| {
+			if let Some(n) = maybe {
+				n.prev = None;
+			}
+		});
+
+		assert!(matches!(LinkedList::remove(&1, &200), Err(Error::<Test>::CorruptList)));
+		assert!(ListNodes::<Test>::contains_key(1, 200));
+	});
+}
+
+#[test]
+fn remove_at_node_with_none_next_but_not_tail_returns_corrupt_list() {
+	build_and_execute_no_post_check(|| {
+		insert(1, 100, 90);
+		insert(1, 200, 50);
+		// Corrupt node 100's `next` to `None` so it falsely claims to be the tail
+		// (the actual tail is 200). The endpoint cross-check must reject removal.
+		ListNodes::<Test>::mutate(1, 100, |maybe| {
+			if let Some(n) = maybe {
+				n.next = None;
+			}
+		});
+
+		assert!(matches!(LinkedList::remove(&1, &100), Err(Error::<Test>::CorruptList)));
+		assert!(ListNodes::<Test>::contains_key(1, 100));
+	});
+}
