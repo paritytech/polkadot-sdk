@@ -67,13 +67,19 @@ struct PendingBatch {
 	cids: Vec<Cid>,
 	responses: HashMap<Cid, ResponseType>,
 	response_bytes: usize,
-	response_tx: ResponseSender,
+	response_tx: Option<ResponseSender>,
 	inserted: Instant,
 }
 
 impl PendingBatch {
 	fn new(cids: Vec<Cid>, response_tx: ResponseSender, inserted: Instant) -> Self {
-		Self { cids, responses: HashMap::new(), response_bytes: 0, response_tx, inserted }
+		Self {
+			cids,
+			responses: HashMap::new(),
+			response_bytes: 0,
+			response_tx: Some(response_tx),
+			inserted,
+		}
 	}
 
 	fn record_responses(&mut self, responses: &HashMap<Cid, ResponseType>) {
@@ -88,7 +94,7 @@ impl PendingBatch {
 	}
 
 	fn is_complete(&self) -> bool {
-		self.cids.iter().all(|cid| self.responses.contains_key(cid))
+		self.cids.len() == self.responses.len()
 	}
 
 	fn is_over_limit(&self, max_response_bytes: usize) -> bool {
@@ -99,15 +105,19 @@ impl PendingBatch {
 		now.saturating_duration_since(self.inserted) >= timeout
 	}
 
-	fn send_success(self) {
+	fn send_success(&mut self) {
 		let responses: Vec<ResponseType> =
 			self.cids.iter().filter_map(|cid| self.responses.get(cid).cloned()).collect();
 		let encoded = encode_responses_as_bitswap_message(&responses);
-		let _ = self.response_tx.send(Ok((encoded, ProtocolName::from(PROTOCOL_NAME))));
+		if let Some(response_tx) = self.response_tx.take() {
+			let _ = response_tx.send(Ok((encoded, ProtocolName::from(PROTOCOL_NAME))));
+		}
 	}
 
-	fn send_failure(self, failure: RequestFailure) {
-		let _ = self.response_tx.send(Err(failure));
+	fn send_failure(&mut self, failure: RequestFailure) {
+		if let Some(response_tx) = self.response_tx.take() {
+			let _ = response_tx.send(Err(failure));
+		}
 	}
 }
 
@@ -148,11 +158,10 @@ impl PendingBatches {
 			responses.len()
 		);
 
-		let Some(mut peer_batches) = self.by_peer.remove(&peer) else { return };
+		let Some(peer_batches) = self.by_peer.get_mut(&peer) else { return };
 		let best = select_best_response_per_cid(responses);
-		let mut remaining = Vec::with_capacity(peer_batches.len());
 
-		for mut batch in peer_batches.drain(..) {
+		peer_batches.retain_mut(|batch| {
 			batch.record_responses(&best);
 
 			if batch.is_over_limit(max_response_bytes) {
@@ -163,23 +172,23 @@ impl PendingBatches {
 					max_response_bytes,
 				);
 				batch.send_failure(RequestFailure::Network(OutboundFailure::ConnectionClosed));
+				false
 			} else if batch.is_complete() {
 				batch.send_success();
+				false
 			} else {
-				remaining.push(batch);
+				true
 			}
-		}
+		});
 
-		if !remaining.is_empty() {
-			self.by_peer.insert(peer, remaining);
+		if peer_batches.is_empty() {
+			self.by_peer.remove(&peer);
 		}
 	}
 
 	fn expire(&mut self, timeout: Duration, now: Instant) {
-		let mut empty_peers = Vec::new();
-		for (peer, peer_batches) in self.by_peer.iter_mut() {
-			let mut remaining = Vec::with_capacity(peer_batches.len());
-			for batch in peer_batches.drain(..) {
+		self.by_peer.retain(|peer, peer_batches| {
+			peer_batches.retain_mut(|batch| {
 				if batch.is_expired(timeout, now) {
 					log::debug!(
 						target: LOG_TARGET,
@@ -188,18 +197,14 @@ impl PendingBatches {
 						peer,
 					);
 					batch.send_failure(RequestFailure::Network(OutboundFailure::Timeout));
+					false
 				} else {
-					remaining.push(batch);
+					true
 				}
-			}
-			*peer_batches = remaining;
-			if peer_batches.is_empty() {
-				empty_peers.push(*peer);
-			}
-		}
-		for peer in empty_peers {
-			self.by_peer.remove(&peer);
-		}
+			});
+
+			!peer_batches.is_empty()
+		});
 	}
 
 	#[cfg(test)]
