@@ -2022,71 +2022,59 @@ fn auto_renewal_works() {
 	});
 }
 
-// TODO
-// #[test]
-// fn enable_auto_renew_immediate_updates_core_and_renews() {
-// 	TestExt::new().endow(1, 1000).endow(2, 1000).endow(1001, 1000).execute_with(|| {
-// 		assert_ok!(Broker::do_start_sales((), 2));
-// 		advance_to(2);
-// 		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
-// 		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
+#[test]
+fn enable_auto_renew_immediate_updates_core_and_renews() {
+	TestExt::new().endow(1, 1000).endow(2, 1000).endow(1001, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales((), 2));
+		advance_to(2);
+		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
 
-// 		// Rotate into the next sale where this region is renewable.
-// 		let sale = SaleInfo::<Test>::get().unwrap();
-// 		let timeslice_period: u64 = <Test as Config>::TimeslicePeriod::get();
-// 		let next_sale_block = sale.region_begin as u64 * timeslice_period;
-// 		advance_to(next_sale_block);
+		// Rotate into the next sale where this region is renewable.
+		advance_sale_period();
 
-// 		let sale = SaleInfo::<Test>::get().unwrap();
-// 		if System::block_number() <= sale.sale_start {
-// 			advance_to(sale.sale_start + 1);
-// 		}
+		// Pre-sell a core to ensure the renewal allocates a different core index.
+		let _ = do_purchase_and_get_region_id(2, u64::max_value()).unwrap();
+		let expected_new_core = 1;
+		assert_ne!(expected_new_core, region_id.core);
 
-// 		// Pre-sell a core to ensure the renewal allocates a different core index.
-// 		let _ = do_purchase_and_get_region_id(2, u64::max_value()).unwrap();
-// 		let sale_before_renew = SaleInfo::<Test>::get().unwrap();
-// 		let expected_new_core = sale_before_renew.first_core + sale_before_renew.cores_sold;
-// 		assert_ne!(expected_new_core, region_id.core);
+		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, 1001, None));
 
-// 		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, 1001, None));
+		// Auto-renewal record should follow the new core.
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord {
+				core: expected_new_core,
+				task: 1001,
+				next_renewal: MarketMock::get_region_end().unwrap()
+			}]
+		);
 
-// 		// Auto-renewal record should follow the new core.
-// 		assert_eq!(
-// 			AutoRenewals::<Test>::get().to_vec(),
-// 			vec![AutoRenewalRecord {
-// 				core: expected_new_core,
-// 				task: 1001,
-// 				next_renewal: sale_before_renew.region_end
-// 			}]
-// 		);
+		// Potential renewal moved to the new core index.
+		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
+			core: expected_new_core,
+			when: MarketMock::get_region_end().unwrap()
+		})
+		.is_some());
+		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
+			core: region_id.core,
+			when: MarketMock::get_region_end().unwrap()
+		})
+		.is_none());
 
-// 		// Potential renewal moved to the new core index.
-// 		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
-// 			core: expected_new_core,
-// 			when: sale_before_renew.region_end
-// 		})
-// 		.is_some());
-// 		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
-// 			core: region_id.core,
-// 			when: sale_before_renew.region_end
-// 		})
-// 		.is_none());
-
-// 		// Next rotation should renew again and keep auto-renewal enabled.
-// 		let next_block = sale_before_renew.region_end as u64 * timeslice_period;
-// 		advance_to(next_block);
-// 		let sale_after_renew = SaleInfo::<Test>::get().unwrap();
-// 		let auto_after_renew = AutoRenewals::<Test>::get().to_vec();
-// 		assert_eq!(auto_after_renew.len(), 1);
-// 		assert_eq!(auto_after_renew[0].task, 1001);
-// 		assert_eq!(auto_after_renew[0].next_renewal, sale_after_renew.region_end);
-// 		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
-// 			core: auto_after_renew[0].core,
-// 			when: sale_after_renew.region_end
-// 		})
-// 		.is_some());
-// 	});
-// }
+		// Next rotation should renew again and keep auto-renewal enabled.
+		advance_sale_period();
+		let auto_after_renew = AutoRenewals::<Test>::get().to_vec();
+		assert_eq!(auto_after_renew.len(), 1);
+		assert_eq!(auto_after_renew[0].task, 1001);
+		assert_eq!(auto_after_renew[0].next_renewal, MarketMock::get_region_end().unwrap());
+		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
+			core: auto_after_renew[0].core,
+			when: MarketMock::get_region_end().unwrap()
+		})
+		.is_some());
+	});
+}
 
 #[test]
 fn disable_auto_renew_works() {

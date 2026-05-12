@@ -52,7 +52,6 @@ impl<T: Config> Pallet<T> {
 		}
 
 		if status.last_timeslice < Self::current_timeslice() {
-			// TODO: Consume weight.
 			status.last_timeslice.saturating_inc();
 			Self::last_timeslice_changed(&status, &mut meter);
 		}
