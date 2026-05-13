@@ -199,8 +199,7 @@ fn borrow_after_redistribution_keeps_weighted_sum_consistent() {
 			200,
 			None,
 			None,
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		// Touch B too so its share is reconciled.
 		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(99), 2, DOT));
@@ -255,8 +254,7 @@ fn final_recovery_exit_requires_explicit_hint() {
 			RuntimeOrigin::signed(99),
 			1,
 			DOT,
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		assert!(matches!(
 			Vaults::<Test>::get(DOT, 1).unwrap().status,

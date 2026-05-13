@@ -457,8 +457,7 @@ pub fn open_vault<T: Config>(
 	initial_collateral: BalanceOf<T>,
 	initial_debt: BalanceOf<T>,
 	annual_rate: FixedU128,
-	hint_prev: Option<T::AccountId>,
-	hint_next: Option<T::AccountId>,
+	hint: Position<T::AccountId>,
 ) -> Result<(), DispatchError> {
 	ensure_not_frozen::<T>(collateral_id)?;
 	ensure!(!Vaults::<T>::contains_key(collateral_id, &owner), Error::<T>::VaultAlreadyExists);
@@ -555,13 +554,8 @@ pub fn open_vault<T: Config>(
 	);
 
 	// Insert into rate index.
-	T::RateIndex::insert(
-		collateral_id,
-		owner.clone(),
-		annual_rate,
-		Position { prev: hint_prev, next: hint_next },
-	)
-	.map_err(|_| Error::<T>::InvalidPositionHints)?;
+	T::RateIndex::insert(collateral_id, owner.clone(), annual_rate, hint)
+		.map_err(|_| Error::<T>::InvalidPositionHints)?;
 
 	Pallet::<T>::deposit_event(Event::Borrowed {
 		collateral_id,
@@ -685,15 +679,13 @@ pub fn withdraw_collateral<T: Config>(
 	Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn borrow<T: Config>(
 	owner: T::AccountId,
 	collateral_id: T::AssetId,
 	amount: BalanceOf<T>,
 	maybe_new_rate: Option<FixedU128>,
 	recipient: Option<T::AccountId>,
-	hint_prev: Option<T::AccountId>,
-	hint_next: Option<T::AccountId>,
+	hint: Position<T::AccountId>,
 ) -> Result<(), DispatchError> {
 	ensure_not_frozen::<T>(collateral_id)?;
 	let recipient = recipient.unwrap_or(owner.clone());
@@ -774,13 +766,8 @@ pub fn borrow<T: Config>(
 
 	if dormant_to_active {
 		// Insert/reinsert into the rate index at `new_rate`.
-		T::RateIndex::insert(
-			collateral_id,
-			owner.clone(),
-			new_rate,
-			Position { prev: hint_prev, next: hint_next },
-		)
-		.map_err(|_| Error::<T>::InvalidPositionHints)?;
+		T::RateIndex::insert(collateral_id, owner.clone(), new_rate, hint)
+			.map_err(|_| Error::<T>::InvalidPositionHints)?;
 		Pallet::<T>::deposit_event(Event::VaultStatusChanged {
 			collateral_id,
 			owner: owner.clone(),
@@ -796,13 +783,8 @@ pub fn borrow<T: Config>(
 			}
 		});
 	} else if old_rate != new_rate {
-		T::RateIndex::re_insert(
-			collateral_id,
-			owner.clone(),
-			new_rate,
-			Position { prev: hint_prev, next: hint_next },
-		)
-		.map_err(|_| Error::<T>::InvalidPositionHints)?;
+		T::RateIndex::re_insert(collateral_id, owner.clone(), new_rate, hint)
+			.map_err(|_| Error::<T>::InvalidPositionHints)?;
 	}
 
 	if old_rate != new_rate {
@@ -882,8 +864,7 @@ pub fn change_rate<T: Config>(
 	owner: T::AccountId,
 	collateral_id: T::AssetId,
 	new_rate: FixedU128,
-	hint_prev: Option<T::AccountId>,
-	hint_next: Option<T::AccountId>,
+	hint: Position<T::AccountId>,
 ) -> Result<(), DispatchError> {
 	ensure_not_frozen::<T>(collateral_id)?;
 	let pre_status = vault_of::<T>(collateral_id, &owner)?.status;
@@ -936,13 +917,8 @@ pub fn change_rate<T: Config>(
 	vault.accrued_interest = vault.accrued_interest.saturating_add(upfront_fee);
 	Vaults::<T>::insert(collateral_id, &owner, &vault);
 
-	T::RateIndex::re_insert(
-		collateral_id,
-		owner.clone(),
-		new_rate,
-		Position { prev: hint_prev, next: hint_next },
-	)
-	.map_err(|_| Error::<T>::InvalidPositionHints)?;
+	T::RateIndex::re_insert(collateral_id, owner.clone(), new_rate, hint)
+		.map_err(|_| Error::<T>::InvalidPositionHints)?;
 	Pallet::<T>::deposit_event(Event::BorrowRateChanged {
 		collateral_id,
 		owner,
@@ -1092,14 +1068,12 @@ pub fn enter_final_recovery<T: Config>(
 /// Permissionless explicit `FinalRecovery` exit. Touches the vault, checks
 /// the fully-accrued CR is at or above the MCR, then re-adds stake +
 /// weighted contributions and reinserts into the rate index using the
-/// caller-supplied `(hint_prev, hint_next)` hints so the operation is O(1)
-/// (or O(MaxHintRepairSteps) for stale hints, bounded by the linked-list
-/// crate's repair budget).
+/// caller-supplied `hint` so the operation is O(1) (or O(MaxHintRepairSteps)
+/// for stale hints, bounded by the linked-list crate's repair budget).
 pub fn exit_final_recovery<T: Config>(
 	owner: T::AccountId,
 	collateral_id: T::AssetId,
-	hint_prev: Option<T::AccountId>,
-	hint_next: Option<T::AccountId>,
+	hint: Position<T::AccountId>,
 ) -> Result<(), DispatchError> {
 	ensure_not_frozen::<T>(collateral_id)?;
 	let now = T::TimeProvider::now();
@@ -1133,13 +1107,8 @@ pub fn exit_final_recovery<T: Config>(
 	let old_status = vault.status;
 	vault.status = VaultStatus::Active;
 	Vaults::<T>::insert(collateral_id, &owner, &vault);
-	T::RateIndex::insert(
-		collateral_id,
-		owner.clone(),
-		vault.annual_rate,
-		Position { prev: hint_prev, next: hint_next },
-	)
-	.map_err(|_| Error::<T>::InvalidPositionHints)?;
+	T::RateIndex::insert(collateral_id, owner.clone(), vault.annual_rate, hint)
+		.map_err(|_| Error::<T>::InvalidPositionHints)?;
 	Pallet::<T>::deposit_event(Event::VaultStatusChanged {
 		collateral_id,
 		owner,

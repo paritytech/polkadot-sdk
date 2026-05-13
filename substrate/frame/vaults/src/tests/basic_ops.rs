@@ -92,8 +92,7 @@ fn adjust_trove_via_deposit_then_borrow() {
 			300,
 			None,
 			None,
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		assert_eq!(held(DOT, 1), 1_200);
 		let v = Vaults::<Test>::get(DOT, 1).expect("vault stored");

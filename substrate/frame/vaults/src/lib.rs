@@ -431,49 +431,41 @@ pub mod pallet {
 			recovery::queue_head::<T>(&collateral_id, n)
 		}
 
-		/// Helper to get `(prev, next)` insert hints for `rate` on
-		/// `collateral_id`.
+		/// Rate-index insert hint for `rate` on `collateral_id`.
 		pub fn find_rate_position(
 			collateral_id: T::AssetId,
 			rate: FixedU128,
-		) -> (Option<T::AccountId>, Option<T::AccountId>) {
-			let position = T::RateIndex::find_position(&collateral_id, rate);
-			(position.prev, position.next)
+		) -> Position<T::AccountId> {
+			T::RateIndex::find_position(&collateral_id, rate)
 		}
 
-		/// Helper to get `(prev, next)` re-insert hints for moving
-		/// `(collateral_id, owner)` to `new_rate`.
+		/// Rate-index re-insert hint for moving `(collateral_id, owner)` to
+		/// `new_rate`. `None` if the vault is not in the rate index.
 		pub fn find_re_insert_position(
 			collateral_id: T::AssetId,
 			owner: T::AccountId,
 			new_rate: FixedU128,
-		) -> Option<(Option<T::AccountId>, Option<T::AccountId>)> {
+		) -> Option<Position<T::AccountId>> {
 			T::RateIndex::find_re_insert_position(&collateral_id, &owner, new_rate)
-				.map(|p| (p.prev, p.next))
 		}
 
-		/// Steps the on-chain repair walk would take for `(rate, prev, next)`
-		/// on `collateral_id`.
+		/// Steps the on-chain repair walk would take for `(rate, hint)` on
+		/// `collateral_id`.
 		pub fn repair_steps_needed(
 			collateral_id: T::AssetId,
 			rate: FixedU128,
-			hint_prev: Option<T::AccountId>,
-			hint_next: Option<T::AccountId>,
+			hint: Position<T::AccountId>,
 		) -> u32 {
-			T::RateIndex::repair_steps_needed(
-				&collateral_id,
-				rate,
-				Position { prev: hint_prev, next: hint_next },
-			)
+			T::RateIndex::repair_steps_needed(&collateral_id, rate, hint)
 		}
 
-		/// Current `(prev, next)` neighbors of `(collateral_id, owner)` in
-		/// the rate index. Outer `None` = vault not in the rate index.
+		/// Current rate-index neighbors of `(collateral_id, owner)`. `None`
+		/// when the vault is not in the rate index.
 		pub fn vault_rate_index_neighbors(
 			collateral_id: T::AssetId,
 			owner: T::AccountId,
-		) -> Option<(Option<T::AccountId>, Option<T::AccountId>)> {
-			T::RateIndex::neighbors(&collateral_id, &owner).map(|p| (p.prev, p.next))
+		) -> Option<Position<T::AccountId>> {
+			T::RateIndex::neighbors(&collateral_id, &owner)
 		}
 
 		/// Total active-vault interest-bearing debt at rates strictly less
@@ -529,8 +521,7 @@ pub mod pallet {
 			initial_collateral: BalanceOf<T>,
 			initial_debt: BalanceOf<T>,
 			annual_rate: FixedU128,
-			hint_prev: Option<T::AccountId>,
-			hint_next: Option<T::AccountId>,
+			hint: Position<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			helpers::open_vault::<T>(
@@ -539,8 +530,7 @@ pub mod pallet {
 				initial_collateral,
 				initial_debt,
 				annual_rate,
-				hint_prev,
-				hint_next,
+				hint,
 			)
 		}
 
@@ -581,19 +571,10 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 			maybe_new_rate: Option<FixedU128>,
 			recipient: Option<T::AccountId>,
-			hint_prev: Option<T::AccountId>,
-			hint_next: Option<T::AccountId>,
+			hint: Position<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			helpers::borrow::<T>(
-				who,
-				collateral_id,
-				amount,
-				maybe_new_rate,
-				recipient,
-				hint_prev,
-				hint_next,
-			)
+			helpers::borrow::<T>(who, collateral_id, amount, maybe_new_rate, recipient, hint)
 		}
 
 		/// Permissionless repay-into-vault.
@@ -616,11 +597,10 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			collateral_id: T::AssetId,
 			new_rate: FixedU128,
-			hint_prev: Option<T::AccountId>,
-			hint_next: Option<T::AccountId>,
+			hint: Position<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			helpers::change_rate::<T>(who, collateral_id, new_rate, hint_prev, hint_next)
+			helpers::change_rate::<T>(who, collateral_id, new_rate, hint)
 		}
 
 		/// Close caller's vault. Vault must have zero debt or the caller
@@ -664,22 +644,18 @@ pub mod pallet {
 
 		/// Permissionless: exit `FinalRecovery` once the fully-accrued vault CR
 		/// is back above `MinimumCollateralizationRatio`. Caller supplies the
-		/// `(hint_prev, hint_next)` pair used to reinsert into the rate index
-		/// in O(1).
+		/// rate-index `hint` used to reinsert in O(1).
 		#[pallet::call_index(22)]
 		#[pallet::weight(T::WeightInfo::enter_final_recovery())]
 		pub fn exit_final_recovery(
 			origin: OriginFor<T>,
 			owner: T::AccountId,
 			collateral_id: T::AssetId,
-			hint_prev: Option<T::AccountId>,
-			hint_next: Option<T::AccountId>,
+			hint: Position<T::AccountId>,
 		) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
-			helpers::exit_final_recovery::<T>(owner, collateral_id, hint_prev, hint_next)
+			helpers::exit_final_recovery::<T>(owner, collateral_id, hint)
 		}
-
-		// --- governance --------------------------------------------------
 
 		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::register_branch())]

@@ -95,8 +95,7 @@ fn safety_mode_blocks_borrow_alone() {
 				200,
 				None,
 				None,
-				None,
-				None,
+				Position::endpoints_only(),
 			),
 			crate::Error::<Test>::SafetyModeTcrWorsening
 		);
@@ -127,8 +126,7 @@ fn safety_mode_blocks_borrow_with_small_deposit() {
 				200,
 				None,
 				None,
-				None,
-				None,
+				Position::endpoints_only(),
 			),
 			crate::Error::<Test>::SafetyModeTcrWorsening
 		);
@@ -158,8 +156,7 @@ fn safety_mode_allows_borrow_after_large_deposit() {
 			200,
 			None,
 			None,
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 	});
 }
@@ -233,8 +230,7 @@ fn normal_mode_blocks_premature_rate_change_pulling_into_safety() {
 				RuntimeOrigin::signed(1),
 				DOT,
 				rate_pct(50, 100),
-				None,
-				None,
+				Position::endpoints_only(),
 			),
 			crate::Error::<Test>::SafetyModeTcrWorsening
 		);
@@ -258,8 +254,7 @@ fn safety_mode_blocks_premature_rate_change() {
 				RuntimeOrigin::signed(1),
 				DOT,
 				rate_pct(7, 100),
-				None,
-				None,
+				Position::endpoints_only(),
 			),
 			crate::Error::<Test>::SafetyModeTcrWorsening
 		);
@@ -277,8 +272,7 @@ fn safety_mode_allows_post_cooldown_rate_change() {
 			RuntimeOrigin::signed(1),
 			DOT,
 			rate_pct(7, 100),
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 	});
 }
@@ -369,7 +363,14 @@ fn safety_mode_blocks_borrow_when_cr_below_icr() {
 		// borrow(+0) revalidates CR without touching debt, so we use it as a
 		// gate-only probe. CR is below ICR → reverts.
 		assert_noop!(
-			crate::Pallet::<Test>::borrow(RuntimeOrigin::signed(2), DOT, 0, None, None, None, None,),
+			crate::Pallet::<Test>::borrow(
+				RuntimeOrigin::signed(2),
+				DOT,
+				0,
+				None,
+				None,
+				Position::endpoints_only(),
+			),
 			crate::Error::<Test>::UnsafeCollateralizationRatio
 		);
 
@@ -390,8 +391,7 @@ fn safety_mode_blocks_borrow_when_cr_below_icr() {
 			0,
 			None,
 			None,
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 	});
 }

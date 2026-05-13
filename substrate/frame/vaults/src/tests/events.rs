@@ -92,8 +92,7 @@ fn borrow_emits_borrowed() {
 			500,
 			None,
 			None,
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		assert_event(crate::Event::Borrowed {
 			collateral_id: DOT,
@@ -147,8 +146,7 @@ fn change_rate_emits_borrow_rate_changed() {
 			RuntimeOrigin::signed(1),
 			DOT,
 			rate_pct(7, 100),
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		assert_event(crate::Event::BorrowRateChanged {
 			collateral_id: DOT,
@@ -174,8 +172,7 @@ fn premature_change_rate_emits_upfront_fee_charged() {
 			RuntimeOrigin::signed(1),
 			DOT,
 			rate_pct(7, 100),
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		assert_event(crate::Event::UpfrontFeeCharged {
 			collateral_id: DOT,

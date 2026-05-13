@@ -179,8 +179,7 @@ fn dormant_pointer_clears_when_owner_revives_via_borrow() {
 			500,
 			None,
 			None,
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		let v = Vaults::<Test>::get(DOT, 1).unwrap();
 		assert!(matches!(v.status, VaultStatus::Active));
@@ -325,8 +324,7 @@ fn dormant_owner_borrowing_above_min_debt_revives_to_active() {
 			500,
 			None,
 			None,
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		let v = Vaults::<Test>::get(DOT, 1).unwrap();
 		assert!(matches!(v.status, VaultStatus::Active));
@@ -352,7 +350,14 @@ fn dormant_borrow_below_min_debt_reverts() {
 		assert_ok!(redeem(DOT, 3, 480)); // pushes acct 1 to Dormant with tiny debt
 								   // Borrow 1 — total debt would be far below MinimumDebt 200.
 		assert_noop!(
-			crate::Pallet::<Test>::borrow(RuntimeOrigin::signed(1), DOT, 1, None, None, None, None,),
+			crate::Pallet::<Test>::borrow(
+				RuntimeOrigin::signed(1),
+				DOT,
+				1,
+				None,
+				None,
+				Position::endpoints_only(),
+			),
 			crate::Error::<Test>::DebtBelowMinimum
 		);
 	});
@@ -378,8 +383,7 @@ fn dormant_vault_cannot_change_rate() {
 				RuntimeOrigin::signed(1),
 				DOT,
 				rate_pct(7, 100),
-				None,
-				None,
+				Position::endpoints_only(),
 			),
 			crate::Error::<Test>::InvalidVaultStatus
 		);

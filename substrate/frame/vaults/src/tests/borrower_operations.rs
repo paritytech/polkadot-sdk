@@ -127,8 +127,7 @@ fn zero_amount_ops_are_no_ops() {
 			0,
 			None,
 			None,
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(1), 1, DOT, 0));
 
@@ -186,8 +185,7 @@ fn borrow_charges_upfront_fee() {
 			1_000,
 			None,
 			None,
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		let v_after = Vaults::<Test>::get(DOT, 1).expect("vault stored");
 		assert_eq!(v_after.interest_bearing_debt, v_before.interest_bearing_debt + 1_000);
@@ -213,8 +211,7 @@ fn change_rate_to_same_rate_is_no_op() {
 			RuntimeOrigin::signed(1),
 			DOT,
 			rate_pct(5, 100),
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		let post = Vaults::<Test>::get(DOT, 1).expect("vault stored");
 		assert_eq!(pre, post);
@@ -257,8 +254,7 @@ fn change_rate_charged_fee_matches_predict() {
 			RuntimeOrigin::signed(1),
 			DOT,
 			rate_pct(7, 100),
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		let v_mid = Vaults::<Test>::get(DOT, 1).expect("vault stored");
 		assert_eq!(v_mid.annual_rate, rate_pct(7, 100));
@@ -275,8 +271,7 @@ fn change_rate_charged_fee_matches_predict() {
 			RuntimeOrigin::signed(1),
 			DOT,
 			rate_pct(8, 100),
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		let v_post = Vaults::<Test>::get(DOT, 1).expect("vault stored");
 		assert_eq!(v_post.annual_rate, rate_pct(8, 100));

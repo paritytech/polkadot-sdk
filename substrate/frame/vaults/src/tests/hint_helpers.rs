@@ -35,8 +35,8 @@ fn find_rate_position_skips_dormant_vaults() {
 
 		// Now query a hint at a rate near acct 1's old rate. The result
 		// must not name acct 1 — it's no longer in the index.
-		let (prev, next) = crate::Pallet::<Test>::find_rate_position(DOT, rate_pct(15, 1000)); // 1.5%
-		assert_ne!(prev, Some(1));
-		assert_ne!(next, Some(1));
+		let pos = crate::Pallet::<Test>::find_rate_position(DOT, rate_pct(15, 1000)); // 1.5%
+		assert_ne!(pos.prev, Some(1));
+		assert_ne!(pos.next, Some(1));
 	});
 }

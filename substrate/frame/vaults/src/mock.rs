@@ -32,6 +32,7 @@ use frame::{
 	},
 	testing_prelude::*,
 };
+pub use pallet_linked_list::Position;
 use pusd_primitives::{
 	KeeperCompensation, LiquidationAllocation, OffsetAllocation, RedemptionAllocation,
 	VaultLiquidationInterface, VaultRedemptionInterface,
@@ -402,8 +403,7 @@ pub fn open(
 		coll,
 		debt,
 		rate,
-		None,
-		None,
+		Position::endpoints_only(),
 	)
 }
 

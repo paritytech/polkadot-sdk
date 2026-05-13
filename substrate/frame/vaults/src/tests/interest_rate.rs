@@ -130,8 +130,7 @@ fn change_rate_from_non_owner_returns_vault_not_found() {
 				RuntimeOrigin::signed(2),
 				DOT,
 				rate_pct(50, 100),
-				None,
-				None,
+				Position::endpoints_only(),
 			),
 			crate::Error::<Test>::VaultNotFound
 		);
@@ -153,22 +152,19 @@ fn change_rate_sets_new_rate() {
 			RuntimeOrigin::signed(1),
 			DOT,
 			rate_pct(1, 200),
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		assert_ok!(crate::Pallet::<Test>::change_rate(
 			RuntimeOrigin::signed(2),
 			DOT,
 			rate_pct(60, 100),
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		assert_ok!(crate::Pallet::<Test>::change_rate(
 			RuntimeOrigin::signed(3),
 			DOT,
 			rate_pct(100, 100),
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		assert_eq!(Vaults::<Test>::get(DOT, 1).unwrap().annual_rate, rate_pct(1, 200));
 		assert_eq!(Vaults::<Test>::get(DOT, 2).unwrap().annual_rate, rate_pct(60, 100));
@@ -199,8 +195,7 @@ fn change_rate_post_cooldown_full_state() {
 			RuntimeOrigin::signed(1),
 			DOT,
 			rate_pct(75, 100),
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		let v_post = Vaults::<Test>::get(DOT, 1).unwrap();
 
@@ -237,8 +232,7 @@ fn change_rate_premature_increases_recorded_debt_by_fee() {
 			RuntimeOrigin::signed(1),
 			DOT,
 			rate_pct(75, 100),
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		let v_post = Vaults::<Test>::get(DOT, 1).unwrap();
 		assert_eq!(v_post.interest_bearing_debt, v_pre.interest_bearing_debt);
@@ -262,22 +256,19 @@ fn change_rate_re_inserts_to_correct_dll_position() {
 			RuntimeOrigin::signed(3),
 			DOT,
 			rate_pct(1, 200),
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		assert_ok!(crate::Pallet::<Test>::change_rate(
 			RuntimeOrigin::signed(4),
 			DOT,
 			rate_pct(70, 100),
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		assert_ok!(crate::Pallet::<Test>::change_rate(
 			RuntimeOrigin::signed(1),
 			DOT,
 			rate_pct(60, 100),
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		// Final ascending order: C (0.5%) < B (20%) < E (50%) < A (60%) < D (70%).
 		// Tail-first walks lowest-rate first.
@@ -309,8 +300,7 @@ fn collateral_or_debt_adjust_does_not_reorder_dll() {
 			50,
 			None,
 			None,
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(3), 3, DOT, 50));
 		let order_after = <LinkedList as SortedListInterface<u32, u64>>::iter_from_tail(&DOT, 10);
@@ -348,8 +338,7 @@ fn borrow_full_state_changes() {
 			500,
 			None,
 			None,
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		let v_post = Vaults::<Test>::get(DOT, 1).unwrap();
 

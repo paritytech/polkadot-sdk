@@ -46,18 +46,18 @@ fn find_rate_position_returns_valid_neighbors() {
 		// Insert position for 15% should be between 10% (acct 2) and 20%
 		// (acct 3). The DLL stores low-at-tail; "prev" walking head-first is
 		// higher-score, "next" is lower-score — so prev=acct 3, next=acct 2.
-		let (prev, next) = crate::Pallet::<Test>::find_rate_position(DOT, rate_pct(15, 100));
-		assert_eq!(prev, Some(3));
-		assert_eq!(next, Some(2));
+		let pos = crate::Pallet::<Test>::find_rate_position(DOT, rate_pct(15, 100));
+		assert_eq!(pos.prev, Some(3));
+		assert_eq!(pos.next, Some(2));
 
 		// Position for 0.001% — lower than the lowest, so next = None
 		// (we'd be inserted at the very tail).
-		let (_prev, next) = crate::Pallet::<Test>::find_rate_position(DOT, rate_pct(1, 100_000));
-		assert_eq!(next, None);
+		let pos = crate::Pallet::<Test>::find_rate_position(DOT, rate_pct(1, 100_000));
+		assert_eq!(pos.next, None);
 
 		// Position for 100% — higher than the highest, prev = None.
-		let (prev, _next) = crate::Pallet::<Test>::find_rate_position(DOT, rate_pct(100, 100));
-		assert_eq!(prev, None);
+		let pos = crate::Pallet::<Test>::find_rate_position(DOT, rate_pct(100, 100));
+		assert_eq!(pos.prev, None);
 	});
 }
 
@@ -105,16 +105,14 @@ fn change_rate_re_inserts_in_correct_position() {
 			RuntimeOrigin::signed(3),
 			DOT,
 			rate_pct(5, 100),
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 		// Move acct 1 from 10% to 60% — should land at the head.
 		assert_ok!(crate::Pallet::<Test>::change_rate(
 			RuntimeOrigin::signed(1),
 			DOT,
 			rate_pct(60, 100),
-			None,
-			None,
+			Position::endpoints_only(),
 		));
 
 		// Final ascending order: 3 (5%), 2 (20%), 4 (40%), 5 (50%), 1 (60%).
