@@ -6,11 +6,10 @@
 //! fix in Phase 1 of the plan.
 //!
 //! Conventions:
-//! - Vaults are opened with stake == collateral (the snapshot ratio is 1:1 in
-//!   the current implementation; this is invariant after Phase 2 too since
-//!   `held_collateral(...)` replaces `vault.stake`).
-//! - "Recipient rate" means the recipient vault's `annual_rate`, not the
-//!   liquidated vault's rate.
+//! - Vaults are opened with stake == collateral (the snapshot ratio is 1:1 in the current
+//!   implementation; this is invariant after Phase 2 too since `held_collateral(...)` replaces
+//!   `vault.stake`).
+//! - "Recipient rate" means the recipient vault's `annual_rate`, not the liquidated vault's rate.
 
 use crate::{
 	mock::*,
@@ -29,7 +28,6 @@ const ONE_YEAR_MS: Moment = 31_557_600_000;
 fn weighted(x: Balance, rate: FixedU128) -> Balance {
 	rate.saturating_mul_int(x)
 }
-
 
 // After a redistribute-everything liquidation with recipients all at 5%, the
 // branch's `weighted_interest_bearing_debt_sum` should reflect the economic
@@ -93,8 +91,7 @@ fn aggregate_interest_post_redistribution_bounded_by_recipient_rates() {
 			keeper: KeeperCompensation { recipient: 1, collateral: 0 },
 		}));
 
-		let pre_minted =
-			BranchStates::<Test>::get(DOT).unwrap().total_minted_aggregate_interest;
+		let pre_minted = BranchStates::<Test>::get(DOT).unwrap().total_minted_aggregate_interest;
 		let bs_pre = BranchStates::<Test>::get(DOT).unwrap();
 		let total_econ_pre = bs_pre
 			.total_interest_bearing_debt
@@ -105,8 +102,7 @@ fn aggregate_interest_post_redistribution_bounded_by_recipient_rates() {
 		advance_time(ONE_YEAR_MS);
 		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(99), 2, DOT));
 
-		let post_minted =
-			BranchStates::<Test>::get(DOT).unwrap().total_minted_aggregate_interest;
+		let post_minted = BranchStates::<Test>::get(DOT).unwrap().total_minted_aggregate_interest;
 		let delta = post_minted.saturating_sub(pre_minted);
 
 		// Expected: ~5% / yr on the total economic debt at liquidation time.
@@ -238,11 +234,7 @@ fn final_recovery_exit_requires_explicit_hint() {
 		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
 		// Drop the price below MCR so the vault becomes recovery-eligible.
 		set_price(DOT, FixedU128::from_rational(5u128, 100u128));
-		assert_ok!(crate::Pallet::<Test>::enter_final_recovery(
-			RuntimeOrigin::signed(99),
-			1,
-			DOT,
-		));
+		assert_ok!(crate::Pallet::<Test>::enter_final_recovery(RuntimeOrigin::signed(99), 1, DOT,));
 		assert!(matches!(
 			Vaults::<Test>::get(DOT, 1).unwrap().status,
 			crate::types::VaultStatus::FinalRecovery
@@ -289,11 +281,7 @@ fn finalize_liquidation_doesnt_leak_offset_collateral_to_liquidatee() {
 		let pre_recipient = collateral_balance(DOT, recipient);
 
 		assert_ok!(liquidate_with(DOT, 1, |post_touch| LiquidationAllocation {
-			offset: OffsetAllocation {
-				recipient,
-				debt: post_touch,
-				collateral: 500,
-			},
+			offset: OffsetAllocation { recipient, debt: post_touch, collateral: 500 },
 			redistribution_collateral: 0,
 			keeper: KeeperCompensation { recipient: 1, collateral: 0 },
 		}));

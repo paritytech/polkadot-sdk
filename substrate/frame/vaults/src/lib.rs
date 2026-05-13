@@ -62,10 +62,7 @@ pub mod pallet {
 			frame_support::{
 				traits::{
 					fungible::{self, Balanced as FungibleBalanced, Mutate as FungibleMutate},
-					fungibles::{
-						Inspect as FungiblesInspect, InspectHold as FungiblesInspectHold,
-						MutateHold as FungiblesMutateHold,
-					},
+					fungibles::{Inspect as FungiblesInspect, MutateHold as FungiblesMutateHold},
 					OnUnbalanced, Time,
 				},
 				PalletId,
@@ -98,12 +95,12 @@ pub mod pallet {
 
 		/// Multi-asset collateral implementation. Balance must be convertible
 		/// from/into `u128` for the fixed-point math the pallet performs.
-		type CollateralAssets: FungiblesInspect<
-				Self::AccountId,
-				AssetId = Self::AssetId,
-				Balance: From<u128> + Into<u128>,
-			> + FungiblesInspectHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
-			+ FungiblesMutateHold<Self::AccountId>;
+		type CollateralAssets: FungiblesMutateHold<
+			Self::AccountId,
+			AssetId = Self::AssetId,
+			Balance: From<u128> + Into<u128>,
+			Reason = Self::RuntimeHoldReason,
+		>;
 
 		/// The stable asset used to represent pUSD.
 		type StableAsset: FungibleMutate<Self::AccountId, Balance = BalanceOf<Self>>
@@ -129,7 +126,7 @@ pub mod pallet {
 		/// Time provider for fee accrual using UNIX timestamps in millis.
 		/// Moments must convert to `u64` so the pallet can compute durations
 		/// in milliseconds.
-		type TimeProvider: Time<Moment: frame::deps::sp_runtime::traits::AtLeast32Bit + Copy>;
+		type TimeProvider: Time;
 
 		/// Origin allowed to update protocol parameters. Returns the manager
 		/// tier so the call site can gate non-defensive operations.
@@ -829,8 +826,7 @@ pub mod pallet {
 			let cfg = helpers::current_branch_config::<T>(collateral_id)?;
 			ensure!(
 				matches!(level, VaultsManagerLevel::Full) ||
-					(max_rate <= cfg.maximum_borrow_rate &&
-						min_rate >= cfg.minimum_borrow_rate),
+					(max_rate <= cfg.maximum_borrow_rate && min_rate >= cfg.minimum_borrow_rate),
 				Error::<T>::DefensiveActionNotDefensive
 			);
 			helpers::update_branch_config::<T, _>(

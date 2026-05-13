@@ -124,4 +124,3 @@ pub fn queue_head<T: Config>(collateral_id: &T::AssetId, n: u32) -> Vec<T::Accou
 	}
 	out
 }
-

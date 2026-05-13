@@ -626,8 +626,7 @@ where
 	let recipient = recipient.unwrap_or(owner.clone());
 	// Pre-touch status check; re-read after touch for fresh debt fields.
 	{
-		let pre_vault =
-			Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
+		let pre_vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
 		ensure!(
 			!matches!(pre_vault.status, VaultStatus::FinalRecovery),
 			Error::<T>::VaultInFinalRecovery
@@ -1204,10 +1203,7 @@ where
 	update_aggregate_interest::<T>(collateral_id, now)?;
 	touch_vault::<T>(collateral_id, &owner, now)?;
 	let mut vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
-	ensure!(
-		matches!(vault.status, VaultStatus::FinalRecovery),
-		Error::<T>::InvalidVaultStatus
-	);
+	ensure!(matches!(vault.status, VaultStatus::FinalRecovery), Error::<T>::InvalidVaultStatus);
 
 	let cfg = branch_cfg_of::<T>(collateral_id)?;
 	let coll = held_collateral::<T>(collateral_id, &owner);
@@ -1224,10 +1220,11 @@ where
 		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
 		bs.total_stakes = bs.total_stakes.saturating_add(vault.stake);
 		bs.weighted_stake_sum =
-			bs.weighted_stake_sum.saturating_add(u128_to_b::<T>(math::weighted_stake::<u128>(
-				b_to_u128::<T>(vault.stake),
-				vault.annual_rate,
-			)));
+			bs.weighted_stake_sum
+				.saturating_add(u128_to_b::<T>(math::weighted_stake::<u128>(
+					b_to_u128::<T>(vault.stake),
+					vault.annual_rate,
+				)));
 		bs.weighted_interest_bearing_debt_sum = bs
 			.weighted_interest_bearing_debt_sum
 			.saturating_add(u128_to_b::<T>(math::weighted_stake::<u128>(
@@ -1650,8 +1647,8 @@ where
 
 		// (2) FinalRecovery FIFO head — single touch per pass.
 		if budget > 0 && !(remaining.saturating_sub(consumed)).any_lt(per_call) {
-			if let Some(owner) = BranchStates::<T>::get(collateral_id)
-				.and_then(|s| s.final_recovery_head)
+			if let Some(owner) =
+				BranchStates::<T>::get(collateral_id).and_then(|s| s.final_recovery_head)
 			{
 				if touch_one(collateral_id, &owner) {
 					budget = budget.saturating_sub(1);
@@ -1662,8 +1659,8 @@ where
 
 		// (3) Dormant continuation pointer — single touch per pass.
 		if budget > 0 && !(remaining.saturating_sub(consumed)).any_lt(per_call) {
-			if let Some(owner) = BranchStates::<T>::get(collateral_id)
-				.and_then(|s| s.last_dormant_vault_owner)
+			if let Some(owner) =
+				BranchStates::<T>::get(collateral_id).and_then(|s| s.last_dormant_vault_owner)
 			{
 				if touch_one(collateral_id, &owner) {
 					budget = budget.saturating_sub(1);
