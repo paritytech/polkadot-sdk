@@ -31,7 +31,7 @@ use frame::{
 			weights::Weight,
 		},
 		sp_runtime::{
-			traits::{AtLeast32Bit, CheckedDiv, Saturating, Zero},
+			traits::{CheckedDiv, Saturating, Zero},
 			DispatchError, FixedPointNumber, FixedU128, Permill,
 		},
 	},
@@ -40,18 +40,12 @@ use frame::{
 use pallet_linked_list::{Position, SortedListInterface};
 use pusd_primitives::{PriceFeed, ProvidePrice};
 
-fn moment_to_millis<T: Config>(m: MomentOf<T>) -> u64
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+fn moment_to_millis<T: Config>(m: MomentOf<T>) -> u64 {
 	use frame::deps::sp_runtime::traits::SaturatedConversion;
 	m.saturated_into::<u64>()
 }
 
-fn millis_diff<T: Config>(now: MomentOf<T>, then: MomentOf<T>) -> u64
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+fn millis_diff<T: Config>(now: MomentOf<T>, then: MomentOf<T>) -> u64 {
 	moment_to_millis::<T>(now.saturating_sub(then))
 }
 
@@ -82,11 +76,16 @@ fn branch_cfg_of<T: Config>(
 	BranchConfigs::<T>::get(collateral_id).ok_or_else(|| Error::<T>::UnknownCollateral.into())
 }
 
+/// Read a vault row, returning `VaultNotFound` when missing.
+pub(crate) fn vault_of<T: Config>(
+	collateral_id: T::AssetId,
+	owner: &T::AccountId,
+) -> Result<Vault<BalanceOf<T>, MomentOf<T>>, DispatchError> {
+	Vaults::<T>::get(collateral_id, owner).ok_or_else(|| Error::<T>::VaultNotFound.into())
+}
+
 /// Mode is `Frozen` if persisted, otherwise derived from live TCR.
-pub fn current_mode<T: Config>(collateral_id: &T::AssetId) -> Result<BranchMode, DispatchError>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+pub fn current_mode<T: Config>(collateral_id: &T::AssetId) -> Result<BranchMode, DispatchError> {
 	let bs = branch_state_of::<T>(*collateral_id)?;
 	if bs.frozen.is_some() {
 		return Ok(BranchMode::Frozen);
@@ -113,10 +112,7 @@ pub fn compute_tcr<T: Config>(
 	bs: &BranchState<T::AccountId, BalanceOf<T>, MomentOf<T>>,
 	price: FixedU128,
 	now: MomentOf<T>,
-) -> Result<FixedU128, DispatchError>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+) -> Result<FixedU128, DispatchError> {
 	let elapsed = millis_diff::<T>(now, bs.last_aggregate_interest_update);
 	let pending_aggregate = math::simple_interest_ceil(
 		bs.weighted_interest_bearing_debt_sum,
@@ -147,10 +143,7 @@ where
 pub fn update_aggregate_interest<T: Config>(
 	collateral_id: T::AssetId,
 	now: MomentOf<T>,
-) -> Result<(), DispatchError>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+) -> Result<(), DispatchError> {
 	BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
 		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
 		// Frozen branches do not accrue further aggregate interest.
@@ -197,9 +190,8 @@ where
 
 /// Touch a vault: bring it forward to `now` (apply pending stored interest,
 /// pending redistribution principal/collateral/interest, and re-stamp
-/// snapshots). Returns the new fully-accrued (`debt`, `accrued_interest`,
-/// `interest_bearing_debt`) tuple — but most callers only need to read the
-/// vault back from storage afterwards.
+/// snapshots). Returns the post-touch vault (or `None` if the row was
+/// missing) so callers don't need a follow-up storage read.
 ///
 /// The caller MUST have already called `update_aggregate_interest` for this
 /// branch in the same dispatch.
@@ -207,13 +199,10 @@ pub fn touch_vault<T: Config>(
 	collateral_id: T::AssetId,
 	owner: &T::AccountId,
 	now: MomentOf<T>,
-) -> Result<(), DispatchError>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+) -> Result<Option<Vault<BalanceOf<T>, MomentOf<T>>>, DispatchError> {
 	let mut vault = match Vaults::<T>::get(collateral_id, owner) {
 		Some(v) => v,
-		None => return Ok(()),
+		None => return Ok(None),
 	};
 	let mut bs = branch_state_of::<T>(collateral_id)?;
 	let mut redist =
@@ -329,10 +318,10 @@ where
 	// 5. Persist. FinalRecovery exit is no longer auto-applied here; callers
 	// (typically the dedicated `exit_final_recovery` extrinsic) own the
 	// rate-index reinsertion so the caller supplies the O(1) hints.
-	Vaults::<T>::insert(collateral_id, owner, vault);
+	Vaults::<T>::insert(collateral_id, owner, &vault);
 	BranchStates::<T>::insert(collateral_id, &bs);
 	BranchRedistStates::<T>::insert(collateral_id, &redist);
-	Ok(())
+	Ok(Some(vault))
 }
 
 /// Validate the rate is within branch bounds.
@@ -353,10 +342,7 @@ pub fn open_upfront_fee<T: Config>(
 	cfg: &BranchConfig<BalanceOf<T>, MomentOf<T>>,
 	new_debt: BalanceOf<T>,
 	new_rate: FixedU128,
-) -> BalanceOf<T>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+) -> BalanceOf<T> {
 	let total_ib = bs
 		.total_interest_bearing_debt
 		.saturating_add(bs.pending_redistribution_debt)
@@ -366,6 +352,81 @@ where
 		.saturating_add(new_rate.saturating_mul_int(new_debt));
 	let avg = math::average_branch_rate(weighted, total_ib);
 	math::simple_interest_ceil(new_debt, avg, moment_to_millis::<T>(cfg.upfront_fee_period))
+}
+
+/// Simulate a `borrow` (which optionally adjusts the rate) and return the
+/// `(post-state, upfront-fee)` pair. Shared by the live extrinsic and the
+/// `predict_upfront_fee_borrow` view so the two can't drift.
+///
+/// `rate_change_fee_base` is the existing principal that the rate-change
+/// component of the upfront fee is charged against (zero when the call is a
+/// pure debt increase or the cooldown has elapsed).
+fn simulate_borrow<T: Config>(
+	bs: &BranchState<T::AccountId, BalanceOf<T>, MomentOf<T>>,
+	cfg: &BranchConfig<BalanceOf<T>, MomentOf<T>>,
+	vault: &Vault<BalanceOf<T>, MomentOf<T>>,
+	debt_increase: BalanceOf<T>,
+	new_rate: FixedU128,
+	rate_change_fee_base: BalanceOf<T>,
+) -> (BranchState<T::AccountId, BalanceOf<T>, MomentOf<T>>, BalanceOf<T>) {
+	let mut bs_after = bs.clone();
+	bs_after.total_interest_bearing_debt =
+		bs.total_interest_bearing_debt.saturating_add(debt_increase);
+	let weighted_old = vault.annual_rate.saturating_mul_int(vault.interest_bearing_debt);
+	let weighted_new =
+		new_rate.saturating_mul_int(vault.interest_bearing_debt.saturating_add(debt_increase));
+	bs_after.weighted_interest_bearing_debt_sum = bs
+		.weighted_interest_bearing_debt_sum
+		.saturating_sub(weighted_old)
+		.saturating_add(weighted_new);
+	let avg = math::average_branch_rate(
+		bs_after.weighted_interest_bearing_debt_sum,
+		bs_after
+			.total_interest_bearing_debt
+			.saturating_add(bs_after.pending_redistribution_debt),
+	);
+	let fee = math::simple_interest_ceil(
+		debt_increase.saturating_add(rate_change_fee_base),
+		avg,
+		moment_to_millis::<T>(cfg.upfront_fee_period),
+	);
+	(bs_after, fee)
+}
+
+/// Simulate a `change_rate` and return the `(post-state, upfront-fee)` pair.
+/// Shared by the live extrinsic and `predict_upfront_fee_rate_change`.
+fn simulate_change_rate<T: Config>(
+	bs: &BranchState<T::AccountId, BalanceOf<T>, MomentOf<T>>,
+	cfg: &BranchConfig<BalanceOf<T>, MomentOf<T>>,
+	vault: &Vault<BalanceOf<T>, MomentOf<T>>,
+	new_rate: FixedU128,
+	cooldown_elapsed: bool,
+) -> (BranchState<T::AccountId, BalanceOf<T>, MomentOf<T>>, BalanceOf<T>) {
+	let mut bs_after = bs.clone();
+	bs_after.weighted_interest_bearing_debt_sum = bs_after
+		.weighted_interest_bearing_debt_sum
+		.saturating_sub(vault.annual_rate.saturating_mul_int(vault.interest_bearing_debt))
+		.saturating_add(new_rate.saturating_mul_int(vault.interest_bearing_debt));
+	bs_after.weighted_stake_sum = bs_after
+		.weighted_stake_sum
+		.saturating_sub(vault.annual_rate.saturating_mul_int(vault.stake))
+		.saturating_add(new_rate.saturating_mul_int(vault.stake));
+	let fee = if cooldown_elapsed {
+		BalanceOf::<T>::zero()
+	} else {
+		let avg = math::average_branch_rate(
+			bs_after.weighted_interest_bearing_debt_sum,
+			bs_after
+				.total_interest_bearing_debt
+				.saturating_add(bs_after.pending_redistribution_debt),
+		);
+		math::simple_interest_ceil(
+			vault.interest_bearing_debt,
+			avg,
+			moment_to_millis::<T>(cfg.upfront_fee_period),
+		)
+	};
+	(bs_after, fee)
 }
 
 /// Mint pUSD upfront fee and route per `SpYieldShare` like aggregate interest.
@@ -398,10 +459,7 @@ pub fn open_vault<T: Config>(
 	annual_rate: FixedU128,
 	hint_prev: Option<T::AccountId>,
 	hint_next: Option<T::AccountId>,
-) -> Result<(), DispatchError>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+) -> Result<(), DispatchError> {
 	ensure_not_frozen::<T>(collateral_id)?;
 	ensure!(!Vaults::<T>::contains_key(collateral_id, &owner), Error::<T>::VaultAlreadyExists);
 	let cfg = branch_cfg_of::<T>(collateral_id)?;
@@ -462,8 +520,9 @@ where
 		.weighted_interest_bearing_debt_sum
 		.saturating_add(annual_rate.saturating_mul_int(initial_debt));
 	bs_after.total_stakes = bs_after.total_stakes.saturating_add(stake);
-	bs_after.weighted_stake_sum =
-		bs_after.weighted_stake_sum.saturating_add(annual_rate.saturating_mul_int(stake));
+	bs_after.weighted_stake_sum = bs_after
+		.weighted_stake_sum
+		.saturating_add(annual_rate.saturating_mul_int(stake));
 	bs_after.total_minted_aggregate_interest =
 		bs_after.total_minted_aggregate_interest.saturating_add(upfront_fee);
 	let post_tcr = compute_tcr::<T>(&bs_after, price, now)?;
@@ -529,15 +588,12 @@ pub fn deposit_collateral_for<T: Config>(
 	owner: T::AccountId,
 	collateral_id: T::AssetId,
 	amount: BalanceOf<T>,
-) -> Result<(), DispatchError>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+) -> Result<(), DispatchError> {
 	ensure_not_frozen::<T>(collateral_id)?;
 	ensure!(Vaults::<T>::contains_key(collateral_id, &owner), Error::<T>::VaultNotFound);
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(collateral_id, now)?;
-	touch_vault::<T>(collateral_id, &owner, now)?;
+	let _ = touch_vault::<T>(collateral_id, &owner, now)?;
 
 	// Move collateral from caller to owner, on hold.
 	T::CollateralAssets::transfer_and_hold(
@@ -566,25 +622,18 @@ pub fn withdraw_collateral<T: Config>(
 	collateral_id: T::AssetId,
 	amount: BalanceOf<T>,
 	recipient: Option<T::AccountId>,
-) -> Result<(), DispatchError>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+) -> Result<(), DispatchError> {
 	ensure_not_frozen::<T>(collateral_id)?;
 	let recipient = recipient.unwrap_or(owner.clone());
 	// Pre-touch status check; re-read after touch for fresh debt fields.
-	{
-		let pre_vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
-		ensure!(
-			!matches!(pre_vault.status, VaultStatus::FinalRecovery),
-			Error::<T>::VaultInFinalRecovery
-		);
-	}
+	ensure!(
+		!matches!(vault_of::<T>(collateral_id, &owner)?.status, VaultStatus::FinalRecovery),
+		Error::<T>::VaultInFinalRecovery
+	);
 
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(collateral_id, now)?;
-	touch_vault::<T>(collateral_id, &owner, now)?;
-	let vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
+	let vault = touch_vault::<T>(collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 
 	let cfg = branch_cfg_of::<T>(collateral_id)?;
 	let bs_before = branch_state_of::<T>(collateral_id)?;
@@ -645,19 +694,16 @@ pub fn borrow<T: Config>(
 	recipient: Option<T::AccountId>,
 	hint_prev: Option<T::AccountId>,
 	hint_next: Option<T::AccountId>,
-) -> Result<(), DispatchError>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+) -> Result<(), DispatchError> {
 	ensure_not_frozen::<T>(collateral_id)?;
 	let recipient = recipient.unwrap_or(owner.clone());
-	let mut vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
-	ensure!(!matches!(vault.status, VaultStatus::FinalRecovery), Error::<T>::VaultInFinalRecovery);
+	let pre_status = vault_of::<T>(collateral_id, &owner)?.status;
+	ensure!(!matches!(pre_status, VaultStatus::FinalRecovery), Error::<T>::VaultInFinalRecovery);
 
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(collateral_id, now)?;
-	touch_vault::<T>(collateral_id, &owner, now)?;
-	vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
+	let mut vault =
+		touch_vault::<T>(collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 
 	let cfg = branch_cfg_of::<T>(collateral_id)?;
 	let old_rate = vault.annual_rate;
@@ -682,30 +728,8 @@ where
 	} else {
 		BalanceOf::<T>::zero()
 	};
-	let mut bs_after = bs_before.clone();
-	bs_after.total_interest_bearing_debt =
-		bs_before.total_interest_bearing_debt.saturating_add(amount);
-	bs_after.weighted_interest_bearing_debt_sum = bs_before
-		.weighted_interest_bearing_debt_sum
-		.saturating_add(new_rate.saturating_mul_int(new_ib_debt));
-	let weighted_old = old_rate.saturating_mul_int(vault.interest_bearing_debt);
-	bs_after.weighted_interest_bearing_debt_sum =
-		bs_after.weighted_interest_bearing_debt_sum.saturating_sub(weighted_old);
-
-	let upfront_fee = {
-		let avg = math::average_branch_rate(
-			bs_after.weighted_interest_bearing_debt_sum,
-			bs_after
-				.total_interest_bearing_debt
-				.saturating_add(bs_after.pending_redistribution_debt),
-		);
-		math::simple_interest_ceil(
-			amount.saturating_add(rate_change_fee_base),
-			avg,
-			moment_to_millis::<T>(cfg.upfront_fee_period),
-		)
-	};
-
+	let (mut bs_after, upfront_fee) =
+		simulate_borrow::<T>(&bs_before, &cfg, &vault, amount, new_rate, rate_change_fee_base);
 	bs_after.total_minted_aggregate_interest =
 		bs_after.total_minted_aggregate_interest.saturating_add(upfront_fee);
 
@@ -798,18 +822,15 @@ pub fn repay_for<T: Config>(
 	owner: T::AccountId,
 	collateral_id: T::AssetId,
 	amount: BalanceOf<T>,
-) -> Result<(), DispatchError>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+) -> Result<(), DispatchError> {
 	ensure_not_frozen::<T>(collateral_id)?;
-	let mut vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
-	ensure!(!matches!(vault.status, VaultStatus::FinalRecovery), Error::<T>::VaultInFinalRecovery);
+	let pre_status = vault_of::<T>(collateral_id, &owner)?.status;
+	ensure!(!matches!(pre_status, VaultStatus::FinalRecovery), Error::<T>::VaultInFinalRecovery);
 
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(collateral_id, now)?;
-	touch_vault::<T>(collateral_id, &owner, now)?;
-	vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
+	let mut vault =
+		touch_vault::<T>(collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 
 	let cfg = branch_cfg_of::<T>(collateral_id)?;
 
@@ -863,18 +884,15 @@ pub fn change_rate<T: Config>(
 	new_rate: FixedU128,
 	hint_prev: Option<T::AccountId>,
 	hint_next: Option<T::AccountId>,
-) -> Result<(), DispatchError>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+) -> Result<(), DispatchError> {
 	ensure_not_frozen::<T>(collateral_id)?;
-	let mut vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
-	ensure!(matches!(vault.status, VaultStatus::Active), Error::<T>::InvalidVaultStatus);
+	let pre_status = vault_of::<T>(collateral_id, &owner)?.status;
+	ensure!(matches!(pre_status, VaultStatus::Active), Error::<T>::InvalidVaultStatus);
 
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(collateral_id, now)?;
-	touch_vault::<T>(collateral_id, &owner, now)?;
-	vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
+	let mut vault =
+		touch_vault::<T>(collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 	let old_rate = vault.annual_rate;
 	if old_rate == new_rate {
 		return Ok(());
@@ -886,36 +904,10 @@ where
 	// Build the post-change branch state in a clone so we can compute
 	// `post_tcr` and run `enforce_mode_rules` BEFORE applying anything.
 	let bs_before = branch_state_of::<T>(collateral_id)?;
-	let weighted_old_debt = old_rate.saturating_mul_int(vault.interest_bearing_debt);
-	let weighted_new_debt = new_rate.saturating_mul_int(vault.interest_bearing_debt);
-	let stake_old = old_rate.saturating_mul_int(vault.stake);
-	let stake_new = new_rate.saturating_mul_int(vault.stake);
-	let mut bs_after = bs_before.clone();
-	bs_after.weighted_interest_bearing_debt_sum = bs_after
-		.weighted_interest_bearing_debt_sum
-		.saturating_sub(weighted_old_debt)
-		.saturating_add(weighted_new_debt);
-	bs_after.weighted_stake_sum =
-		bs_after.weighted_stake_sum.saturating_sub(stake_old).saturating_add(stake_new);
-
 	let cooldown_elapsed =
 		now.saturating_sub(vault.last_rate_update) >= cfg.rate_adjustment_cooldown;
-	let upfront_fee = if cooldown_elapsed {
-		BalanceOf::<T>::zero()
-	} else {
-		// Charge against current interest_bearing_debt at the post-change avg.
-		let avg = math::average_branch_rate(
-			bs_after.weighted_interest_bearing_debt_sum,
-			bs_after
-				.total_interest_bearing_debt
-				.saturating_add(bs_after.pending_redistribution_debt),
-		);
-		math::simple_interest_ceil(
-			vault.interest_bearing_debt,
-			avg,
-			moment_to_millis::<T>(cfg.upfront_fee_period),
-		)
-	};
+	let (mut bs_after, upfront_fee) =
+		simulate_change_rate::<T>(&bs_before, &cfg, &vault, new_rate, cooldown_elapsed);
 	bs_after.total_minted_aggregate_interest =
 		bs_after.total_minted_aggregate_interest.saturating_add(upfront_fee);
 
@@ -964,18 +956,13 @@ pub fn close_vault<T: Config>(
 	owner: T::AccountId,
 	collateral_id: T::AssetId,
 	recipient: Option<T::AccountId>,
-) -> Result<(), DispatchError>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+) -> Result<(), DispatchError> {
 	ensure_not_frozen::<T>(collateral_id)?;
 	let recipient = recipient.unwrap_or(owner.clone());
-	ensure!(Vaults::<T>::contains_key(collateral_id, &owner), Error::<T>::VaultNotFound);
 
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(collateral_id, now)?;
-	touch_vault::<T>(collateral_id, &owner, now)?;
-	let vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
+	let vault = touch_vault::<T>(collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 
 	let total_debt = vault.interest_bearing_debt.saturating_add(vault.accrued_interest);
 	ensure!(total_debt.is_zero(), Error::<T>::InsufficientRepayment);
@@ -1041,27 +1028,24 @@ where
 	Ok(())
 }
 
-pub fn poke<T: Config>(owner: T::AccountId, collateral_id: T::AssetId) -> Result<(), DispatchError>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+pub fn poke<T: Config>(
+	owner: T::AccountId,
+	collateral_id: T::AssetId,
+) -> Result<(), DispatchError> {
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(collateral_id, now)?;
-	touch_vault::<T>(collateral_id, &owner, now)
+	touch_vault::<T>(collateral_id, &owner, now).map(|_| ())
 }
 
 pub fn enter_final_recovery<T: Config>(
 	owner: T::AccountId,
 	collateral_id: T::AssetId,
-) -> Result<(), DispatchError>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+) -> Result<(), DispatchError> {
 	ensure_not_frozen::<T>(collateral_id)?;
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(collateral_id, now)?;
-	touch_vault::<T>(collateral_id, &owner, now)?;
-	let mut vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
+	let mut vault =
+		touch_vault::<T>(collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 	ensure!(matches!(vault.status, VaultStatus::Active), Error::<T>::InvalidVaultStatus);
 
 	// CR < MCR.
@@ -1116,15 +1100,12 @@ pub fn exit_final_recovery<T: Config>(
 	collateral_id: T::AssetId,
 	hint_prev: Option<T::AccountId>,
 	hint_next: Option<T::AccountId>,
-) -> Result<(), DispatchError>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+) -> Result<(), DispatchError> {
 	ensure_not_frozen::<T>(collateral_id)?;
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(collateral_id, now)?;
-	touch_vault::<T>(collateral_id, &owner, now)?;
-	let mut vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
+	let mut vault =
+		touch_vault::<T>(collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 	ensure!(matches!(vault.status, VaultStatus::FinalRecovery), Error::<T>::InvalidVaultStatus);
 
 	let cfg = branch_cfg_of::<T>(collateral_id)?;
@@ -1171,10 +1152,7 @@ where
 pub fn register_branch<T: Config>(
 	collateral_id: T::AssetId,
 	config: BranchConfig<BalanceOf<T>, MomentOf<T>>,
-) -> Result<(), DispatchError>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+) -> Result<(), DispatchError> {
 	ensure!(!BranchConfigs::<T>::contains_key(collateral_id), Error::<T>::BranchAlreadyRegistered);
 	Branches::<T>::try_mutate(|list| -> Result<_, DispatchError> {
 		list.try_push(collateral_id).map_err(|_| Error::<T>::TooManyBranches)?;
@@ -1239,10 +1217,7 @@ pub fn current_branch_config<T: Config>(
 	BranchConfigs::<T>::get(collateral_id).ok_or_else(|| Error::<T>::UnknownCollateral.into())
 }
 
-pub fn enable_frozen_mode<T: Config>(collateral_id: T::AssetId) -> Result<(), DispatchError>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+pub fn enable_frozen_mode<T: Config>(collateral_id: T::AssetId) -> Result<(), DispatchError> {
 	BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
 		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
 		if bs.frozen.is_none() {
@@ -1298,10 +1273,7 @@ pub fn enforce_mode_rules<T: Config>(
 pub fn view_vault_cr<T: Config>(
 	collateral_id: &T::AssetId,
 	owner: &T::AccountId,
-) -> Option<FixedU128>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+) -> Option<FixedU128> {
 	let vault = Vaults::<T>::get(collateral_id, owner)?;
 	let coll = held_collateral::<T>(*collateral_id, owner);
 	let total_debt = vault.interest_bearing_debt.saturating_add(vault.accrued_interest);
@@ -1309,10 +1281,7 @@ where
 	math::collateralization_ratio::<BalanceOf<T>>(coll, total_debt, price)
 }
 
-pub fn view_branch_tcr<T: Config>(collateral_id: &T::AssetId) -> Option<FixedU128>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+pub fn view_branch_tcr<T: Config>(collateral_id: &T::AssetId) -> Option<FixedU128> {
 	let bs = BranchStates::<T>::get(collateral_id)?;
 	let price = T::Oracle::provide_price(collateral_id).ok()?.price;
 	let now = T::TimeProvider::now();
@@ -1381,19 +1350,11 @@ pub fn predict_upfront_fee_open<T: Config>(
 	collateral_id: &T::AssetId,
 	initial_debt: BalanceOf<T>,
 	annual_rate: FixedU128,
-) -> BalanceOf<T>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
-	let cfg = match BranchConfigs::<T>::get(collateral_id) {
-		Some(c) => c,
-		None => return BalanceOf::<T>::zero(),
-	};
-	let bs = match BranchStates::<T>::get(collateral_id) {
-		Some(b) => b,
-		None => return BalanceOf::<T>::zero(),
-	};
-	open_upfront_fee::<T>(&bs, &cfg, initial_debt, annual_rate)
+) -> BalanceOf<T> {
+	match (BranchConfigs::<T>::get(collateral_id), BranchStates::<T>::get(collateral_id)) {
+		(Some(cfg), Some(bs)) => open_upfront_fee::<T>(&bs, &cfg, initial_debt, annual_rate),
+		_ => BalanceOf::<T>::zero(),
+	}
 }
 
 pub fn predict_upfront_fee_borrow<T: Config>(
@@ -1401,20 +1362,9 @@ pub fn predict_upfront_fee_borrow<T: Config>(
 	owner: &T::AccountId,
 	debt_increase: BalanceOf<T>,
 	maybe_new_rate: Option<FixedU128>,
-) -> BalanceOf<T>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
-	let cfg = match BranchConfigs::<T>::get(collateral_id) {
-		Some(c) => c,
-		None => return BalanceOf::<T>::zero(),
-	};
-	let bs = match BranchStates::<T>::get(collateral_id) {
-		Some(b) => b,
-		None => return BalanceOf::<T>::zero(),
-	};
-	let vault = match Vaults::<T>::get(collateral_id, owner) {
-		Some(v) => v,
+) -> BalanceOf<T> {
+	let (cfg, bs, vault) = match predict_inputs::<T>(collateral_id, owner) {
+		Some(t) => t,
 		None => return BalanceOf::<T>::zero(),
 	};
 	let new_rate = maybe_new_rate.unwrap_or(vault.annual_rate);
@@ -1426,80 +1376,44 @@ where
 	} else {
 		BalanceOf::<T>::zero()
 	};
-	let mut bs_after = bs.clone();
-	bs_after.total_interest_bearing_debt =
-		bs_after.total_interest_bearing_debt.saturating_add(debt_increase);
-	let weighted_old = vault.annual_rate.saturating_mul_int(vault.interest_bearing_debt);
-	let weighted_new =
-		new_rate.saturating_mul_int(vault.interest_bearing_debt.saturating_add(debt_increase));
-	bs_after.weighted_interest_bearing_debt_sum = bs_after
-		.weighted_interest_bearing_debt_sum
-		.saturating_sub(weighted_old)
-		.saturating_add(weighted_new);
-	let avg = math::average_branch_rate(
-		bs_after.weighted_interest_bearing_debt_sum,
-		bs_after
-			.total_interest_bearing_debt
-			.saturating_add(bs_after.pending_redistribution_debt),
-	);
-	math::simple_interest_ceil(
-		debt_increase.saturating_add(rate_change_fee_base),
-		avg,
-		moment_to_millis::<T>(cfg.upfront_fee_period),
-	)
+	simulate_borrow::<T>(&bs, &cfg, &vault, debt_increase, new_rate, rate_change_fee_base).1
 }
 
 pub fn predict_upfront_fee_rate_change<T: Config>(
 	collateral_id: &T::AssetId,
 	owner: &T::AccountId,
 	new_rate: FixedU128,
-) -> BalanceOf<T>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
-	let cfg = match BranchConfigs::<T>::get(collateral_id) {
-		Some(c) => c,
-		None => return BalanceOf::<T>::zero(),
-	};
-	let bs = match BranchStates::<T>::get(collateral_id) {
-		Some(b) => b,
-		None => return BalanceOf::<T>::zero(),
-	};
-	let vault = match Vaults::<T>::get(collateral_id, owner) {
-		Some(v) => v,
+) -> BalanceOf<T> {
+	let (cfg, bs, vault) = match predict_inputs::<T>(collateral_id, owner) {
+		Some(t) => t,
 		None => return BalanceOf::<T>::zero(),
 	};
 	let now = T::TimeProvider::now();
 	let cooldown_elapsed =
 		now.saturating_sub(vault.last_rate_update) >= cfg.rate_adjustment_cooldown;
-	if cooldown_elapsed {
-		return BalanceOf::<T>::zero();
-	}
-	let mut bs_after = bs.clone();
-	let weighted_old = vault.annual_rate.saturating_mul_int(vault.interest_bearing_debt);
-	let weighted_new = new_rate.saturating_mul_int(vault.interest_bearing_debt);
-	bs_after.weighted_interest_bearing_debt_sum = bs_after
-		.weighted_interest_bearing_debt_sum
-		.saturating_sub(weighted_old)
-		.saturating_add(weighted_new);
-	let avg = math::average_branch_rate(
-		bs_after.weighted_interest_bearing_debt_sum,
-		bs_after
-			.total_interest_bearing_debt
-			.saturating_add(bs_after.pending_redistribution_debt),
-	);
-	math::simple_interest_ceil(
-		vault.interest_bearing_debt,
-		avg,
-		moment_to_millis::<T>(cfg.upfront_fee_period),
-	)
+	simulate_change_rate::<T>(&bs, &cfg, &vault, new_rate, cooldown_elapsed).1
+}
+
+/// Read the `(cfg, branch state, vault)` triple for a `predict_*` view.
+/// Returns `None` if any row is missing — the predict APIs treat that as
+/// "no fee" rather than an error.
+fn predict_inputs<T: Config>(
+	collateral_id: &T::AssetId,
+	owner: &T::AccountId,
+) -> Option<(
+	BranchConfig<BalanceOf<T>, MomentOf<T>>,
+	BranchState<T::AccountId, BalanceOf<T>, MomentOf<T>>,
+	Vault<BalanceOf<T>, MomentOf<T>>,
+)> {
+	Some((
+		BranchConfigs::<T>::get(collateral_id)?,
+		BranchStates::<T>::get(collateral_id)?,
+		Vaults::<T>::get(collateral_id, owner)?,
+	))
 }
 
 /// Refresh the next handful of vaults across each branch using the cursor.
-pub fn on_idle_walk<T: Config>(remaining: Weight) -> Weight
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+pub fn on_idle_walk<T: Config>(remaining: Weight) -> Weight {
 	let per_call = T::WeightInfo::on_idle_one_vault();
 	if remaining.any_lt(per_call) {
 		return Weight::zero();

@@ -16,7 +16,7 @@ use crate::{
 	helpers, math,
 	pallet::{
 		BalanceOf, BranchConfigs, BranchRedistStates, BranchStates, Config, Error, Event,
-		HoldReason, MomentOf, Pallet, StableCreditOf, VaultRedistSnapshots, Vaults,
+		HoldReason, Pallet, StableCreditOf, VaultRedistSnapshots, Vaults,
 	},
 	recovery,
 	types::VaultStatus,
@@ -29,7 +29,7 @@ use frame::deps::{
 		SameOrOther, Time,
 	},
 	sp_runtime::{
-		traits::{AtLeast32Bit, CheckedDiv, SaturatedConversion, Saturating, Zero},
+		traits::{CheckedDiv, Saturating, Zero},
 		DispatchError, DispatchResult, FixedPointNumber, FixedU128,
 	},
 };
@@ -39,10 +39,7 @@ use pusd_primitives::{
 	VaultRedemptionInterface,
 };
 
-impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>> for Pallet<T>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>> for Pallet<T> {
 	fn prepare_liquidation(
 		collateral_id: T::AssetId,
 		owner: T::AccountId,
@@ -53,8 +50,8 @@ where
 		}
 		let now = T::TimeProvider::now();
 		helpers::update_aggregate_interest::<T>(collateral_id, now)?;
-		helpers::touch_vault::<T>(collateral_id, &owner, now)?;
-		let vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
+		let vault = helpers::touch_vault::<T>(collateral_id, &owner, now)?
+			.ok_or(Error::<T>::VaultNotFound)?;
 		if matches!(vault.status, VaultStatus::FinalRecovery) {
 			return Err(Error::<T>::VaultInFinalRecovery.into());
 		}
@@ -90,7 +87,7 @@ where
 		owner: T::AccountId,
 		allocation: LiquidationAllocation<T::AccountId, BalanceOf<T>>,
 	) -> DispatchResult {
-		let vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
+		let vault = helpers::vault_of::<T>(collateral_id, &owner)?;
 		let post_touch_debt = vault.interest_bearing_debt.saturating_add(vault.accrued_interest);
 		let held = T::CollateralAssets::balance_on_hold(
 			collateral_id,
@@ -121,8 +118,7 @@ where
 				// branch's interest base. Per-vault reconciliation in
 				// `touch_vault` later replaces this avg-rate share with the
 				// recipient's own rate.
-				let avg_rate =
-					math::average_branch_rate(bs.weighted_stake_sum, bs.total_stakes);
+				let avg_rate = math::average_branch_rate(bs.weighted_stake_sum, bs.total_stakes);
 				BranchRedistStates::<T>::try_mutate(
 					collateral_id,
 					|maybe_redist| -> Result<_, DispatchError> {
@@ -133,9 +129,7 @@ where
 							let coll_fp = FixedU128::saturating_from_integer(
 								allocation.redistribution_collateral,
 							);
-							let now_fp = FixedU128::saturating_from_integer(
-								T::TimeProvider::now().saturated_into::<u128>(),
-							);
+							let now_fp = FixedU128::saturating_from_integer(T::TimeProvider::now());
 							// `stakes_fp != 0` is asserted above; `checked_div` only returns
 							// `None` on overflow, in which case we treat the per-stake
 							// increment as zero (defensive — accumulator is monotonically
@@ -256,10 +250,7 @@ where
 	}
 }
 
-impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>> for Pallet<T>
-where
-	MomentOf<T>: AtLeast32Bit + Copy,
-{
+impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>> for Pallet<T> {
 	fn next_redemption_target(
 		collateral_id: T::AssetId,
 		_cursor: Option<T::AccountId>,
@@ -288,8 +279,8 @@ where
 		}
 		let now = T::TimeProvider::now();
 		helpers::update_aggregate_interest::<T>(collateral_id, now)?;
-		helpers::touch_vault::<T>(collateral_id, &owner, now)?;
-		let vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
+		let vault = helpers::touch_vault::<T>(collateral_id, &owner, now)?
+			.ok_or(Error::<T>::VaultNotFound)?;
 		Ok(vault.interest_bearing_debt.saturating_add(vault.accrued_interest))
 	}
 
@@ -299,7 +290,7 @@ where
 		redeemer: T::AccountId,
 		allocation: RedemptionAllocation<BalanceOf<T>>,
 	) -> DispatchResult {
-		let mut vault = Vaults::<T>::get(collateral_id, &owner).ok_or(Error::<T>::VaultNotFound)?;
+		let mut vault = helpers::vault_of::<T>(collateral_id, &owner)?;
 		let post_touch_debt = vault.interest_bearing_debt.saturating_add(vault.accrued_interest);
 		let held = T::CollateralAssets::balance_on_hold(
 			collateral_id,

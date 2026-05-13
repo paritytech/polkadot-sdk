@@ -99,8 +99,8 @@ pub fn average_branch_rate<Balance: FixedPointOperand>(
 	}
 	let w: u128 = weighted_sum.unique_saturated_into();
 	let t: u128 = total_ib_debt.unique_saturated_into();
-	let inner = multiply_by_rational_with_rounding(w, FixedU128::DIV, t, Rounding::Up)
-		.unwrap_or(u128::MAX);
+	let inner =
+		multiply_by_rational_with_rounding(w, FixedU128::DIV, t, Rounding::Up).unwrap_or(u128::MAX);
 	FixedU128::from_inner(inner)
 }
 
