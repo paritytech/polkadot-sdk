@@ -19,7 +19,6 @@
 //! `NetworkService` implementation for `litep2p`.
 
 use crate::{
-	bitswap::BitswapWantType,
 	config::MultiaddrWithPeerId,
 	litep2p::shim::{
 		notification::{config::ProtocolControlHandle, peerset::PeersetCommand},
@@ -61,16 +60,6 @@ use std::{
 
 /// Logging target for the file.
 const LOG_TARGET: &str = "sub-libp2p";
-
-/// Convert a bitswap want type to the litep2p equivalent.
-impl From<BitswapWantType> for litep2p::protocol::libp2p::bitswap::WantType {
-	fn from(want_type: BitswapWantType) -> Self {
-		match want_type {
-			BitswapWantType::Block => Self::Block,
-			BitswapWantType::Have => Self::Have,
-		}
-	}
-}
 
 /// Commands sent by [`Litep2pNetworkService`] to
 /// [`Litep2pNetworkBackend`](super::Litep2pNetworkBackend).
@@ -308,9 +297,13 @@ impl Litep2pNetworkService {
 					return;
 				},
 			};
-			let want_type = litep2p::protocol::libp2p::bitswap::WantType::from(
-				BitswapWantType::from(entry.want_type),
-			);
+			let want_type = if entry.want_type ==
+				crate::bitswap::schema::bitswap::message::wantlist::WantType::Have as i32
+			{
+				litep2p::protocol::libp2p::bitswap::WantType::Have
+			} else {
+				litep2p::protocol::libp2p::bitswap::WantType::Block
+			};
 			cids.push((cid, want_type));
 		}
 

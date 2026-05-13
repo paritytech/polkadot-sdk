@@ -43,54 +43,6 @@ pub const SHA2_256_MULTIHASH_CODE: u64 = 0x12;
 /// Multihash code for Keccak-256.
 pub const KECCAK_256_MULTIHASH_CODE: u64 = 0x1b;
 
-/// Type of Bitswap want for a CID.
-///
-/// The public client API only emits [`BitswapWantType::Block`]. The [`BitswapWantType::Have`]
-/// variant exists to model the on-wire protocol for the internal proto-compatibility bridge
-/// in `litep2p::service::route_bitswap_request`.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum BitswapWantType {
-	/// Request the full block payload.
-	Block,
-	/// Request only a presence response.
-	Have,
-}
-
-impl From<BitswapWantType> for ProtoWantType {
-	fn from(want_type: BitswapWantType) -> Self {
-		match want_type {
-			BitswapWantType::Block => Self::Block,
-			BitswapWantType::Have => Self::Have,
-		}
-	}
-}
-
-impl From<i32> for BitswapWantType {
-	fn from(want_type: i32) -> Self {
-		if want_type == ProtoWantType::Have as i32 {
-			Self::Have
-		} else {
-			Self::Block
-		}
-	}
-}
-
-/// One CID request in a Bitswap wantlist (internal).
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) struct BitswapWant {
-	/// Requested CID.
-	pub cid: Cid,
-	/// Requested response type.
-	pub want_type: BitswapWantType,
-}
-
-impl BitswapWant {
-	/// Create a `WANT-BLOCK` entry.
-	pub(crate) fn block(cid: Cid) -> Self {
-		Self { cid, want_type: BitswapWantType::Block }
-	}
-}
-
 /// Per-CID outcome from a Bitswap block request.
 ///
 /// The public contract is intentionally narrow: either the peer delivered the bytes for the CID
@@ -125,22 +77,17 @@ fn validate_wantlist_size(len: usize) -> Result<(), BitswapError> {
 	Ok(())
 }
 
-/// Validate wants: enforce length, CID support, and CID uniqueness.
-fn validate_wants(wants: &[BitswapWant]) -> Result<(), BitswapError> {
-	validate_wantlist_size(wants.len())?;
+/// Validate CIDs: enforce length, CID support, and CID uniqueness.
+fn validate_cids(cids: &[Cid]) -> Result<(), BitswapError> {
+	validate_wantlist_size(cids.len())?;
 
-	let mut seen: HashSet<Cid> = HashSet::with_capacity(wants.len());
-	for want in wants {
-		if !is_cid_supported(&want.cid) {
-			return Err(BitswapError::UnsupportedHashing {
-				multihash_code: want.cid.hash().code(),
-			});
+	let mut seen: HashSet<Cid> = HashSet::with_capacity(cids.len());
+	for cid in cids {
+		if !is_cid_supported(cid) {
+			return Err(BitswapError::UnsupportedHashing { multihash_code: cid.hash().code() });
 		}
-		if !seen.insert(want.cid) {
-			return Err(BitswapError::DecodeError(format!(
-				"duplicate CID in wantlist: {}",
-				want.cid,
-			)));
+		if !seen.insert(*cid) {
+			return Err(BitswapError::DecodeError(format!("duplicate CID in wantlist: {cid}")));
 		}
 	}
 
@@ -162,11 +109,10 @@ pub async fn request_bitswap_blocks<N>(
 where
 	N: NetworkRequest + ?Sized,
 {
-	let wants: Vec<_> = cids.iter().copied().map(BitswapWant::block).collect();
-	validate_wants(&wants)?;
+	validate_cids(cids)?;
 
-	let wanted: HashSet<Cid> = wants.iter().map(|want| want.cid).collect();
-	let response = send_request(network, peer, &wants).await?;
+	let wanted: HashSet<Cid> = cids.iter().copied().collect();
+	let response = send_request(network, peer, cids).await?;
 	Ok(classify_response(response, &wanted, peer))
 }
 
@@ -183,27 +129,27 @@ pub async fn request_bitswap_blocks_unverified<N>(
 where
 	N: NetworkRequest + ?Sized,
 {
-	let wants: Vec<_> = cids.iter().copied().map(BitswapWant::block).collect();
-	validate_wants(&wants)?;
+	validate_cids(cids)?;
 
-	let response = send_request(network, peer, &wants).await?;
-	Ok(classify_response_unverified(response, &wants, peer))
+	let response = send_request(network, peer, cids).await?;
+	Ok(classify_response_unverified(response, cids, peer))
 }
 
 /// Dispatch a bitswap WANT request to `peer` and decode the response.
 async fn send_request<N>(
 	network: &N,
 	peer: PeerId,
-	wants: &[BitswapWant],
+	cids: &[Cid],
 ) -> Result<BitswapMessage, BitswapError>
 where
 	N: NetworkRequest + ?Sized,
 {
-	let entries: Vec<Entry> = wants
+	let entries: Vec<Entry> = cids
 		.iter()
-		.map(|want| Entry {
-			block: want.cid.to_bytes(),
-			want_type: ProtoWantType::from(want.want_type) as i32,
+		.copied()
+		.map(|cid| Entry {
+			block: cid.to_bytes(),
+			want_type: ProtoWantType::Block as i32,
 			send_dont_have: true,
 			..Default::default()
 		})
@@ -214,7 +160,7 @@ where
 	trace!(
 		target: LOG_TARGET,
 		"client: sending Bitswap wantlist for {} CIDs to {peer}, protocol {PROTOCOL_NAME}",
-		wants.len(),
+		cids.len(),
 	);
 
 	let payload = match network
@@ -282,12 +228,12 @@ fn classify_response(
 /// wantlist, otherwise as [`FetchOutcome::Missing`].
 fn classify_response_unverified(
 	response: BitswapMessage,
-	wants: &[BitswapWant],
+	cids: &[Cid],
 	peer: PeerId,
 ) -> HashMap<Cid, FetchOutcome> {
-	let mut result: HashMap<Cid, FetchOutcome> = HashMap::with_capacity(wants.len());
-	let wanted_set: HashSet<Cid> = wants.iter().map(|want| want.cid).collect();
-	let mut dont_have_cids: HashSet<Cid> = HashSet::with_capacity(wants.len());
+	let mut result: HashMap<Cid, FetchOutcome> = HashMap::with_capacity(cids.len());
+	let wanted_set: HashSet<Cid> = cids.iter().copied().collect();
+	let mut dont_have_cids: HashSet<Cid> = HashSet::with_capacity(cids.len());
 
 	for presence in response.block_presences {
 		let Ok(cid) = Cid::read_bytes(presence.cid.as_slice()).inspect_err(|err| {
@@ -317,7 +263,7 @@ fn classify_response_unverified(
 	// each block to the next requested CID (skipping any the peer already said it doesn't have)
 	// whose CID metadata matches the payload prefix.
 	let mut expected_payload_order =
-		wants.iter().map(|want| &want.cid).filter(|cid| !dont_have_cids.contains(cid));
+		cids.iter().copied().filter(|cid| !dont_have_cids.contains(cid));
 
 	for block in response.payload {
 		let Some(expected_cid) = expected_payload_order.next() else {
@@ -329,7 +275,7 @@ fn classify_response_unverified(
 		}) else {
 			break;
 		};
-		if !prefix_matches_cid(&prefix, expected_cid) {
+		if !prefix_matches_cid(&prefix, &expected_cid) {
 			debug!(
 				target: LOG_TARGET,
 				"client: {peer} returned block with prefix {:?} but expected CID {expected_cid}; \
@@ -343,11 +289,11 @@ fn classify_response_unverified(
 			"client: {peer} returned {} unverified bytes for CID {expected_cid}",
 			block.data.len(),
 		);
-		result.insert(*expected_cid, FetchOutcome::Block(block.data.clone()));
+		result.insert(expected_cid, FetchOutcome::Block(block.data.clone()));
 	}
 
-	for want in wants {
-		result.entry(want.cid).or_insert(FetchOutcome::Missing);
+	for cid in cids {
+		result.entry(*cid).or_insert(FetchOutcome::Missing);
 	}
 
 	result
