@@ -24,10 +24,9 @@
 //!    A coordinated multi-account attack that stays within per-account limits
 //!    can still exhaust the global bucket, preventing pool exhaustion.
 //!
-//! The per-sender map is capped at [`RateLimitConfig::max_tracked_senders`]
-//! entries. When full, the entry with the oldest `last_touch` timestamp is
-//! evicted to make room, bounding memory use regardless of how many distinct
-//! authorized accounts submit.
+//! The per-sender map is capped at [`RateLimitConfig::max_tracked_senders`] entries.
+//! When full, the sender with the most remaining token capacity is evicted — keeping
+//! exhausted senders tracked so they cannot re-enter with a fresh bucket.
 //!
 //! Refill happens lazily on each check using monotonic `Instant`s, so idle
 //! users never block a background task.
@@ -106,10 +105,10 @@ pub struct RateLimitConfig {
 	pub global_bandwidth_per_min: u64,
 	/// Burst size for the global bandwidth bucket, in bytes.
 	pub global_bandwidth_burst: u64,
-	/// Maximum number of distinct senders tracked simultaneously.
-	///
-	/// When this limit is reached the stalest entry (by `last_touch`) is
-	/// evicted before inserting the new sender, keeping memory bounded.
+	/// Maximum number of distinct senders tracked simultaneously. When the limit
+	/// is reached the entry with the most remaining token capacity is evicted,
+	/// keeping rate-exhausted senders tracked so they cannot bypass limits by
+	/// re-entering with a fresh bucket.
 	pub max_tracked_senders: usize,
 }
 
@@ -177,20 +176,33 @@ impl RateLimiter {
 
 		// New sender: enforce the map size cap before inserting.
 		if users.len() >= self.cfg.max_tracked_senders {
-			// Evict the entry that was least recently touched.  Scanning under
-			// the write lock is safe: no other thread can concurrently mutate
-			// `users`, and taking a per-entry Mutex here is consistent with the
-			// users.write() → state.lock() order used in evict_stale().
-			if let Some(stalest_id) = users
+			// Evict the sender with the most remaining token capacity. Evicting
+			// by LRU would let a rate-exhausted sender re-enter with a fresh
+			// bucket; keeping it tracked preserves its exhausted state.
+			// try_lock() avoids blocking under the write lock; locked entries
+			// (actively being checked) are skipped as poor eviction candidates.
+			let to_evict = users
 				.iter()
-				.min_by_key(|(_, s)| s.lock().last_touch)
-				.map(|(id, _)| *id)
-			{
-				users.remove(&stalest_id);
+				.filter_map(|(id, s)| {
+					s.try_lock().map(|guard| {
+						// Normalise to [0.0, 1.0]; take the min across both
+						// buckets so a sender exhausted on either is not evicted.
+						let req_fill = guard.requests.tokens
+							/ guard.requests.capacity.max(f64::EPSILON);
+						let bw_fill = guard.bandwidth.tokens
+							/ guard.bandwidth.capacity.max(f64::EPSILON);
+						(req_fill.min(bw_fill), *id)
+					})
+				})
+				.max_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal))
+				.map(|(_, id)| id);
+
+			if let Some(id) = to_evict {
+				users.remove(&id);
 				tracing::debug!(
 					target: "hop",
 					limit = self.cfg.max_tracked_senders,
-					"Rate-limiter sender cap reached; evicted stalest entry",
+					"Rate-limiter sender cap reached; evicted most-capacity entry",
 				);
 			}
 		}
@@ -494,50 +506,55 @@ mod tests {
 	}
 
 	#[test]
-	fn eviction_removes_stalest_not_newest() {
+	fn exhausted_sender_survives_eviction_over_fresh_sender() {
 		let rl = RateLimiter::new(small_cap_cfg(2));
 
-		// Insert sender A (touched first, will be stalest).
-		rl.check(&SENDER_A, 1).unwrap();
-
-		// Back-date A's last_touch so it is clearly the stalest entry.
-		{
-			let state = rl.get_or_create(&SENDER_A, Instant::now());
-			let mut state = state.lock();
-			state.last_touch -= Duration::from_secs(7200);
-		}
-
-		// Insert sender B (touched more recently).
-		rl.check(&SENDER_B, 1).unwrap();
-		assert_eq!(rl.tracked_senders(), 2);
-
-		// Insert sender C — cap is 2, so one entry must be evicted.
-		// A is stalest and should be evicted; B should survive.
-		rl.check(&SENDER_C, 1).unwrap();
-		assert_eq!(rl.tracked_senders(), 2);
-
-		// B and C should still be in the map; A should be gone.
-		assert!(rl.users.read().contains_key(&SENDER_B), "B should survive eviction");
-		assert!(rl.users.read().contains_key(&SENDER_C), "C should be present");
-		assert!(!rl.users.read().contains_key(&SENDER_A), "A should have been evicted");
-	}
-
-	#[test]
-	fn evicted_sender_can_resubmit_with_fresh_bucket() {
-		let rl = RateLimiter::new(small_cap_cfg(1));
-
-		// Fill A's request burst completely.
+		// A: exhaust its entire request burst (1_000 tokens in small_cap_cfg).
 		for _ in 0..1_000 {
 			rl.check(&SENDER_A, 1).unwrap();
 		}
-		// A is now rate-limited.
-		assert!(rl.check(&SENDER_A, 1).is_err());
+		assert!(rl.check(&SENDER_A, 1).is_err(), "A should be rate-limited");
 
-		// Sender B pushes A out (cap = 1).
+		// B: fresh entry — only 1 request consumed, nearly full tokens.
 		rl.check(&SENDER_B, 1).unwrap();
-		assert!(!rl.users.read().contains_key(&SENDER_A), "A should be evicted");
+		assert_eq!(rl.tracked_senders(), 2);
 
-		// A re-enters with a fresh bucket and is no longer limited.
-		rl.check(&SENDER_A, 1).unwrap();
+		// C causes an eviction.  B has far more remaining capacity than A,
+		// so B must be chosen for eviction — not A.  Evicting A would hand it
+		// a fresh bucket and defeat the rate limit.
+		rl.check(&SENDER_C, 1).unwrap();
+		assert_eq!(rl.tracked_senders(), 2, "map must not exceed the cap");
+
+		assert!(rl.users.read().contains_key(&SENDER_A), "exhausted A must survive");
+		assert!(!rl.users.read().contains_key(&SENDER_B), "fresh B should be evicted");
+		assert!(rl.users.read().contains_key(&SENDER_C), "C should be present");
+
+		// A is still rate-limited — it did NOT receive a fresh bucket.
+		assert!(rl.check(&SENDER_A, 1).is_err(), "A must still be rate-limited after eviction");
+	}
+
+	#[test]
+	fn evicted_fresh_sender_can_resubmit_without_constraint() {
+		// Verify the harmless inverse: a sender that WAS evicted (because it
+		// had the most remaining capacity) can re-enter successfully — there is
+		// no security concern when a non-exhausted sender loses its entry.
+		let rl = RateLimiter::new(small_cap_cfg(2));
+
+		// A: exhaust its request burst.
+		for _ in 0..1_000 {
+			rl.check(&SENDER_A, 1).unwrap();
+		}
+		assert!(rl.check(&SENDER_A, 1).is_err(), "A should be rate-limited");
+
+		// B: fresh entry.
+		rl.check(&SENDER_B, 1).unwrap();
+
+		// C enters; B (most tokens remaining) is evicted, not A.
+		rl.check(&SENDER_C, 1).unwrap();
+		assert!(!rl.users.read().contains_key(&SENDER_B), "fresh B should have been evicted");
+
+		// B re-enters — this is acceptable because B was not rate-limited when
+		// evicted, so granting it a fresh bucket is not a security bypass.
+		rl.check(&SENDER_B, 1).unwrap();
 	}
 }
