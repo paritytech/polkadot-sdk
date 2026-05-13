@@ -23,9 +23,13 @@ use zombienet_sdk::{
 
 use crate::utils::{assert_candidates_version, assert_validator_backed_candidates};
 
+/// Test that spawns a relay chain with 2 parachains:
+/// - a V2 parachain with async backing
+/// - a V3 parachain with async backing
+/// and checks that the candidates for both parachains are being backed at expected throughput.
 #[rstest]
-#[case::zero_offset("async-backing-v3")]
-#[case::with_rpo("async-backing-v3-rpo")]
+#[case::zero_relay_parent_offset("async-backing-v3")]
+#[case::non_zero_relay_parent_offset("async-backing-v3-rpo")]
 #[tokio::test(flavor = "multi_thread")]
 async fn scheduling_v2_and_v3_collator_with_v3_validators(
 	#[case] para_chain: &str,
@@ -120,6 +124,11 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 	wait_for_pvf_prepare(&network, 2).await?;
 
 	// Verify both V3 and V2 candidates are backed in the same relay chain block window.
+	let expected_v3_throughput = match para_chain {
+		"async-backing-v3" => 18..21,
+		"async-backing-v3-rpo" => 8..21,
+		_ => unreachable!("unexpected para_chain"),
+	};
 	assert_para_throughput_with(
 		&relay_client,
 		20,

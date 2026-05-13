@@ -176,7 +176,7 @@ where
 			max_pov_percentage,
 		} = params;
 
-		let mut slot_timer = SlotTimer::new_with_offset(slot_offset, relay_chain_slot_duration);
+		let mut slot_timer = SlotTimer::new_with_offset(Duration::ZERO, relay_chain_slot_duration);
 
 		let mut collator = {
 			let params = collator_util::Params {
@@ -190,7 +190,7 @@ where
 				collator_service,
 			};
 
-			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
+			Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
 		let mut scheduling_info =

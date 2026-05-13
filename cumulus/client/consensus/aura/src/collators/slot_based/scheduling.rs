@@ -188,6 +188,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 				Some(header) => header,
 				None => self.best_notifications.next().await?,
 			};
+			self.maybe_best_relay_header = Some(best_relay_header.clone());
 			let best_relay_header_data =
 				relay_chain_data_cache.get_mut_by_header(best_relay_header).await.ok()?;
 			let best_relay_slot = get_relay_slot(&best_relay_header_data.relay_header)?;
@@ -364,9 +365,8 @@ mod tests {
 		assert_eq!(scheduling_info.should_reinit(), false);
 
 		let best_header_2 = tests::relay_header_with_slot(11, Default::default(), 100);
-		let (_tx_2, rx_2) = futures::channel::mpsc::unbounded::<RelayHeader>();
 		client.set_best_hash(Some(best_header_2.hash()));
-		client.set_best_notifications(Box::pin(rx_2));
+		client.set_best_notifications(Box::pin(futures::stream::empty()));
 		cache.set_test_data(best_header_2.clone(), vec![], Default::default());
 		scheduling_info.ensure_initialized(&client, &mut cache).await;
 		assert_eq!(scheduling_info.maybe_best_relay_header.as_ref(), Some(&best_header));
@@ -554,6 +554,7 @@ mod tests {
 		.await
 		.expect("Task should complete within timeout");
 		assert_eq!(result, None);
+		assert_eq!(scheduling_info.maybe_best_relay_header.as_ref(), Some(&headers[3]));
 
 		// Simulate: an even fresher block.
 		tx.unbounded_send(headers[4].clone()).unwrap();
@@ -563,5 +564,6 @@ mod tests {
 		.await
 		.expect("Task should complete within timeout");
 		assert_eq!(result, None);
+		assert_eq!(scheduling_info.maybe_best_relay_header.as_ref(), Some(&headers[4]));
 	}
 }
