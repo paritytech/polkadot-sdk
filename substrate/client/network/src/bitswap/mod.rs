@@ -26,8 +26,8 @@ use crate::{
 	MAX_RESPONSE_SIZE,
 };
 
-use futures::StreamExt;
 use cid::{Error as CidError, Version as CidVersion};
+use futures::StreamExt;
 use log::{debug, error, trace};
 use prost::Message;
 use sc_client_api::BlockBackend;
