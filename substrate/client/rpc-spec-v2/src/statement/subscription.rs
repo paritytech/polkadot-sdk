@@ -28,7 +28,10 @@ use sc_statement_store::{
 	AddFilterError, LiveEventStream, MultiFilterSubscriptionEvent, SubscriptionHandle,
 };
 use sp_statement_store::{FilterId, OptimizedTopicFilter};
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::Duration};
+use tokio::sync::Notify;
+
+const SUBSCRIPTION_REGISTRATION_TIMEOUT: Duration = Duration::from_millis(250);
 
 pub(crate) enum AddFilterOutcome {
 	Added(FilterId),
@@ -43,11 +46,15 @@ type SubscriptionRegistry =
 #[derive(Clone, Default)]
 pub struct StatementSubscriptions {
 	registry: SubscriptionRegistry,
+	registration_notify: Arc<Notify>,
 }
 
 impl StatementSubscriptions {
 	pub fn new() -> Self {
-		Self { registry: Arc::new(RwLock::new(HashMap::new())) }
+		Self {
+			registry: Arc::new(RwLock::new(HashMap::new())),
+			registration_notify: Arc::new(Notify::new()),
+		}
 	}
 
 	/// Registers a subscription owned by the connection
@@ -65,6 +72,8 @@ impl StatementSubscriptions {
 		}
 
 		connection.insert(sub_id.clone(), state);
+		drop(registry);
+		self.registration_notify.notify_waiters();
 		Some(SubscriptionEntry { conn_id, sub_id, registry: self.registry.clone() })
 	}
 
@@ -74,6 +83,27 @@ impl StatementSubscriptions {
 			.read()
 			.get(&conn_id)
 			.and_then(|connection| connection.get(sub_id).cloned())
+	}
+
+	pub async fn get_with_timeout(
+		&self,
+		conn_id: ConnectionId,
+		sub_id: &str,
+	) -> Option<SubscriptionStateRef> {
+		match tokio::time::timeout(SUBSCRIPTION_REGISTRATION_TIMEOUT, async {
+			loop {
+				let notified = self.registration_notify.notified();
+				if let Some(state) = self.get(conn_id, sub_id) {
+					return state;
+				}
+				notified.await;
+			}
+		})
+		.await
+		{
+			Ok(state) => Some(state),
+			Err(_) => self.get(conn_id, sub_id),
+		}
 	}
 }
 
@@ -180,7 +210,7 @@ async fn send_event(sink: &Subscription, event: &SubscribeEvent) -> bool {
 mod tests {
 	use super::*;
 	use sc_statement_store::{MultiFilterSubscriptionApi, Store};
-	use std::sync::Arc;
+	use std::{sync::Arc, time::Duration};
 
 	fn empty_subscription_state() -> Arc<SubscriptionHandle> {
 		let dir = tempfile::tempdir().expect("tempdir");
@@ -370,5 +400,27 @@ mod tests {
 		let _entry = subscriptions.register(conn_a, sub_id.clone(), handle_a).unwrap();
 		assert!(subscriptions.register(conn_a, sub_id.clone(), duplicate_handle).is_none());
 		assert!(subscriptions.register(conn_b, sub_id, handle_b).is_some());
+	}
+
+	#[tokio::test]
+	async fn subscription_lookup_waits_for_delayed_registration() {
+		let subscriptions = StatementSubscriptions::new();
+		let conn_id = ConnectionId(1);
+		let sub_id = "eventually-registered".to_string();
+		let handle = (*empty_subscription_state()).clone();
+		let (release_entry_tx, release_entry_rx) = tokio::sync::oneshot::channel();
+
+		let subscriptions_for_task = subscriptions.clone();
+		let sub_id_for_task = sub_id.clone();
+		tokio::spawn(async move {
+			tokio::time::sleep(Duration::from_millis(10)).await;
+			let _entry = subscriptions_for_task
+				.register(conn_id, sub_id_for_task, handle)
+				.expect("delayed registration should succeed");
+			let _ = release_entry_rx.await;
+		});
+
+		assert!(subscriptions.get_with_timeout(conn_id, &sub_id).await.is_some());
+		let _ = release_entry_tx.send(());
 	}
 }

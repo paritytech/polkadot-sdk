@@ -90,21 +90,26 @@ where
 	B: StatementStore + Send + Sync + 'static,
 	Arc<B>: MultiFilterSubscriptionApi,
 {
-	fn statement_unstable_subscribe(&self, pending: PendingSubscriptionSink, _ext: &Extensions) {
+	async fn statement_unstable_subscribe(
+		&self,
+		pending: PendingSubscriptionSink,
+		_ext: &Extensions,
+	) {
 		let subscriptions = self.subscriptions.clone();
 		let store = self.store.clone();
 		let connection_id = pending.connection_id();
 
+		let (handle, live_stream) = store.create_subscription();
+		let Ok(sink) = pending.accept().await.map(Subscription::from) else { return };
+		let sub_id = read_subscription_id_as_string(&sink);
+
+		let Some(entry) = subscriptions.register(connection_id, sub_id.clone(), handle) else {
+			log::debug!(target: LOG_TARGET, "duplicate subscription id {sub_id}; aborting");
+			let _ = sink.send(&crate::statement::event::SubscribeEvent::Stop).await;
+			return;
+		};
+
 		let fut = async move {
-			let Ok(sink) = pending.accept().await.map(Subscription::from) else { return };
-			let sub_id = read_subscription_id_as_string(&sink);
-			let (handle, live_stream) = store.create_subscription();
-
-			let Some(entry) = subscriptions.register(connection_id, sub_id.clone(), handle) else {
-				log::debug!(target: LOG_TARGET, "duplicate subscription id {sub_id}; aborting");
-				return;
-			};
-
 			run_subscription_task(sink, live_stream).await;
 			drop(entry);
 		};
@@ -113,7 +118,7 @@ where
 			.spawn("statement-unstable-subscribe-init", Some("rpc"), fut.boxed());
 	}
 
-	fn statement_unstable_add_filter(
+	async fn statement_unstable_add_filter(
 		&self,
 		ext: &Extensions,
 		subscription: String,
@@ -122,7 +127,7 @@ where
 		let conn_id = connection_id(ext);
 		let topic_filter = validate_topic_filter(topic_filter)?;
 
-		let Some(state) = self.subscriptions.get(conn_id, &subscription) else {
+		let Some(state) = self.subscriptions.get_with_timeout(conn_id, &subscription).await else {
 			return Err(Error::InvalidSubscription);
 		};
 

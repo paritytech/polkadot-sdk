@@ -35,11 +35,11 @@ pub trait StatementSpecApi {
 		item = SubscribeEvent,
 		with_extensions,
 	)]
-	fn statement_unstable_subscribe(&self);
+	async fn statement_unstable_subscribe(&self);
 
 	/// Attaches a filter to an existing subscription
 	#[method(name = "statement_unstable_add_filter", with_extensions)]
-	fn statement_unstable_add_filter(
+	async fn statement_unstable_add_filter(
 		&self,
 		subscription: String,
 		topic_filter: TopicFilter,
