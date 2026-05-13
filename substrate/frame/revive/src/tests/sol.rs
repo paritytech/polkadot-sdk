@@ -228,10 +228,8 @@ fn call_tracing_records_consumption_for_nested_transfer_to_eoa() {
 		assert!(Pallet::<Test>::evm_balance(&eoa) >= 1_000_000.into());
 
 		let trace = tracer.collect_trace().unwrap();
-		let inner = trace
-			.calls
-			.first()
-			.expect("CallTrace must contain the contract → EOA sub-call");
+		let inner =
+			trace.calls.first().expect("CallTrace must contain the contract → EOA sub-call");
 		assert_eq!(inner.to, eoa, "sub-call destination must be the EOA");
 		assert_eq!(inner.call_type, CallType::Call, "sub-call must be a regular CALL");
 		assert!(

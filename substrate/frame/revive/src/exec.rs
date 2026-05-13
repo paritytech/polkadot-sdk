@@ -2184,16 +2184,14 @@ where
 
 				if_tracing(|t| {
 					let frame_meter = &top_frame!(self).frame_meter;
-					let weight_delta =
-						frame_meter.weight_consumed().saturating_sub(weight_before);
+					let weight_delta = frame_meter.weight_consumed().saturating_sub(weight_before);
 					let deposit_delta =
 						frame_meter.deposit_consumed().saturating_sub(&deposit_before);
-					let gas_delta = SignedGas::<T>::from_weight_fee(
-						T::FeeInfo::weight_to_fee(&weight_delta),
-					)
-					.saturating_add(&SignedGas::<T>::from_adjusted_deposit_charge(
-						&deposit_delta,
-					));
+					let gas_delta =
+						SignedGas::<T>::from_weight_fee(T::FeeInfo::weight_to_fee(&weight_delta))
+							.saturating_add(&SignedGas::<T>::from_adjusted_deposit_charge(
+								&deposit_delta,
+							));
 					let gas_used: u64 = gas_delta
 						.to_ethereum_gas()
 						.unwrap_or_default()
@@ -2201,8 +2199,9 @@ where
 						.unwrap_or(u64::MAX);
 					match result {
 						Ok(ref output) => t.exit_child_span(&output, gas_used, weight_delta),
-						Err(e) =>
-							t.exit_child_span_with_error(e.error.into(), gas_used, weight_delta),
+						Err(e) => {
+							t.exit_child_span_with_error(e.error.into(), gas_used, weight_delta)
+						},
 					}
 				});
 
