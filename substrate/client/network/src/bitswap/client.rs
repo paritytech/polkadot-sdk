@@ -101,6 +101,9 @@ fn validate_cids(cids: &[Cid]) -> Result<(), BitswapError> {
 ///
 /// Errors if `cids` is empty, larger than [`MAX_WANTED_BLOCKS`], contains an unsupported CID,
 /// or contains a duplicate CID.
+///
+/// Note: This is a temporary API that shall be superseeded by a better abstraction such as
+///  <https://github.com/paritytech/polkadot-sdk/issues/12052>
 pub async fn request_bitswap_blocks<N>(
 	network: &N,
 	peer: PeerId,
@@ -121,6 +124,9 @@ where
 /// Use this when the requester must fetch by CID-shaped identifiers before it can verify the
 /// returned bytes through an external authority. The response is matched by request order and
 /// CID prefix only; integrity verification is delegated to the caller.
+///
+/// Note: This is a temporary API that shall be superseeded by a better abstraction such as
+///  <https://github.com/paritytech/polkadot-sdk/issues/12052>
 pub async fn request_bitswap_blocks_unverified<N>(
 	network: &N,
 	peer: PeerId,

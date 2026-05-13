@@ -27,7 +27,7 @@ use crate::{
 };
 
 use futures::StreamExt;
-use litep2p::types::cid::{Cid, Error as CidError, Version as CidVersion};
+use cid::{Error as CidError, Version as CidVersion};
 use log::{debug, error, trace};
 use prost::Message;
 use sc_client_api::BlockBackend;
@@ -45,6 +45,7 @@ use unsigned_varint::encode as varint_encode;
 mod client;
 pub(crate) mod schema;
 
+pub use cid::Cid;
 pub use client::{
 	request_bitswap_blocks, request_bitswap_blocks_unverified, BitswapError, FetchOutcome,
 	BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, SHA2_256_MULTIHASH_CODE,
@@ -64,7 +65,7 @@ const MAX_REQUEST_QUEUE: usize = 20;
 pub const MAX_WANTED_BLOCKS: usize = 16;
 
 /// Bitswap protocol name.
-pub(crate) const PROTOCOL_NAME: &'static str = "/ipfs/bitswap/1.2.0";
+pub(crate) const PROTOCOL_NAME: &str = "/ipfs/bitswap/1.2.0";
 
 /// IPFS raw multicodec used for indexed transaction payload bytes.
 pub const RAW_CODEC: u64 = 0x55;
@@ -93,6 +94,17 @@ pub(crate) struct Prefix {
 	pub mh_type: u64,
 	/// The multihash length of CID.
 	pub mh_len: u8,
+}
+
+impl From<&Cid> for Prefix {
+	fn from(cid: &Cid) -> Self {
+		Self {
+			version: cid.version(),
+			codec: cid.codec(),
+			mh_type: cid.hash().code(),
+			mh_len: cid.hash().size(),
+		}
+	}
 }
 
 impl Prefix {
@@ -239,12 +251,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 					trace!(target: LOG_TARGET, "Found CID {:?}, hash {:?}", cid, hash);
 
 					if entry.want_type == WantType::Block as i32 {
-						let prefix = Prefix {
-							version: cid.version(),
-							codec: cid.codec(),
-							mh_type: cid.hash().code(),
-							mh_len: cid.hash().size(),
-						};
+						let prefix: Prefix = (&cid).into();
 						response
 							.payload
 							.push(MessageBlock { prefix: prefix.to_bytes(), data: transaction });

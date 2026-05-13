@@ -291,7 +291,7 @@ impl Litep2pNetworkService {
 
 		let mut cids = Vec::with_capacity(wantlist.entries.len());
 		for entry in wantlist.entries {
-			let cid = match cid::Cid::read_bytes(entry.block.as_slice()) {
+			let cid = match crate::bitswap::Cid::read_bytes(entry.block.as_slice()) {
 				Ok(c) => c,
 				Err(e) => {
 					log::warn!(target: LOG_TARGET, "bitswap: invalid CID in WANT entry: {e}");

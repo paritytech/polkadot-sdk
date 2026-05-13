@@ -23,12 +23,15 @@
 
 use crate::{
 	bitswap::{
-		is_cid_supported, BitswapProtoMessage, Prefix, LOG_TARGET, MAX_WANTED_BLOCKS, PROTOCOL_NAME,
+		is_cid_supported,
+		schema::bitswap::message::{
+			Block as MessageBlock, BlockPresence, BlockPresenceType as ProtoPresenceType,
+		},
+		BitswapProtoMessage, Cid, Prefix, LOG_TARGET, MAX_WANTED_BLOCKS, PROTOCOL_NAME,
 	},
 	request_responses::RequestFailure,
 	OutboundFailure, ProtocolName, MAX_RESPONSE_SIZE,
 };
-use cid::Cid;
 use futures::{channel::oneshot, StreamExt};
 use litep2p::protocol::libp2p::bitswap::{
 	BitswapEvent, BitswapHandle, BlockPresenceType, Config, ResponseType, WantType,
@@ -83,13 +86,13 @@ impl PendingBatch {
 	}
 
 	fn record_responses(&mut self, responses: &HashMap<Cid, ResponseType>) {
-		for cid in self.cids.iter().copied() {
-			if self.responses.contains_key(&cid) {
+		for cid in &self.cids {
+			if self.responses.contains_key(cid) {
 				continue;
 			}
-			let Some(resp) = responses.get(&cid) else { continue };
+			let Some(resp) = responses.get(cid) else { continue };
 			self.response_bytes = self.response_bytes.saturating_add(response_retained_bytes(resp));
-			self.responses.insert(cid, resp.clone());
+			self.responses.insert(*cid, resp.clone());
 		}
 	}
 
@@ -373,30 +376,23 @@ fn response_retained_bytes(response: &ResponseType) -> usize {
 
 /// Encode litep2p [`ResponseType`] values into a [`BitswapProtoMessage`] byte vector.
 fn encode_responses_as_bitswap_message(responses: &[ResponseType]) -> Vec<u8> {
-	use crate::bitswap::schema::bitswap::message::{
-		Block as MessageBlock, BlockPresence, BlockPresenceType as ProtoPresenceType,
-	};
-
 	let mut msg = BitswapProtoMessage::default();
 
 	for resp in responses {
 		match resp {
 			ResponseType::Block { cid, block } => {
-				let prefix = Prefix {
-					version: cid.version(),
-					codec: cid.codec(),
-					mh_type: cid.hash().code(),
-					mh_len: cid.hash().size(),
-				};
+				let prefix: Prefix = cid.into();
 				msg.payload
 					.push(MessageBlock { prefix: prefix.to_bytes(), data: block.clone() });
 			},
 			ResponseType::Presence { cid, presence } => {
-				let r#type = match presence {
-					BlockPresenceType::Have => ProtoPresenceType::Have as i32,
-					BlockPresenceType::DontHave => ProtoPresenceType::DontHave as i32,
-				};
-				msg.block_presences.push(BlockPresence { cid: cid.to_bytes(), r#type });
+				msg.block_presences.push(BlockPresence {
+					cid: cid.to_bytes(),
+					r#type: match presence {
+						BlockPresenceType::Have => ProtoPresenceType::Have as i32,
+						BlockPresenceType::DontHave => ProtoPresenceType::DontHave as i32,
+					},
+				});
 			},
 		}
 	}
@@ -435,7 +431,6 @@ mod tests {
 
 	#[test]
 	fn encode_responses_are_decodable() {
-		use crate::bitswap::schema::bitswap::message::BlockPresenceType as ProtoPresenceType;
 		let block_cid = make_cid(1);
 		let presence_cid = make_cid(2);
 		let data = b"block-data-payload".to_vec();
