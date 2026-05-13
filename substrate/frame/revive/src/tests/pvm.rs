@@ -4115,6 +4115,46 @@ fn tracing_works_for_transfers() {
 	});
 }
 
+/// Regression test for paritytech/contract-issues#278.
+///
+/// Calling into an account with no contract code (a plain transfer) takes the
+/// "else" branch in [`crate::exec::Stack::run_call`], where the tracer's
+/// `exit_child_span` is invoked with `Default::default()` for both `gas_used`
+/// and `weight_consumed`. The resulting [`ExecutionTrace`] therefore reports
+/// `gas == 0`, even though the transfer charged a real existential deposit
+/// through the transaction meter. Once that branch is fixed to forward the
+/// meter's actual delta, this test should pass.
+#[test]
+fn execution_tracing_records_consumption_for_plain_transfer() {
+	use crate::evm::{ExecutionTracer, ExecutionTracerConfig};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		// BOB is not pre-funded, so the transfer creates the account and
+		// charges an existential deposit through the meter.
+		assert_eq!(get_balance(&BOB), 0);
+
+		let mut tracer = ExecutionTracer::new(ExecutionTracerConfig::default());
+		let result = trace(&mut tracer, || {
+			builder::bare_call(BOB_ADDR)
+				.evm_value(1_000_000.into())
+				.build_and_unwrap_result()
+		});
+
+		// Sanity: the transfer actually happened and consumed metered resources.
+		assert!(!result.did_revert(), "transfer must succeed");
+		assert!(get_balance(&BOB) > 0, "BOB must be funded after the transfer");
+
+		let trace = tracer.collect_trace();
+		assert!(
+			trace.gas > 0,
+			"ExecutionTrace.gas should reflect the gas charged for the \
+			 existential-deposit transfer; got 0 — see issue #278",
+		);
+	});
+}
+
 fn replace_actual_gas(expected: &mut CallTrace, actual: &CallTrace) {
 	expected.gas = actual.gas;
 	expected.gas_used = actual.gas_used;
