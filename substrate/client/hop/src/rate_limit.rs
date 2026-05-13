@@ -236,8 +236,8 @@ impl RateLimiter {
 				return Err(wait.as_secs().max(1));
 			}
 
-			// Bandwidth charge can exceed burst (e.g. 8 MiB message, 512 MiB burst). If it
-			// exceeds, we still admit the first request but wait out the deficit on the next.
+			// Bandwidth exhausted: refund the request token already consumed and reject.
+			// Both charges are rolled back so the caller can retry after refill.
 			if let Err(wait) = state.bandwidth.try_consume(data_len as f64, now) {
 				// Refund the request token we just took so the two buckets stay consistent.
 				state.requests.tokens = (state.requests.tokens + 1.0).min(state.requests.capacity);
@@ -452,7 +452,7 @@ mod tests {
 			let mut global = rl.global_bandwidth.lock();
 			global.last -= Duration::from_secs(10); // fast-forward global refill
 		}
-		rl.check(&SENDER_B, 1).unwrap();
+		rl.check(&SENDER_B, 1).expect("sender B should succeed once global bucket refills");
 	}
 
 	#[test]
