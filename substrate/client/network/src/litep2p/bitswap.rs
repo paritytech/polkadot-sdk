@@ -252,6 +252,7 @@ impl<Block: BlockT> BitswapService<Block> {
 		log::debug!(target: LOG_TARGET, "starting bidirectional bitswap service");
 		let mut expiry_ticker = tokio::time::interval(EXPIRY_TICK_INTERVAL);
 		expiry_ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+		expiry_ticker.tick().await;
 
 		loop {
 			tokio::select! {
