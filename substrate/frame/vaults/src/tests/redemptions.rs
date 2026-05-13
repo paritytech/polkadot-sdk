@@ -23,7 +23,6 @@ use crate::{
 	mock::*,
 	pallet::{BranchStates, Vaults},
 	tests::rate_pct,
-	types::VaultStatus,
 };
 use frame::deps::frame_support::{assert_noop, assert_ok};
 use pallet_linked_list::SortedListInterface;
@@ -52,7 +51,7 @@ fn fully_redeemed_vault_becomes_dormant_and_leaves_rate_index() {
 		assert_eq!(target, 1);
 
 		let v = Vaults::<Test>::get(DOT, 1).unwrap();
-		assert!(matches!(v.status, VaultStatus::Dormant));
+		assert!(v.status.is_dormant());
 		assert_eq!(v.interest_bearing_debt + v.accrued_interest, 0);
 		// Rate index no longer contains acct 1.
 		assert!(!<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
@@ -73,7 +72,7 @@ fn redeemed_below_min_debt_becomes_dormant() {
 		let v = Vaults::<Test>::get(DOT, 1).unwrap();
 		let total = v.interest_bearing_debt + v.accrued_interest;
 		assert!(total > 0 && total < 200, "got total = {}", total);
-		assert!(matches!(v.status, VaultStatus::Dormant));
+		assert!(v.status.is_dormant());
 		assert!(!<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
 	});
 }
@@ -89,7 +88,7 @@ fn redeemed_above_min_debt_stays_active() {
 		// Redeem 200 — leaves acct 1 with ≈ 300 debt, well above MinimumDebt.
 		assert_ok!(redeem(DOT, 3, 200));
 		let v = Vaults::<Test>::get(DOT, 1).unwrap();
-		assert!(matches!(v.status, VaultStatus::Active));
+		assert!(v.status.is_active());
 		assert!(<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
 	});
 }
@@ -182,7 +181,7 @@ fn dormant_pointer_clears_when_owner_revives_via_borrow() {
 			Position::endpoints_only(),
 		));
 		let v = Vaults::<Test>::get(DOT, 1).unwrap();
-		assert!(matches!(v.status, VaultStatus::Active));
+		assert!(v.status.is_active());
 		assert!(<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
 		let bs = BranchStates::<Test>::get(DOT).unwrap();
 		assert_eq!(bs.last_dormant_vault_owner, None);
@@ -210,7 +209,7 @@ fn dormant_does_not_auto_revive_via_interest_accrual() {
 		advance_time(3650 * ONE_DAY_MS);
 		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(2), 1, DOT));
 		let v = Vaults::<Test>::get(DOT, 1).unwrap();
-		assert!(matches!(v.status, VaultStatus::Dormant));
+		assert!(v.status.is_dormant());
 	});
 }
 
@@ -313,7 +312,7 @@ fn dormant_owner_borrowing_above_min_debt_revives_to_active() {
 		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(1, 100)));
 		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(2, 100)));
 		assert_ok!(redeem(DOT, 3, 350));
-		assert!(matches!(Vaults::<Test>::get(DOT, 1).unwrap().status, VaultStatus::Dormant));
+		assert!(Vaults::<Test>::get(DOT, 1).unwrap().status.is_dormant());
 		assert!(!<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
 
 		// Borrow 500 more — vault debt jumps from ~150 to ~650, well above
@@ -327,7 +326,7 @@ fn dormant_owner_borrowing_above_min_debt_revives_to_active() {
 			Position::endpoints_only(),
 		));
 		let v = Vaults::<Test>::get(DOT, 1).unwrap();
-		assert!(matches!(v.status, VaultStatus::Active));
+		assert!(v.status.is_active());
 		// row 31: re-inserted into the rate index at the new (or unchanged) rate.
 		assert!(<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
 	});

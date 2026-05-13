@@ -10,16 +10,52 @@ use crate::{
 	types::FinalRecoveryNode,
 };
 use alloc::vec::Vec;
-use frame::deps::{frame_support::traits::Time, sp_runtime::DispatchError};
+use frame::deps::{
+	frame_support::{defensive, ensure, traits::Time},
+	sp_runtime::DispatchError,
+};
+
+/// Set `node.next` on an existing FIFO node. The node is expected to exist
+/// (every link is asserted by the FIFO invariant); a missing node is logged
+/// defensively rather than silently skipped.
+fn set_next<T: Config>(
+	collateral_id: &T::AssetId,
+	owner: &T::AccountId,
+	next: Option<T::AccountId>,
+) {
+	FinalRecoveryNodes::<T>::mutate(collateral_id, owner, |maybe| {
+		if let Some(node) = maybe {
+			node.next = next;
+		} else {
+			defensive!("FinalRecoveryNodes: setting `next` on missing owner");
+		}
+	});
+}
+
+/// Set `node.prev` on an existing FIFO node. See [`set_next`].
+fn set_prev<T: Config>(
+	collateral_id: &T::AssetId,
+	owner: &T::AccountId,
+	prev: Option<T::AccountId>,
+) {
+	FinalRecoveryNodes::<T>::mutate(collateral_id, owner, |maybe| {
+		if let Some(node) = maybe {
+			node.prev = prev;
+		} else {
+			defensive!("FinalRecoveryNodes: setting `prev` on missing owner");
+		}
+	});
+}
 
 /// Append `owner` to the per-branch FIFO. Errors if already present.
 pub fn append<T: Config>(
 	collateral_id: &T::AssetId,
 	owner: T::AccountId,
 ) -> Result<(), DispatchError> {
-	if FinalRecoveryNodes::<T>::contains_key(collateral_id, &owner) {
-		return Err(Error::<T>::FinalRecoveryInvariantBroken.into());
-	}
+	ensure!(
+		!FinalRecoveryNodes::<T>::contains_key(collateral_id, &owner),
+		Error::<T>::FinalRecoveryInvariantBroken,
+	);
 
 	let now = T::TimeProvider::now();
 	BranchStates::<T>::try_mutate(collateral_id, |maybe_branch| -> Result<_, DispatchError> {
@@ -28,14 +64,9 @@ pub fn append<T: Config>(
 		let node = FinalRecoveryNode { prev: prev.clone(), next: None, entered_at: now };
 		FinalRecoveryNodes::<T>::insert(collateral_id, &owner, node);
 
-		if let Some(prev_owner) = prev {
-			FinalRecoveryNodes::<T>::mutate(collateral_id, &prev_owner, |maybe| {
-				if let Some(n) = maybe {
-					n.next = Some(owner.clone());
-				}
-			});
-		} else {
-			branch.final_recovery_head = Some(owner.clone());
+		match prev {
+			Some(prev_owner) => set_next::<T>(collateral_id, &prev_owner, Some(owner.clone())),
+			None => branch.final_recovery_head = Some(owner.clone()),
 		}
 		branch.final_recovery_tail = Some(owner.clone());
 		Ok(())
@@ -59,31 +90,15 @@ pub fn remove<T: Config>(
 		let branch = maybe_branch.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
 		match (&node.prev, &node.next) {
 			(Some(p), Some(n)) => {
-				FinalRecoveryNodes::<T>::mutate(collateral_id, p, |maybe| {
-					if let Some(left) = maybe {
-						left.next = Some(n.clone());
-					}
-				});
-				FinalRecoveryNodes::<T>::mutate(collateral_id, n, |maybe| {
-					if let Some(right) = maybe {
-						right.prev = Some(p.clone());
-					}
-				});
+				set_next::<T>(collateral_id, p, Some(n.clone()));
+				set_prev::<T>(collateral_id, n, Some(p.clone()));
 			},
 			(Some(p), None) => {
-				FinalRecoveryNodes::<T>::mutate(collateral_id, p, |maybe| {
-					if let Some(left) = maybe {
-						left.next = None;
-					}
-				});
+				set_next::<T>(collateral_id, p, None);
 				branch.final_recovery_tail = Some(p.clone());
 			},
 			(None, Some(n)) => {
-				FinalRecoveryNodes::<T>::mutate(collateral_id, n, |maybe| {
-					if let Some(right) = maybe {
-						right.prev = None;
-					}
-				});
+				set_prev::<T>(collateral_id, n, None);
 				branch.final_recovery_head = Some(n.clone());
 			},
 			(None, None) => {
@@ -114,9 +129,8 @@ pub fn queue_head<T: Config>(collateral_id: &T::AssetId, n: u32) -> Vec<T::Accou
 		if taken >= n {
 			break;
 		}
-		let node = match FinalRecoveryNodes::<T>::get(collateral_id, &owner) {
-			Some(node) => node,
-			None => break,
+		let Some(node) = FinalRecoveryNodes::<T>::get(collateral_id, &owner) else {
+			break;
 		};
 		out.push(owner);
 		cursor = node.next;

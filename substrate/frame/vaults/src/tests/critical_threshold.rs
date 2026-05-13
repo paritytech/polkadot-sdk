@@ -38,7 +38,7 @@ fn enter_safety_mode_single_vault() {
 	assert_ok!(open(1, DOT, 1_000, 5_000, rate_pct(5, 100)));
 	set_price(DOT, FixedU128::from_rational(63u128, 10u128));
 	// Sanity: `bs.frozen` must remain `None`; mode is *derived* from TCR.
-	assert!(BranchStates::<Test>::get(DOT).expect("branch state").frozen.is_none());
+	assert!(!BranchStates::<Test>::get(DOT).expect("branch state").is_frozen());
 }
 
 // --- ports --------------------------------------------------------------

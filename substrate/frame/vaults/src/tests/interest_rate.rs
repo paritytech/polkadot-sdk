@@ -23,7 +23,7 @@
 //! explicitly: `vault.interest_bearing_debt` (principal/recorded) and
 //! `vault.accrued_interest` (the rest of the entire-debt total).
 
-use crate::{mock::*, pallet::Vaults, tests::rate_pct, types::VaultStatus};
+use crate::{mock::*, pallet::Vaults, tests::rate_pct};
 use frame::deps::{
 	frame_support::{
 		assert_noop, assert_ok,
@@ -583,7 +583,7 @@ fn redemption_full_state_changes() {
 		assert_eq!(v_post.interest_bearing_debt, v_pre.interest_bearing_debt - pay_principal);
 
 		// Vault stays Active because remaining debt is well above MinimumDebt.
-		assert!(matches!(v_post.status, VaultStatus::Active));
+		assert!(v_post.status.is_active());
 	});
 }
 

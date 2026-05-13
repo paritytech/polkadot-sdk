@@ -51,7 +51,7 @@ pub fn do_try_state<T: Config>() -> Result<(), TryRuntimeError> {
 			}
 			if let Some(owner) = bs.last_dormant_vault_owner.clone() {
 				if let Some(v) = Vaults::<T>::get(c, &owner) {
-					if !matches!(v.status, VaultStatus::Dormant) {
+					if !v.status.is_dormant() {
 						return Err("last_dormant_vault_owner points at non-Dormant".into());
 					}
 				} else {

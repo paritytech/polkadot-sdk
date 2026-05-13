@@ -9,7 +9,6 @@ use crate::{
 	mock::*,
 	pallet::{BranchStates, Vaults},
 	tests::rate_pct,
-	types::VaultStatus,
 };
 use frame::deps::frame_support::{assert_err, assert_noop, assert_ok};
 use pallet_linked_list::SortedListInterface;
@@ -21,7 +20,7 @@ fn register_branch_creates_state() {
 		register_default_branch();
 		let bs = BranchStates::<Test>::get(DOT).expect("branch registered");
 		assert_eq!(bs.total_collateral, 0);
-		assert!(bs.frozen.is_none());
+		assert!(!bs.is_frozen());
 	});
 }
 
@@ -48,7 +47,7 @@ fn open_vault_holds_collateral_and_mints_pusd() {
 		assert_ok!(open(1, DOT, 1_000, 1_000, rate_pct(5, 100)));
 		let v = Vaults::<Test>::get(DOT, 1).expect("vault stored");
 		assert_eq!(v.interest_bearing_debt, 1_000);
-		assert!(matches!(v.status, VaultStatus::Active));
+		assert!(v.status.is_active());
 		assert_eq!(pusd_balance(1), 1_000);
 		assert_eq!(held(DOT, 1), 1_000);
 		// Rate index contains the vault.

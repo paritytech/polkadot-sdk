@@ -63,14 +63,14 @@ fn oracle_price<T: Config>(
 }
 
 /// Read the branch state, returning `UnknownCollateral` when missing.
-fn branch_state_of<T: Config>(
+pub(crate) fn branch_state_of<T: Config>(
 	collateral_id: T::AssetId,
 ) -> Result<BranchState<T::AccountId, BalanceOf<T>, MomentOf<T>>, DispatchError> {
 	BranchStates::<T>::get(collateral_id).ok_or_else(|| Error::<T>::UnknownCollateral.into())
 }
 
 /// Read the branch config, returning `UnknownCollateral` when missing.
-fn branch_cfg_of<T: Config>(
+pub(crate) fn branch_cfg_of<T: Config>(
 	collateral_id: T::AssetId,
 ) -> Result<BranchConfig<BalanceOf<T>, MomentOf<T>>, DispatchError> {
 	BranchConfigs::<T>::get(collateral_id).ok_or_else(|| Error::<T>::UnknownCollateral.into())
@@ -87,7 +87,7 @@ pub(crate) fn vault_of<T: Config>(
 /// Mode is `Frozen` if persisted, otherwise derived from live TCR.
 pub fn current_mode<T: Config>(collateral_id: &T::AssetId) -> Result<BranchMode, DispatchError> {
 	let bs = branch_state_of::<T>(*collateral_id)?;
-	if bs.frozen.is_some() {
+	if bs.is_frozen() {
 		return Ok(BranchMode::Frozen);
 	}
 	// Try to read price; mode without a price falls back to `Normal`. The
@@ -126,14 +126,13 @@ pub fn compute_tcr<T: Config>(
 		.saturating_add(bs.pending_redistribution_debt)
 		.saturating_add(bs.bad_debt);
 	if total_debt.is_zero() {
-		return Ok(FixedU128::saturating_from_integer(u128::MAX));
+		// Branch with no debt is treated as "infinitely well-collateralized".
+		return Ok(FixedU128::max_value());
 	}
-	let value = price.saturating_mul(FixedU128::saturating_from_integer(bs.total_collateral));
-	// `total_debt > 0` checked above; `checked_div` returns `Some(value/denom)`
-	// for any nonzero denom. The `Option<None>` case here means an overflow
-	// inside `FixedU128::checked_div`; we surface as ArithmeticOverflow.
-	value
-		.checked_div(&FixedU128::saturating_from_integer(total_debt))
+	let value = price
+		.checked_mul_int(bs.total_collateral)
+		.ok_or(Error::<T>::ArithmeticOverflow)?;
+	FixedU128::checked_from_rational(value, total_debt)
 		.ok_or_else(|| Error::<T>::ArithmeticOverflow.into())
 }
 
@@ -147,7 +146,7 @@ pub fn update_aggregate_interest<T: Config>(
 	BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
 		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
 		// Frozen branches do not accrue further aggregate interest.
-		if bs.frozen.is_some() {
+		if bs.is_frozen() {
 			bs.last_aggregate_interest_update = now;
 			return Ok(());
 		}
@@ -166,26 +165,38 @@ pub fn update_aggregate_interest<T: Config>(
 		}
 		bs.total_minted_aggregate_interest =
 			bs.total_minted_aggregate_interest.saturating_add(new_interest);
-		// Issue pUSD and route per `SpYieldShare`. The credit is split into
-		// SP-bound and residual halves; `SpYieldSink` consumes the SP credit
-		// and `FeeHandler::on_unbalanced` consumes the residual.
-		let credit = T::StableAsset::issue(new_interest);
-		let share: Permill = T::SpYieldShare::get();
-		let sp_amount = share * credit.peek();
-		let (sp_credit, residual_credit) = credit.split(sp_amount);
-		// SP sink failures are unexpected; on error we drop the credit on the
-		// floor and emit a defensive log so node operators can react.
-		if let Err(e) = <T::SpYieldSink as pusd_primitives::OnBranchYield<_, _>>::on_branch_yield(
-			collateral_id,
-			sp_credit,
-		) {
-			crate::log!(error, "SpYieldSink rejected branch yield: {:?}", e);
-		}
-		// `FeeHandler` is `OnUnbalanced<Credit>`; we hand the residual half
-		// over, which drops it and (per the impl) deposits or rescinds it.
-		T::FeeHandler::on_unbalanced(residual_credit);
+		mint_and_route_yield::<T>(collateral_id, new_interest, YieldSource::BranchInterest);
 		Ok(())
 	})
+}
+
+/// Origin of a pUSD yield credit routed by [`mint_and_route_yield`].
+#[derive(Debug, Clone, Copy)]
+enum YieldSource {
+	/// Aggregate branch interest minted in `update_aggregate_interest`.
+	BranchInterest,
+	/// Upfront fee charged on borrow / change-rate.
+	UpfrontFee,
+}
+
+/// Issue `amount` pUSD and route per `SpYieldShare`: a portion goes to
+/// `T::SpYieldSink`, the residual goes to `T::FeeHandler`.
+fn mint_and_route_yield<T: Config>(
+	collateral_id: T::AssetId,
+	amount: BalanceOf<T>,
+	source: YieldSource,
+) {
+	let credit = T::StableAsset::issue(amount);
+	let share: Permill = T::SpYieldShare::get();
+	let sp_amount = share * credit.peek();
+	let (sp_credit, residual) = credit.split(sp_amount);
+	if let Err(e) = <T::SpYieldSink as pusd_primitives::OnBranchYield<_, _>>::on_branch_yield(
+		collateral_id,
+		sp_credit,
+	) {
+		crate::log!(error, "SpYieldSink rejected {:?}: {:?}", source, e);
+	}
+	T::FeeHandler::on_unbalanced(residual);
 }
 
 /// Touch a vault: bring it forward to `now` (apply pending stored interest,
@@ -240,11 +251,11 @@ pub fn touch_vault<T: Config>(
 		let extra_per_stake =
 			now_fp.saturating_mul(delta_debt_per_stake).saturating_sub(delta_dt_per_stake);
 		// MILLIS_PER_YEAR is a non-zero compile-time constant, so `checked_div`
-		// can only return `None` on overflow — defensively fall back to zero.
+		// can only return `None` on overflow.
 		let rate_factor = vault
 			.annual_rate
 			.checked_div(&FixedU128::saturating_from_integer(pusd_primitives::MILLIS_PER_YEAR))
-			.unwrap_or_else(FixedU128::zero);
+			.defensive_unwrap_or_else(FixedU128::zero);
 		redist_interest =
 			extra_per_stake.saturating_mul(rate_factor).saturating_mul_int(vault.stake);
 	}
@@ -292,7 +303,7 @@ pub fn touch_vault<T: Config>(
 			Restriction::OnHold,
 			Fortitude::Polite,
 		)
-		.unwrap_or(BalanceOf::<T>::zero());
+		.defensive_unwrap_or(BalanceOf::<T>::zero());
 		bs.total_collateral = bs.total_collateral.saturating_add(actual);
 	}
 
@@ -311,7 +322,9 @@ pub fn touch_vault<T: Config>(
 		);
 		// Re-stamp doesn't change `redist`'s accumulators; re-fetching is a
 		// no-op but keeps the local copy in sync if other paths run later.
-		redist = BranchRedistStates::<T>::get(collateral_id).unwrap_or(redist);
+		// `BranchRedistStates::get` returning `None` here would mean the row
+		// was deleted under us — defensively fall back to the local copy.
+		redist = BranchRedistStates::<T>::get(collateral_id).defensive_unwrap_or(redist);
 	}
 	vault.last_interest_update = now;
 
@@ -429,28 +442,6 @@ fn simulate_change_rate<T: Config>(
 	(bs_after, fee)
 }
 
-/// Mint pUSD upfront fee and route per `SpYieldShare` like aggregate interest.
-fn mint_upfront_fee<T: Config>(
-	collateral_id: T::AssetId,
-	amount: BalanceOf<T>,
-) -> Result<(), DispatchError> {
-	if amount.is_zero() {
-		return Ok(());
-	}
-	let credit = T::StableAsset::issue(amount);
-	let share: Permill = T::SpYieldShare::get();
-	let sp_amount = share * credit.peek();
-	let (sp_credit, residual) = credit.split(sp_amount);
-	if let Err(e) = <T::SpYieldSink as pusd_primitives::OnBranchYield<_, _>>::on_branch_yield(
-		collateral_id,
-		sp_credit,
-	) {
-		crate::log!(error, "SpYieldSink rejected upfront fee: {:?}", e);
-	}
-	T::FeeHandler::on_unbalanced(residual);
-	Ok(())
-}
-
 pub fn open_vault<T: Config>(
 	owner: T::AccountId,
 	collateral_id: T::AssetId,
@@ -531,7 +522,7 @@ pub fn open_vault<T: Config>(
 	// `accrued_interest` and minted to fee handlers).
 	T::StableAsset::mint_into(&owner, initial_debt)?;
 	if !upfront_fee.is_zero() {
-		mint_upfront_fee::<T>(collateral_id, upfront_fee)?;
+		mint_and_route_yield::<T>(collateral_id, upfront_fee, YieldSource::UpfrontFee);
 		Pallet::<T>::deposit_event(Event::UpfrontFeeCharged {
 			collateral_id,
 			owner: owner.clone(),
@@ -621,7 +612,7 @@ pub fn withdraw_collateral<T: Config>(
 	let recipient = recipient.unwrap_or(owner.clone());
 	// Pre-touch status check; re-read after touch for fresh debt fields.
 	ensure!(
-		!matches!(vault_of::<T>(collateral_id, &owner)?.status, VaultStatus::FinalRecovery),
+		!vault_of::<T>(collateral_id, &owner)?.status.is_final_recovery(),
 		Error::<T>::VaultInFinalRecovery
 	);
 
@@ -690,7 +681,7 @@ pub fn borrow<T: Config>(
 	ensure_not_frozen::<T>(collateral_id)?;
 	let recipient = recipient.unwrap_or(owner.clone());
 	let pre_status = vault_of::<T>(collateral_id, &owner)?.status;
-	ensure!(!matches!(pre_status, VaultStatus::FinalRecovery), Error::<T>::VaultInFinalRecovery);
+	ensure!(!pre_status.is_final_recovery(), Error::<T>::VaultInFinalRecovery);
 
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(collateral_id, now)?;
@@ -728,7 +719,7 @@ pub fn borrow<T: Config>(
 	// Mint pUSD to recipient.
 	T::StableAsset::mint_into(&recipient, amount)?;
 	if !upfront_fee.is_zero() {
-		mint_upfront_fee::<T>(collateral_id, upfront_fee)?;
+		mint_and_route_yield::<T>(collateral_id, upfront_fee, YieldSource::UpfrontFee);
 		Pallet::<T>::deposit_event(Event::UpfrontFeeCharged {
 			collateral_id,
 			owner: owner.clone(),
@@ -737,8 +728,7 @@ pub fn borrow<T: Config>(
 	}
 
 	// Update vault.
-	let dormant_to_active =
-		matches!(vault.status, VaultStatus::Dormant) && new_ib_debt >= cfg.minimum_debt;
+	let dormant_to_active = vault.status.is_dormant() && new_ib_debt >= cfg.minimum_debt;
 	vault.interest_bearing_debt = new_ib_debt;
 	vault.accrued_interest = vault.accrued_interest.saturating_add(upfront_fee);
 	if maybe_new_rate.is_some() {
@@ -807,7 +797,7 @@ pub fn repay_for<T: Config>(
 ) -> Result<(), DispatchError> {
 	ensure_not_frozen::<T>(collateral_id)?;
 	let pre_status = vault_of::<T>(collateral_id, &owner)?.status;
-	ensure!(!matches!(pre_status, VaultStatus::FinalRecovery), Error::<T>::VaultInFinalRecovery);
+	ensure!(!pre_status.is_final_recovery(), Error::<T>::VaultInFinalRecovery);
 
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(collateral_id, now)?;
@@ -868,7 +858,7 @@ pub fn change_rate<T: Config>(
 ) -> Result<(), DispatchError> {
 	ensure_not_frozen::<T>(collateral_id)?;
 	let pre_status = vault_of::<T>(collateral_id, &owner)?.status;
-	ensure!(matches!(pre_status, VaultStatus::Active), Error::<T>::InvalidVaultStatus);
+	ensure!(pre_status.is_active(), Error::<T>::InvalidVaultStatus);
 
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(collateral_id, now)?;
@@ -902,7 +892,7 @@ pub fn change_rate<T: Config>(
 
 	// All gates passed — apply state changes.
 	if !upfront_fee.is_zero() {
-		mint_upfront_fee::<T>(collateral_id, upfront_fee)?;
+		mint_and_route_yield::<T>(collateral_id, upfront_fee, YieldSource::UpfrontFee);
 		Pallet::<T>::deposit_event(Event::UpfrontFeeCharged {
 			collateral_id,
 			owner: owner.clone(),
@@ -1022,7 +1012,7 @@ pub fn enter_final_recovery<T: Config>(
 	update_aggregate_interest::<T>(collateral_id, now)?;
 	let mut vault =
 		touch_vault::<T>(collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
-	ensure!(matches!(vault.status, VaultStatus::Active), Error::<T>::InvalidVaultStatus);
+	ensure!(vault.status.is_active(), Error::<T>::InvalidVaultStatus);
 
 	// CR < MCR.
 	let cfg = branch_cfg_of::<T>(collateral_id)?;
@@ -1080,7 +1070,7 @@ pub fn exit_final_recovery<T: Config>(
 	update_aggregate_interest::<T>(collateral_id, now)?;
 	let mut vault =
 		touch_vault::<T>(collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
-	ensure!(matches!(vault.status, VaultStatus::FinalRecovery), Error::<T>::InvalidVaultStatus);
+	ensure!(vault.status.is_final_recovery(), Error::<T>::InvalidVaultStatus);
 
 	let cfg = branch_cfg_of::<T>(collateral_id)?;
 	let coll = held_collateral::<T>(collateral_id, &owner);
@@ -1189,7 +1179,7 @@ pub fn current_branch_config<T: Config>(
 pub fn enable_frozen_mode<T: Config>(collateral_id: T::AssetId) -> Result<(), DispatchError> {
 	BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
 		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-		if bs.frozen.is_none() {
+		if !bs.is_frozen() {
 			bs.frozen = Some(FrozenState {
 				reason: FrozenReason::Governance,
 				entered_at: T::TimeProvider::now(),
@@ -1204,9 +1194,9 @@ pub fn enable_frozen_mode<T: Config>(collateral_id: T::AssetId) -> Result<(), Di
 	})
 }
 
-fn ensure_not_frozen<T: Config>(collateral_id: T::AssetId) -> Result<(), DispatchError> {
+pub(crate) fn ensure_not_frozen<T: Config>(collateral_id: T::AssetId) -> Result<(), DispatchError> {
 	let bs = branch_state_of::<T>(collateral_id)?;
-	ensure!(bs.frozen.is_none(), Error::<T>::BranchFrozen);
+	ensure!(!bs.is_frozen(), Error::<T>::BranchFrozen);
 	Ok(())
 }
 
@@ -1222,7 +1212,7 @@ pub fn enforce_mode_rules<T: Config>(
 	post_tcr: FixedU128,
 	is_settlement: bool,
 ) -> Result<(), DispatchError> {
-	if bs_pre.frozen.is_some() {
+	if bs_pre.is_frozen() {
 		return Err(Error::<T>::BranchFrozen.into());
 	}
 	if pre_tcr < cfg.safety_collateralization_ratio {

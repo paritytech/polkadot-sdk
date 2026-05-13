@@ -5,7 +5,7 @@
 //! `testLiquidation`, `testSPDeposit`, `testSPWithdrawal`) belong to
 //! `pallet-redemptions` and `pallet-stability-pool` and are out of scope here.
 
-use crate::{mock::*, pallet::Vaults, tests::rate_pct, types::VaultStatus};
+use crate::{mock::*, pallet::Vaults, tests::rate_pct};
 use frame::deps::frame_support::assert_ok;
 
 // SKIPPED: row 1 `testOpenTroveFailsWithoutAllowance` — polkadot does not
@@ -36,7 +36,7 @@ fn open_trove() {
 		assert_ok!(open(1, DOT, 1_000, 1_000, rate_pct(5, 100)));
 		assert_eq!(Vaults::<Test>::iter_prefix(DOT).count(), 1);
 		let v = Vaults::<Test>::get(DOT, 1).expect("vault stored");
-		assert!(matches!(v.status, VaultStatus::Active));
+		assert!(v.status.is_active());
 	});
 }
 

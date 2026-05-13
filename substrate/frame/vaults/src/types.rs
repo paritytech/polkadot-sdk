@@ -3,7 +3,7 @@
 //! See `troves.md` §5 for the canonical reference.
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame::deps::sp_runtime::{traits::Zero, FixedU128};
+use frame::deps::sp_runtime::FixedU128;
 use scale_info::TypeInfo;
 
 pub use pusd_primitives::{BranchMode, FrozenReason, FrozenState};
@@ -32,6 +32,23 @@ pub enum VaultStatus {
 	FinalRecovery,
 }
 
+impl VaultStatus {
+	/// Debt-bearing vault, present in the rate index.
+	pub fn is_active(&self) -> bool {
+		matches!(self, Self::Active)
+	}
+
+	/// Drained below `minimum_debt`, out of the rate index.
+	pub fn is_dormant(&self) -> bool {
+		matches!(self, Self::Dormant)
+	}
+
+	/// Parked in the FIFO awaiting recovery settlement.
+	pub fn is_final_recovery(&self) -> bool {
+		matches!(self, Self::FinalRecovery)
+	}
+}
+
 /// Per-vault state. The vault's collateral lives on the `VaultCollateral`
 /// hold for `(owner, collateral_id)` and is intentionally NOT stored here.
 /// `stake` is the at-open snapshot of the vault's redistribution share — it
@@ -55,7 +72,16 @@ pub struct Vault<Balance, Moment> {
 /// Snapshot of branch redistribution accumulators stamped at vault open and
 /// re-stamped on each touch that crosses a redistribution epoch boundary.
 #[derive(
-	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+	Debug,
+	Default,
 )]
 pub struct VaultRedistSnapshot {
 	pub collat_per_stake: FixedU128,
@@ -65,17 +91,6 @@ pub struct VaultRedistSnapshot {
 	/// stake. Used on touch to reconcile the recipient's share of the
 	/// avg-rate interest-base fold with the recipient's own rate.
 	pub weight_per_stake: FixedU128,
-}
-
-impl Default for VaultRedistSnapshot {
-	fn default() -> Self {
-		Self {
-			collat_per_stake: FixedU128::zero(),
-			debt_per_stake: FixedU128::zero(),
-			debt_time_per_stake: FixedU128::zero(),
-			weight_per_stake: FixedU128::zero(),
-		}
-	}
 }
 
 /// Branch governance/risk parameters.
@@ -115,6 +130,12 @@ pub struct BranchState<AccountId, Balance, Moment> {
 	pub final_recovery_tail: Option<AccountId>,
 	pub last_dormant_vault_owner: Option<AccountId>,
 	pub frozen: Option<FrozenState<Moment>>,
+}
+
+impl<AccountId, Balance, Moment> BranchState<AccountId, Balance, Moment> {
+	pub fn is_frozen(&self) -> bool {
+		self.frozen.is_some()
+	}
 }
 
 /// Cold redistribution accumulators per branch, stored separately so that
