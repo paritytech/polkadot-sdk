@@ -13,11 +13,14 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-staking = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
+tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
+hex = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }

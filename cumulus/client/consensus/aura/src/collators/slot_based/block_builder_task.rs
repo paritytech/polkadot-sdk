@@ -35,7 +35,7 @@ use cumulus_client_consensus_common::{
 	self as consensus_common, get_relay_slot, ParachainBlockImportMarker,
 };
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
-use cumulus_client_unincluded_segment_store::prepare_unincluded_segment_aux_data;
+use cumulus_client_unincluded_segment_store::{now_unix_ms, prepare_unincluded_segment_aux_data};
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
@@ -70,7 +70,7 @@ use sp_trie::{
 use std::{
 	collections::VecDeque,
 	sync::Arc,
-	time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+	time::{Duration, Instant},
 };
 
 /// Parameters for [`run_block_builder`].
@@ -835,11 +835,7 @@ where
 			);
 		}
 
-		let time_ms = SystemTime::now()
-			.duration_since(UNIX_EPOCH)
-			.map(|d| d.as_millis() as u64)
-			.unwrap_or(0);
-
+		let time_ms = now_unix_ms();
 		prepare_unincluded_segment_aux_data(
 			parent_hash,
 			time_ms,
