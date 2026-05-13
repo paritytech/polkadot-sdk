@@ -88,6 +88,18 @@ pub type ScalarField = <BandersnatchConfig as CurveConfig>::ScalarField;
 /// serializer; only `z = 0` uses the tag bits. The three live rows are
 /// exhaustive: `T·Z = X·Y` forces `X·Y = 0` at `Z = 0`.
 ///
+/// How `T` is constructed: `T` is the auxiliary coordinate of the extended
+/// twisted Edwards tuple `(X, Y, T, Z)` from HWCD, defined by the invariant
+/// `T·Z = X·Y`. An affine point `(x, y)` enters projective form as
+/// `(x, y, x·y, 1)`, so the initial `T` is `x·y`. Every subsequent `T` is
+/// produced by the HWCD formulas: both `add-2008-hwcd` and `dbl-2008-hwcd`
+/// write `T3 = E · H`, where for add `E = (X1+Y1)·(X2+Y2) − X1·X2 − Y1·Y2`
+/// and `H = Y1·Y2 − a·X1·X2`, and for double `E = (X1+Y1)² − X1² − Y1²`
+/// and `H = a·X1² − Y1²`. Both formulas preserve `T·Z = X·Y` symbolically.
+/// The codec does not synthesize `T`; it transmits the value the host's
+/// arithmetic actually produced, as the arkworks uncompressed little-endian
+/// `Fq` encoding (32 bytes, slot 0 in the `S = 1` rows).
+///
 /// Why `T` is preserved: HWCD addition reads `T1, T2` directly through the
 /// intermediate `C = d · T1 · T2`, which then flows into every output
 /// coordinate (`F = D − C`, `G = D + C`, then `X3, Y3, T3, Z3`). For
