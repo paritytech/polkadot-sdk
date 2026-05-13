@@ -873,10 +873,6 @@ where
 				);
 			});
 
-			// Snapshot the meter so we can report what the transfer actually
-			// consumed to `exit_child_span`. Without this, the execution tracer
-			// reports `gas == 0` for any transaction whose destination has no
-			// code — see paritytech/contract-issues#278.
 			let gas_before = transaction_meter.total_consumed_gas();
 			let weight_before = transaction_meter.weight_consumed();
 
