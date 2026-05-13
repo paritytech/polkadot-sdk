@@ -22,9 +22,6 @@ proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { features = ["full"], workspace = true }
 
-[dev-dependencies]
-trybuild = { workspace = true }
-
 [features]
 default = ["std"]
 std = []
