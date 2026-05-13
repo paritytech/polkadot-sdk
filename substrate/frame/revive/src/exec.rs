@@ -23,7 +23,9 @@ use crate::{
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
 	limits,
-	metering::{ChargedAmount, Diff, FrameMeter, ResourceMeter, State, Token, TransactionMeter},
+	metering::{
+		ChargedAmount, Diff, FrameMeter, ResourceMeter, SignedGas, State, Token, TransactionMeter,
+	},
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
 	primitives::{ExecConfig, ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, TypeInfo},
@@ -2153,6 +2155,10 @@ where
 						Default::default(),
 					);
 				});
+
+				let weight_before = top_frame!(self).frame_meter.weight_consumed();
+				let deposit_before = top_frame!(self).frame_meter.deposit_consumed();
+
 				let result = if let Some(mock_answer) =
 					self.exec_config.mock_handler.as_ref().and_then(|handler| {
 						handler.mock_call(T::AddressMapper::to_address(&dest), &input_data, value)
@@ -2176,15 +2182,28 @@ where
 					)
 				};
 
-				if_tracing(|t| match result {
-					Ok(ref output) => {
-						t.exit_child_span(&output, Default::default(), Default::default())
-					},
-					Err(e) => t.exit_child_span_with_error(
-						e.error.into(),
-						Default::default(),
-						Default::default(),
-					),
+				if_tracing(|t| {
+					let frame_meter = &top_frame!(self).frame_meter;
+					let weight_delta =
+						frame_meter.weight_consumed().saturating_sub(weight_before);
+					let deposit_delta =
+						frame_meter.deposit_consumed().saturating_sub(&deposit_before);
+					let gas_delta = SignedGas::<T>::from_weight_fee(
+						T::FeeInfo::weight_to_fee(&weight_delta),
+					)
+					.saturating_add(&SignedGas::<T>::from_adjusted_deposit_charge(
+						&deposit_delta,
+					));
+					let gas_used: u64 = gas_delta
+						.to_ethereum_gas()
+						.unwrap_or_default()
+						.try_into()
+						.unwrap_or(u64::MAX);
+					match result {
+						Ok(ref output) => t.exit_child_span(&output, gas_used, weight_delta),
+						Err(e) =>
+							t.exit_child_span_with_error(e.error.into(), gas_used, weight_delta),
+					}
 				});
 
 				result.map(|_| ())
