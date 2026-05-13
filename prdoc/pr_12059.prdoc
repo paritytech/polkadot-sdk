@@ -1,0 +1,13 @@
+title: 'pallet-transaction-storage: mark publish = false and drop from umbrella'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+
+      - Set `publish = false` on `pallet-transaction-storage` so it is no longer published to crates.io as part of the SDK release.
+      - Remove all references to `pallet-transaction-storage` from the `polkadot-sdk` umbrella crate
+
+    The pallet remains a normal workspace member and can still be depended on directly via its path, but it is excluded from the umbrella crate and the published release set.
+crates:
+- name: polkadot-sdk
+  bump: patch
