@@ -32,23 +32,23 @@ crates:
 - name: pallet-multisig
   bump: major
 - name: asset-hub-rococo-runtime
-  bump: patch
+  bump: major
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: major
 - name: bridge-hub-rococo-runtime
-  bump: patch
+  bump: major
 - name: bridge-hub-westend-runtime
-  bump: patch
+  bump: major
 - name: collectives-westend-runtime
-  bump: patch
+  bump: major
 - name: coretime-westend-runtime
-  bump: patch
+  bump: major
 - name: people-westend-runtime
-  bump: patch
+  bump: major
 - name: rococo-runtime
-  bump: patch
+  bump: major
 - name: westend-runtime
-  bump: patch
+  bump: major
 - name: kitchensink-runtime
   bump: patch
 - name: pallet-staking-async-parachain-runtime
