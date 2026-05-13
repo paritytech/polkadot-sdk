@@ -420,19 +420,19 @@ mod tests {
 
 	#[test]
 	fn global_bandwidth_exhaustion_blocks_all_senders() {
-		let rl = RateLimiter::new(tight_global_cfg());
+		let rate_limiter = RateLimiter::new(tight_global_cfg());
 
 		// Sender A exhausts the global bucket (5_000 bytes of burst).
-		rl.check(&SENDER_A, 5_000).unwrap();
+		rate_limiter.check(&SENDER_A, 5_000).unwrap();
 
 		// Sender B is within its own per-sender limit but the global bucket is empty.
 		assert!(
-			rl.check(&SENDER_B, 1).is_err(),
+			rate_limiter.check(&SENDER_B, 1).is_err(),
 			"sender B should be blocked by the global limit"
 		);
 
 		// Sender A is also blocked now (both per-sender bandwidth and global are exhausted).
-		assert!(rl.check(&SENDER_A, 1).is_err(), "sender A should be blocked too");
+		assert!(rate_limiter.check(&SENDER_A, 1).is_err(), "sender A should be blocked too");
 	}
 
 	#[test]

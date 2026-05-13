@@ -156,10 +156,10 @@ pub struct HopParams {
 	/// `max_rate_limit_senders × 200` bytes. Must be at least 1.
 	#[arg(
 		long = "hop-max-rate-limit-senders",
-		default_value_t = DEFAULT_MAX_RATE_LIMIT_SENDERS as u64,
-		value_parser = clap::value_parser!(u64).range(1..),
+		default_value_t = DEFAULT_MAX_RATE_LIMIT_SENDERS,
+		value_parser = clap::value_parser!(u64).range(1..).map(|v| v as usize),
 	)]
-	pub max_rate_limit_senders: u64,
+	pub max_rate_limit_senders: usize,
 
 	/// Disable per-account submit rate limiting (intended for tests and dev nodes).
 	#[arg(long = "hop-disable-rate-limit")]
@@ -187,7 +187,7 @@ impl Default for HopParams {
 			bandwidth_burst_mib: DEFAULT_BANDWIDTH_BURST_MIB,
 			global_bandwidth_per_min_mib: DEFAULT_GLOBAL_BANDWIDTH_PER_MIN_MIB,
 			global_bandwidth_burst_mib: DEFAULT_GLOBAL_BANDWIDTH_BURST_MIB,
-			max_rate_limit_senders: DEFAULT_MAX_RATE_LIMIT_SENDERS as u64,
+			max_rate_limit_senders: DEFAULT_MAX_RATE_LIMIT_SENDERS,
 			disable_rate_limit: false,
 			data_dir: None,
 		}
@@ -208,7 +208,7 @@ impl HopParams {
 			bandwidth_burst: self.bandwidth_burst_mib.saturating_mul(1024 * 1024),
 			global_bandwidth_per_min: self.global_bandwidth_per_min_mib.saturating_mul(1024 * 1024),
 			global_bandwidth_burst: self.global_bandwidth_burst_mib.saturating_mul(1024 * 1024),
-			max_tracked_senders: self.max_rate_limit_senders as usize,
+			max_tracked_senders: self.max_rate_limit_senders,
 		}
 	}
 
