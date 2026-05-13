@@ -20,10 +20,14 @@
 //!
 //! Liquity records the materialized debt in `recordedTroveDebt` and the
 //! fully-accrued debt in `entireTroveDebt`. In polkadot both are stored
-//! explicitly: `vault.interest_bearing_debt` (principal/recorded) and
-//! `vault.accrued_interest` (the rest of the entire-debt total).
+//! explicitly: `vault.debt.principal` (principal/recorded) and
+//! `vault.debt.interest` (the rest of the entire-debt total).
 
-use crate::{mock::*, pallet::Vaults, tests::rate_pct};
+use crate::{
+	mock::*,
+	pallet::Vaults,
+	tests::{rate_pct, vault_status},
+};
 use frame::deps::{
 	frame_support::{
 		assert_noop, assert_ok,
@@ -173,11 +177,11 @@ fn change_rate_sets_new_rate() {
 }
 
 // rows 6, 7, 8: post-cooldown change_rate refreshes last_interest_update
-// and folds the elapsed simple interest into `vault.accrued_interest`. With
+// and folds the elapsed simple interest into `vault.debt.interest`. With
 // no upfront fee charged (cooldown elapsed), `interest_bearing_debt`
 // (Liquity's "recordedTroveDebt" minus accrued) is unchanged.
 //
-// Note: polkadot's `vault.interest_bearing_debt + vault.accrued_interest` is
+// Note: polkadot's `vault.debt.principal + vault.debt.interest` is
 // equivalent to Liquity's "recordedTroveDebt" *after touch*, not its
 // "entireTroveDebt". The latter would include the live (yet-unmaterialised)
 // simple-interest accrual; we pin only the recorded-state invariants here.
@@ -202,16 +206,16 @@ fn change_rate_post_cooldown_full_state() {
 		// row 6: last_interest_update == now (touch ran inside change_rate).
 		assert_eq!(v_post.last_interest_update, now_before_call);
 		// row 8 (post-cooldown branch): no fee charged, principal unchanged.
-		assert_eq!(v_post.interest_bearing_debt, v_pre.interest_bearing_debt);
+		assert_eq!(v_post.debt.principal, v_pre.debt.principal);
 		// row 7: pending interest at the new last_interest_update is zero
 		// by construction (touch_vault moved any sim-pending into
 		// `accrued_interest`). Accrued grew by the materialised pending.
-		assert!(v_post.accrued_interest >= v_pre.accrued_interest);
+		assert!(v_post.debt.interest >= v_pre.debt.interest);
 	});
 }
 
 // row 9 (premature branch) + row 5 again: a within-cooldown rate change
-// charges an upfront fee that lands in `vault.accrued_interest` and bumps
+// charges an upfront fee that lands in `vault.debt.interest` and bumps
 // recorded debt by exactly that fee.
 #[test]
 fn change_rate_premature_increases_recorded_debt_by_fee() {
@@ -235,8 +239,8 @@ fn change_rate_premature_increases_recorded_debt_by_fee() {
 			Position::endpoints_only(),
 		));
 		let v_post = Vaults::<Test>::get(DOT, 1).unwrap();
-		assert_eq!(v_post.interest_bearing_debt, v_pre.interest_bearing_debt);
-		assert_eq!(v_post.accrued_interest, v_pre.accrued_interest + predicted);
+		assert_eq!(v_post.debt.principal, v_pre.debt.principal);
+		assert_eq!(v_post.debt.interest, v_pre.debt.interest + predicted);
 	});
 }
 
@@ -345,10 +349,10 @@ fn borrow_full_state_changes() {
 		// row 12: last_interest_update advances to now.
 		assert_eq!(v_post.last_interest_update, now_before_call);
 		// row 15: recorded principal grew by exactly the borrowed amount.
-		assert_eq!(v_post.interest_bearing_debt, v_pre.interest_bearing_debt + 500);
+		assert_eq!(v_post.debt.principal, v_pre.debt.principal + 500);
 		// row 14 (recorded sense): accrued grew by exactly the upfront fee
 		// (no sim-pending to materialise — we pre-poked).
-		assert_eq!(v_post.accrued_interest, v_pre.accrued_interest + predicted_fee);
+		assert_eq!(v_post.debt.interest, v_pre.debt.interest + predicted_fee);
 	});
 }
 
@@ -373,7 +377,7 @@ fn repay_full_state_changes() {
 		let v_pre = Vaults::<Test>::get(DOT, 1).unwrap();
 		// Borrow more pUSD into a second account so we can shuttle some over.
 		assert_ok!(open(2, DOT, 5_000, 3_000, rate_pct(25, 100)));
-		top_up_pusd(1, 2, v_pre.accrued_interest + 500);
+		top_up_pusd(1, 2, v_pre.debt.interest + 500);
 
 		let now_before_call = pallet_timestamp::Pallet::<Test>::get();
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(1), 1, DOT, 500));
@@ -385,17 +389,17 @@ fn repay_full_state_changes() {
 		// row 18: entire debt reduces by repaid amount (since `poke` already
 		// folded prior pending interest into accrued, `repay_for(500)`
 		// removes 500 cleanly from the entire-debt sum).
-		let entire_pre = v_pre.interest_bearing_debt + v_pre.accrued_interest;
-		let entire_post = v_post.interest_bearing_debt + v_post.accrued_interest;
+		let entire_pre = v_pre.debt.principal + v_pre.debt.interest;
+		let entire_post = v_post.debt.principal + v_post.debt.interest;
 		assert_eq!(entire_post, entire_pre - 500);
 
 		// row 19: recorded debt decreases by the principal portion. Since
 		// accrued_interest > 0 and repay applies to accrued first, principal
 		// reduction is `500 - min(500, accrued)`. Here we kept the accrued
 		// small so the bulk of 500 hit principal.
-		let pay_accrued = core::cmp::min(500, v_pre.accrued_interest);
+		let pay_accrued = core::cmp::min(500, v_pre.debt.interest);
 		let pay_principal = 500 - pay_accrued;
-		assert_eq!(v_post.interest_bearing_debt, v_pre.interest_bearing_debt - pay_principal);
+		assert_eq!(v_post.debt.principal, v_pre.debt.principal - pay_principal);
 	});
 }
 
@@ -412,7 +416,7 @@ fn deposit_collateral_full_state_changes() {
 		advance_time(ONE_DAY_MS);
 
 		let v_pre = Vaults::<Test>::get(DOT, 1).unwrap();
-		let entire_pre = v_pre.interest_bearing_debt + v_pre.accrued_interest;
+		let entire_pre = v_pre.debt.principal + v_pre.debt.interest;
 		let now_before_call = pallet_timestamp::Pallet::<Test>::get();
 
 		assert_ok!(crate::Pallet::<Test>::deposit_collateral_for(
@@ -430,13 +434,13 @@ fn deposit_collateral_full_state_changes() {
 		// interest (touch_vault), there is no debt-side delta from a coll
 		// deposit. Polkadot folds pending into `accrued_interest` so the
 		// entire-debt total = principal + accrued.
-		let entire_post = v_post.interest_bearing_debt + v_post.accrued_interest;
+		let entire_post = v_post.debt.principal + v_post.debt.interest;
 		// The delta is the accrued interest gained from `ONE_DAY_MS` at 25%.
-		let materialized = v_post.accrued_interest - v_pre.accrued_interest;
+		let materialized = v_post.debt.interest - v_pre.debt.interest;
 		assert_eq!(entire_post, entire_pre + materialized);
 
 		// row 23: recorded principal unchanged.
-		assert_eq!(v_post.interest_bearing_debt, v_pre.interest_bearing_debt);
+		assert_eq!(v_post.debt.principal, v_pre.debt.principal);
 	});
 }
 
@@ -467,14 +471,14 @@ fn withdraw_collateral_full_state_changes() {
 
 		// row 26: entire debt unchanged save for the materialized interest
 		// that touch_vault folded into accrued.
-		let materialized = v_post.accrued_interest - v_pre.accrued_interest;
+		let materialized = v_post.debt.interest - v_pre.debt.interest;
 		assert_eq!(
-			v_post.interest_bearing_debt + v_post.accrued_interest,
-			v_pre.interest_bearing_debt + v_pre.accrued_interest + materialized
+			v_post.debt.principal + v_post.debt.interest,
+			v_pre.debt.principal + v_pre.debt.interest + materialized
 		);
 
 		// row 27: recorded principal unchanged.
-		assert_eq!(v_post.interest_bearing_debt, v_pre.interest_bearing_debt);
+		assert_eq!(v_post.debt.principal, v_pre.debt.principal);
 	});
 }
 
@@ -507,11 +511,11 @@ fn poke_full_state_changes() {
 		// row 28
 		assert_eq!(v_post.last_interest_update, now_before_call);
 		// row 31: recorded principal unchanged.
-		assert_eq!(v_post.interest_bearing_debt, v_pre.interest_bearing_debt);
+		assert_eq!(v_post.debt.principal, v_pre.debt.principal);
 		// row 29: pending at the new last_interest_update is zero by
 		// construction. row 30 (recorded sense): the accrued component grew
 		// by the materialised sim-pending.
-		assert!(v_post.accrued_interest >= v_pre.accrued_interest);
+		assert!(v_post.debt.interest >= v_pre.debt.interest);
 	});
 }
 
@@ -533,8 +537,8 @@ fn poke_on_zero_debt_vault_is_silent_no_op() {
 		// transfer accrued from vault 2 to cover the residual.
 		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(1), 1, DOT));
 		let v = Vaults::<Test>::get(DOT, 1).unwrap();
-		let total = v.interest_bearing_debt + v.accrued_interest;
-		top_up_pusd(1, 2, v.accrued_interest);
+		let total = v.debt.principal + v.debt.interest;
+		top_up_pusd(1, 2, v.debt.interest);
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(1), 1, DOT, total));
 		// Now vault 1 has zero debt — poke succeeds silently.
 		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(3), 1, DOT));
@@ -572,18 +576,18 @@ fn redemption_full_state_changes() {
 		assert_eq!(v_post.last_interest_update, now_before_call);
 
 		// row 36: entire debt reduces by the redeemed amount.
-		let entire_pre = v_pre.interest_bearing_debt + v_pre.accrued_interest;
-		let entire_post = v_post.interest_bearing_debt + v_post.accrued_interest;
+		let entire_pre = v_pre.debt.principal + v_pre.debt.interest;
+		let entire_post = v_post.debt.principal + v_post.debt.interest;
 		assert_eq!(entire_post, entire_pre - 200);
 
 		// row 37: recorded debt reduces by the principal portion. The
 		// `apply_redemption` impl pays accrued first, then principal.
-		let pay_accrued = core::cmp::min(200, v_pre.accrued_interest);
+		let pay_accrued = core::cmp::min(200, v_pre.debt.interest);
 		let pay_principal = 200 - pay_accrued;
-		assert_eq!(v_post.interest_bearing_debt, v_pre.interest_bearing_debt - pay_principal);
+		assert_eq!(v_post.debt.principal, v_pre.debt.principal - pay_principal);
 
 		// Vault stays Active because remaining debt is well above MinimumDebt.
-		assert!(v_post.status.is_active());
+		assert!(vault_status(DOT, 1).is_active());
 	});
 }
 
@@ -597,8 +601,8 @@ fn redemption_full_state_changes() {
 // addresses. In our test mock both `SpYieldSink` and `FeeHandler` are
 // drop-style implementations — they consume the `Credit` without resolving
 // it, which rescinds the corresponding mint. So `total_issuance` grows by
-// only the borrow amount; the fee is accounted on `bs.total_minted_aggregate_interest`
-// and on `vault.accrued_interest` instead. (In production wiring,
+// only the borrow amount; the fee is accounted on `bs.debt.minted_interest`
+// and on `vault.debt.interest` instead. (In production wiring,
 // `pallet-stability-pool` would resolve the SP credit and keep the mint live.)
 #[test]
 fn open_mints_borrow_amount_with_fee_recorded_in_branch_state() {
@@ -615,9 +619,9 @@ fn open_mints_borrow_amount_with_fee_recorded_in_branch_state() {
 		assert_eq!(<Pusd as FungibleInspect<AccountId>>::balance(&1), 2_000);
 		// But the fee was charged: it lives on the vault and the branch.
 		let v = Vaults::<Test>::get(DOT, 1).unwrap();
-		assert_eq!(v.accrued_interest, predicted_fee);
+		assert_eq!(v.debt.interest, predicted_fee);
 		let bs = crate::pallet::BranchStates::<Test>::get(DOT).unwrap();
-		assert_eq!(bs.total_minted_aggregate_interest, predicted_fee);
+		assert_eq!(bs.debt.minted_interest, predicted_fee);
 	});
 }
 
@@ -641,7 +645,7 @@ fn poke_after_liquidation_applies_redistribution_gains() {
 		set_price(DOT, FixedU128::from_rational(15u128, 10u128));
 
 		let v_a_pre = Vaults::<Test>::get(DOT, 1).unwrap();
-		let entire_a_pre = v_a_pre.interest_bearing_debt + v_a_pre.accrued_interest;
+		let entire_a_pre = v_a_pre.debt.principal + v_a_pre.debt.interest;
 
 		// Liquidate C through the trait surface — branch-level redistribution
 		// accumulators get bumped, but A's vault row isn't touched until A
@@ -652,7 +656,7 @@ fn poke_after_liquidation_applies_redistribution_gains() {
 		// gain.
 		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(2), 1, DOT));
 		let v_a_post = Vaults::<Test>::get(DOT, 1).unwrap();
-		let entire_a_post = v_a_post.interest_bearing_debt + v_a_post.accrued_interest;
+		let entire_a_post = v_a_post.debt.principal + v_a_post.debt.interest;
 		assert!(
 			entire_a_post >= entire_a_pre,
 			"A's debt should not decrease across a liquidation cycle"

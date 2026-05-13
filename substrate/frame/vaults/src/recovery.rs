@@ -5,15 +5,13 @@
 //! owns recovery-pricing math and passes the resulting `RedemptionAllocation`
 //! to `apply_redemption`.
 
-use crate::{
-	pallet::{BranchStates, Config, Error, Event, FinalRecoveryNodes, Pallet},
-	types::FinalRecoveryNode,
-};
+use crate::pallet::{BranchStates, Config, Error, Event, FinalRecoveryNodes, Pallet};
 use alloc::vec::Vec;
 use frame::deps::{
-	frame_support::{defensive, ensure, traits::Time},
+	frame_support::{defensive, ensure},
 	sp_runtime::DispatchError,
 };
+use pallet_linked_list::Position;
 
 /// Set `node.next` on an existing FIFO node. The node is expected to exist
 /// (every link is asserted by the FIFO invariant); a missing node is logged
@@ -57,18 +55,17 @@ pub fn append<T: Config>(
 		Error::<T>::FinalRecoveryInvariantBroken,
 	);
 
-	let now = T::TimeProvider::now();
 	BranchStates::<T>::try_mutate(collateral_id, |maybe_branch| -> Result<_, DispatchError> {
 		let branch = maybe_branch.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-		let prev = branch.final_recovery_tail.clone();
-		let node = FinalRecoveryNode { prev: prev.clone(), next: None, entered_at: now };
+		let prev = branch.queues.final_recovery_tail.clone();
+		let node = Position { prev: prev.clone(), next: None };
 		FinalRecoveryNodes::<T>::insert(collateral_id, &owner, node);
 
 		match prev {
 			Some(prev_owner) => set_next::<T>(collateral_id, &prev_owner, Some(owner.clone())),
-			None => branch.final_recovery_head = Some(owner.clone()),
+			None => branch.queues.final_recovery_head = Some(owner.clone()),
 		}
-		branch.final_recovery_tail = Some(owner.clone());
+		branch.queues.final_recovery_tail = Some(owner.clone());
 		Ok(())
 	})?;
 
@@ -95,15 +92,15 @@ pub fn remove<T: Config>(
 			},
 			(Some(p), None) => {
 				set_next::<T>(collateral_id, p, None);
-				branch.final_recovery_tail = Some(p.clone());
+				branch.queues.final_recovery_tail = Some(p.clone());
 			},
 			(None, Some(n)) => {
 				set_prev::<T>(collateral_id, n, None);
-				branch.final_recovery_head = Some(n.clone());
+				branch.queues.final_recovery_head = Some(n.clone());
 			},
 			(None, None) => {
-				branch.final_recovery_head = None;
-				branch.final_recovery_tail = None;
+				branch.queues.final_recovery_head = None;
+				branch.queues.final_recovery_tail = None;
 			},
 		}
 		Ok(())
@@ -117,7 +114,7 @@ pub fn remove<T: Config>(
 
 /// Peek the head of the FIFO, if any.
 pub fn next_target<T: Config>(collateral_id: &T::AssetId) -> Option<T::AccountId> {
-	BranchStates::<T>::get(collateral_id).and_then(|s| s.final_recovery_head)
+	BranchStates::<T>::get(collateral_id).and_then(|s| s.queues.final_recovery_head)
 }
 
 /// First `n` FIFO owners, head-first.

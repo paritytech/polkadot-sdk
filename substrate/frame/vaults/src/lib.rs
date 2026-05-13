@@ -32,8 +32,8 @@ mod tests;
 pub use pallet::*;
 pub use pusd_primitives;
 pub use types::{
-	BranchConfig, BranchMode, BranchRedistState, BranchState, FinalRecoveryNode, FrozenReason,
-	FrozenState, ParameterId, Vault, VaultRedistSnapshot, VaultStatus, VaultsManagerLevel,
+	BranchConfig, BranchDebt, BranchMode, BranchQueues, BranchStakes, BranchState, FrozenReason,
+	FrozenState, ParameterId, RedistSnapshot, Vault, VaultDebt, VaultStatus, VaultsManagerLevel,
 };
 pub use weights::WeightInfo;
 
@@ -177,19 +177,6 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// Per-vault redistribution snapshots. Read only when the vault's
-	/// `redist_epoch` lags the branch.
-	#[pallet::storage]
-	pub type VaultRedistSnapshots<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		T::AssetId,
-		Blake2_128Concat,
-		T::AccountId,
-		VaultRedistSnapshot,
-		OptionQuery,
-	>;
-
 	/// Per-branch governance/risk parameters. A registered branch always has
 	/// a row.
 	#[pallet::storage]
@@ -211,11 +198,6 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// Per-branch cold redistribution accumulators.
-	#[pallet::storage]
-	pub type BranchRedistStates<T: Config> =
-		StorageMap<_, Twox64Concat, T::AssetId, BranchRedistState, OptionQuery>;
-
 	/// Bounded registry of supported collateral branches.
 	#[pallet::storage]
 	pub type Branches<T: Config> =
@@ -229,15 +211,9 @@ pub mod pallet {
 		T::AssetId,
 		Blake2_128Concat,
 		T::AccountId,
-		FinalRecoveryNode<T::AccountId, MomentOf<T>>,
+		Position<T::AccountId>,
 		OptionQuery,
 	>;
-
-	/// Per-branch on-idle refresh cursor pointing at the owner of the vault
-	/// to refresh next.
-	#[pallet::storage]
-	pub type OnIdleCursor<T: Config> =
-		StorageMap<_, Twox64Concat, T::AssetId, T::AccountId, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -400,6 +376,11 @@ pub mod pallet {
 		/// Fully-accrued collateralization ratio of `(collateral_id, owner)`.
 		pub fn vault_cr(collateral_id: T::AssetId, owner: T::AccountId) -> Option<FixedU128> {
 			helpers::view_vault_cr::<T>(&collateral_id, &owner)
+		}
+
+		/// Derived lifecycle status of `(collateral_id, owner)`.
+		pub fn vault_status(collateral_id: T::AssetId, owner: T::AccountId) -> Option<VaultStatus> {
+			helpers::view_vault_status::<T>(&collateral_id, &owner)
 		}
 
 		/// Branch TCR, including aggregate interest accrued since the last

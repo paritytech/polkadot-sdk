@@ -132,8 +132,8 @@ fn zero_amount_ops_are_no_ops() {
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(1), 1, DOT, 0));
 
 		let post = Vaults::<Test>::get(DOT, 1).expect("vault stored");
-		assert_eq!(pre.interest_bearing_debt, post.interest_bearing_debt);
-		assert_eq!(pre.accrued_interest, post.accrued_interest);
+		assert_eq!(pre.debt.principal, post.debt.principal);
+		assert_eq!(pre.debt.interest, post.debt.interest);
 		assert_eq!(held(DOT, 1), 1_000);
 	});
 }
@@ -143,7 +143,7 @@ fn zero_amount_ops_are_no_ops() {
 // The upfront fee charged at open should equal the `predict_open_upfront_fee`
 // view-function quote, and the vault's recorded debt should be
 // `initial_debt + upfront_fee`. The fee is added to `accrued_interest` and
-// also bumps `branch.total_minted_aggregate_interest`. The fee must be
+// also bumps `branch.debt.minted_interest`. The fee must be
 // strictly positive for the canonical (debt=10k, rate=5%) inputs — Liquity's
 // test asserts this implicitly by computing it via `calcUpfrontFee`.
 #[test]
@@ -155,10 +155,10 @@ fn open_trove_charges_upfront_fee() {
 		assert!(predicted > 0, "open at 10k @ 5% must charge a non-trivial upfront fee");
 		assert_ok!(open(1, DOT, 5_000, 10_000, rate_pct(5, 100)));
 		let v = Vaults::<Test>::get(DOT, 1).expect("vault stored");
-		assert_eq!(v.interest_bearing_debt, 10_000);
-		assert_eq!(v.accrued_interest, predicted);
+		assert_eq!(v.debt.principal, 10_000);
+		assert_eq!(v.debt.interest, predicted);
 		let bs = BranchStates::<Test>::get(DOT).expect("branch state");
-		assert_eq!(bs.total_minted_aggregate_interest, predicted);
+		assert_eq!(bs.debt.minted_interest, predicted);
 	});
 }
 
@@ -188,8 +188,8 @@ fn borrow_charges_upfront_fee() {
 			Position::endpoints_only(),
 		));
 		let v_after = Vaults::<Test>::get(DOT, 1).expect("vault stored");
-		assert_eq!(v_after.interest_bearing_debt, v_before.interest_bearing_debt + 1_000);
-		assert_eq!(v_after.accrued_interest, v_before.accrued_interest + predicted);
+		assert_eq!(v_after.debt.principal, v_before.debt.principal + 1_000);
+		assert_eq!(v_after.debt.interest, v_before.debt.interest + predicted);
 	});
 }
 
@@ -226,9 +226,9 @@ fn change_rate_to_same_rate_is_no_op() {
 //   - after the cooldown elapses the fee is zero.
 //
 // Methodology note: `change_rate` internally calls `touch_vault`, which
-// folds elapsed simple interest into `vault.accrued_interest`. To isolate
+// folds elapsed simple interest into `vault.debt.interest`. To isolate
 // the upfront-fee delta we poke the vault first so all pending interest is
-// already materialised — then `vault.accrued_interest` only grows by the
+// already materialised — then `vault.debt.interest` only grows by the
 // upfront fee.
 #[test]
 fn change_rate_charged_fee_matches_predict() {
@@ -240,7 +240,7 @@ fn change_rate_charged_fee_matches_predict() {
 		// --- Phase 1: rate change BEFORE cooldown elapses.
 		advance_time(cfg_cooldown / 2);
 		// Poke first so any elapsed simple interest is already in
-		// `vault.accrued_interest` and the change_rate delta isolates the
+		// `vault.debt.interest` and the change_rate delta isolates the
 		// upfront fee.
 		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(1), 1, DOT));
 		let predicted_premature =
@@ -258,7 +258,7 @@ fn change_rate_charged_fee_matches_predict() {
 		));
 		let v_mid = Vaults::<Test>::get(DOT, 1).expect("vault stored");
 		assert_eq!(v_mid.annual_rate, rate_pct(7, 100));
-		assert_eq!(v_mid.accrued_interest, v_pre.accrued_interest + predicted_premature);
+		assert_eq!(v_mid.debt.interest, v_pre.debt.interest + predicted_premature);
 
 		// --- Phase 2: same vault, this time AFTER cooldown.
 		advance_time(cfg_cooldown);
@@ -275,7 +275,7 @@ fn change_rate_charged_fee_matches_predict() {
 		));
 		let v_post = Vaults::<Test>::get(DOT, 1).expect("vault stored");
 		assert_eq!(v_post.annual_rate, rate_pct(8, 100));
-		assert_eq!(v_post.accrued_interest, v_pre2.accrued_interest);
+		assert_eq!(v_post.debt.interest, v_pre2.debt.interest);
 	});
 }
 

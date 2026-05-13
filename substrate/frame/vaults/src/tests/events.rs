@@ -53,7 +53,7 @@ fn open_vault_emits_canonical_events() {
 		assert_event(crate::Event::UpfrontFeeCharged {
 			collateral_id: DOT,
 			owner: 1,
-			amount: v.accrued_interest,
+			amount: v.debt.interest,
 		});
 	});
 }
@@ -220,11 +220,11 @@ fn close_vault_emits_vault_closed() {
 		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(5, 100)));
 		// Repay vault 2 and close.
 		let v = crate::pallet::Vaults::<Test>::get(DOT, 2).unwrap();
-		let total = v.interest_bearing_debt + v.accrued_interest;
+		let total = v.debt.principal + v.debt.interest;
 		let _ = <Pusd as frame::deps::frame_support::traits::fungible::Mutate<u64>>::transfer(
 			&1,
 			&2,
-			v.accrued_interest,
+			v.debt.interest,
 			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
 		);
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(2), 2, DOT, total));

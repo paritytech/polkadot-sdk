@@ -213,7 +213,7 @@ fn safety_mode_allows_repay_then_withdraw() {
 //
 // In Normal mode, a premature rate change that would push TCR below the
 // safety threshold reverts. The upfront fee bumps
-// `bs.total_minted_aggregate_interest` and lowers post-TCR; if pre-TCR is
+// `bs.debt.minted_interest` and lowers post-TCR; if pre-TCR is
 // just above Safety, post-TCR can land below it.
 #[test]
 fn normal_mode_blocks_premature_rate_change_pulling_into_safety() {
@@ -222,7 +222,7 @@ fn normal_mode_blocks_premature_rate_change_pulling_into_safety() {
 		assert_ok!(open(1, DOT, 1_000, 5_000, rate_pct(5, 100)));
 		// Drop price to $6.55 — TCR ≈ 1000*6.55/5005 ≈ 130.87% (just above
 		// Safety 130%). The upfront fee on a premature rate hike bumps
-		// `total_minted_aggregate_interest` enough to land post-TCR below
+		// `debt.minted_interest` enough to land post-TCR below
 		// Safety, tripping the Normal-branch rule in `enforce_mode_rules`.
 		set_price(DOT, FixedU128::from_rational(655u128, 100u128));
 		assert_noop!(
@@ -289,11 +289,11 @@ fn safety_mode_blocks_close_with_collateral() {
 		// Repay vault 2's debt fully so it satisfies the zero-debt close
 		// precondition. Top up the upfront-fee residual from acct 1.
 		let v = Vaults::<Test>::get(DOT, 2).expect("vault stored");
-		let total = v.interest_bearing_debt + v.accrued_interest;
+		let total = v.debt.principal + v.debt.interest;
 		let _ = <Pusd as frame::deps::frame_support::traits::fungible::Mutate<u64>>::transfer(
 			&1,
 			&2,
-			v.accrued_interest,
+			v.debt.interest,
 			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
 		);
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(2), 2, DOT, total));
@@ -317,11 +317,11 @@ fn safety_mode_allows_close_zero_collateral() {
 		// Repay vault 2 fully and withdraw all of its collateral while still
 		// in Normal mode (price 10).
 		let v = Vaults::<Test>::get(DOT, 2).expect("vault stored");
-		let total = v.interest_bearing_debt + v.accrued_interest;
+		let total = v.debt.principal + v.debt.interest;
 		let _ = <Pusd as frame::deps::frame_support::traits::fungible::Mutate<u64>>::transfer(
 			&1,
 			&2,
-			v.accrued_interest,
+			v.debt.interest,
 			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
 		);
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(2), 2, DOT, total));

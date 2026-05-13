@@ -9,7 +9,10 @@
 //! `find_rate_position` therefore can never return a Dormant vault — it's
 //! a structural invariant rather than a hint-helper filter.
 
-use crate::{mock::*, pallet::Vaults, tests::rate_pct};
+use crate::{
+	mock::*,
+	tests::{rate_pct, vault_status},
+};
 use frame::deps::frame_support::assert_ok;
 use pallet_linked_list::SortedListInterface;
 
@@ -27,10 +30,9 @@ fn find_rate_position_skips_dormant_vaults() {
 		// Dormant when residual debt is zero (see interfaces.rs).
 		let target = redeem(DOT, 5, 600).expect("redeem ok"); // 600 > vault 1's debt to fully clear it
 		assert_eq!(target, 1);
-		let v_after = Vaults::<Test>::get(DOT, 1).unwrap();
 		// Vault is Dormant or its debt is below MinimumDebt — either way it
 		// should be out of the rate index.
-		assert!(v_after.status.is_dormant());
+		assert!(vault_status(DOT, 1).is_dormant());
 		assert!(!<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
 
 		// Now query a hint at a rate near acct 1's old rate. The result

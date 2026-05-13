@@ -5,7 +5,11 @@
 //! `testLiquidation`, `testSPDeposit`, `testSPWithdrawal`) belong to
 //! `pallet-redemptions` and `pallet-stability-pool` and are out of scope here.
 
-use crate::{mock::*, pallet::Vaults, tests::rate_pct};
+use crate::{
+	mock::*,
+	pallet::Vaults,
+	tests::{rate_pct, vault_status},
+};
 use frame::deps::frame_support::assert_ok;
 
 // SKIPPED: row 1 `testOpenTroveFailsWithoutAllowance` — polkadot does not
@@ -35,8 +39,7 @@ fn open_trove() {
 		register_default_branch();
 		assert_ok!(open(1, DOT, 1_000, 1_000, rate_pct(5, 100)));
 		assert_eq!(Vaults::<Test>::iter_prefix(DOT).count(), 1);
-		let v = Vaults::<Test>::get(DOT, 1).expect("vault stored");
-		assert!(v.status.is_active());
+		assert!(vault_status(DOT, 1).is_active());
 	});
 }
 
@@ -52,13 +55,13 @@ fn close_trove() {
 		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
 		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(5, 100)));
 		let v = Vaults::<Test>::get(DOT, 2).expect("vault stored");
-		let total = v.interest_bearing_debt + v.accrued_interest;
+		let total = v.debt.principal + v.debt.interest;
 		// Caller needs enough pUSD to cover the upfront fee on top of their
 		// borrowed principal — top them up from acct 1's mint.
 		let _ = <Pusd as frame::deps::frame_support::traits::fungible::Mutate<u64>>::transfer(
 			&1,
 			&2,
-			v.accrued_interest,
+			v.debt.interest,
 			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
 		);
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(2), 2, DOT, total));
@@ -96,7 +99,7 @@ fn adjust_trove_via_deposit_then_borrow() {
 		));
 		assert_eq!(held(DOT, 1), 1_200);
 		let v = Vaults::<Test>::get(DOT, 1).expect("vault stored");
-		assert_eq!(v.interest_bearing_debt, 800);
+		assert_eq!(v.debt.principal, 800);
 		// pUSD net to user: initial 500 + 300 borrowed (fees go to fee handler
 		// dropper, not the user).
 		assert_eq!(pusd_balance(1), 800);

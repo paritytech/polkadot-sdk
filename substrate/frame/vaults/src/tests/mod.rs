@@ -24,7 +24,12 @@ mod sorted_troves;
 
 use frame::deps::sp_runtime::FixedU128;
 
-/// Convenience: build a `FixedU128` rate from a `num/denom` ratio.
+use crate::mock::{AccountId, AssetId, Test};
+
 pub(super) fn rate_pct(num: u128, denom: u128) -> FixedU128 {
 	FixedU128::from_rational(num, denom)
+}
+
+pub(super) fn vault_status(asset: AssetId, owner: AccountId) -> crate::types::VaultStatus {
+	crate::Pallet::<Test>::vault_status(asset, owner).expect("vault status")
 }

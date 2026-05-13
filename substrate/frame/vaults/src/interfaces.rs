@@ -15,8 +15,7 @@
 use crate::{
 	helpers, math,
 	pallet::{
-		BalanceOf, BranchRedistStates, BranchStates, Config, Error, Event, HoldReason, Pallet,
-		StableCreditOf, VaultRedistSnapshots, Vaults,
+		BalanceOf, BranchStates, Config, Error, Event, HoldReason, Pallet, StableCreditOf, Vaults,
 	},
 	recovery,
 	types::VaultStatus,
@@ -52,14 +51,21 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 		helpers::update_aggregate_interest::<T>(collateral_id, now)?;
 		let vault = helpers::touch_vault::<T>(collateral_id, &owner, now)?
 			.ok_or(Error::<T>::VaultNotFound)?;
-		ensure!(!vault.status.is_final_recovery(), Error::<T>::VaultInFinalRecovery);
-		let post_touch_debt = vault.interest_bearing_debt.saturating_add(vault.accrued_interest);
+		ensure!(
+			!vault.status::<T>(&collateral_id, &owner).is_final_recovery(),
+			Error::<T>::VaultInFinalRecovery
+		);
+		let post_touch_debt = vault.debt.total();
 		let cfg = helpers::branch_cfg_of::<T>(collateral_id)?;
 		BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
 			let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-			ensure!(bs.total_stakes != vault.stake, Error::<T>::LastVaultCannotBeLiquidated);
 			ensure!(
-				bs.total_stakes.saturating_sub(vault.stake) >= cfg.minimum_total_stakes,
+				bs.stakes.total != vault.redistribution_stake,
+				Error::<T>::LastVaultCannotBeLiquidated
+			);
+			ensure!(
+				bs.stakes.total.saturating_sub(vault.redistribution_stake) >=
+					cfg.minimum_total_stakes,
 				Error::<T>::LastVaultCannotBeLiquidated,
 			);
 			bs.detach_vault(&vault);
@@ -76,7 +82,7 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 		allocation: LiquidationAllocation<T::AccountId, BalanceOf<T>>,
 	) -> DispatchResult {
 		let vault = helpers::vault_of::<T>(collateral_id, &owner)?;
-		let post_touch_debt = vault.interest_bearing_debt.saturating_add(vault.accrued_interest);
+		let post_touch_debt = vault.debt.total();
 		let held = T::CollateralAssets::balance_on_hold(
 			collateral_id,
 			&HoldReason::VaultCollateral.into(),
@@ -102,46 +108,31 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 			let bs = maybe_bs.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
 			bs.total_collateral = bs.total_collateral.saturating_sub(held);
 			if do_redistribute {
-				let avg_rate = math::average_branch_rate(bs.weighted_stake_sum, bs.total_stakes);
-				debug_assert!(!bs.total_stakes.is_zero());
-				BranchRedistStates::<T>::try_mutate(
-					collateral_id,
-					|maybe_redist| -> Result<_, DispatchError> {
-						let redist = maybe_redist.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-						let debt_per_stake =
-							math::redist_per_stake(redistributed_debt, bs.total_stakes)
-								.ok_or(Error::<T>::RedistributionWouldOverflow)?;
-						let coll_per_stake = math::redist_per_stake(
-							allocation.redistribution_collateral,
-							bs.total_stakes,
-						)
+				let avg_rate = math::average_branch_rate(bs.stakes.weighted_sum, bs.stakes.total);
+				debug_assert!(!bs.stakes.total.is_zero());
+				let debt_per_stake = math::redist_per_stake(redistributed_debt, bs.stakes.total)
+					.ok_or(Error::<T>::RedistributionWouldOverflow)?;
+				let coll_per_stake =
+					math::redist_per_stake(allocation.redistribution_collateral, bs.stakes.total)
 						.ok_or(Error::<T>::RedistributionWouldOverflow)?;
-						let weight_per_stake = math::redist_weight_per_stake(
-							redistributed_debt,
-							avg_rate,
-							bs.total_stakes,
-						)
+				let weight_per_stake =
+					math::redist_weight_per_stake(redistributed_debt, avg_rate, bs.stakes.total)
 						.ok_or(Error::<T>::RedistributionWouldOverflow)?;
-						let now_fp = FixedU128::saturating_from_integer(T::TimeProvider::now());
-						redist.cumulative_redist_debt_per_stake =
-							redist.cumulative_redist_debt_per_stake.saturating_add(debt_per_stake);
-						redist.cumulative_redist_collat_per_stake = redist
-							.cumulative_redist_collat_per_stake
-							.saturating_add(coll_per_stake);
-						redist.cumulative_redist_debt_time_per_stake = redist
-							.cumulative_redist_debt_time_per_stake
-							.saturating_add(now_fp.saturating_mul(debt_per_stake));
-						redist.cumulative_redist_weight_per_stake = redist
-							.cumulative_redist_weight_per_stake
-							.saturating_add(weight_per_stake);
-						Ok(())
-					},
-				)?;
-				bs.pending_redistribution_debt =
-					bs.pending_redistribution_debt.saturating_add(redistributed_debt);
-				bs.redist_epoch = bs.redist_epoch.saturating_add(1);
-				bs.weighted_interest_bearing_debt_sum = bs
-					.weighted_interest_bearing_debt_sum
+				let now_fp = FixedU128::saturating_from_integer(T::TimeProvider::now());
+				bs.redist.debt_per_stake = bs.redist.debt_per_stake.saturating_add(debt_per_stake);
+				bs.redist.collat_per_stake =
+					bs.redist.collat_per_stake.saturating_add(coll_per_stake);
+				bs.redist.debt_time_per_stake = bs
+					.redist
+					.debt_time_per_stake
+					.saturating_add(now_fp.saturating_mul(debt_per_stake));
+				bs.redist.weight_per_stake =
+					bs.redist.weight_per_stake.saturating_add(weight_per_stake);
+				bs.debt.pending_redist_principal =
+					bs.debt.pending_redist_principal.saturating_add(redistributed_debt);
+				bs.debt.weighted_principal_sum = bs
+					.debt
+					.weighted_principal_sum
 					.saturating_add(avg_rate.saturating_mul_int(redistributed_debt));
 			}
 			Ok(())
@@ -207,9 +198,8 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 			)?;
 		}
 
-		// 7. Remove vault row + redist snapshot.
+		// 7. Remove vault row.
 		Vaults::<T>::remove(collateral_id, &owner);
-		VaultRedistSnapshots::<T>::remove(collateral_id, &owner);
 		Ok(())
 	}
 }
@@ -225,7 +215,7 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 		}
 		// 2. last_dormant_vault_owner.
 		if let Some(bs) = BranchStates::<T>::get(collateral_id) {
-			if let Some(o) = bs.last_dormant_vault_owner {
+			if let Some(o) = bs.queues.last_dormant_vault_owner {
 				return Some(o);
 			}
 		}
@@ -242,7 +232,7 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 		helpers::update_aggregate_interest::<T>(collateral_id, now)?;
 		let vault = helpers::touch_vault::<T>(collateral_id, &owner, now)?
 			.ok_or(Error::<T>::VaultNotFound)?;
-		Ok(vault.interest_bearing_debt.saturating_add(vault.accrued_interest))
+		Ok(vault.debt.total())
 	}
 
 	fn apply_redemption(
@@ -252,7 +242,8 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 		allocation: RedemptionAllocation<BalanceOf<T>>,
 	) -> DispatchResult {
 		let mut vault = helpers::vault_of::<T>(collateral_id, &owner)?;
-		let post_touch_debt = vault.interest_bearing_debt.saturating_add(vault.accrued_interest);
+		let status = vault.status::<T>(&collateral_id, &owner);
+		let post_touch_debt = vault.debt.total();
 		let held = T::CollateralAssets::balance_on_hold(
 			collateral_id,
 			&HoldReason::VaultCollateral.into(),
@@ -271,11 +262,11 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 
 		// Apply debt cancellation: accrued interest first, then principal.
 		let mut remaining = allocation.debt_to_cancel;
-		let pay_accrued = core::cmp::min(remaining, vault.accrued_interest);
-		vault.accrued_interest = vault.accrued_interest.saturating_sub(pay_accrued);
+		let pay_accrued = core::cmp::min(remaining, vault.debt.interest);
+		vault.debt.interest = vault.debt.interest.saturating_sub(pay_accrued);
 		remaining = remaining.saturating_sub(pay_accrued);
-		let pay_principal = core::cmp::min(remaining, vault.interest_bearing_debt);
-		vault.interest_bearing_debt = vault.interest_bearing_debt.saturating_sub(pay_principal);
+		let pay_principal = core::cmp::min(remaining, vault.debt.principal);
+		vault.debt.principal = vault.debt.principal.saturating_sub(pay_principal);
 		remaining = remaining.saturating_sub(pay_principal);
 		if !remaining.is_zero() {
 			return Err(Error::<T>::InvalidRedemptionAllocation.into());
@@ -295,56 +286,38 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 			)?;
 		}
 
-		// Branch aggregates.
 		let cfg = helpers::branch_cfg_of::<T>(collateral_id)?;
+		let new_total = vault.debt.total();
 		BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
 			let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-			bs.total_interest_bearing_debt =
-				bs.total_interest_bearing_debt.saturating_sub(pay_principal);
-			bs.total_minted_aggregate_interest =
-				bs.total_minted_aggregate_interest.saturating_sub(pay_accrued);
-			bs.weighted_interest_bearing_debt_sum = bs
-				.weighted_interest_bearing_debt_sum
+			bs.debt.principal = bs.debt.principal.saturating_sub(pay_principal);
+			bs.debt.minted_interest = bs.debt.minted_interest.saturating_sub(pay_accrued);
+			bs.debt.weighted_principal_sum = bs
+				.debt
+				.weighted_principal_sum
 				.saturating_sub(vault.annual_rate.saturating_mul_int(pay_principal));
 			bs.total_collateral =
 				bs.total_collateral.saturating_sub(allocation.collateral_to_redeemer);
+			if matches!(status, VaultStatus::Active | VaultStatus::Dormant) {
+				if new_total.is_zero() {
+					if bs.queues.last_dormant_vault_owner.as_ref() == Some(&owner) {
+						bs.queues.last_dormant_vault_owner = None;
+					}
+				} else if new_total < cfg.minimum_debt {
+					bs.queues.last_dormant_vault_owner = Some(owner.clone());
+				}
+			}
 			Ok(())
 		})?;
 
-		// Internal status transition.
-		let new_total = vault.interest_bearing_debt.saturating_add(vault.accrued_interest);
-		let was_active = vault.status.is_active();
-		let is_recovery = vault.status.is_final_recovery();
-		if !is_recovery {
-			if new_total.is_zero() {
-				// Fully redeemed: leave Dormant with whatever residual coll.
-				vault.status = VaultStatus::Dormant;
-				if was_active {
-					let _ = T::RateIndex::remove(&collateral_id, &owner);
-				}
-				BranchStates::<T>::mutate(collateral_id, |maybe| {
-					if let Some(bs) = maybe {
-						if bs.last_dormant_vault_owner.as_ref() == Some(&owner) {
-							bs.last_dormant_vault_owner = None;
-						}
-					}
-				});
-			} else if new_total < cfg.minimum_debt {
-				// Dust dormant: track in continuation pointer.
-				vault.status = VaultStatus::Dormant;
-				if was_active {
-					let _ = T::RateIndex::remove(&collateral_id, &owner);
-				}
-				BranchStates::<T>::mutate(collateral_id, |maybe| {
-					if let Some(bs) = maybe {
-						bs.last_dormant_vault_owner = Some(owner.clone());
-					}
-				});
-			}
-		} else if new_total.is_zero() {
-			// FinalRecovery vault fully settled: drop FIFO node and mark dormant.
-			let _ = recovery::remove::<T>(&collateral_id, &owner);
-			vault.status = VaultStatus::Dormant;
+		match status {
+			VaultStatus::Active if new_total < cfg.minimum_debt => {
+				let _ = T::RateIndex::remove(&collateral_id, &owner);
+			},
+			VaultStatus::FinalRecovery if new_total.is_zero() => {
+				let _ = recovery::remove::<T>(&collateral_id, &owner);
+			},
+			_ => {},
 		}
 
 		let vault_rate = vault.annual_rate;
@@ -388,7 +361,7 @@ impl<T: Config> VaultBadDebtInterface<T::AssetId, StableCreditOf<T>> for Pallet<
 		}
 		BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
 			let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-			bs.bad_debt = bs.bad_debt.saturating_sub(amount);
+			bs.debt.bad_debt = bs.debt.bad_debt.saturating_sub(amount);
 			Ok(())
 		})?;
 		Pallet::<T>::deposit_event(Event::BadDebtHealed { collateral_id, amount });

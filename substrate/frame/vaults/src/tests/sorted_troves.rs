@@ -72,11 +72,11 @@ fn close_vault_removes_from_rate_index() {
 		}
 		// Repay vault 3 fully (top up from acct 4) then close it.
 		let v = crate::pallet::Vaults::<Test>::get(DOT, 3).unwrap();
-		let total = v.interest_bearing_debt + v.accrued_interest;
+		let total = v.debt.principal + v.debt.interest;
 		let _ = <Pusd as frame::deps::frame_support::traits::fungible::Mutate<u64>>::transfer(
 			&4,
 			&3,
-			v.accrued_interest,
+			v.debt.interest,
 			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
 		);
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(3), 3, DOT, total));

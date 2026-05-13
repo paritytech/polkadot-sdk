@@ -10,7 +10,7 @@
 //! their debt back up).
 //!
 //! Liquity's "Zombie" → polkadot's `Dormant`. Liquity's `lastZombieTroveId`
-//! → polkadot's `bs.last_dormant_vault_owner`.
+//! → polkadot's `bs.queues.last_dormant_vault_owner`.
 //!
 //! Polkadot divergence flags (rows 34-37): Liquity rejects normal
 //! `repayBold` / `withdrawBold` / `addColl` on Dormant vaults; the polkadot
@@ -22,7 +22,7 @@
 use crate::{
 	mock::*,
 	pallet::{BranchStates, Vaults},
-	tests::rate_pct,
+	tests::{rate_pct, vault_status},
 };
 use frame::deps::frame_support::{assert_noop, assert_ok};
 use pallet_linked_list::SortedListInterface;
@@ -46,13 +46,13 @@ fn fully_redeemed_vault_becomes_dormant_and_leaves_rate_index() {
 
 		// Redeem an amount large enough to cancel acct 1's full debt.
 		let v_pre = Vaults::<Test>::get(DOT, 1).unwrap();
-		let total = v_pre.interest_bearing_debt + v_pre.accrued_interest;
+		let total = v_pre.debt.principal + v_pre.debt.interest;
 		let target = redeem(DOT, 3, total).expect("redeem ok");
 		assert_eq!(target, 1);
 
 		let v = Vaults::<Test>::get(DOT, 1).unwrap();
-		assert!(v.status.is_dormant());
-		assert_eq!(v.interest_bearing_debt + v.accrued_interest, 0);
+		assert!(vault_status(DOT, 1).is_dormant());
+		assert_eq!(v.debt.principal + v.debt.interest, 0);
 		// Rate index no longer contains acct 1.
 		assert!(!<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
 	});
@@ -70,9 +70,9 @@ fn redeemed_below_min_debt_becomes_dormant() {
 		// has < 200 left.
 		assert_ok!(redeem(DOT, 3, 350));
 		let v = Vaults::<Test>::get(DOT, 1).unwrap();
-		let total = v.interest_bearing_debt + v.accrued_interest;
+		let total = v.debt.principal + v.debt.interest;
 		assert!(total > 0 && total < 200, "got total = {}", total);
-		assert!(v.status.is_dormant());
+		assert!(vault_status(DOT, 1).is_dormant());
 		assert!(!<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
 	});
 }
@@ -87,8 +87,7 @@ fn redeemed_above_min_debt_stays_active() {
 
 		// Redeem 200 — leaves acct 1 with ≈ 300 debt, well above MinimumDebt.
 		assert_ok!(redeem(DOT, 3, 200));
-		let v = Vaults::<Test>::get(DOT, 1).unwrap();
-		assert!(v.status.is_active());
+		assert!(vault_status(DOT, 1).is_active());
 		assert!(<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
 	});
 }
@@ -110,10 +109,10 @@ fn full_redemption_leaves_no_dormant_pointer() {
 		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(2, 100)));
 		// Fully redeem acct 1.
 		let v = Vaults::<Test>::get(DOT, 1).unwrap();
-		let total = v.interest_bearing_debt + v.accrued_interest;
+		let total = v.debt.principal + v.debt.interest;
 		assert_ok!(redeem(DOT, 3, total));
 		let bs = BranchStates::<Test>::get(DOT).unwrap();
-		assert_eq!(bs.last_dormant_vault_owner, None);
+		assert_eq!(bs.queues.last_dormant_vault_owner, None);
 	});
 }
 
@@ -126,7 +125,7 @@ fn partial_below_min_debt_sets_dormant_pointer() {
 		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(2, 100)));
 		assert_ok!(redeem(DOT, 3, 350));
 		let bs = BranchStates::<Test>::get(DOT).unwrap();
-		assert_eq!(bs.last_dormant_vault_owner, Some(1));
+		assert_eq!(bs.queues.last_dormant_vault_owner, Some(1));
 	});
 }
 
@@ -140,15 +139,15 @@ fn dormant_pointer_clears_when_last_dormant_fully_redeemed() {
 		// Push acct 1 to Dormant via partial-below-MinDebt.
 		assert_ok!(redeem(DOT, 3, 350));
 		let bs = BranchStates::<Test>::get(DOT).unwrap();
-		assert_eq!(bs.last_dormant_vault_owner, Some(1));
+		assert_eq!(bs.queues.last_dormant_vault_owner, Some(1));
 		// Now redeem acct 1's full residual. next_redemption_target prefers
 		// last_dormant_vault_owner, so this hits acct 1 again.
 		let v = Vaults::<Test>::get(DOT, 1).unwrap();
-		let residual = v.interest_bearing_debt + v.accrued_interest;
+		let residual = v.debt.principal + v.debt.interest;
 		let target = redeem(DOT, 3, residual).expect("redeem residual ok");
 		assert_eq!(target, 1);
 		let bs = BranchStates::<Test>::get(DOT).unwrap();
-		assert_eq!(bs.last_dormant_vault_owner, None);
+		assert_eq!(bs.queues.last_dormant_vault_owner, None);
 	});
 }
 
@@ -169,7 +168,7 @@ fn dormant_pointer_clears_when_owner_revives_via_borrow() {
 		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(2, 100)));
 		assert_ok!(redeem(DOT, 3, 350));
 		let bs = BranchStates::<Test>::get(DOT).unwrap();
-		assert_eq!(bs.last_dormant_vault_owner, Some(1));
+		assert_eq!(bs.queues.last_dormant_vault_owner, Some(1));
 
 		// Owner borrows enough to push debt above MinimumDebt → revives.
 		assert_ok!(crate::Pallet::<Test>::borrow(
@@ -180,11 +179,10 @@ fn dormant_pointer_clears_when_owner_revives_via_borrow() {
 			None,
 			Position::endpoints_only(),
 		));
-		let v = Vaults::<Test>::get(DOT, 1).unwrap();
-		assert!(v.status.is_active());
+		assert!(vault_status(DOT, 1).is_active());
 		assert!(<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
 		let bs = BranchStates::<Test>::get(DOT).unwrap();
-		assert_eq!(bs.last_dormant_vault_owner, None);
+		assert_eq!(bs.queues.last_dormant_vault_owner, None);
 	});
 }
 
@@ -205,11 +203,10 @@ fn dormant_does_not_auto_revive_via_interest_accrual() {
 		assert_ok!(redeem(DOT, 3, 350));
 
 		// Long horizon — accrued interest grows via update_aggregate_interest /
-		// touch_vault, but vault.status stays Dormant.
+		// touch_vault, but derived vault status stays Dormant.
 		advance_time(3650 * ONE_DAY_MS);
 		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(2), 1, DOT));
-		let v = Vaults::<Test>::get(DOT, 1).unwrap();
-		assert!(v.status.is_dormant());
+		assert!(vault_status(DOT, 1).is_dormant());
 	});
 }
 
@@ -224,17 +221,17 @@ fn dormant_pointer_clears_when_owner_closes_dormant() {
 		// Acct 1 is Dormant with residual debt. Repay all of it, top up
 		// from acct 2 to cover any accrued interest residual.
 		let v = Vaults::<Test>::get(DOT, 1).unwrap();
-		let total = v.interest_bearing_debt + v.accrued_interest;
+		let total = v.debt.principal + v.debt.interest;
 		let _ = <Pusd as frame::deps::frame_support::traits::fungible::Mutate<u64>>::transfer(
 			&2,
 			&1,
-			v.accrued_interest,
+			v.debt.interest,
 			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
 		);
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(1), 1, DOT, total));
 		assert_ok!(crate::Pallet::<Test>::close_vault(RuntimeOrigin::signed(1), DOT, None));
 		let bs = BranchStates::<Test>::get(DOT).unwrap();
-		assert_eq!(bs.last_dormant_vault_owner, None);
+		assert_eq!(bs.queues.last_dormant_vault_owner, None);
 	});
 }
 
@@ -256,7 +253,7 @@ fn dormant_vault_with_residual_accrues_interest() {
 		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(2), 1, DOT));
 		let v_post = Vaults::<Test>::get(DOT, 1).unwrap();
 		assert!(
-			v_post.accrued_interest > v_pre.accrued_interest,
+			v_post.debt.interest > v_pre.debt.interest,
 			"Dormant vault with residual debt must accrue interest over time"
 		);
 	});
@@ -290,7 +287,7 @@ fn dormant_vault_receives_redistribution_gains_on_touch() {
 		let v_dormant_post = Vaults::<Test>::get(DOT, 1).unwrap();
 		// Gains may be very small for tiny liquidations; pin "did not lose".
 		assert!(
-			v_dormant_post.interest_bearing_debt >= v_dormant_pre.interest_bearing_debt,
+			v_dormant_post.debt.principal >= v_dormant_pre.debt.principal,
 			"Dormant vault should not lose principal across redistribution"
 		);
 	});
@@ -312,7 +309,7 @@ fn dormant_owner_borrowing_above_min_debt_revives_to_active() {
 		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(1, 100)));
 		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(2, 100)));
 		assert_ok!(redeem(DOT, 3, 350));
-		assert!(Vaults::<Test>::get(DOT, 1).unwrap().status.is_dormant());
+		assert!(vault_status(DOT, 1).is_dormant());
 		assert!(!<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
 
 		// Borrow 500 more — vault debt jumps from ~150 to ~650, well above
@@ -325,8 +322,7 @@ fn dormant_owner_borrowing_above_min_debt_revives_to_active() {
 			None,
 			Position::endpoints_only(),
 		));
-		let v = Vaults::<Test>::get(DOT, 1).unwrap();
-		assert!(v.status.is_active());
+		assert!(vault_status(DOT, 1).is_active());
 		// row 31: re-inserted into the rate index at the new (or unchanged) rate.
 		assert!(<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
 	});
@@ -334,7 +330,7 @@ fn dormant_owner_borrowing_above_min_debt_revives_to_active() {
 
 // row 33: testZombieTroveBorrowerCanNotDrawFreshDebtToBelowMIN_DEBT.
 //
-// `borrow` requires `vault.interest_bearing_debt >= cfg.minimum_debt` after
+// `borrow` requires `vault.debt.principal >= cfg.minimum_debt` after
 // the operation (helpers.rs:835). Borrowing on a Dormant vault that doesn't
 // reach the threshold reverts.
 #[test]

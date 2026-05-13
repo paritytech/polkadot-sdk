@@ -8,7 +8,7 @@
 use crate::{
 	mock::*,
 	pallet::{BranchStates, Vaults},
-	tests::rate_pct,
+	tests::{rate_pct, vault_status},
 };
 use frame::deps::frame_support::{assert_err, assert_noop, assert_ok};
 use pallet_linked_list::SortedListInterface;
@@ -46,8 +46,8 @@ fn open_vault_holds_collateral_and_mints_pusd() {
 		// 1000 DOT @ $10 = $10000 collateral; borrow 1000 pUSD with 5% rate.
 		assert_ok!(open(1, DOT, 1_000, 1_000, rate_pct(5, 100)));
 		let v = Vaults::<Test>::get(DOT, 1).expect("vault stored");
-		assert_eq!(v.interest_bearing_debt, 1_000);
-		assert!(v.status.is_active());
+		assert_eq!(v.debt.principal, 1_000);
+		assert!(vault_status(DOT, 1).is_active());
 		assert_eq!(pusd_balance(1), 1_000);
 		assert_eq!(held(DOT, 1), 1_000);
 		// Rate index contains the vault.
@@ -123,13 +123,13 @@ fn close_vault_releases_collateral() {
 		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
 		// Repay full debt — principal + upfront fee accrued on open.
 		let v = Vaults::<Test>::get(DOT, 1).expect("vault stored");
-		let total = v.interest_bearing_debt + v.accrued_interest;
+		let total = v.debt.principal + v.debt.interest;
 		// Top up the borrower from acct 2 to cover the upfront-fee portion.
 		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(5, 100)));
 		let _ = <Pusd as frame::deps::frame_support::traits::fungible::Mutate<u64>>::transfer(
 			&2,
 			&1,
-			v.accrued_interest,
+			v.debt.interest,
 			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
 		);
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(1), 1, DOT, total,));

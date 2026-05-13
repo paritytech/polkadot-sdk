@@ -8,13 +8,13 @@
 //! Conventions:
 //! - Vaults are opened with stake == collateral (the snapshot ratio is 1:1 in the current
 //!   implementation; this is invariant after Phase 2 too since `held_collateral(...)` replaces
-//!   `vault.stake`).
+//!   `vault.redistribution_stake`).
 //! - "Recipient rate" means the recipient vault's `annual_rate`, not the liquidated vault's rate.
 
 use crate::{
 	mock::*,
-	pallet::{BranchRedistStates, BranchStates, VaultRedistSnapshots, Vaults},
-	tests::rate_pct,
+	pallet::{BranchStates, Vaults},
+	tests::{rate_pct, vault_status},
 };
 use frame::deps::{
 	frame_support::{assert_err, assert_ok},
@@ -30,7 +30,7 @@ fn weighted(x: Balance, rate: FixedU128) -> Balance {
 }
 
 // After a redistribute-everything liquidation with recipients all at 5%, the
-// branch's `weighted_interest_bearing_debt_sum` should reflect the economic
+// branch's `debt.weighted_principal_sum` should reflect the economic
 // debt at the recipient rate, not the redistributed principal at rate=1.0.
 //
 // Current implementation increments by `redistributed_debt * 1.0`, so the
@@ -54,11 +54,10 @@ fn weighted_sum_after_redistribution_matches_avg_recipient_rate() {
 		}));
 
 		let bs = BranchStates::<Test>::get(DOT).expect("branch state");
-		let total_econ =
-			bs.total_interest_bearing_debt.saturating_add(bs.pending_redistribution_debt);
+		let total_econ = bs.debt.principal.saturating_add(bs.debt.pending_redist_principal);
 		// Post-fix: weighted_sum ≈ total_econ * 0.05 (B's rate, the only recipient).
 		let expected = weighted(total_econ, rate_pct(5, 100));
-		let actual = bs.weighted_interest_bearing_debt_sum;
+		let actual = bs.debt.weighted_principal_sum;
 		// Tolerance: a couple of dust units from ceil/floor mismatches.
 		assert!(
 			actual.abs_diff(expected) <= 3,
@@ -91,18 +90,17 @@ fn aggregate_interest_post_redistribution_bounded_by_recipient_rates() {
 			keeper: KeeperCompensation { recipient: 1, collateral: 0 },
 		}));
 
-		let pre_minted = BranchStates::<Test>::get(DOT).unwrap().total_minted_aggregate_interest;
+		let pre_minted = BranchStates::<Test>::get(DOT).unwrap().debt.minted_interest;
 		let bs_pre = BranchStates::<Test>::get(DOT).unwrap();
-		let total_econ_pre = bs_pre
-			.total_interest_bearing_debt
-			.saturating_add(bs_pre.pending_redistribution_debt);
+		let total_econ_pre =
+			bs_pre.debt.principal.saturating_add(bs_pre.debt.pending_redist_principal);
 
 		// Advance one year, then poke vault 2 to fold pending interest into
-		// `total_minted_aggregate_interest` and trigger redistribution apply.
+		// `debt.minted_interest` and trigger redistribution apply.
 		advance_time(ONE_YEAR_MS);
 		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(99), 2, DOT));
 
-		let post_minted = BranchStates::<Test>::get(DOT).unwrap().total_minted_aggregate_interest;
+		let post_minted = BranchStates::<Test>::get(DOT).unwrap().debt.minted_interest;
 		let delta = post_minted.saturating_sub(pre_minted);
 
 		// Expected: ~5% / yr on the total economic debt at liquidation time.
@@ -123,7 +121,7 @@ fn aggregate_interest_post_redistribution_bounded_by_recipient_rates() {
 
 // Setup three vaults at different rates; liquidate one with full
 // redistribution. After both surviving recipients touch, the branch
-// `weighted_interest_bearing_debt_sum` should equal the sum of each
+// `debt.weighted_principal_sum` should equal the sum of each
 // recipient's post-touch contribution at its **own** rate, within a small
 // rounding tolerance.
 //
@@ -154,9 +152,9 @@ fn mixed_rate_recipients_reconcile_on_touch() {
 		let v_a = Vaults::<Test>::get(DOT, 1).unwrap();
 		let v_b = Vaults::<Test>::get(DOT, 2).unwrap();
 		// Expected: each vault contributes ib_debt * own_rate, summed.
-		let expected = weighted(v_a.interest_bearing_debt, rate_pct(5, 100))
-			.saturating_add(weighted(v_b.interest_bearing_debt, rate_pct(50, 100)));
-		let actual = bs.weighted_interest_bearing_debt_sum;
+		let expected = weighted(v_a.debt.principal, rate_pct(5, 100))
+			.saturating_add(weighted(v_b.debt.principal, rate_pct(50, 100)));
+		let actual = bs.debt.weighted_principal_sum;
 		// Larger tolerance (10 units): two vaults × per-stake rounding plus the
 		// avg-rate-vs-true-rate composition delta.
 		assert!(
@@ -207,9 +205,9 @@ fn borrow_after_redistribution_keeps_weighted_sum_consistent() {
 		let bs = BranchStates::<Test>::get(DOT).unwrap();
 		let v_a = Vaults::<Test>::get(DOT, 1).unwrap();
 		let v_b = Vaults::<Test>::get(DOT, 2).unwrap();
-		let expected = weighted(v_a.interest_bearing_debt, rate_pct(5, 100))
-			.saturating_add(weighted(v_b.interest_bearing_debt, rate_pct(50, 100)));
-		let actual = bs.weighted_interest_bearing_debt_sum;
+		let expected = weighted(v_a.debt.principal, rate_pct(5, 100))
+			.saturating_add(weighted(v_b.debt.principal, rate_pct(50, 100)));
+		let actual = bs.debt.weighted_principal_sum;
 		assert!(
 			actual.abs_diff(expected) <= 10,
 			"weighted_sum drift after borrow: actual={}, expected={}",
@@ -234,19 +232,13 @@ fn final_recovery_exit_requires_explicit_hint() {
 		// Drop the price below MCR so the vault becomes recovery-eligible.
 		set_price(DOT, FixedU128::from_rational(5u128, 100u128));
 		assert_ok!(crate::Pallet::<Test>::enter_final_recovery(RuntimeOrigin::signed(99), 1, DOT,));
-		assert!(matches!(
-			Vaults::<Test>::get(DOT, 1).unwrap().status,
-			crate::types::VaultStatus::FinalRecovery
-		));
+		assert!(matches!(vault_status(DOT, 1), crate::types::VaultStatus::FinalRecovery));
 		// Raise the price back so the vault's CR is now ≥ MCR.
 		set_price(DOT, FixedU128::from_rational(10u128, 1u128));
 		// Poke MUST NOT auto-exit.
 		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(99), 1, DOT));
 		assert!(
-			matches!(
-				Vaults::<Test>::get(DOT, 1).unwrap().status,
-				crate::types::VaultStatus::FinalRecovery
-			),
+			matches!(vault_status(DOT, 1), crate::types::VaultStatus::FinalRecovery),
 			"poke should not auto-exit FinalRecovery; current code does via unhinted find_position",
 		);
 		// Explicit `exit_final_recovery` does.
@@ -256,10 +248,7 @@ fn final_recovery_exit_requires_explicit_hint() {
 			DOT,
 			Position::endpoints_only(),
 		));
-		assert!(matches!(
-			Vaults::<Test>::get(DOT, 1).unwrap().status,
-			crate::types::VaultStatus::Active
-		));
+		assert!(matches!(vault_status(DOT, 1), crate::types::VaultStatus::Active));
 	});
 }
 
@@ -305,18 +294,15 @@ fn prepare_liquidation_refuses_dust_recipient_below_floor() {
 		set_price(DOT, FixedU128::from_rational(5u128, 100u128));
 
 		let pre_bs = BranchStates::<Test>::get(DOT).unwrap();
-		let pre_redist = BranchRedistStates::<Test>::get(DOT).unwrap();
+		let pre_redist = pre_bs.redist;
 		assert_err!(liquidate(DOT, 1), crate::Error::<Test>::LastVaultCannotBeLiquidated,);
 		// Floor fires inside `prepare_liquidation` before any redistribution
 		// accumulator mutation; nothing about the branch state moves.
 		let post_bs = BranchStates::<Test>::get(DOT).unwrap();
-		let post_redist = BranchRedistStates::<Test>::get(DOT).unwrap();
-		assert_eq!(post_bs.total_stakes, pre_bs.total_stakes);
-		assert_eq!(post_bs.pending_redistribution_debt, 0);
-		assert_eq!(
-			post_bs.weighted_interest_bearing_debt_sum,
-			pre_bs.weighted_interest_bearing_debt_sum,
-		);
+		let post_redist = post_bs.redist;
+		assert_eq!(post_bs.stakes.total, pre_bs.stakes.total);
+		assert_eq!(post_bs.debt.pending_redist_principal, 0);
+		assert_eq!(post_bs.debt.weighted_principal_sum, pre_bs.debt.weighted_principal_sum,);
 		assert_eq!(pre_redist, post_redist);
 	});
 }
@@ -360,22 +346,22 @@ fn back_to_back_near_empty_redistributions_preserve_accounting_identity() {
 
 fn assert_accounting_identity_holds() {
 	let bs = BranchStates::<Test>::get(DOT).unwrap();
-	let redist = BranchRedistStates::<Test>::get(DOT).unwrap();
-	let cumul = redist.cumulative_redist_debt_per_stake;
+	let cumul = bs.redist.debt_per_stake;
 	let mut sum_shares: Balance = 0;
 	let mut n: u128 = 0;
-	for (owner, vault) in Vaults::<Test>::iter_prefix(DOT) {
-		let snap = VaultRedistSnapshots::<Test>::get(DOT, &owner).unwrap_or_default();
+	for (_owner, vault) in Vaults::<Test>::iter_prefix(DOT) {
+		let snap = vault.redist_snapshot;
 		let delta = cumul.saturating_sub(snap.debt_per_stake);
-		sum_shares = sum_shares.saturating_add(delta.saturating_mul_int(vault.stake));
+		sum_shares =
+			sum_shares.saturating_add(delta.saturating_mul_int(vault.redistribution_stake));
 		n += 1;
 	}
 	let tolerance: Balance = n;
-	let drift = bs.pending_redistribution_debt.abs_diff(sum_shares);
+	let drift = bs.debt.pending_redist_principal.abs_diff(sum_shares);
 	assert!(
 		drift <= tolerance,
-		"pending_redistribution_debt drift: pending={}, sum_shares={}, drift={}, tol={}",
-		bs.pending_redistribution_debt,
+		"pending redist principal drift: pending={}, sum_shares={}, drift={}, tol={}",
+		bs.debt.pending_redist_principal,
 		sum_shares,
 		drift,
 		tolerance,
