@@ -51,7 +51,6 @@ impl<T: Config> Pallet<T> {
 			meter.consume(T::WeightInfo::process_revenue());
 		}
 
-		// TODO: Fix gas charging.
 		if status.last_timeslice < Self::current_timeslice() {
 			status.last_timeslice.saturating_inc();
 			Self::last_timeslice_changed(&status, &mut meter);
