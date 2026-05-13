@@ -1,7 +1,7 @@
 [package]
 name = "statement-latency-bench"
 version = "0.1.0"
-description = "CLI tool for distributed statement store latency benchmarking"
+description = "CLI tools for distributed statement store latency benchmarking"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -15,11 +15,17 @@ path = "src/setup.rs"
 name = "statement-latency-bench"
 path = "src/bench.rs"
 
+[[bin]]
+name = "statement-ops-bench"
+path = "src/ops_bench.rs"
+
 [dependencies]
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 codec = { workspace = true }
 env_logger = { workspace = true }
+futures = { workspace = true }
 jsonrpsee = { workspace = true, features = ["client-ws-transport-tls", "ws-client"] }
 log = { workspace = true }
 rand = { workspace = true }
@@ -29,4 +35,7 @@ sp-core = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true, features = ["serde"] }
 subxt = { version = "0.50", features = ["jsonrpsee", "native"] }
 subxt-signer = { version = "0.50" }
-tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time", "signal", "macros"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util", "macros"] }
