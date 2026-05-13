@@ -46,10 +46,11 @@ mod client;
 pub(crate) mod schema;
 
 pub use client::{
-	request_bitswap, request_bitswap_blocks, request_bitswap_blocks_unverified,
-	request_bitswap_unverified, BitswapError, BitswapWant, BitswapWantType, FetchOutcome,
+	request_bitswap_blocks, request_bitswap_blocks_unverified, BitswapError, FetchOutcome,
 	BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, SHA2_256_MULTIHASH_CODE,
 };
+
+pub(crate) use client::BitswapWantType;
 
 pub(crate) use schema::bitswap::Message as BitswapProtoMessage;
 
