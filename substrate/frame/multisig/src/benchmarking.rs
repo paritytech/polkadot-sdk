@@ -31,11 +31,13 @@ fn setup_multi<T: Config>(
 	z: u32,
 ) -> Result<(Vec<T::AccountId>, Box<<T as Config>::RuntimeCall>), &'static str> {
 	let mut signatories: Vec<T::AccountId> = Vec::new();
+	// Per-account mint must stay below `max_value / MaxSignatories` so that the cumulative
+	// total issuance does not saturate - `fungible::Mutate::set_balance` silently no-ops
+	// once total issuance overflows, leaving later signatories with zero balance.
+	let max_sigs: u32 = T::MaxSignatories::get().max(1);
+	let balance = BalanceOf::<T>::max_value() / max_sigs.saturating_mul(2).into();
 	for i in 0..s {
 		let signatory = account("signatory", i, SEED);
-		// Give them some balance for a possible deposit
-		// Use max_value / 10 to avoid potential overflow issues with fungible traits
-		let balance = BalanceOf::<T>::max_value() / 10u32.into();
 		let _ = T::Fungible::set_balance(&signatory, balance);
 		signatories.push(signatory);
 	}
