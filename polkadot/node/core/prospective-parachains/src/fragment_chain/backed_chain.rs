@@ -101,6 +101,11 @@ impl BackedChain {
 		&mut self,
 		output_head_data_hash: &Hash,
 	) -> Option<Vec<FragmentNode>> {
+		// O(1) negative-case bailout via the output-head index, before the linear scan.
+		if !self.by_output_head.contains_key(output_head_data_hash) {
+			return None;
+		}
+
 		let found_index = self
 			.chain
 			.iter()
