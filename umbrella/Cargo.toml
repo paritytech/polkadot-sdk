@@ -163,7 +163,6 @@ std = [
 	"pallet-tips?/std",
 	"pallet-transaction-payment-rpc-runtime-api?/std",
 	"pallet-transaction-payment?/std",
-	"pallet-transaction-storage?/std",
 	"pallet-treasury?/std",
 	"pallet-tx-pause?/std",
 	"pallet-uniques?/std",
@@ -354,7 +353,6 @@ runtime-benchmarks = [
 	"pallet-timestamp?/runtime-benchmarks",
 	"pallet-tips?/runtime-benchmarks",
 	"pallet-transaction-payment?/runtime-benchmarks",
-	"pallet-transaction-storage?/runtime-benchmarks",
 	"pallet-treasury?/runtime-benchmarks",
 	"pallet-tx-pause?/runtime-benchmarks",
 	"pallet-uniques?/runtime-benchmarks",
@@ -504,7 +502,6 @@ try-runtime = [
 	"pallet-timestamp?/try-runtime",
 	"pallet-tips?/try-runtime",
 	"pallet-transaction-payment?/try-runtime",
-	"pallet-transaction-storage?/try-runtime",
 	"pallet-treasury?/try-runtime",
 	"pallet-tx-pause?/try-runtime",
 	"pallet-uniques?/try-runtime",
@@ -545,7 +542,6 @@ serde = [
 	"pallet-state-trie-migration?/serde",
 	"pallet-tips?/serde",
 	"pallet-transaction-payment?/serde",
-	"pallet-transaction-storage?/serde",
 	"pallet-treasury?/serde",
 	"pallet-xcm?/serde",
 	"sp-application-crypto?/serde",
@@ -737,7 +733,6 @@ runtime-full = [
 	"pallet-tips",
 	"pallet-transaction-payment",
 	"pallet-transaction-payment-rpc-runtime-api",
-	"pallet-transaction-storage",
 	"pallet-treasury",
 	"pallet-tx-pause",
 	"pallet-uniques",
@@ -1848,11 +1843,6 @@ path = "../substrate/frame/transaction-payment"
 default-features = false
 optional = true
 path = "../substrate/frame/transaction-payment/rpc/runtime-api"
-
-[dependencies.pallet-transaction-storage]
-default-features = false
-optional = true
-path = "../substrate/frame/transaction-storage"
 
 [dependencies.pallet-treasury]
 default-features = false
