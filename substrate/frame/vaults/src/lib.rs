@@ -133,16 +133,16 @@ pub mod pallet {
 		/// tier so the call site can gate non-defensive operations.
 		type ManagerOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = VaultsManagerLevel>;
 
-		/// Pallet-derived redistribution holding account (collateral parking
-		/// during liquidation handoff).
-		#[pallet::constant]
-		type PalletId: Get<PalletId>;
-
 		/// Sorted-DLL backing the per-branch rate index. Configured by the
 		/// runtime to point at `pallet-linked-list` with
 		/// `ListId = Self::AssetId`, `ItemId = Self::AccountId`,
 		/// `Priority = FixedU128`.
 		type RateIndex: SortedListInterface<Self::AssetId, Self::AccountId, Priority = FixedU128>;
+
+		/// Pallet-derived redistribution holding account (collateral parking
+		/// during liquidation handoff).
+		#[pallet::constant]
+		type PalletId: Get<PalletId>;
 
 		/// Maximum registered collateral branches.
 		#[pallet::constant]
@@ -372,6 +372,7 @@ pub mod pallet {
 		InvalidLiquidationAllocation,
 		InvalidRedemptionAllocation,
 		LastVaultCannotBeLiquidated,
+		RedistributionWouldOverflow,
 	}
 
 	#[pallet::hooks]
@@ -788,6 +789,22 @@ pub mod pallet {
 				collateral_id,
 				types::ParameterId::MinimumCollateral,
 				|c| c.minimum_collateral = value,
+			)
+		}
+
+		#[pallet::call_index(23)]
+		#[pallet::weight(T::WeightInfo::set_param())]
+		pub fn set_minimum_total_stakes(
+			origin: OriginFor<T>,
+			collateral_id: T::AssetId,
+			value: BalanceOf<T>,
+		) -> DispatchResult {
+			let level = T::ManagerOrigin::ensure_origin(origin)?;
+			ensure!(matches!(level, VaultsManagerLevel::Full), Error::<T>::InsufficientPrivilege);
+			helpers::update_branch_config::<T, _>(
+				collateral_id,
+				types::ParameterId::MinimumTotalStakes,
+				|c| c.minimum_total_stakes = value,
 			)
 		}
 

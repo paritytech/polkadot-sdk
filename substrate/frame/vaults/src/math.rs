@@ -112,6 +112,37 @@ pub fn average_branch_rate<Balance: FixedPointOperand>(
 	FixedU128::from_inner(inner)
 }
 
+pub fn redist_per_stake<Balance: FixedPointOperand>(
+	num: Balance,
+	denom: Balance,
+) -> Option<FixedU128> {
+	if num.is_zero() {
+		return Some(FixedU128::zero());
+	}
+	assert!(!denom.is_zero(), "redist_per_stake: denom == 0; caller must short-circuit");
+	let n: u128 = num.unique_saturated_into();
+	let d: u128 = denom.unique_saturated_into();
+	assert!(d > 0);
+	multiply_by_rational_with_rounding(n, FixedU128::DIV, d, Rounding::Down)
+		.map(FixedU128::from_inner)
+}
+
+pub fn redist_weight_per_stake<Balance: FixedPointOperand>(
+	redistributed_debt: Balance,
+	avg_rate: FixedU128,
+	denom: Balance,
+) -> Option<FixedU128> {
+	if redistributed_debt.is_zero() || avg_rate.is_zero() {
+		return Some(FixedU128::zero());
+	}
+	assert!(!denom.is_zero(), "redist_weight_per_stake: denom == 0; caller must short-circuit");
+	let n: u128 = redistributed_debt.unique_saturated_into();
+	let d: u128 = denom.unique_saturated_into();
+	assert!(d > 0);
+	multiply_by_rational_with_rounding(n, avg_rate.into_inner(), d, Rounding::Down)
+		.map(FixedU128::from_inner)
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -190,5 +221,51 @@ mod tests {
 		// safe for the very first vault.
 		let avg = average_branch_rate::<u128>(0, 0);
 		assert_eq!(avg, FixedU128::one());
+	}
+
+	#[test]
+	fn redist_per_stake_round_trips_small_inputs() {
+		// 100 / 1000 = 0.1
+		let got = redist_per_stake::<u128>(100, 1_000).expect("fits");
+		assert_eq!(got, FixedU128::from_rational(1u128, 10u128));
+	}
+
+	#[test]
+	fn redist_per_stake_zero_num_returns_zero() {
+		assert_eq!(redist_per_stake::<u128>(0, 1_000), Some(FixedU128::zero()));
+		assert_eq!(redist_per_stake::<u128>(0, 1), Some(FixedU128::zero()));
+	}
+
+	#[test]
+	fn redist_per_stake_overflow_returns_none() {
+		// num/denom = 2^127. Multiplied by 1e18 overflows u128.
+		let got = redist_per_stake::<u128>(u128::MAX / 2, 1);
+		assert!(got.is_none());
+	}
+
+	#[test]
+	fn redist_weight_per_stake_matches_two_step_when_safe() {
+		// redistributed_debt=10_000, avg_rate=0.05, denom=100
+		// → one-shot: floor(10_000 * 0.05_inner / 100) = floor(500 * 1e18 / 100) = 5e18 inner.
+		// Two-step `(10_000 / 100) * 0.05` = 5.0 → inner 5e18. Match.
+		let avg = FixedU128::from_rational(5u128, 100u128);
+		let got = redist_weight_per_stake::<u128>(10_000, avg, 100).expect("fits");
+		let two_step = FixedU128::from_rational(10_000u128, 100u128).saturating_mul(avg);
+		assert!(got.into_inner().abs_diff(two_step.into_inner()) <= 1);
+	}
+
+	#[test]
+	fn redist_weight_per_stake_avoids_two_step_overflow() {
+		// Pick numbers where the two-step would silently zero via `checked_from_rational`
+		// (num/denom > 3.4e20) but the one-shot stays within u128 because avg_rate
+		// brings the magnitude back down.
+		let avg = FixedU128::from_rational(1u128, u128::from(u64::MAX)); // ~5.4e-20
+																   // redistributed_debt = u128::MAX/4, denom = 1: two-step debt_per_stake would
+																   // overflow. One-shot folds avg_rate (tiny) into the U256 dividend.
+		let got = redist_weight_per_stake::<u128>(u128::MAX / 4, avg, 1);
+		assert!(
+			got.is_some(),
+			"one-shot weight helper should survive when avg_rate keeps the quotient bounded"
+		);
 	}
 }

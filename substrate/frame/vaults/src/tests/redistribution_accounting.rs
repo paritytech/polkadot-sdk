@@ -13,12 +13,12 @@
 
 use crate::{
 	mock::*,
-	pallet::{BranchStates, Vaults},
+	pallet::{BranchRedistStates, BranchStates, VaultRedistSnapshots, Vaults},
 	tests::rate_pct,
 };
 use frame::deps::{
-	frame_support::assert_ok,
-	sp_runtime::{FixedPointNumber, FixedU128},
+	frame_support::{assert_err, assert_ok},
+	sp_runtime::{traits::Saturating, FixedPointNumber, FixedU128},
 };
 use pusd_primitives::{KeeperCompensation, LiquidationAllocation, OffsetAllocation};
 
@@ -291,4 +291,93 @@ fn finalize_liquidation_doesnt_leak_offset_collateral_to_liquidatee() {
 			"offset.collateral should land on the offset recipient, not the liquidatee",
 		);
 	});
+}
+
+#[test]
+fn prepare_liquidation_refuses_dust_recipient_below_floor() {
+	build_and_execute(|| {
+		register_default_branch(); // floor = 100
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100))); // liquidatee, stake=1_000
+														  // Vault 2 needs ICR ≥ 1.2 at price 10:1, debt ≥ 200, so coll ≥ 24.
+														  // Stake = 50 sits below the floor of 100.
+		assert_ok!(open(2, DOT, 50, 200, rate_pct(5, 100))); // recipient, stake=50
+
+		set_price(DOT, FixedU128::from_rational(5u128, 100u128));
+
+		let pre_bs = BranchStates::<Test>::get(DOT).unwrap();
+		let pre_redist = BranchRedistStates::<Test>::get(DOT).unwrap();
+		assert_err!(liquidate(DOT, 1), crate::Error::<Test>::LastVaultCannotBeLiquidated,);
+		// Floor fires inside `prepare_liquidation` before any redistribution
+		// accumulator mutation; nothing about the branch state moves.
+		let post_bs = BranchStates::<Test>::get(DOT).unwrap();
+		let post_redist = BranchRedistStates::<Test>::get(DOT).unwrap();
+		assert_eq!(post_bs.total_stakes, pre_bs.total_stakes);
+		assert_eq!(post_bs.pending_redistribution_debt, 0);
+		assert_eq!(
+			post_bs.weighted_interest_bearing_debt_sum,
+			pre_bs.weighted_interest_bearing_debt_sum,
+		);
+		assert_eq!(pre_redist, post_redist);
+	});
+}
+
+#[test]
+fn redist_per_stake_overflow_unit_check_for_completeness() {
+	// num/denom = u128::MAX/2 / 1 → quotient * 1e18 > u128::MAX.
+	let got = crate::math::redist_per_stake::<Balance>(u128::MAX / 2, 1);
+	assert!(got.is_none(), "overflow must surface as None, never silently zero");
+	// Boundary safety: just below the overflow threshold survives.
+	let safe = crate::math::redist_per_stake::<Balance>(u128::MAX / (FixedU128::DIV * 2), 1);
+	assert!(safe.is_some());
+}
+
+#[test]
+fn back_to_back_near_empty_redistributions_preserve_accounting_identity() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(crate::Pallet::<Test>::set_minimum_total_stakes(
+			RuntimeOrigin::root(),
+			DOT,
+			100,
+		));
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(5, 100)));
+		assert_ok!(open(3, DOT, 5_000, 500, rate_pct(5, 100)));
+
+		set_price(DOT, FixedU128::from_rational(5u128, 100u128));
+
+		for liquidatee in [1u64, 2u64] {
+			let coll = held(DOT, liquidatee);
+			assert_ok!(liquidate_with(DOT, liquidatee, |_| LiquidationAllocation {
+				offset: OffsetAllocation { recipient: 0, debt: 0, collateral: 0 },
+				redistribution_collateral: coll,
+				keeper: KeeperCompensation { recipient: liquidatee, collateral: 0 },
+			}));
+			assert_accounting_identity_holds();
+		}
+	});
+}
+
+fn assert_accounting_identity_holds() {
+	let bs = BranchStates::<Test>::get(DOT).unwrap();
+	let redist = BranchRedistStates::<Test>::get(DOT).unwrap();
+	let cumul = redist.cumulative_redist_debt_per_stake;
+	let mut sum_shares: Balance = 0;
+	let mut n: u128 = 0;
+	for (owner, vault) in Vaults::<Test>::iter_prefix(DOT) {
+		let snap = VaultRedistSnapshots::<Test>::get(DOT, &owner).unwrap_or_default();
+		let delta = cumul.saturating_sub(snap.debt_per_stake);
+		sum_shares = sum_shares.saturating_add(delta.saturating_mul_int(vault.stake));
+		n += 1;
+	}
+	let tolerance: Balance = n;
+	let drift = bs.pending_redistribution_debt.abs_diff(sum_shares);
+	assert!(
+		drift <= tolerance,
+		"pending_redistribution_debt drift: pending={}, sum_shares={}, drift={}, tol={}",
+		bs.pending_redistribution_debt,
+		sum_shares,
+		drift,
+		tolerance,
+	);
 }

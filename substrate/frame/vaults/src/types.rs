@@ -3,7 +3,7 @@
 //! See `troves.md` §5 for the canonical reference.
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame::deps::sp_runtime::FixedU128;
+use frame::deps::sp_runtime::{traits::Saturating, FixedPointNumber, FixedPointOperand, FixedU128};
 use scale_info::TypeInfo;
 
 pub use pusd_primitives::{BranchMode, FrozenReason, FrozenState};
@@ -104,6 +104,7 @@ pub struct BranchConfig<Balance, Moment> {
 	pub debt_ceiling: Balance,
 	pub minimum_debt: Balance,
 	pub minimum_collateral: Balance,
+	pub minimum_total_stakes: Balance,
 	pub minimum_borrow_rate: FixedU128,
 	pub maximum_borrow_rate: FixedU128,
 	pub upfront_fee_period: Moment,
@@ -135,6 +136,31 @@ pub struct BranchState<AccountId, Balance, Moment> {
 impl<AccountId, Balance, Moment> BranchState<AccountId, Balance, Moment> {
 	pub fn is_frozen(&self) -> bool {
 		self.frozen.is_some()
+	}
+}
+
+impl<AccountId, Balance, Moment> BranchState<AccountId, Balance, Moment>
+where
+	Balance: FixedPointOperand + Saturating,
+{
+	/// Subtract a vault's full contribution from the branch aggregates.
+	///
+	/// Mirrors the addition done at vault open: every writer that mutates
+	/// `(interest_bearing_debt, accrued_interest, stake)` for a vault must
+	/// keep this sum-of-contributions invariant intact, so removal is the
+	/// exact inverse — recompute the same `(rate * debt, rate * stake)`
+	/// products and subtract.
+	pub fn detach_vault(&mut self, vault: &Vault<Balance, Moment>) {
+		let rate_x_debt = vault.annual_rate.saturating_mul_int(vault.interest_bearing_debt);
+		let rate_x_stake = vault.annual_rate.saturating_mul_int(vault.stake);
+		self.total_interest_bearing_debt =
+			self.total_interest_bearing_debt.saturating_sub(vault.interest_bearing_debt);
+		self.total_minted_aggregate_interest =
+			self.total_minted_aggregate_interest.saturating_sub(vault.accrued_interest);
+		self.weighted_interest_bearing_debt_sum =
+			self.weighted_interest_bearing_debt_sum.saturating_sub(rate_x_debt);
+		self.weighted_stake_sum = self.weighted_stake_sum.saturating_sub(rate_x_stake);
+		self.total_stakes = self.total_stakes.saturating_sub(vault.stake);
 	}
 }
 
@@ -187,6 +213,7 @@ pub enum ParameterId {
 	SafetyCollateralizationRatio,
 	MinimumDebt,
 	MinimumCollateral,
+	MinimumTotalStakes,
 	BorrowRateBounds,
 	UpfrontFeePeriod,
 	RateAdjustmentCooldown,

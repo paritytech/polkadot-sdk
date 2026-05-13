@@ -28,7 +28,7 @@ use frame::deps::{
 			fungible::Balanced as FungibleBalanced,
 			fungibles::{InspectHold as FungiblesInspectHold, MutateHold as FungiblesMutateHold},
 			tokens::{Fortitude, Imbalance, Precision, Restriction},
-			Defensive, SameOrOther, Time,
+			SameOrOther, Time,
 		},
 	},
 	sp_runtime::{
@@ -53,27 +53,19 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 		let vault = helpers::touch_vault::<T>(collateral_id, &owner, now)?
 			.ok_or(Error::<T>::VaultNotFound)?;
 		ensure!(!vault.status.is_final_recovery(), Error::<T>::VaultInFinalRecovery);
-		// Last-vault guard: liquidation cannot redistribute to itself.
-		let bs = helpers::branch_state_of::<T>(collateral_id)?;
-		ensure!(bs.total_stakes != vault.stake, Error::<T>::LastVaultCannotBeLiquidated);
-		// Remove from rate index, subtract from branch aggregates.
-		let _ = T::RateIndex::remove(&collateral_id, &owner);
 		let post_touch_debt = vault.interest_bearing_debt.saturating_add(vault.accrued_interest);
+		let cfg = helpers::branch_cfg_of::<T>(collateral_id)?;
 		BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
 			let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-			bs.total_interest_bearing_debt =
-				bs.total_interest_bearing_debt.saturating_sub(vault.interest_bearing_debt);
-			bs.total_minted_aggregate_interest =
-				bs.total_minted_aggregate_interest.saturating_sub(vault.accrued_interest);
-			bs.weighted_interest_bearing_debt_sum = bs
-				.weighted_interest_bearing_debt_sum
-				.saturating_sub(vault.annual_rate.saturating_mul_int(vault.interest_bearing_debt));
-			bs.weighted_stake_sum = bs
-				.weighted_stake_sum
-				.saturating_sub(vault.annual_rate.saturating_mul_int(vault.stake));
-			bs.total_stakes = bs.total_stakes.saturating_sub(vault.stake);
+			ensure!(bs.total_stakes != vault.stake, Error::<T>::LastVaultCannotBeLiquidated);
+			ensure!(
+				bs.total_stakes.saturating_sub(vault.stake) >= cfg.minimum_total_stakes,
+				Error::<T>::LastVaultCannotBeLiquidated,
+			);
+			bs.detach_vault(&vault);
 			Ok(())
 		})?;
+		let _ = T::RateIndex::remove(&collateral_id, &owner);
 
 		Ok(post_touch_debt)
 	}
@@ -104,37 +96,32 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 		}
 
 		let redistributed_debt = post_touch_debt.saturating_sub(allocation.offset.debt);
-
-		// Advance redistribution accumulators.
-		if !redistributed_debt.is_zero() || !allocation.redistribution_collateral.is_zero() {
-			BranchStates::<T>::try_mutate(collateral_id, |maybe_bs| -> Result<_, DispatchError> {
-				let bs = maybe_bs.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-				// Average recipient rate: weighted_stake_sum / total_stakes.
-				// This is the rate at which redistributed principal enters the
-				// branch's interest base. Per-vault reconciliation in
-				// `touch_vault` later replaces this avg-rate share with the
-				// recipient's own rate.
+		let do_redistribute =
+			!redistributed_debt.is_zero() || !allocation.redistribution_collateral.is_zero();
+		BranchStates::<T>::try_mutate(collateral_id, |maybe_bs| -> Result<_, DispatchError> {
+			let bs = maybe_bs.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
+			bs.total_collateral = bs.total_collateral.saturating_sub(held);
+			if do_redistribute {
 				let avg_rate = math::average_branch_rate(bs.weighted_stake_sum, bs.total_stakes);
+				debug_assert!(!bs.total_stakes.is_zero());
 				BranchRedistStates::<T>::try_mutate(
 					collateral_id,
 					|maybe_redist| -> Result<_, DispatchError> {
 						let redist = maybe_redist.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-						if bs.total_stakes.is_zero() {
-							return Ok(());
-						}
-						// `bs.total_stakes > 0` checked above; `checked_from_rational`
-						// then only returns `None` on numerator overflow —
-						// defensively fall back to zero (accumulators are
-						// monotonically growing and the input would already be
-						// numerically saturated).
 						let debt_per_stake =
-							FixedU128::checked_from_rational(redistributed_debt, bs.total_stakes)
-								.defensive_unwrap_or_else(FixedU128::zero);
-						let coll_per_stake = FixedU128::checked_from_rational(
+							math::redist_per_stake(redistributed_debt, bs.total_stakes)
+								.ok_or(Error::<T>::RedistributionWouldOverflow)?;
+						let coll_per_stake = math::redist_per_stake(
 							allocation.redistribution_collateral,
 							bs.total_stakes,
 						)
-						.defensive_unwrap_or_else(FixedU128::zero);
+						.ok_or(Error::<T>::RedistributionWouldOverflow)?;
+						let weight_per_stake = math::redist_weight_per_stake(
+							redistributed_debt,
+							avg_rate,
+							bs.total_stakes,
+						)
+						.ok_or(Error::<T>::RedistributionWouldOverflow)?;
 						let now_fp = FixedU128::saturating_from_integer(T::TimeProvider::now());
 						redist.cumulative_redist_debt_per_stake =
 							redist.cumulative_redist_debt_per_stake.saturating_add(debt_per_stake);
@@ -144,33 +131,25 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 						redist.cumulative_redist_debt_time_per_stake = redist
 							.cumulative_redist_debt_time_per_stake
 							.saturating_add(now_fp.saturating_mul(debt_per_stake));
-						// Per-stake share of the avg-rate weighted contribution
-						// folded into the branch interest base. On touch, each
-						// recipient subtracts `stake * delta` from
-						// `weighted_interest_bearing_debt_sum` and adds back
-						// `applied_share * vault.annual_rate`.
 						redist.cumulative_redist_weight_per_stake = redist
 							.cumulative_redist_weight_per_stake
-							.saturating_add(debt_per_stake.saturating_mul(avg_rate));
+							.saturating_add(weight_per_stake);
 						Ok(())
 					},
 				)?;
 				bs.pending_redistribution_debt =
 					bs.pending_redistribution_debt.saturating_add(redistributed_debt);
 				bs.redist_epoch = bs.redist_epoch.saturating_add(1);
-				// Fold the redistributed principal into the branch interest base at
-				// the average recipient rate. Per-vault reconciliation in
-				// `touch_vault` replaces each recipient's share with its own rate.
 				bs.weighted_interest_bearing_debt_sum = bs
 					.weighted_interest_bearing_debt_sum
 					.saturating_add(avg_rate.saturating_mul_int(redistributed_debt));
-				Ok(())
-			})?;
-		}
+			}
+			Ok(())
+		})?;
 
 		// 2. Move redistribution_collateral on hold from owner to redistribution account.
 		if !allocation.redistribution_collateral.is_zero() {
-			let _ = T::CollateralAssets::transfer_on_hold(
+			T::CollateralAssets::transfer_on_hold(
 				collateral_id,
 				&HoldReason::VaultCollateral.into(),
 				&owner,
@@ -186,7 +165,7 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 		// owns this transfer so a buggy or stale orchestrator can't accidentally
 		// leak liquidated collateral back to the liquidatee as surplus.
 		if !allocation.offset.collateral.is_zero() {
-			let _ = T::CollateralAssets::transfer_on_hold(
+			T::CollateralAssets::transfer_on_hold(
 				collateral_id,
 				&HoldReason::VaultCollateral.into(),
 				&owner,
@@ -200,7 +179,7 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 
 		// 4. Pay keeper.
 		if !allocation.keeper.collateral.is_zero() {
-			let _ = T::CollateralAssets::transfer_on_hold(
+			T::CollateralAssets::transfer_on_hold(
 				collateral_id,
 				&HoldReason::VaultCollateral.into(),
 				&owner,
@@ -227,16 +206,6 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 				Precision::Exact,
 			)?;
 		}
-
-		// 6. Update branch collateral aggregate.
-		BranchStates::<T>::mutate(collateral_id, |maybe| {
-			if let Some(bs) = maybe {
-				bs.total_collateral = bs
-					.total_collateral
-					.saturating_sub(total_paid_out)
-					.saturating_sub(after_outflow);
-			}
-		});
 
 		// 7. Remove vault row + redist snapshot.
 		Vaults::<T>::remove(collateral_id, &owner);

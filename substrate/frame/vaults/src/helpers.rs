@@ -290,21 +290,17 @@ pub fn touch_vault<T: Config>(
 		vault.interest_bearing_debt = vault.interest_bearing_debt.saturating_add(actual);
 	}
 	if !redist_collat.is_zero() {
-		// Transfer collateral on hold from the pallet redistribution account
-		// to the owner. `Restriction::OnHold` keeps the receiver's hold
-		// aligned with the vault's collateral.
-		let actual = T::CollateralAssets::transfer_on_hold(
+		T::CollateralAssets::transfer_on_hold(
 			collateral_id,
 			&HoldReason::VaultCollateral.into(),
 			&Pallet::<T>::redistribution_account(),
 			owner,
 			redist_collat,
-			Precision::BestEffort,
+			Precision::Exact,
 			Restriction::OnHold,
 			Fortitude::Polite,
-		)
-		.defensive_unwrap_or(BalanceOf::<T>::zero());
-		bs.total_collateral = bs.total_collateral.saturating_add(actual);
+		)?;
+		bs.total_collateral = bs.total_collateral.saturating_add(redist_collat);
 	}
 
 	// 4. Re-stamp snapshot and timestamps.
