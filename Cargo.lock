@@ -5151,13 +5151,16 @@ dependencies = [
 name = "cumulus-client-unincluded-segment-store"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "parity-scale-codec",
- "polkadot-primitives",
  "sc-client-api 28.0.0",
  "sp-blockchain 28.0.0",
+ "sp-consensus 0.32.0",
  "sp-runtime 31.0.1",
+ "sp-staking",
  "sp-trie 29.0.0",
  "substrate-test-runtime",
+ "tracing",
 ]
 
 [[package]]
