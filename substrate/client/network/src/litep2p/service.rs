@@ -19,6 +19,7 @@
 //! `NetworkService` implementation for `litep2p`.
 
 use crate::{
+	bitswap::schema::bitswap::message::wantlist::WantType as ProtoBitswapWantType,
 	config::MultiaddrWithPeerId,
 	litep2p::shim::{
 		notification::{config::ProtocolControlHandle, peerset::PeersetCommand},
@@ -37,6 +38,7 @@ use futures::{channel::oneshot, stream::BoxStream};
 use libp2p::identity::SigningError;
 use litep2p::{
 	addresses::PublicAddresses, crypto::ed25519::Keypair,
+	protocol::libp2p::bitswap::WantType as LitepBitswapWantType,
 	types::multiaddr::Multiaddr as LiteP2pMultiaddr,
 };
 use parking_lot::RwLock;
@@ -297,12 +299,10 @@ impl Litep2pNetworkService {
 					return;
 				},
 			};
-			let want_type = if entry.want_type ==
-				crate::bitswap::schema::bitswap::message::wantlist::WantType::Have as i32
-			{
-				litep2p::protocol::libp2p::bitswap::WantType::Have
+			let want_type = if entry.want_type == ProtoBitswapWantType::Have as i32 {
+				LitepBitswapWantType::Have
 			} else {
-				litep2p::protocol::libp2p::bitswap::WantType::Block
+				LitepBitswapWantType::Block
 			};
 			cids.push((cid, want_type));
 		}
@@ -319,9 +319,7 @@ impl Litep2pNetworkService {
 				"bitswap cmd channel full or closed; dropping request for {peer:?}: {e}",
 			);
 			let cmd = e.into_inner();
-			let _ = cmd
-				.response_tx
-				.send(Err(RequestFailure::Network(OutboundFailure::ConnectionClosed)));
+			let _ = cmd.response_tx.send(Err(RequestFailure::UnknownProtocol));
 		}
 	}
 }
