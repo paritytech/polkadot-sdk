@@ -873,6 +873,13 @@ where
 				);
 			});
 
+			// Snapshot the meter so we can report what the transfer actually
+			// consumed to `exit_child_span`. Without this, the execution tracer
+			// reports `gas == 0` for any transaction whose destination has no
+			// code — see paritytech/contract-issues#278.
+			let gas_before = transaction_meter.total_consumed_gas();
+			let weight_before = transaction_meter.weight_consumed();
+
 			let result = if let Some(mock_answer) =
 				exec_config.mock_handler.as_ref().and_then(|handler| {
 					handler.mock_call(T::AddressMapper::to_address(&dest), &input_data, value)
@@ -889,15 +896,20 @@ where
 				)
 			};
 
-			if_tracing(|t| match result {
-				Ok(ref output) => {
-					t.exit_child_span(&output, Default::default(), Default::default())
-				},
-				Err(e) => t.exit_child_span_with_error(
-					e.error.into(),
-					Default::default(),
-					Default::default(),
-				),
+			if_tracing(|t| {
+				let gas_used: u64 = transaction_meter
+					.total_consumed_gas()
+					.saturating_sub(gas_before)
+					.try_into()
+					.unwrap_or(u64::MAX);
+				let weight_consumed =
+					transaction_meter.weight_consumed().saturating_sub(weight_before);
+				match result {
+					Ok(ref output) => t.exit_child_span(&output, gas_used, weight_consumed),
+					Err(e) => {
+						t.exit_child_span_with_error(e.error.into(), gas_used, weight_consumed)
+					},
+				}
 			});
 
 			log::trace!(target: LOG_TARGET, "call finished with: {result:?}");

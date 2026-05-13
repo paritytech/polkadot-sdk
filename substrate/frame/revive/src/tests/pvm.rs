@@ -4097,9 +4097,8 @@ fn tracing_works_for_transfers() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 		let mut tracer = CallTracer::new(Default::default());
-		trace(&mut tracer, || {
-			builder::bare_call(BOB_ADDR).evm_value(10.into()).build_and_unwrap_result();
-		});
+		let result =
+			trace(&mut tracer, || builder::bare_call(BOB_ADDR).evm_value(10.into()).build());
 
 		let trace = tracer.collect_trace();
 		assert_eq!(
@@ -4109,6 +4108,7 @@ fn tracing_works_for_transfers() {
 				to: BOB_ADDR,
 				value: Some(U256::from(10)),
 				call_type: CallType::Call,
+				gas_used: result.gas_consumed.try_into().unwrap_or(u64::MAX),
 				..Default::default()
 			})
 		)
