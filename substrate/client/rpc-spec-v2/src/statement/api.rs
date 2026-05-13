@@ -39,7 +39,7 @@ pub trait StatementSpecApi {
 
 	/// Attaches a filter to an existing subscription
 	#[method(name = "statement_unstable_add_filter", with_extensions)]
-	async fn statement_unstable_add_filter(
+	fn statement_unstable_add_filter(
 		&self,
 		subscription: String,
 		topic_filter: TopicFilter,
@@ -47,7 +47,7 @@ pub trait StatementSpecApi {
 
 	/// Detaches a filter from a subscription
 	#[method(name = "statement_unstable_remove_filter", with_extensions)]
-	async fn statement_unstable_remove_filter(
+	fn statement_unstable_remove_filter(
 		&self,
 		subscription: String,
 		filter_id: String,
@@ -55,5 +55,5 @@ pub trait StatementSpecApi {
 
 	/// Submits a SCALE-encoded statement to the store
 	#[method(name = "statement_unstable_submit")]
-	async fn statement_unstable_submit(&self, encoded: Bytes) -> Result<SubmitOutcome, Error>;
+	fn statement_unstable_submit(&self, encoded: Bytes) -> Result<SubmitOutcome, Error>;
 }

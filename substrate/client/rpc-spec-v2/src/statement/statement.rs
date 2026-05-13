@@ -113,7 +113,7 @@ where
 			.spawn("statement-unstable-subscribe-init", Some("rpc"), fut.boxed());
 	}
 
-	async fn statement_unstable_add_filter(
+	fn statement_unstable_add_filter(
 		&self,
 		ext: &Extensions,
 		subscription: String,
@@ -134,7 +134,7 @@ where
 		}
 	}
 
-	async fn statement_unstable_remove_filter(
+	fn statement_unstable_remove_filter(
 		&self,
 		ext: &Extensions,
 		subscription: String,
@@ -147,7 +147,7 @@ where
 		Ok(())
 	}
 
-	async fn statement_unstable_submit(&self, encoded: Bytes) -> Result<SubmitOutcome, Error> {
+	fn statement_unstable_submit(&self, encoded: Bytes) -> Result<SubmitOutcome, Error> {
 		let statement = Statement::decode(&mut &encoded[..])
 			.map_err(|e| Error::InvalidParam(format!("Error decoding statement: {e}")))?;
 		if self.store.has_statement(&statement.hash()) {
