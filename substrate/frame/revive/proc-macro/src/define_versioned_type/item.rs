@@ -23,24 +23,15 @@ use syn::{
 	Attribute, Generics, Ident, ItemEnum, ItemStruct, Result, Token, Visibility,
 };
 
-/// The parsed input accepted by `define_versioned_type!`.
-///
-/// The macro accepts zero or more struct or enum items. Each item name must end in `V` followed by
-/// a positive integer version. All items in one invocation must share the same base name and their
-/// versions must be contiguous.
 pub struct DefineVersionedTypeInput {
-	/// The shared base name for all parsed definitions.
 	pub(super) name: Option<String>,
 
-	/// The highest parsed version in this invocation.
 	pub(super) highest_version: Option<Version>,
 
-	/// The parsed item definitions keyed by ascending version.
 	pub(super) definitions: BTreeMap<Version, DefineVersionedTypeItem>,
 }
 
 impl Parse for DefineVersionedTypeInput {
-	/// Parses every versioned type item and validates the version sequence.
 	fn parse(input: ParseStream) -> Result<Self> {
 		let mut name = None::<EstablishedName>;
 		let mut highest_version = None::<Version>;
@@ -67,17 +58,13 @@ impl Parse for DefineVersionedTypeInput {
 	}
 }
 
-/// A struct or enum item accepted by `define_versioned_type!`.
 pub enum DefineVersionedTypeItem {
-	/// A versioned struct definition.
 	Struct(ItemStruct),
 
-	/// A versioned enum definition.
 	Enum(ItemEnum),
 }
 
 impl DefineVersionedTypeItem {
-	/// Removes outer attributes from the wrapped item.
 	#[must_use]
 	pub(super) fn take_attributes(&mut self) -> Vec<Attribute> {
 		match self {
@@ -86,7 +73,6 @@ impl DefineVersionedTypeItem {
 		}
 	}
 
-	/// Replaces outer attributes on the wrapped item.
 	pub(super) fn set_attributes(&mut self, attributes: Vec<Attribute>) {
 		match self {
 			Self::Struct(item_struct) => item_struct.attrs = attributes,
@@ -94,7 +80,6 @@ impl DefineVersionedTypeItem {
 		}
 	}
 
-	/// Returns the Rust identifier for the wrapped item.
 	#[must_use]
 	pub(super) fn ident(&self) -> &Ident {
 		match self {
@@ -103,7 +88,6 @@ impl DefineVersionedTypeItem {
 		}
 	}
 
-	/// Returns the visibility of the wrapped item.
 	#[must_use]
 	pub(super) fn visibility(&self) -> &Visibility {
 		match self {
@@ -112,7 +96,6 @@ impl DefineVersionedTypeItem {
 		}
 	}
 
-	/// Returns the generic parameters and where clause of the wrapped item.
 	#[must_use]
 	pub(super) fn generics(&self) -> &Generics {
 		match self {
@@ -121,14 +104,12 @@ impl DefineVersionedTypeItem {
 		}
 	}
 
-	/// Parses the base name and version from the wrapped item identifier.
 	pub(super) fn name_and_version(&self) -> Result<NameAndVersion> {
 		NameAndVersion::parse(self.ident())
 	}
 }
 
 impl Parse for DefineVersionedTypeItem {
-	/// Parses one struct or enum item after optional attributes and visibility.
 	fn parse(input: ParseStream) -> Result<Self> {
 		let attributes = Attribute::parse_outer(input)?;
 		let visibility = input.parse::<Visibility>()?;
@@ -154,7 +135,6 @@ impl Parse for DefineVersionedTypeItem {
 }
 
 impl ToTokens for DefineVersionedTypeItem {
-	/// Writes the wrapped Rust item back into a token stream.
 	fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
 		match self {
 			Self::Struct(item) => item.to_tokens(tokens),
@@ -163,15 +143,12 @@ impl ToTokens for DefineVersionedTypeItem {
 	}
 }
 
-/// A validated positive version number from a versioned type name.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct Version {
-	/// The numeric value of the version suffix.
 	value: u32,
 }
 
 impl Version {
-	/// Parses and validates a version suffix from an item identifier.
 	fn parse(ident: &Ident, version_suffix: &str) -> Result<Self> {
 		if version_suffix.is_empty() {
 			return Err(syn::Error::new_spanned(
@@ -201,13 +178,11 @@ impl Version {
 		Ok(Self { value })
 	}
 
-	/// Returns the numeric version value.
 	#[must_use]
 	pub(super) fn value(self) -> u32 {
 		self.value
 	}
 
-	/// Returns the next version number, reporting overflow as a syntax error.
 	fn next_after(self, previous_ident: &Ident) -> Result<Self> {
 		self.value.checked_add(1).map(|value| Self { value }).ok_or_else(|| {
 			syn::Error::new_spanned(
@@ -219,24 +194,19 @@ impl Version {
 }
 
 impl fmt::Display for Version {
-	/// Formats the version as the suffix used in item names.
 	fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(formatter, "V{}", self.value)
 	}
 }
 
-/// The base name and version parsed from one item identifier.
 #[derive(Debug)]
 pub(super) struct NameAndVersion {
-	/// The shared base name before the trailing `Vn` suffix.
 	base_name: String,
 
-	/// The validated numeric version suffix.
 	version: Version,
 }
 
 impl NameAndVersion {
-	/// Parses the base name and version suffix from an identifier.
 	fn parse(ident: &Ident) -> Result<Self> {
 		let ident_string = ident.to_string();
 		let Some((base_name, version_suffix)) = ident_string.rsplit_once('V') else {
@@ -260,40 +230,32 @@ impl NameAndVersion {
 		})
 	}
 
-	/// Returns the parsed base name.
 	#[must_use]
 	pub(super) fn base_name(&self) -> &str {
 		&self.base_name
 	}
 
-	/// Returns the parsed version.
 	#[must_use]
 	pub(super) fn version(&self) -> Version {
 		self.version
 	}
 }
 
-/// The first parsed item name that future items must match.
 struct EstablishedName {
-	/// The base name established by the first parsed item.
 	name: String,
 
-	/// The identifier that established the base name.
 	ident: Ident,
 }
 
 impl EstablishedName {
-	/// Creates the established name record from a parsed item.
 	fn from_item(name_and_version: &NameAndVersion, item: &DefineVersionedTypeItem) -> Self {
 		Self { name: name_and_version.base_name().to_owned(), ident: item.ident().clone() }
 	}
 
-	/// Returns the owned base name stored in this record.
 	fn into_name(self) -> String {
 		self.name
 	}
 
-	/// Ensures a later item belongs to the same versioned type family.
 	fn ensure_matches(
 		&self,
 		name_and_version: &NameAndVersion,
@@ -320,16 +282,12 @@ impl EstablishedName {
 	}
 }
 
-/// A previous definition used while validating contiguous versions.
 struct PreviousDefinition<'a> {
-	/// The previous version number in sorted order.
 	version: Version,
 
-	/// The item that defined the previous version.
 	item: &'a DefineVersionedTypeItem,
 }
 
-/// Rejects a version that has already appeared in the input.
 fn reject_duplicate_version(
 	definitions: &BTreeMap<Version, DefineVersionedTypeItem>,
 	name_and_version: &NameAndVersion,
@@ -356,7 +314,6 @@ fn reject_duplicate_version(
 	Ok(())
 }
 
-/// Ensures sorted definitions do not skip any intermediate versions.
 fn ensure_contiguous_versions(
 	definitions: &BTreeMap<Version, DefineVersionedTypeItem>,
 ) -> Result<()> {
@@ -388,7 +345,6 @@ fn ensure_contiguous_versions(
 	Ok(())
 }
 
-/// Formats the missing version or range between two parsed versions.
 fn missing_versions_description(expected_version: Version, found_version: Version) -> String {
 	let last_missing_version = found_version.value() - 1;
 

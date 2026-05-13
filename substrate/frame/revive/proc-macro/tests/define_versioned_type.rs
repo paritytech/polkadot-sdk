@@ -81,35 +81,27 @@ define_versioned_type! {
 
 #[test]
 fn function_like_macro_expands_struct_extensions() {
-	// Arrange
 	let value = MacroStructV2 { first: 1, second: 2 };
 
-	// Act
 	let observed = (value.first, value.second);
 
-	// Assert
 	assert_eq!(observed, (1, 2));
 }
 
 #[test]
 fn function_like_macro_expands_struct_field_overrides() {
-	// Arrange
 	let value = MacroStructOverrideV2 { first: 1, second: 2, third: 3 };
 
-	// Act
 	let observed = (value.first, value.second, value.third);
 
-	// Assert
 	assert_eq!(observed, (1, 2, 3));
 }
 
 #[test]
 fn function_like_macro_expands_enum_variant_and_field_overrides() {
-	// Arrange
 	let overridden = MacroEnumOverrideV2::First { first: 1, second: 2, third: 3 };
 	let inherited = MacroEnumOverrideV2::Second { other: 4 };
 
-	// Act
 	let observed = match (overridden, inherited) {
 		(
 			MacroEnumOverrideV2::First { first, second, third },
@@ -118,22 +110,18 @@ fn function_like_macro_expands_enum_variant_and_field_overrides() {
 		_ => panic!("expected overridden and inherited variants"),
 	};
 
-	// Assert
 	assert_eq!(observed, (1, 2, 3, 4));
 }
 
 #[test]
 fn function_like_macro_expands_enum_extensions() {
-	// Arrange
 	let inherited = MacroEnumV2::First { value: 1 };
 	let added = MacroEnumV2::Second { other: 2 };
 
-	// Act
 	let observed = match (inherited, added) {
 		(MacroEnumV2::First { value }, MacroEnumV2::Second { other }) => (value, other),
 		_ => panic!("expected inherited and added variants"),
 	};
 
-	// Assert
 	assert_eq!(observed, (1, 2));
 }

@@ -26,7 +26,6 @@ use syn::{
 	Attribute, Fields, GenericParam, Generics, Ident, ItemStruct, Path, Result, Token, Visibility,
 };
 
-/// Expands parsed versioned interface payloads into payload structs and enums.
 pub fn handle_define_versioned_interface(
 	input: DefineVersionedInterfaceInput,
 ) -> Result<TokenStream2> {
@@ -45,7 +44,6 @@ pub fn handle_define_versioned_interface(
 	})
 }
 
-/// Generates the public versioned enum and helper impl for one side.
 fn generate_versioned_enum(
 	input: &DefineVersionedInterfaceInput,
 	side: PayloadSide,
@@ -107,7 +105,6 @@ fn generate_versioned_enum(
 	})
 }
 
-/// Generates the latest-version type alias for one side of an interface.
 fn generate_latest_payload_alias(
 	input: &DefineVersionedInterfaceInput,
 	side: PayloadSide,
@@ -137,7 +134,6 @@ fn generate_latest_payload_alias(
 	})
 }
 
-/// Returns payload items for one side in ascending version order.
 fn side_items(
 	input: &DefineVersionedInterfaceInput,
 	side: PayloadSide,
@@ -148,12 +144,10 @@ fn side_items(
 		.collect::<Vec<_>>()
 }
 
-/// Returns the public generated family name for an interface payload family.
 fn generated_interface_name(payload_family_name: &str) -> &str {
 	payload_family_name.strip_suffix("Versioned").unwrap_or(payload_family_name)
 }
 
-/// Returns the payload map for the provided side.
 fn side_payloads<'a>(
 	input_payloads: &'a BTreeMap<Version, usize>,
 	output_payloads: &'a BTreeMap<Version, usize>,
@@ -165,7 +159,6 @@ fn side_payloads<'a>(
 	}
 }
 
-/// Generates one enum variant for a payload item.
 fn enum_variant(item: &VersionedInterfaceItem) -> TokenStream2 {
 	let variant_ident =
 		version_variant_ident(item.payload_name().version(), item.item().ident.span());
@@ -177,7 +170,6 @@ fn enum_variant(item: &VersionedInterfaceItem) -> TokenStream2 {
 	}
 }
 
-/// Generates one constructor method for a payload version.
 fn constructor_method(item: &VersionedInterfaceItem) -> TokenStream2 {
 	let version = item.payload_name().version().value();
 	let span = item.item().ident.span();
@@ -193,7 +185,6 @@ fn constructor_method(item: &VersionedInterfaceItem) -> TokenStream2 {
 	}
 }
 
-/// Generates one `version` match arm.
 fn version_match_arm(item: &VersionedInterfaceItem) -> TokenStream2 {
 	let version = item.payload_name().version().value();
 	let variant_ident =
@@ -204,7 +195,6 @@ fn version_match_arm(item: &VersionedInterfaceItem) -> TokenStream2 {
 	}
 }
 
-/// Generates borrowing, consuming, and panic unwrap helpers for one version.
 fn accessor_methods(item: &VersionedInterfaceItem) -> TokenStream2 {
 	let version = item.payload_name().version().value();
 	let span = item.item().ident.span();
@@ -241,11 +231,6 @@ fn accessor_methods(item: &VersionedInterfaceItem) -> TokenStream2 {
 	}
 }
 
-/// Generates the `From<PayloadVn>` impl that wraps a payload struct in the matching versioned
-/// variant.
-///
-/// The impl uses the merged enum generics so a single payload's narrower bounds are still satisfied
-/// by the union the enum carries.
 fn from_impl(
 	item: &VersionedInterfaceItem,
 	enum_ident: &Ident,
@@ -268,11 +253,6 @@ fn from_impl(
 	}
 }
 
-/// Generates the `TryFrom<VersionedPayload>` impl that extracts a single concrete payload version,
-/// returning `Err(())` when the variant differs.
-///
-/// All variants are matched explicitly so that single-variant enums do not produce unreachable
-/// wildcard arms.
 fn try_from_impl(
 	item: &VersionedInterfaceItem,
 	side_items: &[&VersionedInterfaceItem],
@@ -314,12 +294,10 @@ fn try_from_impl(
 	}
 }
 
-/// Returns the enum variant identifier for a version.
 fn version_variant_ident(version: Version, span: Span) -> Ident {
 	format_ident!("V{}", version.value(), span = span)
 }
 
-/// Builds type generic arguments for referring to a payload struct.
 fn payload_type_generics(generics: &Generics) -> TokenStream2 {
 	let arguments = generics.params.iter().map(generic_argument).collect::<Vec<_>>();
 
@@ -330,7 +308,6 @@ fn payload_type_generics(generics: &Generics) -> TokenStream2 {
 	}
 }
 
-/// Builds one generic argument from a generic parameter declaration.
 fn generic_argument(param: &GenericParam) -> TokenStream2 {
 	match param {
 		GenericParam::Lifetime(param) => param.lifetime.to_token_stream(),
@@ -339,11 +316,6 @@ fn generic_argument(param: &GenericParam) -> TokenStream2 {
 	}
 }
 
-/// Builds the generic declaration used by latest type aliases.
-///
-/// Rust currently accepts bounds on type aliases but does not enforce them, so preserving payload
-/// bounds there only produces `type_alias_bounds` warnings for downstream crates. The target
-/// payload type still carries the real bounds.
 fn type_alias_generics(generics: &Generics) -> Generics {
 	let mut generics = generics.clone();
 	generics.where_clause = None;
@@ -365,7 +337,6 @@ fn type_alias_generics(generics: &Generics) -> Generics {
 	generics
 }
 
-/// Merges payload generics for a generated side enum.
 fn merged_generics(items: &[&VersionedInterfaceItem]) -> Result<Generics> {
 	let mut generics = Generics::default();
 	let mut indexes = BTreeMap::<String, usize>::new();
@@ -386,7 +357,6 @@ fn merged_generics(items: &[&VersionedInterfaceItem]) -> Result<Generics> {
 	Ok(generics)
 }
 
-/// Merges one generic parameter into an accumulator.
 fn merge_generic_param(
 	generics: &mut Generics,
 	indexes: &mut BTreeMap<String, usize>,
@@ -418,7 +388,6 @@ fn merge_generic_param(
 	Ok(())
 }
 
-/// Returns the merge key for a generic parameter.
 fn generic_param_key(param: &GenericParam) -> String {
 	match param {
 		GenericParam::Lifetime(param) => param.lifetime.to_token_stream().to_string(),
@@ -427,7 +396,6 @@ fn generic_param_key(param: &GenericParam) -> String {
 	}
 }
 
-/// Ensures two same-name generic parameters can be merged safely.
 fn ensure_compatible_generic_param(existing: &GenericParam, incoming: &GenericParam) -> Result<()> {
 	match (existing, incoming) {
 		(GenericParam::Lifetime(_), GenericParam::Lifetime(_)) |
@@ -476,7 +444,6 @@ fn ensure_compatible_generic_param(existing: &GenericParam, incoming: &GenericPa
 	}
 }
 
-/// Returns the diagnostic name for a generic parameter kind.
 fn generic_param_kind(param: &GenericParam) -> &'static str {
 	match param {
 		GenericParam::Lifetime(_) => "a lifetime parameter",
@@ -485,7 +452,6 @@ fn generic_param_kind(param: &GenericParam) -> &'static str {
 	}
 }
 
-/// Best-effort merges inline bounds for same-name generic parameters.
 fn merge_generic_bounds(existing: &mut GenericParam, incoming: &GenericParam) {
 	match (existing, incoming) {
 		(GenericParam::Lifetime(existing), GenericParam::Lifetime(incoming)) => {
@@ -507,7 +473,6 @@ fn merge_generic_bounds(existing: &mut GenericParam, incoming: &GenericParam) {
 	}
 }
 
-/// Builds an optional derive attribute for a generated enum.
 fn derive_attribute(paths: Vec<Path>) -> TokenStream2 {
 	if paths.is_empty() {
 		quote! {}
@@ -518,7 +483,6 @@ fn derive_attribute(paths: Vec<Path>) -> TokenStream2 {
 	}
 }
 
-/// Finds derive paths common to every item on one side.
 fn common_derive_paths(items: &[&VersionedInterfaceItem]) -> Result<Vec<Path>> {
 	let Some(first_item) = items.first() else {
 		return Ok(Vec::new());
@@ -546,7 +510,6 @@ fn common_derive_paths(items: &[&VersionedInterfaceItem]) -> Result<Vec<Path>> {
 	Ok(common_paths)
 }
 
-/// Returns a set of derive path keys on an item.
 fn derive_path_keys(item: &ItemStruct) -> Result<BTreeSet<String>> {
 	Ok(derive_paths(item)?
 		.into_iter()
@@ -554,7 +517,6 @@ fn derive_path_keys(item: &ItemStruct) -> Result<BTreeSet<String>> {
 		.collect::<BTreeSet<_>>())
 }
 
-/// Returns every derive path on an item in source order.
 fn derive_paths(item: &ItemStruct) -> Result<Vec<Path>> {
 	let mut paths = Vec::<Path>::new();
 
@@ -579,30 +541,19 @@ fn derive_paths(item: &ItemStruct) -> Result<Vec<Path>> {
 	Ok(paths)
 }
 
-/// The parsed input accepted by `define_versioned_interface!`.
-///
-/// The macro accepts one family of named input and output payload structs. Every payload must
-/// follow the `{Name}(Input|Output)PayloadVn` naming scheme, and every version must define both
-/// sides.
 pub struct DefineVersionedInterfaceInput {
-	/// The shared interface name before `InputPayload` or `OutputPayload`.
 	name: String,
 
-	/// The source span of the payload that established the shared interface name.
 	name_span: Span,
 
-	/// Payload structs in source order so user-authored items are emitted without reordering.
 	items: Vec<VersionedInterfaceItem>,
 
-	/// Input payload indexes keyed by version.
 	input_payloads: BTreeMap<Version, usize>,
 
-	/// Output payload indexes keyed by version.
 	output_payloads: BTreeMap<Version, usize>,
 }
 
 impl Parse for DefineVersionedInterfaceInput {
-	/// Parses all payload structs and validates the family-level invariants.
 	fn parse(input: ParseStream) -> Result<Self> {
 		let mut name = None::<EstablishedName>;
 		let mut items = Vec::<VersionedInterfaceItem>::new();
@@ -644,17 +595,13 @@ impl Parse for DefineVersionedInterfaceInput {
 	}
 }
 
-/// A single named payload struct accepted by the macro.
 struct VersionedInterfaceItem {
-	/// The parsed struct item preserved for output.
 	item: ItemStruct,
 
-	/// The validated name metadata for this payload.
 	payload_name: PayloadName,
 }
 
 impl VersionedInterfaceItem {
-	/// Parses one named payload struct from the input stream.
 	fn parse(input: ParseStream) -> Result<Self> {
 		let attributes = Attribute::parse_outer(input)?;
 		let visibility = input.parse::<Visibility>()?;
@@ -681,20 +628,17 @@ impl VersionedInterfaceItem {
 		Ok(Self { item, payload_name })
 	}
 
-	/// Returns the preserved struct item.
 	#[must_use]
 	fn item(&self) -> &ItemStruct {
 		&self.item
 	}
 
-	/// Returns the validated payload name metadata.
 	#[must_use]
 	fn payload_name(&self) -> &PayloadName {
 		&self.payload_name
 	}
 }
 
-/// Returns the item kind at the current parse position when it is known.
 fn non_struct_item_kind(input: ParseStream) -> Option<&'static str> {
 	if input.peek(Token![enum]) {
 		Some("enum")
@@ -717,20 +661,15 @@ fn non_struct_item_kind(input: ParseStream) -> Option<&'static str> {
 	}
 }
 
-/// The parsed name components of a payload struct.
 struct PayloadName {
-	/// The shared interface family name.
 	name: String,
 
-	/// Whether this is an input or output payload.
 	side: PayloadSide,
 
-	/// The validated payload version.
 	version: Version,
 }
 
 impl PayloadName {
-	/// Parses the required `{Name}(Input|Output)PayloadVn` naming scheme.
 	fn parse(ident: &Ident) -> Result<Self> {
 		let ident_string = ident.to_string();
 		let Some((prefix, version_suffix)) = ident_string.rsplit_once('V') else {
@@ -756,42 +695,34 @@ impl PayloadName {
 		Ok(Self { name: name.to_owned(), side, version: Version::parse(ident, version_suffix)? })
 	}
 
-	/// Returns the shared interface family name.
 	#[must_use]
 	fn name(&self) -> &str {
 		&self.name
 	}
 
-	/// Returns the input/output side for this payload.
 	#[must_use]
 	fn side(&self) -> PayloadSide {
 		self.side
 	}
 
-	/// Returns the validated payload version.
 	#[must_use]
 	fn version(&self) -> Version {
 		self.version
 	}
 
-	/// Returns the expected payload identifier for this family and version.
 	fn expected_ident(&self, side: PayloadSide) -> String {
 		format!("{}{}{}", self.name, side.name_suffix(), self.version)
 	}
 }
 
-/// The input or output side of a versioned interface payload.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PayloadSide {
-	/// Input payloads describe runtime API arguments.
 	Input,
 
-	/// Output payloads describe runtime API return values.
 	Output,
 }
 
 impl PayloadSide {
-	/// Returns the name fragment used in payload struct identifiers.
 	#[must_use]
 	fn name_suffix(self) -> &'static str {
 		match self {
@@ -800,7 +731,6 @@ impl PayloadSide {
 		}
 	}
 
-	/// Returns a lower-case name for diagnostics.
 	#[must_use]
 	fn diagnostic_name(self) -> &'static str {
 		match self {
@@ -810,15 +740,12 @@ impl PayloadSide {
 	}
 }
 
-/// A validated positive version number from a payload struct name.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct Version {
-	/// The numeric value of the version suffix.
 	value: u32,
 }
 
 impl Version {
-	/// Parses and validates the version suffix.
 	fn parse(ident: &Ident, version_suffix: &str) -> Result<Self> {
 		if version_suffix.is_empty() {
 			return Err(syn::Error::new_spanned(
@@ -852,13 +779,11 @@ impl Version {
 		Ok(Self { value })
 	}
 
-	/// Returns the numeric version value.
 	#[must_use]
 	fn value(self) -> u32 {
 		self.value
 	}
 
-	/// Returns the next version number, reporting overflow as a syntax error.
 	fn next_after(self, previous_item: &ItemStruct) -> Result<Self> {
 		self.value.checked_add(1).map(|value| Self { value }).ok_or_else(|| {
 			syn::Error::new_spanned(
@@ -870,33 +795,26 @@ impl Version {
 }
 
 impl core::fmt::Display for Version {
-	/// Formats the version as the payload suffix used in item names.
 	fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(formatter, "V{}", self.value)
 	}
 }
 
-/// The first parsed family name that every future payload must match.
 struct EstablishedName {
-	/// The shared family name.
 	name: String,
 
-	/// The identifier that established the family name.
 	ident: Ident,
 }
 
 impl EstablishedName {
-	/// Creates the established name record from the first payload.
 	fn from_payload(payload_name: &PayloadName, item: &ItemStruct) -> Self {
 		Self { name: payload_name.name().to_owned(), ident: item.ident.clone() }
 	}
 
-	/// Returns the owned family name.
 	fn into_name(self) -> String {
 		self.name
 	}
 
-	/// Ensures a later payload belongs to the same family.
 	fn ensure_matches(&self, payload_name: &PayloadName, item: &ItemStruct) -> Result<()> {
 		if payload_name.name() == self.name {
 			return Ok(());
@@ -919,7 +837,6 @@ impl EstablishedName {
 	}
 }
 
-/// Returns the mutable payload map for the provided side.
 fn side_payloads_mut<'a>(
 	input_payloads: &'a mut BTreeMap<Version, usize>,
 	output_payloads: &'a mut BTreeMap<Version, usize>,
@@ -931,7 +848,6 @@ fn side_payloads_mut<'a>(
 	}
 }
 
-/// Ensures the struct uses named fields.
 fn ensure_named_struct(item: &ItemStruct) -> Result<()> {
 	match &item.fields {
 		Fields::Named(_) => Ok(()),
@@ -953,7 +869,6 @@ fn ensure_named_struct(item: &ItemStruct) -> Result<()> {
 	}
 }
 
-/// Rejects duplicate payloads for the same side and version.
 fn reject_duplicate_payload(
 	payloads: &BTreeMap<Version, usize>,
 	payload_name: &PayloadName,
@@ -978,7 +893,6 @@ fn reject_duplicate_payload(
 	Ok(())
 }
 
-/// Ensures every version has both input and output payloads.
 fn ensure_matching_payload_pairs(
 	input_payloads: &BTreeMap<Version, usize>,
 	output_payloads: &BTreeMap<Version, usize>,
@@ -1030,7 +944,6 @@ fn ensure_matching_payload_pairs(
 	Ok(())
 }
 
-/// Ensures paired versions do not skip intermediate version numbers.
 fn ensure_contiguous_versions(
 	input_payloads: &BTreeMap<Version, usize>,
 	output_payloads: &BTreeMap<Version, usize>,
@@ -1072,7 +985,6 @@ fn ensure_contiguous_versions(
 	Ok(())
 }
 
-/// Returns the item that defined a version from a side map.
 fn item_for_version<'a>(
 	payloads: &BTreeMap<Version, usize>,
 	version: Version,
@@ -1084,7 +996,6 @@ fn item_for_version<'a>(
 		.ok_or_else(|| syn::Error::new(Span::call_site(), format!("missing payload {version}")))
 }
 
-/// Returns the parsed interface item that defined a version from a side map.
 fn interface_item_for_version<'a>(
 	payloads: &BTreeMap<Version, usize>,
 	version: Version,
@@ -1096,7 +1007,6 @@ fn interface_item_for_version<'a>(
 		.ok_or_else(|| syn::Error::new(Span::call_site(), format!("missing payload {version}")))
 }
 
-/// Adds a diagnostic to an optional accumulated error.
 fn combine_error(errors: &mut Option<syn::Error>, error: syn::Error) {
 	match errors {
 		Some(errors) => errors.combine(error),
@@ -1104,7 +1014,6 @@ fn combine_error(errors: &mut Option<syn::Error>, error: syn::Error) {
 	}
 }
 
-/// Formats the missing version or version range between two versions.
 fn missing_versions_description(expected_version: Version, found_version: Version) -> String {
 	let last_missing_version = found_version.value() - 1;
 
@@ -1115,7 +1024,6 @@ fn missing_versions_description(expected_version: Version, found_version: Versio
 	}
 }
 
-/// Builds a diagnostic for an invalid payload name.
 fn payload_name_error(ident: &Ident) -> syn::Error {
 	syn::Error::new_spanned(
 		ident,
@@ -1130,22 +1038,18 @@ mod tests {
 
 	use super::*;
 
-	/// Parses interface input from tokens for tests.
 	fn parse_input(tokens: TokenStream2) -> DefineVersionedInterfaceInput {
 		parse2::<DefineVersionedInterfaceInput>(tokens).unwrap()
 	}
 
-	/// Expands interface input from tokens for tests.
 	fn expand(tokens: TokenStream2) -> TokenStream2 {
 		handle_define_versioned_interface(parse_input(tokens)).unwrap()
 	}
 
-	/// Returns the expansion error produced by valid parsed interface input.
 	fn expand_error(tokens: TokenStream2) -> syn::Error {
 		handle_define_versioned_interface(parse_input(tokens)).unwrap_err()
 	}
 
-	/// Returns the parse error produced by interface input tokens.
 	fn parse_error(tokens: TokenStream2) -> syn::Error {
 		match parse2::<DefineVersionedInterfaceInput>(tokens) {
 			Ok(_) => panic!("expected interface input parsing to fail"),
@@ -1155,13 +1059,10 @@ mod tests {
 
 	#[test]
 	fn rejects_empty_macro_input() {
-		// Arrange
 		let tokens = quote! {};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		assert!(error
 			.to_string()
 			.contains("requires at least one input and output payload pair"));
@@ -1169,7 +1070,6 @@ mod tests {
 
 	#[test]
 	fn generates_payload_structs_and_boxed_versioned_enums_for_valid_pairs() {
-		// Arrange
 		let tokens = quote! {
 			#[derive(Clone, Debug)]
 			pub struct EthTransactInputPayloadV1 {
@@ -1193,10 +1093,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let output = expand(tokens);
 
-		// Assert
 		let file = parse2::<syn::File>(output.clone()).unwrap();
 		let item_names = file
 			.items
@@ -1247,7 +1145,6 @@ mod tests {
 
 	#[test]
 	fn generated_names_strip_trailing_versioned_marker_from_payload_family() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactVersionedInputPayloadV1 {
 				pub tx: GenericTransaction,
@@ -1258,10 +1155,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let output = expand(tokens);
 
-		// Assert
 		let file = parse2::<syn::File>(output.clone()).unwrap();
 		let item_names = file
 			.items
@@ -1286,7 +1181,6 @@ mod tests {
 
 	#[test]
 	fn generated_latest_aliases_omit_unenforced_generic_bounds() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1<T: Clone>
 			where
@@ -1303,10 +1197,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let output = expand(tokens);
 
-		// Assert
 		let file = parse2::<syn::File>(output).unwrap();
 		let aliases = file
 			.items
@@ -1340,7 +1232,6 @@ mod tests {
 
 	#[test]
 	fn accepts_contiguous_payload_family_starting_after_v1() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV3 {
 				pub tx: GenericTransaction,
@@ -1360,10 +1251,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let output = expand(tokens);
 
-		// Assert
 		let output_string = output.to_string();
 		let file = parse2::<syn::File>(output).unwrap();
 		let type_aliases = file
@@ -1396,17 +1285,14 @@ mod tests {
 
 	#[test]
 	fn rejects_missing_output_payload_for_version() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1 {
 				pub tx: GenericTransaction,
 			}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("No output type defined for V1"));
 		assert!(message.contains("Expected `EthTransactOutputPayloadV1`"));
@@ -1415,17 +1301,14 @@ mod tests {
 
 	#[test]
 	fn rejects_missing_input_payload_for_version() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactOutputPayloadV1 {
 				pub result: EthTransactInfo,
 			}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("No input type defined for V1"));
 		assert!(message.contains("Expected `EthTransactInputPayloadV1`"));
@@ -1434,7 +1317,6 @@ mod tests {
 
 	#[test]
 	fn rejects_all_missing_payload_pairs_in_one_diagnostic() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1 {
 				pub tx: GenericTransaction,
@@ -1445,10 +1327,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		let message = error.to_compile_error().to_string();
 		assert!(message.contains("No output type defined for V1"));
 		assert!(message.contains("No input type defined for V2"));
@@ -1456,7 +1336,6 @@ mod tests {
 
 	#[test]
 	fn rejects_skipped_payload_versions() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1 {
 				pub tx: GenericTransaction,
@@ -1475,10 +1354,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("must be contiguous"));
 		assert!(message.contains("missing version V2 before V3"));
@@ -1486,7 +1363,6 @@ mod tests {
 
 	#[test]
 	fn rejects_duplicate_payload_versions_on_same_side() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1 {
 				pub tx: GenericTransaction,
@@ -1501,10 +1377,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("duplicate input payload version V1"));
 		assert!(message.contains("EthTransact"));
@@ -1512,7 +1386,6 @@ mod tests {
 
 	#[test]
 	fn rejects_duplicate_output_payload_versions_on_same_side() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1 {
 				pub tx: GenericTransaction,
@@ -1527,10 +1400,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("duplicate output payload version V1"));
 		assert!(message.contains("EthTransact"));
@@ -1538,7 +1409,6 @@ mod tests {
 
 	#[test]
 	fn rejects_payloads_with_different_family_names() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1 {
 				pub tx: GenericTransaction,
@@ -1549,10 +1419,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("must use the same family name"));
 		assert!(message.contains("EstimateGas"));
@@ -1561,119 +1429,97 @@ mod tests {
 
 	#[test]
 	fn rejects_payload_version_with_leading_zero() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV01 {
 				pub tx: GenericTransaction,
 			}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		assert!(error.to_string().contains("must not contain leading zeros"));
 	}
 
 	#[test]
 	fn rejects_payload_version_zero() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV0 {
 				pub tx: GenericTransaction,
 			}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		assert!(error.to_string().contains("must start at 1"));
 	}
 
 	#[test]
 	fn rejects_payload_name_with_empty_family_name() {
-		// Arrange
 		let tokens = quote! {
 			pub struct InputPayloadV1 {
 				pub tx: GenericTransaction,
 			}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		assert!(error.to_string().contains("non-empty family name"));
 	}
 
 	#[test]
 	fn rejects_payload_name_with_malformed_suffix() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactPayloadV1 {
 				pub tx: GenericTransaction,
 			}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		assert!(error.to_string().contains("must match"));
 	}
 
 	#[test]
 	fn rejects_payload_name_with_missing_version_number() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV {
 				pub tx: GenericTransaction,
 			}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		assert!(error.to_string().contains("positive integer after `V`"));
 	}
 
 	#[test]
 	fn rejects_payload_name_with_non_numeric_version_suffix() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadVNext {
 				pub tx: GenericTransaction,
 			}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		assert!(error.to_string().contains("followed by a positive integer"));
 	}
 
 	#[test]
 	fn rejects_payload_name_with_extra_suffix_after_version() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1Extra {
 				pub tx: GenericTransaction,
 			}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		assert!(error.to_string().contains("followed by a positive integer"));
 	}
 
 	#[test]
 	fn rejects_multiple_complete_payload_families_in_one_invocation() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1 {
 				pub tx: GenericTransaction,
@@ -1692,10 +1538,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("must use the same family name"));
 		assert!(message.contains("EstimateGas"));
@@ -1704,153 +1548,122 @@ mod tests {
 
 	#[test]
 	fn rejects_tuple_struct_payloads() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1(pub GenericTransaction);
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		assert!(error.to_string().contains("named-field payload structs"));
 	}
 
 	#[test]
 	fn rejects_unit_struct_payloads() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1;
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		assert!(error.to_string().contains("named-field payload structs"));
 	}
 
 	#[test]
 	fn rejects_enum_items() {
-		// Arrange
 		let tokens = quote! {
 			pub enum EthTransactInputPayloadV1 {
 				Variant,
 			}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		assert!(error.to_string().contains("expects named struct payload items only"));
 	}
 
 	#[test]
 	fn rejects_function_items() {
-		// Arrange
 		let tokens = quote! {
 			pub fn eth_transact() {}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		assert!(error.to_string().contains("expects named struct payload items only"));
 	}
 
 	#[test]
 	fn rejects_module_items() {
-		// Arrange
 		let tokens = quote! {
 			pub mod eth_transact {}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		assert!(error.to_string().contains("expects named struct payload items only"));
 	}
 
 	#[test]
 	fn rejects_impl_items() {
-		// Arrange
 		let tokens = quote! {
 			impl EthTransact {
 				pub fn transact() {}
 			}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		assert!(error.to_string().contains("expects named struct payload items only"));
 	}
 
 	#[test]
 	fn rejects_type_alias_items() {
-		// Arrange
 		let tokens = quote! {
 			pub type EthTransactInputPayloadV1 = GenericTransaction;
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		assert!(error.to_string().contains("expects named struct payload items only"));
 	}
 
 	#[test]
 	fn rejects_const_items() {
-		// Arrange
 		let tokens = quote! {
 			pub const EthTransactInputPayloadV1: usize = 1;
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		assert!(error.to_string().contains("expects named struct payload items only"));
 	}
 
 	#[test]
 	fn rejects_static_items() {
-		// Arrange
 		let tokens = quote! {
 			pub static EthTransactInputPayloadV1: usize = 1;
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		assert!(error.to_string().contains("expects named struct payload items only"));
 	}
 
 	#[test]
 	fn rejects_union_items() {
-		// Arrange
 		let tokens = quote! {
 			pub union EthTransactInputPayloadV1 {
 				pub value: u32,
 			}
 		};
 
-		// Act
 		let error = parse_error(tokens);
 
-		// Assert
 		assert!(error.to_string().contains("expects named struct payload items only"));
 	}
 
 	#[test]
 	fn preserves_payload_struct_attributes_visibility_fields_and_generics() {
-		// Arrange
 		let tokens = quote! {
 			#[doc = "input docs"]
 			pub(crate) struct EthTransactInputPayloadV1<T: Clone>
@@ -1866,10 +1679,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let output = expand(tokens).to_string();
 
-		// Assert
 		assert!(output.contains("# [doc = \"input docs\"]"));
 		assert!(output.contains("pub (crate) struct EthTransactInputPayloadV1"));
 		assert!(output.contains("T : Clone"));
@@ -1880,7 +1691,6 @@ mod tests {
 
 	#[test]
 	fn generated_enums_copy_only_common_derives_per_side() {
-		// Arrange
 		let tokens = quote! {
 			#[derive(Clone, Debug)]
 			pub struct EthTransactInputPayloadV1 {
@@ -1903,10 +1713,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let output = expand(tokens);
 
-		// Assert
 		let output = output.to_string();
 		let derives = output.matches("# [derive").collect::<Vec<_>>();
 		assert_eq!(derives.len(), 6);
@@ -1916,7 +1724,6 @@ mod tests {
 
 	#[test]
 	fn generated_helpers_are_present_for_every_version() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1 {
 				pub tx: GenericTransaction,
@@ -1935,10 +1742,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let output = expand(tokens).to_string();
 
-		// Assert
 		for method in [
 			"LATEST_VERSION",
 			"new_v1",
@@ -1957,7 +1762,6 @@ mod tests {
 
 	#[test]
 	fn generated_enum_generics_merge_inline_bounds_by_side() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1<T: Clone> {
 				pub tx: T,
@@ -1976,10 +1780,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let output = expand(tokens).to_string();
 
-		// Assert
 		assert!(
 			output.contains("pub enum VersionedEthTransactInputPayload < T : Clone + Default >")
 		);
@@ -1988,7 +1790,6 @@ mod tests {
 
 	#[test]
 	fn generated_enum_generics_union_where_clauses_by_side() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1<T>
 			where
@@ -2013,16 +1814,13 @@ mod tests {
 			}
 		};
 
-		// Act
 		let output = expand(tokens).to_string();
 
-		// Assert
 		assert!(output.contains("where T : Clone , T : Default"));
 	}
 
 	#[test]
 	fn rejects_same_name_generic_parameters_with_different_kinds() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1<T> {
 				pub tx: T,
@@ -2041,10 +1839,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let error = expand_error(tokens);
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("generic parameter `T` is used as a const parameter here"));
 		assert!(message.contains("already used as a type parameter"));
@@ -2052,7 +1848,6 @@ mod tests {
 
 	#[test]
 	fn rejects_same_name_const_generics_with_different_types() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1<const N: usize> {
 				pub tx: [u8; N],
@@ -2071,10 +1866,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let error = expand_error(tokens);
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("const generic parameter `N` has type `u32` here"));
 		assert!(message.contains("already defined with type `usize`"));
@@ -2082,7 +1875,6 @@ mod tests {
 
 	#[test]
 	fn preserves_precise_error_context_for_malformed_payload_derive() {
-		// Arrange
 		let tokens = quote! {
 			#[derive(Clone, Debug())]
 			pub struct EthTransactInputPayloadV1 {
@@ -2094,10 +1886,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let error = expand_error(tokens);
 
-		// Assert
 		let message = error.to_compile_error().to_string();
 		assert!(message.contains("failed to parse payload derive attribute"));
 		assert!(!message.contains("for generated enum"));
@@ -2105,7 +1895,6 @@ mod tests {
 
 	#[test]
 	fn generates_from_impls_for_every_payload_version_on_both_sides() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1 {
 				pub tx: GenericTransaction,
@@ -2124,10 +1913,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let output = expand(tokens).to_string();
 
-		// Assert
 		for expected in [
 			":: core :: convert :: From < EthTransactInputPayloadV1 > for \
 			 VersionedEthTransactInputPayload",
@@ -2144,7 +1931,6 @@ mod tests {
 
 	#[test]
 	fn generates_try_from_impls_with_unit_error_for_every_payload_version() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1 {
 				pub tx: GenericTransaction,
@@ -2163,10 +1949,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let output = expand(tokens).to_string();
 
-		// Assert
 		for expected in [
 			":: core :: convert :: TryFrom < VersionedEthTransactInputPayload > for \
 			 EthTransactInputPayloadV1",
@@ -2184,7 +1968,6 @@ mod tests {
 
 	#[test]
 	fn generated_try_from_match_arms_handle_every_variant_explicitly() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1 {
 				pub tx: GenericTransaction,
@@ -2203,10 +1986,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let output = expand(tokens).to_string();
 
-		// Assert
 		for arm in [
 			"VersionedEthTransactInputPayload :: V1 (value) => :: core :: result :: Result :: Ok \
 			 (* value)",
@@ -2221,7 +2002,6 @@ mod tests {
 
 	#[test]
 	fn generated_try_from_for_single_variant_enum_omits_wildcard_arm() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1 {
 				pub tx: GenericTransaction,
@@ -2232,10 +2012,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let output = expand(tokens).to_string();
 
-		// Assert
 		assert!(output.contains(
 			"VersionedEthTransactInputPayload :: V1 (value) => :: core :: result :: Result :: Ok \
 			 (* value)"
@@ -2245,7 +2023,6 @@ mod tests {
 
 	#[test]
 	fn generated_from_and_try_from_impls_inherit_merged_generics() {
-		// Arrange
 		let tokens = quote! {
 			pub struct EthTransactInputPayloadV1<T: Clone> {
 				pub tx: T,
@@ -2264,10 +2041,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let output = expand(tokens).to_string();
 
-		// Assert
 		assert!(output.contains(
 			"impl < T : Clone + Default > :: core :: convert :: From < \
 			 EthTransactInputPayloadV1 < T > > for VersionedEthTransactInputPayload < T >"

@@ -33,12 +33,6 @@ use attribute::{
 use fields::{extend_fields, strip_field_attributes, FieldOwner};
 pub use item::{DefineVersionedTypeInput, DefineVersionedTypeItem};
 
-/// Expands every parsed versioned type item according to its extension attributes.
-///
-/// The input parser has already grouped the definitions by version and checked that those versions
-/// are contiguous. This handler is responsible for the context-sensitive work: stripping helper
-/// attributes, merging fields, merging enum variants, and producing diagnostics when an extension
-/// request cannot be satisfied by the immediately previous version.
 pub fn handle_define_versioned_type(
 	input: DefineVersionedTypeInput,
 ) -> Result<DefineVersionedTypeOutput> {
@@ -58,7 +52,6 @@ pub fn handle_define_versioned_type(
 	Ok(DefineVersionedTypeOutput { items, latest_alias })
 }
 
-/// Builds the latest-version alias if the invocation contains at least one item.
 fn latest_type_alias(
 	name: Option<&str>,
 	highest_version: Option<item::Version>,
@@ -69,17 +62,13 @@ fn latest_type_alias(
 	Some(LatestTypeAlias::new(name, latest_item))
 }
 
-/// The fully processed output emitted by `define_versioned_type!`.
 pub struct DefineVersionedTypeOutput {
-	/// The processed versioned item definitions in ascending version order.
 	items: Vec<DefineVersionedTypeItem>,
 
-	/// The alias pointing at the highest version in this invocation.
 	latest_alias: Option<LatestTypeAlias>,
 }
 
 impl ToTokens for DefineVersionedTypeOutput {
-	/// Writes the processed items followed by the latest-version alias.
 	fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
 		let items = &self.items;
 		let latest_alias = &self.latest_alias;
@@ -98,14 +87,11 @@ impl std::ops::Deref for DefineVersionedTypeOutput {
 	}
 }
 
-/// A generated type alias that points at the highest known version.
 struct LatestTypeAlias {
-	/// The underlying Rust type alias item.
 	item: ItemType,
 }
 
 impl LatestTypeAlias {
-	/// Builds the alias for the given base name and latest versioned item.
 	fn new(name: &str, latest_item: &DefineVersionedTypeItem) -> Self {
 		let alias_ident = Ident::new(&format!("Latest{name}"), latest_item.ident().span());
 		let target_ident = latest_item.ident();
@@ -125,13 +111,11 @@ impl LatestTypeAlias {
 }
 
 impl ToTokens for LatestTypeAlias {
-	/// Writes the wrapped type alias into the output stream.
 	fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
 		self.item.to_tokens(tokens);
 	}
 }
 
-/// Removes bounds from alias generics to avoid unenforced type-alias bounds.
 fn strip_type_alias_bounds(generics: &mut Generics) {
 	generics.where_clause = None;
 
@@ -150,7 +134,6 @@ fn strip_type_alias_bounds(generics: &mut Generics) {
 	}
 }
 
-/// Applies the extension rules that are shared by all supported item kinds.
 fn handle_item_extensions(
 	item: &mut DefineVersionedTypeItem,
 	attribute: TypeVersionedTypeAttribute,
@@ -166,7 +149,6 @@ fn handle_item_extensions(
 	}
 }
 
-/// Applies type-level extension rules to a struct definition.
 fn handle_struct_extensions(
 	this_struct: &mut ItemStruct,
 	mode: TypeVersionedTypeMode,
@@ -188,7 +170,6 @@ fn handle_struct_extensions(
 	}
 }
 
-/// Applies type-level and variant-level extension rules to an enum definition.
 fn handle_enum_extensions(
 	this_enum: &mut ItemEnum,
 	mode: TypeVersionedTypeMode,
@@ -208,40 +189,23 @@ fn handle_enum_extensions(
 	Ok(())
 }
 
-/// Describes how an enum should relate to the immediately previous version.
 #[derive(Clone, Copy)]
 enum EnumMergeMode<'a> {
-	/// No previous version exists, so no selective extension is possible.
 	NoPrevious,
 
-	/// The previous version is a struct and may seed individual variants.
-	PreviousStruct {
-		/// The struct that can be used by variant-level `extend` attributes.
-		previous_struct: &'a ItemStruct,
-	},
+	PreviousStruct { previous_struct: &'a ItemStruct },
 
-	/// The previous version is an enum and may seed variants or the enum body.
-	PreviousEnum {
-		/// The enum that provides the previous variant set.
-		previous_enum: &'a ItemEnum,
-
-		/// Whether the enum itself requested a full type-level extension.
-		type_extension: EnumTypeExtension,
-	},
+	PreviousEnum { previous_enum: &'a ItemEnum, type_extension: EnumTypeExtension },
 }
 
-/// Describes whether a previous enum is copied into the current enum first.
 #[derive(Clone, Copy)]
 enum EnumTypeExtension {
-	/// The current enum starts from its own variants only.
 	Standalone,
 
-	/// The current enum starts with all variants from the previous enum.
 	Extending,
 }
 
 impl EnumTypeExtension {
-	/// Returns whether previous variants were copied into the output enum.
 	#[must_use]
 	fn is_extending(self) -> bool {
 		match self {
@@ -251,7 +215,6 @@ impl EnumTypeExtension {
 	}
 }
 
-/// Builds the enum merge mode or reports invalid type-level extension usage.
 fn enum_merge_mode<'a>(
 	this_enum: &ItemEnum,
 	mode: TypeVersionedTypeMode,
@@ -284,7 +247,6 @@ fn enum_merge_mode<'a>(
 	}
 }
 
-/// Creates the initial variant list for the current enum.
 fn initial_enum_variants(merge_mode: EnumMergeMode<'_>) -> Vec<Variant> {
 	match merge_mode {
 		EnumMergeMode::PreviousEnum {
@@ -297,7 +259,6 @@ fn initial_enum_variants(merge_mode: EnumMergeMode<'_>) -> Vec<Variant> {
 	}
 }
 
-/// Applies the current variant's requested change to the output variant list.
 fn apply_variant_change(
 	output_variants: &mut Vec<Variant>,
 	current_variant: VariantWithVersionedTypeAttribute,
@@ -321,7 +282,6 @@ fn apply_variant_change(
 	}
 }
 
-/// Applies a variant change when the previous version was also an enum.
 fn apply_variant_change_from_enum(
 	output_variants: &mut Vec<Variant>,
 	mut current_variant: VariantWithVersionedTypeAttribute,
@@ -380,7 +340,6 @@ fn apply_variant_change_from_enum(
 	Ok(())
 }
 
-/// Applies a variant change when the previous version was a struct.
 fn apply_variant_change_from_struct(
 	output_variants: &mut Vec<Variant>,
 	mut current_variant: VariantWithVersionedTypeAttribute,
@@ -414,7 +373,6 @@ fn apply_variant_change_from_struct(
 	Ok(())
 }
 
-/// Applies a variant change when there is no previous version.
 fn apply_variant_change_without_previous(
 	output_variants: &mut Vec<Variant>,
 	mut current_variant: VariantWithVersionedTypeAttribute,
@@ -439,7 +397,6 @@ fn apply_variant_change_without_previous(
 	}
 }
 
-/// Returns an error when the current enum defines a variant name twice.
 fn reject_duplicate_current_variants(variants: &[VariantWithVersionedTypeAttribute]) -> Result<()> {
 	let mut seen_variants = std::collections::BTreeMap::<String, syn::Ident>::new();
 
@@ -463,7 +420,6 @@ fn reject_duplicate_current_variants(variants: &[VariantWithVersionedTypeAttribu
 	Ok(())
 }
 
-/// Finds a variant with the provided name in a punctuated variant list.
 fn find_variant<'a>(
 	variants: &'a Punctuated<Variant, Comma>,
 	variant_name: &str,
@@ -471,7 +427,6 @@ fn find_variant<'a>(
 	variants.iter().find(|variant| variant.ident == variant_name)
 }
 
-/// Replaces or appends a variant depending on the enum-level extension mode.
 fn upsert_variant(
 	output_variants: &mut Vec<Variant>,
 	variant: Variant,
@@ -490,7 +445,6 @@ fn upsert_variant(
 	output_variants.push(variant);
 }
 
-/// Builds a diagnostic for type-level `extend` without a previous version.
 fn missing_type_extension_error(extend_span: Span) -> syn::Error {
 	syn::Error::new(
 		extend_span,
@@ -499,7 +453,6 @@ fn missing_type_extension_error(extend_span: Span) -> syn::Error {
 	)
 }
 
-/// Builds a diagnostic for extending a struct from a previous enum.
 fn struct_from_enum_extension_error(
 	extend_span: Span,
 	this_struct: &ItemStruct,
@@ -516,7 +469,6 @@ fn struct_from_enum_extension_error(
 	error
 }
 
-/// Builds a diagnostic for extending an enum from a previous struct.
 fn enum_from_struct_extension_error(
 	extend_span: Span,
 	this_enum: &ItemEnum,
@@ -535,7 +487,6 @@ fn enum_from_struct_extension_error(
 	error
 }
 
-/// Builds a diagnostic for redefining a copied enum variant without override.
 fn duplicate_in_extended_enum_error(
 	current_variant: &Variant,
 	previous_variant: &Variant,
@@ -555,7 +506,6 @@ fn duplicate_in_extended_enum_error(
 	error
 }
 
-/// Builds a diagnostic for overriding a missing previous enum variant.
 fn missing_variant_override_error(
 	override_span: Span,
 	variant: &Variant,
@@ -575,7 +525,6 @@ fn missing_variant_override_error(
 	error
 }
 
-/// Builds a diagnostic for extending a missing previous enum variant.
 fn missing_variant_extension_error(
 	extend_span: Span,
 	variant: &Variant,
@@ -611,7 +560,6 @@ mod tests {
 
 	#[test]
 	fn parses_struct_when_keyword_follows_attributes_and_visibility() {
-		// Arrange
 		let tokens = quote::quote! {
 			#[derive(Clone)]
 			pub(crate) struct CallLogV1 {
@@ -619,10 +567,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let input = parse2::<DefineVersionedTypeItem>(tokens).unwrap();
 
-		// Assert
 		assert!(
 			matches!(input, DefineVersionedTypeItem::Struct(item) if item.ident == "CallLogV1")
 		);
@@ -630,7 +576,6 @@ mod tests {
 
 	#[test]
 	fn parses_enum_when_keyword_follows_attributes_and_visibility() {
-		// Arrange
 		let tokens = quote::quote! {
 			#[derive(Clone)]
 			pub enum CallLogV1 {
@@ -640,16 +585,13 @@ mod tests {
 			}
 		};
 
-		// Act
 		let input = parse2::<DefineVersionedTypeItem>(tokens).unwrap();
 
-		// Assert
 		assert!(matches!(input, DefineVersionedTypeItem::Enum(item) if item.ident == "CallLogV1"));
 	}
 
 	#[test]
 	fn preserves_struct_attributes_visibility_and_doc_comments() {
-		// Arrange
 		let tokens = quote::quote! {
 			#[doc = "Call log docs."]
 			#[derive(Clone)]
@@ -658,10 +600,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let input = parse2::<DefineVersionedTypeItem>(tokens).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Struct(item) = input else {
 			panic!("expected struct item");
 		};
@@ -672,7 +612,6 @@ mod tests {
 
 	#[test]
 	fn preserves_enum_attributes_visibility_and_doc_comments() {
-		// Arrange
 		let tokens = quote::quote! {
 			#[doc = "Call log docs."]
 			#[derive(Clone)]
@@ -683,10 +622,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let input = parse2::<DefineVersionedTypeItem>(tokens).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = input else {
 			panic!("expected enum item");
 		};
@@ -697,24 +634,20 @@ mod tests {
 
 	#[test]
 	fn reports_descriptive_error_when_item_is_not_struct_or_enum() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub fn call_log_v1() {}
 		};
 
-		// Act
 		let error = match parse2::<DefineVersionedTypeItem>(tokens) {
 			Ok(_) => panic!("expected parsing to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		assert!(error.to_string().contains("expects a struct or enum item"));
 	}
 
 	#[test]
 	fn extracts_base_name_and_version_from_struct_name() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV12 {
 				pub item: u32,
@@ -722,17 +655,14 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeItem>(tokens).unwrap();
 
-		// Act
 		let name_and_version = input.name_and_version().unwrap();
 
-		// Assert
 		assert_eq!(name_and_version.base_name(), "CallLog");
 		assert_eq!(name_and_version.version().value(), 12);
 	}
 
 	#[test]
 	fn extracts_base_name_and_version_from_enum_name() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum CallLogV2 {
 				Call,
@@ -740,17 +670,14 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeItem>(tokens).unwrap();
 
-		// Act
 		let name_and_version = input.name_and_version().unwrap();
 
-		// Assert
 		assert_eq!(name_and_version.base_name(), "CallLog");
 		assert_eq!(name_and_version.version().value(), 2);
 	}
 
 	#[test]
 	fn extracts_base_name_when_name_contains_earlier_v_character() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct VeryVerboseCallLogV2 {
 				pub item: u32,
@@ -758,17 +685,14 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeItem>(tokens).unwrap();
 
-		// Act
 		let name_and_version = input.name_and_version().unwrap();
 
-		// Assert
 		assert_eq!(name_and_version.base_name(), "VeryVerboseCallLog");
 		assert_eq!(name_and_version.version().value(), 2);
 	}
 
 	#[test]
 	fn preserves_struct_generics() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV1<T>
 			where
@@ -778,10 +702,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let input = parse2::<DefineVersionedTypeItem>(tokens).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Struct(item) = input else {
 			panic!("expected struct item");
 		};
@@ -791,7 +713,6 @@ mod tests {
 
 	#[test]
 	fn preserves_enum_generics() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum CallLogV1<T>
 			where
@@ -801,10 +722,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let input = parse2::<DefineVersionedTypeItem>(tokens).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = input else {
 			panic!("expected enum item");
 		};
@@ -814,16 +733,13 @@ mod tests {
 
 	#[test]
 	fn parses_item_with_inherited_visibility() {
-		// Arrange
 		let tokens = quote::quote! {
 			#[derive(Clone)]
 			struct CallLogV1;
 		};
 
-		// Act
 		let input = parse2::<DefineVersionedTypeItem>(tokens).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Struct(item) = input else {
 			panic!("expected struct item");
 		};
@@ -833,22 +749,18 @@ mod tests {
 
 	#[test]
 	fn rejects_name_with_version_but_no_base_name() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct V1;
 		};
 		let input = parse2::<DefineVersionedTypeItem>(tokens).unwrap();
 
-		// Act
 		let error = input.name_and_version().unwrap_err();
 
-		// Assert
 		assert!(error.to_string().contains("base name before the version suffix"));
 	}
 
 	#[test]
 	fn field_extensions_place_previous_named_fields_before_current_fields() {
-		// Arrange
 		let mut this: ItemStruct = syn::parse_quote!(
 			pub struct CallLogV2 {
 				pub item3: u32,
@@ -861,10 +773,8 @@ mod tests {
 			}
 		);
 
-		// Act
 		extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct).unwrap();
 
-		// Assert
 		let Fields::Named(fields) = this.fields else {
 			panic!("expected named fields");
 		};
@@ -878,7 +788,6 @@ mod tests {
 
 	#[test]
 	fn field_extensions_place_previous_unnamed_fields_before_current_fields() {
-		// Arrange
 		let mut this: ItemStruct = syn::parse_quote!(
 			pub struct CallLogV2(pub u32);
 		);
@@ -886,10 +795,8 @@ mod tests {
 			pub struct CallLogV1(pub u8, pub u16);
 		);
 
-		// Act
 		extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct).unwrap();
 
-		// Assert
 		let Fields::Unnamed(fields) = this.fields else {
 			panic!("expected unnamed fields");
 		};
@@ -903,7 +810,6 @@ mod tests {
 
 	#[test]
 	fn field_extensions_copy_previous_named_fields_into_current_unit_struct() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV1 {
 				pub item1: u8,
@@ -915,10 +821,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Struct(item) = &output[1] else {
 			panic!("expected second item to be a struct");
 		};
@@ -935,7 +839,6 @@ mod tests {
 
 	#[test]
 	fn field_extensions_copy_previous_tuple_fields_into_current_unit_struct() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV1(pub u8, pub u16);
 
@@ -944,10 +847,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Struct(item) = &output[1] else {
 			panic!("expected second item to be a struct");
 		};
@@ -964,7 +865,6 @@ mod tests {
 
 	#[test]
 	fn field_extensions_name_previous_unnamed_fields_before_current_named_fields() {
-		// Arrange
 		let mut this: ItemStruct = syn::parse_quote!(
 			pub struct CallLogV2 {
 				pub item3: u32,
@@ -974,10 +874,8 @@ mod tests {
 			pub struct CallLogV1(pub u8, pub u16);
 		);
 
-		// Act
 		extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct).unwrap();
 
-		// Assert
 		let Fields::Named(fields) = this.fields else {
 			panic!("expected named fields");
 		};
@@ -991,7 +889,6 @@ mod tests {
 
 	#[test]
 	fn field_extensions_place_previous_named_fields_before_current_tuple_fields() {
-		// Arrange
 		let mut this: ItemStruct = syn::parse_quote!(
 			pub struct CallLogV2(pub Type3);
 		);
@@ -1002,10 +899,8 @@ mod tests {
 			}
 		);
 
-		// Act
 		extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct).unwrap();
 
-		// Assert
 		let Fields::Unnamed(fields) = this.fields else {
 			panic!("expected unnamed fields");
 		};
@@ -1021,7 +916,6 @@ mod tests {
 
 	#[test]
 	fn field_extensions_keep_current_tuple_fields_after_previous_unit_fields() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV1;
 
@@ -1030,10 +924,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Struct(item) = &output[1] else {
 			panic!("expected second item to be a struct");
 		};
@@ -1050,7 +942,6 @@ mod tests {
 
 	#[test]
 	fn field_extensions_make_copied_struct_fields_public() {
-		// Arrange
 		let mut this: ItemStruct = syn::parse_quote!(
 			pub struct CallLogV2 {
 				pub item2: u16,
@@ -1062,10 +953,8 @@ mod tests {
 			}
 		);
 
-		// Act
 		extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct).unwrap();
 
-		// Assert
 		let Fields::Named(fields) = this.fields else {
 			panic!("expected named fields");
 		};
@@ -1074,7 +963,6 @@ mod tests {
 
 	#[test]
 	fn field_extensions_preserve_attributes_on_inherited_fields() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV1 {
 				#[doc = "field docs"]
@@ -1088,10 +976,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Struct(item) = &output[1] else {
 			panic!("expected second item to be a struct");
 		};
@@ -1103,7 +989,6 @@ mod tests {
 
 	#[test]
 	fn field_extensions_reject_generated_name_collision_from_tuple_fields() {
-		// Arrange
 		let mut this: ItemStruct = syn::parse_quote!(
 			pub struct CallLogV2 {
 				pub field_0: u32,
@@ -1113,13 +998,11 @@ mod tests {
 			pub struct CallLogV1(pub u8);
 		);
 
-		// Act
 		let error = match extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct) {
 			Ok(_) => panic!("expected generated field name collision to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("field `field_0` conflicts"));
 		assert!(message.contains("generated from the previous tuple fields"));
@@ -1127,7 +1010,6 @@ mod tests {
 
 	#[test]
 	fn field_extensions_override_named_field_in_original_position() {
-		// Arrange
 		let mut this: ItemStruct = syn::parse_quote!(
 			pub struct CallLogV2 {
 				#[versioned_type(override)]
@@ -1142,10 +1024,8 @@ mod tests {
 			}
 		);
 
-		// Act
 		extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct).unwrap();
 
-		// Assert
 		let Fields::Named(fields) = this.fields else {
 			panic!("expected named fields");
 		};
@@ -1160,7 +1040,6 @@ mod tests {
 
 	#[test]
 	fn field_extensions_reject_redefined_named_field_without_override() {
-		// Arrange
 		let mut this: ItemStruct = syn::parse_quote!(
 			pub struct CallLogV2 {
 				pub item2: Type4,
@@ -1173,13 +1052,11 @@ mod tests {
 			}
 		);
 
-		// Act
 		let error = match extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct) {
 			Ok(_) => panic!("expected redefined field to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("field `item2` is already defined"));
 		assert!(message.contains("versioned_type(override)"));
@@ -1187,7 +1064,6 @@ mod tests {
 
 	#[test]
 	fn field_extensions_reject_duplicate_current_named_fields() {
-		// Arrange
 		let mut this: ItemStruct = syn::parse_quote!(
 			pub struct CallLogV2 {
 				pub item3: Type3,
@@ -1200,13 +1076,11 @@ mod tests {
 			}
 		);
 
-		// Act
 		let error = match extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct) {
 			Ok(_) => panic!("expected duplicate current field to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let messages = (&error).into_iter().map(|error| error.to_string()).collect::<Vec<_>>();
 		assert!(messages
 			.iter()
@@ -1218,7 +1092,6 @@ mod tests {
 
 	#[test]
 	fn field_extensions_reject_override_without_previous_named_field() {
-		// Arrange
 		let mut this: ItemStruct = syn::parse_quote!(
 			pub struct CallLogV2 {
 				#[versioned_type(override)]
@@ -1232,13 +1105,11 @@ mod tests {
 			}
 		);
 
-		// Act
 		let error = match extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct) {
 			Ok(_) => panic!("expected missing override target to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("field `item3` is marked as an override"));
 		assert!(message.contains("no field with that name exists"));
@@ -1246,7 +1117,6 @@ mod tests {
 
 	#[test]
 	fn field_extensions_reject_override_when_previous_version_has_no_fields() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV1;
 
@@ -1258,13 +1128,11 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected field override against unit struct to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("field is marked as an override"));
 		assert!(message.contains("previous version has no fields"));
@@ -1272,7 +1140,6 @@ mod tests {
 
 	#[test]
 	fn field_extensions_reject_override_on_tuple_field() {
-		// Arrange
 		let mut this: ItemStruct = syn::parse_quote!(
 			pub struct CallLogV2(#[versioned_type(override)] pub Type3);
 		);
@@ -1280,13 +1147,11 @@ mod tests {
 			pub struct CallLogV1(pub Type1, pub Type2);
 		);
 
-		// Act
 		let error = match extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct) {
 			Ok(_) => panic!("expected tuple field override to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("not supported on tuple fields"));
 		assert!(message.contains("stable names"));
@@ -1294,7 +1159,6 @@ mod tests {
 
 	#[test]
 	fn field_extensions_reject_override_when_previous_fields_are_unnamed() {
-		// Arrange
 		let mut this: ItemStruct = syn::parse_quote!(
 			pub struct CallLogV2 {
 				#[versioned_type(override)]
@@ -1305,13 +1169,11 @@ mod tests {
 			pub struct CallLogV1(pub Type1, pub Type2);
 		);
 
-		// Act
 		let error = match extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct) {
 			Ok(_) => panic!("expected override against tuple fields to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("previous version to have named fields"));
 		assert!(message.contains("ambiguous"));
@@ -1319,17 +1181,14 @@ mod tests {
 
 	#[test]
 	fn type_versioned_type_attribute_parses_extend_and_preserves_other_attributes() {
-		// Arrange
 		let attributes = vec![
 			syn::parse_quote!(#[derive(Clone)]),
 			syn::parse_quote!(#[versioned_type(extend)]),
 			syn::parse_quote!(#[doc = "Call log docs."]),
 		];
 
-		// Act
 		let attribute_split = TypeVersionedTypeAttribute::parse_and_split(attributes).unwrap();
 
-		// Assert
 		assert!(matches!(
 			attribute_split.versioned_type.mode(),
 			TypeVersionedTypeMode::Extend { .. }
@@ -1341,13 +1200,10 @@ mod tests {
 
 	#[test]
 	fn type_versioned_type_attribute_defaults_when_missing() {
-		// Arrange
 		let attributes = vec![syn::parse_quote!(#[derive(Clone)])];
 
-		// Act
 		let attribute_split = TypeVersionedTypeAttribute::parse_and_split(attributes).unwrap();
 
-		// Assert
 		assert!(matches!(attribute_split.versioned_type.mode(), TypeVersionedTypeMode::Standalone));
 		assert_eq!(attribute_split.other_attributes.len(), 1);
 		assert!(attribute_split.other_attributes[0].path().is_ident("derive"));
@@ -1355,187 +1211,148 @@ mod tests {
 
 	#[test]
 	fn type_versioned_type_attribute_rejects_bare_attribute() {
-		// Arrange
 		let attributes = vec![syn::parse_quote!(#[versioned_type])];
 
-		// Act
 		let error = match TypeVersionedTypeAttribute::parse_and_split(attributes) {
 			Ok(_) => panic!("expected bare versioned_type attribute to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		assert!(error.to_string().contains("requires options"));
 	}
 
 	#[test]
 	fn type_versioned_type_attribute_accepts_empty_options() {
-		// Arrange
 		let attributes = vec![syn::parse_quote!(#[versioned_type()])];
 
-		// Act
 		let attribute_split = TypeVersionedTypeAttribute::parse_and_split(attributes).unwrap();
 
-		// Assert
 		assert!(matches!(attribute_split.versioned_type.mode(), TypeVersionedTypeMode::Standalone));
 		assert!(attribute_split.other_attributes.is_empty());
 	}
 
 	#[test]
 	fn type_versioned_type_attribute_rejects_name_value_syntax() {
-		// Arrange
 		let attributes = vec![syn::parse_quote!(#[versioned_type = "extend"])];
 
-		// Act
 		let error = match TypeVersionedTypeAttribute::parse_and_split(attributes) {
 			Ok(_) => panic!("expected name-value versioned_type syntax to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		assert!(error.to_string().contains("does not support name-value syntax"));
 	}
 
 	#[test]
 	fn type_versioned_type_attribute_rejects_unsupported_options() {
-		// Arrange
 		let attributes = vec![syn::parse_quote!(#[versioned_type(rename)])];
 
-		// Act
 		let error = match TypeVersionedTypeAttribute::parse_and_split(attributes) {
 			Ok(_) => panic!("expected unsupported versioned_type option to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		assert!(error.to_string().contains("currently only `extend` and `override`"));
 	}
 
 	#[test]
 	fn type_versioned_type_attribute_rejects_extend_arguments() {
-		// Arrange
 		let attributes = vec![syn::parse_quote!(#[versioned_type(extend = true)])];
 
-		// Act
 		let error = match TypeVersionedTypeAttribute::parse_and_split(attributes) {
 			Ok(_) => panic!("expected extend arguments to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		assert!(error.to_string().contains("`extend` does not accept arguments"));
 	}
 
 	#[test]
 	fn type_versioned_type_attribute_rejects_duplicate_extend_option() {
-		// Arrange
 		let attributes = vec![syn::parse_quote!(#[versioned_type(extend, extend)])];
 
-		// Act
 		let error = match TypeVersionedTypeAttribute::parse_and_split(attributes) {
 			Ok(_) => panic!("expected duplicate extend option to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		assert!(error.to_string().contains("`extend` is specified more than once"));
 	}
 
 	#[test]
 	fn type_versioned_type_attribute_rejects_override() {
-		// Arrange
 		let attributes = vec![syn::parse_quote!(#[versioned_type(override)])];
 
-		// Act
 		let error = match TypeVersionedTypeAttribute::parse_and_split(attributes) {
 			Ok(_) => panic!("expected type override to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		assert!(error.to_string().contains("`override` is not supported on types"));
 	}
 
 	#[test]
 	fn field_versioned_type_attribute_parses_override() {
-		// Arrange
 		let attributes = vec![syn::parse_quote!(#[versioned_type(override)])];
 
-		// Act
 		let attribute_split = FieldVersionedTypeAttribute::parse_and_split(attributes).unwrap();
 
-		// Assert
 		assert!(attribute_split.versioned_type.override_span().is_some());
 		assert!(attribute_split.other_attributes.is_empty());
 	}
 
 	#[test]
 	fn field_versioned_type_attribute_accepts_empty_options() {
-		// Arrange
 		let attributes = vec![syn::parse_quote!(#[versioned_type()])];
 
-		// Act
 		let attribute_split = FieldVersionedTypeAttribute::parse_and_split(attributes).unwrap();
 
-		// Assert
 		assert!(attribute_split.versioned_type.override_span().is_none());
 		assert!(attribute_split.other_attributes.is_empty());
 	}
 
 	#[test]
 	fn field_versioned_type_attribute_rejects_extend() {
-		// Arrange
 		let attributes = vec![syn::parse_quote!(#[versioned_type(extend)])];
 
-		// Act
 		let error = match FieldVersionedTypeAttribute::parse_and_split(attributes) {
 			Ok(_) => panic!("expected field extend to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		assert!(error.to_string().contains("`extend` is not supported on fields"));
 	}
 
 	#[test]
 	fn field_versioned_type_attribute_rejects_duplicate_override_option() {
-		// Arrange
 		let attributes = vec![syn::parse_quote!(#[versioned_type(override, override)])];
 
-		// Act
 		let error = match FieldVersionedTypeAttribute::parse_and_split(attributes) {
 			Ok(_) => panic!("expected duplicate override option to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		assert!(error.to_string().contains("`override` is specified more than once"));
 	}
 
 	#[test]
 	fn field_versioned_type_attribute_rejects_override_arguments() {
-		// Arrange
 		let attributes = vec![syn::parse_quote!(#[versioned_type(override(foo))])];
 
-		// Act
 		let error = match FieldVersionedTypeAttribute::parse_and_split(attributes) {
 			Ok(_) => panic!("expected override arguments to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		assert!(error.to_string().contains("`override` does not accept arguments"));
 	}
 
 	#[test]
 	fn variant_versioned_type_attribute_parses_extend_and_override() {
-		// Arrange
 		let attributes = vec![syn::parse_quote!(#[versioned_type(extend, override)])];
 
-		// Act
 		let attribute_split = VariantVersionedTypeAttribute::parse_and_split(attributes).unwrap();
 
-		// Assert
 		assert!(matches!(
 			attribute_split.versioned_type.mode(),
 			VariantVersionedTypeMode::OverrideAndExtend { .. }
@@ -1545,13 +1362,10 @@ mod tests {
 
 	#[test]
 	fn variant_versioned_type_attribute_accepts_empty_options() {
-		// Arrange
 		let attributes = vec![syn::parse_quote!(#[versioned_type()])];
 
-		// Act
 		let attribute_split = VariantVersionedTypeAttribute::parse_and_split(attributes).unwrap();
 
-		// Assert
 		assert!(matches!(
 			attribute_split.versioned_type.mode(),
 			VariantVersionedTypeMode::Standalone
@@ -1561,43 +1375,36 @@ mod tests {
 
 	#[test]
 	fn variant_versioned_type_attribute_rejects_duplicate_extend_option() {
-		// Arrange
 		let attributes = vec![
 			syn::parse_quote!(#[versioned_type(extend)]),
 			syn::parse_quote!(#[versioned_type(extend)]),
 		];
 
-		// Act
 		let error = match VariantVersionedTypeAttribute::parse_and_split(attributes) {
 			Ok(_) => panic!("expected duplicate extend option to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		assert!(error.to_string().contains("`extend` is specified more than once"));
 	}
 
 	#[test]
 	fn variant_versioned_type_attribute_rejects_duplicate_override_option() {
-		// Arrange
 		let attributes = vec![
 			syn::parse_quote!(#[versioned_type(override)]),
 			syn::parse_quote!(#[versioned_type(override)]),
 		];
 
-		// Act
 		let error = match VariantVersionedTypeAttribute::parse_and_split(attributes) {
 			Ok(_) => panic!("expected duplicate override option to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		assert!(error.to_string().contains("`override` is specified more than once"));
 	}
 
 	#[test]
 	fn struct_extension_without_previous_version_errors() {
-		// Arrange
 		let tokens = quote::quote! {
 			#[versioned_type(extend)]
 			pub struct CallLogV1 {
@@ -1606,13 +1413,11 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected struct extension without previous version to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("Using `extend` requires"));
 		assert!(message.contains("there is no previous version"));
@@ -1620,7 +1425,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_without_previous_version_errors() {
-		// Arrange
 		let tokens = quote::quote! {
 			#[versioned_type(extend)]
 			pub enum CallLogV1 {
@@ -1629,13 +1433,11 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected enum extension without previous version to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("Using `extend` requires"));
 		assert!(message.contains("there is no previous version"));
@@ -1643,7 +1445,6 @@ mod tests {
 
 	#[test]
 	fn enum_rejects_variant_extend_without_previous_version() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum CallLogV1 {
 				#[versioned_type(extend)]
@@ -1654,13 +1455,11 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected variant extension without previous version to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("this variant should extend"));
 		assert!(message.contains("there is no previous version"));
@@ -1668,7 +1467,6 @@ mod tests {
 
 	#[test]
 	fn enum_rejects_variant_override_without_previous_version() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum CallLogV1 {
 				#[versioned_type(override)]
@@ -1679,13 +1477,11 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected variant override without previous version to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("this variant should override"));
 		assert!(message.contains("there is no previous version"));
@@ -1693,7 +1489,6 @@ mod tests {
 
 	#[test]
 	fn enum_rejects_variant_override_and_extend_without_previous_version() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum CallLogV1 {
 				#[versioned_type(override, extend)]
@@ -1704,13 +1499,11 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected variant override and extension to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("this variant should extend"));
 		assert!(message.contains("there is no previous version"));
@@ -1718,7 +1511,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_adds_new_variants_after_previous_variants() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -1735,10 +1527,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		assert_eq!(output.len(), 2);
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
@@ -1753,7 +1543,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_rejects_redefined_variant_without_override() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -1770,13 +1559,11 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected redefined variant to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("variant `Variant1` is already defined"));
 		assert!(message.contains("versioned_type(override)"));
@@ -1784,7 +1571,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_allows_variant_override() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -1802,10 +1588,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -1826,7 +1610,6 @@ mod tests {
 
 	#[test]
 	fn enum_variant_override_without_extension_rejects_field_override() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -1844,19 +1627,16 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected field override without field extension to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		assert!(error.to_string().contains("can only be used inside a type or variant"));
 	}
 
 	#[test]
 	fn enum_extension_allows_variant_override_and_field_extension_together() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -1877,10 +1657,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -1901,7 +1679,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_preserves_non_helper_variant_and_field_attributes() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -1922,10 +1699,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -1942,7 +1717,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_rejects_override_for_missing_variant() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -1960,13 +1734,11 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected missing variant override target to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("variant `Variant2` is marked as an override"));
 		assert!(message.contains("no variant with that name exists"));
@@ -1974,7 +1746,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_rejects_extend_for_missing_variant() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -1992,13 +1763,11 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected missing variant extension target to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("variant `Variant2` is marked as an extension"));
 		assert!(message.contains("no variant with that name exists"));
@@ -2006,7 +1775,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_rejects_override_and_extend_for_missing_variant() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -2024,13 +1792,11 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected missing variant override and extension target to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("variant `Variant2` is marked as an extension"));
 		assert!(message.contains("no variant with that name exists"));
@@ -2038,7 +1804,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_allows_variant_extend_without_override_for_existing_variant() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -2056,10 +1821,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -2077,7 +1840,6 @@ mod tests {
 
 	#[test]
 	fn enum_allows_variant_override_without_enum_extension() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -2100,10 +1862,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -2117,7 +1877,6 @@ mod tests {
 
 	#[test]
 	fn enum_allows_variant_extend_without_enum_extension() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -2140,10 +1899,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -2167,7 +1924,6 @@ mod tests {
 
 	#[test]
 	fn standalone_enum_redefines_previous_variant_without_inheriting_previous_shape() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -2183,10 +1939,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -2205,7 +1959,6 @@ mod tests {
 
 	#[test]
 	fn enum_allows_variant_override_and_extend_without_enum_extension() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -2231,10 +1984,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -2258,7 +2009,6 @@ mod tests {
 
 	#[test]
 	fn enum_rejects_type_level_override_attribute() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1,
@@ -2271,19 +2021,16 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected enum-level override to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		assert!(error.to_string().contains("`override` is not supported on types"));
 	}
 
 	#[test]
 	fn handler_strips_type_level_helper_attribute_from_struct_output() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV1 {
 				pub item1: SomeType,
@@ -2297,10 +2044,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Struct(item) = &output[1] else {
 			panic!("expected second item to be a struct");
 		};
@@ -2310,7 +2055,6 @@ mod tests {
 
 	#[test]
 	fn handler_strips_type_level_helper_attribute_from_enum_output() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum CallLogV1 {
 				Variant1,
@@ -2324,10 +2068,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -2337,7 +2079,6 @@ mod tests {
 
 	#[test]
 	fn handler_strips_noop_helper_attributes_from_standalone_variant_and_field() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum CallLogV1 {
 				#[doc = "variant docs"]
@@ -2351,10 +2092,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[0] else {
 			panic!("expected first item to be an enum");
 		};
@@ -2371,7 +2110,6 @@ mod tests {
 
 	#[test]
 	fn enum_rejects_duplicate_current_variants() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1,
@@ -2380,13 +2118,11 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected duplicate variant to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let messages = (&error).into_iter().map(|error| error.to_string()).collect::<Vec<_>>();
 		assert!(messages
 			.iter()
@@ -2398,7 +2134,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_variant_override_preserves_original_position() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1,
@@ -2419,10 +2154,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -2436,7 +2169,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_variant_extend_preserves_original_position() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1,
@@ -2457,10 +2189,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -2484,7 +2214,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_appends_new_variants_after_all_previous_variants() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1,
@@ -2499,10 +2228,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -2516,7 +2243,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_strips_variant_level_attributes() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -2534,10 +2260,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -2547,7 +2271,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_variant_extend_rejects_duplicate_field_without_field_override() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -2565,13 +2288,11 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected duplicate variant field to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("field `field1` is already defined"));
 		assert!(message.contains("versioned_type(override)"));
@@ -2579,7 +2300,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_variant_extend_rejects_missing_field_override_target() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -2598,13 +2318,11 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected missing field override target to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("field `field2` is marked as an override"));
 		assert!(message.contains("no field with that name exists"));
@@ -2612,7 +2330,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_variant_extend_supports_tuple_variant_fields() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1(SomeType),
@@ -2626,10 +2343,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -2647,7 +2362,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_variant_extend_names_previous_tuple_fields_before_named_fields() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1(SomeType),
@@ -2663,10 +2377,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -2686,7 +2398,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_variant_extend_supports_unit_to_named_fields() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1,
@@ -2702,10 +2413,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -2723,7 +2432,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_variant_extend_copies_named_fields_into_current_unit_variant() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -2739,10 +2447,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -2760,7 +2466,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_variant_extend_copies_tuple_fields_into_current_unit_variant() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1(SomeType),
@@ -2774,10 +2479,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -2795,7 +2498,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_variant_extend_supports_named_to_tuple_fields() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1 {
@@ -2811,10 +2513,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -2832,7 +2532,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_rejects_tuple_field_override_in_variant_extend() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyEnumV1 {
 				Variant1(SomeType),
@@ -2846,13 +2545,11 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected tuple field override to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("not supported on tuple fields"));
 		assert!(message.contains("stable names"));
@@ -2860,7 +2557,6 @@ mod tests {
 
 	#[test]
 	fn enum_allows_variant_extend_from_previous_struct() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct MyTypeV1 {
 				pub field1: SomeType,
@@ -2876,10 +2572,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -2897,7 +2591,6 @@ mod tests {
 
 	#[test]
 	fn enum_after_previous_struct_keeps_standalone_variant_independent() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct MyTypeV1 {
 				pub field1: SomeType,
@@ -2912,10 +2605,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -2933,7 +2624,6 @@ mod tests {
 
 	#[test]
 	fn enum_rejects_variant_override_from_previous_struct() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct MyTypeV1 {
 				pub field1: SomeType,
@@ -2948,13 +2638,11 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected variant override from previous struct to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("variant `Variant1` is marked as an override"));
 		assert!(message.contains("no variant with that name exists"));
@@ -2962,7 +2650,6 @@ mod tests {
 
 	#[test]
 	fn enum_rejects_variant_override_and_extend_from_previous_struct() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct MyTypeV1 {
 				pub field1: SomeType,
@@ -2977,13 +2664,11 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected variant override from previous struct to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("variant `Variant1` is marked as an override"));
 		assert!(message.contains("no variant with that name exists"));
@@ -2991,7 +2676,6 @@ mod tests {
 
 	#[test]
 	fn enum_variant_extension_from_struct_removes_copied_field_visibility() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct MyTypeV1 {
 				pub field1: SomeType,
@@ -3004,10 +2688,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
 			panic!("expected second item to be an enum");
 		};
@@ -3020,7 +2702,6 @@ mod tests {
 
 	#[test]
 	fn enum_extension_from_previous_struct_errors() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct MyEnumV1 {
 				pub field1: SomeType,
@@ -3035,13 +2716,11 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected enum extension from struct to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("enum can't be extended from a struct"));
 		assert!(message.contains("previous type"));
@@ -3049,7 +2728,6 @@ mod tests {
 
 	#[test]
 	fn struct_extension_from_previous_enum_errors() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub enum MyTypeV1 {
 				Variant1 {
@@ -3064,13 +2742,11 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let error = match handle_define_versioned_type(input) {
 			Ok(_) => panic!("expected struct extension from enum to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("struct can't be extended from an enum"));
 		assert!(message.contains("previous type"));
@@ -3078,7 +2754,6 @@ mod tests {
 
 	#[test]
 	fn rejects_name_without_version_suffix() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLog {
 				pub item: u32,
@@ -3086,16 +2761,13 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeItem>(tokens).unwrap();
 
-		// Act
 		let error = input.name_and_version().unwrap_err();
 
-		// Assert
 		assert!(error.to_string().contains("must end with `V`"));
 	}
 
 	#[test]
 	fn rejects_empty_version_suffix() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV {
 				pub item: u32,
@@ -3103,16 +2775,13 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeItem>(tokens).unwrap();
 
-		// Act
 		let error = input.name_and_version().unwrap_err();
 
-		// Assert
 		assert!(error.to_string().contains("positive integer after the `V`"));
 	}
 
 	#[test]
 	fn rejects_non_numeric_version_suffix() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogVLatest {
 				pub item: u32,
@@ -3120,16 +2789,13 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeItem>(tokens).unwrap();
 
-		// Act
 		let error = input.name_and_version().unwrap_err();
 
-		// Assert
 		assert!(error.to_string().contains("positive integer"));
 	}
 
 	#[test]
 	fn rejects_zero_version_suffix() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV0 {
 				pub item: u32,
@@ -3137,16 +2803,13 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeItem>(tokens).unwrap();
 
-		// Act
 		let error = input.name_and_version().unwrap_err();
 
-		// Assert
 		assert!(error.to_string().contains("must start at 1"));
 	}
 
 	#[test]
 	fn rejects_version_suffix_with_leading_zero() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV01 {
 				pub item: u32,
@@ -3154,16 +2817,13 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeItem>(tokens).unwrap();
 
-		// Act
 		let error = input.name_and_version().unwrap_err();
 
-		// Assert
 		assert!(error.to_string().contains("must not contain leading zeros"));
 	}
 
 	#[test]
 	fn rejects_duplicate_versions_with_descriptive_error() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV1 {
 				pub item: u32,
@@ -3174,13 +2834,11 @@ mod tests {
 			}
 		};
 
-		// Act
 		let error = match parse2::<DefineVersionedTypeInput>(tokens) {
 			Ok(_) => panic!("expected duplicate version to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("duplicate version V1"));
 		assert!(message.contains("already defined"));
@@ -3188,7 +2846,6 @@ mod tests {
 
 	#[test]
 	fn rejects_duplicate_versions_when_definitions_are_not_adjacent() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV1 {
 				pub item1: u8,
@@ -3203,13 +2860,11 @@ mod tests {
 			}
 		};
 
-		// Act
 		let error = match parse2::<DefineVersionedTypeInput>(tokens) {
 			Ok(_) => panic!("expected duplicate version to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("duplicate version V1"));
 		assert!(message.contains("already defined"));
@@ -3217,7 +2872,6 @@ mod tests {
 
 	#[test]
 	fn rejects_items_with_different_base_names() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV1 {
 				pub item: u32,
@@ -3228,13 +2882,11 @@ mod tests {
 			}
 		};
 
-		// Act
 		let error = match parse2::<DefineVersionedTypeInput>(tokens) {
 			Ok(_) => panic!("expected mixed type names to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("must define versions of the same type"));
 		assert!(message.contains("SomeOtherLog"));
@@ -3243,7 +2895,6 @@ mod tests {
 
 	#[test]
 	fn allows_contiguous_versions_that_do_not_start_at_one() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV3 {
 				pub item: u32,
@@ -3254,10 +2905,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Assert
 		assert_eq!(input.definitions.len(), 2);
 		assert_eq!(input.name, Some("CallLog".to_string()));
 		assert_eq!(input.highest_version.map(|version| version.value()), Some(4));
@@ -3265,30 +2914,24 @@ mod tests {
 
 	#[test]
 	fn allows_empty_input() {
-		// Arrange
 		let tokens = quote::quote! {};
 
-		// Act
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Assert
 		assert_eq!(input.name, None);
 		assert!(input.definitions.is_empty());
 	}
 
 	#[test]
 	fn allows_single_version_that_does_not_start_at_one() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV9 {
 				pub item: u32,
 			}
 		};
 
-		// Act
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Assert
 		assert_eq!(input.name, Some("CallLog".to_string()));
 		assert_eq!(input.highest_version.map(|version| version.value()), Some(9));
 		assert_eq!(input.definitions.len(), 1);
@@ -3297,7 +2940,6 @@ mod tests {
 
 	#[test]
 	fn allows_contiguous_versions_defined_out_of_source_order() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV4 {
 				pub item: u64,
@@ -3308,10 +2950,8 @@ mod tests {
 			}
 		};
 
-		// Act
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Assert
 		let versions = input.definitions.keys().map(|version| version.value()).collect::<Vec<_>>();
 		assert_eq!(input.highest_version.map(|version| version.value()), Some(4));
 		assert_eq!(versions, vec![3, 4]);
@@ -3319,7 +2959,6 @@ mod tests {
 
 	#[test]
 	fn output_emits_latest_alias_for_highest_version() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV1 {
 				pub item1: u8,
@@ -3332,17 +2971,14 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 		let output_tokens = quote::quote!(#output).to_string();
 
-		// Assert
 		assert!(output_tokens.contains("pub type LatestCallLog = CallLogV2 ;"));
 	}
 
 	#[test]
 	fn latest_alias_does_not_emit_unenforced_generic_bounds() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV1<T: Clone>
 			where
@@ -3353,11 +2989,9 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 		let latest_alias = output.latest_alias.as_ref().unwrap();
 
-		// Assert
 		assert!(latest_alias.item.generics.where_clause.is_none());
 		assert!(latest_alias.item.generics.params.iter().all(|param| match param {
 			GenericParam::Type(param) => param.bounds.is_empty(),
@@ -3368,7 +3002,6 @@ mod tests {
 
 	#[test]
 	fn handler_extends_versions_in_numeric_order_when_source_order_differs() {
-		// Arrange
 		let tokens = quote::quote! {
 			#[versioned_type(extend)]
 			pub struct CallLogV4 {
@@ -3381,10 +3014,8 @@ mod tests {
 		};
 		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
 
-		// Act
 		let output = handle_define_versioned_type(input).unwrap();
 
-		// Assert
 		let item_names = output.iter().map(|item| item.ident().to_string()).collect::<Vec<_>>();
 		let DefineVersionedTypeItem::Struct(item) = &output[1] else {
 			panic!("expected second item to be a struct");
@@ -3403,7 +3034,6 @@ mod tests {
 
 	#[test]
 	fn rejects_missing_single_version_between_definitions() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV3 {
 				pub item: u32,
@@ -3414,13 +3044,11 @@ mod tests {
 			}
 		};
 
-		// Act
 		let error = match parse2::<DefineVersionedTypeInput>(tokens) {
 			Ok(_) => panic!("expected missing version to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("must be contiguous"));
 		assert!(message.contains("missing version V4 before V5"));
@@ -3428,7 +3056,6 @@ mod tests {
 
 	#[test]
 	fn rejects_missing_version_range_between_definitions() {
-		// Arrange
 		let tokens = quote::quote! {
 			pub struct CallLogV3 {
 				pub item: u32,
@@ -3439,13 +3066,11 @@ mod tests {
 			}
 		};
 
-		// Act
 		let error = match parse2::<DefineVersionedTypeInput>(tokens) {
 			Ok(_) => panic!("expected missing version range to fail"),
 			Err(error) => error,
 		};
 
-		// Assert
 		let message = error.to_string();
 		assert!(message.contains("must be contiguous"));
 		assert!(message.contains("missing versions V4..V6 before V7"));
