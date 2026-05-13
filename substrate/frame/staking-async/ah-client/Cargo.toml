@@ -59,4 +59,4 @@ try-runtime = [
 ]
 
 [dev-dependencies]
-sp-io = { workspace = true, default-features = false }
+sp-io = { default-features = false, workspace = true }

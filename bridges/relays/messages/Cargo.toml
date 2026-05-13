@@ -26,4 +26,4 @@ sp-arithmetic.default-features = true
 sp-arithmetic.workspace = true
 
 [dev-dependencies]
-sp-core = { workspace = true, default-features = false }
+sp-core = { default-features = false, workspace = true }

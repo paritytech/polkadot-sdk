@@ -44,7 +44,7 @@ xcm-builder.workspace = true
 xcm-executor.workspace = true
 
 [dev-dependencies]
-pallet-message-queue = { workspace = true, default-features = false }
+pallet-message-queue = { default-features = false, workspace = true }
 snowbridge-test-utils = { workspace = true }
 
 [features]

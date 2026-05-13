@@ -108,7 +108,7 @@ xcm-runtime-apis.workspace = true
 remote-externalities = { default-features = true, workspace = true }
 serde_json = { workspace = true, default-features = true }
 sp-keyring = { default-features = true, workspace = true }
-sp-tracing = { workspace = true, default-features = false }
+sp-tracing = { default-features = false, workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [build-dependencies]

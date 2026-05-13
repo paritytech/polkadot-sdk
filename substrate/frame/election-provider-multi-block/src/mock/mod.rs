@@ -37,7 +37,7 @@ use frame_election_provider_support::{
 };
 pub use frame_support::{assert_noop, assert_ok};
 use frame_support::{
-	derive_impl, parameter_types,
+	derive_impl, ord_parameter_types, parameter_types,
 	traits::{fungible::InspectHold, Hooks},
 	weights::{constants, Weight},
 };
@@ -173,6 +173,10 @@ parameter_types! {
 	pub static AreWeDone: AreWeDoneModes = AreWeDoneModes::Proceed;
 }
 
+ord_parameter_types! {
+	pub const Manager: AccountId = 7;
+}
+
 impl Get<Phase<Runtime>> for AreWeDone {
 	fn get() -> Phase<Runtime> {
 		match <Self as Get<AreWeDoneModes>>::get() {
@@ -227,6 +231,7 @@ impl crate::Config for Runtime {
 	type WeightInfo = ();
 	type Verifier = VerifierPallet;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type ManagerOrigin = frame_system::EnsureSignedBy<Manager, AccountId>;
 	type Pages = Pages;
 	type AreWeDone = AreWeDone;
 	type OnRoundRotation = CleanRound<Self>;

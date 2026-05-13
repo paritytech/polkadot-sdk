@@ -61,7 +61,7 @@ anyhow = { workspace = true }
 assert_matches = { workspace = true }
 chrono = { workspace = true }
 criterion = { workspace = true, default-features = true }
-cumulus-zombienet-sdk-helpers = { workspace = true, default-features = false }
+cumulus-zombienet-sdk-helpers = { default-features = false, workspace = true }
 env_logger = { workspace = true }
 rstest = { workspace = true }
 sc-block-builder = { default-features = true, workspace = true }

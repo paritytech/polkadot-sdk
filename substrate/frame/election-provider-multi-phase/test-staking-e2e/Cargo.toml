@@ -23,7 +23,7 @@ scale-info = { features = ["derive"], workspace = true, default-features = true 
 
 sp-core = { default-features = true, workspace = true }
 sp-io = { default-features = true, workspace = true }
-sp-npos-elections = { workspace = true, default-features = false }
+sp-npos-elections = { default-features = false, workspace = true }
 sp-runtime = { default-features = true, workspace = true }
 sp-staking = { default-features = true, workspace = true }
 sp-tracing = { default-features = true, workspace = true }

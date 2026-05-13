@@ -1336,6 +1336,10 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	fn weigh_on_new_offences(offence_count: u32) -> Weight {
 		T::WeightInfo::rc_on_offence(offence_count)
 	}
+
+	fn active_era_start_session_index() -> SessionIndex {
+		Rotator::<T>::active_era_start_session_index()
+	}
 }
 
 impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {

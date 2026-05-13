@@ -30,7 +30,7 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives = { features = ["test"], workspace = true, default-features = false }
+polkadot-primitives = { features = ["test"], default-features = false, workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 sp-application-crypto = { default-features = true, workspace = true }
 sp-keystore = { default-features = true, workspace = true }

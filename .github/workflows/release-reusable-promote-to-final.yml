@@ -63,7 +63,9 @@ jobs:
               fetch_release_artifacts_from_s3 "$package" "$TARGET"
             done
             NODE_VERSION="$(get_polkadot_node_version_from_code)"
+
             fetch_debian_package_from_s3 polkadot
+            fetch_rpm_package_from_s3 polkadot
           else
             fetch_release_artifacts_from_s3 "$PACKAGE" "$TARGET"
           fi

@@ -289,7 +289,17 @@ pub trait Benchmarking {
 
 	/// Commit pending storage changes to the trie database and clear the database cache.
 	fn commit_db(&mut self) {
-		self.commit()
+		self.commit();
+
+		// Warmup the memory allocator after bulk deallocation.
+		// After draining the overlay with many entries, the first new allocation can trigger memory
+		// defragmentation.
+		const WARMUP_KEY: &[u8] = b":benchmark_warmup:";
+		self.place_storage(WARMUP_KEY.to_vec(), Some(vec![0u8; 32]));
+		self.place_storage(WARMUP_KEY.to_vec(), None);
+
+		// Reset tracking so warmup operations don't appear in benchmark results.
+		self.reset_read_write_count();
 	}
 
 	/// Get the read/write count.

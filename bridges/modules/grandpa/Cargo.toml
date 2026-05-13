@@ -27,7 +27,7 @@ sp-std.workspace = true
 tracing = { workspace = true }
 
 [dev-dependencies]
-bp-runtime = { features = ["test-helpers"], workspace = true, default-features = false }
+bp-runtime = { features = ["test-helpers"], default-features = false, workspace = true }
 sp-core = { default-features = true, workspace = true }
 sp-io = { default-features = true, workspace = true }
 

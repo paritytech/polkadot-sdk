@@ -1,0 +1,19 @@
+{% if env.NO_RUNTIMES == "true" -%}
+ℹ️ **Please note:**
+
+This is a patch release for the latest stable version: `{{ env.STABLE_VERSION }}`. If your nodes are already running on this stable release,
+you should upgrade to this patch version to get the latest fixes.
+
+The tag corresponding to the current patch release `{{ env.REF2 }}` and matching the old pattern will be
+available under [polkadot-{{ env.NODE_VERSION }}](https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-{{ env.NODE_VERSION }}).
+{% endif -%}
+
+{% if env.CRATES_ONLY == "true" -%}
+ℹ️ **Please note:**
+
+⚠️ This is a patch release for the stable version: `{{ env.STABLE_VERSION }}` and contains only patches and fixes to the crates (list
+below). No binary or docker images will be provided for this release.
+
+The tag corresponding to the current patch release `{{ env.REF2 }}` and matching the old pattern will be
+available under [polkadot-{{ env.NODE_VERSION }}](https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-{{ env.NODE_VERSION }}).
+{% endif -%}

@@ -20,13 +20,6 @@ chain-spec-builder.workspace = true
 clap = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
 color-print = { workspace = true }
-docify = { workspace = true }
-futures = { workspace = true }
-log = { workspace = true, default-features = true }
-serde = { features = ["derive"], workspace = true, default-features = true }
-serde_json = { workspace = true, default-features = true }
-
-# Local
 cumulus-client-bootnodes.default-features = true
 cumulus-client-bootnodes.workspace = true
 cumulus-client-cli.default-features = true
@@ -51,6 +44,7 @@ cumulus-primitives-core.default-features = true
 cumulus-primitives-core.workspace = true
 cumulus-relay-chain-interface.default-features = true
 cumulus-relay-chain-interface.workspace = true
+docify = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true, default-features = true }
 frame-benchmarking-cli.default-features = true
 frame-benchmarking-cli.workspace = true
@@ -58,8 +52,10 @@ frame-support = { optional = true, workspace = true, default-features = true }
 frame-system-rpc-runtime-api.default-features = true
 frame-system-rpc-runtime-api.workspace = true
 frame-try-runtime = { optional = true, workspace = true, default-features = true }
+futures = { workspace = true }
 futures-timer = { workspace = true }
 jsonrpsee = { features = ["server"], workspace = true }
+log = { workspace = true, default-features = true }
 pallet-transaction-payment.default-features = true
 pallet-transaction-payment.workspace = true
 pallet-transaction-payment-rpc.default-features = true
@@ -118,6 +114,8 @@ sc-transaction-pool.workspace = true
 sc-transaction-pool-api.default-features = true
 sc-transaction-pool-api.workspace = true
 scale-info = { workspace = true }
+serde = { features = ["derive"], workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
 sp-api.default-features = true
 sp-api.workspace = true
 sp-block-builder.default-features = true

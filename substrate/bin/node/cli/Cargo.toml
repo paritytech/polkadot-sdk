@@ -74,7 +74,7 @@ pretty_assertions.workspace = true
 regex = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true, default-features = true }
 soketto = { workspace = true }
-sp-keyring = { workspace = true, default-features = false }
+sp-keyring = { default-features = false, workspace = true }
 tempfile = { workspace = true }
 tokio = { features = ["macros", "parking_lot", "time"], workspace = true, default-features = true }
 tokio-util = { features = ["compat"], workspace = true }

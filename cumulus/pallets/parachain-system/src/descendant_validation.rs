@@ -485,7 +485,8 @@ mod tests {
 		next_authorities: Option<Vec<(AuthorityId, BabeAuthorityWeight)>>,
 	) -> RelayChainStateProof {
 		// Create a mock implementation or structure, adjust this to match the proof's definition
-		let mut proof_builder = RelayStateSproofBuilder::default();
+		let mut proof_builder =
+			RelayStateSproofBuilder { num_authorities: 0, ..Default::default() };
 		if let Some(authorities) = authorities {
 			proof_builder
 				.additional_key_values

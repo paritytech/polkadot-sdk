@@ -743,6 +743,7 @@ impl_runtime_apis! {
 				}.into(),
 			);
 			sp_io::offchain::submit_transaction(ext.encode()).unwrap();
+			Executive::offchain_worker(header);
 		}
 	}
 

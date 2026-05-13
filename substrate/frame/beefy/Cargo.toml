@@ -35,7 +35,7 @@ pallet-timestamp = { default-features = true, workspace = true }
 sp-core = { default-features = true, workspace = true }
 sp-io = { default-features = true, workspace = true }
 sp-staking = { default-features = true, workspace = true }
-sp-state-machine = { workspace = true, default-features = false }
+sp-state-machine = { default-features = false, workspace = true }
 sp-tracing = { default-features = true, workspace = true }
 
 [features]

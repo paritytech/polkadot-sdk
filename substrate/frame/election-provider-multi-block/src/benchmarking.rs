@@ -21,7 +21,7 @@ use crate::{
 };
 use frame_benchmarking::v2::*;
 use frame_election_provider_support::{ElectionDataProvider, ElectionProvider};
-use frame_support::pallet_prelude::*;
+use frame_support::{assert_ok, pallet_prelude::*};
 
 const SNAPSHOT_NOT_BIG_ENOUGH: &'static str = "Snapshot page is not full, you should run this \
 benchmark with enough genesis stakers in staking (DataProvider) to fill a page of voters/targets \
@@ -253,10 +253,81 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn manage() -> Result<(), BenchmarkError> {
-		// TODO
+	fn manage_fallback() -> Result<(), BenchmarkError> {
+		// heaviest case is emergency set.
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
+
+		// roll to signed so the snapshot exists
+		Pallet::<T>::roll_until_before_matches(|| {
+			matches!(CurrentPhase::<T>::get(), Phase::Signed(_))
+		});
+
+		// set phase to emergency
+		CurrentPhase::<T>::set(Phase::Emergency);
+		let origin = T::ManagerOrigin::try_successful_origin()
+			.map_err(|_| -> BenchmarkError { "cannot create manager origin".into() })?;
 		#[block]
-		{}
+		{
+			// fallback might decide to fail, that's okay..
+			let maybe_err = Pallet::<T>::manage(origin, crate::ManagerOperation::EmergencyFallback);
+			//.. but it cannot be bad origin.
+			assert!(maybe_err.is_ok() || maybe_err.unwrap_err() != DispatchError::BadOrigin.into());
+		}
+
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn admin_set() -> Result<(), BenchmarkError> {
+		// heaviest case is emergency set.
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
+
+		// mine a single page solution.
+		let solution = crate::Pallet::<T>::roll_to_signed_and_mine_solution(1);
+
+		// verify to get the support.
+		let (voter_pages, all_targets, desired_targets) =
+			crate::unsigned::miner::OffchainWorkerMiner::<T>::fetch_snapshot(T::Pages::get())
+				.map_err(|_| -> BenchmarkError { "fetch_snapshot".into() })?;
+		let supports = crate::unsigned::miner::BaseMiner::<T::MinerConfig>::check_feasibility(
+			&solution,
+			&voter_pages,
+			&all_targets,
+			desired_targets,
+		)
+		.map_err(|_| -> BenchmarkError { "check_feasibility".into() })?;
+
+		let single_support = supports
+			.first()
+			.cloned()
+			.ok_or_else(|| -> BenchmarkError { "no support".into() })?;
+
+		// set phase to emergency
+		CurrentPhase::<T>::set(Phase::Emergency);
+
+		// nothing is queued in verified just yet.
+		assert!(<T::Verifier as Verifier>::queued_score().is_none());
+
+		let origin = T::AdminOrigin::try_successful_origin()
+			.map_err(|_| -> BenchmarkError { "cannot create admin origin".into() })?;
+		#[block]
+		{
+			assert_ok!(Pallet::<T>::admin(
+				origin,
+				crate::AdminOperation::EmergencySetSolution(
+					sp_std::boxed::Box::new(single_support),
+					solution.score,
+				),
+			));
+		}
+
+		// something is queued now.
+		assert!(<T::Verifier as Verifier>::queued_score().is_some());
+
 		Ok(())
 	}
 

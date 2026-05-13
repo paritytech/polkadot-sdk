@@ -45,6 +45,10 @@ jobs:
             aws-region: ${{ env.AWS_REGION }}
 
         - name: Upload ${{ inputs.package }} artifacts to s3
+          env:
+            PACKAGE: ${{ inputs.package }}
+            RELEASE_TAG: ${{ inputs.release_tag }}
+            TARGET: ${{ inputs.target }}
           run: |
             . ./.github/scripts/release/release_lib.sh
-            upload_s3_release ${{ inputs.package }} ${{ inputs.release_tag }} ${{ inputs.target }}
+            upload_s3_release "$PACKAGE" "$RELEASE_TAG" "$TARGET"

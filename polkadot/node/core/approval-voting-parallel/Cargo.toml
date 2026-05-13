@@ -50,4 +50,4 @@ schnorrkel = { workspace = true, default-features = true }
 sp-consensus-babe = { default-features = true, workspace = true }
 sp-core = { default-features = true, workspace = true }
 sp-keyring = { default-features = true, workspace = true }
-sp-tracing = { workspace = true, default-features = false }
+sp-tracing = { default-features = false, workspace = true }

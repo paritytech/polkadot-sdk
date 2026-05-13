@@ -27,8 +27,8 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-pallet-verify-signature = { workspace = true, default-features = false }
-sp-core = { workspace = true, default-features = false }
+pallet-verify-signature = { default-features = false, workspace = true }
+sp-core = { default-features = false, workspace = true }
 sp-keyring = { default-features = true, workspace = true }
 
 [features]
