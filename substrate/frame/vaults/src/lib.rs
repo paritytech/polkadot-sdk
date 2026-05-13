@@ -67,7 +67,7 @@ pub mod pallet {
 				},
 				PalletId,
 			},
-			sp_runtime::{traits::AccountIdConversion, FixedU128, Permill},
+			sp_runtime::{traits::AccountIdConversion, FixedPointOperand, FixedU128, Permill},
 		},
 		prelude::*,
 	};
@@ -93,12 +93,13 @@ pub mod pallet {
 		/// Identifier for collateral assets.
 		type AssetId: Parameter + Member + Copy + Ord + MaxEncodedLen;
 
-		/// Multi-asset collateral implementation. Balance must be convertible
-		/// from/into `u128` for the fixed-point math the pallet performs.
+		/// Multi-asset collateral implementation. Balance must be a
+		/// [`FixedPointOperand`] so the pallet's `FixedU128`-based math can
+		/// operate on it directly without round-tripping through `u128`.
 		type CollateralAssets: FungiblesMutateHold<
 			Self::AccountId,
 			AssetId = Self::AssetId,
-			Balance: From<u128> + Into<u128>,
+			Balance: FixedPointOperand,
 			Reason = Self::RuntimeHoldReason,
 		>;
 

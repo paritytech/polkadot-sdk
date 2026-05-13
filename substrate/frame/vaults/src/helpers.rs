@@ -68,22 +68,6 @@ fn oracle_price<T: Config>(
 	T::Oracle::provide_price(&collateral_id)
 }
 
-/// Convert a `BalanceOf<T>` to `u128`. Helper because we go through `u128`
-/// for almost every fixed-point computation.
-fn b_to_u128<T: Config>(b: BalanceOf<T>) -> u128
-where
-	BalanceOf<T>: Copy + Into<u128>,
-{
-	b.into()
-}
-
-fn u128_to_b<T: Config>(x: u128) -> BalanceOf<T>
-where
-	BalanceOf<T>: From<u128>,
-{
-	BalanceOf::<T>::from(x)
-}
-
 /// Read the branch state, returning `UnknownCollateral` when missing.
 fn branch_state_of<T: Config>(
 	collateral_id: T::AssetId,
@@ -101,7 +85,6 @@ fn branch_cfg_of<T: Config>(
 /// Mode is `Frozen` if persisted, otherwise derived from live TCR.
 pub fn current_mode<T: Config>(collateral_id: &T::AssetId) -> Result<BranchMode, DispatchError>
 where
-	BalanceOf<T>: Copy + Zero + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	let bs = branch_state_of::<T>(*collateral_id)?;
@@ -132,25 +115,24 @@ pub fn compute_tcr<T: Config>(
 	now: MomentOf<T>,
 ) -> Result<FixedU128, DispatchError>
 where
-	BalanceOf<T>: Copy + Zero + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	let elapsed = millis_diff::<T>(now, bs.last_aggregate_interest_update);
-	let pending_aggregate = math::simple_interest_ceil::<u128>(
-		b_to_u128::<T>(bs.weighted_interest_bearing_debt_sum),
-		FixedU128::saturating_from_integer(1u128),
+	let pending_aggregate = math::simple_interest_ceil(
+		bs.weighted_interest_bearing_debt_sum,
+		FixedU128::one(),
 		elapsed,
 	);
-	let total_debt = b_to_u128::<T>(bs.total_interest_bearing_debt)
-		.saturating_add(b_to_u128::<T>(bs.total_minted_aggregate_interest))
+	let total_debt = bs
+		.total_interest_bearing_debt
+		.saturating_add(bs.total_minted_aggregate_interest)
 		.saturating_add(pending_aggregate)
-		.saturating_add(b_to_u128::<T>(bs.pending_redistribution_debt))
-		.saturating_add(b_to_u128::<T>(bs.bad_debt));
-	if total_debt == 0 {
+		.saturating_add(bs.pending_redistribution_debt)
+		.saturating_add(bs.bad_debt);
+	if total_debt.is_zero() {
 		return Ok(FixedU128::saturating_from_integer(u128::MAX));
 	}
-	let total_coll = b_to_u128::<T>(bs.total_collateral);
-	let value = price.saturating_mul(FixedU128::saturating_from_integer(total_coll));
+	let value = price.saturating_mul(FixedU128::saturating_from_integer(bs.total_collateral));
 	// `total_debt > 0` checked above; `checked_div` returns `Some(value/denom)`
 	// for any nonzero denom. The `Option<None>` case here means an overflow
 	// inside `FixedU128::checked_div`; we surface as ArithmeticOverflow.
@@ -167,7 +149,6 @@ pub fn update_aggregate_interest<T: Config>(
 	now: MomentOf<T>,
 ) -> Result<(), DispatchError>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
@@ -181,22 +162,21 @@ where
 		if elapsed == 0 {
 			return Ok(());
 		}
-		let weighted = b_to_u128::<T>(bs.weighted_interest_bearing_debt_sum);
-		let new_interest = math::simple_interest_ceil::<u128>(
-			weighted,
-			FixedU128::saturating_from_integer(1u128),
+		let new_interest = math::simple_interest_ceil(
+			bs.weighted_interest_bearing_debt_sum,
+			FixedU128::one(),
 			elapsed,
 		);
 		bs.last_aggregate_interest_update = now;
-		if new_interest == 0 {
+		if new_interest.is_zero() {
 			return Ok(());
 		}
 		bs.total_minted_aggregate_interest =
-			bs.total_minted_aggregate_interest.saturating_add(u128_to_b::<T>(new_interest));
+			bs.total_minted_aggregate_interest.saturating_add(new_interest);
 		// Issue pUSD and route per `SpYieldShare`. The credit is split into
 		// SP-bound and residual halves; `SpYieldSink` consumes the SP credit
 		// and `FeeHandler::on_unbalanced` consumes the residual.
-		let credit = T::StableAsset::issue(u128_to_b::<T>(new_interest));
+		let credit = T::StableAsset::issue(new_interest);
 		let share: Permill = T::SpYieldShare::get();
 		let sp_amount = share * credit.peek();
 		let (sp_credit, residual_credit) = credit.split(sp_amount);
@@ -229,7 +209,6 @@ pub fn touch_vault<T: Config>(
 	now: MomentOf<T>,
 ) -> Result<(), DispatchError>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	let mut vault = match Vaults::<T>::get(collateral_id, owner) {
@@ -242,19 +221,15 @@ where
 
 	// 1. Stored-principal pending interest.
 	let elapsed = millis_diff::<T>(now, vault.last_interest_update);
-	let principal_interest = math::simple_interest_floor::<u128>(
-		b_to_u128::<T>(vault.interest_bearing_debt),
-		vault.annual_rate,
-		elapsed,
-	);
+	let principal_interest =
+		math::simple_interest_floor(vault.interest_bearing_debt, vault.annual_rate, elapsed);
 
 	// 2. Pending redistribution principal/collateral/interest if epoch lags.
-	let mut redist_debt_principal: u128 = 0;
-	let mut redist_collat: u128 = 0;
-	let mut redist_interest: u128 = 0;
+	let mut redist_debt_principal = BalanceOf::<T>::zero();
+	let mut redist_collat = BalanceOf::<T>::zero();
+	let mut redist_interest = BalanceOf::<T>::zero();
 	if vault.redist_epoch != bs.redist_epoch {
 		let snap = VaultRedistSnapshots::<T>::get(collateral_id, owner).unwrap_or_default();
-		let stake_fp = FixedU128::saturating_from_integer(b_to_u128::<T>(vault.stake));
 		let delta_debt_per_stake =
 			redist.cumulative_redist_debt_per_stake.saturating_sub(snap.debt_per_stake);
 		let delta_collat_per_stake =
@@ -262,71 +237,59 @@ where
 		let delta_dt_per_stake = redist
 			.cumulative_redist_debt_time_per_stake
 			.saturating_sub(snap.debt_time_per_stake);
-		// Floor everything for vault attribution. `saturating_mul_int(1)` on a
-		// FixedU128 returns `floor(self.inner / DIV)` — the canonical
-		// FixedU128-to-integer-floor without bare `/ DIV`.
-		redist_debt_principal =
-			delta_debt_per_stake.saturating_mul(stake_fp).saturating_mul_int(1u128);
-		redist_collat = delta_collat_per_stake.saturating_mul(stake_fp).saturating_mul_int(1u128);
+		// Floor everything for vault attribution. `saturating_mul_int(stake)`
+		// computes `floor(per_stake_fixed * stake)` directly into Balance.
+		redist_debt_principal = delta_debt_per_stake.saturating_mul_int(vault.stake);
+		redist_collat = delta_collat_per_stake.saturating_mul_int(vault.stake);
 		// Interest accrued on redistributed debt from the time it was
 		// liquidated up to `now`. Approximated by:
 		// `delta_debt_per_stake * stake * annual_rate * (now - last_redist) / year`.
 		// Since we only track cumulative_redist_debt_time_per_stake, we get the
-		// area-under-the-curve for this vault directly.
+		// area-under-the-curve per stake directly.
 		// Round down for vault attribution, dust stays in branch aggregates.
-		let now_fp = FixedU128::saturating_from_integer(moment_to_millis::<T>(now) as u128);
-		let extra = now_fp.saturating_mul(delta_debt_per_stake).saturating_sub(delta_dt_per_stake);
-		// extra is per-stake "debt * milliseconds"; multiply by stake, by
-		// rate, divide by MILLIS_PER_YEAR, all rounded down.
-		let area = extra.saturating_mul(stake_fp);
+		let now_fp = FixedU128::saturating_from_integer(moment_to_millis::<T>(now));
+		let extra_per_stake =
+			now_fp.saturating_mul(delta_debt_per_stake).saturating_sub(delta_dt_per_stake);
 		// MILLIS_PER_YEAR is a non-zero compile-time constant, so `checked_div`
 		// can only return `None` on overflow — defensively fall back to zero.
 		let rate_factor = vault
 			.annual_rate
-			.checked_div(&FixedU128::saturating_from_integer(
-				pusd_primitives::MILLIS_PER_YEAR as u128,
-			))
+			.checked_div(&FixedU128::saturating_from_integer(pusd_primitives::MILLIS_PER_YEAR))
 			.unwrap_or_else(FixedU128::zero);
-		redist_interest = area.saturating_mul(rate_factor).saturating_mul_int(1u128);
+		redist_interest =
+			extra_per_stake.saturating_mul(rate_factor).saturating_mul_int(vault.stake);
 	}
 
 	// 3. Apply.
 	let total_pending_interest = principal_interest.saturating_add(redist_interest);
-	if total_pending_interest > 0 {
-		vault.accrued_interest =
-			vault.accrued_interest.saturating_add(u128_to_b::<T>(total_pending_interest));
+	if !total_pending_interest.is_zero() {
+		vault.accrued_interest = vault.accrued_interest.saturating_add(total_pending_interest);
 		Pallet::<T>::deposit_event(Event::InterestAccrued {
 			collateral_id,
 			owner: owner.clone(),
-			amount: u128_to_b::<T>(total_pending_interest),
+			amount: total_pending_interest,
 		});
 	}
-	if redist_debt_principal > 0 {
+	if !redist_debt_principal.is_zero() {
 		// Move principal from pending to interest_bearing.
-		let actual =
-			core::cmp::min(redist_debt_principal, b_to_u128::<T>(bs.pending_redistribution_debt));
-		bs.pending_redistribution_debt =
-			bs.pending_redistribution_debt.saturating_sub(u128_to_b::<T>(actual));
-		bs.total_interest_bearing_debt =
-			bs.total_interest_bearing_debt.saturating_add(u128_to_b::<T>(actual));
+		let actual = core::cmp::min(redist_debt_principal, bs.pending_redistribution_debt);
+		bs.pending_redistribution_debt = bs.pending_redistribution_debt.saturating_sub(actual);
+		bs.total_interest_bearing_debt = bs.total_interest_bearing_debt.saturating_add(actual);
 		// Reconcile this vault's share of the avg-rate weighted contribution
 		// that was folded into the branch interest base at liquidation. Subtract
 		// the avg-rate share, add the recipient-rate share.
 		let snap = VaultRedistSnapshots::<T>::get(collateral_id, owner).unwrap_or_default();
 		let delta_weight_per_stake =
 			redist.cumulative_redist_weight_per_stake.saturating_sub(snap.weight_per_stake);
-		let stake_fp = FixedU128::saturating_from_integer(b_to_u128::<T>(vault.stake));
-		let weight_to_remove =
-			delta_weight_per_stake.saturating_mul(stake_fp).saturating_mul_int(1u128);
-		let weight_to_add = math::weighted_stake::<u128>(actual, vault.annual_rate);
+		let weight_to_remove = delta_weight_per_stake.saturating_mul_int(vault.stake);
+		let weight_to_add = vault.annual_rate.saturating_mul_int(actual);
 		bs.weighted_interest_bearing_debt_sum = bs
 			.weighted_interest_bearing_debt_sum
-			.saturating_sub(u128_to_b::<T>(weight_to_remove))
-			.saturating_add(u128_to_b::<T>(weight_to_add));
-		vault.interest_bearing_debt =
-			vault.interest_bearing_debt.saturating_add(u128_to_b::<T>(actual));
+			.saturating_sub(weight_to_remove)
+			.saturating_add(weight_to_add);
+		vault.interest_bearing_debt = vault.interest_bearing_debt.saturating_add(actual);
 	}
-	if redist_collat > 0 {
+	if !redist_collat.is_zero() {
 		// Transfer collateral on hold from the pallet redistribution account
 		// to the owner. `Restriction::OnHold` keeps the receiver's hold
 		// aligned with the vault's collateral.
@@ -335,7 +298,7 @@ where
 			&HoldReason::VaultCollateral.into(),
 			&Pallet::<T>::redistribution_account(),
 			owner,
-			u128_to_b::<T>(redist_collat),
+			redist_collat,
 			Precision::BestEffort,
 			Restriction::OnHold,
 			Fortitude::Polite,
@@ -392,30 +355,24 @@ pub fn open_upfront_fee<T: Config>(
 	new_rate: FixedU128,
 ) -> BalanceOf<T>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
-	let total_ib = b_to_u128::<T>(bs.total_interest_bearing_debt)
-		.saturating_add(b_to_u128::<T>(bs.pending_redistribution_debt))
-		.saturating_add(b_to_u128::<T>(new_debt));
-	let weighted = b_to_u128::<T>(bs.weighted_interest_bearing_debt_sum)
-		.saturating_add(math::weighted_stake::<u128>(b_to_u128::<T>(new_debt), new_rate));
-	let avg = math::average_branch_rate::<u128>(weighted, total_ib);
-	u128_to_b::<T>(math::simple_interest_ceil::<u128>(
-		b_to_u128::<T>(new_debt),
-		avg,
-		moment_to_millis::<T>(cfg.upfront_fee_period),
-	))
+	let total_ib = bs
+		.total_interest_bearing_debt
+		.saturating_add(bs.pending_redistribution_debt)
+		.saturating_add(new_debt);
+	let weighted = bs
+		.weighted_interest_bearing_debt_sum
+		.saturating_add(new_rate.saturating_mul_int(new_debt));
+	let avg = math::average_branch_rate(weighted, total_ib);
+	math::simple_interest_ceil(new_debt, avg, moment_to_millis::<T>(cfg.upfront_fee_period))
 }
 
 /// Mint pUSD upfront fee and route per `SpYieldShare` like aggregate interest.
 fn mint_upfront_fee<T: Config>(
 	collateral_id: T::AssetId,
 	amount: BalanceOf<T>,
-) -> Result<(), DispatchError>
-where
-	BalanceOf<T>: Copy + Zero + Saturating + From<u128> + Into<u128>,
-{
+) -> Result<(), DispatchError> {
 	if amount.is_zero() {
 		return Ok(());
 	}
@@ -443,7 +400,6 @@ pub fn open_vault<T: Config>(
 	hint_next: Option<T::AccountId>,
 ) -> Result<(), DispatchError>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	ensure_not_frozen::<T>(collateral_id)?;
@@ -502,18 +458,12 @@ where
 	let mut bs_after = bs_before.clone();
 	bs_after.total_collateral = bs_after.total_collateral.saturating_add(initial_collateral);
 	bs_after.total_interest_bearing_debt = new_total_ib;
-	bs_after.weighted_interest_bearing_debt_sum =
-		bs_after.weighted_interest_bearing_debt_sum.saturating_add(u128_to_b::<T>(
-			math::weighted_stake::<u128>(b_to_u128::<T>(initial_debt), annual_rate),
-		));
+	bs_after.weighted_interest_bearing_debt_sum = bs_after
+		.weighted_interest_bearing_debt_sum
+		.saturating_add(annual_rate.saturating_mul_int(initial_debt));
 	bs_after.total_stakes = bs_after.total_stakes.saturating_add(stake);
 	bs_after.weighted_stake_sum =
-		bs_after
-			.weighted_stake_sum
-			.saturating_add(u128_to_b::<T>(math::weighted_stake::<u128>(
-				b_to_u128::<T>(stake),
-				annual_rate,
-			)));
+		bs_after.weighted_stake_sum.saturating_add(annual_rate.saturating_mul_int(stake));
 	bs_after.total_minted_aggregate_interest =
 		bs_after.total_minted_aggregate_interest.saturating_add(upfront_fee);
 	let post_tcr = compute_tcr::<T>(&bs_after, price, now)?;
@@ -581,7 +531,6 @@ pub fn deposit_collateral_for<T: Config>(
 	amount: BalanceOf<T>,
 ) -> Result<(), DispatchError>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	ensure_not_frozen::<T>(collateral_id)?;
@@ -619,7 +568,6 @@ pub fn withdraw_collateral<T: Config>(
 	recipient: Option<T::AccountId>,
 ) -> Result<(), DispatchError>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + Ord + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	ensure_not_frozen::<T>(collateral_id)?;
@@ -699,7 +647,6 @@ pub fn borrow<T: Config>(
 	hint_next: Option<T::AccountId>,
 ) -> Result<(), DispatchError>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + Ord + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	ensure_not_frozen::<T>(collateral_id)?;
@@ -738,28 +685,25 @@ where
 	let mut bs_after = bs_before.clone();
 	bs_after.total_interest_bearing_debt =
 		bs_before.total_interest_bearing_debt.saturating_add(amount);
-	bs_after.weighted_interest_bearing_debt_sum =
-		bs_before.weighted_interest_bearing_debt_sum.saturating_add(u128_to_b::<T>(
-			math::weighted_stake::<u128>(b_to_u128::<T>(new_ib_debt), new_rate),
-		));
-	let weighted_old = u128_to_b::<T>(math::weighted_stake::<u128>(
-		b_to_u128::<T>(vault.interest_bearing_debt),
-		old_rate,
-	));
+	bs_after.weighted_interest_bearing_debt_sum = bs_before
+		.weighted_interest_bearing_debt_sum
+		.saturating_add(new_rate.saturating_mul_int(new_ib_debt));
+	let weighted_old = old_rate.saturating_mul_int(vault.interest_bearing_debt);
 	bs_after.weighted_interest_bearing_debt_sum =
 		bs_after.weighted_interest_bearing_debt_sum.saturating_sub(weighted_old);
 
 	let upfront_fee = {
-		let avg = math::average_branch_rate::<u128>(
-			b_to_u128::<T>(bs_after.weighted_interest_bearing_debt_sum),
-			b_to_u128::<T>(bs_after.total_interest_bearing_debt)
-				.saturating_add(b_to_u128::<T>(bs_after.pending_redistribution_debt)),
+		let avg = math::average_branch_rate(
+			bs_after.weighted_interest_bearing_debt_sum,
+			bs_after
+				.total_interest_bearing_debt
+				.saturating_add(bs_after.pending_redistribution_debt),
 		);
-		u128_to_b::<T>(math::simple_interest_ceil::<u128>(
-			b_to_u128::<T>(amount.saturating_add(rate_change_fee_base)),
+		math::simple_interest_ceil(
+			amount.saturating_add(rate_change_fee_base),
 			avg,
 			moment_to_millis::<T>(cfg.upfront_fee_period),
-		))
+		)
 	};
 
 	bs_after.total_minted_aggregate_interest =
@@ -856,7 +800,6 @@ pub fn repay_for<T: Config>(
 	amount: BalanceOf<T>,
 ) -> Result<(), DispatchError>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + Ord + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	ensure_not_frozen::<T>(collateral_id)?;
@@ -903,10 +846,7 @@ where
 		bs.total_minted_aggregate_interest =
 			bs.total_minted_aggregate_interest.saturating_sub(pay_accrued);
 		// Remove the principal's weighted contribution at the vault's rate.
-		let weighted = u128_to_b::<T>(math::weighted_stake::<u128>(
-			b_to_u128::<T>(pay_principal),
-			vault.annual_rate,
-		));
+		let weighted = vault.annual_rate.saturating_mul_int(pay_principal);
 		bs.weighted_interest_bearing_debt_sum =
 			bs.weighted_interest_bearing_debt_sum.saturating_sub(weighted);
 		Ok(())
@@ -925,7 +865,6 @@ pub fn change_rate<T: Config>(
 	hint_next: Option<T::AccountId>,
 ) -> Result<(), DispatchError>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + Ord + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	ensure_not_frozen::<T>(collateral_id)?;
@@ -947,18 +886,10 @@ where
 	// Build the post-change branch state in a clone so we can compute
 	// `post_tcr` and run `enforce_mode_rules` BEFORE applying anything.
 	let bs_before = branch_state_of::<T>(collateral_id)?;
-	let weighted_old_debt = u128_to_b::<T>(math::weighted_stake::<u128>(
-		b_to_u128::<T>(vault.interest_bearing_debt),
-		old_rate,
-	));
-	let weighted_new_debt = u128_to_b::<T>(math::weighted_stake::<u128>(
-		b_to_u128::<T>(vault.interest_bearing_debt),
-		new_rate,
-	));
-	let stake_old =
-		u128_to_b::<T>(math::weighted_stake::<u128>(b_to_u128::<T>(vault.stake), old_rate));
-	let stake_new =
-		u128_to_b::<T>(math::weighted_stake::<u128>(b_to_u128::<T>(vault.stake), new_rate));
+	let weighted_old_debt = old_rate.saturating_mul_int(vault.interest_bearing_debt);
+	let weighted_new_debt = new_rate.saturating_mul_int(vault.interest_bearing_debt);
+	let stake_old = old_rate.saturating_mul_int(vault.stake);
+	let stake_new = new_rate.saturating_mul_int(vault.stake);
 	let mut bs_after = bs_before.clone();
 	bs_after.weighted_interest_bearing_debt_sum = bs_after
 		.weighted_interest_bearing_debt_sum
@@ -973,16 +904,17 @@ where
 		BalanceOf::<T>::zero()
 	} else {
 		// Charge against current interest_bearing_debt at the post-change avg.
-		let avg = math::average_branch_rate::<u128>(
-			b_to_u128::<T>(bs_after.weighted_interest_bearing_debt_sum),
-			b_to_u128::<T>(bs_after.total_interest_bearing_debt)
-				.saturating_add(b_to_u128::<T>(bs_after.pending_redistribution_debt)),
+		let avg = math::average_branch_rate(
+			bs_after.weighted_interest_bearing_debt_sum,
+			bs_after
+				.total_interest_bearing_debt
+				.saturating_add(bs_after.pending_redistribution_debt),
 		);
-		u128_to_b::<T>(math::simple_interest_ceil::<u128>(
-			b_to_u128::<T>(vault.interest_bearing_debt),
+		math::simple_interest_ceil(
+			vault.interest_bearing_debt,
 			avg,
 			moment_to_millis::<T>(cfg.upfront_fee_period),
-		))
+		)
 	};
 	bs_after.total_minted_aggregate_interest =
 		bs_after.total_minted_aggregate_interest.saturating_add(upfront_fee);
@@ -1034,7 +966,6 @@ pub fn close_vault<T: Config>(
 	recipient: Option<T::AccountId>,
 ) -> Result<(), DispatchError>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + Ord + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	ensure_not_frozen::<T>(collateral_id)?;
@@ -1058,10 +989,7 @@ where
 	// above guarantees this vault contributes no debt). post_TCR < pre_TCR
 	// whenever `coll > 0`, which is the case the Safety-mode rule gates.
 	let bs_before = branch_state_of::<T>(collateral_id)?;
-	let stake_weighted = u128_to_b::<T>(math::weighted_stake::<u128>(
-		b_to_u128::<T>(vault.stake),
-		vault.annual_rate,
-	));
+	let stake_weighted = vault.annual_rate.saturating_mul_int(vault.stake);
 	let mut bs_after = bs_before.clone();
 	bs_after.total_collateral = bs_after.total_collateral.saturating_sub(coll);
 	bs_after.total_stakes = bs_after.total_stakes.saturating_sub(vault.stake);
@@ -1115,7 +1043,6 @@ where
 
 pub fn poke<T: Config>(owner: T::AccountId, collateral_id: T::AssetId) -> Result<(), DispatchError>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	let now = T::TimeProvider::now();
@@ -1128,7 +1055,6 @@ pub fn enter_final_recovery<T: Config>(
 	collateral_id: T::AssetId,
 ) -> Result<(), DispatchError>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + Ord + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	ensure_not_frozen::<T>(collateral_id)?;
@@ -1161,10 +1087,7 @@ where
 		.map_err(|_| Error::<T>::RateIndexInvariantBroken)?;
 	BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
 		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-		let stake_weighted = u128_to_b::<T>(math::weighted_stake::<u128>(
-			b_to_u128::<T>(vault.stake),
-			vault.annual_rate,
-		));
+		let stake_weighted = vault.annual_rate.saturating_mul_int(vault.stake);
 		bs.total_stakes = bs.total_stakes.saturating_sub(vault.stake);
 		bs.weighted_stake_sum = bs.weighted_stake_sum.saturating_sub(stake_weighted);
 		Ok(())
@@ -1195,7 +1118,6 @@ pub fn exit_final_recovery<T: Config>(
 	hint_next: Option<T::AccountId>,
 ) -> Result<(), DispatchError>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + Ord + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	ensure_not_frozen::<T>(collateral_id)?;
@@ -1219,18 +1141,12 @@ where
 	BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
 		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
 		bs.total_stakes = bs.total_stakes.saturating_add(vault.stake);
-		bs.weighted_stake_sum =
-			bs.weighted_stake_sum
-				.saturating_add(u128_to_b::<T>(math::weighted_stake::<u128>(
-					b_to_u128::<T>(vault.stake),
-					vault.annual_rate,
-				)));
+		bs.weighted_stake_sum = bs
+			.weighted_stake_sum
+			.saturating_add(vault.annual_rate.saturating_mul_int(vault.stake));
 		bs.weighted_interest_bearing_debt_sum = bs
 			.weighted_interest_bearing_debt_sum
-			.saturating_add(u128_to_b::<T>(math::weighted_stake::<u128>(
-				b_to_u128::<T>(vault.interest_bearing_debt),
-				vault.annual_rate,
-			)));
+			.saturating_add(vault.annual_rate.saturating_mul_int(vault.interest_bearing_debt));
 		Ok(())
 	})?;
 	let old_status = vault.status;
@@ -1257,7 +1173,6 @@ pub fn register_branch<T: Config>(
 	config: BranchConfig<BalanceOf<T>, MomentOf<T>>,
 ) -> Result<(), DispatchError>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + From<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	ensure!(!BranchConfigs::<T>::contains_key(collateral_id), Error::<T>::BranchAlreadyRegistered);
@@ -1385,7 +1300,6 @@ pub fn view_vault_cr<T: Config>(
 	owner: &T::AccountId,
 ) -> Option<FixedU128>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	let vault = Vaults::<T>::get(collateral_id, owner)?;
@@ -1397,7 +1311,6 @@ where
 
 pub fn view_branch_tcr<T: Config>(collateral_id: &T::AssetId) -> Option<FixedU128>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	let bs = BranchStates::<T>::get(collateral_id)?;
@@ -1441,10 +1354,7 @@ pub fn view_redemption_queue_head<T: Config>(
 	out
 }
 
-pub fn view_debt_in_front<T: Config>(collateral_id: &T::AssetId, rate: FixedU128) -> BalanceOf<T>
-where
-	BalanceOf<T>: Copy + Zero + Saturating,
-{
+pub fn view_debt_in_front<T: Config>(collateral_id: &T::AssetId, rate: FixedU128) -> BalanceOf<T> {
 	// Walk tail-first; sum interest_bearing_debt while node.priority < rate.
 	let mut total = BalanceOf::<T>::zero();
 	let mut cursor = T::RateIndex::tail(collateral_id);
@@ -1473,7 +1383,6 @@ pub fn predict_upfront_fee_open<T: Config>(
 	annual_rate: FixedU128,
 ) -> BalanceOf<T>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	let cfg = match BranchConfigs::<T>::get(collateral_id) {
@@ -1494,7 +1403,6 @@ pub fn predict_upfront_fee_borrow<T: Config>(
 	maybe_new_rate: Option<FixedU128>,
 ) -> BalanceOf<T>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	let cfg = match BranchConfigs::<T>::get(collateral_id) {
@@ -1521,28 +1429,24 @@ where
 	let mut bs_after = bs.clone();
 	bs_after.total_interest_bearing_debt =
 		bs_after.total_interest_bearing_debt.saturating_add(debt_increase);
-	let weighted_old = u128_to_b::<T>(math::weighted_stake::<u128>(
-		b_to_u128::<T>(vault.interest_bearing_debt),
-		vault.annual_rate,
-	));
-	let weighted_new = u128_to_b::<T>(math::weighted_stake::<u128>(
-		b_to_u128::<T>(vault.interest_bearing_debt.saturating_add(debt_increase)),
-		new_rate,
-	));
+	let weighted_old = vault.annual_rate.saturating_mul_int(vault.interest_bearing_debt);
+	let weighted_new =
+		new_rate.saturating_mul_int(vault.interest_bearing_debt.saturating_add(debt_increase));
 	bs_after.weighted_interest_bearing_debt_sum = bs_after
 		.weighted_interest_bearing_debt_sum
 		.saturating_sub(weighted_old)
 		.saturating_add(weighted_new);
-	let avg = math::average_branch_rate::<u128>(
-		b_to_u128::<T>(bs_after.weighted_interest_bearing_debt_sum),
-		b_to_u128::<T>(bs_after.total_interest_bearing_debt)
-			.saturating_add(b_to_u128::<T>(bs_after.pending_redistribution_debt)),
+	let avg = math::average_branch_rate(
+		bs_after.weighted_interest_bearing_debt_sum,
+		bs_after
+			.total_interest_bearing_debt
+			.saturating_add(bs_after.pending_redistribution_debt),
 	);
-	u128_to_b::<T>(math::simple_interest_ceil::<u128>(
-		b_to_u128::<T>(debt_increase.saturating_add(rate_change_fee_base)),
+	math::simple_interest_ceil(
+		debt_increase.saturating_add(rate_change_fee_base),
 		avg,
 		moment_to_millis::<T>(cfg.upfront_fee_period),
-	))
+	)
 }
 
 pub fn predict_upfront_fee_rate_change<T: Config>(
@@ -1551,7 +1455,6 @@ pub fn predict_upfront_fee_rate_change<T: Config>(
 	new_rate: FixedU128,
 ) -> BalanceOf<T>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	let cfg = match BranchConfigs::<T>::get(collateral_id) {
@@ -1573,34 +1476,28 @@ where
 		return BalanceOf::<T>::zero();
 	}
 	let mut bs_after = bs.clone();
-	let weighted_old = u128_to_b::<T>(math::weighted_stake::<u128>(
-		b_to_u128::<T>(vault.interest_bearing_debt),
-		vault.annual_rate,
-	));
-	let weighted_new = u128_to_b::<T>(math::weighted_stake::<u128>(
-		b_to_u128::<T>(vault.interest_bearing_debt),
-		new_rate,
-	));
+	let weighted_old = vault.annual_rate.saturating_mul_int(vault.interest_bearing_debt);
+	let weighted_new = new_rate.saturating_mul_int(vault.interest_bearing_debt);
 	bs_after.weighted_interest_bearing_debt_sum = bs_after
 		.weighted_interest_bearing_debt_sum
 		.saturating_sub(weighted_old)
 		.saturating_add(weighted_new);
-	let avg = math::average_branch_rate::<u128>(
-		b_to_u128::<T>(bs_after.weighted_interest_bearing_debt_sum),
-		b_to_u128::<T>(bs_after.total_interest_bearing_debt)
-			.saturating_add(b_to_u128::<T>(bs_after.pending_redistribution_debt)),
+	let avg = math::average_branch_rate(
+		bs_after.weighted_interest_bearing_debt_sum,
+		bs_after
+			.total_interest_bearing_debt
+			.saturating_add(bs_after.pending_redistribution_debt),
 	);
-	u128_to_b::<T>(math::simple_interest_ceil::<u128>(
-		b_to_u128::<T>(vault.interest_bearing_debt),
+	math::simple_interest_ceil(
+		vault.interest_bearing_debt,
 		avg,
 		moment_to_millis::<T>(cfg.upfront_fee_period),
-	))
+	)
 }
 
 /// Refresh the next handful of vaults across each branch using the cursor.
 pub fn on_idle_walk<T: Config>(remaining: Weight) -> Weight
 where
-	BalanceOf<T>: Copy + Zero + Saturating + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	let per_call = T::WeightInfo::on_idle_one_vault();

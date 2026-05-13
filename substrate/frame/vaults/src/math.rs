@@ -7,7 +7,7 @@
 use frame::deps::sp_runtime::{
 	helpers_128bit::multiply_by_rational_with_rounding,
 	traits::{CheckedDiv, One, Saturating, Zero},
-	FixedPointNumber, FixedU128, Rounding,
+	FixedPointNumber, FixedPointOperand, FixedU128, Rounding,
 };
 use pusd_primitives::MILLIS_PER_YEAR;
 
@@ -18,14 +18,11 @@ use pusd_primitives::MILLIS_PER_YEAR;
 /// to avoid the precision loss of computing `factor = rate * (delta/year)`
 /// first and then multiplying by `principal` (the intermediate factor would
 /// round to a tiny FixedU128 for typical sub-1.0 rates and short deltas).
-pub fn simple_interest_floor<Balance>(
+pub fn simple_interest_floor<Balance: FixedPointOperand>(
 	principal: Balance,
 	rate: FixedU128,
 	delta_millis: u64,
-) -> Balance
-where
-	Balance: Copy + Zero + From<u128> + Into<u128>,
-{
+) -> Balance {
 	simple_interest_with_rounding(principal, rate, delta_millis, Rounding::Down)
 }
 
@@ -33,32 +30,26 @@ where
 ///
 /// Used to mint protocol-favored aggregate interest (§7.3) and upfront fees
 /// (§7.5).
-pub fn simple_interest_ceil<Balance>(
+pub fn simple_interest_ceil<Balance: FixedPointOperand>(
 	principal: Balance,
 	rate: FixedU128,
 	delta_millis: u64,
-) -> Balance
-where
-	Balance: Copy + Zero + Saturating + From<u128> + Into<u128>,
-{
+) -> Balance {
 	simple_interest_with_rounding(principal, rate, delta_millis, Rounding::Up)
 }
 
 /// Shared back-end for [`simple_interest_floor`] and [`simple_interest_ceil`]:
 /// computes `principal * rate * delta_millis / (DIV * MILLIS_PER_YEAR)` using
 /// a 256-bit intermediate so the multiply doesn't overflow at extreme rates,
-/// then rounds per `rounding`. Saturates to `u128::MAX` if the *quotient* still
-/// overflows (would require absurd inputs in practice).
-fn simple_interest_with_rounding<Balance>(
+/// then rounds per `rounding`. Saturates to `Balance::max_value()` if the
+/// quotient would overflow (would require absurd inputs in practice).
+fn simple_interest_with_rounding<Balance: FixedPointOperand>(
 	principal: Balance,
 	rate: FixedU128,
 	delta_millis: u64,
 	rounding: Rounding,
-) -> Balance
-where
-	Balance: Copy + Zero + From<u128> + Into<u128>,
-{
-	let principal_u128: u128 = principal.into();
+) -> Balance {
+	let principal_u128: u128 = principal.unique_saturated_into();
 	if principal_u128.is_zero() || rate.is_zero() || delta_millis == 0 {
 		return Balance::zero();
 	}
@@ -66,19 +57,7 @@ where
 	let denom = FixedU128::DIV.saturating_mul(MILLIS_PER_YEAR as u128);
 	let raw = multiply_by_rational_with_rounding(principal_u128, rate_times_delta, denom, rounding)
 		.unwrap_or(u128::MAX);
-	Balance::from(raw)
-}
-
-/// `floor(stake * rate)` for the weighted-stake sum.
-pub fn weighted_stake<Balance>(stake: Balance, rate: FixedU128) -> Balance
-where
-	Balance: Copy + Zero + From<u128> + Into<u128>,
-{
-	let s: u128 = stake.into();
-	if s.is_zero() || rate.is_zero() {
-		return Balance::zero();
-	}
-	Balance::from(rate.saturating_mul_int(s))
+	Balance::try_from(raw).unwrap_or_else(|_| Balance::max_value())
 }
 
 /// Compute a vault's collateralization ratio (`collateral_value / debt`).
@@ -86,22 +65,16 @@ where
 /// Returns `None` if `debt` is zero (the protocol treats CR as undefined in
 /// that case — callers must apply specific debt-floor rules instead) or if
 /// the FixedU128 division overflows / fails defensively.
-pub fn collateralization_ratio<Balance>(
+pub fn collateralization_ratio<Balance: FixedPointOperand>(
 	collateral: Balance,
 	debt: Balance,
 	price: FixedU128,
-) -> Option<FixedU128>
-where
-	Balance: Copy + Zero + Into<u128>,
-{
-	let d: u128 = debt.into();
-	if d.is_zero() {
+) -> Option<FixedU128> {
+	if debt.is_zero() {
 		return None;
 	}
-	let c: u128 = collateral.into();
-	let collateral_value = price.saturating_mul(FixedU128::saturating_from_integer(c));
-	let denom = FixedU128::saturating_from_integer(d);
-	collateral_value.checked_div(&denom)
+	let collateral_value = price.saturating_mul(FixedU128::saturating_from_integer(collateral));
+	collateral_value.checked_div(&FixedU128::saturating_from_integer(debt))
 }
 
 /// `ceil(weighted_sum / total_ib_debt)` reinterpreted as a `FixedU128`
@@ -109,25 +82,25 @@ where
 /// upfront-fee formula safe in branches with no pre-existing debt (the new
 /// vault dominates the post-change average).
 ///
-/// `weighted_sum = Σ floor(debt_i * rate_i)` and `total_ib_debt = Σ debt_i`,
-/// both as plain `u128` balances. The honest average rate is therefore
-/// `weighted_sum / total_ib_debt` interpreted as a fraction in
-/// `[0, max_rate]`. We compute `ceil(weighted_sum * 1e18 / total_ib_debt)`
-/// via [`multiply_by_rational_with_rounding`] and reinterpret the result as
-/// a `FixedU128` inner, which (a) avoids the `weighted_sum < total_ib_debt`
+/// `weighted_sum = Σ floor(debt_i * rate_i)` and `total_ib_debt = Σ debt_i`.
+/// The honest average rate is therefore `weighted_sum / total_ib_debt`
+/// interpreted as a fraction in `[0, max_rate]`. We compute
+/// `ceil(weighted_sum * 1e18 / total_ib_debt)` via
+/// [`multiply_by_rational_with_rounding`] and reinterpret the result as a
+/// `FixedU128` inner, which (a) avoids the `weighted_sum < total_ib_debt`
 /// integer-truncate trap (typical for sub-1.0 rates), and (b) rounds in the
 /// protocol's favor for the upfront fee.
-pub fn average_branch_rate<Balance>(weighted_sum: Balance, total_ib_debt: Balance) -> FixedU128
-where
-	Balance: Copy + Zero + Into<u128>,
-{
-	let w: u128 = weighted_sum.into();
-	let t: u128 = total_ib_debt.into();
-	if t.is_zero() {
+pub fn average_branch_rate<Balance: FixedPointOperand>(
+	weighted_sum: Balance,
+	total_ib_debt: Balance,
+) -> FixedU128 {
+	if total_ib_debt.is_zero() {
 		return FixedU128::one();
 	}
-	let inner =
-		multiply_by_rational_with_rounding(w, FixedU128::DIV, t, Rounding::Up).unwrap_or(u128::MAX);
+	let w: u128 = weighted_sum.unique_saturated_into();
+	let t: u128 = total_ib_debt.unique_saturated_into();
+	let inner = multiply_by_rational_with_rounding(w, FixedU128::DIV, t, Rounding::Up)
+		.unwrap_or(u128::MAX);
 	FixedU128::from_inner(inner)
 }
 

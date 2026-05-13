@@ -41,7 +41,6 @@ use pusd_primitives::{
 
 impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>> for Pallet<T>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + Ord + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	fn prepare_liquidation(
@@ -73,14 +72,12 @@ where
 				bs.total_interest_bearing_debt.saturating_sub(vault.interest_bearing_debt);
 			bs.total_minted_aggregate_interest =
 				bs.total_minted_aggregate_interest.saturating_sub(vault.accrued_interest);
-			let weighted =
-				math::weighted_stake::<u128>(vault.interest_bearing_debt.into(), vault.annual_rate);
 			bs.weighted_interest_bearing_debt_sum = bs
 				.weighted_interest_bearing_debt_sum
-				.saturating_sub(BalanceOf::<T>::from(weighted));
-			let stake_w = math::weighted_stake::<u128>(vault.stake.into(), vault.annual_rate);
-			bs.weighted_stake_sum =
-				bs.weighted_stake_sum.saturating_sub(BalanceOf::<T>::from(stake_w));
+				.saturating_sub(vault.annual_rate.saturating_mul_int(vault.interest_bearing_debt));
+			bs.weighted_stake_sum = bs
+				.weighted_stake_sum
+				.saturating_sub(vault.annual_rate.saturating_mul_int(vault.stake));
 			bs.total_stakes = bs.total_stakes.saturating_sub(vault.stake);
 			Ok(())
 		})?;
@@ -124,26 +121,18 @@ where
 				// branch's interest base. Per-vault reconciliation in
 				// `touch_vault` later replaces this avg-rate share with the
 				// recipient's own rate.
-				let avg_rate = math::average_branch_rate::<u128>(
-					bs.weighted_stake_sum.into(),
-					bs.total_stakes.into(),
-				);
+				let avg_rate =
+					math::average_branch_rate(bs.weighted_stake_sum, bs.total_stakes);
 				BranchRedistStates::<T>::try_mutate(
 					collateral_id,
 					|maybe_redist| -> Result<_, DispatchError> {
 						let redist = maybe_redist.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-						let stakes_fp = FixedU128::saturating_from_integer(
-							<u128 as From<u128>>::from(bs.total_stakes.into()),
-						);
+						let stakes_fp = FixedU128::saturating_from_integer(bs.total_stakes);
 						if !stakes_fp.is_zero() {
-							let debt_fp =
-								FixedU128::saturating_from_integer(<u128 as From<u128>>::from(
-									redistributed_debt.into(),
-								));
-							let coll_fp =
-								FixedU128::saturating_from_integer(<u128 as From<u128>>::from(
-									allocation.redistribution_collateral.into(),
-								));
+							let debt_fp = FixedU128::saturating_from_integer(redistributed_debt);
+							let coll_fp = FixedU128::saturating_from_integer(
+								allocation.redistribution_collateral,
+							);
 							let now_fp = FixedU128::saturating_from_integer(
 								T::TimeProvider::now().saturated_into::<u128>(),
 							);
@@ -183,11 +172,9 @@ where
 				// Fold the redistributed principal into the branch interest base at
 				// the average recipient rate. Per-vault reconciliation in
 				// `touch_vault` replaces each recipient's share with its own rate.
-				let weighted_share =
-					math::weighted_stake::<u128>(redistributed_debt.into(), avg_rate);
 				bs.weighted_interest_bearing_debt_sum = bs
 					.weighted_interest_bearing_debt_sum
-					.saturating_add(BalanceOf::<T>::from(weighted_share));
+					.saturating_add(avg_rate.saturating_mul_int(redistributed_debt));
 				Ok(())
 			})?;
 		}
@@ -271,7 +258,6 @@ where
 
 impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>> for Pallet<T>
 where
-	BalanceOf<T>: Copy + Zero + Saturating + Ord + From<u128> + Into<u128>,
 	MomentOf<T>: AtLeast32Bit + Copy,
 {
 	fn next_redemption_target(
@@ -365,10 +351,9 @@ where
 				bs.total_interest_bearing_debt.saturating_sub(pay_principal);
 			bs.total_minted_aggregate_interest =
 				bs.total_minted_aggregate_interest.saturating_sub(pay_accrued);
-			let weighted = math::weighted_stake::<u128>(pay_principal.into(), vault.annual_rate);
 			bs.weighted_interest_bearing_debt_sum = bs
 				.weighted_interest_bearing_debt_sum
-				.saturating_sub(BalanceOf::<T>::from(weighted));
+				.saturating_sub(vault.annual_rate.saturating_mul_int(pay_principal));
 			bs.total_collateral =
 				bs.total_collateral.saturating_sub(allocation.collateral_to_redeemer);
 			Ok(())
@@ -426,10 +411,7 @@ where
 	}
 }
 
-impl<T: Config> VaultBadDebtInterface<T::AssetId, StableCreditOf<T>> for Pallet<T>
-where
-	BalanceOf<T>: Copy + Zero + Saturating + Ord + From<u128> + Into<u128>,
-{
+impl<T: Config> VaultBadDebtInterface<T::AssetId, StableCreditOf<T>> for Pallet<T> {
 	fn heal(collateral_id: T::AssetId, credit: StableCreditOf<T>) -> DispatchResult {
 		let amount = credit.peek();
 		if amount.is_zero() {
