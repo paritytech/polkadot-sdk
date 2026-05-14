@@ -346,22 +346,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 				let imported = self.pool.write().import(tx)?;
 
 				if let base::Imported::Ready { ref hash, .. } = imported {
-					let sinks = &mut self.import_notification_sinks.lock();
-					sinks.retain_mut(|sink| match sink.try_send(*hash) {
-						Ok(()) => true,
-						Err(e) => {
-							if e.is_full() {
-								warn!(
-									target: LOG_TARGET,
-									tx_hash = ?hash,
-									"Trying to notify an import but the channel is full"
-								);
-								true
-							} else {
-								false
-							}
-						},
-					});
+					self.notify_import_to_sinks(hash);
 				}
 
 				let mut event_dispatcher = self.event_dispatcher.write();
@@ -491,6 +476,10 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 			Dropped,
 		}
 
+		// Hashes re-imported as ready; notified on `import_notification_sinks` after the
+		// pool write lock is dropped so resubmit wakes seal engines like submit_one does.
+		let mut hashes_to_notify_import = Vec::new();
+
 		let (mut initial_statuses, final_statuses) = {
 			let mut pool = self.pool.write();
 
@@ -549,6 +538,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 							Ok(imported) => match imported {
 								base::Imported::Ready { promoted, failed, removed, .. } => {
 									final_statuses.insert(tx_hash, Status::Ready);
+									hashes_to_notify_import.push(tx_hash);
 									for hash in promoted {
 										final_statuses.insert(hash, Status::Ready);
 									}
@@ -595,6 +585,10 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 				(initial_statuses, final_statuses)
 			})
 		};
+
+		for hash in &hashes_to_notify_import {
+			self.notify_import_to_sinks(hash);
+		}
 
 		// and now let's notify listeners about status changes
 		let mut event_dispatcher = self.event_dispatcher.write();
@@ -752,6 +746,27 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 		let (sink, stream) = channel(CHANNEL_BUFFER_SIZE);
 		self.import_notification_sinks.lock().push(sink);
 		stream
+	}
+
+	/// Notify all subscribers of `import_notification_stream` that a transaction
+	/// has just been imported or re-imported as ready.
+	fn notify_import_to_sinks(&self, hash: &ExtrinsicHash<B>) {
+		let sinks = &mut self.import_notification_sinks.lock();
+		sinks.retain_mut(|sink| match sink.try_send(*hash) {
+			Ok(()) => true,
+			Err(e) => {
+				if e.is_full() {
+					warn!(
+						target: LOG_TARGET,
+						tx_hash = ?hash,
+						"Trying to notify an import but the channel is full"
+					);
+					true
+				} else {
+					false
+				}
+			},
+		});
 	}
 
 	/// Invoked when extrinsics are broadcasted.
