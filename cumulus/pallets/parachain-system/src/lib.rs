@@ -203,6 +203,15 @@ pub mod ump_constants {
 	pub const THRESHOLD_FACTOR: u32 = 2;
 }
 
+/// Maximum claim queue offset for async backing flexibility.
+///
+/// This limits how far "into the future" collators can target when selecting cores
+/// from the claim queue. The effective claim queue depth is:
+/// `relay_parent_offset + MAX_CLAIM_QUEUE_OFFSET`
+///
+/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
+const MAX_CLAIM_QUEUE_OFFSET: u8 = 2;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -307,15 +316,6 @@ pub mod pallet {
 		/// The `RelayParentOffset` config continues to define the header chain length.
 		type SchedulingV3Enabled: Get<bool>;
 	}
-
-	/// Maximum claim queue offset for async backing flexibility.
-	///
-	/// This limits how far "into the future" collators can target when selecting cores
-	/// from the claim queue. The effective claim queue depth is:
-	/// `relay_parent_offset + MAX_CLAIM_QUEUE_OFFSET`
-	///
-	/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
-	pub const MAX_CLAIM_QUEUE_OFFSET: u8 = 2;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -641,11 +641,11 @@ pub mod pallet {
 				&frame_system::Pallet::<T>::digest(),
 			) {
 				CoreInfoExistsAtMaxOnce::Once(core_info) => {
-					let max_allowed_offset = if T::SchedulingV3Enabled::get() {
-						MAX_CLAIM_QUEUE_OFFSET
-					} else {
-						T::RelayParentOffset::get() as u8 + MAX_CLAIM_QUEUE_OFFSET
-					};
+					let mut max_allowed_offset = Self::max_claim_queue_offset();
+					if !T::SchedulingV3Enabled::get() {
+						max_allowed_offset = max_allowed_offset
+							.saturating_add(T::RelayParentOffset::get().saturated_into::<u8>())
+					}
 					assert!(
 						core_info.claim_queue_offset.0 <= max_allowed_offset,
 						"claim_queue_offset {} exceeds maximum allowed {}",
@@ -1173,8 +1173,13 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns the configured maximum claim queue offset.
 	///
-	/// This is used by the runtime API to expose the value to collators.
+	/// This is used by the [cumulus_primitives_core::RelayParentOffsetApi::max_claim_queue_offset]
+	/// runtime API to expose the value to collators.
 	pub fn max_claim_queue_offset() -> u8 {
+		if !T::SchedulingV3Enabled::get() {
+			return 1;
+		}
+
 		MAX_CLAIM_QUEUE_OFFSET
 	}
 }

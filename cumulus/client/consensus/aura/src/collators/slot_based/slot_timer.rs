@@ -120,6 +120,17 @@ impl SlotTimer {
 		self.time_offset = offset;
 	}
 
+	/// Set the time offset.
+	pub fn set_time_offset_by_scheduling(&mut self, v3_enabled: bool, offset: Duration) {
+		if v3_enabled {
+			// Ignore the time offset when V3 scheduling is enabled,
+			// since `descendants_start` already handles relay-chain slot alignment.
+			self.set_time_offset(Duration::ZERO);
+		} else {
+			self.set_time_offset(offset);
+		}
+	}
+
 	/// Returns a future that resolves when the next block production should be attempted.
 	pub async fn wait_until_next_slot(&mut self) -> Result<SlotTime, ()> {
 		let (time_until_next_attempt, timestamp) = time_until_next_slot(

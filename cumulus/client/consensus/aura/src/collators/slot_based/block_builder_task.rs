@@ -22,6 +22,7 @@ use crate::{
 		check_validation_code_or_log,
 		slot_based::{
 			relay_chain_data_cache::RelayChainDataCache,
+			scheduling::SchedulingInfo,
 			slot_timer::{SlotInfo, SlotTimer},
 		},
 		BackingGroupConnectionHelper, RelayHash, RelayParentData,
@@ -176,7 +177,7 @@ where
 			max_pov_percentage,
 		} = params;
 
-		let mut slot_timer = SlotTimer::new_with_offset(Duration::ZERO, relay_chain_slot_duration);
+		let mut slot_timer = SlotTimer::new_with_offset(slot_offset, relay_chain_slot_duration);
 
 		let mut collator = {
 			let params = collator_util::Params {
@@ -205,6 +206,20 @@ where
 				// doesn't work either. So it is fine to panic here.
 				.expect("Relay chain interface must provide overseer handle."),
 		);
+
+		let mut v3_enabled = false;
+		let para_best_hash = para_client.info().best_hash;
+		let v3_enabled_on_para =
+			para_client.runtime_api().scheduling_v3_enabled(para_best_hash).unwrap_or(false);
+		if v3_enabled_on_para {
+			v3_enabled = SchedulingInfo::get_best_relay_block_data(
+				&relay_client,
+				&mut relay_chain_data_cache,
+			)
+			.await
+			.map_or(false, |data| data.is_v3_enabled());
+		}
+		slot_timer.set_time_offset_by_scheduling(v3_enabled, slot_offset);
 
 		loop {
 			scheduling_info
@@ -238,13 +253,7 @@ where
 			};
 			let scheduling_parent_hash = scheduling_parent_header.hash();
 
-			if v3_enabled {
-				// Ignore the time offset when V3 scheduling is enabled,
-				// since `descendants_start` already handles relay-chain slot alignment.
-				slot_timer.set_time_offset(Duration::ZERO);
-			} else {
-				slot_timer.set_time_offset(slot_offset);
-			}
+			slot_timer.set_time_offset_by_scheduling(v3_enabled, slot_offset);
 
 			let Ok(para_slot_duration) = crate::slot_duration(&*para_client) else {
 				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");

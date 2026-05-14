@@ -21,7 +21,8 @@ use crate::collators::claim_queue_at;
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
-	Hash as RelayHash, Header as RelayHeader, Id as ParaId, NodeFeatures, OccupiedCoreAssumption,
+	node_features::FeatureIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
+	NodeFeatures, OccupiedCoreAssumption,
 };
 use sp_runtime::generic::BlockId;
 
@@ -36,6 +37,12 @@ pub struct RelayChainData {
 	pub max_pov_size: u32,
 	/// The node features at the relay parent.
 	pub node_features: NodeFeatures,
+}
+
+impl RelayChainData {
+	pub fn is_v3_enabled(&self) -> bool {
+		FeatureIndex::CandidateReceiptV3.is_set(&self.node_features)
+	}
 }
 
 /// Simple helper to fetch relay chain data and cache it based on the current relay chain best block

@@ -15,7 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::collators::{slot_based::relay_chain_data_cache::RelayChainDataCache, RelayHeader};
+use crate::collators::{
+	slot_based::relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
+	RelayHeader,
+};
 use cumulus_client_consensus_common::get_relay_slot;
 use cumulus_primitives_aura::Slot;
 use cumulus_relay_chain_interface::RelayChainInterface;
@@ -24,7 +27,7 @@ use futures::{
 	stream::{Fuse, FusedStream},
 };
 use polkadot_node_subsystem::gen::{stream::Stream, FutureExt};
-use polkadot_primitives::{node_features::FeatureIndex, Block as RelayBlock};
+use polkadot_primitives::Block as RelayBlock;
 use sc_consensus_aura::SlotDuration;
 use sp_runtime::traits::Header as HeaderT;
 use sp_timestamp::Timestamp;
@@ -110,6 +113,18 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		self.best_notifications.is_terminated()
 	}
 
+	pub async fn get_best_relay_block_data<'a>(
+		relay_client: &RelayClient,
+		relay_chain_data_cache: &'a mut RelayChainDataCache<RelayClient>,
+	) -> Option<&'a RelayChainData> {
+		let best_relay_hash = relay_client.best_block_hash().await.ok()?;
+		relay_chain_data_cache
+			.get_mut_by_hash(best_relay_hash)
+			.await
+			.ok()
+			.map(|data| &*data)
+	}
+
 	pub async fn ensure_initialized(
 		&mut self,
 		relay_client: &RelayClient,
@@ -133,27 +148,14 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 			},
 		};
 
-		self.maybe_best_relay_header = None;
-		let best_relay_hash = match relay_client.best_block_hash().await {
-			Ok(best_relay_hash) => best_relay_hash,
-			Err(err) => {
-				tracing::warn!(
-					target: crate::LOG_TARGET,
-					?err,
-					"Failed to get relay chain best block hash. \
-					The next call to `wait_for_scheduling_parent` might take longer."
-				);
-				return;
-			},
-		};
 		let best_relay_block_data =
-			match relay_chain_data_cache.get_mut_by_hash(best_relay_hash).await {
-				Ok(best_relay_block_data) => best_relay_block_data,
-				Err(_err) => {
-					tracing::warn!(
+			match Self::get_best_relay_block_data(relay_client, relay_chain_data_cache).await {
+				Some(best_relay_block_data) => best_relay_block_data,
+				None => {
+					tracing::error!(
 						target: crate::LOG_TARGET,
-						"Failed to fetch the `RelayChainData` for the best relay block. \
-						The next call to `wait_for_scheduling_parent` might take longer."
+						"Failed to get the `RelayChainData` for the best relay chain block. \
+						The next call to `wait_for_scheduling_parent` might fail."
 					);
 					return;
 				},
@@ -193,8 +195,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 				relay_chain_data_cache.get_mut_by_header(best_relay_header).await.ok()?;
 			let best_relay_slot = get_relay_slot(&best_relay_header_data.relay_header)?;
 
-			let v3_enabled = v3_enabled_on_para &&
-				FeatureIndex::CandidateReceiptV3.is_set(&best_relay_header_data.node_features);
+			let v3_enabled = v3_enabled_on_para && best_relay_header_data.is_v3_enabled();
 
 			// V2
 			if !v3_enabled {
@@ -239,7 +240,7 @@ mod tests {
 		tests,
 		tests::{babe_epoch_change_digest_item, TestRelayClient},
 	};
-	use polkadot_primitives::NodeFeatures;
+	use polkadot_primitives::{node_features::FeatureIndex, NodeFeatures};
 	use std::collections::HashMap;
 
 	const RELAY_SLOT_DURATION: Duration = Duration::from_secs(6);

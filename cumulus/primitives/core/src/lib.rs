@@ -691,12 +691,6 @@ sp_api::decl_runtime_apis! {
 		/// and should fall back to a sensible default (current collator defaults: `1` on the
 		/// V3 path, `0` on the V1/V2 path).
 		///
-		/// # Setup Guide
-		///
-		/// The recommendation is to:
-		/// - use the `parachain_system::MAX_CLAIM_QUEUE_OFFSET` when scheduling v3 is enabled
-		/// - use 1 when scheduling v3 is not enabled
-		///
 		/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
 		#[api_version(2)]
 		fn max_claim_queue_offset() -> u8;
