@@ -150,7 +150,7 @@
 //! [cargo-remote](https://github.com/sgeisler/cargo-remote) to execute cargo commands on it,
 //! freeing up local resources for other tasks like `rust-analyzer`.
 //!
-//! When using `cargo-remote`, you can configure your editor to perform the the typical
+//! When using `cargo-remote`, you can configure your editor to perform the typical
 //! "check-on-save" remotely as well. The configuration for VSCode (or any VSCode-based editor like
 //! Cursor) is as follows:
 //!
