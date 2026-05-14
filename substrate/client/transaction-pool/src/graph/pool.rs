@@ -800,6 +800,73 @@ mod tests {
 	}
 
 	#[test]
+	fn should_notify_about_pool_events_on_resubmit_as_ready() {
+		// A tx re-imported as Ready by `resubmit` (e.g. from revalidation) must fire
+		// `import_notification_sinks` the same way `submit_one` does. Otherwise seal
+		// engines (instant-seal) stay parked and the chain stalls with ready txs
+		// sitting in the pool.
+		let (stream, hash) = {
+			let (pool, api) = pool();
+			let han_of_block0 = api.expect_hash_and_number(0);
+			let stream = pool.validated_pool().import_notification_stream();
+
+			let tx = uxt(Transfer {
+				from: Alice.into(),
+				to: AccountId::from_h256(H256::from_low_u64_be(2)),
+				amount: 5,
+				nonce: 0,
+			});
+
+			// submit_one: tx becomes Ready, fires the first notification.
+			let hash = block_on(pool.submit_one(&han_of_block0, SOURCE, tx.clone().into()))
+				.unwrap()
+				.hash();
+			assert_eq!(pool.validated_pool().status().ready, 1);
+
+			// resubmit: same tx round-trips through revalidation and is re-imported
+			// as Ready. This is the path that was silent before the fix.
+			let extrinsic: ExtrinsicFor<TestApi> = tx.into();
+			let validity = block_on(api.validate_transaction(
+				han_of_block0.hash,
+				TransactionSource::External,
+				extrinsic.clone(),
+				ValidateTransactionPriority::Submitted,
+			))
+			.expect("validate_transaction api call succeeds")
+			.expect("transaction is valid");
+
+			let bytes = api.hash_and_length(&extrinsic).1;
+			let validated = ValidatedTransaction::valid_at(
+				han_of_block0.number.saturated_into::<u64>(),
+				hash,
+				SOURCE,
+				extrinsic,
+				bytes,
+				validity,
+			);
+
+			let mut revalidated = IndexMap::new();
+			revalidated.insert(hash, validated);
+			pool.resubmit(revalidated);
+			assert_eq!(pool.validated_pool().status().ready, 1);
+
+			(stream, hash)
+		};
+
+		// Stream must yield twice: once for submit_one, once for resubmit. Pre-fix
+		// the second call returns None and the chain has no signal to seal a block.
+		let mut it = futures::executor::block_on_stream(stream);
+		assert_eq!(it.next(), Some(hash), "submit_one did not fire a notification");
+		assert_eq!(
+			it.next(),
+			Some(hash),
+			"resubmit re-imported a ready tx but fired no notification — seal engine \
+			 would stall with a ready tx in the pool",
+		);
+		assert_eq!(it.next(), None);
+	}
+
+	#[test]
 	fn should_clear_stale_transactions() {
 		// given
 		let (pool, api) = pool();
