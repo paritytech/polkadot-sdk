@@ -32,12 +32,12 @@ pub enum Error {
 	/// Node is performing major sync.
 	#[error("Node is major syncing")]
 	MajorSyncing,
-	/// Internal error. Never emitted in practice
+	/// Internal error. Never emitted in practice.
 	///
 	/// Do not render the wrapped error to not expose the internal state to the remote caller.
 	#[error("Internal error")]
 	Internal(#[from] sp_blockchain::Error),
-	/// Caller passed more CIDs than `bitswap_v1_getMany` / `bitswap_v1_stream` will accept.
+	/// Caller passed more CIDs than `bitswap_unstable_stream` will accept.
 	#[error("Too many CIDs: max {max}, got {got}")]
 	TooManyCids {
 		/// Maximum number of CIDs accepted in a single request.
@@ -45,68 +45,51 @@ pub enum Error {
 		/// Number of CIDs the caller passed.
 		got: usize,
 	},
+	/// Caller passed an empty `cids` array.
+	#[error("Input cids array is empty")]
+	EmptyCids,
 	/// Caller passed the same CID twice (string-equal or decoding to the same digest).
 	#[error("Input contains duplicate CIDs")]
 	DuplicateCids,
 }
 
 /// Bitswap JSON-RPC error categories, according to the spec.
+///
+/// Note: `-32811 FailRetry` is part of the per-CID error matrix in the spec but is not emitted by
+/// this implementation, which only distinguishes permanent failure (`Fail`) and backoff-eligible
+/// transient failure (`FailRetryBackoff`).
 #[derive(Debug)]
 enum ErrorCode {
-	/// Invalid CID provided. Must never retry.
+	/// Standard JSON-RPC invalid-params. Used per-CID for malformed/unsupported CIDs.
 	InvalidParams = -32602,
-	/// Must not retry.
+	/// Top-level: `cids` length exceeds implementation maximum.
+	TooManyCids = -32801,
+	/// Top-level: `cids` array is empty.
+	EmptyCids = -32802,
+	/// Top-level: `cids` contains duplicates (string-equal or digest-equal).
+	DuplicateCids = -32803,
+	/// Per-CID permanent failure (e.g. data not found). Must not retry.
 	Fail = -32810,
-	/// Can retry with a backoff of 1-5 seconds.
+	/// Per-CID transient failure; can retry with a backoff of 1-5 seconds.
 	FailRetryBackoff = -32812,
-}
-
-#[derive(serde::Serialize)]
-struct ErrorData {
-	variant: &'static str,
 }
 
 impl From<Error> for ErrorObject<'static> {
 	fn from(e: Error) -> Self {
 		let msg = e.to_string();
-
-		match e {
-			Error::InvalidCid(_) => ErrorObject::owned(
-				ErrorCode::InvalidParams as i32,
-				msg,
-				Some(ErrorData { variant: "InvalidCid" }),
-			),
-			Error::NotFound => ErrorObject::owned(
-				ErrorCode::Fail as i32,
-				msg,
-				Some(ErrorData { variant: "NotFound" }),
-			),
-			Error::MajorSyncing => ErrorObject::owned(
-				ErrorCode::FailRetryBackoff as i32,
-				msg,
-				Some(ErrorData { variant: "MajorSyncing" }),
-			),
-			Error::Internal(_) => {
-				// This error is never emitted in practice and is only needed to cover all
-				// compile-type variants that `BlockBackend::indexed_transaction` returns.
-				// It is unclear what error category to use in case of internal errors, let's use
-				// `FAIL_RETRY_BACKOFF`.
-				ErrorObject::owned(
-					ErrorCode::FailRetryBackoff as i32,
-					msg,
-					Some(ErrorData { variant: "Internal" }),
-				)
-			},
-			Error::TooManyCids { .. } => ErrorObject::owned(
-				ErrorCode::InvalidParams as i32,
-				msg,
-				Some(ErrorData { variant: "TooManyCids" }),
-			),
-			Error::DuplicateCids => ErrorObject::owned(
-				ErrorCode::InvalidParams as i32,
-				msg,
-				Some(ErrorData { variant: "DuplicateCids" }),
-			),
-		}
+		let code = match e {
+			Error::InvalidCid(_) => ErrorCode::InvalidParams,
+			Error::NotFound => ErrorCode::Fail,
+			Error::MajorSyncing => ErrorCode::FailRetryBackoff,
+			// This error is never emitted in practice and is only needed to cover all
+			// compile-time variants that `BlockBackend::indexed_transaction` returns.
+			// It is unclear what error category to use in case of internal errors, let's use
+			// `FailRetryBackoff`.
+			Error::Internal(_) => ErrorCode::FailRetryBackoff,
+			Error::TooManyCids { .. } => ErrorCode::TooManyCids,
+			Error::EmptyCids => ErrorCode::EmptyCids,
+			Error::DuplicateCids => ErrorCode::DuplicateCids,
+		};
+		ErrorObject::owned(code as i32, msg, None::<()>)
 	}
 }

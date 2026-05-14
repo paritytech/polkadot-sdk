@@ -19,19 +19,19 @@
 //! Implementation of the bitswap RPC methods.
 //!
 //! See the JSON-RPC interface spec:
-//! - <https://github.com/paritytech/json-rpc-interface-spec/blob/main/src/api/bitswap_v1_get.md>
-//! - <https://github.com/paritytech/json-rpc-interface-spec/blob/main/src/api/bitswap_v1_getMany.md>
-//! - <https://github.com/paritytech/json-rpc-interface-spec/blob/main/src/api/bitswap_v1_stream.md>
+//! - <https://github.com/paritytech/json-rpc-interface-spec/blob/main/src/api/bitswap_unstable_get.md>
+//! - <https://github.com/paritytech/json-rpc-interface-spec/blob/main/src/api/bitswap_unstable_stream.md>
+//! - <https://github.com/paritytech/json-rpc-interface-spec/blob/main/src/api/bitswap_unstable_unstream.md>
 
 use crate::{
 	bitswap::{
-		api::{BitswapApiServer, BlockResult},
+		api::{BitswapApiServer, StreamEvent},
 		error::Error,
 	},
 	SubscriptionTaskExecutor,
 };
 use cid::Cid;
-use jsonrpsee::{core::RpcResult, PendingSubscriptionSink};
+use jsonrpsee::{core::RpcResult, types::ErrorObject, PendingSubscriptionSink};
 use sc_client_api::BlockBackend;
 use sc_rpc::utils::Subscription;
 use sp_core::H256;
@@ -46,8 +46,8 @@ const LOG_TARGET: &str = "rpc-spec-v2";
 const SHA2_256: u64 = 0x12;
 const BLAKE2B_256: u64 = 0xb220;
 
-/// Maximum number of CIDs accepted by `bitswap_v1_getMany` and `bitswap_v1_stream`
-/// in a single request. Bounds worst-case response at ≤128 MiB (64 × 2 MiB/chunk).
+/// Maximum number of CIDs accepted by `bitswap_unstable_stream` in a single subscription. Bounds
+/// worst-case response at ≤128 MiB (64 × 2 MiB/chunk). Spec only requires ≥16.
 pub const MAX_CIDS_PER_REQUEST: usize = 64;
 
 /// Bitswap RPC implementation.
@@ -101,7 +101,7 @@ where
 	Block: BlockT,
 	Client: BlockBackend<Block> + Send + Sync + 'static,
 {
-	fn bitswap_v1_get(&self, cid_str: String) -> RpcResult<String> {
+	fn bitswap_unstable_get(&self, cid_str: String) -> RpcResult<String> {
 		let digest = parse_and_validate_cid(&cid_str)?;
 
 		match self.client.indexed_transaction(digest) {
@@ -124,46 +124,29 @@ where
 		}
 	}
 
-	fn bitswap_v1_get_many(
-		&self,
-		cids: Vec<String>,
-	) -> RpcResult<Vec<(String, BlockResult)>> {
-		// TODO: per-CID `FailRetryBackoff` is correct for misses during sync, but a
-		// smarter implementation would attempt a peer-side Bitswap fetch and write
-		// the result back to the local DB. Needs a coherence story for concurrent
-		// writes during major sync.
-		if cids.len() > MAX_CIDS_PER_REQUEST {
-			return Err(Error::TooManyCids { max: MAX_CIDS_PER_REQUEST, got: cids.len() }.into());
-		}
-
-		let parsed = parse_and_dedup(cids)?;
-		let is_major_syncing = self.sync_oracle.is_major_syncing();
-
-		Ok(parsed
-			.into_iter()
-			.map(|(cid_str, parse_result)| {
-				let result = match parse_result {
-					Ok(digest) => lookup_by_digest(&self.client, is_major_syncing, digest),
-					Err(e) => BlockResult::from(e),
-				};
-				(cid_str, result)
-			})
-			.collect())
-	}
-
-	fn bitswap_v1_stream(&self, pending: PendingSubscriptionSink, cids: Vec<String>) {
+	fn bitswap_unstable_stream(&self, pending: PendingSubscriptionSink, cids: Vec<String>) {
 		let client = self.client.clone();
 		let sync_oracle = self.sync_oracle.clone();
 
 		let fut = async move {
-			// TODO: see `bitswap_v1_get_many`.
+			// TODO: per-CID `FailRetryBackoff` is correct for misses during sync, but a
+			// smarter implementation would attempt a peer-side Bitswap fetch and write
+			// the result back to the local DB. Needs a coherence story for concurrent
+			// writes during major sync.
+
+			// Top-level validation. Per the spec, all three structural rejections happen
+			// before the subscription is accepted, so no events are ever emitted on these
+			// paths.
+			if cids.is_empty() {
+				pending.reject(Error::EmptyCids).await;
+				return;
+			}
 			if cids.len() > MAX_CIDS_PER_REQUEST {
 				pending
 					.reject(Error::TooManyCids { max: MAX_CIDS_PER_REQUEST, got: cids.len() })
 					.await;
 				return;
 			}
-
 			let parsed = match parse_and_dedup(cids) {
 				Ok(p) => p,
 				Err(e) => {
@@ -176,18 +159,35 @@ where
 			let Ok(sink) = pending.accept().await.map(Subscription::from) else { return };
 
 			for (cid_str, parse_result) in parsed {
-				let result = match parse_result {
-					Ok(digest) => lookup_by_digest(&client, is_major_syncing, digest),
-					Err(e) => BlockResult::from(e),
+				let event = match parse_result {
+					Ok(digest) => match lookup_by_digest(&client, is_major_syncing, digest) {
+						Ok(value) => StreamEvent::StreamItem { cid: cid_str, value },
+						Err(e) => stream_item_error(cid_str, e),
+					},
+					Err(e) => stream_item_error(cid_str, e),
 				};
-				if sink.send(&(cid_str, result)).await.is_err() {
+				// A send error means the client unsubscribed or disconnected. The spec says
+				// `streamDone` must NOT be emitted on cancellation, so we just exit.
+				if sink.send(&event).await.is_err() {
 					return;
 				}
 			}
+
+			// All per-CID events emitted successfully — send the end-of-stream marker.
+			// Ignore a send error here: the client may have unsubscribed in the window
+			// between the final per-CID event and this `streamDone`, and that's fine.
+			let _ = sink.send(&StreamEvent::StreamDone).await;
 		};
 
 		sc_rpc::utils::spawn_subscription_task(&self.executor, fut);
 	}
+}
+
+/// Render an [`Error`] as a [`StreamEvent::StreamItemError`] for the given CID, using the
+/// standard JSON-RPC error mapping defined in [`super::error`].
+fn stream_item_error(cid: String, e: Error) -> StreamEvent {
+	let obj = ErrorObject::from(e);
+	StreamEvent::StreamItemError { cid, code: obj.code(), message: obj.message().to_string() }
 }
 
 /// Parse all input CIDs and reject duplicates. Two-stage detection:
@@ -197,9 +197,7 @@ where
 /// **Invariant**: when this returns `Ok(out)`, no two `Ok(_)` entries in `out` carry
 /// the same `H256` digest. Detection short-circuits on the first collision via
 /// `Err(Error::DuplicateCids)` *before* the duplicate is appended to `out`.
-fn parse_and_dedup(
-	cids: Vec<String>,
-) -> Result<Vec<(String, Result<H256, Error>)>, Error> {
+fn parse_and_dedup(cids: Vec<String>) -> Result<Vec<(String, Result<H256, Error>)>, Error> {
 	let mut seen_strings: HashSet<String> = HashSet::with_capacity(cids.len());
 	let mut seen_digests: HashSet<H256> = HashSet::with_capacity(cids.len());
 	let mut out = Vec::with_capacity(cids.len());
@@ -224,34 +222,35 @@ fn parse_and_dedup(
 	Ok(out)
 }
 
-/// DB lookup for a parsed digest. Returns the spec-shaped per-CID outcome.
+/// DB lookup for a parsed digest.
 ///
 /// On a miss, distinguishes "not yet synced" (`MajorSyncing` → `-32812 FailRetryBackoff`,
 /// transient: caller should retry with backoff) from "permanently absent"
-/// (`NotFound` → `-32810 Fail`). Mirrors the existing `bitswap_v1_get` semantics.
+/// (`NotFound` → `-32810 Fail`).
 ///
-/// `is_major_syncing` is a snapshot taken once by the caller and reused across
-/// the whole batch — every CID in a single batch gets a consistent "sync moment".
+/// `is_major_syncing` is a snapshot taken once by the caller and reused across the whole batch —
+/// every CID in a single batch gets a consistent "sync moment".
 fn lookup_by_digest<Block, Client>(
 	client: &Arc<Client>,
 	is_major_syncing: bool,
 	digest: H256,
-) -> BlockResult
+) -> Result<String, Error>
 where
 	Block: BlockT,
 	Client: BlockBackend<Block> + Send + Sync + 'static,
 {
 	match client.indexed_transaction(digest) {
-		Ok(Some(data)) => BlockResult::Ok(crate::hex_string(&data)),
-		Ok(None) =>
+		Ok(Some(data)) => Ok(crate::hex_string(&data)),
+		Ok(None) => {
 			if is_major_syncing {
-				BlockResult::from(Error::MajorSyncing)
+				Err(Error::MajorSyncing)
 			} else {
-				BlockResult::from(Error::NotFound)
-			},
+				Err(Error::NotFound)
+			}
+		},
 		Err(err) => {
 			log::warn!(target: LOG_TARGET, "Indexed transaction fetch failed: {err:?}");
-			BlockResult::from(Error::NotFound)
+			Err(Error::NotFound)
 		},
 	}
 }

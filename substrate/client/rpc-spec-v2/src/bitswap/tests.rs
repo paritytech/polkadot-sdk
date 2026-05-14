@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
-use crate::bitswap::api::BlockResult;
+use crate::bitswap::api::StreamEvent;
 use jsonrpsee::{
 	core::client::{ClientT, Subscription, SubscriptionClientT},
 	rpc_params,
@@ -228,6 +228,10 @@ fn unknown_cid(seed: u8) -> String {
 	make_cid_v1(BLAKE2B_256, &digest)
 }
 
+// ------------------------------------------------------------------
+// bitswap_unstable_get (and `bitswap_v1_get` legacy alias)
+// ------------------------------------------------------------------
+
 #[tokio::test]
 async fn valid_cid_data_found_sha256() {
 	let (ws_client, _handle, mock_client) = setup(false).await;
@@ -335,236 +339,55 @@ async fn cid_v1_non_32_byte_digest_rejected() {
 	assert_error_code(&err, -32602);
 }
 
-// ------------------------------------------------------------------
-// bitswap_v1_getMany
-// ------------------------------------------------------------------
-
 #[tokio::test]
-async fn get_many_happy_path_preserves_order() {
+async fn unstable_get_alias_returns_same_payload() {
 	let (ws_client, _handle, mock_client) = setup(false).await;
 
-	let cid_a = store_chunk(&mock_client, vec![1u8, 2, 3], BLAKE2B_256);
-	let cid_b = store_chunk(&mock_client, vec![4u8, 5, 6, 7], SHA2_256);
-	let cid_c = store_chunk(&mock_client, vec![8u8, 9], BLAKE2B_256);
+	let data = vec![0xDE, 0xAD, 0xBE, 0xEF];
+	let digest = sp_crypto_hashing::blake2_256(&data);
+	mock_client.insert_transaction(H256::from(digest), data.clone());
+	let cid_str = make_cid_v1(BLAKE2B_256, &digest);
 
-	let cids = vec![cid_a.clone(), cid_b.clone(), cid_c.clone()];
-	let result: Vec<(String, BlockResult)> = ws_client
-		.request("bitswap_v1_getMany", rpc_params![cids.clone()])
+	let via_unstable: String = ws_client
+		.request("bitswap_unstable_get", rpc_params![cid_str.clone()])
 		.await
 		.unwrap();
+	let via_alias: String =
+		ws_client.request("bitswap_v1_get", rpc_params![cid_str]).await.unwrap();
 
-	assert_eq!(result.len(), 3);
-	assert_eq!(result[0].0, cid_a);
-	assert_eq!(result[1].0, cid_b);
-	assert_eq!(result[2].0, cid_c);
-
-	let expected: Vec<Vec<u8>> = vec![vec![1, 2, 3], vec![4, 5, 6, 7], vec![8, 9]];
-	for (entry, exp) in result.iter().zip(expected) {
-		match &entry.1 {
-			BlockResult::Ok(data) => assert_eq!(data, &crate::hex_string(&exp)),
-			other @ BlockResult::Err { .. } =>
-				panic!("Expected Ok at {}, got error: {other:?}", entry.0),
-		}
-	}
+	assert_eq!(via_unstable, crate::hex_string(&data));
+	assert_eq!(via_unstable, via_alias);
 }
 
 #[tokio::test]
-async fn get_many_mixed_batch() {
-	let (ws_client, _handle, mock_client) = setup(false).await;
-
-	let cid_present = store_chunk(&mock_client, vec![10u8, 20, 30], BLAKE2B_256);
-	let cid_missing = unknown_cid(0xAA);
-	let cid_invalid = "definitely-not-a-cid".to_string();
-
-	let cids = vec![cid_present.clone(), cid_missing.clone(), cid_invalid.clone()];
-	let result: Vec<(String, BlockResult)> = ws_client
-		.request("bitswap_v1_getMany", rpc_params![cids])
-		.await
-		.unwrap();
-
-	assert_eq!(result.len(), 3);
-	assert_eq!(result[0].0, cid_present);
-	assert!(matches!(result[0].1, BlockResult::Ok(_)), "expected Ok, got {:?}", result[0].1);
-
-	assert_eq!(result[1].0, cid_missing);
-	match &result[1].1 {
-		BlockResult::Err { code, .. } => assert_eq!(*code, -32810, "expected Fail for missing CID"),
-		other => panic!("expected NotFound error, got {other:?}"),
-	}
-
-	assert_eq!(result[2].0, cid_invalid);
-	match &result[2].1 {
-		BlockResult::Err { code, .. } =>
-			assert_eq!(*code, -32602, "expected InvalidParams for malformed CID"),
-		other => panic!("expected InvalidCid error, got {other:?}"),
-	}
-}
-
-#[tokio::test]
-async fn get_many_all_missing() {
+async fn get_error_object_has_no_data_field() {
 	let (ws_client, _handle, _mock_client) = setup(false).await;
 
-	let cids = vec![unknown_cid(1), unknown_cid(2), unknown_cid(3)];
-	let result: Vec<(String, BlockResult)> =
-		ws_client.request("bitswap_v1_getMany", rpc_params![cids]).await.unwrap();
-
-	assert_eq!(result.len(), 3);
-	for entry in &result {
-		match &entry.1 {
-			BlockResult::Err { code, .. } => assert_eq!(*code, -32810),
-			BlockResult::Ok(_) => panic!("did not expect Ok for unknown CID"),
-		}
-	}
-}
-
-#[tokio::test]
-async fn get_many_during_sync_serves_cached_hits_and_per_cid_backoff_for_missing() {
-	let (ws_client, _handle, mock_client) = setup(true).await;
-
-	// During sync: chunks already in the local DB are served as `Ok`; misses surface
-	// per-CID `FailRetryBackoff` so the caller knows to retry after sync completes.
-	let cid_in_db = store_chunk(&mock_client, vec![1u8, 2, 3], BLAKE2B_256);
-	let cid_missing = unknown_cid(0xAA);
-
-	let result: Vec<(String, BlockResult)> = ws_client
-		.request(
-			"bitswap_v1_getMany",
-			rpc_params![vec![cid_in_db.clone(), cid_missing.clone()]],
-		)
-		.await
-		.unwrap();
-
-	assert_eq!(result.len(), 2);
-	assert_eq!(result[0].0, cid_in_db);
-	assert!(matches!(result[0].1, BlockResult::Ok(_)), "expected Ok, got {:?}", result[0].1);
-
-	assert_eq!(result[1].0, cid_missing);
-	match &result[1].1 {
-		BlockResult::Err { code, .. } => assert_eq!(*code, -32812, "expected FailRetryBackoff"),
-		other => panic!("expected per-CID FailRetryBackoff, got {other:?}"),
-	}
-}
-
-#[tokio::test]
-async fn get_many_over_limit_top_level_error() {
-	let (ws_client, _handle, _mock_client) = setup(false).await;
-
-	let cids: Vec<String> = (0..(crate::bitswap::bitswap::MAX_CIDS_PER_REQUEST as u8 + 1))
-		.map(unknown_cid)
-		.collect();
-
+	let cid_str = unknown_cid(0xCD);
 	let err = ws_client
-		.request::<Vec<(String, BlockResult)>, _>("bitswap_v1_getMany", rpc_params![cids])
+		.request::<String, _>("bitswap_unstable_get", rpc_params![cid_str])
 		.await
 		.unwrap_err();
 
-	assert_error_code(&err, -32602);
-}
-
-#[tokio::test]
-async fn get_many_empty_input_returns_empty_vec() {
-	let (ws_client, _handle, _mock_client) = setup(false).await;
-
-	let cids: Vec<String> = vec![];
-	let result: Vec<(String, BlockResult)> =
-		ws_client.request("bitswap_v1_getMany", rpc_params![cids]).await.unwrap();
-
-	assert!(result.is_empty());
-}
-
-#[tokio::test]
-async fn get_many_wire_shape_matches_documented_format() {
-	let (ws_client, _handle, mock_client) = setup(false).await;
-
-	let cid_ok = store_chunk(&mock_client, vec![0xDE, 0xAD, 0xBE, 0xEF], BLAKE2B_256);
-	let cid_missing = unknown_cid(0xBB);
-
-	// Request as raw JSON to inspect the wire shape directly.
-	let raw: serde_json::Value = ws_client
-		.request("bitswap_v1_getMany", rpc_params![vec![cid_ok.clone(), cid_missing.clone()]])
-		.await
-		.unwrap();
-
-	let arr = raw.as_array().expect("response should be an array");
-	assert_eq!(arr.len(), 2);
-
-	// Tuple form: [cid, payload].
-	// Ok payload is a hex string; Err payload is `{ "code": ..., "message": "..." }`.
-	let tuple_ok = arr[0].as_array().expect("entry should be a 2-array");
-	assert_eq!(tuple_ok[0].as_str().unwrap(), cid_ok);
-	let ok_str = tuple_ok[1]
-		.as_str()
-		.unwrap_or_else(|| panic!("Ok payload must be a string, got {:?}", tuple_ok[1]));
-	assert!(ok_str.starts_with("0x"), "Ok payload must be 0x-prefixed hex, got {ok_str}");
-
-	let tuple_err = arr[1].as_array().expect("entry should be a 2-array");
-	assert_eq!(tuple_err[0].as_str().unwrap(), cid_missing);
-	let err_obj = tuple_err[1]
-		.as_object()
-		.unwrap_or_else(|| panic!("Err payload must be an object, got {:?}", tuple_err[1]));
-	assert_eq!(err_obj.get("code").and_then(|v| v.as_i64()).unwrap(), -32810);
-	assert!(err_obj.get("message").and_then(|v| v.as_str()).is_some(), "Err must have message");
-	assert!(!err_obj.contains_key("data"), "Err must not have data");
-}
-
-#[tokio::test]
-async fn get_many_duplicate_valid_cids_top_level_error() {
-	let (ws_client, _handle, mock_client) = setup(false).await;
-	let cid = store_chunk(&mock_client, vec![1u8, 2, 3], BLAKE2B_256);
-
-	let err = ws_client
-		.request::<Vec<(String, BlockResult)>, _>(
-			"bitswap_v1_getMany",
-			rpc_params![vec![cid.clone(), cid]],
-		)
-		.await
-		.unwrap_err();
-
-	assert_error_code(&err, -32602);
-}
-
-#[tokio::test]
-async fn get_many_duplicate_malformed_strings_top_level_error() {
-	let (ws_client, _handle, _mock_client) = setup(false).await;
-
-	// Two literally-identical malformed strings — caught by the string-stage dedup
-	// before any parsing happens.
-	let cids = vec!["bad-cid".to_string(), "bad-cid".to_string()];
-	let err = ws_client
-		.request::<Vec<(String, BlockResult)>, _>("bitswap_v1_getMany", rpc_params![cids])
-		.await
-		.unwrap_err();
-
-	assert_error_code(&err, -32602);
-}
-
-#[tokio::test]
-async fn get_many_distinct_malformed_strings_per_cid_invalid() {
-	let (ws_client, _handle, _mock_client) = setup(false).await;
-
-	// Two different malformed strings — share no identity to dedup against, so each
-	// produces a per-CID `InvalidCid` instead of a top-level rejection.
-	let cids = vec!["bad-1".to_string(), "bad-2".to_string()];
-	let result: Vec<(String, BlockResult)> =
-		ws_client.request("bitswap_v1_getMany", rpc_params![cids]).await.unwrap();
-
-	assert_eq!(result.len(), 2);
-	for (_, r) in result {
-		match r {
-			BlockResult::Err { code, .. } => assert_eq!(code, -32602),
-			BlockResult::Ok(_) => panic!("expected Err for malformed CID"),
-		}
+	match err {
+		jsonrpsee::core::ClientError::Call(obj) => {
+			assert_eq!(obj.code(), -32810);
+			assert!(
+				obj.data().is_none(),
+				"bitswap error object must not carry a `data` field, got {:?}",
+				obj.data()
+			);
+		},
+		other => panic!("Expected CallError, got {other:?}"),
 	}
 }
 
 // ------------------------------------------------------------------
-// bitswap_v1_stream
+// bitswap_unstable_stream
 // ------------------------------------------------------------------
 
 /// Read the next subscription event, panicking if it is missing or fails to deserialize.
-async fn next_event(
-	sub: &mut Subscription<(String, BlockResult)>,
-) -> (String, BlockResult) {
+async fn next_event(sub: &mut Subscription<StreamEvent>) -> StreamEvent {
 	tokio::time::timeout(Duration::from_secs(2), sub.next())
 		.await
 		.expect("event arrived within timeout")
@@ -573,13 +396,41 @@ async fn next_event(
 }
 
 /// Assert that no further events arrive within [`NO_MORE_EVENTS_TIMEOUT`].
-async fn assert_no_more_events(sub: &mut Subscription<(String, BlockResult)>) {
+async fn assert_no_more_events(sub: &mut Subscription<StreamEvent>) {
 	match tokio::time::timeout(NO_MORE_EVENTS_TIMEOUT, sub.next()).await {
-		Err(_) => {}, // timeout — quiescent, as expected.
+		Err(_) => {},   // timeout — quiescent, as expected.
 		Ok(None) => {}, // server-initiated close — also fine.
 		Ok(Some(Ok(extra))) => panic!("unexpected extra event: {extra:?}"),
 		Ok(Some(Err(e))) => panic!("unexpected error after quiescence: {e:?}"),
 	}
+}
+
+/// Unwrap a `StreamItem` event, panicking on any other variant.
+fn assert_stream_item(ev: StreamEvent, expected_cid: &str) -> String {
+	match ev {
+		StreamEvent::StreamItem { cid, value } => {
+			assert_eq!(cid, expected_cid);
+			value
+		},
+		other => panic!("expected StreamItem for {expected_cid}, got {other:?}"),
+	}
+}
+
+/// Unwrap a `StreamItemError` event, panicking on any other variant.
+fn assert_stream_item_error(ev: StreamEvent, expected_cid: &str, expected_code: i32) {
+	match ev {
+		StreamEvent::StreamItemError { cid, code, .. } => {
+			assert_eq!(cid, expected_cid);
+			assert_eq!(code, expected_code);
+		},
+		other => panic!("expected StreamItemError for {expected_cid}, got {other:?}"),
+	}
+}
+
+/// Assert that the next event is `StreamDone`.
+async fn assert_stream_done(sub: &mut Subscription<StreamEvent>) {
+	let ev = next_event(sub).await;
+	assert!(matches!(ev, StreamEvent::StreamDone), "expected StreamDone, got {ev:?}");
 }
 
 #[tokio::test]
@@ -591,16 +442,20 @@ async fn stream_happy_path_emits_in_input_order() {
 	let cid_c = store_chunk(&mock_client, vec![3u8], BLAKE2B_256);
 	let cids = vec![cid_a.clone(), cid_b.clone(), cid_c.clone()];
 
-	let mut sub: Subscription<(String, BlockResult)> = ws_client
-		.subscribe("bitswap_v1_stream", rpc_params![cids.clone()], "bitswap_v1_unstream")
+	let mut sub: Subscription<StreamEvent> = ws_client
+		.subscribe(
+			"bitswap_unstable_stream",
+			rpc_params![cids.clone()],
+			"bitswap_unstable_unstream",
+		)
 		.await
 		.unwrap();
 
 	for expected_cid in &[cid_a, cid_b, cid_c] {
-		let (cid, result) = next_event(&mut sub).await;
-		assert_eq!(&cid, expected_cid);
-		assert!(matches!(result, BlockResult::Ok(_)));
+		let ev = next_event(&mut sub).await;
+		let _ = assert_stream_item(ev, expected_cid);
 	}
+	assert_stream_done(&mut sub).await;
 	assert_no_more_events(&mut sub).await;
 }
 
@@ -614,28 +469,15 @@ async fn stream_mixed_batch() {
 
 	let cids = vec![cid_ok.clone(), cid_missing.clone(), cid_invalid.clone()];
 
-	let mut sub: Subscription<(String, BlockResult)> = ws_client
-		.subscribe("bitswap_v1_stream", rpc_params![cids], "bitswap_v1_unstream")
+	let mut sub: Subscription<StreamEvent> = ws_client
+		.subscribe("bitswap_unstable_stream", rpc_params![cids], "bitswap_unstable_unstream")
 		.await
 		.unwrap();
 
-	let (c0, r0) = next_event(&mut sub).await;
-	assert_eq!(c0, cid_ok);
-	assert!(matches!(r0, BlockResult::Ok(_)));
-
-	let (c1, r1) = next_event(&mut sub).await;
-	assert_eq!(c1, cid_missing);
-	match &r1 {
-		BlockResult::Err { code, .. } => assert_eq!(*code, -32810),
-		other => panic!("expected NotFound, got {other:?}"),
-	}
-
-	let (c2, r2) = next_event(&mut sub).await;
-	assert_eq!(c2, cid_invalid);
-	match &r2 {
-		BlockResult::Err { code, .. } => assert_eq!(*code, -32602),
-		other => panic!("expected InvalidCid, got {other:?}"),
-	}
+	let _ = assert_stream_item(next_event(&mut sub).await, &cid_ok);
+	assert_stream_item_error(next_event(&mut sub).await, &cid_missing, -32810);
+	assert_stream_item_error(next_event(&mut sub).await, &cid_invalid, -32602);
+	assert_stream_done(&mut sub).await;
 	assert_no_more_events(&mut sub).await;
 }
 
@@ -643,30 +485,23 @@ async fn stream_mixed_batch() {
 async fn stream_during_sync_emits_cached_hits_and_per_cid_backoff() {
 	let (ws_client, _handle, mock_client) = setup(true).await;
 
-	// During sync: subscription opens; cached chunks emit as Ok, missing chunks
+	// During sync: subscription opens; cached chunks emit as StreamItem, missing chunks
 	// emit per-CID FailRetryBackoff. No top-level rejection.
 	let cid_in_db = store_chunk(&mock_client, vec![1u8, 2, 3], BLAKE2B_256);
 	let cid_missing = unknown_cid(0xBB);
 
-	let mut sub: Subscription<(String, BlockResult)> = ws_client
+	let mut sub: Subscription<StreamEvent> = ws_client
 		.subscribe(
-			"bitswap_v1_stream",
+			"bitswap_unstable_stream",
 			rpc_params![vec![cid_in_db.clone(), cid_missing.clone()]],
-			"bitswap_v1_unstream",
+			"bitswap_unstable_unstream",
 		)
 		.await
 		.unwrap();
 
-	let (c0, r0) = next_event(&mut sub).await;
-	assert_eq!(c0, cid_in_db);
-	assert!(matches!(r0, BlockResult::Ok(_)), "expected Ok, got {r0:?}");
-
-	let (c1, r1) = next_event(&mut sub).await;
-	assert_eq!(c1, cid_missing);
-	match &r1 {
-		BlockResult::Err { code, .. } => assert_eq!(*code, -32812, "expected FailRetryBackoff"),
-		other => panic!("expected per-CID FailRetryBackoff, got {other:?}"),
-	}
+	let _ = assert_stream_item(next_event(&mut sub).await, &cid_in_db);
+	assert_stream_item_error(next_event(&mut sub).await, &cid_missing, -32812);
+	assert_stream_done(&mut sub).await;
 	assert_no_more_events(&mut sub).await;
 }
 
@@ -679,15 +514,15 @@ async fn stream_over_limit_rejects_subscription() {
 		.collect();
 
 	let err = ws_client
-		.subscribe::<(String, BlockResult), _>(
-			"bitswap_v1_stream",
+		.subscribe::<StreamEvent, _>(
+			"bitswap_unstable_stream",
 			rpc_params![cids],
-			"bitswap_v1_unstream",
+			"bitswap_unstable_unstream",
 		)
 		.await
 		.unwrap_err();
 
-	assert_error_code(&err, -32602);
+	assert_error_code(&err, -32801);
 }
 
 #[tokio::test]
@@ -696,51 +531,141 @@ async fn stream_duplicate_valid_cids_rejects_subscription() {
 	let cid = store_chunk(&mock_client, vec![1u8, 2, 3], BLAKE2B_256);
 
 	let err = ws_client
-		.subscribe::<(String, BlockResult), _>(
-			"bitswap_v1_stream",
+		.subscribe::<StreamEvent, _>(
+			"bitswap_unstable_stream",
 			rpc_params![vec![cid.clone(), cid]],
-			"bitswap_v1_unstream",
+			"bitswap_unstable_unstream",
 		)
 		.await
 		.unwrap_err();
 
-	assert_error_code(&err, -32602);
+	assert_error_code(&err, -32803);
 }
 
 #[tokio::test]
-async fn stream_empty_input_emits_no_events() {
+async fn stream_duplicate_malformed_strings_reject_subscription() {
 	let (ws_client, _handle, _mock_client) = setup(false).await;
 
-	let cids: Vec<String> = vec![];
-	let mut sub: Subscription<(String, BlockResult)> = ws_client
-		.subscribe("bitswap_v1_stream", rpc_params![cids], "bitswap_v1_unstream")
+	// Two literally-identical malformed strings — caught by the string-stage dedup
+	// before any parsing happens. Spec: top-level rejection with -32803, even if the
+	// strings would individually fail to parse.
+	let cids = vec!["bad-cid".to_string(), "bad-cid".to_string()];
+	let err = ws_client
+		.subscribe::<StreamEvent, _>(
+			"bitswap_unstable_stream",
+			rpc_params![cids],
+			"bitswap_unstable_unstream",
+		)
+		.await
+		.unwrap_err();
+
+	assert_error_code(&err, -32803);
+}
+
+#[tokio::test]
+async fn stream_distinct_malformed_strings_per_cid_invalid() {
+	let (ws_client, _handle, _mock_client) = setup(false).await;
+
+	// Two different malformed strings — share no identity to dedup against, so each
+	// produces a per-CID StreamItemError instead of a top-level rejection. Stream still
+	// completes with `streamDone`.
+	let cids = vec!["bad-1".to_string(), "bad-2".to_string()];
+	let mut sub: Subscription<StreamEvent> = ws_client
+		.subscribe("bitswap_unstable_stream", rpc_params![cids], "bitswap_unstable_unstream")
 		.await
 		.unwrap();
 
-	// Subscription opens but emits nothing. No server-side close signal is sent
-	// (jsonrpsee subscriptions don't get a close on sink-drop), so we assert
-	// quiescence via timeout.
+	assert_stream_item_error(next_event(&mut sub).await, "bad-1", -32602);
+	assert_stream_item_error(next_event(&mut sub).await, "bad-2", -32602);
+	assert_stream_done(&mut sub).await;
 	assert_no_more_events(&mut sub).await;
 }
 
 #[tokio::test]
-async fn stream_unsubscribe_stops_emission() {
+async fn stream_empty_input_rejects_subscription() {
+	let (ws_client, _handle, _mock_client) = setup(false).await;
+
+	let cids: Vec<String> = vec![];
+	let err = ws_client
+		.subscribe::<StreamEvent, _>(
+			"bitswap_unstable_stream",
+			rpc_params![cids],
+			"bitswap_unstable_unstream",
+		)
+		.await
+		.unwrap_err();
+
+	assert_error_code(&err, -32802);
+}
+
+#[tokio::test]
+async fn stream_drop_does_not_panic_server() {
 	let (ws_client, _handle, mock_client) = setup(false).await;
 
-	// Provide a long batch so there's plenty of time to unsubscribe between events.
+	// Long batch so the loop is in progress when we drop, exercising the
+	// `sink.send().await.is_err()` early-return path in the handler.
 	let mut cids = Vec::new();
 	for i in 0..32u8 {
 		cids.push(store_chunk(&mock_client, vec![i, i, i, i], BLAKE2B_256));
 	}
 
-	let mut sub: Subscription<(String, BlockResult)> = ws_client
-		.subscribe("bitswap_v1_stream", rpc_params![cids.clone()], "bitswap_v1_unstream")
+	let mut sub: Subscription<StreamEvent> = ws_client
+		.subscribe(
+			"bitswap_unstable_stream",
+			rpc_params![cids.clone()],
+			"bitswap_unstable_unstream",
+		)
 		.await
 		.unwrap();
 
-	// Read a couple of events, then drop the subscription to trigger unsubscribe.
-	let _ = sub.next().await;
-	let _ = sub.next().await;
+	// Read a couple of events so we know the stream is alive, then drop to unsubscribe.
+	// The spec requires that `streamDone` is NOT emitted on cancellation; that property is
+	// enforced in `bitswap_unstable_stream` by returning before the final `streamDone` send
+	// whenever any prior `sink.send` returned `Err`. We can't reliably observe it on the
+	// wire — jsonrpsee can buffer the entire short batch (including `streamDone`) locally
+	// before the client's drop reaches the server, and the spec explicitly permits
+	// notifications to race with the unsubscribe call. So this test only verifies that
+	// dropping the subscription doesn't panic the server task.
+	let _ = next_event(&mut sub).await;
+	let _ = next_event(&mut sub).await;
 	drop(sub);
-	// Test passes if the server does not panic; nothing further to assert from the client side.
+}
+
+#[tokio::test]
+async fn stream_event_wire_shape_matches_spec() {
+	let (ws_client, _handle, mock_client) = setup(false).await;
+
+	let cid_ok = store_chunk(&mock_client, vec![0x68, 0x69], BLAKE2B_256);
+	let cid_missing = unknown_cid(0xEE);
+
+	// Subscribe with `serde_json::Value` so we see the raw wire shape.
+	let mut sub: Subscription<serde_json::Value> = ws_client
+		.subscribe(
+			"bitswap_unstable_stream",
+			rpc_params![vec![cid_ok.clone(), cid_missing.clone()]],
+			"bitswap_unstable_unstream",
+		)
+		.await
+		.unwrap();
+
+	let first = sub.next().await.unwrap().unwrap();
+	let obj = first.as_object().expect("event must be an object");
+	assert_eq!(obj.get("event").and_then(|v| v.as_str()).unwrap(), "streamItem");
+	assert_eq!(obj.get("cid").and_then(|v| v.as_str()).unwrap(), cid_ok);
+	let value = obj.get("value").and_then(|v| v.as_str()).unwrap();
+	assert!(value.starts_with("0x"), "value must be 0x-prefixed hex, got {value}");
+	assert!(!obj.contains_key("data"), "streamItem must not carry `data`");
+
+	let second = sub.next().await.unwrap().unwrap();
+	let obj = second.as_object().expect("event must be an object");
+	assert_eq!(obj.get("event").and_then(|v| v.as_str()).unwrap(), "streamItemError");
+	assert_eq!(obj.get("cid").and_then(|v| v.as_str()).unwrap(), cid_missing);
+	assert_eq!(obj.get("code").and_then(|v| v.as_i64()).unwrap(), -32810);
+	assert!(obj.get("message").and_then(|v| v.as_str()).is_some(), "message must be present");
+	assert!(!obj.contains_key("data"), "streamItemError must not carry `data`");
+
+	let third = sub.next().await.unwrap().unwrap();
+	let obj = third.as_object().expect("event must be an object");
+	assert_eq!(obj.get("event").and_then(|v| v.as_str()).unwrap(), "streamDone");
+	assert_eq!(obj.len(), 1, "streamDone must only carry the `event` key, got {obj:?}");
 }
