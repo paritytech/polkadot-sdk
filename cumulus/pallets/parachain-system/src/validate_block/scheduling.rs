@@ -30,9 +30,6 @@ pub enum SchedulingValidationError {
 	/// When relay_parent != internal_scheduling_parent, the resubmitting collator must
 	/// sign the core selection to prove slot eligibility.
 	MissingSignedSchedulingInfo,
-	/// Signature verification failed for resubmission.
-	/// The signature does not match the expected eligible collator for the slot.
-	InvalidSignature,
 }
 
 /// Result of successful scheduling validation.
@@ -172,46 +169,17 @@ pub fn check_scheduling(
 	})
 }
 
-/// Verify the signature in signed_scheduling_info for a resubmission.
-///
-/// This should only be called after `check_scheduling` returns successfully with
-/// `is_resubmission: true`. The caller must provide the eligible collator derived
-/// from the Aura authorities at the first block's state.
-///
-/// # Arguments
-/// * `signed_scheduling_info` - The signed scheduling info from the proof
-/// * `expected_collator` - The eligible collator for the slot (from `slot % authorities.len()`)
-/// * `internal_scheduling_parent` - The internal scheduling parent hash
-///
-/// # Returns
-/// `Ok(())` if the signature is valid, `Err(InvalidSignature)` otherwise.
-pub fn verify_resubmission_signature(
-	signed_scheduling_info: &cumulus_primitives_core::SignedSchedulingInfo,
-	expected_collator: &cumulus_primitives_core::relay_chain::CollatorId,
-	internal_scheduling_parent: RelayHash,
-) -> Result<(), SchedulingValidationError> {
-	if signed_scheduling_info.verify(expected_collator, internal_scheduling_parent) {
-		Ok(())
-	} else {
-		Err(SchedulingValidationError::InvalidSignature)
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use codec::Encode;
-	use cumulus_primitives_core::{
-		relay_chain::CollatorSignature, CoreSelector, SchedulingProof, SignedSchedulingInfo,
-	};
-	use sp_core::crypto::UncheckedFrom;
+	use cumulus_primitives_core::{CoreSelector, SchedulingProof, SignedSchedulingInfo};
 	use sp_runtime::{generic::Header, traits::BlakeTwo256};
 
 	type RelayHeader = Header<u32, BlakeTwo256>;
 
-	/// Creates a dummy signature for testing (not cryptographically valid).
-	fn dummy_signature() -> CollatorSignature {
-		CollatorSignature::unchecked_from([0u8; 64])
+	/// Creates a dummy signature blob for testing (not cryptographically valid).
+	fn dummy_signature() -> Vec<u8> {
+		vec![0u8; 64]
 	}
 
 	/// Creates a chain of headers where each header's parent_hash points to the next.
@@ -470,98 +438,6 @@ mod tests {
 		let result = result.unwrap();
 		assert!(!result.is_resubmission);
 		assert_eq!(result.internal_scheduling_parent, relay_parent);
-	}
-
-	// =========================================================================
-	// Signature verification tests
-	// =========================================================================
-
-	#[test]
-	fn verify_resubmission_signature_valid() {
-		// Test: Valid signature from correct collator passes verification
-		use cumulus_primitives_core::SchedulingInfoPayload;
-		use sp_core::Pair;
-
-		let internal_scheduling_parent = RelayHash::repeat_byte(0x42);
-
-		// Create a keypair and derive the collator ID
-		let keypair = sp_core::sr25519::Pair::from_seed(&[1u8; 32]);
-		let collator_id: cumulus_primitives_core::relay_chain::CollatorId = keypair.public().into();
-
-		// Create the payload and sign it
-		let payload = SchedulingInfoPayload::new(CoreSelector(1), internal_scheduling_parent);
-		let signature: CollatorSignature = keypair.sign(&payload.encode()).into();
-
-		let signed_info = SignedSchedulingInfo {
-			core_selector: CoreSelector(1),
-			peer_id: Default::default(),
-			signature,
-		};
-
-		let result =
-			verify_resubmission_signature(&signed_info, &collator_id, internal_scheduling_parent);
-		assert!(result.is_ok());
-	}
-
-	#[test]
-	fn verify_resubmission_signature_wrong_collator() {
-		// Test: Signature from wrong collator fails verification
-		use cumulus_primitives_core::SchedulingInfoPayload;
-		use sp_core::Pair;
-
-		let internal_scheduling_parent = RelayHash::repeat_byte(0x42);
-
-		// Create keypair for signing
-		let signing_keypair = sp_core::sr25519::Pair::from_seed(&[1u8; 32]);
-
-		// Create a different keypair for expected collator
-		let expected_keypair = sp_core::sr25519::Pair::from_seed(&[2u8; 32]);
-		let expected_collator: cumulus_primitives_core::relay_chain::CollatorId =
-			expected_keypair.public().into();
-
-		// Sign with the wrong key
-		let payload = SchedulingInfoPayload::new(CoreSelector(1), internal_scheduling_parent);
-		let signature: CollatorSignature = signing_keypair.sign(&payload.encode()).into();
-
-		let signed_info = SignedSchedulingInfo {
-			core_selector: CoreSelector(1),
-			peer_id: Default::default(),
-			signature,
-		};
-
-		let result = verify_resubmission_signature(
-			&signed_info,
-			&expected_collator,
-			internal_scheduling_parent,
-		);
-		assert_eq!(result, Err(SchedulingValidationError::InvalidSignature));
-	}
-
-	#[test]
-	fn verify_resubmission_signature_wrong_internal_scheduling_parent() {
-		// Test: Signature for different internal_scheduling_parent fails verification
-		use cumulus_primitives_core::SchedulingInfoPayload;
-		use sp_core::Pair;
-
-		let signed_isp = RelayHash::repeat_byte(0x42);
-		let verify_isp = RelayHash::repeat_byte(0x43); // Different!
-
-		let keypair = sp_core::sr25519::Pair::from_seed(&[1u8; 32]);
-		let collator_id: cumulus_primitives_core::relay_chain::CollatorId = keypair.public().into();
-
-		// Sign for one internal_scheduling_parent
-		let payload = SchedulingInfoPayload::new(CoreSelector(1), signed_isp);
-		let signature: CollatorSignature = keypair.sign(&payload.encode()).into();
-
-		let signed_info = SignedSchedulingInfo {
-			core_selector: CoreSelector(1),
-			peer_id: Default::default(),
-			signature,
-		};
-
-		// Verify against a different internal_scheduling_parent
-		let result = verify_resubmission_signature(&signed_info, &collator_id, verify_isp);
-		assert_eq!(result, Err(SchedulingValidationError::InvalidSignature));
 	}
 
 	// =========================================================================

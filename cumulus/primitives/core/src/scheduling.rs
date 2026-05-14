@@ -20,10 +20,8 @@
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use polkadot_primitives::{
-	ApprovedPeerId, CollatorId, CollatorSignature, CoreSelector, Header as RelayChainHeader,
-};
-use sp_runtime::traits::{AppVerify, BlakeTwo256, Hash as HashT};
+use polkadot_primitives::{ApprovedPeerId, CoreSelector, Header as RelayChainHeader};
+use sp_runtime::traits::{BlakeTwo256, Hash as HashT};
 
 /// Payload signed by a collator for resubmission.
 ///
@@ -61,28 +59,10 @@ pub struct SignedSchedulingInfo {
 	pub peer_id: ApprovedPeerId,
 	/// Signature by the eligible collator for the slot at `internal_scheduling_parent`.
 	/// Signs `SchedulingInfoPayload(core_selector, internal_scheduling_parent)`.
-	pub signature: CollatorSignature,
-}
-
-impl SignedSchedulingInfo {
-	/// Verify the signature against the expected collator.
 	///
-	/// # Arguments
-	/// * `expected_collator` - The collator ID that should have signed this
-	/// * `internal_scheduling_parent` - The internal scheduling parent hash
-	///
-	/// # Returns
-	/// `true` if the signature is valid for the expected collator.
-	pub fn verify(
-		&self,
-		expected_collator: &CollatorId,
-		internal_scheduling_parent: polkadot_primitives::Hash,
-	) -> bool {
-		let payload =
-			SchedulingInfoPayload { core_selector: self.core_selector, internal_scheduling_parent };
-		let encoded = payload.encode();
-		self.signature.verify(encoded.as_slice(), expected_collator)
-	}
+	/// Encoded as opaque bytes so the verifier is free to choose the signature scheme
+	/// (e.g. the parachain's Aura authority crypto, which may be sr25519 or ed25519).
+	pub signature: Vec<u8>,
 }
 
 impl SchedulingInfoPayload {
