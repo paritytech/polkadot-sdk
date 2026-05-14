@@ -414,6 +414,10 @@ pub use pallet_bridge_relayers;
 #[cfg(feature = "pallet-broker")]
 pub use pallet_broker;
 
+/// RFC-17 market mechanism for Polkadot Coretime sales.
+#[cfg(feature = "pallet-coretime-market")]
+pub use pallet_coretime_market;
+
 /// FRAME pallet to manage child bounties.
 #[cfg(feature = "pallet-child-bounties")]
 pub use pallet_child_bounties;
