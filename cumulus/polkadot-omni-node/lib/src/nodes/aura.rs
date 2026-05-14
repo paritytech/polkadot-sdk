@@ -27,7 +27,7 @@ use crate::{
 			AccountId, Balance, Hash, Nonce, ParachainBackend, ParachainBlockImport,
 			ParachainClient,
 		},
-		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
+		ConstructNodeRuntimeApi, DynRpcBuilder, NodeBlock, NodeExtraArgs,
 	},
 };
 use codec::Encode;
@@ -162,7 +162,7 @@ pub(crate) struct AuraNode<Block: NodeBlock, RuntimeApi, AuraId, StartConsensus,
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 {
-	pub extensions: Vec<Box<dyn crate::common::NodeExtension<Block, RuntimeApi>>>,
+	pub rpc_builder: Option<DynRpcBuilder<Block, RuntimeApi>>,
 	_phantom: PhantomData<(AuraId, StartConsensus, InitBlockImport)>,
 }
 
@@ -171,10 +171,8 @@ impl<Block: NodeBlock, RuntimeApi, AuraId, StartConsensus, InitBlockImport>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 {
-	pub fn new(
-		extensions: Vec<Box<dyn crate::common::NodeExtension<Block, RuntimeApi>>>,
-	) -> Self {
-		Self { extensions, _phantom: PhantomData }
+	pub fn new(rpc_builder: Option<DynRpcBuilder<Block, RuntimeApi>>) -> Self {
+		Self { rpc_builder, _phantom: PhantomData }
 	}
 }
 
@@ -217,21 +215,19 @@ where
 	InitBlockImport::BlockImport:
 		sc_consensus::BlockImport<Block, Error = sp_consensus::Error> + 'static,
 {
-	type BuildRpcExtensions = BuildParachainRpcExtensions<Block, RuntimeApi>;
+	type DefaultRpcBuilder = BuildParachainRpcExtensions<Block, RuntimeApi>;
 	type StartConsensus = StartConsensus;
 	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
 
-	fn take_extensions(
-		&mut self,
-	) -> Vec<Box<dyn crate::common::NodeExtension<Self::Block, Self::RuntimeApi>>> {
-		std::mem::take(&mut self.extensions)
+	fn take_rpc_builder(&mut self) -> Option<DynRpcBuilder<Self::Block, Self::RuntimeApi>> {
+		self.rpc_builder.take()
 	}
 
 	fn start_dev_node(
 		mut config: Configuration,
 		mode: DevSealMode,
 		node_extra_args: NodeExtraArgs,
-		extensions: Vec<Box<dyn crate::common::NodeExtension<Self::Block, Self::RuntimeApi>>>,
+		rpc_builder: Option<DynRpcBuilder<Self::Block, Self::RuntimeApi>>,
 	) -> sc_service::error::Result<TaskManager> {
 		// Destructure all fields so the compiler enforces handling new args.
 		let NodeExtraArgs {
@@ -434,36 +430,35 @@ where
 		let spawn_handle = Arc::new(task_manager.spawn_handle());
 		let database_path = config.database.path().map(|p| p.to_path_buf());
 
-		for ext in &extensions {
-			ext.on_start(
-				client.clone(),
-				transaction_pool.clone(),
-				&task_manager,
-				database_path.as_deref(),
-			)?;
-		}
+		let rpc_builder_instance: Arc<
+			dyn BuildRpcExtensions<
+				ParachainClient<Block, RuntimeApi>,
+				ParachainBackend<Block>,
+				sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
+				sc_statement_store::Store,
+			>,
+		> = match rpc_builder {
+			Some(b) => Arc::from(b),
+			None => Arc::new(BuildParachainRpcExtensions::<Block, RuntimeApi>::default()),
+		};
 
 		let rpc_extensions_builder = {
 			let client = client.clone();
 			let transaction_pool = transaction_pool.clone();
 			let backend_for_rpc = backend.clone();
 			let statement_store = statement_store.clone();
+			let rpc_builder_instance = rpc_builder_instance.clone();
+			let database_path = database_path.clone();
 
 			Box::new(move |_| {
-				let mut module = Self::BuildRpcExtensions::build_rpc_extensions(
+				rpc_builder_instance.build_rpc_extensions(
 					client.clone(),
 					backend_for_rpc.clone(),
 					transaction_pool.clone(),
 					statement_store.clone(),
 					spawn_handle.clone(),
-				)?;
-				for ext in &extensions {
-					let extra = ext.build_rpc_extension(client.clone())?;
-					module
-						.merge(extra)
-						.map_err(|e| sc_service::Error::Other(e.to_string()))?;
-				}
-				Ok(module)
+					database_path.as_deref(),
+				)
 			})
 		};
 
@@ -591,7 +586,7 @@ where
 
 pub fn new_aura_node_spec<Block, RuntimeApi, AuraId>(
 	extra_args: &NodeExtraArgs,
-	extensions: Vec<Box<dyn crate::common::NodeExtension<Block, RuntimeApi>>>,
+	rpc_builder: Option<DynRpcBuilder<Block, RuntimeApi>>,
 ) -> Box<dyn DynNodeSpec>
 where
 	Block: NodeBlock,
@@ -611,7 +606,7 @@ where
 			AuraId,
 			StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>,
 			StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>,
-		>::new(extensions))
+		>::new(rpc_builder))
 	} else {
 		Box::new(AuraNode::<
 			Block,
@@ -619,7 +614,7 @@ where
 			AuraId,
 			StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>,
 			ClientBlockImport,
-		>::new(extensions))
+		>::new(rpc_builder))
 	}
 }
 

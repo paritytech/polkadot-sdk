@@ -28,24 +28,35 @@ use sc_rpc::{
 	statement::{StatementApiServer, StatementStore},
 };
 use sp_runtime::traits::Block as BlockT;
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, path::Path, sync::Arc};
 use substrate_frame_rpc_system::{System, SystemApiServer};
 use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
 
 /// A type representing all RPC extensions.
 pub type RpcExtension = jsonrpsee::RpcModule<()>;
 
-pub(crate) trait BuildRpcExtensions<Client, Backend, Pool, StatementStore> {
+/// Builds the RPC extension module for a node.
+pub trait BuildRpcExtensions<Client, Backend, Pool, StatementStore>: Send + Sync {
+	/// Build the RPC extension module.
 	fn build_rpc_extensions(
+		&self,
 		client: Arc<Client>,
 		backend: Arc<Backend>,
 		pool: Arc<Pool>,
 		statement_store: Option<Arc<StatementStore>>,
 		spawn_handle: Arc<dyn sp_core::traits::SpawnNamed>,
+		database_path: Option<&Path>,
 	) -> sc_service::error::Result<RpcExtension>;
 }
 
-pub(crate) struct BuildParachainRpcExtensions<Block, RuntimeApi>(PhantomData<(Block, RuntimeApi)>);
+/// Default parachain RPC extensions.
+pub struct BuildParachainRpcExtensions<Block, RuntimeApi>(PhantomData<(Block, RuntimeApi)>);
+
+impl<Block, RuntimeApi> Default for BuildParachainRpcExtensions<Block, RuntimeApi> {
+	fn default() -> Self {
+		Self(PhantomData)
+	}
+}
 
 impl<Block: BlockT, RuntimeApi>
 	BuildRpcExtensions<
@@ -61,6 +72,7 @@ where
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 {
 	fn build_rpc_extensions(
+		&self,
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
 		backend: Arc<ParachainBackend<Block>>,
 		pool: Arc<
@@ -68,6 +80,7 @@ where
 		>,
 		statement_store: Option<Arc<sc_statement_store::Store>>,
 		spawn_handle: Arc<dyn sp_core::traits::SpawnNamed>,
+		_database_path: Option<&Path>,
 	) -> sc_service::error::Result<RpcExtension> {
 		let build = || -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>> {
 			let mut module = RpcExtension::new(());

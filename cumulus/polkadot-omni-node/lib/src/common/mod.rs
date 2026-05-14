@@ -42,7 +42,7 @@ use sp_runtime::{
 use sp_session::SessionKeys;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
 use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
-use std::{fmt::Debug, path::{Path, PathBuf}, str::FromStr, sync::Arc};
+use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
 use crate::common::types::ParachainClient;
 
@@ -138,63 +138,38 @@ pub struct NodeExtraArgs {
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
 }
 
-/// Plug-in hook for downstream binaries to add service tasks and RPC handlers.
-pub trait NodeExtension<Block, RuntimeApi>: Send + Sync + 'static
-where
-	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-{
-	/// Called after the task manager is built, before RPC server construction.
-	fn on_start(
-		&self,
-		_client: Arc<ParachainClient<Block, RuntimeApi>>,
-		_transaction_pool: Arc<
-			sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
-		>,
-		_task_manager: &sc_service::TaskManager,
-		_database_path: Option<&Path>,
-	) -> sc_service::error::Result<()> {
-		Ok(())
-	}
-
-	/// Returns an RPC module to be merged with the node's defaults.
-	fn build_rpc_extension(
-		&self,
-		_client: Arc<ParachainClient<Block, RuntimeApi>>,
-	) -> sc_service::error::Result<jsonrpsee::RpcModule<()>> {
-		Ok(jsonrpsee::RpcModule::new(()))
-	}
-}
-
 /// Block with `u32` block number.
 pub type BlockU32 = crate::common::types::Block<u32>;
 
 /// Block with `u64` block number.
 pub type BlockU64 = crate::common::types::Block<u64>;
 
-/// Bundle of [`NodeExtension`]s for the two Aura `RuntimeApi` variants
-/// (sr25519, ed25519) at a given `Block` type. Only the variant matching the
-/// resolved `AuraConsensusId` is consumed; the other is ignored.
+/// Boxed [`crate::common::rpc::BuildRpcExtensions`] for a `(Block, RuntimeApi)` variant.
+pub type DynRpcBuilder<Block, RuntimeApi> = Box<
+	dyn crate::common::rpc::BuildRpcExtensions<
+		ParachainClient<Block, RuntimeApi>,
+		crate::common::types::ParachainBackend<Block>,
+		sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
+		sc_statement_store::Store,
+	>,
+>;
+
+/// Optional RPC builders for the two Aura `RuntimeApi` variants. `None` falls
+/// back to [`crate::common::rpc::BuildParachainRpcExtensions`].
 pub struct AuraExtensions<Block: NodeBlock> {
-	/// Extensions for the sr25519 variant.
-	pub sr25519: Vec<
-		Box<dyn NodeExtension<Block, crate::fake_runtime_api::aura_sr25519::RuntimeApi>>,
-	>,
-	/// Extensions for the ed25519 variant.
-	pub ed25519: Vec<
-		Box<dyn NodeExtension<Block, crate::fake_runtime_api::aura_ed25519::RuntimeApi>>,
-	>,
+	/// Custom RPC builder for the sr25519 variant.
+	pub sr25519: Option<DynRpcBuilder<Block, crate::fake_runtime_api::aura_sr25519::RuntimeApi>>,
+	/// Custom RPC builder for the ed25519 variant.
+	pub ed25519: Option<DynRpcBuilder<Block, crate::fake_runtime_api::aura_ed25519::RuntimeApi>>,
 }
 
 impl<Block: NodeBlock> Default for AuraExtensions<Block> {
 	fn default() -> Self {
-		Self { sr25519: Vec::new(), ed25519: Vec::new() }
+		Self { sr25519: None, ed25519: None }
 	}
 }
 
-/// Container for [`NodeExtension`]s installed on a node, keyed by the
-/// `(Block, RuntimeApi)` combinations the runtime resolver picks. Only the
-/// combo matching the resolved runtime is consumed; the others are ignored.
+/// RPC builders keyed by `(Block, RuntimeApi)` combination.
 #[derive(Default)]
 pub struct NodeExtensions {
 	/// Aura extensions for `Block<u32>`.

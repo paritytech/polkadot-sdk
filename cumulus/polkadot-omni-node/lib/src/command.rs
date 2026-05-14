@@ -45,7 +45,7 @@ pub struct RunConfig {
 	pub chain_spec_loader: Box<dyn LoadSpec>,
 	/// A custom runtime resolver.
 	pub runtime_resolver: Box<dyn RuntimeResolver>,
-	/// [`NodeExtension`]s to install, keyed by `(Block, RuntimeApi)` combo.
+	/// Optional custom RPC builders keyed by the `(Block, RuntimeApi)` combo.
 	pub extensions: NodeExtensions,
 }
 
@@ -64,17 +64,18 @@ fn new_aura_node_spec<B: NodeBlock>(
 	extra_args: &NodeExtraArgs,
 	extensions: AuraExtensions<B>,
 ) -> Box<dyn DynNodeSpec> {
+	let AuraExtensions { sr25519, ed25519 } = extensions;
 	match aura_id {
 		AuraConsensusId::Sr25519 => crate::nodes::aura::new_aura_node_spec::<
 			B,
 			crate::fake_runtime_api::aura_sr25519::RuntimeApi,
 			sp_consensus_aura::sr25519::AuthorityId,
-		>(extra_args, extensions.sr25519),
+		>(extra_args, sr25519),
 		AuraConsensusId::Ed25519 => crate::nodes::aura::new_aura_node_spec::<
 			B,
 			crate::fake_runtime_api::aura_ed25519::RuntimeApi,
 			sp_consensus_aura::ed25519::AuthorityId,
-		>(extra_args, extensions.ed25519),
+		>(extra_args, ed25519),
 	}
 }
 

@@ -25,7 +25,7 @@ use crate::{
 			ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
 			ParachainService,
 		},
-		ConstructNodeRuntimeApi, NodeBlock, NodeExtension, NodeExtraArgs,
+		ConstructNodeRuntimeApi, DynRpcBuilder, NodeBlock, NodeExtraArgs,
 	},
 };
 use codec::Encode;
@@ -297,12 +297,14 @@ pub(crate) trait BaseNodeSpec {
 }
 
 pub(crate) trait NodeSpec: BaseNodeSpec {
-	type BuildRpcExtensions: BuildRpcExtensions<
-		ParachainClient<Self::Block, Self::RuntimeApi>,
-		ParachainBackend<Self::Block>,
-		TransactionPoolHandle<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
-		Store,
-	>;
+	/// Fallback RPC builder when none is supplied by the caller.
+	type DefaultRpcBuilder: BuildRpcExtensions<
+			ParachainClient<Self::Block, Self::RuntimeApi>,
+			ParachainBackend<Self::Block>,
+			TransactionPoolHandle<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
+			Store,
+		> + Default
+		+ 'static;
 
 	type StartConsensus: StartConsensus<
 		Self::Block,
@@ -313,17 +315,15 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance;
 
-	fn take_extensions(
-		&mut self,
-	) -> Vec<Box<dyn NodeExtension<Self::Block, Self::RuntimeApi>>> {
-		Vec::new()
+	fn take_rpc_builder(&mut self) -> Option<DynRpcBuilder<Self::Block, Self::RuntimeApi>> {
+		None
 	}
 
 	fn start_dev_node(
 		_config: Configuration,
 		_mode: DevSealMode,
 		_node_extra_args: NodeExtraArgs,
-		_extensions: Vec<Box<dyn NodeExtension<Self::Block, Self::RuntimeApi>>>,
+		_rpc_builder: Option<DynRpcBuilder<Self::Block, Self::RuntimeApi>>,
 	) -> sc_service::error::Result<TaskManager> {
 		Err(sc_service::Error::Other("Dev not supported for this node type".into()))
 	}
@@ -337,7 +337,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		collator_options: CollatorOptions,
 		hwbench: Option<sc_sysinfo::HwBench>,
 		node_extra_args: NodeExtraArgs,
-		extensions: Vec<Box<dyn NodeExtension<Self::Block, Self::RuntimeApi>>>,
+		rpc_builder: Option<DynRpcBuilder<Self::Block, Self::RuntimeApi>>,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>>
 	where
 		Net: NetworkBackend<Self::Block, Hash>,
@@ -474,35 +474,37 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 			let database_path = parachain_config.database.path().map(|p| p.to_path_buf());
 
-			for ext in &extensions {
-				ext.on_start(
-					client.clone(),
-					transaction_pool.clone(),
-					&task_manager,
-					database_path.as_deref(),
-				)?;
-			}
+			let rpc_builder_instance: Arc<
+				dyn BuildRpcExtensions<
+					ParachainClient<Self::Block, Self::RuntimeApi>,
+					ParachainBackend<Self::Block>,
+					TransactionPoolHandle<
+						Self::Block,
+						ParachainClient<Self::Block, Self::RuntimeApi>,
+					>,
+					Store,
+				>,
+			> = match rpc_builder {
+				Some(b) => Arc::from(b),
+				None => Arc::new(Self::DefaultRpcBuilder::default()),
+			};
 
 			let rpc_builder = {
 				let client = client.clone();
 				let transaction_pool = transaction_pool.clone();
 				let backend_for_rpc = backend.clone();
 				let statement_store = statement_store.clone();
+				let rpc_builder_instance = rpc_builder_instance.clone();
+				let database_path = database_path.clone();
 				Box::new(move |_| {
-					let mut module = Self::BuildRpcExtensions::build_rpc_extensions(
+					rpc_builder_instance.build_rpc_extensions(
 						client.clone(),
 						backend_for_rpc.clone(),
 						transaction_pool.clone(),
 						statement_store.clone(),
 						spawn_handle.clone(),
-					)?;
-					for ext in &extensions {
-						let extra = ext.build_rpc_extension(client.clone())?;
-						module
-							.merge(extra)
-							.map_err(|e| sc_service::Error::Other(e.to_string()))?;
-					}
-					Ok(module)
+						database_path.as_deref(),
+					)
 				})
 			};
 
@@ -660,8 +662,8 @@ where
 		mode: DevSealMode,
 		node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager> {
-		let extensions = self.take_extensions();
-		<Self as NodeSpec>::start_dev_node(config, mode, node_extra_args, extensions)
+		let rpc_builder = self.take_rpc_builder();
+		<Self as NodeSpec>::start_dev_node(config, mode, node_extra_args, rpc_builder)
 	}
 
 	fn start_node(
@@ -672,28 +674,26 @@ where
 		hwbench: Option<HwBench>,
 		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>> {
-		let extensions = self.take_extensions();
+		let rpc_builder = self.take_rpc_builder();
 		match parachain_config.network.network_backend {
-			sc_network::config::NetworkBackendType::Libp2p => {
+			sc_network::config::NetworkBackendType::Libp2p =>
 				<Self as NodeSpec>::start_node::<sc_network::NetworkWorker<_, _>>(
 					parachain_config,
 					polkadot_config,
 					collator_options,
 					hwbench,
 					node_extra_args,
-					extensions,
-				)
-			},
-			sc_network::config::NetworkBackendType::Litep2p => {
+					rpc_builder,
+				),
+			sc_network::config::NetworkBackendType::Litep2p =>
 				<Self as NodeSpec>::start_node::<sc_network::Litep2pNetworkBackend>(
 					parachain_config,
 					polkadot_config,
 					collator_options,
 					hwbench,
 					node_extra_args,
-					extensions,
-				)
-			},
+					rpc_builder,
+				),
 		}
 	}
 }
