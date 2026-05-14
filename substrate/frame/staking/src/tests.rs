@@ -9669,4 +9669,124 @@ mod nomination_staleness {
 			}
 		});
 	}
+
+	// ----- Downstream payout / slashing behaviour. -----
+
+	#[test]
+	fn payout_diminished() {
+		// A stale nominator's slice of validator rewards is reduced in proportion to their
+		// reduced exposure. The mechanism is applied at the election snapshot only; the
+		// `payout_stakers` math is unchanged and naturally distributes the "lost" share to
+		// the validator's non-stale stakers via standard exposure-weighted payout (RFC #104).
+		ExtBuilder::default().build_and_execute(|| {
+			// Pin 101 to a deterministic staleness. With `submitted_in = 0` and curve
+			// `(grace = 0, decay = 0, floor = 50%)`, the multiplier is `1` while in grace
+			// (`s == 0`) and clamps to the floor (`50%`) for any later era — no dependence on
+			// which era we observe.
+			Nominators::<Test>::mutate(101, |n| {
+				n.as_mut().unwrap().submitted_in = 0;
+			});
+			set_curve(0, 0, Perbill::from_percent(50));
+
+			// Pay rewards into the free balance so we can read deltas via `total_balance`.
+			Payee::<Test>::insert(11, RewardDestination::Account(11));
+			Payee::<Test>::insert(101, RewardDestination::Account(101));
+
+			// Trigger an election with the multiplier applied. The first election (for the
+			// initial active era) happens during `ExtBuilder::build_and_execute` before our
+			// `set_curve` call; we need to advance to a fresh election so the curve takes
+			// effect.
+			start_active_era(2);
+
+			// 101's distributed exposure across all validators sums to their reduced voter
+			// weight: `bonded (500) * multiplier (50%) = 250`.
+			let exp_11 = Staking::eras_stakers(active_era(), &11);
+			let exp_21 = Staking::eras_stakers(active_era(), &21);
+			let total_exposure_101: Balance = exp_11
+				.others
+				.iter()
+				.chain(exp_21.others.iter())
+				.filter(|i| i.who == 101)
+				.map(|i| i.value)
+				.sum();
+			assert_eq!(total_exposure_101, 250);
+
+			let exposed_101_in_11 = exp_11
+				.others
+				.iter()
+				.find(|i| i.who == 101)
+				.expect("101 still in 11's exposure under 50% multiplier")
+				.value;
+			assert!(exposed_101_in_11 > 0 && exposed_101_in_11 < 250);
+
+			// Reward validator 11 and pay out era 2.
+			Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
+			let payout = current_total_payout_for_duration(reward_time_per_era());
+			start_active_era(3);
+
+			let init_11 = asset::total_balance::<Test>(&11);
+			let init_101 = asset::total_balance::<Test>(&101);
+			mock::make_all_reward_payment(2);
+			let recv_11 = asset::total_balance::<Test>(&11) - init_11;
+			let recv_101 = asset::total_balance::<Test>(&101) - init_101;
+
+			// 101's share equals their (reduced) exposure value over 11's total exposure —
+			// strictly less than without staleness. The validator's slice (`own / total`) is
+			// correspondingly larger.
+			let expected_101 = Perbill::from_rational(exposed_101_in_11, exp_11.total) * payout;
+			let expected_11 = Perbill::from_rational(exp_11.own, exp_11.total) * payout;
+			assert_eq_error_rate!(recv_101, expected_101, 2);
+			assert_eq_error_rate!(recv_11, expected_11, 2);
+		});
+	}
+
+	#[test]
+	fn slashing_unaffected() {
+		// The slashing path is unchanged by the staleness mechanism: it operates on
+		// `exposure.own` and `IndividualExposure.value` directly, with no separate staleness
+		// adjustment. Concretely:
+		//   - The validator's own slash equals `slash_pct * exposure.own`, which is the
+		//     validator's self-stake and is independent of nominator staleness.
+		//   - A still-exposed stale nominator is slashed proportional to their (reduced)
+		//     exposure value — they are NOT made immune to slashing.
+		ExtBuilder::default().build_and_execute(|| {
+			Nominators::<Test>::mutate(101, |n| {
+				n.as_mut().unwrap().submitted_in = 0;
+			});
+			// Permanent 50% floor: 101 always has multiplier == 50% in any election after we
+			// set the curve.
+			set_curve(0, 0, Perbill::from_percent(50));
+
+			// Advance past the initial (curve-less) election so the multiplier takes effect.
+			start_active_era(2);
+
+			// 11's `own` is unaffected by staleness; 101 is still in the exposure with a
+			// strictly reduced (non-zero) value (vs. the 250 baseline at full weight).
+			let exp = Staking::eras_stakers(active_era(), &11);
+			assert_eq!(exp.own, 1000);
+			let exposed_101 = exp
+				.others
+				.iter()
+				.find(|i| i.who == 101)
+				.expect("101 still exposed under 50% multiplier")
+				.value;
+			assert!(exposed_101 > 0 && exposed_101 < 250);
+
+			let pre_11 = asset::stakeable_balance::<Test>(&11);
+			let pre_101 = asset::stakeable_balance::<Test>(&101);
+
+			// Slash 11 by 50%.
+			on_offence_now(&[offence_from(11, None)], &[Perbill::from_percent(50)]);
+
+			// Validator slash = `slash_pct * own`, identical to the non-stale case
+			// (compare `slashing_performed_according_exposure`).
+			assert_eq!(asset::stakeable_balance::<Test>(&11), pre_11 - 500);
+			// Nominator slash = `slash_pct * exposed_value`. The stale nominator is hit on
+			// their (reduced) exposure, not made immune.
+			assert_eq!(
+				asset::stakeable_balance::<Test>(&101),
+				pre_101 - (Perbill::from_percent(50) * exposed_101),
+			);
+		});
+	}
 }
