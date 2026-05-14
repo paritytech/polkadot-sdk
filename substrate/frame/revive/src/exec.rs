@@ -23,9 +23,7 @@ use crate::{
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
 	limits,
-	metering::{
-		ChargedAmount, Diff, FrameMeter, ResourceMeter, SignedGas, State, Token, TransactionMeter,
-	},
+	metering::{ChargedAmount, Diff, FrameMeter, ResourceMeter, State, Token, TransactionMeter},
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
 	primitives::{ExecConfig, ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, TypeInfo},
@@ -2157,7 +2155,7 @@ where
 				});
 
 				let weight_before = top_frame!(self).frame_meter.weight_consumed();
-				let deposit_before = top_frame!(self).frame_meter.deposit_consumed();
+				let gas_before = top_frame!(self).frame_meter.eth_gas_consumed_signed();
 
 				let result = if let Some(mock_answer) =
 					self.exec_config.mock_handler.as_ref().and_then(|handler| {
@@ -2185,14 +2183,9 @@ where
 				if_tracing(|t| {
 					let frame_meter = &top_frame!(self).frame_meter;
 					let weight_delta = frame_meter.weight_consumed().saturating_sub(weight_before);
-					let deposit_delta =
-						frame_meter.deposit_consumed().saturating_sub(&deposit_before);
-					let gas_delta =
-						SignedGas::<T>::from_weight_fee(T::FeeInfo::weight_to_fee(&weight_delta))
-							.saturating_add(&SignedGas::<T>::from_adjusted_deposit_charge(
-								&deposit_delta,
-							));
-					let gas_used: u64 = gas_delta
+					let gas_used: u64 = frame_meter
+						.eth_gas_consumed_signed()
+						.saturating_sub(&gas_before)
 						.to_ethereum_gas()
 						.unwrap_or_default()
 						.try_into()

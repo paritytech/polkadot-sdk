@@ -447,16 +447,22 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 
 	/// Get the Ethereum gas that has been consumed during the lifetime of this meter
 	pub fn eth_gas_consumed(&self) -> BalanceOf<T> {
-		let signed_gas = match &self.transaction_limits {
+		self.eth_gas_consumed_signed().to_ethereum_gas().unwrap_or_default()
+	}
+
+	/// Same as [`Self::eth_gas_consumed`] but returns the unrounded [`SignedGas`].
+	///
+	/// Prefer this when computing a delta across two snapshots: subtracting in [`SignedGas`] form
+	/// avoids the double ceil-rounding that [`Self::eth_gas_consumed`] performs at each call.
+	pub fn eth_gas_consumed_signed(&self) -> SignedGas<T> {
+		match &self.transaction_limits {
 			TransactionLimits::EthereumGas { eth_tx_info, .. } => {
 				math::ethereum_execution::eth_gas_consumed(self, eth_tx_info)
 			},
 			TransactionLimits::WeightAndDeposit { .. } => {
 				math::substrate_execution::eth_gas_consumed(self)
 			},
-		};
-
-		signed_gas.to_ethereum_gas().unwrap_or_default()
+		}
 	}
 
 	/// Determine and set the new effective weight limit of the weight meter.
