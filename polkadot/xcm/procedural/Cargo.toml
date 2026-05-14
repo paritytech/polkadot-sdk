@@ -25,6 +25,6 @@ syn = { workspace = true }
 trybuild = { features = ["diff"], workspace = true }
 # NOTE: we have to explicitly specify `std` because of trybuild
 # https://github.com/paritytech/polkadot-sdk/pull/5167
-xcm = { default-features = true, features = ["std"], workspace = true }
+xcm = { default-features = true, features = ["std"], path = "..", package = "staging-xcm" }
 # For testing macros.
-frame-support = { default-features = false, workspace = true }
+frame-support = { default-features = false, path = "../../../substrate/frame/support" }

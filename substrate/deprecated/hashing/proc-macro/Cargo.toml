@@ -16,5 +16,5 @@ maintenance = { status = "deprecated" }
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-crypto-hashing-proc-macro.default-features = true
 sp-crypto-hashing-proc-macro.workspace = true
+sp-crypto-hashing-proc-macro.default-features = true

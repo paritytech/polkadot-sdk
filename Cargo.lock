@@ -20313,7 +20313,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-sync"
-version = "0.52.0"
+version = "0.52.1"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -24021,7 +24021,7 @@ version = "2.0.0"
 
 [[package]]
 name = "staging-xcm"
-version = "19.0.0"
+version = "19.0.1"
 dependencies = [
  "array-bytes 6.2.2",
  "bounded-collections 0.3.2",

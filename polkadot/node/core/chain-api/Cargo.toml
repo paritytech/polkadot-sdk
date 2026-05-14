@@ -13,25 +13,25 @@ workspace = true
 
 [dependencies]
 futures = { workspace = true }
-gum.default-features = true
 gum.workspace = true
-polkadot-node-metrics.default-features = true
+gum.default-features = true
 polkadot-node-metrics.workspace = true
-polkadot-node-subsystem.default-features = true
+polkadot-node-metrics.default-features = true
 polkadot-node-subsystem.workspace = true
-polkadot-node-subsystem-types.default-features = true
+polkadot-node-subsystem.default-features = true
 polkadot-node-subsystem-types.workspace = true
-sc-client-api.default-features = true
+polkadot-node-subsystem-types.default-features = true
 sc-client-api.workspace = true
-sc-consensus-babe.default-features = true
+sc-client-api.default-features = true
 sc-consensus-babe.workspace = true
+sc-consensus-babe.default-features = true
 
 [dev-dependencies]
 codec = { workspace = true, default-features = true }
 futures = { features = ["thread-pool"], workspace = true }
 maplit = { workspace = true }
-polkadot-node-primitives = { default-features = true, workspace = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives = { default-features = true, workspace = true }
-sp-blockchain = { default-features = true, workspace = true }
-sp-core = { default-features = true, workspace = true }
+polkadot-node-primitives = { default-features = true, path = "../../primitives" }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-primitives = { default-features = true, path = "../../../primitives" }
+sp-blockchain = { default-features = true, path = "../../../../substrate/primitives/blockchain" }
+sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
