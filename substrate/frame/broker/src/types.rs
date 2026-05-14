@@ -20,6 +20,7 @@ use crate::{
 	Timeslice, CORE_MASK_BITS,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use fp_coretime::market::Market;
 use frame_support::traits::fungible::Inspect;
 use frame_system::{pallet_prelude::AccountIdFor, Config as SConfig};
 use scale_info::TypeInfo;
@@ -31,8 +32,18 @@ pub type RelayBalanceOf<T> = <<T as Config>::Coretime as CoretimeInterface>::Bal
 pub type RelayBlockNumberOf<T> = RCBlockNumberOf<<T as Config>::Coretime>;
 pub type RelayAccountIdOf<T> = <<T as Config>::Coretime as CoretimeInterface>::AccountId;
 
-/// Relay-chain block number with a fixed divisor of Config::TimeslicePeriod.
-pub type Timeslice = u32;
+pub type MarketInitDataOf<T> = <<T as Config>::CoretimeMarket as Market<
+	RelayBlockNumberOf<T>,
+	BalanceOf<T>,
+	AccountIdFor<T>,
+>>::InitData;
+
+pub type MarketBidIdOf<T> = <<T as Config>::CoretimeMarket as Market<
+	RelayBlockNumberOf<T>,
+	BalanceOf<T>,
+	AccountIdFor<T>,
+>>::BidId;
+
 /// Counter for the total number of set bits over every core's `CoreMask`. `u32` so we don't
 /// ever get an overflow. This is 1/80th of a Polkadot Core per timeslice. Assuming timeslices are
 /// 80 blocks, then this indicates usage of a single core one time over a timeslice.

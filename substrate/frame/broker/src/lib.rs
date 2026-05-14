@@ -41,7 +41,6 @@ pub mod runtime_api;
 pub mod weights;
 pub use weights::WeightInfo;
 
-pub use adapt_price::*;
 pub use coretime_interface::*;
 pub use fp_coretime::{
 	market, CoreIndex, CoreMask, PartsOf57600, PotentialRenewalId, RegionId, TaskId, Timeslice,
@@ -59,6 +58,7 @@ const LOG_TARGET: &str = "runtime::broker";
 pub mod pallet {
 	use super::*;
 	use alloc::vec::Vec;
+	use fp_coretime::market::Market;
 	use frame_support::{
 		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, *},
 		traits::{

@@ -23,7 +23,7 @@
 use alloc::vec::Vec;
 use core::fmt::Debug;
 
-use codec::{Codec, DecodeWithMemTracking, EncodeLike, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
 use sp_weights::WeightMeter;
