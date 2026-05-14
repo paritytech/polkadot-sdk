@@ -21,10 +21,8 @@
 pub use pallet::*;
 
 mod benchmarking;
-mod core_mask;
 mod coretime_interface;
 mod dispatchable_impls;
-pub mod market;
 
 #[cfg(test)]
 mod mock;
@@ -43,9 +41,12 @@ pub mod runtime_api;
 pub mod weights;
 pub use weights::WeightInfo;
 
-pub use core_mask::*;
+pub use adapt_price::*;
 pub use coretime_interface::*;
-pub use market::*;
+pub use fp_coretime::{
+	market, CoreIndex, CoreMask, PartsOf57600, PotentialRenewalId, RegionId, TaskId, Timeslice,
+	CORE_MASK_BITS,
+};
 pub use types::*;
 pub use utility_impls::{CoreRangeProviderImpl, TimesliceProviderImpl};
 

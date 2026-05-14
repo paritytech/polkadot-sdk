@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, Market, RCBlockNumberOf,
-	TaskId, CORE_MASK_BITS,
+	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, RCBlockNumberOf, TaskId,
+	Timeslice, CORE_MASK_BITS,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::traits::fungible::Inspect;
@@ -30,17 +30,6 @@ pub type BalanceOf<T> = <<T as Config>::Currency as Inspect<<T as SConfig>::Acco
 pub type RelayBalanceOf<T> = <<T as Config>::Coretime as CoretimeInterface>::Balance;
 pub type RelayBlockNumberOf<T> = RCBlockNumberOf<<T as Config>::Coretime>;
 pub type RelayAccountIdOf<T> = <<T as Config>::Coretime as CoretimeInterface>::AccountId;
-
-pub type MarketInitDataOf<T> = <<T as Config>::CoretimeMarket as Market<
-	RelayBlockNumberOf<T>,
-	BalanceOf<T>,
-	AccountIdFor<T>,
->>::InitData;
-pub type MarketBidIdOf<T> = <<T as Config>::CoretimeMarket as Market<
-	RelayBlockNumberOf<T>,
-	BalanceOf<T>,
-	AccountIdFor<T>,
->>::BidId;
 
 /// Relay-chain block number with a fixed divisor of Config::TimeslicePeriod.
 pub type Timeslice = u32;
@@ -69,45 +58,6 @@ pub enum Finality {
 	Provisional,
 	/// The region is removed; the assignment may be eligible for renewal.
 	Final,
-}
-
-/// Self-describing identity for a Region of Bulk Coretime.
-#[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Copy,
-	Clone,
-	PartialEq,
-	Eq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
-)]
-pub struct RegionId {
-	/// The timeslice at which this Region begins.
-	pub begin: Timeslice,
-	/// The index of the Polkadot Core on which this Region will be scheduled.
-	pub core: CoreIndex,
-	/// The regularity parts in which this Region will be scheduled.
-	pub mask: CoreMask,
-}
-impl From<u128> for RegionId {
-	fn from(x: u128) -> Self {
-		Self { begin: (x >> 96) as u32, core: (x >> 80) as u16, mask: x.into() }
-	}
-}
-impl From<RegionId> for u128 {
-	fn from(x: RegionId) -> Self {
-		((x.begin as u128) << 96) | ((x.core as u128) << 80) | u128::from(x.mask)
-	}
-}
-#[test]
-fn region_id_converts_u128() {
-	let r = RegionId { begin: 0x12345678u32, core: 0xabcdu16, mask: 0xdeadbeefcafef00d0123.into() };
-	let u = 0x12345678_abcd_deadbeefcafef00d0123u128;
-	assert_eq!(RegionId::from(u), r);
-	assert_eq!(u128::from(r), u);
 }
 
 /// The rest of the information describing a Region.
@@ -184,15 +134,6 @@ impl CompletionStatus {
 			Self::Partial(_) => None,
 		}
 	}
-}
-
-/// The identity of a possibly renewable Core workload.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub struct PotentialRenewalId {
-	/// The core whose workload at the sale ending with `when` may be renewed to begin at `when`.
-	pub core: CoreIndex,
-	/// The point in time that the renewable workload on `core` ends and a fresh renewal may begin.
-	pub when: Timeslice,
 }
 
 /// A record of a potential renewal.
