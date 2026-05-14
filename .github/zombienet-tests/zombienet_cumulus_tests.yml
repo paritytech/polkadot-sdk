@@ -161,7 +161,17 @@
   runner-type: "default"
   cumulus-image: "test-parachain"
 
-- job-name: "zombienet-cumulus-0033-collator_discovery_full_mesh"
+- job-name: "zombienet-cumulus-0033-elastic_scaling_asset_hub_westend"
+  test-filter: "zombie_ci::elastic_scaling::asset_hub_westend::elastic_scaling_asset_hub_westend"
+  runner-type: "large"
+  cumulus-image: "polkadot-parachain-debug"
+
+- job-name: "zombienet-cumulus-0034-statement_store_lite_person_submit_and_propagate"
+  test-filter: "zombie_ci::statement_store::integration::statement_store_lite_person_submit_and_propagate"
+  runner-type: "default"
+  cumulus-image: "test-parachain"
+
+- job-name: "zombienet-cumulus-0035-collator_discovery_full_mesh"
   test-filter: "zombie_ci::collator_discovery::collator_discovery_full_mesh_with_tight_non_reserved_budget"
   runner-type: "large"
   cumulus-image: "test-parachain"

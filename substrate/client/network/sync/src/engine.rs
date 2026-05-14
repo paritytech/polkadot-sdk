@@ -1080,6 +1080,9 @@ where
 					RequestFailure::UnknownProtocol => {
 						debug_assert!(false, "Block request protocol should always be known.");
 					},
+					RequestFailure::InvalidRequest => {
+						debug_assert!(false, "Block request payload should always be valid.");
+					},
 					RequestFailure::Obsolete => {
 						debug_assert!(
 							false,
