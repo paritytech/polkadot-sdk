@@ -18,7 +18,6 @@
 
 use serde::{Deserialize, Serialize};
 use sp_core::Bytes;
-use sp_statement_store::{InvalidReason, RejectionReason};
 
 /// Subscription notification event
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -89,18 +88,4 @@ impl AddFilterResponse {
 			result: LimitReachedTag::LimitReached,
 		})
 	}
-}
-
-/// Statement submission outcome
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(tag = "status", rename_all = "camelCase")]
-pub enum SubmitOutcome {
-	/// The statement was accepted and was not already present in the store
-	New,
-	/// The statement is already present in the store
-	Known,
-	/// The statement was valid but the store rejected it
-	Rejected(RejectionReason),
-	/// The statement failed validation
-	Invalid(InvalidReason),
 }

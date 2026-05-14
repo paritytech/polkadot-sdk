@@ -25,7 +25,7 @@ use sc_statement_store::{
 use sp_core::{sr25519, Bytes, Pair};
 use sp_runtime::BoundedVec;
 use sp_statement_store::{
-	RejectionReason, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
+	RejectionReason, Statement, StatementAllowance, SubmitOutcome, SubmitResult, Topic, TopicFilter,
 };
 use statement_store_subxt::transactions::Signer;
 use std::{
@@ -110,8 +110,8 @@ fn match_all_filter(topic: Topic) -> TopicFilter {
 fn filter_id(response: UnstableAddFilterResponse) -> String {
 	match response {
 		UnstableAddFilterResponse::Ok(id) => id,
-		UnstableAddFilterResponse::LimitReached { result } => {
-			panic!("Expected filter id, got {result}")
+		UnstableAddFilterResponse::LimitReached(result) => {
+			panic!("Expected filter id, got {result:?}")
 		},
 	}
 }
@@ -176,7 +176,7 @@ async fn statement_store_unstable_basic_propagation() -> Result<(), anyhow::Erro
 	assert!(replayed.is_empty(), "Fresh unstable filter should not replay statements");
 
 	let result = submit_statement_unstable(&charlie_rpc, &statement).await?;
-	assert_eq!(result, SubmitResult::New);
+	assert_eq!(result, SubmitOutcome::New);
 
 	let received = expect_one_unstable_statement(&mut subscription, 20).await?;
 	assert_eq!(received.statement, expected, "Unstable statement data mismatch");
@@ -201,8 +201,8 @@ async fn statement_store_unstable_rpc_multi_filter_flow() -> Result<(), anyhow::
 
 	let pre_existing =
 		create_test_statement(&get_keypair(0), &[topic_a], None, vec![1], u32::MAX, 0);
-	assert_eq!(submit_statement_unstable(&alice_rpc, &pre_existing).await?, SubmitResult::New);
-	assert_eq!(submit_statement_unstable(&alice_rpc, &pre_existing).await?, SubmitResult::Known);
+	assert_eq!(submit_statement_unstable(&alice_rpc, &pre_existing).await?, SubmitOutcome::New);
+	assert_eq!(submit_statement_unstable(&alice_rpc, &pre_existing).await?, SubmitOutcome::Known);
 
 	let mut subscription = subscribe_unstable(&alice_rpc).await?;
 	let subscription_id = unstable_subscription_id(&subscription)?;
@@ -222,7 +222,7 @@ async fn statement_store_unstable_rpc_multi_filter_flow() -> Result<(), anyhow::
 	let live_ab =
 		create_test_statement(&get_keypair(1), &[topic_a, topic_b], None, vec![2], u32::MAX, 0);
 
-	assert_eq!(submit_statement_unstable(&alice_rpc, &live_ab).await?, SubmitResult::New);
+	assert_eq!(submit_statement_unstable(&alice_rpc, &live_ab).await?, SubmitOutcome::New);
 
 	match expect_unstable_event(&mut subscription, 20).await? {
 		UnstableStatementEvent::NewStatements { statements } => {
@@ -240,7 +240,7 @@ async fn statement_store_unstable_rpc_multi_filter_flow() -> Result<(), anyhow::
 
 	assert_eq!(
 		submit_statement_unstable(&alice_rpc, &live_b_after_remove).await?,
-		SubmitResult::New
+		SubmitOutcome::New
 	);
 
 	match expect_unstable_event(&mut subscription, 20).await? {
@@ -260,7 +260,7 @@ async fn statement_store_unstable_rpc_multi_filter_flow() -> Result<(), anyhow::
 
 	assert_eq!(
 		submit_statement_unstable(&alice_rpc, &ignored_after_remove).await?,
-		SubmitResult::New
+		SubmitOutcome::New
 	);
 	assert_no_unstable_event(&mut subscription, 3).await?;
 

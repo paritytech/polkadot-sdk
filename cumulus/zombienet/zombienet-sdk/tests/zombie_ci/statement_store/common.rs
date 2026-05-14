@@ -10,10 +10,10 @@ use anyhow::anyhow;
 use codec::Encode;
 use log::info;
 use sc_statement_store::test_utils::get_keypair;
-use serde::Deserialize;
 use sp_core::{hexdisplay::HexDisplay, Bytes, Pair};
 use sp_statement_store::{
-	statement_allowance_key, StatementAllowance, StatementEvent, SubmitResult, Topic, TopicFilter,
+	statement_allowance_key, StatementAllowance, StatementEvent, SubmitOutcome, SubmitResult,
+	Topic, TopicFilter,
 };
 use std::{
 	path::{Path, PathBuf},
@@ -35,15 +35,9 @@ pub(super) const COLLATOR_TRACE_LOG_FILTER: &str =
 	"info,statement-store=trace,statement-gossip=trace";
 
 pub(super) use sc_rpc_spec_v2::statement::{
-	event::NewStatementEntry as UnstableNewStatement, SubscribeEvent as UnstableStatementEvent,
+	event::NewStatementEntry as UnstableNewStatement,
+	AddFilterResponse as UnstableAddFilterResponse, SubscribeEvent as UnstableStatementEvent,
 };
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-#[serde(untagged)]
-pub(super) enum UnstableAddFilterResponse {
-	Ok(String),
-	LimitReached { result: String },
-}
 
 pub(super) async fn submit_statement(
 	rpc: &RpcClient,
@@ -57,9 +51,9 @@ pub(super) async fn submit_statement(
 pub(super) async fn submit_statement_unstable(
 	rpc: &RpcClient,
 	statement: &sp_statement_store::Statement,
-) -> Result<SubmitResult, anyhow::Error> {
+) -> Result<SubmitOutcome, anyhow::Error> {
 	let encoded: Bytes = statement.encode().into();
-	let result: SubmitResult =
+	let result: SubmitOutcome =
 		rpc.request("statement_unstable_submit", rpc_params![encoded]).await?;
 	Ok(result)
 }

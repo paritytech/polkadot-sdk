@@ -234,6 +234,34 @@ pub enum SubmitResult {
 	InternalError(Error),
 }
 
+/// Statement submission outcome exposed by RPC APIs
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "status", rename_all = "camelCase"))]
+pub enum SubmitOutcome {
+	/// Statement was accepted as new
+	New,
+	/// Statement was already known
+	Known,
+	/// Statement was rejected because the store is full or priority is too low
+	Rejected(RejectionReason),
+	/// Statement failed validation
+	Invalid(InvalidReason),
+}
+
+impl SubmitOutcome {
+	/// Converts a store submission result into the RPC-visible outcome
+	pub fn from_submit_result(result: SubmitResult) -> std::result::Result<Self, SubmitResult> {
+		match result {
+			SubmitResult::New => Ok(SubmitOutcome::New),
+			SubmitResult::Known => Ok(SubmitOutcome::Known),
+			SubmitResult::Rejected(reason) => Ok(SubmitOutcome::Rejected(reason)),
+			SubmitResult::Invalid(reason) => Ok(SubmitOutcome::Invalid(reason)),
+			other => Err(other),
+		}
+	}
+}
+
 /// An item returned by the statement subscription stream.
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

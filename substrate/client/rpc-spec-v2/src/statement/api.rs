@@ -20,11 +20,11 @@
 
 use crate::statement::{
 	error::Error,
-	event::{AddFilterResponse, SubmitOutcome, SubscribeEvent},
+	event::{AddFilterResponse, SubscribeEvent},
 };
 use jsonrpsee::proc_macros::rpc;
 use sp_core::Bytes;
-use sp_statement_store::TopicFilter;
+use sp_statement_store::{SubmitOutcome, TopicFilter};
 
 #[rpc(client, server)]
 pub trait StatementSpecApi {

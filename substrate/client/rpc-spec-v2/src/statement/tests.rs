@@ -18,8 +18,8 @@
 
 use super::{
 	error::rpc_spec_v2::INVALID_SUBSCRIPTION,
-	event::{NewStatementEntry, SubmitOutcome, SubscribeEvent},
-	StatementSpec, StatementSpecApiServer,
+	event::{NewStatementEntry, SubscribeEvent},
+	StatementSpec, StatementSpecApiServer, SubmitOutcome,
 };
 use codec::Encode;
 use jsonrpsee::{core::server::Subscription as RpcSubscription, MethodsError, RpcModule};

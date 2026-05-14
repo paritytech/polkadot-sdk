@@ -20,7 +20,7 @@ use crate::{
 	statement::{
 		api::StatementSpecApiServer,
 		error::Error,
-		event::{AddFilterResponse, SubmitOutcome},
+		event::AddFilterResponse,
 		subscription::{
 			add_filter_sync, parse_filter_id, remove_filter_sync, run_subscription_task,
 			AddFilterOutcome, StatementSubscriptions,
@@ -38,7 +38,8 @@ use sc_rpc::utils::Subscription;
 use sc_statement_store::MultiFilterSubscriptionApi;
 use sp_core::Bytes;
 use sp_statement_store::{
-	OptimizedTopicFilter, Statement, StatementSource, StatementStore, SubmitResult, TopicFilter,
+	OptimizedTopicFilter, Statement, StatementSource, StatementStore, SubmitOutcome, SubmitResult,
+	TopicFilter,
 };
 use std::sync::Arc;
 
@@ -158,15 +159,16 @@ where
 		if self.store.has_statement(&statement.hash()) {
 			return Ok(SubmitOutcome::Known);
 		}
-		match self.store.submit(statement, StatementSource::Local) {
-			SubmitResult::New => Ok(SubmitOutcome::New),
-			SubmitResult::Known => Ok(SubmitOutcome::Known),
-			SubmitResult::Rejected(reason) => Ok(SubmitOutcome::Rejected(reason)),
-			SubmitResult::Invalid(reason) => Ok(SubmitOutcome::Invalid(reason)),
-			SubmitResult::KnownExpired => {
+		let submit_result = self.store.submit(statement, StatementSource::Local);
+		match SubmitOutcome::from_submit_result(submit_result) {
+			Ok(outcome) => Ok(outcome),
+			Err(SubmitResult::KnownExpired) => {
 				Err(Error::InternalError("store returned KnownExpired for local submit".into()))
 			},
-			SubmitResult::InternalError(e) => Err(Error::InternalError(e.to_string())),
+			Err(SubmitResult::InternalError(e)) => Err(Error::InternalError(e.to_string())),
+			Err(other) => Err(Error::InternalError(format!(
+				"store returned unsupported submit result: {other:?}",
+			))),
 		}
 	}
 }

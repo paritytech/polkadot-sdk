@@ -207,8 +207,8 @@ pub fn get_allowance(account_id: impl AsRef<[u8]>) -> StatementAllowance {
 #[cfg(feature = "std")]
 pub use store_api::{
 	Error, FilterDecision, FilterId, InvalidReason, LiveStatementEvent, OptimizedTopicFilter,
-	RejectionReason, Result, StatementEvent, StatementSource, StatementStore, SubmitResult,
-	TopicFilter,
+	RejectionReason, Result, StatementEvent, StatementSource, StatementStore, SubmitOutcome,
+	SubmitResult, TopicFilter,
 };
 
 #[cfg(feature = "std")]

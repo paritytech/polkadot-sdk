@@ -30,7 +30,8 @@ mod tests;
 
 pub use api::StatementSpecApiServer;
 pub use error::Error;
-pub use event::{AddFilterResponse, SubmitOutcome, SubscribeEvent};
+pub use event::{AddFilterResponse, SubscribeEvent};
+pub use sp_statement_store::SubmitOutcome;
 pub use statement::StatementSpec;
 
 pub(crate) const LOG_TARGET: &str = "rpc-spec-v2::statement";

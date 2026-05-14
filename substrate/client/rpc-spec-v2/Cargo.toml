@@ -43,7 +43,7 @@ sp-consensus = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-rpc = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-sp-statement-store = { workspace = true, default-features = true }
+sp-statement-store = { workspace = true, default-features = true, features = ["serde"] }
 sp-version = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 tokio = { features = ["sync"], workspace = true, default-features = true }

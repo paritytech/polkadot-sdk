@@ -57,8 +57,8 @@ async fn add_match_all_filter_unstable(
 	.await?
 	{
 		UnstableAddFilterResponse::Ok(filter_id) => Ok(filter_id),
-		UnstableAddFilterResponse::LimitReached { result } => {
-			Err(anyhow!("Unexpected unstable filter limit response: {result}"))
+		UnstableAddFilterResponse::LimitReached(result) => {
+			Err(anyhow!("Unexpected unstable filter limit response: {result:?}"))
 		},
 	}
 }
