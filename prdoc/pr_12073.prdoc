@@ -1,0 +1,14 @@
+title: 'txpool: fix: instant-seal stall when resubmit re-imports as ready'
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    Problem: a transaction that reaches `Ready` only through `resubmit` (e.g. one the proposer left over after a `HitBlockWeightLimit` block and the periodic revalidation worker re-imported) fires no notification, so the seal engine stays parked and the chain stalls with a ready transaction in the pool.
+
+    Fix: notify `import_notification_sinks` from the `resubmit` path when a transaction re-imports as `Imported::Ready`, just like the submit path does.
+
+    Affects `revive-dev-node` in default `--consensus instant-seal` and other nodes using `run_instant_seal*`.
+crates:
+- name: sc-transaction-pool
+  bump: patch
