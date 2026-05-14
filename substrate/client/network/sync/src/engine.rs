@@ -1196,8 +1196,8 @@ fn reconcile_no_slot(was_no_slot: bool, is_no_slot: bool) -> NoSlotReconcile {
 
 /// Reconcile per-peer slot accounting against a new dynamic no-slot set.
 ///
-/// Input `connected_peers` is a list of `(peer_id, affects_slots)` where `affects_slots` is `true` iff the
-/// peer occupies an inbound full-node slot (the only kind that consumes a default-set slot).
+/// Input `connected_peers` is a list of `(peer_id, affects_slots)` where `affects_slots` is `true`
+/// iff the peer occupies an inbound full-node slot.
 ///
 /// For each connected peer:
 /// 1. Determine whether the peer was no-slot (member of either the static or the old dynamic set)

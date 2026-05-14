@@ -15,12 +15,12 @@
 //!    carries `spec_version = 4` (default = 2), triggering the `EnableAuthorityDiscovery` migration
 //!    which seeds `pallet_session` from `pallet_aura::Authorities`.
 //! 3. Wait for the runtime upgrade digest to appear in a finalised block.
-//! 4. Wait for `AuthorityDiscovery.Keys` to become non-empty (migration fired). The on-chain AD
-//!    set is populated, but no node yet has an `audi` keystore entry — the AD worker has nothing
-//!    to publish under that key until step 5.
+//! 4. Wait for `AuthorityDiscovery.Keys` to become non-empty (migration fired). The on-chain AD set
+//!    is populated, but no node yet has an `audi` keystore entry — the AD worker has nothing to
+//!    publish under that key until step 5.
 //! 5. Rotate AD keys for every collator via `author_insertKey` + `session.set_keys`. This puts a
-//!    real `audi` key into each collator's keystore, enabling the AD worker to publish signed
-//!    DHT records that the others can resolve.
+//!    real `audi` key into each collator's keystore, enabling the AD worker to publish signed DHT
+//!    records that the others can resolve.
 //! 6. Wait for `AuthorityDiscovery.Keys` to reflect the rotation.
 //! 7. Assert the full collator-to-collator reserved-peer mesh forms.
 
@@ -29,7 +29,8 @@ use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 use anyhow::anyhow;
 use codec::Decode;
 use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput, submit_sudo_runtime_upgrade, wait_for_runtime_upgrade,
+	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success,
+	submit_sudo_runtime_upgrade, wait_for_pallet_in_metadata, wait_for_runtime_upgrade,
 };
 use polkadot_primitives::Id as ParaId;
 use std::{
@@ -39,8 +40,8 @@ use std::{
 };
 use zombienet_sdk::{
 	subxt::{
-		backend::rpc::RpcClient, dynamic::Value, ext::subxt_rpcs::rpc_params, tx::TxStatus,
-		OnlineClient, PolkadotConfig,
+		backend::rpc::RpcClient, dynamic::Value, ext::subxt_rpcs::rpc_params, OnlineClient,
+		PolkadotConfig,
 	},
 	subxt_signer::{sr25519::dev, SecretUri},
 	LocalFileSystem, Network, NetworkConfig, NetworkConfigBuilder,
@@ -65,7 +66,7 @@ const SESSION_CHANGE_TIMEOUT: Duration = Duration::from_secs(480);
 /// inbound and outbound connections, but every collator-to-collator link must go through
 /// the reserved-peer bypass once the mesh forms.
 const COLLATOR_NETWORK_ARGS: &[&str] = &[
-	"-lparachain=debug,collator-mesh=debug,authority-discovery=debug",
+	"-lparachain=debug,collator-discovery=debug,authority-discovery=debug",
 	"--in-peers=1",
 	"--out-peers=1",
 	"--collator-reserved-slots=32",
@@ -261,33 +262,7 @@ async fn rotate_authority_discovery_keys(
 		let signer = dev_pair(name)?;
 		let para_client: OnlineClient<PolkadotConfig> =
 			network.get_node(name)?.wait_client().await?;
-		let mut progress =
-			para_client.tx().sign_and_submit_then_watch_default(&call, &signer).await?;
-
-		loop {
-			match progress.next().await {
-				Some(Ok(TxStatus::InBestBlock(in_block))) => {
-					in_block.wait_for_success().await?;
-					break;
-				},
-				Some(Ok(TxStatus::InFinalizedBlock(in_block))) => {
-					in_block.wait_for_success().await?;
-					break;
-				},
-				Some(Ok(TxStatus::Error { message })) => {
-					return Err(anyhow!("tx error for {name}: {message}"))
-				},
-				Some(Ok(TxStatus::Invalid { message })) => {
-					return Err(anyhow!("tx invalid for {name}: {message}"))
-				},
-				Some(Ok(TxStatus::Dropped { message })) => {
-					return Err(anyhow!("tx dropped for {name}: {message}"))
-				},
-				Some(Err(e)) => return Err(e.into()),
-				Some(Ok(_)) => continue,
-				None => return Err(anyhow!("tx progress stream ended for {name}")),
-			}
-		}
+		submit_extrinsic_and_wait_for_finalization_success(&para_client, &call, &signer).await?;
 
 		log::info!("`{name}` set_keys submitted and finalised");
 	}
@@ -365,7 +340,7 @@ async fn assert_full_collator_mesh(
 		log::info!("Asserting `{name}` has resolved >= 5 reserved peers (the other collators)");
 		assert!(
 			collator
-				.wait_metric_with_timeout("collator_mesh_resolved_peers", |c| c >= 5.0, 300u64)
+				.wait_metric_with_timeout("collator_discovery_resolved_peers", |c| c >= 5.0, 300u64)
 				.await
 				.is_ok(),
 			"`{name}` did not reach 5 resolved reserved peers within the timeout",
@@ -437,11 +412,11 @@ async fn assert_full_collator_mesh(
 			break;
 		}
 		if Instant::now() >= deadline {
-			panic!(
+			return Err(anyhow!(
 				"Full collator mesh did not converge within {:?}: {}",
 				FULL_MESH_TIMEOUT,
 				last_err.unwrap_or_else(|| "(unknown)".into()),
-			);
+			));
 		}
 		log::info!("Mesh not yet full; retrying in {:?}", FULL_MESH_POLL_INTERVAL);
 		tokio::time::sleep(FULL_MESH_POLL_INTERVAL).await;
@@ -468,7 +443,8 @@ async fn assert_full_collator_mesh(
 // ---------------------------------------------------------------------------
 
 #[tokio::test(flavor = "multi_thread")]
-async fn collator_mesh_full_mesh_with_tight_non_reserved_budget() -> Result<(), anyhow::Error> {
+async fn collator_discovery_full_mesh_with_tight_non_reserved_budget() -> Result<(), anyhow::Error>
+{
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -496,26 +472,16 @@ async fn collator_mesh_full_mesh_with_tight_non_reserved_budget() -> Result<(), 
 	wait_for_runtime_upgrade(&para_client).await?;
 	log::info!("Runtime upgrade applied");
 
-	// Wait for alice's parachain to advance a few blocks past the upgrade so subxt
-	// can fetch metadata at a block executed under the NEW runtime, then poll until
-	// the metadata reports the post-upgrade pallets.
+	// After the runtime upgrade, recreate a subxt client whose metadata reflects the new
+	// `AuthorityDiscovery` pallet so we can query its storage.
 	let alice_ws = network.get_node("alice")?.ws_uri().to_string();
-	let metadata_deadline = Instant::now() + Duration::from_secs(120);
-	let para_client = loop {
-		if Instant::now() >= metadata_deadline {
-			return Err(anyhow!(
-				"post-upgrade metadata never reflected the AuthorityDiscovery pallet"
-			));
-		}
-		tokio::time::sleep(Duration::from_secs(3)).await;
-		let candidate = OnlineClient::<PolkadotConfig>::from_url(&alice_ws).await?;
-		let metadata = candidate.metadata();
-		if metadata.pallet_by_name("AuthorityDiscovery").is_some() {
-			log::info!("Fresh subxt client now sees AuthorityDiscovery pallet in metadata");
-			break candidate;
-		}
-		log::debug!("AuthorityDiscovery not in metadata yet, retrying");
-	};
+	let para_client = wait_for_pallet_in_metadata(
+		&alice_ws,
+		"AuthorityDiscovery",
+		Duration::from_secs(120),
+		Duration::from_secs(3),
+	)
+	.await?;
 
 	// Step 2: wait for AD keys to appear (migration seeded them from aura authorities).
 	// Pre-upgrade the initial AD key set is empty (pallet not present).

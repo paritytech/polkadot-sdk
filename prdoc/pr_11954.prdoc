@@ -13,7 +13,7 @@ doc:
       `AuthorityDiscoveryApi` and setting up the authority discovery keys.
 
 crates:
-  - name: cumulus-client-collator-mesh
+  - name: cumulus-client-collator-discovery
     bump: major
   - name: polkadot-omni-node-lib
     bump: major

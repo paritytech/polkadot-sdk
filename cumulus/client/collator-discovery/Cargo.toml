@@ -1,9 +1,9 @@
 [package]
-name = "cumulus-client-collator-mesh"
+name = "cumulus-client-collator-discovery"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
-description = "Reserved-peer mesh for parachain collators using parachain-side authority discovery."
+description = "Parachain collator authority discovery — keeps collators connected via reserved peers on the block-announce protocol."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage.workspace = true
 repository.workspace = true

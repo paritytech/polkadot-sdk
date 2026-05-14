@@ -414,8 +414,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				.await?;
 			let peer_id = network.local_peer_id();
 
-			cumulus_client_collator_mesh::maybe_start_collator_mesh(
-				cumulus_client_collator_mesh::StartCollatorMeshParams {
+			cumulus_client_collator_discovery::maybe_start_collator_discovery(
+				cumulus_client_collator_discovery::StartCollatorDiscoveryParams {
 					is_validator: validator,
 					max_reserved: node_extra_args.collator_reserved_slots,
 					client: client.clone(),

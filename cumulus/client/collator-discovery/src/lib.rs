@@ -15,7 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-//! Reserved-peer mesh for parachain collators on the block-announce protocol.
+//! Parachain collator authority discovery — builds a reserved-peer mesh on the block-announce
+//! protocol.
 //!
 //! Requires [`sp_authority_discovery::AuthorityDiscoveryApi`] on the parachain runtime
 //! and an `AUTHORITY_DISCOVERY` key in the collator's keystore. API detection is
@@ -44,7 +45,7 @@ use sp_runtime::traits::Block as BlockT;
 
 use sc_network_sync::SyncingService;
 
-const LOG_TARGET: &str = "collator-mesh";
+const LOG_TARGET: &str = "collator-discovery";
 
 /// Re-resolve authority addresses periodically.
 const TRY_RERESOLVE_AUTHORITIES: Duration = Duration::from_secs(30);
@@ -57,22 +58,22 @@ const MAX_ADDRS_PER_AUTHORITY: usize = 4;
 const LOW_CONNECTIVITY_WARN_THRESHOLD_PCT: usize = 85;
 const LOW_CONNECTIVITY_WARN_DELAY: Duration = Duration::from_secs(600);
 
-pub struct CollatorMeshConfig {
+pub struct CollatorDiscoveryConfig {
 	pub max_reserved: usize,
 	pub protocol: ProtocolName,
 }
 
-/// Parameters for [`maybe_start_collator_mesh`].
-pub struct StartCollatorMeshParams<Block: BlockT, Client, AD, NetEventStream> {
+/// Parameters for [`maybe_start_collator_discovery`].
+pub struct StartCollatorDiscoveryParams<Block: BlockT, Client, AD, NetEventStream> {
 	pub is_validator: bool,
-	/// `0` disables the mesh.
+	/// `0` disables collator discovery.
 	pub max_reserved: usize,
 	pub client: Arc<Client>,
 	/// Usually the same `Arc` as `client`.
 	pub authority_discovery: Arc<AD>,
 	pub network: Arc<dyn NetworkService>,
 	pub sync_service: Arc<SyncingService<Block>>,
-	/// Raw network event stream; the mesh filters for `Event::Dht`.
+	/// Raw network event stream; the worker filters for `Event::Dht`.
 	pub network_event_stream: NetEventStream,
 	/// Keystore with the local AD keys; used to sign DHT records and exclude this node
 	/// from the reserved peer set.
@@ -87,9 +88,9 @@ pub struct StartCollatorMeshParams<Block: BlockT, Client, AD, NetEventStream> {
 	pub spawn_handle: SpawnTaskHandle,
 }
 
-/// Start the collator mesh; no-op unless `is_validator` and `max_reserved > 0`.
-pub fn maybe_start_collator_mesh<Block, Client, AD, NetEventStream>(
-	params: StartCollatorMeshParams<Block, Client, AD, NetEventStream>,
+/// Start parachain collator discovery; no-op unless `is_validator` and `max_reserved > 0`.
+pub fn maybe_start_collator_discovery<Block, Client, AD, NetEventStream>(
+	params: StartCollatorDiscoveryParams<Block, Client, AD, NetEventStream>,
 ) -> Result<(), prometheus_endpoint::PrometheusError>
 where
 	Block: BlockT + Unpin + 'static,
@@ -98,7 +99,7 @@ where
 	AD: AuthorityDiscovery<Block> + Send + Sync + 'static,
 	NetEventStream: futures::Stream<Item = sc_network::Event> + Send + Unpin + 'static,
 {
-	let StartCollatorMeshParams {
+	let StartCollatorDiscoveryParams {
 		is_validator,
 		max_reserved,
 		client,
@@ -134,8 +135,8 @@ where
 		}
 	});
 
-	start_collator_mesh::<Block, _, _, _>(
-		CollatorMeshConfig { max_reserved, protocol },
+	start_collator_discovery::<Block, _, _, _>(
+		CollatorDiscoveryConfig { max_reserved, protocol },
 		client,
 		authority_discovery,
 		network,
@@ -150,9 +151,9 @@ where
 	)
 }
 
-/// Spawn the authority-discovery worker and mesh-refresh task; returns immediately.
-fn start_collator_mesh<Block, Client, AD, DhtStream>(
-	config: CollatorMeshConfig,
+/// Spawn the authority-discovery worker and refresh task; returns immediately.
+fn start_collator_discovery<Block, Client, AD, DhtStream>(
+	config: CollatorDiscoveryConfig,
 	client: Arc<Client>,
 	authority_discovery: Arc<AD>,
 	network: Arc<dyn NetworkService>,
@@ -199,16 +200,16 @@ where
 
 	log::info!(
 		target: LOG_TARGET,
-		"Starting collator mesh: max_reserved={}, protocol={}, reresolve_interval={:?}",
+		"Starting collator discovery: max_reserved={}, protocol={}, reresolve_interval={:?}",
 		config.max_reserved,
 		config.protocol,
 		TRY_RERESOLVE_AUTHORITIES,
 	);
 
 	spawn_handle.spawn(
-		"collator-mesh",
-		Some("collator-mesh"),
-		mesh_refresh_loop::<Block, Client, AD>(
+		"collator-discovery",
+		Some("collator-discovery"),
+		discovery_refresh_loop::<Block, Client, AD>(
 			config,
 			client,
 			authority_discovery,
@@ -224,8 +225,8 @@ where
 }
 
 /// Refresh the reserved/no-slot peer sets every [`TRY_RERESOLVE_AUTHORITIES`].
-async fn mesh_refresh_loop<Block, Client, AD>(
-	config: CollatorMeshConfig,
+async fn discovery_refresh_loop<Block, Client, AD>(
+	config: CollatorDiscoveryConfig,
 	client: Arc<Client>,
 	authority_discovery: Arc<AD>,
 	network: Arc<dyn NetworkService>,
@@ -239,7 +240,7 @@ async fn mesh_refresh_loop<Block, Client, AD>(
 	Client::Api: ApiExt<Block>,
 	AD: AuthorityDiscovery<Block> + Send + Sync + 'static,
 {
-	let CollatorMeshConfig { max_reserved, protocol } = config;
+	let CollatorDiscoveryConfig { max_reserved, protocol } = config;
 
 	let local_pub_keys: HashSet<AuthorityId> = keystore
 		.sr25519_public_keys(key_types::AUTHORITY_DISCOVERY)
@@ -464,7 +465,7 @@ fn log_low_connectivity_if_stuck(target: usize, resolved: usize, since: &mut Opt
 		Some(t) if t.elapsed() >= LOW_CONNECTIVITY_WARN_DELAY => {
 			log::warn!(
 				target: LOG_TARGET,
-				"Collator mesh connectivity has been under {}% for more than {:?} \
+				"Collator discovery: peer connectivity has been under {}% for more than {:?} \
 				 ({resolved}/{target} authorities resolved). Check authority-discovery \
 				 DHT reachability.",
 				LOW_CONNECTIVITY_WARN_THRESHOLD_PCT, LOW_CONNECTIVITY_WARN_DELAY,
@@ -477,7 +478,7 @@ fn log_low_connectivity_if_stuck(target: usize, resolved: usize, since: &mut Opt
 	}
 }
 
-/// Prometheus metrics for the mesh task.
+/// Prometheus metrics for the collator-discovery task.
 #[derive(Clone)]
 struct Metrics {
 	target_authorities: prometheus_endpoint::Gauge<prometheus_endpoint::U64>,
@@ -493,21 +494,21 @@ impl Metrics {
 		Ok(Self {
 			target_authorities: register(
 				Gauge::with_opts(Opts::new(
-					"collator_mesh_target_authorities",
+					"collator_discovery_target_authorities",
 					"Number of parachain authorities currently targeted for reservation.",
 				))?,
 				registry,
 			)?,
 			unresolved_authorities: register(
 				Gauge::with_opts(Opts::new(
-					"collator_mesh_unresolved_authorities",
+					"collator_discovery_unresolved_authorities",
 					"Number of targeted authorities we couldn't resolve a multiaddr for.",
 				))?,
 				registry,
 			)?,
 			resolved_peers: register(
 				Gauge::with_opts(Opts::new(
-					"collator_mesh_resolved_peers",
+					"collator_discovery_resolved_peers",
 					"Number of multiaddrs pushed to the collator-sync reserved set.",
 				))?,
 				registry,

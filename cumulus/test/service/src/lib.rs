@@ -376,8 +376,8 @@ where
 
 	let keystore = params.keystore_container.keystore();
 
-	cumulus_client_collator_mesh::maybe_start_collator_mesh(
-		cumulus_client_collator_mesh::StartCollatorMeshParams {
+	cumulus_client_collator_discovery::maybe_start_collator_discovery(
+		cumulus_client_collator_discovery::StartCollatorDiscoveryParams {
 			is_validator: collator_key.is_some(),
 			max_reserved: collator_reserved_slots,
 			client: client.clone(),

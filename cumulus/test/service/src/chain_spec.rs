@@ -152,7 +152,7 @@ pub fn get_async_backing_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	)
 }
 
-/// Get the chain spec for the authority-discovery collator-mesh test.
+/// Get the chain spec for the authority-discovery collator-discovery test.
 ///
 /// Uses the `with-authority-discovery` variant WASM which includes `pallet_session` +
 /// `pallet_authority_discovery` and carries a higher `spec_version` (4 vs 2) so that

@@ -4863,7 +4863,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-client-collator-mesh"
+name = "cumulus-client-collator-discovery"
 version = "0.1.0"
 dependencies = [
  "array-bytes 6.2.2",
@@ -5703,13 +5703,12 @@ dependencies = [
 name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
- "array-bytes 6.2.2",
  "async-trait",
  "clap",
  "criterion",
  "cumulus-client-cli",
  "cumulus-client-collator",
- "cumulus-client-collator-mesh",
+ "cumulus-client-collator-discovery",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
  "cumulus-client-parachain-inherent",
@@ -16981,7 +16980,7 @@ dependencies = [
  "cumulus-client-bootnodes",
  "cumulus-client-cli",
  "cumulus-client-collator",
- "cumulus-client-collator-mesh",
+ "cumulus-client-collator-discovery",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
  "cumulus-client-consensus-relay-chain",
