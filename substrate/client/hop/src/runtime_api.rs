@@ -54,15 +54,6 @@ where
 	})
 }
 
-/// `HopRuntimeApi::max_promotion_size`.
-pub fn max_promotion_size<Block, C>(client: &C, at: Block::Hash) -> Result<u32, ApiError>
-where
-	Block: BlockT,
-	C: CallApiAt<Block>,
-{
-	call::<Block, _, _, _>(client, at, "HopRuntimeApi_max_promotion_size", ())
-}
-
 /// `HopRuntimeApi::can_account_promote`.
 pub fn can_account_promote<Block, C>(
 	client: &C,

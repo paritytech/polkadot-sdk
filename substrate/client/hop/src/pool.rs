@@ -14,7 +14,25 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! HOP data pool implementation with disk-backed storage.
+//! HOP data pool: in-memory index backed by sharded on-disk storage.
+//!
+//! ## On-disk layout
+//!
+//! The pool root contains two subdirectories, `blobs/` and `meta/`, each
+//! sharded into 256 subdirectories named `00`–`ff` after the first byte of the
+//! content hash. An entry with hash `H` is stored as:
+//!
+//! - `blobs/<H[0:2]>/<H>.blob` — raw payload bytes
+//! - `meta/<H[0:2]>/<H>.meta` — SCALE-encoded [`HopEntryMeta`]
+//!
+//! ## Recovery
+//!
+//! On startup the pool scans every `meta/` shard, decodes each `.meta` file,
+//! and rebuilds the in-memory index. `.meta` files that are corrupt, have an
+//! unexpected version, or lack a sibling `.blob` are deleted. Then the
+//! corresponding `blobs/` shard is scanned and any `.blob` without an entry in
+//! the freshly-built index (orphan) is also deleted. Stale `.tmp.*` files left
+//! by a previous crash are removed during both scans.
 
 use crate::{
 	rate_limit::{RateLimitConfig, RateLimiter},
@@ -53,6 +71,9 @@ const BLOBS_DIR: &str = "blobs";
 const META_DIR: &str = "meta";
 const BLOB_EXT: &str = "blob";
 const META_EXT: &str = "meta";
+/// Number of shards used for both `blobs/` and `meta/` directories (one per
+/// first-byte value of the content hash: `00`–`ff`).
+const SHARD_COUNT: u16 = 256;
 
 /// HOP data pool with disk-backed blob storage and in-memory metadata index.
 pub struct HopDataPool {
@@ -100,8 +121,8 @@ impl HopDataPool {
 		}
 
 		// Create shard directories (256 each for blobs/ and meta/).
-		for i in 0u8..=255 {
-			let shard = format!("{:02x}", i);
+		for i in 0..SHARD_COUNT {
+			let shard = format!("{:02x}", i as u8);
 			fs::create_dir_all(data_dir.join(BLOBS_DIR).join(&shard))?;
 			fs::create_dir_all(data_dir.join(META_DIR).join(&shard))?;
 		}
@@ -111,8 +132,8 @@ impl HopDataPool {
 		let mut current_size = 0u64;
 
 		// Rebuild index from .meta files and clean orphan .blobs in a single pass.
-		for i in 0u8..=255 {
-			let shard = format!("{:02x}", i);
+		for i in 0..SHARD_COUNT {
+			let shard = format!("{:02x}", i as u8);
 
 			// Scan .meta files → rebuild index (removes corrupt/orphan .meta files).
 			let meta_shard_dir = data_dir.join(META_DIR).join(&shard);
@@ -208,17 +229,16 @@ impl HopDataPool {
 						Some(s) => s.to_string(),
 						None => continue,
 					};
-					// Any blob without a sibling .meta is an orphan; this includes
-					// blobs whose name doesn't parse as a valid hash (no meta can
-					// match them), so always check + remove rather than gating on
-					// the parse.
-					let meta_path = match parse_hex_hash(&stem) {
-						Some(hash) => Self::entry_path(&data_dir, &hash, META_DIR, META_EXT),
-						None => {
-							data_dir.join(META_DIR).join(&shard).join(format!("{stem}.{META_EXT}"))
-						},
+					// Any blob without a corresponding index entry is an orphan.
+					// The meta scan for this shard already populated `index`, so an
+					// in-memory lookup is sufficient and avoids a syscall per blob.
+					// Blobs with unparseable names have no possible index match and
+					// are always removed.
+					let is_orphan = match parse_hex_hash(&stem) {
+						Some(hash) => !index.contains_key(&hash),
+						None => true,
 					};
-					if !meta_path.exists() {
+					if is_orphan {
 						tracing::warn!(target: "hop", hash = ?stem, "Removing orphan .blob (no .meta)");
 						let _ = fs::remove_file(&path);
 					}
@@ -226,14 +246,12 @@ impl HopDataPool {
 			}
 		}
 
-		if !index.is_empty() {
-			tracing::info!(
-				target: "hop",
-				entries = index.len(),
-				total_bytes = current_size,
-				"Recovered HOP pool from disk"
-			);
-		}
+		tracing::info!(
+			target: "hop",
+			entries = index.len(),
+			total_bytes = current_size,
+			"Recovered HOP pool from disk"
+		);
 
 		Ok(Self {
 			index: Mutex::new(index),
@@ -657,12 +675,14 @@ impl HopDataPool {
 	}
 
 	/// Check if data exists in the pool.
+	#[cfg(test)]
 	pub fn has(&self, hash: &HopHash) -> bool {
 		let index = self.index.lock();
 		index.contains_key(hash)
 	}
 
 	/// Remove data from the pool.
+	#[cfg(test)]
 	pub fn remove(&self, hash: &HopHash) -> Result<(), HopError> {
 		let meta = {
 			let mut index = self.index.lock();
