@@ -968,9 +968,9 @@ to = "2.0.0"
 [[crate]]
 # polkadot/xcm
 name = "staging-xcm"
-from = "18.0.0"
-to = "19.0.0"
-bump = "major"
+from = "19.0.0"
+to = "19.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -1782,9 +1782,9 @@ reason = "changed"
 [[crate]]
 # substrate/client/network/sync
 name = "sc-network-sync"
-from = "0.51.0"
-to = "0.52.0"
-bump = "major"
+from = "0.52.0"
+to = "0.52.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
