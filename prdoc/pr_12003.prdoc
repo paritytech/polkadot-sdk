@@ -5,4 +5,4 @@ doc:
     some helpers and replacing some inlined functions with these helpers.
 crates:
 - name: emulated-integration-tests-common
-  bump: major
+  bump: minor
