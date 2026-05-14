@@ -1,4 +1,9 @@
 The following crates were updated to the corresponding versions:
 
+<details>
+  <summary>Crates list</summary>
+
 - staging-xcm@19.0.1
 - sc-network-sync@0.52.1
+
+</details>
