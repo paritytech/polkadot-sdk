@@ -20,7 +20,7 @@
 //! `statement-ops-bench` subcommands.
 //!
 //! Production code uses [`WsClientRpc`] (jsonrpsee `WsClient`); unit tests use
-//! [`MockRpc`] (in-memory, no live node).
+//! `MockRpc` (in-memory, no live node).
 
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
@@ -45,7 +45,8 @@ pub type EventStream = Pin<Box<dyn Stream<Item = Result<StatementEvent>> + Send>
 ///
 /// Concrete impls:
 /// * [`WsClientRpc`] — production, wraps a jsonrpsee `WsClient`.
-/// * [`MockRpc`]     — tests, records submissions and serves canned subscriptions.
+/// * `MockRpc`      — tests (only), records submissions and serves canned
+///   subscriptions.
 #[async_trait]
 pub trait StatementRpc: Send + Sync {
 	/// Submit a (already-built) statement to the node and return the node's
