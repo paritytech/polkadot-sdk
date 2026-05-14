@@ -112,11 +112,15 @@ impl From<Error> for ErrorObjectOwned {
 				)
 			},
 			Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Module(e))) => {
-				ErrorObject::owned(
-					POOL_INVALID_TX,
-					"Invalid Transaction",
-					Some(format!("Module invalidity: index: {}, error: {:?}", e.index, e.error)),
-				)
+				let detail = if let Some(message) = e.message {
+					format!(
+						"Module invalidity: index: {}, error: {:?}, message: {}",
+						e.index, e.error, message
+					)
+				} else {
+					format!("Module invalidity: index: {}, error: {:?}", e.index, e.error)
+				};
+				ErrorObject::owned(POOL_INVALID_TX, "Invalid Transaction", Some(detail))
 			},
 			Error::Pool(PoolError::InvalidTransaction(e)) => {
 				let msg: &str = e.into();

@@ -132,7 +132,7 @@ impl From<InvalidTransaction> for &'static str {
 				"The transaction extension did not authorize any origin"
 			},
 			InvalidTransaction::Module(ModuleInvalidity { message, .. }) => {
-				message.unwrap_or("Unknown module error")
+				message.unwrap_or("Invalid transaction: Unknown module error")
 			},
 		}
 	}

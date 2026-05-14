@@ -48,12 +48,18 @@ impl<Hash> From<Error> for TransactionEvent<Hash> {
 				})
 			},
 			Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Module(e))) => {
-				TransactionEvent::Invalid(TransactionError {
-					error: format!(
+				let error = if let Some(message) = e.message {
+					format!(
+						"Invalid transaction: Module invalidity: index: {}, error: {:?}, message: {}",
+						e.index, e.error, message
+					)
+				} else {
+					format!(
 						"Invalid transaction: Module invalidity: index: {}, error: {:?}",
 						e.index, e.error
-					),
-				})
+					)
+				};
+				TransactionEvent::Invalid(TransactionError { error })
 			},
 			Error::Pool(PoolError::InvalidTransaction(e)) => {
 				let msg: &str = e.into();
