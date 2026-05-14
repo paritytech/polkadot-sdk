@@ -32,7 +32,7 @@ use crate::{
 	shared::{
 		genesis_state,
 		genesis_state::{GenesisStateHandler, SpecGenesisSource},
-		HostInfoParams, Stats, WeightParams,
+		HostInfoParams, WeightParams,
 	},
 };
 use clap::{error::ErrorKind, Args, CommandFactory, Parser};
@@ -156,26 +156,29 @@ pub struct OverheadParams {
 	#[arg(long)]
 	pub genesis_patch: Option<PathBuf>,
 
-	/// Subtract the weights of the extensions from the measured extrinsic overhead.
+	/// Subtract extension and signature weights from the **generated** extrinsic base weight.
 	///
-	/// If enabled, the benchmark will attempt to subtract the reported weights of the
-	/// transaction extensions included in the remark extrinsic.
+	/// The per-extrinsic overhead benchmark measures wall-clock time to execute a block that
+	/// contains `System::remark` extrinsics built by the configured extrinsic builder (including
+	/// whatever transaction extensions and signature format that builder uses). Raw timing
+	/// statistics are left unchanged; only the final `Weight` written into the template is reduced
+	/// by the combined `--extension-weight` and `--signature-weight` (after converting
+	/// `ref_time` into the same nanoseconds domain as the benchmark metric via
+	/// `WEIGHT_REF_TIME_PER_NANOS`).
 	#[arg(long, default_value_t = true)]
 	pub subtract_extensions: bool,
 
-	/// The weight of the signature verification of the remark extrinsic.
+	/// Weight of signature verification for the remark extrinsic used by the benchmark.
 	///
-	/// If `--subtract-extensions` is enabled, this value is subtracted from the measured extrinsic
-	/// overhead to account for the signature check.
-	/// Format: `ref_time,proof_size`.
+	/// Used with `--subtract-extensions` only when producing the output constant, not when
+	/// reporting benchmark statistics. Format: `ref_time,proof_size` (`Weight::from_parts`).
 	#[arg(long, value_parser = parse_weight)]
 	pub signature_weight: Option<Weight>,
 
-	/// The weight of all transaction extensions included in the remark extrinsic.
+	/// Weight of all transaction extensions on the remark extrinsic used by the benchmark.
 	///
-	/// If `--subtract-extensions` is enabled, this value is subtracted from the measured extrinsic
-	/// overhead to exclude extension costs from the base weight.
-	/// Format: `ref_time,proof_size`.
+	/// Used with `--subtract-extensions` only when producing the output constant, not when
+	/// reporting benchmark statistics. Format: `ref_time,proof_size` (`Weight::from_parts`).
 	#[arg(long, value_parser = parse_weight)]
 	pub extension_weight: Option<Weight>,
 }
@@ -193,20 +196,6 @@ fn parse_weight(s: &str) -> std::result::Result<Weight, String> {
 		.parse::<u64>()
 		.map_err(|_| format!("Could not parse proof_size: {}", parts[1]))?;
 	Ok(Weight::from_parts(ref_time, proof_size))
-}
-
-impl Stats {
-	/// Subtract another weight from all fields of this stats object.
-	pub fn saturating_sub(&mut self, weight: u64) {
-		self.sum = self.sum.saturating_sub(weight.saturating_mul(self.sum / self.avg.max(1))); // Approximation for sum
-		self.min = self.min.saturating_sub(weight);
-		self.max = self.max.saturating_sub(weight);
-		self.avg = self.avg.saturating_sub(weight);
-		self.median = self.median.saturating_sub(weight);
-		self.p99 = self.p99.saturating_sub(weight);
-		self.p95 = self.p95.saturating_sub(weight);
-		self.p75 = self.p75.saturating_sub(weight);
-	}
 }
 
 /// How the genesis state for benchmarking should be built.
@@ -674,22 +663,20 @@ impl OverheadCmd {
 				&self.params,
 				&stats,
 				proof_size,
+				None,
 			)?;
 			template.write(&self.params.weight.weight_path)?;
 		}
 		// per-extrinsic execution overhead
 		{
-			let (mut stats, mut proof_size) = bench.bench_extrinsic(ext_builder)?;
+			let (stats, proof_size) = bench.bench_extrinsic(ext_builder)?;
 
-			if self.params.subtract_extensions {
-				let ext_weight = self.params.extension_weight.unwrap_or_default();
-				let sig_weight = self.params.signature_weight.unwrap_or_default();
-
-				stats.saturating_sub(ext_weight.ref_time().saturating_add(sig_weight.ref_time()));
-				proof_size = proof_size.saturating_sub(
-					ext_weight.proof_size().saturating_add(sig_weight.proof_size()),
-				);
-			}
+			let subtract_weight = self.params.subtract_extensions.then(|| {
+				self.params
+					.extension_weight
+					.unwrap_or_default()
+					.saturating_add(self.params.signature_weight.unwrap_or_default())
+			});
 
 			info!(target: LOG_TARGET, "Per-extrinsic execution overhead [ns]:\n{:?}", stats);
 			let template = TemplateData::new(
@@ -698,6 +685,7 @@ impl OverheadCmd {
 				&self.params,
 				&stats,
 				proof_size,
+				subtract_weight,
 			)?;
 			template.write(&self.params.weight.weight_path)?;
 		}

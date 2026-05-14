@@ -23,6 +23,7 @@ use sc_cli::Result;
 use handlebars::Handlebars;
 use log::info;
 use serde::Serialize;
+use sp_weights::{constants::WEIGHT_REF_TIME_PER_NANOS, Weight};
 use std::{env, fs, path::PathBuf};
 
 use crate::{
@@ -66,14 +67,24 @@ pub(crate) struct TemplateData {
 
 impl TemplateData {
 	/// Returns a new [`Self`] from the given params.
+	///
+	/// `subtract_weight` is applied only when generating `ref_time` / `proof_size` for the output
+	/// constant. [`Stats`] stay as measured (see `OverheadParams::subtract_extensions`).
 	pub(crate) fn new(
 		t: BenchmarkType,
 		chain_name: &String,
 		params: &OverheadParams,
 		stats: &Stats,
 		proof_size: u64,
+		subtract_weight: Option<Weight>,
 	) -> Result<Self> {
-		let ref_time = params.weight.calc_weight(stats)?;
+		let mut ref_time = params.weight.calc_weight(stats)?;
+		let mut proof_size = proof_size;
+		if let Some(adjust) = subtract_weight {
+			let subtract_ns = adjust.ref_time().saturating_div(WEIGHT_REF_TIME_PER_NANOS);
+			ref_time = ref_time.saturating_sub(subtract_ns);
+			proof_size = proof_size.saturating_sub(adjust.proof_size());
+		}
 		let header = params
 			.header
 			.as_ref()

@@ -20,7 +20,10 @@ parameter_types! {
 	{{#if (eq short_name "block")}}
 	/// Weight of executing an empty block.
 	{{else}}
-	/// Weight of executing a NO-OP extrinsic, for example `System::remark`.
+	/// Weight of executing a NO-OP extrinsic, for example `System::remark` using the overhead
+	/// benchmark's extrinsic builder (transaction extensions / signature format match that
+	/// builder). When extension weights are subtracted in the CLI, only the generated constant is
+	/// adjusted; the stats below are raw wall-clock nanoseconds.
 	{{/if}}
 	/// Calculated by multiplying the *{{params.weight.weight_metric}}* with `{{params.weight.weight_mul}}` and adding `{{params.weight.weight_add}}`.
 	///
