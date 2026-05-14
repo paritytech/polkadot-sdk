@@ -20,7 +20,6 @@
 
 pub use pallet::*;
 
-mod adapt_price;
 mod benchmarking;
 mod core_mask;
 mod coretime_interface;
@@ -44,10 +43,11 @@ pub mod runtime_api;
 pub mod weights;
 pub use weights::WeightInfo;
 
-pub use adapt_price::*;
 pub use core_mask::*;
 pub use coretime_interface::*;
+pub use market::*;
 pub use types::*;
+pub use utility_impls::{CoreRangeProviderImpl, TimesliceProviderImpl};
 
 extern crate alloc;
 
@@ -61,7 +61,7 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, *},
 		traits::{
-			fungible::{Balanced, Credit, Mutate},
+			fungible::{hold::Mutate as FunHoldMutate, Balanced, Credit, Mutate},
 			BuildGenesisConfig, EnsureOrigin, OnUnbalanced,
 		},
 		PalletId,
@@ -78,13 +78,20 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		#[allow(deprecated)]
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
+			+ TryInto<Event<Self>>;
 
 		/// Weight information for all calls of this pallet.
 		type WeightInfo: WeightInfo;
 
 		/// Currency used to pay for Coretime.
-		type Currency: Mutate<Self::AccountId> + Balanced<Self::AccountId>;
+		type Currency: Mutate<Self::AccountId>
+			+ Balanced<Self::AccountId>
+			+ FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+
+		/// Overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// The origin test needed for administrating this pallet.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -96,9 +103,6 @@ pub mod pallet {
 		/// system.
 		type Coretime: CoretimeInterface;
 
-		/// The algorithm to determine the next price on the basis of market performance.
-		type PriceAdapter: AdaptPrice<BalanceOf<Self>>;
-
 		/// Reversible conversion from local balance to Relay-chain balance. This will typically be
 		/// the `Identity`, but provided just in case the chains use different representations.
 		type ConvertBalance: Convert<BalanceOf<Self>, RelayBalanceOf<Self>>
@@ -107,6 +111,10 @@ pub mod pallet {
 		/// Type used for getting the associated account of a task. This account is controlled by
 		/// the task itself.
 		type SovereignAccountOf: MaybeConvert<TaskId, Self::AccountId>;
+
+		/// Market implementation that will be used to execute all the logic related to the bulk
+		/// coretime sales.
+		type CoretimeMarket: Market<RelayBlockNumberOf<Self>, BalanceOf<Self>, Self::AccountId>;
 
 		/// Identifier from which the internal Pot is generated.
 		#[pallet::constant]
@@ -135,6 +143,14 @@ pub mod pallet {
 		type MinimumCreditPurchase: Get<BalanceOf<Self>>;
 	}
 
+	/// A reason for placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// Funds locked for a coretime auction bid.
+		#[codec(index = 0)]
+		CoretimeBid,
+	}
+
 	/// The current configuration of this pallet.
 	#[pallet::storage]
 	pub type Configuration<T> = StorageValue<_, ConfigRecordOf<T>, OptionQuery>;
@@ -157,16 +173,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Status<T> = StorageValue<_, StatusRecord, OptionQuery>;
 
-	/// The details of the current sale, including its properties and status.
-	#[pallet::storage]
-	pub type SaleInfo<T> = StorageValue<_, SaleInfoRecordOf<T>, OptionQuery>;
-
 	/// Records of potential renewals.
 	///
 	/// Renewals will only actually be allowed if `CompletionStatus` is actually `Complete`.
 	#[pallet::storage]
 	pub type PotentialRenewals<T> =
-		StorageMap<_, Twox64Concat, PotentialRenewalId, PotentialRenewalRecordOf<T>, OptionQuery>;
+		StorageMap<_, Twox64Concat, PotentialRenewalId, PotentialRenewalRecord, OptionQuery>;
 
 	/// The current (unassigned or provisionally assigend) Regions.
 	#[pallet::storage]
@@ -228,8 +240,6 @@ pub mod pallet {
 		Renewable {
 			/// The core whose workload can be renewed.
 			core: CoreIndex,
-			/// The price at which the workload can be renewed.
-			price: BalanceOf<T>,
 			/// The time at which the workload would recommence of this renewal. The call to renew
 			/// cannot happen before the beginning of the interlude prior to the sale for regions
 			/// which begin at this time.
@@ -328,20 +338,11 @@ pub mod pallet {
 		SaleInitialized {
 			/// The relay block number at which the sale will/did start.
 			sale_start: RelayBlockNumberOf<T>,
-			/// The length in relay chain blocks of the Leadin Period (where the price is
-			/// decreasing).
-			leadin_length: RelayBlockNumberOf<T>,
-			/// The price of Bulk Coretime at the beginning of the Leadin Period.
-			start_price: BalanceOf<T>,
-			/// The price of Bulk Coretime after the Leadin Period.
-			end_price: BalanceOf<T>,
 			/// The first timeslice of the Regions which are being sold in this sale.
 			region_begin: Timeslice,
 			/// The timeslice on which the Regions which are being sold in the sale terminate.
 			/// (i.e. One after the last timeslice which the Regions control.)
 			region_end: Timeslice,
-			/// The number of cores we want to sell, ideally.
-			ideal_cores_sold: CoreIndex,
 			/// Number of cores which are/have been offered for sale.
 			cores_offered: CoreIndex,
 		},
@@ -368,8 +369,8 @@ pub mod pallet {
 		},
 		/// The sale rotation has been started and a new sale is imminent.
 		SalesStarted {
-			/// The nominal price of an Region of Bulk Coretime.
-			price: BalanceOf<T>,
+			/// Initialization data that was provided to the coretime market.
+			init_data: MarketInitDataOf<T>,
 			/// The maximum number of cores which this pallet will attempt to assign.
 			core_count: CoreIndex,
 		},
@@ -699,11 +700,11 @@ pub mod pallet {
 		))]
 		pub fn start_sales(
 			origin: OriginFor<T>,
-			end_price: BalanceOf<T>,
+			init_data: MarketInitDataOf<T>,
 			extra_cores: CoreIndex,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_start_sales(end_price, extra_cores)?;
+			Self::do_start_sales(init_data, extra_cores)?;
 			Ok(Pays::No.into())
 		}
 

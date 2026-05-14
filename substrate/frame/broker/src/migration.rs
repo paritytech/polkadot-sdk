@@ -89,7 +89,7 @@ mod v2 {
 		Pallet<T>,
 		Twox64Concat,
 		PotentialRenewalId,
-		PotentialRenewalRecordOf<T>,
+		PotentialRenewalRecord,
 		OptionQuery,
 	>;
 
@@ -228,6 +228,11 @@ mod v3 {
 }
 
 pub mod v4 {
+	use codec::MaxEncodedLen;
+	use frame_support::{pallet_prelude::OptionQuery, storage_alias, Twox64Concat};
+	use scale_info::TypeInfo;
+	use sp_runtime::Perbill;
+
 	use super::*;
 
 	type BlockNumberFor<T> = frame_system::pallet_prelude::BlockNumberFor<T>;
@@ -400,6 +405,158 @@ pub mod v4 {
 			BlockConversion::convert_block_length_to_relay_length(old_value) == new_value
 		}
 	}
+
+	#[storage_alias]
+	pub type Configuration<T: Config> = StorageValue<Pallet<T>, ConfigRecordOf<T>, OptionQuery>;
+	pub type ConfigRecordOf<T> = ConfigRecord<RelayBlockNumberOf<T>>;
+
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+	pub struct ConfigRecord<RelayBlockNumber> {
+		/// The number of Relay-chain blocks in advance which scheduling should be fixed and the
+		/// `Coretime::assign` API used to inform the Relay-chain.
+		pub advance_notice: RelayBlockNumber,
+		/// The length in blocks of the Interlude Period for forthcoming sales.
+		pub interlude_length: RelayBlockNumber,
+		/// The length in blocks of the Leadin Period for forthcoming sales.
+		pub leadin_length: RelayBlockNumber,
+		/// The length in timeslices of Regions which are up for sale in forthcoming sales.
+		pub region_length: Timeslice,
+		/// The proportion of cores available for sale which should be sold.
+		///
+		/// If more cores are sold than this, then further sales will no longer be considered in
+		/// determining the sellout price. In other words the sellout price will be the last price
+		/// paid, without going over this limit.
+		pub ideal_bulk_proportion: Perbill,
+		/// An artificial limit to the number of cores which are allowed to be sold. If `Some` then
+		/// no more cores will be sold than this.
+		pub limit_cores_offered: Option<CoreIndex>,
+		/// The amount by which the renewal price increases each sale period.
+		pub renewal_bump: Perbill,
+		/// The duration by which rewards for contributions to the InstaPool must be collected.
+		pub contribution_timeout: Timeslice,
+	}
+
+	#[storage_alias]
+	pub type SaleInfo<T: Config> = StorageValue<Pallet<T>, SaleInfoRecordOf<T>, OptionQuery>;
+	pub type SaleInfoRecordOf<T> = SaleInfoRecord<BalanceOf<T>, RelayBlockNumberOf<T>>;
+
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+	pub struct SaleInfoRecord<Balance, RelayBlockNumber> {
+		/// The relay block number at which the sale will/did start.
+		pub sale_start: RelayBlockNumber,
+		/// The length in blocks of the Leadin Period (where the price is decreasing).
+		pub leadin_length: RelayBlockNumber,
+		/// The price of Bulk Coretime after the Leadin Period.
+		pub end_price: Balance,
+		/// The first timeslice of the Regions which are being sold in this sale.
+		pub region_begin: Timeslice,
+		/// The timeslice on which the Regions which are being sold in the sale terminate. (i.e.
+		/// One after the last timeslice which the Regions control.)
+		pub region_end: Timeslice,
+		/// The number of cores we want to sell, ideally. Selling this amount would result in no
+		/// change to the price for the next sale.
+		pub ideal_cores_sold: CoreIndex,
+		/// Number of cores which are/have been offered for sale.
+		pub cores_offered: CoreIndex,
+		/// The index of the first core which is for sale. Core of Regions which are sold have
+		/// incrementing indices from this.
+		pub first_core: CoreIndex,
+		/// The price at which cores have been sold out.
+		///
+		/// Will only be `None` if no core was offered for sale.
+		pub sellout_price: Option<Balance>,
+		/// Number of cores which have been sold; never more than cores_offered.
+		pub cores_sold: CoreIndex,
+	}
+
+	#[storage_alias]
+	pub type PotentialRenewals<T: Config> = StorageMap<
+		Pallet<T>,
+		Twox64Concat,
+		PotentialRenewalId,
+		PotentialRenewalRecordOf<T>,
+		OptionQuery,
+	>;
+	pub type PotentialRenewalRecordOf<T> = PotentialRenewalRecord<BalanceOf<T>>;
+
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+	pub struct PotentialRenewalRecord<Balance> {
+		/// The price for which the next renewal can be made.
+		pub price: Balance,
+		/// The workload which will be scheduled on the Core in the case a renewal is made, or if
+		/// incomplete, then the parts of the core which have been scheduled.
+		pub completion: CompletionStatus,
+	}
+}
+
+mod v5 {
+	use super::*;
+	use v4::{
+		Configuration as ConfigurationV4, PotentialRenewalRecordOf as PotentialRenewalRecordV4Of,
+		SaleInfo as SaleInfoV4,
+	};
+
+	pub struct MigrateToV5Impl<T>(PhantomData<T>);
+
+	impl<T: Config> UncheckedOnRuntimeUpgrade for MigrateToV5Impl<T> {
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			if let Some(v4) = ConfigurationV4::<T>::take() {
+				Configuration::<T>::put(ConfigRecord {
+					advance_notice: v4.advance_notice,
+					region_length: v4.region_length,
+					contribution_timeout: v4.contribution_timeout,
+				});
+			}
+			log::info!(
+				target: LOG_TARGET,
+				"Migrated configuration.",
+			);
+
+			let mut potential_renewals_count = 0;
+			<PotentialRenewals<T>>::translate_values::<PotentialRenewalRecordV4Of<T>, _>(|v4| {
+				potential_renewals_count.saturating_inc();
+				Some(PotentialRenewalRecord { completion: v4.completion })
+			});
+			log::info!(
+				target: LOG_TARGET,
+				"Migrated potential renewals.",
+			);
+
+			SaleInfoV4::<T>::kill();
+			log::info!(
+				target: LOG_TARGET,
+				"Killed sale info.",
+			);
+
+			log::info!(
+				target: LOG_TARGET,
+				"Storage migration v5 for pallet-broker finished.",
+			);
+
+			T::DbWeight::get().reads_writes(
+				potential_renewals_count as u64 + 2,
+				potential_renewals_count as u64 + 3,
+			)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			let potential_renewals_count = PotentialRenewals::<T>::iter_keys().count();
+			Ok((potential_renewals_count as u32).encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let old_potential_renewals_count = u32::decode(&mut &state[..]).expect("Known good");
+			let new_potential_renewals_count = PotentialRenewals::<T>::iter_values().count() as u32;
+
+			ensure!(
+				old_potential_renewals_count == new_potential_renewals_count,
+				"Potential renewals count should not change"
+			);
+			Ok(())
+		}
+	}
 }
 
 /// Migrate the pallet storage from `0` to `1`.
@@ -431,6 +588,14 @@ pub type MigrateV3ToV4<T, BlockConversion> = frame_support::migrations::Versione
 	3,
 	4,
 	v4::MigrateToV4Impl<T, BlockConversion>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
+
+pub type MigrateV4ToV5<T> = frame_support::migrations::VersionedMigration<
+	4,
+	5,
+	v5::MigrateToV5Impl<T>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
