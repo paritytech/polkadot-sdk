@@ -178,8 +178,8 @@ mod tests {
 	type RelayHeader = Header<u32, BlakeTwo256>;
 
 	/// Creates a dummy signature blob for testing (not cryptographically valid).
-	fn dummy_signature() -> Vec<u8> {
-		vec![0u8; 64]
+	fn dummy_signature() -> [u8; 64] {
+		[0u8; 64]
 	}
 
 	/// Creates a chain of headers where each header's parent_hash points to the next.

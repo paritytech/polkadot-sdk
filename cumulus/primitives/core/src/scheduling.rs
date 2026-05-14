@@ -60,9 +60,10 @@ pub struct SignedSchedulingInfo {
 	/// Signature by the eligible collator for the slot at `internal_scheduling_parent`.
 	/// Signs `SchedulingInfoPayload(core_selector, internal_scheduling_parent)`.
 	///
-	/// Encoded as opaque bytes so the verifier is free to choose the signature scheme
-	/// (e.g. the parachain's Aura authority crypto, which may be sr25519 or ed25519).
-	pub signature: Vec<u8>,
+	/// Stored as a fixed 64-byte blob so the verifier can decode it as either an sr25519
+	/// or ed25519 signature, depending on the parachain's Aura authority crypto. Both
+	/// schemes produce 64-byte signatures.
+	pub signature: [u8; 64],
 }
 
 impl SchedulingInfoPayload {
