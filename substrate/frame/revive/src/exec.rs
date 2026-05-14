@@ -23,7 +23,9 @@ use crate::{
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
 	limits,
-	metering::{ChargedAmount, Diff, FrameMeter, ResourceMeter, State, Token, TransactionMeter},
+	metering::{
+		ChargedAmount, Diff, FrameMeter, ResourceMeter, SignedGas, State, Token, TransactionMeter,
+	},
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
 	primitives::{ExecConfig, ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, TypeInfo},
@@ -832,6 +834,20 @@ impl<T: Config> CachedContract<T> {
 	}
 }
 
+/// Ethereum gas consumed by `meter` since the `before` snapshot.
+///
+/// Subtraction happens in [`SignedGas`] form so that the ceil-rounding inside
+/// `to_ethereum_gas` is applied once to the delta, not to each snapshot.
+fn gas_used_since<T: Config, S: State>(meter: &ResourceMeter<T, S>, before: &SignedGas<T>) -> u64 {
+	meter
+		.eth_gas_consumed_signed()
+		.saturating_sub(before)
+		.to_ethereum_gas()
+		.unwrap_or_default()
+		.try_into()
+		.unwrap_or(u64::MAX)
+}
+
 impl<'a, T, E> Stack<'a, T, E>
 where
 	T: Config,
@@ -873,7 +889,7 @@ where
 				);
 			});
 
-			let gas_before = transaction_meter.total_consumed_gas();
+			let gas_before = transaction_meter.eth_gas_consumed_signed();
 			let weight_before = transaction_meter.weight_consumed();
 
 			let result = if let Some(mock_answer) =
@@ -893,11 +909,7 @@ where
 			};
 
 			if_tracing(|t| {
-				let gas_used: u64 = transaction_meter
-					.total_consumed_gas()
-					.saturating_sub(gas_before)
-					.try_into()
-					.unwrap_or(u64::MAX);
+				let gas_used = gas_used_since(transaction_meter, &gas_before);
 				let weight_consumed =
 					transaction_meter.weight_consumed().saturating_sub(weight_before);
 				match result {
@@ -2183,13 +2195,7 @@ where
 				if_tracing(|t| {
 					let frame_meter = &top_frame!(self).frame_meter;
 					let weight_delta = frame_meter.weight_consumed().saturating_sub(weight_before);
-					let gas_used: u64 = frame_meter
-						.eth_gas_consumed_signed()
-						.saturating_sub(&gas_before)
-						.to_ethereum_gas()
-						.unwrap_or_default()
-						.try_into()
-						.unwrap_or(u64::MAX);
+					let gas_used = gas_used_since(frame_meter, &gas_before);
 					match result {
 						Ok(ref output) => t.exit_child_span(&output, gas_used, weight_delta),
 						Err(e) => {
