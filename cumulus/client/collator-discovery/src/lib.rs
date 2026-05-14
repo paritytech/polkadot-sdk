@@ -296,7 +296,7 @@ impl LoopState {
 	}
 }
 
-/// Drop `local_pub_keys`, sort by raw pubkey bytes, truncate to `max_reserved`.
+/// Take the `max_reserved` smallest pubkeys by raw bytes, sorted.
 fn select_authorities(
 	authorities: Vec<AuthorityId>,
 	local_pub_keys: &HashSet<AuthorityId>,
@@ -304,12 +304,17 @@ fn select_authorities(
 ) -> Vec<AuthorityId> {
 	let mut selected: Vec<AuthorityId> =
 		authorities.into_iter().filter(|id| !local_pub_keys.contains(id)).collect();
-	selected.sort_by(|a, b| {
+
+	let cmp_bytes = |a: &AuthorityId, b: &AuthorityId| {
 		let a: &[u8] = a.as_ref();
 		let b: &[u8] = b.as_ref();
 		a.cmp(b)
-	});
-	selected.truncate(max_reserved);
+	};
+	if selected.len() > max_reserved {
+		selected.select_nth_unstable_by(max_reserved, cmp_bytes);
+		selected.truncate(max_reserved);
+	}
+	selected.sort_unstable_by(cmp_bytes);
 	selected
 }
 
