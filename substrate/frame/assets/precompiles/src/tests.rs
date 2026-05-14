@@ -18,8 +18,12 @@
 use super::*;
 use crate::{
 	alloy::hex,
-	mock::{new_test_ext, Assets, Balances, RuntimeEvent, RuntimeOrigin, System, Test},
+	mock::{new_test_ext, Assets, Balances, RuntimeOrigin, Test},
 	permit,
+	test_helpers::{
+		assert_contract_event, set_prefix_in_address, setup_asset_for_prefix, ICaller,
+		PRECOMPILE_ADDRESS_PREFIX, PRECOMPILE_ADDRESS_PREFIX_FOREIGN,
+	},
 };
 use alloy::primitives::U256;
 use frame_support::{
@@ -30,32 +34,6 @@ use pallet_revive::{precompiles::TransactionLimits, Code, ExecConfig};
 use sp_core::H160;
 use sp_runtime::Weight;
 use test_case::test_case;
-
-const PRECOMPILE_ADDRESS_PREFIX: u16 = 0x0120;
-const PRECOMPILE_ADDRESS_PREFIX_FOREIGN: u16 = 0x0220;
-
-fn set_prefix_in_address(prefix: u16) -> [u8; 20] {
-	let mut addr = hex::const_decode_to_array(b"0000000000000000000000000000000000000000").unwrap();
-	addr[16..18].copy_from_slice(&prefix.to_be_bytes());
-	addr
-}
-
-fn assert_contract_event(contract: H160, event: IERC20Events) {
-	let (topics, data) = event.into_log_data().split();
-	let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
-	System::assert_has_event(RuntimeEvent::Revive(pallet_revive::Event::ContractEmitted {
-		contract,
-		data: data.to_vec(),
-		topics,
-	}));
-}
-
-fn setup_asset_for_prefix(asset_id: u32, prefix: u16) {
-	if prefix == PRECOMPILE_ADDRESS_PREFIX_FOREIGN {
-		pallet::Pallet::<Test>::insert_asset_mapping(&asset_id)
-			.expect("Failed to insert asset mapping");
-	}
-}
 
 // Regression test: `deposit_event` in lib.rs must pass `data.len()` (32 bytes for
 // every ERC-20 event emitted by this precompile) — not `topics.len()` (always 3) —
@@ -583,13 +561,6 @@ fn approve_zero_on_nonexistent_is_noop(asset_index: u16) {
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 0);
 		assert_eq!(Balances::reserved_balance(&owner), 0);
 	});
-}
-
-alloy::sol! {
-	interface ICaller {
-		function staticCall(address callee, bytes data, uint64 gas) external view returns (bool success, bytes output);
-		function delegate(address callee, bytes data, uint64 gas) external returns (bool success, bytes output);
-	}
 }
 
 /// Tests that DOMAIN_SEPARATOR succeeds when invoked via STATICCALL (`is_read_only = true`).
