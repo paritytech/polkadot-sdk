@@ -35,7 +35,7 @@ sp-core = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true, features = ["serde"] }
 subxt = { version = "0.50", features = ["jsonrpsee", "native"] }
 subxt-signer = { version = "0.50" }
-tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time", "signal", "macros"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "sync", "time"] }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["test-util", "macros"] }
+tokio = { workspace = true, features = ["macros", "test-util"] }

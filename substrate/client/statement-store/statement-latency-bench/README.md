@@ -184,7 +184,7 @@ statement-ops-bench loop \
 
 Per-endpoint and per-pair lines are logged at INFO level. Examples:
 ```
-submit endpoint=ws://node1:9944 ok=100 fail=0 min=0.0042s avg=0.0061s max=0.0123s n=100
-propagation submit_endpoint=ws://node1:9944 subscribe_endpoint=ws://node3:9944 ok=10 fail=0 prop_min=0.012s prop_avg=0.034s prop_max=0.087s n=10 submit_min=0.004s submit_avg=0.005s submit_max=0.007s submit_n=10
-subscribe endpoint=ws://node1:9944 ok=10 fail=0 min=0.003s avg=0.005s max=0.011s n=10 seed=Submitted
+submit endpoint=ws://A ok=100 fail=0 min=0.0042s avg=0.0061s max=0.0123s n=100
+propagation submit_endpoint=ws://A subscribe_endpoint=ws://B ok=10 fail=0 prop_min=0.012s prop_avg=0.034s prop_max=0.087s submit_avg=0.005s n=10
+subscribe endpoint=ws://A ok=10 fail=0 min=0.003s avg=0.005s max=0.011s n=10 seed=Submitted
 ```

@@ -45,8 +45,7 @@ pub type EventStream = Pin<Box<dyn Stream<Item = Result<StatementEvent>> + Send>
 ///
 /// Concrete impls:
 /// * [`WsClientRpc`] — production, wraps a jsonrpsee `WsClient`.
-/// * `MockRpc`      — tests (only), records submissions and serves canned
-///   subscriptions.
+/// * `MockRpc`      — tests (only), records submissions and serves canned subscriptions.
 #[async_trait]
 pub trait StatementRpc: Send + Sync {
 	/// Submit a (already-built) statement to the node and return the node's
