@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use crate::tests::{snowbridge_common::snowbridge_sovereign, *};
+use emulated_integration_tests_common::assets_balance_on;
 use sp_core::Get;
 use xcm::latest::AssetTransferFilter;
 
@@ -160,10 +161,14 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 	let receiver = PenpalBReceiver::get();
 
 	// Query initial balances
+<<<<<<< HEAD
 	let receiver_assets_before = PenpalB::execute_with(|| {
 		type Assets = <PenpalB as PenpalBPallet>::ForeignAssets;
 		<Assets as Inspect<_>>::balance(bridged_weth.clone(), &receiver)
 	});
+=======
+	let receiver_assets_before = assets_balance_on!(PenpalB, bridged_weth.clone(), &receiver);
+>>>>>>> f726bad (emulated integration tests cleanup (#12003))
 
 	// Now register a new asset on PenpalB from Ethereum/Bob account while paying fees using WETH
 	// (going through Asset Hub)
@@ -202,10 +207,14 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 	});
 
 	// Query final balances
+<<<<<<< HEAD
 	let receiver_assets_after = PenpalB::execute_with(|| {
 		type Assets = <PenpalB as PenpalBPallet>::ForeignAssets;
 		<Assets as Inspect<_>>::balance(bridged_weth, &receiver)
 	});
+=======
+	let receiver_assets_after = assets_balance_on!(PenpalB, bridged_weth, &receiver);
+>>>>>>> f726bad (emulated integration tests cleanup (#12003))
 	// Receiver's balance is increased
 	assert!(receiver_assets_after > receiver_assets_before);
 }

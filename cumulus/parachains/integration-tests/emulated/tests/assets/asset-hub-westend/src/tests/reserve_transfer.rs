@@ -1481,6 +1481,7 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 	create_pool_with_wnd_on!(PenpalB, PenpalUsdtFromAssetHub::get(), true, PenpalAssetOwner::get());
 
 	let usdt_from_asset_hub = PenpalUsdtFromAssetHub::get();
+<<<<<<< HEAD
 	PenpalA::execute_with(|| {
 		use frame_support::traits::tokens::fungibles::Mutate;
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
@@ -1490,6 +1491,14 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 			asset_amount_to_send + fee_amount_to_send,
 		));
 	});
+=======
+	PenpalA::mint_foreign_asset(
+		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		usdt_from_asset_hub.clone(),
+		sender.clone(),
+		asset_amount_to_send + fee_amount_to_send,
+	);
+>>>>>>> f726bad (emulated integration tests cleanup (#12003))
 
 	// Prepare assets to transfer.
 	let assets: Assets =

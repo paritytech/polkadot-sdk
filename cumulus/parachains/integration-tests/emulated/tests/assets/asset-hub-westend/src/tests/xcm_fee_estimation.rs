@@ -15,10 +15,15 @@
 
 //! Tests to ensure correct XCM fee estimation for cross-chain asset transfers.
 
+<<<<<<< HEAD
 use crate::{create_pool_with_wnd_on, imports::*};
 
 use emulated_integration_tests_common::test_can_estimate_and_pay_exact_fees;
 use frame_support::dispatch::RawOrigin;
+=======
+use crate::{assets_balance_on, imports::*};
+use frame_support::{dispatch::RawOrigin, traits::fungible};
+>>>>>>> f726bad (emulated integration tests cleanup (#12003))
 use xcm_runtime_apis::{
 	dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
 	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV2,
@@ -299,6 +304,7 @@ fn multi_hop_works() {
 		sender.clone(),
 		amount_to_send * 2,
 	);
+<<<<<<< HEAD
 	AssetHubWestend::fund_accounts(vec![(sov_of_sender_on_ah, amount_to_send * 2)]);
 
 	// Actually run the extrinsic.
@@ -309,6 +315,39 @@ fn multi_hop_works() {
 	let receiver_assets_before = PenpalB::execute_with(|| {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &beneficiary_id)
+=======
+
+	// Get the final execution fees at the destination.
+	//
+	// Note: We need to do this after resetting the externalities to get an accurate value here.
+	// This is because the dry-run on Asset Hub does affect the liquidity pool distribution on
+	// PenpalB which affects the assets amount we have to pay.
+	// See side-effects: https://github.com/paritytech/polkadot-sdk/issues/11486.
+	let mut final_execution_fees = 0;
+	<PenpalB as TestExt>::execute_with(|| {
+		type Runtime = <PenpalB as Chain>::Runtime;
+
+		let weight = Runtime::query_xcm_weight(intermediate_remote_message.clone()).unwrap();
+		final_execution_fees =
+			Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(Location::parent()))
+				.unwrap();
+	});
+
+	AssetHubWestend::fund_accounts(vec![(sov_of_sender_on_ah, amount_to_send * 2)]);
+
+	// Actually run the extrinsic.
+	let sender_assets_before =
+		assets_balance_on!(PenpalA, relay_native_asset_location.clone(), &sender);
+	let sender_balance_before = PenpalA::execute_with(|| {
+		type Balances = <PenpalA as PenpalAPallet>::Balances;
+		<Balances as fungible::Inspect<_>>::balance(&sender)
+	});
+	let receiver_assets_before =
+		assets_balance_on!(PenpalB, relay_native_asset_location.clone(), &beneficiary_id);
+	let receiver_balance_before = PenpalB::execute_with(|| {
+		type Balances = <PenpalB as PenpalBPallet>::Balances;
+		<Balances as fungible::Inspect<_>>::balance(&beneficiary_id)
+>>>>>>> f726bad (emulated integration tests cleanup (#12003))
 	});
 
 	test.set_assertion::<PenpalA>(sender_assertions);
@@ -318,6 +357,7 @@ fn multi_hop_works() {
 	test.set_call(call);
 	test.assert();
 
+<<<<<<< HEAD
 	let sender_assets_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
@@ -325,6 +365,19 @@ fn multi_hop_works() {
 	let receiver_assets_after = PenpalB::execute_with(|| {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location, &beneficiary_id)
+=======
+	let sender_assets_after =
+		assets_balance_on!(PenpalA, relay_native_asset_location.clone(), &sender);
+	let sender_balance_after = PenpalA::execute_with(|| {
+		type Balances = <PenpalA as PenpalAPallet>::Balances;
+		<Balances as fungible::Inspect<_>>::balance(&sender)
+	});
+	let receiver_assets_after =
+		assets_balance_on!(PenpalB, relay_native_asset_location, &beneficiary_id);
+	let receiver_balance_after = PenpalB::execute_with(|| {
+		type Balances = <PenpalB as PenpalBPallet>::Balances;
+		<Balances as fungible::Inspect<_>>::balance(&beneficiary_id)
+>>>>>>> f726bad (emulated integration tests cleanup (#12003))
 	});
 
 	// We know the exact fees on every hop.

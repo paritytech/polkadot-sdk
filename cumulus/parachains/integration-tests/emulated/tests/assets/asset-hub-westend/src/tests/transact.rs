@@ -127,6 +127,7 @@ fn transact_from_para_to_para_through_asset_hub() {
 	create_pool_with_wnd_on!(PenpalB, PenpalUsdtFromAssetHub::get(), true, PenpalAssetOwner::get());
 
 	let usdt_from_asset_hub = PenpalUsdtFromAssetHub::get();
+<<<<<<< HEAD
 	PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
 		assert_ok!(<ForeignAssets as Mutate<_>>::mint_into(
@@ -135,6 +136,14 @@ fn transact_from_para_to_para_through_asset_hub() {
 			fee_amount_to_send,
 		));
 	});
+=======
+	PenpalA::mint_foreign_asset(
+		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		usdt_from_asset_hub.clone(),
+		sender.clone(),
+		fee_amount_to_send,
+	);
+>>>>>>> f726bad (emulated integration tests cleanup (#12003))
 
 	// Give the sender enough Relay tokens to pay for local delivery fees.
 	PenpalA::mint_foreign_asset(
