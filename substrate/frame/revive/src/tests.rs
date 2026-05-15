@@ -43,8 +43,7 @@ use frame_support::{
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU128, FindAuthor, OriginTrait,
-		StorageVersion,
+		AsEnsureOriginWithArg, ConstU32, ConstU128, FindAuthor, OriginTrait, StorageVersion,
 		tokens::imbalance::ResolveTo,
 	},
 	weights::{FixedFee, Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
@@ -415,6 +414,7 @@ where
 }
 parameter_types! {
 	pub static AllowEvmBytecode: bool = true;
+	pub static ColdWarmPricing: bool = false;
 	pub CheckingAccount: AccountId32 = BOB.clone();
 	pub BurnDestination: AccountId32 = AccountId32::new([42u8; 32]);
 	pub static DebugFlag: bool = false;
@@ -440,7 +440,7 @@ impl Config for Test {
 	type DepositPerItem = DepositPerItem;
 	type DepositPerChildTrieItem = DepositPerItem;
 	type AllowEVMBytecode = AllowEvmBytecode;
-	type ColdWarmPricingEnabled = ConstBool<false>;
+	type ColdWarmPricingEnabled = ColdWarmPricing;
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
