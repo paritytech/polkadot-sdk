@@ -1969,6 +1969,9 @@ impl Default for UseDalekExt {
 	}
 }
 
+/// Initial buffer capacity (in number of keys) for `*_public_keys` wrappers.
+const PUBLIC_KEYS_INITIAL_CAPACITY: usize = 16;
+
 /// Interfaces for working with crypto related types from within the runtime.
 #[runtime_interface]
 pub trait Crypto {
@@ -2006,11 +2009,16 @@ pub trait Crypto {
 	/// `ed25519_public_keys` host function
 	#[wrapper]
 	fn ed25519_public_keys(id: KeyTypeId) -> Vec<ed25519::Public> {
-		let num_bytes = ed25519_public_keys__wrapped(id, &mut []) as usize;
-		let num_keys = num_bytes / core::mem::size_of::<ed25519::Public>();
-		let mut keys = vec![ed25519::Public::default(); num_keys];
-		ed25519_public_keys__wrapped(id, &mut keys);
-		keys
+		let key_size = core::mem::size_of::<ed25519::Public>();
+		let mut keys = vec![ed25519::Public::default(); PUBLIC_KEYS_INITIAL_CAPACITY];
+		loop {
+			let num_keys = ed25519_public_keys__wrapped(id, &mut keys) as usize / key_size;
+			if num_keys <= keys.len() {
+				keys.truncate(num_keys);
+				return keys;
+			}
+			keys.resize(num_keys, ed25519::Public::default());
+		}
 	}
 
 	/// Generate an `ed22519` key for the given key type using an optional `seed` and
@@ -2289,11 +2297,16 @@ pub trait Crypto {
 	/// `sr25519_public_keys` host function
 	#[wrapper]
 	fn sr25519_public_keys(id: KeyTypeId) -> Vec<sr25519::Public> {
-		let num_bytes = sr25519_public_keys__wrapped(id, &mut []) as usize;
-		let num_keys = num_bytes / core::mem::size_of::<sr25519::Public>();
-		let mut keys = vec![sr25519::Public::default(); num_keys];
-		sr25519_public_keys__wrapped(id, &mut keys);
-		keys
+		let key_size = core::mem::size_of::<sr25519::Public>();
+		let mut keys = vec![sr25519::Public::default(); PUBLIC_KEYS_INITIAL_CAPACITY];
+		loop {
+			let num_keys = sr25519_public_keys__wrapped(id, &mut keys) as usize / key_size;
+			if num_keys <= keys.len() {
+				keys.truncate(num_keys);
+				return keys;
+			}
+			keys.resize(num_keys, sr25519::Public::default());
+		}
 	}
 
 	/// Generate an `sr22519` key for the given key type using an optional seed and
@@ -2447,11 +2460,16 @@ pub trait Crypto {
 	/// `ecdsa_public_keys` host function
 	#[wrapper]
 	fn ecdsa_public_keys(id: KeyTypeId) -> Vec<ecdsa::Public> {
-		let num_bytes = ecdsa_public_keys__wrapped(id, &mut []) as usize;
-		let num_keys = num_bytes / core::mem::size_of::<ecdsa::Public>();
-		let mut keys = vec![ecdsa::Public::default(); num_keys];
-		ecdsa_public_keys__wrapped(id, &mut keys);
-		keys
+		let key_size = core::mem::size_of::<ecdsa::Public>();
+		let mut keys = vec![ecdsa::Public::default(); PUBLIC_KEYS_INITIAL_CAPACITY];
+		loop {
+			let num_keys = ecdsa_public_keys__wrapped(id, &mut keys) as usize / key_size;
+			if num_keys <= keys.len() {
+				keys.truncate(num_keys);
+				return keys;
+			}
+			keys.resize(num_keys, ecdsa::Public::default());
+		}
 	}
 
 	/// Generate an `ecdsa` key for the given key type using an optional `seed` and
