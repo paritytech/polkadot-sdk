@@ -135,20 +135,32 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// * the item itself (struct or enum),
 /// * an enum variant,
-/// * a named struct field or named variant field.
+/// * a struct field or enum variant field.
 ///
 /// The supported options are `extend` and `override`. Where each one is allowed:
 ///
 /// * **on a type (struct or enum)** — `extend` is supported, `override` is rejected;
-/// * **on an enum variant** — both `extend` and `override` are supported, and they may be combined
-///   as `#[versioned_type(extend, override)]` (or `override, extend` — order is irrelevant);
+/// * **on an enum variant** — either `extend` or `override` may be used, but not both on the same
+///   variant;
 /// * **on a named field** — `override` is supported, `extend` is rejected;
 /// * **on a tuple field** — neither `extend` nor `override` is supported, because tuple fields have
 ///   no stable names to anchor an override to.
 ///
+/// The empty form, `#[versioned_type()]`, is accepted and stripped but has no effect.
+///
 /// All `#[versioned_type(...)]` attributes are stripped from the generated code. Every other
 /// attribute (including `#[derive]`, `#[doc]`, `#[cfg]`, `#[serde(...)]`, ...) is preserved exactly
 /// as written and travels with the item, variant, or field it adorns.
+///
+/// # Variant-level extension and override
+///
+/// `#[versioned_type(extend)]` on a variant inherits fields from the previous version. If the
+/// previous version is a struct, the variant inherits the previous struct fields. If the previous
+/// version is an enum, the previous enum must contain a variant with the same name.
+///
+/// `#[versioned_type(override)]` on a variant replaces a same-named variant that has already been
+/// inherited into the current enum. In practice, this is used inside an enum marked with
+/// `#[versioned_type(extend)]`.
 ///
 /// # Field-level override
 ///
@@ -159,8 +171,7 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// Field-level override is only meaningful inside an extending context — the surrounding type
 /// carries `#[versioned_type(extend)]`, or the surrounding variant carries
-/// `#[versioned_type(extend)]` or `#[versioned_type(override, extend)]`. Using `override` on a
-/// field outside such a context is rejected.
+/// `#[versioned_type(extend)]`. Using `override` on a field outside such a context is rejected.
 #[proc_macro]
 pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 	let input = syn::parse_macro_input!(input as define_versioned_type::DefineVersionedTypeInput);

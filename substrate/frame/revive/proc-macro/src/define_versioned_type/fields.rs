@@ -73,6 +73,14 @@ pub struct StructuredUnnamedField {
 // ========
 
 impl StructuredFields {
+	pub fn new(shape: FieldsShape) -> Self {
+		match shape {
+			FieldsShape::NamedFields => Self::Named(Default::default()),
+			FieldsShape::TupleFields => Self::Unnamed(Default::default()),
+			FieldsShape::Inherit => Self::Unit,
+		}
+	}
+
 	pub fn fields(self) -> Box<dyn Iterator<Item = StructuredField>> {
 		match self {
 			Self::Named(fields) => {
