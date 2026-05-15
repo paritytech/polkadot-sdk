@@ -116,18 +116,18 @@ impl SlotTimer {
 	}
 
 	/// Set the time offset.
-	pub fn set_time_offset(&mut self, offset: Duration) {
+	pub fn set_offset(&mut self, offset: Duration) {
 		self.time_offset = offset;
 	}
 
-	/// Set the time offset.
-	pub fn set_time_offset_by_scheduling(&mut self, v3_enabled: bool, offset: Duration) {
+	/// Set the time offset depending on the scheduling version.
+	pub fn set_offset_by_scheduling_version(&mut self, v3_enabled: bool, offset: Duration) {
 		if v3_enabled {
 			// Ignore the time offset when V3 scheduling is enabled,
 			// since `descendants_start` already handles relay-chain slot alignment.
-			self.set_time_offset(Duration::ZERO);
+			self.set_offset(Duration::ZERO);
 		} else {
-			self.set_time_offset(offset);
+			self.set_offset(offset);
 		}
 	}
 

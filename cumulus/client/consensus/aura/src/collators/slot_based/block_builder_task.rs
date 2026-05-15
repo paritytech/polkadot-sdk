@@ -219,7 +219,7 @@ where
 			.await
 			.map_or(false, |data| data.is_v3_enabled());
 		}
-		slot_timer.set_time_offset_by_scheduling(v3_enabled, slot_offset);
+		slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
 
 		loop {
 			scheduling_info
@@ -253,7 +253,7 @@ where
 			};
 			let scheduling_parent_hash = scheduling_parent_header.hash();
 
-			slot_timer.set_time_offset_by_scheduling(v3_enabled, slot_offset);
+			slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
 
 			let Ok(para_slot_duration) = crate::slot_duration(&*para_client) else {
 				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
