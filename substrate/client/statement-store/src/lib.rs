@@ -74,9 +74,10 @@ use sp_statement_store::{
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 use std::{
 	collections::{BTreeMap, BTreeSet, HashMap, HashSet},
-	sync::Arc,
+	sync::{Arc, Weak},
 	time::{Duration, Instant},
 };
+use subscription::ReplaySnapshotProvider;
 pub use subscription::{
 	AddFilterError, LiveEventStream, MultiFilterSubscriptionApi, MultiFilterSubscriptionEvent,
 	StatementStoreSubscriptionApi, SubscriptionHandle, MAX_FILTERS_PER_SUBSCRIPTION,
@@ -352,6 +353,19 @@ pub struct Store {
 	// Used for testing
 	time_override: Option<u64>,
 	metrics: PrometheusMetrics,
+}
+
+impl ReplaySnapshotProvider for Weak<Store> {
+	fn register_filter_with_snapshot(
+		&self,
+		filter: &OptimizedTopicFilter,
+		register: &mut dyn FnMut(Vec<Vec<u8>>),
+	) -> Result<()> {
+		let Some(store) = self.upgrade() else {
+			return Err(Error::InvalidConfig("statement store is closed".into()));
+		};
+		store.register_filter_with_snapshot(filter, register)
+	}
 }
 
 enum IndexQuery {
@@ -1656,15 +1670,11 @@ impl MultiFilterSubscriptionApi for Arc<Store> {
 	fn create_subscription(&self) -> (SubscriptionHandle, LiveEventStream) {
 		let inner =
 			Arc::new(parking_lot::Mutex::new(crate::subscription::SubscriptionHandleState::new()));
-		let (sub_id, control_tx, stream) = self.subscription_manager.subscribe_empty();
+		let snapshot_provider: Arc<dyn ReplaySnapshotProvider> = Arc::new(Arc::downgrade(self));
+		let (sub_id, stream) = self.subscription_manager.subscribe_empty(snapshot_provider);
 
-		let handle = SubscriptionHandle {
-			sub_id,
-			inner,
-			store: self.clone(),
-			matchers: self.subscription_manager.matchers(),
-			control_tx,
-		};
+		let handle =
+			SubscriptionHandle { sub_id, inner, matchers: self.subscription_manager.matchers() };
 		(handle, stream)
 	}
 }
@@ -3279,14 +3289,10 @@ mod tests {
 	mod multi_filter {
 		use super::*;
 		use crate::{
-			subscription::{
-				MatcherMessage, SubscriptionHandleState, SubscriptionsMatchersHandlers,
-			},
 			LiveEventStream, MultiFilterSubscriptionApi, MultiFilterSubscriptionEvent,
 			SubscriptionHandle,
 		};
 		use futures::StreamExt;
-		use sc_utils::id_sequence::SeqID;
 		use sp_statement_store::{LiveStatementEvent, OptimizedTopicFilter};
 		use std::{
 			collections::{HashMap, HashSet},
@@ -3364,49 +3370,24 @@ mod tests {
 		}
 
 		#[tokio::test]
-		async fn add_filter_registers_matcher_before_releasing_snapshot_lock() {
+		async fn add_filter_returns_before_snapshot_collection_finishes() {
 			let (store, _dir) = arc_test_store();
-			let (control_tx, mut control_rx) = tokio::sync::mpsc::unbounded_channel();
-			let (matcher_tx, matcher_rx) = async_channel::bounded(1);
-			matcher_tx
-				.try_send(MatcherMessage::Unsubscribe(SeqID::from(999)))
-				.expect("matcher channel should have one free slot");
+			let (handle, mut stream) = store.create_subscription();
+			let index_write_guard = store.index.write();
+			let (filter_id_tx, filter_id_rx) = std::sync::mpsc::channel();
 
-			let handle = SubscriptionHandle {
-				sub_id: SeqID::from(0),
-				inner: Arc::new(parking_lot::Mutex::new(SubscriptionHandleState::new())),
-				store: store.clone(),
-				matchers: SubscriptionsMatchersHandlers::new(vec![matcher_tx]),
-				control_tx,
-			};
+			std::thread::spawn(move || {
+				let filter_id = handle.add_filter(OptimizedTopicFilter::Any).unwrap();
+				filter_id_tx.send(filter_id).unwrap();
+			});
 
-			let add_filter_thread =
-				std::thread::spawn(move || handle.add_filter(OptimizedTopicFilter::Any));
+			let filter_id = filter_id_rx
+				.recv_timeout(Duration::from_secs(1))
+				.expect("add_filter should not wait for snapshot collection");
+			drop(index_write_guard);
 
-			tokio::time::timeout(Duration::from_secs(5), control_rx.recv())
-				.await
-				.expect("control message should be sent")
-				.expect("control channel should remain open");
-
-			let write_lock_available = if let Some(guard) = store.index.try_write() {
-				drop(guard);
-				true
-			} else {
-				false
-			};
-
-			matcher_rx.recv().await.expect("filled matcher message should be present");
-			let add_result = tokio::task::spawn_blocking(move || {
-				add_filter_thread.join().expect("add_filter thread should not panic")
-			})
-			.await
-			.expect("join should complete");
-			assert!(add_result.is_ok());
-
-			assert!(
-				!write_lock_available,
-				"matcher registration must happen before releasing the snapshot read lock"
-			);
+			let snapshots = drain_replays(&mut stream, [filter_id], Duration::from_secs(1)).await;
+			assert!(snapshots[&filter_id].is_empty());
 		}
 
 		#[tokio::test]
@@ -3540,6 +3521,9 @@ mod tests {
 			let id_ab = handle
 				.add_filter(OptimizedTopicFilter::MatchAll(HashSet::from([topic_a, topic_b])))
 				.unwrap();
+			let snapshots =
+				drain_replays(&mut stream, [id_a, id_b, id_ab], Duration::from_secs(1)).await;
+			assert!(snapshots.values().all(|statements| statements.is_empty()));
 
 			let s1 = signed_statement_with_topics(1, &[topic_a], None);
 			store.submit(s1, StatementSource::Local);
