@@ -1,0 +1,38 @@
+title: 'net: Update litep2p to v0.14.0'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR updates litep2p to the latest release.
+
+    - multihash needs a new const generic
+    - multihash erorr is opaque without public variants
+    - litep2p re exports no longer have the `Identity` variant, which is handled via a local constant
+
+    Litep2pProtocol and Libp2pProtocol now are deduced to the same type, therefore the LiteP2pProtocol to/from Protocol is no longer needed.  Small other changes revolve around the fact that Protocol::p2p now contains a peerID rather than a multihash.
+
+    ## Next Steps
+
+    - [x] local node testing
+
+    ## [0.14.0] - 2026-05-11
+
+    This release updates several core dependencies, aligns clippy rules with the latest Rust version, and enhances observability for notification protocols.
+
+    Notably, this version introduces a breaking change to error handling: the `PeerId::from_bytes` method now returns a specialized `ParseError` instead of a `multihash::Error`.
+
+    ### Changed
+
+    - deps: upgrade multiaddr 0.18, multihash 0.19, libp2p 0.56  ([#564](https://github.com/paritytech/litep2p/pull/564))
+
+    ### Fixed
+
+    - fix clippy errors and warnings  ([#565](https://github.com/paritytech/litep2p/pull/565))
+
+    ### Added
+
+    - notification: Expose protocol name through trace logs  ([#563](https://github.com/paritytech/litep2p/pull/563))
+crates:
+- name: sc-network-types
+  bump: minor
+- name: sc-network
+  bump: minor
