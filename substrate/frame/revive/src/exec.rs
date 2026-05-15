@@ -547,7 +547,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn get_storage(
 		&mut self,
 		key: &Key,
-	) -> (Option<Vec<u8>>, crate::access_list::GetStorageReadCosts);
+	) -> (Option<Vec<u8>>, crate::access_list::StorageAccessCost);
 
 	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`,
 	/// alongside the cold/warm cost struct recording the access-list touch.
@@ -557,17 +557,17 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn get_storage_size(
 		&mut self,
 		key: &Key,
-	) -> (Option<u32>, crate::access_list::GetStorageReadCosts);
+	) -> (Option<u32>, crate::access_list::StorageAccessCost);
 
 	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
-	/// the storage entry is deleted. The accompanying `SetStorageReadCosts`
+	/// the storage entry is deleted. The accompanying `StorageAccessCost`
 	/// records the access-list touch for the implicit read-of-old-value.
 	fn set_storage(
 		&mut self,
 		key: &Key,
 		value: Option<Vec<u8>>,
 		take_old: bool,
-	) -> (Result<WriteOutcome, DispatchError>, crate::access_list::SetStorageReadCosts);
+	) -> (Result<WriteOutcome, DispatchError>, crate::access_list::StorageAccessCost);
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -2575,25 +2575,25 @@ where
 	fn get_storage(
 		&mut self,
 		key: &Key,
-	) -> (Option<Vec<u8>>, crate::access_list::GetStorageReadCosts) {
-		use crate::access_list::{AccessEntry, GetStorageReadCosts};
+	) -> (Option<Vec<u8>>, crate::access_list::StorageAccessCost) {
+		use crate::access_list::{AccessEntry, StorageAccessCost};
 		assert!(self.has_contract_info());
 		let address = T::AddressMapper::to_address(self.account_id());
 		let is_cold = self.access_list.touch(AccessEntry { address, slot: key_to_slot(key) });
 		let value = self.top_frame_mut().contract_info().read(key);
-		(value, GetStorageReadCosts { is_cold: Some(is_cold) })
+		(value, StorageAccessCost { is_cold: Some(is_cold) })
 	}
 
 	fn get_storage_size(
 		&mut self,
 		key: &Key,
-	) -> (Option<u32>, crate::access_list::GetStorageReadCosts) {
-		use crate::access_list::{AccessEntry, GetStorageReadCosts};
+	) -> (Option<u32>, crate::access_list::StorageAccessCost) {
+		use crate::access_list::{AccessEntry, StorageAccessCost};
 		assert!(self.has_contract_info());
 		let address = T::AddressMapper::to_address(self.account_id());
 		let is_cold = self.access_list.touch(AccessEntry { address, slot: key_to_slot(key) });
 		let size = self.top_frame_mut().contract_info().size(key.into());
-		(size, GetStorageReadCosts { is_cold: Some(is_cold) })
+		(size, StorageAccessCost { is_cold: Some(is_cold) })
 	}
 
 	fn set_storage(
@@ -2601,8 +2601,8 @@ where
 		key: &Key,
 		value: Option<Vec<u8>>,
 		take_old: bool,
-	) -> (Result<WriteOutcome, DispatchError>, crate::access_list::SetStorageReadCosts) {
-		use crate::access_list::{AccessEntry, SetStorageReadCosts};
+	) -> (Result<WriteOutcome, DispatchError>, crate::access_list::StorageAccessCost) {
+		use crate::access_list::{AccessEntry, StorageAccessCost};
 		assert!(self.has_contract_info());
 		let address = T::AddressMapper::to_address(self.account_id());
 		let is_cold = self.access_list.touch(AccessEntry { address, slot: key_to_slot(key) });
@@ -2613,7 +2613,7 @@ where
 			Some(&mut frame.frame_meter),
 			take_old,
 		);
-		(result, SetStorageReadCosts { is_cold: Some(is_cold) })
+		(result, StorageAccessCost { is_cold: Some(is_cold) })
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {

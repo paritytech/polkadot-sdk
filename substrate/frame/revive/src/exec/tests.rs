@@ -1849,23 +1849,29 @@ fn set_storage_varsized_key_works() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		// Write
 		assert_eq!(
-			ctx.ext.set_storage(
-				&Key::try_from_var([1; 64].to_vec()).unwrap(),
-				Some(vec![1, 2, 3]),
-				false
-			).0,
+			ctx.ext
+				.set_storage(
+					&Key::try_from_var([1; 64].to_vec()).unwrap(),
+					Some(vec![1, 2, 3]),
+					false
+				)
+				.0,
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
-			ctx.ext.set_storage(
-				&Key::try_from_var([2; 19].to_vec()).unwrap(),
-				Some(vec![4, 5, 6]),
-				true
-			).0,
+			ctx.ext
+				.set_storage(
+					&Key::try_from_var([2; 19].to_vec()).unwrap(),
+					Some(vec![4, 5, 6]),
+					true
+				)
+				.0,
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
-			ctx.ext.set_storage(&Key::try_from_var([3; 19].to_vec()).unwrap(), None, false).0,
+			ctx.ext
+				.set_storage(&Key::try_from_var([3; 19].to_vec()).unwrap(), None, false)
+				.0,
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
@@ -1874,34 +1880,38 @@ fn set_storage_varsized_key_works() {
 		);
 		assert_eq!(
 			ctx.ext
-				.set_storage(&Key::try_from_var([5; 30].to_vec()).unwrap(), Some(vec![]), false).0,
+				.set_storage(&Key::try_from_var([5; 30].to_vec()).unwrap(), Some(vec![]), false)
+				.0,
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
 			ctx.ext
-				.set_storage(&Key::try_from_var([6; 128].to_vec()).unwrap(), Some(vec![]), true).0,
+				.set_storage(&Key::try_from_var([6; 128].to_vec()).unwrap(), Some(vec![]), true)
+				.0,
 			Ok(WriteOutcome::New)
 		);
 
 		// Overwrite
 		assert_eq!(
-			ctx.ext.set_storage(
-				&Key::try_from_var([1; 64].to_vec()).unwrap(),
-				Some(vec![42, 43, 44]),
-				false
-			).0,
+			ctx.ext
+				.set_storage(
+					&Key::try_from_var([1; 64].to_vec()).unwrap(),
+					Some(vec![42, 43, 44]),
+					false
+				)
+				.0,
 			Ok(WriteOutcome::Overwritten(3))
 		);
 		assert_eq!(
-			ctx.ext.set_storage(
-				&Key::try_from_var([2; 19].to_vec()).unwrap(),
-				Some(vec![48]),
-				true
-			).0,
+			ctx.ext
+				.set_storage(&Key::try_from_var([2; 19].to_vec()).unwrap(), Some(vec![48]), true)
+				.0,
 			Ok(WriteOutcome::Taken(vec![4, 5, 6]))
 		);
 		assert_eq!(
-			ctx.ext.set_storage(&Key::try_from_var([3; 19].to_vec()).unwrap(), None, false).0,
+			ctx.ext
+				.set_storage(&Key::try_from_var([3; 19].to_vec()).unwrap(), None, false)
+				.0,
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
@@ -1910,12 +1920,14 @@ fn set_storage_varsized_key_works() {
 		);
 		assert_eq!(
 			ctx.ext
-				.set_storage(&Key::try_from_var([5; 30].to_vec()).unwrap(), Some(vec![]), false).0,
+				.set_storage(&Key::try_from_var([5; 30].to_vec()).unwrap(), Some(vec![]), false)
+				.0,
 			Ok(WriteOutcome::Overwritten(0))
 		);
 		assert_eq!(
 			ctx.ext
-				.set_storage(&Key::try_from_var([6; 128].to_vec()).unwrap(), Some(vec![]), true).0,
+				.set_storage(&Key::try_from_var([6; 128].to_vec()).unwrap(), Some(vec![]), true)
+				.0,
 			Ok(WriteOutcome::Taken(vec![]))
 		);
 
@@ -2022,16 +2034,19 @@ fn get_storage_size_works() {
 fn get_storage_varsized_key_works() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_eq!(
-			ctx.ext.set_storage(
-				&Key::try_from_var([1; 19].to_vec()).unwrap(),
-				Some(vec![1, 2, 3]),
-				false
-			).0,
+			ctx.ext
+				.set_storage(
+					&Key::try_from_var([1; 19].to_vec()).unwrap(),
+					Some(vec![1, 2, 3]),
+					false
+				)
+				.0,
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
 			ctx.ext
-				.set_storage(&Key::try_from_var([2; 16].to_vec()).unwrap(), Some(vec![]), false).0,
+				.set_storage(&Key::try_from_var([2; 16].to_vec()).unwrap(), Some(vec![]), false)
+				.0,
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
@@ -2071,16 +2086,19 @@ fn get_storage_varsized_key_works() {
 fn get_storage_size_varsized_key_works() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_eq!(
-			ctx.ext.set_storage(
-				&Key::try_from_var([1; 19].to_vec()).unwrap(),
-				Some(vec![1, 2, 3]),
-				false
-			).0,
+			ctx.ext
+				.set_storage(
+					&Key::try_from_var([1; 19].to_vec()).unwrap(),
+					Some(vec![1, 2, 3]),
+					false
+				)
+				.0,
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
 			ctx.ext
-				.set_storage(&Key::try_from_var([2; 16].to_vec()).unwrap(), Some(vec![]), false).0,
+				.set_storage(&Key::try_from_var([2; 16].to_vec()).unwrap(), Some(vec![]), false)
+				.0,
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
@@ -2997,8 +3015,7 @@ impl Drop for ColdWarmEnabled {
 fn run_call_to(contract_addr: H160) {
 	set_balance(&ALICE, <Test as Config>::Currency::minimum_balance() * 1000);
 	let mut meter =
-		TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
-			.unwrap();
+		TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>()).unwrap();
 	assert_ok!(MockStack::run_call(
 		Origin::from_account_id(ALICE),
 		contract_addr,
@@ -3220,12 +3237,7 @@ fn cold_warm_child_commit_persists_across_sibling_calls() {
 	let child_ch = MockLoader::insert(Call, move |ctx, _| {
 		let (_, costs) = ctx.ext.set_storage(&key, Some(vec![1]), false);
 		let want_cold = *expected_in_child.borrow();
-		assert_eq!(
-			costs.is_cold,
-			Some(want_cold),
-			"expected cold={} on this call",
-			want_cold,
-		);
+		assert_eq!(costs.is_cold, Some(want_cold), "expected cold={} on this call", want_cold,);
 		exec_success()
 	});
 

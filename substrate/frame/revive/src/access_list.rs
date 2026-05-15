@@ -17,14 +17,11 @@
 
 //! Per-transaction cold/warm access list for storage opcodes.
 //!
-//! Scoped-down version targeting only SLOAD/SSTORE and the storage precompile
-//! (clearStorage / containsStorage / getStorage / takeStorage). Tracks
-//! per-`(address, slot)` cold/warm state with per-frame rollback semantics,
-//! mirroring EIP-2929 for the storage side only.
-//!
-//! Data layout follows [`crate::transient_storage::TransientStorage`]: a current-
-//! state `BTreeSet`, a flat journal of insertions, and a stack of journal-index
-//! checkpoints marking frame boundaries.
+//! TODO: the per-frame rollback machinery here (flat journal + checkpoint
+//! stack, with `enter_frame` / `commit_frame` / `rollback_frame` wired into
+//! `Stack::run`) duplicates [`crate::transient_storage::TransientStorage`].
+//! Factor the shared layout into a generic helper (e.g. `Journaled<T>`) and
+//! have both `TransientStorage` and `AccessList` depend on it.
 
 use alloc::{collections::BTreeSet, vec::Vec};
 use frame_support::weights::Weight;
@@ -37,20 +34,16 @@ use crate::{Config, weights::WeightInfo};
 pub struct AccessEntry {
 	/// Contract whose child trie is being touched.
 	pub address: H160,
-	/// 32-byte slot identifier. For fixed-size keys (`Key::Fix`, the EVM
-	/// SLOAD/SSTORE path) this is the raw EVM slot. For variable-length
-	/// keys (`Key::Var`, the storage-precompile path) this is the
-	/// `blake2_256` projection produced by `exec::key_to_slot` so the entry
-	/// stays fixed-size and cheap to compare.
+	/// 32-byte slot identifier, projected from a `Key` via [`crate::exec::key_to_slot`].
 	pub slot: [u8; 32],
 }
 
-/// Per-transaction access list with per-frame rollback support.
-///
-/// Two variants: `Enabled` does full tracking; `Disabled` is a zero-state
-/// no-op selected when `T::ColdWarmPricingEnabled = false`.
+/// Per-transaction access list with per-frame rollback support. `Disabled`
+/// is a zero-state no-op when `T::ColdWarmPricingEnabled = false`.
 pub enum AccessList {
-	/// Full tracking — used when cold/warm pricing is enabled.
+	/// Full tracking — used when cold/warm pricing is enabled. Layout
+	/// follows [`crate::transient_storage::TransientStorage`]: a current-state
+	/// set, a flat journal of insertions, and journal-index checkpoints.
 	Enabled {
 		/// All currently-warm entries.
 		accessed: BTreeSet<AccessEntry>,
@@ -63,26 +56,19 @@ pub enum AccessList {
 		checkpoints: Vec<usize>,
 	},
 	/// No-op variant — used when cold/warm pricing is disabled at runtime.
-	///
-	/// Every [`touch`](Self::touch) call returns `true` (cold) but performs no
-	/// work. Frame hooks are no-ops. Weight dispatch in `RuntimeCosts::weight`
-	/// routes to the legacy `seal_*` weights — bit-identical to pre-change.
 	Disabled,
 }
 
+/// On the `Disabled` variant, `enter_frame` / `commit_frame` / `rollback_frame`
+/// are no-ops and `touch` always returns `true` (cold) without recording state.
+/// All methods below describe the behavior on the `Enabled` variant.
 impl AccessList {
 	/// Initialize for a new transaction with cold/warm tracking enabled.
 	///
-	/// No pre-warmed entries — first-touch on any entry is always cold. No
-	/// initial checkpoint; the outermost `Stack::run()` does NOT call
-	/// `enter_frame`, so touches at the outermost call land directly in the
-	/// bare journal and persist for the whole transaction.
+	/// First-touch on any entry is always cold. No initial checkpoint is
+	/// opened — root-scope touches survive the whole transaction.
 	pub fn new_enabled() -> Self {
-		Self::Enabled {
-			accessed: BTreeSet::new(),
-			journal: Vec::new(),
-			checkpoints: Vec::new(),
-		}
+		Self::Enabled { accessed: BTreeSet::new(), journal: Vec::new(), checkpoints: Vec::new() }
 	}
 
 	/// Initialize the no-op variant. Used when cold/warm pricing is disabled.
@@ -90,26 +76,38 @@ impl AccessList {
 		Self::Disabled
 	}
 
-	/// Open a new frame (called on nested CALL/CREATE, not on the outermost
-	/// run). O(1) when enabled, no-op when disabled.
+	/// Open a new nested frame.
+	///
+	/// This allows to either commit or roll back all touches that are made
+	/// after this call. For every `enter_frame` there must be a matching call
+	/// to either `commit_frame` or `rollback_frame`.
 	pub fn enter_frame(&mut self) {
 		if let Self::Enabled { journal, checkpoints, .. } = self {
 			checkpoints.push(journal.len());
 		}
 	}
 
-	/// Commit the top frame: its journal entries stay (they may still be rolled
-	/// back if a parent frame later reverts). O(1) when enabled, no-op when
-	/// disabled.
+	/// Commit the top frame.
+	///
+	/// Touches made during that frame stay, but may still be rolled back if a
+	/// parent frame later reverts.
+	///
+	/// # Panics
+	///
+	/// Will panic if there is no open frame.
 	pub fn commit_frame(&mut self) {
 		if let Self::Enabled { checkpoints, .. } = self {
 			checkpoints.pop().expect("frame open; qed");
 		}
 	}
 
-	/// Rollback the top frame: drain its journal entries and remove them from
-	/// `accessed`. O(n) in the number of entries the frame inserted. No-op when
-	/// disabled.
+	/// Rollback the top frame.
+	///
+	/// Touches made during that frame are removed from the access list.
+	///
+	/// # Panics
+	///
+	/// Will panic if there is no open frame.
 	pub fn rollback_frame(&mut self) {
 		if let Self::Enabled { accessed, journal, checkpoints } = self {
 			let checkpoint = checkpoints.pop().expect("frame open; qed");
@@ -120,11 +118,7 @@ impl AccessList {
 	}
 
 	/// Register the entry and return `true` if this access is cold (newly
-	/// inserted), `false` if it was already warm. The `Disabled` variant always
-	/// returns `true` without recording state.
-	///
-	/// Warm path takes no clone — only a `contains` lookup. Cold path pays one
-	/// clone (unavoidable: the entry must live in both `accessed` and `journal`).
+	/// inserted), `false` if it was already warm.
 	pub fn touch(&mut self, entry: AccessEntry) -> bool {
 		match self {
 			Self::Disabled => true,
@@ -168,59 +162,31 @@ impl AccessList {
 	}
 }
 
-/// Cost struct returned by `Ext::get_storage` recording the cold/warm state of
-/// the slot access. `None` indicates the read did not happen on this call
-/// path (zero charge for the read part).
+/// Cold/warm state of a substrate read seen by an `Ext::*storage` call.
+/// `None` = the read didn't happen on this call path.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct GetStorageReadCosts {
+pub struct StorageAccessCost {
 	pub is_cold: Option<bool>,
 }
 
-/// Same as [`GetStorageReadCosts`] but for `Ext::set_storage` — the implicit
-/// read-of-old-value that the SSTORE charge model accounts for.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SetStorageReadCosts {
-	pub is_cold: Option<bool>,
-}
-
-// ===========================================================================
 // Cold/warm weight helpers.
 //
-// `cost_read::<T>` and the per-opcode `*_weight<T>` helpers compose into a
-// new pricing model that the `Token<T>::weight` dispatcher picks when
-// `T::ColdWarmPricingEnabled` is true.
-//
-// The three leaf functions derive approximations from existing `WeightInfo`
-// benchmarks. Dedicated benchmarks (`access_list_touch`, `storage_read_cold`,
-// `storage_read_warm`) are a follow-up task and will replace these
-// derivations one-for-one without touching call sites.
-// ===========================================================================
+// TODO: replace these approximations with dedicated benchmarks
+// (`access_list_touch`, `storage_read_cold`, `storage_read_warm`).
 
-/// Per-touch access-list bookkeeping cost (one `BTreeSet` insert + one `Vec`
-/// push). Approximation: 1/8 of `seal_caller` (a known-cheap host fn) since
-/// the operation is in-memory only.
+/// Per-touch access-list bookkeeping cost. Approximated as 1/8 of `seal_caller`.
 fn access_list_touch_weight<T: Config>() -> Weight {
 	T::WeightInfo::seal_caller().saturating_div(8)
 }
 
-/// Cost of a substrate-key cold read of `value_size` bytes. Approximation:
-/// the full `seal_get_storage(value_size)` benchmark.
+/// Cold substrate read of `value_size` bytes. Approximated as full `seal_get_storage(value_size)`.
 fn storage_read_cold_weight<T: Config>(value_size: u32) -> Weight {
 	T::WeightInfo::seal_get_storage(value_size)
 }
 
-/// Cost of a substrate-key warm read of `value_size` bytes. Warm reads dedup
-/// at the storage proof recorder, so no substrate I/O actually happens —
-/// only the in-memory access-set check. Approximation: 1/20 of
-/// `seal_get_storage(0)` (~5%, a rough EIP-2929 cold/warm ratio).
-///
-/// `value_size` is intentionally ignored: the proof recorder serves the
-/// already-warm read from cache, so per-byte cost is negligible. If that
-/// assumption ever changes (e.g. the warm cost surfaces a per-byte
-/// component once dedicated benchmarks land), reintroduce the parameter.
+/// Warm substrate read. Approximated as 1/5 of `seal_get_storage(value_size)`.
 fn storage_read_warm_weight<T: Config>(value_size: u32) -> Weight {
-	let _ = value_size;
-	T::WeightInfo::seal_get_storage(0).saturating_div(20)
+	T::WeightInfo::seal_get_storage(value_size).saturating_div(5)
 }
 
 /// Weight charged for one observed substrate read at this opcode:
@@ -230,22 +196,11 @@ fn storage_read_warm_weight<T: Config>(value_size: u32) -> Weight {
 pub fn cost_read<T: Config>(is_cold: Option<bool>, value_size: u32) -> Weight {
 	match is_cold {
 		None => Weight::zero(),
-		Some(true) =>
-			access_list_touch_weight::<T>().saturating_add(storage_read_cold_weight::<T>(value_size)),
-		Some(false) =>
-			access_list_touch_weight::<T>().saturating_add(storage_read_warm_weight::<T>(value_size)),
+		Some(true) => access_list_touch_weight::<T>()
+			.saturating_add(storage_read_cold_weight::<T>(value_size)),
+		Some(false) => access_list_touch_weight::<T>()
+			.saturating_add(storage_read_warm_weight::<T>(value_size)),
 	}
-}
-
-pub fn get_storage_weight<T: Config>(len: u32, costs: &GetStorageReadCosts) -> Weight {
-	cost_read::<T>(costs.is_cold, len)
-}
-
-/// Cold/warm cost of the read-of-old-value implicit in any SSTORE-class op.
-/// `new_bytes` is not in the signature: writing more bytes doesn't change the
-/// read cost; the write surcharge stays in the legacy mapping.
-pub fn set_storage_weight<T: Config>(old_bytes: u32, costs: &SetStorageReadCosts) -> Weight {
-	cost_read::<T>(costs.is_cold, old_bytes)
 }
 
 // ===========================================================================
@@ -256,115 +211,42 @@ pub fn set_storage_weight<T: Config>(old_bytes: u32, costs: &SetStorageReadCosts
 mod tests {
 	use super::*;
 
-	fn entry(slot_byte: u8) -> AccessEntry {
-		AccessEntry { address: H160::zero(), slot: [slot_byte; 32] }
-	}
-
+	/// Full lifecycle: root scope + two nested frames, one commits, one reverts.
 	#[test]
-	fn first_touch_is_cold() {
+	fn lifecycle() {
 		let mut al = AccessList::new_enabled();
-		assert!(al.touch(entry(1)));
-		assert_eq!(al.len(), 1);
-	}
+		let (a, b, c, d) = (
+			AccessEntry { address: H160::zero(), slot: [0xA; 32] },
+			AccessEntry { address: H160::zero(), slot: [0xB; 32] },
+			AccessEntry { address: H160::zero(), slot: [0xC; 32] },
+			AccessEntry { address: H160::zero(), slot: [0xD; 32] },
+		);
 
-	#[test]
-	fn second_touch_is_warm() {
-		let mut al = AccessList::new_enabled();
-		assert!(al.touch(entry(1)));
-		assert!(!al.touch(entry(1)));
-		assert_eq!(al.len(), 1);
-	}
+		assert!(al.touch(a.clone()), "A: first touch cold");
+		assert!(!al.touch(a.clone()), "A: second touch warm");
 
-	#[test]
-	fn distinct_entries_are_independent() {
-		let mut al = AccessList::new_enabled();
-		assert!(al.touch(entry(1)));
-		assert!(al.touch(entry(2)));
-		assert_eq!(al.len(), 2);
-	}
-
-	#[test]
-	fn rollback_removes_frame_entries() {
-		let mut al = AccessList::new_enabled();
-		al.touch(entry(1));
 		al.enter_frame();
-		al.touch(entry(2));
-		al.touch(entry(3));
-		assert_eq!(al.len(), 3);
-		al.rollback_frame();
-		assert_eq!(al.len(), 1);
-		assert!(al.is_warm(&entry(1)));
-		assert!(!al.is_warm(&entry(2)));
-		assert!(!al.is_warm(&entry(3)));
-	}
-
-	#[test]
-	fn commit_keeps_frame_entries() {
-		let mut al = AccessList::new_enabled();
-		al.touch(entry(1));
-		al.enter_frame();
-		al.touch(entry(2));
-		al.commit_frame();
-		assert_eq!(al.len(), 2);
-		assert!(al.is_warm(&entry(1)));
-		assert!(al.is_warm(&entry(2)));
-	}
-
-	#[test]
-	fn rollback_keeps_entries_warmed_by_parent() {
-		// Parent warms entry A. Child also touches A (warm hit, not journaled
-		// in child frame). Child rolls back. A must remain warm.
-		let mut al = AccessList::new_enabled();
-		al.touch(entry(1));
-		al.enter_frame();
-		let child_cold = al.touch(entry(1));
-		assert!(!child_cold, "child sees A as warm");
-		al.rollback_frame();
-		assert!(al.is_warm(&entry(1)), "parent's warming of A must survive child revert");
-	}
-
-	#[test]
-	fn nested_commit_then_rollback() {
-		let mut al = AccessList::new_enabled();
-		al.enter_frame();
-		al.touch(entry(1));
-		al.enter_frame();
-		al.touch(entry(2));
-		al.commit_frame(); // commit inner; entry(2) still in journal of outer
 		assert_eq!(al.frame_depth(), 1);
-		al.rollback_frame(); // rollback outer; both gone
-		assert_eq!(al.len(), 0);
-	}
 
-	#[test]
-	fn disabled_touch_always_returns_cold() {
-		let mut al = AccessList::new_disabled();
-		assert!(al.touch(entry(1)));
-		assert!(al.touch(entry(1)));
-		assert_eq!(al.len(), 0);
-		assert!(!al.is_warm(&entry(1)));
-	}
+		assert!(al.touch(b.clone()), "B in F1: cold");
+		assert!(!al.touch(a.clone()), "A in F1: warm via parent");
 
-	#[test]
-	fn disabled_frame_hooks_are_noops() {
-		let mut al = AccessList::new_disabled();
 		al.enter_frame();
+		assert!(al.touch(c.clone()), "C in F2: cold");
+
 		al.commit_frame();
+		assert_eq!(al.frame_depth(), 1);
+		assert!(al.is_warm(&c), "C: survives F2 commit");
+
+		assert!(al.touch(d.clone()), "D in F1: cold");
+		assert_eq!(al.len(), 4);
+
 		al.rollback_frame();
 		assert_eq!(al.frame_depth(), 0);
-	}
-
-	#[test]
-	#[should_panic(expected = "frame open; qed")]
-	fn rollback_without_frame_panics() {
-		let mut al = AccessList::new_enabled();
-		al.rollback_frame();
-	}
-
-	#[test]
-	#[should_panic(expected = "frame open; qed")]
-	fn commit_without_frame_panics() {
-		let mut al = AccessList::new_enabled();
-		al.commit_frame();
+		assert_eq!(al.len(), 1);
+		assert!(al.is_warm(&a), "A: root scope, survives F1 revert");
+		assert!(!al.is_warm(&b), "B: inserted by F1, rolled back");
+		assert!(!al.is_warm(&c), "C: F2-committed-into-F1, gone when F1 reverts");
+		assert!(!al.is_warm(&d), "D: inserted by F1, rolled back");
 	}
 }

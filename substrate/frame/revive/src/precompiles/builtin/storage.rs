@@ -87,8 +87,8 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					let len = result.as_ref().map(|w| w.old_len()).unwrap_or(max_size);
 					env.frame_meter_mut()
 						.charge_weight_token(RuntimeCosts::ClearStorage { len, costs })?;
-					let outcome = result
-						.map_err(|_| Error::Revert("failed setting storage".into()))?;
+					let outcome =
+						result.map_err(|_| Error::Revert("failed setting storage".into()))?;
 					let contained_key = outcome != WriteOutcome::New;
 					let ret = (contained_key, outcome.old_len());
 					Ok(ret.abi_encode())
@@ -104,21 +104,19 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
 					.map_err(|_| Error::Revert("failed decoding key".into()))?;
 				if transient {
-					let charged = env.frame_meter_mut().charge_weight_token(
-						RuntimeCosts::ContainsTransientStorage(max_size),
-					)?;
+					let charged = env
+						.frame_meter_mut()
+						.charge_weight_token(RuntimeCosts::ContainsTransientStorage(max_size))?;
 					let outcome = env.get_transient_storage_size(&key);
 					let value_len = outcome.unwrap_or(0);
 					let ret = (outcome.is_some(), value_len);
-					env.frame_meter_mut().adjust_weight(
-						charged,
-						RuntimeCosts::ContainsTransientStorage(value_len),
-					);
+					env.frame_meter_mut()
+						.adjust_weight(charged, RuntimeCosts::ContainsTransientStorage(value_len));
 					Ok(ret.abi_encode())
 				} else {
 					// Persistent: charge-flow inversion using returned costs.
 					// `get_storage_size` performs a substrate read, so the
-					// access-list touch flows back through `GetStorageReadCosts`
+					// access-list touch flows back through `StorageAccessCost`
 					// and feeds the cold/warm pricing model.
 					let (outcome, costs) = env.get_storage_size(&key);
 					let value_len = outcome.unwrap_or(0);

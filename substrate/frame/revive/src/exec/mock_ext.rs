@@ -242,14 +242,14 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 	fn get_storage(
 		&mut self,
 		_key: &Key,
-	) -> (Option<Vec<u8>>, crate::access_list::GetStorageReadCosts) {
+	) -> (Option<Vec<u8>>, crate::access_list::StorageAccessCost) {
 		panic!("MockExt::get_storage")
 	}
 
 	fn get_storage_size(
 		&mut self,
 		_key: &Key,
-	) -> (Option<u32>, crate::access_list::GetStorageReadCosts) {
+	) -> (Option<u32>, crate::access_list::StorageAccessCost) {
 		panic!("MockExt::get_storage_size")
 	}
 
@@ -258,7 +258,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		_key: &Key,
 		_value: Option<Vec<u8>>,
 		_take_old: bool,
-	) -> (Result<WriteOutcome, DispatchError>, crate::access_list::SetStorageReadCosts) {
+	) -> (Result<WriteOutcome, DispatchError>, crate::access_list::StorageAccessCost) {
 		panic!("MockExt::set_storage")
 	}
 

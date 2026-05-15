@@ -17,7 +17,7 @@
 
 use crate::{
 	Config,
-	access_list::{GetStorageReadCosts, SetStorageReadCosts},
+	access_list::{StorageAccessCost, cost_read},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -107,18 +107,18 @@ pub enum RuntimeCosts {
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
 	DepositEvent { num_topic: u32, len: u32 },
 	/// Weight of calling `seal_set_storage` for the given storage item sizes.
-	SetStorage { old_bytes: u32, new_bytes: u32, costs: SetStorageReadCosts },
+	SetStorage { old_bytes: u32, new_bytes: u32, costs: StorageAccessCost },
 	/// Weight of calling the `clearStorage` function of the `Storage` pre-compile
 	/// per cleared byte.
-	ClearStorage { len: u32, costs: SetStorageReadCosts },
+	ClearStorage { len: u32, costs: StorageAccessCost },
 	/// Weight of calling the `containsStorage` function of the `Storage` pre-compile
 	/// per byte of the checked item.
-	ContainsStorage { len: u32, costs: GetStorageReadCosts },
+	ContainsStorage { len: u32, costs: StorageAccessCost },
 	/// Weight of calling `seal_get_storage` with the specified size in storage.
-	GetStorage { len: u32, costs: GetStorageReadCosts },
+	GetStorage { len: u32, costs: StorageAccessCost },
 	/// Weight of calling the `takeStorage` function of the `Storage` pre-compile
 	/// for the given size.
-	TakeStorage { len: u32, costs: SetStorageReadCosts },
+	TakeStorage { len: u32, costs: StorageAccessCost },
 	/// Weight of calling `seal_set_transient_storage` for the given storage item sizes.
 	SetTransientStorage { old_bytes: u32, new_bytes: u32 },
 	/// Weight of calling `seal_clear_transient_storage` per cleared byte.
@@ -378,21 +378,19 @@ impl RuntimeCosts {
 	fn new_weight<T: Config>(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match self {
-			GetStorage { len, costs } => crate::access_list::get_storage_weight::<T>(*len, costs),
-			ContainsStorage { len, costs } =>
-				crate::access_list::get_storage_weight::<T>(*len, costs),
+			GetStorage { len, costs } => cost_read::<T>(costs.is_cold, *len),
+			ContainsStorage { len, costs } => cost_read::<T>(costs.is_cold, *len),
 			SetStorage { new_bytes, old_bytes, costs } => {
 				let write = cost_storage!(write, seal_set_storage, *new_bytes, *old_bytes);
-				crate::access_list::set_storage_weight::<T>(*old_bytes, costs)
-					.saturating_add(write)
+				cost_read::<T>(costs.is_cold, *old_bytes).saturating_add(write)
 			},
 			ClearStorage { len, costs } => {
 				let write = cost_storage!(write, clear_storage, *len);
-				crate::access_list::set_storage_weight::<T>(*len, costs).saturating_add(write)
+				cost_read::<T>(costs.is_cold, *len).saturating_add(write)
 			},
 			TakeStorage { len, costs } => {
 				let write = cost_storage!(write, take_storage, *len);
-				crate::access_list::set_storage_weight::<T>(*len, costs).saturating_add(write)
+				cost_read::<T>(costs.is_cold, *len).saturating_add(write)
 			},
 			_ => self.legacy_weight::<T>(),
 		}

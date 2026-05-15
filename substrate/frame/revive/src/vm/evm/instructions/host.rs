@@ -163,7 +163,7 @@ fn store_helper<'ext, E: Ext>(
 /// Implements the SSTORE instruction.
 ///
 /// Stores a word to storage. Inlined out of `store_helper` so the cold/warm
-/// `SetStorageReadCosts` can flow back into the charge token; TSTORE keeps
+/// `StorageAccessCost` can flow back into the charge token; TSTORE keeps
 /// the legacy adjust_weight shape via `store_helper`.
 pub fn sstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	if interpreter.ext.is_read_only() {
@@ -179,9 +179,10 @@ pub fn sstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	// Charge BEFORE propagating Err so substrate work that already happened
 	// (the access-list touch and any partial write deposit handling) is metered.
 	// On Err we don't know the real old_len, so charge worst-case STORAGE_BYTES.
-	let old_bytes =
-		write_outcome.as_ref().map(|w| w.old_len()).unwrap_or(limits::STORAGE_BYTES);
-	interpreter.ext.charge_or_halt(RuntimeCosts::SetStorage { new_bytes, old_bytes, costs })?;
+	let old_bytes = write_outcome.as_ref().map(|w| w.old_len()).unwrap_or(limits::STORAGE_BYTES);
+	interpreter
+		.ext
+		.charge_or_halt(RuntimeCosts::SetStorage { new_bytes, old_bytes, costs })?;
 	if write_outcome.is_err() {
 		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 	}
