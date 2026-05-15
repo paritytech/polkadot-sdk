@@ -17365,6 +17365,7 @@ dependencies = [
  "cumulus-client-bootnodes",
  "cumulus-client-cli",
  "cumulus-client-collator",
+ "cumulus-client-collator-discovery",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
  "cumulus-client-consensus-relay-chain",
