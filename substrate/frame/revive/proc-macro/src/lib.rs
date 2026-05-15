@@ -146,12 +146,6 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// * **on a tuple field** — neither `extend` nor `override` is supported, because tuple fields have
 ///   no stable names to anchor an override to.
 ///
-/// The empty form, `#[versioned_type()]`, is accepted and stripped but has no effect.
-///
-/// All `#[versioned_type(...)]` attributes are stripped from the generated code. Every other
-/// attribute (including `#[derive]`, `#[doc]`, `#[cfg]`, `#[serde(...)]`, ...) is preserved exactly
-/// as written and travels with the item, variant, or field it adorns.
-///
 /// # Variant-level extension and override
 ///
 /// `#[versioned_type(extend)]` on a variant inherits fields from the previous version. If the
