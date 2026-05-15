@@ -39,11 +39,9 @@
   runner-type: "default"
   cumulus-image: "test-parachain"
 
-# Disabled, occasionally fails
-# See https://github.com/paritytech/polkadot-sdk/issues/8986
 - job-name: "zombienet-cumulus-0009-elastic_scaling_pov_recovery"
   test-filter: "zombie_ci::elastic_scaling::pov_recovery::elastic_scaling_pov_recovery"
-  runner-type: "default"
+  runner-type: "large"
   cumulus-image: "test-parachain"
 
 # Disabled, occasionally fails.
