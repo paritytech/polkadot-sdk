@@ -37,14 +37,16 @@
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 pub use pallet::*;
 pub mod weights;
 pub use weights::WeightInfo;
 
 #[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking {
-	// TODO: FAIL-CI
-}
+pub mod benchmarking;
+#[cfg(feature = "runtime-benchmarks")]
+pub use benchmarking::BenchmarkHelper;
+
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -75,6 +77,10 @@ pub mod pallet {
 		/// This setting prevents unbounded growth of the on-chain state.
 		#[pallet::constant]
 		type RootsToKeep: Get<u32>;
+
+		/// Helper type for benchmarks.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: BenchmarkHelper<Self::Key, Self::Value>;
 	}
 
 	#[pallet::pallet]

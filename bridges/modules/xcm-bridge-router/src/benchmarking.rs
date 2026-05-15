@@ -18,7 +18,8 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::{BridgeState, Bridges, Call, ResolveBridgeId, MINIMAL_DELIVERY_FEE_FACTOR};
+use crate::{BridgeState, Bridges, Call, ResolveBridgeId};
+use bp_xcm_bridge_router::MINIMAL_DELIVERY_FEE_FACTOR;
 use frame_benchmarking::v2::*;
 use frame_support::traits::EnsureOriginWithArg;
 use xcm::prelude::*;
@@ -55,7 +56,7 @@ mod benchmarks {
 
 		assert_eq!(
 			Bridges::<T, I>::get(&bridge_id),
-			Some(BridgeState { delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR, is_congested })
+			BridgeState { delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR, is_congested }
 		);
 		Ok(())
 	}

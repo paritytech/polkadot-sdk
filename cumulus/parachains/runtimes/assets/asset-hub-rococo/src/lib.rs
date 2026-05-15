@@ -88,7 +88,7 @@ use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::Weigh
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, GovernanceLocation, LocationToAccountId,
 	PoolAssetsConvertedConcreteId, PoolAssetsPalletLocation, TokenLocation,
-	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocation,
+	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocation, XcmRouter,
 };
 
 #[cfg(test)]
@@ -1369,6 +1369,7 @@ mod benches {
 		[pallet_xcm_bridge_router, ToWestendOverAssetHubWestend]
 		[pallet_bridge_messages, RococoToWestend]
 		[pallet_bridge_relayers, BridgeRelayersBench::<Runtime, bridge_common_config::BridgeRelayersInstance>]
+		[pallet_bridge_proof_root_store, AssetHubWestendProofRootStore]
 		[pallet_xcm_bridge, OverWestend]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
@@ -2026,7 +2027,7 @@ impl_runtime_apis! {
 						alloc::boxed::Box::new(bridge_to_westend_config::AssetHubWestendLocation::get()),
 						XCM_VERSION,
 					).map_err(|e| {
-						log::error!(
+						tracing::error!(
 							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`, error: {:?}",
 							RuntimeOrigin::root(),
 							bridge_to_westend_config::AssetHubWestendLocation::get(),
@@ -2048,7 +2049,7 @@ impl_runtime_apis! {
 						None,
 						|| ExistentialDeposit::get(),
 					).map_err(|e| {
-						log::error!(
+						tracing::error!(
 							"Failed to `XcmOverAssetHubWestend::open_bridge`({:?}, {:?})`, error: {:?}",
 							sibling_parachain_location,
 							bridge_destination_universal_location,
