@@ -1,0 +1,10 @@
+{
+  "total_blocks": 100,
+  "retention_period": 200,
+  "n_stores": 30,
+  "payload_size_min": 524288,
+  "payload_size_max": 1572864,
+  "snapshot_height": 100,
+  "first_store_block": 52,
+  "last_store_block": 84
+}

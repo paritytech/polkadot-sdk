@@ -117,20 +117,14 @@ async fn assert_gap_sync(node: &NetworkNode, is_archive: bool) -> Result<(), any
 		return Err(anyhow!("Gap sync block imports are not started"));
 	}
 
-	// Verify body download behavior based on archive mode:
-	// - Archive nodes should download bodies (body: non-zero)
-	// - Non-archive nodes should skip bodies (body: 0 B)
-	let (body_pattern, body_error) = if is_archive {
-		(
-			r"(?<!\[Parachain\] )Gap sync cumulative stats:.*body: [1-9]",
-			"archive node should download bodies",
-		)
-	} else {
-		(
-			r"(?<!\[Parachain\] )Gap sync cumulative stats:.*body: 0 B",
-			"non-archive node should not download bodies",
-		)
-	};
+	// Both archive and non-archive nodes now download bodies during gap sync.
+	// Archive: all gap blocks; non-archive: only blocks within the pruning window
+	// (strip below body_start is enforced per-range by peer_gap_block_request).
+	let (body_pattern, body_error) = (
+		r"(?<!\[Parachain\] )Gap sync cumulative stats:.*body: [1-9]",
+		"node should download at least some bodies during gap sync",
+	);
+	let _ = is_archive;
 	let result = node
 		.wait_log_line_count_with_timeout(body_pattern, false, option_at_least_5_lines.clone())
 		.await?;
