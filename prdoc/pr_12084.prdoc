@@ -1,0 +1,12 @@
+title: Allow calling `runtime_api` with supplied storage overlay
+doc:
+- audience: Node Dev
+  description: |-
+    This change allows users of `client.runtime_api()` to provide a custom overlay with changes before calling further runtime APIs.
+
+    Concrete use-case is a future PR where I receive changes from a block execution and want to call a runtime API on the post state of said block even before it hits the DB.
+crates:
+- name: sp-api-proc-macro
+  bump: patch
+- name: sp-api
+  bump: patch
