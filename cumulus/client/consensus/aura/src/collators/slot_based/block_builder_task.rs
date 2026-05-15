@@ -288,10 +288,10 @@ where
 			let relay_parent_hash = relay_parent_header.hash();
 
 			let Some(parent_search_result) = crate::collators::find_parent(
-				relay_parent_hash,
-				para_id,
-				&*para_backend,
 				&relay_client,
+				&*para_backend,
+				para_id,
+				relay_parent_hash,
 				|parent| {
 					// We never want to build on any "middle block" that isn't the last block in a
 					// core.
