@@ -376,7 +376,7 @@ async fn update_parachain_authorities<Block, AD>(
 
 	match network.set_reserved_peers(protocol.clone(), addrs.clone()) {
 		Ok(()) => {
-			// Update the no-slot set only after the reserved set is updated, 
+			// Update the no-slot set only after the reserved set is updated,
 			// so the two stay in sync.
 			// If an error happens we retry the whole refresh on the next tick.
 			sync_service.set_no_slot_peers(peer_ids);
