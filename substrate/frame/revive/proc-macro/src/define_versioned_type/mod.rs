@@ -15,533 +15,66 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod attribute;
+mod ast;
+mod attr;
+mod error;
+mod ext;
 mod fields;
-mod item;
+mod parser;
+mod patch;
+mod type_def;
 
-use proc_macro2::Span;
-use quote::ToTokens;
-use syn::{
-	punctuated::Punctuated, spanned::Spanned, token::Comma, GenericParam, Generics, Ident,
-	ItemEnum, ItemStruct, ItemType, Result, Variant,
-};
-
-use attribute::{
-	TypeVersionedTypeAttribute, TypeVersionedTypeMode, VariantVersionedTypeMode,
-	VariantWithVersionedTypeAttribute,
-};
-use fields::{extend_fields, strip_field_attributes, FieldOwner};
-pub use item::{DefineVersionedTypeInput, DefineVersionedTypeItem};
+pub(super) use ast::*;
+pub(super) use attr::*;
+pub(super) use error::*;
+pub(super) use ext::*;
+pub(super) use fields::*;
+pub(super) use parser::*;
+pub(super) use patch::*;
+pub(super) use type_def::*;
 
 pub fn handle_define_versioned_type(
 	input: DefineVersionedTypeInput,
-) -> Result<DefineVersionedTypeOutput> {
-	let DefineVersionedTypeInput { name, highest_version, definitions } = input;
-	let latest_alias = latest_type_alias(name.as_deref(), highest_version, &definitions);
-	let mut items = Vec::<DefineVersionedTypeItem>::with_capacity(definitions.len());
+) -> syn::Result<DefineVersionedTypeOutput> {
+	let last_version = input
+		.definitions
+		.last_key_value()
+		.map(|(_, def)| (def.ident_ref().clone(), def.generics_ref().clone()));
 
-	for mut item in definitions.into_values() {
-		let attribute_split = TypeVersionedTypeAttribute::parse_and_split(item.take_attributes())?;
-		let type_attribute = attribute_split.versioned_type;
-		item.set_attributes(attribute_split.other_attributes);
+	let mut output = DefineVersionedTypeOutput {
+		type_definitions: parse(input.definitions.into_values())?
+			.into_iter()
+			.map(Into::into)
+			.collect(),
+		latest_type_alias: None,
+	};
 
-		handle_item_extensions(&mut item, type_attribute, items.last())?;
-		items.push(item);
-	}
-
-	Ok(DefineVersionedTypeOutput { items, latest_alias })
-}
-
-fn latest_type_alias(
-	name: Option<&str>,
-	highest_version: Option<item::Version>,
-	definitions: &std::collections::BTreeMap<item::Version, DefineVersionedTypeItem>,
-) -> Option<LatestTypeAlias> {
-	let name = name?;
-	let latest_item = definitions.get(&highest_version?)?;
-	Some(LatestTypeAlias::new(name, latest_item))
-}
-
-pub struct DefineVersionedTypeOutput {
-	items: Vec<DefineVersionedTypeItem>,
-
-	latest_alias: Option<LatestTypeAlias>,
-}
-
-impl ToTokens for DefineVersionedTypeOutput {
-	fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-		let items = &self.items;
-		let latest_alias = &self.latest_alias;
-		tokens.extend(quote::quote! {
-			#( #items )*
-			#latest_alias
+	if let Some((last_item_ident, mut last_item_generics)) = last_version {
+		let name = input.name.expect("qed; if latest exists then a name exists");
+		let alias_ident = syn::Ident::new(&format!("Latest{name}"), last_item_ident.span());
+		let doc = format!("The latest version of `{name}`.");
+		last_item_generics.where_clause = None;
+		for param in last_item_generics.params.iter_mut() {
+			match param {
+				syn::GenericParam::Lifetime(param) => {
+					param.colon_token = None;
+					param.bounds.clear();
+				},
+				syn::GenericParam::Type(param) => {
+					param.colon_token = None;
+					param.bounds.clear();
+				},
+				syn::GenericParam::Const(_) => {},
+			}
+		}
+		let (_, type_generics, _) = last_item_generics.split_for_impl();
+		output.latest_type_alias = Some(syn::parse_quote! {
+			#[doc = #doc]
+			pub type #alias_ident #last_item_generics = #last_item_ident #type_generics;
 		});
 	}
-}
 
-impl std::ops::Deref for DefineVersionedTypeOutput {
-	type Target = [DefineVersionedTypeItem];
-
-	fn deref(&self) -> &Self::Target {
-		&self.items
-	}
-}
-
-struct LatestTypeAlias {
-	item: ItemType,
-}
-
-impl LatestTypeAlias {
-	fn new(name: &str, latest_item: &DefineVersionedTypeItem) -> Self {
-		let alias_ident = Ident::new(&format!("Latest{name}"), latest_item.ident().span());
-		let target_ident = latest_item.ident();
-		let visibility = latest_item.visibility();
-		let mut alias_generics = latest_item.generics().clone();
-		strip_type_alias_bounds(&mut alias_generics);
-		let (_, type_generics, _) = alias_generics.split_for_impl();
-		let doc = format!("The latest version of `{name}`.");
-
-		let item = syn::parse_quote! {
-			#[doc = #doc]
-			#visibility type #alias_ident #alias_generics = #target_ident #type_generics;
-		};
-
-		Self { item }
-	}
-}
-
-impl ToTokens for LatestTypeAlias {
-	fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-		self.item.to_tokens(tokens);
-	}
-}
-
-fn strip_type_alias_bounds(generics: &mut Generics) {
-	generics.where_clause = None;
-
-	for param in &mut generics.params {
-		match param {
-			GenericParam::Type(param) => {
-				param.colon_token = None;
-				param.bounds.clear();
-			},
-			GenericParam::Lifetime(param) => {
-				param.colon_token = None;
-				param.bounds.clear();
-			},
-			GenericParam::Const(_) => {},
-		}
-	}
-}
-
-fn handle_item_extensions(
-	item: &mut DefineVersionedTypeItem,
-	attribute: TypeVersionedTypeAttribute,
-	previous_item: Option<&DefineVersionedTypeItem>,
-) -> Result<()> {
-	match item {
-		DefineVersionedTypeItem::Struct(item_struct) => {
-			handle_struct_extensions(item_struct, attribute.mode(), previous_item)
-		},
-		DefineVersionedTypeItem::Enum(item_enum) => {
-			handle_enum_extensions(item_enum, attribute.mode(), previous_item)
-		},
-	}
-}
-
-fn handle_struct_extensions(
-	this_struct: &mut ItemStruct,
-	mode: TypeVersionedTypeMode,
-	previous_item: Option<&DefineVersionedTypeItem>,
-) -> Result<()> {
-	match (mode, previous_item) {
-		(
-			TypeVersionedTypeMode::Extend { .. },
-			Some(DefineVersionedTypeItem::Struct(previous_struct)),
-		) => extend_fields(&mut this_struct.fields, &previous_struct.fields, FieldOwner::Struct),
-		(
-			TypeVersionedTypeMode::Extend { span },
-			Some(DefineVersionedTypeItem::Enum(previous_enum)),
-		) => Err(struct_from_enum_extension_error(span, this_struct, previous_enum)),
-		(TypeVersionedTypeMode::Extend { span }, None) => Err(missing_type_extension_error(span)),
-		(TypeVersionedTypeMode::Standalone, None | Some(_)) => {
-			strip_field_attributes(&mut this_struct.fields)
-		},
-	}
-}
-
-fn handle_enum_extensions(
-	this_enum: &mut ItemEnum,
-	mode: TypeVersionedTypeMode,
-	previous_item: Option<&DefineVersionedTypeItem>,
-) -> Result<()> {
-	let merge_mode = enum_merge_mode(this_enum, mode, previous_item)?;
-	let current_variants =
-		VariantWithVersionedTypeAttribute::parse_all(core::mem::take(&mut this_enum.variants))?;
-	reject_duplicate_current_variants(&current_variants)?;
-
-	let mut output_variants = initial_enum_variants(merge_mode);
-	for current_variant in current_variants {
-		apply_variant_change(&mut output_variants, current_variant, merge_mode)?;
-	}
-
-	this_enum.variants = output_variants.into_iter().collect();
-	Ok(())
-}
-
-#[derive(Clone, Copy)]
-enum EnumMergeMode<'a> {
-	NoPrevious,
-
-	PreviousStruct { previous_struct: &'a ItemStruct },
-
-	PreviousEnum { previous_enum: &'a ItemEnum, type_extension: EnumTypeExtension },
-}
-
-#[derive(Clone, Copy)]
-enum EnumTypeExtension {
-	Standalone,
-
-	Extending,
-}
-
-impl EnumTypeExtension {
-	#[must_use]
-	fn is_extending(self) -> bool {
-		match self {
-			Self::Standalone => false,
-			Self::Extending => true,
-		}
-	}
-}
-
-fn enum_merge_mode<'a>(
-	this_enum: &ItemEnum,
-	mode: TypeVersionedTypeMode,
-	previous_item: Option<&'a DefineVersionedTypeItem>,
-) -> Result<EnumMergeMode<'a>> {
-	match (mode, previous_item) {
-		(TypeVersionedTypeMode::Extend { span }, None) => Err(missing_type_extension_error(span)),
-		(
-			TypeVersionedTypeMode::Extend { span },
-			Some(DefineVersionedTypeItem::Struct(previous_struct)),
-		) => Err(enum_from_struct_extension_error(span, this_enum, previous_struct)),
-		(
-			TypeVersionedTypeMode::Extend { .. },
-			Some(DefineVersionedTypeItem::Enum(previous_enum)),
-		) => Ok(EnumMergeMode::PreviousEnum {
-			previous_enum,
-			type_extension: EnumTypeExtension::Extending,
-		}),
-		(TypeVersionedTypeMode::Standalone, Some(DefineVersionedTypeItem::Enum(previous_enum))) => {
-			Ok(EnumMergeMode::PreviousEnum {
-				previous_enum,
-				type_extension: EnumTypeExtension::Standalone,
-			})
-		},
-		(
-			TypeVersionedTypeMode::Standalone,
-			Some(DefineVersionedTypeItem::Struct(previous_struct)),
-		) => Ok(EnumMergeMode::PreviousStruct { previous_struct }),
-		(TypeVersionedTypeMode::Standalone, None) => Ok(EnumMergeMode::NoPrevious),
-	}
-}
-
-fn initial_enum_variants(merge_mode: EnumMergeMode<'_>) -> Vec<Variant> {
-	match merge_mode {
-		EnumMergeMode::PreviousEnum {
-			previous_enum,
-			type_extension: EnumTypeExtension::Extending,
-		} => previous_enum.variants.iter().cloned().collect::<Vec<_>>(),
-		EnumMergeMode::NoPrevious |
-		EnumMergeMode::PreviousStruct { .. } |
-		EnumMergeMode::PreviousEnum { type_extension: EnumTypeExtension::Standalone, .. } => Vec::new(),
-	}
-}
-
-fn apply_variant_change(
-	output_variants: &mut Vec<Variant>,
-	current_variant: VariantWithVersionedTypeAttribute,
-	merge_mode: EnumMergeMode<'_>,
-) -> Result<()> {
-	match merge_mode {
-		EnumMergeMode::PreviousEnum { previous_enum, type_extension } => {
-			apply_variant_change_from_enum(
-				output_variants,
-				current_variant,
-				previous_enum,
-				type_extension,
-			)
-		},
-		EnumMergeMode::PreviousStruct { previous_struct } => {
-			apply_variant_change_from_struct(output_variants, current_variant, previous_struct)
-		},
-		EnumMergeMode::NoPrevious => {
-			apply_variant_change_without_previous(output_variants, current_variant)
-		},
-	}
-}
-
-fn apply_variant_change_from_enum(
-	output_variants: &mut Vec<Variant>,
-	mut current_variant: VariantWithVersionedTypeAttribute,
-	previous_enum: &ItemEnum,
-	type_extension: EnumTypeExtension,
-) -> Result<()> {
-	let variant_name = current_variant.variant.ident.to_string();
-	let previous_variant = find_variant(&previous_enum.variants, &variant_name);
-
-	match current_variant.attribute.mode() {
-		VariantVersionedTypeMode::Extend { span } |
-		VariantVersionedTypeMode::OverrideAndExtend { extend_span: span, .. } => {
-			let Some(previous_variant) = previous_variant else {
-				return Err(missing_variant_extension_error(
-					span,
-					&current_variant.variant,
-					&variant_name,
-				));
-			};
-
-			extend_fields(
-				&mut current_variant.variant.fields,
-				&previous_variant.fields,
-				FieldOwner::EnumVariant,
-			)?;
-			upsert_variant(output_variants, current_variant.variant, &variant_name, type_extension);
-		},
-		VariantVersionedTypeMode::Override { span } => {
-			if previous_variant.is_none() {
-				return Err(missing_variant_override_error(
-					span,
-					&current_variant.variant,
-					&variant_name,
-				));
-			}
-
-			strip_field_attributes(&mut current_variant.variant.fields)?;
-			upsert_variant(output_variants, current_variant.variant, &variant_name, type_extension);
-		},
-		VariantVersionedTypeMode::Standalone => {
-			if type_extension.is_extending() {
-				if let Some(previous_variant) = previous_variant {
-					return Err(duplicate_in_extended_enum_error(
-						&current_variant.variant,
-						previous_variant,
-						&variant_name,
-					));
-				}
-			}
-
-			strip_field_attributes(&mut current_variant.variant.fields)?;
-			output_variants.push(current_variant.variant);
-		},
-	}
-
-	Ok(())
-}
-
-fn apply_variant_change_from_struct(
-	output_variants: &mut Vec<Variant>,
-	mut current_variant: VariantWithVersionedTypeAttribute,
-	previous_struct: &ItemStruct,
-) -> Result<()> {
-	let variant_name = current_variant.variant.ident.to_string();
-
-	match current_variant.attribute.mode() {
-		VariantVersionedTypeMode::Extend { .. } => {
-			extend_fields(
-				&mut current_variant.variant.fields,
-				&previous_struct.fields,
-				FieldOwner::EnumVariant,
-			)?;
-			output_variants.push(current_variant.variant);
-		},
-		VariantVersionedTypeMode::Override { span } |
-		VariantVersionedTypeMode::OverrideAndExtend { override_span: span, .. } => {
-			return Err(missing_variant_override_error(
-				span,
-				&current_variant.variant,
-				&variant_name,
-			));
-		},
-		VariantVersionedTypeMode::Standalone => {
-			strip_field_attributes(&mut current_variant.variant.fields)?;
-			output_variants.push(current_variant.variant);
-		},
-	}
-
-	Ok(())
-}
-
-fn apply_variant_change_without_previous(
-	output_variants: &mut Vec<Variant>,
-	mut current_variant: VariantWithVersionedTypeAttribute,
-) -> Result<()> {
-	match current_variant.attribute.mode() {
-		VariantVersionedTypeMode::Extend { span } |
-		VariantVersionedTypeMode::OverrideAndExtend { extend_span: span, .. } => Err(syn::Error::new(
-			span,
-			"Using `extend` requires that there is a previous version that exists which \
-            this variant should extend but there is no previous version",
-		)),
-		VariantVersionedTypeMode::Override { span } => Err(syn::Error::new(
-			span,
-			"Using `override` requires that there is a previous version that exists which \
-            this variant should override but there is no previous version",
-		)),
-		VariantVersionedTypeMode::Standalone => {
-			strip_field_attributes(&mut current_variant.variant.fields)?;
-			output_variants.push(current_variant.variant);
-			Ok(())
-		},
-	}
-}
-
-fn reject_duplicate_current_variants(variants: &[VariantWithVersionedTypeAttribute]) -> Result<()> {
-	let mut seen_variants = std::collections::BTreeMap::<String, syn::Ident>::new();
-
-	for variant in variants {
-		let variant_name = variant.variant.ident.to_string();
-		if let Some(existing_ident) = seen_variants.get(&variant_name) {
-			let mut error = syn::Error::new_spanned(
-				&variant.variant.ident,
-				format!("variant `{variant_name}` is defined more than once"),
-			);
-			error.combine(syn::Error::new_spanned(
-				existing_ident,
-				format!("first definition of variant `{variant_name}` is here"),
-			));
-			return Err(error);
-		}
-
-		seen_variants.insert(variant_name, variant.variant.ident.clone());
-	}
-
-	Ok(())
-}
-
-fn find_variant<'a>(
-	variants: &'a Punctuated<Variant, Comma>,
-	variant_name: &str,
-) -> Option<&'a Variant> {
-	variants.iter().find(|variant| variant.ident == variant_name)
-}
-
-fn upsert_variant(
-	output_variants: &mut Vec<Variant>,
-	variant: Variant,
-	variant_name: &str,
-	type_extension: EnumTypeExtension,
-) {
-	if type_extension.is_extending() {
-		if let Some(existing_variant) =
-			output_variants.iter_mut().find(|candidate| candidate.ident == variant_name)
-		{
-			*existing_variant = variant;
-			return;
-		}
-	}
-
-	output_variants.push(variant);
-}
-
-fn missing_type_extension_error(extend_span: Span) -> syn::Error {
-	syn::Error::new(
-		extend_span,
-		"Using `extend` requires that there is a previous version that \
-        exists which this type should extend but there is no previous version",
-	)
-}
-
-fn struct_from_enum_extension_error(
-	extend_span: Span,
-	this_struct: &ItemStruct,
-	previous_enum: &ItemEnum,
-) -> syn::Error {
-	let mut error = syn::Error::new(
-		extend_span,
-		"A struct can't be extended from an enum; the previous type is an enum",
-	);
-	error.combine(syn::Error::new(extend_span, "Extend was requested here"));
-	error
-		.combine(syn::Error::new(previous_enum.span(), "The previous type (enum) is defined here"));
-	error.combine(syn::Error::new(this_struct.span(), "This type (struct) is defined here"));
-	error
-}
-
-fn enum_from_struct_extension_error(
-	extend_span: Span,
-	this_enum: &ItemEnum,
-	previous_struct: &ItemStruct,
-) -> syn::Error {
-	let mut error = syn::Error::new(
-		extend_span,
-		"An enum can't be extended from a struct; the previous type is a struct",
-	);
-	error.combine(syn::Error::new(extend_span, "Extend was requested here"));
-	error.combine(syn::Error::new(
-		previous_struct.span(),
-		"The previous type (struct) is defined here",
-	));
-	error.combine(syn::Error::new(this_enum.span(), "This type (enum) is defined here"));
-	error
-}
-
-fn duplicate_in_extended_enum_error(
-	current_variant: &Variant,
-	previous_variant: &Variant,
-	variant_name: &str,
-) -> syn::Error {
-	let mut error = syn::Error::new_spanned(
-		&current_variant.ident,
-		format!(
-			"variant `{variant_name}` is already defined in the previous version; \
-            add `#[versioned_type(override)]` to replace it"
-		),
-	);
-	error.combine(syn::Error::new_spanned(
-		&previous_variant.ident,
-		format!("original variant `{variant_name}` was defined here"),
-	));
-	error
-}
-
-fn missing_variant_override_error(
-	override_span: Span,
-	variant: &Variant,
-	variant_name: &str,
-) -> syn::Error {
-	let mut error = syn::Error::new(
-		override_span,
-		format!(
-			"variant `{variant_name}` is marked as an override but no variant with that name \
-            exists in the previous version"
-		),
-	);
-	error.combine(syn::Error::new_spanned(
-		&variant.ident,
-		format!("override variant `{variant_name}` is defined here"),
-	));
-	error
-}
-
-fn missing_variant_extension_error(
-	extend_span: Span,
-	variant: &Variant,
-	variant_name: &str,
-) -> syn::Error {
-	let mut error = syn::Error::new(
-		extend_span,
-		format!(
-			"variant `{variant_name}` is marked as an extension but no variant with that name \
-            exists in the previous version"
-		),
-	);
-	error.combine(syn::Error::new_spanned(
-		&variant.ident,
-		format!("extension variant `{variant_name}` is defined here"),
-	));
-	error
+	Ok(output)
 }
 
 #[cfg(test)]
@@ -633,7 +166,7 @@ mod tests {
 			pub enum MacroTypeV6<T: Clone>
 			{
 				#[doc = "updated variant"]
-				#[versioned_type(override, extend)]
+				#[versioned_type(extend)]
 				FromStruct {
 					#[doc = "second override"]
 					#[versioned_type(override)]

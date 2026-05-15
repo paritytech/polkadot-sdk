@@ -15,448 +15,254 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::BTreeMap;
-
-use proc_macro2::Span;
+use indexmap::IndexMap;
 use syn::{
-	punctuated::Punctuated, spanned::Spanned, token::Comma, Field, Fields, FieldsNamed,
-	FieldsUnnamed, Ident, Result, Visibility,
+	spanned::Spanned, Attribute, Field, FieldMutability, Fields, FieldsNamed, FieldsUnnamed, Ident,
+	Type, Visibility,
 };
 
-use super::attribute::FieldWithVersionedTypeAttribute;
+use super::*;
 
-#[derive(Clone, Copy)]
-pub(super) enum FieldOwner {
-	Struct,
-
-	EnumVariant,
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum FieldsShape {
+	NamedFields,
+	TupleFields,
+	Inherit,
 }
 
-impl FieldOwner {
-	#[must_use]
-	fn copied_field_visibility(self) -> Visibility {
+#[derive(Clone)]
+pub enum StructuredFields {
+	Named(StructuredNamedFields),
+	Unnamed(StructuredUnnamedFields),
+	Unit,
+}
+
+#[derive(Clone)]
+pub enum StructuredField {
+	Named(StructuredNamedField),
+	Unnamed(StructuredUnnamedField),
+}
+
+#[derive(Clone, Default)]
+pub struct StructuredNamedFields {
+	pub fields: IndexMap<Ident, StructuredNamedField>,
+}
+
+#[derive(Clone, Default)]
+pub struct StructuredUnnamedFields {
+	pub fields: Vec<StructuredUnnamedField>,
+}
+
+#[derive(Clone)]
+pub struct StructuredNamedField {
+	pub attributes: Vec<Attribute>,
+	pub visibility: Visibility,
+	pub ident: Ident,
+	pub ty: Type,
+}
+
+#[derive(Clone)]
+pub struct StructuredUnnamedField {
+	pub attributes: Vec<Attribute>,
+	pub visibility: Visibility,
+	pub ty: Type,
+}
+
+// ========
+// Helpers
+// ========
+
+impl StructuredFields {
+	pub fn fields(self) -> Box<dyn Iterator<Item = StructuredField>> {
 		match self {
-			Self::Struct => Visibility::Public(Default::default()),
-			Self::EnumVariant => Visibility::Inherited,
+			Self::Named(fields) => {
+				Box::new(fields.fields.into_values().map(StructuredField::Named))
+			},
+			Self::Unnamed(fields) => {
+				Box::new(fields.fields.into_iter().map(StructuredField::Unnamed))
+			},
+			Self::Unit => Box::new(core::iter::empty()),
+		}
+	}
+
+	pub fn shape(&self) -> FieldsShape {
+		match self {
+			Self::Named(..) => FieldsShape::NamedFields,
+			Self::Unnamed(..) => FieldsShape::TupleFields,
+			Self::Unit => FieldsShape::Inherit,
 		}
 	}
 }
 
-pub(super) fn extend_fields(
-	current: &mut Fields,
-	previous: &Fields,
-	owner: FieldOwner,
-) -> Result<()> {
-	let visibility = owner.copied_field_visibility();
-
-	match (current, previous) {
-		(Fields::Named(current), Fields::Named(previous)) => {
-			extend_named_fields_with_named_previous(current, previous, visibility)
-		},
-		(Fields::Named(current), Fields::Unnamed(previous)) => {
-			extend_named_fields_with_unnamed_previous(current, previous, visibility)
-		},
-		(Fields::Unnamed(current), Fields::Named(previous)) => {
-			extend_unnamed_fields_with_named_previous(current, previous, visibility)
-		},
-		(Fields::Unnamed(current), Fields::Unnamed(previous)) => {
-			extend_unnamed_fields_with_unnamed_previous(current, previous, visibility)
-		},
-		(Fields::Named(current), Fields::Unit) => strip_named_fields_after_unit_previous(current),
-		(Fields::Unnamed(current), Fields::Unit) => {
-			strip_unnamed_fields_after_unit_previous(current)
-		},
-		(current @ Fields::Unit, previous @ (Fields::Named(_) | Fields::Unnamed(_))) => {
-			*current = apply_visibility(previous.clone(), visibility);
-			Ok(())
-		},
-		(Fields::Unit, Fields::Unit) => Ok(()),
-	}
-}
-
-pub(super) fn strip_field_attributes(fields: &mut Fields) -> Result<()> {
-	match fields {
-		Fields::Named(fields) => strip_named_fields_without_extension(fields),
-		Fields::Unnamed(fields) => strip_unnamed_fields_without_extension(fields),
-		Fields::Unit => Ok(()),
-	}
-}
-
-fn extend_named_fields_with_named_previous(
-	current: &mut FieldsNamed,
-	previous: &FieldsNamed,
-	visibility: Visibility,
-) -> Result<()> {
-	let current_fields =
-		FieldWithVersionedTypeAttribute::parse_all(core::mem::take(&mut current.named))?;
-	let mut changes = classify_named_current_fields(current_fields, previous)?;
-	let mut fields = Punctuated::<Field, Comma>::new();
-
-	for mut previous_field in previous.named.iter().cloned() {
-		let field_name = named_field_ident(&previous_field)?.to_string();
-		if let Some(current_field) = changes.take_override(&field_name) {
-			fields.push(current_field.field);
-		} else {
-			previous_field.vis = visibility.clone();
-			fields.push(previous_field);
+impl StructuredField {
+	pub fn attributes_ref_mut_vec(&mut self) -> &mut Vec<Attribute> {
+		match self {
+			StructuredField::Named(field) => &mut field.attributes,
+			StructuredField::Unnamed(field) => &mut field.attributes,
 		}
 	}
 
-	if let Some(current_field) = changes.first_unmatched_override() {
-		return Err(unmatched_named_field_override_error(current_field)?);
-	}
-
-	fields.extend(changes.new_fields);
-	current.named = fields;
-	Ok(())
-}
-
-fn extend_named_fields_with_unnamed_previous(
-	current: &mut FieldsNamed,
-	previous: &FieldsUnnamed,
-	visibility: Visibility,
-) -> Result<()> {
-	let generated_names = generated_tuple_field_names(previous);
-	let mut fields = Punctuated::<Field, Comma>::new();
-
-	for (field_index, mut previous_field) in previous.unnamed.iter().cloned().enumerate() {
-		let field_name = generated_tuple_field_name(field_index);
-		previous_field.vis = visibility.clone();
-		previous_field.ident = Some(Ident::new(&field_name, previous_field.span()));
-		previous_field.colon_token = Some(Default::default());
-		fields.push(previous_field);
-	}
-
-	let current_fields =
-		FieldWithVersionedTypeAttribute::parse_all(core::mem::take(&mut current.named))?;
-	reject_duplicate_named_current_fields(&current_fields)?;
-
-	for current_field in current_fields {
-		if let Some(override_span) = current_field.attribute.override_span() {
-			return Err(override_against_tuple_previous_error(override_span));
-		}
-
-		let field_name = named_field_ident(&current_field.field)?.to_string();
-		if let Some(previous_span) = generated_names.get(&field_name) {
-			return Err(generated_tuple_field_collision_error(
-				&current_field.field,
-				&field_name,
-				*previous_span,
-			)?);
-		}
-
-		fields.push(current_field.field);
-	}
-
-	current.named = fields;
-	Ok(())
-}
-
-fn extend_unnamed_fields_with_named_previous(
-	current: &mut FieldsUnnamed,
-	previous: &FieldsNamed,
-	visibility: Visibility,
-) -> Result<()> {
-	let mut fields = Punctuated::<Field, Comma>::new();
-
-	for mut previous_field in previous.named.iter().cloned() {
-		previous_field.vis = visibility.clone();
-		previous_field.ident = None;
-		previous_field.colon_token = None;
-		fields.push(previous_field);
-	}
-
-	append_current_unnamed_fields(&mut fields, core::mem::take(&mut current.unnamed))?;
-	current.unnamed = fields;
-	Ok(())
-}
-
-fn extend_unnamed_fields_with_unnamed_previous(
-	current: &mut FieldsUnnamed,
-	previous: &FieldsUnnamed,
-	visibility: Visibility,
-) -> Result<()> {
-	let mut fields = Punctuated::<Field, Comma>::new();
-
-	for mut previous_field in previous.unnamed.iter().cloned() {
-		previous_field.vis = visibility.clone();
-		fields.push(previous_field);
-	}
-
-	append_current_unnamed_fields(&mut fields, core::mem::take(&mut current.unnamed))?;
-	current.unnamed = fields;
-	Ok(())
-}
-
-fn strip_named_fields_after_unit_previous(current: &mut FieldsNamed) -> Result<()> {
-	let current_fields =
-		FieldWithVersionedTypeAttribute::parse_all(core::mem::take(&mut current.named))?;
-	reject_duplicate_named_current_fields(&current_fields)?;
-
-	let mut fields = Punctuated::<Field, Comma>::new();
-	for current_field in current_fields {
-		if let Some(override_span) = current_field.attribute.override_span() {
-			return Err(syn::Error::new(
-				override_span,
-				"field is marked as an override but the previous version has no fields",
-			));
-		}
-
-		fields.push(current_field.field);
-	}
-
-	current.named = fields;
-	Ok(())
-}
-
-fn strip_unnamed_fields_after_unit_previous(current: &mut FieldsUnnamed) -> Result<()> {
-	let mut fields = Punctuated::<Field, Comma>::new();
-	append_current_unnamed_fields(&mut fields, core::mem::take(&mut current.unnamed))?;
-	current.unnamed = fields;
-	Ok(())
-}
-
-fn strip_named_fields_without_extension(current: &mut FieldsNamed) -> Result<()> {
-	let current_fields =
-		FieldWithVersionedTypeAttribute::parse_all(core::mem::take(&mut current.named))?;
-	reject_duplicate_named_current_fields(&current_fields)?;
-
-	let mut fields = Punctuated::<Field, Comma>::new();
-	for current_field in current_fields {
-		if let Some(override_span) = current_field.attribute.override_span() {
-			return Err(syn::Error::new(
-				override_span,
-				"`#[versioned_type(override)]` can only be used inside a type or variant \
-                that is extending a previous version",
-			));
-		}
-
-		fields.push(current_field.field);
-	}
-
-	current.named = fields;
-	Ok(())
-}
-
-fn strip_unnamed_fields_without_extension(current: &mut FieldsUnnamed) -> Result<()> {
-	let mut fields = Punctuated::<Field, Comma>::new();
-	append_current_unnamed_fields(&mut fields, core::mem::take(&mut current.unnamed))?;
-	current.unnamed = fields;
-	Ok(())
-}
-
-fn append_current_unnamed_fields(
-	fields: &mut Punctuated<Field, Comma>,
-	current_fields: Punctuated<Field, Comma>,
-) -> Result<()> {
-	for current_field in FieldWithVersionedTypeAttribute::parse_all(current_fields)? {
-		reject_tuple_field_override(&current_field)?;
-		fields.push(current_field.field);
-	}
-
-	Ok(())
-}
-
-fn classify_named_current_fields(
-	current_fields: Vec<FieldWithVersionedTypeAttribute>,
-	previous: &FieldsNamed,
-) -> Result<NamedFieldChanges> {
-	reject_duplicate_named_current_fields(&current_fields)?;
-
-	let mut changes = NamedFieldChanges::default();
-	for current_field in current_fields {
-		let field_name = named_field_ident(&current_field.field)?.to_string();
-		if current_field.attribute.override_span().is_some() {
-			changes.insert_override(field_name, current_field);
-		} else if let Some(previous_field) = find_named_field(previous, &field_name)? {
-			return Err(redefined_named_field_error(
-				&current_field.field,
-				previous_field,
-				&field_name,
-			)?);
-		} else {
-			changes.new_fields.push(current_field.field);
+	pub fn visibility_ref_mut(&mut self) -> &mut Visibility {
+		match self {
+			StructuredField::Named(field) => &mut field.visibility,
+			StructuredField::Unnamed(field) => &mut field.visibility,
 		}
 	}
-
-	Ok(changes)
 }
 
-#[derive(Default)]
-struct NamedFieldChanges {
-	overrides: BTreeMap<String, FieldWithVersionedTypeAttribute>,
+// ===========================
+// Conversion Implementations
+// ===========================
 
-	override_order: Vec<String>,
+impl TryFrom<Fields> for StructuredFields {
+	type Error = syn::Error;
 
-	new_fields: Vec<Field>,
-}
-
-impl NamedFieldChanges {
-	fn insert_override(&mut self, field_name: String, field: FieldWithVersionedTypeAttribute) {
-		self.override_order.push(field_name.clone());
-		self.overrides.insert(field_name, field);
-	}
-
-	fn take_override(&mut self, field_name: &str) -> Option<FieldWithVersionedTypeAttribute> {
-		self.overrides.remove(field_name)
-	}
-
-	fn first_unmatched_override(&self) -> Option<&FieldWithVersionedTypeAttribute> {
-		self.override_order.iter().find_map(|field_name| self.overrides.get(field_name))
-	}
-}
-
-fn reject_duplicate_named_current_fields(fields: &[FieldWithVersionedTypeAttribute]) -> Result<()> {
-	let mut seen_fields = BTreeMap::<String, Ident>::new();
-
-	for field in fields {
-		let field_ident = named_field_ident(&field.field)?;
-		let field_name = field_ident.to_string();
-		if let Some(existing_ident) = seen_fields.get(&field_name) {
-			let mut error = syn::Error::new_spanned(
-				field_ident,
-				format!("field `{field_name}` is defined more than once"),
-			);
-			error.combine(syn::Error::new_spanned(
-				existing_ident,
-				format!("first definition of field `{field_name}` is here"),
-			));
-			return Err(error);
-		}
-
-		seen_fields.insert(field_name, field_ident.clone());
-	}
-
-	Ok(())
-}
-
-fn reject_tuple_field_override(field: &FieldWithVersionedTypeAttribute) -> Result<()> {
-	if let Some(override_span) = field.attribute.override_span() {
-		return Err(syn::Error::new(
-			override_span,
-			"`#[versioned_type(override)]` is not supported on tuple fields because tuple \
-            fields do not have stable names to override",
-		));
-	}
-
-	Ok(())
-}
-
-fn named_field_ident(field: &Field) -> Result<&Ident> {
-	field
-		.ident
-		.as_ref()
-		.ok_or_else(|| syn::Error::new(field.span(), "expected a named field"))
-}
-
-fn find_named_field<'a>(fields: &'a FieldsNamed, field_name: &str) -> Result<Option<&'a Field>> {
-	for field in &fields.named {
-		if named_field_ident(field)? == field_name {
-			return Ok(Some(field));
+	fn try_from(value: Fields) -> Result<Self, Self::Error> {
+		match value {
+			Fields::Named(fields) => Ok(Self::Named(fields.try_into()?)),
+			Fields::Unnamed(fields) => Ok(Self::Unnamed(fields.try_into()?)),
+			Fields::Unit => Ok(Self::Unit),
 		}
 	}
-
-	Ok(None)
 }
 
-fn generated_tuple_field_name(field_index: usize) -> String {
-	format!("field_{field_index}")
-}
+impl TryFrom<FieldsNamed> for StructuredNamedFields {
+	type Error = syn::Error;
 
-fn generated_tuple_field_names(fields: &FieldsUnnamed) -> BTreeMap<String, Span> {
-	fields
-		.unnamed
-		.iter()
-		.enumerate()
-		.map(|(field_index, field)| (generated_tuple_field_name(field_index), field.span()))
-		.collect::<BTreeMap<_, _>>()
-}
+	fn try_from(value: FieldsNamed) -> Result<Self, Self::Error> {
+		let fields = value.named.into_iter().map(StructuredNamedField::try_from).try_fold(
+			IndexMap::new(),
+			|mut fields, field| {
+				let field = field?;
+				if let Err(output) = fields.bounce_insert(field.ident.clone(), field) {
+					return Err(syn_error! {
+						output.attempted_insert_value.ident.span() =>
+							"A field with the same identifier already exists",
+						output.existing_value.ident.span() =>
+							"Other field with the same identifier is defined here",
+					});
+				}
+				Ok(fields)
+			},
+		)?;
 
-fn apply_visibility(fields: Fields, visibility: Visibility) -> Fields {
-	match fields {
-		Fields::Named(mut fields) => {
-			for field in &mut fields.named {
-				field.vis = visibility.clone();
-			}
-			Fields::Named(fields)
-		},
-		Fields::Unnamed(mut fields) => {
-			for field in &mut fields.unnamed {
-				field.vis = visibility.clone();
-			}
-			Fields::Unnamed(fields)
-		},
-		Fields::Unit => Fields::Unit,
+		Ok(Self { fields })
 	}
 }
 
-fn redefined_named_field_error(
-	current_field: &Field,
-	previous_field: &Field,
-	field_name: &str,
-) -> Result<syn::Error> {
-	let mut error = syn::Error::new_spanned(
-		named_field_ident(current_field)?,
-		format!(
-			"field `{field_name}` is already defined in the previous version; add \
-            `#[versioned_type(override)]` to replace it"
-		),
-	);
-	error.combine(syn::Error::new_spanned(
-		named_field_ident(previous_field)?,
-		format!("original field `{field_name}` was defined here"),
-	));
-	Ok(error)
+impl TryFrom<FieldsUnnamed> for StructuredUnnamedFields {
+	type Error = syn::Error;
+
+	fn try_from(value: FieldsUnnamed) -> Result<Self, Self::Error> {
+		let fields = value
+			.unnamed
+			.into_iter()
+			.map(StructuredUnnamedField::try_from)
+			.collect::<Result<_, _>>()?;
+		Ok(Self { fields })
+	}
 }
 
-fn unmatched_named_field_override_error(
-	current_field: &FieldWithVersionedTypeAttribute,
-) -> Result<syn::Error> {
-	let field_name = named_field_ident(&current_field.field)?.to_string();
-	let Some(override_span) = current_field.attribute.override_span() else {
-		return Ok(syn::Error::new_spanned(
-			named_field_ident(&current_field.field)?,
-			format!("field `{field_name}` was expected to be marked as an override"),
-		));
-	};
+impl TryFrom<Field> for StructuredField {
+	type Error = syn::Error;
 
-	let mut error = syn::Error::new(
-		override_span,
-		format!(
-			"field `{field_name}` is marked as an override but no field with that name exists \
-            in the previous version"
-		),
-	);
-	error.combine(syn::Error::new_spanned(
-		named_field_ident(&current_field.field)?,
-		format!("override field `{field_name}` is defined here"),
-	));
-	Ok(error)
+	fn try_from(value: Field) -> Result<Self, Self::Error> {
+		let Field { attrs, vis, ident, ty, .. } = value;
+		Ok(match ident {
+			Some(ident) => {
+				Self::Named(StructuredNamedField { attributes: attrs, visibility: vis, ident, ty })
+			},
+			None => {
+				Self::Unnamed(StructuredUnnamedField { attributes: attrs, visibility: vis, ty })
+			},
+		})
+	}
 }
 
-fn override_against_tuple_previous_error(override_span: Span) -> syn::Error {
-	syn::Error::new(
-		override_span,
-		"`#[versioned_type(override)]` requires the previous version to have named fields; \
-        overriding fields from tuple structs is ambiguous",
-	)
+impl TryFrom<Field> for StructuredNamedField {
+	type Error = syn::Error;
+
+	fn try_from(value: Field) -> Result<Self, Self::Error> {
+		let Field { attrs, vis, ident, ty, .. } = value;
+		let Some(ident) = ident else {
+			return Err(syn::Error::new(ty.span(), "Expected a named field"));
+		};
+		Ok(Self { attributes: attrs, visibility: vis, ident, ty })
+	}
 }
 
-fn generated_tuple_field_collision_error(
-	current_field: &Field,
-	field_name: &str,
-	previous_span: Span,
-) -> Result<syn::Error> {
-	let mut error = syn::Error::new_spanned(
-		named_field_ident(current_field)?,
-		format!(
-			"field `{field_name}` conflicts with a field name generated from the previous \
-            tuple fields"
-		),
-	);
-	error.combine(syn::Error::new(
-		previous_span,
-		format!("tuple field generates inherited field `{field_name}` here"),
-	));
-	Ok(error)
+impl TryFrom<Field> for StructuredUnnamedField {
+	type Error = syn::Error;
+
+	fn try_from(value: Field) -> Result<Self, Self::Error> {
+		let Field { attrs, vis, ident, ty, .. } = value;
+		if let Some(ident) = ident {
+			return Err(syn::Error::new(ident.span(), "Expected an unnamed field"));
+		}
+
+		Ok(Self { attributes: attrs, visibility: vis, ty })
+	}
+}
+
+impl From<StructuredFields> for Fields {
+	fn from(value: StructuredFields) -> Self {
+		match value {
+			StructuredFields::Named(fields) => Self::Named(fields.into()),
+			StructuredFields::Unnamed(fields) => Self::Unnamed(fields.into()),
+			StructuredFields::Unit => Self::Unit,
+		}
+	}
+}
+
+impl From<StructuredNamedFields> for FieldsNamed {
+	fn from(value: StructuredNamedFields) -> Self {
+		Self {
+			brace_token: Default::default(),
+			named: value.fields.into_values().map(Field::from).collect(),
+		}
+	}
+}
+
+impl From<StructuredUnnamedFields> for FieldsUnnamed {
+	fn from(value: StructuredUnnamedFields) -> Self {
+		Self {
+			paren_token: Default::default(),
+			unnamed: value.fields.into_iter().map(Field::from).collect(),
+		}
+	}
+}
+
+impl From<StructuredField> for Field {
+	fn from(value: StructuredField) -> Self {
+		match value {
+			StructuredField::Named(field) => field.into(),
+			StructuredField::Unnamed(field) => field.into(),
+		}
+	}
+}
+
+impl From<StructuredNamedField> for Field {
+	fn from(value: StructuredNamedField) -> Self {
+		Self {
+			attrs: value.attributes,
+			vis: value.visibility,
+			mutability: FieldMutability::None,
+			ident: Some(value.ident),
+			colon_token: Some(Default::default()),
+			ty: value.ty,
+		}
+	}
+}
+
+impl From<StructuredUnnamedField> for Field {
+	fn from(value: StructuredUnnamedField) -> Self {
+		Self {
+			attrs: value.attributes,
+			vis: value.visibility,
+			mutability: FieldMutability::None,
+			ident: None,
+			colon_token: None,
+			ty: value.ty,
+		}
+	}
 }
