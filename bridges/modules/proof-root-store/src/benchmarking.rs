@@ -20,7 +20,7 @@
 
 use crate::{Config, Pallet};
 use frame_benchmarking::v2::*;
-use frame_support::{assert_ok, traits::Get, BoundedVec};
+use frame_support::{traits::Get, BoundedVec};
 use frame_system::RawOrigin;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -32,20 +32,24 @@ pub trait BenchmarkHelper<Key, Value> {
 mod benchmarks {
 
 	use super::*;
+	use crate::Call;
 
 	#[benchmark]
 	fn note_new_roots() {
 		// prepare data to store
 		let mut roots_to_store: BoundedVec<(T::Key, T::Value), T::RootsToKeep> = BoundedVec::new();
-		for id in 0..T::RootsToKeep {
+		for id in 0..T::RootsToKeep::get() {
 			let (key, value) = T::BenchmarkHelper::create_key_value_for(id);
 			let _ = roots_to_store.try_push((key, value));
 		}
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(whitelisted_caller()), roots_to_store.clone());
-		
-		// TODO: add separate assert for iterating `roots_to_store` and check for all `Pallet::<T, I>::get_root(...)`
+
+		// verify that every submitted root is retrievable via `get_root`
+		for (key, value) in roots_to_store.iter() {
+			assert_eq!(Pallet::<T, I>::get_root(key).as_ref(), Some(value));
+		}
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::TestRuntime,);

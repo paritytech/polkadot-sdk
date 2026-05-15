@@ -128,6 +128,7 @@ impl pallet_bridge_messages::Config<WithAssetHubRococoMessagesInstance> for Runt
 }
 
 // Utility for storing AHW headers with state roots to the AHR.
+#[cfg(feature = "runtime-benchmarks")]
 pub(crate) type AssetHubRococoHeadersStore = bridge_hub_common::header_store::StoreParaHeadersFor<
 	Runtime,
 	AssetHubRococoProofRootStoreInstance,

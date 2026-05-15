@@ -128,6 +128,7 @@ impl pallet_bridge_messages::Config<WithAssetHubWestendMessagesInstance> for Run
 }
 
 // Utility for syncing AHW headers with state roots to the AHR.
+#[cfg(feature = "runtime-benchmarks")]
 pub(crate) type AssetHubWestendHeadersStore = bridge_hub_common::header_store::StoreParaHeadersFor<
 	Runtime,
 	AssetHubWestendProofRootStoreInstance,
