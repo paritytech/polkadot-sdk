@@ -652,6 +652,17 @@ pub trait ApiExt<Block: BlockT> {
 
 	/// Register an [`Extension`] that will be accessible while executing a runtime api call.
 	fn register_extension<E: Extension>(&mut self, extension: E);
+
+	/// Replace the overlayed changes used by subsequent runtime API calls on this instance.
+	///
+	/// This replaces any previously set overlay — it does not merge with it. Callers should
+	/// construct the full `OverlayedChanges` value (including parent state and any pending
+	/// writes) before calling this method.
+	///
+	/// Should be called before entering a runtime API transaction. Calling it after
+	/// `register_extension` has run for a given block may leave extensions generated for
+	/// a different state.
+	fn set_overlayed_changes(&mut self, changes: OverlayedChanges<HashingFor<Block>>);
 }
 
 /// Parameters for [`CallApiAt::call_api_at`].
