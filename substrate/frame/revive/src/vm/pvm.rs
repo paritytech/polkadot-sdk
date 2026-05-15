@@ -578,20 +578,19 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		// Transient: legacy adjust_weight. Persistent: charge-flow inversion
 		// using the returned cold/warm cost struct.
-		let (outcome, persistent_costs) = if transient {
+		let outcome = if transient {
 			let charged = self
 				.charge_gas(RuntimeCosts::GetTransientStorage(limits::STORAGE_BYTES))?;
 			let outcome = self.ext.get_transient_storage(&key);
 			let len = outcome.as_ref().map(|v| v.len() as u32).unwrap_or(0);
 			self.adjust_gas(charged, RuntimeCosts::GetTransientStorage(len));
-			(outcome, None)
+			outcome
 		} else {
 			let (outcome, costs) = self.ext.get_storage(&key);
 			let len = outcome.as_ref().map(|v| v.len() as u32).unwrap_or(0);
 			self.charge_gas(RuntimeCosts::GetStorage { len, costs })?;
-			(outcome, Some(costs))
+			outcome
 		};
-		let _ = persistent_costs; // for documentation / future tracing
 
 		if let Some(value) = outcome {
 

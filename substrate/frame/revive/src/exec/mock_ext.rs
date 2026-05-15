@@ -246,7 +246,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::get_storage")
 	}
 
-	fn get_storage_size(&mut self, _key: &Key) -> Option<u32> {
+	fn get_storage_size(
+		&mut self,
+		_key: &Key,
+	) -> (Option<u32>, crate::access_list::GetStorageReadCosts) {
 		panic!("MockExt::get_storage_size")
 	}
 

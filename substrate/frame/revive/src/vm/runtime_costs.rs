@@ -368,6 +368,13 @@ impl RuntimeCosts {
 	/// Cold/warm-affected variants compose `cost_read<T>` per substrate read
 	/// they perform on top of the legacy write/clear/contains/take surcharges.
 	/// Other variants fall through to `legacy_weight`.
+	///
+	/// Note: for write variants (`SetStorage` / `ClearStorage` / `TakeStorage`)
+	/// the legacy write benchmark already includes a read-of-old-value cost,
+	/// and `cost_read` adds another read cost on top. This is a conservative
+	/// over-charge until a dedicated `storage_write_only(size)` benchmark
+	/// lands; the read-of-old should then move out of the write benchmark and
+	/// into `cost_read`.
 	fn new_weight<T: Config>(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match self {

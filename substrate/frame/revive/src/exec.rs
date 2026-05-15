@@ -122,6 +122,12 @@ impl Key {
 ///
 /// `Fix` is used as-is; `Var` is hashed to 32 bytes so the access-list entry
 /// type stays fixed-size and cheap to compare.
+///
+/// Distinct from [`Key::hash`]: that method produces the substrate child-trie
+/// lookup key (blake2_256 for `Fix`, blake2_128_concat for `Var`). Here we
+/// only need a stable, fixed-size collision-resistant identifier per
+/// `(address, slot)` pair — running blake2 over `Fix` keys would add cost
+/// for no semantic benefit.
 fn key_to_slot(key: &Key) -> [u8; 32] {
 	match key {
 		Key::Fix(v) => *v,
@@ -543,11 +549,15 @@ pub trait PrecompileExt: sealing::Sealed {
 		key: &Key,
 	) -> (Option<Vec<u8>>, crate::access_list::GetStorageReadCosts);
 
-	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
+	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`,
+	/// alongside the cold/warm cost struct recording the access-list touch.
 	///
-	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
-	/// was deleted.
-	fn get_storage_size(&mut self, key: &Key) -> Option<u32>;
+	/// The length is `None` if the `key` wasn't previously set by
+	/// `set_storage` or was deleted.
+	fn get_storage_size(
+		&mut self,
+		key: &Key,
+	) -> (Option<u32>, crate::access_list::GetStorageReadCosts);
 
 	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
 	/// the storage entry is deleted. The accompanying `SetStorageReadCosts`
@@ -2574,9 +2584,16 @@ where
 		(value, GetStorageReadCosts { is_cold: Some(is_cold) })
 	}
 
-	fn get_storage_size(&mut self, key: &Key) -> Option<u32> {
+	fn get_storage_size(
+		&mut self,
+		key: &Key,
+	) -> (Option<u32>, crate::access_list::GetStorageReadCosts) {
+		use crate::access_list::{AccessEntry, GetStorageReadCosts};
 		assert!(self.has_contract_info());
-		self.top_frame_mut().contract_info().size(key.into())
+		let address = T::AddressMapper::to_address(self.account_id());
+		let is_cold = self.access_list.touch(AccessEntry { address, slot: key_to_slot(key) });
+		let size = self.top_frame_mut().contract_info().size(key.into());
+		(size, GetStorageReadCosts { is_cold: Some(is_cold) })
 	}
 
 	fn set_storage(

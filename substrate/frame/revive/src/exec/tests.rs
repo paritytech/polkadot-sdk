@@ -1991,9 +1991,9 @@ fn get_storage_size_works() {
 			ctx.ext.set_storage(&Key::Fix([2; 32]), Some(vec![]), false).0,
 			Ok(WriteOutcome::New)
 		);
-		assert_eq!(ctx.ext.get_storage_size(&Key::Fix([1; 32])), Some(3));
-		assert_eq!(ctx.ext.get_storage_size(&Key::Fix([2; 32])), Some(0));
-		assert_eq!(ctx.ext.get_storage_size(&Key::Fix([3; 32])), None);
+		assert_eq!(ctx.ext.get_storage_size(&Key::Fix([1; 32])).0, Some(3));
+		assert_eq!(ctx.ext.get_storage_size(&Key::Fix([2; 32])).0, Some(0));
+		assert_eq!(ctx.ext.get_storage_size(&Key::Fix([3; 32])).0, None);
 
 		exec_success()
 	});
@@ -2084,14 +2084,14 @@ fn get_storage_size_varsized_key_works() {
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
-			ctx.ext.get_storage_size(&Key::try_from_var([1; 19].to_vec()).unwrap()),
+			ctx.ext.get_storage_size(&Key::try_from_var([1; 19].to_vec()).unwrap()).0,
 			Some(3)
 		);
 		assert_eq!(
-			ctx.ext.get_storage_size(&Key::try_from_var([2; 16].to_vec()).unwrap()),
+			ctx.ext.get_storage_size(&Key::try_from_var([2; 16].to_vec()).unwrap()).0,
 			Some(0)
 		);
-		assert_eq!(ctx.ext.get_storage_size(&Key::try_from_var([3; 8].to_vec()).unwrap()), None);
+		assert_eq!(ctx.ext.get_storage_size(&Key::try_from_var([3; 8].to_vec()).unwrap()).0, None);
 
 		exec_success()
 	});
@@ -3100,23 +3100,22 @@ fn cold_warm_disabled_always_reports_cold() {
 	});
 }
 
-/// Child frame touches a slot and commits. After the child returns, the
-/// parent's next read on the same slot is warm (commit keeps the touch).
+/// Access entries are keyed on `(address, slot)`: a child touching slot S on
+/// its own contract does not warm slot S on the parent's contract.
 #[test]
-fn cold_warm_child_commit_keeps_warm() {
-	let key = Key::Fix([9; 32]);
+fn cold_warm_distinct_addresses_are_independent() {
 	let key_for_child = Key::Fix([9; 32]);
+	let key_for_parent = Key::Fix([9; 32]);
 
-	// Child touches the slot once and returns Ok.
+	// Child touches the slot on its own address (BOB) and returns Ok.
 	let child_ch = MockLoader::insert(Call, move |ctx, _| {
 		let (_, costs) = ctx.ext.set_storage(&key_for_child, Some(vec![1]), false);
 		assert_eq!(costs.is_cold, Some(true), "child's first touch is cold");
 		exec_success()
 	});
 
-	let key_for_parent = key;
 	let parent_ch = MockLoader::insert(Call, move |ctx, _| {
-		// Call into the child.
+		// Call into the child, which touches (BOB, slot 9).
 		assert_matches!(
 			ctx.ext.call(
 				&CallResources::NoLimits,
@@ -3128,11 +3127,9 @@ fn cold_warm_child_commit_keeps_warm() {
 			),
 			Ok(_)
 		);
-		// After child commits, the same (BOB, slot) entry should be warm.
+		// Parent runs in CHARLIE's context, so it touches (CHARLIE, slot 9).
+		// Distinct access entry from the child's (BOB, slot 9), so cold.
 		let (_, after) = ctx.ext.set_storage(&key_for_parent, Some(vec![2]), false);
-		// Note: the parent runs in CHARLIE's context, so it touches
-		// (CHARLIE, slot). The child touched (BOB, slot). Distinct entries,
-		// so parent's touch is still cold. Verify by checking it explicitly.
 		assert_eq!(after.is_cold, Some(true), "parent on its own (address, slot) is cold");
 		exec_success()
 	});

@@ -114,30 +114,17 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					);
 					Ok(ret.abi_encode())
 				} else {
-					// Persistent: containsStorage performs a size lookup,
-					// not a full read. Approximate the access-list touch
-					// cost by routing through `get_storage_size` and
-					// recording a touch via a parallel read of the slot.
-					// For now, charge with `is_cold: None` (no read cost)
-					// since the size lookup doesn't surface a touch through
-					// the current Ext API. TODO: thread a touch through
-					// `get_storage_size` if cold/warm pricing matters here.
-					let charged = env.frame_meter_mut().charge_weight_token(
-						RuntimeCosts::ContainsStorage {
-							len: max_size,
-							costs: Default::default(),
-						},
-					)?;
-					let outcome = env.get_storage_size(&key);
+					// Persistent: charge-flow inversion using returned costs.
+					// `get_storage_size` performs a substrate read, so the
+					// access-list touch flows back through `GetStorageReadCosts`
+					// and feeds the cold/warm pricing model.
+					let (outcome, costs) = env.get_storage_size(&key);
 					let value_len = outcome.unwrap_or(0);
 					let ret = (outcome.is_some(), value_len);
-					env.frame_meter_mut().adjust_weight(
-						charged,
-						RuntimeCosts::ContainsStorage {
-							len: value_len,
-							costs: Default::default(),
-						},
-					);
+					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ContainsStorage {
+						len: value_len,
+						costs,
+					})?;
 					Ok(ret.abi_encode())
 				}
 			},
