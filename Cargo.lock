@@ -4871,7 +4871,6 @@ dependencies = [
  "futures-timer",
  "log",
  "sc-authority-discovery",
- "sc-client-api 28.0.0",
  "sc-network 0.34.0",
  "sc-network-sync",
  "sc-service",

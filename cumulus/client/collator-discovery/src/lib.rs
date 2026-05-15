@@ -339,68 +339,17 @@ async fn update_parachain_authorities<Block, AD>(
 	let authorities = match authority_discovery.authorities(at).await {
 		Ok(a) => a,
 		Err(e) => {
-			log::warn!(
-				target: LOG_TARGET,
-				"Failed to fetch parachain authorities at {:?}: {}",
-				at,
-				e,
-			);
+			log::warn!(target: LOG_TARGET, "Failed to fetch parachain authorities at {at:?}: {e}");
 			return;
 		},
 	};
 
 	let selected = select_authorities(authorities, local_pub_keys, max_reserved);
-
 	let target_count = selected.len();
-	let mut addrs: HashSet<Multiaddr> = HashSet::new();
-	let mut unresolved = 0usize;
-	for id in &selected {
-		match authority_discovery_service.get_addresses_by_authority_id(id.clone()).await {
-			Some(a) => {
-				let original_len = a.len();
-				// Drop multiaddrs that resolve to our own libp2p PeerId. `set_reserved_peers`
-				// rejects the entire call if the input contains the local PeerId, which can
-				// happen if our own AD record (or a stale one keyed under another authority)
-				// reaches our DHT view.
-				let a: Vec<Multiaddr> = a
-					.into_iter()
-					.filter(|m| {
-						PeerId::try_from_multiaddr(m).map_or(true, |pid| pid != local_peer_id)
-					})
-					.take(MAX_ADDRS_PER_AUTHORITY)
-					.collect();
-				if original_len > MAX_ADDRS_PER_AUTHORITY {
-					log::debug!(
-						target: LOG_TARGET,
-						"Capped multiaddrs for authority {:?}: {} -> {}",
-						id,
-						original_len,
-						MAX_ADDRS_PER_AUTHORITY,
-					);
-				}
-				let peer_ids: Vec<PeerId> =
-					a.iter().filter_map(PeerId::try_from_multiaddr).collect();
-				log::debug!(
-					target: LOG_TARGET,
-					"Resolved authority {:?}: {} multiaddr(s), peer_ids={:?}",
-					id,
-					a.len(),
-					peer_ids,
-				);
-				addrs.extend(a);
-			},
-			None => {
-				unresolved += 1;
-				log::debug!(
-					target: LOG_TARGET,
-					"Couldn't resolve addresses of authority: {:?}",
-					id,
-				);
-			},
-		}
-	}
-
+	let (addrs, unresolved) =
+		resolve_authority_addresses(&selected, authority_discovery_service, local_peer_id).await;
 	let resolved = target_count.saturating_sub(unresolved);
+
 	if let Some(m) = metrics {
 		m.target_authorities.set(target_count as u64);
 		m.unresolved_authorities.set(unresolved as u64);
@@ -410,37 +359,26 @@ async fn update_parachain_authorities<Block, AD>(
 	log_low_connectivity_if_stuck(target_count, resolved, &mut state.low_connectivity_since);
 
 	// Skip pushing when both the authority set and resolved multiaddrs are unchanged.
-	let authorities_unchanged = state.last_authorities.as_ref() == Some(&selected);
-	if authorities_unchanged && state.last_addrs.as_ref() == Some(&addrs) {
-		log::trace!(
-			target: LOG_TARGET,
-			"No-op refresh at {:?}: authorities and resolved addresses unchanged",
-			at,
-		);
+	if state.last_authorities.as_ref() == Some(&selected) &&
+		state.last_addrs.as_ref() == Some(&addrs)
+	{
+		log::trace!(target: LOG_TARGET, "No-op refresh at {at:?}");
 		return;
 	}
 
-	let previous_authority_count = state.last_authorities.as_ref().map(|a| a.len()).unwrap_or(0);
-	let previous_addr_count = state.last_addrs.as_ref().map(|a| a.len()).unwrap_or(0);
-
 	let peer_ids: HashSet<PeerId> = addrs.iter().filter_map(PeerId::try_from_multiaddr).collect();
-
 	log::debug!(
 		target: LOG_TARGET,
-		"Refreshing reserved peers at {:?}: authorities {}->{} unresolved={} multiaddrs {}->{}, peer_ids={}",
-		at,
-		previous_authority_count,
-		target_count,
-		unresolved,
-		previous_addr_count,
+		"Refreshing reserved peers at {at:?}: target={target_count} unresolved={unresolved} multiaddrs={} peer_ids={}",
 		addrs.len(),
 		peer_ids.len(),
 	);
 
 	match network.set_reserved_peers(protocol.clone(), addrs.clone()) {
 		Ok(()) => {
-			// Only push the no-slot set after the reserved set is accepted so the two
-			// stay in sync. On Err, neither side advances and we retry on the next tick.
+			// Update the no-slot set only after the reserved set is updated, 
+			// so the two stay in sync.
+			// If an error happens we retry the whole refresh on the next tick.
 			sync_service.set_no_slot_peers(peer_ids);
 			state.last_authorities = Some(selected);
 			state.last_addrs = Some(addrs);
@@ -448,12 +386,49 @@ async fn update_parachain_authorities<Block, AD>(
 		Err(e) => {
 			log::warn!(
 				target: LOG_TARGET,
-				"set_reserved_peers failed at {:?}: {}; will retry on next trigger",
-				at,
-				e,
+				"set_reserved_peers failed at {at:?}: {e}; will retry on next tick",
 			);
 		},
 	}
+}
+
+/// Resolve multiaddrs for each authority. Returns the deduplicated set of multiaddrs and the
+/// count of authorities whose addresses could not be resolved.
+///
+/// Drops multiaddrs that resolve to our own libp2p PeerId.
+async fn resolve_authority_addresses(
+	authorities: &[AuthorityId],
+	service: &mut sc_authority_discovery::Service,
+	local_peer_id: PeerId,
+) -> (HashSet<Multiaddr>, usize) {
+	let mut addrs: HashSet<Multiaddr> = HashSet::new();
+	let mut unresolved = 0;
+
+	for id in authorities {
+		let Some(raw) = service.get_addresses_by_authority_id(id.clone()).await else {
+			unresolved += 1;
+			log::debug!(target: LOG_TARGET, "Couldn't resolve addresses of authority: {id:?}");
+			continue;
+		};
+
+		let original_len = raw.len();
+		let filtered: Vec<Multiaddr> = raw
+			.into_iter()
+			.filter(|m| PeerId::try_from_multiaddr(m).map_or(true, |pid| pid != local_peer_id))
+			.take(MAX_ADDRS_PER_AUTHORITY)
+			.collect();
+
+		if original_len > MAX_ADDRS_PER_AUTHORITY {
+			log::debug!(
+				target: LOG_TARGET,
+				"Capped multiaddrs for authority {id:?}: {original_len} -> {MAX_ADDRS_PER_AUTHORITY}",
+			);
+		}
+		log::debug!(target: LOG_TARGET, "Resolved authority {id:?}: {} multiaddr(s)", filtered.len());
+		addrs.extend(filtered);
+	}
+
+	(addrs, unresolved)
 }
 
 fn log_low_connectivity_if_stuck(target: usize, resolved: usize, since: &mut Option<Instant>) {
