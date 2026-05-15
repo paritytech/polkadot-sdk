@@ -123,6 +123,17 @@ pub struct BuilderTaskParams<
 	pub max_pov_percentage: Option<u32>,
 }
 
+fn get_para_info<Block: BlockT, Client>(para_client: &Arc<Client>) -> (Block::Hash, bool)
+where
+	Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
+	Client::Api: SchedulingV3EnabledApi<Block>,
+{
+	let para_best_hash = para_client.info().best_hash;
+	let v3_enabled_on_para =
+		para_client.runtime_api().scheduling_v3_enabled(para_best_hash).unwrap_or(false);
+	(para_best_hash, v3_enabled_on_para)
+}
+
 /// Run block-builder.
 pub fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>(
 	params: BuilderTaskParams<Block, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>,
@@ -207,18 +218,11 @@ where
 				.expect("Relay chain interface must provide overseer handle."),
 		);
 
-		let mut v3_enabled = false;
-		let para_best_hash = para_client.info().best_hash;
-		let v3_enabled_on_para =
-			para_client.runtime_api().scheduling_v3_enabled(para_best_hash).unwrap_or(false);
-		if v3_enabled_on_para {
-			v3_enabled = SchedulingInfo::get_best_relay_block_data(
-				&relay_client,
-				&mut relay_chain_data_cache,
-			)
-			.await
-			.map_or(false, |data| data.is_v3_enabled());
-		}
+		let (_para_best_hash, v3_enabled_on_para) = get_para_info(&para_client);
+		let v3_enabled = SchedulingInfo::<RelayClient>::is_v3_enabled(
+			v3_enabled_on_para,
+			relay_chain_data_cache.get_best_relay_block_data().await.ok(),
+		);
 		slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
 
 		loop {
@@ -238,9 +242,7 @@ where
 			// values was done through an unbacked/unincluded candidate. In that
 			// edge case, block building will fail and self-correct once the upgrade
 			// is included on the relay chain.
-			let para_best_hash = para_client.info().best_hash;
-			let v3_enabled_on_para =
-				para_client.runtime_api().scheduling_v3_enabled(para_best_hash).unwrap_or(false);
+			let (para_best_hash, v3_enabled_on_para) = get_para_info(&para_client);
 			let Some((scheduling_parent_header, v3_enabled)) = scheduling_info
 				.wait_for_scheduling_parent(&mut relay_chain_data_cache, v3_enabled_on_para)
 				.await
@@ -318,7 +320,7 @@ where
 				initial_parent_header.number().saturating_sub(*included_header.number());
 
 			let Ok(max_pov_size) = relay_chain_data_cache
-				.get_mut_by_hash(relay_parent_hash)
+				.get_by_hash(relay_parent_hash)
 				.await
 				.map(|d| d.max_pov_size)
 			else {
@@ -988,9 +990,8 @@ where
 		}
 		relay_parent_descendants.push_front(current_relay_header.clone());
 
-		let next_relay_block = relay_chain_data_cache
-			.get_mut_by_hash(*current_relay_header.parent_hash())
-			.await?;
+		let next_relay_block =
+			relay_chain_data_cache.get_by_hash(*current_relay_header.parent_hash()).await?;
 		let next_relay_header = next_relay_block.relay_header.clone();
 
 		current_relay_header = next_relay_header;
@@ -1211,10 +1212,8 @@ pub async fn determine_cores<RI: RelayChainInterface + 'static>(
 	para_id: ParaId,
 	relay_parent_offset: u32,
 ) -> Result<Option<Cores>, ()> {
-	let claim_queue = &relay_chain_data_cache
-		.get_mut_by_hash(scheduling_parent.hash())
-		.await?
-		.claim_queue;
+	let claim_queue =
+		&relay_chain_data_cache.get_by_hash(scheduling_parent.hash()).await?.claim_queue;
 
 	let core_indices = claim_queue
 		.iter_claims_at_depth_for_para(relay_parent_offset as _, para_id)

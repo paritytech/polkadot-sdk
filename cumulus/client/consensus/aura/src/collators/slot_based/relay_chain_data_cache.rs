@@ -69,10 +69,10 @@ where
 	/// Fetch required [`RelayChainData`] from the relay chain.
 	/// If this data has been fetched in the past for the incoming hash, it will reuse
 	/// cached data.
-	pub async fn get_mut_by_header(
+	pub async fn get_by_header(
 		&mut self,
 		relay_header: RelayHeader,
-	) -> Result<&mut RelayChainData, ()> {
+	) -> Result<&RelayChainData, ()> {
 		let relay_hash = relay_header.hash();
 		let insert_data = if self.cached_data.peek(&relay_hash).is_some() {
 			None
@@ -91,10 +91,7 @@ where
 	/// Fetch required [`RelayChainData`] from the relay chain.
 	/// If this data has been fetched in the past for the incoming hash, it will reuse
 	/// cached data.
-	pub async fn get_mut_by_hash(
-		&mut self,
-		relay_hash: RelayHash,
-	) -> Result<&mut RelayChainData, ()> {
+	pub async fn get_by_hash(&mut self, relay_hash: RelayHash) -> Result<&RelayChainData, ()> {
 		if self.cached_data.peek(&relay_hash).is_none() {
 			let Ok(Some(relay_header)) = self.relay_client.header(BlockId::Hash(relay_hash)).await
 			else {
@@ -105,10 +102,10 @@ where
 				);
 				return Err(());
 			};
-			return self.get_mut_by_header(relay_header).await;
+			return self.get_by_header(relay_header).await;
 		}
 
-		self.cached_data.get(&relay_hash).ok_or(())
+		self.cached_data.get(&relay_hash).map(|data| &*data).ok_or(())
 	}
 
 	/// Fetch fresh data from the relay chain for the given relay parent.
@@ -155,6 +152,11 @@ where
 		};
 
 		Ok(RelayChainData { relay_header, claim_queue, max_pov_size, node_features })
+	}
+
+	pub async fn get_best_relay_block_data(&mut self) -> Result<&RelayChainData, ()> {
+		let best_relay_hash = self.relay_client.best_block_hash().await.map_err(|_| ())?;
+		self.get_by_hash(best_relay_hash).await.map_err(|_| ())
 	}
 
 	#[cfg(test)]

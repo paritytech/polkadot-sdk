@@ -306,14 +306,14 @@ impl TestRelayClient {
 	}
 
 	pub fn set_best_hash(&mut self, best_hash: Option<RelayHash>) {
-		self.best_hash = Arc::new(Mutex::new(best_hash));
+		*self.best_hash.lock().unwrap() = best_hash;
 	}
 
 	pub fn set_best_notifications(
 		&mut self,
 		best_notifications: Pin<Box<dyn Stream<Item = RelayHeader> + Send + Sync>>,
 	) {
-		self.best_notifications = Arc::new(Mutex::new(Some(best_notifications)));
+		*self.best_notifications.lock().unwrap() = Some(best_notifications);
 	}
 }
 
