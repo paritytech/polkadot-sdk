@@ -23,12 +23,13 @@ use litep2p::types::multihash::{Code as LiteP2pCode, MultihashDigest as _};
 use multihash::Multihash as LiteP2pMultihash;
 use std::fmt::{self, Debug};
 
-/// Identity multihash code (0x00). It is not part of [`LiteP2pCode`] (the
-/// `multihash-codetable` `Code` enum) because identity is not a cryptographic hash,
-/// so it is handled explicitly here.
+/// Identity multihash code from the [multicodec table][multicodec].
+///
+/// Defined locally because `multihash-codetable` enum only covers cryptographic
+/// hashes and intentionally omits identity.
+///
+/// [multicodec]: https://github.com/multiformats/multicodec/blob/master/table.csv
 const MULTIHASH_IDENTITY_CODE: u64 = 0x00;
-/// SHA2-256 multihash code (0x12).
-const MULTIHASH_SHA2_256_CODE: u64 = 0x12;
 
 /// Default [`Multihash`] implementations. Only hashes used by substrate are defined.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -78,10 +79,12 @@ impl TryFrom<u64> for Code {
 	type Error = Error;
 
 	fn try_from(code: u64) -> Result<Self, Self::Error> {
-		match code {
-			MULTIHASH_IDENTITY_CODE => Ok(Code::Identity),
-			MULTIHASH_SHA2_256_CODE => Ok(Code::Sha2_256),
-			_ => Err(Error::UnsupportedCode(code)),
+		if code == MULTIHASH_IDENTITY_CODE {
+			Ok(Code::Identity)
+		} else if code == u64::from(LiteP2pCode::Sha2_256) {
+			Ok(Code::Sha2_256)
+		} else {
+			Err(Error::UnsupportedCode(code))
 		}
 	}
 }
@@ -90,7 +93,7 @@ impl From<Code> for u64 {
 	fn from(code: Code) -> Self {
 		match code {
 			Code::Identity => MULTIHASH_IDENTITY_CODE,
-			Code::Sha2_256 => MULTIHASH_SHA2_256_CODE,
+			Code::Sha2_256 => u64::from(LiteP2pCode::Sha2_256),
 		}
 	}
 }
