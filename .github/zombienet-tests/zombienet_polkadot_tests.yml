@@ -141,7 +141,7 @@
 
 - job-name: "zombienet-polkadot-elastic-scaling-basic-3cores"
   test-filter: "elastic_scaling::basic_3cores::basic_3cores_test"
-  runner-type: "default"
+  runner-type: "large"
   cumulus-image: "colander"
 
 - job-name: "zombienet-polkadot-functional-sync-backing"
@@ -180,7 +180,7 @@
 
 - job-name: "zombienet-polkadot-approved-peer-mixed-validators"
   test-filter: "functional::approved_peer_mixed_validators::approved_peer_mixed_validators_test"
-  runner-type: "default"
+  runner-type: "large"
   cumulus-image: "colander"
   additional-setup: |
     BIN_DIR="$(pwd)/bin_old"
