@@ -29,10 +29,6 @@ use super::AuraConfig;
 #[cfg(feature = "with-authority-discovery")]
 use super::SessionConfig;
 
-// ---------------------------------------------------------------------------
-// Default (no pallet_session / no authority-discovery) genesis preset
-// ---------------------------------------------------------------------------
-
 /// Build the genesis config seeding `pallet_aura::authorities` directly.
 ///
 /// This is the pre-upgrade path: no `pallet_session`, no `pallet_authority_discovery`.
@@ -52,10 +48,6 @@ fn cumulus_test_runtime(
 		aura: AuraConfig { authorities: invulnerables },
 	})
 }
-
-// ---------------------------------------------------------------------------
-// with-authority-discovery genesis preset
-// ---------------------------------------------------------------------------
 
 /// Build the genesis config seeding `pallet_session::keys` for the given invulnerables.
 ///
@@ -95,10 +87,6 @@ fn cumulus_test_runtime(
 		session: SessionConfig { keys: session_keys, non_authority_keys: vec![] },
 	})
 }
-
-// ---------------------------------------------------------------------------
-// Shared helpers
-// ---------------------------------------------------------------------------
 
 fn testnet_genesis_with_default_endowed(self_para_id: ParaId) -> serde_json::Value {
 	let endowed = Sr25519Keyring::well_known().map(|x| x.to_account_id()).collect::<Vec<_>>();

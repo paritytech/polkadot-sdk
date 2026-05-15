@@ -699,12 +699,7 @@ pub mod migrations {
 			pallet_session::Validators::<Runtime>::put(&validators);
 			pallet_session::QueuedKeys::<Runtime>::put(&queued_keys);
 
-			// Populate pallet_authority_discovery::Keys directly. Normally session pallet's
-			// genesis_build calls SessionHandler::on_genesis_session which would populate
-			// this — but we're injecting state mid-chain, not at genesis, so we have to
-			// seed it ourselves. Without this, AD.Keys stays empty until the next session
-			// rotation actually fires (which depends on pallet_session being fully
-			// initialised first).
+			// YOLO so these keys are not empty until next session.
 			let ad_authorities: Vec<AuthorityDiscoveryId> = aura_authorities
 				.iter()
 				.map(|aura_pub| {

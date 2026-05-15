@@ -74,10 +74,6 @@ const COLLATOR_NETWORK_ARGS: &[&str] = &[
 	"--authoring=slot-based",
 ];
 
-// ---------------------------------------------------------------------------
-// Name slices — single source of truth.
-// ---------------------------------------------------------------------------
-
 fn collator_names() -> &'static [&'static str] {
 	&["alice", "bob", "charlie", "dave", "eve", "ferdie"]
 }
@@ -85,10 +81,6 @@ fn collator_names() -> &'static [&'static str] {
 fn full_node_names() -> &'static [&'static str] {
 	&["full-node-0", "full-node-1", "full-node-2", "full-node-3"]
 }
-
-// ---------------------------------------------------------------------------
-// Network config builder.
-// ---------------------------------------------------------------------------
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
@@ -153,10 +145,6 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		})
 }
 
-// ---------------------------------------------------------------------------
-// Key-rotation helpers.
-// ---------------------------------------------------------------------------
-
 /// Map a dev collator name to its sr25519 keypair.
 fn dev_pair(name: &str) -> Result<zombienet_sdk::subxt_signer::sr25519::Keypair, anyhow::Error> {
 	Ok(match name {
@@ -179,13 +167,8 @@ fn capitalize(name: &str) -> String {
 	}
 }
 
-/// For each collator: insert a deterministically-derived AD key into its keystore via
-/// `author_insertKey`, then submit `session.set_keys` keeping the aura key unchanged.
-///
-/// The new AD key is derived from `//<NameCapitalised>/rotated` (e.g. `//Alice/rotated`),
-/// which is provably different from the genesis AD key derived from `//<NameCapitalised>`.
-/// The aura key is re-derived from `//<NameCapitalised>` and left identical to genesis,
-/// so authoring identity is stable across the rotation.
+/// For each collator: insert a fresh AD key (`//<Name>/rotated`) into the keystore and
+/// re-submit `session.set_keys` with the same aura key + new AD key.
 async fn rotate_authority_discovery_keys(
 	network: &Network<LocalFileSystem>,
 	names: &[&str],
@@ -325,10 +308,6 @@ async fn wait_for_authorities_change(
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Mesh assertion.
-// ---------------------------------------------------------------------------
-
 /// Assert the full collator-to-collator mesh after keys have taken effect.
 async fn assert_full_collator_mesh(
 	network: &Network<LocalFileSystem>,
@@ -438,10 +417,6 @@ async fn assert_full_collator_mesh(
 	Ok(())
 }
 
-// ---------------------------------------------------------------------------
-// Test entry point.
-// ---------------------------------------------------------------------------
-
 #[tokio::test(flavor = "multi_thread")]
 async fn collator_discovery_full_mesh_with_tight_non_reserved_budget() -> Result<(), anyhow::Error>
 {
@@ -491,13 +466,9 @@ async fn collator_discovery_full_mesh_with_tight_non_reserved_budget() -> Result
 	log::info!("AuthorityDiscovery.Keys are now populated");
 
 	// Step 3: capture the migration-seeded AD authority set, then rotate keys.
-	//
-	// The migration writes `AuthorityDiscovery::Keys` using each authority's aura sr25519
-	// pubkey as the on-chain AD pubkey, but no node has an `audi` keystore entry yet —
-	// so the AD worker has nothing to sign DHT records with, and the mesh cannot form
-	// before this rotation. `author_insertKey` + `session.set_keys` puts a real `audi`
-	// key into each collator's keystore, after which the worker publishes signed records
-	// that other collators can resolve.
+	// The migration seeds `AuthorityDiscovery::Keys` with the aura pubkeys, but no node has
+	// the matching `audi` private key yet, so the AD worker can't publish DHT records until
+	// we rotate to real keys.
 	let initial_authorities = read_authority_discovery_authorities(&para_client).await?;
 	log::info!(
 		"Captured {} migration-seeded AD authorities; rotating to real AD keys",

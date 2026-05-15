@@ -258,7 +258,6 @@ async fn discovery_refresh_loop<Block, Client, AD>(
 				.unwrap_or(false);
 		}
 		if ad_enabled {
-			// This is cheap, it's all in memory.
 			let local_pub_keys: HashSet<AuthorityId> = keystore
 				.sr25519_public_keys(key_types::AUTHORITY_DISCOVERY)
 				.into_iter()
