@@ -742,10 +742,13 @@ where
 				let _ = tx.send(peers_info);
 			},
 			ToServiceCommand::SetNoSlotPeers(peers) => {
+				let connected_peers = &self.peers;
 				apply_no_slot_set(
-					self.peers.iter().map(|(peer_id, peer)| {
-						(*peer_id, peer.inbound && peer.info.roles.is_full())
-					}),
+					|peer_id| {
+						connected_peers
+							.get(peer_id)
+							.map(|peer| peer.inbound && peer.info.roles.is_full())
+					},
 					&self.default_peers_set_no_slot_peers,
 					&self.dynamic_no_slot_peers,
 					&peers,
@@ -1179,41 +1182,12 @@ where
 	}
 }
 
-#[derive(Debug, PartialEq, Eq)]
-enum NoSlotReconcile {
-	/// Peer enters the no-slot set.
-	Promote,
-	/// Peer leaves the dynamic no-slot set (only possible when not also in the static set).
-	Demote,
-	/// Membership unchanged.
-	Unchanged,
-}
-
-fn reconcile_no_slot(was_no_slot: bool, is_no_slot: bool) -> NoSlotReconcile {
-	match (was_no_slot, is_no_slot) {
-		(false, true) => NoSlotReconcile::Promote,
-		(true, false) => NoSlotReconcile::Demote,
-		_ => NoSlotReconcile::Unchanged,
-	}
-}
-
-/// Reconcile per-peer slot accounting against a new dynamic no-slot set.
-///
-/// Input `connected_peers` is a list of `(peer_id, affects_slots)` where `affects_slots` is `true`
-/// iff the peer occupies an inbound full-node slot.
-///
-/// For each connected peer:
-/// 1. Determine whether the peer was no-slot (member of either the static or the old dynamic set)
-///    and whether it is now no-slot (static set or new dynamic set).
-/// 2. Update `connected_no_slot` membership accordingly.
-/// 3. If the peer affects slots, adjust `num_in_peers` to keep the inbound slot count consistent.
-///
-/// The static set takes precedence: a peer in the static set is always no-slot regardless of the
-/// dynamic set, so removing it from the dynamic set must be a no-op for slot accounting.
+/// Update per-peer slot tracking for changes in the dynamic no-slot set.
+/// Promotes newly added peers, demotes removed ones, ignoring static no-slot peers.
 ///
 /// Caller needs to update `dynamic_no_slot_peers` after calling this function.
 fn apply_no_slot_set(
-	connected_peers: impl Iterator<Item = (PeerId, bool)>,
+	peer_status: impl Fn(&PeerId) -> Option<bool>,
 	static_no_slot: &HashSet<PeerId>,
 	old_dynamic_no_slot: &HashSet<PeerId>,
 	new_dynamic_no_slot: &HashSet<PeerId>,
@@ -1223,35 +1197,39 @@ fn apply_no_slot_set(
 	let mut promoted = 0;
 	let mut demoted = 0;
 
-	for (peer_id, affects_slots) in connected_peers {
-		let static_no_slot_peer = static_no_slot.contains(&peer_id);
-		let was_no_slot = static_no_slot_peer || old_dynamic_no_slot.contains(&peer_id);
-		let is_no_slot = static_no_slot_peer || new_dynamic_no_slot.contains(&peer_id);
+	for peer_id in new_dynamic_no_slot.difference(old_dynamic_no_slot) {
+		if static_no_slot.contains(peer_id) {
+			continue;
+		}
+		let Some(affects_slots) = peer_status(peer_id) else {
+			continue;
+		};
+		connected_no_slot.insert(*peer_id);
+		if affects_slots {
+			match num_in_peers.checked_sub(1) {
+				Some(n) => *num_in_peers = n,
+				None => {
+					log::error!(
+						target: LOG_TARGET,
+						"num_in_peers underflow promoting {peer_id} to no-slot",
+					);
+					debug_assert!(false);
+				},
+			}
+			promoted += 1;
+		}
+	}
 
-		match reconcile_no_slot(was_no_slot, is_no_slot) {
-			NoSlotReconcile::Promote => {
-				connected_no_slot.insert(peer_id);
-				if affects_slots {
-					match num_in_peers.checked_sub(1) {
-						Some(n) => *num_in_peers = n,
-						None => {
-							log::warn!(
-								target: LOG_TARGET,
-								"num_in_peers underflow promoting {peer_id} to no-slot",
-							);
-							debug_assert!(false);
-						},
-					}
-					promoted += 1;
-				}
-			},
-			NoSlotReconcile::Demote => {
-				if connected_no_slot.remove(&peer_id) && affects_slots {
-					*num_in_peers += 1;
-					demoted += 1;
-				}
-			},
-			NoSlotReconcile::Unchanged => {},
+	for peer_id in old_dynamic_no_slot.difference(new_dynamic_no_slot) {
+		if static_no_slot.contains(peer_id) {
+			continue;
+		}
+		let Some(affects_slots) = peer_status(peer_id) else {
+			continue;
+		};
+		if connected_no_slot.remove(peer_id) && affects_slots {
+			*num_in_peers += 1;
+			demoted += 1;
 		}
 	}
 
@@ -1267,22 +1245,6 @@ fn apply_no_slot_set(
 #[cfg(test)]
 mod tests {
 	use super::*;
-
-	#[test]
-	fn reconcile_promote_on_gain() {
-		assert_eq!(reconcile_no_slot(false, true), NoSlotReconcile::Promote);
-	}
-
-	#[test]
-	fn reconcile_demote_on_loss() {
-		assert_eq!(reconcile_no_slot(true, false), NoSlotReconcile::Demote);
-	}
-
-	#[test]
-	fn reconcile_unchanged_when_stable() {
-		assert_eq!(reconcile_no_slot(false, false), NoSlotReconcile::Unchanged);
-		assert_eq!(reconcile_no_slot(true, true), NoSlotReconcile::Unchanged);
-	}
 
 	fn fresh_peers<const N: usize>() -> [PeerId; N] {
 		std::array::from_fn(|_| PeerId::random())
@@ -1303,10 +1265,11 @@ mod tests {
 		initial_connected_no_slot: HashSet<PeerId>,
 		initial_num_in_peers: usize,
 	) -> (HashSet<PeerId>, usize) {
+		let peer_status: HashMap<PeerId, bool> = connected.into_iter().collect();
 		let mut connected_no_slot = initial_connected_no_slot;
 		let mut num_in_peers = initial_num_in_peers;
 		apply_no_slot_set(
-			connected.into_iter(),
+			|peer_id| peer_status.get(peer_id).copied(),
 			&static_no_slot,
 			&old_dynamic,
 			&new_dynamic,

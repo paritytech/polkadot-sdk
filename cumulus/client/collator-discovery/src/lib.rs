@@ -65,6 +65,7 @@ pub struct CollatorDiscoveryConfig {
 
 /// Parameters for [`maybe_start_collator_discovery`].
 pub struct StartCollatorDiscoveryParams<Block: BlockT, Client, AD, NetEventStream> {
+	/// True if this node is a collator. Only collators must run AD.
 	pub is_validator: bool,
 	/// `0` disables collator discovery.
 	pub max_reserved: usize,
@@ -242,12 +243,6 @@ async fn discovery_refresh_loop<Block, Client, AD>(
 {
 	let CollatorDiscoveryConfig { max_reserved, protocol } = config;
 
-	let local_pub_keys: HashSet<AuthorityId> = keystore
-		.sr25519_public_keys(key_types::AUTHORITY_DISCOVERY)
-		.into_iter()
-		.map(AuthorityId::from)
-		.collect();
-
 	let local_peer_id = network.local_peer_id();
 	let mut state = LoopState::new();
 	let mut ad_enabled = false;
@@ -263,6 +258,12 @@ async fn discovery_refresh_loop<Block, Client, AD>(
 				.unwrap_or(false);
 		}
 		if ad_enabled {
+			// This is cheap, it's all in memory.
+			let local_pub_keys: HashSet<AuthorityId> = keystore
+				.sr25519_public_keys(key_types::AUTHORITY_DISCOVERY)
+				.into_iter()
+				.map(AuthorityId::from)
+				.collect();
 			update_parachain_authorities(
 				&*authority_discovery,
 				&*network,
