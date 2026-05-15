@@ -62,27 +62,35 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 			IStorageCalls::clearStorage(IStorage::clearStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)
 					.map_err(|_| Error::Revert("invalid storage flag".into()))?;
-				let costs = |len| {
-					if transient {
-						RuntimeCosts::ClearTransientStorage(len)
-					} else {
-						RuntimeCosts::ClearStorage(len)
-					}
-				};
-				let charged = env.frame_meter_mut().charge_weight_token(costs(max_size))?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
 					.map_err(|_| Error::Revert("failed decoding key".into()))?;
-				let outcome = if transient {
-					env.set_transient_storage(&key, None, false)
-						.map_err(|_| Error::Revert("failed setting transient storage".into()))?
+				if transient {
+					let charged = env
+						.frame_meter_mut()
+						.charge_weight_token(RuntimeCosts::ClearTransientStorage(max_size))?;
+					let outcome = env
+						.set_transient_storage(&key, None, false)
+						.map_err(|_| Error::Revert("failed setting transient storage".into()))?;
+					let contained_key = outcome != WriteOutcome::New;
+					let ret = (contained_key, outcome.old_len());
+					env.frame_meter_mut().adjust_weight(
+						charged,
+						RuntimeCosts::ClearTransientStorage(outcome.old_len()),
+					);
+					Ok(ret.abi_encode())
 				} else {
-					env.set_storage(&key, None, false)
-						.map_err(|_| Error::Revert("failed setting storage".into()))?
-				};
-				let contained_key = outcome != WriteOutcome::New;
-				let ret = (contained_key, outcome.old_len());
-				env.frame_meter_mut().adjust_weight(charged, costs(outcome.old_len()));
-				Ok(ret.abi_encode())
+					// Persistent: charge-flow inversion using returned costs.
+					let (result, costs) = env.set_storage(&key, None, false);
+					let outcome = result
+						.map_err(|_| Error::Revert("failed setting storage".into()))?;
+					let contained_key = outcome != WriteOutcome::New;
+					let ret = (contained_key, outcome.old_len());
+					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ClearStorage {
+						len: outcome.old_len(),
+						costs,
+					})?;
+					Ok(ret.abi_encode())
+				}
 			},
 			IStorageCalls::containsStorage(IStorage::containsStorageCall {
 				flags,
@@ -91,51 +99,85 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 			}) => {
 				let transient = is_transient(*flags)
 					.map_err(|_| Error::Revert("invalid storage flag".into()))?;
-				let costs = |len| {
-					if transient {
-						RuntimeCosts::ContainsTransientStorage(len)
-					} else {
-						RuntimeCosts::ContainsStorage(len)
-					}
-				};
-				let charged = env.frame_meter_mut().charge_weight_token(costs(max_size))?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
 					.map_err(|_| Error::Revert("failed decoding key".into()))?;
-				let outcome = if transient {
-					env.get_transient_storage_size(&key)
+				if transient {
+					let charged = env.frame_meter_mut().charge_weight_token(
+						RuntimeCosts::ContainsTransientStorage(max_size),
+					)?;
+					let outcome = env.get_transient_storage_size(&key);
+					let value_len = outcome.unwrap_or(0);
+					let ret = (outcome.is_some(), value_len);
+					env.frame_meter_mut().adjust_weight(
+						charged,
+						RuntimeCosts::ContainsTransientStorage(value_len),
+					);
+					Ok(ret.abi_encode())
 				} else {
-					env.get_storage_size(&key)
-				};
-				let value_len = outcome.unwrap_or(0);
-				let ret = (outcome.is_some(), value_len);
-				env.frame_meter_mut().adjust_weight(charged, costs(value_len));
-				Ok(ret.abi_encode())
+					// Persistent: containsStorage performs a size lookup,
+					// not a full read. Approximate the access-list touch
+					// cost by routing through `get_storage_size` and
+					// recording a touch via a parallel read of the slot.
+					// For now, charge with `is_cold: None` (no read cost)
+					// since the size lookup doesn't surface a touch through
+					// the current Ext API. TODO: thread a touch through
+					// `get_storage_size` if cold/warm pricing matters here.
+					let charged = env.frame_meter_mut().charge_weight_token(
+						RuntimeCosts::ContainsStorage {
+							len: max_size,
+							costs: Default::default(),
+						},
+					)?;
+					let outcome = env.get_storage_size(&key);
+					let value_len = outcome.unwrap_or(0);
+					let ret = (outcome.is_some(), value_len);
+					env.frame_meter_mut().adjust_weight(
+						charged,
+						RuntimeCosts::ContainsStorage {
+							len: value_len,
+							costs: Default::default(),
+						},
+					);
+					Ok(ret.abi_encode())
+				}
 			},
 			IStorageCalls::takeStorage(IStorage::takeStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)
 					.map_err(|_| Error::Revert("invalid storage flag".into()))?;
-				let costs = |len| {
-					if transient {
-						RuntimeCosts::TakeTransientStorage(len)
-					} else {
-						RuntimeCosts::TakeStorage(len)
-					}
-				};
-				let charged = env.frame_meter_mut().charge_weight_token(costs(max_size))?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
 					.map_err(|_| Error::Revert("failed decoding key".into()))?;
-				let outcome = if transient {
-					env.set_transient_storage(&key, None, true)?
+				if transient {
+					let charged = env
+						.frame_meter_mut()
+						.charge_weight_token(RuntimeCosts::TakeTransientStorage(max_size))?;
+					let outcome = env.set_transient_storage(&key, None, true)?;
+					if let crate::storage::WriteOutcome::Taken(value) = outcome {
+						env.frame_meter_mut().adjust_weight(
+							charged,
+							RuntimeCosts::TakeTransientStorage(value.len() as u32),
+						);
+						Ok(value.abi_encode())
+					} else {
+						env.frame_meter_mut()
+							.adjust_weight(charged, RuntimeCosts::TakeTransientStorage(0));
+						Ok(Vec::<u8>::new().abi_encode())
+					}
 				} else {
-					env.set_storage(&key, None, true)?
-				};
-
-				if let crate::storage::WriteOutcome::Taken(value) = outcome {
-					env.frame_meter_mut().adjust_weight(charged, costs(value.len() as u32));
-					Ok(value.abi_encode())
-				} else {
-					env.frame_meter_mut().adjust_weight(charged, costs(0));
-					Ok(Vec::<u8>::new().abi_encode())
+					// Persistent: charge-flow inversion using returned costs.
+					let (result, costs) = env.set_storage(&key, None, true);
+					let outcome = result?;
+					let len = if let crate::storage::WriteOutcome::Taken(ref value) = outcome {
+						value.len() as u32
+					} else {
+						0
+					};
+					env.frame_meter_mut()
+						.charge_weight_token(RuntimeCosts::TakeStorage { len, costs })?;
+					if let crate::storage::WriteOutcome::Taken(value) = outcome {
+						Ok(value.abi_encode())
+					} else {
+						Ok(Vec::<u8>::new().abi_encode())
+					}
 				}
 			},
 		}

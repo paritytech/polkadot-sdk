@@ -16,10 +16,17 @@
 // limitations under the License.
 
 use crate::{
-	Config, limits, metering::Token, weightinfo_extension::OnFinalizeBlockParts,
+	Config,
+	access_list::{GetStorageReadCosts, SetStorageReadCosts},
+	limits,
+	metering::Token,
+	weightinfo_extension::OnFinalizeBlockParts,
 	weights::WeightInfo,
 };
-use frame_support::weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND};
+use frame_support::{
+	traits::Get,
+	weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
+};
 
 /// Current approximation of the gas/s consumption considering
 /// EVM execution over compiled WASM (on 4.4Ghz CPU).
@@ -100,18 +107,18 @@ pub enum RuntimeCosts {
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
 	DepositEvent { num_topic: u32, len: u32 },
 	/// Weight of calling `seal_set_storage` for the given storage item sizes.
-	SetStorage { old_bytes: u32, new_bytes: u32 },
+	SetStorage { old_bytes: u32, new_bytes: u32, costs: SetStorageReadCosts },
 	/// Weight of calling the `clearStorage` function of the `Storage` pre-compile
 	/// per cleared byte.
-	ClearStorage(u32),
+	ClearStorage { len: u32, costs: SetStorageReadCosts },
 	/// Weight of calling the `containsStorage` function of the `Storage` pre-compile
 	/// per byte of the checked item.
-	ContainsStorage(u32),
+	ContainsStorage { len: u32, costs: GetStorageReadCosts },
 	/// Weight of calling `seal_get_storage` with the specified size in storage.
-	GetStorage(u32),
+	GetStorage { len: u32, costs: GetStorageReadCosts },
 	/// Weight of calling the `takeStorage` function of the `Storage` pre-compile
 	/// for the given size.
-	TakeStorage(u32),
+	TakeStorage { len: u32, costs: SetStorageReadCosts },
 	/// Weight of calling `seal_set_transient_storage` for the given storage item sizes.
 	SetTransientStorage { old_bytes: u32, new_bytes: u32 },
 	/// Weight of calling `seal_clear_transient_storage` per cleared byte.
@@ -230,6 +237,20 @@ impl<T: Config> Token<T> for RuntimeCosts {
 	}
 
 	fn weight(&self) -> Weight {
+		// Dispatch between the legacy single-benchmark-per-opcode model and
+		// the new EIP-2929-inspired cold/warm pricing model. The flag defaults
+		// to `false` everywhere; the new path is dead until a runtime opts in.
+		if !<T as Config>::ColdWarmPricingEnabled::get() {
+			self.legacy_weight::<T>()
+		} else {
+			self.new_weight::<T>()
+		}
+	}
+}
+
+impl RuntimeCosts {
+	/// Legacy single-benchmark-per-opcode weight (pre cold/warm work).
+	fn legacy_weight<T: Config>(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match *self {
 			HostFn => cost_args!(noop_host_fn, 1),
@@ -277,13 +298,13 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					limits::EXTRA_EVENT_CHARGE_PER_BYTE.saturating_mul(len.into()).into(),
 					0,
 				)),
-			SetStorage { new_bytes, old_bytes } => {
+			SetStorage { new_bytes, old_bytes, .. } => {
 				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
 			},
-			ClearStorage(len) => cost_storage!(write, clear_storage, len),
-			ContainsStorage(len) => cost_storage!(read, contains_storage, len),
-			GetStorage(len) => cost_storage!(read, seal_get_storage, len),
-			TakeStorage(len) => cost_storage!(write, take_storage, len),
+			ClearStorage { len, .. } => cost_storage!(write, clear_storage, len),
+			ContainsStorage { len, .. } => cost_storage!(read, contains_storage, len),
+			GetStorage { len, .. } => cost_storage!(read, seal_get_storage, len),
+			TakeStorage { len, .. } => cost_storage!(write, take_storage, len),
 			SetTransientStorage { new_bytes, old_bytes } => {
 				cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes)
 			},
@@ -340,6 +361,33 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Identity(len) => T::WeightInfo::identity(len),
 			Blake2F(rounds) => T::WeightInfo::blake2f(rounds),
 			Modexp(gas) => Weight::from_parts(gas.saturating_mul(WEIGHT_PER_GAS), 0),
+		}
+	}
+
+	/// EIP-2929-inspired cold/warm weight, scoped to storage opcodes only.
+	/// Cold/warm-affected variants compose `cost_read<T>` per substrate read
+	/// they perform on top of the legacy write/clear/contains/take surcharges.
+	/// Other variants fall through to `legacy_weight`.
+	fn new_weight<T: Config>(&self) -> Weight {
+		use self::RuntimeCosts::*;
+		match self {
+			GetStorage { len, costs } => crate::access_list::get_storage_weight::<T>(*len, costs),
+			ContainsStorage { len, costs } =>
+				crate::access_list::get_storage_weight::<T>(*len, costs),
+			SetStorage { new_bytes, old_bytes, costs } => {
+				let write = cost_storage!(write, seal_set_storage, *new_bytes, *old_bytes);
+				crate::access_list::set_storage_weight::<T>(*old_bytes, *new_bytes, costs)
+					.saturating_add(write)
+			},
+			ClearStorage { len, costs } => {
+				let write = cost_storage!(write, clear_storage, *len);
+				crate::access_list::set_storage_weight::<T>(*len, 0, costs).saturating_add(write)
+			},
+			TakeStorage { len, costs } => {
+				let write = cost_storage!(write, take_storage, *len);
+				crate::access_list::set_storage_weight::<T>(*len, 0, costs).saturating_add(write)
+			},
+			_ => self.legacy_weight::<T>(),
 		}
 	}
 }

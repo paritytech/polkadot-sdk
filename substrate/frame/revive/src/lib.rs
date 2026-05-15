@@ -22,6 +22,7 @@
 
 extern crate alloc;
 
+mod access_list;
 mod address;
 mod benchmarking;
 #[cfg(any(feature = "runtime-benchmarks", test))]
@@ -283,6 +284,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type AllowEVMBytecode: Get<bool>;
 
+		/// Enable EIP-2929-style cold/warm pricing for storage opcodes
+		/// (SLOAD / SSTORE and the storage precompile). When `false`, the legacy
+		/// single-benchmark weight model is used and behavior is bit-identical to
+		/// before the cold/warm work landed.
+		#[pallet::constant]
+		type ColdWarmPricingEnabled: Get<bool>;
+
 		/// Origin allowed to upload code.
 		///
 		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to upload contract
@@ -460,6 +468,7 @@ pub mod pallet {
 			type DepositPerChildTrieItem = DepositPerChildTrieItem;
 			type Time = Self;
 			type AllowEVMBytecode = ConstBool<true>;
+			type ColdWarmPricingEnabled = ConstBool<false>;
 			type UploadOrigin = EnsureSigned<Self::AccountId>;
 			type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 			type WeightInfo = ();
@@ -1107,6 +1116,7 @@ pub mod pallet {
 					&<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::SetStorage {
 						new_bytes: limits::STORAGE_BYTES,
 						old_bytes: 0,
+						costs: Default::default(),
 					})
 					.saturating_mul(u64::from(limits::STORAGE_BYTES).saturating_add(max_key_size)),
 				)

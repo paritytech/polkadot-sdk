@@ -118,6 +118,17 @@ impl Key {
 	}
 }
 
+/// Project a [`Key`] onto a 32-byte slot identifier for the access list.
+///
+/// `Fix` is used as-is; `Var` is hashed to 32 bytes so the access-list entry
+/// type stays fixed-size and cheap to compare.
+fn key_to_slot(key: &Key) -> [u8; 32] {
+	match key {
+		Key::Fix(v) => *v,
+		Key::Var(v) => blake2_256(v.as_ref()),
+	}
+}
+
 /// Level of reentrancy protection.
 ///
 /// This needs to be specifed when a contract makes a message call. This way the calling contract
@@ -522,11 +533,15 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// The amount of gas left in eth gas units.
 	fn gas_left(&self) -> u64;
 
-	/// Returns the storage entry of the executing account by the given `key`.
+	/// Returns the storage entry of the executing account by the given `key`,
+	/// alongside the cold/warm cost struct recording the access-list touch.
 	///
-	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
-	/// was deleted.
-	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>>;
+	/// The value is `None` if the `key` wasn't previously set by `set_storage`
+	/// or was deleted.
+	fn get_storage(
+		&mut self,
+		key: &Key,
+	) -> (Option<Vec<u8>>, crate::access_list::GetStorageReadCosts);
 
 	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
 	///
@@ -535,13 +550,14 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn get_storage_size(&mut self, key: &Key) -> Option<u32>;
 
 	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
-	/// the storage entry is deleted.
+	/// the storage entry is deleted. The accompanying `SetStorageReadCosts`
+	/// records the access-list touch for the implicit read-of-old-value.
 	fn set_storage(
 		&mut self,
 		key: &Key,
 		value: Option<Vec<u8>>,
 		take_old: bool,
-	) -> Result<WriteOutcome, DispatchError>;
+	) -> (Result<WriteOutcome, DispatchError>, crate::access_list::SetStorageReadCosts);
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -637,6 +653,9 @@ pub struct Stack<'a, T: Config, E> {
 	first_frame: Frame<T>,
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
+	/// Per-transaction cold/warm access list for storage slots (EIP-2929 style,
+	/// scoped to SLOAD/SSTORE and the storage precompile).
+	access_list: crate::access_list::AccessList,
 	/// Global behavior determined by the creater of this stack.
 	exec_config: &'a ExecConfig<T>,
 	/// No executable is held by the struct but influences its behaviour.
@@ -1034,6 +1053,11 @@ where
 			first_frame,
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
+			access_list: if <T as Config>::ColdWarmPricingEnabled::get() {
+				crate::access_list::AccessList::new_enabled()
+			} else {
+				crate::access_list::AccessList::new_disabled()
+			},
 			exec_config,
 			_phantom: Default::default(),
 		};
@@ -1297,6 +1321,12 @@ where
 			transient_storage.start_transaction();
 		});
 		let is_first_frame = self.frames.is_empty();
+		// Open an access-list frame for nested CALL/CREATE. The outermost
+		// run is intentionally skipped — its touches land in the bare
+		// journal and persist for the whole transaction.
+		if !is_first_frame {
+			self.access_list.enter_frame();
+		}
 
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
@@ -1548,6 +1578,15 @@ where
 				transient_storage.rollback_transaction();
 			}
 		});
+		// Close the access-list frame, mirroring the transient_storage hook.
+		// Skip on the outermost run (mirrors `enter_frame` gating above).
+		if !is_first_frame {
+			if success {
+				self.access_list.commit_frame();
+			} else {
+				self.access_list.rollback_frame();
+			}
+		}
 		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 
 		self.pop_frame(success);
@@ -2523,9 +2562,16 @@ where
 		frame.frame_meter.eth_gas_left().unwrap_or_default().saturated_into::<u64>()
 	}
 
-	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {
+	fn get_storage(
+		&mut self,
+		key: &Key,
+	) -> (Option<Vec<u8>>, crate::access_list::GetStorageReadCosts) {
+		use crate::access_list::{AccessEntry, GetStorageReadCosts};
 		assert!(self.has_contract_info());
-		self.top_frame_mut().contract_info().read(key)
+		let address = T::AddressMapper::to_address(self.account_id());
+		let is_cold = self.access_list.touch(AccessEntry { address, slot: key_to_slot(key) });
+		let value = self.top_frame_mut().contract_info().read(key);
+		(value, GetStorageReadCosts { is_cold: Some(is_cold) })
 	}
 
 	fn get_storage_size(&mut self, key: &Key) -> Option<u32> {
@@ -2538,15 +2584,19 @@ where
 		key: &Key,
 		value: Option<Vec<u8>>,
 		take_old: bool,
-	) -> Result<WriteOutcome, DispatchError> {
+	) -> (Result<WriteOutcome, DispatchError>, crate::access_list::SetStorageReadCosts) {
+		use crate::access_list::{AccessEntry, SetStorageReadCosts};
 		assert!(self.has_contract_info());
+		let address = T::AddressMapper::to_address(self.account_id());
+		let is_cold = self.access_list.touch(AccessEntry { address, slot: key_to_slot(key) });
 		let frame = self.top_frame_mut();
-		frame.contract_info.get(&frame.account_id).write(
+		let result = frame.contract_info.get(&frame.account_id).write(
 			key.into(),
 			value,
 			Some(&mut frame.frame_meter),
 			take_old,
-		)
+		);
+		(result, SetStorageReadCosts { is_cold: Some(is_cold) })
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {

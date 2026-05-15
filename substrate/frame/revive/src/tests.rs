@@ -43,7 +43,8 @@ use frame_support::{
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstU32, ConstU128, FindAuthor, OriginTrait, StorageVersion,
+		AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU128, FindAuthor, OriginTrait,
+		StorageVersion,
 		tokens::imbalance::ResolveTo,
 	},
 	weights::{FixedFee, Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
@@ -439,6 +440,7 @@ impl Config for Test {
 	type DepositPerItem = DepositPerItem;
 	type DepositPerChildTrieItem = DepositPerItem;
 	type AllowEVMBytecode = AllowEvmBytecode;
+	type ColdWarmPricingEnabled = ConstBool<false>;
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;

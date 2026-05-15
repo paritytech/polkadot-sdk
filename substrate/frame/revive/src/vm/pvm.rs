@@ -483,13 +483,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		value: StorageValue,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
-		let costs = |new_bytes: u32, old_bytes: u32| {
-			if transient {
-				RuntimeCosts::SetTransientStorage { new_bytes, old_bytes }
-			} else {
-				RuntimeCosts::SetStorage { new_bytes, old_bytes }
-			}
-		};
 
 		let value_len = match &value {
 			StorageValue::Memory { ptr: _, len } => *len,
@@ -497,26 +490,55 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		};
 
 		let max_size = limits::STORAGE_BYTES;
-		let charged = self.charge_gas(costs(value_len, max_size))?;
 		if value_len > max_size {
+			// Charge the worst-case token so the meter reflects the failed
+			// attempt before returning.
+			if transient {
+				self.charge_gas(RuntimeCosts::SetTransientStorage {
+					new_bytes: value_len,
+					old_bytes: max_size,
+				})?;
+			} else {
+				self.charge_gas(RuntimeCosts::SetStorage {
+					new_bytes: value_len,
+					old_bytes: max_size,
+					costs: Default::default(),
+				})?;
+			}
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
 		let key = self.decode_key(memory, key_ptr, key_len)?;
-
 		let value = match value {
 			StorageValue::Memory { ptr, len } => Some(memory.read(ptr, len)?),
 			StorageValue::Value(data) => Some(data),
 		};
 
-		let write_outcome = if transient {
-			self.ext.set_transient_storage(&key, value, false)?
+		if transient {
+			let charged = self.charge_gas(RuntimeCosts::SetTransientStorage {
+				new_bytes: value_len,
+				old_bytes: max_size,
+			})?;
+			let write_outcome = self.ext.set_transient_storage(&key, value, false)?;
+			self.adjust_gas(
+				charged,
+				RuntimeCosts::SetTransientStorage {
+					new_bytes: value_len,
+					old_bytes: write_outcome.old_len(),
+				},
+			);
+			Ok(write_outcome.old_len_with_sentinel())
 		} else {
-			self.ext.set_storage(&key, value, false)?
-		};
-
-		self.adjust_gas(charged, costs(value_len, write_outcome.old_len()));
-		Ok(write_outcome.old_len_with_sentinel())
+			// Persistent: charge-flow inversion using returned costs.
+			let (result, costs) = self.ext.set_storage(&key, value, false);
+			let write_outcome = result?;
+			self.charge_gas(RuntimeCosts::SetStorage {
+				new_bytes: value_len,
+				old_bytes: write_outcome.old_len(),
+				costs,
+			})?;
+			Ok(write_outcome.old_len_with_sentinel())
+		}
 	}
 
 	fn clear_storage(
@@ -527,22 +549,20 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		key_len: u32,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
-		let costs = |len| {
-			if transient {
-				RuntimeCosts::ClearTransientStorage(len)
-			} else {
-				RuntimeCosts::ClearStorage(len)
-			}
-		};
-		let charged = self.charge_gas(costs(limits::STORAGE_BYTES))?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let outcome = if transient {
-			self.ext.set_transient_storage(&key, None, false)?
+		if transient {
+			let charged = self
+				.charge_gas(RuntimeCosts::ClearTransientStorage(limits::STORAGE_BYTES))?;
+			let outcome = self.ext.set_transient_storage(&key, None, false)?;
+			self.adjust_gas(charged, RuntimeCosts::ClearTransientStorage(outcome.old_len()));
+			Ok(outcome.old_len_with_sentinel())
 		} else {
-			self.ext.set_storage(&key, None, false)?
-		};
-		self.adjust_gas(charged, costs(outcome.old_len()));
-		Ok(outcome.old_len_with_sentinel())
+			// Persistent: charge-flow inversion using returned costs.
+			let (result, costs) = self.ext.set_storage(&key, None, false);
+			let outcome = result?;
+			self.charge_gas(RuntimeCosts::ClearStorage { len: outcome.old_len(), costs })?;
+			Ok(outcome.old_len_with_sentinel())
+		}
 	}
 
 	fn get_storage(
@@ -555,23 +575,25 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		read_mode: StorageReadMode,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let transient = Self::is_transient(flags)?;
-		let costs = |len| {
-			if transient {
-				RuntimeCosts::GetTransientStorage(len)
-			} else {
-				RuntimeCosts::GetStorage(len)
-			}
-		};
-		let charged = self.charge_gas(costs(limits::STORAGE_BYTES))?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let outcome = if transient {
-			self.ext.get_transient_storage(&key)
+		// Transient: legacy adjust_weight. Persistent: charge-flow inversion
+		// using the returned cold/warm cost struct.
+		let (outcome, persistent_costs) = if transient {
+			let charged = self
+				.charge_gas(RuntimeCosts::GetTransientStorage(limits::STORAGE_BYTES))?;
+			let outcome = self.ext.get_transient_storage(&key);
+			let len = outcome.as_ref().map(|v| v.len() as u32).unwrap_or(0);
+			self.adjust_gas(charged, RuntimeCosts::GetTransientStorage(len));
+			(outcome, None)
 		} else {
-			self.ext.get_storage(&key)
+			let (outcome, costs) = self.ext.get_storage(&key);
+			let len = outcome.as_ref().map(|v| v.len() as u32).unwrap_or(0);
+			self.charge_gas(RuntimeCosts::GetStorage { len, costs })?;
+			(outcome, Some(costs))
 		};
+		let _ = persistent_costs; // for documentation / future tracing
 
 		if let Some(value) = outcome {
-			self.adjust_gas(charged, costs(value.len() as u32));
 
 			match read_mode {
 				StorageReadMode::FixedOutput32 => {
@@ -601,8 +623,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				},
 			}
 		} else {
-			self.adjust_gas(charged, costs(0));
-
 			match read_mode {
 				StorageReadMode::FixedOutput32 => {
 					self.write_fixed_sandbox_output(

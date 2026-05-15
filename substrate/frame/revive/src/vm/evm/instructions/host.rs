@@ -110,10 +110,11 @@ pub fn blockhash<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> 
 /// Loads a word from storage.
 pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
-	// NB: SLOAD loads 32 bytes from storage (i.e. U256).
-	interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage(32))?;
 	let key = Key::Fix(index.to_big_endian());
-	let value = interpreter.ext.get_storage(&key);
+	// Charge-flow inversion: call ext first so the access-list touch happens
+	// before the charge, then charge with the returned cold/warm cost struct.
+	let (value, costs) = interpreter.ext.get_storage(&key);
+	interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage { len: 32, costs })?;
 
 	*index = if let Some(storage_value) = value {
 		// sload always reads a word
@@ -161,15 +162,34 @@ fn store_helper<'ext, E: Ext>(
 
 /// Implements the SSTORE instruction.
 ///
-/// Stores a word to storage.
+/// Stores a word to storage. Inlined out of `store_helper` so the cold/warm
+/// `SetStorageReadCosts` can flow back into the charge token; TSTORE keeps
+/// the legacy adjust_weight shape via `store_helper`.
 pub fn sstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	let old_bytes = limits::STORAGE_BYTES;
-	store_helper(
-		interpreter,
-		RuntimeCosts::SetStorage { new_bytes: 32, old_bytes },
-		|ext, key, value, take_old| ext.set_storage(key, value, take_old),
-		|new_bytes, old_bytes| RuntimeCosts::SetStorage { new_bytes, old_bytes },
-	)
+	if interpreter.ext.is_read_only() {
+		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
+	}
+
+	let [index, value] = interpreter.stack.popn()?;
+	let key = Key::Fix(index.to_big_endian());
+	let (value_to_store, new_bytes) =
+		if value.is_zero() { (None, 0) } else { (Some(value.to_big_endian().to_vec()), 32) };
+
+	let (write_outcome, costs) = interpreter.ext.set_storage(&key, value_to_store, false);
+	let write_outcome = match write_outcome {
+		Ok(o) => o,
+		Err(_) => return ControlFlow::Break(Error::<E::T>::ContractTrapped.into()),
+	};
+
+	// Charge-flow inversion: charge AFTER ext call with real `old_bytes` and
+	// the returned cold/warm cost struct.
+	interpreter.ext.charge_or_halt(RuntimeCosts::SetStorage {
+		new_bytes,
+		old_bytes: write_outcome.old_len(),
+		costs,
+	})?;
+
+	ControlFlow::Continue(())
 }
 
 /// EIP-1153: Transient storage opcodes
