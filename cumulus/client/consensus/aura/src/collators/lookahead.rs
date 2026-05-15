@@ -334,10 +334,10 @@ where
 				};
 
 			let parent_search_result = match crate::collators::find_parent(
-				relay_parent,
-				params.para_id,
-				&*params.para_backend,
 				&params.relay_client,
+				&*params.para_backend,
+				params.para_id,
+				relay_parent,
 				|_| true,
 			)
 			.await
