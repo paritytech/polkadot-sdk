@@ -16,6 +16,7 @@
 // limitations under the License.
 use crate::{
 	DispatchError, Error, Key, LOG_TARGET, RuntimeCosts, U256, limits,
+	access_list::StorageAccessCost,
 	metering::Token,
 	storage::WriteOutcome,
 	vec::Vec,
@@ -111,10 +112,16 @@ pub fn blockhash<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> 
 pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
 	let key = Key::Fix(index.to_big_endian());
-	// Charge-flow inversion: call ext first so the access-list touch happens
-	// before the charge, then charge with the returned cold/warm cost struct.
+	// Pre-charge cold worst-case, then refund the cold/warm delta after the call.
+	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage {
+		len: 32,
+		costs: StorageAccessCost::cold(),
+	})?;
 	let (value, costs) = interpreter.ext.get_storage(&key);
-	interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage { len: 32, costs })?;
+	interpreter
+		.ext
+		.frame_meter_mut()
+		.adjust_weight(charged, RuntimeCosts::GetStorage { len: 32, costs });
 
 	*index = if let Some(storage_value) = value {
 		// sload always reads a word
@@ -130,64 +137,60 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	ControlFlow::Continue(())
 }
 
-fn store_helper<'ext, E: Ext>(
+/// Shared pre-charge + adjust scaffolding for SSTORE/TSTORE.
+///
+/// `C` carries any extra per-call state the cost token needs (e.g. the cold/warm
+/// `StorageAccessCost` for persistent storage). `set_function` returns the
+/// write outcome together with that state; `adjust_cost` builds the actual
+/// cost token from the observed sizes and that state.
+fn store_helper<'ext, E: Ext, C>(
 	interpreter: &mut Interpreter<'ext, E>,
 	cost_before: RuntimeCosts,
-	set_function: fn(&mut E, &Key, Option<Vec<u8>>, bool) -> Result<WriteOutcome, DispatchError>,
-	adjust_cost: fn(new_bytes: u32, old_bytes: u32) -> RuntimeCosts,
+	set_function: fn(
+		&mut E,
+		&Key,
+		Option<Vec<u8>>,
+		bool,
+	) -> (Result<WriteOutcome, DispatchError>, C),
+	adjust_cost: fn(new_bytes: u32, old_bytes: u32, costs: C) -> RuntimeCosts,
 ) -> ControlFlow<Halt> {
 	if interpreter.ext.is_read_only() {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
 
 	let [index, value] = interpreter.stack.popn()?;
-
-	// Charge gas before set_storage and later adjust it down to the true gas cost
 	let charged_amount = interpreter.ext.charge_or_halt(cost_before)?;
 	let key = Key::Fix(index.to_big_endian());
 	let take_old = false;
 	let value_to_store = if value.is_zero() { None } else { Some(value.to_big_endian().to_vec()) };
-	let Ok(write_outcome) = set_function(interpreter.ext, &key, value_to_store.clone(), take_old)
-	else {
-		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
-	};
+	let new_bytes = value_to_store.as_ref().map(|v| v.len() as u32).unwrap_or(0);
+	let (result, costs) = set_function(interpreter.ext, &key, value_to_store, take_old);
 
-	interpreter.ext.frame_meter_mut().adjust_weight(
-		charged_amount,
-		adjust_cost(value_to_store.unwrap_or_default().len() as u32, write_outcome.old_len()),
-	);
+	// Refund regardless of Ok/Err — the cold/warm signal is valid either way.
+	// On Err the real `old_bytes` is unknown, so it stays at worst-case.
+	let old_bytes = result.as_ref().map(|w| w.old_len()).unwrap_or(limits::STORAGE_BYTES);
+	interpreter
+		.ext
+		.frame_meter_mut()
+		.adjust_weight(charged_amount, adjust_cost(new_bytes, old_bytes, costs));
 
-	ControlFlow::Continue(())
+	match result {
+		Ok(_) => ControlFlow::Continue(()),
+		Err(_) => ControlFlow::Break(Error::<E::T>::ContractTrapped.into()),
+	}
 }
 
 /// Implements the SSTORE instruction.
 ///
-/// Stores a word to storage. Inlined out of `store_helper` so the cold/warm
-/// `StorageAccessCost` can flow back into the charge token; TSTORE keeps
-/// the legacy adjust_weight shape via `store_helper`.
+/// Stores a word to storage.
 pub fn sstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	if interpreter.ext.is_read_only() {
-		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
-	}
-
-	let [index, value] = interpreter.stack.popn()?;
-	let key = Key::Fix(index.to_big_endian());
-	let (value_to_store, new_bytes) =
-		if value.is_zero() { (None, 0) } else { (Some(value.to_big_endian().to_vec()), 32) };
-
-	let (write_outcome, costs) = interpreter.ext.set_storage(&key, value_to_store, false);
-	// Charge BEFORE propagating Err so substrate work that already happened
-	// (the access-list touch and any partial write deposit handling) is metered.
-	// On Err we don't know the real old_len, so charge worst-case STORAGE_BYTES.
-	let old_bytes = write_outcome.as_ref().map(|w| w.old_len()).unwrap_or(limits::STORAGE_BYTES);
-	interpreter
-		.ext
-		.charge_or_halt(RuntimeCosts::SetStorage { new_bytes, old_bytes, costs })?;
-	if write_outcome.is_err() {
-		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
-	}
-
-	ControlFlow::Continue(())
+	let old_bytes = limits::STORAGE_BYTES;
+	store_helper(
+		interpreter,
+		RuntimeCosts::SetStorage { new_bytes: 32, old_bytes, costs: StorageAccessCost::cold() },
+		|ext, key, value, take_old| ext.set_storage(key, value, take_old),
+		|new_bytes, old_bytes, costs| RuntimeCosts::SetStorage { new_bytes, old_bytes, costs },
+	)
 }
 
 /// EIP-1153: Transient storage opcodes
@@ -197,8 +200,8 @@ pub fn tstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	store_helper(
 		interpreter,
 		RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes },
-		|ext, key, value, take_old| ext.set_transient_storage(key, value, take_old),
-		|new_bytes, old_bytes| RuntimeCosts::SetTransientStorage { new_bytes, old_bytes },
+		|ext, key, value, take_old| (ext.set_transient_storage(key, value, take_old), ()),
+		|new_bytes, old_bytes, ()| RuntimeCosts::SetTransientStorage { new_bytes, old_bytes },
 	)
 }
 

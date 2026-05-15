@@ -169,6 +169,15 @@ pub struct StorageAccessCost {
 	pub is_cold: Option<bool>,
 }
 
+impl StorageAccessCost {
+	/// Worst-case marker used for pre-charging before an `Ext::*storage` call:
+	/// assume the access is cold, then `adjust_weight` refunds the difference
+	/// once the actual cold/warm status is known.
+	pub const fn cold() -> Self {
+		Self { is_cold: Some(true) }
+	}
+}
+
 // Cold/warm weight helpers.
 //
 // TODO: replace these approximations with dedicated benchmarks

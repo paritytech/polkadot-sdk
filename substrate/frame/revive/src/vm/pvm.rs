@@ -21,6 +21,7 @@ pub mod env;
 
 use crate::{
 	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
+	access_list::StorageAccessCost,
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
@@ -532,13 +533,20 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			);
 			Ok(write_outcome.old_len_with_sentinel())
 		} else {
-			// Persistent: charge BEFORE propagating Err so substrate work that
-			// already happened (the access-list touch and any partial deposit
-			// handling) is metered. On Err the real `old_bytes` is unknown;
-			// charge worst-case `STORAGE_BYTES`.
+			let charged = self.charge_gas(RuntimeCosts::SetStorage {
+				new_bytes: value_len,
+				old_bytes: max_size,
+				costs: StorageAccessCost::cold(),
+			})?;
 			let (result, costs) = self.ext.set_storage(&key, value, false);
+			// Refund regardless of Ok/Err — the cold/warm signal is valid in
+			// both branches. On Err the real `old_bytes` is unknown; keep
+			// worst-case for that part.
 			let old_bytes = result.as_ref().map(|w| w.old_len()).unwrap_or(max_size);
-			self.charge_gas(RuntimeCosts::SetStorage { new_bytes: value_len, old_bytes, costs })?;
+			self.adjust_gas(
+				charged,
+				RuntimeCosts::SetStorage { new_bytes: value_len, old_bytes, costs },
+			);
 			let write_outcome = result?;
 			Ok(write_outcome.old_len_with_sentinel())
 		}
@@ -560,12 +568,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			self.adjust_gas(charged, RuntimeCosts::ClearTransientStorage(outcome.old_len()));
 			Ok(outcome.old_len_with_sentinel())
 		} else {
-			// Persistent: charge BEFORE propagating Err so substrate work that
-			// already happened is metered. On Err the real `len` is unknown;
-			// charge worst-case `STORAGE_BYTES`.
+			let charged = self.charge_gas(RuntimeCosts::ClearStorage {
+				len: limits::STORAGE_BYTES,
+				costs: StorageAccessCost::cold(),
+			})?;
 			let (result, costs) = self.ext.set_storage(&key, None, false);
 			let len = result.as_ref().map(|w| w.old_len()).unwrap_or(limits::STORAGE_BYTES);
-			self.charge_gas(RuntimeCosts::ClearStorage { len, costs })?;
+			self.adjust_gas(charged, RuntimeCosts::ClearStorage { len, costs });
 			let outcome = result?;
 			Ok(outcome.old_len_with_sentinel())
 		}
@@ -582,8 +591,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
-		// Transient: legacy adjust_weight. Persistent: charge-flow inversion
-		// using the returned cold/warm cost struct.
 		let outcome = if transient {
 			let charged =
 				self.charge_gas(RuntimeCosts::GetTransientStorage(limits::STORAGE_BYTES))?;
@@ -592,9 +599,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			self.adjust_gas(charged, RuntimeCosts::GetTransientStorage(len));
 			outcome
 		} else {
+			let charged = self.charge_gas(RuntimeCosts::GetStorage {
+				len: limits::STORAGE_BYTES,
+				costs: StorageAccessCost::cold(),
+			})?;
 			let (outcome, costs) = self.ext.get_storage(&key);
 			let len = outcome.as_ref().map(|v| v.len() as u32).unwrap_or(0);
-			self.charge_gas(RuntimeCosts::GetStorage { len, costs })?;
+			self.adjust_gas(charged, RuntimeCosts::GetStorage { len, costs });
 			outcome
 		};
 

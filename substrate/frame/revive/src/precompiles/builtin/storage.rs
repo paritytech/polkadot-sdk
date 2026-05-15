@@ -17,6 +17,7 @@
 
 use crate::{
 	Config, Key, limits,
+	access_list::StorageAccessCost,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	storage::WriteOutcome,
 	vm::RuntimeCosts,
@@ -75,13 +76,16 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					);
 					(outcome != WriteOutcome::New, outcome.old_len())
 				} else {
-					// Post-charge: `set_storage` returns the access-list `costs`,
-					// so we charge after the call. On Err the real len is
-					// unknown, so we charge worst-case `max_size`.
+					let charged = env.frame_meter_mut().charge_weight_token(
+						RuntimeCosts::ClearStorage {
+							len: max_size,
+							costs: StorageAccessCost::cold(),
+						},
+					)?;
 					let (result, costs) = env.set_storage(&key, None, false);
 					let len = result.as_ref().map(|w| w.old_len()).unwrap_or(max_size);
 					env.frame_meter_mut()
-						.charge_weight_token(RuntimeCosts::ClearStorage { len, costs })?;
+						.adjust_weight(charged, RuntimeCosts::ClearStorage { len, costs });
 					let outcome =
 						result.map_err(|_| Error::Revert("failed setting storage".into()))?;
 					(outcome != WriteOutcome::New, outcome.old_len())
@@ -105,12 +109,18 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 						.adjust_weight(charged, RuntimeCosts::ContainsTransientStorage(value_len));
 					(outcome.is_some(), value_len)
 				} else {
+					let charged = env.frame_meter_mut().charge_weight_token(
+						RuntimeCosts::ContainsStorage {
+							len: max_size,
+							costs: StorageAccessCost::cold(),
+						},
+					)?;
 					let (outcome, costs) = env.get_storage_size(&key);
 					let value_len = outcome.unwrap_or(0);
-					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ContainsStorage {
-						len: value_len,
-						costs,
-					})?;
+					env.frame_meter_mut().adjust_weight(
+						charged,
+						RuntimeCosts::ContainsStorage { len: value_len, costs },
+					);
 					(outcome.is_some(), value_len)
 				};
 				Ok((exists, value_len).abi_encode())
@@ -132,6 +142,12 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					);
 					value
 				} else {
+					let charged = env.frame_meter_mut().charge_weight_token(
+						RuntimeCosts::TakeStorage {
+							len: max_size,
+							costs: StorageAccessCost::cold(),
+						},
+					)?;
 					let (result, costs) = env.set_storage(&key, None, true);
 					let len = match result.as_ref() {
 						Ok(WriteOutcome::Taken(v)) => v.len() as u32,
@@ -139,7 +155,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 						Err(_) => max_size,
 					};
 					env.frame_meter_mut()
-						.charge_weight_token(RuntimeCosts::TakeStorage { len, costs })?;
+						.adjust_weight(charged, RuntimeCosts::TakeStorage { len, costs });
 					match result? {
 						WriteOutcome::Taken(v) => v,
 						_ => Vec::new(),
