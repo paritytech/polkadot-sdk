@@ -16,33 +16,20 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use codec::Decode;
-use polkadot_primitives::Hash as RelayHash;
+use polkadot_primitives::{Block as RelayBlock, Hash as RelayHash, DEFAULT_SCHEDULING_LOOKAHEAD};
 
 use cumulus_primitives_core::{
 	relay_chain::{BlockId as RBlockId, OccupiedCoreAssumption},
 	ParaId,
 };
-use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
+use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 
 use sc_client_api::{Backend, HeaderBackend};
-
+use sc_consensus_babe::contains_epoch_change;
 use sp_blockchain::Backend as BlockchainBackend;
-
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 const LOG_TARGET: &str = "consensus::common::parent_search";
-
-/// Parameters when searching for suitable parents to build on top of.
-#[derive(Debug)]
-pub struct ParentSearchParams {
-	/// The relay-parent that is intended to be used.
-	pub relay_parent: RelayHash,
-	/// The ID of the parachain.
-	pub para_id: ParaId,
-	/// A limitation on the age of relay parents for parachain blocks that are being
-	/// considered. This is relative to the `relay_parent` number.
-	pub ancestry_lookback: usize,
-}
 
 /// A potential parent block returned from [`find_parent_for_building`]
 #[derive(PartialEq, Clone)]
@@ -73,16 +60,21 @@ impl<B: BlockT> std::fmt::Debug for ParentSearchResult<B> {
 ///
 /// Returns `None` if no suitable parent can be found (e.g., included block unknown locally).
 pub async fn find_parent_for_building<B: BlockT>(
-	params: ParentSearchParams,
-	backend: &impl Backend<B>,
 	relay_client: &impl RelayChainInterface,
-) -> Result<Option<ParentSearchResult<B>>, RelayChainError> {
-	tracing::trace!(target: LOG_TARGET, "Parent search parameters: {params:?}");
+	backend: &impl Backend<B>,
+	para_id: ParaId,
+	relay_parent: RelayHash,
+) -> RelayChainResult<Option<ParentSearchResult<B>>> {
+	tracing::trace!(
+		target: LOG_TARGET,
+		?para_id,
+		?relay_parent,
+		"Parent search"
+	);
 
 	// Get the included block.
 	let Some((included_header, included_hash)) =
-		fetch_included_from_relay_chain(relay_client, backend, params.para_id, params.relay_parent)
-			.await?
+		fetch_included_from_relay_chain(relay_client, backend, para_id, relay_parent).await?
 	else {
 		return Ok(None);
 	};
@@ -93,11 +85,7 @@ pub async fn find_parent_for_building<B: BlockT>(
 		// `OccupiedCoreAssumption::Included` so the candidate pending availability gets enacted
 		// before being returned to us.
 		let pending_header = relay_client
-			.persisted_validation_data(
-				params.relay_parent,
-				params.para_id,
-				OccupiedCoreAssumption::Included,
-			)
+			.persisted_validation_data(relay_parent, para_id, OccupiedCoreAssumption::Included)
 			.await?
 			.and_then(|p| B::Header::decode(&mut &p.parent_head.0[..]).ok())
 			.filter(|x| x.hash() != included_hash);
@@ -137,14 +125,18 @@ pub async fn find_parent_for_building<B: BlockT>(
 		None => (included_hash, included_header.clone()),
 	};
 
+	let ancestry_lookback = relay_client
+		.scheduling_lookahead(relay_parent)
+		.await
+		.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
+		.saturating_sub(1) as usize;
 	// Build up the ancestry record of the relay chain to compare against.
 	let rp_ancestry =
-		build_relay_parent_ancestry(params.ancestry_lookback, params.relay_parent, relay_client)
-			.await?;
+		build_relay_parent_ancestry(relay_client, relay_parent, ancestry_lookback).await?;
 
 	// Search for the deepest valid parent starting from the pending/included block.
 	let best_parent_header =
-		find_deepest_valid_parent(start_hash, start_header, backend, &rp_ancestry);
+		find_deepest_valid_parent(backend, start_header, start_hash, &rp_ancestry);
 
 	Ok(Some(ParentSearchResult { included_header, best_parent_header }))
 }
@@ -157,7 +149,7 @@ async fn fetch_included_from_relay_chain<B: BlockT>(
 	relay_parent: RelayHash,
 ) -> Result<Option<(B::Header, B::Hash)>, RelayChainError> {
 	// Fetch the pending header from the relay chain. We use `OccupiedCoreAssumption::TimedOut`
-	// so that even if there is a pending candidate, we assume it is timed out and we get the
+	// so that even if there is a pending candidate, we assume it is timed out, and we get the
 	// included head.
 	let included_header = relay_client
 		.persisted_validation_data(relay_parent, para_id, OccupiedCoreAssumption::TimedOut)
@@ -199,24 +191,22 @@ async fn fetch_included_from_relay_chain<B: BlockT>(
 /// On success, returns a vector of `(header_hash, state_root)` of the relevant relay chain
 /// ancestry blocks.
 async fn build_relay_parent_ancestry(
-	ancestry_lookback: usize,
-	relay_parent: RelayHash,
 	relay_client: &impl RelayChainInterface,
+	relay_parent: RelayHash,
+	ancestry_lookback: usize,
 ) -> Result<Vec<(RelayHash, RelayHash)>, RelayChainError> {
 	let mut ancestry = Vec::with_capacity(ancestry_lookback + 1);
 	let mut current_rp = relay_parent;
-	let mut required_session = None;
 	while ancestry.len() <= ancestry_lookback {
 		let Some(header) = relay_client.header(RBlockId::hash(current_rp)).await? else { break };
 
-		let session = relay_client.session_index_for_child(current_rp).await?;
-		if required_session.get_or_insert(session) != &session {
-			// Respect the relay-chain rule not to cross session boundaries.
-			break;
-		}
-
 		ancestry.push((current_rp, *header.state_root()));
 		current_rp = *header.parent_hash();
+
+		// Respect the relay-chain rule not to cross session boundaries.
+		if contains_epoch_change::<RelayBlock>(&header) {
+			break;
+		}
 
 		// don't iterate back into the genesis block.
 		if header.number == 1 {
@@ -232,9 +222,9 @@ async fn build_relay_parent_ancestry(
 /// This function explores its descendants via DFS, returning the deepest block
 /// whose relay-parent is within the allowed ancestry.
 fn find_deepest_valid_parent<Block: BlockT>(
-	start_hash: Block::Hash,
-	start_header: Block::Header,
 	backend: &impl Backend<Block>,
+	start_header: Block::Header,
+	start_hash: Block::Hash,
 	rp_ancestry: &[(RelayHash, RelayHash)],
 ) -> Block::Header {
 	let mut best = start_header;
