@@ -27,6 +27,7 @@ use crate::{
 	bitswap::{
 		api::{BitswapApiServer, StreamEvent},
 		error::Error,
+		metrics::{Method, Metrics},
 	},
 	SubscriptionTaskExecutor,
 };
@@ -55,17 +56,20 @@ pub struct Bitswap<Block, Client> {
 	client: Arc<Client>,
 	sync_oracle: Arc<dyn sp_consensus::SyncOracle + Send + Sync>,
 	executor: SubscriptionTaskExecutor,
+	metrics: Metrics,
 	_phantom: std::marker::PhantomData<Block>,
 }
 
 impl<Block, Client> Bitswap<Block, Client> {
-	/// Creates a new [`Bitswap`] instance.
+	/// Creates a new [`Bitswap`] instance. Pass [`Metrics::disabled`] when no Prometheus
+	/// registry is configured.
 	pub fn new(
 		client: Arc<Client>,
 		sync_oracle: Arc<dyn sp_consensus::SyncOracle + Send + Sync>,
 		executor: SubscriptionTaskExecutor,
+		metrics: Metrics,
 	) -> Self {
-		Self { client, sync_oracle, executor, _phantom: std::marker::PhantomData }
+		Self { client, sync_oracle, executor, metrics, _phantom: std::marker::PhantomData }
 	}
 }
 
@@ -102,11 +106,16 @@ where
 	Client: BlockBackend<Block> + Send + Sync + 'static,
 {
 	fn bitswap_unstable_get(&self, cid_str: String) -> RpcResult<String> {
+		self.metrics.on_call(Method::Get);
 		let digest = parse_and_validate_cid(&cid_str)?;
 
 		match self.client.indexed_transaction(digest) {
-			Ok(Some(data)) => Ok(crate::hex_string(&data)),
+			Ok(Some(data)) => {
+				self.metrics.on_delivered();
+				Ok(crate::hex_string(&data))
+			},
 			Ok(None) => {
+				self.metrics.on_not_found();
 				if self.sync_oracle.is_major_syncing() {
 					Err(Error::MajorSyncing.into())
 				} else {
@@ -127,12 +136,15 @@ where
 	fn bitswap_unstable_stream(&self, pending: PendingSubscriptionSink, cids: Vec<String>) {
 		let client = self.client.clone();
 		let sync_oracle = self.sync_oracle.clone();
+		let metrics = self.metrics.clone();
 
 		let fut = async move {
 			// TODO: per-CID `FailRetryBackoff` is correct for misses during sync, but a
 			// smarter implementation would attempt a peer-side Bitswap fetch and write
 			// the result back to the local DB. Needs a coherence story for concurrent
 			// writes during major sync.
+
+			metrics.on_call(Method::Stream);
 
 			// Top-level validation. Per the spec, all three structural rejections happen
 			// before the subscription is accepted, so no events are ever emitted on these
@@ -159,17 +171,23 @@ where
 			let Ok(sink) = pending.accept().await.map(Subscription::from) else { return };
 
 			for (cid_str, parse_result) in parsed {
-				let event = match parse_result {
+				let (event, is_delivery) = match parse_result {
 					Ok(digest) => match lookup_by_digest(&client, is_major_syncing, digest) {
-						Ok(value) => StreamEvent::StreamItem { cid: cid_str, value },
-						Err(e) => stream_item_error(cid_str, e),
+						Ok(value) => (StreamEvent::StreamItem { cid: cid_str, value }, true),
+						Err(e) => {
+							metrics.on_not_found();
+							(stream_item_error(cid_str, e), false)
+						},
 					},
-					Err(e) => stream_item_error(cid_str, e),
+					Err(e) => (stream_item_error(cid_str, e), false),
 				};
 				// A send error means the client unsubscribed or disconnected. The spec says
 				// `streamDone` must NOT be emitted on cancellation, so we just exit.
 				if sink.send(&event).await.is_err() {
 					return;
+				}
+				if is_delivery {
+					metrics.on_delivered();
 				}
 			}
 

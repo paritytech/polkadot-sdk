@@ -31,6 +31,8 @@ mod tests;
 pub mod api;
 pub mod bitswap;
 pub mod error;
+pub mod metrics;
 
 pub use api::BitswapApiServer;
 pub use bitswap::Bitswap;
+pub use metrics::Metrics as BitswapMetrics;

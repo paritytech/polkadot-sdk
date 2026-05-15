@@ -199,7 +199,12 @@ async fn setup(
 	let sync_oracle = Arc::new(MockSyncOracle::new(major_syncing));
 	let executor = Arc::new(TaskExecutor::default());
 
-	let bitswap = Bitswap::<Block, _>::new(client.clone(), sync_oracle, executor);
+	let bitswap = Bitswap::<Block, _>::new(
+		client.clone(),
+		sync_oracle,
+		executor,
+		crate::bitswap::metrics::Metrics::disabled(),
+	);
 
 	let server = ServerBuilder::default().build("127.0.0.1:0").await.unwrap();
 	let addr = server.local_addr().unwrap();
