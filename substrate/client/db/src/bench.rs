@@ -28,6 +28,7 @@ use sp_core::{
 	storage::{ChildInfo, TrackedStorageKey},
 };
 use sp_runtime::{traits::Hash, StateVersion, Storage};
+use sp_externalities::StateLoad;
 use sp_state_machine::{
 	backend::Backend as StateBackend, BackendTransaction, ChildStorageCollection, DBValue,
 	IterArgs, StorageCollection, StorageIterator, StorageKey, StorageValue,
@@ -376,6 +377,27 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 			.as_ref()
 			.ok_or_else(state_err)?
 			.child_storage(child_info, key)
+	}
+
+	fn storage_with_status(
+		&self,
+		key: &[u8],
+	) -> Result<StateLoad<Option<StorageValue>>, Self::Error> {
+		self.add_read_key(None, key);
+		self.state.borrow().as_ref().ok_or_else(state_err)?.storage_with_status(key)
+	}
+
+	fn child_storage_with_status(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<StateLoad<Option<StorageValue>>, Self::Error> {
+		self.add_read_key(Some(child_info.storage_key()), key);
+		self.state
+			.borrow()
+			.as_ref()
+			.ok_or_else(state_err)?
+			.child_storage_with_status(child_info, key)
 	}
 
 	fn child_storage_hash(

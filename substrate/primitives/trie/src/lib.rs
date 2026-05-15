@@ -512,7 +512,6 @@ pub fn read_child_trie_value_with_status<L: TrieConfiguration, DB>(
 where
 	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
 {
-	log::debug!(target: "revive::runtime", "has_recorder: {}", recorder.is_some());
 	let is_cold = recorder
 		.as_mut()
 		.and_then(|r| Some(r.trie_nodes_recorded_for_key(key).is_none()))
