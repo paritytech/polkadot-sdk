@@ -27,22 +27,28 @@
 //! checkpoints marking frame boundaries.
 
 use alloc::{collections::BTreeSet, vec::Vec};
+use frame_support::weights::Weight;
 use sp_core::H160;
+
+use crate::{Config, weights::WeightInfo};
 
 /// One entry per `(contract address, storage slot)` accessed in the current tx.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
 pub struct AccessEntry {
 	/// Contract whose child trie is being touched.
 	pub address: H160,
-	/// Raw 32-byte EVM slot key (substrate hashes it internally for the child
-	/// trie lookup).
+	/// 32-byte slot identifier. For fixed-size keys (`Key::Fix`, the EVM
+	/// SLOAD/SSTORE path) this is the raw EVM slot. For variable-length
+	/// keys (`Key::Var`, the storage-precompile path) this is the
+	/// `blake2_256` projection produced by `exec::key_to_slot` so the entry
+	/// stays fixed-size and cheap to compare.
 	pub slot: [u8; 32],
 }
 
 /// Per-transaction access list with per-frame rollback support.
 ///
-/// Two variants per design §8.2: `Enabled` does full tracking; `Disabled` is
-/// a zero-state no-op selected when `T::ColdWarmPricingEnabled = false`.
+/// Two variants: `Enabled` does full tracking; `Disabled` is a zero-state
+/// no-op selected when `T::ColdWarmPricingEnabled = false`.
 pub enum AccessList {
 	/// Full tracking — used when cold/warm pricing is enabled.
 	Enabled {
@@ -62,16 +68,6 @@ pub enum AccessList {
 	/// work. Frame hooks are no-ops. Weight dispatch in `RuntimeCosts::weight`
 	/// routes to the legacy `seal_*` weights — bit-identical to pre-change.
 	Disabled,
-}
-
-impl Default for AccessList {
-	/// Match the runtime default: `T::ColdWarmPricingEnabled = false` ⇒
-	/// `Disabled`. A `Default::default()` caller that didn't read the flag
-	/// silently inherits the zero-state path instead of accidentally
-	/// opting in.
-	fn default() -> Self {
-		Self::Disabled
-	}
 }
 
 impl AccessList {
@@ -200,10 +196,6 @@ pub struct SetStorageReadCosts {
 // derivations one-for-one without touching call sites.
 // ===========================================================================
 
-use frame_support::weights::Weight;
-
-use crate::{Config, weights::WeightInfo};
-
 /// Per-touch access-list bookkeeping cost (one `BTreeSet` insert + one `Vec`
 /// push). Approximation: 1/8 of `seal_caller` (a known-cheap host fn) since
 /// the operation is in-memory only.
@@ -221,6 +213,11 @@ fn storage_read_cold_weight<T: Config>(value_size: u32) -> Weight {
 /// at the storage proof recorder, so no substrate I/O actually happens —
 /// only the in-memory access-set check. Approximation: 1/20 of
 /// `seal_get_storage(0)` (~5%, a rough EIP-2929 cold/warm ratio).
+///
+/// `value_size` is intentionally ignored: the proof recorder serves the
+/// already-warm read from cache, so per-byte cost is negligible. If that
+/// assumption ever changes (e.g. the warm cost surfaces a per-byte
+/// component once dedicated benchmarks land), reintroduce the parameter.
 fn storage_read_warm_weight<T: Config>(value_size: u32) -> Weight {
 	let _ = value_size;
 	T::WeightInfo::seal_get_storage(0).saturating_div(20)
@@ -244,13 +241,10 @@ pub fn get_storage_weight<T: Config>(len: u32, costs: &GetStorageReadCosts) -> W
 	cost_read::<T>(costs.is_cold, len)
 }
 
-pub fn set_storage_weight<T: Config>(
-	old_bytes: u32,
-	_new_bytes: u32,
-	costs: &SetStorageReadCosts,
-) -> Weight {
-	// SSTORE's read-of-old-value is what cold/warm applies to; the write
-	// surcharge is independent of cold/warm and stays in the legacy mapping.
+/// Cold/warm cost of the read-of-old-value implicit in any SSTORE-class op.
+/// `new_bytes` is not in the signature: writing more bytes doesn't change the
+/// read cost; the write surcharge stays in the legacy mapping.
+pub fn set_storage_weight<T: Config>(old_bytes: u32, costs: &SetStorageReadCosts) -> Weight {
 	cost_read::<T>(costs.is_cold, old_bytes)
 }
 

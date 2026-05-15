@@ -2974,6 +2974,41 @@ fn delegatecall_tracer_reports_correct_addresses() {
 // `is_cold` flag, with frame rollback semantics across nested CALLs.
 // ===========================================================================
 
+/// RAII guard that enables `ColdWarmPricing` on construction and resets it
+/// on drop. Survives `assert_*` panics inside `execute_with`, so a failed
+/// assertion in one test doesn't leak the flag into the next.
+struct ColdWarmEnabled;
+impl ColdWarmEnabled {
+	fn new() -> Self {
+		crate::tests::ColdWarmPricing::set(true);
+		Self
+	}
+}
+impl Drop for ColdWarmEnabled {
+	fn drop(&mut self) {
+		crate::tests::ColdWarmPricing::set(false);
+	}
+}
+
+/// Common setup: fund ALICE, build a fresh transaction meter, and dispatch
+/// a call to `contract_addr`. **Asserts success internally** — only use
+/// when the test expects the outer call to return `Ok`. For tests that
+/// expect a specific failure mode, call `MockStack::run_call` directly.
+fn run_call_to(contract_addr: H160) {
+	set_balance(&ALICE, <Test as Config>::Currency::minimum_balance() * 1000);
+	let mut meter =
+		TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
+			.unwrap();
+	assert_ok!(MockStack::run_call(
+		Origin::from_account_id(ALICE),
+		contract_addr,
+		&mut meter,
+		0u32.into(),
+		vec![],
+		&ExecConfig::new_substrate_tx(),
+	));
+}
+
 /// `Ext::set_storage` on the same key returns `is_cold = Some(true)` first,
 /// `Some(false)` second — when the runtime flag is enabled.
 #[test]
@@ -2988,21 +3023,9 @@ fn cold_warm_set_storage_first_cold_second_warm() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		crate::tests::ColdWarmPricing::set(true);
-		set_balance(&ALICE, <Test as Config>::Currency::minimum_balance() * 1000);
+		let _guard = ColdWarmEnabled::new();
 		place_contract(&BOB, code_hash);
-		let mut meter =
-			TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
-				.unwrap();
-		assert_ok!(MockStack::run_call(
-			Origin::from_account_id(ALICE),
-			BOB_ADDR,
-			&mut meter,
-			0u32.into(),
-			vec![],
-			&ExecConfig::new_substrate_tx(),
-		));
-		crate::tests::ColdWarmPricing::set(false);
+		run_call_to(BOB_ADDR);
 	});
 }
 
@@ -3020,21 +3043,9 @@ fn cold_warm_get_after_set_is_warm() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		crate::tests::ColdWarmPricing::set(true);
-		set_balance(&ALICE, <Test as Config>::Currency::minimum_balance() * 1000);
+		let _guard = ColdWarmEnabled::new();
 		place_contract(&BOB, code_hash);
-		let mut meter =
-			TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
-				.unwrap();
-		assert_ok!(MockStack::run_call(
-			Origin::from_account_id(ALICE),
-			BOB_ADDR,
-			&mut meter,
-			0u32.into(),
-			vec![],
-			&ExecConfig::new_substrate_tx(),
-		));
-		crate::tests::ColdWarmPricing::set(false);
+		run_call_to(BOB_ADDR);
 	});
 }
 
@@ -3051,21 +3062,31 @@ fn cold_warm_distinct_slots_independent() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		crate::tests::ColdWarmPricing::set(true);
-		set_balance(&ALICE, <Test as Config>::Currency::minimum_balance() * 1000);
+		let _guard = ColdWarmEnabled::new();
 		place_contract(&BOB, code_hash);
-		let mut meter =
-			TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
-				.unwrap();
-		assert_ok!(MockStack::run_call(
-			Origin::from_account_id(ALICE),
-			BOB_ADDR,
-			&mut meter,
-			0u32.into(),
-			vec![],
-			&ExecConfig::new_substrate_tx(),
-		));
-		crate::tests::ColdWarmPricing::set(false);
+		run_call_to(BOB_ADDR);
+	});
+}
+
+/// `Ext::get_storage_size` warms the slot for a subsequent `Ext::get_storage`
+/// — covers the `containsStorage` precompile path (which calls
+/// `get_storage_size`) interacting with SLOAD on the same slot.
+#[test]
+fn cold_warm_get_storage_size_warms_for_sload() {
+	let code_hash = MockLoader::insert(Call, |ctx, _| {
+		let slot = Key::Fix([12; 32]);
+		let (size, size_costs) = ctx.ext.get_storage_size(&slot);
+		assert_eq!(size, None);
+		assert_eq!(size_costs.is_cold, Some(true), "first size lookup on a fresh slot is cold");
+		let (_, load_costs) = ctx.ext.get_storage(&slot);
+		assert_eq!(load_costs.is_cold, Some(false), "SLOAD after size lookup on same slot is warm");
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _guard = ColdWarmEnabled::new();
+		place_contract(&BOB, code_hash);
+		run_call_to(BOB_ADDR);
 	});
 }
 
@@ -3084,19 +3105,8 @@ fn cold_warm_disabled_always_reports_cold() {
 
 	ExtBuilder::default().build().execute_with(|| {
 		// Flag stays at its default `false` for this test.
-		set_balance(&ALICE, <Test as Config>::Currency::minimum_balance() * 1000);
 		place_contract(&BOB, code_hash);
-		let mut meter =
-			TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
-				.unwrap();
-		assert_ok!(MockStack::run_call(
-			Origin::from_account_id(ALICE),
-			BOB_ADDR,
-			&mut meter,
-			0u32.into(),
-			vec![],
-			&ExecConfig::new_substrate_tx(),
-		));
+		run_call_to(BOB_ADDR);
 	});
 }
 
@@ -3135,22 +3145,10 @@ fn cold_warm_distinct_addresses_are_independent() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		crate::tests::ColdWarmPricing::set(true);
-		set_balance(&ALICE, <Test as Config>::Currency::minimum_balance() * 1000);
+		let _guard = ColdWarmEnabled::new();
 		place_contract(&BOB, child_ch);
 		place_contract(&CHARLIE, parent_ch);
-		let mut meter =
-			TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
-				.unwrap();
-		assert_ok!(MockStack::run_call(
-			Origin::from_account_id(ALICE),
-			CHARLIE_ADDR,
-			&mut meter,
-			0u32.into(),
-			vec![],
-			&ExecConfig::new_substrate_tx(),
-		));
-		crate::tests::ColdWarmPricing::set(false);
+		run_call_to(CHARLIE_ADDR);
 	});
 }
 
@@ -3160,11 +3158,23 @@ fn cold_warm_distinct_addresses_are_independent() {
 #[test]
 fn cold_warm_child_revert_rolls_back() {
 	let key = Key::Fix([10; 32]);
+	// Counts which invocation of the child is currently running, so an
+	// assertion failure points at which call regressed.
+	let call_count = std::rc::Rc::new(std::cell::RefCell::new(0u32));
 
 	// Child touches the slot then reverts.
 	let child_ch = MockLoader::insert(Call, move |ctx, _| {
+		let n = {
+			let mut c = call_count.borrow_mut();
+			*c += 1;
+			*c
+		};
 		let (_, costs) = ctx.ext.set_storage(&key, Some(vec![1]), false);
-		assert_eq!(costs.is_cold, Some(true), "child's first touch is cold");
+		assert_eq!(
+			costs.is_cold,
+			Some(true),
+			"child call #{n}: touch must be cold (previous revert should have rolled back)",
+		);
 		Err("rollback".into())
 	});
 
@@ -3191,22 +3201,10 @@ fn cold_warm_child_revert_rolls_back() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		crate::tests::ColdWarmPricing::set(true);
-		set_balance(&ALICE, <Test as Config>::Currency::minimum_balance() * 1000);
+		let _guard = ColdWarmEnabled::new();
 		place_contract(&BOB, child_ch);
 		place_contract(&CHARLIE, parent_ch);
-		let mut meter =
-			TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
-				.unwrap();
-		assert_ok!(MockStack::run_call(
-			Origin::from_account_id(ALICE),
-			CHARLIE_ADDR,
-			&mut meter,
-			0u32.into(),
-			vec![],
-			&ExecConfig::new_substrate_tx(),
-		));
-		crate::tests::ColdWarmPricing::set(false);
+		run_call_to(CHARLIE_ADDR);
 	});
 }
 
@@ -3262,21 +3260,9 @@ fn cold_warm_child_commit_persists_across_sibling_calls() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		crate::tests::ColdWarmPricing::set(true);
-		set_balance(&ALICE, <Test as Config>::Currency::minimum_balance() * 1000);
+		let _guard = ColdWarmEnabled::new();
 		place_contract(&BOB, child_ch);
 		place_contract(&CHARLIE, parent_ch);
-		let mut meter =
-			TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
-				.unwrap();
-		assert_ok!(MockStack::run_call(
-			Origin::from_account_id(ALICE),
-			CHARLIE_ADDR,
-			&mut meter,
-			0u32.into(),
-			vec![],
-			&ExecConfig::new_substrate_tx(),
-		));
-		crate::tests::ColdWarmPricing::set(false);
+		run_call_to(CHARLIE_ADDR);
 	});
 }

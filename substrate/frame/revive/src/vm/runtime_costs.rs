@@ -383,16 +383,16 @@ impl RuntimeCosts {
 				crate::access_list::get_storage_weight::<T>(*len, costs),
 			SetStorage { new_bytes, old_bytes, costs } => {
 				let write = cost_storage!(write, seal_set_storage, *new_bytes, *old_bytes);
-				crate::access_list::set_storage_weight::<T>(*old_bytes, *new_bytes, costs)
+				crate::access_list::set_storage_weight::<T>(*old_bytes, costs)
 					.saturating_add(write)
 			},
 			ClearStorage { len, costs } => {
 				let write = cost_storage!(write, clear_storage, *len);
-				crate::access_list::set_storage_weight::<T>(*len, 0, costs).saturating_add(write)
+				crate::access_list::set_storage_weight::<T>(*len, costs).saturating_add(write)
 			},
 			TakeStorage { len, costs } => {
 				let write = cost_storage!(write, take_storage, *len);
-				crate::access_list::set_storage_weight::<T>(*len, 0, costs).saturating_add(write)
+				crate::access_list::set_storage_weight::<T>(*len, costs).saturating_add(write)
 			},
 			_ => self.legacy_weight::<T>(),
 		}

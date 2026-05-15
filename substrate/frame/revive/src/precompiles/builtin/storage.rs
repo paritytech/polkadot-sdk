@@ -79,16 +79,18 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					);
 					Ok(ret.abi_encode())
 				} else {
-					// Persistent: charge-flow inversion using returned costs.
+					// Persistent: charge BEFORE propagating Err so the
+					// access-list touch and any partial deposit work is
+					// metered. On Err the real `old_len` is unknown; charge
+					// worst-case `max_size`.
 					let (result, costs) = env.set_storage(&key, None, false);
+					let len = result.as_ref().map(|w| w.old_len()).unwrap_or(max_size);
+					env.frame_meter_mut()
+						.charge_weight_token(RuntimeCosts::ClearStorage { len, costs })?;
 					let outcome = result
 						.map_err(|_| Error::Revert("failed setting storage".into()))?;
 					let contained_key = outcome != WriteOutcome::New;
 					let ret = (contained_key, outcome.old_len());
-					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ClearStorage {
-						len: outcome.old_len(),
-						costs,
-					})?;
 					Ok(ret.abi_encode())
 				}
 			},
@@ -150,16 +152,18 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 						Ok(Vec::<u8>::new().abi_encode())
 					}
 				} else {
-					// Persistent: charge-flow inversion using returned costs.
+					// Persistent: charge BEFORE propagating Err so substrate
+					// work that already happened is metered. On Err the real
+					// `len` is unknown; charge worst-case `max_size`.
 					let (result, costs) = env.set_storage(&key, None, true);
-					let outcome = result?;
-					let len = if let crate::storage::WriteOutcome::Taken(ref value) = outcome {
-						value.len() as u32
-					} else {
-						0
+					let len = match result.as_ref() {
+						Ok(crate::storage::WriteOutcome::Taken(value)) => value.len() as u32,
+						Ok(_) => 0,
+						Err(_) => max_size,
 					};
 					env.frame_meter_mut()
 						.charge_weight_token(RuntimeCosts::TakeStorage { len, costs })?;
+					let outcome = result?;
 					if let crate::storage::WriteOutcome::Taken(value) = outcome {
 						Ok(value.abi_encode())
 					} else {

@@ -492,7 +492,10 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let max_size = limits::STORAGE_BYTES;
 		if value_len > max_size {
 			// Charge the worst-case token so the meter reflects the failed
-			// attempt before returning.
+			// attempt before returning. `costs: Default::default()` (all-None)
+			// is intentional here: we bail before `ext.set_storage`, so no
+			// access-list touch happened and there is no cold/warm signal to
+			// charge for.
 			if transient {
 				self.charge_gas(RuntimeCosts::SetTransientStorage {
 					new_bytes: value_len,
@@ -529,14 +532,18 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			);
 			Ok(write_outcome.old_len_with_sentinel())
 		} else {
-			// Persistent: charge-flow inversion using returned costs.
+			// Persistent: charge BEFORE propagating Err so substrate work that
+			// already happened (the access-list touch and any partial deposit
+			// handling) is metered. On Err the real `old_bytes` is unknown;
+			// charge worst-case `STORAGE_BYTES`.
 			let (result, costs) = self.ext.set_storage(&key, value, false);
-			let write_outcome = result?;
+			let old_bytes = result.as_ref().map(|w| w.old_len()).unwrap_or(max_size);
 			self.charge_gas(RuntimeCosts::SetStorage {
 				new_bytes: value_len,
-				old_bytes: write_outcome.old_len(),
+				old_bytes,
 				costs,
 			})?;
+			let write_outcome = result?;
 			Ok(write_outcome.old_len_with_sentinel())
 		}
 	}
@@ -557,10 +564,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			self.adjust_gas(charged, RuntimeCosts::ClearTransientStorage(outcome.old_len()));
 			Ok(outcome.old_len_with_sentinel())
 		} else {
-			// Persistent: charge-flow inversion using returned costs.
+			// Persistent: charge BEFORE propagating Err so substrate work that
+			// already happened is metered. On Err the real `len` is unknown;
+			// charge worst-case `STORAGE_BYTES`.
 			let (result, costs) = self.ext.set_storage(&key, None, false);
+			let len = result.as_ref().map(|w| w.old_len()).unwrap_or(limits::STORAGE_BYTES);
+			self.charge_gas(RuntimeCosts::ClearStorage { len, costs })?;
 			let outcome = result?;
-			self.charge_gas(RuntimeCosts::ClearStorage { len: outcome.old_len(), costs })?;
 			Ok(outcome.old_len_with_sentinel())
 		}
 	}

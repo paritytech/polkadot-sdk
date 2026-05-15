@@ -176,18 +176,15 @@ pub fn sstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 		if value.is_zero() { (None, 0) } else { (Some(value.to_big_endian().to_vec()), 32) };
 
 	let (write_outcome, costs) = interpreter.ext.set_storage(&key, value_to_store, false);
-	let write_outcome = match write_outcome {
-		Ok(o) => o,
-		Err(_) => return ControlFlow::Break(Error::<E::T>::ContractTrapped.into()),
-	};
-
-	// Charge-flow inversion: charge AFTER ext call with real `old_bytes` and
-	// the returned cold/warm cost struct.
-	interpreter.ext.charge_or_halt(RuntimeCosts::SetStorage {
-		new_bytes,
-		old_bytes: write_outcome.old_len(),
-		costs,
-	})?;
+	// Charge BEFORE propagating Err so substrate work that already happened
+	// (the access-list touch and any partial write deposit handling) is metered.
+	// On Err we don't know the real old_len, so charge worst-case STORAGE_BYTES.
+	let old_bytes =
+		write_outcome.as_ref().map(|w| w.old_len()).unwrap_or(limits::STORAGE_BYTES);
+	interpreter.ext.charge_or_halt(RuntimeCosts::SetStorage { new_bytes, old_bytes, costs })?;
+	if write_outcome.is_err() {
+		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
+	}
 
 	ControlFlow::Continue(())
 }
