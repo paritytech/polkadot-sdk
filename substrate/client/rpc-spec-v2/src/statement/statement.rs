@@ -22,8 +22,7 @@ use crate::{
 		error::Error,
 		event::AddFilterResponse,
 		subscription::{
-			add_filter_sync, parse_filter_id, remove_filter_sync, run_subscription_task,
-			AddFilterOutcome, StatementSubscriptions,
+			filter_id_to_string, parse_filter_id, run_subscription_task, StatementSubscriptions,
 		},
 		LOG_TARGET,
 	},
@@ -35,7 +34,7 @@ use jsonrpsee::{
 	core::async_trait, types::SubscriptionId, ConnectionId, Extensions, PendingSubscriptionSink,
 };
 use sc_rpc::utils::Subscription;
-use sc_statement_store::MultiFilterSubscriptionApi;
+use sc_statement_store::{AddFilterError, MultiFilterSubscriptionApi};
 use sp_core::Bytes;
 use sp_statement_store::{
 	OptimizedTopicFilter, Statement, StatementSource, StatementStore, SubmitOutcome, SubmitResult,
@@ -64,7 +63,7 @@ where
 fn read_subscription_id_as_string(sink: &Subscription) -> String {
 	match sink.subscription_id() {
 		SubscriptionId::Num(n) => n.to_string(),
-		SubscriptionId::Str(s) => s.into_owned().into(),
+		SubscriptionId::Str(s) => s.into_owned(),
 	}
 }
 
@@ -132,11 +131,12 @@ where
 			return Err(Error::InvalidSubscription);
 		};
 
-		match add_filter_sync(&state, topic_filter)? {
-			AddFilterOutcome::Added(filter_id) => Ok(AddFilterResponse::Ok(
-				crate::statement::subscription::filter_id_to_string(filter_id),
-			)),
-			AddFilterOutcome::LimitReached => Ok(AddFilterResponse::limit_reached()),
+		match state.add_filter(topic_filter) {
+			Ok(filter_id) => Ok(AddFilterResponse::Ok(filter_id_to_string(filter_id))),
+			Err(AddFilterError::LimitReached) => Ok(AddFilterResponse::limit_reached()),
+			Err(AddFilterError::Stopped) => {
+				Err(Error::InternalError("statement subscription matcher stopped".into()))
+			},
 		}
 	}
 
@@ -149,7 +149,7 @@ where
 		let conn_id = connection_id(ext);
 		let Some(state) = self.subscriptions.get(conn_id, &subscription) else { return Ok(()) };
 		let Some(parsed) = parse_filter_id(&filter_id) else { return Ok(()) };
-		let _ = remove_filter_sync(&state, parsed);
+		let _ = state.remove_filter(parsed);
 		Ok(())
 	}
 

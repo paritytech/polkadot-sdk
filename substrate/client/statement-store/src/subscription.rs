@@ -69,14 +69,8 @@ type PendingEventReply = oneshot::Sender<Option<MultiFilterSubscriptionEvent>>;
 pub enum AddFilterError {
 	/// The subscription already has the maximum number of active filters
 	LimitReached,
-	/// The store failed while collecting the replay snapshot
-	Store(sp_statement_store::Error),
-}
-
-impl From<sp_statement_store::Error> for AddFilterError {
-	fn from(error: sp_statement_store::Error) -> Self {
-		AddFilterError::Store(error)
-	}
+	/// The matcher stopped before the filter request could be queued
+	Stopped,
 }
 
 impl std::fmt::Display for AddFilterError {
@@ -85,19 +79,12 @@ impl std::fmt::Display for AddFilterError {
 			AddFilterError::LimitReached => {
 				write!(f, "maximum number of filters for this subscription has been reached")
 			},
-			AddFilterError::Store(error) => error.fmt(f),
+			AddFilterError::Stopped => write!(f, "statement subscription matcher stopped"),
 		}
 	}
 }
 
-impl std::error::Error for AddFilterError {
-	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-		match self {
-			AddFilterError::LimitReached => None,
-			AddFilterError::Store(error) => Some(error),
-		}
-	}
-}
+impl std::error::Error for AddFilterError {}
 
 /// Trait for initiating statement store subscriptions from the RPC module.
 pub trait StatementStoreSubscriptionApi: Send + Sync {
@@ -160,11 +147,7 @@ impl SubscriptionHandle {
 		let sub_id = self.sub_id;
 		self.matchers
 			.try_send_by_seq_id(sub_id, MatcherMessage::AddFilter { sub_id, filter_id, filter })
-			.map_err(|_| {
-				AddFilterError::Store(sp_statement_store::Error::InvalidConfig(
-					"statement subscription matcher stopped".into(),
-				))
-			})?;
+			.map_err(|_| AddFilterError::Stopped)?;
 		inner.next_filter_id = inner.next_filter_id.wrapping_add(1);
 		inner.active_filter_ids.insert(filter_id);
 		Ok(filter_id)
@@ -424,7 +407,10 @@ impl Stream for LiveEventStream {
 				if matcher_tx.send(message).await.is_err() {
 					return None;
 				}
-				rx.await.unwrap_or(None)
+				match rx.await {
+					Ok(event) => event,
+					Err(_) => None,
+				}
 			}));
 		}
 	}

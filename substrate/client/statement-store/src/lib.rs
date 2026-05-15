@@ -1661,7 +1661,6 @@ impl Store {
 			|statement| Some(statement.encode()),
 		)?;
 		register(existing_statements);
-		drop(index);
 		Ok(())
 	}
 }

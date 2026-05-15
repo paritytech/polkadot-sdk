@@ -16,27 +16,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::statement::{
-	error::Error,
-	event::{NewStatementEntry, SubscribeEvent},
-};
+use crate::statement::event::{NewStatementEntry, SubscribeEvent};
 use futures::StreamExt;
 use jsonrpsee::ConnectionId;
 use parking_lot::RwLock;
 use sc_rpc::utils::Subscription;
-use sc_statement_store::{
-	AddFilterError, LiveEventStream, MultiFilterSubscriptionEvent, SubscriptionHandle,
-};
-use sp_statement_store::{FilterId, OptimizedTopicFilter};
+use sc_statement_store::{LiveEventStream, MultiFilterSubscriptionEvent, SubscriptionHandle};
+use sp_statement_store::FilterId;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::Notify;
 
 const SUBSCRIPTION_REGISTRATION_TIMEOUT: Duration = Duration::from_millis(250);
-
-pub(crate) enum AddFilterOutcome {
-	Added(FilterId),
-	LimitReached,
-}
 
 type SubscriptionStateRef = Arc<SubscriptionHandle>;
 type SubscriptionRegistry =
@@ -126,23 +116,6 @@ impl Drop for SubscriptionEntry {
 	}
 }
 
-pub(crate) fn add_filter_sync(
-	state: &Arc<SubscriptionHandle>,
-	filter: OptimizedTopicFilter,
-) -> Result<AddFilterOutcome, Error> {
-	match state.add_filter(filter) {
-		Ok(filter_id) => Ok(AddFilterOutcome::Added(filter_id)),
-		Err(AddFilterError::LimitReached) => Ok(AddFilterOutcome::LimitReached),
-		Err(AddFilterError::Store(e)) => {
-			Err(Error::InternalError(format!("add_filter failed: {e}")))
-		},
-	}
-}
-
-pub(crate) fn remove_filter_sync(state: &Arc<SubscriptionHandle>, filter_id: FilterId) -> bool {
-	state.remove_filter(filter_id)
-}
-
 pub(crate) fn filter_id_to_string(id: FilterId) -> String {
 	id.as_u64().to_string()
 }
@@ -162,47 +135,33 @@ async fn send_subscription_event(sink: &Subscription, event: MultiFilterSubscrip
 	match event {
 		MultiFilterSubscriptionEvent::ReplayStatements { filter_id, statements } => {
 			let statements = statements.into_iter().map(sp_core::Bytes).collect();
-			send_event(
-				sink,
-				&SubscribeEvent::ReplayStatements {
-					filter_id: filter_id_to_string(filter_id),
-					statements,
-				},
-			)
+			sink.send(&SubscribeEvent::ReplayStatements {
+				filter_id: filter_id_to_string(filter_id),
+				statements,
+			})
 			.await
+			.is_ok()
 		},
-		MultiFilterSubscriptionEvent::ReplayDone { filter_id } => {
-			send_event(
-				sink,
-				&SubscribeEvent::ReplayDone { filter_id: filter_id_to_string(filter_id) },
-			)
+		MultiFilterSubscriptionEvent::ReplayDone { filter_id } => sink
+			.send(&SubscribeEvent::ReplayDone { filter_id: filter_id_to_string(filter_id) })
 			.await
-		},
+			.is_ok(),
 		MultiFilterSubscriptionEvent::NewStatement(event) => {
 			let filter_ids =
 				event.matched_filter_ids.into_iter().map(filter_id_to_string).collect();
-			send_event(
-				sink,
-				&SubscribeEvent::NewStatements {
-					statements: vec![NewStatementEntry {
-						statement: sp_core::Bytes(event.encoded),
-						filter_ids,
-					}],
-				},
-			)
+			sink.send(&SubscribeEvent::NewStatements {
+				statements: vec![NewStatementEntry {
+					statement: sp_core::Bytes(event.encoded),
+					filter_ids,
+				}],
+			})
 			.await
+			.is_ok()
 		},
 		MultiFilterSubscriptionEvent::Stop => {
-			let _ = send_event(sink, &SubscribeEvent::Stop).await;
+			let _ = sink.send(&SubscribeEvent::Stop).await;
 			false
 		},
-	}
-}
-
-async fn send_event(sink: &Subscription, event: &SubscribeEvent) -> bool {
-	match sink.send(event).await {
-		Ok(()) => true,
-		Err(_) => false,
 	}
 }
 

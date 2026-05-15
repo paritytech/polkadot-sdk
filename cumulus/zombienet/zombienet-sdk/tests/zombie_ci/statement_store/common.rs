@@ -17,7 +17,7 @@ use sp_statement_store::{
 };
 use std::{
 	path::{Path, PathBuf},
-	time::{Duration, Instant},
+	time::Duration,
 };
 use zombienet_sdk::{
 	subxt::{
@@ -227,13 +227,6 @@ pub(super) fn create_chain_spec_with_allowances(
 	participant_count: u32,
 	base_dir: &Path,
 ) -> Result<PathBuf, anyhow::Error> {
-	let started_at = Instant::now();
-	info!(
-		"Creating statement allowance chain spec: participants={}, base_dir={}",
-		participant_count,
-		base_dir.display(),
-	);
-
 	let chain_spec_template = include_str!("people-westend-local-spec.json");
 	let mut chain_spec: serde_json::Value = serde_json::from_str(chain_spec_template)
 		.map_err(|e| anyhow!("Failed to parse chain spec JSON: {}", e))?;
@@ -248,15 +241,6 @@ pub(super) fn create_chain_spec_with_allowances(
 	let allowance_hex = format!("0x{}", HexDisplay::from(&allowance.encode()));
 	info!("Injecting statement allowance: {:}", allowance_hex);
 	for idx in 0..participant_count {
-		if idx > 0 && idx % 5_000 == 0 {
-			info!(
-				"Injected statement allowances: {}/{} elapsed_s={}",
-				idx,
-				participant_count,
-				started_at.elapsed().as_secs(),
-			);
-		}
-
 		let keypair = get_keypair(idx);
 		let account_id = keypair.public();
 
@@ -265,25 +249,13 @@ pub(super) fn create_chain_spec_with_allowances(
 
 		genesis.insert(storage_key_hex, serde_json::Value::String(allowance_hex.clone()));
 	}
-	info!(
-		"Finished injecting statement allowances: {}/{} elapsed_s={}",
-		participant_count,
-		participant_count,
-		started_at.elapsed().as_secs(),
-	);
 
 	let chain_spec_path = base_dir.join("people-westend-custom.json");
-	info!("Serializing chain spec: {}", chain_spec_path.display());
 	let chain_spec_json = serde_json::to_string_pretty(&chain_spec)
 		.map_err(|e| anyhow!("Failed to serialize chain spec: {}", e))?;
 
 	std::fs::write(&chain_spec_path, chain_spec_json)
 		.map_err(|e| anyhow!("Failed to write chain spec to file: {}", e))?;
-	info!(
-		"Wrote chain spec: {} elapsed_s={}",
-		chain_spec_path.display(),
-		started_at.elapsed().as_secs(),
-	);
 
 	Ok(chain_spec_path)
 }
@@ -326,12 +298,6 @@ async fn launch_network(
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let base_dir = base_dir()?;
-	info!(
-		"Preparing zombienet network config: collators={}, chain_spec={}, base_dir={}",
-		collators.len(),
-		chain_spec_path.display(),
-		base_dir.display(),
-	);
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
@@ -363,12 +329,8 @@ async fn launch_network(
 		.build()
 		.map_err(format_build_errors)?;
 
-	info!("Initialising zombienet network");
 	let network = crate::utils::initialize_network(config).await?;
-	info!("Waiting for zombienet network to be up");
-	let wait_result = network.wait_until_is_up(60).await;
-	info!("Zombienet network wait finished: ok={}", wait_result.is_ok());
-	assert!(wait_result.is_ok());
+	assert!(network.wait_until_is_up(60).await.is_ok());
 	Ok(network)
 }
 
@@ -393,11 +355,6 @@ pub(super) async fn spawn_network_with_injected_allowances(
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	assert!(!collators.is_empty());
 	let base_dir = base_dir()?;
-	info!(
-		"Spawning injected allowance network: collators={}, participants={}",
-		collators.len(),
-		participant_count,
-	);
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
 	let args = collator_args(participant_count, COLLATOR_TRACE_LOG_FILTER);
 	launch_network(collators, &chain_spec_path, args).await

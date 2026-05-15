@@ -57,16 +57,16 @@ async fn expect_one_unstable_statement(
 	timeout_secs: u64,
 ) -> Result<UnstableNewStatement, anyhow::Error> {
 	loop {
-		return match expect_unstable_event(subscription, timeout_secs).await? {
-			UnstableStatementEvent::NewStatements { statements } => {
+		match expect_unstable_event(subscription, timeout_secs).await? {
+			UnstableStatementEvent::NewStatements { mut statements } => {
 				if statements.is_empty() {
 					continue;
 				}
 				assert_eq!(statements.len(), 1);
-				Ok(statements.into_iter().next().unwrap())
+				return Ok(statements.remove(0));
 			},
 			event => anyhow::bail!("Expected unstable newStatements event, got {:?}", event),
-		};
+		}
 	}
 }
 
