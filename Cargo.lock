@@ -5147,6 +5147,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-client-storage-chain-sync"
+version = "0.7.0"
+dependencies = [
+ "async-trait",
+ "cid 0.11.1",
+ "futures",
+ "futures-timer",
+ "log",
+ "parity-scale-codec",
+ "prost 0.12.6",
+ "rstest",
+ "sc-client-api 28.0.0",
+ "sc-client-db",
+ "sc-consensus",
+ "sc-network 0.34.0",
+ "sc-network-sync",
+ "sp-api 26.0.0",
+ "sp-blockchain 28.0.0",
+ "sp-consensus 0.32.0",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
+ "sp-externalities 0.25.0",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
+ "sp-tracing 16.0.0",
+ "sp-transaction-storage-proof",
+ "sp-trie 29.0.0",
+ "sp-version 29.0.0",
+ "thiserror 1.0.65",
+ "tokio",
+ "tracing",
+ "tracing-log",
+ "tracing-subscriber 0.3.19",
+]
+
+[[package]]
 name = "cumulus-pallet-aura-ext"
 version = "0.7.0"
 dependencies = [
@@ -5798,13 +5834,16 @@ name = "cumulus-zombienet-sdk-tests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cid 0.11.1",
  "cumulus-primitives-core",
  "cumulus-test-runtime",
  "cumulus-zombienet-sdk-helpers",
  "env_logger 0.11.3",
  "frame-support",
  "futures",
+ "hex",
  "log",
+ "multihash 0.19.1",
  "parity-scale-codec",
  "parity-wasm",
  "polkadot-primitives",
@@ -5829,6 +5868,7 @@ dependencies = [
  "subxt 0.44.2",
  "subxt 0.50.0",
  "subxt-signer 0.50.0",
+ "thiserror 1.0.65",
  "tokio",
  "verifiable",
  "zombienet-configuration",
@@ -17063,6 +17103,7 @@ dependencies = [
  "cumulus-client-consensus-relay-chain",
  "cumulus-client-parachain-inherent",
  "cumulus-client-service",
+ "cumulus-client-storage-chain-sync",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
@@ -17116,9 +17157,11 @@ dependencies = [
  "serde_json",
  "sp-api 26.0.0",
  "sp-block-builder",
+ "sp-blockchain 28.0.0",
  "sp-consensus 0.32.0",
  "sp-consensus-aura",
  "sp-core 28.0.0",
+ "sp-database 10.0.0",
  "sp-genesis-builder 0.8.0",
  "sp-hop",
  "sp-inherents 26.0.0",
@@ -25761,6 +25804,7 @@ dependencies = [
  "scale-info",
  "sp-api 26.0.0",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-inherents 26.0.0",
  "sp-runtime 31.0.1",
  "sp-trie 29.0.0",

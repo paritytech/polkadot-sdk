@@ -185,8 +185,12 @@ where
 {
 	type Block = Block;
 	type RuntimeApi = RuntimeApi;
-	type BuildImportQueue =
-		BuildRelayToAuraImportQueue<Block, RuntimeApi, AuraId, InitBlockImport::BlockImport>;
+	type BuildImportQueue = BuildRelayToAuraImportQueue<
+		Block,
+		RuntimeApi,
+		AuraId,
+		crate::common::spec::WrappedBlockImport<Block, InitBlockImport::BlockImport, RuntimeApi>,
+	>;
 	type InitBlockImport = InitBlockImport;
 }
 
@@ -202,7 +206,11 @@ where
 	StartConsensus: self::StartConsensus<
 			Block,
 			RuntimeApi,
-			InitBlockImport::BlockImport,
+			crate::common::spec::WrappedBlockImport<
+				Block,
+				InitBlockImport::BlockImport,
+				RuntimeApi,
+			>,
 			InitBlockImport::BlockImportAuxiliaryData,
 		> + 'static,
 	InitBlockImport: self::InitBlockImport<Block, RuntimeApi> + Send + 'static,
@@ -250,7 +258,7 @@ where
 			keystore_container,
 			select_chain: _,
 			transaction_pool,
-			other: (_, mut telemetry, _, _),
+			other: (_, mut telemetry, _, _, _, _),
 		} = Self::new_partial(&config)?;
 
 		// Since this is a dev node, prevent it from connecting to peers.
@@ -629,10 +637,14 @@ where
 			Block,
 			ParachainBlockImport<
 				Block,
-				SlotBasedBlockImport<
+				crate::common::spec::WrappedBlockImport<
 					Block,
-					Arc<ParachainClient<Block, RuntimeApi>>,
-					ParachainClient<Block, RuntimeApi>,
+					SlotBasedBlockImport<
+						Block,
+						Arc<ParachainClient<Block, RuntimeApi>>,
+						ParachainClient<Block, RuntimeApi>,
+					>,
+					RuntimeApi,
 				>,
 			>,
 			CIDP,
@@ -665,10 +677,14 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 	StartConsensus<
 		Block,
 		RuntimeApi,
-		SlotBasedBlockImport<
+		crate::common::spec::WrappedBlockImport<
 			Block,
-			Arc<ParachainClient<Block, RuntimeApi>>,
-			ParachainClient<Block, RuntimeApi>,
+			SlotBasedBlockImport<
+				Block,
+				Arc<ParachainClient<Block, RuntimeApi>>,
+				ParachainClient<Block, RuntimeApi>,
+			>,
+			RuntimeApi,
 		>,
 		SlotBasedBlockImportHandle<Block>,
 	> for StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
@@ -682,10 +698,14 @@ where
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
 		block_import: ParachainBlockImport<
 			Block,
-			SlotBasedBlockImport<
+			crate::common::spec::WrappedBlockImport<
 				Block,
-				Arc<ParachainClient<Block, RuntimeApi>>,
-				ParachainClient<Block, RuntimeApi>,
+				SlotBasedBlockImport<
+					Block,
+					Arc<ParachainClient<Block, RuntimeApi>>,
+					ParachainClient<Block, RuntimeApi>,
+				>,
+				RuntimeApi,
 			>,
 		>,
 		prometheus_registry: Option<&Registry>,
@@ -827,8 +847,16 @@ pub(crate) struct StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>(
 );
 
 impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
-	StartConsensus<Block, RuntimeApi, Arc<ParachainClient<Block, RuntimeApi>>, ()>
-	for StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>
+	StartConsensus<
+		Block,
+		RuntimeApi,
+		crate::common::spec::WrappedBlockImport<
+			Block,
+			Arc<ParachainClient<Block, RuntimeApi>>,
+			RuntimeApi,
+		>,
+		(),
+	> for StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
@@ -837,7 +865,14 @@ where
 {
 	fn start_consensus(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
-		block_import: ParachainBlockImport<Block, Arc<ParachainClient<Block, RuntimeApi>>>,
+		block_import: ParachainBlockImport<
+			Block,
+			crate::common::spec::WrappedBlockImport<
+				Block,
+				Arc<ParachainClient<Block, RuntimeApi>>,
+				RuntimeApi,
+			>,
+		>,
 		prometheus_registry: Option<&Registry>,
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,

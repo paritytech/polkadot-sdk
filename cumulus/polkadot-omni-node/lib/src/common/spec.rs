@@ -36,6 +36,9 @@ use cumulus_client_service::{
 	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, ParachainTracingExecuteBlock,
 	StartRelayChainTasksParams,
 };
+use cumulus_client_storage_chain_sync::{
+	IndexedTransactionFetcher, NetworkHandle, StorageChainBlockImport, SyncingHandle,
+};
 use cumulus_primitives_core::{BlockT, GetParachainInfo, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::FutureExt;
@@ -59,7 +62,12 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::AccountIdConversion;
-use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
+use std::{
+	future::Future,
+	pin::Pin,
+	sync::{Arc, OnceLock},
+	time::Duration,
+};
 
 // Override default idle connection timeout of 10 seconds to give IPFS clients more
 // time to query data over Bitswap. This is needed when manually adding our node
@@ -67,6 +75,12 @@ use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 // substreams with us and our node closes a connection after
 // `idle_connection_timeout`.
 const IPFS_WORKAROUND_TIMEOUT: Duration = Duration::from_secs(3600);
+
+/// `BlockImport` after wrapping with `StorageChainBlockImport`. All downstream
+/// `BuildImportQueue`/`StartConsensus`/`ParachainBlockImport` users see this
+/// type, not the inner one.
+pub(crate) type WrappedBlockImport<Block, InnerBI, RuntimeApi> =
+	StorageChainBlockImport<Block, InnerBI, ParachainClient<Block, RuntimeApi>>;
 
 pub(crate) trait BuildImportQueue<
 	Block: BlockT,
@@ -124,7 +138,10 @@ fn warn_if_slow_hardware(hwbench: &sc_sysinfo::HwBench) {
 }
 
 pub(crate) trait InitBlockImport<Block: BlockT, RuntimeApi> {
-	type BlockImport: sc_consensus::BlockImport<Block> + Clone + Send + Sync;
+	type BlockImport: sc_consensus::BlockImport<Block, Error = sp_consensus::Error>
+		+ Clone
+		+ Send
+		+ Sync;
 	type BlockImportAuxiliaryData;
 
 	fn init_block_import(
@@ -159,7 +176,11 @@ pub(crate) trait BaseNodeSpec {
 	type BuildImportQueue: BuildImportQueue<
 		Self::Block,
 		Self::RuntimeApi,
-		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+		WrappedBlockImport<
+			Self::Block,
+			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+			Self::RuntimeApi,
+		>,
 	>;
 
 	type InitBlockImport: self::InitBlockImport<Self::Block, Self::RuntimeApi>;
@@ -214,7 +235,11 @@ pub(crate) trait BaseNodeSpec {
 		ParachainService<
 			Self::Block,
 			Self::RuntimeApi,
-			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+			WrappedBlockImport<
+				Self::Block,
+				<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+				Self::RuntimeApi,
+			>,
 			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImportAuxiliaryData
 		>
 	>{
@@ -270,10 +295,21 @@ pub(crate) trait BaseNodeSpec {
 			.build(),
 		);
 
-		let (block_import, block_import_auxiliary_data) =
+		let (inner_block_import, block_import_auxiliary_data) =
 			Self::InitBlockImport::init_block_import(client.clone())?;
 
-		let block_import = ParachainBlockImport::new(block_import, backend.clone());
+		let network_handle: NetworkHandle = Arc::new(OnceLock::new());
+		let syncing_handle: SyncingHandle = Arc::new(OnceLock::new());
+
+		let fetcher = IndexedTransactionFetcher::new(
+			Arc::clone(&network_handle),
+			Arc::clone(&syncing_handle),
+		);
+
+		let storage_chain_block_import =
+			StorageChainBlockImport::new(inner_block_import, client.clone(), fetcher);
+
+		let block_import = ParachainBlockImport::new(storage_chain_block_import, backend.clone());
 
 		let import_queue = Self::BuildImportQueue::build_import_queue(
 			client.clone(),
@@ -291,7 +327,14 @@ pub(crate) trait BaseNodeSpec {
 			task_manager,
 			transaction_pool,
 			select_chain: (),
-			other: (block_import, telemetry, telemetry_worker_handle, block_import_auxiliary_data),
+			other: (
+				block_import,
+				telemetry,
+				telemetry_worker_handle,
+				block_import_auxiliary_data,
+				network_handle,
+				syncing_handle,
+			),
 		})
 	}
 }
@@ -307,7 +350,11 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	type StartConsensus: StartConsensus<
 		Self::Block,
 		Self::RuntimeApi,
-		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+		WrappedBlockImport<
+			Self::Block,
+			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+			Self::RuntimeApi,
+		>,
 		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImportAuxiliaryData,
 	>;
 
@@ -333,6 +380,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>>
 	where
 		Net: NetworkBackend<Self::Block, Hash>,
+		sp_runtime::traits::NumberFor<Self::Block>: sp_runtime::traits::UniqueSaturatedInto<u64>,
 	{
 		let fut = async move {
 			let mut parachain_config = prepare_node_config(parachain_config);
@@ -351,9 +399,16 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let parachain_public_addresses = parachain_config.network.public_addresses.clone();
 			let parachain_fork_id = parachain_config.chain_spec.fork_id().map(ToString::to_string);
 			let advertise_non_global_ips = parachain_config.network.allow_non_globals_in_dht;
+
 			let params = Self::new_partial(&parachain_config)?;
-			let (block_import, mut telemetry, telemetry_worker_handle, block_import_auxiliary_data) =
-				params.other;
+			let (
+				block_import,
+				mut telemetry,
+				telemetry_worker_handle,
+				block_import_auxiliary_data,
+				network_handle,
+				syncing_handle,
+			) = params.other;
 			let client = params.client.clone();
 			let backend = params.backend.clone();
 			let mut task_manager = params.task_manager;
@@ -412,6 +467,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					metrics,
 				})
 				.await?;
+
+			let _ = network_handle
+				.set(network.clone() as Arc<dyn sc_network::NetworkRequest + Send + Sync>);
+			let _ = syncing_handle.set(
+				sync_service.clone()
+					as Arc<dyn cumulus_client_storage_chain_sync::BitswapPeerSource + Send + Sync>,
+			);
+
 			let peer_id = network.local_peer_id();
 
 			let statement_store = statement_handler_proto
@@ -576,7 +639,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				import_queue: import_queue_service,
 				relay_chain_slot_duration,
 				recovery_handle: Box::new(overseer_handle.clone()),
-				sync_service,
+				sync_service: sync_service.clone(),
 				prometheus_registry: prometheus_registry.as_ref(),
 			})?;
 
@@ -589,7 +652,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				relay_chain_fork_id,
 				relay_chain_network,
 				request_receiver: paranode_rx,
-				parachain_network: network,
+				parachain_network: network.clone(),
 				advertise_non_global_ips,
 				parachain_genesis_hash: client.chain_info().genesis_hash.encode(),
 				parachain_fork_id,
@@ -654,6 +717,7 @@ pub(crate) trait DynNodeSpec: NodeCommandRunner {
 impl<T> DynNodeSpec for T
 where
 	T: NodeSpec + NodeCommandRunner,
+	sp_runtime::traits::NumberFor<T::Block>: sp_runtime::traits::UniqueSaturatedInto<u64>,
 {
 	fn start_dev_node(
 		self: Box<Self>,
