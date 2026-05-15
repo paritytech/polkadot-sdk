@@ -240,17 +240,11 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::gas_left")
 	}
 
-	fn get_storage(
-		&mut self,
-		_key: &Key,
-	) -> (Option<Vec<u8>>, StorageAccessCost) {
+	fn get_storage(&mut self, _key: &Key) -> (Option<Vec<u8>>, StorageAccessCost) {
 		panic!("MockExt::get_storage")
 	}
 
-	fn get_storage_size(
-		&mut self,
-		_key: &Key,
-	) -> (Option<u32>, StorageAccessCost) {
+	fn get_storage_size(&mut self, _key: &Key) -> (Option<u32>, StorageAccessCost) {
 		panic!("MockExt::get_storage_size")
 	}
 

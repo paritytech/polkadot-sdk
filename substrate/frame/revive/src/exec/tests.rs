@@ -3085,18 +3085,23 @@ fn cold_warm_distinct_slots_independent() {
 	});
 }
 
-/// `Ext::get_storage_size` warms the slot for a subsequent `Ext::get_storage`
-/// — covers the `containsStorage` precompile path (which calls
-/// `get_storage_size`) interacting with SLOAD on the same slot.
+/// `Ext::get_storage_size` does not register the slot as warm — `child::len`
+/// skips the value-bytes fetch, so a subsequent `Ext::get_storage` is the
+/// first real bytes read and must remain cold. See the TODO in
+/// `get_storage_size` (two-tier touch) for the broader trade-off.
 #[test]
-fn cold_warm_get_storage_size_warms_for_sload() {
+fn cold_warm_get_storage_size_does_not_warm_for_sload() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		let slot = Key::Fix([12; 32]);
 		let (size, size_costs) = ctx.ext.get_storage_size(&slot);
 		assert_eq!(size, None);
-		assert_eq!(size_costs.is_cold, Some(true), "first size lookup on a fresh slot is cold");
+		assert_eq!(size_costs.is_cold, Some(true), "size always charges cold");
 		let (_, load_costs) = ctx.ext.get_storage(&slot);
-		assert_eq!(load_costs.is_cold, Some(false), "SLOAD after size lookup on same slot is warm");
+		assert_eq!(
+			load_costs.is_cold,
+			Some(true),
+			"SLOAD after size lookup is still cold — size did not warm the slot",
+		);
 		exec_success()
 	});
 

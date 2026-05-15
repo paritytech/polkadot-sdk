@@ -538,20 +538,14 @@ pub trait PrecompileExt: sealing::Sealed {
 	///
 	/// The value is `None` if the `key` wasn't previously set by `set_storage`
 	/// or was deleted.
-	fn get_storage(
-		&mut self,
-		key: &Key,
-	) -> (Option<Vec<u8>>, StorageAccessCost);
+	fn get_storage(&mut self, key: &Key) -> (Option<Vec<u8>>, StorageAccessCost);
 
 	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`,
 	/// alongside the cold/warm cost struct recording the access-list touch.
 	///
 	/// The length is `None` if the `key` wasn't previously set by
 	/// `set_storage` or was deleted.
-	fn get_storage_size(
-		&mut self,
-		key: &Key,
-	) -> (Option<u32>, StorageAccessCost);
+	fn get_storage_size(&mut self, key: &Key) -> (Option<u32>, StorageAccessCost);
 
 	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
 	/// the storage entry is deleted. The accompanying `StorageAccessCost`
@@ -2566,10 +2560,7 @@ where
 		frame.frame_meter.eth_gas_left().unwrap_or_default().saturated_into::<u64>()
 	}
 
-	fn get_storage(
-		&mut self,
-		key: &Key,
-	) -> (Option<Vec<u8>>, StorageAccessCost) {
+	fn get_storage(&mut self, key: &Key) -> (Option<Vec<u8>>, StorageAccessCost) {
 		assert!(self.has_contract_info());
 		let address = T::AddressMapper::to_address(self.account_id());
 		let is_cold = self.access_list.touch(AccessEntry { address, slot: key.to_slot() });
@@ -2577,15 +2568,16 @@ where
 		(value, StorageAccessCost { is_cold: Some(is_cold) })
 	}
 
-	fn get_storage_size(
-		&mut self,
-		key: &Key,
-	) -> (Option<u32>, StorageAccessCost) {
+	fn get_storage_size(&mut self, key: &Key) -> (Option<u32>, StorageAccessCost) {
 		assert!(self.has_contract_info());
-		let address = T::AddressMapper::to_address(self.account_id());
-		let is_cold = self.access_list.touch(AccessEntry { address, slot: key.to_slot() });
+		// TODO: two-tier touch (size-only vs full-value). For now, `size` does
+		// not register the slot as warm and always charges cold. A following
+		// `get_storage` on the same slot is then correctly priced as cold
+		// (value bytes are fetched for the first time). Trade-off: repeated
+		// `size` calls on the same slot all pay cold, even though the trie
+		// node is already in the proof after the first call.
 		let size = self.top_frame_mut().contract_info().size(key.into());
-		(size, StorageAccessCost { is_cold: Some(is_cold) })
+		(size, StorageAccessCost { is_cold: Some(true) })
 	}
 
 	fn set_storage(
