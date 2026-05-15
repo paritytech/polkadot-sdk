@@ -22,14 +22,14 @@ use crate::{
 		error::Error,
 		event::AddFilterResponse,
 		subscription::{
-			filter_id_to_string, parse_filter_id, run_subscription_task, StatementSubscriptions,
+			filter_id_to_string, parse_filter_id, send_subscription_event, StatementSubscriptions,
 		},
 		LOG_TARGET,
 	},
 	SubscriptionTaskExecutor,
 };
 use codec::Decode;
-use futures::FutureExt;
+use futures::{FutureExt, StreamExt};
 use jsonrpsee::{
 	core::async_trait, types::SubscriptionId, ConnectionId, Extensions, PendingSubscriptionSink,
 };
@@ -99,7 +99,7 @@ where
 		let store = self.store.clone();
 		let connection_id = pending.connection_id();
 
-		let (handle, live_stream) = store.create_subscription();
+		let (handle, mut live_stream) = store.create_subscription();
 		let Ok(sink) = pending.accept().await.map(Subscription::from) else { return };
 		let sub_id = read_subscription_id_as_string(&sink);
 
@@ -110,7 +110,11 @@ where
 		};
 
 		let fut = async move {
-			run_subscription_task(sink, live_stream).await;
+			while let Some(event) = live_stream.next().await {
+				if !send_subscription_event(&sink, event).await {
+					break;
+				}
+			}
 			drop(entry);
 		};
 

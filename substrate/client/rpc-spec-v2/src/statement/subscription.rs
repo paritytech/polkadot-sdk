@@ -17,11 +17,10 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::statement::event::{NewStatementEntry, SubscribeEvent};
-use futures::StreamExt;
 use jsonrpsee::ConnectionId;
 use parking_lot::RwLock;
 use sc_rpc::utils::Subscription;
-use sc_statement_store::{LiveEventStream, MultiFilterSubscriptionEvent, SubscriptionHandle};
+use sc_statement_store::{MultiFilterSubscriptionEvent, SubscriptionHandle};
 use sp_statement_store::FilterId;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::Notify;
@@ -123,15 +122,10 @@ pub(crate) fn parse_filter_id(s: &str) -> Option<FilterId> {
 	s.parse::<u64>().ok().map(FilterId::new)
 }
 
-pub async fn run_subscription_task(sink: Subscription, mut live_stream: LiveEventStream) {
-	while let Some(event) = live_stream.next().await {
-		if !send_subscription_event(&sink, event).await {
-			return;
-		}
-	}
-}
-
-async fn send_subscription_event(sink: &Subscription, event: MultiFilterSubscriptionEvent) -> bool {
+pub(super) async fn send_subscription_event(
+	sink: &Subscription,
+	event: MultiFilterSubscriptionEvent,
+) -> bool {
 	match event {
 		MultiFilterSubscriptionEvent::ReplayStatements { filter_id, statements } => {
 			let statements = statements.into_iter().map(sp_core::Bytes).collect();
