@@ -674,7 +674,10 @@ pub mod migrations {
 					<AuthorityDiscoveryId as sp_runtime::RuntimeAppPublic>::to_raw_vec(
 						&session_keys.authority_discovery,
 					);
-				pallet_session::KeyOwner::<Runtime>::insert((key_types::AURA, aura_bytes), &account);
+				pallet_session::KeyOwner::<Runtime>::insert(
+					(key_types::AURA, aura_bytes),
+					&account,
+				);
 				pallet_session::KeyOwner::<Runtime>::insert(
 					(key_types::AUTHORITY_DISCOVERY, audi_bytes),
 					&account,
@@ -682,8 +685,7 @@ pub mod migrations {
 
 				// Mirror `pallet_session::do_set_keys`: increment the account's consumer
 				// count so a future `purge_keys` decrements it correctly.
-				let inc_ok =
-					frame_system::Pallet::<Runtime>::inc_consumers(&account).is_ok();
+				let inc_ok = frame_system::Pallet::<Runtime>::inc_consumers(&account).is_ok();
 				debug_assert!(
 					inc_ok,
 					"authority account has no providers; cannot inc_consumers in migration",

@@ -1185,48 +1185,48 @@ where
 /// Update per-peer slot tracking for changes in the dynamic no-slot set.
 /// Promotes newly added peers, demotes removed ones, ignoring static no-slot peers.
 ///
+/// `peer_inbound_full(peer_id)` returns `true` if `peer_id` is inbound and full.
+///  Returns `None` if the peer is not connected.
+///
 /// Caller needs to update `dynamic_no_slot_peers` after calling this function.
 fn apply_no_slot_set(
-	peer_status: impl Fn(&PeerId) -> Option<bool>,
+	peer_inbound_full: impl Fn(&PeerId) -> Option<bool>,
 	static_no_slot: &HashSet<PeerId>,
 	old_dynamic_no_slot: &HashSet<PeerId>,
 	new_dynamic_no_slot: &HashSet<PeerId>,
 	connected_no_slot: &mut HashSet<PeerId>,
 	num_in_peers: &mut usize,
 ) {
+	// Skip static-set and disconnected peers and return the slot-affecting flag for the rest.
+	let slot_impact = |peer_id: &PeerId| -> Option<bool> {
+		if static_no_slot.contains(peer_id) {
+			return None;
+		}
+		peer_inbound_full(peer_id)
+	};
+
 	let mut promoted = 0;
 	let mut demoted = 0;
 
 	for peer_id in new_dynamic_no_slot.difference(old_dynamic_no_slot) {
-		if static_no_slot.contains(peer_id) {
-			continue;
-		}
-		let Some(affects_slots) = peer_status(peer_id) else {
-			continue;
-		};
+		let Some(affects_slots) = slot_impact(peer_id) else { continue };
 		connected_no_slot.insert(*peer_id);
 		if affects_slots {
-			match num_in_peers.checked_sub(1) {
-				Some(n) => *num_in_peers = n,
-				None => {
-					log::error!(
-						target: LOG_TARGET,
-						"num_in_peers underflow promoting {peer_id} to no-slot",
-					);
-					debug_assert!(false);
-				},
+			if let Some(n) = num_in_peers.checked_sub(1) {
+				*num_in_peers = n;
+			} else {
+				log::error!(
+					target: LOG_TARGET,
+					"num_in_peers underflow promoting {peer_id} to no-slot",
+				);
+				debug_assert!(false);
 			}
 			promoted += 1;
 		}
 	}
 
 	for peer_id in old_dynamic_no_slot.difference(new_dynamic_no_slot) {
-		if static_no_slot.contains(peer_id) {
-			continue;
-		}
-		let Some(affects_slots) = peer_status(peer_id) else {
-			continue;
-		};
+		let Some(affects_slots) = slot_impact(peer_id) else { continue };
 		if connected_no_slot.remove(peer_id) && affects_slots {
 			*num_in_peers += 1;
 			demoted += 1;
@@ -1265,11 +1265,11 @@ mod tests {
 		initial_connected_no_slot: HashSet<PeerId>,
 		initial_num_in_peers: usize,
 	) -> (HashSet<PeerId>, usize) {
-		let peer_status: HashMap<PeerId, bool> = connected.into_iter().collect();
+		let peer_inbound_full: HashMap<PeerId, bool> = connected.into_iter().collect();
 		let mut connected_no_slot = initial_connected_no_slot;
 		let mut num_in_peers = initial_num_in_peers;
 		apply_no_slot_set(
-			|peer_id| peer_status.get(peer_id).copied(),
+			|peer_id| peer_inbound_full.get(peer_id).copied(),
 			&static_no_slot,
 			&old_dynamic,
 			&new_dynamic,
