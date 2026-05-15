@@ -6480,9 +6480,10 @@ pub(crate) mod tests {
 			fn open(&self) -> Arc<dyn Database<DbHash>> {
 				match self {
 					Self::Persistent(arc) => arc.clone(),
-					Self::OnDisk { path, kind: BackendKind::ParityDb, .. } =>
+					Self::OnDisk { path, kind: BackendKind::ParityDb, .. } => {
 						crate::parity_db::open::<DbHash>(path, DatabaseType::Full, true, false)
-							.expect("parity-db open succeeds in test"),
+							.expect("parity-db open succeeds in test")
+					},
 					Self::OnDisk { path, kind: BackendKind::RocksDb, .. } => {
 						let mut cfg = kvdb_rocksdb::DatabaseConfig::with_columns(NUM_COLUMNS);
 						cfg.create_if_missing = true;
