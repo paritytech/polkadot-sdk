@@ -34,7 +34,7 @@ use crate::{Config, weights::WeightInfo};
 pub struct AccessEntry {
 	/// Contract whose child trie is being touched.
 	pub address: H160,
-	/// 32-byte slot identifier, projected from a `Key` via [`crate::exec::key_to_slot`].
+	/// 32-byte slot identifier, projected from a `Key` via [`crate::exec::Key::to_slot`].
 	pub slot: [u8; 32],
 }
 
@@ -174,9 +174,16 @@ pub struct StorageAccessCost {
 // TODO: replace these approximations with dedicated benchmarks
 // (`access_list_touch`, `storage_read_cold`, `storage_read_warm`).
 
-/// Per-touch access-list bookkeeping cost. Approximated as 1/8 of `seal_caller`.
-fn access_list_touch_weight<T: Config>() -> Weight {
+/// Cold touch bookkeeping: BTreeSet `contains` + `insert` (with clone) + Vec
+/// `push`. Approximated as 1/8 of `seal_caller`.
+fn access_list_touch_cold_weight<T: Config>() -> Weight {
 	T::WeightInfo::seal_caller().saturating_div(8)
+}
+
+/// Warm touch bookkeeping: BTreeSet `contains` only. ~3× cheaper than the cold
+/// path; approximated as 1/24 of `seal_caller`.
+fn access_list_touch_warm_weight<T: Config>() -> Weight {
+	T::WeightInfo::seal_caller().saturating_div(24)
 }
 
 /// Cold substrate read of `value_size` bytes. Approximated as full `seal_get_storage(value_size)`.
@@ -191,14 +198,14 @@ fn storage_read_warm_weight<T: Config>(value_size: u32) -> Weight {
 
 /// Weight charged for one observed substrate read at this opcode:
 /// - `None` → the read didn't happen; charge nothing.
-/// - `Some(true)` → cold: touch bookkeeping + full read.
-/// - `Some(false)` → warm: touch bookkeeping + in-memory dedup.
+/// - `Some(true)` → cold: cold touch bookkeeping + full read.
+/// - `Some(false)` → warm: warm touch bookkeeping + in-memory dedup.
 pub fn cost_read<T: Config>(is_cold: Option<bool>, value_size: u32) -> Weight {
 	match is_cold {
 		None => Weight::zero(),
-		Some(true) => access_list_touch_weight::<T>()
+		Some(true) => access_list_touch_cold_weight::<T>()
 			.saturating_add(storage_read_cold_weight::<T>(value_size)),
-		Some(false) => access_list_touch_weight::<T>()
+		Some(false) => access_list_touch_warm_weight::<T>()
 			.saturating_add(storage_read_warm_weight::<T>(value_size)),
 	}
 }

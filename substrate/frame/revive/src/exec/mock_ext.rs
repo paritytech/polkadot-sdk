@@ -19,6 +19,7 @@
 use crate::{
 	BalanceOf, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue, ImmutableData,
 	ReentrancyProtection,
+	access_list::StorageAccessCost,
 	exec::{
 		AccountIdOf, CallResources, ExecError, Ext, Key, Origin, PrecompileExt,
 		PrecompileWithInfoExt,
@@ -242,14 +243,14 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 	fn get_storage(
 		&mut self,
 		_key: &Key,
-	) -> (Option<Vec<u8>>, crate::access_list::StorageAccessCost) {
+	) -> (Option<Vec<u8>>, StorageAccessCost) {
 		panic!("MockExt::get_storage")
 	}
 
 	fn get_storage_size(
 		&mut self,
 		_key: &Key,
-	) -> (Option<u32>, crate::access_list::StorageAccessCost) {
+	) -> (Option<u32>, StorageAccessCost) {
 		panic!("MockExt::get_storage_size")
 	}
 
@@ -258,7 +259,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		_key: &Key,
 		_value: Option<Vec<u8>>,
 		_take_old: bool,
-	) -> (Result<WriteOutcome, DispatchError>, crate::access_list::StorageAccessCost) {
+	) -> (Result<WriteOutcome, DispatchError>, StorageAccessCost) {
 		panic!("MockExt::set_storage")
 	}
 

@@ -1566,6 +1566,7 @@ mod benchmarks {
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
+			.0
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -1578,7 +1579,7 @@ mod benchmarks {
 			);
 		}
 		assert_ok!(result);
-		assert!(ext.get_storage(&key).is_none());
+		assert!(ext.get_storage(&key).0.is_none());
 
 		Ok(())
 	}
@@ -1628,6 +1629,7 @@ mod benchmarks {
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
+			.0
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -1640,7 +1642,7 @@ mod benchmarks {
 			);
 		}
 		assert_ok!(result);
-		assert!(ext.get_storage(&key).is_some());
+		assert!(ext.get_storage(&key).0.is_some());
 
 		Ok(())
 	}
@@ -1661,6 +1663,7 @@ mod benchmarks {
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
+			.0
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -1673,7 +1676,7 @@ mod benchmarks {
 			);
 		}
 		assert_ok!(result);
-		assert!(ext.get_storage(&key).is_none());
+		assert!(ext.get_storage(&key).0.is_none());
 
 		Ok(())
 	}

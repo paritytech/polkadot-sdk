@@ -19,6 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
+	access_list::{AccessEntry, AccessList, StorageAccessCost},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -109,29 +110,22 @@ impl Key {
 		}
 	}
 
+	/// Project to a 32-byte slot identifier for the access list. `Fix` is used
+	/// as-is; `Var` is hashed via `blake2_256`. Distinct from [`Key::hash`]
+	/// (the child-trie lookup key), which hashes both variants.
+	pub fn to_slot(&self) -> [u8; 32] {
+		match self {
+			Key::Fix(v) => *v,
+			Key::Var(v) => blake2_256(v.as_ref()),
+		}
+	}
+
 	pub fn from_fixed(v: [u8; 32]) -> Self {
 		Self::Fix(v)
 	}
 
 	pub fn try_from_var(v: Vec<u8>) -> Result<Self, ()> {
 		VarSizedKey::try_from(v).map(Self::Var).map_err(|_| ())
-	}
-}
-
-/// Project a [`Key`] onto a 32-byte slot identifier for the access list.
-///
-/// `Fix` is used as-is; `Var` is hashed to 32 bytes so the access-list entry
-/// type stays fixed-size and cheap to compare.
-///
-/// Distinct from [`Key::hash`]: that method produces the substrate child-trie
-/// lookup key (blake2_256 for `Fix`, blake2_128_concat for `Var`). Here we
-/// only need a stable, fixed-size collision-resistant identifier per
-/// `(address, slot)` pair — running blake2 over `Fix` keys would add cost
-/// for no semantic benefit.
-fn key_to_slot(key: &Key) -> [u8; 32] {
-	match key {
-		Key::Fix(v) => *v,
-		Key::Var(v) => blake2_256(v.as_ref()),
 	}
 }
 
@@ -547,7 +541,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn get_storage(
 		&mut self,
 		key: &Key,
-	) -> (Option<Vec<u8>>, crate::access_list::StorageAccessCost);
+	) -> (Option<Vec<u8>>, StorageAccessCost);
 
 	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`,
 	/// alongside the cold/warm cost struct recording the access-list touch.
@@ -557,7 +551,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn get_storage_size(
 		&mut self,
 		key: &Key,
-	) -> (Option<u32>, crate::access_list::StorageAccessCost);
+	) -> (Option<u32>, StorageAccessCost);
 
 	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
 	/// the storage entry is deleted. The accompanying `StorageAccessCost`
@@ -567,7 +561,7 @@ pub trait PrecompileExt: sealing::Sealed {
 		key: &Key,
 		value: Option<Vec<u8>>,
 		take_old: bool,
-	) -> (Result<WriteOutcome, DispatchError>, crate::access_list::StorageAccessCost);
+	) -> (Result<WriteOutcome, DispatchError>, StorageAccessCost);
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -665,7 +659,7 @@ pub struct Stack<'a, T: Config, E> {
 	transient_storage: TransientStorage<T>,
 	/// Per-transaction cold/warm access list for storage slots (EIP-2929 style,
 	/// scoped to SLOAD/SSTORE and the storage precompile).
-	access_list: crate::access_list::AccessList,
+	access_list: AccessList,
 	/// Global behavior determined by the creater of this stack.
 	exec_config: &'a ExecConfig<T>,
 	/// No executable is held by the struct but influences its behaviour.
@@ -1064,9 +1058,9 @@ where
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
 			access_list: if <T as Config>::ColdWarmPricingEnabled::get() {
-				crate::access_list::AccessList::new_enabled()
+				AccessList::new_enabled()
 			} else {
-				crate::access_list::AccessList::new_disabled()
+				AccessList::new_disabled()
 			},
 			exec_config,
 			_phantom: Default::default(),
@@ -2575,11 +2569,10 @@ where
 	fn get_storage(
 		&mut self,
 		key: &Key,
-	) -> (Option<Vec<u8>>, crate::access_list::StorageAccessCost) {
-		use crate::access_list::{AccessEntry, StorageAccessCost};
+	) -> (Option<Vec<u8>>, StorageAccessCost) {
 		assert!(self.has_contract_info());
 		let address = T::AddressMapper::to_address(self.account_id());
-		let is_cold = self.access_list.touch(AccessEntry { address, slot: key_to_slot(key) });
+		let is_cold = self.access_list.touch(AccessEntry { address, slot: key.to_slot() });
 		let value = self.top_frame_mut().contract_info().read(key);
 		(value, StorageAccessCost { is_cold: Some(is_cold) })
 	}
@@ -2587,11 +2580,10 @@ where
 	fn get_storage_size(
 		&mut self,
 		key: &Key,
-	) -> (Option<u32>, crate::access_list::StorageAccessCost) {
-		use crate::access_list::{AccessEntry, StorageAccessCost};
+	) -> (Option<u32>, StorageAccessCost) {
 		assert!(self.has_contract_info());
 		let address = T::AddressMapper::to_address(self.account_id());
-		let is_cold = self.access_list.touch(AccessEntry { address, slot: key_to_slot(key) });
+		let is_cold = self.access_list.touch(AccessEntry { address, slot: key.to_slot() });
 		let size = self.top_frame_mut().contract_info().size(key.into());
 		(size, StorageAccessCost { is_cold: Some(is_cold) })
 	}
@@ -2601,11 +2593,10 @@ where
 		key: &Key,
 		value: Option<Vec<u8>>,
 		take_old: bool,
-	) -> (Result<WriteOutcome, DispatchError>, crate::access_list::StorageAccessCost) {
-		use crate::access_list::{AccessEntry, StorageAccessCost};
+	) -> (Result<WriteOutcome, DispatchError>, StorageAccessCost) {
 		assert!(self.has_contract_info());
 		let address = T::AddressMapper::to_address(self.account_id());
-		let is_cold = self.access_list.touch(AccessEntry { address, slot: key_to_slot(key) });
+		let is_cold = self.access_list.touch(AccessEntry { address, slot: key.to_slot() });
 		let frame = self.top_frame_mut();
 		let result = frame.contract_info.get(&frame.account_id).write(
 			key.into(),
