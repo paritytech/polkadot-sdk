@@ -281,10 +281,6 @@ fn ensure_transactional_works() {
 
 #[test]
 fn set_overlayed_changes_is_observed_by_typed_call() {
-	// `TestAPI::get_block_number` reads `frame_system::Number`, whose storage key is
-	// `twox_128("System") ++ twox_128("Number")` and whose value is SCALE-encoded `u64`.
-	// This is FRAME's standard `StorageValue` key derivation; spelled out here so the
-	// test does not need a frame-support dependency.
 	let system_number_key: Vec<u8> = sp_core::hashing::twox_128(b"System")
 		.iter()
 		.chain(sp_core::hashing::twox_128(b"Number").iter())
