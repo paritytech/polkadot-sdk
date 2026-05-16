@@ -420,32 +420,30 @@ pub mod pallet {
 			Ok(())
 		}
 
-			/// Remove empty voting entries for a given account and class.
-			///
-			/// When all votes are removed and locks expire, empty `VotingFor` and `ClassLocksFor`
-			/// entries may remain in storage. This call removes them, freeing storage space.
-			/// It can be called by any signed origin for any account whose votes are already
-			/// empty — it is a no-op if there are still active votes.
-			///
-			/// - `who`: The account to clean up empty votes for.
-			/// - `class`: The class of polls to clean up.
-			///
-			/// Weight: `O(1)` — reads and conditionally writes `VotingFor` and `ClassLocksFor`.
-			#[pallet::call_index(6)]
-			#[pallet::weight(T::WeightInfo::cleanup_empty_votes())]
-			pub fn cleanup_empty_votes(
-				origin: OriginFor<T>,
-				who: AccountIdLookupOf<T>,
-				class: ClassOf<T, I>,
-			) -> DispatchResult {
-				ensure_signed(origin)?;
-				let who = T::Lookup::lookup(who)?;
-				Self::remove_empty_entries(&who, &class);
-				Ok(())
-			}
+		/// Remove empty voting entries for a given account and class.
+		///
+		/// When all votes are removed and locks expire, empty `VotingFor` and `ClassLocksFor`
+		/// entries may remain in storage. This call removes them, freeing storage space.
+		/// It can be called by any signed origin for any account whose votes are already
+		/// empty — it is a no-op if there are still active votes.
+		///
+		/// - `who`: The account to clean up empty votes for.
+		/// - `class`: The class of polls to clean up.
+		///
+		/// Weight: `O(1)` — reads and conditionally writes `VotingFor` and `ClassLocksFor`.
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::cleanup_empty_votes())]
+		pub fn cleanup_empty_votes(
+			origin: OriginFor<T>,
+			who: AccountIdLookupOf<T>,
+			class: ClassOf<T, I>,
+		) -> DispatchResult {
+			ensure_signed(origin)?;
+			let who = T::Lookup::lookup(who)?;
+			Self::remove_empty_entries(&who, &class);
+			Ok(())
 		}
-	}
-}
+		}
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Actually enact a vote, if legit.
