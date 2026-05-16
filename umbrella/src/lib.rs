@@ -84,7 +84,8 @@ pub use cumulus_client_cli;
 #[cfg(feature = "cumulus-client-collator")]
 pub use cumulus_client_collator;
 
-/// Parachain collator authority discovery.
+/// Parachain collator authority discovery — keeps collators connected via reserved peers on
+/// the block-announce protocol.
 #[cfg(feature = "cumulus-client-collator-discovery")]
 pub use cumulus_client_collator_discovery;
 

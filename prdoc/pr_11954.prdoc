@@ -14,8 +14,10 @@ doc:
 
 crates:
   - name: cumulus-client-collator-discovery
-    bump: major
+    bump: patch
   - name: polkadot-omni-node-lib
     bump: major
   - name: sc-network-sync
+    bump: major
+  - name: polkadot-sdk
     bump: minor
