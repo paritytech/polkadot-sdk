@@ -1078,6 +1078,7 @@ pallet-tips = { path = "substrate/frame/tips", default-features = false }
 pallet-transaction-payment = { path = "substrate/frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc = { path = "substrate/frame/transaction-payment/rpc", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
+pallet-transaction-storage = { path = "substrate/frame/transaction-storage", default-features = false }
 pallet-treasury = { path = "substrate/frame/treasury", default-features = false }
 pallet-uniques = { path = "substrate/frame/uniques", default-features = false }
 pallet-utility = { path = "substrate/frame/utility", default-features = false }
