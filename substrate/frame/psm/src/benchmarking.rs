@@ -21,36 +21,42 @@ use super::*;
 use crate::Pallet as Psm;
 use frame_benchmarking::v2::*;
 use frame_support::traits::{
-	fungible::{metadata::Inspect, Create as FungibleCreate, Inspect as FungibleInspect},
 	fungibles::{
-		Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
+		metadata::Inspect as FungiblesMetadataInspect, Create as FungiblesCreate,
+		Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 	},
 	Get,
 };
 use frame_system::RawOrigin;
 use pallet::BalanceOf;
-use sp_runtime::{traits::Zero, Permill, Saturating};
+use sp_runtime::{Permill, Saturating};
 
 /// Offset for benchmark asset IDs, chosen to avoid collision with typical
 /// genesis asset IDs (e.g. internal asset ID = 1).
 const ASSET_ID_OFFSET: u32 = 100;
 
-/// Ensure the internal asset exists and its decimals snapshot is written.
-/// The snapshot is consulted by mint/redeem via `ensure_decimals_match` and by
-/// `add_external_asset`; without it those paths fail closed. Returns the live
-/// internal decimals so callers can align external-asset metadata with it.
+/// Ensure the internal asset exists and the PSM record is installed for it. Returns
+/// the live internal decimals so callers can align external-asset metadata with it.
 fn ensure_internal_setup<T: Config>() -> u8
 where
-	T::InternalAsset: FungibleCreate<T::AccountId>,
+	T::Fungibles: FungiblesCreate<T::AccountId>,
 {
 	let admin: T::AccountId = whitelisted_caller();
 	let _ = frame_system::Pallet::<T>::inc_providers(&admin);
-	if T::InternalAsset::minimum_balance().is_zero() {
-		let _ = T::InternalAsset::create(admin, true, 1u32.into());
+	let internal_id = T::InternalAssetId::get();
+	if !T::Fungibles::asset_exists(internal_id.clone()) {
+		let _ = T::Fungibles::create(internal_id.clone(), admin.clone(), true, 1u32.into());
 	}
-	let internal_decimals = T::InternalAsset::decimals();
-	if !crate::InternalDecimals::<T>::exists() {
-		crate::InternalDecimals::<T>::put(internal_decimals);
+	let internal_decimals = T::Fungibles::decimals(internal_id.clone());
+	if !crate::Psms::<T>::contains_key(&internal_id) {
+		crate::Psms::<T>::insert(
+			&internal_id,
+			crate::PsmInfo::<T> {
+				fee_destination: admin,
+				max_debt: BalanceOf::<T>::from(u32::MAX).saturating_mul(1_000_000u32.into()),
+				internal_decimals,
+			},
+		);
 	}
 	internal_decimals
 }
@@ -67,7 +73,6 @@ where
 fn setup_assets<T: Config>(n: u32) -> T::AssetId
 where
 	T::Fungibles: FungiblesCreate<T::AccountId>,
-	T::InternalAsset: FungibleCreate<T::AccountId>,
 {
 	let admin: T::AccountId = whitelisted_caller();
 	let _ = frame_system::Pallet::<T>::inc_providers(&admin);
@@ -83,7 +88,6 @@ where
 		T::BenchmarkHelper::create_asset(target_id.clone(), &admin, internal_decimals);
 	}
 
-	crate::MaxPsmDebtOfTotal::<T>::put(Permill::from_percent(100));
 	// Filler assets only populate PSM storage so mint()'s iterators touch `n`
 	// entries. They are never swapped against, so their underlying fungibles
 	// asset does not need to exist and no ExternalDecimals snapshot is required.
@@ -104,7 +108,6 @@ where
 #[benchmarks(
 	where
 		T::Fungibles: FungiblesCreate<T::AccountId>,
-		T::InternalAsset: FungibleCreate<T::AccountId>,
 )]
 mod benchmarks {
 	use super::*;
@@ -182,13 +185,17 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn set_max_psm_debt() -> Result<(), BenchmarkError> {
-		let new_ratio = Permill::from_percent(20);
+	fn set_max_debt() -> Result<(), BenchmarkError> {
+		let _ = ensure_internal_setup::<T>();
+		let new_value = BalanceOf::<T>::from(123u32);
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, new_ratio);
+		_(RawOrigin::Root, new_value);
 
-		assert_eq!(crate::MaxPsmDebtOfTotal::<T>::get(), new_ratio);
+		assert_eq!(
+			crate::Psms::<T>::get(T::InternalAssetId::get()).unwrap().max_debt,
+			new_value
+		);
 		Ok(())
 	}
 
@@ -217,7 +224,7 @@ mod benchmarks {
 	}
 	#[benchmark]
 	fn add_external_asset() -> Result<(), BenchmarkError> {
-		// Seed InternalDecimals and ensure the internal asset exists; the extrinsic
+		// Seed PsmInfo and ensure the internal asset exists; the extrinsic
 		// reads the snapshot and compares it against live metadata.
 		let internal_decimals = ensure_internal_setup::<T>();
 		let caller: T::AccountId = whitelisted_caller();

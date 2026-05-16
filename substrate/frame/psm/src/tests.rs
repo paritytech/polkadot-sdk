@@ -17,11 +17,20 @@
 
 use super::mock::*;
 use crate::{
-	AssetCeilingWeight, CircuitBreakerLevel, Error, Event, ExternalAssets, MaxPsmDebtOfTotal,
-	MintingFee, PsmDebt, RedemptionFee,
+	AssetCeilingWeight, CircuitBreakerLevel, Error, Event, ExternalAssets, MintingFee, PsmDebt,
+	Psms, RedemptionFee,
 };
 use frame_support::{assert_noop, assert_ok, hypothetically};
 use sp_runtime::{DispatchError, Permill, TokenError};
+
+fn psm_max_debt() -> u128 {
+	Psms::<Test>::get(INTERNAL_ASSET_ID).map(|p| p.max_debt).unwrap_or_default()
+}
+
+fn psm_max_asset_debt(asset_id: u32) -> u128 {
+	let info = Psms::<Test>::get(INTERNAL_ASSET_ID).expect("PSM exists at genesis");
+	crate::Pallet::<Test>::max_asset_debt(asset_id, &info)
+}
 
 mod mint {
 	use super::*;
@@ -164,10 +173,10 @@ mod mint {
 	fn fails_exceeds_max_debt() {
 		new_test_ext().execute_with(|| {
 			// Set global ceiling to 1% and asset ratio to 100%
-			set_max_psm_debt_ratio(Permill::from_percent(1));
+			set_max_debt(200_000 * INTERNAL_UNIT);
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(100));
 
-			let max_debt = crate::Pallet::<Test>::max_asset_debt(USDC_ASSET_ID);
+			let max_debt = psm_max_asset_debt(USDC_ASSET_ID);
 			let too_much = max_debt + 1;
 
 			fund_external_asset(USDC_ASSET_ID, ALICE, too_much);
@@ -185,7 +194,7 @@ mod mint {
 			// When PSM debt is set to an extreme value, the aggregate ceiling check
 			// will catch it before reaching the per-asset arithmetic overflow check.
 			// This is correct behavior - ceiling checks provide safety.
-			set_max_psm_debt_ratio(Permill::from_percent(100));
+			set_max_debt(20_000_000 * INTERNAL_UNIT);
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(100));
 
 			PsmDebt::<Test>::insert(USDC_ASSET_ID, u128::MAX - 100);
@@ -201,11 +210,11 @@ mod mint {
 	fn boundary_new_debt_equals_max() {
 		new_test_ext().execute_with(|| {
 			// Set USDC to 100% and USDT to 0% so USDC gets full ceiling
-			set_max_psm_debt_ratio(Permill::from_percent(1));
+			set_max_debt(200_000 * INTERNAL_UNIT);
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(100));
 			set_asset_ceiling_weight(USDT_ASSET_ID, Permill::from_percent(0));
 
-			let max_debt = crate::Pallet::<Test>::max_asset_debt(USDC_ASSET_ID);
+			let max_debt = psm_max_asset_debt(USDC_ASSET_ID);
 
 			fund_external_asset(USDC_ASSET_ID, ALICE, max_debt);
 
@@ -233,26 +242,6 @@ mod mint {
 			assert_eq!(get_asset_balance(USDC_ASSET_ID, ALICE), alice_usdc_before);
 			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, ALICE), alice_internal_before);
 			assert_eq!(get_asset_balance(USDC_ASSET_ID, psm_account()), psm_usdc_before);
-		});
-	}
-
-	#[test]
-	fn fails_mint_exceeds_system_wide_issuance() {
-		new_test_ext().execute_with(|| {
-			let maximum_issuance = MockMaximumIssuance::get();
-
-			// Simulate Vaults having minted most of the cap (leave only 100 internal room)
-			let vault_minted = maximum_issuance - 100 * INTERNAL_UNIT;
-			fund_internal(BOB, vault_minted);
-
-			// PSM per-asset ceiling would allow this, but system cap won't
-			let mint_amount = 1000 * INTERNAL_UNIT;
-			fund_external_asset(USDC_ASSET_ID, ALICE, mint_amount);
-
-			assert_noop!(
-				Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, mint_amount),
-				Error::<Test>::ExceedsMaxIssuance
-			);
 		});
 	}
 
@@ -597,36 +586,32 @@ mod governance {
 	}
 
 	#[test]
-	fn set_max_psm_debt_works() {
+	fn set_max_debt_works() {
 		new_test_ext().execute_with(|| {
-			let old_ratio = MaxPsmDebtOfTotal::<Test>::get();
-			let new_ratio = Permill::from_percent(20);
+			let old_value = psm_max_debt();
+			let new_value = 5_000_000 * INTERNAL_UNIT;
 
-			assert_ok!(Psm::set_max_psm_debt(RuntimeOrigin::root(), new_ratio));
+			assert_ok!(Psm::set_max_debt(RuntimeOrigin::root(), new_value));
 
-			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), new_ratio);
+			assert_eq!(psm_max_debt(), new_value);
 
 			System::assert_has_event(
-				Event::<Test>::MaxPsmDebtOfTotalUpdated {
-					old_value: old_ratio,
-					new_value: new_ratio,
-				}
-				.into(),
+				Event::<Test>::MaxDebtUpdated { old_value, new_value }.into(),
 			);
 		});
 	}
 
 	#[test]
-	fn set_max_psm_debt_unauthorized() {
+	fn set_max_debt_unauthorized() {
 		new_test_ext().execute_with(|| {
-			let old_ratio = MaxPsmDebtOfTotal::<Test>::get();
+			let old_value = psm_max_debt();
 
 			assert_noop!(
-				Psm::set_max_psm_debt(RuntimeOrigin::signed(ALICE), Permill::from_percent(20)),
+				Psm::set_max_debt(RuntimeOrigin::signed(ALICE), 5_000_000 * INTERNAL_UNIT),
 				DispatchError::BadOrigin
 			);
 
-			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), old_ratio);
+			assert_eq!(psm_max_debt(), old_value);
 		});
 	}
 
@@ -980,19 +965,19 @@ mod governance {
 	}
 
 	#[test]
-	fn emergency_origin_cannot_set_max_psm_debt() {
+	fn emergency_origin_cannot_set_max_debt() {
 		new_test_ext().execute_with(|| {
-			let old_ratio = MaxPsmDebtOfTotal::<Test>::get();
+			let old_value = psm_max_debt();
 
 			assert_noop!(
-				Psm::set_max_psm_debt(
+				Psm::set_max_debt(
 					RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
-					Permill::from_percent(20)
+					5_000_000 * INTERNAL_UNIT,
 				),
 				Error::<Test>::InsufficientPrivilege
 			);
 
-			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), old_ratio);
+			assert_eq!(psm_max_debt(), old_value);
 		});
 	}
 
@@ -1084,29 +1069,25 @@ mod helpers {
 	use super::*;
 
 	#[test]
-	fn max_psm_debt_calculation() {
+	fn max_psm_debt_reads_psm_info() {
 		new_test_ext().execute_with(|| {
-			set_mock_maximum_issuance(10_000_000 * INTERNAL_UNIT);
-			set_max_psm_debt_ratio(Permill::from_percent(10));
+			set_max_debt(1_000_000 * INTERNAL_UNIT);
 
-			let max_debt = crate::Pallet::<Test>::max_psm_debt();
-			let expected = Permill::from_percent(10).mul_floor(10_000_000 * INTERNAL_UNIT);
-
-			assert_eq!(max_debt, expected);
+			assert_eq!(crate::Pallet::<Test>::max_psm_debt(), 1_000_000 * INTERNAL_UNIT);
 		});
 	}
 
 	#[test]
 	fn max_asset_debt_calculation() {
 		new_test_ext().execute_with(|| {
-			set_mock_maximum_issuance(10_000_000 * INTERNAL_UNIT);
-			set_max_psm_debt_ratio(Permill::from_percent(10));
+			set_max_debt(1_000_000 * INTERNAL_UNIT);
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
 
-			let max_asset_debt = crate::Pallet::<Test>::max_asset_debt(USDC_ASSET_ID);
-			// 10M * 10% * 60% = 600K
-			let expected = Permill::from_percent(60)
-				.mul_floor(Permill::from_percent(10).mul_floor(10_000_000 * INTERNAL_UNIT));
+			let info = Psms::<Test>::get(INTERNAL_ASSET_ID).unwrap();
+			let max_asset_debt = crate::Pallet::<Test>::max_asset_debt(USDC_ASSET_ID, &info);
+			// 1M * 60% / (60% + 40%) = 600K
+			let expected = sp_runtime::Perbill::from_rational(60u32, 100u32)
+				.mul_floor(1_000_000 * INTERNAL_UNIT);
 
 			assert_eq!(max_asset_debt, expected);
 		});
@@ -1237,7 +1218,7 @@ mod ceiling_redistribution {
 			// PSM ceiling = 50% of 20M = 10M
 			// USDC ceiling = 60% of 10M = 6M
 			// USDT ceiling = 40% of 10M = 4M
-			set_max_psm_debt_ratio(Permill::from_percent(50));
+			set_max_debt(10_000_000 * INTERNAL_UNIT);
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
 			set_asset_ceiling_weight(USDT_ASSET_ID, Permill::from_percent(40));
 
@@ -1245,7 +1226,7 @@ mod ceiling_redistribution {
 			assert_eq!(max_psm, 10_000_000 * INTERNAL_UNIT);
 
 			// Normal ceiling for USDT = 4M
-			let usdt_normal_ceiling = crate::Pallet::<Test>::max_asset_debt(USDT_ASSET_ID);
+			let usdt_normal_ceiling = psm_max_asset_debt(USDT_ASSET_ID);
 			assert_eq!(usdt_normal_ceiling, 4_000_000 * INTERNAL_UNIT);
 
 			// Disable USDC minting and set weight to 0% (governance workflow)
@@ -1292,7 +1273,7 @@ mod ceiling_redistribution {
 			assert_ok!(Psm::add_external_asset(RuntimeOrigin::root(), bridged_usdc_asset_id));
 
 			// Setup: USDC 50%, USDT 25%, ETH:USDC 25%
-			set_max_psm_debt_ratio(Permill::from_percent(50));
+			set_max_debt(10_000_000 * INTERNAL_UNIT);
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(50));
 			set_asset_ceiling_weight(USDT_ASSET_ID, Permill::from_percent(25));
 			set_asset_ceiling_weight(bridged_usdc_asset_id, Permill::from_percent(25));
@@ -1337,7 +1318,7 @@ mod ceiling_redistribution {
 	fn normal_weights_use_proportional_ceilings() {
 		new_test_ext().execute_with(|| {
 			// Setup: USDC 60%, USDT 40%
-			set_max_psm_debt_ratio(Permill::from_percent(50));
+			set_max_debt(10_000_000 * INTERNAL_UNIT);
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
 			set_asset_ceiling_weight(USDT_ASSET_ID, Permill::from_percent(40));
 
@@ -1367,24 +1348,24 @@ mod ceiling_redistribution {
 			// Remove USDT so only USDC remains
 			assert_ok!(Psm::remove_external_asset(RuntimeOrigin::root(), USDT_ASSET_ID));
 
-			set_max_psm_debt_ratio(Permill::from_percent(50));
+			set_max_debt(10_000_000 * INTERNAL_UNIT);
 			// PSM ceiling = 50% of 20M = 10M
 			let mint_amount = 1000 * INTERNAL_UNIT;
 
 			// Set USDC weight to 30% — with a single asset this normalizes to 100%
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(30));
-			let ceiling_at_30 = crate::Pallet::<Test>::max_asset_debt(USDC_ASSET_ID);
+			let ceiling_at_30 = psm_max_asset_debt(USDC_ASSET_ID);
 			assert_eq!(ceiling_at_30, 10_000_000 * INTERNAL_UNIT);
 			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, mint_amount));
 
 			// Change weight to 80% — still normalizes to 100%
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(80));
-			let ceiling_at_80 = crate::Pallet::<Test>::max_asset_debt(USDC_ASSET_ID);
+			let ceiling_at_80 = psm_max_asset_debt(USDC_ASSET_ID);
 			assert_eq!(ceiling_at_80, 10_000_000 * INTERNAL_UNIT);
 
 			// Setting weight to 0% disables minting
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(0));
-			let ceiling_at_0 = crate::Pallet::<Test>::max_asset_debt(USDC_ASSET_ID);
+			let ceiling_at_0 = psm_max_asset_debt(USDC_ASSET_ID);
 			assert_eq!(ceiling_at_0, 0);
 			assert_noop!(
 				Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, mint_amount),
@@ -1397,7 +1378,7 @@ mod ceiling_redistribution {
 	fn restoring_weight_restores_normal_ceilings() {
 		new_test_ext().execute_with(|| {
 			// Setup: USDC 60%, USDT 40%
-			set_max_psm_debt_ratio(Permill::from_percent(50));
+			set_max_debt(10_000_000 * INTERNAL_UNIT);
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
 			set_asset_ceiling_weight(USDT_ASSET_ID, Permill::from_percent(40));
 
@@ -1587,11 +1568,12 @@ mod cycles {
 			// Set ceiling for ~1000 cycles
 			// Each cycle: mint 100000, redeem 100000 → debt grows by ~1000 per cycle
 			// For 1000 cycles: need ceiling > 110 + 1000 * 2.19 ≈ 2300
-			// 10M * 0.025% = 2500 units ceiling
-			set_max_psm_debt_ratio(Permill::from_percent(10));
+			// 2M * 50% (only USDC weighted) = 1M units ceiling
+			set_max_debt(2_000_000 * INTERNAL_UNIT);
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(50));
 
-			let max_debt = crate::Pallet::<Test>::max_asset_debt(USDC_ASSET_ID);
+			let info = Psms::<Test>::get(INTERNAL_ASSET_ID).unwrap();
+			let max_debt = crate::Pallet::<Test>::max_asset_debt(USDC_ASSET_ID, &info);
 
 			println!("MAX DEBT: {}", max_debt);
 
@@ -2312,26 +2294,26 @@ mod decimal_scaling {
 	}
 
 	#[test]
-	fn mint_fails_when_internal_decimals_snapshot_missing() {
+	fn mint_fails_when_psm_not_installed() {
 		new_test_ext().execute_with(|| {
-			crate::InternalDecimals::<Test>::kill();
+			crate::Psms::<Test>::remove(INTERNAL_ASSET_ID);
 
 			assert_noop!(
 				Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 1000 * INTERNAL_UNIT),
-				Error::<Test>::Unexpected
+				Error::<Test>::PsmNotFound
 			);
 		});
 	}
 
 	#[test]
-	fn redeem_fails_when_internal_decimals_snapshot_missing() {
+	fn redeem_fails_when_psm_not_installed() {
 		new_test_ext().execute_with(|| {
 			fund_internal(ALICE, 1000 * INTERNAL_UNIT);
-			crate::InternalDecimals::<Test>::kill();
+			crate::Psms::<Test>::remove(INTERNAL_ASSET_ID);
 
 			assert_noop!(
 				Psm::redeem(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 100 * INTERNAL_UNIT),
-				Error::<Test>::Unexpected
+				Error::<Test>::PsmNotFound
 			);
 		});
 	}

@@ -63,7 +63,7 @@ pub trait WeightInfo {
 	fn redeem() -> Weight;
 	fn set_minting_fee() -> Weight;
 	fn set_redemption_fee() -> Weight;
-	fn set_max_psm_debt() -> Weight;
+	fn set_max_debt() -> Weight;
 	fn set_asset_status() -> Weight;
 	fn set_asset_ceiling_weight() -> Weight;
 	fn add_external_asset() -> Weight;
@@ -146,7 +146,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `Psm::MaxPsmDebtOfTotal` (r:1 w:1)
 	/// Proof: `Psm::MaxPsmDebtOfTotal` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	fn set_max_psm_debt() -> Weight {
+	fn set_max_debt() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `306`
 		//  Estimated: `1489`
@@ -292,7 +292,7 @@ impl WeightInfo for () {
 	}
 	/// Storage: `Psm::MaxPsmDebtOfTotal` (r:1 w:1)
 	/// Proof: `Psm::MaxPsmDebtOfTotal` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	fn set_max_psm_debt() -> Weight {
+	fn set_max_debt() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `306`
 		//  Estimated: `1489`
