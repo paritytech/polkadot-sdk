@@ -47,3 +47,9 @@ tokio = { workspace = true, default-features = true, features = ["macros", "rt"]
 tracing = { workspace = true, default-features = true }
 tracing-log = { workspace = true, default-features = true }
 tracing-subscriber = { workspace = true, default-features = true }
+
+[features]
+# Exposes `StorageChainBlockImport::intercept_gap_sync_for_test` so downstream test
+# crates can exercise the gap-sync dispatch path while it remains gated in production
+# behind `should_intercept`.
+test-helpers = []

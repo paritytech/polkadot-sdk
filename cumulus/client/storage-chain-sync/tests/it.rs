@@ -19,6 +19,15 @@ use sp_consensus::BlockOrigin;
 use sp_runtime::OpaqueExtrinsic;
 use sp_transaction_storage_proof::{ContentHash, HashingAlgorithm, IndexedTransactionInfo};
 
+#[cfg(feature = "test-helpers")]
+use mock::{gap_sync_params, make_gap_sync_harness};
+#[cfg(feature = "test-helpers")]
+use sc_consensus::StateAction;
+#[cfg(feature = "test-helpers")]
+use sp_core::H256;
+#[cfg(feature = "test-helpers")]
+use sp_state_machine::IndexOperation;
+
 #[rstest]
 #[case::warp_sync(BlockOrigin::WarpSync, None)]
 #[case::gap_sync(BlockOrigin::GapSync, Some(Vec::new()))]
@@ -93,11 +102,11 @@ async fn import_case_a_attaches_prefetched(
 
 	let captured = h.captured.lock().unwrap();
 	assert_eq!(captured.len(), 1);
-	let payload = &captured[0].prefetched_indexed_transactions;
-	assert!(payload.ops.is_empty(), "tip-block path must not synthesize ops");
-	assert_eq!(payload.renew_payloads.len(), 1);
+	let prefetched = &captured[0].prefetched_indexed_transactions;
+	assert!(prefetched.ops.is_empty(), "tip-block path must not synthesize ops");
+	assert_eq!(prefetched.renew_payloads.len(), 1);
 	let key = sp_core::H256::from(content_hash);
-	assert_eq!(payload.renew_payloads.get(&key).map(|v| v.as_slice()), Some(bytes));
+	assert_eq!(prefetched.renew_payloads.get(&key).map(|v| v.as_slice()), Some(bytes));
 	assert_eq!(h.api.call_api_at_count(), 1);
 	assert!(h.api.overlay_marker_seen());
 }
@@ -180,11 +189,297 @@ async fn import_case_b_executes_once_and_indexes_on_same_overlay() {
 		"indexed_transactions rollback marker must not leak into forwarded changes",
 	);
 
-	let payload = &captured[0].prefetched_indexed_transactions;
-	assert!(payload.ops.is_empty(), "tip-block path must not synthesize ops");
+	let prefetched = &captured[0].prefetched_indexed_transactions;
+	assert!(prefetched.ops.is_empty(), "tip-block path must not synthesize ops");
 	let expected: std::collections::HashMap<sp_core::H256, Vec<u8>> =
 		std::iter::once((sp_core::H256::from(h.content_hash), bytes)).collect();
-	assert_eq!(payload.renew_payloads, expected);
+	assert_eq!(prefetched.renew_payloads, expected);
+}
+
+// W13: gap-sync integration tests. The wrapper is opted into intercepting
+// `BlockOrigin::GapSync` only via the `test-helpers`-gated
+// `intercept_gap_sync_for_test()`; the regression test
+// `import_gap_sync_disabled_by_default_passes_through` guards the production gate.
+// Entire group requires `--features test-helpers`.
+
+#[cfg(feature = "test-helpers")]
+#[tokio::test]
+async fn import_gap_sync_pure_renews_attaches_synthetic_renew_ops_and_payloads() {
+	let h = make_gap_sync_harness();
+	let finalized = H256::from([0xF1; 32]);
+	h.api.set_finalized_hash(finalized);
+
+	let bytes_a = b"renew-payload-a".to_vec();
+	let bytes_b = b"renew-payload-b".to_vec();
+	let hash_a = HashingAlgorithm::Blake2b256.hash(&bytes_a);
+	let hash_b = HashingAlgorithm::Sha2_256.hash(&bytes_b);
+	let body = vec![
+		OpaqueExtrinsic::from_blob(b"renew-call-a".to_vec()),
+		OpaqueExtrinsic::from_blob(b"renew-call-b".to_vec()),
+	];
+
+	h.api.set_indexed(
+		1,
+		vec![
+			info(hash_a, bytes_a.len() as u32, HashingAlgorithm::Blake2b256, 0),
+			info(hash_b, bytes_b.len() as u32, HashingAlgorithm::Sha2_256, 1),
+		],
+	);
+	h.network.insert(hash_a, bytes_a.clone());
+	h.network.insert(hash_b, bytes_b.clone());
+
+	let params = gap_sync_params(1, Some(body));
+	let result = h.wrapper.import_block(params).await.expect("gap-sync import");
+	assert!(matches!(result, ImportResult::Imported(_)));
+
+	let captured = h.captured.lock().unwrap();
+	assert_eq!(captured.len(), 1);
+	let prefetched = &captured[0].prefetched_indexed_transactions;
+	assert_eq!(prefetched.ops.len(), 2, "two synthetic renew ops");
+	for op in &prefetched.ops {
+		assert!(matches!(op, IndexOperation::Renew { .. }));
+	}
+	assert_eq!(prefetched.renew_payloads.len(), 2);
+}
+
+#[cfg(feature = "test-helpers")]
+#[tokio::test]
+async fn import_gap_sync_pure_stores_attaches_synthetic_insert_ops_no_fetch() {
+	let h = make_gap_sync_harness();
+	h.api.set_finalized_hash(H256::from([0xF2; 32]));
+
+	let body = vec![
+		OpaqueExtrinsic::from_blob(b"store-call-a".to_vec()),
+		OpaqueExtrinsic::from_blob(b"store-call-b".to_vec()),
+	];
+	let encoded_a = codec::Encode::encode(&body[0]);
+	let encoded_b = codec::Encode::encode(&body[1]);
+	let hash_a = HashingAlgorithm::Blake2b256.hash(&encoded_a);
+	let hash_b = HashingAlgorithm::Keccak256.hash(&encoded_b);
+
+	h.api.set_indexed(
+		1,
+		vec![
+			info(hash_a, encoded_a.len() as u32, HashingAlgorithm::Blake2b256, 0),
+			info(hash_b, encoded_b.len() as u32, HashingAlgorithm::Keccak256, 1),
+		],
+	);
+
+	let params = gap_sync_params(1, Some(body));
+	let result = h.wrapper.import_block(params).await.expect("gap-sync import");
+	assert!(matches!(result, ImportResult::Imported(_)));
+
+	let captured = h.captured.lock().unwrap();
+	assert_eq!(captured.len(), 1);
+	let prefetched = &captured[0].prefetched_indexed_transactions;
+	assert_eq!(prefetched.ops.len(), 2);
+	for op in &prefetched.ops {
+		assert!(matches!(op, IndexOperation::Insert { .. }));
+	}
+	assert!(prefetched.renew_payloads.is_empty(), "stores need no bitswap fetch");
+	assert_eq!(h.network.call_count(), 0, "fetcher must not be invoked for pure stores");
+}
+
+#[cfg(feature = "test-helpers")]
+#[tokio::test]
+async fn import_gap_sync_mixed_body_attaches_both_with_correct_split() {
+	let h = make_gap_sync_harness();
+	h.api.set_finalized_hash(H256::from([0xF3; 32]));
+
+	let store_ext = OpaqueExtrinsic::from_blob(b"store-call-mixed".to_vec());
+	let renew_bytes = b"renew-payload-mixed".to_vec();
+	let body = vec![store_ext.clone(), OpaqueExtrinsic::from_blob(b"renew-call-mixed".to_vec())];
+	let encoded = codec::Encode::encode(&store_ext);
+	let store_hash = HashingAlgorithm::Blake2b256.hash(&encoded);
+	let renew_hash = HashingAlgorithm::Sha2_256.hash(&renew_bytes);
+
+	h.api.set_indexed(
+		1,
+		vec![
+			info(store_hash, encoded.len() as u32, HashingAlgorithm::Blake2b256, 0),
+			info(renew_hash, renew_bytes.len() as u32, HashingAlgorithm::Sha2_256, 1),
+		],
+	);
+	h.network.insert(renew_hash, renew_bytes.clone());
+
+	let params = gap_sync_params(1, Some(body));
+	let result = h.wrapper.import_block(params).await.expect("gap-sync import");
+	assert!(matches!(result, ImportResult::Imported(_)));
+
+	let captured = h.captured.lock().unwrap();
+	let prefetched = &captured[0].prefetched_indexed_transactions;
+	assert_eq!(prefetched.ops.len(), 2);
+	assert!(matches!(prefetched.ops[0], IndexOperation::Insert { extrinsic: 0, .. }));
+	assert!(matches!(prefetched.ops[1], IndexOperation::Renew { extrinsic: 1, .. }));
+	let expected: std::collections::HashMap<sp_core::H256, Vec<u8>> =
+		std::iter::once((sp_core::H256::from(renew_hash), renew_bytes)).collect();
+	assert_eq!(prefetched.renew_payloads, expected);
+}
+
+#[cfg(feature = "test-helpers")]
+#[tokio::test]
+async fn import_gap_sync_state_action_remains_skip() {
+	let h = make_gap_sync_harness();
+	h.api.set_finalized_hash(H256::from([0xF4; 32]));
+
+	let body = vec![OpaqueExtrinsic::from_blob(b"renew-call".to_vec())];
+	let renew_bytes = b"renew-payload".to_vec();
+	let renew_hash = HashingAlgorithm::Blake2b256.hash(&renew_bytes);
+	h.api.set_indexed(
+		1,
+		vec![info(renew_hash, renew_bytes.len() as u32, HashingAlgorithm::Blake2b256, 0)],
+	);
+	h.network.insert(renew_hash, renew_bytes);
+
+	let params = gap_sync_params(1, Some(body));
+	let _ = h.wrapper.import_block(params).await.expect("gap-sync import");
+
+	let captured = h.captured.lock().unwrap();
+	assert!(
+		matches!(captured[0].state_action, StateAction::Skip),
+		"gap-sync state_action must stay Skip after the wrapper",
+	);
+}
+
+#[cfg(feature = "test-helpers")]
+#[tokio::test]
+async fn import_gap_sync_below_retention_finalized_returns_empty_passes_through() {
+	let h = make_gap_sync_harness();
+	h.api.set_finalized_hash(H256::from([0xF5; 32]));
+	// No `set_indexed` -> runtime API returns Vec::new() for block N.
+
+	let body = vec![OpaqueExtrinsic::from_blob(b"old-extrinsic".to_vec())];
+	let params = gap_sync_params(1, Some(body));
+	let result = h.wrapper.import_block(params).await.expect("gap-sync import");
+	assert!(matches!(result, ImportResult::Imported(_)));
+
+	let captured = h.captured.lock().unwrap();
+	let prefetched = &captured[0].prefetched_indexed_transactions;
+	assert!(prefetched.ops.is_empty(), "out-of-retention -> no ops");
+	assert!(prefetched.renew_payloads.is_empty(), "out-of-retention -> no payloads");
+	assert_eq!(h.network.call_count(), 0, "fetcher must not be invoked when API returns empty");
+}
+
+#[cfg(feature = "test-helpers")]
+#[tokio::test]
+async fn import_gap_sync_uses_finalized_hash_not_parent_hash() {
+	let h = make_gap_sync_harness();
+	let finalized = H256::from([0x99; 32]);
+	h.api.set_finalized_hash(finalized);
+
+	let renew_bytes = b"renew-state-context-probe".to_vec();
+	let renew_hash = HashingAlgorithm::Blake2b256.hash(&renew_bytes);
+	let body = vec![OpaqueExtrinsic::from_blob(b"renew-call".to_vec())];
+
+	h.api.set_indexed(
+		1,
+		vec![info(renew_hash, renew_bytes.len() as u32, HashingAlgorithm::Blake2b256, 0)],
+	);
+	h.network.insert(renew_hash, renew_bytes);
+
+	let params = gap_sync_params(1, Some(body));
+	let _ = h.wrapper.import_block(params).await.expect("gap-sync import");
+
+	let observed_state =
+		h.api.last_indexed_transactions_state().expect("API must be invoked at least once");
+	assert_eq!(
+		observed_state, finalized,
+		"gap-sync runtime API call must use finalized_hash, NOT parent_hash",
+	);
+	// Parent hash of a gap_sync_params block is zero; assert that it's NOT what we saw.
+	assert_ne!(observed_state, H256::zero(), "parent_hash sanity guard: must differ from probe");
+}
+
+#[cfg(feature = "test-helpers")]
+#[tokio::test]
+async fn import_gap_sync_filters_already_present_hashes() {
+	let h = make_gap_sync_harness();
+	h.api.set_finalized_hash(H256::from([0xF7; 32]));
+
+	let bytes_present = b"already-on-disk".to_vec();
+	let bytes_to_fetch = b"needs-bitswap".to_vec();
+	let hash_present = HashingAlgorithm::Blake2b256.hash(&bytes_present);
+	let hash_to_fetch = HashingAlgorithm::Blake2b256.hash(&bytes_to_fetch);
+	let body = vec![
+		OpaqueExtrinsic::from_blob(b"renew-call-present".to_vec()),
+		OpaqueExtrinsic::from_blob(b"renew-call-fetch".to_vec()),
+	];
+
+	h.api.insert_indexed_transaction(hash_present, bytes_present.clone());
+	h.api.set_indexed(
+		1,
+		vec![
+			info(hash_present, bytes_present.len() as u32, HashingAlgorithm::Blake2b256, 0),
+			info(hash_to_fetch, bytes_to_fetch.len() as u32, HashingAlgorithm::Blake2b256, 1),
+		],
+	);
+	h.network.insert(hash_to_fetch, bytes_to_fetch.clone());
+
+	let params = gap_sync_params(1, Some(body));
+	let _ = h.wrapper.import_block(params).await.expect("gap-sync import");
+
+	let captured = h.captured.lock().unwrap();
+	let prefetched = &captured[0].prefetched_indexed_transactions;
+	assert_eq!(prefetched.ops.len(), 2, "both entries produce ops");
+	let expected: std::collections::HashMap<sp_core::H256, Vec<u8>> =
+		std::iter::once((sp_core::H256::from(hash_to_fetch), bytes_to_fetch)).collect();
+	assert_eq!(
+		prefetched.renew_payloads, expected,
+		"only the missing hash is in renew_payloads",
+	);
+}
+
+#[cfg(feature = "test-helpers")]
+#[tokio::test]
+async fn import_gap_sync_fetcher_partial_failure_propagates_error() {
+	let h = make_gap_sync_harness();
+	h.api.set_finalized_hash(H256::from([0xF8; 32]));
+
+	let hash_unfetchable: ContentHash = [0xDE; 32];
+	let body = vec![OpaqueExtrinsic::from_blob(b"renew-call".to_vec())];
+	h.api.set_indexed(
+		1,
+		vec![info(hash_unfetchable, 32, HashingAlgorithm::Blake2b256, 0)],
+	);
+	// No `h.network.insert(...)` -> fetcher returns zero bytes.
+
+	let params = gap_sync_params(1, Some(body));
+	let err = h
+		.wrapper
+		.import_block(params)
+		.await
+		.expect_err("fetcher partial failure must propagate");
+	let msg = format!("{err}");
+	assert!(msg.contains("bitswap fetch"), "unexpected error: {msg}");
+	assert!(h.captured.lock().unwrap().is_empty(), "no inner import on fetcher error");
+}
+
+#[cfg(feature = "test-helpers")]
+#[tokio::test]
+async fn import_gap_sync_disabled_by_default_passes_through() {
+	// Regression guard: without `intercept_gap_sync_for_test`, gap-sync blocks must
+	// short-circuit at `should_intercept`. The wrapper must NOT call the runtime API or
+	// the fetcher; the block must be forwarded unchanged.
+	let h = make_harness();
+	h.api.set_finalized_hash(H256::from([0xFA; 32]));
+
+	let body = vec![OpaqueExtrinsic::from_blob(b"renew-call".to_vec())];
+	let params = params_with_origin(BlockOrigin::GapSync, 1, Some(body));
+	let result = h.wrapper.import_block(params).await.expect("pass-through import");
+	assert!(matches!(result, ImportResult::Imported(_)));
+
+	let captured = h.captured.lock().unwrap();
+	assert_eq!(captured.len(), 1);
+	assert!(
+		!prefetched_attached(&captured[0]),
+		"production GapSync must short-circuit before any prefetch attach",
+	);
+	assert_eq!(h.api.call_api_at_count(), 0, "runtime API must not be invoked");
+	assert_eq!(h.network.call_count(), 0, "fetcher must not be invoked");
+	assert!(
+		h.api.last_indexed_transactions_state().is_none(),
+		"runtime API must not have been called at any state",
+	);
 }
 
 mod mock {
@@ -240,6 +535,10 @@ mod mock {
 		indexed_transactions: HashMap<H256, Vec<u8>>,
 		call_api_at_count: usize,
 		overlay_marker_seen: bool,
+		finalized_hash: H256,
+		// Recorded by `indexed_transactions` API impl. Lets gap-sync tests assert the wrapper
+		// queried at `finalized_hash` rather than `parent_hash`.
+		last_indexed_transactions_state: Option<H256>,
 	}
 
 	#[derive(Clone)]
@@ -268,6 +567,16 @@ mod mock {
 
 		pub(super) fn overlay_marker_seen(&self) -> bool {
 			self.inner.lock().unwrap().overlay_marker_seen
+		}
+
+		#[cfg(feature = "test-helpers")]
+		pub(super) fn set_finalized_hash(&self, hash: H256) {
+			self.inner.lock().unwrap().finalized_hash = hash;
+		}
+
+		#[cfg(feature = "test-helpers")]
+		pub(super) fn last_indexed_transactions_state(&self) -> Option<H256> {
+			self.inner.lock().unwrap().last_indexed_transactions_state
 		}
 	}
 
@@ -317,6 +626,7 @@ mod mock {
 			let mut inner = self.inner.lock().unwrap();
 			inner.call_api_at_count += 1;
 			inner.overlay_marker_seen |= overlay_marker_seen;
+			inner.last_indexed_transactions_state = Some(params.at);
 			Ok(inner
 				.indexed_at_block_number
 				.get(&block_number)
@@ -412,6 +722,50 @@ mod mock {
 		}
 	}
 
+	impl sp_blockchain::HeaderBackend<TestBlock> for MockApiClient {
+		fn header(
+			&self,
+			_hash: <TestBlock as BlockT>::Hash,
+		) -> sp_blockchain::Result<Option<<TestBlock as BlockT>::Header>> {
+			unreachable!("wrapper only queries info().finalized_hash, not header()")
+		}
+
+		fn info(&self) -> sp_blockchain::Info<TestBlock> {
+			let inner = self.inner.lock().unwrap();
+			sp_blockchain::Info {
+				best_hash: H256::zero(),
+				best_number: 0,
+				genesis_hash: H256::zero(),
+				finalized_hash: inner.finalized_hash,
+				finalized_number: 0,
+				finalized_state: None,
+				number_leaves: 0,
+				block_gap: None,
+			}
+		}
+
+		fn status(
+			&self,
+			_hash: <TestBlock as BlockT>::Hash,
+		) -> sp_blockchain::Result<sp_blockchain::BlockStatus> {
+			unreachable!("wrapper only queries info().finalized_hash, not status()")
+		}
+
+		fn number(
+			&self,
+			_hash: <TestBlock as BlockT>::Hash,
+		) -> sp_blockchain::Result<Option<sp_runtime::traits::NumberFor<TestBlock>>> {
+			unreachable!("wrapper only queries info().finalized_hash, not number()")
+		}
+
+		fn hash(
+			&self,
+			_number: sp_runtime::traits::NumberFor<TestBlock>,
+		) -> sp_blockchain::Result<Option<<TestBlock as BlockT>::Hash>> {
+			unreachable!("wrapper only queries info().finalized_hash, not hash()")
+		}
+	}
+
 	pub(super) struct TestInner {
 		captured: Arc<Mutex<Vec<BlockImportParams<TestBlock>>>>,
 	}
@@ -445,11 +799,17 @@ mod mock {
 	#[derive(Default)]
 	pub(super) struct MockNetworkRequest {
 		responses: Mutex<HashMap<ContentHash, Vec<u8>>>,
+		call_count: Mutex<usize>,
 	}
 
 	impl MockNetworkRequest {
 		pub(super) fn insert(&self, hash: ContentHash, data: Vec<u8>) {
 			self.responses.lock().unwrap().insert(hash, data);
+		}
+
+		#[cfg(feature = "test-helpers")]
+		pub(super) fn call_count(&self) -> usize {
+			*self.call_count.lock().unwrap()
 		}
 	}
 
@@ -464,6 +824,7 @@ mod mock {
 			_connect: IfDisconnected,
 		) -> Result<(Vec<u8>, ProtocolName), RequestFailure> {
 			use prost::Message as _;
+			*self.call_count.lock().unwrap() += 1;
 			let message = bitswap_schema::Message::decode(&*request)
 				.expect("MockNetworkRequest received malformed bitswap request");
 			let responses = self.responses.lock().unwrap();
@@ -739,6 +1100,49 @@ mod mock {
 		}
 	}
 
+	impl sp_blockchain::HeaderBackend<TestBlock> for CaseBClient {
+		fn header(
+			&self,
+			_hash: <TestBlock as BlockT>::Hash,
+		) -> sp_blockchain::Result<Option<<TestBlock as BlockT>::Header>> {
+			unreachable!("case B wrapper does not call info().finalized_hash on this path")
+		}
+
+		fn info(&self) -> sp_blockchain::Info<TestBlock> {
+			sp_blockchain::Info {
+				best_hash: H256::zero(),
+				best_number: 0,
+				genesis_hash: H256::zero(),
+				finalized_hash: H256::zero(),
+				finalized_number: 0,
+				finalized_state: None,
+				number_leaves: 0,
+				block_gap: None,
+			}
+		}
+
+		fn status(
+			&self,
+			_hash: <TestBlock as BlockT>::Hash,
+		) -> sp_blockchain::Result<sp_blockchain::BlockStatus> {
+			unreachable!("case B wrapper does not call status()")
+		}
+
+		fn number(
+			&self,
+			_hash: <TestBlock as BlockT>::Hash,
+		) -> sp_blockchain::Result<Option<sp_runtime::traits::NumberFor<TestBlock>>> {
+			unreachable!("case B wrapper does not call number()")
+		}
+
+		fn hash(
+			&self,
+			_number: sp_runtime::traits::NumberFor<TestBlock>,
+		) -> sp_blockchain::Result<Option<<TestBlock as BlockT>::Hash>> {
+			unreachable!("case B wrapper does not call hash()")
+		}
+	}
+
 	pub(super) struct Harness {
 		pub(super) wrapper: StorageChainBlockImport<TestBlock, TestInner, MockApiClient>,
 		pub(super) api: Arc<MockApiClient>,
@@ -857,7 +1261,31 @@ mod mock {
 	}
 
 	pub(super) fn prefetched_attached(params: &BlockImportParams<TestBlock>) -> bool {
-		let p = &params.prefetched_indexed_transactions;
-		!p.ops.is_empty() || !p.renew_payloads.is_empty()
+		let prefetched = &params.prefetched_indexed_transactions;
+		!prefetched.ops.is_empty() || !prefetched.renew_payloads.is_empty()
+	}
+
+	// Builds a `BlockImportParams` with `BlockOrigin::GapSync` and a populated body.
+	// State action defaults to `StateAction::Execute` per `BlockImportParams::new`, but
+	// the wrapper's gap-sync dispatch ignores it; the production sync layer translates
+	// `skip_execution=true` into `StateAction::Skip`, the wrapper preserves that.
+	#[cfg(feature = "test-helpers")]
+	pub(super) fn gap_sync_params(
+		number: u32,
+		body: Option<Vec<OpaqueExtrinsic>>,
+	) -> BlockImportParams<TestBlock> {
+		let mut params = params_with_origin(BlockOrigin::GapSync, number, body);
+		params.state_action = StateAction::Skip;
+		params
+	}
+
+	// Builds a harness with `intercept_gap_sync_for_test` enabled, opting the wrapper
+	// into intercepting `BlockOrigin::GapSync` blocks. Only available because the crate
+	// is built with the `test-helpers` feature in dev-deps.
+	#[cfg(feature = "test-helpers")]
+	pub(super) fn make_gap_sync_harness() -> Harness {
+		let mut h = make_harness();
+		h.wrapper.intercept_gap_sync_for_test();
+		h
 	}
 }
