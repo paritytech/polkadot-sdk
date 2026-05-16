@@ -487,8 +487,9 @@ where
 	type Success = (L::Success, R::Success);
 
 	fn try_origin((l, r): (OL, OR)) -> Result<Self::Success, (OL, OR)> {
+		let l_clone = l.clone();
 		let r_clone = r.clone();
-		match (L::try_origin(l), R::try_origin(r_clone)) {
+		match (L::try_origin(l_clone), R::try_origin(r_clone)) {
 			(Ok(l_success), Ok(r_success)) => Ok((l_success, r_success)),
 			_ => Err((l, r)),
 		}
@@ -510,8 +511,9 @@ where
 	type Success = (L::Success, R::Success);
 
 	fn try_origin((l, r): (OL, OR), a: &Argument) -> Result<Self::Success, (OL, OR)> {
+		let l_clone = l.clone();
 		let r_clone = r.clone();
-		match (L::try_origin(l, a), R::try_origin(r_clone, a)) {
+		match (L::try_origin(l_clone, a), R::try_origin(r_clone, a)) {
 			(Ok(l_success), Ok(r_success)) => Ok((l_success, r_success)),
 			_ => Err((l, r)),
 		}
