@@ -565,7 +565,8 @@ mod tests {
 		let (mut bitswap, _config) = BitswapRequestHandler::new(Arc::new(client));
 		let cid = cid::Cid::new_v1(
 			0x70,
-			cid::multihash::Multihash::wrap(u64::from(LiteP2pCode::Blake2b256), &[0u8; 32]).unwrap(),
+			cid::multihash::Multihash::wrap(u64::from(LiteP2pCode::Blake2b256), &[0u8; 32])
+				.unwrap(),
 		);
 		let request = BitswapMessage {
 			wantlist: Some(Wantlist {
