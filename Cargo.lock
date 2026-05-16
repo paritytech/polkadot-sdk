@@ -11372,6 +11372,7 @@ version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60384411b100398c5b2fdca476eed82e9898d09f2c60d1b1b66c5080ebe06118"
 dependencies = [
+ "blake2b_simd",
  "digest 0.11.3",
  "multihash-derive 0.9.3",
  "sha2 0.11.0",
@@ -21698,6 +21699,7 @@ dependencies = [
  "litep2p 0.14.0",
  "log",
  "mockall",
+ "multihash-codetable",
  "multistream-select",
  "parity-scale-codec",
  "parking_lot 0.12.3",

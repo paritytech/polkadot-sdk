@@ -103,7 +103,6 @@ impl From<Multiaddr> for LiteP2pMultiaddr {
 		multiaddr.multiaddr
 	}
 }
-
 impl From<IpAddr> for Multiaddr {
 	fn from(v: IpAddr) -> Multiaddr {
 		match v {
