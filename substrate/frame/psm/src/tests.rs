@@ -965,19 +965,16 @@ mod governance {
 	}
 
 	#[test]
-	fn emergency_origin_cannot_set_max_debt() {
+	fn emergency_origin_can_set_max_debt() {
 		new_test_ext().execute_with(|| {
-			let old_value = psm_max_debt();
+			let new_value = 5_000_000 * INTERNAL_UNIT;
 
-			assert_noop!(
-				Psm::set_max_debt(
-					RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
-					5_000_000 * INTERNAL_UNIT,
-				),
-				Error::<Test>::InsufficientPrivilege
-			);
+			assert_ok!(Psm::set_max_debt(
+				RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
+				new_value,
+			));
 
-			assert_eq!(psm_max_debt(), old_value);
+			assert_eq!(psm_max_debt(), new_value);
 		});
 	}
 

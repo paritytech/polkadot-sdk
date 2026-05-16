@@ -206,18 +206,19 @@ pub mod pallet {
 		/// Whether this level allows modifying the circuit breaker status.
 		/// Both Full and Emergency levels can set circuit breaker.
 		pub const fn can_set_circuit_breaker(&self) -> bool {
-			true
+			matches!(self, PsmManagerLevel::Full | PsmManagerLevel::Emergency)
 		}
 
 		/// Whether this level allows modifying the PSM debt ceiling.
+		/// Both Full and Emergency levels can set the max debt.
 		pub const fn can_set_max_debt(&self) -> bool {
-			matches!(self, PsmManagerLevel::Full)
+			matches!(self, PsmManagerLevel::Full | PsmManagerLevel::Emergency)
 		}
 
 		/// Whether this level allows modifying per-asset ceiling weights.
 		/// Both Full and Emergency levels can set asset ceilings.
 		pub const fn can_set_asset_ceiling(&self) -> bool {
-			true
+			matches!(self, PsmManagerLevel::Full | PsmManagerLevel::Emergency)
 		}
 
 		/// Whether this level allows adding or removing external assets.
@@ -270,7 +271,8 @@ pub mod pallet {
 		///
 		/// Returns `PsmManagerLevel` to distinguish privilege levels:
 		/// - `Full` (via GeneralAdmin): Can modify all parameters
-		/// - `Emergency` (via EmergencyAction): Can only modify circuit breaker status
+		/// - `Emergency` (via EmergencyAction): Can modify circuit breaker status, per-asset
+		///   ceiling weights, and the PSM debt ceiling.
 		type ManagerOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = PsmManagerLevel>;
 
 		/// A type representing the weights required by the dispatchables of this pallet.
