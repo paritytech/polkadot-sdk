@@ -1,36 +1,33 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.0;
 
-// Exercises the CALLCODE opcode (reachable only via YUL since solc v0.3.0).
-//
-// CALLCODE runs the target contract's code in the caller's storage context, with
-// msg.sender set to the caller and msg.value taken from the stack argument.
+// Exercises CALLCODE (YUL-only since solc 0.3.0): runs target code in the
+// caller's storage with msg.sender = caller and stack-supplied msg.value.
 
 contract CodeCallee {
-    // Slot 0 — when executed under CALLCODE this reads the caller's slot 0.
+    // Read under CALLCODE actually hits the caller's slot 0.
     uint256 some_slot;
 
-    // Returns the msg.sender it sees. When executed via CALLCODE from CodeCaller,
-    // this should be CodeCaller's own address.
+    // Returns (caller(), msg.value) for the caller to assert.
     fallback() external payable {
-        // Running under CALLCODE the storage is the caller's. The caller sets
-        // slot 0 to a non-zero value before delegating.
+        // Caller seeds slot 0 before delegating.
         require(some_slot != 0, "slot 0 must be set via caller's storage");
-        // CALLCODE was invoked with value 0 on the stack.
-        require(msg.value == 0, "expected msg.value == 0");
         assembly {
             mstore(0, caller())
-            return(0, 32)
+            mstore(0x20, callvalue())
+            return(0, 64)
         }
     }
 }
 
 contract CodeCaller {
-    // Slot 0 is set so the callee (running in our storage) observes it.
+    // Preset so the borrowed code observes a non-zero value.
     uint256 some_slot = 1111111111;
 
-    // Invokes CALLCODE against `target` with value=0 and empty calldata,
-    // then verifies the returned address equals address(this).
+    // Payable to allow funding at deploy for value-bearing tests.
+    constructor() payable {}
+
+    // CALLCODE with value=0; asserts msg.sender==self and msg.value==0.
     function doCallCode(address target) external payable returns (bool) {
         assembly {
             if iszero(callcode(gas(), target, 0, 0, 0, 0, 0)) {
@@ -40,8 +37,36 @@ contract CodeCaller {
             if iszero(eq(address(), mload(0))) {
                 revert(0, 0)
             }
+            if iszero(eq(0, mload(0x20))) {
+                revert(0, 0)
+            }
             mstore(0, 1)
             return(0, 32)
+        }
+    }
+
+    // CALLCODE with non-zero value; balance must not move (self -> self).
+    function doCallCodeWithValue(address target, uint256 value) external payable returns (bool) {
+        assembly {
+            if iszero(callcode(gas(), target, value, 0, 0, 0, 0)) {
+                revert(0, 0)
+            }
+            returndatacopy(0, 0, returndatasize())
+            if iszero(eq(address(), mload(0))) {
+                revert(0, 0)
+            }
+            if iszero(eq(value, mload(0x20))) {
+                revert(0, 0)
+            }
+            mstore(0, 1)
+            return(0, 32)
+        }
+    }
+
+    // Returns the raw success bit; lets tests observe failures without reverting.
+    function tryCallCodeWithValue(address target, uint256 value) external payable returns (bool ok) {
+        assembly {
+            ok := callcode(gas(), target, value, 0, 0, 0, 0)
         }
     }
 }

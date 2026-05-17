@@ -407,6 +407,135 @@ fn callcode_works() {
 	});
 }
 
+/// CALLCODE with non-zero `value` must make the callee observe `msg.value == value`,
+/// but no balance transfer must occur (the transfer is conceptually self -> self).
+#[test]
+fn callcode_with_value_passes_msg_value_without_moving_balance() {
+	use pallet_revive_fixtures::CodeCaller;
+
+	let (caller_code, _) = compile_module_with_type("CodeCaller", FixtureType::Solc).unwrap();
+	let (callee_code, _) = compile_module_with_type("CodeCallee", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code))
+				.native_value(1_000)
+				.build_and_unwrap_contract();
+
+		let balance_before = crate::Pallet::<Test>::evm_balance(&caller_addr);
+		let value = alloy_core::primitives::U256::from(500u64);
+
+		let result = builder::bare_call(caller_addr)
+			.data(
+				CodeCaller::doCallCodeWithValueCall { target: callee_addr.0.into(), value }
+					.abi_encode(),
+			)
+			.build_and_unwrap_result();
+
+		let ok = CodeCaller::doCallCodeWithValueCall::abi_decode_returns(&result.data).unwrap();
+		assert!(ok, "callcode with value must succeed and echo msg.value");
+
+		let balance_after = crate::Pallet::<Test>::evm_balance(&caller_addr);
+		assert_eq!(
+			balance_before, balance_after,
+			"CALLCODE must not move balance (transfer is conceptually self -> self)"
+		);
+	});
+}
+
+/// CALLCODE with non-zero `value` from a static context must halt the current
+/// frame with `StateChangeDenied`, surfacing as a `false` success bit to the
+/// outer STATICCALL.
+#[test]
+fn callcode_with_value_in_static_context_fails() {
+	use pallet_revive_fixtures::CodeCaller;
+
+	let (probe_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
+	let (caller_code, _) = compile_module_with_type("CodeCaller", FixtureType::Solc).unwrap();
+	let (callee_code, _) = compile_module_with_type("CodeCallee", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code))
+				.native_value(1_000)
+				.build_and_unwrap_contract();
+		let Contract { addr: probe_addr, .. } =
+			builder::bare_instantiate(Code::Upload(probe_code)).build_and_unwrap_contract();
+
+		let inner_data = CodeCaller::tryCallCodeWithValueCall {
+			target: callee_addr.0.into(),
+			value: alloy_core::primitives::U256::from(1u64),
+		}
+		.abi_encode();
+
+		let result = builder::bare_call(probe_addr)
+			.data(
+				Caller::staticCallCall {
+					_callee: caller_addr.0.into(),
+					_data: inner_data.into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+
+		let outcome = Caller::staticCallCall::abi_decode_returns(&result.data).unwrap();
+		assert!(
+			!outcome.success,
+			"CALLCODE with value inside a STATICCALL frame must fail (StateChangeDenied)",
+		);
+	});
+}
+
+/// CALLCODE whose `value` exceeds the caller's balance must return 0 on the
+/// stack (failure) without halting the caller, same as EVM's `CALLCODE` when
+/// the affordability check fails.
+#[test]
+fn callcode_with_insufficient_balance_returns_false() {
+	use pallet_revive_fixtures::CodeCaller;
+
+	let (caller_code, _) = compile_module_with_type("CodeCaller", FixtureType::Solc).unwrap();
+	let (callee_code, _) = compile_module_with_type("CodeCallee", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+		// Deploy without funding so evm_balance(caller) is 0.
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		assert_eq!(
+			crate::Pallet::<Test>::evm_balance(&caller_addr),
+			sp_core::U256::zero(),
+			"precondition: caller starts with zero EVM balance",
+		);
+
+		let result = builder::bare_call(caller_addr)
+			.data(
+				CodeCaller::tryCallCodeWithValueCall {
+					target: callee_addr.0.into(),
+					value: alloy_core::primitives::U256::from(1u64),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+
+		assert!(!result.did_revert(), "outer call must not revert");
+		let ok = CodeCaller::tryCallCodeWithValueCall::abi_decode_returns(&result.data).unwrap();
+		assert!(!ok, "CALLCODE with insufficient balance must surface as success=false");
+	});
+}
+
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
 #[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
