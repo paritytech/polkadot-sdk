@@ -59,8 +59,8 @@ mod currency_adapter;
 #[allow(deprecated)]
 pub use currency_adapter::CurrencyAdapter;
 
-mod dap;
-pub use dap::SendToDapViaTeleport;
+mod forwarder;
+pub use forwarder::TeleportForwarderForAccountId32;
 
 mod fee_handling;
 pub use fee_handling::{

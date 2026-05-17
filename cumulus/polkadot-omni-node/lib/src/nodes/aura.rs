@@ -708,7 +708,7 @@ where
 				async move {
 					let has_tx_storage_api = client_clone
 						.runtime_api()
-						.has_api::<dyn TransactionStorageApi<Block>>(parent)
+						.has_api_with::<dyn TransactionStorageApi<Block>, _>(parent, |v| v >= 1)
 						.unwrap_or(false);
 					if has_tx_storage_api {
 						let storage_proof =
@@ -858,7 +858,7 @@ where
 					async move {
 						let has_tx_storage_api = client_clone
 							.runtime_api()
-							.has_api::<dyn TransactionStorageApi<Block>>(parent)
+							.has_api_with::<dyn TransactionStorageApi<Block>, _>(parent, |v| v >= 1)
 							.unwrap_or(false);
 						if has_tx_storage_api {
 							let storage_proof =

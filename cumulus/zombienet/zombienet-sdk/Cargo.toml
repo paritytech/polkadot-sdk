@@ -35,13 +35,15 @@ frame-support = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-test-runtime = { workspace = true }
 sp-runtime = { workspace = true, default-features = true }
+verifiable = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sp-consensus-slots = { workspace = true, default-features = true }
 codec = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 rstest = { workspace = true }
-subxt = { version = "0.50" }
-subxt-signer = { version = "0.50", features = ["sr25519"] }
+subxt = { workspace = true, features = ["reconnecting-rpc-client"] }
+statement-store-subxt = { package = "subxt", version = "0.50" }
+statement-store-subxt-signer = { package = "subxt-signer", version = "0.50", features = ["sr25519"] }
 
 [features]
 zombie-ci = []
