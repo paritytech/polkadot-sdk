@@ -7,6 +7,6 @@ doc:
     Concrete use-case is a future PR where I receive changes from a block execution and want to call a runtime API on the post state of said block even before it hits the DB.
 crates:
 - name: sp-api-proc-macro
-  bump: patch
+  bump: major
 - name: sp-api
-  bump: patch
+  bump: major
