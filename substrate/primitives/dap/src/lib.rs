@@ -17,9 +17,8 @@
 
 //! Primitives for the Dynamic Allocation Pool (DAP).
 //!
-//! Shared between `pallet-dap` and `pallet-dap-satellite` to ensure
-//! both pallets agree on the DAP buffer account derivation and the
-//! interface for dispatching transfers to the central DAP.
+//! Shared across `pallet-dap` and related consumers to ensure
+//! agreement on the DAP buffer account derivation.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -28,20 +27,5 @@ use frame_support::PalletId;
 /// The [`PalletId`] used to represent the central DAP pallet.
 pub const DAP_PALLET_ID: PalletId = PalletId(*b"dap/buff");
 
-/// The [`PalletId`] used to represent the DAP satellite pallet on satellite chains.
-pub const DAP_SATELLITE_PALLET_ID: PalletId = PalletId(*b"dap/satl");
-
 /// Sub-account identifier used to derive the DAP staging account.
 pub const DAP_STAGING_ACCOUNT_ID: &[u8] = b"staging";
-
-/// Trait for dispatching the transfer to the central DAP.
-///
-/// Implementations are expected to perform the (withdrawal, send) steps atomically:
-/// on failure, any withdrawn funds must be restored.
-pub trait SendToDap<AccountId, Balance> {
-	/// Transfer `amount` from `source` to the central DAP.
-	///
-	/// Returns `Ok(())` on success, `Err(())` otherwise.
-	/// Implementations are responsible for logging the failure reason internally.
-	fn send_native(source: AccountId, amount: Balance) -> Result<(), ()>;
-}

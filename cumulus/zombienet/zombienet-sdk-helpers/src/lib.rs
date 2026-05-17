@@ -11,17 +11,20 @@ use tokio::{
 	join,
 	time::{sleep, Duration},
 };
-use zombienet_sdk::subxt::{
-	self,
-	blocks::Block,
-	config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem},
-	dynamic::Value,
-	events::Events,
-	ext::scale_value::value,
-	metadata::Metadata,
-	tx::{signer::Signer, DynamicPayload, SubmittableTransaction, TxStatus},
-	utils::H256,
-	Config, OnlineClient, PolkadotConfig,
+use zombienet_sdk::{
+	subxt::{
+		self,
+		blocks::Block,
+		config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem},
+		dynamic::Value,
+		events::Events,
+		ext::scale_value::value,
+		metadata::Metadata,
+		tx::{signer::Signer, DynamicPayload, SubmittableTransaction, TxStatus},
+		utils::H256,
+		Config, OnlineClient, PolkadotConfig,
+	},
+	LocalFileSystem, Network,
 };
 
 /// Specifies which block should occupy a full core.
@@ -36,6 +39,11 @@ pub enum BlockToCheck {
 // Maximum number of blocks to wait for a session change.
 // If it does not arrive for whatever reason, we should not wait forever.
 const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
+
+// Maximum time to wait for PVF preparation to conclude on a validator before
+// starting throughput measurement. PVF preparation is a one-off ~20s wasm
+// compile per validator that contends for CPU.
+const PVF_PREPARE_TIMEOUT_SECS: u64 = 180;
 
 /// Format a `sp_runtime::DispatchError` using runtime metadata for human-readable output.
 ///
@@ -89,6 +97,10 @@ async fn is_session_change(
 // chain blocks. The counting window starts from the relay chain block after the first one that
 // contains a backed candidate for a tracked para. Relay chain blocks with session changes are
 // generally ignored, but it is ensured that no blocks are build on top of these relay blocks.
+//
+// For tests where PVF preparation timing affects throughput (e.g. elastic scaling, runtime
+// upgrades), call [`wait_for_pvf_prepare`] before this helper to ensure all validators have
+// finished preparing the relevant PVFs.
 pub async fn assert_para_throughput(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	stop_after: u32,
@@ -125,6 +137,51 @@ where
 	collect_para_throughput(relay_client, stop_after, expected_candidate_ranges, validate)
 		.await
 		.map(|_| ())
+}
+
+/// Waits until every relaychain validator in `network` reports
+/// `polkadot_pvf_prepare_concluded >= min_total_prepares`.
+///
+/// Use this before [`assert_para_throughput`] in tests where PVF preparation timing demonstrably
+/// affects throughput — typically elastic-scaling tests (high core count, validators bound on
+/// PVF-compile CPU) and tests that measure throughput across a parachain runtime upgrade (which
+/// triggers re-preparation of the new PVF).
+///
+/// `min_total_prepares` is the absolute minimum value the metric must reach, in cumulative
+/// concluded prepare jobs since validator startup. For one round of preparation (one PVF per
+/// tracked parachain), pass `tracked_paras as u32`. For a measurement after a runtime upgrade,
+/// pass `2 * tracked_paras as u32`. Caller is responsible for tracking the round — we
+/// deliberately do not read a baseline from the metric and add a delta, because validators
+/// may already have started or finished preparing a new PVF before the baseline read, which
+/// makes the delta racy.
+pub async fn wait_for_pvf_prepare(
+	network: &Network<LocalFileSystem>,
+	min_total_prepares: u32,
+) -> Result<(), anyhow::Error> {
+	let validators = network.relaychain().nodes();
+	let target = min_total_prepares as f64;
+	log::info!(
+		"Waiting for PVF preparation to conclude on {} validator(s) (target {} concluded job(s) per validator).",
+		validators.len(),
+		target,
+	);
+	for node in &validators {
+		let node_name = node.name();
+		log::info!("Waiting for {node_name} PVF prep (target={target})...");
+		node.wait_metric_with_timeout(
+			"polkadot_pvf_prepare_concluded",
+			|c| c >= target,
+			PVF_PREPARE_TIMEOUT_SECS,
+		)
+		.await
+		.map_err(|e| anyhow!("{node_name}: PVF prepare did not conclude within timeout: {e}"))?;
+	}
+	log::info!(
+		"All {} validator(s) have prepared PVF artifacts (target {})",
+		validators.len(),
+		target,
+	);
+	Ok(())
 }
 
 async fn collect_para_throughput<F>(

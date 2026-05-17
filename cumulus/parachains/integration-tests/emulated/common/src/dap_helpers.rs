@@ -25,22 +25,22 @@ use parachains_common::{AccountId, Balance};
 
 use xcm_emulator::{Chain, TestExt};
 
-/// Tests that the DAP satellite accumulates native tokens, teleports them to the staging
-/// account on AssetHub, and that `pallet-dap`'s `on_idle` subsequently drains and
-/// deactivates those funds into the main DAP buffer account.
-pub fn test_dap_satellite_transfers_to_asset_hub<Sender, AH>(
+/// Tests that the accumulate-and-forward pallet accumulates native tokens, teleports them to
+/// the staging account of `pallet-dap` on AssetHub, and that `pallet-dap`'s `on_idle`
+/// subsequently drains and deactivates those funds into the main DAP buffer account.
+pub fn test_accumulate_forward_transfers_to_asset_hub<Sender, AH>(
 	fund_sender: fn(AccountId, Balance),
 	get_relay_block: fn() -> u32,
 	set_relay_block: fn(u32),
 ) where
 	Sender: Chain + TestExt,
-	Sender::Runtime: pallet_dap_satellite::Config
+	Sender::Runtime: pallet_accumulate_and_forward::Config
 		+ pallet_balances::Config<Balance = Balance>
 		+ frame_system::Config<AccountId = AccountId>,
-	Sender::RuntimeEvent: TryInto<pallet_dap_satellite::Event<Sender::Runtime>>,
-	pallet_dap_satellite::Pallet<Sender::Runtime>: Hooks<u32>,
-	<Sender::Runtime as pallet_dap_satellite::Config>::MinTransferAmount: Get<Balance>,
-	<Sender::Runtime as pallet_dap_satellite::Config>::TransferPeriod: Get<u32>,
+	Sender::RuntimeEvent: TryInto<pallet_accumulate_and_forward::Event<Sender::Runtime>>,
+	pallet_accumulate_and_forward::Pallet<Sender::Runtime>: Hooks<u32>,
+	<Sender::Runtime as pallet_accumulate_and_forward::Config>::MinTransferAmount: Get<Balance>,
+	<Sender::Runtime as pallet_accumulate_and_forward::Config>::TransferPeriod: Get<u32>,
 	AH: Chain + TestExt,
 	AH::Runtime: pallet_xcm::Config
 		+ pallet_dap::Config
@@ -52,14 +52,15 @@ pub fn test_dap_satellite_transfers_to_asset_hub<Sender, AH>(
 {
 	let sender_ed = <Sender::Runtime as pallet_balances::Config>::ExistentialDeposit::get();
 	let ah_ed = <AH::Runtime as pallet_balances::Config>::ExistentialDeposit::get();
-	let satellite_account = pallet_dap_satellite::Pallet::<Sender::Runtime>::satellite_account();
+	let accumulation_account =
+		pallet_accumulate_and_forward::Pallet::<Sender::Runtime>::accumulation_account();
 	let dap_staging_account: AccountId = pallet_dap::Pallet::<AH::Runtime>::staging_account();
 	let dap_buffer_account: AccountId = pallet_dap::Pallet::<AH::Runtime>::buffer_account();
 
 	// The fund amount should slightly exceed MinTransferAmount to trigger a transfer.
 	let fund_amount =
-		<Sender::Runtime as pallet_dap_satellite::Config>::MinTransferAmount::get() + 1;
-	fund_sender(satellite_account.clone(), sender_ed + fund_amount);
+		<Sender::Runtime as pallet_accumulate_and_forward::Config>::MinTransferAmount::get() + 1;
+	fund_sender(accumulation_account.clone(), sender_ed + fund_amount);
 
 	// Pre-fund AH's CheckingAccount, as during testing the sender mints its own tokens rather
 	// than receiving them from AH via teleport (which would normally accrue them).
@@ -72,8 +73,8 @@ pub fn test_dap_satellite_transfers_to_asset_hub<Sender, AH>(
 		));
 	});
 
-	let satellite_balance_before = Sender::account_data_of(satellite_account.clone()).free;
-	let available_funds = satellite_balance_before - sender_ed;
+	let accumulation_balance_before = Sender::account_data_of(accumulation_account.clone()).free;
+	let available_funds = accumulation_balance_before - sender_ed;
 
 	let sender_total_issuance_before =
 		Sender::execute_with(|| pallet_balances::Pallet::<Sender::Runtime>::total_issuance());
@@ -87,7 +88,8 @@ pub fn test_dap_satellite_transfers_to_asset_hub<Sender, AH>(
 			)
 		});
 
-	let transfer_period = <Sender::Runtime as pallet_dap_satellite::Config>::TransferPeriod::get();
+	let transfer_period =
+		<Sender::Runtime as pallet_accumulate_and_forward::Config>::TransferPeriod::get();
 
 	// Trigger `on_idle` to initiate a transfer to DAP. The block number used by
 	// `BlockNumberProvider` must be an exact multiple of `TransferPeriod`.
@@ -96,23 +98,26 @@ pub fn test_dap_satellite_transfers_to_asset_hub<Sender, AH>(
 		let orig_relay_block = get_relay_block();
 
 		set_relay_block(transfer_period.saturating_mul(3));
-		let _ = <pallet_dap_satellite::Pallet<Sender::Runtime> as Hooks<u32>>::on_idle(
+		let _ = <pallet_accumulate_and_forward::Pallet<Sender::Runtime> as Hooks<u32>>::on_idle(
 			transfer_period.saturating_mul(3),
 			Weight::MAX,
 		);
-		let send_succeeded = Sender::events()
-			.into_iter()
-			.any(|e| matches!(e.try_into(), Ok(pallet_dap_satellite::Event::SendSucceeded { .. })));
-		assert!(send_succeeded, "Expected DapSatellite::SendSucceeded event");
+		let forward_succeeded = Sender::events().into_iter().any(|e| {
+			matches!(
+				e.try_into(),
+				Ok(pallet_accumulate_and_forward::Event::ForwardSucceeded { .. })
+			)
+		});
+		assert!(forward_succeeded, "Expected AccumulateForward::ForwardSucceeded event");
 
 		// Restore the relay block so `on_finalize` writes the correct value into
 		// `LastRelayChainBlockNumber`.
 		set_relay_block(orig_relay_block);
 	});
 
-	// Delivery fees are waived for the satellite, so it retains exactly the ED.
-	let satellite_balance_after = Sender::account_data_of(satellite_account).free;
-	assert_eq!(satellite_balance_after, sender_ed);
+	// Delivery fees are waived for the accumulation account, so it retains exactly the ED.
+	let accumulation_balance_after = Sender::account_data_of(accumulation_account).free;
+	assert_eq!(accumulation_balance_after, sender_ed);
 
 	let sender_total_issuance_after =
 		Sender::execute_with(|| pallet_balances::Pallet::<Sender::Runtime>::total_issuance());

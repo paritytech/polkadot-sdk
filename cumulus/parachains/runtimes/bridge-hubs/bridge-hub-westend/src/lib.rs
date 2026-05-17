@@ -99,10 +99,10 @@ use parachains_common::{
 	impls::DealWithFees, AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
-use snowbridge_core::{AgentId, PricingParameters};
+use snowbridge_core::{sparse_bitmap::SparseBitmap, AgentId, PricingParameters};
 use snowbridge_outbound_queue_primitives::v1::{Command, Fee};
 use testnet_parachains_constants::westend::{
-	consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
+	accumulate_forward::*, consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
 };
 use xcm::{Version as XcmVersion, VersionedLocation};
 
@@ -188,10 +188,10 @@ pub type Migrations = (
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
-	// #11705: drain residual relay-treasury XCM payouts into DAP satellite.
+	// #11705: drain residual relay-treasury XCM payouts into accumulation account.
 	// Idempotent. No further activity on the legacy `py/trsry` account is expected.
 	// Safe to remove once confirmed.
-	pallet_dap_satellite::migrations::DrainLegacyTreasuryToDapSatellite<Runtime>,
+	pallet_accumulate_and_forward::migrations::DrainLegacyTreasuryToAccumulationAccount<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
@@ -352,7 +352,7 @@ parameter_types! {
 impl pallet_balances::Config for Runtime {
 	/// The type for recording an account's balance.
 	type Balance = Balance;
-	type DustRemoval = DapSatellite;
+	type DustRemoval = AccumulateForward;
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
@@ -371,18 +371,21 @@ impl pallet_balances::Config for Runtime {
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10
 	pub const TransactionByteFee: Balance = MILLICENTS;
-	/// Percentage of fees to send to DAP satellite.
-	pub const DapSatelliteFeePercent: Percent = Percent::from_percent(100);
+	/// Percentage of fees to send to the accumulation account.
+	pub const AccumulateForwardFeePercent: Percent = Percent::from_percent(100);
 }
 
-/// Fee handler that splits fees between DAP satellite and staking pot.
-type DealWithFeesSatellite =
-	pallet_dap_satellite::DealWithFeesSplit<Runtime, DapSatelliteFeePercent, DealWithFees<Runtime>>;
+/// Fee handler that splits fees between the accumulation account and staking pot.
+type DealWithFeesAccumulate = pallet_accumulate_and_forward::DealWithFeesSplit<
+	Runtime,
+	AccumulateForwardFeePercent,
+	DealWithFees<Runtime>,
+>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFeesSatellite>;
+		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFeesAccumulate>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -570,19 +573,19 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
 }
 
-impl pallet_dap_satellite::Config for Runtime {
+impl pallet_accumulate_and_forward::Config for Runtime {
 	type Currency = Balances;
-	type PalletId = DapSatellitePalletId;
-	type SendToDap = xcm_builder::SendToDapViaTeleport<
+	type PalletId = AccumulateForwardPalletId;
+	type Forwarder = xcm_builder::TeleportForwarderForAccountId32<
 		xcm_config::XcmConfig,
 		testnet_parachains_constants::westend::locations::AssetHubLocation,
 		xcm_config::WestendLocation,
 		DapStagingLocation,
 	>;
-	type TransferPeriod = DapSatelliteTransferPeriod;
-	type MinTransferAmount = DapSatelliteMinTransferAmount;
+	type TransferPeriod = ForwardPeriod;
+	type MinTransferAmount = MinForwardAmount;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
-	type WeightInfo = weights::pallet_dap_satellite::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_accumulate_and_forward::WeightInfo<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -599,7 +602,7 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
 		TransactionPayment: pallet_transaction_payment = 11,
-		DapSatellite: pallet_dap_satellite = 12,
+		AccumulateForward: pallet_accumulate_and_forward = 12,
 
 		// Collator support. The order of these 4 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -646,7 +649,7 @@ bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 		Runtime,
 		bridge_to_rococo_config::BridgeGrandpaRococoInstance,
 		bridge_to_rococo_config::PriorityBoostPerRelayHeader,
-		xcm_config::DapSatelliteAccount,
+		xcm_config::AccumulateAccount,
 	>,
 	// Parachains
 	CheckAndBoostBridgeParachainsTransactions<
@@ -654,7 +657,7 @@ bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 		bridge_to_rococo_config::BridgeParachainRococoInstance,
 		bp_bridge_hub_rococo::BridgeHubRococo,
 		bridge_to_rococo_config::PriorityBoostPerParachainHeader,
-		xcm_config::DapSatelliteAccount,
+		xcm_config::AccumulateAccount,
 	>,
 	// Messages
 	BridgeRococoMessages
@@ -696,7 +699,7 @@ mod benches {
 		[snowbridge_pallet_outbound_queue_v2, EthereumOutboundQueueV2]
 
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
-		[pallet_dap_satellite, DapSatellite]
+		[pallet_accumulate_and_forward, AccumulateForward]
 	);
 }
 
@@ -1003,6 +1006,12 @@ impl_runtime_apis! {
 	impl snowbridge_system_v2_runtime_api::ControlV2Api<Block> for Runtime {
 		fn agent_id(location: VersionedLocation) -> Option<AgentId> {
 			snowbridge_pallet_system_v2::api::agent_id::<Runtime>(location)
+		}
+	}
+
+	impl snowbridge_pallet_inbound_queue_v2::InboundQueueV2Api<Block> for Runtime {
+		fn is_message_relayed(nonce: u64) -> bool {
+			snowbridge_pallet_inbound_queue_v2::Nonce::<Runtime>::get(nonce)
 		}
 	}
 
@@ -1428,10 +1437,14 @@ impl_runtime_apis! {
 				}
 
 				fn prepare_rewards_account(
+					relayer: &AccountId,
 					reward_kind: Self::Reward,
 					reward: Balance,
-				) -> Option<pallet_bridge_relayers::BeneficiaryOf<Runtime, bridge_common_config::BridgeRelayersInstance>> {
-					let bridge_common_config::BridgeReward::RococoWestend(reward_kind) = reward_kind else {
+				) -> Option<(
+					Self::Reward,
+					pallet_bridge_relayers::BeneficiaryOf<Runtime, bridge_common_config::BridgeRelayersInstance>,
+				)> {
+					let bridge_common_config::BridgeReward::RococoWestend(legacy_reward_kind) = reward_kind else {
 						panic!("Unexpected reward_kind: {:?} - not compatible with `bench_reward`!", reward_kind);
 					};
 					let rewards_account = bp_relayers::PayRewardFromAccount::<
@@ -1439,10 +1452,30 @@ impl_runtime_apis! {
 						AccountId,
 						bp_messages::LegacyLaneId,
 						u128,
-					>::rewards_account(reward_kind);
+					>::rewards_account(legacy_reward_kind);
 					Self::deposit_account(rewards_account, reward);
 
-					None
+					// Worst-case `claim_rewards_to` path on Westend BridgeHub: Snowbridge
+					// rewards routed via XCM to an account on AssetHub. The XCM-routed
+					// payment charges the relayer for delivery fees on BridgeHub, so fund
+					// the relayer generously. Also open the outbound HRMP channel to
+					// AssetHub so the XCM router can validate/deliver.
+					Self::deposit_account(relayer.clone(), 100 * UNITS);
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
+						ASSET_HUB_ID.into(),
+					);
+
+					let beneficiary_on_ah = Location::new(
+						0,
+						[Junction::AccountId32 { network: None, id: [99u8; 32] }],
+					);
+
+					Some((
+						bridge_common_config::BridgeReward::Snowbridge,
+						bridge_common_config::BridgeRewardBeneficiaries::AssetHubLocation(
+							VersionedLocation::from(beneficiary_on_ah),
+						),
+					))
 				}
 
 				fn deposit_account(account: AccountId, balance: Balance) {
@@ -1484,7 +1517,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
-			1
+			BLOCK_PROCESSING_VELOCITY
 		}
 	}
 }
