@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.0;
 
-// Exercises CALLCODE (YUL-only since solc 0.3.0): runs target code in the
-// caller's storage with msg.sender = caller and stack-supplied msg.value.
-
 contract CodeCallee {
     // Read under CALLCODE actually hits the caller's slot 0.
     uint256 some_slot;
