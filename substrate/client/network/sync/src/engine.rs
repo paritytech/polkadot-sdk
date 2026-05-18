@@ -656,6 +656,27 @@ where
 		Ok(())
 	}
 
+	/// Reconcile per-peer slot tracking against `new_dynamic_no_slot`. See
+	/// [`apply_no_slot_set_inner`] for details.
+	fn apply_no_slot_set(&mut self, new_dynamic_no_slot: &HashSet<PeerId>) {
+		let connected_peers = &self.peers;
+		apply_no_slot_set_inner(
+			|peer_id| {
+				connected_peers
+					.get(peer_id)
+					.map(|peer| peer.inbound && peer.info.roles.is_full())
+			},
+			&self.default_peers_set_no_slot_peers,
+			&self.dynamic_no_slot_peers,
+			new_dynamic_no_slot,
+			&mut self.default_peers_set_no_slot_connected_peers,
+			&mut self.num_in_peers,
+			self.max_in_peers,
+			&self.network_service,
+			&self.block_announce_protocol_name,
+		);
+	}
+
 	fn process_service_command(&mut self, command: ToServiceCommand<B>) {
 		match command {
 			ToServiceCommand::SetSyncForkRequest(peers, hash, number) => {
@@ -742,19 +763,7 @@ where
 				let _ = tx.send(peers_info);
 			},
 			ToServiceCommand::SetNoSlotPeers(peers) => {
-				let connected_peers = &self.peers;
-				apply_no_slot_set(
-					|peer_id| {
-						connected_peers
-							.get(peer_id)
-							.map(|peer| peer.inbound && peer.info.roles.is_full())
-					},
-					&self.default_peers_set_no_slot_peers,
-					&self.dynamic_no_slot_peers,
-					&peers,
-					&mut self.default_peers_set_no_slot_connected_peers,
-					&mut self.num_in_peers,
-				);
+				self.apply_no_slot_set(&peers);
 				self.dynamic_no_slot_peers = peers;
 			},
 			ToServiceCommand::OnBlockFinalized(hash, header) => {
@@ -968,8 +977,17 @@ where
 		if !no_slot_peer &&
 			handshake.roles.is_full() &&
 			direction.is_inbound() &&
-			self.num_in_peers == self.max_in_peers
+			self.num_in_peers >= self.max_in_peers
 		{
+			if self.num_in_peers > self.max_in_peers {
+				log::warn!(
+					target: LOG_TARGET,
+					"num_in_peers ({}) exceeds max_in_peers ({}), this is a slot accounting bug ",
+					self.num_in_peers,
+					self.max_in_peers,
+				);
+				debug_assert!(false);
+			}
 			log::debug!(
 				target: LOG_TARGET,
 				"All inbound slots have been consumed, rejecting {peer_id} (no_slot_peer={no_slot_peer}, num_in_peers={}, max_in_peers={})",
@@ -1188,14 +1206,20 @@ where
 /// `peer_inbound_full(peer_id)` returns `true` if `peer_id` is inbound and full.
 ///  Returns `None` if the peer is not connected.
 ///
+/// If removing a peer from no-slot would make `num_in_peers` exceed `max_in_peers`, 
+/// disconnect the peer instead and keep it in `connected_no_slot` until the async disconnect handler 
+/// will update `num_in_peers`..
 /// Caller needs to update `dynamic_no_slot_peers` after calling this function.
-fn apply_no_slot_set(
+fn apply_no_slot_set_inner(
 	peer_inbound_full: impl Fn(&PeerId) -> Option<bool>,
 	static_no_slot: &HashSet<PeerId>,
 	old_dynamic_no_slot: &HashSet<PeerId>,
 	new_dynamic_no_slot: &HashSet<PeerId>,
 	connected_no_slot: &mut HashSet<PeerId>,
 	num_in_peers: &mut usize,
+	max_in_peers: usize,
+	network_service: &service::network::NetworkServiceHandle,
+	protocol: &ProtocolName,
 ) {
 	// Skip static-set and disconnected peers and return the slot-affecting flag for the rest.
 	let slot_impact = |peer_id: &PeerId| -> Option<bool> {
@@ -1207,6 +1231,7 @@ fn apply_no_slot_set(
 
 	let mut promoted = 0;
 	let mut demoted = 0;
+	let mut disconnected = 0;
 
 	for peer_id in new_dynamic_no_slot.difference(old_dynamic_no_slot) {
 		let Some(affects_slots) = slot_impact(peer_id) else { continue };
@@ -1227,7 +1252,20 @@ fn apply_no_slot_set(
 
 	for peer_id in old_dynamic_no_slot.difference(new_dynamic_no_slot) {
 		let Some(affects_slots) = slot_impact(peer_id) else { continue };
-		if connected_no_slot.remove(peer_id) && affects_slots {
+		if !connected_no_slot.contains(peer_id) {
+			continue;
+		}
+		if affects_slots && *num_in_peers >= max_in_peers {
+			log::debug!(
+				target: LOG_TARGET,
+				"Demoting {peer_id} would exceed max_in_peers ({max_in_peers}); disconnecting",
+			);
+			network_service.disconnect_peer(*peer_id, protocol.clone());
+			disconnected += 1;
+			continue;
+		}
+		connected_no_slot.remove(peer_id);
+		if affects_slots {
 			*num_in_peers += 1;
 			demoted += 1;
 		}
@@ -1235,10 +1273,11 @@ fn apply_no_slot_set(
 
 	log::debug!(
 		target: LOG_TARGET,
-		"Dynamic no-slot peer set updated: {} peers: +{} in, -{} out",
+		"Dynamic no-slot peer set updated: {} peers: +{} in, -{} out, {} disconnected",
 		new_dynamic_no_slot.len(),
 		promoted,
 		demoted,
+		disconnected,
 	);
 }
 
@@ -1254,7 +1293,8 @@ mod tests {
 		peers.into_iter().collect()
 	}
 
-	/// Run [`apply_no_slot_set`] with the given initial state. Returns the final
+	/// Run [`apply_no_slot_set`] with the given initial state. Uses `usize::MAX` for
+	/// `max_in_peers` so demotion never trips the disconnect path. Returns the final
 	/// `connected_no_slot` set and `num_in_peers`.
 	#[track_caller]
 	fn run_apply(
@@ -1265,18 +1305,60 @@ mod tests {
 		initial_connected_no_slot: HashSet<PeerId>,
 		initial_num_in_peers: usize,
 	) -> (HashSet<PeerId>, usize) {
+		let (connected_no_slot, num_in, disconnects) = run_apply_with_cap(
+			connected,
+			static_no_slot,
+			old_dynamic,
+			new_dynamic,
+			initial_connected_no_slot,
+			initial_num_in_peers,
+			usize::MAX,
+		);
+		assert!(disconnects.is_empty(), "unexpected disconnects: {disconnects:?}");
+		(connected_no_slot, num_in)
+	}
+
+	/// Variant of [`run_apply`] that exposes `max_in_peers` and the list of peers the
+	/// function asked the network to disconnect (drained from the `NetworkServiceHandle`'s
+	/// command channel).
+	#[track_caller]
+	fn run_apply_with_cap(
+		connected: Vec<(PeerId, bool)>,
+		static_no_slot: HashSet<PeerId>,
+		old_dynamic: HashSet<PeerId>,
+		new_dynamic: HashSet<PeerId>,
+		initial_connected_no_slot: HashSet<PeerId>,
+		initial_num_in_peers: usize,
+		max_in_peers: usize,
+	) -> (HashSet<PeerId>, usize, Vec<PeerId>) {
+		use crate::service::network::{NetworkServiceHandle, ToServiceCommand as NetCmd};
+
 		let peer_inbound_full: HashMap<PeerId, bool> = connected.into_iter().collect();
+		let (tx, mut rx) = tracing_unbounded::<NetCmd>("test_apply_no_slot_set_disconnects", 100);
+		let network_service = NetworkServiceHandle::new(tx);
+		let protocol: ProtocolName = "/test/block-announces/1".into();
 		let mut connected_no_slot = initial_connected_no_slot;
 		let mut num_in_peers = initial_num_in_peers;
-		apply_no_slot_set(
+		apply_no_slot_set_inner(
 			|peer_id| peer_inbound_full.get(peer_id).copied(),
 			&static_no_slot,
 			&old_dynamic,
 			&new_dynamic,
 			&mut connected_no_slot,
 			&mut num_in_peers,
+			max_in_peers,
+			&network_service,
+			&protocol,
 		);
-		(connected_no_slot, num_in_peers)
+		drop(network_service);
+
+		let mut disconnects = Vec::new();
+		while let Ok(cmd) = rx.try_recv() {
+			if let NetCmd::DisconnectPeer(peer, _) = cmd {
+				disconnects.push(peer);
+			}
+		}
+		(connected_no_slot, num_in_peers, disconnects)
 	}
 
 	#[test]
@@ -1425,5 +1507,46 @@ mod tests {
 		);
 		assert_eq!(connected_no_slot, set_of([p1, p2]));
 		assert_eq!(num_in, 5);
+	}
+
+	#[test]
+	fn apply_demote_at_capacity_disconnects_peer() {
+		// Scenario: PeerX was promoted (freeing a slot), then a regular PeerY filled that slot,
+		// bringing `num_in_peers` back to capacity. Now PeerX is demoted out of the dynamic set
+		// — incrementing `num_in_peers` would push it strictly above `max_in_peers`. The peer
+		// must be disconnected instead, and left in `connected_no_slot` so the async disconnect
+		// handler is the sole updater of `num_in_peers`.
+		let [px] = fresh_peers();
+		let (connected_no_slot, num_in, disconnects) = run_apply_with_cap(
+			vec![(px, true)],
+			HashSet::new(),
+			set_of([px]),
+			HashSet::new(),
+			set_of([px]),
+			8,
+			8,
+		);
+		assert_eq!(connected_no_slot, set_of([px]));
+		assert_eq!(num_in, 8);
+		assert_eq!(disconnects, vec![px]);
+	}
+
+	#[test]
+	fn apply_demote_below_capacity_increments_normally() {
+		// Same shape as the over-capacity test but with `num_in_peers < max_in_peers`: the
+		// peer is regularly demoted and `num_in_peers` is incremented.
+		let [px] = fresh_peers();
+		let (connected_no_slot, num_in, disconnects) = run_apply_with_cap(
+			vec![(px, true)],
+			HashSet::new(),
+			set_of([px]),
+			HashSet::new(),
+			set_of([px]),
+			7,
+			8,
+		);
+		assert!(connected_no_slot.is_empty());
+		assert_eq!(num_in, 8);
+		assert!(disconnects.is_empty());
 	}
 }
