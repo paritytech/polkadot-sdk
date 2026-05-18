@@ -146,8 +146,10 @@ impl ExtrinsicBuilder for DynamicRemarkBuilder {
 			.offline_client_at_block
 			.tx()
 			.create_signable_offline(&dynamic_tx, params)
+			.inspect_err(|err| log::error!("Failed to create signable transaction: {err:?}"))
 			.map_err(|_| "Unable to create signable transaction")?
 			.sign(&signer)
+			.inspect_err(|err| log::error!("Failed to sign transaction: {err:?}"))
 			.map_err(|_| "Unable to sign transaction")?;
 		let mut encoded = transaction.into_encoded();
 
