@@ -8,8 +8,7 @@ use super::common::{
 	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement,
 	submit_statement_unstable, subscribe_topic, subscribe_topic_filter, subscribe_unstable,
 	unstable_subscription_id, wait_for_first_block, UnstableAddFilterResponse,
-	UnstableNewStatement, UnstableStatementEvent, COLLATOR_INFO_LOG_FILTER,
-	COLLATOR_TRACE_LOG_FILTER,
+	UnstableStatementEvent, COLLATOR_INFO_LOG_FILTER, COLLATOR_TRACE_LOG_FILTER,
 };
 use codec::Encode;
 use futures::future::join_all;
@@ -50,26 +49,6 @@ async fn expect_unstable_event(
 		.map_err(|e| anyhow::anyhow!("Unstable statement subscription error: {}", e))
 }
 
-async fn expect_one_unstable_statement(
-	subscription: &mut zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<
-		UnstableStatementEvent,
-	>,
-	timeout_secs: u64,
-) -> Result<UnstableNewStatement, anyhow::Error> {
-	loop {
-		match expect_unstable_event(subscription, timeout_secs).await? {
-			UnstableStatementEvent::NewStatements { mut statements } => {
-				if statements.is_empty() {
-					continue;
-				}
-				assert_eq!(statements.len(), 1);
-				return Ok(statements.remove(0));
-			},
-			event => anyhow::bail!("Expected unstable newStatements event, got {:?}", event),
-		}
-	}
-}
-
 async fn collect_unstable_replay(
 	subscription: &mut zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<
 		UnstableStatementEvent,
@@ -90,17 +69,6 @@ async fn collect_unstable_replay(
 			event => anyhow::bail!("Unexpected unstable event before replayDone: {:?}", event),
 		}
 	}
-}
-
-async fn assert_no_unstable_event(
-	subscription: &mut zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<
-		UnstableStatementEvent,
-	>,
-	timeout_secs: u64,
-) -> Result<(), anyhow::Error> {
-	let result = tokio::time::timeout(Duration::from_secs(timeout_secs), subscription.next()).await;
-	assert!(result.is_err(), "Expected no unstable statement event but received one");
-	Ok(())
 }
 
 fn match_all_filter(topic: Topic) -> TopicFilter {
@@ -226,7 +194,8 @@ async fn statement_store_unstable_rpc_multi_filter_flow() -> Result<(), anyhow::
 		submit_statement_unstable(&alice_rpc, &ignored_after_remove).await?,
 		SubmitOutcome::New
 	);
-	assert_no_unstable_event(&mut subscription, 3).await?;
+	let result = tokio::time::timeout(Duration::from_secs(3), subscription.next()).await;
+	assert!(result.is_err(), "Expected no unstable statement event but received one");
 
 	let unsupported_filter = TopicFilter::MatchAny(BoundedVec::truncate_from(vec![topic_c]));
 	let err = add_filter_unstable(&alice_rpc, &subscription_id, unsupported_filter)
