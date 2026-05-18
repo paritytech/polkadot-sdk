@@ -75,6 +75,7 @@ impl Tracing for CallTracer {
 		from: H160,
 		to: H160,
 		delegate_call: Option<H160>,
+		is_call_code: bool,
 		is_read_only: bool,
 		value: U256,
 		input: &[u8],
@@ -102,7 +103,9 @@ impl Tracing for CallTracer {
 						.collect::<Vec<_>>(),
 				),
 				None => {
-					let call_type = if is_read_only {
+					let call_type = if is_call_code {
+						CallType::CallCode
+					} else if is_read_only {
 						CallType::StaticCall
 					} else if delegate_call.is_some() {
 						CallType::DelegateCall

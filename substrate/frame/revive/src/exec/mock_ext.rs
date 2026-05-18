@@ -211,6 +211,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::is_delegate_call")
 	}
 
+	fn is_call_code(&self) -> bool {
+		panic!("MockExt::is_call_code")
+	}
+
 	fn last_frame_output(&self) -> &ExecReturnValue {
 		panic!("MockExt::last_frame_output")
 	}

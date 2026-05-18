@@ -104,7 +104,9 @@ pub use crate::{
 		Address as EthAddress, Block as EthBlock, DryRunConfig, ReceiptInfo, TracingConfig,
 		block_hash::ReceiptGasInfo,
 	},
-	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
+	exec::{
+		CallResources, DelegateInfo, DelegateKind, Executable, Key, MomentOf, Origin as ExecOrigin,
+	},
 	limits::TRANSIENT_STORAGE_BYTES as TRANSIENT_STORAGE_LIMIT,
 	metering::{
 		EthTxInfo, FrameMeter, ResourceMeter, Token as WeightToken, TransactionLimits,

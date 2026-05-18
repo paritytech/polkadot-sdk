@@ -241,6 +241,7 @@ impl Tracing for ExecutionTracer {
 		_from: H160,
 		_to: H160,
 		_delegate_call: Option<H160>,
+		_is_call_code: bool,
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],

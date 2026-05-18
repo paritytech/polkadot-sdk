@@ -335,6 +335,8 @@ pub enum CallType {
 	StaticCall,
 	/// A delegate call.
 	DelegateCall,
+	/// A call-code call (`CALLCODE` opcode).
+	CallCode,
 	/// A create call.
 	Create,
 	/// A create2 call.

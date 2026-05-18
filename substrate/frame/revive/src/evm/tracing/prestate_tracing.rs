@@ -255,6 +255,7 @@ where
 		from: H160,
 		to: H160,
 		delegate_call: Option<H160>,
+		_is_call_code: bool,
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],

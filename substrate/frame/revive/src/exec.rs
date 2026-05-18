@@ -504,8 +504,15 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
 
-	/// Check if running as a delegate call.
+	/// Check if running as a `DELEGATECALL` frame.
+	///
+	/// Returns true only for frames entered via `DELEGATECALL`. A `CALLCODE` frame is
+	/// still a "delegated-style" frame internally (no balance transfer, foreign code in
+	/// the caller's storage) but is reported separately via [`Self::is_call_code`].
 	fn is_delegate_call(&self) -> bool;
+
+	/// Check if running as a `CALLCODE` frame.
+	fn is_call_code(&self) -> bool;
 
 	/// Returns an immutable reference to the output of the last executed call frame.
 	fn last_frame_output(&self) -> &ExecReturnValue;
@@ -689,6 +696,19 @@ struct Frame<T: Config> {
 	contracts_to_be_destroyed: BTreeMap<T::AccountId, TerminateArgs<T>>,
 }
 
+/// Distinguishes the EVM opcode that produced a delegated-style frame.
+///
+/// `DelegateCall` and `CallCode` both execute foreign code in the current
+/// contract's storage context, but they differ in `msg.sender` / `msg.value`
+/// semantics — see [`Ext::delegate_call`] and [`Ext::call_code`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DelegateKind {
+	/// Frame entered via the `DELEGATECALL` opcode.
+	DelegateCall,
+	/// Frame entered via the `CALLCODE` opcode.
+	CallCode,
+}
+
 /// This structure is used to represent the arguments in a delegate call frame in order to
 /// distinguish who delegated the call and where it was delegated to.
 #[derive(Clone, DebugNoBound)]
@@ -697,6 +717,8 @@ pub struct DelegateInfo<T: Config> {
 	pub caller: Origin<T>,
 	/// The address of the contract the call was delegated to.
 	pub callee: H160,
+	/// Which opcode produced this delegated frame.
+	pub kind: DelegateKind,
 }
 
 /// When calling an address it can either lead to execution of contract code or a pre-compile.
@@ -883,6 +905,7 @@ where
 					T::AddressMapper::to_address(&dest),
 					None,
 					false,
+					false,
 					value,
 					&input_data,
 					Default::default(),
@@ -997,6 +1020,7 @@ where
 			frame.delegate = Some(DelegateInfo {
 				caller: Origin::from_account_id(frame.account_id.clone()),
 				callee: H160::zero(),
+				kind: DelegateKind::DelegateCall,
 			});
 		}
 		(stack, call.1.into_executable().unwrap())
@@ -1243,6 +1267,49 @@ where
 		}
 	}
 
+	/// Shared body for `delegate_call` and `call_code`.
+	///
+	/// Both opcodes execute foreign code in the current frame's storage context; they only
+	/// differ in what `msg.sender` and `msg.value` the child frame sees, which is supplied
+	/// by the caller via `caller` / `value`.
+	fn delegated_call_inner(
+		&mut self,
+		call_resources: &CallResources<T>,
+		address: H160,
+		input_data: Vec<u8>,
+		caller: Origin<T>,
+		value: U256,
+		kind: DelegateKind,
+	) -> Result<(), ExecError> {
+		// Clear the cached return data up front so it doesn't leak if the child frame
+		// is never entered.
+		*self.last_frame_output_mut() = Default::default();
+
+		let top_frame = self.top_frame_mut();
+		// Clone the contract info and apply pending storage changes so that
+		// the child frame can correctly calculate storage deposit refunds.
+		// See: <https://github.com/paritytech/contract-issues/issues/213>
+		let mut contract_info = top_frame.contract_info().clone();
+		top_frame.frame_meter.apply_pending_storage_changes(&mut contract_info);
+		let account_id = top_frame.account_id.clone();
+		if let Some(executable) = self.push_frame(
+			FrameArgs::Call {
+				dest: account_id,
+				cached_info: Some(contract_info),
+				delegated_call: Some(DelegateInfo { caller, callee: address, kind }),
+			},
+			value,
+			call_resources,
+			self.is_read_only(),
+			&input_data,
+		)? {
+			self.run(executable, input_data)
+		} else {
+			// Delegated-style calls to non-contract targets are treated as success.
+			Ok(())
+		}
+	}
+
 	/// Run the current (top) frame.
 	///
 	/// This can be either a call or an instantiate.
@@ -1274,6 +1341,7 @@ where
 				from,
 				to,
 				frame.delegate.as_ref().map(|delegate| delegate.callee),
+				matches!(frame.delegate.as_ref().map(|d| d.kind), Some(DelegateKind::CallCode)),
 				frame.read_only,
 				frame.value_transferred,
 				&input_data,
@@ -1906,37 +1974,17 @@ where
 		address: H160,
 		input_data: Vec<u8>,
 	) -> Result<(), ExecError> {
-		// We reset the return data now, so it is cleared out even if no new frame was executed.
-		// This is for example the case for unknown code hashes or creating the frame fails.
-		*self.last_frame_output_mut() = Default::default();
-
-		let top_frame = self.top_frame_mut();
-		// Clone the contract info and apply pending storage changes so that
-		// the child frame can correctly calculate storage deposit refunds.
-		// See: <https://github.com/paritytech/contract-issues/issues/213>
-		let mut contract_info = top_frame.contract_info().clone();
-		top_frame.frame_meter.apply_pending_storage_changes(&mut contract_info);
-		let account_id = top_frame.account_id.clone();
-		let value = top_frame.value_transferred;
-		if let Some(executable) = self.push_frame(
-			FrameArgs::Call {
-				dest: account_id,
-				cached_info: Some(contract_info),
-				delegated_call: Some(DelegateInfo {
-					caller: self.caller().clone(),
-					callee: address,
-				}),
-			},
-			value,
+		// DELEGATECALL preserves the outer `msg.sender` and `msg.value`.
+		let caller = self.caller().clone();
+		let value = self.top_frame().value_transferred;
+		self.delegated_call_inner(
 			call_resources,
-			self.is_read_only(),
-			&input_data,
-		)? {
-			self.run(executable, input_data)
-		} else {
-			// Delegate-calls to non-contract accounts are considered success.
-			Ok(())
-		}
+			address,
+			input_data,
+			caller,
+			value,
+			DelegateKind::DelegateCall,
+		)
 	}
 
 	fn call_code(
@@ -1946,39 +1994,22 @@ where
 		input_data: Vec<u8>,
 		value: U256,
 	) -> Result<(), ExecError> {
-		// Like `delegate_call`, clear the cached return data up front.
-		*self.last_frame_output_mut() = Default::default();
-
-		let top_frame = self.top_frame_mut();
-		let mut contract_info = top_frame.contract_info().clone();
-		top_frame.frame_meter.apply_pending_storage_changes(&mut contract_info);
-		let account_id = top_frame.account_id.clone();
+		let account_id = self.top_frame().account_id.clone();
 		if !value.is_zero() {
 			let self_address = T::AddressMapper::to_address(&account_id);
 			if <Contracts<T>>::evm_balance(&self_address) < value {
 				return Err(Error::<T>::TransferFailed.into());
 			}
 		}
-		// CALLCODE sets `msg.sender` to the current contract, unlike DELEGATECALL which
-		// preserves the outer sender.
-		let caller = Origin::from_account_id(account_id.clone());
-		if let Some(executable) = self.push_frame(
-			FrameArgs::Call {
-				dest: account_id,
-				cached_info: Some(contract_info),
-				delegated_call: Some(DelegateInfo { caller, callee: address }),
-			},
-			// `msg.value` is taken from the stack argument. The `delegated_call` marker
-			// ensures no balance transfer happens (the transfer would be self -> self anyway).
-			value,
+		let caller = Origin::from_account_id(account_id);
+		self.delegated_call_inner(
 			call_resources,
-			self.is_read_only(),
-			&input_data,
-		)? {
-			self.run(executable, input_data)
-		} else {
-			Ok(())
-		}
+			address,
+			input_data,
+			caller,
+			value,
+			DelegateKind::CallCode,
+		)
 	}
 
 	fn terminate_if_same_tx(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
@@ -2197,6 +2228,7 @@ where
 						T::AddressMapper::to_address(self.account_id()),
 						T::AddressMapper::to_address(&dest),
 						None,
+						false,
 						is_read_only,
 						value,
 						&input_data,
@@ -2484,7 +2516,14 @@ where
 	}
 
 	fn is_delegate_call(&self) -> bool {
-		self.top_frame().delegate.is_some()
+		matches!(
+			self.top_frame().delegate.as_ref().map(|d| d.kind),
+			Some(DelegateKind::DelegateCall)
+		)
+	}
+
+	fn is_call_code(&self) -> bool {
+		matches!(self.top_frame().delegate.as_ref().map(|d| d.kind), Some(DelegateKind::CallCode))
 	}
 
 	fn last_frame_output(&self) -> &ExecReturnValue {

@@ -20,8 +20,8 @@
 use core::iter;
 
 use crate::{
-	BalanceOf, Code, Config, DelegateInfo, DispatchError, Error, ExecConfig, ExecOrigin,
-	ExecReturnValue, Weight,
+	BalanceOf, Code, Config, DelegateInfo, DelegateKind, DispatchError, Error, ExecConfig,
+	ExecOrigin, ExecReturnValue, Weight,
 	address::AddressMapper,
 	evm::{decode_revert_reason, fees::InfoT},
 	metering::TransactionLimits,
@@ -682,6 +682,7 @@ fn mock_delegatecall_hook_works(caller_type: FixtureType, callee_type: FixtureTy
 									&caller_addr,
 								),
 							)).expect("Conversion to ExecOrigin must work"),
+							kind: DelegateKind::DelegateCall,
 						},
 					))
 					.collect(),

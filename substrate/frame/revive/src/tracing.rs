@@ -74,13 +74,19 @@ pub trait Tracing {
 
 	/// Called before a contract call is executed.
 	///
-	/// For CALL/DELEGATECALL opcodes:
-	/// - `gas_limit`: gas forwarded to the child call
+	/// For CALL/DELEGATECALL/CALLCODE opcodes:
+	/// - `delegate_call`: `Some(callee_code_address)` if the child frame executes foreign code in
+	///   the current contract's storage (DELEGATECALL or CALLCODE).
+	/// - `is_call_code`: `true` if the frame was entered via the `CALLCODE` opcode. This is
+	///   distinguished from `DELEGATECALL` so tracers can emit the correct EVM call type (e.g.
+	///   Geth's call-tracer emits `"CALLCODE"` as a distinct string).
+	/// - `gas_limit`: gas forwarded to the child call.
 	fn enter_child_span(
 		&mut self,
 		_from: H160,
 		_to: H160,
 		_delegate_call: Option<H160>,
+		_is_call_code: bool,
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],
