@@ -17,7 +17,8 @@
 
 #![cfg(test)]
 
-use crate::{mock::*, *};
+use crate::{dispatchable_impls::DoRenewResult, mock::*, *};
+use fp_coretime::market::Market;
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
 	traits::nonfungible::{Inspect as NftInspect, Mutate, Transfer},
@@ -1914,7 +1915,7 @@ fn enable_auto_renew_renews() {
 		// Will fail because we didn't fund the sovereign account:
 		assert_noop!(
 			Broker::do_enable_auto_renew(1001, region_id.core, 1001, None),
-			TokenError::FundsUnavailable
+			Error::<Test>::NotAllowed
 		);
 
 		// Will succeed after funding the sovereign account:

@@ -67,19 +67,19 @@ mod tests;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use frame_support::{
-	ensure,
-	traits::{tokens::Balance as BalanceT, Get, Randomness},
-	weights::{Weight, WeightMeter},
-};
-use frame_system::pallet_prelude::BlockNumberFor;
-use pallet_broker::{
+use fp_coretime::{
 	market::{
 		AdjustBidResult, CoreRangeProvider, Market, OrderResult, RenewalOrderResult, SalesStarted,
 		TickAction, TimesliceProvider,
 	},
 	CoreIndex, CoreMask, PotentialRenewalId, RegionId, Timeslice,
 };
+use frame_support::{
+	ensure,
+	traits::{tokens::Balance as BalanceT, Get, Randomness},
+	weights::{Weight, WeightMeter},
+};
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_arithmetic::{FixedPointNumber, Perbill};
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, SaturatedConversion, Saturating, Zero},
@@ -294,11 +294,11 @@ impl<T: Config> Pallet<T> {
 		region_id: RegionId,
 		region_end: Timeslice,
 	) -> Result<RenewalOrderResult<BalanceOf<T>, u32>, Error<T>> {
-		PendingRenewalActions::<T>::try_mutate(|actions| {
-			actions
-				.try_push(RenewalAction::Renewed { who: who.clone(), renewal_id: renewal })
-				.map_err(|_| Error::<T>::TooManyBids)
-		})?;
+		// PendingRenewalActions::<T>::try_mutate(|actions| {
+		// 	actions
+		// 		.try_push(RenewalAction::Renewed { who: who.clone(), renewal_id: renewal })
+		// 		.map_err(|_| Error::<T>::TooManyBids)
+		// })?;
 
 		SaleInfo::<T>::mutate(|s| {
 			if let Some(sale) = s {
@@ -863,7 +863,7 @@ fn adjust_reserve_price<T: Config>(
 fn rotate_sale<T: Config>(
 	old_sale: &SaleInfoRecordOf<T>,
 	config: &ConfigRecordOf<T>,
-	range: &pallet_broker::market::SoldCoresRange,
+	range: &fp_coretime::market::SoldCoresRange,
 	now: RelayBlockNumberOf<T>,
 ) -> SaleInfoRecordOf<T> {
 	let new_reserve = adjust_reserve_price::<T>(old_sale, config);

@@ -198,6 +198,8 @@ impl<T: Config> Pallet<T> {
 				meter.consume(T::WeightInfo::process_tick_action_refund());
 
 				Self::refund(&who, amount).defensive_ok();
+
+				Self::deposit_event(Event::Refunded { who, amount });
 			},
 			TickAction::ProcessAutoRenewals { after_timeslice, next_renewal_at } => {
 				let auto_renewals = AutoRenewals::<T>::get();

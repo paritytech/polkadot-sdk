@@ -25,7 +25,10 @@ mod coretime_interface;
 mod dispatchable_impls;
 
 #[cfg(test)]
+mod integrational;
+#[cfg(test)]
 mod mock;
+
 mod nonfungible_impl;
 #[cfg(test)]
 mod test_fungibles;
@@ -516,6 +519,16 @@ pub mod pallet {
 			/// The timeslice associated with the potential renewal that was removed.
 			timeslice: Timeslice,
 		},
+		/// The user got a refund.
+		///
+		/// Usually this may happen if the user lost the auction or his bid was too high so funds
+		/// were refunded completely or partially during the auction settlement.
+		Refunded {
+			/// Who got the refund.
+			who: T::AccountId,
+			/// Refunded amount.
+			amount: BalanceOf<T>,
+		},
 	}
 
 	#[pallet::error]
@@ -628,13 +641,15 @@ pub mod pallet {
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `config`: The configuration for this pallet.
+		/// - `market_config`: The configuration for the market implementation used by this pallet.
 		#[pallet::call_index(0)]
 		pub fn configure(
 			origin: OriginFor<T>,
 			config: ConfigRecordOf<T>,
+			market_config: MarketConfigOf<T>,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_configure(config)?;
+			Self::do_configure(config, market_config)?;
 			Ok(Pays::No.into())
 		}
 

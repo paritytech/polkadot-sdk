@@ -12763,6 +12763,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-coretime-market",
  "parity-scale-codec",
  "pretty_assertions",
  "scale-info",
@@ -12989,11 +12990,11 @@ dependencies = [
 name = "pallet-coretime-market"
 version = "0.1.0"
 dependencies = [
+ "fp-coretime",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
- "pallet-broker",
  "parity-scale-codec",
  "scale-info",
  "sp-api 26.0.0",

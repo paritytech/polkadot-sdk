@@ -155,6 +155,7 @@ pub trait CoreRangeProvider {
 /// A range of cores available for sale on a coretime market.
 ///
 /// Represents the half-open range `[from, to)`.
+#[derive(Clone, Copy, Debug)]
 pub struct SoldCoresRange {
 	/// Minimum core index (inclusive).
 	pub from: CoreIndex,

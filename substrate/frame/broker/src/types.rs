@@ -38,6 +38,12 @@ pub type MarketInitDataOf<T> = <<T as Config>::CoretimeMarket as Market<
 	AccountIdFor<T>,
 >>::InitData;
 
+pub type MarketConfigOf<T> = <<T as Config>::CoretimeMarket as Market<
+	RelayBlockNumberOf<T>,
+	BalanceOf<T>,
+	AccountIdFor<T>,
+>>::Configuration;
+
 pub type MarketBidIdOf<T> = <<T as Config>::CoretimeMarket as Market<
 	RelayBlockNumberOf<T>,
 	BalanceOf<T>,

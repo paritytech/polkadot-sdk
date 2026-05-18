@@ -1,8 +1,8 @@
 #![cfg(test)]
 
 use crate::*;
+use fp_coretime::market::{CoreRangeProvider, SoldCoresRange, TimesliceProvider};
 use frame_support::{derive_impl, traits::Randomness};
-use pallet_broker::market::{CoreRangeProvider, SoldCoresRange, TimesliceProvider};
 use sp_core::ConstU32;
 use sp_runtime::BuildStorage;
 
@@ -51,7 +51,9 @@ impl TestCoreRangeProvider {
 impl CoreRangeProvider for TestCoreRangeProvider {
 	fn core_range() -> Option<SoldCoresRange> {
 		CORE_RANGE.with(|r| {
-			r.borrow().as_ref().map(|range| SoldCoresRange { from: range.from, to: range.to })
+			r.borrow()
+				.as_ref()
+				.map(|range| SoldCoresRange { from: range.from, to: range.to })
 		})
 	}
 }
