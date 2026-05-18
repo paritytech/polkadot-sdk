@@ -1096,3 +1096,52 @@ fn metadata_returns_defaults_when_unset() {
 		assert_eq!(IERC20::decimalsCall::abi_decode_returns(&decimals_bytes).unwrap(), 0u8);
 	});
 }
+
+/// On-chain metadata is opaque bytes; the Solidity ABI declares `name()` /
+/// `symbol()` as `string` (UTF-8). The precompile is the layer that has to
+/// reconcile the two — it lossy-decodes invalid bytes rather than reverting.
+/// Pins that contract: non-UTF-8 input maps to U+FFFD.
+#[test]
+fn metadata_non_utf8_returns_replacement_chars() {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let owner = 123456789;
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		// 0xFF, 0xFE are not valid UTF-8 starter bytes — each one becomes U+FFFD.
+		assert_ok!(Assets::force_set_metadata(
+			RuntimeOrigin::root(),
+			asset_id,
+			vec![0xFF, 0xFE],
+			vec![0xFF, 0xFE],
+			6,
+			false,
+		));
+
+		let call_view = |data: Vec<u8>| -> Vec<u8> {
+			let result = pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(owner),
+				asset_addr,
+				0u32.into(),
+				TransactionLimits::WeightAndDeposit {
+					weight_limit: Weight::MAX,
+					deposit_limit: u64::MAX,
+				},
+				data,
+				&ExecConfig::new_substrate_tx(),
+			);
+			let exec = result.result.expect("metadata view must not trap");
+			assert!(!exec.did_revert(), "metadata view must not revert on non-UTF-8");
+			exec.data
+		};
+
+		let expected = "\u{FFFD}\u{FFFD}";
+
+		let name_bytes = call_view(IERC20::nameCall {}.abi_encode());
+		assert_eq!(IERC20::nameCall::abi_decode_returns(&name_bytes).unwrap(), expected);
+
+		let symbol_bytes = call_view(IERC20::symbolCall {}.abi_encode());
+		assert_eq!(IERC20::symbolCall::abi_decode_returns(&symbol_bytes).unwrap(), expected);
+	});
+}
