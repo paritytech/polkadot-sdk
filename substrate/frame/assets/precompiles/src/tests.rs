@@ -175,6 +175,87 @@ fn precompile_transfer_works(asset_index: u16) {
 	});
 }
 
+/// `transfer` and `transferFrom` must NOT saturate on `value > Balance::MAX` —
+/// unlike `approve`/`permit`, transfers move exact amounts and silently clamping
+/// would produce partial transfers the caller never asked for. This pins the
+/// asymmetry so a future contributor "fixing" the inconsistency doesn't quietly
+/// flip transfers to saturation.
+#[test]
+fn transfer_and_transfer_from_revert_on_overflow_no_saturation() {
+	use alloy::sol_types::{Revert, SolError};
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let from = 123456789;
+		let to = 987654321;
+		Balances::make_free_balance_be(&from, 100);
+		Balances::make_free_balance_be(&to, 100);
+		let from_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&from);
+		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, from, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(from), asset_id, from, 100));
+
+		// Authorise the spender for `transferFrom` — with a tiny allowance, since
+		// the test never reaches the allowance check (the conversion reverts first).
+		let data =
+			IERC20::approveCall { spender: to_addr.0.into(), value: U256::from(50) }.abi_encode();
+		assert!(pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(from),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.unwrap()
+		.flags
+		.is_empty());
+
+		let assert_reverts_with = |caller: u64, data: Vec<u8>, label: &str| {
+			let exec = pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(caller),
+				asset_addr,
+				0u32.into(),
+				TransactionLimits::WeightAndDeposit {
+					weight_limit: Weight::MAX,
+					deposit_limit: u64::MAX,
+				},
+				data,
+				&ExecConfig::new_substrate_tx(),
+			)
+			.result
+			.expect("must not trap");
+			assert!(exec.did_revert(), "{label} must revert on overflow");
+			let decoded = Revert::abi_decode(&exec.data).expect("Error(string) revert");
+			assert_eq!(
+				decoded.reason, "Balance conversion failed",
+				"{label} must revert at the U256→Balance boundary, not deeper"
+			);
+		};
+
+		let transfer_data =
+			IERC20::transferCall { to: to_addr.0.into(), value: U256::MAX }.abi_encode();
+		assert_reverts_with(from, transfer_data, "transfer(uint256.max)");
+
+		let transfer_from_data = IERC20::transferFromCall {
+			from: from_addr.0.into(),
+			to: to_addr.0.into(),
+			value: U256::MAX,
+		}
+		.abi_encode();
+		assert_reverts_with(to, transfer_from_data, "transferFrom(_, _, uint256.max)");
+
+		// Balances unchanged — nothing moved.
+		assert_eq!(Assets::balance(asset_id, from), 100);
+		assert_eq!(Assets::balance(asset_id, to), 0);
+	});
+}
+
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 #[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 fn total_supply_works(asset_index: u16) {
