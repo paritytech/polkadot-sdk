@@ -168,6 +168,7 @@ std = [
 	"pallet-tx-pause?/std",
 	"pallet-uniques?/std",
 	"pallet-utility?/std",
+	"pallet-vaults?/std",
 	"pallet-verify-signature?/std",
 	"pallet-vesting-precompiles?/std",
 	"pallet-vesting?/std",
@@ -187,6 +188,7 @@ std = [
 	"polkadot-runtime-metrics?/std",
 	"polkadot-runtime-parachains?/std",
 	"polkadot-sdk-frame?/std",
+	"pusd-primitives?/std",
 	"sc-executor?/std",
 	"slot-range-helper?/std",
 	"sp-api-proc-macro?/std",
@@ -360,6 +362,7 @@ runtime-benchmarks = [
 	"pallet-tx-pause?/runtime-benchmarks",
 	"pallet-uniques?/runtime-benchmarks",
 	"pallet-utility?/runtime-benchmarks",
+	"pallet-vaults?/runtime-benchmarks",
 	"pallet-verify-signature?/runtime-benchmarks",
 	"pallet-vesting-precompiles?/runtime-benchmarks",
 	"pallet-vesting?/runtime-benchmarks",
@@ -379,6 +382,7 @@ runtime-benchmarks = [
 	"polkadot-runtime-parachains?/runtime-benchmarks",
 	"polkadot-sdk-frame?/runtime-benchmarks",
 	"polkadot-service?/runtime-benchmarks",
+	"pusd-primitives?/runtime-benchmarks",
 	"sc-client-db?/runtime-benchmarks",
 	"sc-service?/runtime-benchmarks",
 	"sp-runtime?/runtime-benchmarks",
@@ -511,6 +515,7 @@ try-runtime = [
 	"pallet-tx-pause?/try-runtime",
 	"pallet-uniques?/try-runtime",
 	"pallet-utility?/try-runtime",
+	"pallet-vaults?/try-runtime",
 	"pallet-verify-signature?/try-runtime",
 	"pallet-vesting-precompiles?/try-runtime",
 	"pallet-vesting?/try-runtime",
@@ -526,6 +531,7 @@ try-runtime = [
 	"polkadot-runtime-parachains?/try-runtime",
 	"polkadot-sdk-frame?/try-runtime",
 	"polkadot-service?/try-runtime",
+	"pusd-primitives?/try-runtime",
 	"sp-runtime?/try-runtime",
 	"staging-parachain-info?/try-runtime",
 ]
@@ -745,6 +751,7 @@ runtime-full = [
 	"pallet-tx-pause",
 	"pallet-uniques",
 	"pallet-utility",
+	"pallet-vaults",
 	"pallet-verify-signature",
 	"pallet-vesting",
 	"pallet-vesting-precompiles",
@@ -763,6 +770,7 @@ runtime-full = [
 	"polkadot-runtime-metrics",
 	"polkadot-runtime-parachains",
 	"polkadot-sdk-frame",
+	"pusd-primitives",
 	"sc-chain-spec-derive",
 	"sc-tracing-proc-macro",
 	"slot-range-helper",
@@ -1882,6 +1890,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/utility"
 
+[dependencies.pallet-vaults]
+default-features = false
+optional = true
+path = "../substrate/frame/vaults"
+
 [dependencies.pallet-verify-signature]
 default-features = false
 optional = true
@@ -1971,6 +1984,11 @@ path = "../polkadot/runtime/parachains"
 default-features = false
 optional = true
 path = "../substrate/frame"
+
+[dependencies.pusd-primitives]
+default-features = false
+optional = true
+path = "../substrate/frame/pusd-primitives"
 
 [dependencies.sc-chain-spec-derive]
 default-features = false

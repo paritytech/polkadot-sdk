@@ -388,26 +388,14 @@ parameter_types! {
 
 impl pallet_linked_list::Config for Runtime {
 	type WeightInfo = ();
-	type ListId = u32;
-	type ItemId = u32;
-	type Priority = u32;
+	type ListId = pallet_vaults::VaultListId<u32>;
+	type ItemId = AccountId;
+	type Priority = FixedU128;
 	type MaxHintRepairSteps = LinkedListMaxHintRepairSteps;
 	#[cfg(feature = "runtime-benchmarks")]
 	type PriorityProvider = pallet_linked_list::BenchPriorityProvider<Runtime>;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type PriorityProvider = LinkedListNoopPriorityProvider;
-}
-
-/// No-op `PriorityProvider` for kitchensink's non-benchmark builds: `linked-list`
-/// has no consumer pallet here, so every item is reported as "no authoritative
-/// priority" and `reprioritize` would always remove. Kitchensink just needs the
-/// pallet to compile and benchmark.
-pub struct LinkedListNoopPriorityProvider;
-impl pallet_linked_list::PriorityProvider<u32, u32> for LinkedListNoopPriorityProvider {
-	type Priority = u32;
-	fn priority(_list_id: &u32, _item: &u32) -> Option<u32> {
-		None
-	}
+	type PriorityProvider = Vaults;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -1958,7 +1946,7 @@ impl pallet_assets::Config<Instance1> for Runtime {
 	type MetadataDepositPerByte = MetadataDepositPerByte;
 	type ApprovalDeposit = ApprovalDeposit;
 	type StringLimit = StringLimit;
-	type Holder = ();
+	type Holder = AssetsHolder;
 	type Freezer = ();
 	type Extra = ();
 	type CallbackHandle = (pallet_assets_precompiles::ForeignAssetId<Runtime, Instance1>,);
@@ -1966,6 +1954,11 @@ impl pallet_assets::Config<Instance1> for Runtime {
 	type RemoveItemsLimit = ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+}
+
+impl pallet_assets_holder::Config<Instance1> for Runtime {
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeEvent = RuntimeEvent;
 }
 
 ord_parameter_types! {
@@ -2958,6 +2951,12 @@ mod runtime {
 
 	#[runtime::pallet_index(95)]
 	pub type LinkedList = pallet_linked_list::Pallet<Runtime>;
+
+	#[runtime::pallet_index(96)]
+	pub type AssetsHolder = pallet_assets_holder::Pallet<Runtime, Instance1>;
+
+	#[runtime::pallet_index(97)]
+	pub type Vaults = pallet_vaults::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3212,6 +3211,91 @@ impl pallet_psm::Config for Runtime {
 	type MaxExternalAssets = ConstU32<10>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PsmBenchmarkHelper;
+}
+
+parameter_types! {
+	pub const VaultsPalletId: PalletId = PalletId(*b"py/vault");
+	pub const VaultsMaxBranches: u32 = 16;
+	pub const VaultsMaxOnIdleVaultRefresh: u32 = 8;
+	pub VaultsSpYieldShare: Permill = Permill::from_percent(75);
+	/// Asset id treated as native DOT inside the vault collateral surface.
+	pub const VaultsNativeAssetId: u32 = 0;
+}
+
+/// Routes asset id `VaultsNativeAssetId` (0) to the native `Balances` side of
+/// the vault collateral union, every other id to `pallet-assets`.
+pub struct VaultsNativeFromZero;
+impl sp_runtime::traits::Convert<u32, sp_runtime::Either<(), u32>> for VaultsNativeFromZero {
+	fn convert(asset: u32) -> sp_runtime::Either<(), u32> {
+		if asset == VaultsNativeAssetId::get() {
+			sp_runtime::Either::Left(())
+		} else {
+			sp_runtime::Either::Right(asset)
+		}
+	}
+}
+
+pub type VaultsCollateral = UnionOf<Balances, AssetsHolder, VaultsNativeFromZero, u32, AccountId>;
+
+pub type VaultsStableAsset = ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
+
+/// Bridges `pallet-oracle` (u32 → u128) to the vault pallet's `ProvidePrice`
+/// surface. The oracle value is interpreted as a `FixedU128` inner
+/// representation: operators submit prices scaled by `10^18`.
+pub struct VaultsOracleAdapter;
+impl pusd_primitives::ProvidePrice for VaultsOracleAdapter {
+	type AssetId = u32;
+	type Moment = Moment;
+
+	fn provide_price(
+		collateral_id: &u32,
+	) -> Result<pusd_primitives::PriceFeed<Moment>, sp_runtime::DispatchError> {
+		match pallet_oracle::Pallet::<Runtime>::get(collateral_id) {
+			Some(v) => Ok(pusd_primitives::PriceFeed {
+				price: FixedU128::from_inner(v.value),
+				observed_at: v.timestamp,
+			}),
+			None => Err(pallet_vaults::Error::<Runtime>::OraclePriceNotAvailable.into()),
+		}
+	}
+}
+
+/// Root-only manager origin for the vaults pallet — Root resolves to the
+/// `Full` privilege tier; every other origin is rejected.
+pub struct EnsureVaultsManager;
+impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureVaultsManager {
+	type Success = pallet_vaults::VaultsManagerLevel;
+
+	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
+		use frame_system::RawOrigin;
+		match o.clone().into() {
+			Ok(RawOrigin::Root) => Ok(pallet_vaults::VaultsManagerLevel::Full),
+			_ => Err(o),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		Ok(RuntimeOrigin::root())
+	}
+}
+
+impl pallet_vaults::Config for Runtime {
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type AssetId = u32;
+	type CollateralAssets = VaultsCollateral;
+	type StableAsset = VaultsStableAsset;
+	type Oracle = VaultsOracleAdapter;
+	type SpYieldSink = ();
+	type SpYieldShare = VaultsSpYieldShare;
+	type FeeHandler = ();
+	type TimeProvider = Timestamp;
+	type ManagerOrigin = EnsureVaultsManager;
+	type PalletId = VaultsPalletId;
+	type MaxBranches = VaultsMaxBranches;
+	type MaxOnIdleVaultRefresh = VaultsMaxOnIdleVaultRefresh;
+	type VaultLists = LinkedList;
+	type WeightInfo = ();
 }
 
 /// MMR helper types.

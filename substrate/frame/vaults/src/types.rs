@@ -56,6 +56,12 @@ pub enum VaultListId<AssetId> {
 	FinalRecovery(AssetId),
 }
 
+impl<AssetId: Default> Default for VaultListId<AssetId> {
+	fn default() -> Self {
+		Self::Rate(AssetId::default())
+	}
+}
+
 impl VaultStatus {
 	/// Debt-bearing vault, present in the rate index.
 	pub fn is_active(&self) -> bool {
