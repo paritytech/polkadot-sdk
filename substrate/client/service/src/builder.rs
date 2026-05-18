@@ -622,14 +622,10 @@ where
 	// RPC-V2 specific metrics need to be registered before the RPC server is started,
 	// since we might have two instances running (one for the in-memory RPC and one for the network
 	// RPC).
-	let rpc_v2_transaction_metrics = config
+	let rpc_v2_metrics = config
 		.prometheus_registry()
 		.map(|registry| sc_rpc_spec_v2::transaction::TransactionMetrics::new(registry))
 		.transpose()?;
-	let rpc_v2_bitswap_metrics = match config.prometheus_registry() {
-		Some(registry) => sc_rpc_spec_v2::bitswap::BitswapMetrics::new(registry)?,
-		None => sc_rpc_spec_v2::bitswap::BitswapMetrics::disabled(),
-	};
 
 	// Create dedicated RPC runtime with limited blocking threads.
 	// This isolates RPC blocking operations from the rest of the node.
@@ -655,8 +651,7 @@ where
 			blocks_pruning: config.blocks_pruning,
 			backend: backend.clone(),
 			rpc_builder: &*rpc_builder,
-			transaction_metrics: rpc_v2_transaction_metrics.clone(),
-			bitswap_metrics: rpc_v2_bitswap_metrics.clone(),
+			metrics: rpc_v2_metrics.clone(),
 			sync_oracle: sync_service.clone(),
 			tracing_execute_block: execute_block.clone(),
 		})
@@ -824,10 +819,7 @@ pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TRpc, TExPool> {
 	/// RPC builder.
 	pub rpc_builder: &'a dyn Fn(SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>,
 	/// Transaction metrics handle.
-	pub transaction_metrics: Option<sc_rpc_spec_v2::transaction::TransactionMetrics>,
-	/// Bitswap metrics handle. Use [`sc_rpc_spec_v2::bitswap::BitswapMetrics::disabled`] when no
-	/// Prometheus registry is configured.
-	pub bitswap_metrics: sc_rpc_spec_v2::bitswap::BitswapMetrics,
+	pub metrics: Option<sc_rpc_spec_v2::transaction::TransactionMetrics>,
 	/// Sync oracle for determining sync status.
 	pub sync_oracle: Arc<dyn sp_consensus::SyncOracle + Send + Sync>,
 	/// Optional [`TracingExecuteBlock`] handle.
@@ -851,8 +843,7 @@ pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
 		blocks_pruning,
 		backend,
 		rpc_builder,
-		transaction_metrics,
-		bitswap_metrics,
+		metrics,
 		sync_oracle,
 		tracing_execute_block: execute_block,
 	}: GenRpcModuleParams<TBl, TBackend, TCl, TRpc, TExPool>,
@@ -912,7 +903,7 @@ where
 		client.clone(),
 		transaction_pool.clone(),
 		task_executor.clone(),
-		transaction_metrics,
+		metrics,
 	)
 	.into_rpc();
 
@@ -955,13 +946,9 @@ where
 	// `bitswap_unstable_get` during the migration). Do not confuse with the Bitswap network
 	// protocol itself, which is the IPFS-style block-exchange wire format these methods may
 	// dispatch to.
-	let bitswap_v2 = sc_rpc_spec_v2::bitswap::Bitswap::new(
-		client.clone(),
-		sync_oracle,
-		task_executor.clone(),
-		bitswap_metrics,
-	)
-	.into_rpc();
+	let bitswap_v2 =
+		sc_rpc_spec_v2::bitswap::Bitswap::new(client.clone(), sync_oracle, task_executor.clone())
+			.into_rpc();
 
 	let author = sc_rpc::author::Author::new(
 		client.clone(),
