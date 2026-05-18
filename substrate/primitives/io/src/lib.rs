@@ -81,6 +81,8 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 
+#[cfg(not(substrate_runtime))]
+use alloc::collections::BTreeMap;
 use strum::{EnumCount, FromRepr};
 
 #[cfg(not(substrate_runtime))]
@@ -1972,6 +1974,41 @@ impl Default for UseDalekExt {
 /// Initial buffer capacity (in number of keys) for `*_public_keys` wrappers.
 const PUBLIC_KEYS_INITIAL_CAPACITY: usize = 16;
 
+/// Per-algorithm snapshots of public keys retained by [`PublicKeysCacheExt`].
+#[cfg(not(substrate_runtime))]
+#[derive(Default)]
+pub struct PublicKeysCache {
+	/// Cached `ed25519` public keys per key type ID.
+	pub ed25519: BTreeMap<KeyTypeId, Vec<ed25519::Public>>,
+	/// Cached `sr25519` public keys per key type ID.
+	pub sr25519: BTreeMap<KeyTypeId, Vec<sr25519::Public>>,
+	/// Cached `ecdsa` public keys per key type ID.
+	pub ecdsa: BTreeMap<KeyTypeId, Vec<ecdsa::Public>>,
+}
+
+#[cfg(not(substrate_runtime))]
+sp_externalities::decl_extension! {
+	/// Externalities extension backing the [`PublicKeysCache`].
+	pub struct PublicKeysCacheExt(PublicKeysCache);
+}
+
+#[cfg(not(substrate_runtime))]
+impl Default for PublicKeysCacheExt {
+	fn default() -> Self {
+		Self(PublicKeysCache::default())
+	}
+}
+
+#[cfg(not(substrate_runtime))]
+macro_rules! ensure_public_keys_cache_ext_registered {
+	($self:expr) => {
+		match $self.register_extension(PublicKeysCacheExt::default()) {
+			Ok(()) | Err(sp_externalities::Error::ExtensionAlreadyRegistered) => (),
+			Err(e) => panic!("Failed to register `PublicKeysCacheExt`: {e:?}"),
+		}
+	};
+}
+
 /// Interfaces for working with crypto related types from within the runtime.
 #[runtime_interface]
 pub trait Crypto {
@@ -1988,6 +2025,8 @@ pub trait Crypto {
 	/// Stores all `ed25519` public keys for the given key id from the keystore into the output
 	/// buffer, if it is large enough. Returns the number of bytes occupied by the keys, regardless
 	/// of whether the buffer was written or not.
+	// ERRATA: Caching of the result was added to address security concerns, although it wasn't
+	// directly requested by the RFC
 	#[version(2)]
 	#[wrapped]
 	fn ed25519_public_keys(
@@ -1995,14 +2034,35 @@ pub trait Crypto {
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		out: PassFatPointerAndWrite<&mut [ed25519::Public]>,
 	) -> u32 {
-		let keys = self
-			.extension::<KeystoreExt>()
-			.expect("No `keystore` associated for the current context!")
-			.ed25519_public_keys(id);
-		if out.len() >= keys.len() {
-			out[..keys.len()].copy_from_slice(&keys[..]);
+		ensure_public_keys_cache_ext_registered!(self);
+
+		let cached = self
+			.extension::<PublicKeysCacheExt>()
+			.expect("`PublicKeysCacheExt` was just registered; qed")
+			.ed25519
+			.remove(&id);
+
+		let keys = match cached {
+			Some(snapshot) if out.len() >= snapshot.len() => snapshot,
+			_ => self
+				.extension::<KeystoreExt>()
+				.expect("No `keystore` associated for the current context!")
+				.ed25519_public_keys(id),
+		};
+
+		let key_size = core::mem::size_of::<ed25519::Public>();
+		let total = keys.len();
+
+		if out.len() >= total {
+			out[..total].copy_from_slice(&keys);
+		} else {
+			self.extension::<PublicKeysCacheExt>()
+				.expect("`PublicKeysCacheExt` is registered; qed")
+				.ed25519
+				.insert(id, keys);
 		}
-		(keys.len() * core::mem::size_of::<ed25519::Public>()) as u32
+
+		(total * key_size) as u32
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the
@@ -2011,14 +2071,17 @@ pub trait Crypto {
 	fn ed25519_public_keys(id: KeyTypeId) -> Vec<ed25519::Public> {
 		let key_size = core::mem::size_of::<ed25519::Public>();
 		let mut keys = vec![ed25519::Public::default(); PUBLIC_KEYS_INITIAL_CAPACITY];
-		loop {
-			let num_keys = ed25519_public_keys__wrapped(id, &mut keys) as usize / key_size;
-			if num_keys <= keys.len() {
-				keys.truncate(num_keys);
-				return keys;
-			}
-			keys.resize(num_keys, ed25519::Public::default());
+
+		let num_keys = ed25519_public_keys__wrapped(id, &mut keys) as usize / key_size;
+		if num_keys <= keys.len() {
+			keys.truncate(num_keys);
+			return keys;
 		}
+
+		keys.resize(num_keys, ed25519::Public::default());
+		let num_keys = ed25519_public_keys__wrapped(id, &mut keys) as usize / key_size;
+		keys.truncate(num_keys);
+		keys
 	}
 
 	/// Generate an `ed22519` key for the given key type using an optional `seed` and
@@ -2276,6 +2339,8 @@ pub trait Crypto {
 	/// Stores all `sr25519` public keys for the given key id from the keystore into the output
 	/// buffer, if it is large enough. Returns the number of bytes occupied by the keys, regardless
 	/// of whether the buffer was written or not.
+	// ERRATA: Caching of the result was added to address security concerns, although it wasn't
+	// directly requested by the RFC
 	#[version(2)]
 	#[wrapped]
 	fn sr25519_public_keys(
@@ -2283,14 +2348,35 @@ pub trait Crypto {
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		out: PassFatPointerAndWrite<&mut [sr25519::Public]>,
 	) -> u32 {
-		let keys = self
-			.extension::<KeystoreExt>()
-			.expect("No `keystore` associated for the current context!")
-			.sr25519_public_keys(id);
-		if out.len() >= keys.len() {
-			out[..keys.len()].copy_from_slice(&keys[..]);
+		ensure_public_keys_cache_ext_registered!(self);
+
+		let cached = self
+			.extension::<PublicKeysCacheExt>()
+			.expect("`PublicKeysCacheExt` was just registered; qed")
+			.sr25519
+			.remove(&id);
+
+		let keys = match cached {
+			Some(snapshot) if out.len() >= snapshot.len() => snapshot,
+			_ => self
+				.extension::<KeystoreExt>()
+				.expect("No `keystore` associated for the current context!")
+				.sr25519_public_keys(id),
+		};
+
+		let key_size = core::mem::size_of::<sr25519::Public>();
+		let total = keys.len();
+
+		if out.len() >= total {
+			out[..total].copy_from_slice(&keys);
+		} else {
+			self.extension::<PublicKeysCacheExt>()
+				.expect("`PublicKeysCacheExt` is registered; qed")
+				.sr25519
+				.insert(id, keys);
 		}
-		(keys.len() * core::mem::size_of::<sr25519::Public>()) as u32
+
+		(total * key_size) as u32
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the
@@ -2299,14 +2385,17 @@ pub trait Crypto {
 	fn sr25519_public_keys(id: KeyTypeId) -> Vec<sr25519::Public> {
 		let key_size = core::mem::size_of::<sr25519::Public>();
 		let mut keys = vec![sr25519::Public::default(); PUBLIC_KEYS_INITIAL_CAPACITY];
-		loop {
-			let num_keys = sr25519_public_keys__wrapped(id, &mut keys) as usize / key_size;
-			if num_keys <= keys.len() {
-				keys.truncate(num_keys);
-				return keys;
-			}
-			keys.resize(num_keys, sr25519::Public::default());
+
+		let num_keys = sr25519_public_keys__wrapped(id, &mut keys) as usize / key_size;
+		if num_keys <= keys.len() {
+			keys.truncate(num_keys);
+			return keys;
 		}
+
+		keys.resize(num_keys, sr25519::Public::default());
+		let num_keys = sr25519_public_keys__wrapped(id, &mut keys) as usize / key_size;
+		keys.truncate(num_keys);
+		keys
 	}
 
 	/// Generate an `sr22519` key for the given key type using an optional seed and
@@ -2439,6 +2528,8 @@ pub trait Crypto {
 	/// Stores all `ecdsa` public keys for the given key id from the keystore into the output
 	/// buffer, if it is large enough. Returns the number of bytes occupied by the keys, regardless
 	/// of whether the buffer was written or not.
+	// ERRATA: Caching of the result was added to address security concerns, although it wasn't
+	// directly requested by the RFC
 	#[version(2)]
 	#[wrapped]
 	fn ecdsa_public_keys(
@@ -2446,14 +2537,35 @@ pub trait Crypto {
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		out: PassFatPointerAndWrite<&mut [ecdsa::Public]>,
 	) -> u32 {
-		let keys = self
-			.extension::<KeystoreExt>()
-			.expect("No `keystore` associated for the current context!")
-			.ecdsa_public_keys(id);
-		if out.len() >= keys.len() {
-			out[..keys.len()].copy_from_slice(&keys[..]);
+		ensure_public_keys_cache_ext_registered!(self);
+
+		let cached = self
+			.extension::<PublicKeysCacheExt>()
+			.expect("`PublicKeysCacheExt` was just registered; qed")
+			.ecdsa
+			.remove(&id);
+
+		let keys = match cached {
+			Some(snapshot) if out.len() >= snapshot.len() => snapshot,
+			_ => self
+				.extension::<KeystoreExt>()
+				.expect("No `keystore` associated for the current context!")
+				.ecdsa_public_keys(id),
+		};
+
+		let key_size = core::mem::size_of::<ecdsa::Public>();
+		let total = keys.len();
+
+		if out.len() >= total {
+			out[..total].copy_from_slice(&keys);
+		} else {
+			self.extension::<PublicKeysCacheExt>()
+				.expect("`PublicKeysCacheExt` is registered; qed")
+				.ecdsa
+				.insert(id, keys);
 		}
-		(keys.len() * core::mem::size_of::<ecdsa::Public>()) as u32
+
+		(total * key_size) as u32
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the
@@ -2462,14 +2574,17 @@ pub trait Crypto {
 	fn ecdsa_public_keys(id: KeyTypeId) -> Vec<ecdsa::Public> {
 		let key_size = core::mem::size_of::<ecdsa::Public>();
 		let mut keys = vec![ecdsa::Public::default(); PUBLIC_KEYS_INITIAL_CAPACITY];
-		loop {
-			let num_keys = ecdsa_public_keys__wrapped(id, &mut keys) as usize / key_size;
-			if num_keys <= keys.len() {
-				keys.truncate(num_keys);
-				return keys;
-			}
-			keys.resize(num_keys, ecdsa::Public::default());
+
+		let num_keys = ecdsa_public_keys__wrapped(id, &mut keys) as usize / key_size;
+		if num_keys <= keys.len() {
+			keys.truncate(num_keys);
+			return keys;
 		}
+
+		keys.resize(num_keys, ecdsa::Public::default());
+		let num_keys = ecdsa_public_keys__wrapped(id, &mut keys) as usize / key_size;
+		keys.truncate(num_keys);
+		keys
 	}
 
 	/// Generate an `ecdsa` key for the given key type using an optional `seed` and
