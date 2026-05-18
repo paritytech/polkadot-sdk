@@ -788,6 +788,18 @@ fn approve_saturates_on_uint256_max() {
 			"approve(uint256.max) must not revert"
 		);
 
+		// The Approval event must report the saturated allowance, not the raw
+		// `call.value`. Otherwise indexers reconstructing allowances from logs
+		// would permanently disagree with on-chain state.
+		assert_contract_event(
+			asset_addr,
+			IERC20Events::Approval(IERC20::Approval {
+				owner: owner_addr.0.into(),
+				spender: spender_addr.0.into(),
+				value: U256::from(u64::MAX),
+			}),
+		);
+
 		// Direct pallet read: allowance must be saturated to Balance::MAX.
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
 

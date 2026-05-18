@@ -419,7 +419,7 @@ where
 			IERC20Events::Approval(IERC20::Approval {
 				owner: owner.0.into(),
 				spender: call.spender,
-				value: call.value,
+				value: Self::to_u256(new_amount)?,
 			}),
 		)?;
 
