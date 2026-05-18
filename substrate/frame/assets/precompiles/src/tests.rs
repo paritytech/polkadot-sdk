@@ -1139,7 +1139,7 @@ fn permit_saturates_on_uint256_max() {
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),
 			asset_id,
-			owner_account.clone(),
+			owner_account,
 			true,
 			1
 		));
@@ -1256,7 +1256,7 @@ fn permit_saturates_when_overwriting_existing_allowance() {
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),
 			asset_id,
-			owner_account.clone(),
+			owner_account,
 			true,
 			1
 		));
@@ -1264,9 +1264,9 @@ fn permit_saturates_when_overwriting_existing_allowance() {
 		// Seed a non-zero allowance so the permit goes through the cancel-first
 		// branch instead of the fresh-approve branch.
 		assert_ok!(Assets::approve_transfer(
-			RuntimeOrigin::signed(owner_account.clone()),
+			RuntimeOrigin::signed(owner_account),
 			asset_id.into(),
-			spender_account.clone(),
+			spender_account,
 			25,
 		));
 		assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 25);
@@ -1373,7 +1373,7 @@ fn permit_saturates_just_above_balance_max() {
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),
 			asset_id,
-			owner_account.clone(),
+			owner_account,
 			true,
 			1
 		));
