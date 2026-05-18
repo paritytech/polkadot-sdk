@@ -450,14 +450,26 @@ where
 	}
 
 	/// Execute the transfer_from call.
+	///
+	/// OZ "infinite allowance" sentinel: when the stored allowance is
+	/// `Balance::MAX`, the approval is not decremented.
 	fn transfer_from(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &IERC20::transferFromCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		env.charge(<Runtime as Config<Instance>>::WeightInfo::transfer_approved())?;
-		let spender = Self::caller(env)?;
-		let spender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
+		use frame_support::traits::fungibles::approvals::Inspect;
+		use sp_runtime::traits::Bounded;
+
+		// Reserve worst-case weight (transfer_approved is the heavier branch),
+		// refund if we take the sentinel branch.
+		let worst_case = <Runtime as Config<Instance>>::WeightInfo::allowance()
+			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::transfer_approved());
+		let charged = env.charge(worst_case)?;
+
+		let spender_h160 = Self::caller(env)?;
+		let spender =
+			<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender_h160);
 
 		let from = call.from.into_array().into();
 		let from = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from);
@@ -466,13 +478,38 @@ where
 		let to = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&to);
 
 		let approval_amount = Self::to_balance(call.value)?;
-		pallet_assets::Pallet::<Runtime, Instance>::do_transfer_approved(
-			asset_id,
+
+		let current = pallet_assets::Pallet::<Runtime, Instance>::allowance(
+			asset_id.clone(),
 			&from,
 			&spender,
-			&to,
-			approval_amount,
-		)?;
+		);
+		let actual_weight = if current == <Runtime as Config<Instance>>::Balance::max_value() {
+			// Sentinel allowance: bypass `do_transfer_approved` so the approval
+			// is not decremented. The check above already confirms the spender
+			// has authority; balance enforcement happens inside `do_transfer`.
+			let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
+			pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
+				asset_id,
+				&from,
+				&to,
+				approval_amount,
+				None,
+				f,
+			)?;
+			<Runtime as Config<Instance>>::WeightInfo::allowance()
+				.saturating_add(<Runtime as Config<Instance>>::WeightInfo::transfer())
+		} else {
+			pallet_assets::Pallet::<Runtime, Instance>::do_transfer_approved(
+				asset_id,
+				&from,
+				&spender,
+				&to,
+				approval_amount,
+			)?;
+			worst_case
+		};
+		env.adjust_gas(charged, actual_weight);
 
 		Self::deposit_event(
 			env,
