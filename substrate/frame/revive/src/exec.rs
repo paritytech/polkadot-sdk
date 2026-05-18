@@ -2568,12 +2568,15 @@ where
 
 	fn get_storage(&mut self, key: &Key) -> (Option<Vec<u8>>, StorageAccessCost) {
 		assert!(self.has_contract_info());
-		let address = T::AddressMapper::to_address(self.account_id());
-		let is_cold = self.access_list.touch(AccessEntry {
-			address,
-			is_var: matches!(key, Key::Var(_)),
-			slot: key.to_slot(),
-		});
+		let is_cold = if self.access_list.is_disabled() {
+			true
+		} else {
+			self.access_list.touch(AccessEntry {
+				address: T::AddressMapper::to_address(self.account_id()),
+				is_var: matches!(key, Key::Var(_)),
+				slot: key.to_slot(),
+			})
+		};
 		let value = self.top_frame_mut().contract_info().read(key);
 		(value, StorageAccessCost { is_cold: Some(is_cold) })
 	}
@@ -2602,12 +2605,15 @@ where
 		take_old: bool,
 	) -> (Result<WriteOutcome, DispatchError>, StorageAccessCost) {
 		assert!(self.has_contract_info());
-		let address = T::AddressMapper::to_address(self.account_id());
-		let is_cold = self.access_list.touch(AccessEntry {
-			address,
-			is_var: matches!(key, Key::Var(_)),
-			slot: key.to_slot(),
-		});
+		let is_cold = if self.access_list.is_disabled() {
+			true
+		} else {
+			self.access_list.touch(AccessEntry {
+				address: T::AddressMapper::to_address(self.account_id()),
+				is_var: matches!(key, Key::Var(_)),
+				slot: key.to_slot(),
+			})
+		};
 		let frame = self.top_frame_mut();
 		let result = frame.contract_info.get(&frame.account_id).write(
 			key.into(),

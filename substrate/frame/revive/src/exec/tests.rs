@@ -20,7 +20,6 @@
 /// In these tests the VM/loader are mocked. Instead of dealing with vm bytecode they use
 /// simple closures. This allows you to tackle executive logic more thoroughly without writing
 /// a VM binary code.
-#[cfg(test)]
 use super::*;
 use crate::{
 	AddressMapper, Error, Pallet, ReentrancyProtection,
@@ -2987,7 +2986,7 @@ fn delegatecall_tracer_reports_correct_addresses() {
 // ===========================================================================
 // Cold/warm access list integration tests.
 //
-// These verify the storage-only cold/warm pricing pipeline end-to-end:
+// Verify the storage-only cold/warm pricing pipeline end-to-end:
 // `Ext::get_storage` / `Ext::set_storage` → access list touch → returned
 // `is_cold` flag, with frame rollback semantics across nested CALLs.
 // ===========================================================================
@@ -3356,21 +3355,21 @@ fn cold_warm_delegate_call_warms_parent_slot() {
 	});
 }
 
-// TODO: Err-path refund test (review #8) — needs forcing `set_storage` to
-// return `Err`. The natural trigger is a tight deposit limit on the frame
-// meter that the write exhausts. Wiring that through `TransactionMeter` +
-// `run_call_to` requires exposing a tight-budget helper; the assertion would
-// be: after Err, a second touch on the same slot reports warm.
+// TODO: Err-path refund test — needs forcing `set_storage` to return `Err`.
+// The natural trigger is a tight deposit limit on the frame meter that the
+// write exhausts. Wiring that through `TransactionMeter` + `run_call_to`
+// requires exposing a tight-budget helper; the assertion would be: after Err,
+// a second touch on the same slot reports warm.
 //
-// TODO: precompile-level cold/warm test (review #6) — the precompile's
-// `env.set_storage` is what `cold_warm_set_storage_first_cold_second_warm`
-// already exercises (the precompile delegates straight through). A dedicated
-// dispatch-level test needs a delegate-call `ext` from `CallSetup` and
-// would call `<Storage<Test>>::call(...)` twice in a row — belongs in
+// TODO: precompile-level cold/warm test — the precompile's `env.set_storage`
+// is what `cold_warm_set_storage_first_cold_second_warm` already exercises
+// (the precompile delegates straight through). A dedicated dispatch-level
+// test needs a delegate-call `ext` from `CallSetup` and would call
+// `<Storage<Test>>::call(...)` twice in a row — belongs in
 // `precompiles::builtin::storage::tests`, not here.
 //
-// TODO: OOG-during-pre-charge test (review #7) — the pre-charge halt lives
-// in the opcode handler (`host::sstore`, `pvm::set_storage`), not in
-// `Ext::set_storage`. Needs an integration test that runs real contract
-// bytecode through the interpreter with a gas budget below the pre-charge
-// weight, then asserts the halt fires and the access list is empty.
+// TODO: OOG-during-pre-charge test — the pre-charge halt lives in the opcode
+// handler (`host::sstore`, `pvm::set_storage`), not in `Ext::set_storage`.
+// Needs an integration test that runs real contract bytecode through the
+// interpreter with a gas budget below the pre-charge weight, then asserts
+// the halt fires and the access list is empty.

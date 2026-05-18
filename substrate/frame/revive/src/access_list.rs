@@ -118,6 +118,13 @@ impl AccessList {
 		}
 	}
 
+	/// `true` when cold/warm tracking is off. Lets callers skip building an
+	/// `AccessEntry` (and the `Var` `blake2_256` hash inside `Key::to_slot`)
+	/// when the result would be ignored anyway.
+	pub fn is_disabled(&self) -> bool {
+		matches!(self, Self::Disabled)
+	}
+
 	/// Register the entry and return `true` if this access is cold (newly
 	/// inserted), `false` if it was already warm.
 	pub fn touch(&mut self, entry: AccessEntry) -> bool {
