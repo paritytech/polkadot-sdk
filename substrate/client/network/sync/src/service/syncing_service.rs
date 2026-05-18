@@ -129,8 +129,8 @@ impl<B: BlockT> SyncingService<B> {
 	}
 
 	/// Replace the dynamic no-slot peer set. Peers bypass `--in-peers` accounting;
-	/// call this alongside [`NetworkService::set_reserved_peers`] to keep reserved
-	/// peers off the inbound slot budget.
+	/// call this alongside `NetworkService::set_reserved_peers` to keep reserved peers
+	/// off the inbound slot budget.
 	pub fn set_no_slot_peers(&self, peers: HashSet<PeerId>) {
 		let _ = self.tx.unbounded_send(ToServiceCommand::SetNoSlotPeers(peers));
 	}
