@@ -15,22 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! One-shot migration that populates decimal snapshots for a pre-existing PSM
+//! One-shot migration that populates per-external decimal snapshots for a pre-existing PSM
 //! deployment.
 //!
-//! Purpose: chains that approved external assets before the multi-decimal upgrade
-//! have entries in `ExternalAssets` but no `ExternalDecimals` snapshots, and no
-//! `InternalDecimals` either. Mint and redeem both require these snapshots and
-//! will fail closed (`Error::DecimalsMismatch` / `Error::Unexpected`) until they
-//! are populated. This migration reads live metadata and writes the snapshots.
+//! Purpose: chains that approved external assets before the multi-decimal upgrade have
+//! entries in `ExternalAssets` but no `ExternalDecimals` snapshots. Mint and redeem both
+//! require these snapshots and will fail closed (`Error::DecimalsMismatch` /
+//! `Error::Unexpected`) until they are populated. This migration reads live metadata and
+//! writes the snapshots.
 //!
-//! Out-of-range assets are handled gracefully: if an existing asset's decimals
-//! differ from the internal asset's decimals by more than [`MAX_DECIMALS_DIFF`],
-//! the migration still writes its decimals snapshot but flips its circuit
-//! breaker to [`CircuitBreakerLevel::AllDisabled`]. The chain keeps upgrading;
-//! governance can remove or re-enable the asset later once the off-chain
-//! situation is resolved. The `try-runtime` post-upgrade hook verifies this
-//! invariant — any out-of-range asset must end up disabled.
+//! The internal asset's decimals snapshot lives inside [`PsmInfo`] and is seeded by the
+//! [`super::init::InitializePsm`] migration; this one only handles per-external snapshots.
+//!
+//! Out-of-range assets are handled gracefully: if an existing asset's decimals differ from
+//! the internal asset's decimals by more than [`MAX_DECIMALS_DIFF`], the migration still
+//! writes its decimals snapshot but flips its circuit breaker to
+//! [`CircuitBreakerLevel::AllDisabled`]. The chain keeps upgrading; governance can remove
+//! or re-enable the asset later once the off-chain situation is resolved. The
+//! `try-runtime` post-upgrade hook verifies this invariant — any out-of-range asset must
+//! end up disabled.
 //!
 //! Safe to run multiple times — already-populated snapshots are not overwritten.
 //!
@@ -49,14 +52,13 @@ use frame_support::{
 	migrations::VersionedMigration,
 	pallet_prelude::Weight,
 	traits::{
-		fungible::metadata::Inspect as FungibleMetadataInspect,
 		fungibles::metadata::Inspect as FungiblesMetadataInspect, Get, UncheckedOnRuntimeUpgrade,
 	},
 };
 
 use crate::{
 	pallet::{
-		CircuitBreakerLevel, ExternalAssets, ExternalDecimals, InternalDecimals, MAX_DECIMALS_DIFF,
+		CircuitBreakerLevel, ExternalAssets, ExternalDecimals, Psms, MAX_DECIMALS_DIFF,
 	},
 	Config, Pallet,
 };
@@ -90,19 +92,18 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 	fn on_runtime_upgrade() -> Weight {
 		log::info!(
 			target: LOG_TARGET,
-			"Running PopulateDecimals: backfilling decimal snapshots"
+			"Running PopulateDecimals: backfilling per-external decimal snapshots"
 		);
 
 		let mut reads = 0u64;
 		let mut writes = 0u64;
 
-		// Internal asset snapshot — only write if missing.
-		reads += 2;
-		let internal_decimals = T::InternalAsset::decimals();
-		if !InternalDecimals::<T>::exists() {
-			InternalDecimals::<T>::put(internal_decimals);
-			writes += 1;
-		}
+		// Compare against the `PsmInfo`'s snapshot when present, else against live internal
+		// decimals — the migration may run before `InitializePsm` has installed `PsmInfo`.
+		reads += 1;
+		let internal_decimals = Psms::<T>::get(T::InternalAssetId::get())
+			.map(|info| info.internal_decimals)
+			.unwrap_or_else(|| T::Fungibles::decimals(T::InternalAssetId::get()));
 
 		// Per-asset snapshots. Walk every approved external asset.
 		for (asset_id, status) in ExternalAssets::<T>::iter() {
@@ -162,13 +163,9 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
-		// Internal asset snapshot present and consistent with live metadata.
-		ensure!(
-			InternalDecimals::<T>::get() == Some(T::InternalAsset::decimals()),
-			"InternalDecimals snapshot missing or stale after migration"
-		);
-
-		let internal_decimals = T::InternalAsset::decimals();
+		let internal_decimals = Psms::<T>::get(T::InternalAssetId::get())
+			.map(|info| info.internal_decimals)
+			.unwrap_or_else(|| T::Fungibles::decimals(T::InternalAssetId::get()));
 		for (asset_id, status) in ExternalAssets::<T>::iter() {
 			let snapshot = ExternalDecimals::<T>::get(&asset_id)
 				.ok_or("Approved external asset missing decimals snapshot after migration")?;
@@ -214,15 +211,13 @@ mod tests {
 	fn populate_decimals_backfills_existing_assets() {
 		new_test_ext().execute_with(|| {
 			// Simulate a pre-migration state: existing assets have ExternalAssets
-			// entries but no decimals snapshots (and no InternalDecimals).
+			// entries but no decimals snapshots.
 			prepare_v1();
-			InternalDecimals::<Test>::kill();
 			ExternalDecimals::<Test>::remove(USDC_ASSET_ID);
 			ExternalDecimals::<Test>::remove(USDT_ASSET_ID);
 
 			PopulateDecimals::<Test>::on_runtime_upgrade();
 
-			assert_eq!(InternalDecimals::<Test>::get(), Some(6));
 			assert_eq!(ExternalDecimals::<Test>::get(USDC_ASSET_ID), Some(6));
 			assert_eq!(ExternalDecimals::<Test>::get(USDT_ASSET_ID), Some(6));
 			// Normal status preserved since decimals are in range.
@@ -278,16 +273,16 @@ mod tests {
 				45,
 			));
 
-			// Wipe DAI's snapshot and InternalDecimals to force repopulation, then
-			// roll back to v1 so the versioned wrapper actually runs.
+			// Wipe DAI's snapshot and the `PsmInfo` for the internal asset to force
+			// the migration to fall back to live internal decimals (45), then roll
+			// back to v1 so the versioned wrapper actually runs.
 			ExternalDecimals::<Test>::remove(DAI_MOCK_ASSET_ID);
-			InternalDecimals::<Test>::kill();
+			Psms::<Test>::remove(INTERNAL_ASSET_ID);
 			prepare_v1();
 
 			PopulateDecimals::<Test>::on_runtime_upgrade();
 
 			// Snapshot was written regardless.
-			assert_eq!(InternalDecimals::<Test>::get(), Some(45));
 			assert_eq!(ExternalDecimals::<Test>::get(DAI_MOCK_ASSET_ID), Some(18));
 			// DAI is disabled because 45 - 18 = 27 > MAX_DECIMALS_DIFF (24).
 			assert_eq!(
@@ -306,19 +301,16 @@ mod tests {
 	fn populate_decimals_runs_once_then_skips() {
 		new_test_ext().execute_with(|| {
 			prepare_v1();
-			InternalDecimals::<Test>::kill();
 			ExternalDecimals::<Test>::remove(USDC_ASSET_ID);
 
 			// First run: on-chain version is 1, migration executes and bumps to 2.
 			PopulateDecimals::<Test>::on_runtime_upgrade();
 			assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(2));
-			let stable1 = InternalDecimals::<Test>::get();
 			let usdc1 = ExternalDecimals::<Test>::get(USDC_ASSET_ID);
 
 			// Second run: on-chain version is 2, versioned wrapper skips — state
 			// is unchanged.
 			PopulateDecimals::<Test>::on_runtime_upgrade();
-			assert_eq!(InternalDecimals::<Test>::get(), stable1);
 			assert_eq!(ExternalDecimals::<Test>::get(USDC_ASSET_ID), usdc1);
 			assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(2));
 		});
