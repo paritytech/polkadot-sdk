@@ -89,11 +89,11 @@ where
 pub fn prepare_unincluded_segment_aux_data<H: Encode>(
 	block_hash: H,
 	time_ms: u64,
-	proof: StorageProof,
+	proof: &StorageProof,
 ) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> {
-	let entry = StoredEntry { time_ms, proof };
 	let key = unincluded_segment_key(block_hash);
-	let encoded_entry = entry.encode();
+	let mut encoded_entry = time_ms.encode();
+	proof.encode_to(&mut encoded_entry);
 	let current_version = UNINCLUDED_SEGMENT_STORE_CURRENT_VERSION.encode();
 
 	[(key, encoded_entry), (UNINCLUDED_SEGMENT_STORE_VERSION.to_vec(), current_version)].into_iter()
@@ -196,8 +196,7 @@ mod tests {
 		let time_ms = 1234567890u64;
 		let proof = StorageProof::new(vec![vec![10, 20, 30]]);
 
-		let pairs: Vec<_> =
-			prepare_unincluded_segment_aux_data(hash, time_ms, proof.clone()).collect();
+		let pairs: Vec<_> = prepare_unincluded_segment_aux_data(hash, time_ms, &proof).collect();
 
 		assert_eq!(pairs.len(), 2);
 
@@ -271,10 +270,8 @@ mod tests {
 	#[test]
 	fn stored_entry_encoding_hex_snapshot() {
 		// Canonical entry for hex snapshot
-		let entry = StoredEntry {
-			time_ms: 1234567890u64,
-			proof: StorageProof::new(vec![vec![1, 2, 3]]),
-		};
+		let entry =
+			StoredEntry { time_ms: 1234567890u64, proof: StorageProof::new(vec![vec![1, 2, 3]]) };
 
 		let encoded = entry.encode();
 		// Snapshot of the SCALE encoding. If this assertion fires, the on-disk format of
@@ -339,15 +336,15 @@ mod tests {
 
 		write_aux_data(
 			&backend,
-			prepare_unincluded_segment_aux_data(hash1, entry1.time_ms, entry1.proof.clone()),
+			prepare_unincluded_segment_aux_data(hash1, entry1.time_ms, &entry1.proof),
 		);
 		write_aux_data(
 			&backend,
-			prepare_unincluded_segment_aux_data(hash2, entry2.time_ms, entry2.proof.clone()),
+			prepare_unincluded_segment_aux_data(hash2, entry2.time_ms, &entry2.proof),
 		);
 		write_aux_data(
 			&backend,
-			prepare_unincluded_segment_aux_data(hash3, entry3.time_ms, entry3.proof.clone()),
+			prepare_unincluded_segment_aux_data(hash3, entry3.time_ms, &entry3.proof),
 		);
 
 		// Verify all three round-trip with value equality.
@@ -366,6 +363,10 @@ mod tests {
 		// Verify hash1 and hash2 deleted, hash3 survives with original value intact.
 		assert_eq!(load_entry(&backend, hash1).expect("load"), None, "hash1 should be deleted");
 		assert_eq!(load_entry(&backend, hash2).expect("load"), None, "hash2 should be deleted");
-		assert_eq!(load_entry(&backend, hash3).expect("load"), Some(entry3), "hash3 should survive");
+		assert_eq!(
+			load_entry(&backend, hash3).expect("load"),
+			Some(entry3),
+			"hash3 should survive"
+		);
 	}
 }
