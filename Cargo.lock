@@ -4975,6 +4975,7 @@ dependencies = [
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "substrate-prometheus-endpoint 0.17.0",
+ "substrate-test-runtime",
  "tokio",
  "tracing",
 ]
@@ -5151,6 +5152,7 @@ dependencies = [
 name = "cumulus-client-unincluded-segment-store"
 version = "0.1.0"
 dependencies = [
+ "cumulus-client-consensus-common",
  "hex",
  "parity-scale-codec",
  "sc-client-api 28.0.0",
