@@ -194,6 +194,8 @@ where
 			spawn_handle.clone(),
 		);
 
+	// We could have spawned this task as essential, but we don't because the collators
+	// should be able to continue to build blocks without running this task.
 	spawn_handle.spawn(
 		"para-authority-discovery-worker",
 		Some("authority-discovery"),

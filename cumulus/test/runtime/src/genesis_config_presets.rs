@@ -32,7 +32,6 @@ use super::SessionConfig;
 /// Build the genesis config seeding `pallet_aura::authorities` directly.
 ///
 /// This is the pre-upgrade path: no `pallet_session`, no `pallet_authority_discovery`.
-/// Authority discovery keys are absent until a runtime upgrade installs them.
 #[cfg(not(feature = "with-authority-discovery"))]
 fn cumulus_test_runtime(
 	invulnerables: Vec<AuraId>,
@@ -49,13 +48,6 @@ fn cumulus_test_runtime(
 	})
 }
 
-/// Build the genesis config seeding `pallet_session::keys` for the given invulnerables.
-///
-/// Session initialises Aura and AuthorityDiscovery from those keys, so each collator's AD
-/// key is its well-known sr25519 key.  `aura::authorities` is NOT seeded directly —
-/// Session populates it via `on_genesis_session`.
-///
-/// Both `aura` and `authority_discovery` share the same sr25519 bytes as the account key.
 #[cfg(feature = "with-authority-discovery")]
 fn cumulus_test_runtime(
 	invulnerables: Vec<AuraId>,
