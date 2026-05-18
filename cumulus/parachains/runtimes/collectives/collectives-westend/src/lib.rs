@@ -53,14 +53,14 @@ pub use ambassador::pallet_ambassador_origins;
 
 use alloc::{vec, vec::Vec};
 use ambassador::AmbassadorCoreInstance;
-use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
+use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
 use fellowship::{pallet_fellowship_origins, Fellows, FellowshipCoreInstance};
 use impls::{AllianceProposalProvider, EqualOrGreatestRootCmp};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	generic, impl_opaque_keys,
-	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT},
+	traits::{BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature, MultiSigner, Perbill, Percent,
 };
@@ -89,13 +89,11 @@ use frame_system::{
 };
 pub use parachains_common as common;
 use parachains_common::{
-	impls::{DealWithFees, ToParentTreasury},
-	message_queue::*,
-	AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
-	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
+	impls::DealWithFees, message_queue::*, AccountId, AuraId, Balance, BlockNumber, Hash, Header,
+	Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
 use testnet_parachains_constants::westend::{
-	account::*, consensus::*, currency::*, fee::WeightToFee, time::*,
+	accumulate_forward::*, consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
 };
 use xcm_config::{
 	GovernanceLocation, LocationToAccountId, TreasurerBodyId, XcmConfig,
@@ -130,7 +128,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	authoring_version: 1,
-	spec_version: 1_022_002,
+	spec_version: 1_022_003,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -227,7 +225,7 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = DapSatellite;
+	type DustRemoval = AccumulateForward;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
@@ -243,17 +241,20 @@ impl pallet_balances::Config for Runtime {
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10
 	pub const TransactionByteFee: Balance = MILLICENTS;
-	/// Percentage of fees to send to DAP satellite.
-	pub const DapSatelliteFeePercent: Percent = Percent::from_percent(100);
+	/// Percentage of fees to send to the accumulation account.
+	pub const AccumulateForwardFeePercent: Percent = Percent::from_percent(100);
 }
 
-type DealWithFeesSatellite =
-	pallet_dap_satellite::DealWithFeesSplit<Runtime, DapSatelliteFeePercent, DealWithFees<Runtime>>;
+type DealWithFeesAccumulate = pallet_accumulate_and_forward::DealWithFeesSplit<
+	Runtime,
+	AccumulateForwardFeePercent,
+	DealWithFees<Runtime>,
+>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFeesSatellite>;
+		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFeesAccumulate>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
@@ -600,7 +601,6 @@ pub const MAX_ALLIES: u32 = 100;
 
 parameter_types! {
 	pub const AllyDeposit: Balance = 1_000 * UNITS; // 1,000 WND bond to join as an Ally
-	pub WestendTreasuryAccount: AccountId = WESTEND_TREASURY_PALLET_ID.into_account_truncating();
 	// The number of blocks a member must wait between giving a retirement notice and retiring.
 	// Supposed to be greater than time required to `kick_member` with alliance motion.
 	pub const AllianceRetirementPeriod: BlockNumber = (90 * DAYS) + ALLIANCE_MOTION_DURATION;
@@ -613,7 +613,7 @@ impl pallet_alliance::Config for Runtime {
 	type MembershipManager = RootOrAllianceTwoThirdsMajority;
 	type AnnouncementOrigin = RootOrAllianceTwoThirdsMajority;
 	type Currency = Balances;
-	type Slashed = ToParentTreasury<WestendTreasuryAccount, LocationToAccountId, Runtime>;
+	type Slashed = pallet_accumulate_and_forward::LegacyAdapter<Runtime, Balances>;
 	type InitializeMembers = AllianceMotion;
 	type MembershipChanged = AllianceMotion;
 	type RetirementPeriod = AllianceRetirementPeriod;
@@ -692,13 +692,19 @@ impl pallet_asset_rate::Config for Runtime {
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::AssetRateArguments;
 }
 
-parameter_types! {
-	pub const DapSatellitePalletId: PalletId = PalletId(*b"dap/satl");
-}
-
-impl pallet_dap_satellite::Config for Runtime {
+impl pallet_accumulate_and_forward::Config for Runtime {
 	type Currency = Balances;
-	type PalletId = DapSatellitePalletId;
+	type PalletId = AccumulateForwardPalletId;
+	type Forwarder = xcm_builder::TeleportForwarderForAccountId32<
+		xcm_config::XcmConfig,
+		xcm_config::AssetHub,
+		xcm_config::WndLocation,
+		DapStagingLocation,
+	>;
+	type TransferPeriod = ForwardPeriod;
+	type MinTransferAmount = MinForwardAmount;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type WeightInfo = weights::pallet_accumulate_and_forward::WeightInfo<Runtime>;
 }
 
 pub type MetaTxExtension = (
@@ -744,7 +750,7 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
 		TransactionPayment: pallet_transaction_payment = 11,
-		DapSatellite: pallet_dap_satellite = 12,
+		AccumulateForward: pallet_accumulate_and_forward = 12,
 
 		// Collator support. the order of these 5 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -853,6 +859,10 @@ type Migrations = (
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
+	// #11705: drain residual relay-treasury XCM payouts into accumulation account.
+	// Idempotent. No further activity on the legacy `py/trsry` account is expected.
+	// Safe to remove once confirmed.
+	pallet_accumulate_and_forward::migrations::DrainLegacyTreasuryToAccumulationAccount<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
@@ -905,6 +915,7 @@ mod benches {
 		// NOTE: Make sure you point to the individual modules below.
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
+		[pallet_accumulate_and_forward, AccumulateForward]
 	);
 }
 
@@ -1410,7 +1421,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
-			1
+			BLOCK_PROCESSING_VELOCITY
 		}
 	}
 }

@@ -127,7 +127,7 @@ jobs:
 
       - name: Set changes
         id: set_changes
-        uses: tj-actions/changed-files@8cba46e29c11878d930bca7870bb54394d3e8b21 #v47.0.2
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 #v47.0.6
         with:
           files_yaml: |
             rust:
@@ -159,7 +159,6 @@ jobs:
         run: |
           echo "RUNNER_DEFAULT=parity-default" >> $GITHUB_OUTPUT
           echo "RUNNER_WEIGHTS=parity-weights" >> $GITHUB_OUTPUT
-          echo "RUNNER_BENCHMARK=parity-benchmark" >> $GITHUB_OUTPUT
           echo "RUNNER_MACOS=parity-macos" >> $GITHUB_OUTPUT
           #
           # Run merge queues on persistent runners
@@ -168,11 +167,13 @@ jobs:
             echo "RUNNER_OLDLINUX=parity-oldlinux-persistent" >> $GITHUB_OUTPUT
             echo "RUNNER_NEW=parity-large-persistent-test" >> $GITHUB_OUTPUT
             echo "RUNNER_OLDLINUX_NEW=parity-oldlinux-persistent-new" >> $GITHUB_OUTPUT
+            echo "RUNNER_BENCHMARK=parity-benchmark-persistent" >> $GITHUB_OUTPUT
           else
             echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
             echo "RUNNER_OLDLINUX=parity-oldlinux" >> $GITHUB_OUTPUT
             echo "RUNNER_NEW=parity-large-new" >> $GITHUB_OUTPUT
             echo "RUNNER_OLDLINUX_NEW=parity-oldlinux-new" >> $GITHUB_OUTPUT
+            echo "RUNNER_BENCHMARK=parity-benchmark" >> $GITHUB_OUTPUT
           fi
 
       #

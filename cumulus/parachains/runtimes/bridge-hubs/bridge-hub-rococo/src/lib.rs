@@ -253,7 +253,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("bridge-hub-rococo"),
 	impl_name: alloc::borrow::Cow::Borrowed("bridge-hub-rococo"),
 	authoring_version: 1,
-	spec_version: 1_022_002,
+	spec_version: 1_022_003,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -1379,7 +1379,7 @@ impl_runtime_apis! {
 					params: MessageProofParams<LaneIdOf<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>>,
 				) -> (bridge_to_westend_config::FromWestendBridgeHubMessagesProof<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>, Weight) {
 					use cumulus_primitives_core::XcmpMessageSource;
-					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+					assert!(XcmpQueue::take_outbound_messages(usize::MAX, &[]).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
 					let universal_source = bridge_to_westend_config::open_bridge_for_benchmarks::<
 						Runtime,
@@ -1410,7 +1410,7 @@ impl_runtime_apis! {
 
 				fn is_message_successfully_dispatched(_nonce: bp_messages::MessageNonce) -> bool {
 					use cumulus_primitives_core::XcmpMessageSource;
-					!XcmpQueue::take_outbound_messages(usize::MAX).is_empty()
+					!XcmpQueue::take_outbound_messages(usize::MAX, &[]).is_empty()
 				}
 			}
 
@@ -1424,7 +1424,7 @@ impl_runtime_apis! {
 					params: MessageProofParams<LaneIdOf<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>>,
 				) -> (bridge_to_bulletin_config::FromRococoBulletinMessagesProof<bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>, Weight) {
 					use cumulus_primitives_core::XcmpMessageSource;
-					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+					assert!(XcmpQueue::take_outbound_messages(usize::MAX, &[]).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
 					let universal_source = bridge_to_bulletin_config::open_bridge_for_benchmarks::<
 						Runtime,
@@ -1455,7 +1455,7 @@ impl_runtime_apis! {
 
 				fn is_message_successfully_dispatched(_nonce: bp_messages::MessageNonce) -> bool {
 					use cumulus_primitives_core::XcmpMessageSource;
-					!XcmpQueue::take_outbound_messages(usize::MAX).is_empty()
+					!XcmpQueue::take_outbound_messages(usize::MAX, &[]).is_empty()
 				}
 			}
 
@@ -1500,9 +1500,10 @@ impl_runtime_apis! {
 				}
 
 				fn prepare_rewards_account(
+					_relayer: &AccountId,
 					reward_kind: Self::Reward,
 					reward: Balance,
-				) -> Option<AccountId> {
+				) -> Option<(Self::Reward, AccountId)> {
 					let rewards_account = bp_relayers::PayRewardFromAccount::<
 						Balances,
 						AccountId,
@@ -1530,9 +1531,10 @@ impl_runtime_apis! {
 				}
 
 				fn prepare_rewards_account(
+					_relayer: &AccountId,
 					reward_kind: Self::Reward,
 					reward: Balance,
-				) -> Option<AccountId> {
+				) -> Option<(Self::Reward, AccountId)> {
 					let rewards_account = bp_relayers::PayRewardFromAccount::<
 						Balances,
 						AccountId,
@@ -1592,7 +1594,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
-			1
+			BLOCK_PROCESSING_VELOCITY
 		}
 	}
 }
