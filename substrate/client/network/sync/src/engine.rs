@@ -1206,9 +1206,9 @@ where
 /// `peer_inbound_full(peer_id)` returns `true` if `peer_id` is inbound and full.
 ///  Returns `None` if the peer is not connected.
 ///
-/// If removing a peer from no-slot would make `num_in_peers` exceed `max_in_peers`, 
-/// disconnect the peer instead and keep it in `connected_no_slot` until the async disconnect handler 
-/// will update `num_in_peers`..
+/// If removing a peer from no-slot would make `num_in_peers` exceed `max_in_peers`,
+/// disconnect the peer instead and keep it in `connected_no_slot` until the async disconnect
+/// handler will update `num_in_peers`..
 /// Caller needs to update `dynamic_no_slot_peers` after calling this function.
 fn apply_no_slot_set_inner(
 	peer_inbound_full: impl Fn(&PeerId) -> Option<bool>,
