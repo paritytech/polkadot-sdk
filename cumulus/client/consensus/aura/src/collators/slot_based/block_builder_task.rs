@@ -859,10 +859,11 @@ where
 		}
 
 		let time_ms = now_unix_ms();
-		prepare_unincluded_segment_aux_data(parent_hash, time_ms, built_block.proof.clone())
-			.for_each(|(k, v)| {
+		prepare_unincluded_segment_aux_data(parent_hash, time_ms, &built_block.proof).for_each(
+			|(k, v)| {
 				import_block.auxiliary.push((k, Some(v)));
-			});
+			},
+		);
 
 		if let Err(error) = collator.import_block(import_block).await {
 			tracing::error!(target: LOG_TARGET, ?error, "Failed to import built block.");
