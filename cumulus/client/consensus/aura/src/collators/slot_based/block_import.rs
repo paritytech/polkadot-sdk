@@ -210,6 +210,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 	fn execute_block_and_collect_storage_proof(
 		&self,
 		params: &mut sc_consensus::BlockImportParams<Block>,
+		time_ms: u64,
 	) -> Result<(), sp_consensus::Error>
 	where
 		Client: ProvideRuntimeApi<Block>
@@ -313,16 +314,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 			});
 		}
 
-		let time_ms = now_unix_ms();
-		prepare_unincluded_segment_aux_data(
-			block_hash,
-			time_ms,
-			// TODO(paritytech/polkadot-sdk#11624): populate with the relay parent's session
-			// once it is available from RelayChainDataCache.
-			None,
-			storage_proof,
-		)
-		.for_each(|(k, v)| {
+		prepare_unincluded_segment_aux_data(block_hash, time_ms, storage_proof).for_each(|(k, v)| {
 			params.auxiliary.push((k, Some(v)));
 		});
 
@@ -363,11 +355,13 @@ where
 		&self,
 		mut params: sc_consensus::BlockImportParams<Block>,
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
+		let time_ms = now_unix_ms();
+
 		if !(params.origin == BlockOrigin::Own ||
 			params.with_state() ||
 			params.state_action.skip_execution_checks())
 		{
-			self.execute_block_and_collect_storage_proof(&mut params)?;
+			self.execute_block_and_collect_storage_proof(&mut params, time_ms)?;
 		}
 
 		self.inner.import_block(params).await.map_err(Into::into)
