@@ -5770,12 +5770,14 @@ name = "cumulus-zombienet-sdk-tests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cid 0.11.1",
  "cumulus-primitives-core",
  "cumulus-test-runtime",
  "cumulus-zombienet-sdk-helpers",
  "env_logger 0.11.3",
  "frame-support",
  "futures",
+ "jsonrpsee",
  "log",
  "parity-scale-codec",
  "parity-wasm",
@@ -5784,6 +5786,7 @@ dependencies = [
  "sc-executor 0.32.0",
  "sc-executor-common 0.29.0",
  "sc-network-statement",
+ "sc-rpc-spec-v2",
  "sc-statement-store",
  "scale-info",
  "serde",
