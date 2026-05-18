@@ -15,14 +15,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-//! Parachain collator authority discovery — builds a reserved-peer mesh on the block-announce
-//! protocol.
+//! Collator authority discovery for parachains is used to achieve `1 hop` block announcement
+//! between collators.
 //!
-//! Requires [`sp_authority_discovery::AuthorityDiscoveryApi`] on the parachain runtime
-//! and an `AUTHORITY_DISCOVERY` key in the collator's keystore. API detection is
-//! monotonic — once observed, assumed to stay. When over `max_reserved`, the authority
-//! set is sorted by raw pubkey bytes and truncated, so every node converges to the same
-//! subset without coordination.
+//! This requires the parachain runtime to implement [`sp_authority_discovery::AuthorityDiscoveryApi`],
+//! and that the collator's keystore contains an `AUTHORITY_DISCOVERY` key.
+//! 
+//! Once the API is detected, it's assumed to remain available. If there are more authorities
+//! than `max_reserved`, the set is sorted by raw public key bytes and trimmed so all nodes
+//! select the same subset.
 
 use std::{
 	collections::HashSet,
