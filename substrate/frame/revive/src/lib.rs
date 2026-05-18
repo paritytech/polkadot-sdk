@@ -2037,7 +2037,7 @@ impl<T: Config> Pallet<T> {
 			return false;
 		}
 
-		if config.state_overrides.is_some() {
+		if config.state_overrides.as_ref().is_some_and(|s| !s.0.is_empty()) {
 			return false;
 		}
 

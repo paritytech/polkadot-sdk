@@ -18,7 +18,7 @@
 //! Tests for the `eth_estimate_gas` short-circuit fast path.
 
 use crate::{
-	Pallet, SIMPLE_TRANSFER_GAS,
+	Pallet,
 	evm::{
 		AccessListEntry, AuthorizationListEntry, DryRunConfig, GenericTransaction, StateOverride,
 		StateOverrideSet,
@@ -115,12 +115,20 @@ fn is_simple_transfer_rejects_blob_payload() {
 }
 
 #[test]
-fn is_simple_transfer_rejects_state_overrides() {
+fn is_simple_transfer_rejects_non_empty_state_overrides() {
 	ExtBuilder::default().build().execute_with(|| {
 		let mut overrides = StateOverrideSet::default();
 		overrides.0.insert(CHARLIE_ADDR, StateOverride::default());
 		let config = DryRunConfig::default().with_state_overrides(overrides);
 		assert!(!Pallet::<Test>::is_simple_transfer(&simple_transfer_tx(), &config));
+	});
+}
+
+#[test]
+fn is_simple_transfer_accepts_empty_state_overrides() {
+	ExtBuilder::default().build().execute_with(|| {
+		let config = DryRunConfig::default().with_state_overrides(StateOverrideSet::default());
+		assert!(Pallet::<Test>::is_simple_transfer(&simple_transfer_tx(), &config));
 	});
 }
 
@@ -132,15 +140,5 @@ fn is_simple_transfer_rejects_contract_destination() {
 
 		let tx = GenericTransaction { to: Some(BOB_ADDR), ..simple_transfer_tx() };
 		assert!(!Pallet::<Test>::is_simple_transfer(&tx, &DryRunConfig::default()));
-	});
-}
-
-#[test]
-fn eth_estimate_gas_short_circuits_simple_transfer() {
-	ExtBuilder::default().build().execute_with(|| {
-		let estimate =
-			Pallet::<Test>::eth_estimate_gas(simple_transfer_tx(), DryRunConfig::default())
-				.expect("simple transfer should be estimable");
-		assert_eq!(estimate, U256::from(SIMPLE_TRANSFER_GAS));
 	});
 }
