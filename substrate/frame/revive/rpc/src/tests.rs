@@ -198,7 +198,7 @@ async fn prepare_substrate_transactions(
 	signer: &subxt_signer::sr25519::Keypair,
 	count: usize,
 ) -> anyhow::Result<Vec<NodeSubmittableTransaction>> {
-	let tx_client = node_client.tx().await?;
+	let mut tx_client = node_client.tx().await?;
 	let mut nonce = tx_client.account_nonce(&signer.public_key().into()).await?;
 	let mut substrate_txs = Vec::new();
 	for i in 0..count {
@@ -1782,6 +1782,7 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 	// Now submit the actual instantiate extrinsic
 	let events = node_client
 		.tx()
+		.await?
 		.sign_and_submit_then_watch_default(
 			&subxt_client::tx().revive().instantiate_with_code(
 				0u128,                   // value
@@ -1799,8 +1800,8 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 
 	// Extract the contract address from the Instantiated event
 	let instantiated_event = events
-		.find_first::<subxt_client::revive::events::Instantiated>()?
-		.expect("Instantiated event should be present");
+		.find_first::<subxt_client::revive::events::Instantiated>()
+		.expect("Instantiated event should be present")?;
 
 	let contract_address = instantiated_event.contract;
 	log::trace!(target: LOG_TARGET, "Contract deployed via Substrate at: {contract_address:?}");
@@ -1982,7 +1983,7 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	}
 
 	// Capture finalized before sync — Head will be set to this snapshot.
-	let finalized_before_sync = client.latest_finalized_block().await.number();
+	let finalized_before_sync = client.latest_finalized_block().await.block_number();
 
 	// Run the full backward sync.
 	client.sync_backward().await?;
@@ -2025,12 +2026,12 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 
 	// Block hash mappings should be queryable after sync.
 	let finalized = client.latest_finalized_block().await;
-	let substrate_hash = finalized.hash();
+	let substrate_hash = finalized.block_hash();
 	let ethereum_hash = client.receipt_provider().get_ethereum_hash(&substrate_hash).await;
 	assert!(
 		ethereum_hash.is_some(),
 		"Finalized block #{} should have an ethereum hash mapping after sync",
-		finalized.number(),
+		finalized.block_number(),
 	);
 	assert_eq!(
 		client.receipt_provider().get_substrate_hash(&ethereum_hash.unwrap()).await,
@@ -2112,7 +2113,7 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 	client.sync_backward().await?;
 
 	// Pick two blocks to simulate partial coverage: tail at 1/3, head at 2/3.
-	let chain_len = client.latest_finalized_block().await.number();
+	let chain_len = client.latest_finalized_block().await.block_number();
 
 	let tail_num = chain_len / 3;
 	let tail_block = client
@@ -2142,7 +2143,7 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 		.await?;
 
 	// Capture finalized before resume — Head will be set to this snapshot.
-	let finalized_before_resume = client.latest_finalized_block().await.number();
+	let finalized_before_resume = client.latest_finalized_block().await.block_number();
 
 	// Resume sync — fills top gap and bottom gap.
 	client.sync_backward().await?;
@@ -2215,7 +2216,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 		.await?;
 
 	// --- SyncBoundaryMismatch: corrupted Head hash ---
-	let chain_len = client.latest_finalized_block().await.number();
+	let chain_len = client.latest_finalized_block().await.block_number();
 	let corrupted_upper = SyncCheckpoint::new(chain_len / 2, H256::from([0xbau8; 32]));
 	client
 		.receipt_provider()
@@ -2236,7 +2237,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 	// First sync: snapshot the current chain state.
 	let client1 = create_sync_test_client().await?;
-	let finalized1 = client1.latest_finalized_block().await.number();
+	let finalized1 = client1.latest_finalized_block().await.block_number();
 
 	client1.sync_backward().await?;
 
@@ -2249,22 +2250,26 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 
 	client2.sync_backward().await?;
 	assert!(
-		finalized2.number() > finalized1,
+		finalized2.block_number() > finalized1,
 		"Second finalized #{} should be higher than first #{finalized1}",
-		finalized2.number(),
+		finalized2.block_number(),
 	);
 
 	// The new block should have an ethereum hash mapping in client2's DB.
 	assert!(
-		client2.receipt_provider().get_ethereum_hash(&finalized2.hash()).await.is_some(),
+		client2
+			.receipt_provider()
+			.get_ethereum_hash(&finalized2.block_hash())
+			.await
+			.is_some(),
 		"New finalized block #{} should be synced in client2",
-		finalized2.number(),
+		finalized2.block_number(),
 	);
 
 	log::debug!(
 		target: LOG_TARGET,
 		"Picks up new blocks OK: client2 synced up to #{}, earliest=#{}",
-		finalized2.number(),
+		finalized2.block_number(),
 		client2.receipt_provider().first_evm_block().unwrap_or(0),
 	);
 

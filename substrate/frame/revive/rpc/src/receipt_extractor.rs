@@ -780,7 +780,7 @@ mod tests {
 
 		let tx_hash = H256::from([0xAA; 32]);
 		let eth_block_hash = H256::from([0xBB; 32]);
-		let substrate_block_number = 42u32;
+		let substrate_block_number = 42u64;
 		let eth_block_number = U256::from(substrate_block_number);
 
 		let (reverts, logs) = extract_revive_events(

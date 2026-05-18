@@ -1504,7 +1504,7 @@ mod tests {
 		};
 
 		// Insert the log
-		let block = MockBlockInfo { hash: substrate_hash, number: block_number as u32 };
+		let block = MockBlockInfo { hash: substrate_hash, number: block_number };
 		let receipts = vec![(
 			TransactionSigned::default(),
 			ReceiptInfo {
@@ -1700,7 +1700,7 @@ mod tests {
 		// The oldest block (1) should have been evicted, keeping blocks 2..=MAX+1.
 		assert!(!map.contains_key(&1));
 		assert!(map.contains_key(&2));
-		assert!(map.contains_key(&(MAX_CACHED_BLOCKS as u32 + 1)));
+		assert!(map.contains_key(&(MAX_CACHED_BLOCKS as u64 + 1)));
 		drop(map);
 
 		// All blocks are still in the DB.
@@ -1775,7 +1775,7 @@ mod tests {
 
 		let mut tx_offset = 0;
 		for (i, (n_tx, n_logs)) in cases.into_iter().enumerate() {
-			let block = MockBlockInfo { hash: make_hash(i, 0x00), number: i as u32 + 1 };
+			let block = MockBlockInfo { hash: make_hash(i, 0x00), number: i as u64 + 1 };
 			let ethereum_hash = make_hash(i, 0xff);
 			let receipts = make_receipts(tx_offset, n_tx, n_logs);
 			tx_offset += n_tx;
@@ -1850,7 +1850,7 @@ mod tests {
 		let mut block_mappings = Vec::new();
 
 		for i in 0..n_blocks {
-			let block = MockBlockInfo { hash: make_hash(i, 0xAA), number: i as u32 + 1 };
+			let block = MockBlockInfo { hash: make_hash(i, 0xAA), number: i as u64 + 1 };
 			let ethereum_hash = make_hash(i, 0xBB);
 			let receipts = make_receipts(i * n_tx_per_block, n_tx_per_block, n_logs_per_receipt);
 			provider.insert_into_db(&block, &receipts, &ethereum_hash).await?;
