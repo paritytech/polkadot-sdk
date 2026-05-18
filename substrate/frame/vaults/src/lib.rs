@@ -1,14 +1,9 @@
 //! # Vaults
 //!
-//! Liquity-V2-style CDP / vaults engine for the pUSD protocol. Users lock
+//! Vaults engine for the pUSD protocol. Users lock
 //! collateral, mint pUSD, and pick a per-vault annual borrow rate. Redemptions
 //! walk the rate index tail-first (lower-rate-first), with a `FinalRecovery`
 //! FIFO served before the rate index for last-eligible-vault settlement.
-//!
-//! Full design lives in `liquity_v2/polkadot-impl/troves.md`. The rate index
-//! itself is delegated to `pallet-linked-list` (`linked-list.md` + `troves.md`
-//! §6). Both active-rate and `FinalRecovery` ordering are backed by
-//! `pallet-linked-list` lists partitioned with `VaultListId`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
