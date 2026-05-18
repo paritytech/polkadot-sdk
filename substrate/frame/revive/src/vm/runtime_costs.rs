@@ -364,17 +364,59 @@ impl RuntimeCosts {
 		}
 	}
 
-	/// EIP-2929-inspired cold/warm weight, scoped to storage opcodes only.
-	/// Cold/warm-affected variants compose `cost_read<T>` per substrate read
-	/// they perform on top of the legacy write/clear/contains/take surcharges.
-	/// Other variants fall through to `legacy_weight`.
-	///
-	/// Note: for write variants (`SetStorage` / `ClearStorage` / `TakeStorage`)
-	/// the legacy write benchmark already includes a read-of-old-value cost,
-	/// and `cost_read` adds another read cost on top. This is a conservative
-	/// over-charge until a dedicated `storage_write_only(size)` benchmark
-	/// lands; the read-of-old should then move out of the write benchmark and
-	/// into `cost_read`.
+	// Constructors that dispatch on `transient: bool` and produce a uniform
+	// cost token. `costs` is ignored on the transient branch.
+
+	pub fn set(transient: bool, new_bytes: u32, old_bytes: u32, costs: StorageAccessCost) -> Self {
+		if transient {
+			let _ = costs;
+			Self::SetTransientStorage { new_bytes, old_bytes }
+		} else {
+			Self::SetStorage { new_bytes, old_bytes, costs }
+		}
+	}
+
+	pub fn clear(transient: bool, len: u32, costs: StorageAccessCost) -> Self {
+		if transient {
+			let _ = costs;
+			Self::ClearTransientStorage(len)
+		} else {
+			Self::ClearStorage { len, costs }
+		}
+	}
+
+	pub fn take(transient: bool, len: u32, costs: StorageAccessCost) -> Self {
+		if transient {
+			let _ = costs;
+			Self::TakeTransientStorage(len)
+		} else {
+			Self::TakeStorage { len, costs }
+		}
+	}
+
+	pub fn get(transient: bool, len: u32, costs: StorageAccessCost) -> Self {
+		if transient {
+			let _ = costs;
+			Self::GetTransientStorage(len)
+		} else {
+			Self::GetStorage { len, costs }
+		}
+	}
+
+	pub fn contains(transient: bool, len: u32, costs: StorageAccessCost) -> Self {
+		if transient {
+			let _ = costs;
+			Self::ContainsTransientStorage(len)
+		} else {
+			Self::ContainsStorage { len, costs }
+		}
+	}
+
+	/// EIP-2929 cold/warm weight for storage opcodes; other variants fall
+	/// through to `legacy_weight`. Conservative over-charge on writes:
+	/// `seal_set_storage` already bundles a read-of-old cost, and `cost_read`
+	/// adds another on top — pending a dedicated `storage_write_only(size)`
+	/// benchmark.
 	fn new_weight<T: Config>(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match self {
