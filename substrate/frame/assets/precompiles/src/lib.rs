@@ -537,6 +537,9 @@ where
 		call: &IERC20::permitCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
+		use frame_support::traits::fungibles::approvals::Inspect as ApprovalsInspect;
+		use sp_runtime::traits::{UniqueSaturatedInto, Zero};
+
 		// Reserve worst-case gas upfront, then refund the unused portion.
 		// The total cost is: use_permit (signature verification + nonce) +
 		// worst-case asset approval operations (allowance read + cancel + approve).
@@ -588,13 +591,11 @@ where
 
 				// Delete-set semantic: cancel any existing approval first so
 				// do_approve_transfer sets (not accumulates) the new value.
-				use frame_support::traits::fungibles::approvals::Inspect as ApprovalsInspect;
 				let owner_account =
 					<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner_h160);
 				let spender_account =
 					<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender_h160);
 
-				use sp_runtime::traits::UniqueSaturatedInto;
 				// Saturate: see `approve` for the rationale (infinite-allowance idiom).
 				let new_amount: <Runtime as Config<Instance>>::Balance =
 					call.value.unique_saturated_into();
@@ -604,7 +605,6 @@ where
 					&spender_account,
 				);
 
-				use sp_runtime::traits::Zero;
 				let actual_weight;
 				if new_amount.is_zero() {
 					if !current.is_zero() {
