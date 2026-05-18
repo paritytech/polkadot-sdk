@@ -674,6 +674,14 @@ impl Peer {
 			self.protocol_version == PeerProtocolVersion::V2 &&
 			self.topic_affinity.is_none())
 	}
+
+	fn kind(&self) -> &'static str {
+		if self.is_light {
+			"light"
+		} else {
+			"full"
+		}
+	}
 }
 
 impl<N, S> StatementHandler<N, S>
@@ -681,14 +689,6 @@ where
 	N: NetworkPeers + NetworkEventStream,
 	S: SyncEventStream + sp_consensus::SyncOracle,
 {
-	fn peer_kind_label(is_light: bool) -> &'static str {
-		if is_light {
-			"light"
-		} else {
-			"full"
-		}
-	}
-
 	/// Create a new `StatementHandler` for testing/benchmarking purposes.
 	#[cfg(any(test, feature = "test-helpers"))]
 	pub fn new_for_testing(
@@ -1000,7 +1000,6 @@ where
 					return;
 				};
 				let is_light = peer_role.is_light();
-				let peer_kind = Self::peer_kind_label(is_light);
 				log::debug!(
 					target: LOG_TARGET,
 					"Peer {peer} connected with statement protocol {protocol_version:?}, role={peer_role:?}"
@@ -1028,7 +1027,9 @@ where
 				debug_assert!(_was_in.is_none());
 
 				self.metrics.as_ref().map(|metrics| {
-					metrics.peers_connected.with_label_values(&[peer_kind]).inc();
+					if let Some(peer) = self.peers.get(&peer) {
+						metrics.peers_connected.with_label_values(&[peer.kind()]).inc();
+					}
 				});
 
 				// Light V2 peers must set topic affinity before receiving statements.
@@ -1043,10 +1044,7 @@ where
 
 				if let Some(removed_peer) = removed_peer {
 					self.metrics.as_ref().map(|metrics| {
-						metrics
-							.peers_connected
-							.with_label_values(&[Self::peer_kind_label(removed_peer.is_light)])
-							.dec();
+						metrics.peers_connected.with_label_values(&[removed_peer.kind()]).dec();
 					});
 				}
 
