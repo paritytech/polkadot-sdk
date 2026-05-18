@@ -51,7 +51,6 @@ pub fn open_vault<T: Config>(
 	bs_after.add_collateral(initial_collateral);
 	let post_tcr = compute_tcr::<T>(&bs_after, price, now)?;
 	enforce_mode_rules::<T>(&cfg, &bs_before, pre_tcr, post_tcr, false)?;
-	// All gates passed
 	T::CollateralAssets::hold(
 		collateral_id,
 		&HoldReason::VaultCollateral.into(),
@@ -141,6 +140,7 @@ pub fn withdraw_collateral<T: Config>(
 	let recipient = recipient.unwrap_or(owner.clone());
 
 	let now = T::TimeProvider::now();
+	let price = oracle_price::<T>(collateral_id)?.price;
 	update_aggregate_interest::<T>(collateral_id, now)?;
 	let vault = touch_vault::<T>(collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 	ensure!(
@@ -153,13 +153,6 @@ pub fn withdraw_collateral<T: Config>(
 	let coll = held_collateral::<T>(collateral_id, &owner);
 	ensure!(coll >= amount, Error::<T>::InsufficientCollateral);
 
-	// The branch TCR check always needs the live oracle price; the per-vault
-	// CR check is skipped entirely when the vault has zero debt (no ratio to
-	// validate). Using a synthetic `price = 1` for the branch TCR — as the
-	// previous version did — under-prices branch collateral and falsely
-	// trips `SafetyModeTcrWorsening` on legitimate withdraws from zero-debt
-	// vaults.
-	let price = oracle_price::<T>(collateral_id)?.price;
 	let total_debt = vault.debt.total();
 	let new_coll = coll.saturating_sub(amount);
 	if !total_debt.is_zero() {
@@ -211,6 +204,7 @@ pub fn borrow<T: Config>(
 	let recipient = recipient.unwrap_or(owner.clone());
 
 	let now = T::TimeProvider::now();
+	let price = oracle_price::<T>(collateral_id)?.price;
 	update_aggregate_interest::<T>(collateral_id, now)?;
 	let mut vault =
 		touch_vault::<T>(collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
@@ -240,16 +234,6 @@ pub fn borrow<T: Config>(
 		simulate_borrow::<T>(&bs_before, &cfg, &vault, amount, new_rate, rate_change_fee_base);
 	bs_after.debt.minted_interest = bs_after.debt.minted_interest.saturating_add(upfront_fee);
 
-	T::StableAsset::mint_into(&recipient, amount)?;
-	if !upfront_fee.is_zero() {
-		mint_and_route_yield::<T>(collateral_id, upfront_fee, YieldSource::UpfrontFee);
-		Pallet::<T>::deposit_event(Event::UpfrontFeeCharged {
-			collateral_id,
-			owner: owner.clone(),
-			amount: upfront_fee,
-		});
-	}
-
 	let dormant_to_active = pre_status.is_dormant() && new_ib_debt >= cfg.minimum_debt;
 	vault.debt.principal = new_ib_debt;
 	vault.debt.interest = vault.debt.interest.saturating_add(upfront_fee);
@@ -261,7 +245,6 @@ pub fn borrow<T: Config>(
 
 	let coll = held_collateral::<T>(collateral_id, &owner);
 	let total_debt = vault.debt.total();
-	let price = oracle_price::<T>(collateral_id)?.price;
 	let cr = math::collateralization_ratio::<BalanceOf<T>>(coll, total_debt, price)
 		.ok_or(Error::<T>::UnsafeCollateralizationRatio)?;
 	ensure!(cr >= cfg.initial_collateralization_ratio, Error::<T>::UnsafeCollateralizationRatio);
@@ -273,6 +256,17 @@ pub fn borrow<T: Config>(
 	if dormant_to_active && bs_after.queues.last_dormant_vault_owner.as_ref() == Some(&owner) {
 		bs_after.queues.last_dormant_vault_owner = None;
 	}
+
+	T::StableAsset::mint_into(&recipient, amount)?;
+	if !upfront_fee.is_zero() {
+		mint_and_route_yield::<T>(collateral_id, upfront_fee, YieldSource::UpfrontFee);
+		Pallet::<T>::deposit_event(Event::UpfrontFeeCharged {
+			collateral_id,
+			owner: owner.clone(),
+			amount: upfront_fee,
+		});
+	}
+
 	BranchStates::<T>::insert(collateral_id, &bs_after);
 	Vaults::<T>::insert(collateral_id, &owner, &vault);
 
@@ -389,7 +383,6 @@ pub fn change_rate<T: Config>(
 	let post_tcr = compute_tcr::<T>(&bs_after, price, now)?;
 	enforce_mode_rules::<T>(&cfg, &bs_before, pre_tcr, post_tcr, false)?;
 
-	// All gates passed — apply state changes.
 	if !upfront_fee.is_zero() {
 		mint_and_route_yield::<T>(collateral_id, upfront_fee, YieldSource::UpfrontFee);
 		Pallet::<T>::deposit_event(Event::UpfrontFeeCharged {
@@ -427,6 +420,7 @@ pub fn close_vault<T: Config>(
 	let recipient = recipient.unwrap_or(owner.clone());
 
 	let now = T::TimeProvider::now();
+	let price = oracle_price::<T>(collateral_id)?.price;
 	update_aggregate_interest::<T>(collateral_id, now)?;
 	let vault = touch_vault::<T>(collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 	let status = vault.status::<T>(&collateral_id, &owner);
@@ -449,7 +443,6 @@ pub fn close_vault<T: Config>(
 		bs_after.queues.last_dormant_vault_owner = None;
 	}
 
-	let price = oracle_price::<T>(collateral_id)?.price;
 	let pre_tcr = compute_tcr::<T>(&bs_before, price, now)?;
 	let post_tcr = compute_tcr::<T>(&bs_after, price, now)?;
 	enforce_mode_rules::<T>(&cfg, &bs_before, pre_tcr, post_tcr, false)?;
@@ -502,6 +495,7 @@ pub fn enter_final_recovery<T: Config>(
 ) -> Result<(), DispatchError> {
 	ensure_not_frozen::<T>(collateral_id)?;
 	let now = T::TimeProvider::now();
+	let price = oracle_price::<T>(collateral_id)?.price;
 	update_aggregate_interest::<T>(collateral_id, now)?;
 	let vault = touch_vault::<T>(collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 	ensure!(vault.status::<T>(&collateral_id, &owner).is_active(), Error::<T>::InvalidVaultStatus);
@@ -510,7 +504,6 @@ pub fn enter_final_recovery<T: Config>(
 	let cfg = branch_cfg_of::<T>(collateral_id)?;
 	let coll = held_collateral::<T>(collateral_id, &owner);
 	let total_debt = vault.debt.total();
-	let price = oracle_price::<T>(collateral_id)?.price;
 	let cr = math::collateralization_ratio::<BalanceOf<T>>(coll, total_debt, price)
 		.ok_or(Error::<T>::UnsafeCollateralizationRatio)?;
 	ensure!(cr < cfg.minimum_collateralization_ratio, Error::<T>::UnsafeCollateralizationRatio);
@@ -523,8 +516,6 @@ pub fn enter_final_recovery<T: Config>(
 	let bs_check = branch_state_of::<T>(collateral_id)?;
 	ensure!(bs_check.stakes.total == vault.redistribution_stake, Error::<T>::NotLastEligibleVault);
 
-	// Remove from rate index, from redistribution recipient accounting, and
-	// append to FIFO.
 	T::VaultLists::remove(&rate_list_id(collateral_id), &owner)
 		.map_err(|_| Error::<T>::RateIndexInvariantBroken)?;
 	BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
@@ -558,6 +549,7 @@ pub fn exit_final_recovery<T: Config>(
 ) -> Result<(), DispatchError> {
 	ensure_not_frozen::<T>(collateral_id)?;
 	let now = T::TimeProvider::now();
+	let price = oracle_price::<T>(collateral_id)?.price;
 	update_aggregate_interest::<T>(collateral_id, now)?;
 	let vault = touch_vault::<T>(collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 	ensure!(
@@ -568,13 +560,10 @@ pub fn exit_final_recovery<T: Config>(
 	let cfg = branch_cfg_of::<T>(collateral_id)?;
 	let coll = held_collateral::<T>(collateral_id, &owner);
 	let total_debt = vault.debt.total();
-	let price = oracle_price::<T>(collateral_id)?.price;
 	let cr = math::collateralization_ratio::<BalanceOf<T>>(coll, total_debt, price)
 		.ok_or(Error::<T>::UnsafeCollateralizationRatio)?;
 	ensure!(cr >= cfg.minimum_collateralization_ratio, Error::<T>::UnsafeCollateralizationRatio);
 
-	// Remove from FIFO, restore stake contribution, reinsert into
-	// the rate index using caller-supplied hints.
 	recovery::remove::<T>(&collateral_id, &owner)?;
 	BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
 		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
