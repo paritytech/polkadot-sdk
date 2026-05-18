@@ -1058,6 +1058,7 @@ mod tests {
 		assert_eq!(combined_key, ecdsa_bls381_key);
 	}
 
+	#[cfg(feature = "bls-experimental")]
 	fn assert_filenames_within_filesystem_limit(dir: &Path) {
 		for entry in fs::read_dir(dir).unwrap() {
 			let entry = entry.unwrap();
