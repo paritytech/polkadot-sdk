@@ -1906,6 +1906,17 @@ impl<T: Config> Pallet<T> {
 
 		let simple_transfer_gas = U256::from(SIMPLE_TRANSFER_GAS);
 		if simple_transfer_gas <= high && Self::is_simple_transfer(&tx, &config) {
+			if !perform_balance_checks {
+				if let Some(from) = tx.from {
+					let value = tx.value.unwrap_or_default();
+					let balance = Self::evm_balance(&from);
+					if balance < value {
+						return Err(EthTransactError::Message(format!(
+							"insufficient funds for value transfer: address {from:?} have {balance:?} want {value:?}",
+						)));
+					}
+				}
+			}
 			log::trace!(
 				target: LOG_TARGET,
 				"eth_estimate_gas short-circuiting simple transfer to {:?}",

@@ -18,14 +18,16 @@
 //! Tests for the `eth_estimate_gas` short-circuit fast path.
 
 use crate::{
-	Pallet,
+	EthTransactError, Pallet, SIMPLE_TRANSFER_GAS,
+	address::AddressMapper,
 	evm::{
 		AccessListEntry, AuthorizationListEntry, DryRunConfig, GenericTransaction, StateOverride,
 		StateOverrideSet,
 	},
 	test_utils::{ALICE_ADDR, BOB, BOB_ADDR, CHARLIE_ADDR},
-	tests::{ExtBuilder, Test, test_utils::place_contract},
+	tests::{Config, ExtBuilder, Test, test_utils::place_contract},
 };
+use frame_support::traits::fungible::Mutate;
 use sp_core::{H256, U256};
 
 fn simple_transfer_tx() -> GenericTransaction {
@@ -140,5 +142,32 @@ fn is_simple_transfer_rejects_contract_destination() {
 
 		let tx = GenericTransaction { to: Some(BOB_ADDR), ..simple_transfer_tx() };
 		assert!(!Pallet::<Test>::is_simple_transfer(&tx, &DryRunConfig::default()));
+	});
+}
+
+#[test]
+fn eth_estimate_gas_short_circuits_simple_transfer() {
+	ExtBuilder::default().build().execute_with(|| {
+		let alice = <Test as Config>::AddressMapper::to_account_id(&ALICE_ADDR);
+		let _ = <Test as Config>::Currency::set_balance(&alice, u64::MAX as u128);
+
+		let estimate =
+			Pallet::<Test>::eth_estimate_gas(simple_transfer_tx(), DryRunConfig::default())
+				.expect("simple transfer should be estimable");
+		assert_eq!(estimate, U256::from(SIMPLE_TRANSFER_GAS));
+	});
+}
+
+#[test]
+fn eth_estimate_gas_short_circuit_errors_when_value_exceeds_balance() {
+	ExtBuilder::default().build().execute_with(|| {
+		let err = Pallet::<Test>::eth_estimate_gas(simple_transfer_tx(), DryRunConfig::default())
+			.expect_err("transfer with empty balance must error");
+		match err {
+			EthTransactError::Message(msg) => {
+				assert!(msg.contains("insufficient funds"), "unexpected error message: {msg}")
+			},
+			other => panic!("expected EthTransactError::Message, got {other:?}"),
+		}
 	});
 }
