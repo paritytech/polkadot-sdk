@@ -1136,13 +1136,7 @@ fn permit_saturates_on_uint256_max() {
 		Balances::make_free_balance_be(&owner_account, 100);
 		Balances::make_free_balance_be(&relayer, 1_000_000);
 
-		assert_ok!(Assets::force_create(
-			RuntimeOrigin::root(),
-			asset_id,
-			owner_account,
-			true,
-			1
-		));
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner_account, true, 1));
 
 		// Build the EIP-712 digest. `pallet_assets::name` returns the default
 		// empty vec when no metadata row exists, which is what the precompile
@@ -1253,13 +1247,7 @@ fn permit_saturates_when_overwriting_existing_allowance() {
 		Balances::make_free_balance_be(&owner_account, 100);
 		Balances::make_free_balance_be(&relayer, 1_000_000);
 
-		assert_ok!(Assets::force_create(
-			RuntimeOrigin::root(),
-			asset_id,
-			owner_account,
-			true,
-			1
-		));
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner_account, true, 1));
 
 		// Seed a non-zero allowance so the permit goes through the cancel-first
 		// branch instead of the fresh-approve branch.
@@ -1370,13 +1358,7 @@ fn permit_saturates_just_above_balance_max() {
 		Balances::make_free_balance_be(&owner_account, 100);
 		Balances::make_free_balance_be(&relayer, 1_000_000);
 
-		assert_ok!(Assets::force_create(
-			RuntimeOrigin::root(),
-			asset_id,
-			owner_account,
-			true,
-			1
-		));
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner_account, true, 1));
 
 		// Smallest U256 that doesn't fit in the mock's `Balance` (u64).
 		let just_over: U256 = U256::from(u64::MAX) + U256::from(1u64);
