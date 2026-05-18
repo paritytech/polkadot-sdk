@@ -547,13 +547,12 @@ impl KeystoreInner {
 	///
 	/// Two on-disk formats are supported:
 	///
-	/// * **Flat** (default and backwards-compatible): the filename embeds the hex of
-	///   `(key_type || public_key)` and the file contents are a JSON-encoded phrase string.
-	/// * **Hashed**: used when the flat filename would exceed [`MAX_FILENAME_LEN`] (notably
-	///   for BLS381 / ECDSA_BLS381 public keys). The filename embeds the hex of
-	///   `(key_type || blake2_256(public_key))`, and the file contents are a JSON object
-	///   `{"public_key": <hex>, "phrase": <string>}` so the original public key is
-	///   recoverable from disk.
+	/// * **Flat** (default and backwards-compatible): the filename embeds the hex of `(key_type ||
+	///   public_key)` and the file contents are a JSON-encoded phrase string.
+	/// * **Hashed**: used when the flat filename would exceed [`MAX_FILENAME_LEN`] (notably for
+	///   BLS381 / ECDSA_BLS381 public keys). The filename embeds the hex of `(key_type ||
+	///   blake2_256(public_key))`, and the file contents are a JSON object `{"public_key": <hex>,
+	///   "phrase": <string>}` so the original public key is recoverable from disk.
 	fn write_key_file(path: PathBuf, public: &[u8], phrase: &str) -> Result<()> {
 		let mut file = File::create(path)?;
 
@@ -605,9 +604,9 @@ impl KeystoreInner {
 					.ok_or(Error::InvalidPhrase)?
 					.to_string();
 				let public_key = match map.get("public_key").and_then(|v| v.as_str()) {
-					Some(hex) => Some(
-						array_bytes::hex2bytes(hex).map_err(|_| Error::InvalidPhrase)?,
-					),
+					Some(hex) => {
+						Some(array_bytes::hex2bytes(hex).map_err(|_| Error::InvalidPhrase)?)
+					},
 					None => None,
 				};
 				Ok(KeyFileEntry { phrase, public_key })
