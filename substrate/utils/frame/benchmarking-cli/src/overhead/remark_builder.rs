@@ -23,9 +23,12 @@ use sp_runtime::{traits::Block as BlockT, OpaqueExtrinsic};
 use std::sync::Arc;
 use subxt::{
 	client::{OfflineClient, OfflineClientAtBlock},
-	config::substrate::{SpecVersionForRange, SubstrateExtrinsicParamsBuilder},
+	config::{
+		substrate::{SpecVersionForRange, SubstrateExtrinsicParamsBuilder},
+		Config, DefaultTransactionExtensions, HashFor,
+	},
 	utils::H256,
-	SubstrateConfig,
+	ArcMetadata, SubstrateConfig,
 };
 
 /// Spec and transaction version information required to construct extrinsics offline.
@@ -37,12 +40,48 @@ pub struct RuntimeVersion {
 	pub transaction_version: u32,
 }
 
+/// Wraps [`SubstrateConfig`] to provide a genesis hash. In subxt 0.50.1,
+/// `SubstrateConfigBuilder::set_genesis_hash` accepts a value but `build()` discards it, and
+/// `Config::genesis_hash()` falls back to `None` — so `create_signable_offline` fails with
+/// `GenesisHashNotProvided`. This wrapper sidesteps the upstream issue without touching the rest
+/// of the configuration.
+#[derive(Clone, Debug)]
+struct OfflineConfig {
+	inner: SubstrateConfig,
+	genesis_hash: H256,
+}
+
+impl Config for OfflineConfig {
+	type AccountId = <SubstrateConfig as Config>::AccountId;
+	type Address = <SubstrateConfig as Config>::Address;
+	type Signature = <SubstrateConfig as Config>::Signature;
+	type Hasher = <SubstrateConfig as Config>::Hasher;
+	type Header = <SubstrateConfig as Config>::Header;
+	type AssetId = <SubstrateConfig as Config>::AssetId;
+	type TransactionExtensions = DefaultTransactionExtensions<Self>;
+
+	fn genesis_hash(&self) -> Option<HashFor<Self>> {
+		Some(self.genesis_hash)
+	}
+
+	fn spec_and_transaction_version_for_block_number(
+		&self,
+		block_number: u64,
+	) -> Option<(u32, u32)> {
+		self.inner.spec_and_transaction_version_for_block_number(block_number)
+	}
+
+	fn metadata_for_spec_version(&self, spec_version: u32) -> Option<ArcMetadata> {
+		self.inner.metadata_for_spec_version(spec_version)
+	}
+}
+
 pub type SubstrateRemarkBuilder = DynamicRemarkBuilder;
 
 /// Remark builder that can be used to build simple extrinsics for FRAME-based runtimes
 /// configured with [`SubstrateConfig`].
 pub struct DynamicRemarkBuilder {
-	offline_client_at_block: OfflineClientAtBlock<SubstrateConfig>,
+	offline_client_at_block: OfflineClientAtBlock<OfflineConfig>,
 }
 
 impl DynamicRemarkBuilder {
@@ -104,8 +143,7 @@ impl DynamicRemarkBuilder {
 		genesis_hash: H256,
 		runtime_version: RuntimeVersion,
 	) -> Self {
-		let config = SubstrateConfig::builder()
-			.set_genesis_hash(genesis_hash)
+		let inner = SubstrateConfig::builder()
 			.set_metadata_for_spec_versions(std::iter::once((
 				runtime_version.spec_version,
 				metadata.into(),
@@ -116,7 +154,8 @@ impl DynamicRemarkBuilder {
 				transaction_version: runtime_version.transaction_version,
 			}))
 			.build();
-		let offline_client = OfflineClient::<SubstrateConfig>::new_with_config(config);
+		let config = OfflineConfig { inner, genesis_hash };
+		let offline_client = OfflineClient::<OfflineConfig>::new_with_config(config);
 		// The block number here is only used to look up the spec version. Any number in the
 		// configured range works; we use 0 since the range is `0..u64::MAX`.
 		let offline_client_at_block = offline_client
@@ -139,17 +178,17 @@ impl ExtrinsicBuilder for DynamicRemarkBuilder {
 		let signer = subxt_signer::sr25519::dev::alice();
 		let dynamic_tx = subxt::dynamic::tx("System", "remark", vec![Vec::<u8>::new()]);
 
-		let params = SubstrateExtrinsicParamsBuilder::new().nonce(nonce.into()).build();
+		let params = SubstrateExtrinsicParamsBuilder::<OfflineConfig>::new()
+			.nonce(nonce.into())
+			.build();
 
 		// Default transaction parameters assume a nonce of 0.
 		let transaction = self
 			.offline_client_at_block
 			.tx()
 			.create_signable_offline(&dynamic_tx, params)
-			.inspect_err(|err| log::error!("Failed to create signable transaction: {err:?}"))
 			.map_err(|_| "Unable to create signable transaction")?
 			.sign(&signer)
-			.inspect_err(|err| log::error!("Failed to sign transaction: {err:?}"))
 			.map_err(|_| "Unable to sign transaction")?;
 		let mut encoded = transaction.into_encoded();
 
