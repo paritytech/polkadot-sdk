@@ -17,7 +17,7 @@
 
 use crate::{
 	Config,
-	access_list::{StorageAccessCost, cost_read},
+	access_list::{StorageAccessCost, cost_clear, cost_read, cost_take, cost_write},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -404,17 +404,17 @@ impl RuntimeCosts {
 		match self {
 			GetStorage { len, costs } => cost_read::<T>(costs.is_cold, *len),
 			ContainsStorage { len, costs } => cost_read::<T>(costs.is_cold, *len),
-			SetStorage { new_bytes, old_bytes, costs } => {
-				let write = cost_storage!(write, seal_set_storage, *new_bytes, *old_bytes);
-				cost_read::<T>(costs.is_cold, *old_bytes).saturating_add(write)
+			SetStorage { new_bytes, old_bytes, costs } => match costs.is_cold {
+				None => cost_storage!(write, seal_set_storage, *new_bytes, *old_bytes),
+				Some(cold) => cost_write::<T>(cold, *new_bytes, *old_bytes),
 			},
-			ClearStorage { len, costs } => {
-				let write = cost_storage!(write, clear_storage, *len);
-				cost_read::<T>(costs.is_cold, *len).saturating_add(write)
+			ClearStorage { len, costs } => match costs.is_cold {
+				None => cost_storage!(write, clear_storage, *len),
+				Some(cold) => cost_clear::<T>(cold, *len),
 			},
-			TakeStorage { len, costs } => {
-				let write = cost_storage!(write, take_storage, *len);
-				cost_read::<T>(costs.is_cold, *len).saturating_add(write)
+			TakeStorage { len, costs } => match costs.is_cold {
+				None => cost_storage!(write, take_storage, *len),
+				Some(cold) => cost_take::<T>(cold, *len),
 			},
 			_ => self.legacy_weight::<T>(),
 		}
