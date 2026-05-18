@@ -51,7 +51,7 @@ mod host_functions;
 pub mod tests;
 
 pub use crate::{
-	host_functions::{virtualization as host_fn, ExecBuffer, ExecStatus},
+	host_functions::{virtualization as host_fn, CompiledModule, ExecBuffer, ExecStatus},
 	tests::run as run_tests,
 };
 pub use forwarder::{Execution, Instance, Module};

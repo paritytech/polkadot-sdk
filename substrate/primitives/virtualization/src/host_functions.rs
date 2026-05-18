@@ -138,7 +138,7 @@ impl TryFrom<i64> for ModuleId {
 /// Pairs the produced [`ModuleId`] with a [`CompileStatus`] so the runtime can tell whether
 /// the call hit the in-extension cache (cheap) or required a fresh compile (expensive).
 ///
-/// Wire encoding (packed into the `i64` return value via [`IntoI64`]):
+/// Wire encoding (packed into the `i64` return value):
 /// - low 32 bits hold the `ModuleId`
 /// - bits 32-39 hold the [`CompileStatus`] discriminant (`u8`)
 /// - bits 40-62 are reserved for future packed fields
