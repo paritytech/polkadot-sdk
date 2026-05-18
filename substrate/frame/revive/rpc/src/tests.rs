@@ -61,10 +61,13 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::{sync::Arc, thread};
 use subxt::{
 	OnlineClient,
-	backend::rpc::RpcClient,
-	ext::subxt_rpcs::rpc_params,
-	tx::{SubmittableTransaction, TxStatus},
+	client::OnlineClientAtBlockImpl,
+	rpcs::{RpcClient, rpc_params},
+	tx::{SubmittableTransaction, TransactionStatus as TxStatus},
 };
+
+type NodeSubmittableTransaction =
+	SubmittableTransaction<SrcChainConfig, OnlineClientAtBlockImpl<SrcChainConfig>>;
 use subxt_signer::eth::Keypair;
 use tokio::sync::mpsc;
 
@@ -194,8 +197,9 @@ async fn prepare_substrate_transactions(
 	node_client: &OnlineClient<SrcChainConfig>,
 	signer: &subxt_signer::sr25519::Keypair,
 	count: usize,
-) -> anyhow::Result<Vec<SubmittableTransaction<SrcChainConfig, OnlineClient<SrcChainConfig>>>> {
-	let mut nonce = node_client.tx().account_nonce(&signer.public_key().into()).await?;
+) -> anyhow::Result<Vec<NodeSubmittableTransaction>> {
+	let tx_client = node_client.tx().await?;
+	let mut nonce = tx_client.account_nonce(&signer.public_key().into()).await?;
 	let mut substrate_txs = Vec::new();
 	for i in 0..count {
 		let remark_data = format!("Hello from test {}", i);
@@ -209,10 +213,10 @@ async fn prepare_substrate_transactions(
 			.nonce(nonce)
 			.build();
 
-		let tx = node_client.tx().create_signed(&call, signer, params).await?;
+		let tx = tx_client.create_signed(&call, signer, params).await?;
 		substrate_txs.push(tx);
 		log::trace!(target: LOG_TARGET, "Prepared substrate transaction {i}/{count} with nonce: {nonce}");
-		nonce += 1 as u64;
+		nonce += 1;
 	}
 	Ok(substrate_txs)
 }
@@ -241,7 +245,7 @@ async fn submit_evm_transactions<Client: EthRpcClient + Sync + Send>(
 
 /// Submit substrate transactions and return futures for waiting
 async fn submit_substrate_transactions(
-	substrate_txs: Vec<SubmittableTransaction<SrcChainConfig, OnlineClient<SrcChainConfig>>>,
+	substrate_txs: Vec<NodeSubmittableTransaction>,
 ) -> Vec<impl std::future::Future<Output = Result<(), anyhow::Error>>> {
 	let mut futures = Vec::new();
 
@@ -658,7 +662,7 @@ async fn test_runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
 	let value = 5_000_000_000_000u128;
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
 
-	let payload = subxt_client::apis().revive_api().instantiate(
+	let payload = subxt_client::runtime_apis().revive_api().instantiate(
 		subxt::utils::AccountId32(origin),
 		value,
 		None,
@@ -675,9 +679,9 @@ async fn test_runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
 
 	let res = node_client
-		.runtime_api()
-		.at_latest()
+		.at_current_block()
 		.await?
+		.runtime_apis()
 		.call(payload)
 		.await?
 		.result
@@ -722,9 +726,11 @@ async fn get_evm_block_from_storage(
 		.unwrap();
 
 	let query = subxt_client::storage().revive().ethereum_block();
-	let Some(block) = node_client.storage().at(block_hash).fetch(&query).await.unwrap() else {
+	let at_block = node_client.at_block(block_hash).await?;
+	let Some(value) = at_block.storage().try_fetch(query, ()).await? else {
 		return Err(anyhow!("EVM block {block_hash:?} not found"));
 	};
+	let block = value.decode()?;
 	Ok(block.0)
 }
 
@@ -1095,7 +1101,7 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 			subxt::dynamic::Value::u128(u128::max_value()), // storage_deposit_limit
 		],
 	);
-	let encoded_call = node_client.tx().call_data(&upload_call)?;
+	let encoded_call = node_client.tx().await?.call_data(&upload_call)?;
 
 	// Step 2: Send the encoded call to RUNTIME_PALLETS_ADDR
 	let tx = TransactionBuilder::new(client.clone())
@@ -1117,9 +1123,11 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 
 	// Step 5: Verify the code was actually uploaded
 	let code_hash = H256(sp_io::hashing::keccak_256(&bytecode));
-	let query = subxt_client::storage().revive().pristine_code(code_hash);
+	let query = subxt_client::storage().revive().pristine_code();
 	let block_hash: sp_core::H256 = get_substrate_block_hash(receipt.block_number).await?;
-	let stored_code = node_client.storage().at(block_hash).fetch(&query).await?;
+	let at_block = node_client.at_block(block_hash).await?;
+	let stored_code = at_block.storage().try_fetch(query, (code_hash,)).await?;
+	let stored_code = stored_code.map(|v| v.decode()).transpose()?;
 	assert!(stored_code.is_some(), "Code with hash {code_hash:?} should exist in storage");
 	assert_eq!(stored_code.unwrap(), bytecode, "Stored code should match the uploaded bytecode");
 
@@ -1743,10 +1751,10 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 	// Deploy the Fibonacci contract via Substrate API
 	log::trace!(target: LOG_TARGET, "Deploying Fibonacci contract via Substrate API");
 	let dry_run_result = node_client
-		.runtime_api()
-		.at_latest()
+		.at_current_block()
 		.await?
-		.call(subxt_client::apis().revive_api().instantiate(
+		.runtime_apis()
+		.call(subxt_client::runtime_apis().revive_api().instantiate(
 			subxt::utils::AccountId32(origin),
 			0u128, // value
 			None,  // gas_limit
@@ -1805,7 +1813,7 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 
 	// Call the deployed contract using runtime API
 	let call_data = Fibonacci::fibCall { n: 3u64 }.abi_encode();
-	let call_payload = subxt_client::apis().revive_api().call(
+	let call_payload = subxt_client::runtime_apis().revive_api().call(
 		subxt::utils::AccountId32(origin),
 		contract_address,
 		0u128, // value
@@ -1814,7 +1822,7 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 		call_data,
 	);
 
-	let result = node_client.runtime_api().at_latest().await?.call(call_payload).await;
+	let result = node_client.at_current_block().await?.runtime_apis().call(call_payload).await;
 
 	assert!(result.is_ok(), "Contract call failed: {result:?}");
 	let call_result = result.unwrap();
@@ -1826,7 +1834,7 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 
 	// Verify that large Fibonacci values run out of gas
 	let call_data = Fibonacci::fibCall { n: 100u64 }.abi_encode();
-	let call_payload = subxt_client::apis().revive_api().call(
+	let call_payload = subxt_client::runtime_apis().revive_api().call(
 		subxt::utils::AccountId32(origin),
 		contract_address,
 		0u128, // value
@@ -1835,7 +1843,7 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 		call_data,
 	);
 
-	let result = node_client.runtime_api().at_latest().await?.call(call_payload).await;
+	let result = node_client.at_current_block().await?.runtime_apis().call(call_payload).await;
 	assert!(result.is_ok(), "Runtime API call failed: {result:?}");
 	let call_result = result.unwrap();
 	assert!(call_result.result.is_err(), "fib(100) should run out of gas");
@@ -2121,8 +2129,8 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 		.expect("Head block should exist");
 
 	// Overwrite both labels to simulate an interrupted sync with a partial range.
-	let interrupted_tail = SyncCheckpoint::new(tail_block.number(), tail_block.hash());
-	let interrupted_head = SyncCheckpoint::new(head_block.number(), head_block.hash());
+	let interrupted_tail = SyncCheckpoint::new(tail_block.block_number(), tail_block.block_hash());
+	let interrupted_head = SyncCheckpoint::new(head_block.block_number(), head_block.block_hash());
 
 	client
 		.receipt_provider()
@@ -3296,7 +3304,7 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 
 	// Query the chain directly; the sync_client's cached finalized block is stale
 	// because this client doesn't run subscriptions.
-	let new_finalized_number = sync_client.api().blocks().at_latest().await?.number();
+	let new_finalized_number = sync_client.api().at_current_block().await?.block_number();
 	assert!(
 		new_finalized_number > head_after_sync,
 		"New finalized #{new_finalized_number} should be higher than synced head #{head_after_sync}"
@@ -3313,7 +3321,7 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 	assert!(
 		sync_client
 			.receipt_provider()
-			.get_ethereum_hash(&unsynced_block.hash())
+			.get_ethereum_hash(&unsynced_block.block_hash())
 			.await
 			.is_none(),
 		"Block #{gap_block} should not be in DB before gap fill"
@@ -3344,7 +3352,7 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 	assert!(
 		sync_client
 			.receipt_provider()
-			.get_ethereum_hash(&unsynced_block.hash())
+			.get_ethereum_hash(&unsynced_block.block_hash())
 			.await
 			.is_some(),
 		"Block #{gap_block} should be in DB after gap fill"

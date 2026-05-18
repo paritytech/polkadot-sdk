@@ -105,7 +105,9 @@ impl FeeHistoryProvider {
 			});
 		};
 
-		let lowest = highest.saturating_sub(block_count.saturating_sub(1)).max(lowest_in_cache);
+		let lowest = highest
+			.saturating_sub(u64::from(block_count.saturating_sub(1)))
+			.max(lowest_in_cache);
 
 		let mut response = FeeHistoryResult {
 			oldest_block: U256::from(lowest),

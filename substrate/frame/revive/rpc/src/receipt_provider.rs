@@ -139,10 +139,10 @@ pub trait BlockInfo {
 
 impl BlockInfo for SubstrateBlock {
 	fn hash(&self) -> H256 {
-		SubstrateBlock::hash(self)
+		self.block_hash()
 	}
 	fn number(&self) -> SubstrateBlockNumber {
-		SubstrateBlock::number(self)
+		self.block_number()
 	}
 }
 
@@ -220,10 +220,10 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	pub fn is_before_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
 		match at {
 			BlockNumberOrTag::U256(block_number) => {
-				if *block_number > U256::from(u32::MAX) {
+				if *block_number > U256::from(u64::MAX) {
 					return false;
 				}
-				self.receipt_extractor.is_before_first_evm_block(block_number.as_u32())
+				self.receipt_extractor.is_before_first_evm_block(block_number.as_u64())
 			},
 			BlockNumberOrTag::BlockTag(_) => false,
 		}
@@ -256,7 +256,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			match self.block_provider.block_by_number(block_number).await.ok().flatten() {
 				Some(block) => self
 					.receipt_extractor
-					.get_ethereum_block_hash(&block.hash(), block_number as u64)
+					.get_ethereum_block_hash(&block.hash(), block_number)
 					.await
 					.is_some(),
 				None => false,
