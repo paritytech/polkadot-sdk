@@ -1302,11 +1302,24 @@ fn metadata_non_utf8_reverts() {
 			.expect("metadata view must not trap")
 		};
 
+		// Pin the exact revert strings — these are the pre-PR values and
+		// callers may string-match against them. Changing them would be a
+		// silent behavior break in the failing path.
+		use alloy::sol_types::{Revert, SolError};
+
 		let name_exec = call_view(IERC20::nameCall {}.abi_encode());
 		assert!(name_exec.did_revert(), "name() must revert on non-UTF-8 metadata");
+		assert_eq!(
+			Revert::abi_decode(&name_exec.data).expect("Error(string)").reason,
+			"Invalid UTF-8 in name",
+		);
 
 		let symbol_exec = call_view(IERC20::symbolCall {}.abi_encode());
 		assert!(symbol_exec.did_revert(), "symbol() must revert on non-UTF-8 metadata");
+		assert_eq!(
+			Revert::abi_decode(&symbol_exec.data).expect("Error(string)").reason,
+			"Invalid UTF-8 in symbol",
+		);
 
 		// decimals() is unaffected by UTF-8 — it returns the stored u8 verbatim.
 		let decimals_exec = call_view(IERC20::decimalsCall {}.abi_encode());

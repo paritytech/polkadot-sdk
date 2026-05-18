@@ -204,7 +204,8 @@ where
 
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
-const ERR_METADATA_NOT_UTF8: &str = "Metadata not valid UTF-8";
+const ERR_INVALID_UTF8_NAME: &str = "Invalid UTF-8 in name";
+const ERR_INVALID_UTF8_SYMBOL: &str = "Invalid UTF-8 in symbol";
 
 impl<Runtime, PrecompileConfig, Instance: 'static> ERC20<Runtime, PrecompileConfig, Instance>
 where
@@ -741,7 +742,7 @@ where
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
 		let name_bytes = pallet_assets::Pallet::<Runtime, Instance>::name(asset_id);
 		let name = alloc::string::String::from_utf8(name_bytes)
-			.map_err(|_| Error::Revert(Revert { reason: ERR_METADATA_NOT_UTF8.into() }))?;
+			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_UTF8_NAME.into() }))?;
 		Ok(IERC20::nameCall::abi_encode_returns(&name))
 	}
 
@@ -754,7 +755,7 @@ where
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
 		let symbol_bytes = pallet_assets::Pallet::<Runtime, Instance>::symbol(asset_id);
 		let symbol = alloc::string::String::from_utf8(symbol_bytes)
-			.map_err(|_| Error::Revert(Revert { reason: ERR_METADATA_NOT_UTF8.into() }))?;
+			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_UTF8_SYMBOL.into() }))?;
 		Ok(IERC20::symbolCall::abi_encode_returns(&symbol))
 	}
 
