@@ -277,8 +277,8 @@ impl VirtManagerBackend for VirtManager {
 		Ok(module_id)
 	}
 
-	fn compile_from_storage_key(&mut self, storage_key: &[u8]) -> Result<ModuleId, ModuleError> {
-		let compiled = self.cache.get(storage_key).cloned().ok_or(ModuleError::NotCached)?;
+	fn lookup(&mut self, identifier: &[u8]) -> Result<ModuleId, ModuleError> {
+		let compiled = self.cache.get(identifier).cloned().ok_or(ModuleError::NotCached)?;
 		let module_id = self.next_module_id();
 		self.modules.insert(module_id, compiled);
 		Ok(module_id)
@@ -371,10 +371,10 @@ mod tests {
 
 		let mut a = VirtManager::default();
 		a.compile_from_bytes(program, Some(key)).unwrap();
-		assert!(matches!(a.compile_from_storage_key(key), Ok(_)));
+		assert!(matches!(a.lookup(key), Ok(_)));
 
 		let mut b = VirtManager::default();
-		assert!(matches!(b.compile_from_storage_key(key), Err(ModuleError::NotCached)));
+		assert!(matches!(b.lookup(key), Err(ModuleError::NotCached)));
 	}
 
 	/// Passing `None` to `compile_from_bytes` must not populate the cache.
@@ -385,6 +385,6 @@ mod tests {
 
 		let mut m = VirtManager::default();
 		m.compile_from_bytes(program, None).unwrap();
-		assert!(matches!(m.compile_from_storage_key(key), Err(ModuleError::NotCached)));
+		assert!(matches!(m.lookup(key), Err(ModuleError::NotCached)));
 	}
 }

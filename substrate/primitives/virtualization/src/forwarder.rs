@@ -17,8 +17,9 @@
 
 use crate::{
 	host_fn,
-	host_functions::{ExecBuffer, ExecStatus},
-	ExecError, ExecResult, InstanceId, InstantiateError, MemoryError, ModuleError, ModuleId,
+	host_functions::{CompiledModule, ExecBuffer, ExecStatus},
+	CompileStatus, ExecError, ExecResult, InstanceId, InstantiateError, MemoryError, ModuleError,
+	ModuleId,
 };
 
 /// A compiled module handle.
@@ -27,20 +28,43 @@ pub struct Module(ModuleId);
 impl Module {
 	/// Compile a module from raw bytes.
 	///
-	/// If `identifier` is `Some`, the compiled module is retained under that identifier so a
-	/// later [`Module::from_storage_key`] (or any future lookup keyed by it) can reuse the
-	/// same compilation within the current extension lifetime. Pass `None` for one-shot
-	/// compiles you don't intend to look up by name.
-	pub fn from_bytes(bytes: &[u8], identifier: Option<&[u8]>) -> Result<Self, ModuleError> {
-		Ok(Self(host_fn::compile_from_bytes(bytes, identifier)?))
+	/// If `identifier` is `Some` and a module is already cached under it, no compilation
+	/// occurs and [`CompileStatus::Cached`] is returned. Otherwise the bytes are compiled,
+	/// cached under `identifier` if supplied, and [`CompileStatus::Compiled`] is returned.
+	///
+	/// A `Cached` result means the call was cheap; a `Compiled` result means real work was
+	/// done. Callers should weight accordingly.
+	pub fn from_bytes(
+		bytes: &[u8],
+		identifier: Option<&[u8]>,
+	) -> Result<(Self, CompileStatus), ModuleError> {
+		let CompiledModule { id, status } = host_fn::compile_from_bytes(bytes, identifier)?;
+		Ok((Self(id), status))
+	}
+
+	/// Look up a previously compiled module by `identifier`.
+	///
+	/// Returns `Err(ModuleError::NotCached)` if no module is cached under `identifier`.
+	/// This is a pure cache lookup — no storage access, no compilation — so the call is
+	/// cheap and never reads from the trie. Use [`Module::from_storage_key`] if you want
+	/// the host to fall back to a storage read on miss.
+	pub fn lookup(identifier: &[u8]) -> Result<Self, ModuleError> {
+		Ok(Self(host_fn::lookup(identifier)?))
 	}
 
 	/// Compile (or fetch from cache) a module whose program bytes live at `storage_key`.
 	///
 	/// The `storage_key` is also used as the cache identifier. Pass an empty `child_trie` to
-	/// read from the main state trie.
-	pub fn from_storage_key(storage_key: &[u8], child_trie: &[u8]) -> Result<Self, ModuleError> {
-		Ok(Self(host_fn::compile_from_storage_key(storage_key, child_trie)?))
+	/// read from the main state trie. On a cache hit returns [`CompileStatus::Cached`]
+	/// (cheap); on a miss the host reads from storage and compiles, returning
+	/// [`CompileStatus::Compiled`].
+	pub fn from_storage_key(
+		storage_key: &[u8],
+		child_trie: &[u8],
+	) -> Result<(Self, CompileStatus), ModuleError> {
+		let CompiledModule { id, status } =
+			host_fn::compile_from_storage_key(storage_key, child_trie)?;
+		Ok((Self(id), status))
 	}
 
 	pub fn instantiate(&self) -> Result<Instance, InstantiateError> {

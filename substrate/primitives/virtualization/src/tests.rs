@@ -126,7 +126,7 @@ pub fn make_handler<'a>(
 
 /// Checks memory access and user state functionality.
 fn counter_start_at_0(program: &[u8]) {
-	let instance = Module::from_bytes(program, None).unwrap().instantiate().unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
 	let execution = instance.prepare(b"counter").unwrap();
 	let mut gas_left = GAS_MAX;
 	let mut counter: u64 = 0;
@@ -137,7 +137,7 @@ fn counter_start_at_0(program: &[u8]) {
 
 /// Checks memory access and user state functionality.
 fn counter_start_at_7(program: &[u8]) {
-	let instance = Module::from_bytes(program, None).unwrap().instantiate().unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
 	let execution = instance.prepare(b"counter").unwrap();
 	let mut gas_left = GAS_MAX;
 	let mut counter: u64 = 7;
@@ -148,7 +148,7 @@ fn counter_start_at_7(program: &[u8]) {
 
 /// Makes sure user state is persistent between calls into the same instance.
 fn counter_multiple_calls(program: &[u8]) {
-	let instance = Module::from_bytes(program, None).unwrap().instantiate().unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
 	let execution = instance.prepare(b"counter").unwrap();
 	let mut gas_left = GAS_MAX;
 	let mut counter: u64 = 7;
@@ -167,7 +167,7 @@ fn counter_multiple_calls(program: &[u8]) {
 
 /// Check the correct status is returned when hitting an `unimp` instruction.
 fn panic_works(program: &[u8]) {
-	let instance = Module::from_bytes(program, None).unwrap().instantiate().unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
 	let execution = instance.prepare(b"do_panic").unwrap();
 	let mut gas_left = GAS_MAX;
 	let mut counter: u64 = 0;
@@ -178,7 +178,7 @@ fn panic_works(program: &[u8]) {
 
 /// Check that setting exit in a host function aborts the execution.
 fn exit_works(program: &[u8]) {
-	let instance = Module::from_bytes(program, None).unwrap().instantiate().unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
 	let execution = instance.prepare(b"do_exit").unwrap();
 	let mut gas_left = GAS_MAX;
 	let mut counter: u64 = 0;
@@ -189,7 +189,7 @@ fn exit_works(program: &[u8]) {
 
 /// Increment the counter in an endless loop until we run out of gas.
 fn run_out_of_gas_works(program: &[u8]) {
-	let instance = Module::from_bytes(program, None).unwrap().instantiate().unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
 	let execution = instance.prepare(b"increment_forever").unwrap();
 	let mut gas_left: i64 = 100_000;
 	let mut counter: u64 = 0;
@@ -204,7 +204,7 @@ fn gas_consumption_works(program: &[u8]) {
 	let gas_limit_0 = GAS_MAX;
 	let gas_limit_1 = gas_limit_0 / 2;
 
-	let instance = Module::from_bytes(program, None).unwrap().instantiate().unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
 	let execution = instance.prepare(b"counter").unwrap();
 	let mut gas_left = gas_limit_0;
 	let mut counter: u64 = 0;
@@ -212,7 +212,7 @@ fn gas_consumption_works(program: &[u8]) {
 	assert!(matches!(result, RunResult::Ok(_)));
 	let gas_consumed = gas_limit_0 - gas_left;
 
-	let instance = Module::from_bytes(program, None).unwrap().instantiate().unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
 	let execution = instance.prepare(b"counter").unwrap();
 	let mut gas_left = gas_limit_1;
 	let mut counter: u64 = 0;
@@ -223,7 +223,7 @@ fn gas_consumption_works(program: &[u8]) {
 
 /// Make sure that globals are reset for a new instance.
 fn memory_reset_on_instantiate(program: &[u8]) {
-	let instance = Module::from_bytes(program, None).unwrap().instantiate().unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
 	let execution = instance.prepare(b"offset").unwrap();
 	let mut gas_left = GAS_MAX;
 	let mut counter: u64 = 0;
@@ -231,7 +231,7 @@ fn memory_reset_on_instantiate(program: &[u8]) {
 	assert!(matches!(result, RunResult::Ok(_)));
 	assert_eq!(counter, 3);
 
-	let instance = Module::from_bytes(program, None).unwrap().instantiate().unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
 	let execution = instance.prepare(b"offset").unwrap();
 	let result = run_loop(execution, &mut gas_left, make_handler(&mut counter));
 	assert!(matches!(result, RunResult::Ok(_)));
@@ -240,7 +240,7 @@ fn memory_reset_on_instantiate(program: &[u8]) {
 
 /// Make sure globals are not reset between multiple calls into the same instance.
 fn memory_persistent(program: &[u8]) {
-	let instance = Module::from_bytes(program, None).unwrap().instantiate().unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
 	let execution = instance.prepare(b"offset").unwrap();
 	let mut gas_left = GAS_MAX;
 	let mut counter: u64 = 0;
@@ -259,7 +259,7 @@ fn memory_persistent(program: &[u8]) {
 
 /// Calls a function that spawns another instance where it calls the `counter` entry point.
 fn counter_in_subcall(program: &[u8]) {
-	let instance = Module::from_bytes(program, None).unwrap().instantiate().unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
 	let execution = instance.prepare(b"do_subcall").unwrap();
 	let mut gas_left = GAS_MAX;
 	let mut counter: u64 = 0;
@@ -272,8 +272,11 @@ fn counter_in_subcall(program: &[u8]) {
 				},
 				// subcall: spawn a new instance and run counter in it
 				b"subcall" => {
-					let sub_instance =
-						Module::from_bytes(program.as_ref(), None).unwrap().instantiate().unwrap();
+					let sub_instance = Module::from_bytes(program.as_ref(), None)
+						.unwrap()
+						.0
+						.instantiate()
+						.unwrap();
 					let sub_execution = sub_instance.prepare(b"counter").unwrap();
 					let mut sub_gas = GAS_MAX;
 					let mut sub_counter: u64 = 0;

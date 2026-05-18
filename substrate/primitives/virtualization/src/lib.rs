@@ -72,34 +72,10 @@ pub const MAX_SYSCALL_SYMBOL_LEN: usize = 32;
 #[repr(transparent)]
 pub struct ModuleId(u32);
 
-impl From<u32> for ModuleId {
-	fn from(id: u32) -> Self {
-		Self(id)
-	}
-}
-
-impl From<ModuleId> for u32 {
-	fn from(id: ModuleId) -> Self {
-		id.0
-	}
-}
-
 /// Opaque handle to a virtualization instance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct InstanceId(u32);
-
-impl From<u32> for InstanceId {
-	fn from(id: u32) -> Self {
-		Self(id)
-	}
-}
-
-impl From<InstanceId> for u32 {
-	fn from(id: InstanceId) -> Self {
-		id.0
-	}
-}
 
 /// The result of running a virtualization instance.
 ///
@@ -166,6 +142,20 @@ impl AsRef<[u8]> for SyscallSymbol {
 	fn as_ref(&self) -> &[u8] {
 		&self.bytes[..self.len as usize]
 	}
+}
+
+/// Status returned by the `compile_*` host functions.
+///
+/// Lets the caller distinguish a cheap cache hit from a fresh compile so it can
+/// charge weight accordingly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
+#[repr(u8)]
+pub enum CompileStatus {
+	/// Module was already in the per-extension cache; no compilation occurred.
+	Cached = 0,
+	/// Module was freshly compiled (and, for [`Module::from_storage_key`], the
+	/// program bytes were read from storage).
+	Compiled = 1,
 }
 
 /// Errors that can be emitted when compiling a program into a module.

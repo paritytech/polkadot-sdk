@@ -22,7 +22,7 @@
 use sc_virtualization::VirtManager;
 use sp_virtualization::{
 	tests::{make_handler, run_loop, RunResult, GAS_MAX},
-	Module, ModuleError,
+	CompileStatus, Module, ModuleError,
 };
 
 fn setup() -> sp_io::TestExternalities {
@@ -43,13 +43,17 @@ fn run_all() {
 }
 
 /// Compile with an identifier, then `from_storage_key` with that identifier hits the cache.
+///
+/// First compile is `Compiled`, the lookup-via-identifier is `Cached`.
 #[test]
 fn from_storage_key_cache_hit() {
 	let program = binary();
 	let key = b"some-cache-key";
 	setup().execute_with(|| {
-		let _module = Module::from_bytes(program, Some(key)).unwrap();
-		let module = Module::from_storage_key(key, b"").unwrap();
+		let (_module, status) = Module::from_bytes(program, Some(key)).unwrap();
+		assert_eq!(status, CompileStatus::Compiled);
+		let (module, status) = Module::from_storage_key(key, b"").unwrap();
+		assert_eq!(status, CompileStatus::Cached);
 		let instance = module.instantiate().unwrap();
 		let execution = instance.prepare(b"counter").unwrap();
 		let mut gas_left = GAS_MAX;
@@ -60,13 +64,49 @@ fn from_storage_key_cache_hit() {
 	});
 }
 
-/// `compile_from_bytes` with `None` does not populate the cache.
+/// `Module::lookup` is a pure cache lookup: hits after a prior cached compile, misses otherwise,
+/// and does not fall back to storage even when the identifier exists at a storage key.
+#[test]
+fn lookup_is_pure() {
+	let program = binary();
+	let key: &[u8] = b"stored-but-not-cached";
+
+	let mut ext = setup();
+	// Put the program at `key` in storage, but never compile under that identifier.
+	ext.insert(key.to_vec(), program.to_vec());
+	ext.execute_with(|| {
+		// Lookup must NOT trigger a storage read.
+		assert!(matches!(Module::lookup(key), Err(ModuleError::NotCached)));
+
+		// After a cached compile, lookup hits.
+		let other: &[u8] = b"some-other-key";
+		let _ = Module::from_bytes(program, Some(other)).unwrap();
+		assert!(Module::lookup(other).is_ok());
+	});
+}
+
+/// `from_bytes` with `Some(identifier)` looks up the cache first; a second call with
+/// the same identifier returns `Cached` without recompiling.
+#[test]
+fn from_bytes_cache_hit() {
+	let program = binary();
+	let key = b"compile-twice";
+	setup().execute_with(|| {
+		let (_module, status) = Module::from_bytes(program, Some(key)).unwrap();
+		assert_eq!(status, CompileStatus::Compiled);
+		let (_module, status) = Module::from_bytes(program, Some(key)).unwrap();
+		assert_eq!(status, CompileStatus::Cached);
+	});
+}
+
+/// `from_bytes` with `None` does not populate the cache.
 #[test]
 fn from_bytes_none_skips_cache() {
 	let program = binary();
 	let key = b"would-be-key";
 	setup().execute_with(|| {
-		let _module = Module::from_bytes(program, None).unwrap();
+		let (_module, status) = Module::from_bytes(program, None).unwrap();
+		assert_eq!(status, CompileStatus::Compiled);
 		assert!(matches!(Module::from_storage_key(key, b""), Err(ModuleError::NotFound)));
 	});
 }
@@ -80,7 +120,8 @@ fn from_storage_key_main_trie() {
 	let mut ext = setup();
 	ext.insert(key.to_vec(), program.to_vec());
 	ext.execute_with(|| {
-		let module = Module::from_storage_key(key, b"").unwrap();
+		let (module, status) = Module::from_storage_key(key, b"").unwrap();
+		assert_eq!(status, CompileStatus::Compiled);
 		let instance = module.instantiate().unwrap();
 		let execution = instance.prepare(b"counter").unwrap();
 		let mut gas_left = GAS_MAX;
@@ -90,7 +131,8 @@ fn from_storage_key_main_trie() {
 		assert_eq!(counter, 8);
 
 		// Second call should hit the cache now.
-		let module = Module::from_storage_key(key, b"").unwrap();
+		let (module, status) = Module::from_storage_key(key, b"").unwrap();
+		assert_eq!(status, CompileStatus::Cached);
 		let instance = module.instantiate().unwrap();
 		let execution = instance.prepare(b"counter").unwrap();
 		let mut counter: u64 = 0;
@@ -111,7 +153,8 @@ fn from_storage_key_child_trie() {
 	let mut ext = setup();
 	ext.insert_child(child_info, key.to_vec(), program.to_vec());
 	ext.execute_with(|| {
-		let module = Module::from_storage_key(key, child_trie).unwrap();
+		let (module, status) = Module::from_storage_key(key, child_trie).unwrap();
+		assert_eq!(status, CompileStatus::Compiled);
 		let instance = module.instantiate().unwrap();
 		let execution = instance.prepare(b"counter").unwrap();
 		let mut gas_left = GAS_MAX;
