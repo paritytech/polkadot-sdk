@@ -17,8 +17,8 @@
 
 //! Per-block proof store for unincluded segment resubmission.
 //!
-//! Persists `(time, session, StorageProof)` per parablock built by a slot-based collator,
-//! keyed by parablock hash. Data is pruned on parachain finality.
+//! Persists `(time, StorageProof)` per imported parablock, keyed by parablock hash. Data is
+//! pruned on parachain finality.
 
 use codec::{Decode, Encode};
 use sc_client_api::{
@@ -28,7 +28,6 @@ use sc_client_api::{
 };
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
 use sp_runtime::traits::{Block as BlockT, Header as _};
-use sp_staking::SessionIndex;
 use sp_trie::StorageProof;
 use std::{
 	sync::Arc,
@@ -57,9 +56,6 @@ pub fn now_unix_ms() -> u64 {
 pub struct StoredEntry {
 	/// Unix millis at the moment block_import started.
 	pub time_ms: u64,
-	/// SessionIndex of the relay parent.
-	/// TODO: Will be populated once paritytech/polkadot-sdk#11624 lands.
-	pub session: Option<SessionIndex>,
 	/// The storage proof captured at block_import.
 	pub proof: StorageProof,
 }
@@ -92,10 +88,9 @@ where
 pub fn prepare_unincluded_segment_aux_data<H: Encode>(
 	block_hash: H,
 	time_ms: u64,
-	session: Option<SessionIndex>,
 	proof: StorageProof,
 ) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> {
-	let entry = StoredEntry { time_ms, session, proof };
+	let entry = StoredEntry { time_ms, proof };
 	let key = unincluded_segment_key(block_hash);
 	let encoded_entry = entry.encode();
 	let current_version = UNINCLUDED_SEGMENT_STORE_CURRENT_VERSION.encode();
@@ -148,13 +143,15 @@ where
 
 /// Compute aux storage cleanup operations.
 ///
-/// Emits deletes for stale blocks, intermediate tree-route blocks, and the pre-finality head.
-/// The just-finalized block is NOT deleted; it will be deleted by the next finality round via
-/// `old_finalized_hash`, kept for one round for parity with the ignored-nodes cleanup pattern.
+/// Emits deletes for stale-fork blocks, intermediate tree-route blocks, the pre-finality head,
+/// and the just-finalized block itself. Once a block is finalized it is no longer in any
+/// unincluded segment, so its proof entry is dead weight.
 ///
-/// TODO(#12034): once SessionIndex is populated (waiting on #11624), also prune entries whose
-/// stored `session` is older than `max_relay_parent_session_age` relative to the current session.
+/// TODO(#12034): also prune entries whose relay-parent session is older than
+/// `max_relay_parent_session_age` relative to the current session. Session info will be sourced
+/// from a separate session-data cache (see #11624), not from per-entry storage.
 fn aux_storage_cleanup<H>(
+	just_finalized_hash: H,
 	old_finalized_hash: H,
 	tree_route: &[H],
 	stale_block_hashes: &[H],
@@ -162,10 +159,11 @@ fn aux_storage_cleanup<H>(
 where
 	H: Encode,
 {
-	let mut ops = Vec::with_capacity(stale_block_hashes.len() + tree_route.len() + 1);
+	let mut ops = Vec::with_capacity(stale_block_hashes.len() + tree_route.len() + 2);
 	ops.extend(stale_block_hashes.iter().map(|hash| (unincluded_segment_key(hash), None)));
 	ops.extend(tree_route.iter().map(|hash| (unincluded_segment_key(hash), None)));
 	ops.push((unincluded_segment_key(old_finalized_hash), None));
+	ops.push((unincluded_segment_key(just_finalized_hash), None));
 	ops
 }
 
@@ -189,7 +187,7 @@ where
 		let stale_block_hashes: Vec<_> = notification.stale_blocks.iter().map(|b| b.hash).collect();
 		let tree_route: Vec<_> = notification.tree_route.iter().copied().collect();
 
-		aux_storage_cleanup(old_finalized, &tree_route, &stale_block_hashes)
+		aux_storage_cleanup(notification.hash, old_finalized, &tree_route, &stale_block_hashes)
 	};
 
 	client.register_finality_action(Box::new(on_finality));
@@ -205,11 +203,7 @@ mod tests {
 	type TestBackend = sc_client_api::in_mem::Backend<Block>;
 
 	fn create_test_entry(time_ms: u64) -> StoredEntry {
-		StoredEntry {
-			time_ms,
-			session: Some(42),
-			proof: StorageProof::new(vec![vec![1, 2, 3], vec![4, 5, 6]]),
-		}
+		StoredEntry { time_ms, proof: StorageProof::new(vec![vec![1, 2, 3], vec![4, 5, 6]]) }
 	}
 
 	fn write_aux_data(backend: &TestBackend, data: impl Iterator<Item = (Vec<u8>, Vec<u8>)>) {
@@ -223,11 +217,10 @@ mod tests {
 	fn prepare_produces_expected_key_value_pairs() {
 		let hash = Hash::repeat_byte(0xAB);
 		let time_ms = 1234567890u64;
-		let session = Some(5u32);
 		let proof = StorageProof::new(vec![vec![10, 20, 30]]);
 
 		let pairs: Vec<_> =
-			prepare_unincluded_segment_aux_data(hash, time_ms, session, proof.clone()).collect();
+			prepare_unincluded_segment_aux_data(hash, time_ms, proof.clone()).collect();
 
 		assert_eq!(pairs.len(), 2);
 
@@ -239,7 +232,6 @@ mod tests {
 		let decoded_entry =
 			StoredEntry::decode(&mut pairs[0].1.as_slice()).expect("entry should decode");
 		assert_eq!(decoded_entry.time_ms, time_ms);
-		assert_eq!(decoded_entry.session, session);
 		assert_eq!(decoded_entry.proof, proof);
 
 		// Second pair is the version
@@ -256,12 +248,8 @@ mod tests {
 		let entry = create_test_entry(999888777);
 
 		// Write via prepare + manual insert
-		let aux_data = prepare_unincluded_segment_aux_data(
-			hash,
-			entry.time_ms,
-			entry.session,
-			entry.proof.clone(),
-		);
+		let aux_data =
+			prepare_unincluded_segment_aux_data(hash, entry.time_ms, entry.proof.clone());
 		write_aux_data(&backend, aux_data);
 
 		// Load back
@@ -310,12 +298,13 @@ mod tests {
 	}
 
 	#[test]
-	fn aux_storage_cleanup_includes_stale_blocks() {
+	fn cleanup_deletes_stale_blocks() {
 		let stale_1 = Hash::repeat_byte(0xAA);
 		let stale_2 = Hash::repeat_byte(0xBB);
+		let just_finalized = Hash::repeat_byte(0xFF);
 		let old_finalized = Hash::repeat_byte(0xF0);
 
-		let ops = aux_storage_cleanup(old_finalized, &[], &[stale_1, stale_2]);
+		let ops = aux_storage_cleanup(just_finalized, old_finalized, &[], &[stale_1, stale_2]);
 
 		let keys: Vec<_> = ops.iter().map(|(k, _)| k.clone()).collect();
 		assert!(keys.contains(&unincluded_segment_key(stale_1)));
@@ -326,12 +315,13 @@ mod tests {
 	}
 
 	#[test]
-	fn aux_storage_cleanup_includes_tree_route() {
+	fn cleanup_deletes_tree_route() {
 		let route_1 = Hash::repeat_byte(0xC1);
 		let route_2 = Hash::repeat_byte(0xC2);
+		let just_finalized = Hash::repeat_byte(0xFF);
 		let old_finalized = Hash::repeat_byte(0xF0);
 
-		let ops = aux_storage_cleanup(old_finalized, &[route_1, route_2], &[]);
+		let ops = aux_storage_cleanup(just_finalized, old_finalized, &[route_1, route_2], &[]);
 
 		let keys: Vec<_> = ops.iter().map(|(k, _)| k.clone()).collect();
 		assert!(keys.contains(&unincluded_segment_key(route_1)));
@@ -342,18 +332,21 @@ mod tests {
 	}
 
 	#[test]
-	fn aux_storage_cleanup_includes_old_finalized() {
+	fn cleanup_deletes_old_and_just_finalized() {
+		let just_finalized = Hash::repeat_byte(0xFF);
 		let old_finalized = Hash::repeat_byte(0xF0);
 
-		let ops = aux_storage_cleanup(old_finalized, &[], &[]);
+		let ops = aux_storage_cleanup(just_finalized, old_finalized, &[], &[]);
 
-		assert_eq!(ops.len(), 1);
-		assert_eq!(ops[0].0, unincluded_segment_key(old_finalized));
-		assert!(ops[0].1.is_none());
+		assert_eq!(ops.len(), 2);
+		let keys: Vec<_> = ops.iter().map(|(k, _)| k.clone()).collect();
+		assert!(keys.contains(&unincluded_segment_key(old_finalized)));
+		assert!(keys.contains(&unincluded_segment_key(just_finalized)));
+		assert!(ops.iter().all(|(_, v)| v.is_none()));
 	}
 
 	#[test]
-	fn aux_storage_cleanup_combines_all_three() {
+	fn cleanup_combines_all_categories() {
 		let stale_1 = Hash::repeat_byte(0xAA);
 		let stale_2 = Hash::repeat_byte(0xBB);
 		let route_1 = Hash::repeat_byte(0xC1);
@@ -361,33 +354,36 @@ mod tests {
 		let old_finalized = Hash::repeat_byte(0xF0);
 		let just_finalized = Hash::repeat_byte(0xFF);
 
-		let ops = aux_storage_cleanup(old_finalized, &[route_1, route_2], &[stale_1, stale_2]);
+		let ops = aux_storage_cleanup(
+			just_finalized,
+			old_finalized,
+			&[route_1, route_2],
+			&[stale_1, stale_2],
+		);
 
 		let keys: Vec<_> = ops.iter().map(|(k, _)| k.clone()).collect();
 
-		// Verify all expected keys are present
+		// Verify all expected keys are present (including the just-finalized block).
 		assert!(keys.contains(&unincluded_segment_key(stale_1)));
 		assert!(keys.contains(&unincluded_segment_key(stale_2)));
 		assert!(keys.contains(&unincluded_segment_key(route_1)));
 		assert!(keys.contains(&unincluded_segment_key(route_2)));
 		assert!(keys.contains(&unincluded_segment_key(old_finalized)));
-
-		// Verify the just-finalized block is NOT in the output
-		assert!(!keys.contains(&unincluded_segment_key(just_finalized)));
+		assert!(keys.contains(&unincluded_segment_key(just_finalized)));
 
 		// Verify all values are None (deletes)
 		assert!(ops.iter().all(|(_, v)| v.is_none()));
 	}
 
 	#[test]
-	fn aux_storage_cleanup_handles_empty_inputs() {
+	fn cleanup_handles_empty_inputs() {
+		let just_finalized = Hash::repeat_byte(0xFF);
 		let old_finalized = Hash::repeat_byte(0xF0);
 
-		let ops = aux_storage_cleanup(old_finalized, &[], &[]);
+		let ops = aux_storage_cleanup(just_finalized, old_finalized, &[], &[]);
 
-		assert_eq!(ops.len(), 1);
-		assert_eq!(ops[0].0, unincluded_segment_key(old_finalized));
-		assert!(ops[0].1.is_none());
+		assert_eq!(ops.len(), 2);
+		assert!(ops.iter().all(|(_, v)| v.is_none()));
 	}
 
 	#[test]
@@ -395,7 +391,6 @@ mod tests {
 		// Canonical entry for hex snapshot
 		let entry = StoredEntry {
 			time_ms: 1234567890u64,
-			session: Some(42u32),
 			proof: StorageProof::new(vec![vec![1, 2, 3]]),
 		};
 
@@ -404,8 +399,12 @@ mod tests {
 		// `StoredEntry` has changed and existing aux entries written by older builds will fail to
 		// decode — bump `UNINCLUDED_SEGMENT_STORE_CURRENT_VERSION` and add a migration before
 		// updating this snapshot.
-		let expected_hex = "d202964900000000012a000000040c010203";
-		assert_eq!(hex::encode(&encoded), expected_hex, "StoredEntry encoding changed!");
+		let encoded_hex = hex::encode(&encoded);
+		// time_ms = 1234567890 little-endian u64 = d2 02 96 49 00 00 00 00
+		// proof   = Vec<Vec<u8>> with one element [1,2,3]: outer len 1 (SCALE compact = 04),
+		//           inner len 3 (compact = 0c), bytes 01 02 03
+		let expected_hex = "d20296490000000004 0c 010203".replace(' ', "");
+		assert_eq!(encoded_hex, expected_hex, "StoredEntry encoding changed!");
 
 		// Verify it decodes back correctly
 		let decoded = StoredEntry::decode(&mut encoded.as_slice()).expect("decode should succeed");
@@ -540,18 +539,28 @@ mod tests {
 		let entry2 = create_test_entry(2000);
 		let entry3 = create_test_entry(3000);
 
-		write_aux_data(&backend, prepare_unincluded_segment_aux_data(hash1, entry1.time_ms, entry1.session, entry1.proof.clone()));
-		write_aux_data(&backend, prepare_unincluded_segment_aux_data(hash2, entry2.time_ms, entry2.session, entry2.proof.clone()));
-		write_aux_data(&backend, prepare_unincluded_segment_aux_data(hash3, entry3.time_ms, entry3.session, entry3.proof.clone()));
+		write_aux_data(
+			&backend,
+			prepare_unincluded_segment_aux_data(hash1, entry1.time_ms, entry1.proof.clone()),
+		);
+		write_aux_data(
+			&backend,
+			prepare_unincluded_segment_aux_data(hash2, entry2.time_ms, entry2.proof.clone()),
+		);
+		write_aux_data(
+			&backend,
+			prepare_unincluded_segment_aux_data(hash3, entry3.time_ms, entry3.proof.clone()),
+		);
 
 		// Verify all three exist
 		assert!(load_entry(&backend, hash1).expect("load").is_some());
 		assert!(load_entry(&backend, hash2).expect("load").is_some());
 		assert!(load_entry(&backend, hash3).expect("load").is_some());
 
-		// Generate cleanup for hash1 and hash2
-		let ops = aux_storage_cleanup(hash1, &[hash2], &[]);
-		let delete_keys: Vec<_> = ops.iter().filter_map(|(k, v)| v.is_none().then(|| k.as_slice())).collect();
+		// Generate cleanup that deletes hash1 (just-finalized) and hash2 (in tree route).
+		let ops = aux_storage_cleanup(hash1, Hash::repeat_byte(0xF0), &[hash2], &[]);
+		let delete_keys: Vec<_> =
+			ops.iter().filter_map(|(k, v)| v.is_none().then(|| k.as_slice())).collect();
 
 		// Apply deletes
 		AuxStore::insert_aux(&backend, &[], &delete_keys).expect("delete should succeed");
