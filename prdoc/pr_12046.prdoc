@@ -18,7 +18,10 @@ doc:
     \ but neither method is exposed by this precompile (and OpenZeppelin dropped them\
     \ in v5.0). Replaced with a pointer to `permit()`, which this precompile *does*\
     \ expose and which actually solves the same problem atomically via signature.\n\
-    \n## Test plan\n\n- [x] `cargo test -p pallet-assets-precompiles` passes"
+    \n## Versioning\n\nBumped as **patch**: every change is a strict superset of the previous behavior\
+    \ — calls that previously reverted (missing metadata, `approve`/`permit` with\
+    \ `U256 > Balance::MAX`) now succeed, and no previously-successful call changes\
+    \ outcome. The Rust crate API surface (traits, types, `Config`) is unchanged.\n\n## Test plan\n\n- [x] `cargo test -p pallet-assets-precompiles` passes"
 crates:
 - name: pallet-assets-precompiles
   bump: patch
