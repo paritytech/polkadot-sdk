@@ -346,7 +346,7 @@ where
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		use frame_support::traits::fungibles::approvals::Inspect as ApprovalsInspect;
-		use sp_runtime::traits::{Bounded, Zero};
+		use sp_runtime::traits::{UniqueSaturatedInto, Zero};
 
 		// Reserve worst-case gas upfront, then refund the unused portion.
 		let worst_case = <Runtime as Config<Instance>>::WeightInfo::allowance()
@@ -359,12 +359,10 @@ where
 			<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner);
 		let spender: H160 = call.spender.into_array().into();
 		let spender_account = env.to_account_id(&spender);
-		// Saturate at `Balance::MAX`: `approve(uint256.max)` is the EVM
-		// "infinite allowance" idiom and must not revert.
-		let new_amount = call
-			.value
-			.try_into()
-			.unwrap_or_else(|_| <Runtime as Config<Instance>>::Balance::max_value());
+		// Saturate: EVM tooling encodes the "infinite allowance" idiom as
+		// `type(uint256).max`, which can't fit in the runtime `Balance`.
+		let new_amount: <Runtime as Config<Instance>>::Balance =
+			call.value.unique_saturated_into();
 
 		let current = pallet_assets::Pallet::<Runtime, Instance>::allowance(
 			asset_id.clone(),
@@ -532,7 +530,10 @@ where
 				let spender_account =
 					<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender_h160);
 
-				let new_amount = Self::to_balance(call.value)?;
+				use sp_runtime::traits::UniqueSaturatedInto;
+				// Saturate: see `approve` for the rationale (infinite-allowance idiom).
+				let new_amount: <Runtime as Config<Instance>>::Balance =
+					call.value.unique_saturated_into();
 				let current = pallet_assets::Pallet::<Runtime, Instance>::allowance(
 					asset_id.clone(),
 					&owner_account,
@@ -585,13 +586,14 @@ where
 					)?;
 				}
 
-				// Emit Approval event
+				// Emit Approval event with the saturated allowance, not the raw
+				// signed value — see `approve` for the same invariant.
 				Self::deposit_event(
 					env,
 					IERC20Events::Approval(IERC20::Approval {
 						owner: call.owner,
 						spender: call.spender,
-						value: call.value,
+						value: Self::to_u256(new_amount)?,
 					}),
 				)?;
 				Ok::<_, Error>(actual_weight)

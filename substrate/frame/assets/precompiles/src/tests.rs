@@ -827,6 +827,135 @@ fn approve_saturates_on_uint256_max() {
 	});
 }
 
+/// `permit(spender, type(uint256).max, …)` is the gasless infinite-allowance
+/// pathway — the entire reason `permit()` exists in the EIP-2612 surface for
+/// wallet/router integrations. It must saturate at `Balance::MAX` rather than
+/// revert at the `U256 → Balance` conversion, matching `approve`'s behaviour.
+///
+/// Also pins the event invariant: the emitted `Approval` value must be the
+/// saturated amount, not the raw signed `call.value`, so indexers don't drift
+/// from `allowance()`.
+#[test]
+fn permit_saturates_on_uint256_max() {
+	use frame_support::traits::fungibles::approvals::Inspect;
+	use sp_core::{ecdsa, Pair as _};
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+
+		// Hardhat Account 0 private key — well-known test key, public on the
+		// internet, never use for anything other than tests.
+		let secret: [u8; 32] = hex::const_decode_to_array(
+			b"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+		)
+		.unwrap();
+		let pair = ecdsa::Pair::from_seed_slice(&secret).expect("valid secret");
+
+		// Derive owner H160 by signing an arbitrary digest and recovering the
+		// uncompressed pubkey — sidesteps decompressing `pair.public()` by hand.
+		let dummy = [0u8; 32];
+		let dummy_sig = pair.sign_prehashed(&dummy).0;
+		let pubkey = sp_io::crypto::secp256k1_ecdsa_recover(&dummy_sig, &dummy)
+			.ok()
+			.expect("recover from valid signature");
+		let owner_h160 = H160::from_slice(&sp_io::hashing::keccak_256(&pubkey)[12..]);
+
+		let spender_h160 = H160::from_low_u64_be(0x9876_5432);
+		let owner_account =
+			<Test as pallet_revive::Config>::AddressMapper::to_account_id(&owner_h160);
+		let spender_account =
+			<Test as pallet_revive::Config>::AddressMapper::to_account_id(&spender_h160);
+
+		// The relayer / caller is some third party — permit's whole point is
+		// that the signature authorises the change, not the caller.
+		let relayer: u64 = 555_555;
+		Balances::make_free_balance_be(&owner_account, 100);
+		Balances::make_free_balance_be(&relayer, 1_000_000);
+
+		assert_ok!(Assets::force_create(
+			RuntimeOrigin::root(),
+			asset_id,
+			owner_account.clone(),
+			true,
+			1
+		));
+
+		// Build the EIP-712 digest. `pallet_assets::name` returns the default
+		// empty vec when no metadata row exists, which is what the precompile
+		// passes to `use_permit` — match that here.
+		let value_bytes: [u8; 32] = U256::MAX.to_be_bytes();
+		let deadline_value = U256::from(u64::MAX);
+		let deadline_bytes: [u8; 32] = deadline_value.to_be_bytes();
+		let nonce = sp_core::U256::zero();
+		let asset_name = pallet_assets::Pallet::<Test>::name(asset_id);
+
+		let digest = permit::Pallet::<Test>::permit_digest(
+			&asset_addr,
+			&asset_name,
+			&owner_h160,
+			&spender_h160,
+			&value_bytes,
+			&nonce,
+			&deadline_bytes,
+		);
+
+		// Sign. `sign_prehashed` returns [r(32) || s(32) || recovery_id(1)];
+		// libsecp256k1 produces low-s by default so no malleability fixup needed.
+		let sig = pair.sign_prehashed(&digest).0;
+		let mut r = [0u8; 32];
+		let mut s = [0u8; 32];
+		r.copy_from_slice(&sig[0..32]);
+		s.copy_from_slice(&sig[32..64]);
+		let v = sig[64] + 27; // Ethereum convention: recovery_id ∈ {0,1} → v ∈ {27,28}
+
+		let data = IERC20::permitCall {
+			owner: owner_h160.0.into(),
+			spender: spender_h160.0.into(),
+			value: U256::MAX,
+			deadline: deadline_value,
+			v,
+			r: r.into(),
+			s: s.into(),
+		}
+		.abi_encode();
+
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(relayer),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		);
+		assert!(
+			result.result.is_ok(),
+			"permit(uint256.max) must not trap: {:?}",
+			result.result
+		);
+		assert!(
+			!result.result.expect("checked above").did_revert(),
+			"permit(uint256.max) must not revert"
+		);
+
+		// Allowance must be saturated to Balance::MAX (u64 in the mock).
+		assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), u64::MAX);
+
+		// Event must report the saturated amount, not U256::MAX.
+		assert_contract_event(
+			asset_addr,
+			IERC20Events::Approval(IERC20::Approval {
+				owner: owner_h160.0.into(),
+				spender: spender_h160.0.into(),
+				value: U256::from(u64::MAX),
+			}),
+		);
+	});
+}
+
 /// `name()`, `symbol()`, and `decimals()` must NOT revert when an asset has
 /// no metadata row — real ERC-20s never revert on introspection. The legitimate
 /// case is a foreign asset registered before metadata is set; reverting there
