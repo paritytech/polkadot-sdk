@@ -910,13 +910,14 @@ fn delegatecall_is_rejected() {
 ///   1. The call itself succeeds (no trap, no revert).
 ///   2. The on-chain allowance reads back as `Balance::MAX`, both via direct pallet-state read and
 ///      via the precompile's `allowance()` selector.
-#[test]
-fn approve_saturates_on_uint256_max() {
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn approve_saturates_on_uint256_max(asset_index: u16) {
 	use frame_support::traits::fungibles::approvals::Inspect;
 
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
-		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
 
 		let owner = 123456789;
 		let spender = 987654321;
@@ -925,6 +926,7 @@ fn approve_saturates_on_uint256_max() {
 		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
 		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
 
+		setup_asset_for_prefix(asset_id, asset_index);
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 
 		let data =
@@ -991,18 +993,20 @@ fn approve_saturates_on_uint256_max() {
 /// scope saturation to `call.value == U256::MAX`, which would create a sharp
 /// edge for routers that compute "infinite allowance" as `U256::MAX - 1` or
 /// other large near-max sentinels.
-#[test]
-fn approve_saturates_just_above_balance_max() {
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn approve_saturates_just_above_balance_max(asset_index: u16) {
 	use frame_support::traits::fungibles::approvals::Inspect;
 
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
-		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
 
 		let owner = 123456789;
 		let spender = 987654321;
 		Balances::make_free_balance_be(&owner, 100);
 
+		setup_asset_for_prefix(asset_id, asset_index);
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 
 		// Smallest U256 that doesn't fit in the mock's `Balance` (u64).
@@ -1049,18 +1053,20 @@ fn approve_saturates_just_above_balance_max() {
 /// only exercises the `current == 0` branch; this pins the other branch where
 /// an existing non-zero allowance is cancelled before the saturated re-approval
 /// is written, plus the worst-case weight refund logic that branch carries.
-#[test]
-fn approve_saturates_when_overwriting_existing_allowance() {
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn approve_saturates_when_overwriting_existing_allowance(asset_index: u16) {
 	use frame_support::traits::fungibles::approvals::Inspect;
 
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
-		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
 		let owner = 123456789;
 		let spender = 987654321;
 		Balances::make_free_balance_be(&owner, 100);
 		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
 
+		setup_asset_for_prefix(asset_id, asset_index);
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 
 		// Establish a non-zero allowance first.
@@ -1418,7 +1424,11 @@ fn permit_saturates_just_above_balance_max() {
 			data,
 			&ExecConfig::new_substrate_tx(),
 		);
-		assert!(result.result.is_ok(), "permit(Balance::MAX + 1) must not trap: {:?}", result.result);
+		assert!(
+			result.result.is_ok(),
+			"permit(Balance::MAX + 1) must not trap: {:?}",
+			result.result
+		);
 		assert!(
 			!result.result.expect("checked above").did_revert(),
 			"permit(Balance::MAX + 1) must not revert"
@@ -1445,14 +1455,16 @@ fn permit_saturates_just_above_balance_max() {
 ///
 /// Pins the call-stable contract: all three selectors succeed, return defaults
 /// (`""`, `""`, `0`), and do not revert.
-#[test]
-fn metadata_returns_defaults_when_unset() {
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn metadata_returns_defaults_when_unset(asset_index: u16) {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
-		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
 		let owner = 123456789;
 
 		// Create the asset but do NOT call `force_set_metadata`.
+		setup_asset_for_prefix(asset_id, asset_index);
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 
 		let call_view = |data: Vec<u8>| -> Vec<u8> {
@@ -1496,13 +1508,15 @@ fn metadata_returns_defaults_when_unset() {
 /// then revert at signer recovery with a misleading "Signer does not match
 /// owner". Reverting at introspection keeps the failure attributable to
 /// the metadata, not to the wallet.
-#[test]
-fn metadata_non_utf8_reverts() {
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn metadata_non_utf8_reverts(asset_index: u16) {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
-		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
 		let owner = 123456789;
 
+		setup_asset_for_prefix(asset_id, asset_index);
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 		// 0xFF, 0xFE are not valid UTF-8 starter bytes.
 		assert_ok!(Assets::force_set_metadata(
