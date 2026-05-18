@@ -155,8 +155,11 @@ type FetchReceiptDataFn = Arc<
 	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Option<Vec<ReceiptGasInfo>>> + Send>> + Send + Sync,
 >;
 
-type FetchEthBlockHashFn =
-	Arc<dyn Fn(H256, u64) -> Pin<Box<dyn Future<Output = Option<H256>> + Send>> + Send + Sync>;
+type FetchEthBlockHashFn = Arc<
+	dyn Fn(H256, SubstrateBlockNumber) -> Pin<Box<dyn Future<Output = Option<H256>> + Send>>
+		+ Send
+		+ Sync,
+>;
 
 type RecoverEthAddressFn = Arc<dyn Fn(&TransactionSigned) -> Result<H160, ()> + Send + Sync>;
 
@@ -235,7 +238,7 @@ impl ReceiptExtractor {
 	pub fn new_mock() -> Self {
 		let fetch_receipt_data = Arc::new(|_| Box::pin(std::future::ready(None)) as Pin<Box<_>>);
 		// This method is useful when testing eth - substrate mapping.
-		let fetch_eth_block_hash = Arc::new(|block_hash: H256, block_number: u64| {
+		let fetch_eth_block_hash = Arc::new(|block_hash: H256, block_number: SubstrateBlockNumber| {
 			// Generate hash from substrate block hash and number
 			let bytes: Vec<u8> = [block_hash.as_bytes(), &block_number.to_be_bytes()].concat();
 			let eth_block_hash = H256::from(keccak_256(&bytes));
@@ -278,7 +281,7 @@ impl ReceiptExtractor {
 	async fn resolve_eth_block_hash(
 		&self,
 		substrate_block_hash: H256,
-		substrate_block_number: u64,
+		substrate_block_number: SubstrateBlockNumber,
 	) -> H256 {
 		match (self.fetch_eth_block_hash)(substrate_block_hash, substrate_block_number).await {
 			Some(hash) => hash,
@@ -519,7 +522,7 @@ impl ReceiptExtractor {
 	pub async fn get_ethereum_block_hash(
 		&self,
 		block_hash: &H256,
-		block_number: u64,
+		block_number: SubstrateBlockNumber,
 	) -> Option<H256> {
 		(self.fetch_eth_block_hash)(*block_hash, block_number).await
 	}
