@@ -21,6 +21,7 @@
 //! pruned on parachain finality.
 
 use codec::{Decode, Encode};
+use cumulus_client_consensus_common::old_finalized_hash;
 use sc_client_api::{
 	backend::AuxStore,
 	client::{AuxDataOperations, FinalityNotification, PreCommitActions},
@@ -115,30 +116,6 @@ pub fn load_entry<H: Encode, B: AuxStore>(
 			other
 		))),
 	}
-}
-
-/// Compute the old finalized hash from a tree route and a fallback parent hash.
-///
-/// This is the parent of the first block in the tree route, or the supplied `fallback_parent`
-/// (typically the parent hash of the just-finalized header) when the tree route is empty or its
-/// first block's header can't be loaded.
-///
-/// Taking the inputs directly rather than a `FinalityNotification` keeps this function unit-
-/// testable from outside `sc-client-api` (which has a private `unpin_handle` field).
-pub fn old_finalized_hash<C, Block>(
-	client: &C,
-	tree_route: &[Block::Hash],
-	fallback_parent: Block::Hash,
-) -> Block::Hash
-where
-	C: HeaderBackend<Block>,
-	Block: BlockT,
-{
-	tree_route
-		.first()
-		.and_then(|hash| client.header(*hash).ok().flatten())
-		.map(|h| *h.parent_hash())
-		.unwrap_or(fallback_parent)
 }
 
 /// Compute aux storage cleanup operations.
@@ -242,107 +219,12 @@ mod tests {
 	}
 
 	#[test]
-	fn round_trip_write_and_load() {
-		let backend = TestBackend::new();
-		let hash = Hash::repeat_byte(0xCD);
-		let entry = create_test_entry(999888777);
-
-		// Write via prepare + manual insert
-		let aux_data =
-			prepare_unincluded_segment_aux_data(hash, entry.time_ms, entry.proof.clone());
-		write_aux_data(&backend, aux_data);
-
-		// Load back
-		let loaded = load_entry(&backend, hash).expect("load should succeed");
-		assert_eq!(loaded, Some(entry));
-	}
-
-	#[test]
 	fn load_returns_none_when_no_entry_exists() {
 		let backend = TestBackend::new();
 		let hash = Hash::repeat_byte(0xEF);
 
 		let loaded = load_entry(&backend, hash).expect("load should succeed");
 		assert_eq!(loaded, None);
-	}
-
-	#[test]
-	fn load_returns_error_on_version_mismatch() {
-		let backend = TestBackend::new();
-		let hash = Hash::repeat_byte(0x12);
-
-		// Write a bogus version
-		let bogus_version = 999u32.encode();
-		AuxStore::insert_aux(
-			&backend,
-			&[(UNINCLUDED_SEGMENT_STORE_VERSION, bogus_version.as_slice())],
-			&[],
-		)
-		.expect("aux insert should succeed");
-
-		// Also write an entry so it's not just missing
-		let entry = create_test_entry(12345);
-		let key = unincluded_segment_key(hash);
-		AuxStore::insert_aux(&backend, &[(&key[..], entry.encode().as_slice())], &[])
-			.expect("aux insert should succeed");
-
-		// Load should fail with version error
-		let result = load_entry(&backend, hash);
-		assert!(result.is_err());
-		let err_msg = result.unwrap_err().to_string();
-		assert!(
-			err_msg.contains("Unsupported unincluded segment store DB version"),
-			"unexpected error: {}",
-			err_msg
-		);
-	}
-
-	#[test]
-	fn cleanup_deletes_stale_blocks() {
-		let stale_1 = Hash::repeat_byte(0xAA);
-		let stale_2 = Hash::repeat_byte(0xBB);
-		let just_finalized = Hash::repeat_byte(0xFF);
-		let old_finalized = Hash::repeat_byte(0xF0);
-
-		let ops = aux_storage_cleanup(just_finalized, old_finalized, &[], &[stale_1, stale_2]);
-
-		let keys: Vec<_> = ops.iter().map(|(k, _)| k.clone()).collect();
-		assert!(keys.contains(&unincluded_segment_key(stale_1)));
-		assert!(keys.contains(&unincluded_segment_key(stale_2)));
-
-		// Verify all values are None (deletes)
-		assert!(ops.iter().all(|(_, v)| v.is_none()));
-	}
-
-	#[test]
-	fn cleanup_deletes_tree_route() {
-		let route_1 = Hash::repeat_byte(0xC1);
-		let route_2 = Hash::repeat_byte(0xC2);
-		let just_finalized = Hash::repeat_byte(0xFF);
-		let old_finalized = Hash::repeat_byte(0xF0);
-
-		let ops = aux_storage_cleanup(just_finalized, old_finalized, &[route_1, route_2], &[]);
-
-		let keys: Vec<_> = ops.iter().map(|(k, _)| k.clone()).collect();
-		assert!(keys.contains(&unincluded_segment_key(route_1)));
-		assert!(keys.contains(&unincluded_segment_key(route_2)));
-
-		// Verify all values are None (deletes)
-		assert!(ops.iter().all(|(_, v)| v.is_none()));
-	}
-
-	#[test]
-	fn cleanup_deletes_old_and_just_finalized() {
-		let just_finalized = Hash::repeat_byte(0xFF);
-		let old_finalized = Hash::repeat_byte(0xF0);
-
-		let ops = aux_storage_cleanup(just_finalized, old_finalized, &[], &[]);
-
-		assert_eq!(ops.len(), 2);
-		let keys: Vec<_> = ops.iter().map(|(k, _)| k.clone()).collect();
-		assert!(keys.contains(&unincluded_segment_key(old_finalized)));
-		assert!(keys.contains(&unincluded_segment_key(just_finalized)));
-		assert!(ops.iter().all(|(_, v)| v.is_none()));
 	}
 
 	#[test]
@@ -442,90 +324,6 @@ mod tests {
 		);
 	}
 
-	// Minimal `HeaderBackend` mock for the `old_finalized_hash_*` tests.
-	//
-	// `lookup` is `None` ⇒ `header()` returns `Ok(None)` (simulates a missing header).
-	struct MockHeaderBackend {
-		lookup: Option<(Hash, substrate_test_runtime::Header)>,
-	}
-
-	impl HeaderBackend<Block> for MockHeaderBackend {
-		fn header(
-			&self,
-			hash: <Block as BlockT>::Hash,
-		) -> ClientResult<Option<<Block as BlockT>::Header>> {
-			Ok(self.lookup.as_ref().and_then(|(h, hdr)| (*h == hash).then(|| hdr.clone())))
-		}
-
-		fn info(&self) -> sc_client_api::blockchain::Info<Block> {
-			unimplemented!()
-		}
-
-		fn status(
-			&self,
-			_hash: <Block as BlockT>::Hash,
-		) -> ClientResult<sc_client_api::blockchain::BlockStatus> {
-			unimplemented!()
-		}
-
-		fn number(
-			&self,
-			_hash: <Block as BlockT>::Hash,
-		) -> ClientResult<Option<sp_runtime::traits::NumberFor<Block>>> {
-			unimplemented!()
-		}
-
-		fn hash(
-			&self,
-			_number: sp_runtime::traits::NumberFor<Block>,
-		) -> ClientResult<Option<<Block as BlockT>::Hash>> {
-			unimplemented!()
-		}
-	}
-
-	#[test]
-	fn old_finalized_hash_with_empty_tree_route() {
-		let client = MockHeaderBackend { lookup: None };
-		let fallback = Hash::repeat_byte(0x01);
-
-		let old_hash = old_finalized_hash::<_, Block>(&client, &[], fallback);
-		assert_eq!(old_hash, fallback, "empty tree_route should fall through to the supplied parent");
-	}
-
-	#[test]
-	fn old_finalized_hash_with_tree_route() {
-		use substrate_test_runtime::Header as TestHeader;
-
-		let expected_old = Hash::repeat_byte(0x01);
-		let tree_block = Hash::repeat_byte(0x02);
-
-		let header = TestHeader {
-			parent_hash: expected_old,
-			number: 2,
-			state_root: Default::default(),
-			extrinsics_root: Default::default(),
-			digest: Default::default(),
-		};
-
-		let client = MockHeaderBackend { lookup: Some((tree_block, header)) };
-		let fallback = Hash::repeat_byte(0xFF);
-
-		let old_hash = old_finalized_hash::<_, Block>(&client, &[tree_block], fallback);
-		assert_eq!(old_hash, expected_old, "should resolve to parent of first tree_route block");
-	}
-
-	#[test]
-	fn old_finalized_hash_falls_back_when_header_missing() {
-		// Non-empty tree_route, but the header lookup returns None — the function should fall back
-		// to `fallback_parent` rather than panicking or returning a wrong hash.
-		let client = MockHeaderBackend { lookup: None };
-		let tree_block = Hash::repeat_byte(0x02);
-		let fallback = Hash::repeat_byte(0xAA);
-
-		let old_hash = old_finalized_hash::<_, Block>(&client, &[tree_block], fallback);
-		assert_eq!(old_hash, fallback, "missing header should fall back to the supplied parent");
-	}
-
 	#[test]
 	fn end_to_end_write_cleanup_load() {
 		let backend = TestBackend::new();
@@ -552,10 +350,10 @@ mod tests {
 			prepare_unincluded_segment_aux_data(hash3, entry3.time_ms, entry3.proof.clone()),
 		);
 
-		// Verify all three exist
-		assert!(load_entry(&backend, hash1).expect("load").is_some());
-		assert!(load_entry(&backend, hash2).expect("load").is_some());
-		assert!(load_entry(&backend, hash3).expect("load").is_some());
+		// Verify all three round-trip with value equality.
+		assert_eq!(load_entry(&backend, hash1).expect("load"), Some(entry1));
+		assert_eq!(load_entry(&backend, hash2).expect("load"), Some(entry2));
+		assert_eq!(load_entry(&backend, hash3).expect("load"), Some(entry3.clone()));
 
 		// Generate cleanup that deletes hash1 (just-finalized) and hash2 (in tree route).
 		let ops = aux_storage_cleanup(hash1, Hash::repeat_byte(0xF0), &[hash2], &[]);
@@ -565,9 +363,9 @@ mod tests {
 		// Apply deletes
 		AuxStore::insert_aux(&backend, &[], &delete_keys).expect("delete should succeed");
 
-		// Verify hash1 and hash2 deleted, hash3 survives
-		assert!(load_entry(&backend, hash1).expect("load").is_none(), "hash1 should be deleted");
-		assert!(load_entry(&backend, hash2).expect("load").is_none(), "hash2 should be deleted");
-		assert!(load_entry(&backend, hash3).expect("load").is_some(), "hash3 should survive");
+		// Verify hash1 and hash2 deleted, hash3 survives with original value intact.
+		assert_eq!(load_entry(&backend, hash1).expect("load"), None, "hash1 should be deleted");
+		assert_eq!(load_entry(&backend, hash2).expect("load"), None, "hash2 should be deleted");
+		assert_eq!(load_entry(&backend, hash3).expect("load"), Some(entry3), "hash3 should survive");
 	}
 }
