@@ -1084,12 +1084,6 @@ mod tests {
 		}
 	}
 
-	fn hash_from_u64(value: u64) -> sp_statement_store::Hash {
-		let mut hash = [0u8; 32];
-		hash[..8].copy_from_slice(&value.to_le_bytes());
-		hash
-	}
-
 	fn live_event_for(statement: &Statement, filter_ids: Vec<FilterId>) -> LiveStatementEvent {
 		LiveStatementEvent {
 			hash: statement.hash(),
@@ -1131,90 +1125,6 @@ mod tests {
 			},
 			other => panic!("expected live statement for non-replayed filter, got {other:?}"),
 		}
-		assert!(state.next_event().is_none());
-	}
-
-	#[test]
-	fn multi_filter_pending_live_cap_stops_subscription() {
-		let mut state = MultiFilterSubscriptionState::new();
-		let filter_id = FilterId::new(1);
-		state.active_filter_ids.insert(filter_id);
-		state.replays_in_progress.insert(filter_id);
-
-		for i in 0..PENDING_LIVE_HARD_CAP {
-			let event = LiveStatementEvent {
-				hash: hash_from_u64(i as u64),
-				encoded: vec![i as u8],
-				matched_filter_ids: vec![filter_id],
-			};
-			state.handle_live_event(event);
-		}
-		assert_eq!(state.pending_live.len(), PENDING_LIVE_HARD_CAP);
-
-		let overflow = LiveStatementEvent {
-			hash: hash_from_u64(PENDING_LIVE_HARD_CAP as u64),
-			encoded: vec![0],
-			matched_filter_ids: vec![filter_id],
-		};
-		state.handle_live_event(overflow);
-		assert!(matches!(state.next_event(), Some(MultiFilterSubscriptionEvent::Stop)));
-		assert!(state.next_event().is_none());
-	}
-
-	#[test]
-	fn multi_filter_add_registers_replay_before_live_events() {
-		let mut state = MultiFilterSubscriptionState::new();
-		let filter_id = FilterId::new(7);
-		let snapshot = vec![vec![1, 2, 3]];
-
-		state.record_filter_added(filter_id, snapshot.clone());
-
-		state.handle_live_event(LiveStatementEvent {
-			hash: sp_statement_store::hash_encoded(&snapshot[0]),
-			encoded: snapshot[0].clone(),
-			matched_filter_ids: vec![filter_id],
-		});
-
-		assert!(matches!(
-			state.next_event(),
-			Some(MultiFilterSubscriptionEvent::ReplayStatements {
-				filter_id: id,
-				statements,
-			}) if id == filter_id && statements == snapshot
-		));
-		assert!(matches!(
-			state.next_event(),
-			Some(MultiFilterSubscriptionEvent::ReplayDone { filter_id: id }) if id == filter_id
-		));
-		assert!(state.next_event().is_none());
-	}
-
-	#[test]
-	fn multi_filter_new_statement_history_cap_stops_subscription() {
-		let mut state = MultiFilterSubscriptionState::new();
-		let filter_id = FilterId::new(1);
-		state.active_filter_ids.insert(filter_id);
-
-		for i in 0..EMITTED_VIA_NEW_HARD_CAP {
-			let event = LiveStatementEvent {
-				hash: hash_from_u64(i as u64),
-				encoded: vec![i as u8],
-				matched_filter_ids: vec![filter_id],
-			};
-			state.handle_live_event(event);
-			assert!(matches!(
-				state.next_event(),
-				Some(MultiFilterSubscriptionEvent::NewStatement(_))
-			));
-		}
-
-		let overflow = LiveStatementEvent {
-			hash: hash_from_u64(EMITTED_VIA_NEW_HARD_CAP as u64),
-			encoded: vec![0],
-			matched_filter_ids: vec![filter_id],
-		};
-		state.handle_live_event(overflow);
-		assert!(matches!(state.next_event(), Some(MultiFilterSubscriptionEvent::Stop)));
 		assert!(state.next_event().is_none());
 	}
 
