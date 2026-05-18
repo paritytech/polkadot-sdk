@@ -17,14 +17,8 @@ pub fn open_vault<T: Config>(
 	validate_rate::<T>(&cfg, annual_rate)?;
 
 	let now = T::TimeProvider::now();
+	let price = oracle_price::<T>(collateral_id)?.price;
 	update_aggregate_interest::<T>(collateral_id, now)?;
-
-	T::CollateralAssets::hold(
-		collateral_id,
-		&HoldReason::VaultCollateral.into(),
-		&owner,
-		initial_collateral,
-	)?;
 
 	let bs_before = branch_state_of::<T>(collateral_id)?;
 	ensure!(
@@ -46,7 +40,6 @@ pub fn open_vault<T: Config>(
 		redist_snapshot: bs_before.redist,
 	};
 
-	let price = oracle_price::<T>(collateral_id)?.price;
 	let total_debt = initial_debt.saturating_add(upfront_fee);
 	let cr = math::collateralization_ratio::<BalanceOf<T>>(initial_collateral, total_debt, price)
 		.ok_or(Error::<T>::UnsafeCollateralizationRatio)?;
@@ -58,6 +51,13 @@ pub fn open_vault<T: Config>(
 	bs_after.add_collateral(initial_collateral);
 	let post_tcr = compute_tcr::<T>(&bs_after, price, now)?;
 	enforce_mode_rules::<T>(&cfg, &bs_before, pre_tcr, post_tcr, false)?;
+	// All gates passed
+	T::CollateralAssets::hold(
+		collateral_id,
+		&HoldReason::VaultCollateral.into(),
+		&owner,
+		initial_collateral,
+	)?;
 
 	T::StableAsset::mint_into(&owner, initial_debt)?;
 	if !upfront_fee.is_zero() {
