@@ -2128,8 +2128,9 @@ pub mod migrations {
 		parachains_configuration::migration::v13::MigrateToV13<Runtime>,
 		parachains_shared::migration::MigrateToV2<Runtime>,
 		// #11705: drain residual legacy `py/trsry` balance into the ACF accumulation
-		// account; the runtime's `Forwarder` then teleports it to AssetHub's central DAP.
-		// Idempotent. Safe to remove after the next runtime upgrade once confirmed.
+		// account.
+		// Idempotent. No further activity on the legacy `py/trsry`
+		// account is expected. Safe to remove after the next runtime upgrade once confirmed.
 		DrainLegacyTreasuryToAccumulationAccount,
 		frame_support::migrations::RemovePallet<
 			TreasuryPalletStr,
