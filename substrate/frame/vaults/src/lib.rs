@@ -33,9 +33,9 @@ mod tests;
 pub use pallet::*;
 pub use pusd_primitives;
 pub use types::{
-	BranchConfig, BranchDebt, BranchMode, BranchQueues, BranchStakes, BranchState, DebtPayment,
-	FrozenReason, FrozenState, ParameterId, RedistSnapshot, Vault, VaultDebt, VaultListId,
-	VaultStatus, VaultsManagerLevel,
+	BranchConfig, BranchConfigUpdate, BranchDebt, BranchMode, BranchQueues, BranchStakes,
+	BranchState, DebtPayment, FrozenReason, FrozenState, ParameterId, RedistSnapshot, Vault,
+	VaultDebt, VaultListId, VaultStatus, VaultsManagerLevel,
 };
 pub use weights::WeightInfo;
 
@@ -671,10 +671,9 @@ pub mod pallet {
 					value >= cfg.minimum_collateralization_ratio,
 				Error::<T>::DefensiveActionNotDefensive
 			);
-			helpers::update_branch_config::<T, _>(
+			helpers::update_branch_config::<T>(
 				collateral_id,
-				types::ParameterId::MinimumCollateralizationRatio,
-				|c| c.minimum_collateralization_ratio = value,
+				BranchConfigUpdate::MinimumCollateralizationRatio(value),
 			)
 		}
 
@@ -692,10 +691,9 @@ pub mod pallet {
 					value >= cfg.initial_collateralization_ratio,
 				Error::<T>::DefensiveActionNotDefensive
 			);
-			helpers::update_branch_config::<T, _>(
+			helpers::update_branch_config::<T>(
 				collateral_id,
-				types::ParameterId::InitialCollateralizationRatio,
-				|c| c.initial_collateralization_ratio = value,
+				BranchConfigUpdate::InitialCollateralizationRatio(value),
 			)
 		}
 
@@ -713,10 +711,9 @@ pub mod pallet {
 					value >= cfg.safety_collateralization_ratio,
 				Error::<T>::DefensiveActionNotDefensive
 			);
-			helpers::update_branch_config::<T, _>(
+			helpers::update_branch_config::<T>(
 				collateral_id,
-				types::ParameterId::SafetyCollateralizationRatio,
-				|c| c.safety_collateralization_ratio = value,
+				BranchConfigUpdate::SafetyCollateralizationRatio(value),
 			)
 		}
 
@@ -756,10 +753,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(matches!(level, VaultsManagerLevel::Full), Error::<T>::InsufficientPrivilege);
-			helpers::update_branch_config::<T, _>(
+			helpers::update_branch_config::<T>(
 				collateral_id,
-				types::ParameterId::MinimumDebt,
-				|c| c.minimum_debt = value,
+				BranchConfigUpdate::MinimumDebt(value),
 			)
 		}
 
@@ -772,10 +768,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(matches!(level, VaultsManagerLevel::Full), Error::<T>::InsufficientPrivilege);
-			helpers::update_branch_config::<T, _>(
+			helpers::update_branch_config::<T>(
 				collateral_id,
-				types::ParameterId::MinimumCollateral,
-				|c| c.minimum_collateral = value,
+				BranchConfigUpdate::MinimumCollateral(value),
 			)
 		}
 
@@ -788,10 +783,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(matches!(level, VaultsManagerLevel::Full), Error::<T>::InsufficientPrivilege);
-			helpers::update_branch_config::<T, _>(
+			helpers::update_branch_config::<T>(
 				collateral_id,
-				types::ParameterId::MinimumTotalStakes,
-				|c| c.minimum_total_stakes = value,
+				BranchConfigUpdate::MinimumTotalStakes(value),
 			)
 		}
 
@@ -810,13 +804,9 @@ pub mod pallet {
 					(max_rate <= cfg.maximum_borrow_rate && min_rate >= cfg.minimum_borrow_rate),
 				Error::<T>::DefensiveActionNotDefensive
 			);
-			helpers::update_branch_config::<T, _>(
+			helpers::update_branch_config::<T>(
 				collateral_id,
-				types::ParameterId::BorrowRateBounds,
-				|c| {
-					c.minimum_borrow_rate = min_rate;
-					c.maximum_borrow_rate = max_rate;
-				},
+				BranchConfigUpdate::BorrowRateBounds { min: min_rate, max: max_rate },
 			)
 		}
 
@@ -829,10 +819,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(matches!(level, VaultsManagerLevel::Full), Error::<T>::InsufficientPrivilege);
-			helpers::update_branch_config::<T, _>(
+			helpers::update_branch_config::<T>(
 				collateral_id,
-				types::ParameterId::UpfrontFeePeriod,
-				|c| c.upfront_fee_period = value,
+				BranchConfigUpdate::UpfrontFeePeriod(value),
 			)
 		}
 
@@ -845,10 +834,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(matches!(level, VaultsManagerLevel::Full), Error::<T>::InsufficientPrivilege);
-			helpers::update_branch_config::<T, _>(
+			helpers::update_branch_config::<T>(
 				collateral_id,
-				types::ParameterId::RateAdjustmentCooldown,
-				|c| c.rate_adjustment_cooldown = value,
+				BranchConfigUpdate::RateAdjustmentCooldown(value),
 			)
 		}
 
@@ -861,10 +849,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(matches!(level, VaultsManagerLevel::Full), Error::<T>::InsufficientPrivilege);
-			helpers::update_branch_config::<T, _>(
+			helpers::update_branch_config::<T>(
 				collateral_id,
-				types::ParameterId::RedistributionPenalty,
-				|c| c.redistribution_penalty = value,
+				BranchConfigUpdate::RedistributionPenalty(value),
 			)
 		}
 

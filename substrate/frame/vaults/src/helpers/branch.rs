@@ -73,20 +73,17 @@ pub fn register_branch<T: Config>(
 	Ok(())
 }
 
-/// Apply `mutator` to the branch config and emit `ParameterUpdated`. Caller
-/// is responsible for any defensive-action / authorization gating.
+/// Apply `update` to the branch config and emit `ParameterUpdated`. Caller is
+/// responsible for any defensive-action / authorization gating.
 #[require_transactional]
-pub fn update_branch_config<T: Config, F>(
+pub fn update_branch_config<T: Config>(
 	collateral_id: T::AssetId,
-	parameter: crate::types::ParameterId,
-	mutator: F,
-) -> Result<(), DispatchError>
-where
-	F: FnOnce(&mut BranchConfig<BalanceOf<T>, MomentOf<T>>),
-{
+	update: crate::types::BranchConfigUpdate<BalanceOf<T>, MomentOf<T>>,
+) -> Result<(), DispatchError> {
+	let parameter = update.parameter_id();
 	BranchConfigs::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
 		let cfg = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-		mutator(cfg);
+		update.apply_to(cfg);
 		Ok(())
 	})?;
 	Pallet::<T>::deposit_event(Event::ParameterUpdated { collateral_id, parameter });

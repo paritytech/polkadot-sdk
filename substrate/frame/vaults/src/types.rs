@@ -92,10 +92,7 @@ pub struct DebtPayment<Balance> {
 	pub principal: Balance,
 }
 
-impl<Balance> DebtPayment<Balance>
-where
-	Balance: Saturating + Copy,
-{
+impl<Balance: Saturating + Copy> DebtPayment<Balance> {
 	pub fn total(&self) -> Balance {
 		self.interest.saturating_add(self.principal)
 	}
@@ -110,10 +107,7 @@ pub struct VaultDebt<Balance> {
 	pub interest: Balance,
 }
 
-impl<Balance> VaultDebt<Balance>
-where
-	Balance: Ord + Saturating + Copy,
-{
+impl<Balance: Ord + Saturating + Copy> VaultDebt<Balance> {
 	pub fn total(&self) -> Balance {
 		self.principal.saturating_add(self.interest)
 	}
@@ -238,9 +232,8 @@ impl<AccountId, Balance, Moment> BranchState<AccountId, Balance, Moment> {
 	}
 }
 
-impl<AccountId, Balance, Moment> BranchState<AccountId, Balance, Moment>
-where
-	Balance: FixedPointOperand + Saturating,
+impl<AccountId, Balance: FixedPointOperand + Saturating, Moment>
+	BranchState<AccountId, Balance, Moment>
 {
 	/// Add a vault's full contribution to branch debt/stake aggregates.
 	pub fn attach_vault(&mut self, vault: &Vault<Balance, Moment>) {
@@ -334,6 +327,57 @@ pub enum ParameterId {
 	UpfrontFeePeriod,
 	RateAdjustmentCooldown,
 	RedistributionPenalty,
+}
+
+/// Atomic update to a single field of `BranchConfig`. Carries both the
+/// `ParameterId` tag (for event emission) and the new value, so the two can't
+/// drift.
+pub enum BranchConfigUpdate<Balance, Moment> {
+	MinimumCollateralizationRatio(FixedU128),
+	InitialCollateralizationRatio(FixedU128),
+	SafetyCollateralizationRatio(FixedU128),
+	MinimumDebt(Balance),
+	MinimumCollateral(Balance),
+	MinimumTotalStakes(Balance),
+	BorrowRateBounds { min: FixedU128, max: FixedU128 },
+	UpfrontFeePeriod(Moment),
+	RateAdjustmentCooldown(Moment),
+	RedistributionPenalty(FixedU128),
+}
+
+impl<Balance, Moment> BranchConfigUpdate<Balance, Moment> {
+	pub fn parameter_id(&self) -> ParameterId {
+		match self {
+			Self::MinimumCollateralizationRatio(_) => ParameterId::MinimumCollateralizationRatio,
+			Self::InitialCollateralizationRatio(_) => ParameterId::InitialCollateralizationRatio,
+			Self::SafetyCollateralizationRatio(_) => ParameterId::SafetyCollateralizationRatio,
+			Self::MinimumDebt(_) => ParameterId::MinimumDebt,
+			Self::MinimumCollateral(_) => ParameterId::MinimumCollateral,
+			Self::MinimumTotalStakes(_) => ParameterId::MinimumTotalStakes,
+			Self::BorrowRateBounds { .. } => ParameterId::BorrowRateBounds,
+			Self::UpfrontFeePeriod(_) => ParameterId::UpfrontFeePeriod,
+			Self::RateAdjustmentCooldown(_) => ParameterId::RateAdjustmentCooldown,
+			Self::RedistributionPenalty(_) => ParameterId::RedistributionPenalty,
+		}
+	}
+
+	pub fn apply_to(self, cfg: &mut BranchConfig<Balance, Moment>) {
+		match self {
+			Self::MinimumCollateralizationRatio(v) => cfg.minimum_collateralization_ratio = v,
+			Self::InitialCollateralizationRatio(v) => cfg.initial_collateralization_ratio = v,
+			Self::SafetyCollateralizationRatio(v) => cfg.safety_collateralization_ratio = v,
+			Self::MinimumDebt(v) => cfg.minimum_debt = v,
+			Self::MinimumCollateral(v) => cfg.minimum_collateral = v,
+			Self::MinimumTotalStakes(v) => cfg.minimum_total_stakes = v,
+			Self::BorrowRateBounds { min, max } => {
+				cfg.minimum_borrow_rate = min;
+				cfg.maximum_borrow_rate = max;
+			},
+			Self::UpfrontFeePeriod(v) => cfg.upfront_fee_period = v,
+			Self::RateAdjustmentCooldown(v) => cfg.rate_adjustment_cooldown = v,
+			Self::RedistributionPenalty(v) => cfg.redistribution_penalty = v,
+		}
+	}
 }
 
 /// Manager-origin authorization tier.
