@@ -1027,9 +1027,9 @@ where
 				);
 				debug_assert!(_was_in.is_none());
 
-				if let Some(metrics) = &self.metrics {
+				self.metrics.as_ref().map(|metrics| {
 					metrics.peers_connected.with_label_values(&[peer_kind]).inc();
-				}
+				});
 
 				// Light V2 peers must set topic affinity before receiving statements.
 				// All other peers get initial sync immediately.
@@ -1042,12 +1042,12 @@ where
 				debug_assert!(removed_peer.is_some());
 
 				if let Some(removed_peer) = removed_peer {
-					if let Some(metrics) = &self.metrics {
+					self.metrics.as_ref().map(|metrics| {
 						metrics
 							.peers_connected
 							.with_label_values(&[Self::peer_kind_label(removed_peer.is_light)])
 							.dec();
-					}
+					});
 				}
 
 				if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
