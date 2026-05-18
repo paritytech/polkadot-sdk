@@ -698,9 +698,6 @@ fn permit_rollback_preserves_prior_allowance() {
 /// has incremented the nonce. The `with_transaction` wrapper must roll
 /// the nonce back. Distinct failure surface from the frozen-asset test
 /// (revert vs DispatchError trap).
-///
-/// Note: this test depends on the mock's `Balance = u64`. On a runtime
-/// with `Balance = u128` the same input would not overflow `to_balance`.
 #[test]
 fn permit_value_overflow_rolls_back() {
 	use frame_support::traits::fungibles::approvals::Inspect;
@@ -708,7 +705,7 @@ fn permit_value_overflow_rolls_back() {
 	new_test_ext().execute_with(|| {
 		let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
 
-		let huge = AlloyU256::from(1u128 << 64);
+		let huge = AlloyU256::MAX;
 		let (v, r, s) = sign_permit(setup.asset_addr, setup.spender_addr, huge, setup.deadline);
 		let result = raw_permit(
 			setup.submitter,
