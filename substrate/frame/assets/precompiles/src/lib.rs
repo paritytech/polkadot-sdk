@@ -361,8 +361,7 @@ where
 		let spender_account = env.to_account_id(&spender);
 		// Saturate: EVM tooling encodes the "infinite allowance" idiom as
 		// `type(uint256).max`, which can't fit in the runtime `Balance`.
-		let new_amount: <Runtime as Config<Instance>>::Balance =
-			call.value.unique_saturated_into();
+		let new_amount: <Runtime as Config<Instance>>::Balance = call.value.unique_saturated_into();
 
 		let current = pallet_assets::Pallet::<Runtime, Instance>::allowance(
 			asset_id.clone(),

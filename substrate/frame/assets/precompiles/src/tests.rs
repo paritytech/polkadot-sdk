@@ -1027,11 +1027,7 @@ fn permit_saturates_on_uint256_max() {
 			data,
 			&ExecConfig::new_substrate_tx(),
 		);
-		assert!(
-			result.result.is_ok(),
-			"permit(uint256.max) must not trap: {:?}",
-			result.result
-		);
+		assert!(result.result.is_ok(), "permit(uint256.max) must not trap: {:?}", result.result);
 		assert!(
 			!result.result.expect("checked above").did_revert(),
 			"permit(uint256.max) must not revert"
