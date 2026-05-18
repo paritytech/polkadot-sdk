@@ -885,6 +885,44 @@ fn approve_saturates_just_above_balance_max() {
 	});
 }
 
+/// Cancel-then-overwrite path with saturation. `approve_saturates_on_uint256_max`
+/// only exercises the `current == 0` branch; this pins the other branch where
+/// an existing non-zero allowance is cancelled before the saturated re-approval
+/// is written, plus the worst-case weight refund logic that branch carries.
+#[test]
+fn approve_saturates_when_overwriting_existing_allowance() {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let owner = 123456789;
+		let spender = 987654321;
+		Balances::make_free_balance_be(&owner, 100);
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+
+		// Establish a non-zero allowance first.
+		call_approve(owner, asset_addr, spender_addr, U256::from(25));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 25);
+
+		// Overwrite with uint256.max. Goes through the cancel-first branch and
+		// must still saturate.
+		call_approve(owner, asset_addr, spender_addr, U256::MAX);
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
+
+		assert_contract_event(
+			asset_addr,
+			IERC20Events::Approval(IERC20::Approval {
+				owner: <Test as pallet_revive::Config>::AddressMapper::to_address(&owner).0.into(),
+				spender: spender_addr.0.into(),
+				value: U256::from(u64::MAX),
+			}),
+		);
+	});
+}
+
 /// `permit(spender, type(uint256).max, …)` is the gasless infinite-allowance
 /// pathway — the entire reason `permit()` exists in the EIP-2612 surface for
 /// wallet/router integrations. It must saturate at `Balance::MAX` rather than
