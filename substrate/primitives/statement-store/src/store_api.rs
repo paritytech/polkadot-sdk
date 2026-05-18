@@ -141,7 +141,10 @@ impl From<TopicFilter> for OptimizedTopicFilter {
 /// Reason why a statement was rejected from the store.
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(tag = "reason", rename_all = "camelCase"))]
+#[cfg_attr(
+	feature = "serde",
+	serde(tag = "reason", rename_all = "camelCase", rename_all_fields = "camelCase")
+)]
 pub enum RejectionReason {
 	/// Statement data exceeds the maximum allowed size for the account.
 	DataTooLarge {
@@ -186,7 +189,10 @@ impl RejectionReason {
 /// Reason why a statement failed validation.
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(tag = "reason", rename_all = "camelCase"))]
+#[cfg_attr(
+	feature = "serde",
+	serde(tag = "reason", rename_all = "camelCase", rename_all_fields = "camelCase")
+)]
 pub enum InvalidReason {
 	/// Statement has no proof.
 	NoProof,
@@ -255,6 +261,7 @@ impl SubmitOutcome {
 		match result {
 			SubmitResult::New => Ok(SubmitOutcome::New),
 			SubmitResult::Known => Ok(SubmitOutcome::Known),
+			SubmitResult::KnownExpired => Ok(SubmitOutcome::Invalid(InvalidReason::AlreadyExpired)),
 			SubmitResult::Rejected(reason) => Ok(SubmitOutcome::Rejected(reason)),
 			SubmitResult::Invalid(reason) => Ok(SubmitOutcome::Invalid(reason)),
 			other => Err(other),

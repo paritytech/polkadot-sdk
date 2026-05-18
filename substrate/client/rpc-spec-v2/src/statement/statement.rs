@@ -110,12 +110,20 @@ where
 		};
 
 		let fut = async move {
-			while let Some(event) = live_stream.next().await {
-				if !send_subscription_event(&sink, event).await {
-					break;
+			let _subscription_entry = entry;
+			loop {
+				tokio::select! {
+					_ = sink.closed() => break,
+					event = live_stream.next() => match event {
+						Some(event) => {
+							if !send_subscription_event(&sink, event).await {
+								break;
+							}
+						},
+						None => break,
+					},
 				}
 			}
-			drop(entry);
 		};
 
 		self.executor
@@ -166,9 +174,6 @@ where
 		let submit_result = self.store.submit(statement, StatementSource::Local);
 		match SubmitOutcome::from_submit_result(submit_result) {
 			Ok(outcome) => Ok(outcome),
-			Err(SubmitResult::KnownExpired) => {
-				Err(Error::InternalError("store returned KnownExpired for local submit".into()))
-			},
 			Err(SubmitResult::InternalError(e)) => Err(Error::InternalError(e.to_string())),
 			Err(other) => Err(Error::InternalError(format!(
 				"store returned unsupported submit result: {other:?}",
