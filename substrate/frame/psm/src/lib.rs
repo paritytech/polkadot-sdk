@@ -322,8 +322,7 @@ pub mod pallet {
 	/// The PSM instance, keyed by its internal asset id. Populated at genesis; expected to
 	/// contain exactly one entry for [`Config::InternalAssetId`].
 	#[pallet::storage]
-	pub type Psms<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AssetId, PsmInfo<T>, OptionQuery>;
+	pub type Psms<T: Config> = StorageMap<_, Blake2_128Concat, T::AssetId, PsmInfo<T>, OptionQuery>;
 
 	/// internal minted through PSM per external asset, denominated in internal units.
 	#[pallet::storage]

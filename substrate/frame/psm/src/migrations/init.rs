@@ -178,8 +178,8 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
-		let info = Psms::<T>::get(T::InternalAssetId::get())
-			.ok_or("PsmInfo missing after migration")?;
+		let info =
+			Psms::<T>::get(T::InternalAssetId::get()).ok_or("PsmInfo missing after migration")?;
 		ensure!(info.max_debt == I::max_debt(), "max_debt mismatch after migration");
 		ensure!(
 			info.fee_destination == I::fee_destination(),
@@ -317,11 +317,8 @@ mod tests {
 
 		new_test_ext().execute_with(|| {
 			// Plant a sentinel `PsmInfo`. The migration must not overwrite it.
-			let sentinel = PsmInfo::<Test> {
-				fee_destination: ALICE,
-				max_debt: 42,
-				internal_decimals: 42,
-			};
+			let sentinel =
+				PsmInfo::<Test> { fee_destination: ALICE, max_debt: 42, internal_decimals: 42 };
 			Psms::<Test>::insert(INTERNAL_ASSET_ID, sentinel.clone());
 
 			InitializePsm::<Test, TestPsmConfig>::on_runtime_upgrade();

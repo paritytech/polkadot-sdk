@@ -57,9 +57,7 @@ use frame_support::{
 };
 
 use crate::{
-	pallet::{
-		CircuitBreakerLevel, ExternalAssets, ExternalDecimals, Psms, MAX_DECIMALS_DIFF,
-	},
+	pallet::{CircuitBreakerLevel, ExternalAssets, ExternalDecimals, Psms, MAX_DECIMALS_DIFF},
 	Config, Pallet,
 };
 

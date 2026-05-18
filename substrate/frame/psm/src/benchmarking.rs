@@ -192,10 +192,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Root, new_value);
 
-		assert_eq!(
-			crate::Psms::<T>::get(T::InternalAssetId::get()).unwrap().max_debt,
-			new_value
-		);
+		assert_eq!(crate::Psms::<T>::get(T::InternalAssetId::get()).unwrap().max_debt, new_value);
 		Ok(())
 	}
 

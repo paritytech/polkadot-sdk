@@ -595,9 +595,7 @@ mod governance {
 
 			assert_eq!(psm_max_debt(), new_value);
 
-			System::assert_has_event(
-				Event::<Test>::MaxDebtUpdated { old_value, new_value }.into(),
-			);
+			System::assert_has_event(Event::<Test>::MaxDebtUpdated { old_value, new_value }.into());
 		});
 	}
 
@@ -969,10 +967,7 @@ mod governance {
 		new_test_ext().execute_with(|| {
 			let new_value = 5_000_000 * INTERNAL_UNIT;
 
-			assert_ok!(Psm::set_max_debt(
-				RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
-				new_value,
-			));
+			assert_ok!(Psm::set_max_debt(RuntimeOrigin::signed(EMERGENCY_ACCOUNT), new_value,));
 
 			assert_eq!(psm_max_debt(), new_value);
 		});
