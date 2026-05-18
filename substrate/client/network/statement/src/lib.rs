@@ -681,13 +681,11 @@ where
 	N: NetworkPeers + NetworkEventStream,
 	S: SyncEventStream + sp_consensus::SyncOracle,
 {
-	fn update_peers_connected_metrics(&self) {
-		let light = self.peers.values().filter(|peer| peer.is_light).count() as u64;
-		let full = self.peers.len() as u64 - light;
-
-		if let Some(metrics) = &self.metrics {
-			metrics.peers_connected.with_label_values(&["full"]).set(full);
-			metrics.peers_connected.with_label_values(&["light"]).set(light);
+	fn peer_kind_label(is_light: bool) -> &'static str {
+		if is_light {
+			"light"
+		} else {
+			"full"
 		}
 	}
 
@@ -1002,6 +1000,7 @@ where
 					return;
 				};
 				let is_light = peer_role.is_light();
+				let peer_kind = Self::peer_kind_label(is_light);
 				log::debug!(
 					target: LOG_TARGET,
 					"Peer {peer} connected with statement protocol {protocol_version:?}, role={peer_role:?}"
@@ -1028,7 +1027,9 @@ where
 				);
 				debug_assert!(_was_in.is_none());
 
-				self.update_peers_connected_metrics();
+				if let Some(metrics) = &self.metrics {
+					metrics.peers_connected.with_label_values(&[peer_kind]).inc();
+				}
 
 				// Light V2 peers must set topic affinity before receiving statements.
 				// All other peers get initial sync immediately.
@@ -1037,8 +1038,18 @@ where
 				}
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
-				let _peer = self.peers.remove(&peer);
-				debug_assert!(_peer.is_some());
+				let removed_peer = self.peers.remove(&peer);
+				debug_assert!(removed_peer.is_some());
+
+				if let Some(removed_peer) = removed_peer {
+					if let Some(metrics) = &self.metrics {
+						metrics
+							.peers_connected
+							.with_label_values(&[Self::peer_kind_label(removed_peer.is_light)])
+							.dec();
+					}
+				}
+
 				if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
 					self.metrics.as_ref().map(|metrics| {
 						metrics.initial_sync_peers_active.dec();
@@ -1048,7 +1059,6 @@ where
 					});
 				}
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
-				self.update_peers_connected_metrics();
 			},
 			NotificationEvent::NotificationReceived { peer, notification } => {
 				let bytes_received = notification.len() as u64;
