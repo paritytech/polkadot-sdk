@@ -152,6 +152,7 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type ConsensusHook = ExpectParentIncluded;
 	type RelayParentOffset = ConstU32<0>;
 	type SchedulingV3Enabled = ConstBool<false>;
+	type SchedulingSignatureVerifier = cumulus_primitives_core::NoVerification;
 }
 
 fn set_ancestors() {
@@ -521,4 +522,158 @@ fn block_executor_does_not_influence_proof_size_recordings() {
 	ext.execute_with_recorder(recorder, || {
 		BlockExecutor::<Test, TestExecutive>::execute_verified_block(block);
 	});
+}
+
+// =========================================================================
+// AuraSchedulingVerifier tests
+// =========================================================================
+
+mod signature_verifier_tests {
+	use super::*;
+	use crate::{signature_verifier::AuraSchedulingVerifier, Authorities};
+	use codec::Encode;
+	use cumulus_primitives_core::{
+		relay_chain::Header as RelayHeader, CoreSelector, SchedulingInfoPayload,
+		SignedSchedulingInfo, VerifySchedulingSignature,
+	};
+	use sp_consensus_babe::{
+		digests::{PreDigest, SecondaryPlainPreDigest},
+		BABE_ENGINE_ID,
+	};
+	use sp_runtime::generic::{Digest, DigestItem};
+
+	fn header_with_relay_slot(slot: u64) -> RelayHeader {
+		let pre_digest = PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
+			authority_index: 0,
+			slot: Slot::from(slot),
+		});
+		let digest = Digest {
+			logs: vec![DigestItem::PreRuntime(BABE_ENGINE_ID, pre_digest.encode())],
+		};
+		RelayHeader::new(1u32, H256::zero(), H256::zero(), H256::zero(), digest)
+	}
+
+	fn put_authorities(authorities: Vec<AuthorityId>) {
+		let bounded: BoundedVec<_, _> = BoundedVec::truncate_from(authorities);
+		Authorities::<Test>::put(bounded);
+	}
+
+	fn signed_info_for(
+		signer: sp_keyring::Sr25519Keyring,
+		core_selector: CoreSelector,
+		internal_sp: H256,
+	) -> SignedSchedulingInfo {
+		let payload = SchedulingInfoPayload::new(core_selector, internal_sp);
+		let sig = signer.sign(&payload.encode());
+		SignedSchedulingInfo {
+			core_selector,
+			peer_id: Default::default(),
+			signature: sig.0,
+		}
+	}
+
+	#[test]
+	fn verifies_valid_signature_by_eligible_author() {
+		TestSlotDuration::set_slot_duration(6000);
+		new_test_ext(0).execute_with(|| {
+			// Two authorities, Alice at index 0 and Bob at index 1.
+			put_authorities(vec![Alice.public().into(), Bob.public().into()]);
+
+			// Relay slot 4 → para slot 4 → author = authorities[4 % 2] = Alice (index 0).
+			let header = header_with_relay_slot(4);
+			let internal_sp = H256::repeat_byte(0xAB);
+			let signed = signed_info_for(Alice, CoreSelector(7), internal_sp);
+
+			assert!(AuraSchedulingVerifier::<Test>::verify(&signed, &header, internal_sp));
+		});
+	}
+
+	#[test]
+	fn rejects_signature_by_wrong_author() {
+		TestSlotDuration::set_slot_duration(6000);
+		new_test_ext(0).execute_with(|| {
+			// Alice at index 0 is the eligible author for slot 4 (4 % 2 == 0).
+			// Bob signs instead → verification must fail.
+			put_authorities(vec![Alice.public().into(), Bob.public().into()]);
+
+			let header = header_with_relay_slot(4);
+			let internal_sp = H256::repeat_byte(0xAB);
+			let signed = signed_info_for(Bob, CoreSelector(0), internal_sp);
+
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header, internal_sp));
+		});
+	}
+
+	#[test]
+	fn rejects_signature_when_internal_scheduling_parent_differs() {
+		// Signature is valid for one internal_sp but the verifier is called with a different
+		// one — must fail because the payload binding is part of the signed bytes.
+		TestSlotDuration::set_slot_duration(6000);
+		new_test_ext(0).execute_with(|| {
+			put_authorities(vec![Alice.public().into(), Bob.public().into()]);
+
+			let header = header_with_relay_slot(4);
+			let signed_internal_sp = H256::repeat_byte(0xAB);
+			let signed = signed_info_for(Alice, CoreSelector(0), signed_internal_sp);
+
+			let different_internal_sp = H256::repeat_byte(0xCD);
+			assert!(!AuraSchedulingVerifier::<Test>::verify(
+				&signed,
+				&header,
+				different_internal_sp,
+			));
+		});
+	}
+
+	#[test]
+	fn rejects_signature_when_core_selector_differs() {
+		// Signing payload with CoreSelector(1), passing in CoreSelector(2) → reject.
+		TestSlotDuration::set_slot_duration(6000);
+		new_test_ext(0).execute_with(|| {
+			put_authorities(vec![Alice.public().into(), Bob.public().into()]);
+
+			let header = header_with_relay_slot(4);
+			let internal_sp = H256::repeat_byte(0xAB);
+			let mut signed = signed_info_for(Alice, CoreSelector(1), internal_sp);
+			// Tamper with the core selector field but keep the (now stale) signature.
+			signed.core_selector = CoreSelector(2);
+
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header, internal_sp));
+		});
+	}
+
+	#[test]
+	fn rejects_when_header_has_no_babe_pre_digest() {
+		TestSlotDuration::set_slot_duration(6000);
+		new_test_ext(0).execute_with(|| {
+			put_authorities(vec![Alice.public().into()]);
+
+			// Header with no digest items → no relay slot → reject.
+			let header = RelayHeader::new(
+				1u32,
+				H256::zero(),
+				H256::zero(),
+				H256::zero(),
+				Digest::default(),
+			);
+			let internal_sp = H256::repeat_byte(0xAB);
+			let signed = signed_info_for(Alice, CoreSelector(0), internal_sp);
+
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header, internal_sp));
+		});
+	}
+
+	#[test]
+	fn rejects_when_authorities_empty() {
+		TestSlotDuration::set_slot_duration(6000);
+		new_test_ext(0).execute_with(|| {
+			put_authorities(vec![]);
+
+			let header = header_with_relay_slot(4);
+			let internal_sp = H256::repeat_byte(0xAB);
+			let signed = signed_info_for(Alice, CoreSelector(0), internal_sp);
+
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header, internal_sp));
+		});
+	}
 }

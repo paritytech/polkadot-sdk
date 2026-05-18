@@ -30,6 +30,10 @@ pub enum SchedulingValidationError {
 	/// When relay_parent != internal_scheduling_parent, the resubmitting collator must
 	/// sign the core selection to prove slot eligibility.
 	MissingSignedSchedulingInfo,
+	/// `signed_scheduling_info` is attached but the header chain is empty.
+	/// With an empty chain the verifier has no relay header from which to derive the
+	/// parachain slot for author lookup, so this combination is forbidden.
+	EmptyChainWithSignedInfo,
 }
 
 /// Result of successful scheduling validation.
@@ -43,8 +47,14 @@ pub struct SchedulingValidationResult {
 
 /// Validate V3 scheduling based on runtime config and candidate extension.
 ///
-/// Returns `None` for V1/V2 candidates, `Some(result)` for valid V3.
-/// Panics on config/extension mismatches or validation failures.
+/// Returns `None` for V1/V2 candidates, `Some(result)` for valid V3. Panics on
+/// config/extension mismatches or chain-shape validation failures.
+///
+/// This function only validates the *shape* of the scheduling proof (header chain
+/// linkage, relay-parent position, presence of `signed_scheduling_info` when
+/// required). Signature verification on `signed_scheduling_info` is the caller's
+/// responsibility — see `validate_block` for the call site that invokes
+/// `PSC::SchedulingSignatureVerifier` using the returned `internal_scheduling_parent`.
 pub fn validate_v3_scheduling(
 	v3_enabled: bool,
 	extension: &Option<ValidationParamsExtension>,
@@ -162,6 +172,15 @@ pub fn check_scheduling(
 	// block's UMP signals. If present, signature verification is still performed.
 	// Collators should refuse to acknowledge blocks with invalid scheduling info,
 	// so providing signed_scheduling_info is not necessary but is legal.
+
+	// 6. With an empty header chain the verifier has no relay header from which to
+	// derive the parachain slot for author lookup, so `signed_scheduling_info` must
+	// not be attached. This case is structurally impossible in resubmission anyway
+	// (resubmission requires relay_parent != internal_scheduling_parent, which can
+	// only happen with a non-empty chain).
+	if header_chain.is_empty() && scheduling_proof.signed_scheduling_info.is_some() {
+		return Err(SchedulingValidationError::EmptyChainWithSignedInfo);
+	}
 
 	Ok(SchedulingValidationResult {
 		internal_scheduling_parent,
@@ -550,5 +569,44 @@ mod tests {
 
 		// Should panic because resubmission requires signed_scheduling_info
 		validate_v3_scheduling(true, &Some(ext), Some(&proof), 3);
+	}
+
+	// =========================================================================
+	// Empty chain + signed_scheduling_info rejection
+	// =========================================================================
+
+	#[test]
+	fn reject_empty_chain_with_signed_info() {
+		// `signed_scheduling_info` is not allowed when the header chain is empty:
+		// the verifier has no relay header to derive a slot from.
+		let scheduling_parent = RelayHash::repeat_byte(0xAA);
+		let relay_parent = scheduling_parent;
+		let proof = SchedulingProof {
+			header_chain: vec![],
+			signed_scheduling_info: Some(SignedSchedulingInfo {
+				core_selector: CoreSelector(0),
+				peer_id: Default::default(),
+				signature: dummy_signature(),
+			}),
+		};
+		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 0);
+		assert_eq!(result, Err(SchedulingValidationError::EmptyChainWithSignedInfo));
+	}
+
+	#[test]
+	#[should_panic(expected = "EmptyChainWithSignedInfo")]
+	fn v3_empty_chain_with_signed_info_panics() {
+		let scheduling_parent = RelayHash::repeat_byte(0xAA);
+		let relay_parent = scheduling_parent;
+		let ext = ValidationParamsExtension::V3 { relay_parent, scheduling_parent };
+		let proof = SchedulingProof {
+			header_chain: vec![],
+			signed_scheduling_info: Some(SignedSchedulingInfo {
+				core_selector: CoreSelector(0),
+				peer_id: Default::default(),
+				signature: dummy_signature(),
+			}),
+		};
+		validate_v3_scheduling(true, &Some(ext), Some(&proof), 0);
 	}
 }

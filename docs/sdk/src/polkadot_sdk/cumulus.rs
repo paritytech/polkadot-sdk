@@ -94,6 +94,8 @@ mod tests {
 				type DmpQueue = frame::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
 				type RelayParentOffset = ConstU32<0>;
 				type SchedulingV3Enabled = ConstBool<false>;
+				type SchedulingSignatureVerifier =
+					cumulus_pallet_parachain_system::NoVerification;
 			}
 
 			impl parachain_info::Config for Runtime {}

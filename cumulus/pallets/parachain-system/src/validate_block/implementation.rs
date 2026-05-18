@@ -24,6 +24,7 @@ use cumulus_primitives_core::{
 		BlockNumber as RNumber, Hash as RHash, UMPSignal, MAX_HEAD_DATA_SIZE, UMP_SEPARATOR,
 	},
 	ClaimQueueOffset, CoreSelector, CumulusDigestItem, ParachainBlockData, PersistedValidationData,
+	VerifySchedulingSignature,
 };
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
@@ -135,7 +136,9 @@ where
 		sp_io::transaction_index::host_renew.replace_implementation(host_transaction_index_renew),
 	);
 
-	// V3 scheduling validation.
+	// V3 scheduling validation (chain-shape only). Signature verification of
+	// `signed_scheduling_info` happens here at the call site so the verifier wiring
+	// stays out of the pure shape check.
 	let validated_scheduling = scheduling::validate_v3_scheduling(
 		PSC::SchedulingV3Enabled::get(),
 		&extension.0,
@@ -143,8 +146,22 @@ where
 		PSC::RelayParentOffset::get(),
 	);
 	if let Some(result) = validated_scheduling {
-		if result.is_resubmission {
-			panic!("Resubmission not yet supported; reject candidate.");
+		if let Some(proof) = block_data.scheduling_proof() {
+			if let Some(signed_info) = proof.signed_scheduling_info.as_ref() {
+				// `check_scheduling` rejects empty chain + signed_info, so the first
+				// header is guaranteed to be present here.
+				let scheduling_parent_header = proof
+					.header_chain
+					.first()
+					.expect("check_scheduling forbids empty chain with signed info");
+				if !PSC::SchedulingSignatureVerifier::verify(
+					signed_info,
+					scheduling_parent_header,
+					result.internal_scheduling_parent,
+				) {
+					panic!("V3 scheduling validation failed: invalid signed_scheduling_info");
+				}
+			}
 		}
 	}
 

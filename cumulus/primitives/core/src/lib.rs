@@ -44,7 +44,10 @@ pub use polkadot_primitives::{
 	AbridgedHostConfiguration, AbridgedHrmpChannel, ClaimQueueOffset, CoreSelector,
 	PersistedValidationData,
 };
-pub use scheduling::{SchedulingInfoPayload, SchedulingProof, SignedSchedulingInfo};
+pub use scheduling::{
+	NoVerification, SchedulingInfoPayload, SchedulingProof, SignedSchedulingInfo,
+	VerifySchedulingSignature,
+};
 pub use sp_runtime::{
 	generic::{Digest, DigestItem},
 	traits::Block as BlockT,

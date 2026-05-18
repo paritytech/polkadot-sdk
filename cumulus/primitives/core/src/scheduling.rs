@@ -15,8 +15,10 @@
 //! The `relay_parent` stays the same since the execution context hasn't changed.
 //!
 //! For resubmission, `signed_scheduling_info` must be provided. The resubmitting
-//! collator signs the core selection, proving they are the eligible author for the
-//! slot derived from the `internal_scheduling_parent`.
+//! collator signs the core selection, proving they are the eligible parachain author
+//! for the slot at `scheduling_parent`. The `internal_scheduling_parent` is bundled
+//! into the signed payload so the signature binds to this specific scheduling chain
+//! and is not reusable on a different one.
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
@@ -34,8 +36,10 @@ use sp_runtime::traits::{BlakeTwo256, Hash as HashT};
 pub struct SchedulingInfoPayload {
 	/// Which core to use (indexes into the parachain's assigned cores).
 	pub core_selector: CoreSelector,
-	/// The internal scheduling parent whom's slot decides the
-	/// eligible block author that must sign the payload.
+	/// The internal scheduling parent. Included in the signed payload to bind the
+	/// signature to a specific scheduling chain so it cannot be replayed against a
+	/// different one. Author eligibility itself is decided by the slot at
+	/// `scheduling_parent` (see [`SignedSchedulingInfo::signature`]).
 	pub internal_scheduling_parent: polkadot_primitives::Hash,
 }
 
@@ -57,8 +61,14 @@ pub struct SignedSchedulingInfo {
 	/// resubmitting collator to receive reputation instead of the original
 	/// block author who failed to deliver.
 	pub peer_id: ApprovedPeerId,
-	/// Signature by the eligible collator for the slot at `internal_scheduling_parent`.
+	/// Signature by the eligible parachain Aura author for the slot at `scheduling_parent`.
 	/// Signs `SchedulingInfoPayload(core_selector, internal_scheduling_parent)`.
+	///
+	/// The verifier derives the parachain slot from the BABE pre-digest of the
+	/// `scheduling_parent` relay header (i.e. the first header in
+	/// [`SchedulingProof::header_chain`]) and looks up the eligible Aura author from
+	/// the parachain's authority set. The `internal_scheduling_parent` field of the
+	/// payload binds the signature to this specific scheduling chain.
 	///
 	/// Stored as a fixed 64-byte blob so the verifier can decode it as either an sr25519
 	/// or ed25519 signature, depending on the parachain's Aura authority crypto. Both
@@ -114,5 +124,43 @@ impl SchedulingProof {
 	/// or `None` if the chain is empty (scheduling_parent == relay_parent).
 	pub fn scheduling_parent(&self) -> Option<polkadot_primitives::Hash> {
 		self.header_chain.first().map(BlakeTwo256::hash_of)
+	}
+}
+
+/// Verifies a [`SignedSchedulingInfo`] against the parachain's eligible Aura author.
+///
+/// Wired into [`cumulus_pallet_parachain_system::Config`] (via an associated type) and
+/// called from the PVF `validate_block` path. The default implementation in the runtime
+/// composition is [`NoVerification`]; parachains that opt into V3 resubmission supply a
+/// real implementation (e.g. `AuraSchedulingVerifier` from `cumulus-pallet-aura-ext`).
+///
+/// The verifier receives the `scheduling_parent` relay header (= first header in
+/// [`SchedulingProof::header_chain`]) so it can derive the parachain slot from the
+/// header's BABE pre-digest, look up the eligible Aura author, and verify the 64-byte
+/// signature against [`SchedulingInfoPayload`].
+pub trait VerifySchedulingSignature {
+	/// Returns `true` if `signed_info.signature` is a valid signature over
+	/// `SchedulingInfoPayload(signed_info.core_selector, internal_scheduling_parent)`
+	/// by the parachain Aura author eligible at `scheduling_parent_header`.
+	fn verify(
+		signed_info: &SignedSchedulingInfo,
+		scheduling_parent_header: &RelayChainHeader,
+		internal_scheduling_parent: polkadot_primitives::Hash,
+	) -> bool;
+}
+
+/// No-op verifier: always returns `true`.
+///
+/// Default for parachain runtimes that haven't opted into V3 resubmission verification.
+/// Wiring a real verifier (e.g. `AuraSchedulingVerifier`) replaces this.
+pub struct NoVerification;
+
+impl VerifySchedulingSignature for NoVerification {
+	fn verify(
+		_signed_info: &SignedSchedulingInfo,
+		_scheduling_parent_header: &RelayChainHeader,
+		_internal_scheduling_parent: polkadot_primitives::Hash,
+	) -> bool {
+		true
 	}
 }

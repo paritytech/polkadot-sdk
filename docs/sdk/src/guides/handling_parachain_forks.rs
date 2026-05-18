@@ -76,6 +76,7 @@
 //!     ...
 //! 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
 //! 	type SchedulingV3Enabled = ConstBool<false>;
+//! 	type SchedulingSignatureVerifier = cumulus_primitives_core::NoVerification;
 //! }
 //! ```
 //! 3. Implement the `RelayParentOffsetApi` runtime API for your runtime.

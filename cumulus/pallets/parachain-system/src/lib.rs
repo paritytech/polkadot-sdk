@@ -39,6 +39,7 @@ use cumulus_primitives_core::{
 	ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender, XcmpMessageHandler,
 	XcmpMessageSource,
 };
+pub use cumulus_primitives_core::{NoVerification, VerifySchedulingSignature};
 use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
 use frame_support::{
 	dispatch::{DispatchClass, DispatchResult},
@@ -315,6 +316,15 @@ pub mod pallet {
 		///
 		/// The `RelayParentOffset` config continues to define the header chain length.
 		type SchedulingV3Enabled: Get<bool>;
+
+		/// Verifies the [`cumulus_primitives_core::SignedSchedulingInfo`] attached to V3
+		/// candidates.
+		///
+		/// Wired by the parachain runtime to a type that knows the parachain's Aura crypto:
+		/// typically `cumulus_pallet_aura_ext::AuraSchedulingVerifier<Self, AuraPair>`.
+		/// Runtimes that have not opted into V3 resubmission verification can use
+		/// [`cumulus_primitives_core::NoVerification`].
+		type SchedulingSignatureVerifier: cumulus_primitives_core::VerifySchedulingSignature;
 	}
 
 	#[pallet::hooks]

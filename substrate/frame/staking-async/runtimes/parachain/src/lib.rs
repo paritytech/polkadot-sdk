@@ -820,6 +820,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<0>;
 	type SchedulingV3Enabled = ConstBool<false>;
+	type SchedulingSignatureVerifier = cumulus_primitives_core::NoVerification;
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<

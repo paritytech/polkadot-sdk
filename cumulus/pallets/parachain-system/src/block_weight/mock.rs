@@ -240,6 +240,7 @@ impl crate::Config for Runtime {
 	type ConsensusHook = crate::ExpectParentIncluded;
 	type RelayParentOffset = ();
 	type SchedulingV3Enabled = ();
+	type SchedulingSignatureVerifier = cumulus_primitives_core::NoVerification;
 }
 
 impl test_pallet::Config for Runtime {}
@@ -303,6 +304,7 @@ pub mod only_operational_runtime {
 		type ConsensusHook = crate::ExpectParentIncluded;
 		type RelayParentOffset = ();
 		type SchedulingV3Enabled = ();
+		type SchedulingSignatureVerifier = cumulus_primitives_core::NoVerification;
 	}
 
 	impl super::test_pallet::Config for RuntimeOnlyOperational {}

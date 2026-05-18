@@ -100,6 +100,7 @@ impl Config for Test {
 	type WeightInfo = ();
 	type RelayParentOffset = ConstU32<0>;
 	type SchedulingV3Enabled = ConstBool<false>;
+	type SchedulingSignatureVerifier = cumulus_primitives_core::NoVerification;
 }
 
 std::thread_local! {

@@ -5137,6 +5137,7 @@ dependencies = [
  "scale-info",
  "sp-application-crypto 30.0.0",
  "sp-consensus-aura",
+ "sp-consensus-babe",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-keyring",
