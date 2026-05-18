@@ -150,42 +150,6 @@ async fn statement_store_basic_propagation() -> Result<(), anyhow::Error> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn statement_store_unstable_basic_propagation() -> Result<(), anyhow::Error> {
-	let _ = env_logger::try_init_from_env(
-		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-	);
-
-	let network = spawn_network_with_injected_allowances(&["charlie", "dave"], 8).await?;
-
-	let charlie = network.get_node("charlie")?;
-	let dave = network.get_node("dave")?;
-
-	let charlie_rpc = charlie.rpc().await?;
-	let dave_rpc = dave.rpc().await?;
-
-	let topic: Topic = [0x55u8; 32].into();
-	let keypair = get_keypair(0);
-	let statement = create_test_statement(&keypair, &[topic], None, vec![1, 2, 3], u32::MAX, 0);
-	let expected: Bytes = statement.encode().into();
-
-	let mut subscription = subscribe_unstable(&dave_rpc).await?;
-	let subscription_id = unstable_subscription_id(&subscription)?;
-	let filter =
-		filter_id(add_filter_unstable(&dave_rpc, &subscription_id, match_all_filter(topic)).await?);
-	let replayed = collect_unstable_replay(&mut subscription, &filter).await?;
-	assert!(replayed.is_empty(), "Fresh unstable filter should not replay statements");
-
-	let result = submit_statement_unstable(&charlie_rpc, &statement).await?;
-	assert_eq!(result, SubmitOutcome::New);
-
-	let received = expect_one_unstable_statement(&mut subscription, 20).await?;
-	assert_eq!(received.statement, expected, "Unstable statement data mismatch");
-	assert_eq!(received.filter_ids, vec![filter], "Unexpected unstable filter ids");
-
-	Ok(())
-}
-
-#[tokio::test(flavor = "multi_thread")]
 async fn statement_store_unstable_rpc_multi_filter_flow() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),

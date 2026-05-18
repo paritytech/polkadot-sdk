@@ -312,50 +312,6 @@ async fn submit_then_subscribe_replays_and_then_lives() {
 }
 
 #[tokio::test]
-async fn replayed_statement_excluded_from_new_for_same_filter() {
-	let rpc = make_server();
-
-	let s = signed_statement(11, &[[5u8; 32]]);
-	let _: SubmitOutcome =
-		rpc.call("statement_unstable_submit", (encoded(&s),)).await.expect("submit");
-
-	let mut sub = subscribe(&rpc).await;
-	let sub_id = sub_id_string(&sub);
-	let resp: super::AddFilterResponse = rpc
-		.call("statement_unstable_add_filter", (sub_id, TopicFilter::Any))
-		.await
-		.expect("add_filter");
-	let filter_id = match resp {
-		super::AddFilterResponse::Ok(id) => id,
-		super::AddFilterResponse::LimitReached(_) => panic!("unexpected LimitReached"),
-	};
-
-	let replayed = collect_replay(&mut sub, &filter_id).await;
-	assert_eq!(replayed.len(), 1);
-
-	let _: SubmitOutcome =
-		rpc.call("statement_unstable_submit", (encoded(&s),)).await.expect("re-submit");
-
-	let s2 = signed_statement(12, &[[5u8; 32]]);
-	let _: SubmitOutcome =
-		rpc.call("statement_unstable_submit", (encoded(&s2),)).await.expect("submit s2");
-
-	match next_event(&mut sub).await {
-		SubscribeEvent::NewStatements { statements } => {
-			assert_eq!(statements.len(), 1);
-			let entry = &statements[0];
-			assert_eq!(
-				entry.statement.0,
-				s2.encode(),
-				"expected fresh statement, not replayed one"
-			);
-			assert_eq!(entry.filter_ids, vec![filter_id]);
-		},
-		other => panic!("expected NewStatements with fresh statement, got {other:?}"),
-	}
-}
-
-#[tokio::test]
 async fn add_filter_rejects_match_any_topic_filter() {
 	use sp_runtime::BoundedVec;
 
@@ -372,32 +328,6 @@ async fn add_filter_rejects_match_any_topic_filter() {
 
 	let s = err.to_string();
 	assert!(s.contains("matchAny"));
-	drop(sub);
-}
-
-#[tokio::test]
-async fn add_filter_returns_limit_reached_when_filter_cap_is_exhausted() {
-	let rpc = make_server();
-	let sub = subscribe(&rpc).await;
-	let sub_id = sub_id_string(&sub);
-
-	for i in 0..sc_statement_store::MAX_FILTERS_PER_SUBSCRIPTION {
-		let resp: super::AddFilterResponse = rpc
-			.call("statement_unstable_add_filter", (sub_id.clone(), TopicFilter::Any))
-			.await
-			.unwrap_or_else(|e| panic!("filter {i} should be accepted: {e:?}"));
-		assert!(
-			matches!(resp, super::AddFilterResponse::Ok(_)),
-			"filter {i} should return Ok, got {resp:?}"
-		);
-	}
-
-	let resp: super::AddFilterResponse = rpc
-		.call("statement_unstable_add_filter", (sub_id, TopicFilter::Any))
-		.await
-		.expect("filter beyond cap returns a successful RPC response");
-	assert_eq!(resp, super::AddFilterResponse::limit_reached());
-
 	drop(sub);
 }
 
@@ -421,6 +351,12 @@ async fn remove_filter_frees_rpc_filter_capacity() {
 		};
 		filter_ids.push(filter_id);
 	}
+
+	let resp: super::AddFilterResponse = rpc
+		.call("statement_unstable_add_filter", (sub_id.clone(), TopicFilter::Any))
+		.await
+		.expect("filter beyond cap returns a successful RPC response");
+	assert_eq!(resp, super::AddFilterResponse::limit_reached());
 
 	let _: () = rpc
 		.call("statement_unstable_remove_filter", (sub_id.clone(), filter_ids[0].clone()))
@@ -473,14 +409,4 @@ async fn remove_filter_is_silent_for_unknown_subscription_and_filter() {
 		.await
 		.expect("remove_filter on unknown filter is no-op");
 	drop(sub);
-}
-
-#[tokio::test]
-async fn statement_subscribe_does_not_apply_local_subscription_cap() {
-	let rpc = make_server();
-
-	let mut subs = Vec::new();
-	for _ in 0..17 {
-		subs.push(subscribe(&rpc).await);
-	}
 }

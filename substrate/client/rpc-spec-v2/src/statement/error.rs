@@ -21,9 +21,6 @@ use jsonrpsee::types::error::ErrorObject;
 /// Error returned by statement RPC methods
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-	/// The connection has reached its active statement subscription limit
-	#[error("Maximum number of statement subscriptions for this connection has been reached")]
-	ReachedLimits,
 	/// The subscription id is not active on this connection
 	#[error("Invalid statement subscription identifier")]
 	InvalidSubscription,
@@ -37,8 +34,6 @@ pub enum Error {
 
 /// Error codes defined by the statement RPC specification.
 pub mod rpc_spec_v2 {
-	/// Connection has too many statement subscriptions
-	pub const REACHED_LIMITS: i32 = -32800;
 	/// Subscription identifier is invalid
 	pub const INVALID_SUBSCRIPTION: i32 = -32801;
 }
@@ -55,9 +50,6 @@ impl From<Error> for ErrorObject<'static> {
 	fn from(e: Error) -> Self {
 		let msg = e.to_string();
 		match e {
-			Error::ReachedLimits => {
-				ErrorObject::owned(rpc_spec_v2::REACHED_LIMITS, msg, None::<()>)
-			},
 			Error::InvalidSubscription => {
 				ErrorObject::owned(rpc_spec_v2::INVALID_SUBSCRIPTION, msg, None::<()>)
 			},

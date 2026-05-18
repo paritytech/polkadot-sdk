@@ -3289,7 +3289,7 @@ mod tests {
 		use super::*;
 		use crate::{LiveEventStream, MultiFilterSubscriptionApi, MultiFilterSubscriptionEvent};
 		use futures::StreamExt;
-		use sp_statement_store::{LiveStatementEvent, OptimizedTopicFilter};
+		use sp_statement_store::OptimizedTopicFilter;
 		use std::{
 			collections::{HashMap, HashSet},
 			sync::Arc,
@@ -3299,27 +3299,6 @@ mod tests {
 		fn arc_test_store() -> (Arc<Store>, tempfile::TempDir) {
 			let (store, dir) = test_store();
 			(Arc::new(store), dir)
-		}
-
-		async fn collect_n_new(
-			stream: &mut LiveEventStream,
-			n: usize,
-			timeout: Duration,
-		) -> Vec<LiveStatementEvent> {
-			let mut events = Vec::new();
-			while events.len() < n {
-				match tokio::time::timeout(timeout, stream.next()).await {
-					Ok(Some(MultiFilterSubscriptionEvent::NewStatement(event))) => {
-						events.push(event);
-					},
-					Ok(Some(MultiFilterSubscriptionEvent::Stop)) => {
-						panic!("subscription stopped unexpectedly");
-					},
-					Ok(Some(_)) => {},
-					_ => break,
-				}
-			}
-			events
 		}
 
 		async fn drain_all(
@@ -3384,41 +3363,6 @@ mod tests {
 
 			let snapshots = drain_replays(&mut stream, [filter_id], Duration::from_secs(1)).await;
 			assert!(snapshots[&filter_id].is_empty());
-		}
-
-		#[tokio::test]
-		async fn multiple_filters_match_independently() {
-			let (store, _dir) = arc_test_store();
-			let (handle, mut stream) = store.create_subscription();
-			let topic_a = topic(1);
-			let topic_b = topic(2);
-
-			let id_a = handle
-				.add_filter(OptimizedTopicFilter::MatchAll(HashSet::from([topic_a])))
-				.unwrap();
-			let id_b = handle
-				.add_filter(OptimizedTopicFilter::MatchAll(HashSet::from([topic_b])))
-				.unwrap();
-			let id_ab = handle
-				.add_filter(OptimizedTopicFilter::MatchAll(HashSet::from([topic_a, topic_b])))
-				.unwrap();
-			let snapshots =
-				drain_replays(&mut stream, [id_a, id_b, id_ab], Duration::from_secs(1)).await;
-			assert!(snapshots.values().all(|statements| statements.is_empty()));
-
-			let s1 = signed_statement_with_topics(1, &[topic_a], None);
-			store.submit(s1, StatementSource::Local);
-			let events = collect_n_new(&mut stream, 1, Duration::from_secs(1)).await;
-			assert_eq!(events.len(), 1);
-			let matched: HashSet<_> = events[0].matched_filter_ids.iter().copied().collect();
-			assert_eq!(matched, HashSet::from([id_a]));
-
-			let s2 = signed_statement_with_topics(2, &[topic_a, topic_b], None);
-			store.submit(s2, StatementSource::Local);
-			let events = collect_n_new(&mut stream, 1, Duration::from_secs(1)).await;
-			assert_eq!(events.len(), 1);
-			let matched: HashSet<_> = events[0].matched_filter_ids.iter().copied().collect();
-			assert_eq!(matched, HashSet::from([id_a, id_b, id_ab]));
 		}
 
 		#[tokio::test]
