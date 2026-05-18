@@ -827,6 +827,64 @@ fn approve_saturates_on_uint256_max() {
 	});
 }
 
+/// Boundary test: saturation must trigger for *any* `U256 > Balance::MAX`, not
+/// only the exact `U256::MAX` sentinel. Guards against a regression that would
+/// scope saturation to `call.value == U256::MAX`, which would create a sharp
+/// edge for routers that compute "infinite allowance" as `U256::MAX - 1` or
+/// other large near-max sentinels.
+#[test]
+fn approve_saturates_just_above_balance_max() {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+
+		let owner = 123456789;
+		let spender = 987654321;
+		Balances::make_free_balance_be(&owner, 100);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+
+		// Smallest U256 that doesn't fit in the mock's `Balance` (u64).
+		let just_over: U256 = U256::from(u64::MAX) + U256::from(1u64);
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+		let data =
+			IERC20::approveCall { spender: spender_addr.0.into(), value: just_over }.abi_encode();
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(owner),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		);
+		assert!(
+			result.result.is_ok(),
+			"approve(Balance::MAX + 1) must not trap: {:?}",
+			result.result
+		);
+		assert!(
+			!result.result.expect("checked above").did_revert(),
+			"approve(Balance::MAX + 1) must not revert"
+		);
+
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
+
+		assert_contract_event(
+			asset_addr,
+			IERC20Events::Approval(IERC20::Approval {
+				owner: <Test as pallet_revive::Config>::AddressMapper::to_address(&owner).0.into(),
+				spender: spender_addr.0.into(),
+				value: U256::from(u64::MAX),
+			}),
+		);
+	});
+}
+
 /// `permit(spender, type(uint256).max, …)` is the gasless infinite-allowance
 /// pathway — the entire reason `permit()` exists in the EIP-2612 surface for
 /// wallet/router integrations. It must saturate at `Balance::MAX` rather than

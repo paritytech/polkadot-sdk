@@ -4,11 +4,15 @@ doc:
   description: "## Summary\n\nThree small fixes to the ERC-20 precompile surface so\
     \ it behaves the way mature ERC-20 ecosystem tooling expects.\n\n- **Infallible\
     \ metadata reads.** `name()`, `symbol()`, and `decimals()` previously reverted\
-    \ with `\"Metadata not found\"` when an asset had no metadata row.\n\n- **`approve(uint256.max)`\
-    \ saturates instead of reverting.** MetaMask, Uniswap, and most DEX routers hard-code\
-    \ `type(uint256).max` in `approve` calls \u2014 the universal \"infinite allowance\"\
-    \ idiom. Previously this reverted at the `U256 \u2192 Balance` conversion because\
-    \ the runtime `Balance` (u128 or u64) can't hold `U256::MAX`.\n\n- **Removed a\
+    \ with `\"Metadata not found\"` when an asset had no metadata row.\n\n- **`approve` and\
+    \ `permit` saturate on `U256 > Balance::MAX`.** MetaMask, Uniswap, and most DEX\
+    \ routers hard-code `type(uint256).max` in approval calls \u2014 the universal\
+    \ \"infinite allowance\" idiom. Previously both selectors reverted at the `U256\
+    \ \u2192 Balance` conversion because the runtime `Balance` (u128 or u64) can't\
+    \ hold `U256::MAX`. Any value exceeding `Balance::MAX` now saturates at `Balance::MAX`\
+    \ (lossless: total supply is also capped there, so a larger allowance grants no\
+    \ extra spending power). The emitted `Approval` event reports the saturated amount\
+    \ so indexers stay in sync with `allowance()`.\n\n- **Removed a\
     \ misleading comment.** The `approve` doc-comment told callers to use `increaseAllowance`\
     \ / `decreaseAllowance` to mitigate the well-known approve front-running race,\
     \ but neither method is exposed by this precompile (and OpenZeppelin dropped them\
