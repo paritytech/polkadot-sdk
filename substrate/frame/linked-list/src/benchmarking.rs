@@ -28,32 +28,45 @@ use super::*;
 use alloc::vec::Vec;
 use frame::benchmarking::prelude::*;
 
-/// Seed `list_id` with `count` items at strictly descending priorities
-/// `(count - i) * 10 + 100`. Returns the items in head→tail order.
-fn seed_chain<T: Config>(list_id: &T::ListId, count: u32) -> Vec<T::ItemId>
+/// Seed `list_id` with `count` items at strictly descending priorities, leaving
+/// a gap of two units between adjacent items so that `target_priority - one()`
+/// is a valid in-place re-insert value. Returns the items and their priorities
+/// in head→tail (priority-descending) order.
+fn seed_chain<T: Config>(list_id: &T::ListId, count: u32) -> (Vec<T::ItemId>, Vec<T::Priority>)
 where
-	T::ItemId: From<u32>,
-	T::Priority: From<u32>,
+	T::ItemId: Decode,
+	T::Priority: One + Saturating,
 {
+	let one = T::Priority::one();
+	let two = one.saturating_add(one);
+
+	let mut priorities = Vec::with_capacity(count as usize);
+	let mut current = two;
+	for _ in 0..count {
+		priorities.push(current);
+		current = current.saturating_add(two);
+	}
+	priorities.reverse();
+
 	let mut items = Vec::with_capacity(count as usize);
-	for i in 0..count {
-		let item: T::ItemId = i.into();
-		let priority: T::Priority = ((count - i) * 10 + 100).into();
+	for (i, priority) in priorities.iter().enumerate() {
+		let item: T::ItemId = account("seed", i as u32, 0);
 		let hint = <Pallet<T> as SortedListInterface<T::ListId, T::ItemId>>::find_position(
-			list_id, priority,
+			list_id, *priority,
 		);
-		Pallet::<T>::insert(list_id.clone(), item.clone(), priority, hint)
+		Pallet::<T>::insert(list_id.clone(), item.clone(), *priority, hint)
 			.expect("benchmark seed insert");
 		items.push(item);
 	}
-	items
+
+	(items, priorities)
 }
 
 #[benchmarks(
 	where
-		T::ListId: From<u32>,
-		T::ItemId: From<u32>,
-		T::Priority: From<u32>,
+		T::ListId: Default,
+		T::ItemId: Decode,
+		T::Priority: One + Bounded + Saturating,
 )]
 mod benchmarks {
 	use super::*;
@@ -67,11 +80,11 @@ mod benchmarks {
 	/// exactly `s` steps. `s = 0` exercises the immediate-valid-hint path.
 	#[benchmark]
 	fn insert(s: Linear<0, { T::MaxHintRepairSteps::get() }>) -> Result<(), BenchmarkError> {
-		let list_id: T::ListId = 0u32.into();
+		let list_id = T::ListId::default();
 		let s_idx = s as usize;
-		let seeded = seed_chain::<T>(&list_id, s + 2);
-		let new_item: T::ItemId = u32::MAX.into();
-		let new_priority: T::Priority = 1_000_000u32.into(); // above every seed priority
+		let (seeded, _) = seed_chain::<T>(&list_id, s + 2);
+		let new_item: T::ItemId = account("new", 0, 0);
+		let new_priority = T::Priority::max_value();
 		let hint = Position {
 			prev: if s_idx == 0 { None } else { Some(seeded[s_idx - 1].clone()) },
 			next: Some(seeded[s_idx].clone()),
@@ -89,8 +102,8 @@ mod benchmarks {
 	/// `remove` a middle node.
 	#[benchmark]
 	fn remove() {
-		let list_id: T::ListId = 0u32.into();
-		let seeded = seed_chain::<T>(&list_id, 4);
+		let list_id = T::ListId::default();
+		let (seeded, _) = seed_chain::<T>(&list_id, 4);
 		let middle = seeded[1].clone();
 
 		#[block]
@@ -105,11 +118,12 @@ mod benchmarks {
 	/// neighbors, so only the node's `priority` field is mutated.
 	#[benchmark]
 	fn re_insert_in_place() {
-		let list_id: T::ListId = 0u32.into();
-		let seeded = seed_chain::<T>(&list_id, 5);
+		let list_id = T::ListId::default();
+		let (seeded, priorities) = seed_chain::<T>(&list_id, 5);
 		let middle = seeded[2].clone();
-		// `seed_chain` priorities middle/neighbors at 130/(140, 120); 125 stays between.
-		let new_priority: T::Priority = 125u32.into();
+		// `seed_chain` gives gap-of-two priorities; `target - one()` stays
+		// strictly between the two neighbors.
+		let new_priority = priorities[2].saturating_sub(T::Priority::one());
 
 		#[block]
 		{
@@ -136,11 +150,11 @@ mod benchmarks {
 	fn re_insert_relocate(
 		s: Linear<0, { T::MaxHintRepairSteps::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let list_id: T::ListId = 0u32.into();
+		let list_id = T::ListId::default();
 		let s_idx = s as usize;
-		let seeded = seed_chain::<T>(&list_id, s + 2);
+		let (seeded, _) = seed_chain::<T>(&list_id, s + 2);
 		let target = seeded[s_idx + 1].clone();
-		let new_priority: T::Priority = 1_000_000u32.into(); // above every seed priority
+		let new_priority = T::Priority::max_value();
 		let hint = Position {
 			prev: if s_idx == 0 { None } else { Some(seeded[s_idx - 1].clone()) },
 			next: Some(seeded[s_idx].clone()),
@@ -159,12 +173,12 @@ mod benchmarks {
 	/// priority: one `ListNodes` read and an early return.
 	#[benchmark]
 	fn reprioritize_no_op() -> Result<(), BenchmarkError> {
-		let list_id: T::ListId = 0u32.into();
-		let seeded = seed_chain::<T>(&list_id, 3);
+		let list_id = T::ListId::default();
+		let (seeded, priorities) = seed_chain::<T>(&list_id, 3);
 		let target = seeded[1].clone();
-		// `seed_chain` sets target's stored priority to 130; pin the authoritative
-		// priority to the same value so the drift check returns equal.
-		T::PriorityProvider::set_priority(&list_id, &target, 130u32.into());
+		// Pin authoritative priority to the stored value so the drift check
+		// returns equal.
+		T::PriorityProvider::set_priority(&list_id, &target, priorities[1]);
 		let caller: T::AccountId = whitelisted_caller();
 
 		#[extrinsic_call]
@@ -175,7 +189,7 @@ mod benchmarks {
 			Position::endpoints_only(),
 		);
 
-		assert_eq!(ListNodes::<T>::get(&list_id, &target).map(|n| n.priority), Some(130u32.into()));
+		assert_eq!(ListNodes::<T>::get(&list_id, &target).map(|n| n.priority), Some(priorities[1]));
 		Ok(())
 	}
 
@@ -184,13 +198,14 @@ mod benchmarks {
 	/// `re_insert` mutates the node without moving it.
 	#[benchmark]
 	fn reprioritize_in_place() -> Result<(), BenchmarkError> {
-		let list_id: T::ListId = 0u32.into();
-		let seeded = seed_chain::<T>(&list_id, 3);
+		let list_id = T::ListId::default();
+		let (seeded, priorities) = seed_chain::<T>(&list_id, 3);
 		let target = seeded[1].clone();
-		// `seed_chain` priorities target/neighbors at 130/(140, 120); 125 stays
-		// between, so `neighbor_priorities_admit` succeeds and `re_insert` takes
-		// the in-place fast path.
-		T::PriorityProvider::set_priority(&list_id, &target, 125u32.into());
+		// `target - one()` keeps the value strictly between the two neighbors
+		// (gap-of-two seeds), so `neighbor_priorities_admit` succeeds and
+		// `re_insert` takes the in-place fast path.
+		let new_priority = priorities[1].saturating_sub(T::Priority::one());
+		T::PriorityProvider::set_priority(&list_id, &target, new_priority);
 		let caller: T::AccountId = whitelisted_caller();
 
 		#[extrinsic_call]
@@ -201,8 +216,7 @@ mod benchmarks {
 			Position::endpoints_only(),
 		);
 
-		assert_eq!(ListNodes::<T>::get(&list_id, &target).map(|n| n.priority), Some(125u32.into()));
-		// Order is unchanged: still head=seeded[0], tail=seeded[2].
+		assert_eq!(ListNodes::<T>::get(&list_id, &target).map(|n| n.priority), Some(new_priority));
 		assert_eq!(Pallet::<T>::head(list_id.clone()), Some(seeded[0].clone()));
 		assert_eq!(Pallet::<T>::tail(list_id), Some(seeded[2].clone()));
 		Ok(())
@@ -221,11 +235,11 @@ mod benchmarks {
 	fn reprioritize_relocate(
 		s: Linear<0, { T::MaxHintRepairSteps::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let list_id: T::ListId = 0u32.into();
+		let list_id = T::ListId::default();
 		let s_idx = s as usize;
-		let seeded = seed_chain::<T>(&list_id, s + 2);
+		let (seeded, _) = seed_chain::<T>(&list_id, s + 2);
 		let target = seeded[s_idx + 1].clone();
-		T::PriorityProvider::set_priority(&list_id, &target, 1_000_000u32.into());
+		T::PriorityProvider::set_priority(&list_id, &target, T::Priority::max_value());
 		let caller: T::AccountId = whitelisted_caller();
 		let hint = Position {
 			prev: if s_idx == 0 { None } else { Some(seeded[s_idx - 1].clone()) },
@@ -244,8 +258,8 @@ mod benchmarks {
 	/// the static provider has no entry for `target`.
 	#[benchmark]
 	fn reprioritize_priority_removed() -> Result<(), BenchmarkError> {
-		let list_id: T::ListId = 0u32.into();
-		let seeded = seed_chain::<T>(&list_id, 3);
+		let list_id = T::ListId::default();
+		let (seeded, _) = seed_chain::<T>(&list_id, 3);
 		let target = seeded[1].clone();
 		let caller: T::AccountId = whitelisted_caller();
 
