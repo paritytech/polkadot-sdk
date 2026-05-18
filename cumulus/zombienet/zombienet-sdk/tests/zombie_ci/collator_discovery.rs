@@ -30,7 +30,8 @@ use anyhow::anyhow;
 use codec::Decode;
 use cumulus_zombienet_sdk_helpers::{
 	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success,
-	submit_sudo_runtime_upgrade, wait_for_pallet_in_metadata, wait_for_runtime_upgrade,
+	submit_sudo_runtime_upgrade, wait_for_pallet_in_metadata, wait_for_pvf_prepare,
+	wait_for_runtime_upgrade,
 };
 use polkadot_primitives::Id as ParaId;
 use std::{
@@ -431,9 +432,11 @@ async fn collator_discovery_full_mesh_with_tight_non_reserved_budget() -> Result
 	let relay_node = network.get_node("validator-0")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
+	wait_for_pvf_prepare(&network, 1).await?;
+
 	// Wait for parachain block production to confirm collators are talking to the relay chain.
 	log::info!("Waiting for parachain block production (pre-upgrade)");
-	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 5..21)], []).await?;
+	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 9..11)], []).await?;
 
 	// Obtain a parachain client for storage queries.
 	let para_node = network.get_node(collator_names()[0])?;
@@ -483,6 +486,11 @@ async fn collator_discovery_full_mesh_with_tight_non_reserved_budget() -> Result
 	// Step 5: assert the full collator-to-collator mesh forms with real AD keys in place.
 	log::info!("Asserting full collator-to-collator mesh");
 	assert_full_collator_mesh(&network, collator_names()).await?;
+
+	// Step 6: parachain throughput remains healthy with the discovery mesh active.
+	wait_for_pvf_prepare(&network, 2).await?;
+	log::info!("Checking parachain throughput post-discovery");
+	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 9..11)], []).await?;
 
 	log::info!("Test finished successfully.");
 	Ok(())
