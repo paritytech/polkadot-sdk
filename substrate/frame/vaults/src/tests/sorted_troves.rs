@@ -28,7 +28,10 @@ fn open_orders_dll_by_annual_interest_rate() {
 			assert_ok!(open(who, DOT, 1_000, 500, rate_pct(pct, 100)));
 		}
 		// Tail-first walk gives ascending rate. Expect [1, 2, 3, 4, 5].
-		let order = <LinkedList as SortedListInterface<u32, u64>>::iter_from_tail(&DOT, 10);
+		let order = <LinkedList as SortedListInterface<VaultList, u64>>::iter_from_tail(
+			&rate_list(DOT),
+			10,
+		);
 		assert_eq!(order, alloc::vec![1, 2, 3, 4, 5]);
 	});
 }
@@ -81,9 +84,15 @@ fn close_vault_removes_from_rate_index() {
 		);
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(3), 3, DOT, total));
 		assert_ok!(crate::Pallet::<Test>::close_vault(RuntimeOrigin::signed(3), DOT, None));
-		assert!(!<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &3));
+		assert!(!<LinkedList as SortedListInterface<VaultList, u64>>::contains(
+			&rate_list(DOT),
+			&3
+		));
 		// Order without acct 3: [1, 2, 4, 5].
-		let order = <LinkedList as SortedListInterface<u32, u64>>::iter_from_tail(&DOT, 10);
+		let order = <LinkedList as SortedListInterface<VaultList, u64>>::iter_from_tail(
+			&rate_list(DOT),
+			10,
+		);
 		assert_eq!(order, alloc::vec![1, 2, 4, 5]);
 	});
 }
@@ -116,7 +125,10 @@ fn change_rate_re_inserts_in_correct_position() {
 		));
 
 		// Final ascending order: 3 (5%), 2 (20%), 4 (40%), 5 (50%), 1 (60%).
-		let order = <LinkedList as SortedListInterface<u32, u64>>::iter_from_tail(&DOT, 10);
+		let order = <LinkedList as SortedListInterface<VaultList, u64>>::iter_from_tail(
+			&rate_list(DOT),
+			10,
+		);
 		assert_eq!(order, alloc::vec![3, 2, 4, 5, 1]);
 	});
 }
@@ -132,7 +144,10 @@ fn same_rate_insertion_lands_at_tail_of_run() {
 			assert_ok!(open(who, DOT, 1_000, 500, rate_pct(5, 100)));
 		}
 		// Tail-first iteration of a same-rate run is reverse insertion order.
-		let order = <LinkedList as SortedListInterface<u32, u64>>::iter_from_tail(&DOT, 10);
+		let order = <LinkedList as SortedListInterface<VaultList, u64>>::iter_from_tail(
+			&rate_list(DOT),
+			10,
+		);
 		assert_eq!(order, alloc::vec![5, 4, 3, 2, 1]);
 	});
 }

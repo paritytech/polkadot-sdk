@@ -14,6 +14,7 @@ mod borrower_operations;
 mod critical_threshold;
 mod debt_in_front;
 mod events;
+mod final_recovery;
 mod hint_helpers;
 mod interest_rate;
 mod last_vault;

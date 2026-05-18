@@ -51,7 +51,7 @@ fn open_vault_holds_collateral_and_mints_pusd() {
 		assert_eq!(pusd_balance(1), 1_000);
 		assert_eq!(held(DOT, 1), 1_000);
 		// Rate index contains the vault.
-		assert!(<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
+		assert!(<LinkedList as SortedListInterface<VaultList, u64>>::contains(&rate_list(DOT), &1));
 	});
 }
 
@@ -98,7 +98,8 @@ fn same_rate_lifo_redemption_order() {
 			assert_ok!(open(who, DOT, 1_000, 500, rate_pct(5, 100)));
 		}
 		// Tail-first iteration produces 3, 2, 1 (LIFO).
-		let tail = <LinkedList as SortedListInterface<u32, u64>>::iter_from_tail(&DOT, 5);
+		let tail =
+			<LinkedList as SortedListInterface<VaultList, u64>>::iter_from_tail(&rate_list(DOT), 5);
 		assert_eq!(tail, alloc::vec![3, 2, 1]);
 	});
 }

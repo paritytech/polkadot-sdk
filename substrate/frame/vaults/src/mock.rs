@@ -42,6 +42,7 @@ pub type AccountId = u64;
 pub type Balance = u128;
 pub type AssetId = u32;
 pub type Block = MockBlock<Test>;
+pub type VaultList = pallet_vaults::VaultListId<AssetId>;
 pub type Moment = u64;
 
 #[frame::deps::frame_support::runtime]
@@ -129,7 +130,7 @@ parameter_types! {
 
 impl pallet_linked_list::Config for Test {
 	type WeightInfo = ();
-	type ListId = AssetId;
+	type ListId = VaultList;
 	type ItemId = AccountId;
 	type Priority = FixedU128;
 	type MaxHintRepairSteps = MaxHintRepairSteps;
@@ -246,10 +247,18 @@ impl pallet_vaults::Config for Test {
 	type TimeProvider = Timestamp;
 	type ManagerOrigin = VaultsManagerOrigin;
 	type PalletId = VaultsPalletId;
-	type RateIndex = LinkedList;
+	type VaultLists = LinkedList;
 	type MaxBranches = MaxBranches;
 	type MaxOnIdleVaultRefresh = MaxOnIdleVaultRefresh;
 	type WeightInfo = ();
+}
+
+pub fn rate_list(asset: AssetId) -> VaultList {
+	pallet_vaults::VaultListId::Rate(asset)
+}
+
+pub fn final_recovery_list(asset: AssetId) -> VaultList {
+	pallet_vaults::VaultListId::FinalRecovery(asset)
 }
 
 /// DOT-equivalent collateral asset id used across tests. `0` routes to the

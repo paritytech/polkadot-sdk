@@ -54,7 +54,10 @@ fn fully_redeemed_vault_becomes_dormant_and_leaves_rate_index() {
 		assert!(vault_status(DOT, 1).is_dormant());
 		assert_eq!(v.debt.principal + v.debt.interest, 0);
 		// Rate index no longer contains acct 1.
-		assert!(!<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
+		assert!(!<LinkedList as SortedListInterface<VaultList, u64>>::contains(
+			&rate_list(DOT),
+			&1
+		));
 	});
 }
 
@@ -73,7 +76,10 @@ fn redeemed_below_min_debt_becomes_dormant() {
 		let total = v.debt.principal + v.debt.interest;
 		assert!(total > 0 && total < 200, "got total = {}", total);
 		assert!(vault_status(DOT, 1).is_dormant());
-		assert!(!<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
+		assert!(!<LinkedList as SortedListInterface<VaultList, u64>>::contains(
+			&rate_list(DOT),
+			&1
+		));
 	});
 }
 
@@ -88,7 +94,7 @@ fn redeemed_above_min_debt_stays_active() {
 		// Redeem 200 — leaves acct 1 with ≈ 300 debt, well above MinimumDebt.
 		assert_ok!(redeem(DOT, 3, 200));
 		assert!(vault_status(DOT, 1).is_active());
-		assert!(<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
+		assert!(<LinkedList as SortedListInterface<VaultList, u64>>::contains(&rate_list(DOT), &1));
 	});
 }
 
@@ -180,7 +186,7 @@ fn dormant_pointer_clears_when_owner_revives_via_borrow() {
 			Position::endpoints_only(),
 		));
 		assert!(vault_status(DOT, 1).is_active());
-		assert!(<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
+		assert!(<LinkedList as SortedListInterface<VaultList, u64>>::contains(&rate_list(DOT), &1));
 		let bs = BranchStates::<Test>::get(DOT).unwrap();
 		assert_eq!(bs.queues.last_dormant_vault_owner, None);
 	});
@@ -310,7 +316,10 @@ fn dormant_owner_borrowing_above_min_debt_revives_to_active() {
 		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(2, 100)));
 		assert_ok!(redeem(DOT, 3, 350));
 		assert!(vault_status(DOT, 1).is_dormant());
-		assert!(!<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
+		assert!(!<LinkedList as SortedListInterface<VaultList, u64>>::contains(
+			&rate_list(DOT),
+			&1
+		));
 
 		// Borrow 500 more — vault debt jumps from ~150 to ~650, well above
 		// MinimumDebt 200.
@@ -324,7 +333,7 @@ fn dormant_owner_borrowing_above_min_debt_revives_to_active() {
 		));
 		assert!(vault_status(DOT, 1).is_active());
 		// row 31: re-inserted into the rate index at the new (or unchanged) rate.
-		assert!(<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
+		assert!(<LinkedList as SortedListInterface<VaultList, u64>>::contains(&rate_list(DOT), &1));
 	});
 }
 

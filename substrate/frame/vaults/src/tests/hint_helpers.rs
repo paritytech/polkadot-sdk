@@ -5,7 +5,7 @@
 //!
 //! polkadot equivalent: when a vault transitions to `Dormant` it is removed
 //! from the rate index entirely (helpers.rs::apply_redemption — see the
-//! `was_active` guard around `T::RateIndex::remove`). The hint query
+//! `was_active` guard around `T::VaultLists::remove`). The hint query
 //! `find_rate_position` therefore can never return a Dormant vault — it's
 //! a structural invariant rather than a hint-helper filter.
 
@@ -33,7 +33,10 @@ fn find_rate_position_skips_dormant_vaults() {
 		// Vault is Dormant or its debt is below MinimumDebt — either way it
 		// should be out of the rate index.
 		assert!(vault_status(DOT, 1).is_dormant());
-		assert!(!<LinkedList as SortedListInterface<u32, u64>>::contains(&DOT, &1));
+		assert!(!<LinkedList as SortedListInterface<VaultList, u64>>::contains(
+			&rate_list(DOT),
+			&1
+		));
 
 		// Now query a hint at a rate near acct 1's old rate. The result
 		// must not name acct 1 — it's no longer in the index.

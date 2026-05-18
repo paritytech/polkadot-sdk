@@ -32,6 +32,30 @@ pub enum VaultStatus {
 	FinalRecovery,
 }
 
+/// Logical linked-list partitions owned by this pallet.
+///
+/// `Rate(asset)` is the active-vault rate index. `FinalRecovery(asset)` is
+/// the per-branch recovery FIFO, using a monotonically increasing insertion
+/// sequence as the stored priority.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Debug,
+)]
+pub enum VaultListId<AssetId> {
+	Rate(AssetId),
+	FinalRecovery(AssetId),
+}
+
 impl VaultStatus {
 	/// Debt-bearing vault, present in the rate index.
 	pub fn is_active(&self) -> bool {
@@ -49,6 +73,34 @@ impl VaultStatus {
 	}
 }
 
+/// Debt cancelled from a vault, split by bucket.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Debug,
+	Default,
+)]
+pub struct DebtPayment<Balance> {
+	pub interest: Balance,
+	pub principal: Balance,
+}
+
+impl<Balance> DebtPayment<Balance>
+where
+	Balance: Saturating + Copy,
+{
+	pub fn total(&self) -> Balance {
+		self.interest.saturating_add(self.principal)
+	}
+}
+
 /// Debt tracked on a vault row.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
@@ -60,10 +112,19 @@ pub struct VaultDebt<Balance> {
 
 impl<Balance> VaultDebt<Balance>
 where
-	Balance: Saturating + Copy,
+	Balance: Ord + Saturating + Copy,
 {
 	pub fn total(&self) -> Balance {
 		self.principal.saturating_add(self.interest)
+	}
+
+	pub fn cancel(&mut self, amount: Balance) -> DebtPayment<Balance> {
+		let interest = core::cmp::min(amount, self.interest);
+		self.interest = self.interest.saturating_sub(interest);
+		let remaining = amount.saturating_sub(interest);
+		let principal = core::cmp::min(remaining, self.principal);
+		self.principal = self.principal.saturating_sub(principal);
+		DebtPayment { interest, principal }
 	}
 }
 
@@ -153,8 +214,7 @@ pub struct BranchStakes<Balance> {
 	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
 )]
 pub struct BranchQueues<AccountId> {
-	pub final_recovery_head: Option<AccountId>,
-	pub final_recovery_tail: Option<AccountId>,
+	pub next_final_recovery_nonce: u128,
 	pub last_dormant_vault_owner: Option<AccountId>,
 	pub idle_cursor: Option<AccountId>,
 }
@@ -182,6 +242,18 @@ impl<AccountId, Balance, Moment> BranchState<AccountId, Balance, Moment>
 where
 	Balance: FixedPointOperand + Saturating,
 {
+	/// Add a vault's full contribution to branch debt/stake aggregates.
+	pub fn attach_vault(&mut self, vault: &Vault<Balance, Moment>) {
+		let rate_x_debt = vault.annual_rate.saturating_mul_int(vault.debt.principal);
+		let rate_x_stake = vault.annual_rate.saturating_mul_int(vault.redistribution_stake);
+		self.debt.principal = self.debt.principal.saturating_add(vault.debt.principal);
+		self.debt.minted_interest = self.debt.minted_interest.saturating_add(vault.debt.interest);
+		self.debt.weighted_principal_sum =
+			self.debt.weighted_principal_sum.saturating_add(rate_x_debt);
+		self.stakes.weighted_sum = self.stakes.weighted_sum.saturating_add(rate_x_stake);
+		self.stakes.total = self.stakes.total.saturating_add(vault.redistribution_stake);
+	}
+
 	/// Subtract a vault's full contribution from the branch aggregates.
 	///
 	/// Mirrors the addition done at vault open: every writer that mutates
@@ -198,6 +270,41 @@ where
 			self.debt.weighted_principal_sum.saturating_sub(rate_x_debt);
 		self.stakes.weighted_sum = self.stakes.weighted_sum.saturating_sub(rate_x_stake);
 		self.stakes.total = self.stakes.total.saturating_sub(vault.redistribution_stake);
+	}
+
+	pub fn add_collateral(&mut self, amount: Balance) {
+		self.total_collateral = self.total_collateral.saturating_add(amount);
+	}
+
+	pub fn remove_collateral(&mut self, amount: Balance) {
+		self.total_collateral = self.total_collateral.saturating_sub(amount);
+	}
+
+	pub fn apply_debt_payment(&mut self, payment: DebtPayment<Balance>, rate: FixedU128) {
+		self.debt.principal = self.debt.principal.saturating_sub(payment.principal);
+		self.debt.minted_interest = self.debt.minted_interest.saturating_sub(payment.interest);
+		let weighted = rate.saturating_mul_int(payment.principal);
+		self.debt.weighted_principal_sum =
+			self.debt.weighted_principal_sum.saturating_sub(weighted);
+	}
+
+	pub fn change_vault_rate(
+		&mut self,
+		old_rate: FixedU128,
+		new_rate: FixedU128,
+		principal: Balance,
+		stake: Balance,
+	) {
+		self.debt.weighted_principal_sum = self
+			.debt
+			.weighted_principal_sum
+			.saturating_sub(old_rate.saturating_mul_int(principal))
+			.saturating_add(new_rate.saturating_mul_int(principal));
+		self.stakes.weighted_sum = self
+			.stakes
+			.weighted_sum
+			.saturating_sub(old_rate.saturating_mul_int(stake))
+			.saturating_add(new_rate.saturating_mul_int(stake));
 	}
 }
 

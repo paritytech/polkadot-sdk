@@ -18,7 +18,7 @@ use crate::{
 		BalanceOf, BranchStates, Config, Error, Event, HoldReason, Pallet, StableCreditOf, Vaults,
 	},
 	recovery,
-	types::VaultStatus,
+	types::{VaultListId, VaultStatus},
 };
 use frame::deps::{
 	frame_support::{
@@ -29,6 +29,7 @@ use frame::deps::{
 			tokens::{Fortitude, Imbalance, Precision, Restriction},
 			SameOrOther, Time,
 		},
+		transactional,
 	},
 	sp_runtime::{
 		traits::{Saturating, Zero},
@@ -42,6 +43,7 @@ use pusd_primitives::{
 };
 
 impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>> for Pallet<T> {
+	#[transactional]
 	fn prepare_liquidation(
 		collateral_id: T::AssetId,
 		owner: T::AccountId,
@@ -71,11 +73,12 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 			bs.detach_vault(&vault);
 			Ok(())
 		})?;
-		let _ = T::RateIndex::remove(&collateral_id, &owner);
+		let _ = T::VaultLists::remove(&VaultListId::Rate(collateral_id), &owner);
 
 		Ok(post_touch_debt)
 	}
 
+	#[transactional]
 	fn finalize_liquidation(
 		collateral_id: T::AssetId,
 		owner: T::AccountId,
@@ -220,9 +223,10 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 			}
 		}
 		// 3. Tail of rate index.
-		T::RateIndex::tail(&collateral_id)
+		T::VaultLists::tail(&VaultListId::Rate(collateral_id))
 	}
 
+	#[transactional]
 	fn touch_for_redemption(
 		collateral_id: T::AssetId,
 		owner: T::AccountId,
@@ -235,6 +239,7 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 		Ok(vault.debt.total())
 	}
 
+	#[transactional]
 	fn apply_redemption(
 		collateral_id: T::AssetId,
 		owner: T::AccountId,
@@ -260,17 +265,8 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 			return Err(Error::<T>::InvalidRedemptionAllocation.into());
 		}
 
-		// Apply debt cancellation: accrued interest first, then principal.
-		let mut remaining = allocation.debt_to_cancel;
-		let pay_accrued = core::cmp::min(remaining, vault.debt.interest);
-		vault.debt.interest = vault.debt.interest.saturating_sub(pay_accrued);
-		remaining = remaining.saturating_sub(pay_accrued);
-		let pay_principal = core::cmp::min(remaining, vault.debt.principal);
-		vault.debt.principal = vault.debt.principal.saturating_sub(pay_principal);
-		remaining = remaining.saturating_sub(pay_principal);
-		if !remaining.is_zero() {
-			return Err(Error::<T>::InvalidRedemptionAllocation.into());
-		}
+		let payment = vault.debt.cancel(allocation.debt_to_cancel);
+		debug_assert_eq!(payment.total(), allocation.debt_to_cancel);
 
 		// Move collateral.
 		if !allocation.collateral_to_redeemer.is_zero() {
@@ -290,14 +286,8 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 		let new_total = vault.debt.total();
 		BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
 			let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-			bs.debt.principal = bs.debt.principal.saturating_sub(pay_principal);
-			bs.debt.minted_interest = bs.debt.minted_interest.saturating_sub(pay_accrued);
-			bs.debt.weighted_principal_sum = bs
-				.debt
-				.weighted_principal_sum
-				.saturating_sub(vault.annual_rate.saturating_mul_int(pay_principal));
-			bs.total_collateral =
-				bs.total_collateral.saturating_sub(allocation.collateral_to_redeemer);
+			bs.apply_debt_payment(payment, vault.annual_rate);
+			bs.remove_collateral(allocation.collateral_to_redeemer);
 			if matches!(status, VaultStatus::Active | VaultStatus::Dormant) {
 				if new_total.is_zero() {
 					if bs.queues.last_dormant_vault_owner.as_ref() == Some(&owner) {
@@ -312,7 +302,7 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 
 		match status {
 			VaultStatus::Active if new_total < cfg.minimum_debt => {
-				let _ = T::RateIndex::remove(&collateral_id, &owner);
+				let _ = T::VaultLists::remove(&VaultListId::Rate(collateral_id), &owner);
 			},
 			VaultStatus::FinalRecovery if new_total.is_zero() => {
 				let _ = recovery::remove::<T>(&collateral_id, &owner);
@@ -337,6 +327,7 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 }
 
 impl<T: Config> VaultBadDebtInterface<T::AssetId, StableCreditOf<T>> for Pallet<T> {
+	#[transactional]
 	fn heal(collateral_id: T::AssetId, credit: StableCreditOf<T>) -> DispatchResult {
 		let amount = credit.peek();
 		if amount.is_zero() {

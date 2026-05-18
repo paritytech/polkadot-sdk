@@ -108,7 +108,10 @@ fn open_inserts_to_correct_dll_position() {
 		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(1, 200)));
 		assert_ok!(open(5, DOT, 1_000, 500, rate_pct(40, 100)));
 		// Tail-first iteration yields ascending rate: 0.5% (acct 1) first.
-		let tail_first = <LinkedList as SortedListInterface<u32, u64>>::iter_from_tail(&DOT, 10);
+		let tail_first = <LinkedList as SortedListInterface<VaultList, u64>>::iter_from_tail(
+			&rate_list(DOT),
+			10,
+		);
 		assert_eq!(tail_first, alloc::vec![1, 2, 3, 4, 5]);
 	});
 }
@@ -276,7 +279,10 @@ fn change_rate_re_inserts_to_correct_dll_position() {
 		));
 		// Final ascending order: C (0.5%) < B (20%) < E (50%) < A (60%) < D (70%).
 		// Tail-first walks lowest-rate first.
-		let order = <LinkedList as SortedListInterface<u32, u64>>::iter_from_tail(&DOT, 10);
+		let order = <LinkedList as SortedListInterface<VaultList, u64>>::iter_from_tail(
+			&rate_list(DOT),
+			10,
+		);
 		assert_eq!(order, alloc::vec![3, 2, 5, 1, 4]);
 	});
 }
@@ -290,7 +296,10 @@ fn collateral_or_debt_adjust_does_not_reorder_dll() {
 		for (who, pct) in [(1u64, 10), (2, 20), (3, 30), (4, 40), (5, 50)] {
 			assert_ok!(open(who, DOT, 1_000, 500, rate_pct(pct, 100)));
 		}
-		let order_before = <LinkedList as SortedListInterface<u32, u64>>::iter_from_tail(&DOT, 10);
+		let order_before = <LinkedList as SortedListInterface<VaultList, u64>>::iter_from_tail(
+			&rate_list(DOT),
+			10,
+		);
 		// Various coll/debt adjusts — none of these touch the rate index.
 		assert_ok!(crate::Pallet::<Test>::deposit_collateral_for(
 			RuntimeOrigin::signed(1),
@@ -307,7 +316,10 @@ fn collateral_or_debt_adjust_does_not_reorder_dll() {
 			Position::endpoints_only(),
 		));
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(3), 3, DOT, 50));
-		let order_after = <LinkedList as SortedListInterface<u32, u64>>::iter_from_tail(&DOT, 10);
+		let order_after = <LinkedList as SortedListInterface<VaultList, u64>>::iter_from_tail(
+			&rate_list(DOT),
+			10,
+		);
 		assert_eq!(order_before, order_after);
 	});
 }

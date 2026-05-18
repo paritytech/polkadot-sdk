@@ -7,7 +7,8 @@
 //!
 //! Full design lives in `liquity_v2/polkadot-impl/troves.md`. The rate index
 //! itself is delegated to `pallet-linked-list` (`linked-list.md` + `troves.md`
-//! §6).
+//! §6). Both active-rate and `FinalRecovery` ordering are backed by
+//! `pallet-linked-list` lists partitioned with `VaultListId`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -23,7 +24,7 @@ pub mod weights;
 #[cfg(feature = "try-runtime")]
 mod try_state;
 
-#[cfg(any(test, feature = "runtime-benchmarks"))]
+#[cfg(test)]
 pub mod mock;
 
 #[cfg(test)]
@@ -32,8 +33,9 @@ mod tests;
 pub use pallet::*;
 pub use pusd_primitives;
 pub use types::{
-	BranchConfig, BranchDebt, BranchMode, BranchQueues, BranchStakes, BranchState, FrozenReason,
-	FrozenState, ParameterId, RedistSnapshot, Vault, VaultDebt, VaultStatus, VaultsManagerLevel,
+	BranchConfig, BranchDebt, BranchMode, BranchQueues, BranchStakes, BranchState, DebtPayment,
+	FrozenReason, FrozenState, ParameterId, RedistSnapshot, Vault, VaultDebt, VaultListId,
+	VaultStatus, VaultsManagerLevel,
 };
 pub use weights::WeightInfo;
 
@@ -81,7 +83,10 @@ pub mod pallet {
 	pub type StableCreditOf<T> =
 		fungible::Credit<<T as frame_system::Config>::AccountId, <T as Config>::StableAsset>;
 
+	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -133,11 +138,15 @@ pub mod pallet {
 		/// tier so the call site can gate non-defensive operations.
 		type ManagerOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = VaultsManagerLevel>;
 
-		/// Sorted-DLL backing the per-branch rate index. Configured by the
-		/// runtime to point at `pallet-linked-list` with
-		/// `ListId = Self::AssetId`, `ItemId = Self::AccountId`,
+		/// Sorted-DLL backing the per-branch rate index and FinalRecovery FIFO.
+		/// Configured by the runtime to point at `pallet-linked-list` with
+		/// `ListId = VaultListId<Self::AssetId>`, `ItemId = Self::AccountId`,
 		/// `Priority = FixedU128`.
-		type RateIndex: SortedListInterface<Self::AssetId, Self::AccountId, Priority = FixedU128>;
+		type VaultLists: SortedListInterface<
+			VaultListId<Self::AssetId>,
+			Self::AccountId,
+			Priority = FixedU128,
+		>;
 
 		/// Pallet-derived redistribution holding account (collateral parking
 		/// during liquidation handoff).
@@ -146,7 +155,7 @@ pub mod pallet {
 
 		/// Maximum registered collateral branches.
 		#[pallet::constant]
-		type MaxBranches: Get<u32>;
+		type MaxBranches: Get<u32> + Get<Option<u32>>;
 
 		/// Maximum vaults the `on_idle` cursor refreshes per block. Bounds
 		/// idle-block weight regardless of branch count.
@@ -186,6 +195,8 @@ pub mod pallet {
 		T::AssetId,
 		BranchConfig<BalanceOf<T>, MomentOf<T>>,
 		OptionQuery,
+		GetDefault,
+		T::MaxBranches,
 	>;
 
 	/// Per-branch hot accounting state.
@@ -196,24 +207,14 @@ pub mod pallet {
 		T::AssetId,
 		BranchState<T::AccountId, BalanceOf<T>, MomentOf<T>>,
 		OptionQuery,
+		GetDefault,
+		T::MaxBranches,
 	>;
 
 	/// Bounded registry of supported collateral branches.
 	#[pallet::storage]
 	pub type Branches<T: Config> =
 		StorageValue<_, BoundedVec<T::AssetId, T::MaxBranches>, ValueQuery>;
-
-	/// Per-branch `FinalRecovery` FIFO node values.
-	#[pallet::storage]
-	pub type FinalRecoveryNodes<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		T::AssetId,
-		Blake2_128Concat,
-		T::AccountId,
-		Position<T::AccountId>,
-		OptionQuery,
-	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -339,6 +340,7 @@ pub mod pallet {
 		InvalidPositionHints,
 		RateIndexInvariantBroken,
 		FinalRecoveryInvariantBroken,
+		FinalRecoverySequenceOverflow,
 		NotLastEligibleVault,
 		InsufficientCollateral,
 		InsufficientRepayment,
@@ -354,7 +356,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
-			assert!(T::MaxBranches::get() > 0, "`MaxBranches` must be > 0");
+			assert!(<T::MaxBranches as Get<u32>>::get() > 0, "`MaxBranches` must be > 0");
 		}
 
 		fn on_idle(
@@ -418,7 +420,7 @@ pub mod pallet {
 			collateral_id: T::AssetId,
 			rate: FixedU128,
 		) -> Position<T::AccountId> {
-			T::RateIndex::find_position(&collateral_id, rate)
+			T::VaultLists::find_position(&VaultListId::Rate(collateral_id), rate)
 		}
 
 		/// Rate-index re-insert hint for moving `(collateral_id, owner)` to
@@ -428,7 +430,11 @@ pub mod pallet {
 			owner: T::AccountId,
 			new_rate: FixedU128,
 		) -> Option<Position<T::AccountId>> {
-			T::RateIndex::find_re_insert_position(&collateral_id, &owner, new_rate)
+			T::VaultLists::find_re_insert_position(
+				&VaultListId::Rate(collateral_id),
+				&owner,
+				new_rate,
+			)
 		}
 
 		/// Steps the on-chain repair walk would take for `(rate, hint)` on
@@ -438,7 +444,7 @@ pub mod pallet {
 			rate: FixedU128,
 			hint: Position<T::AccountId>,
 		) -> u32 {
-			T::RateIndex::repair_steps_needed(&collateral_id, rate, hint)
+			T::VaultLists::repair_steps_needed(&VaultListId::Rate(collateral_id), rate, hint)
 		}
 
 		/// Current rate-index neighbors of `(collateral_id, owner)`. `None`
@@ -447,7 +453,7 @@ pub mod pallet {
 			collateral_id: T::AssetId,
 			owner: T::AccountId,
 		) -> Option<Position<T::AccountId>> {
-			T::RateIndex::neighbors(&collateral_id, &owner)
+			T::VaultLists::neighbors(&VaultListId::Rate(collateral_id), &owner)
 		}
 
 		/// Total active-vault interest-bearing debt at rates strictly less
@@ -885,10 +891,15 @@ pub mod pallet {
 
 	/// `PriorityProvider` so `pallet-linked-list` can read authoritative rates
 	/// from us when relisting a drifted node.
-	impl<T: Config> PriorityProvider<T::AssetId, T::AccountId> for Pallet<T> {
+	impl<T: Config> PriorityProvider<VaultListId<T::AssetId>, T::AccountId> for Pallet<T> {
 		type Priority = FixedU128;
-		fn priority(list_id: &T::AssetId, item: &T::AccountId) -> Option<FixedU128> {
-			Vaults::<T>::get(list_id, item).map(|v| v.annual_rate)
+		fn priority(list_id: &VaultListId<T::AssetId>, item: &T::AccountId) -> Option<FixedU128> {
+			match list_id {
+				VaultListId::Rate(collateral_id) => {
+					Vaults::<T>::get(collateral_id, item).map(|v| v.annual_rate)
+				},
+				VaultListId::FinalRecovery(_) => T::VaultLists::priority(list_id, item),
+			}
 		}
 	}
 

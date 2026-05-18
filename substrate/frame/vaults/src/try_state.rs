@@ -3,8 +3,9 @@
 //! Gated on `feature = "try-runtime"`. Run after every test by the mock's
 //! `next_block` and end-to-end by the runtime's pre-upgrade hook.
 
-use crate::pallet::{
-	BalanceOf, BranchStates, Branches, Config, FinalRecoveryNodes, HoldReason, Pallet, Vaults,
+use crate::{
+	pallet::{BalanceOf, BranchStates, Branches, Config, HoldReason, Pallet, Vaults},
+	types::VaultListId,
 };
 use frame::{
 	deps::{
@@ -23,17 +24,14 @@ pub fn do_try_state<T: Config>() -> Result<(), TryRuntimeError> {
 	for c in branches.iter().copied() {
 		// (1) Per-vault membership rules.
 		for (owner, _vault) in Vaults::<T>::iter_prefix(c) {
-			let in_rate_index = T::RateIndex::contains(&c, &owner);
-			let in_recovery = FinalRecoveryNodes::<T>::contains_key(c, &owner);
+			let in_rate_index = T::VaultLists::contains(&VaultListId::Rate(c), &owner);
+			let in_recovery = T::VaultLists::contains(&VaultListId::FinalRecovery(c), &owner);
 			if in_rate_index && in_recovery {
 				return Err("vault in both rate index and recovery FIFO".into());
 			}
 		}
 		// (2) Branch state invariants.
 		if let Some(bs) = BranchStates::<T>::get(c) {
-			if bs.queues.final_recovery_head.is_some() != bs.queues.final_recovery_tail.is_some() {
-				return Err("FinalRecovery FIFO endpoints inconsistent".into());
-			}
 			if let Some(owner) = bs.queues.last_dormant_vault_owner.clone() {
 				let Some(vault) = Vaults::<T>::get(c, &owner) else {
 					return Err("last_dormant_vault_owner points at missing vault".into());
@@ -66,7 +64,7 @@ fn check_accounting_identities<T: Config>(c: T::AssetId) -> Result<(), TryRuntim
 		let held =
 			T::CollateralAssets::balance_on_hold(c, &HoldReason::VaultCollateral.into(), &owner);
 		sum_owner_held = sum_owner_held.saturating_add(held);
-		if FinalRecoveryNodes::<T>::contains_key(c, &owner) {
+		if T::VaultLists::contains(&VaultListId::FinalRecovery(c), &owner) {
 			continue;
 		}
 		sum_stake = sum_stake.saturating_add(vault.redistribution_stake);
