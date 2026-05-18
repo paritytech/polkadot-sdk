@@ -60,8 +60,12 @@
   additional-env:
     OLD_SUFFIX: "-old"
 
-- job-name: "zombienet-polkadot-functional-0015-coretime-shared-core"
-  test-filter: "functional::coretime_shared_core::coretime_shared_core_test"
+- job-name: "zombienet-polkadot-functional-0015-coretime-shared-core-4-paras"
+  test-filter: "functional::coretime_shared_core::coretime_shared_core_test_4_paras"
+  runner-type: "large"
+
+- job-name: "zombienet-polkadot-functional-0016-coretime-shared-core-3-paras"
+  test-filter: "functional::coretime_shared_core::coretime_shared_core_test_3_paras"
   runner-type: "large"
 
 
@@ -137,7 +141,7 @@
 
 - job-name: "zombienet-polkadot-elastic-scaling-basic-3cores"
   test-filter: "elastic_scaling::basic_3cores::basic_3cores_test"
-  runner-type: "default"
+  runner-type: "large"
   cumulus-image: "colander"
 
 - job-name: "zombienet-polkadot-functional-sync-backing"
@@ -176,7 +180,7 @@
 
 - job-name: "zombienet-polkadot-approved-peer-mixed-validators"
   test-filter: "functional::approved_peer_mixed_validators::approved_peer_mixed_validators_test"
-  runner-type: "default"
+  runner-type: "large"
   cumulus-image: "colander"
   additional-setup: |
     BIN_DIR="$(pwd)/bin_old"

@@ -37,8 +37,8 @@ use sp_keyring::Sr25519Keyring;
 use sp_runtime::Perbill;
 use westend_runtime_constants::currency::UNITS as WND;
 
-fn dap_satellite_account() -> AccountId {
-	pallet_dap_satellite::Pallet::<Runtime>::satellite_account()
+fn accumulation_account() -> AccountId {
+	pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account()
 }
 
 /// Helper function to generate stash, controller and session key from seed
@@ -183,7 +183,7 @@ fn westend_testnet_genesis(
 			balances: endowed_accounts
 				.iter()
 				.map(|k| (k.clone(), ENDOWMENT))
-				.chain(core::iter::once((dap_satellite_account(), ExistentialDeposit::get())))
+				.chain(core::iter::once((accumulation_account(), ExistentialDeposit::get())))
 				.collect::<Vec<_>>(),
 		},
 		session: SessionConfig {
@@ -355,7 +355,7 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 				.iter()
 				.map(|k: &AccountId| (k.clone(), ENDOWMENT))
 				.chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
-				.chain(core::iter::once((dap_satellite_account(), ExistentialDeposit::get())))
+				.chain(core::iter::once((accumulation_account(), ExistentialDeposit::get())))
 				.collect::<Vec<_>>(),
 		},
 		session: SessionConfig {
