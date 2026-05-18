@@ -16,8 +16,9 @@
 // limitations under the License.
 
 use crate::{
-	Config, Key, limits,
+	Config, Key,
 	access_list::StorageAccessCost,
+	limits,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	storage::WriteOutcome,
 	vm::RuntimeCosts,
@@ -76,12 +77,11 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					);
 					(outcome != WriteOutcome::New, outcome.old_len())
 				} else {
-					let charged = env.frame_meter_mut().charge_weight_token(
-						RuntimeCosts::ClearStorage {
+					let charged =
+						env.frame_meter_mut().charge_weight_token(RuntimeCosts::ClearStorage {
 							len: max_size,
 							costs: StorageAccessCost::cold(),
-						},
-					)?;
+						})?;
 					let (result, costs) = env.set_storage(&key, None, false);
 					let len = result.as_ref().map(|w| w.old_len()).unwrap_or(max_size);
 					env.frame_meter_mut()
@@ -142,12 +142,11 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					);
 					value
 				} else {
-					let charged = env.frame_meter_mut().charge_weight_token(
-						RuntimeCosts::TakeStorage {
+					let charged =
+						env.frame_meter_mut().charge_weight_token(RuntimeCosts::TakeStorage {
 							len: max_size,
 							costs: StorageAccessCost::cold(),
-						},
-					)?;
+						})?;
 					let (result, costs) = env.set_storage(&key, None, true);
 					let len = match result.as_ref() {
 						Ok(WriteOutcome::Taken(v)) => v.len() as u32,
