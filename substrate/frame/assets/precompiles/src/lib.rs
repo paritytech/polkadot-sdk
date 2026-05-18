@@ -204,6 +204,7 @@ where
 
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
+const ERR_METADATA_NOT_UTF8: &str = "Metadata not valid UTF-8";
 
 impl<Runtime, PrecompileConfig, Instance: 'static> ERC20<Runtime, PrecompileConfig, Instance>
 where
@@ -657,20 +658,27 @@ where
 	/// Execute the name call.
 	///
 	/// Returns the asset's metadata name. Real ERC-20s never revert on
-	/// introspection, so an asset with no metadata row (e.g. a foreign
-	/// asset registered before metadata is set) returns the empty string —
-	/// matching the path used by `domain_separator`. Non-UTF-8 bytes are
-	/// replaced with the Unicode replacement character rather than
-	/// reverting; the ABI return type is `string` and on-chain metadata is
-	/// not UTF-8-validated at write time, so a lossy decode is the
-	/// pragmatic boundary.
+	/// introspection of an unset name, so an asset with no metadata row
+	/// (e.g. a foreign asset registered before metadata is set) returns
+	/// the empty string — matching the path used by `domain_separator`.
+	///
+	/// Non-UTF-8 bytes reject with a revert. The chain stores raw bytes
+	/// but `compute_domain_separator` hashes those raw bytes directly,
+	/// while EIP-712 wallets that read `name()` will hash the
+	/// UTF-8-encoding of the decoded string. If we lossy-decoded here,
+	/// those two hashes would diverge for any non-UTF-8 name and every
+	/// `permit()` against the asset would fail at signer recovery with a
+	/// confusing "Signer does not match owner" — turning a metadata bug
+	/// into something that looks like a wallet bug. Reverting keeps the
+	/// failure overt at the introspection layer.
 	fn name(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
 		let name_bytes = pallet_assets::Pallet::<Runtime, Instance>::name(asset_id);
-		let name = alloc::string::String::from_utf8_lossy(&name_bytes).into_owned();
+		let name = alloc::string::String::from_utf8(name_bytes)
+			.map_err(|_| Error::Revert(Revert { reason: ERR_METADATA_NOT_UTF8.into() }))?;
 		Ok(IERC20::nameCall::abi_encode_returns(&name))
 	}
 
@@ -682,7 +690,8 @@ where
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
 		let symbol_bytes = pallet_assets::Pallet::<Runtime, Instance>::symbol(asset_id);
-		let symbol = alloc::string::String::from_utf8_lossy(&symbol_bytes).into_owned();
+		let symbol = alloc::string::String::from_utf8(symbol_bytes)
+			.map_err(|_| Error::Revert(Revert { reason: ERR_METADATA_NOT_UTF8.into() }))?;
 		Ok(IERC20::symbolCall::abi_encode_returns(&symbol))
 	}
 

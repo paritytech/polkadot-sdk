@@ -1097,19 +1097,24 @@ fn metadata_returns_defaults_when_unset() {
 	});
 }
 
-/// On-chain metadata is opaque bytes; the Solidity ABI declares `name()` /
-/// `symbol()` as `string` (UTF-8). The precompile is the layer that has to
-/// reconcile the two — it lossy-decodes invalid bytes rather than reverting.
-/// Pins that contract: non-UTF-8 input maps to U+FFFD.
+/// Non-UTF-8 metadata must revert at `name()` / `symbol()`, not lossy-decode.
+///
+/// If we lossy-decoded, the wallet's EIP-712 domain separator (hashed over
+/// the UTF-8 encoding of the returned string, with U+FFFD substitutions)
+/// would diverge from the on-chain `compute_domain_separator` which hashes
+/// the raw stored bytes — every `permit()` against such an asset would
+/// then revert at signer recovery with a misleading "Signer does not match
+/// owner". Reverting at introspection keeps the failure attributable to
+/// the metadata, not to the wallet.
 #[test]
-fn metadata_non_utf8_returns_replacement_chars() {
+fn metadata_non_utf8_reverts() {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
 		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
 		let owner = 123456789;
 
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
-		// 0xFF, 0xFE are not valid UTF-8 starter bytes — each one becomes U+FFFD.
+		// 0xFF, 0xFE are not valid UTF-8 starter bytes.
 		assert_ok!(Assets::force_set_metadata(
 			RuntimeOrigin::root(),
 			asset_id,
@@ -1119,8 +1124,8 @@ fn metadata_non_utf8_returns_replacement_chars() {
 			false,
 		));
 
-		let call_view = |data: Vec<u8>| -> Vec<u8> {
-			let result = pallet_revive::Pallet::<Test>::bare_call(
+		let call_view = |data: Vec<u8>| -> pallet_revive::ExecReturnValue {
+			pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(owner),
 				asset_addr,
 				0u32.into(),
@@ -1130,18 +1135,20 @@ fn metadata_non_utf8_returns_replacement_chars() {
 				},
 				data,
 				&ExecConfig::new_substrate_tx(),
-			);
-			let exec = result.result.expect("metadata view must not trap");
-			assert!(!exec.did_revert(), "metadata view must not revert on non-UTF-8");
-			exec.data
+			)
+			.result
+			.expect("metadata view must not trap")
 		};
 
-		let expected = "\u{FFFD}\u{FFFD}";
+		let name_exec = call_view(IERC20::nameCall {}.abi_encode());
+		assert!(name_exec.did_revert(), "name() must revert on non-UTF-8 metadata");
 
-		let name_bytes = call_view(IERC20::nameCall {}.abi_encode());
-		assert_eq!(IERC20::nameCall::abi_decode_returns(&name_bytes).unwrap(), expected);
+		let symbol_exec = call_view(IERC20::symbolCall {}.abi_encode());
+		assert!(symbol_exec.did_revert(), "symbol() must revert on non-UTF-8 metadata");
 
-		let symbol_bytes = call_view(IERC20::symbolCall {}.abi_encode());
-		assert_eq!(IERC20::symbolCall::abi_decode_returns(&symbol_bytes).unwrap(), expected);
+		// decimals() is unaffected by UTF-8 — it returns the stored u8 verbatim.
+		let decimals_exec = call_view(IERC20::decimalsCall {}.abi_encode());
+		assert!(!decimals_exec.did_revert(), "decimals() must succeed regardless of name/symbol");
+		assert_eq!(IERC20::decimalsCall::abi_decode_returns(&decimals_exec.data).unwrap(), 6u8);
 	});
 }
