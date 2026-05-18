@@ -333,6 +333,63 @@ fn transfer_from_does_not_decrement_max_allowance() {
 	});
 }
 
+/// Pins the common (non-sentinel) `transfer_from` path: with no approval row,
+/// the call must revert with `Unapproved`. Guards against the sentinel-bypass
+/// refactor accidentally letting unauthorised callers transfer (e.g. if a
+/// future change confused "no approval" with "sentinel approval").
+#[test]
+fn transfer_from_reverts_with_unapproved_when_no_allowance() {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let owner = 123456789;
+		let spender = 987654321;
+		let recipient = 111222333;
+		Balances::make_free_balance_be(&owner, 100);
+		Balances::make_free_balance_be(&spender, 100);
+		Balances::make_free_balance_be(&recipient, 100);
+
+		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let recipient_addr =
+			<Test as pallet_revive::Config>::AddressMapper::to_address(&recipient);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+
+		// No approve call: spender has zero allowance, no approval row in storage.
+		let data = IERC20::transferFromCall {
+			from: owner_addr.0.into(),
+			to: recipient_addr.0.into(),
+			value: U256::from(10u64),
+		}
+		.abi_encode();
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(spender),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.result;
+		// `do_transfer_approved` returns the pallet's `Unapproved` DispatchError,
+		// which surfaces as a trap (Module error), not a Solidity-style revert.
+		// Either path means the call failed; pin that it carries the right reason.
+		let err = result.expect_err("transferFrom must fail with no allowance");
+		assert!(
+			format!("{err:?}").contains("Unapproved"),
+			"unexpected failure reason: {err:?}",
+		);
+
+		// Balances unchanged.
+		assert_eq!(Assets::balance(asset_id, &owner), 100);
+		assert_eq!(Assets::balance(asset_id, &recipient), 0);
+	});
+}
+
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 #[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 fn total_supply_works(asset_index: u16) {
@@ -1476,6 +1533,12 @@ fn metadata_returns_defaults_when_unset(asset_index: u16) {
 		let symbol_bytes = call_view(IERC20::symbolCall {}.abi_encode());
 		assert_eq!(IERC20::symbolCall::abi_decode_returns(&symbol_bytes).unwrap(), "");
 
+		// Trade-off pinned: we deliberately report `0` rather than substituting
+		// an ERC-20-idiomatic `18` (or 12, or any other guess). See the doc
+		// comment on `decimals` for why — the precompile must not invent a
+		// value the chain itself doesn't have. Chain operators must call
+		// `force_set_metadata` before exposing an asset to EVM tooling, or
+		// wallets will display balances `10^decimals` larger than intended.
 		let decimals_bytes = call_view(IERC20::decimalsCall {}.abi_encode());
 		assert_eq!(IERC20::decimalsCall::abi_decode_returns(&decimals_bytes).unwrap(), 0u8);
 	});

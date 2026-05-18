@@ -26,8 +26,11 @@ use ethereum_standards::{
 	IERC20,
 	IERC20::{IERC20Calls, IERC20Events},
 };
-use frame_support::traits::fungibles::metadata::Inspect as MetadataInspect;
+use frame_support::traits::fungibles::{
+	approvals::Inspect as ApprovalsInspect, metadata::Inspect as MetadataInspect,
+};
 use pallet_assets::{weights::WeightInfo as _, Call, Config, TransferFlags};
+use sp_runtime::traits::{Bounded, UniqueSaturatedInto, Zero};
 use pallet_revive::precompiles::{
 	alloy::{
 		self,
@@ -216,6 +219,12 @@ where
 	Call<Runtime, Instance>: Into<<Runtime as pallet_revive::Config>::RuntimeCall>,
 	alloy::primitives::U256: TryInto<<Runtime as Config<Instance>>::Balance>,
 	alloy::primitives::U256: TryFrom<<Runtime as Config<Instance>>::Balance>,
+	// Saturation and the infinite-allowance sentinel both rely on
+	// `Balance::max_value()`. This is transitively true today via
+	// `pallet_assets::Config: AtLeast32BitUnsigned`, but pin it explicitly
+	// so a future loosening of that bound is caught at the type level
+	// rather than silently breaking the sentinel comparison.
+	<Runtime as Config<Instance>>::Balance: sp_runtime::traits::Bounded,
 {
 	/// Get the caller as an `H160` address.
 	fn caller(env: &mut impl Ext<T = Runtime>) -> Result<H160, Error> {
@@ -324,7 +333,6 @@ where
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::allowance())?;
-		use frame_support::traits::fungibles::approvals::Inspect;
 		let owner = call.owner.into_array().into();
 		let owner = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner);
 
@@ -361,9 +369,6 @@ where
 		call: &IERC20::approveCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		use frame_support::traits::fungibles::approvals::Inspect as ApprovalsInspect;
-		use sp_runtime::traits::{UniqueSaturatedInto, Zero};
-
 		// Reserve worst-case gas upfront, then refund the unused portion.
 		let worst_case = <Runtime as Config<Instance>>::WeightInfo::allowance()
 			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::cancel_approval())
@@ -459,11 +464,11 @@ where
 		call: &IERC20::transferFromCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		use frame_support::traits::fungibles::approvals::Inspect;
-		use sp_runtime::traits::Bounded;
-
-		// Reserve worst-case weight (transfer_approved is the heavier branch),
-		// refund if we take the sentinel branch.
+		// Worst case across both branches. Sentinel branch (rare) does an
+		// explicit allowance read + plain transfer; common branch does
+		// transfer_approved which covers its own approval read + write.
+		// We charge the union so neither branch can over-spend, then refund
+		// down to the actually-taken path in `actual_weight` below.
 		let worst_case = <Runtime as Config<Instance>>::WeightInfo::allowance()
 			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::transfer_approved());
 		let charged = env.charge(worst_case)?;
@@ -480,35 +485,48 @@ where
 
 		let approval_amount = Self::to_balance(call.value)?;
 
-		let current = pallet_assets::Pallet::<Runtime, Instance>::allowance(
+		// Peek the raw `Approvals` row directly rather than going through the
+		// fungibles trait. This pins the sentinel invariant to storage state —
+		// "an approval row exists and its amount is `Balance::MAX`" — rather
+		// than to a trait return value that a future impl could synthesise.
+		let approval = pallet_assets::Approvals::<Runtime, Instance>::get((
 			asset_id.clone(),
 			&from,
 			&spender,
-		);
-		let actual_weight = if current == <Runtime as Config<Instance>>::Balance::max_value() {
-			// Sentinel allowance: bypass `do_transfer_approved` so the approval
-			// is not decremented. The check above already confirms the spender
-			// has authority; balance enforcement happens inside `do_transfer`.
-			let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
-			pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
-				asset_id,
-				&from,
-				&to,
-				approval_amount,
-				None,
-				f,
-			)?;
-			<Runtime as Config<Instance>>::WeightInfo::allowance()
-				.saturating_add(<Runtime as Config<Instance>>::WeightInfo::transfer())
-		} else {
-			pallet_assets::Pallet::<Runtime, Instance>::do_transfer_approved(
-				asset_id,
-				&from,
-				&spender,
-				&to,
-				approval_amount,
-			)?;
-			worst_case
+		));
+		let actual_weight = match approval {
+			Some(a) if a.amount == <Runtime as Config<Instance>>::Balance::max_value() => {
+				// Sentinel: bypass `do_transfer_approved` so the approval is not
+				// decremented. The match arm itself confirms an approval row
+				// exists; `do_transfer` enforces the balance check.
+				let f =
+					TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
+				pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
+					asset_id,
+					&from,
+					&to,
+					approval_amount,
+					None,
+					f,
+				)?;
+				<Runtime as Config<Instance>>::WeightInfo::allowance()
+					.saturating_add(<Runtime as Config<Instance>>::WeightInfo::transfer())
+			},
+			_ => {
+				// Common path: `do_transfer_approved` does its own approval read
+				// and decrement. Our peek above was a cached storage hit so we
+				// don't bill the caller for it twice — `actual_weight` here is
+				// just `transfer_approved`, refunding the `allowance` portion of
+				// `worst_case`.
+				pallet_assets::Pallet::<Runtime, Instance>::do_transfer_approved(
+					asset_id,
+					&from,
+					&spender,
+					&to,
+					approval_amount,
+				)?;
+				<Runtime as Config<Instance>>::WeightInfo::transfer_approved()
+			},
 		};
 		env.adjust_gas(charged, actual_weight);
 
@@ -537,9 +555,6 @@ where
 		call: &IERC20::permitCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		use frame_support::traits::fungibles::approvals::Inspect as ApprovalsInspect;
-		use sp_runtime::traits::{UniqueSaturatedInto, Zero};
-
 		// Reserve worst-case gas upfront, then refund the unused portion.
 		// The total cost is: use_permit (signature verification + nonce) +
 		// worst-case asset approval operations (allowance read + cancel + approve).
@@ -759,8 +774,23 @@ where
 		Ok(IERC20::symbolCall::abi_encode_returns(&symbol))
 	}
 
-	/// Execute the decimals call. Returns `0` for assets with no metadata
-	/// row, mirroring the empty-string behaviour of `name`/`symbol`.
+	/// Execute the decimals call.
+	///
+	/// Returns whatever `pallet_assets` reports — which is `0` for an asset
+	/// with no metadata row (the `Metadata` storage uses `ValueQuery`).
+	///
+	/// **Soft semantic change vs. pre-PR.** Pre-PR this reverted on missing
+	/// metadata; some wallets caught that revert and fell back to `decimals = 18`
+	/// (the OZ default). Post-PR they will instead read `0` and display
+	/// balances `10^N` larger than intended. We accept that risk because:
+	/// (i) the precompile must not lie about chain state — `pallet_assets`
+	/// itself reports `0` to every other consumer (RPC, XCM, other pallets)
+	/// for the same asset; (ii) any fixed default we could substitute (18,
+	/// 12, …) would also be wrong for some asset, making the precompile
+	/// worse than the chain it wraps; (iii) reverting broke block-explorer
+	/// token discovery, which was the original motivation to stop. The
+	/// onus is on chain operators to call `force_set_metadata` *before*
+	/// exposing an asset to EVM tooling.
 	fn decimals(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		env: &mut impl Ext<T = Runtime>,
