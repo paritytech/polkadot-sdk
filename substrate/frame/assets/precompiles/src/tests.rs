@@ -1328,6 +1328,116 @@ fn permit_saturates_when_overwriting_existing_allowance() {
 	});
 }
 
+/// Boundary test mirroring `approve_saturates_just_above_balance_max`:
+/// saturation must trigger for any `U256 > Balance::MAX`, not only the exact
+/// `U256::MAX` sentinel. Guards against a regression that would scope
+/// `permit`'s saturation to `call.value == U256::MAX`.
+#[test]
+fn permit_saturates_just_above_balance_max() {
+	use frame_support::traits::fungibles::approvals::Inspect;
+	use sp_core::{ecdsa, Pair as _};
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+
+		let secret: [u8; 32] = hex::const_decode_to_array(
+			b"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+		)
+		.unwrap();
+		let pair = ecdsa::Pair::from_seed_slice(&secret).expect("valid secret");
+
+		let dummy = [0u8; 32];
+		let dummy_sig = pair.sign_prehashed(&dummy).0;
+		let pubkey = sp_io::crypto::secp256k1_ecdsa_recover(&dummy_sig, &dummy)
+			.ok()
+			.expect("recover from valid signature");
+		let owner_h160 = H160::from_slice(&sp_io::hashing::keccak_256(&pubkey)[12..]);
+
+		let spender_h160 = H160::from_low_u64_be(0x9876_5432);
+		let owner_account =
+			<Test as pallet_revive::Config>::AddressMapper::to_account_id(&owner_h160);
+		let spender_account =
+			<Test as pallet_revive::Config>::AddressMapper::to_account_id(&spender_h160);
+
+		let relayer: u64 = 555_555;
+		Balances::make_free_balance_be(&owner_account, 100);
+		Balances::make_free_balance_be(&relayer, 1_000_000);
+
+		assert_ok!(Assets::force_create(
+			RuntimeOrigin::root(),
+			asset_id,
+			owner_account.clone(),
+			true,
+			1
+		));
+
+		// Smallest U256 that doesn't fit in the mock's `Balance` (u64).
+		let just_over: U256 = U256::from(u64::MAX) + U256::from(1u64);
+		let value_bytes: [u8; 32] = just_over.to_be_bytes();
+		let deadline_value = U256::from(u64::MAX);
+		let deadline_bytes: [u8; 32] = deadline_value.to_be_bytes();
+		let nonce = sp_core::U256::zero();
+		let asset_name = pallet_assets::Pallet::<Test>::name(asset_id);
+
+		let digest = permit::Pallet::<Test>::permit_digest(
+			&asset_addr,
+			&asset_name,
+			&owner_h160,
+			&spender_h160,
+			&value_bytes,
+			&nonce,
+			&deadline_bytes,
+		);
+		let sig = pair.sign_prehashed(&digest).0;
+		let mut r = [0u8; 32];
+		let mut s = [0u8; 32];
+		r.copy_from_slice(&sig[0..32]);
+		s.copy_from_slice(&sig[32..64]);
+		let v = sig[64] + 27;
+
+		let data = IERC20::permitCall {
+			owner: owner_h160.0.into(),
+			spender: spender_h160.0.into(),
+			value: just_over,
+			deadline: deadline_value,
+			v,
+			r: r.into(),
+			s: s.into(),
+		}
+		.abi_encode();
+
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(relayer),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		);
+		assert!(result.result.is_ok(), "permit(Balance::MAX + 1) must not trap: {:?}", result.result);
+		assert!(
+			!result.result.expect("checked above").did_revert(),
+			"permit(Balance::MAX + 1) must not revert"
+		);
+
+		assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), u64::MAX);
+
+		// Event carries the raw signed value, not the saturated storage value.
+		assert_contract_event(
+			asset_addr,
+			IERC20Events::Approval(IERC20::Approval {
+				owner: owner_h160.0.into(),
+				spender: spender_h160.0.into(),
+				value: just_over,
+			}),
+		);
+	});
+}
+
 /// `name()`, `symbol()`, and `decimals()` must NOT revert when an asset has
 /// no metadata row — real ERC-20s never revert on introspection. The legitimate
 /// case is a foreign asset registered before metadata is set; reverting there
