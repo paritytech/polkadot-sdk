@@ -142,6 +142,7 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 				);
 				continue;
 			}
+
 			ExternalAssets::<T>::insert(asset_id, CircuitBreakerLevel::AllEnabled);
 			ExternalDecimals::<T>::insert(asset_id, asset_decimals);
 			MintingFee::<T>::insert(asset_id, minting_fee);

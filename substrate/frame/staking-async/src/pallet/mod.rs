@@ -1542,8 +1542,7 @@ pub mod pallet {
 						active_era,
 					);
 				} else {
-					let offence_era = active_era.saturating_sub(T::SlashDeferDuration::get());
-					slashing::apply_slash::<T>(slash, offence_era);
+					slashing::apply_slash::<T>(slash, Self::offence_era_of(active_era));
 				}
 
 				// Always remove the slash from UnappliedSlashes
@@ -1728,6 +1727,14 @@ pub mod pallet {
 				T::MaxPruningItems::get() >= 100,
 				"MaxPruningItems must be at least 100 for efficient pruning, got: {}",
 				T::MaxPruningItems::get()
+			);
+
+			assert!(
+				crate::POT_POOL_SIZE > T::HistoryDepth::get(),
+				"POT_POOL_SIZE ({}) must be strictly greater than HistoryDepth ({}) \
+				 to avoid reusing a pot slot whose era is still in the active history.",
+				crate::POT_POOL_SIZE,
+				T::HistoryDepth::get(),
 			);
 
 			// If minting is disabled, EraPayout must be a noop to prevent double-minting.
@@ -2944,7 +2951,8 @@ pub mod pallet {
 		/// for eras older than the active era.
 		///
 		/// ## Parameters
-		/// - `slash_era`: The staking era in which the slash was originally scheduled.
+		/// - `slash_era`: The application era (`offence_era + SlashDeferDuration`), i.e. the key
+		///   into [`UnappliedSlashes`].
 		/// - `slash_key`: A unique identifier for the slash, represented as a tuple:
 		///   - `stash`: The stash account of the validator being slashed.
 		///   - `slash_fraction`: The fraction of the stake that was slashed.
@@ -2979,7 +2987,7 @@ pub mod pallet {
 
 			let unapplied_slash = UnappliedSlashes::<T>::take(&slash_era, &slash_key)
 				.ok_or(Error::<T>::InvalidSlashRecord)?;
-			slashing::apply_slash::<T>(unapplied_slash, slash_era);
+			slashing::apply_slash::<T>(unapplied_slash, Self::offence_era_of(slash_era));
 
 			Ok(Pays::No.into())
 		}
