@@ -18,9 +18,10 @@
 //! Collator authority discovery for parachains is used to achieve `1 hop` block announcement
 //! between collators.
 //!
-//! This requires the parachain runtime to implement [`sp_authority_discovery::AuthorityDiscoveryApi`],
-//! and that the collator's keystore contains an `AUTHORITY_DISCOVERY` key.
-//! 
+//! This requires the parachain runtime to implement
+//! [`sp_authority_discovery::AuthorityDiscoveryApi`], and that the collator's keystore contains an
+//! `AUTHORITY_DISCOVERY` key.
+//!
 //! Once the API is detected, it's assumed to remain available. If there are more authorities
 //! than `max_reserved`, the set is sorted by raw public key bytes and trimmed so all nodes
 //! select the same subset.
