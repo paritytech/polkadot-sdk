@@ -879,6 +879,209 @@ pub struct CallLog {
 	pub index: u32,
 }
 
+/// Legacy wire shape of [`Trace`] returned by `ReviveApi` at api_version 1.
+/// The `Call` variant carries [`CallTraceV1`], which omits the per-log `index` field added in
+/// api_version 2. Used by [`changed_in(2)`] arms so new nodes can decode responses from
+/// pre-bump runtimes.
+#[derive(TypeInfo, Deserialize, Serialize, From, Encode, Decode, Clone, Debug, Eq, PartialEq)]
+#[serde(untagged)]
+pub enum TraceV1 {
+	/// A call trace.
+	Call(CallTraceV1),
+	/// A prestate trace.
+	Prestate(PrestateTrace),
+	/// An execution trace (opcodes and syscalls).
+	Execution(ExecutionTrace),
+}
+
+/// Legacy wire shape of [`CallTrace`] returned by `ReviveApi` at api_version 1.
+/// Identical to [`CallTrace`] except the recursive call list and the per-call log list use the V1
+/// shapes ([`CallTraceV1`] and [`CallLogV1`]).
+#[derive(
+	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct CallTraceV1 {
+	/// Address of the sender.
+	pub from: H160,
+	/// Amount of gas provided for the call.
+	#[serde(with = "super::hex_serde")]
+	pub gas: u64,
+	/// Amount of gas used.
+	#[serde(with = "super::hex_serde")]
+	pub gas_used: u64,
+	/// Address of the receiver.
+	pub to: H160,
+	/// Call input data.
+	pub input: Bytes,
+	/// Return data.
+	#[serde(skip_serializing_if = "Bytes::is_empty")]
+	pub output: Bytes,
+	/// The error message if the call failed.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub error: Option<String>,
+	/// The revert reason, if the call reverted.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub revert_reason: Option<String>,
+	/// List of sub-calls.
+	#[serde(skip_serializing_if = "Vec::is_empty")]
+	pub calls: Vec<CallTraceV1>,
+	/// List of logs emitted during the call.
+	#[serde(skip_serializing_if = "Vec::is_empty")]
+	pub logs: Vec<CallLogV1>,
+	/// Amount of value transferred.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub value: Option<U256>,
+	/// Type of call.
+	#[serde(rename = "type")]
+	pub call_type: CallType,
+	/// Number of child calls entered (for log position calculation).
+	#[serde(skip)]
+	pub child_call_count: u32,
+}
+
+/// Legacy wire shape of [`CallLog`] returned by `ReviveApi` at api_version 1.
+/// Same fields as [`CallLog`] without the monotonic `index` added in api_version 2.
+#[derive(
+	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
+)]
+pub struct CallLogV1 {
+	/// The address of the contract that emitted the log.
+	pub address: H160,
+	/// The topics used to index the log.
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub topics: Vec<H256>,
+	/// The log's data.
+	pub data: Bytes,
+	/// Position of the log relative to subcalls within the same trace.
+	#[serde(with = "super::hex_serde")]
+	pub position: u32,
+}
+
+impl From<CallLog> for CallLogV1 {
+	fn from(log: CallLog) -> Self {
+		let CallLog { address, topics, data, position, index: _ } = log;
+		Self { address, topics, data, position }
+	}
+}
+
+impl From<CallTrace> for CallTraceV1 {
+	fn from(trace: CallTrace) -> Self {
+		let CallTrace {
+			from,
+			gas,
+			gas_used,
+			to,
+			input,
+			output,
+			error,
+			revert_reason,
+			calls,
+			logs,
+			value,
+			call_type,
+			child_call_count,
+		} = trace;
+		Self {
+			from,
+			gas,
+			gas_used,
+			to,
+			input,
+			output,
+			error,
+			revert_reason,
+			calls: calls.into_iter().map(Into::into).collect(),
+			logs: logs.into_iter().map(Into::into).collect(),
+			value,
+			call_type,
+			child_call_count,
+		}
+	}
+}
+
+impl From<Trace> for TraceV1 {
+	fn from(trace: Trace) -> Self {
+		match trace {
+			Trace::Call(call) => Self::Call(call.into()),
+			Trace::Prestate(prestate) => Self::Prestate(prestate),
+			Trace::Execution(execution) => Self::Execution(execution),
+		}
+	}
+}
+
+impl From<CallLogV1> for CallLog {
+	fn from(log: CallLogV1) -> Self {
+		let CallLogV1 { address, topics, data, position } = log;
+		Self { address, topics, data, position, index: 0 }
+	}
+}
+
+impl CallTraceV1 {
+	/// Upgrade this V1 call trace into the current shape, assigning monotonic `index` values to
+	/// every log encountered in DFS order starting from `next_index`. Returns the next available
+	/// index after consuming the subtree.
+	fn upgrade_with_indices(self, next_index: &mut u32) -> CallTrace {
+		let CallTraceV1 {
+			from,
+			gas,
+			gas_used,
+			to,
+			input,
+			output,
+			error,
+			revert_reason,
+			calls,
+			logs,
+			value,
+			call_type,
+			child_call_count,
+		} = self;
+		let logs = logs
+			.into_iter()
+			.map(|log| {
+				let mut upgraded: CallLog = log.into();
+				upgraded.index = *next_index;
+				*next_index += 1;
+				upgraded
+			})
+			.collect();
+		let calls =
+			calls.into_iter().map(|call| call.upgrade_with_indices(next_index)).collect();
+		CallTrace {
+			from,
+			gas,
+			gas_used,
+			to,
+			input,
+			output,
+			error,
+			revert_reason,
+			calls,
+			logs,
+			value,
+			call_type,
+			child_call_count,
+		}
+	}
+}
+
+impl From<CallTraceV1> for CallTrace {
+	fn from(trace: CallTraceV1) -> Self {
+		trace.upgrade_with_indices(&mut 0)
+	}
+}
+
+impl From<TraceV1> for Trace {
+	fn from(trace: TraceV1) -> Self {
+		match trace {
+			TraceV1::Call(call) => Self::Call(call.into()),
+			TraceV1::Prestate(prestate) => Self::Prestate(prestate),
+			TraceV1::Execution(execution) => Self::Execution(execution),
+		}
+	}
+}
+
 /// A transaction trace
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]

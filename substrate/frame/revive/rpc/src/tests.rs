@@ -1750,7 +1750,7 @@ async fn create_sync_test_client() -> anyhow::Result<Client> {
 		.connect_with(SqliteConnectOptions::new().in_memory(true))
 		.await?;
 
-	let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
+	let receipt_extractor = ReceiptExtractor::new(api.clone(), rpc.clone()).await?;
 	let receipt_provider =
 		ReceiptProvider::new(pool, block_provider.clone(), receipt_extractor, None).await?;
 

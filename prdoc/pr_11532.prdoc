@@ -16,6 +16,10 @@ doc:
 
     - `CallLog`: new `index: u32` field with hex serialization
     - `CallTracer`: new `log_count` counter incremented on each `log_event` call
+    - `ReviveApi` bumped to `api_version(2)`. `trace_block`, `trace_tx`, and `trace_call` keep their
+      v1 signatures via `#[changed_in(2)]` so new nodes can still decode trace responses from
+      pre-bump runtimes. Legacy wire shapes (`TraceV1`, `CallTraceV1`, `CallLogV1`) are added in
+      `evm::api::debug_rpc_types` alongside `From`-based downgrade conversions.
     - Updated `call_tracing_works` test to verify correct monotonic indices across nested call depths
 
     ## Test plan

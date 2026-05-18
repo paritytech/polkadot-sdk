@@ -189,6 +189,9 @@ pub enum ClientError {
 	/// Stored sync boundary does not match the connected node.
 	#[error("Sync boundary mismatch")]
 	SyncBoundaryMismatch,
+	/// Catch-all string error for paths that don't fit the typed variants above.
+	#[error("{0}")]
+	Other(String),
 }
 
 impl ClientError {
@@ -571,7 +574,7 @@ impl Client {
 
 	/// Get the runtime API for the given block.
 	pub fn runtime_api(&self, block_hash: H256) -> RuntimeApi {
-		RuntimeApi::new(self.api.runtime_api().at(block_hash))
+		RuntimeApi::new(self.api.clone(), self.rpc.clone(), block_hash)
 	}
 
 	/// Get the latest finalized block.
@@ -851,7 +854,7 @@ impl Client {
 		if parent_hash == Default::default() {
 			return Ok(vec![]);
 		}
-		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(parent_hash));
+		let runtime_api = RuntimeApi::new(self.api.clone(), self.rpc.clone(), parent_hash);
 		let traces = runtime_api.trace_block(block, config.clone()).await?;
 
 		let mut hashes = self

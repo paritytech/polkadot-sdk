@@ -50,8 +50,8 @@ pub mod weights;
 use crate::{
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
-		TYPE_EIP1559, Trace, Tracer, TracerType, block_hash::EthereumBlockBuilderIR, block_storage,
-		fees::InfoT as FeeInfo, runtime::SetWeightLimit,
+		TYPE_EIP1559, Trace, TraceV1, Tracer, TracerType, block_hash::EthereumBlockBuilderIR,
+		block_storage, fees::InfoT as FeeInfo, runtime::SetWeightLimit,
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
 	sp_runtime::TransactionOutcome,
@@ -2722,7 +2722,7 @@ environmental!(executing_contract: bool);
 
 sp_api::decl_runtime_apis! {
 	/// The API used to dry-run contract interactions.
-	#[api_version(1)]
+	#[api_version(2)]
 	pub trait ReviveApi<AccountId, Balance, Nonce, BlockNumber, Moment> where
 		AccountId: Codec,
 		Balance: Codec,
@@ -2850,6 +2850,13 @@ sp_api::decl_runtime_apis! {
 			config: TracerType
 		) -> Vec<(u32, Trace)>;
 
+		/// Legacy signature returned by runtimes at api_version 1 (no `index` field on `CallLog`).
+		#[changed_in(2)]
+		fn trace_block(
+			block: Block,
+			config: TracerType
+		) -> Vec<(u32, TraceV1)>;
+
 		/// Traces the execution of a specific transaction within a block.
 		///
 		/// This is intended to be called through `state_call` to replay the block from the
@@ -2862,10 +2869,22 @@ sp_api::decl_runtime_apis! {
 			config: TracerType
 		) -> Option<Trace>;
 
+		/// Legacy signature returned by runtimes at api_version 1 (no `index` field on `CallLog`).
+		#[changed_in(2)]
+		fn trace_tx(
+			block: Block,
+			tx_index: u32,
+			config: TracerType
+		) -> Option<TraceV1>;
+
 		/// Dry run and return the trace of the given call.
 		///
 		/// See eth-rpc `debug_traceCall` for usage.
 		fn trace_call(tx: GenericTransaction, config: TracerType) -> Result<Trace, EthTransactError>;
+
+		/// Legacy signature returned by runtimes at api_version 1 (no `index` field on `CallLog`).
+		#[changed_in(2)]
+		fn trace_call(tx: GenericTransaction, config: TracerType) -> Result<TraceV1, EthTransactError>;
 
 		/// The address of the validator that produced the current block.
 		fn block_author() -> H160;
@@ -2927,6 +2946,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 			$($rest)*
 
 
+			#[api_version(2)]
 			impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, __ReviveMacroMoment> for $Runtime
 			{
 				fn eth_block() -> $crate::EthBlock {

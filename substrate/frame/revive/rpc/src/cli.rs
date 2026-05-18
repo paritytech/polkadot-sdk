@@ -246,7 +246,7 @@ fn build_client(
 			},
 		};
 
-		let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
+		let receipt_extractor = ReceiptExtractor::new(api.clone(), rpc.clone()).await?;
 
 		let receipt_provider = ReceiptProvider::new(
 			pool,

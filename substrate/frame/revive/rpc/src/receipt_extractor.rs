@@ -40,7 +40,7 @@ use std::{
 		atomic::{AtomicU32, Ordering},
 	},
 };
-use subxt::{OnlineClient, blocks::ExtrinsicDetails};
+use subxt::{OnlineClient, backend::legacy::LegacyRpcMethods, blocks::ExtrinsicDetails};
 
 type FetchReceiptDataFn = Arc<
 	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Option<Vec<ReceiptGasInfo>>> + Send>> + Send + Sync,
@@ -71,9 +71,13 @@ pub struct ReceiptExtractor {
 
 impl ReceiptExtractor {
 	/// Create a new `ReceiptExtractor`.
-	pub async fn new(api: OnlineClient<SrcChainConfig>) -> Result<Self, ClientError> {
+	pub async fn new(
+		api: OnlineClient<SrcChainConfig>,
+		rpc: LegacyRpcMethods<SrcChainConfig>,
+	) -> Result<Self, ClientError> {
 		Self::new_with_custom_address_recovery(
 			api,
+			rpc,
 			Arc::new(|signed_tx: &TransactionSigned| signed_tx.recover_eth_address()),
 		)
 		.await
@@ -85,14 +89,17 @@ impl ReceiptExtractor {
 	/// logic ([`TransactionSigned::recover_eth_address`] based) is enough.
 	pub async fn new_with_custom_address_recovery(
 		api: OnlineClient<SrcChainConfig>,
+		rpc: LegacyRpcMethods<SrcChainConfig>,
 		recover_eth_address_fn: RecoverEthAddressFn,
 	) -> Result<Self, ClientError> {
 		let api_inner = api.clone();
+		let rpc_inner = rpc.clone();
 		let fetch_eth_block_hash = Arc::new(move |block_hash, block_number| {
 			let api_inner = api_inner.clone();
+			let rpc_inner = rpc_inner.clone();
 
 			let fut = async move {
-				let runtime_api = RuntimeApi::new(api_inner.runtime_api().at(block_hash));
+				let runtime_api = RuntimeApi::new(api_inner, rpc_inner, block_hash);
 				runtime_api.eth_block_hash(U256::from(block_number)).await.ok().flatten()
 			};
 
@@ -100,11 +107,13 @@ impl ReceiptExtractor {
 		});
 
 		let api_inner = api.clone();
+		let rpc_inner = rpc.clone();
 		let fetch_receipt_data = Arc::new(move |block_hash| {
 			let api_inner = api_inner.clone();
+			let rpc_inner = rpc_inner.clone();
 
 			let fut = async move {
-				let runtime_api = RuntimeApi::new(api_inner.runtime_api().at(block_hash));
+				let runtime_api = RuntimeApi::new(api_inner, rpc_inner, block_hash);
 				runtime_api.eth_receipt_data().await.ok()
 			};
 
