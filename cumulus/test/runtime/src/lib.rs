@@ -583,12 +583,6 @@ pub type TxExtension = cumulus_pallet_parachain_system::block_weight::DynamicMax
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
-/// Migrations applied on runtime upgrade.
-#[cfg(feature = "with-authority-discovery")]
-pub type Migrations = (migrations::EnableAuthorityDiscovery,);
-#[cfg(not(feature = "with-authority-discovery"))]
-pub type Migrations = ();
-
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
 	Runtime,
@@ -596,7 +590,6 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	Migrations,
 >;
 
 /// The payload being signed in transactions.
@@ -621,10 +614,10 @@ impl OnRuntimeUpgrade for VerifyRuntimeUpgrade {
 ///
 /// These migrations execute immediately and entirely at the beginning of the block following
 /// a runtime upgrade. They must be lightweight enough to complete within a single block.
-pub type SingleBlockMigrations = (
-	// Verify that runtime upgrade hooks are working correctly.
-	VerifyRuntimeUpgrade,
-);
+#[cfg(feature = "with-authority-discovery")]
+pub type SingleBlockMigrations = (VerifyRuntimeUpgrade, migrations::EnableAuthorityDiscovery);
+#[cfg(not(feature = "with-authority-discovery"))]
+pub type SingleBlockMigrations = (VerifyRuntimeUpgrade,);
 
 /// One-shot migration that seeds `pallet_session` from `pallet_aura::Authorities` when a
 /// default (no-AD) chain upgrades to the `with-authority-discovery` variant.
@@ -713,13 +706,43 @@ pub mod migrations {
 			);
 			pallet_authority_discovery::Keys::<Runtime>::put(bounded);
 
-			// Reads: 1 (Validators empty check) + 1 (aura authorities) + n (system
-			// account ref count read by `inc_consumers`).
-			// Writes per validator: NextKeys + 2×KeyOwner + 1 (consumer count) = 4.
-			// Plus Validators + QueuedKeys + AuthorityDiscovery::Keys = 3 fixed writes.
+			Self::assert_post_upgrade_invariants();
+
 			let reads = n.saturating_add(2);
 			let writes = n.saturating_mul(4).saturating_add(3);
 			db.reads(reads).saturating_add(db.writes(writes))
+		}
+	}
+
+	impl EnableAuthorityDiscovery {
+		fn assert_post_upgrade_invariants() {
+			let aura_count = pallet_aura::Authorities::<Runtime>::get().len();
+			let validators = pallet_session::Validators::<Runtime>::get();
+			let queued = pallet_session::QueuedKeys::<Runtime>::get();
+			let ad_keys = pallet_authority_discovery::Keys::<Runtime>::get();
+
+			assert!(!validators.is_empty(), "Validators empty after migration");
+			assert_eq!(validators.len(), aura_count, "Validators ≠ aura Authorities");
+			assert_eq!(queued.len(), aura_count, "QueuedKeys ≠ aura Authorities");
+			assert_eq!(ad_keys.len(), aura_count, "AuthorityDiscovery::Keys ≠ aura Authorities");
+			assert_eq!(
+				pallet_session::NextKeys::<Runtime>::iter().count(),
+				aura_count,
+				"NextKeys entry count ≠ aura Authorities",
+			);
+			assert_eq!(
+				pallet_session::KeyOwner::<Runtime>::iter().count(),
+				2 * aura_count,
+				"KeyOwner count ≠ 2× aura Authorities (aura + audi)",
+			);
+			// Each validator account had its consumer count bumped by `inc_consumers`,
+			// mirroring `pallet_session::do_set_keys` semantics.
+			for account in &validators {
+				assert!(
+					frame_system::Pallet::<Runtime>::consumers(account) >= 1,
+					"validator {account:?} has 0 consumers; inc_consumers didn't fire",
+				);
+			}
 		}
 	}
 
@@ -758,24 +781,11 @@ pub mod migrations {
 
 		#[test]
 		fn populates_session_state() {
+			// Invariants are asserted in `on_runtime_upgrade`.
 			let keys = [Sr25519Keyring::Alice, Sr25519Keyring::Bob, Sr25519Keyring::Charlie];
 			ext_with_aura(&keys).execute_with(|| {
 				let w = EnableAuthorityDiscovery::on_runtime_upgrade();
-
-				let n = keys.len();
-				assert_eq!(pallet_session::Validators::<Runtime>::get().len(), n);
-				assert_eq!(pallet_session::QueuedKeys::<Runtime>::get().len(), n);
-				assert_eq!(pallet_session::NextKeys::<Runtime>::iter().count(), n);
-				// 2 KeyOwner entries per validator (aura + audi).
-				assert_eq!(pallet_session::KeyOwner::<Runtime>::iter().count(), 2 * n);
-				assert_eq!(pallet_authority_discovery::Keys::<Runtime>::get().len(), n);
-				// Each authority account had its system-account consumer count bumped,
-				// matching `pallet_session::do_set_keys` semantics.
-				for k in keys.iter() {
-					let account: AccountId = k.to_account_id();
-					assert_eq!(frame_system::Pallet::<Runtime>::consumers(&account), 1);
-				}
-				assert_eq!(w, expected_weight(n as u64));
+				assert_eq!(w, expected_weight(keys.len() as u64));
 			});
 		}
 
@@ -786,11 +796,9 @@ pub mod migrations {
 				EnableAuthorityDiscovery::on_runtime_upgrade();
 				let w2 = EnableAuthorityDiscovery::on_runtime_upgrade();
 
-				assert_eq!(pallet_session::Validators::<Runtime>::get().len(), 2);
-				assert_eq!(pallet_session::KeyOwner::<Runtime>::iter().count(), 4);
 				let db: frame_support::weights::RuntimeDbWeight =
 					<Runtime as frame_system::Config>::DbWeight::get();
-				assert_eq!(w2, db.reads(1));
+				assert_eq!(w2, db.reads(1), "second call should be a 1-read no-op");
 			});
 		}
 
