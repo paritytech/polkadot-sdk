@@ -30,7 +30,6 @@ use frame_support::traits::fungibles::{
 	approvals::Inspect as ApprovalsInspect, metadata::Inspect as MetadataInspect,
 };
 use pallet_assets::{weights::WeightInfo as _, Call, Config, TransferFlags};
-use sp_runtime::traits::{Bounded, UniqueSaturatedInto, Zero};
 use pallet_revive::precompiles::{
 	alloy::{
 		self,
@@ -39,6 +38,7 @@ use pallet_revive::precompiles::{
 	},
 	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
+use sp_runtime::traits::{Bounded, UniqueSaturatedInto, Zero};
 use weights::WeightInfo as _;
 
 pub mod foreign_assets;
@@ -489,18 +489,14 @@ where
 		// fungibles trait. This pins the sentinel invariant to storage state —
 		// "an approval row exists and its amount is `Balance::MAX`" — rather
 		// than to a trait return value that a future impl could synthesise.
-		let approval = pallet_assets::Approvals::<Runtime, Instance>::get((
-			asset_id.clone(),
-			&from,
-			&spender,
-		));
+		let approval =
+			pallet_assets::Approvals::<Runtime, Instance>::get((asset_id.clone(), &from, &spender));
 		let actual_weight = match approval {
 			Some(a) if a.amount == <Runtime as Config<Instance>>::Balance::max_value() => {
 				// Sentinel: bypass `do_transfer_approved` so the approval is not
 				// decremented. The match arm itself confirms an approval row
 				// exists; `do_transfer` enforces the balance check.
-				let f =
-					TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
+				let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
 				pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
 					asset_id,
 					&from,

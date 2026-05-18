@@ -350,8 +350,7 @@ fn transfer_from_reverts_with_unapproved_when_no_allowance() {
 		Balances::make_free_balance_be(&recipient, 100);
 
 		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
-		let recipient_addr =
-			<Test as pallet_revive::Config>::AddressMapper::to_address(&recipient);
+		let recipient_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&recipient);
 
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
@@ -379,10 +378,7 @@ fn transfer_from_reverts_with_unapproved_when_no_allowance() {
 		// which surfaces as a trap (Module error), not a Solidity-style revert.
 		// Either path means the call failed; pin that it carries the right reason.
 		let err = result.expect_err("transferFrom must fail with no allowance");
-		assert!(
-			format!("{err:?}").contains("Unapproved"),
-			"unexpected failure reason: {err:?}",
-		);
+		assert!(format!("{err:?}").contains("Unapproved"), "unexpected failure reason: {err:?}",);
 
 		// Balances unchanged.
 		assert_eq!(Assets::balance(asset_id, &owner), 100);
