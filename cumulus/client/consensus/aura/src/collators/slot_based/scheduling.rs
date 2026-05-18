@@ -104,6 +104,14 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		}
 	}
 
+	async fn get_best_relay_block_data<'a>(
+		relay_client: &RelayClient,
+		relay_chain_data_cache: &'a mut RelayChainDataCache<RelayClient>,
+	) -> Result<&'a RelayChainData, ()> {
+		let best_relay_hash = relay_client.best_block_hash().await.map_err(|_| ())?;
+		relay_chain_data_cache.get_by_hash(best_relay_hash).await.map_err(|_| ())
+	}
+
 	/// `true` if the best-block notification stream is terminated and must be replaced
 	/// before the next `wait_for_scheduling_parent` call.
 	///
@@ -113,13 +121,13 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		self.best_notifications.is_terminated()
 	}
 
-	pub async fn ensure_initialized(
-		&mut self,
+	pub async fn ensure_initialized<'a>(
+		&'a mut self,
 		relay_client: &RelayClient,
-		relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
-	) {
+		relay_chain_data_cache: &'a mut RelayChainDataCache<RelayClient>,
+	) -> Option<&'a RelayChainData> {
 		if !self.should_reinit() {
-			return;
+			return None;
 		}
 
 		match relay_client.new_best_notification_stream().await {
@@ -136,18 +144,21 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 			},
 		};
 
-		let best_relay_block_data = match relay_chain_data_cache.get_best_relay_block_data().await {
-			Ok(best_relay_block_data) => best_relay_block_data,
-			Err(()) => {
-				tracing::error!(
-					target: crate::LOG_TARGET,
-					"Failed to get the `RelayChainData` for the best relay chain block. \
-					The next call to `wait_for_scheduling_parent` might fail."
-				);
-				return;
-			},
-		};
+		let best_relay_block_data =
+			match Self::get_best_relay_block_data(relay_client, relay_chain_data_cache).await {
+				Ok(best_relay_block_data) => best_relay_block_data,
+				Err(()) => {
+					tracing::error!(
+						target: crate::LOG_TARGET,
+						"Failed to get the `RelayChainData` for the best relay chain block. \
+						The next call to `wait_for_scheduling_parent` might fail."
+					);
+					return None;
+				},
+			};
 		self.maybe_best_relay_header = Some(best_relay_block_data.relay_header.clone());
+
+		Some(best_relay_block_data)
 	}
 
 	pub fn is_v3_enabled(

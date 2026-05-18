@@ -154,11 +154,6 @@ where
 		Ok(RelayChainData { relay_header, claim_queue, max_pov_size, node_features })
 	}
 
-	pub async fn get_best_relay_block_data(&mut self) -> Result<&RelayChainData, ()> {
-		let best_relay_hash = self.relay_client.best_block_hash().await.map_err(|_| ())?;
-		self.get_by_hash(best_relay_hash).await.map_err(|_| ())
-	}
-
 	#[cfg(test)]
 	pub fn insert_test_data(&mut self, relay_parent_hash: RelayHash, data: RelayChainData) {
 		self.cached_data.insert(relay_parent_hash, data);
