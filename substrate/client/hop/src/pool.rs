@@ -39,7 +39,7 @@ use crate::{
 	types::{
 		entry_accounted_size, promotion_backoff_blocks, signing_payload, HopBlockNumber,
 		HopEntryMeta, HopError, HopHash, PoolStatus, RecipientVec, SenderId, HOP_ACK_CONTEXT,
-		HOP_CLAIM_CONTEXT, HOP_BLOCK_TIME_SECS, HOP_META_VERSION, MAX_DATA_SIZE,
+		HOP_CLAIM_CONTEXT, HOP_META_VERSION, MAX_DATA_SIZE,
 		MAX_PROMOTION_ATTEMPTS,
 	},
 };
@@ -804,20 +804,19 @@ impl HopDataPool {
 		total_freed
 	}
 
-	/// Return hashes of entries within `buffer_blocks` of expiry that have not yet been promoted.
+	/// Return hashes of entries within `buffer_secs` of expiry that have not yet been promoted.
 	/// Returns up to `limit` hashes. Use [`Self::get`] to read blob data when needed.
 	/// The maintenance task runs periodically, so remaining entries are picked up next cycle.
 	pub fn get_promotable(
 		&self,
 		current_block: HopBlockNumber,
-		buffer_blocks: u32,
+		buffer_secs: u64,
 		limit: usize,
 	) -> Vec<HopHash> {
 		let now_secs = SystemTime::now()
 			.duration_since(UNIX_EPOCH)
 			.unwrap_or_default()
 			.as_secs();
-		let buffer_secs = buffer_blocks as u64 * HOP_BLOCK_TIME_SECS;
 		let index = self.index.lock();
 		index
 			.iter()
@@ -1962,8 +1961,8 @@ mod tests {
 
 	#[test]
 	fn test_get_promotable_within_buffer() {
-		// retention_secs=3600 (1 h); buffer_blocks=30 → buffer_secs=180.
-		// 180 < 3600, so a freshly-inserted entry is NOT yet in the promotion window.
+		// retention=3600s; a freshly-inserted entry is in the promotion window only
+		// if the buffer is at least as large as the time-to-expiry.
 		let (pool, _dir) = make_pool(1024 * 1024, 3600);
 		let (_, signer) = test_recipient();
 
@@ -1971,12 +1970,12 @@ mod tests {
 			.insert(vec![1, 2, 3], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 
-		// Small buffer (30 blocks = 180 s): entry expires in ~3600 s → not promotable yet.
-		let promotable = pool.get_promotable(50, 30, usize::MAX);
+		// Small buffer (180s ≪ 3600s retention): not promotable yet.
+		let promotable = pool.get_promotable(50, 180, usize::MAX);
 		assert!(promotable.is_empty());
 
-		// Large buffer (1000 blocks = 6000 s > 3600 s retention): within the window.
-		let promotable = pool.get_promotable(0, 1000, usize::MAX);
+		// Large buffer (6000s > 3600s retention): within the window.
+		let promotable = pool.get_promotable(0, 6000, usize::MAX);
 		assert_eq!(promotable.len(), 1);
 		assert_eq!(promotable[0], hash);
 	}
@@ -1990,12 +1989,12 @@ mod tests {
 			.insert(vec![1, 2, 3], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 
-		let promotable = pool.get_promotable(80, 30, usize::MAX);
+		let promotable = pool.get_promotable(80, 180, usize::MAX);
 		assert_eq!(promotable.len(), 1);
 
 		pool.mark_promoted(&hash);
 
-		let promotable = pool.get_promotable(80, 30, usize::MAX);
+		let promotable = pool.get_promotable(80, 180, usize::MAX);
 		assert!(promotable.is_empty());
 	}
 
@@ -2036,7 +2035,7 @@ mod tests {
 				RateLimitConfig::disabled(),
 			)
 			.unwrap();
-			let promotable = pool.get_promotable(80, 30, usize::MAX);
+			let promotable = pool.get_promotable(80, 180, usize::MAX);
 			assert!(promotable.is_empty(), "promoted entry should not be promotable after restart");
 			assert!(pool.has(&hash), "entry should still exist");
 		}
@@ -2157,8 +2156,9 @@ mod tests {
 			)
 			.unwrap();
 
-		// Inside the buffer window so the entry is promotable in principle.
-		let buffer = 50;
+		// Inside the buffer window (>= retention=100s) so the entry is promotable
+		// in principle.
+		let buffer = 300_u64;
 		let current = 60;
 		assert_eq!(pool.get_promotable(current, buffer, 10), vec![hash]);
 

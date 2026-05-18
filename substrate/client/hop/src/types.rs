@@ -288,9 +288,8 @@ pub type RecipientVec = BoundedVec<Recipient, ConstU32<MAX_RECIPIENTS>>;
 /// Default per-user quota in MiB (256 MiB). Hard cap, not scaled by active users.
 pub const DEFAULT_MAX_USER_SIZE_MIB: u64 = 256;
 
-/// Default buffer before expiry at which to start promoting entries on-chain
-/// (1200 blocks ≈ 2 h at 6 s per block).
-pub const DEFAULT_PROMOTION_BUFFER_BLOCKS: u32 = 1200;
+/// Default buffer before expiry at which to start promoting entries on-chain (2 h).
+pub const DEFAULT_PROMOTION_BUFFER_SECS: u64 = 7200;
 
 /// Default sustained submit rate per account (requests per minute).
 pub const DEFAULT_SUBMIT_RATE_PER_MIN: u32 = 60;

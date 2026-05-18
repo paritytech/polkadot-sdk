@@ -178,7 +178,7 @@ pub fn build_maintenance_task<Block, C, P>(
 	client: &Arc<C>,
 	tx_pool: &Arc<P>,
 	pool: Arc<HopDataPool>,
-	buffer_blocks: u32,
+	buffer_secs: u64,
 	check_interval_secs: u64,
 ) -> HopMaintenanceTask
 where
@@ -195,7 +195,7 @@ where
 	let best_block_client = client.clone();
 	let best_block: Arc<dyn Fn() -> u32 + Send + Sync> =
 		Arc::new(move || best_block_client.info().best_number.saturated_into::<u32>());
-	HopMaintenanceTask::new(pool, promoter, best_block, buffer_blocks, check_interval_secs)
+	HopMaintenanceTask::new(pool, promoter, best_block, buffer_secs, check_interval_secs)
 }
 
 /// Background task that periodically promotes near-expiry HOP pool entries to
@@ -203,7 +203,7 @@ where
 pub struct HopMaintenanceTask {
 	hop_pool: Arc<HopDataPool>,
 	promoter: Option<Arc<dyn HopPromoter>>,
-	buffer_blocks: u32,
+	buffer_secs: u64,
 	check_interval_secs: u64,
 	check_interval_blocks: u32,
 	best_block: Arc<dyn Fn() -> u32 + Send + Sync>,
@@ -214,13 +214,13 @@ impl HopMaintenanceTask {
 	///
 	/// - `promoter`: `Some` to enable on-chain promotion, `None` for cleanup-only.
 	/// - `best_block`: closure returning the current best block number.
-	/// - `buffer_blocks`: how many blocks before expiry to start promoting.
+	/// - `buffer_secs`: how many seconds before expiry to start promoting.
 	/// - `check_interval_secs`: how often to run the maintenance cycle.
 	pub fn new(
 		hop_pool: Arc<HopDataPool>,
 		promoter: Option<Arc<dyn HopPromoter>>,
 		best_block: Arc<dyn Fn() -> u32 + Send + Sync>,
-		buffer_blocks: u32,
+		buffer_secs: u64,
 		check_interval_secs: u64,
 	) -> Self {
 		let check_interval_blocks =
@@ -228,7 +228,7 @@ impl HopMaintenanceTask {
 		Self {
 			hop_pool,
 			promoter,
-			buffer_blocks,
+			buffer_secs,
 			check_interval_secs,
 			check_interval_blocks,
 			best_block,
@@ -252,7 +252,7 @@ impl HopMaintenanceTask {
 			const PROMOTION_BATCH_SIZE: usize = 10;
 			let hashes = self.hop_pool.get_promotable(
 				current_block,
-				self.buffer_blocks,
+				self.buffer_secs,
 				PROMOTION_BATCH_SIZE,
 			);
 			for hash in hashes {
@@ -452,7 +452,7 @@ mod tests {
 			pool.clone(),
 			Some(promoter.clone()),
 			Arc::new(|| 80), // current block = 80
-			30,              // buffer = 30 → 80+30=110 >= 100 → promotable
+			180,             // buffer_secs = 180 > retention=100 → in window
 			60,
 		);
 
@@ -464,7 +464,7 @@ mod tests {
 		// Entry stays in the pool (not yet confirmed on-chain) and is excluded
 		// from the next promotable batch by the post-attempt backoff window.
 		assert!(pool.has(&hash));
-		let promotable = pool.get_promotable(80, 30, usize::MAX);
+		let promotable = pool.get_promotable(80, 180, usize::MAX);
 		assert!(promotable.is_empty(), "back-off should suppress immediate re-promotion");
 	}
 
@@ -488,14 +488,14 @@ mod tests {
 			pool.clone(),
 			None, // no promoter
 			Arc::new(|| 80),
-			30,
+			180,
 			60,
 		);
 
 		task.tick();
 
 		// Entry should still be promotable (no promoter to process it).
-		let promotable = pool.get_promotable(80, 30, usize::MAX);
+		let promotable = pool.get_promotable(80, 180, usize::MAX);
 		assert_eq!(promotable.len(), 1);
 	}
 
@@ -517,7 +517,7 @@ mod tests {
 
 		let promoter = Arc::new(MockPromoter::new(true)); // will fail
 		let task =
-			HopMaintenanceTask::new(pool.clone(), Some(promoter.clone()), Arc::new(|| 80), 30, 60);
+			HopMaintenanceTask::new(pool.clone(), Some(promoter.clone()), Arc::new(|| 80), 180, 60);
 
 		task.tick();
 
@@ -528,8 +528,8 @@ mod tests {
 		// entry isn't promotable at the failure block, but becomes promotable
 		// again once the back-off (1× check_interval = 10 blocks at 6 s/block)
 		// elapses — and crucially, never gets `mark_promoted`.
-		assert!(pool.get_promotable(80, 30, usize::MAX).is_empty());
-		assert_eq!(pool.get_promotable(95, 30, usize::MAX).len(), 1);
+		assert!(pool.get_promotable(80, 180, usize::MAX).is_empty());
+		assert_eq!(pool.get_promotable(95, 180, usize::MAX).len(), 1);
 	}
 
 	#[test]
@@ -585,7 +585,7 @@ mod tests {
 			pool.clone(),
 			Some(promoter.clone()),
 			Arc::new(move || *block_clone.lock().unwrap()),
-			30,
+			180,
 			60,
 		);
 
@@ -626,12 +626,12 @@ mod tests {
 		promoter.set_on_chain(*hash.as_fixed_bytes());
 
 		let task =
-			HopMaintenanceTask::new(pool.clone(), Some(promoter.clone()), Arc::new(|| 80), 30, 60);
+			HopMaintenanceTask::new(pool.clone(), Some(promoter.clone()), Arc::new(|| 80), 180, 60);
 
 		task.tick();
 
 		assert_eq!(promoter.call_count(), 0, "promote must not be called when already on-chain");
-		assert!(pool.get_promotable(80, 30, usize::MAX).is_empty());
+		assert!(pool.get_promotable(80, 180, usize::MAX).is_empty());
 	}
 
 	#[test]
@@ -659,7 +659,7 @@ mod tests {
 			pool.clone(),
 			Some(promoter.clone()),
 			Arc::new(move || *block_clone.lock().unwrap()),
-			30,
+			180,
 			60,
 		);
 
