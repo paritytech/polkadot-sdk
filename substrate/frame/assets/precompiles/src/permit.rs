@@ -109,6 +109,34 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Tracks approvals set to the OpenZeppelin "infinite allowance"
+	/// sentinel (`approve(spender, uint256.max)`).
+	///
+	/// EVM's sentinel rule is anchored to the *interface* type
+	/// (`type(uint256).max`), not the storage type. Because our `Balance`
+	/// is smaller than `uint256`, we can't store `uint256.max` directly —
+	/// we saturate to `Balance::MAX` in `pallet_assets::Approvals` and
+	/// flag the entry here. `transferFrom` then skips the decrement iff
+	/// the flag is present. Without this flag we couldn't distinguish a
+	/// saturated `uint256.max` approval from a direct
+	/// `approve(spender, Balance::MAX)` — and on mainnet only the former
+	/// gets sentinel semantics.
+	///
+	/// Key: `(verifying_contract, owner, spender)`, all `H160`. The
+	/// verifying contract is the per-asset precompile address, so the
+	/// triple is asset-scoped.
+	#[pallet::storage]
+	pub type InfiniteApprovals<T: Config> = StorageNMap<
+		_,
+		(
+			NMapKey<Blake2_128Concat, H160>, // verifying contract (precompile address)
+			NMapKey<Blake2_128Concat, H160>, // owner
+			NMapKey<Blake2_128Concat, H160>, // spender
+		),
+		(),
+		OptionQuery,
+	>;
+
 	/// Error types for the permit pallet.
 	#[pallet::error]
 	pub enum Error<T> {
@@ -143,6 +171,24 @@ pub mod pallet {
 				*nonce = nonce.checked_add(U256::one()).ok_or(Error::<T>::NonceOverflow)?;
 				Ok(*nonce)
 			})
+		}
+
+		/// Mark a `(contract, owner, spender)` triple as carrying a sentinel
+		/// (`uint256.max`) allowance. `transferFrom` will skip the approval
+		/// decrement for marked triples.
+		pub fn set_infinite_approval(contract: &H160, owner: &H160, spender: &H160) {
+			InfiniteApprovals::<T>::insert((*contract, *owner, *spender), ());
+		}
+
+		/// Clear the sentinel marker for a `(contract, owner, spender)` triple.
+		/// No-op if not set.
+		pub fn clear_infinite_approval(contract: &H160, owner: &H160, spender: &H160) {
+			InfiniteApprovals::<T>::remove((*contract, *owner, *spender));
+		}
+
+		/// Is the `(contract, owner, spender)` triple flagged as a sentinel?
+		pub fn is_infinite_approval(contract: &H160, owner: &H160, spender: &H160) -> bool {
+			InfiniteApprovals::<T>::contains_key((*contract, *owner, *spender))
 		}
 
 		/// Compute the EIP-712 domain separator for a given verifying contract.

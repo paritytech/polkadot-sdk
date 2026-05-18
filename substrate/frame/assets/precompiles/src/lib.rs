@@ -26,8 +26,11 @@ use ethereum_standards::{
 	IERC20,
 	IERC20::{IERC20Calls, IERC20Events},
 };
-use frame_support::traits::fungibles::{
-	approvals::Inspect as ApprovalsInspect, metadata::Inspect as MetadataInspect,
+use frame_support::{
+	ensure,
+	traits::fungibles::{
+		approvals::Inspect as ApprovalsInspect, metadata::Inspect as MetadataInspect,
+	},
 };
 use pallet_assets::{weights::WeightInfo as _, Call, Config, TransferFlags};
 use pallet_revive::precompiles::{
@@ -38,7 +41,7 @@ use pallet_revive::precompiles::{
 	},
 	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
-use sp_runtime::traits::{Bounded, UniqueSaturatedInto, Zero};
+use sp_runtime::traits::{UniqueSaturatedInto, Zero};
 use weights::WeightInfo as _;
 
 pub mod foreign_assets;
@@ -186,9 +189,11 @@ where
 			IERC20Calls::transfer(call) => Self::transfer(asset_id, call, env),
 			IERC20Calls::totalSupply(_) => Self::total_supply(asset_id, env),
 			IERC20Calls::balanceOf(call) => Self::balance_of(asset_id, call, env),
-			IERC20Calls::allowance(call) => Self::allowance(asset_id, call, env),
-			IERC20Calls::approve(call) => Self::approve(asset_id, call, env),
-			IERC20Calls::transferFrom(call) => Self::transfer_from(asset_id, call, env),
+			IERC20Calls::allowance(call) => Self::allowance(asset_id, contract_addr, call, env),
+			IERC20Calls::approve(call) => Self::approve(asset_id, contract_addr, call, env),
+			IERC20Calls::transferFrom(call) => {
+				Self::transfer_from(asset_id, contract_addr, call, env)
+			},
 
 			// ERC20Permit functions (EIP-2612)
 			IERC20Calls::permit(call) => Self::permit(asset_id, contract_addr, call, env),
@@ -219,12 +224,6 @@ where
 	Call<Runtime, Instance>: Into<<Runtime as pallet_revive::Config>::RuntimeCall>,
 	alloy::primitives::U256: TryInto<<Runtime as Config<Instance>>::Balance>,
 	alloy::primitives::U256: TryFrom<<Runtime as Config<Instance>>::Balance>,
-	// Saturation and the infinite-allowance sentinel both rely on
-	// `Balance::max_value()`. This is transitively true today via
-	// `pallet_assets::Config: AtLeast32BitUnsigned`, but pin it explicitly
-	// so a future loosening of that bound is caught at the type level
-	// rather than silently breaking the sentinel comparison.
-	<Runtime as Config<Instance>>::Balance: sp_runtime::traits::Bounded,
 {
 	/// Get the caller as an `H160` address.
 	fn caller(env: &mut impl Ext<T = Runtime>) -> Result<H160, Error> {
@@ -327,20 +326,41 @@ where
 	}
 
 	/// Execute the allowance call.
+	///
+	/// Returns `U256::MAX` for sentinel-flagged approvals (mirroring mainnet
+	/// where `allowance() == type(uint256).max` is the wire-level "infinite"
+	/// signal that wallets and indexers check). Otherwise returns the stored
+	/// amount lifted to `U256`.
 	fn allowance(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
+		verifying_contract: H160,
 		call: &IERC20::allowanceCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::allowance())?;
-		let owner = call.owner.into_array().into();
-		let owner = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner);
+		let owner_h160: H160 = call.owner.into_array().into();
+		let owner = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner_h160);
 
-		let spender = call.spender.into_array().into();
-		let spender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
-		let value = Self::to_u256(pallet_assets::Pallet::<Runtime, Instance>::allowance(
-			asset_id, &owner, &spender,
-		))?;
+		let spender_h160: H160 = call.spender.into_array().into();
+		let spender =
+			<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender_h160);
+
+		// Flag is the sole authority on the sentinel: if it's set, the user
+		// signed `uint256.max` and the wire-level view must surface that. We
+		// deliberately do *not* cross-check `stored == Balance::MAX` —
+		// re-introducing the storage-amount as a sentinel signal would
+		// rebuild exactly the conflation the flag exists to remove.
+		let value = if permit::Pallet::<Runtime>::is_infinite_approval(
+			&verifying_contract,
+			&owner_h160,
+			&spender_h160,
+		) {
+			alloy::primitives::U256::MAX
+		} else {
+			let stored =
+				pallet_assets::Pallet::<Runtime, Instance>::allowance(asset_id, &owner, &spender);
+			Self::to_u256(stored)?
+		};
 
 		Ok(IERC20::allowanceCall::abi_encode_returns(&value))
 	}
@@ -357,6 +377,17 @@ where
 	/// capped at `Balance::MAX`, so a larger allowance grants no additional
 	/// spending power.
 	///
+	/// **Sentinel rule.** The "infinite allowance" sentinel is anchored to
+	/// the call-interface MAX (`call.value == U256::MAX`), not to the stored
+	/// `Balance::MAX` — matching OpenZeppelin's `_spendAllowance` rule on
+	/// Ethereum mainnet (`type(uint256).max` is the sentinel). When the
+	/// caller uses the `uint256.max` idiom, we flag the
+	/// `(verifying_contract, owner, spender)` triple in
+	/// `permit::InfiniteApprovals` and `transferFrom` will skip the
+	/// approval decrement for that triple. Any other write to the same
+	/// triple — including a direct `approve(spender, Balance::MAX)` (a
+	/// finite value, not the sentinel idiom) — clears the flag.
+	///
 	/// **Event policy.** The emitted `Approval.value` is the raw `call.value`,
 	/// matching the ERC-20 / OpenZeppelin convention. EVM wallets and indexers
 	/// expect `event.value == call.value` (in OZ they trivially are, because OZ
@@ -366,6 +397,7 @@ where
 	/// Consumers needing the exact stored allowance can call `allowance()`.
 	fn approve(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
+		verifying_contract: H160,
 		call: &IERC20::approveCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
@@ -432,6 +464,20 @@ where
 		}
 		env.adjust_gas(charged, actual_weight);
 
+		// Sentinel marker: set iff the caller used the exact `uint256.max`
+		// idiom, clear on any other write (including zero, which is also the
+		// revocation path handled above). Matches OZ's rule that the sentinel
+		// is anchored to the call-interface MAX, not the stored value.
+		if call.value == alloy::primitives::U256::MAX {
+			permit::Pallet::<Runtime>::set_infinite_approval(&verifying_contract, &owner, &spender);
+		} else {
+			permit::Pallet::<Runtime>::clear_infinite_approval(
+				&verifying_contract,
+				&owner,
+				&spender,
+			);
+		}
+
 		// Emit `call.value`, not `new_amount`. When saturation triggers, the
 		// chain stores `Balance::MAX` but the log carries the original
 		// `U256` the user signed for. This matches the ERC-20 / OpenZeppelin
@@ -457,72 +503,79 @@ where
 
 	/// Execute the transfer_from call.
 	///
-	/// OZ "infinite allowance" sentinel: when the stored allowance is
-	/// `Balance::MAX`, the approval is not decremented.
+	/// Honours the OZ "infinite allowance" sentinel: if the
+	/// `(verifying_contract, owner, spender)` triple was flagged by a prior
+	/// `approve(spender, uint256.max)` (or equivalent `permit`), the approval
+	/// is not decremented. The flag is stored explicitly in
+	/// `permit::InfiniteApprovals` so the sentinel is anchored to the
+	/// call-interface MAX value, not to whatever the storage type's max
+	/// happens to be — matching mainnet semantics where
+	/// `approve(spender, Balance::MAX)` (a finite value, not `uint256.max`)
+	/// would decrement.
 	fn transfer_from(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
+		verifying_contract: H160,
 		call: &IERC20::transferFromCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		// Worst case across both branches. Sentinel branch (rare) does an
-		// explicit allowance read + plain transfer; common branch does
-		// transfer_approved which covers its own approval read + write.
-		// We charge the union so neither branch can over-spend, then refund
-		// down to the actually-taken path in `actual_weight` below.
-		let worst_case = <Runtime as Config<Instance>>::WeightInfo::allowance()
-			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::transfer_approved());
+		// Worst case is the common branch (transfer_approved); the sentinel
+		// branch does a cheaper plain transfer. Charge worst case upfront,
+		// refund in the sentinel branch.
+		let worst_case = <Runtime as Config<Instance>>::WeightInfo::transfer_approved();
 		let charged = env.charge(worst_case)?;
 
 		let spender_h160 = Self::caller(env)?;
 		let spender =
 			<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender_h160);
 
-		let from = call.from.into_array().into();
-		let from = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from);
+		let from_h160: H160 = call.from.into_array().into();
+		let from = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from_h160);
 
 		let to = call.to.into_array().into();
 		let to = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&to);
 
 		let approval_amount = Self::to_balance(call.value)?;
 
-		// Peek the raw `Approvals` row directly rather than going through the
-		// fungibles trait. This pins the sentinel invariant to storage state —
-		// "an approval row exists and its amount is `Balance::MAX`" — rather
-		// than to a trait return value that a future impl could synthesise.
-		let approval =
-			pallet_assets::Approvals::<Runtime, Instance>::get((asset_id.clone(), &from, &spender));
-		let actual_weight = match approval {
-			Some(a) if a.amount == <Runtime as Config<Instance>>::Balance::max_value() => {
-				// Sentinel: bypass `do_transfer_approved` so the approval is not
-				// decremented. The match arm itself confirms an approval row
-				// exists; `do_transfer` enforces the balance check.
-				let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
-				pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
-					asset_id,
-					&from,
-					&to,
-					approval_amount,
-					None,
-					f,
-				)?;
-				<Runtime as Config<Instance>>::WeightInfo::allowance()
-					.saturating_add(<Runtime as Config<Instance>>::WeightInfo::transfer())
-			},
-			_ => {
-				// Common path: `do_transfer_approved` does its own approval read
-				// and decrement. Our peek above was a cached storage hit so we
-				// don't bill the caller for it twice — `actual_weight` here is
-				// just `transfer_approved`, refunding the `allowance` portion of
-				// `worst_case`.
-				pallet_assets::Pallet::<Runtime, Instance>::do_transfer_approved(
-					asset_id,
+		let actual_weight = if permit::Pallet::<Runtime>::is_infinite_approval(
+			&verifying_contract,
+			&from_h160,
+			&spender_h160,
+		) {
+			// Sentinel: bypass `do_transfer_approved` so the approval is not
+			// decremented. The flag itself proves the approval was deliberately
+			// set to the sentinel; `do_transfer` enforces the balance check.
+			// We still need to confirm an approval row exists in storage in
+			// case the flag is stale (defensive — shouldn't happen, but pins
+			// the invariant).
+			ensure!(
+				pallet_assets::Approvals::<Runtime, Instance>::contains_key((
+					asset_id.clone(),
 					&from,
 					&spender,
-					&to,
-					approval_amount,
-				)?;
-				<Runtime as Config<Instance>>::WeightInfo::transfer_approved()
-			},
+				)),
+				Error::Revert(Revert { reason: "Unapproved".into() }),
+			);
+			let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
+			pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
+				asset_id,
+				&from,
+				&to,
+				approval_amount,
+				None,
+				f,
+			)?;
+			<Runtime as Config<Instance>>::WeightInfo::transfer()
+		} else {
+			// Common path: `do_transfer_approved` does its own approval read
+			// and decrement.
+			pallet_assets::Pallet::<Runtime, Instance>::do_transfer_approved(
+				asset_id,
+				&from,
+				&spender,
+				&to,
+				approval_amount,
+			)?;
+			<Runtime as Config<Instance>>::WeightInfo::transfer_approved()
 		};
 		env.adjust_gas(charged, actual_weight);
 
@@ -659,6 +712,21 @@ where
 						&spender_account,
 						new_amount,
 					)?;
+				}
+
+				// Sentinel marker — see `approve` for the rationale.
+				if call.value == alloy::primitives::U256::MAX {
+					permit::Pallet::<Runtime>::set_infinite_approval(
+						&verifying_contract,
+						&owner_h160,
+						&spender_h160,
+					);
+				} else {
+					permit::Pallet::<Runtime>::clear_infinite_approval(
+						&verifying_contract,
+						&owner_h160,
+						&spender_h160,
+					);
 				}
 
 				// Emit `call.value` (the signed permit value), not the

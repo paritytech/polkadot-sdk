@@ -256,11 +256,14 @@ fn transfer_and_transfer_from_revert_on_overflow_no_saturation() {
 	});
 }
 
-/// OpenZeppelin "infinite allowance" sentinel: when the stored allowance is
-/// at `Balance::MAX`, `transferFrom` must not decrement it. Without this,
-/// `approve(uint256.max)` would store `Balance::MAX` (via saturation) and
-/// then chip away per-transfer — Uniswap / MetaMask would eventually hit
-/// `Unapproved` even though the user thought their approval was permanent.
+/// OpenZeppelin "infinite allowance" sentinel: `approve(uint256.max)` sets a
+/// flag in `permit::InfiniteApprovals`, and `transferFrom` skips the approval
+/// decrement for flagged triples. Without the sentinel, `approve(uint256.max)`
+/// would store `Balance::MAX` (via saturation) and chip away per-transfer —
+/// Uniswap / MetaMask would eventually hit `Unapproved` even though the user
+/// thought their approval was permanent. The sentinel is anchored to the
+/// call-interface MAX (`uint256.max`), not the storage value `Balance::MAX`,
+/// matching mainnet OZ semantics.
 #[test]
 fn transfer_from_does_not_decrement_max_allowance() {
 	use frame_support::traits::fungibles::approvals::Inspect;
@@ -330,6 +333,116 @@ fn transfer_from_does_not_decrement_max_allowance() {
 			assert_eq!(Assets::balance(asset_id, &recipient), (10 * i));
 		}
 		assert_eq!(Assets::balance(asset_id, &owner), 100 - 30);
+	});
+}
+
+/// Strict mainnet parity: the sentinel is anchored to the call-interface
+/// MAX (`U256::MAX`), not to the stored Balance type's max. A caller who
+/// explicitly approves `Balance::MAX` (a *finite* value, not the
+/// `uint256.max` idiom) must get decrementing semantics — matching what
+/// `approve(spender, type(uint128).max)` would do on Ethereum mainnet.
+#[test]
+fn approve_at_exact_balance_max_decrements_normally() {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let owner = 123456789;
+		let spender = 987654321;
+		let recipient = 111222333;
+		Balances::make_free_balance_be(&owner, 100);
+		Balances::make_free_balance_be(&spender, 100);
+		Balances::make_free_balance_be(&recipient, 100);
+
+		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+		let recipient_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&recipient);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+
+		// Direct approve at exactly Balance::MAX — no saturation, finite value.
+		call_approve(owner, asset_addr, spender_addr, U256::from(u64::MAX));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
+
+		let data = IERC20::transferFromCall {
+			from: owner_addr.0.into(),
+			to: recipient_addr.0.into(),
+			value: U256::from(10u64),
+		}
+		.abi_encode();
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(spender),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		);
+		assert!(!result.result.unwrap().did_revert(), "transferFrom must succeed");
+
+		// Allowance DECREMENTED — no sentinel because the approve wasn't via uint256.max.
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX - 10);
+		assert_eq!(Assets::balance(asset_id, &recipient), 10);
+	});
+}
+
+/// Sentinel flag is cleared on any subsequent non-sentinel write. Owner does
+/// `approve(uint256.max)` (sentinel ON), then `approve(some_finite_value)` —
+/// the flag must clear so `transferFrom` decrements normally going forward.
+#[test]
+fn sentinel_flag_clears_on_overwrite_with_finite_value() {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let owner = 123456789;
+		let spender = 987654321;
+		let recipient = 111222333;
+		Balances::make_free_balance_be(&owner, 100);
+		Balances::make_free_balance_be(&spender, 100);
+		Balances::make_free_balance_be(&recipient, 100);
+
+		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+		let recipient_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&recipient);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+
+		// First: approve uint256.max — flag set, allowance saturated.
+		call_approve(owner, asset_addr, spender_addr, U256::MAX);
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
+
+		// Second: overwrite with a finite value — flag must clear.
+		call_approve(owner, asset_addr, spender_addr, U256::from(50u64));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 50);
+
+		// transferFrom must decrement: 50 → 40.
+		let data = IERC20::transferFromCall {
+			from: owner_addr.0.into(),
+			to: recipient_addr.0.into(),
+			value: U256::from(10u64),
+		}
+		.abi_encode();
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(spender),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		);
+		assert!(!result.result.unwrap().did_revert(), "transferFrom must succeed");
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 40);
 	});
 }
 
@@ -959,10 +1072,13 @@ fn delegatecall_is_rejected() {
 /// `Balance` (`u64` in the mock); the precompile must saturate at
 /// `Balance::MAX` rather than revert at the conversion.
 ///
-/// Pins both halves of the contract:
+/// Pins three halves of the contract:
 ///   1. The call itself succeeds (no trap, no revert).
-///   2. The on-chain allowance reads back as `Balance::MAX`, both via direct pallet-state read and
-///      via the precompile's `allowance()` selector.
+///   2. The pallet-level allowance reads back as `Balance::MAX` (the storage truth — saturated
+///      representation of the sentinel).
+///   3. The precompile's `allowance()` selector reads back as `U256::MAX` — the wire-level sentinel
+///      signal that mainnet wallets/indexers recognize as "Unlimited". Pallet truth and EVM-facing
+///      truth diverge by design under the flag-based sentinel.
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 #[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 fn approve_saturates_on_uint256_max(asset_index: u16) {
@@ -1017,8 +1133,9 @@ fn approve_saturates_on_uint256_max(asset_index: u16) {
 		// Direct pallet read: allowance must be saturated to Balance::MAX.
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
 
-		// Read-back via the precompile must ABI-encode `Balance::MAX` lifted to U256
-		// (this is NOT `U256::MAX` — the chain's max balance is smaller).
+		// Read-back via the precompile must surface `U256::MAX` (the
+		// wire-level sentinel signal) because the sentinel flag is set —
+		// mirroring mainnet `allowance() == type(uint256).max`.
 		let data =
 			IERC20::allowanceCall { owner: owner_addr.0.into(), spender: spender_addr.0.into() }
 				.abi_encode();
@@ -1037,15 +1154,20 @@ fn approve_saturates_on_uint256_max(asset_index: u16) {
 		.expect("allowance() must succeed")
 		.data;
 		let ret = IERC20::allowanceCall::abi_decode_returns(&bytes).unwrap();
-		assert_eq!(ret, U256::from(u64::MAX));
+		assert_eq!(ret, U256::MAX);
 	});
 }
 
-/// Boundary test: saturation must trigger for *any* `U256 > Balance::MAX`, not
-/// only the exact `U256::MAX` sentinel. Guards against a regression that would
-/// scope saturation to `call.value == U256::MAX`, which would create a sharp
-/// edge for routers that compute "infinite allowance" as `U256::MAX - 1` or
-/// other large near-max sentinels.
+/// Boundary test: *storage saturation* must trigger for any
+/// `U256 > Balance::MAX`, not only the exact `U256::MAX` value. Guards
+/// against a regression that would scope saturation to
+/// `call.value == U256::MAX` and revert on every other near-max input.
+///
+/// Note: saturation here is storage-only — only `call.value == U256::MAX`
+/// trips the *sentinel* flag (non-decrementing semantics). A near-max
+/// value like `U256::MAX - 1` saturates to `Balance::MAX` in storage but
+/// the flag stays clear, so `transferFrom` decrements normally. That's
+/// strict mainnet parity (where only `type(uint256).max` is the sentinel).
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 #[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 fn approve_saturates_just_above_balance_max(asset_index: u16) {
@@ -1376,9 +1498,12 @@ fn permit_saturates_when_overwriting_existing_allowance() {
 }
 
 /// Boundary test mirroring `approve_saturates_just_above_balance_max`:
-/// saturation must trigger for any `U256 > Balance::MAX`, not only the exact
-/// `U256::MAX` sentinel. Guards against a regression that would scope
-/// `permit`'s saturation to `call.value == U256::MAX`.
+/// *storage saturation* must trigger for any `U256 > Balance::MAX`, not
+/// only the exact `U256::MAX` value. Guards against a regression that
+/// would scope `permit`'s saturation to `call.value == U256::MAX` and
+/// revert on every other near-max input. As with `approve`, only
+/// `call.value == U256::MAX` trips the sentinel flag — saturation here
+/// is storage-only.
 #[test]
 fn permit_saturates_just_above_balance_max() {
 	use frame_support::traits::fungibles::approvals::Inspect;
