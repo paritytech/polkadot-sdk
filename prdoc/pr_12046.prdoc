@@ -10,9 +10,13 @@ doc:
     \ \"infinite allowance\" idiom. Previously both selectors reverted at the `U256\
     \ \u2192 Balance` conversion because the runtime `Balance` (u128 or u64) can't\
     \ hold `U256::MAX`. Any value exceeding `Balance::MAX` now saturates at `Balance::MAX`\
-    \ (lossless: total supply is also capped there, so a larger allowance grants no\
-    \ extra spending power). The emitted `Approval` event reports the saturated amount\
-    \ so indexers stay in sync with `allowance()`.\n\n- **Removed a\
+    \ in storage (lossless: total supply is also capped there, so a larger allowance\
+    \ grants no extra spending power). The emitted `Approval` event still carries\
+    \ the raw `call.value` — matching the ERC-20 / OpenZeppelin convention so EVM\
+    \ wallets and indexers (subgraphs, MetaMask token-activity views, explorers)\
+    \ keep working without precompile-specific knowledge, including the\
+    \ `value == uint256.max` \"Unlimited approval\" sentinel pattern. Consumers needing\
+    \ the exact stored allowance can call `allowance()`.\n\n- **Removed a\
     \ misleading comment.** The `approve` doc-comment told callers to use `increaseAllowance`\
     \ / `decreaseAllowance` to mitigate the well-known approve front-running race,\
     \ but neither method is exposed by this precompile (and OpenZeppelin dropped them\

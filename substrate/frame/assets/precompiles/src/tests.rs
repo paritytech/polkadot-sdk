@@ -788,15 +788,16 @@ fn approve_saturates_on_uint256_max() {
 			"approve(uint256.max) must not revert"
 		);
 
-		// The Approval event must report the saturated allowance, not the raw
-		// `call.value`. Otherwise indexers reconstructing allowances from logs
-		// would permanently disagree with on-chain state.
+		// The Approval event must carry the raw `call.value` (here, `U256::MAX`),
+		// not the saturated stored allowance — matches OZ convention and
+		// preserves the `value == uint256.max` "Unlimited approval" sentinel
+		// that wallets and indexers recognize. See `approve`'s doc-comment.
 		assert_contract_event(
 			asset_addr,
 			IERC20Events::Approval(IERC20::Approval {
 				owner: owner_addr.0.into(),
 				spender: spender_addr.0.into(),
-				value: U256::from(u64::MAX),
+				value: U256::MAX,
 			}),
 		);
 
@@ -874,12 +875,13 @@ fn approve_saturates_just_above_balance_max() {
 
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
 
+		// Event carries the raw `call.value`, even though storage saturated.
 		assert_contract_event(
 			asset_addr,
 			IERC20Events::Approval(IERC20::Approval {
 				owner: <Test as pallet_revive::Config>::AddressMapper::to_address(&owner).0.into(),
 				spender: spender_addr.0.into(),
-				value: U256::from(u64::MAX),
+				value: just_over,
 			}),
 		);
 	});
@@ -917,7 +919,7 @@ fn approve_saturates_when_overwriting_existing_allowance() {
 			IERC20Events::Approval(IERC20::Approval {
 				owner: <Test as pallet_revive::Config>::AddressMapper::to_address(&owner).0.into(),
 				spender: spender_addr.0.into(),
-				value: U256::from(u64::MAX),
+				value: U256::MAX,
 			}),
 		);
 	});
@@ -925,12 +927,13 @@ fn approve_saturates_when_overwriting_existing_allowance() {
 
 /// `permit(spender, type(uint256).max, …)` is the gasless infinite-allowance
 /// pathway — the entire reason `permit()` exists in the EIP-2612 surface for
-/// wallet/router integrations. It must saturate at `Balance::MAX` rather than
-/// revert at the `U256 → Balance` conversion, matching `approve`'s behaviour.
+/// wallet/router integrations. It must saturate the *stored* allowance at
+/// `Balance::MAX` rather than revert at the `U256 → Balance` conversion,
+/// matching `approve`'s behaviour.
 ///
-/// Also pins the event invariant: the emitted `Approval` value must be the
-/// saturated amount, not the raw signed `call.value`, so indexers don't drift
-/// from `allowance()`.
+/// Also pins the event policy: `Approval.value` carries the raw signed
+/// `call.value` (`U256::MAX`), matching ERC-20 / OZ convention so EVM tooling
+/// (wallets, indexers) keeps recognizing the "Unlimited approval" sentinel.
 #[test]
 fn permit_saturates_on_uint256_max() {
 	use frame_support::traits::fungibles::approvals::Inspect;
@@ -1036,13 +1039,14 @@ fn permit_saturates_on_uint256_max() {
 		// Allowance must be saturated to Balance::MAX (u64 in the mock).
 		assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), u64::MAX);
 
-		// Event must report the saturated amount, not U256::MAX.
+		// Event carries the raw signed `value` (U256::MAX), not the saturated
+		// stored allowance — same policy as `approve`.
 		assert_contract_event(
 			asset_addr,
 			IERC20Events::Approval(IERC20::Approval {
 				owner: owner_h160.0.into(),
 				spender: spender_h160.0.into(),
-				value: U256::from(u64::MAX),
+				value: U256::MAX,
 			}),
 		);
 	});

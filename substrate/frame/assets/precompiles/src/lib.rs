@@ -341,6 +341,20 @@ where
 	/// Implements ERC-20 set semantics: `approve(spender, N)` sets the allowance to exactly `N`
 	/// rather than adding to it. When overwriting a non-zero allowance, the existing approval is
 	/// cancelled first so the new value replaces (not accumulates with) the old one.
+	///
+	/// **Saturation policy.** When `call.value > Balance::MAX` (e.g. the universal
+	/// `type(uint256).max` "infinite allowance" idiom), the *stored* allowance is
+	/// saturated at `Balance::MAX`. This is lossless because total supply is also
+	/// capped at `Balance::MAX`, so a larger allowance grants no additional
+	/// spending power.
+	///
+	/// **Event policy.** The emitted `Approval.value` is the raw `call.value`,
+	/// matching the ERC-20 / OpenZeppelin convention. EVM wallets and indexers
+	/// expect `event.value == call.value` (in OZ they trivially are, because OZ
+	/// uses `uint256` storage and never saturates) — preserving that lets
+	/// downstream tooling work without precompile-specific knowledge, including
+	/// the `value == uint256.max` "Unlimited approval" sentinel pattern.
+	/// Consumers needing the exact stored allowance can call `allowance()`.
 	fn approve(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &IERC20::approveCall,
@@ -412,12 +426,23 @@ where
 		}
 		env.adjust_gas(charged, actual_weight);
 
+		// Emit `call.value`, not `new_amount`. When saturation triggers, the
+		// chain stores `Balance::MAX` but the log carries the original
+		// `U256` the user signed for. This matches the ERC-20 / OpenZeppelin
+		// convention `Approval.value == call.value`, which EVM wallets and
+		// indexers built against mainnet rely on (e.g. `value == uint256.max`
+		// is the universal "Unlimited approval" sentinel — saturating it to
+		// `Balance::MAX` would erase that signal from the public log).
+		// Operational equivalence holds: total supply is also capped at
+		// `Balance::MAX`, so an allowance of `U256::MAX` and one of
+		// `Balance::MAX` grant identical spending power. Consumers needing
+		// the exact stored allowance can call `allowance()`.
 		Self::deposit_event(
 			env,
 			IERC20Events::Approval(IERC20::Approval {
 				owner: owner.0.into(),
 				spender: call.spender,
-				value: Self::to_u256(new_amount)?,
+				value: call.value,
 			}),
 		)?;
 
@@ -466,7 +491,8 @@ where
 	/// Execute the permit call (EIP-2612).
 	///
 	/// This verifies the signature, consumes the permit (increments nonce),
-	/// and sets the approval.
+	/// and sets the approval. Saturation and event policy match `approve` —
+	/// see its doc-comment.
 	pub(crate) fn permit(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		verifying_contract: H160,
@@ -586,14 +612,14 @@ where
 					)?;
 				}
 
-				// Emit Approval event with the saturated allowance, not the raw
-				// signed value — see `approve` for the same invariant.
+				// Emit `call.value` (the signed permit value), not the
+				// saturated `new_amount` — see `approve` for the rationale.
 				Self::deposit_event(
 					env,
 					IERC20Events::Approval(IERC20::Approval {
 						owner: call.owner,
 						spender: call.spender,
-						value: Self::to_u256(new_amount)?,
+						value: call.value,
 					}),
 				)?;
 				Ok::<_, Error>(actual_weight)
