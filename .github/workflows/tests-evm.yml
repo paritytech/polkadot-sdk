@@ -42,7 +42,7 @@ jobs:
         id: download
         uses: ./.github/actions/get-resolc
       - name: Run revive differential tests
-        uses: paritytech/revive-differential-tests/.github/actions/run-differential-tests@b12369430ec8184e62cc5fdcae8a140a8f1fadbd
+        uses: paritytech/revive-differential-tests/.github/actions/run-differential-tests@a36ef4f430e98569386ac3966034d5abc8a7ab04
         with:
           platform: ${{ matrix.platform }}
           cargo-command: "forklift cargo"
