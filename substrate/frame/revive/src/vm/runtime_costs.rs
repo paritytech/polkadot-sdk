@@ -369,7 +369,6 @@ impl RuntimeCosts {
 
 	pub fn set(transient: bool, new_bytes: u32, old_bytes: u32, costs: StorageAccessCost) -> Self {
 		if transient {
-			let _ = costs;
 			Self::SetTransientStorage { new_bytes, old_bytes }
 		} else {
 			Self::SetStorage { new_bytes, old_bytes, costs }
@@ -377,35 +376,19 @@ impl RuntimeCosts {
 	}
 
 	pub fn clear(transient: bool, len: u32, costs: StorageAccessCost) -> Self {
-		if transient {
-			let _ = costs;
-			Self::ClearTransientStorage(len)
-		} else {
-			Self::ClearStorage { len, costs }
-		}
+		if transient { Self::ClearTransientStorage(len) } else { Self::ClearStorage { len, costs } }
 	}
 
 	pub fn take(transient: bool, len: u32, costs: StorageAccessCost) -> Self {
-		if transient {
-			let _ = costs;
-			Self::TakeTransientStorage(len)
-		} else {
-			Self::TakeStorage { len, costs }
-		}
+		if transient { Self::TakeTransientStorage(len) } else { Self::TakeStorage { len, costs } }
 	}
 
 	pub fn get(transient: bool, len: u32, costs: StorageAccessCost) -> Self {
-		if transient {
-			let _ = costs;
-			Self::GetTransientStorage(len)
-		} else {
-			Self::GetStorage { len, costs }
-		}
+		if transient { Self::GetTransientStorage(len) } else { Self::GetStorage { len, costs } }
 	}
 
 	pub fn contains(transient: bool, len: u32, costs: StorageAccessCost) -> Self {
 		if transient {
-			let _ = costs;
 			Self::ContainsTransientStorage(len)
 		} else {
 			Self::ContainsStorage { len, costs }
@@ -413,10 +396,9 @@ impl RuntimeCosts {
 	}
 
 	/// EIP-2929 cold/warm weight for storage opcodes; other variants fall
-	/// through to `legacy_weight`. Conservative over-charge on writes:
-	/// `seal_set_storage` already bundles a read-of-old cost, and `cost_read`
-	/// adds another on top — pending a dedicated `storage_write_only(size)`
-	/// benchmark.
+	/// through to `legacy_weight`. The cold path may end up cheaper than
+	/// legacy until the dedicated `storage_read_cold` / `storage_read_warm` /
+	/// `storage_write_only` benchmarks replace the placeholder constants.
 	fn new_weight<T: Config>(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match self {

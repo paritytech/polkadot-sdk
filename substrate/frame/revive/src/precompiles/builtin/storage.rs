@@ -111,10 +111,17 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					);
 					(outcome.is_some(), value_len)
 				} else {
-					let (outcome, costs) = env.get_storage_size(&key);
+					// `get_storage_size` always reports cold (see TODO at
+					// `Ext::get_storage_size` for the broader trade-off), so
+					// the refund only concerns the size component — pass
+					// `cold()` directly. Update both sites together when the
+					// two-tier touch lands.
+					let (outcome, _) = env.get_storage_size(&key);
 					let value_len = outcome.unwrap_or(0);
-					env.frame_meter_mut()
-						.adjust_weight(charged, RuntimeCosts::contains(false, value_len, costs));
+					env.frame_meter_mut().adjust_weight(
+						charged,
+						RuntimeCosts::contains(false, value_len, StorageAccessCost::cold()),
+					);
 					(outcome.is_some(), value_len)
 				};
 				Ok((exists, value_len).abi_encode())

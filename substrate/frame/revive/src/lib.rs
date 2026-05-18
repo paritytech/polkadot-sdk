@@ -980,6 +980,8 @@ pub mod pallet {
 		}
 
 		fn integrity_test() {
+			use crate::access_list::StorageAccessCost;
+
 			assert!(T::ChainId::get() > 0, "ChainId must be greater than 0");
 
 			assert!(T::GasScale::get() > 0u32.into(), "GasScale must not be 0");
@@ -1110,13 +1112,15 @@ pub mod pallet {
 			);
 
 			// We can use storage to store items using the available block ref_time with the
-			// `set_storage` host function.
+			// `set_storage` host function. `costs: cold()` is the worst-case under
+			// `ColdWarmPricingEnabled = true`; under `= false` it's ignored by
+			// `legacy_weight` (the current default everywhere).
 			let max_storage_size = max_block_weight
 				.checked_div_per_component(
 					&<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::SetStorage {
 						new_bytes: limits::STORAGE_BYTES,
 						old_bytes: 0,
-						costs: Default::default(),
+						costs: StorageAccessCost::cold(),
 					})
 					.saturating_mul(u64::from(limits::STORAGE_BYTES).saturating_add(max_key_size)),
 				)

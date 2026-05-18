@@ -37,7 +37,7 @@ use frame_support::{assert_err, assert_ok, parameter_types};
 use frame_system::AccountInfo;
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
-use sp_io::hashing::keccak_256;
+use sp_io::hashing::{blake2_256, keccak_256};
 use sp_runtime::DispatchError;
 use std::{cell::RefCell, collections::hash_map::HashMap, rc::Rc};
 
@@ -3026,8 +3026,6 @@ fn run_call_to(contract_addr: H160) {
 	));
 }
 
-/// `Ext::set_storage` on the same key returns `is_cold = Some(true)` first,
-/// `Some(false)` second — when the runtime flag is enabled.
 #[test]
 fn cold_warm_set_storage_first_cold_second_warm() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
@@ -3046,8 +3044,6 @@ fn cold_warm_set_storage_first_cold_second_warm() {
 	});
 }
 
-/// `Ext::get_storage` after `Ext::set_storage` on the same key returns
-/// `is_cold = Some(false)` (the entry was warmed by the prior write).
 #[test]
 fn cold_warm_get_after_set_is_warm() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
@@ -3066,8 +3062,6 @@ fn cold_warm_get_after_set_is_warm() {
 	});
 }
 
-/// Distinct slots in the same contract are independent: both first-touches
-/// are cold.
 #[test]
 fn cold_warm_distinct_slots_independent() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
@@ -3085,10 +3079,6 @@ fn cold_warm_distinct_slots_independent() {
 	});
 }
 
-/// `Ext::get_storage_size` does not register the slot as warm — `child::len`
-/// skips the value-bytes fetch, so a subsequent `Ext::get_storage` is the
-/// first real bytes read and must remain cold. See the TODO in
-/// `get_storage_size` (two-tier touch) for the broader trade-off.
 #[test]
 fn cold_warm_get_storage_size_does_not_warm_for_sload() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
@@ -3112,8 +3102,6 @@ fn cold_warm_get_storage_size_does_not_warm_for_sload() {
 	});
 }
 
-/// `Disabled` mode (flag off — the runtime default) always returns
-/// `is_cold = Some(true)` and records no state.
 #[test]
 fn cold_warm_disabled_always_reports_cold() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
@@ -3132,8 +3120,6 @@ fn cold_warm_disabled_always_reports_cold() {
 	});
 }
 
-/// Access entries are keyed on `(address, slot)`: a child touching slot S on
-/// its own contract does not warm slot S on the parent's contract.
 #[test]
 fn cold_warm_distinct_addresses_are_independent() {
 	let key_for_child = Key::Fix([9; 32]);
@@ -3174,9 +3160,6 @@ fn cold_warm_distinct_addresses_are_independent() {
 	});
 }
 
-/// Child frame touches a slot then reverts. The parent calls the child
-/// twice; the second call's touch should still be cold (rollback removed
-/// the first call's journal entry).
 #[test]
 fn cold_warm_child_revert_rolls_back() {
 	let key = Key::Fix([10; 32]);
@@ -3230,8 +3213,6 @@ fn cold_warm_child_revert_rolls_back() {
 	});
 }
 
-/// Two child calls that both succeed: the second call's touch on the same
-/// `(child_address, slot)` should be warm because the first call committed.
 #[test]
 fn cold_warm_child_commit_persists_across_sibling_calls() {
 	let key = Key::Fix([11; 32]);
@@ -3283,3 +3264,113 @@ fn cold_warm_child_commit_persists_across_sibling_calls() {
 		run_call_to(CHARLIE_ADDR);
 	});
 }
+
+#[test]
+fn cold_warm_fix_var_disjoint() {
+	let code_hash = MockLoader::insert(Call, |ctx, _| {
+		let var_bytes = b"alias-attempt".to_vec();
+		// Fix slot bytes engineered to equal what Var would project to.
+		let fix_bytes = blake2_256(&var_bytes);
+
+		let fix_key = Key::Fix(fix_bytes);
+		let var_key = Key::try_from_var(var_bytes).unwrap();
+
+		let (_, fix_cost) = ctx.ext.set_storage(&fix_key, Some(vec![1]), false);
+		assert_eq!(fix_cost.is_cold, Some(true));
+
+		let (_, var_cost) = ctx.ext.set_storage(&var_key, Some(vec![2]), false);
+		assert_eq!(
+			var_cost.is_cold,
+			Some(true),
+			"Var(y) must NOT alias Fix(blake2_256(y)) — `is_var` tag missing on AccessEntry?",
+		);
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _guard = ColdWarmEnabled::new();
+		place_contract(&BOB, code_hash);
+		run_call_to(BOB_ADDR);
+	});
+}
+
+#[test]
+fn cold_warm_size_then_sstore_stays_cold() {
+	let code_hash = MockLoader::insert(Call, |ctx, _| {
+		let slot = Key::Fix([20; 32]);
+		let (_, size_costs) = ctx.ext.get_storage_size(&slot);
+		assert_eq!(size_costs.is_cold, Some(true), "size always charges cold");
+		let (_, set_costs) = ctx.ext.set_storage(&slot, Some(vec![1]), false);
+		assert_eq!(
+			set_costs.is_cold,
+			Some(true),
+			"SSTORE after size lookup is still cold — size did not warm the slot",
+		);
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _guard = ColdWarmEnabled::new();
+		place_contract(&BOB, code_hash);
+		run_call_to(BOB_ADDR);
+	});
+}
+
+#[test]
+fn cold_warm_delegate_call_warms_parent_slot() {
+	const SLOT: [u8; 32] = [55; 32];
+
+	let child_ch = MockLoader::insert(Call, |ctx, _| {
+		// Runs in the parent's storage context (delegate-call), so this read
+		// touches `(parent_addr, SLOT)` — the same access-list entry the
+		// parent will see on its next SLOAD. A read suffices (no deposit
+		// budget needed) and still records the warm entry.
+		let (_, costs) = ctx.ext.get_storage(&Key::Fix(SLOT));
+		assert_eq!(
+			costs.is_cold,
+			Some(true),
+			"child via delegate-call: first touch on `(parent_addr, slot)` is cold",
+		);
+		exec_success()
+	});
+
+	let parent_ch = MockLoader::insert(Call, |ctx, _| {
+		ctx.ext
+			.delegate_call(&Default::default(), BOB_ADDR, Vec::new())
+			.expect("delegate-call to child must succeed");
+		let (_, costs) = ctx.ext.get_storage(&Key::Fix(SLOT));
+		assert_eq!(
+			costs.is_cold,
+			Some(false),
+			"parent SLOAD after delegate-call is warm — child's touch keyed on \
+			 `(parent_addr, slot)`, not `(child_addr, slot)`",
+		);
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _guard = ColdWarmEnabled::new();
+		place_contract(&BOB, child_ch);
+		place_contract(&CHARLIE, parent_ch);
+		run_call_to(CHARLIE_ADDR);
+	});
+}
+
+// TODO: Err-path refund test (review #8) — needs forcing `set_storage` to
+// return `Err`. The natural trigger is a tight deposit limit on the frame
+// meter that the write exhausts. Wiring that through `TransactionMeter` +
+// `run_call_to` requires exposing a tight-budget helper; the assertion would
+// be: after Err, a second touch on the same slot reports warm.
+//
+// TODO: precompile-level cold/warm test (review #6) — the precompile's
+// `env.set_storage` is what `cold_warm_set_storage_first_cold_second_warm`
+// already exercises (the precompile delegates straight through). A dedicated
+// dispatch-level test needs a delegate-call `ext` from `CallSetup` and
+// would call `<Storage<Test>>::call(...)` twice in a row — belongs in
+// `precompiles::builtin::storage::tests`, not here.
+//
+// TODO: OOG-during-pre-charge test (review #7) — the pre-charge halt lives
+// in the opcode handler (`host::sstore`, `pvm::set_storage`), not in
+// `Ext::set_storage`. Needs an integration test that runs real contract
+// bytecode through the interpreter with a gas budget below the pre-charge
+// weight, then asserts the halt fires and the access list is empty.

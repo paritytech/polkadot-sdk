@@ -34,12 +34,16 @@ use crate::{Config, weights::WeightInfo};
 pub struct AccessEntry {
 	/// Contract whose child trie is being touched.
 	pub address: H160,
+	/// `true` for `Key::Var`, `false` for `Key::Fix`. Keeps the two variants
+	/// distinct even if their projected `slot` bytes happen to match.
+	pub is_var: bool,
 	/// 32-byte slot identifier, projected from a `Key` via [`crate::exec::Key::to_slot`].
 	pub slot: [u8; 32],
 }
 
 /// Per-transaction access list with per-frame rollback support. `Disabled`
-/// is a zero-state no-op when `T::ColdWarmPricingEnabled = false`.
+/// is a zero-state no-op when `T::ColdWarmPricingEnabled = false`: all
+/// methods are no-ops and `touch` always returns `true` (cold).
 pub enum AccessList {
 	/// Full tracking — used when cold/warm pricing is enabled. Layout
 	/// follows [`crate::transient_storage::TransientStorage`]: a current-state
@@ -59,9 +63,6 @@ pub enum AccessList {
 	Disabled,
 }
 
-/// On the `Disabled` variant, `enter_frame` / `commit_frame` / `rollback_frame`
-/// are no-ops and `touch` always returns `true` (cold) without recording state.
-/// All methods below describe the behavior on the `Enabled` variant.
 impl AccessList {
 	/// Initialize for a new transaction with cold/warm tracking enabled.
 	///
@@ -195,27 +196,29 @@ fn access_list_touch_warm_weight<T: Config>() -> Weight {
 	T::WeightInfo::seal_caller().saturating_div(24)
 }
 
-/// Cold substrate read of `value_size` bytes. Approximated as full `seal_get_storage(value_size)`.
-fn storage_read_cold_weight<T: Config>(value_size: u32) -> Weight {
-	T::WeightInfo::seal_get_storage(value_size)
+/// Cold substrate read of `len` bytes. Approximated as full `seal_get_storage(len)`.
+fn storage_read_cold_weight<T: Config>(len: u32) -> Weight {
+	T::WeightInfo::seal_get_storage(len)
 }
 
-/// Warm substrate read. Approximated as 1/5 of `seal_get_storage(value_size)`.
-fn storage_read_warm_weight<T: Config>(value_size: u32) -> Weight {
-	T::WeightInfo::seal_get_storage(value_size).saturating_div(5)
+/// Warm substrate read. Approximated as 1/5 of `seal_get_storage(len)`.
+fn storage_read_warm_weight<T: Config>(len: u32) -> Weight {
+	T::WeightInfo::seal_get_storage(len).saturating_div(5)
 }
 
 /// Weight charged for one observed substrate read at this opcode:
 /// - `None` → the read didn't happen; charge nothing.
 /// - `Some(true)` → cold: cold touch bookkeeping + full read.
-/// - `Some(false)` → warm: warm touch bookkeeping + in-memory dedup.
-pub fn cost_read<T: Config>(is_cold: Option<bool>, value_size: u32) -> Weight {
+/// - `Some(false)` → warm: warm touch bookkeeping + reduced read.
+pub fn cost_read<T: Config>(is_cold: Option<bool>, len: u32) -> Weight {
 	match is_cold {
 		None => Weight::zero(),
-		Some(true) => access_list_touch_cold_weight::<T>()
-			.saturating_add(storage_read_cold_weight::<T>(value_size)),
-		Some(false) => access_list_touch_warm_weight::<T>()
-			.saturating_add(storage_read_warm_weight::<T>(value_size)),
+		Some(true) => {
+			access_list_touch_cold_weight::<T>().saturating_add(storage_read_cold_weight::<T>(len))
+		},
+		Some(false) => {
+			access_list_touch_warm_weight::<T>().saturating_add(storage_read_warm_weight::<T>(len))
+		},
 	}
 }
 
@@ -232,10 +235,10 @@ mod tests {
 	fn lifecycle() {
 		let mut al = AccessList::new_enabled();
 		let (a, b, c, d) = (
-			AccessEntry { address: H160::zero(), slot: [0xA; 32] },
-			AccessEntry { address: H160::zero(), slot: [0xB; 32] },
-			AccessEntry { address: H160::zero(), slot: [0xC; 32] },
-			AccessEntry { address: H160::zero(), slot: [0xD; 32] },
+			AccessEntry { address: H160::zero(), is_var: false, slot: [0xA; 32] },
+			AccessEntry { address: H160::zero(), is_var: false, slot: [0xB; 32] },
+			AccessEntry { address: H160::zero(), is_var: false, slot: [0xC; 32] },
+			AccessEntry { address: H160::zero(), is_var: false, slot: [0xD; 32] },
 		);
 
 		assert!(al.touch(a.clone()), "A: first touch cold");

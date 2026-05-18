@@ -111,8 +111,8 @@ impl Key {
 	}
 
 	/// Project to a 32-byte slot identifier for the access list. `Fix` is used
-	/// as-is; `Var` is hashed via `blake2_256`. Distinct from [`Key::hash`]
-	/// (the child-trie lookup key), which hashes both variants.
+	/// as-is; `Var` is hashed via `blake2_256`. The variant is tracked
+	/// separately on `AccessEntry::is_var` so `Fix` and `Var` never alias.
 	pub fn to_slot(&self) -> [u8; 32] {
 		match self {
 			Key::Fix(v) => *v,
@@ -533,23 +533,26 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// The amount of gas left in eth gas units.
 	fn gas_left(&self) -> u64;
 
-	/// Returns the storage entry of the executing account by the given `key`,
-	/// alongside the cold/warm cost struct recording the access-list touch.
+	/// Returns the storage entry of the executing account by the given `key`.
 	///
-	/// The value is `None` if the `key` wasn't previously set by `set_storage`
-	/// or was deleted.
+	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
+	/// was deleted. The accompanying `StorageAccessCost` records the
+	/// EIP-2929 cold/warm access.
 	fn get_storage(&mut self, key: &Key) -> (Option<Vec<u8>>, StorageAccessCost);
 
-	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`,
-	/// alongside the cold/warm cost struct recording the access-list touch.
+	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
 	///
-	/// The length is `None` if the `key` wasn't previously set by
-	/// `set_storage` or was deleted.
+	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
+	/// was deleted.
+	///
+	/// Note: the impl does NOT currently touch the access list — the returned
+	/// `StorageAccessCost` always reports `is_cold = Some(true)`. See the
+	/// TODO at the impl site.
 	fn get_storage_size(&mut self, key: &Key) -> (Option<u32>, StorageAccessCost);
 
 	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
 	/// the storage entry is deleted. The accompanying `StorageAccessCost`
-	/// records the access-list touch for the implicit read-of-old-value.
+	/// records the EIP-2929 cold/warm access.
 	fn set_storage(
 		&mut self,
 		key: &Key,
@@ -1576,8 +1579,11 @@ where
 				transient_storage.rollback_transaction();
 			}
 		});
-		// Close the access-list frame, mirroring the transient_storage hook.
-		// Skip on the outermost run (mirrors `enter_frame` gating above).
+		// Close the access-list frame. Intentional asymmetry with
+		// `transient_storage` (which opens/closes a checkpoint on every run):
+		// the outermost run is skipped so its touches stay tx-wide. Safe
+		// because the `Stack` is dropped at tx end — root-scope touches die
+		// with it.
 		if !is_first_frame {
 			if success {
 				self.access_list.commit_frame();
@@ -2563,7 +2569,11 @@ where
 	fn get_storage(&mut self, key: &Key) -> (Option<Vec<u8>>, StorageAccessCost) {
 		assert!(self.has_contract_info());
 		let address = T::AddressMapper::to_address(self.account_id());
-		let is_cold = self.access_list.touch(AccessEntry { address, slot: key.to_slot() });
+		let is_cold = self.access_list.touch(AccessEntry {
+			address,
+			is_var: matches!(key, Key::Var(_)),
+			slot: key.to_slot(),
+		});
 		let value = self.top_frame_mut().contract_info().read(key);
 		(value, StorageAccessCost { is_cold: Some(is_cold) })
 	}
@@ -2576,8 +2586,13 @@ where
 		// (value bytes are fetched for the first time). Trade-off: repeated
 		// `size` calls on the same slot all pay cold, even though the trie
 		// node is already in the proof after the first call.
+		//
+		// Coupled site: the `containsStorage` precompile in
+		// `precompiles/builtin/storage.rs` discards this method's returned
+		// `StorageAccessCost` and hardcodes `cold()`. When this method starts
+		// feeding the access list, update that site too.
 		let size = self.top_frame_mut().contract_info().size(key.into());
-		(size, StorageAccessCost { is_cold: Some(true) })
+		(size, StorageAccessCost::cold())
 	}
 
 	fn set_storage(
@@ -2588,7 +2603,11 @@ where
 	) -> (Result<WriteOutcome, DispatchError>, StorageAccessCost) {
 		assert!(self.has_contract_info());
 		let address = T::AddressMapper::to_address(self.account_id());
-		let is_cold = self.access_list.touch(AccessEntry { address, slot: key.to_slot() });
+		let is_cold = self.access_list.touch(AccessEntry {
+			address,
+			is_var: matches!(key, Key::Var(_)),
+			slot: key.to_slot(),
+		});
 		let frame = self.top_frame_mut();
 		let result = frame.contract_info.get(&frame.account_id).write(
 			key.into(),
