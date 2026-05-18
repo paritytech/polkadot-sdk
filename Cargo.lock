@@ -17627,6 +17627,7 @@ dependencies = [
  "sc-transaction-pool",
  "sc-transaction-pool-api 28.0.0",
  "sc-utils 14.0.0",
+ "sc-virtualization",
  "slot-range-helper",
  "sp-api 26.0.0",
  "sp-api-proc-macro 15.0.0",
