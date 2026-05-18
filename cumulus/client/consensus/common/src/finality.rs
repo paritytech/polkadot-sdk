@@ -20,6 +20,8 @@
 use sc_client_api::HeaderBackend;
 use sp_runtime::traits::{Block as BlockT, Header as _};
 
+const LOG_TARGET: &str = "consensus::common::finality";
+
 /// Compute the previously-finalized block hash from a tree route and a fallback parent hash.
 ///
 /// This is the parent of the first block in the tree route, or the supplied `fallback_parent`
@@ -37,11 +39,30 @@ where
 	C: HeaderBackend<Block>,
 	Block: BlockT,
 {
-	tree_route
-		.first()
-		.and_then(|hash| client.header(*hash).ok().flatten())
-		.map(|h| *h.parent_hash())
-		.unwrap_or(fallback_parent)
+	let Some(first) = tree_route.first() else {
+		return fallback_parent;
+	};
+
+	match client.header(*first) {
+		Ok(Some(header)) => *header.parent_hash(),
+		Ok(None) => {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?first,
+				"tree_route head header missing; falling back to notification parent hash",
+			);
+			fallback_parent
+		},
+		Err(error) => {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?first,
+				?error,
+				"tree_route head header lookup failed; falling back to notification parent hash",
+			);
+			fallback_parent
+		},
+	}
 }
 
 #[cfg(test)]
@@ -99,7 +120,10 @@ mod tests {
 		let fallback = Hash::repeat_byte(0x01);
 
 		let old_hash = old_finalized_hash::<_, Block>(&client, &[], fallback);
-		assert_eq!(old_hash, fallback, "empty tree_route should fall through to the supplied parent");
+		assert_eq!(
+			old_hash, fallback,
+			"empty tree_route should fall through to the supplied parent"
+		);
 	}
 
 	#[test]
