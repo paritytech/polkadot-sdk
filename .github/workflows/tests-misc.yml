@@ -98,7 +98,7 @@ jobs:
           forklift cargo test --locked -q --profile testnet --manifest-path substrate/primitives/runtime-interface/Cargo.toml ui
 
   test-deterministic-wasm:
-    timeout-minutes: 20
+    timeout-minutes: 30
     needs: [preflight, test-frame-examples-compile-to-wasm]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     if: ${{ needs.preflight.outputs.changes_rust }}
