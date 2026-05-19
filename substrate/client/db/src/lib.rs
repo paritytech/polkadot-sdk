@@ -6553,7 +6553,7 @@ pub(crate) mod tests {
 		assert_eq!(gap.end, 2);
 	}
 
-	mod database_adapter_tests {
+	mod indexed_transaction_tests {
 		use super::*;
 		use crate::utils::NUM_COLUMNS;
 		use rstest::rstest;
@@ -6562,7 +6562,7 @@ pub(crate) mod tests {
 		use tempfile::TempDir;
 
 		#[derive(Debug, Clone, Copy)]
-		pub(super) enum BackendKind {
+		enum BackendKind {
 			KvdbMemdb,
 			ParityDb,
 			RocksDb,
@@ -6755,15 +6755,6 @@ pub(crate) mod tests {
 			commit_store(&factory, h, bytes.clone());
 			assert_eq!(get_value(&factory, h).as_deref(), Some(bytes.as_slice()));
 		}
-	}
-
-	mod indexed_transaction_backend_tests {
-		use super::*;
-		use super::database_adapter_tests::BackendKind;
-		use crate::utils::NUM_COLUMNS;
-		use rstest::rstest;
-		use std::path::PathBuf;
-		use tempfile::TempDir;
 
 		struct BackendFactory {
 			backend: Option<Backend<Block>>,
