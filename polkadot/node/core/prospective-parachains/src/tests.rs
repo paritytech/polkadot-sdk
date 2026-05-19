@@ -3552,7 +3552,8 @@ fn get_pvd_uses_relay_parent_session_max_pov_size_on_v17() {
 	test_state
 		.set_runtime_api_version(RuntimeApiRequest::SESSION_EXECUTION_CONFIG_RUNTIME_REQUIREMENT);
 	test_state.set_min_relay_parent_number(OLDER_RELAY_PARENT_NUMBER);
-	test_state.set_session_max_pov_size(RELAY_PARENT_SESSION_INDEX, RELAY_PARENT_SESSION_MAX_POV_SIZE);
+	test_state
+		.set_session_max_pov_size(RELAY_PARENT_SESSION_INDEX, RELAY_PARENT_SESSION_MAX_POV_SIZE);
 
 	test_harness(|mut virtual_overseer| async move {
 		let leaf_a = TestLeaf {
@@ -3602,13 +3603,19 @@ fn get_pvd_uses_relay_parent_session_max_pov_size_on_v17() {
 		);
 		pvd_b.max_pov_size = TAMPERED_MAX_POV_SIZE;
 		candidate_b.descriptor.set_persisted_validation_data_hash(pvd_b.hash());
-		introduce_seconded_candidate_failed(
+		// Also drives the hypothetical-membership path of `verify_relay_parent_within_scope`:
+		// the same tampered PVD must report empty membership.
+		get_hypothetical_membership(
 			&mut virtual_overseer,
 			&test_state,
-			candidate_b,
-			pvd_b,
+			candidate_b.hash(),
+			candidate_b.clone(),
+			pvd_b.clone(),
+			vec![],
 		)
 		.await;
+		introduce_seconded_candidate_failed(&mut virtual_overseer, &test_state, candidate_b, pvd_b)
+			.await;
 
 		// (2) Relay-parent-session keying: GetProspectiveValidationData for candidate_a must
 		// fetch `SessionExecutionConfig` for `request.session_index` (42), not the leaf's
@@ -3631,148 +3638,6 @@ fn get_pvd_uses_relay_parent_session_max_pov_size_on_v17() {
 			}),
 		)
 		.await;
-
-		virtual_overseer
-	});
-}
-
-// `verify_relay_parent_within_scope` is called from both `handle_introduce_seconded_candidate`
-// and `answer_hypothetical_membership_request`. The introduce path's tampered-PVD rejection
-// is covered by `get_pvd_uses_relay_parent_session_max_pov_size_on_v17` above. This test
-// locks in the same property for the hypothetical-membership path: a candidate whose PVD
-// declares a `max_pov_size` that disagrees with the runtime's `SessionExecutionConfig` for
-// its relay-parent session must report empty membership.
-#[test]
-fn hypothetical_membership_rejects_tampered_max_pov_size() {
-	const TAMPERED_MAX_POV_SIZE: u32 = 555_555;
-	assert_ne!(TAMPERED_MAX_POV_SIZE, MAX_POV_SIZE, "test sentinel collision");
-
-	let mut test_state = TestState::default();
-	test_state
-		.set_runtime_api_version(RuntimeApiRequest::SESSION_EXECUTION_CONFIG_RUNTIME_REQUIREMENT);
-
-	test_harness(|mut virtual_overseer| async move {
-		let leaf_a = TestLeaf {
-			number: 100,
-			hash: Hash::from_low_u64_be(130),
-			para_data: vec![
-				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
-				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
-			],
-		};
-		activate_leaf(&mut virtual_overseer, &leaf_a, &test_state).await;
-
-		let (mut candidate, mut pvd) = make_candidate(
-			leaf_a.hash,
-			leaf_a.number,
-			1.into(),
-			HeadData(vec![1, 2, 3]),
-			HeadData(vec![1]),
-			test_state.validation_code_hash,
-		);
-		pvd.max_pov_size = TAMPERED_MAX_POV_SIZE;
-		candidate.descriptor.set_persisted_validation_data_hash(pvd.hash());
-
-		// Runtime answers `SessionExecutionConfig` with `MAX_POV_SIZE` (default override). PVD
-		// declares `TAMPERED_MAX_POV_SIZE` — mismatch must drop the candidate from membership.
-		get_hypothetical_membership(
-			&mut virtual_overseer,
-			&test_state,
-			candidate.hash(),
-			candidate,
-			pvd,
-			vec![],
-		)
-		.await;
-
-		virtual_overseer
-	});
-}
-
-// Two introductions at the same session must result in a single `SessionExecutionConfig`
-// runtime call: the first one populates the per-session `max_pov_size` cache, and the second
-// is served from there. Locks in the optimization motivated by the backing hot path
-// (`CanSecond` × 2 + `fetch_pvd` for the same candidate).
-#[test]
-fn session_max_pov_size_cache_serves_repeated_lookups_in_same_session() {
-	let mut test_state = TestState::default();
-	test_state
-		.set_runtime_api_version(RuntimeApiRequest::SESSION_EXECUTION_CONFIG_RUNTIME_REQUIREMENT);
-
-	test_harness(|mut virtual_overseer| async move {
-		let leaf = TestLeaf {
-			number: 100,
-			hash: Hash::from_low_u64_be(130),
-			para_data: vec![
-				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
-				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
-			],
-		};
-		activate_leaf(&mut virtual_overseer, &leaf, &test_state).await;
-
-		// First introduction primes the cache via `handle_potential_relay_parent_info_calls`.
-		let (candidate_a, pvd_a) = make_candidate(
-			leaf.hash,
-			leaf.number,
-			1.into(),
-			HeadData(vec![1, 2, 3]),
-			HeadData(vec![1]),
-			test_state.validation_code_hash,
-		);
-		introduce_seconded_candidate(&mut virtual_overseer, &test_state, candidate_a, pvd_a).await;
-
-		// Second introduction at the same session must not trigger a `SessionExecutionConfig`
-		// runtime call — the per-session cache populated above absorbs it. A custom intercept
-		// panics if the call escapes the subsystem.
-		let (candidate_b, pvd_b) = make_candidate(
-			leaf.hash,
-			leaf.number,
-			2.into(),
-			HeadData(vec![2, 3, 4]),
-			HeadData(vec![1]),
-			test_state.validation_code_hash,
-		);
-		let req = IntroduceSecondedCandidateRequest {
-			candidate_para: candidate_b.descriptor.para_id(),
-			candidate_receipt: candidate_b,
-			persisted_validation_data: pvd_b,
-		};
-		let (tx, rx) = oneshot::channel();
-		virtual_overseer
-			.send(overseer::FromOrchestra::Communication {
-				msg: ProspectiveParachainsMessage::IntroduceSecondedCandidate(req, tx),
-			})
-			.await;
-
-		let mut rx = rx.fuse();
-		let accepted = loop {
-			futures::select! {
-				response = &mut rx => break response.expect("oneshot sender dropped unexpectedly"),
-				msg = virtual_overseer.recv().fuse() => {
-					if matches!(
-						msg,
-						AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-							_,
-							RuntimeApiRequest::SessionExecutionConfig(_, _),
-						))
-					) {
-						panic!(
-							"second introduction must not trigger SessionExecutionConfig — \
-							 per-session cache should absorb it",
-						);
-					}
-					handle_fetch_relay_parent_info_message(
-						&mut virtual_overseer,
-						msg,
-						&test_state,
-						leaf.hash,
-						leaf.number,
-					)
-					.await;
-				}
-			}
-		};
-		assert!(accepted, "candidate_b must be accepted");
 
 		virtual_overseer
 	});

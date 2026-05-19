@@ -229,7 +229,9 @@ where
 			.await
 			.await
 			.map_err(|e| format!("Cannot fetch validation code bomb limit: channel error: {e:?}"))?
-			.map_err(|e| format!("Cannot fetch validation code bomb limit: runtime error: {e:?}"))?,
+			.map_err(|e| {
+				format!("Cannot fetch validation code bomb limit: runtime error: {e:?}")
+			})?,
 	};
 
 	Ok(SessionParams { executor_params, validation_code_bomb_limit })
@@ -478,13 +480,10 @@ where
 
 			// Precheck operates at the current `relay_parent`/`session_index` so the direct
 			// session-keyed runtime API is sufficient — no cross-session reasoning needed.
-			let Ok(Ok(validation_code_bomb_limit)) = request_validation_code_bomb_limit(
-				relay_parent,
-				session_index,
-				&mut sender,
-			)
-			.await
-			.await
+			let Ok(Ok(validation_code_bomb_limit)) =
+				request_validation_code_bomb_limit(relay_parent, session_index, &mut sender)
+					.await
+					.await
 			else {
 				let error = "cannot fetch validation code bomb limit from the runtime";
 				gum::warn!(
@@ -920,34 +919,31 @@ where
 
 		// Warm-up runs at the current `relay_parent`/`session_index`; the direct
 		// session-keyed runtime API is sufficient — no cross-session reasoning needed.
-		let validation_code_bomb_limit = match request_validation_code_bomb_limit(
-			relay_parent,
-			session_index,
-			sender,
-		)
-		.await
-		.await
-		{
-			Ok(Ok(limit)) => limit,
-			Ok(Err(err)) => {
-				gum::warn!(
-					target: LOG_TARGET,
-					?relay_parent,
-					?err,
-					"cannot fetch validation code bomb limit from runtime API",
-				);
-				continue;
-			},
-			Err(err) => {
-				gum::warn!(
-					target: LOG_TARGET,
-					?relay_parent,
-					?err,
-					"cannot fetch validation code bomb limit from runtime API",
-				);
-				continue;
-			},
-		};
+		let validation_code_bomb_limit =
+			match request_validation_code_bomb_limit(relay_parent, session_index, sender)
+				.await
+				.await
+			{
+				Ok(Ok(limit)) => limit,
+				Ok(Err(err)) => {
+					gum::warn!(
+						target: LOG_TARGET,
+						?relay_parent,
+						?err,
+						"cannot fetch validation code bomb limit from runtime API",
+					);
+					continue;
+				},
+				Err(err) => {
+					gum::warn!(
+						target: LOG_TARGET,
+						?relay_parent,
+						?err,
+						"cannot fetch validation code bomb limit from runtime API",
+					);
+					continue;
+				},
+			};
 
 		let pvf = PvfPrepData::from_code(
 			validation_code.0,
