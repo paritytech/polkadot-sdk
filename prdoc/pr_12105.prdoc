@@ -24,5 +24,6 @@ doc:
 crates:
 - name: ethereum-standards
   bump: patch
+  validate: false
 - name: pallet-assets-precompiles
   bump: patch
