@@ -126,9 +126,14 @@ fn default_parachains_host_configuration(
 		zeroth_delay_tranche_width: 0,
 		minimum_validation_upgrade_delay: 5,
 		async_backing_params: AsyncBackingParams {
-			// TODO: double check.
-			max_candidate_depth: 0,
-			allowed_ancestry_len: 0,
+			// Parachain runs bundled blocks with `BLOCK_PROCESSING_VELOCITY = 12`
+			// (500ms blocks). Each PoV bundles all 12 blocks of a relay slot into
+			// a single candidate, so candidate depth only needs to cover the
+			// 3-relay-block inclusion latency. We keep headroom (matches the
+			// `slot_based_12cores` test) and three relay parents of ancestry so
+			// the slot-based collator can chain across slots.
+			max_candidate_depth: 24,
+			allowed_ancestry_len: 3,
 		},
 		node_features: bitvec::vec::BitVec::from_element(
 			(1u8 << (FeatureIndex::ElasticScalingMVP as usize)) |
@@ -139,6 +144,9 @@ fn default_parachains_host_configuration(
 			lookahead: 3,
 			group_rotation_frequency: 20,
 			paras_availability_period: 4,
+			// One coretime core for the parachain so the slot-based collator
+			// bundles every 500ms block into one PoV per relay slot.
+			num_cores: 1,
 			..Default::default()
 		},
 		max_relay_parent_session_age: 0,

@@ -1708,7 +1708,7 @@ pub mod pallet {
 
 			// TODO: same comment as EPMB's on_init.
 
-			if true {
+			if can_execute {
 				// We have enough weight - register it so BastiBlocks PreInherents hook knows
 				frame_system::Pallet::<T>::register_extra_weight_unchecked(
 					election_weight,

@@ -92,7 +92,7 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
-	consensus::*, currency::*, fee::WeightToFee, snowbridge::EthereumNetwork, time::*,
+	currency::*, fee::WeightToFee, snowbridge::EthereumNetwork, time::*,
 };
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
@@ -145,10 +145,20 @@ pub fn native_version() -> NativeVersion {
 
 type RelayChainBlockNumberProvider = RelaychainDataProvider<Runtime>;
 
-// BastiBlocks configuration - 6 mini-blocks per PoV
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 6;
+// Bundled-blocks configuration: 12 mini-blocks per 6s relay slot = 500ms blocks.
+// With a single assigned core, the slot-based collator bundles all 12 blocks into
+// a single PoV per relay slot (see `cumulus-test-runtime`'s `block-bundling`
+// feature, which uses the same velocity).
+pub const BLOCK_PROCESSING_VELOCITY: u32 = 12;
 pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
-pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
+// Must accommodate `BLOCK_PROCESSING_VELOCITY` blocks per PoV multiplied by the
+// inclusion latency. Mirrors `cumulus-test-runtime`'s formula
+// `VELOCITY * (3 + RELAY_PARENT_OFFSET)` for `RELAY_PARENT_OFFSET = 0`.
+pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * 3;
+// Override westend's 24s slot duration: parachain slots run at the relay-chain
+// cadence; the collator subdivides the slot into `BLOCK_PROCESSING_VELOCITY`
+// bundled blocks.
+pub const SLOT_DURATION: u64 = RELAY_CHAIN_SLOT_DURATION_MILLIS as u64;
 
 type MaximumBlockWeight = cumulus_pallet_parachain_system::block_weight::MaxParachainBlockWeight<
 	Runtime,

@@ -7,6 +7,10 @@ name = "alice"
 validator = true
 rpc_port = 9944
 args = [
+	# fork-aware pool's background task crashes within ~30s on this fast-runtime
+	# setup, taking the chain down before session 1 begins. Pin to single-state
+	# until the upstream issue is fixed.
+	"--pool-type=single-state",
 	"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=trace,runtime::ah-client=debug,xcm=trace",
 ]
 
@@ -15,6 +19,7 @@ name = "bob"
 validator = true
 rpc_port = 9945
 args = [
+	"--pool-type=single-state",
 	"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=trace,runtime::ah-client=debug",
 ]
 
@@ -27,6 +32,7 @@ command = "polkadot-parachain"
 name = "charlie"
 rpc_port = 9946
 args = [
-	"--authoring slot-based",
+	"--authoring=slot-based",
+	"--pool-type=single-state",
 	"-lruntime::system=debug,runtime::multiblock-election=trace,runtime::staking=debug,runtime::staking::rc-client=trace,runtime::rc-client=debug,xcm=debug,parachain-system=debug,runtime=info",
 ]
