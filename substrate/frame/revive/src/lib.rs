@@ -284,8 +284,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type AllowEVMBytecode: Get<bool>;
 
-		/// Enable EIP-2929-style cold/warm pricing. When `false`, pre cold/warm
-		/// behavior.
+		/// Enable EIP-2929-style cold/warm pricing. When `false`, retain the
+		/// pre-EIP-2929 flat pricing.
 		#[pallet::constant]
 		type ColdWarmPricingEnabled: Get<bool>;
 

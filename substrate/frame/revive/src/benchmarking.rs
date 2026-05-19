@@ -1693,7 +1693,7 @@ mod benchmarks {
 		// warm-state measurement.
 		frame_benchmarking::add_to_whitelist_child(
 			info.child_trie_info().storage_key().to_vec(),
-			key.hash().to_vec(),
+			key.hash(),
 		);
 
 		let result;
@@ -1767,7 +1767,7 @@ mod benchmarks {
 			let info = call_setup.contract().info()?;
 			frame_benchmarking::add_to_whitelist_child(
 				info.child_trie_info().storage_key().to_vec(),
-				key.hash().to_vec(),
+				key.hash(),
 			);
 		}
 
@@ -1837,7 +1837,7 @@ mod benchmarks {
 
 		frame_benchmarking::add_to_whitelist_child(
 			info.child_trie_info().storage_key().to_vec(),
-			key.hash().to_vec(),
+			key.hash(),
 		);
 
 		let out_ptr = max_key_len + 4;
@@ -1912,7 +1912,7 @@ mod benchmarks {
 			let info = call_setup.contract().info()?;
 			frame_benchmarking::add_to_whitelist_child(
 				info.child_trie_info().storage_key().to_vec(),
-				key.hash().to_vec(),
+				key.hash(),
 			);
 		}
 
@@ -1989,7 +1989,7 @@ mod benchmarks {
 			let info = call_setup.contract().info()?;
 			frame_benchmarking::add_to_whitelist_child(
 				info.child_trie_info().storage_key().to_vec(),
-				key.hash().to_vec(),
+				key.hash(),
 			);
 		}
 
