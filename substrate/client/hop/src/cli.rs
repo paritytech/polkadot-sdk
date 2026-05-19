@@ -38,7 +38,7 @@ use crate::{
 	types::{
 		HopError, DEFAULT_BANDWIDTH_BURST_MIB, DEFAULT_BANDWIDTH_PER_MIN_MIB,
 		DEFAULT_CHECK_INTERVAL_SECS, DEFAULT_MAX_POOL_SIZE_MIB, DEFAULT_MAX_USER_SIZE_MIB,
-		DEFAULT_PROMOTION_BUFFER_BLOCKS, DEFAULT_RETENTION_BLOCKS, DEFAULT_SUBMIT_BURST,
+		DEFAULT_PROMOTION_BUFFER_SECS, DEFAULT_RETENTION_SECS, DEFAULT_SUBMIT_BURST,
 		DEFAULT_SUBMIT_RATE_PER_MIN,
 	},
 };
@@ -69,14 +69,13 @@ pub struct HopParams {
 	)]
 	pub max_user_size: u64,
 
-	/// HOP data retention period in blocks (24h = 14400 blocks at 6s per block). Must be at least
-	/// 1.
+	/// HOP data retention period in seconds (24h = 86400s). Must be at least 1.
 	#[arg(
-		long = "hop-retention-blocks",
-		default_value_t = DEFAULT_RETENTION_BLOCKS,
-		value_parser = clap::value_parser!(u32).range(1..),
+		long = "hop-retention-secs",
+		default_value_t = DEFAULT_RETENTION_SECS,
+		value_parser = clap::value_parser!(u64).range(1..),
 	)]
-	pub retention_blocks: u32,
+	pub retention_secs: u64,
 
 	/// HOP expiry cleanup interval in seconds. Must be at least 1 (a value of 0
 	/// would turn the maintenance loop into a CPU-burning busy loop).
@@ -87,13 +86,13 @@ pub struct HopParams {
 	)]
 	pub check_interval: u64,
 
-	/// Blocks before expiry at which to start promoting entries on-chain. Must be at least 1.
+	/// Seconds before expiry at which to start promoting entries on-chain. Must be at least 1.
 	#[arg(
-		long = "hop-promotion-buffer-blocks",
-		default_value_t = DEFAULT_PROMOTION_BUFFER_BLOCKS,
-		value_parser = clap::value_parser!(u32).range(1..),
+		long = "hop-promotion-buffer-secs",
+		default_value_t = DEFAULT_PROMOTION_BUFFER_SECS,
+		value_parser = clap::value_parser!(u64).range(1..),
 	)]
-	pub promotion_buffer_blocks: u32,
+	pub promotion_buffer_secs: u64,
 
 	/// Sustained per-account submit rate (requests per minute). Must be at least 1
 	/// when rate limiting is enabled — use `--hop-disable-rate-limit` to turn it off.
@@ -146,9 +145,9 @@ impl Default for HopParams {
 			enable_hop: false,
 			max_pool_size: DEFAULT_MAX_POOL_SIZE_MIB,
 			max_user_size: DEFAULT_MAX_USER_SIZE_MIB,
-			retention_blocks: DEFAULT_RETENTION_BLOCKS,
+			retention_secs: DEFAULT_RETENTION_SECS,
 			check_interval: DEFAULT_CHECK_INTERVAL_SECS,
-			promotion_buffer_blocks: DEFAULT_PROMOTION_BUFFER_BLOCKS,
+			promotion_buffer_secs: DEFAULT_PROMOTION_BUFFER_SECS,
 			submit_rate_per_min: DEFAULT_SUBMIT_RATE_PER_MIN,
 			submit_burst: DEFAULT_SUBMIT_BURST,
 			bandwidth_per_min_mib: DEFAULT_BANDWIDTH_PER_MIN_MIB,
@@ -195,7 +194,7 @@ impl HopParams {
 		let pool = HopDataPool::new(
 			self.max_pool_size.saturating_mul(1024 * 1024),
 			self.max_user_size.saturating_mul(1024 * 1024),
-			self.retention_blocks,
+			self.retention_secs,
 			data_dir,
 			self.rate_limit_config(),
 		)?;
@@ -239,9 +238,9 @@ mod tests {
 		let zero_flags = [
 			"--hop-max-pool-size",
 			"--hop-max-user-size",
-			"--hop-retention-blocks",
+			"--hop-retention-secs",
 			"--hop-check-interval",
-			"--hop-promotion-buffer-blocks",
+			"--hop-promotion-buffer-secs",
 			"--hop-submit-rate-per-min",
 			"--hop-submit-burst",
 			"--hop-bandwidth-per-min-mib",
@@ -259,7 +258,7 @@ mod tests {
 
 	#[test]
 	fn cli_accepts_one_for_critical_numeric_parameters() {
-		let one_flags = ["--hop-max-pool-size", "--hop-retention-blocks", "--hop-check-interval"];
+		let one_flags = ["--hop-max-pool-size", "--hop-retention-secs", "--hop-check-interval"];
 		for flag in one_flags {
 			let argv = ["test-bin", flag, "1"];
 			TestCli::try_parse_from(argv).expect("parse should succeed");
