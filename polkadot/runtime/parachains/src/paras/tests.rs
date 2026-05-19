@@ -268,6 +268,52 @@ fn schedule_para_init_rejects_empty_code() {
 }
 
 #[test]
+fn schedule_code_upgrade_external_rejects_oversized_new_validation_code() {
+	let max_code_size: u32 = 100;
+	let original_code = ValidationCode(vec![1u8; 32]);
+	let para_id = ParaId::from(1_u32);
+
+	let paras = vec![(
+		para_id,
+		ParaGenesisArgs {
+			para_kind: ParaKind::Parachain,
+			genesis_head: dummy_head_data(),
+			validation_code: original_code.clone(),
+		},
+	)];
+
+	let genesis_config = MockGenesisConfig {
+		paras: GenesisConfig { paras, ..Default::default() },
+		configuration: crate::configuration::GenesisConfig {
+			config: HostConfiguration { max_code_size, ..Default::default() },
+		},
+		..Default::default()
+	};
+
+	new_test_ext(genesis_config).execute_with(|| {
+		run_to_block(2, Some(vec![1]));
+
+		let oversized_code = ValidationCode(vec![0u8; max_code_size as usize + 1]);
+		assert_err!(
+			Paras::schedule_code_upgrade_external(
+				para_id,
+				oversized_code,
+				UpgradeStrategy::SetGoAheadSignal,
+			),
+			Error::<Test>::InvalidCode,
+		);
+
+		// A correctly-sized upgrade still passes the length check.
+		let ok_code = ValidationCode(vec![0u8; max_code_size as usize]);
+		assert_ok!(Paras::schedule_code_upgrade_external(
+			para_id,
+			ok_code,
+			UpgradeStrategy::SetGoAheadSignal,
+		));
+	});
+}
+
+#[test]
 fn para_past_code_pruning_in_initialize() {
 	let code_retention_period = 10;
 	let paras = vec![

@@ -30,6 +30,7 @@ pub mod pool;
 pub mod promotion;
 pub mod rate_limit;
 pub mod rpc;
+pub mod runtime_api;
 pub mod types;
 
 // Convenience re-exports for common use cases

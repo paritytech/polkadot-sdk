@@ -14,7 +14,25 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! HOP data pool implementation with disk-backed storage.
+//! HOP data pool: in-memory index backed by sharded on-disk storage.
+//!
+//! ## On-disk layout
+//!
+//! The pool root contains two subdirectories, `blobs/` and `meta/`, each
+//! sharded into 256 subdirectories named `00`–`ff` after the first byte of the
+//! content hash. An entry with hash `H` is stored as:
+//!
+//! - `blobs/<H[0:2]>/<H>.blob` — raw payload bytes
+//! - `meta/<H[0:2]>/<H>.meta` — SCALE-encoded [`HopEntryMeta`]
+//!
+//! ## Recovery
+//!
+//! On startup the pool scans every `meta/` shard, decodes each `.meta` file,
+//! and rebuilds the in-memory index. `.meta` files that are corrupt, have an
+//! unexpected version, or lack a sibling `.blob` are deleted. Then the
+//! corresponding `blobs/` shard is scanned and any `.blob` without an entry in
+//! the freshly-built index (orphan) is also deleted. Stale `.tmp.*` files left
+//! by a previous crash are removed during both scans.
 
 use crate::{
 	rate_limit::{RateLimitConfig, RateLimiter},
@@ -25,7 +43,7 @@ use crate::{
 	},
 };
 use codec::{Decode, Encode};
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use sp_core::{hashing::blake2_256, H256};
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
@@ -40,6 +58,7 @@ use std::{
 		atomic::{AtomicU64, Ordering},
 		Arc,
 	},
+	time::{SystemTime, UNIX_EPOCH},
 };
 
 /// Per-process counter that disambiguates concurrent atomic writes targeting
@@ -51,11 +70,14 @@ const BLOBS_DIR: &str = "blobs";
 const META_DIR: &str = "meta";
 const BLOB_EXT: &str = "blob";
 const META_EXT: &str = "meta";
+/// Number of shards used for both `blobs/` and `meta/` directories (one per
+/// first-byte value of the content hash: `00`–`ff`).
+const SHARD_COUNT: u16 = 256;
 
 /// HOP data pool with disk-backed blob storage and in-memory metadata index.
 pub struct HopDataPool {
 	/// In-memory metadata index (no blobs).
-	index: RwLock<HashMap<HopHash, HopEntryMeta>>,
+	index: Mutex<HashMap<HopHash, HopEntryMeta>>,
 	/// Per-user byte usage tracked by sender id.
 	///
 	/// Counters live directly in the map and are charged via `charge_user`
@@ -70,8 +92,8 @@ pub struct HopDataPool {
 	max_user_size: u64,
 	/// Current pool size in bytes (accounted size — includes metadata overhead).
 	current_size: AtomicU64,
-	/// Data retention period in blocks.
-	retention_blocks: u32,
+	/// Data retention period in seconds.
+	retention_secs: u64,
 	/// Root data directory containing blobs/ and meta/ subdirectories.
 	data_dir: PathBuf,
 	/// Per-account submit rate limiter.
@@ -86,13 +108,20 @@ impl HopDataPool {
 	pub fn new(
 		max_size: u64,
 		max_user_size: u64,
-		retention_blocks: u32,
+		retention_secs: u64,
 		data_dir: PathBuf,
 		rate_limit_cfg: RateLimitConfig,
 	) -> Result<Self, HopError> {
+		if rate_limit_cfg.enabled && rate_limit_cfg.bandwidth_burst < MAX_DATA_SIZE {
+			return Err(HopError::InvalidConfig(format!(
+				"bandwidth_burst ({}) must be at least MAX_DATA_SIZE ({})",
+				rate_limit_cfg.bandwidth_burst, MAX_DATA_SIZE,
+			)));
+		}
+
 		// Create shard directories (256 each for blobs/ and meta/).
-		for i in 0u8..=255 {
-			let shard = format!("{:02x}", i);
+		for i in 0..SHARD_COUNT {
+			let shard = format!("{:02x}", i as u8);
 			fs::create_dir_all(data_dir.join(BLOBS_DIR).join(&shard))?;
 			fs::create_dir_all(data_dir.join(META_DIR).join(&shard))?;
 		}
@@ -102,8 +131,8 @@ impl HopDataPool {
 		let mut current_size = 0u64;
 
 		// Rebuild index from .meta files and clean orphan .blobs in a single pass.
-		for i in 0u8..=255 {
-			let shard = format!("{:02x}", i);
+		for i in 0..SHARD_COUNT {
+			let shard = format!("{:02x}", i as u8);
 
 			// Scan .meta files → rebuild index (removes corrupt/orphan .meta files).
 			let meta_shard_dir = data_dir.join(META_DIR).join(&shard);
@@ -111,6 +140,13 @@ impl HopDataPool {
 				for entry in entries.flatten() {
 					let path = entry.path();
 					if path.extension().and_then(|e| e.to_str()) != Some(META_EXT) {
+						if path
+							.file_name()
+							.and_then(|n| n.to_str())
+							.map_or(false, |n| n.contains(".tmp."))
+						{
+							let _ = fs::remove_file(&path);
+						}
 						continue;
 					}
 
@@ -179,23 +215,29 @@ impl HopDataPool {
 				for entry in entries.flatten() {
 					let path = entry.path();
 					if path.extension().and_then(|e| e.to_str()) != Some(BLOB_EXT) {
+						if path
+							.file_name()
+							.and_then(|n| n.to_str())
+							.map_or(false, |n| n.contains(".tmp."))
+						{
+							let _ = fs::remove_file(&path);
+						}
 						continue;
 					}
 					let stem = match path.file_stem().and_then(|s| s.to_str()) {
 						Some(s) => s.to_string(),
 						None => continue,
 					};
-					// Any blob without a sibling .meta is an orphan; this includes
-					// blobs whose name doesn't parse as a valid hash (no meta can
-					// match them), so always check + remove rather than gating on
-					// the parse.
-					let meta_path = match parse_hex_hash(&stem) {
-						Some(hash) => Self::entry_path(&data_dir, &hash, META_DIR, META_EXT),
-						None => {
-							data_dir.join(META_DIR).join(&shard).join(format!("{stem}.{META_EXT}"))
-						},
+					// Any blob without a corresponding index entry is an orphan.
+					// The meta scan for this shard already populated `index`, so an
+					// in-memory lookup is sufficient and avoids a syscall per blob.
+					// Blobs with unparseable names have no possible index match and
+					// are always removed.
+					let is_orphan = match parse_hex_hash(&stem) {
+						Some(hash) => !index.contains_key(&hash),
+						None => true,
 					};
-					if !meta_path.exists() {
+					if is_orphan {
 						tracing::warn!(target: "hop", hash = ?stem, "Removing orphan .blob (no .meta)");
 						let _ = fs::remove_file(&path);
 					}
@@ -203,22 +245,20 @@ impl HopDataPool {
 			}
 		}
 
-		if !index.is_empty() {
-			tracing::info!(
-				target: "hop",
-				entries = index.len(),
-				total_bytes = current_size,
-				"Recovered HOP pool from disk"
-			);
-		}
+		tracing::info!(
+			target: "hop",
+			entries = index.len(),
+			total_bytes = current_size,
+			"Recovered HOP pool from disk"
+		);
 
 		Ok(Self {
-			index: RwLock::new(index),
+			index: Mutex::new(index),
 			user_usage: RwLock::new(user_usage),
 			max_size,
 			max_user_size,
 			current_size: AtomicU64::new(current_size),
-			retention_blocks,
+			retention_secs,
 			data_dir,
 			rate_limiter: Arc::new(RateLimiter::new(rate_limit_cfg)),
 		})
@@ -307,7 +347,6 @@ impl HopDataPool {
 	pub fn insert(
 		&self,
 		data: Vec<u8>,
-		current_block: HopBlockNumber,
 		recipients: RecipientVec,
 		sender_id: SenderId,
 		signer: MultiSigner,
@@ -360,7 +399,7 @@ impl HopDataPool {
 
 		// First duplicate check (read lock only).
 		{
-			let index = self.index.read();
+			let index = self.index.lock();
 			if index.contains_key(&hash) {
 				self.release_user_quota(&sender_id, accounted);
 				self.current_size.fetch_sub(accounted, Ordering::Relaxed);
@@ -370,10 +409,14 @@ impl HopDataPool {
 
 		// Write blob and meta to disk (no lock held during I/O).
 		let blob_path = self.blob_path(&hash);
+		let expires_at = SystemTime::now()
+			.duration_since(UNIX_EPOCH)
+			.unwrap_or_default()
+			.as_secs()
+			.saturating_add(self.retention_secs);
 		let meta = HopEntryMeta::new(
 			data_len,
-			current_block,
-			self.retention_blocks,
+			expires_at,
 			recipients,
 			sender_id,
 			signer,
@@ -398,7 +441,7 @@ impl HopDataPool {
 
 		// Acquire write lock: double-check duplicate, insert meta.
 		{
-			let mut index = self.index.write();
+			let mut index = self.index.lock();
 			if index.contains_key(&hash) {
 				// Race: another thread inserted the same data first. Files on
 				// disk are content-addressed and identical to ours — leave
@@ -425,7 +468,7 @@ impl HopDataPool {
 			hash = ?hex::encode(hash),
 			size = data_len,
 			accounted,
-			expires_at = current_block + self.retention_blocks,
+			expires_at,
 			"Data added to HOP pool"
 		);
 
@@ -464,7 +507,7 @@ impl HopDataPool {
 	/// The accounted size is released back to the pool and the user quota.
 	fn purge_corrupt_entry(&self, hash: &HopHash) {
 		let removed = {
-			let mut index = self.index.write();
+			let mut index = self.index.lock();
 			index.remove(hash)
 		};
 		if let Some(meta) = removed {
@@ -497,7 +540,7 @@ impl HopDataPool {
 	/// Get data from the pool by content hash.
 	pub fn get(&self, hash: &HopHash) -> Option<Vec<u8>> {
 		{
-			let index = self.index.read();
+			let index = self.index.lock();
 			if !index.contains_key(hash) {
 				return None;
 			}
@@ -515,7 +558,7 @@ impl HopDataPool {
 		hash: &HopHash,
 	) -> Option<(Vec<u8>, MultiSigner, MultiSignature, u64)> {
 		let (signer, signature, submit_timestamp) = {
-			let index = self.index.read();
+			let index = self.index.lock();
 			let meta = index.get(hash)?;
 			(meta.signer.clone(), meta.signature.clone(), meta.submit_timestamp)
 		};
@@ -553,9 +596,12 @@ impl HopDataPool {
 	/// Returns `AlreadyClaimed` if the recipient has already acked (data may be deleted).
 	pub fn claim(&self, hash: &HopHash, signature: &[u8]) -> Result<Vec<u8>, HopError> {
 		{
-			let index = self.index.read();
+			let index = self.index.lock();
 			let meta = index.get(hash).ok_or(HopError::NotFound)?;
-			let idx = Self::find_recipient_idx(meta, hash, signature, HOP_CLAIM_CONTEXT)?;
+			// Map NotRecipient → NotFound so callers cannot probe whether a hash
+			// exists by observing different error codes.
+			let idx = Self::find_recipient_idx(meta, hash, signature, HOP_CLAIM_CONTEXT)
+				.map_err(|_| HopError::NotFound)?;
 
 			// If this recipient already acked, the data may be gone.
 			if meta.recipients[idx].claimed {
@@ -574,9 +620,10 @@ impl HopDataPool {
 	pub fn ack(&self, hash: &HopHash, signature: &[u8]) -> Result<(), HopError> {
 		// Phase 1: idempotent fast path under read lock.
 		{
-			let index = self.index.read();
+			let index = self.index.lock();
 			let meta = index.get(hash).ok_or(HopError::NotFound)?;
-			let idx = Self::find_recipient_idx(meta, hash, signature, HOP_ACK_CONTEXT)?;
+			let idx = Self::find_recipient_idx(meta, hash, signature, HOP_ACK_CONTEXT)
+				.map_err(|_| HopError::NotFound)?;
 			if meta.recipients[idx].claimed {
 				return Ok(());
 			}
@@ -584,9 +631,10 @@ impl HopDataPool {
 
 		// Phase 2: re-run the lookup against the current meta — the entry could
 		// have been removed and re-submitted with a different recipient list since Phase 1.
-		let mut index = self.index.write();
+		let mut index = self.index.lock();
 		let meta = index.get_mut(hash).ok_or(HopError::NotFound)?;
-		let idx = Self::find_recipient_idx(meta, hash, signature, HOP_ACK_CONTEXT)?;
+		let idx = Self::find_recipient_idx(meta, hash, signature, HOP_ACK_CONTEXT)
+			.map_err(|_| HopError::NotFound)?;
 
 		if meta.recipients[idx].claimed {
 			return Ok(());
@@ -617,11 +665,10 @@ impl HopDataPool {
 			// Persist updated claimed state to disk.
 			let meta_bytes = meta.encode();
 			let meta_path = self.meta_path(hash);
-			drop(index);
-
 			if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
 				tracing::error!(target: "hop", hash = ?hex::encode(hash), error = %e, "Failed to persist ack state");
 			}
+			drop(index);
 
 			tracing::debug!(
 				target: "hop",
@@ -635,15 +682,17 @@ impl HopDataPool {
 	}
 
 	/// Check if data exists in the pool.
+	#[cfg(test)]
 	pub fn has(&self, hash: &HopHash) -> bool {
-		let index = self.index.read();
+		let index = self.index.lock();
 		index.contains_key(hash)
 	}
 
 	/// Remove data from the pool.
+	#[cfg(test)]
 	pub fn remove(&self, hash: &HopHash) -> Result<(), HopError> {
 		let meta = {
-			let mut index = self.index.write();
+			let mut index = self.index.lock();
 			index.remove(hash)
 		};
 
@@ -670,7 +719,7 @@ impl HopDataPool {
 
 	/// Get pool status.
 	pub fn status(&self) -> PoolStatus {
-		let index = self.index.read();
+		let index = self.index.lock();
 		PoolStatus {
 			entry_count: index.len(),
 			total_bytes: self.current_size.load(Ordering::Relaxed),
@@ -684,19 +733,20 @@ impl HopDataPool {
 	/// Processes entries in bounded batches to keep the index write lock from
 	/// being held across the full HashMap on huge pools. After all batches the
 	/// per-sender `user_usage` map is GC'd in a single pass.
-	pub fn cleanup_expired(&self, current_block: HopBlockNumber) -> u64 {
+	pub fn cleanup_expired(&self) -> u64 {
 		const CLEANUP_BATCH_SIZE: usize = 10_000;
 		let mut total_freed: u64 = 0;
+		let now_secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
 
 		loop {
 			// Phase 1: Under index write lock — collect and remove up to one
 			// batch of expired entries. Bounded so the lock hold scales with
 			// batch size, not pool size.
 			let expired: Vec<(HopHash, HopEntryMeta)> = {
-				let mut index = self.index.write();
+				let mut index = self.index.lock();
 				let expired_keys: Vec<HopHash> = index
 					.iter()
-					.filter(|(_, m)| current_block >= m.expires_at)
+					.filter(|(_, m)| now_secs >= m.expires_at)
 					.map(|(h, _)| *h)
 					.take(CLEANUP_BATCH_SIZE)
 					.collect();
@@ -744,7 +794,7 @@ impl HopDataPool {
 		// excluded). Build a live-sender set in one index pass so retain is
 		// O(senders + entries) instead of O(senders × entries).
 		{
-			let index = self.index.read();
+			let index = self.index.lock();
 			let mut usage = self.user_usage.write();
 			let live: HashSet<&SenderId> = index.values().map(|m| &m.sender_id).collect();
 			usage.retain(|sender_id, counter| {
@@ -758,21 +808,22 @@ impl HopDataPool {
 		total_freed
 	}
 
-	/// Return hashes of entries within `buffer_blocks` of expiry that have not yet been promoted.
+	/// Return hashes of entries within `buffer_secs` of expiry that have not yet been promoted.
 	/// Returns up to `limit` hashes. Use [`Self::get`] to read blob data when needed.
 	/// The maintenance task runs periodically, so remaining entries are picked up next cycle.
 	pub fn get_promotable(
 		&self,
 		current_block: HopBlockNumber,
-		buffer_blocks: u32,
+		buffer_secs: u64,
 		limit: usize,
 	) -> Vec<HopHash> {
-		let index = self.index.read();
+		let now_secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+		let index = self.index.lock();
 		index
 			.iter()
 			.filter(|(_, meta)| {
 				!meta.promoted &&
-					current_block.saturating_add(buffer_blocks) >= meta.expires_at &&
+					now_secs.saturating_add(buffer_secs) >= meta.expires_at &&
 					meta.promotion_attempts < MAX_PROMOTION_ATTEMPTS &&
 					current_block >= meta.next_promotion_attempt_at
 			})
@@ -784,7 +835,7 @@ impl HopDataPool {
 	/// Mark an entry as promoted to permanent on-chain storage.
 	/// Persists the updated metadata to disk.
 	pub fn mark_promoted(&self, hash: &HopHash) {
-		let mut index = self.index.write();
+		let mut index = self.index.lock();
 		if let Some(meta) = index.get_mut(hash) {
 			meta.promoted = true;
 			let meta_bytes = meta.encode();
@@ -817,7 +868,7 @@ impl HopDataPool {
 		current_block: HopBlockNumber,
 		check_interval_blocks: u32,
 	) {
-		let mut index = self.index.write();
+		let mut index = self.index.lock();
 		if let Some(meta) = index.get_mut(hash) {
 			meta.promotion_attempts = meta.promotion_attempts.saturating_add(1);
 			let backoff = promotion_backoff_blocks(meta.promotion_attempts, check_interval_blocks);
@@ -873,12 +924,12 @@ mod tests {
 		entry_accounted_size(data_size, num_recipients)
 	}
 
-	fn make_pool(max_size: u64, retention_blocks: u32) -> (HopDataPool, TempDir) {
+	fn make_pool(max_size: u64, retention_secs: u64) -> (HopDataPool, TempDir) {
 		let dir = TempDir::new().unwrap();
 		let pool = HopDataPool::new(
 			max_size,
 			max_size,
-			retention_blocks,
+			retention_secs,
 			dir.path().to_path_buf(),
 			RateLimitConfig::disabled(),
 		)
@@ -889,13 +940,13 @@ mod tests {
 	fn make_pool_with_user_cap(
 		max_size: u64,
 		max_user_size: u64,
-		retention_blocks: u32,
+		retention_secs: u64,
 	) -> (HopDataPool, TempDir) {
 		let dir = TempDir::new().unwrap();
 		let pool = HopDataPool::new(
 			max_size,
 			max_user_size,
-			retention_blocks,
+			retention_secs,
 			dir.path().to_path_buf(),
 			RateLimitConfig::disabled(),
 		)
@@ -955,7 +1006,7 @@ mod tests {
 		let (_, signer) = test_recipient();
 		let data = vec![1, 2, 3, 4, 5];
 		let hash = pool
-			.insert(data.clone(), 0, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.insert(data.clone(), bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 
 		let retrieved = pool.get(&hash).unwrap();
@@ -966,7 +1017,7 @@ mod tests {
 	fn test_insert_no_recipients() {
 		let (pool, _dir) = create_test_pool();
 		let data = vec![1, 2, 3, 4, 5];
-		let result = pool.insert(data, 0, bv(vec![]), SENDER_A, dummy_auth().0, dummy_auth().1, 0);
+		let result = pool.insert(data, bv(vec![]), SENDER_A, dummy_auth().0, dummy_auth().1, 0);
 		assert!(matches!(result, Err(HopError::NoRecipients)));
 	}
 
@@ -978,7 +1029,6 @@ mod tests {
 
 		pool.insert(
 			data.clone(),
-			0,
 			bv(vec![signer.clone()]),
 			SENDER_A,
 			dummy_auth().0,
@@ -987,7 +1037,7 @@ mod tests {
 		)
 		.unwrap();
 		let result =
-			pool.insert(data, 0, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0);
+			pool.insert(data, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0);
 
 		assert!(matches!(result, Err(HopError::DuplicateEntry)));
 	}
@@ -999,7 +1049,7 @@ mod tests {
 		let data = vec![0u8; (MAX_DATA_SIZE + 1) as usize];
 
 		let result =
-			pool.insert(data, 0, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0);
+			pool.insert(data, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0);
 		assert!(matches!(result, Err(HopError::DataTooLarge(_, _))));
 	}
 
@@ -1028,7 +1078,6 @@ mod tests {
 		let (_, signer) = test_recipient();
 		let result = pool.insert(
 			vec![1, 2, 3],
-			0,
 			bv(vec![signer.clone(), signer]),
 			SENDER_A,
 			dummy_auth().0,
@@ -1047,18 +1096,10 @@ mod tests {
 		let data1 = vec![0u8; 60];
 		let data2 = vec![1u8; 50];
 
-		pool.insert(
-			data1,
-			0,
-			bv(vec![signer.clone()]),
-			SENDER_A,
-			dummy_auth().0,
-			dummy_auth().1,
-			0,
-		)
-		.unwrap();
+		pool.insert(data1, bv(vec![signer.clone()]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
 		let result =
-			pool.insert(data2, 0, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0);
+			pool.insert(data2, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0);
 
 		assert!(matches!(result, Err(HopError::PoolFull(_, _))));
 	}
@@ -1069,7 +1110,7 @@ mod tests {
 		let (_, signer) = test_recipient();
 		let data = vec![1, 2, 3, 4, 5];
 		let hash = pool
-			.insert(data, 0, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.insert(data, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 
 		assert!(pool.has(&hash));
@@ -1090,7 +1131,6 @@ mod tests {
 
 		pool.insert(
 			data1.clone(),
-			0,
 			bv(vec![signer.clone()]),
 			SENDER_A,
 			dummy_auth().0,
@@ -1098,16 +1138,8 @@ mod tests {
 			0,
 		)
 		.unwrap();
-		pool.insert(
-			data2.clone(),
-			0,
-			bv(vec![signer]),
-			SENDER_A,
-			dummy_auth().0,
-			dummy_auth().1,
-			0,
-		)
-		.unwrap();
+		pool.insert(data2.clone(), bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
 
 		let status = pool.status();
 		assert_eq!(status.entry_count, 2);
@@ -1120,7 +1152,7 @@ mod tests {
 		let (pair, signer) = test_recipient();
 		let data = vec![1, 2, 3, 4, 5];
 		let hash = pool
-			.insert(data.clone(), 0, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.insert(data.clone(), bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 
 		let claim = sign_ed(&pair, HOP_CLAIM_CONTEXT, &hash);
@@ -1141,12 +1173,12 @@ mod tests {
 		let (pool, _dir) = create_test_pool();
 		let (pair, signer) = test_recipient();
 		let hash = pool
-			.insert(vec![1, 2, 3], 0, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.insert(vec![1, 2, 3], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 
 		let claim = sign_ed(&pair, HOP_CLAIM_CONTEXT, &hash);
 		pool.claim(&hash, &claim).unwrap();
-		assert!(matches!(pool.ack(&hash, &claim), Err(HopError::NotRecipient)));
+		assert!(matches!(pool.ack(&hash, &claim), Err(HopError::NotFound)));
 	}
 
 	#[test]
@@ -1155,12 +1187,12 @@ mod tests {
 		let (_, signer) = test_recipient();
 		let data = vec![1, 2, 3, 4, 5];
 		let hash = pool
-			.insert(data, 0, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.insert(data, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 
 		// Use invalid SCALE bytes — cannot decode as MultiSignature
 		let result = pool.claim(&hash, &[0u8; 3]);
-		assert!(matches!(result, Err(HopError::InvalidSignature)));
+		assert!(matches!(result, Err(HopError::NotFound)));
 	}
 
 	#[test]
@@ -1170,7 +1202,6 @@ mod tests {
 		let hash = pool
 			.insert(
 				vec![1, 2, 3, 4, 5],
-				0,
 				bv(vec![signer]),
 				SENDER_A,
 				dummy_auth().0,
@@ -1181,7 +1212,7 @@ mod tests {
 
 		let wrong_pair = ed25519::Pair::from_seed(&[99u8; 32]);
 		let wrong_claim = sign_ed(&wrong_pair, HOP_CLAIM_CONTEXT, &hash);
-		assert!(matches!(pool.claim(&hash, &wrong_claim), Err(HopError::NotRecipient)));
+		assert!(matches!(pool.claim(&hash, &wrong_claim), Err(HopError::NotFound)));
 		assert!(pool.has(&hash));
 	}
 
@@ -1197,7 +1228,6 @@ mod tests {
 		let hash = pool
 			.insert(
 				data.clone(),
-				0,
 				bv(vec![signer1, signer2]),
 				SENDER_A,
 				dummy_auth().0,
@@ -1230,7 +1260,6 @@ mod tests {
 		let hash = pool
 			.insert(
 				vec![1, 2, 3, 4, 5],
-				0,
 				bv(vec![signer, signer2]),
 				SENDER_A,
 				dummy_auth().0,
@@ -1264,7 +1293,6 @@ mod tests {
 
 		pool.insert(
 			vec![0u8; 60],
-			0,
 			bv(vec![signer.clone()]),
 			SENDER_A,
 			dummy_auth().0,
@@ -1276,7 +1304,6 @@ mod tests {
 		// User A is at the cap; next insert is rejected regardless of pool headroom.
 		let result = pool.insert(
 			vec![1u8; 10],
-			0,
 			bv(vec![signer.clone()]),
 			SENDER_A,
 			dummy_auth().0,
@@ -1286,16 +1313,8 @@ mod tests {
 		assert!(matches!(result, Err(HopError::UserQuotaExceeded { .. })));
 
 		// User B has their own independent cap.
-		pool.insert(
-			vec![2u8; 60],
-			0,
-			bv(vec![signer]),
-			SENDER_B,
-			dummy_auth().0,
-			dummy_auth().1,
-			0,
-		)
-		.unwrap();
+		pool.insert(vec![2u8; 60], bv(vec![signer]), SENDER_B, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
 	}
 
 	#[test]
@@ -1306,7 +1325,6 @@ mod tests {
 		let hash = pool
 			.insert(
 				vec![0u8; 100],
-				0,
 				bv(vec![signer.clone()]),
 				SENDER_A,
 				dummy_auth().0,
@@ -1318,7 +1336,6 @@ mod tests {
 		// At cap; next insert rejected.
 		let result = pool.insert(
 			vec![1u8; 10],
-			0,
 			bv(vec![signer.clone()]),
 			SENDER_A,
 			dummy_auth().0,
@@ -1333,40 +1350,52 @@ mod tests {
 		pool.ack(&hash, &ack).unwrap();
 
 		// Quota freed — user can insert again.
-		pool.insert(
-			vec![2u8; 100],
-			0,
-			bv(vec![signer]),
-			SENDER_A,
-			dummy_auth().0,
-			dummy_auth().1,
-			0,
-		)
-		.unwrap();
+		pool.insert(vec![2u8; 100], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
 	}
 
 	#[test]
 	fn test_cleanup_expired_releases_quota() {
-		let (pool, _dir) = make_pool(10_000, 10);
+		let (pool, _dir) = make_pool(10_000, 0);
 		let (_, signer) = test_recipient();
 
-		pool.insert(
-			vec![0u8; 100],
-			0,
-			bv(vec![signer]),
-			SENDER_A,
-			dummy_auth().0,
-			dummy_auth().1,
-			0,
-		)
-		.unwrap();
+		pool.insert(vec![0u8; 100], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
 		let charged = acct(100, 1);
 		assert_eq!(user_usage(&pool, &SENDER_A), charged);
 
-		let freed = pool.cleanup_expired(10);
+		let freed = pool.cleanup_expired();
 		assert_eq!(freed, charged);
 		assert_eq!(pool.status().total_bytes, 0);
 		assert_eq!(user_usage(&pool, &SENDER_A), 0);
+	}
+
+	#[test]
+	fn test_cleanup_expired_honors_wall_clock_retention() {
+		// Retention is measured in real seconds, not blocks: insert with a 1 s
+		// retention, sleep past it, and assert cleanup reaps the entry.
+		let (pool, _dir) = make_pool(10_000, 1);
+		let (_, signer) = test_recipient();
+
+		let hash = pool
+			.insert(vec![0u8; 100], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
+
+		// Not yet expired — cleanup must be a no-op.
+		assert_eq!(
+			pool.cleanup_expired(),
+			0,
+			"entry should still be live before retention elapses"
+		);
+		assert!(pool.has(&hash));
+
+		std::thread::sleep(std::time::Duration::from_millis(1_200));
+
+		assert!(
+			pool.cleanup_expired() > 0,
+			"entry should be reaped once wall-clock retention elapses"
+		);
+		assert!(!pool.has(&hash));
 	}
 
 	#[test]
@@ -1378,7 +1407,7 @@ mod tests {
 		let (pair, signer) = test_recipient();
 
 		let hash = pool
-			.insert(vec![0u8; 50], 0, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.insert(vec![0u8; 50], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 		assert!(pool.user_usage.read().contains_key(&SENDER_A));
 
@@ -1400,7 +1429,7 @@ mod tests {
 		let (pair, signer) = test_recipient();
 
 		let hash = pool
-			.insert(vec![0u8; 50], 0, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.insert(vec![0u8; 50], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 		let claim = sign_ed(&pair, HOP_CLAIM_CONTEXT, &hash);
 		let ack = sign_ed(&pair, HOP_ACK_CONTEXT, &hash);
@@ -1408,7 +1437,7 @@ mod tests {
 		pool.ack(&hash, &ack).unwrap();
 		assert!(pool.user_usage.read().contains_key(&SENDER_A));
 
-		pool.cleanup_expired(0);
+		pool.cleanup_expired();
 		assert!(!pool.user_usage.read().contains_key(&SENDER_A));
 	}
 
@@ -1420,20 +1449,12 @@ mod tests {
 		let (pool, _dir) = make_pool(10_000, 100);
 		let (_, signer) = test_recipient();
 
-		pool.insert(
-			vec![0u8; 50],
-			0,
-			bv(vec![signer]),
-			SENDER_A,
-			dummy_auth().0,
-			dummy_auth().1,
-			0,
-		)
-		.unwrap();
+		pool.insert(vec![0u8; 50], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
 		// Cleanup at a block where the entry is not yet expired must not
 		// reclaim the sender's slot — a concurrent insert would otherwise
 		// orphan its `Arc`.
-		pool.cleanup_expired(0);
+		pool.cleanup_expired();
 		assert!(pool.user_usage.read().contains_key(&SENDER_A));
 	}
 
@@ -1452,7 +1473,7 @@ mod tests {
 		let pool = HopDataPool::new(
 			(acct(entry_bytes, 1) * total as u64) + 1024,
 			u64::MAX,
-			10,
+			0,
 			dir.path().to_path_buf(),
 			RateLimitConfig::disabled(),
 		)
@@ -1468,20 +1489,12 @@ mod tests {
 			// bytes hash to the same key and the second insert hits
 			// DuplicateEntry. Embed `i` so each blob is distinct.
 			let data = i.to_le_bytes().to_vec();
-			pool.insert(
-				data,
-				0,
-				bv(vec![signer.clone()]),
-				sender,
-				dummy_auth().0,
-				dummy_auth().1,
-				0,
-			)
-			.unwrap();
+			pool.insert(data, bv(vec![signer.clone()]), sender, dummy_auth().0, dummy_auth().1, 0)
+				.unwrap();
 		}
 		assert_eq!(pool.status().entry_count, total as usize);
 
-		pool.cleanup_expired(10);
+		pool.cleanup_expired();
 		assert_eq!(pool.status().entry_count, 0);
 		assert_eq!(pool.status().total_bytes, 0);
 		assert!(pool.user_usage.read().is_empty());
@@ -1506,7 +1519,6 @@ mod tests {
 			hash = pool
 				.insert(
 					vec![42u8; 100],
-					0,
 					bv(vec![signer]),
 					SENDER_A,
 					dummy_auth().0,
@@ -1607,7 +1619,7 @@ mod tests {
 
 		let data = vec![10, 20, 30];
 		let hash = pool
-			.insert(data.clone(), 0, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.insert(data.clone(), bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 
 		let claim = sign_sr(&pair, HOP_CLAIM_CONTEXT, &hash);
@@ -1629,7 +1641,6 @@ mod tests {
 		let hash = pool
 			.insert(
 				data.clone(),
-				0,
 				bv(vec![ed_signer, sr_signer]),
 				SENDER_A,
 				dummy_auth().0,
@@ -1657,7 +1668,7 @@ mod tests {
 		let (pair, signer) = test_recipient();
 		let data = vec![1, 2, 3, 4, 5];
 		let hash = pool
-			.insert(data.clone(), 0, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.insert(data.clone(), bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 
 		let claim = sign_ed(&pair, HOP_CLAIM_CONTEXT, &hash);
@@ -1676,7 +1687,6 @@ mod tests {
 		let hash = pool
 			.insert(
 				vec![1, 2, 3, 4, 5],
-				0,
 				bv(vec![signer, signer2]),
 				SENDER_A,
 				dummy_auth().0,
@@ -1703,7 +1713,6 @@ mod tests {
 		let hash = pool
 			.insert(
 				data.clone(),
-				0,
 				bv(vec![signer1, signer2]),
 				SENDER_A,
 				dummy_auth().0,
@@ -1746,7 +1755,6 @@ mod tests {
 					barrier.wait();
 					pool.insert(
 						vec![i; 50],
-						0,
 						bv(vec![signer]),
 						SENDER_A,
 						dummy_auth().0,
@@ -1785,7 +1793,6 @@ mod tests {
 					barrier.wait();
 					pool.insert(
 						vec![i; 100],
-						0,
 						bv(vec![signer]),
 						SENDER_A,
 						dummy_auth().0,
@@ -1822,7 +1829,7 @@ mod tests {
 		let signers: Vec<_> = pairs.iter().map(|(_, s)| s.clone()).collect();
 		let data = vec![42u8; 100];
 		let hash = pool
-			.insert(data.clone(), 0, bv(signers), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.insert(data.clone(), bv(signers), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 
 		let barrier = Arc::new(Barrier::new(5));
@@ -1874,15 +1881,7 @@ mod tests {
 				let data = data.clone();
 				thread::spawn(move || {
 					barrier.wait();
-					pool.insert(
-						data,
-						0,
-						bv(vec![signer]),
-						SENDER_A,
-						dummy_auth().0,
-						dummy_auth().1,
-						0,
-					)
+					pool.insert(data, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 				})
 			})
 			.collect();
@@ -1935,17 +1934,21 @@ mod tests {
 
 	#[test]
 	fn test_get_promotable_within_buffer() {
-		let (pool, _dir) = make_pool(1024 * 1024, 100);
+		// retention=3600s; a freshly-inserted entry is in the promotion window only
+		// if the buffer is at least as large as the time-to-expiry.
+		let (pool, _dir) = make_pool(1024 * 1024, 3600);
 		let (_, signer) = test_recipient();
 
 		let hash = pool
-			.insert(vec![1, 2, 3], 0, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.insert(vec![1, 2, 3], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 
-		let promotable = pool.get_promotable(50, 30, usize::MAX);
+		// Small buffer (180s ≪ 3600s retention): not promotable yet.
+		let promotable = pool.get_promotable(50, 180, usize::MAX);
 		assert!(promotable.is_empty());
 
-		let promotable = pool.get_promotable(80, 30, usize::MAX);
+		// Large buffer (6000s > 3600s retention): within the window.
+		let promotable = pool.get_promotable(0, 6000, usize::MAX);
 		assert_eq!(promotable.len(), 1);
 		assert_eq!(promotable[0], hash);
 	}
@@ -1956,15 +1959,15 @@ mod tests {
 		let (_, signer) = test_recipient();
 
 		let hash = pool
-			.insert(vec![1, 2, 3], 0, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.insert(vec![1, 2, 3], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 
-		let promotable = pool.get_promotable(80, 30, usize::MAX);
+		let promotable = pool.get_promotable(80, 180, usize::MAX);
 		assert_eq!(promotable.len(), 1);
 
 		pool.mark_promoted(&hash);
 
-		let promotable = pool.get_promotable(80, 30, usize::MAX);
+		let promotable = pool.get_promotable(80, 180, usize::MAX);
 		assert!(promotable.is_empty());
 	}
 
@@ -1986,7 +1989,6 @@ mod tests {
 			hash = pool
 				.insert(
 					vec![42u8; 10],
-					0,
 					bv(vec![signer]),
 					SENDER_A,
 					dummy_auth().0,
@@ -2006,7 +2008,7 @@ mod tests {
 				RateLimitConfig::disabled(),
 			)
 			.unwrap();
-			let promotable = pool.get_promotable(80, 30, usize::MAX);
+			let promotable = pool.get_promotable(80, 180, usize::MAX);
 			assert!(promotable.is_empty(), "promoted entry should not be promotable after restart");
 			assert!(pool.has(&hash), "entry should still exist");
 		}
@@ -2014,16 +2016,16 @@ mod tests {
 
 	#[test]
 	fn test_cleanup_expired_removes_promoted() {
-		let (pool, _dir) = make_pool(1024 * 1024, 10);
+		let (pool, _dir) = make_pool(1024 * 1024, 0);
 		let (_, signer) = test_recipient();
 
 		let hash = pool
-			.insert(vec![1, 2, 3], 0, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.insert(vec![1, 2, 3], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 		pool.mark_promoted(&hash);
 		assert!(pool.has(&hash));
 
-		let freed = pool.cleanup_expired(10);
+		let freed = pool.cleanup_expired();
 		assert!(freed > 0);
 		assert!(!pool.has(&hash));
 	}
@@ -2031,12 +2033,14 @@ mod tests {
 	#[test]
 	fn test_rate_limit_rejects_burst_overflow() {
 		let dir = TempDir::new().unwrap();
+		// submit_burst=2 so the 3rd request is rate-limited by submit count.
+		// bandwidth_burst must be >= MAX_DATA_SIZE to pass config validation.
 		let cfg = RateLimitConfig {
 			enabled: true,
 			submit_rate_per_min: 60,
 			submit_burst: 2,
-			bandwidth_per_min: 1_000_000,
-			bandwidth_burst: 1_000_000,
+			bandwidth_per_min: MAX_DATA_SIZE * 60,
+			bandwidth_burst: MAX_DATA_SIZE,
 			global_bandwidth_per_min: 1_000_000_000,
 			global_bandwidth_burst: 1_000_000_000,
 			max_tracked_senders: 1_000_000,
@@ -2047,7 +2051,6 @@ mod tests {
 
 		pool.insert(
 			vec![1, 2, 3],
-			0,
 			bv(vec![signer.clone()]),
 			SENDER_A,
 			dummy_auth().0,
@@ -2057,7 +2060,6 @@ mod tests {
 		.unwrap();
 		pool.insert(
 			vec![4, 5, 6],
-			0,
 			bv(vec![signer.clone()]),
 			SENDER_A,
 			dummy_auth().0,
@@ -2068,7 +2070,6 @@ mod tests {
 		assert!(matches!(
 			pool.insert(
 				vec![7, 8, 9],
-				0,
 				bv(vec![signer]),
 				SENDER_A,
 				dummy_auth().0,
@@ -2088,7 +2089,7 @@ mod tests {
 		let (_, signer) = test_recipient();
 		let recipients = bv(vec![signer.clone()]);
 		let mut meta =
-			HopEntryMeta::new(100, 0, 100, recipients, SENDER_A, dummy_auth().0, dummy_auth().1, 0);
+			HopEntryMeta::new(100, 0, recipients, SENDER_A, dummy_auth().0, dummy_auth().1, 0);
 		meta.version = 0;
 
 		let fake_hash = "ee".to_string() + &"ff".repeat(15);
@@ -2121,20 +2122,12 @@ mod tests {
 		let (pool, _dir) = make_pool(1024 * 1024, /* retention = */ 100);
 		let (_, signer) = test_recipient();
 		let hash = pool
-			.insert(
-				vec![1u8; 100],
-				// added_at =
-				0,
-				bv(vec![signer]),
-				SENDER_A,
-				dummy_auth().0,
-				dummy_auth().1,
-				0,
-			)
+			.insert(vec![1u8; 100], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 
-		// Inside the buffer window so the entry is promotable in principle.
-		let buffer = 50;
+		// Inside the buffer window (>= retention=100s) so the entry is promotable
+		// in principle.
+		let buffer = 300_u64;
 		let current = 60;
 		assert_eq!(pool.get_promotable(current, buffer, 10), vec![hash]);
 

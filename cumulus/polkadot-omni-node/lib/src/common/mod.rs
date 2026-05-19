@@ -37,7 +37,7 @@ use sp_api::{ApiExt, CallApiAt, ConstructRuntimeApi, Metadata};
 use sp_block_builder::BlockBuilder;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumber, Header as HeaderT, NumberFor},
-	AccountId32, OpaqueExtrinsic,
+	OpaqueExtrinsic,
 };
 use sp_session::SessionKeys;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
@@ -66,7 +66,7 @@ where
 /// Convenience trait that defines the basic bounds for the `RuntimeApi` of a parachain node.
 ///
 /// All bounds are compile-time requirements. Runtimes that do not support optional features
-/// (e.g. `TransactionStorageApi`, `HopRuntimeApi`) should provide stub implementations. See
+/// (e.g. `TransactionStorageApi`) should provide stub implementations. See
 /// [`fake_runtime_api::utils`] for the canonical example.
 pub trait NodeRuntimeApi<Block: BlockT>:
 	ApiExt<Block>
@@ -79,7 +79,6 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ GetParachainInfo<Block>
 	+ TransactionStorageApi<Block>
 	+ RelayParentOffsetApi<Block>
-	+ sp_hop::HopRuntimeApi<Block, AccountId32>
 	+ Sized
 {
 }
@@ -95,7 +94,6 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ CollectCollationInfo<Block>
 		+ GetParachainInfo<Block>
 		+ TransactionStorageApi<Block>
-		+ sp_hop::HopRuntimeApi<Block, AccountId32>
 {
 }
 

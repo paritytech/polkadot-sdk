@@ -48,17 +48,15 @@ pub struct Recipient {
 /// `.meta` files whose `version` field doesn't match, so same-shape schema
 /// changes (e.g. semantic reinterpretation of an existing field) can be rolled
 /// out by bumping this constant; shape changes are caught by SCALE decode failure.
-pub const HOP_META_VERSION: u8 = 1;
+pub const HOP_META_VERSION: u8 = 2;
 
 /// Metadata for a pool entry (stored in-memory index and on-disk .meta files).
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct HopEntryMeta {
 	/// On-disk format version; see `HOP_META_VERSION`.
 	pub version: u8,
-	/// Block number when this was added
-	pub added_at: HopBlockNumber,
-	/// Block number when this expires (added_at + retention_period)
-	pub expires_at: HopBlockNumber,
+	/// Unix timestamp (seconds) at which this entry expires.
+	pub expires_at: u64,
 	/// Size in bytes
 	pub size: u64,
 	/// Intended recipients and their per-recipient ack state.
@@ -99,18 +97,15 @@ impl HopEntryMeta {
 	/// Create a new entry metadata (without data blob)
 	pub fn new(
 		size: u64,
-		added_at: HopBlockNumber,
-		retention_blocks: u32,
+		expires_at: u64,
 		recipients: RecipientVec,
 		sender_id: SenderId,
 		signer: MultiSigner,
 		signature: MultiSignature,
 		submit_timestamp: u64,
 	) -> Self {
-		let expires_at = added_at.saturating_add(retention_blocks);
 		Self {
 			version: HOP_META_VERSION,
-			added_at,
 			expires_at,
 			size,
 			recipients,
@@ -224,6 +219,9 @@ pub enum HopError {
 
 	#[error("No database path available and --hop-data-dir not specified")]
 	MissingDataDir,
+
+	#[error("Invalid configuration: {0}")]
+	InvalidConfig(String),
 }
 
 impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
@@ -249,6 +247,7 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 			HopError::DuplicateRecipient => 1019,
 			HopError::RateLimited { .. } => 1020,
 			HopError::MissingDataDir => 1021,
+			HopError::InvalidConfig(_) => 1022,
 		};
 
 		jsonrpsee::types::ErrorObject::owned(code, err.to_string(), None::<()>)
@@ -260,8 +259,8 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 /// runtime; this constant just anchors the worst case.
 pub const MAX_DATA_SIZE: u64 = 8 * 1024 * 1024;
 
-/// Default retention period in blocks (24 hours at 6 seconds per block = 14,400 blocks)
-pub const DEFAULT_RETENTION_BLOCKS: u32 = 14_400;
+/// Default retention period in seconds (24 hours).
+pub const DEFAULT_RETENTION_SECS: u64 = 86_400;
 
 /// Default maximum pool size in bytes (10 GiB)
 pub const DEFAULT_MAX_POOL_SIZE: u64 = 10 * 1024 * 1024 * 1024;
@@ -273,9 +272,7 @@ pub const DEFAULT_MAX_POOL_SIZE_MIB: u64 = DEFAULT_MAX_POOL_SIZE / (1024 * 1024)
 pub const DEFAULT_CHECK_INTERVAL_SECS: u64 = 300;
 
 /// Block-time assumption used when translating the wall-clock maintenance
-/// interval into block deltas for the promotion back-off scheduler. Matches
-/// the 6 s/block assumption baked into `DEFAULT_RETENTION_BLOCKS` and the
-/// other block-denominated defaults.
+/// interval into block deltas for the promotion back-off scheduler.
 pub const HOP_BLOCK_TIME_SECS: u64 = 6;
 
 /// Maximum number of recipients allowed per submission.
@@ -291,9 +288,8 @@ pub type RecipientVec = BoundedVec<Recipient, ConstU32<MAX_RECIPIENTS>>;
 /// Default per-user quota in MiB (256 MiB). Hard cap, not scaled by active users.
 pub const DEFAULT_MAX_USER_SIZE_MIB: u64 = 256;
 
-/// Default buffer before expiry at which to start promoting entries on-chain
-/// (1200 blocks ≈ 2 h at 6 s per block).
-pub const DEFAULT_PROMOTION_BUFFER_BLOCKS: u32 = 1200;
+/// Default buffer before expiry at which to start promoting entries on-chain (2 h).
+pub const DEFAULT_PROMOTION_BUFFER_SECS: u64 = 7200;
 
 /// Default sustained submit rate per account (requests per minute).
 pub const DEFAULT_SUBMIT_RATE_PER_MIN: u32 = 60;
