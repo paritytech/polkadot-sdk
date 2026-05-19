@@ -11,4 +11,4 @@ doc:
     Because the slot counts are tightly coupled with the full peerset state machine, I've picked an eventually consistent model to easily bump the metrics at 1s tick intervals.
 crates:
 - name: sc-network
-  bump: patch
+  bump: minor
