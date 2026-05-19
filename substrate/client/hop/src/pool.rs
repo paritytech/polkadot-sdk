@@ -407,8 +407,15 @@ impl HopDataPool {
 			}
 		}
 
-		// Write blob and meta to disk (no lock held during I/O).
+		// Blob write is outside the lock — content-addressed bytes, racers
+		// produce identical output, rename is atomic.
 		let blob_path = self.blob_path(&hash);
+		if let Err(e) = Self::write_atomic(&blob_path, &data) {
+			self.release_user_quota(&sender_id, accounted);
+			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
+			return Err(e);
+		}
+
 		let expires_at = SystemTime::now()
 			.duration_since(UNIX_EPOCH)
 			.unwrap_or_default()
@@ -424,41 +431,35 @@ impl HopDataPool {
 			submit_timestamp,
 		);
 		let meta_bytes = meta.encode();
-
-		if let Err(e) = Self::write_atomic(&blob_path, &data) {
-			self.release_user_quota(&sender_id, accounted);
-			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
-			return Err(e);
-		}
-
 		let meta_path = self.meta_path(&hash);
-		if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
-			let _ = fs::remove_file(&blob_path);
-			self.release_user_quota(&sender_id, accounted);
-			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
-			return Err(e);
-		}
 
-		// Acquire write lock: double-check duplicate, insert meta.
+		// Meta write goes under the index lock: meta is not content-addressed
+		// (sender_id, signer, signature, recipients, submit_timestamp differ
+		// between submitters), so racing writers would otherwise leave the
+		// loser's bytes on disk, diverging from the winner held in memory.
 		{
 			let mut index = self.index.lock();
 			if index.contains_key(&hash) {
-				// Race: another thread inserted the same data first. Files on
-				// disk are content-addressed and identical to ours — leave
-				// them in place; deleting them would orphan the winner's index
-				// entry.
 				tracing::debug!(
 					target: "hop",
 					hash = ?hex::encode(hash),
 					"Duplicate insert race lost; keeping winner's files"
 				);
-				// Release `index` before taking `user_usage.read()` — preserves
-				// the outer-to-inner lock order (index → user_usage) used by
-				// `cleanup_expired`.
+				// Drop `index` before `release_user_quota` takes `user_usage.read()`
+				// to keep the outer-to-inner lock order matching `cleanup_expired`.
 				drop(index);
 				self.release_user_quota(&sender_id, accounted);
 				self.current_size.fetch_sub(accounted, Ordering::Relaxed);
 				return Err(HopError::DuplicateEntry);
+			}
+			if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
+				// Index doesn't contain this hash; remove the blob to avoid
+				// leaving an orphan.
+				let _ = fs::remove_file(&blob_path);
+				drop(index);
+				self.release_user_quota(&sender_id, accounted);
+				self.current_size.fetch_sub(accounted, Ordering::Relaxed);
+				return Err(e);
 			}
 			index.insert(hash, meta);
 		}
@@ -1896,6 +1897,74 @@ mod tests {
 		let sig = sign_ed(&kp, HOP_CLAIM_CONTEXT, &hash);
 		let claimed = pool.claim(&hash, &sig).expect("claim must succeed");
 		assert_eq!(claimed, data);
+	}
+
+	#[test]
+	fn test_concurrent_duplicate_insert_keeps_winner_meta_on_disk() {
+		use std::{sync::Barrier, thread};
+
+		// Same content, different senders. The race-loser's meta must not end
+		// up on disk; otherwise restart recovery would silently load it as
+		// canonical for the entry.
+		let dir = TempDir::new().unwrap();
+		let pool = Arc::new(
+			HopDataPool::new(
+				1024 * 1024,
+				1024 * 1024,
+				100,
+				dir.path().to_path_buf(),
+				RateLimitConfig::disabled(),
+			)
+			.unwrap(),
+		);
+
+		let signer_a = MultiSigner::Ed25519(ed25519::Pair::from_seed(&[11u8; 32]).public());
+		let signer_b = MultiSigner::Ed25519(ed25519::Pair::from_seed(&[22u8; 32]).public());
+		let data = vec![0xCDu8; 4096];
+
+		let barrier = Arc::new(Barrier::new(2));
+		let (p1, d1, b1, s1) = (pool.clone(), data.clone(), barrier.clone(), signer_a.clone());
+		let h1 = thread::spawn(move || {
+			b1.wait();
+			p1.insert(d1, bv(vec![s1]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+		});
+		let (p2, d2, b2, s2) = (pool.clone(), data.clone(), barrier.clone(), signer_b.clone());
+		let h2 = thread::spawn(move || {
+			b2.wait();
+			p2.insert(d2, bv(vec![s2]), SENDER_B, dummy_auth().0, dummy_auth().1, 0)
+		});
+
+		let r1 = h1.join().unwrap();
+		let r2 = h2.join().unwrap();
+
+		let (winner_hash, winner_sender) = match (&r1, &r2) {
+			(Ok(h), Err(HopError::DuplicateEntry)) => (*h, SENDER_A),
+			(Err(HopError::DuplicateEntry), Ok(h)) => (*h, SENDER_B),
+			other => panic!("expected exactly one winner and one DuplicateEntry, got {other:?}"),
+		};
+
+		// Simulate restart: drop the pool, reopen from the same data dir so
+		// recovery rebuilds the in-memory index from `.meta` files on disk.
+		drop(pool);
+		let pool2 = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+		)
+		.unwrap();
+
+		let recovered_sender = pool2
+			.index
+			.lock()
+			.get(&winner_hash)
+			.expect("winner's entry must survive restart")
+			.sender_id;
+		assert_eq!(
+			recovered_sender, winner_sender,
+			"on-disk meta diverged from the winning insert; loser's meta overwrote the winner's",
+		);
 	}
 
 	#[test]
