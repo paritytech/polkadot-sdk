@@ -1,19 +1,13 @@
 title: 'sp-database: aggregate same-key refcount ops within a transaction'
 doc:
 - audience: Node Dev
-  description: "Fix a kvdb refcount-leak: multiple `Store`/`Reference`/`Release` ops\
-    \ on the same key in one `sp_database::Transaction` each read a stale on-disk\
-    \ counter and write back to the same counter key \u2014 the underlying `DBTransaction`\
-    \ keeps only the last `put`, collapsing N ops to a single \xB11. `commit_impl`\
-    \ now aggregates per-`(col, key)` deltas first and performs one read-modify-write\
-    \ per unique key.\n\nSurfaces when multiple displaced fork branches at the same\
-    \ height carry the same indexed extrinsics. `prune_displaced_branches` then issues\
-    \ `release(col11, hash) \xD7 N` per fork **in one finalization commit** \u2014\
-    \ pre-fix only one decrement landed, leaving indexed transaction data reachable\
-    \ past its retention period.\n\nAdds parametrized tests across `KvdbMemdb` / `ParityDb`\
-    \ / `RocksDb` covering same-commit `Store + 2\xD7 Release`, `Store + 2\xD7 Reference`,\
-    \ and `Store + Release` net-zero patterns. All three failed on the kvdb backends\
-    \ pre-fix; all pass post-fix."
+  description: |
+    Fix a kvdb refcount-leak in `sp_database`: when one `Transaction` contains multiple
+    `Store`/`Reference`/`Release` ops on the same key, each op reads a stale on-disk
+    counter and writes back to the same counter key — the underlying `DBTransaction`
+    keeps only the last `put`, collapsing N ops to a single ±1. `commit_impl` now
+    aggregates per-`(col, key)` deltas across the transaction and performs one
+    read-modify-write per unique key.
 crates:
 - name: sc-client-db
   bump: patch
