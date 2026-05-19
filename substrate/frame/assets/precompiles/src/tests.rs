@@ -446,6 +446,76 @@ fn sentinel_flag_clears_on_overwrite_with_finite_value() {
 	});
 }
 
+/// Destruction must clear `InfiniteApprovals` for the destroyed asset. The
+/// precompile address for a local asset is derived from its `asset_id`, so
+/// re-creating the same id reuses the same address; without cleanup, the
+/// previous incarnation's sentinel flags would carry over and `allowance()`
+/// would return `U256::MAX` for a fresh, unapproved asset — a phishing
+/// assist for any wallet that surfaces "Unlimited approval" UI.
+#[test]
+fn destroy_clears_sentinel_flags_for_local_asset() {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let owner = 123456789;
+		let spender = 987654321;
+		Balances::make_free_balance_be(&owner, 100);
+
+		let owner_h160 = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let spender_h160 = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+
+		// Flag the (asset, owner, spender) triple via approve(uint256.max).
+		call_approve(owner, asset_addr, spender_h160, U256::MAX);
+		assert!(permit::Pallet::<Test>::is_infinite_approval(
+			&asset_addr,
+			&owner_h160,
+			&spender_h160,
+		));
+
+		// Drive the full destroy flow: start → accounts → approvals → finish.
+		// `finish_destroy` is what triggers the `AssetsCallback::destroyed` hook.
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(owner), asset_id));
+		assert_ok!(Assets::destroy_accounts(RuntimeOrigin::signed(owner), asset_id));
+		assert_ok!(Assets::destroy_approvals(RuntimeOrigin::signed(owner), asset_id));
+		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(owner), asset_id));
+
+		// Flag must be gone — otherwise a recreated asset at the same id would
+		// inherit it.
+		assert!(
+			!permit::Pallet::<Test>::is_infinite_approval(
+				&asset_addr,
+				&owner_h160,
+				&spender_h160,
+			),
+			"sentinel flag must be cleared by AssetsCallback::destroyed",
+		);
+
+		// Recreate the asset at the same id; allowance() must report 0, not MAX.
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		let data =
+			IERC20::allowanceCall { owner: owner_h160.0.into(), spender: spender_h160.0.into() }
+				.abi_encode();
+		let bytes = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(owner),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.expect("allowance() must succeed on the recreated asset")
+		.data;
+		let ret = IERC20::allowanceCall::abi_decode_returns(&bytes).unwrap();
+		assert_eq!(ret, U256::ZERO, "fresh asset must not inherit sentinel allowance");
+	});
+}
+
 /// Pins the common (non-sentinel) `transfer_from` path: with no approval row,
 /// the call must revert with `Unapproved`. Guards against the sentinel-bypass
 /// refactor accidentally letting unauthorised callers transfer (e.g. if a

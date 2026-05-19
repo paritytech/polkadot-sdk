@@ -83,6 +83,11 @@ impl pallet_assets::Config for Test {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type Currency = Balances;
+	// `ForeignAssetId` is omitted here — these tests register the foreign
+	// mapping manually via `setup_asset_for_prefix`, so adding it would
+	// double-register on `created` (see `CallbackFailed`).
+	type CallbackHandle =
+		(ClearLocalInfiniteApprovals<0x0120, Test>, ClearForeignInfiniteApprovals<0x0220, Test>);
 }
 
 impl foreign_assets::pallet::Config for Test {

@@ -67,6 +67,81 @@ pub use foreign_assets::{pallet, pallet::Config as ForeignAssetsConfig, ForeignA
 pub use migration::MigrateForeignAssetPrecompileMappings;
 pub use permit::pallet::Config as PermitConfig;
 
+/// Compose the precompile `H160` address from an asset index (or asset id for
+/// inline-id schemes) and the precompile's `AddressMatcher::Prefix` value.
+///
+/// Layout mirrors `pallet_revive`'s `Prefix` matcher: the 4-byte index sits at
+/// bytes `[0..4]` and the 2-byte prefix at bytes `[16..18]`, with zeros
+/// elsewhere.
+pub const fn precompile_address(index: u32, prefix: u16) -> H160 {
+	let idx = index.to_be_bytes();
+	let p = prefix.to_be_bytes();
+	let mut addr = [0u8; 20];
+	addr[0] = idx[0];
+	addr[1] = idx[1];
+	addr[2] = idx[2];
+	addr[3] = idx[3];
+	addr[16] = p[0];
+	addr[17] = p[1];
+	H160(addr)
+}
+
+/// `pallet_assets::AssetsCallback` adapter that clears
+/// [`permit::InfiniteApprovals`] for the precompile address of an
+/// inline-id (local) asset on destruction.
+///
+/// Without this hook, destroying asset id `N` and re-creating it leaves a
+/// fresh asset reusing the same precompile address (which is derived from
+/// `N`) with orphan sentinel flags from the previous incarnation — see the
+/// regression test `destroy_clears_sentinel_flags_for_local_asset` for the
+/// hazard.
+///
+/// Wire as part of `pallet_assets::Config::CallbackHandle` for the local
+/// instance. `PREFIX` must match the matcher prefix used by the corresponding
+/// `ERC20<_, InlineIdConfig<PREFIX>>` precompile registration.
+pub struct ClearLocalInfiniteApprovals<const PREFIX: u16, T>(PhantomData<T>);
+
+impl<const PREFIX: u16, T, AssetId, AccountId> pallet_assets::AssetsCallback<AssetId, AccountId>
+	for ClearLocalInfiniteApprovals<PREFIX, T>
+where
+	T: permit::Config,
+	AssetId: Copy + Into<u32>,
+{
+	fn destroyed(id: &AssetId) -> Result<(), ()> {
+		let addr = precompile_address((*id).into(), PREFIX);
+		let _ = permit::Pallet::<T>::clear_infinite_approvals_for_contract(&addr);
+		Ok(())
+	}
+}
+
+/// `pallet_assets::AssetsCallback` adapter that clears
+/// [`permit::InfiniteApprovals`] for the precompile address of a foreign
+/// asset on destruction.
+///
+/// Foreign assets are reached via an `asset_index → asset_id` mapping
+/// allocated monotonically (`foreign_assets::NextAssetIndex`), so a recreated
+/// foreign asset gets a *new* precompile address. The orphan flags at the
+/// dead address are storage debris rather than a security hazard, but this
+/// hook keeps state clean.
+///
+/// Must run *before* [`ForeignAssetId`] in the callback tuple: the index
+/// lookup depends on the asset_id → index mapping still being in place.
+pub struct ClearForeignInfiniteApprovals<const PREFIX: u16, T>(PhantomData<T>);
+
+impl<const PREFIX: u16, T, AccountId> pallet_assets::AssetsCallback<T::ForeignAssetId, AccountId>
+	for ClearForeignInfiniteApprovals<PREFIX, T>
+where
+	T: foreign_assets::pallet::Config + permit::Config,
+{
+	fn destroyed(id: &T::ForeignAssetId) -> Result<(), ()> {
+		if let Some(index) = foreign_assets::Pallet::<T>::asset_index_of(id) {
+			let addr = precompile_address(index, PREFIX);
+			let _ = permit::Pallet::<T>::clear_infinite_approvals_for_contract(&addr);
+		}
+		Ok(())
+	}
+}
+
 /// Means of extracting the asset id from the precompile address.
 pub trait AssetIdExtractor {
 	type AssetId;

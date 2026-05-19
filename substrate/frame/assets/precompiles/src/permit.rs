@@ -191,6 +191,15 @@ pub mod pallet {
 			InfiniteApprovals::<T>::contains_key((*contract, *owner, *spender))
 		}
 
+		/// Drop every sentinel flag for `contract`. Called by the precompile's
+		/// `AssetsCallback::destroyed` hook so a future asset reusing the same
+		/// precompile address starts with no orphan flags.
+		pub fn clear_infinite_approvals_for_contract(contract: &H160) -> u32 {
+			let results =
+				InfiniteApprovals::<T>::clear_prefix((*contract,), u32::MAX, None);
+			results.unique
+		}
+
 		/// Compute the EIP-712 domain separator for a given verifying contract.
 		///
 		/// DOMAIN_SEPARATOR = keccak256(abi.encode(
