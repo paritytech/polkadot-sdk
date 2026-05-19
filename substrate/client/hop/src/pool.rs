@@ -39,8 +39,7 @@ use crate::{
 	types::{
 		entry_accounted_size, promotion_backoff_blocks, signing_payload, HopBlockNumber,
 		HopEntryMeta, HopError, HopHash, PoolStatus, RecipientVec, SenderId, HOP_ACK_CONTEXT,
-		HOP_CLAIM_CONTEXT, HOP_META_VERSION, MAX_DATA_SIZE,
-		MAX_PROMOTION_ATTEMPTS,
+		HOP_CLAIM_CONTEXT, HOP_META_VERSION, MAX_DATA_SIZE, MAX_PROMOTION_ATTEMPTS,
 	},
 };
 use codec::{Decode, Encode};
@@ -415,7 +414,15 @@ impl HopDataPool {
 			.unwrap_or_default()
 			.as_secs()
 			.saturating_add(self.retention_secs);
-		let meta = HopEntryMeta::new(data_len, expires_at, recipients, sender_id, signer, signature, submit_timestamp);
+		let meta = HopEntryMeta::new(
+			data_len,
+			expires_at,
+			recipients,
+			sender_id,
+			signer,
+			signature,
+			submit_timestamp,
+		);
 		let meta_bytes = meta.encode();
 
 		if let Err(e) = Self::write_atomic(&blob_path, &data) {
@@ -729,10 +736,7 @@ impl HopDataPool {
 	pub fn cleanup_expired(&self) -> u64 {
 		const CLEANUP_BATCH_SIZE: usize = 10_000;
 		let mut total_freed: u64 = 0;
-		let now_secs = SystemTime::now()
-			.duration_since(UNIX_EPOCH)
-			.unwrap_or_default()
-			.as_secs();
+		let now_secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
 
 		loop {
 			// Phase 1: Under index write lock — collect and remove up to one
@@ -813,10 +817,7 @@ impl HopDataPool {
 		buffer_secs: u64,
 		limit: usize,
 	) -> Vec<HopHash> {
-		let now_secs = SystemTime::now()
-			.duration_since(UNIX_EPOCH)
-			.unwrap_or_default()
-			.as_secs();
+		let now_secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
 		let index = self.index.lock();
 		index
 			.iter()
@@ -1095,15 +1096,8 @@ mod tests {
 		let data1 = vec![0u8; 60];
 		let data2 = vec![1u8; 50];
 
-		pool.insert(
-			data1,
-			bv(vec![signer.clone()]),
-			SENDER_A,
-			dummy_auth().0,
-			dummy_auth().1,
-			0,
-		)
-		.unwrap();
+		pool.insert(data1, bv(vec![signer.clone()]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
 		let result =
 			pool.insert(data2, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0);
 
@@ -1144,15 +1138,8 @@ mod tests {
 			0,
 		)
 		.unwrap();
-		pool.insert(
-			data2.clone(),
-			bv(vec![signer]),
-			SENDER_A,
-			dummy_auth().0,
-			dummy_auth().1,
-			0,
-		)
-		.unwrap();
+		pool.insert(data2.clone(), bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
 
 		let status = pool.status();
 		assert_eq!(status.entry_count, 2);
@@ -1326,15 +1313,8 @@ mod tests {
 		assert!(matches!(result, Err(HopError::UserQuotaExceeded { .. })));
 
 		// User B has their own independent cap.
-		pool.insert(
-			vec![2u8; 60],
-			bv(vec![signer]),
-			SENDER_B,
-			dummy_auth().0,
-			dummy_auth().1,
-			0,
-		)
-		.unwrap();
+		pool.insert(vec![2u8; 60], bv(vec![signer]), SENDER_B, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
 	}
 
 	#[test]
@@ -1370,15 +1350,8 @@ mod tests {
 		pool.ack(&hash, &ack).unwrap();
 
 		// Quota freed — user can insert again.
-		pool.insert(
-			vec![2u8; 100],
-			bv(vec![signer]),
-			SENDER_A,
-			dummy_auth().0,
-			dummy_auth().1,
-			0,
-		)
-		.unwrap();
+		pool.insert(vec![2u8; 100], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
 	}
 
 	#[test]
@@ -1386,15 +1359,8 @@ mod tests {
 		let (pool, _dir) = make_pool(10_000, 0);
 		let (_, signer) = test_recipient();
 
-		pool.insert(
-			vec![0u8; 100],
-			bv(vec![signer]),
-			SENDER_A,
-			dummy_auth().0,
-			dummy_auth().1,
-			0,
-		)
-		.unwrap();
+		pool.insert(vec![0u8; 100], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
 		let charged = acct(100, 1);
 		assert_eq!(user_usage(&pool, &SENDER_A), charged);
 
@@ -1416,12 +1382,19 @@ mod tests {
 			.unwrap();
 
 		// Not yet expired — cleanup must be a no-op.
-		assert_eq!(pool.cleanup_expired(), 0, "entry should still be live before retention elapses");
+		assert_eq!(
+			pool.cleanup_expired(),
+			0,
+			"entry should still be live before retention elapses"
+		);
 		assert!(pool.has(&hash));
 
 		std::thread::sleep(std::time::Duration::from_millis(1_200));
 
-		assert!(pool.cleanup_expired() > 0, "entry should be reaped once wall-clock retention elapses");
+		assert!(
+			pool.cleanup_expired() > 0,
+			"entry should be reaped once wall-clock retention elapses"
+		);
 		assert!(!pool.has(&hash));
 	}
 
@@ -1476,15 +1449,8 @@ mod tests {
 		let (pool, _dir) = make_pool(10_000, 100);
 		let (_, signer) = test_recipient();
 
-		pool.insert(
-			vec![0u8; 50],
-			bv(vec![signer]),
-			SENDER_A,
-			dummy_auth().0,
-			dummy_auth().1,
-			0,
-		)
-		.unwrap();
+		pool.insert(vec![0u8; 50], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
 		// Cleanup at a block where the entry is not yet expired must not
 		// reclaim the sender's slot — a concurrent insert would otherwise
 		// orphan its `Arc`.
@@ -1523,15 +1489,8 @@ mod tests {
 			// bytes hash to the same key and the second insert hits
 			// DuplicateEntry. Embed `i` so each blob is distinct.
 			let data = i.to_le_bytes().to_vec();
-			pool.insert(
-				data,
-				bv(vec![signer.clone()]),
-				sender,
-				dummy_auth().0,
-				dummy_auth().1,
-				0,
-			)
-			.unwrap();
+			pool.insert(data, bv(vec![signer.clone()]), sender, dummy_auth().0, dummy_auth().1, 0)
+				.unwrap();
 		}
 		assert_eq!(pool.status().entry_count, total as usize);
 
@@ -1922,14 +1881,7 @@ mod tests {
 				let data = data.clone();
 				thread::spawn(move || {
 					barrier.wait();
-					pool.insert(
-						data,
-						bv(vec![signer]),
-						SENDER_A,
-						dummy_auth().0,
-						dummy_auth().1,
-						0,
-					)
+					pool.insert(data, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 				})
 			})
 			.collect();
@@ -2167,14 +2119,7 @@ mod tests {
 		let (pool, _dir) = make_pool(1024 * 1024, /* retention = */ 100);
 		let (_, signer) = test_recipient();
 		let hash = pool
-			.insert(
-				vec![1u8; 100],
-				bv(vec![signer]),
-				SENDER_A,
-				dummy_auth().0,
-				dummy_auth().1,
-				0,
-			)
+			.insert(vec![1u8; 100], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 
 		// Inside the buffer window (>= retention=100s) so the entry is promotable

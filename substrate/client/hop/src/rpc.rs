@@ -203,7 +203,8 @@ where
 		}
 
 		let sender_id: [u8; 32] = account_id.into();
-		self.pool.insert(data.0, recipient_keys, sender_id, signer, multi_sig, submit_timestamp)?;
+		self.pool
+			.insert(data.0, recipient_keys, sender_id, signer, multi_sig, submit_timestamp)?;
 		Ok(SubmitResult { pool_status: self.pool.status() })
 	}
 
@@ -299,8 +300,9 @@ mod tests {
 
 		fn call_api_at(&self, params: CallApiAtParams<Block>) -> Result<Vec<u8>, ApiError> {
 			match params.function {
-				"HopRuntimeApi_can_account_promote" =>
-					Ok(self.authorized.load(Ordering::Relaxed).encode()),
+				"HopRuntimeApi_can_account_promote" => {
+					Ok(self.authorized.load(Ordering::Relaxed).encode())
+				},
 				"HopRuntimeApi_is_promoted_on_chain" => Ok(false.encode()),
 				other => Err(ApiError::Application(
 					format!("MockClient: unimplemented runtime API call {}", other).into(),
@@ -316,10 +318,7 @@ mod tests {
 			unimplemented!("MockClient::runtime_version_at not used by tests")
 		}
 
-		fn state_at(
-			&self,
-			_at: <Block as BlockT>::Hash,
-		) -> Result<Self::StateBackend, ApiError> {
+		fn state_at(&self, _at: <Block as BlockT>::Hash) -> Result<Self::StateBackend, ApiError> {
 			unimplemented!("MockClient::state_at not used by tests")
 		}
 

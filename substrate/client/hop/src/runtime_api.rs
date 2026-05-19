@@ -65,12 +65,7 @@ where
 	Block: BlockT,
 	C: CallApiAt<Block>,
 {
-	call::<Block, _, _, _>(
-		client,
-		at,
-		"HopRuntimeApi_can_account_promote",
-		(who, data_len),
-	)
+	call::<Block, _, _, _>(client, at, "HopRuntimeApi_can_account_promote", (who, data_len))
 }
 
 /// `HopRuntimeApi::create_promotion_extrinsic`.

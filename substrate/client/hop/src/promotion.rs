@@ -21,8 +21,7 @@
 //!
 //! - [`HopPromoter`] — trait for promoting data on-chain (trait-object friendly).
 //! - [`RuntimeApiPromoter`] — concrete implementation that calls the HOP runtime API via dynamic
-//!   dispatch (see [`crate::runtime_api`]) plus
-//!   [`sc_transaction_pool_api::LocalTransactionPool`].
+//!   dispatch (see [`crate::runtime_api`]) plus [`sc_transaction_pool_api::LocalTransactionPool`].
 //! - [`try_build_promoter`] — detects runtime API support at startup, returns `Some(promoter)` or
 //!   logs a warning and returns `None`.
 //! - [`HopMaintenanceTask`] — background task combining promotion + cleanup.
@@ -134,12 +133,7 @@ pub fn try_build_promoter<Block, C, P>(
 ) -> Option<Arc<dyn HopPromoter>>
 where
 	Block: BlockT,
-	C: HeaderBackend<Block>
-		+ ProvideRuntimeApi<Block>
-		+ CallApiAt<Block>
-		+ Send
-		+ Sync
-		+ 'static,
+	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static,
 {
 	let best_hash = client.info().best_hash;
@@ -183,12 +177,7 @@ pub fn build_maintenance_task<Block, C, P>(
 ) -> HopMaintenanceTask
 where
 	Block: BlockT,
-	C: HeaderBackend<Block>
-		+ ProvideRuntimeApi<Block>
-		+ CallApiAt<Block>
-		+ Send
-		+ Sync
-		+ 'static,
+	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static,
 {
 	let promoter = try_build_promoter::<Block, _, _>(client, tx_pool);
@@ -250,11 +239,9 @@ impl HopMaintenanceTask {
 		// Promote near-expiry entries one at a time to bound peak memory.
 		if let Some(ref promoter) = self.promoter {
 			const PROMOTION_BATCH_SIZE: usize = 10;
-			let hashes = self.hop_pool.get_promotable(
-				current_block,
-				self.buffer_secs,
-				PROMOTION_BATCH_SIZE,
-			);
+			let hashes =
+				self.hop_pool
+					.get_promotable(current_block, self.buffer_secs, PROMOTION_BATCH_SIZE);
 			for hash in hashes {
 				// First, ask the runtime whether this hash is already on-chain.
 				// If so, the previous attempt (or a third party) already
@@ -437,14 +424,7 @@ mod tests {
 		let (_, signer) = test_recipient();
 
 		let hash = pool
-			.insert(
-				vec![42u8; 10],
-				bv(vec![signer]),
-				SENDER_A,
-				dummy_auth().0,
-				dummy_auth().1,
-				0,
-			)
+			.insert(vec![42u8; 10], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 
 		let promoter = Arc::new(MockPromoter::new(false));
@@ -474,15 +454,8 @@ mod tests {
 		let pool = test_pool(1024 * 1024, 100, &dir);
 		let (_, signer) = test_recipient();
 
-		pool.insert(
-			vec![42u8; 10],
-			bv(vec![signer]),
-			SENDER_A,
-			dummy_auth().0,
-			dummy_auth().1,
-			0,
-		)
-		.unwrap();
+		pool.insert(vec![42u8; 10], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
 
 		let task = HopMaintenanceTask::new(
 			pool.clone(),
@@ -505,15 +478,8 @@ mod tests {
 		let pool = test_pool(1024 * 1024, 100, &dir);
 		let (_, signer) = test_recipient();
 
-		pool.insert(
-			vec![42u8; 10],
-			bv(vec![signer]),
-			SENDER_A,
-			dummy_auth().0,
-			dummy_auth().1,
-			0,
-		)
-		.unwrap();
+		pool.insert(vec![42u8; 10], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
 
 		let promoter = Arc::new(MockPromoter::new(true)); // will fail
 		let task =
@@ -539,15 +505,8 @@ mod tests {
 		let pool = test_pool(1024 * 1024, 0, &dir);
 		let (_, signer) = test_recipient();
 
-		pool.insert(
-			vec![42u8; 50],
-			bv(vec![signer]),
-			SENDER_A,
-			dummy_auth().0,
-			dummy_auth().1,
-			0,
-		)
-		.unwrap();
+		pool.insert(vec![42u8; 50], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
 		assert_eq!(pool.status().entry_count, 1);
 
 		let task = HopMaintenanceTask::new(pool.clone(), None, Arc::new(|| 0), 5, 60);
@@ -611,14 +570,7 @@ mod tests {
 		let (_, signer) = test_recipient();
 
 		let hash = pool
-			.insert(
-				vec![42u8; 10],
-				bv(vec![signer]),
-				SENDER_A,
-				dummy_auth().0,
-				dummy_auth().1,
-				0,
-			)
+			.insert(vec![42u8; 10], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 
 		let promoter = Arc::new(MockPromoter::new(false));
@@ -640,15 +592,8 @@ mod tests {
 		let pool = test_pool(1024 * 1024, 100, &dir);
 		let (_, signer) = test_recipient();
 
-		pool.insert(
-			vec![42u8; 10],
-			bv(vec![signer]),
-			SENDER_A,
-			dummy_auth().0,
-			dummy_auth().1,
-			0,
-		)
-		.unwrap();
+		pool.insert(vec![42u8; 10], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
 
 		let promoter = Arc::new(MockPromoter::new(false));
 		let block = Arc::new(Mutex::new(80u32));
