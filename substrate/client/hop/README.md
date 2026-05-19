@@ -76,7 +76,7 @@ let hop_pool = hop_params.enable_hop.then(|| {
     HopDataPool::new(
         hop_params.max_pool_size * 1024 * 1024,  // pool cap, bytes
         hop_params.max_user_size * 1024 * 1024,  // per-user cap, bytes
-        hop_params.retention_blocks,
+        hop_params.retention_secs,
         hop_params.data_dir.clone()
             .unwrap_or_else(|| chain_data_dir.join("hop")),
         hop_params.rate_limit_config(),
@@ -117,9 +117,9 @@ cleanup-only if the runtime doesn't implement it.
 | `--enable-hop` | off | Enable HOP |
 | `--hop-max-pool-size <MiB>` | 10240 (10 GiB) | Total pool size cap |
 | `--hop-max-user-size <MiB>` | 256 | Per-user hard cap (not scaled by active users) |
-| `--hop-retention-blocks <n>` | 14400 (24 h @ 6 s) | How long entries are kept before expiry |
+| `--hop-retention-secs <s>` | 86400 (24 h) | How long entries are kept before expiry |
 | `--hop-check-interval <s>` | 300 | Maintenance cycle period |
-| `--hop-promotion-buffer-blocks <n>` | 1200 (~2 h) | Blocks before expiry to start promoting |
+| `--hop-promotion-buffer-secs <s>` | 7200 (2 h) | Seconds before expiry to start promoting |
 | `--hop-submit-rate-per-min <n>` | 60 | Sustained per-account submit rate |
 | `--hop-submit-burst <n>` | 120 | Per-account submit burst size |
 | `--hop-bandwidth-per-min-mib <MiB>` | 128 | Sustained per-account bandwidth |
@@ -135,7 +135,7 @@ All HOP RPC methods are also subject to the node-global `--rpc-rate-limit`.
 
 ## RPC methods
 
-### `hop_submit(data, recipients, signature, signer) -> SubmitResult`
+### `hop_submit(data, recipients, signature, signer, submit_timestamp) -> SubmitResult`
 
 Store a blob for the given list of recipients.
 
@@ -144,8 +144,12 @@ Store a blob for the given list of recipients.
 - `recipients`: up to **256** SCALE-encoded `MultiSigner` values (ed25519,
   sr25519, or ecdsa ephemeral public keys).
 - `signature`: SCALE-encoded `MultiSignature` over
-  `blake2_256(HOP_SUBMIT_CONTEXT || blake2_256(data))`.
+  `blake2_256(HOP_SUBMIT_CONTEXT || blake2_256(data) || submit_timestamp.to_le_bytes())`.
 - `signer`: SCALE-encoded `MultiSigner` of the submitting account.
+- `submit_timestamp`: wall-clock submit time in milliseconds since the Unix
+  epoch. Bound into the signed payload; the runtime rejects promotions whose
+  timestamp drifts too far from on-chain time, so the same `(data, signer,
+  signature)` cannot be replayed indefinitely.
 
 Submit fails with `NotAuthorized` if `HopRuntimeApi::can_account_promote(account_id, data_len)`
 returns `false` (where `account_id` is `signer.into_account()`), and with

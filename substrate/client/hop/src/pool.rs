@@ -82,7 +82,7 @@ pub struct HopDataPool {
 	///
 	/// Counters live directly in the map and are charged via `charge_user`
 	/// inside the read guard, so the reclamation pass in `cleanup_expired`
-	/// (which holds `user_usage.write()` together with `index.read()`) cannot
+	/// (which holds `user_usage.write()` together with `index.lock()`) cannot
 	/// interpose between a lookup and its `fetch_add`. Stale entries —
 	/// counter 0 and no live index entry — are reclaimed by the same pass.
 	user_usage: RwLock<HashMap<SenderId, AtomicU64>>,
@@ -788,9 +788,9 @@ impl HopDataPool {
 		}
 
 		// Phase 4: Reclaim per-sender counters whose owners have no live
-		// entries. Holding `index.read()` and `user_usage.write()` together
+		// entries. Holding `index.lock()` and `user_usage.write()` together
 		// closes the dominant TOCTOU race (concurrent writers cannot create a
-		// new index entry under our held read lock; concurrent
+		// new index entry under our held index lock; concurrent
 		// `release_user_quota` only takes `user_usage.read()` which is
 		// excluded). Build a live-sender set in one index pass so retain is
 		// O(senders + entries) instead of O(senders × entries).

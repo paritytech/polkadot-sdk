@@ -51,14 +51,11 @@ doc:
       `HopDataPool`, and merging `HopRpcServer` into the RPC module. See `sc-hop`
       crate docs for a step-by-step guide.
 
-      **Breaking change for `polkadot-omni-node` parachain runtimes.** `HopRuntimeApi`
-      is now a supertrait bound on `NodeRuntimeApi`, so every runtime built against
-      `polkadot-omni-node-lib` must implement it (same convention as
-      `TransactionStorageApi`). Runtimes that **do not** want HOP must add a no-op
-      stub inside their `impl_runtime_apis!` block — see the canonical example in
-      `sp_hop::HopRuntimeApi`'s rustdoc. The same stub is shipped in
-      `cumulus/polkadot-omni-node/lib/src/fake_runtime_api/utils.rs` for runtimes
-      using the omni-node fake-runtime helper.
+      No runtime changes are required to deploy an HOP-enabled node:
+      `HopRuntimeApi` support is detected dynamically at startup via
+      `ApiExt::has_api_with`, and runtimes that do not implement it cause the
+      maintenance task to fall back to cleanup-only (no promotion). This lets
+      operators roll out HOP nodes ahead of the runtime upgrade that adds the API.
 
   - audience: Node Operator
     description: |

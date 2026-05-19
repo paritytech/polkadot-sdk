@@ -39,8 +39,14 @@ sp_api::decl_runtime_apis! {
 		/// Construct an unsigned promotion extrinsic carrying the user's submit-time
 		/// (in milliseconds from the Unix epoch), signer, signature, and timestamp
 		/// so the runtime pallet can verify consent on-chain.
-		/// `submit_timestamp` is bound into the signed payload and bounds
-		/// the signature's validity window, preventing replay long after the fact.
+		///
+		/// `submit_timestamp` is bound into the signed payload. Implementing
+		/// runtimes **must** reject promotions whose timestamp is outside a
+		/// tolerance window around the current on-chain clock — otherwise the
+		/// same `(data, signer, signature)` tuple can be replayed indefinitely
+		/// from the collator's persisted metadata. The width of the window is a
+		/// runtime policy decision (clock skew + max acceptable promotion
+		/// latency); a few hours is a reasonable upper bound.
 		fn create_promotion_extrinsic(
 			data: alloc::vec::Vec<u8>,
 			signer: sp_runtime::MultiSigner,
