@@ -320,14 +320,18 @@ pub struct EraRewardPoints<T: Config> {
 
 impl<T: Config> EraRewardPoints<T> {
 	/// Proportional share for validator `stash` under the weighted-mean formula:
-	/// `share = (w_i · ep_i) / Σ_j(w_j · ep_j)`, where the sum runs over every
-	/// validator with non-zero era points and `weight_lookup(v)` returns
-	/// validator `v`'s per-era incentive weight (zero if absent).
+	/// `share = (w_i · ep_i) / Σ_j(w_j · ep_j)`, where:
+	/// - `w_i` is validator `i`'s incentive weight (how much of the incentive this validator was
+	///   originally entitled to, before performance adjustment), as returned by
+	///   `weight_lookup(v)` (zero if absent),
+	/// - `ep_i` is validator `i`'s era points,
+	/// - the sum in the denominator runs over every validator with non-zero era points.
 	///
 	/// Properties:
 	/// - Zero era points (or absent stash) → share is `Perbill::zero()`.
 	/// - When all participating `w_j · ep_j` terms are equal, each participant's
-	///   share is `1/N` and the sum across all validators equals 1.
+	///   share is `1/N` (where `N` is the number of validators with non-zero era points) and the
+	///   sum across all validators equals 1.
 	/// - Total of all shares equals `Perbill::one()` (modulo rounding dust), so
 	///   distributing `share × budget` spends the full budget across non-zero
 	///   performers — there is no leftover to forfeit.
