@@ -139,8 +139,9 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	ControlFlow::Continue(())
 }
 
-/// Pre-charge worst-case + refund size and cold/warm deltas, on Ok and Err.
-/// Shared by SSTORE and TSTORE.
+/// Pre-charge worst-case + refund size and (SSTORE only) cold/warm deltas, on
+/// Ok and Err. Shared by SSTORE and TSTORE — the TSTORE adapter passes
+/// `Default::default()` as `costs` since transient storage has no access list.
 fn store_helper<'ext, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 	transient: bool,

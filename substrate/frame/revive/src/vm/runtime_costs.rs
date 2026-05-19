@@ -370,9 +370,9 @@ impl RuntimeCosts {
 		}
 	}
 
-	// Pick the persistent or transient variant from `transient: bool`.
-	// `costs` is ignored on the transient branch.
-
+	/// Pick the persistent or transient variant from `transient: bool`.
+	/// `costs` is ignored on the transient branch. Mirrored by `clear`, `take`,
+	/// `get`, `contains` below.
 	pub fn set(transient: bool, new_bytes: u32, old_bytes: u32, costs: StorageAccessCost) -> Self {
 		if transient {
 			Self::SetTransientStorage { new_bytes, old_bytes }
@@ -413,47 +413,46 @@ impl RuntimeCosts {
 				costs.is_cold,
 				cost_storage!(read, seal_get_storage, *len),
 				cost_storage!(read_warm, seal_get_storage_warm, *len),
-				|| unreachable!("get_storage always touches"),
+				cost_storage!(read, seal_get_storage, *len),
 			),
 			ContainsStorage { len, costs } => Self::cold_warm_weight::<T>(
 				costs.is_cold,
 				cost_storage!(read, contains_storage, *len),
 				cost_storage!(read_warm, contains_storage_warm, *len),
-				|| unreachable!("contains_storage always touches"),
+				cost_storage!(read, contains_storage, *len),
 			),
 			SetStorage { new_bytes, old_bytes, costs } => Self::cold_warm_weight::<T>(
 				costs.is_cold,
 				cost_storage!(write, seal_set_storage, *new_bytes, *old_bytes),
 				cost_storage!(write_warm, seal_set_storage_warm, *new_bytes, *old_bytes),
-				// `None` = no touch happened; charge legacy worst-case.
-				|| cost_storage!(write, seal_set_storage, *new_bytes, *old_bytes),
+				cost_storage!(write, seal_set_storage, *new_bytes, *old_bytes),
 			),
 			ClearStorage { len, costs } => Self::cold_warm_weight::<T>(
 				costs.is_cold,
 				cost_storage!(write, clear_storage, *len),
 				cost_storage!(write_warm, clear_storage_warm, *len),
-				|| unreachable!("clear_storage always touches"),
+				cost_storage!(write, clear_storage, *len),
 			),
 			TakeStorage { len, costs } => Self::cold_warm_weight::<T>(
 				costs.is_cold,
 				cost_storage!(write, take_storage, *len),
 				cost_storage!(write_warm, take_storage_warm, *len),
-				|| unreachable!("take_storage always touches"),
+				cost_storage!(write, take_storage, *len),
 			),
 			_ => self.legacy_weight::<T>(),
 		}
 	}
 
-	/// Cold/warm dispatch shared by `new_weight`'s storage arms. `none` is a
-	/// closure for per-callsite policy (legacy fallback vs. `unreachable!`).
+	/// Cold/warm dispatch shared by `new_weight`'s storage arms. `legacy` is the
+	/// no-access-list fallback used when `is_cold` is `None`.
 	fn cold_warm_weight<T: Config>(
 		is_cold: Option<bool>,
 		cold: Weight,
 		warm: Weight,
-		none: impl FnOnce() -> Weight,
+		legacy: Weight,
 	) -> Weight {
 		match is_cold {
-			None => none(),
+			None => legacy,
 			Some(true) => cold
 				.saturating_add(T::WeightInfo::access_list_touch_cold())
 				.saturating_add(T::WeightInfo::access_list_rollback_amortization()),

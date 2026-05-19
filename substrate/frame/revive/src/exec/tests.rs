@@ -3094,8 +3094,12 @@ fn cold_warm_disabled_always_reports_cold() {
 		let key = Key::Fix([3; 32]);
 		let (_, first) = ctx.ext.set_storage(&key, Some(vec![1]), false);
 		let (_, second) = ctx.ext.set_storage(&key, Some(vec![2]), false);
+		let (_, get) = ctx.ext.get_storage(&key);
+		let (_, size) = ctx.ext.get_storage_size(&key);
 		assert_eq!(first.is_cold, Some(true));
 		assert_eq!(second.is_cold, Some(true), "Disabled mode never warms entries");
+		assert_eq!(get.is_cold, Some(true), "Disabled mode: SLOAD always cold");
+		assert_eq!(size.is_cold, Some(true), "Disabled mode: size always cold");
 		exec_success()
 	});
 
@@ -3192,17 +3196,17 @@ fn cold_warm_child_commit_keying() {
 			),
 			Ok(_)
 		);
-		// 2. Parent runs in CHARLIE's context — (CHARLIE, key) is a distinct
-		//    AccessEntry from (BOB, key), so it must still be cold even though
-		//    the child just warmed BOB's view of the same slot bytes.
+		// 2. Parent runs in CHARLIE's context — (CHARLIE, key) is a distinct AccessEntry from (BOB,
+		//    key), so it must still be cold even though the child just warmed BOB's view of the
+		//    same slot bytes.
 		let (_, parent_costs) = ctx.ext.set_storage(&key_for_parent, Some(vec![2]), false);
 		assert_eq!(
 			parent_costs.is_cold,
 			Some(true),
 			"parent (CHARLIE, key) is distinct from child's (BOB, key)",
 		);
-		// 3. Child call #2: touches (BOB, key) again — now warm, since call #1
-		//    committed and the entry survived back into the parent frame.
+		// 3. Child call #2: touches (BOB, key) again — now warm, since call #1 committed and the
+		//    entry survived back into the parent frame.
 		*expected_cold_in_child.borrow_mut() = false;
 		assert_matches!(
 			ctx.ext.call(
@@ -3294,4 +3298,3 @@ fn cold_warm_delegate_call_warms_parent_slot() {
 		run_call_to(CHARLIE_ADDR);
 	});
 }
-

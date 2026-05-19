@@ -544,8 +544,9 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
 	/// was deleted.
 	///
-	/// Note: the impl does NOT currently touch the access list — the returned
-	/// `StorageAccessCost` always reports `is_cold = Some(true)`.
+	/// The returned `StorageAccessCost` always reports `is_cold = Some(true)`:
+	/// the two-tier touch (size-only vs full-value) is not implemented yet, so
+	/// a size lookup conservatively pays cold without warming the slot.
 	fn get_storage_size(&mut self, key: &Key) -> (Option<u32>, StorageAccessCost);
 
 	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
