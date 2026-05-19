@@ -442,7 +442,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					&client,
 					&transaction_pool,
 					pool.clone(),
-					hop.promotion_buffer_blocks,
+					hop.promotion_buffer_secs,
 					hop.check_interval,
 				);
 				task_manager.spawn_handle().spawn("hop-maintenance", None, task.run());

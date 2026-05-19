@@ -100,7 +100,7 @@ if let Some(pool) = hop_pool {
         &client,
         &transaction_pool,
         pool,
-        hop_params.promotion_buffer_blocks,
+        hop_params.promotion_buffer_secs,
         hop_params.check_interval,
     );
     task_manager.spawn_handle().spawn("hop-maintenance", None, task.run());
