@@ -118,6 +118,17 @@ where
 			IERC20Calls::allowance(call) => Self::allowance(asset_id, call, env),
 			IERC20Calls::approve(call) => Self::approve(asset_id, call, env),
 			IERC20Calls::transferFrom(call) => Self::transfer_from(asset_id, call, env),
+
+			// IERC20Metadata (`name`/`symbol`/`decimals`) and EIP-2612 permit
+			// (`permit`/`nonces`/`DOMAIN_SEPARATOR`) are exposed by `ethereum-standards`
+			// but their handlers are not backported to this stable branch.
+			IERC20Calls::name(_) |
+			IERC20Calls::symbol(_) |
+			IERC20Calls::decimals(_) |
+			IERC20Calls::permit(_) |
+			IERC20Calls::nonces(_) |
+			IERC20Calls::DOMAIN_SEPARATOR(_) =>
+				Err(Error::Revert(Revert { reason: "Unsupported function".into() })),
 		}
 	}
 }
