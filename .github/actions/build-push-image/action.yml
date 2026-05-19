@@ -73,7 +73,7 @@ runs:
         if [[ ${{ github.event_name }} == "pull_request" ]]; then export DOCKERHUB_TAG=$DOCKERHUB_TAG-${GITHUB_PR_HEAD_SHA::8}; fi
         if [[ ${{ github.event_name }} == "push" ]]; then export DOCKERHUB_TAG=$DOCKERHUB_TAG-${GITHUB_SHA::8}; fi
         #
-        export SOURCE_TAG=${{ github.event.pull_request.head.sha || 'master' }}
+        export SOURCE_TAG=${{ github.event.pull_request.head.sha || 'master' }}-$(date -u '+%Y%m%dT%H%M%SZ')
         if [[ ${{ github.event_name }} == "push" ]]; then export SOURCE_TAG="master-${GITHUB_SHA::8}"; fi
         docker tag "europe-docker.pkg.dev/parity-ci-2024/temp-images/${{ inputs.image-name }}:${SOURCE_TAG}" $DOCKERHUB_TAG
         docker push $DOCKERHUB_TAG
