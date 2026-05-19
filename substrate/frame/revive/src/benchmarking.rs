@@ -1533,7 +1533,7 @@ mod benchmarks {
 
 		frame_benchmarking::add_to_whitelist_child(
 			child_trie_info.storage_key().to_vec(),
-			sp_io::hashing::blake2_256(&key).to_vec(),
+			key.clone(),
 		);
 
 		let result;
@@ -1561,7 +1561,7 @@ mod benchmarks {
 
 		frame_benchmarking::add_to_whitelist_child(
 			child_trie_info.storage_key().to_vec(),
-			sp_io::hashing::blake2_256(&key).to_vec(),
+			key.clone(),
 		);
 
 		let result;
@@ -1589,7 +1589,7 @@ mod benchmarks {
 
 		frame_benchmarking::add_to_whitelist_child(
 			child_trie_info.storage_key().to_vec(),
-			sp_io::hashing::blake2_256(&key).to_vec(),
+			key.clone(),
 		);
 
 		let val = Some(value.clone());
@@ -1619,7 +1619,7 @@ mod benchmarks {
 
 		frame_benchmarking::add_to_whitelist_child(
 			child_trie_info.storage_key().to_vec(),
-			sp_io::hashing::blake2_256(&key).to_vec(),
+			key.clone(),
 		);
 
 		let val = Some(value.clone());
