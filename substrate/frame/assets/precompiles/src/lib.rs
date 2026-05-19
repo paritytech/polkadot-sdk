@@ -287,8 +287,6 @@ where
 
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
-const ERR_INVALID_UTF8_NAME: &str = "Invalid UTF-8 in name";
-const ERR_INVALID_UTF8_SYMBOL: &str = "Invalid UTF-8 in symbol";
 
 impl<Runtime, PrecompileConfig, Instance: 'static> ERC20<Runtime, PrecompileConfig, Instance>
 where
@@ -518,7 +516,7 @@ where
 			// overwrite (not accumulate) — matching ERC-20 spec semantics.
 			// NOTE: This does not mitigate the well-known ERC-20 approve front-running
 			// race condition. Callers concerned about this should approve to 0 first,
-			// or use `permit()` to atomically authorize a new allowance.
+			// or use increaseAllowance/decreaseAllowance if available.
 			if !current.is_zero() {
 				pallet_assets::Pallet::<Runtime, Instance>::do_cancel_approval(
 					&asset_id,
@@ -874,68 +872,47 @@ where
 	}
 
 	/// Execute the name call.
-	///
-	/// Returns the asset's metadata name. Real ERC-20s never revert on
-	/// introspection of an unset name, so an asset with no metadata row
-	/// (e.g. a foreign asset registered before metadata is set) returns
-	/// the empty string — matching the path used by `domain_separator`.
-	///
-	/// Non-UTF-8 bytes reject with a revert. The chain stores raw bytes
-	/// but `compute_domain_separator` hashes those raw bytes directly,
-	/// while EIP-712 wallets that read `name()` will hash the
-	/// UTF-8-encoding of the decoded string. If we lossy-decoded here,
-	/// those two hashes would diverge for any non-UTF-8 name and every
-	/// `permit()` against the asset would fail at signer recovery with a
-	/// confusing "Signer does not match owner" — turning a metadata bug
-	/// into something that looks like a wallet bug. Reverting keeps the
-	/// failure overt at the introspection layer.
 	fn name(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
-		let name_bytes = pallet_assets::Pallet::<Runtime, Instance>::name(asset_id);
-		let name = alloc::string::String::from_utf8(name_bytes)
-			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_UTF8_NAME.into() }))?;
+
+		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
+			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
+
+		let name = alloc::string::String::from_utf8(metadata.name.to_vec())
+			.map_err(|_| Error::Revert(Revert { reason: "Invalid UTF-8 in name".into() }))?;
+
 		Ok(IERC20::nameCall::abi_encode_returns(&name))
 	}
 
-	/// Execute the symbol call. See `name` for the missing-metadata and
-	/// non-UTF-8 contracts.
+	/// Execute the symbol call.
 	fn symbol(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
-		let symbol_bytes = pallet_assets::Pallet::<Runtime, Instance>::symbol(asset_id);
-		let symbol = alloc::string::String::from_utf8(symbol_bytes)
-			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_UTF8_SYMBOL.into() }))?;
+
+		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
+			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
+
+		let symbol = alloc::string::String::from_utf8(metadata.symbol.to_vec())
+			.map_err(|_| Error::Revert(Revert { reason: "Invalid UTF-8 in symbol".into() }))?;
+
 		Ok(IERC20::symbolCall::abi_encode_returns(&symbol))
 	}
 
 	/// Execute the decimals call.
-	///
-	/// Returns whatever `pallet_assets` reports — which is `0` for an asset
-	/// with no metadata row (the `Metadata` storage uses `ValueQuery`).
-	///
-	/// **Soft semantic change vs. pre-PR.** Pre-PR this reverted on missing
-	/// metadata; some wallets caught that revert and fell back to `decimals = 18`
-	/// (the OZ default). Post-PR they will instead read `0` and display
-	/// balances `10^N` larger than intended. We accept that risk because:
-	/// (i) the precompile must not lie about chain state — `pallet_assets`
-	/// itself reports `0` to every other consumer (RPC, XCM, other pallets)
-	/// for the same asset; (ii) any fixed default we could substitute (18,
-	/// 12, …) would also be wrong for some asset, making the precompile
-	/// worse than the chain it wraps; (iii) reverting broke block-explorer
-	/// token discovery, which was the original motivation to stop. The
-	/// onus is on chain operators to call `force_set_metadata` *before*
-	/// exposing an asset to EVM tooling.
 	fn decimals(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
-		let decimals = pallet_assets::Pallet::<Runtime, Instance>::decimals(asset_id);
-		Ok(IERC20::decimalsCall::abi_encode_returns(&decimals))
+
+		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
+			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
+
+		Ok(IERC20::decimalsCall::abi_encode_returns(&metadata.decimals))
 	}
 }
