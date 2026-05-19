@@ -201,14 +201,24 @@ impl<T: v0::MigrationConfig> SteppedMigration for MigrateV0ToV1<T> {
 						approvals,
 					};
 
-					// Create attempt ticket and store
 					let security_deposit = T::SecurityDeposit::get();
-					let Ok(ticket) = crate::AttemptTicketOf::<T>::new(
+					let ticket = match crate::AttemptTicketOf::<T>::new(
 						&rescuer,
 						Pallet::<T>::attempt_footprint(),
-					) else {
-						frame_support::defensive!("MigrateV0ToV1: Failed to create Attempt ticket");
-						continue;
+					) {
+						Ok(ticket) => ticket,
+						Err(e) => {
+							log::error!(
+								"MigrateV0ToV1: Failed to create Attempt ticket for rescuer {:?}: {:?}",
+								rescuer,
+								e,
+							);
+							crate::IdentifiedConsideration {
+								depositor: rescuer.clone(),
+								ticket: None,
+								_phantom: Default::default(),
+							}
+						},
 					};
 
 					let held_deposit = if <T as pallet::Config>::Currency::hold(
@@ -255,16 +265,22 @@ impl<T: v0::MigrationConfig> SteppedMigration for MigrateV0ToV1<T> {
 					let inheritance_priority = 0u32;
 
 					// Create inheritor ticket
-					if let Ok(ticket) = Pallet::<T>::inheritor_ticket(&inheritor) {
-						pallet::Inheritor::<T>::insert(
-							&lost,
-							(inheritance_priority, inheritor, ticket),
-						);
-					} else {
-						frame_support::defensive!(
-							"MigrateV0ToV1: Failed to create Inheritor ticket"
-						);
-					}
+					let ticket = match Pallet::<T>::inheritor_ticket(&inheritor) {
+						Ok(ticket) => ticket,
+						Err(e) => {
+							log::error!("MigrateV0ToV1: Failed to create Inheritor ticket for rescuer {:?}: {:?}", inheritor, e);
+							crate::IdentifiedConsideration {
+								depositor: rescuer.clone(),
+								ticket: None,
+								_phantom: Default::default(),
+							}
+						},
+					};
+
+					pallet::Inheritor::<T>::insert(
+						&lost,
+						(inheritance_priority, inheritor, ticket),
+					);
 				},
 			}
 		}
@@ -680,10 +696,114 @@ mod tests {
 			assert_eq!(pallet::Pallet::<T>::on_chain_storage_version(), 1);
 
 			let _guard = frame_support::StorageNoopGuard::new();
-			run_migration();
-
 			let mut meter = WeightMeter::new();
 			assert!(matches!(MigrateV0ToV1::<T>::step(None, &mut meter), Ok(None)));
+		});
+	}
+
+	#[test]
+	fn migration_inserts_attempt_when_storage_ticket_fails() {
+		new_test_ext().execute_with(|| {
+			let config_deposit = 50u128;
+			let old_recovery_deposit = 10u128;
+			let rescuer: u64 = 99;
+			let lost = ALICE;
+
+			pallet_balances::Pallet::<Test>::force_set_balance(
+				frame_system::RawOrigin::Root.into(),
+				rescuer,
+				crate::mock::ExistentialDeposit::get() as u128 + old_recovery_deposit,
+			)
+			.unwrap();
+			Balances::reserve(&rescuer, old_recovery_deposit).unwrap();
+
+			v0::Recoverable::<T>::insert(
+				lost,
+				v0::RecoveryConfig {
+					delay_period: 10u64,
+					deposit: config_deposit,
+					friends: friends(&[BOB, CHARLIE]),
+					threshold: 2,
+				},
+			);
+			Balances::reserve(&lost, config_deposit).unwrap();
+
+			v0::ActiveRecoveries::<T>::insert(
+				lost,
+				rescuer,
+				v0::ActiveRecovery {
+					created: 1u64,
+					deposit: old_recovery_deposit,
+					friends: BoundedVec::default(),
+				},
+			);
+
+			run_migration();
+
+			assert_eq!(v0::ActiveRecoveries::<T>::iter().count(), 0);
+			assert_eq!(
+				pallet::Attempt::<T>::iter().count(),
+				1,
+				"Attempt entry must survive even when storage ticket creation fails",
+			);
+
+			let (attempt, ticket, held_deposit) = pallet::Attempt::<T>::get(lost, 0u32).unwrap();
+			assert_eq!(attempt.initiator, rescuer);
+			assert!(ticket.ticket.is_none(), "Inner ticket must be None when storage hold failed");
+			assert_eq!(ticket.depositor, rescuer);
+			assert_eq!(held_deposit, 0, "Security deposit must be zero when hold failed");
+
+			use frame::traits::fungible::InspectHold;
+			assert_eq!(
+				Balances::balance_on_hold(&crate::HoldReason::AttemptStorage.into(), &rescuer),
+				0,
+			);
+			assert_eq!(
+				Balances::balance_on_hold(&crate::HoldReason::SecurityDeposit.into(), &rescuer),
+				0,
+			);
+		});
+	}
+
+	#[test]
+	fn migration_inserts_inheritor_when_ticket_fails() {
+		use frame::traits::fungible::InspectHold;
+
+		new_test_ext().execute_with(|| {
+			let rescuer: u64 = 99;
+			let lost = ALICE;
+
+			pallet_balances::Pallet::<Test>::force_set_balance(
+				frame_system::RawOrigin::Root.into(),
+				rescuer,
+				crate::mock::ExistentialDeposit::get() as u128,
+			)
+			.unwrap();
+			frame_system::Pallet::<T>::inc_consumers(&rescuer).unwrap();
+
+			v0::Proxy::<T>::insert(rescuer, lost);
+			assert_eq!(frame_system::Pallet::<T>::consumers(&rescuer), 1);
+
+			run_migration();
+
+			assert_eq!(v0::Proxy::<T>::iter().count(), 0);
+			assert_eq!(frame_system::Pallet::<T>::consumers(&rescuer), 0);
+
+			assert_eq!(
+				pallet::Inheritor::<T>::iter().count(),
+				1,
+				"Inheritor entry must survive even when ticket creation fails",
+			);
+			let (priority, inheritor, ticket) = pallet::Inheritor::<T>::get(lost).unwrap();
+			assert_eq!(inheritor, rescuer);
+			assert_eq!(priority, 0);
+			assert!(ticket.ticket.is_none(), "Inner ticket must be None when hold failed");
+			assert_eq!(ticket.depositor, rescuer);
+
+			assert_eq!(
+				Balances::balance_on_hold(&crate::HoldReason::InheritorStorage.into(), &rescuer),
+				0,
+			);
 		});
 	}
 }
