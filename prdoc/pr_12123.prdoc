@@ -10,3 +10,5 @@ crates:
   bump: patch
 - name: cumulus-pallet-parachain-system
   bump: patch
+- name: pallet-assets
+  bump: patch
