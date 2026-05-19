@@ -798,6 +798,17 @@ fn weighted_points_share_proportional_with_unequal_weights() {
 	assert_eq!(points.weighted_points_share(&21, w), Perbill::from_rational(1u32, 5u32));
 }
 
+#[test]
+fn weighted_points_share_zero_weight_validator_excluded_from_denominator() {
+	// alice has points but zero weight → her term (0 · 3) drops out of the denominator,
+	// so bob (the only non-zero-weighted earner) collects the full share.
+	let points: EraRewardPoints<Test> =
+		EraRewardPoints { total: 5, individual: bounded_btree_map![11 => 3, 21 => 2] };
+	let w = |stash: &AccountId| if *stash == 11 { 0u128 } else { 100u128 };
+	assert_eq!(points.weighted_points_share(&11, w), Perbill::zero());
+	assert_eq!(points.weighted_points_share(&21, w), Perbill::one());
+}
+
 // ===== Performance scaling integration tests =====
 
 #[test]
