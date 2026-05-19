@@ -467,7 +467,7 @@ impl RequestManager {
 	/// Returns the soonest instant at which any candidate's next parallel slot becomes ready
 	/// to dispatch. For a candidate with `k` slots already in flight (`1 <= k < MAX`), the
 	/// next slot fires at `first_request_sent_at + k * PARALLEL_FETCH_THRESHOLD`
-	/// 
+	///
 	/// Returns `None` if no candidate has a parallel slot available.
 	/// available (either nothing in flight, or all MAX slots filled).
 	pub fn next_parallel_fire_time(&self) -> Option<Instant> {
