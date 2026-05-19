@@ -11,4 +11,4 @@ doc:
     formula. The full era budget is paid out to non-zero performers, so there is no pot residue to forfeit.
 crates:
 - name: pallet-staking-async
-  bump: minor
+  bump: patch
