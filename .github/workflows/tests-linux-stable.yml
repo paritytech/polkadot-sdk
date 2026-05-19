@@ -38,7 +38,10 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: script
         id: required
-        run: WASM_BUILD_NO_COLOR=1 forklift cargo test -p staging-node-cli --release --locked -- --ignored
+        run: |
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory $GITHUB_WORKSPACE
+          WASM_BUILD_NO_COLOR=1 forklift cargo test -p staging-node-cli --release --locked -- --ignored
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
@@ -64,7 +67,10 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: script
         id: required
-        run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet --cargo-quiet
+        run: |
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory $GITHUB_WORKSPACE
+          forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet --cargo-quiet
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
@@ -102,7 +108,7 @@ jobs:
         id: required
         run: |
           # Fixes "detected dubious ownership" error in the ci
-          git config --global --add safe.directory '*'
+          git config --global --add safe.directory $GITHUB_WORKSPACE
           forklift cargo nextest run \
             --workspace \
             --locked \
@@ -147,6 +153,8 @@ jobs:
       - name: script
         id: required
         run: |
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory $GITHUB_WORKSPACE
           forklift cargo nextest run --workspace \
                    --locked \
                    --release \
