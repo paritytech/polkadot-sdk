@@ -190,9 +190,13 @@ pub fn put_raw(child_info: &ChildInfo, key: &[u8], value: &[u8]) {
 }
 
 /// Calculate current child root value.
-pub fn root(child_info: &ChildInfo) -> Vec<u8> {
+///
+/// The generic parameter `H` is the hash type used by the runtime; it is used solely to size the
+/// output buffer.
+pub fn root<H: codec::MaxEncodedLen>(child_info: &ChildInfo) -> Vec<u8> {
 	match child_info.child_type() {
-		ChildType::ParentKeyId => sp_io::default_child_storage::root(child_info.storage_key()),
+		ChildType::ParentKeyId =>
+			sp_io::default_child_storage::root::<H>(child_info.storage_key()),
 	}
 }
 

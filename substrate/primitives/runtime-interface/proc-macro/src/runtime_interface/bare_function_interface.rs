@@ -169,10 +169,12 @@ fn function_wrapper_impl(name: &Ident, wrapper: &TraitItemFn) -> Result<TokenStr
 	let args = get_function_arguments(&wrapper.sig);
 	let return_value = &wrapper.sig.output;
 	let body = wrapper.default.as_ref().expect("wrapper must have a body").to_token_stream();
+	let generics = &wrapper.sig.generics;
+	let where_clause = &wrapper.sig.generics.where_clause;
 
 	Ok(quote_spanned! { wrapper.span() =>
 		#( #attrs )*
-		pub fn #name( #( #args, )* ) #return_value {
+		pub fn #name #generics ( #( #args, )* ) #return_value #where_clause {
 			#body
 		}
 	})

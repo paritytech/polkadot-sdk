@@ -902,32 +902,28 @@ pub trait Storage {
 	///
 	/// The hashing algorithm is defined by the `Block`.
 	///
-	/// Fills provided output buffer with the SCALE encoded hash. Since the size of the resulting
+	/// Fills provided output buffer with the raw hash bytes. Since the size of the resulting
 	/// value is known to the caller, this function requires the provided buffer to be large enough
 	/// to store the entire value; otherwise, it will panic.
 	#[version(3)]
 	#[wrapped]
 	fn root(&mut self, out: PassFatPointerAndWrite<&mut [u8]>) {
 		let root = self.storage_root();
-		let encoded = codec::Encode::encode(&root);
 		assert!(
-			out.len() >= encoded.len(),
+			out.len() >= root.len(),
 			"Output buffer provided to store the storage root hash must be large enough"
 		);
-		out[..encoded.len()].copy_from_slice(&encoded[..]);
+		out[..root.len()].copy_from_slice(&root[..]);
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the `root` host
-	/// function.
+	/// function. The generic parameter `H` is the hash type used by the runtime; the wrapper
+	/// uses it solely to size the output buffer.
 	#[wrapper]
-	fn root() -> Vec<u8> {
-		// By this point, all the information about the length of the hash representing the storage
-		// root has been erased. We're using a generous buffer here. Making host functions generic
-		// over the hasher type is a big refactoring and is not worth it.
-		let mut root_out = vec![0u8; 256];
+	fn root<H: codec::MaxEncodedLen>() -> Vec<u8> {
+		let mut root_out = vec![0u8; H::max_encoded_len()];
 		root__wrapped(&mut root_out[..]);
-		codec::Decode::decode(&mut &root_out[..])
-			.expect("storage root is always a valid SCALE-encoded Vec<u8>; qed")
+		root_out
 	}
 
 	/// Always returns `None`. This function exists for compatibility reasons.
@@ -1448,7 +1444,7 @@ pub trait DefaultChildStorage {
 	/// "Commit" all existing operations and compute the resulting child storage root.
 	/// The hashing algorithm is defined by the `Block`.
 	///
-	/// Fills provided output buffer with the SCALE encoded hash. Since the size of the resulting
+	/// Fills provided output buffer with the raw hash bytes. Since the size of the resulting
 	/// value is known to the caller, this function requires the provided buffer to be large enough
 	/// to store the entire value; otherwise, it will panic.
 	#[version(3)]
@@ -1460,25 +1456,21 @@ pub trait DefaultChildStorage {
 	) {
 		let child_info = ChildInfo::new_default(storage_key);
 		let root = self.child_storage_root(&child_info);
-		let encoded = codec::Encode::encode(&root);
 		assert!(
-			out.len() >= encoded.len(),
+			out.len() >= root.len(),
 			"Output buffer provided to store the child storage root hash must be large enough"
 		);
-		out[..encoded.len()].copy_from_slice(&encoded[..]);
+		out[..root.len()].copy_from_slice(&root[..]);
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the `root` host
-	/// function.
+	/// function. The generic parameter `H` is the hash type used by the runtime; the wrapper
+	/// uses it solely to size the output buffer.
 	#[wrapper]
-	fn root(storage_key: impl AsRef<[u8]>) -> Vec<u8> {
-		// By this point, all the information about the length of the hash representing the storage
-		// root has been erased. We're using a generous buffer here. Making host functions generic
-		// over the hasher type is a big refactoring and is not worth it.
-		let mut root_out = vec![0u8; 256];
+	fn root<H: codec::MaxEncodedLen>(storage_key: impl AsRef<[u8]>) -> Vec<u8> {
+		let mut root_out = vec![0u8; H::max_encoded_len()];
 		root__wrapped(storage_key.as_ref(), &mut root_out[..]);
-		codec::Decode::decode(&mut &root_out[..])
-			.expect("child storage root is always a valid SCALE-encoded Vec<u8>; qed")
+		root_out
 	}
 
 	/// Child storage key iteration.
