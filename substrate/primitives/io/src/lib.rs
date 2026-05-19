@@ -81,8 +81,6 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 
-#[cfg(not(substrate_runtime))]
-use alloc::collections::BTreeMap;
 use strum::{EnumCount, FromRepr};
 
 #[cfg(not(substrate_runtime))]
@@ -1971,19 +1969,22 @@ impl Default for UseDalekExt {
 	}
 }
 
-/// Initial buffer capacity (in number of keys) for `*_public_keys` wrappers.
-const PUBLIC_KEYS_INITIAL_CAPACITY: usize = 16;
-
 /// Per-algorithm snapshots of public keys retained by [`PublicKeysCacheExt`].
+///
+/// At most one snapshot is cached per algorithm — the one populated by the most
+/// recent `*_public_keys` host call whose output buffer was too small to receive
+/// the full result. The next call with a sufficiently large buffer drains the
+/// snapshot, giving the two-call probe-then-fetch pattern of the convenience
+/// wrappers a consistent view of the keystore.
 #[cfg(not(substrate_runtime))]
 #[derive(Default)]
 pub struct PublicKeysCache {
-	/// Cached `ed25519` public keys per key type ID.
-	pub ed25519: BTreeMap<KeyTypeId, Vec<ed25519::Public>>,
-	/// Cached `sr25519` public keys per key type ID.
-	pub sr25519: BTreeMap<KeyTypeId, Vec<sr25519::Public>>,
-	/// Cached `ecdsa` public keys per key type ID.
-	pub ecdsa: BTreeMap<KeyTypeId, Vec<ecdsa::Public>>,
+	/// Cached `ed25519` public keys for one key type.
+	pub ed25519: Option<(KeyTypeId, Vec<ed25519::Public>)>,
+	/// Cached `sr25519` public keys for one key type.
+	pub sr25519: Option<(KeyTypeId, Vec<sr25519::Public>)>,
+	/// Cached `ecdsa` public keys for one key type.
+	pub ecdsa: Option<(KeyTypeId, Vec<ecdsa::Public>)>,
 }
 
 #[cfg(not(substrate_runtime))]
@@ -2040,7 +2041,8 @@ pub trait Crypto {
 			.extension::<PublicKeysCacheExt>()
 			.expect("`PublicKeysCacheExt` was just registered; qed")
 			.ed25519
-			.remove(&id);
+			.take()
+			.and_then(|(cached_id, keys)| (cached_id == id).then_some(keys));
 
 		let keys = match cached {
 			Some(snapshot) if out.len() >= snapshot.len() => snapshot,
@@ -2058,8 +2060,7 @@ pub trait Crypto {
 		} else {
 			self.extension::<PublicKeysCacheExt>()
 				.expect("`PublicKeysCacheExt` is registered; qed")
-				.ed25519
-				.insert(id, keys);
+				.ed25519 = Some((id, keys));
 		}
 
 		(total * key_size) as u32
@@ -2070,15 +2071,8 @@ pub trait Crypto {
 	#[wrapper]
 	fn ed25519_public_keys(id: KeyTypeId) -> Vec<ed25519::Public> {
 		let key_size = core::mem::size_of::<ed25519::Public>();
-		let mut keys = vec![ed25519::Public::default(); PUBLIC_KEYS_INITIAL_CAPACITY];
-
-		let num_keys = ed25519_public_keys__wrapped(id, &mut keys) as usize / key_size;
-		if num_keys <= keys.len() {
-			keys.truncate(num_keys);
-			return keys;
-		}
-
-		keys.resize(num_keys, ed25519::Public::default());
+		let num_keys = ed25519_public_keys__wrapped(id, &mut []) as usize / key_size;
+		let mut keys = vec![ed25519::Public::default(); num_keys];
 		let num_keys = ed25519_public_keys__wrapped(id, &mut keys) as usize / key_size;
 		keys.truncate(num_keys);
 		keys
@@ -2354,7 +2348,8 @@ pub trait Crypto {
 			.extension::<PublicKeysCacheExt>()
 			.expect("`PublicKeysCacheExt` was just registered; qed")
 			.sr25519
-			.remove(&id);
+			.take()
+			.and_then(|(cached_id, keys)| (cached_id == id).then_some(keys));
 
 		let keys = match cached {
 			Some(snapshot) if out.len() >= snapshot.len() => snapshot,
@@ -2372,8 +2367,7 @@ pub trait Crypto {
 		} else {
 			self.extension::<PublicKeysCacheExt>()
 				.expect("`PublicKeysCacheExt` is registered; qed")
-				.sr25519
-				.insert(id, keys);
+				.sr25519 = Some((id, keys));
 		}
 
 		(total * key_size) as u32
@@ -2384,15 +2378,8 @@ pub trait Crypto {
 	#[wrapper]
 	fn sr25519_public_keys(id: KeyTypeId) -> Vec<sr25519::Public> {
 		let key_size = core::mem::size_of::<sr25519::Public>();
-		let mut keys = vec![sr25519::Public::default(); PUBLIC_KEYS_INITIAL_CAPACITY];
-
-		let num_keys = sr25519_public_keys__wrapped(id, &mut keys) as usize / key_size;
-		if num_keys <= keys.len() {
-			keys.truncate(num_keys);
-			return keys;
-		}
-
-		keys.resize(num_keys, sr25519::Public::default());
+		let num_keys = sr25519_public_keys__wrapped(id, &mut []) as usize / key_size;
+		let mut keys = vec![sr25519::Public::default(); num_keys];
 		let num_keys = sr25519_public_keys__wrapped(id, &mut keys) as usize / key_size;
 		keys.truncate(num_keys);
 		keys
@@ -2543,7 +2530,8 @@ pub trait Crypto {
 			.extension::<PublicKeysCacheExt>()
 			.expect("`PublicKeysCacheExt` was just registered; qed")
 			.ecdsa
-			.remove(&id);
+			.take()
+			.and_then(|(cached_id, keys)| (cached_id == id).then_some(keys));
 
 		let keys = match cached {
 			Some(snapshot) if out.len() >= snapshot.len() => snapshot,
@@ -2561,8 +2549,7 @@ pub trait Crypto {
 		} else {
 			self.extension::<PublicKeysCacheExt>()
 				.expect("`PublicKeysCacheExt` is registered; qed")
-				.ecdsa
-				.insert(id, keys);
+				.ecdsa = Some((id, keys));
 		}
 
 		(total * key_size) as u32
@@ -2573,15 +2560,8 @@ pub trait Crypto {
 	#[wrapper]
 	fn ecdsa_public_keys(id: KeyTypeId) -> Vec<ecdsa::Public> {
 		let key_size = core::mem::size_of::<ecdsa::Public>();
-		let mut keys = vec![ecdsa::Public::default(); PUBLIC_KEYS_INITIAL_CAPACITY];
-
-		let num_keys = ecdsa_public_keys__wrapped(id, &mut keys) as usize / key_size;
-		if num_keys <= keys.len() {
-			keys.truncate(num_keys);
-			return keys;
-		}
-
-		keys.resize(num_keys, ecdsa::Public::default());
+		let num_keys = ecdsa_public_keys__wrapped(id, &mut []) as usize / key_size;
+		let mut keys = vec![ecdsa::Public::default(); num_keys];
 		let num_keys = ecdsa_public_keys__wrapped(id, &mut keys) as usize / key_size;
 		keys.truncate(num_keys);
 		keys
