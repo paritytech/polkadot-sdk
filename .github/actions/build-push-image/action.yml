@@ -81,5 +81,4 @@ runs:
         export SOURCE_TAG="${SOURCE_TAG}-${IMAGE_TAG_TIMESTAMP}"
         docker tag "europe-docker.pkg.dev/parity-ci-2024/temp-images/${{ inputs.image-name }}:${SOURCE_TAG}" $DOCKERHUB_TAG
         docker push $DOCKERHUB_TAG
-        
-        docker push $DOCKERHUB_TAG
+
