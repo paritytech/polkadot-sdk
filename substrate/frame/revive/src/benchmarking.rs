@@ -1581,7 +1581,7 @@ mod benchmarks {
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
 		let input_bytes = IStorage::IStorageCalls::containsStorage(IStorage::containsStorageCall {
-			flags: StorageFlags::TRANSIENT.bits(),
+			flags: StorageFlags::empty().bits(),
 			key: vec![0u8; max_key_len as usize].into(),
 			isFixedKey: false,
 		})
