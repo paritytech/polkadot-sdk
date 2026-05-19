@@ -466,7 +466,7 @@ pub mod pallet {
 			type DepositPerChildTrieItem = DepositPerChildTrieItem;
 			type Time = Self;
 			type AllowEVMBytecode = ConstBool<true>;
-			type ColdWarmPricingEnabled = ConstBool<false>;
+			type ColdWarmPricingEnabled = ConstBool<true>;
 			type UploadOrigin = EnsureSigned<Self::AccountId>;
 			type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 			type WeightInfo = ();
