@@ -200,7 +200,7 @@ pub fn get_relay_slot(relay_header: &PHeader) -> Option<Slot> {
 				target: LOG_TARGET,
 				hash = %relay_header.hash(),
 				?err,
-				"Relay chain block does not contain a BABE pre-digest.",
+				"Relay chain block does not contain a BABE pre-digest. This should never happen.",
 			);
 			None
 		},

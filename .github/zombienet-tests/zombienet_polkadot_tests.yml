@@ -231,7 +231,7 @@
 
 - job-name: "zombienet-polkadot-scheduling-v2-and-v3-collator-with-v3-validators"
   test-filter: "functional::scheduling_v3::scheduling_v2_and_v3_collator_with_v3_validators"
-  runner-type: "default"
+  runner-type: "large"
   use-zombienet-sdk: true
   cumulus-image: "test-parachain"
 

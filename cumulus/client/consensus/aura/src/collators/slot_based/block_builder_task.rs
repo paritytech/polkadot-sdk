@@ -31,7 +31,9 @@ use crate::{
 };
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
-use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
+use cumulus_client_consensus_common::{
+	self as consensus_common, get_relay_slot, ParachainBlockImportMarker,
+};
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
@@ -347,13 +349,7 @@ where
 				.collator_service()
 				.check_block_status(initial_parent_hash, &initial_parent_header);
 
-			let Ok(relay_slot) =
-				sc_consensus_babe::find_pre_digest::<RelayBlock>(&relay_parent_header)
-					.map(|babe_pre_digest| babe_pre_digest.slot())
-			else {
-				tracing::error!(target: LOG_TARGET, "Relay chain does not contain babe slot. This should never happen.");
-				continue;
-			};
+			let Some(relay_slot) = get_relay_slot(&relay_parent_header) else { continue };
 
 			let included_header_hash = included_header.hash();
 
