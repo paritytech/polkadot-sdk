@@ -60,4 +60,32 @@ interface IERC20 {
      ///
      /// Emits a {Transfer} event.
     function transferFrom(address from, address to, uint256 value) external returns (bool);
+
+     /// @dev Returns the name of the token. (IERC20Metadata extension)
+    function name() external view returns (string memory);
+
+     /// @dev Returns the symbol of the token. (IERC20Metadata extension)
+    function symbol() external view returns (string memory);
+
+     /// @dev Returns the decimals places of the token. (IERC20Metadata extension)
+    function decimals() external view returns (uint8);
+
+     /// @dev EIP-2612 permit. Sets `value` as the allowance of `spender` over `owner`'s
+     /// tokens, given `owner`'s signed approval.
+    function permit(
+        address owner,
+        address spender,
+        uint256 value,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external;
+
+     /// @dev Returns the current nonce for `owner`. (EIP-2612)
+    function nonces(address owner) external view returns (uint256);
+
+     /// @dev Returns the EIP-712 domain separator. (EIP-2612)
+    // solhint-disable-next-line func-name-mixedcase
+    function DOMAIN_SEPARATOR() external view returns (bytes32);
 }

@@ -6314,7 +6314,7 @@ dependencies = [
 
 [[package]]
 name = "ethereum-standards"
-version = "0.1.2"
+version = "0.1.4"
 dependencies = [
  "alloy-core",
 ]
