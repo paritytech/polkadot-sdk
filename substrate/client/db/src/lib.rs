@@ -65,7 +65,7 @@ use sc_client_api::{
 	blockchain::{BlockGap, BlockGapType},
 	leaves::{FinalizationOutcome, LeafSet},
 	utils::is_descendent_of,
-	IoInfo, MemoryInfo, MemorySize, TrieCacheContext, UsageInfo,
+	IoInfo, MemoryInfo, MemorySize, PrefetchedIndexedTransactions, TrieCacheContext, UsageInfo,
 };
 use sc_state_db::{IsPruned, LastCanonicalized, StateDb};
 use sp_arithmetic::traits::Saturating;
@@ -911,6 +911,7 @@ pub struct BlockImportOperation<Block: BlockT> {
 	create_gap: bool,
 	reset_storage: bool,
 	index_ops: Vec<IndexOperation>,
+	prefetched_indexed_transactions: HashMap<DbHash, Vec<u8>>,
 }
 
 impl<Block: BlockT> BlockImportOperation<Block> {
@@ -1071,6 +1072,17 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 
 	fn update_transaction_index(&mut self, index_ops: Vec<IndexOperation>) -> ClientResult<()> {
 		self.index_ops = index_ops;
+		Ok(())
+	}
+
+	fn set_prefetched_indexed_transactions(
+		&mut self,
+		data: PrefetchedIndexedTransactions,
+	) -> ClientResult<()> {
+		self.index_ops = data.ops;
+		for (hash, bytes) in data.renew_payloads {
+			self.prefetched_indexed_transactions.insert(DbHash::from_slice(&hash), bytes);
+		}
 		Ok(())
 	}
 
@@ -1275,6 +1287,22 @@ impl<Block: BlockT> Backend<Block> {
 	) -> Self {
 		let db = kvdb_memorydb::create(crate::utils::NUM_COLUMNS);
 		let db = sp_database::as_database(db);
+		Self::new_test_with_tx_storage_source(
+			blocks_pruning,
+			canonicalization_delay,
+			DatabaseSource::Custom { db, require_create_flag: true },
+			pruning_filters,
+		)
+	}
+
+	/// Test backend with caller-chosen `DatabaseSource` (memdb / rocksdb / parity-db).
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn new_test_with_tx_storage_source(
+		blocks_pruning: BlocksPruning,
+		canonicalization_delay: u64,
+		source: DatabaseSource,
+		pruning_filters: Vec<Arc<dyn PruningFilter>>,
+	) -> Self {
 		let state_pruning = match blocks_pruning {
 			BlocksPruning::KeepAll => PruningMode::ArchiveAll,
 			BlocksPruning::KeepFinalized => PruningMode::ArchiveCanonical,
@@ -1283,7 +1311,7 @@ impl<Block: BlockT> Backend<Block> {
 		let db_setting = DatabaseSettings {
 			trie_cache_maximum_size: Some(16 * 1024 * 1024),
 			state_pruning: Some(state_pruning),
-			source: DatabaseSource::Custom { db, require_create_flag: true },
+			source,
 			blocks_pruning,
 			pruning_filters,
 			metrics_registry: None,
@@ -1669,13 +1697,17 @@ impl<Block: BlockT> Backend<Block> {
 
 			transaction.set_from_vec(columns::HEADER, &lookup_key, pending_block.header.encode());
 			if let Some(body) = pending_block.body {
-				// If we have any index operations we save block in the new format with indexed
-				// extrinsic headers Otherwise we save the body as a single blob.
+				// Runtime-produced `index_ops` override wrapper-supplied ones when both are
+				// present.
 				if operation.index_ops.is_empty() {
 					transaction.set_from_vec(columns::BODY, &lookup_key, body.encode());
 				} else {
-					let body =
-						apply_index_ops::<Block>(&mut transaction, body, operation.index_ops);
+					let body = apply_index_ops::<Block>(
+						&mut transaction,
+						body,
+						operation.index_ops,
+						operation.prefetched_indexed_transactions,
+					);
 					transaction.set_from_vec(columns::BODY_INDEX, &lookup_key, body);
 				}
 			}
@@ -2234,6 +2266,7 @@ fn apply_index_ops<Block: BlockT>(
 	transaction: &mut Transaction<DbHash>,
 	body: Vec<Block::Extrinsic>,
 	ops: Vec<IndexOperation>,
+	mut prefetched: HashMap<DbHash, Vec<u8>>,
 ) -> Vec<u8> {
 	let mut extrinsic_index: Vec<DbExtrinsic<Block>> = Vec::with_capacity(body.len());
 	let mut index_map = HashMap::new();
@@ -2253,6 +2286,13 @@ fn apply_index_ops<Block: BlockT>(
 			},
 		}
 	}
+	let mut store_or_reference = |tx: &mut Transaction<DbHash>, hash: DbHash| {
+		if let Some(bytes) = prefetched.remove(&hash) {
+			tx.store(columns::TRANSACTION, hash, bytes);
+		} else {
+			tx.reference(columns::TRANSACTION, hash);
+		}
+	};
 	let mut n_inserted = 0usize;
 	let mut n_renew_slots = 0usize;
 	let mut n_renew_hashes = 0usize;
@@ -2265,12 +2305,12 @@ fn apply_index_ops<Block: BlockT>(
 			if hashes.len() == 1 {
 				// Single renewal: backwards-compatible Indexed variant
 				let hash = hashes[0];
-				transaction.reference(columns::TRANSACTION, hash);
+				store_or_reference(transaction, hash);
 				DbExtrinsic::Indexed { hash, header: encoded }
 			} else {
 				// Multi-renewal: bump ref counter for each hash
 				for hash in &hashes {
-					transaction.reference(columns::TRANSACTION, *hash);
+					store_or_reference(transaction, *hash);
 				}
 				DbExtrinsic::MultiRenew { hashes, extrinsic: encoded }
 			}
@@ -2374,6 +2414,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			create_gap: true,
 			reset_storage: false,
 			index_ops: Default::default(),
+			prefetched_indexed_transactions: Default::default(),
 		})
 	}
 
@@ -2931,6 +2972,26 @@ pub(crate) mod tests {
 		body: Vec<UncheckedXt>,
 		transaction_index: Option<Vec<IndexOperation>>,
 	) -> Result<H256, sp_blockchain::Error> {
+		insert_block_with_prefetched(
+			backend,
+			number,
+			parent_hash,
+			extrinsics_root,
+			body,
+			transaction_index,
+			Vec::new(),
+		)
+	}
+
+	pub fn insert_block_with_prefetched(
+		backend: &Backend<Block>,
+		number: u64,
+		parent_hash: H256,
+		extrinsics_root: H256,
+		body: Vec<UncheckedXt>,
+		transaction_index: Option<Vec<IndexOperation>>,
+		prefetched: Vec<([u8; 32], Vec<u8>)>,
+	) -> Result<H256, sp_blockchain::Error> {
 		use sp_runtime::testing::Digest;
 
 		let digest = Digest::default();
@@ -2940,11 +3001,62 @@ pub(crate) mod tests {
 		let block_hash = if number == 0 { Default::default() } else { parent_hash };
 		let mut op = backend.begin_operation().unwrap();
 		backend.begin_state_operation(&mut op, block_hash).unwrap();
+		if !prefetched.is_empty() {
+			op.set_prefetched_indexed_transactions(PrefetchedIndexedTransactions {
+				ops: Vec::new(),
+				renew_payloads: prefetched,
+			})
+			.unwrap();
+		}
 		if let Some(index) = transaction_index {
 			op.update_transaction_index(index).unwrap();
 		}
 
-		// Insert some fake data to ensure that the block can be found in the state column.
+		let (root, overlay) = op.old_state.storage_root(
+			vec![(block_hash.as_ref(), Some(block_hash.as_ref()))].into_iter(),
+			StateVersion::V1,
+		);
+		op.update_db_storage(overlay).unwrap();
+		header.state_root = root.into();
+
+		op.set_block_data(header.clone(), Some(body), None, None, NewBlockState::Best, true)
+			.unwrap();
+
+		backend.commit_operation(op)?;
+
+		Ok(header.hash())
+	}
+
+	/// Exercises the `set_prefetched_indexed_transactions` → `update_transaction_index`
+	/// call order; mirrors `apply_block` so runtime ops override wrapper-supplied ones.
+	pub fn insert_block_with_synthetic_ops(
+		backend: &Backend<Block>,
+		number: u64,
+		parent_hash: H256,
+		extrinsics_root: H256,
+		body: Vec<UncheckedXt>,
+		runtime_index_ops: Vec<IndexOperation>,
+		synthetic_index_ops: Vec<IndexOperation>,
+		renew_payloads: Vec<([u8; 32], Vec<u8>)>,
+	) -> Result<H256, sp_blockchain::Error> {
+		use sp_runtime::testing::Digest;
+
+		let digest = Digest::default();
+		let mut header =
+			Header { number, parent_hash, state_root: Default::default(), digest, extrinsics_root };
+
+		let block_hash = if number == 0 { Default::default() } else { parent_hash };
+		let mut op = backend.begin_operation().unwrap();
+		backend.begin_state_operation(&mut op, block_hash).unwrap();
+		op.set_prefetched_indexed_transactions(PrefetchedIndexedTransactions {
+			ops: synthetic_index_ops,
+			renew_payloads,
+		})
+		.unwrap();
+		if !runtime_index_ops.is_empty() {
+			op.update_transaction_index(runtime_index_ops).unwrap();
+		}
+
 		let (root, overlay) = op.old_state.storage_root(
 			vec![(block_hash.as_ref(), Some(block_hash.as_ref()))].into_iter(),
 			StateVersion::V1,
@@ -5163,10 +5275,10 @@ pub(crate) mod tests {
 		];
 
 		let mut tx1: Transaction<DbHash> = Transaction::new();
-		let bytes1 = apply_index_ops::<Block>(&mut tx1, body.clone(), ops.clone());
+		let bytes1 = apply_index_ops::<Block>(&mut tx1, body.clone(), ops.clone(), HashMap::new());
 
 		let mut tx2: Transaction<DbHash> = Transaction::new();
-		let bytes2 = apply_index_ops::<Block>(&mut tx2, body, ops);
+		let bytes2 = apply_index_ops::<Block>(&mut tx2, body, ops, HashMap::new());
 
 		assert_eq!(bytes1, bytes2);
 
@@ -6452,7 +6564,7 @@ pub(crate) mod tests {
 		use tempfile::TempDir;
 
 		#[derive(Debug, Clone, Copy)]
-		enum BackendKind {
+		pub(super) enum BackendKind {
 			KvdbMemdb,
 			ParityDb,
 			RocksDb,
@@ -6644,6 +6756,898 @@ pub(crate) mod tests {
 			let bytes = b"a7-bytes".to_vec();
 			commit_store(&factory, h, bytes.clone());
 			assert_eq!(get_value(&factory, h).as_deref(), Some(bytes.as_slice()));
+		}
+	}
+
+	mod indexed_transaction_backend_tests {
+		use super::*;
+		use super::database_adapter_tests::BackendKind;
+		use crate::utils::NUM_COLUMNS;
+		use rstest::rstest;
+		use std::path::PathBuf;
+		use tempfile::TempDir;
+
+		struct BackendFactory {
+			backend: Option<Backend<Block>>,
+			kind: BackendKind,
+			blocks_pruning: BlocksPruning,
+			tmp_path: Option<PathBuf>,
+			_tmp: Option<TempDir>,
+		}
+
+		impl BackendFactory {
+			fn new(kind: BackendKind, blocks_pruning: BlocksPruning) -> Self {
+				match kind {
+					BackendKind::KvdbMemdb => Self {
+						backend: Some(Backend::new_test_with_tx_storage(blocks_pruning, 10)),
+						kind,
+						blocks_pruning,
+						tmp_path: None,
+						_tmp: None,
+					},
+					BackendKind::ParityDb => {
+						let tmp = TempDir::new().unwrap();
+						let tmp_path = tmp.path().to_path_buf();
+						let backend = Backend::new_test_with_tx_storage_source(
+							blocks_pruning,
+							10,
+							DatabaseSource::ParityDb { path: tmp_path.clone() },
+							Default::default(),
+						);
+						Self {
+							backend: Some(backend),
+							kind,
+							blocks_pruning,
+							tmp_path: Some(tmp_path),
+							_tmp: Some(tmp),
+						}
+					},
+					BackendKind::RocksDb => {
+						let tmp = TempDir::new().unwrap();
+						let tmp_path = tmp.path().to_path_buf();
+						let mut cfg = kvdb_rocksdb::DatabaseConfig::with_columns(NUM_COLUMNS);
+						cfg.create_if_missing = true;
+						let db = kvdb_rocksdb::Database::open(&cfg, &tmp_path)
+							.expect("kvdb-rocksdb open succeeds in test");
+						let db = sp_database::as_database(db);
+						let backend = Backend::new_test_with_tx_storage_source(
+							blocks_pruning,
+							10,
+							DatabaseSource::Custom { db, require_create_flag: true },
+							Default::default(),
+						);
+						Self {
+							backend: Some(backend),
+							kind,
+							blocks_pruning,
+							tmp_path: Some(tmp_path),
+							_tmp: Some(tmp),
+						}
+					},
+				}
+			}
+
+			fn backend(&self) -> &Backend<Block> {
+				self.backend.as_ref().expect("backend present")
+			}
+
+			// parity-db drains commit_overlay on `Drop`. Drop+reopen before
+			// `is_none()` assertions to avoid flakes. No-op for memdb/rocksdb.
+			fn refresh_for_assertion(&mut self) {
+				if !matches!(self.kind, BackendKind::ParityDb) {
+					return;
+				}
+				let path = self.tmp_path.clone().expect("paritydb has tmp_path");
+				self.backend = None;
+				self.backend = Some(Backend::new_test_with_tx_storage_source(
+					self.blocks_pruning,
+					10,
+					DatabaseSource::ParityDb { path },
+					Default::default(),
+				));
+			}
+		}
+
+		fn check_prefetched_renew_creates_transaction_entry_atomically(
+			factory: &mut BackendFactory,
+		) {
+			let payload = b"prefetched-blob".to_vec();
+			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
+			let payload_hash_arr: [u8; 32] = payload_hash.into();
+
+			let block0 = insert_block_with_prefetched(
+				factory.backend(),
+				0,
+				Default::default(),
+				Default::default(),
+				vec![UncheckedXt::new_transaction(0.into(), ())],
+				Some(vec![IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() }]),
+				vec![(payload_hash_arr, payload.clone())],
+			)
+			.unwrap();
+
+			let bc = factory.backend().blockchain();
+			assert_eq!(
+				bc.indexed_transaction(payload_hash).unwrap().as_deref(),
+				Some(payload.as_slice()),
+			);
+			let body = bc.block_indexed_body(block0).unwrap().unwrap();
+			assert_eq!(body.len(), 1);
+			factory.refresh_for_assertion();
+			assert_eq!(body[0], payload);
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn prefetched_renew_creates_transaction_entry_atomically(#[case] kind: BackendKind) {
+			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
+			check_prefetched_renew_creates_transaction_entry_atomically(&mut factory);
+		}
+
+		fn check_prefetched_multi_renew_same_hash_balanced_lifecycle(factory: &mut BackendFactory) {
+			let payload = b"prefetched-blob".to_vec();
+			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
+			let payload_hash_arr: [u8; 32] = payload_hash.into();
+
+			let mut blocks = Vec::new();
+			let block0 = insert_block_with_prefetched(
+				factory.backend(),
+				0,
+				Default::default(),
+				Default::default(),
+				vec![UncheckedXt::new_transaction(0.into(), ())],
+				Some(vec![
+					IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() },
+					IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() },
+				]),
+				vec![(payload_hash_arr, payload.clone())],
+			)
+			.unwrap();
+			blocks.push(block0);
+
+			assert!(factory
+				.backend()
+				.blockchain()
+				.indexed_transaction(payload_hash)
+				.unwrap()
+				.is_some());
+
+			let mut prev = block0;
+			for i in 1..6u64 {
+				prev = insert_block(
+					factory.backend(),
+					i,
+					prev,
+					None,
+					Default::default(),
+					vec![UncheckedXt::new_transaction(i.into(), ())],
+					None,
+				)
+				.unwrap();
+				blocks.push(prev);
+			}
+
+			for i in 1..6 {
+				let mut op = factory.backend().begin_operation().unwrap();
+				factory.backend().begin_state_operation(&mut op, blocks[4]).unwrap();
+				op.mark_finalized(blocks[i], None).unwrap();
+				factory.backend().commit_operation(op).unwrap();
+			}
+
+			factory.refresh_for_assertion();
+			assert!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(payload_hash)
+					.unwrap()
+					.is_none(),
+				"prefetched data should be pruned once the only referencing block falls out",
+			);
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn prefetched_multi_renew_same_hash_balanced_lifecycle(#[case] kind: BackendKind) {
+			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
+			check_prefetched_multi_renew_same_hash_balanced_lifecycle(&mut factory);
+		}
+
+		fn check_prefetched_renew_with_existing_data_keeps_value(factory: &mut BackendFactory) {
+			let payload_xt = UncheckedXt::new_transaction(7.into(), ()).encode();
+			let payload = payload_xt[1..].to_vec();
+			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
+			let payload_hash_arr: [u8; 32] = payload_hash.into();
+
+			let block0 = insert_block(
+				factory.backend(),
+				0,
+				Default::default(),
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(7.into(), ())],
+				Some(vec![IndexOperation::Insert {
+					extrinsic: 0,
+					hash: payload_hash_arr.into(),
+					size: payload.len() as u32,
+				}]),
+			)
+			.unwrap();
+
+			assert!(factory
+				.backend()
+				.blockchain()
+				.indexed_transaction(payload_hash)
+				.unwrap()
+				.is_some());
+
+			let block1 = insert_block_with_prefetched(
+				factory.backend(),
+				1,
+				block0,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(99.into(), ())],
+				Some(vec![IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() }]),
+				vec![(payload_hash_arr, payload.clone())],
+			)
+			.unwrap();
+
+			factory.refresh_for_assertion();
+			let bc = factory.backend().blockchain();
+			assert_eq!(
+				bc.indexed_transaction(payload_hash).unwrap().as_deref(),
+				Some(payload.as_slice()),
+			);
+			let body = bc.block_indexed_body(block1).unwrap().unwrap();
+			assert_eq!(body.len(), 1);
+			assert_eq!(body[0], payload);
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn prefetched_renew_with_existing_data_keeps_value(#[case] kind: BackendKind) {
+			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(10));
+			check_prefetched_renew_with_existing_data_keeps_value(&mut factory);
+		}
+
+		fn check_prefetched_single_renew_full_lifecycle_through_prune(
+			factory: &mut BackendFactory,
+		) {
+			let payload = b"prefetched-blob".to_vec();
+			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
+			let payload_hash_arr: [u8; 32] = payload_hash.into();
+
+			let mut blocks = Vec::new();
+			let block0 = insert_block_with_prefetched(
+				factory.backend(),
+				0,
+				Default::default(),
+				Default::default(),
+				vec![UncheckedXt::new_transaction(0.into(), ())],
+				Some(vec![IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() }]),
+				vec![(payload_hash_arr, payload.clone())],
+			)
+			.unwrap();
+			blocks.push(block0);
+
+			assert_eq!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(payload_hash)
+					.unwrap()
+					.as_deref(),
+				Some(payload.as_slice()),
+			);
+
+			let mut prev = block0;
+			for i in 1..6u64 {
+				prev = insert_block(
+					factory.backend(),
+					i,
+					prev,
+					None,
+					Default::default(),
+					vec![UncheckedXt::new_transaction(i.into(), ())],
+					None,
+				)
+				.unwrap();
+				blocks.push(prev);
+			}
+
+			for i in 1..6 {
+				let mut op = factory.backend().begin_operation().unwrap();
+				factory.backend().begin_state_operation(&mut op, blocks[4]).unwrap();
+				op.mark_finalized(blocks[i], None).unwrap();
+				factory.backend().commit_operation(op).unwrap();
+			}
+
+			factory.refresh_for_assertion();
+			assert!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(payload_hash)
+					.unwrap()
+					.is_none(),
+				"single-renew prefetched data must be fully released after retention exit",
+			);
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn prefetched_single_renew_full_lifecycle(#[case] kind: BackendKind) {
+			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
+			check_prefetched_single_renew_full_lifecycle_through_prune(&mut factory);
+		}
+
+		fn check_redundant_prefetch_on_local_data_balanced_lifecycle(factory: &mut BackendFactory) {
+			let payload_xt = UncheckedXt::new_transaction(5.into(), ()).encode();
+			let payload = payload_xt[1..].to_vec();
+			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
+			let payload_hash_arr: [u8; 32] = payload_hash.into();
+
+			let mut blocks = Vec::new();
+			let block0 = insert_block(
+				factory.backend(),
+				0,
+				Default::default(),
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(5.into(), ())],
+				Some(vec![IndexOperation::Insert {
+					extrinsic: 0,
+					hash: payload_hash_arr.into(),
+					size: payload.len() as u32,
+				}]),
+			)
+			.unwrap();
+			blocks.push(block0);
+
+			let block1 = insert_block_with_prefetched(
+				factory.backend(),
+				1,
+				block0,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(99.into(), ())],
+				Some(vec![IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() }]),
+				vec![(payload_hash_arr, payload.clone())],
+			)
+			.unwrap();
+			blocks.push(block1);
+
+			assert!(factory
+				.backend()
+				.blockchain()
+				.indexed_transaction(payload_hash)
+				.unwrap()
+				.is_some());
+
+			let mut prev = block1;
+			for i in 2..7u64 {
+				prev = insert_block(
+					factory.backend(),
+					i,
+					prev,
+					None,
+					Default::default(),
+					vec![UncheckedXt::new_transaction(i.into(), ())],
+					None,
+				)
+				.unwrap();
+				blocks.push(prev);
+			}
+
+			for i in 1..7 {
+				let mut op = factory.backend().begin_operation().unwrap();
+				factory.backend().begin_state_operation(&mut op, blocks[5]).unwrap();
+				op.mark_finalized(blocks[i], None).unwrap();
+				factory.backend().commit_operation(op).unwrap();
+			}
+
+			factory.refresh_for_assertion();
+			assert!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(payload_hash)
+					.unwrap()
+					.is_none(),
+				"redundant prefetch must not leak refcount through prune",
+			);
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn redundant_prefetch_on_local_data_balanced_lifecycle(#[case] kind: BackendKind) {
+			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
+			check_redundant_prefetch_on_local_data_balanced_lifecycle(&mut factory);
+		}
+
+		fn check_same_block_insert_and_renew_different_indices_with_prefetch(
+			factory: &mut BackendFactory,
+		) {
+			let x_xt = UncheckedXt::new_transaction(0.into(), ()).encode();
+			let x = x_xt[1..].to_vec();
+			let x_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x);
+			let x_hash_arr: [u8; 32] = x_hash.into();
+
+			let mut blocks = Vec::new();
+
+			let block0 = insert_block(
+				factory.backend(),
+				0,
+				Default::default(),
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(0.into(), ())],
+				Some(vec![IndexOperation::Insert {
+					extrinsic: 0,
+					hash: x_hash_arr.into(),
+					size: x.len() as u32,
+				}]),
+			)
+			.unwrap();
+			blocks.push(block0);
+
+			let block1 = insert_block_with_prefetched(
+				factory.backend(),
+				1,
+				block0,
+				Default::default(),
+				vec![
+					UncheckedXt::new_transaction(0.into(), ()),
+					UncheckedXt::new_transaction(99.into(), ()),
+				],
+				Some(vec![
+					IndexOperation::Insert {
+						extrinsic: 0,
+						hash: x_hash_arr.into(),
+						size: x.len() as u32,
+					},
+					IndexOperation::Renew { extrinsic: 1, hash: x_hash_arr.into() },
+				]),
+				vec![(x_hash_arr, x.clone())],
+			)
+			.unwrap();
+			blocks.push(block1);
+
+			assert!(factory.backend().blockchain().indexed_transaction(x_hash).unwrap().is_some());
+
+			let mut prev = block1;
+			for i in 2..8u64 {
+				prev = insert_block(
+					factory.backend(),
+					i,
+					prev,
+					None,
+					Default::default(),
+					vec![UncheckedXt::new_transaction(i.into(), ())],
+					None,
+				)
+				.unwrap();
+				blocks.push(prev);
+			}
+
+			for i in 1..8 {
+				let mut op = factory.backend().begin_operation().unwrap();
+				factory.backend().begin_state_operation(&mut op, blocks[6]).unwrap();
+				op.mark_finalized(blocks[i], None).unwrap();
+				factory.backend().commit_operation(op).unwrap();
+			}
+
+			factory.refresh_for_assertion();
+			assert!(
+				factory.backend().blockchain().indexed_transaction(x_hash).unwrap().is_none(),
+				"same-block Insert+Renew with prefetch must balance refcount through prune",
+			);
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn same_block_insert_and_renew_different_indices_with_prefetch(#[case] kind: BackendKind) {
+			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
+			check_same_block_insert_and_renew_different_indices_with_prefetch(&mut factory);
+		}
+
+		fn check_sequential_renew_blocks_all_prefetched_eventually_pruned(
+			factory: &mut BackendFactory,
+		) {
+			let payload = b"prefetched-blob".to_vec();
+			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
+			let payload_hash_arr: [u8; 32] = payload_hash.into();
+
+			let mut blocks = Vec::new();
+			let mut prev = Default::default();
+			for i in 0..4u64 {
+				let block = insert_block_with_prefetched(
+					factory.backend(),
+					i,
+					prev,
+					Default::default(),
+					vec![UncheckedXt::new_transaction(i.into(), ())],
+					Some(vec![IndexOperation::Renew {
+						extrinsic: 0,
+						hash: payload_hash_arr.into(),
+					}]),
+					vec![(payload_hash_arr, payload.clone())],
+				)
+				.unwrap();
+				blocks.push(block);
+				prev = block;
+			}
+
+			assert!(factory
+				.backend()
+				.blockchain()
+				.indexed_transaction(payload_hash)
+				.unwrap()
+				.is_some());
+
+			for i in 4..10u64 {
+				prev = insert_block(
+					factory.backend(),
+					i,
+					prev,
+					None,
+					Default::default(),
+					vec![UncheckedXt::new_transaction(i.into(), ())],
+					None,
+				)
+				.unwrap();
+				blocks.push(prev);
+			}
+
+			for i in 1..10 {
+				let mut op = factory.backend().begin_operation().unwrap();
+				factory.backend().begin_state_operation(&mut op, blocks[8]).unwrap();
+				op.mark_finalized(blocks[i], None).unwrap();
+				factory.backend().commit_operation(op).unwrap();
+			}
+
+			factory.refresh_for_assertion();
+			assert!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(payload_hash)
+					.unwrap()
+					.is_none(),
+				"sequential prefetched renews must all release through prune",
+			);
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn sequential_renew_blocks_all_prefetched_eventually_pruned(#[case] kind: BackendKind) {
+			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
+			check_sequential_renew_blocks_all_prefetched_eventually_pruned(&mut factory);
+		}
+
+		// Synthetic-ops precedence tests. kvdb-memdb only — backend-agnostic logic.
+
+		#[test]
+		fn synthetic_ops_take_effect_when_runtime_index_ops_empty() {
+			let factory = BackendFactory::new(BackendKind::KvdbMemdb, BlocksPruning::KeepAll);
+			let payload_xt = UncheckedXt::new_transaction(7.into(), ()).encode();
+			let payload = payload_xt[1..].to_vec();
+			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
+			let payload_hash_arr: [u8; 32] = payload_hash.into();
+
+			insert_block_with_synthetic_ops(
+				factory.backend(),
+				0,
+				Default::default(),
+				Default::default(),
+				vec![UncheckedXt::new_transaction(7.into(), ())],
+				Vec::new(),
+				vec![IndexOperation::Insert {
+					extrinsic: 0,
+					hash: payload_hash_arr.into(),
+					size: payload.len() as u32,
+				}],
+				Vec::new(),
+			)
+			.unwrap();
+
+			assert_eq!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(payload_hash)
+					.unwrap()
+					.as_deref(),
+				Some(payload.as_slice()),
+			);
+		}
+
+		#[test]
+		fn runtime_index_ops_win_over_synthetic() {
+			let factory = BackendFactory::new(BackendKind::KvdbMemdb, BlocksPruning::KeepAll);
+			let payload_xt = UncheckedXt::new_transaction(11.into(), ()).encode();
+			let payload = payload_xt[1..].to_vec();
+			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
+			let payload_hash_arr: [u8; 32] = payload_hash.into();
+
+			let bogus_hash_arr = [0xAAu8; 32];
+
+			insert_block_with_synthetic_ops(
+				factory.backend(),
+				0,
+				Default::default(),
+				Default::default(),
+				vec![UncheckedXt::new_transaction(11.into(), ())],
+				vec![IndexOperation::Insert {
+					extrinsic: 0,
+					hash: payload_hash_arr.into(),
+					size: payload.len() as u32,
+				}],
+				vec![IndexOperation::Insert {
+					extrinsic: 0,
+					hash: bogus_hash_arr.into(),
+					size: payload.len() as u32,
+				}],
+				Vec::new(),
+			)
+			.unwrap();
+
+			assert_eq!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(payload_hash)
+					.unwrap()
+					.as_deref(),
+				Some(payload.as_slice()),
+				"runtime ops win",
+			);
+			assert!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(bogus_hash_arr.into())
+					.unwrap()
+					.is_none(),
+				"synthetic dropped",
+			);
+		}
+
+		#[test]
+		fn empty_both_falls_back_to_plain_body() {
+			let factory = BackendFactory::new(BackendKind::KvdbMemdb, BlocksPruning::KeepAll);
+			let body = vec![UncheckedXt::new_transaction(42.into(), ())];
+
+			let block_hash = insert_block_with_synthetic_ops(
+				factory.backend(),
+				0,
+				Default::default(),
+				Default::default(),
+				body.clone(),
+				Vec::new(),
+				Vec::new(),
+				Vec::new(),
+			)
+			.unwrap();
+
+			let stored_body = factory.backend().blockchain().body(block_hash).unwrap();
+			assert_eq!(stored_body, Some(body));
+		}
+
+		#[test]
+		fn synthetic_renew_uses_prefetched_payload() {
+			let factory = BackendFactory::new(BackendKind::KvdbMemdb, BlocksPruning::KeepAll);
+			let payload = b"prefetched-blob".to_vec();
+			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
+			let payload_hash_arr: [u8; 32] = payload_hash.into();
+
+			insert_block_with_synthetic_ops(
+				factory.backend(),
+				0,
+				Default::default(),
+				Default::default(),
+				vec![UncheckedXt::new_transaction(1.into(), ())],
+				Vec::new(),
+				vec![IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() }],
+				vec![(payload_hash_arr, payload.clone())],
+			)
+			.unwrap();
+
+			assert_eq!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(payload_hash)
+					.unwrap()
+					.as_deref(),
+				Some(payload.as_slice()),
+			);
+		}
+
+		#[test]
+		fn synthetic_renew_without_prefetched_references_existing() {
+			let factory = BackendFactory::new(BackendKind::KvdbMemdb, BlocksPruning::KeepAll);
+			let payload_xt = UncheckedXt::new_transaction(5.into(), ()).encode();
+			let payload = payload_xt[1..].to_vec();
+			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
+			let payload_hash_arr: [u8; 32] = payload_hash.into();
+
+			let block0 = insert_block(
+				factory.backend(),
+				0,
+				Default::default(),
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(5.into(), ())],
+				Some(vec![IndexOperation::Insert {
+					extrinsic: 0,
+					hash: payload_hash_arr.into(),
+					size: payload.len() as u32,
+				}]),
+			)
+			.unwrap();
+
+			insert_block_with_synthetic_ops(
+				factory.backend(),
+				1,
+				block0,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(6.into(), ())],
+				Vec::new(),
+				vec![IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() }],
+				Vec::new(),
+			)
+			.unwrap();
+
+			assert_eq!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(payload_hash)
+					.unwrap()
+					.as_deref(),
+				Some(payload.as_slice()),
+			);
+		}
+
+		#[test]
+		fn synthetic_insert_extracts_tail_from_body() {
+			let factory = BackendFactory::new(BackendKind::KvdbMemdb, BlocksPruning::KeepAll);
+			let payload_xt = UncheckedXt::new_transaction(13.into(), ()).encode();
+			let tail_size = 4u32;
+			let tail_start = payload_xt.len() - tail_size as usize;
+			let expected_tail = payload_xt[tail_start..].to_vec();
+			let tail_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&expected_tail);
+			let tail_hash_arr: [u8; 32] = tail_hash.into();
+
+			insert_block_with_synthetic_ops(
+				factory.backend(),
+				0,
+				Default::default(),
+				Default::default(),
+				vec![UncheckedXt::new_transaction(13.into(), ())],
+				Vec::new(),
+				vec![IndexOperation::Insert {
+					extrinsic: 0,
+					hash: tail_hash_arr.into(),
+					size: tail_size,
+				}],
+				Vec::new(),
+			)
+			.unwrap();
+
+			assert_eq!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(tail_hash)
+					.unwrap()
+					.as_deref(),
+				Some(expected_tail.as_slice()),
+			);
+		}
+
+		#[test]
+		fn synthetic_insert_oversized_size_falls_back_to_full_extrinsic() {
+			let factory = BackendFactory::new(BackendKind::KvdbMemdb, BlocksPruning::KeepAll);
+			let payload_xt = UncheckedXt::new_transaction(17.into(), ()).encode();
+			let bogus_hash_arr = [0xBBu8; 32];
+			let oversized = (payload_xt.len() + 1) as u32;
+
+			let block_hash = insert_block_with_synthetic_ops(
+				factory.backend(),
+				0,
+				Default::default(),
+				Default::default(),
+				vec![UncheckedXt::new_transaction(17.into(), ())],
+				Vec::new(),
+				vec![IndexOperation::Insert {
+					extrinsic: 0,
+					hash: bogus_hash_arr.into(),
+					size: oversized,
+				}],
+				Vec::new(),
+			)
+			.unwrap();
+
+			assert!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(bogus_hash_arr.into())
+					.unwrap()
+					.is_none(),
+				"oversized synthetic Insert must fall back to DbExtrinsic::Full, no TRANSACTION write",
+			);
+			let stored_body = factory.backend().blockchain().body(block_hash).unwrap();
+			assert_eq!(
+				stored_body,
+				Some(vec![UncheckedXt::new_transaction(17.into(), ())]),
+				"body still reconstructible despite oversized Insert",
+			);
+		}
+
+		#[test]
+		fn multiple_synthetic_ops_per_block_apply_in_order() {
+			let factory = BackendFactory::new(BackendKind::KvdbMemdb, BlocksPruning::KeepAll);
+			let xt_a = UncheckedXt::new_transaction(21.into(), ()).encode();
+			let xt_b = UncheckedXt::new_transaction(22.into(), ()).encode();
+			let payload_a = xt_a[1..].to_vec();
+			let payload_b = xt_b[1..].to_vec();
+			let hash_a = <HashingFor<Block> as sp_core::Hasher>::hash(&payload_a);
+			let hash_b = <HashingFor<Block> as sp_core::Hasher>::hash(&payload_b);
+			let hash_a_arr: [u8; 32] = hash_a.into();
+			let hash_b_arr: [u8; 32] = hash_b.into();
+
+			insert_block_with_synthetic_ops(
+				factory.backend(),
+				0,
+				Default::default(),
+				Default::default(),
+				vec![
+					UncheckedXt::new_transaction(21.into(), ()),
+					UncheckedXt::new_transaction(22.into(), ()),
+				],
+				Vec::new(),
+				vec![
+					IndexOperation::Insert {
+						extrinsic: 0,
+						hash: hash_a_arr.to_vec(),
+						size: payload_a.len() as u32,
+					},
+					IndexOperation::Insert {
+						extrinsic: 1,
+						hash: hash_b_arr.to_vec(),
+						size: payload_b.len() as u32,
+					},
+				],
+				Vec::new(),
+			)
+			.unwrap();
+
+			assert_eq!(
+				factory.backend().blockchain().indexed_transaction(hash_a).unwrap().as_deref(),
+				Some(payload_a.as_slice()),
+				"first op",
+			);
+			assert_eq!(
+				factory.backend().blockchain().indexed_transaction(hash_b).unwrap().as_deref(),
+				Some(payload_b.as_slice()),
+				"second op",
+			);
 		}
 	}
 }

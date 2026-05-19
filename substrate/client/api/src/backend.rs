@@ -162,6 +162,17 @@ impl NewBlockState {
 	}
 }
 
+/// Out-of-band indexed-transaction data attached by upstream block-import wrappers
+/// (e.g. cumulus storage-chain-sync) for blocks the runtime did not execute locally.
+#[derive(Default, Debug, Clone)]
+pub struct PrefetchedIndexedTransactions {
+	/// Synthetic ops applied when the runtime produced none. Runtime ops override.
+	pub ops: Vec<IndexOperation>,
+
+	/// Payload bytes for `IndexOperation::Renew` hashes not yet in `TRANSACTION`.
+	pub renew_payloads: Vec<([u8; 32], Vec<u8>)>,
+}
+
 /// Block insertion operation.
 ///
 /// Keeps hold if the inserted block state and data.
@@ -254,6 +265,13 @@ pub trait BlockImportOperation<Block: BlockT> {
 	/// Add a transaction index operation.
 	fn update_transaction_index(&mut self, index: Vec<IndexOperation>)
 		-> sp_blockchain::Result<()>;
+
+	/// Apply wrapper-supplied data from [`PrefetchedIndexedTransactions`].
+	/// Called by `apply_block` before `update_transaction_index`; runtime ops override.
+	fn set_prefetched_indexed_transactions(
+		&mut self,
+		data: PrefetchedIndexedTransactions,
+	) -> sp_blockchain::Result<()>;
 
 	/// Configure whether to create a block gap if newly imported block is missing parent
 	fn set_create_gap(&mut self, create_gap: bool);

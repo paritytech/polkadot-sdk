@@ -18,6 +18,7 @@
 
 //! In memory client backend
 
+use crate::PrefetchedIndexedTransactions;
 use parking_lot::RwLock;
 use sp_blockchain::{CachedHeaderMetadata, HeaderMetadata};
 use sp_core::{
@@ -593,6 +594,13 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 	fn update_transaction_index(
 		&mut self,
 		_index: Vec<IndexOperation>,
+	) -> sp_blockchain::Result<()> {
+		Ok(())
+	}
+
+	fn set_prefetched_indexed_transactions(
+		&mut self,
+		_data: PrefetchedIndexedTransactions,
 	) -> sp_blockchain::Result<()> {
 		Ok(())
 	}

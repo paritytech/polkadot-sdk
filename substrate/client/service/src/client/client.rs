@@ -483,12 +483,17 @@ where
 			intermediates,
 			import_existing,
 			create_gap,
+			prefetched_indexed_transactions,
 			..
 		} = import_block;
 
 		if !intermediates.is_empty() {
 			return Err(Error::IncompletePipeline);
 		}
+
+		operation
+			.op
+			.set_prefetched_indexed_transactions(prefetched_indexed_transactions)?;
 
 		let fork_choice = fork_choice.ok_or(Error::IncompletePipeline)?;
 
