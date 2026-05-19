@@ -21,7 +21,7 @@ use crate::{list, pallet::*, view_helpers, Outcome, Position};
 use alloc::vec::Vec;
 use frame::deps::frame_support::{
 	storage::{transactional::with_transaction_opaque_err, TransactionOutcome},
-	traits::DefensiveOption,
+	traits::{DefensiveOption, Get},
 };
 
 /// Authoritative source of the priority for `(list_id, item)`. Consulted by
@@ -152,6 +152,10 @@ pub trait SortedListInterface<ListId, ItemId> {
 		priority: Self::Priority,
 		hint: Position<ItemId>,
 	) -> u32;
+
+	/// Maximum hint-repair walk length the implementation will accept before
+	/// returning `InvalidPositionHints`.
+	fn repair_budget() -> u32;
 }
 
 impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
@@ -287,5 +291,9 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 		hint: Position<T::ItemId>,
 	) -> u32 {
 		view_helpers::repair_steps_needed::<T>(list_id, priority, hint)
+	}
+
+	fn repair_budget() -> u32 {
+		T::MaxHintRepairSteps::get()
 	}
 }
