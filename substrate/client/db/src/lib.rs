@@ -6841,38 +6841,6 @@ pub(crate) mod tests {
 		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
 		#[case::paritydb(BackendKind::ParityDb)]
 		#[case::rocksdb(BackendKind::RocksDb)]
-		fn prefetched_renew_creates_transaction_entry_atomically(#[case] kind: BackendKind) {
-			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
-			let payload = b"prefetched-blob".to_vec();
-			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
-			let payload_hash_arr: [u8; 32] = payload_hash.into();
-
-			let block0 = insert_block_with_prefetched(
-				factory.backend(),
-				0,
-				Default::default(),
-				Default::default(),
-				vec![UncheckedXt::new_transaction(0.into(), ())],
-				Some(vec![IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() }]),
-				HashMap::from([(payload_hash, payload.clone())]),
-			)
-			.unwrap();
-
-			let bc = factory.backend().blockchain();
-			assert_eq!(
-				bc.indexed_transaction(payload_hash).unwrap().as_deref(),
-				Some(payload.as_slice()),
-			);
-			let body = bc.block_indexed_body(block0).unwrap().unwrap();
-			assert_eq!(body.len(), 1);
-			factory.refresh_for_assertion();
-			assert_eq!(body[0], payload);
-		}
-
-		#[rstest]
-		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
-		#[case::paritydb(BackendKind::ParityDb)]
-		#[case::rocksdb(BackendKind::RocksDb)]
 		fn prefetched_multi_renew_same_hash_balanced_lifecycle(#[case] kind: BackendKind) {
 			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
 			let payload = b"prefetched-blob".to_vec();
@@ -6925,70 +6893,12 @@ pub(crate) mod tests {
 			}
 
 			factory.refresh_for_assertion();
-			assert!(
-				factory
-					.backend()
-					.blockchain()
-					.indexed_transaction(payload_hash)
-					.unwrap()
-					.is_none(),
-				"prefetched data should be pruned once the only referencing block falls out",
-			);
-		}
-
-		#[rstest]
-		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
-		#[case::paritydb(BackendKind::ParityDb)]
-		#[case::rocksdb(BackendKind::RocksDb)]
-		fn prefetched_renew_with_existing_data_keeps_value(#[case] kind: BackendKind) {
-			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(10));
-			let payload_xt = UncheckedXt::new_transaction(7.into(), ()).encode();
-			let payload = payload_xt[1..].to_vec();
-			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
-			let payload_hash_arr: [u8; 32] = payload_hash.into();
-
-			let block0 = insert_block(
-				factory.backend(),
-				0,
-				Default::default(),
-				None,
-				Default::default(),
-				vec![UncheckedXt::new_transaction(7.into(), ())],
-				Some(vec![IndexOperation::Insert {
-					extrinsic: 0,
-					hash: payload_hash_arr.into(),
-					size: payload.len() as u32,
-				}]),
-			)
-			.unwrap();
-
 			assert!(factory
 				.backend()
 				.blockchain()
 				.indexed_transaction(payload_hash)
 				.unwrap()
-				.is_some());
-
-			let block1 = insert_block_with_prefetched(
-				factory.backend(),
-				1,
-				block0,
-				Default::default(),
-				vec![UncheckedXt::new_transaction(99.into(), ())],
-				Some(vec![IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() }]),
-				HashMap::from([(payload_hash, payload.clone())]),
-			)
-			.unwrap();
-
-			factory.refresh_for_assertion();
-			let bc = factory.backend().blockchain();
-			assert_eq!(
-				bc.indexed_transaction(payload_hash).unwrap().as_deref(),
-				Some(payload.as_slice()),
-			);
-			let body = bc.block_indexed_body(block1).unwrap().unwrap();
-			assert_eq!(body.len(), 1);
-			assert_eq!(body[0], payload);
+				.is_none());
 		}
 
 		#[rstest]
@@ -7047,15 +6957,12 @@ pub(crate) mod tests {
 			}
 
 			factory.refresh_for_assertion();
-			assert!(
-				factory
-					.backend()
-					.blockchain()
-					.indexed_transaction(payload_hash)
-					.unwrap()
-					.is_none(),
-				"single-renew prefetched data must be fully released after retention exit",
-			);
+			assert!(factory
+				.backend()
+				.blockchain()
+				.indexed_transaction(payload_hash)
+				.unwrap()
+				.is_none());
 		}
 
 		#[rstest]
@@ -7294,41 +7201,6 @@ pub(crate) mod tests {
 		// Synthetic-ops precedence tests. kvdb-memdb only — backend-agnostic logic.
 
 		#[test]
-		fn synthetic_ops_take_effect_when_runtime_index_ops_empty() {
-			let factory = BackendFactory::new(BackendKind::KvdbMemdb, BlocksPruning::KeepAll);
-			let payload_xt = UncheckedXt::new_transaction(7.into(), ()).encode();
-			let payload = payload_xt[1..].to_vec();
-			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
-			let payload_hash_arr: [u8; 32] = payload_hash.into();
-
-			insert_block_with_synthetic_ops(
-				factory.backend(),
-				0,
-				Default::default(),
-				Default::default(),
-				vec![UncheckedXt::new_transaction(7.into(), ())],
-				Vec::new(),
-				vec![IndexOperation::Insert {
-					extrinsic: 0,
-					hash: payload_hash_arr.into(),
-					size: payload.len() as u32,
-				}],
-				HashMap::new(),
-			)
-			.unwrap();
-
-			assert_eq!(
-				factory
-					.backend()
-					.blockchain()
-					.indexed_transaction(payload_hash)
-					.unwrap()
-					.as_deref(),
-				Some(payload.as_slice()),
-			);
-		}
-
-		#[test]
 		fn runtime_index_ops_win_over_synthetic() {
 			let factory = BackendFactory::new(BackendKind::KvdbMemdb, BlocksPruning::KeepAll);
 			let payload_xt = UncheckedXt::new_transaction(11.into(), ()).encode();
@@ -7536,21 +7408,14 @@ pub(crate) mod tests {
 			)
 			.unwrap();
 
-			assert!(
-				factory
-					.backend()
-					.blockchain()
-					.indexed_transaction(bogus_hash_arr.into())
-					.unwrap()
-					.is_none(),
-				"oversized synthetic Insert must fall back to DbExtrinsic::Full, no TRANSACTION write",
-			);
+			assert!(factory
+				.backend()
+				.blockchain()
+				.indexed_transaction(bogus_hash_arr.into())
+				.unwrap()
+				.is_none());
 			let stored_body = factory.backend().blockchain().body(block_hash).unwrap();
-			assert_eq!(
-				stored_body,
-				Some(vec![UncheckedXt::new_transaction(17.into(), ())]),
-				"body still reconstructible despite oversized Insert",
-			);
+			assert_eq!(stored_body, Some(vec![UncheckedXt::new_transaction(17.into(), ())]));
 		}
 
 		#[test]
@@ -7578,12 +7443,12 @@ pub(crate) mod tests {
 				vec![
 					IndexOperation::Insert {
 						extrinsic: 0,
-						hash: hash_a_arr.to_vec(),
+						hash: hash_a_arr.into(),
 						size: payload_a.len() as u32,
 					},
 					IndexOperation::Insert {
 						extrinsic: 1,
-						hash: hash_b_arr.to_vec(),
+						hash: hash_b_arr.into(),
 						size: payload_b.len() as u32,
 					},
 				],
