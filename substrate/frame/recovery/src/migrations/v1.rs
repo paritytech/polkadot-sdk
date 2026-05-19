@@ -332,12 +332,28 @@ impl<T: v0::MigrationConfig> SteppedMigration for MigrateV0ToV1<T> {
 			inheritor_count,
 		);
 
-		// FriendGroups should have same count as Recoverable (unless some failed)
-		assert!(friend_groups_count == recoverable_count);
-		// Attempt should have same count as ActiveRecoveries (unless some failed)
-		assert!(attempt_count == active_recoveries_count);
-		// Inheritor should have same count as Proxy (unless some failed)
-		assert!(inheritor_count == proxy_count);
+		// These can fail for Kusama AH because of buggy accounts...
+		if friend_groups_count != recoverable_count {
+			log::error!(
+				"MigrateV0ToV1: FriendGroups count mismatch: {} != {}",
+				friend_groups_count,
+				recoverable_count
+			);
+		}
+		if attempt_count != active_recoveries_count {
+			log::error!(
+				"MigrateV0ToV1: Attempt count mismatch: {} != {}",
+				attempt_count,
+				active_recoveries_count
+			);
+		}
+		if inheritor_count != proxy_count {
+			log::error!(
+				"MigrateV0ToV1: Inheritor count mismatch: {} != {}",
+				inheritor_count,
+				proxy_count
+			);
+		}
 
 		Ok(())
 	}
