@@ -677,12 +677,12 @@ pub mod migrations {
 				);
 
 				// Mirror `pallet_session::do_set_keys`: increment the account's consumer
-				// count so a future `purge_keys` decrements it correctly.
-				let inc_ok = frame_system::Pallet::<Runtime>::inc_consumers(&account).is_ok();
-				debug_assert!(
-					inc_ok,
-					"authority account has no providers; cannot inc_consumers in migration",
-				);
+				// count so a future `purge_keys` decrements it correctly. Zombienet-injected 
+				// aura keys without endowment are skipped — they have no consumer to track.
+				if frame_system::Pallet::<Runtime>::providers(&account) > 0 {
+					let inc_ok = frame_system::Pallet::<Runtime>::inc_consumers(&account).is_ok();
+					debug_assert!(inc_ok, "inc_consumers failed despite providers > 0");
+				}
 
 				validators.push(account.clone());
 				queued_keys.push((account, session_keys));
@@ -735,13 +735,19 @@ pub mod migrations {
 				2 * aura_count,
 				"KeyOwner count ≠ 2× aura Authorities (aura + audi)",
 			);
-			// Each validator account had its consumer count bumped by `inc_consumers`,
-			// mirroring `pallet_session::do_set_keys` semantics.
+			// Each provisioned validator account had its consumer count bumped by
+			// `inc_consumers`, mirroring `pallet_session::do_set_keys` semantics.
+			// Un-provisioned aura authorities (e.g. extra zombienet-generated collator keys
+			// that aren't in the endowed-accounts list) are skipped: `inc_consumers`
+			// returned `Err` for them at migration time, and they have no consumer to bump.
 			for account in &validators {
-				assert!(
-					frame_system::Pallet::<Runtime>::consumers(account) >= 1,
-					"validator {account:?} has 0 consumers; inc_consumers didn't fire",
-				);
+				if frame_system::Pallet::<Runtime>::providers(account) > 0 {
+					assert!(
+						frame_system::Pallet::<Runtime>::consumers(account) >= 1,
+						"provisioned validator {account:?} has 0 consumers; \
+						 inc_consumers didn't fire",
+					);
+				}
 			}
 		}
 	}
