@@ -359,12 +359,19 @@ impl ReplaySnapshotProvider for Weak<Store> {
 	fn register_filter_with_snapshot(
 		&self,
 		filter: &OptimizedTopicFilter,
-		register: &mut dyn FnMut(Vec<Vec<u8>>),
+		register: &mut dyn FnMut(Vec<Hash>),
 	) -> Result<()> {
 		let Some(store) = self.upgrade() else {
 			return Err(Error::InvalidConfig("statement store is closed".into()));
 		};
 		store.register_filter_with_snapshot(filter, register)
+	}
+
+	fn statement_by_hash(&self, hash: &Hash) -> Result<Option<Vec<u8>>> {
+		let Some(store) = self.upgrade() else {
+			return Err(Error::InvalidConfig("statement store is closed".into()));
+		};
+		store.statement_by_hash(hash)
 	}
 }
 
@@ -1649,19 +1656,23 @@ impl Store {
 	fn register_filter_with_snapshot(
 		&self,
 		filter: &OptimizedTopicFilter,
-		register: &mut dyn FnMut(Vec<Vec<u8>>),
+		register: &mut dyn FnMut(Vec<Hash>),
 	) -> Result<()> {
-		let mut existing_statements = Vec::new();
+		let mut snapshot_hashes = Vec::new();
+		let mut seen = HashSet::new();
 		let index = self.index.read();
-		self.collect_statements_locked(
-			None,
-			filter,
-			&index,
-			&mut existing_statements,
-			|statement| Some(statement.encode()),
-		)?;
-		register(existing_statements);
+		index.iterate_with(None, filter, |hash| {
+			if seen.insert(*hash) {
+				snapshot_hashes.push(*hash);
+			}
+			Ok(())
+		})?;
+		register(snapshot_hashes);
 		Ok(())
+	}
+
+	fn statement_by_hash(&self, hash: &Hash) -> Result<Option<Vec<u8>>> {
+		self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))
 	}
 }
 

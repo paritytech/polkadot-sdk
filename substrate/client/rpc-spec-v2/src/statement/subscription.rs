@@ -74,6 +74,12 @@ impl StatementSubscriptions {
 			.and_then(|connection| connection.get(sub_id).cloned())
 	}
 
+	// Temporary workaround for the race where jsonrpsee exposes the subscription id
+	// only after `PendingSubscriptionSink::accept()`, while the client can call
+	// `statement_unstable_add_filter` as soon as it receives the subscription
+	// response. Once `PendingSubscriptionSink::subscription_id()` is available in
+	// the jsonrpsee version used by polkadot-sdk, register the subscription before
+	// accepting it and replace this with a plain `get`.
 	pub async fn get_with_timeout(
 		&self,
 		conn_id: ConnectionId,

@@ -109,8 +109,10 @@ pub(crate) trait ReplaySnapshotProvider: Send + Sync {
 	fn register_filter_with_snapshot(
 		&self,
 		filter: &OptimizedTopicFilter,
-		register: &mut dyn FnMut(Vec<Vec<u8>>),
+		register: &mut dyn FnMut(Vec<sp_statement_store::Hash>),
 	) -> Result<()>;
+
+	fn statement_by_hash(&self, hash: &sp_statement_store::Hash) -> Result<Option<Vec<u8>>>;
 }
 
 /// A handle that attaches, removes, and inspects filters for one multi-filter subscription
@@ -174,7 +176,7 @@ impl SubscriptionHandle {
 
 struct PendingReplay {
 	filter_id: FilterId,
-	snapshot: VecDeque<Vec<u8>>,
+	snapshot_hashes: VecDeque<sp_statement_store::Hash>,
 }
 
 struct PendingLiveStatement {
@@ -208,15 +210,18 @@ impl MultiFilterSubscriptionState {
 		}
 	}
 
-	fn record_filter_added(&mut self, filter_id: FilterId, snapshot: Vec<Vec<u8>>) {
+	fn record_filter_added(
+		&mut self,
+		filter_id: FilterId,
+		snapshot_hashes: Vec<sp_statement_store::Hash>,
+	) {
 		self.active_filter_ids.insert(filter_id);
 		self.replays_in_progress.insert(filter_id);
-		for encoded in &snapshot {
-			let hash = sp_statement_store::hash_encoded(encoded);
-			self.replayed_filter_ids_by_hash.entry(hash).or_default().insert(filter_id);
+		for hash in &snapshot_hashes {
+			self.replayed_filter_ids_by_hash.entry(*hash).or_default().insert(filter_id);
 		}
 		self.pending_replays
-			.push_back(PendingReplay { filter_id, snapshot: snapshot.into() });
+			.push_back(PendingReplay { filter_id, snapshot_hashes: snapshot_hashes.into() });
 	}
 
 	fn record_filter_removed(&mut self, filter_id: FilterId) {
@@ -229,9 +234,14 @@ impl MultiFilterSubscriptionState {
 		});
 	}
 
-	fn next_event(&mut self) -> Option<MultiFilterSubscriptionEvent> {
+	fn next_event(
+		&mut self,
+		snapshot_provider: &dyn ReplaySnapshotProvider,
+	) -> Option<MultiFilterSubscriptionEvent> {
 		if !self.stopped {
-			if let Some(event) = self.next_replay_event().or_else(|| self.next_pending_live_event())
+			if let Some(event) = self
+				.next_replay_event(snapshot_provider)
+				.or_else(|| self.next_pending_live_event())
 			{
 				return Some(event);
 			}
@@ -244,10 +254,13 @@ impl MultiFilterSubscriptionState {
 		None
 	}
 
-	fn next_replay_event(&mut self) -> Option<MultiFilterSubscriptionEvent> {
+	fn next_replay_event(
+		&mut self,
+		snapshot_provider: &dyn ReplaySnapshotProvider,
+	) -> Option<MultiFilterSubscriptionEvent> {
 		let replay = self.pending_replays.front_mut()?;
 		let filter_id = replay.filter_id;
-		if replay.snapshot.is_empty() {
+		if replay.snapshot_hashes.is_empty() {
 			self.pending_replays.pop_front();
 			self.replays_in_progress.remove(&filter_id);
 			return Some(MultiFilterSubscriptionEvent::ReplayDone { filter_id });
@@ -255,16 +268,25 @@ impl MultiFilterSubscriptionState {
 
 		let mut statements = Vec::new();
 		let mut chunk_bytes = 0usize;
-		while let Some(stmt) = replay.snapshot.front() {
-			if !statements.is_empty() && chunk_bytes + stmt.len() > REPLAY_CHUNK_RAW_BYTES {
+		while let Some(hash) = replay.snapshot_hashes.front() {
+			let Ok(Some(statement)) = snapshot_provider.statement_by_hash(hash) else {
+				replay.snapshot_hashes.pop_front();
+				continue;
+			};
+			if !statements.is_empty() && chunk_bytes + statement.len() > REPLAY_CHUNK_RAW_BYTES {
 				break;
 			}
-			let bytes = replay.snapshot.pop_front().expect("front checked above; qed");
-			chunk_bytes = chunk_bytes.saturating_add(bytes.len());
-			statements.push(bytes);
+			replay.snapshot_hashes.pop_front();
+			chunk_bytes += statement.len();
+			statements.push(statement);
 			if chunk_bytes >= REPLAY_CHUNK_RAW_BYTES {
 				break;
 			}
+		}
+		if statements.is_empty() {
+			self.pending_replays.pop_front();
+			self.replays_in_progress.remove(&filter_id);
+			return Some(MultiFilterSubscriptionEvent::ReplayDone { filter_id });
 		}
 		Some(MultiFilterSubscriptionEvent::ReplayStatements { filter_id, statements })
 	}
@@ -718,11 +740,12 @@ impl SubscriptionsInfo {
 			let _ = reply.send(None);
 			return;
 		};
-		let SubscriptionRecord::Live { state, pending_request, .. } = record else {
+		let SubscriptionRecord::Live { state, pending_request, snapshot_provider, .. } = record
+		else {
 			let _ = reply.send(None);
 			return;
 		};
-		if let Some(event) = state.next_event() {
+		if let Some(event) = state.next_event(snapshot_provider.as_ref()) {
 			let _ = reply.send(Some(event));
 		} else if state.stopped && state.stop_emitted {
 			let _ = reply.send(None);
@@ -1066,6 +1089,7 @@ mod tests {
 	use super::*;
 	use sp_core::Decode;
 	use sp_statement_store::Topic;
+	use std::sync::atomic::{AtomicUsize, Ordering};
 
 	fn unwrap_statement(item: StatementEvent) -> Bytes {
 		match item {
@@ -1092,6 +1116,43 @@ mod tests {
 		}
 	}
 
+	struct TestReplaySnapshotProvider {
+		statements: HashMap<sp_statement_store::Hash, Vec<u8>>,
+		loads: AtomicUsize,
+	}
+
+	impl TestReplaySnapshotProvider {
+		fn new(statements: &[Statement]) -> Self {
+			Self {
+				statements: statements
+					.iter()
+					.map(|statement| (statement.hash(), statement.encode()))
+					.collect(),
+				loads: AtomicUsize::new(0),
+			}
+		}
+
+		fn loads(&self) -> usize {
+			self.loads.load(Ordering::SeqCst)
+		}
+	}
+
+	impl ReplaySnapshotProvider for TestReplaySnapshotProvider {
+		fn register_filter_with_snapshot(
+			&self,
+			_filter: &OptimizedTopicFilter,
+			register: &mut dyn FnMut(Vec<sp_statement_store::Hash>),
+		) -> Result<()> {
+			register(self.statements.keys().copied().collect());
+			Ok(())
+		}
+
+		fn statement_by_hash(&self, hash: &sp_statement_store::Hash) -> Result<Option<Vec<u8>>> {
+			self.loads.fetch_add(1, Ordering::SeqCst);
+			Ok(self.statements.get(hash).cloned())
+		}
+	}
+
 	#[test]
 	fn multi_filter_buffers_live_until_replay_done_and_deduplicates_replayed_filter() {
 		let mut state = MultiFilterSubscriptionState::new();
@@ -1099,33 +1160,36 @@ mod tests {
 		let live_filter = FilterId::new(2);
 		let statement = signed_statement(42);
 		let encoded = statement.encode();
+		let replay_provider = TestReplaySnapshotProvider::new(std::slice::from_ref(&statement));
 
-		state.record_filter_added(replay_filter, vec![encoded.clone()]);
+		state.record_filter_added(replay_filter, vec![statement.hash()]);
 		state.active_filter_ids.insert(live_filter);
+		assert_eq!(replay_provider.loads(), 0);
 
 		state.handle_live_event(live_event_for(&statement, vec![replay_filter, live_filter]));
 		assert_eq!(state.pending_live.len(), 1);
 
-		match state.next_event() {
+		match state.next_event(&replay_provider) {
 			Some(MultiFilterSubscriptionEvent::ReplayStatements { filter_id, statements }) => {
 				assert_eq!(filter_id, replay_filter);
 				assert_eq!(statements, vec![encoded]);
 			},
 			other => panic!("expected replay statements, got {other:?}"),
 		}
+		assert_eq!(replay_provider.loads(), 1);
 		assert!(matches!(
-			state.next_event(),
+			state.next_event(&replay_provider),
 			Some(MultiFilterSubscriptionEvent::ReplayDone { filter_id }) if filter_id == replay_filter
 		));
 
-		match state.next_event() {
+		match state.next_event(&replay_provider) {
 			Some(MultiFilterSubscriptionEvent::NewStatement(event)) => {
 				assert_eq!(event.hash, statement.hash());
 				assert_eq!(event.matched_filter_ids, vec![live_filter]);
 			},
 			other => panic!("expected live statement for non-replayed filter, got {other:?}"),
 		}
-		assert!(state.next_event().is_none());
+		assert!(state.next_event(&replay_provider).is_none());
 	}
 
 	#[test]
