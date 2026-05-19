@@ -38,8 +38,9 @@ use sp_core::H256;
 use sp_runtime::traits::Block as BlockT;
 use std::{collections::HashSet, sync::Arc};
 
-/// Log target for this file.
-const LOG_TARGET: &str = "rpc-spec-v2";
+/// Log target for this file. Filterable independently of the rest of `rpc-spec-v2`, matching
+/// the `rpc-spec-v2::<module>` convention from `archive/archive.rs:58`.
+const LOG_TARGET: &str = "rpc-spec-v2::bitswap";
 
 // Standard multihash codes.
 // See <https://github.com/multiformats/multicodec/blob/master/table.csv>
@@ -102,14 +103,30 @@ where
 	Client: BlockBackend<Block> + Send + Sync + 'static,
 {
 	fn bitswap_unstable_get(&self, cid_str: String) -> RpcResult<String> {
-		let digest = parse_and_validate_cid(&cid_str)?;
+		log::trace!(target: LOG_TARGET, "bitswap_unstable_get cid={cid_str}");
+		let digest = match parse_and_validate_cid(&cid_str) {
+			Ok(d) => d,
+			Err(e) => {
+				log::trace!(target: LOG_TARGET, "bitswap_unstable_get reject cid={cid_str} reason=invalid_cid: {e}");
+				return Err(e.into());
+			},
+		};
 
 		match self.client.indexed_transaction(digest) {
-			Ok(Some(data)) => Ok(crate::hex_string(&data)),
+			Ok(Some(data)) => {
+				log::trace!(
+					target: LOG_TARGET,
+					"bitswap_unstable_get hit cid={cid_str} bytes={}",
+					data.len(),
+				);
+				Ok(crate::hex_string(&data))
+			},
 			Ok(None) => {
 				if self.sync_oracle.is_major_syncing() {
+					log::trace!(target: LOG_TARGET, "bitswap_unstable_get miss cid={cid_str} reason=major_syncing");
 					Err(Error::MajorSyncing.into())
 				} else {
+					log::trace!(target: LOG_TARGET, "bitswap_unstable_get miss cid={cid_str} reason=not_found");
 					Err(Error::NotFound.into())
 				}
 			},
@@ -134,14 +151,22 @@ where
 			// the result back to the local DB. Needs a coherence story for concurrent
 			// writes during major sync.
 
+			let cids_len = cids.len();
+			log::trace!(target: LOG_TARGET, "bitswap_unstable_stream open cids={cids_len}");
+
 			// Top-level validation. Per the spec, all three structural rejections happen
 			// before the subscription is accepted, so no events are ever emitted on these
 			// paths.
 			if cids.is_empty() {
+				log::trace!(target: LOG_TARGET, "bitswap_unstable_stream reject reason=empty_cids");
 				pending.reject(Error::EmptyCids).await;
 				return;
 			}
 			if cids.len() > MAX_CIDS_PER_REQUEST {
+				log::trace!(
+					target: LOG_TARGET,
+					"bitswap_unstable_stream reject reason=too_many_cids got={cids_len} max={MAX_CIDS_PER_REQUEST}",
+				);
 				pending
 					.reject(Error::TooManyCids { max: MAX_CIDS_PER_REQUEST, got: cids.len() })
 					.await;
@@ -150,6 +175,7 @@ where
 			let parsed = match parse_and_dedup(cids) {
 				Ok(p) => p,
 				Err(e) => {
+					log::trace!(target: LOG_TARGET, "bitswap_unstable_stream reject reason=duplicate_cids");
 					pending.reject(e).await;
 					return;
 				},
@@ -161,14 +187,35 @@ where
 			for (cid_str, parse_result) in parsed {
 				let event = match parse_result {
 					Ok(digest) => match lookup_by_digest(&client, is_major_syncing, digest) {
-						Ok(value) => StreamEvent::StreamItem { cid: cid_str, value },
-						Err(e) => stream_item_error(cid_str, e),
+						Ok(value) => {
+							log::trace!(
+								target: LOG_TARGET,
+								"bitswap_unstable_stream item cid={cid_str} bytes={}",
+								// `value` is hex-encoded with `0x` prefix; payload bytes = (len-2)/2.
+								value.len().saturating_sub(2) / 2,
+							);
+							StreamEvent::StreamItem { cid: cid_str, value }
+						},
+						Err(e) => {
+							log::trace!(
+								target: LOG_TARGET,
+								"bitswap_unstable_stream item-error cid={cid_str} reason={e}",
+							);
+							stream_item_error(cid_str, e)
+						},
 					},
-					Err(e) => stream_item_error(cid_str, e),
+					Err(e) => {
+						log::trace!(
+							target: LOG_TARGET,
+							"bitswap_unstable_stream item-error cid={cid_str} reason=invalid_cid: {e}",
+						);
+						stream_item_error(cid_str, e)
+					},
 				};
 				// A send error means the client unsubscribed or disconnected. The spec says
 				// `streamDone` must NOT be emitted on cancellation, so we just exit.
 				if sink.send(&event).await.is_err() {
+					log::trace!(target: LOG_TARGET, "bitswap_unstable_stream cancelled (sink closed)");
 					return;
 				}
 			}
@@ -177,6 +224,7 @@ where
 			// Ignore a send error here: the client may have unsubscribed in the window
 			// between the final per-CID event and this `streamDone`, and that's fine.
 			let _ = sink.send(&StreamEvent::StreamDone).await;
+			log::trace!(target: LOG_TARGET, "bitswap_unstable_stream done cids={cids_len}");
 		};
 
 		sc_rpc::utils::spawn_subscription_task(&self.executor, fut);
