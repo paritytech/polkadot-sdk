@@ -890,7 +890,7 @@ impl Store {
 				},
 				None => {
 					// DB inconsistency
-					log::warn!(
+					log::debug!(
 						target: LOG_TARGET,
 						"Missing statement {:?}",
 						HexDisplay::from(hash)
