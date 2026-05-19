@@ -356,15 +356,14 @@ pub struct Store {
 }
 
 impl ReplaySnapshotProvider for Weak<Store> {
-	fn register_filter_with_snapshot(
+	fn collect_snapshot_hashes(
 		&self,
 		filter: &OptimizedTopicFilter,
-		register: &mut dyn FnMut(Vec<Hash>),
-	) -> Result<()> {
+	) -> Result<Vec<Hash>> {
 		let Some(store) = self.upgrade() else {
 			return Err(Error::InvalidConfig("statement store is closed".into()));
 		};
-		store.register_filter_with_snapshot(filter, register)
+		store.collect_snapshot_hashes(filter)
 	}
 
 	fn statement_by_hash(&self, hash: &Hash) -> Result<Option<Vec<u8>>> {
@@ -1653,11 +1652,7 @@ impl StatementStoreSubscriptionApi for Store {
 }
 
 impl Store {
-	fn register_filter_with_snapshot(
-		&self,
-		filter: &OptimizedTopicFilter,
-		register: &mut dyn FnMut(Vec<Hash>),
-	) -> Result<()> {
+	fn collect_snapshot_hashes(&self, filter: &OptimizedTopicFilter) -> Result<Vec<Hash>> {
 		let mut snapshot_hashes = Vec::new();
 		let mut seen = HashSet::new();
 		let index = self.index.read();
@@ -1667,8 +1662,7 @@ impl Store {
 			}
 			Ok(())
 		})?;
-		register(snapshot_hashes);
-		Ok(())
+		Ok(snapshot_hashes)
 	}
 
 	fn statement_by_hash(&self, hash: &Hash) -> Result<Option<Vec<u8>>> {

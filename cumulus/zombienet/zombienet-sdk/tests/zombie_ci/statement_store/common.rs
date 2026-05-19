@@ -35,7 +35,6 @@ pub(super) const COLLATOR_TRACE_LOG_FILTER: &str =
 	"info,statement-store=trace,statement-gossip=trace";
 
 pub(super) use sc_rpc_spec_v2::statement::{
-	event::NewStatementEntry as UnstableNewStatement,
 	AddFilterResponse as UnstableAddFilterResponse, SubscribeEvent as UnstableStatementEvent,
 };
 
