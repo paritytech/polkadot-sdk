@@ -49,6 +49,7 @@ pub trait BenchmarkHelper<AssetId, AccountId, Balance> {
 	fn mint_collateral(asset_id: AssetId, who: &AccountId, amount: Balance);
 	fn set_oracle_price(asset_id: AssetId, price: frame::deps::sp_runtime::FixedU128);
 	fn advance_time(ms: u64);
+	fn synth_asset_id(seed: u32) -> AssetId;
 }
 
 pub(crate) const LOG_TARGET: &str = "runtime::vaults";

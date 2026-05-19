@@ -280,6 +280,10 @@ impl pallet_vaults::BenchmarkHelper<AssetId, AccountId, Balance> for MockBenchma
 	fn advance_time(ms: u64) {
 		advance_time(ms);
 	}
+
+	fn synth_asset_id(seed: u32) -> AssetId {
+		1_000 + seed
+	}
 }
 
 pub fn rate_list(asset: AssetId) -> VaultList {

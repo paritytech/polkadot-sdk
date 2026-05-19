@@ -3296,6 +3296,48 @@ impl pallet_vaults::Config for Runtime {
 	type MaxOnIdleVaultRefresh = VaultsMaxOnIdleVaultRefresh;
 	type VaultLists = LinkedList;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = VaultsBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct VaultsBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_vaults::BenchmarkHelper<u32, AccountId, Balance> for VaultsBenchmarkHelper {
+	fn collateral_asset_id() -> u32 {
+		VaultsNativeAssetId::get()
+	}
+
+	fn mint_collateral(asset_id: u32, who: &AccountId, amount: Balance) {
+		use frame_support::traits::{
+			fungible::Mutate as FungibleMutate, fungibles::Mutate as FungiblesMutate,
+		};
+		if asset_id == VaultsNativeAssetId::get() {
+			<Balances as FungibleMutate<AccountId>>::mint_into(who, amount)
+				.expect("mint native collateral for benchmark account");
+		} else {
+			<Assets as FungiblesMutate<AccountId>>::mint_into(asset_id, who, amount)
+				.expect("mint asset collateral for benchmark account");
+		}
+	}
+
+	fn set_oracle_price(asset_id: u32, price: FixedU128) {
+		let timestamp = <pallet_timestamp::Pallet<Runtime>>::get();
+		pallet_oracle::Values::<Runtime>::insert(
+			asset_id,
+			pallet_oracle::TimestampedValue { value: price.into_inner(), timestamp },
+		);
+	}
+
+	fn advance_time(ms: u64) {
+		let now = <pallet_timestamp::Pallet<Runtime>>::get();
+		<pallet_timestamp::Pallet<Runtime>>::set_timestamp(now + ms);
+	}
+
+	fn synth_asset_id(seed: u32) -> u32 {
+		1_000 + seed
+	}
 }
 
 /// MMR helper types.
@@ -3447,6 +3489,7 @@ mod benches {
 		[pallet_meta_tx, MetaTx]
 		[pallet_psm, Psm]
 		[pallet_linked_list, LinkedList]
+		[pallet_vaults, Vaults]
 	);
 }
 

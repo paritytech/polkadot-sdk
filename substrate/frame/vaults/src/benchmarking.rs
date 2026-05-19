@@ -5,7 +5,8 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::{
-	pallet::{BalanceOf, BranchStates, Config, MomentOf, Pallet, Vaults},
+	helpers,
+	pallet::{BalanceOf, BranchStates, Branches, Config, HoldReason, MomentOf, Pallet, Vaults},
 	types::{BranchConfig, VaultListId, VaultStatus},
 	BenchmarkHelper as _,
 };
@@ -13,8 +14,15 @@ use alloc::vec::Vec;
 use frame::{
 	benchmarking::prelude::*,
 	deps::{
-		frame_support::traits::{fungible::Mutate as FungibleMutate, EnsureOrigin, Time},
-		sp_runtime::{traits::SaturatedConversion, FixedU128},
+		frame_support::traits::{
+			fungible::Mutate as FungibleMutate,
+			fungibles::MutateHold as FungiblesMutateHold,
+			EnsureOrigin, Time,
+		},
+		sp_runtime::{
+			traits::{SaturatedConversion, Zero},
+			FixedU128,
+		},
 	},
 };
 use frame_system::RawOrigin;
@@ -25,12 +33,18 @@ const ACCOUNT_FUNDING: u128 = 10_000_000;
 const SEED_COLL: u128 = 1_000_000;
 /// Must exceed `default_branch_config::minimum_debt` (200).
 const SEED_DEBT: u128 = 300;
-/// Price drop that pushes a `coll=50, debt=300` vault below the 110% MCR,
+/// Price drop that pushes a `coll=200, debt=300` vault below the 110% MCR,
 /// so `enter_final_recovery` accepts it.
 const RECOVERY_TRIGGER_PRICE: u32 = 1;
-/// One hour in milliseconds — enough for `poke` / `on_idle` to accrue
-/// non-zero interest at the default 5% rate.
+/// One hour in milliseconds — enough for `update_aggregate_interest` and
+/// `touch_vault` to accrue non-zero interest at the default 5% vault rate.
 const ONE_HOUR_MS: u64 = 60 * 60 * 1_000;
+const RECOVERY_VAULT_COLL: u128 = 200;
+const REDIST_PER_STAKE_NUM: u128 = 1;
+const REDIST_PER_STAKE_DEN: u128 = 100;
+const REDIST_WEIGHT_PER_STAKE_NUM: u128 = 1;
+const REDIST_WEIGHT_PER_STAKE_DEN: u128 = 10_000;
+const REDIST_PRESTAGE_COLL: u128 = 10_000_000;
 
 fn balance<T: Config>(value: u128) -> BalanceOf<T> {
 	value.saturated_into()
@@ -71,11 +85,6 @@ fn register_default_branch<T: Config>() -> Result<T::AssetId, BenchmarkError> {
 	let asset = T::BenchmarkHelper::collateral_asset_id();
 	Pallet::<T>::register_branch(manager_origin::<T>()?, asset, default_branch_config::<T>())?;
 	T::BenchmarkHelper::set_oracle_price(asset, FixedU128::saturating_from_integer(ORACLE_PRICE));
-	T::BenchmarkHelper::mint_collateral(
-		asset,
-		&Pallet::<T>::redistribution_account(),
-		balance::<T>(1),
-	);
 	Ok(asset)
 }
 
@@ -85,6 +94,51 @@ fn funded_account<T: Config>(seed: &'static str, asset: T::AssetId) -> T::Accoun
 	who
 }
 
+/// Runtime-adaptive rate fixture derived from the live branch's borrow-rate
+/// bounds.
+struct RateBounds {
+	/// Highest seed-chain rate.
+	base: FixedU128,
+	/// Gap between consecutive seed rates.
+	step: FixedU128,
+	/// A rate strictly above every seed-chain rate, used for "land at head"
+	/// insert worst cases. Stays below `maximum_borrow_rate`.
+	above: FixedU128,
+	/// A rate inside the seed-chain range, used by `close_vault`'s
+	/// middle-of-list removal case.
+	middle: FixedU128,
+}
+
+fn rate_bounds<T: Config>(asset: T::AssetId) -> Result<RateBounds, BenchmarkError> {
+	let cfg = helpers::current_branch_config::<T>(asset)
+		.map_err(|_| BenchmarkError::Stop("missing branch config"))?;
+	let count = T::VaultLists::repair_budget().saturating_add(2);
+	let safety_floor =
+		cfg.minimum_borrow_rate.saturating_mul(FixedU128::saturating_from_integer(2u32));
+	// Use half of `maximum_borrow_rate` as the ceiling so `above = safety_ceiling`
+	// always satisfies `validate_rate`.
+	let safety_ceiling = cfg
+		.maximum_borrow_rate
+		.const_checked_div(FixedU128::saturating_from_integer(2u32))
+		.ok_or(BenchmarkError::Stop("maximum_borrow_rate halving overflowed"))?;
+	if safety_ceiling <= safety_floor {
+		return Err(BenchmarkError::Stop("borrow-rate range too narrow for seeding"));
+	}
+	let span = safety_ceiling.saturating_sub(safety_floor);
+	let divisor = FixedU128::saturating_from_integer(count.saturating_add(2));
+	let step = span
+		.const_checked_div(divisor)
+		.ok_or(BenchmarkError::Stop("rate step computation failed"))?;
+	if step.is_zero() {
+		return Err(BenchmarkError::Stop("borrow-rate span too narrow for repair_budget"));
+	}
+	let base = safety_ceiling.saturating_sub(step);
+	let above = safety_ceiling;
+	let middle_offset = step.saturating_mul(FixedU128::saturating_from_integer(count / 2));
+	let middle = base.saturating_sub(middle_offset);
+	Ok(RateBounds { base, step, above, middle })
+}
+
 /// Seed the rate index with the smallest chain that admits a worst-case
 /// stale hint (`hint_repair_budget + 2`), each insert hinted via
 /// `find_position` to keep seeding O(count) — independent of the
@@ -92,14 +146,13 @@ fn funded_account<T: Config>(seed: &'static str, asset: T::AssetId) -> T::Accoun
 fn seed_worst_case_chain<T: Config>(
 	asset: T::AssetId,
 ) -> Result<Vec<T::AccountId>, BenchmarkError> {
-	let count = T::VaultLists::repair_budget() + 2;
+	let count = T::VaultLists::repair_budget().saturating_add(2);
 	let mut owners = Vec::with_capacity(count as usize);
-	let base = rate(50, 100);
-	let step = rate(1, 100);
+	let bounds = rate_bounds::<T>(asset)?;
 	for i in 0..count {
-		let offset = step.saturating_mul(FixedU128::saturating_from_integer(i));
-		let r = base.saturating_sub(offset);
-		let who = account("seed", i, 0);
+		let offset = bounds.step.saturating_mul(FixedU128::saturating_from_integer(i));
+		let r = bounds.base.saturating_sub(offset);
+		let who: T::AccountId = account("seed", i, 0);
 		T::BenchmarkHelper::mint_collateral(asset, &who, balance::<T>(ACCOUNT_FUNDING));
 		let hint = T::VaultLists::find_position(&rate_index::<T>(asset), r);
 		Pallet::<T>::open_vault(
@@ -117,16 +170,75 @@ fn seed_worst_case_chain<T: Config>(
 
 /// Returns a head-of-list hint that is exactly `hint_repair_budget` steps
 /// stale, forcing the full repair walk on insert. Pair with a priority
-/// above every seeded rate to land at the new head.
-fn worst_case_head_hint<T: Config>(seeds: &[T::AccountId]) -> Position<T::AccountId> {
+/// above every seeded rate to land at the new head. Errors out for
+/// `repair_budget == 0` (no walk to construct) or short seed chains.
+fn worst_case_head_hint<T: Config>(
+	seeds: &[T::AccountId],
+) -> Result<Position<T::AccountId>, BenchmarkError> {
 	let s = T::VaultLists::repair_budget() as usize;
-	assert!(seeds.len() > s, "seed chain too short for worst-case hint");
-	Position::between(seeds[s - 1].clone(), seeds[s].clone())
+	if s == 0 || seeds.len() <= s {
+		return Err(BenchmarkError::Stop("repair_budget too small for worst-case hint"));
+	}
+	Ok(Position::between(seeds[s - 1].clone(), seeds[s].clone()))
 }
 
-/// Strictly above every rate produced by `seed_worst_case_chain`.
-fn rate_above_seed_head() -> FixedU128 {
-	rate(60, 100)
+/// Plant a non-trivial branch redistribution snapshot so every `touch_vault`
+/// call enters the `snap != redist` branch with non-zero `redist_collat` and
+/// `redist_debt_principal`.
+fn seed_pending_redistribution<T: Config>(asset: T::AssetId) -> Result<(), BenchmarkError> {
+	let per_stake = rate(REDIST_PER_STAKE_NUM, REDIST_PER_STAKE_DEN);
+	let weight_per_stake = rate(REDIST_WEIGHT_PER_STAKE_NUM, REDIST_WEIGHT_PER_STAKE_DEN);
+
+	let redist_acct = Pallet::<T>::redistribution_account();
+	let pre_stage = balance::<T>(REDIST_PRESTAGE_COLL);
+	T::BenchmarkHelper::mint_collateral(asset, &redist_acct, pre_stage);
+	T::CollateralAssets::hold(asset, &HoldReason::VaultCollateral.into(), &redist_acct, pre_stage)
+		.map_err(|_| BenchmarkError::Stop("hold on redistribution account failed"))?;
+
+	BranchStates::<T>::try_mutate(asset, |maybe| -> Result<(), BenchmarkError> {
+		let bs = maybe.as_mut().ok_or(BenchmarkError::Stop("branch missing"))?;
+		bs.redist.debt_per_stake = per_stake;
+		bs.redist.collat_per_stake = per_stake;
+		bs.redist.weight_per_stake = weight_per_stake;
+		bs.redist.debt_time_per_stake = FixedU128::zero();
+		bs.debt.pending_redist_principal = per_stake.saturating_mul_int(bs.stakes.total);
+		Ok(())
+	})
+}
+
+/// Open a fresh "only-eligible" vault, drop the oracle so it qualifies for
+/// recovery, push it into the FinalRecovery FIFO via `enter_final_recovery`,
+/// then restore the oracle.
+fn recovery_cycle<T: Config>(
+	seed_index: u32,
+	asset: T::AssetId,
+) -> Result<T::AccountId, BenchmarkError> {
+	let owner: T::AccountId = account("rec", seed_index, 0);
+	T::BenchmarkHelper::mint_collateral(asset, &owner, balance::<T>(ACCOUNT_FUNDING));
+	Pallet::<T>::open_vault(
+		RawOrigin::Signed(owner.clone()).into(),
+		asset,
+		balance::<T>(RECOVERY_VAULT_COLL),
+		balance::<T>(SEED_DEBT),
+		rate(5, 100),
+		Position::endpoints_only(),
+	)?;
+	T::BenchmarkHelper::set_oracle_price(
+		asset,
+		FixedU128::saturating_from_integer(RECOVERY_TRIGGER_PRICE),
+	);
+	let keeper: T::AccountId = whitelisted_caller();
+	Pallet::<T>::enter_final_recovery(RawOrigin::Signed(keeper).into(), owner.clone(), asset)?;
+	T::BenchmarkHelper::set_oracle_price(asset, FixedU128::saturating_from_integer(ORACLE_PRICE));
+	Ok(owner)
+}
+
+fn prefill_branches<T: Config>(count: u32) {
+	let ids: Vec<T::AssetId> =
+		(0..count).map(T::BenchmarkHelper::synth_asset_id).collect();
+	let bounded: BoundedVec<T::AssetId, T::MaxBranches> =
+		ids.try_into().expect("prefill count <= MaxBranches");
+	Branches::<T>::put(bounded);
 }
 
 #[benchmarks]
@@ -141,10 +253,11 @@ mod benchmarks {
 		let caller = funded_account::<T>("caller", asset);
 		let coll = balance::<T>(SEED_COLL);
 		let debt = balance::<T>(SEED_DEBT);
-		let hint = worst_case_head_hint::<T>(&seeds);
+		let hint = worst_case_head_hint::<T>(&seeds)?;
+		let new_rate = rate_bounds::<T>(asset)?.above;
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), asset, coll, debt, rate_above_seed_head(), hint);
+		_(RawOrigin::Signed(caller.clone()), asset, coll, debt, new_rate, hint);
 
 		assert!(Vaults::<T>::contains_key(asset, &caller));
 		Ok(())
@@ -164,6 +277,8 @@ mod benchmarks {
 		)?;
 		let caller = funded_account::<T>("caller", asset);
 		let deposit = balance::<T>(SEED_COLL);
+		seed_pending_redistribution::<T>(asset)?;
+		T::BenchmarkHelper::advance_time(ONE_HOUR_MS);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), owner.clone(), asset, deposit);
@@ -186,6 +301,8 @@ mod benchmarks {
 			Position::endpoints_only(),
 		)?;
 		let withdraw = balance::<T>(SEED_COLL);
+		seed_pending_redistribution::<T>(asset)?;
+		T::BenchmarkHelper::advance_time(ONE_HOUR_MS);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), asset, withdraw, None);
@@ -198,8 +315,9 @@ mod benchmarks {
 	fn borrow() -> Result<(), BenchmarkError> {
 		let asset = register_default_branch::<T>()?;
 		let seeds = seed_worst_case_chain::<T>(asset)?;
+		let bounds = rate_bounds::<T>(asset)?;
 		let caller = funded_account::<T>("caller", asset);
-		let caller_rate = rate(25, 100);
+		let caller_rate = bounds.middle;
 		let caller_hint = T::VaultLists::find_position(&rate_index::<T>(asset), caller_rate);
 		Pallet::<T>::open_vault(
 			RawOrigin::Signed(caller.clone()).into(),
@@ -210,8 +328,10 @@ mod benchmarks {
 			caller_hint,
 		)?;
 		let extra_debt = balance::<T>(SEED_DEBT);
-		let new_rate = Some(rate_above_seed_head());
-		let hint = worst_case_head_hint::<T>(&seeds);
+		let new_rate = Some(bounds.above);
+		let hint = worst_case_head_hint::<T>(&seeds)?;
+		seed_pending_redistribution::<T>(asset)?;
+		T::BenchmarkHelper::advance_time(ONE_HOUR_MS);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), asset, extra_debt, new_rate, None, hint);
@@ -236,6 +356,8 @@ mod benchmarks {
 		T::StableAsset::mint_into(&caller, balance::<T>(SEED_DEBT * 100))
 			.expect("mint pUSD to repay caller");
 		let amount = balance::<T>(SEED_DEBT);
+		seed_pending_redistribution::<T>(asset)?;
+		T::BenchmarkHelper::advance_time(ONE_HOUR_MS);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), owner.clone(), asset, amount);
@@ -248,8 +370,9 @@ mod benchmarks {
 	fn change_rate() -> Result<(), BenchmarkError> {
 		let asset = register_default_branch::<T>()?;
 		let seeds = seed_worst_case_chain::<T>(asset)?;
+		let bounds = rate_bounds::<T>(asset)?;
 		let caller = funded_account::<T>("caller", asset);
-		let caller_rate = rate(25, 100);
+		let caller_rate = bounds.middle;
 		let caller_hint = T::VaultLists::find_position(&rate_index::<T>(asset), caller_rate);
 		Pallet::<T>::open_vault(
 			RawOrigin::Signed(caller.clone()).into(),
@@ -259,8 +382,10 @@ mod benchmarks {
 			caller_rate,
 			caller_hint,
 		)?;
-		let new_rate = rate_above_seed_head();
-		let hint = worst_case_head_hint::<T>(&seeds);
+		let new_rate = bounds.above;
+		let hint = worst_case_head_hint::<T>(&seeds)?;
+		seed_pending_redistribution::<T>(asset)?;
+		T::BenchmarkHelper::advance_time(ONE_HOUR_MS);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), asset, new_rate, hint);
@@ -272,15 +397,23 @@ mod benchmarks {
 	#[benchmark]
 	fn close_vault() -> Result<(), BenchmarkError> {
 		let asset = register_default_branch::<T>()?;
+		// Seed worst-case chain BEFORE opening caller, then place caller at a
+		// rate strictly inside the seed range so the close removes a
+		// middle-of-list node (both rate-index neighbors get a node-row write).
+		let _seeds = seed_worst_case_chain::<T>(asset)?;
+		let bounds = rate_bounds::<T>(asset)?;
 		let caller = funded_account::<T>("caller", asset);
+		let caller_rate = bounds.middle;
+		let caller_hint = T::VaultLists::find_position(&rate_index::<T>(asset), caller_rate);
 		Pallet::<T>::open_vault(
 			RawOrigin::Signed(caller.clone()).into(),
 			asset,
 			balance::<T>(SEED_COLL),
 			balance::<T>(SEED_DEBT),
-			rate(5, 100),
-			Position::endpoints_only(),
+			caller_rate,
+			caller_hint,
 		)?;
+		T::BenchmarkHelper::advance_time(ONE_HOUR_MS);
 		let total_debt = Vaults::<T>::get(asset, &caller)
 			.ok_or(BenchmarkError::Stop("vault missing after open"))?
 			.debt
@@ -312,6 +445,7 @@ mod benchmarks {
 			rate(5, 100),
 			Position::endpoints_only(),
 		)?;
+		seed_pending_redistribution::<T>(asset)?;
 		T::BenchmarkHelper::advance_time(ONE_HOUR_MS);
 		let caller: T::AccountId = whitelisted_caller();
 
@@ -325,15 +459,18 @@ mod benchmarks {
 	#[benchmark]
 	fn enter_final_recovery() -> Result<(), BenchmarkError> {
 		let asset = register_default_branch::<T>()?;
-		let owner = funded_account::<T>("owner", asset);
+		let _prior = recovery_cycle::<T>(0, asset)?;
+		let owner = funded_account::<T>("target", asset);
 		Pallet::<T>::open_vault(
 			RawOrigin::Signed(owner.clone()).into(),
 			asset,
-			balance::<T>(50),
+			balance::<T>(RECOVERY_VAULT_COLL),
 			balance::<T>(SEED_DEBT),
 			rate(5, 100),
 			Position::endpoints_only(),
 		)?;
+		seed_pending_redistribution::<T>(asset)?;
+		T::BenchmarkHelper::advance_time(ONE_HOUR_MS);
 		T::BenchmarkHelper::set_oracle_price(
 			asset,
 			FixedU128::saturating_from_integer(RECOVERY_TRIGGER_PRICE),
@@ -343,35 +480,21 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), owner.clone(), asset);
 
-		assert_eq!(Pallet::<T>::vault_status(asset, owner), Some(VaultStatus::FinalRecovery),);
+		assert_eq!(Pallet::<T>::vault_status(asset, owner), Some(VaultStatus::FinalRecovery));
 		Ok(())
 	}
 
 	#[benchmark]
 	fn exit_final_recovery() -> Result<(), BenchmarkError> {
 		let asset = register_default_branch::<T>()?;
-		let owner = funded_account::<T>("owner", asset);
-		Pallet::<T>::open_vault(
-			RawOrigin::Signed(owner.clone()).into(),
-			asset,
-			balance::<T>(50),
-			balance::<T>(SEED_DEBT),
-			rate_above_seed_head(),
-			Position::endpoints_only(),
-		)?;
-		T::BenchmarkHelper::set_oracle_price(
-			asset,
-			FixedU128::saturating_from_integer(RECOVERY_TRIGGER_PRICE),
-		);
-		let keeper: T::AccountId = whitelisted_caller();
-		Pallet::<T>::enter_final_recovery(RawOrigin::Signed(keeper).into(), owner.clone(), asset)?;
-		T::BenchmarkHelper::set_oracle_price(
-			asset,
-			FixedU128::saturating_from_integer(ORACLE_PRICE),
-		);
+		let _a = recovery_cycle::<T>(0, asset)?;
+		let owner = recovery_cycle::<T>(1, asset)?;
+		let _c = recovery_cycle::<T>(2, asset)?;
 		let seeds = seed_worst_case_chain::<T>(asset)?;
+		seed_pending_redistribution::<T>(asset)?;
+		T::BenchmarkHelper::advance_time(ONE_HOUR_MS);
 		let caller: T::AccountId = whitelisted_caller();
-		let hint = worst_case_head_hint::<T>(&seeds);
+		let hint = worst_case_head_hint::<T>(&seeds)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), owner.clone(), asset, hint);
@@ -382,6 +505,8 @@ mod benchmarks {
 
 	#[benchmark]
 	fn register_branch() -> Result<(), BenchmarkError> {
+		let prefill = <T::MaxBranches as Get<u32>>::get().saturating_sub(1);
+		prefill_branches::<T>(prefill);
 		let asset = T::BenchmarkHelper::collateral_asset_id();
 		let cfg = default_branch_config::<T>();
 		let origin = manager_origin::<T>()?;
@@ -430,6 +555,7 @@ mod benchmarks {
 			rate(5, 100),
 			Position::endpoints_only(),
 		)?;
+		seed_pending_redistribution::<T>(asset)?;
 		T::BenchmarkHelper::advance_time(ONE_HOUR_MS);
 		let now = T::TimeProvider::now();
 
