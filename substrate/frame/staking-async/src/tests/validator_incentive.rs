@@ -493,6 +493,68 @@ fn validator_incentive_prorated_across_pages() {
 	});
 }
 
+#[test]
+fn incentive_sum_across_multiple_exposure_pages_equals_share_times_budget() {
+	// With `exposures_page_size(1)`, alice's extra nominators force her exposure to
+	// span ≥ 2 pages. Each page emits its own `ValidatorIncentivePaid` event prorated
+	// by `page_stake_part`; the sum across pages must equal `share × budget` (± dust)
+	// because Σ page_stake_part = 1.
+	ExtBuilder::default()
+		.exposures_page_size(1)
+		.add_staker(102, 250, StakerStatus::Nominator(vec![11]))
+		.add_staker(103, 250, StakerStatus::Nominator(vec![11]))
+		.build_and_execute(|| {
+			let alice = 11; // validator with multi-page exposure
+			let bob = 21; // validator with single-page exposure
+
+			// GIVEN: incentive enabled; both validators earn equal points.
+			setup_incentive_with_budget(45, 5);
+			Session::roll_until_active_era(2);
+			Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 1)]);
+			Session::roll_until_active_era(3);
+			let _ = staking_events_since_last_call();
+
+			let alice_pages = Eras::<Test>::exposure_page_count(2, &alice);
+			assert!(alice_pages >= 2, "expected alice to have ≥ 2 pages, got {alice_pages}");
+
+			// Equal own-stake & equal points → share = w_a / (w_a + w_b).
+			let alice_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
+			let sum_weight = ErasSumValidatorIncentiveWeight::<Test>::get(2);
+			let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
+			let expected_total =
+				Perbill::from_rational(alice_weight, sum_weight).mul_floor(budget);
+
+			// WHEN: payout all pages.
+			make_all_reward_payment(2);
+			let events = staking_events_since_last_call();
+
+			// THEN: one ValidatorIncentivePaid event per page.
+			let alice_amounts: Vec<Balance> = events
+				.iter()
+				.filter_map(|e| match e {
+					Event::ValidatorIncentivePaid { validator_stash, amount, .. }
+						if *validator_stash == alice =>
+						Some(*amount),
+					_ => None,
+				})
+				.collect();
+			assert_eq!(
+				alice_amounts.len() as u32,
+				alice_pages,
+				"expected one incentive event per page"
+			);
+
+			// THEN: sum across pages equals share × budget within Perbill rounding dust.
+			let total_paid: Balance = alice_amounts.iter().sum();
+			assert!(total_paid <= expected_total);
+			assert!(
+				expected_total - total_paid < 5,
+				"rounding dust too large: {}",
+				expected_total - total_paid
+			);
+		});
+}
+
 // ===== Edge cases =====
 
 #[test]
@@ -604,6 +666,49 @@ fn missing_payee_emits_unexpected_and_skips_payout() {
 
 		// Restore payee so post-test try_state passes.
 		Payee::<Test>::insert(alice, RewardDestination::Staked);
+	});
+}
+
+#[test]
+fn validator_with_points_but_zero_weight_gets_no_incentive() {
+	// A validator that earns reward points but whose incentive weight is zero
+	// (e.g., elected with own=0 on every page — see `store_stakers_info`, which
+	// only inserts a weight when own > 0) must be gated out of the incentive
+	// payout. The other earner picks up the full budget by virtue of being the
+	// only validator with non-zero weighted points.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator — we'll strip her incentive weight
+		let bob = 21; // validator — keeps normal weight
+
+		// GIVEN: incentive enabled; both validators elected normally.
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+
+		// WHEN: remove alice's weight (simulating own=0 in election); keep the sum
+		// invariant consistent so try_state passes.
+		let alice_weight =
+			ErasValidatorIncentiveWeight::<Test>::take(2, alice).expect("weight stored");
+		ErasSumValidatorIncentiveWeight::<Test>::mutate(2, |s| {
+			*s = s.saturating_sub(alice_weight)
+		});
+
+		// Both validators earn the same reward points.
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		// WHEN: payout era 2.
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		// THEN: alice — gated out, no incentive.
+		assert_eq!(incentive_paid_for(alice, &events), None);
+		// staker reward is independent of incentive weight → alice still gets one.
+		assert!(staker_reward_for(alice, &events).is_some());
+
+		// THEN: bob is the only non-zero-weight earner → share = 1 → full budget.
+		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
+		assert_eq!(incentive_paid_for(bob, &events), Some(budget));
 	});
 }
 
