@@ -400,10 +400,8 @@ where
 
 	/// Execute the allowance call.
 	///
-	/// Returns `U256::MAX` for sentinel-flagged approvals (mirroring mainnet
-	/// where `allowance() == type(uint256).max` is the wire-level "infinite"
-	/// signal that wallets and indexers check). Otherwise returns the stored
-	/// amount lifted to `U256`.
+	/// Returns `U256::MAX` for sentinel-flagged infinite approvals.
+	/// Otherwise returns the stored amount lifted to `U256`.
 	fn allowance(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		verifying_contract: H160,
@@ -418,11 +416,6 @@ where
 		let spender =
 			<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender_h160);
 
-		// Flag is the sole authority on the sentinel: if it's set, the user
-		// signed `uint256.max` and the wire-level view must surface that. We
-		// deliberately do *not* cross-check `stored == Balance::MAX` —
-		// re-introducing the storage-amount as a sentinel signal would
-		// rebuild exactly the conflation the flag exists to remove.
 		let value = if permit::Pallet::<Runtime>::is_infinite_approval(
 			&verifying_contract,
 			&owner_h160,
@@ -537,10 +530,6 @@ where
 		}
 		env.adjust_gas(charged, actual_weight);
 
-		// Sentinel marker: set iff the caller used the exact `uint256.max`
-		// idiom, clear on any other write (including zero, which is also the
-		// revocation path handled above). Matches OZ's rule that the sentinel
-		// is anchored to the call-interface MAX, not the stored value.
 		if call.value == alloy::primitives::U256::MAX {
 			permit::Pallet::<Runtime>::set_infinite_approval(&verifying_contract, &owner, &spender);
 		} else {
@@ -575,25 +564,12 @@ where
 	}
 
 	/// Execute the transfer_from call.
-	///
-	/// Honours the OZ "infinite allowance" sentinel: if the
-	/// `(verifying_contract, owner, spender)` triple was flagged by a prior
-	/// `approve(spender, uint256.max)` (or equivalent `permit`), the approval
-	/// is not decremented. The flag is stored explicitly in
-	/// `permit::InfiniteApprovals` so the sentinel is anchored to the
-	/// call-interface MAX value, not to whatever the storage type's max
-	/// happens to be — matching mainnet semantics where
-	/// `approve(spender, Balance::MAX)` (a finite value, not `uint256.max`)
-	/// would decrement.
 	fn transfer_from(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		verifying_contract: H160,
 		call: &IERC20::transferFromCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		// Worst case is the common branch (transfer_approved); the sentinel
-		// branch does a cheaper plain transfer. Charge worst case upfront,
-		// refund in the sentinel branch.
 		let worst_case = <Runtime as Config<Instance>>::WeightInfo::transfer_approved();
 		let charged = env.charge(worst_case)?;
 
@@ -615,11 +591,7 @@ where
 			&spender_h160,
 		) {
 			// Sentinel: bypass `do_transfer_approved` so the approval is not
-			// decremented. The flag itself proves the approval was deliberately
-			// set to the sentinel; `do_transfer` enforces the balance check.
-			// We still need to confirm an approval row exists in storage in
-			// case the flag is stale (defensive — shouldn't happen, but pins
-			// the invariant).
+			// decremented.
 			ensure!(
 				pallet_assets::Approvals::<Runtime, Instance>::contains_key((
 					asset_id.clone(),
