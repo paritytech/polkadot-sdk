@@ -6645,5 +6645,73 @@ pub(crate) mod tests {
 			commit_store(&factory, h, bytes.clone());
 			assert_eq!(get_value(&factory, h).as_deref(), Some(bytes.as_slice()));
 		}
+
+		// Same-commit multi-op refcount tests: each Store/Reference/Release must compose.
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_then_two_releases_same_commit_removes_value(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA8);
+			let bytes = b"a8-bytes".to_vec();
+			commit_store(&factory, h, bytes);
+			commit_reference(&factory, h);
+			assert!(get_value(&factory, h).is_some(), "rc=2 after store + reference");
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.release(TEST_COL, h);
+				tx.release(TEST_COL, h);
+				db.commit(tx).unwrap();
+			}
+			assert!(get_value(&factory, h).is_none(), "rc 2 -> 0 after two releases");
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_then_two_references_same_commit_increments_twice(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA9);
+			let bytes = b"a9-bytes".to_vec();
+			commit_store(&factory, h, bytes.clone());
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.reference(TEST_COL, h);
+				tx.reference(TEST_COL, h);
+				db.commit(tx).unwrap();
+			}
+			commit_release(&factory, h);
+			commit_release(&factory, h);
+			assert_eq!(
+				get_value(&factory, h).as_deref(),
+				Some(bytes.as_slice()),
+				"rc 3 -> 1 after two releases, value still present",
+			);
+			commit_release(&factory, h);
+			assert!(get_value(&factory, h).is_none(), "rc=0 after final release");
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_then_release_same_commit_net_zero_removes_value(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xAA);
+			let bytes = b"aa-bytes".to_vec();
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.store(TEST_COL, h, bytes);
+				tx.release(TEST_COL, h);
+				db.commit(tx).unwrap();
+			}
+			assert!(get_value(&factory, h).is_none(), "store + release nets to rc=0");
+		}
 	}
 }

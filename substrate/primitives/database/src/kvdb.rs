@@ -17,6 +17,7 @@
 
 /// A wrapper around `kvdb::Database` that implements `sp_database::Database` trait
 use ::kvdb::{DBTransaction, KeyValueDB};
+use std::collections::HashMap;
 
 use crate::{error, Change, ColumnId, Database, Transaction};
 
@@ -56,46 +57,84 @@ fn read_counter(
 	})
 }
 
+#[derive(Default)]
+struct RefCountedKeyState {
+	delta: i64,
+	stored_value: Option<Vec<u8>>,
+	had_store: bool,
+}
+
 /// Commit a transaction to a KeyValueDB.
+///
+/// Ref-counted ops on the same `(col, key)` are aggregated before being applied: without
+/// this, multiple `Store`/`Reference`/`Release` in one tx would each read the stale on-disk
+/// counter and write back to the same counter key — the underlying batch keeps only the
+/// last `put`, collapsing N ops into one.
+///
+/// `Set`/`Remove` are emitted in submission order; ref-counted ops are emitted afterwards.
+/// Mixing the two styles on the same `(col, key)` in one tx is undefined.
 fn commit_impl<H: Clone + AsRef<[u8]>>(
 	db: &dyn KeyValueDB,
 	transaction: Transaction<H>,
 ) -> error::Result<()> {
 	let mut tx = DBTransaction::new();
+	let mut ref_counted: HashMap<(ColumnId, Vec<u8>), RefCountedKeyState> = HashMap::new();
+
 	for change in transaction.0.into_iter() {
 		match change {
 			Change::Set(col, key, value) => tx.put_vec(col, &key, value),
 			Change::Remove(col, key) => tx.delete(col, &key),
-			Change::Store(col, key, value) => match read_counter(db, col, key.as_ref())? {
-				(counter_key, Some(mut counter)) => {
-					counter += 1;
-					tx.put(col, &counter_key, &counter.to_le_bytes());
-				},
-				(counter_key, None) => {
-					let d = 1u32.to_le_bytes();
-					tx.put(col, &counter_key, &d);
-					tx.put_vec(col, key.as_ref(), value);
-				},
+			Change::Store(col, key, value) => {
+				let entry = ref_counted.entry((col, key.as_ref().to_vec())).or_default();
+				entry.delta += 1;
+				if !entry.had_store {
+					entry.had_store = true;
+					entry.stored_value = Some(value);
+				}
 			},
 			Change::Reference(col, key) => {
-				if let (counter_key, Some(mut counter)) = read_counter(db, col, key.as_ref())? {
-					counter += 1;
-					tx.put(col, &counter_key, &counter.to_le_bytes());
-				}
+				ref_counted.entry((col, key.as_ref().to_vec())).or_default().delta += 1;
 			},
 			Change::Release(col, key) => {
-				if let (counter_key, Some(mut counter)) = read_counter(db, col, key.as_ref())? {
-					counter -= 1;
-					if counter == 0 {
-						tx.delete(col, &counter_key);
-						tx.delete(col, key.as_ref());
-					} else {
-						tx.put(col, &counter_key, &counter.to_le_bytes());
-					}
-				}
+				ref_counted.entry((col, key.as_ref().to_vec())).or_default().delta -= 1;
 			},
 		}
 	}
+
+	for ((col, key), state) in ref_counted {
+		let (counter_key, on_disk_counter) = read_counter(db, col, &key)?;
+		// Counter and value are co-resident under the kvdb refcount scheme (written and
+		// deleted as a pair per commit), so counter-presence is a faithful proxy for
+		// value-presence here.
+		let value_in_db = on_disk_counter.is_some();
+		// Reference/Release on a missing key without a Store stays a no-op.
+		let writes_new_value = state.had_store && !value_in_db;
+		if !value_in_db && !writes_new_value {
+			continue;
+		}
+		let new_counter = on_disk_counter.unwrap_or(0) as i64 + state.delta;
+		if new_counter <= 0 {
+			tx.delete(col, &counter_key);
+			tx.delete(col, &key);
+		} else {
+			let new_counter_u32: u32 = new_counter.try_into().map_err(|_| {
+				error::DatabaseError(Box::new(std::io::Error::other(format!(
+					"Refcount overflow for key {key:02x?} in column {col}",
+				))))
+			})?;
+			tx.put(col, &counter_key, &new_counter_u32.to_le_bytes());
+			if writes_new_value {
+				tx.put_vec(
+					col,
+					&key,
+					state
+						.stored_value
+						.expect("had_store=true implies stored_value is Some per Store branch"),
+				);
+			}
+		}
+	}
+
 	db.write(tx).map_err(|e| error::DatabaseError(Box::new(e)))
 }
 
