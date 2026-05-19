@@ -130,11 +130,23 @@ pub trait WeightInfo {
 	fn get_storage_full() -> Weight;
 	fn set_storage_empty() -> Weight;
 	fn set_storage_full() -> Weight;
+	fn get_storage_empty_warm() -> Weight;
+	fn get_storage_full_warm() -> Weight;
+	fn set_storage_empty_warm() -> Weight;
+	fn set_storage_full_warm() -> Weight;
 	fn seal_set_storage(n: u32, o: u32, ) -> Weight;
 	fn clear_storage(n: u32, ) -> Weight;
 	fn seal_get_storage(n: u32, ) -> Weight;
 	fn contains_storage(n: u32, ) -> Weight;
 	fn take_storage(n: u32, ) -> Weight;
+	fn seal_set_storage_warm(n: u32, o: u32) -> Weight;
+	fn clear_storage_warm(n: u32) -> Weight;
+	fn seal_get_storage_warm(n: u32) -> Weight;
+	fn contains_storage_warm(n: u32) -> Weight;
+	fn take_storage_warm(n: u32) -> Weight;
+	fn access_list_touch_cold() -> Weight;
+	fn access_list_touch_warm() -> Weight;
+	fn access_list_rollback_amortization() -> Weight;
 	fn set_transient_storage_empty() -> Weight;
 	fn set_transient_storage_full() -> Weight;
 	fn get_transient_storage_empty() -> Weight;
@@ -964,6 +976,33 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	// ===========================================================================
+	// Cold/warm placeholders.
+	//
+	// Storage `_warm` methods: cold / 5 ref_time, PoV stripped (warm path serves
+	// the trie from cache via whitelist). `access_list_*` methods: ratios of
+	// `seal_caller` (cold touch & rollback amortization = 1/8; warm touch = 1/24).
+	// All values placeholders — `/cmd bench` replaces them once the `_warm` and
+	// `access_list_*` benches run.
+	// ===========================================================================
+	fn get_storage_empty_warm() -> Weight {
+		Weight::from_parts(1_895_600, 0)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
+	fn get_storage_full_warm() -> Weight {
+		Weight::from_parts(7_994_600, 0)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
+	fn set_storage_empty_warm() -> Weight {
+		Weight::from_parts(2_085_400, 0)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn set_storage_full_warm() -> Weight {
+		Weight::from_parts(8_313_000, 0)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
@@ -1039,6 +1078,42 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
+	}
+	fn seal_set_storage_warm(n: u32, o: u32) -> Weight {
+		Weight::from_parts(2_197_669, 49)
+			.saturating_add(Weight::from_parts(171, 0).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(407, 0).saturating_mul(o.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn clear_storage_warm(n: u32) -> Weight {
+		Weight::from_parts(2_698_535, 75)
+			.saturating_add(Weight::from_parts(5, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn seal_get_storage_warm(n: u32) -> Weight {
+		Weight::from_parts(2_121_618, 49)
+			.saturating_add(Weight::from_parts(626, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
+	fn contains_storage_warm(_n: u32) -> Weight {
+		Weight::from_parts(739_446, 0)
+	}
+	fn take_storage_warm(n: u32) -> Weight {
+		Weight::from_parts(2_854_225, 75)
+			.saturating_add(Weight::from_parts(5, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn access_list_touch_cold() -> Weight {
+		Weight::from_parts(49_875, 0)
+	}
+	fn access_list_touch_warm() -> Weight {
+		Weight::from_parts(16_625, 0)
+	}
+	fn access_list_rollback_amortization() -> Weight {
+		Weight::from_parts(49_875, 0)
 	}
 	fn set_transient_storage_empty() -> Weight {
 		// Proof Size summary in bytes:
@@ -2388,6 +2463,28 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
+	// ===========================================================================
+	// Cold/warm placeholders (see the matching block on `SubstrateWeight<T>`).
+	// `/cmd bench` replaces these once the `_warm` and `access_list_*` benches run.
+	// ===========================================================================
+	fn get_storage_empty_warm() -> Weight {
+		Weight::from_parts(1_895_600, 0)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	fn get_storage_full_warm() -> Weight {
+		Weight::from_parts(7_994_600, 0)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	fn set_storage_empty_warm() -> Weight {
+		Weight::from_parts(2_085_400, 0)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn set_storage_full_warm() -> Weight {
+		Weight::from_parts(8_313_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
@@ -2463,6 +2560,42 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
+	}
+	fn seal_set_storage_warm(n: u32, o: u32) -> Weight {
+		Weight::from_parts(2_197_669, 49)
+			.saturating_add(Weight::from_parts(171, 0).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(407, 0).saturating_mul(o.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn clear_storage_warm(n: u32) -> Weight {
+		Weight::from_parts(2_698_535, 75)
+			.saturating_add(Weight::from_parts(5, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn seal_get_storage_warm(n: u32) -> Weight {
+		Weight::from_parts(2_121_618, 49)
+			.saturating_add(Weight::from_parts(626, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	fn contains_storage_warm(_n: u32) -> Weight {
+		Weight::from_parts(739_446, 0)
+	}
+	fn take_storage_warm(n: u32) -> Weight {
+		Weight::from_parts(2_854_225, 75)
+			.saturating_add(Weight::from_parts(5, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn access_list_touch_cold() -> Weight {
+		Weight::from_parts(49_875, 0)
+	}
+	fn access_list_touch_warm() -> Weight {
+		Weight::from_parts(16_625, 0)
+	}
+	fn access_list_rollback_amortization() -> Weight {
+		Weight::from_parts(49_875, 0)
 	}
 	fn set_transient_storage_empty() -> Weight {
 		// Proof Size summary in bytes:
