@@ -172,7 +172,9 @@ pub fn check_scheduling(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use cumulus_primitives_core::{CoreSelector, SchedulingProof, SignedSchedulingInfo};
+	use cumulus_primitives_core::{
+		CoreSelector, SchedulingInfoPayload, SchedulingProof, SignedSchedulingInfo,
+	};
 	use sp_runtime::{generic::Header, traits::BlakeTwo256};
 
 	type RelayHeader = Header<u32, BlakeTwo256>;
@@ -368,8 +370,11 @@ mod tests {
 		let scheduling_parent = headers[0].hash();
 
 		let signed_info = SignedSchedulingInfo {
-			core_selector: CoreSelector(0),
-			peer_id: Default::default(),
+			payload: SchedulingInfoPayload::new(
+				CoreSelector(0),
+				Default::default(),
+				relay_parent,
+			),
 			signature: dummy_signature(),
 		};
 
@@ -409,8 +414,11 @@ mod tests {
 		let older_relay_parent = RelayHash::repeat_byte(0xBB);
 
 		let signed_info = SignedSchedulingInfo {
-			core_selector: CoreSelector(0),
-			peer_id: Default::default(),
+			payload: SchedulingInfoPayload::new(
+				CoreSelector(0),
+				Default::default(),
+				internal_scheduling_parent,
+			),
 			signature: dummy_signature(),
 		};
 
@@ -525,8 +533,11 @@ mod tests {
 		let proof = SchedulingProof {
 			header_chain: headers,
 			signed_scheduling_info: Some(SignedSchedulingInfo {
-				core_selector: CoreSelector(0),
-				peer_id: Default::default(),
+				payload: SchedulingInfoPayload::new(
+					CoreSelector(0),
+					Default::default(),
+					relay_parent,
+				),
 				signature: dummy_signature(),
 			}),
 		};

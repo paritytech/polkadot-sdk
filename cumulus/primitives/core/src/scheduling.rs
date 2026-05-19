@@ -25,8 +25,8 @@ use sp_runtime::traits::{BlakeTwo256, Hash as HashT};
 
 /// Payload signed by a collator for resubmission.
 ///
-/// This binds the core selection to a specific internal scheduling parent,
-/// preventing replay attacks across different scheduling contexts.
+/// This binds the core selection and reputation-credit peer to a specific internal
+/// scheduling parent, preventing replay attacks across different scheduling contexts.
 ///
 /// Note: `claim_queue_offset` is NOT included because it's derived from the
 /// runtime's `relay_parent_offset` configuration - the collator cannot override it.
@@ -34,6 +34,8 @@ use sp_runtime::traits::{BlakeTwo256, Hash as HashT};
 pub struct SchedulingInfoPayload {
 	/// Which core to use (indexes into the parachain's assigned cores).
 	pub core_selector: CoreSelector,
+	/// Peer ID to receive reputation credit for successful collation delivery.
+	pub peer_id: ApprovedPeerId,
 	/// The internal scheduling parent whom's slot decides the
 	/// eligible block author that must sign the payload.
 	pub internal_scheduling_parent: polkadot_primitives::Hash,
@@ -50,15 +52,10 @@ pub struct SchedulingInfoPayload {
 /// collator.
 #[derive(Clone, Encode, Decode, Debug, PartialEq, Eq)]
 pub struct SignedSchedulingInfo {
-	/// Which core to use (indexes into the parachain's assigned cores).
-	pub core_selector: CoreSelector,
-	/// Peer ID to receive reputation credit for successful collation delivery.
-	/// Overrides the peer ID from the block's commitments, allowing the
-	/// resubmitting collator to receive reputation instead of the original
-	/// block author who failed to deliver.
-	pub peer_id: ApprovedPeerId,
-	/// Signature by the eligible collator for the slot at `internal_scheduling_parent`.
-	/// Signs `SchedulingInfoPayload(core_selector, internal_scheduling_parent)`.
+	/// The scheduling information.
+	pub payload: SchedulingInfoPayload,
+	/// Signature by the eligible collator over the SCALE-encoded
+	/// `SchedulingInfoPayload`.
 	///
 	/// Stored as a fixed 64-byte blob so the verifier can decode it as either an sr25519
 	/// or ed25519 signature, depending on the parachain's Aura authority crypto. Both
@@ -70,9 +67,10 @@ impl SchedulingInfoPayload {
 	/// Create a new scheduling info payload.
 	pub fn new(
 		core_selector: CoreSelector,
+		peer_id: ApprovedPeerId,
 		internal_scheduling_parent: polkadot_primitives::Hash,
 	) -> Self {
-		Self { core_selector, internal_scheduling_parent }
+		Self { core_selector, peer_id, internal_scheduling_parent }
 	}
 }
 
