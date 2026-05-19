@@ -4,7 +4,7 @@ doc:
   description: |-
     closes https://github.com/paritytech/polkadot-sdk/issues/11888
 
-    Skip the binary-search of dry-runs and return the fixed 21,000 gas cost when eth_estimate_gas is called for an EOA-to-EOA value transfer with empty calldata and no access list, EIP-7702 authorization list, EIP-4844 blob payload, or state overrides.
+    Skip the binary-search loop in eth_estimate_gas for EOA-to-EOA value transfers (empty calldata, no access list, no EIP-7702 authorization list, no EIP-4844 blob payload, no state overrides) and settle them with a single dry-run instead. Pallet-revive's gas units are derived from substrate weight, so the cost cannot be hardcoded to Ethereum's 21,000 constant; the single dry-run returns the exact minimum gas the runtime requires.
 crates:
 - name: pallet-revive
   bump: patch
