@@ -412,7 +412,10 @@ where
 		call: &IERC20::allowanceCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		env.charge(<Runtime as Config<Instance>>::WeightInfo::allowance())?;
+		env.charge(
+			<Runtime as Config<Instance>>::WeightInfo::allowance()
+				.saturating_add(permit::Pallet::<Runtime>::infinite_approval_read_weight()),
+		)?;
 		let owner_h160: H160 = call.owner.into_array().into();
 		let owner = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner_h160);
 
@@ -474,7 +477,8 @@ where
 		// Reserve worst-case gas upfront, then refund the unused portion.
 		let worst_case = <Runtime as Config<Instance>>::WeightInfo::allowance()
 			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::cancel_approval())
-			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::approve_transfer());
+			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::approve_transfer())
+			.saturating_add(permit::Pallet::<Runtime>::infinite_approval_write_weight());
 		let charged = env.charge(worst_case)?;
 
 		let owner = Self::caller(env)?;
@@ -532,7 +536,11 @@ where
 				new_amount,
 			)?;
 		}
-		env.adjust_gas(charged, actual_weight);
+		env.adjust_gas(
+			charged,
+			actual_weight
+				.saturating_add(permit::Pallet::<Runtime>::infinite_approval_write_weight()),
+		);
 
 		if call.value == alloy::primitives::U256::MAX {
 			permit::Pallet::<Runtime>::set_infinite_approval(&verifying_contract, &owner, &spender);
@@ -574,7 +582,8 @@ where
 		call: &IERC20::transferFromCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		let worst_case = <Runtime as Config<Instance>>::WeightInfo::transfer_approved();
+		let worst_case = <Runtime as Config<Instance>>::WeightInfo::transfer_approved()
+			.saturating_add(permit::Pallet::<Runtime>::infinite_approval_read_weight());
 		let charged = env.charge(worst_case)?;
 
 		let spender_h160 = Self::caller(env)?;
@@ -613,7 +622,10 @@ where
 				None,
 				f,
 			)?;
+			// `transfer()` for the move plus `allowance()` as a structural
+			// twin for the `Approvals::contains_key` probe done above.
 			<Runtime as Config<Instance>>::WeightInfo::transfer()
+				.saturating_add(<Runtime as Config<Instance>>::WeightInfo::allowance())
 		} else {
 			// Common path: `do_transfer_approved` does its own approval read
 			// and decrement.
@@ -626,7 +638,11 @@ where
 			)?;
 			<Runtime as Config<Instance>>::WeightInfo::transfer_approved()
 		};
-		env.adjust_gas(charged, actual_weight);
+		env.adjust_gas(
+			charged,
+			actual_weight
+				.saturating_add(permit::Pallet::<Runtime>::infinite_approval_read_weight()),
+		);
 
 		Self::deposit_event(
 			env,
@@ -654,13 +670,12 @@ where
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		// Reserve worst-case gas upfront, then refund the unused portion.
-		// The total cost is: use_permit (signature verification + nonce) +
-		// worst-case asset approval operations (allowance read + cancel + approve).
 		let use_permit_weight = <Runtime as permit::Config>::WeightInfo::use_permit();
 		let worst_case = use_permit_weight
 			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::allowance())
 			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::cancel_approval())
-			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::approve_transfer());
+			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::approve_transfer())
+			.saturating_add(permit::Pallet::<Runtime>::infinite_approval_write_weight());
 		let charged = env.charge(worst_case)?;
 
 		let owner_h160: H160 = call.owner.into_array().into();
@@ -804,7 +819,14 @@ where
 		// permit returns void
 		match transaction_outcome {
 			Ok(actual_weight) => {
-				env.adjust_gas(charged, actual_weight);
+				// Sentinel-flag write is unconditional (set or clear runs on
+				// every commit path) — add it once here instead of inside
+				// each `actual_weight` branch above.
+				env.adjust_gas(
+					charged,
+					actual_weight
+						.saturating_add(permit::Pallet::<Runtime>::infinite_approval_write_weight()),
+				);
 				Ok(Vec::new())
 			},
 			Err(e) => Err(e),

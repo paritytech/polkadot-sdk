@@ -74,6 +74,13 @@ pub(crate) const PERMIT_STRUCT_ENCODED_LEN: usize = 32 * 6;
 /// Digest prefix: \x19\x01(2) + domain_separator(32) + struct_hash(32) = 66 bytes
 pub(crate) const DIGEST_PREFIX_LEN: usize = 2 + 32 + 32;
 
+/// Conservative proof-size estimate for one `InfiniteApprovals` storage
+/// access. Picked to match `pallet_assets::Approvals` (a structurally
+/// similar 3-key NMap whose measured proof_size is ~3613 bytes); a tight
+/// benchmark would shave a few hundred bytes but this stays on the safe
+/// side and avoids adding a benchmark for a single-key `()`-valued lookup.
+pub(crate) const INFINITE_APPROVAL_PROOF_SIZE: u64 = 3613;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -197,6 +204,20 @@ pub mod pallet {
 		pub fn clear_infinite_approvals_for_contract(contract: &H160) -> u32 {
 			let results = InfiniteApprovals::<T>::clear_prefix((*contract,), u32::MAX, None);
 			results.unique
+		}
+
+		/// Weight for one `InfiniteApprovals` lookup (`contains_key`).
+		pub fn infinite_approval_read_weight() -> Weight {
+			T::DbWeight::get()
+				.reads(1)
+				.saturating_add(Weight::from_parts(0, INFINITE_APPROVAL_PROOF_SIZE))
+		}
+
+		/// Weight for one `InfiniteApprovals` mutation (`insert` or `remove`).
+		pub fn infinite_approval_write_weight() -> Weight {
+			T::DbWeight::get()
+				.writes(1)
+				.saturating_add(Weight::from_parts(0, INFINITE_APPROVAL_PROOF_SIZE))
 		}
 
 		/// Compute the EIP-712 domain separator for a given verifying contract.
