@@ -1080,9 +1080,7 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		data: PrefetchedIndexedTransactions,
 	) -> ClientResult<()> {
 		self.index_ops = data.ops;
-		for (hash, bytes) in data.renew_payloads {
-			self.prefetched_indexed_transactions.insert(DbHash::from_slice(&hash), bytes);
-		}
+		self.prefetched_indexed_transactions = data.renew_payloads;
 		Ok(())
 	}
 
@@ -2979,7 +2977,7 @@ pub(crate) mod tests {
 			extrinsics_root,
 			body,
 			transaction_index,
-			Vec::new(),
+			HashMap::new(),
 		)
 	}
 
@@ -2990,7 +2988,7 @@ pub(crate) mod tests {
 		extrinsics_root: H256,
 		body: Vec<UncheckedXt>,
 		transaction_index: Option<Vec<IndexOperation>>,
-		prefetched: Vec<([u8; 32], Vec<u8>)>,
+		prefetched: HashMap<H256, Vec<u8>>,
 	) -> Result<H256, sp_blockchain::Error> {
 		use sp_runtime::testing::Digest;
 
@@ -3037,7 +3035,7 @@ pub(crate) mod tests {
 		body: Vec<UncheckedXt>,
 		runtime_index_ops: Vec<IndexOperation>,
 		synthetic_index_ops: Vec<IndexOperation>,
-		renew_payloads: Vec<([u8; 32], Vec<u8>)>,
+		renew_payloads: HashMap<H256, Vec<u8>>,
 	) -> Result<H256, sp_blockchain::Error> {
 		use sp_runtime::testing::Digest;
 
@@ -6862,7 +6860,7 @@ pub(crate) mod tests {
 				Default::default(),
 				vec![UncheckedXt::new_transaction(0.into(), ())],
 				Some(vec![IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() }]),
-				vec![(payload_hash_arr, payload.clone())],
+				HashMap::from([(payload_hash, payload.clone())]),
 			)
 			.unwrap();
 
@@ -6902,7 +6900,7 @@ pub(crate) mod tests {
 					IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() },
 					IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() },
 				]),
-				vec![(payload_hash_arr, payload.clone())],
+				HashMap::from([(payload_hash, payload.clone())]),
 			)
 			.unwrap();
 			blocks.push(block0);
@@ -6992,7 +6990,7 @@ pub(crate) mod tests {
 				Default::default(),
 				vec![UncheckedXt::new_transaction(99.into(), ())],
 				Some(vec![IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() }]),
-				vec![(payload_hash_arr, payload.clone())],
+				HashMap::from([(payload_hash, payload.clone())]),
 			)
 			.unwrap();
 
@@ -7031,7 +7029,7 @@ pub(crate) mod tests {
 				Default::default(),
 				vec![UncheckedXt::new_transaction(0.into(), ())],
 				Some(vec![IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() }]),
-				vec![(payload_hash_arr, payload.clone())],
+				HashMap::from([(payload_hash, payload.clone())]),
 			)
 			.unwrap();
 			blocks.push(block0);
@@ -7119,7 +7117,7 @@ pub(crate) mod tests {
 				Default::default(),
 				vec![UncheckedXt::new_transaction(99.into(), ())],
 				Some(vec![IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() }]),
-				vec![(payload_hash_arr, payload.clone())],
+				HashMap::from([(payload_hash, payload.clone())]),
 			)
 			.unwrap();
 			blocks.push(block1);
@@ -7217,7 +7215,7 @@ pub(crate) mod tests {
 					},
 					IndexOperation::Renew { extrinsic: 1, hash: x_hash_arr.into() },
 				]),
-				vec![(x_hash_arr, x.clone())],
+				HashMap::from([(x_hash, x.clone())]),
 			)
 			.unwrap();
 			blocks.push(block1);
@@ -7282,7 +7280,7 @@ pub(crate) mod tests {
 						extrinsic: 0,
 						hash: payload_hash_arr.into(),
 					}]),
-					vec![(payload_hash_arr, payload.clone())],
+					HashMap::from([(payload_hash, payload.clone())]),
 				)
 				.unwrap();
 				blocks.push(block);
@@ -7360,7 +7358,7 @@ pub(crate) mod tests {
 					hash: payload_hash_arr.into(),
 					size: payload.len() as u32,
 				}],
-				Vec::new(),
+				HashMap::new(),
 			)
 			.unwrap();
 
@@ -7401,7 +7399,7 @@ pub(crate) mod tests {
 					hash: bogus_hash_arr.into(),
 					size: payload.len() as u32,
 				}],
-				Vec::new(),
+				HashMap::new(),
 			)
 			.unwrap();
 
@@ -7439,7 +7437,7 @@ pub(crate) mod tests {
 				body.clone(),
 				Vec::new(),
 				Vec::new(),
-				Vec::new(),
+				HashMap::new(),
 			)
 			.unwrap();
 
@@ -7462,7 +7460,7 @@ pub(crate) mod tests {
 				vec![UncheckedXt::new_transaction(1.into(), ())],
 				Vec::new(),
 				vec![IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() }],
-				vec![(payload_hash_arr, payload.clone())],
+				HashMap::from([(payload_hash, payload.clone())]),
 			)
 			.unwrap();
 
@@ -7508,7 +7506,7 @@ pub(crate) mod tests {
 				vec![UncheckedXt::new_transaction(6.into(), ())],
 				Vec::new(),
 				vec![IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() }],
-				Vec::new(),
+				HashMap::new(),
 			)
 			.unwrap();
 
@@ -7545,7 +7543,7 @@ pub(crate) mod tests {
 					hash: tail_hash_arr.into(),
 					size: tail_size,
 				}],
-				Vec::new(),
+				HashMap::new(),
 			)
 			.unwrap();
 
@@ -7579,7 +7577,7 @@ pub(crate) mod tests {
 					hash: bogus_hash_arr.into(),
 					size: oversized,
 				}],
-				Vec::new(),
+				HashMap::new(),
 			)
 			.unwrap();
 
@@ -7634,7 +7632,7 @@ pub(crate) mod tests {
 						size: payload_b.len() as u32,
 					},
 				],
-				Vec::new(),
+				HashMap::new(),
 			)
 			.unwrap();
 

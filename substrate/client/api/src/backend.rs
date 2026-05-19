@@ -18,13 +18,13 @@
 
 //! Substrate Client data backend
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use parking_lot::RwLock;
 
 use sp_api::CallContext;
 use sp_consensus::BlockOrigin;
-use sp_core::offchain::OffchainStorage;
+use sp_core::{offchain::OffchainStorage, H256};
 use sp_runtime::{
 	traits::{Block as BlockT, HashingFor, NumberFor},
 	Justification, Justifications, StateVersion, Storage,
@@ -162,15 +162,14 @@ impl NewBlockState {
 	}
 }
 
-/// Out-of-band indexed-transaction data attached by upstream block-import wrappers
-/// (e.g. cumulus storage-chain-sync) for blocks the runtime did not execute locally.
+/// Out-of-band indexed-transaction data attached by upstream block-import wrappers.
 #[derive(Default, Debug, Clone)]
 pub struct PrefetchedIndexedTransactions {
-	/// Synthetic ops applied when the runtime produced none. Runtime ops override.
+	/// Ops applied when the runtime produced none.
 	pub ops: Vec<IndexOperation>,
 
 	/// Payload bytes for `IndexOperation::Renew` hashes not yet in `TRANSACTION`.
-	pub renew_payloads: Vec<([u8; 32], Vec<u8>)>,
+	pub renew_payloads: HashMap<H256, Vec<u8>>,
 }
 
 /// Block insertion operation.
@@ -266,8 +265,7 @@ pub trait BlockImportOperation<Block: BlockT> {
 	fn update_transaction_index(&mut self, index: Vec<IndexOperation>)
 		-> sp_blockchain::Result<()>;
 
-	/// Apply wrapper-supplied data from [`PrefetchedIndexedTransactions`].
-	/// Called by `apply_block` before `update_transaction_index`; runtime ops override.
+	/// Apply block import supplied data from [`PrefetchedIndexedTransactions`].
 	fn set_prefetched_indexed_transactions(
 		&mut self,
 		data: PrefetchedIndexedTransactions,
