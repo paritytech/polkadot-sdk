@@ -162,7 +162,7 @@ jobs:
 
   node-bench-regression-guard:
     timeout-minutes: 20
-    if: always() && !cancelled()
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ubuntu-latest
     needs: [preflight, cargo-check-benches]
     steps:
