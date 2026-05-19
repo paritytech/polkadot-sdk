@@ -53,7 +53,11 @@ mod migration_tests;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
+mod permit_precompile_tests;
+#[cfg(test)]
 mod permit_tests;
+#[cfg(test)]
+mod test_helpers;
 #[cfg(test)]
 mod tests;
 
