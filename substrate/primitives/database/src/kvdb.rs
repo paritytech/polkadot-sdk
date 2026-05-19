@@ -44,10 +44,10 @@ fn read_counter(
 		Some(data) => {
 			let mut counter_data = [0; 4];
 			if data.len() != 4 {
-				return Err(error::DatabaseError(Box::new(std::io::Error::new(
-					std::io::ErrorKind::Other,
-					format!("Unexpected counter len {}", data.len()),
-				))));
+				return Err(error::DatabaseError(Box::new(std::io::Error::other(format!(
+					"Unexpected counter len {}",
+					data.len(),
+				)))));
 			}
 			counter_data.copy_from_slice(&data);
 			let counter = u32::from_le_bytes(counter_data);
@@ -61,7 +61,6 @@ fn read_counter(
 struct RefCountedKeyState {
 	delta: i64,
 	stored_value: Option<Vec<u8>>,
-	had_store: bool,
 }
 
 /// Commit a transaction to a KeyValueDB.
@@ -87,10 +86,8 @@ fn commit_impl<H: Clone + AsRef<[u8]>>(
 			Change::Store(col, key, value) => {
 				let entry = ref_counted.entry((col, key.as_ref().to_vec())).or_default();
 				entry.delta += 1;
-				if !entry.had_store {
-					entry.had_store = true;
-					entry.stored_value = Some(value);
-				}
+				// Subsequent Stores ignore the preimage per `Transaction::store` semantics.
+				entry.stored_value.get_or_insert(value);
 			},
 			Change::Reference(col, key) => {
 				ref_counted.entry((col, key.as_ref().to_vec())).or_default().delta += 1;
@@ -103,13 +100,9 @@ fn commit_impl<H: Clone + AsRef<[u8]>>(
 
 	for ((col, key), state) in ref_counted {
 		let (counter_key, on_disk_counter) = read_counter(db, col, &key)?;
-		// Counter and value are co-resident under the kvdb refcount scheme (written and
-		// deleted as a pair per commit), so counter-presence is a faithful proxy for
-		// value-presence here.
-		let value_in_db = on_disk_counter.is_some();
-		// Reference/Release on a missing key without a Store stays a no-op.
-		let writes_new_value = state.had_store && !value_in_db;
-		if !value_in_db && !writes_new_value {
+		let counter_in_db = on_disk_counter.is_some();
+		// Reference/Release on a key absent from the DB, with no Store to seed it: no-op.
+		if !counter_in_db && state.stored_value.is_none() {
 			continue;
 		}
 		let new_counter = on_disk_counter.unwrap_or(0) as i64 + state.delta;
@@ -123,14 +116,12 @@ fn commit_impl<H: Clone + AsRef<[u8]>>(
 				))))
 			})?;
 			tx.put(col, &counter_key, &new_counter_u32.to_le_bytes());
-			if writes_new_value {
-				tx.put_vec(
-					col,
-					&key,
-					state
-						.stored_value
-						.expect("had_store=true implies stored_value is Some per Store branch"),
-				);
+			// Counter and value are written/deleted as a pair, so an absent counter means the
+			// value is absent too — emit the Store's preimage alongside the new counter.
+			if !counter_in_db {
+				if let Some(v) = state.stored_value {
+					tx.put_vec(col, &key, v);
+				}
 			}
 		}
 	}
