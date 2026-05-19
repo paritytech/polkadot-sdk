@@ -14,8 +14,10 @@ mean; both are delegated to the runtime via the `sp_hop::HopRuntimeApi`.
 
 ## Overview
 
-- **Disk-backed** — blobs are written to disk immediately, only metadata lives
-  in RAM. The in-memory index is rebuilt from on-disk `.meta` files on restart.
+- **Disk-backed** — blobs are written to disk immediately as content-addressed
+  files, and metadata is persisted to a parity-db key-value store. In-memory
+  state is limited to derived counter caches that are rebuilt by iterating
+  the metadata column at startup.
 - **Content-addressed** — entries are keyed by `blake2_256(data)`; duplicates
   are rejected at submit time.
 - **Per-recipient ephemeral keypairs** — the sender generates a one-time
@@ -44,7 +46,7 @@ mean; both are delegated to the runtime via the `sp_hop::HopRuntimeApi`.
 | Module | Purpose |
 |---|---|
 | `cli` | `HopParams` — `clap`-flattenable CLI parameters |
-| `pool` | `HopDataPool` — disk-backed blob store + in-memory metadata index |
+| `pool` | `HopDataPool` — content-addressed blob files + parity-db metadata KV store |
 | `rpc` | `HopApi` / `HopRpcServer` — jsonrpsee methods (`hop_submit`/`claim`/`ack`/`poolStatus`) |
 | `promotion` | `HopPromoter`, `HopMaintenanceTask`, `build_maintenance_task` — background promotion + cleanup |
 | `rate_limit` | `RateLimitConfig`, `RateLimiter` — per-account token buckets |
@@ -214,17 +216,19 @@ Returns `{ entryCount, totalBytes, maxBytes }` (camelCase on the wire).
 | 1019 | `DuplicateRecipient` | Recipient list contains duplicates |
 | 1020 | `RateLimited` | Per-account rate limit exceeded; response includes `retry_after_secs` |
 | 1021 | `MissingDataDir` | Neither `--hop-data-dir` nor a chain database path was available |
+| 1022 | `Db` | Metadata KV store failure (open, read, write, or decode error from parity-db) |
 
 ## Limits and fixed parameters
 
 - Max blob size: whatever `HopRuntimeApi::max_promotion_size()` returns on the
   current runtime — authoritative, no separate node-side ceiling.
-- `MAX_RECIPIENTS` = 256 per entry (enforced by `BoundedVec` — corrupt on-disk
-  `.meta` files with too many recipients fail to SCALE-decode and are
+- `MAX_RECIPIENTS` = 256 per entry (enforced by `BoundedVec` — corrupt
+  metadata rows with too many recipients fail to SCALE-decode and are
   discarded during startup recovery).
 - Hash: Blake2-256.
-- On-disk layout: 256 shard directories under `<data_dir>/blobs/` and
-  `<data_dir>/meta/`.
+- On-disk layout: 256 shard directories of blob files under
+  `<data_dir>/blobs/{00..ff}/<hash>.blob`, plus a parity-db instance at
+  `<data_dir>/meta-db/` holding the metadata column keyed by content hash.
 
 ## Graceful degradation
 
