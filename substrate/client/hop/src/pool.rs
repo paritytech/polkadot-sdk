@@ -1405,6 +1405,27 @@ mod tests {
 	}
 
 	#[test]
+	fn test_cleanup_expired_honors_wall_clock_retention() {
+		// Retention is measured in real seconds, not blocks: insert with a 1 s
+		// retention, sleep past it, and assert cleanup reaps the entry.
+		let (pool, _dir) = make_pool(10_000, 1);
+		let (_, signer) = test_recipient();
+
+		let hash = pool
+			.insert(vec![0u8; 100], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
+
+		// Not yet expired — cleanup must be a no-op.
+		assert_eq!(pool.cleanup_expired(), 0, "entry should still be live before retention elapses");
+		assert!(pool.has(&hash));
+
+		std::thread::sleep(std::time::Duration::from_millis(1_200));
+
+		assert!(pool.cleanup_expired() > 0, "entry should be reaped once wall-clock retention elapses");
+		assert!(!pool.has(&hash));
+	}
+
+	#[test]
 	fn test_user_counter_preserved_until_cleanup() {
 		// release_user_quota does not remove the map entry — only cleanup_expired
 		// reclaims stale per-sender slots. Until then the slot remains at 0 so a
