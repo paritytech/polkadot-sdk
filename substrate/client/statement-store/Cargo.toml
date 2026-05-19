@@ -39,7 +39,7 @@ sp-runtime = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
 subxt = { version = "0.50", features = ["jsonrpsee", "native"], optional = true }
-subxt-signer = { version = "0.50", optional = true }
+subxt-signer = { version = "0.50", features = ["sr25519"], optional = true }
 tokio = { features = ["time"], workspace = true, default-features = true }
 
 [dev-dependencies]

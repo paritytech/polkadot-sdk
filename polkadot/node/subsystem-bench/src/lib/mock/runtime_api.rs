@@ -203,12 +203,6 @@ impl MockRuntimeApi {
 						},
 						RuntimeApiMessage::Request(
 							_block_hash,
-							RuntimeApiRequest::SessionExecutorParams(_session_index, sender),
-						) => {
-							let _ = sender.send(Ok(Some(Default::default())));
-						},
-						RuntimeApiMessage::Request(
-							_block_hash,
 							RuntimeApiRequest::Validators(sender),
 						) => {
 							let _ =
