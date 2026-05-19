@@ -27,7 +27,10 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
-	traits::{fungible::MutateHold, Consideration, Get, ReservableCurrency},
+	traits::{
+		fungible::MutateHold, Consideration, Get, GetStorageVersion, ReservableCurrency,
+		StorageVersion,
+	},
 	weights::WeightMeter,
 	BoundedVec,
 };
@@ -69,6 +72,10 @@ impl<T: v0::MigrationConfig> SteppedMigration for MigrateV0ToV1<T> {
 		cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+		if Pallet::<T>::on_chain_storage_version() != Self::id().version_from as u16 {
+			return Ok(None);
+		}
+
 		let required = T::DbWeight::get().reads_writes(2, 2);
 
 		if meter.remaining().any_lt(required) {
@@ -233,7 +240,11 @@ impl<T: v0::MigrationConfig> SteppedMigration for MigrateV0ToV1<T> {
 						v0::Proxy::<T>::iter()
 					};
 
-					let Some((rescuer, lost)) = iter.next() else { return Ok(None) };
+					let Some((rescuer, lost)) = iter.next() else {
+						// only exit return
+						StorageVersion::new(Self::id().version_to as u16).put::<Pallet<T>>();
+						return Ok(None);
+					};
 					cursor = MigrationCursor::Proxy(Some(rescuer.clone()));
 					v0::Proxy::<T>::remove(&rescuer);
 
@@ -324,7 +335,10 @@ mod tests {
 		pallet,
 	};
 	use frame_support::{
-		migrations::SteppedMigration, traits::ReservableCurrency, weights::WeightMeter, BoundedVec,
+		migrations::SteppedMigration,
+		traits::{GetStorageVersion, ReservableCurrency, StorageVersion},
+		weights::WeightMeter,
+		BoundedVec,
 	};
 
 	type T = Test;
@@ -620,6 +634,56 @@ mod tests {
 
 			// Attempt should be removed after finish
 			assert!(pallet::Attempt::<T>::get(ALICE, 0u32).is_none());
+		});
+	}
+
+	#[test]
+	fn migration_bumps_on_chain_storage_version() {
+		new_test_ext().execute_with(|| {
+			StorageVersion::new(0).put::<pallet::Pallet<T>>();
+			assert_eq!(pallet::Pallet::<T>::on_chain_storage_version(), 0);
+
+			v0::Recoverable::<T>::insert(
+				ALICE,
+				v0::RecoveryConfig {
+					delay_period: 10u64,
+					deposit: 50u128,
+					friends: friends(&[BOB, CHARLIE]),
+					threshold: 2,
+				},
+			);
+			Balances::reserve(&ALICE, 50u128).unwrap();
+
+			run_migration();
+
+			assert_eq!(pallet::Pallet::<T>::on_chain_storage_version(), 1);
+		});
+	}
+
+	#[test]
+	fn migration_is_idempotent_after_completion() {
+		new_test_ext().execute_with(|| {
+			StorageVersion::new(0).put::<pallet::Pallet<T>>();
+
+			v0::Recoverable::<T>::insert(
+				ALICE,
+				v0::RecoveryConfig {
+					delay_period: 10u64,
+					deposit: 50u128,
+					friends: friends(&[BOB, CHARLIE]),
+					threshold: 2,
+				},
+			);
+			Balances::reserve(&ALICE, 50u128).unwrap();
+
+			run_migration();
+			assert_eq!(pallet::Pallet::<T>::on_chain_storage_version(), 1);
+
+			let _guard = frame_support::StorageNoopGuard::new();
+			run_migration();
+
+			let mut meter = WeightMeter::new();
+			assert!(matches!(MigrateV0ToV1::<T>::step(None, &mut meter), Ok(None)));
 		});
 	}
 }
