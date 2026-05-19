@@ -213,10 +213,6 @@ macro_rules! cost_storage {
             .saturating_sub(T::WeightInfo::get_storage_empty()))
     };
 
-    // Warm variants: same shape as `write`/`read` but the unbalanced-trie
-    // surcharge uses the whitelisted `_full_warm` / `_empty_warm` pair, so
-    // the PoV component of the surcharge is near-zero (CPU stays — warm path
-    // still walks the deep tree, just doesn't grow the proof).
     (write_warm, $name:ident $(, $arg:expr )*) => {
         T::WeightInfo::$name($( $arg ),*)
             .saturating_add(T::WeightInfo::set_storage_full_warm()
@@ -249,9 +245,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 	}
 
 	fn weight(&self) -> Weight {
-		// Dispatch between the legacy single-benchmark-per-opcode model and
-		// the new EIP-2929-inspired cold/warm pricing model. The flag defaults
-		// to `false` everywhere; the new path is dead until a runtime opts in.
+		// Pre cold/warm feature vs EIP-2929 cold/warm pricing.
 		if !<T as Config>::ColdWarmPricingEnabled::get() {
 			self.legacy_weight::<T>()
 		} else {
@@ -261,7 +255,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 }
 
 impl RuntimeCosts {
-	/// Legacy single-benchmark-per-opcode weight (pre cold/warm work).
+	/// Pre cold/warm feature weight.
 	fn legacy_weight<T: Config>(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match *self {
@@ -376,8 +370,8 @@ impl RuntimeCosts {
 		}
 	}
 
-	// Constructors that dispatch on `transient: bool` and produce a uniform
-	// cost token. `costs` is ignored on the transient branch.
+	// Pick the persistent or transient variant from `transient: bool`.
+	// `costs` is ignored on the transient branch.
 
 	pub fn set(transient: bool, new_bytes: u32, old_bytes: u32, costs: StorageAccessCost) -> Self {
 		if transient {
@@ -408,13 +402,10 @@ impl RuntimeCosts {
 	}
 
 	/// EIP-2929 cold/warm weight for storage opcodes; other variants fall
-	/// through to `legacy_weight`. Cold paths reuse the existing
-	/// `seal_*_storage` / `clear_storage` / `take_storage` / `contains_storage`
-	/// benchmarks; warm paths use their `_warm` counterparts. Each cold/warm
-	/// pair is layered with `access_list_touch_{cold,warm}` and (cold only)
-	/// `access_list_rollback_amortization`. Warm-path numbers in `weights.rs`
-	/// are currently `cold / 5` placeholders; `/cmd bench` will replace them
-	/// with measured values once the `_warm` benches run.
+	/// through to `legacy_weight`. Cold/warm pairs layer
+	/// `access_list_touch_{cold,warm}` and (cold only)
+	/// `access_list_rollback_amortization`. Warm numbers in `weights.rs` are
+	/// `cold / 5` placeholders until `/cmd bench` runs the `_warm` benches.
 	fn new_weight<T: Config>(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match self {
@@ -422,52 +413,39 @@ impl RuntimeCosts {
 				costs.is_cold,
 				cost_storage!(read, seal_get_storage, *len),
 				cost_storage!(read_warm, seal_get_storage_warm, *len),
-				// `Ext::get_storage` always touches; `None` is unreachable.
-				|| unreachable!("Ext::get_storage always touches the access list"),
+				|| unreachable!("get_storage always touches"),
 			),
 			ContainsStorage { len, costs } => Self::cold_warm_weight::<T>(
 				costs.is_cold,
 				cost_storage!(read, contains_storage, *len),
 				cost_storage!(read_warm, contains_storage_warm, *len),
-				// `Ext::get_storage_size` always touches (hardcoded `cold()`);
-				// `None` is unreachable.
-				|| unreachable!("Ext::get_storage_size always touches the access list"),
+				|| unreachable!("contains_storage always touches"),
 			),
 			SetStorage { new_bytes, old_bytes, costs } => Self::cold_warm_weight::<T>(
 				costs.is_cold,
 				cost_storage!(write, seal_set_storage, *new_bytes, *old_bytes),
 				cost_storage!(write_warm, seal_set_storage_warm, *new_bytes, *old_bytes),
-				// Only the PVM oversize-bail in `pvm::set_storage` emits
-				// `None` — no ext call happened, no access-list touch, charge
-				// the legacy worst-case to deter spam.
+				// `None` = no touch happened; charge legacy worst-case.
 				|| cost_storage!(write, seal_set_storage, *new_bytes, *old_bytes),
 			),
 			ClearStorage { len, costs } => Self::cold_warm_weight::<T>(
 				costs.is_cold,
 				cost_storage!(write, clear_storage, *len),
 				cost_storage!(write_warm, clear_storage_warm, *len),
-				// No callsite emits `None` for `ClearStorage`: there's no
-				// oversize-bail mirror of `SetStorage`.
-				|| unreachable!("ClearStorage has no callsite emitting `is_cold: None`"),
+				|| unreachable!("clear_storage always touches"),
 			),
 			TakeStorage { len, costs } => Self::cold_warm_weight::<T>(
 				costs.is_cold,
 				cost_storage!(write, take_storage, *len),
 				cost_storage!(write_warm, take_storage_warm, *len),
-				// No callsite emits `None` for `TakeStorage`: there's no
-				// oversize-bail mirror of `SetStorage`.
-				|| unreachable!("TakeStorage has no callsite emitting `is_cold: None`"),
+				|| unreachable!("take_storage always touches"),
 			),
 			_ => self.legacy_weight::<T>(),
 		}
 	}
 
-	/// Shared cold/warm dispatch shape used by every storage variant in
-	/// `new_weight`. The `cold` and `warm` weights are the underlying
-	/// substrate-read or -write cost tokens; this helper layers the matching
-	/// `access_list_touch_{cold,warm}` (plus `access_list_rollback_amortization`
-	/// on the cold path) on top. `none` is a closure so each callsite picks
-	/// its own policy — legacy fallback (`SetStorage` only) or `unreachable!`.
+	/// Cold/warm dispatch shared by `new_weight`'s storage arms. `none` is a
+	/// closure for per-callsite policy (legacy fallback vs. `unreachable!`).
 	fn cold_warm_weight<T: Config>(
 		is_cold: Option<bool>,
 		cold: Weight,

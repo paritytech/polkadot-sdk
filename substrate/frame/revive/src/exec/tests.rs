@@ -3026,13 +3026,23 @@ fn run_call_to(contract_addr: H160) {
 }
 
 #[test]
-fn cold_warm_set_storage_first_cold_second_warm() {
+fn cold_warm_single_contract_warming() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
-		let key = Key::Fix([7; 32]);
-		let (_, first) = ctx.ext.set_storage(&key, Some(vec![1]), false);
-		assert_eq!(first.is_cold, Some(true), "first SSTORE should be cold");
-		let (_, second) = ctx.ext.set_storage(&key, Some(vec![2]), false);
-		assert_eq!(second.is_cold, Some(false), "second SSTORE on same key should be warm");
+		let key_a = Key::Fix([7; 32]);
+		let key_b = Key::Fix([8; 32]);
+
+		let (_, first) = ctx.ext.set_storage(&key_a, Some(vec![1]), false);
+		assert_eq!(first.is_cold, Some(true), "first SSTORE on key_a is cold");
+
+		let (_, second) = ctx.ext.set_storage(&key_a, Some(vec![2]), false);
+		assert_eq!(second.is_cold, Some(false), "second SSTORE on key_a is warm");
+
+		let (_, get_a) = ctx.ext.get_storage(&key_a);
+		assert_eq!(get_a.is_cold, Some(false), "SLOAD after SSTORE on key_a is warm");
+
+		let (_, set_b) = ctx.ext.set_storage(&key_b, Some(vec![3]), false);
+		assert_eq!(set_b.is_cold, Some(true), "SSTORE on a distinct slot is cold");
+
 		exec_success()
 	});
 
@@ -3044,53 +3054,30 @@ fn cold_warm_set_storage_first_cold_second_warm() {
 }
 
 #[test]
-fn cold_warm_get_after_set_is_warm() {
+fn cold_warm_get_storage_size_does_not_warm() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
-		let key = Key::Fix([8; 32]);
-		let (_, set_costs) = ctx.ext.set_storage(&key, Some(vec![42]), false);
-		assert_eq!(set_costs.is_cold, Some(true));
-		let (_, get_costs) = ctx.ext.get_storage(&key);
-		assert_eq!(get_costs.is_cold, Some(false), "SLOAD after SSTORE on same key is warm");
-		exec_success()
-	});
+		let slot_for_load = Key::Fix([12; 32]);
+		let slot_for_store = Key::Fix([20; 32]);
 
-	ExtBuilder::default().build().execute_with(|| {
-		let _guard = ColdWarmEnabled::new();
-		place_contract(&BOB, code_hash);
-		run_call_to(BOB_ADDR);
-	});
-}
-
-#[test]
-fn cold_warm_distinct_slots_independent() {
-	let code_hash = MockLoader::insert(Call, |ctx, _| {
-		let (_, a) = ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1]), false);
-		let (_, b) = ctx.ext.set_storage(&Key::Fix([2; 32]), Some(vec![2]), false);
-		assert_eq!(a.is_cold, Some(true));
-		assert_eq!(b.is_cold, Some(true));
-		exec_success()
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		let _guard = ColdWarmEnabled::new();
-		place_contract(&BOB, code_hash);
-		run_call_to(BOB_ADDR);
-	});
-}
-
-#[test]
-fn cold_warm_get_storage_size_does_not_warm_for_sload() {
-	let code_hash = MockLoader::insert(Call, |ctx, _| {
-		let slot = Key::Fix([12; 32]);
-		let (size, size_costs) = ctx.ext.get_storage_size(&slot);
+		let (size, size_costs) = ctx.ext.get_storage_size(&slot_for_load);
 		assert_eq!(size, None);
 		assert_eq!(size_costs.is_cold, Some(true), "size always charges cold");
-		let (_, load_costs) = ctx.ext.get_storage(&slot);
+		let (_, load_costs) = ctx.ext.get_storage(&slot_for_load);
 		assert_eq!(
 			load_costs.is_cold,
 			Some(true),
 			"SLOAD after size lookup is still cold — size did not warm the slot",
 		);
+
+		let (_, size_costs) = ctx.ext.get_storage_size(&slot_for_store);
+		assert_eq!(size_costs.is_cold, Some(true));
+		let (_, set_costs) = ctx.ext.set_storage(&slot_for_store, Some(vec![1]), false);
+		assert_eq!(
+			set_costs.is_cold,
+			Some(true),
+			"SSTORE after size lookup is still cold — size did not warm the slot",
+		);
+
 		exec_success()
 	});
 
@@ -3116,46 +3103,6 @@ fn cold_warm_disabled_always_reports_cold() {
 		// Flag stays at its default `false` for this test.
 		place_contract(&BOB, code_hash);
 		run_call_to(BOB_ADDR);
-	});
-}
-
-#[test]
-fn cold_warm_distinct_addresses_are_independent() {
-	let key_for_child = Key::Fix([9; 32]);
-	let key_for_parent = Key::Fix([9; 32]);
-
-	// Child touches the slot on its own address (BOB) and returns Ok.
-	let child_ch = MockLoader::insert(Call, move |ctx, _| {
-		let (_, costs) = ctx.ext.set_storage(&key_for_child, Some(vec![1]), false);
-		assert_eq!(costs.is_cold, Some(true), "child's first touch is cold");
-		exec_success()
-	});
-
-	let parent_ch = MockLoader::insert(Call, move |ctx, _| {
-		// Call into the child, which touches (BOB, slot 9).
-		assert_matches!(
-			ctx.ext.call(
-				&CallResources::NoLimits,
-				&BOB_ADDR,
-				U256::zero(),
-				vec![],
-				ReentrancyProtection::AllowReentry,
-				false,
-			),
-			Ok(_)
-		);
-		// Parent runs in CHARLIE's context, so it touches (CHARLIE, slot 9).
-		// Distinct access entry from the child's (BOB, slot 9), so cold.
-		let (_, after) = ctx.ext.set_storage(&key_for_parent, Some(vec![2]), false);
-		assert_eq!(after.is_cold, Some(true), "parent on its own (address, slot) is cold");
-		exec_success()
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		let _guard = ColdWarmEnabled::new();
-		place_contract(&BOB, child_ch);
-		place_contract(&CHARLIE, parent_ch);
-		run_call_to(CHARLIE_ADDR);
 	});
 }
 
@@ -3213,22 +3160,27 @@ fn cold_warm_child_revert_rolls_back() {
 }
 
 #[test]
-fn cold_warm_child_commit_persists_across_sibling_calls() {
-	let key = Key::Fix([11; 32]);
-	let expected_cold = std::cell::RefCell::new(true);
-	let expected = std::rc::Rc::new(expected_cold);
-	let expected_in_child = expected.clone();
+fn cold_warm_child_commit_keying() {
+	// Two copies of the same slot: `Key` doesn't impl `Clone`, but we need
+	// to move one into each closure. Both project to `(_, slot=[9; 32])` —
+	// the discriminator is the calling contract's address, not the key.
+	let key_for_child = Key::Fix([9; 32]);
+	let key_for_parent = Key::Fix([9; 32]);
+	let expected_cold_in_child = std::rc::Rc::new(std::cell::RefCell::new(true));
+	let expected_in_child = expected_cold_in_child.clone();
 
+	// Child touches (BOB, key) — cold on the first call, warm on the second
+	// (the first call's commit propagates the entry up into the parent frame).
 	let child_ch = MockLoader::insert(Call, move |ctx, _| {
-		let (_, costs) = ctx.ext.set_storage(&key, Some(vec![1]), false);
+		let (_, costs) = ctx.ext.set_storage(&key_for_child, Some(vec![1]), false);
 		let want_cold = *expected_in_child.borrow();
-		assert_eq!(costs.is_cold, Some(want_cold), "expected cold={} on this call", want_cold,);
+		assert_eq!(costs.is_cold, Some(want_cold), "child expected cold={want_cold}");
 		exec_success()
 	});
 
 	let parent_ch = MockLoader::insert(Call, move |ctx, _| {
-		// First call: child sees cold.
-		*expected.borrow_mut() = true;
+		// 1. Child call #1: touches (BOB, key) cold, commits on Ok.
+		*expected_cold_in_child.borrow_mut() = true;
 		assert_matches!(
 			ctx.ext.call(
 				&CallResources::NoLimits,
@@ -3240,8 +3192,18 @@ fn cold_warm_child_commit_persists_across_sibling_calls() {
 			),
 			Ok(_)
 		);
-		// Second call: child sees warm (first call committed).
-		*expected.borrow_mut() = false;
+		// 2. Parent runs in CHARLIE's context — (CHARLIE, key) is a distinct
+		//    AccessEntry from (BOB, key), so it must still be cold even though
+		//    the child just warmed BOB's view of the same slot bytes.
+		let (_, parent_costs) = ctx.ext.set_storage(&key_for_parent, Some(vec![2]), false);
+		assert_eq!(
+			parent_costs.is_cold,
+			Some(true),
+			"parent (CHARLIE, key) is distinct from child's (BOB, key)",
+		);
+		// 3. Child call #2: touches (BOB, key) again — now warm, since call #1
+		//    committed and the entry survived back into the parent frame.
+		*expected_cold_in_child.borrow_mut() = false;
 		assert_matches!(
 			ctx.ext.call(
 				&CallResources::NoLimits,
@@ -3294,28 +3256,6 @@ fn cold_warm_fix_var_disjoint() {
 }
 
 #[test]
-fn cold_warm_size_then_sstore_stays_cold() {
-	let code_hash = MockLoader::insert(Call, |ctx, _| {
-		let slot = Key::Fix([20; 32]);
-		let (_, size_costs) = ctx.ext.get_storage_size(&slot);
-		assert_eq!(size_costs.is_cold, Some(true), "size always charges cold");
-		let (_, set_costs) = ctx.ext.set_storage(&slot, Some(vec![1]), false);
-		assert_eq!(
-			set_costs.is_cold,
-			Some(true),
-			"SSTORE after size lookup is still cold — size did not warm the slot",
-		);
-		exec_success()
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		let _guard = ColdWarmEnabled::new();
-		place_contract(&BOB, code_hash);
-		run_call_to(BOB_ADDR);
-	});
-}
-
-#[test]
 fn cold_warm_delegate_call_warms_parent_slot() {
 	const SLOT: [u8; 32] = [55; 32];
 
@@ -3355,21 +3295,3 @@ fn cold_warm_delegate_call_warms_parent_slot() {
 	});
 }
 
-// TODO: Err-path refund test — needs forcing `set_storage` to return `Err`.
-// The natural trigger is a tight deposit limit on the frame meter that the
-// write exhausts. Wiring that through `TransactionMeter` + `run_call_to`
-// requires exposing a tight-budget helper; the assertion would be: after Err,
-// a second touch on the same slot reports warm.
-//
-// TODO: precompile-level cold/warm test — the precompile's `env.set_storage`
-// is what `cold_warm_set_storage_first_cold_second_warm` already exercises
-// (the precompile delegates straight through). A dedicated dispatch-level
-// test needs a delegate-call `ext` from `CallSetup` and would call
-// `<Storage<Test>>::call(...)` twice in a row — belongs in
-// `precompiles::builtin::storage::tests`, not here.
-//
-// TODO: OOG-during-pre-charge test — the pre-charge halt lives in the opcode
-// handler (`host::sstore`, `pvm::set_storage`), not in `Ext::set_storage`.
-// Needs an integration test that runs real contract bytecode through the
-// interpreter with a gas budget below the pre-charge weight, then asserts
-// the halt fires and the access list is empty.

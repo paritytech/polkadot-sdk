@@ -1670,10 +1670,9 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Warm variant of `seal_set_storage`: trie nodes pre-loaded into the proof
-	// recorder via `add_to_whitelist_child`, so the measured block reflects a
-	// substrate-side cache hit. Difference from the cold benchmark is exactly
-	// the read-of-old leg the proof recorder no longer has to fetch.
+	// Warm variant of `seal_set_storage`: trie pre-loaded via
+	// `add_to_whitelist_child`. Diff vs cold = the read-of-old leg the
+	// proof recorder skips.
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn seal_set_storage_warm(
 		n: Linear<0, { limits::STORAGE_BYTES }>,
@@ -2047,12 +2046,9 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Rollback prepayment: charged once per cold touch so that frame revert
-	// (which runs after the contract halts and can't itself charge gas) is
-	// already covered. Measures the per-entry rollback cost in isolation by
-	// rolling back a frame containing exactly one journaled entry — the
-	// measured block is `BTreeSet::remove` + journal `Vec` drain for that
-	// single entry.
+	// Per-entry rollback cost (`BTreeSet::remove` + journal `Vec` drain),
+	// isolated by rolling back a frame with exactly one journaled entry.
+	// Prepaid by every cold touch since frame revert can't charge gas itself.
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_rollback_amortization() -> Result<(), BenchmarkError> {
 		use crate::access_list::{AccessEntry, AccessList};

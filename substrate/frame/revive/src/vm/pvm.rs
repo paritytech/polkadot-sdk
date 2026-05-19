@@ -492,13 +492,11 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		let max_size = limits::STORAGE_BYTES;
 		if value_len > max_size {
-			// Bail before any ext call: no access-list touch happened, so pass
-			// `Default::default()` (`is_cold: None` — no read cost).
+			// No storage access happened; pass `is_cold: None`.
 			self.charge_gas(RuntimeCosts::set(transient, value_len, max_size, Default::default()))?;
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
-		// Pre-charge to halt insufficient-gas calls before `decode_key` + value memory read.
 		let charged = self.charge_gas(RuntimeCosts::set(
 			transient,
 			value_len,
@@ -520,9 +518,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			Ok(write_outcome.old_len_with_sentinel())
 		} else {
 			let (result, costs) = self.ext.set_storage(&key, value, false);
-			// Refund regardless of Ok/Err — the cold/warm signal is valid in
-			// both branches. On Err the real `old_bytes` is unknown; keep
-			// worst-case for that part.
+			// Refund on Ok/Err. On Err the real `old_bytes` is unknown; keep worst-case.
 			let old_bytes = result.as_ref().map(|w| w.old_len()).unwrap_or(max_size);
 			self.adjust_gas(charged, RuntimeCosts::set(false, value_len, old_bytes, costs));
 			let write_outcome = result?;
@@ -538,7 +534,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		key_len: u32,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
-		// Pre-charge to halt insufficient-gas calls before `decode_key`.
 		let charged = self.charge_gas(RuntimeCosts::clear(
 			transient,
 			limits::STORAGE_BYTES,
@@ -571,7 +566,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		read_mode: StorageReadMode,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let transient = Self::is_transient(flags)?;
-		// Pre-charge to halt insufficient-gas calls before `decode_key`.
 		let charged = self.charge_gas(RuntimeCosts::get(
 			transient,
 			limits::STORAGE_BYTES,

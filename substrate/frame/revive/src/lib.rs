@@ -284,10 +284,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type AllowEVMBytecode: Get<bool>;
 
-		/// Enable EIP-2929-style cold/warm pricing for storage opcodes
-		/// (SLOAD / SSTORE and the storage precompile). When `false`, the legacy
-		/// single-benchmark weight model is used and behavior is bit-identical to
-		/// before the cold/warm work landed.
+		/// Enable EIP-2929-style cold/warm pricing. When `false`, pre cold/warm
+		/// behavior.
 		#[pallet::constant]
 		type ColdWarmPricingEnabled: Get<bool>;
 
@@ -1112,9 +1110,7 @@ pub mod pallet {
 			);
 
 			// We can use storage to store items using the available block ref_time with the
-			// `set_storage` host function. `costs: cold()` is the worst-case under
-			// `ColdWarmPricingEnabled = true`; under `= false` it's ignored by
-			// `legacy_weight` (the current default everywhere).
+			// `set_storage` host function. `costs: cold()` is the worst case.
 			let max_storage_size = max_block_weight
 				.checked_div_per_component(
 					&<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::SetStorage {

@@ -139,13 +139,8 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	ControlFlow::Continue(())
 }
 
-/// Shared pre-charge + refund scaffolding for SSTORE/TSTORE.
-///
-/// Pre-charges the worst-case cost (cold for persistent, default for transient
-/// via [`RuntimeCosts::set`]) and refunds the size + cold/warm deltas after the
-/// call regardless of Ok/Err. The TSTORE adapter wraps its bare `Result` into a
-/// `(Result, StorageAccessCost::default())` tuple so both branches share the
-/// same set_function signature; the constructor discards `costs` for transient.
+/// Pre-charge worst-case + refund size and cold/warm deltas, on Ok and Err.
+/// Shared by SSTORE and TSTORE.
 fn store_helper<'ext, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 	transient: bool,

@@ -63,7 +63,6 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 
 			IStorageCalls::clearStorage(IStorage::clearStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)?;
-				// Pre-charge to halt insufficient-gas calls before `decode_key`.
 				let charged = env.frame_meter_mut().charge_weight_token(RuntimeCosts::clear(
 					transient,
 					max_size,
@@ -111,11 +110,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					);
 					(outcome.is_some(), value_len)
 				} else {
-					// `get_storage_size` always reports cold (see TODO at
-					// `Ext::get_storage_size` for the broader trade-off), so
-					// the refund only concerns the size component — pass
-					// `cold()` directly. Update both sites together when the
-					// two-tier touch lands.
+					// `get_storage_size` always reports cold; mirror that here.
 					let (outcome, _) = env.get_storage_size(&key);
 					let value_len = outcome.unwrap_or(0);
 					env.frame_meter_mut().adjust_weight(

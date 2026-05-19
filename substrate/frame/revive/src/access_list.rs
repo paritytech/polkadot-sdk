@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Per-transaction cold/warm access list for storage opcodes.
+//! Per-transaction cold/warm access list.
 //!
 //! TODO: the per-frame rollback machinery here (flat journal + checkpoint
 //! stack, with `enter_frame` / `commit_frame` / `rollback_frame` wired into
@@ -175,9 +175,8 @@ pub struct StorageAccessCost {
 }
 
 impl StorageAccessCost {
-	/// Worst-case marker used for pre-charging before an `Ext::*storage` call:
-	/// assume the access is cold, then `adjust_weight` refunds the difference
-	/// once the actual cold/warm status is known.
+	/// Worst-case marker for pre-charging: assume cold, then `adjust_weight`
+	/// once the real signal is known.
 	pub const fn cold() -> Self {
 		Self { is_cold: Some(true) }
 	}

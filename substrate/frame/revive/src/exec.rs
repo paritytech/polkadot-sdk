@@ -110,9 +110,8 @@ impl Key {
 		}
 	}
 
-	/// Project to a 32-byte slot identifier for the access list. `Fix` is used
-	/// as-is; `Var` is hashed via `blake2_256`. The variant is tracked
-	/// separately on `AccessEntry::is_var` so `Fix` and `Var` never alias.
+	/// Project to a 32-byte identifier. `Fix` is used as-is; `Var` is hashed
+	/// via `blake2_256`.
 	pub fn to_slot(&self) -> [u8; 32] {
 		match self {
 			Key::Fix(v) => *v,
@@ -546,8 +545,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// was deleted.
 	///
 	/// Note: the impl does NOT currently touch the access list — the returned
-	/// `StorageAccessCost` always reports `is_cold = Some(true)`. See the
-	/// TODO at the impl site.
+	/// `StorageAccessCost` always reports `is_cold = Some(true)`.
 	fn get_storage_size(&mut self, key: &Key) -> (Option<u32>, StorageAccessCost);
 
 	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
@@ -1579,11 +1577,8 @@ where
 				transient_storage.rollback_transaction();
 			}
 		});
-		// Close the access-list frame. Intentional asymmetry with
-		// `transient_storage` (which opens/closes a checkpoint on every run):
-		// the outermost run is skipped so its touches stay tx-wide. Safe
-		// because the `Stack` is dropped at tx end — root-scope touches die
-		// with it.
+		// Close the access-list frame. Skip the outermost run — no parent will
+		// observe the rolled-back state, and the `Stack` is dropped at tx end.
 		if !is_first_frame {
 			if success {
 				self.access_list.commit_frame();
@@ -1937,6 +1932,20 @@ where
 		} else {
 			f(&self.transient_storage)
 		}
+	}
+
+	/// Touch the access list with an entry built from `key` and the current
+	/// frame's address. Returns `true` when the access is cold (and when the
+	/// access list is disabled — `AccessEntry` construction is skipped).
+	fn touch_access_list(&mut self, key: &Key) -> bool {
+		if self.access_list.is_disabled() {
+			return true;
+		}
+		self.access_list.touch(AccessEntry {
+			address: T::AddressMapper::to_address(self.account_id()),
+			is_var: matches!(key, Key::Var(_)),
+			slot: key.to_slot(),
+		})
 	}
 }
 
@@ -2568,32 +2577,16 @@ where
 
 	fn get_storage(&mut self, key: &Key) -> (Option<Vec<u8>>, StorageAccessCost) {
 		assert!(self.has_contract_info());
-		let is_cold = if self.access_list.is_disabled() {
-			true
-		} else {
-			self.access_list.touch(AccessEntry {
-				address: T::AddressMapper::to_address(self.account_id()),
-				is_var: matches!(key, Key::Var(_)),
-				slot: key.to_slot(),
-			})
-		};
+		let is_cold = self.touch_access_list(key);
 		let value = self.top_frame_mut().contract_info().read(key);
 		(value, StorageAccessCost { is_cold: Some(is_cold) })
 	}
 
 	fn get_storage_size(&mut self, key: &Key) -> (Option<u32>, StorageAccessCost) {
 		assert!(self.has_contract_info());
-		// TODO: two-tier touch (size-only vs full-value). For now, `size` does
-		// not register the slot as warm and always charges cold. A following
-		// `get_storage` on the same slot is then correctly priced as cold
-		// (value bytes are fetched for the first time). Trade-off: repeated
-		// `size` calls on the same slot all pay cold, even though the trie
-		// node is already in the proof after the first call.
-		//
-		// Coupled site: the `containsStorage` precompile in
-		// `precompiles/builtin/storage.rs` discards this method's returned
-		// `StorageAccessCost` and hardcodes `cold()`. When this method starts
-		// feeding the access list, update that site too.
+		// `size` does not touch the access list — always charges cold. The
+		// `containsStorage` precompile mirrors this by hardcoding `cold()`;
+		// keep the two sites in sync.
 		let size = self.top_frame_mut().contract_info().size(key.into());
 		(size, StorageAccessCost::cold())
 	}
@@ -2605,15 +2598,7 @@ where
 		take_old: bool,
 	) -> (Result<WriteOutcome, DispatchError>, StorageAccessCost) {
 		assert!(self.has_contract_info());
-		let is_cold = if self.access_list.is_disabled() {
-			true
-		} else {
-			self.access_list.touch(AccessEntry {
-				address: T::AddressMapper::to_address(self.account_id()),
-				is_var: matches!(key, Key::Var(_)),
-				slot: key.to_slot(),
-			})
-		};
+		let is_cold = self.touch_access_list(key);
 		let frame = self.top_frame_mut();
 		let result = frame.contract_info.get(&frame.account_id).write(
 			key.into(),
