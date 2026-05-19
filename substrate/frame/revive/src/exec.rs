@@ -889,9 +889,6 @@ where
 				);
 			});
 
-			let gas_before = transaction_meter.eth_gas_consumed_signed();
-			let weight_before = transaction_meter.weight_consumed();
-
 			let result = if let Some(mock_answer) =
 				exec_config.mock_handler.as_ref().and_then(|handler| {
 					handler.mock_call(T::AddressMapper::to_address(&dest), &input_data, value)
@@ -909,9 +906,9 @@ where
 			};
 
 			if_tracing(|t| {
-				let gas_used = gas_used_since(transaction_meter, &gas_before);
-				let weight_consumed =
-					transaction_meter.weight_consumed().saturating_sub(weight_before);
+				let gas_used =
+					transaction_meter.total_consumed_gas().try_into().unwrap_or(u64::MAX);
+				let weight_consumed = transaction_meter.weight_consumed();
 				match result {
 					Ok(ref output) => t.exit_child_span(&output, gas_used, weight_consumed),
 					Err(e) => {
