@@ -268,12 +268,12 @@ fn zero_reward_points_means_no_payout() {
 		// incentive share, even though she was elected and has self-stake.
 		assert_eq!(staker_reward_for(alice, &events), None);
 		assert_eq!(incentive_paid_for(alice, &events), None);
-		// THEN: bob gets staker reward, plus half the incentive budget (his weight /
-		// sum_weight = 1/2). Alice's half stays unclaimed in the pot .
-		assert!(staker_reward_for(bob, &events).unwrap() > budget / 2);
-		assert_eq!(incentive_paid_for(bob, &events), Some(budget / 2));
-		// Reward that alice forfeited
-		assert_eq!(Balances::free_balance(&pot), budget / 2);
+		// THEN: bob is the only validator with points, so under the weighted-mean
+		// formula his share (w_b · 1) / (w_b · 1) = 1 — he receives the full budget.
+		// Pot is depleted (modulo Perbill rounding dust).
+		assert!(staker_reward_for(bob, &events).unwrap() > 0);
+		assert_eq!(incentive_paid_for(bob, &events), Some(budget));
+		assert_eq!(Balances::free_balance(&pot), 0);
 	});
 }
 
@@ -642,42 +642,56 @@ fn defensive_panic_on_transfer_failure() {
 	});
 }
 
-// ===== `EraRewardPoints::performance_factor` unit tests =====
+// ===== `EraRewardPoints::weighted_points_share` unit tests =====
 
 #[test]
-fn performance_factor_empty_map_is_zero() {
+fn weighted_points_share_empty_map_is_zero() {
 	let points: EraRewardPoints<Test> =
 		EraRewardPoints { total: 0, individual: Default::default() };
-	assert_eq!(points.performance_factor(0), Perbill::zero());
-	// Even a positive validator points value yields zero when the map is empty
-	// (max defaults to 0).
-	assert_eq!(points.performance_factor(5), Perbill::zero());
+	// Denominator is zero (no participating validators) → share collapses to zero.
+	assert_eq!(points.weighted_points_share(&11, |_| 100u128), Perbill::zero());
 }
 
 #[test]
-fn performance_factor_single_validator_is_one() {
+fn weighted_points_share_single_validator_is_one() {
 	let points: EraRewardPoints<Test> =
 		EraRewardPoints { total: 7, individual: bounded_btree_map![11 => 7] };
-	assert_eq!(points.performance_factor(7), Perbill::one());
+	// Only earner → share = 1.0; full budget flows to them.
+	assert_eq!(points.weighted_points_share(&11, |_| 100u128), Perbill::one());
+	// Non-participant gets zero (not in `individual`).
+	assert_eq!(points.weighted_points_share(&21, |_| 100u128), Perbill::zero());
 }
 
 #[test]
-fn performance_factor_uniform_is_one() {
+fn weighted_points_share_uniform_equal_weights_splits_evenly() {
 	let points: EraRewardPoints<Test> =
 		EraRewardPoints { total: 15, individual: bounded_btree_map![11 => 5, 21 => 5, 31 => 5] };
-	for stash_points in [5u32; 3] {
-		assert_eq!(points.performance_factor(stash_points), Perbill::one());
+	let one_third = Perbill::from_rational(1u32, 3u32);
+	for stash in [11, 21, 31] {
+		assert_eq!(points.weighted_points_share(&stash, |_| 100u128), one_third);
 	}
 }
 
 #[test]
-fn performance_factor_outlier_scales_others_down() {
+fn weighted_points_share_proportional_with_unequal_points() {
+	// alice=10, bob=1, carol=1, equal weights. Denominator = 12.
 	let points: EraRewardPoints<Test> =
 		EraRewardPoints { total: 12, individual: bounded_btree_map![11 => 10, 21 => 1, 31 => 1] };
-	// Top performer: factor = 1.0
-	assert_eq!(points.performance_factor(10), Perbill::one());
-	// Underperformers: factor = 1/10
-	assert_eq!(points.performance_factor(1), Perbill::from_rational(1u32, 10u32));
+	let w = |_: &AccountId| 100u128;
+	assert_eq!(points.weighted_points_share(&11, w), Perbill::from_rational(10u32, 12u32));
+	assert_eq!(points.weighted_points_share(&21, w), Perbill::from_rational(1u32, 12u32));
+	assert_eq!(points.weighted_points_share(&31, w), Perbill::from_rational(1u32, 12u32));
+}
+
+#[test]
+fn weighted_points_share_proportional_with_unequal_weights() {
+	// alice (w=200, p=2), bob (w=100, p=1). Denominator = 200·2 + 100·1 = 500.
+	// alice = 400/500, bob = 100/500.
+	let points: EraRewardPoints<Test> =
+		EraRewardPoints { total: 3, individual: bounded_btree_map![11 => 2, 21 => 1] };
+	let w = |stash: &AccountId| if *stash == 11 { 200u128 } else { 100u128 };
+	assert_eq!(points.weighted_points_share(&11, w), Perbill::from_rational(4u32, 5u32));
+	assert_eq!(points.weighted_points_share(&21, w), Perbill::from_rational(1u32, 5u32));
 }
 
 // ===== Performance scaling integration tests =====
@@ -712,18 +726,18 @@ fn incentive_scales_with_relative_performance() {
 		make_all_reward_payment(2);
 		let events = staking_events_since_last_call();
 
-		// THEN: max points = 2 → bob factor = 1.0, alice factor = 0.5.
-		// Bob receives full weight share, alice receives half her weight share.
-		let weight_share = Perbill::from_rational(alice_weight, sum_weight).mul_floor(budget);
-		let bob_expected = weight_share;
-		let alice_expected = Perbill::from_rational(1u32, 2u32).mul_floor(weight_share);
+		// THEN: equal weights, points 1 & 2 → denominator = w·(1 + 2) = 3w.
+		// bob share = 2/3, alice share = 1/3. Full budget is distributed.
+		let bob_expected = Perbill::from_rational(2u32, 3u32).mul_floor(budget);
+		let alice_expected = Perbill::from_rational(1u32, 3u32).mul_floor(budget);
 
 		assert_eq!(incentive_paid_for(bob, &events), Some(bob_expected));
 		assert_eq!(incentive_paid_for(alice, &events), Some(alice_expected));
 
-		// THEN: alice's forfeited half stays in the pot (forfeit semantic).
+		// THEN: pot is depleted (only Perbill rounding dust remains, no forfeit).
 		let total_paid = bob_expected + alice_expected;
 		assert_eq!(Balances::free_balance(&pot), budget - total_paid);
+		assert!(budget - total_paid < 5, "Rounding dust too large");
 	});
 }
 
@@ -741,29 +755,36 @@ fn outlier_top_performer_scales_others_down() {
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
-		let alice_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
-		let sum_weight = ErasSumValidatorIncentiveWeight::<Test>::get(2);
 		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
-		let weight_share = Perbill::from_rational(alice_weight, sum_weight).mul_floor(budget);
+		let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
+			2,
+			RewardKind::ValidatorSelfStake,
+		));
 
 		// WHEN: payout era 2.
 		make_all_reward_payment(2);
 		let events = staking_events_since_last_call();
 
-		// THEN: alice (top performer) gets full weight share; bob gets 1/10.
-		let alice_expected = weight_share;
-		let bob_expected = Perbill::from_rational(1u32, 10u32).mul_floor(weight_share);
+		// THEN: equal weights, points 10 & 1 → denominator = w·11.
+		// alice share = 10/11, bob share = 1/11. Full budget is distributed.
+		let alice_expected = Perbill::from_rational(10u32, 11u32).mul_floor(budget);
+		let bob_expected = Perbill::from_rational(1u32, 11u32).mul_floor(budget);
 
 		assert_eq!(incentive_paid_for(alice, &events), Some(alice_expected));
 		assert_eq!(incentive_paid_for(bob, &events), Some(bob_expected));
+
+		// THEN: pot residue is dust only.
+		let total_paid = alice_expected + bob_expected;
+		assert_eq!(Balances::free_balance(&pot), budget - total_paid);
+		assert!(budget - total_paid < 5, "Rounding dust too large");
 	});
 }
 
 #[test]
 fn uniform_performance_distributes_full_budget() {
-	// Pins the math constraint that motivated p_i / max(p_j) over a multiplicative
-	// (p_i/Σp) split: when all validators perform equally, the full budget must be
-	// distributed, not budget/N.
+	// Under the weighted-mean / proportional-split formula, equal performance ⇒
+	// each validator's share is 1/N and the full budget is distributed (no
+	// forfeit-to-pot in this regime, just Perbill rounding dust).
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11; // validator
 		let bob = 21; // validator
@@ -815,10 +836,15 @@ fn zero_performer_alongside_unequal_others() {
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
+		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
+		let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
+			2,
+			RewardKind::ValidatorSelfStake,
+		));
+		// Equal stake → equal weights for bob and carol; alice's weight is multiplied
+		// by zero points so it doesn't enter the denominator either way.
 		let bob_weight = ErasValidatorIncentiveWeight::<Test>::get(2, bob).unwrap();
 		let carol_weight = ErasValidatorIncentiveWeight::<Test>::get(2, carol).unwrap();
-		let sum_weight = ErasSumValidatorIncentiveWeight::<Test>::get(2);
-		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
 
 		// WHEN: payout era 2.
 		make_all_reward_payment(2);
@@ -827,18 +853,24 @@ fn zero_performer_alongside_unequal_others() {
 		// THEN: alice gated out (zero points → no incentive).
 		assert_eq!(incentive_paid_for(alice, &events), None);
 
-		// THEN: max(p_j) = 5 → bob factor = 1.0, carol factor = 2/5.
-		let bob_expected = Perbill::from_rational(bob_weight, sum_weight).mul_floor(budget);
-		let carol_share = Perbill::from_rational(carol_weight, sum_weight).mul_floor(budget);
-		let carol_expected = Perbill::from_rational(2u32, 5u32).mul_floor(carol_share);
+		// THEN: denominator = w_bob·5 + w_carol·2; alice contributes 0. The full
+		// budget is split proportionally between bob and carol.
+		let denom = bob_weight * 5 + carol_weight * 2;
+		let bob_expected = Perbill::from_rational(bob_weight * 5, denom).mul_floor(budget);
+		let carol_expected = Perbill::from_rational(carol_weight * 2, denom).mul_floor(budget);
 
 		assert_eq!(incentive_paid_for(bob, &events), Some(bob_expected));
 		assert_eq!(incentive_paid_for(carol, &events), Some(carol_expected));
+
+		// THEN: pot residue is dust only — full budget distributed across bob+carol.
+		let total_paid = bob_expected + carol_expected;
+		assert_eq!(Balances::free_balance(&pot), budget - total_paid);
+		assert!(budget - total_paid < 5, "Rounding dust too large");
 	});
 }
 
 #[test]
-fn single_validator_earning_points_gets_full_weight_share() {
+fn single_validator_earning_points_gets_full_budget() {
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11; // validator (only one earning points)
 		let bob = 21; // validator (zero points → gated out)
@@ -846,13 +878,11 @@ fn single_validator_earning_points_gets_full_weight_share() {
 		// GIVEN: two validators with equal weight, incentive budget enabled.
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
-		// Only alice earns points. max(p_j) = alice's points → alice factor = 1.0.
+		// Only alice earns points. Denominator = w_a · 3, numerator = w_a · 3 → share = 1.
 		Eras::<Test>::reward_active_era(vec![(alice, 3)]);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
-		let alice_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
-		let sum_weight = ErasSumValidatorIncentiveWeight::<Test>::get(2);
 		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
 		let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
 			2,
@@ -863,11 +893,11 @@ fn single_validator_earning_points_gets_full_weight_share() {
 		make_all_reward_payment(2);
 		let events = staking_events_since_last_call();
 
-		// THEN: alice gets her full weight share (factor = 1.0); bob gated out;
-		// bob's weight share stays unclaimed in the pot.
-		let alice_expected = Perbill::from_rational(alice_weight, sum_weight).mul_floor(budget);
-		assert_eq!(incentive_paid_for(alice, &events), Some(alice_expected));
+		// THEN: alice is the only earner → share = 1, receives the entire budget.
+		// Bob gated out; his "slot" is implicitly redistributed to alice by the
+		// weighted-mean formula (no pot residue beyond dust).
+		assert_eq!(incentive_paid_for(alice, &events), Some(budget));
 		assert_eq!(incentive_paid_for(bob, &events), None);
-		assert_eq!(Balances::free_balance(&pot), budget - alice_expected);
+		assert_eq!(Balances::free_balance(&pot), 0);
 	});
 }

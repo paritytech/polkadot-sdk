@@ -233,7 +233,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use ledger::LedgerIntegrityState;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, One, StaticLookup, UniqueSaturatedInto},
+	traits::{AtLeast32BitUnsigned, One, StaticLookup, UniqueSaturatedInto, Zero},
 	BoundedBTreeMap, Debug, Perbill, Saturating,
 };
 use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata, SessionIndex};
@@ -319,19 +319,36 @@ pub struct EraRewardPoints<T: Config> {
 }
 
 impl<T: Config> EraRewardPoints<T> {
-	/// Performance factor `p_i / max(p_j)` for a validator with `validator_points`.
+	/// Proportional share for validator `stash` under the weighted-mean formula:
+	/// `share = (w_i · ep_i) / Σ_j(w_j · ep_j)`, where the sum runs over every
+	/// validator with non-zero era points and `weight_lookup(v)` returns
+	/// validator `v`'s per-era incentive weight (zero if absent).
 	///
-	/// Used to scale per-validator era payouts by relative performance (e.g. the
-	/// validator self-stake incentive, and any future per-validator payout such as
-	/// a fixed pUSD salary). Returns `Perbill::zero()` when no validator earned any
-	/// points — callers that already short-circuit on zero points (e.g. the staker
-	/// payout path) won't observe this case.
-	pub(crate) fn performance_factor(&self, validator_points: RewardPoint) -> Perbill {
-		let max_points = self.individual.values().copied().max().unwrap_or(0);
-		if max_points == 0 {
+	/// Properties:
+	/// - Zero era points (or absent stash) → share is `Perbill::zero()`.
+	/// - When all participating `w_j · ep_j` terms are equal, each participant's
+	///   share is `1/N` and the sum across all validators equals 1.
+	/// - Total of all shares equals `Perbill::one()` (modulo rounding dust), so
+	///   distributing `share × budget` spends the full budget across non-zero
+	///   performers — there is no leftover to forfeit.
+	pub(crate) fn weighted_points_share(
+		&self,
+		stash: &T::AccountId,
+		weight_lookup: impl Fn(&T::AccountId) -> BalanceOf<T>,
+	) -> Perbill {
+		let denominator = self.individual.iter().fold(
+			BalanceOf::<T>::zero(),
+			|acc, (v, &ep)| {
+				acc.saturating_add(weight_lookup(v).saturating_mul(BalanceOf::<T>::from(ep)))
+			},
+		);
+		if denominator.is_zero() {
 			return Perbill::zero();
 		}
-		Perbill::from_rational(validator_points, max_points)
+		let validator_points = self.individual.get(stash).copied().unwrap_or(0);
+		let numerator =
+			weight_lookup(stash).saturating_mul(BalanceOf::<T>::from(validator_points));
+		Perbill::from_rational(numerator, denominator)
 	}
 }
 

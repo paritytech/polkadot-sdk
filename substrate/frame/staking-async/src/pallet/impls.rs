@@ -24,9 +24,9 @@ use crate::{
 	session_rotation::{self, Eras, Rotator},
 	slashing::OffenceRecord,
 	weights::WeightInfo,
-	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, Nominations,
-	NominationsQuota, PositiveImbalanceOf, PotAccountProvider, RewardDestination, RewardKind,
-	RewardPot, SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
+	BalanceOf, EraRewardPoints, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf,
+	Nominations, NominationsQuota, PositiveImbalanceOf, PotAccountProvider, RewardDestination,
+	RewardKind, RewardPot, SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
@@ -402,11 +402,6 @@ impl<T: Config> Pallet<T> {
 			return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into());
 		}
 
-		// Relative performance factor `p_i / max(p_j)` used to scale the validator
-		// self-stake incentive. The zero-points gate above guarantees `max > 0`
-		// here (this validator's points are already non-zero).
-		let performance_factor = era_reward_points.performance_factor(validator_reward_points);
-
 		// This is the fraction of the total reward that the validator and the
 		// nominators will get.
 		let validator_total_reward_part =
@@ -448,7 +443,7 @@ impl<T: Config> Pallet<T> {
 			era,
 			&stash,
 			page_stake_part,
-			performance_factor,
+			&era_reward_points,
 		) {
 			Self::transfer_validator_incentive(era, &stash, incentive);
 		}
@@ -682,17 +677,17 @@ impl<T: Config> Pallet<T> {
 
 	/// Calculate the validator incentive amount for a single page.
 	///
-	/// Share = `(validator_weight / sum_weight) × (p_i / max(p_j)) × budget × page_stake_part`,
-	/// where `sum_weight` covers ALL elected validators and `performance_factor = p_i / max(p_j)`
-	/// scales the share by the validator's era points relative to the top performer. A validator
-	/// that earns no reward points (or fewer than the top performer) forfeits the corresponding
-	/// portion of their share — the unclaimed remainder stays in the era pot and is handled by
-	/// `UnclaimedRewardHandler` at pruning. Shares are not redistributed to peers.
+	/// Share = `(w_i · ep_i) / Σ_j(w_j · ep_j) × budget × page_stake_part`, where the sum
+	/// runs over every validator with non-zero era points. The full era budget is distributed
+	/// across performers in proportion to incentive weight scaled by era points — zero-point
+	/// validators receive nothing and their (notional) share is implicitly redistributed by
+	/// the formula. Total payout equals the budget exactly (modulo Perbill rounding dust),
+	/// so there is no pot residue to forfeit.
 	fn calculate_validator_incentive_for_page(
 		era: EraIndex,
 		stash: &T::AccountId,
 		page_stake_part: Perbill,
-		performance_factor: Perbill,
+		era_reward_points: &EraRewardPoints<T>,
 	) -> Option<BalanceOf<T>> {
 		let era_incentive_budget = Eras::<T>::get_validator_incentive_budget(era);
 		if era_incentive_budget.is_zero() {
@@ -723,11 +718,14 @@ impl<T: Config> Pallet<T> {
 			return None;
 		}
 
-		let validator_weight_part = Perbill::from_rational(validator_weight, total_weight);
-		let validator_total_incentive_unscaled =
-			validator_weight_part.mul_floor(era_incentive_budget);
-		let validator_total_incentive =
-			performance_factor.mul_floor(validator_total_incentive_unscaled);
+		let share_part = era_reward_points.weighted_points_share(stash, |v| {
+			ErasValidatorIncentiveWeight::<T>::get(era, v).unwrap_or_else(Zero::zero)
+		});
+		if share_part.is_zero() {
+			return None;
+		}
+
+		let validator_total_incentive = share_part.mul_floor(era_incentive_budget);
 		let validator_incentive_for_page = page_stake_part.mul_floor(validator_total_incentive);
 
 		if validator_incentive_for_page.is_zero() {
