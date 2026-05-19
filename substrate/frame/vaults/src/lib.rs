@@ -16,6 +16,9 @@ mod recovery;
 pub mod types;
 pub mod weights;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 #[cfg(feature = "try-runtime")]
 mod try_state;
 
@@ -33,6 +36,20 @@ pub use types::{
 	VaultDebt, VaultListId, VaultStatus, VaultsManagerLevel,
 };
 pub use weights::WeightInfo;
+
+/// Runtime-supplied benchmark hooks. The pallet's `Config` only exposes
+/// oracle reads (`ProvidePrice`), clock reads (`Time`), and hold-only
+/// collateral mutation; the helper fills the write side. The hint-repair
+/// budget is read directly from `T::VaultLists::repair_budget()` so it can
+/// never drift from what the linked-list pallet enforces.
+#[cfg(feature = "runtime-benchmarks")]
+pub trait BenchmarkHelper<AssetId, AccountId, Balance> {
+	/// Must be hold-capable for [`HoldReason::VaultCollateral`].
+	fn collateral_asset_id() -> AssetId;
+	fn mint_collateral(asset_id: AssetId, who: &AccountId, amount: Balance);
+	fn set_oracle_price(asset_id: AssetId, price: frame::deps::sp_runtime::FixedU128);
+	fn advance_time(ms: u64);
+}
 
 pub(crate) const LOG_TARGET: &str = "runtime::vaults";
 
@@ -159,6 +176,14 @@ pub mod pallet {
 
 		/// Weight metadata.
 		type WeightInfo: weights::WeightInfo;
+
+		/// See [`crate::BenchmarkHelper`].
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: crate::BenchmarkHelper<
+			Self::AssetId,
+			Self::AccountId,
+			BalanceOf<Self>,
+		>;
 	}
 
 	/// Hold reason used to lock collateral against the vault owner's
@@ -629,7 +654,7 @@ pub mod pallet {
 		/// is back above `MinimumCollateralizationRatio`. Caller supplies the
 		/// rate-index `hint` used to reinsert in O(1).
 		#[pallet::call_index(22)]
-		#[pallet::weight(T::WeightInfo::enter_final_recovery())]
+		#[pallet::weight(T::WeightInfo::exit_final_recovery())]
 		pub fn exit_final_recovery(
 			origin: OriginFor<T>,
 			owner: T::AccountId,

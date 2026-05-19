@@ -1,10 +1,5 @@
 //! Test runtime for `pallet-vaults`.
 //!
-//! Mirrors the production wiring in `troves.md` §10.2: native DOT lives in
-//! `pallet-balances`, foreign tokens (and pUSD) live in
-//! `pallet-assets` + `pallet-assets-holder`, and `fungible::UnionOf` glues
-//! them into a single `fungibles::*` impl over a unified `AssetId`.
-//!
 //! Convention used in the tests: `AssetId == 0` means native DOT (routes
 //! `Left(())` → `Balances`); any other `AssetId` routes
 //! `Right(asset)` → `AssetsHolder`.
@@ -138,9 +133,7 @@ impl pallet_linked_list::Config for Test {
 }
 
 /// Routes `AssetId == 0` to native DOT (`Left(())`), every other id to the
-/// pallet-assets multi-asset side (`Right(asset)`). Mirrors the production
-/// `DotFromLeft` Convert in `troves.md` §10.2 — that one operates on XCM
-/// `Location`, this one on `u32` for test ergonomics.
+/// pallet-assets multi-asset side (`Right(asset)`).
 pub struct DotFromZero;
 impl Convert<AssetId, Either<(), AssetId>> for DotFromZero {
 	fn convert(asset: AssetId) -> Either<(), AssetId> {
@@ -251,6 +244,42 @@ impl pallet_vaults::Config for Test {
 	type MaxBranches = MaxBranches;
 	type MaxOnIdleVaultRefresh = MaxOnIdleVaultRefresh;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = MockBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct MockBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_vaults::BenchmarkHelper<AssetId, AccountId, Balance> for MockBenchmarkHelper {
+	fn collateral_asset_id() -> AssetId {
+		DOT
+	}
+
+	fn mint_collateral(asset_id: AssetId, who: &AccountId, amount: Balance) {
+		use frame::deps::frame_support::traits::{
+			fungible::Mutate as FungibleMutate, fungibles::Mutate as FungiblesMutate,
+		};
+		// Native ED first: without it withdraw / borrow / change_rate fail for
+		// fresh accounts even when the subsequent asset mint exceeds ED.
+		<Balances as FungibleMutate<AccountId>>::mint_into(who, 1).ok();
+		if asset_id == DOT {
+			<Balances as FungibleMutate<AccountId>>::mint_into(who, amount)
+				.expect("mint native collateral for benchmark account");
+		} else {
+			<Assets as FungiblesMutate<AccountId>>::mint_into(asset_id, who, amount)
+				.expect("mint asset collateral for benchmark account");
+		}
+	}
+
+	fn set_oracle_price(asset_id: AssetId, price: FixedU128) {
+		set_price(asset_id, price);
+	}
+
+	fn advance_time(ms: u64) {
+		advance_time(ms);
+	}
 }
 
 pub fn rate_list(asset: AssetId) -> VaultList {
