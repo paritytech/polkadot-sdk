@@ -35,21 +35,15 @@ use std::{
 	time::{SystemTime, UNIX_EPOCH},
 };
 
-const LOG_TARGET: &str = "cumulus-unincluded-segment-store";
 const UNINCLUDED_SEGMENT_STORE_VERSION: &[u8] = b"cumulus_unincluded_segment_store_version";
 const UNINCLUDED_SEGMENT_STORE_CURRENT_VERSION: u32 = 1;
 
 /// Return the current Unix milliseconds timestamp.
-///
-/// Falls back to 0 if the system clock is before the Unix epoch.
 pub fn now_unix_ms() -> u64 {
-	match SystemTime::now().duration_since(UNIX_EPOCH) {
-		Ok(d) => d.as_millis() as u64,
-		Err(e) => {
-			tracing::warn!(target: LOG_TARGET, error = ?e, "system clock is before UNIX epoch; storing time_ms=0");
-			0
-		},
-	}
+	SystemTime::now()
+		.duration_since(UNIX_EPOCH)
+		.expect("system clock is before UNIX epoch; qed")
+		.as_millis() as u64
 }
 
 /// Entry stored in aux storage for each unincluded parablock.
@@ -92,8 +86,7 @@ pub fn prepare_unincluded_segment_aux_data<H: Encode>(
 	proof: &StorageProof,
 ) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> {
 	let key = unincluded_segment_key(block_hash);
-	let mut encoded_entry = time_ms.encode();
-	proof.encode_to(&mut encoded_entry);
+	let encoded_entry = (time_ms, proof).encode();
 	let current_version = UNINCLUDED_SEGMENT_STORE_CURRENT_VERSION.encode();
 
 	[(key, encoded_entry), (UNINCLUDED_SEGMENT_STORE_VERSION.to_vec(), current_version)].into_iter()
@@ -131,16 +124,19 @@ fn aux_storage_cleanup<H>(
 	just_finalized_hash: H,
 	old_finalized_hash: H,
 	tree_route: &[H],
-	stale_block_hashes: &[H],
+	stale_block_hashes: impl IntoIterator<Item = H>,
 ) -> AuxDataOperations
 where
 	H: Encode,
 {
-	let mut ops = Vec::with_capacity(stale_block_hashes.len() + tree_route.len() + 2);
-	ops.extend(stale_block_hashes.iter().map(|hash| (unincluded_segment_key(hash), None)));
+	let stale_iter = stale_block_hashes.into_iter();
+
+	let mut ops = Vec::with_capacity(stale_iter.size_hint().0 + tree_route.len() + 2);
+	ops.extend(stale_iter.map(|hash| (unincluded_segment_key(hash), None)));
 	ops.extend(tree_route.iter().map(|hash| (unincluded_segment_key(hash), None)));
 	ops.push((unincluded_segment_key(old_finalized_hash), None));
 	ops.push((unincluded_segment_key(just_finalized_hash), None));
+
 	ops
 }
 
@@ -161,10 +157,12 @@ where
 			*notification.header.parent_hash(),
 		);
 
-		let stale_block_hashes: Vec<_> = notification.stale_blocks.iter().map(|b| b.hash).collect();
-		let tree_route: Vec<_> = notification.tree_route.iter().copied().collect();
-
-		aux_storage_cleanup(notification.hash, old_finalized, &tree_route, &stale_block_hashes)
+		aux_storage_cleanup(
+			notification.hash,
+			old_finalized,
+			&notification.tree_route,
+			notification.stale_blocks.iter().map(|b| b.hash),
+		)
 	};
 
 	client.register_finality_action(Box::new(on_finality));
@@ -239,7 +237,7 @@ mod tests {
 			just_finalized,
 			old_finalized,
 			&[route_1, route_2],
-			&[stale_1, stale_2],
+			[stale_1, stale_2],
 		);
 
 		let keys: Vec<_> = ops.iter().map(|(k, _)| k.clone()).collect();
@@ -261,7 +259,8 @@ mod tests {
 		let just_finalized = Hash::repeat_byte(0xFF);
 		let old_finalized = Hash::repeat_byte(0xF0);
 
-		let ops = aux_storage_cleanup(just_finalized, old_finalized, &[], &[]);
+		let ops =
+			aux_storage_cleanup(just_finalized, old_finalized, &[], std::iter::empty::<Hash>());
 
 		assert_eq!(ops.len(), 2);
 		assert!(ops.iter().all(|(_, v)| v.is_none()));
@@ -353,7 +352,12 @@ mod tests {
 		assert_eq!(load_entry(&backend, hash3).expect("load"), Some(entry3.clone()));
 
 		// Generate cleanup that deletes hash1 (just-finalized) and hash2 (in tree route).
-		let ops = aux_storage_cleanup(hash1, Hash::repeat_byte(0xF0), &[hash2], &[]);
+		let ops = aux_storage_cleanup(
+			hash1,
+			Hash::repeat_byte(0xF0),
+			&[hash2],
+			std::iter::empty::<Hash>(),
+		);
 		let delete_keys: Vec<_> =
 			ops.iter().filter_map(|(k, v)| v.is_none().then(|| k.as_slice())).collect();
 
