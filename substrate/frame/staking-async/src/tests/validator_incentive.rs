@@ -521,8 +521,7 @@ fn incentive_sum_across_multiple_exposure_pages_equals_share_times_budget() {
 			let alice_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
 			let sum_weight = ErasSumValidatorIncentiveWeight::<Test>::get(2);
 			let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
-			let expected_total =
-				Perbill::from_rational(alice_weight, sum_weight).mul_floor(budget);
+			let expected_total = Perbill::from_rational(alice_weight, sum_weight).mul_floor(budget);
 
 			// WHEN: payout all pages.
 			make_all_reward_payment(2);
@@ -534,7 +533,9 @@ fn incentive_sum_across_multiple_exposure_pages_equals_share_times_budget() {
 				.filter_map(|e| match e {
 					Event::ValidatorIncentivePaid { validator_stash, amount, .. }
 						if *validator_stash == alice =>
-						Some(*amount),
+					{
+						Some(*amount)
+					},
 					_ => None,
 				})
 				.collect();
@@ -688,9 +689,7 @@ fn validator_with_points_but_zero_weight_gets_no_incentive() {
 		// invariant consistent so try_state passes.
 		let alice_weight =
 			ErasValidatorIncentiveWeight::<Test>::take(2, alice).expect("weight stored");
-		ErasSumValidatorIncentiveWeight::<Test>::mutate(2, |s| {
-			*s = s.saturating_sub(alice_weight)
-		});
+		ErasSumValidatorIncentiveWeight::<Test>::mutate(2, |s| *s = s.saturating_sub(alice_weight));
 
 		// Both validators earn the same reward points.
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 1)]);
