@@ -21,5 +21,8 @@ doc:
     `stable2512` never registered handlers for these functions, so reverting on them preserves
     observable behaviour while making the match exhaustive against the wider enum.
 crates:
+- name: ethereum-standards
+  bump: patch
+  validate: false
 - name: pallet-assets-precompiles
   bump: patch
