@@ -16,7 +16,7 @@ doc:
       (e.g. gap-sync backfill). Runtime-produced ops always override when non-empty.
 crates:
 - name: sc-client-api
-  bump: minor
+  bump: major
 - name: sc-client-db
   bump: minor
 - name: sc-consensus
