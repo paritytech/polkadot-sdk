@@ -41,7 +41,7 @@ runs:
         ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.105"
         IMAGE_TAG: europe-docker.pkg.dev/parity-ci-2024/temp-images/${{ inputs.image-name }}
       run: |
-        export DOCKER_IMAGES_VERSION=${{ github.event.pull_request.head.sha || 'master' }}
+        export DOCKER_IMAGES_VERSION=${{ github.event.pull_request.head.sha || 'master' }}-$(date -u '+%Y%m%dT%H%M%SZ')
         if [[ ${{ github.event_name }} == "merge_group" ]]; then export DOCKER_IMAGES_VERSION="${GITHUB_SHA::8}"; fi
         if [[ ${{ github.event_name }} == "push" ]]; then export DOCKER_IMAGES_VERSION="master-${GITHUB_SHA::8}"; fi
         docker build \
