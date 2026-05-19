@@ -13,9 +13,9 @@ doc:
         and crash-recovery from disk on restart.
       - RPC interface: `hop_submit`, `hop_claim`, `hop_ack`, `hop_poolStatus`.
       - Submission gated by `HopRuntimeApi::can_account_promote(who, data_len)` —
-        the runtime defines its own authorization policy; the node is agnostic.
-      - Data size validated against `HopRuntimeApi::max_promotion_size` (crate-level
-        upper bound: 8 MiB).
+        the runtime defines its own authorization policy (including any per-account
+        or per-submission size cap); the node enforces only a crate-level upper
+        bound of 8 MiB.
       - Recipient fan-out capped at `MAX_RECIPIENTS` (256) via a type-level
         `BoundedVec` (`RecipientVec`) so oversized lists are rejected before
         SCALE decoding and signature verification. Duplicate recipients are also
@@ -33,7 +33,7 @@ doc:
         stale per-sender rate-limit state.
 
       **`sp-hop`** defines the `HopRuntimeApi` runtime API trait: `can_account_promote`,
-      `create_promotion_extrinsic`, and `max_promotion_size`. The promotion extrinsic
+      `create_promotion_extrinsic`, and `is_promoted_on_chain`. The promotion extrinsic
       carries the submitter's `MultiSigner`, `hop_submit`-time `MultiSignature`, and
       `submit_timestamp` (ms since unix epoch) so the runtime pallet can re-verify
       the user's consent on-chain instead of trusting the collator. "Submit implies
@@ -66,10 +66,10 @@ doc:
       peer-to-peer data exchange. Related flags:
       - `--hop-max-pool-size <MiB>` — pool capacity (default: 10240 MiB / 10 GiB)
       - `--hop-max-user-size <MiB>` — per-user hard cap (default: 256 MiB)
-      - `--hop-retention-blocks <blocks>` — data lifetime (default: 14400, ~24h at 6s blocks)
+      - `--hop-retention-secs <seconds>` — data lifetime (default: 86400, 24h)
       - `--hop-check-interval <seconds>` — maintenance cycle (default: 300, 5 minutes)
-      - `--hop-promotion-buffer-blocks <blocks>` — start promoting this many blocks
-        before expiry (default: 1200, ~2h at 6s blocks)
+      - `--hop-promotion-buffer-secs <seconds>` — start promoting this many seconds
+        before expiry (default: 7200, 2h)
       - `--hop-submit-rate-per-min <requests>` — sustained submit rate (default: 60)
       - `--hop-submit-burst <requests>` — submit burst (default: 120)
       - `--hop-bandwidth-per-min-mib <MiB>` — sustained bandwidth (default: 128)
@@ -87,7 +87,7 @@ crates:
   - name: sc-hop
     bump: patch
   - name: sp-hop
-    bump: patch
+    bump: major
   - name: polkadot-omni-node-lib
     bump: major
   - name: polkadot-sdk
