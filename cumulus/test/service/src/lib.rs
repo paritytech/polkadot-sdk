@@ -470,7 +470,6 @@ where
 				proposer,
 				collator_service,
 				reinitialize: false,
-				slot_offset: Duration::from_secs(1),
 				block_import_handle,
 				spawner: task_manager.spawn_essential_handle(),
 				export_pov: None,

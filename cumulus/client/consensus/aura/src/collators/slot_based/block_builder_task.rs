@@ -112,30 +112,9 @@ pub struct BuilderTaskParams<
 	pub collator_sender: sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
 	/// Slot duration of the relay chain.
 	pub relay_chain_slot_duration: Duration,
-	/// Offset all time operations by this duration.
-	///
-	/// This is a time quantity that is subtracted from the actual timestamp when computing
-	/// the time left to enter a new slot. In practice, this *left-shifts* the clock time with the
-	/// intent to keep our "clock" slightly behind the relay chain one and thus reducing the
-	/// likelihood of encountering unfavorable notification arrival timings (i.e. we don't want to
-	/// wait for relay chain notifications because we woke up too early).
-	pub slot_offset: Duration,
 	/// The maximum percentage of the maximum PoV size that the collator can use.
 	/// It will be removed once https://github.com/paritytech/polkadot-sdk/issues/6020 is fixed.
 	pub max_pov_percentage: Option<u32>,
-}
-
-fn get_best_hash_and_v3_status<Block: BlockT, Client>(
-	para_client: &Arc<Client>,
-) -> (Block::Hash, bool)
-where
-	Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-	Client::Api: SchedulingV3EnabledApi<Block>,
-{
-	let para_best_hash = para_client.info().best_hash;
-	let v3_enabled_on_para =
-		para_client.runtime_api().scheduling_v3_enabled(para_best_hash).unwrap_or(false);
-	(para_best_hash, v3_enabled_on_para)
 }
 
 /// Run block-builder.
@@ -188,11 +167,10 @@ where
 			code_hash_provider,
 			relay_chain_slot_duration,
 			para_backend,
-			slot_offset,
 			max_pov_percentage,
 		} = params;
 
-		let mut slot_timer = SlotTimer::new_with_offset(slot_offset, relay_chain_slot_duration);
+		let mut slot_timer = SlotTimer::new(relay_chain_slot_duration);
 
 		let mut collator = {
 			let params = collator_util::Params {
@@ -219,17 +197,7 @@ where
 				.expect("Relay chain interface must provide overseer handle."),
 		);
 
-		let mut scheduling_info = SchedulingInfo::new(relay_chain_slot_duration, slot_offset);
-		let maybe_best_relay_block_data = scheduling_info
-			.ensure_initialized(&relay_client, &mut relay_chain_data_cache)
-			.await;
-
-		let (_para_best_hash, v3_enabled_on_para) = get_best_hash_and_v3_status(&para_client);
-		let v3_enabled = SchedulingInfo::<RelayClient>::is_v3_enabled(
-			v3_enabled_on_para,
-			maybe_best_relay_block_data,
-		);
-		slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
+		let mut scheduling_info = SchedulingInfo::new(relay_chain_slot_duration);
 
 		loop {
 			let _ = scheduling_info
@@ -248,7 +216,9 @@ where
 			// values was done through an unbacked/unincluded candidate. In that
 			// edge case, block building will fail and self-correct once the upgrade
 			// is included on the relay chain.
-			let (para_best_hash, v3_enabled_on_para) = get_best_hash_and_v3_status(&para_client);
+			let para_best_hash = para_client.info().best_hash;
+			let v3_enabled_on_para =
+				para_client.runtime_api().scheduling_v3_enabled(para_best_hash).unwrap_or(false);
 			let Some((scheduling_parent_header, v3_enabled)) = scheduling_info
 				.wait_for_scheduling_parent(&mut relay_chain_data_cache, v3_enabled_on_para)
 				.await
@@ -260,8 +230,6 @@ where
 				continue;
 			};
 			let scheduling_parent_hash = scheduling_parent_header.hash();
-
-			slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
 
 			let Ok(para_slot_duration) = crate::slot_duration(&*para_client) else {
 				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
@@ -650,8 +618,10 @@ where
 	// Check if V3 scheduling is enabled and build scheduling proof if so.
 	let mut scheduling_proof = None;
 	if v3_enabled {
+		// The relay parent descendants are only needed for v2.
+		let descendants = relay_parent_data.take_descendants();
 		// The descendants are ordered from oldest to newest, so we need to reverse them.
-		let header_chain: Vec<_> = relay_parent_data.descendants().iter().rev().cloned().collect();
+		let header_chain: Vec<_> = descendants.into_iter().rev().collect();
 		let scheduling_parent =
 			header_chain.first().map(|header| header.hash()).unwrap_or(relay_parent_hash);
 
@@ -668,9 +638,6 @@ where
 			// Initial submission: no signature needed, core selection from UMP signals
 			signed_scheduling_info: None,
 		});
-
-		// The relay parent descendants are only needed for v2.
-		relay_parent_data.descendants = vec![];
 	}
 
 	let Some(validation_code_hash) = code_hash_provider.code_hash_at(pov_parent_hash) else {

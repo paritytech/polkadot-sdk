@@ -36,18 +36,12 @@ pub(crate) struct SlotTime {
 	relay_slot_duration: Duration,
 	/// The exact timestamp when this relay chain slot started
 	slot_start_timestamp: Timestamp,
-	/// Time offset to apply when calculating time remaining
-	time_offset: Duration,
 }
 
 impl SlotTime {
 	/// Create a new SlotTime
-	pub fn new(
-		relay_slot_duration: Duration,
-		slot_start_timestamp: Timestamp,
-		time_offset: Duration,
-	) -> Self {
-		Self { relay_slot_duration, slot_start_timestamp, time_offset }
+	pub fn new(relay_slot_duration: Duration, slot_start_timestamp: Timestamp) -> Self {
+		Self { relay_slot_duration, slot_start_timestamp }
 	}
 
 	/// Get the time remaining in this slot
@@ -57,7 +51,6 @@ impl SlotTime {
 
 	/// Internal implementation of [`Self::time_left`] that takes `now` as parameter.
 	fn time_left_internal(&self, now: Duration) -> Duration {
-		let now = now.saturating_sub(self.time_offset);
 		let slot_end_time_millis =
 			self.slot_start_timestamp.as_millis() + self.relay_slot_duration.as_millis() as u64;
 		let slot_end_time = Duration::from_millis(slot_end_time_millis);
@@ -67,7 +60,7 @@ impl SlotTime {
 
 	/// Check if the next relay chain slot would be in a different parachain slot.
 	pub fn is_parachain_slot_ending(&self, parachain_slot_duration: Duration) -> bool {
-		let now = Timestamp::current().as_duration().saturating_sub(self.time_offset);
+		let now = Timestamp::current().as_duration();
 		let next_relay_slot_start_time =
 			self.slot_start_timestamp.as_duration() + self.relay_slot_duration;
 
@@ -85,8 +78,6 @@ impl SlotTime {
 /// Manages block-production slots based on the relay chain slot duration.
 #[derive(Debug)]
 pub(crate) struct SlotTimer {
-	/// Offset the current time by this duration.
-	time_offset: Duration,
 	/// Slot duration of the relay chain. This is used to compute when to wake up for
 	/// block production attempts.
 	relay_slot_duration: Duration,
@@ -98,9 +89,8 @@ pub(crate) struct SlotTimer {
 fn time_until_next_slot(
 	now: Duration,
 	block_production_interval: Duration,
-	offset: Duration,
 ) -> (Duration, Timestamp) {
-	let now = now.saturating_sub(offset).as_millis();
+	let now = now.as_millis();
 
 	let next_slot_time = ((now + block_production_interval.as_millis()) /
 		block_production_interval.as_millis()) *
@@ -111,28 +101,14 @@ fn time_until_next_slot(
 
 impl SlotTimer {
 	/// Create a new slot timer.
-	pub fn new_with_offset(time_offset: Duration, relay_slot_duration: Duration) -> Self {
-		Self { time_offset, relay_slot_duration, last_reported_slot: None }
-	}
-
-	/// Set the time offset depending on the scheduling version.
-	pub fn set_offset_by_scheduling_version(&mut self, v3_enabled: bool, offset: Duration) {
-		if v3_enabled {
-			// Ignore the time offset when V3 scheduling is enabled,
-			// since `descendants_start` already handles relay-chain slot alignment.
-			self.time_offset = Duration::ZERO;
-		} else {
-			self.time_offset = offset;
-		}
+	pub fn new(relay_slot_duration: Duration) -> Self {
+		Self { relay_slot_duration, last_reported_slot: None }
 	}
 
 	/// Returns a future that resolves when the next block production should be attempted.
 	pub async fn wait_until_next_slot(&mut self) -> Result<SlotTime, ()> {
-		let (time_until_next_attempt, timestamp) = time_until_next_slot(
-			Timestamp::current().as_duration(),
-			self.relay_slot_duration,
-			self.time_offset,
-		);
+		let (time_until_next_attempt, timestamp) =
+			time_until_next_slot(Timestamp::current().as_duration(), self.relay_slot_duration);
 
 		// Calculate the current slot using the relay chain slot duration
 		let relay_slot_duration_for_slot = SlotDuration::from(self.relay_slot_duration);
@@ -184,7 +160,7 @@ impl SlotTimer {
 		// Update internal slot tracking
 		self.last_reported_slot = Some(next_slot);
 
-		Ok(SlotTime::new(self.relay_slot_duration, slot_start_timestamp, self.time_offset))
+		Ok(SlotTime::new(self.relay_slot_duration, slot_start_timestamp))
 	}
 }
 
@@ -196,58 +172,42 @@ mod tests {
 
 	#[rstest]
 	// Test that different now timestamps have correct impact
-	#[case(1000, 0, 5000)]
-	#[case(0, 0, 6000)]
-	#[case(6000, 0, 6000)]
-	// Test that offset affects the current time correctly
-	#[case(1000, 1000, 6000)]
-	#[case(12000, 2000, 2000)]
-	#[case(12000, 6000, 6000)]
-	#[case(12000, 7000, 1000)]
+	#[case(1000, 5000)]
+	#[case(0, 6000)]
+	#[case(6000, 6000)]
 	// Test basic timing with relay slot duration
-	#[case(11999, 0, 1)]
-	fn test_get_next_slot(
-		#[case] time_now: u64,
-		#[case] offset_millis: u64,
-		#[case] expected_wait_duration: u128,
-	) {
+	#[case(11999, 1)]
+	fn test_get_next_slot(#[case] time_now: u64, #[case] expected_wait_duration: u128) {
 		let relay_slot_duration = Duration::from_millis(RELAY_CHAIN_SLOT_DURATION);
 		let time_now = Duration::from_millis(time_now);
-		let offset = Duration::from_millis(offset_millis);
 
-		let (wait_duration, _) = time_until_next_slot(time_now, relay_slot_duration, offset);
+		let (wait_duration, _) = time_until_next_slot(time_now, relay_slot_duration);
 
 		assert_eq!(wait_duration.as_millis(), expected_wait_duration, "Wait time mismatch.");
 	}
 
 	#[rstest]
 	// Basic slot change scenarios
-	#[case(6000, 0, 0, Slot::from(0), 6000)]
-	#[case(6000, 1000, 0, Slot::from(0), 5000)]
-	#[case(6000, 6000, 0, Slot::from(1), 6000)]
-	#[case(6000, 12000, 0, Slot::from(2), 6000)]
-	// Test with offset
-	#[case(6000, 1000, 1000, Slot::from(0), 6000)]
-	#[case(6000, 2000, 1000, Slot::from(0), 5000)]
-	#[case(6000, 6000, 3000, Slot::from(0), 3000)]
+	#[case(6000, 0, Slot::from(0), 6000)]
+	#[case(6000, 1000, Slot::from(0), 5000)]
+	#[case(6000, 6000, Slot::from(1), 6000)]
+	#[case(6000, 12000, Slot::from(2), 6000)]
 	// Different slot durations
-	#[case(3000, 1000, 0, Slot::from(0), 2000)]
-	#[case(3000, 3000, 0, Slot::from(1), 3000)]
-	#[case(12000, 6000, 0, Slot::from(0), 6000)]
-	#[case(12000, 12000, 0, Slot::from(1), 12000)]
+	#[case(3000, 1000, Slot::from(0), 2000)]
+	#[case(3000, 3000, Slot::from(1), 3000)]
+	#[case(12000, 6000, Slot::from(0), 6000)]
+	#[case(12000, 12000, Slot::from(1), 12000)]
 	// Edge cases - at slot boundary
-	#[case(6000, 5999, 0, Slot::from(0), 1)]
-	#[case(6000, 11999, 0, Slot::from(1), 1)]
+	#[case(6000, 5999, Slot::from(0), 1)]
+	#[case(6000, 11999, Slot::from(1), 1)]
 	fn test_compute_time_until_next_slot_change(
 		#[case] para_slot_millis: u64,
 		#[case] time_now: u64,
-		#[case] offset_millis: u64,
 		#[case] last_reported_slot: Slot,
 		#[case] expected_duration: u128,
 	) {
 		let slot_time = SlotTime {
 			relay_slot_duration: Duration::from_millis(para_slot_millis),
-			time_offset: Duration::from_millis(offset_millis),
 			slot_start_timestamp: Timestamp::new(
 				Duration::from_millis(para_slot_millis).as_millis() as u64 * *last_reported_slot,
 			),
