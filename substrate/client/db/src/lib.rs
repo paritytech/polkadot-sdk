@@ -6837,9 +6837,12 @@ pub(crate) mod tests {
 			}
 		}
 
-		fn check_prefetched_renew_creates_transaction_entry_atomically(
-			factory: &mut BackendFactory,
-		) {
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn prefetched_renew_creates_transaction_entry_atomically(#[case] kind: BackendKind) {
+			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
 			let payload = b"prefetched-blob".to_vec();
 			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
 			let payload_hash_arr: [u8; 32] = payload_hash.into();
@@ -6870,12 +6873,8 @@ pub(crate) mod tests {
 		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
 		#[case::paritydb(BackendKind::ParityDb)]
 		#[case::rocksdb(BackendKind::RocksDb)]
-		fn prefetched_renew_creates_transaction_entry_atomically(#[case] kind: BackendKind) {
+		fn prefetched_multi_renew_same_hash_balanced_lifecycle(#[case] kind: BackendKind) {
 			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
-			check_prefetched_renew_creates_transaction_entry_atomically(&mut factory);
-		}
-
-		fn check_prefetched_multi_renew_same_hash_balanced_lifecycle(factory: &mut BackendFactory) {
 			let payload = b"prefetched-blob".to_vec();
 			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
 			let payload_hash_arr: [u8; 32] = payload_hash.into();
@@ -6941,12 +6940,8 @@ pub(crate) mod tests {
 		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
 		#[case::paritydb(BackendKind::ParityDb)]
 		#[case::rocksdb(BackendKind::RocksDb)]
-		fn prefetched_multi_renew_same_hash_balanced_lifecycle(#[case] kind: BackendKind) {
-			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
-			check_prefetched_multi_renew_same_hash_balanced_lifecycle(&mut factory);
-		}
-
-		fn check_prefetched_renew_with_existing_data_keeps_value(factory: &mut BackendFactory) {
+		fn prefetched_renew_with_existing_data_keeps_value(#[case] kind: BackendKind) {
+			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(10));
 			let payload_xt = UncheckedXt::new_transaction(7.into(), ()).encode();
 			let payload = payload_xt[1..].to_vec();
 			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
@@ -7000,14 +6995,8 @@ pub(crate) mod tests {
 		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
 		#[case::paritydb(BackendKind::ParityDb)]
 		#[case::rocksdb(BackendKind::RocksDb)]
-		fn prefetched_renew_with_existing_data_keeps_value(#[case] kind: BackendKind) {
-			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(10));
-			check_prefetched_renew_with_existing_data_keeps_value(&mut factory);
-		}
-
-		fn check_prefetched_single_renew_full_lifecycle_through_prune(
-			factory: &mut BackendFactory,
-		) {
+		fn prefetched_single_renew_full_lifecycle(#[case] kind: BackendKind) {
+			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
 			let payload = b"prefetched-blob".to_vec();
 			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
 			let payload_hash_arr: [u8; 32] = payload_hash.into();
@@ -7073,12 +7062,8 @@ pub(crate) mod tests {
 		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
 		#[case::paritydb(BackendKind::ParityDb)]
 		#[case::rocksdb(BackendKind::RocksDb)]
-		fn prefetched_single_renew_full_lifecycle(#[case] kind: BackendKind) {
+		fn redundant_prefetch_on_local_data_balanced_lifecycle(#[case] kind: BackendKind) {
 			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
-			check_prefetched_single_renew_full_lifecycle_through_prune(&mut factory);
-		}
-
-		fn check_redundant_prefetch_on_local_data_balanced_lifecycle(factory: &mut BackendFactory) {
 			let payload_xt = UncheckedXt::new_transaction(5.into(), ()).encode();
 			let payload = payload_xt[1..].to_vec();
 			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
@@ -7158,14 +7143,8 @@ pub(crate) mod tests {
 		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
 		#[case::paritydb(BackendKind::ParityDb)]
 		#[case::rocksdb(BackendKind::RocksDb)]
-		fn redundant_prefetch_on_local_data_balanced_lifecycle(#[case] kind: BackendKind) {
+		fn same_block_insert_and_renew_different_indices_with_prefetch(#[case] kind: BackendKind) {
 			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
-			check_redundant_prefetch_on_local_data_balanced_lifecycle(&mut factory);
-		}
-
-		fn check_same_block_insert_and_renew_different_indices_with_prefetch(
-			factory: &mut BackendFactory,
-		) {
 			let x_xt = UncheckedXt::new_transaction(0.into(), ()).encode();
 			let x = x_xt[1..].to_vec();
 			let x_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x);
@@ -7246,14 +7225,8 @@ pub(crate) mod tests {
 		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
 		#[case::paritydb(BackendKind::ParityDb)]
 		#[case::rocksdb(BackendKind::RocksDb)]
-		fn same_block_insert_and_renew_different_indices_with_prefetch(#[case] kind: BackendKind) {
+		fn sequential_renew_blocks_all_prefetched_eventually_pruned(#[case] kind: BackendKind) {
 			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
-			check_same_block_insert_and_renew_different_indices_with_prefetch(&mut factory);
-		}
-
-		fn check_sequential_renew_blocks_all_prefetched_eventually_pruned(
-			factory: &mut BackendFactory,
-		) {
 			let payload = b"prefetched-blob".to_vec();
 			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
 			let payload_hash_arr: [u8; 32] = payload_hash.into();
@@ -7316,15 +7289,6 @@ pub(crate) mod tests {
 					.is_none(),
 				"sequential prefetched renews must all release through prune",
 			);
-		}
-
-		#[rstest]
-		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
-		#[case::paritydb(BackendKind::ParityDb)]
-		#[case::rocksdb(BackendKind::RocksDb)]
-		fn sequential_renew_blocks_all_prefetched_eventually_pruned(#[case] kind: BackendKind) {
-			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
-			check_sequential_renew_blocks_all_prefetched_eventually_pruned(&mut factory);
 		}
 
 		// Synthetic-ops precedence tests. kvdb-memdb only — backend-agnostic logic.
