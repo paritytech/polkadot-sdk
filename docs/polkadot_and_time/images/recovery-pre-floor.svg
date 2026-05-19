@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 440" font-family="sans-serif" font-size="14">
+  <style>
+    .axis { stroke: #333; stroke-width: 1.5; }
+    .grid { stroke: #bbb; stroke-dasharray: 4,3; }
+    .ok { fill: #2e8b57; }
+    .bad { fill: #c00; }
+    .idle { fill: #d4a017; }
+    .ci { fill: #cfe4ff; stroke: #3a7bd5; }
+    .cinext { fill: #efe6ff; stroke: #6a4fb5; }
+    .seal { fill: #fee; stroke: #c00; }
+    .seal-text { fill: #c00; font-weight: bold; }
+    .title { font-weight: bold; font-size: 18px; fill: #c00; }
+    .caption { font-size: 13px; fill: #333; }
+    .label { font-size: 12px; }
+    .small { font-size: 10px; fill: #666; }
+  </style>
+
+  <!--
+    Time mapping (1 s = 48.33 px, slot = 290 px):
+      80   → t=0  (slot S+1 start)
+      370  → t=6  (slot S+2 start)
+      660  → t=12 (slot S+2 end)
+    So pre-floor canvas: 80..660 plot area, 760 px total.
+    Build times:
+      Y advert  t=0..2  → 80..177
+      V1 back Y t=2..4  → 177..274
+      Y+1 advert t=2..4 → 177..274
+      Y+2 advert t=4..6 → 274..370
+  -->
+
+  <!-- title -->
+  <text x="380" y="26" text-anchor="middle" class="title">Pre-floor: Y+1 fails, V₃ stranded, N+1 seals with a gap</text>
+
+  <!-- axes + slot boundaries -->
+  <line x1="80" y1="370" x2="660" y2="370" class="axis"/>
+  <line x1="80"  y1="60" x2="80"  y2="370" class="axis"/>
+  <line x1="370" y1="60" x2="370" y2="370" class="grid"/>
+  <line x1="660" y1="60" x2="660" y2="370" class="axis"/>
+
+  <text x="225" y="48" text-anchor="middle" class="label" font-weight="bold">slot S+1 (C_i builds Y, Y+1, Y+2 — all target N+1)</text>
+  <text x="515" y="48" text-anchor="middle" class="label" font-weight="bold">slot S+2 (C_(i+1) targets N+2)</text>
+
+  <!-- N+1 seal at t=6 (370) -->
+  <rect x="350" y="68" width="40" height="22" class="seal"/>
+  <text x="370" y="84" text-anchor="middle" class="seal-text" font-size="11">N+1 seals</text>
+
+  <!-- V_1: Y advert t=0..2 (80..177), V1 backs Y t=2..4 (177..274), arrow to N+1 (370) -->
+  <text x="60" y="135" text-anchor="end" class="label" font-weight="bold">V₁</text>
+  <rect x="80"  y="120" width="97" height="26" class="ci"/>
+  <text x="128" y="137" text-anchor="middle" class="label">Y advert</text>
+  <rect x="177" y="120" width="97" height="26" class="ci"/>
+  <text x="225" y="137" text-anchor="middle" class="label">V₁ backs Y</text>
+  <line x1="274" y1="133" x2="350" y2="133" stroke="#2e8b57" stroke-width="2"/>
+  <polygon points="345,128 355,133 345,138" class="ok"/>
+  <text x="312" y="125" text-anchor="middle" class="label ok">Y → N+1 ✓</text>
+
+  <!-- V_2: Y+1 advert t=2..4 (177..274), FAIL -->
+  <text x="60" y="195" text-anchor="end" class="label" font-weight="bold">V₂</text>
+  <rect x="177" y="180" width="97" height="26" fill="#ffe2e2" stroke="#c00"/>
+  <text x="225" y="197" text-anchor="middle" class="label">Y+1 advert</text>
+  <text x="282" y="197" class="label bad" font-weight="bold">✗ V₂ fails — Y+1 lost</text>
+
+  <!-- V_3: Y+2 advert t=4..6 (274..370), STUCK -->
+  <text x="60" y="255" text-anchor="end" class="label" font-weight="bold">V₃</text>
+  <rect x="274" y="240" width="96" height="26" fill="#fff2cc" stroke="#d4a017"/>
+  <text x="322" y="257" text-anchor="middle" class="label">Y+2 advert</text>
+  <text x="378" y="257" class="label idle" font-weight="bold">stuck — can_second fails (Y+1 missing)</text>
+  <text x="378" y="272" class="small">Y+1 was &lt; 4 s old → freshness omitted from V₃'s segment</text>
+
+  <!-- C_{i+1}: t=6..8 (370..467) builds first-of-slot, targets N+2 -->
+  <text x="60" y="325" text-anchor="end" class="label" font-weight="bold">C_(i+1)</text>
+  <rect x="370" y="310" width="120" height="26" class="cinext"/>
+  <text x="430" y="327" text-anchor="middle" class="label">builds first-of-slot</text>
+  <line x1="490" y1="323" x2="640" y2="323" stroke="#6a4fb5" stroke-width="2" stroke-dasharray="4,3"/>
+  <polygon points="635,318 645,323 635,328" fill="#6a4fb5"/>
+  <text x="567" y="315" text-anchor="middle" class="label" fill="#6a4fb5">targets N+2 (different RC block)</text>
+
+  <!-- bottom labels -->
+  <text x="80"  y="390" class="small">t = 0</text>
+  <text x="370" y="390" text-anchor="middle" class="small">slot S+1 → S+2</text>
+  <text x="660" y="390" text-anchor="end" class="small">slot S+2 end</text>
+
+  <text x="380" y="420" text-anchor="middle" class="caption" font-weight="bold" fill="#c00">N+1 sealed missing Y+1 and Y+2. No mechanism to refill — naive freshness needs "smart" recovery here.</text>
+</svg>

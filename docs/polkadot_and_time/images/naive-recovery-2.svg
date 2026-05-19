@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1640 760" font-family="Inter, system-ui, sans-serif" font-size="14">
+  <style>
+    .lane-bg { fill: #f7f7f9; stroke: #d0d0d6; stroke-width: 1; }
+    .lane-label { font-weight: 600; font-size: 13px; fill: #2a2a35; }
+    .axis { stroke: #444; stroke-width: 1.5; fill: none; }
+    .tick { stroke: #888; stroke-width: 1; }
+    .tick-label { font-size: 11px; fill: #444; text-anchor: middle; }
+    .threshold-line { stroke: #d6342f; stroke-width: 2; stroke-dasharray: 6 4; }
+    .threshold-label { font-size: 12px; font-weight: 600; fill: #d6342f; }
+    .event-label { font-size: 11px; fill: #2a2a35; }
+    .title { font-size: 18px; font-weight: 700; fill: #1a1a25; }
+    .subtitle { font-size: 13px; fill: #4a4a55; }
+    .footnote { font-size: 11px; fill: #6a6a75; font-style: italic; }
+    .takeaway { fill: #fff7e6; stroke: #d6a800; stroke-width: 1.4; }
+    .takeaway-text { font-size: 12px; fill: #2a2a35; }
+    .bundle-c0-lost { fill: #fde2e2; stroke: #d6342f; stroke-width: 1.4; }
+    .bundle-c1 { fill: #ffd8c5; stroke: #c14820; stroke-width: 1.4; }
+    .bundle-c2 { fill: #e6d4f5; stroke: #6a3a9e; stroke-width: 1.4; }
+    .bundle-text { font-size: 12px; font-weight: 600; fill: #1a1a25; }
+    .core-tag { fill: #1c5dc1; }
+    .core-tag-text { font-size: 11px; font-weight: 700; fill: #fff; }
+    .offset-tag-1 { fill: #007e62; }
+    .offset-tag-2 { fill: #8a4d9e; }
+    .offset-tag-text { font-size: 10px; font-weight: 700; fill: #fff; }
+    .seg-list { font-size: 11px; fill: #2a2a35; }
+    .seg-dedup { fill: #c0ecda; stroke: #007e62; stroke-width: 1; }
+    .seg-fetch { fill: #ffd8c5; stroke: #c14820; stroke-width: 1; }
+    .seg-resub { fill: #cfe2fb; stroke: #1c5dc1; stroke-width: 1.4; }
+    .seg-skipped { fill: #f0f0f0; stroke: #888; stroke-width: 1; }
+    .seg-cantsecond { fill: #fde2e2; stroke: #d6342f; stroke-width: 1.4; }
+    .slot-boundary { stroke: #1a1a25; stroke-width: 2; }
+    .slot-boundary-c2 { stroke: #6a3a9e; stroke-width: 2; }
+    .slot-label { font-size: 12px; font-weight: 700; fill: #1a1a25; }
+    .guide-line { stroke: #c14820; stroke-width: 0.8; stroke-dasharray: 2 3; opacity: 0.5; }
+    .timeline-bg { fill: #ececf2; stroke: #444; stroke-width: 1; }
+  </style>
+
+  <!-- ===== TITLE ===== -->
+  <text x="40" y="40" class="title">Slot Transition Across 3 Cores — Naive Resubmission with Handoff (v3, min-offset rule)</text>
+  <text x="40" y="62" class="subtitle">C₀'s X+2 was never backed. C₁ resubmits but freshness omits Y+1 mid-window. Next collator C₂ inherits unincluded segment and recovers in time.</text>
+  <text x="40" y="80" class="footnote">Pipeline 2 s build + 2 s validation + 2 s SD. Freshness ≈ 4 s post-build. RC blocks seal at +6, +12, +18 s. Validator dedup is para-wide (prospective_parachains), unaffected by group rotation.</text>
+
+  <!-- ===== TIMELINE 0..12s, 120..1560 px (120 px / s) ===== -->
+  <rect x="120" y="100" width="1440" height="32" class="timeline-bg"/>
+  <line x1="120" y1="116" x2="1560" y2="116" class="axis"/>
+  <g>
+    <line x1="120" y1="111" x2="120" y2="121" class="tick"/><text x="120" y="103" class="tick-label">t = 0</text>
+    <line x1="240" y1="111" x2="240" y2="121" class="tick"/><text x="240" y="103" class="tick-label">+1</text>
+    <line x1="360" y1="111" x2="360" y2="121" class="tick"/><text x="360" y="103" class="tick-label">+2</text>
+    <line x1="480" y1="111" x2="480" y2="121" class="tick"/><text x="480" y="103" class="tick-label">+3</text>
+    <line x1="600" y1="111" x2="600" y2="121" class="tick"/><text x="600" y="103" class="tick-label">+4</text>
+    <line x1="720" y1="111" x2="720" y2="121" class="tick"/><text x="720" y="103" class="tick-label">+5</text>
+    <line x1="840" y1="111" x2="840" y2="121" class="tick"/><text x="840" y="103" class="tick-label">+6</text>
+    <line x1="960" y1="111" x2="960" y2="121" class="tick"/><text x="960" y="103" class="tick-label">+7</text>
+    <line x1="1080" y1="111" x2="1080" y2="121" class="tick"/><text x="1080" y="103" class="tick-label">+8</text>
+    <line x1="1200" y1="111" x2="1200" y2="121" class="tick"/><text x="1200" y="103" class="tick-label">+9</text>
+    <line x1="1320" y1="111" x2="1320" y2="121" class="tick"/><text x="1320" y="103" class="tick-label">+10</text>
+    <line x1="1440" y1="111" x2="1440" y2="121" class="tick"/><text x="1440" y="103" class="tick-label">+11</text>
+    <line x1="1560" y1="111" x2="1560" y2="121" class="tick"/><text x="1560" y="103" class="tick-label">+12</text>
+  </g>
+
+  <!-- slot boundaries -->
+  <line x1="120" y1="100" x2="120" y2="385" class="slot-boundary"/>
+  <text x="125" y="135" class="slot-label" font-size="11">slot S (C₁)</text>
+
+  <line x1="840" y1="100" x2="840" y2="385" class="slot-boundary-c2"/>
+  <text x="845" y="135" class="slot-label" font-size="11" fill="#6a3a9e">slot S+1 (C₂)</text>
+
+  <line x1="1560" y1="100" x2="1560" y2="385" class="slot-boundary"/>
+  <text x="1480" y="135" class="slot-label" font-size="11">RC S+2 seals →</text>
+
+  <!-- freshness threshold not drawn (would clutter) -->
+
+  <!-- C0 X+2 LOST marker -->
+  <rect x="60" y="138" width="56" height="18" rx="3" class="bundle-c0-lost"/>
+  <text x="88" y="151" text-anchor="middle" class="bundle-text" font-size="10" fill="#d6342f">X+2 LOST</text>
+  <text x="155" y="151" class="seg-list" font-size="10">← C₀ tail, never backed</text>
+
+  <!-- ===== C1 AD 1: +2s, Y ===== -->
+  <g>
+    <line x1="360" y1="180" x2="360" y2="385" class="guide-line"/>
+
+    <rect x="310" y="180" width="100" height="40" rx="6" class="bundle-c1"/>
+    <text x="360" y="198" text-anchor="middle" class="bundle-text">Y</text>
+    <text x="360" y="214" text-anchor="middle" class="seg-list" font-size="10">built [0,2]</text>
+    <rect x="416" y="180" width="58" height="18" rx="3" class="offset-tag-1"/>
+    <text x="445" y="193" text-anchor="middle" class="offset-tag-text">OFFSET 1</text>
+    <rect x="416" y="202" width="58" height="18" rx="3" class="core-tag"/>
+    <text x="445" y="215" text-anchor="middle" class="core-tag-text">RC S+1</text>
+
+    <text x="360" y="240" text-anchor="middle" class="event-label" font-weight="600">+2 s → V₂</text>
+
+    <rect x="324" y="250" width="36" height="20" class="seg-dedup"/>
+    <text x="342" y="264" text-anchor="middle" class="event-label" font-size="10">X+1 ✓</text>
+    <rect x="364" y="250" width="48" height="20" class="seg-fetch"/>
+    <text x="388" y="264" text-anchor="middle" class="event-label" font-size="10">Y ← fetch</text>
+    <text x="360" y="285" text-anchor="middle" class="seg-list" font-size="10" fill="#6a6a75">(X+2 fresh, omitted)</text>
+  </g>
+
+  <!-- ===== C1 AD 2: +4s, Y+1 ===== -->
+  <g>
+    <line x1="600" y1="180" x2="600" y2="385" class="guide-line"/>
+
+    <rect x="550" y="180" width="100" height="40" rx="6" class="bundle-c1"/>
+    <text x="600" y="198" text-anchor="middle" class="bundle-text">Y+1</text>
+    <text x="600" y="214" text-anchor="middle" class="seg-list" font-size="10">built [2,4]</text>
+    <rect x="656" y="180" width="58" height="18" rx="3" class="offset-tag-2"/>
+    <text x="685" y="193" text-anchor="middle" class="offset-tag-text">OFFSET 2</text>
+    <rect x="656" y="202" width="58" height="18" rx="3" class="core-tag"/>
+    <text x="685" y="215" text-anchor="middle" class="core-tag-text">RC S+2</text>
+
+    <text x="600" y="240" text-anchor="middle" class="event-label" font-weight="600">+4 s → V₂</text>
+
+    <rect x="540" y="250" width="36" height="20" class="seg-dedup"/>
+    <text x="558" y="264" text-anchor="middle" class="event-label" font-size="10">X+1 ✓</text>
+    <rect x="580" y="250" width="56" height="20" class="seg-resub"/>
+    <text x="608" y="264" text-anchor="middle" class="event-label" font-size="10" fill="#1c5dc1">X+2 fetch</text>
+    <rect x="640" y="250" width="52" height="20" class="seg-skipped"/>
+    <text x="666" y="264" text-anchor="middle" class="event-label" font-size="10" fill="#888">Y+1 skip</text>
+    <text x="600" y="285" text-anchor="middle" class="seg-list" font-size="10" fill="#1c5dc1">(sweep stops at X+2)</text>
+  </g>
+
+  <!-- ===== C1 AD 3: +6s, Y+2 ===== -->
+  <g>
+    <line x1="840" y1="180" x2="840" y2="385" class="guide-line"/>
+
+    <rect x="790" y="180" width="100" height="40" rx="6" class="bundle-c1"/>
+    <text x="840" y="198" text-anchor="middle" class="bundle-text">Y+2</text>
+    <text x="840" y="214" text-anchor="middle" class="seg-list" font-size="10">built [4,6]</text>
+    <rect x="896" y="180" width="58" height="18" rx="3" class="offset-tag-2"/>
+    <text x="925" y="193" text-anchor="middle" class="offset-tag-text">OFFSET 2</text>
+    <rect x="896" y="202" width="58" height="18" rx="3" class="core-tag"/>
+    <text x="925" y="215" text-anchor="middle" class="core-tag-text">RC S+2</text>
+
+    <text x="840" y="240" text-anchor="middle" class="event-label" font-weight="600">+6 s → V₂</text>
+
+    <rect x="734" y="250" width="36" height="20" class="seg-dedup"/>
+    <text x="752" y="264" text-anchor="middle" class="event-label" font-size="10">X+1 ✓</text>
+    <rect x="774" y="250" width="36" height="20" class="seg-dedup"/>
+    <text x="792" y="264" text-anchor="middle" class="event-label" font-size="10">X+2 ✓</text>
+    <rect x="814" y="250" width="32" height="20" class="seg-dedup"/>
+    <text x="830" y="264" text-anchor="middle" class="event-label" font-size="10">Y ✓</text>
+    <rect x="850" y="250" width="64" height="20" class="seg-cantsecond"/>
+    <text x="882" y="264" text-anchor="middle" class="event-label" font-size="10" fill="#d6342f">Y+2 ✗can_sec</text>
+    <text x="840" y="285" text-anchor="middle" class="seg-list" font-size="10" fill="#d6342f">(Y+1 fresh, chain gap)</text>
+  </g>
+
+  <!-- ===== C2 AD 1: +8s, Z (offset 1, RC S+2) ===== -->
+  <g>
+    <line x1="1080" y1="180" x2="1080" y2="385" class="guide-line"/>
+
+    <rect x="1030" y="180" width="100" height="40" rx="6" class="bundle-c2"/>
+    <text x="1080" y="198" text-anchor="middle" class="bundle-text">Z</text>
+    <text x="1080" y="214" text-anchor="middle" class="seg-list" font-size="10">C₂ built [6,8]</text>
+    <rect x="1136" y="180" width="58" height="18" rx="3" class="offset-tag-1"/>
+    <text x="1165" y="193" text-anchor="middle" class="offset-tag-text">OFFSET 1</text>
+    <rect x="1136" y="202" width="58" height="18" rx="3" class="core-tag"/>
+    <text x="1165" y="215" text-anchor="middle" class="core-tag-text">RC S+2</text>
+
+    <text x="1080" y="240" text-anchor="middle" class="event-label" font-weight="600">+8 s → V₂</text>
+
+    <rect x="960" y="250" width="36" height="20" class="seg-dedup"/>
+    <text x="978" y="264" text-anchor="middle" class="event-label" font-size="10">X+1 ✓</text>
+    <rect x="1000" y="250" width="36" height="20" class="seg-dedup"/>
+    <text x="1018" y="264" text-anchor="middle" class="event-label" font-size="10">X+2 ✓</text>
+    <rect x="1040" y="250" width="32" height="20" class="seg-dedup"/>
+    <text x="1056" y="264" text-anchor="middle" class="event-label" font-size="10">Y ✓</text>
+    <rect x="1076" y="250" width="56" height="20" class="seg-resub"/>
+    <text x="1104" y="264" text-anchor="middle" class="event-label" font-size="10" fill="#1c5dc1">Y+1 fetch</text>
+    <rect x="1136" y="250" width="52" height="20" class="seg-skipped"/>
+    <text x="1162" y="264" text-anchor="middle" class="event-label" font-size="10" fill="#888">Z skip</text>
+    <text x="1080" y="285" text-anchor="middle" class="seg-list" font-size="10" fill="#1c5dc1">(Y+1 aged in; Y+2 fresh)</text>
+  </g>
+
+  <!-- ===== C2 AD 2: +10s, Z+1 (offset 2, RC S+3) ===== -->
+  <g>
+    <line x1="1320" y1="180" x2="1320" y2="385" class="guide-line"/>
+
+    <rect x="1270" y="180" width="100" height="40" rx="6" class="bundle-c2"/>
+    <text x="1320" y="198" text-anchor="middle" class="bundle-text">Z+1</text>
+    <text x="1320" y="214" text-anchor="middle" class="seg-list" font-size="10">C₂ built [8,10]</text>
+    <rect x="1376" y="180" width="58" height="18" rx="3" class="offset-tag-2"/>
+    <text x="1405" y="193" text-anchor="middle" class="offset-tag-text">OFFSET 2</text>
+    <rect x="1376" y="202" width="58" height="18" rx="3" class="core-tag"/>
+    <text x="1405" y="215" text-anchor="middle" class="core-tag-text">RC S+3</text>
+
+    <text x="1320" y="240" text-anchor="middle" class="event-label" font-weight="600">+10 s → V₂</text>
+
+    <rect x="1190" y="250" width="36" height="20" class="seg-dedup"/>
+    <text x="1208" y="264" text-anchor="middle" class="event-label" font-size="10">X+1 ✓</text>
+    <rect x="1230" y="250" width="36" height="20" class="seg-dedup"/>
+    <text x="1248" y="264" text-anchor="middle" class="event-label" font-size="10">X+2 ✓</text>
+    <rect x="1270" y="250" width="32" height="20" class="seg-dedup"/>
+    <text x="1286" y="264" text-anchor="middle" class="event-label" font-size="10">Y ✓</text>
+    <rect x="1306" y="250" width="36" height="20" class="seg-dedup"/>
+    <text x="1324" y="264" text-anchor="middle" class="event-label" font-size="10">Y+1 ✓</text>
+    <rect x="1346" y="250" width="56" height="20" class="seg-resub"/>
+    <text x="1374" y="264" text-anchor="middle" class="event-label" font-size="10" fill="#1c5dc1">Y+2 fetch</text>
+    <text x="1320" y="285" text-anchor="middle" class="seg-list" font-size="10" fill="#1c5dc1">(Y+2 aged in; parent OK)</text>
+  </g>
+
+  <!-- ===== Net result ===== -->
+  <rect x="40" y="400" width="1560" height="55" class="lane-bg"/>
+  <text x="50" y="420" class="lane-label">Net result</text>
+  <text x="50" y="439" class="seg-list">Fetched: <tspan font-weight="700" fill="#c14820">Y</tspan> (+2 s), <tspan font-weight="700" fill="#1c5dc1">X+2 (+4 s)</tspan>, <tspan font-weight="700" fill="#1c5dc1">Y+1 (+8 s)</tspan>, <tspan font-weight="700" fill="#1c5dc1">Y+2 (+10 s)</tspan>. <tspan font-weight="700" fill="#007e62">All bundles recovered before RC S+2 seals at +12 s.</tspan></text>
+
+  <!-- ===== RC block outcome ===== -->
+  <rect x="40" y="465" width="1560" height="65" class="lane-bg"/>
+  <text x="50" y="484" class="lane-label">RC block outcome</text>
+  <text x="50" y="504" class="seg-list"><tspan font-weight="700">S+1:</tspan> Y + X+1 + X+2 = 3 candidates. <tspan font-weight="700" fill="#007e62">Full.</tspan></text>
+  <text x="50" y="521" class="seg-list"><tspan font-weight="700">S+2:</tspan> Z (C₂ offset 1) + Y+1 + Y+2 = 3 candidates. <tspan font-weight="700" fill="#007e62">Full — recovered via C₂'s handoff.</tspan></text>
+
+  <!-- ===== KEY ===== -->
+  <rect x="40" y="540" width="1560" height="50" class="lane-bg"/>
+  <text x="50" y="558" class="lane-label">Key</text>
+  <g transform="translate(50, 567)">
+    <rect x="0" y="0" width="36" height="20" class="seg-dedup"/>
+    <text x="44" y="14" class="event-label">dedup hit</text>
+    <rect x="120" y="0" width="36" height="20" class="seg-fetch"/>
+    <text x="164" y="14" class="event-label">fetched (new)</text>
+    <rect x="260" y="0" width="36" height="20" class="seg-resub"/>
+    <text x="304" y="14" class="event-label">fetched (resubmit/recovered)</text>
+    <rect x="490" y="0" width="36" height="20" class="seg-skipped"/>
+    <text x="534" y="14" class="event-label">sweep skipped</text>
+    <rect x="660" y="0" width="36" height="20" class="seg-cantsecond"/>
+    <text x="704" y="14" class="event-label">can_second fail</text>
+    <rect x="830" y="0" width="36" height="20" class="bundle-c0-lost"/>
+    <text x="874" y="14" class="event-label">lost bundle</text>
+    <rect x="970" y="0" width="36" height="20" class="bundle-c1"/>
+    <text x="1014" y="14" class="event-label">C₁ bundle</text>
+    <rect x="1090" y="0" width="36" height="20" class="bundle-c2"/>
+    <text x="1134" y="14" class="event-label">C₂ bundle</text>
+  </g>
+
+  <!-- ===== TAKEAWAY ===== -->
+  <rect x="40" y="605" width="1560" height="115" rx="6" class="takeaway"/>
+  <text x="50" y="625" class="takeaway-text" font-weight="700">Takeaway — naive freshness works with collator handoff:</text>
+  <text x="50" y="644" class="takeaway-text">C₁ inside its own slot can't recover Y+1/Y+2 before +6 s (freshness blocks Y+1, chain gap blocks Y+2).</text>
+  <text x="50" y="663" class="takeaway-text">But C₂ inherits the unincluded segment. By +8 s Y+1 has aged past freshness → included → fetched. By +10 s Y+2's parent is in V₂'s chain → can_second OK → fetched.</text>
+  <text x="50" y="682" class="takeaway-text">Both Y+1 and Y+2 land in S+2's RC block before it seals at +12 s. <tspan font-weight="700">No throughput loss.</tspan></text>
+  <text x="50" y="701" class="takeaway-text" font-weight="700">Naive resubmission is sufficient under min-offset, provided the next collator continues to advertise the inherited unincluded segment.</text>
+
+</svg>

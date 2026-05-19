@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1320 640" font-family="Inter, system-ui, sans-serif" font-size="14">
+  <style>
+    .lane-bg { fill: #f7f7f9; stroke: #d0d0d6; stroke-width: 1; }
+    .lane-label { font-weight: 600; font-size: 13px; fill: #2a2a35; }
+    .axis { stroke: #444; stroke-width: 1.5; fill: none; }
+    .tick { stroke: #888; stroke-width: 1; }
+    .tick-label { font-size: 11px; fill: #444; text-anchor: middle; }
+    .threshold-line { stroke: #d6342f; stroke-width: 2; stroke-dasharray: 6 4; }
+    .threshold-label { font-size: 12px; font-weight: 600; fill: #d6342f; }
+    .event-label { font-size: 11px; fill: #2a2a35; }
+    .title { font-size: 18px; font-weight: 700; fill: #1a1a25; }
+    .subtitle { font-size: 13px; fill: #4a4a55; }
+    .footnote { font-size: 11px; fill: #6a6a75; font-style: italic; }
+    .takeaway { fill: #fff7e6; stroke: #d6a800; stroke-width: 1.4; }
+    .takeaway-text { font-size: 12px; fill: #2a2a35; }
+    .bundle-c0 { fill: #cfe2fb; stroke: #1c5dc1; stroke-width: 1.4; }
+    .bundle-c1 { fill: #ffd8c5; stroke: #c14820; stroke-width: 1.4; }
+    .bundle-text { font-size: 12px; font-weight: 600; fill: #1a1a25; }
+    .core-tag { fill: #1c5dc1; }
+    .core-tag-text { font-size: 11px; font-weight: 700; fill: #fff; }
+    .offset-tag-1 { fill: #007e62; }
+    .offset-tag-2 { fill: #8a4d9e; }
+    .offset-tag-text { font-size: 10px; font-weight: 700; fill: #fff; }
+    .seg-list { font-size: 11px; fill: #2a2a35; }
+    .seg-dedup { fill: #c0ecda; stroke: #007e62; stroke-width: 1; }
+    .seg-fetch { fill: #ffd8c5; stroke: #c14820; stroke-width: 1; }
+    .slot-boundary { stroke: #1a1a25; stroke-width: 2; }
+    .slot-label { font-size: 12px; font-weight: 700; fill: #1a1a25; }
+    .guide-line { stroke: #c14820; stroke-width: 0.8; stroke-dasharray: 2 3; opacity: 0.5; }
+    .timeline-bg { fill: #ececf2; stroke: #444; stroke-width: 1; }
+    .rcblock-bg { fill: #eef4ff; stroke: #1c5dc1; stroke-width: 1; }
+  </style>
+
+  <!-- ===== TITLE ===== -->
+  <text x="40" y="40" class="title">Slot Transition Across 3 Cores — Happy Path (v3, min-offset rule)</text>
+  <text x="40" y="62" class="subtitle">First-of-slot bundle → cq_offset=1 (next RC block). Rest → cq_offset=2 (RC block after).</text>
+  <text x="40" y="80" class="footnote">Pipeline 2 s build + 2 s validation + 2 s SD. Freshness ≈ 4 s post-build. Naive rule: include every past-freshness bundle + newly built; drop only on on-chain inclusion (never happens in window).</text>
+
+  <!-- ===== TIMELINE ===== -->
+  <rect x="120" y="100" width="1020" height="32" class="timeline-bg"/>
+  <line x1="120" y1="116" x2="1140" y2="116" class="axis"/>
+  <g>
+    <line x1="120" y1="111" x2="120" y2="121" class="tick"/><text x="120" y="103" class="tick-label">t = 0</text>
+    <line x1="266" y1="111" x2="266" y2="121" class="tick"/><text x="266" y="103" class="tick-label">+1 s</text>
+    <line x1="412" y1="111" x2="412" y2="121" class="tick"/><text x="412" y="103" class="tick-label">+2 s</text>
+    <line x1="558" y1="111" x2="558" y2="121" class="tick"/><text x="558" y="103" class="tick-label">+3 s</text>
+    <line x1="704" y1="111" x2="704" y2="121" class="tick"/><text x="704" y="103" class="tick-label">+4 s</text>
+    <line x1="850" y1="111" x2="850" y2="121" class="tick"/><text x="850" y="103" class="tick-label">+5 s</text>
+    <line x1="996" y1="111" x2="996" y2="121" class="tick"/><text x="996" y="103" class="tick-label">+6 s</text>
+    <line x1="1140" y1="111" x2="1140" y2="121" class="tick"/><text x="1140" y="103" class="tick-label">+7 s</text>
+  </g>
+
+  <line x1="120" y1="100" x2="120" y2="360" class="slot-boundary"/>
+  <text x="125" y="135" class="slot-label" font-size="11">slot S start (C₁)</text>
+
+  <line x1="704" y1="100" x2="704" y2="360" class="threshold-line"/>
+  <text x="712" y="135" class="threshold-label" font-size="11">freshness ≈ 4 s</text>
+
+  <!-- C0 tail -->
+  <rect x="60" y="138" width="56" height="18" rx="3" class="bundle-c0"/>
+  <text x="88" y="151" text-anchor="middle" class="bundle-text" font-size="10">X+2</text>
+  <text x="155" y="151" class="seg-list" font-size="10">← C₀ tail, built [−2,0]</text>
+
+  <!-- ===== AD 1: +2s, Y (offset 1, RC S+1) ===== -->
+  <g>
+    <line x1="412" y1="180" x2="412" y2="360" class="guide-line"/>
+
+    <rect x="362" y="180" width="100" height="46" rx="6" class="bundle-c1"/>
+    <text x="412" y="200" text-anchor="middle" class="bundle-text">Y</text>
+    <text x="412" y="218" text-anchor="middle" class="seg-list" font-size="10">built [0,2]</text>
+
+    <rect x="468" y="180" width="60" height="20" rx="3" class="offset-tag-1"/>
+    <text x="498" y="194" text-anchor="middle" class="offset-tag-text">OFFSET 1</text>
+    <rect x="468" y="204" width="60" height="20" rx="3" class="core-tag"/>
+    <text x="498" y="218" text-anchor="middle" class="core-tag-text">RC S+1</text>
+
+    <text x="412" y="248" text-anchor="middle" class="event-label" font-weight="600">advertise at +2 s → V₂</text>
+
+    <text x="412" y="278" text-anchor="middle" class="seg-list" font-weight="600">segment:</text>
+    <rect x="378" y="288" width="36" height="20" class="seg-dedup"/>
+    <text x="396" y="302" text-anchor="middle" class="event-label" font-size="10">X+1 ✓</text>
+    <rect x="418" y="288" width="48" height="20" class="seg-fetch"/>
+    <text x="442" y="302" text-anchor="middle" class="event-label" font-size="10">Y ← fetch</text>
+    <text x="412" y="328" text-anchor="middle" class="seg-list" font-size="10" fill="#6a6a75">(X+2 too fresh, omitted)</text>
+  </g>
+
+  <!-- ===== AD 2: +4s, Y+1 (offset 2, RC S+2) ===== -->
+  <g>
+    <line x1="704" y1="180" x2="704" y2="360" class="guide-line"/>
+
+    <rect x="654" y="180" width="100" height="46" rx="6" class="bundle-c1"/>
+    <text x="704" y="200" text-anchor="middle" class="bundle-text">Y+1</text>
+    <text x="704" y="218" text-anchor="middle" class="seg-list" font-size="10">built [2,4]</text>
+
+    <rect x="760" y="180" width="60" height="20" rx="3" class="offset-tag-2"/>
+    <text x="790" y="194" text-anchor="middle" class="offset-tag-text">OFFSET 2</text>
+    <rect x="760" y="204" width="60" height="20" rx="3" class="core-tag"/>
+    <text x="790" y="218" text-anchor="middle" class="core-tag-text">RC S+2</text>
+
+    <text x="704" y="248" text-anchor="middle" class="event-label" font-weight="600">advertise at +4 s → V₂</text>
+
+    <text x="704" y="278" text-anchor="middle" class="seg-list" font-weight="600">segment:</text>
+    <rect x="640" y="288" width="36" height="20" class="seg-dedup"/>
+    <text x="658" y="302" text-anchor="middle" class="event-label" font-size="10">X+1 ✓</text>
+    <rect x="680" y="288" width="36" height="20" class="seg-dedup"/>
+    <text x="698" y="302" text-anchor="middle" class="event-label" font-size="10">X+2 ✓</text>
+    <rect x="720" y="288" width="60" height="20" class="seg-fetch"/>
+    <text x="750" y="302" text-anchor="middle" class="event-label" font-size="10">Y+1 ← fetch</text>
+    <text x="704" y="328" text-anchor="middle" class="seg-list" font-size="10" fill="#6a6a75">(Y too fresh, omitted)</text>
+  </g>
+
+  <!-- ===== AD 3: +6s, Y+2 (offset 2, RC S+2) ===== -->
+  <g>
+    <line x1="996" y1="180" x2="996" y2="360" class="guide-line"/>
+
+    <rect x="946" y="180" width="100" height="46" rx="6" class="bundle-c1"/>
+    <text x="996" y="200" text-anchor="middle" class="bundle-text">Y+2</text>
+    <text x="996" y="218" text-anchor="middle" class="seg-list" font-size="10">built [4,6]</text>
+
+    <rect x="1052" y="180" width="60" height="20" rx="3" class="offset-tag-2"/>
+    <text x="1082" y="194" text-anchor="middle" class="offset-tag-text">OFFSET 2</text>
+    <rect x="1052" y="204" width="60" height="20" rx="3" class="core-tag"/>
+    <text x="1082" y="218" text-anchor="middle" class="core-tag-text">RC S+2</text>
+
+    <text x="996" y="248" text-anchor="middle" class="event-label" font-weight="600">advertise at +6 s → V₂</text>
+
+    <text x="996" y="278" text-anchor="middle" class="seg-list" font-weight="600">segment:</text>
+    <rect x="900" y="288" width="36" height="20" class="seg-dedup"/>
+    <text x="918" y="302" text-anchor="middle" class="event-label" font-size="10">X+1 ✓</text>
+    <rect x="940" y="288" width="36" height="20" class="seg-dedup"/>
+    <text x="958" y="302" text-anchor="middle" class="event-label" font-size="10">X+2 ✓</text>
+    <rect x="980" y="288" width="32" height="20" class="seg-dedup"/>
+    <text x="996" y="302" text-anchor="middle" class="event-label" font-size="10">Y ✓</text>
+    <rect x="1016" y="288" width="60" height="20" class="seg-fetch"/>
+    <text x="1046" y="302" text-anchor="middle" class="event-label" font-size="10">Y+2 ← fetch</text>
+    <text x="996" y="328" text-anchor="middle" class="seg-list" font-size="10" fill="#6a6a75">(Y+1 too fresh, omitted)</text>
+  </g>
+
+  <!-- ===== RC BLOCK MAPPING ===== -->
+  <rect x="40" y="380" width="1240" height="65" class="rcblock-bg"/>
+  <text x="50" y="398" class="lane-label">RC block targets</text>
+  <text x="50" y="417" class="seg-list"><tspan font-weight="700">S+1:</tspan> <tspan fill="#007e62" font-weight="700">Y (offset 1, from S)</tspan> + <tspan fill="#8a4d9e" font-weight="700">X+1, X+2 (offset 2, from S−1)</tspan> = 3.</text>
+  <text x="50" y="436" class="seg-list"><tspan font-weight="700">S+2:</tspan> <tspan fill="#007e62" font-weight="700">offset 1 from S+1 author</tspan> + <tspan fill="#8a4d9e" font-weight="700">Y+1, Y+2 (offset 2, from S)</tspan> = 3.</text>
+
+  <!-- ===== KEY ===== -->
+  <rect x="40" y="455" width="1240" height="50" class="lane-bg"/>
+  <text x="50" y="473" class="lane-label">Key</text>
+  <g transform="translate(50, 482)">
+    <rect x="0" y="0" width="36" height="20" class="seg-dedup"/>
+    <text x="44" y="14" class="event-label">dedup hit</text>
+
+    <rect x="140" y="0" width="36" height="20" class="seg-fetch"/>
+    <text x="184" y="14" class="event-label">fetched</text>
+
+    <rect x="290" y="0" width="36" height="20" class="bundle-c0"/>
+    <text x="334" y="14" class="event-label">C₀ tail bundle</text>
+
+    <rect x="460" y="0" width="36" height="20" class="bundle-c1"/>
+    <text x="504" y="14" class="event-label">C₁ new bundle</text>
+
+    <rect x="630" y="0" width="60" height="20" rx="3" class="offset-tag-1"/>
+    <text x="694" y="14" class="event-label">grandchild → next RC block</text>
+
+    <rect x="900" y="0" width="60" height="20" rx="3" class="offset-tag-2"/>
+    <text x="964" y="14" class="event-label">grand-grandchild → RC block after</text>
+  </g>
+
+  <!-- ===== TAKEAWAY ===== -->
+  <rect x="40" y="520" width="1240" height="105" rx="6" class="takeaway"/>
+  <text x="50" y="540" class="takeaway-text" font-weight="700">Takeaway:</text>
+  <text x="120" y="540" class="takeaway-text">Min-offset rule splits C₁'s 3 bundles across 2 RC blocks (1 + 2). Each RC block still receives 3 candidates (mixed from two slots).</text>
+  <text x="50" y="559" class="takeaway-text">Naive freshness rule: include every past-freshness bundle + the newly built one. Drop only on on-chain inclusion — which never fires inside this window.</text>
+  <text x="50" y="578" class="takeaway-text">Segments grow monotonically as more bundles cross the freshness threshold. V₂ dedups locally; each core fetches exactly one new bundle.</text>
+  <text x="50" y="597" class="takeaway-text" font-weight="600">Throughput preserved. No information loss; per-RC-block 3-candidate budget met.</text>
+
+</svg>
