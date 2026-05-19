@@ -195,8 +195,7 @@ pub mod pallet {
 		/// `AssetsCallback::destroyed` hook so a future asset reusing the same
 		/// precompile address starts with no orphan flags.
 		pub fn clear_infinite_approvals_for_contract(contract: &H160) -> u32 {
-			let results =
-				InfiniteApprovals::<T>::clear_prefix((*contract,), u32::MAX, None);
+			let results = InfiniteApprovals::<T>::clear_prefix((*contract,), u32::MAX, None);
 			results.unique
 		}
 

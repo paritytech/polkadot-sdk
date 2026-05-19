@@ -484,11 +484,7 @@ fn destroy_clears_sentinel_flags_for_local_asset() {
 		// Flag must be gone — otherwise a recreated asset at the same id would
 		// inherit it.
 		assert!(
-			!permit::Pallet::<Test>::is_infinite_approval(
-				&asset_addr,
-				&owner_h160,
-				&spender_h160,
-			),
+			!permit::Pallet::<Test>::is_infinite_approval(&asset_addr, &owner_h160, &spender_h160,),
 			"sentinel flag must be cleared by AssetsCallback::destroyed",
 		);
 
@@ -1566,4 +1562,3 @@ fn permit_saturates_when_overwriting_existing_allowance() {
 		);
 	});
 }
-
