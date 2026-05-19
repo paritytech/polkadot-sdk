@@ -677,12 +677,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Calculate the validator incentive amount for a single page.
 	///
-	/// Share = `(w_i · ep_i) / Σ_j(w_j · ep_j) × budget × page_stake_part`, where the sum
-	/// runs over every validator with non-zero era points. The full era budget is distributed
-	/// across performers in proportion to incentive weight scaled by era points — zero-point
-	/// validators receive nothing and their (notional) share is implicitly redistributed by
-	/// the formula. Total payout equals the budget exactly (modulo Perbill rounding dust),
-	/// so there is no pot residue to forfeit.
+	/// Multiplies the validator's [`EraRewardPoints::weighted_points_share`] (see that
+	/// method for the formula and its properties) by the era budget and the page's stake
+	/// fraction: `share × budget × page_stake_part`. Returns `None` if the validator has
+	/// no incentive weight, no era points, or the computed amount rounds to zero.
 	fn calculate_validator_incentive_for_page(
 		era: EraIndex,
 		stash: &T::AccountId,
