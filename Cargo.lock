@@ -21007,6 +21007,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "rand 0.8.5",
+ "rstest",
  "sc-client-api 28.0.0",
  "sc-state-db",
  "schnellru",
