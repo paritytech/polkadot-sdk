@@ -55,10 +55,21 @@ Each line printed by `psm_stateful` follows this format:
 
 Generates hand-crafted corpus entries for the `psm` libFuzzer target and
 writes them to `corpus/psm/`. Targets error paths not reachable by random
-mutation: `AssetAlreadyApproved` and `AmountTooSmallAfterConversion`.
+mutation after 1M+ iterations:
+
+- `seed_mint_too_small_dai`: `AddExternalAsset(DAI)` + `Mint(DAI, MinSwap)` →
+  `AmountTooSmallAfterConversion` in mint (1e8 DAI wei / 10^12 = 0 pUSD)
+- `seed_redeem_too_small_usdx`: `AddExternalAsset(USDX)` + `Mint(USDC)` +
+  `SetRedemptionFee(USDX, ≈100%)` + `Redeem(USDX, MinSwap)` →
+  `AmountTooSmallAfterConversion` in redeem (internal_net / 10^4 = 0)
+- `seed_exceeds_max_issuance`: multi-account mints near the 10M issuance cap →
+  seeds the fuzzer at the boundary for `ExceedsMaxIssuance`
+
+Note: `AssetAlreadyApproved` is unreachable from this fuzzer — `dispatch_op`
+pre-filters `AddExternalAsset` to non-approved assets only.
 
 Run:
-	cargo run --bin corpus_gen -- fuzz/corpus/psm
+	cargo run --bin corpus_gen --manifest-path fuzz/Cargo.toml -- fuzz/corpus/psm
 
 The `Op` selector byte encoding and block framing layout are documented
 inline. Re-run after any change to the `Op` enum or `Arbitrary` impl.
@@ -77,10 +88,10 @@ inline. Re-run after any change to the `Op` enum or `Arbitrary` impl.
 
 ## Genesis
 
-Both use the same genesis: 10 accounts, 5 pre-created external assets
-(USDC, USDT, DAI, USDP, FRAX at IDs 2–6), PSM configured with USDC 60% /
-USDT 40%, MaxPsmDebtOfTotal 50%, MaximumIssuance 20M pUSD. Assets 4–6
-are unapproved — available for `add_external_asset` during fuzzing.
+Both use the same genesis: 10 accounts, 4 pre-created external assets
+(USDC, USDT, USDX, DAI_MOCK), PSM configured with USDC 60% / USDT 40%,
+MaxPsmDebtOfTotal 50%, MaximumIssuance 10M pUSD. USDX and DAI_MOCK are
+unapproved — available for `add_external_asset` during fuzzing.
 
 ## Mock access
 
