@@ -663,7 +663,10 @@ pub mod pallet {
 			<Announcements<T, I>>::try_mutate(|announcements| -> DispatchResult {
 				// Insert in sorted order to maintain the invariant required by
 				// `remove_announcement` which uses binary search.
-				let pos = announcements.binary_search(&announcement).err().ok_or(Error::<T, I>::TooManyAnnouncements)?;
+				let pos = announcements
+					.binary_search(&announcement)
+					.err()
+					.ok_or(Error::<T, I>::TooManyAnnouncements)?;
 				announcements
 					.try_insert(pos, announcement.clone())
 					.map_err(|_| Error::<T, I>::TooManyAnnouncements)?;
