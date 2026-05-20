@@ -6442,4 +6442,208 @@ pub(crate) mod tests {
 		assert_eq!(gap.start, 1);
 		assert_eq!(gap.end, 2);
 	}
+
+	mod database_adapter_tests {
+		use super::*;
+		use crate::utils::NUM_COLUMNS;
+		use rstest::rstest;
+		use sp_database::Transaction as DbTransaction;
+		use std::{path::PathBuf, sync::Arc};
+		use tempfile::TempDir;
+
+		#[derive(Debug, Clone, Copy)]
+		enum BackendKind {
+			KvdbMemdb,
+			ParityDb,
+			RocksDb,
+		}
+
+		enum DbFactory {
+			Persistent(Arc<dyn Database<DbHash>>),
+			OnDisk { path: PathBuf, kind: BackendKind, _tmp: TempDir },
+		}
+
+		impl DbFactory {
+			fn new(kind: BackendKind) -> Self {
+				match kind {
+					BackendKind::KvdbMemdb => Self::Persistent(sp_database::as_database(
+						kvdb_memorydb::create(NUM_COLUMNS),
+					)),
+					BackendKind::ParityDb | BackendKind::RocksDb => {
+						let tmp = TempDir::new().unwrap();
+						let path = tmp.path().to_path_buf();
+						Self::OnDisk { path, kind, _tmp: tmp }
+					},
+				}
+			}
+
+			fn open(&self) -> Arc<dyn Database<DbHash>> {
+				match self {
+					Self::Persistent(arc) => arc.clone(),
+					Self::OnDisk { path, kind: BackendKind::ParityDb, .. } => {
+						crate::parity_db::open::<DbHash>(path, DatabaseType::Full, true, false)
+							.expect("parity-db open succeeds in test")
+					},
+					Self::OnDisk { path, kind: BackendKind::RocksDb, .. } => {
+						let mut cfg = kvdb_rocksdb::DatabaseConfig::with_columns(NUM_COLUMNS);
+						cfg.create_if_missing = true;
+						let db = kvdb_rocksdb::Database::open(&cfg, path)
+							.expect("kvdb-rocksdb open succeeds in test");
+						sp_database::as_database(db)
+					},
+					Self::OnDisk { kind: BackendKind::KvdbMemdb, .. } => unreachable!(),
+				}
+			}
+		}
+
+		const TEST_COL: u32 = columns::TRANSACTION;
+
+		fn hash(seed: u8) -> DbHash {
+			DbHash::repeat_byte(seed)
+		}
+
+		fn commit_store(factory: &DbFactory, h: DbHash, bytes: Vec<u8>) {
+			let db = factory.open();
+			let mut tx = DbTransaction::new();
+			tx.store(TEST_COL, h, bytes);
+			db.commit(tx).unwrap();
+		}
+
+		fn commit_reference(factory: &DbFactory, h: DbHash) {
+			let db = factory.open();
+			let mut tx = DbTransaction::new();
+			tx.reference(TEST_COL, h);
+			db.commit(tx).unwrap();
+		}
+
+		fn commit_release(factory: &DbFactory, h: DbHash) {
+			let db = factory.open();
+			let mut tx = DbTransaction::new();
+			tx.release(TEST_COL, h);
+			db.commit(tx).unwrap();
+		}
+
+		fn get_value(factory: &DbFactory, h: DbHash) -> Option<Vec<u8>> {
+			factory.open().get(TEST_COL, h.as_ref())
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_then_get(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA1);
+			let bytes = b"a1-bytes".to_vec();
+			commit_store(&factory, h, bytes.clone());
+			assert_eq!(get_value(&factory, h).as_deref(), Some(bytes.as_slice()));
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_release_separate_commits(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA2);
+			let bytes = b"a2-bytes".to_vec();
+			commit_store(&factory, h, bytes);
+			assert!(get_value(&factory, h).is_some(), "present after store");
+			commit_release(&factory, h);
+			assert!(get_value(&factory, h).is_none(), "gone after release");
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_reference_release_release_separate_commits(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA3);
+			let bytes = b"a3-bytes".to_vec();
+			commit_store(&factory, h, bytes);
+			commit_reference(&factory, h);
+			assert!(get_value(&factory, h).is_some(), "rc=2 after reference");
+			commit_release(&factory, h);
+			assert!(get_value(&factory, h).is_some(), "rc=1 still present");
+			commit_release(&factory, h);
+			assert!(get_value(&factory, h).is_none(), "rc=0 removed");
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_then_reference_same_commit_keeps_value(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA4);
+			let bytes = b"a4-bytes".to_vec();
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.store(TEST_COL, h, bytes.clone());
+				tx.reference(TEST_COL, h);
+				db.commit(tx).unwrap();
+			}
+			assert_eq!(
+				get_value(&factory, h).as_deref(),
+				Some(bytes.as_slice()),
+				"Store + Reference on fresh hash in a single commit must keep the value \
+				 (observed via fresh DB handle so overlay caching is bypassed)",
+			);
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_then_two_references_same_commit_keeps_value(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA5);
+			let bytes = b"a5-bytes".to_vec();
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.store(TEST_COL, h, bytes.clone());
+				tx.reference(TEST_COL, h);
+				tx.reference(TEST_COL, h);
+				db.commit(tx).unwrap();
+			}
+			assert_eq!(
+				get_value(&factory, h).as_deref(),
+				Some(bytes.as_slice()),
+				"Store + 2x Reference on fresh hash must keep the value (post-sync observation)",
+			);
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn reference_on_missing_hash_is_noop(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA6);
+			commit_reference(&factory, h);
+			assert!(get_value(&factory, h).is_none(), "reference on missing key is a no-op");
+			let bytes = b"a6-bytes".to_vec();
+			commit_store(&factory, h, bytes.clone());
+			assert_eq!(get_value(&factory, h).as_deref(), Some(bytes.as_slice()));
+			commit_release(&factory, h);
+			assert!(get_value(&factory, h).is_none(), "single release balances the store");
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn release_on_missing_hash_is_noop(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA7);
+			commit_release(&factory, h);
+			assert!(get_value(&factory, h).is_none(), "release on missing key is a no-op");
+			let bytes = b"a7-bytes".to_vec();
+			commit_store(&factory, h, bytes.clone());
+			assert_eq!(get_value(&factory, h).as_deref(), Some(bytes.as_slice()));
+		}
+	}
 }
