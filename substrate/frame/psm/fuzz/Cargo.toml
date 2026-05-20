@@ -21,6 +21,10 @@ frame-system = { path = "../../system" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-io = { path = "../../../primitives/io" }
 
+[lib]
+name = "pallet_psm_fuzz"
+path = "src/lib.rs"
+
 [[bin]]
 name = "psm"
 path = "fuzz_targets/psm.rs"

@@ -1,12 +1,21 @@
+//! Shared fuzz infrastructure for the pallet-psm fuzz targets.
+//!
+//! Each fuzz target binary (`psm`, `psm_stateful`, `psm_replay`, `corpus_gen`)
+//! is a separate compilation unit. This library exposes the genesis builder,
+//! dispatch loop, `Arbitrary` input types, and re-exports the pallet/mock types
+//! the binaries need.
+
+use arbitrary::{Arbitrary, Unstructured};
 use frame_support::traits::fungibles::Inspect;
-use pallet_psm::mock::fuzz_helpers;
 use pallet_psm::mock::{
-	Assets, Psm, RuntimeOrigin, System, Test, ALL_EXTERNAL_ASSETS, DAI_MOCK_ASSET_ID,
-	INSURANCE_FUND, INTERNAL_ASSET_ID, INTERNAL_UNIT, USDC_ASSET_ID, USDT_ASSET_ID, USDX_ASSET_ID,
+	Assets, Psm, RuntimeOrigin, Test, ALL_EXTERNAL_ASSETS, DAI_MOCK_ASSET_ID, INSURANCE_FUND,
+	INTERNAL_ASSET_ID, INTERNAL_UNIT, USDC_ASSET_ID, USDT_ASSET_ID, USDX_ASSET_ID,
 };
 use pallet_psm::CircuitBreakerLevel;
 use pallet_psm::PsmDebt;
 use sp_runtime::{BuildStorage, Permill};
+
+pub use pallet_psm::mock::{fuzz_helpers, System};
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -36,7 +45,7 @@ const MAX_PSM_ISSUANCE: u128 = 20_000_000 * INTERNAL_UNIT;
 // externalities and can read the current ceiling/debt. Each variant targets a different
 // pallet boundary condition (see `resolve_amount` for the mapping).
 #[derive(Debug)]
-enum AmountTier {
+pub enum AmountTier {
 	MinSwap,
 	NearCeiling,
 	AtCeiling,
@@ -57,7 +66,7 @@ enum AmountTier {
 // (3) Full u8 costs the same as a constrained range (both consume one byte of fuzz
 // input), but gives libFuzzer more distinct byte→coverage edges to explore.
 #[derive(Debug)]
-enum Op {
+pub enum Op {
 	Mint { account_idx: u8, asset_idx: u8, tier: AmountTier },
 	Redeem { account_idx: u8, asset_idx: u8, tier: AmountTier },
 	SetMaxPsmDebt { force_below_debt: bool, parts: u32 },
@@ -73,9 +82,9 @@ enum Op {
 // Weighted call selection (kitchensink pattern)
 // ---------------------------------------------------------------------------
 
-struct CallSpec {
-	weight: u32,
-	generator: fn(&mut Unstructured) -> arbitrary::Result<Op>,
+pub struct CallSpec {
+	pub weight: u32,
+	pub generator: fn(&mut Unstructured) -> arbitrary::Result<Op>,
 }
 
 // Mint and redeem carry the highest weight (15 each) because they are the core accounting
@@ -83,7 +92,7 @@ struct CallSpec {
 // ops (debt/ceiling/fee/status) get moderate weight (3-5) since they mutate state that
 // subsequent mints/redeems must handle correctly. Asset management (add/remove) gets the
 // lowest weight (1) because those calls are irreversible and low-yield once executed.
-const CALL_SPECS: &[CallSpec] = &[
+pub const CALL_SPECS: &[CallSpec] = &[
 	CallSpec { weight: 15, generator: gen_mint },
 	CallSpec { weight: 15, generator: gen_redeem },
 	CallSpec { weight: 5, generator: gen_set_max_psm_debt },
@@ -95,39 +104,39 @@ const CALL_SPECS: &[CallSpec] = &[
 	CallSpec { weight: 1, generator: gen_remove_external_asset },
 ];
 
-fn gen_mint(u: &mut Unstructured) -> arbitrary::Result<Op> {
+pub fn gen_mint(u: &mut Unstructured) -> arbitrary::Result<Op> {
 	Ok(Op::Mint { account_idx: u.arbitrary()?, asset_idx: u.arbitrary()?, tier: u.arbitrary()? })
 }
 
-fn gen_redeem(u: &mut Unstructured) -> arbitrary::Result<Op> {
+pub fn gen_redeem(u: &mut Unstructured) -> arbitrary::Result<Op> {
 	Ok(Op::Redeem { account_idx: u.arbitrary()?, asset_idx: u.arbitrary()?, tier: u.arbitrary()? })
 }
 
-fn gen_set_max_psm_debt(u: &mut Unstructured) -> arbitrary::Result<Op> {
+pub fn gen_set_max_psm_debt(u: &mut Unstructured) -> arbitrary::Result<Op> {
 	Ok(Op::SetMaxPsmDebt { force_below_debt: u.arbitrary()?, parts: u.arbitrary()? })
 }
 
-fn gen_set_asset_ceiling_weight(u: &mut Unstructured) -> arbitrary::Result<Op> {
+pub fn gen_set_asset_ceiling_weight(u: &mut Unstructured) -> arbitrary::Result<Op> {
 	Ok(Op::SetAssetCeilingWeight { asset_idx: u.arbitrary()?, parts: u.arbitrary()? })
 }
 
-fn gen_set_minting_fee(u: &mut Unstructured) -> arbitrary::Result<Op> {
+pub fn gen_set_minting_fee(u: &mut Unstructured) -> arbitrary::Result<Op> {
 	Ok(Op::SetMintingFee { asset_idx: u.arbitrary()?, parts: u.arbitrary()? })
 }
 
-fn gen_set_redemption_fee(u: &mut Unstructured) -> arbitrary::Result<Op> {
+pub fn gen_set_redemption_fee(u: &mut Unstructured) -> arbitrary::Result<Op> {
 	Ok(Op::SetRedemptionFee { asset_idx: u.arbitrary()?, parts: u.arbitrary()? })
 }
 
-fn gen_set_asset_status(u: &mut Unstructured) -> arbitrary::Result<Op> {
+pub fn gen_set_asset_status(u: &mut Unstructured) -> arbitrary::Result<Op> {
 	Ok(Op::SetAssetStatus { asset_idx: u.arbitrary()?, level: u.arbitrary()? })
 }
 
-fn gen_add_external_asset(u: &mut Unstructured) -> arbitrary::Result<Op> {
+pub fn gen_add_external_asset(u: &mut Unstructured) -> arbitrary::Result<Op> {
 	Ok(Op::AddExternalAsset { asset_idx: u.arbitrary()? })
 }
 
-fn gen_remove_external_asset(u: &mut Unstructured) -> arbitrary::Result<Op> {
+pub fn gen_remove_external_asset(u: &mut Unstructured) -> arbitrary::Result<Op> {
 	Ok(Op::RemoveExternalAsset { asset_idx: u.arbitrary()? })
 }
 
@@ -184,7 +193,7 @@ impl<'a> Arbitrary<'a> for Op {
 // (few/medium/many calls) and the variation adds fine-grained jitter within that tier.
 // Without this split, the fuzzer would waste entire bytes on a single linear range.
 #[derive(Debug)]
-struct Block(Vec<Op>);
+pub struct Block(pub Vec<Op>);
 
 impl<'a> Arbitrary<'a> for Block {
 	fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
@@ -209,7 +218,7 @@ impl<'a> Arbitrary<'a> for Block {
 // Multi-block sequences are important because governance changes in one block
 // can create transient violations that subsequent blocks must resolve.
 #[derive(Debug)]
-struct MultiBlockOps(Vec<Block>);
+pub struct MultiBlockOps(pub Vec<Block>);
 
 impl<'a> Arbitrary<'a> for MultiBlockOps {
 	fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
@@ -240,7 +249,7 @@ impl<'a> Arbitrary<'a> for MultiBlockOps {
 //   AtCeiling  -> exact cap, tests the boundary where debt == ceiling after mint
 //   OverCeiling -> cap + MIN_SWAP, triggers the OverCeiling rejection path
 //   Random     -> arbitrary value in [MIN_SWAP, 2*cap], exercises the general interior
-fn resolve_amount(tier: &AmountTier, effective_cap: u128) -> u128 {
+pub fn resolve_amount(tier: &AmountTier, effective_cap: u128) -> u128 {
 	match tier {
 		AmountTier::MinSwap => MIN_SWAP,
 		AmountTier::NearCeiling => effective_cap.saturating_sub(MIN_SWAP).max(MIN_SWAP),
@@ -267,7 +276,7 @@ fn resolve_amount(tier: &AmountTier, effective_cap: u128) -> u128 {
 // redemption fees. MaxPsmDebtOfTotal is 50%, meaning the total PSM debt cannot exceed
 // half the pUSD issuance cap. This gives enough room for the fuzzer to explore ceiling
 // violations without trivially saturating the global limit.
-fn build_fuzzer_genesis() -> sp_io::TestExternalities {
+pub fn build_fuzzer_genesis() -> sp_io::TestExternalities {
 	let mut storage = <frame_system::GenesisConfig<Test> as Default>::default()
 		.build_storage()
 		.expect("system genesis storage builds; qed");
@@ -350,7 +359,7 @@ fn build_fuzzer_genesis() -> sp_io::TestExternalities {
 // Dispatch (runs inside externalities, reads storage via fuzz_helpers::*)
 // ---------------------------------------------------------------------------
 
-fn dispatch_op(op: &Op) {
+pub fn dispatch_op(op: &Op) {
 	match op {
 		Op::Mint { account_idx, asset_idx, tier } => {
 			// The effective cap is the minimum of four independent limits that must

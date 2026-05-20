@@ -7,13 +7,10 @@
 //! after each block. Uses libFuzzer's coverage feedback to explore interesting
 //! call sequences.
 
-#[allow(unused_imports)]
-use arbitrary::{Arbitrary, Unstructured};
 use libfuzzer_sys::fuzz_target;
+use pallet_psm_fuzz::{build_fuzzer_genesis, dispatch_op, fuzz_helpers, MultiBlockOps, System};
 use std::fs::OpenOptions;
 use std::io::Write;
-
-include!("psm_impl.rs");
 
 // Each fuzz input produces a multi-block sequence. Within each block, all ops execute
 // against the same block number, then do_try_state validates pallet invariants. The

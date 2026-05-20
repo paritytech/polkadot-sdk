@@ -11,16 +11,13 @@
 //   cargo build --bin psm_replay
 //   ./target/debug/psm_replay [corpus_dir]
 
+use arbitrary::{Arbitrary, Unstructured};
+use pallet_psm_fuzz::{build_fuzzer_genesis, dispatch_op, fuzz_helpers, MultiBlockOps, System};
 use std::env;
 use std::fs;
-use arbitrary::{Arbitrary, Unstructured};
-
-include!("psm_impl.rs");
 
 fn main() {
-	let corpus_dir = env::args()
-		.nth(1)
-		.unwrap_or_else(|| "corpus/psm".to_string());
+	let corpus_dir = env::args().nth(1).unwrap_or_else(|| "corpus/psm".to_string());
 
 	let entries = fs::read_dir(&corpus_dir)
 		.unwrap_or_else(|e| panic!("cannot read corpus dir {}: {}", corpus_dir, e));
