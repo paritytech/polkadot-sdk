@@ -26,6 +26,7 @@ mod snowbridge_common;
 // mod snowbridge_v2_inbound;
 mod snowbridge_edge_case;
 mod snowbridge_v2_inbound;
+mod snowbridge_v2_inbound_edge_case;
 mod snowbridge_v2_inbound_to_rococo;
 mod snowbridge_v2_outbound;
 mod snowbridge_v2_outbound_edge_case;

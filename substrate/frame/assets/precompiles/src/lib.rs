@@ -53,7 +53,11 @@ mod migration_tests;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
+mod permit_precompile_tests;
+#[cfg(test)]
 mod permit_tests;
+#[cfg(test)]
+mod test_helpers;
 #[cfg(test)]
 mod tests;
 
@@ -160,9 +164,10 @@ where
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		if env.is_delegate_call() {
-			return Err(Error::Revert(Revert { reason: ERR_DELEGATECALL_DENIED.into() }));
-		}
+		frame_support::ensure!(
+			!env.is_delegate_call(),
+			pallet_revive::Error::<Self::T>::PrecompileDelegateDenied,
+		);
 
 		let asset_id = PrecompileConfig::AssetIdExtractor::asset_id_from_address(address)?.into();
 		let contract_addr = H160::from(*address);
@@ -201,7 +206,6 @@ where
 	}
 }
 
-const ERR_DELEGATECALL_DENIED: &str = "Cannot be called via delegatecall";
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
 
@@ -247,7 +251,7 @@ where
 		let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
 		env.frame_meter_mut().charge_weight_token(RuntimeCosts::DepositEvent {
 			num_topic: topics.len() as u32,
-			len: topics.len() as u32,
+			len: data.len() as u32,
 		})?;
 		env.deposit_event(topics, data.to_vec());
 		Ok(())
