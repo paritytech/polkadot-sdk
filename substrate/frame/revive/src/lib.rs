@@ -1617,7 +1617,7 @@ pub mod pallet {
 			T::AddressMapper::map(&origin)
 		}
 
-		/// Map many accounts at once and make the TX free if at least 90% were unmapped.
+		/// Map many accounts and make the TX free if at least 90% were unmapped or held deposits.
 		#[pallet::call_index(13)]
 		#[pallet::weight(<T as Config>::WeightInfo::map_account().saturating_mul(accounts.len() as u64))]
 		pub fn batch_map_accounts(
@@ -1625,15 +1625,19 @@ pub mod pallet {
 			accounts: Vec<T::AccountId>,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
+
+			let total = accounts.len() as u32;
 			let mut mapped = 0;
 
 			for account_id in &accounts {
+				let mut useful = false;
+
 				if T::AddressMapper::is_eth_derived(&account_id) {
 					// Eth-derived accounts are stateless mapped, nothing to do.
 				} else {
 					match T::AddressMapper::map_no_deposit(&account_id) {
 						Ok(()) => {
-							mapped += 1;
+							useful = true;
 						},
 						Err(err) => log::debug!(
 							target: LOG_TARGET,
@@ -1641,26 +1645,32 @@ pub mod pallet {
 						),
 					}
 
-					let _ = T::Currency::release_all(
+					match T::Currency::release_all(
 						&HoldReason::AddressMapping.into(),
 						&account_id,
 						Precision::BestEffort,
-					)
-					.inspect_err(|err| {
-						log::debug!(
+					) {
+						Ok(_) => {
+							useful |= true;
+						},
+						Err(err) => log::debug!(
 							target: LOG_TARGET,
 							"Failed to release mapping deposit for {account_id:?}: {err:?}",
-						);
-					});
+						),
+					}
+				}
+
+				if useful {
+					mapped += 1;
 				}
 			}
 
 			// guard against 0 division below
-			if accounts.len() == 0 || mapped == 0 {
-				return Ok(Pays::Yes.into())
+			if total == 0 || mapped == 0 {
+				return Ok(Pays::Yes.into());
 			}
 
-			let proportion_mapped = Perbill::from_rational(mapped, accounts.len() as u32);
+			let proportion_mapped = Perbill::from_rational(mapped, total);
 			if proportion_mapped >= Perbill::from_percent(90) {
 				Ok(Pays::No.into())
 			} else {
