@@ -416,15 +416,23 @@ where
 		}
 		env.adjust_gas(charged, actual_weight);
 
-		// Event carries the raw `call.value`, not the saturated stored
-		// amount — preserves the `uint256.max` "Unlimited" signal for EVM
-		// wallets and indexers that pattern-match it.
+		// Keep the event in lockstep with `allowance()`: emit `U256::MAX`
+		// whenever the write lands on the sentinel (`stored == Balance::MAX`),
+		// otherwise emit the literal stored amount. Indexers replaying
+		// `Approval` logs see the same value `allowance()` would return.
+		let max_balance: <Runtime as Config<Instance>>::Balance =
+			alloy::primitives::U256::MAX.unique_saturated_into();
+		let event_value = if new_amount == max_balance {
+			alloy::primitives::U256::MAX
+		} else {
+			call.value
+		};
 		Self::deposit_event(
 			env,
 			IERC20Events::Approval(IERC20::Approval {
 				owner: owner.0.into(),
 				spender: call.spender,
-				value: call.value,
+				value: event_value,
 			}),
 		)?;
 
@@ -616,12 +624,21 @@ where
 					)?;
 				}
 
+				// Mirror `approve`'s event policy: normalize to `U256::MAX`
+				// when the write lands on the sentinel.
+				let max_balance: <Runtime as Config<Instance>>::Balance =
+					alloy::primitives::U256::MAX.unique_saturated_into();
+				let event_value = if new_amount == max_balance {
+					alloy::primitives::U256::MAX
+				} else {
+					call.value
+				};
 				Self::deposit_event(
 					env,
 					IERC20Events::Approval(IERC20::Approval {
 						owner: call.owner,
 						spender: call.spender,
-						value: call.value,
+						value: event_value,
 					}),
 				)?;
 				Ok::<_, Error>(actual_weight)

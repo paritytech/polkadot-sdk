@@ -1204,16 +1204,16 @@ fn approve_saturates_on_uint256_max(asset_index: u16) {
 	});
 }
 
-/// Boundary test: *storage saturation* must trigger for any
-/// `U256 > Balance::MAX`, not only the exact `U256::MAX` value. Guards
-/// against a regression that would scope saturation to
+/// Boundary test: storage saturation must trigger for any
+/// `call.value > Balance::MAX`, not only the exact `U256::MAX` value.
+/// Guards against a regression that would scope saturation to
 /// `call.value == U256::MAX` and revert on every other near-max input.
 ///
-/// Note: saturation here is storage-only — only `call.value == U256::MAX`
-/// trips the *sentinel* flag (non-decrementing semantics). A near-max
-/// value like `U256::MAX - 1` saturates to `Balance::MAX` in storage but
-/// the flag stays clear, so `transferFrom` decrements normally. That's
-/// strict mainnet parity (where only `type(uint256).max` is the sentinel).
+/// Once saturated, the result is the sentinel: `allowance()` reports
+/// `U256::MAX` and the `Approval` event is normalized to `U256::MAX` to
+/// match — so an indexer replaying logs sees the same value the chain
+/// would return, regardless of which over-`Balance::MAX` value the
+/// caller signed.
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 #[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 fn approve_saturates_just_above_balance_max(asset_index: u16) {
@@ -1258,13 +1258,14 @@ fn approve_saturates_just_above_balance_max(asset_index: u16) {
 
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
 
-		// Event carries the raw `call.value`, even though storage saturated.
+		// Event is normalized to U256::MAX whenever storage saturates —
+		// keeps `event.value == allowance()` for any sentinel-producing call.
 		assert_contract_event(
 			asset_addr,
 			IERC20Events::Approval(IERC20::Approval {
 				owner: <Test as pallet_revive::Config>::AddressMapper::to_address(&owner).0.into(),
 				spender: spender_addr.0.into(),
-				value: just_over,
+				value: U256::MAX,
 			}),
 		);
 	});
