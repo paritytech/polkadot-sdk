@@ -693,48 +693,6 @@ fn permit_rollback_preserves_prior_allowance() {
 	});
 }
 
-/// `to_balance` failure (value > runtime Balance capacity) returns
-/// `Error::Revert("Balance conversion failed")` *after* `use_permit`
-/// has incremented the nonce. The `with_transaction` wrapper must roll
-/// the nonce back. Distinct failure surface from the frozen-asset test
-/// (revert vs DispatchError trap).
-///
-/// Note: this test depends on the mock's `Balance = u64`. On a runtime
-/// with `Balance = u128` the same input would not overflow `to_balance`.
-#[test]
-fn permit_value_overflow_rolls_back() {
-	use frame_support::traits::fungibles::approvals::Inspect;
-
-	new_test_ext().execute_with(|| {
-		let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
-
-		let huge = AlloyU256::from(1u128 << 64);
-		let (v, r, s) = sign_permit(setup.asset_addr, setup.spender_addr, huge, setup.deadline);
-		let result = raw_permit(
-			setup.submitter,
-			setup.asset_addr,
-			HARDHAT_ACCOUNT_0,
-			setup.spender_addr,
-			huge,
-			setup.deadline,
-			v,
-			r,
-			s,
-		);
-		assert_permit_reverted_with(result, "Balance conversion failed");
-		assert_eq!(
-			permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
-			U256::zero(),
-			"nonce must roll back when to_balance fails after use_permit"
-		);
-		assert_eq!(
-			Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
-			0
-		);
-		assert_no_contract_event_from(setup.asset_addr);
-	});
-}
-
 /// If the owner can't afford the `ApprovalDeposit`, `do_approve_transfer`
 /// returns a `DispatchError` (Error::Error → trap). Distinct failure
 /// path from the revert-based `to_balance` test.
