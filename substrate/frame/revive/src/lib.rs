@@ -116,6 +116,7 @@ pub use crate::{
 	vm::{BytecodeType, ContractBlob},
 };
 pub use codec;
+use frame_support::traits::tokens::Precision;
 pub use frame_support::{self, dispatch::DispatchInfo, traits::Time, weights::Weight};
 pub use frame_system::{self, limits::BlockWeights};
 pub use primitives::*;
@@ -1614,6 +1615,57 @@ pub mod pallet {
 			Self::ensure_non_contract_if_signed(&origin)?;
 			let origin = ensure_signed(origin)?;
 			T::AddressMapper::map(&origin)
+		}
+
+		/// Map many accounts at once and make the TX free if at least 90% were unmapped.
+		#[pallet::call_index(13)]
+		#[pallet::weight(<T as Config>::WeightInfo::map_account().saturating_mul(accounts.len() as u64))]
+		pub fn batch_map_accounts(
+			origin: OriginFor<T>,
+			accounts: Vec<T::AccountId>,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+			let mut mapped = 0;
+
+			for account_id in &accounts {
+				if T::AddressMapper::is_eth_derived(&account_id) {
+					// Eth-derived accounts are stateless mapped, nothing to do.
+				} else {
+					match T::AddressMapper::map_no_deposit(&account_id) {
+						Ok(()) => {
+							mapped += 1;
+						},
+						Err(err) => log::debug!(
+							target: LOG_TARGET,
+							"Failed to map account {account_id:?}: {err:?}",
+						),
+					}
+
+					let _ = T::Currency::release_all(
+						&HoldReason::AddressMapping.into(),
+						&account_id,
+						Precision::BestEffort,
+					)
+					.inspect_err(|err| {
+						log::debug!(
+							target: LOG_TARGET,
+							"Failed to release mapping deposit for {account_id:?}: {err:?}",
+						);
+					});
+				}
+			}
+
+			// guard against 0 division below
+			if accounts.len() == 0 || mapped == 0 {
+				return Ok(Pays::Yes.into())
+			}
+
+			let proportion_mapped = Perbill::from_rational(mapped, accounts.len() as u32);
+			if proportion_mapped >= Perbill::from_percent(90) {
+				Ok(Pays::No.into())
+			} else {
+				Ok(Pays::Yes.into())
+			}
 		}
 
 		/// Unregister the callers account id in order to free the deposit.
