@@ -370,11 +370,7 @@ mod tests {
 		let scheduling_parent = headers[0].hash();
 
 		let signed_info = SignedSchedulingInfo {
-			payload: SchedulingInfoPayload::new(
-				CoreSelector(0),
-				Default::default(),
-				relay_parent,
-			),
+			payload: SchedulingInfoPayload::new(CoreSelector(0), Default::default(), relay_parent),
 			signature: dummy_signature(),
 		};
 
