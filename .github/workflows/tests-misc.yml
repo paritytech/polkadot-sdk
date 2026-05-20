@@ -276,6 +276,65 @@ jobs:
         run: |
           forklift cargo build --locked -p westend-runtime --features metadata-hash
 
+  # Compile the pallet-psm fuzz crate and run a short bounded execution of
+  # each target. This catches "code rot" where the fuzzers drift out of sync
+  # with the pallet between PRs without actually fuzzing in CI.
+  #
+  # What this job does:
+  #   * Builds all four fuzz binaries:
+  #       - psm_stateful, psm_replay, corpus_gen are plain [[bin]] targets and
+  #         compile on stable.
+  #       - psm uses #![no_main] + libfuzzer_sys::fuzz_target!; it needs the
+  #         cargo-fuzz wrapper on nightly. We install cargo-fuzz inline.
+  #   * Runs psm_stateful for 200 deterministic commands (~seconds). This is
+  #     the cheapest behavioural check: fixed seed, fixed length, panics on
+  #     any do_try_state violation.
+  #   * Runs the libFuzzer target for a tiny number of iterations
+  #     (-runs=64 -max_total_time=10) so we exercise the corpus loop and
+  #     Arbitrary parsing without spending a CI budget on actual fuzzing.
+  #
+  # If any compile or short run fails, the PR is blocked. To do real fuzzing,
+  # run `cargo +nightly fuzz run psm` locally.
+  test-pallet-psm-fuzz:
+    timeout-minutes: 30
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    env:
+      RUST_BACKTRACE: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Build plain fuzz binaries (stable)
+        run: |
+          cd substrate/frame/psm/fuzz
+          forklift cargo build --locked --bin psm_stateful
+          forklift cargo build --locked --bin psm_replay
+          forklift cargo build --locked --bin corpus_gen
+
+      - name: Smoke-run psm_stateful
+        run: |
+          cd substrate/frame/psm/fuzz
+          # Fixed seed, bounded length. Panics on invariant violation.
+          forklift cargo run --locked --bin psm_stateful -- 42 200
+
+      - name: Install cargo-fuzz
+        run: |
+          # Pinned to a known-good version to avoid surprise breakage. Bump
+          # deliberately when needed.
+          cargo +nightly install --locked --version 0.12.0 cargo-fuzz
+
+      - name: Smoke-run libFuzzer target (psm)
+        run: |
+          cd substrate/frame/psm/fuzz
+          # -runs=64: a handful of iterations to exercise the harness.
+          # -max_total_time=10: hard cap of 10 seconds.
+          # The job fails if libFuzzer reports a crash or invariant violation.
+          cargo +nightly fuzz run psm -- -runs=64 -max_total_time=10
+
   # disabled until https://github.com/paritytech/polkadot-sdk/issues/5812 is resolved
   # cargo-hfuzz:
   #   timeout-minutes: 20
@@ -411,6 +470,7 @@ jobs:
       - check-tracing
       - cargo-check-each-crate
       - test-deterministic-wasm
+      - test-pallet-psm-fuzz
       # - cargo-hfuzz remove from required for now, as it's flaky
     if: always() && !cancelled()
     steps:
