@@ -1428,9 +1428,9 @@ dependencies = [
 
 [[package]]
 name = "ark-vrf"
-version = "0.2.2"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d815a2faa9e0fe6c342cc7f25f1f30016774cfbc966f56ea1967377a7ac2066"
+checksum = "f69f34cb5a7d5d4627792c7a6343508becc19deab59a87ef73367cc112dfd02c"
 dependencies = [
  "ark-bls12-381 0.5.0",
  "ark-ec 0.5.0",
@@ -1439,9 +1439,9 @@ dependencies = [
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
  "digest 0.10.7",
- "rand_chacha 0.3.1",
+ "generic-array 0.14.7",
  "sha2 0.10.9",
- "w3f-ring-proof 0.0.6",
+ "w3f-ring-proof 0.0.8",
  "zeroize",
 ]
 
@@ -1763,6 +1763,7 @@ dependencies = [
  "pallet-asset-rewards",
  "pallet-assets",
  "pallet-assets-freezer",
+ "pallet-assets-holder",
  "pallet-assets-precompiles",
  "pallet-aura",
  "pallet-authorship",
@@ -1786,9 +1787,11 @@ dependencies = [
  "pallet-nomination-pools",
  "pallet-nomination-pools-runtime-api",
  "pallet-parameters",
+ "pallet-pgas-allowance",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-psm",
+ "pallet-recovery",
  "pallet-referenda",
  "pallet-revive",
  "pallet-revive-fixtures",
@@ -3230,6 +3233,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
+ "pallet-accumulate-and-forward",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -3238,7 +3242,6 @@ dependencies = [
  "pallet-bridge-parachains",
  "pallet-bridge-relayers",
  "pallet-collator-selection",
- "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-multisig",
  "pallet-session",
@@ -3873,6 +3876,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
+ "pallet-accumulate-and-forward",
  "pallet-alliance",
  "pallet-asset-rate",
  "pallet-aura",
@@ -3882,7 +3886,6 @@ dependencies = [
  "pallet-collective",
  "pallet-collective-content",
  "pallet-core-fellowship",
- "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-meta-tx",
  "pallet-multisig",
@@ -4236,12 +4239,12 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+ "pallet-accumulate-and-forward",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
  "pallet-broker",
  "pallet-collator-selection",
- "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-meta-tx",
  "pallet-multisig",
@@ -5782,6 +5785,7 @@ dependencies = [
  "rstest",
  "sc-executor 0.32.0",
  "sc-executor-common 0.29.0",
+ "sc-network-statement",
  "sc-statement-store",
  "scale-info",
  "serde",
@@ -5795,9 +5799,11 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-statement-store",
  "sp-version 29.0.0",
+ "subxt 0.44.2",
  "subxt 0.50.0",
  "subxt-signer 0.50.0",
  "tokio",
+ "verifiable",
  "zombienet-configuration",
  "zombienet-orchestrator",
  "zombienet-sdk",
@@ -6548,12 +6554,12 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
+ "pallet-accumulate-and-forward",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
  "pallet-bridge-messages",
  "pallet-dap",
- "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-whitelist",
  "pallet-xcm",
@@ -7316,6 +7322,7 @@ dependencies = [
  "sc-runtime-utilities",
  "sc-service",
  "sc-sysinfo",
+ "sc-virtualization",
  "serde",
  "serde_json",
  "sp-api 26.0.0",
@@ -7336,6 +7343,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
+ "sp-virtualization",
  "sp-wasm-interface 20.0.0",
  "substrate-test-runtime",
  "subxt 0.44.2",
@@ -7534,6 +7542,7 @@ dependencies = [
  "polkadot-jemalloc-shim",
  "sc-chain-spec 28.0.0",
  "sc-cli",
+ "sp-crypto-ec-utils",
  "sp-genesis-builder 0.8.0",
  "sp-runtime 31.0.1",
  "sp-statement-store",
@@ -8292,7 +8301,6 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
  "staging-xcm",
- "westend-runtime",
  "westend-system-emulated-network",
 ]
 
@@ -9814,6 +9822,7 @@ dependencies = [
  "node-primitives",
  "pallet-example-mbm",
  "pallet-example-tasks",
+ "pallet-transaction-storage",
  "parity-scale-codec",
  "polkadot-sdk",
  "primitive-types 0.13.1",
@@ -11985,15 +11994,14 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "openssl"
-version = "0.10.72"
+version = "0.10.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fedfea7d58a1f73118430a55da6a286e7b044961736ce96a16a17068ea25e5da"
+checksum = "bf0b434746ee2832f4f0baf10137e1cabb18cbe6912c69e2e33263c45250f542"
 dependencies = [
  "bitflags 2.9.4",
  "cfg-if",
  "foreign-types",
  "libc",
- "once_cell",
  "openssl-macros",
  "openssl-sys",
 ]
@@ -12017,9 +12025,9 @@ checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.107"
+version = "0.9.115"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8288979acd84749c744a9014b4382d42b8f7b2592847b5afb2ed29e5d16ede07"
+checksum = "158fe5b292746440aa6e7a7e690e55aeb72d41505e2804c23c6973ad0e9c9781"
 dependencies = [
  "cc",
  "libc",
@@ -12107,6 +12115,22 @@ dependencies = [
  "elliptic-curve",
  "primeorder",
  "sha2 0.10.9",
+]
+
+[[package]]
+name = "pallet-accumulate-and-forward"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -12969,24 +12993,6 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-staking",
-]
-
-[[package]]
-name = "pallet-dap-satellite"
-version = "0.1.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "pallet-balances",
- "pallet-dap",
- "parity-scale-codec",
- "scale-info",
- "sp-core 28.0.0",
- "sp-dap",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -13975,6 +13981,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-pgas-allowance"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-preimage"
 version = "28.0.0"
 dependencies = [
@@ -14050,10 +14073,16 @@ dependencies = [
 name = "pallet-recovery"
 version = "28.0.0"
 dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
  "pallet-balances",
+ "pallet-utility",
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -14117,6 +14146,9 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits",
+ "pallet-assets",
+ "pallet-assets-freezer",
+ "pallet-assets-holder",
  "pallet-balances",
  "pallet-proxy",
  "pallet-revive-fixtures",
@@ -14170,10 +14202,12 @@ dependencies = [
  "clap",
  "derive_more 0.99.17",
  "env_logger 0.11.3",
+ "frame-system",
  "futures",
  "git2",
  "hex",
  "jsonrpsee",
+ "libsqlite3-sys",
  "log",
  "pallet-revive",
  "pallet-revive-fixtures",
@@ -15677,11 +15711,11 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+ "pallet-accumulate-and-forward",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
- "pallet-dap-satellite",
  "pallet-identity",
  "pallet-message-queue",
  "pallet-meta-tx",
@@ -16073,9 +16107,9 @@ dependencies = [
 
 [[package]]
 name = "polkadot-ckb-merkle-mountain-range"
-version = "0.8.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "221c71b432b38e494a0fdedb5f720e4cb974edf03a0af09e5b2238dbac7e6947"
+checksum = "f70a16374b7a26b74bfb4788254f8fd64c3406034e81694142cf93f1dd59368f"
 dependencies = [
  "cfg-if",
  "itertools 0.10.5",
@@ -16456,6 +16490,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "rstest",
+ "schnellru",
  "sp-application-crypto 30.0.0",
  "sp-core 28.0.0",
  "sp-keyring",
@@ -16562,6 +16597,7 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "rand 0.8.5",
  "rstest",
+ "schnellru",
  "sp-core 28.0.0",
  "sp-tracing 16.0.0",
  "thiserror 1.0.65",
@@ -17356,6 +17392,7 @@ dependencies = [
  "generate-bags",
  "mmr-gadget",
  "mmr-rpc",
+ "pallet-accumulate-and-forward",
  "pallet-alliance",
  "pallet-asset-conversion",
  "pallet-asset-conversion-ops",
@@ -17394,7 +17431,6 @@ dependencies = [
  "pallet-conviction-voting",
  "pallet-core-fellowship",
  "pallet-dap",
- "pallet-dap-satellite",
  "pallet-delegated-staking",
  "pallet-democracy",
  "pallet-derivatives",
@@ -17436,6 +17472,7 @@ dependencies = [
  "pallet-paged-list",
  "pallet-parameters",
  "pallet-people",
+ "pallet-pgas-allowance",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-psm",
@@ -17472,7 +17509,6 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
- "pallet-transaction-storage",
  "pallet-treasury",
  "pallet-tx-pause",
  "pallet-uniques",
@@ -17591,6 +17627,7 @@ dependencies = [
  "sc-transaction-pool",
  "sc-transaction-pool-api 28.0.0",
  "sc-utils 14.0.0",
+ "sc-virtualization",
  "slot-range-helper",
  "sp-api 26.0.0",
  "sp-api-proc-macro 15.0.0",
@@ -17617,6 +17654,7 @@ dependencies = [
  "sp-debug-derive 14.0.0",
  "sp-externalities 0.25.0",
  "sp-genesis-builder 0.8.0",
+ "sp-hop",
  "sp-inherents 26.0.0",
  "sp-io 30.0.0",
  "sp-keyring",
@@ -19657,6 +19695,7 @@ dependencies = [
  "pallet-psm-remote-tests",
  "sp-core 28.0.0",
  "sp-tracing 16.0.0",
+ "staging-xcm",
  "tokio",
 ]
 
@@ -20971,6 +21010,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "rand 0.8.5",
+ "rstest",
  "sc-client-api 28.0.0",
  "sc-state-db",
  "schnellru",
@@ -21368,6 +21408,7 @@ dependencies = [
  "sc-executor-wasmtime 0.29.0",
  "sc-runtime-test",
  "sc-tracing",
+ "sc-virtualization",
  "schnellru",
  "sp-api 26.0.0",
  "sp-core 28.0.0",
@@ -21481,7 +21522,6 @@ dependencies = [
  "sc-runtime-test",
  "sp-io 30.0.0",
  "sp-runtime-interface 24.0.0",
- "sp-virtualization",
  "sp-wasm-interface 20.0.0",
  "tempfile",
  "wasmtime 36.0.7",
@@ -21748,6 +21788,7 @@ dependencies = [
  "governor",
  "log",
  "parity-scale-codec",
+ "rand 0.8.5",
  "sc-keystore",
  "sc-network 0.34.0",
  "sc-network-common 0.33.0",
@@ -22494,6 +22535,19 @@ dependencies = [
  "parking_lot 0.12.3",
  "prometheus",
  "sp-arithmetic 28.0.0",
+]
+
+[[package]]
+name = "sc-virtualization"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "polkavm 0.33.1",
+ "sp-io 30.0.0",
+ "sp-storage 19.0.0",
+ "sp-tracing 16.0.0",
+ "sp-virtualization",
+ "sp-virtualization-test-fixture",
 ]
 
 [[package]]
@@ -23920,6 +23974,7 @@ dependencies = [
  "snowbridge-pallet-ethereum-client-fixtures",
  "snowbridge-pallet-inbound-queue-v2-fixtures",
  "snowbridge-test-utils",
+ "sp-api 26.0.0",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-keyring",
@@ -24657,7 +24712,7 @@ dependencies = [
 name = "sp-core"
 version = "28.0.0"
 dependencies = [
- "ark-vrf 0.2.2",
+ "ark-vrf 0.5.0",
  "array-bytes 6.2.2",
  "bip39",
  "bitflags 1.3.2",
@@ -24935,6 +24990,15 @@ dependencies = [
  "serde_json",
  "sp-api 39.0.0",
  "sp-runtime 44.0.0",
+]
+
+[[package]]
+name = "sp-hop"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "sp-api 26.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -25665,12 +25729,9 @@ dependencies = [
  "log",
  "num_enum",
  "parity-scale-codec",
- "polkavm 0.33.1",
+ "sp-externalities 0.25.0",
  "sp-runtime-interface 24.0.0",
- "sp-std 14.0.0",
- "sp-tracing 16.0.0",
- "sp-virtualization-test-fixture",
- "sp-wasm-interface 20.0.0",
+ "sp-storage 19.0.0",
  "strum 0.26.3",
 ]
 
@@ -26134,6 +26195,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",
+ "pallet-accumulate-and-forward",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
@@ -26149,7 +26211,6 @@ dependencies = [
  "scale-info",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
- "sp-dap",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
@@ -26177,26 +26238,6 @@ dependencies = [
  "sp-weights 27.0.0",
  "staging-xcm",
  "tracing",
-]
-
-[[package]]
-name = "statement-latency-bench"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "env_logger 0.11.3",
- "jsonrpsee",
- "log",
- "parity-scale-codec",
- "rand 0.8.5",
- "sc-statement-store",
- "serde",
- "sp-core 28.0.0",
- "sp-statement-store",
- "subxt 0.50.0",
- "subxt-signer 0.50.0",
- "tokio",
 ]
 
 [[package]]
@@ -28922,9 +28963,9 @@ dependencies = [
 
 [[package]]
 name = "w3f-plonk-common"
-version = "0.0.6"
+version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "077db25196f87773d7f0784c0ea5b11f18f38d336fa25c24bc67d7936af05d7a"
+checksum = "30408cda37b81bd7257319942584c794c5784d00d749757bc664656749a1472a"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -28955,9 +28996,9 @@ dependencies = [
 
 [[package]]
 name = "w3f-ring-proof"
-version = "0.0.6"
+version = "0.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3afac5d485a6eed7c1762be4b7b70a6f9b346bd6eebe485f48b7d909a6773f5"
+checksum = "0cbfc4cb881a934e6f33c25927bf955d0cb18e52b94528bbc5fa28dddedb4cd1"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -28966,7 +29007,7 @@ dependencies = [
  "ark-std 0.5.0",
  "ark-transcript",
  "w3f-pcs 0.0.5",
- "w3f-plonk-common 0.0.6",
+ "w3f-plonk-common 0.0.7",
 ]
 
 [[package]]
@@ -29882,6 +29923,7 @@ dependencies = [
  "frame-try-runtime",
  "hex-literal",
  "log",
+ "pallet-accumulate-and-forward",
  "pallet-asset-rate",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -29890,8 +29932,6 @@ dependencies = [
  "pallet-balances",
  "pallet-beefy",
  "pallet-beefy-mmr",
- "pallet-conviction-voting",
- "pallet-dap-satellite",
  "pallet-delegated-staking",
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
@@ -29911,8 +29951,6 @@ dependencies = [
  "pallet-parameters",
  "pallet-preimage",
  "pallet-proxy",
- "pallet-recovery",
- "pallet-referenda",
  "pallet-root-offences",
  "pallet-root-testing",
  "pallet-scheduler",
@@ -29928,7 +29966,6 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-utility",
  "pallet-vesting",
- "pallet-whitelist",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
  "parity-scale-codec",

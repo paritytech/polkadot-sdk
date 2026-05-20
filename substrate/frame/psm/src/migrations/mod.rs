@@ -17,6 +17,8 @@
 
 //! Migrations for the PSM pallet.
 
+pub mod decimals;
 pub mod init;
 
+pub use decimals::PopulateDecimals;
 pub use init::InitializePsm;
