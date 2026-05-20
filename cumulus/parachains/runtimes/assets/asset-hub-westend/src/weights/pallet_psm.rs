@@ -137,7 +137,7 @@ impl<T: frame_system::Config> pallet_psm::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: `Psm::MaxPsmDebtOfTotal` (r:1 w:1)
 	/// Proof: `Psm::MaxPsmDebtOfTotal` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	fn set_max_psm_debt() -> Weight {
+	fn set_max_debt() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `136`
 		//  Estimated: `1489`

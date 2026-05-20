@@ -1414,15 +1414,15 @@ parameter_types! {
 	pub PsmName: &'static str = "Psm";
 }
 
-/// One-shot migration: writes `pallet_psm`'s on-chain storage version to v2.
+/// One-shot migration: writes `pallet_psm`'s on-chain storage version to v3.
 /// Required because `RemovePallet<PsmName>` (above in the migration tuple)
 /// wipes the pallet's `:__STORAGE_VERSION__:` key, and `InitializePsm` doesn't
-/// re-seed it. Without this, try-runtime's post-upgrade check sees in-code = 2,
+/// re-seed it. Without this, try-runtime's post-upgrade check sees in-code = 3,
 /// on-chain = 0 and panics.
-pub struct SetPsmStorageVersionV2;
-impl frame_support::traits::OnRuntimeUpgrade for SetPsmStorageVersionV2 {
+pub struct SetPsmStorageVersionV3;
+impl frame_support::traits::OnRuntimeUpgrade for SetPsmStorageVersionV3 {
 	fn on_runtime_upgrade() -> Weight {
-		frame_support::traits::StorageVersion::new(2).put::<pallet_psm::Pallet<Runtime>>();
+		frame_support::traits::StorageVersion::new(3).put::<pallet_psm::Pallet<Runtime>>();
 		<Runtime as frame_system::Config>::DbWeight::get().writes(1)
 	}
 
@@ -1431,8 +1431,8 @@ impl frame_support::traits::OnRuntimeUpgrade for SetPsmStorageVersionV2 {
 		use frame_support::{ensure, traits::GetStorageVersion};
 		ensure!(
 			pallet_psm::Pallet::<Runtime>::on_chain_storage_version() ==
-				frame_support::traits::StorageVersion::new(2),
-			"PSM on-chain storage version was not set to 2"
+				frame_support::traits::StorageVersion::new(3),
+			"PSM on-chain storage version was not set to 3"
 		);
 		Ok(())
 	}
@@ -1627,11 +1627,13 @@ parameter_types! {
 	/// Fee revenue destination: pUSD insurance fund account.
 	pub const PsmFeeDestinationPalletId: PalletId = PalletId(*b"pusd/ins");
 	pub PsmFeeDestination: AccountId = PsmFeeDestinationPalletId::get().into_account_truncating();
+	/// The pUSD asset id expressed as an XCM `Location`, matching the AssetId type used
+	/// by the PSM pallet on this runtime.
+	pub PsmInternalAssetLocation: xcm::v5::Location = {
+		use xcm::latest::prelude::*;
+		xcm::v5::Location::new(0, [PalletInstance(50), GeneralIndex(PsmStablecoinAssetId::get() as u128)])
+	};
 }
-
-/// pUSD as a single-asset fungible, backed by trust-backed assets (Instance1).
-type PsmInternalAsset =
-	frame_support::traits::fungible::ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
 
 /// EnsureOrigin for PSM management with privilege levels.
 /// - Root gets Full privileges (all parameter changes).
@@ -1694,11 +1696,9 @@ impl pallet_psm::BenchmarkHelper<xcm::v5::Location, AccountId> for PsmBenchmarkH
 impl pallet_psm::Config for Runtime {
 	type Fungibles = LocalAndForeignAssets;
 	type AssetId = xcm::v5::Location;
-	type MaximumIssuance = dynamic_params::pusd::MaximumIssuance;
 	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = weights::pallet_psm::WeightInfo<Runtime>;
-	type InternalAsset = PsmInternalAsset;
-	type FeeDestination = PsmFeeDestination;
+	type InternalAssetId = PsmInternalAssetLocation;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = PsmMinSwapAmount;
 	type MaxExternalAssets = ConstU32<3>;
@@ -1712,9 +1712,13 @@ impl pallet_psm::Config for Runtime {
 /// first external asset.
 pub struct PsmInitialConfig;
 impl pallet_psm::migrations::init::InitialPsmConfig<Runtime> for PsmInitialConfig {
-	fn max_psm_debt_of_total() -> Permill {
-		// USDT PSM cap is 5M out of 50M total issuance = 10%.
-		Permill::from_percent(10)
+	fn fee_destination() -> AccountId {
+		PsmFeeDestination::get()
+	}
+	fn max_debt() -> Balance {
+		use frame_support::traits::Get;
+		// 10% of the 50M pUSD issuance cap.
+		Permill::from_percent(10).mul_floor(dynamic_params::pusd::MaximumIssuance::get())
 	}
 	fn asset_configs(
 	) -> alloc::collections::btree_map::BTreeMap<xcm::v5::Location, (Permill, Permill, Permill)> {
@@ -1996,11 +2000,11 @@ pub type Migrations = (
 
 	// `RemovePallet` wipes ALL of PSM's storage (entries + CountedStorageMap
 	// counters + the storage version key). `InitializePsm` then re-seeds data
-	// under the new `Location` AssetId, and `SetPsmStorageVersionV2` writes
+	// under the new `Location` AssetId, and `SetPsmStorageVersionV3` writes
 	// the on-chain storage version that `RemovePallet` cleared.
 	frame_support::migrations::RemovePallet<PsmName, <Runtime as frame_system::Config>::DbWeight>,
 	pallet_psm::migrations::init::InitializePsm<Runtime, PsmInitialConfig>,
-	SetPsmStorageVersionV2,
+	SetPsmStorageVersionV3,
 	// end: PSM reset
 	pallet_dap::migrations::MigrateV1ToV2<
 		Runtime,
