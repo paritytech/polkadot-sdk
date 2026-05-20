@@ -35,5 +35,4 @@ pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
 ///   parachain is also `RELAY_PARENT_OFFSET` relay blocks older (one relay block may contains
 ///   multiple parachain blocks).
 #[cfg(all(not(feature = "sync-backing"), not(feature = "async-backing")))]
-pub const UNINCLUDED_SEGMENT_CAPACITY: u32 =
-	BLOCK_PROCESSING_VELOCITY * (3 + RELAY_PARENT_OFFSET);
+pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (3 + RELAY_PARENT_OFFSET);
