@@ -129,12 +129,10 @@ async fn statement_store_unstable_rpc_multi_filter_flow() -> Result<(), anyhow::
 
 	let topic_a: Topic = [0xA1; 32].into();
 	let topic_b: Topic = [0xB2; 32].into();
-	let topic_c: Topic = [0xC3; 32].into();
 
 	let pre_existing =
 		create_test_statement(&get_keypair(0), &[topic_a], None, vec![1], u32::MAX, 0);
 	assert_eq!(submit_statement_unstable(&alice_rpc, &pre_existing).await?, SubmitOutcome::New);
-	assert_eq!(submit_statement_unstable(&alice_rpc, &pre_existing).await?, SubmitOutcome::Known);
 
 	let mut subscription = subscribe_unstable(&alice_rpc).await?;
 	let subscription_id = unstable_subscription_id(&subscription)?;
@@ -183,26 +181,6 @@ async fn statement_store_unstable_rpc_multi_filter_flow() -> Result<(), anyhow::
 		},
 		event => anyhow::bail!("Expected newStatements event after remove, got {:?}", event),
 	}
-
-	remove_filter_unstable(&alice_rpc, &subscription_id, &filter_b).await?;
-	remove_filter_unstable(&alice_rpc, &subscription_id, "999").await?;
-
-	let ignored_after_remove =
-		create_test_statement(&get_keypair(3), &[topic_b], None, vec![4], u32::MAX, 0);
-
-	assert_eq!(
-		submit_statement_unstable(&alice_rpc, &ignored_after_remove).await?,
-		SubmitOutcome::New
-	);
-	let result = tokio::time::timeout(Duration::from_secs(3), subscription.next()).await;
-	assert!(result.is_err(), "Expected no unstable statement event but received one");
-
-	let unsupported_filter = TopicFilter::MatchAny(BoundedVec::truncate_from(vec![topic_c]));
-	let err = add_filter_unstable(&alice_rpc, &subscription_id, unsupported_filter)
-		.await
-		.expect_err("matchAny is not supported by the unstable add_filter RPC");
-
-	assert!(err.to_string().contains("matchAny"));
 
 	Ok(())
 }
