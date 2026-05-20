@@ -216,14 +216,17 @@ pub enum RuntimeInterfaceLogLevel {
 impl TryFrom<u8> for RuntimeInterfaceLogLevel {
 	type Error = ();
 	fn try_from(value: u8) -> Result<Self, ()> {
-		match value {
-			0 => Ok(Self::Error),
-			1 => Ok(Self::Warn),
-			2 => Ok(Self::Info),
-			3 => Ok(Self::Debug),
-			4 => Ok(Self::Trace),
-			_ => Err(()),
-		}
+		Ok(match value {
+			0 => Self::Error,
+			1 => Self::Warn,
+			2 => Self::Info,
+			3 => Self::Debug,
+			4 => Self::Trace,
+			// Older runtimes compiled before the FFI type diversion fix (c1a246aabfa) may
+			// send values 1-5 (old LogLevel discriminants) instead of 0-4. Value 5 was the
+			// old `Trace`. Default unknown values to `Error` to avoid trapping the host call.
+			_ => Self::Error,
+		})
 	}
 }
 

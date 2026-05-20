@@ -238,8 +238,16 @@ where
 			};
 
 			let best_hash = para_client.info().best_hash;
-			let relay_parent_offset =
-				para_client.runtime_api().relay_parent_offset(best_hash).unwrap_or_default();
+
+			let relay_parent_offset_fake = para_client.runtime_api().relay_parent_offset(best_hash);
+			let relay_parent_offset = 1;
+
+			tracing::error!(
+				target: LOG_TARGET,
+				?relay_parent_offset_fake,
+				relay_parent_offset,
+				"Override relay parent offset. This should be removed once the runtime API is fixed."
+			);
 
 			let Ok(para_slot_duration) = crate::slot_duration(&*para_client) else {
 				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
