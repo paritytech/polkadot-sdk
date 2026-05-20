@@ -184,7 +184,7 @@ fn transfer_and_transfer_from_revert_on_overflow_no_saturation() {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
@@ -201,7 +201,7 @@ fn transfer_and_transfer_from_revert_on_overflow_no_saturation() {
 				0u32.into(),
 				TransactionLimits::WeightAndDeposit {
 					weight_limit: Weight::MAX,
-					deposit_limit: u64::MAX,
+					deposit_limit: u128::MAX,
 				},
 				data,
 				&ExecConfig::new_substrate_tx(),
@@ -269,16 +269,16 @@ fn transfer_from_does_not_decrement_max_allowance() {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
 		);
 		assert!(!result.result.unwrap().did_revert(), "approve(uint256.max) must succeed");
-		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u128::MAX);
 
 		// Spend a few times. Allowance must stay at MAX after every call.
-		for i in 1..=3u64 {
+		for i in 1..=3u128 {
 			let data = IERC20::transferFromCall {
 				from: owner_addr.0.into(),
 				to: recipient_addr.0.into(),
@@ -291,7 +291,7 @@ fn transfer_from_does_not_decrement_max_allowance() {
 				0u32.into(),
 				TransactionLimits::WeightAndDeposit {
 					weight_limit: Weight::MAX,
-					deposit_limit: u64::MAX,
+					deposit_limit: u128::MAX,
 				},
 				data,
 				&ExecConfig::new_substrate_tx(),
@@ -302,7 +302,7 @@ fn transfer_from_does_not_decrement_max_allowance() {
 			);
 			assert_eq!(
 				Assets::allowance(asset_id, &owner, &spender),
-				u64::MAX,
+				u128::MAX,
 				"sentinel allowance must not decrement after transferFrom #{i}"
 			);
 			assert_eq!(Assets::balance(asset_id, &recipient), (10 * i));
@@ -339,8 +339,8 @@ fn approve_at_exact_balance_max_is_sentinel() {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
 
-		call_approve(owner, asset_addr, spender_addr, U256::from(u64::MAX));
-		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
+		call_approve(owner, asset_addr, spender_addr, U256::from(u128::MAX));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u128::MAX);
 
 		let data = IERC20::transferFromCall {
 			from: owner_addr.0.into(),
@@ -354,7 +354,7 @@ fn approve_at_exact_balance_max_is_sentinel() {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
@@ -362,7 +362,7 @@ fn approve_at_exact_balance_max_is_sentinel() {
 		assert!(!result.result.unwrap().did_revert(), "transferFrom must succeed");
 
 		// Sentinel: allowance stays at Balance::MAX, no decrement.
-		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u128::MAX);
 		assert_eq!(Assets::balance(asset_id, &recipient), 10);
 	});
 }
@@ -392,7 +392,7 @@ fn sentinel_clears_on_overwrite_with_finite_value() {
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
 
 		call_approve(owner, asset_addr, spender_addr, U256::MAX);
-		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u128::MAX);
 
 		call_approve(owner, asset_addr, spender_addr, U256::from(50u64));
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 50);
@@ -410,7 +410,7 @@ fn sentinel_clears_on_overwrite_with_finite_value() {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
@@ -444,7 +444,7 @@ fn allowance_and_transfer_from_honour_out_of_band_decrement() {
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
 
 		call_approve(owner, asset_addr, spender_h160, U256::MAX);
-		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u128::MAX);
 
 		// Out-of-band decrement: spender uses the raw
 		// `pallet_assets::transfer_approved` extrinsic.
@@ -455,7 +455,7 @@ fn allowance_and_transfer_from_honour_out_of_band_decrement() {
 			recipient,
 			10,
 		));
-		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX - 10);
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u128::MAX - 10);
 
 		let data =
 			IERC20::allowanceCall { owner: owner_h160.0.into(), spender: spender_h160.0.into() }
@@ -466,7 +466,7 @@ fn allowance_and_transfer_from_honour_out_of_band_decrement() {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
@@ -475,7 +475,7 @@ fn allowance_and_transfer_from_honour_out_of_band_decrement() {
 		.expect("allowance() must succeed")
 		.data;
 		let ret = IERC20::allowanceCall::abi_decode_returns(&bytes).unwrap();
-		assert_eq!(ret, U256::from(u64::MAX - 10));
+		assert_eq!(ret, U256::from(u128::MAX - 10));
 
 		let data = IERC20::transferFromCall {
 			from: owner_h160.0.into(),
@@ -489,13 +489,13 @@ fn allowance_and_transfer_from_honour_out_of_band_decrement() {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
 		);
 		assert!(!result.result.unwrap().did_revert());
-		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX - 20);
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u128::MAX - 20);
 	});
 }
 
@@ -534,7 +534,7 @@ fn transfer_from_reverts_with_unapproved_when_no_allowance() {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
@@ -1152,7 +1152,7 @@ fn approve_saturates_on_uint256_max(asset_index: u16) {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
@@ -1177,7 +1177,7 @@ fn approve_saturates_on_uint256_max(asset_index: u16) {
 		);
 
 		// Direct pallet read: allowance must be saturated to Balance::MAX.
-		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u128::MAX);
 
 		// Read-back via the precompile must surface `U256::MAX` (the
 		// wire-level sentinel signal) because the sentinel flag is set —
@@ -1191,7 +1191,7 @@ fn approve_saturates_on_uint256_max(asset_index: u16) {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
@@ -1231,7 +1231,7 @@ fn approve_saturates_just_above_balance_max(asset_index: u16) {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 
 		// Smallest U256 that doesn't fit in the mock's `Balance` (u64).
-		let just_over: U256 = U256::from(u64::MAX) + U256::from(1u64);
+		let just_over: U256 = U256::from(u128::MAX) + U256::from(1u64);
 		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
 		let data =
 			IERC20::approveCall { spender: spender_addr.0.into(), value: just_over }.abi_encode();
@@ -1241,7 +1241,7 @@ fn approve_saturates_just_above_balance_max(asset_index: u16) {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
@@ -1256,7 +1256,7 @@ fn approve_saturates_just_above_balance_max(asset_index: u16) {
 			"approve(Balance::MAX + 1) must not revert"
 		);
 
-		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u128::MAX);
 
 		// Event is normalized to U256::MAX whenever storage saturates —
 		// keeps `event.value == allowance()` for any sentinel-producing call.
@@ -1298,7 +1298,7 @@ fn approve_saturates_when_overwriting_existing_allowance(asset_index: u16) {
 		// Overwrite with uint256.max. Goes through the cancel-first branch and
 		// must still saturate.
 		call_approve(owner, asset_addr, spender_addr, U256::MAX);
-		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u128::MAX);
 
 		assert_contract_event(
 			asset_addr,
@@ -1364,7 +1364,7 @@ fn permit_saturates_on_uint256_max() {
 		// empty vec when no metadata row exists, which is what the precompile
 		// passes to `use_permit` — match that here.
 		let value_bytes: [u8; 32] = U256::MAX.to_be_bytes();
-		let deadline_value = U256::from(u64::MAX);
+		let deadline_value = U256::from(u128::MAX);
 		let deadline_bytes: [u8; 32] = deadline_value.to_be_bytes();
 		let nonce = sp_core::U256::zero();
 		let asset_name = pallet_assets::Pallet::<Test>::name(asset_id);
@@ -1405,7 +1405,7 @@ fn permit_saturates_on_uint256_max() {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
@@ -1417,7 +1417,7 @@ fn permit_saturates_on_uint256_max() {
 		);
 
 		// Allowance must be saturated to Balance::MAX (u64 in the mock).
-		assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), u64::MAX);
+		assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), u128::MAX);
 
 		// Event carries the raw signed `value` (U256::MAX), not the saturated
 		// stored allowance — same policy as `approve`.
@@ -1483,7 +1483,7 @@ fn permit_saturates_when_overwriting_existing_allowance() {
 
 		// Sign a permit for U256::MAX with nonce 0 (still the first permit).
 		let value_bytes: [u8; 32] = U256::MAX.to_be_bytes();
-		let deadline_value = U256::from(u64::MAX);
+		let deadline_value = U256::from(u128::MAX);
 		let deadline_bytes: [u8; 32] = deadline_value.to_be_bytes();
 		let nonce = sp_core::U256::zero();
 		let asset_name = pallet_assets::Pallet::<Test>::name(asset_id);
@@ -1521,7 +1521,7 @@ fn permit_saturates_when_overwriting_existing_allowance() {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
@@ -1531,7 +1531,7 @@ fn permit_saturates_when_overwriting_existing_allowance() {
 
 		// Cancel-first branch worked: old allowance (25) was cancelled and the
 		// new one was set, saturated to Balance::MAX.
-		assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), u64::MAX);
+		assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), u128::MAX);
 
 		assert_contract_event(
 			asset_addr,
