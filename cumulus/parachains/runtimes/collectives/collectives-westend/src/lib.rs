@@ -859,6 +859,7 @@ type Migrations = (
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
+	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.

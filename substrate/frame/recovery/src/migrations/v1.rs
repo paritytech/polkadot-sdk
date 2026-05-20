@@ -27,7 +27,10 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
-	traits::{fungible::MutateHold, Consideration, Get, ReservableCurrency},
+	traits::{
+		fungible::MutateHold, Consideration, Get, GetStorageVersion, ReservableCurrency,
+		StorageVersion,
+	},
 	weights::WeightMeter,
 	BoundedVec,
 };
@@ -69,6 +72,10 @@ impl<T: v0::MigrationConfig> SteppedMigration for MigrateV0ToV1<T> {
 		cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+		if Pallet::<T>::on_chain_storage_version() != Self::id().version_from as u16 {
+			return Ok(None);
+		}
+
 		let required = T::DbWeight::get().reads_writes(2, 2);
 
 		if meter.remaining().any_lt(required) {
@@ -194,14 +201,24 @@ impl<T: v0::MigrationConfig> SteppedMigration for MigrateV0ToV1<T> {
 						approvals,
 					};
 
-					// Create attempt ticket and store
 					let security_deposit = T::SecurityDeposit::get();
-					let Ok(ticket) = crate::AttemptTicketOf::<T>::new(
+					let ticket = match crate::AttemptTicketOf::<T>::new(
 						&rescuer,
 						Pallet::<T>::attempt_footprint(),
-					) else {
-						frame_support::defensive!("MigrateV0ToV1: Failed to create Attempt ticket");
-						continue;
+					) {
+						Ok(ticket) => ticket,
+						Err(e) => {
+							log::error!(
+								"MigrateV0ToV1: Failed to create Attempt ticket for rescuer {:?}: {:?}",
+								rescuer,
+								e,
+							);
+							crate::IdentifiedConsideration {
+								depositor: rescuer.clone(),
+								ticket: None,
+								_phantom: Default::default(),
+							}
+						},
 					};
 
 					let held_deposit = if <T as pallet::Config>::Currency::hold(
@@ -233,7 +250,11 @@ impl<T: v0::MigrationConfig> SteppedMigration for MigrateV0ToV1<T> {
 						v0::Proxy::<T>::iter()
 					};
 
-					let Some((rescuer, lost)) = iter.next() else { return Ok(None) };
+					let Some((rescuer, lost)) = iter.next() else {
+						// only exit return
+						StorageVersion::new(Self::id().version_to as u16).put::<Pallet<T>>();
+						return Ok(None);
+					};
 					cursor = MigrationCursor::Proxy(Some(rescuer.clone()));
 					v0::Proxy::<T>::remove(&rescuer);
 
@@ -244,16 +265,22 @@ impl<T: v0::MigrationConfig> SteppedMigration for MigrateV0ToV1<T> {
 					let inheritance_priority = 0u32;
 
 					// Create inheritor ticket
-					if let Ok(ticket) = Pallet::<T>::inheritor_ticket(&inheritor) {
-						pallet::Inheritor::<T>::insert(
-							&lost,
-							(inheritance_priority, inheritor, ticket),
-						);
-					} else {
-						frame_support::defensive!(
-							"MigrateV0ToV1: Failed to create Inheritor ticket"
-						);
-					}
+					let ticket = match Pallet::<T>::inheritor_ticket(&inheritor) {
+						Ok(ticket) => ticket,
+						Err(e) => {
+							log::error!("MigrateV0ToV1: Failed to create Inheritor ticket for rescuer {:?}: {:?}", inheritor, e);
+							crate::IdentifiedConsideration {
+								depositor: rescuer.clone(),
+								ticket: None,
+								_phantom: Default::default(),
+							}
+						},
+					};
+
+					pallet::Inheritor::<T>::insert(
+						&lost,
+						(inheritance_priority, inheritor, ticket),
+					);
 				},
 			}
 		}
@@ -305,12 +332,28 @@ impl<T: v0::MigrationConfig> SteppedMigration for MigrateV0ToV1<T> {
 			inheritor_count,
 		);
 
-		// FriendGroups should have same count as Recoverable (unless some failed)
-		assert!(friend_groups_count == recoverable_count);
-		// Attempt should have same count as ActiveRecoveries (unless some failed)
-		assert!(attempt_count == active_recoveries_count);
-		// Inheritor should have same count as Proxy (unless some failed)
-		assert!(inheritor_count == proxy_count);
+		// These can fail for Kusama AH because of buggy accounts...
+		if friend_groups_count != recoverable_count {
+			log::error!(
+				"MigrateV0ToV1: FriendGroups count mismatch: {} != {}",
+				friend_groups_count,
+				recoverable_count
+			);
+		}
+		if attempt_count != active_recoveries_count {
+			log::error!(
+				"MigrateV0ToV1: Attempt count mismatch: {} != {}",
+				attempt_count,
+				active_recoveries_count
+			);
+		}
+		if inheritor_count != proxy_count {
+			log::error!(
+				"MigrateV0ToV1: Inheritor count mismatch: {} != {}",
+				inheritor_count,
+				proxy_count
+			);
+		}
 
 		Ok(())
 	}
@@ -324,7 +367,10 @@ mod tests {
 		pallet,
 	};
 	use frame_support::{
-		migrations::SteppedMigration, traits::ReservableCurrency, weights::WeightMeter, BoundedVec,
+		migrations::SteppedMigration,
+		traits::{GetStorageVersion, ReservableCurrency, StorageVersion},
+		weights::WeightMeter,
+		BoundedVec,
 	};
 
 	type T = Test;
@@ -620,6 +666,160 @@ mod tests {
 
 			// Attempt should be removed after finish
 			assert!(pallet::Attempt::<T>::get(ALICE, 0u32).is_none());
+		});
+	}
+
+	#[test]
+	fn migration_bumps_on_chain_storage_version() {
+		new_test_ext().execute_with(|| {
+			StorageVersion::new(0).put::<pallet::Pallet<T>>();
+			assert_eq!(pallet::Pallet::<T>::on_chain_storage_version(), 0);
+
+			v0::Recoverable::<T>::insert(
+				ALICE,
+				v0::RecoveryConfig {
+					delay_period: 10u64,
+					deposit: 50u128,
+					friends: friends(&[BOB, CHARLIE]),
+					threshold: 2,
+				},
+			);
+			Balances::reserve(&ALICE, 50u128).unwrap();
+
+			run_migration();
+
+			assert_eq!(pallet::Pallet::<T>::on_chain_storage_version(), 1);
+		});
+	}
+
+	#[test]
+	fn migration_is_idempotent_after_completion() {
+		new_test_ext().execute_with(|| {
+			StorageVersion::new(0).put::<pallet::Pallet<T>>();
+
+			v0::Recoverable::<T>::insert(
+				ALICE,
+				v0::RecoveryConfig {
+					delay_period: 10u64,
+					deposit: 50u128,
+					friends: friends(&[BOB, CHARLIE]),
+					threshold: 2,
+				},
+			);
+			Balances::reserve(&ALICE, 50u128).unwrap();
+
+			run_migration();
+			assert_eq!(pallet::Pallet::<T>::on_chain_storage_version(), 1);
+
+			let _guard = frame_support::StorageNoopGuard::new();
+			let mut meter = WeightMeter::new();
+			assert!(matches!(MigrateV0ToV1::<T>::step(None, &mut meter), Ok(None)));
+		});
+	}
+
+	#[test]
+	fn migration_inserts_attempt_when_storage_ticket_fails() {
+		new_test_ext().execute_with(|| {
+			let config_deposit = 50u128;
+			let old_recovery_deposit = 10u128;
+			let rescuer: u64 = 99;
+			let lost = ALICE;
+
+			pallet_balances::Pallet::<Test>::force_set_balance(
+				frame_system::RawOrigin::Root.into(),
+				rescuer,
+				crate::mock::ExistentialDeposit::get() as u128 + old_recovery_deposit,
+			)
+			.unwrap();
+			Balances::reserve(&rescuer, old_recovery_deposit).unwrap();
+
+			v0::Recoverable::<T>::insert(
+				lost,
+				v0::RecoveryConfig {
+					delay_period: 10u64,
+					deposit: config_deposit,
+					friends: friends(&[BOB, CHARLIE]),
+					threshold: 2,
+				},
+			);
+			Balances::reserve(&lost, config_deposit).unwrap();
+
+			v0::ActiveRecoveries::<T>::insert(
+				lost,
+				rescuer,
+				v0::ActiveRecovery {
+					created: 1u64,
+					deposit: old_recovery_deposit,
+					friends: BoundedVec::default(),
+				},
+			);
+
+			run_migration();
+
+			assert_eq!(v0::ActiveRecoveries::<T>::iter().count(), 0);
+			assert_eq!(
+				pallet::Attempt::<T>::iter().count(),
+				1,
+				"Attempt entry must survive even when storage ticket creation fails",
+			);
+
+			let (attempt, ticket, held_deposit) = pallet::Attempt::<T>::get(lost, 0u32).unwrap();
+			assert_eq!(attempt.initiator, rescuer);
+			assert!(ticket.ticket.is_none(), "Inner ticket must be None when storage hold failed");
+			assert_eq!(ticket.depositor, rescuer);
+			assert_eq!(held_deposit, 0, "Security deposit must be zero when hold failed");
+
+			use frame::traits::fungible::InspectHold;
+			assert_eq!(
+				Balances::balance_on_hold(&crate::HoldReason::AttemptStorage.into(), &rescuer),
+				0,
+			);
+			assert_eq!(
+				Balances::balance_on_hold(&crate::HoldReason::SecurityDeposit.into(), &rescuer),
+				0,
+			);
+		});
+	}
+
+	#[test]
+	fn migration_inserts_inheritor_when_ticket_fails() {
+		use frame::traits::fungible::InspectHold;
+
+		new_test_ext().execute_with(|| {
+			let rescuer: u64 = 99;
+			let lost = ALICE;
+
+			pallet_balances::Pallet::<Test>::force_set_balance(
+				frame_system::RawOrigin::Root.into(),
+				rescuer,
+				crate::mock::ExistentialDeposit::get() as u128,
+			)
+			.unwrap();
+			frame_system::Pallet::<T>::inc_consumers(&rescuer).unwrap();
+
+			v0::Proxy::<T>::insert(rescuer, lost);
+			assert_eq!(frame_system::Pallet::<T>::consumers(&rescuer), 1);
+
+			run_migration();
+
+			assert_eq!(v0::Proxy::<T>::iter().count(), 0);
+			assert_eq!(frame_system::Pallet::<T>::consumers(&rescuer), 0);
+
+			assert_eq!(
+				pallet::Inheritor::<T>::iter().count(),
+				1,
+				"Inheritor entry must survive even when ticket creation fails",
+			);
+			let (priority, inheritor, ticket) = pallet::Inheritor::<T>::get(lost).unwrap();
+			assert_eq!(inheritor, rescuer);
+			assert_eq!(priority, 0);
+			assert!(ticket.ticket.is_none(), "Inner ticket must be None when hold failed");
+			assert_eq!(ticket.depositor, rescuer);
+
+			assert_eq!(
+				Balances::balance_on_hold(&crate::HoldReason::InheritorStorage.into(), &rescuer),
+				0,
+			);
 		});
 	}
 }
