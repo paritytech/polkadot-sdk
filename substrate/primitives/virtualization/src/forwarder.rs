@@ -16,8 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	host_fn,
-	host_functions::{CompiledModule, ExecBuffer, ExecStatus},
+	host_functions::{virtualization as host_fn, CompiledModule, ExecBuffer, ExecStatus},
 	CompileStatus, ExecError, ExecResult, InstanceId, InstantiateError, MemoryError, ModuleError,
 	ModuleId,
 };

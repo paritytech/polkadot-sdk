@@ -50,13 +50,21 @@ mod forwarder;
 mod host_functions;
 pub mod tests;
 
-pub use crate::{
-	host_functions::{virtualization as host_fn, CompiledModule, ExecBuffer, ExecStatus},
-	tests::run as run_tests,
-};
+pub use crate::tests::run as run_tests;
 pub use forwarder::{Execution, Instance, Module};
 #[cfg(not(substrate_runtime))]
-pub use host_functions::{VirtManagerBackend, VirtManagerExt};
+pub use host_functions::{ExecBuffer, ExecStatus, VirtManagerBackend, VirtManagerExt};
+
+/// Aggregate of all host functions exposed by this crate.
+///
+/// Plug this into your node's `HostFunctions` tuple alongside the other host-function sets
+/// (e.g. [`sp_io::SubstrateHostFunctions`]). At runtime, register a [`VirtManagerExt`]
+/// wrapping your backend on the externalities before any of these host functions are
+/// invoked — without it, every call panics. All other interaction with the virtualization
+/// machinery should go through [`Module`], [`Instance`], and [`Execution`].
+#[cfg(not(substrate_runtime))]
+#[doc(inline)]
+pub use host_functions::virtualization::HostFunctions;
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
