@@ -26,7 +26,9 @@ doc:
     - The `InitializePsm` migration helper's `InitialPsmConfig` trait is updated
       accordingly: `max_psm_debt_of_total()` is replaced by `fee_destination()` and
       `max_debt()`.
-    - On-chain storage version is bumped from 2 to 3.
+    - Storage version bumped to 3. A `MigrateV2ToV3` migration is provided to carry
+      existing state forward. Runtimes already running the pallet must include it in
+      their migration tuple.
 
 crates:
 - name: pallet-psm
