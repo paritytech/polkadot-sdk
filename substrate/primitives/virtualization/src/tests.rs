@@ -20,10 +20,10 @@
 //! The cases exercised here only use the public [`Module`] / [`Instance`] / [`Execution`]
 //! surface, so they can be invoked from two distinct contexts:
 //!
-//! - **Runtime-side**, compiled into `sc-runtime-test` and dispatched through the wasm
-//!   executor — this exercises the full host-function FFI round-trip.
-//! - **Host-side**, invoked as a regular `#[test]` from `sc-virtualization` — this exercises
-//!   the native dispatch path with no wasm involved.
+//! - **Runtime-side**, compiled into `sc-runtime-test` and dispatched through the wasm executor —
+//!   this exercises the full host-function FFI round-trip.
+//! - **Host-side**, invoked as a regular `#[test]` from `sc-virtualization` — this exercises the
+//!   native dispatch path with no wasm involved.
 //!
 //! Entry point: [`run`]. Tests that need pre-populated externalities (e.g. the storage
 //! fallback path of `Module::from_storage_key`) live as standalone host-only `#[test]`s
