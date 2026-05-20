@@ -593,6 +593,30 @@ mod test {
 	}
 
 	#[test]
+	fn batch_map_accounts_already_mapped_no_hold_pays_yes() {
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::AddressMapper::map_no_deposit(&EVE).unwrap();
+			assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
+
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::AddressMapping.into(),
+					&EVE,
+				),
+				0
+			);
+
+			let info = Pallet::<Test>::batch_map_accounts(
+				RuntimeOrigin::signed(ALICE),
+				alloc::vec![EVE; 10],
+			)
+			.unwrap();
+
+			assert_eq!(info.pays_fee, Pays::Yes);
+		});
+	}
+
+	#[test]
 	fn batch_map_accounts_pays_yes_below_threshold() {
 		ExtBuilder::default().build().execute_with(|| {
 			// 1 unmapped non-eth-derived account + 9 eth-derived (= 10% useful)

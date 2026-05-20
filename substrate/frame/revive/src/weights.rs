@@ -89,6 +89,7 @@ pub trait WeightInfo {
 	fn remove_code() -> Weight;
 	fn set_code() -> Weight;
 	fn map_account() -> Weight;
+	fn batch_map_accounts(a: u32, ) -> Weight;
 	fn unmap_account() -> Weight;
 	fn dispatch_as_fallback_account() -> Weight;
 	fn noop_host_fn(r: u32, ) -> Weight;
@@ -554,6 +555,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(62_554_000, 4088)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	// TODO: replace with generated weight from `batch_map_accounts` benchmark.
+	fn batch_map_accounts(a: u32, ) -> Weight {
+		Self::map_account().saturating_mul(a.into())
 	}
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(463), added: 2938, mode: `Measured`)
@@ -1938,6 +1943,10 @@ impl WeightInfo for () {
 		Weight::from_parts(62_554_000, 4088)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	// TODO: replace with generated weight from `batch_map_accounts` benchmark.
+	fn batch_map_accounts(a: u32, ) -> Weight {
+		Self::map_account().saturating_mul(a.into())
 	}
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(463), added: 2938, mode: `Measured`)

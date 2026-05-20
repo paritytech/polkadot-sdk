@@ -1619,7 +1619,7 @@ pub mod pallet {
 
 		/// Map many accounts and make the TX free if at least 90% were unmapped or held deposits.
 		#[pallet::call_index(13)]
-		#[pallet::weight(<T as Config>::WeightInfo::map_account().saturating_mul(accounts.len() as u64))]
+		#[pallet::weight(<T as Config>::WeightInfo::batch_map_accounts(accounts.len() as u32))]
 		pub fn batch_map_accounts(
 			origin: OriginFor<T>,
 			accounts: Vec<T::AccountId>,
@@ -1632,10 +1632,10 @@ pub mod pallet {
 			for account_id in &accounts {
 				let mut useful = false;
 
-				if T::AddressMapper::is_eth_derived(&account_id) {
+				if T::AddressMapper::is_eth_derived(account_id) {
 					// Eth-derived accounts are stateless mapped, nothing to do.
 				} else {
-					match T::AddressMapper::map_no_deposit(&account_id) {
+					match T::AddressMapper::map_no_deposit(account_id) {
 						Ok(()) => {
 							useful = true;
 						},
@@ -1647,12 +1647,15 @@ pub mod pallet {
 
 					match T::Currency::release_all(
 						&HoldReason::AddressMapping.into(),
-						&account_id,
+						account_id,
 						Precision::BestEffort,
 					) {
-						Ok(_) => {
-							useful |= true;
+						// `release_all` returns `Ok(0)` when there is no hold to release,
+						// which is not useful work and must not earn a fee refund.
+						Ok(released) if !released.is_zero() => {
+							useful = true;
 						},
+						Ok(_) => {},
 						Err(err) => log::debug!(
 							target: LOG_TARGET,
 							"Failed to release mapping deposit for {account_id:?}: {err:?}",
