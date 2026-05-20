@@ -493,6 +493,7 @@ where
 				approval_amount,
 			)?;
 			<Runtime as Config<Instance>>::WeightInfo::transfer_approved()
+				.saturating_add(<Runtime as Config<Instance>>::WeightInfo::allowance())
 		};
 		env.adjust_gas(charged, actual_weight);
 
