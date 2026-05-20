@@ -74,13 +74,6 @@ pub(crate) const PERMIT_STRUCT_ENCODED_LEN: usize = 32 * 6;
 /// Digest prefix: \x19\x01(2) + domain_separator(32) + struct_hash(32) = 66 bytes
 pub(crate) const DIGEST_PREFIX_LEN: usize = 2 + 32 + 32;
 
-/// Conservative proof-size estimate for one `InfiniteApprovals` storage
-/// access. Picked to match `pallet_assets::Approvals` (a structurally
-/// similar 3-key NMap whose measured proof_size is ~3613 bytes); a tight
-/// benchmark would shave a few hundred bytes but this stays on the safe
-/// side and avoids adding a benchmark for a single-key `()`-valued lookup.
-pub(crate) const INFINITE_APPROVAL_PROOF_SIZE: u64 = 3613;
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -114,34 +107,6 @@ pub mod pallet {
 		H160, // owner ethereum address
 		U256, // nonce (EIP-2612 uses uint256)
 		ValueQuery,
-	>;
-
-	/// Tracks approvals set to the OpenZeppelin "infinite allowance"
-	/// sentinel (`approve(spender, uint256.max)`).
-	///
-	/// EVM's sentinel rule is anchored to the *interface* type
-	/// (`type(uint256).max`), not the storage type. Because our `Balance`
-	/// is smaller than `uint256`, we can't store `uint256.max` directly —
-	/// we saturate to `Balance::MAX` in `pallet_assets::Approvals` and
-	/// flag the entry here. `transferFrom` then skips the decrement iff
-	/// the flag is present. Without this flag we couldn't distinguish a
-	/// saturated `uint256.max` approval from a direct
-	/// `approve(spender, Balance::MAX)` — and on mainnet only the former
-	/// gets sentinel semantics.
-	///
-	/// Key: `(verifying_contract, owner, spender)`, all `H160`. The
-	/// verifying contract is the per-asset precompile address, so the
-	/// triple is asset-scoped.
-	#[pallet::storage]
-	pub type InfiniteApprovals<T: Config> = StorageNMap<
-		_,
-		(
-			NMapKey<Blake2_128Concat, H160>, // verifying contract (precompile address)
-			NMapKey<Blake2_128Concat, H160>, // owner
-			NMapKey<Blake2_128Concat, H160>, // spender
-		),
-		(),
-		OptionQuery,
 	>;
 
 	/// Error types for the permit pallet.
@@ -178,46 +143,6 @@ pub mod pallet {
 				*nonce = nonce.checked_add(U256::one()).ok_or(Error::<T>::NonceOverflow)?;
 				Ok(*nonce)
 			})
-		}
-
-		/// Mark a `(contract, owner, spender)` triple as carrying a sentinel
-		/// (`uint256.max`) allowance. `transferFrom` will skip the approval
-		/// decrement for marked triples.
-		pub fn set_infinite_approval(contract: &H160, owner: &H160, spender: &H160) {
-			InfiniteApprovals::<T>::insert((*contract, *owner, *spender), ());
-		}
-
-		/// Clear the sentinel marker for a `(contract, owner, spender)` triple.
-		/// No-op if not set.
-		pub fn clear_infinite_approval(contract: &H160, owner: &H160, spender: &H160) {
-			InfiniteApprovals::<T>::remove((*contract, *owner, *spender));
-		}
-
-		/// Is the `(contract, owner, spender)` triple flagged as a sentinel?
-		pub fn is_infinite_approval(contract: &H160, owner: &H160, spender: &H160) -> bool {
-			InfiniteApprovals::<T>::contains_key((*contract, *owner, *spender))
-		}
-
-		/// Drop every sentinel flag for `contract`. Called by the precompile's
-		/// `AssetsCallback::destroyed` hook so a future asset reusing the same
-		/// precompile address starts with no orphan flags.
-		pub fn clear_infinite_approvals_for_contract(contract: &H160) -> u32 {
-			let results = InfiniteApprovals::<T>::clear_prefix((*contract,), u32::MAX, None);
-			results.unique
-		}
-
-		/// Weight for one `InfiniteApprovals` lookup (`contains_key`).
-		pub fn infinite_approval_read_weight() -> Weight {
-			T::DbWeight::get()
-				.reads(1)
-				.saturating_add(Weight::from_parts(0, INFINITE_APPROVAL_PROOF_SIZE))
-		}
-
-		/// Weight for one `InfiniteApprovals` mutation (`insert` or `remove`).
-		pub fn infinite_approval_write_weight() -> Weight {
-			T::DbWeight::get()
-				.writes(1)
-				.saturating_add(Weight::from_parts(0, INFINITE_APPROVAL_PROOF_SIZE))
 		}
 
 		/// Compute the EIP-712 domain separator for a given verifying contract.

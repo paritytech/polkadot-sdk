@@ -234,14 +234,11 @@ fn transfer_and_transfer_from_revert_on_overflow_no_saturation() {
 	});
 }
 
-/// OpenZeppelin "infinite allowance" sentinel: `approve(uint256.max)` sets a
-/// flag in `permit::InfiniteApprovals`, and `transferFrom` skips the approval
-/// decrement for flagged triples. Without the sentinel, `approve(uint256.max)`
-/// would store `Balance::MAX` (via saturation) and chip away per-transfer —
-/// Uniswap / MetaMask would eventually hit `Unapproved` even though the user
-/// thought their approval was permanent. The sentinel is anchored to the
-/// call-interface MAX (`uint256.max`), not the storage value `Balance::MAX`,
-/// matching mainnet OZ semantics.
+/// `approve(uint256.max)` saturates the stored allowance to `Balance::MAX`,
+/// which is the sentinel: `transferFrom` skips the decrement. Without that,
+/// EVM tools that send `uint256.max` once (MetaMask, Uniswap, …) would
+/// eventually trip `Unapproved` even though the user thought their approval
+/// was permanent.
 #[test]
 fn transfer_from_does_not_decrement_max_allowance() {
 	use frame_support::traits::fungibles::approvals::Inspect;
@@ -314,13 +311,15 @@ fn transfer_from_does_not_decrement_max_allowance() {
 	});
 }
 
-/// Strict mainnet parity: the sentinel is anchored to the call-interface
-/// MAX (`U256::MAX`), not to the stored Balance type's max. A caller who
-/// explicitly approves `Balance::MAX` (a *finite* value, not the
-/// `uint256.max` idiom) must get decrementing semantics — matching what
-/// `approve(spender, type(uint128).max)` would do on Ethereum mainnet.
+/// `approve(spender, Balance::MAX)` directly — without going through the
+/// `uint256.max` saturation path — is also the sentinel. The single source
+/// of truth is `stored == Balance::MAX`; how the caller got there is
+/// irrelevant. Pins the simpler-than-mainnet semantics: on this chain there
+/// is no way to express "approve exactly Balance::MAX as a finite,
+/// decrementing allowance," because `Balance::MAX` exceeds every realistic
+/// token supply and any caller who reaches it intends unlimited.
 #[test]
-fn approve_at_exact_balance_max_decrements_normally() {
+fn approve_at_exact_balance_max_is_sentinel() {
 	use frame_support::traits::fungibles::approvals::Inspect;
 
 	new_test_ext().execute_with(|| {
@@ -340,7 +339,6 @@ fn approve_at_exact_balance_max_decrements_normally() {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
 
-		// Direct approve at exactly Balance::MAX — no saturation, finite value.
 		call_approve(owner, asset_addr, spender_addr, U256::from(u64::MAX));
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
 
@@ -363,17 +361,17 @@ fn approve_at_exact_balance_max_decrements_normally() {
 		);
 		assert!(!result.result.unwrap().did_revert(), "transferFrom must succeed");
 
-		// Allowance DECREMENTED — no sentinel because the approve wasn't via uint256.max.
-		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX - 10);
+		// Sentinel: allowance stays at Balance::MAX, no decrement.
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
 		assert_eq!(Assets::balance(asset_id, &recipient), 10);
 	});
 }
 
-/// Sentinel flag is cleared on any subsequent non-sentinel write. Owner does
-/// `approve(uint256.max)` (sentinel ON), then `approve(some_finite_value)` —
-/// the flag must clear so `transferFrom` decrements normally going forward.
+/// Sentinel state collapses on any subsequent finite-value `approve`: the
+/// new finite value overwrites `stored`, dropping it below `Balance::MAX`
+/// and re-enabling decrement.
 #[test]
-fn sentinel_flag_clears_on_overwrite_with_finite_value() {
+fn sentinel_clears_on_overwrite_with_finite_value() {
 	use frame_support::traits::fungibles::approvals::Inspect;
 
 	new_test_ext().execute_with(|| {
@@ -393,11 +391,9 @@ fn sentinel_flag_clears_on_overwrite_with_finite_value() {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
 
-		// First: approve uint256.max — flag set, allowance saturated.
 		call_approve(owner, asset_addr, spender_addr, U256::MAX);
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
 
-		// Second: overwrite with a finite value — flag must clear.
 		call_approve(owner, asset_addr, spender_addr, U256::from(50u64));
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 50);
 
@@ -424,50 +420,43 @@ fn sentinel_flag_clears_on_overwrite_with_finite_value() {
 	});
 }
 
-/// Destruction must clear `InfiniteApprovals` for the destroyed asset. The
-/// precompile address for a local asset is derived from its `asset_id`, so
-/// re-creating the same id reuses the same address; without cleanup, the
-/// previous incarnation's sentinel flags would carry over and `allowance()`
-/// would return `U256::MAX` for a fresh, unapproved asset — a phishing
-/// assist for any wallet that surfaces "Unlimited approval" UI.
+/// Out-of-band decrement via the raw `pallet_assets::transfer_approved`
+/// extrinsic drops `stored` below `Balance::MAX`, which collapses the
+/// sentinel for that triple: `allowance()` reports the decremented amount
+/// and `transferFrom` takes the decrementing path.
 #[test]
-fn destroy_clears_sentinel_flags_for_local_asset() {
+fn allowance_and_transfer_from_honour_out_of_band_decrement() {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
 		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
 		let owner = 123456789;
 		let spender = 987654321;
+		let recipient = 111222333;
 		Balances::make_free_balance_be(&owner, 100);
+		Balances::make_free_balance_be(&spender, 100);
+		Balances::make_free_balance_be(&recipient, 100);
 
 		let owner_h160 = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
 		let spender_h160 = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+		let recipient_h160 = <Test as pallet_revive::Config>::AddressMapper::to_address(&recipient);
 
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
 
-		// Flag the (asset, owner, spender) triple via approve(uint256.max).
 		call_approve(owner, asset_addr, spender_h160, U256::MAX);
-		assert!(permit::Pallet::<Test>::is_infinite_approval(
-			&asset_addr,
-			&owner_h160,
-			&spender_h160,
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX);
+
+		// Out-of-band decrement: spender uses the raw
+		// `pallet_assets::transfer_approved` extrinsic.
+		assert_ok!(Assets::transfer_approved(
+			RuntimeOrigin::signed(spender),
+			asset_id.into(),
+			owner,
+			recipient,
+			10,
 		));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX - 10);
 
-		// Drive the full destroy flow: start → accounts → approvals → finish.
-		// `finish_destroy` is what triggers the `AssetsCallback::destroyed` hook.
-		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(owner), asset_id));
-		assert_ok!(Assets::destroy_accounts(RuntimeOrigin::signed(owner), asset_id));
-		assert_ok!(Assets::destroy_approvals(RuntimeOrigin::signed(owner), asset_id));
-		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(owner), asset_id));
-
-		// Flag must be gone — otherwise a recreated asset at the same id would
-		// inherit it.
-		assert!(
-			!permit::Pallet::<Test>::is_infinite_approval(&asset_addr, &owner_h160, &spender_h160,),
-			"sentinel flag must be cleared by AssetsCallback::destroyed",
-		);
-
-		// Recreate the asset at the same id; allowance() must report 0, not MAX.
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 		let data =
 			IERC20::allowanceCall { owner: owner_h160.0.into(), spender: spender_h160.0.into() }
 				.abi_encode();
@@ -483,10 +472,30 @@ fn destroy_clears_sentinel_flags_for_local_asset() {
 			&ExecConfig::new_substrate_tx(),
 		)
 		.result
-		.expect("allowance() must succeed on the recreated asset")
+		.expect("allowance() must succeed")
 		.data;
 		let ret = IERC20::allowanceCall::abi_decode_returns(&bytes).unwrap();
-		assert_eq!(ret, U256::ZERO, "fresh asset must not inherit sentinel allowance");
+		assert_eq!(ret, U256::from(u64::MAX - 10));
+
+		let data = IERC20::transferFromCall {
+			from: owner_h160.0.into(),
+			to: recipient_h160.0.into(),
+			value: U256::from(10u64),
+		}
+		.abi_encode();
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(spender),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		);
+		assert!(!result.result.unwrap().did_revert());
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u64::MAX - 20);
 	});
 }
 
