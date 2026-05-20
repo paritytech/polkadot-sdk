@@ -71,6 +71,7 @@ pub mod slot_duration_18s {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_slot_duration_18s.rs"));
 }
 
+mod flavor;
 mod genesis_config_presets;
 pub mod test_pallet;
 
@@ -80,7 +81,7 @@ use alloc::{vec, vec::Vec};
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{ConstBool, ConstU32, ConstU64, Get, OpaqueMetadata};
+use sp_core::{ConstU32, ConstU64, Get, OpaqueMetadata};
 
 use sp_runtime::{
 	generic, impl_opaque_keys,
@@ -134,62 +135,9 @@ impl_opaque_keys! {
 /// The para-id used in this runtime.
 pub const PARACHAIN_ID: u32 = 100;
 
-#[cfg(any(feature = "elastic-scaling-500ms", feature = "block-bundling"))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 12;
+pub use flavor::{BLOCK_PROCESSING_VELOCITY, SLOT_DURATION};
 
-#[cfg(all(feature = "elastic-scaling-multi-block-slot", not(feature = "elastic-scaling-500ms")))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 6;
-
-#[cfg(all(
-	any(feature = "elastic-scaling", feature = "relay-parent-offset"),
-	not(feature = "elastic-scaling-500ms"),
-	not(feature = "elastic-scaling-multi-block-slot")
-))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
-
-#[cfg(not(any(
-	feature = "elastic-scaling",
-	feature = "elastic-scaling-500ms",
-	feature = "elastic-scaling-multi-block-slot",
-	feature = "relay-parent-offset",
-	feature = "block-bundling",
-)))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
-
-#[cfg(feature = "async-backing")]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
-
-#[cfg(all(feature = "sync-backing", not(feature = "async-backing")))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
-
-/// We need `VELOCITY * 3`, because the block flow is the following:
-///
-/// - Collator produces the block(s) on relay chain block `X`
-/// - In the mean time the relay chain is building block `X + 1`
-/// - The collator sends the collation to the relay chain and it gets backed on chain in relay block
-///   `X + 2`
-/// - The collation then gets included on chain in relay block `X + 3`
-/// - As we are building on `RELAY_PARENT_OFFSET` old relay parents, the included block from the
-///   parachain is also `RELAY_PARENT_OFFSET` relay blocks older (one relay block may contains
-///   multiple parachain blocks).
-#[cfg(all(not(feature = "sync-backing"), not(feature = "async-backing")))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (3 + RELAY_PARENT_OFFSET);
-
-#[cfg(feature = "slot-duration-18s")]
-pub const SLOT_DURATION: u64 = 18000;
-#[cfg(all(
-	any(feature = "sync-backing", feature = "elastic-scaling-12s-slot"),
-	not(feature = "slot-duration-18s")
-))]
-pub const SLOT_DURATION: u64 = 12000;
-#[cfg(not(any(
-	feature = "sync-backing",
-	feature = "elastic-scaling-12s-slot",
-	feature = "slot-duration-18s"
-)))]
-pub const SLOT_DURATION: u64 = 6000;
-
-const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
+use flavor::{RELAY_CHAIN_SLOT_DURATION_MILLIS, RELAY_PARENT_OFFSET, UNINCLUDED_SEGMENT_CAPACITY};
 
 // The only difference between the two declarations below is the `spec_version`. With the
 // `increment-spec-version` feature enabled `spec_version` should be greater than the one of without
@@ -394,12 +342,6 @@ impl pallet_glutton::Config for Runtime {
 	type WeightInfo = pallet_glutton::weights::SubstrateWeight<Runtime>;
 }
 
-#[cfg(feature = "relay-parent-offset")]
-const RELAY_PARENT_OFFSET: u32 = 2;
-
-#[cfg(not(feature = "relay-parent-offset"))]
-const RELAY_PARENT_OFFSET: u32 = 0;
-
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
@@ -429,10 +371,7 @@ impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<32>;
-	#[cfg(feature = "sync-backing")]
-	type AllowMultipleBlocksPerSlot = ConstBool<false>;
-	#[cfg(not(feature = "sync-backing"))]
-	type AllowMultipleBlocksPerSlot = ConstBool<true>;
+	type AllowMultipleBlocksPerSlot = flavor::AllowMultipleBlocksPerSlot;
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
@@ -576,7 +515,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
-			RELAY_PARENT_OFFSET
+			flavor::RELAY_PARENT_OFFSET
 		}
 	}
 
