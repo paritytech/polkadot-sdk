@@ -1,0 +1,28 @@
+title: '[stable2512] Unblock pallet-assets-precompiles crates.io publish'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Unblocks the `stable2512-4` crates release.
+
+    `ethereum-standards 0.1.3` (already on crates.io, published from `stable2603`) widened the
+    `IERC20` interface with `IERC20Metadata` (`name`/`symbol`/`decimals`) and EIP-2612 permit
+    (`permit`/`nonces`/`DOMAIN_SEPARATOR`) variants. `parity-publish`'s verify step compiles
+    `pallet-assets-precompiles` against registry-resolved dependencies, so it picks the wider
+    `0.1.3` enum, and the existing 6-arm `match input` becomes non-exhaustive.
+
+    Fix on `stable2512`:
+    - Sync `ethereum-standards` (`Cargo.toml` and `IERC20.sol`) to the `stable2603` state, which
+      is the source of the already-published `0.1.3`. No new version of `ethereum-standards` is
+      published; the workspace just catches up to the registry.
+    - Add named match arms in `pallet-assets-precompiles` for the six new variants, each
+      reverting with "Unsupported function".
+
+    The actual `IERC20Metadata` and EIP-2612 permit handlers are not backported. Runtimes on
+    `stable2512` never registered handlers for these functions, so reverting on them preserves
+    observable behaviour while making the match exhaustive against the wider enum.
+crates:
+- name: ethereum-standards
+  bump: none
+  validate: false
+- name: pallet-assets-precompiles
+  bump: patch
