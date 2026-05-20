@@ -22,7 +22,7 @@ doc:
     observable behaviour while making the match exhaustive against the wider enum.
 crates:
 - name: ethereum-standards
-  bump: patch
+  bump: none
   validate: false
 - name: pallet-assets-precompiles
   bump: patch
