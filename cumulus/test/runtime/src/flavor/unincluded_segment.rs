@@ -16,6 +16,7 @@
 
 //! Unincluded segment capacity for [`cumulus_pallet_aura_ext::FixedVelocityConsensusHook`].
 
+#[cfg(all(not(feature = "sync-backing"), not(feature = "async-backing")))]
 use super::{block_velocity::BLOCK_PROCESSING_VELOCITY, relay_parent::RELAY_PARENT_OFFSET};
 
 #[cfg(feature = "async-backing")]
