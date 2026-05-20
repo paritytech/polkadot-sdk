@@ -422,11 +422,8 @@ where
 		// `Approval` logs see the same value `allowance()` would return.
 		let max_balance: <Runtime as Config<Instance>>::Balance =
 			alloy::primitives::U256::MAX.unique_saturated_into();
-		let event_value = if new_amount == max_balance {
-			alloy::primitives::U256::MAX
-		} else {
-			call.value
-		};
+		let event_value =
+			if new_amount == max_balance { alloy::primitives::U256::MAX } else { call.value };
 		Self::deposit_event(
 			env,
 			IERC20Events::Approval(IERC20::Approval {
