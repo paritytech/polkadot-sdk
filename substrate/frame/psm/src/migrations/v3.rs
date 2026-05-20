@@ -27,10 +27,9 @@
 //! 1. Reads the legacy storage values (`MaxPsmDebtOfTotal`, `InternalDecimals`) via
 //!    [`storage_alias`].
 //! 2. Reads the legacy `MaximumIssuance` and `FeeDestination` from the runtime through the
-//!    [`MigrateV2ToV3Config`] trait (these were `Config` constants and have no on-chain
-//!    record).
-//! 3. Inserts `Psms[InternalAssetId]` with `fee_destination = legacy_fee_destination` and
-//!    `max_debt = legacy_max_issuance × legacy ratio`.
+//!    [`MigrateV2ToV3Config`] trait (these were `Config` constants and have no on-chain record).
+//! 3. Inserts `Psms[InternalAssetId]` with `fee_destination = legacy_fee_destination` and `max_debt
+//!    = legacy_max_issuance × legacy ratio`.
 //! 4. Clears the legacy storage values.
 //!
 //! # Usage
@@ -79,8 +78,7 @@ pub mod v2 {
 	use frame_support::pallet_prelude::{OptionQuery, ValueQuery};
 
 	#[storage_alias]
-	pub type MaxPsmDebtOfTotal<T: Config> =
-		StorageValue<Pallet<T>, Permill, ValueQuery>;
+	pub type MaxPsmDebtOfTotal<T: Config> = StorageValue<Pallet<T>, Permill, ValueQuery>;
 
 	#[storage_alias]
 	pub type InternalDecimals<T: Config> = StorageValue<Pallet<T>, u8, OptionQuery>;
@@ -111,9 +109,7 @@ pub type MigrateV2ToV3<T, I> = VersionedMigration<
 /// alias [`MigrateV2ToV3`] so the on-chain storage version is checked and bumped.
 pub struct InnerMigrateV2ToV3<T, I>(core::marker::PhantomData<(T, I)>);
 
-impl<T: Config, I: MigrateV2ToV3Config<T>> UncheckedOnRuntimeUpgrade
-	for InnerMigrateV2ToV3<T, I>
-{
+impl<T: Config, I: MigrateV2ToV3Config<T>> UncheckedOnRuntimeUpgrade for InnerMigrateV2ToV3<T, I> {
 	fn on_runtime_upgrade() -> Weight {
 		log::info!(
 			target: LOG_TARGET,
@@ -242,11 +238,8 @@ mod tests {
 	fn skips_when_already_at_v3() {
 		new_test_ext().execute_with(|| {
 			// Genesis already ran at v3. Plant a sentinel to detect any overwrite.
-			let sentinel = PsmInfo::<Test> {
-				fee_destination: ALICE,
-				max_debt: 42,
-				internal_decimals: 42,
-			};
+			let sentinel =
+				PsmInfo::<Test> { fee_destination: ALICE, max_debt: 42, internal_decimals: 42 };
 			Psms::<Test>::insert(INTERNAL_ASSET_ID, sentinel.clone());
 
 			MigrateV2ToV3::<Test, TestConfig>::on_runtime_upgrade();

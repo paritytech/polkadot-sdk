@@ -311,11 +311,10 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 		));
 
 		// Verify caller's internal asset was fully spent.
-		let internal_after =
-			<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
-				internal_asset_id.clone(),
-				&caller,
-			);
+		let internal_after = <Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
+			internal_asset_id.clone(),
+			&caller,
+		);
 		assert_eq!(internal_after, Zero::zero(), "Caller should have no internal asset remaining");
 
 		// Debt should decrease after redeem but not reach zero (fees keep some debt alive).
