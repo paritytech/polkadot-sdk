@@ -1624,7 +1624,8 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			accounts: Vec<T::AccountId>,
 		) -> DispatchResultWithPostInfo {
-			ensure_signed(origin)?;
+			ensure_signed(origin.clone())?;
+			Self::ensure_non_contract_if_signed(&origin)?;
 
 			let total = accounts.len() as u32;
 			let mut mapped = 0;
