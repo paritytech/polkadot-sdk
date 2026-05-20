@@ -650,8 +650,10 @@ where
 	// Check if V3 scheduling is enabled and build scheduling proof if so.
 	let mut scheduling_proof = None;
 	if v3_enabled {
+		// The relay parent descendants are only needed for v2.
+		let descendants = relay_parent_data.take_descendants();
 		// The descendants are ordered from oldest to newest, so we need to reverse them.
-		let header_chain: Vec<_> = relay_parent_data.descendants().iter().rev().cloned().collect();
+		let header_chain: Vec<_> = descendants.into_iter().rev().collect();
 		let scheduling_parent =
 			header_chain.first().map(|header| header.hash()).unwrap_or(relay_parent_hash);
 
@@ -668,9 +670,6 @@ where
 			// Initial submission: no signature needed, core selection from UMP signals
 			signed_scheduling_info: None,
 		});
-
-		// The relay parent descendants are only needed for v2.
-		relay_parent_data.descendants = vec![];
 	}
 
 	let Some(validation_code_hash) = code_hash_provider.code_hash_at(pov_parent_hash) else {
