@@ -209,6 +209,8 @@ pub mod ump_constants {
 /// from the claim queue. The effective claim queue depth is:
 /// `relay_parent_offset + MAX_CLAIM_QUEUE_OFFSET`
 ///
+/// See more details here: [cumulus_primitives_core::RelayParentOffsetApi::max_claim_queue_offset]
+///
 /// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
 const MAX_CLAIM_QUEUE_OFFSET: u8 = 2;
 
