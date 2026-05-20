@@ -26,7 +26,7 @@ use crate::{
 	weights::WeightInfo,
 	BalanceOf, EraRewardPoints, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf,
 	Nominations, NominationsQuota, PositiveImbalanceOf, PotAccountProvider, RewardDestination,
-	RewardKind, RewardPot, SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
+	RewardKind, RewardPoint, RewardPot, SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
@@ -677,10 +677,12 @@ impl<T: Config> Pallet<T> {
 
 	/// Calculate the validator incentive amount for a single page.
 	///
-	/// Multiplies the validator's [`EraRewardPoints::weighted_points_share`] (see that
-	/// method for the formula and its properties) by the era budget and the page's stake
-	/// fraction: `share × budget × page_stake_part`. Returns `None` if the validator has
-	/// no incentive weight, no era points, or the computed amount rounds to zero.
+	/// Computes the validator's slice of the era incentive budget for one payout page:
+	/// `share × budget × page_stake_part`, where
+	/// `share = (weight_stash · ep_stash) / Σ_v(weight_v · ep_v)` and the denominator is
+	/// read from [`ErasSumWeightedPoints`] (maintained incrementally on every session
+	/// report). Returns `None` if the validator has no incentive weight, no era points, or
+	/// the computed amount rounds to zero.
 	fn calculate_validator_incentive_for_page(
 		era: EraIndex,
 		stash: &T::AccountId,
@@ -716,9 +718,14 @@ impl<T: Config> Pallet<T> {
 			return None;
 		}
 
-		let share_part = era_reward_points.weighted_points_share(stash, |v| {
-			ErasValidatorIncentiveWeight::<T>::get(era, v).unwrap_or_else(Zero::zero)
-		});
+		let sum_weighted_points = ErasSumWeightedPoints::<T>::get(era);
+		if sum_weighted_points.is_zero() {
+			return None;
+		}
+		let validator_points: RewardPoint =
+			era_reward_points.individual.get(stash).copied().unwrap_or(0);
+		let numerator = validator_weight.saturating_mul(BalanceOf::<T>::from(validator_points));
+		let share_part = Perbill::from_rational(numerator, sum_weighted_points);
 		if share_part.is_zero() {
 			return None;
 		}
@@ -1396,16 +1403,18 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		} = report;
 		debug_assert!(!leftover);
 
+		let validator_count = validator_points.len() as u32;
 		// note: weight for `reward_active_era` is taken care of inside `end_session`
 		Eras::<T>::reward_active_era(validator_points.into_iter());
-		session_rotation::Rotator::<T>::end_session(end_index, activation_timestamp)
+		session_rotation::Rotator::<T>::end_session(
+			end_index,
+			activation_timestamp,
+			validator_count,
+		)
 	}
 
-	fn weigh_on_relay_session_report(
-		_report: &rc_client::SessionReport<Self::AccountId>,
-	) -> Weight {
-		// worst case weight of this is always
-		T::WeightInfo::rc_on_session_report()
+	fn weigh_on_relay_session_report(report: &rc_client::SessionReport<Self::AccountId>) -> Weight {
+		T::WeightInfo::rc_on_session_report(report.validator_points.len() as u32)
 	}
 
 	/// Accepts offences only if they are from era `active_era - (SlashDeferDuration - 1)` or newer.

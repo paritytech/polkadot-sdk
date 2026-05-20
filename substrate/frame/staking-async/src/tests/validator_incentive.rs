@@ -22,7 +22,6 @@ use crate::{
 	asset,
 	session_rotation::{EraElectionPlanner, Eras, Rotator},
 };
-use sp_runtime::bounded_btree_map;
 
 // ===== Config extrinsic tests =====
 
@@ -746,69 +745,6 @@ fn defensive_panic_on_transfer_failure() {
 	});
 }
 
-// ===== `EraRewardPoints::weighted_points_share` unit tests =====
-
-#[test]
-fn weighted_points_share_empty_map_is_zero() {
-	let points: EraRewardPoints<Test> =
-		EraRewardPoints { total: 0, individual: Default::default() };
-	// Denominator is zero (no participating validators) → share collapses to zero.
-	assert_eq!(points.weighted_points_share(&11, |_| 100u128), Perbill::zero());
-}
-
-#[test]
-fn weighted_points_share_single_validator_is_one() {
-	let points: EraRewardPoints<Test> =
-		EraRewardPoints { total: 7, individual: bounded_btree_map![11 => 7] };
-	// Only earner → share = 1.0; full budget flows to them.
-	assert_eq!(points.weighted_points_share(&11, |_| 100u128), Perbill::one());
-	// Non-participant gets zero (not in `individual`).
-	assert_eq!(points.weighted_points_share(&21, |_| 100u128), Perbill::zero());
-}
-
-#[test]
-fn weighted_points_share_uniform_equal_weights_splits_evenly() {
-	let points: EraRewardPoints<Test> =
-		EraRewardPoints { total: 15, individual: bounded_btree_map![11 => 5, 21 => 5, 31 => 5] };
-	let one_third = Perbill::from_rational(1u32, 3u32);
-	for stash in [11, 21, 31] {
-		assert_eq!(points.weighted_points_share(&stash, |_| 100u128), one_third);
-	}
-}
-
-#[test]
-fn weighted_points_share_proportional_with_unequal_points() {
-	// alice=10, bob=1, carol=1, equal weights. Denominator = 12.
-	let points: EraRewardPoints<Test> =
-		EraRewardPoints { total: 12, individual: bounded_btree_map![11 => 10, 21 => 1, 31 => 1] };
-	let w = |_: &AccountId| 100u128;
-	assert_eq!(points.weighted_points_share(&11, w), Perbill::from_rational(10u32, 12u32));
-	assert_eq!(points.weighted_points_share(&21, w), Perbill::from_rational(1u32, 12u32));
-	assert_eq!(points.weighted_points_share(&31, w), Perbill::from_rational(1u32, 12u32));
-}
-
-#[test]
-fn weighted_points_share_proportional_with_unequal_weights() {
-	// alice (w=200, p=2), bob (w=100, p=1). Denominator = 200·2 + 100·1 = 500.
-	// alice = 400/500, bob = 100/500.
-	let points: EraRewardPoints<Test> =
-		EraRewardPoints { total: 3, individual: bounded_btree_map![11 => 2, 21 => 1] };
-	let w = |stash: &AccountId| if *stash == 11 { 200u128 } else { 100u128 };
-	assert_eq!(points.weighted_points_share(&11, w), Perbill::from_rational(4u32, 5u32));
-	assert_eq!(points.weighted_points_share(&21, w), Perbill::from_rational(1u32, 5u32));
-}
-
-#[test]
-fn weighted_points_share_zero_weight_validator_excluded_from_denominator() {
-	// alice has points but zero weight → her term (0 · 3) drops out of the denominator,
-	// so bob (the only non-zero-weighted earner) collects the full share.
-	let points: EraRewardPoints<Test> =
-		EraRewardPoints { total: 5, individual: bounded_btree_map![11 => 3, 21 => 2] };
-	let w = |stash: &AccountId| if *stash == 11 { 0u128 } else { 100u128 };
-	assert_eq!(points.weighted_points_share(&11, w), Perbill::zero());
-	assert_eq!(points.weighted_points_share(&21, w), Perbill::one());
-}
-
 // ===== Performance scaling integration tests =====
 
 #[test]
@@ -1014,5 +950,176 @@ fn single_validator_earning_points_gets_full_budget() {
 		assert_eq!(incentive_paid_for(alice, &events), Some(budget));
 		assert_eq!(incentive_paid_for(bob, &events), None);
 		assert_eq!(Balances::free_balance(&pot), 0);
+	});
+}
+
+// ===== `ErasSumWeightedPoints` incremental-update unit tests =====
+//
+// These pin the storage-maintenance invariant inside `Eras::reward_active_era`:
+// `ErasSumWeightedPoints[era] == Σ_v (ErasValidatorIncentiveWeight[era, v] · ep_v)`.
+// They are the unit-level mirror of the parameterized cases the old
+// `weighted_points_share_*` tests used to cover on the deleted in-memory helper.
+// Share math through payouts is exercised by the integration tests above.
+
+#[test]
+fn sum_weighted_points_initial_value_is_zero() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: incentive enabled and a fresh era — but no `reward_active_era` calls yet.
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+
+		// Sanity: the era is set up (weights exist) so the assertion is non-trivial.
+		assert!(ErasValidatorIncentiveWeight::<Test>::get(2, 11).is_some());
+
+		// THEN: ValueQuery default holds — no points credited → denominator is zero.
+		assert_eq!(ErasSumWeightedPoints::<Test>::get(2), 0);
+	});
+}
+
+#[test]
+fn sum_weighted_points_single_validator_equals_weight_times_points() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11;
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+
+		let alice_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
+
+		// WHEN: credit alice 7 points.
+		Eras::<Test>::reward_active_era(vec![(alice, 7)]);
+
+		// THEN: sum == w_alice · 7.
+		assert_eq!(ErasSumWeightedPoints::<Test>::get(2), alice_weight * 7);
+	});
+}
+
+#[test]
+fn sum_weighted_points_uniform_inputs_sum_equally() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11;
+		let bob = 21;
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+
+		// Equal own-stake (mock default for 11/21) → equal weights.
+		let w = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
+		assert_eq!(ErasValidatorIncentiveWeight::<Test>::get(2, bob).unwrap(), w);
+
+		// WHEN: credit each validator 5 points.
+		Eras::<Test>::reward_active_era(vec![(alice, 5), (bob, 5)]);
+
+		// THEN: sum == 2 · (w · 5).
+		assert_eq!(ErasSumWeightedPoints::<Test>::get(2), 2 * w * 5);
+	});
+}
+
+#[test]
+fn sum_weighted_points_unequal_points_contribute_proportionally() {
+	// Three validators with possibly-unequal natural weights. The invariant is
+	// `Σ(w_v · ep_v)`; assert it directly without assuming weights are uniform.
+	ExtBuilder::default().validator_count(3).build_and_execute(|| {
+		let alice = 11;
+		let bob = 21;
+		let carol = 31;
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+
+		let w_a = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
+		let w_b = ErasValidatorIncentiveWeight::<Test>::get(2, bob).unwrap();
+		let w_c = ErasValidatorIncentiveWeight::<Test>::get(2, carol).unwrap();
+
+		// WHEN: credit alice 10, bob 1, carol 1.
+		Eras::<Test>::reward_active_era(vec![(alice, 10), (bob, 1), (carol, 1)]);
+
+		// THEN: sum == w_a · 10 + w_b · 1 + w_c · 1.
+		assert_eq!(ErasSumWeightedPoints::<Test>::get(2), w_a * 10 + w_b + w_c);
+	});
+}
+
+#[test]
+fn sum_weighted_points_unequal_weights_propagate() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11;
+		let bob = 21;
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+
+		// Inflate alice's weight to 2× her natural value; keep the
+		// `ErasSumValidatorIncentiveWeight` invariant consistent so try_state passes.
+		let natural = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
+		ErasValidatorIncentiveWeight::<Test>::insert(2, alice, 2 * natural);
+		ErasSumValidatorIncentiveWeight::<Test>::mutate(2, |s| *s = s.saturating_add(natural));
+
+		// WHEN: alice 2 points, bob 1 point.
+		Eras::<Test>::reward_active_era(vec![(alice, 2), (bob, 1)]);
+
+		// THEN: sum == 2w · 2 + w · 1 = 5w.
+		assert_eq!(ErasSumWeightedPoints::<Test>::get(2), 5 * natural);
+	});
+}
+
+#[test]
+fn sum_weighted_points_validator_without_weight_excluded_from_sum() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11;
+		let bob = 21;
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+
+		// Strip alice's incentive weight (simulating own=0 at election); keep the sum
+		// invariant consistent.
+		let alice_weight =
+			ErasValidatorIncentiveWeight::<Test>::take(2, alice).expect("weight stored");
+		ErasSumValidatorIncentiveWeight::<Test>::mutate(2, |s| *s = s.saturating_sub(alice_weight));
+		let bob_weight = ErasValidatorIncentiveWeight::<Test>::get(2, bob).unwrap();
+
+		// WHEN: both credited points, but alice has no weight.
+		Eras::<Test>::reward_active_era(vec![(alice, 5), (bob, 3)]);
+
+		// THEN: only bob's contribution lands in the sum; alice is gated out by the
+		// `if !weight.is_zero()` check, matching the gate in
+		// `calculate_validator_incentive_for_page`.
+		assert_eq!(ErasSumWeightedPoints::<Test>::get(2), bob_weight * 3);
+	});
+}
+
+#[test]
+fn sum_weighted_points_zero_points_yields_no_delta() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11;
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+
+		let before = ErasSumWeightedPoints::<Test>::get(2);
+
+		// WHEN: alice credited zero points.
+		Eras::<Test>::reward_active_era(vec![(alice, 0)]);
+
+		// THEN: sum is unchanged (w · 0 contributes nothing; short-circuit also avoids
+		// a pointless storage write).
+		assert_eq!(ErasSumWeightedPoints::<Test>::get(2), before);
+	});
+}
+
+#[test]
+fn sum_weighted_points_accrues_across_sequential_calls() {
+	// The load-bearing property of the incrementally-maintained storage: calls
+	// compose, so the denominator at payout time reflects the entire history of
+	// `reward_active_era` invocations within the era.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11;
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+
+		let alice_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
+
+		// WHEN: two back-to-back credits for the same validator.
+		Eras::<Test>::reward_active_era(vec![(alice, 3)]);
+		assert_eq!(ErasSumWeightedPoints::<Test>::get(2), alice_weight * 3);
+
+		Eras::<Test>::reward_active_era(vec![(alice, 4)]);
+
+		// THEN: sum accrued — w · (3 + 4) = w · 7.
+		assert_eq!(ErasSumWeightedPoints::<Test>::get(2), alice_weight * 7);
 	});
 }

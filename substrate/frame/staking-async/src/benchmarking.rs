@@ -1198,7 +1198,9 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn rc_on_session_report() -> Result<(), BenchmarkError> {
+	fn rc_on_session_report(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
 		let initial_planned_era = Rotator::<T>::planned_era();
 		let initial_active_era = Rotator::<T>::active_era();
 
@@ -1216,9 +1218,24 @@ mod benchmarks {
 		);
 
 		//  receive a session report with timestamp that actives the previous one.
-		let validator_points = (0..T::MaxValidatorSet::get())
-			.map(|v| (account::<T::AccountId>("random", v, SEED), v))
+		// `v` is the number of active validators in the report — on Polkadot bounded by
+		// `MaxValidatorSet` since each must hold at least `MinValidatorBond` (~10k DOT).
+		let validator_points = (0..v)
+			.map(|i| (account::<T::AccountId>("random", i, SEED), i))
 			.collect::<Vec<_>>();
+
+		// Populate ErasValidatorIncentiveWeight for every account in the report so the
+		// incremental-denominator accumulation inside `reward_active_era` performs the
+		// worst-case lookup-and-add per validator.
+		let active_era = Rotator::<T>::active_era();
+		for (who, _) in &validator_points {
+			ErasValidatorIncentiveWeight::<T>::insert(
+				active_era,
+				who,
+				BalanceOf::<T>::from(100u64),
+			);
+		}
+
 		let activation_timestamp = Some((1u64, initial_planned_era + 1));
 		let report = rc_client::SessionReport {
 			end_index: 42,
@@ -1315,6 +1332,10 @@ mod benchmarks {
 		ErasTotalStake::<T>::insert(era, BalanceOf::<T>::max_value());
 		ErasNominatorsSlashable::<T>::insert(era, true);
 		ErasSumValidatorIncentiveWeight::<T>::insert(era, total_incentive_weight);
+		ErasSumWeightedPoints::<T>::insert(
+			era,
+			total_incentive_weight.saturating_mul(BalanceOf::<T>::from(7u32)),
+		);
 		ErasValidatorIncentiveBudget::<T>::insert(era, BalanceOf::<T>::from(1_000_000u64));
 
 		era

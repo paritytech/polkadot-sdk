@@ -74,7 +74,7 @@ pub mod pallet {
 	/// Dimensionless weight from the validator self-stake incentive curve. Same underlying type as
 	/// `BalanceOf<T>` for arithmetic compatibility, but represents the output of the sqrt weight
 	/// function.
-	type IncentiveWeight<T> = BalanceOf<T>;
+	pub type IncentiveWeight<T> = BalanceOf<T>;
 
 	/// Represents the current step in the era pruning process
 	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
@@ -578,6 +578,16 @@ pub mod pallet {
 		IncentiveWeight<T>,
 		OptionQuery,
 	>;
+
+	/// Running sum of `validator_incentive_weight × era_points` across all validators
+	/// with non-zero era points for the era.
+	///
+	/// Maintained incrementally inside [`session_rotation::Eras::reward_active_era`] every
+	/// time validator points are credited. Used as the denominator of the weighted-points
+	/// share that determines each validator's slice of [`ErasValidatorIncentiveBudget`].
+	#[pallet::storage]
+	pub type ErasSumWeightedPoints<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, IncentiveWeight<T>, ValueQuery>;
 
 	/// Whether nominators are slashable or not.
 	///
@@ -1622,6 +1632,7 @@ pub mod pallet {
 					ErasNominatorsSlashable::<T>::remove(era);
 					ErasValidatorIncentiveBudget::<T>::remove(era);
 					ErasSumValidatorIncentiveWeight::<T>::remove(era);
+					ErasSumWeightedPoints::<T>::remove(era);
 					EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
 					T::WeightInfo::prune_era_single_entry_cleanups()
 				},

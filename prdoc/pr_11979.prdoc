@@ -3,12 +3,18 @@ doc:
 - audience: Runtime Dev
   description: |-
     Validator self-stake incentive payout is now distributed proportionally across
-    elected validators using the weighted-mean share
+    elected validators using the weighted-points share
     `share_i = (w_i · ep_i) / Σ_j(w_j · ep_j)`, where `w_j` is each validator's
-    per-era incentive weight and `ep_j` is their era points. The sum runs over
-    every validator with non-zero era points. Validators with zero era points
-    receive nothing, and their notional share is implicitly redistributed by the
-    formula. The full era budget is paid out to non-zero performers, so there is no pot residue to forfeit.
+    per-era incentive weight and `ep_j` is their era points.
+
+    The denominator is maintained incrementally in `ErasSumWeightedPoints` as
+    session reports credit era points, avoiding a full validator iteration at
+    payout time. Validators with zero era points or no incentive weight receive
+    nothing, and non-zero weighted performers share the era budget subject to
+    normal rounding.
+
+    The `rc_on_session_report` benchmark/weight now scales with the number of
+    validators included in the relay-chain session report.
 crates:
 - name: pallet-staking-async
   bump: patch

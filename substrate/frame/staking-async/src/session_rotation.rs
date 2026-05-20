@@ -401,12 +401,26 @@ impl<T: Config> Eras<T> {
 	}
 
 	/// Add reward points to validators using their stash account ID.
+	///
+	/// As a side effect, accumulates `weight × points` into [`ErasSumWeightedPoints`] for the
+	/// active era, where `weight` is the validator's [`ErasValidatorIncentiveWeight`]. This
+	/// keeps the denominator of the weighted-points share up to date without iterating every
+	/// validator at payout time.
 	pub(crate) fn reward_active_era(
 		validators_points: impl IntoIterator<Item = (T::AccountId, u32)>,
 	) {
 		if let Some(active_era) = ActiveEra::<T>::get() {
+			let mut sum_weighted_points_delta: BalanceOf<T> = Zero::zero();
 			<ErasRewardPoints<T>>::mutate(active_era.index, |era_rewards| {
 				for (validator, points) in validators_points.into_iter() {
+					let weight =
+						ErasValidatorIncentiveWeight::<T>::get(active_era.index, &validator)
+							.unwrap_or_else(Zero::zero);
+					if !weight.is_zero() {
+						sum_weighted_points_delta = sum_weighted_points_delta.saturating_add(
+							weight.saturating_mul(IncentiveWeight::<T>::from(points)),
+						);
+					}
 					match era_rewards.individual.get_mut(&validator) {
 						Some(individual) => individual.saturating_accrue(points),
 						None => {
@@ -419,6 +433,11 @@ impl<T: Config> Eras<T> {
 					era_rewards.total.saturating_accrue(points);
 				}
 			});
+			if !sum_weighted_points_delta.is_zero() {
+				ErasSumWeightedPoints::<T>::mutate(active_era.index, |sum| {
+					*sum = sum.saturating_add(sum_weighted_points_delta);
+				});
+			}
 		}
 	}
 
@@ -516,6 +535,7 @@ impl<T: Config> Eras<T> {
 		for e in oldest_present_era..=active_era {
 			Self::era_fully_present(e)?;
 			Self::check_validator_incentive_weight_consistency(e)?;
+			Self::check_sum_weighted_points_consistency(e)?;
 		}
 
 		// Ensure all eras older than oldest_present_era are either fully pruned or marked for
@@ -542,6 +562,31 @@ impl<T: Config> Eras<T> {
 			stored_total == computed_total,
 			"ErasSumValidatorIncentiveWeight mismatch: \
 			 stored vs computed individual weights do not match"
+		);
+
+		Ok(())
+	}
+
+	/// Verify that the incrementally maintained [`ErasSumWeightedPoints`] matches the
+	/// recomputed value `Σ_v(weight_v · ep_v)` from current storage.
+	fn check_sum_weighted_points_consistency(
+		era: EraIndex,
+	) -> Result<(), sp_runtime::TryRuntimeError> {
+		use sp_runtime::traits::Zero;
+
+		let stored = ErasSumWeightedPoints::<T>::get(era);
+		let reward_points = ErasRewardPoints::<T>::get(era);
+		let computed: BalanceOf<T> =
+			reward_points.individual.iter().fold(BalanceOf::<T>::zero(), |acc, (v, &ep)| {
+				let weight =
+					ErasValidatorIncentiveWeight::<T>::get(era, v).unwrap_or_else(Zero::zero);
+				acc.saturating_add(weight.saturating_mul(BalanceOf::<T>::from(ep)))
+			});
+
+		ensure!(
+			stored == computed,
+			"ErasSumWeightedPoints mismatch: \
+			 stored vs computed (Σ weight · era_points) do not match"
 		);
 
 		Ok(())
@@ -668,9 +713,10 @@ impl<T: Config> Rotator<T> {
 	pub(crate) fn end_session(
 		end_index: SessionIndex,
 		activation_timestamp: Option<(u64, u32)>,
+		rewarded_validators: u32,
 	) -> Weight {
 		// baseline weight for processing the relay chain session report
-		let weight = T::WeightInfo::rc_on_session_report();
+		let weight = T::WeightInfo::rc_on_session_report(rewarded_validators);
 
 		let Some(active_era) = ActiveEra::<T>::get() else {
 			defensive!("Active era must always be available.");
