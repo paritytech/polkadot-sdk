@@ -5156,10 +5156,12 @@ dependencies = [
  "hex",
  "parity-scale-codec",
  "sc-client-api 28.0.0",
+ "sc-client-db",
  "sp-blockchain 28.0.0",
  "sp-runtime 31.0.1",
  "sp-trie 29.0.0",
  "substrate-test-runtime",
+ "tempfile",
 ]
 
 [[package]]
