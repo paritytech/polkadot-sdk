@@ -694,8 +694,7 @@ fn permit_rollback_preserves_prior_allowance() {
 }
 
 /// If the owner can't afford the `ApprovalDeposit`, `do_approve_transfer`
-/// returns a `DispatchError` (Error::Error → trap). Distinct failure
-/// path from the revert-based `to_balance` test.
+/// returns a `DispatchError` (Error::Error → trap).
 #[test]
 fn permit_rejects_when_owner_lacks_deposit_balance() {
 	use frame_support::traits::fungibles::approvals::Inspect;
