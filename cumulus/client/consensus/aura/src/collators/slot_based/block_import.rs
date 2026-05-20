@@ -19,7 +19,9 @@ use crate::LOG_TARGET;
 use codec::{Decode, Encode};
 use cumulus_client_consensus_common::old_finalized_hash;
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
-use cumulus_client_unincluded_segment_store::{now_unix_ms, prepare_unincluded_segment_aux_data};
+use cumulus_client_unincluded_segment_store::{
+	now_unix_ms, prepare_aux_data as prepare_unincluded_segment_aux_data,
+};
 use cumulus_primitives_core::{BlockBundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
 use futures::{stream::FusedStream, StreamExt};
 use sc_client_api::{
@@ -315,7 +317,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 			});
 		}
 
-		prepare_unincluded_segment_aux_data(block_hash, time_ms, &storage_proof).for_each(
+		prepare_unincluded_segment_aux_data::<Block>(block_hash, time_ms, &storage_proof).for_each(
 			|(k, v)| {
 				params.auxiliary.push((k, Some(v)));
 			},
