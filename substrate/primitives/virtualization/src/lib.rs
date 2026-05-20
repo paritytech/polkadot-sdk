@@ -58,7 +58,6 @@ pub use forwarder::{Execution, Instance, Module};
 #[cfg(not(substrate_runtime))]
 pub use host_functions::{VirtManagerBackend, VirtManagerExt};
 
-use codec::{Decode, Encode};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 /// The target we use for all logging.
@@ -159,67 +158,57 @@ pub enum CompileStatus {
 }
 
 /// Errors that can be emitted when compiling a program into a module.
-#[derive(
-	Encode, Decode, TryFromPrimitive, IntoPrimitive, strum::EnumCount, Debug, PartialEq, Eq,
-)]
-#[repr(u32)]
+#[derive(TryFromPrimitive, IntoPrimitive, strum::EnumCount, Debug, PartialEq, Eq)]
+#[repr(i32)]
 pub enum ModuleError {
 	/// The supplied code was invalid.
-	InvalidImage = 1,
+	InvalidImage = -1,
 	/// No module with the given identifier has been compiled yet.
-	NotCached = 2,
+	NotCached = -2,
 	/// No code was found at the supplied storage key.
-	NotFound = 3,
+	NotFound = -3,
 }
 
 /// Errors that can be emitted when instantiating a new virtualization instance.
-#[derive(
-	Encode, Decode, TryFromPrimitive, IntoPrimitive, strum::EnumCount, Debug, PartialEq, Eq,
-)]
-#[repr(u32)]
+#[derive(TryFromPrimitive, IntoPrimitive, strum::EnumCount, Debug, PartialEq, Eq)]
+#[repr(i32)]
 pub enum InstantiateError {
 	/// The supplied code was invalid.
-	InvalidImage = 1,
+	InvalidImage = -1,
 	/// The supplied `module_id` was invalid or the module was not found.
-	InvalidModule = 2,
+	InvalidModule = -2,
 }
 
 /// Errors that can be emitted when executing a new virtualization instance.
-#[derive(
-	Encode, Decode, TryFromPrimitive, IntoPrimitive, strum::EnumCount, Debug, PartialEq, Eq,
-)]
-#[repr(u32)]
+#[derive(TryFromPrimitive, IntoPrimitive, strum::EnumCount, Debug, PartialEq, Eq)]
+#[repr(i32)]
 pub enum ExecError {
 	/// The supplied `instance_id` was invalid or the instance was destroyed.
-	InvalidInstance = 1,
+	InvalidInstance = -1,
 	/// The supplied code was invalid. Most likely caused by invalid entry points.
-	InvalidImage = 2,
+	InvalidImage = -2,
 	/// The execution ran out of gas before it could finish.
-	OutOfGas = 3,
+	OutOfGas = -3,
 	/// The execution trapped before it could finish.
 	///
 	/// This can be caused by executing an `unimp` instruction.
-	Trap = 4,
+	Trap = -4,
 }
 
 /// Errors that can be emitted when accessing a virtualization instance's memory.
-#[derive(
-	Encode, Decode, TryFromPrimitive, IntoPrimitive, strum::EnumCount, Debug, PartialEq, Eq,
-)]
-#[repr(u32)]
+#[derive(TryFromPrimitive, IntoPrimitive, strum::EnumCount, Debug, PartialEq, Eq)]
+#[repr(i32)]
 pub enum MemoryError {
 	/// The supplied `instance_id` was invalid or the instance was destroyed.
-	InvalidInstance = 1,
+	InvalidInstance = -1,
 	/// The memory region specified is not accessible.
-	OutOfBounds = 2,
+	OutOfBounds = -2,
 }
 
 /// Errors that can be emitted when destroying a virtualization instance.
-#[derive(
-	Encode, Decode, TryFromPrimitive, IntoPrimitive, strum::EnumCount, Debug, PartialEq, Eq,
-)]
-#[repr(u32)]
+#[derive(TryFromPrimitive, IntoPrimitive, strum::EnumCount, Debug, PartialEq, Eq)]
+#[repr(i32)]
 pub enum DestroyError {
 	/// The supplied `instance_id` was invalid or the instance was destroyed.
-	InvalidInstance = 1,
+	InvalidInstance = -1,
 }

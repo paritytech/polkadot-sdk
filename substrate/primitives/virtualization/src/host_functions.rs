@@ -82,21 +82,24 @@ pub enum ExecStatus {
 
 /// Implement the i64 wire encoding for error types used in [`RIIntResult`].
 ///
-/// Errors are encoded as negated discriminants: variant with discriminant `n`
-/// becomes `-n` on the wire. This relies on [`IntoPrimitive`] (for `u32::from`)
-/// and [`TryFromPrimitive`] (for `Self::try_from(u32)`) being derived on the type.
+/// Errors carry their wire value directly: each variant is declared with a negative
+/// `#[repr(i32)]` discriminant, so the encoding is a sign-extending cast to `i64` and
+/// the decoding is a `TryFrom<i64>` via `i32`. This relies on [`IntoPrimitive`] (for
+/// `i32::from`) and [`TryFromPrimitive`] (for `Self::try_from(i32)`) being derived on
+/// the type.
 macro_rules! impl_ri_error_encoding {
 	($($t:ty),+ $(,)?) => {$(
 		impl From<$t> for i64 {
 			fn from(error: $t) -> Self {
-				-(u32::from(error) as i64)
+				i32::from(error) as i64
 			}
 		}
 
 		impl TryFrom<i64> for $t {
 			type Error = ();
 			fn try_from(value: i64) -> Result<Self, Self::Error> {
-				Self::try_from((-value) as u32).map_err(|_| ())
+				let v = i32::try_from(value).map_err(|_| ())?;
+				Self::try_from(v).map_err(|_| ())
 			}
 		}
 	)+};
