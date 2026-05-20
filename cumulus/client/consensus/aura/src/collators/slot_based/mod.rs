@@ -74,7 +74,7 @@ use codec::Codec;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_proof_size_recording::register_proof_size_recording_cleanup;
-use cumulus_client_unincluded_segment_store::register_unincluded_segment_cleanup;
+use cumulus_client_unincluded_segment_store::UnincludedSegmentStore;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{
 	KeyToIncludeInRelayProof, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
@@ -219,7 +219,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 
 	// Initialize proof size recording cleanup
 	register_proof_size_recording_cleanup(para_client.clone());
-	register_unincluded_segment_cleanup(para_client.clone());
+	UnincludedSegmentStore::<Block, _>::new(para_client.clone()).register_cleanup();
 
 	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
 	let collator_task_params = collation_task::Params {
