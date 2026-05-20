@@ -2,42 +2,43 @@ title: '[pallet-assets-precompiles] `approve`/`permit` saturate on `U256 > Balan
 doc:
 - audience: Runtime Dev
   description: "## Summary\n\n`approve` and `permit` now saturate the *stored* allowance\
-    \ at `Balance::MAX` when `call.value > Balance::MAX`, instead of reverting at the\
-    \ `U256 → Balance` conversion. MetaMask, Uniswap, and most DEX routers hard-code\
+    \ at `Balance::MAX` when `call.value > Balance::MAX`, instead of reverting at\
+    \ the `U256 → Balance` conversion. MetaMask, Uniswap, and most DEX routers hard-code\
     \ `type(uint256).max` in approval calls — the universal \"infinite allowance\"\
     \ idiom — and the previous behaviour broke every one of those flows on chains\
-    \ where the runtime `Balance` (u128 or u64) can't hold `U256::MAX`.\n\nSaturating\
-    \ the stored allowance is lossless: total supply is also capped at `Balance::MAX`,\
-    \ so a larger allowance grants no additional spending power. The emitted `Approval`\
-    \ event still carries the raw `call.value`, matching the ERC-20 / OpenZeppelin\
-    \ convention so EVM wallets and indexers (subgraphs, MetaMask token-activity views,\
-    \ explorers) keep working without precompile-specific knowledge — including\
-    \ the `value == uint256.max` \"Unlimited approval\" sentinel pattern. Consumers\
-    \ needing the exact stored allowance can call `allowance()`.\n\n## Sentinel semantics\n\
-    \nOnly the literal `call.value == U256::MAX` idiom is treated as an \"infinite\
-    \ allowance\" sentinel. The `(verifying_contract, owner, spender)` triple is flagged\
-    \ in `permit::InfiniteApprovals` and `transferFrom` will skip the approval decrement\
-    \ for the flagged triple — matching OpenZeppelin's `_spendAllowance` rule\
-    \ on Ethereum mainnet, where `type(uint256).max` (not `Balance::MAX`) is the sentinel.\
-    \ Any subsequent finite write to the same triple clears the flag, so a direct\
-    \ `approve(spender, Balance::MAX)` (a finite value, not the sentinel idiom) decrements\
-    \ normally.\n\n## Destruction cleanup\n\nA new `pallet_assets::AssetsCallback` adapter\
-    \ pair (`ClearLocalInfiniteApprovals<PREFIX, T>` and `ClearForeignInfiniteApprovals<PREFIX,\
-    \ T>`) wipes `permit::InfiniteApprovals` rows on asset destruction. Without this,\
-    \ destroying and re-creating an inline-id (local) asset would reuse the same precompile\
-    \ address and inherit the previous incarnation's sentinel flags, making `allowance()`\
-    \ return `U256::MAX` for a freshly-created asset with no approval row. Runtimes\
-    \ must wire these adapters into `pallet_assets::Config::CallbackHandle` for each\
-    \ instance they expose via this precompile; `ClearForeignInfiniteApprovals` must\
-    \ precede `ForeignAssetId` in the callback tuple (the index lookup depends on\
-    \ the asset_id→index mapping still being in place).\n\n## Versioning\n\nBumped\
-    \ as **patch**: every change is a strict superset of the previous behaviour —\
-    \ `approve`/`permit` calls that previously reverted with `U256 > Balance::MAX`\
-    \ now succeed, no previously-successful call changes outcome, and the destruction\
-    \ cleanup is a no-op for runtimes that don't wire the new callback adapters. The\
-    \ Rust crate API gains two public types (`ClearLocalInfiniteApprovals`, `ClearForeignInfiniteApprovals`)\
-    \ and the `precompile_address` helper; no existing items are renamed or removed.\n\
-    \n## Test plan\n\n- [x] `cargo test -p pallet-assets-precompiles` passes"
+    \ where the runtime `Balance` (u128 or u64) can't hold `U256::MAX`.\n\nSaturation\
+    \ is lossless: total supply is also capped at `Balance::MAX`, so a larger allowance\
+    \ would grant no additional spending power.\n\n## Sentinel semantics\n\nA stored\
+    \ allowance of exactly `Balance::MAX` is the \"infinite allowance\" sentinel:\n\
+    \n- `transferFrom` skips the approval decrement (`do_transfer` instead of `do_transfer_approved`),\
+    \ so once a sentinel approval is set, the spender can keep transferring without\
+    \ chipping away at it — matching OpenZeppelin's `_spendAllowance` rule on Ethereum\
+    \ mainnet.\n- `allowance()` returns `U256::MAX` rather than the stored `Balance::MAX`,\
+    \ so EVM wallets and indexers see the canonical \"unlimited\" wire value they\
+    \ pattern-match against.\n- The `Approval` event is normalized to `U256::MAX`\
+    \ when the write lands on the sentinel, keeping `event.value == allowance()`\
+    \ for any sentinel-producing call (whether the caller signed `U256::MAX`,\
+    \ `Balance::MAX + 1`, or exactly `Balance::MAX`). Indexers replaying logs see\
+    \ the same value the chain would return.\n\nAny subsequent finite write to the\
+    \ same `(owner, spender)` pair overwrites `stored` below `Balance::MAX` and\
+    \ collapses the sentinel — `transferFrom` decrements normally from then on.\n\n\
+    ## Note on out-of-band mutations\n\n`pallet_assets::Approvals` can be mutated\
+    \ by callers outside this precompile (`transfer_approved`, `cancel_approval`,\
+    \ `force_cancel_approval`, additive `approve_transfer`). Because the sentinel\
+    \ is the stored value itself — not a separately-tracked flag — those mutations\
+    \ are reflected immediately: a decrement below `Balance::MAX` collapses the\
+    \ sentinel for both `allowance()` and `transferFrom`, with no precompile-side\
+    \ bookkeeping needed.\n\n## Doc-comment cleanup\n\nThe `approve` doc-comment\
+    \ previously told callers to use `increaseAllowance` / `decreaseAllowance` to\
+    \ mitigate the well-known approve front-running race, but neither method is\
+    \ exposed by this precompile (OpenZeppelin removed them in v5.0). Replaced with\
+    \ a pointer to `permit()`, which this precompile *does* expose and which solves\
+    \ the same problem atomically via signature.\n\n## Versioning\n\nBumped as **patch**:\
+    \ behaviour change is a strict superset of the previous behaviour. Calls that\
+    \ previously reverted (`approve`/`permit` with `U256 > Balance::MAX`) now succeed;\
+    \ no previously-successful call changes outcome. The Rust crate API surface\
+    \ (traits, types, `Config`) is unchanged.\n\n## Test plan\n\n- [x] `cargo test\
+    \ -p pallet-assets-precompiles` passes"
 crates:
 - name: pallet-assets-precompiles
   bump: patch
