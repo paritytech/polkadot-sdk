@@ -499,6 +499,106 @@ fn allowance_and_transfer_from_honour_out_of_band_decrement() {
 	});
 }
 
+/// Documented footgun: `pallet_assets::approve_transfer` is additive
+/// (`saturating_add`), so an owner who starts with a finite allowance via
+/// the precompile and then tops it up out-of-band can accidentally land
+/// on `Balance::MAX` and reactivate the sentinel without intending to.
+/// Because the sentinel *is* the stored value (`stored == Balance::MAX`),
+/// the precompile cannot detect "the caller meant a finite sum" once
+/// `stored` reaches the cap.
+///
+/// In practice this requires actively accumulating up to `Balance::MAX`
+/// (~10^38 for u128 in this mock), which no realistic owner reaches by
+/// accident. The test pins the behaviour so a future contributor doesn't
+/// silently change it; the prdoc's "Note on out-of-band mutations"
+/// section documents it as accepted.
+#[test]
+fn approve_transfer_additive_can_saturate_to_sentinel() {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let owner = 123456789;
+		let spender = 987654321;
+		let recipient = 111222333;
+		Balances::make_free_balance_be(&owner, 100);
+		Balances::make_free_balance_be(&spender, 100);
+		Balances::make_free_balance_be(&recipient, 100);
+
+		let owner_h160 = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let spender_h160 = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+		let recipient_h160 = <Test as pallet_revive::Config>::AddressMapper::to_address(&recipient);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+
+		// Start with a small, finite precompile approval. Sentinel inert.
+		call_approve(owner, asset_addr, spender_h160, U256::from(1u128));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 1);
+
+		// Owner tops up out-of-band with `approve_transfer`. The pallet's
+		// extrinsic is additive (`saturating_add`); 1 + (MAX - 1) saturates
+		// to `Balance::MAX`. The owner's mental model is "I added MAX - 1
+		// to my approval", but the result lands on the sentinel.
+		assert_ok!(Assets::approve_transfer(
+			RuntimeOrigin::signed(owner),
+			asset_id.into(),
+			spender,
+			u128::MAX - 1,
+		));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u128::MAX);
+
+		// `allowance()` via the precompile now surfaces the sentinel
+		// signal — wallets see "Unlimited" even though the owner only ever
+		// approved finite amounts through the precompile.
+		let data =
+			IERC20::allowanceCall { owner: owner_h160.0.into(), spender: spender_h160.0.into() }
+				.abi_encode();
+		let bytes = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(owner),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.expect("allowance() must succeed")
+		.data;
+		let ret = IERC20::allowanceCall::abi_decode_returns(&bytes).unwrap();
+		assert_eq!(ret, U256::MAX, "stored at Balance::MAX must surface as U256::MAX");
+
+		// `transferFrom` takes the no-decrement sentinel path now.
+		let data = IERC20::transferFromCall {
+			from: owner_h160.0.into(),
+			to: recipient_h160.0.into(),
+			value: U256::from(10u64),
+		}
+		.abi_encode();
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(spender),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		);
+		assert!(!result.result.unwrap().did_revert());
+		assert_eq!(
+			Assets::allowance(asset_id, &owner, &spender),
+			u128::MAX,
+			"sentinel must not decrement after transferFrom",
+		);
+	});
+}
+
 /// Pins the common (non-sentinel) `transfer_from` path: with no approval row,
 /// the call must revert with `Unapproved`. Guards against the sentinel-bypass
 /// refactor accidentally letting unauthorised callers transfer (e.g. if a
