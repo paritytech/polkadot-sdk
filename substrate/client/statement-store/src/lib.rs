@@ -356,10 +356,7 @@ pub struct Store {
 }
 
 impl ReplaySnapshotProvider for Weak<Store> {
-	fn collect_snapshot_hashes(
-		&self,
-		filter: &OptimizedTopicFilter,
-	) -> Result<Vec<Hash>> {
+	fn collect_snapshot_hashes(&self, filter: &OptimizedTopicFilter) -> Result<Vec<Hash>> {
 		let Some(store) = self.upgrade() else {
 			return Err(Error::InvalidConfig("statement store is closed".into()));
 		};
