@@ -26,9 +26,10 @@ use alloc::{vec, vec::Vec};
 use ark_ec::{
 	pairing::{MillerLoopOutput, Pairing},
 	short_weierstrass::{Affine as SWAffine, SWCurveConfig},
-	twisted_edwards::{Affine as TEAffine, TECurveConfig},
+	twisted_edwards::{Affine as TEAffine, Projective as TEProjective, TECurveConfig},
 	CurveGroup,
 };
+use ark_ff::{AdditiveGroup, Field, Zero};
 use ark_scale::{
 	ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate},
 	scale::{Decode, Encode, Output},
@@ -148,6 +149,33 @@ pub fn decode<T: CanonicalDeserialize>(mut buf: &[u8]) -> Result<T, Error> {
 	ArkScale::<T>::decode(&mut buf).map_err(|_| Error::Decode).map(|v| v.0)
 }
 
+/// Fallible projective-to-affine conversion for *twisted Edwards* projectives.
+///
+/// Arkworks' standard `From<Projective> for Affine` for TE branches on
+/// `is_zero()` (i.e. `x == 0 && y == z`) and otherwise calls
+/// `z.inverse().unwrap()`. On *incomplete* twisted Edwards curves such as
+/// Bandersnatch, HWCD arithmetic fed non-subgroup inputs can land in
+/// `(0, Y, T, 0)` or `(X, 0, T, 0)` states with `z = 0` that miss the
+/// `is_zero()` short-circuit, hitting the panicking inverse. This trait
+/// returns `None` in that case so callers can choose what to ship over
+/// the FFI boundary instead of crashing.
+///
+/// Not defined for short Weierstrass: SW `into_affine()` is total —
+/// `z = 0` there is just the point at infinity (the identity), with a
+/// valid affine representation through arkworks' `infinity` flag.
+pub trait IntoAffineSafe {
+	type Affine;
+	fn into_affine_safe(self) -> Option<Self::Affine>;
+}
+
+impl<P: TECurveConfig> IntoAffineSafe for TEProjective<P> {
+	type Affine = TEAffine<P>;
+	#[inline]
+	fn into_affine_safe(self) -> Option<TEAffine<P>> {
+		(!self.z.is_zero()).then(|| self.into_affine())
+	}
+}
+
 /// Pairing multi Miller loop.
 ///
 /// Receives encoded:
@@ -202,12 +230,22 @@ pub fn mul_sw<T: SWCurveConfig>(base: &[u8], scalar: &[u8], out: &mut [u8]) -> R
 /// Expects encoded:
 /// - `bases`: `Vec<TEAffine<TECurveConfig>>`.
 /// - `scalars`: `Vec<TECurveConfig::ScalarField>`.
-/// Writes encoded `TEAffine<TECurveConfig>` to `out`.
+/// Writes encoded `TEAffine<TECurveConfig>` to `out`. If the projective result
+/// has `z = 0` (no affine representative — reachable on incomplete TE forms
+/// like Bandersnatch when fed non-subgroup bases), writes `(0, -1)` instead:
+/// a universal TE point of order 2 that is guaranteed not to lie in any
+/// prime-order subgroup, so a downstream subgroup check on the result will
+/// reject the degenerate case rather than silently accept identity.
 pub fn msm_te<T: TECurveConfig>(bases: &[u8], scalars: &[u8], out: &mut [u8]) -> Result<(), Error> {
 	let bases = decode::<Vec<TEAffine<T>>>(bases)?;
 	let scalars = decode::<Vec<T::ScalarField>>(scalars)?;
-	let res = T::msm(&bases, &scalars).map_err(|_| Error::LengthMismatch)?.into_affine();
-	encode_into::<TEAffine<T>>(res, out)
+	let res = T::msm(&bases, &scalars).map_err(|_| Error::LengthMismatch)?;
+	// `(0, -1)` is on every TE curve (`a·0 + 1 = 1 + 0`) and has order 2,
+	// so it never lies in any prime-order subgroup. Honest msm with
+	// subgroup-valid bases never hits this branch.
+	let non_subgroup = TEAffine::<T>::new_unchecked(T::BaseField::ZERO, -T::BaseField::ONE);
+	let aff = res.into_affine_safe().unwrap_or(non_subgroup);
+	encode_into::<TEAffine<T>>(aff, out)
 }
 
 /// Twisted Edwards affine multiplication.
@@ -215,12 +253,16 @@ pub fn msm_te<T: TECurveConfig>(bases: &[u8], scalars: &[u8], out: &mut [u8]) ->
 /// Expects encoded:
 /// - `base`: `TEAffine<TECurveConfig>`.
 /// - `scalar`: `BigInteger`.
-/// Writes encoded `TEAffine<TECurveConfig>` to `out`.
+/// Writes encoded `TEAffine<TECurveConfig>` to `out`. If the projective result
+/// has `z = 0` (no affine representative — reachable on incomplete TE forms
+/// like Bandersnatch when fed non-subgroup inputs), echoes `base` back
+/// unchanged.
 pub fn mul_te<T: TECurveConfig>(base: &[u8], scalar: &[u8], out: &mut [u8]) -> Result<(), Error> {
-	let base = decode::<TEAffine<T>>(base)?;
+	let base_aff = decode::<TEAffine<T>>(base)?;
 	let scalar = decode::<BigInteger>(scalar)?;
-	let res = T::mul_affine(&base, &scalar).into_affine();
-	encode_into::<TEAffine<T>>(res, out)
+	let res = T::mul_affine(&base_aff, &scalar);
+	let aff = res.into_affine_safe().unwrap_or(base_aff);
+	encode_into::<TEAffine<T>>(aff, out)
 }
 
 #[cfg(test)]
