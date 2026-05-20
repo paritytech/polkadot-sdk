@@ -7322,6 +7322,7 @@ dependencies = [
  "sc-runtime-utilities",
  "sc-service",
  "sc-sysinfo",
+ "sc-virtualization",
  "serde",
  "serde_json",
  "sp-api 26.0.0",
@@ -7342,6 +7343,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
+ "sp-virtualization",
  "sp-wasm-interface 20.0.0",
  "substrate-test-runtime",
  "subxt 0.44.2",
@@ -17625,6 +17627,7 @@ dependencies = [
  "sc-transaction-pool",
  "sc-transaction-pool-api 28.0.0",
  "sc-utils 14.0.0",
+ "sc-virtualization",
  "slot-range-helper",
  "sp-api 26.0.0",
  "sp-api-proc-macro 15.0.0",
@@ -21405,6 +21408,7 @@ dependencies = [
  "sc-executor-wasmtime 0.29.0",
  "sc-runtime-test",
  "sc-tracing",
+ "sc-virtualization",
  "schnellru",
  "sp-api 26.0.0",
  "sp-core 28.0.0",
@@ -21518,7 +21522,6 @@ dependencies = [
  "sc-runtime-test",
  "sp-io 30.0.0",
  "sp-runtime-interface 24.0.0",
- "sp-virtualization",
  "sp-wasm-interface 20.0.0",
  "tempfile",
  "wasmtime 36.0.7",
@@ -22532,6 +22535,19 @@ dependencies = [
  "parking_lot 0.12.3",
  "prometheus",
  "sp-arithmetic 28.0.0",
+]
+
+[[package]]
+name = "sc-virtualization"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "polkavm 0.33.1",
+ "sp-io 30.0.0",
+ "sp-storage 19.0.0",
+ "sp-tracing 16.0.0",
+ "sp-virtualization",
+ "sp-virtualization-test-fixture",
 ]
 
 [[package]]
@@ -25713,12 +25729,9 @@ dependencies = [
  "log",
  "num_enum",
  "parity-scale-codec",
- "polkavm 0.33.1",
+ "sp-externalities 0.25.0",
  "sp-runtime-interface 24.0.0",
- "sp-std 14.0.0",
- "sp-tracing 16.0.0",
- "sp-virtualization-test-fixture",
- "sp-wasm-interface 20.0.0",
+ "sp-storage 19.0.0",
  "strum 0.26.3",
 ]
 

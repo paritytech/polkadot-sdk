@@ -313,6 +313,7 @@ members = [
 	"substrate/client/transaction-pool",
 	"substrate/client/transaction-pool/api",
 	"substrate/client/utils",
+	"substrate/client/virtualization",
 	"substrate/deprecated/hashing",
 	"substrate/deprecated/hashing/proc-macro",
 	"substrate/frame",
@@ -1278,6 +1279,7 @@ sc-tracing-proc-macro = { path = "substrate/client/tracing/proc-macro", default-
 sc-transaction-pool = { path = "substrate/client/transaction-pool", default-features = false }
 sc-transaction-pool-api = { path = "substrate/client/transaction-pool/api", default-features = false }
 sc-utils = { path = "substrate/client/utils", default-features = false }
+sc-virtualization = { path = "substrate/client/virtualization", default-features = false }
 scale-info = { version = "2.11.6", default-features = false }
 schemars = { version = "0.8.13", default-features = false }
 schnellru = { version = "0.2.3" }
