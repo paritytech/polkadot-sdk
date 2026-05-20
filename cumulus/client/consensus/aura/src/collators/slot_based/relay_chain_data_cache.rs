@@ -18,7 +18,6 @@
 //! Utility for caching [`RelayChainData`] for different relay blocks.
 
 use crate::collators::claim_queue_at;
-use cumulus_primitives_core::CoreSelector;
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
@@ -35,8 +34,6 @@ pub struct RelayChainData {
 	pub claim_queue: ClaimQueueSnapshot,
 	/// Maximum configured PoV size on the relay chain.
 	pub max_pov_size: u32,
-	/// The last [`CoreSelector`] we used.
-	pub last_claimed_core_selector: Option<CoreSelector>,
 }
 
 /// Simple helper to fetch relay chain data and cache it based on the current relay chain best block
@@ -107,16 +104,11 @@ where
 			},
 		};
 
-		Ok(RelayChainData {
-			relay_parent_header,
-			claim_queue,
-			max_pov_size,
-			last_claimed_core_selector: None,
-		})
+		Ok(RelayChainData { relay_parent_header, claim_queue, max_pov_size })
 	}
 
 	#[cfg(test)]
-	pub(crate) fn insert_test_data(&mut self, relay_parent: RelayHash, data: RelayChainData) {
-		self.cached_data.insert(relay_parent, data);
+	pub fn insert_test_data(&mut self, relay_parent_hash: RelayHash, data: RelayChainData) {
+		self.cached_data.insert(relay_parent_hash, data);
 	}
 }
