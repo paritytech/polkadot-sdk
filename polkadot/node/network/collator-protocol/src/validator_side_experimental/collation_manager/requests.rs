@@ -31,6 +31,7 @@ use polkadot_node_network_protocol::request_response::{
 	Requests,
 };
 use polkadot_node_subsystem_util::metrics::prometheus::prometheus::HistogramTimer;
+use polkadot_primitives::{Hash, Id as ParaId};
 use std::{collections::HashMap, future::Future, pin::Pin};
 use tokio_util::sync::CancellationToken;
 
@@ -103,6 +104,15 @@ impl PendingRequests {
 	pub fn note_completed(&mut self, advertisement: &Advertisement) {
 		self.cancellation_tokens.remove(advertisement);
 	}
+
+	/// Returns `true` if there are any in-flight fetches for the given
+	/// `(relay_parent, para_id)` pair.
+	pub fn has_in_flight_for(&self, relay_parent: &Hash, para_id: &ParaId) -> bool {
+		self.cancellation_tokens
+			.keys()
+			.any(|adv| adv.scheduling_parent == *relay_parent && adv.para_id == *para_id)
+	}
+
 
 	pub fn response_stream(&mut self) -> &mut impl FusedStream<Item = CollationFetchResponse> {
 		&mut self.futures

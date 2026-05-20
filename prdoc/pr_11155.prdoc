@@ -1,0 +1,23 @@
+title: 'Collator protocol revamp: parallel fetching'
+doc:
+- audience: Node Dev
+  description: |-
+    https://github.com/paritytech/polkadot-sdk/issues/11023
+  
+    Implement parallel collation fetching with reputation-based escalation
+
+     Changes
+
+      - `parallel_fetch`: Tracks escalation deadlines for each
+        `(relay_parent, para_id)` group and determines when to escalate to next candidate.
+
+      - `CanSecond::NoKeepSlot` variant: New state indicating a parallel fetch
+        succeeded for the same slot. Original fetch failures return `NoKeepSlot` instead
+        of `No`, preventing claim queue slot double-release.
+
+      - Escalation logic: Launches parallel fetches from next-best collators after
+        ESCALATION_TIMEOUT. Zero-reputation peers get additional delay. Respects existing
+        fetch deadlines to avoid unnecessary extensions.
+crates:
+- name: polkadot-collator-protocol
+  bump: patch

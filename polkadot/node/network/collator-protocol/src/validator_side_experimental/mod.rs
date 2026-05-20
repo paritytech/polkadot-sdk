@@ -17,6 +17,7 @@
 mod collation_manager;
 mod common;
 mod error;
+mod parallel_fetch;
 mod peer_manager;
 mod state;
 #[cfg(test)]
