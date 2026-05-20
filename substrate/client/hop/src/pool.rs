@@ -37,6 +37,7 @@ use sp_runtime::{
 use std::{
 	collections::{BTreeSet, HashMap},
 	fs,
+	ops::Bound,
 	path::{Path, PathBuf},
 	process,
 	sync::{
@@ -72,6 +73,12 @@ pub struct HopDataPool {
 	rmw_lock: Mutex<()>,
 	/// Per-user byte usage cache, rebuilt at startup.
 	user_usage: RwLock<HashMap<SenderId, AtomicU64>>,
+	/// Expiry-ordered index of live entries, rebuilt at startup. Lets
+	/// `cleanup_expired` and `get_promotable` run as bounded range scans
+	/// instead of iterating the entire meta column each tick. Stale or
+	/// missing entries are tolerated: maintenance re-reads each candidate
+	/// under `rmw_lock` before acting on it.
+	expiry_index: RwLock<BTreeSet<(u64, HopHash)>>,
 	/// Maximum pool size in bytes (data + per-entry metadata overhead).
 	max_size: u64,
 	/// Fixed hard per-user quota in bytes.
@@ -117,6 +124,7 @@ impl HopDataPool {
 		let mut current_size: u64 = 0;
 		let mut entry_count: u64 = 0;
 		let mut live_hashes: std::collections::HashSet<HopHash> = std::collections::HashSet::new();
+		let mut expiry_index: BTreeSet<(u64, HopHash)> = BTreeSet::new();
 		let mut stale_keys: Vec<Vec<u8>> = Vec::new();
 
 		{
@@ -140,6 +148,7 @@ impl HopDataPool {
 							.or_default()
 							.fetch_add(accounted, Ordering::Relaxed);
 						live_hashes.insert(hash);
+						expiry_index.insert((meta.expires_at, hash));
 					},
 					Ok(meta) => {
 						tracing::warn!(
@@ -216,6 +225,7 @@ impl HopDataPool {
 			db: Arc::new(db),
 			rmw_lock: Mutex::new(()),
 			user_usage: RwLock::new(user_usage),
+			expiry_index: RwLock::new(expiry_index),
 			max_size,
 			max_user_size,
 			current_size: AtomicU64::new(current_size),
@@ -446,6 +456,7 @@ impl HopDataPool {
 			}
 		}
 
+		self.expiry_index.write().insert((expires_at, hash));
 		self.entry_count.fetch_add(1, Ordering::Relaxed);
 
 		tracing::info!(
@@ -516,6 +527,7 @@ impl HopDataPool {
 		};
 		if let Some(meta) = removed {
 			let accounted = entry_accounted_size(meta.size, meta.recipients.len());
+			self.expiry_index.write().remove(&(meta.expires_at, *hash));
 			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
 			self.entry_count.fetch_sub(1, Ordering::Relaxed);
 			self.release_user_quota(&meta.sender_id, accounted);
@@ -648,9 +660,11 @@ impl HopDataPool {
 		if meta.recipients.iter().all(|r| r.claimed) {
 			let accounted = entry_accounted_size(meta.size, meta.recipients.len());
 			let sender = meta.sender_id;
+			let expires_at = meta.expires_at;
 			self.commit_meta(hash, None)?;
 			drop(_guard);
 
+			self.expiry_index.write().remove(&(expires_at, *hash));
 			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
 			self.entry_count.fetch_sub(1, Ordering::Relaxed);
 			self.release_user_quota(&sender, accounted);
@@ -698,6 +712,7 @@ impl HopDataPool {
 		};
 
 		let accounted = entry_accounted_size(meta.size, meta.recipients.len());
+		self.expiry_index.write().remove(&(meta.expires_at, *hash));
 		self.current_size.fetch_sub(accounted, Ordering::Relaxed);
 		self.entry_count.fetch_sub(1, Ordering::Relaxed);
 		self.release_user_quota(&meta.sender_id, accounted);
@@ -723,47 +738,43 @@ impl HopDataPool {
 	}
 
 	/// Remove expired entries, release their quotas, return total bytes freed.
+	///
+	/// Uses `expiry_index` to enumerate expired hashes in O(K), not O(N) over
+	/// the meta column. Entries are processed in batches so a long outage
+	/// can't buffer the whole expired set in RAM before any progress lands.
 	pub fn cleanup_expired(&self) -> u64 {
 		const CLEANUP_BATCH_SIZE: usize = 10_000;
 		let now_secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
 
-		// Phase 1: scan for expired keys.
-		let mut expired_keys: Vec<HopHash> = Vec::new();
-		match self.db.iter(COL_META) {
-			Ok(mut iter) => loop {
-				match iter.next() {
-					Ok(Some((key, value))) => {
-						let Ok(arr) = <[u8; 32]>::try_from(key.as_slice()) else { continue };
-						let Ok(meta) = HopEntryMeta::decode(&mut value.as_slice()) else {
-							continue;
-						};
-						if now_secs >= meta.expires_at {
-							expired_keys.push(H256(arr));
-						}
-					},
-					Ok(None) => break,
-					Err(e) => {
-						tracing::error!(target: "hop", error = %e, "cleanup_expired: meta column scan failed");
-						break;
-					},
-				}
-			},
-			Err(e) => {
-				tracing::error!(target: "hop", error = %e, "cleanup_expired: failed to open iterator");
-				return 0;
-			},
-		}
-
 		let mut total_freed: u64 = 0;
 
-		for batch in expired_keys.chunks(CLEANUP_BATCH_SIZE) {
+		loop {
+			// Snapshot one batch of expired index entries. The range is
+			// inclusive of `(now, max-hash)` so an entry expiring exactly at
+			// `now` is reaped this tick.
+			let batch: Vec<(u64, HopHash)> = {
+				let guard = self.expiry_index.read();
+				guard
+					.range((
+						Bound::Unbounded,
+						Bound::Included(&(now_secs, H256([0xff; 32]))),
+					))
+					.take(CLEANUP_BATCH_SIZE)
+					.copied()
+					.collect()
+			};
+
+			if batch.is_empty() {
+				break;
+			}
+
 			// Phase 2: re-read under rmw_lock (entries may have changed since
-			// the scan), commit deletions, collect metas for counter accounting.
+			// the snapshot), commit deletions, collect metas for accounting.
 			let mut processed: Vec<(HopHash, HopEntryMeta)> = Vec::with_capacity(batch.len());
 			{
 				let _guard = self.rmw_lock.lock();
 				let mut ops: Vec<(u8, Vec<u8>, Option<Vec<u8>>)> = Vec::with_capacity(batch.len());
-				for hash in batch {
+				for (_, hash) in &batch {
 					match self.fetch_meta(hash) {
 						Ok(Some(meta)) if now_secs >= meta.expires_at => {
 							ops.push((COL_META, hash.as_bytes().to_vec(), None));
@@ -778,12 +789,26 @@ impl HopDataPool {
 				if !ops.is_empty() {
 					if let Err(e) = self.db.commit(ops) {
 						tracing::error!(target: "hop", error = %e, "cleanup_expired: batch commit failed");
-						continue;
+						break;
 					}
 				}
 			}
 
-			// Phase 3: counter updates + best-effort blob deletion.
+			// Phase 3: drop every batch entry from the index — both processed
+			// ones and any stale snapshots from a racing op — to guarantee
+			// forward progress. Releasing the read guard before taking write
+			// avoids a deadlock since the snapshot already finished above.
+			{
+				let mut index = self.expiry_index.write();
+				for entry in &batch {
+					index.remove(entry);
+				}
+			}
+
+			if processed.is_empty() {
+				continue;
+			}
+
 			let freed: u64 = processed
 				.iter()
 				.map(|(_, meta)| entry_accounted_size(meta.size, meta.recipients.len()))
@@ -807,20 +832,12 @@ impl HopDataPool {
 			}
 		}
 
-		// Phase 4: reclaim per-sender counters with no live entries.
+		// Phase 4: drop per-sender counters that have settled to 0. A live
+		// sender's counter is kept above 0 by `charge_user`'s read guard,
+		// which excludes this write guard, so usage=0 means no live entries.
 		{
-			let mut live: std::collections::HashSet<SenderId> = std::collections::HashSet::new();
-			if let Ok(mut iter) = self.db.iter(COL_META) {
-				while let Ok(Some((_, value))) = iter.next() {
-					if let Ok(meta) = HopEntryMeta::decode(&mut value.as_slice()) {
-						live.insert(meta.sender_id);
-					}
-				}
-			}
 			let mut usage = self.user_usage.write();
-			usage.retain(|sender_id, counter| {
-				counter.load(Ordering::Relaxed) > 0 || live.contains(sender_id)
-			});
+			usage.retain(|_, counter| counter.load(Ordering::Relaxed) > 0);
 		}
 
 		// Let the rate limiter shed stale per-sender state on the same cadence.
@@ -832,6 +849,10 @@ impl HopDataPool {
 	/// Return hashes of entries within `buffer_secs` of expiry that have not yet been promoted.
 	/// Returns up to `limit` hashes. Use [`Self::get`] to read blob data when needed.
 	/// The maintenance task runs periodically, so remaining entries are picked up next cycle.
+	///
+	/// Uses `expiry_index` to walk only entries inside the promotion window;
+	/// the meta column is touched only for candidates that pass the window
+	/// filter, so cost scales with the window size, not the pool.
 	pub fn get_promotable(
 		&self,
 		current_block: HopBlockNumber,
@@ -839,26 +860,32 @@ impl HopDataPool {
 		limit: usize,
 	) -> Vec<HopHash> {
 		let now_secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+		let frontier = now_secs.saturating_add(buffer_secs);
+
+		// Snapshot candidate hashes inside the window so the read guard isn't
+		// held across `fetch_meta` calls.
+		let candidates: Vec<HopHash> = {
+			let guard = self.expiry_index.read();
+			guard
+				.range((Bound::Unbounded, Bound::Included(&(frontier, H256([0xff; 32])))))
+				.map(|(_, hash)| *hash)
+				.collect()
+		};
 
 		let mut out: Vec<HopHash> = Vec::new();
-		if let Ok(mut iter) = self.db.iter(COL_META) {
-			while out.len() < limit {
-				match iter.next() {
-					Ok(Some((key, value))) => {
-						let Ok(arr) = <[u8; 32]>::try_from(key.as_slice()) else { continue };
-						let Ok(meta) = HopEntryMeta::decode(&mut value.as_slice()) else {
-							continue;
-						};
-						if !meta.promoted &&
-							now_secs.saturating_add(buffer_secs) >= meta.expires_at &&
-							meta.promotion_attempts < MAX_PROMOTION_ATTEMPTS &&
-							current_block >= meta.next_promotion_attempt_at
-						{
-							out.push(H256(arr));
-						}
-					},
-					Ok(None) | Err(_) => break,
-				}
+		for hash in candidates {
+			if out.len() >= limit {
+				break;
+			}
+			match self.fetch_meta(&hash) {
+				Ok(Some(meta))
+					if !meta.promoted &&
+						meta.promotion_attempts < MAX_PROMOTION_ATTEMPTS &&
+						current_block >= meta.next_promotion_attempt_at =>
+				{
+					out.push(hash);
+				},
+				_ => (),
 			}
 		}
 		out
