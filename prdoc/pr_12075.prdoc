@@ -1,6 +1,6 @@
 title: 'frame-benchmarking: allow 2-point slope fits in `min_squares_iqr`'
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
     # Description
 
