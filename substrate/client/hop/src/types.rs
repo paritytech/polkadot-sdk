@@ -161,7 +161,7 @@ pub struct SubmitResult {
 #[derive(Debug, thiserror::Error)]
 pub enum HopError {
 	#[error("Data too large: {0} bytes (max: {1})")]
-	DataTooLarge(usize, u64),
+	DataTooLarge(usize, u32),
 
 	#[error("Pool full: {0}/{1} bytes used")]
 	PoolFull(u64, u64),
@@ -219,9 +219,6 @@ pub enum HopError {
 
 	#[error("No database path available and --hop-data-dir not specified")]
 	MissingDataDir,
-
-	#[error("Invalid configuration: {0}")]
-	InvalidConfig(String),
 }
 
 impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
@@ -247,17 +244,11 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 			HopError::DuplicateRecipient => 1019,
 			HopError::RateLimited { .. } => 1020,
 			HopError::MissingDataDir => 1021,
-			HopError::InvalidConfig(_) => 1022,
 		};
 
 		jsonrpsee::types::ErrorObject::owned(code, err.to_string(), None::<()>)
 	}
 }
-
-/// Crate-level upper bound on a HOP entry's data size (8 MiB). The effective
-/// cap is whatever `HopRuntimeApi::max_promotion_size()` reports on the current
-/// runtime; this constant just anchors the worst case.
-pub const MAX_DATA_SIZE: u64 = 8 * 1024 * 1024;
 
 /// Default retention period in seconds (24 hours).
 pub const DEFAULT_RETENTION_SECS: u64 = 86_400;

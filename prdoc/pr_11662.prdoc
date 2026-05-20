@@ -12,10 +12,10 @@ doc:
       - Disk-backed data pool (`HopDataPool`) with 256-way sharded blob/meta storage
         and crash-recovery from disk on restart.
       - RPC interface: `hop_submit`, `hop_claim`, `hop_ack`, `hop_poolStatus`.
-      - Submission gated by `HopRuntimeApi::can_account_promote(who, data_len)` —
-        the runtime defines its own authorization policy (including any per-account
-        or per-submission size cap); the node enforces only a crate-level upper
-        bound of 8 MiB.
+      - Submission gated by two runtime API calls: `HopRuntimeApi::max_promotion_size`
+        sets the per-submission size cap (authoritative; no separate node-side
+        ceiling), and `HopRuntimeApi::can_account_promote(who, data_len)` defines
+        the per-account authorization policy.
       - Recipient fan-out capped at `MAX_RECIPIENTS` (256) via a type-level
         `BoundedVec` (`RecipientVec`) so oversized lists are rejected before
         SCALE decoding and signature verification. Duplicate recipients are also
@@ -32,8 +32,11 @@ doc:
         entries to on-chain storage, garbage-collects expired ones, and evicts
         stale per-sender rate-limit state.
 
-      **`sp-hop`** defines the `HopRuntimeApi` runtime API trait: `can_account_promote`,
-      `create_promotion_extrinsic`, and `is_promoted_on_chain`. The promotion extrinsic
+      **`sp-hop`** defines the `HopRuntimeApi` runtime API trait: `max_promotion_size`,
+      `can_account_promote`, `create_promotion_extrinsic`, and `is_promoted_on_chain`.
+      `max_promotion_size` lets the runtime declare its current size cap so the node can
+      reject oversized submissions at the RPC boundary before any account lookup or
+      signature verification. The promotion extrinsic
       carries the submitter's `MultiSigner`, `hop_submit`-time `MultiSignature`, and
       `submit_timestamp` (ms since unix epoch) so the runtime pallet can re-verify
       the user's consent on-chain instead of trusting the collator. "Submit implies
@@ -84,7 +87,7 @@ crates:
   - name: sc-hop
     bump: patch
   - name: sp-hop
-    bump: major
+    bump: patch
   - name: polkadot-omni-node-lib
     bump: major
   - name: polkadot-sdk

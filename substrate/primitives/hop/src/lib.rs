@@ -31,10 +31,18 @@ sp_api::decl_runtime_apis! {
 	/// authorization and promote near-expiry pool entries to on-chain storage.
 	#[api_version(1)]
 	pub trait HopRuntimeApi<AccountId> where AccountId: codec::Codec {
+		/// Maximum blob size (in bytes) the runtime will accept for promotion.
+		///
+		/// Authoritative — the node rejects oversized submissions at the RPC
+		/// boundary using this value, before any per-account authorization lookup
+		/// or signature verification.
+		fn max_promotion_size() -> u32;
 		/// Whether `who` may submit a HOP blob of `data_len` bytes for promotion.
 		///
-		/// Returns `false` for any "not allowed" reason — unknown account, exhausted
-		/// quota, oversized payload, etc.
+		/// Returns `false` for any per-account "not allowed" reason — unknown
+		/// account, exhausted quota, size outside a per-account tier, etc. The
+		/// absolute per-submission size cap is the responsibility of
+		/// [`Self::max_promotion_size`]; this hook is for per-account policy.
 		fn can_account_promote(who: AccountId, data_len: u32) -> bool;
 		/// Construct an unsigned promotion extrinsic carrying the user's submit-time
 		/// (in milliseconds from the Unix epoch), signer, signature, and timestamp

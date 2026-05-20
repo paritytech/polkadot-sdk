@@ -24,11 +24,15 @@ mean; both are delegated to the runtime via the `sp_hop::HopRuntimeApi`.
   identities.
 - **Domain-separated signatures** — distinct context prefixes for submit,
   claim, and ack (`HOP_SUBMIT_CONTEXT`, `HOP_CLAIM_CONTEXT`, `HOP_ACK_CONTEXT`)
-  so a signature from one operation cannot be replayed as another.
-- **Runtime-defined authorization** — submit is gated by
-  `HopRuntimeApi::can_account_promote`; the runtime decides what "authorized"
-  means (e.g. reuse an existing on-chain authorization, check a dedicated
-  HOP allowlist, or any other policy).
+  so a signature from one operation cannot be replayed as another. Submit
+  signatures also bind `submit_timestamp` so an old `(data, signer, signature)`
+  cannot be replayed indefinitely.
+- **Runtime-defined limits and authorization** — per-submission size cap comes
+  from `HopRuntimeApi::max_promotion_size` (authoritative, no separate node
+  ceiling); per-account authorization is gated by
+  `HopRuntimeApi::can_account_promote`, so the runtime decides what
+  "authorized" means (e.g. reuse an existing on-chain authorization, check a
+  dedicated HOP allowlist, or any other policy).
 - **Per-account rate limiting** — token-bucket caps on both submit rate and
   bandwidth; see [CLI flags](#cli-flags).
 - **Best-effort on-chain promotion** — near-expiry entries are promoted via a
@@ -140,7 +144,7 @@ All HOP RPC methods are also subject to the node-global `--rpc-rate-limit`.
 Store a blob for the given list of recipients.
 
 - `data`: raw bytes, must be ≤ `HopRuntimeApi::max_promotion_size()` (the runtime
-  cap; also bounded by the 8 MiB `MAX_DATA_SIZE` constant).
+  cap is authoritative — no separate node-side ceiling).
 - `recipients`: up to **256** SCALE-encoded `MultiSigner` values (ed25519,
   sr25519, or ecdsa ephemeral public keys).
 - `signature`: SCALE-encoded `MultiSignature` over
@@ -151,12 +155,16 @@ Store a blob for the given list of recipients.
   timestamp drifts too far from on-chain time, so the same `(data, signer,
   signature)` cannot be replayed indefinitely.
 
-Submit fails with `NotAuthorized` if `HopRuntimeApi::can_account_promote(account_id, data_len)`
-returns `false` (where `account_id` is `signer.into_account()`), and with
-`RateLimited` if the per-account buckets are exhausted.
-The runtime sees `data_len` so it can express size-tiered policies (e.g. "up to
-1 MiB per submit"). Authorization is checked *before* signature verification so
-unauthorized floods don't force crypto work.
+Submit fails with:
+- `DataTooLarge` if `data.len() > HopRuntimeApi::max_promotion_size()`.
+- `NotAuthorized` if `HopRuntimeApi::can_account_promote(account_id, data_len)`
+  returns `false` (where `account_id` is `signer.into_account()`). The runtime
+  sees `data_len` so it can express size-tiered authorization policies on top
+  of the absolute cap.
+- `RateLimited` if the per-account submit-rate or bandwidth bucket is empty.
+
+Size and authorization are both checked *before* signature verification so
+oversized or unauthorized floods don't force crypto work.
 
 ### `hop_claim(hash, signature) -> Bytes`
 
@@ -209,8 +217,8 @@ Returns `{ entryCount, totalBytes, maxBytes }` (camelCase on the wire).
 
 ## Limits and fixed parameters
 
-- `MAX_DATA_SIZE` = 8 MiB — a crate-level upper bound. The effective cap is
-  whatever `HopRuntimeApi::max_promotion_size()` returns on the current runtime.
+- Max blob size: whatever `HopRuntimeApi::max_promotion_size()` returns on the
+  current runtime — authoritative, no separate node-side ceiling.
 - `MAX_RECIPIENTS` = 256 per entry (enforced by `BoundedVec` — corrupt on-disk
   `.meta` files with too many recipients fail to SCALE-decode and are
   discarded during startup recovery).

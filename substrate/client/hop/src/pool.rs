@@ -39,7 +39,7 @@ use crate::{
 	types::{
 		entry_accounted_size, promotion_backoff_blocks, signing_payload, HopBlockNumber,
 		HopEntryMeta, HopError, HopHash, PoolStatus, RecipientVec, SenderId, HOP_ACK_CONTEXT,
-		HOP_CLAIM_CONTEXT, HOP_META_VERSION, MAX_DATA_SIZE, MAX_PROMOTION_ATTEMPTS,
+		HOP_CLAIM_CONTEXT, HOP_META_VERSION, MAX_PROMOTION_ATTEMPTS,
 	},
 };
 use codec::{Decode, Encode};
@@ -112,13 +112,6 @@ impl HopDataPool {
 		data_dir: PathBuf,
 		rate_limit_cfg: RateLimitConfig,
 	) -> Result<Self, HopError> {
-		if rate_limit_cfg.enabled && rate_limit_cfg.bandwidth_burst < MAX_DATA_SIZE {
-			return Err(HopError::InvalidConfig(format!(
-				"bandwidth_burst ({}) must be at least MAX_DATA_SIZE ({})",
-				rate_limit_cfg.bandwidth_burst, MAX_DATA_SIZE,
-			)));
-		}
-
 		// Create shard directories (256 each for blobs/ and meta/).
 		for i in 0..SHARD_COUNT {
 			let shard = format!("{:02x}", i as u8);
@@ -366,9 +359,6 @@ impl HopDataPool {
 		}
 
 		let data_len = data.len() as u64;
-		if data_len > MAX_DATA_SIZE {
-			return Err(HopError::DataTooLarge(data.len(), MAX_DATA_SIZE));
-		}
 
 		// Total accounted size includes bounded per-recipient metadata overhead so
 		// a submitter cannot inflate memory via large recipient lists while the
@@ -1041,17 +1031,6 @@ mod tests {
 			pool.insert(data, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0);
 
 		assert!(matches!(result, Err(HopError::DuplicateEntry)));
-	}
-
-	#[test]
-	fn test_data_too_large() {
-		let (pool, _dir) = create_test_pool();
-		let (_, signer) = test_recipient();
-		let data = vec![0u8; (MAX_DATA_SIZE + 1) as usize];
-
-		let result =
-			pool.insert(data, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0);
-		assert!(matches!(result, Err(HopError::DataTooLarge(_, _))));
 	}
 
 	#[test]
@@ -2103,13 +2082,14 @@ mod tests {
 	fn test_rate_limit_rejects_burst_overflow() {
 		let dir = TempDir::new().unwrap();
 		// submit_burst=2 so the 3rd request is rate-limited by submit count.
-		// bandwidth_burst must be >= MAX_DATA_SIZE to pass config validation.
+		// Bandwidth is sized comfortably above the 3-byte test payloads so the
+		// rejection comes from the request bucket, not the bandwidth bucket.
 		let cfg = RateLimitConfig {
 			enabled: true,
 			submit_rate_per_min: 60,
 			submit_burst: 2,
-			bandwidth_per_min: MAX_DATA_SIZE * 60,
-			bandwidth_burst: MAX_DATA_SIZE,
+			bandwidth_per_min: 1024 * 1024 * 60,
+			bandwidth_burst: 1024 * 1024,
 		};
 		let pool =
 			HopDataPool::new(1024 * 1024, 1024 * 1024, 100, dir.path().to_path_buf(), cfg).unwrap();

@@ -57,7 +57,8 @@ pub trait HopApi<BlockHash> {
 	/// * `submit_timestamp`: Wall-clock timestamp (ms since unix epoch) bound into the signed
 	///   payload. The runtime rejects promotions whose timestamp is too far from on-chain time.
 	///
-	/// The signer must be authorized by the runtime (checked via
+	/// `data.len()` must not exceed `HopRuntimeApi::max_promotion_size()`, and
+	/// the signer must be authorized by the runtime (checked via
 	/// `HopRuntimeApi::can_account_promote`).
 	///
 	/// # Returns
@@ -177,10 +178,19 @@ where
 
 		let data_len = data.0.len();
 
+		// Reject oversized payloads before the per-account authorization lookup so
+		// a flood of too-big submits cannot force runtime state reads. The cap is
+		// the runtime-declared `max_promotion_size`; the runtime is authoritative.
+		let runtime_max = runtime_api::max_promotion_size::<Block, _>(&*self.client, best_hash)
+			.map_err(HopError::from)?;
+		if data_len > runtime_max as usize {
+			return Err(HopError::DataTooLarge(data_len, runtime_max).into());
+		}
+
 		// Check authorization before verifying the signature: a flood of unauthorized
 		// requests must not force a signature verification per submit.
 		// `can_account_promote` returns false for any reason the runtime rejects:
-		// unauthorized account, exhausted quota, or data_len exceeding the runtime's limit.
+		// unauthorized account or exhausted per-account quota.
 		let account_id: AccountId32 = signer.clone().into_account();
 		let authorized = runtime_api::can_account_promote::<Block, _>(
 			&*self.client,
@@ -300,6 +310,7 @@ mod tests {
 
 		fn call_api_at(&self, params: CallApiAtParams<Block>) -> Result<Vec<u8>, ApiError> {
 			match params.function {
+				"HopRuntimeApi_max_promotion_size" => Ok((2u32 * 1024 * 1024).encode()),
 				"HopRuntimeApi_can_account_promote" => {
 					Ok(self.authorized.load(Ordering::Relaxed).encode())
 				},
