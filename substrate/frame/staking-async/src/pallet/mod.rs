@@ -74,7 +74,7 @@ pub mod pallet {
 	/// Dimensionless weight from the validator self-stake incentive curve. Same underlying type as
 	/// `BalanceOf<T>` for arithmetic compatibility, but represents the output of the sqrt weight
 	/// function.
-	pub type IncentiveWeight<T> = BalanceOf<T>;
+	pub(crate) type IncentiveWeight<T> = BalanceOf<T>;
 
 	/// Represents the current step in the era pruning process
 	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
