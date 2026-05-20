@@ -1,0 +1,7 @@
+title: 'Aura: Fetch slot duration at parent and not best block'
+doc:
+- audience: Node Dev
+  description: null
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
