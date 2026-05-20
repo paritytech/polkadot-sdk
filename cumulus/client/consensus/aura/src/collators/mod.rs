@@ -698,11 +698,11 @@ impl RelayParentData {
 		&self.relay_parent
 	}
 
-	/// Takes the descendants list.
+	/// Returns a reference to the descendants list.
 	///
 	/// List is ordered from oldest to newest.
-	pub fn take_descendants(&mut self) -> Vec<RelayHeader> {
-		std::mem::take(&mut self.descendants)
+	pub fn descendants(&self) -> &[RelayHeader] {
+		&self.descendants
 	}
 
 	/// Returns the number of descendants.

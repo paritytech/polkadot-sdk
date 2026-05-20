@@ -33,15 +33,24 @@ use sp_runtime::traits::Header as HeaderT;
 use sp_timestamp::Timestamp;
 use std::{marker::PhantomData, pin::Pin, time::Duration};
 
-fn get_current_relay_slot_at(now: Duration, relay_chain_slot_duration: Duration) -> Slot {
+fn get_current_relay_slot_at(
+	now: Duration,
+	slot_offset: Duration,
+	relay_chain_slot_duration: Duration,
+) -> Slot {
+	let now = now.saturating_sub(slot_offset);
 	Slot::from_timestamp(
 		Timestamp::from(now),
 		SlotDuration::from_millis(relay_chain_slot_duration.as_millis() as u64),
 	)
 }
 
-fn get_current_relay_slot(relay_chain_slot_duration: Duration) -> Slot {
-	get_current_relay_slot_at(Timestamp::current().as_duration(), relay_chain_slot_duration)
+fn get_current_relay_slot(slot_offset: Duration, relay_chain_slot_duration: Duration) -> Slot {
+	get_current_relay_slot_at(
+		Timestamp::current().as_duration(),
+		slot_offset,
+		relay_chain_slot_duration,
+	)
 }
 
 /// Picks a scheduling parent for the next collation under V2 or V3 semantics.
@@ -67,6 +76,7 @@ fn get_current_relay_slot(relay_chain_slot_duration: Duration) -> Slot {
 pub(crate) struct SchedulingInfo<RelayClient> {
 	best_notifications: Fuse<Pin<Box<dyn Stream<Item = RelayHeader> + Send>>>,
 	relay_slot_duration: Duration,
+	slot_offset: Duration,
 	maybe_best_relay_header: Option<RelayHeader>,
 
 	_phantom: PhantomData<RelayClient>,
@@ -77,7 +87,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 	///
 	/// The caller must call [`Self::ensure_initialized`] before the first
 	/// `wait_for_scheduling_parent` invocation.
-	pub fn new(relay_chain_slot_duration: Duration) -> Self {
+	pub fn new(relay_chain_slot_duration: Duration, slot_offset: Duration) -> Self {
 		let stream: Pin<Box<dyn Stream<Item = RelayHeader> + Send>> =
 			Box::pin(futures::stream::empty());
 		let mut stream = stream.fuse();
@@ -88,6 +98,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		Self {
 			best_notifications: stream,
 			relay_slot_duration: relay_chain_slot_duration,
+			slot_offset,
 			maybe_best_relay_header: None,
 			_phantom: Default::default(),
 		}
@@ -114,9 +125,9 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		&'a mut self,
 		relay_client: &RelayClient,
 		relay_chain_data_cache: &'a mut RelayChainDataCache<RelayClient>,
-	) {
+	) -> Option<&'a RelayChainData> {
 		if !self.should_reinit() {
-			return;
+			return None;
 		}
 
 		match relay_client.new_best_notification_stream().await {
@@ -142,10 +153,19 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 						"Failed to get the `RelayChainData` for the best relay chain block. \
 						The next call to `wait_for_scheduling_parent` might fail."
 					);
-					return;
+					return None;
 				},
 			};
 		self.maybe_best_relay_header = Some(best_relay_block_data.relay_header.clone());
+
+		Some(best_relay_block_data)
+	}
+
+	pub fn is_v3_enabled(
+		v3_enabled_on_para: bool,
+		relay_chain_data: Option<&RelayChainData>,
+	) -> bool {
+		v3_enabled_on_para && relay_chain_data.map_or(false, |data| data.is_v3_enabled())
 	}
 
 	/// Pick a scheduling parent under the policy described on [`SchedulingInfo`],
@@ -180,24 +200,26 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 				relay_chain_data_cache.get_by_header(best_relay_header).await.ok()?;
 			let best_relay_slot = get_relay_slot(&best_relay_header_data.relay_header)?;
 
-			let v3_enabled = v3_enabled_on_para && best_relay_header_data.is_v3_enabled();
-			if v3_enabled {
-				// For scheduling v3 we don't need to loop since we need to return a
-				// scheduling parent associated with a finished slot.
-				break (best_relay_slot, best_relay_header_data);
+			let v3_enabled = Self::is_v3_enabled(v3_enabled_on_para, Some(&best_relay_header_data));
+
+			// V2
+			if !v3_enabled {
+				let current_relay_slot =
+					get_current_relay_slot(self.slot_offset, self.relay_slot_duration);
+				if best_relay_slot >= current_relay_slot {
+					return Some((best_relay_header_data.relay_header.clone(), false));
+				}
+				continue;
 			}
 
-			// For v2, we need to loop until we find a scheduling parent associated with a
-			// current slot.
-			if best_relay_slot >= get_current_relay_slot(self.relay_slot_duration) {
-				return Some((best_relay_header_data.relay_header.clone(), false));
-			}
+			break (best_relay_slot, best_relay_header_data);
 		};
 
-		// v3: walk back to the first finished slot
+		// V3
+		let current_relay_slot = get_current_relay_slot(Duration::ZERO, self.relay_slot_duration);
 		let mut scheduling_parent_data = best_relay_header_data;
 		let mut scheduling_parent_slot = best_relay_slot;
-		while scheduling_parent_slot >= get_current_relay_slot(self.relay_slot_duration) {
+		while scheduling_parent_slot >= current_relay_slot {
 			// The scheduling parent should be part of the same session as the best
 			// relay block.
 			if sc_consensus_babe::contains_epoch_change::<RelayBlock>(
@@ -239,17 +261,42 @@ mod tests {
 	#[test]
 	fn get_current_relay_slot_at_works_correctly() {
 		// beginning of slot
-		assert_eq!(get_current_relay_slot_at(now_at(804, 0), RELAY_SLOT_DURATION), Slot::from(804));
-
-		// inside the slot
 		assert_eq!(
-			get_current_relay_slot_at(now_at(804, 3000), RELAY_SLOT_DURATION),
+			get_current_relay_slot_at(
+				now_at(804, 0),
+				Duration::from_millis(0),
+				RELAY_SLOT_DURATION
+			),
 			Slot::from(804)
 		);
 
 		// end of slot
 		assert_eq!(
-			get_current_relay_slot_at(now_at(804, 5999), RELAY_SLOT_DURATION),
+			get_current_relay_slot_at(
+				now_at(804, 5999),
+				Duration::from_millis(0),
+				RELAY_SLOT_DURATION
+			),
+			Slot::from(804)
+		);
+
+		// offset, but still inside slot
+		assert_eq!(
+			get_current_relay_slot_at(
+				now_at(805, 500),
+				Duration::from_millis(500),
+				RELAY_SLOT_DURATION
+			),
+			Slot::from(805)
+		);
+
+		// offset => previous slot
+		assert_eq!(
+			get_current_relay_slot_at(
+				now_at(805, 500),
+				Duration::from_millis(501),
+				RELAY_SLOT_DURATION
+			),
 			Slot::from(804)
 		);
 	}
@@ -258,7 +305,7 @@ mod tests {
 		relay_slot_duration: Duration,
 		v3_enabled: bool,
 	) -> (TestRelayClient, RelayChainDataCache<TestRelayClient>, Vec<RelayHeader>) {
-		let current_slot = *get_current_relay_slot(relay_slot_duration);
+		let current_slot = *get_current_relay_slot(Duration::ZERO, relay_slot_duration);
 		let mut node_features = NodeFeatures::from_vec(vec![0; 5]);
 		if v3_enabled {
 			node_features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
@@ -311,7 +358,8 @@ mod tests {
 		let mut cache = RelayChainDataCache::new(client.clone(), 1.into());
 		cache.set_test_data(best_header.clone(), vec![], Default::default());
 
-		let mut scheduling_info = SchedulingInfo::new(Duration::from_secs(6));
+		let mut scheduling_info =
+			SchedulingInfo::new(Duration::from_secs(6), Duration::from_secs(1));
 		assert_eq!(scheduling_info.should_reinit(), true);
 		assert_eq!(scheduling_info.maybe_best_relay_header, None);
 
@@ -343,6 +391,7 @@ mod tests {
 	#[tokio::test]
 	async fn v2_wait_for_scheduling_parent_waits_when_stale() {
 		let relay_slot_duration = Duration::from_secs(6);
+		let slot_offset = Duration::from_secs(1);
 
 		let (mut client, mut cache, headers) = build_mock_chain(relay_slot_duration, false);
 
@@ -350,7 +399,7 @@ mod tests {
 		client.set_best_hash(Some(headers[0].hash()));
 		client.set_best_notifications(Box::pin(rx));
 
-		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration);
+		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration, slot_offset);
 		scheduling_info.ensure_initialized(&client, &mut cache).await;
 
 		let mut handle = tokio::spawn(async move {
@@ -385,6 +434,7 @@ mod tests {
 	#[tokio::test]
 	async fn v2_wait_for_scheduling_parent_returns_immediately_when_fresh() {
 		let relay_slot_duration = Duration::from_secs(6);
+		let slot_offset = Duration::from_secs(1);
 
 		let (mut client, mut cache, headers) = build_mock_chain(relay_slot_duration, false);
 
@@ -393,7 +443,7 @@ mod tests {
 		client.set_best_hash(Some(headers[4].hash()));
 		client.set_best_notifications(Box::pin(rx));
 
-		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration);
+		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration, slot_offset);
 		scheduling_info.ensure_initialized(&client, &mut cache).await;
 		let result = tokio::time::timeout(
 			Duration::from_millis(300),
@@ -408,6 +458,7 @@ mod tests {
 	#[tokio::test]
 	async fn v3_wait_for_scheduling_parent_returns_finished_slot() {
 		let relay_slot_duration = Duration::from_secs(6);
+		let slot_offset = Duration::from_secs(1);
 
 		let (mut client, mut cache, headers) = build_mock_chain(relay_slot_duration, true);
 
@@ -415,7 +466,7 @@ mod tests {
 		client.set_best_hash(None);
 		client.set_best_notifications(Box::pin(rx));
 
-		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration);
+		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration, slot_offset);
 		scheduling_info.ensure_initialized(&client, &mut cache).await;
 
 		let mut handle = tokio::spawn(async move {
@@ -440,6 +491,7 @@ mod tests {
 	#[tokio::test]
 	async fn v3_wait_for_scheduling_parent_walks_back_when_fresh_slot() {
 		let relay_slot_duration = Duration::from_secs(6);
+		let slot_offset = Duration::from_secs(1);
 
 		let (mut client, mut cache, headers) = build_mock_chain(relay_slot_duration, true);
 
@@ -447,7 +499,7 @@ mod tests {
 		client.set_best_hash(None);
 		client.set_best_notifications(Box::pin(rx));
 
-		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration);
+		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration, slot_offset);
 		scheduling_info.ensure_initialized(&client, &mut cache).await;
 
 		let mut handle = tokio::spawn(async move {
@@ -472,6 +524,7 @@ mod tests {
 	#[tokio::test]
 	async fn v3_wait_for_scheduling_parent_checks_session() {
 		let relay_slot_duration = Duration::from_secs(6);
+		let slot_offset = Duration::from_secs(1);
 
 		let (mut client, mut cache, mut headers) = build_mock_chain(relay_slot_duration, true);
 
@@ -479,7 +532,7 @@ mod tests {
 		client.set_best_hash(None);
 		client.set_best_notifications(Box::pin(rx));
 
-		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration);
+		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration, slot_offset);
 		scheduling_info.ensure_initialized(&client, &mut cache).await;
 
 		// Simulate: receiving relay block with header 3 (fresh slot).
