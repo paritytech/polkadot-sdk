@@ -1,0 +1,18 @@
+title: 'cumulus-test-runtime: move feature-gated params into flavor module'
+doc:
+- audience: Node Dev
+  description: |-
+    ## Summary
+
+    Refactors `cumulus-test-runtime` so feature-gated parameters live in a dedicated `flavor/` module tree instead of scattered `#[cfg(...)]` blocks in `lib.rs`.
+
+    - Add `src/flavor/` with modules for block velocity, slot duration, relay parent offset, unincluded segment capacity, relay chain slot duration, and Aura backing behavior.
+    - Wire `lib.rs` to import from `flavor/`; keep `VERSION` in `lib.rs` (required by `#[sp_version::runtime_version]`).
+    - No behavior change same Cargo features, same values, same WASM build setup.
+
+    Closes #11991.
+
+    ## Motivation
+
+    The test runtime is built many times with different Cargo features (elastic scaling, sync/async backing, relay-parent offset, block-bundling, etc.). Constants that depend on those features were hard to follow and extend in `lib.rs`. Grouping them by concern makes it easier to see which feature enables which values and to add new flavors later.
+crates: []
