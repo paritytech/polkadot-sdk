@@ -1687,8 +1687,8 @@ impl Store {
 	fn collect_snapshot_hashes(&self, filter: &OptimizedTopicFilter) -> Result<Vec<Hash>> {
 		let mut snapshot_hashes = Vec::new();
 		let mut seen = HashSet::new();
-		let index = self.index.read();
-		index.iterate_with(None, filter, |hash| {
+		let query_index = self.query_index.read();
+		query_index.iterate_with(None, filter, |hash| {
 			if seen.insert(*hash) {
 				snapshot_hashes.push(*hash);
 			}
@@ -3401,7 +3401,7 @@ mod tests {
 		async fn add_filter_returns_before_snapshot_collection_finishes() {
 			let (store, _dir) = arc_test_store();
 			let (handle, mut stream) = store.create_subscription();
-			let index_write_guard = store.index.write();
+			let index_write_guard = store.query_index.write();
 			let (filter_id_tx, filter_id_rx) = std::sync::mpsc::channel();
 
 			std::thread::spawn(move || {
