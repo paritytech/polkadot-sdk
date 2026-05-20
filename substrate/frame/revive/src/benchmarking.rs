@@ -1527,7 +1527,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
-		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -1589,7 +1589,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
-		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -1622,7 +1622,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
-		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -1819,7 +1819,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
-		ext.set_transient_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;
@@ -1890,7 +1890,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
-		ext.set_transient_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;
