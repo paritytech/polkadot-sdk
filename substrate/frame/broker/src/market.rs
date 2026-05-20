@@ -55,7 +55,7 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 	/// Configuration of the market.
 	///
 	/// Can be set in the [`Market::configure`].
-	type Configuration: Parameter;
+	type Configuration: Parameter + Default;
 
 	/// Provides information about available cores.
 	type CoreRangeProvider: CoreRangeProvider;

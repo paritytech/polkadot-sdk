@@ -631,9 +631,10 @@ pub mod pallet {
 		pub fn configure(
 			origin: OriginFor<T>,
 			config: ConfigRecordOf<T>,
+			market_config: MarketConfigOf<T>,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_configure(config)?;
+			Self::do_configure(config, market_config)?;
 			Ok(Pays::No.into())
 		}
 

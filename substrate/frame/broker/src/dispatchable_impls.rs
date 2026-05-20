@@ -26,8 +26,12 @@ use sp_runtime::traits::{BlockNumberProvider, Convert};
 use CompletionStatus::{Complete, Partial};
 
 impl<T: Config> Pallet<T> {
-	pub(crate) fn do_configure(config: ConfigRecordOf<T>) -> DispatchResult {
+	pub(crate) fn do_configure(
+		config: ConfigRecordOf<T>,
+		market_config: MarketConfigOf<T>,
+	) -> DispatchResult {
 		Configuration::<T>::put(config);
+		T::CoretimeMarket::configure(market_config).map_err(Into::into)?;
 		Ok(())
 	}
 

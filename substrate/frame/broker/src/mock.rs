@@ -480,7 +480,7 @@ impl TestExt {
 
 	pub fn execute_with<R>(self, f: impl Fn() -> R) -> R {
 		new_test_ext().execute_with(|| {
-			assert_ok!(Broker::do_configure(self.0));
+			assert_ok!(Broker::do_configure(self.0, ()));
 			f()
 		})
 	}

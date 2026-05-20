@@ -36,11 +36,18 @@ pub type MarketInitDataOf<T> = <<T as Config>::CoretimeMarket as Market<
 	BalanceOf<T>,
 	AccountIdFor<T>,
 >>::InitData;
+
 pub type MarketBidIdOf<T> = <<T as Config>::CoretimeMarket as Market<
 	RelayBlockNumberOf<T>,
 	BalanceOf<T>,
 	AccountIdFor<T>,
 >>::BidId;
+
+pub type MarketConfigOf<T> = <<T as Config>::CoretimeMarket as Market<
+	RelayBlockNumberOf<T>,
+	BalanceOf<T>,
+	AccountIdFor<T>,
+>>::Configuration;
 
 /// Relay-chain block number with a fixed divisor of Config::TimeslicePeriod.
 pub type Timeslice = u32;

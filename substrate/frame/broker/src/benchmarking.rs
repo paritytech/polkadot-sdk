@@ -159,12 +159,13 @@ mod benches {
 	#[benchmark]
 	fn configure() -> Result<(), BenchmarkError> {
 		let config = new_config_record::<T>();
+		let market_config = Default::default();
 
 		let origin =
 			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, config.clone());
+		_(origin as T::RuntimeOrigin, config.clone(), market_config);
 
 		assert_eq!(Configuration::<T>::get(), Some(config));
 
