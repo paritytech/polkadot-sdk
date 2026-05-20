@@ -313,19 +313,46 @@ impl MultiFilterSubscriptionState {
 		None
 	}
 
-	fn handle_live_event(&mut self, event: LiveStatementEvent) {
+	fn handle_live_event(
+		&mut self,
+		event: LiveStatementEvent,
+		active_filter_ids: &HashSet<FilterId>,
+	) -> LiveEventHandling {
+		let matched_filter_ids: HashSet<FilterId> = event
+			.matched_filter_ids
+			.into_iter()
+			.filter(|filter_id| active_filter_ids.contains(filter_id))
+			.collect();
+		if matched_filter_ids.is_empty() {
+			return LiveEventHandling::Ignored;
+		}
+
+		let blocked_by_replay = matched_filter_ids
+			.iter()
+			.any(|filter_id| self.replays_in_progress.contains(filter_id));
+		let has_backlog = !self.pending_replays.is_empty() || !self.pending_live.is_empty();
+		if !blocked_by_replay && !has_backlog {
+			let was_stopped = self.stopped;
+			return match self.new_statement_event(event.hash, event.encoded, &matched_filter_ids) {
+				Some(event) => LiveEventHandling::Ready(event),
+				None if !was_stopped && self.stopped => LiveEventHandling::Stopped,
+				None => LiveEventHandling::Ignored,
+			};
+		}
+
 		if self.pending_live.len() >= PENDING_LIVE_HARD_CAP {
 			log::warn!(
 				target: LOG_TARGET,
 				"pending_live cap reached on statement subscription; sending stop",
 			);
 			self.stopped = true;
-			return;
+			return LiveEventHandling::Stopped;
 		}
 		self.pending_live.push_back(PendingLiveStatement {
 			hash: event.hash,
-			matched_filter_ids: event.matched_filter_ids,
+			matched_filter_ids: matched_filter_ids.into_iter().collect(),
 		});
+		LiveEventHandling::Blocked
 	}
 
 	fn new_statement_event(
@@ -593,6 +620,20 @@ enum MatchedSubscription {
 	Live(HashSet<FilterId>),
 }
 
+enum ReadyEventDelivery {
+	Continue,
+	Stopped,
+	Closed,
+}
+
+#[derive(Debug)]
+enum LiveEventHandling {
+	Ready(MultiFilterSubscriptionEvent),
+	Blocked,
+	Stopped,
+	Ignored,
+}
+
 type IndexedSubscriptionKey = (SeqID, SubscriptionFilterKey);
 
 // Information about all subscriptions.
@@ -726,6 +767,34 @@ impl SubscriptionsInfo {
 		tx.close();
 	}
 
+	fn send_ready_event(
+		state: &mut MultiFilterSubscriptionState,
+		tx: &async_channel::Sender<MultiFilterSubscriptionEvent>,
+		event: MultiFilterSubscriptionEvent,
+	) -> ReadyEventDelivery {
+		if tx.is_closed() {
+			return ReadyEventDelivery::Closed;
+		}
+		if matches!(event, MultiFilterSubscriptionEvent::Stop) {
+			Self::send_stop(tx);
+			return ReadyEventDelivery::Stopped;
+		}
+		if tx.len() >= SUBSCRIPTION_BUFFER_SIZE {
+			state.stopped = true;
+			Self::send_stop(tx);
+			return ReadyEventDelivery::Stopped;
+		}
+		match tx.try_send(event) {
+			Ok(()) => ReadyEventDelivery::Continue,
+			Err(async_channel::TrySendError::Full(_)) => {
+				state.stopped = true;
+				Self::send_stop(tx);
+				ReadyEventDelivery::Stopped
+			},
+			Err(async_channel::TrySendError::Closed(_)) => ReadyEventDelivery::Closed,
+		}
+	}
+
 	fn drain_ready_events(&mut self, sub_id: SeqID) {
 		loop {
 			let result = {
@@ -741,24 +810,10 @@ impl SubscriptionsInfo {
 				else {
 					return;
 				};
-				let is_stop = matches!(event, MultiFilterSubscriptionEvent::Stop);
-				if is_stop {
-					Self::send_stop(tx);
-					return;
-				}
-				if tx.len() >= SUBSCRIPTION_BUFFER_SIZE {
-					state.stopped = true;
-					Self::send_stop(tx);
-					return;
-				}
-				match tx.try_send(event) {
-					Ok(()) => Ok(()),
-					Err(async_channel::TrySendError::Full(_)) => {
-						state.stopped = true;
-						Self::send_stop(tx);
-						return;
-					},
-					Err(async_channel::TrySendError::Closed(_)) => Err(()),
+				match Self::send_ready_event(state, tx, event) {
+					ReadyEventDelivery::Continue => Ok(()),
+					ReadyEventDelivery::Stopped => return,
+					ReadyEventDelivery::Closed => Err(()),
 				}
 			};
 			if result.is_err() {
@@ -822,17 +877,41 @@ impl SubscriptionsInfo {
 					}
 				},
 				MatchedSubscription::Live(filter_ids) if !filter_ids.is_empty() => {
-					let Some(SubscriptionRecord::Live { state, .. }) =
-						self.by_sub_id.get_mut(&sub_id)
-					else {
-						continue;
+					let handling = {
+						let Some(SubscriptionRecord::Live { filters, state, .. }) =
+							self.by_sub_id.get_mut(&sub_id)
+						else {
+							continue;
+						};
+						let active_filter_ids = filters.keys().copied().collect();
+						state.handle_live_event(
+							LiveStatementEvent {
+								hash: statement.hash(),
+								encoded: encoded.clone(),
+								matched_filter_ids: filter_ids.into_iter().collect(),
+							},
+							&active_filter_ids,
+						)
 					};
-					state.handle_live_event(LiveStatementEvent {
-						hash: statement.hash(),
-						encoded: encoded.clone(),
-						matched_filter_ids: filter_ids.into_iter().collect(),
-					});
-					self.drain_ready_events(sub_id);
+					match handling {
+						LiveEventHandling::Ready(event) => {
+							let Some(SubscriptionRecord::Live { state, tx, .. }) =
+								self.by_sub_id.get_mut(&sub_id)
+							else {
+								continue;
+							};
+							match Self::send_ready_event(state, tx, event) {
+								ReadyEventDelivery::Continue | ReadyEventDelivery::Stopped => {},
+								ReadyEventDelivery::Closed => {
+									needs_unsubscribing.insert(sub_id);
+								},
+							}
+						},
+						LiveEventHandling::Blocked | LiveEventHandling::Stopped => {
+							self.drain_ready_events(sub_id)
+						},
+						LiveEventHandling::Ignored => {},
+					}
 				},
 				_ => {},
 			}
@@ -1155,7 +1234,13 @@ mod tests {
 		let active_filter_ids = HashSet::from([replay_filter, live_filter]);
 		assert_eq!(replay_provider.loads(), 0);
 
-		state.handle_live_event(live_event_for(&statement, vec![replay_filter, live_filter]));
+		assert!(matches!(
+			state.handle_live_event(
+				live_event_for(&statement, vec![replay_filter, live_filter]),
+				&active_filter_ids,
+			),
+			LiveEventHandling::Blocked
+		));
 		assert_eq!(state.pending_live.len(), 1);
 
 		match state.next_event(&replay_provider, &active_filter_ids) {
@@ -1180,6 +1265,49 @@ mod tests {
 		}
 		assert_eq!(replay_provider.loads(), 2);
 		assert!(state.next_event(&replay_provider, &active_filter_ids).is_none());
+	}
+
+	#[test]
+	fn multi_filter_buffers_ready_live_behind_existing_replay_backlog() {
+		let mut state = MultiFilterSubscriptionState::new();
+		let replay_filter = FilterId::new(1);
+		let live_filter = FilterId::new(2);
+		let replay_statement = signed_statement(42);
+		let live_statement = signed_statement(43);
+		let replay_provider = TestReplaySnapshotProvider::with_snapshot(
+			std::slice::from_ref(&replay_statement),
+			&[replay_statement.clone(), live_statement.clone()],
+		);
+
+		state.record_filter_added(replay_filter, vec![replay_statement.hash()]);
+		let active_filter_ids = HashSet::from([replay_filter, live_filter]);
+		assert!(matches!(
+			state.handle_live_event(
+				live_event_for(&live_statement, vec![live_filter]),
+				&active_filter_ids,
+			),
+			LiveEventHandling::Blocked
+		));
+		assert_eq!(state.pending_live.len(), 1);
+
+		match state.next_event(&replay_provider, &active_filter_ids) {
+			Some(MultiFilterSubscriptionEvent::ReplayStatements { filter_id, statements }) => {
+				assert_eq!(filter_id, replay_filter);
+				assert_eq!(statements, vec![replay_statement.encode()]);
+			},
+			other => panic!("expected replay before live event, got {other:?}"),
+		}
+		assert!(matches!(
+			state.next_event(&replay_provider, &active_filter_ids),
+			Some(MultiFilterSubscriptionEvent::ReplayDone { filter_id }) if filter_id == replay_filter
+		));
+		match state.next_event(&replay_provider, &active_filter_ids) {
+			Some(MultiFilterSubscriptionEvent::NewStatement(event)) => {
+				assert_eq!(event.hash, live_statement.hash());
+				assert_eq!(event.matched_filter_ids, vec![live_filter]);
+			},
+			other => panic!("expected live event after replay, got {other:?}"),
+		}
 	}
 
 	#[test]
@@ -1214,6 +1342,11 @@ mod tests {
 			},
 			other => panic!("expected pushed live statement, got {other:?}"),
 		}
+		let Some(SubscriptionRecord::Live { state, .. }) = subscriptions.by_sub_id.get(&sub_id)
+		else {
+			panic!("expected live subscription record")
+		};
+		assert!(state.pending_live.is_empty());
 	}
 
 	#[test]
@@ -1259,6 +1392,43 @@ mod tests {
 	}
 
 	#[test]
+	fn multi_filter_closed_channel_is_reported_as_closed_before_buffer_limit() {
+		let mut state = MultiFilterSubscriptionState::new();
+		let (tx, rx) = async_channel::bounded::<MultiFilterSubscriptionEvent>(
+			SUBSCRIPTION_BUFFER_SIZE + STOP_RESERVE_CHANNEL_SLOTS,
+		);
+		for seed in 0..SUBSCRIPTION_BUFFER_SIZE {
+			tx.try_send(MultiFilterSubscriptionEvent::NewStatement(live_event_for(
+				&signed_statement(seed as u8),
+				vec![FilterId::new(1)],
+			)))
+			.expect("channel capacity exceeds subscription buffer size; qed");
+		}
+		drop(rx);
+
+		assert!(matches!(
+			SubscriptionsInfo::send_ready_event(
+				&mut state,
+				&tx,
+				MultiFilterSubscriptionEvent::NewStatement(live_event_for(
+					&signed_statement(42),
+					vec![FilterId::new(1)],
+				)),
+			),
+			ReadyEventDelivery::Closed
+		));
+		assert!(matches!(
+			SubscriptionsInfo::send_ready_event(
+				&mut state,
+				&tx,
+				MultiFilterSubscriptionEvent::Stop,
+			),
+			ReadyEventDelivery::Closed
+		));
+		assert!(!state.stopped);
+	}
+
+	#[test]
 	fn multi_filter_uses_supplied_active_filter_ids_for_pending_live_events() {
 		let mut state = MultiFilterSubscriptionState::new();
 		let removed_filter = FilterId::new(1);
@@ -1267,14 +1437,15 @@ mod tests {
 		let replay_provider = TestReplaySnapshotProvider::new(std::slice::from_ref(&statement));
 		let active_filter_ids = HashSet::from([live_filter]);
 
-		state.handle_live_event(live_event_for(&statement, vec![removed_filter, live_filter]));
-
-		match state.next_event(&replay_provider, &active_filter_ids) {
-			Some(MultiFilterSubscriptionEvent::NewStatement(event)) => {
+		match state.handle_live_event(
+			live_event_for(&statement, vec![removed_filter, live_filter]),
+			&active_filter_ids,
+		) {
+			LiveEventHandling::Ready(MultiFilterSubscriptionEvent::NewStatement(event)) => {
 				assert_eq!(event.hash, statement.hash());
 				assert_eq!(event.matched_filter_ids, vec![live_filter]);
 			},
-			other => panic!("expected live statement for active filter, got {other:?}"),
+			other => panic!("expected live statement, got {other:?}"),
 		}
 		assert!(state.next_event(&replay_provider, &active_filter_ids).is_none());
 	}
