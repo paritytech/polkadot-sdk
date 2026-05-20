@@ -1006,6 +1006,7 @@ node = [
 	"sc-transaction-pool",
 	"sc-transaction-pool-api",
 	"sc-utils",
+	"sc-virtualization",
 	"sp-blockchain",
 	"sp-consensus",
 	"sp-core-hashing",
@@ -2872,6 +2873,11 @@ path = "../substrate/client/transaction-pool/api"
 default-features = false
 optional = true
 path = "../substrate/client/utils"
+
+[dependencies.sc-virtualization]
+default-features = false
+optional = true
+path = "../substrate/client/virtualization"
 
 [dependencies.sp-blockchain]
 default-features = false
