@@ -193,7 +193,6 @@
   "fixtures/solidity/simple/yul_instructions/mulmod.sol::81::Y M0 S-": "Failed",
   "fixtures/solidity/simple/yul_instructions/mulmod.sol::82::Y M0 S+": "Failed",
   "fixtures/solidity/simple/yul_instructions/mulmod.sol::82::Y M0 S-": "Failed",
-  "fixtures/solidity/simple/yul_instructions/revert.sol::5::Y M0 S+": "Failed",
   "fixtures/solidity/simple/yul_instructions/revert.sol::5::Y M0 S-": "Failed",
   "fixtures/solidity/simple/yul_instructions/revert.sol::5::Y Mz S+": "Failed",
   "fixtures/solidity/simple/yul_instructions/revert.sol::5::Y Mz S-": "Failed",
