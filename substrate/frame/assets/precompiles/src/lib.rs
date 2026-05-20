@@ -156,6 +156,7 @@ where
 	Call<Runtime, Instance>: Into<<Runtime as pallet_revive::Config>::RuntimeCall>,
 	alloy::primitives::U256: TryInto<<Runtime as Config<Instance>>::Balance>,
 	alloy::primitives::U256: TryFrom<<Runtime as Config<Instance>>::Balance>,
+	alloy::primitives::U256: UniqueSaturatedInto<<Runtime as Config<Instance>>::Balance>,
 {
 	type T = Runtime;
 	type Interface = IERC20::IERC20Calls;
@@ -221,6 +222,7 @@ where
 	Call<Runtime, Instance>: Into<<Runtime as pallet_revive::Config>::RuntimeCall>,
 	alloy::primitives::U256: TryInto<<Runtime as Config<Instance>>::Balance>,
 	alloy::primitives::U256: TryFrom<<Runtime as Config<Instance>>::Balance>,
+	alloy::primitives::U256: UniqueSaturatedInto<<Runtime as Config<Instance>>::Balance>,
 {
 	/// Get the caller as an `H160` address.
 	fn caller(env: &mut impl Ext<T = Runtime>) -> Result<H160, Error> {
