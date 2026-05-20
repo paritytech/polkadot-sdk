@@ -23,7 +23,7 @@ pub use crate::{
 
 use crate::{artifacts::ArtifactId, get_worker_version};
 use is_executable::IsExecutable;
-use polkadot_node_core_pvf_common::pvf::PvfPrepData;
+use polkadot_node_core_pvf_common::{compute_checksum, pvf::PvfPrepData, ArtifactChecksum};
 use polkadot_node_primitives::NODE_VERSION;
 use polkadot_primitives::ExecutorParams;
 use std::{
@@ -38,19 +38,24 @@ pub fn validate_candidate(
 	params: &[u8],
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
 	use polkadot_node_core_pvf_common::executor_interface::{prepare, prevalidate};
-	use polkadot_node_core_pvf_execute_worker::execute_artifact;
+	use polkadot_node_core_pvf_execute_worker::{execute_pvm, execute_wasm};
+	use sp_maybe_compressed_blob::{blob_type, decompress_as, MaybeCompressedBlobType};
 
-	let code = sp_maybe_compressed_blob::decompress(code, 10 * 1024 * 1024)
-		.expect("Decompressing code failed");
+	let blob_type = blob_type(code)?;
+	assert!(blob_type.is_code());
 
-	let blob = prevalidate(&code)?;
+	let code = decompress_as(blob_type, code, 10 * 1024 * 1024).expect("Decompressing code failed");
+
 	let executor_params = ExecutorParams::default();
-	let compiled_artifact_blob = prepare(blob, &executor_params)?;
 
-	let result = unsafe {
-		// SAFETY: This is trivially safe since the artifact is obtained by calling `prepare`
-		//         and is written into a temporary directory in an unmodified state.
-		execute_artifact(&compiled_artifact_blob, &executor_params, params)?
+	let result = match blob_type {
+		MaybeCompressedBlobType::Legacy | MaybeCompressedBlobType::Wasm => {
+			let blob = prevalidate(&code)?;
+			let compiled_artifact_blob = prepare(blob, &executor_params)?;
+			unsafe { execute_wasm(&compiled_artifact_blob, &executor_params, params)? }
+		},
+		MaybeCompressedBlobType::Pvm => execute_pvm(&code, &executor_params, params)?,
+		MaybeCompressedBlobType::Pov => unreachable!("PoV blob can never be passed as code"),
 	};
 
 	Ok(result)
@@ -131,4 +136,9 @@ pub fn build_workers_and_get_paths() -> (PathBuf, PathBuf) {
 /// Creates a new PVF which artifact id can be uniquely identified by the given number.
 pub fn artifact_id(discriminator: u32) -> ArtifactId {
 	ArtifactId::from_pvf_prep_data(&PvfPrepData::from_discriminator(discriminator))
+}
+
+/// Computes the checksum of the artifact for the given discriminator.
+pub fn artifact_checksum(discriminator: u32) -> ArtifactChecksum {
+	compute_checksum(&PvfPrepData::from_discriminator(discriminator).maybe_compressed_code())
 }

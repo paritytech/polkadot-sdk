@@ -24,6 +24,12 @@ use polkadot_primitives::{
 };
 use std::{sync::Arc, time::Duration};
 
+#[derive(Encode, Decode)]
+pub enum Execution {
+	Wasm,
+	Pvm(Arc<Vec<u8>>),
+}
+
 /// Contains all context needed to validate a candidate.
 /// This reduces parameter explosion and keeps related data together.
 ///
@@ -74,8 +80,14 @@ impl ValidationContext {
 	/// Convert to an ExecuteRequest for sending to the worker.
 	/// This extracts only the data needed by the execute worker process.
 	/// Consumes self since the context is no longer needed after sending to the worker.
-	pub fn into_execute_request(self, artifact_checksum: ArtifactChecksum) -> ExecuteRequest {
+	pub fn into_execute_request(
+		self,
+		execution: Execution,
+		artifact_checksum: ArtifactChecksum,
+		code_bomb_limit: u32,
+	) -> ExecuteRequest {
 		ExecuteRequest {
+			execution,
 			pvd: (*self.pvd).clone(),
 			pov: (*self.pov).clone(),
 			execution_timeout: self.exec_timeout,
@@ -83,6 +95,7 @@ impl ValidationContext {
 			relay_parent: self.relay_parent(),
 			scheduling_parent: self.scheduling_parent(),
 			descriptor_version: self.descriptor_version(),
+			code_bomb_limit,
 		}
 	}
 }
@@ -109,6 +122,8 @@ pub struct Handshake {
 /// that the worker doesn't need.
 #[derive(Encode, Decode)]
 pub struct ExecuteRequest {
+	/// Execution type
+	pub execution: Execution,
 	/// Persisted validation data
 	pub pvd: PersistedValidationData,
 	/// Proof-of-validity
@@ -117,6 +132,8 @@ pub struct ExecuteRequest {
 	pub execution_timeout: Duration,
 	/// Checksum of the artifact to execute
 	pub artifact_checksum: ArtifactChecksum,
+	/// Decompression bomb limit.
+	pub code_bomb_limit: u32,
 	/// The relay parent block hash (for V3+ ValidationParams extension)
 	pub relay_parent: Hash,
 	/// The scheduling parent block hash (for V3+ ValidationParams extension)

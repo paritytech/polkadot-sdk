@@ -105,6 +105,8 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 			#[doc(hidden)]
 			mod parachain_validate_block {
 				use super::*;
+				#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+				use sp_runtime_interface::polkavm::{polkavm_export, self};
 
 				#[no_mangle]
 				#[cfg_attr(

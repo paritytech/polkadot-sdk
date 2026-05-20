@@ -43,19 +43,12 @@ pub struct HostState {
 
 impl HostState {
 	/// Constructs a new `HostState`.
-	///
-	/// `allocator` is `Some` for old-style runtimes that use host-side allocation
-	/// (`FreeingBumpHeapAllocator`), and `None` for new runtimes that manage their own
-	/// heap with a runtime-side allocator (picoalloc).
-	pub fn new(
-		allocator: Option<FreeingBumpHeapAllocator>,
-		input_data: impl Into<Vec<u8>>,
-	) -> Self {
+	pub fn new(allocator: Option<FreeingBumpHeapAllocator>, input_data: impl AsRef<[u8]>) -> Self {
 		HostState {
 			allocator,
 			panic_message: None,
+			input_data: Some(input_data.as_ref().to_vec()),
 			virt_manager: VirtManager::default(),
-			input_data: Some(input_data.into()),
 		}
 	}
 
