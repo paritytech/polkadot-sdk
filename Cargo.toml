@@ -304,7 +304,6 @@ members = [
 	"substrate/client/service/test",
 	"substrate/client/state-db",
 	"substrate/client/statement-store",
-	"substrate/client/statement-store/statement-latency-bench",
 	"substrate/client/storage-monitor",
 	"substrate/client/sync-state-rpc",
 	"substrate/client/sysinfo",
@@ -314,6 +313,7 @@ members = [
 	"substrate/client/transaction-pool",
 	"substrate/client/transaction-pool/api",
 	"substrate/client/utils",
+	"substrate/client/virtualization",
 	"substrate/deprecated/hashing",
 	"substrate/deprecated/hashing/proc-macro",
 	"substrate/frame",
@@ -516,6 +516,7 @@ members = [
 	"substrate/primitives/ethereum-standards",
 	"substrate/primitives/externalities",
 	"substrate/primitives/genesis-builder",
+	"substrate/primitives/hop",
 	"substrate/primitives/inherents",
 	"substrate/primitives/io",
 	"substrate/primitives/keyring",
@@ -1077,6 +1078,7 @@ pallet-tips = { path = "substrate/frame/tips", default-features = false }
 pallet-transaction-payment = { path = "substrate/frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc = { path = "substrate/frame/transaction-payment/rpc", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
+pallet-transaction-storage = { path = "substrate/frame/transaction-storage", default-features = false }
 pallet-treasury = { path = "substrate/frame/treasury", default-features = false }
 pallet-uniques = { path = "substrate/frame/uniques", default-features = false }
 pallet-utility = { path = "substrate/frame/utility", default-features = false }
@@ -1278,6 +1280,7 @@ sc-tracing-proc-macro = { path = "substrate/client/tracing/proc-macro", default-
 sc-transaction-pool = { path = "substrate/client/transaction-pool", default-features = false }
 sc-transaction-pool-api = { path = "substrate/client/transaction-pool/api", default-features = false }
 sc-utils = { path = "substrate/client/utils", default-features = false }
+sc-virtualization = { path = "substrate/client/virtualization", default-features = false }
 scale-info = { version = "2.11.6", default-features = false }
 schemars = { version = "0.8.13", default-features = false }
 schnellru = { version = "0.2.3" }
@@ -1351,6 +1354,7 @@ sp-database = { path = "substrate/primitives/database", default-features = false
 sp-debug-derive = { path = "substrate/primitives/debug-derive", default-features = false }
 sp-externalities = { path = "substrate/primitives/externalities", default-features = false }
 sp-genesis-builder = { path = "substrate/primitives/genesis-builder", default-features = false }
+sp-hop = { path = "substrate/primitives/hop", default-features = false }
 sp-inherents = { path = "substrate/primitives/inherents", default-features = false }
 sp-io = { path = "substrate/primitives/io", default-features = false }
 sp-keyring = { path = "substrate/primitives/keyring", default-features = false }

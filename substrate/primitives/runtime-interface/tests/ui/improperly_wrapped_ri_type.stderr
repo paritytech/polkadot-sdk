@@ -64,7 +64,8 @@ error[E0277]: the trait bound `Option<u8>: FromFFIValue<'_>` is not satisfied
              PassFatPointerAndRead<&'a [u8]>
              PassFatPointerAndRead<&'a str>
              PassFatPointerAndRead<Vec<u8>>
-             PassFatPointerAndReadWrite<&'a mut [T]>
+             PassFatPointerAndReadOption<&'a [u8]>
+             PassFatPointerAndReadWrite<&'a mut [u8]>
            and $N others
 
 error[E0277]: the trait bound `Option<u8>: IntoFFIValue` is not satisfied
@@ -98,7 +99,8 @@ error[E0277]: the trait bound `Option<u8>: FromFFIValue<'_>` is not satisfied
              PassFatPointerAndRead<&'a [u8]>
              PassFatPointerAndRead<&'a str>
              PassFatPointerAndRead<Vec<u8>>
-             PassFatPointerAndReadWrite<&'a mut [T]>
+             PassFatPointerAndReadOption<&'a [u8]>
+             PassFatPointerAndReadWrite<&'a mut [u8]>
            and $N others
 
 error[E0277]: the trait bound `Option<u8>: FromFFIValue<'_>` is not satisfied
@@ -115,7 +117,8 @@ error[E0277]: the trait bound `Option<u8>: FromFFIValue<'_>` is not satisfied
              PassFatPointerAndRead<&'a [u8]>
              PassFatPointerAndRead<&'a str>
              PassFatPointerAndRead<Vec<u8>>
-             PassFatPointerAndReadWrite<&'a mut [T]>
+             PassFatPointerAndReadOption<&'a [u8]>
+             PassFatPointerAndReadWrite<&'a mut [u8]>
            and $N others
    = note: this error originates in the attribute macro `runtime_interface` (in Nightly builds, run with -Z macro-backtrace for more info)
 

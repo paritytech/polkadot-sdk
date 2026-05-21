@@ -165,7 +165,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_022_004,
+	spec_version: 1_022_006,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -1184,7 +1184,15 @@ parameter_types! {
 pub struct PGASCallFilter;
 impl Contains<RuntimeCall> for PGASCallFilter {
 	fn contains(call: &RuntimeCall) -> bool {
-		matches!(call, RuntimeCall::Revive(..))
+		match call {
+			RuntimeCall::Revive(..) => true,
+			RuntimeCall::Utility(pallet_utility::Call::batch { calls }) |
+			RuntimeCall::Utility(pallet_utility::Call::batch_all { calls }) |
+			RuntimeCall::Utility(pallet_utility::Call::force_batch { calls }) => {
+				calls.iter().all(|inner_call| matches!(inner_call, RuntimeCall::Revive(..)))
+			},
+			_ => false,
+		}
 	}
 }
 
@@ -1982,6 +1990,7 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
 	// unreleased
 
 	// start: PSM reset
@@ -2284,7 +2293,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
-			1
+			BLOCK_PROCESSING_VELOCITY
 		}
 	}
 
