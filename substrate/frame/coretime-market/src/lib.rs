@@ -55,6 +55,9 @@ pub use types::*;
 
 mod types;
 
+mod weights;
+use weights::*;
+
 pub mod runtime_api;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -70,7 +73,7 @@ use alloc::{vec, vec::Vec};
 use frame_support::{
 	ensure,
 	traits::{tokens::Balance as BalanceT, Get, Randomness},
-	weights::{Weight, WeightMeter},
+	weights::WeightMeter,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_broker::{
@@ -93,43 +96,10 @@ type SaleInfoRecordOf<T> = SaleInfoRecord<BalanceOf<T>, RelayBlockNumberOf<T>>;
 type TickActionOf<T> =
 	TickAction<<T as frame_system::Config>::AccountId, BalanceOf<T>, RelayBlockNumberOf<T>>;
 
-/// Weight functions needed by the market pallet.
-pub trait WeightInfo {
-	fn place_order() -> Weight;
-	fn adjust_bid() -> Weight;
-	fn place_renewal_order_renewal() -> Weight;
-	fn place_renewal_order_displacement() -> Weight;
-	fn settle_auction() -> Weight;
-	fn finalize_sale() -> Weight;
-	fn rotate_sale() -> Weight;
-}
-
-impl WeightInfo for () {
-	fn place_order() -> Weight {
-		Weight::zero()
-	}
-	fn adjust_bid() -> Weight {
-		Weight::zero()
-	}
-	fn place_renewal_order_renewal() -> Weight {
-		Weight::zero()
-	}
-	fn place_renewal_order_displacement() -> Weight {
-		Weight::zero()
-	}
-	fn settle_auction() -> Weight {
-		Weight::zero()
-	}
-	fn finalize_sale() -> Weight {
-		Weight::zero()
-	}
-	fn rotate_sale() -> Weight {
-		Weight::zero()
-	}
-}
-
 #[frame_support::pallet]
 pub mod pallet {
+	use crate::weights::WeightInfo;
+
 	use super::*;
 	use frame_support::pallet_prelude::*;
 
@@ -159,10 +129,6 @@ pub mod pallet {
 
 		/// Provider of renewal rights information from the broker pallet.
 		type RenewalRights: RenewalRightsProvider<Self::AccountId>;
-
-		/// The number of relay chain blocks in a timeslice.
-		#[pallet::constant]
-		type TimeslicePeriod: Get<Self::RelayBlockNumber>;
 
 		/// Maximum number of bids that can be placed in a single sale.
 		#[pallet::constant]
@@ -208,6 +174,7 @@ pub mod pallet {
 	}
 
 	#[pallet::error]
+	#[derive(PartialEq)]
 	pub enum Error<T> {
 		/// No active sales.
 		NoSales,
@@ -289,17 +256,11 @@ impl<T: Config> Pallet<T> {
 	/// Record a successful renewal: update counters, track for finalization, emit event.
 	fn record_renewal(
 		who: &T::AccountId,
-		renewal: PotentialRenewalId,
+		_renewal: PotentialRenewalId,
 		price: BalanceOf<T>,
 		region_id: RegionId,
 		region_end: Timeslice,
 	) -> Result<RenewalOrderResult<BalanceOf<T>, u32>, Error<T>> {
-		PendingRenewalActions::<T>::try_mutate(|actions| {
-			actions
-				.try_push(RenewalAction::Renewed { who: who.clone(), renewal_id: renewal })
-				.map_err(|_| Error::<T>::TooManyBids)
-		})?;
-
 		SaleInfo::<T>::mutate(|s| {
 			if let Some(sale) = s {
 				sale.renewal_count.saturating_inc();
@@ -335,7 +296,8 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		let range = Self::CoreRangeProvider::core_range().ok_or(Error::<T>::Uninitialized)?;
 
 		let reserve_price = init_data.reserve_price;
-		let commit_timeslice = latest_timeslice_ready_to_commit::<T>(block_number, &config);
+		let commit_timeslice = T::TimesliceProvider::latest_timeslice_ready_to_commit()
+			.ok_or(Error::<T>::Uninitialized)?;
 
 		// Bootstrap with an imaginary previous sale.
 		let old_sale = SaleInfoRecord {
@@ -784,15 +746,6 @@ fn finalize_sale<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> 
 	Pallet::<T>::deposit_event(Event::SaleFinalized { regions_issued: count });
 
 	actions
-}
-
-fn latest_timeslice_ready_to_commit<T: Config>(
-	now: RelayBlockNumberOf<T>,
-	config: &ConfigRecordOf<T>,
-) -> Timeslice {
-	let advanced = now.saturating_add(config.advance_notice);
-	let timeslice_period = T::TimeslicePeriod::get();
-	(advanced / timeslice_period).saturated_into()
 }
 
 /// Compute the new reserve price per RFC-17's exponential adjustment.

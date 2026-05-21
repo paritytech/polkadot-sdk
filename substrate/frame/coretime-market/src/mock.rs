@@ -114,7 +114,6 @@ impl crate::pallet::Config for Test {
 	type CoreRangeProvider = TestCoreRangeProvider;
 	type TimesliceProvider = TestTimesliceProvider;
 	type RenewalRights = TestRenewalRights;
-	type TimeslicePeriod = sp_core::ConstU64<2>;
 	type MaxBids = ConstU32<100>;
 	type Randomness = TestRandomness;
 }
