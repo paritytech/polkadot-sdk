@@ -3,7 +3,7 @@
 use crate::{
 	mock::*,
 	pallet::{Configuration, SaleInfo},
-	Event, InitData, SalePhase,
+	BidDisplacement, Event, InitData, SalePhase,
 };
 use frame_support::{assert_noop, assert_ok, weights::WeightMeter};
 use frame_system::EventRecord;
@@ -551,34 +551,14 @@ fn double_renewal_prevented() {
 }
 
 #[test]
-fn renewal_fails_when_pending_actions_full() {
-	TestExt::new().execute_with(|| {
-		let sale = setup_renewal_phase(&[]);
-
-		// Pre-fill PendingRenewalActions to capacity (MaxBids = 100).
-		crate::pallet::PendingRenewalActions::<Test>::put(sp_runtime::BoundedVec::truncate_from(
-			(0..100u64)
-				.map(|i| crate::RenewalAction::Renewed {
-					who: i,
-					renewal_id: PotentialRenewalId { core: i as u16, when: 0 },
-				})
-				.collect::<alloc::vec::Vec<_>>(),
-		));
-
-		TestRenewalRights::set(1, sale.region_begin, 1);
-		assert_noop!(place_renewal(25, 1, 0, sale.region_begin), Error::TooManyBids);
-	});
-}
-
-#[test]
 fn displacement_fails_when_pending_actions_full() {
 	TestExt::new().execute_with(|| {
 		let sale = setup_renewal_phase(&[(1, 200), (2, 150)]);
 
 		// Pre-fill PendingRenewalActions to capacity.
-		crate::pallet::PendingRenewalActions::<Test>::put(sp_runtime::BoundedVec::truncate_from(
+		crate::pallet::PendingDisplacements::<Test>::put(sp_runtime::BoundedVec::truncate_from(
 			(0..100u64)
-				.map(|i| crate::RenewalAction::Displaced { who: i, refund: 50 })
+				.map(|i| BidDisplacement { who: i, refund: 50 })
 				.collect::<alloc::vec::Vec<_>>(),
 		));
 
@@ -597,34 +577,6 @@ fn multiple_renewal_rights_respected() {
 		assert!(place_renewal(25, 1, 1, sale.region_begin).is_ok());
 
 		assert_noop!(place_renewal(25, 1, 2, sale.region_begin), Error::Unavailable);
-	});
-}
-
-#[test]
-fn renewal_emits_renew_region_in_finalize() {
-	TestExt::new().execute_with(|| {
-		let sale = setup_renewal_phase(&[(1, 200)]);
-
-		TestRenewalRights::set(2, sale.region_begin, 1);
-		place_renewal(25, 2, 0, sale.region_begin).unwrap();
-
-		let actions = tick(30);
-		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Settlement));
-
-		let sell_count =
-			actions.iter().filter(|a| matches!(a, TickAction::SellRegion { .. })).count();
-		assert_eq!(sell_count, 1);
-
-		let renew_count =
-			actions.iter().filter(|a| matches!(a, TickAction::RenewRegion { .. })).count();
-		assert_eq!(renew_count, 1);
-
-		let renew_action =
-			actions.iter().find(|a| matches!(a, TickAction::RenewRegion { .. })).unwrap();
-		match renew_action {
-			TickAction::RenewRegion { owner, .. } => assert_eq!(*owner, 2),
-			_ => unreachable!(),
-		}
 	});
 }
 
@@ -792,10 +744,7 @@ fn renewer_who_also_won_auction() {
 		let actions = tick(30);
 		let sell_count =
 			actions.iter().filter(|a| matches!(a, TickAction::SellRegion { .. })).count();
-		let renew_count =
-			actions.iter().filter(|a| matches!(a, TickAction::RenewRegion { .. })).count();
 		assert_eq!(sell_count, 1);
-		assert_eq!(renew_count, 2);
 	});
 }
 
@@ -824,13 +773,10 @@ fn displacement_works_when_oversubscribed() {
 		let actions = tick(30);
 		let sell_count =
 			actions.iter().filter(|a| matches!(a, TickAction::SellRegion { .. })).count();
-		let renew_count =
-			actions.iter().filter(|a| matches!(a, TickAction::RenewRegion { .. })).count();
 		let refund_count =
 			actions.iter().filter(|a| matches!(a, TickAction::Refund { .. })).count();
 
 		assert_eq!(sell_count, 1, "1 remaining auction winner");
-		assert_eq!(renew_count, 1, "1 renewal");
 		assert_eq!(refund_count, 1, "1 displaced refund");
 	});
 }
@@ -971,13 +917,10 @@ fn multiple_displacements_in_one_renewal_phase() {
 		let actions = tick(30);
 		let sell_count =
 			actions.iter().filter(|a| matches!(a, TickAction::SellRegion { .. })).count();
-		let renew_count =
-			actions.iter().filter(|a| matches!(a, TickAction::RenewRegion { .. })).count();
 		let refund_count =
 			actions.iter().filter(|a| matches!(a, TickAction::Refund { .. })).count();
 
 		assert_eq!(sell_count, 1, "1 remaining auction winner");
-		assert_eq!(renew_count, 2, "2 renewals");
 		assert_eq!(refund_count, 2, "2 displaced refunds");
 	});
 }

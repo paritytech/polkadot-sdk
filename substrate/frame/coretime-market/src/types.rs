@@ -1,5 +1,5 @@
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use pallet_broker::{market::MarketSaleInfo, CoreIndex, PotentialRenewalId, Timeslice};
+use pallet_broker::{market::MarketSaleInfo, CoreIndex, Timeslice};
 use scale_info::TypeInfo;
 use sp_arithmetic::Perbill;
 
@@ -190,11 +190,12 @@ pub struct AccountQuota {
 	pub renewals_used: u32,
 }
 
-/// Actions accumulated during the Renewal phase and resolved at sale finalization.
+/// Representation of a bid that was displaced during the renewal phase that will resolve to
+/// `TickAction::Refund` at the finalization.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub enum RenewalAction<AccountId, Balance> {
-	/// A renewal was exercised. Emits `TickAction::RenewRegion` at finalization.
-	Renewed { who: AccountId, renewal_id: PotentialRenewalId },
-	/// An auction winner was displaced. Emits `TickAction::Refund` at finalization.
-	Displaced { who: AccountId, refund: Balance },
+pub struct BidDisplacement<AccountId, Balance> {
+	/// The bidder account.
+	pub who: AccountId,
+	/// Amount to be refunded to the bidder.
+	pub refund: Balance,
 }

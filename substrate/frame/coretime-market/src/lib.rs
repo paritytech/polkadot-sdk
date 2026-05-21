@@ -228,9 +228,9 @@ pub mod pallet {
 
 	/// Actions accumulated during the Renewal phase, resolved at sale finalization.
 	#[pallet::storage]
-	pub type PendingRenewalActions<T: Config> = StorageValue<
+	pub type PendingDisplacements<T: Config> = StorageValue<
 		_,
-		BoundedVec<RenewalAction<T::AccountId, BalanceOf<T>>, T::MaxBids>,
+		BoundedVec<BidDisplacement<T::AccountId, BalanceOf<T>>, T::MaxBids>,
 		ValueQuery,
 	>;
 }
@@ -256,18 +256,10 @@ impl<T: Config> Pallet<T> {
 	/// Record a successful renewal: update counters, track for finalization, emit event.
 	fn record_renewal(
 		who: &T::AccountId,
-		renewal: PotentialRenewalId,
 		price: BalanceOf<T>,
 		region_id: RegionId,
 		region_end: Timeslice,
 	) -> Result<RenewalOrderResult<BalanceOf<T>, u32>, Error<T>> {
-		// TODO: Remove
-		PendingRenewalActions::<T>::try_mutate(|actions| {
-			actions
-				.try_push(RenewalAction::Renewed { who: who.clone(), renewal_id: renewal })
-				.map_err(|_| Error::<T>::TooManyBids)
-		})?;
-
 		SaleInfo::<T>::mutate(|s| {
 			if let Some(sale) = s {
 				sale.renewal_count.saturating_inc();
@@ -420,9 +412,9 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 			let core = displaced.core;
 			let refund = sale.clearing_price.unwrap_or_default();
 
-			PendingRenewalActions::<T>::try_mutate(|actions| {
+			PendingDisplacements::<T>::try_mutate(|actions| {
 				actions
-					.try_push(RenewalAction::Displaced { who: displaced.who.clone(), refund })
+					.try_push(BidDisplacement { who: displaced.who.clone(), refund })
 					.map_err(|_| Error::<T>::TooManyBids)
 			})?;
 
@@ -439,7 +431,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		};
 
 		let region_id = RegionId { begin: sale.region_begin, core, mask: CoreMask::complete() };
-		Self::record_renewal(who, renewal, renewal_price, region_id, sale.region_end)
+		Self::record_renewal(who, renewal_price, region_id, sale.region_end)
 	}
 
 	fn adjust_bid(
@@ -730,16 +722,8 @@ fn finalize_sale<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> 
 		});
 	}
 
-	// Process pending renewal actions: renewals and displacement refunds.
-	for action in PendingRenewalActions::<T>::take() {
-		match action {
-			RenewalAction::Renewed { who, renewal_id } => {
-				actions.push(TickAction::RenewRegion { owner: who, renewal_id })
-			},
-			RenewalAction::Displaced { who, refund } => {
-				actions.push(TickAction::Refund { amount: refund, who })
-			},
-		}
+	for displacement in PendingDisplacements::<T>::take() {
+		actions.push(TickAction::Refund { who: displacement.who, amount: displacement.refund });
 	}
 
 	if sale.renewal_count > 0 {
