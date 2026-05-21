@@ -18,8 +18,12 @@
 use super::*;
 use crate::{
 	alloy::hex,
-	mock::{new_test_ext, Assets, Balances, RuntimeEvent, RuntimeOrigin, System, Test},
+	mock::{new_test_ext, Assets, Balances, RuntimeOrigin, Test},
 	permit,
+	test_helpers::{
+		assert_contract_event, set_prefix_in_address, setup_asset_for_prefix, ICaller,
+		PRECOMPILE_ADDRESS_PREFIX, PRECOMPILE_ADDRESS_PREFIX_FOREIGN,
+	},
 };
 use alloy::primitives::U256;
 use frame_support::{
@@ -30,32 +34,6 @@ use pallet_revive::{precompiles::TransactionLimits, Code, ExecConfig};
 use sp_core::H160;
 use sp_runtime::Weight;
 use test_case::test_case;
-
-const PRECOMPILE_ADDRESS_PREFIX: u16 = 0x0120;
-const PRECOMPILE_ADDRESS_PREFIX_FOREIGN: u16 = 0x0220;
-
-fn set_prefix_in_address(prefix: u16) -> [u8; 20] {
-	let mut addr = hex::const_decode_to_array(b"0000000000000000000000000000000000000000").unwrap();
-	addr[16..18].copy_from_slice(&prefix.to_be_bytes());
-	addr
-}
-
-fn assert_contract_event(contract: H160, event: IERC20Events) {
-	let (topics, data) = event.into_log_data().split();
-	let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
-	System::assert_has_event(RuntimeEvent::Revive(pallet_revive::Event::ContractEmitted {
-		contract,
-		data: data.to_vec(),
-		topics,
-	}));
-}
-
-fn setup_asset_for_prefix(asset_id: u32, prefix: u16) {
-	if prefix == PRECOMPILE_ADDRESS_PREFIX_FOREIGN {
-		pallet::Pallet::<Test>::insert_asset_mapping(&asset_id)
-			.expect("Failed to insert asset mapping");
-	}
-}
 
 // Regression test: `deposit_event` in lib.rs must pass `data.len()` (32 bytes for
 // every ERC-20 event emitted by this precompile) — not `topics.len()` (always 3) —
@@ -91,7 +69,7 @@ fn deposit_event_charges_data_byte_length() {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
@@ -155,7 +133,7 @@ fn precompile_transfer_works(asset_index: u16) {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
@@ -197,7 +175,7 @@ fn total_supply_works(asset_index: u16) {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
@@ -232,7 +210,7 @@ fn balance_of_works(asset_index: u16) {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
@@ -280,7 +258,7 @@ fn approval_works(asset_index: u16) {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
@@ -305,7 +283,7 @@ fn approval_works(asset_index: u16) {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
@@ -330,7 +308,7 @@ fn approval_works(asset_index: u16) {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			data,
 			&ExecConfig::new_substrate_tx(),
@@ -356,13 +334,13 @@ fn raw_approve(
 	asset_addr: H160,
 	spender_addr: H160,
 	value: U256,
-) -> pallet_revive::ContractResult<pallet_revive::ExecReturnValue, u64> {
+) -> pallet_revive::ContractResult<pallet_revive::ExecReturnValue, u128> {
 	let data = IERC20::approveCall { spender: spender_addr.0.into(), value }.abi_encode();
 	pallet_revive::Pallet::<Test>::bare_call(
 		RuntimeOrigin::signed(owner),
 		asset_addr,
 		0u32.into(),
-		TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u64::MAX },
+		TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u128::MAX },
 		data,
 		&ExecConfig::new_substrate_tx(),
 	)
@@ -396,7 +374,7 @@ fn approve_set_and_revoke(asset_index: u16) {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
 
-		let deposit: u64 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
+		let deposit: u128 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
 		assert_eq!(Balances::reserved_balance(&owner), 0);
 
 		// First approve: set allowance to 100 (from zero — allowed).
@@ -444,7 +422,7 @@ fn approve_revoke_after_partial_transfer(asset_index: u16) {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
 
-		let deposit: u64 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
+		let deposit: u128 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
 
 		// Approve 100.
 		call_approve(owner, asset_addr, spender_addr, U256::from(100));
@@ -492,7 +470,7 @@ fn approve_revoke_rejected_on_frozen_asset(asset_index: u16) {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
 
-		let deposit: u64 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
+		let deposit: u128 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
 
 		// Approve 100 while the asset is live.
 		call_approve(owner, asset_addr, spender_addr, U256::from(100));
@@ -537,7 +515,7 @@ fn approve_nonzero_to_nonzero(asset_index: u16) {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
 
-		let deposit: u64 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
+		let deposit: u128 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
 
 		// Approve 100 (0 → 100).
 		call_approve(owner, asset_addr, spender_addr, U256::from(100));
@@ -585,13 +563,6 @@ fn approve_zero_on_nonexistent_is_noop(asset_index: u16) {
 	});
 }
 
-alloy::sol! {
-	interface ICaller {
-		function staticCall(address callee, bytes data, uint64 gas) external view returns (bool success, bytes output);
-		function delegate(address callee, bytes data, uint64 gas) external returns (bool success, bytes output);
-	}
-}
-
 /// Tests that DOMAIN_SEPARATOR succeeds when invoked via STATICCALL (`is_read_only = true`).
 ///
 /// This guards against regressions where a storage write is accidentally introduced into
@@ -610,7 +581,7 @@ fn domain_separator_is_staticcall_compatible(asset_index: u16) {
 		let deployer = 555u64;
 
 		// Provide enough balance to cover the EVM contract storage deposit.
-		Balances::make_free_balance_be(&deployer, 1_000_000_000_000_000u64);
+		Balances::make_free_balance_be(&deployer, 1_000_000_000_000_000u128);
 
 		// Create asset and set a name so domain separator is non-trivial.
 		setup_asset_for_prefix(asset_id, asset_index);
@@ -635,7 +606,7 @@ fn domain_separator_is_staticcall_compatible(asset_index: u16) {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			Code::Upload(init_code),
 			vec![],
@@ -661,7 +632,7 @@ fn domain_separator_is_staticcall_compatible(asset_index: u16) {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			calldata,
 			&ExecConfig::new_substrate_tx(),
@@ -690,7 +661,7 @@ fn delegatecall_is_rejected() {
 		let asset_id = 0u32;
 		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
 		let deployer = 123456789u64;
-		Balances::make_free_balance_be(&deployer, 1_000_000_000_000_000u64);
+		Balances::make_free_balance_be(&deployer, 1_000_000_000_000_000u128);
 
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, deployer, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(deployer), asset_id, deployer, 1000));
@@ -705,7 +676,7 @@ fn delegatecall_is_rejected() {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			Code::Upload(init_code),
 			vec![],
@@ -729,7 +700,7 @@ fn delegatecall_is_rejected() {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			calldata,
 			&ExecConfig::new_substrate_tx(),

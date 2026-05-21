@@ -735,6 +735,9 @@ impl PalletCmd {
 		extensions.register(OffchainDbExt::new(offchain));
 		extensions.register(TransactionPoolExt::new(pool));
 		extensions.register(ReadRuntimeVersionExt::new(exe));
+		extensions.register(sp_virtualization::VirtManagerExt::new(
+			sc_virtualization::VirtManager::default(),
+		));
 		if let Some(recorder) = maybe_recorder {
 			extensions.register(ProofSizeExt::new(recorder));
 		}
