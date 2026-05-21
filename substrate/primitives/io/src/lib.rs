@@ -976,7 +976,7 @@ pub trait Storage {
 		let len = next_key__wrapped(key_in.as_ref(), &mut []) as usize;
 		if len == 0 {
 			key_out.clear();
-			return false
+			return false;
 		}
 		key_out.resize(len, 0);
 		next_key__wrapped(key_in.as_ref(), &mut key_out[..]);
@@ -1527,11 +1527,10 @@ pub trait DefaultChildStorage {
 		key_in: impl AsRef<[u8]>,
 		key_out: &mut Vec<u8>,
 	) -> bool {
-		let len =
-			next_key__wrapped(storage_key.as_ref(), key_in.as_ref(), &mut []) as usize;
+		let len = next_key__wrapped(storage_key.as_ref(), key_in.as_ref(), &mut []) as usize;
 		if len == 0 {
 			key_out.clear();
-			return false
+			return false;
 		}
 		key_out.resize(len, 0);
 		next_key__wrapped(storage_key.as_ref(), key_in.as_ref(), &mut key_out[..]);
