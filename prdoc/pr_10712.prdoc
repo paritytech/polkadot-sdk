@@ -7,7 +7,7 @@ doc:
     Removes the proc macro `unstable_hostfn` and attribute `#[stable]` because they are not used anywhere.
 crates:
 - name: pallet-revive-proc-macro
-  bump: patch
+  bump: major
 - name: pallet-revive
   bump: major
 - name: pallet-revive-fixtures
