@@ -430,8 +430,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				.transpose()?;
 
 			let hop_pool = node_extra_args.hop.as_ref().and_then(|params| {
-				match params.build_pool(parachain_config.database.path().map(|p| p.to_path_buf()))
-				{
+				match params.build_pool(parachain_config.database.path().map(|p| p.to_path_buf())) {
 					Ok(pool) => Some(pool),
 					Err(e) => {
 						log::warn!(
