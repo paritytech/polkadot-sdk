@@ -94,9 +94,10 @@ async fn import_case_a_attaches_prefetched(
 	let captured = h.captured.lock().unwrap();
 	assert_eq!(captured.len(), 1);
 	let payload = &captured[0].prefetched_indexed_transactions;
-	assert_eq!(payload.len(), 1);
-	assert_eq!(payload[0].0, content_hash);
-	assert_eq!(payload[0].1, bytes);
+	assert!(payload.ops.is_empty(), "tip-block path must not synthesize ops");
+	assert_eq!(payload.renew_payloads.len(), 1);
+	let key = sp_core::H256::from(content_hash);
+	assert_eq!(payload.renew_payloads.get(&key).map(|v| v.as_slice()), Some(bytes));
 	assert_eq!(h.api.call_api_at_count(), 1);
 	assert!(h.api.overlay_marker_seen());
 }
@@ -180,7 +181,10 @@ async fn import_case_b_executes_once_and_indexes_on_same_overlay() {
 	);
 
 	let payload = &captured[0].prefetched_indexed_transactions;
-	assert_eq!(payload, &vec![(h.content_hash, bytes)]);
+	assert!(payload.ops.is_empty(), "tip-block path must not synthesize ops");
+	let expected: std::collections::HashMap<sp_core::H256, Vec<u8>> =
+		std::iter::once((sp_core::H256::from(h.content_hash), bytes)).collect();
+	assert_eq!(payload.renew_payloads, expected);
 }
 
 mod mock {
@@ -853,6 +857,7 @@ mod mock {
 	}
 
 	pub(super) fn prefetched_attached(params: &BlockImportParams<TestBlock>) -> bool {
-		!params.prefetched_indexed_transactions.is_empty()
+		let p = &params.prefetched_indexed_transactions;
+		!p.ops.is_empty() || !p.renew_payloads.is_empty()
 	}
 }

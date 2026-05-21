@@ -282,7 +282,13 @@ where
 				"attaching bitswap-fetched indexed transaction {hash:?} to BlockImportParams",
 			);
 		}
-		params.prefetched_indexed_transactions = fetched;
+		params.prefetched_indexed_transactions = sc_client_api::PrefetchedIndexedTransactions {
+			ops: Vec::new(),
+			renew_payloads: fetched
+				.into_iter()
+				.map(|(h, b)| (sp_core::H256::from(h), b))
+				.collect(),
+		};
 	}
 
 	/// Query TransactionStorageApi against parent state plus supplied StorageChanges.
