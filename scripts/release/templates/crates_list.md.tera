@@ -1,9 +1,9 @@
 The following crates were updated to the corresponding versions:
-<details>
-  <summary>Click to see crates list</summary>
 
-- frame-support@43.0.2
-- pallet-conviction-voting@43.0.1
-- pallet-mmr@43.0.1
+<details>
+  <summary>Crates list</summary>
+
+- staging-xcm@19.0.1
+- sc-network-sync@0.52.1
 
 </details>

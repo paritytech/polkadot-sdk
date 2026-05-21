@@ -234,7 +234,7 @@ jobs:
           else
             echo "Creating PR from $BRANCH_NAME to $BASE_RELEASE..."
             gh pr create \
-              --title "[${BRANCH_NAME}] Post crates release activities for $FULL_RELEASE" \
+              --title "[${BASE_RELEASE}] Post crates release activities for $FULL_RELEASE" \
               --body "Automated PR containing post-crates-release activities:
           - NODE_VERSION bumps (if selected)
           - Path dependencies replacement

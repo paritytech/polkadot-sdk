@@ -71,7 +71,6 @@ on:
         description: "Sha of the current revision, 8-symbols long"
 
 jobs:
-
   #
   #
   #
@@ -99,8 +98,7 @@ jobs:
       COMMIT_SHA_SHORT: ${{ steps.set_vars.outputs.COMMIT_SHA_SHORT }}
 
     steps:
-
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       #
       # Set changes
@@ -114,7 +112,7 @@ jobs:
 
       - name: Set changes
         id: set_changes
-        uses: tj-actions/changed-files@ed68ef82c095e0d48ec87eccea555d944a631a4c #v46.0.5
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 #v47.0.6
         with:
           files_yaml: |
             rust:
@@ -146,16 +144,17 @@ jobs:
         run: |
           echo "RUNNER_DEFAULT=parity-default" >> $GITHUB_OUTPUT
           echo "RUNNER_WEIGHTS=parity-weights" >> $GITHUB_OUTPUT
-          echo "RUNNER_BENCHMARK=parity-benchmark" >> $GITHUB_OUTPUT
           echo "RUNNER_MACOS=parity-macos" >> $GITHUB_OUTPUT
           #
           # Run merge queues on persistent runners
           if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
             echo "RUNNER=parity-large-persistent" >> $GITHUB_OUTPUT
             echo "RUNNER_OLDLINUX=parity-oldlinux-persistent" >> $GITHUB_OUTPUT
+            echo "RUNNER_BENCHMARK=parity-benchmark-persistent" >> $GITHUB_OUTPUT
           else
             echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
             echo "RUNNER_OLDLINUX=parity-oldlinux" >> $GITHUB_OUTPUT
+            echo "RUNNER_BENCHMARK=parity-benchmark" >> $GITHUB_OUTPUT
           fi
 
       #
@@ -175,7 +174,6 @@ jobs:
           export REF_NAME=${{ github.ref_name }}
           echo "REF_SLUG=${REF_NAME//\//_}" >> $GITHUB_OUTPUT
 
-
       - name: log
         shell: bash
         run: |
@@ -191,7 +189,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Info rust
         run: |
