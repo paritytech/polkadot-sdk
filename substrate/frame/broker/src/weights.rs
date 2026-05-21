@@ -590,11 +590,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::zero()
 	}
 
-	fn process_tick_action_process_auto_renewals(n: u32) -> Weight {
+	fn process_tick_action_process_auto_renewals(_n: u32) -> Weight {
 		Weight::zero()
 	}
 
-	fn process_tick_action_sale_rotated(n: u32) -> Weight {
+	fn process_tick_action_sale_rotated(_n: u32) -> Weight {
 		Weight::zero()
 	}
 }
@@ -1074,11 +1074,11 @@ impl WeightInfo for () {
 		Weight::zero()
 	}
 
-	fn process_tick_action_process_auto_renewals(n: u32) -> Weight {
+	fn process_tick_action_process_auto_renewals(_n: u32) -> Weight {
 		Weight::zero()
 	}
 
-	fn process_tick_action_sale_rotated(n: u32) -> Weight {
+	fn process_tick_action_sale_rotated(_n: u32) -> Weight {
 		Weight::zero()
 	}
 }

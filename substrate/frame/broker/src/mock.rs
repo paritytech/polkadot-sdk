@@ -24,9 +24,7 @@ use crate::{
 };
 use alloc::collections::btree_map::BTreeMap;
 use frame_support::{
-	assert_ok, derive_impl, ensure, ord_parameter_types,
-	pallet_prelude::StorageValue,
-	parameter_types, storage_alias,
+	assert_ok, derive_impl, ensure, ord_parameter_types, parameter_types, storage_alias,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, ItemOf, Mutate},
 		nonfungible::Inspect as NftInspect,
@@ -36,8 +34,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::{pallet_prelude::AccountIdFor, EnsureRoot, EnsureSignedBy};
-use sp_arithmetic::Perbill;
-use sp_core::{ConstU32, ConstU64, Get};
+use sp_core::{ConstU32, ConstU64};
 use sp_runtime::{
 	traits::{BlockNumberProvider, Identity, MaybeConvert},
 	BuildStorage, DispatchError, Saturating, Weight,
@@ -332,7 +329,7 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 
 	fn tick(
 		now: RelayBlockNumberOf<Test>,
-		weight_meter: &mut frame_support::weights::WeightMeter,
+		_weight_meter: &mut frame_support::weights::WeightMeter,
 	) -> Vec<TickAction<AccountIdFor<Test>, BalanceOf<Test>, RelayBlockNumberOf<Test>>> {
 		let mut actions = vec![];
 		let config = new_config();
