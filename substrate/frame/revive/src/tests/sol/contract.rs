@@ -709,8 +709,7 @@ fn instantiate_from_constructor_works() {
 fn root_call_can_nested_instantiate(deployer_type: FixtureType) {
 	use crate::{
 		AccountInfo, HoldReason, Pallet,
-		address::AddressMapper,
-		address::create1,
+		address::{AddressMapper, create1},
 		tests::{System, test_utils::get_balance_on_hold},
 	};
 	use alloy_core::primitives::Address;
@@ -745,8 +744,7 @@ fn root_call_can_nested_instantiate(deployer_type: FixtureType) {
 		let upload_hold = HoldReason::CodeUploadDepositReserve.into();
 		let pallet_account = Pallet::<Test>::account_id();
 		let deployer_storage_hold_before = get_balance_on_hold(&storage_hold, &account_id);
-		let deployer_free_before =
-			<<Test as Config>::Currency as Inspect<_>>::balance(&account_id);
+		let deployer_free_before = <<Test as Config>::Currency as Inspect<_>>::balance(&account_id);
 		let pallet_upload_hold_before = get_balance_on_hold(&upload_hold, &pallet_account);
 
 		// Predict the address the next `new` will land at, then call under Root.
