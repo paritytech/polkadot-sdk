@@ -2147,8 +2147,10 @@ where
 					);
 				});
 
-				let weight_before = top_frame!(self).frame_meter.weight_consumed();
-				let gas_before = top_frame!(self).frame_meter.eth_gas_consumed_signed();
+				let snapshot = if_tracing(|_| {
+					let m = &top_frame!(self).frame_meter;
+					(m.weight_consumed(), m.eth_gas_consumed_signed())
+				});
 
 				let result = if let Some(mock_answer) =
 					self.exec_config.mock_handler.as_ref().and_then(|handler| {
@@ -2174,9 +2176,13 @@ where
 				};
 
 				if_tracing(|t| {
+					let (weight_before, gas_before) = snapshot.as_ref().expect(
+						"snapshot is taken inside if_tracing above; tracing state cannot \
+						 change mid-call, so it is Some whenever this closure runs; qed",
+					);
 					let frame_meter = &top_frame!(self).frame_meter;
-					let weight_delta = frame_meter.weight_consumed().saturating_sub(weight_before);
-					let gas_used = frame_meter.eth_gas_used_since(&gas_before);
+					let weight_delta = frame_meter.weight_consumed().saturating_sub(*weight_before);
+					let gas_used = frame_meter.eth_gas_used_since(gas_before);
 					match result {
 						Ok(ref output) => t.exit_child_span(&output, gas_used, weight_delta),
 						Err(e) => {
