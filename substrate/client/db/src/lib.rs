@@ -1691,8 +1691,8 @@ impl<Block: BlockT> Backend<Block> {
 
 			transaction.set_from_vec(columns::HEADER, &lookup_key, pending_block.header.encode());
 			if let Some(body) = pending_block.body {
-				// Runtime-produced `index_ops` override wrapper-supplied ones when both are
-				// present.
+				// If we have index ops, store body in indexed format; otherwise store as a
+				// plain blob.
 				if operation.index_ops.is_empty() {
 					transaction.set_from_vec(columns::BODY, &lookup_key, body.encode());
 				} else {
