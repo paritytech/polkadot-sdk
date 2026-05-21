@@ -26,7 +26,7 @@ use core::fmt::Debug;
 use codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{weights::WeightMeter, Parameter};
 use scale_info::TypeInfo;
-use sp_runtime::DispatchError;
+use sp_runtime::{DispatchError, Weight};
 
 use crate::{CoreIndex, PotentialRenewalId, RegionId, Timeslice};
 
@@ -138,9 +138,7 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 		weight_meter: &mut WeightMeter,
 	) -> Vec<TickAction<AccountId, Balance, RelayBlockNumber>>;
 
-	// TODO: Remove.
-	fn get_region_begin() -> Result<Timeslice, ()>;
-	fn get_region_end() -> Result<Timeslice, ()>;
+	fn get_sale_info() -> Result<MarketSaleInfo<RelayBlockNumber>, Self::Error>;
 }
 
 /// Provides information about the range of cores that can be sold on a market.

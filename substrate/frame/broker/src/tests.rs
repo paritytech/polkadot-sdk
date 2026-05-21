@@ -1952,7 +1952,7 @@ fn auto_renewal_works() {
 		assert_ok!(Broker::do_assign(region_2, Some(1), 1002, Final));
 		assert_ok!(Broker::do_assign(region_3, Some(1), 1003, Final));
 
-		let workload_end = MarketMock::get_region_end().unwrap();
+		let workload_end = MarketMock::get_sale_info().unwrap().region_end;
 
 		assert_ok!(Broker::do_enable_auto_renew(1001, region_1.core, 1001, Some(workload_end)));
 		assert_ok!(Broker::do_enable_auto_renew(1002, region_2.core, 1002, Some(workload_end)));
@@ -2008,7 +2008,7 @@ fn auto_renewal_works() {
 			.into(),
 		);
 
-		let next_renewal = MarketMock::get_region_end().unwrap();
+		let next_renewal = MarketMock::get_sale_info().unwrap().region_end;
 
 		// Given that core #1 didn't get renewed due to the account not being sufficiently funded,
 		// Task (1003) will now be assigned to that core instead of core #2.
@@ -2046,19 +2046,19 @@ fn enable_auto_renew_immediate_updates_core_and_renews() {
 			vec![AutoRenewalRecord {
 				core: expected_new_core,
 				task: 1001,
-				next_renewal: MarketMock::get_region_end().unwrap()
+				next_renewal: MarketMock::get_sale_info().unwrap().region_end
 			}]
 		);
 
 		// Potential renewal moved to the new core index.
 		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
 			core: expected_new_core,
-			when: MarketMock::get_region_end().unwrap()
+			when: MarketMock::get_sale_info().unwrap().region_end
 		})
 		.is_some());
 		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
 			core: region_id.core,
-			when: MarketMock::get_region_end().unwrap()
+			when: MarketMock::get_sale_info().unwrap().region_end
 		})
 		.is_none());
 
@@ -2067,10 +2067,13 @@ fn enable_auto_renew_immediate_updates_core_and_renews() {
 		let auto_after_renew = AutoRenewals::<Test>::get().to_vec();
 		assert_eq!(auto_after_renew.len(), 1);
 		assert_eq!(auto_after_renew[0].task, 1001);
-		assert_eq!(auto_after_renew[0].next_renewal, MarketMock::get_region_end().unwrap());
+		assert_eq!(
+			auto_after_renew[0].next_renewal,
+			MarketMock::get_sale_info().unwrap().region_end
+		);
 		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
 			core: auto_after_renew[0].core,
-			when: MarketMock::get_region_end().unwrap()
+			when: MarketMock::get_sale_info().unwrap().region_end
 		})
 		.is_some());
 	});
