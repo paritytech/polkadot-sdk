@@ -10,19 +10,6 @@ doc:
 
     Does not close #11561.
 
-    ## Integration
-
-    ```diff
-    - use frame_support::error::BadOrigin;
-    + use sp_runtime::traits::BadOrigin;
-
-    - use frame_support::error::LookupError;
-    + use sp_runtime::traits::LookupError;
-    ```
-    Review Notes
-
-    - 3 files: remove error mod in frame-support, fix imports in pallet-revive
-    - No other in-repo frame_support::error usage
 crates:
 - name: pallet-revive
   bump: major
