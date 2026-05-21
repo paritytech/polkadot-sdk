@@ -31,7 +31,7 @@ pub fn compute_tcr<T: Config>(
 /// branch debt's `last_interest_update` is `now` and its `minted_interest`
 /// reflects the freshly minted total.
 pub fn update_aggregate_interest<T: Config>(
-	collateral_id: T::AssetId,
+	collateral_id: &T::AssetId,
 	now: MomentOf<T>,
 ) -> Result<(), DispatchError> {
 	BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
@@ -66,10 +66,28 @@ pub(super) enum YieldSource {
 	UpfrontFee,
 }
 
+/// Mint and route an upfront fee, then emit `UpfrontFeeCharged`. No-op when
+/// `amount == 0`.
+pub(super) fn charge_upfront_fee<T: Config>(
+	collateral_id: &T::AssetId,
+	owner: &T::AccountId,
+	amount: BalanceOf<T>,
+) {
+	if amount.is_zero() {
+		return;
+	}
+	mint_and_route_yield::<T>(collateral_id, amount, YieldSource::UpfrontFee);
+	Pallet::<T>::deposit_event(Event::UpfrontFeeCharged {
+		collateral_id: collateral_id.clone(),
+		owner: owner.clone(),
+		amount,
+	});
+}
+
 /// Issue `amount` pUSD and route per `SpYieldShare`: a portion goes to
 /// `T::SpYieldSink`, the residual goes to `T::FeeHandler`.
 pub(super) fn mint_and_route_yield<T: Config>(
-	collateral_id: T::AssetId,
+	collateral_id: &T::AssetId,
 	amount: BalanceOf<T>,
 	source: YieldSource,
 ) {
@@ -78,7 +96,7 @@ pub(super) fn mint_and_route_yield<T: Config>(
 	let sp_amount = share * credit.peek();
 	let (sp_credit, residual) = credit.split(sp_amount);
 	if let Err(e) = <T::SpYieldSink as pusd_primitives::OnBranchYield<_, _>>::on_branch_yield(
-		collateral_id,
+		collateral_id.clone(),
 		sp_credit,
 	) {
 		crate::log!(error, "SpYieldSink rejected {:?}: {:?}", source, e);
@@ -94,7 +112,7 @@ pub(super) fn mint_and_route_yield<T: Config>(
 /// The caller MUST have already called `update_aggregate_interest` for this
 /// branch in the same dispatch.
 pub fn touch_vault<T: Config>(
-	collateral_id: T::AssetId,
+	collateral_id: &T::AssetId,
 	owner: &T::AccountId,
 	now: MomentOf<T>,
 ) -> Result<Option<Vault<BalanceOf<T>, MomentOf<T>>>, DispatchError> {
@@ -149,7 +167,7 @@ pub fn touch_vault<T: Config>(
 	if !total_pending_interest.is_zero() {
 		vault.debt.interest = vault.debt.interest.saturating_add(total_pending_interest);
 		Pallet::<T>::deposit_event(Event::InterestAccrued {
-			collateral_id,
+			collateral_id: collateral_id.clone(),
 			owner: owner.clone(),
 			amount: total_pending_interest,
 		});
@@ -175,7 +193,7 @@ pub fn touch_vault<T: Config>(
 	}
 	if !redist_collat.is_zero() {
 		T::CollateralAssets::transfer_on_hold(
-			collateral_id,
+			collateral_id.clone(),
 			&HoldReason::VaultCollateral.into(),
 			&Pallet::<T>::redistribution_account(),
 			owner,

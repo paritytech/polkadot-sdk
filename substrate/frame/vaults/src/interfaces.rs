@@ -48,18 +48,18 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 		collateral_id: T::AssetId,
 		owner: T::AccountId,
 	) -> Result<BalanceOf<T>, DispatchError> {
-		helpers::ensure_not_frozen::<T>(collateral_id)?;
+		helpers::ensure_not_frozen::<T>(&collateral_id)?;
 		let now = T::TimeProvider::now();
-		helpers::update_aggregate_interest::<T>(collateral_id, now)?;
-		let vault = helpers::touch_vault::<T>(collateral_id, &owner, now)?
+		helpers::update_aggregate_interest::<T>(&collateral_id, now)?;
+		let vault = helpers::touch_vault::<T>(&collateral_id, &owner, now)?
 			.ok_or(Error::<T>::VaultNotFound)?;
 		ensure!(
 			!vault.status::<T>(&collateral_id, &owner).is_final_recovery(),
 			Error::<T>::VaultInFinalRecovery
 		);
 		let post_touch_debt = vault.debt.total();
-		let cfg = helpers::branch_cfg_of::<T>(collateral_id)?;
-		BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
+		let cfg = helpers::branch_cfg_of::<T>(&collateral_id)?;
+		BranchStates::<T>::try_mutate(&collateral_id, |maybe| -> Result<_, DispatchError> {
 			let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
 			ensure!(
 				bs.stakes.total != vault.redistribution_stake,
@@ -73,6 +73,8 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 			bs.detach_vault(&vault);
 			Ok(())
 		})?;
+		// Dormant vaults aren't in the rate index; silently absorbing
+		// `ItemNotFound` is correct here.
 		let _ = T::VaultLists::remove(&VaultListId::Rate(collateral_id), &owner);
 
 		Ok(post_touch_debt)
@@ -84,14 +86,13 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 		owner: T::AccountId,
 		allocation: LiquidationAllocation<T::AccountId, BalanceOf<T>>,
 	) -> DispatchResult {
-		let vault = helpers::vault_of::<T>(collateral_id, &owner)?;
+		let vault = helpers::vault_of::<T>(&collateral_id, &owner)?;
 		let post_touch_debt = vault.debt.total();
 		let held = T::CollateralAssets::balance_on_hold(
-			collateral_id,
+			collateral_id.clone(),
 			&HoldReason::VaultCollateral.into(),
 			&owner,
 		);
-		// Conservation checks.
 		if allocation.offset.debt > post_touch_debt {
 			return Err(Error::<T>::InvalidLiquidationAllocation.into());
 		}
@@ -107,7 +108,7 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 		let redistributed_debt = post_touch_debt.saturating_sub(allocation.offset.debt);
 		let do_redistribute =
 			!redistributed_debt.is_zero() || !allocation.redistribution_collateral.is_zero();
-		BranchStates::<T>::try_mutate(collateral_id, |maybe_bs| -> Result<_, DispatchError> {
+		BranchStates::<T>::try_mutate(&collateral_id, |maybe_bs| -> Result<_, DispatchError> {
 			let bs = maybe_bs.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
 			bs.total_collateral = bs.total_collateral.saturating_sub(held);
 			if do_redistribute {
@@ -141,10 +142,9 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 			Ok(())
 		})?;
 
-		// 2. Move redistribution_collateral on hold from owner to redistribution account.
 		if !allocation.redistribution_collateral.is_zero() {
 			T::CollateralAssets::transfer_on_hold(
-				collateral_id,
+				collateral_id.clone(),
 				&HoldReason::VaultCollateral.into(),
 				&owner,
 				&Pallet::<T>::redistribution_account(),
@@ -155,12 +155,12 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 			)?;
 		}
 
-		// 3. Move offset.collateral to the offset recipient. The vault pallet
-		// owns this transfer so a buggy or stale orchestrator can't accidentally
-		// leak liquidated collateral back to the liquidatee as surplus.
+		// Vault pallet owns the offset transfer so a buggy or stale orchestrator
+		// can't accidentally leak liquidated collateral back to the liquidatee as
+		// surplus.
 		if !allocation.offset.collateral.is_zero() {
 			T::CollateralAssets::transfer_on_hold(
-				collateral_id,
+				collateral_id.clone(),
 				&HoldReason::VaultCollateral.into(),
 				&owner,
 				&allocation.offset.recipient,
@@ -171,10 +171,9 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 			)?;
 		}
 
-		// 4. Pay keeper.
 		if !allocation.keeper.collateral.is_zero() {
 			T::CollateralAssets::transfer_on_hold(
-				collateral_id,
+				collateral_id.clone(),
 				&HoldReason::VaultCollateral.into(),
 				&owner,
 				&allocation.keeper.recipient,
@@ -185,15 +184,16 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 			)?;
 		}
 
-		// 5. Surplus to owner (whatever is still on hold after offset/redist/keeper outflows).
+		// Surplus to owner: any held collateral still left after the
+		// offset/redist/keeper outflows is released back to the liquidatee.
 		let after_outflow = T::CollateralAssets::balance_on_hold(
-			collateral_id,
+			collateral_id.clone(),
 			&HoldReason::VaultCollateral.into(),
 			&owner,
 		);
 		if !after_outflow.is_zero() {
 			T::CollateralAssets::release(
-				collateral_id,
+				collateral_id.clone(),
 				&HoldReason::VaultCollateral.into(),
 				&owner,
 				after_outflow,
@@ -201,28 +201,26 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 			)?;
 		}
 
-		// 7. Remove vault row.
-		Vaults::<T>::remove(collateral_id, &owner);
+		Vaults::<T>::remove(&collateral_id, &owner);
 		Ok(())
 	}
 }
 
 impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>> for Pallet<T> {
+	/// Priority order: `FinalRecovery` FIFO head, then `last_dormant_vault_owner`,
+	/// then the rate-index tail.
 	fn next_redemption_target(
 		collateral_id: T::AssetId,
 		_cursor: Option<T::AccountId>,
 	) -> Option<T::AccountId> {
-		// 1. FinalRecovery FIFO head.
 		if let Some(o) = recovery::next_target::<T>(&collateral_id) {
 			return Some(o);
 		}
-		// 2. last_dormant_vault_owner.
-		if let Some(bs) = BranchStates::<T>::get(collateral_id) {
+		if let Some(bs) = BranchStates::<T>::get(&collateral_id) {
 			if let Some(o) = bs.queues.last_dormant_vault_owner {
 				return Some(o);
 			}
 		}
-		// 3. Tail of rate index.
 		T::VaultLists::tail(&VaultListId::Rate(collateral_id))
 	}
 
@@ -231,10 +229,10 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 		collateral_id: T::AssetId,
 		owner: T::AccountId,
 	) -> Result<BalanceOf<T>, DispatchError> {
-		helpers::ensure_not_frozen::<T>(collateral_id)?;
+		helpers::ensure_not_frozen::<T>(&collateral_id)?;
 		let now = T::TimeProvider::now();
-		helpers::update_aggregate_interest::<T>(collateral_id, now)?;
-		let vault = helpers::touch_vault::<T>(collateral_id, &owner, now)?
+		helpers::update_aggregate_interest::<T>(&collateral_id, now)?;
+		let vault = helpers::touch_vault::<T>(&collateral_id, &owner, now)?
 			.ok_or(Error::<T>::VaultNotFound)?;
 		Ok(vault.debt.total())
 	}
@@ -246,11 +244,11 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 		redeemer: T::AccountId,
 		allocation: RedemptionAllocation<BalanceOf<T>>,
 	) -> DispatchResult {
-		let mut vault = helpers::vault_of::<T>(collateral_id, &owner)?;
+		let mut vault = helpers::vault_of::<T>(&collateral_id, &owner)?;
 		let status = vault.status::<T>(&collateral_id, &owner);
 		let post_touch_debt = vault.debt.total();
 		let held = T::CollateralAssets::balance_on_hold(
-			collateral_id,
+			collateral_id.clone(),
 			&HoldReason::VaultCollateral.into(),
 			&owner,
 		);
@@ -268,10 +266,9 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 		let payment = vault.debt.cancel(allocation.debt_to_cancel);
 		debug_assert_eq!(payment.total(), allocation.debt_to_cancel);
 
-		// Move collateral.
 		if !allocation.collateral_to_redeemer.is_zero() {
 			T::CollateralAssets::transfer_on_hold(
-				collateral_id,
+				collateral_id.clone(),
 				&HoldReason::VaultCollateral.into(),
 				&owner,
 				&redeemer,
@@ -282,9 +279,9 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 			)?;
 		}
 
-		let cfg = helpers::branch_cfg_of::<T>(collateral_id)?;
+		let cfg = helpers::branch_cfg_of::<T>(&collateral_id)?;
 		let new_total = vault.debt.total();
-		BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
+		BranchStates::<T>::try_mutate(&collateral_id, |maybe| -> Result<_, DispatchError> {
 			let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
 			bs.apply_debt_payment(payment, vault.annual_rate);
 			bs.remove_collateral(allocation.collateral_to_redeemer);
@@ -302,7 +299,8 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 
 		match status {
 			VaultStatus::Active if new_total < cfg.minimum_debt => {
-				let _ = T::VaultLists::remove(&VaultListId::Rate(collateral_id), &owner);
+				// Invariant: Active vaults are in the rate index, so `remove` succeeds.
+				let _ = T::VaultLists::remove(&VaultListId::Rate(collateral_id.clone()), &owner);
 			},
 			VaultStatus::FinalRecovery if new_total.is_zero() => {
 				let _ = recovery::remove::<T>(&collateral_id, &owner);
@@ -311,7 +309,7 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 		}
 
 		let vault_rate = vault.annual_rate;
-		Vaults::<T>::insert(collateral_id, &owner, &vault);
+		Vaults::<T>::insert(&collateral_id, &owner, &vault);
 
 		Pallet::<T>::deposit_event(Event::VaultRedeemed {
 			collateral_id,
@@ -350,7 +348,7 @@ impl<T: Config> VaultBadDebtInterface<T::AssetId, StableCreditOf<T>> for Pallet<
 				return Err(Error::<T>::ArithmeticOverflow.into());
 			},
 		}
-		BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
+		BranchStates::<T>::try_mutate(&collateral_id, |maybe| -> Result<_, DispatchError> {
 			let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
 			bs.debt.bad_debt = bs.debt.bad_debt.saturating_sub(amount);
 			Ok(())

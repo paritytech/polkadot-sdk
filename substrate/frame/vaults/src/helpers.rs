@@ -39,7 +39,7 @@ use frame::{
 	prelude::*,
 };
 use pallet_linked_list::{Position, SortedListInterface};
-use pusd_primitives::{PriceFeed, ProvidePrice};
+use pusd_primitives::ProvidePrice;
 
 fn moment_to_millis<T: Config>(m: MomentOf<T>) -> u64 {
 	use frame::deps::sp_runtime::traits::SaturatedConversion;
@@ -50,44 +50,33 @@ fn millis_diff<T: Config>(now: MomentOf<T>, then: MomentOf<T>) -> u64 {
 	moment_to_millis::<T>(now.saturating_sub(then))
 }
 
-fn rate_list_id<AssetId: Copy>(collateral_id: AssetId) -> VaultListId<AssetId> {
-	VaultListId::Rate(collateral_id)
+pub(crate) fn rate_list_id<AssetId: Clone>(collateral_id: &AssetId) -> VaultListId<AssetId> {
+	VaultListId::Rate(collateral_id.clone())
 }
 
-fn final_recovery_list_id<AssetId: Copy>(collateral_id: AssetId) -> VaultListId<AssetId> {
-	VaultListId::FinalRecovery(collateral_id)
-}
-
-/// Pull collateral on hold from the storage layer.
-fn held_collateral<T: Config>(collateral_id: T::AssetId, owner: &T::AccountId) -> BalanceOf<T> {
-	T::CollateralAssets::balance_on_hold(collateral_id, &HoldReason::VaultCollateral.into(), owner)
-}
-
-/// Read the live oracle price for `collateral_id`, returning the protocol
-/// error variants for stale/missing prices.
-fn oracle_price<T: Config>(
-	collateral_id: T::AssetId,
-) -> Result<PriceFeed<MomentOf<T>>, DispatchError> {
-	T::Oracle::provide_price(&collateral_id)
+pub(crate) fn final_recovery_list_id<AssetId: Clone>(
+	collateral_id: &AssetId,
+) -> VaultListId<AssetId> {
+	VaultListId::FinalRecovery(collateral_id.clone())
 }
 
 /// Read the branch state, returning `UnknownCollateral` when missing.
 pub(crate) fn branch_state_of<T: Config>(
-	collateral_id: T::AssetId,
+	collateral_id: &T::AssetId,
 ) -> Result<BranchState<T::AccountId, BalanceOf<T>, MomentOf<T>>, DispatchError> {
 	BranchStates::<T>::get(collateral_id).ok_or_else(|| Error::<T>::UnknownCollateral.into())
 }
 
 /// Read the branch config, returning `UnknownCollateral` when missing.
 pub(crate) fn branch_cfg_of<T: Config>(
-	collateral_id: T::AssetId,
+	collateral_id: &T::AssetId,
 ) -> Result<BranchConfig<BalanceOf<T>, MomentOf<T>>, DispatchError> {
 	BranchConfigs::<T>::get(collateral_id).ok_or_else(|| Error::<T>::UnknownCollateral.into())
 }
 
 /// Read a vault row, returning `VaultNotFound` when missing.
 pub(crate) fn vault_of<T: Config>(
-	collateral_id: T::AssetId,
+	collateral_id: &T::AssetId,
 	owner: &T::AccountId,
 ) -> Result<Vault<BalanceOf<T>, MomentOf<T>>, DispatchError> {
 	Vaults::<T>::get(collateral_id, owner).ok_or_else(|| Error::<T>::VaultNotFound.into())
@@ -100,10 +89,10 @@ impl<Balance, Moment> Vault<Balance, Moment> {
 		collateral_id: &T::AssetId,
 		owner: &T::AccountId,
 	) -> VaultStatus {
-		if T::VaultLists::contains(&rate_list_id(*collateral_id), owner) {
+		if T::VaultLists::contains(&rate_list_id(collateral_id), owner) {
 			return VaultStatus::Active;
 		}
-		if T::VaultLists::contains(&final_recovery_list_id(*collateral_id), owner) {
+		if T::VaultLists::contains(&final_recovery_list_id(collateral_id), owner) {
 			return VaultStatus::FinalRecovery;
 		}
 		VaultStatus::Dormant
@@ -115,10 +104,10 @@ mod branch;
 mod ops;
 mod views;
 
+use accounting::{charge_upfront_fee, simulate_borrow, simulate_change_rate};
 pub(crate) use accounting::{
 	compute_tcr, open_upfront_fee, touch_vault, update_aggregate_interest,
 };
-use accounting::{mint_and_route_yield, simulate_borrow, simulate_change_rate, YieldSource};
 pub(crate) use branch::{
 	current_branch_config, current_mode, enable_frozen_mode, enforce_mode_rules, ensure_not_frozen,
 	register_branch, update_branch_config, validate_rate,

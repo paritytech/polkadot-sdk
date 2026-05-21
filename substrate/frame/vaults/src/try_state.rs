@@ -4,6 +4,7 @@
 //! `next_block` and end-to-end by the runtime's pre-upgrade hook.
 
 use crate::{
+	helpers,
 	pallet::{BalanceOf, BranchStates, Branches, Config, HoldReason, Pallet, Vaults},
 	types::VaultListId,
 };
@@ -21,38 +22,36 @@ use pallet_linked_list::SortedListInterface;
 
 pub fn do_try_state<T: Config>() -> Result<(), TryRuntimeError> {
 	let branches = Branches::<T>::get();
-	for c in branches.iter().copied() {
-		// (1) Per-vault membership rules.
-		for (owner, _vault) in Vaults::<T>::iter_prefix(c) {
-			let in_rate_index = T::VaultLists::contains(&VaultListId::Rate(c), &owner);
-			let in_recovery = T::VaultLists::contains(&VaultListId::FinalRecovery(c), &owner);
-			if in_rate_index && in_recovery {
-				return Err("vault in both rate index and recovery FIFO".into());
-			}
-		}
-		// (2) Branch state invariants.
+	for c in branches.iter() {
+		let rate_list = helpers::rate_list_id(c);
+		let recovery_list = helpers::final_recovery_list_id(c);
+		check_branch_identities::<T>(c, &rate_list, &recovery_list)?;
+		// Mirrors `pallet-assets`'s "Σ per-account balances == supply" check:
+		// `last_dormant_vault_owner` must point at a Dormant vault.
 		if let Some(bs) = BranchStates::<T>::get(c) {
 			if let Some(owner) = bs.queues.last_dormant_vault_owner.clone() {
 				let Some(vault) = Vaults::<T>::get(c, &owner) else {
 					return Err("last_dormant_vault_owner points at missing vault".into());
 				};
-				if !vault.status::<T>(&c, &owner).is_dormant() {
+				if !vault.status::<T>(c, &owner).is_dormant() {
 					return Err("last_dormant_vault_owner points at non-Dormant".into());
 				}
 			}
 		}
-		// (3) Redistribution accounting identities. Mirrors
-		// `pallet-assets`'s "Σ per-account balances == supply" pattern.
-		check_accounting_identities::<T>(c)?;
 	}
 	Ok(())
 }
 
-fn check_accounting_identities<T: Config>(c: T::AssetId) -> Result<(), TryRuntimeError> {
+/// Single pass over `Vaults::<T>::iter_prefix(c)`: per-vault membership
+/// invariants and redistribution accounting sums.
+fn check_branch_identities<T: Config>(
+	c: &T::AssetId,
+	rate_list: &VaultListId<T::AssetId>,
+	recovery_list: &VaultListId<T::AssetId>,
+) -> Result<(), TryRuntimeError> {
 	let Some(bs) = BranchStates::<T>::get(c) else { return Ok(()) };
-	let redist = bs.redist;
-	let cumul_debt_ps = redist.debt_per_stake;
-	let cumul_collat_ps = redist.collat_per_stake;
+	let cumul_debt_ps = bs.redist.debt_per_stake;
+	let cumul_collat_ps = bs.redist.collat_per_stake;
 
 	let mut sum_stake = BalanceOf::<T>::zero();
 	let mut sum_owner_held = BalanceOf::<T>::zero();
@@ -61,10 +60,18 @@ fn check_accounting_identities<T: Config>(c: T::AssetId) -> Result<(), TryRuntim
 	let mut n_live_vaults: u128 = 0;
 
 	for (owner, vault) in Vaults::<T>::iter_prefix(c) {
-		let held =
-			T::CollateralAssets::balance_on_hold(c, &HoldReason::VaultCollateral.into(), &owner);
+		let in_rate_index = T::VaultLists::contains(rate_list, &owner);
+		let in_recovery = T::VaultLists::contains(recovery_list, &owner);
+		if in_rate_index && in_recovery {
+			return Err("vault in both rate index and recovery FIFO".into());
+		}
+		let held = T::CollateralAssets::balance_on_hold(
+			c.clone(),
+			&HoldReason::VaultCollateral.into(),
+			&owner,
+		);
 		sum_owner_held = sum_owner_held.saturating_add(held);
-		if T::VaultLists::contains(&VaultListId::FinalRecovery(c), &owner) {
+		if in_recovery {
 			continue;
 		}
 		sum_stake = sum_stake.saturating_add(vault.redistribution_stake);
@@ -94,7 +101,7 @@ fn check_accounting_identities<T: Config>(c: T::AssetId) -> Result<(), TryRuntim
 	}
 
 	let held_redist = T::CollateralAssets::balance_on_hold(
-		c,
+		c.clone(),
 		&HoldReason::VaultCollateral.into(),
 		&Pallet::<T>::redistribution_account(),
 	);

@@ -109,7 +109,7 @@ pub mod pallet {
 		type RuntimeHoldReason: From<HoldReason>;
 
 		/// Identifier for collateral assets.
-		type AssetId: Parameter + Member + Copy + Ord + MaxEncodedLen;
+		type AssetId: Parameter + Member + Ord + MaxEncodedLen;
 
 		/// Multi-asset collateral implementation. Balance must be a
 		/// [`FixedPointOperand`] so the pallet's `FixedU128`-based math can
@@ -686,14 +686,14 @@ pub mod pallet {
 			value: FixedU128,
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			let cfg = helpers::current_branch_config::<T>(collateral_id)?;
+			let cfg = helpers::current_branch_config::<T>(&collateral_id)?;
 			ensure!(
 				matches!(level, VaultsManagerLevel::Full) ||
 					value >= cfg.minimum_collateralization_ratio,
 				Error::<T>::DefensiveActionNotDefensive
 			);
 			helpers::update_branch_config::<T>(
-				collateral_id,
+				&collateral_id,
 				BranchConfigUpdate::MinimumCollateralizationRatio(value),
 			)
 		}
@@ -706,14 +706,14 @@ pub mod pallet {
 			value: FixedU128,
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			let cfg = helpers::current_branch_config::<T>(collateral_id)?;
+			let cfg = helpers::current_branch_config::<T>(&collateral_id)?;
 			ensure!(
 				matches!(level, VaultsManagerLevel::Full) ||
 					value >= cfg.initial_collateralization_ratio,
 				Error::<T>::DefensiveActionNotDefensive
 			);
 			helpers::update_branch_config::<T>(
-				collateral_id,
+				&collateral_id,
 				BranchConfigUpdate::InitialCollateralizationRatio(value),
 			)
 		}
@@ -726,14 +726,14 @@ pub mod pallet {
 			value: FixedU128,
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			let cfg = helpers::current_branch_config::<T>(collateral_id)?;
+			let cfg = helpers::current_branch_config::<T>(&collateral_id)?;
 			ensure!(
 				matches!(level, VaultsManagerLevel::Full) ||
 					value >= cfg.safety_collateralization_ratio,
 				Error::<T>::DefensiveActionNotDefensive
 			);
 			helpers::update_branch_config::<T>(
-				collateral_id,
+				&collateral_id,
 				BranchConfigUpdate::SafetyCollateralizationRatio(value),
 			)
 		}
@@ -746,13 +746,13 @@ pub mod pallet {
 			value: BalanceOf<T>,
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			let cfg = helpers::current_branch_config::<T>(collateral_id)?;
+			let cfg = helpers::current_branch_config::<T>(&collateral_id)?;
 			let old = cfg.debt_ceiling;
 			ensure!(
 				matches!(level, VaultsManagerLevel::Full) || value <= old,
 				Error::<T>::DefensiveActionNotDefensive
 			);
-			BranchConfigs::<T>::mutate(collateral_id, |maybe| {
+			BranchConfigs::<T>::mutate(&collateral_id, |maybe| {
 				if let Some(c) = maybe {
 					c.debt_ceiling = value;
 				}
@@ -775,7 +775,7 @@ pub mod pallet {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(matches!(level, VaultsManagerLevel::Full), Error::<T>::InsufficientPrivilege);
 			helpers::update_branch_config::<T>(
-				collateral_id,
+				&collateral_id,
 				BranchConfigUpdate::MinimumDebt(value),
 			)
 		}
@@ -790,7 +790,7 @@ pub mod pallet {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(matches!(level, VaultsManagerLevel::Full), Error::<T>::InsufficientPrivilege);
 			helpers::update_branch_config::<T>(
-				collateral_id,
+				&collateral_id,
 				BranchConfigUpdate::MinimumCollateral(value),
 			)
 		}
@@ -805,7 +805,7 @@ pub mod pallet {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(matches!(level, VaultsManagerLevel::Full), Error::<T>::InsufficientPrivilege);
 			helpers::update_branch_config::<T>(
-				collateral_id,
+				&collateral_id,
 				BranchConfigUpdate::MinimumTotalStakes(value),
 			)
 		}
@@ -819,14 +819,14 @@ pub mod pallet {
 			max_rate: FixedU128,
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			let cfg = helpers::current_branch_config::<T>(collateral_id)?;
+			let cfg = helpers::current_branch_config::<T>(&collateral_id)?;
 			ensure!(
 				matches!(level, VaultsManagerLevel::Full) ||
 					(max_rate <= cfg.maximum_borrow_rate && min_rate >= cfg.minimum_borrow_rate),
 				Error::<T>::DefensiveActionNotDefensive
 			);
 			helpers::update_branch_config::<T>(
-				collateral_id,
+				&collateral_id,
 				BranchConfigUpdate::BorrowRateBounds { min: min_rate, max: max_rate },
 			)
 		}
@@ -841,7 +841,7 @@ pub mod pallet {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(matches!(level, VaultsManagerLevel::Full), Error::<T>::InsufficientPrivilege);
 			helpers::update_branch_config::<T>(
-				collateral_id,
+				&collateral_id,
 				BranchConfigUpdate::UpfrontFeePeriod(value),
 			)
 		}
@@ -856,7 +856,7 @@ pub mod pallet {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(matches!(level, VaultsManagerLevel::Full), Error::<T>::InsufficientPrivilege);
 			helpers::update_branch_config::<T>(
-				collateral_id,
+				&collateral_id,
 				BranchConfigUpdate::RateAdjustmentCooldown(value),
 			)
 		}
@@ -871,7 +871,7 @@ pub mod pallet {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(matches!(level, VaultsManagerLevel::Full), Error::<T>::InsufficientPrivilege);
 			helpers::update_branch_config::<T>(
-				collateral_id,
+				&collateral_id,
 				BranchConfigUpdate::RedistributionPenalty(value),
 			)
 		}
@@ -885,7 +885,7 @@ pub mod pallet {
 			collateral_id: T::AssetId,
 		) -> DispatchResult {
 			let _level = T::ManagerOrigin::ensure_origin(origin)?;
-			helpers::enable_frozen_mode::<T>(collateral_id)
+			helpers::enable_frozen_mode::<T>(&collateral_id)
 		}
 	}
 

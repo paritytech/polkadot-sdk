@@ -11,7 +11,11 @@ pub fn view_vault_cr<T: Config>(
 	owner: &T::AccountId,
 ) -> Option<FixedU128> {
 	let vault = Vaults::<T>::get(collateral_id, owner)?;
-	let coll = held_collateral::<T>(*collateral_id, owner);
+	let coll = T::CollateralAssets::balance_on_hold(
+		collateral_id.clone(),
+		&HoldReason::VaultCollateral.into(),
+		owner,
+	);
 	let total_debt = vault.debt.total();
 	let price = T::Oracle::provide_price(collateral_id).ok()?.price;
 	math::collateralization_ratio::<BalanceOf<T>>(coll, total_debt, price)
@@ -40,7 +44,7 @@ pub fn view_redemption_queue_head<T: Config>(
 	}
 	let remaining = n.saturating_sub(out.len() as u32);
 	if remaining > 0 {
-		out.extend(T::VaultLists::iter_from_tail(&rate_list_id(*collateral_id), remaining));
+		out.extend(T::VaultLists::iter_from_tail(&rate_list_id(collateral_id), remaining));
 	}
 	out
 }
@@ -48,9 +52,10 @@ pub fn view_redemption_queue_head<T: Config>(
 pub fn view_debt_in_front<T: Config>(collateral_id: &T::AssetId, rate: FixedU128) -> BalanceOf<T> {
 	// Walk tail-first; sum interest_bearing_debt while node.priority < rate.
 	let mut total = BalanceOf::<T>::zero();
-	let mut cursor = T::VaultLists::tail(&rate_list_id(*collateral_id));
+	let rate_list = rate_list_id(collateral_id);
+	let mut cursor = T::VaultLists::tail(&rate_list);
 	while let Some(o) = cursor {
-		let priority = match T::VaultLists::priority(&rate_list_id(*collateral_id), &o) {
+		let priority = match T::VaultLists::priority(&rate_list, &o) {
 			Some(p) => p,
 			None => break,
 		};
@@ -60,7 +65,7 @@ pub fn view_debt_in_front<T: Config>(collateral_id: &T::AssetId, rate: FixedU128
 		if let Some(v) = Vaults::<T>::get(collateral_id, &o) {
 			total = total.saturating_add(v.debt.principal);
 		}
-		cursor = match T::VaultLists::neighbors(&rate_list_id(*collateral_id), &o) {
+		cursor = match T::VaultLists::neighbors(&rate_list, &o) {
 			Some(p) => p.prev,
 			None => break,
 		};

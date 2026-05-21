@@ -44,7 +44,6 @@ pub enum VaultStatus {
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
-	Copy,
 	PartialEq,
 	Eq,
 	PartialOrd,

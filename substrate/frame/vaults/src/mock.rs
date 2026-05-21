@@ -372,11 +372,11 @@ pub fn register_default_branch() {
 pub fn register_branch_for(asset: AssetId) {
 	pallet_vaults::Pallet::<Test>::register_branch(
 		RuntimeOrigin::root(),
-		asset,
+		asset.clone(),
 		default_branch_config(),
 	)
 	.expect("register_branch ok");
-	set_price(asset, FixedU128::from_rational(10u128, 1u128));
+	set_price(asset.clone(), FixedU128::from_rational(10u128, 1u128));
 	fund_redistribution_account_for(asset);
 }
 
@@ -449,18 +449,11 @@ pub fn open(
 /// collateral falls through to the owner as surplus. Use this when a test
 /// just needs the vault row removed.
 pub fn liquidate(asset: AssetId, owner: AccountId) -> DispatchResult {
-	let post_touch =
-		<Pallet<Test> as VaultLiquidationInterface<AccountId, AssetId, Balance>>::prepare_liquidation(
-			asset, owner,
-		)?;
-	let alloc = LiquidationAllocation {
+	liquidate_with(asset, owner, |post_touch| LiquidationAllocation {
 		offset: OffsetAllocation { recipient: owner, debt: post_touch, collateral: 0 },
 		redistribution_collateral: 0,
 		keeper: KeeperCompensation { recipient: owner, collateral: 0 },
-	};
-	<Pallet<Test> as VaultLiquidationInterface<AccountId, AssetId, Balance>>::finalize_liquidation(
-		asset, owner, alloc,
-	)
+	})
 }
 
 /// Same as `liquidate` but the caller supplies the post-touch debt allocation.
@@ -474,7 +467,7 @@ pub fn liquidate_with(
 ) -> DispatchResult {
 	let post_touch =
 		<Pallet<Test> as VaultLiquidationInterface<AccountId, AssetId, Balance>>::prepare_liquidation(
-			asset, owner,
+			asset.clone(), owner,
 		)?;
 	let alloc = build(post_touch);
 	<Pallet<Test> as VaultLiquidationInterface<AccountId, AssetId, Balance>>::finalize_liquidation(
@@ -492,11 +485,11 @@ pub fn redeem(
 	amount: Balance,
 ) -> Result<AccountId, DispatchError> {
 	let target = <Pallet<Test> as VaultRedemptionInterface<AccountId, AssetId, Balance>>::next_redemption_target(
-		asset, None,
+		asset.clone(), None,
 	)
 	.ok_or(DispatchError::Other("no redemption target"))?;
 	let post_touch = <Pallet<Test> as VaultRedemptionInterface<AccountId, AssetId, Balance>>::touch_for_redemption(
-		asset, target,
+		asset.clone(), target,
 	)?;
 	let debt_to_cancel = core::cmp::min(amount, post_touch);
 	let price = MockPrices::get().get(&asset).copied().expect("price set");
