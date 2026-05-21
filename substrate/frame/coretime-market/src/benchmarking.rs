@@ -121,9 +121,7 @@ mod benches {
 
 	#[benchmark]
 	fn place_renewal_order_displacement() -> Result<(), BenchmarkError> {
-		let cores = T::CoreRangeProvider::core_range()
-			.map(|r| r.to - r.from)
-			.unwrap_or(2);
+		let cores = T::CoreRangeProvider::core_range().map(|r| r.to - r.from).unwrap_or(2);
 		advance_to_renewal::<T>(cores as u32)?;
 		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
 		let caller: T::AccountId = account("renewer", 0, SEED);
@@ -156,9 +154,7 @@ mod benches {
 
 	#[benchmark]
 	fn finalize_sale() -> Result<(), BenchmarkError> {
-		let cores = T::CoreRangeProvider::core_range()
-			.map(|r| r.to - r.from)
-			.unwrap_or(2);
+		let cores = T::CoreRangeProvider::core_range().map(|r| r.to - r.from).unwrap_or(2);
 		advance_to_renewal::<T>(cores as u32)?;
 		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
 
@@ -191,9 +187,5 @@ mod benches {
 		Ok(())
 	}
 
-	impl_benchmark_test_suite!(
-		Pallet,
-		crate::mock::new_test_ext(),
-		crate::mock::Test
-	);
+	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

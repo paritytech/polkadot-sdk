@@ -51,7 +51,9 @@ impl TestCoreRangeProvider {
 impl CoreRangeProvider for TestCoreRangeProvider {
 	fn core_range() -> Option<SoldCoresRange> {
 		CORE_RANGE.with(|r| {
-			r.borrow().as_ref().map(|range| SoldCoresRange { from: range.from, to: range.to })
+			r.borrow()
+				.as_ref()
+				.map(|range| SoldCoresRange { from: range.from, to: range.to })
 		})
 	}
 }

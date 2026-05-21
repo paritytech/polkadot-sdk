@@ -1,8 +1,5 @@
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use pallet_broker::{
-	market::MarketSaleInfo,
-	CoreIndex, PotentialRenewalId, Timeslice,
-};
+use pallet_broker::{market::MarketSaleInfo, CoreIndex, PotentialRenewalId, Timeslice};
 use scale_info::TypeInfo;
 use sp_arithmetic::Perbill;
 
@@ -146,15 +143,7 @@ pub enum SalePhase {
 
 /// A bid in the descending clock auction.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct BidRecord<AccountId, Balance> {
 	/// Unique identifier for this bid.
@@ -167,15 +156,7 @@ pub struct BidRecord<AccountId, Balance> {
 
 /// Record of an auction winner after settlement.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct AllocationRecord<AccountId, Balance> {
 	/// The winning bidder.
@@ -191,7 +172,15 @@ pub struct AllocationRecord<AccountId, Balance> {
 /// Per-account tracking of how many cores were acquired through each path in a sale.
 /// Used to enforce the RFC-17 rule: auction wins + renewals ≤ total renewal rights.
 #[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, Default, PartialEq, Eq, Debug, TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Default,
+	PartialEq,
+	Eq,
+	Debug,
+	TypeInfo,
 	MaxEncodedLen,
 )]
 pub struct AccountQuota {

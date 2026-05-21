@@ -22,17 +22,17 @@
 //! This pallet provides the market logic for bulk coretime sales using a clearing-price
 //! descending Dutch auction model. It operates in three phases per sale cycle:
 //!
-//! 1. **Market Phase**: A descending clock auction where bidders place bids at or below
-//!    the current descending price. Bids are binding and can only be raised, not cancelled.
+//! 1. **Market Phase**: A descending clock auction where bidders place bids at or below the current
+//!    descending price. Bids are binding and can only be raised, not cancelled.
 //!
-//! 2. **Renewal Phase**: Existing tenants with renewal rights can exercise them. If all
-//!    cores are allocated from the auction, renewers may displace the lowest non-renewer
-//!    auction winner. A penalty applies to renewers who did not participate in the auction
-//!    when the market was oversubscribed.
+//! 2. **Renewal Phase**: Existing tenants with renewal rights can exercise them. If all cores are
+//!    allocated from the auction, renewers may displace the lowest non-renewer auction winner. A
+//!    penalty applies to renewers who did not participate in the auction when the market was
+//!    oversubscribed.
 //!
-//! 3. **Settlement Phase**: No primary sales occur. The pallet waits until the next
-//!    sale's region begins before rotating into a new market cycle. Regions are issued
-//!    at the transition from Renewal to Settlement.
+//! 3. **Settlement Phase**: No primary sales occur. The pallet waits until the next sale's region
+//!    begins before rotating into a new market cycle. Regions are issued at the transition from
+//!    Renewal to Settlement.
 //!
 //! ## Design
 //!
@@ -43,8 +43,8 @@
 //!
 //! Key design decisions:
 //! - **Clearing-price auction**: All winners pay the same uniform price (the Kth highest bid).
-//! - **Lock-then-charge**: Funds are locked at bid time by the broker. At settlement, excess
-//!   is refunded via [`TickAction::Refund`]. Winners are charged the clearing price.
+//! - **Lock-then-charge**: Funds are locked at bid time by the broker. At settlement, excess is
+//!   refunded via [`TickAction::Refund`]. Winners are charged the clearing price.
 //! - **Binding bids**: Bids cannot be cancelled, only raised.
 //! - **Displacement protection**: Auction winners with renewal rights cannot be displaced.
 
@@ -75,8 +75,8 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_broker::{
 	market::{
-		AdjustBidResult, CoreRangeProvider, Market, OrderResult, RenewalOrderResult,
-		SalesStarted, TickAction, TimesliceProvider,
+		AdjustBidResult, CoreRangeProvider, Market, OrderResult, RenewalOrderResult, SalesStarted,
+		TickAction, TimesliceProvider,
 	},
 	CoreIndex, CoreMask, PotentialRenewalId, RegionId, Timeslice,
 };
@@ -176,11 +176,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A new bid was placed during the Market phase.
-		BidPlaced {
-			who: T::AccountId,
-			bid_id: u32,
-			amount: BalanceOf<T>,
-		},
+		BidPlaced { who: T::AccountId, bid_id: u32, amount: BalanceOf<T> },
 		/// An existing bid was raised to a higher price.
 		BidRaised {
 			who: T::AccountId,
@@ -189,31 +185,15 @@ pub mod pallet {
 			additional: BalanceOf<T>,
 		},
 		/// The Market phase auction has been settled with a clearing price.
-		AuctionSettled {
-			clearing_price: BalanceOf<T>,
-			winners: u32,
-		},
+		AuctionSettled { clearing_price: BalanceOf<T>, winners: u32 },
 		/// Regions have been issued to auction winners at the end of the Renewal phase.
-		SaleFinalized {
-			regions_issued: u32,
-		},
+		SaleFinalized { regions_issued: u32 },
 		/// A renewal right was exercised during the Renewal phase.
-		RenewalExercised {
-			who: T::AccountId,
-			price: BalanceOf<T>,
-			region_id: RegionId,
-		},
+		RenewalExercised { who: T::AccountId, price: BalanceOf<T>, region_id: RegionId },
 		/// An auction winner was displaced by a renewer during the Renewal phase.
-		BidDisplaced {
-			who: T::AccountId,
-			bid_id: u32,
-			refund: BalanceOf<T>,
-		},
+		BidDisplaced { who: T::AccountId, bid_id: u32, refund: BalanceOf<T> },
 		/// The sale phase has changed.
-		PhaseTransitioned {
-			from: SalePhase,
-			to: SalePhase,
-		},
+		PhaseTransitioned { from: SalePhase, to: SalePhase },
 		/// A new sale has been initialized.
 		SaleInitialized {
 			sale_start: RelayBlockNumberOf<T>,
@@ -263,11 +243,8 @@ pub mod pallet {
 
 	/// Active bids during the Market phase, sorted by price descending.
 	#[pallet::storage]
-	pub type Bids<T: Config> = StorageValue<
-		_,
-		BoundedVec<BidRecord<T::AccountId, BalanceOf<T>>, T::MaxBids>,
-		ValueQuery,
-	>;
+	pub type Bids<T: Config> =
+		StorageValue<_, BoundedVec<BidRecord<T::AccountId, BalanceOf<T>>, T::MaxBids>, ValueQuery>;
 
 	/// Auction winners after settlement. May be displaced by renewers during the Renewal phase.
 	#[pallet::storage]
@@ -319,10 +296,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<RenewalOrderResult<BalanceOf<T>, u32>, Error<T>> {
 		PendingRenewalActions::<T>::try_mutate(|actions| {
 			actions
-				.try_push(RenewalAction::Renewed {
-					who: who.clone(),
-					renewal_id: renewal,
-				})
+				.try_push(RenewalAction::Renewed { who: who.clone(), renewal_id: renewal })
 				.map_err(|_| Error::<T>::TooManyBids)
 		})?;
 
@@ -333,11 +307,7 @@ impl<T: Config> Pallet<T> {
 		});
 		Quotas::<T>::mutate(who, |q| q.renewals_used.saturating_inc());
 
-		Self::deposit_event(Event::RenewalExercised {
-			who: who.clone(),
-			price,
-			region_id,
-		});
+		Self::deposit_event(Event::RenewalExercised { who: who.clone(), price, region_id });
 
 		Ok(RenewalOrderResult::Renewed { price, region_id, effective_to: region_end })
 	}
@@ -362,8 +332,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		init_data: Self::InitData,
 	) -> Result<SalesStarted<RelayBlockNumberOf<T>>, Self::Error> {
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
-		let range =
-			Self::CoreRangeProvider::core_range().ok_or(Error::<T>::Uninitialized)?;
+		let range = Self::CoreRangeProvider::core_range().ok_or(Error::<T>::Uninitialized)?;
 
 		let reserve_price = init_data.reserve_price;
 		let commit_timeslice = latest_timeslice_ready_to_commit::<T>(block_number, &config);
@@ -422,11 +391,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 			Ok::<u32, Error<T>>(bid_id)
 		})?;
 
-		Self::deposit_event(Event::BidPlaced {
-			who: who.clone(),
-			bid_id,
-			amount: bid_price,
-		});
+		Self::deposit_event(Event::BidPlaced { who: who.clone(), bid_id, amount: bid_price });
 
 		Ok(OrderResult::BidPlaced { id: bid_id, bid_price })
 	}
@@ -457,12 +422,10 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		// after displacement) to determine if the auction was oversubscribed.
 		let oversubscribed = sale.cores_sold == sale.cores_offered;
 
-		let penalty =
-			if oversubscribed { config.penalty * clearing } else { Zero::zero() };
+		let penalty = if oversubscribed { config.penalty * clearing } else { Zero::zero() };
 		let renewal_price = clearing.saturating_add(penalty);
 
-		let allocated_count =
-			(allocations.len() as u16).saturating_add(sale.renewal_count as u16);
+		let allocated_count = (allocations.len() as u16).saturating_add(sale.renewal_count as u16);
 
 		let core = if allocated_count < sale.cores_offered {
 			// Unallocated core available: direct renewal.
@@ -476,10 +439,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 				.iter()
 				.enumerate()
 				.filter(|(_, a)| {
-					let rights = T::RenewalRights::renewal_rights_count(
-						&a.who,
-						sale.region_begin,
-					);
+					let rights = T::RenewalRights::renewal_rights_count(&a.who, sale.region_begin);
 					let wins = Quotas::<T>::get(&a.who).auction_wins;
 					rights <= wins
 				})
@@ -493,10 +453,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 
 			PendingRenewalActions::<T>::try_mutate(|actions| {
 				actions
-					.try_push(RenewalAction::Displaced {
-						who: displaced.who.clone(),
-						refund,
-					})
+					.try_push(RenewalAction::Displaced { who: displaced.who.clone(), refund })
 					.map_err(|_| Error::<T>::TooManyBids)
 			})?;
 
@@ -529,10 +486,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		ensure!(sale.phase == SalePhase::Market, Error::<T>::WrongPhase);
 
 		let mut bids = Bids::<T>::get();
-		let idx = bids
-			.iter()
-			.position(|b| b.bid_id == id)
-			.ok_or(Error::<T>::BidNotExist)?;
+		let idx = bids.iter().position(|b| b.bid_id == id).ok_or(Error::<T>::BidNotExist)?;
 		ensure!(&bids[idx].who == who, Error::<T>::BidNotExist);
 		ensure!(new_price > bids[idx].price, Error::<T>::Overpriced);
 
@@ -632,8 +586,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 						return actions;
 					};
 
-					let new_sale =
-						rotate_sale::<T>(&sale, &config, &range, block_number);
+					let new_sale = rotate_sale::<T>(&sale, &config, &range, block_number);
 
 					SaleInfo::<T>::put(&new_sale);
 
@@ -797,11 +750,8 @@ fn finalize_sale<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> 
 	let clearing_price = sale.clearing_price.unwrap_or(sale.reserve_price);
 
 	for alloc in allocations.into_iter() {
-		let region_id = RegionId {
-			begin: sale.region_begin,
-			core: alloc.core,
-			mask: CoreMask::complete(),
-		};
+		let region_id =
+			RegionId { begin: sale.region_begin, core: alloc.core, mask: CoreMask::complete() };
 
 		actions.push(TickAction::SellRegion {
 			owner: alloc.who,
@@ -814,10 +764,12 @@ fn finalize_sale<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> 
 	// Process pending renewal actions: renewals and displacement refunds.
 	for action in PendingRenewalActions::<T>::take() {
 		match action {
-			RenewalAction::Renewed { who, renewal_id } =>
-				actions.push(TickAction::RenewRegion { owner: who, renewal_id }),
-			RenewalAction::Displaced { who, refund } =>
-				actions.push(TickAction::Refund { amount: refund, who }),
+			RenewalAction::Renewed { who, renewal_id } => {
+				actions.push(TickAction::RenewRegion { owner: who, renewal_id })
+			},
+			RenewalAction::Displaced { who, refund } => {
+				actions.push(TickAction::Refund { amount: refund, who })
+			},
 		}
 	}
 
@@ -853,8 +805,7 @@ fn adjust_reserve_price<T: Config>(
 		return old_sale.reserve_price;
 	}
 
-	let consumption_rate =
-		Perbill::from_rational(old_sale.cores_sold as u32, cores_offered as u32);
+	let consumption_rate = Perbill::from_rational(old_sale.cores_sold as u32, cores_offered as u32);
 	let target = config.target_consumption_rate;
 
 	let k = FixedU64::from_rational(config.sensitivity_millis as u128, 1000);

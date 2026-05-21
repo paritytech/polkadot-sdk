@@ -341,7 +341,6 @@ members = [
 	"substrate/frame/benchmarking/pov",
 	"substrate/frame/bounties",
 	"substrate/frame/broker",
-	"substrate/frame/coretime-market",
 	"substrate/frame/child-bounties",
 	"substrate/frame/collective",
 	"substrate/frame/contracts",
@@ -351,6 +350,7 @@ members = [
 	"substrate/frame/contracts/uapi",
 	"substrate/frame/conviction-voting",
 	"substrate/frame/core-fellowship",
+	"substrate/frame/coretime-market",
 	"substrate/frame/dap",
 	"substrate/frame/dap-satellite",
 	"substrate/frame/delegated-staking",
@@ -976,7 +976,6 @@ pallet-bridge-messages = { path = "bridges/modules/messages", default-features =
 pallet-bridge-parachains = { path = "bridges/modules/parachains", default-features = false }
 pallet-bridge-relayers = { path = "bridges/modules/relayers", default-features = false }
 pallet-broker = { path = "substrate/frame/broker", default-features = false }
-pallet-coretime-market = { path = "substrate/frame/coretime-market", default-features = false }
 pallet-child-bounties = { path = "substrate/frame/child-bounties", default-features = false }
 pallet-collator-selection = { path = "cumulus/pallets/collator-selection", default-features = false }
 pallet-collective = { path = "substrate/frame/collective", default-features = false }
@@ -987,6 +986,7 @@ pallet-contracts-proc-macro = { path = "substrate/frame/contracts/proc-macro", d
 pallet-contracts-uapi = { path = "substrate/frame/contracts/uapi", default-features = false }
 pallet-conviction-voting = { path = "substrate/frame/conviction-voting", default-features = false }
 pallet-core-fellowship = { path = "substrate/frame/core-fellowship", default-features = false }
+pallet-coretime-market = { path = "substrate/frame/coretime-market", default-features = false }
 pallet-dap = { path = "substrate/frame/dap", default-features = false }
 pallet-dap-satellite = { path = "substrate/frame/dap-satellite", default-features = false }
 pallet-default-config-example = { path = "substrate/frame/examples/default-config", default-features = false }
