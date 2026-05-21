@@ -53,7 +53,11 @@ mod migration_tests;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
+mod permit_precompile_tests;
+#[cfg(test)]
 mod permit_tests;
+#[cfg(test)]
+mod test_helpers;
 #[cfg(test)]
 mod tests;
 
@@ -247,7 +251,7 @@ where
 		let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
 		env.frame_meter_mut().charge_weight_token(RuntimeCosts::DepositEvent {
 			num_topic: topics.len() as u32,
-			len: topics.len() as u32,
+			len: data.len() as u32,
 		})?;
 		env.deposit_event(topics, data.to_vec());
 		Ok(())

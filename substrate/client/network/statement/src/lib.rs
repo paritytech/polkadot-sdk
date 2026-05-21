@@ -44,8 +44,8 @@ use governor::{
 	Quota, RateLimiter,
 };
 use prometheus_endpoint::{
-	exponential_buckets, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError,
-	Registry, U64,
+	exponential_buckets, register, Counter, Gauge, GaugeVec, Histogram, HistogramOpts, Opts,
+	PrometheusError, Registry, U64,
 };
 use rand::seq::IteratorRandom;
 use sc_network::{
@@ -168,7 +168,7 @@ struct Metrics {
 	propagated_statements_chunks: Histogram,
 	pending_statements: Gauge<U64>,
 	ignored_statements: Counter<U64>,
-	peers_connected: Gauge<U64>,
+	peers_connected: GaugeVec<U64>,
 	statements_received: Counter<U64>,
 	bytes_sent_total: Counter<U64>,
 	bytes_received_total: Counter<U64>,
@@ -182,6 +182,19 @@ struct Metrics {
 
 impl Metrics {
 	fn register(r: &Registry) -> Result<Self, PrometheusError> {
+		let peers_connected = register(
+			GaugeVec::new(
+				Opts::new(
+					"substrate_sync_statement_peers_connected",
+					"Number of peers connected using the statement protocol by kind",
+				),
+				&["kind"],
+			)?,
+			r,
+		)?;
+		peers_connected.with_label_values(&["full"]).set(0);
+		peers_connected.with_label_values(&["light"]).set(0);
+
 		Ok(Self {
 			propagated_statements: register(
 				Counter::new(
@@ -228,13 +241,7 @@ impl Metrics {
 				)?,
 				r,
 			)?,
-			peers_connected: register(
-				Gauge::new(
-					"substrate_sync_statement_peers_connected",
-					"Number of peers connected using the statement protocol",
-				)?,
-				r,
-			)?,
+			peers_connected,
 			statements_received: register(
 				Counter::new(
 					"substrate_sync_statements_received",
@@ -667,6 +674,14 @@ impl Peer {
 			self.protocol_version == PeerProtocolVersion::V2 &&
 			self.topic_affinity.is_none())
 	}
+
+	fn kind(&self) -> &'static str {
+		if self.is_light {
+			"light"
+		} else {
+			"full"
+		}
+	}
 }
 
 impl<N, S> StatementHandler<N, S>
@@ -1012,7 +1027,9 @@ where
 				debug_assert!(_was_in.is_none());
 
 				self.metrics.as_ref().map(|metrics| {
-					metrics.peers_connected.set(self.peers.len() as u64);
+					if let Some(peer) = self.peers.get(&peer) {
+						metrics.peers_connected.with_label_values(&[peer.kind()]).inc();
+					}
 				});
 
 				// Light V2 peers must set topic affinity before receiving statements.
@@ -1022,8 +1039,15 @@ where
 				}
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
-				let _peer = self.peers.remove(&peer);
-				debug_assert!(_peer.is_some());
+				let removed_peer = self.peers.remove(&peer);
+				debug_assert!(removed_peer.is_some());
+
+				if let Some(removed_peer) = removed_peer {
+					self.metrics.as_ref().map(|metrics| {
+						metrics.peers_connected.with_label_values(&[removed_peer.kind()]).dec();
+					});
+				}
+
 				if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
 					self.metrics.as_ref().map(|metrics| {
 						metrics.initial_sync_peers_active.dec();
@@ -1033,9 +1057,6 @@ where
 					});
 				}
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
-				self.metrics.as_ref().map(|metrics| {
-					metrics.peers_connected.set(self.peers.len() as u64);
-				});
 			},
 			NotificationEvent::NotificationReceived { peer, notification } => {
 				let bytes_received = notification.len() as u64;

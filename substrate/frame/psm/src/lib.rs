@@ -103,6 +103,8 @@ pub use weights::WeightInfo;
 /// asset pallet.
 #[cfg(feature = "runtime-benchmarks")]
 pub trait BenchmarkHelper<AssetId, AccountId> {
+	/// Get the asset ID for a given asset index.
+	fn get_asset_id(asset_index: u32) -> AssetId;
 	/// Create an asset with metadata matching the internal asset's decimals.
 	fn create_asset(asset_id: AssetId, owner: &AccountId, decimals: u8);
 }
@@ -208,18 +210,19 @@ pub mod pallet {
 		/// Whether this level allows modifying the circuit breaker status.
 		/// Both Full and Emergency levels can set circuit breaker.
 		pub const fn can_set_circuit_breaker(&self) -> bool {
-			true
+			matches!(self, PsmManagerLevel::Full | PsmManagerLevel::Emergency)
 		}
 
 		/// Whether this level allows modifying the global PSM debt ratio.
+		/// Both Full and Emergency levels can set the max PSM debt.
 		pub const fn can_set_max_psm_debt(&self) -> bool {
-			matches!(self, PsmManagerLevel::Full)
+			matches!(self, PsmManagerLevel::Full | PsmManagerLevel::Emergency)
 		}
 
 		/// Whether this level allows modifying per-asset ceiling weights.
 		/// Both Full and Emergency levels can set asset ceilings.
 		pub const fn can_set_asset_ceiling(&self) -> bool {
-			true
+			matches!(self, PsmManagerLevel::Full | PsmManagerLevel::Emergency)
 		}
 
 		/// Whether this level allows adding or removing external assets.
@@ -261,7 +264,8 @@ pub mod pallet {
 		///
 		/// Returns `PsmManagerLevel` to distinguish privilege levels:
 		/// - `Full` (via GeneralAdmin): Can modify all parameters
-		/// - `Emergency` (via EmergencyAction): Can only modify circuit breaker status
+		/// - `Emergency` (via EmergencyAction): Can modify circuit breaker status, per-asset
+		///   ceiling weights, and the global max PSM debt ratio.
 		type ManagerOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = PsmManagerLevel>;
 
 		/// A type representing the weights required by the dispatchables of this pallet.
