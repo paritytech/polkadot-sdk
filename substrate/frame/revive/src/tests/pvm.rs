@@ -3170,6 +3170,9 @@ fn root_call_can_nested_instantiate() {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		let _ = <Test as Config>::Currency::set_balance(&deployer_id, 1_000_000);
+		let hold = HoldReason::StorageDepositReserve.into();
+		let deployer_hold_before = get_balance_on_hold(&hold, &deployer_id);
+		let deployer_free_before = <Test as Config>::Currency::total_balance(&deployer_id);
 
 		assert_ok!(
 			builder::bare_call(addr)
@@ -3186,6 +3189,11 @@ fn root_call_can_nested_instantiate() {
 			.expect("new contract should have ContractInfo");
 		assert_eq!(info.code_hash, code_hash);
 		assert_eq!(<Test as Config>::Currency::total_balance(&new_id), ED.into());
+
+		// Storage deposits are waived under Root.
+		assert_eq!(get_balance_on_hold(&hold, &new_id), 0);
+		assert_eq!(get_balance_on_hold(&hold, &deployer_id), deployer_hold_before);
+		assert_eq!(<Test as Config>::Currency::total_balance(&deployer_id), deployer_free_before);
 	});
 }
 
