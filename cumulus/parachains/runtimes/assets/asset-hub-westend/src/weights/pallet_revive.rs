@@ -473,6 +473,15 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+	/// Placeholder weights for `batch_map_accounts` — to be replaced by `/cmd bench`.
+	fn batch_map_accounts(a: u32, ) -> Weight {
+		Weight::from_parts(10_852_000, 4008)
+			.saturating_add(Weight::from_parts(46_800_988, 0).saturating_mul(a.into()))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().reads((3_u64).saturating_mul(a.into())))
+			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(a.into())))
+			.saturating_add(Weight::from_parts(0, 2684).saturating_mul(a.into()))
+	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
 	fn dispatch_as_fallback_account() -> Weight {
