@@ -465,6 +465,20 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		}
 	}
 
+	/// Ethereum gas consumed since the `before` snapshot taken from
+	/// [`Self::eth_gas_consumed_signed`].
+	///
+	/// Subtraction happens in [`SignedGas`] form so that the ceil-rounding inside
+	/// `to_ethereum_gas` is applied once to the delta, not to each snapshot.
+	pub fn eth_gas_used_since(&self, before: &SignedGas<T>) -> u64 {
+		self.eth_gas_consumed_signed()
+			.saturating_sub(before)
+			.to_ethereum_gas()
+			.unwrap_or_default()
+			.try_into()
+			.unwrap_or(u64::MAX)
+	}
+
 	/// Determine and set the new effective weight limit of the weight meter.
 	///
 	/// This function needs to be called whenever there is a change in the deposit meter. It is a

@@ -23,9 +23,7 @@ use crate::{
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
 	limits,
-	metering::{
-		ChargedAmount, Diff, FrameMeter, ResourceMeter, SignedGas, State, Token, TransactionMeter,
-	},
+	metering::{ChargedAmount, Diff, FrameMeter, ResourceMeter, State, Token, TransactionMeter},
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
 	primitives::{ExecConfig, ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, TypeInfo},
@@ -832,20 +830,6 @@ impl<T: Config> CachedContract<T> {
 			*self = CachedContract::Invalidated;
 		}
 	}
-}
-
-/// Ethereum gas consumed by `meter` since the `before` snapshot.
-///
-/// Subtraction happens in [`SignedGas`] form so that the ceil-rounding inside
-/// `to_ethereum_gas` is applied once to the delta, not to each snapshot.
-fn gas_used_since<T: Config, S: State>(meter: &ResourceMeter<T, S>, before: &SignedGas<T>) -> u64 {
-	meter
-		.eth_gas_consumed_signed()
-		.saturating_sub(before)
-		.to_ethereum_gas()
-		.unwrap_or_default()
-		.try_into()
-		.unwrap_or(u64::MAX)
 }
 
 impl<'a, T, E> Stack<'a, T, E>
@@ -2192,7 +2176,7 @@ where
 				if_tracing(|t| {
 					let frame_meter = &top_frame!(self).frame_meter;
 					let weight_delta = frame_meter.weight_consumed().saturating_sub(weight_before);
-					let gas_used = gas_used_since(frame_meter, &gas_before);
+					let gas_used = frame_meter.eth_gas_used_since(&gas_before);
 					match result {
 						Ok(ref output) => t.exit_child_span(&output, gas_used, weight_delta),
 						Err(e) => {
