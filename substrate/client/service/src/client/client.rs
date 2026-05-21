@@ -41,7 +41,8 @@ use sc_client_api::{
 	execution_extensions::ExecutionExtensions,
 	notifications::{StorageEventStream, StorageNotifications},
 	CallExecutor, ExecutorProvider, KeysIter, OnFinalityAction, OnImportAction, PairsIter,
-	ProofProvider, StaleBlock, TrieCacheContext, UnpinWorkerMessage, UsageProvider,
+	PrefetchedIndexedTransactions, ProofProvider, StaleBlock, TrieCacheContext, UnpinWorkerMessage,
+	UsageProvider,
 };
 use sc_consensus::{
 	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
@@ -491,9 +492,10 @@ where
 			return Err(Error::IncompletePipeline);
 		}
 
-		operation
-			.op
-			.set_prefetched_indexed_transactions(prefetched_indexed_transactions)?;
+		let PrefetchedIndexedTransactions { ops: prefetched_index_ops, renew_payloads } =
+			prefetched_indexed_transactions;
+		operation.op.set_renew_payloads(renew_payloads)?;
+		operation.op.update_transaction_index(prefetched_index_ops)?;
 
 		let fork_choice = fork_choice.ok_or(Error::IncompletePipeline)?;
 

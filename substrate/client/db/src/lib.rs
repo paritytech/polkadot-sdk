@@ -65,7 +65,7 @@ use sc_client_api::{
 	blockchain::{BlockGap, BlockGapType},
 	leaves::{FinalizationOutcome, LeafSet},
 	utils::is_descendent_of,
-	IoInfo, MemoryInfo, MemorySize, PrefetchedIndexedTransactions, TrieCacheContext, UsageInfo,
+	IoInfo, MemoryInfo, MemorySize, TrieCacheContext, UsageInfo,
 };
 use sc_state_db::{IsPruned, LastCanonicalized, StateDb};
 use sp_arithmetic::traits::Saturating;
@@ -1075,12 +1075,11 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		Ok(())
 	}
 
-	fn set_prefetched_indexed_transactions(
+	fn set_renew_payloads(
 		&mut self,
-		data: PrefetchedIndexedTransactions,
+		payloads: HashMap<DbHash, Vec<u8>>,
 	) -> ClientResult<()> {
-		self.index_ops = data.ops;
-		self.prefetched_indexed_transactions = data.renew_payloads;
+		self.prefetched_indexed_transactions = payloads;
 		Ok(())
 	}
 
@@ -3000,11 +2999,7 @@ pub(crate) mod tests {
 		let mut op = backend.begin_operation().unwrap();
 		backend.begin_state_operation(&mut op, block_hash).unwrap();
 		if !prefetched.is_empty() {
-			op.set_prefetched_indexed_transactions(PrefetchedIndexedTransactions {
-				ops: Vec::new(),
-				renew_payloads: prefetched,
-			})
-			.unwrap();
+			op.set_renew_payloads(prefetched).unwrap();
 		}
 		if let Some(index) = transaction_index {
 			op.update_transaction_index(index).unwrap();
@@ -3025,8 +3020,7 @@ pub(crate) mod tests {
 		Ok(header.hash())
 	}
 
-	/// Exercises the `set_prefetched_indexed_transactions` → `update_transaction_index`
-	/// call order; mirrors `apply_block` so runtime ops override wrapper-supplied ones.
+	/// Mirrors `apply_block` so runtime ops override wrapper-supplied ones when both are present.
 	pub fn insert_block_with_synthetic_ops(
 		backend: &Backend<Block>,
 		number: u64,
@@ -3046,11 +3040,8 @@ pub(crate) mod tests {
 		let block_hash = if number == 0 { Default::default() } else { parent_hash };
 		let mut op = backend.begin_operation().unwrap();
 		backend.begin_state_operation(&mut op, block_hash).unwrap();
-		op.set_prefetched_indexed_transactions(PrefetchedIndexedTransactions {
-			ops: synthetic_index_ops,
-			renew_payloads,
-		})
-		.unwrap();
+		op.set_renew_payloads(renew_payloads).unwrap();
+		op.update_transaction_index(synthetic_index_ops).unwrap();
 		if !runtime_index_ops.is_empty() {
 			op.update_transaction_index(runtime_index_ops).unwrap();
 		}

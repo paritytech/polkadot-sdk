@@ -265,10 +265,11 @@ pub trait BlockImportOperation<Block: BlockT> {
 	fn update_transaction_index(&mut self, index: Vec<IndexOperation>)
 		-> sp_blockchain::Result<()>;
 
-	/// Apply block import supplied data from [`PrefetchedIndexedTransactions`].
-	fn set_prefetched_indexed_transactions(
+	/// Provide payload bytes for `IndexOperation::Renew` hashes that are not yet present in the
+	/// `TRANSACTION` column.
+	fn set_renew_payloads(
 		&mut self,
-		data: PrefetchedIndexedTransactions,
+		payloads: HashMap<H256, Vec<u8>>,
 	) -> sp_blockchain::Result<()>;
 
 	/// Configure whether to create a block gap if newly imported block is missing parent
