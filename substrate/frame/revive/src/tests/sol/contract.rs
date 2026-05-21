@@ -34,7 +34,7 @@ use alloy_core::{
 };
 use frame_support::{
 	assert_err,
-	traits::fungible::{Balanced, Mutate},
+	traits::fungible::{Balanced, Inspect, Mutate},
 };
 use itertools::Itertools;
 use pallet_revive_fixtures::{Callee, Caller, FixtureType, Host, compile_module_with_type};
@@ -707,7 +707,12 @@ fn instantiate_from_constructor_works() {
 #[test_case(FixtureType::Solc;   "solc")]
 #[test_case(FixtureType::Resolc; "resolc")]
 fn root_call_can_nested_instantiate(deployer_type: FixtureType) {
-	use crate::{AccountInfo, Pallet, address::create1, tests::System};
+	use crate::{
+		AccountInfo, HoldReason, Pallet,
+		address::AddressMapper,
+		address::create1,
+		tests::{System, test_utils::get_balance_on_hold},
+	};
 	use alloy_core::primitives::Address;
 	use pallet_revive_fixtures::NestedDeployer::{NestedDeployerCalls, deployChildCall};
 
@@ -735,6 +740,15 @@ fn root_call_can_nested_instantiate(deployer_type: FixtureType) {
 
 		let data = NestedDeployerCalls::deployChild(deployChildCall {}).abi_encode();
 
+		// Snapshot balances/holds the Root call must not touch.
+		let storage_hold = HoldReason::StorageDepositReserve.into();
+		let upload_hold = HoldReason::CodeUploadDepositReserve.into();
+		let pallet_account = Pallet::<Test>::account_id();
+		let deployer_storage_hold_before = get_balance_on_hold(&storage_hold, &account_id);
+		let deployer_free_before =
+			<<Test as Config>::Currency as Inspect<_>>::balance(&account_id);
+		let pallet_upload_hold_before = get_balance_on_hold(&upload_hold, &pallet_account);
+
 		// Predict the address the next `new` will land at, then call under Root.
 		let deployer_nonce = System::account_nonce(&account_id);
 		let expected = create1(&addr, deployer_nonce.into());
@@ -756,6 +770,18 @@ fn root_call_can_nested_instantiate(deployer_type: FixtureType) {
 			AccountInfo::<Test>::load_contract(&expected).is_some(),
 			"new contract should have ContractInfo",
 		);
+
+		// Deposits are waived under Root: no storage-deposit hold on the new contract
+		// (or the deployer), and no code-upload hold on the pallet's sentinel-owner
+		// account (only relevant for EVM, where the runtime code is uploaded inline).
+		let new_id = <Test as crate::Config>::AddressMapper::to_account_id(&expected);
+		assert_eq!(get_balance_on_hold(&storage_hold, &new_id), 0);
+		assert_eq!(get_balance_on_hold(&storage_hold, &account_id), deployer_storage_hold_before);
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&account_id),
+			deployer_free_before,
+		);
+		assert_eq!(get_balance_on_hold(&upload_hold, &pallet_account), pallet_upload_hold_before);
 	});
 }
 
