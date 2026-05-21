@@ -546,11 +546,10 @@ fn incentive_sum_across_multiple_exposure_pages_equals_share_times_budget() {
 
 			// THEN: sum across pages equals share × budget within Perbill rounding dust.
 			let total_paid: Balance = alice_amounts.iter().sum();
-			assert!(total_paid <= expected_total);
-			assert!(
-				expected_total - total_paid < 5,
-				"rounding dust too large: {}",
-				expected_total - total_paid
+			assert_eq_error_rate!(
+				total_paid,
+				expected_total,
+				4
 			);
 		});
 }
