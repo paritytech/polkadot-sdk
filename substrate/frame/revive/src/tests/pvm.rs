@@ -4136,21 +4136,20 @@ fn execution_tracing_records_consumption_for_plain_transfer() {
 		assert_eq!(get_balance(&BOB), 0);
 
 		let mut tracer = ExecutionTracer::new(ExecutionTracerConfig::default());
-		let result = trace(&mut tracer, || {
-			builder::bare_call(BOB_ADDR)
-				.evm_value(1_000_000.into())
-				.build_and_unwrap_result()
-		});
+		let result =
+			trace(&mut tracer, || builder::bare_call(BOB_ADDR).evm_value(1_000_000.into()).build());
 
 		// Sanity: the transfer actually happened and consumed metered resources.
-		assert!(!result.did_revert(), "transfer must succeed");
+		let return_value = result.result.as_ref().expect("transfer must succeed");
+		assert!(!return_value.did_revert(), "transfer must succeed");
 		assert!(get_balance(&BOB) > 0, "BOB must be funded after the transfer");
 
 		let trace = tracer.collect_trace();
-		assert!(
-			trace.gas > 0,
-			"ExecutionTrace.gas should reflect the gas charged for the \
-			 existential-deposit transfer; got 0 — see issue #278",
+		assert_eq!(
+			trace.gas,
+			result.gas_consumed.try_into().unwrap_or(u64::MAX),
+			"ExecutionTrace.gas should match the gas charged for the \
+			 existential-deposit transfer — see issue #278",
 		);
 	});
 }
