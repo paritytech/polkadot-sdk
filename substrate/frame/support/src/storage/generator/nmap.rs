@@ -221,6 +221,7 @@ where
 			previous_key: prefix,
 			drain: false,
 			closure: |_raw_key, mut raw_value| V::decode(&mut raw_value),
+			next_key: Vec::new(),
 			phantom: Default::default(),
 		}
 	}
@@ -330,6 +331,7 @@ impl<K: ReversibleKeyGenerator, V: FullCodec, G: StorageNMap<K, V>>
 				let partial_key = K::decode_partial_key(raw_key_without_prefix)?;
 				Ok((partial_key, V::decode(&mut raw_value)?))
 			},
+			next_key: Vec::new(),
 			phantom: Default::default(),
 		}
 	}
@@ -356,6 +358,7 @@ impl<K: ReversibleKeyGenerator, V: FullCodec, G: StorageNMap<K, V>>
 			previous_key: prefix,
 			drain: false,
 			closure: K::decode_partial_key,
+			next_key: Vec::new(),
 		}
 	}
 
@@ -394,6 +397,7 @@ impl<K: ReversibleKeyGenerator, V: FullCodec, G: StorageNMap<K, V>>
 				let (final_key, _) = K::decode_final_key(raw_key_without_prefix)?;
 				Ok((final_key, V::decode(&mut raw_value)?))
 			},
+			next_key: Vec::new(),
 			phantom: Default::default(),
 		}
 	}
@@ -412,6 +416,7 @@ impl<K: ReversibleKeyGenerator, V: FullCodec, G: StorageNMap<K, V>>
 				let (final_key, _) = K::decode_final_key(raw_key_without_prefix)?;
 				Ok(final_key)
 			},
+			next_key: Vec::new(),
 		}
 	}
 

@@ -92,6 +92,7 @@ where
 				let mut key_material = G::Hasher::reverse(raw_key_without_prefix);
 				Ok((K::decode(&mut key_material)?, V::decode(&mut raw_value)?))
 			},
+			next_key: Vec::new(),
 			phantom: Default::default(),
 		}
 	}
@@ -114,6 +115,7 @@ where
 				let mut key_material = G::Hasher::reverse(raw_key_without_prefix);
 				K::decode(&mut key_material)
 			},
+			next_key: Vec::new(),
 		}
 	}
 

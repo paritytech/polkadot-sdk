@@ -1012,6 +1012,8 @@ pub struct PrefixIterator<T, OnRemoval = ()> {
 	/// Function that take `(raw_key_without_prefix, raw_value)` and decode `T`.
 	/// `raw_key_without_prefix` is the raw storage key without the prefix iterated on.
 	closure: fn(&[u8], &[u8]) -> Result<T, codec::Error>,
+	/// Reusable scratch buffer for the next key fetched on each iteration.
+	next_key: Vec<u8>,
 	phantom: core::marker::PhantomData<OnRemoval>,
 }
 
@@ -1023,6 +1025,7 @@ impl<T, OnRemoval1> PrefixIterator<T, OnRemoval1> {
 			previous_key: self.previous_key,
 			drain: self.drain,
 			closure: self.closure,
+			next_key: self.next_key,
 			phantom: Default::default(),
 		}
 	}
@@ -1058,6 +1061,7 @@ impl<T, OnRemoval> PrefixIterator<T, OnRemoval> {
 			previous_key,
 			drain: false,
 			closure: decode_fn,
+			next_key: Vec::new(),
 			phantom: Default::default(),
 		}
 	}
@@ -1089,13 +1093,12 @@ impl<T, OnRemoval: PrefixIteratorOnRemoval> Iterator for PrefixIterator<T, OnRem
 
 	fn next(&mut self) -> Option<Self::Item> {
 		loop {
-			let mut next = Vec::new();
-			if !sp_io::storage::next_key(&self.previous_key, &mut next) ||
-				!next.starts_with(&self.prefix)
+			if !sp_io::storage::next_key(&self.previous_key, &mut self.next_key) ||
+				!self.next_key.starts_with(&self.prefix)
 			{
 				return None;
 			}
-			core::mem::swap(&mut self.previous_key, &mut next);
+			core::mem::swap(&mut self.previous_key, &mut self.next_key);
 			let raw_value = match unhashed::get_raw(&self.previous_key) {
 				Some(raw_value) => raw_value,
 				None => {
@@ -1136,6 +1139,8 @@ pub struct KeyPrefixIterator<T> {
 	/// Function that take `raw_key_without_prefix` and decode `T`.
 	/// `raw_key_without_prefix` is the raw storage key without the prefix iterated on.
 	closure: fn(&[u8]) -> Result<T, codec::Error>,
+	/// Reusable scratch buffer for the next key fetched on each iteration.
+	next_key: Vec<u8>,
 }
 
 impl<T> KeyPrefixIterator<T> {
@@ -1151,7 +1156,13 @@ impl<T> KeyPrefixIterator<T> {
 		previous_key: Vec<u8>,
 		decode_fn: fn(&[u8]) -> Result<T, codec::Error>,
 	) -> Self {
-		KeyPrefixIterator { prefix, previous_key, drain: false, closure: decode_fn }
+		KeyPrefixIterator {
+			prefix,
+			previous_key,
+			drain: false,
+			closure: decode_fn,
+			next_key: Vec::new(),
+		}
 	}
 
 	/// Get the last key that has been iterated upon and return it.
@@ -1181,13 +1192,12 @@ impl<T> Iterator for KeyPrefixIterator<T> {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		loop {
-			let mut next = Vec::new();
-			if !sp_io::storage::next_key(&self.previous_key, &mut next) ||
-				!next.starts_with(&self.prefix)
+			if !sp_io::storage::next_key(&self.previous_key, &mut self.next_key) ||
+				!self.next_key.starts_with(&self.prefix)
 			{
 				return None;
 			}
-			core::mem::swap(&mut self.previous_key, &mut next);
+			core::mem::swap(&mut self.previous_key, &mut self.next_key);
 			if self.drain {
 				unhashed::kill(&self.previous_key);
 			}
@@ -1221,6 +1231,8 @@ pub struct ChildTriePrefixIterator<T> {
 	/// Function that takes `(raw_key_without_prefix, raw_value)` and decode `T`.
 	/// `raw_key_without_prefix` is the raw storage key without the prefix iterated on.
 	closure: fn(&[u8], &[u8]) -> Result<T, codec::Error>,
+	/// Reusable scratch buffer for the next key fetched on each iteration.
+	next_key: Vec<u8>,
 }
 
 impl<T> ChildTriePrefixIterator<T> {
@@ -1251,6 +1263,7 @@ impl<T: Decode + Sized> ChildTriePrefixIterator<(Vec<u8>, T)> {
 			drain: false,
 			fetch_previous_key: true,
 			closure,
+			next_key: Vec::new(),
 		}
 	}
 }
@@ -1280,6 +1293,7 @@ impl<K: Decode + Sized, T: Decode + Sized> ChildTriePrefixIterator<(K, T)> {
 			drain: false,
 			fetch_previous_key: true,
 			closure,
+			next_key: Vec::new(),
 		}
 	}
 }
@@ -1292,16 +1306,15 @@ impl<T> Iterator for ChildTriePrefixIterator<T> {
 			if self.fetch_previous_key {
 				self.fetch_previous_key = false;
 			} else {
-				let mut next = Vec::new();
 				if !sp_io::default_child_storage::next_key(
 					self.child_info.storage_key(),
 					&self.previous_key,
-					&mut next,
-				) || !next.starts_with(&self.prefix)
+					&mut self.next_key,
+				) || !self.next_key.starts_with(&self.prefix)
 				{
 					return None;
 				}
-				core::mem::swap(&mut self.previous_key, &mut next);
+				core::mem::swap(&mut self.previous_key, &mut self.next_key);
 			}
 			let raw_value = match child::get_raw(&self.child_info, &self.previous_key) {
 				Some(raw_value) => raw_value,
@@ -1416,6 +1429,7 @@ pub trait StoragePrefixedMap<Value: FullCodec> {
 			previous_key: prefix.to_vec(),
 			drain: false,
 			closure: |_raw_key, mut raw_value| Value::decode(&mut raw_value),
+			next_key: Vec::new(),
 			phantom: Default::default(),
 		}
 	}

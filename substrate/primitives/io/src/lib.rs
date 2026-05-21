@@ -975,13 +975,18 @@ pub trait Storage {
 	/// the buffer across calls to avoid repeated allocations.
 	#[wrapper]
 	fn next_key(key_in: impl AsRef<[u8]>, key_out: &mut Vec<u8>) -> bool {
-		let len = next_key__raw(key_in.as_ref(), &mut []) as usize;
+		let key_in = key_in.as_ref();
+		let len = next_key__raw(key_in, key_out.as_mut_slice()) as usize;
 		if len == 0 {
 			key_out.clear();
 			return false;
 		}
+		if len <= key_out.len() {
+			key_out.truncate(len);
+			return true;
+		}
 		key_out.resize(len, 0);
-		next_key__raw(key_in.as_ref(), &mut key_out[..]);
+		next_key__raw(key_in, &mut key_out[..]);
 		true
 	}
 
@@ -1531,13 +1536,19 @@ pub trait DefaultChildStorage {
 		key_in: impl AsRef<[u8]>,
 		key_out: &mut Vec<u8>,
 	) -> bool {
-		let len = next_key__raw(storage_key.as_ref(), key_in.as_ref(), &mut []) as usize;
+		let storage_key = storage_key.as_ref();
+		let key_in = key_in.as_ref();
+		let len = next_key__raw(storage_key, key_in, key_out.as_mut_slice()) as usize;
 		if len == 0 {
 			key_out.clear();
 			return false;
 		}
+		if len <= key_out.len() {
+			key_out.truncate(len);
+			return true;
+		}
 		key_out.resize(len, 0);
-		next_key__raw(storage_key.as_ref(), key_in.as_ref(), &mut key_out[..]);
+		next_key__raw(storage_key, key_in, &mut key_out[..]);
 		true
 	}
 }
