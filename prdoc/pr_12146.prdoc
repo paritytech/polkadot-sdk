@@ -1,0 +1,27 @@
+title: Remove deprecated WeightMeter::defensive_saturating_accrue
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    Removes deprecated `WeightMeter::defensive_saturating_accrue` as part of #11561.
+
+    Deprecated in December 2023 in favor of `consume`. No remaining in-repo usage.
+
+    Does not close #11561.
+
+    ## Integration
+
+    Replace calls with `consume`:
+
+    ```diff
+    - meter.defensive_saturating_accrue(weight);
+    + meter.consume(weight);
+    ```
+    Review Notes
+
+    - Single-file change in sp-weights
+    - Other` defensive_saturating_accrue i`n the repo are unrelated traits `(frame_support::traits::misc)`
+crates:
+- name: sp-weights
+  bump: major
