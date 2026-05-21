@@ -448,9 +448,9 @@ mod test {
 			Address, ExtBuilder, RuntimeCall, RuntimeOrigin, SignedExtra, Test, UncheckedExtrinsic,
 		},
 	};
-	use frame_support::{error::LookupError, traits::fungible::Mutate};
+	use frame_support::traits::fungible::Mutate;
 	use pallet_revive_fixtures::compile_module;
-	use sp_runtime::traits::{self, Checkable, DispatchTransaction};
+	use sp_runtime::traits::{self, Checkable, DispatchTransaction, LookupError};
 
 	type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
