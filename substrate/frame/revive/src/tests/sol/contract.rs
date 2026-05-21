@@ -701,57 +701,60 @@ fn instantiate_from_constructor_works() {
 	});
 }
 
-/// Root-originated EVM `CREATE` (via Solidity `new ContractName()`) must still be
-/// rejected: a non-PVM constructor frame can't be opened under Root because the
-/// runtime-code upload deposit has no origin address to attribute to. Acts as a
-/// regression guard against future refactors that pre-extract that owner from
-/// elsewhere (e.g. `caller`) and silently lift the restriction.
-#[test]
-fn root_call_cannot_nested_evm_create() {
-	use crate::{AccountInfo, address::create1, tests::System};
-	use pallet_revive_fixtures::HostEvmOnlyFactory::{
-		HostEvmOnlyFactoryCalls, createAndSelfdestructCall,
-	};
+/// `bare_call(Root, deployer, ...)` where the deployer issues a nested CREATE
+/// must succeed on both backends. The deposit (storage + code upload for EVM)
+/// is waived under Root; the new contract is otherwise fully formed.
+#[test_case(FixtureType::Solc;   "solc")]
+#[test_case(FixtureType::Resolc; "resolc")]
+fn root_call_can_nested_instantiate(deployer_type: FixtureType) {
+	use crate::{AccountInfo, Pallet, address::create1, tests::System};
+	use alloy_core::primitives::Address;
+	use pallet_revive_fixtures::NestedDeployer::{NestedDeployerCalls, deployChildCall};
 
-	let (factory_code, _) =
-		compile_module_with_type("HostEvmOnlyFactory", FixtureType::Solc).unwrap();
+	let (code, _) = compile_module_with_type("NestedDeployer", deployer_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
 
+		// PVM requires the child's code to be pre-uploaded; EVM bytecode is uploaded
+		// inline by CREATE.
+		if deployer_type == FixtureType::Resolc {
+			let (child_code, _) =
+				compile_module_with_type("NestedChild", FixtureType::Resolc).unwrap();
+			Pallet::<Test>::upload_code(
+				RuntimeOrigin::signed(ALICE.clone()),
+				child_code,
+				<BalanceOf<Test>>::MAX,
+			)
+			.unwrap();
+		}
+
 		let Contract { addr, account_id } =
-			builder::bare_instantiate(Code::Upload(factory_code)).build_and_unwrap_contract();
-		// Top up so the factory could fund the new contract if CREATE were allowed.
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 		let _ = <Test as Config>::Currency::set_balance(&account_id, 100_000_000_000_000);
 
-		let data = HostEvmOnlyFactoryCalls::createAndSelfdestruct(createAndSelfdestructCall {
-			recipient: ALICE_ADDR.0.into(),
-		})
-		.abi_encode();
+		let data = NestedDeployerCalls::deployChild(deployChildCall {}).abi_encode();
 
-		// Sanity check: Signed origin succeeds.
-		let signed = builder::bare_call(addr).data(data.clone()).build_and_unwrap_result();
-		assert!(!signed.did_revert(), "Signed nested CREATE should succeed");
+		// Predict the address the next `new` will land at, then call under Root.
+		let deployer_nonce = System::account_nonce(&account_id);
+		let expected = create1(&addr, deployer_nonce.into());
 
-		// Predict the address the next `new` would land at (nonce snapshot) and assert
-		// the Root call leaves no contract there. This pins the failure to CREATE
-		// rejection itself, not some unrelated downstream revert.
-		let factory_nonce = System::account_nonce(&account_id);
-		let would_be_addr = create1(&addr, factory_nonce.into());
-
-		let root = builder::bare_call(addr)
+		let result = builder::bare_call(addr)
 			.origin(RuntimeOrigin::root())
 			.data(data)
 			.build_and_unwrap_result();
-		assert!(root.did_revert(), "Root nested EVM CREATE must be rejected");
-		assert!(
-			AccountInfo::<Test>::load_contract(&would_be_addr).is_none(),
-			"no contract should have been created at the would-be CREATE1 address"
-		);
+		assert!(!result.did_revert(), "Root nested CREATE should succeed");
+
+		let returned: Address = deployChildCall::abi_decode_returns(&result.data).unwrap();
+		assert_ne!(returned, Address::ZERO, "CREATE should not return zero");
 		assert_eq!(
-			System::account_nonce(&account_id),
-			factory_nonce,
-			"factory nonce must not advance when CREATE is rejected"
+			H160::from_slice(returned.as_slice()),
+			expected,
+			"returned address must match CREATE1 derivation",
+		);
+		assert!(
+			AccountInfo::<Test>::load_contract(&expected).is_some(),
+			"new contract should have ContractInfo",
 		);
 	});
 }

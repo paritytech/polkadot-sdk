@@ -61,7 +61,7 @@ use sp_core::{
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
 	DispatchError, SaturatedConversion,
-	traits::{BadOrigin, Saturating, TrailingZeroInput},
+	traits::{BadOrigin, Saturating, TrailingZeroInput, Zero},
 };
 
 #[cfg(test)]
@@ -1410,14 +1410,6 @@ where
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
 				if !is_pvm {
-					// EVM CREATE produces runtime bytecode inline and must charge the
-					// code-upload deposit synchronously against an account. Unlike the
-					// contract storage deposit, there is no Root waiver for
-					// CodeUploadDepositReserve, so we reject here.
-					let Origin::Signed(origin) = &self.origin else {
-						return Err(DispatchError::RootNotAllowed.into());
-					};
-					let origin = origin.clone();
 					// Only keep return data for tracing and for dry runs.
 					// When a dry-run simulates contract deployment, keep the execution result's
 					// data.
@@ -1429,7 +1421,21 @@ where
 						output.data.clone()
 					};
 
-					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(data, origin)?;
+					// Under Root there is no origin account to attribute the upload
+					// deposit to: use the pallet's own account as a sentinel owner
+					// with zero deposit so charge/refund are no-ops.
+					let mut module = match &self.origin {
+						Origin::Signed(o) => {
+							crate::ContractBlob::<T>::from_evm_runtime_code(data, o.clone())?
+						},
+						Origin::Root => {
+							crate::ContractBlob::<T>::from_evm_runtime_code_with_deposit(
+								data,
+								crate::Pallet::<T>::account_id(),
+								Zero::zero(),
+							)?
+						},
+					};
 					module.store_code(&self.exec_config, &mut frame.frame_meter)?;
 					code_deposit = module.code_info().deposit();
 

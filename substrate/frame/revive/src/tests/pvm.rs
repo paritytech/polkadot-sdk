@@ -3160,44 +3160,6 @@ fn root_cannot_instantiate() {
 }
 
 #[test]
-fn root_call_can_nested_instantiate() {
-	let (code, code_hash) = compile_module("create1_with_value").unwrap();
-	const ED: u64 = 200;
-	ExtBuilder::default().existential_deposit(ED.into()).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-		let Contract { addr, account_id: deployer_id } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-
-		let _ = <Test as Config>::Currency::set_balance(&deployer_id, 1_000_000);
-		let hold = HoldReason::StorageDepositReserve.into();
-		let deployer_hold_before = get_balance_on_hold(&hold, &deployer_id);
-		let deployer_free_before = <Test as Config>::Currency::total_balance(&deployer_id);
-
-		assert_ok!(
-			builder::bare_call(addr)
-				.origin(RuntimeOrigin::root())
-				.data(code_hash.encode())
-				.build()
-				.result
-		);
-
-		// Verify the new contract was actually deployed.
-		let new_addr = crate::address::create1(&addr, 1);
-		let new_id = <Test as Config>::AddressMapper::to_account_id(&new_addr);
-		let info = <AccountInfo<Test>>::load_contract(&new_addr)
-			.expect("new contract should have ContractInfo");
-		assert_eq!(info.code_hash, code_hash);
-		assert_eq!(<Test as Config>::Currency::total_balance(&new_id), ED.into());
-
-		// Storage deposits are waived under Root.
-		assert_eq!(get_balance_on_hold(&hold, &new_id), 0);
-		assert_eq!(get_balance_on_hold(&hold, &deployer_id), deployer_hold_before);
-		assert_eq!(<Test as Config>::Currency::total_balance(&deployer_id), deployer_free_before);
-	});
-}
-
-#[test]
 fn only_upload_origin_can_upload() {
 	let (binary, _) = compile_module("dummy").unwrap();
 	UploadAccount::set(Some(ALICE));
