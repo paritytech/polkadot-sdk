@@ -10,20 +10,23 @@ Then these are the actions to take:
 
 ## Hard deprecate by adding a warning message
 
-The warning message shall include a removal month and year, which is suggested to be 6 months after the deprecation
-notice is released.
-This means that the code will be removed in a release within that month (or after, but never before). Please use this
+The warning message shall include a planned removal version, which is suggested to be at least 6 months after the
+deprecation notice is released.
+This means that the code will be removed in a release at or after that version (but never before). Please use this
 template, doing so makes it easy to search through the code base:
 
 ```rust
-#[deprecated(note = "[DEPRECATED] will be removed after [DATE]. [ALTERNATIVE]")]
+#[deprecated(note = "[DEPRECATED] will be removed after [stableABCD]. [ALTERNATIVE]")]
 ```
-`[ALTERNATIVE]` won't always be possible but offer it if it is.
+`[stableABCD]` is the Polkadot SDK stable release identifier (e.g. `stable2503`). `[ALTERNATIVE]` won't always be
+possible but offer it if it is.
 
 E.g.
 ```rust
-#[deprecated(note = "`GenesisConfig` will be removed after December 2023. Use `RuntimeGenesisConfig` instead.")]
+#[deprecated(note = "`GenesisConfig` will be removed after stable2509. Use `RuntimeGenesisConfig` instead.")]
 ```
+
+Calendar dates (e.g. `July 2025`) may still appear in older deprecations but should not be used for new ones.
 
 Some pieces of code cannot be labeled as deprecated, like [reexports](https://github.com/rust-lang/rust/issues/30827)
 or [dispatchables](https://github.com/paritytech/polkadot-sdk/issues/182#issuecomment-1691684159), for instance.
