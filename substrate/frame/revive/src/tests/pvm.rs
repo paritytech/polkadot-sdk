@@ -3162,7 +3162,8 @@ fn root_cannot_instantiate() {
 #[test]
 fn root_call_can_nested_instantiate() {
 	let (code, code_hash) = compile_module("create1_with_value").unwrap();
-	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+	const ED: u64 = 200;
+	ExtBuilder::default().existential_deposit(ED.into()).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		let Contract { addr, account_id: deployer_id } =
@@ -3178,10 +3179,13 @@ fn root_call_can_nested_instantiate() {
 				.result
 		);
 
-		// New contract's account exists with the freshly minted ED.
+		// Verify the new contract was actually deployed.
 		let new_addr = crate::address::create1(&addr, 1);
 		let new_id = <Test as Config>::AddressMapper::to_account_id(&new_addr);
-		assert!(frame_system::Pallet::<Test>::account_exists(&new_id));
+		let info = <AccountInfo<Test>>::load_contract(&new_addr)
+			.expect("new contract should have ContractInfo");
+		assert_eq!(info.code_hash, code_hash);
+		assert_eq!(<Test as Config>::Currency::total_balance(&new_id), ED.into());
 	});
 }
 
