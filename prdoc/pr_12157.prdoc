@@ -1,15 +1,9 @@
-title: 'docs: use stable release versions in deprecation checklist'
+title: "docs: use stable release versions in deprecation checklist"
 doc:
 - audience: Runtime Dev
-  description: "# Description\n\nUpdates `DEPRECATION_CHECKLIST.md` to recommend `stableABCD`\
-    \ release identifiers (e.g. `stable2509`) instead of calendar dates for **new**\
-    \ deprecations.\n\nPart of #11561. Does not remove any deprecated code. Existing\
-    \ date-based notes in the codebase are unchanged.\n\n## Integration\n\nN/A \u2014\
-    \ documentation only.\n\n## Review Notes\n\n- Single file: `docs/contributor/DEPRECATION_CHECKLIST.md`\n\
-    - Guidance for future deprecations only\n\n# Checklist\n\n* [x] My PR includes\
-    \ a detailed description as outlined in the \"Description\" and its two subsections\
-    \ above.\n* [ ] My PR follows the labeling requirements of this project (at minimum\
-    \ one label for `T` required)\n* [x] I have made corresponding changes to the\
-    \ documentation (if applicable)\n* [ ] I have added tests that prove my fix is\
-    \ effective or that my feature works (if applicable) \u2014 N/A"
+  description: |-
+    Updates DEPRECATION_CHECKLIST.md to recommend stable release identifiers (e.g.
+    stable2509) instead of calendar dates for new deprecations. Part of #11561.
+    Does not remove any deprecated code.
+
 crates: []
