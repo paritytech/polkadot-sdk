@@ -200,7 +200,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 				relay_chain_data_cache.get_by_header(best_relay_header).await.ok()?;
 			let best_relay_slot = get_relay_slot(&best_relay_header_data.relay_header)?;
 
-			let v3_enabled = v3_enabled_on_para && best_relay_header_data.is_v3_enabled();
+			let v3_enabled = Self::is_v3_enabled(v3_enabled_on_para, Some(&best_relay_header_data));
 			if v3_enabled {
 				// For scheduling v3 we don't need to loop since we need to return a
 				// scheduling parent associated with a finished slot.
@@ -219,7 +219,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		let mut scheduling_parent_data = best_relay_header_data;
 		let mut scheduling_parent_slot = best_relay_slot;
 		while scheduling_parent_slot >=
-			get_current_relay_slot(self.slot_offset, self.relay_slot_duration)
+			get_current_relay_slot(Duration::ZERO, self.relay_slot_duration)
 		{
 			// The scheduling parent should be part of the same session as the best
 			// relay block.
