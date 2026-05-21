@@ -1410,8 +1410,10 @@ where
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
 				if !is_pvm {
-					// EVM CREATE requires an account to own the runtime-code upload
-					// deposit; Root has none, so it must be rejected here.
+					// EVM CREATE produces runtime bytecode inline and must charge the
+					// code-upload deposit synchronously against an account. Unlike the
+					// contract storage deposit, there is no Root waiver for
+					// CodeUploadDepositReserve, so we reject here.
 					let Origin::Signed(origin) = &self.origin else {
 						return Err(DispatchError::RootNotAllowed.into());
 					};
