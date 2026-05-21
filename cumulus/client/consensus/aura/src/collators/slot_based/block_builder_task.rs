@@ -236,11 +236,6 @@ where
 			let relay_parent_offset =
 				para_client.runtime_api().relay_parent_offset(best_hash).unwrap_or_default();
 
-			let Ok(para_slot_duration) = crate::slot_duration(&*para_client) else {
-				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
-				continue;
-			};
-
 			let Ok(Some(rp_data)) = offset_relay_parent_find_descendants(
 				&mut relay_chain_data_cache,
 				relay_best_header,
@@ -251,6 +246,7 @@ where
 				continue;
 			};
 
+<<<<<<< HEAD
 			let Some(para_slot) = adjust_para_to_relay_parent_slot(
 				rp_data.relay_parent(),
 				relay_chain_slot_duration,
@@ -259,6 +255,8 @@ where
 				continue;
 			};
 
+=======
+>>>>>>> a384fd0 (Aura: Fetch slot duration at parent and not best block (#12113))
 			let relay_parent = rp_data.relay_parent().hash();
 			let relay_parent_header = rp_data.relay_parent().clone();
 
@@ -323,7 +321,49 @@ where
 				continue;
 			};
 
+<<<<<<< HEAD
 			slot_timer.update_scheduling(core.total_cores().into());
+=======
+			let included_header = parent_search_result.included_header;
+			let initial_parent_hash = parent_search_result.best_parent_header.hash();
+			let initial_parent_header = parent_search_result.best_parent_header;
+			let unincluded_segment_len =
+				initial_parent_header.number().saturating_sub(*included_header.number());
+
+			let Ok(para_slot_duration) =
+				crate::slot_duration_at(&*para_client, initial_parent_hash)
+			else {
+				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
+				continue;
+			};
+
+			// Use the slot calculated from relay parent
+			let Some(para_slot) = adjust_para_to_relay_parent_slot(
+				rp_data.relay_parent(),
+				relay_chain_slot_duration,
+				para_slot_duration,
+			) else {
+				continue;
+			};
+
+			let Ok(max_pov_size) = relay_chain_data_cache
+				.get_mut_relay_chain_data(relay_parent)
+				.await
+				.map(|d| d.max_pov_size)
+			else {
+				continue;
+			};
+
+			let allowed_pov_size = if let Some(max_pov_percentage) = max_pov_percentage {
+				max_pov_size * max_pov_percentage / 100
+			} else {
+				// Set the block limit to 85% of the maximum PoV size.
+				//
+				// Once https://github.com/paritytech/polkadot-sdk/issues/6020 issue is
+				// fixed, this should be removed.
+				max_pov_size * 85 / 100
+			} as usize;
+>>>>>>> a384fd0 (Aura: Fetch slot duration at parent and not best block (#12113))
 
 			// We mainly call this to inform users at genesis if there is a mismatch with the
 			// on-chain data.
