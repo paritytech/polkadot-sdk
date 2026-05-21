@@ -28,9 +28,50 @@ use frame_system::{EventRecord, RawOrigin};
 
 use sp_io::hashing::blake2_256;
 
-use crate::*;
+use crate::{
+	migrations::import_from_block_scheduler::{
+		self as imp, BlockFor, ImportFromBlockScheduler, MigrationAddressMap, MigrationState,
+		OldScheduledOf,
+	},
+	*,
+};
+use frame_support::migrations::SteppedMigration;
 
 type SystemCall<T> = frame_system::Call<T>;
+
+/// Block time used by migration benchmarks (placeholder; real value comes from
+/// the runtime in production).
+struct BenchBlockTime;
+impl Get<u64> for BenchBlockTime {
+	fn get() -> u64 {
+		6_000
+	}
+}
+
+/// Construct a fake old block-based scheduled task for migration benchmarks.
+fn make_old_scheduled<T: Config>() -> OldScheduledOf<T> {
+	let call = make_call::<T>(None);
+	Scheduled {
+		maybe_id: None,
+		priority: 0,
+		call,
+		maybe_periodic: None,
+		origin: make_origin::<T>(false),
+		_phantom: Default::default(),
+	}
+}
+
+/// Insert `n` tasks into the old block-scheduler `Agenda` storage at `block`.
+/// Clears any leftover state from earlier benchmark iterations so each call
+/// starts from a clean slate.
+fn setup_old_agenda<T: Config>(block: BlockFor<T>, n: u32) {
+	let _ = imp::old::Agenda::<T>::clear(u32::MAX, None);
+	let _ = crate::Agenda::<T>::clear(u32::MAX, None);
+	let _ = MigrationAddressMap::<T>::clear(u32::MAX, None);
+	let tasks: alloc::vec::Vec<Option<OldScheduledOf<T>>> =
+		(0..n).map(|_| Some(make_old_scheduled::<T>())).collect();
+	imp::old::Agenda::<T>::insert(block, tasks);
+}
 
 const SEED: u32 = 0;
 const BUCKET: u32 = 2;
@@ -142,7 +183,7 @@ fn make_origin<T: Config>(signed: bool) -> <T as Config>::PalletsOrigin {
 	}
 }
 
-#[benchmarks]
+#[benchmarks(where BlockFor<T>: Into<u64> + From<u32>, BucketFor<T>: From<u64>)]
 mod benchmarks {
 	use super::*;
 
@@ -639,6 +680,117 @@ mod benchmarks {
 		assert!(!Retries::<T>::contains_key((bucket, index)));
 		assert_last_event::<T>(Event::RetryCancelled { task: address, id: Some(name) }.into());
 
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_incomplete_since() -> Result<(), BenchmarkError> {
+		let block: BlockFor<T> = 5u32.into();
+		imp::old::IncompleteSince::<T>::put(block);
+
+		#[block]
+		{
+			let mut meter =
+				WeightMeter::with_limit(<() as imp::WeightInfo>::migration_incomplete_since());
+			ImportFromBlockScheduler::<T, BenchBlockTime, ()>::step(
+				Some(MigrationState::IncompleteSince),
+				&mut meter,
+			)
+			.map_err(|_| BenchmarkError::Stop("step failed"))?;
+		}
+
+		assert!(IncompleteSince::<T>::get().is_some());
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_agenda(
+		s: Linear<1, { T::MaxScheduledPerBucket::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let block: BlockFor<T> = 0u32.into();
+		setup_old_agenda::<T>(block, s);
+
+		#[block]
+		{
+			let bucket_resolution: u64 = T::BucketResolution::get().into();
+			let max = T::MaxScheduledPerBucket::get();
+			let (b, tasks) = imp::next_old_agenda::<T>(None)
+				.ok_or(BenchmarkError::Stop("no old agenda"))?;
+			imp::migrate_one_agenda::<T>(
+				b,
+				tasks,
+				BenchBlockTime::get(),
+				bucket_resolution,
+				max,
+			);
+		}
+
+		assert_eq!(MigrationAddressMap::<T>::iter().count() as u32, s);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_lookup() -> Result<(), BenchmarkError> {
+		let block: BlockFor<T> = 0u32.into();
+		let bucket: BucketFor<T> = 0u64.into();
+		let name = u32_to_name(0);
+		imp::old::Lookup::<T>::insert(name, (block, 0u32));
+		MigrationAddressMap::<T>::insert((block, 0u32), (bucket, 0u32));
+
+		#[block]
+		{
+			let (n, (b, i)) = imp::next_old_lookup::<T>(None)
+				.ok_or(BenchmarkError::Stop("no old lookup"))?;
+			imp::migrate_one_lookup::<T>(n, b, i);
+		}
+
+		assert!(Lookup::<T>::get(name).is_some());
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_retries() -> Result<(), BenchmarkError> {
+		let block: BlockFor<T> = 0u32.into();
+		let bucket: BucketFor<T> = 0u64.into();
+		let period: BlockFor<T> = 100u32.into();
+		imp::old::Retries::<T>::insert(
+			(block, 0u32),
+			imp::old::RetryConfig { total_retries: 3, remaining: 3, period },
+		);
+		MigrationAddressMap::<T>::insert((block, 0u32), (bucket, 0u32));
+
+		#[block]
+		{
+			let bucket_resolution_u64: u64 = T::BucketResolution::get().into();
+			let ((b, i), cfg) = imp::next_old_retry::<T>(None)
+				.ok_or(BenchmarkError::Stop("no old retry"))?;
+			imp::migrate_one_retry::<T>(
+				b,
+				i,
+				cfg,
+				BenchBlockTime::get(),
+				bucket_resolution_u64,
+			);
+		}
+
+		assert!(Retries::<T>::get((bucket, 0u32)).is_some());
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_cleanup() -> Result<(), BenchmarkError> {
+		let block: BlockFor<T> = 0u32.into();
+		let bucket: BucketFor<T> = 0u64.into();
+		MigrationAddressMap::<T>::insert((block, 0u32), (bucket, 0u32));
+
+		#[block]
+		{
+			let addr = imp::next_address_map_entry::<T>(None)
+				.ok_or(BenchmarkError::Stop("no address map entry"))?;
+			MigrationAddressMap::<T>::remove(addr);
+		}
+
+		assert_eq!(MigrationAddressMap::<T>::iter().count(), 0);
 		Ok(())
 	}
 

@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Migrations for the time-scheduler pallet.
-//!
-//! This module is currently empty as the time-scheduler pallet is new and does not
-//! have any legacy migrations. Future migrations can be added here as needed.
+//! Migrations for `pallet-time-scheduler`.
+
+pub mod import_from_block_scheduler;

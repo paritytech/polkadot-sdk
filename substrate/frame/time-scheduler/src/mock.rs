@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Scheduler test environment.
+//! # TimeScheduler test environment.
 
 use super::*;
 
@@ -135,13 +135,13 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system,
 		Logger: logger,
-		Scheduler: scheduler,
+		TimeScheduler: scheduler,
 		Preimage: pallet_preimage,
 		Timestamp: pallet_timestamp,
 	}
 );
 
-// Scheduler must dispatch with root and no filter, this tests base filter is indeed not used.
+// TimeScheduler must dispatch with root and no filter, this tests base filter is indeed not used.
 pub struct BaseFilter;
 impl Contains<RuntimeCall> for BaseFilter {
 	fn contains(call: &RuntimeCall) -> bool {

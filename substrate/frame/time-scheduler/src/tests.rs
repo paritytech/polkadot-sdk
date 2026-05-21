@@ -20,7 +20,7 @@
 use super::*;
 use crate::mock::{
 	logger, new_test_ext, root, run_to_time, BucketResolution, LoggerCall, MaximumSchedulerWeight,
-	Preimage, RuntimeCall, RuntimeOrigin, Scheduler, System, Test, TestWeightInfo, Timestamp,
+	Preimage, RuntimeCall, RuntimeOrigin, TimeScheduler, System, Test, TestWeightInfo, Timestamp,
 };
 use frame_support::{assert_err, assert_noop, assert_ok, traits::OnInitialize};
 use sp_runtime::{traits::BadOrigin, DispatchError};
@@ -52,7 +52,7 @@ fn basic_scheduling_works() {
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 
 		// Schedule call to be executed at 120_000ms (2 minutes from epoch)
-		assert_ok!(Scheduler::schedule(
+		assert_ok!(TimeScheduler::schedule(
 			RuntimeOrigin::root(),
 			120_000, // when: 2 minutes from epoch
 			None,    // not periodic
@@ -101,7 +101,7 @@ fn scheduling_with_preimages_works() {
 		let hashed = Bounded::Lookup { hash, len };
 
 		// Schedule call to be executed at 120_000ms using the preimage hash
-		assert_ok!(Scheduler::do_schedule(DispatchTime::At(120_000), None, 127, root(), hashed));
+		assert_ok!(TimeScheduler::do_schedule(DispatchTime::At(120_000), None, 127, root(), hashed));
 
 		// Register preimage on chain (normally done by the user before execution)
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(0), call.encode()));
@@ -134,7 +134,7 @@ fn schedule_after_works() {
 		// Schedule call to execute 3 minutes after current time
 		// With After(180_000), it should be scheduled at least one minute after current time
 		// plus the delay, so approximately minute 5 or 6
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::After(180_000), // 3 minutes delay
 			None,
 			127,
@@ -164,7 +164,7 @@ fn schedule_after_zero_works() {
 		// Schedule call with After(0) - schedules for current time (same bucket)
 		// Since buckets can span multiple blocks, tasks scheduled within the same bucket
 		// will execute in a subsequent block within that bucket (or when the bucket is processed)
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::After(0),
 			None,
 			127,
@@ -187,7 +187,7 @@ fn periodic_scheduling_works() {
 	new_test_ext().execute_with(|| {
 		// Schedule at minute 2, every 2 minutes, 3 times
 		// Period: 120_000ms (2 minutes)
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(120_000), // minute 2
 			Some((120_000, 3)),        // every 2 minutes, 3 times
 			127,
@@ -232,7 +232,7 @@ fn periodic_scheduling_works() {
 fn cancel_named_scheduling_works_with_normal_cancel() {
 	new_test_ext().execute_with(|| {
 		// Schedule named task at minute 2
-		Scheduler::do_schedule_named(
+		TimeScheduler::do_schedule_named(
 			[1u8; 32],
 			DispatchTime::At(120_000),
 			None,
@@ -247,7 +247,7 @@ fn cancel_named_scheduling_works_with_normal_cancel() {
 		.unwrap();
 
 		// Schedule anonymous task at minute 2
-		let address = Scheduler::do_schedule(
+		let address = TimeScheduler::do_schedule(
 			DispatchTime::At(120_000),
 			None,
 			127,
@@ -264,8 +264,8 @@ fn cancel_named_scheduling_works_with_normal_cancel() {
 		assert_eq!(agenda_task_count(2), 2);
 
 		// Cancel both tasks
-		assert_ok!(Scheduler::do_cancel_named(None, [1u8; 32]));
-		assert_ok!(Scheduler::do_cancel(None, address));
+		assert_ok!(TimeScheduler::do_cancel_named(None, [1u8; 32]));
+		assert_ok!(TimeScheduler::do_cancel(None, address));
 
 		// Run past the scheduled time
 		run_to_time(120_000);
@@ -280,7 +280,7 @@ fn cancel_named_scheduling_works_with_normal_cancel() {
 fn cancel_named_periodic_scheduling_works() {
 	new_test_ext().execute_with(|| {
 		// Schedule named periodic task: at minute 2, every 2 minutes, 3 times
-		Scheduler::do_schedule_named(
+		TimeScheduler::do_schedule_named(
 			[1u8; 32],
 			DispatchTime::At(120_000),
 			Some((120_000, 3)),
@@ -295,7 +295,7 @@ fn cancel_named_periodic_scheduling_works() {
 		.unwrap();
 
 		// Same id results in error
-		assert!(Scheduler::do_schedule_named(
+		assert!(TimeScheduler::do_schedule_named(
 			[1u8; 32],
 			DispatchTime::At(120_000),
 			None,
@@ -310,7 +310,7 @@ fn cancel_named_periodic_scheduling_works() {
 		.is_err());
 
 		// Different id is ok
-		Scheduler::do_schedule_named(
+		TimeScheduler::do_schedule_named(
 			[2u8; 32],
 			DispatchTime::At(480_000), // minute 8
 			None,
@@ -329,7 +329,7 @@ fn cancel_named_periodic_scheduling_works() {
 		assert_eq!(logger::log(), vec![(root(), 42)]);
 
 		// Cancel the periodic task after first execution
-		assert_ok!(Scheduler::do_cancel_named(None, [1u8; 32]));
+		assert_ok!(TimeScheduler::do_cancel_named(None, [1u8; 32]));
 
 		// Run to minute 8 - only task 69 should execute
 		run_to_time(480_000);
@@ -344,7 +344,7 @@ fn reschedule_works() {
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 
 		// Schedule at minute 2
-		let address = Scheduler::do_schedule(
+		let address = TimeScheduler::do_schedule(
 			DispatchTime::At(120_000),
 			None,
 			127,
@@ -356,12 +356,12 @@ fn reschedule_works() {
 		assert_eq!(address, (2, 0));
 
 		// Reschedule to minute 3
-		let new_address = Scheduler::do_reschedule(address, DispatchTime::At(180_000)).unwrap();
+		let new_address = TimeScheduler::do_reschedule(address, DispatchTime::At(180_000)).unwrap();
 		assert_eq!(new_address, (3, 0));
 
 		// Cannot reschedule to same bucket
 		assert_noop!(
-			Scheduler::do_reschedule(new_address, DispatchTime::At(180_000)),
+			TimeScheduler::do_reschedule(new_address, DispatchTime::At(180_000)),
 			Error::<Test>::RescheduleNoChange
 		);
 
@@ -382,7 +382,7 @@ fn reschedule_named_works() {
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 
 		// Schedule named task at minute 2
-		let address = Scheduler::do_schedule_named(
+		let address = TimeScheduler::do_schedule_named(
 			[1u8; 32],
 			DispatchTime::At(120_000),
 			None,
@@ -396,12 +396,12 @@ fn reschedule_named_works() {
 
 		// Reschedule to minute 3
 		let new_address =
-			Scheduler::do_reschedule_named([1u8; 32], DispatchTime::At(180_000)).unwrap();
+			TimeScheduler::do_reschedule_named([1u8; 32], DispatchTime::At(180_000)).unwrap();
 		assert_eq!(new_address, (3, 0));
 
 		// Cannot reschedule to same bucket
 		assert_noop!(
-			Scheduler::do_reschedule_named([1u8; 32], DispatchTime::At(180_000)),
+			TimeScheduler::do_reschedule_named([1u8; 32], DispatchTime::At(180_000)),
 			Error::<Test>::RescheduleNoChange
 		);
 
@@ -422,7 +422,7 @@ fn reschedule_named_periodic_works() {
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 
 		// Schedule named periodic task: at minute 2, every 2 minutes, 3 times
-		let address = Scheduler::do_schedule_named(
+		let address = TimeScheduler::do_schedule_named(
 			[1u8; 32],
 			DispatchTime::At(120_000),
 			Some((120_000, 3)),
@@ -436,12 +436,12 @@ fn reschedule_named_periodic_works() {
 
 		// Reschedule first execution to minute 3
 		let new_address =
-			Scheduler::do_reschedule_named([1u8; 32], DispatchTime::At(180_000)).unwrap();
+			TimeScheduler::do_reschedule_named([1u8; 32], DispatchTime::At(180_000)).unwrap();
 		assert_eq!(new_address, (3, 0));
 
 		// Can reschedule again to minute 4
 		let new_address =
-			Scheduler::do_reschedule_named([1u8; 32], DispatchTime::At(240_000)).unwrap();
+			TimeScheduler::do_reschedule_named([1u8; 32], DispatchTime::At(240_000)).unwrap();
 		assert_eq!(new_address, (4, 0));
 
 		// Minute 3 - nothing (was rescheduled)
@@ -454,7 +454,7 @@ fn reschedule_named_periodic_works() {
 
 		// After execution, task is rescheduled to minute 6 (4 + 2)
 		// Reschedule it to minute 7 instead
-		assert_ok!(Scheduler::do_reschedule_named([1u8; 32], DispatchTime::At(420_000)));
+		assert_ok!(TimeScheduler::do_reschedule_named([1u8; 32], DispatchTime::At(420_000)));
 
 		// Minute 5 - nothing
 		run_to_time(300_000);
@@ -485,7 +485,7 @@ fn retry_scheduling_works() {
 		logger::set_time_threshold(480_000, 6_000_000);
 
 		// Task 42 at minute 4 (240_000ms)
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000),
 			None,
 			127,
@@ -499,7 +499,7 @@ fn retry_scheduling_works() {
 		assert!(task_exists(4, 0));
 
 		// Retry 10 times, advancing 3 buckets (180_000ms) each time
-		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, RetryStrategy::Periodic(180_000)));
+		assert_ok!(TimeScheduler::set_retry(root().into(), (4, 0), 10, RetryStrategy::Periodic(180_000)));
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 
 		// Minute 3 - not yet
@@ -559,7 +559,7 @@ fn named_retry_scheduling_works() {
 			weight: Weight::from_parts(10, 0),
 		});
 		assert_eq!(
-			Scheduler::do_schedule_named(
+			TimeScheduler::do_schedule_named(
 				[1u8; 32],
 				DispatchTime::At(240_000),
 				None,
@@ -573,7 +573,7 @@ fn named_retry_scheduling_works() {
 		assert!(task_exists(4, 0));
 
 		// Retry 10 times, advancing 3 buckets (180_000ms) each time
-		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 10, RetryStrategy::Periodic(180_000)));
+		assert_ok!(TimeScheduler::set_retry_named(root().into(), [1u8; 32], 10, RetryStrategy::Periodic(180_000)));
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 
 		// Minute 3 - not yet
@@ -609,7 +609,7 @@ fn retry_scheduling_expires() {
 		logger::set_time_threshold(1, 60_000);
 
 		// Task 42 at minute 4 (240_000ms)
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000),
 			None,
 			127,
@@ -623,7 +623,7 @@ fn retry_scheduling_expires() {
 		assert!(task_exists(4, 0));
 
 		// Task 42 will be retried 3 times, advancing 1 bucket (60_000ms) each time
-		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 3, RetryStrategy::Periodic(60_000)));
+		assert_ok!(TimeScheduler::set_retry(root().into(), (4, 0), 3, RetryStrategy::Periodic(60_000)));
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 
 		// Minute 3 - not yet
@@ -666,7 +666,7 @@ fn retry_scheduling_expires() {
 fn set_retry_works() {
 	new_test_ext().execute_with(|| {
 		// Task 42 at minute 4
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000),
 			None,
 			127,
@@ -680,7 +680,7 @@ fn set_retry_works() {
 
 		assert!(task_exists(4, 0));
 		// Make sure the retry configuration was stored (duration 120_000ms = 2 buckets)
-		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, RetryStrategy::Periodic(120_000)));
+		assert_ok!(TimeScheduler::set_retry(root().into(), (4, 0), 10, RetryStrategy::Periodic(120_000)));
 		assert_eq!(
 			Retries::<Test>::get((4, 0)),
 			Some(RetryConfig { total_retries: 10, remaining: 10, strategy: RetryStrategy::Periodic(2) })
@@ -692,7 +692,7 @@ fn set_retry_works() {
 fn set_named_retry_works() {
 	new_test_ext().execute_with(|| {
 		// Named task 42 at minute 4
-		assert_ok!(Scheduler::do_schedule_named(
+		assert_ok!(TimeScheduler::do_schedule_named(
 			[42u8; 32],
 			DispatchTime::At(240_000),
 			None,
@@ -707,7 +707,7 @@ fn set_named_retry_works() {
 
 		assert!(task_exists(4, 0));
 		// Make sure the retry configuration was stored (duration 120_000ms = 2 buckets)
-		assert_ok!(Scheduler::set_retry_named(root().into(), [42u8; 32], 10, RetryStrategy::Periodic(120_000)));
+		assert_ok!(TimeScheduler::set_retry_named(root().into(), [42u8; 32], 10, RetryStrategy::Periodic(120_000)));
 		let address = Lookup::<Test>::get([42u8; 32]).unwrap();
 		assert_eq!(
 			Retries::<Test>::get(address),
@@ -720,7 +720,7 @@ fn set_named_retry_works() {
 fn set_retry_bad_origin() {
 	new_test_ext().execute_with(|| {
 		// Task 42 at minute 4 with account 101 as origin
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000),
 			None,
 			127,
@@ -735,7 +735,7 @@ fn set_retry_bad_origin() {
 		assert!(task_exists(4, 0));
 		// Try to change the retry config with a different (non-root) account
 		let res: Result<(), DispatchError> =
-			Scheduler::set_retry(RuntimeOrigin::signed(102), (4, 0), 10, RetryStrategy::Periodic(120_000));
+			TimeScheduler::set_retry(RuntimeOrigin::signed(102), (4, 0), 10, RetryStrategy::Periodic(120_000));
 		assert_eq!(res, Err(BadOrigin.into()));
 	});
 }
@@ -744,7 +744,7 @@ fn set_retry_bad_origin() {
 fn set_retry_rejects_duration_too_small() {
 	new_test_ext().execute_with(|| {
 		// Task 42 at minute 4
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000),
 			None,
 			127,
@@ -759,12 +759,12 @@ fn set_retry_rejects_duration_too_small() {
 		assert!(task_exists(4, 0));
 		// Try to set retry with duration less than bucket resolution (60_000ms)
 		assert_noop!(
-			Scheduler::set_retry(root().into(), (4, 0), 10, RetryStrategy::Periodic(59_999)),
+			TimeScheduler::set_retry(root().into(), (4, 0), 10, RetryStrategy::Periodic(59_999)),
 			Error::<Test>::DurationTooSmall
 		);
 		// Zero duration should also fail
 		assert_noop!(
-			Scheduler::set_retry(root().into(), (4, 0), 10, RetryStrategy::Periodic(0)),
+			TimeScheduler::set_retry(root().into(), (4, 0), 10, RetryStrategy::Periodic(0)),
 			Error::<Test>::DurationTooSmall
 		);
 	});
@@ -773,7 +773,7 @@ fn set_retry_rejects_duration_too_small() {
 #[test]
 fn set_retry_rejects_zero_retries() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000),
 			None,
 			127,
@@ -786,7 +786,7 @@ fn set_retry_rejects_zero_retries() {
 		));
 		// bucket 4 = 240_000 / 60_000
 		assert_noop!(
-			Scheduler::set_retry(root().into(), (4, 0), 0, RetryStrategy::SameBucket),
+			TimeScheduler::set_retry(root().into(), (4, 0), 0, RetryStrategy::SameBucket),
 			Error::<Test>::ZeroRetries
 		);
 	});
@@ -795,7 +795,7 @@ fn set_retry_rejects_zero_retries() {
 #[test]
 fn set_retry_named_rejects_zero_retries() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Scheduler::do_schedule_named(
+		assert_ok!(TimeScheduler::do_schedule_named(
 			[1u8; 32],
 			DispatchTime::At(240_000),
 			None,
@@ -808,7 +808,7 @@ fn set_retry_named_rejects_zero_retries() {
 			.unwrap(),
 		));
 		assert_noop!(
-			Scheduler::set_retry_named(root().into(), [1u8; 32], 0, RetryStrategy::SameBucket),
+			TimeScheduler::set_retry_named(root().into(), [1u8; 32], 0, RetryStrategy::SameBucket),
 			Error::<Test>::ZeroRetries
 		);
 	});
@@ -818,7 +818,7 @@ fn set_retry_named_rejects_zero_retries() {
 fn set_retry_named_rejects_duration_too_small() {
 	new_test_ext().execute_with(|| {
 		// Named task 42 at minute 4
-		assert_ok!(Scheduler::do_schedule_named(
+		assert_ok!(TimeScheduler::do_schedule_named(
 			[1u8; 32],
 			DispatchTime::At(240_000),
 			None,
@@ -833,12 +833,12 @@ fn set_retry_named_rejects_duration_too_small() {
 
 		// Try to set retry with duration less than bucket resolution (60_000ms)
 		assert_noop!(
-			Scheduler::set_retry_named(root().into(), [1u8; 32], 10, RetryStrategy::Periodic(59_999)),
+			TimeScheduler::set_retry_named(root().into(), [1u8; 32], 10, RetryStrategy::Periodic(59_999)),
 			Error::<Test>::DurationTooSmall
 		);
 		// Zero duration should also fail
 		assert_noop!(
-			Scheduler::set_retry_named(root().into(), [1u8; 32], 10, RetryStrategy::Periodic(0)),
+			TimeScheduler::set_retry_named(root().into(), [1u8; 32], 10, RetryStrategy::Periodic(0)),
 			Error::<Test>::DurationTooSmall
 		);
 	});
@@ -851,7 +851,7 @@ fn cancel_removes_retry_entry() {
 		logger::set_time_threshold(99 * 60_000, 100 * 60_000);
 
 		// Task 20 at minute 4
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000),
 			None,
 			127,
@@ -863,7 +863,7 @@ fn cancel_removes_retry_entry() {
 			.unwrap()
 		));
 		// Named task 42 at minute 4
-		assert_ok!(Scheduler::do_schedule_named(
+		assert_ok!(TimeScheduler::do_schedule_named(
 			[1u8; 32],
 			DispatchTime::At(240_000),
 			None,
@@ -878,9 +878,9 @@ fn cancel_removes_retry_entry() {
 
 		assert_eq!(agenda_task_count(4), 2);
 		// Task 20 will be retried 10 times, advancing 1 bucket (60_000ms) each time
-		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, RetryStrategy::Periodic(60_000)));
+		assert_ok!(TimeScheduler::set_retry(root().into(), (4, 0), 10, RetryStrategy::Periodic(60_000)));
 		// Task 42 will be retried 10 times, advancing 1 bucket (60_000ms) each time
-		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 10, RetryStrategy::Periodic(60_000)));
+		assert_ok!(TimeScheduler::set_retry_named(root().into(), [1u8; 32], 10, RetryStrategy::Periodic(60_000)));
 		assert_eq!(Retries::<Test>::iter().count(), 2);
 
 		// Minute 3 - not yet
@@ -904,7 +904,7 @@ fn cancel_removes_retry_entry() {
 
 		// Even though 42 is being retried, the tasks scheduled for retries are not named
 		assert_eq!(Lookup::<Test>::iter().count(), 0);
-		assert!(Scheduler::cancel(root().into(), (6, 0)).is_ok());
+		assert!(TimeScheduler::cancel(root().into(), (6, 0)).is_ok());
 
 		// 20 is removed, 42 still fails
 		run_to_time(360_000);
@@ -915,7 +915,7 @@ fn cancel_removes_retry_entry() {
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 		assert!(logger::log().is_empty());
 
-		assert!(Scheduler::cancel(root().into(), (7, 0)).is_ok());
+		assert!(TimeScheduler::cancel(root().into(), (7, 0)).is_ok());
 
 		// Both tasks are canceled, everything is removed now
 		run_to_time(420_000);
@@ -933,7 +933,7 @@ fn cancel_retries_works() {
 		logger::set_time_threshold(99 * 60_000, 100 * 60_000);
 
 		// Task 20 at minute 4
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000),
 			None,
 			127,
@@ -945,7 +945,7 @@ fn cancel_retries_works() {
 			.unwrap()
 		));
 		// Named task 42 at minute 4
-		assert_ok!(Scheduler::do_schedule_named(
+		assert_ok!(TimeScheduler::do_schedule_named(
 			[1u8; 32],
 			DispatchTime::At(240_000),
 			None,
@@ -960,9 +960,9 @@ fn cancel_retries_works() {
 
 		assert_eq!(agenda_task_count(4), 2);
 		// Task 20 will be retried 10 times, advancing 1 bucket (60_000ms) each time
-		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, RetryStrategy::Periodic(60_000)));
+		assert_ok!(TimeScheduler::set_retry(root().into(), (4, 0), 10, RetryStrategy::Periodic(60_000)));
 		// Task 42 will be retried 10 times, advancing 1 bucket (60_000ms) each time
-		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 10, RetryStrategy::Periodic(60_000)));
+		assert_ok!(TimeScheduler::set_retry_named(root().into(), [1u8; 32], 10, RetryStrategy::Periodic(60_000)));
 		assert_eq!(Retries::<Test>::iter().count(), 2);
 
 		// Minute 3 - not yet
@@ -971,10 +971,10 @@ fn cancel_retries_works() {
 		assert_eq!(agenda_task_count(4), 2);
 
 		// Cancel the retry config for 20
-		assert_ok!(Scheduler::cancel_retry(root().into(), (4, 0)));
+		assert_ok!(TimeScheduler::cancel_retry(root().into(), (4, 0)));
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 		// Cancel the retry config for 42
-		assert_ok!(Scheduler::cancel_retry_named(root().into(), [1u8; 32]));
+		assert_ok!(TimeScheduler::cancel_retry_named(root().into(), [1u8; 32]));
 		assert_eq!(Retries::<Test>::iter().count(), 0);
 
 		// Minute 4 - both tasks failed and there are no more retries, so they are evicted
@@ -992,7 +992,7 @@ fn scheduler_respects_weight_limits() {
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight / 3u64 * 2u64 });
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // minute 4
 			None,
 			127,
@@ -1001,7 +1001,7 @@ fn scheduler_respects_weight_limits() {
 		));
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 69, weight: max_weight / 3u64 * 2u64 });
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // minute 4
 			None,
 			127,
@@ -1026,7 +1026,7 @@ fn scheduler_respects_priority_ordering() {
 
 		// Task with lower priority (higher number = lower priority)
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight / 3u64 });
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // minute 4
 			None,
 			1, // lower priority
@@ -1036,7 +1036,7 @@ fn scheduler_respects_priority_ordering() {
 
 		// Task with higher priority (lower number = higher priority)
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 69, weight: max_weight / 3u64 });
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // minute 4
 			None,
 			0, // higher priority
@@ -1071,19 +1071,19 @@ fn fails_to_schedule_task_in_the_past() {
 
 		// Try to schedule at minute 2 (120_000ms) - in the past
 		assert_noop!(
-			Scheduler::schedule_named(RuntimeOrigin::root(), [1u8; 32], 120_000, None, 127, call1),
+			TimeScheduler::schedule_named(RuntimeOrigin::root(), [1u8; 32], 120_000, None, 127, call1),
 			Error::<Test>::TargetTimestampInPast,
 		);
 
 		// Try to schedule at minute 2 (120_000ms) - in the past
 		assert_noop!(
-			Scheduler::schedule(RuntimeOrigin::root(), 120_000, None, 127, call2),
+			TimeScheduler::schedule(RuntimeOrigin::root(), 120_000, None, 127, call2),
 			Error::<Test>::TargetTimestampInPast,
 		);
 
 		// Scheduling at current time (180_000ms) is allowed - tasks can be scheduled
 		// within the same bucket and will execute in a subsequent block
-		assert_ok!(Scheduler::schedule(RuntimeOrigin::root(), 180_000, None, 127, call3));
+		assert_ok!(TimeScheduler::schedule(RuntimeOrigin::root(), 180_000, None, 127, call3));
 		// Task should be in bucket 3
 		assert_eq!(agenda_task_count(3), 1);
 	});
@@ -1095,7 +1095,7 @@ fn cancel_last_task_removes_agenda() {
 		let when = 4u64; // minute 4
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		let address = Scheduler::do_schedule(
+		let address = TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // minute 4
 			None,
 			127,
@@ -1103,7 +1103,7 @@ fn cancel_last_task_removes_agenda() {
 			Preimage::bound(call.clone()).unwrap(),
 		)
 		.unwrap();
-		let address2 = Scheduler::do_schedule(
+		let address2 = TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // minute 4
 			None,
 			127,
@@ -1114,11 +1114,11 @@ fn cancel_last_task_removes_agenda() {
 
 		// Two tasks in bucket
 		assert!(agenda_task_count(when) == 2);
-		assert_ok!(Scheduler::do_cancel(None, address));
+		assert_ok!(TimeScheduler::do_cancel(None, address));
 		// With DoubleMap, cancelled tasks are removed from storage immediately
 		assert!(agenda_task_count(when) == 1);
 		// Cancel last task from agenda
-		assert_ok!(Scheduler::do_cancel(None, address2));
+		assert_ok!(TimeScheduler::do_cancel(None, address2));
 		// Bucket should be empty
 		assert!(agenda_task_count(when) == 0);
 	});
@@ -1130,7 +1130,7 @@ fn cancel_named_last_task_removes_agenda() {
 		let when = 4u64; // minute 4
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		Scheduler::do_schedule_named(
+		TimeScheduler::do_schedule_named(
 			[1u8; 32],
 			DispatchTime::At(240_000), // minute 4
 			None,
@@ -1139,7 +1139,7 @@ fn cancel_named_last_task_removes_agenda() {
 			Preimage::bound(call.clone()).unwrap(),
 		)
 		.unwrap();
-		Scheduler::do_schedule_named(
+		TimeScheduler::do_schedule_named(
 			[2u8; 32],
 			DispatchTime::At(240_000), // minute 4
 			None,
@@ -1151,11 +1151,11 @@ fn cancel_named_last_task_removes_agenda() {
 
 		// Two tasks in bucket
 		assert!(agenda_task_count(when) == 2);
-		assert_ok!(Scheduler::do_cancel_named(None, [2u8; 32]));
+		assert_ok!(TimeScheduler::do_cancel_named(None, [2u8; 32]));
 		// With DoubleMap, cancelled tasks are removed from storage immediately
 		assert!(agenda_task_count(when) == 1);
 		// Cancel last task from agenda
-		assert_ok!(Scheduler::do_cancel_named(None, [1u8; 32]));
+		assert_ok!(TimeScheduler::do_cancel_named(None, [1u8; 32]));
 		// Bucket should be empty
 		assert!(agenda_task_count(when) == 0);
 	});
@@ -1167,7 +1167,7 @@ fn reschedule_last_task_removes_agenda() {
 		let when = 4u64; // minute 4
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		let address = Scheduler::do_schedule(
+		let address = TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // minute 4
 			None,
 			127,
@@ -1175,7 +1175,7 @@ fn reschedule_last_task_removes_agenda() {
 			Preimage::bound(call.clone()).unwrap(),
 		)
 		.unwrap();
-		let address2 = Scheduler::do_schedule(
+		let address2 = TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // minute 4
 			None,
 			127,
@@ -1186,12 +1186,12 @@ fn reschedule_last_task_removes_agenda() {
 
 		// Two tasks in bucket
 		assert!(agenda_task_count(when) == 2);
-		assert_ok!(Scheduler::do_cancel(None, address));
+		assert_ok!(TimeScheduler::do_cancel(None, address));
 		// With DoubleMap, cancelled tasks are removed from storage immediately
 		assert!(agenda_task_count(when) == 1);
 		// Reschedule last task from agenda to minute 5
 		assert_eq!(
-			Scheduler::do_reschedule(address2, DispatchTime::At(300_000)).unwrap(),
+			TimeScheduler::do_reschedule(address2, DispatchTime::At(300_000)).unwrap(),
 			(5, 0)
 		);
 		// Bucket should be empty after reschedule
@@ -1211,7 +1211,7 @@ fn root_calls_works() {
 			weight: Weight::from_parts(10, 0),
 		}));
 
-		assert_ok!(Scheduler::schedule_named(
+		assert_ok!(TimeScheduler::schedule_named(
 			RuntimeOrigin::root(),
 			[1u8; 32],
 			240_000, // minute 4
@@ -1219,7 +1219,7 @@ fn root_calls_works() {
 			127,
 			call,
 		));
-		assert_ok!(Scheduler::schedule(
+		assert_ok!(TimeScheduler::schedule(
 			RuntimeOrigin::root(),
 			240_000, // minute 4
 			None,
@@ -1232,8 +1232,8 @@ fn root_calls_works() {
 		assert_eq!(agenda_task_count(4), 2);
 		assert!(logger::log().is_empty());
 
-		assert_ok!(Scheduler::cancel_named(RuntimeOrigin::root(), [1u8; 32]));
-		assert_ok!(Scheduler::cancel(RuntimeOrigin::root(), (4, 1)));
+		assert_ok!(TimeScheduler::cancel_named(RuntimeOrigin::root(), [1u8; 32]));
+		assert_ok!(TimeScheduler::cancel(RuntimeOrigin::root(), (4, 1)));
 
 		// Scheduled calls are made NONE, so should not effect state
 		run_to_time(600_000);
@@ -1253,7 +1253,7 @@ fn should_use_origin() {
 			weight: Weight::from_parts(10, 0),
 		}));
 
-		assert_ok!(Scheduler::schedule_named(
+		assert_ok!(TimeScheduler::schedule_named(
 			frame_system::RawOrigin::Signed(1).into(),
 			[1u8; 32],
 			240_000, // minute 4
@@ -1261,7 +1261,7 @@ fn should_use_origin() {
 			127,
 			call,
 		));
-		assert_ok!(Scheduler::schedule(
+		assert_ok!(TimeScheduler::schedule(
 			frame_system::RawOrigin::Signed(1).into(),
 			240_000, // minute 4
 			None,
@@ -1274,11 +1274,11 @@ fn should_use_origin() {
 		assert_eq!(agenda_task_count(4), 2);
 		assert!(logger::log().is_empty());
 
-		assert_ok!(Scheduler::cancel_named(
+		assert_ok!(TimeScheduler::cancel_named(
 			frame_system::RawOrigin::Signed(1).into(),
 			[1u8; 32]
 		));
-		assert_ok!(Scheduler::cancel(frame_system::RawOrigin::Signed(1).into(), (4, 1)));
+		assert_ok!(TimeScheduler::cancel(frame_system::RawOrigin::Signed(1).into(), (4, 1)));
 
 		// Scheduled calls are made NONE, so should not effect state
 		run_to_time(600_000);
@@ -1300,7 +1300,7 @@ fn should_check_origin() {
 
 		// Account 2 is not authorized to schedule
 		assert_noop!(
-			Scheduler::schedule_named(
+			TimeScheduler::schedule_named(
 				frame_system::RawOrigin::Signed(2).into(),
 				[1u8; 32],
 				240_000, // minute 4
@@ -1311,7 +1311,7 @@ fn should_check_origin() {
 			BadOrigin
 		);
 		assert_noop!(
-			Scheduler::schedule(
+			TimeScheduler::schedule(
 				frame_system::RawOrigin::Signed(2).into(),
 				240_000, // minute 4
 				None,
@@ -1335,7 +1335,7 @@ fn should_check_origin_for_cancel() {
 			weight: Weight::from_parts(10, 0),
 		}));
 
-		assert_ok!(Scheduler::schedule_named(
+		assert_ok!(TimeScheduler::schedule_named(
 			frame_system::RawOrigin::Signed(1).into(),
 			[1u8; 32],
 			240_000, // minute 4
@@ -1343,7 +1343,7 @@ fn should_check_origin_for_cancel() {
 			127,
 			call,
 		));
-		assert_ok!(Scheduler::schedule(
+		assert_ok!(TimeScheduler::schedule(
 			frame_system::RawOrigin::Signed(1).into(),
 			240_000, // minute 4
 			None,
@@ -1358,19 +1358,19 @@ fn should_check_origin_for_cancel() {
 
 		// Account 2 cannot cancel tasks scheduled by account 1
 		assert_noop!(
-			Scheduler::cancel_named(frame_system::RawOrigin::Signed(2).into(), [1u8; 32]),
+			TimeScheduler::cancel_named(frame_system::RawOrigin::Signed(2).into(), [1u8; 32]),
 			BadOrigin
 		);
 		assert_noop!(
-			Scheduler::cancel(frame_system::RawOrigin::Signed(2).into(), (4, 1)),
+			TimeScheduler::cancel(frame_system::RawOrigin::Signed(2).into(), (4, 1)),
 			BadOrigin
 		);
 		// Root cannot cancel tasks scheduled by account 1 either
 		assert_noop!(
-			Scheduler::cancel_named(frame_system::RawOrigin::Root.into(), [1u8; 32]),
+			TimeScheduler::cancel_named(frame_system::RawOrigin::Root.into(), [1u8; 32]),
 			BadOrigin
 		);
-		assert_noop!(Scheduler::cancel(frame_system::RawOrigin::Root.into(), (4, 1)), BadOrigin);
+		assert_noop!(TimeScheduler::cancel(frame_system::RawOrigin::Root.into(), (4, 1)), BadOrigin);
 
 		// Tasks should still execute at minute 5
 		run_to_time(300_000);
@@ -1392,7 +1392,7 @@ fn time_scheduler_v1_anon_basic_works() {
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 
 		// Schedule a call
-		let _address = <Scheduler as Anon<_, _, _>>::schedule(
+		let _address = <TimeScheduler as Anon<_, _, _>>::schedule(
 			DispatchTime::At(240_000), // minute 4
 			None,
 			127,
@@ -1424,7 +1424,7 @@ fn time_scheduler_v1_anon_cancel_works() {
 		let bound = Preimage::bound(call).unwrap();
 
 		// Schedule a call
-		let address = <Scheduler as Anon<_, _, _>>::schedule(
+		let address = <TimeScheduler as Anon<_, _, _>>::schedule(
 			DispatchTime::At(240_000), // minute 4
 			None,
 			127,
@@ -1434,14 +1434,14 @@ fn time_scheduler_v1_anon_cancel_works() {
 		.unwrap();
 
 		// Cancel the call
-		assert_ok!(<Scheduler as Anon<_, _, _>>::cancel(address));
+		assert_ok!(<TimeScheduler as Anon<_, _, _>>::cancel(address));
 
 		// It did not get executed
 		run_to_time(600_000);
 		assert!(logger::log().is_empty());
 
 		// Cannot cancel again
-		assert_err!(<Scheduler as Anon<_, _, _>>::cancel(address), DispatchError::Unavailable);
+		assert_err!(<TimeScheduler as Anon<_, _, _>>::cancel(address), DispatchError::Unavailable);
 	});
 }
 
@@ -1453,7 +1453,7 @@ fn time_scheduler_v1_anon_reschedule_works() {
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 
 		// Schedule a call at minute 4
-		let address = <Scheduler as Anon<_, _, _>>::schedule(
+		let address = <TimeScheduler as Anon<_, _, _>>::schedule(
 			DispatchTime::At(240_000),
 			None,
 			127,
@@ -1468,16 +1468,16 @@ fn time_scheduler_v1_anon_reschedule_works() {
 
 		// Cannot re-schedule into the same bucket.
 		assert_noop!(
-			<Scheduler as Anon<_, _, _>>::reschedule(address, DispatchTime::At(240_000)),
+			<TimeScheduler as Anon<_, _, _>>::reschedule(address, DispatchTime::At(240_000)),
 			Error::<Test>::RescheduleNoChange
 		);
 		// Cannot re-schedule into the past.
 		assert_noop!(
-			<Scheduler as Anon<_, _, _>>::reschedule(address, DispatchTime::At(120_000)),
+			<TimeScheduler as Anon<_, _, _>>::reschedule(address, DispatchTime::At(120_000)),
 			Error::<Test>::TargetTimestampInPast
 		);
 		// Re-schedule to minute 5.
-		assert_ok!(<Scheduler as Anon<_, _, _>>::reschedule(
+		assert_ok!(<TimeScheduler as Anon<_, _, _>>::reschedule(
 			address,
 			DispatchTime::At(300_000)
 		));
@@ -1489,7 +1489,7 @@ fn time_scheduler_v1_anon_reschedule_works() {
 		assert_eq!(logger::log(), vec![(root(), 42)]);
 		// Cannot re-schedule executed task.
 		assert_noop!(
-			<Scheduler as Anon<_, _, _>>::reschedule(address, DispatchTime::At(600_000)),
+			<TimeScheduler as Anon<_, _, _>>::reschedule(address, DispatchTime::At(600_000)),
 			DispatchError::Unavailable
 		);
 	});
@@ -1504,7 +1504,7 @@ fn time_scheduler_v1_anon_next_schedule_time_works() {
 		let bound = Preimage::bound(call).unwrap();
 
 		// Schedule a call at minute 4
-		let address = <Scheduler as Anon<_, _, _>>::schedule(
+		let address = <TimeScheduler as Anon<_, _, _>>::schedule(
 			DispatchTime::At(240_000),
 			None,
 			127,
@@ -1517,14 +1517,14 @@ fn time_scheduler_v1_anon_next_schedule_time_works() {
 		assert!(logger::log().is_empty());
 
 		// Scheduled for minute 4 (timestamp 240_000).
-		assert_eq!(<Scheduler as Anon<_, _, _>>::next_dispatch_time(address), Ok(240_000));
+		assert_eq!(<TimeScheduler as Anon<_, _, _>>::next_dispatch_time(address), Ok(240_000));
 		// Execute at minute 4.
 		run_to_time(240_000);
 		assert_eq!(logger::log(), vec![(root(), 42)]);
 
 		// No dispatch time after execution.
 		assert_noop!(
-			<Scheduler as Anon<_, _, _>>::next_dispatch_time(address),
+			<TimeScheduler as Anon<_, _, _>>::next_dispatch_time(address),
 			DispatchError::Unavailable
 		);
 	});
@@ -1540,7 +1540,7 @@ fn time_scheduler_v1_anon_reschedule_and_next_schedule_time_work() {
 		let bound = Preimage::bound(call).unwrap();
 
 		// Schedule at minute 4
-		let old_address = <Scheduler as Anon<_, _, _>>::schedule(
+		let old_address = <TimeScheduler as Anon<_, _, _>>::schedule(
 			DispatchTime::At(240_000),
 			None,
 			127,
@@ -1553,14 +1553,14 @@ fn time_scheduler_v1_anon_reschedule_and_next_schedule_time_work() {
 		assert!(logger::log().is_empty());
 
 		// Scheduled for minute 4.
-		assert_eq!(<Scheduler as Anon<_, _, _>>::next_dispatch_time(old_address), Ok(240_000));
+		assert_eq!(<TimeScheduler as Anon<_, _, _>>::next_dispatch_time(old_address), Ok(240_000));
 		// Re-schedule to minute 5.
 		let address =
-			<Scheduler as Anon<_, _, _>>::reschedule(old_address, DispatchTime::At(300_000))
+			<TimeScheduler as Anon<_, _, _>>::reschedule(old_address, DispatchTime::At(300_000))
 				.unwrap();
 		assert!(address != old_address);
 		// Now scheduled for minute 5.
-		assert_eq!(<Scheduler as Anon<_, _, _>>::next_dispatch_time(address), Ok(300_000));
+		assert_eq!(<TimeScheduler as Anon<_, _, _>>::next_dispatch_time(address), Ok(300_000));
 
 		// Minute 4 does nothing.
 		run_to_time(240_000);
@@ -1587,7 +1587,7 @@ fn time_scheduler_v1_anon_cancel_and_schedule_fills_holes() {
 		// Schedule the maximal number allowed per bucket.
 		for _ in 0..max {
 			addrs.push(
-				<Scheduler as Anon<_, _, _>>::schedule(
+				<TimeScheduler as Anon<_, _, _>>::schedule(
 					DispatchTime::At(240_000),
 					None,
 					127,
@@ -1599,11 +1599,11 @@ fn time_scheduler_v1_anon_cancel_and_schedule_fills_holes() {
 		}
 		// Cancel three of them.
 		for addr in addrs.into_iter().take(3) {
-			<Scheduler as Anon<_, _, _>>::cancel(addr).unwrap();
+			<TimeScheduler as Anon<_, _, _>>::cancel(addr).unwrap();
 		}
 		// Schedule three new ones — they should fill the holes.
 		for i in 0..3 {
-			let (_bucket, index) = <Scheduler as Anon<_, _, _>>::schedule(
+			let (_bucket, index) = <TimeScheduler as Anon<_, _, _>>::schedule(
 				DispatchTime::At(240_000),
 				None,
 				127,
@@ -1636,7 +1636,7 @@ fn time_scheduler_v1_anon_reschedule_fills_holes() {
 		// Schedule the maximal number allowed per bucket.
 		for _ in 0..max {
 			addrs.push(
-				<Scheduler as Anon<_, _, _>>::schedule(
+				<TimeScheduler as Anon<_, _, _>>::schedule(
 					DispatchTime::At(240_000),
 					None,
 					127,
@@ -1652,13 +1652,13 @@ fn time_scheduler_v1_anon_reschedule_fills_holes() {
 		// Re-schedule three of them to minute 5.
 		for addr in last_three.iter().cloned() {
 			new_addrs.push(
-				<Scheduler as Anon<_, _, _>>::reschedule(addr, DispatchTime::At(300_000)).unwrap(),
+				<TimeScheduler as Anon<_, _, _>>::reschedule(addr, DispatchTime::At(300_000)).unwrap(),
 			);
 		}
 		// Re-scheduling them back into minute 4 should result in the same addresses.
 		for (old, want) in new_addrs.into_iter().zip(last_three.into_iter().rev()) {
 			let new =
-				<Scheduler as Anon<_, _, _>>::reschedule(old, DispatchTime::At(240_000)).unwrap();
+				<TimeScheduler as Anon<_, _, _>>::reschedule(old, DispatchTime::At(240_000)).unwrap();
 			assert_eq!(new, want);
 		}
 
@@ -1680,7 +1680,7 @@ fn time_scheduler_v1_anon_schedule_agenda_overflows() {
 
 		// Schedule the maximal number allowed per bucket.
 		for _ in 0..max {
-			<Scheduler as Anon<_, _, _>>::schedule(
+			<TimeScheduler as Anon<_, _, _>>::schedule(
 				DispatchTime::At(240_000),
 				None,
 				127,
@@ -1692,7 +1692,7 @@ fn time_scheduler_v1_anon_schedule_agenda_overflows() {
 
 		// One more and it errors.
 		assert_noop!(
-			<Scheduler as Anon<_, _, _>>::schedule(
+			<TimeScheduler as Anon<_, _, _>>::schedule(
 				DispatchTime::At(240_000),
 				None,
 				127,
@@ -1716,7 +1716,7 @@ fn time_scheduler_v1_named_basic_works() {
 		let name = [1u8; 32];
 
 		// Schedule a call
-		let _address = <Scheduler as Named<_, _, _>>::schedule_named(
+		let _address = <TimeScheduler as Named<_, _, _>>::schedule_named(
 			name,
 			DispatchTime::At(240_000), // minute 4
 			None,
@@ -1750,7 +1750,7 @@ fn time_scheduler_v1_named_cancel_works() {
 		let name = [1u8; 32];
 
 		// Schedule a call
-		<Scheduler as Named<_, _, _>>::schedule_named(
+		<TimeScheduler as Named<_, _, _>>::schedule_named(
 			name,
 			DispatchTime::At(240_000), // minute 4
 			None,
@@ -1761,7 +1761,7 @@ fn time_scheduler_v1_named_cancel_works() {
 		.unwrap();
 
 		// Cancel the call by name
-		assert_ok!(<Scheduler as Named<_, _, _>>::cancel_named(name));
+		assert_ok!(<TimeScheduler as Named<_, _, _>>::cancel_named(name));
 
 		// It did not get executed
 		run_to_time(600_000);
@@ -1769,7 +1769,7 @@ fn time_scheduler_v1_named_cancel_works() {
 
 		// Cannot cancel again
 		assert_noop!(
-			<Scheduler as Named<_, _, _>>::cancel_named(name),
+			<TimeScheduler as Named<_, _, _>>::cancel_named(name),
 			DispatchError::Unavailable
 		);
 	});
@@ -1784,7 +1784,7 @@ fn time_scheduler_v1_named_reschedule_works() {
 		let name = [1u8; 32];
 
 		// Schedule a call at minute 4
-		<Scheduler as Named<_, _, _>>::schedule_named(
+		<TimeScheduler as Named<_, _, _>>::schedule_named(
 			name,
 			DispatchTime::At(240_000), // minute 4
 			None,
@@ -1795,7 +1795,7 @@ fn time_scheduler_v1_named_reschedule_works() {
 		.unwrap();
 
 		// Reschedule to minute 6
-		assert_ok!(<Scheduler as Named<_, _, _>>::reschedule_named(
+		assert_ok!(<TimeScheduler as Named<_, _, _>>::reschedule_named(
 			name,
 			DispatchTime::At(360_000)
 		));
@@ -1821,7 +1821,7 @@ fn time_scheduler_v1_named_cancel_without_name_works() {
 		let name = [1u8; 32];
 
 		// Schedule a named call.
-		let address = <Scheduler as Named<_, _, _>>::schedule_named(
+		let address = <TimeScheduler as Named<_, _, _>>::schedule_named(
 			name,
 			DispatchTime::At(240_000),
 			None,
@@ -1831,12 +1831,12 @@ fn time_scheduler_v1_named_cancel_without_name_works() {
 		)
 		.unwrap();
 		// Cancel the call by address.
-		assert_ok!(<Scheduler as Anon<_, _, _>>::cancel(address));
+		assert_ok!(<TimeScheduler as Anon<_, _, _>>::cancel(address));
 		// It did not get executed.
 		run_to_time(600_000);
 		assert!(logger::log().is_empty());
 		// Cannot cancel again.
-		assert_err!(<Scheduler as Anon<_, _, _>>::cancel(address), DispatchError::Unavailable);
+		assert_err!(<TimeScheduler as Anon<_, _, _>>::cancel(address), DispatchError::Unavailable);
 	});
 }
 
@@ -1850,7 +1850,7 @@ fn time_scheduler_v1_named_next_schedule_time_works() {
 		let name = [1u8; 32];
 
 		// Schedule a named call at minute 4.
-		let address = <Scheduler as Named<_, _, _>>::schedule_named(
+		let address = <TimeScheduler as Named<_, _, _>>::schedule_named(
 			name,
 			DispatchTime::At(240_000),
 			None,
@@ -1864,20 +1864,20 @@ fn time_scheduler_v1_named_next_schedule_time_works() {
 		assert!(logger::log().is_empty());
 
 		// Scheduled for minute 4 (via name).
-		assert_eq!(<Scheduler as Named<_, _, _>>::next_dispatch_time(name), Ok(240_000));
+		assert_eq!(<TimeScheduler as Named<_, _, _>>::next_dispatch_time(name), Ok(240_000));
 		// Also works by address.
-		assert_eq!(<Scheduler as Anon<_, _, _>>::next_dispatch_time(address), Ok(240_000));
+		assert_eq!(<TimeScheduler as Anon<_, _, _>>::next_dispatch_time(address), Ok(240_000));
 		// Execute at minute 4.
 		run_to_time(240_000);
 		assert_eq!(logger::log(), vec![(root(), 42)]);
 
 		// No dispatch time after execution.
 		assert_noop!(
-			<Scheduler as Named<_, _, _>>::next_dispatch_time(name),
+			<TimeScheduler as Named<_, _, _>>::next_dispatch_time(name),
 			DispatchError::Unavailable
 		);
 		assert_noop!(
-			<Scheduler as Anon<_, _, _>>::next_dispatch_time(address),
+			<TimeScheduler as Anon<_, _, _>>::next_dispatch_time(address),
 			DispatchError::Unavailable
 		);
 	});
@@ -1893,7 +1893,7 @@ fn time_scheduler_v1_named_reschedule_named_works() {
 		let name = [1u8; 32];
 
 		// Schedule a named call at minute 4.
-		let address = <Scheduler as Named<_, _, _>>::schedule_named(
+		let address = <TimeScheduler as Named<_, _, _>>::schedule_named(
 			name,
 			DispatchTime::At(240_000),
 			None,
@@ -1908,21 +1908,21 @@ fn time_scheduler_v1_named_reschedule_named_works() {
 
 		// Cannot re-schedule by address (it's named).
 		assert_noop!(
-			<Scheduler as Anon<_, _, _>>::reschedule(address, DispatchTime::At(600_000)),
+			<TimeScheduler as Anon<_, _, _>>::reschedule(address, DispatchTime::At(600_000)),
 			Error::<Test>::Named,
 		);
 		// Cannot re-schedule into the same bucket.
 		assert_noop!(
-			<Scheduler as Named<_, _, _>>::reschedule_named(name, DispatchTime::At(240_000)),
+			<TimeScheduler as Named<_, _, _>>::reschedule_named(name, DispatchTime::At(240_000)),
 			Error::<Test>::RescheduleNoChange
 		);
 		// Cannot re-schedule into the past.
 		assert_noop!(
-			<Scheduler as Named<_, _, _>>::reschedule_named(name, DispatchTime::At(120_000)),
+			<TimeScheduler as Named<_, _, _>>::reschedule_named(name, DispatchTime::At(120_000)),
 			Error::<Test>::TargetTimestampInPast
 		);
 		// Re-schedule to minute 5.
-		assert_ok!(<Scheduler as Named<_, _, _>>::reschedule_named(
+		assert_ok!(<TimeScheduler as Named<_, _, _>>::reschedule_named(
 			name,
 			DispatchTime::At(300_000)
 		));
@@ -1934,12 +1934,12 @@ fn time_scheduler_v1_named_reschedule_named_works() {
 		assert_eq!(logger::log(), vec![(root(), 42)]);
 		// Cannot re-schedule executed task.
 		assert_noop!(
-			<Scheduler as Named<_, _, _>>::reschedule_named(name, DispatchTime::At(600_000)),
+			<TimeScheduler as Named<_, _, _>>::reschedule_named(name, DispatchTime::At(600_000)),
 			DispatchError::Unavailable
 		);
 		// Also not by address.
 		assert_noop!(
-			<Scheduler as Anon<_, _, _>>::reschedule(address, DispatchTime::At(600_000)),
+			<TimeScheduler as Anon<_, _, _>>::reschedule(address, DispatchTime::At(600_000)),
 			DispatchError::Unavailable
 		);
 	});
@@ -1964,7 +1964,7 @@ fn within_bucket_scheduling_works() {
 		// Schedule a task within the same bucket (at current time)
 		let call1 =
 			RuntimeCall::Logger(LoggerCall::log { i: 1, weight: Weight::from_parts(10, 0) });
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(120_000), // Same bucket
 			None,
 			127,
@@ -1986,7 +1986,7 @@ fn within_bucket_scheduling_works() {
 		// Schedule another task with After(0) - should go to current bucket
 		let call2 =
 			RuntimeCall::Logger(LoggerCall::log { i: 2, weight: Weight::from_parts(10, 0) });
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::After(0),
 			None,
 			127,
@@ -2016,7 +2016,7 @@ fn tasks_not_skipped_when_time_jumps() {
 		// Schedule a task for bucket 4
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // bucket 4
 			None,
 			127,
@@ -2039,7 +2039,7 @@ fn tasks_not_skipped_when_time_jumps() {
 fn set_named_retry_bad_origin() {
 	new_test_ext().execute_with(|| {
 		// Named task 42 at minute 4 with account 101 as origin
-		assert_ok!(Scheduler::do_schedule_named(
+		assert_ok!(TimeScheduler::do_schedule_named(
 			[42u8; 32],
 			DispatchTime::At(240_000),
 			None,
@@ -2055,7 +2055,7 @@ fn set_named_retry_bad_origin() {
 		assert!(task_exists(4, 0));
 		// Try to change the retry config with a different (non-root) account
 		let res: Result<(), DispatchError> =
-			Scheduler::set_retry_named(RuntimeOrigin::signed(102), [42u8; 32], 10, RetryStrategy::Periodic(120_000));
+			TimeScheduler::set_retry_named(RuntimeOrigin::signed(102), [42u8; 32], 10, RetryStrategy::Periodic(120_000));
 		assert_eq!(res, Err(BadOrigin.into()));
 	});
 }
@@ -2068,7 +2068,7 @@ fn retry_scheduling_with_period_works() {
 		logger::set_time_threshold(240_000, 480_000);
 
 		// Task 42 at minute 4, every 3 minutes, 6 times
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // minute 4
 			Some((180_000, 6)),        // every 3 minutes (180_000ms), 6 times
 			127,
@@ -2082,7 +2082,7 @@ fn retry_scheduling_with_period_works() {
 
 		assert!(task_exists(4, 0));
 		// 42 will be retried 10 times, advancing 2 buckets (120_000ms) each time
-		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, RetryStrategy::Periodic(120_000)));
+		assert_ok!(TimeScheduler::set_retry(root().into(), (4, 0), 10, RetryStrategy::Periodic(120_000)));
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 
 		// Minute 3 - not yet
@@ -2222,7 +2222,7 @@ fn named_retry_scheduling_with_period_works() {
 		logger::set_time_threshold(240_000, 480_000);
 
 		// Named task 42 at minute 4, every 3 minutes, 6 times
-		assert_ok!(Scheduler::do_schedule_named(
+		assert_ok!(TimeScheduler::do_schedule_named(
 			[42u8; 32],
 			DispatchTime::At(240_000), // minute 4
 			Some((180_000, 6)),        // every 3 minutes, 6 times
@@ -2237,7 +2237,7 @@ fn named_retry_scheduling_with_period_works() {
 
 		assert!(task_exists(4, 0));
 		// 42 will be retried 10 times, advancing 2 buckets (120_000ms) each time
-		assert_ok!(Scheduler::set_retry_named(root().into(), [42u8; 32], 10, RetryStrategy::Periodic(120_000)));
+		assert_ok!(TimeScheduler::set_retry_named(root().into(), [42u8; 32], 10, RetryStrategy::Periodic(120_000)));
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 
 		// Minute 3 - not yet
@@ -2295,7 +2295,7 @@ fn retry_periodic_full_cycle() {
 		logger::set_time_threshold(60_000, 60_000_000);
 
 		// Named task 42 at minute 10, every 100 minutes, 4 times
-		assert_ok!(Scheduler::do_schedule_named(
+		assert_ok!(TimeScheduler::do_schedule_named(
 			[42u8; 32],
 			DispatchTime::At(600_000),   // minute 10
 			Some((6_000_000, 4)),        // every 100 minutes, 4 times
@@ -2310,7 +2310,7 @@ fn retry_periodic_full_cycle() {
 
 		assert!(task_exists(10, 0));
 		// 42 will be retried 2 times every minute
-		assert_ok!(Scheduler::set_retry_named(root().into(), [42u8; 32], 2, RetryStrategy::Periodic(60_000)));
+		assert_ok!(TimeScheduler::set_retry_named(root().into(), [42u8; 32], 2, RetryStrategy::Periodic(60_000)));
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 
 		// Minute 9 - not yet
@@ -2421,7 +2421,7 @@ fn scheduler_handles_periodic_failure() {
 		let bound = Preimage::bound(call).unwrap();
 
 		// Schedule periodic task at minute 4, every 4 minutes, unlimited times
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // minute 4
 			Some((240_000, u32::MAX)), // every 4 minutes
 			127,
@@ -2443,7 +2443,7 @@ fn scheduler_handles_periodic_failure() {
 
 		// Fill up minute 28 bucket to max capacity (MaxScheduledPerBucket = 100 in mock)
 		for _ in 0..100 {
-			assert_ok!(Scheduler::do_schedule(
+			assert_ok!(TimeScheduler::do_schedule(
 				DispatchTime::At(1_680_000), // minute 28
 				None,
 				120, // higher priority
@@ -2484,7 +2484,7 @@ fn scheduler_handles_periodic_unavailable_preimage() {
 		assert!(!Preimage::is_requested(&hash));
 
 		// Schedule periodic task at minute 4, every 4 minutes, unlimited times
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // minute 4
 			Some((240_000, u32::MAX)), // every 4 minutes
 			127,
@@ -2536,7 +2536,7 @@ fn unavailable_call_is_detected() {
 		let name = [1u8; 32];
 
 		// Schedule a call
-		let _address = <Scheduler as Named<_, _, _>>::schedule_named(
+		let _address = <TimeScheduler as Named<_, _, _>>::schedule_named(
 			name,
 			DispatchTime::At(240_000), // minute 4
 			None,
@@ -2578,7 +2578,7 @@ fn retry_falls_back_to_next_bucket_when_current_full() {
 			weight: Weight::from_parts(10, 0),
 		});
 
-		Scheduler::do_schedule(
+		TimeScheduler::do_schedule(
 			DispatchTime::At(180_000), // bucket 3
 			None,
 			127,
@@ -2588,7 +2588,7 @@ fn retry_falls_back_to_next_bucket_when_current_full() {
 		.unwrap();
 
 		// Set retry with SameBucket strategy
-		assert_ok!(Scheduler::set_retry(RuntimeOrigin::root(), (3, 0), 2, RetryStrategy::SameBucket));
+		assert_ok!(TimeScheduler::set_retry(RuntimeOrigin::root(), (3, 0), 2, RetryStrategy::SameBucket));
 
 		// Fill up bucket 3 to max capacity (MaxScheduledPerBucket = 100 in mock)
 		for i in 1..100 {
@@ -2596,7 +2596,7 @@ fn retry_falls_back_to_next_bucket_when_current_full() {
 				i: 100 + i,
 				weight: Weight::from_parts(10, 0),
 			});
-			Scheduler::do_schedule(
+			TimeScheduler::do_schedule(
 				DispatchTime::At(180_000),
 				None,
 				127,
@@ -2633,7 +2633,7 @@ fn retry_same_bucket_with_space_available() {
 			weight: Weight::from_parts(10, 0),
 		});
 
-		Scheduler::do_schedule(
+		TimeScheduler::do_schedule(
 			DispatchTime::At(180_000), // bucket 3
 			None,
 			127,
@@ -2644,7 +2644,7 @@ fn retry_same_bucket_with_space_available() {
 
 		// Set retry with SameBucket strategy
 		// Should retry in same bucket since there's space
-		assert_ok!(Scheduler::set_retry(RuntimeOrigin::root(), (3, 0), 2, RetryStrategy::SameBucket));
+		assert_ok!(TimeScheduler::set_retry(RuntimeOrigin::root(), (3, 0), 2, RetryStrategy::SameBucket));
 
 		// Set up time threshold so the call fails
 		logger::set_time_threshold(999_000, 999_999);
@@ -2673,7 +2673,7 @@ fn retry_exponential_backoff_works() {
 			weight: Weight::from_parts(10, 0),
 		});
 
-		Scheduler::do_schedule(
+		TimeScheduler::do_schedule(
 			DispatchTime::At(180_000), // bucket 3
 			None,
 			127,
@@ -2683,7 +2683,7 @@ fn retry_exponential_backoff_works() {
 		.unwrap();
 
 		// Set retry with ExponentialBackoff strategy, 4 retries
-		assert_ok!(Scheduler::set_retry(
+		assert_ok!(TimeScheduler::set_retry(
 			RuntimeOrigin::root(),
 			(3, 0),
 			4,
@@ -2735,7 +2735,7 @@ fn retry_exponential_backoff_succeeds_on_retry() {
 			weight: Weight::from_parts(10, 0),
 		});
 
-		Scheduler::do_schedule(
+		TimeScheduler::do_schedule(
 			DispatchTime::At(180_000), // bucket 3
 			None,
 			127,
@@ -2744,7 +2744,7 @@ fn retry_exponential_backoff_succeeds_on_retry() {
 		)
 		.unwrap();
 
-		assert_ok!(Scheduler::set_retry(
+		assert_ok!(TimeScheduler::set_retry(
 			RuntimeOrigin::root(),
 			(3, 0),
 			4,
@@ -2774,7 +2774,7 @@ fn reschedule_named_last_task_removes_agenda() {
 		let when = 4; // bucket 4 = 240_000ms
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		Scheduler::do_schedule_named(
+		TimeScheduler::do_schedule_named(
 			[1u8; 32],
 			DispatchTime::At(240_000), // bucket 4
 			None,
@@ -2783,7 +2783,7 @@ fn reschedule_named_last_task_removes_agenda() {
 			Preimage::bound(call.clone()).unwrap(),
 		)
 		.unwrap();
-		Scheduler::do_schedule_named(
+		TimeScheduler::do_schedule_named(
 			[2u8; 32],
 			DispatchTime::At(240_000), // bucket 4
 			None,
@@ -2794,12 +2794,12 @@ fn reschedule_named_last_task_removes_agenda() {
 		.unwrap();
 		// two tasks at agenda.
 		assert!(Agenda::<Test>::get(when).len() == 2);
-		assert_ok!(Scheduler::do_cancel_named(None, [1u8; 32]));
+		assert_ok!(TimeScheduler::do_cancel_named(None, [1u8; 32]));
 		// still two tasks at agenda, `None` and `Some`.
 		assert!(Agenda::<Test>::get(when).len() == 2);
 		// reschedule last task from `when` agenda.
 		assert_eq!(
-			Scheduler::do_reschedule_named([2u8; 32], DispatchTime::At(300_000)).unwrap(),
+			TimeScheduler::do_reschedule_named([2u8; 32], DispatchTime::At(300_000)).unwrap(),
 			(5, 0) // bucket 5
 		);
 		// if all tasks `None`, agenda fully removed.
@@ -2814,7 +2814,7 @@ fn retry_scheduling_multiple_tasks_works() {
 		logger::set_time_threshold(480_000, 999_999);
 
 		// task 20 at bucket 4 (240_000ms)
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000),
 			None,
 			127,
@@ -2826,7 +2826,7 @@ fn retry_scheduling_multiple_tasks_works() {
 			.unwrap()
 		));
 		// task 42 at bucket 4 (240_000ms)
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000),
 			None,
 			127,
@@ -2840,9 +2840,9 @@ fn retry_scheduling_multiple_tasks_works() {
 
 		assert_eq!(Agenda::<Test>::get(4).len(), 2);
 		// task 20 will be retried 3 times every bucket (60_000ms), do NOT try same bucket first
-		assert_ok!(Scheduler::set_retry(RuntimeOrigin::root(), (4, 0), 3, RetryStrategy::Periodic(60_000)));
+		assert_ok!(TimeScheduler::set_retry(RuntimeOrigin::root(), (4, 0), 3, RetryStrategy::Periodic(60_000)));
 		// task 42 will be retried 10 times every 3 buckets (180_000ms), do NOT try same bucket first
-		assert_ok!(Scheduler::set_retry(RuntimeOrigin::root(), (4, 1), 10, RetryStrategy::Periodic(180_000)));
+		assert_ok!(TimeScheduler::set_retry(RuntimeOrigin::root(), (4, 1), 10, RetryStrategy::Periodic(180_000)));
 		assert_eq!(Retries::<Test>::iter().count(), 2);
 
 		// Both tasks fail at bucket 4
@@ -2901,7 +2901,7 @@ fn retry_scheduling_multiple_named_tasks_works() {
 		logger::set_time_threshold(480_000, 999_999);
 
 		// task 20 at bucket 4 (240_000ms)
-		assert_ok!(Scheduler::do_schedule_named(
+		assert_ok!(TimeScheduler::do_schedule_named(
 			[20u8; 32],
 			DispatchTime::At(240_000),
 			None,
@@ -2914,7 +2914,7 @@ fn retry_scheduling_multiple_named_tasks_works() {
 			.unwrap()
 		));
 		// task 42 at bucket 4 (240_000ms)
-		assert_ok!(Scheduler::do_schedule_named(
+		assert_ok!(TimeScheduler::do_schedule_named(
 			[42u8; 32],
 			DispatchTime::At(240_000),
 			None,
@@ -2929,9 +2929,9 @@ fn retry_scheduling_multiple_named_tasks_works() {
 
 		assert_eq!(Agenda::<Test>::get(4).len(), 2);
 		// task 20 will be retried 3 times every bucket (60_000ms), do NOT try same bucket first
-		assert_ok!(Scheduler::set_retry_named(RuntimeOrigin::root(), [20u8; 32], 3, RetryStrategy::Periodic(60_000)));
+		assert_ok!(TimeScheduler::set_retry_named(RuntimeOrigin::root(), [20u8; 32], 3, RetryStrategy::Periodic(60_000)));
 		// task 42 will be retried 10 times every 3 buckets (180_000ms), do NOT try same bucket first
-		assert_ok!(Scheduler::set_retry_named(RuntimeOrigin::root(), [42u8; 32], 10, RetryStrategy::Periodic(180_000)));
+		assert_ok!(TimeScheduler::set_retry_named(RuntimeOrigin::root(), [42u8; 32], 10, RetryStrategy::Periodic(180_000)));
 		assert_eq!(Retries::<Test>::iter().count(), 2);
 
 		// Both tasks fail at bucket 4
@@ -2990,7 +2990,7 @@ fn retry_respects_weight_limits() {
 
 		// schedule 42 at bucket 8 (480_000ms) - this will take 2/3 of max weight
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight / 3 * 2 });
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(480_000),
 			None,
 			127,
@@ -3001,7 +3001,7 @@ fn retry_respects_weight_limits() {
 		// schedule 20 with a call that will fail until we reach bucket 8
 		logger::set_time_threshold(480_000, 999_999);
 		let call = RuntimeCall::Logger(LoggerCall::timed_log { i: 20, weight: max_weight / 3 * 2 });
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // bucket 4
 			None,
 			127,
@@ -3010,7 +3010,7 @@ fn retry_respects_weight_limits() {
 		));
 
 		// set a retry config for 20 for 10 retries every bucket (60_000ms), don't try same bucket
-		assert_ok!(Scheduler::set_retry(RuntimeOrigin::root(), (4, 0), 10, RetryStrategy::Periodic(60_000)));
+		assert_ok!(TimeScheduler::set_retry(RuntimeOrigin::root(), (4, 0), 10, RetryStrategy::Periodic(60_000)));
 
 		// 20 should fail and be retried later
 		run_to_time(240_000);
@@ -3047,7 +3047,7 @@ fn scheduler_does_not_delete_permanently_overweight_call() {
 	new_test_ext().execute_with(|| {
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight });
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // bucket 4
 			None,
 			127,
@@ -3077,7 +3077,7 @@ fn scheduler_respects_priority_ordering_with_soft_deadlines() {
 
 		// Schedule task 42 with low priority (255)
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight / 5 * 2 });
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // bucket 4
 			None,
 			255, // lowest priority
@@ -3087,7 +3087,7 @@ fn scheduler_respects_priority_ordering_with_soft_deadlines() {
 
 		// Schedule task 69 with medium priority (127)
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 69, weight: max_weight / 5 * 2 });
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // bucket 4
 			None,
 			127,
@@ -3097,7 +3097,7 @@ fn scheduler_respects_priority_ordering_with_soft_deadlines() {
 
 		// Schedule task 2600 with higher priority (126) but heavier weight
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 2600, weight: max_weight / 5 * 4 });
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // bucket 4
 			None,
 			126,
@@ -3130,7 +3130,7 @@ fn postponed_named_task_cannot_be_rescheduled() {
 		let hashed = Bounded::Lookup { hash, len };
 		let name: [u8; 32] = hash.as_ref().try_into().unwrap();
 
-		let address = Scheduler::do_schedule_named(
+		let address = TimeScheduler::do_schedule_named(
 			name,
 			DispatchTime::At(240_000), // bucket 4
 			None,
@@ -3161,12 +3161,12 @@ fn postponed_named_task_cannot_be_rescheduled() {
 
 		// Manually re-schedule the call by name does not work (lookup was removed).
 		assert_err!(
-			Scheduler::do_reschedule_named(name, DispatchTime::At(660_000)),
+			TimeScheduler::do_reschedule_named(name, DispatchTime::At(660_000)),
 			Error::<Test>::NotFound
 		);
 		// Manually re-scheduling the call by address errors (it's a named task).
 		assert_err!(
-			Scheduler::do_reschedule(address, DispatchTime::At(660_000)),
+			TimeScheduler::do_reschedule(address, DispatchTime::At(660_000)),
 			Error::<Test>::Named
 		);
 	});
@@ -3178,22 +3178,22 @@ fn timestamp_to_bucket_determinism() {
 		// BucketResolution is 60_000ms (1 minute) in the mock
 
 		// Test that timestamps within the same minute map to the same bucket
-		assert_eq!(Scheduler::timestamp_to_bucket(0), 0);
-		assert_eq!(Scheduler::timestamp_to_bucket(1), 0);
-		assert_eq!(Scheduler::timestamp_to_bucket(59_999), 0);
+		assert_eq!(TimeScheduler::timestamp_to_bucket(0), 0);
+		assert_eq!(TimeScheduler::timestamp_to_bucket(1), 0);
+		assert_eq!(TimeScheduler::timestamp_to_bucket(59_999), 0);
 
 		// Bucket boundary at 60_000ms
-		assert_eq!(Scheduler::timestamp_to_bucket(60_000), 1);
-		assert_eq!(Scheduler::timestamp_to_bucket(60_001), 1);
-		assert_eq!(Scheduler::timestamp_to_bucket(119_999), 1);
+		assert_eq!(TimeScheduler::timestamp_to_bucket(60_000), 1);
+		assert_eq!(TimeScheduler::timestamp_to_bucket(60_001), 1);
+		assert_eq!(TimeScheduler::timestamp_to_bucket(119_999), 1);
 
 		// Bucket 2
-		assert_eq!(Scheduler::timestamp_to_bucket(120_000), 2);
-		assert_eq!(Scheduler::timestamp_to_bucket(179_999), 2);
+		assert_eq!(TimeScheduler::timestamp_to_bucket(120_000), 2);
+		assert_eq!(TimeScheduler::timestamp_to_bucket(179_999), 2);
 
 		// Larger values
-		assert_eq!(Scheduler::timestamp_to_bucket(600_000), 10);
-		assert_eq!(Scheduler::timestamp_to_bucket(3_600_000), 60); // 1 hour = 60 buckets
+		assert_eq!(TimeScheduler::timestamp_to_bucket(600_000), 10);
+		assert_eq!(TimeScheduler::timestamp_to_bucket(3_600_000), 60); // 1 hour = 60 buckets
 
 		let call1 =
 			RuntimeCall::Logger(LoggerCall::log { i: 1, weight: Weight::from_parts(10, 0) });
@@ -3201,14 +3201,14 @@ fn timestamp_to_bucket_determinism() {
 			RuntimeCall::Logger(LoggerCall::log { i: 2, weight: Weight::from_parts(10, 0) });
 
 		// Schedule at different timestamps but same bucket (bucket 4)
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // start of bucket 4
 			None,
 			127,
 			root(),
 			Preimage::bound(call1).unwrap(),
 		));
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(299_999), // end of bucket 4
 			None,
 			127,
@@ -3235,7 +3235,7 @@ fn postponed_task_is_still_available() {
 		// Use 60% of max weight - should fit normally but not at 50%
 		let call_weight = max_weight.saturating_mul(6) / 10;
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: call_weight });
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // bucket 4
 			None,
 			128,
@@ -3283,7 +3283,7 @@ fn overweight_task_is_permanently_overweight_when_first_in_catchup() {
 		let schedule_at: u64 = 6; // bucket 6 = 360_000ms
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight });
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(360_000), // bucket 6
 			None,
 			127,
@@ -3347,7 +3347,7 @@ fn try_schedule_retry_respects_weight_limits() {
 		// schedule 20 with a call that will fail
 		logger::set_time_threshold(480_000, 999_999);
 
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(240_000), // bucket 4
 			None,
 			127,
@@ -3356,7 +3356,7 @@ fn try_schedule_retry_respects_weight_limits() {
 		));
 
 		// set a retry config for 20
-		assert_ok!(Scheduler::set_retry(RuntimeOrigin::root(), (4, 0), 10, RetryStrategy::Periodic(60_000)));
+		assert_ok!(TimeScheduler::set_retry(RuntimeOrigin::root(), (4, 0), 10, RetryStrategy::Periodic(60_000)));
 
 		// Run - task should fail and retry should fail due to insufficient weight
 		run_to_time(240_000);
@@ -3402,7 +3402,7 @@ fn on_initialize_weight_is_correct() {
 			i: 2600,
 			weight: call_weight + Weight::from_parts(4, 0),
 		});
-		assert_ok!(Scheduler::do_schedule_named(
+		assert_ok!(TimeScheduler::do_schedule_named(
 			[2u8; 32],
 			DispatchTime::At(2000), // bucket 1
 			Some((60_000, 3)),      // period of 60s, 3 repetitions
@@ -3416,7 +3416,7 @@ fn on_initialize_weight_is_correct() {
 			i: 42,
 			weight: call_weight + Weight::from_parts(2, 0),
 		});
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(4000), // bucket 2
 			Some((60_000, 3)),      // period of 60s, 3 repetitions
 			128,
@@ -3429,7 +3429,7 @@ fn on_initialize_weight_is_correct() {
 			i: 69,
 			weight: call_weight + Weight::from_parts(3, 0),
 		});
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(4000), // bucket 2
 			None,
 			127,
@@ -3442,7 +3442,7 @@ fn on_initialize_weight_is_correct() {
 			i: 3,
 			weight: call_weight + Weight::from_parts(1, 0),
 		});
-		assert_ok!(Scheduler::do_schedule_named(
+		assert_ok!(TimeScheduler::do_schedule_named(
 			[1u8; 32],
 			DispatchTime::At(6000), // bucket 3
 			None,
@@ -3453,7 +3453,7 @@ fn on_initialize_weight_is_correct() {
 
 		// === Block 1: Process bucket 1 (Named Periodic) ===
 		Timestamp::set_timestamp(2000);
-		let weight_bucket_1 = Scheduler::on_initialize(1);
+		let weight_bucket_1 = TimeScheduler::on_initialize(1);
 
 		// Expected: service_agendas_base + service_agenda_base(1) +
 		//           service_task(None, named=true, periodic=true) +
@@ -3470,7 +3470,7 @@ fn on_initialize_weight_is_correct() {
 		// === Block 2: Same bucket, no new tasks - still in bucket 1 ===
 		// Set timestamp to later in the same bucket (2500ms still maps to bucket 1)
 		Timestamp::set_timestamp(2500);
-		let weight_same_bucket = Scheduler::on_initialize(2);
+		let weight_same_bucket = TimeScheduler::on_initialize(2);
 
 		// Expected: just service_agendas_base (empty buckets are skipped via contains_key)
 		let expected_weight_same_bucket = TestWeightInfo::service_agendas_base();
@@ -3481,7 +3481,7 @@ fn on_initialize_weight_is_correct() {
 		// === Block 3: Process bucket 2 (Anon + Anon Periodic) ===
 		// Note: IncompleteSince is bucket 1, bucket 1 is empty so skipped, process bucket 2
 		Timestamp::set_timestamp(4000);
-		let weight_bucket_2 = Scheduler::on_initialize(3);
+		let weight_bucket_2 = TimeScheduler::on_initialize(3);
 
 		// Expected: service_agendas_base +
 		//           service_agenda_base(2) for bucket 2 +
@@ -3505,7 +3505,7 @@ fn on_initialize_weight_is_correct() {
 		// === Block 4: Process bucket 3 (Named only) ===
 		// IncompleteSince is bucket 2, bucket 2 is empty so skipped, process bucket 3
 		Timestamp::set_timestamp(6000);
-		let weight_bucket_3 = Scheduler::on_initialize(4);
+		let weight_bucket_3 = TimeScheduler::on_initialize(4);
 
 		// Expected: service_agendas_base +
 		//           service_agenda_base(1) for bucket 3 +
@@ -3527,7 +3527,7 @@ fn on_initialize_weight_is_correct() {
 		// === Block 5: Empty bucket 4 ===
 		// IncompleteSince is bucket 3, buckets 3 and 4 are empty so skipped
 		Timestamp::set_timestamp(8000);
-		let weight_empty = Scheduler::on_initialize(5);
+		let weight_empty = TimeScheduler::on_initialize(5);
 
 		// Expected: just service_agendas_base (all empty buckets skipped)
 		let expected_weight_empty = TestWeightInfo::service_agendas_base();
@@ -3540,7 +3540,7 @@ fn on_initialize_weight_is_correct() {
 		);
 
 		Timestamp::set_timestamp(10000);
-		let weight_full_block = Scheduler::on_initialize(6);
+		let weight_full_block = TimeScheduler::on_initialize(6);
 
 		// When block is already full, on_initialize should return zero
 		assert_eq!(weight_full_block, Weight::zero());
@@ -3559,7 +3559,7 @@ fn on_initialize_runs_twice_for_the_same_bucket_starting_block() {
 	new_test_ext().execute_with(|| {
 		// Schedule task 42 at bucket 3 (180_000ms)
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(180_000),
 			None,
 			127,
@@ -3575,7 +3575,7 @@ fn on_initialize_runs_twice_for_the_same_bucket_starting_block() {
 		// Schedule task 99 at bucket 3 after the first on_initialize
 		let call2 =
 			RuntimeCall::Logger(LoggerCall::log { i: 99, weight: Weight::from_parts(10, 0) });
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(180_000),
 			None,
 			127,
@@ -3602,14 +3602,14 @@ fn on_initialize_runs_twice_for_the_same_bucket_different_blocks() {
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight / 3u64 * 2u64 });
 		let call2 =
 			RuntimeCall::Logger(LoggerCall::log { i: 99, weight: max_weight / 3u64 * 2u64 });
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(180_000),
 			None,
 			127,
 			root(),
 			Preimage::bound(call1).unwrap(),
 		));
-		assert_ok!(Scheduler::do_schedule(
+		assert_ok!(TimeScheduler::do_schedule(
 			DispatchTime::At(180_000),
 			None,
 			127,
@@ -3640,7 +3640,7 @@ fn retry_exponential_backoff_saturates_at_u32_max_offset() {
 			i: 42,
 			weight: Weight::from_parts(10, 0),
 		});
-		Scheduler::do_schedule(
+		TimeScheduler::do_schedule(
 			DispatchTime::At(180_000), // bucket 3
 			None,
 			127,
@@ -3649,7 +3649,7 @@ fn retry_exponential_backoff_saturates_at_u32_max_offset() {
 		)
 		.unwrap();
 
-		assert_ok!(Scheduler::set_retry(
+		assert_ok!(TimeScheduler::set_retry(
 			RuntimeOrigin::root(),
 			(3, 0),
 			34,
