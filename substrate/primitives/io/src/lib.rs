@@ -1879,9 +1879,9 @@ pub trait Misc {
 	/// Extract the runtime version of the given wasm blob by calling `Core_version`.
 	///
 	/// Returns `None` if calling the function failed for any reason. Otherwise, write the
-	/// SCALE-encoded version information to the provided output buffer and returns the full length
-	/// of the encoded version information. If the output buffer is not large enough, the version
-	/// information is truncated.
+	/// SCALE-encoded version information to the provided output buffer if it's large enough.
+	/// Returns the full length of the encoded version information regardless of whether the
+	/// buffer was written or not.
 	///
 	/// # Performance
 	///
@@ -1910,8 +1910,9 @@ pub trait Misc {
 			.read_runtime_version(wasm, &mut ext)
 		{
 			Ok(v) => {
-				let copy_len = v.len().min(out.len());
-				out[..copy_len].copy_from_slice(&v[..copy_len]);
+				if out.len() >= v.len() {
+					out[..v.len()].copy_from_slice(v.as_slice());
+				}
 				Some(v.len() as u32)
 			},
 			Err(err) => {
