@@ -3165,15 +3165,11 @@ fn root_call_can_nested_instantiate() {
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		// Deploy the deployer contract (signed). Its constructor does nothing.
 		let Contract { addr, account_id: deployer_id } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		// Top up the deployer so it can transfer ED to the new contract.
 		let _ = <Test as Config>::Currency::set_balance(&deployer_id, 1_000_000);
 
-		// Root invokes the deployer with zero value (Root cannot transfer value at the
-		// top frame); the deployer then issues a CREATE1 of its own code with no value.
 		assert_ok!(
 			builder::bare_call(addr)
 				.origin(RuntimeOrigin::root())
