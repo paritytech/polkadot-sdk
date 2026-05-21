@@ -2018,9 +2018,9 @@ mod benchmarks {
 	// Cold touch: `BTreeSet::contains` + `insert` (with clone) + journal `Vec::push`.
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold() -> Result<(), BenchmarkError> {
-		use crate::access_list::{AccessEntry, AccessList};
+		use crate::access_list::{AccessEntry, AccessList, KeyKind};
 		let mut al = AccessList::new_enabled();
-		let entry = AccessEntry { address: H160::zero(), is_var: false, slot: [0u8; 32] };
+		let entry = AccessEntry { address: H160::zero(), key_kind: KeyKind::Fix, slot: [0u8; 32] };
 		let was_cold;
 		#[block]
 		{
@@ -2033,9 +2033,9 @@ mod benchmarks {
 	// Warm touch: `BTreeSet::contains` only (entry already present).
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_warm() -> Result<(), BenchmarkError> {
-		use crate::access_list::{AccessEntry, AccessList};
+		use crate::access_list::{AccessEntry, AccessList, KeyKind};
 		let mut al = AccessList::new_enabled();
-		let entry = AccessEntry { address: H160::zero(), is_var: false, slot: [0u8; 32] };
+		let entry = AccessEntry { address: H160::zero(), key_kind: KeyKind::Fix, slot: [0u8; 32] };
 		al.touch(entry.clone());
 		let was_cold;
 		#[block]
@@ -2051,10 +2051,10 @@ mod benchmarks {
 	// Prepaid by every cold touch since frame revert can't charge gas itself.
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_rollback_amortization() -> Result<(), BenchmarkError> {
-		use crate::access_list::{AccessEntry, AccessList};
+		use crate::access_list::{AccessEntry, AccessList, KeyKind};
 		let mut al = AccessList::new_enabled();
 		al.enter_frame();
-		al.touch(AccessEntry { address: H160::zero(), is_var: false, slot: [0u8; 32] });
+		al.touch(AccessEntry { address: H160::zero(), key_kind: KeyKind::Fix, slot: [0u8; 32] });
 		#[block]
 		{
 			al.rollback_frame();

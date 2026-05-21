@@ -19,7 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{AccessEntry, AccessList, StorageAccessCost},
+	access_list::{AccessEntry, AccessList, KeyKind, StorageAccessCost},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -1944,7 +1944,10 @@ where
 		}
 		self.access_list.touch(AccessEntry {
 			address: T::AddressMapper::to_address(self.account_id()),
-			is_var: matches!(key, Key::Var(_)),
+			key_kind: match key {
+				Key::Fix(_) => KeyKind::Fix,
+				Key::Var(_) => KeyKind::Var,
+			},
 			slot: key.to_slot(),
 		})
 	}

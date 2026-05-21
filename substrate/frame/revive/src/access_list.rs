@@ -26,14 +26,21 @@
 use alloc::{collections::BTreeSet, vec::Vec};
 use sp_core::H160;
 
+/// Tags an [`AccessEntry`] with the `Key` variant it came from. Prevents
+/// `Fix(blake2_256(v))` and `Var(v)` from aliasing on the projected `slot`.
+#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone, Copy)]
+pub enum KeyKind {
+	Fix,
+	Var,
+}
+
 /// One entry per `(contract address, storage slot)` accessed in the current tx.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
 pub struct AccessEntry {
 	/// Contract whose child trie is being touched.
 	pub address: H160,
-	/// `true` for `Key::Var`, `false` for `Key::Fix`. Keeps the two variants
-	/// distinct even if their projected `slot` bytes happen to match.
-	pub is_var: bool,
+	/// Whether the originating `Key` was `Fix` or `Var`.
+	pub key_kind: KeyKind,
 	/// 32-byte slot identifier, projected from a `Key` via [`crate::exec::Key::to_slot`].
 	pub slot: [u8; 32],
 }
@@ -195,10 +202,10 @@ mod tests {
 	fn lifecycle() {
 		let mut al = AccessList::new_enabled();
 		let (a, b, c, d) = (
-			AccessEntry { address: H160::zero(), is_var: false, slot: [0xA; 32] },
-			AccessEntry { address: H160::zero(), is_var: false, slot: [0xB; 32] },
-			AccessEntry { address: H160::zero(), is_var: false, slot: [0xC; 32] },
-			AccessEntry { address: H160::zero(), is_var: false, slot: [0xD; 32] },
+			AccessEntry { address: H160::zero(), key_kind: KeyKind::Fix, slot: [0xA; 32] },
+			AccessEntry { address: H160::zero(), key_kind: KeyKind::Fix, slot: [0xB; 32] },
+			AccessEntry { address: H160::zero(), key_kind: KeyKind::Fix, slot: [0xC; 32] },
+			AccessEntry { address: H160::zero(), key_kind: KeyKind::Fix, slot: [0xD; 32] },
 		);
 
 		assert!(al.touch(a.clone()), "A: first touch cold");

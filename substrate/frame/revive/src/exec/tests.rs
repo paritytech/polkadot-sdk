@@ -3247,7 +3247,7 @@ fn cold_warm_fix_var_disjoint() {
 		assert_eq!(
 			var_cost.is_cold,
 			Some(true),
-			"Var(y) must NOT alias Fix(blake2_256(y)) — `is_var` tag missing on AccessEntry?",
+			"Var(y) must NOT alias Fix(blake2_256(y)) — `key_kind` tag missing on AccessEntry?",
 		);
 		exec_success()
 	});
