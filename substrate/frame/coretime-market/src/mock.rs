@@ -75,8 +75,9 @@ impl TimesliceProvider for TestTimesliceProvider {
 	fn next_timeslice_to_commit() -> Option<Timeslice> {
 		LATEST_TS_READY.with(|c| c.get().map(|ts| ts.saturating_add(1)))
 	}
+
 	fn latest_timeslice_ready_to_commit() -> Option<Timeslice> {
-		LATEST_TS_READY.with(|c| c.get())
+		Self::next_timeslice_to_commit()
 	}
 }
 

@@ -236,7 +236,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Get the current price at a given block number.
 	fn set_phase(phase: SalePhase) {
 		SaleInfo::<T>::mutate(|s| {
 			if let Some(sale) = s {
@@ -245,6 +244,7 @@ impl<T: Config> Pallet<T> {
 		});
 	}
 
+	/// Get the current price at a given block number.
 	pub fn current_price(block_number: RelayBlockNumberOf<T>) -> Option<BalanceOf<T>> {
 		let sale = SaleInfo::<T>::get()?;
 		match sale.phase {
@@ -256,11 +256,18 @@ impl<T: Config> Pallet<T> {
 	/// Record a successful renewal: update counters, track for finalization, emit event.
 	fn record_renewal(
 		who: &T::AccountId,
-		_renewal: PotentialRenewalId,
+		renewal: PotentialRenewalId,
 		price: BalanceOf<T>,
 		region_id: RegionId,
 		region_end: Timeslice,
 	) -> Result<RenewalOrderResult<BalanceOf<T>, u32>, Error<T>> {
+		// TODO: Remove
+		PendingRenewalActions::<T>::try_mutate(|actions| {
+			actions
+				.try_push(RenewalAction::Renewed { who: who.clone(), renewal_id: renewal })
+				.map_err(|_| Error::<T>::TooManyBids)
+		})?;
+
 		SaleInfo::<T>::mutate(|s| {
 			if let Some(sale) = s {
 				sale.renewal_count.saturating_inc();
