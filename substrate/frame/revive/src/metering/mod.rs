@@ -73,6 +73,14 @@ pub type TransactionMeter<T> = ResourceMeter<T, Root>;
 /// The type of resource meter used for an execution frame.
 pub type FrameMeter<T> = ResourceMeter<T, Nested>;
 
+/// Snapshot of a [`ResourceMeter`]'s consumption at a point in time.
+///
+/// Produced by [`ResourceMeter::snapshot`] and consumed by [`ResourceMeter::delta_since`].
+pub struct MeterSnapshot<T: Config> {
+	weight: Weight,
+	gas: SignedGas<T>,
+}
+
 /// Resource meter tracking weight and storage deposit consumption.
 #[derive(DefaultNoBound)]
 pub struct ResourceMeter<T: Config, S: State> {
@@ -465,18 +473,29 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		}
 	}
 
-	/// Ethereum gas consumed since the `before` snapshot taken from
-	/// [`Self::eth_gas_consumed_signed`].
+	/// Take a snapshot of the meter's current consumption for later use with
+	/// [`Self::delta_since`].
+	pub fn snapshot(&self) -> MeterSnapshot<T> {
+		MeterSnapshot {
+			weight: self.weight_consumed(),
+			gas: self.eth_gas_consumed_signed(),
+		}
+	}
+
+	/// Ethereum gas and weight consumed since `snapshot` was taken.
 	///
-	/// Subtraction happens in [`SignedGas`] form so that the ceil-rounding inside
+	/// Gas subtraction happens in [`SignedGas`] form so that the ceil-rounding inside
 	/// `to_ethereum_gas` is applied once to the delta, not to each snapshot.
-	pub fn eth_gas_used_since(&self, before: &SignedGas<T>) -> u64 {
-		self.eth_gas_consumed_signed()
-			.saturating_sub(before)
+	pub fn delta_since(&self, snapshot: &MeterSnapshot<T>) -> (u64, Weight) {
+		let gas = self
+			.eth_gas_consumed_signed()
+			.saturating_sub(&snapshot.gas)
 			.to_ethereum_gas()
 			.unwrap_or_default()
 			.try_into()
-			.unwrap_or(u64::MAX)
+			.unwrap_or(u64::MAX);
+		let weight = self.weight_consumed().saturating_sub(snapshot.weight);
+		(gas, weight)
 	}
 
 	/// Determine and set the new effective weight limit of the weight meter.
