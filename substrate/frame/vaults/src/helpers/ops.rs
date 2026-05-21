@@ -98,10 +98,7 @@ pub fn deposit_collateral_for<T: Config>(
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(&collateral_id, now)?;
 	let vault = touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
-	ensure!(
-		!vault.status::<T>(&collateral_id, &owner).is_dormant(),
-		Error::<T>::DebtBelowMinimum
-	);
+	ensure!(!vault.status::<T>(&collateral_id, &owner).is_dormant(), Error::<T>::DebtBelowMinimum);
 
 	T::CollateralAssets::transfer_and_hold(
 		collateral_id.clone(),
@@ -569,11 +566,11 @@ pub fn enter_final_recovery<T: Config>(
 /// Permissionless explicit `FinalRecovery` exit. Touches the vault, checks
 /// the fully-accrued CR is at or above the MCR, re-adds the stake + weighted
 /// stake contribution, then either:
-/// - if `debt >= MinimumDebt` rejoins the rate index using the caller-supplied
-///   `hint` (status → Active, O(1) with valid hint),
-/// - otherwise leaves the vault out of the index (status → Dormant) and parks
-///   the owner in `last_dormant_vault_owner` so the next redemption can pick
-///   it up. The `hint` argument is ignored in the Dormant branch.
+/// - if `debt >= MinimumDebt` rejoins the rate index using the caller-supplied `hint` (status →
+///   Active, O(1) with valid hint),
+/// - otherwise leaves the vault out of the index (status → Dormant) and parks the owner in
+///   `last_dormant_vault_owner` so the next redemption can pick it up. The `hint` argument is
+///   ignored in the Dormant branch.
 #[require_transactional]
 pub fn exit_final_recovery<T: Config>(
 	owner: T::AccountId,
@@ -602,8 +599,7 @@ pub fn exit_final_recovery<T: Config>(
 	ensure!(cr >= cfg.minimum_collateralization_ratio, Error::<T>::UnsafeCollateralizationRatio);
 
 	let rejoin_active = total_debt >= cfg.minimum_debt;
-	let new_status =
-		if rejoin_active { VaultStatus::Active } else { VaultStatus::Dormant };
+	let new_status = if rejoin_active { VaultStatus::Active } else { VaultStatus::Dormant };
 
 	recovery::remove::<T>(&collateral_id, &owner)?;
 	BranchStates::<T>::try_mutate(&collateral_id, |maybe| -> Result<_, DispatchError> {

@@ -893,10 +893,7 @@ pub mod pallet {
 		/// branch is not frozen or is frozen for a non-oracle reason.
 		#[pallet::call_index(24)]
 		#[pallet::weight(T::WeightInfo::refresh_branch())]
-		pub fn refresh_branch(
-			origin: OriginFor<T>,
-			collateral_id: T::AssetId,
-		) -> DispatchResult {
+		pub fn refresh_branch(origin: OriginFor<T>, collateral_id: T::AssetId) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 			helpers::refresh_branch::<T>(&collateral_id)
 		}

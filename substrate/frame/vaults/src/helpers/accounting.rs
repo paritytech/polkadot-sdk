@@ -207,8 +207,10 @@ pub fn touch_vault<T: Config>(
 		// Reconcile this vault's share of the avg-rate weighted contribution
 		// that was folded into the branch interest base at liquidation. Subtract
 		// the avg-rate share, add the recipient-rate share.
-		let delta_weight_per_stake =
-			bs.redist.weight_per_stake.saturating_sub(vault.redist_snapshot.weight_per_stake);
+		let delta_weight_per_stake = bs
+			.redist
+			.weight_per_stake
+			.saturating_sub(vault.redist_snapshot.weight_per_stake);
 		let weight_to_remove =
 			delta_weight_per_stake.saturating_mul_int(vault.redistribution_stake);
 		let weight_to_add = vault.annual_rate.saturating_mul_int(pending.principal);

@@ -231,17 +231,11 @@ fn governance_clear_clears_governance_frozen() {
 		// Defensive (acct 999) cannot clear governance Frozen — needs Full.
 		assert_ok!(crate::Pallet::<Test>::enable_frozen_mode(RuntimeOrigin::root(), DOT));
 		assert_noop!(
-			crate::Pallet::<Test>::clear_governance_frozen_mode(
-				RuntimeOrigin::signed(999),
-				DOT
-			),
+			crate::Pallet::<Test>::clear_governance_frozen_mode(RuntimeOrigin::signed(999), DOT),
 			crate::Error::<Test>::InsufficientPrivilege
 		);
 		// Full clears governance Frozen.
-		assert_ok!(crate::Pallet::<Test>::clear_governance_frozen_mode(
-			RuntimeOrigin::root(),
-			DOT
-		));
+		assert_ok!(crate::Pallet::<Test>::clear_governance_frozen_mode(RuntimeOrigin::root(), DOT));
 		assert!(!BranchStates::<Test>::get(DOT).unwrap().is_frozen());
 	});
 }
@@ -255,10 +249,7 @@ fn governance_clear_is_noop_for_oracle_frozen() {
 		assert_ok!(crate::Pallet::<Test>::refresh_branch(RuntimeOrigin::signed(99), DOT));
 		assert!(BranchStates::<Test>::get(DOT).unwrap().is_frozen());
 		// Governance clear refuses oracle-Frozen state — branch stays frozen.
-		assert_ok!(crate::Pallet::<Test>::clear_governance_frozen_mode(
-			RuntimeOrigin::root(),
-			DOT
-		));
+		assert_ok!(crate::Pallet::<Test>::clear_governance_frozen_mode(RuntimeOrigin::root(), DOT));
 		assert!(BranchStates::<Test>::get(DOT).unwrap().is_frozen());
 	});
 }

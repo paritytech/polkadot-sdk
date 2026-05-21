@@ -133,9 +133,8 @@ pub(crate) fn ensure_not_frozen<T: Config>(
 /// Reconcile the branch's `Frozen { OracleFailure }` state with the live
 /// oracle (DESIGN.md §8.4 / §10.1). Permissionless. Behaviour:
 ///
-/// - oracle healthy + branch frozen for `OracleFailure` → clear `frozen` and
-///   advance `last_interest_update` to suspend accrual across the Frozen
-///   window.
+/// - oracle healthy + branch frozen for `OracleFailure` → clear `frozen` and advance
+///   `last_interest_update` to suspend accrual across the Frozen window.
 /// - oracle failing + branch not frozen → persist `Frozen { OracleFailure }`.
 /// - branch frozen for `Governance` → no-op (use `clear_governance_frozen_mode`).
 /// - all other combinations → no-op `Ok`.
@@ -144,8 +143,9 @@ pub fn refresh_branch<T: Config>(collateral_id: &T::AssetId) -> Result<(), Dispa
 	let bs = branch_state_of::<T>(collateral_id)?;
 	let oracle_ok = T::Oracle::provide_price(collateral_id).is_ok();
 	match (bs.frozen, oracle_ok) {
-		(Some(state), true) if matches!(state.reason, FrozenReason::OracleFailure) =>
-			clear_frozen::<T>(collateral_id, BranchMode::Frozen, BranchMode::Normal),
+		(Some(state), true) if matches!(state.reason, FrozenReason::OracleFailure) => {
+			clear_frozen::<T>(collateral_id, BranchMode::Frozen, BranchMode::Normal)
+		},
 		(None, false) => freeze_oracle::<T>(collateral_id),
 		_ => Ok(()),
 	}
@@ -197,8 +197,9 @@ pub fn clear_governance_frozen_mode<T: Config>(
 ) -> Result<(), DispatchError> {
 	let bs = branch_state_of::<T>(collateral_id)?;
 	match bs.frozen {
-		Some(state) if matches!(state.reason, FrozenReason::Governance) =>
-			clear_frozen::<T>(collateral_id, BranchMode::Frozen, BranchMode::Normal),
+		Some(state) if matches!(state.reason, FrozenReason::Governance) => {
+			clear_frozen::<T>(collateral_id, BranchMode::Frozen, BranchMode::Normal)
+		},
 		_ => Ok(()),
 	}
 }

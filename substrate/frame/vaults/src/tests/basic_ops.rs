@@ -116,7 +116,11 @@ fn repay_for_to_zero_closes_active_vault() {
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(1), 1, DOT, total));
 		assert!(Vaults::<Test>::get(DOT, 1).is_none(), "vault row removed");
 		assert_eq!(held(DOT, 1), 0, "held collateral released");
-		assert_eq!(collateral_balance(DOT, 1), coll_before + 1_000, "owner received the collateral");
+		assert_eq!(
+			collateral_balance(DOT, 1),
+			coll_before + 1_000,
+			"owner received the collateral"
+		);
 		assert!(
 			!<LinkedList as SortedListInterface<VaultList, u64>>::contains(&rate_list(DOT), &1),
 			"vault removed from rate index"
