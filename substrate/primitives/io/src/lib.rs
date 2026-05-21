@@ -3427,8 +3427,9 @@ pub trait Offchain {
 			.map(|v| {
 				let value_offset = offset as usize;
 				let data = &v[value_offset.min(v.len())..];
-				let written = core::cmp::min(data.len(), value_out.len());
-				value_out[..written].copy_from_slice(&data[..written]);
+				if data.len() <= value_out.len() {
+					value_out[..data.len()].copy_from_slice(data);
+				}
 				data.len() as u32
 			})
 	}
@@ -3622,8 +3623,9 @@ pub trait Offchain {
 
 	/// Read the name of the header at the given index into the provided output buffer.
 	///
-	/// Returns the full length of the header name. If the output buffer is not large enough,
-	/// the header name is truncated.
+	/// Returns the full length of the header name. The value is actually stored only if the
+	/// buffer is large enough. Otherwise, the buffer is not written into, and its contents are
+	/// unchanged.
 	///
 	/// Returns `None` if the index is out of bounds.
 	fn http_response_header_name(
@@ -3637,15 +3639,17 @@ pub trait Offchain {
 			.expect("http_response_header_name can be called only in the offchain worker context")
 			.http_response_headers(request_id);
 		let res = &headers.get(header_index as usize)?.0;
-		let copy_len = res.len().min(out.len());
-		out[..copy_len].copy_from_slice(&res[..copy_len]);
+		if res.len() <= out.len() {
+			out[..res.len()].copy_from_slice(res);
+		}
 		Some(res.len() as u32)
 	}
 
 	/// Read the value of the header at the given index into the provided output buffer.
 	///
-	/// Returns the full length of the header value. If the output buffer is not large enough,
-	/// the header value is truncated.
+	/// Returns the full length of the header value. The value is actually stored only if the
+	/// buffer is large enough. Otherwise, the buffer is not written into, and its contents are
+	/// unchanged.
 	///
 	/// Returns `None` if the index is out of bounds.
 	fn http_response_header_value(
@@ -3659,8 +3663,9 @@ pub trait Offchain {
 			.expect("http_response_header_value can be called only in the offchain worker context")
 			.http_response_headers(request_id);
 		let res = &headers.get(header_index as usize)?.1;
-		let copy_len = res.len().min(out.len());
-		out[..copy_len].copy_from_slice(&res[..copy_len]);
+		if res.len() <= out.len() {
+			out[..res.len()].copy_from_slice(res);
+		}
 		Some(res.len() as u32)
 	}
 
