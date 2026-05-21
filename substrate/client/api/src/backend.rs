@@ -267,10 +267,8 @@ pub trait BlockImportOperation<Block: BlockT> {
 
 	/// Provide payload bytes for `IndexOperation::Renew` hashes that are not yet present in the
 	/// `TRANSACTION` column.
-	fn set_renew_payloads(
-		&mut self,
-		payloads: HashMap<H256, Vec<u8>>,
-	) -> sp_blockchain::Result<()>;
+	fn set_renew_payloads(&mut self, payloads: HashMap<H256, Vec<u8>>)
+		-> sp_blockchain::Result<()>;
 
 	/// Configure whether to create a block gap if newly imported block is missing parent
 	fn set_create_gap(&mut self, create_gap: bool);

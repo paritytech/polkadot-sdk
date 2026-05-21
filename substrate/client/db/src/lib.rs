@@ -1075,10 +1075,7 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		Ok(())
 	}
 
-	fn set_renew_payloads(
-		&mut self,
-		payloads: HashMap<DbHash, Vec<u8>>,
-	) -> ClientResult<()> {
+	fn set_renew_payloads(&mut self, payloads: HashMap<DbHash, Vec<u8>>) -> ClientResult<()> {
 		self.prefetched_indexed_transactions = payloads;
 		Ok(())
 	}
