@@ -145,6 +145,15 @@ pub enum NetworkServiceCommand {
 		address: Multiaddr,
 	},
 
+	/// Add known address for peer.
+	AddPriorityAddresses {
+		/// Peer ID.
+		peer: PeerId,
+
+		/// Address.
+		addresses: Vec<Multiaddr>,
+	},
+
 	/// Set reserved peers for `protocol`.
 	SetReservedPeers {
 		/// Protocol.
@@ -356,6 +365,17 @@ impl NetworkSigner for Litep2pNetworkService {
 impl NetworkDHTProvider for Litep2pNetworkService {
 	fn find_closest_peers(&self, target: PeerId) {
 		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::FindClosestPeers { target });
+	}
+
+	fn add_priority_addresses(
+		&self,
+		peer: PeerId,
+		addrs: Vec<sc_network_types::multiaddr::Multiaddr>,
+	) {
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::AddPriorityAddresses {
+			peer,
+			addresses: addrs.into_iter().map(Into::into).collect(),
+		});
 	}
 
 	fn get_value(&self, key: &KademliaKey) {

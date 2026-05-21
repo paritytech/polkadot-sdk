@@ -218,6 +218,15 @@ pub trait NetworkDHTProvider {
 	/// Start finding closest peers to the target.
 	fn find_closest_peers(&self, target: PeerId);
 
+	/// Add priority addresses for a peer.
+	///
+	/// The network backend will try to use these addresses with priority for dialing the peer.
+	fn add_priority_addresses(
+		&self,
+		peer_id: PeerId,
+		addrs: Vec<sc_network_types::multiaddr::Multiaddr>,
+	);
+
 	/// Start getting a value from the DHT.
 	fn get_value(&self, key: &KademliaKey);
 
@@ -255,6 +264,14 @@ where
 {
 	fn find_closest_peers(&self, target: PeerId) {
 		T::find_closest_peers(self, target)
+	}
+
+	fn add_priority_addresses(
+		&self,
+		peer_id: PeerId,
+		addrs: Vec<sc_network_types::multiaddr::Multiaddr>,
+	) {
+		T::add_priority_addresses(self, peer_id, addrs)
 	}
 
 	fn get_value(&self, key: &KademliaKey) {

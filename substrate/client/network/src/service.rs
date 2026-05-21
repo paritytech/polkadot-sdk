@@ -903,6 +903,13 @@ where
 			.unbounded_send(ServiceToWorkerMsg::FindClosestPeers(target.into()));
 	}
 
+	fn add_priority_addresses(
+		&self,
+		_peer_id: sc_network_types::PeerId,
+		_addrs: Vec<sc_network_types::multiaddr::Multiaddr>,
+	) {
+	}
+
 	/// Start getting a value from the DHT.
 	///
 	/// This will generate either a `ValueFound` or a `ValueNotFound` event and pass it as an
