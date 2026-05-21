@@ -3,7 +3,7 @@ The following crates were updated to the corresponding versions:
 <details>
   <summary>Click to see crates list</summary>
 
-- pallet-revive-proc-macro@0.7.5
+- pallet-revive-proc-macro@0.9.0
 - pallet-revive-uapi@0.14.0
 - pallet-revive-fixtures@0.13.0
 - frame-support@45.1.3
