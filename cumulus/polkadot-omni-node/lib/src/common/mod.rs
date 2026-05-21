@@ -64,10 +64,6 @@ where
 }
 
 /// Convenience trait that defines the basic bounds for the `RuntimeApi` of a parachain node.
-///
-/// All bounds are compile-time requirements. Runtimes that do not support optional features
-/// (e.g. `TransactionStorageApi`) should provide stub implementations. See
-/// [`fake_runtime_api::utils`] for the canonical example.
 pub trait NodeRuntimeApi<Block: BlockT>:
 	ApiExt<Block>
 	+ Metadata<Block>

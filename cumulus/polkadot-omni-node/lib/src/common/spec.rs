@@ -429,14 +429,19 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 				.transpose()?;
 
-			let hop_pool = node_extra_args
-				.hop
-				.as_ref()
-				.map(|params| {
-					params.build_pool(parachain_config.database.path().map(|p| p.to_path_buf()))
-				})
-				.transpose()
-				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+			let hop_pool = node_extra_args.hop.as_ref().and_then(|params| {
+				match params.build_pool(parachain_config.database.path().map(|p| p.to_path_buf()))
+				{
+					Ok(pool) => Some(pool),
+					Err(e) => {
+						log::warn!(
+							target: "hop",
+							"Failed to initialize HOP data pool, continuing without HOP: {e}",
+						);
+						None
+					},
+				}
+			});
 			if let (Some(pool), Some(hop)) = (hop_pool.as_ref(), node_extra_args.hop.as_ref()) {
 				let task = sc_hop::build_maintenance_task::<Self::Block, _, _>(
 					&client,

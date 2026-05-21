@@ -49,8 +49,8 @@ use std::{path::PathBuf, sync::Arc};
 #[derive(Debug, Clone, Parser)]
 pub struct HopParams {
 	/// Enable HOP
-	#[arg(long)]
-	pub enable_hop: bool,
+	#[arg(long = "enable-hop")]
+	pub enabled: bool,
 
 	/// HOP maximum data pool size in MiB. Must be at least 1.
 	#[arg(
@@ -142,7 +142,7 @@ pub struct HopParams {
 impl Default for HopParams {
 	fn default() -> Self {
 		Self {
-			enable_hop: false,
+			enabled: false,
 			max_pool_size: DEFAULT_MAX_POOL_SIZE_MIB,
 			max_user_size: DEFAULT_MAX_USER_SIZE_MIB,
 			retention_secs: DEFAULT_RETENTION_SECS,
