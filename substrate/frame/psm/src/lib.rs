@@ -128,8 +128,8 @@ pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-#[cfg(test)]
-mod mock;
+#[cfg(any(test, feature = "fuzzing"))]
+pub mod mock;
 #[cfg(test)]
 mod tests;
 
@@ -1601,7 +1601,7 @@ pub mod pallet {
 		}
 
 		/// Whether an external is approved on a PSM instance.
-		#[cfg(test)]
+		#[cfg(any(test, feature = "fuzzing"))]
 		pub(crate) fn is_approved_asset(
 			internal_asset: &T::AssetId,
 			external_asset: &T::AssetId,
@@ -1716,7 +1716,7 @@ pub mod pallet {
 		/// log, and they do not return an error. A permitted action can create
 		/// each of these states: a metadata change by an asset owner for checks
 		/// 2 and 7, a parameter change by governance for checks 10, 11 and 17.
-		#[cfg(any(feature = "try-runtime", test))]
+		#[cfg(any(feature = "try-runtime", test, feature = "fuzzing"))]
 		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 			use sp_runtime::traits::CheckedAdd;
 
