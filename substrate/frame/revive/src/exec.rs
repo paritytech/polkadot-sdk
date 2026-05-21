@@ -1410,8 +1410,12 @@ where
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
 				if !is_pvm {
-					// Owns the runtime-code upload deposit, prevents EVM CREATE under Root.
-					let origin = self.origin.account_id()?.clone();
+					// EVM CREATE requires an account to own the runtime-code upload
+					// deposit; Root has none, so it must be rejected here.
+					let Origin::Signed(origin) = &self.origin else {
+						return Err(DispatchError::RootNotAllowed.into());
+					};
+					let origin = origin.clone();
 					// Only keep return data for tracing and for dry runs.
 					// When a dry-run simulates contract deployment, keep the execution result's
 					// data.
