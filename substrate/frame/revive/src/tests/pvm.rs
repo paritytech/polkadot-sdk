@@ -3160,6 +3160,36 @@ fn root_cannot_instantiate() {
 }
 
 #[test]
+fn root_call_can_nested_instantiate() {
+	let (code, code_hash) = compile_module("create1_with_value").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Deploy the deployer contract (signed). Its constructor does nothing.
+		let Contract { addr, account_id: deployer_id } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Top up the deployer so it can transfer ED to the new contract.
+		let _ = <Test as Config>::Currency::set_balance(&deployer_id, 1_000_000);
+
+		// Root invokes the deployer with zero value (Root cannot transfer value at the
+		// top frame); the deployer then issues a CREATE1 of its own code with no value.
+		assert_ok!(
+			builder::bare_call(addr)
+				.origin(RuntimeOrigin::root())
+				.data(code_hash.encode())
+				.build()
+				.result
+		);
+
+		// New contract's account exists with the freshly minted ED.
+		let new_addr = crate::address::create1(&addr, 1);
+		let new_id = <Test as Config>::AddressMapper::to_account_id(&new_addr);
+		assert!(frame_system::Pallet::<Test>::account_exists(&new_id));
+	});
+}
+
+#[test]
 fn only_upload_origin_can_upload() {
 	let (binary, _) = compile_module("dummy").unwrap();
 	UploadAccount::set(Some(ALICE));

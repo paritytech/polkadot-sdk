@@ -1313,9 +1313,6 @@ where
 			// We need to make sure that the contract's account exists before calling its
 			// constructor.
 			if entry_point == ExportedFunction::Constructor {
-				// Root origin can't be used to instantiate a contract.
-				ensure!(matches!(self.origin, Origin::Signed(_)), DispatchError::RootNotAllowed);
-
 				if !frame_system::Pallet::<T>::account_exists(&account_id) {
 					T::Deposit::init_contract(account_id)?;
 				}
@@ -1409,11 +1406,12 @@ where
 			// The deposit we charge for a contract depends on the size of the immutable data.
 			// Hence we need to delay charging the base deposit after execution.
 			let frame = if entry_point == ExportedFunction::Constructor {
-				let origin = self.origin.account_id()?.clone();
 				let frame = top_frame_mut!(self);
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
 				if !is_pvm {
+					// Owns the runtime-code upload deposit, prevents EVM CREATE under Root.
+					let origin = self.origin.account_id()?.clone();
 					// Only keep return data for tracing and for dry runs.
 					// When a dry-run simulates contract deployment, keep the execution result's
 					// data.
