@@ -424,10 +424,9 @@ impl<K: ReversibleKeyGenerator, V: FullCodec, G: StorageNMap<K, V>>
 	fn translate<O: Decode, F: FnMut(K::Key, O) -> Option<V>>(mut f: F) {
 		let prefix = G::prefix_hash().to_vec();
 		let mut previous_key = prefix.clone();
-		while let Some(next) =
-			sp_io::storage::next_key(&previous_key).filter(|n| n.starts_with(&prefix))
-		{
-			previous_key = next;
+		let mut next = Vec::new();
+		while sp_io::storage::next_key(&previous_key, &mut next) && next.starts_with(&prefix) {
+			core::mem::swap(&mut previous_key, &mut next);
 			let value = match unhashed::get::<O>(&previous_key) {
 				Some(value) => value,
 				None => {

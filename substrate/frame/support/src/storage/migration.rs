@@ -68,24 +68,23 @@ impl<T: Decode + Sized> Iterator for StorageIterator<T> {
 
 	fn next(&mut self) -> Option<(Vec<u8>, T)> {
 		loop {
-			let maybe_next = sp_io::storage::next_key(&self.previous_key)
-				.filter(|n| n.starts_with(&self.prefix));
-			break match maybe_next {
-				Some(next) => {
-					self.previous_key = next.clone();
-					let maybe_value = frame_support::storage::unhashed::get::<T>(&next);
-					match maybe_value {
-						Some(value) => {
-							if self.drain {
-								frame_support::storage::unhashed::kill(&next);
-							}
-							Some((self.previous_key[self.prefix.len()..].to_vec(), value))
-						},
-						None => continue,
+			let mut next = Vec::new();
+			if !sp_io::storage::next_key(&self.previous_key, &mut next) ||
+				!next.starts_with(&self.prefix)
+			{
+				return None;
+			}
+			core::mem::swap(&mut self.previous_key, &mut next);
+			let maybe_value = frame_support::storage::unhashed::get::<T>(&self.previous_key);
+			match maybe_value {
+				Some(value) => {
+					if self.drain {
+						frame_support::storage::unhashed::kill(&self.previous_key);
 					}
+					return Some((self.previous_key[self.prefix.len()..].to_vec(), value));
 				},
-				None => None,
-			};
+				None => continue,
+			}
 		}
 	}
 }
@@ -133,30 +132,30 @@ impl<K: Decode + Sized, T: Decode + Sized, H: ReversibleStorageHasher> Iterator
 
 	fn next(&mut self) -> Option<(K, T)> {
 		loop {
-			let maybe_next = sp_io::storage::next_key(&self.previous_key)
-				.filter(|n| n.starts_with(&self.prefix));
-			break match maybe_next {
-				Some(next) => {
-					self.previous_key = next.clone();
-					let mut key_material = H::reverse(&next[self.prefix.len()..]);
-					match K::decode(&mut key_material) {
-						Ok(key) => {
-							let maybe_value = frame_support::storage::unhashed::get::<T>(&next);
-							match maybe_value {
-								Some(value) => {
-									if self.drain {
-										frame_support::storage::unhashed::kill(&next);
-									}
-									Some((key, value))
-								},
-								None => continue,
+			let mut next = Vec::new();
+			if !sp_io::storage::next_key(&self.previous_key, &mut next) ||
+				!next.starts_with(&self.prefix)
+			{
+				return None;
+			}
+			core::mem::swap(&mut self.previous_key, &mut next);
+			let mut key_material = H::reverse(&self.previous_key[self.prefix.len()..]);
+			match K::decode(&mut key_material) {
+				Ok(key) => {
+					let maybe_value =
+						frame_support::storage::unhashed::get::<T>(&self.previous_key);
+					match maybe_value {
+						Some(value) => {
+							if self.drain {
+								frame_support::storage::unhashed::kill(&self.previous_key);
 							}
+							return Some((key, value));
 						},
-						Err(_) => continue,
+						None => continue,
 					}
 				},
-				None => None,
-			};
+				Err(_) => continue,
+			}
 		}
 	}
 }

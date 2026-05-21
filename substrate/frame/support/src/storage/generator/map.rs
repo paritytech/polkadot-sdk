@@ -148,8 +148,12 @@ where
 		let prefix = G::prefix_hash().to_vec();
 		let previous_key = previous_key.unwrap_or_else(|| prefix.clone());
 
-		let current_key =
-			sp_io::storage::next_key(&previous_key).filter(|n| n.starts_with(&prefix))?;
+		let mut current_key = Vec::new();
+		if !sp_io::storage::next_key(&previous_key, &mut current_key) ||
+			!current_key.starts_with(&prefix)
+		{
+			return None;
+		}
 
 		let value = match unhashed::get::<O>(&current_key) {
 			Some(value) => value,
