@@ -16,12 +16,13 @@
 // limitations under the License.
 
 use fp_coretime::RegionId;
-use frame_support::assert_ok;
+use frame_support::{assert_err, assert_noop, assert_ok};
 use pallet_coretime_market::{Event as MarketEvent, InitData, SalePhase};
+use sp_runtime::TokenError;
 
 use crate::{
-	Event as BrokerEvent, Finality, PotentialRenewals, integrational::{
-		Broker, MarketPallet, System, Test, TestExt, advance_one_block, advance_to, balance
+	Error as BrokerError, Event as BrokerEvent, Finality, PotentialRenewals, integrational::{
+		Broker, MarketPallet, RuntimeOrigin, System, Test, TestExt, advance_one_block, advance_to, balance
 	}
 };
 
@@ -186,6 +187,20 @@ fn bid_displacement_works() {
 		assert_eq!(balance(PURCHASER_1), INITIAL_BALANCE - price);
 		assert_eq!(balance(PURCHASER_2), INITIAL_BALANCE);
 		assert_eq!(balance(PURCHASER_3), INITIAL_BALANCE - price);
+	});
+}
+
+#[test]
+fn place_order_with_not_enough_funds_reverts_state_of_both_pallets() {
+	TestExt::new().execute_with(|| {
+		advance_to(2);
+		assert_ok!(Broker::do_start_sales(InitData { reserve_price: 10 }, 0));
+
+		assert_noop!(Broker::purchase(RuntimeOrigin::signed(1), 100), TokenError::FundsUnavailable);
+
+		assert_eq!(market_events()
+			.into_iter()
+			.any(|event| matches!(event, MarketEvent::BidPlaced { ..})), false);
 	});
 }
 
