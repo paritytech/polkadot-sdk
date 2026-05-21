@@ -26,7 +26,7 @@ use crate::{
 	evm::{decode_revert_reason, fees::InfoT},
 	metering::TransactionLimits,
 	test_utils::{ALICE, ALICE_ADDR, BOB_ADDR, WEIGHT_LIMIT, builder::Contract, deposit_limit},
-	tests::{ExtBuilder, MOCK_CODE, MockHandlerImpl, Test, builder},
+	tests::{ExtBuilder, MOCK_CODE, MockHandlerImpl, RuntimeOrigin, Test, builder},
 };
 use alloy_core::{
 	primitives::{Bytes, FixedBytes},
@@ -698,6 +698,46 @@ fn instantiate_from_constructor_works() {
 		let result = builder::bare_call(addr).data(data).build_and_unwrap_result();
 		let result = callBarCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(result, 42u64);
+	});
+}
+
+/// Root-originated EVM `CREATE` (via Solidity `new ContractName()`) must still be
+/// rejected: a non-PVM constructor frame can't be opened under Root because the
+/// runtime-code upload deposit has no origin address to attribute to. Acts as a
+/// regression guard against future refactors that pre-extract that owner from
+/// elsewhere (e.g. `caller`) and silently lift the restriction.
+#[test]
+fn root_call_cannot_nested_evm_create() {
+	use pallet_revive_fixtures::HostEvmOnlyFactory::{
+		HostEvmOnlyFactoryCalls, createAndSelfdestructCall,
+	};
+
+	let (factory_code, _) =
+		compile_module_with_type("HostEvmOnlyFactory", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+
+		let Contract { addr, account_id } =
+			builder::bare_instantiate(Code::Upload(factory_code)).build_and_unwrap_contract();
+		// Top up so the factory could fund the new contract if CREATE were allowed.
+		let _ = <Test as Config>::Currency::set_balance(&account_id, 100_000_000_000_000);
+
+		let data = HostEvmOnlyFactoryCalls::createAndSelfdestruct(createAndSelfdestructCall {
+			recipient: ALICE_ADDR.0.into(),
+		})
+		.abi_encode();
+
+		// Sanity check: Signed origin succeeds.
+		let signed = builder::bare_call(addr).data(data.clone()).build_and_unwrap_result();
+		assert!(!signed.did_revert(), "Signed nested CREATE should succeed");
+
+		// Root origin: Solidity's `new` reverts when the host rejects the CREATE.
+		let root = builder::bare_call(addr)
+			.origin(RuntimeOrigin::root())
+			.data(data)
+			.build_and_unwrap_result();
+		assert!(root.did_revert(), "Root nested EVM CREATE must be rejected");
 	});
 }
 
