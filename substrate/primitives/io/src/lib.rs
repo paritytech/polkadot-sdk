@@ -670,9 +670,9 @@ pub trait Storage {
 		})
 	}
 
-	/// A convenience wrapper providing backward-compatible interface to the `read` host function.
+	/// A convenience wrapper providing exact-read interface to the `read` host function.
 	#[wrapper]
-	fn read(key: impl AsRef<[u8]>, value_out: &mut [u8], value_offset: u32) -> Option<u32> {
+	fn read_exact(key: impl AsRef<[u8]>, value_out: &mut [u8], value_offset: u32) -> Option<u32> {
 		read__wrapped(key.as_ref(), &mut value_out[..], value_offset, 0)
 	}
 
@@ -687,10 +687,10 @@ pub trait Storage {
 	#[wrapper]
 	fn get(key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 		let mut value_out = vec![0u8; 256];
-		let len = read(key.as_ref(), &mut value_out[..], 0)?;
+		let len = read_exact(key.as_ref(), &mut value_out[..], 0)?;
 		if len as usize > value_out.len() {
 			value_out.resize(len as usize, 0);
-			read(key.as_ref(), &mut value_out[..], 0)?;
+			read_exact(key.as_ref(), &mut value_out[..], 0)?;
 		}
 		value_out.truncate(len as usize);
 		Some(value_out)
@@ -1103,9 +1103,9 @@ pub trait DefaultChildStorage {
 			.into()
 	}
 
-	/// A convenience wrapper providing backward-compatible interface to the `read` host function.
+	/// A convenience wrapper providing exact-read interface to the `read` host function.
 	#[wrapper]
-	fn read(
+	fn read_exact(
 		storage_key: impl AsRef<[u8]>,
 		key: impl AsRef<[u8]>,
 		value_out: &mut [u8],
@@ -1130,10 +1130,10 @@ pub trait DefaultChildStorage {
 	#[wrapper]
 	fn get(storage_key: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 		let mut value_out = vec![0u8; 256];
-		let len = read(storage_key.as_ref(), key.as_ref(), &mut value_out[..], 0)?;
+		let len = read_exact(storage_key.as_ref(), key.as_ref(), &mut value_out[..], 0)?;
 		if len as usize > value_out.len() {
 			value_out.resize(len as usize, 0);
-			read(storage_key.as_ref(), key.as_ref(), &mut value_out[..], 0)?;
+			read_exact(storage_key.as_ref(), key.as_ref(), &mut value_out[..], 0)?;
 		}
 		value_out.truncate(len as usize);
 		Some(value_out)
@@ -4043,9 +4043,10 @@ mod tests {
 		});
 
 		t.execute_with(|| {
-			// `read` with a buffer that is too small does NOT write data into the buffer (RFC-145).
+			// `read_exact` with a buffer that is too small does NOT write data into the buffer
+			// (RFC-145).
 			let mut v = [0u8; 4];
-			assert_eq!(storage::read(b":test", &mut v[..], 0).unwrap(), value.len() as u32);
+			assert_eq!(storage::read_exact(b":test", &mut v[..], 0).unwrap(), value.len() as u32);
 			assert_eq!(v, [0u8, 0, 0, 0]);
 
 			// `read_partial` with a buffer that is too small DOES write partial data.
@@ -4053,9 +4054,12 @@ mod tests {
 			assert_eq!(storage::read_partial(b":test", &mut v[..], 0).unwrap(), value.len() as u32);
 			assert_eq!(v, [11u8, 0, 0, 0]);
 
-			// `read` with an exact-sized buffer works.
+			// `read_exact` with an exact-sized buffer works.
 			let mut w = [0u8; 11];
-			assert_eq!(storage::read(b":test", &mut w[..], 4).unwrap(), value.len() as u32 - 4);
+			assert_eq!(
+				storage::read_exact(b":test", &mut w[..], 4).unwrap(),
+				value.len() as u32 - 4
+			);
 			assert_eq!(&w, b"Hello world");
 		});
 	}
