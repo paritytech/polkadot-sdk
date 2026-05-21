@@ -34,6 +34,8 @@ use sp_runtime::traits::{BlakeTwo256, Hash as HashT};
 pub struct SchedulingInfoPayload {
 	/// Which core to use (indexes into the parachain's assigned cores).
 	pub core_selector: CoreSelector,
+	/// The claim queue offset.
+	pub claim_queue_offset: u8,
 	/// Peer ID to receive reputation credit for successful collation delivery.
 	pub peer_id: ApprovedPeerId,
 	/// The internal scheduling parent whom's slot decides the
@@ -67,10 +69,11 @@ impl SchedulingInfoPayload {
 	/// Create a new scheduling info payload.
 	pub fn new(
 		core_selector: CoreSelector,
+		claim_queue_offset: u8,
 		peer_id: ApprovedPeerId,
 		internal_scheduling_parent: polkadot_primitives::Hash,
 	) -> Self {
-		Self { core_selector, peer_id, internal_scheduling_parent }
+		Self { core_selector, claim_queue_offset, peer_id, internal_scheduling_parent }
 	}
 }
 
