@@ -20,7 +20,7 @@ use frame::{
 		},
 		sp_runtime::{
 			traits::{SaturatedConversion, Zero},
-			FixedU128,
+			FixedU128, Permill,
 		},
 	},
 };
@@ -67,7 +67,7 @@ fn default_branch_config<T: Config>() -> BranchConfig<BalanceOf<T>, MomentOf<T>>
 		maximum_borrow_rate: rate(100, 100),
 		upfront_fee_period: (7 * DAY_MS).saturated_into(),
 		rate_adjustment_cooldown: DAY_MS.saturated_into(),
-		redistribution_penalty: rate(5, 100),
+		redistribution_penalty: Permill::from_percent(5),
 	}
 }
 

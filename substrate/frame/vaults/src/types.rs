@@ -1,7 +1,9 @@
 //! Storage and value types for `pallet-vaults`.
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame::deps::sp_runtime::{traits::Saturating, FixedPointNumber, FixedPointOperand, FixedU128};
+use frame::deps::sp_runtime::{
+	traits::Saturating, FixedPointNumber, FixedPointOperand, FixedU128, Permill,
+};
 use scale_info::TypeInfo;
 
 pub use pusd_primitives::{BranchMode, FrozenReason, FrozenState};
@@ -181,7 +183,7 @@ pub struct BranchConfig<Balance, Moment> {
 	pub maximum_borrow_rate: FixedU128,
 	pub upfront_fee_period: Moment,
 	pub rate_adjustment_cooldown: Moment,
-	pub redistribution_penalty: FixedU128,
+	pub redistribution_penalty: Permill,
 }
 
 /// Debt and interest aggregates for one collateral branch.
@@ -337,7 +339,7 @@ pub enum BranchConfigUpdate<Balance, Moment> {
 	BorrowRateBounds { min: FixedU128, max: FixedU128 },
 	UpfrontFeePeriod(Moment),
 	RateAdjustmentCooldown(Moment),
-	RedistributionPenalty(FixedU128),
+	RedistributionPenalty(Permill),
 }
 
 impl<Balance, Moment> BranchConfigUpdate<Balance, Moment> {

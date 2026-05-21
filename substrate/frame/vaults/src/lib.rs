@@ -866,7 +866,7 @@ pub mod pallet {
 		pub fn set_redistribution_penalty(
 			origin: OriginFor<T>,
 			collateral_id: T::AssetId,
-			value: FixedU128,
+			value: Permill,
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(matches!(level, VaultsManagerLevel::Full), Error::<T>::InsufficientPrivilege);

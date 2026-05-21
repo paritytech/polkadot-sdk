@@ -354,7 +354,7 @@ pub fn default_branch_config() -> pallet_vaults::BranchConfig<Balance, Moment> {
 		maximum_borrow_rate: FixedU128::from_rational(100u128, 100u128),
 		upfront_fee_period: 7 * 24 * 3_600 * 1_000,
 		rate_adjustment_cooldown: 24 * 3_600 * 1_000,
-		redistribution_penalty: FixedU128::from_rational(5u128, 100u128),
+		redistribution_penalty: Permill::from_percent(5),
 	}
 }
 
