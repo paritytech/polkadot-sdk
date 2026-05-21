@@ -1,19 +1,11 @@
 title: Remove deprecated NegativeImbalance from polkadot-runtime-common
 doc:
 - audience: Runtime Dev
-  description: "# Description\n\nRemoves deprecated `polkadot_runtime_common::NegativeImbalance`\
-    \ as part of #11561.\n\nThe type alias was deprecated in March 2024 in favor of\
-    \ `fungible::Credit`. It has no remaining usage in this repository.\n\nDoes not\
-    \ close #11561.\n\n## Integration\n\nDownstream code using `polkadot_runtime_common::NegativeImbalance`\
-    \ must switch before upgrading:\n\nUse `fungible::Credit` from `frame_support::traits`\
-    \ instead.\n\n## Review Notes\n\n- Single-file change: `polkadot/runtime/common/src/lib.rs`\n\
-    - Verified no in-repo references before removal\n- Removed unused `Currency` import\
-    \ from `lib.rs`\n\n# Checklist\n\n* [x] My PR includes a detailed description\
-    \ as outlined in the \"Description\" and its two subsections above.\n* [ ] My\
-    \ PR follows the labeling requirements of this project (at minimum one label for\
-    \ `T` required)\n* [ ] I have made corresponding changes to the documentation\
-    \ (if applicable) \u2014 N/A\n* [ ] I have added tests that prove my fix is effective\
-    \ or that my feature works (if applicable) \u2014 N/A"
+  description: |-
+    Removes `polkadot_runtime_common::NegativeImbalance`, deprecated in March 2024
+    in favor of `fungible::Credit`. No remaining in-repo usage.
+
+    Downstream: use `fungible::Credit` from `frame_support::traits` instead.
 crates:
 - name: polkadot-runtime-common
   bump: major
