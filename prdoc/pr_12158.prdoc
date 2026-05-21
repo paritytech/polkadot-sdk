@@ -1,0 +1,61 @@
+title: Remove deprecated sp_core hashing re-export
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    Removes deprecated `sp_core` hashing re-exports as part of #11561.
+
+    `sp-core` previously re-exported all of `sp-crypto-hashing` at the crate root (and as `sp_core::hashing`). Those re-exports were deprecated in 2024. This PR removes them and updates in-repo callers to use `sp_crypto_hashing` directly. `polkadot-sdk-frame::hashing` now re-exports from `sp_crypto_hashing` instead of via `sp_core`.
+
+    Does not close #11561.
+
+    ## Integration
+
+    Downstream code must stop importing hashing helpers from `sp_core`:
+
+    ```diff
+    - use sp_core::{H256, keccak_256};
+    + use sp_core::H256;
+    + use sp_crypto_hashing::keccak_256;
+
+    - sp_core::blake2_256(data)
+    + sp_crypto_hashing::blake2_256(data)
+
+    - sp_core::hashing::twox_128(b"System")
+    + sp_crypto_hashing::twox_128(b"System")
+    ```
+    `polkadot_sdk_frame::hashing::*` remains available `(now backed by sp_crypto_hashing)`.
+
+    Review Notes
+
+    - Removes pub use sp_crypto_hashing::{self as hashing, *} from substrate/primitives/core/src/lib.rs
+    - Updates polkadot-sdk-frame hashing module to pub use sp_crypto_hashing::*
+    - Mechanical caller updates across revive, election-provider-multi-phase, snowbridge, migrations, people, staking-async, benchmarking-cli, network-statement, xcm-simulator example, zombienet-sdk tests
+crates:
+- name: snowbridge-inbound-queue-primitives
+  bump: major
+- name: snowbridge-test-utils
+  bump: major
+- name: xcm-simulator-example
+  bump: major
+- name: sc-network-statement
+  bump: major
+- name: polkadot-sdk-frame
+  bump: major
+- name: pallet-election-provider-multi-phase
+  bump: major
+- name: pallet-migrations
+  bump: major
+- name: pallet-people
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-eth-rpc
+  bump: major
+- name: pallet-staking-async
+  bump: major
+- name: sp-core
+  bump: major
+- name: frame-benchmarking-cli
+  bump: major
