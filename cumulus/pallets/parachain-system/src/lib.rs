@@ -203,17 +203,6 @@ pub mod ump_constants {
 	pub const THRESHOLD_FACTOR: u32 = 2;
 }
 
-/// Maximum claim queue offset for async backing flexibility.
-///
-/// This limits how far "into the future" collators can target when selecting cores
-/// from the claim queue. The effective claim queue depth is:
-/// `relay_parent_offset + MAX_CLAIM_QUEUE_OFFSET`
-///
-/// See more details here: [cumulus_primitives_core::RelayParentOffsetApi::max_claim_queue_offset]
-///
-/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
-const MAX_CLAIM_QUEUE_OFFSET: u8 = 2;
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -636,7 +625,7 @@ pub mod pallet {
 			// Ensure `CoreInfo` digest exists only once and validate claim_queue_offset.
 			//
 			// With V3: the collator looks up the claim queue at the scheduling parent
-			// (fresh tip), so the max offset is just MAX_CLAIM_QUEUE_OFFSET.
+			// (fresh tip), so the max offset is just the `max_claim_queue_offset()`.
 			// Without V3: the collator looks up at the relay parent which is offset
 			// behind the tip, so the effective max includes relay_parent_offset.
 			match CumulusDigestItem::core_info_exists_at_max_once(
@@ -1179,10 +1168,10 @@ impl<T: Config> Pallet<T> {
 	/// runtime API to expose the value to collators.
 	pub fn max_claim_queue_offset() -> u8 {
 		if !T::SchedulingV3Enabled::get() {
-			return 1;
+			return 0;
 		}
 
-		MAX_CLAIM_QUEUE_OFFSET
+		2
 	}
 }
 

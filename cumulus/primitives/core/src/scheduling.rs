@@ -27,9 +27,6 @@ use sp_runtime::traits::{BlakeTwo256, Hash as HashT};
 ///
 /// This binds the core selection and reputation-credit peer to a specific internal
 /// scheduling parent, preventing replay attacks across different scheduling contexts.
-///
-/// Note: `claim_queue_offset` is NOT included because it's derived from the
-/// runtime's `relay_parent_offset` configuration - the collator cannot override it.
 #[derive(Clone, Encode, Decode, Debug, PartialEq, Eq)]
 pub struct SchedulingInfoPayload {
 	/// Which core to use (indexes into the parachain's assigned cores).
