@@ -65,11 +65,12 @@
 // 20
 // --heap-pages
 // 4096
-// --no-storage-info
 // --no-min-squares
 // --no-median-slopes
 // --genesis-builder-policy
-// none
+// runtime
+// --genesis-builder-preset
+// development
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -94,7 +95,7 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn migration_incomplete_since() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `0`
+		//  Measured:  `31`
 		//  Estimated: `0`
 		// Minimum execution time: 6_000_000 picoseconds.
 		Weight::from_parts(7_000_000, 0)
@@ -102,33 +103,33 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `s` is `[1, 512]`.
 	fn migration_agenda(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `0 + s * (137 ±0)`
+		//  Measured:  `194 + s * (137 ±0)`
 		//  Estimated: `0`
-		// Minimum execution time: 7_000_000 picoseconds.
-		Weight::from_parts(2_628_695, 0)
-			// Standard Error: 4_045
-			.saturating_add(Weight::from_parts(1_470_592, 0).saturating_mul(s.into()))
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(11_011_649, 0)
+			// Standard Error: 3_447
+			.saturating_add(Weight::from_parts(1_463_622, 0).saturating_mul(s.into()))
 	}
 	fn migration_lookup() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `41`
+		//  Measured:  `286`
 		//  Estimated: `0`
-		// Minimum execution time: 6_000_000 picoseconds.
-		Weight::from_parts(6_000_000, 0)
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(12_000_000, 0)
 	}
 	fn migration_retries() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `41`
+		//  Measured:  `266`
 		//  Estimated: `0`
-		// Minimum execution time: 6_000_000 picoseconds.
-		Weight::from_parts(6_000_000, 0)
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(12_000_000, 0)
 	}
 	fn migration_cleanup() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `41`
+		//  Measured:  `208`
 		//  Estimated: `0`
-		// Minimum execution time: 4_000_000 picoseconds.
-		Weight::from_parts(4_000_000, 0)
+		// Minimum execution time: 7_000_000 picoseconds.
+		Weight::from_parts(8_000_000, 0)
 	}
 }
 
@@ -136,7 +137,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	fn migration_incomplete_since() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `0`
+		//  Measured:  `31`
 		//  Estimated: `0`
 		// Minimum execution time: 6_000_000 picoseconds.
 		Weight::from_parts(7_000_000, 0)
@@ -144,32 +145,32 @@ impl WeightInfo for () {
 	/// The range of component `s` is `[1, 512]`.
 	fn migration_agenda(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `0 + s * (137 ±0)`
+		//  Measured:  `194 + s * (137 ±0)`
 		//  Estimated: `0`
-		// Minimum execution time: 7_000_000 picoseconds.
-		Weight::from_parts(2_628_695, 0)
-			// Standard Error: 4_045
-			.saturating_add(Weight::from_parts(1_470_592, 0).saturating_mul(s.into()))
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(11_011_649, 0)
+			// Standard Error: 3_447
+			.saturating_add(Weight::from_parts(1_463_622, 0).saturating_mul(s.into()))
 	}
 	fn migration_lookup() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `41`
+		//  Measured:  `286`
 		//  Estimated: `0`
-		// Minimum execution time: 6_000_000 picoseconds.
-		Weight::from_parts(6_000_000, 0)
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(12_000_000, 0)
 	}
 	fn migration_retries() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `41`
+		//  Measured:  `266`
 		//  Estimated: `0`
-		// Minimum execution time: 6_000_000 picoseconds.
-		Weight::from_parts(6_000_000, 0)
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(12_000_000, 0)
 	}
 	fn migration_cleanup() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `41`
+		//  Measured:  `208`
 		//  Estimated: `0`
-		// Minimum execution time: 4_000_000 picoseconds.
-		Weight::from_parts(4_000_000, 0)
+		// Minimum execution time: 7_000_000 picoseconds.
+		Weight::from_parts(8_000_000, 0)
 	}
 }
