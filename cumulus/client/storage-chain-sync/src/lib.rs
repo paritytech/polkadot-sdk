@@ -294,10 +294,7 @@ where
 
 		params.prefetched_indexed_transactions = PrefetchedIndexedTransactions {
 			ops: synthetic_ops,
-			renew_payloads: payload
-				.into_iter()
-				.map(|(h, b)| (sp_core::H256::from(h), b))
-				.collect(),
+			renew_payloads: payload.into_iter().map(|(h, b)| (sp_core::H256::from(h), b)).collect(),
 		};
 
 		self.inner.import_block(params).await
@@ -371,10 +368,7 @@ where
 		}
 		params.prefetched_indexed_transactions = PrefetchedIndexedTransactions {
 			ops: Vec::new(),
-			renew_payloads: fetched
-				.into_iter()
-				.map(|(h, b)| (sp_core::H256::from(h), b))
-				.collect(),
+			renew_payloads: fetched.into_iter().map(|(h, b)| (sp_core::H256::from(h), b)).collect(),
 		};
 	}
 
