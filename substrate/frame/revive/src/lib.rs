@@ -116,6 +116,7 @@ pub use crate::{
 	vm::{BytecodeType, ContractBlob},
 };
 pub use codec;
+use frame_support::traits::tokens::Precision;
 pub use frame_support::{self, dispatch::DispatchInfo, traits::Time, weights::Weight};
 pub use frame_system::{self, limits::BlockWeights};
 pub use primitives::*;
@@ -1614,6 +1615,71 @@ pub mod pallet {
 			Self::ensure_non_contract_if_signed(&origin)?;
 			let origin = ensure_signed(origin)?;
 			T::AddressMapper::map(&origin)
+		}
+
+		/// Map many accounts and make the TX free if at least 90% were unmapped or held deposits.
+		#[pallet::call_index(13)]
+		#[pallet::weight(<T as Config>::WeightInfo::batch_map_accounts(accounts.len() as u32))]
+		pub fn batch_map_accounts(
+			origin: OriginFor<T>,
+			accounts: Vec<T::AccountId>,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin.clone())?;
+			Self::ensure_non_contract_if_signed(&origin)?;
+
+			let total = accounts.len() as u32;
+			let mut mapped = 0;
+
+			for account_id in &accounts {
+				let mut useful = false;
+
+				if T::AddressMapper::is_eth_derived(account_id) {
+					// Eth-derived accounts are stateless mapped, nothing to do.
+				} else {
+					match T::AddressMapper::map_no_deposit(account_id) {
+						Ok(()) => {
+							useful = true;
+						},
+						Err(err) => log::debug!(
+							target: LOG_TARGET,
+							"Failed to map account {account_id:?}: {err:?}",
+						),
+					}
+
+					match T::Currency::release_all(
+						&HoldReason::AddressMapping.into(),
+						account_id,
+						Precision::BestEffort,
+					) {
+						// `release_all` returns `Ok(0)` when there is no hold to release,
+						// which is not useful work and must not earn a fee refund.
+						Ok(released) if !released.is_zero() => {
+							useful = true;
+						},
+						Ok(_) => {},
+						Err(err) => log::debug!(
+							target: LOG_TARGET,
+							"Failed to release mapping deposit for {account_id:?}: {err:?}",
+						),
+					}
+				}
+
+				if useful {
+					mapped += 1;
+				}
+			}
+
+			// guard against 0 division below
+			if total == 0 || mapped == 0 {
+				return Ok(Pays::Yes.into());
+			}
+
+			let proportion_mapped = Perbill::from_rational(mapped, total);
+			if proportion_mapped >= Perbill::from_percent(90) {
+				Ok(Pays::No.into())
+			} else {
+				Ok(Pays::Yes.into())
+			}
 		}
 
 		/// Unregister the callers account id in order to free the deposit.
