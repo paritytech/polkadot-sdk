@@ -28,31 +28,25 @@ xcm-builder.workspace = true
 xcm-executor.workspace = true
 
 [dev-dependencies]
-bp-header-chain = { workspace = true, default-features = false }
-bp-xcm-bridge-hub-router = { workspace = true, default-features = false }
-pallet-balances = { workspace = true, default-features = false }
-pallet-xcm-bridge-hub-router = { workspace = true, default-features = false }
-polkadot-parachain-primitives = { workspace = true, default-features = false }
-sp-io = { workspace = true, default-features = false }
+bp-header-chain = { default-features = false, path = "../../primitives/header-chain" }
+bp-xcm-bridge-hub-router = { default-features = false, path = "../../primitives/xcm-bridge-hub-router" }
+pallet-balances = { default-features = false, path = "../../../substrate/frame/balances" }
+pallet-xcm-bridge-hub-router = { default-features = false, path = "../xcm-bridge-hub-router" }
+polkadot-parachain-primitives = { default-features = false, path = "../../../polkadot/parachain" }
+sp-io = { default-features = false, path = "../../../substrate/primitives/io" }
 
 [features]
 default = ["std"]
 std = [
-	"bp-header-chain/std",
 	"bp-messages/std",
 	"bp-runtime/std",
-	"bp-xcm-bridge-hub-router/std",
 	"bp-xcm-bridge-hub/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"pallet-balances/std",
 	"pallet-bridge-messages/std",
-	"pallet-xcm-bridge-hub-router/std",
-	"polkadot-parachain-primitives/std",
 	"scale-info/std",
 	"sp-core/std",
-	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"tracing/std",
@@ -63,10 +57,7 @@ std = [
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
-	"pallet-xcm-bridge-hub-router/runtime-benchmarks",
-	"polkadot-parachain-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
@@ -75,8 +66,6 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"pallet-bridge-messages/try-runtime",
-	"pallet-xcm-bridge-hub-router/try-runtime",
 	"sp-runtime/try-runtime",
 ]

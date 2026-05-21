@@ -22,98 +22,98 @@ chrono = { workspace = true }
 clap = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
 comfy-table = { workspace = true }
-cumulus-client-parachain-inherent.default-features = true
 cumulus-client-parachain-inherent.workspace = true
-cumulus-primitives-proof-size-hostfunction.default-features = true
+cumulus-client-parachain-inherent.default-features = true
 cumulus-primitives-proof-size-hostfunction.workspace = true
+cumulus-primitives-proof-size-hostfunction.default-features = true
 env_filter = { workspace = true }
-frame-benchmarking.default-features = true
 frame-benchmarking.workspace = true
-frame-storage-access-test-runtime.default-features = true
+frame-benchmarking.default-features = true
 frame-storage-access-test-runtime.workspace = true
-frame-support.default-features = true
+frame-storage-access-test-runtime.default-features = true
 frame-support.workspace = true
-frame-system.default-features = true
+frame-support.default-features = true
 frame-system.workspace = true
+frame-system.default-features = true
 gethostname = { workspace = true }
 handlebars = { workspace = true }
 itertools = { workspace = true }
 linked-hash-map = { workspace = true }
 log = { workspace = true, default-features = true }
-polkadot-parachain-primitives.default-features = true
 polkadot-parachain-primitives.workspace = true
-polkadot-primitives.default-features = true
+polkadot-parachain-primitives.default-features = true
 polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 rand = { features = ["small_rng"], workspace = true, default-features = true }
 rand_pcg = { workspace = true }
-sc-block-builder.default-features = true
 sc-block-builder.workspace = true
+sc-block-builder.default-features = true
 sc-chain-spec.workspace = true
-sc-cli.default-features = false
 sc-cli.workspace = true
-sc-client-api.default-features = true
+sc-cli.default-features = false
 sc-client-api.workspace = true
-sc-client-db.default-features = false
+sc-client-api.default-features = true
 sc-client-db.workspace = true
-sc-executor.default-features = true
+sc-client-db.default-features = false
 sc-executor.workspace = true
+sc-executor.default-features = true
 sc-executor-common.workspace = true
 sc-executor-wasmtime.workspace = true
-sc-runtime-utilities.default-features = true
 sc-runtime-utilities.workspace = true
-sc-service.default-features = false
+sc-runtime-utilities.default-features = true
 sc-service.workspace = true
-sc-sysinfo.default-features = true
+sc-service.default-features = false
 sc-sysinfo.workspace = true
+sc-sysinfo.default-features = true
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sp-api.default-features = true
 sp-api.workspace = true
-sp-block-builder.default-features = true
+sp-api.default-features = true
 sp-block-builder.workspace = true
-sp-blockchain.default-features = true
+sp-block-builder.default-features = true
 sp-blockchain.workspace = true
-sp-core.default-features = true
+sp-blockchain.default-features = true
 sp-core.workspace = true
-sp-database.default-features = true
+sp-core.default-features = true
 sp-database.workspace = true
-sp-externalities.default-features = true
+sp-database.default-features = true
 sp-externalities.workspace = true
-sp-genesis-builder.default-features = true
+sp-externalities.default-features = true
 sp-genesis-builder.workspace = true
-sp-inherents.default-features = true
+sp-genesis-builder.default-features = true
 sp-inherents.workspace = true
-sp-io.default-features = true
+sp-inherents.default-features = true
 sp-io.workspace = true
-sp-keystore.default-features = true
+sp-io.default-features = true
 sp-keystore.workspace = true
-sp-runtime.default-features = true
+sp-keystore.default-features = true
 sp-runtime.workspace = true
-sp-runtime-interface.default-features = true
+sp-runtime.default-features = true
 sp-runtime-interface.workspace = true
-sp-state-machine.default-features = true
+sp-runtime-interface.default-features = true
 sp-state-machine.workspace = true
-sp-storage.default-features = true
+sp-state-machine.default-features = true
 sp-storage.workspace = true
-sp-timestamp.default-features = true
+sp-storage.default-features = true
 sp-timestamp.workspace = true
-sp-transaction-pool.default-features = true
+sp-timestamp.default-features = true
 sp-transaction-pool.workspace = true
-sp-trie.default-features = true
+sp-transaction-pool.default-features = true
 sp-trie.workspace = true
-sp-version.default-features = true
+sp-trie.default-features = true
 sp-version.workspace = true
-sp-wasm-interface.default-features = true
+sp-version.default-features = true
 sp-wasm-interface.workspace = true
+sp-wasm-interface.default-features = true
 subxt = { workspace = true, features = ["native"] }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
 thiserror = { workspace = true }
 thousands = { workspace = true }
 
 [dev-dependencies]
-cumulus-test-runtime = { default-features = true, workspace = true }
-substrate-test-runtime = { default-features = true, workspace = true }
-westend-runtime = { default-features = true, workspace = true }
+cumulus-test-runtime = { default-features = true, path = "../../../../cumulus/test/runtime" }
+substrate-test-runtime = { default-features = true, path = "../../../test-utils/runtime" }
+westend-runtime = { default-features = true, path = "../../../../polkadot/runtime/westend" }
 
 [features]
 default = []
@@ -127,6 +127,5 @@ runtime-benchmarks = [
 	"sc-client-db/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"westend-runtime/runtime-benchmarks",
 ]
 rocksdb = ["sc-cli/rocksdb", "sc-client-db/rocksdb"]

@@ -14,46 +14,46 @@ workspace = true
 [dependencies]
 async-channel = { workspace = true }
 async-trait = { workspace = true }
-cumulus-client-bootnodes.default-features = true
 cumulus-client-bootnodes.workspace = true
-cumulus-primitives-core.default-features = true
+cumulus-client-bootnodes.default-features = true
 cumulus-primitives-core.workspace = true
-cumulus-relay-chain-interface.default-features = true
+cumulus-primitives-core.default-features = true
 cumulus-relay-chain-interface.workspace = true
+cumulus-relay-chain-interface.default-features = true
 futures = { workspace = true }
 futures-timer = { workspace = true }
 polkadot-cli = { features = ["cli"], workspace = true }
-polkadot-primitives.default-features = true
 polkadot-primitives.workspace = true
-polkadot-service.default-features = true
+polkadot-primitives.default-features = true
 polkadot-service.workspace = true
-sc-cli.default-features = false
+polkadot-service.default-features = true
 sc-cli.workspace = true
-sc-client-api.default-features = true
+sc-cli.default-features = false
 sc-client-api.workspace = true
-sc-network.default-features = true
+sc-client-api.default-features = true
 sc-network.workspace = true
-sc-sysinfo.default-features = true
+sc-network.default-features = true
 sc-sysinfo.workspace = true
-sc-telemetry.default-features = true
+sc-sysinfo.default-features = true
 sc-telemetry.workspace = true
-sc-tracing.default-features = true
+sc-telemetry.default-features = true
 sc-tracing.workspace = true
-sp-api.default-features = true
+sc-tracing.default-features = true
 sp-api.workspace = true
-sp-consensus.default-features = true
+sp-api.default-features = true
 sp-consensus.workspace = true
-sp-core.default-features = true
+sp-consensus.default-features = true
 sp-core.workspace = true
-sp-runtime.default-features = true
+sp-core.default-features = true
 sp-runtime.workspace = true
-sp-state-machine.default-features = true
+sp-runtime.default-features = true
 sp-state-machine.workspace = true
+sp-state-machine.default-features = true
 
 [dev-dependencies]
 # Substrate
-sp-keyring = { default-features = true, workspace = true }
+sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
 
 # Polkadot
 metered = { features = ["futures_channel"], workspace = true }
-polkadot-test-client = { workspace = true }
+polkadot-test-client = { path = "../../../polkadot/node/test/client" }

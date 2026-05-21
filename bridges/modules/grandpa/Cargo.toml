@@ -27,9 +27,9 @@ sp-std.workspace = true
 tracing = { workspace = true }
 
 [dev-dependencies]
-bp-runtime = { features = ["test-helpers"], workspace = true, default-features = false }
-sp-core = { default-features = true, workspace = true }
-sp-io = { default-features = true, workspace = true }
+bp-runtime = { features = ["test-helpers"], default-features = false, path = "../../primitives/runtime" }
+sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
+sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
 
 [features]
 default = ["std"]
