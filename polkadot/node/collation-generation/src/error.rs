@@ -37,6 +37,10 @@ pub enum Error {
 	CandidateReceiptCheck(CommittedCandidateReceiptError),
 	#[error("PoV size {0} exceeded maximum size of {1}")]
 	POVSizeExceeded(usize, usize),
+	#[error("Segment size {0} is not in allowed range")]
+	InvalidSegmentSize(usize),
+	#[error("Invalid scheduling parent when submit segment. (To be modified)")]
+	InvalidSchedulingParent,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

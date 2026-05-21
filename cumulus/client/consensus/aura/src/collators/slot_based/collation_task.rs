@@ -237,7 +237,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 
 	overseer_handle
 		.send_msg(
-			CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
+			CollationGenerationMessage::SubmitCollations(vec![SubmitCollationParams {
 				relay_parent,
 				collation,
 				validation_code_hash,
@@ -246,7 +246,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 				scheduling_parent: None,
 				session_index,
 				validation_data,
-			}),
+			}]),
 			"SubmitCollation",
 		)
 		.await;

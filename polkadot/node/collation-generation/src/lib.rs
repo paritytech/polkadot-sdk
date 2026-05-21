@@ -88,12 +88,15 @@
 use codec::Encode;
 use error::{Error, Result};
 use futures::{channel::oneshot, future::FutureExt, select};
+use polkadot_node_network_protocol::v4_collation::MAX_SEGMENT_LEN;
 use polkadot_node_primitives::{
 	AvailableData, Collation, CollationGenerationConfig, CollationSecondedSignal, PoV,
 	SegmentCollation, SubmitCollationParams, SubmitSegmentParams,
 };
 use polkadot_node_subsystem::{
-	messages::{CollationGenerationMessage, CollatorProtocolMessage, RuntimeApiMessage},
+	messages::{
+		CollationGenerationMessage, CollatorProtocolMessage, RuntimeApiMessage, SegmentEntry,
+	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemContext, SubsystemError, SubsystemResult, SubsystemSender,
 };
@@ -107,6 +110,7 @@ use polkadot_primitives::{
 	PersistedValidationData, SessionIndex, TransposedClaimQueue, ValidationCodeHash,
 };
 use schnellru::{ByLength, LruMap};
+use sp_core::bounded::BoundedVec;
 use std::{collections::HashSet, sync::Arc};
 
 mod error;
@@ -209,7 +213,6 @@ impl CollationGenerationSubsystem {
 				if let Err(err) = self.handle_submit_segment(params, ctx).await {
 					gum::error!(target: LOG_TARGET, ?err, "Failed to submit segment");
 				}
-
 				false
 			},
 			Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => false,
@@ -285,52 +288,70 @@ impl CollationGenerationSubsystem {
 		Ok(())
 	}
 
-	// TODO: once the V4 collator-protocol lands, distribute the receipts for the whole segment as
-	// a single unit instead of one collation at a time, and drop the length-1 restriction.
 	async fn handle_submit_segment<Context>(
 		&mut self,
 		params: SubmitSegmentParams,
 		ctx: &mut Context,
 	) -> Result<()> {
-		let SubmitSegmentParams { scheduling_parent, core_index, mut collations } = params;
+		let Some(config) = &self.config else {
+			return Err(Error::SubmittedBeforeInit);
+		};
 
-		if collations.is_empty() {
-			gum::warn!(target: LOG_TARGET, "received empty segment submission");
-			return Ok(());
+		let _timer = self.metrics.time_submit_collation();
+		let SubmitSegmentParams { scheduling_parent, core_index, collations } = params;
+		if collations.is_empty() || collations.len() > MAX_SEGMENT_LEN as usize {
+			return Err(Error::InvalidSegmentSize(collations.len()));
 		}
 
-		if collations.len() > 1 {
-			gum::warn!(
-				target: LOG_TARGET,
-				len = collations.len(),
-				"multi-collation segment submission not yet supported; ignoring",
-			);
-			return Ok(());
-		}
+		let claim_queue = request_claim_queue(scheduling_parent, ctx.sender()).await.await??;
 
-		let SegmentCollation {
-			relay_parent,
-			collation,
-			validation_code_hash,
-			result_sender,
-			session_index,
-			validation_data,
-		} = collations.pop().expect("len == 1; qed");
+		let scheduling_session =
+			request_session_index_for_child(scheduling_parent, ctx.sender()).await.await??;
 
-		self.handle_submit_collation(
-			SubmitCollationParams {
+		let session_info = self
+			.session_info_cache
+			.get(scheduling_parent, scheduling_session, ctx.sender())
+			.await?;
+
+		let transposed_queue = &transpose_claim_queue(claim_queue);
+		let mut segment_entries = vec![];
+		for entry in collations {
+			let SegmentCollation {
 				relay_parent,
 				collation,
 				validation_code_hash,
 				result_sender,
-				core_index,
-				scheduling_parent: Some(scheduling_parent),
 				session_index,
 				validation_data,
-			},
-			ctx,
-		)
-		.await
+			} = entry;
+			let prepared = PreparedCollation {
+				collation,
+				relay_parent,
+				para_id: config.para_id,
+				validation_data,
+				validation_code_hash,
+				n_validators: session_info.n_validators,
+				core_index,
+				session_index,
+				scheduling_session,
+			};
+			let receipt = construct_receipt(
+				prepared,
+				result_sender,
+				&mut self.metrics,
+				transposed_queue,
+				Some(scheduling_parent),
+			)?;
+			segment_entries.push(receipt);
+		}
+		let sender = ctx.sender();
+		let len = segment_entries.len();
+		let candidates =
+			BoundedVec::try_from(segment_entries).map_err(|_| Error::InvalidSegmentSize(len))?;
+		sender
+			.send_message(CollatorProtocolMessage::DistributeSegment { candidates })
+			.await;
+		Ok(())
 	}
 
 	async fn handle_new_activation<Context>(
@@ -622,16 +643,14 @@ struct PreparedCollation {
 	scheduling_session: SessionIndex,
 }
 
-/// Takes a prepared collation, along with its context, and produces a candidate receipt
-/// which is distributed to validators.
-async fn construct_and_distribute_receipt(
+/// Comment
+fn construct_receipt(
 	collation: PreparedCollation,
-	sender: &mut impl overseer::CollationGenerationSenderTrait,
 	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 	metrics: &Metrics,
 	transposed_claim_queue: &TransposedClaimQueue,
 	scheduling_parent: Option<Hash>,
-) -> Result<()> {
+) -> Result<SegmentEntry> {
 	let PreparedCollation {
 		collation,
 		para_id,
@@ -737,10 +756,44 @@ async fn construct_and_distribute_receipt(
 	);
 
 	metrics.on_collation_generated();
+	Ok(SegmentEntry {
+		candidate_receipt: receipt,
+		parent_head_data_hash,
+		pov,
+		parent_head_data,
+		result_sender,
+		core_index,
+	})
+}
+
+/// Takes a prepared collation, along with its context, and produces a candidate receipt
+/// which is distributed to validators.
+async fn construct_and_distribute_receipt(
+	collation: PreparedCollation,
+	sender: &mut impl overseer::CollationGenerationSenderTrait,
+	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
+	metrics: &Metrics,
+	transposed_claim_queue: &TransposedClaimQueue,
+	scheduling_parent: Option<Hash>,
+) -> Result<()> {
+	let SegmentEntry {
+		candidate_receipt,
+		parent_head_data_hash,
+		pov,
+		parent_head_data,
+		result_sender,
+		core_index,
+	} = construct_receipt(
+		collation,
+		result_sender,
+		metrics,
+		transposed_claim_queue,
+		scheduling_parent,
+	)?;
 
 	sender
 		.send_message(CollatorProtocolMessage::DistributeCollation {
-			candidate_receipt: receipt,
+			candidate_receipt,
 			parent_head_data_hash,
 			pov,
 			parent_head_data,
