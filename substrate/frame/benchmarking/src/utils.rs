@@ -284,7 +284,7 @@ pub trait Benchmarking {
 
 	/// Same as version 1 but avoids host-side allocation.
 	#[version(2)]
-	#[wrapped]
+	#[raw_api]
 	fn current_time(out: PassPointerAndWrite<&mut [u8; 16], 16>) {
 		let time = std::time::SystemTime::now()
 			.duration_since(std::time::SystemTime::UNIX_EPOCH)
@@ -298,7 +298,7 @@ pub trait Benchmarking {
 	#[wrapper]
 	fn current_time() -> [u8; 16] {
 		let mut out = [0u8; 16];
-		current_time__wrapped(&mut out);
+		current_time__raw(&mut out);
 		out
 	}
 
@@ -319,7 +319,7 @@ pub trait Benchmarking {
 
 	/// Same as version 1 but avoids host-side allocation.
 	#[version(2)]
-	#[wrapped]
+	#[raw_api]
 	fn read_write_count(&self, out: PassPointerAndWrite<&mut [u8; 16], 16>) {
 		let (a, b, c, d) = self.read_write_count();
 		out[0..4].copy_from_slice(&a.to_le_bytes());
@@ -332,7 +332,7 @@ pub trait Benchmarking {
 	#[wrapper]
 	fn read_write_count() -> (u32, u32, u32, u32) {
 		let mut out = [0u8; 16];
-		read_write_count__wrapped(&mut out);
+		read_write_count__raw(&mut out);
 		(
 			u32::from_le_bytes(out[0..4].try_into().expect("slice is 4 bytes")),
 			u32::from_le_bytes(out[4..8].try_into().expect("slice is 4 bytes")),
@@ -353,7 +353,7 @@ pub trait Benchmarking {
 
 	/// Same as version 1 but avoids host-side allocation.
 	#[version(2)]
-	#[wrapped]
+	#[raw_api]
 	fn get_whitelist(&self, out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
 		let whitelist = self.get_whitelist();
 		let encoded = codec::Encode::encode(&whitelist);
@@ -366,10 +366,10 @@ pub trait Benchmarking {
 	#[wrapper]
 	fn get_whitelist() -> Vec<TrackedStorageKey> {
 		let mut buf = alloc::vec![0u8; 1024 * 1024];
-		let len = get_whitelist__wrapped(&mut buf) as usize;
+		let len = get_whitelist__raw(&mut buf) as usize;
 		if len > buf.len() {
 			buf.resize(len, 0);
-			let len2 = get_whitelist__wrapped(&mut buf) as usize;
+			let len2 = get_whitelist__raw(&mut buf) as usize;
 			debug_assert_eq!(len, len2);
 		}
 		codec::Decode::decode(&mut &buf[..len]).expect("get_whitelist: decoding should not fail")
@@ -417,7 +417,7 @@ pub trait Benchmarking {
 
 	/// Same as version 1 but avoids host-side allocation.
 	#[version(2)]
-	#[wrapped]
+	#[raw_api]
 	fn get_read_and_written_keys(&self, out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
 		let keys = self.get_read_and_written_keys();
 		let encoded = codec::Encode::encode(&keys);
@@ -430,10 +430,10 @@ pub trait Benchmarking {
 	#[wrapper]
 	fn get_read_and_written_keys() -> Vec<(Vec<u8>, u32, u32, bool)> {
 		let mut buf = alloc::vec![0u8; 4 * 1024 * 1024];
-		let len = get_read_and_written_keys__wrapped(&mut buf) as usize;
+		let len = get_read_and_written_keys__raw(&mut buf) as usize;
 		if len > buf.len() {
 			buf.resize(len, 0);
-			let len2 = get_read_and_written_keys__wrapped(&mut buf) as usize;
+			let len2 = get_read_and_written_keys__raw(&mut buf) as usize;
 			debug_assert_eq!(len, len2);
 		}
 		codec::Decode::decode(&mut &buf[..len])
@@ -447,7 +447,7 @@ pub trait Benchmarking {
 
 	/// Same as version 1 but avoids host-side allocation.
 	#[version(2)]
-	#[wrapped]
+	#[raw_api]
 	fn proof_size(&self) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		self.proof_size()
 	}
@@ -455,7 +455,7 @@ pub trait Benchmarking {
 	/// Wrapper for `proof_size`.
 	#[wrapper]
 	fn proof_size() -> Option<u32> {
-		proof_size__wrapped()
+		proof_size__raw()
 	}
 }
 

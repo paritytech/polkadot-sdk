@@ -43,7 +43,7 @@ mod attributes {
 pub struct RuntimeInterfaceFunction {
 	item: TraitItemFn,
 	should_trap_on_return: bool,
-	is_wrapped: bool,
+	is_raw_api: bool,
 }
 
 impl std::ops::Deref for RuntimeInterfaceFunction {
@@ -57,14 +57,14 @@ impl RuntimeInterfaceFunction {
 	fn new(item: &TraitItemFn) -> Result<Self> {
 		let mut item = item.clone();
 		let mut should_trap_on_return = false;
-		let mut is_wrapped = false;
+		let mut is_raw_api = false;
 
 		item.attrs.retain(|attr| {
 			if attr.path().is_ident("trap_on_return") {
 				should_trap_on_return = true;
 				false
-			} else if attr.path().is_ident("wrapped") {
-				is_wrapped = true;
+			} else if attr.path().is_ident("raw_api") {
+				is_raw_api = true;
 				false
 			} else {
 				true
@@ -78,15 +78,15 @@ impl RuntimeInterfaceFunction {
 			));
 		}
 
-		Ok(Self { item, should_trap_on_return, is_wrapped })
+		Ok(Self { item, should_trap_on_return, is_raw_api })
 	}
 
 	pub fn should_trap_on_return(&self) -> bool {
 		self.should_trap_on_return
 	}
 
-	pub fn is_wrapped(&self) -> bool {
-		self.is_wrapped
+	pub fn is_raw_api(&self) -> bool {
+		self.is_raw_api
 	}
 }
 
