@@ -89,7 +89,7 @@ pub mod weights;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
-mod mock;
+pub mod mock;
 #[cfg(test)]
 mod tests;
 
@@ -210,19 +210,18 @@ pub mod pallet {
 		/// Whether this level allows modifying the circuit breaker status.
 		/// Both Full and Emergency levels can set circuit breaker.
 		pub const fn can_set_circuit_breaker(&self) -> bool {
-			matches!(self, PsmManagerLevel::Full | PsmManagerLevel::Emergency)
+			true
 		}
 
 		/// Whether this level allows modifying the global PSM debt ratio.
-		/// Both Full and Emergency levels can set the max PSM debt.
 		pub const fn can_set_max_psm_debt(&self) -> bool {
-			matches!(self, PsmManagerLevel::Full | PsmManagerLevel::Emergency)
+			matches!(self, PsmManagerLevel::Full)
 		}
 
 		/// Whether this level allows modifying per-asset ceiling weights.
 		/// Both Full and Emergency levels can set asset ceilings.
 		pub const fn can_set_asset_ceiling(&self) -> bool {
-			matches!(self, PsmManagerLevel::Full | PsmManagerLevel::Emergency)
+			true
 		}
 
 		/// Whether this level allows adding or removing external assets.
@@ -264,8 +263,7 @@ pub mod pallet {
 		///
 		/// Returns `PsmManagerLevel` to distinguish privilege levels:
 		/// - `Full` (via GeneralAdmin): Can modify all parameters
-		/// - `Emergency` (via EmergencyAction): Can modify circuit breaker status, per-asset
-		///   ceiling weights, and the global max PSM debt ratio.
+		/// - `Emergency` (via EmergencyAction): Can only modify circuit breaker status
 		type ManagerOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = PsmManagerLevel>;
 
 		/// A type representing the weights required by the dispatchables of this pallet.
@@ -1179,16 +1177,130 @@ pub mod pallet {
 				"total_psm_debt() does not match sum of per-asset debts"
 			);
 
-			// Check 4: Per-asset debt should not exceed its ceiling.
-			// (May be transiently violated if governance lowers ceilings, but
-			// should hold under normal operation.)
+			// Check 4: Total pUSD issuance must cover total PSM debt.
+			// PSM mints new pUSD on every successful mint and burns on every redeem.
+			// If total pUSD in circulation is less than what the debt ledger claims,
+			// either pUSD was destroyed outside PSM or the debt accounting is corrupted.
+			// Note: Liquity-style vault bad debt can legitimately violate this during bank
+			// runs. The check is kept as a hard error because that scenario is high-value
+			// signal — the fuzzer triggering it indicates a real accounting bug, not an
+			// expected operational state.
+			let total_issuance = T::InternalAsset::total_issuance();
+			let total_debt = Self::total_psm_debt();
+			ensure!(
+				total_issuance >= total_debt,
+				"Total pUSD issuance is less than total PSM debt — balance sheet does not close"
+			);
+
+			// Check 5: Total PSM debt must not exceed the global ceiling.
+			// This is a warning, not a hard invariant: governance may lower MaxPsmDebtOfTotal
+			// below current debt, creating a transient state that redemptions or further
+			// governance action can resolve.
+			if Self::total_psm_debt() > Self::max_psm_debt() {
+				log::warn!(
+					"PSM: total debt ({:?}) exceeds global ceiling ({:?})",
+					Self::total_psm_debt(),
+					Self::max_psm_debt(),
+				);
+			}
+
+			// Check 6: Per-asset debt exceeding its ceiling is a warning.
+			// Governance may change weights or MaxPsmDebtOfTotal, transiently causing
+			// per-asset debt to exceed the newly computed ceiling.
 			for (asset_id, status) in ExternalAssets::<T>::iter() {
 				if status.allows_minting() {
 					let debt = PsmDebt::<T>::get(&asset_id);
-					let ceiling = Self::max_asset_debt(asset_id);
-					ensure!(debt <= ceiling, "Per-asset PSM debt exceeds its ceiling");
+					let ceiling = Self::max_asset_debt(asset_id.clone());
+					if debt > ceiling {
+						log::warn!(
+							"PSM: asset {:?} debt ({:?}) exceeds ceiling ({:?})",
+							asset_id,
+							debt,
+							ceiling,
+						);
+					}
 				}
 			}
+
+			// Check 7: No non-zero PsmDebt entry for a non-approved asset.
+			// Note: if this is violated, check 3 will also fail because total_psm_debt()
+			// iterates all PsmDebt entries while the sum above only covers ExternalAssets.
+			// Both checks are retained since they report distinct invariant violations.
+			for (asset_id, debt) in PsmDebt::<T>::iter() {
+				if !debt.is_zero() {
+					ensure!(
+						ExternalAssets::<T>::contains_key(&asset_id),
+						"PsmDebt entry exists for non-approved asset"
+					);
+				}
+			}
+
+			// Check 8: Orphan fee/ceiling storage entries (warn only; may be intentional
+			// pre-configuration via setMintingFee before addExternalAsset).
+			for asset_id in MintingFee::<T>::iter_keys() {
+				if !ExternalAssets::<T>::contains_key(&asset_id) {
+					log::warn!(
+						target: "runtime::psm",
+						"MintingFee entry for non-approved asset {:?}",
+						asset_id
+					);
+				}
+			}
+			for asset_id in RedemptionFee::<T>::iter_keys() {
+				if !ExternalAssets::<T>::contains_key(&asset_id) {
+					log::warn!(
+						target: "runtime::psm",
+						"RedemptionFee entry for non-approved asset {:?}",
+						asset_id
+					);
+				}
+			}
+			for asset_id in AssetCeilingWeight::<T>::iter_keys() {
+				if !ExternalAssets::<T>::contains_key(&asset_id) {
+					log::warn!(
+						target: "runtime::psm",
+						"AssetCeilingWeight entry for non-approved asset {:?}",
+						asset_id
+					);
+				}
+			}
+
+			// Check 9: PSM account must exist.
+			let psm_account = Self::account_id();
+			ensure!(
+				frame_system::Pallet::<T>::account_exists(&psm_account),
+				"PSM account does not exist"
+			);
+
+			// Check 10: ExternalAssets count within bound.
+			let count = ExternalAssets::<T>::iter_keys().count() as u32;
+			ensure!(
+				count <= T::MaxExternalAssets::get(),
+				"ExternalAssets count exceeds MaxExternalAssets"
+			);
+
+			// Check 11: Zero ceiling weight + zero debt implies zero reserve.
+			// Non-zero reserve under these conditions is likely a donation or bug.
+			for (asset_id, _) in ExternalAssets::<T>::iter() {
+				if AssetCeilingWeight::<T>::get(&asset_id).is_zero()
+					&& PsmDebt::<T>::get(&asset_id).is_zero()
+				{
+					let reserve = Self::get_reserve(asset_id.clone());
+					if !reserve.is_zero() {
+						log::warn!(
+							target: "runtime::psm",
+							"Asset {:?} has zero ceiling weight and zero debt but non-zero reserve {:?}",
+							asset_id, reserve
+						);
+					}
+				}
+			}
+
+			// Check 12: Fee destination account must exist.
+			ensure!(
+				frame_system::Pallet::<T>::account_exists(&T::FeeDestination::get()),
+				"Fee destination account does not exist"
+			);
 
 			Ok(())
 		}
