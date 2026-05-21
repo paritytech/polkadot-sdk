@@ -6,13 +6,14 @@
 |-------|-------|
 | **Authors** | eskimor |
 | **Status** | Review |
-| **Version** | 1.1 |
+| **Version** | 1.2 |
 | **Related Designs** | [Speculative Messaging](speculative-messaging-design.md) |
 
 ### Version History
 
 | Version | Changes |
 |---------|---------|
+| 1.2 | **Replay protection for `SignedSchedulingInfo`.** Wrapped the signed fields into an explicit `SchedulingInfoPayload` that commits to `internal_scheduling_parent` and `claim_queue_offset`. Without binding the ISP into the signed payload, a signature produced in one scheduling context could be replayed under a different `header_chain` whose derived ISP elects the same collator. PVF verification step 5 updated to check `payload.internal_scheduling_parent` equals the derived ISP and `payload.claim_queue_offset` is within the runtime maximum. |
 | 1.1 | **Scheduling parent: last finished slot instead of active leaf.** The original design required the scheduling parent to be an active leaf. This does not work as intended as in reality both are slot/time-based and race each other, so the active leaf of the current slot may not exist yet. Fixed to require the relay chain block of the last *finished* slot instead, which gives the collator a full 6s time window. Affected sections: [Backing Group Selection](#backing-group-selectionlast-finished-slot), scheduling parent diagrams, threat mitigations. |
 | 1.0 | Initial version. |
 
@@ -827,10 +828,46 @@ struct SchedulingProof {
     signed_scheduling_info: Option<SignedSchedulingInfo>,
 }
 
+/// Payload signed by the eligible collator for resubmission.
+///
+/// `internal_scheduling_parent` is included in the signed payload to bind the
+/// signature to a specific scheduling context. Without it, a signature produced
+/// at one `internal_scheduling_parent` could be replayed under a different
+/// header chain whose derived `internal_scheduling_parent` happens to elect the
+/// same collator — the signature would still verify and the attacker could
+/// reuse it to override core selection in a context the signer never approved.
+/// Including it forces the verifier to check
+/// `payload.internal_scheduling_parent == derived_internal_scheduling_parent`,
+/// blocking cross-context replay.
+///
+/// `claim_queue_offset` is chosen by the collator (capped by the runtime's
+/// `RelayParentOffset` config). It is included in the signed payload so the
+/// signature commits to the specific offset the resubmitter selected — without
+/// it, an attacker could harvest a signature and reuse it under a different
+/// offset.
+struct SchedulingInfoPayload {
+    /// Which core to use (indexes into the parachain's assigned cores).
+    core_selector: CoreSelector,
+    /// Claim queue offset chosen by the collator (capped by the runtime's
+    /// `RelayParentOffset` config). Signed so the signature is bound to the
+    /// chosen offset.
+    claim_queue_offset: u8,
+    /// Peer ID to receive reputation credit for successful collation delivery.
+    /// Overrides the peer ID from the block's commitments, allowing the
+    /// resubmitting collator to receive reputation instead of the original
+    /// block author who failed to deliver.
+    peer_id: PeerId,
+    /// The internal scheduling parent whose slot decides the eligible block
+    /// author that must sign the payload. Must match the value the verifier
+    /// derives from the `header_chain`.
+    internal_scheduling_parent: Hash,
+}
+
 /// Signed scheduling information for candidate resubmission.
 ///
-/// Key concept: The `internal_scheduling_parent` (derived from header_chain) determines
-/// which collator may perform resubmission. This is distinct from the `relay_parent`,
+/// Key concept: The `internal_scheduling_parent` (derived from `header_chain`,
+/// and re-stated in the signed payload for replay protection) determines which
+/// collator may perform resubmission. This is distinct from the `relay_parent`,
 /// which determines the original block author's slot:
 ///
 /// - **Initial submission**: `relay_parent == internal_scheduling_parent`
@@ -840,17 +877,10 @@ struct SchedulingProof {
 ///   A different collator (eligible at internal_scheduling_parent) is resubmitting
 ///   a block that was originally authored by someone else (eligible at relay_parent).
 struct SignedSchedulingInfo {
-    /// Which core to use (indexes into the parachain's assigned cores).
-    /// Note: the claim queue offset is determined by the runtime and is not
-    /// provided by the collator.
-    core_selector: CoreSelector,
-    /// Peer ID to receive reputation credit for successful collation delivery.
-    /// Overrides the peer ID from the block's commitments, allowing the
-    /// resubmitting collator to receive reputation instead of the original
-    /// block author who failed to deliver.
-    peer_id: PeerId,
-    /// Signature by the eligible collator for the slot at internal_scheduling_parent.
-    /// This is the RESUBMITTING collator, not the original block author.
+    /// The signed payload.
+    payload: SchedulingInfoPayload,
+    /// Signature by the RESUBMITTING collator (eligible at
+    /// `payload.internal_scheduling_parent`) over the SCALE-encoded payload.
     signature: CollatorSignature,
 }
 ```
@@ -875,8 +905,14 @@ The PVF then:
    `signed_scheduling_info` MUST be `Some`. This prevents unauthorized parties
    from resubmitting candidates. The signature must be valid for the collator
    eligible at `internal_scheduling_parent`.
-5. If `signed_scheduling_info` is provided, verifies the signature against the
-   eligible collator from step 2
+5. If `signed_scheduling_info` is provided:
+   a. Checks that `payload.internal_scheduling_parent` equals the value derived
+      from the `header_chain` in step 1 (replay protection — binds the signature
+      to this specific scheduling context).
+   b. Checks that `payload.claim_queue_offset` is within the runtime-configured
+      maximum (collator chooses the offset; signing it binds the signature to
+      the chosen value).
+   c. Verifies the signature against the eligible collator from step 2.
 6. Outputs the verified scheduling information for incorporating into candidate
    commitments, including the `peer_id` for the collator protocol to use for
    reputation
