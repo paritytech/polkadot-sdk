@@ -313,7 +313,7 @@ async fn assert_candidate_backing_second(
 				tx.send(Ok(Some(pvd.clone()))).unwrap();
 			}
 		),
-		CollationVersion::V2 | CollationVersion::V3 => assert_matches!(
+		CollationVersion::V2 | CollationVersion::V3 | CollationVersion::V4 => assert_matches!(
 			msg,
 			AllMessages::ProspectiveParachains(
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
@@ -432,6 +432,13 @@ async fn connect_and_declare_collator(
 				collator.public(),
 				para_id,
 				collator.sign(&protocol_v3::declare_signature_payload(&peer)),
+			))
+		},
+		CollationVersion::V4 => {
+			CollationProtocols::V4(protocol_v4::CollatorProtocolMessage::Declare(
+				collator.public(),
+				para_id,
+				collator.sign(&protocol_v4::declare_signature_payload(&peer)),
 			))
 		},
 	};

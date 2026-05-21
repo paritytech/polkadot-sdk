@@ -32,8 +32,11 @@ use error::{log_error, FatalError, FatalResult, Result};
 use futures::{future::Fuse, select, FutureExt, StreamExt};
 use futures_timer::Delay;
 use polkadot_node_network_protocol::{
-	self as net_protocol, peer_set::PeerSet, v1 as protocol_v1, v2 as protocol_v2,
-	v3_collation as protocol_v3, CollationProtocols, PeerId,
+	self as net_protocol,
+	peer_set::PeerSet,
+	v1 as protocol_v1, v2 as protocol_v2, v3_collation as protocol_v3,
+	v4_collation::{self as protocol_v4},
+	CollationProtocols, PeerId,
 };
 use polkadot_node_subsystem::{
 	messages::{CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage},
@@ -50,6 +53,8 @@ use peer_manager::PeerManager;
 use state::State;
 
 pub use crate::validator_side_metrics::Metrics;
+
+use self::peer_manager::Backend;
 
 /// Default interval for persisting the reputation database to disk (in seconds).
 const DEFAULT_PERSIST_INTERVAL_SECS: u64 = 600;
@@ -316,6 +321,12 @@ async fn process_msg<Sender: CollatorProtocolSenderTrait>(
 				"DistributeCollation message is not expected on the validator side of the protocol",
 			);
 		},
+		DistributeSegment { .. } => {
+			gum::warn!(
+				target: LOG_TARGET,
+				"DistributeSegment message is not expected on the validator side of the protocol",
+			);
+		},
 		NetworkBridgeUpdate(event) => {
 			if let Err(e) = handle_network_msg(sender, state, event).await {
 				gum::warn!(
@@ -395,29 +406,36 @@ async fn handle_network_msg<Sender: CollatorProtocolSenderTrait>(
 	Ok(())
 }
 
-async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
+async fn process_incoming_peer_message<Sender, B>(
 	sender: &mut Sender,
-	state: &mut State<PersistentDb>,
+	state: &mut State<B>,
 	origin: PeerId,
 	msg: CollationProtocols<
 		protocol_v1::CollatorProtocolMessage,
 		protocol_v2::CollatorProtocolMessage,
 		protocol_v3::CollatorProtocolMessage,
+		protocol_v4::CollatorProtocolMessage,
 	>,
-) {
+) where
+	Sender: CollatorProtocolSenderTrait,
+	B: Backend,
+{
 	use protocol_v1::CollatorProtocolMessage as V1;
 	use protocol_v2::CollatorProtocolMessage as V2;
 	use protocol_v3::CollatorProtocolMessage as V3;
+	use protocol_v4::CollatorProtocolMessage as V4;
 
 	match msg {
 		CollationProtocols::V1(V1::Declare(_collator_id, para_id, _signature)) |
 		CollationProtocols::V2(V2::Declare(_collator_id, para_id, _signature)) |
-		CollationProtocols::V3(V3::Declare(_collator_id, para_id, _signature)) => {
+		CollationProtocols::V3(V3::Declare(_collator_id, para_id, _signature)) |
+		CollationProtocols::V4(V4::Declare(_collator_id, para_id, _signature)) => {
 			state.handle_declare(sender, origin, para_id).await;
 		},
 		CollationProtocols::V1(V1::CollationSeconded(..)) |
 		CollationProtocols::V2(V2::CollationSeconded(..)) |
-		CollationProtocols::V3(V3::CollationSeconded(..)) => {
+		CollationProtocols::V3(V3::CollationSeconded(..)) |
+		CollationProtocols::V4(V4::CollationSeconded(..)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				peer_id = ?origin,
@@ -457,6 +475,41 @@ async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
 					scheduling_parent,
 					Some(ProspectiveCandidate { candidate_hash, parent_head_data_hash }),
 					Some(candidate_descriptor_version),
+				)
+				.await;
+		},
+		CollationProtocols::V4(V4::AdvertiseSegment { scheduling_parent, candidates }) => {
+			if candidates.is_empty() {
+				gum::warn!(
+					target: LOG_TARGET,
+					?scheduling_parent,
+					?origin,
+					"Received an empty segment advertisement",
+				);
+				// Maybe reputation penalty?
+				return;
+			}
+			gum::warn!(
+					target: LOG_TARGET,
+					?scheduling_parent,
+					?origin,
+					"Received an segment advertisement",
+				);
+
+			let Some(segment_fingerprint) = candidates.last() else {
+				// We should never be here.
+				return;
+			};
+			state
+				.handle_advertisement(
+					sender,
+					origin,
+					scheduling_parent,
+					Some(ProspectiveCandidate {
+						candidate_hash: segment_fingerprint.candidate_hash,
+						parent_head_data_hash: segment_fingerprint.parent_head_data_hash,
+					}),
+					Some(segment_fingerprint.candidate_descriptor_version),
 				)
 				.await;
 		},

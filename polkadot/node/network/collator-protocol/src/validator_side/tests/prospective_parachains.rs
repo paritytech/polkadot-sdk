@@ -388,6 +388,23 @@ async fn assert_collation_seconded(
 				}
 			);
 		},
+		CollationVersion::V4 => {
+			assert_matches!(
+				overseer_recv(virtual_overseer).await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendCollationMessage(
+					peers,
+					CollationProtocols::V4(protocol_v4::CollationProtocol::CollatorProtocol(
+						protocol_v4::CollatorProtocolMessage::CollationSeconded(
+							_relay_parent,
+						..,
+					)
+					)),
+				 )) => {
+					assert_eq!(peers, vec![peer_id]);
+					assert_eq!(relay_parent, _relay_parent);
+				 }
+			)
+		},
 	}
 }
 
@@ -417,7 +434,7 @@ async fn assert_persisted_validation_data(
 				tx.send(Ok(pvd)).unwrap();
 			}
 		),
-		CollationVersion::V2 | CollationVersion::V3 => assert_matches!(
+		CollationVersion::V2 | CollationVersion::V3 | CollationVersion::V4 => assert_matches!(
 			msg,
 			AllMessages::ProspectiveParachains(
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),

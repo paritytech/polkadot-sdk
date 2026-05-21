@@ -38,7 +38,7 @@ use crate::validator_discovery;
 /// Defines the `Network` trait with an implementation for an `Arc<NetworkService>`.
 use crate::network::{
 	send_collation_message_v1, send_collation_message_v2, send_collation_message_v3,
-	send_validation_message_v3, Network,
+	send_collation_message_v4, send_validation_message_v3, Network,
 };
 
 use crate::metrics::Metrics;
@@ -251,6 +251,12 @@ where
 					&metrics,
 					notification_sinks,
 				),
+				CollationProtocols::V4(msg) => send_collation_message_v4(
+					peers,
+					WireMessage::ProtocolMessage(msg),
+					&metrics,
+					notification_sinks,
+				),
 			}
 		},
 		NetworkBridgeTxMessage::SendCollationMessages(msgs) => {
@@ -275,6 +281,12 @@ where
 						notification_sinks,
 					),
 					CollationProtocols::V3(msg) => send_collation_message_v3(
+						peers,
+						WireMessage::ProtocolMessage(msg),
+						&metrics,
+						notification_sinks,
+					),
+					CollationProtocols::V4(msg) => send_collation_message_v4(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,

@@ -244,13 +244,15 @@ pub enum ValidationProtocols<V3> {
 
 /// A protocol-versioned type for collation.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum CollationProtocols<V1, V2, V3> {
+pub enum CollationProtocols<V1, V2, V3, V4> {
 	/// V1 type.
 	V1(V1),
 	/// V2 type.
 	V2(V2),
 	/// V3 type.
 	V3(V3),
+	/// V4 type.
+	V4(V4),
 }
 
 impl<V3: Clone> ValidationProtocols<&'_ V3> {
@@ -262,13 +264,16 @@ impl<V3: Clone> ValidationProtocols<&'_ V3> {
 	}
 }
 
-impl<V1: Clone, V2: Clone, V3: Clone> CollationProtocols<&'_ V1, &'_ V2, &'_ V3> {
+impl<V1: Clone, V2: Clone, V3: Clone, V4: Clone>
+	CollationProtocols<&'_ V1, &'_ V2, &'_ V3, &'_ V4>
+{
 	/// Convert to a fully-owned version of the message.
-	pub fn clone_inner(&self) -> CollationProtocols<V1, V2, V3> {
+	pub fn clone_inner(&self) -> CollationProtocols<V1, V2, V3, V4> {
 		match *self {
 			CollationProtocols::V1(inner) => CollationProtocols::V1(inner.clone()),
 			CollationProtocols::V2(inner) => CollationProtocols::V2(inner.clone()),
 			CollationProtocols::V3(inner) => CollationProtocols::V3(inner.clone()),
+			CollationProtocols::V4(inner) => CollationProtocols::V4(inner.clone()),
 		}
 	}
 }
@@ -287,6 +292,7 @@ pub type VersionedCollationProtocol = CollationProtocols<
 	v1::CollationProtocol,
 	v2::CollationProtocol,
 	v3_collation::CollationProtocol,
+	v4_collation::CollationProtocol,
 >;
 
 impl From<v1::CollationProtocol> for VersionedCollationProtocol {
@@ -304,6 +310,12 @@ impl From<v2::CollationProtocol> for VersionedCollationProtocol {
 impl From<v3_collation::CollationProtocol> for VersionedCollationProtocol {
 	fn from(v3: v3_collation::CollationProtocol) -> Self {
 		VersionedCollationProtocol::V3(v3)
+	}
+}
+
+impl From<v4_collation::CollationProtocol> for VersionedCollationProtocol {
+	fn from(v4: v4_collation::CollationProtocol) -> Self {
+		VersionedCollationProtocol::V4(v4)
 	}
 }
 
@@ -327,6 +339,7 @@ macro_rules! impl_versioned_collation_full_protocol_from {
 					CollationProtocols::V1(x) => CollationProtocols::V1(x.into()),
 					CollationProtocols::V2(x) => CollationProtocols::V2(x.into()),
 					CollationProtocols::V3(x) => CollationProtocols::V3(x.into()),
+					CollationProtocols::V4(x) => CollationProtocols::V4(x.into()),
 				}
 			}
 		}
@@ -377,7 +390,8 @@ macro_rules! impl_versioned_collation_try_from {
 		$out:ty,
 		$v1_pat:pat => $v1_out:expr,
 		$v2_pat:pat => $v2_out:expr,
-		$v3_pat:pat => $v3_out:expr
+		$v3_pat:pat => $v3_out:expr,
+		$v4_pat:pat => $v4_out:expr
 	) => {
 		impl TryFrom<$from> for $out {
 			type Error = crate::WrongVariant;
@@ -388,6 +402,7 @@ macro_rules! impl_versioned_collation_try_from {
 					CollationProtocols::V1($v1_pat) => Ok(CollationProtocols::V1($v1_out)),
 					CollationProtocols::V2($v2_pat) => Ok(CollationProtocols::V2($v2_out)),
 					CollationProtocols::V3($v3_pat) => Ok(CollationProtocols::V3($v3_out)),
+					CollationProtocols::V4($v4_pat) => Ok(CollationProtocols::V4($v4_out)),
 					_ => Err(crate::WrongVariant),
 				}
 			}
@@ -402,6 +417,7 @@ macro_rules! impl_versioned_collation_try_from {
 					CollationProtocols::V1($v1_pat) => Ok(CollationProtocols::V1($v1_out.clone())),
 					CollationProtocols::V2($v2_pat) => Ok(CollationProtocols::V2($v2_out.clone())),
 					CollationProtocols::V3($v3_pat) => Ok(CollationProtocols::V3($v3_out.clone())),
+					CollationProtocols::V4($v4_pat) => Ok(CollationProtocols::V4($v4_out.clone())),
 					_ => Err(crate::WrongVariant),
 				}
 			}
@@ -472,6 +488,7 @@ pub type CollatorProtocolMessage = CollationProtocols<
 	v1::CollatorProtocolMessage,
 	v2::CollatorProtocolMessage,
 	v3_collation::CollatorProtocolMessage,
+	v4_collation::CollatorProtocolMessage,
 >;
 impl_versioned_collation_full_protocol_from!(
 	CollatorProtocolMessage,
@@ -483,7 +500,8 @@ impl_versioned_collation_try_from!(
 	CollatorProtocolMessage,
 	v1::CollationProtocol::CollatorProtocol(x) => x,
 	v2::CollationProtocol::CollatorProtocol(x) => x,
-	v3_collation::CollationProtocol::CollatorProtocol(x) => x
+	v3_collation::CollationProtocol::CollatorProtocol(x) => x,
+	v4_collation::CollationProtocol::CollatorProtocol(x) => x
 );
 
 /// v1 notification protocol types.
@@ -623,6 +641,138 @@ pub mod v3_collation {
 		#[codec(index = 0)]
 		#[from]
 		CollatorProtocol(CollatorProtocolMessage),
+	}
+}
+
+/// v4 collation protocol types.
+pub mod v4_collation {
+	use codec::{Decode, Encode};
+	use polkadot_node_primitives::UncheckedSignedFullStatement;
+	use polkadot_primitives::{
+		CandidateDescriptorVersion, CandidateHash, CollatorId, CollatorSignature, Hash,
+		Id as ParaId,
+	};
+	use sp_runtime::{traits::ConstU32, BoundedVec};
+
+	/// This part of the protocol did not change from v2, so just alias it in v4.
+	pub use super::v2::declare_signature_payload;
+
+	/// Network messages used by the collator protocol subsystem.
+	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
+	pub enum CollatorProtocolMessage {
+		/// Declare the intent to advertise collations under a collator ID, attaching a
+		/// signature of the `PeerId` of the node using the given collator ID key.
+		#[codec(index = 0)]
+		Declare(CollatorId, ParaId, CollatorSignature),
+		/// A collation sent to a validator was seconded.
+		#[codec(index = 4)]
+		CollationSeconded(Hash, UncheckedSignedFullStatement),
+		/// Advertise an ordered list of unincluded candidates. The list
+		/// is ordered by age. A length 1 segment is the V3 single-candidate
+		/// equivalent.
+		#[codec(index = 5)]
+		AdvertiseSegment {
+			/// Hash of the scheduling parent
+			scheduling_parent: Hash,
+			/// Ordered list of candidates.
+			candidates: BoundedVec<SegmentFingerprint, ConstU32<MAX_SEGMENT_LEN>>,
+		},
+	}
+
+	/// A single entry in the segment advertised by the collator.
+	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
+	pub struct SegmentFingerprint {
+		/// Candidate hash
+		pub candidate_hash: CandidateHash,
+		/// Unique and stable identifier of the underlying parachain
+		/// block. Because it's stable across resubmissions this will
+		/// be used for deduplication against validator's fragment chain.
+		pub output_head_data_hash: Hash,
+		/// Parachain head data hash before candidate execution.
+		pub parent_head_data_hash: Hash,
+		/// Descriptor version for the candidate.
+		pub candidate_descriptor_version: CandidateDescriptorVersion,
+		/// Comment
+		pub relay_parent: Hash,
+	}
+
+	/// Hard upper bound on `AdvertiseSegment::candidates`.
+	/// The bound is enforced by SCALE decoding via `BoundedVec`,
+	/// so oversized advertisements are rejected at parse time
+	/// without allocation.
+	pub const MAX_SEGMENT_LEN: u32 = 100;
+
+	/// All network messages on the collation peer-set.
+	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, derive_more::From)]
+	pub enum CollationProtocol {
+		/// Collator protocol messages
+		#[codec(index = 0)]
+		#[from]
+		CollatorProtocol(CollatorProtocolMessage),
+	}
+
+	#[cfg(test)]
+	mod tests {
+		use codec::{Decode, Encode};
+		use polkadot_primitives::{CandidateDescriptorVersion, CandidateHash, Hash};
+		use rstest::rstest;
+
+		use super::*;
+
+		fn build_segment(len: u32) -> BoundedVec<SegmentFingerprint, ConstU32<MAX_SEGMENT_LEN>> {
+			let mut candidates = vec![];
+			for _ in 0..len {
+				let fingerprint = SegmentFingerprint {
+					candidate_hash: CandidateHash(Hash::random()),
+					output_head_data_hash: Hash::random(),
+					parent_head_data_hash: Hash::random(),
+					candidate_descriptor_version: CandidateDescriptorVersion::V3,
+					relay_parent: Hash::random(),
+				};
+				candidates.push(fingerprint);
+			}
+			BoundedVec::try_from(candidates).expect("len 0 ≤ MAX_SEGMENT_LEN;")
+		}
+
+		#[rstest]
+		#[case::length_zero(0)]
+		#[case::length_one(1)]
+		#[case::length_many(5)]
+		#[case::length_max(MAX_SEGMENT_LEN)]
+		fn v4_advertise_segment_roundtrip(#[case] len: u32) {
+			let candidates = build_segment(len);
+			let original =
+				CollationProtocol::CollatorProtocol(CollatorProtocolMessage::AdvertiseSegment {
+					scheduling_parent: Hash::random(),
+					candidates,
+				});
+			let encoded = original.encode();
+			let decoded =
+				CollationProtocol::decode(&mut &encoded[..]).expect("roundtrip decode succeeds");
+			assert_eq!(original, decoded);
+		}
+
+		#[test]
+		fn v4_advertise_segment_oversize_rejected_at_decode() {
+			let fingerprints: Vec<SegmentFingerprint> = (0..=MAX_SEGMENT_LEN)
+				.map(|_| SegmentFingerprint {
+					candidate_hash: CandidateHash(Hash::random()),
+					output_head_data_hash: Hash::random(),
+					parent_head_data_hash: Hash::random(),
+					candidate_descriptor_version: CandidateDescriptorVersion::V3,
+					relay_parent: Hash::random(),
+				})
+				.collect();
+			assert_eq!(fingerprints.len(), MAX_SEGMENT_LEN as usize + 1);
+
+			let mut wire = Vec::new();
+			wire.push(0x00); // CollationProtocol::CollatorProtocol variant tag
+			wire.push(0x05); // CollatorProtocolMessage::AdvertiseSegment variant tag
+			Hash::repeat_byte(0xAA).encode_to(&mut wire); // scheduling_parent
+			fingerprints.encode_to(&mut wire); // compact length + 101 × encoded fingerprint
+
+			assert!(CollationProtocol::decode(&mut &wire[..]).is_err());
+		}
 	}
 }
 

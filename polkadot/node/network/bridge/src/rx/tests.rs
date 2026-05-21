@@ -23,6 +23,7 @@ use assert_matches::assert_matches;
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use polkadot_overseer::TimeoutExt;
+use sp_core::{bounded::BoundedVec, ConstU32};
 use std::{
 	collections::HashSet,
 	sync::atomic::{AtomicBool, Ordering},
@@ -51,7 +52,7 @@ use polkadot_node_subsystem_test_helpers::{
 	mock::new_leaf, SingleItemSink, SingleItemStream, TestSubsystemContextHandle,
 };
 use polkadot_node_subsystem_util::metered;
-use polkadot_primitives::{AuthorityDiscoveryId, Hash};
+use polkadot_primitives::{AuthorityDiscoveryId, CandidateDescriptorVersion, CandidateHash, Hash};
 
 use sp_keyring::Sr25519Keyring;
 
@@ -1682,7 +1683,7 @@ fn network_protocol_versioning_subsystem_msg() {
 		let peer = PeerId::random();
 
 		network_handle
-			.connect_peer(peer, CollationVersion::V1.into(), PeerSet::Collation, ObservedRole::Full)
+			.connect_peer(peer, CollationVersion::V4.into(), PeerSet::Collation, ObservedRole::Full)
 			.await;
 		await_peer_connections(&shared, 0, 1).await;
 
@@ -1692,7 +1693,7 @@ fn network_protocol_versioning_subsystem_msg() {
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Full,
-					CollationVersion::V1.into(),
+					CollationVersion::V4.into(),
 					None,
 				),
 				&mut virtual_overseer,
@@ -1708,14 +1709,14 @@ fn network_protocol_versioning_subsystem_msg() {
 			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 0);
 		}
 
-		let collator_protocol_message = protocol_v1::CollatorProtocolMessage::Declare(
+		let collator_protocol_message = v4_collation::CollatorProtocolMessage::Declare(
 			Sr25519Keyring::Alice.public().into(),
 			Default::default(),
 			sp_core::crypto::UncheckedFrom::unchecked_from([1u8; 64]),
 		);
 
 		let msg =
-			protocol_v1::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
+			v4_collation::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
 
 		network_handle
 			.peer_message(
@@ -1729,7 +1730,7 @@ fn network_protocol_versioning_subsystem_msg() {
 			virtual_overseer.recv().await,
 			AllMessages::CollatorProtocol(
 				CollatorProtocolMessage::NetworkBridgeUpdate(
-					NetworkBridgeEvent::PeerMessage(p, CollationProtocols::V1(m))
+					NetworkBridgeEvent::PeerMessage(p, CollationProtocols::V4(m))
 				)
 			) => {
 				assert_eq!(p, peer);
@@ -1739,6 +1740,39 @@ fn network_protocol_versioning_subsystem_msg() {
 
 		// No more messages.
 		assert_matches!(futures::poll!(virtual_overseer.recv().boxed()), Poll::Pending);
+
+		let advertise_segment_message = v4_collation::CollatorProtocolMessage::AdvertiseSegment {
+			scheduling_parent: Hash::random(),
+			candidates: BoundedVec::<_, ConstU32<{ v4_collation::MAX_SEGMENT_LEN }>>::try_from(
+				vec![v4_collation::SegmentFingerprint {
+					candidate_hash: CandidateHash(Hash::random()),
+					output_head_data_hash: Hash::random(),
+					parent_head_data_hash: Hash::random(),
+					candidate_descriptor_version: CandidateDescriptorVersion::V3,
+					relay_parent: Hash::random(),
+				}],
+			)
+			.unwrap(),
+		};
+
+		let msg =
+			v4_collation::CollationProtocol::CollatorProtocol(advertise_segment_message.clone());
+		network_handle
+			.peer_message(
+				peer,
+				PeerSet::Collation,
+				WireMessage::ProtocolMessage(msg.clone()).encode(),
+			)
+			.await;
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::CollatorProtocol(CollatorProtocolMessage::NetworkBridgeUpdate(
+				NetworkBridgeEvent::PeerMessage(p, CollationProtocols::V4(m))
+			)) => {
+				assert_eq!(p, peer);
+				assert_eq!(m, advertise_segment_message)
+			}
+		);
 
 		virtual_overseer
 	});

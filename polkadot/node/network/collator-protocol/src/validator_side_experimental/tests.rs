@@ -921,6 +921,16 @@ impl TestState {
 								assert_eq!(statement, stmt);
 							}
 						)
+					},
+					CollationVersion::V4 => {
+						assert_matches!(
+							msg,
+							CollationProtocols::V4(protocol_v4::CollationProtocol::CollatorProtocol(
+								protocol_v4::CollatorProtocolMessage::CollationSeconded(_rp, stmt)
+							)) => {
+								assert_eq!(statement, stmt);
+							}
+						)
 					}
 				};
 			}
@@ -3212,6 +3222,72 @@ async fn test_view_update_preserves_relay_parent_state() {
 
 	// Advertisement A should still be there
 	assert_eq!(state.advertisements(), [adv_a].into());
+}
+
+#[tokio::test]
+async fn v4_advertise_segment_len_one_is_accepted() {
+	let mut test_state = TestState::default();
+	test_state
+		.node_features
+		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+	test_state
+		.node_features
+		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+
+	let active_leaf = get_hash(9);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+	let peer_id = PeerId::random();
+
+	test_state.activate_leaf(&mut state, 10).await;
+
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	let relay_parent = get_hash(8);
+	let scheduling_parent = get_hash(9);
+	let (ccr, adv) = dummy_candidate_v3(
+		relay_parent,
+		scheduling_parent,
+		100.into(),
+		peer_id,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+	let candidate = adv.prospective_candidate.unwrap();
+	let candidates = vec![protocol_v4::SegmentFingerprint {
+		candidate_hash: candidate.candidate_hash,
+		output_head_data_hash: ccr.descriptor.para_head(),
+		parent_head_data_hash: candidate.parent_head_data_hash,
+		candidate_descriptor_version: CandidateDescriptorVersion::V3,
+		relay_parent,
+	}]
+	.try_into()
+	.unwrap();
+	futures::join!(
+		process_incoming_peer_message(
+			&mut sender,
+			&mut state,
+			peer_id,
+			CollationProtocols::V4(protocol_v4::CollatorProtocolMessage::AdvertiseSegment {
+				scheduling_parent,
+				candidates
+			})
+		),
+		test_state.assert_can_second_request(adv, true),
+	);
+
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(adv).await;
+
+	test_state
+		.handle_fetched_collation(&mut state, adv, ccr.to_plain(), None, relay_parent)
+		.await;
+	test_state
+		.second_collation(&mut state, peer_id, CollationVersion::V4, ccr, active_leaf)
+		.await;
 }
 
 #[tokio::test]

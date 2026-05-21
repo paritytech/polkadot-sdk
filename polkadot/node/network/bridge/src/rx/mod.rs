@@ -37,8 +37,8 @@ use polkadot_node_network_protocol::{
 		CollationVersion, PeerSet, PeerSetProtocolNames, PerPeerSet, ProtocolVersion,
 		ValidationVersion,
 	},
-	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, v3_collation, ObservedRole, OurView,
-	PeerId, UnifiedReputationChange as Rep, View,
+	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, v3_collation, v4_collation,
+	ObservedRole, OurView, PeerId, UnifiedReputationChange as Rep, View,
 };
 
 use polkadot_node_subsystem::{
@@ -66,7 +66,7 @@ use super::validator_discovery;
 /// Defines the `Network` trait with an implementation for an `Arc<NetworkService>`.
 use crate::network::{
 	send_collation_message_v1, send_collation_message_v2, send_collation_message_v3,
-	send_validation_message_v3, Network,
+	send_collation_message_v4, send_validation_message_v3, Network,
 };
 use crate::{network::get_peer_id_by_authority_id, WireMessage};
 
@@ -528,6 +528,12 @@ async fn handle_collation_message<AD>(
 					metrics,
 					notification_sinks,
 				),
+				CollationVersion::V4 => send_collation_message_v4(
+					vec![peer],
+					WireMessage::<v4_collation::CollationProtocol>::ViewUpdate(local_view),
+					metrics,
+					notification_sinks,
+				),
 			}
 		},
 		NotificationEvent::NotificationStreamClosed { peer } => {
@@ -603,6 +609,8 @@ async fn handle_collation_message<AD>(
 					vec![notification.into()],
 					metrics,
 				)
+			} else if expected_versions[PeerSet::Collation] == Some(CollationVersion::V4.into()) {
+				handle_peer_messages::<v4_collation::CollationProtocol, _>(peer, PeerSet::Collation, &mut shared.0.lock().collation_peers, vec![notification.into()], metrics)
 			} else {
 				gum::warn!(
 					target: LOG_TARGET,
@@ -610,7 +618,7 @@ async fn handle_collation_message<AD>(
 					"Major logic bug. Peer somehow has unsupported collation protocol version."
 				);
 
-				never!("Only versions 1, 2 and 3 are supported; peer set connection checked above; qed");
+				never!("Only versions 1, 2, 3 and 4 are supported; peer set connection checked above; qed");
 
 				// If a peer somehow triggers this, we'll disconnect them
 				// eventually.
@@ -987,6 +995,8 @@ fn update_our_view<Context>(
 
 	let v3_collation_peers = filter_by_peer_version(&collation_peers, CollationVersion::V3.into());
 
+	let v4_collation_peers = filter_by_peer_version(&collation_peers, CollationVersion::V4.into());
+
 	let v3_validation_peers =
 		filter_by_peer_version(&validation_peers, ValidationVersion::V3.into());
 
@@ -1006,6 +1016,13 @@ fn update_our_view<Context>(
 
 	send_collation_message_v3(
 		v3_collation_peers,
+		WireMessage::ViewUpdate(new_view.clone()),
+		metrics,
+		notification_sinks,
+	);
+
+	send_collation_message_v4(
+		v4_collation_peers,
 		WireMessage::ViewUpdate(new_view.clone()),
 		metrics,
 		notification_sinks,

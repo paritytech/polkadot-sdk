@@ -151,8 +151,9 @@ use polkadot_node_network_protocol::{
 		outgoing::{Recipient, RequestError},
 		v1 as request_v1, v2 as request_v2, OutgoingRequest, Requests,
 	},
-	v1 as protocol_v1, v2 as protocol_v2, v3_collation as protocol_v3, CollationProtocols, OurView,
-	PeerId, UnifiedReputationChange as Rep, View,
+	v1 as protocol_v1, v2 as protocol_v2, v3_collation as protocol_v3,
+	v4_collation::{self as protocol_v4},
+	CollationProtocols, OurView, PeerId, UnifiedReputationChange as Rep, View,
 };
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
@@ -927,6 +928,14 @@ pub async fn notify_collation_seconded(
 				),
 			))
 		},
+		CollationVersion::V4 => {
+			CollationProtocols::V4(protocol_v4::CollationProtocol::CollatorProtocol(
+				protocol_v4::CollatorProtocolMessage::CollationSeconded(
+					scheduling_parent,
+					statement,
+				),
+			))
+		},
 	};
 	sender
 		.send_message(NetworkBridgeTxMessage::SendCollationMessage(vec![peer_id], wire_message))
@@ -1057,17 +1066,20 @@ async fn process_incoming_peer_message<Context>(
 		protocol_v1::CollatorProtocolMessage,
 		protocol_v2::CollatorProtocolMessage,
 		protocol_v3::CollatorProtocolMessage,
+		protocol_v4::CollatorProtocolMessage,
 	>,
 ) {
 	use protocol_v1::CollatorProtocolMessage as V1;
 	use protocol_v2::CollatorProtocolMessage as V2;
 	use protocol_v3::CollatorProtocolMessage as V3;
+	use protocol_v4::CollatorProtocolMessage as V4;
 	use sp_runtime::traits::AppVerify;
 
 	match msg {
 		CollationProtocols::V1(V1::Declare(collator_id, para_id, signature)) |
 		CollationProtocols::V2(V2::Declare(collator_id, para_id, signature)) |
-		CollationProtocols::V3(V3::Declare(collator_id, para_id, signature)) => {
+		CollationProtocols::V3(V3::Declare(collator_id, para_id, signature)) |
+		CollationProtocols::V4(V4::Declare(collator_id, para_id, signature)) => {
 			if collator_peer_id(&state.peer_data, &collator_id).is_some() {
 				modify_reputation(
 					&mut state.reputation,
@@ -1252,9 +1264,52 @@ async fn process_incoming_peer_message<Context>(
 				}
 			}
 		},
+		CollationProtocols::V4(V4::AdvertiseSegment { scheduling_parent, candidates }) => {
+			if candidates.is_empty() {
+				gum::warn!(
+					target: LOG_TARGET,
+					?scheduling_parent,
+					?origin,
+					"Received an empty segment advertisement",
+				);
+				return;
+			}
+			let Some(segment_fingerprint) = candidates.last() else {
+				// We should never be here.
+				return;
+			};
+			if let Err(err) = handle_advertisement_v3(
+				ctx.sender(),
+				state,
+				scheduling_parent,
+				origin,
+				segment_fingerprint.candidate_hash,
+				segment_fingerprint.parent_head_data_hash,
+				segment_fingerprint.candidate_descriptor_version,
+				segment_fingerprint.relay_parent,
+			)
+			.await
+			{
+				gum::debug!(
+					target: LOG_TARGET,
+					peer_id = ?origin,
+					?segment_fingerprint.relay_parent,
+					?scheduling_parent,
+					?segment_fingerprint.candidate_hash,
+					?segment_fingerprint.candidate_descriptor_version,
+					error = ?err,
+					"Rejected v3 advertisement",
+				);
+
+				if let Some(rep) = err.reputation_changes() {
+					modify_reputation(&mut state.reputation, ctx.sender(), origin, rep).await;
+				}
+			}
+		},
 		CollationProtocols::V1(V1::CollationSeconded(..)) |
 		CollationProtocols::V2(V2::CollationSeconded(..)) |
-		CollationProtocols::V3(protocol_v3::CollatorProtocolMessage::CollationSeconded(..)) => {
+		CollationProtocols::V3(V3::CollationSeconded(..)) |
+		CollationProtocols::V4(V4::CollationSeconded(..)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				peer_id = ?origin,
@@ -2267,6 +2322,12 @@ async fn process_msg<Context>(
 				"DistributeCollation message is not expected on the validator side of the protocol",
 			);
 		},
+		DistributeSegment { .. } => {
+			gum::warn!(
+				target: LOG_TARGET,
+				"DistributeSegment message is not expected on the validator side of the protocol",
+			);
+		}
 		NetworkBridgeUpdate(event) => {
 			if let Err(e) = handle_network_msg(ctx, state, keystore, event).await {
 				gum::warn!(
@@ -3153,7 +3214,7 @@ pub fn descriptor_version_sanity_check_with_params(
 		CandidateDescriptorVersion::V2 | CandidateDescriptorVersion::V3 => {
 			// V3 descriptors must only arrive via V3 protocol.
 			if descriptor.version() == CandidateDescriptorVersion::V3 &&
-				collator_protocol_version != CollationVersion::V3
+				!matches!(collator_protocol_version, CollationVersion::V3 | CollationVersion::V4)
 			{
 				return Err(SecondingError::InvalidReceiptVersion(CandidateDescriptorVersion::V3));
 			}

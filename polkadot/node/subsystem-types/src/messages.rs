@@ -23,7 +23,9 @@
 //! Subsystems' APIs are defined separately from their implementation, leading to easier mocking.
 
 use futures::channel::oneshot;
+use polkadot_node_network_protocol::v4_collation::MAX_SEGMENT_LEN;
 use sc_network::{Multiaddr, ReputationChange};
+use sp_runtime::{traits::ConstU32, BoundedVec};
 use thiserror::Error;
 
 pub use sc_network::IfDisconnected;
@@ -267,6 +269,23 @@ impl From<PvfExecKind> for RuntimePvfExecKind {
 	}
 }
 
+/// Comment
+#[derive(Debug)]
+pub struct SegmentEntry {
+	/// Comment
+	pub candidate_receipt: CandidateReceipt,
+	/// Comment
+	pub parent_head_data_hash: Hash,
+	/// Comment
+	pub pov: PoV,
+	/// Comment
+	pub parent_head_data: HeadData,
+	/// Comment
+	pub result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
+	/// Comment
+	pub core_index: CoreIndex,
+}
+
 /// Messages received by the Collator Protocol subsystem.
 #[derive(Debug, derive_more::From)]
 pub enum CollatorProtocolMessage {
@@ -293,6 +312,11 @@ pub enum CollatorProtocolMessage {
 		result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 		/// The core index where the candidate should be backed.
 		core_index: CoreIndex,
+	},
+	/// Provide an ordered list of collations to the validators.
+	DistributeSegment {
+		/// Comment
+		candidates: BoundedVec<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>,
 	},
 	/// Get a network bridge update.
 	#[from]
@@ -988,7 +1012,12 @@ pub enum CollationGenerationMessage {
 	/// [`CommittedCandidateReceipt`] and distribute along the network to validators.
 	///
 	/// If sent before `Initialize`, this will be ignored.
+	/// We will delete this later, but keep it for now so
+	/// we don't break the build.
 	SubmitCollation(SubmitCollationParams),
+	/// Submit a list of collations to the subsystem. This will package it into
+	/// [`CommittedCandidateReceipt`] and distribute along the network to validators.
+	SubmitCollations(Vec<SubmitCollationParams>),
 }
 
 /// The result type of [`ApprovalVotingMessage::ImportAssignment`] request.
