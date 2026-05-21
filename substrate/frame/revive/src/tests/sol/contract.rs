@@ -708,6 +708,7 @@ fn instantiate_from_constructor_works() {
 /// elsewhere (e.g. `caller`) and silently lift the restriction.
 #[test]
 fn root_call_cannot_nested_evm_create() {
+	use crate::{AccountInfo, address::create1, tests::System};
 	use pallet_revive_fixtures::HostEvmOnlyFactory::{
 		HostEvmOnlyFactoryCalls, createAndSelfdestructCall,
 	};
@@ -732,12 +733,26 @@ fn root_call_cannot_nested_evm_create() {
 		let signed = builder::bare_call(addr).data(data.clone()).build_and_unwrap_result();
 		assert!(!signed.did_revert(), "Signed nested CREATE should succeed");
 
-		// Root origin: Solidity's `new` reverts when the host rejects the CREATE.
+		// Predict the address the next `new` would land at (nonce snapshot) and assert
+		// the Root call leaves no contract there. This pins the failure to CREATE
+		// rejection itself, not some unrelated downstream revert.
+		let factory_nonce = System::account_nonce(&account_id);
+		let would_be_addr = create1(&addr, factory_nonce.into());
+
 		let root = builder::bare_call(addr)
 			.origin(RuntimeOrigin::root())
 			.data(data)
 			.build_and_unwrap_result();
 		assert!(root.did_revert(), "Root nested EVM CREATE must be rejected");
+		assert!(
+			AccountInfo::<Test>::load_contract(&would_be_addr).is_none(),
+			"no contract should have been created at the would-be CREATE1 address"
+		);
+		assert_eq!(
+			System::account_nonce(&account_id),
+			factory_nonce,
+			"factory nonce must not advance when CREATE is rejected"
+		);
 	});
 }
 
