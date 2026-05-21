@@ -10,19 +10,6 @@ doc:
 
     Does not close #11561.
 
-    ## Integration
-
-    Rename calls before upgrading `frame-support`:
-
-    ```diff
-    - Pallet::<T>::current_storage_version()
-    + Pallet::<T>::in_code_storage_version()
-    ```
-    Review Notes
-
-    - Single-file change: substrate/frame/support/src/traits/metadata.rs
-    - Verified no in-repo references to current_storage_version before removal
-    - Default impl only forwarded to in_code_storage_version
 crates:
 - name: frame-support
   bump: major
