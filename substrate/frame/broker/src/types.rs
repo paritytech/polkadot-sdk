@@ -49,6 +49,12 @@ pub type MarketConfigOf<T> = <<T as Config>::CoretimeMarket as Market<
 	AccountIdFor<T>,
 >>::Configuration;
 
+pub type MarketWeightsOf<T> = <<T as Config>::CoretimeMarket as Market<
+	RelayBlockNumberOf<T>,
+	BalanceOf<T>,
+	AccountIdFor<T>,
+>>::Weights;
+
 /// Relay-chain block number with a fixed divisor of Config::TimeslicePeriod.
 pub type Timeslice = u32;
 /// Counter for the total number of set bits over every core's `CoreMask`. `u32` so we don't

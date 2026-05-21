@@ -628,6 +628,7 @@ pub mod pallet {
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `config`: The configuration for this pallet.
 		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::configure() + MarketWeightsOf::<T>::configure())]
 		pub fn configure(
 			origin: OriginFor<T>,
 			config: ConfigRecordOf<T>,
@@ -698,7 +699,7 @@ pub mod pallet {
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::start_sales(
 			T::MaxLeasedCores::get() + T::MaxReservedCores::get() + *extra_cores as u32
-		))]
+		) + MarketWeightsOf::<T>::start_sales())]
 		pub fn start_sales(
 			origin: OriginFor<T>,
 			init_data: MarketInitDataOf<T>,
@@ -715,6 +716,7 @@ pub mod pallet {
 		///   of Bulk Coretime.
 		/// - `price_limit`: An amount no more than which should be paid.
 		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::purchase() + MarketWeightsOf::<T>::place_order())]
 		pub fn purchase(
 			origin: OriginFor<T>,
 			price_limit: BalanceOf<T>,
@@ -730,6 +732,7 @@ pub mod pallet {
 		///   of the core.
 		/// - `core`: The core which should be renewed.
 		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::renew() + MarketWeightsOf::<T>::place_renewal_order() + MarketWeightsOf::<T>::get_sale_info())]
 		pub fn renew(origin: OriginFor<T>, core: CoreIndex) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			Self::do_renew(who, core)?;
@@ -957,7 +960,7 @@ pub mod pallet {
 		///   expiring in the upcoming bulk period (e.g., due to holding a lease) since it would be
 		///   inefficient to look up when the core expires to schedule the next renewal.
 		#[pallet::call_index(21)]
-		#[pallet::weight(T::WeightInfo::enable_auto_renew())]
+		#[pallet::weight(T::WeightInfo::enable_auto_renew() + MarketWeightsOf::<T>::get_sale_info())]
 		pub fn enable_auto_renew(
 			origin: OriginFor<T>,
 			core: CoreIndex,
@@ -1014,6 +1017,7 @@ pub mod pallet {
 		/// two sale periods. This overwrites any existing assignments for this core at the start of
 		/// the next sale period.
 		#[pallet::call_index(23)]
+		#[pallet::weight(T::WeightInfo::force_reserve() + MarketWeightsOf::<T>::get_sale_info())]
 		pub fn force_reserve(
 			origin: OriginFor<T>,
 			workload: Schedule,

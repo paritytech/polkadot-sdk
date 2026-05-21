@@ -40,7 +40,7 @@ use sp_arithmetic::Perbill;
 use sp_core::{ConstU32, ConstU64, Get};
 use sp_runtime::{
 	traits::{BlockNumberProvider, Identity, MaybeConvert},
-	BuildStorage, DispatchError, Saturating,
+	BuildStorage, DispatchError, Saturating, Weight,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -243,6 +243,7 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 	type Configuration = ();
 	type CoreRangeProvider = CoreRangeProviderImpl<Test>;
 	type TimesliceProvider = TimesliceProviderImpl<Test>;
+	type Weights = MockWeights;
 
 	fn configure(_configuration: Self::Configuration) -> Result<(), Self::Error> {
 		Ok(())
@@ -377,6 +378,34 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 
 	fn get_sale_info() -> Result<MarketSaleInfo<RelayBlockNumberOf<Test>>, Self::Error> {
 		MarketSaleInfoStorage::<Test>::get().ok_or(Error::<Test>::Uninitialized.into())
+	}
+}
+
+pub struct MockWeights {}
+
+impl MarketWeights for MockWeights {
+	fn configure() -> Weight {
+		Weight::zero()
+	}
+
+	fn start_sales() -> Weight {
+		Weight::zero()
+	}
+
+	fn place_order() -> Weight {
+		Weight::zero()
+	}
+
+	fn place_renewal_order() -> Weight {
+		Weight::zero()
+	}
+
+	fn adjust_bid() -> Weight {
+		Weight::zero()
+	}
+
+	fn get_sale_info() -> Weight {
+		Weight::zero()
 	}
 }
 
