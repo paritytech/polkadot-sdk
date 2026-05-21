@@ -4269,7 +4269,12 @@ async fn short_claim_queue_does_not_reject_ancestor_advertisements() {
 	let core = test_state.rp_info[&active_leaf].assigned_core;
 
 	// Shorten leaf-10's CQ for our core to a single para-100 position.
-	test_state.rp_info.get_mut(&active_leaf).unwrap().claim_queue.insert(core, vec![100.into()]);
+	test_state
+		.rp_info
+		.get_mut(&active_leaf)
+		.unwrap()
+		.claim_queue
+		.insert(core, vec![100.into()]);
 
 	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
 	let mut sender = test_state.sender.clone();
