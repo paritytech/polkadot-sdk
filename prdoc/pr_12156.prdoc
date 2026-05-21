@@ -8,18 +8,6 @@ doc:
 
     Migrates all in-repo callers to `clear_storage_prefix(..., None, None)` (equivalent behavior). No external usage remains.
 
-    Does not close #11561.
-
-    ## Integration
-
-    ```diff
-    - remove_storage_prefix(module, item, hash);
-    + let _ = clear_storage_prefix(module, item, hash, None, None);
-    ```
-    Review Notes
-
-    - 5 files: remove API in frame-support, update migrations in scheduler, parachain-system, purchase, yet-another-parachain test runtime
-    - cargo check passed locally for frame-support, pallet-scheduler, cumulus-pallet-parachain-system, polkadot-runtime-common
 crates:
 - name: cumulus-pallet-parachain-system
   bump: major
