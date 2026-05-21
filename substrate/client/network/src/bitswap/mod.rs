@@ -46,6 +46,14 @@ mod client;
 pub(crate) mod schema;
 
 pub use cid::Cid;
+
+/// Test helpers re-exporting the internal bitswap protobuf schema and the CID prefix
+/// constructor for use by downstream test crates.
+#[cfg(any(test, feature = "test-helpers"))]
+pub mod test_helpers {
+	pub use super::{schema::bitswap as schema, Prefix};
+}
+
 pub use client::{
 	request_bitswap_blocks, request_bitswap_blocks_unverified, BitswapError, FetchOutcome,
 	BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, SHA2_256_MULTIHASH_CODE,
@@ -84,8 +92,23 @@ pub(crate) fn is_supported_multihash_code(code: u64) -> bool {
 }
 
 /// CID metadata without the actual content bytes.
+#[cfg(not(any(test, feature = "test-helpers")))]
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub(crate) struct Prefix {
+	/// The version of CID.
+	pub version: CidVersion,
+	/// The codec of CID.
+	pub codec: u64,
+	/// The multihash type of CID.
+	pub mh_type: u64,
+	/// The multihash length of CID.
+	pub mh_len: u8,
+}
+
+/// CID prefix builder, re-exported for downstream test crates under `test-helpers`.
+#[cfg(any(test, feature = "test-helpers"))]
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct Prefix {
 	/// The version of CID.
 	pub version: CidVersion,
 	/// The codec of CID.
@@ -109,7 +132,18 @@ impl From<&Cid> for Prefix {
 
 impl Prefix {
 	/// Convert the prefix to encoded bytes.
+	#[cfg(not(any(test, feature = "test-helpers")))]
 	pub(crate) fn to_bytes(&self) -> Vec<u8> {
+		self.to_bytes_inner()
+	}
+
+	/// Convert the prefix to encoded bytes.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn to_bytes(&self) -> Vec<u8> {
+		self.to_bytes_inner()
+	}
+
+	fn to_bytes_inner(&self) -> Vec<u8> {
 		let mut res = Vec::with_capacity(4);
 		let mut buf = varint_encode::u64_buffer();
 		let version = varint_encode::u64(self.version.into(), &mut buf);

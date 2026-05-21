@@ -18,6 +18,13 @@
 
 //! Include sources generated from protobuf definitions.
 
+#[cfg(not(any(test, feature = "test-helpers")))]
 pub(crate) mod bitswap {
+	include!(concat!(env!("OUT_DIR"), "/bitswap.message.rs"));
+}
+
+#[cfg(any(test, feature = "test-helpers"))]
+#[allow(missing_docs)]
+pub mod bitswap {
 	include!(concat!(env!("OUT_DIR"), "/bitswap.message.rs"));
 }
