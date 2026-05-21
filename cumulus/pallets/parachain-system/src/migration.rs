@@ -89,7 +89,8 @@ mod v1 {
 	use frame_support::{migration::clear_storage_prefix, pallet_prelude::*};
 
 	pub fn migrate<T: Config>() -> Weight {
-		let _ = clear_storage_prefix(<Pallet<T>>::name().as_bytes(), b"LastUpgrade", b"", None, None);
+		let _ =
+			clear_storage_prefix(<Pallet<T>>::name().as_bytes(), b"LastUpgrade", b"", None, None);
 		T::DbWeight::get().writes(1)
 	}
 }
