@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::LOG_TARGET;
+use alloc::vec::Vec;
 use frame_support::{
 	traits::{Get, StorageVersion},
 	weights::Weight,

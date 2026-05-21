@@ -18,6 +18,7 @@
 //! Migrations to version `4.0.0`, as denoted by the changelog.
 
 use super::super::LOG_TARGET;
+use alloc::vec::Vec;
 use frame_support::{
 	traits::{Get, StorageVersion},
 	weights::Weight,

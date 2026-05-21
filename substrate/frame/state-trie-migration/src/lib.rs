@@ -1149,7 +1149,7 @@ mod benchmarks {
 			{
 				let data = sp_io::storage::get(KEY).unwrap();
 				sp_io::storage::set(KEY, &data);
-				let mut next = Vec::new();
+				let mut next = alloc::vec::Vec::new();
 				sp_io::storage::next_key(KEY, &mut next);
 				assert_eq!(data, value);
 			}
