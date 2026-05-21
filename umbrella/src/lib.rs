@@ -1263,6 +1263,10 @@ pub use sc_transaction_pool_api;
 #[cfg(feature = "sc-utils")]
 pub use sc_utils;
 
+/// Host-side PolkaVM backend driving the sp-virtualization host functions.
+#[cfg(feature = "sc-virtualization")]
+pub use sc_virtualization;
+
 /// Helper crate for generating slot ranges for the Polkadot runtime.
 #[cfg(feature = "slot-range-helper")]
 pub use slot_range_helper;
