@@ -24,33 +24,33 @@ clap = { features = ["derive"], optional = true, workspace = true }
 frame-benchmarking-cli = { optional = true, workspace = true, default-features = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
-polkadot-node-metrics.workspace = true
 polkadot-node-metrics.default-features = true
-polkadot-node-primitives.workspace = true
+polkadot-node-metrics.workspace = true
 polkadot-node-primitives.default-features = true
+polkadot-node-primitives.workspace = true
 polkadot-service = { optional = true, workspace = true }
 pyroscope = { optional = true, workspace = true }
 pyroscope_pprofrs = { optional = true, workspace = true }
 sc-cli = { optional = true, workspace = true, default-features = true }
-sc-network-types.workspace = true
 sc-network-types.default-features = true
+sc-network-types.workspace = true
 sc-service = { optional = true, workspace = true, default-features = true }
-sc-storage-monitor.workspace = true
 sc-storage-monitor.default-features = true
-sc-sysinfo.workspace = true
+sc-storage-monitor.workspace = true
 sc-sysinfo.default-features = true
+sc-sysinfo.workspace = true
 sc-tracing = { optional = true, workspace = true, default-features = true }
-sp-core.workspace = true
 sp-core.default-features = true
-sp-keyring.workspace = true
+sp-core.workspace = true
 sp-keyring.default-features = true
-sp-runtime.workspace = true
+sp-keyring.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true
 thiserror = { workspace = true }
 
 [build-dependencies]
-substrate-build-script-utils.workspace = true
 substrate-build-script-utils.default-features = true
+substrate-build-script-utils.workspace = true
 
 [features]
 default = ["cli", "db", "full-node"]

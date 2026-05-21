@@ -26,10 +26,10 @@ sp-std.workspace = true
 tracing = { workspace = true }
 
 [dev-dependencies]
-bp-header-chain = { default-features = true, path = "../../primitives/header-chain" }
-bp-test-utils = { default-features = true, path = "../../primitives/test-utils" }
-sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
-sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
+bp-header-chain = { default-features = true, workspace = true }
+bp-test-utils = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]
