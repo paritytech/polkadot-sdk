@@ -1,7 +1,7 @@
 //! Oracle trait surface.
 //!
 //! The pUSD vault pallet treats price/freshness validation as the oracle
-//! pallet's responsibility (`troves.md` §3 and §10.1). The trait shape mirrors
+//! pallet's responsibility. The trait shape mirrors
 //! that: a single `provide_price` accessor that returns a normalised price and
 //! the timestamp it was observed at, or fails with a `DispatchError` when the
 //! price is stale or unavailable.

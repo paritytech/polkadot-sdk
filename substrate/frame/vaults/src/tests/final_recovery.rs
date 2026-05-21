@@ -88,6 +88,34 @@ fn final_recovery_middle_exit_splices_queue() {
 }
 
 #[test]
+fn exit_final_recovery_to_dormant_when_debt_below_minimum() {
+	build_and_execute(|| {
+		register_default_branch();
+		enter_recovery(1, rate_pct(5, 100));
+		enter_recovery(2, rate_pct(5, 100));
+		// Restore price so CR sits comfortably above MCR after partial redemption.
+		set_price(DOT, FixedU128::from_rational(10u128, 1u128));
+		// Redeem most of vault 1's debt — pulls it below MinimumDebt (200) but
+		// leaves a non-zero residual, so it stays in the FR FIFO.
+		direct_redeem(1, 99, 350);
+		let v = crate::pallet::Vaults::<Test>::get(DOT, 1).expect("vault stored");
+		assert!(v.debt.total() > 0);
+		assert!(v.debt.total() < 200);
+		assert_ok!(crate::Pallet::<Test>::exit_final_recovery(
+			RuntimeOrigin::signed(99),
+			1,
+			DOT,
+			Position::endpoints_only(),
+		));
+		// Vault is no longer in FR FIFO and not in the rate index — it's Dormant.
+		assert!(vault_status(DOT, 1).is_dormant());
+		assert_eq!(crate::Pallet::<Test>::final_recovery_queue_head(DOT, 10), alloc::vec![2]);
+		let bs = crate::pallet::BranchStates::<Test>::get(DOT).expect("bs");
+		assert_eq!(bs.last_dormant_vault_owner, Some(1));
+	});
+}
+
+#[test]
 fn redemption_queue_composes_recovery_dormant_and_rate_index() {
 	build_and_execute(|| {
 		register_default_branch();

@@ -1,9 +1,3 @@
-//! Port of liquity_v2/contracts/test/DebtInFrontHelper.t.sol (lines 21012-21113).
-//!
-//! `view_debt_in_front(rate)` must return the total `interest_bearing_debt`
-//! of every vault in the rate index whose score is strictly less than `rate`.
-//! Used by frontends to pre-size redemption attempts.
-
 use crate::{mock::*, tests::rate_pct};
 use frame::deps::frame_support::assert_ok;
 

@@ -16,6 +16,8 @@ pub trait WeightInfo {
 	fn register_branch() -> Weight;
 	fn set_param() -> Weight;
 	fn enable_frozen_mode() -> Weight;
+	fn refresh_branch() -> Weight;
+	fn clear_governance_frozen_mode() -> Weight;
 	fn on_idle_one_vault() -> Weight;
 }
 
@@ -57,6 +59,12 @@ impl WeightInfo for () {
 		Weight::zero()
 	}
 	fn enable_frozen_mode() -> Weight {
+		Weight::zero()
+	}
+	fn refresh_branch() -> Weight {
+		Weight::zero()
+	}
+	fn clear_governance_frozen_mode() -> Weight {
 		Weight::zero()
 	}
 	fn on_idle_one_vault() -> Weight {

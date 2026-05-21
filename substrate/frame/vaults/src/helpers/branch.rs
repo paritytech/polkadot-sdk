@@ -66,11 +66,9 @@ pub fn register_branch<T: Config>(
 				weighted_sum: BalanceOf::<T>::zero(),
 			},
 			redist: RedistSnapshot::default(),
-			queues: BranchQueues {
-				next_final_recovery_nonce: 0,
-				last_dormant_vault_owner: None,
-				idle_cursor: None,
-			},
+			next_final_recovery_nonce: 0,
+			last_dormant_vault_owner: None,
+			idle_cursor: None,
 			frozen: None,
 		},
 	);
@@ -130,6 +128,79 @@ pub(crate) fn ensure_not_frozen<T: Config>(
 	let bs = branch_state_of::<T>(collateral_id)?;
 	ensure!(!bs.is_frozen(), Error::<T>::BranchFrozen);
 	Ok(())
+}
+
+/// Reconcile the branch's `Frozen { OracleFailure }` state with the live
+/// oracle (DESIGN.md §8.4 / §10.1). Permissionless. Behaviour:
+///
+/// - oracle healthy + branch frozen for `OracleFailure` → clear `frozen` and
+///   advance `last_interest_update` to suspend accrual across the Frozen
+///   window.
+/// - oracle failing + branch not frozen → persist `Frozen { OracleFailure }`.
+/// - branch frozen for `Governance` → no-op (use `clear_governance_frozen_mode`).
+/// - all other combinations → no-op `Ok`.
+#[require_transactional]
+pub fn refresh_branch<T: Config>(collateral_id: &T::AssetId) -> Result<(), DispatchError> {
+	let bs = branch_state_of::<T>(collateral_id)?;
+	let oracle_ok = T::Oracle::provide_price(collateral_id).is_ok();
+	match (bs.frozen, oracle_ok) {
+		(Some(state), true) if matches!(state.reason, FrozenReason::OracleFailure) =>
+			clear_frozen::<T>(collateral_id, BranchMode::Frozen, BranchMode::Normal),
+		(None, false) => freeze_oracle::<T>(collateral_id),
+		_ => Ok(()),
+	}
+}
+
+fn freeze_oracle<T: Config>(collateral_id: &T::AssetId) -> Result<(), DispatchError> {
+	BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
+		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
+		bs.frozen = Some(FrozenState {
+			reason: FrozenReason::OracleFailure,
+			entered_at: T::TimeProvider::now(),
+		});
+		Pallet::<T>::deposit_event(Event::ModeChanged {
+			collateral_id: collateral_id.clone(),
+			old_mode: BranchMode::Normal,
+			new_mode: BranchMode::Frozen,
+		});
+		Ok(())
+	})
+}
+
+fn clear_frozen<T: Config>(
+	collateral_id: &T::AssetId,
+	old_mode: BranchMode,
+	new_mode: BranchMode,
+) -> Result<(), DispatchError> {
+	let now = T::TimeProvider::now();
+	BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {
+		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
+		bs.frozen = None;
+		// Suspend interest accrual across the Frozen window (DESIGN.md §8.4):
+		// restart the clock at `now` so the next aggregate-interest update
+		// only charges from the unfreeze moment forward.
+		bs.debt.last_interest_update = now;
+		Pallet::<T>::deposit_event(Event::ModeChanged {
+			collateral_id: collateral_id.clone(),
+			old_mode,
+			new_mode,
+		});
+		Ok(())
+	})
+}
+
+/// Clear a governance-induced Frozen state. No-op when not frozen, or when
+/// frozen for a non-governance reason.
+#[require_transactional]
+pub fn clear_governance_frozen_mode<T: Config>(
+	collateral_id: &T::AssetId,
+) -> Result<(), DispatchError> {
+	let bs = branch_state_of::<T>(collateral_id)?;
+	match bs.frozen {
+		Some(state) if matches!(state.reason, FrozenReason::Governance) =>
+			clear_frozen::<T>(collateral_id, BranchMode::Frozen, BranchMode::Normal),
+		_ => Ok(()),
+	}
 }
 
 /// Apply Normal/Safety mode-aware TCR rules.

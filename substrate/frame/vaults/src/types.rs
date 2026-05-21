@@ -1,6 +1,4 @@
 //! Storage and value types for `pallet-vaults`.
-//!
-//! See `troves.md` §5 for the canonical reference.
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame::deps::sp_runtime::{traits::Saturating, FixedPointNumber, FixedPointOperand, FixedU128};
@@ -208,16 +206,6 @@ pub struct BranchStakes<Balance> {
 	pub weighted_sum: Balance,
 }
 
-/// Queue/cursor state used to derive non-debt vault status.
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
-)]
-pub struct BranchQueues<AccountId> {
-	pub next_final_recovery_nonce: u128,
-	pub last_dormant_vault_owner: Option<AccountId>,
-	pub idle_cursor: Option<AccountId>,
-}
-
 /// Per-branch accounting state.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
@@ -227,7 +215,9 @@ pub struct BranchState<AccountId, Balance, Moment> {
 	pub debt: BranchDebt<Balance, Moment>,
 	pub stakes: BranchStakes<Balance>,
 	pub redist: RedistSnapshot,
-	pub queues: BranchQueues<AccountId>,
+	pub next_final_recovery_nonce: u128,
+	pub last_dormant_vault_owner: Option<AccountId>,
+	pub idle_cursor: Option<AccountId>,
 	pub frozen: Option<FrozenState<Moment>>,
 }
 

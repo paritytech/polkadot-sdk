@@ -31,9 +31,9 @@ mod tests;
 pub use pallet::*;
 pub use pusd_primitives;
 pub use types::{
-	BranchConfig, BranchConfigUpdate, BranchDebt, BranchMode, BranchQueues, BranchStakes,
-	BranchState, DebtPayment, FrozenReason, FrozenState, ParameterId, RedistSnapshot, Vault,
-	VaultDebt, VaultListId, VaultStatus, VaultsManagerLevel,
+	BranchConfig, BranchConfigUpdate, BranchDebt, BranchMode, BranchStakes, BranchState,
+	DebtPayment, FrozenReason, FrozenState, ParameterId, RedistSnapshot, Vault, VaultDebt,
+	VaultListId, VaultStatus, VaultsManagerLevel,
 };
 pub use weights::WeightInfo;
 
@@ -886,6 +886,33 @@ pub mod pallet {
 		) -> DispatchResult {
 			let _level = T::ManagerOrigin::ensure_origin(origin)?;
 			helpers::enable_frozen_mode::<T>(&collateral_id)
+		}
+
+		/// Permissionless: clear an oracle-induced `Frozen` state once the
+		/// oracle is healthy again. No-op when the
+		/// branch is not frozen or is frozen for a non-oracle reason.
+		#[pallet::call_index(24)]
+		#[pallet::weight(T::WeightInfo::refresh_branch())]
+		pub fn refresh_branch(
+			origin: OriginFor<T>,
+			collateral_id: T::AssetId,
+		) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
+			helpers::refresh_branch::<T>(&collateral_id)
+		}
+
+		/// Governance-only: clear a governance-induced `Frozen` state. No-op
+		/// when the branch is not frozen or is frozen for a non-governance
+		/// reason. Oracle-induced freezes must be cleared with `refresh_branch`.
+		#[pallet::call_index(25)]
+		#[pallet::weight(T::WeightInfo::clear_governance_frozen_mode())]
+		pub fn clear_governance_frozen_mode(
+			origin: OriginFor<T>,
+			collateral_id: T::AssetId,
+		) -> DispatchResult {
+			let level = T::ManagerOrigin::ensure_origin(origin)?;
+			ensure!(matches!(level, VaultsManagerLevel::Full), Error::<T>::InsufficientPrivilege);
+			helpers::clear_governance_frozen_mode::<T>(&collateral_id)
 		}
 	}
 

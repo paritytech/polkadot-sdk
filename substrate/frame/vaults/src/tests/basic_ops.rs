@@ -1,20 +1,10 @@
-//! Port of liquity_v2/contracts/test/basicOps.t.sol (lines 18972-19188).
-//!
-//! Smoke tests for the vault open/close/adjust path. Per `tests.md` "Pallet
-//! ownership", `pallet-vaults` owns rows 1-5; rows 6-9 (`testRedeem`,
-//! `testLiquidation`, `testSPDeposit`, `testSPWithdrawal`) belong to
-//! `pallet-redemptions` and `pallet-stability-pool` and are out of scope here.
-
 use crate::{
 	mock::*,
 	pallet::Vaults,
 	tests::{rate_pct, vault_status},
 };
 use frame::deps::frame_support::assert_ok;
-
-// SKIPPED: row 1 `testOpenTroveFailsWithoutAllowance` — polkadot does not
-// have an ERC-20 allowance model; collateral is moved by a signed origin
-// authorising itself, so there is nothing to check.
+use pallet_linked_list::SortedListInterface;
 
 // tests.md row 2: testOpenTroveFailsWithoutBalance.
 //
@@ -65,7 +55,6 @@ fn close_trove() {
 			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
 		);
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(2), 2, DOT, total));
-		assert_ok!(crate::Pallet::<Test>::close_vault(RuntimeOrigin::signed(2), DOT, None));
 		assert_eq!(Vaults::<Test>::iter_prefix(DOT).count(), 1);
 	});
 }
@@ -106,4 +95,65 @@ fn adjust_trove_via_deposit_then_borrow() {
 	});
 }
 
-// (rows 6-9 owned by pallet-redemptions / pallet-stability-pool)
+// A `repay_for` that brings debt to zero closes the vault in
+// the same op — removes it from the rate index, releases held collateral to
+// the owner, deletes the Vaults row, and emits VaultClosed.
+#[test]
+fn repay_for_to_zero_closes_active_vault() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(5, 100)));
+		let v = Vaults::<Test>::get(DOT, 1).expect("vault stored");
+		let total = v.debt.principal + v.debt.interest;
+		let _ = <Pusd as frame::deps::frame_support::traits::fungible::Mutate<u64>>::transfer(
+			&2,
+			&1,
+			v.debt.interest,
+			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
+		);
+		let coll_before = collateral_balance(DOT, 1);
+		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(1), 1, DOT, total));
+		assert!(Vaults::<Test>::get(DOT, 1).is_none(), "vault row removed");
+		assert_eq!(held(DOT, 1), 0, "held collateral released");
+		assert_eq!(collateral_balance(DOT, 1), coll_before + 1_000, "owner received the collateral");
+		assert!(
+			!<LinkedList as SortedListInterface<VaultList, u64>>::contains(&rate_list(DOT), &1),
+			"vault removed from rate index"
+		);
+		System::assert_has_event(crate::mock::RuntimeEvent::Vaults(crate::Event::VaultClosed {
+			collateral_id: DOT,
+			owner: 1,
+			recipient: 1,
+		}));
+	});
+}
+
+// A redemption-driven dormant
+// residual that is repaid to zero auto-closes (and clears any matching
+// `last_dormant_vault_owner` pointer).
+#[test]
+fn repay_for_to_zero_closes_dormant_vault() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(1, 100)));
+		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(2, 100)));
+		// Push acct 1 to Dormant with a small residual debt.
+		assert_ok!(redeem(DOT, 3, 350));
+		assert!(vault_status(DOT, 1).is_dormant());
+		let v = Vaults::<Test>::get(DOT, 1).expect("dormant vault stored");
+		let total = v.debt.principal + v.debt.interest;
+		assert!(total > 0);
+		let _ = <Pusd as frame::deps::frame_support::traits::fungible::Mutate<u64>>::transfer(
+			&2,
+			&1,
+			total.saturating_sub(pusd_balance(1)),
+			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
+		);
+		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(1), 1, DOT, total));
+		assert!(Vaults::<Test>::get(DOT, 1).is_none());
+		assert_eq!(held(DOT, 1), 0);
+		let bs = crate::pallet::BranchStates::<Test>::get(DOT).expect("bs");
+		assert_eq!(bs.last_dormant_vault_owner, None);
+	});
+}

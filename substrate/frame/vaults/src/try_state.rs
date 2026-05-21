@@ -1,4 +1,4 @@
-//! `try_state` invariant verification (`troves.md` §9).
+//! `try_state` invariant verification.
 //!
 //! Gated on `feature = "try-runtime"`. Run after every test by the mock's
 //! `next_block` and end-to-end by the runtime's pre-upgrade hook.
@@ -29,7 +29,7 @@ pub fn do_try_state<T: Config>() -> Result<(), TryRuntimeError> {
 		// Mirrors `pallet-assets`'s "Σ per-account balances == supply" check:
 		// `last_dormant_vault_owner` must point at a Dormant vault.
 		if let Some(bs) = BranchStates::<T>::get(c) {
-			if let Some(owner) = bs.queues.last_dormant_vault_owner.clone() {
+			if let Some(owner) = bs.last_dormant_vault_owner.clone() {
 				let Some(vault) = Vaults::<T>::get(c, &owner) else {
 					return Err("last_dormant_vault_owner points at missing vault".into());
 				};

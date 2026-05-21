@@ -1,8 +1,7 @@
 //! Branch-mode types and a read-only mode hook.
 //!
 //! The mode itself is mostly derived inside `pallet-vaults` from the live TCR;
-//! only the `Frozen` variant is persisted (see `troves.md` §5.2 / §8.3). The
-//! types are exposed here so other pUSD pallets can read mode without
+//! only the `Frozen` variant is persisted. The types are exposed here so other pUSD pallets can read mode without
 //! depending on `pallet-vaults`.
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};

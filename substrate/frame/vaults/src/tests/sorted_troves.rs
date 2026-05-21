@@ -1,15 +1,3 @@
-//! Port of liquity_v2/contracts/test/SortedTroves.t.sol (lines 29901-30503).
-//!
-//! Liquity ships these as fuzz tests over a custom rate-ordered DLL. In the
-//! polkadot port the DLL itself lives in `pallet-linked-list` (which carries
-//! its own test suite); these tests pin the *integration* between
-//! `pallet-vaults` and the rate index — i.e., that user-facing ops insert
-//! and remove items at the correct position.
-//!
-//! Liquity rows 2 and 5 (batched-trove ordering / contiguity) are out of
-//! scope: the polkadot port has no batch managers in v1. The other four
-//! rows (1, 3, 4, 6) are exercised here.
-
 use crate::{mock::*, tests::rate_pct};
 use frame::deps::frame_support::assert_ok;
 use pallet_linked_list::SortedListInterface;
@@ -82,8 +70,9 @@ fn close_vault_removes_from_rate_index() {
 			v.debt.interest,
 			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
 		);
+		// repay-to-zero auto-closes (DESIGN.md §8.1), which also removes
+		// the vault from the rate index.
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(3), 3, DOT, total));
-		assert_ok!(crate::Pallet::<Test>::close_vault(RuntimeOrigin::signed(3), DOT, None));
 		assert!(!<LinkedList as SortedListInterface<VaultList, u64>>::contains(
 			&rate_list(DOT),
 			&3

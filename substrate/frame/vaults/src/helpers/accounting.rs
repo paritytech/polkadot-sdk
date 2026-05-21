@@ -104,6 +104,75 @@ pub(super) fn mint_and_route_yield<T: Config>(
 	T::FeeHandler::on_unbalanced(residual);
 }
 
+/// Pending touch values for a vault: the deltas the next `touch_vault` would
+/// apply. Used by `touch_vault` for the write path and by view helpers to
+/// project the post-touch state without mutating storage.
+pub(crate) struct PendingTouch<Balance> {
+	/// Capped redistributed principal moved into `vault.debt.principal`
+	/// (and out of `bs.debt.pending_redist_principal`).
+	pub principal: Balance,
+	/// Redistributed collateral released to the owner's hold.
+	pub collateral: Balance,
+	/// Stored-principal pending interest plus redistribution interest, both
+	/// folded into `vault.debt.interest`.
+	pub interest: Balance,
+}
+
+/// Compute the pending touch deltas for `vault` against `bs` at time `now`.
+/// Mirrors `touch_vault`'s on-write math but without storage mutation, so view
+/// helpers can return the same post-touch numbers the runtime would compute on
+/// the next write.
+pub(crate) fn pending_touch_for<T: Config>(
+	vault: &Vault<BalanceOf<T>, MomentOf<T>>,
+	bs: &BranchState<T::AccountId, BalanceOf<T>, MomentOf<T>>,
+	now: MomentOf<T>,
+) -> PendingTouch<BalanceOf<T>> {
+	let elapsed = millis_diff::<T>(now, vault.last_interest_update);
+	let principal_interest =
+		math::simple_interest_floor(vault.debt.principal, vault.annual_rate, elapsed);
+
+	let redist = bs.redist;
+	let snap = vault.redist_snapshot;
+	if snap == redist {
+		return PendingTouch {
+			principal: BalanceOf::<T>::zero(),
+			collateral: BalanceOf::<T>::zero(),
+			interest: principal_interest,
+		};
+	}
+
+	let delta_debt_per_stake = redist.debt_per_stake.saturating_sub(snap.debt_per_stake);
+	let delta_collat_per_stake = redist.collat_per_stake.saturating_sub(snap.collat_per_stake);
+	let delta_dt_per_stake = redist.debt_time_per_stake.saturating_sub(snap.debt_time_per_stake);
+	// Floor for vault attribution. `saturating_mul_int(stake)` computes
+	// `floor(per_stake_fixed * stake)` directly into `Balance`. Cap the
+	// principal to what the branch counter still holds; rounding dust stays
+	// in branch aggregates.
+	let raw_principal = delta_debt_per_stake.saturating_mul_int(vault.redistribution_stake);
+	let principal = core::cmp::min(raw_principal, bs.debt.pending_redist_principal);
+	let collateral = delta_collat_per_stake.saturating_mul_int(vault.redistribution_stake);
+	// `(now - last_redist) * delta_debt_per_stake - delta_debt_time_per_stake`
+	// is the area-under-the-curve giving redistributed-debt × time-since
+	// per stake. Multiply by `rate / year` for the interest accrued on the
+	// redistributed principal since redistribution.
+	let now_fp = FixedU128::saturating_from_integer(moment_to_millis::<T>(now));
+	let extra_per_stake =
+		now_fp.saturating_mul(delta_debt_per_stake).saturating_sub(delta_dt_per_stake);
+	let rate_factor = vault
+		.annual_rate
+		.checked_div(&FixedU128::saturating_from_integer(pusd_primitives::MILLIS_PER_YEAR))
+		.defensive_unwrap_or_else(FixedU128::zero);
+	let redist_interest = extra_per_stake
+		.saturating_mul(rate_factor)
+		.saturating_mul_int(vault.redistribution_stake);
+
+	PendingTouch {
+		principal,
+		collateral,
+		interest: principal_interest.saturating_add(redist_interest),
+	}
+}
+
 /// Touch a vault: bring it forward to `now` (apply pending stored interest,
 /// pending redistribution principal/collateral/interest, and re-stamp
 /// snapshots). Returns the post-touch vault (or `None` if the row was
@@ -121,92 +190,51 @@ pub fn touch_vault<T: Config>(
 		None => return Ok(None),
 	};
 	let mut bs = branch_state_of::<T>(collateral_id)?;
+	let pending = pending_touch_for::<T>(&vault, &bs, now);
 
-	// 1. Stored-principal pending interest.
-	let elapsed = millis_diff::<T>(now, vault.last_interest_update);
-	let principal_interest =
-		math::simple_interest_floor(vault.debt.principal, vault.annual_rate, elapsed);
-
-	// 2. Pending redistribution principal/collateral/interest if epoch lags.
-	let mut redist_debt_principal = BalanceOf::<T>::zero();
-	let mut redist_collat = BalanceOf::<T>::zero();
-	let mut redist_interest = BalanceOf::<T>::zero();
-	let redist = bs.redist;
-	let snap = vault.redist_snapshot;
-	if snap != redist {
-		let delta_debt_per_stake = redist.debt_per_stake.saturating_sub(snap.debt_per_stake);
-		let delta_collat_per_stake = redist.collat_per_stake.saturating_sub(snap.collat_per_stake);
-		let delta_dt_per_stake =
-			redist.debt_time_per_stake.saturating_sub(snap.debt_time_per_stake);
-		// Floor everything for vault attribution. `saturating_mul_int(stake)`
-		// computes `floor(per_stake_fixed * stake)` directly into Balance.
-		redist_debt_principal = delta_debt_per_stake.saturating_mul_int(vault.redistribution_stake);
-		redist_collat = delta_collat_per_stake.saturating_mul_int(vault.redistribution_stake);
-		// Interest accrued on redistributed debt from the time it was
-		// liquidated up to `now`. Approximated by:
-		// `delta_debt_per_stake * stake * annual_rate * (now - last_redist) / year`.
-		// Since we only track cumulative debt_time_per_stake, we get the
-		// area-under-the-curve per stake directly.
-		// Round down for vault attribution, dust stays in branch aggregates.
-		let now_fp = FixedU128::saturating_from_integer(moment_to_millis::<T>(now));
-		let extra_per_stake =
-			now_fp.saturating_mul(delta_debt_per_stake).saturating_sub(delta_dt_per_stake);
-		// MILLIS_PER_YEAR is a non-zero compile-time constant, so `checked_div`
-		// can only return `None` on overflow.
-		let rate_factor = vault
-			.annual_rate
-			.checked_div(&FixedU128::saturating_from_integer(pusd_primitives::MILLIS_PER_YEAR))
-			.defensive_unwrap_or_else(FixedU128::zero);
-		redist_interest = extra_per_stake
-			.saturating_mul(rate_factor)
-			.saturating_mul_int(vault.redistribution_stake);
-	}
-
-	// 3. Apply.
-	let total_pending_interest = principal_interest.saturating_add(redist_interest);
-	if !total_pending_interest.is_zero() {
-		vault.debt.interest = vault.debt.interest.saturating_add(total_pending_interest);
+	if !pending.interest.is_zero() {
+		vault.debt.interest = vault.debt.interest.saturating_add(pending.interest);
 		Pallet::<T>::deposit_event(Event::InterestAccrued {
 			collateral_id: collateral_id.clone(),
 			owner: owner.clone(),
-			amount: total_pending_interest,
+			amount: pending.interest,
 		});
 	}
-	if !redist_debt_principal.is_zero() {
-		// Move principal from pending to interest_bearing.
-		let actual = core::cmp::min(redist_debt_principal, bs.debt.pending_redist_principal);
-		bs.debt.pending_redist_principal = bs.debt.pending_redist_principal.saturating_sub(actual);
-		bs.debt.principal = bs.debt.principal.saturating_add(actual);
+	if !pending.principal.is_zero() {
+		bs.debt.pending_redist_principal =
+			bs.debt.pending_redist_principal.saturating_sub(pending.principal);
+		bs.debt.principal = bs.debt.principal.saturating_add(pending.principal);
 		// Reconcile this vault's share of the avg-rate weighted contribution
 		// that was folded into the branch interest base at liquidation. Subtract
 		// the avg-rate share, add the recipient-rate share.
-		let delta_weight_per_stake = redist.weight_per_stake.saturating_sub(snap.weight_per_stake);
+		let delta_weight_per_stake =
+			bs.redist.weight_per_stake.saturating_sub(vault.redist_snapshot.weight_per_stake);
 		let weight_to_remove =
 			delta_weight_per_stake.saturating_mul_int(vault.redistribution_stake);
-		let weight_to_add = vault.annual_rate.saturating_mul_int(actual);
+		let weight_to_add = vault.annual_rate.saturating_mul_int(pending.principal);
 		bs.debt.weighted_principal_sum = bs
 			.debt
 			.weighted_principal_sum
 			.saturating_sub(weight_to_remove)
 			.saturating_add(weight_to_add);
-		vault.debt.principal = vault.debt.principal.saturating_add(actual);
+		vault.debt.principal = vault.debt.principal.saturating_add(pending.principal);
 	}
-	if !redist_collat.is_zero() {
+	if !pending.collateral.is_zero() {
 		T::CollateralAssets::transfer_on_hold(
 			collateral_id.clone(),
 			&HoldReason::VaultCollateral.into(),
 			&Pallet::<T>::redistribution_account(),
 			owner,
-			redist_collat,
+			pending.collateral,
 			Precision::Exact,
 			Restriction::OnHold,
 			Fortitude::Polite,
 		)?;
-		bs.total_collateral = bs.total_collateral.saturating_add(redist_collat);
+		bs.total_collateral = bs.total_collateral.saturating_add(pending.collateral);
 	}
 
-	if snap != redist {
-		vault.redist_snapshot = redist;
+	if vault.redist_snapshot != bs.redist {
+		vault.redist_snapshot = bs.redist;
 	}
 	vault.last_interest_update = now;
 

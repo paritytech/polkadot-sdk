@@ -11,8 +11,8 @@ use crate::{
 	},
 	recovery,
 	types::{
-		BranchConfig, BranchDebt, BranchMode, BranchQueues, BranchStakes, BranchState,
-		FrozenReason, FrozenState, RedistSnapshot, Vault, VaultDebt, VaultListId, VaultStatus,
+		BranchConfig, BranchDebt, BranchMode, BranchStakes, BranchState, DebtPayment, FrozenReason,
+		FrozenState, RedistSnapshot, Vault, VaultDebt, VaultListId, VaultStatus,
 	},
 	weights::WeightInfo,
 };
@@ -106,11 +106,12 @@ mod views;
 
 use accounting::{charge_upfront_fee, simulate_borrow, simulate_change_rate};
 pub(crate) use accounting::{
-	compute_tcr, open_upfront_fee, touch_vault, update_aggregate_interest,
+	compute_tcr, open_upfront_fee, pending_touch_for, touch_vault, update_aggregate_interest,
 };
 pub(crate) use branch::{
-	current_branch_config, current_mode, enable_frozen_mode, enforce_mode_rules, ensure_not_frozen,
-	register_branch, update_branch_config, validate_rate,
+	clear_governance_frozen_mode, current_branch_config, current_mode, enable_frozen_mode,
+	enforce_mode_rules, ensure_not_frozen, refresh_branch, register_branch, update_branch_config,
+	validate_rate,
 };
 pub(crate) use ops::{
 	borrow, change_rate, close_vault, deposit_collateral_for, enter_final_recovery,

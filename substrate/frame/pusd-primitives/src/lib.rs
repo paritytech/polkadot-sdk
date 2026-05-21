@@ -4,9 +4,6 @@
 //! liquidation, stability pool, ...). Carries no pallet-specific assumptions:
 //! every type is parameterised over the consumer's `AccountId`, `AssetId`,
 //! `Balance`, and credit/debt imbalance shapes.
-//!
-//! See `liquity_v2/polkadot-impl/troves.md` for the design document this crate
-//! is extracted from.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -30,7 +27,6 @@ pub use oracle::{PriceFeed, ProvidePrice};
 pub use redemption::{RedemptionAllocation, VaultRedemptionInterface};
 pub use yield_sink::OnBranchYield;
 
-/// Number of milliseconds in one calendar year, matching `troves.md` §3.
 pub const MILLIS_PER_YEAR: u64 = 31_557_600_000;
 
 /// Convenience alias for the rate type used by the rate-ordered redemption

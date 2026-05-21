@@ -11,14 +11,22 @@ pub fn view_vault_cr<T: Config>(
 	owner: &T::AccountId,
 ) -> Option<FixedU128> {
 	let vault = Vaults::<T>::get(collateral_id, owner)?;
+	let bs = BranchStates::<T>::get(collateral_id)?;
+	let now = T::TimeProvider::now();
 	let coll = T::CollateralAssets::balance_on_hold(
 		collateral_id.clone(),
 		&HoldReason::VaultCollateral.into(),
 		owner,
 	);
-	let total_debt = vault.debt.total();
 	let price = T::Oracle::provide_price(collateral_id).ok()?.price;
-	math::collateralization_ratio::<BalanceOf<T>>(coll, total_debt, price)
+	let pending = pending_touch_for::<T>(&vault, &bs, now);
+	let total_coll = coll.saturating_add(pending.collateral);
+	let total_debt = vault
+		.debt
+		.total()
+		.saturating_add(pending.principal)
+		.saturating_add(pending.interest);
+	math::collateralization_ratio::<BalanceOf<T>>(total_coll, total_debt, price)
 }
 
 pub fn view_branch_tcr<T: Config>(collateral_id: &T::AssetId) -> Option<FixedU128> {
@@ -38,7 +46,7 @@ pub fn view_redemption_queue_head<T: Config>(
 		return out;
 	}
 	if let Some(bs) = BranchStates::<T>::get(collateral_id) {
-		if let Some(owner) = bs.queues.last_dormant_vault_owner {
+		if let Some(owner) = bs.last_dormant_vault_owner {
 			out.push(owner);
 		}
 	}

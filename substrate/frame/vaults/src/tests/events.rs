@@ -1,17 +1,3 @@
-//! Port of liquity_v2/contracts/test/events.t.sol — `TroveEventsTest`
-//! (rows 1-18, lines 21857-22424).
-//!
-//! Liquity emits two unified events per dispatchable: `TroveUpdated` and
-//! `TroveOperation`. The polkadot port instead emits per-operation events
-//! (`VaultOpened`, `CollateralDeposited`, `Borrowed`, `Repaid`,
-//! `CollateralWithdrawn`, `BorrowRateChanged`, `UpfrontFeeCharged`,
-//! `InterestAccrued`, `VaultClosed`, `VaultRedeemed`, `VaultStatusChanged`,
-//! `FinalRecoveryEntered`, `BranchRegistered`, `ParameterUpdated`,
-//! `DebtCeilingUpdated`).
-//!
-//! Each test below pins the canonical event(s) emitted by one pallet
-//! call-site (or trait method) using `frame_system::Pallet::assert_has_event`.
-
 use crate::{mock::*, tests::rate_pct};
 use frame::deps::frame_support::assert_ok;
 
@@ -228,7 +214,6 @@ fn close_vault_emits_vault_closed() {
 			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
 		);
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(2), 2, DOT, total));
-		assert_ok!(crate::Pallet::<Test>::close_vault(RuntimeOrigin::signed(2), DOT, None));
 		assert_event(crate::Event::VaultClosed { collateral_id: DOT, owner: 2, recipient: 2 });
 	});
 }

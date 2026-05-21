@@ -344,6 +344,33 @@ fn back_to_back_near_empty_redistributions_preserve_accounting_identity() {
 	});
 }
 
+#[test]
+fn vault_cr_view_includes_pending_redistribution() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(5, 100)));
+		assert_ok!(open(3, DOT, 1_000, 500, rate_pct(5, 100)));
+
+		set_price(DOT, FixedU128::from_rational(5u128, 100u128));
+		let coll_3 = held(DOT, 3);
+		assert_ok!(liquidate_with(DOT, 3, |_| LiquidationAllocation {
+			offset: OffsetAllocation { recipient: 0, debt: 0, collateral: 0 },
+			redistribution_collateral: coll_3,
+			keeper: KeeperCompensation { recipient: 3, collateral: 0 },
+		}));
+		// Restore price so the view's CR is defined for vault 1.
+		set_price(DOT, FixedU128::from_rational(10u128, 1u128));
+
+		let view_pre = crate::Pallet::<Test>::vault_cr(DOT, 1).expect("cr");
+		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(99), 1, DOT));
+		let view_post = crate::Pallet::<Test>::vault_cr(DOT, 1).expect("cr");
+		// Pre- and post-touch view should agree: the view replays the same
+		// pending-redistribution math `touch_vault` commits.
+		assert_eq!(view_pre, view_post);
+	});
+}
+
 fn assert_accounting_identity_holds() {
 	let bs = BranchStates::<Test>::get(DOT).unwrap();
 	let cumul = bs.redist.debt_per_stake;

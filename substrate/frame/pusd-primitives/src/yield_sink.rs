@@ -2,7 +2,7 @@
 //!
 //! The vault pallet mints pUSD interest as a `fungible::Credit`, splits it per
 //! `SpYieldShare`, and hands the SP-bound share to a sink that resolves the
-//! credit into the branch pool account in one call (`troves.md` §2 / §7.3).
+//! credit into the branch pool account in one call.
 
 use frame::deps::frame_support::pallet_prelude::DispatchResult;
 

@@ -1,4 +1,4 @@
-//! Redemption handoff types and trait (`troves.md` §10.4).
+//! Redemption handoff types and trait.
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame::deps::frame_support::pallet_prelude::{DispatchError, DispatchResult};
@@ -26,7 +26,7 @@ pub trait VaultRedemptionInterface<AccountId, AssetId, Balance> {
 	///
 	/// The vault pallet's authoritative redemption order is: `FinalRecovery`
 	/// FIFO first, then `last_dormant_vault_owner`, then the rate index
-	/// tail-first (`troves.md` §6).
+	/// tail-first.
 	fn next_redemption_target(
 		collateral_id: AssetId,
 		cursor: Option<AccountId>,

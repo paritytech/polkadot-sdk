@@ -83,10 +83,9 @@ pub fn open_vault<T: Config>(
 	Ok(())
 }
 
-/// Permissionless deposit. Intentionally accepts deposits to `Dormant` vaults
-/// without requiring same-op revival to `Debt >= MinimumDebt`: a deposit is
-/// strictly TCR-improving so there is no economic reason to gate it. (This
-/// is a deliberate relaxation of DESIGN.md §4.3.)
+/// Permissionless deposit. The protocol forbids depositing into a `Dormant`
+/// vault without same-op revival; since this call does not change debt, a
+/// `Dormant` target is rejected outright. Owners must use `borrow` to revive.
 #[require_transactional]
 pub fn deposit_collateral_for<T: Config>(
 	from: T::AccountId,
@@ -98,7 +97,11 @@ pub fn deposit_collateral_for<T: Config>(
 	ensure!(Vaults::<T>::contains_key(&collateral_id, &owner), Error::<T>::VaultNotFound);
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(&collateral_id, now)?;
-	let _ = touch_vault::<T>(&collateral_id, &owner, now)?;
+	let vault = touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
+	ensure!(
+		!vault.status::<T>(&collateral_id, &owner).is_dormant(),
+		Error::<T>::DebtBelowMinimum
+	);
 
 	T::CollateralAssets::transfer_and_hold(
 		collateral_id.clone(),
@@ -253,8 +256,8 @@ pub fn borrow<T: Config>(
 	let post_tcr = compute_tcr::<T>(&bs_after, price, now)?;
 	enforce_mode_rules::<T>(&cfg, &bs_before, pre_tcr, post_tcr, false)?;
 
-	if dormant_to_active && bs_after.queues.last_dormant_vault_owner.as_ref() == Some(&owner) {
-		bs_after.queues.last_dormant_vault_owner = None;
+	if dormant_to_active && bs_after.last_dormant_vault_owner.as_ref() == Some(&owner) {
+		bs_after.last_dormant_vault_owner = None;
 	}
 
 	T::StableAsset::mint_into(&recipient, amount)?;
@@ -301,10 +304,8 @@ pub fn repay_for<T: Config>(
 	update_aggregate_interest::<T>(&collateral_id, now)?;
 	let mut vault =
 		touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
-	ensure!(
-		!vault.status::<T>(&collateral_id, &owner).is_final_recovery(),
-		Error::<T>::VaultInFinalRecovery
-	);
+	let pre_status = vault.status::<T>(&collateral_id, &owner);
+	ensure!(!pre_status.is_final_recovery(), Error::<T>::VaultInFinalRecovery);
 
 	let cfg = branch_cfg_of::<T>(&collateral_id)?;
 
@@ -319,11 +320,28 @@ pub fn repay_for<T: Config>(
 	let payment = vault.debt.cancel(amount);
 	ensure!(payment.total() == amount, Error::<T>::InsufficientRepayment);
 
-	// Dust check: user repayments must leave Debt == 0 (and close in same op
-	// — handled by close_vault) OR Debt >= MinimumDebt.
+	// User repayments must leave `Debt == 0` (and close in
+	// same op) OR `Debt >= MinimumDebt`.
 	let new_total = vault.debt.total();
 	if !new_total.is_zero() && new_total < cfg.minimum_debt {
 		return Err(Error::<T>::DebtWouldBecomeDust.into());
+	}
+
+	if new_total.is_zero() {
+		let price = T::Oracle::provide_price(&collateral_id)?.price;
+		close_inner::<T>(
+			&collateral_id,
+			&owner,
+			&owner,
+			&vault,
+			pre_status,
+			&cfg,
+			now,
+			price,
+			Some((payment, vault.annual_rate)),
+		)?;
+		Pallet::<T>::deposit_event(Event::Repaid { collateral_id, owner, from, amount });
+		return Ok(());
 	}
 
 	BranchStates::<T>::try_mutate(&collateral_id, |maybe| -> Result<_, DispatchError> {
@@ -367,8 +385,7 @@ pub fn change_rate<T: Config>(
 		simulate_change_rate::<T>(&bs_before, &cfg, &vault, new_rate, cooldown_elapsed);
 	bs_after.debt.minted_interest = bs_after.debt.minted_interest.saturating_add(upfront_fee);
 
-	// Mode-aware TCR check (troves.md §4.3 — "Change borrow rate"). Gates
-	// premature changes that would worsen TCR in Safety mode and rate
+	// Gates premature changes that would worsen TCR in Safety mode and rate
 	// changes that would push the branch into Safety mode from Normal.
 	let price = T::Oracle::provide_price(&collateral_id)?.price;
 	let pre_tcr = compute_tcr::<T>(&bs_before, price, now)?;
@@ -409,39 +426,55 @@ pub fn close_vault<T: Config>(
 	update_aggregate_interest::<T>(&collateral_id, now)?;
 	let vault = touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 	let status = vault.status::<T>(&collateral_id, &owner);
-
-	let total_debt = vault.debt.total();
-	ensure!(total_debt.is_zero(), Error::<T>::InsufficientRepayment);
+	ensure!(vault.debt.total().is_zero(), Error::<T>::InsufficientRepayment);
 
 	let cfg = branch_cfg_of::<T>(&collateral_id)?;
+	close_inner::<T>(&collateral_id, &owner, &recipient, &vault, status, &cfg, now, price, None)
+}
+
+/// Apply a vault close. Caller must have already touched the vault and confirmed
+/// `vault.debt.total() == 0` (or supplies `maybe_payment` whose application
+/// zeroes the debt). Detaches branch aggregates, runs the Safety-mode TCR
+/// check, releases held collateral, deletes the row, and emits `VaultClosed`.
+#[require_transactional]
+#[allow(clippy::too_many_arguments)]
+fn close_inner<T: Config>(
+	collateral_id: &T::AssetId,
+	owner: &T::AccountId,
+	recipient: &T::AccountId,
+	vault: &Vault<BalanceOf<T>, MomentOf<T>>,
+	status: VaultStatus,
+	cfg: &BranchConfig<BalanceOf<T>, MomentOf<T>>,
+	now: MomentOf<T>,
+	price: FixedU128,
+	maybe_payment: Option<(DebtPayment<BalanceOf<T>>, FixedU128)>,
+) -> Result<(), DispatchError> {
 	let coll = T::CollateralAssets::balance_on_hold(
 		collateral_id.clone(),
 		&HoldReason::VaultCollateral.into(),
-		&owner,
+		owner,
 	);
-
-	// `total_debt.is_zero()` above means `detach_vault` only moves the stake
-	// contribution; the debt-side subtractions are no-ops. post_TCR < pre_TCR
-	// whenever `coll > 0`, which is what the Safety-mode rule gates (troves.md
-	// §4.3 "Close active vault" / "Close dormant").
-	let bs_before = branch_state_of::<T>(&collateral_id)?;
+	let bs_before = branch_state_of::<T>(collateral_id)?;
 	let mut bs_after = bs_before.clone();
+	if let Some((payment, rate)) = maybe_payment {
+		bs_after.apply_debt_payment(payment, rate);
+	}
+	bs_after.detach_vault(vault);
 	bs_after.remove_collateral(coll);
-	bs_after.detach_vault(&vault);
-	if bs_after.queues.last_dormant_vault_owner.as_ref() == Some(&owner) {
-		bs_after.queues.last_dormant_vault_owner = None;
+	if bs_after.last_dormant_vault_owner.as_ref() == Some(owner) {
+		bs_after.last_dormant_vault_owner = None;
 	}
 
 	let pre_tcr = compute_tcr::<T>(&bs_before, price, now)?;
 	let post_tcr = compute_tcr::<T>(&bs_after, price, now)?;
-	enforce_mode_rules::<T>(&cfg, &bs_before, pre_tcr, post_tcr, false)?;
+	enforce_mode_rules::<T>(cfg, &bs_before, pre_tcr, post_tcr, false)?;
 
 	if !coll.is_zero() {
 		T::CollateralAssets::transfer_on_hold(
 			collateral_id.clone(),
 			&HoldReason::VaultCollateral.into(),
-			&owner,
-			&recipient,
+			owner,
+			recipient,
 			coll,
 			Precision::Exact,
 			Restriction::Free,
@@ -449,22 +482,26 @@ pub fn close_vault<T: Config>(
 		)?;
 	}
 
-	BranchStates::<T>::insert(&collateral_id, &bs_after);
+	BranchStates::<T>::insert(collateral_id, &bs_after);
 
 	match status {
 		VaultStatus::Active => {
 			// Invariant: Active vaults are in the rate index, so `remove` succeeds.
-			let _ = T::VaultLists::remove(&rate_list_id(&collateral_id), &owner);
+			let _ = T::VaultLists::remove(&rate_list_id(collateral_id), owner);
 		},
 		VaultStatus::FinalRecovery => {
-			let _ = recovery::remove::<T>(&collateral_id, &owner);
+			let _ = recovery::remove::<T>(collateral_id, owner);
 		},
 		VaultStatus::Dormant => {},
 	}
 
-	Vaults::<T>::remove(&collateral_id, &owner);
+	Vaults::<T>::remove(collateral_id, owner);
 
-	Pallet::<T>::deposit_event(Event::VaultClosed { collateral_id, owner, recipient });
+	Pallet::<T>::deposit_event(Event::VaultClosed {
+		collateral_id: collateral_id.clone(),
+		owner: owner.clone(),
+		recipient: recipient.clone(),
+	});
 	Ok(())
 }
 
@@ -530,10 +567,13 @@ pub fn enter_final_recovery<T: Config>(
 }
 
 /// Permissionless explicit `FinalRecovery` exit. Touches the vault, checks
-/// the fully-accrued CR is at or above the MCR, then re-adds stake +
-/// weighted stake contribution and reinserts into the rate index using the
-/// caller-supplied `hint` so the operation is O(1) (or O(MaxHintRepairSteps)
-/// for stale hints, bounded by the linked-list crate's repair budget).
+/// the fully-accrued CR is at or above the MCR, re-adds the stake + weighted
+/// stake contribution, then either:
+/// - if `debt >= MinimumDebt` rejoins the rate index using the caller-supplied
+///   `hint` (status → Active, O(1) with valid hint),
+/// - otherwise leaves the vault out of the index (status → Dormant) and parks
+///   the owner in `last_dormant_vault_owner` so the next redemption can pick
+///   it up. The `hint` argument is ignored in the Dormant branch.
 #[require_transactional]
 pub fn exit_final_recovery<T: Config>(
 	owner: T::AccountId,
@@ -561,6 +601,10 @@ pub fn exit_final_recovery<T: Config>(
 		.ok_or(Error::<T>::UnsafeCollateralizationRatio)?;
 	ensure!(cr >= cfg.minimum_collateralization_ratio, Error::<T>::UnsafeCollateralizationRatio);
 
+	let rejoin_active = total_debt >= cfg.minimum_debt;
+	let new_status =
+		if rejoin_active { VaultStatus::Active } else { VaultStatus::Dormant };
+
 	recovery::remove::<T>(&collateral_id, &owner)?;
 	BranchStates::<T>::try_mutate(&collateral_id, |maybe| -> Result<_, DispatchError> {
 		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
@@ -569,15 +613,20 @@ pub fn exit_final_recovery<T: Config>(
 			.stakes
 			.weighted_sum
 			.saturating_add(vault.annual_rate.saturating_mul_int(vault.redistribution_stake));
+		if !rejoin_active && !total_debt.is_zero() {
+			bs.last_dormant_vault_owner = Some(owner.clone());
+		}
 		Ok(())
 	})?;
-	T::VaultLists::insert(rate_list_id(&collateral_id), owner.clone(), vault.annual_rate, hint)
-		.map_err(|_| Error::<T>::InvalidPositionHints)?;
+	if rejoin_active {
+		T::VaultLists::insert(rate_list_id(&collateral_id), owner.clone(), vault.annual_rate, hint)
+			.map_err(|_| Error::<T>::InvalidPositionHints)?;
+	}
 	Pallet::<T>::deposit_event(Event::VaultStatusChanged {
 		collateral_id,
 		owner,
 		old_status: VaultStatus::FinalRecovery,
-		new_status: VaultStatus::Active,
+		new_status,
 	});
 	Ok(())
 }
@@ -602,6 +651,9 @@ pub fn on_idle_walk<T: Config>(remaining: Weight) -> Weight {
 		if budget == 0 || (remaining.saturating_sub(consumed)).any_lt(per_call) {
 			break;
 		}
+		// Keep oracle-induced Frozen state in sync with the
+		// live oracle. Ignore errors: a stuck branch just stays as-is.
+		let _ = refresh_branch::<T>(collateral_id);
 		// One aggregate-interest mint per branch; touch_vault has no work to do
 		// until the branch's `last_interest_update` advances.
 		if update_aggregate_interest::<T>(collateral_id, now).is_err() {
@@ -609,10 +661,10 @@ pub fn on_idle_walk<T: Config>(remaining: Weight) -> Weight {
 		}
 		let Some(branch) = BranchStates::<T>::get(collateral_id) else { continue };
 		let rate_list = rate_list_id(collateral_id);
-		let initial_cursor = branch.queues.idle_cursor.or_else(|| T::VaultLists::head(&rate_list));
+		let initial_cursor = branch.idle_cursor.or_else(|| T::VaultLists::head(&rate_list));
 		let mut cursor = initial_cursor.clone();
 		let final_recovery_head = recovery::next_target::<T>(collateral_id);
-		let last_dormant = branch.queues.last_dormant_vault_owner;
+		let last_dormant = branch.last_dormant_vault_owner;
 
 		while budget > 0 {
 			let Some(owner) = cursor.clone() else { break };
@@ -646,7 +698,7 @@ pub fn on_idle_walk<T: Config>(remaining: Weight) -> Weight {
 		if cursor != initial_cursor {
 			BranchStates::<T>::mutate(collateral_id, |maybe| {
 				if let Some(bs) = maybe {
-					bs.queues.idle_cursor = cursor.take();
+					bs.idle_cursor = cursor.take();
 				}
 			});
 		}

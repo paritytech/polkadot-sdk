@@ -152,7 +152,6 @@ fn close_vault_releases_collateral() {
 			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
 		);
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(1), 1, DOT, total,));
-		assert_ok!(crate::Pallet::<Test>::close_vault(RuntimeOrigin::signed(1), DOT, None,));
 		assert!(Vaults::<Test>::get(DOT, 1).is_none());
 		assert_eq!(held(DOT, 1), 0);
 	});
@@ -180,5 +179,101 @@ fn frozen_branch_blocks_user_ops() {
 			open(1, DOT, 1_000, 500, rate_pct(5, 100)),
 			crate::Error::<Test>::BranchFrozen
 		);
+	});
+}
+
+#[test]
+fn refresh_branch_persists_frozen_on_oracle_failure() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		set_oracle_available(false);
+		assert_ok!(crate::Pallet::<Test>::refresh_branch(RuntimeOrigin::signed(99), DOT));
+		let bs = BranchStates::<Test>::get(DOT).expect("bs");
+		let frozen = bs.frozen.expect("frozen persisted");
+		assert!(matches!(frozen.reason, crate::FrozenReason::OracleFailure));
+	});
+}
+
+#[test]
+fn refresh_branch_clears_oracle_frozen() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		set_oracle_available(false);
+		assert_ok!(crate::Pallet::<Test>::refresh_branch(RuntimeOrigin::signed(99), DOT));
+		assert!(BranchStates::<Test>::get(DOT).unwrap().is_frozen());
+		// Oracle still down → second refresh is a no-op (already frozen for
+		// the same reason).
+		assert_ok!(crate::Pallet::<Test>::refresh_branch(RuntimeOrigin::signed(99), DOT));
+		assert!(BranchStates::<Test>::get(DOT).unwrap().is_frozen());
+		// Restore oracle and refresh → unfreezes.
+		set_oracle_available(true);
+		assert_ok!(crate::Pallet::<Test>::refresh_branch(RuntimeOrigin::signed(99), DOT));
+		assert!(!BranchStates::<Test>::get(DOT).unwrap().is_frozen());
+	});
+}
+
+#[test]
+fn refresh_branch_does_not_clear_governance_frozen() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(crate::Pallet::<Test>::enable_frozen_mode(RuntimeOrigin::root(), DOT));
+		assert_ok!(crate::Pallet::<Test>::refresh_branch(RuntimeOrigin::signed(99), DOT));
+		assert!(BranchStates::<Test>::get(DOT).unwrap().is_frozen());
+	});
+}
+
+#[test]
+fn governance_clear_clears_governance_frozen() {
+	build_and_execute(|| {
+		register_default_branch();
+		// Defensive (acct 999) cannot clear governance Frozen — needs Full.
+		assert_ok!(crate::Pallet::<Test>::enable_frozen_mode(RuntimeOrigin::root(), DOT));
+		assert_noop!(
+			crate::Pallet::<Test>::clear_governance_frozen_mode(
+				RuntimeOrigin::signed(999),
+				DOT
+			),
+			crate::Error::<Test>::InsufficientPrivilege
+		);
+		// Full clears governance Frozen.
+		assert_ok!(crate::Pallet::<Test>::clear_governance_frozen_mode(
+			RuntimeOrigin::root(),
+			DOT
+		));
+		assert!(!BranchStates::<Test>::get(DOT).unwrap().is_frozen());
+	});
+}
+
+#[test]
+fn governance_clear_is_noop_for_oracle_frozen() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		set_oracle_available(false);
+		assert_ok!(crate::Pallet::<Test>::refresh_branch(RuntimeOrigin::signed(99), DOT));
+		assert!(BranchStates::<Test>::get(DOT).unwrap().is_frozen());
+		// Governance clear refuses oracle-Frozen state — branch stays frozen.
+		assert_ok!(crate::Pallet::<Test>::clear_governance_frozen_mode(
+			RuntimeOrigin::root(),
+			DOT
+		));
+		assert!(BranchStates::<Test>::get(DOT).unwrap().is_frozen());
+	});
+}
+
+#[test]
+fn poke_during_frozen_is_noop() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		assert_ok!(crate::Pallet::<Test>::enable_frozen_mode(RuntimeOrigin::root(), DOT));
+		let bs_pre = BranchStates::<Test>::get(DOT).expect("bs");
+		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(99), 1, DOT));
+		let bs_post = BranchStates::<Test>::get(DOT).expect("bs");
+		// No interest minted while frozen.
+		assert_eq!(bs_pre.debt.minted_interest, bs_post.debt.minted_interest);
+		assert!(bs_post.is_frozen(), "poke does not clear Frozen");
 	});
 }

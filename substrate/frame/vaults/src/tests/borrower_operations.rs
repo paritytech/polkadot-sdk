@@ -1,12 +1,3 @@
-//! Port of liquity_v2/contracts/test/borrowerOperations.t.sol (lines 19864-20068).
-//!
-//! Edge cases on the borrower-facing dispatchables: minimum-debt floor,
-//! withdrawal caps, upfront-fee charging on open / borrow / rate change, and
-//! rate-change cooldown enforcement. Polkadot's API has no `max_fee` argument
-//! on any extrinsic, so the three Liquity rows that assert
-//! `UpfrontFeeTooHigh` (rows 6, 8, 11) are not portable and live as `SKIPPED`
-//! comments at the position they would have occupied.
-
 use crate::{
 	mock::*,
 	pallet::{BranchStates, Vaults},

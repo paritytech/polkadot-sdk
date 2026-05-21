@@ -2,15 +2,13 @@
 //! `VaultLiquidationInterface`, `VaultRedemptionInterface`,
 //! `VaultBadDebtInterface`.
 //!
-//! See `troves.md` §10.3, §10.4, §10.5.
 //!
-//! **FinalRecovery pricing (`troves.md` §7.6) is orchestrator-owned.** When
-//! the orchestrator calls `apply_redemption` against a `FinalRecovery` vault
-//! it is expected to have already applied the recovery-bonus / insurance-
-//! adjusted recovery-rate rules and pass the resulting `RedemptionAllocation`.
-//! The vault pallet treats FinalRecovery and ordinary vaults uniformly inside
-//! `apply_redemption` — only the redemption-order priority and stake exclusion
-//! differ.
+//! **FinalRecovery pricing is orchestrator-owned.** When the orchestrator
+//! calls `apply_redemption` against a `FinalRecovery` vault it is expected to
+//! have already applied the recovery-bonus / insurance-adjusted recovery-rate
+//! rules and pass the resulting `RedemptionAllocation`. The vault pallet
+//! treats FinalRecovery and ordinary vaults uniformly inside `apply_redemption`
+//! — only the redemption-order priority and stake exclusion differ.
 
 use crate::{
 	helpers, math,
@@ -38,8 +36,8 @@ use frame::deps::{
 };
 use pallet_linked_list::SortedListInterface;
 use pusd_primitives::{
-	LiquidationAllocation, RedemptionAllocation, VaultBadDebtInterface, VaultLiquidationInterface,
-	VaultRedemptionInterface,
+	LiquidationAllocation, ProvidePrice, RedemptionAllocation, VaultBadDebtInterface,
+	VaultLiquidationInterface, VaultRedemptionInterface,
 };
 
 impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>> for Pallet<T> {
@@ -50,6 +48,7 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 	) -> Result<BalanceOf<T>, DispatchError> {
 		helpers::ensure_not_frozen::<T>(&collateral_id)?;
 		let now = T::TimeProvider::now();
+		let price = <T::Oracle as ProvidePrice>::provide_price(&collateral_id)?.price;
 		helpers::update_aggregate_interest::<T>(&collateral_id, now)?;
 		let vault = helpers::touch_vault::<T>(&collateral_id, &owner, now)?
 			.ok_or(Error::<T>::VaultNotFound)?;
@@ -59,6 +58,16 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 		);
 		let post_touch_debt = vault.debt.total();
 		let cfg = helpers::branch_cfg_of::<T>(&collateral_id)?;
+		// Defense-in-depth (DESIGN.md §9.1): refuse to prepare a liquidation
+		// for a vault whose fully-accrued CR is still at or above MCR.
+		let held = T::CollateralAssets::balance_on_hold(
+			collateral_id.clone(),
+			&HoldReason::VaultCollateral.into(),
+			&owner,
+		);
+		let cr = math::collateralization_ratio::<BalanceOf<T>>(held, post_touch_debt, price)
+			.ok_or(Error::<T>::UnsafeCollateralizationRatio)?;
+		ensure!(cr < cfg.minimum_collateralization_ratio, Error::<T>::UnsafeCollateralizationRatio);
 		BranchStates::<T>::try_mutate(&collateral_id, |maybe| -> Result<_, DispatchError> {
 			let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
 			ensure!(
@@ -217,7 +226,7 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 			return Some(o);
 		}
 		if let Some(bs) = BranchStates::<T>::get(&collateral_id) {
-			if let Some(o) = bs.queues.last_dormant_vault_owner {
+			if let Some(o) = bs.last_dormant_vault_owner {
 				return Some(o);
 			}
 		}
@@ -287,11 +296,11 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 			bs.remove_collateral(allocation.collateral_to_redeemer);
 			if matches!(status, VaultStatus::Active | VaultStatus::Dormant) {
 				if new_total.is_zero() {
-					if bs.queues.last_dormant_vault_owner.as_ref() == Some(&owner) {
-						bs.queues.last_dormant_vault_owner = None;
+					if bs.last_dormant_vault_owner.as_ref() == Some(&owner) {
+						bs.last_dormant_vault_owner = None;
 					}
 				} else if new_total < cfg.minimum_debt {
-					bs.queues.last_dormant_vault_owner = Some(owner.clone());
+					bs.last_dormant_vault_owner = Some(owner.clone());
 				}
 			}
 			Ok(())

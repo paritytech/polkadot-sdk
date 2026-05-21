@@ -1,28 +1,3 @@
-//! Port of liquity_v2/contracts/test/interestRateBasic.t.sol (lines 23728-24595).
-//!
-//! Spine of the interest-accounting story: rate setting at open, DLL
-//! ordering, free vs premature rate changes, time-based debt accrual on each
-//! user op (borrow / repay / deposit / withdraw / poke / redemption), and
-//! upfront-fee minting to the interest receivers. Polkadot uses
-//! non-compounding (simple) interest on stored principal; the spec marks a
-//! handful of rows as "compounding-sensitive" — those expected magnitudes
-//! are re-derived under simple-interest semantics here.
-//!
-//! Liquity → polkadot operation mapping:
-//! - `openTrove` → `open_vault`
-//! - `adjustInterestRate` → `change_rate`
-//! - `withdrawBold` → `borrow` (no rate change)
-//! - `repayBold` → `repay_for`
-//! - `addColl` → `deposit_collateral_for`
-//! - `withdrawColl` → `withdraw_collateral`
-//! - `applyPendingDebt` → `poke`
-//! - `redeemCollateral` → `VaultRedemptionInterface::{touch_for_redemption, apply_redemption}`
-//!
-//! Liquity records the materialized debt in `recordedTroveDebt` and the
-//! fully-accrued debt in `entireTroveDebt`. In polkadot both are stored
-//! explicitly: `vault.debt.principal` (principal/recorded) and
-//! `vault.debt.interest` (the rest of the entire-debt total).
-
 use crate::{
 	mock::*,
 	pallet::Vaults,

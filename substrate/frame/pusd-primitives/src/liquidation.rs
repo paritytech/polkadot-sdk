@@ -1,4 +1,4 @@
-//! Liquidation handoff types and trait (`troves.md` §10.3).
+//! Liquidation handoff types and trait
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame::deps::frame_support::pallet_prelude::{DispatchError, DispatchResult};

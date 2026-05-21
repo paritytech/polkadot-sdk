@@ -1,14 +1,3 @@
-//! Port of liquity_v2/contracts/test/HintHelpers.t.sol (lines 22994-23028).
-//!
-//! Single test (row 1): `getApproxHint` must skip "Zombie" (Dormant) vaults
-//! when serving frontends a starting position to seed `findInsertPosition`.
-//!
-//! polkadot equivalent: when a vault transitions to `Dormant` it is removed
-//! from the rate index entirely (helpers.rs::apply_redemption — see the
-//! `was_active` guard around `T::VaultLists::remove`). The hint query
-//! `find_rate_position` therefore can never return a Dormant vault — it's
-//! a structural invariant rather than a hint-helper filter.
-
 use crate::{
 	mock::*,
 	tests::{rate_pct, vault_status},

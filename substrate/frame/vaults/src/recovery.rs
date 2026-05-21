@@ -1,9 +1,8 @@
 //! `FinalRecovery` FIFO operations.
 //!
-//! See `troves.md` §6 (FIFO ops). The §7.6 settlement-pricing surface is
-//! intentionally not implemented here — the redemption orchestrator pallet
-//! owns recovery-pricing math and passes the resulting `RedemptionAllocation`
-//! to `apply_redemption`.
+//! Settlement pricing is intentionally not
+//! implemented here — the redemption orchestrator pallet owns recovery-pricing
+//! math and passes the resulting `RedemptionAllocation` to `apply_redemption`.
 
 use crate::{
 	helpers::final_recovery_list_id,
@@ -28,8 +27,8 @@ pub fn append<T: Config>(
 	let priority =
 		BranchStates::<T>::try_mutate(collateral_id, |maybe_branch| -> Result<_, DispatchError> {
 			let branch = maybe_branch.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-			let nonce = branch.queues.next_final_recovery_nonce;
-			branch.queues.next_final_recovery_nonce =
+			let nonce = branch.next_final_recovery_nonce;
+			branch.next_final_recovery_nonce =
 				nonce.checked_add(1).ok_or(Error::<T>::FinalRecoverySequenceOverflow)?;
 			Ok(frame::deps::sp_runtime::FixedU128::from_inner(nonce))
 		})?;

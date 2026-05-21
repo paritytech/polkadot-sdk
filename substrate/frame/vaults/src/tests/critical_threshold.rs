@@ -1,20 +1,3 @@
-//! Port of liquity_v2/contracts/test/criticalThreshold.t.sol (lines 20822-21011).
-//!
-//! Mode-aware operation rules under polkadot's `Safety` mode (Liquity's
-//! "Critical Threshold" — `pre_TCR < SafetyCollateralizationRatio`). In the
-//! polkadot port `enforce_mode_rules` is invoked from only three extrinsics
-//! (`open_vault`, `borrow`, `withdraw_collateral` — see helpers.rs:603, 733,
-//! 867). Operations that monotonically improve TCR
-//! (`deposit_collateral_for`, `repay_for`) skip the gate; `change_rate` and
-//! `close_vault` don't gate on TCR either, which is a real divergence from
-//! Liquity worth flagging.
-//!
-//! Liquity error → polkadot Error mapping:
-//! - `TCRBelowCCR` → `SafetyModeTcrWorsening`
-//! - `ICRBelowMCR` → `UnsafeCollateralizationRatio`
-//! - `RepaymentNotMatchingCollWithdrawal` → no analog; the polkadot `withdraw_collateral` reverts
-//!   directly via the per-call TCR check.
-
 use crate::{
 	mock::*,
 	pallet::{BranchStates, Vaults},
@@ -277,17 +260,13 @@ fn safety_mode_allows_post_cooldown_rate_change() {
 	});
 }
 
-// rows N/A in tests.md but per troves.md §4.3 "Close active vault":
-// in Safety mode close requires post-TCR >= pre-TCR; closing a vault with
-// non-zero collateral worsens TCR and is rejected.
 #[test]
 fn safety_mode_blocks_close_with_collateral() {
 	build_and_execute(|| {
 		register_default_branch();
 		assert_ok!(open(1, DOT, 1_000, 5_000, rate_pct(5, 100)));
 		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(5, 100)));
-		// Repay vault 2's debt fully so it satisfies the zero-debt close
-		// precondition. Top up the upfront-fee residual from acct 1.
+		// Top up acct 2's pUSD so the repay can cover principal + upfront fee.
 		let v = Vaults::<Test>::get(DOT, 2).expect("vault stored");
 		let total = v.debt.principal + v.debt.interest;
 		let _ = <Pusd as frame::deps::frame_support::traits::fungible::Mutate<u64>>::transfer(
@@ -296,13 +275,11 @@ fn safety_mode_blocks_close_with_collateral() {
 			v.debt.interest,
 			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
 		);
-		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(2), 2, DOT, total));
-		// Drop the price into Safety mode.
+		// Drop the price; the post-close TCR will be below the safety
+		// threshold, so the auto-close inside repay_for must revert.
 		set_price(DOT, FixedU128::from_rational(63u128, 10u128));
-		// Closing vault 2 (which still has 1000 DOT held) drops branch
-		// total_collateral and worsens TCR → reverts in Safety.
 		assert_noop!(
-			crate::Pallet::<Test>::close_vault(RuntimeOrigin::signed(2), DOT, None),
+			crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(2), 2, DOT, total),
 			crate::Error::<Test>::SafetyModeTcrWorsening
 		);
 	});
@@ -314,21 +291,16 @@ fn safety_mode_allows_close_zero_collateral() {
 		register_default_branch();
 		assert_ok!(open(1, DOT, 1_000, 5_000, rate_pct(5, 100)));
 		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(5, 100)));
-		// Repay vault 2 fully and withdraw all of its collateral while still
-		// in Normal mode (price 10).
-		let v = Vaults::<Test>::get(DOT, 2).expect("vault stored");
-		let total = v.debt.principal + v.debt.interest;
-		let _ = <Pusd as frame::deps::frame_support::traits::fungible::Mutate<u64>>::transfer(
-			&1,
-			&2,
-			v.debt.interest,
-			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
-		);
-		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(2), 2, DOT, total));
+		// Fully redeem vault 2 — it becomes Dormant with residual collateral
+		// and zero debt.
+		assert_ok!(redeem(DOT, 3, 1_000));
+		// Withdraw the residual collateral while still in Normal mode.
+		let residual = held(DOT, 2);
+		assert!(residual > 0);
 		assert_ok!(crate::Pallet::<Test>::withdraw_collateral(
 			RuntimeOrigin::signed(2),
 			DOT,
-			1_000,
+			residual,
 			None,
 		));
 		assert_eq!(held(DOT, 2), 0);

@@ -1,4 +1,4 @@
-//! Bad-debt healing trait (`troves.md` §10.5).
+//! Bad-debt healing trait
 
 use frame::deps::frame_support::pallet_prelude::DispatchResult;
 
