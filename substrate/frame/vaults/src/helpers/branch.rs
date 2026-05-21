@@ -1,4 +1,5 @@
 use super::*;
+use frame::deps::frame_support::traits::fungibles::Inspect as _;
 
 /// Mode is `Frozen` if persisted, otherwise derived from live TCR.
 pub fn current_mode<T: Config>(collateral_id: &T::AssetId) -> Result<BranchMode, DispatchError> {
@@ -39,6 +40,7 @@ pub fn register_branch<T: Config>(
 	config: BranchConfig<BalanceOf<T>, MomentOf<T>>,
 ) -> Result<(), DispatchError> {
 	ensure!(!BranchConfigs::<T>::contains_key(collateral_id), Error::<T>::BranchAlreadyRegistered);
+	ensure!(T::CollateralAssets::asset_exists(collateral_id), Error::<T>::UnknownCollateral);
 	Branches::<T>::try_mutate(|list| -> Result<_, DispatchError> {
 		list.try_push(collateral_id).map_err(|_| Error::<T>::TooManyBranches)?;
 		Ok(())

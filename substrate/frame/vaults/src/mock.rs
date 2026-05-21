@@ -1,8 +1,7 @@
 //! Test runtime for `pallet-vaults`.
 //!
-//! Convention used in the tests: `AssetId == 0` means native DOT (routes
-//! `Left(())` → `Balances`); any other `AssetId` routes
-//! `Right(asset)` → `AssetsHolder`.
+//! Convention used in the tests: `AssetId::Native` routes to `Balances`;
+//! `AssetId::WithId(asset)` routes to `AssetsHolder`.
 
 use crate as pallet_vaults;
 pub use crate::{
@@ -14,15 +13,17 @@ use frame::{
 		frame_support::{
 			derive_impl, parameter_types,
 			traits::{
-				fungible::{self, Credit, Inspect as FungibleInspect, ItemOf},
+				fungible::{
+					self, Credit, Inspect as FungibleInspect, ItemOf, NativeFromLeft,
+					NativeOrWithId,
+				},
 				fungibles::InspectHold,
 				AsEnsureOriginWithArg, ConstU128, ConstU64, OnUnbalanced,
 			},
 			PalletId,
 		},
 		sp_runtime::{
-			traits::{Convert, IdentityLookup},
-			BuildStorage, DispatchError, DispatchResult, Either, FixedU128, Permill,
+			traits::IdentityLookup, BuildStorage, DispatchError, DispatchResult, FixedU128, Permill,
 		},
 	},
 	testing_prelude::*,
@@ -35,7 +36,8 @@ use pusd_primitives::{
 
 pub type AccountId = u64;
 pub type Balance = u128;
-pub type AssetId = u32;
+pub type AssetIdForAssets = u32;
+pub type AssetId = NativeOrWithId<AssetIdForAssets>;
 pub type Block = MockBlock<Test>;
 pub type VaultList = pallet_vaults::VaultListId<AssetId>;
 pub type Moment = u64;
@@ -101,7 +103,7 @@ impl pallet_timestamp::Config for Test {
 
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig as pallet_assets::DefaultConfig)]
 impl pallet_assets::Config for Test {
-	type AssetId = AssetId;
+	type AssetId = AssetIdForAssets;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type Currency = Balances;
@@ -119,7 +121,7 @@ parameter_types! {
 	pub const MaxBranches: u32 = 8;
 	pub const MaxOnIdleVaultRefresh: u32 = 4;
 	pub const VaultsPalletId: PalletId = PalletId(*b"pusd/vlt");
-	pub const PusdAssetId: AssetId = 1_000;
+	pub const PusdAssetId: AssetIdForAssets = 1_000;
 	pub SpYieldShare: Permill = Permill::from_percent(75);
 }
 
@@ -132,23 +134,10 @@ impl pallet_linked_list::Config for Test {
 	type PriorityProvider = pallet_vaults::Pallet<Test>;
 }
 
-/// Routes `AssetId == 0` to native DOT (`Left(())`), every other id to the
-/// pallet-assets multi-asset side (`Right(asset)`).
-pub struct DotFromZero;
-impl Convert<AssetId, Either<(), AssetId>> for DotFromZero {
-	fn convert(asset: AssetId) -> Either<(), AssetId> {
-		if asset == 0 {
-			Either::Left(())
-		} else {
-			Either::Right(asset)
-		}
-	}
-}
-
 /// Unified collateral surface: `Balances` (single-asset, native) on the
 /// left; `AssetsHolder` (multi-asset, hold-aware) on the right.
 pub type VaultCollateralAssets =
-	fungible::UnionOf<Balances, AssetsHolder, DotFromZero, AssetId, AccountId>;
+	fungible::UnionOf<Balances, AssetsHolder, NativeFromLeft, AssetId, AccountId>;
 
 pub type Pusd = ItemOf<Assets, PusdAssetId, AccountId>;
 
@@ -264,13 +253,14 @@ impl pallet_vaults::BenchmarkHelper<AssetId, AccountId, Balance> for MockBenchma
 		// Native ED first: without it withdraw / borrow / change_rate fail for
 		// fresh accounts even when the subsequent asset mint exceeds ED.
 		<Balances as FungibleMutate<AccountId>>::mint_into(who, 1).ok();
-		if asset_id == DOT {
-			<Balances as FungibleMutate<AccountId>>::mint_into(who, amount)
-				.expect("mint native collateral for benchmark account");
-		} else {
-			<Assets as FungiblesMutate<AccountId>>::mint_into(asset_id, who, amount)
-				.expect("mint asset collateral for benchmark account");
-		}
+		match asset_id {
+			AssetId::Native => <Balances as FungibleMutate<AccountId>>::mint_into(who, amount)
+				.expect("mint native collateral for benchmark account"),
+			AssetId::WithId(asset_id) => {
+				<Assets as FungiblesMutate<AccountId>>::mint_into(asset_id, who, amount)
+					.expect("mint asset collateral for benchmark account")
+			},
+		};
 	}
 
 	fn set_oracle_price(asset_id: AssetId, price: FixedU128) {
@@ -282,7 +272,7 @@ impl pallet_vaults::BenchmarkHelper<AssetId, AccountId, Balance> for MockBenchma
 	}
 
 	fn synth_asset_id(seed: u32) -> AssetId {
-		1_000 + seed
+		AssetId::WithId(1_000 + seed)
 	}
 }
 
@@ -294,18 +284,18 @@ pub fn final_recovery_list(asset: AssetId) -> VaultList {
 	pallet_vaults::VaultListId::FinalRecovery(asset)
 }
 
-/// DOT-equivalent collateral asset id used across tests. `0` routes to the
-/// native `Balances` pallet via [`DotFromZero`].
-pub const DOT: AssetId = 0;
+/// DOT-equivalent collateral asset id used across tests.
+pub const DOT: AssetId = AssetId::Native;
 
 /// A non-native test collateral that lives in `pallet-assets`. Used in tests
 /// that exercise the multi-asset side of the union.
-pub const TOKEN_X: AssetId = 1;
+pub const TOKEN_X_ID: AssetIdForAssets = 1;
+pub const TOKEN_X: AssetId = AssetId::WithId(TOKEN_X_ID);
 
 pub fn new_test_ext() -> TestState {
 	let t = RuntimeGenesisConfig {
 		assets: pallet_assets::GenesisConfig {
-			assets: vec![(TOKEN_X, 1, true, 1), (PusdAssetId::get(), 1, true, 1)],
+			assets: vec![(TOKEN_X_ID, 1, true, 1), (PusdAssetId::get(), 1, true, 1)],
 			metadata: vec![],
 			accounts: vec![],
 			next_asset_id: None,
@@ -327,7 +317,7 @@ pub fn new_test_ext() -> TestState {
 		// the balances genesis above.
 		for who in 1u64..=10 {
 			<Assets as frame::deps::frame_support::traits::fungibles::Mutate<u64>>::mint_into(
-				TOKEN_X,
+				TOKEN_X_ID,
 				&who,
 				1_000_000_000_000,
 			)
@@ -401,15 +391,18 @@ pub fn fund_redistribution_account_for(asset: AssetId) {
 		sp_runtime::traits::AccountIdConversion,
 	};
 	let pallet_account: AccountId = VaultsPalletId::get().into_account_truncating();
-	if asset == DOT {
-		let _ = <Balances as FungibleMutate<AccountId>>::mint_into(&pallet_account, 1);
-	} else {
-		let _ =
-			<Assets as frame::deps::frame_support::traits::fungibles::Mutate<AccountId>>::mint_into(
-				asset,
-				&pallet_account,
-				1,
-			);
+	match asset {
+		AssetId::Native => {
+			let _ = <Balances as FungibleMutate<AccountId>>::mint_into(&pallet_account, 1);
+		},
+		AssetId::WithId(asset) => {
+			let _ =
+				<Assets as frame::deps::frame_support::traits::fungibles::Mutate<AccountId>>::mint_into(
+					asset,
+					&pallet_account,
+					1,
+				);
+		},
 	}
 }
 

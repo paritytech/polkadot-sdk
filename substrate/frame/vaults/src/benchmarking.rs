@@ -15,8 +15,7 @@ use frame::{
 	benchmarking::prelude::*,
 	deps::{
 		frame_support::traits::{
-			fungible::Mutate as FungibleMutate,
-			fungibles::MutateHold as FungiblesMutateHold,
+			fungible::Mutate as FungibleMutate, fungibles::MutateHold as FungiblesMutateHold,
 			EnsureOrigin, Time,
 		},
 		sp_runtime::{
@@ -234,8 +233,7 @@ fn recovery_cycle<T: Config>(
 }
 
 fn prefill_branches<T: Config>(count: u32) {
-	let ids: Vec<T::AssetId> =
-		(0..count).map(T::BenchmarkHelper::synth_asset_id).collect();
+	let ids: Vec<T::AssetId> = (0..count).map(T::BenchmarkHelper::synth_asset_id).collect();
 	let bounded: BoundedVec<T::AssetId, T::MaxBranches> =
 		ids.try_into().expect("prefill count <= MaxBranches");
 	Branches::<T>::put(bounded);

@@ -388,7 +388,7 @@ parameter_types! {
 
 impl pallet_linked_list::Config for Runtime {
 	type WeightInfo = ();
-	type ListId = pallet_vaults::VaultListId<u32>;
+	type ListId = pallet_vaults::VaultListId<VaultsCollateralId>;
 	type ItemId = AccountId;
 	type Priority = FixedU128;
 	type MaxHintRepairSteps = LinkedListMaxHintRepairSteps;
@@ -3218,24 +3218,21 @@ parameter_types! {
 	pub const VaultsMaxBranches: u32 = 16;
 	pub const VaultsMaxOnIdleVaultRefresh: u32 = 8;
 	pub VaultsSpYieldShare: Permill = Permill::from_percent(75);
-	/// Asset id treated as native DOT inside the vault collateral surface.
-	pub const VaultsNativeAssetId: u32 = 0;
+	/// Oracle key used for the native-token price feed.
+	pub const VaultsNativePriceFeedId: u32 = 0;
 }
 
-/// Routes asset id `VaultsNativeAssetId` (0) to the native `Balances` side of
-/// the vault collateral union, every other id to `pallet-assets`.
-pub struct VaultsNativeFromZero;
-impl sp_runtime::traits::Convert<u32, sp_runtime::Either<(), u32>> for VaultsNativeFromZero {
-	fn convert(asset: u32) -> sp_runtime::Either<(), u32> {
-		if asset == VaultsNativeAssetId::get() {
-			sp_runtime::Either::Left(())
-		} else {
-			sp_runtime::Either::Right(asset)
-		}
+pub type VaultsCollateralId = NativeOrWithId<u32>;
+
+fn vaults_oracle_key(collateral_id: &VaultsCollateralId) -> u32 {
+	match collateral_id {
+		NativeOrWithId::Native => VaultsNativePriceFeedId::get(),
+		NativeOrWithId::WithId(asset_id) => *asset_id,
 	}
 }
 
-pub type VaultsCollateral = UnionOf<Balances, AssetsHolder, VaultsNativeFromZero, u32, AccountId>;
+pub type VaultsCollateral =
+	UnionOf<Balances, AssetsHolder, NativeFromLeft, VaultsCollateralId, AccountId>;
 
 pub type VaultsStableAsset = ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
 
@@ -3244,13 +3241,13 @@ pub type VaultsStableAsset = ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
 /// representation: operators submit prices scaled by `10^18`.
 pub struct VaultsOracleAdapter;
 impl pusd_primitives::ProvidePrice for VaultsOracleAdapter {
-	type AssetId = u32;
+	type AssetId = VaultsCollateralId;
 	type Moment = Moment;
 
 	fn provide_price(
-		collateral_id: &u32,
+		collateral_id: &VaultsCollateralId,
 	) -> Result<pusd_primitives::PriceFeed<Moment>, sp_runtime::DispatchError> {
-		match pallet_oracle::Pallet::<Runtime>::get(collateral_id) {
+		match pallet_oracle::Pallet::<Runtime>::get(&vaults_oracle_key(collateral_id)) {
 			Some(v) => Ok(pusd_primitives::PriceFeed {
 				price: FixedU128::from_inner(v.value),
 				observed_at: v.timestamp,
@@ -3282,7 +3279,7 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureVaultsManager 
 
 impl pallet_vaults::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type AssetId = u32;
+	type AssetId = VaultsCollateralId;
 	type CollateralAssets = VaultsCollateral;
 	type StableAsset = VaultsStableAsset;
 	type Oracle = VaultsOracleAdapter;
@@ -3304,28 +3301,33 @@ impl pallet_vaults::Config for Runtime {
 pub struct VaultsBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_vaults::BenchmarkHelper<u32, AccountId, Balance> for VaultsBenchmarkHelper {
-	fn collateral_asset_id() -> u32 {
-		VaultsNativeAssetId::get()
+impl pallet_vaults::BenchmarkHelper<VaultsCollateralId, AccountId, Balance>
+	for VaultsBenchmarkHelper
+{
+	fn collateral_asset_id() -> VaultsCollateralId {
+		VaultsCollateralId::Native
 	}
 
-	fn mint_collateral(asset_id: u32, who: &AccountId, amount: Balance) {
+	fn mint_collateral(asset_id: VaultsCollateralId, who: &AccountId, amount: Balance) {
 		use frame_support::traits::{
 			fungible::Mutate as FungibleMutate, fungibles::Mutate as FungiblesMutate,
 		};
-		if asset_id == VaultsNativeAssetId::get() {
-			<Balances as FungibleMutate<AccountId>>::mint_into(who, amount)
-				.expect("mint native collateral for benchmark account");
-		} else {
-			<Assets as FungiblesMutate<AccountId>>::mint_into(asset_id, who, amount)
-				.expect("mint asset collateral for benchmark account");
-		}
+		match asset_id {
+			VaultsCollateralId::Native => {
+				<Balances as FungibleMutate<AccountId>>::mint_into(who, amount)
+					.expect("mint native collateral for benchmark account");
+			},
+			VaultsCollateralId::WithId(asset_id) => {
+				<Assets as FungiblesMutate<AccountId>>::mint_into(asset_id, who, amount)
+					.expect("mint asset collateral for benchmark account");
+			},
+		};
 	}
 
-	fn set_oracle_price(asset_id: u32, price: FixedU128) {
+	fn set_oracle_price(asset_id: VaultsCollateralId, price: FixedU128) {
 		let timestamp = <pallet_timestamp::Pallet<Runtime>>::get();
 		pallet_oracle::Values::<Runtime>::insert(
-			asset_id,
+			vaults_oracle_key(&asset_id),
 			pallet_oracle::TimestampedValue { value: price.into_inner(), timestamp },
 		);
 	}
@@ -3335,8 +3337,8 @@ impl pallet_vaults::BenchmarkHelper<u32, AccountId, Balance> for VaultsBenchmark
 		<pallet_timestamp::Pallet<Runtime>>::set_timestamp(now + ms);
 	}
 
-	fn synth_asset_id(seed: u32) -> u32 {
-		1_000 + seed
+	fn synth_asset_id(seed: u32) -> VaultsCollateralId {
+		VaultsCollateralId::WithId(1_000 + seed)
 	}
 }
 

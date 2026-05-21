@@ -40,6 +40,21 @@ fn register_branch_requires_full_manager() {
 }
 
 #[test]
+fn register_branch_rejects_unknown_asset() {
+	build_and_execute(|| {
+		let unknown = AssetId::WithId(999_999);
+		assert_noop!(
+			crate::Pallet::<Test>::register_branch(
+				RuntimeOrigin::root(),
+				unknown,
+				default_branch_config(),
+			),
+			crate::Error::<Test>::UnknownCollateral
+		);
+	});
+}
+
+#[test]
 fn open_vault_holds_collateral_and_mints_pusd() {
 	build_and_execute(|| {
 		register_default_branch();
@@ -111,7 +126,10 @@ fn redemption_target_picks_recovery_first() {
 		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
 		// Pre-redemption tail should be #1.
 		assert_eq!(
-			<crate::Pallet<Test> as VaultRedemptionInterface<u64, u32, u128>>::next_redemption_target(DOT, None),
+			<crate::Pallet<Test> as VaultRedemptionInterface<u64, AssetId, u128>>::next_redemption_target(
+				DOT,
+				None,
+			),
 			Some(1)
 		);
 	});
