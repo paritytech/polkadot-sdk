@@ -1943,7 +1943,7 @@ pub trait Misc {
 	/// functions, so the caller is required to provide the buffer of sufficient length, otherwise,
 	/// it will panic.
 	// ERRATA: The RFC requires passing a raw pointer without a length, which is not safe.
-	// Currently, we accept a fat pointer and panic safely if the buffer is too small.
+	// Currently, we accept a fat pointer.
 	fn last_cursor(
 		&mut self,
 		out: PassFatPointerAndWrite<&mut [u8]>,
