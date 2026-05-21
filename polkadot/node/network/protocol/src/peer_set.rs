@@ -146,7 +146,7 @@ impl PeerSet {
 	pub fn get_main_version(self) -> ProtocolVersion {
 		match self {
 			PeerSet::Validation => ValidationVersion::V3.into(),
-			PeerSet::Collation => CollationVersion::V3.into(),
+			PeerSet::Collation => CollationVersion::V4.into(),
 		}
 	}
 
@@ -182,6 +182,8 @@ impl PeerSet {
 					Some("collation/2")
 				} else if version == CollationVersion::V3.into() {
 					Some("collation/3")
+				} else if version == CollationVersion::V4.into() {
+					Some("collation/4")
 				} else {
 					None
 				}
@@ -264,6 +266,8 @@ pub enum CollationVersion {
 	V2 = 2,
 	/// The third version, adds explicit scheduling_parent field and candidate descriptor version.
 	V3 = 3,
+	/// Adds possibility to advertise a list of collations.
+	V4 = 4,
 }
 
 /// Marker indicating the version is unknown.
@@ -460,7 +464,14 @@ impl PeerSetProtocolNames {
 				// and only version 3 is used. Therefore, fallback protocols remain empty.
 			},
 			PeerSet::Collation => {
-				// Collation V2 fallback so that V3 nodes can negotiate V2 with older peers
+				// Collation V3 fallback so that V4 nodes can negotiate V3 with older peers
+				fallbacks.push(Self::generate_name(
+					genesis_hash,
+					fork_id,
+					PeerSet::Collation,
+					CollationVersion::V3.into(),
+				));
+				// Collation V2 fallback so that V4 nodes can negotiate V2 with older peers
 				// instead of falling all the way back to the legacy V1 protocol.
 				fallbacks.push(Self::generate_name(
 					genesis_hash,
