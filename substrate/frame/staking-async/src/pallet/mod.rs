@@ -1200,7 +1200,7 @@ pub mod pallet {
 				// it is okay for the randomness to be the same on every call. If we want different,
 				// we can make `base_derivation` configurable.
 				let mut rng =
-					ChaChaRng::from_seed(base_derivation.using_encoded(sp_core::blake2_256));
+					ChaChaRng::from_seed(base_derivation.using_encoded(sp_crypto_hashing::blake2_256));
 
 				(0..validators).for_each(|index| {
 					let derivation = base_derivation.replace("{}", &format!("validator{}", index));
