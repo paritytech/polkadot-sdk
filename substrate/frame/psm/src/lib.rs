@@ -88,7 +88,7 @@ pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-#[cfg(test)]
+#[cfg(any(test, feature = "fuzzing"))]
 pub mod mock;
 #[cfg(test)]
 mod tests;
@@ -1034,7 +1034,7 @@ pub mod pallet {
 		}
 
 		/// Check if an asset is approved for PSM swaps.
-		#[cfg(test)]
+		#[cfg(any(test, feature = "fuzzing"))]
 		pub(crate) fn is_approved_asset(asset_id: &T::AssetId) -> bool {
 			ExternalAssets::<T>::contains_key(asset_id)
 		}
@@ -1128,7 +1128,7 @@ pub mod pallet {
 			}
 		}
 
-		#[cfg(any(feature = "try-runtime", test))]
+		#[cfg(any(feature = "try-runtime", test, feature = "fuzzing"))]
 		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 			use sp_runtime::traits::CheckedAdd;
 

@@ -22,7 +22,10 @@ frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
+pallet-assets = { workspace = true, optional = true }
+pallet-balances = { workspace = true, optional = true }
 scale-info = { features = ["derive"], workspace = true }
+sp-io = { workspace = true, optional = true }
 sp-runtime = { workspace = true }
 
 [dev-dependencies]
@@ -56,3 +59,4 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+fuzzing = ["pallet-assets", "pallet-balances", "sp-io"]

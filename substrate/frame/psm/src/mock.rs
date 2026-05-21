@@ -39,6 +39,9 @@ pub const USDX_ASSET_ID: u32 = 10;
 pub const DAI_MOCK_ASSET_ID: u32 = 11;
 pub const UNSUPPORTED_ASSET_ID: u32 = 99;
 
+pub const ALL_EXTERNAL_ASSETS: &[u32] =
+	&[USDC_ASSET_ID, USDT_ASSET_ID, USDX_ASSET_ID, DAI_MOCK_ASSET_ID];
+
 // internal unit (6 decimals)
 pub const INTERNAL_UNIT: u128 = 1_000_000;
 /// USDX has 2 decimals — fewer than internal.
@@ -353,4 +356,57 @@ pub fn get_asset_balance(asset_id: u32, account: u64) -> u128 {
 
 pub fn psm_account() -> u64 {
 	crate::Pallet::<Test>::account_id()
+}
+
+#[cfg(feature = "fuzzing")]
+pub mod fuzz_helpers {
+	use super::*;
+
+	// PsmDebt is already pub — import it directly from the crate.
+	// Everything else below is pub(crate) and cannot be re-exported, so
+	// it goes through monomorphized wrapper functions.
+
+	pub fn max_psm_debt() -> u128 {
+		Psm::max_psm_debt()
+	}
+
+	pub fn max_asset_debt(asset_id: u32) -> u128 {
+		Psm::max_asset_debt(asset_id)
+	}
+
+	pub fn total_psm_debt() -> u128 {
+		Psm::total_psm_debt()
+	}
+
+	pub fn get_reserve(asset_id: u32) -> u128 {
+		Psm::get_reserve(asset_id)
+	}
+
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Psm::do_try_state()
+	}
+
+	pub fn is_approved_asset(asset_id: u32) -> bool {
+		Psm::is_approved_asset(&asset_id)
+	}
+
+	pub fn minting_fee(asset_id: u32) -> Permill {
+		crate::MintingFee::<Test>::get(asset_id)
+	}
+
+	pub fn redemption_fee(asset_id: u32) -> Permill {
+		crate::RedemptionFee::<Test>::get(asset_id)
+	}
+
+	pub fn asset_ceiling_weight(asset_id: u32) -> Permill {
+		crate::AssetCeilingWeight::<Test>::get(asset_id)
+	}
+
+	pub fn max_psm_debt_ratio() -> Permill {
+		crate::MaxPsmDebtOfTotal::<Test>::get()
+	}
+
+	pub fn approved_assets() -> Vec<u32> {
+		crate::ExternalAssets::<Test>::iter().map(|(id, _)| id).collect()
+	}
 }
