@@ -313,12 +313,13 @@ impl<T: Config> OnKilledAccount<T::AccountId> for AutoMapper<T> {
 mod test {
 	use super::*;
 	use crate::{
-		AddressMapper, Error,
+		AddressMapper, Error, Pallet,
 		test_utils::*,
-		tests::{AutoMapFlag, ExtBuilder, Test},
+		tests::{AutoMapFlag, ExtBuilder, RuntimeOrigin, Test},
 	};
 	use frame_support::{
 		assert_err,
+		dispatch::Pays,
 		traits::fungible::{InspectHold, Mutate},
 	};
 	use pretty_assertions::assert_eq;
@@ -525,7 +526,6 @@ mod test {
 	#[test]
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	fn unmap_account_dispatchable_blocked_when_auto_map_enabled() {
-		use crate::{Pallet, tests::RuntimeOrigin};
 		use frame_support::assert_noop;
 		ExtBuilder::default().build().execute_with(|| {
 			AutoMapFlag::set(true);
@@ -534,6 +534,101 @@ mod test {
 				Pallet::<Test>::unmap_account(RuntimeOrigin::signed(EVE)),
 				<Error<Test>>::AutoMappingEnabled,
 			);
+		});
+	}
+
+	#[test]
+	fn batch_map_accounts_empty_pays_yes() {
+		ExtBuilder::default().build().execute_with(|| {
+			let info =
+				Pallet::<Test>::batch_map_accounts(RuntimeOrigin::signed(ALICE), alloc::vec![])
+					.unwrap();
+
+			assert_eq!(info.pays_fee, Pays::Yes);
+		});
+	}
+
+	#[test]
+	fn batch_map_accounts_all_eth_derived_pays_yes() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Eth-derived accounts are stateless mapped, so nothing useful happens
+			// and the caller is charged.
+			let info = Pallet::<Test>::batch_map_accounts(
+				RuntimeOrigin::signed(ALICE),
+				alloc::vec![ALICE, BOB, CHARLIE, DJANGO],
+			)
+			.unwrap();
+
+			assert_eq!(info.pays_fee, Pays::Yes);
+		});
+	}
+
+	#[test]
+	fn batch_map_accounts_pays_no_when_mostly_unmapped() {
+		ExtBuilder::default().build().execute_with(|| {
+			let unmapped: Vec<AccountId32> =
+				(10u8..19u8).map(|i| AccountId32::new([i; 32])).collect();
+			let mut accounts = unmapped.clone();
+			accounts.push(ALICE); // 1 eth-derived account, not counted as useful
+
+			// 9 of 10 (90%) become useful → free
+			let info =
+				Pallet::<Test>::batch_map_accounts(RuntimeOrigin::signed(ALICE), accounts).unwrap();
+
+			assert_eq!(info.pays_fee, Pays::No);
+
+			for a in &unmapped {
+				assert!(<Test as Config>::AddressMapper::is_mapped(a));
+
+				// map_no_deposit must not take a deposit
+				assert_eq!(
+					<Test as Config>::Currency::balance_on_hold(
+						&HoldReason::AddressMapping.into(),
+						a,
+					),
+					0
+				);
+			}
+		});
+	}
+
+	#[test]
+	fn batch_map_accounts_already_mapped_no_hold_pays_yes() {
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::AddressMapper::map_no_deposit(&EVE).unwrap();
+			assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
+
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::AddressMapping.into(),
+					&EVE,
+				),
+				0
+			);
+
+			let info = Pallet::<Test>::batch_map_accounts(
+				RuntimeOrigin::signed(ALICE),
+				alloc::vec![EVE; 10],
+			)
+			.unwrap();
+
+			assert_eq!(info.pays_fee, Pays::Yes);
+		});
+	}
+
+	#[test]
+	fn batch_map_accounts_pays_yes_below_threshold() {
+		ExtBuilder::default().build().execute_with(|| {
+			// 1 unmapped non-eth-derived account + 9 eth-derived (= 10% useful)
+			let mut accounts: Vec<AccountId32> = alloc::vec![AccountId32::new([10u8; 32])];
+			for _ in 0..9 {
+				accounts.push(ALICE);
+			}
+
+			let info =
+				Pallet::<Test>::batch_map_accounts(RuntimeOrigin::signed(ALICE), accounts).unwrap();
+
+			assert_eq!(info.pays_fee, Pays::Yes);
 		});
 	}
 }
