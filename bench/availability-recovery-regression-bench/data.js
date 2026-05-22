@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779467964111,
+  "lastUpdate": 1779473531982,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c61e227f2c59fa0ce7df5f977dad4076ff470f00",
-          "message": "`trace_block`: Support overwriting `execute_block` (#9871)\n\nThis is required for example for parachains that require special\nextensions to be registered (e.g. `ProofSizeExt`) to succeed the block\nexecution.\n\nThis pull request changes the signature of `spawn_tasks` which now\nrequires a `tracing_execute_block` parameter. If your chain is a\nsolochain, just set the parameter to `None` or overwrite it if you need\nany special handling. For parachain builders, this value can be set to\n`cumulus_service::ParachainTracingExecuteBlock`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-10T10:26:45Z",
-          "tree_id": "3543a71fa505d9567ad4915814d4e03994df82aa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c61e227f2c59fa0ce7df5f977dad4076ff470f00"
-        },
-        "date": 1760096648405,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.354071684633336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1982773458333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.80829424526667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "313647ce0acbfcefea301f05bba4ffec9c9e2bc0",
+          "message": "pallet-revive: fix execution tracer reporting zero gas for plain transfers (#12069)\n\nFixes\n[paritytech/contract-issues#278](https://github.com/paritytech/contract-issues/issues/278).\n\n`Stack::run_call`'s no-code branch was passing `Default::default()` to\n`exit_child_span`, so the execution tracer reported `gas: 0` for any\ntransaction whose destination has no contract code (plain EOA\ntransfers),\neven when the meter had charged an existential deposit. The\ncontract-call\nbranch already reads `frame_meter.total_consumed_gas()` /\n`frame_meter.weight_consumed()` and forwards them — this PR does the\nsame\nat the transaction-meter level for the no-code branch.\n\n## Tests\n\n- New regression test\n`execution_tracing_records_consumption_for_plain_transfer`\n  in `tests/pvm.rs`: transfers to an unfunded account, asserts\n  `trace.gas > 0`. Fails on `master`, passes here.\n- Updated `tracing_works_for_transfers`, which previously asserted the\nbuggy zero via `..Default::default()`, to compare against the\n`bare_call`\n  result's `gas_consumed`.\n\nEnd-to-end: 1500 transfers via `manual-seal-6000` then\n`debug_traceBlockByNumber` → before: every trace `gas: 0`; after: every\ntrace `gas: 200000` (the ED charge).\nhttps://github.com/0xRVE/contract-issue-278\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-22T16:42:18Z",
+          "tree_id": "0cca72a61fa5a2d625f7e65b1a56300a16237006",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/313647ce0acbfcefea301f05bba4ffec9c9e2bc0"
+        },
+        "date": 1779473500733,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.743643685633334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14714943969999997,
             "unit": "seconds"
           }
         ]
