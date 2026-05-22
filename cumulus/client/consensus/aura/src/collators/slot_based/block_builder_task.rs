@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use super::CollatorMessage;
+use super::{CollatorSegmentEntry, CollatorSegmentMessage};
 use crate::{
 	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
 	collators::{
@@ -113,7 +113,7 @@ pub struct BuilderTaskParams<
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
 	/// Channel to send built blocks to the collation task.
-	pub collator_sender: sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
+	pub collator_sender: sc_utils::mpsc::TracingUnboundedSender<CollatorSegmentMessage<Block>>,
 	/// Slot duration of the relay chain.
 	pub relay_chain_slot_duration: Duration,
 	/// Offset all time operations by this duration.
@@ -587,7 +587,7 @@ struct BuildCollationParams<
 	relay_client: &'a RelayClient,
 	code_hash_provider: &'a CHP,
 	slot_claim: &'a SlotClaim<P::Public>,
-	collator_sender: &'a sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
+	collator_sender: &'a sc_utils::mpsc::TracingUnboundedSender<CollatorSegmentMessage<Block>>,
 	collator: &'a mut Collator<Block, P, BI, CIDP, RelayClient, Proposer, CS>,
 	allowed_pov_size: usize,
 	core_info: CoreInfo,
@@ -934,15 +934,17 @@ where
 		"Sending out PoV"
 	);
 
-	if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
-		relay_parent: relay_parent_hash,
+	if let Err(err) = collator_sender.unbounded_send(CollatorSegmentMessage {
 		scheduling_proof,
-		parent_header: pov_parent_header.clone(),
-		blocks,
-		proof,
-		validation_code_hash,
 		core_index,
-		validation_data,
+		entries: vec![CollatorSegmentEntry {
+			relay_parent: relay_parent_hash,
+			parent_header: pov_parent_header.clone(),
+			blocks,
+			proof,
+			validation_code_hash,
+			validation_data,
+		}],
 	}) {
 		tracing::error!(target: LOG_TARGET, ?err, "Unable to send block to collation task.");
 		Err(())
