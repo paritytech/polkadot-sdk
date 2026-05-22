@@ -704,9 +704,9 @@ fn instantiate_from_constructor_works() {
 /// `bare_call(Root, deployer, ...)` where the deployer issues a nested CREATE
 /// must succeed on both backends. The deposit (storage + code upload for EVM)
 /// is waived under Root; the new contract is otherwise fully formed.
-#[test_case(FixtureType::Solc;   "solc")]
-#[test_case(FixtureType::Resolc; "resolc")]
-fn root_call_can_nested_instantiate(deployer_type: FixtureType) {
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+fn root_call_can_nested_instantiate(caller_type: FixtureType, callee_type: FixtureType) {
 	use crate::{
 		AccountInfo, HoldReason, Pallet,
 		address::{AddressMapper, create1},
@@ -715,16 +715,15 @@ fn root_call_can_nested_instantiate(deployer_type: FixtureType) {
 	use alloy_core::primitives::Address;
 	use pallet_revive_fixtures::NestedDeployer::{NestedDeployerCalls, deployChildCall};
 
-	let (code, _) = compile_module_with_type("NestedDeployer", deployer_type).unwrap();
+	let (code, _) = compile_module_with_type("NestedDeployer", caller_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
 
 		// PVM requires the child's code to be pre-uploaded; EVM bytecode is uploaded
 		// inline by CREATE.
-		if deployer_type == FixtureType::Resolc {
-			let (child_code, _) =
-				compile_module_with_type("NestedChild", FixtureType::Resolc).unwrap();
+		if caller_type == FixtureType::Resolc {
+			let (child_code, _) = compile_module_with_type("NestedChild", callee_type).unwrap();
 			Pallet::<Test>::upload_code(
 				RuntimeOrigin::signed(ALICE.clone()),
 				child_code,
