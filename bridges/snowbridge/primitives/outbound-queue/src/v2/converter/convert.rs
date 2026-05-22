@@ -251,6 +251,11 @@ where
 		let origin_location = match_expression!(self.next()?, AliasOrigin(origin), origin)
 			.ok_or(AliasOriginExpected)?;
 
+		// Reject AliasOrigin claiming to be the Asset Hub sovereign account. The
+		// agent derived from that origin is the bridge's primary agent on Ethereum,
+		// holding all ERC20 assets. This is defense-in-depth: the XCM executor
+		// should already block unprivileged AliasOrigin, but a failed upstream regress
+		// would let a caller execute arbitrary agent calls as that account.
 		let asset_hub_location = Location::new(1, [Parachain(self.asset_hub_para_id.into())]);
 		ensure!(origin_location != &asset_hub_location, InvalidOrigin);
 
