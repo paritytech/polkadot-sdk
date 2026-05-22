@@ -433,6 +433,7 @@ pub fn exploit_v2_route_with_legacy_v1_transfer_will_fail() {
 	})
 }
 
+// Attack details: https://forum.polkadot.network/t/postmortem-xcm-initiatetransfer-origin-leak/17357
 #[test]
 pub fn signed_assethub_user_cannot_forge_assethub_agent_origin_with_direct_ethereum_send() {
 	fund_on_bh();
