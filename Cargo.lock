@@ -17077,6 +17077,7 @@ dependencies = [
  "sc-consensus-aura",
  "sc-consensus-manual-seal",
  "sc-executor 0.32.0",
+ "sc-hop",
  "sc-keystore",
  "sc-network 0.34.0",
  "sc-network-statement",
@@ -17101,6 +17102,7 @@ dependencies = [
  "sp-consensus-aura",
  "sp-core 28.0.0",
  "sp-genesis-builder 0.8.0",
+ "sp-hop",
  "sp-inherents 26.0.0",
  "sp-keystore 0.34.0",
  "sp-offchain",
@@ -17677,6 +17679,7 @@ dependencies = [
  "sc-executor-common 0.29.0",
  "sc-executor-polkavm 0.29.0",
  "sc-executor-wasmtime 0.29.0",
+ "sc-hop",
  "sc-informant",
  "sc-keystore",
  "sc-mixnet",
@@ -21623,6 +21626,34 @@ dependencies = [
  "sp-runtime-interface 32.0.0",
  "sp-wasm-interface 24.0.0",
  "wasmtime 35.0.0",
+]
+
+[[package]]
+name = "sc-hop"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "futures-timer",
+ "hex",
+ "jsonrpsee",
+ "parity-scale-codec",
+ "parking_lot 0.12.3",
+ "polkadot-primitives",
+ "sc-transaction-pool-api 28.0.0",
+ "serde",
+ "sp-api 26.0.0",
+ "sp-blockchain 28.0.0",
+ "sp-core 28.0.0",
+ "sp-externalities 0.25.0",
+ "sp-hop",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
+ "sp-test-primitives",
+ "sp-version 29.0.0",
+ "tempfile",
+ "thiserror 1.0.65",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
