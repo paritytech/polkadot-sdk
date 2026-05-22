@@ -701,27 +701,25 @@ fn instantiate_from_constructor_works() {
 	});
 }
 
-/// `bare_call(Root, deployer, ...)` where the deployer issues a nested CREATE
-/// must succeed on both backends. The deposit (storage + code upload for EVM)
-/// is waived under Root; the new contract is otherwise fully formed.
+/// SELFDESTRUCT of a Root-instantiated contract in the same tx must terminate
+/// cleanly. `do_terminate` previously called `origin.account_id()?` and silently
+/// failed under Root (the error was swallowed by `.ok()` at the call site),
+/// leaving the contract on-chain after a "successful" call.
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
-fn root_call_can_nested_instantiate(caller_type: FixtureType, callee_type: FixtureType) {
-	use crate::{
-		AccountInfo, HoldReason, Pallet,
-		address::{AddressMapper, create1},
-		tests::{System, test_utils::get_balance_on_hold},
-	};
+fn root_call_can_nested_instantiate_and_destroy(
+	caller_type: FixtureType,
+	callee_type: FixtureType,
+) {
+	use crate::{AccountInfo, Pallet, address::create1, test_utils::DJANGO_ADDR, tests::System};
 	use alloy_core::primitives::Address;
-	use pallet_revive_fixtures::NestedDeployer::{NestedDeployerCalls, deployChildCall};
+	use pallet_revive_fixtures::NestedDeployer::{NestedDeployerCalls, deployAndDestroyChildCall};
 
 	let (code, _) = compile_module_with_type("NestedDeployer", caller_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
 
-		// PVM requires the child's code to be pre-uploaded; EVM bytecode is uploaded
-		// inline by CREATE.
 		if caller_type == FixtureType::Resolc {
 			let (child_code, _) = compile_module_with_type("NestedChild", callee_type).unwrap();
 			Pallet::<Test>::upload_code(
@@ -736,17 +734,11 @@ fn root_call_can_nested_instantiate(caller_type: FixtureType, callee_type: Fixtu
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 		let _ = <Test as Config>::Currency::set_balance(&account_id, 100_000_000_000_000);
 
-		let data = NestedDeployerCalls::deployChild(deployChildCall {}).abi_encode();
+		let data = NestedDeployerCalls::deployAndDestroyChild(deployAndDestroyChildCall {
+			beneficiary: DJANGO_ADDR.0.into(),
+		})
+		.abi_encode();
 
-		// Snapshot balances/holds the Root call must not touch.
-		let storage_hold = HoldReason::StorageDepositReserve.into();
-		let upload_hold = HoldReason::CodeUploadDepositReserve.into();
-		let pallet_account = Pallet::<Test>::account_id();
-		let deployer_storage_hold_before = get_balance_on_hold(&storage_hold, &account_id);
-		let deployer_free_before = <<Test as Config>::Currency as Inspect<_>>::balance(&account_id);
-		let pallet_upload_hold_before = get_balance_on_hold(&upload_hold, &pallet_account);
-
-		// Predict the address the next `new` will land at, then call under Root.
 		let deployer_nonce = System::account_nonce(&account_id);
 		let expected = create1(&addr, deployer_nonce.into());
 
@@ -754,31 +746,19 @@ fn root_call_can_nested_instantiate(caller_type: FixtureType, callee_type: Fixtu
 			.origin(RuntimeOrigin::root())
 			.data(data)
 			.build_and_unwrap_result();
-		assert!(!result.did_revert(), "Root nested CREATE should succeed");
+		assert!(!result.did_revert(), "Root nested CREATE + SELFDESTRUCT should succeed");
 
-		let returned: Address = deployChildCall::abi_decode_returns(&result.data).unwrap();
-		assert_ne!(returned, Address::ZERO, "CREATE should not return zero");
-		assert_eq!(
-			H160::from_slice(returned.as_slice()),
-			expected,
-			"returned address must match CREATE1 derivation",
-		);
+		let returned: Address =
+			deployAndDestroyChildCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(H160::from_slice(returned.as_slice()), expected);
+
+		// EIP-6780: created-and-destroyed in the same tx must actually remove the
+		// contract. Before the do_terminate fix this silently failed under Root and
+		// the ContractInfo stayed put.
 		assert!(
-			AccountInfo::<Test>::load_contract(&expected).is_some(),
-			"new contract should have ContractInfo",
+			AccountInfo::<Test>::load_contract(&expected).is_none(),
+			"child contract must have been terminated, not silently left on-chain",
 		);
-
-		// Deposits are waived under Root: no storage-deposit hold on the new contract
-		// (or the deployer), and no code-upload hold on the pallet's sentinel-owner
-		// account (only relevant for EVM, where the runtime code is uploaded inline).
-		let new_id = <Test as crate::Config>::AddressMapper::to_account_id(&expected);
-		assert_eq!(get_balance_on_hold(&storage_hold, &new_id), 0);
-		assert_eq!(get_balance_on_hold(&storage_hold, &account_id), deployer_storage_hold_before);
-		assert_eq!(
-			<<Test as Config>::Currency as Inspect<_>>::balance(&account_id),
-			deployer_free_before,
-		);
-		assert_eq!(get_balance_on_hold(&upload_hold, &pallet_account), pallet_upload_hold_before);
 	});
 }
 

@@ -1731,10 +1731,18 @@ where
 	) -> Result<(), DispatchError> {
 		let contract_address = T::AddressMapper::to_address(contract_account);
 
+		// If root created this contract we need to use the pallet account_id because root no
+		// account.
+		let synthetic_origin: Origin<T> = Origin::from_account_id(crate::Pallet::<T>::account_id());
+		let effective_origin: &Origin<T> =
+			if matches!(origin, Origin::Root) { &synthetic_origin } else { origin };
+
 		let mut delete_contract = |trie_id: &TrieId, code_hash: &H256| {
 			// deposit needs to be removed as it adds a consumer
-			let refund =
-				T::Deposit::refund_all(&contract_account, exec_config.funds(origin.account_id()?))?;
+			let refund = T::Deposit::refund_all(
+				&contract_account,
+				exec_config.funds(effective_origin.account_id()?),
+			)?;
 
 			// we added this consumer manually when instantiating
 			System::<T>::dec_consumers(&contract_account);
@@ -1749,7 +1757,7 @@ where
 				contract_address.into(),
 			));
 			Self::transfer(
-				origin,
+				effective_origin,
 				contract_account,
 				&args.beneficiary,
 				balance,
