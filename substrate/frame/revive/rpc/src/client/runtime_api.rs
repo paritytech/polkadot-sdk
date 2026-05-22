@@ -26,7 +26,7 @@ use pallet_revive::{
 	DryRunConfig, EthTransactError, EthTransactInfo,
 	evm::{
 		Block as EthBlock, BlockNumberOrTagOrHash, BlockTag, GenericTransaction, H160,
-		ReceiptGasInfo, Trace, TraceV1, U256,
+		ReceiptGasInfo, StateOverrideSet, Trace, TraceV1, TracingConfig, U256,
 	},
 };
 use sp_core::H256;
@@ -137,7 +137,7 @@ impl RuntimeApi {
 					.revive_api()
 					.eth_estimate_gas(
 						tx.clone().into(),
-						DryRunConfig::new(timestamp_override).into(),
+						DryRunConfig::default().with_timestamp_override(timestamp_override).into(),
 					)
 					.unvalidated();
 				self.api.call(payload).await.map(|value| value.map(|value| value.0))
@@ -148,7 +148,7 @@ impl RuntimeApi {
 					.revive_api()
 					.eth_transact_with_config(
 						tx.clone().into(),
-						DryRunConfig::new(timestamp_override).into(),
+						DryRunConfig::default().with_timestamp_override(timestamp_override).into(),
 					)
 					.unvalidated();
 				self.api.call(payload).await.map(|value| value.map(|value| value.eth_gas))
@@ -185,6 +185,7 @@ impl RuntimeApi {
 		&self,
 		tx: GenericTransaction,
 		block: BlockNumberOrTagOrHash,
+		state_overrides: Option<StateOverrideSet>,
 	) -> Result<EthTransactInfo<Balance>, ClientError> {
 		let timestamp_override = match block {
 			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) => {
@@ -193,12 +194,13 @@ impl RuntimeApi {
 			_ => None,
 		};
 
+		let config = DryRunConfig::default()
+			.with_timestamp_override(timestamp_override)
+			.with_state_overrides(state_overrides);
+
 		let payload = subxt_client::apis()
 			.revive_api()
-			.eth_transact_with_config(
-				tx.clone().into(),
-				DryRunConfig::new(timestamp_override).into(),
-			)
+			.eth_transact_with_config(tx.clone().into(), config.into())
 			.unvalidated();
 
 		let result = self
@@ -322,17 +324,44 @@ impl RuntimeApi {
 	}
 
 	/// Get the trace for the given call.
+	///
+	/// If `state_overrides` are provided, uses the `trace_call_with_config` runtime API
+	/// which supports state overrides. Otherwise falls back to the original `trace_call`
+	/// for backwards compatibility with older runtimes.
 	pub async fn trace_call(
 		&self,
 		transaction: GenericTransaction,
 		tracer_type: crate::TracerType,
+		state_overrides: Option<StateOverrideSet>,
 	) -> Result<Trace, ClientError> {
+		let is_v2 = self.revive_api_version().await? >= REVIVE_API_V2;
+
+		if let Some(overrides) = state_overrides {
+			// trace_call_with_config only exists on ReviveApi v2+.
+			if !is_v2 {
+				return Err(ClientError::Other(
+					"state_overrides require ReviveApi v2+".into(),
+				));
+			}
+			let config = TracingConfig::new().with_state_overrides(overrides);
+			let payload = subxt_client::apis()
+				.revive_api()
+				.trace_call_with_config(transaction.into(), tracer_type.into(), config.into())
+				.unvalidated();
+			let trace = self
+				.api
+				.call(payload)
+				.await?
+				.map_err(|err| ClientError::TransactError(err.0))?;
+			return Ok(trace.0);
+		}
+
 		let payload = subxt_client::apis()
 			.revive_api()
 			.trace_call(transaction.into(), tracer_type.into())
 			.unvalidated();
 
-		if self.revive_api_version().await? >= REVIVE_API_V2 {
+		if is_v2 {
 			let trace =
 				self.api.call(payload).await?.map_err(|err| ClientError::TransactError(err.0))?;
 			return Ok(trace.0);
@@ -388,7 +417,7 @@ impl RuntimeApi {
 	pub async fn eth_receipt_data(&self) -> Result<Vec<ReceiptGasInfo>, ClientError> {
 		let payload = subxt_client::apis().revive_api().eth_receipt_data().unvalidated();
 		let receipt_data = self.api.call(payload).await.inspect_err(|err| {
-			log::debug!(target: LOG_TARGET, "Receipt data not found, err: {err:?}");
+			log::debug!(target: LOG_TARGET, "eth_receipt_data runtime call failed: {err:?}");
 		})?;
 		let receipt_data = receipt_data.into_iter().map(|item| item.0).collect();
 		Ok(receipt_data)

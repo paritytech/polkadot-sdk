@@ -448,9 +448,8 @@ pub const MIN_CODE_SIZE: u32 = 9;
 /// Used for:
 /// * initial genesis for the Parachains configuration
 /// * checking updates to this stored runtime configuration do not exceed this limit
-/// * when detecting a code decompression bomb in the client
 // NOTE: This value is used in the runtime so be careful when changing it.
-pub const MAX_CODE_SIZE: u32 = 3 * 1024 * 1024;
+pub const MAX_CODE_SIZE: u32 = 5 * 1024 * 1024;
 
 /// Maximum head data size we support right now.
 ///
@@ -2388,6 +2387,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		relay_parent: H,
 		core_index: CoreIndex,
 		session_index: SessionIndex,
+		scheduling_session_index: SessionIndex,
 		persisted_validation_data_hash: Hash,
 		pov_hash: Hash,
 		erasure_root: Hash,
@@ -2401,7 +2401,10 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 			version: 1,
 			core_index: core_index.0 as u16,
 			session_index,
-			scheduling_session_offset: 0,
+			scheduling_session_offset: scheduling_session_index
+				.saturating_sub(session_index)
+				.try_into()
+				.expect("scheduling session offset should fit in u8"),
 			reserved1: [0; 24],
 			persisted_validation_data_hash,
 			pov_hash,
@@ -3342,7 +3345,8 @@ pub mod tests {
 			Id::from(1u32),
 			Hash::repeat_byte(1),
 			CoreIndex(0),
-			1,
+			1, // session_index
+			1, // scheduling_session_index
 			Hash::repeat_byte(2),
 			Hash::repeat_byte(3),
 			Hash::repeat_byte(4),
