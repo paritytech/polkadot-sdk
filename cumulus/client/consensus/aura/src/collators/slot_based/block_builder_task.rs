@@ -119,6 +119,7 @@ pub struct BuilderTaskParams<
 	/// intent to keep our "clock" slightly behind the relay chain one and thus reducing the
 	/// likelihood of encountering unfavorable notification arrival timings (i.e. we don't want to
 	/// wait for relay chain notifications because we woke up too early).
+	#[allow(dead_code)]
 	pub slot_offset: Duration,
 	/// The maximum percentage of the maximum PoV size that the collator can use.
 	/// It will be removed once https://github.com/paritytech/polkadot-sdk/issues/6020 is fixed.
