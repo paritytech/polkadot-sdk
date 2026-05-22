@@ -35,6 +35,7 @@ const LOG_TARGET: &str = "rpc-spec-v2";
 // See <https://github.com/multiformats/multicodec/blob/master/table.csv>
 const SHA2_256: u64 = 0x12;
 const BLAKE2B_256: u64 = 0xb220;
+const KECCAK_256: u64 = 0x1b;
 
 /// Bitswap RPC implementation.
 pub struct Bitswap<Block, Client> {
@@ -68,10 +69,11 @@ where
 
 		let hash = cid.hash();
 
-		// Only sha2-256 & blake2b-256 hash functions are supported according to the spec.
-		if hash.code() != SHA2_256 && hash.code() != BLAKE2B_256 {
+		// Only sha2-256, blake2b-256 & keccak-256 hash functions are supported according to the
+		// spec.
+		if hash.code() != SHA2_256 && hash.code() != BLAKE2B_256 && hash.code() != KECCAK_256 {
 			return Err(Error::InvalidCid(
-				"Only sha2-256 & blake2b-256 hash functions are supported".into(),
+				"Only sha2-256, blake2b-256 & keccak-256 hash functions are supported".into(),
 			)
 			.into());
 		}
