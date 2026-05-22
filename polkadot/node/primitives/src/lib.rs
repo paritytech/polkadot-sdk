@@ -553,6 +553,47 @@ pub struct SubmitCollationParams {
 	pub validation_data: PersistedValidationData,
 }
 
+/// A single collation in a segment submitted via `CollationGenerationMessage::SubmitSegment`.
+#[derive(Debug)]
+pub struct SegmentCollation {
+	/// The relay-parent the collation is built against.
+	pub relay_parent: Hash,
+	/// The collation itself (PoV and commitments).
+	pub collation: Collation,
+	/// The hash of the validation code the collation was created against.
+	pub validation_code_hash: ValidationCodeHash,
+	/// An optional result sender that should be informed about a successfully seconded collation.
+	///
+	/// See [`SubmitCollationParams::result_sender`] for the same caveats.
+	pub result_sender: Option<futures::channel::oneshot::Sender<CollationSecondedSignal>>,
+	/// The session index of the relay parent. Goes into the candidate descriptor.
+	/// Must be provided by the caller because the relay parent's state may be pruned.
+	pub session_index: SessionIndex,
+	/// The persisted validation data for this collation. The `parent_head` field must be set
+	/// to the correct parent head-data for the parablock being submitted.
+	pub validation_data: PersistedValidationData,
+}
+
+/// Parameters for `CollationGenerationMessage::SubmitSegment`.
+///
+/// Submits multiple collations that share a common scheduling parent and target core. Each
+/// [`SegmentCollation`] in `collations` carries the fields that may differ between blocks of the
+/// segment (relay parent, collation payload, validation data, etc.).
+#[derive(Debug)]
+pub struct SubmitSegmentParams {
+	/// The scheduling parent for V3 candidate descriptors, shared by all collations in the
+	/// segment. If set, every candidate descriptor will use this as the scheduling parent
+	/// (creating V3 descriptors). If `None`, each collation's `relay_parent` is used (V2
+	/// descriptors).
+	///
+	/// WARNING: Should only be set if the `CandidateReceiptV3` node feature is set.
+	pub scheduling_parent: Option<Hash>,
+	/// The core index on which the resulting candidates should be backed.
+	pub core_index: CoreIndex,
+	/// The collations in this segment, in the order they should be submitted.
+	pub collations: Vec<SegmentCollation>,
+}
+
 /// This is the data we keep available for each candidate included in the relay chain.
 #[derive(Clone, Encode, Decode, PartialEq, Eq, Debug)]
 pub struct AvailableData {
