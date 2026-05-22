@@ -5,28 +5,22 @@ doc:
     \n## Motivation\n\n`pallet-revive`'s exec stack rejects `Origin::Root` at any\
     \ constructor frame, which means `bare_call(RuntimeOrigin::root(), contract_addr,\
     \ ...)` errors with `RootNotAllowed` the moment the called contract reaches a\
-    \ `CREATE`/`CREATE2` opcode \u2014 even though the contract itself is the semantic\
+    \ `CREATE`/`CREATE2` opcode — even though the contract itself is the semantic\
     \ instantiator.\n\nThe historical reason for the block was that the origin had\
     \ to fund the new contract's ED. Since the PGAS rework, the ED is freshly minted\
     \ by `T::Deposit::init_contract` and immediately deactivated for issuance accounting,\
     \ so the origin no longer needs to pay it.\n\n## Change\n\n- Remove the explicit\
     \ `RootNotAllowed` check at the start of the constructor frame in `exec.rs`.\n\
-    - Move the `self.origin.account_id()?` extraction inside the `!is_pvm` branch\
-    \ where it's actually consumed (as the EVM runtime-code upload-deposit owner).\
-    \ PVM constructors no longer touch it.\n\nRoot is still **not** allowed to instantiate\
+    \nRoot is still **not** allowed to instantiate\
     \ directly: `instantiate`/`bare_instantiate` continue to gate on `T::InstantiateOrigin::ensure_origin`\
-    \ (default `EnsureSigned` \u2192 `BadOrigin`). The change only unblocks the case\
+    \ (default `EnsureSigned` → `BadOrigin`). The change only unblocks the case\
     \ where another contract sits between Root and the new contract and acts as the\
     \ instantiator. Giving Root its own contract-address attribution is intentionally\
-    \ out of scope.\n\nEVM CREATE under Root continues to error `RootNotAllowed` \u2014\
-    \ at the runtime-code owner extraction rather than at the constructor entry \u2014\
-    \ because there's no address to attribute the upload deposit to.\n\n## Test plan\n\
-    \n- New `root_call_can_nested_instantiate` covers `bare_call(Root, deployer, value=0)`\
-    \ where the deployer issues a `CREATE1`; asserts the child account exists with\
-    \ the freshly minted ED.\n- Existing `root_cannot_instantiate{,_with_code}` and\
-    \ `root_can_call` continue to pass \u2014 direct Root instantiation is still rejected\
+    \ out of scope.\n\n## Test plan\n\
+    \n- Existing `root_cannot_instantiate{,_with_code}` and\
+    \ `root_can_call` continue to pass — direct Root instantiation is still rejected\
     \ at the dispatchable layer, and Root-originated calls remain functional.\n- Full\
-    \ `pallet-revive` test suite (614 tests) is green."
+    \ `pallet-revive` test suite is green."
 crates:
 - name: pallet-revive
   bump: minor
