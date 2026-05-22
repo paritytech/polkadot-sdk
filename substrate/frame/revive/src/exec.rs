@@ -1578,14 +1578,18 @@ where
 				transient_storage.rollback_transaction();
 			}
 		});
-		// Close the access-list frame. Skip the first frame — no parent will
-		// observe the rolled-back state, and the `Stack` is dropped at tx end.
-		if !is_first_frame {
-			if success {
-				self.access_list.commit_frame();
-			} else {
-				self.access_list.rollback_frame();
-			}
+		// First frame opens no checkpoint — log final metrics. Nested frames
+		// commit or roll back the checkpoint they opened.
+		if is_first_frame {
+			let (size, cold, warm) = self.access_list.metrics();
+			log::trace!(
+				target: LOG_TARGET,
+				"access list metrics: size={size} cold={cold} warm={warm}",
+			);
+		} else if success {
+			self.access_list.commit_frame();
+		} else {
+			self.access_list.rollback_frame();
 		}
 		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 

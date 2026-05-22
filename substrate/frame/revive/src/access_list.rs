@@ -62,6 +62,12 @@ pub enum AccessList {
 		/// the current frame started inserting; rolling back means draining
 		/// `journal` from that index and removing those entries from `accessed`.
 		checkpoints: Vec<usize>,
+		/// Total cold touches across the transaction. Includes touches in
+		/// frames that later rolled back.
+		cold_count: u32,
+		/// Total warm touches across the transaction. Includes touches in
+		/// frames that later rolled back.
+		warm_count: u32,
 	},
 	/// No-op variant — used when cold/warm pricing is disabled at runtime.
 	Disabled,
@@ -73,7 +79,13 @@ impl AccessList {
 	/// First-touch on any entry is always cold. No initial checkpoint is
 	/// opened — first-frame touches survive the whole transaction.
 	pub fn new_enabled() -> Self {
-		Self::Enabled { accessed: BTreeSet::new(), journal: Vec::new(), checkpoints: Vec::new() }
+		Self::Enabled {
+			accessed: BTreeSet::new(),
+			journal: Vec::new(),
+			checkpoints: Vec::new(),
+			cold_count: 0,
+			warm_count: 0,
+		}
 	}
 
 	/// Initialize the no-op variant. Used when cold/warm pricing is disabled.
@@ -114,7 +126,7 @@ impl AccessList {
 	///
 	/// Will panic if there is no open frame.
 	pub fn rollback_frame(&mut self) {
-		if let Self::Enabled { accessed, journal, checkpoints } = self {
+		if let Self::Enabled { accessed, journal, checkpoints, .. } = self {
 			let checkpoint = checkpoints.pop().expect("frame open; qed");
 			for entry in journal.drain(checkpoint..) {
 				accessed.remove(&entry);
@@ -134,13 +146,25 @@ impl AccessList {
 	pub fn touch(&mut self, entry: AccessEntry) -> bool {
 		match self {
 			Self::Disabled => true,
-			Self::Enabled { accessed, journal, .. } => {
+			Self::Enabled { accessed, journal, cold_count, warm_count, .. } => {
 				if accessed.contains(&entry) {
+					*warm_count = warm_count.saturating_add(1);
 					return false;
 				}
 				accessed.insert(entry.clone());
 				journal.push(entry);
+				*cold_count = cold_count.saturating_add(1);
 				true
+			},
+		}
+	}
+
+	/// Per-transaction metrics.
+	pub fn metrics(&self) -> (usize, u32, u32) {
+		match self {
+			Self::Disabled => (0, 0, 0),
+			Self::Enabled { accessed, cold_count, warm_count, .. } => {
+				(accessed.len(), *cold_count, *warm_count)
 			},
 		}
 	}

@@ -441,11 +441,7 @@ impl RuntimeCosts {
 	/// Cold/warm dispatch shared by `new_weight`'s storage arms. The cold
 	/// bench doubles as the `None` (no-access) fallback — it's the substrate
 	/// cost without the access-list overhead the cold arm layers on top.
-	fn cold_warm_weight<T: Config>(
-		is_cold: Option<bool>,
-		cold: Weight,
-		warm: Weight,
-	) -> Weight {
+	fn cold_warm_weight<T: Config>(is_cold: Option<bool>, cold: Weight, warm: Weight) -> Weight {
 		match is_cold {
 			None => cold,
 			Some(true) => cold
