@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779454608037,
+  "lastUpdate": 1779460443737,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "4697901f84463e423cf46cfbe84744f4c9ad1555",
-          "message": "Return unified gas for `gas_left` syscalls and opcodes (#9968)\n\nIn https://github.com/paritytech/polkadot-sdk/pull/9803 we introduced\nthe new gas mapping. However, when contracts are querying the remaining\ngas we still returned the `ref_time`. This PR changes that.\n\n## Changes\n- Added a new `Stack::gas_left` function that calculates the remaining\ngas as eth gas that matches the gas passed in the transaction. It\nsupports both the `eth_` and non `eth_` flavors of dispatchables.\n- Changed the PVM syscall `ref_time_left` to return the new unified gas.\n- Changes the EVM `GAS` opcode to return the new unified gas\n- When calculating the consumed storage we now take into account what\nwas charged during the current frame\n- Removed `storage_deposit_limit` from `eth_*` dispatchables. It is\nalways uncapped in this case and the overall limit is conveyed using the\ntx credit.\n\n## Follow ups\nNow that we can return the proper remaining gas that also includes the\nstorage deposit we can change the EVM `call` instruction next to take\nthe passed `gas` into account. Since the unified gas takes both the\ntxfee and the deposit into account it will be able to limit both\neffectively.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: xermicus <cyrill@parity.io>",
-          "timestamp": "2025-10-09T14:35:38Z",
-          "tree_id": "542b34f5992d92006956917f952370a5e5861e98",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4697901f84463e423cf46cfbe84744f4c9ad1555"
-        },
-        "date": 1760030376701,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02242741262,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0071714435400000165,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15651154533333345,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013111588753333339,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1472822800466668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ce0a83d000be64be455a8b58e5ce5b33c196cfdc",
+          "message": "fix zombienet flaky tests  (#12139)\n\nAdjustment in flaky tests\n\n<img width=\"1034\" height=\"170\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/bbee5bba-9f35-45ef-bc01-51d057bc234d\"\n/>\n\n- adjust range.\n\n<img width=\"1021\" height=\"176\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/8ab76bf5-dbc7-467f-beae-8777867880d0\"\n/>\n\n- flip metrics check.",
+          "timestamp": "2026-05-22T11:35:06Z",
+          "tree_id": "41a4db71ba7cec0dd55f2e3d621fa5a93183e2a5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce0a83d000be64be455a8b58e5ce5b33c196cfdc"
+        },
+        "date": 1779460415594,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007629652886666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009933954506666643,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14526042039333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02364734192,
             "unit": "seconds"
           }
         ]
