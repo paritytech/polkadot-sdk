@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779467034944,
+  "lastUpdate": 1779472366010,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -93851,6 +93851,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2886447862,
             "range": "± 70338727",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "313647ce0acbfcefea301f05bba4ffec9c9e2bc0",
+          "message": "pallet-revive: fix execution tracer reporting zero gas for plain transfers (#12069)\n\nFixes\n[paritytech/contract-issues#278](https://github.com/paritytech/contract-issues/issues/278).\n\n`Stack::run_call`'s no-code branch was passing `Default::default()` to\n`exit_child_span`, so the execution tracer reported `gas: 0` for any\ntransaction whose destination has no contract code (plain EOA\ntransfers),\neven when the meter had charged an existential deposit. The\ncontract-call\nbranch already reads `frame_meter.total_consumed_gas()` /\n`frame_meter.weight_consumed()` and forwards them — this PR does the\nsame\nat the transaction-meter level for the no-code branch.\n\n## Tests\n\n- New regression test\n`execution_tracing_records_consumption_for_plain_transfer`\n  in `tests/pvm.rs`: transfers to an unfunded account, asserts\n  `trace.gas > 0`. Fails on `master`, passes here.\n- Updated `tracing_works_for_transfers`, which previously asserted the\nbuggy zero via `..Default::default()`, to compare against the\n`bare_call`\n  result's `gas_consumed`.\n\nEnd-to-end: 1500 transfers via `manual-seal-6000` then\n`debug_traceBlockByNumber` → before: every trace `gas: 0`; after: every\ntrace `gas: 200000` (the ED charge).\nhttps://github.com/0xRVE/contract-issue-278\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-22T16:42:18Z",
+          "tree_id": "0cca72a61fa5a2d625f7e65b1a56300a16237006",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/313647ce0acbfcefea301f05bba4ffec9c9e2bc0"
+        },
+        "date": 1779472336598,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 23271494,
+            "range": "± 735529",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 22547431,
+            "range": "± 776136",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 24720840,
+            "range": "± 830128",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 29636119,
+            "range": "± 344887",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 65180671,
+            "range": "± 2604610",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 441101741,
+            "range": "± 9922327",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2950689953,
+            "range": "± 223282836",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 20159645,
+            "range": "± 304335",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 20330555,
+            "range": "± 300846",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 21511948,
+            "range": "± 675175",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 25388211,
+            "range": "± 243023",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 64834702,
+            "range": "± 853251",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 372566359,
+            "range": "± 3405964",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2906328929,
+            "range": "± 37763990",
             "unit": "ns/iter"
           }
         ]
