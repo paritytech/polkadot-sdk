@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779451408214,
+  "lastUpdate": 1779454572519,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "4697901f84463e423cf46cfbe84744f4c9ad1555",
-          "message": "Return unified gas for `gas_left` syscalls and opcodes (#9968)\n\nIn https://github.com/paritytech/polkadot-sdk/pull/9803 we introduced\nthe new gas mapping. However, when contracts are querying the remaining\ngas we still returned the `ref_time`. This PR changes that.\n\n## Changes\n- Added a new `Stack::gas_left` function that calculates the remaining\ngas as eth gas that matches the gas passed in the transaction. It\nsupports both the `eth_` and non `eth_` flavors of dispatchables.\n- Changed the PVM syscall `ref_time_left` to return the new unified gas.\n- Changes the EVM `GAS` opcode to return the new unified gas\n- When calculating the consumed storage we now take into account what\nwas charged during the current frame\n- Removed `storage_deposit_limit` from `eth_*` dispatchables. It is\nalways uncapped in this case and the overall limit is conveyed using the\ntx credit.\n\n## Follow ups\nNow that we can return the proper remaining gas that also includes the\nstorage deposit we can change the EVM `call` instruction next to take\nthe passed `gas` into account. Since the unified gas takes both the\ntxfee and the deposit into account it will be able to limit both\neffectively.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: xermicus <cyrill@parity.io>",
-          "timestamp": "2025-10-09T14:35:38Z",
-          "tree_id": "542b34f5992d92006956917f952370a5e5861e98",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4697901f84463e423cf46cfbe84744f4c9ad1555"
-        },
-        "date": 1760030343958,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19647309236666669,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.442883072833332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.972202377233334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jfanatiker@gmx.at",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "02ac1f74894f51aa045b9d0b01f8af2f7200a7c9",
+          "message": "Rotation bug fix + simplification (#11967)\n\nSimilar to https://github.com/paritytech/polkadot-sdk/pull/11648, but I\nfound that state machine very hard to reason about. This is an\nalternative, with a more compact implementation (all the logic is a\nsingle function) and it is also correct for more corner cases. In\nparticular capacity tracking for example is now correct.\n\n---------\n\nCo-authored-by: Tsvetomir Dimitrov <tsvetomir@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-22T11:11:24Z",
+          "tree_id": "3954b3017ba1b6599669b82337fab02ff59dc232",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/02ac1f74894f51aa045b9d0b01f8af2f7200a7c9"
+        },
+        "date": 1779454545810,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.830985204833334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13650467513333334,
             "unit": "seconds"
           }
         ]
