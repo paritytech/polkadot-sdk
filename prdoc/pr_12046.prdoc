@@ -28,12 +28,7 @@ doc:
     \ is the stored value itself — not a separately-tracked flag — those mutations\
     \ are reflected immediately: a decrement below `Balance::MAX` collapses the\
     \ sentinel for both `allowance()` and `transferFrom`, with no precompile-side\
-    \ bookkeeping needed.\n\n## Doc-comment cleanup\n\nThe `approve` doc-comment\
-    \ previously told callers to use `increaseAllowance` / `decreaseAllowance` to\
-    \ mitigate the well-known approve front-running race, but neither method is\
-    \ exposed by this precompile (OpenZeppelin removed them in v5.0). Replaced with\
-    \ a pointer to `permit()`, which this precompile *does* expose and which solves\
-    \ the same problem atomically via signature.\n\n## Versioning\n\nBumped as **patch**:\
+    \ bookkeeping needed.\n\n## Versioning\n\nBumped as **patch**:\
     \ behaviour change is a strict superset of the previous behaviour. Calls that\
     \ previously reverted (`approve`/`permit` with `U256 > Balance::MAX`) now succeed;\
     \ no previously-successful call changes outcome. The Rust crate API surface\
