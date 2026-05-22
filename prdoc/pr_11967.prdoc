@@ -26,12 +26,6 @@ doc:
       open — keeping peers connected past their relevance and offering capacity for slots that
       could no longer be filled.
 
-    * **Short claim queues no longer reject valid ancestor advertisements.** When the
-      runtime returns a CQ shorter than `scheduling_lookahead` (e.g. on-demand cores where
-      not every position is filled), the SP-window arithmetic was using the CQ length rather
-      than the lookahead as its bound, wrongly rejecting otherwise-valid advertisements at
-      ancestor SPs.
-
     Internals: the previous `ClaimQueueState` / `PerLeafClaimQueueState` machinery is gone
     (~2200 LoC deleted). Capacity is now computed per-(leaf, core) by `build_leaf_core_cqs`
     as a `Vec<LeafCoreCq>`, where each `LeafCoreCq` holds the leaf's CQ as
