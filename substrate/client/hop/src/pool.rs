@@ -755,10 +755,7 @@ impl HopDataPool {
 			let batch: Vec<(u64, HopHash)> = {
 				let guard = self.expiry_index.read();
 				guard
-					.range((
-						Bound::Unbounded,
-						Bound::Included(&(now_secs, H256([0xff; 32]))),
-					))
+					.range((Bound::Unbounded, Bound::Included(&(now_secs, H256([0xff; 32])))))
 					.take(CLEANUP_BATCH_SIZE)
 					.copied()
 					.collect()
@@ -2009,9 +2006,8 @@ mod tests {
 		)
 		.unwrap();
 
-		let (_data, recovered_auth_signer, _sig, _ts) = pool2
-			.get_with_auth(&winner_hash)
-			.expect("winner's entry must survive restart");
+		let (_data, recovered_auth_signer, _sig, _ts) =
+			pool2.get_with_auth(&winner_hash).expect("winner's entry must survive restart");
 		assert_eq!(
 			recovered_auth_signer, winner_sender_auth,
 			"meta in parity-db diverged from the winning insert; loser's meta overwrote the winner's",
