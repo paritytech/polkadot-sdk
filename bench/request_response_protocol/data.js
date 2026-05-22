@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779453509017,
+  "lastUpdate": 1779459328236,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -93419,6 +93419,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2926339369,
             "range": "± 61380685",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ce0a83d000be64be455a8b58e5ce5b33c196cfdc",
+          "message": "fix zombienet flaky tests  (#12139)\n\nAdjustment in flaky tests\n\n<img width=\"1034\" height=\"170\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/bbee5bba-9f35-45ef-bc01-51d057bc234d\"\n/>\n\n- adjust range.\n\n<img width=\"1021\" height=\"176\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/8ab76bf5-dbc7-467f-beae-8777867880d0\"\n/>\n\n- flip metrics check.",
+          "timestamp": "2026-05-22T11:35:06Z",
+          "tree_id": "41a4db71ba7cec0dd55f2e3d621fa5a93183e2a5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce0a83d000be64be455a8b58e5ce5b33c196cfdc"
+        },
+        "date": 1779459300392,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19869794,
+            "range": "± 156913",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20611623,
+            "range": "± 111230",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22577755,
+            "range": "± 357565",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26631840,
+            "range": "± 180677",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59488579,
+            "range": "± 469900",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 345971930,
+            "range": "± 1945575",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2596289781,
+            "range": "± 134538048",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17656146,
+            "range": "± 174771",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17640915,
+            "range": "± 161368",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18157545,
+            "range": "± 283562",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23187490,
+            "range": "± 325485",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59476132,
+            "range": "± 299458",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 348770775,
+            "range": "± 2745362",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2782107861,
+            "range": "± 61489543",
             "unit": "ns/iter"
           }
         ]
