@@ -1168,7 +1168,7 @@ impl<T: Config> Pallet<T> {
 	/// runtime API to expose the value to collators.
 	pub fn max_claim_queue_offset() -> u8 {
 		if !T::SchedulingV3Enabled::get() {
-			return 0;
+			return 1;
 		}
 
 		2
