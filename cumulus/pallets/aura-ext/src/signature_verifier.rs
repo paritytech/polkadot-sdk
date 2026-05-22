@@ -5,10 +5,10 @@
 //! V3 scheduling signature verifier backed by parachain Aura authorities.
 //!
 //! Implements [`VerifySchedulingSignature`] for parachains running Aura: derives the
-//! parachain slot from the relay chain `scheduling_parent` header's BABE pre-digest,
-//! looks up the eligible Aura author from this pallet's cached authority set, and
-//! verifies the 64-byte signature in [`SignedSchedulingInfo`] over the encoded
-//! [`SchedulingInfoPayload`].
+//! parachain slot from the BABE pre-digest of the relay header at
+//! `internal_scheduling_parent`, looks up the eligible Aura author from this pallet's
+//! cached authority set, and verifies the 64-byte signature in [`SignedSchedulingInfo`]
+//! over the encoded [`SchedulingInfoPayload`].
 
 use crate::{Authorities, Config};
 use codec::{Decode, Encode};
@@ -43,11 +43,14 @@ where
 {
 	fn verify(
 		signed_info: &SignedSchedulingInfo,
-		scheduling_parent_header: &RelayChainHeader,
+		internal_scheduling_parent_header: &RelayChainHeader,
 		internal_scheduling_parent: RelayHash,
 	) -> bool {
-		// 1. Decode relay slot from the BABE pre-digest of the scheduling_parent header.
-		let relay_slot: Slot = match scheduling_parent_header
+		// 1. Decode relay slot from the BABE pre-digest of the internal_scheduling_parent header.
+		//    The eligible parachain author is determined by *this* slot, not by the slot at the
+		//    freshest scheduling_parent — that anchors the signature to a specific block (the one
+		//    being submitted/resubmitted) rather than to a moving relay tip.
+		let relay_slot: Slot = match internal_scheduling_parent_header
 			.digest
 			.logs()
 			.iter()
@@ -57,9 +60,9 @@ where
 			None => return false,
 		};
 
-		// 2. Convert relay slot to parachain slot. Both slot durations are in
-		//    milliseconds; the relay slot duration is fixed at 6s and the para slot
-		//    duration is read from pallet-aura.
+		// 2. Convert relay slot to parachain slot. Both slot durations are in milliseconds; the
+		//    relay slot duration is fixed at 6s and the para slot duration is read from
+		//    pallet-aura.
 		let para_slot_duration: u64 =
 			match TryInto::<u64>::try_into(pallet_aura::Pallet::<T>::slot_duration()) {
 				Ok(d) if d > 0 => d,
@@ -70,9 +73,9 @@ where
 			.checked_div(para_slot_duration)
 			.unwrap_or(0);
 
-		// 3. Look up the eligible Aura author. Use the cached authority set rather
-		//    than `pallet_aura::Authorities` because aura-ext's cache is captured at
-		//    on_initialize for verification of the current PoV.
+		// 3. Look up the eligible Aura author. Use the cached authority set rather than
+		//    `pallet_aura::Authorities` because aura-ext's cache is captured at on_initialize for
+		//    verification of the current PoV.
 		let authorities = Authorities::<T>::get();
 		if authorities.is_empty() {
 			return false;
@@ -80,8 +83,8 @@ where
 		let author_idx = (para_slot % authorities.len() as u64) as usize;
 		let author = &authorities[author_idx];
 
-		// 4. Decode the 64-byte signature blob as the authority's expected signature
-		//    type and verify over the encoded SchedulingInfoPayload.
+		// 4. Decode the 64-byte signature blob as the authority's expected signature type and
+		//    verify over the encoded SchedulingInfoPayload.
 		let signature = match <T::AuthorityId as RuntimeAppPublic>::Signature::decode(
 			&mut &signed_info.signature[..],
 		) {
@@ -89,8 +92,10 @@ where
 			Err(_) => return false,
 		};
 
-		let payload =
-			SchedulingInfoPayload::new(signed_info.core_selector.clone(), internal_scheduling_parent);
+		let payload = SchedulingInfoPayload::new(
+			signed_info.core_selector.clone(),
+			internal_scheduling_parent,
+		);
 		author.verify(&payload.encode(), &signature)
 	}
 }

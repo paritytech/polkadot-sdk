@@ -148,15 +148,9 @@ where
 	if let Some(result) = validated_scheduling {
 		if let Some(proof) = block_data.scheduling_proof() {
 			if let Some(signed_info) = proof.signed_scheduling_info.as_ref() {
-				// `check_scheduling` rejects empty chain + signed_info, so the first
-				// header is guaranteed to be present here.
-				let scheduling_parent_header = proof
-					.header_chain
-					.first()
-					.expect("check_scheduling forbids empty chain with signed info");
 				if !PSC::SchedulingSignatureVerifier::verify(
 					signed_info,
-					scheduling_parent_header,
+					&proof.internal_scheduling_parent_header,
 					result.internal_scheduling_parent,
 				) {
 					panic!("V3 scheduling validation failed: invalid signed_scheduling_info");
