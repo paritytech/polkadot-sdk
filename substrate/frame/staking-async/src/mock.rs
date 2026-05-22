@@ -560,6 +560,8 @@ impl Config for Test {
 	type CurrencyToVote = SaturatingCurrencyToVote;
 	type Slash = Dap;
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type VestingDuration = ConstU64<0>;
+	type ValidatorIncentivePayout = LiquidIncentivePayout<Balances>;
 	type WeightInfo = ();
 }
 

@@ -609,7 +609,7 @@ fn missing_payee_emits_unexpected_and_skips_payout() {
 // ===== Defensive path tests =====
 
 #[test]
-#[should_panic(expected = "Validator incentive liquid transfer failed")]
+#[should_panic(expected = "Validator incentive transfer failed")]
 fn defensive_panic_on_transfer_failure() {
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11; // validator

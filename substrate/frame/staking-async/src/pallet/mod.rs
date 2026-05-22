@@ -422,6 +422,24 @@ pub mod pallet {
 		/// another way (such as pools).
 		type Filter: Contains<Self::AccountId>;
 
+		/// The number of blocks over which validator self-stake incentives vest.
+		///
+		/// Set to `0` to deliver incentives as a liquid transfer (useful for test environments or
+		/// runtimes without `pallet-vesting`).
+		#[pallet::no_default]
+		type VestingDuration: Get<BlockNumberFor<Self>>;
+
+		/// Adapter that delivers validator self-stake incentive payouts.
+		///
+		/// Wire [`crate::VestedIncentivePayout`] for vested delivery, or
+		/// [`crate::LiquidIncentivePayout`] for immediate liquid delivery.
+		#[pallet::no_default]
+		type ValidatorIncentivePayout: crate::ValidatorIncentivePayout<
+			Self::AccountId,
+			BalanceOf<Self>,
+			BlockNumberFor<Self>,
+		>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -578,6 +596,18 @@ pub mod pallet {
 		IncentiveWeight<T>,
 		OptionQuery,
 	>;
+
+	/// The block number at which the current vesting window started.
+	///
+	/// Snapshotted each time a new [`Config::BondingDuration`]-era window begins (i.e.
+	/// `era % BondingDuration == 0`). Used as the `starting_block` merge key in
+	/// [`crate::VestedIncentivePayout`] so all incentive payouts within the same window
+	/// accumulate into one vesting schedule slot rather than consuming a new slot per era.
+	///
+	/// `None` until the first epoch boundary is crossed; `None` forces incentive payouts
+	/// to be delivered as a liquid transfer.
+	#[pallet::storage]
+	pub type VestingEpochStart<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
 
 	/// Whether nominators are slashable or not.
 	///
@@ -1407,6 +1437,13 @@ pub mod pallet {
 			optimum_self_stake: BalanceOf<T>,
 			hard_cap_self_stake: BalanceOf<T>,
 			slope_factor: Perbill,
+		},
+		/// The vested incentive delivery failed (e.g. `AtMaxVestingSchedules`) and the pallet
+		/// fell back to a direct liquid transfer.
+		ValidatorIncentiveForcedLiquid {
+			era: EraIndex,
+			validator_stash: T::AccountId,
+			amount: BalanceOf<T>,
 		},
 	}
 

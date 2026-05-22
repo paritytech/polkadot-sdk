@@ -774,6 +774,13 @@ impl<T: Config> Rotator<T> {
 		Self::start_era_inc_active_era(new_era_start_timestamp);
 		Self::start_era_update_bonded_eras(starting_era, starting_session);
 
+		// Snapshot the vesting epoch start block when a new bonding-duration window begins.
+		let bonding_duration = T::BondingDuration::get();
+		if bonding_duration != 0 && starting_era % bonding_duration == 0 {
+			let now = frame_system::Pallet::<T>::block_number();
+			VestingEpochStart::<T>::put(now);
+		}
+
 		// Snapshot the current nominators slashable setting for this era.
 		// Cleanup will happen via lazy pruning at HistoryDepth.
 		ErasNominatorsSlashable::<T>::insert(starting_era, AreNominatorsSlashable::<T>::get());
