@@ -2991,22 +2991,6 @@ fn delegatecall_tracer_reports_correct_addresses() {
 // `is_cold` flag, with frame rollback semantics across nested CALLs.
 // ===========================================================================
 
-/// RAII guard that enables `ColdWarmPricing` on construction and resets it
-/// on drop. Survives `assert_*` panics inside `execute_with`, so a failed
-/// assertion in one test doesn't leak the flag into the next.
-struct ColdWarmEnabled;
-impl ColdWarmEnabled {
-	fn new() -> Self {
-		crate::tests::ColdWarmPricing::set(true);
-		Self
-	}
-}
-impl Drop for ColdWarmEnabled {
-	fn drop(&mut self) {
-		crate::tests::ColdWarmPricing::set(false);
-	}
-}
-
 /// Common setup: fund ALICE, build a fresh transaction meter, and dispatch
 /// a call to `contract_addr`. **Asserts success internally** — only use
 /// when the test expects the outer call to return `Ok`. For tests that
@@ -3047,7 +3031,6 @@ fn cold_warm_single_contract_warming() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		let _guard = ColdWarmEnabled::new();
 		place_contract(&BOB, code_hash);
 		run_call_to(BOB_ADDR);
 	});
@@ -3082,7 +3065,6 @@ fn cold_warm_get_storage_size_does_not_warm() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		let _guard = ColdWarmEnabled::new();
 		place_contract(&BOB, code_hash);
 		run_call_to(BOB_ADDR);
 	});
@@ -3156,7 +3138,6 @@ fn cold_warm_child_revert_rolls_back() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		let _guard = ColdWarmEnabled::new();
 		place_contract(&BOB, child_ch);
 		place_contract(&CHARLIE, parent_ch);
 		run_call_to(CHARLIE_ADDR);
@@ -3223,7 +3204,6 @@ fn cold_warm_child_commit_keying() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		let _guard = ColdWarmEnabled::new();
 		place_contract(&BOB, child_ch);
 		place_contract(&CHARLIE, parent_ch);
 		run_call_to(CHARLIE_ADDR);
@@ -3253,7 +3233,6 @@ fn cold_warm_fix_var_disjoint() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		let _guard = ColdWarmEnabled::new();
 		place_contract(&BOB, code_hash);
 		run_call_to(BOB_ADDR);
 	});
@@ -3292,7 +3271,6 @@ fn cold_warm_delegate_call_warms_parent_slot() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		let _guard = ColdWarmEnabled::new();
 		place_contract(&BOB, child_ch);
 		place_contract(&CHARLIE, parent_ch);
 		run_call_to(CHARLIE_ADDR);

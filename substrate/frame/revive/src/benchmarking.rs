@@ -2019,7 +2019,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold() -> Result<(), BenchmarkError> {
 		use crate::access_list::{AccessEntry, AccessList, KeyKind};
-		let mut al = AccessList::new_enabled();
+		let mut al = AccessList::new();
 		let entry = AccessEntry { address: H160::zero(), key_kind: KeyKind::Fix, slot: [0u8; 32] };
 		let was_cold;
 		#[block]
@@ -2034,7 +2034,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_warm() -> Result<(), BenchmarkError> {
 		use crate::access_list::{AccessEntry, AccessList, KeyKind};
-		let mut al = AccessList::new_enabled();
+		let mut al = AccessList::new();
 		let entry = AccessEntry { address: H160::zero(), key_kind: KeyKind::Fix, slot: [0u8; 32] };
 		al.touch(entry.clone());
 		let was_cold;
@@ -2052,7 +2052,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_rollback_amortization() -> Result<(), BenchmarkError> {
 		use crate::access_list::{AccessEntry, AccessList, KeyKind};
-		let mut al = AccessList::new_enabled();
+		let mut al = AccessList::new();
 		al.enter_frame();
 		al.touch(AccessEntry { address: H160::zero(), key_kind: KeyKind::Fix, slot: [0u8; 32] });
 		#[block]

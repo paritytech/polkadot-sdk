@@ -1053,11 +1053,7 @@ where
 			first_frame,
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
-			access_list: if <T as Config>::ColdWarmPricingEnabled::get() {
-				AccessList::new_enabled()
-			} else {
-				AccessList::new_disabled()
-			},
+			access_list: AccessList::new(),
 			exec_config,
 			_phantom: Default::default(),
 		};
@@ -1940,12 +1936,8 @@ where
 	}
 
 	/// Touch the access list with an entry built from `key` and the current
-	/// frame's address. Returns `true` when the access is cold (and when the
-	/// access list is disabled — `AccessEntry` construction is skipped).
+	/// frame's address. Returns `true` when the access is cold.
 	fn touch_access_list(&mut self, key: &Key) -> bool {
-		if self.access_list.is_disabled() {
-			return true;
-		}
 		self.access_list.touch(AccessEntry {
 			address: T::AddressMapper::to_address(self.account_id()),
 			key_kind: match key {

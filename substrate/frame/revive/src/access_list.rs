@@ -45,41 +45,34 @@ pub struct AccessEntry {
 	pub slot: [u8; 32],
 }
 
-/// Per-transaction access list with per-frame rollback support. `Disabled`
-/// is a zero-state no-op when `T::ColdWarmPricingEnabled = false`: all
-/// methods are no-ops and `touch` always returns `true` (cold).
-pub enum AccessList {
-	/// Full tracking — used when cold/warm pricing is enabled. Layout
-	/// follows [`crate::transient_storage::TransientStorage`]: a current-state
-	/// set, a flat journal of insertions, and journal-index checkpoints.
-	Enabled {
-		/// All currently-warm entries.
-		accessed: BTreeSet<AccessEntry>,
-		/// Flat journal of insertions (in order). Each entry was added by exactly
-		/// one frame; `checkpoints` marks the frame boundaries inside this `Vec`.
-		journal: Vec<AccessEntry>,
-		/// Stack of journal indices. `checkpoints.last()` is the index at which
-		/// the current frame started inserting; rolling back means draining
-		/// `journal` from that index and removing those entries from `accessed`.
-		checkpoints: Vec<usize>,
-		/// Total cold touches across the transaction. Includes touches in
-		/// frames that later rolled back.
-		cold_count: u32,
-		/// Total warm touches across the transaction. Includes touches in
-		/// frames that later rolled back.
-		warm_count: u32,
-	},
-	/// No-op variant — used when cold/warm pricing is disabled at runtime.
-	Disabled,
+/// Per-transaction access list with per-frame rollback support. Layout
+/// follows [`crate::transient_storage::TransientStorage`]: a current-state
+/// set, a flat journal of insertions, and journal-index checkpoints.
+pub struct AccessList {
+	/// All currently-warm entries.
+	accessed: BTreeSet<AccessEntry>,
+	/// Flat journal of insertions (in order). Each entry was added by exactly
+	/// one frame; `checkpoints` marks the frame boundaries inside this `Vec`.
+	journal: Vec<AccessEntry>,
+	/// Stack of journal indices. `checkpoints.last()` is the index at which
+	/// the current frame started inserting; rolling back means draining
+	/// `journal` from that index and removing those entries from `accessed`.
+	checkpoints: Vec<usize>,
+	/// Total cold touches across the transaction. Includes touches in
+	/// frames that later rolled back.
+	cold_count: u32,
+	/// Total warm touches across the transaction. Includes touches in
+	/// frames that later rolled back.
+	warm_count: u32,
 }
 
 impl AccessList {
-	/// Initialize for a new transaction with cold/warm tracking enabled.
+	/// Initialize for a new transaction.
 	///
 	/// First-touch on any entry is always cold. No initial checkpoint is
 	/// opened — first-frame touches survive the whole transaction.
-	pub fn new_enabled() -> Self {
-		Self::Enabled {
+	pub fn new() -> Self {
+		Self {
 			accessed: BTreeSet::new(),
 			journal: Vec::new(),
 			checkpoints: Vec::new(),
@@ -88,20 +81,13 @@ impl AccessList {
 		}
 	}
 
-	/// Initialize the no-op variant. Used when cold/warm pricing is disabled.
-	pub fn new_disabled() -> Self {
-		Self::Disabled
-	}
-
 	/// Open a new nested frame.
 	///
 	/// This allows to either commit or roll back all touches that are made
 	/// after this call. For every `enter_frame` there must be a matching call
 	/// to either `commit_frame` or `rollback_frame`.
 	pub fn enter_frame(&mut self) {
-		if let Self::Enabled { journal, checkpoints, .. } = self {
-			checkpoints.push(journal.len());
-		}
+		self.checkpoints.push(self.journal.len());
 	}
 
 	/// Commit the top frame.
@@ -113,9 +99,7 @@ impl AccessList {
 	///
 	/// Will panic if there is no open frame.
 	pub fn commit_frame(&mut self) {
-		if let Self::Enabled { checkpoints, .. } = self {
-			checkpoints.pop().expect("frame open; qed");
-		}
+		self.checkpoints.pop().expect("frame open; qed");
 	}
 
 	/// Rollback the top frame.
@@ -126,75 +110,47 @@ impl AccessList {
 	///
 	/// Will panic if there is no open frame.
 	pub fn rollback_frame(&mut self) {
-		if let Self::Enabled { accessed, journal, checkpoints, .. } = self {
-			let checkpoint = checkpoints.pop().expect("frame open; qed");
-			for entry in journal.drain(checkpoint..) {
-				accessed.remove(&entry);
-			}
+		let checkpoint = self.checkpoints.pop().expect("frame open; qed");
+		for entry in self.journal.drain(checkpoint..) {
+			self.accessed.remove(&entry);
 		}
-	}
-
-	/// `true` when cold/warm tracking is off. Lets callers skip building an
-	/// `AccessEntry` (and the `Var` `blake2_256` hash inside `Key::to_slot`)
-	/// when the result would be ignored anyway.
-	pub fn is_disabled(&self) -> bool {
-		matches!(self, Self::Disabled)
 	}
 
 	/// Register the entry and return `true` if this access is cold (newly
 	/// inserted), `false` if it was already warm.
 	pub fn touch(&mut self, entry: AccessEntry) -> bool {
-		match self {
-			Self::Disabled => true,
-			Self::Enabled { accessed, journal, cold_count, warm_count, .. } => {
-				if accessed.contains(&entry) {
-					*warm_count = warm_count.saturating_add(1);
-					return false;
-				}
-				accessed.insert(entry.clone());
-				journal.push(entry);
-				*cold_count = cold_count.saturating_add(1);
-				true
-			},
+		if self.accessed.contains(&entry) {
+			self.warm_count = self.warm_count.saturating_add(1);
+			return false;
 		}
+		self.accessed.insert(entry.clone());
+		self.journal.push(entry);
+		self.cold_count = self.cold_count.saturating_add(1);
+		true
 	}
 
-	/// Per-transaction metrics.
+	/// Per-transaction metrics: (currently-warm entries, total cold touches,
+	/// total warm touches).
 	pub fn metrics(&self) -> (usize, u32, u32) {
-		match self {
-			Self::Disabled => (0, 0, 0),
-			Self::Enabled { accessed, cold_count, warm_count, .. } => {
-				(accessed.len(), *cold_count, *warm_count)
-			},
-		}
+		(self.accessed.len(), self.cold_count, self.warm_count)
 	}
 
-	/// Check warmth without registering (testing / introspection). Always
-	/// returns `false` on the `Disabled` variant.
+	/// Check warmth without registering (testing / introspection).
 	#[cfg(test)]
 	pub fn is_warm(&self, entry: &AccessEntry) -> bool {
-		match self {
-			Self::Disabled => false,
-			Self::Enabled { accessed, .. } => accessed.contains(entry),
-		}
+		self.accessed.contains(entry)
 	}
 
 	/// Returns the current number of warm entries (testing / metrics).
 	#[cfg(test)]
 	pub fn len(&self) -> usize {
-		match self {
-			Self::Disabled => 0,
-			Self::Enabled { accessed, .. } => accessed.len(),
-		}
+		self.accessed.len()
 	}
 
 	/// Returns the current frame depth (number of open checkpoints).
 	#[cfg(test)]
 	pub fn frame_depth(&self) -> usize {
-		match self {
-			Self::Disabled => 0,
-			Self::Enabled { checkpoints, .. } => checkpoints.len(),
-		}
+		self.checkpoints.len()
 	}
 }
 
@@ -224,7 +180,7 @@ mod tests {
 	/// Full lifecycle: first frame + two nested frames, one commits, one reverts.
 	#[test]
 	fn lifecycle() {
-		let mut al = AccessList::new_enabled();
+		let mut al = AccessList::new();
 		let (a, b, c, d) = (
 			AccessEntry { address: H160::zero(), key_kind: KeyKind::Fix, slot: [0xA; 32] },
 			AccessEntry { address: H160::zero(), key_kind: KeyKind::Fix, slot: [0xB; 32] },

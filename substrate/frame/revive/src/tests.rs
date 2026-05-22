@@ -414,7 +414,6 @@ where
 }
 parameter_types! {
 	pub static AllowEvmBytecode: bool = true;
-	pub static ColdWarmPricing: bool = false;
 	pub CheckingAccount: AccountId32 = BOB.clone();
 	pub BurnDestination: AccountId32 = AccountId32::new([42u8; 32]);
 	pub static DebugFlag: bool = false;
@@ -440,7 +439,6 @@ impl Config for Test {
 	type DepositPerItem = DepositPerItem;
 	type DepositPerChildTrieItem = DepositPerItem;
 	type AllowEVMBytecode = AllowEvmBytecode;
-	type ColdWarmPricingEnabled = ColdWarmPricing;
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;

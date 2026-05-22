@@ -284,11 +284,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type AllowEVMBytecode: Get<bool>;
 
-		/// Enable EIP-2929-style cold/warm pricing. When `false`, retain the
-		/// pre-EIP-2929 flat pricing.
-		#[pallet::constant]
-		type ColdWarmPricingEnabled: Get<bool>;
-
 		/// Origin allowed to upload code.
 		///
 		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to upload contract
@@ -466,7 +461,6 @@ pub mod pallet {
 			type DepositPerChildTrieItem = DepositPerChildTrieItem;
 			type Time = Self;
 			type AllowEVMBytecode = ConstBool<true>;
-			type ColdWarmPricingEnabled = ConstBool<true>;
 			type UploadOrigin = EnsureSigned<Self::AccountId>;
 			type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 			type WeightInfo = ();

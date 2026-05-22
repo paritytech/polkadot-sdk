@@ -245,12 +245,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 	}
 
 	fn weight(&self) -> Weight {
-		// Pre cold/warm feature vs EIP-2929 cold/warm pricing.
-		if !<T as Config>::ColdWarmPricingEnabled::get() {
-			self.legacy_weight::<T>()
-		} else {
-			self.new_weight::<T>()
-		}
+		self.new_weight::<T>()
 	}
 }
 
