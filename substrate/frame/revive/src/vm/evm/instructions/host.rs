@@ -114,16 +114,18 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
 	let key = Key::Fix(index.to_big_endian());
 	// NB: SLOAD loads 32 bytes from storage (i.e. U256)
-	// Pre-charge cold worst-case, then refund the cold/warm delta after the call.
+	// Pre-charge cold worst-case; refund only if the slot turned out warm.
 	let charged =
 		interpreter
 			.ext
 			.charge_or_halt(RuntimeCosts::get(false, 32, StorageAccessCost::cold()))?;
 	let (value, costs) = interpreter.ext.get_storage(&key);
-	interpreter
-		.ext
-		.frame_meter_mut()
-		.adjust_weight(charged, RuntimeCosts::get(false, 32, costs));
+	if costs.is_cold == Some(false) {
+		interpreter
+			.ext
+			.frame_meter_mut()
+			.adjust_weight(charged, RuntimeCosts::get(false, 32, costs));
+	}
 
 	*index = if let Some(storage_value) = value {
 		// sload always reads a word
