@@ -1,0 +1,9 @@
+title: 'WAH: fix recovery benchmarks'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Recovery benchmarks for finish_attempt / cancel_attempt advance frame_system's block number, which does not move RelaychainDataProvider, causing NotYetInheritable / NotYetCancelable.
+    Use frame_system under the benchmarking feature so the time-delay guards can be satisfied.
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch
