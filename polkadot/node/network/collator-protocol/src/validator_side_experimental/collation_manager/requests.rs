@@ -119,11 +119,13 @@ impl PendingRequests {
 
 	/// Iterator over the in-flight (`PeerAdvertisement`s)
 	pub fn iter(&self) -> impl Iterator<Item = PeerAdvertisement> + '_ {
-		self.cancellation_tokens.iter().map(|(advertisement, in_flight)| PeerAdvertisement {
-			advertisement: *advertisement,
-			peer_id: in_flight.peer_id,
-			advertised_descriptor_version: in_flight.advertised_descriptor_version,
-		})
+		self.cancellation_tokens
+			.iter()
+			.map(|(advertisement, in_flight)| PeerAdvertisement {
+				advertisement: *advertisement,
+				peer_id: in_flight.peer_id,
+				advertised_descriptor_version: in_flight.advertised_descriptor_version,
+			})
 	}
 
 	/// Cancel the in-flight fetch for this `Advertisement`, if any.

@@ -1516,11 +1516,7 @@ mod tests {
 			parent_head_data_hash: Hash::repeat_byte(0xcd),
 		});
 		let make_adv = |peer: PeerId| PeerAdvertisement {
-			advertisement: Advertisement {
-				scheduling_parent,
-				para_id,
-				prospective_candidate,
-			},
+			advertisement: Advertisement { scheduling_parent, para_id, prospective_candidate },
 			peer_id: peer,
 			advertised_descriptor_version: None,
 		};
