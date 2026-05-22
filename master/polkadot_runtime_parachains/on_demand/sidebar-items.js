@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SpotTrafficCalculationErr"],"mod":["migration","pallet"],"struct":["OrderQueue","TestWeightInfo"],"trait":["WeightInfo"],"type":["BalanceOf"]};

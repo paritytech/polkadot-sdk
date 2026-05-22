@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"substrate_relay_helper":[["impl VariantNames for <a class=\"enum\" href=\"substrate_relay_helper/cli/enum.RuntimeVersionType.html\" title=\"enum substrate_relay_helper::cli::RuntimeVersionType\">RuntimeVersionType</a>"],["impl VariantNames for <a class=\"enum\" href=\"substrate_relay_helper/cli/chain_schema/enum.RuntimeVersionType.html\" title=\"enum substrate_relay_helper::cli::chain_schema::RuntimeVersionType\">RuntimeVersionType</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

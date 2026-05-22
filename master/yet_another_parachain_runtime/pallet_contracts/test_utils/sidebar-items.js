@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ALICE","BOB","CHARLIE","DJANGO","GAS_LIMIT"],"mod":["builder"],"struct":["AccountId32"]};

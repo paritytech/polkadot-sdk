@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["parachains_loop","parachains_loop_metrics"],"trait":["ParachainsPipeline"]};

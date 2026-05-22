@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Error"],"fn":["verify_ancestry_proof","verify_leaves_proof"],"mod":["pallet","utils"],"struct":["AncestryProof","DefaultBlockHashProvider","LeafProof","NodesUtils","ParentNumberAndHash"],"trait":["BenchmarkHelper","BlockHashProvider","FullLeaf","LeafDataProvider","OnNewRoot","WeightInfo"],"type":["LeafIndex","NodeIndex"]};

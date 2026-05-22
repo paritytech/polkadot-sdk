@@ -1,0 +1,5 @@
+(function() {var implementors = {
+"rococo_runtime":[["impl <a class=\"trait\" href=\"sp_consensus_beefy/mmr/trait.BeefyDataProvider.html\" title=\"trait sp_consensus_beefy::mmr::BeefyDataProvider\">BeefyDataProvider</a>&lt;H256&gt; for <a class=\"struct\" href=\"rococo_runtime/struct.ParaHeadsRootProvider.html\" title=\"struct rococo_runtime::ParaHeadsRootProvider\">ParaHeadsRootProvider</a>"]],
+"sp_consensus_beefy":[],
+"westend_runtime":[["impl <a class=\"trait\" href=\"sp_consensus_beefy/mmr/trait.BeefyDataProvider.html\" title=\"trait sp_consensus_beefy::mmr::BeefyDataProvider\">BeefyDataProvider</a>&lt;H256&gt; for <a class=\"struct\" href=\"westend_runtime/struct.ParaHeadsRootProvider.html\" title=\"struct westend_runtime::ParaHeadsRootProvider\">ParaHeadsRootProvider</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

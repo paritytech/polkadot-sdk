@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call"],"mod":["pallet"],"struct":["Pallet","SessionChangeNotification"],"trait":["Config","OnNewSession","WeightInfo"],"type":["Module","ValidatorSetCount"]};

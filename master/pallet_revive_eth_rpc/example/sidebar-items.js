@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["TransactionType"],"struct":["SubmittedTransaction","TransactionBuilder"]};

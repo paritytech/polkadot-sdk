@@ -1,0 +1,239 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A versioned transaction extension pipeline."><title>Pipeline in polkadot_sdk_frame::traits - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_sdk_frame" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Pipeline</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../polkadot_sdk_frame/index.html">polkadot_<wbr>sdk_<wbr>frame</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Pipeline</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.build_metadata" title="build_metadata">build_metadata</a></li><li><a href="#tymethod.dispatch_transaction" title="dispatch_transaction">dispatch_transaction</a></li><li><a href="#tymethod.validate_only" title="validate_only">validate_only</a></li><li><a href="#tymethod.weight" title="weight">weight</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In polkadot_<wbr>sdk_<wbr>frame::<wbr>traits</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">polkadot_sdk_frame</a>::<wbr><a href="index.html">traits</a></div><h1>Trait <span class="trait">Pipeline</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><pre class="rust item-decl"><code>pub trait Pipeline&lt;Call&gt;:
+    <a class="trait" href="../derive/trait.Encode.html" title="trait polkadot_sdk_frame::derive::Encode">Encode</a>
+    + <a class="trait" href="trait.DecodeWithVersion.html" title="trait polkadot_sdk_frame::traits::DecodeWithVersion">DecodeWithVersion</a>
+    + <a class="trait" href="trait.DecodeWithVersionWithMemTracking.html" title="trait polkadot_sdk_frame::traits::DecodeWithVersionWithMemTracking">DecodeWithVersionWithMemTracking</a>
+    + <a class="trait" href="trait.Debug.html" title="trait polkadot_sdk_frame::traits::Debug">Debug</a>
+    + StaticTypeInfo
+    + <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>
+    + <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>
+    + <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>
+    + <a class="trait" href="trait.PipelineVersion.html" title="trait polkadot_sdk_frame::traits::PipelineVersion">PipelineVersion</a><div class="where">where
+    Call: <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a>,</div>{
+    // Required methods
+    fn <a href="#tymethod.build_metadata" class="fn">build_metadata</a>(builder: &amp;mut <a class="struct" href="struct.PipelineMetadataBuilder.html" title="struct polkadot_sdk_frame::traits::PipelineMetadataBuilder">PipelineMetadataBuilder</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.validate_only" class="fn">validate_only</a>(
+        &amp;self,
+        origin: &lt;Call as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.RuntimeOrigin" title="type polkadot_sdk_frame::traits::Dispatchable::RuntimeOrigin">RuntimeOrigin</a>,
+        call: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.reference.html">&amp;Call</a>,
+        info: &amp;&lt;Call as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type polkadot_sdk_frame::traits::Dispatchable::Info">Info</a>,
+        len: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.usize.html">usize</a>,
+        source: TransactionSource,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../transaction/struct.ValidTransaction.html" title="struct polkadot_sdk_frame::transaction::ValidTransaction">ValidTransaction</a>, TransactionValidityError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.dispatch_transaction" class="fn">dispatch_transaction</a>(
+        self,
+        origin: &lt;Call as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.RuntimeOrigin" title="type polkadot_sdk_frame::traits::Dispatchable::RuntimeOrigin">RuntimeOrigin</a>,
+        call: Call,
+        info: &amp;&lt;Call as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type polkadot_sdk_frame::traits::Dispatchable::Info">Info</a>,
+        len: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.usize.html">usize</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;Call as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.PostInfo" title="type polkadot_sdk_frame::traits::Dispatchable::PostInfo">PostInfo</a>, DispatchErrorWithPostInfo&lt;&lt;Call as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.PostInfo" title="type polkadot_sdk_frame::traits::Dispatchable::PostInfo">PostInfo</a>&gt;&gt;, TransactionValidityError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.weight" class="fn">weight</a>(&amp;self, call: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.reference.html">&amp;Call</a>) -&gt; <a class="struct" href="../weights_prelude/struct.Weight.html" title="struct polkadot_sdk_frame::weights_prelude::Weight">Weight</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A versioned transaction extension pipeline.</p>
+<p>This defines multiple version of a transaction extensions pipeline.</p>
+<p>(type name is short for versioned (Vers) Pipeline).</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.build_metadata" class="method"><h4 class="code-header">fn <a href="#tymethod.build_metadata" class="fn">build_metadata</a>(builder: &amp;mut <a class="struct" href="struct.PipelineMetadataBuilder.html" title="struct polkadot_sdk_frame::traits::PipelineMetadataBuilder">PipelineMetadataBuilder</a>)</h4></section></summary><div class="docblock"><p>Build the metadata for the versioned transaction extension pipeline.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.validate_only" class="method"><h4 class="code-header">fn <a href="#tymethod.validate_only" class="fn">validate_only</a>(
+    &amp;self,
+    origin: &lt;Call as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.RuntimeOrigin" title="type polkadot_sdk_frame::traits::Dispatchable::RuntimeOrigin">RuntimeOrigin</a>,
+    call: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.reference.html">&amp;Call</a>,
+    info: &amp;&lt;Call as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type polkadot_sdk_frame::traits::Dispatchable::Info">Info</a>,
+    len: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.usize.html">usize</a>,
+    source: TransactionSource,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../transaction/struct.ValidTransaction.html" title="struct polkadot_sdk_frame::transaction::ValidTransaction">ValidTransaction</a>, TransactionValidityError&gt;</h4></section></summary><div class="docblock"><p>Validate a transaction.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.dispatch_transaction" class="method"><h4 class="code-header">fn <a href="#tymethod.dispatch_transaction" class="fn">dispatch_transaction</a>(
+    self,
+    origin: &lt;Call as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.RuntimeOrigin" title="type polkadot_sdk_frame::traits::Dispatchable::RuntimeOrigin">RuntimeOrigin</a>,
+    call: Call,
+    info: &amp;&lt;Call as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type polkadot_sdk_frame::traits::Dispatchable::Info">Info</a>,
+    len: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.usize.html">usize</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;Call as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.PostInfo" title="type polkadot_sdk_frame::traits::Dispatchable::PostInfo">PostInfo</a>, DispatchErrorWithPostInfo&lt;&lt;Call as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.PostInfo" title="type polkadot_sdk_frame::traits::Dispatchable::PostInfo">PostInfo</a>&gt;&gt;, TransactionValidityError&gt;</h4></section></summary><div class="docblock"><p>Dispatch a transaction.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.weight" class="method"><h4 class="code-header">fn <a href="#tymethod.weight" class="fn">weight</a>(&amp;self, call: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.reference.html">&amp;Call</a>) -&gt; <a class="struct" href="../weights_prelude/struct.Weight.html" title="struct polkadot_sdk_frame::weights_prelude::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Return the pre dispatch weight for the given versioned transaction extension pipeline and
+call.</p>
+</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.93.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-Pipeline%3CCall%3E-for-MultiVersion%3CA,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M,+N,+O,+P,+Q,+R,+S,+T,+U,+V,+W,+X,+Y,+Z%3E" class="impl"><a href="#impl-Pipeline%3CCall%3E-for-MultiVersion%3CA,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M,+N,+O,+P,+Q,+R,+S,+T,+U,+V,+W,+X,+Y,+Z%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, Call&gt; <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; for <a class="enum" href="enum.MultiVersion.html" title="enum polkadot_sdk_frame::traits::MultiVersion">MultiVersion</a>&lt;A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z&gt;<div class="where">where
+    A: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    B: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    C: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    D: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    E: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    F: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    G: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    H: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    I: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    J: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    K: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    L: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    M: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    N: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    O: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    P: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    Q: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    R: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    S: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    T: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    U: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    V: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    W: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    X: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    Y: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    Z: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; + MultiVersionItem,
+    Call: <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a>,</div></h3></section><section id="impl-Pipeline%3CCall%3E-for-InvalidVersion" class="impl"><a href="#impl-Pipeline%3CCall%3E-for-InvalidVersion" class="anchor">§</a><h3 class="code-header">impl&lt;Call&gt; <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; for <a class="enum" href="enum.InvalidVersion.html" title="enum polkadot_sdk_frame::traits::InvalidVersion">InvalidVersion</a><div class="where">where
+    Call: <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a>,</div></h3></section><section id="impl-Pipeline%3CCall%3E-for-ExtensionVariant%3CExtensionV0,+ExtensionOtherVersions%3E" class="impl"><a href="#impl-Pipeline%3CCall%3E-for-ExtensionVariant%3CExtensionV0,+ExtensionOtherVersions%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Call, ExtensionV0, ExtensionOtherVersions&gt; <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; for <a class="enum" href="enum.ExtensionVariant.html" title="enum polkadot_sdk_frame::traits::ExtensionVariant">ExtensionVariant</a>&lt;ExtensionV0, ExtensionOtherVersions&gt;<div class="where">where
+    Call: <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a> + <a class="trait" href="../derive/trait.Encode.html" title="trait polkadot_sdk_frame::derive::Encode">Encode</a>,
+    ExtensionV0: <a class="trait" href="trait.TransactionExtension.html" title="trait polkadot_sdk_frame::traits::TransactionExtension">TransactionExtension</a>&lt;Call&gt;,
+    ExtensionOtherVersions: <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt;,
+    &lt;Call as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.RuntimeOrigin" title="type polkadot_sdk_frame::traits::Dispatchable::RuntimeOrigin">RuntimeOrigin</a>: <a class="trait" href="trait.AsTransactionAuthorizedOrigin.html" title="trait polkadot_sdk_frame::traits::AsTransactionAuthorizedOrigin">AsTransactionAuthorizedOrigin</a>,</div></h3></section><section id="impl-Pipeline%3CCall%3E-for-PipelineAtVers%3CVERSION,+Extension%3E" class="impl"><a href="#impl-Pipeline%3CCall%3E-for-PipelineAtVers%3CVERSION,+Extension%3E" class="anchor">§</a><h3 class="code-header">impl&lt;const VERSION: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>, Call, Extension&gt; <a class="trait" href="trait.Pipeline.html" title="trait polkadot_sdk_frame::traits::Pipeline">Pipeline</a>&lt;Call&gt; for <a class="struct" href="struct.PipelineAtVers.html" title="struct polkadot_sdk_frame::traits::PipelineAtVers">PipelineAtVers</a>&lt;VERSION, Extension&gt;<div class="where">where
+    Call: <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a> + <a class="trait" href="../derive/trait.Encode.html" title="trait polkadot_sdk_frame::derive::Encode">Encode</a>,
+    &lt;Call as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.RuntimeOrigin" title="type polkadot_sdk_frame::traits::Dispatchable::RuntimeOrigin">RuntimeOrigin</a>: <a class="trait" href="trait.AsTransactionAuthorizedOrigin.html" title="trait polkadot_sdk_frame::traits::AsTransactionAuthorizedOrigin">AsTransactionAuthorizedOrigin</a>,
+    Extension: <a class="trait" href="trait.TransactionExtension.html" title="trait polkadot_sdk_frame::traits::TransactionExtension">TransactionExtension</a>&lt;Call&gt;,</div></h3></section></div><script src="../../trait.impl/sp_runtime/traits/vers_tx_ext/trait.Pipeline.js" data-ignore-extern-crates="sp_runtime" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

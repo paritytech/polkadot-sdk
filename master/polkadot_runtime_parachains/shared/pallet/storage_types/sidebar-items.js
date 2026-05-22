@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ActiveValidatorIndices","ActiveValidatorKeys","AllowedRelayParents","AllowedSchedulingParents","CurrentSessionIndex","MinimumRelayParentNumber","OldestRelayParentSession"]};

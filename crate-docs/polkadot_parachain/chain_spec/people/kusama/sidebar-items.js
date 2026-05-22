@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PEOPLE_KUSAMA","PEOPLE_KUSAMA_LOCAL"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOG_TARGET"],"enum":["BridgeHubRuntime","EthereumSystemCall"],"mod":["backend_weights","pallet","weights"],"trait":["BenchmarkHelper"],"type":["AccountIdOf"]};

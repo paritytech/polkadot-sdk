@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["NestedCounterCalls"],"struct":["constructorCall","counterCall","counterReturn","nestedNumberCall","nestedNumberReturn","numberCall","numberReturn"]};

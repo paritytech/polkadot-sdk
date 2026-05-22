@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Event"],"mod":["offchain","onchain","pallet"],"struct":["NoteHistoricalRoot","Pallet","ProvingTrie"],"trait":["Config","SessionManager"],"type":["HistoricalSessions","IdentificationTuple","Module","StoredRange"]};

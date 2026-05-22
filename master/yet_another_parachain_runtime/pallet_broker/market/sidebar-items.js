@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AdjustBidResult","OrderResult","RenewalOrderResult","TickAction"],"struct":["MarketSaleInfo","SalesStarted","SoldCoresRange"],"trait":["CoreRangeProvider","Market","TimesliceProvider"]};

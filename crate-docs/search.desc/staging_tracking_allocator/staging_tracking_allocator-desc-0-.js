@@ -1,0 +1,1 @@
+searchState.loadedDescShard("staging_tracking_allocator", 0, "Tracking/limiting global allocator. Calculates the peak …\nEnd tracking and return the peak allocation value in bytes …\nReturns the argument unchanged.\nCalls <code>U::from(self)</code>.\nStart tracking memory allocations and deallocations.")

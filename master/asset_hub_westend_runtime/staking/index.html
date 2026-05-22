@@ -1,0 +1,158 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `staking` mod in crate `asset_hub_westend_runtime`."><title>asset_hub_westend_runtime::staking - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="asset_hub_westend_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module staking</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../asset_hub_westend_runtime/index.html">asset_<wbr>hub_<wbr>westend_<wbr>runtime</a><span class="version">0.15.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module staking</a></h2><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate asset_<wbr>hub_<wbr>westend_<wbr>runtime</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">asset_hub_westend_runtime</a></div><h1>Module <span>staking</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/asset_hub_westend_runtime/staking.rs.html#16-660">Source</a> </span></div><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AutoRebagNumber.html" title="struct asset_hub_westend_runtime::staking::AutoRebagNumber">Auto<wbr>Rebag<wbr>Number</a></dt><dt><a class="struct" href="struct.BagThresholds.html" title="struct asset_hub_westend_runtime::staking::BagThresholds">BagThresholds</a></dt><dt><a class="struct" href="struct.BailoutGraceRatio.html" title="struct asset_hub_westend_runtime::staking::BailoutGraceRatio">Bailout<wbr>Grace<wbr>Ratio</a></dt><dt><a class="struct" href="struct.BenchElectionBounds.html" title="struct asset_hub_westend_runtime::staking::BenchElectionBounds">Bench<wbr>Election<wbr>Bounds</a></dt><dt><a class="struct" href="struct.BondingDuration.html" title="struct asset_hub_westend_runtime::staking::BondingDuration">Bonding<wbr>Duration</a></dt><dt><a class="struct" href="struct.DapPalletId.html" title="struct asset_hub_westend_runtime::staking::DapPalletId">DapPallet<wbr>Id</a></dt><dt><a class="struct" href="struct.DelegatedStakingPalletId.html" title="struct asset_hub_westend_runtime::staking::DelegatedStakingPalletId">Delegated<wbr>Staking<wbr>Pallet<wbr>Id</a></dt><dt><a class="struct" href="struct.DepositBase.html" title="struct asset_hub_westend_runtime::staking::DepositBase">Deposit<wbr>Base</a></dt><dt><a class="struct" href="struct.DepositPerPage.html" title="struct asset_hub_westend_runtime::staking::DepositPerPage">Deposit<wbr>PerPage</a></dt><dt><a class="struct" href="struct.EjectGraceRatio.html" title="struct asset_hub_westend_runtime::staking::EjectGraceRatio">Eject<wbr>Grace<wbr>Ratio</a></dt><dt><a class="struct" href="struct.IssuanceCadence.html" title="struct asset_hub_westend_runtime::staking::IssuanceCadence">Issuance<wbr>Cadence</a></dt><dd>Minimum time (ms) between issuance drips. 60s = drip at most once per minute.</dd><dt><a class="struct" href="struct.IssuanceCurve.html" title="struct asset_hub_westend_runtime::staking::IssuanceCurve">Issuance<wbr>Curve</a></dt><dd>Westend inflation curve for DAP.</dd><dt><a class="struct" href="struct.KeysMessageToXcm.html" title="struct asset_hub_westend_runtime::staking::KeysMessageToXcm">Keys<wbr>Message<wbr>ToXcm</a></dt><dt><a class="struct" href="struct.MaxBackersPerWinner.html" title="struct asset_hub_westend_runtime::staking::MaxBackersPerWinner">MaxBackers<wbr>PerWinner</a></dt><dd>In each page of the election, we allow up to all of the nominators of that page to be present.</dd><dt><a class="struct" href="struct.MaxBackersPerWinnerFinal.html" title="struct asset_hub_westend_runtime::staking::MaxBackersPerWinnerFinal">MaxBackers<wbr>PerWinner<wbr>Final</a></dt><dd>Total number of backers per winner across all pages.</dd><dt><a class="struct" href="struct.MaxControllersInDeprecationBatch.html" title="struct asset_hub_westend_runtime::staking::MaxControllersInDeprecationBatch">MaxControllers<wbr>InDeprecation<wbr>Batch</a></dt><dt><a class="struct" href="struct.MaxElapsedPerDrip.html" title="struct asset_hub_westend_runtime::staking::MaxElapsedPerDrip">MaxElapsed<wbr>PerDrip</a></dt><dd>Safety ceiling (ms) for elapsed time in a single drip. Prevents over-minting after stalls.</dd><dt><a class="struct" href="struct.MaxElectingVoters.html" title="struct asset_hub_westend_runtime::staking::MaxElectingVoters">MaxElecting<wbr>Voters</a></dt><dd>Compatible with Polkadot, we allow up to 22_500 nominators to be considered for election</dd><dt><a class="struct" href="struct.MaxEraDuration.html" title="struct asset_hub_westend_runtime::staking::MaxEraDuration">MaxEra<wbr>Duration</a></dt><dt><a class="struct" href="struct.MaxExposurePageSize.html" title="struct asset_hub_westend_runtime::staking::MaxExposurePageSize">MaxExposure<wbr>Page<wbr>Size</a></dt><dd>Size of the exposures. This should be small enough to make the reward payouts feasible.</dd><dt><a class="struct" href="struct.MaxNominations.html" title="struct asset_hub_westend_runtime::staking::MaxNominations">MaxNominations</a></dt><dt><a class="struct" href="struct.MaxPointsToBalance.html" title="struct asset_hub_westend_runtime::staking::MaxPointsToBalance">MaxPoints<wbr>ToBalance</a></dt><dt><a class="struct" href="struct.MaxPruningItems.html" title="struct asset_hub_westend_runtime::staking::MaxPruningItems">MaxPruning<wbr>Items</a></dt><dt><a class="struct" href="struct.MaxSubmissions.html" title="struct asset_hub_westend_runtime::staking::MaxSubmissions">MaxSubmissions</a></dt><dt><a class="struct" href="struct.MaxValidatorSet.html" title="struct asset_hub_westend_runtime::staking::MaxValidatorSet">MaxValidator<wbr>Set</a></dt><dd>Maximum number of validators that we may want to elect. 1000 is the end target.</dd><dt><a class="struct" href="struct.MaxWinnersPerPage.html" title="struct asset_hub_westend_runtime::staking::MaxWinnersPerPage">MaxWinners<wbr>PerPage</a></dt><dd>In each page, we may observe up to all of the validators.</dd><dt><a class="struct" href="struct.MinerMaxLength.html" title="struct asset_hub_westend_runtime::staking::MinerMaxLength">Miner<wbr>MaxLength</a></dt><dd>Miner transaction can fill up to 75% of the block size.</dd><dt><a class="struct" href="struct.MinerPages.html" title="struct asset_hub_westend_runtime::staking::MinerPages">Miner<wbr>Pages</a></dt><dt><a class="struct" href="struct.MinerTxPriority.html" title="struct asset_hub_westend_runtime::staking::MinerTxPriority">Miner<wbr>TxPriority</a></dt><dd>Priority of the offchain miner transactions.</dd><dt><a class="struct" href="struct.NominatorFastUnbondDuration.html" title="struct asset_hub_westend_runtime::staking::NominatorFastUnbondDuration">Nominator<wbr>Fast<wbr>Unbond<wbr>Duration</a></dt><dt><a class="struct" href="struct.NposCompactSolution16.html" title="struct asset_hub_westend_runtime::staking::NposCompactSolution16">Npos<wbr>Compact<wbr>Solution16</a></dt><dt><a class="struct" href="struct.OffchainRepeat.html" title="struct asset_hub_westend_runtime::staking::OffchainRepeat">Offchain<wbr>Repeat</a></dt><dd>Try and run the OCW miner 4 times during the unsigned phase.</dd><dt><a class="struct" href="struct.OnChainConfig.html" title="struct asset_hub_westend_runtime::staking::OnChainConfig">OnChain<wbr>Config</a></dt><dt><a class="struct" href="struct.Pages.html" title="struct asset_hub_westend_runtime::staking::Pages">Pages</a></dt><dd>Number of election pages that we operate upon. 32 * 6s block = 192s = 3.2min snapshots</dd><dt><a class="struct" href="struct.PoolsPalletId.html" title="struct asset_hub_westend_runtime::staking::PoolsPalletId">Pools<wbr>Pallet<wbr>Id</a></dt><dt><a class="struct" href="struct.RelayChainSessionKeys.html" title="struct asset_hub_westend_runtime::staking::RelayChainSessionKeys">Relay<wbr>Chain<wbr>Session<wbr>Keys</a></dt><dd>Generated by <a href="$crate::impl_opaque_keys"><code>impl_opaque_keys!</code></a>.</dd><dt><a class="struct" href="struct.RelayLocation.html" title="struct asset_hub_westend_runtime::staking::RelayLocation">Relay<wbr>Location</a></dt><dt><a class="struct" href="struct.RelaySessionDuration.html" title="struct asset_hub_westend_runtime::staking::RelaySessionDuration">Relay<wbr>Session<wbr>Duration</a></dt><dd>Duration of a relay session in our blocks. Needs to be hardcoded per-runtime.</dd><dt><a class="struct" href="struct.RemoteKeysExecutionWeight.html" title="struct asset_hub_westend_runtime::staking::RemoteKeysExecutionWeight">Remote<wbr>Keys<wbr>Execution<wbr>Weight</a></dt><dd>Conservative RC execution cost for set/purge keys operations.
+Intentionally ~2-3x of benchmarked values to avoid undercharging if RC weights increase.
+Slight overpaymennt is the price we pay for maintainability here.</dd><dt><a class="struct" href="struct.RewardBase.html" title="struct asset_hub_westend_runtime::staking::RewardBase">Reward<wbr>Base</a></dt><dt><a class="struct" href="struct.SessionsPerEra.html" title="struct asset_hub_westend_runtime::staking::SessionsPerEra">Sessions<wbr>PerEra</a></dt><dt><a class="struct" href="struct.SignedPhase.html" title="struct asset_hub_westend_runtime::staking::SignedPhase">Signed<wbr>Phase</a></dt><dt><a class="struct" href="struct.SignedValidationPhase.html" title="struct asset_hub_westend_runtime::staking::SignedValidationPhase">Signed<wbr>Validation<wbr>Phase</a></dt><dd>validate up to 4 signed solution. Each solution.</dd><dt><a class="struct" href="struct.SlashDeferDuration.html" title="struct asset_hub_westend_runtime::staking::SlashDeferDuration">Slash<wbr>Defer<wbr>Duration</a></dt><dt><a class="struct" href="struct.SlashRewardFraction.html" title="struct asset_hub_westend_runtime::staking::SlashRewardFraction">Slash<wbr>Reward<wbr>Fraction</a></dt><dt><a class="struct" href="struct.StakingPotsPalletId.html" title="struct asset_hub_westend_runtime::staking::StakingPotsPalletId">Staking<wbr>Pots<wbr>Pallet<wbr>Id</a></dt><dt><a class="struct" href="struct.StakingStakerRewardKind.html" title="struct asset_hub_westend_runtime::staking::StakingStakerRewardKind">Staking<wbr>Staker<wbr>Reward<wbr>Kind</a></dt><dt><a class="struct" href="struct.StakingXcmToRelayChain.html" title="struct asset_hub_westend_runtime::staking::StakingXcmToRelayChain">Staking<wbr>XcmTo<wbr>Relay<wbr>Chain</a></dt><dt><a class="struct" href="struct.TargetSnapshotPerBlock.html" title="struct asset_hub_westend_runtime::staking::TargetSnapshotPerBlock">Target<wbr>Snapshot<wbr>PerBlock</a></dt><dd>Number of validators per page of the snapshot.</dd><dt><a class="struct" href="struct.UnsignedPhase.html" title="struct asset_hub_westend_runtime::staking::UnsignedPhase">Unsigned<wbr>Phase</a></dt><dt><a class="struct" href="struct.ValidatorSetToXcm.html" title="struct asset_hub_westend_runtime::staking::ValidatorSetToXcm">Validator<wbr>SetTo<wbr>Xcm</a></dt><dt><a class="struct" href="struct.VoterSnapshotPerBlock.html" title="struct asset_hub_westend_runtime::staking::VoterSnapshotPerBlock">Voter<wbr>Snapshot<wbr>PerBlock</a></dt><dd>Number of nominators per page of the snapshot, and consequently number of backers in the
+solution. Uses ceiling division so that <code>VoterSnapshotPerBlock * Pages &gt;= MaxElectingVoters</code>
+holds for any configured values.</dd><dt><a class="struct" href="struct.WestendStakingMiner.html" title="struct asset_hub_westend_runtime::staking::WestendStakingMiner">Westend<wbr>Staking<wbr>Miner</a></dt></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.AhClientCalls.html" title="enum asset_hub_westend_runtime::staking::AhClientCalls">AhClient<wbr>Calls</a></dt><dt><a class="enum" href="enum.RelayChainRuntimePallets.html" title="enum asset_hub_westend_runtime::staking::RelayChainRuntimePallets">Relay<wbr>Chain<wbr>Runtime<wbr>Pallets</a></dt></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.SignedPayload.html" title="type asset_hub_westend_runtime::staking::SignedPayload">Signed<wbr>Payload</a></dt><dd>The payload being signed in transactions.</dd><dt><a class="type" href="type.UncheckedExtrinsic.html" title="type asset_hub_westend_runtime::staking::UncheckedExtrinsic">Unchecked<wbr>Extrinsic</a></dt><dd>Unchecked extrinsic type as expected by this runtime.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

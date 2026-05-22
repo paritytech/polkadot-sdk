@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BlockWeightMode"],"mod":["pre_inherents_hook","transaction_extension"],"struct":["MaxParachainBlockWeight"]};

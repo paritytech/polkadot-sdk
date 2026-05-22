@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["pallet_example_offchain_worker",[["impl AppPair for <a class=\"struct\" href=\"pallet_example_offchain_worker/crypto/struct.Pair.html\" title=\"struct pallet_example_offchain_worker::crypto::Pair\">Pair</a>"]]],["sp_application_crypto",[]],["sp_consensus_beefy",[["impl AppPair for <a class=\"struct\" href=\"sp_consensus_beefy/bls_crypto/struct.Pair.html\" title=\"struct sp_consensus_beefy::bls_crypto::Pair\">Pair</a>"],["impl AppPair for <a class=\"struct\" href=\"sp_consensus_beefy/ecdsa_bls_crypto/struct.Pair.html\" title=\"struct sp_consensus_beefy::ecdsa_bls_crypto::Pair\">Pair</a>"],["impl AppPair for <a class=\"struct\" href=\"sp_consensus_beefy/ecdsa_crypto/struct.Pair.html\" title=\"struct sp_consensus_beefy::ecdsa_crypto::Pair\">Pair</a>"]]],["yet_another_parachain_runtime",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[212,29,521,37]}

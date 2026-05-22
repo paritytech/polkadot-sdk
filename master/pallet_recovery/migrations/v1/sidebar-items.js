@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MigrationCursor"],"struct":["MigrateV0ToV1"]};

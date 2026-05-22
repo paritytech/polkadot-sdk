@@ -1,0 +1,157 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `cumulus_zombienet_sdk_helpers` crate."><title>cumulus_zombienet_sdk_helpers - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="cumulus_zombienet_sdk_helpers" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate cumulus_zombienet_sdk_helpers</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../cumulus_zombienet_sdk_helpers/index.html">cumulus_<wbr>zombienet_<wbr>sdk_<wbr>helpers</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#enums">Crate Items</a></h3><ul class="block"><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>cumulus_<wbr>zombienet_<wbr>sdk_<wbr>helpers</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/cumulus_zombienet_sdk_helpers/lib.rs.html#4-1000">Source</a> </span></div><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.BlockToCheck.html" title="enum cumulus_zombienet_sdk_helpers::BlockToCheck">Block<wbr>ToCheck</a></dt><dd>Specifies which block should occupy a full core.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.assert_blocks_are_being_finalized.html" title="fn cumulus_zombienet_sdk_helpers::assert_blocks_are_being_finalized">assert_<wbr>blocks_<wbr>are_<wbr>being_<wbr>finalized</a></dt><dd>Assert that finality has not stalled.</dd><dt><a class="fn" href="fn.assert_finality_lag.html" title="fn cumulus_zombienet_sdk_helpers::assert_finality_lag">assert_<wbr>finality_<wbr>lag</a></dt><dt><a class="fn" href="fn.assert_para_is_registered.html" title="fn cumulus_zombienet_sdk_helpers::assert_para_is_registered">assert_<wbr>para_<wbr>is_<wbr>registered</a></dt><dd>Asserts that the given <code>para_id</code> is registered at the relay chain.</dd><dt><a class="fn" href="fn.assert_para_throughput.html" title="fn cumulus_zombienet_sdk_helpers::assert_para_throughput">assert_<wbr>para_<wbr>throughput</a></dt><dt><a class="fn" href="fn.assert_para_throughput_with.html" title="fn cumulus_zombienet_sdk_helpers::assert_para_throughput_with">assert_<wbr>para_<wbr>throughput_<wbr>with</a></dt><dd>Like <a href="fn.assert_para_throughput.html" title="fn cumulus_zombienet_sdk_helpers::assert_para_throughput"><code>assert_para_throughput</code></a>, but accepts a closure to validate each backed candidate
+receipt.</dd><dt><a class="fn" href="fn.assert_relay_parent_offset.html" title="fn cumulus_zombienet_sdk_helpers::assert_relay_parent_offset">assert_<wbr>relay_<wbr>parent_<wbr>offset</a></dt><dd>Asserts that parachain blocks have the correct relay parent offset. This also checks that the
+relay chain descendants do not contain any session changes.</dd><dt><a class="fn" href="fn.assign_cores.html" title="fn cumulus_zombienet_sdk_helpers::assign_cores">assign_<wbr>cores</a></dt><dd>Assigns the given <code>cores</code> to the given <code>para_id</code>.</dd><dt><a class="fn" href="fn.create_runtime_upgrade_call.html" title="fn cumulus_zombienet_sdk_helpers::create_runtime_upgrade_call">create_<wbr>runtime_<wbr>upgrade_<wbr>call</a></dt><dd>Creates a runtime upgrade call using <code>Sudo::sudo(System::set_code_without_checks)</code>.</dd><dt><a class="fn" href="fn.ensure_is_last_block_in_core.html" title="fn cumulus_zombienet_sdk_helpers::ensure_is_last_block_in_core">ensure_<wbr>is_<wbr>last_<wbr>block_<wbr>in_<wbr>core</a></dt><dd>Checks if the specified block is the last block in a core.</dd><dt><a class="fn" href="fn.ensure_is_only_block_in_core.html" title="fn cumulus_zombienet_sdk_helpers::ensure_is_only_block_in_core">ensure_<wbr>is_<wbr>only_<wbr>block_<wbr>in_<wbr>core</a></dt><dd>Checks if the specified block occupies a full core.</dd><dt><a class="fn" href="fn.find_core_info.html" title="fn cumulus_zombienet_sdk_helpers::find_core_info">find_<wbr>core_<wbr>info</a></dt><dd>Returns [<code>CoreInfo</code>] for the given parachain block.</dd><dt><a class="fn" href="fn.submit_extrinsic_and_wait_for_finalization_success.html" title="fn cumulus_zombienet_sdk_helpers::submit_extrinsic_and_wait_for_finalization_success">submit_<wbr>extrinsic_<wbr>and_<wbr>wait_<wbr>for_<wbr>finalization_<wbr>success</a></dt><dd>Submits the given <code>call</code> as signed transaction and waits for its successful finalization.</dd><dt><a class="fn" href="fn.submit_extrinsic_and_wait_for_finalization_success_with_timeout.html" title="fn cumulus_zombienet_sdk_helpers::submit_extrinsic_and_wait_for_finalization_success_with_timeout">submit_<wbr>extrinsic_<wbr>and_<wbr>wait_<wbr>for_<wbr>finalization_<wbr>success_<wbr>with_<wbr>timeout</a></dt><dd>Submits the given <code>call</code> as transaction and waits <code>timeout_secs</code> for it successful finalization.</dd><dt><a class="fn" href="fn.submit_sudo_runtime_upgrade.html" title="fn cumulus_zombienet_sdk_helpers::submit_sudo_runtime_upgrade">submit_<wbr>sudo_<wbr>runtime_<wbr>upgrade</a></dt><dd>Submit a runtime upgrade via sudo and verify it was scheduled.</dd><dt><a class="fn" href="fn.submit_unsigned_extrinsic_and_wait_for_finalization_success.html" title="fn cumulus_zombienet_sdk_helpers::submit_unsigned_extrinsic_and_wait_for_finalization_success">submit_<wbr>unsigned_<wbr>extrinsic_<wbr>and_<wbr>wait_<wbr>for_<wbr>finalization_<wbr>success</a></dt><dd>Submits the given <code>call</code> as unsigned transaction and waits for it successful finalization.</dd><dt><a class="fn" href="fn.wait_for_first_session_change.html" title="fn cumulus_zombienet_sdk_helpers::wait_for_first_session_change">wait_<wbr>for_<wbr>first_<wbr>session_<wbr>change</a></dt><dd>Wait for the first block with a session change.</dd><dt><a class="fn" href="fn.wait_for_nth_session_change.html" title="fn cumulus_zombienet_sdk_helpers::wait_for_nth_session_change">wait_<wbr>for_<wbr>nth_<wbr>session_<wbr>change</a></dt><dd>Wait for the first block with the Nth session change.</dd><dt><a class="fn" href="fn.wait_for_pvf_prepare.html" title="fn cumulus_zombienet_sdk_helpers::wait_for_pvf_prepare">wait_<wbr>for_<wbr>pvf_<wbr>prepare</a></dt><dd>Waits until every relaychain validator in <code>network</code> reports
+<code>polkadot_pvf_prepare_concluded &gt;= min_total_prepares</code>.</dd><dt><a class="fn" href="fn.wait_for_runtime_upgrade.html" title="fn cumulus_zombienet_sdk_helpers::wait_for_runtime_upgrade">wait_<wbr>for_<wbr>runtime_<wbr>upgrade</a></dt><dd>Wait until a runtime upgrade has happened.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

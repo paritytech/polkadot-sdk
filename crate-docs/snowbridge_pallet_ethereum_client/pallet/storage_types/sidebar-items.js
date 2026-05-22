@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["CurrentSyncCommittee","ExecutionHeaderIndex","ExecutionHeaderMapping","ExecutionHeaders","FinalizedBeaconState","FinalizedBeaconStateIndex","FinalizedBeaconStateMapping","InitialCheckpointRoot","LatestExecutionState","LatestFinalizedBlockRoot","NextSyncCommittee","OperatingMode","ValidatorsRoot"]};

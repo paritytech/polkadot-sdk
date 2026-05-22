@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["native_teleport_as_asset_transfer"]};

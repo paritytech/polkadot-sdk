@@ -1,0 +1,6 @@
+(function() {var implementors = {
+"collectives_westend_runtime":[["impl&lt;'a, O: 'a + <a class=\"trait\" href=\"https://doc.rust-lang.org/1.75.0/core/convert/trait.TryInto.html\" title=\"trait core::convert::TryInto\">TryInto</a>&lt;&amp;'a <a class=\"enum\" href=\"collectives_westend_runtime/fellowship/pallet_fellowship_origins/enum.Origin.html\" title=\"enum collectives_westend_runtime::fellowship::pallet_fellowship_origins::Origin\">Origin</a>&gt;&gt; <a class=\"trait\" href=\"sp_runtime/traits/trait.TryMorph.html\" title=\"trait sp_runtime::traits::TryMorph\">TryMorph</a>&lt;O&gt; for <a class=\"struct\" href=\"collectives_westend_runtime/fellowship/pallet_fellowship_origins/struct.ToVoice.html\" title=\"struct collectives_westend_runtime::fellowship::pallet_fellowship_origins::ToVoice\">ToVoice</a>"]],
+"frame":[],
+"polkadot_service":[],
+"sp_runtime":[]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

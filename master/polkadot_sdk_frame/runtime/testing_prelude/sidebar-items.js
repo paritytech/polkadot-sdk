@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DispatchError"],"struct":["Storage"],"trait":["BuildStorage"]};

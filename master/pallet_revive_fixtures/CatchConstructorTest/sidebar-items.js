@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CatchConstructorTestCalls","CatchConstructorTestEvents"],"struct":["Log","LogBytes","constructorCall","fooCall","fooReturn","tryCatchExternalCallCall","tryCatchExternalCallReturn","tryCatchNewContractCall","tryCatchNewContractReturn"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["vesta_msm","vesta_mul"],"struct":["HostFunctions"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Authorities","CurrentRandomness","CurrentSlot","EpochConfig","EpochIndex","GenesisSlot","NextAuthorities","NextEpochConfig","NextRandomness","PendingEpochConfigChange","RandomnessAccumulator","RingContext","RingVerifierData","SlotRandomness","SortedCandidates","TicketsData","TicketsIds","TicketsMeta","UnsortedSegments"]};

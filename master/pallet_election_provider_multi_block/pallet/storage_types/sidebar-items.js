@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["CurrentPhase","DesiredTargets","PagedTargetSnapshot","PagedTargetSnapshotHash","PagedVoterSnapshot","PagedVoterSnapshotHash","Round"]};

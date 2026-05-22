@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","UnexpectedKind"],"mod":["config_preludes"],"struct":["GenesisConfig","Instance1","Pallet"],"trait":["Config","DefaultConfig"],"type":["Account","CreditOf","Freezes","Holds","InactiveIssuance","Locks","Module","Reserves","TotalIssuance"]};

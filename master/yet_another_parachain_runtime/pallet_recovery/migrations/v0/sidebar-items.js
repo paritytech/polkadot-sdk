@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["multi_account_id"],"struct":["ActiveRecoveries_Storage_Instance","ActiveRecovery","Proxy_Storage_Instance","Recoverable_Storage_Instance","RecoveryConfig"],"trait":["MigrationConfig"],"type":["ActiveRecoveries","BalanceOf","BlockNumberFromProviderOf","FriendsOf","Proxy","Recoverable"]};

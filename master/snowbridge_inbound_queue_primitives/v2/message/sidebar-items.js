@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["EthereumAsset","Network","Payload"],"mod":["IGatewayV2"],"struct":["Message","MessageDecodeError"]};

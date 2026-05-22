@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["asset_hub_westend_runtime",[["impl <a class=\"trait\" href=\"pallet_revive/evm/runtime/trait.SetWeightLimit.html\" title=\"trait pallet_revive::evm::runtime::SetWeightLimit\">SetWeightLimit</a> for <a class=\"enum\" href=\"asset_hub_westend_runtime/enum.RuntimeCall.html\" title=\"enum asset_hub_westend_runtime::RuntimeCall\">RuntimeCall</a>"]]],["kitchensink_runtime",[["impl <a class=\"trait\" href=\"pallet_revive/evm/runtime/trait.SetWeightLimit.html\" title=\"trait pallet_revive::evm::runtime::SetWeightLimit\">SetWeightLimit</a> for <a class=\"enum\" href=\"kitchensink_runtime/enum.RuntimeCall.html\" title=\"enum kitchensink_runtime::RuntimeCall\">RuntimeCall</a>"]]],["penpal_runtime",[["impl <a class=\"trait\" href=\"pallet_revive/evm/runtime/trait.SetWeightLimit.html\" title=\"trait pallet_revive::evm::runtime::SetWeightLimit\">SetWeightLimit</a> for <a class=\"enum\" href=\"penpal_runtime/enum.RuntimeCall.html\" title=\"enum penpal_runtime::RuntimeCall\">RuntimeCall</a>"]]],["revive_dev_runtime",[["impl <a class=\"trait\" href=\"pallet_revive/evm/runtime/trait.SetWeightLimit.html\" title=\"trait pallet_revive::evm::runtime::SetWeightLimit\">SetWeightLimit</a> for <a class=\"enum\" href=\"revive_dev_runtime/enum.RuntimeCall.html\" title=\"enum revive_dev_runtime::RuntimeCall\">RuntimeCall</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[348,331,316,328]}

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["EXECUTE_BINARY_NAME","PREPARE_BINARY_NAME"],"fn":["build_workers_and_get_paths","validate_candidate"]};

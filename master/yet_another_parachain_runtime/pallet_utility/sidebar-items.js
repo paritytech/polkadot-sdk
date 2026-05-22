@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"fn":["derivative_account_id"],"mod":["pallet","weights"],"struct":["Pallet"],"trait":["Config","WeightInfo"],"type":["Module"]};

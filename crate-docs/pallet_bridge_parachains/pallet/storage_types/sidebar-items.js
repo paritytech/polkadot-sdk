@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ImportedParaHashes","ImportedParaHeads","PalletOperatingMode","PalletOwner","ParasInfo"]};

@@ -1,0 +1,242 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn about how to do logging in FRAME-based runtimes."><title>polkadot_sdk_docs::reference_docs::frame_logging - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.network/favicon-32x32.png"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module frame_logging</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::reference_docs</a></h2></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">frame_logging</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/frame_logging.rs.html#1-116">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about how to do logging in FRAME-based runtimes.</p>
+<h2 id="frame-logging"><a class="doc-anchor" href="#frame-logging">§</a>FRAME Logging</h2>
+<p>This reference docs briefly explores how to do logging and printing runtimes, mainly
+FRAME-based.</p>
+<h3 id="using-println"><a class="doc-anchor" href="#using-println">§</a>Using <code>println!</code></h3>
+<p>To recap, as with standard Rust, you can use <code>println!</code> <em>in your tests</em>, but it will only print
+out if executed with <code>--nocapture</code>, or if the test panics.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>it_print() {
+	<span class="macro">println!</span>(<span class="string">"Hello, world!"</span>);
+}</code></pre></div>
+<p>within the pallet, if you want to use the standard <code>println!</code>, it needs to be wrapped in
+<a href="../../../sp_std/macro.if_std.html" title="macro sp_std::if_std"><code>sp_std::if_std</code></a>. Of course, this means that this print code is only available to you in the
+<code>std</code> compiler flag, and never present in a wasm build.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// somewhere in your pallet. This is not a real pallet code.
+</span><span class="kw">mod </span>pallet {
+	<span class="kw">struct </span>Pallet;
+	<span class="kw">impl </span>Pallet {
+		<span class="kw">fn </span>print() {
+			<span class="macro">sp_std::if_std! </span>{
+				<span class="macro">println!</span>(<span class="string">"Hello, world!"</span>);
+			}
+		}
+	}
+}</code></pre></div>
+<h3 id="using-log"><a class="doc-anchor" href="#using-log">§</a>Using <code>log</code></h3>
+<p>First, ensure you are familiar with the <code>log</code> crate. In short, each log statement has:</p>
+<ol>
+<li><code>log-level</code>, signifying how important it is</li>
+<li><code>log-target</code>, signifying to which component it belongs.</li>
+</ol>
+<p>Add log statements to your pallet as such:</p>
+<p>You can add the log crate to the <code>Cargo.toml</code> of the pallet.</p>
+<div class="example-wrap"><pre class="language-text"><code>#[dependencies]
+log = { version = &quot;x.y.z&quot;, default-features = false }
+
+#[features]
+std = [
+	// snip -- other pallets
+	&quot;log/std&quot;
+]
+</code></pre></div>
+<p>More conveniently, the <code>frame</code> umbrella crate re-exports the log crate as <a href="https://docs.rs/log/0.4.21/log/index.html" title="mod log"><code>frame::log</code></a>.</p>
+<p>Then, the pallet can use this crate to emit log statements. In this statement, we use the info
+level, and the target is <code>pallet-example</code>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>pallet {
+	<span class="kw">struct </span>Pallet;
+
+	<span class="kw">impl </span>Pallet {
+		<span class="kw">fn </span>logs() {
+			<span class="macro">frame::log::info!</span>(target: <span class="string">"pallet-example"</span>, <span class="string">"Hello, world!"</span>);
+		}
+	}
+}</code></pre></div>
+<p>This will in itself just emit the log messages, <strong>but unless if captured by a logger, they will
+not go anywhere</strong>. <a href="../../../sp_api/index.html" title="mod sp_api"><code>sp_api</code></a> provides a handy function to enable the runtime logging:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// in your test
+</span><span class="kw">fn </span>it_also_prints() {
+	sp_api::init_runtime_logger();
+	<span class="comment">// call into your pallet, and now it will print `log` statements.
+</span>}</code></pre></div>
+<p>Alternatively, you can use <a href="../../../sp_tracing/fn.try_init_simple.html" title="fn sp_tracing::try_init_simple"><code>sp_tracing::try_init_simple</code></a>.</p>
+<p><code>info</code>, <code>error</code> and <code>warn</code> logs are printed by default, but if you want lower level logs to also
+be printed, you must to add the following compiler flag:</p>
+<div class="example-wrap"><pre class="language-text"><code>RUST_LOG=pallet-example=trace cargo test
+</code></pre></div><h3 id="enabling-logs-in-production"><a class="doc-anchor" href="#enabling-logs-in-production">§</a>Enabling Logs in Production</h3>
+<p>All logs from the runtime are emitted by default, but there is a feature flag in <a href="../../../sp_api/index.html" title="mod sp_api"><code>sp_api</code></a>,
+called <code>disable-logging</code>, that can be used to disable all logs in the runtime. This is useful
+for production chains to reduce the size and overhead of the wasm runtime.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub fn </span>init_runtime_logger() {
+	<span class="attr">#[cfg(not(feature = <span class="string">"disable-logging"</span>))]
+	</span>sp_runtime::runtime_logger::RuntimeLogger::init();
+}</code></pre></div>
+<p>Similar to the above, the proper <code>RUST_LOG</code> must also be passed to your compiler flag when
+compiling the runtime.</p>
+<h3 id="log-target-prefixing"><a class="doc-anchor" href="#log-target-prefixing">§</a>Log Target Prefixing</h3>
+<p>Many <a href="../../polkadot_sdk/frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>crate::polkadot_sdk::frame_runtime</code></a> pallets emit logs with log target <code>runtime::&lt;name of pallet&gt;</code>, for example <code>runtime::system</code>. This then allows one to run a node with a wasm blob
+compiled with <code>LOG_TARGET=runtime=debug</code>, which enables the log target of all pallets who’s log
+target starts with <code>runtime</code>.</p>
+<h3 id="low-level-primitives"><a class="doc-anchor" href="#low-level-primitives">§</a>Low Level Primitives</h3>
+<p>Under the hood, logging is another instance of host functions under the hood (as defined in
+<a href="../wasm_meta_protocol/index.html" title="mod polkadot_sdk_docs::reference_docs::wasm_meta_protocol"><code>crate::reference_docs::wasm_meta_protocol</code></a>). The runtime uses a set of host functions under
+<a href="../../../sp_io/logging/index.html" title="mod sp_io::logging"><code>sp_io::logging</code></a> and <a href="../../../sp_io/misc/index.html" title="mod sp_io::misc"><code>sp_io::misc</code></a> to emit all logs and prints. You typically do not need to
+use these APIs directly.</p>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

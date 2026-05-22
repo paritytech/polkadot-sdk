@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DAP_PALLET_ID","MAX_BUDGET_RECIPIENTS"],"mod":["benchmarking","migrations","pallet","weights"],"struct":["DapLegacyAdapter"],"type":["BalanceOf","BudgetAllocationMap","CreditOf"]};

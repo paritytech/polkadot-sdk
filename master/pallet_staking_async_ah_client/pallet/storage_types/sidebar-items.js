@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["IncompleteValidatorSetReport","Mode","NextSessionChangesValidators","OffenceSendQueueCursor","OffenceSendQueueOffences","OutgoingSessionReport","ValidatorPoints","ValidatorSet","ValidatorSetAppliedAt"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"attr":["runtime_interface"],"fn":["pack_ptr_and_len","set_and_run_with_externalities","unpack_ptr_and_len","with_externalities"],"mod":["host","pass_by"],"trait":["ExtensionStore","Externalities","ExternalitiesExt","RIType"],"type":["Pointer"]};

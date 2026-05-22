@@ -1,0 +1,1 @@
+searchState.loadedDescShard("sp_runtime_interface_proc_macro", 0, "This crate provides procedural macros for usage within the …")

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["extract_parachain_id"],"mod":["asset_hubs","bridge_hubs","collectives","coretime","glutton","penpal","people","yet_another_parachain"],"struct":["ChainSpecLoader"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["foreign_assets","migration","permit","weights"],"struct":["ERC20","ForeignAssetIdExtractor","ForeignIdConfig","InlineAssetIdExtractor","InlineIdConfig"],"trait":["AssetIdExtractor","AssetPrecompileConfig"]};

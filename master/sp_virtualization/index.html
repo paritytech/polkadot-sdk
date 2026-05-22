@@ -1,0 +1,179 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="This crate is intended for use by runtime code (e.g. pallet-contracts) to spawn PolkaVM instances and execute calls into them. Its purpose is to add one layer of abstraction so that it works transparently from the actual runtime (via the host functions defined in this crate) but also from tests (which run natively)."><title>sp_virtualization - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sp_virtualization" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate sp_virtualization</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_virtualization/index.html">sp_<wbr>virtualization</a><span class="version">1.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#-unstable-api--do-not-use-in-production-" title="⚠️ Unstable API — Do Not Use in Production ⚠️">⚠️ Unstable API — Do Not Use in Production ⚠️</a></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>sp_<wbr>virtualization</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/sp_virtualization/lib.rs.html#18-222">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>This crate is intended for use by runtime code (e.g. pallet-contracts) to spawn PolkaVM
+instances and execute calls into them. Its purpose is to add one layer of abstraction so that
+it works transparently from the actual runtime (via the host functions defined in this crate)
+but also from tests (which run natively).</p>
+<p>The crate exposes the runtime-side forwarder API and the [<code>#[runtime_interface]</code>] declaration
+plus the <a href="trait.VirtManagerBackend.html" title="trait sp_virtualization::VirtManagerBackend"><code>VirtManagerBackend</code></a> trait that backs it. The concrete polkavm-driven backend lives
+in the <code>sc-virtualization</code> client crate, which registers a <code>VirtManager</code> via <a href="struct.VirtManagerExt.html" title="struct sp_virtualization::VirtManagerExt"><code>VirtManagerExt</code></a>
+before dispatching runtime calls.</p>
+<p>Please keep in mind that the interface is kept simple because it has to match the interface
+of the host function so that the abstraction works. It will never expose the whole PolkaVM
+interface.</p>
+<h2 id="-unstable-api--do-not-use-in-production-"><a class="doc-anchor" href="#-unstable-api--do-not-use-in-production-">§</a>⚠️ Unstable API — Do Not Use in Production ⚠️</h2>
+<p><strong>This crate’s API is unstable and subject to breaking changes without notice.</strong></p>
+<p>The virtualization host functions exposed by this crate have <strong>not been stabilized</strong> and are
+<strong>not available on Polkadot</strong> (or any other production relay/parachain) until they are. Using
+them in a production runtime <strong>will cause your runtime to break</strong> when the API changes.</p>
+<p>This crate should <strong>only</strong> be used for:</p>
+<ul>
+<li>Local testing and development</li>
+<li>Experimentation on test networks</li>
+</ul>
+<p><strong>Do not</strong> ship runtimes that depend on this crate to any chain you care about. There is no
+stability guarantee and no deprecation period — the interface may change at any time.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.run_tests"><code>pub use crate::tests::<a class="fn" href="tests/fn.run.html" title="fn sp_virtualization::tests::run">run</a> as run_tests;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="tests/index.html" title="mod sp_virtualization::tests">tests</a></dt><dd>Shared test driver for the virtualization forwarder API.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.ExecBuffer.html" title="struct sp_virtualization::ExecBuffer">Exec<wbr>Buffer</a></dt><dd>Buffer shared between runtime and executor for passing syscall data across the
+host function boundary.</dd><dt><a class="struct" href="struct.Execution.html" title="struct sp_virtualization::Execution">Execution</a></dt><dd>A prepared or suspended virtualization execution.</dd><dt><a class="struct" href="struct.HostFunctions.html" title="struct sp_virtualization::HostFunctions">Host<wbr>Functions</a></dt><dd>Aggregate of all host functions exposed by this crate.</dd><dt><a class="struct" href="struct.Instance.html" title="struct sp_virtualization::Instance">Instance</a></dt><dd>An idle virtualization instance.</dd><dt><a class="struct" href="struct.InstanceId.html" title="struct sp_virtualization::InstanceId">Instance<wbr>Id</a></dt><dd>Opaque handle to a virtualization instance.</dd><dt><a class="struct" href="struct.Module.html" title="struct sp_virtualization::Module">Module</a></dt><dd>A compiled module handle.</dd><dt><a class="struct" href="struct.ModuleId.html" title="struct sp_virtualization::ModuleId">Module<wbr>Id</a></dt><dd>Opaque handle to a compiled module.</dd><dt><a class="struct" href="struct.SyscallSymbol.html" title="struct sp_virtualization::SyscallSymbol">Syscall<wbr>Symbol</a></dt><dd>A syscall symbol with a maximum length of <a href="constant.MAX_SYSCALL_SYMBOL_LEN.html" title="constant sp_virtualization::MAX_SYSCALL_SYMBOL_LEN"><code>MAX_SYSCALL_SYMBOL_LEN</code></a> bytes.</dd><dt><a class="struct" href="struct.VirtManagerExt.html" title="struct sp_virtualization::VirtManagerExt">Virt<wbr>Manager<wbr>Ext</a></dt><dd>Extension wrapping a <a href="trait.VirtManagerBackend.html" title="trait sp_virtualization::VirtManagerBackend"><code>VirtManagerBackend</code></a> so it can be accessed through
+the externalities by the virtualization host functions.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.CompileStatus.html" title="enum sp_virtualization::CompileStatus">Compile<wbr>Status</a></dt><dd>Status returned by the <code>compile_*</code> host functions.</dd><dt><a class="enum" href="enum.DestroyError.html" title="enum sp_virtualization::DestroyError">Destroy<wbr>Error</a></dt><dd>Errors that can be emitted when destroying a virtualization instance.</dd><dt><a class="enum" href="enum.ExecError.html" title="enum sp_virtualization::ExecError">Exec<wbr>Error</a></dt><dd>Errors that can be emitted when executing a new virtualization instance.</dd><dt><a class="enum" href="enum.ExecResult.html" title="enum sp_virtualization::ExecResult">Exec<wbr>Result</a></dt><dd>The result of running a virtualization instance.</dd><dt><a class="enum" href="enum.ExecStatus.html" title="enum sp_virtualization::ExecStatus">Exec<wbr>Status</a></dt><dd>Status returned by the <code>run</code> host function.</dd><dt><a class="enum" href="enum.InstantiateError.html" title="enum sp_virtualization::InstantiateError">Instantiate<wbr>Error</a></dt><dd>Errors that can be emitted when instantiating a new virtualization instance.</dd><dt><a class="enum" href="enum.MemoryError.html" title="enum sp_virtualization::MemoryError">Memory<wbr>Error</a></dt><dd>Errors that can be emitted when accessing a virtualization instance’s memory.</dd><dt><a class="enum" href="enum.ModuleError.html" title="enum sp_virtualization::ModuleError">Module<wbr>Error</a></dt><dd>Errors that can be emitted when compiling a program into a module.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.LOG_TARGET.html" title="constant sp_virtualization::LOG_TARGET">LOG_<wbr>TARGET</a></dt><dd>The target we use for all logging.</dd><dt><a class="constant" href="constant.MAX_SYSCALL_SYMBOL_LEN.html" title="constant sp_virtualization::MAX_SYSCALL_SYMBOL_LEN">MAX_<wbr>SYSCALL_<wbr>SYMBOL_<wbr>LEN</a></dt><dd>Maximum length of a syscall symbol in bytes.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.VirtManagerBackend.html" title="trait sp_virtualization::VirtManagerBackend">Virt<wbr>Manager<wbr>Backend</a></dt><dd>The host-side operations driven by the virtualization host functions.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","UnexpectedKind"],"struct":["BudgetRecipientsViewFunction","Pallet","StagingViewFunction"],"trait":["Config"],"type":["BudgetAllocation","LastIssuanceTimestamp","Module"]};

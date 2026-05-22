@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["hex","sol"],"mod":["primitives","sol_types"]};

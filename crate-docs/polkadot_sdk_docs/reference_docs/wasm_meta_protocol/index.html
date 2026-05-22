@@ -1,0 +1,158 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn about the WASM meta-protocol of all Substrate-based chains."><title>polkadot_sdk_docs::reference_docs::wasm_meta_protocol - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Module wasm_meta_protocol</a></h2><div class="sidebar-elems"></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">wasm_meta_protocol</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/wasm_meta_protocol.rs.html#1-113">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about the WASM meta-protocol of all Substrate-based chains.</p>
+<h2 id="wasm-meta-protocol"><a href="#wasm-meta-protocol">WASM Meta Protocol</a></h2>
+<p>All Substrate based chains adhere to a unique architectural design novel to the Polkadot
+ecosystem. We refer to this design as the “WASM Meta Protocol”.</p>
+<p>Consider the fact that a traditional blockchain software is usually a monolithic artifact.
+Upgrading any part of the system implies upgrading the entire system. This has historically led
+to cumbersome forkful upgrades to be the status quo in the blockchain ecosystem.</p>
+<p>Moreover, the idea of “storing code in the state” is explored in the context of smart contracts
+platforms, but has not been expanded further.</p>
+<p>Substrate mixes these two ideas together, and takes the novel approach of storing the
+blockchain’s main “state transition function” in the main blockchain state, in the same fashion
+that a smart contract platform stores the code of individual contracts in its state. As noted in
+<a href="../blockchain_state_machines/index.html" title="mod polkadot_sdk_docs::reference_docs::blockchain_state_machines"><code>crate::reference_docs::blockchain_state_machines</code></a>, this state transition function is called
+the <strong>Runtime</strong>, and WASM is chosen as the bytecode. The Runtime is stored under a special key
+in the state (see
+<a href="../../../sp_core/index.html"><code>sp_core::storage::well_known_keys</code></a>) and can be
+updated as a part of the state transition function’s execution, just like a user’s account
+balance can be updated.</p>
+<blockquote>
+<p>Note that while we drew an analogy between smart contracts and runtimes in the above, there
+are fundamental differences between the two, explained in
+<a href="../runtime_vs_smart_contract/index.html" title="mod polkadot_sdk_docs::reference_docs::runtime_vs_smart_contract"><code>crate::reference_docs::runtime_vs_smart_contract</code></a>.</p>
+</blockquote>
+<p>The rest of the system that is NOT the state transition function is called the <strong>node</strong>, and
+is a normal binary that is compiled from Rust to different hardware targets.</p>
+<p>This design enables all Substrate-based chains to be fork-less-ly upgradeable, because the
+Runtime can be updates on the fly, within the execution of a block, and the node is (for the
+most part) oblivious to the change that is happening.</p>
+<p>Therefore, the high-level architecture of a any Substrate-based chain can be demonstrated as
+follows:</p>
+<pre class="mermaid" style="text-align:center;background: transparent;">
+graph TB
+subgraph Substrate
+	direction LR
+	subgraph Node
+	end
+	subgraph Runtime
+	end
+end
+
+</pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
+<p>The node and the runtime need to communicate. This is done through two concepts:</p>
+<ol>
+<li><strong>Host functions</strong>: a way for the (WASM) runtime to talk to the node. All host functions are
+defined in <a href="../../../sp_io/index.html" title="mod sp_io"><code>sp_io</code></a>. For example, <a href="../../../sp_io/storage/index.html" title="mod sp_io::storage"><code>sp_io::storage</code></a> are the set of host functions that
+allow the runtime to read and write data to the on-chain state.</li>
+<li><strong>Runtime APIs</strong>: a way for the node to talk to the WASM runtime. Runtime APIs are defined
+using macros and utilities in <a href="../../../sp_api/index.html" title="mod sp_api"><code>sp_api</code></a>. For example, <a href="../../../sp_api/trait.Core.html" title="trait sp_api::Core"><code>sp_api::Core</code></a> is the most
+fundamental runtime API that any blockchain must implement in order to be able to (re)
+execute blocks.</li>
+</ol>
+<pre class="mermaid" style="text-align:center;background: transparent;">
+graph TB
+subgraph Substrate
+	direction LR
+	subgraph Node
+	end
+
+	subgraph Runtime
+	end
+
+	Node --runtime-api--> Runtime
+	Runtime --host-functions--> Node
+end
+
+</pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
+<p>A runtime must have a set of runtime APIs in order to have any meaningful blockchain
+functionality, but it can also expose more APIs. See TODO as an example of how to add custom
+runtime APIs to your FRAME-based runtime.</p>
+<p>Similarly, for a runtime to be “compatible” with a node, the node must implement the full set of
+host functions that the runtime at any point in time requires. Given the fact that a runtime can
+evolve in time, and a blockchain node (typically) wishes to be capable of re-executing all the
+previous blocks, this means that a node must always maintain support for the old host functions.
+This also implies that adding a new host function is a big commitment and should be done with
+care. This is why, for example, adding a new host function to Polkadot always requires an RFC.</p>
+<h3 id="node-vs-runtime"><a href="#node-vs-runtime">Node vs. Runtime</a></h3>
+<p>A common question is: which components of the system end up being part of the node, and which
+ones of the runtime?</p>
+<p>Recall from <a href="../blockchain_state_machines/index.html" title="mod polkadot_sdk_docs::reference_docs::blockchain_state_machines"><code>crate::reference_docs::blockchain_state_machines</code></a> that the runtime is the state
+transition function. Anything that needs to influence how your blockchain’s state is updated,
+should be a part of the runtime. For example, the logic around currency, governance, identity or
+any other application-specific logic that has to do with the state is part of the runtime.</p>
+<p>Anything that does not have to do with the state-transition function and will only
+facilitate/enable it is part of the node. For example, the database, networking, and even
+consensus algorithm are all node-side components.</p>
+<blockquote>
+<p>The consensus is to your runtime what HTTP is to a web-application. It is the underlying
+engine that enables trustless execution of the runtime in a distributed manner whilst
+maintaining a canonical outcome of that execution.</p>
+</blockquote>
+<pre class="mermaid" style="text-align:center;background: transparent;">
+graph TB
+subgraph Substrate
+	direction LR
+	subgraph Node
+		Database
+		Networking
+		Consensus
+	end
+	subgraph Runtime
+		subgraph FRAME
+			direction LR
+			Governance
+			Currency
+			Staking
+			Identity
+		end
+	end
+	Node --runtime-api--> Runtime
+	Runtime --host-functions--> Node
+end
+
+</pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
+<h3 id="state"><a href="#state">State</a></h3>
+<p>From the previous sections, we know that the a database component is part of the node, not the
+runtime. We also hinted that a set of host functions (<a href="../../../sp_io/storage/index.html" title="mod sp_io::storage"><code>sp_io::storage</code></a>) are how the runtime
+issues commands to the node to read/write to the state. Let’s dive deeper into this.</p>
+<p>The state of the blockchain, what we seek to come to consensus about, is indeed <em>kept</em> in the
+node side. Nonetheless, the runtime is the only component that:</p>
+<ol>
+<li>Can update the state.</li>
+<li>Can fully interpret the state.</li>
+</ol>
+<p>In fact, <a href="../../../sp_storage/well_known_keys/index.html" title="mod sp_storage::well_known_keys"><code>sp_core::storage::well_known_keys</code></a> are the only state keys that the node side is
+aware of. The rest of the state, including what logic the runtime has, what balance each user
+has and such are all only comprehensible to the runtime.</p>
+<pre class="mermaid" style="text-align:center;background: transparent;">
+flowchart TB
+    subgraph Node[Node's View Of The State 🙈]
+        direction LR
+        0x1234 --> 0x2345
+        0x3456 --> 0x4567
+        0x5678 --> 0x6789
+        :code --> code[wasm code]
+    end
+
+    subgraph Runtime[Runtime's View Of The State 🙉]
+        direction LR
+        ab[alice's balance] --> abv[known value]
+        bb[bob's balance] --> bbv[known value]
+        cb[charlie's balance] --> cbv[known value]
+        c2[:code] --> c22[wasm code]
+    end
+
+</pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
+<p>In the above diagram, all of the state keys and values are opaque bytes to the node. The node
+does not know what they mean, and it does not now what is the type of the corresponding value
+(e.g. if it is a number of a vector). Contrary, the runtime knows both the meaning of their
+keys, and the type of the values.</p>
+<p>This opaque-ness is the fundamental reason why Substrate-based chains can fork-less-ly upgrade:
+because the node side code is kept oblivious to all of the details of the state transition
+function. Therefore, the state transition function can freely upgrade without the node needing
+to know.</p>
+<h3 id="native-runtime"><a href="#native-runtime">Native Runtime</a></h3>
+<p>TODO</p>
+<h3 id="example-block-execution"><a href="#example-block-execution">Example: Block Execution.</a></h3>
+<p>TODO</p>
+</div></details></section></div></main></body></html>

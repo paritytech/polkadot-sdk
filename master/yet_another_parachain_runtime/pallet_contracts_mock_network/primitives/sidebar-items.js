@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CENTS","UNITS"],"type":["AccountId","AssetIdForAssets","Balance"]};

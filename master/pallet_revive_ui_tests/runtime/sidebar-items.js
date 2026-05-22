@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["OriginCaller","RuntimeCall","RuntimeError","RuntimeEvent","RuntimeFreezeReason","RuntimeHoldReason","RuntimeTask"],"struct":["PalletInfo","Runtime","RuntimeGenesisConfig","RuntimeOrigin"],"type":["AllPalletsWithSystem","AllPalletsWithoutSystem","Balances","BalancesConfig","Revive","ReviveConfig","System","SystemConfig"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_DECIMALS_DIFF"],"enum":["Call","CircuitBreakerLevel","Error","Event","PsmManagerLevel"],"mod":["migrations","pallet","weights"],"struct":["GenesisConfig","Pallet"],"trait":["BenchmarkHelper","Config","PsmInterface","WeightInfo"],"type":["Module","PsmDebt"]};

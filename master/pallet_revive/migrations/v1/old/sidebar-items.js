@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ContractInfoOf_Storage_Instance"],"type":["ContractInfoOf"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AssumeSybilResistance","BlockAnnounceData","RequireSecondedInBlockAnnounce","WaitToAnnounce"],"type":["BlockAnnounceValidator"]};

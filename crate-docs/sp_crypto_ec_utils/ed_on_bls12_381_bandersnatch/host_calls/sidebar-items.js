@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["ed_on_bls12_381_bandersnatch_sw_msm","ed_on_bls12_381_bandersnatch_sw_mul_projective","ed_on_bls12_381_bandersnatch_te_msm","ed_on_bls12_381_bandersnatch_te_mul_projective"],"struct":["HostFunctions"]};

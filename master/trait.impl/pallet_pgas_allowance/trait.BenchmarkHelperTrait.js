@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["asset_hub_westend_runtime",[["impl <a class=\"trait\" href=\"pallet_pgas_allowance/trait.BenchmarkHelperTrait.html\" title=\"trait pallet_pgas_allowance::BenchmarkHelperTrait\">BenchmarkHelperTrait</a>&lt;&lt;&lt;<a class=\"enum\" href=\"sp_runtime/enum.MultiSignature.html\" title=\"enum sp_runtime::MultiSignature\">MultiSignature</a> as <a class=\"trait\" href=\"sp_runtime/traits/trait.Verify.html\" title=\"trait sp_runtime::traits::Verify\">Verify</a>&gt;::<a class=\"associatedtype\" href=\"sp_runtime/traits/trait.Verify.html#associatedtype.Signer\" title=\"type sp_runtime::traits::Verify::Signer\">Signer</a> as <a class=\"trait\" href=\"sp_runtime/traits/trait.IdentifyAccount.html\" title=\"trait sp_runtime::traits::IdentifyAccount\">IdentifyAccount</a>&gt;::<a class=\"associatedtype\" href=\"sp_runtime/traits/trait.IdentifyAccount.html#associatedtype.AccountId\" title=\"type sp_runtime::traits::IdentifyAccount::AccountId\">AccountId</a>, <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.0/std/primitive.u32.html\">u32</a>, <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.0/std/primitive.u128.html\">u128</a>&gt; for <a class=\"struct\" href=\"asset_hub_westend_runtime/struct.PGASBenchmarkHelper.html\" title=\"struct asset_hub_westend_runtime::PGASBenchmarkHelper\">PGASBenchmarkHelper</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[1339]}

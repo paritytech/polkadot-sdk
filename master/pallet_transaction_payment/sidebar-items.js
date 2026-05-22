@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Pre","Releases","Val"],"mod":["pallet","weights"],"struct":["ChargeTransactionPayment","ConstFeeMultiplier","FeeDetails","FungibleAdapter","InclusionFee","RuntimeDispatchInfo","TargetedFeeAdjustment"],"trait":["BenchmarkConfig","MultiplierUpdate","OnChargeTransaction","TxCreditHold"],"type":["Multiplier"]};

@@ -1,0 +1,302 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Payment backend used to charge storage deposits."><title>Deposit in yet_another_parachain_runtime::pallet_revive - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Deposit</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Deposit</a></h2><h3><a href="#required-associated-consts">Required Associated Constants</a></h3><ul class="block"><li><a href="#associatedconstant.SUPPORTS_PGAS" title="SUPPORTS_PGAS">SUPPORTS_PGAS</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.charge_and_hold" title="charge_and_hold">charge_and_hold</a></li><li><a href="#tymethod.destroy_contract" title="destroy_contract">destroy_contract</a></li><li><a href="#tymethod.init_contract" title="init_contract">init_contract</a></li><li><a href="#tymethod.migrate_native_to_pgas" title="migrate_native_to_pgas">migrate_native_to_pgas</a></li><li><a href="#tymethod.refund_all" title="refund_all">refund_all</a></li><li><a href="#tymethod.refund_on_hold" title="refund_on_hold">refund_on_hold</a></li><li><a href="#tymethod.total_on_hold" title="total_on_hold">total_on_hold</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-Deposit%3CT%3E-for-()" title="()">()</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>pallet_<wbr>revive</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a>::<wbr><a href="index.html">pallet_revive</a></div><h1>Trait <span class="trait">Deposit</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_revive/deposit_payment.rs.html#67">Source</a> </span></div><pre class="rust item-decl"><code>pub trait Deposit&lt;T&gt;: Sealed<div class="where">where
+    T: <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>,</div>{
+    const <a href="#associatedconstant.SUPPORTS_PGAS" class="constant">SUPPORTS_PGAS</a>: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a>;
+
+    // Required methods
+    fn <a href="#tymethod.init_contract" class="fn">init_contract</a>(
+        contract: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+    ) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.destroy_contract" class="fn">destroy_contract</a>(
+        contract: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+    ) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.charge_and_hold" class="fn">charge_and_hold</a>(
+        reason: <a class="enum" href="enum.HoldReason.html" title="enum yet_another_parachain_runtime::pallet_revive::HoldReason">HoldReason</a>,
+        src: Funds&lt;'_, &lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;,
+        to: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+        amount: &lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_revive::Config::Balance">Balance</a>,
+    ) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.refund_on_hold" class="fn">refund_on_hold</a>(
+        reason: <a class="enum" href="enum.HoldReason.html" title="enum yet_another_parachain_runtime::pallet_revive::HoldReason">HoldReason</a>,
+        from: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+        dst: Funds&lt;'_, &lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;,
+        amount: &lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_revive::Config::Balance">Balance</a>,
+    ) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.total_on_hold" class="fn">total_on_hold</a>(
+        reason: <a class="enum" href="enum.HoldReason.html" title="enum yet_another_parachain_runtime::pallet_revive::HoldReason">HoldReason</a>,
+        who: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+    ) -&gt; &lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_revive::Config::Balance">Balance</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.refund_all" class="fn">refund_all</a>(
+        from: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+        dst: Funds&lt;'_, &lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;,
+    ) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;&lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_revive::Config::Balance">Balance</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migrate_native_to_pgas" class="fn">migrate_native_to_pgas</a>(
+        reason: <a class="enum" href="enum.HoldReason.html" title="enum yet_another_parachain_runtime::pallet_revive::HoldReason">HoldReason</a>,
+        contract: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+        amount: &lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_revive::Config::Balance">Balance</a>,
+    ) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Payment backend used to charge storage deposits.</p>
+</div></details><h2 id="required-associated-consts" class="section-header">Required Associated Constants<a href="#required-associated-consts" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedconstant.SUPPORTS_PGAS" class="method"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#72">Source</a><h4 class="code-header">const <a href="#associatedconstant.SUPPORTS_PGAS" class="constant">SUPPORTS_PGAS</a>: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Whether this backend supports PGAS.</p>
+<p>When <code>false</code>, the v4 multi-block migration’s PGAS-related phases (steps 1 and 2)
+are no-ops, since there is no PGAS asset to migrate native deposits over to.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.init_contract" class="method"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#77">Source</a><h4 class="code-header">fn <a href="#tymethod.init_contract" class="fn">init_contract</a>(
+    contract: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Mint each backend’s existential deposit into <code>contract</code>.</p>
+<p>Used by [<code>crate::exec</code>] when bringing a new contract account into existence.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.destroy_contract" class="method"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#82">Source</a><h4 class="code-header">fn <a href="#tymethod.destroy_contract" class="fn">destroy_contract</a>(
+    contract: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Tear down the per-backend balance state that <a href="trait.Deposit.html#tymethod.init_contract" title="associated function pallet_revive::deposit_payment::Deposit::init_contract::init_contract"><code>Self::init_contract</code></a> set up.</p>
+<p>Used by [<code>crate::exec::Stack::do_terminate</code>] when destroying a contract.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.charge_and_hold" class="method"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#91-96">Source</a><h4 class="code-header">fn <a href="#tymethod.charge_and_hold" class="fn">charge_and_hold</a>(
+    reason: <a class="enum" href="enum.HoldReason.html" title="enum yet_another_parachain_runtime::pallet_revive::HoldReason">HoldReason</a>,
+    src: Funds&lt;'_, &lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;,
+    to: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+    amount: &lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_revive::Config::Balance">Balance</a>,
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Charge <code>amount</code> from <code>src</code> to <code>to</code> and place it on hold under <code>reason</code>.</p>
+<h5 id="parameters"><a class="doc-anchor" href="#parameters">§</a>Parameters</h5>
+<ul>
+<li><code>reason</code>: hold reason to place the charge under.</li>
+<li><code>src</code>: source of the charge. See [<code>Funds</code>].</li>
+<li><code>to</code>: account on which the hold is placed.</li>
+<li><code>amount</code>: amount to charge.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.refund_on_hold" class="method"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#106-111">Source</a><h4 class="code-header">fn <a href="#tymethod.refund_on_hold" class="fn">refund_on_hold</a>(
+    reason: <a class="enum" href="enum.HoldReason.html" title="enum yet_another_parachain_runtime::pallet_revive::HoldReason">HoldReason</a>,
+    from: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+    dst: Funds&lt;'_, &lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;,
+    amount: &lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_revive::Config::Balance">Balance</a>,
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Refund <code>amount</code> of held funds from contract <code>from</code>.</p>
+<h5 id="parameters-1"><a class="doc-anchor" href="#parameters-1">§</a>Parameters</h5>
+<ul>
+<li><code>reason</code>: hold reason the funds were placed under.</li>
+<li><code>from</code>: contract whose hold is being released.</li>
+<li><code>dst</code>: destination of the refund. See [<code>Funds</code>]. Also the attribution key used to cap the
+native portion via [<code>NativeDepositOf</code>].</li>
+<li><code>amount</code>: amount to refund.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.total_on_hold" class="method"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#118">Source</a><h4 class="code-header">fn <a href="#tymethod.total_on_hold" class="fn">total_on_hold</a>(
+    reason: <a class="enum" href="enum.HoldReason.html" title="enum yet_another_parachain_runtime::pallet_revive::HoldReason">HoldReason</a>,
+    who: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+) -&gt; &lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_revive::Config::Balance">Balance</a></h4></section></summary><div class="docblock"><p>Total amount held for <code>who</code> under <code>reason</code>.</p>
+<h5 id="parameters-2"><a class="doc-anchor" href="#parameters-2">§</a>Parameters</h5>
+<ul>
+<li><code>reason</code>: hold reason to query.</li>
+<li><code>who</code>: account whose held balance is returned.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.refund_all" class="method"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#129-132">Source</a><h4 class="code-header">fn <a href="#tymethod.refund_all" class="fn">refund_all</a>(
+    from: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+    dst: Funds&lt;'_, &lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;,
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;&lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_revive::Config::Balance">Balance</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Refund every storage-deposit fund held on <code>from</code> to <code>dst</code>, ignoring the per-contributor
+caps that govern partial refunds. Used at contract termination.</p>
+<p>Returns the total amount released, so the storage meter can finalise its deposit
+accounting.</p>
+<h5 id="parameters-3"><a class="doc-anchor" href="#parameters-3">§</a>Parameters</h5>
+<ul>
+<li><code>from</code>: contract whose hold is being released.</li>
+<li><code>dst</code>: destination of the refund. See [<code>Funds</code>].</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.migrate_native_to_pgas" class="method"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#145-149">Source</a><h4 class="code-header">fn <a href="#tymethod.migrate_native_to_pgas" class="fn">migrate_native_to_pgas</a>(
+    reason: <a class="enum" href="enum.HoldReason.html" title="enum yet_another_parachain_runtime::pallet_revive::HoldReason">HoldReason</a>,
+    contract: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+    amount: &lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_revive::Config::Balance">Balance</a>,
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Burn the native currency held on <code>contract</code> under <code>reason</code> and replace it with the same
+amount of PGAS, minted into <code>contract</code> and placed on hold under the same reason.</p>
+<p>Only used by the v4 multi-block migration (see <a href="migrations/v4/index.html" title="mod yet_another_parachain_runtime::pallet_revive::migrations::v4"><code>crate::migrations::v4</code></a>) to move
+pre-existing native storage deposits over to PGAS. Not part of the regular charge/refund
+flow.</p>
+<h5 id="parameters-4"><a class="doc-anchor" href="#parameters-4">§</a>Parameters</h5>
+<ul>
+<li><code>reason</code>: hold reason whose balance is being migrated.</li>
+<li><code>contract</code>: account holding the funds to migrate.</li>
+<li><code>amount</code>: amount to migrate from native to PGAS.</li>
+</ul>
+</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.93.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-Deposit%3CT%3E-for-()" class="impl"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#153">Source</a><a href="#impl-Deposit%3CT%3E-for-()" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Deposit.html" title="trait yet_another_parachain_runtime::pallet_revive::Deposit">Deposit</a>&lt;T&gt; for <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a><div class="where">where
+    T: <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>,</div></h3><div class="docblock"><p>Default backend: every storage deposit charge goes through the native currency.</p>
+</div></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.init_contract" class="method trait-impl"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#161">Source</a><a href="#method.init_contract" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.init_contract" class="fn">init_contract</a>(to: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>The native ED is freshly minted and immediately
+<a href="../../frame_support/traits/tokens/fungible/regular/trait.Unbalanced.html#method.deactivate" title="associated function frame_support::traits::tokens::fungible::regular::Unbalanced::deactivate"><code>deactivated</code></a> so that
+active issuance, and therefore opengov conviction, inflation accounting, etc., is
+undisturbed by contract creation. The contract holds a system consumer for as long as it
+exists, so this minted ED is not extractable: the account cannot be reaped.</p>
+</div></details><section id="associatedconstant.SUPPORTS_PGAS-1" class="associatedconstant trait-impl"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#154">Source</a><a href="#associatedconstant.SUPPORTS_PGAS-1" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.SUPPORTS_PGAS" class="constant">SUPPORTS_PGAS</a>: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a> = false</h4></section><section id="method.destroy_contract" class="method trait-impl"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#168">Source</a><a href="#method.destroy_contract" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.destroy_contract" class="fn">destroy_contract</a>(
+    contract: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;</h4></section><section id="method.charge_and_hold" class="method trait-impl"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#183-188">Source</a><a href="#method.charge_and_hold" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.charge_and_hold" class="fn">charge_and_hold</a>(
+    reason: <a class="enum" href="enum.HoldReason.html" title="enum yet_another_parachain_runtime::pallet_revive::HoldReason">HoldReason</a>,
+    src: Funds&lt;'_, &lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;,
+    to: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+    amount: &lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_revive::Config::Balance">Balance</a>,
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;</h4></section><section id="method.refund_on_hold" class="method trait-impl"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#212-217">Source</a><a href="#method.refund_on_hold" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.refund_on_hold" class="fn">refund_on_hold</a>(
+    reason: <a class="enum" href="enum.HoldReason.html" title="enum yet_another_parachain_runtime::pallet_revive::HoldReason">HoldReason</a>,
+    from: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+    dst: Funds&lt;'_, &lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;,
+    amount: &lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_revive::Config::Balance">Balance</a>,
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;</h4></section><section id="method.total_on_hold" class="method trait-impl"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#246">Source</a><a href="#method.total_on_hold" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.total_on_hold" class="fn">total_on_hold</a>(
+    reason: <a class="enum" href="enum.HoldReason.html" title="enum yet_another_parachain_runtime::pallet_revive::HoldReason">HoldReason</a>,
+    who: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+) -&gt; &lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_revive::Config::Balance">Balance</a></h4></section><section id="method.refund_all" class="method trait-impl"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#250-253">Source</a><a href="#method.refund_all" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.refund_all" class="fn">refund_all</a>(
+    from: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+    dst: Funds&lt;'_, &lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;,
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;&lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_revive::Config::Balance">Balance</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;</h4></section><section id="method.migrate_native_to_pgas" class="method trait-impl"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#262-266">Source</a><a href="#method.migrate_native_to_pgas" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.migrate_native_to_pgas" class="fn">migrate_native_to_pgas</a>(
+    _reason: <a class="enum" href="enum.HoldReason.html" title="enum yet_another_parachain_runtime::pallet_revive::HoldReason">HoldReason</a>,
+    _contract: &amp;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>,
+    _amount: &lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_revive::Config::Balance">Balance</a>,
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="../frame_support/pallet_prelude/enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-Deposit%3CT%3E-for-PGasDeposit%3CT,+Mutator,+Holder,+Freezer,+Id,+RefundPercent%3E" class="impl"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#278-296">Source</a><a href="#impl-Deposit%3CT%3E-for-PGasDeposit%3CT,+Mutator,+Holder,+Freezer,+Id,+RefundPercent%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T, Mutator, Holder, Freezer, Id, RefundPercent&gt; <a class="trait" href="trait.Deposit.html" title="trait yet_another_parachain_runtime::pallet_revive::Deposit">Deposit</a>&lt;T&gt; for <a class="struct" href="struct.PGasDeposit.html" title="struct yet_another_parachain_runtime::pallet_revive::PGasDeposit">PGasDeposit</a>&lt;T, Mutator, Holder, Freezer, Id, RefundPercent&gt;<div class="where">where
+    T: <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>,
+    Mutator: <a class="trait" href="../../frame_support/traits/tokens/fungibles/regular/trait.Mutate.html" title="trait frame_support::traits::tokens::fungibles::regular::Mutate">Mutate</a>&lt;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>, Balance = &lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_revive::Config::Balance">Balance</a>&gt;,
+    Holder: <a class="trait" href="../../frame_support/traits/tokens/fungibles/hold/trait.Mutate.html" title="trait frame_support::traits::tokens::fungibles::hold::Mutate">Mutate</a>&lt;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>, Balance = &lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_revive::Config::Balance">Balance</a>, AssetId = &lt;Mutator as <a class="trait" href="../emulated_integration_tests_common/impls/trait.Inspect.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::impls::Inspect">Inspect</a>&lt;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;&gt;::<a class="associatedtype" href="../emulated_integration_tests_common/impls/trait.Inspect.html#associatedtype.AssetId" title="type yet_another_parachain_runtime::emulated_integration_tests_common::impls::Inspect::AssetId">AssetId</a>&gt;,
+    &lt;Holder as <a class="trait" href="../../frame_support/traits/tokens/fungibles/hold/trait.Inspect.html" title="trait frame_support::traits::tokens::fungibles::hold::Inspect">Inspect</a>&lt;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;&gt;::<a class="associatedtype" href="../../frame_support/traits/tokens/fungibles/hold/trait.Inspect.html#associatedtype.Reason" title="type frame_support::traits::tokens::fungibles::hold::Inspect::Reason">Reason</a>: <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.HoldReason.html" title="enum yet_another_parachain_runtime::pallet_revive::HoldReason">HoldReason</a>&gt;,
+    Freezer: <a class="trait" href="../../frame_support/traits/tokens/fungibles/freeze/trait.Mutate.html" title="trait frame_support::traits::tokens::fungibles::freeze::Mutate">Mutate</a>&lt;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>, Balance = &lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_revive::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_revive::Config::Balance">Balance</a>, AssetId = &lt;Mutator as <a class="trait" href="../emulated_integration_tests_common/impls/trait.Inspect.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::impls::Inspect">Inspect</a>&lt;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;&gt;::<a class="associatedtype" href="../emulated_integration_tests_common/impls/trait.Inspect.html#associatedtype.AssetId" title="type yet_another_parachain_runtime::emulated_integration_tests_common::impls::Inspect::AssetId">AssetId</a>&gt;,
+    &lt;Freezer as <a class="trait" href="../../frame_support/traits/tokens/fungibles/freeze/trait.Inspect.html" title="trait frame_support::traits::tokens::fungibles::freeze::Inspect">Inspect</a>&lt;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;&gt;::<a class="associatedtype" href="../../frame_support/traits/tokens/fungibles/freeze/trait.Inspect.html#associatedtype.Id" title="type frame_support::traits::tokens::fungibles::freeze::Inspect::Id">Id</a>: <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.FreezeReason.html" title="enum yet_another_parachain_runtime::pallet_revive::FreezeReason">FreezeReason</a>&gt;,
+    Id: <a class="trait" href="../frame_election_provider_support/trait.Get.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Get">Get</a>&lt;&lt;Mutator as <a class="trait" href="../emulated_integration_tests_common/impls/trait.Inspect.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::impls::Inspect">Inspect</a>&lt;&lt;T as <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;&gt;::<a class="associatedtype" href="../emulated_integration_tests_common/impls/trait.Inspect.html#associatedtype.AssetId" title="type yet_another_parachain_runtime::emulated_integration_tests_common::impls::Inspect::AssetId">AssetId</a>&gt;,
+    RefundPercent: <a class="trait" href="../frame_election_provider_support/trait.Get.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Get">Get</a>&lt;<a class="struct" href="../struct.Perbill.html" title="struct yet_another_parachain_runtime::Perbill">Perbill</a>&gt;,</div></h3></section></summary><div class="impl-items"><section id="associatedconstant.SUPPORTS_PGAS-2" class="associatedconstant trait-impl"><a class="src rightside" href="../../src/pallet_revive/deposit_payment.rs.html#298">Source</a><a href="#associatedconstant.SUPPORTS_PGAS-2" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.SUPPORTS_PGAS" class="constant">SUPPORTS_PGAS</a>: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a> = true</h4></section></div></details></div><script src="../../trait.impl/pallet_revive/deposit_payment/trait.Deposit.js" data-ignore-extern-crates="std,pallet_revive" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

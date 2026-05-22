@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ContractWithConsumeAllGasCalls"],"struct":["mainCall","mainReturn","testCall","testReturn"]};

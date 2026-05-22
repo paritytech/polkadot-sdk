@@ -1,0 +1,221 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The communication trait of `pallet-staking-async-rc-client` -&#62; `relay-chain`."><title>SendToRelayChain in pallet_staking_async_rc_client - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_staking_async_rc_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">SendToRelayChain</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_staking_async_rc_client/index.html">pallet_<wbr>staking_<wbr>async_<wbr>rc_<wbr>client</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Send<wbr>ToRelay<wbr>Chain</a></h2><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.AccountId" title="AccountId">AccountId</a></li><li><a href="#associatedtype.Balance" title="Balance">Balance</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.purge_keys" title="purge_keys">purge_keys</a></li><li><a href="#tymethod.set_keys" title="set_keys">set_keys</a></li><li><a href="#tymethod.validator_set" title="validator_set">validator_set</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-SendToRelayChain-for-()" title="()">()</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate pallet_<wbr>staking_<wbr>async_<wbr>rc_<wbr>client</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">pallet_staking_async_rc_client</a></div><h1>Trait <span class="trait">Send<wbr>ToRelay<wbr>Chain</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/pallet_staking_async_rc_client/lib.rs.html#244-295">Source</a> </span></div><pre class="rust item-decl"><code>pub trait SendToRelayChain {
+    type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a>;
+    type <a href="#associatedtype.Balance" class="associatedtype">Balance</a>: Parameter + Member + <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a>;
+
+    // Required methods
+    fn <a href="#tymethod.validator_set" class="fn">validator_set</a>(
+        report: <a class="struct" href="struct.ValidatorSetReport.html" title="struct pallet_staking_async_rc_client::ValidatorSetReport">ValidatorSetReport</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.AccountId" title="type pallet_staking_async_rc_client::SendToRelayChain::AccountId">AccountId</a>&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_keys" class="fn">set_keys</a>(
+        stash: Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.AccountId" title="type pallet_staking_async_rc_client::SendToRelayChain::AccountId">AccountId</a>,
+        keys: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>&gt;,
+        max_delivery_and_remote_execution_fee: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.Balance" title="type pallet_staking_async_rc_client::SendToRelayChain::Balance">Balance</a>&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.Balance" title="type pallet_staking_async_rc_client::SendToRelayChain::Balance">Balance</a>, <a class="enum" href="enum.SendKeysError.html" title="enum pallet_staking_async_rc_client::SendKeysError">SendKeysError</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.Balance" title="type pallet_staking_async_rc_client::SendToRelayChain::Balance">Balance</a>&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.purge_keys" class="fn">purge_keys</a>(
+        stash: Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.AccountId" title="type pallet_staking_async_rc_client::SendToRelayChain::AccountId">AccountId</a>,
+        max_delivery_and_remote_execution_fee: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.Balance" title="type pallet_staking_async_rc_client::SendToRelayChain::Balance">Balance</a>&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.Balance" title="type pallet_staking_async_rc_client::SendToRelayChain::Balance">Balance</a>, <a class="enum" href="enum.SendKeysError.html" title="enum pallet_staking_async_rc_client::SendKeysError">SendKeysError</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.Balance" title="type pallet_staking_async_rc_client::SendToRelayChain::Balance">Balance</a>&gt;&gt;;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The communication trait of <code>pallet-staking-async-rc-client</code> -&gt; <code>relay-chain</code>.</p>
+<p>This trait should only encapsulate our <em>outgoing</em> communication to the RC. Any incoming
+communication comes it directly via our calls.</p>
+<p>In a real runtime, this is implemented via XCM calls, much like how the core-time pallet works.
+In a test runtime, it can be wired to direct function calls.</p>
+<p>Note: This trait intentionally avoids XCM types in its signature to keep the pallet
+XCM-agnostic. The implementation details (XCM, direct calls, etc.) are left to the runtime.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.AccountId" class="method"><a class="src rightside" href="../src/pallet_staking_async_rc_client/lib.rs.html#246">Source</a><h4 class="code-header">type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a></h4></section></summary><div class="docblock"><p>The validator account ids.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Balance" class="method"><a class="src rightside" href="../src/pallet_staking_async_rc_client/lib.rs.html#249">Source</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a>: Parameter + Member + <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a></h4></section></summary><div class="docblock"><p>The balance type used for fee limits and reporting.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.validator_set" class="method"><a class="src rightside" href="../src/pallet_staking_async_rc_client/lib.rs.html#253">Source</a><h4 class="code-header">fn <a href="#tymethod.validator_set" class="fn">validator_set</a>(report: <a class="struct" href="struct.ValidatorSetReport.html" title="struct pallet_staking_async_rc_client::ValidatorSetReport">ValidatorSetReport</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.AccountId" title="type pallet_staking_async_rc_client::SendToRelayChain::AccountId">AccountId</a>&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Send a new validator set report to relay chain.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_keys" class="method"><a class="src rightside" href="../src/pallet_staking_async_rc_client/lib.rs.html#271-275">Source</a><h4 class="code-header">fn <a href="#tymethod.set_keys" class="fn">set_keys</a>(
+    stash: Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.AccountId" title="type pallet_staking_async_rc_client::SendToRelayChain::AccountId">AccountId</a>,
+    keys: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>&gt;,
+    max_delivery_and_remote_execution_fee: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.Balance" title="type pallet_staking_async_rc_client::SendToRelayChain::Balance">Balance</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.Balance" title="type pallet_staking_async_rc_client::SendToRelayChain::Balance">Balance</a>, <a class="enum" href="enum.SendKeysError.html" title="enum pallet_staking_async_rc_client::SendKeysError">SendKeysError</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.Balance" title="type pallet_staking_async_rc_client::SendToRelayChain::Balance">Balance</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Send session keys to relay chain for registration.</p>
+<p>The keys are forwarded to <code>pallet-staking-async-ah-client::set_keys_from_ah</code> on the RC.
+Note: proof is validated on AH side, so only validated keys are sent.</p>
+<p>The relay chain uses <code>UnpaidExecution</code>, so no fees are charged there. Instead, the total
+fee (delivery + remote execution cost) is charged on AssetHub.</p>
+<ul>
+<li><code>stash</code>: The validator stash account.</li>
+<li><code>keys</code>: The encoded session keys.</li>
+<li><code>max_delivery_and_remote_execution_fee</code>: Optional maximum total fee the user is willing to
+pay. This includes both the XCM delivery fee and the remote execution cost. If the actual
+total fee exceeds this, the operation fails with <a href="enum.SendKeysError.html#variant.FeesExceededMax" title="variant pallet_staking_async_rc_client::SendKeysError::FeesExceededMax"><code>SendKeysError::FeesExceededMax</code></a>. Pass
+<code>None</code> for unlimited (no cap).</li>
+</ul>
+<p>Returns the total fees charged on success (delivery + execution).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.purge_keys" class="method"><a class="src rightside" href="../src/pallet_staking_async_rc_client/lib.rs.html#291-294">Source</a><h4 class="code-header">fn <a href="#tymethod.purge_keys" class="fn">purge_keys</a>(
+    stash: Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.AccountId" title="type pallet_staking_async_rc_client::SendToRelayChain::AccountId">AccountId</a>,
+    max_delivery_and_remote_execution_fee: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.Balance" title="type pallet_staking_async_rc_client::SendToRelayChain::Balance">Balance</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.Balance" title="type pallet_staking_async_rc_client::SendToRelayChain::Balance">Balance</a>, <a class="enum" href="enum.SendKeysError.html" title="enum pallet_staking_async_rc_client::SendKeysError">SendKeysError</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.Balance" title="type pallet_staking_async_rc_client::SendToRelayChain::Balance">Balance</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Send a request to purge session keys on the relay chain.</p>
+<p>The request is forwarded to <code>pallet-staking-async-ah-client::purge_keys_from_ah</code> on the RC.</p>
+<p>The relay chain uses <code>UnpaidExecution</code>, so no fees are charged there. Instead, the total
+fee (delivery + remote execution cost) is charged on AssetHub.</p>
+<ul>
+<li><code>stash</code>: The validator stash account.</li>
+<li><code>max_delivery_and_remote_execution_fee</code>: Optional maximum total fee the user is willing to
+pay. This includes both the XCM delivery fee and the remote execution cost. If the actual
+total fee exceeds this, the operation fails with <a href="enum.SendKeysError.html#variant.FeesExceededMax" title="variant pallet_staking_async_rc_client::SendKeysError::FeesExceededMax"><code>SendKeysError::FeesExceededMax</code></a>. Pass
+<code>None</code> for unlimited (no cap).</li>
+</ul>
+<p>Returns the total fees charged on success (delivery + execution).</p>
+</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.93.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-SendToRelayChain-for-()" class="impl"><a class="src rightside" href="../src/pallet_staking_async_rc_client/lib.rs.html#298-317">Source</a><a href="#impl-SendToRelayChain-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.SendToRelayChain.html" title="trait pallet_staking_async_rc_client::SendToRelayChain">SendToRelayChain</a> for <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a></h3><span class="item-info"><div class="stab portability">Available on <strong>crate feature <code>std</code></strong> only.</div></span></section></summary><div class="impl-items"><section id="associatedtype.AccountId-1" class="associatedtype trait-impl"><a class="src rightside" href="../src/pallet_staking_async_rc_client/lib.rs.html#299">Source</a><a href="#associatedtype.AccountId-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a> = <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u64.html">u64</a></h4></section><section id="associatedtype.Balance-1" class="associatedtype trait-impl"><a class="src rightside" href="../src/pallet_staking_async_rc_client/lib.rs.html#300">Source</a><a href="#associatedtype.Balance-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a> = <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u128.html">u128</a></h4></section><section id="method.validator_set" class="method trait-impl"><a class="src rightside" href="../src/pallet_staking_async_rc_client/lib.rs.html#301-303">Source</a><a href="#method.validator_set" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.validator_set" class="fn">validator_set</a>(_report: <a class="struct" href="struct.ValidatorSetReport.html" title="struct pallet_staking_async_rc_client::ValidatorSetReport">ValidatorSetReport</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.AccountId" title="type pallet_staking_async_rc_client::SendToRelayChain::AccountId">AccountId</a>&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>&gt;</h4></section><section id="method.set_keys" class="method trait-impl"><a class="src rightside" href="../src/pallet_staking_async_rc_client/lib.rs.html#304-310">Source</a><a href="#method.set_keys" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_keys" class="fn">set_keys</a>(
+    _stash: Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.AccountId" title="type pallet_staking_async_rc_client::SendToRelayChain::AccountId">AccountId</a>,
+    _keys: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>&gt;,
+    _max_delivery_and_remote_execution_fee: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.Balance" title="type pallet_staking_async_rc_client::SendToRelayChain::Balance">Balance</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.Balance" title="type pallet_staking_async_rc_client::SendToRelayChain::Balance">Balance</a>, <a class="enum" href="enum.SendKeysError.html" title="enum pallet_staking_async_rc_client::SendKeysError">SendKeysError</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.Balance" title="type pallet_staking_async_rc_client::SendToRelayChain::Balance">Balance</a>&gt;&gt;</h4></section><section id="method.purge_keys" class="method trait-impl"><a class="src rightside" href="../src/pallet_staking_async_rc_client/lib.rs.html#311-316">Source</a><a href="#method.purge_keys" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.purge_keys" class="fn">purge_keys</a>(
+    _stash: Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.AccountId" title="type pallet_staking_async_rc_client::SendToRelayChain::AccountId">AccountId</a>,
+    _max_delivery_and_remote_execution_fee: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.Balance" title="type pallet_staking_async_rc_client::SendToRelayChain::Balance">Balance</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.Balance" title="type pallet_staking_async_rc_client::SendToRelayChain::Balance">Balance</a>, <a class="enum" href="enum.SendKeysError.html" title="enum pallet_staking_async_rc_client::SendKeysError">SendKeysError</a>&lt;Self::<a class="associatedtype" href="trait.SendToRelayChain.html#associatedtype.Balance" title="type pallet_staking_async_rc_client::SendToRelayChain::Balance">Balance</a>&gt;&gt;</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/pallet_staking_async_rc_client/trait.SendToRelayChain.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

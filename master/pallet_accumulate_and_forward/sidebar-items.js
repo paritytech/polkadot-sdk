@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["pallet","weights"],"struct":["DealWithFeesSplit","LegacyAdapter"],"trait":["Forwarder"],"type":["BalanceOf","CreditOf"]};

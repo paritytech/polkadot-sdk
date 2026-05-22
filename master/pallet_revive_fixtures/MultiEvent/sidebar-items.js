@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MultiEventCalls","MultiEventEvents"],"struct":["Ping","Pong","emitMultipleCall","emitMultipleReturn"]};

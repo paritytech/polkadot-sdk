@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["HostEvmOnlyCalls"],"struct":["extcodecopyOpCall","extcodecopyOpReturn","fallbackCall","fallbackReturn","selfdestructOpCall","selfdestructOpReturn"]};

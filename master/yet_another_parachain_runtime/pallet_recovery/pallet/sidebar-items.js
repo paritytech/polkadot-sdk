@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","HoldReason"],"struct":["AttemptsViewFunction","FriendGroupsViewFunction","InheritanceViewFunction","InheritorViewFunction","Pallet","ProvidedBlockNumberViewFunction"],"trait":["Config"],"type":["Attempt","FriendGroups","Inheritor","Module"]};

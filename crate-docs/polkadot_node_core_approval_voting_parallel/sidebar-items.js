@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["APPROVAL_DISTRIBUTION_WORKER_COUNT","DEFAULT_WORKERS_CHANNEL_SIZE"],"mod":["metrics"],"struct":["ApprovalVotingParallelSubsystem","ApprovalVotingToApprovalDistribution","RxWorker","ToWorker","WorkProviderImpl"]};

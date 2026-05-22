@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Command","ConvertMessageError","Destination","VersionedMessage"],"struct":["MessageToXcm","MessageV1"],"trait":["ConvertMessage"]};

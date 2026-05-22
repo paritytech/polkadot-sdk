@@ -1,0 +1,292 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="An adapter trait that can support multiple staking strategies."><title>StakeStrategy in pallet_nomination_pools::adapter - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_nomination_pools" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_nomination_pools/index.html">pallet_nomination_pools</a><span class="version">25.0.0</span></h2></div><h2 class="location"><a href="#">StakeStrategy</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.AccountId">AccountId</a></li><li><a href="#associatedtype.Balance">Balance</a></li><li><a href="#associatedtype.CoreStaking">CoreStaking</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.has_pending_slash">has_pending_slash</a></li><li><a href="#tymethod.member_delegation_balance">member_delegation_balance</a></li><li><a href="#tymethod.member_slash">member_slash</a></li><li><a href="#tymethod.member_withdraw">member_withdraw</a></li><li><a href="#tymethod.migrate_delegation">migrate_delegation</a></li><li><a href="#tymethod.migrate_nominator_to_agent">migrate_nominator_to_agent</a></li><li><a href="#tymethod.pledge_bond">pledge_bond</a></li><li><a href="#tymethod.strategy_type">strategy_type</a></li><li><a href="#tymethod.total_balance">total_balance</a></li><li><a href="#tymethod.transferable_balance">transferable_balance</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.active_stake">active_stake</a></li><li><a href="#method.bonding_duration">bonding_duration</a></li><li><a href="#method.chill">chill</a></li><li><a href="#method.current_era">current_era</a></li><li><a href="#method.minimum_nominator_bond">minimum_nominator_bond</a></li><li><a href="#method.nominate">nominate</a></li><li><a href="#method.nominations">nominations</a></li><li><a href="#method.pool_strategy">pool_strategy</a></li><li><a href="#method.remove_as_agent">remove_as_agent</a></li><li><a href="#method.total_stake">total_stake</a></li><li><a href="#method.unbond">unbond</a></li><li><a href="#method.withdraw_unbonded">withdraw_unbonded</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_nomination_pools::adapter</a></h2></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_nomination_pools/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_nomination_pools</a>::<wbr><a href="index.html">adapter</a>::<wbr><a class="trait" href="#">StakeStrategy</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_nomination_pools/adapter.rs.html#40-188">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait StakeStrategy {
+    type <a href="#associatedtype.Balance" class="associatedtype">Balance</a>: Balance;
+    type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a>: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a>;
+    type <a href="#associatedtype.CoreStaking" class="associatedtype">CoreStaking</a>: StakingInterface&lt;Balance = Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a>, AccountId = Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>&gt;;
+
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 22 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.strategy_type" class="fn">strategy_type</a>() -&gt; <a class="enum" href="enum.StakeStrategyType.html" title="enum pallet_nomination_pools::adapter::StakeStrategyType">StakeStrategyType</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.transferable_balance" class="fn">transferable_balance</a>(pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.total_balance" class="fn">total_balance</a>(pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.member_delegation_balance" class="fn">member_delegation_balance</a>(
+        member_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>
+    ) -&gt; Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.pledge_bond" class="fn">pledge_bond</a>(
+        who: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+        pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+        reward_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+        amount: Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a>,
+        bond_type: <a class="enum" href="../enum.BondType.html" title="enum pallet_nomination_pools::BondType">BondType</a>
+    ) -&gt; DispatchResult;
+<span class="item-spacer"></span>    fn <a href="#tymethod.member_withdraw" class="fn">member_withdraw</a>(
+        who: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+        pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+        amount: Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a>,
+        num_slashing_spans: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+    ) -&gt; DispatchResult;
+<span class="item-spacer"></span>    fn <a href="#tymethod.has_pending_slash" class="fn">has_pending_slash</a>(pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.member_slash" class="fn">member_slash</a>(
+        who: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+        pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+        amount: Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a>,
+        maybe_reporter: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>&gt;
+    ) -&gt; DispatchResult;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migrate_nominator_to_agent" class="fn">migrate_nominator_to_agent</a>(
+        pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+        reward_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>
+    ) -&gt; DispatchResult;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migrate_delegation" class="fn">migrate_delegation</a>(
+        pool: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+        delegator: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+        value: Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a>
+    ) -&gt; DispatchResult;
+
+    // Provided methods
+    fn <a href="#method.bonding_duration" class="fn">bonding_duration</a>() -&gt; EraIndex { ... }
+<span class="item-spacer"></span>    fn <a href="#method.current_era" class="fn">current_era</a>() -&gt; EraIndex { ... }
+<span class="item-spacer"></span>    fn <a href="#method.minimum_nominator_bond" class="fn">minimum_nominator_bond</a>() -&gt; Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.active_stake" class="fn">active_stake</a>(pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.total_stake" class="fn">total_stake</a>(pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.pool_strategy" class="fn">pool_strategy</a>(pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>) -&gt; <a class="enum" href="enum.StakeStrategyType.html" title="enum pallet_nomination_pools::adapter::StakeStrategyType">StakeStrategyType</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.nominate" class="fn">nominate</a>(
+        pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+        validators: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>&gt;
+    ) -&gt; DispatchResult { ... }
+<span class="item-spacer"></span>    fn <a href="#method.chill" class="fn">chill</a>(pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>) -&gt; DispatchResult { ... }
+<span class="item-spacer"></span>    fn <a href="#method.unbond" class="fn">unbond</a>(
+        pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+        amount: Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a>
+    ) -&gt; DispatchResult { ... }
+<span class="item-spacer"></span>    fn <a href="#method.withdraw_unbonded" class="fn">withdraw_unbonded</a>(
+        pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+        num_slashing_spans: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>, DispatchError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.nominations" class="fn">nominations</a>(
+        pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>&gt;&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.remove_as_agent" class="fn">remove_as_agent</a>(_pool: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>) { ... }
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>An adapter trait that can support multiple staking strategies.</p>
+<p>Depending on which staking strategy we want to use, the staking logic can be slightly
+different. Refer the two possible strategies currently: <a href="struct.TransferStake.html" title="struct pallet_nomination_pools::adapter::TransferStake"><code>TransferStake</code></a> and
+<a href="struct.DelegateStake.html" title="struct pallet_nomination_pools::adapter::DelegateStake"><code>DelegateStake</code></a> for more detail.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><section id="associatedtype.Balance" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#41">source</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a>: Balance</h4></section><section id="associatedtype.AccountId" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#42">source</a><h4 class="code-header">type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a>: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a></h4></section><section id="associatedtype.CoreStaking" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#43">source</a><h4 class="code-header">type <a href="#associatedtype.CoreStaking" class="associatedtype">CoreStaking</a>: StakingInterface&lt;Balance = Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a>, AccountId = Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>&gt;</h4></section></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.strategy_type" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#46">source</a><h4 class="code-header">fn <a href="#tymethod.strategy_type" class="fn">strategy_type</a>() -&gt; <a class="enum" href="enum.StakeStrategyType.html" title="enum pallet_nomination_pools::adapter::StakeStrategyType">StakeStrategyType</a></h4></section></summary><div class="docblock"><p>The type of staking strategy of the current adapter.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.transferable_balance" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#67">source</a><h4 class="code-header">fn <a href="#tymethod.transferable_balance" class="fn">transferable_balance</a>(pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a></h4></section></summary><div class="docblock"><p>Balance that can be transferred from pool account to member.</p>
+<p>This is part of the pool balance that is not actively staked. That is, tokens that are
+in unbonding period or unbonded.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.total_balance" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#70">source</a><h4 class="code-header">fn <a href="#tymethod.total_balance" class="fn">total_balance</a>(pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a></h4></section></summary><div class="docblock"><p>Total balance of the pool including amount that is actively staked.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.member_delegation_balance" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#73">source</a><h4 class="code-header">fn <a href="#tymethod.member_delegation_balance" class="fn">member_delegation_balance</a>(member_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a></h4></section></summary><div class="docblock"><p>Amount of tokens delegated by the member.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.pledge_bond" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#111-117">source</a><h4 class="code-header">fn <a href="#tymethod.pledge_bond" class="fn">pledge_bond</a>(
+    who: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+    pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+    reward_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+    amount: Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a>,
+    bond_type: <a class="enum" href="../enum.BondType.html" title="enum pallet_nomination_pools::BondType">BondType</a>
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Pledge <code>amount</code> towards <code>pool_account</code> and update the pool bond. Also see
+[<code>StakingInterface::bond</code>].</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.member_withdraw" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#133-138">source</a><h4 class="code-header">fn <a href="#tymethod.member_withdraw" class="fn">member_withdraw</a>(
+    who: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+    pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+    amount: Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a>,
+    num_slashing_spans: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Withdraw funds from pool account to member account.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.has_pending_slash" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#141">source</a><h4 class="code-header">fn <a href="#tymethod.has_pending_slash" class="fn">has_pending_slash</a>(pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Check if there is any pending slash for the pool.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.member_slash" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#144-149">source</a><h4 class="code-header">fn <a href="#tymethod.member_slash" class="fn">member_slash</a>(
+    who: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+    pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+    amount: Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a>,
+    maybe_reporter: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>&gt;
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Slash the member account with <code>amount</code> against pending slashes for the pool.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.migrate_nominator_to_agent" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#155-158">source</a><h4 class="code-header">fn <a href="#tymethod.migrate_nominator_to_agent" class="fn">migrate_nominator_to_agent</a>(
+    pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+    reward_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Migrate pool account from being a direct nominator to a delegated agent.</p>
+<p>This is useful for migrating a pool account from <a href="enum.StakeStrategyType.html#variant.Transfer" title="variant pallet_nomination_pools::adapter::StakeStrategyType::Transfer"><code>StakeStrategyType::Transfer</code></a> to
+<a href="enum.StakeStrategyType.html#variant.Delegate" title="variant pallet_nomination_pools::adapter::StakeStrategyType::Delegate"><code>StakeStrategyType::Delegate</code></a>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.migrate_delegation" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#168-172">source</a><h4 class="code-header">fn <a href="#tymethod.migrate_delegation" class="fn">migrate_delegation</a>(
+    pool: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+    delegator: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+    value: Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a>
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Migrate member balance from pool account to member account.</p>
+<p>This is useful for a pool account that migrated from <a href="enum.StakeStrategyType.html#variant.Transfer" title="variant pallet_nomination_pools::adapter::StakeStrategyType::Transfer"><code>StakeStrategyType::Transfer</code></a> to
+<a href="enum.StakeStrategyType.html#variant.Delegate" title="variant pallet_nomination_pools::adapter::StakeStrategyType::Delegate"><code>StakeStrategyType::Delegate</code></a>. Its members can then migrate their delegated balance
+back to their account.</p>
+<p>Internally, the member funds that are locked in the pool account are transferred back and
+locked in the member account.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.bonding_duration" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#49-51">source</a><h4 class="code-header">fn <a href="#method.bonding_duration" class="fn">bonding_duration</a>() -&gt; EraIndex</h4></section></summary><div class="docblock"><p>See [<code>StakingInterface::bonding_duration</code>].</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.current_era" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#54-56">source</a><h4 class="code-header">fn <a href="#method.current_era" class="fn">current_era</a>() -&gt; EraIndex</h4></section></summary><div class="docblock"><p>See [<code>StakingInterface::current_era</code>].</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.minimum_nominator_bond" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#59-61">source</a><h4 class="code-header">fn <a href="#method.minimum_nominator_bond" class="fn">minimum_nominator_bond</a>() -&gt; Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a></h4></section></summary><div class="docblock"><p>See [<code>StakingInterface::minimum_nominator_bond</code>].</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.active_stake" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#76-78">source</a><h4 class="code-header">fn <a href="#method.active_stake" class="fn">active_stake</a>(pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a></h4></section></summary><div class="docblock"><p>See [<code>StakingInterface::active_stake</code>].</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.total_stake" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#81-83">source</a><h4 class="code-header">fn <a href="#method.total_stake" class="fn">total_stake</a>(pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a></h4></section></summary><div class="docblock"><p>See [<code>StakingInterface::total_stake</code>].</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.pool_strategy" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#89-94">source</a><h4 class="code-header">fn <a href="#method.pool_strategy" class="fn">pool_strategy</a>(pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>) -&gt; <a class="enum" href="enum.StakeStrategyType.html" title="enum pallet_nomination_pools::adapter::StakeStrategyType">StakeStrategyType</a></h4></section></summary><div class="docblock"><p>Which strategy the pool account is using.</p>
+<p>This can be different from the <a href="trait.StakeStrategy.html#tymethod.strategy_type"><code>Self::strategy_type</code></a> of the adapter if the pool has not
+migrated to the new strategy yet.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.nominate" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#97-102">source</a><h4 class="code-header">fn <a href="#method.nominate" class="fn">nominate</a>(
+    pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+    validators: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>&gt;
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>See [<code>StakingInterface::nominate</code>].</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.chill" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#105-107">source</a><h4 class="code-header">fn <a href="#method.chill" class="fn">chill</a>(pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>See [<code>StakingInterface::chill</code>].</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.unbond" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#120-122">source</a><h4 class="code-header">fn <a href="#method.unbond" class="fn">unbond</a>(
+    pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+    amount: Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.Balance" title="type pallet_nomination_pools::adapter::StakeStrategy::Balance">Balance</a>
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>See [<code>StakingInterface::unbond</code>].</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.withdraw_unbonded" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#125-130">source</a><h4 class="code-header">fn <a href="#method.withdraw_unbonded" class="fn">withdraw_unbonded</a>(
+    pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>,
+    num_slashing_spans: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>, DispatchError&gt;</h4></section></summary><div class="docblock"><p>See [<code>StakingInterface::withdraw_unbonded</code>].</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.nominations" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#176-178">source</a><h4 class="code-header">fn <a href="#method.nominations" class="fn">nominations</a>(pool_account: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>List of validators nominated by the pool account.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.remove_as_agent" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#185-187">source</a><h4 class="code-header">fn <a href="#method.remove_as_agent" class="fn">remove_as_agent</a>(_pool: &amp;Self::<a class="associatedtype" href="trait.StakeStrategy.html#associatedtype.AccountId" title="type pallet_nomination_pools::adapter::StakeStrategy::AccountId">AccountId</a>)</h4></section></summary><div class="docblock"><p>Remove the pool account as agent.</p>
+<p>Useful for migrating pool account from a delegated agent to a direct nominator. Only used
+in tests and benchmarks.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.77.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-StakeStrategy-for-TransferStake%3CT,+Staking%3E" class="impl"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#201-285">source</a><a href="#impl-StakeStrategy-for-TransferStake%3CT,+Staking%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="../pallet/trait.Config.html" title="trait pallet_nomination_pools::pallet::Config">Config</a>, Staking: StakingInterface&lt;Balance = <a class="type" href="../type.BalanceOf.html" title="type pallet_nomination_pools::BalanceOf">BalanceOf</a>&lt;T&gt;, AccountId = T::AccountId&gt;&gt; <a class="trait" href="trait.StakeStrategy.html" title="trait pallet_nomination_pools::adapter::StakeStrategy">StakeStrategy</a> for <a class="struct" href="struct.TransferStake.html" title="struct pallet_nomination_pools::adapter::TransferStake">TransferStake</a>&lt;T, Staking&gt;</h3></section></summary><div class="impl-items"><section id="associatedtype.Balance-1" class="associatedtype trait-impl"><a href="#associatedtype.Balance-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a> = &lt;&lt;T as <a class="trait" href="../pallet/trait.Config.html" title="trait pallet_nomination_pools::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../pallet/trait.Config.html#associatedtype.Currency" title="type pallet_nomination_pools::pallet::Config::Currency">Currency</a> as Inspect&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::Balance</h4></section><section id="associatedtype.AccountId-1" class="associatedtype trait-impl"><a href="#associatedtype.AccountId-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a> = &lt;T as Config&gt;::AccountId</h4></section><section id="associatedtype.CoreStaking-1" class="associatedtype trait-impl"><a href="#associatedtype.CoreStaking-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.CoreStaking" class="associatedtype">CoreStaking</a> = Staking</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-StakeStrategy-for-DelegateStake%3CT,+Staking,+Delegation%3E" class="impl"><a class="src rightside" href="../../src/pallet_nomination_pools/adapter.rs.html#302-389">source</a><a href="#impl-StakeStrategy-for-DelegateStake%3CT,+Staking,+Delegation%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="../pallet/trait.Config.html" title="trait pallet_nomination_pools::pallet::Config">Config</a>, Staking: StakingInterface&lt;Balance = <a class="type" href="../type.BalanceOf.html" title="type pallet_nomination_pools::BalanceOf">BalanceOf</a>&lt;T&gt;, AccountId = T::AccountId&gt;, Delegation: DelegationInterface&lt;Balance = <a class="type" href="../type.BalanceOf.html" title="type pallet_nomination_pools::BalanceOf">BalanceOf</a>&lt;T&gt;, AccountId = T::AccountId&gt; + DelegationMigrator&lt;Balance = <a class="type" href="../type.BalanceOf.html" title="type pallet_nomination_pools::BalanceOf">BalanceOf</a>&lt;T&gt;, AccountId = T::AccountId&gt;&gt; <a class="trait" href="trait.StakeStrategy.html" title="trait pallet_nomination_pools::adapter::StakeStrategy">StakeStrategy</a> for <a class="struct" href="struct.DelegateStake.html" title="struct pallet_nomination_pools::adapter::DelegateStake">DelegateStake</a>&lt;T, Staking, Delegation&gt;</h3></section></summary><div class="impl-items"><section id="associatedtype.Balance-2" class="associatedtype trait-impl"><a href="#associatedtype.Balance-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a> = &lt;&lt;T as <a class="trait" href="../pallet/trait.Config.html" title="trait pallet_nomination_pools::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../pallet/trait.Config.html#associatedtype.Currency" title="type pallet_nomination_pools::pallet::Config::Currency">Currency</a> as Inspect&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::Balance</h4></section><section id="associatedtype.AccountId-2" class="associatedtype trait-impl"><a href="#associatedtype.AccountId-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a> = &lt;T as Config&gt;::AccountId</h4></section><section id="associatedtype.CoreStaking-2" class="associatedtype trait-impl"><a href="#associatedtype.CoreStaking-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.CoreStaking" class="associatedtype">CoreStaking</a> = Staking</h4></section></div></details></div><script src="../../trait.impl/pallet_nomination_pools/adapter/trait.StakeStrategy.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

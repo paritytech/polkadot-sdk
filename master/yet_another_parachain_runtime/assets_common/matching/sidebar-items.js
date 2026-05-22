@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["FromNetwork","FromSiblingParachain","IsForeignConcreteAsset","LocalLocationPattern","NonTeleportableAssetFromTrustedReserve","ParentLocation","RemoteAssetFromLocation","TeleportableAssetWithTrustedReserve"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["TwoSlotsCalls"],"struct":["constructorCall","firstCall","firstReturn","secondCall","secondReturn"]};

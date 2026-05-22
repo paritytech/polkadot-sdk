@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["NODE_VERSION"],"enum":["Error","Subcommand"],"fn":["run","run_node","validator_overseer_builder"],"struct":["Cli","RunCmd"],"trait":["CoreApi","IdentifyVariant","ProvideRuntimeApi"],"type":["Block","Result","TFullClient"]};

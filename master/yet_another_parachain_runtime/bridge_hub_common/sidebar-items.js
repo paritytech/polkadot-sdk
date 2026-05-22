@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AggregateMessageOrigin"],"mod":["barriers","message_queue","xcm_version"],"struct":["BridgeHubDualMessageRouter","BridgeHubMessageRouter","DenyExportMessageFrom"]};

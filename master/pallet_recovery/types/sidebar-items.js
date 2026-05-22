@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Bitfield","ConstDivCeil","IdentifiedConsideration"],"type":["BitfieldLenOf"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["finalized_heads","new_best_heads","pending_candidates"],"type":["RelayHeader"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["authorize_upgrade","enact_authorized_upgrade","set_validation_data","sudo_send_upward_message"]};

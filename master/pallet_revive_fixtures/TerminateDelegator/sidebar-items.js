@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["TerminateDelegatorCalls"],"struct":["constructorCall","delegateCallTerminateCall","delegateCallTerminateReturn"]};

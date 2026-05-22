@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ExtensionVariant","InvalidVersion","MultiVersion"],"struct":["PipelineAtVers","PipelineMetadataBuilder"],"trait":["DecodeWithVersion","DecodeWithVersionWithMemTracking","Pipeline","PipelineVersion"]};

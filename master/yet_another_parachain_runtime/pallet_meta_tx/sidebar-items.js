@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"mod":["pallet","weights"],"struct":["MetaTx","MetaTxMarker","Pallet","WeightlessExtension"],"trait":["Config","WeightInfo"],"type":["MetaTxFor","Module"]};

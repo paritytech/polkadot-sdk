@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call"],"mod":["pallet"],"struct":["ForeignAssetId","Pallet"],"trait":["Config"],"type":["AssetIndexToForeignAssetId","ForeignAssetIdToAssetIndex","Module","NextAssetIndex"]};

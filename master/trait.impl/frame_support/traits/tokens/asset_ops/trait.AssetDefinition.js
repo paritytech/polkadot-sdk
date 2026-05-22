@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["frame_support",[]],["pallet_derivatives",[["impl&lt;Derivative, Extra, Registry, CreateOp&gt; AssetDefinition for <a class=\"struct\" href=\"pallet_derivatives/misc/struct.ConcatIncrementalExtra.html\" title=\"struct pallet_derivatives::misc::ConcatIncrementalExtra\">ConcatIncrementalExtra</a>&lt;Derivative, Extra, Registry, CreateOp&gt;"],["impl&lt;R, CreateOp: AssetDefinition&gt; AssetDefinition for <a class=\"struct\" href=\"pallet_derivatives/misc/struct.RegisterDerivative.html\" title=\"struct pallet_derivatives::misc::RegisterDerivative\">RegisterDerivative</a>&lt;R, CreateOp&gt;"]]],["pallet_uniques",[["impl&lt;T: <a class=\"trait\" href=\"pallet_uniques/pallet/trait.Config.html\" title=\"trait pallet_uniques::pallet::Config\">Config</a>&lt;I&gt;, I: 'static&gt; AssetDefinition for <a class=\"struct\" href=\"pallet_uniques/asset_ops/struct.Collection.html\" title=\"struct pallet_uniques::asset_ops::Collection\">Collection</a>&lt;<a class=\"struct\" href=\"pallet_uniques/pallet/struct.Pallet.html\" title=\"struct pallet_uniques::pallet::Pallet\">Pallet</a>&lt;T, I&gt;&gt;"],["impl&lt;T: <a class=\"trait\" href=\"pallet_uniques/pallet/trait.Config.html\" title=\"trait pallet_uniques::pallet::Config\">Config</a>&lt;I&gt;, I: 'static&gt; AssetDefinition for <a class=\"struct\" href=\"pallet_uniques/asset_ops/struct.Item.html\" title=\"struct pallet_uniques::asset_ops::Item\">Item</a>&lt;<a class=\"struct\" href=\"pallet_uniques/pallet/struct.Pallet.html\" title=\"struct pallet_uniques::pallet::Pallet\">Pallet</a>&lt;T, I&gt;&gt;"]]],["polkadot_sdk_frame",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[20,578,965,26]}

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ArithmeticCalls"],"struct":["testArithmeticCall","testArithmeticReturn"]};

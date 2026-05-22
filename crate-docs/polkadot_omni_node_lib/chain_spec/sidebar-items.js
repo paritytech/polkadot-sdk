@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DiskChainSpecLoader","Extensions"],"trait":["ChainSpec","LoadSpec"],"type":["GenericChainSpec"]};

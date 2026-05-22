@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ComplexReceiverCalls","ComplexReceiverEvents"],"struct":["Received","counterCall","counterReturn"]};

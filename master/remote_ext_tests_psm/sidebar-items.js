@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Runtime"],"fn":["asset_hub_westend_config","main"],"struct":["Cli"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["test_accumulate_forward_transfers_to_asset_hub"]};

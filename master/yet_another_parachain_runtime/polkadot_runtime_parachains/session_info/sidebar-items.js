@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call"],"mod":["migration","pallet"],"struct":["Pallet"],"trait":["AuthorityDiscoveryConfig","Config"],"type":["AccountId","AccountKeys","EarliestStoredSession","IdentificationTuple","Module","SessionExecutorParams","Sessions"]};

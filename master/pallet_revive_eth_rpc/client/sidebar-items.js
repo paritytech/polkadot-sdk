@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ClientError","SubmitError","SubscriptionType"],"fn":["connect"],"struct":["Client"],"type":["Balance","SubstrateBlock","SubstrateBlockHash","SubstrateBlockHeader","SubstrateBlockNumber"]};

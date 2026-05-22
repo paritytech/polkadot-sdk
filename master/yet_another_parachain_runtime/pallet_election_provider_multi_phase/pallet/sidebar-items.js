@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"fn":["__type_value_for_default_for_round"],"struct":["DefaultForRound","Pallet"],"trait":["Config"],"type":["CurrentPhase","DesiredTargets","MinimumUntrustedScore","Module","QueuedSolution","Round","SignedSubmissionIndices","SignedSubmissionNextIndex","SignedSubmissionsMap","Snapshot","SnapshotMetadata"]};

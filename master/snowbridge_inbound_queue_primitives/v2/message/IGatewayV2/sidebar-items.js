@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["IGatewayV2Events"],"struct":["AsForeignTokenERC20","AsNativeTokenERC20","EthereumAsset","OutboundMessageAccepted","Payload","Xcm","XcmCreateAsset"]};

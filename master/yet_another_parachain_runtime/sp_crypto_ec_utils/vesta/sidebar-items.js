@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["host_calls"],"struct":["HostHooks"],"type":["Affine","Projective","ScalarField","VestaConfig"]};

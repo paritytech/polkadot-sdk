@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_GLUTTON_PARA_ID"],"fn":["get_preset","glutton_westend_genesis","preset_names"]};

@@ -1,0 +1,193 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The v12 `SchedulerParams`, before the `max_relay_parent_session_age` field was added. This is identical to `polkadot_primitives::v9::SchedulerParams`."><title>V12SchedulerParams in polkadot_runtime_parachains::configuration::migration::v13 - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">V12SchedulerParams</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../polkadot_runtime_parachains/index.html">polkadot_<wbr>runtime_<wbr>parachains</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">V12Scheduler<wbr>Params</a></h2><h3><a href="#aliased-type">Aliased Type</a></h3><h3><a href="#fields">Fields</a></h3><ul class="block field"><li><a href="#structfield.group_rotation_frequency" title="group_rotation_frequency">group_rotation_frequency</a></li><li><a href="#structfield.lookahead" title="lookahead">lookahead</a></li><li><a href="#structfield.max_availability_timeouts" title="max_availability_timeouts">max_availability_timeouts</a></li><li><a href="#structfield.max_validators_per_core" title="max_validators_per_core">max_validators_per_core</a></li><li><a href="#structfield.num_cores" title="num_cores">num_cores</a></li><li><a href="#structfield.on_demand_base_fee" title="on_demand_base_fee">on_demand_base_fee</a></li><li><a href="#structfield.on_demand_fee_variability" title="on_demand_fee_variability">on_demand_fee_variability</a></li><li><a href="#structfield.on_demand_queue_max_size" title="on_demand_queue_max_size">on_demand_queue_max_size</a></li><li><a href="#structfield.on_demand_target_queue_utilization" title="on_demand_target_queue_utilization">on_demand_target_queue_utilization</a></li><li><a href="#structfield.paras_availability_period" title="paras_availability_period">paras_availability_period</a></li><li><a href="#structfield.ttl" title="ttl">ttl</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In polkadot_<wbr>runtime_<wbr>parachains::<wbr>configuration::<wbr>migration::<wbr>v13</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">polkadot_runtime_parachains</a>::<wbr><a href="../../index.html">configuration</a>::<wbr><a href="../index.html">migration</a>::<wbr><a href="index.html">v13</a></div><h1>Type Alias <span class="type">V12Scheduler<wbr>Params</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/polkadot_runtime_parachains/configuration/migration/v13.rs.html#39">Source</a> </span></div><pre class="rust item-decl"><code>pub type V12SchedulerParams&lt;BlockNumber&gt; = SchedulerParams&lt;BlockNumber&gt;;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The v12 <code>SchedulerParams</code>, before the <code>max_relay_parent_session_age</code> field was added.
+This is identical to <code>polkadot_primitives::v9::SchedulerParams</code>.</p>
+</div></details><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>pub struct V12SchedulerParams&lt;BlockNumber&gt; {
+    pub group_rotation_frequency: BlockNumber,
+    pub paras_availability_period: BlockNumber,
+    pub max_validators_per_core: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>&gt;,
+    pub lookahead: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
+    pub num_cores: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
+    pub max_availability_timeouts: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
+    pub on_demand_queue_max_size: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
+    pub on_demand_target_queue_utilization: Perbill,
+    pub on_demand_fee_variability: Perbill,
+    pub on_demand_base_fee: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u128.html">u128</a>,
+    pub ttl: BlockNumber,
+}</code></pre><h2 id="fields" class="fields section-header">Fields<a href="#fields" class="anchor">§</a></h2><span id="structfield.group_rotation_frequency" class="structfield section-header"><a href="#structfield.group_rotation_frequency" class="anchor field">§</a><code>group_rotation_frequency: BlockNumber</code></span><div class="docblock"><p>How often parachain groups should be rotated across parachains.</p>
+<p>Must be non-zero.</p>
+</div><span id="structfield.paras_availability_period" class="structfield section-header"><a href="#structfield.paras_availability_period" class="anchor field">§</a><code>paras_availability_period: BlockNumber</code></span><div class="docblock"><p>Availability timeout for a block on a core, measured in blocks.</p>
+<p>This is the maximum amount of blocks after a core became occupied that validators have time
+to make the block available.</p>
+<p>This value only has effect on group rotations. If backers backed something at the end of
+their rotation, the occupied core affects the backing group that comes afterwards. We limit
+the effect one backing group can have on the next to <code>paras_availability_period</code> blocks.</p>
+<p>Within a group rotation there is no timeout as backers are only affecting themselves.</p>
+<p>Must be at least 1. With a value of 1, the previous group will not be able to negatively
+affect the following group at the expense of a tight availability timeline at group
+rotation boundaries.</p>
+</div><span id="structfield.max_validators_per_core" class="structfield section-header"><a href="#structfield.max_validators_per_core" class="anchor field">§</a><code>max_validators_per_core: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>&gt;</code></span><div class="docblock"><p>The maximum number of validators to have per core.</p>
+<p><code>None</code> means no maximum.</p>
+</div><span id="structfield.lookahead" class="structfield section-header"><a href="#structfield.lookahead" class="anchor field">§</a><code>lookahead: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p>The amount of blocks ahead to schedule paras.</p>
+</div><span id="structfield.num_cores" class="structfield section-header"><a href="#structfield.num_cores" class="anchor field">§</a><code>num_cores: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p>How many cores are managed by the coretime chain.</p>
+</div><span id="structfield.max_availability_timeouts" class="structfield section-header"><a href="#structfield.max_availability_timeouts" class="anchor field">§</a><code>max_availability_timeouts: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a></code></span><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated</span></div></span><div class="docblock"><p>Deprecated and no longer used by the runtime.
+Removal is tracked by <a href="https://github.com/paritytech/polkadot-sdk/issues/6067">https://github.com/paritytech/polkadot-sdk/issues/6067</a>.</p>
+</div><span id="structfield.on_demand_queue_max_size" class="structfield section-header"><a href="#structfield.on_demand_queue_max_size" class="anchor field">§</a><code>on_demand_queue_max_size: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p>The maximum queue size of the pay as you go module.</p>
+</div><span id="structfield.on_demand_target_queue_utilization" class="structfield section-header"><a href="#structfield.on_demand_target_queue_utilization" class="anchor field">§</a><code>on_demand_target_queue_utilization: Perbill</code></span><div class="docblock"><p>The target utilization of the spot price queue in percentages.</p>
+</div><span id="structfield.on_demand_fee_variability" class="structfield section-header"><a href="#structfield.on_demand_fee_variability" class="anchor field">§</a><code>on_demand_fee_variability: Perbill</code></span><div class="docblock"><p>How quickly the fee rises in reaction to increased utilization.
+The lower the number the slower the increase.</p>
+</div><span id="structfield.on_demand_base_fee" class="structfield section-header"><a href="#structfield.on_demand_base_fee" class="anchor field">§</a><code>on_demand_base_fee: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u128.html">u128</a></code></span><div class="docblock"><p>The minimum amount needed to claim a slot in the spot pricing queue.</p>
+</div><span id="structfield.ttl" class="structfield section-header"><a href="#structfield.ttl" class="anchor field">§</a><code>ttl: BlockNumber</code></span><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated</span></div></span><div class="docblock"><p>Deprecated and no longer used by the runtime.
+Removal is tracked by <a href="https://github.com/paritytech/polkadot-sdk/issues/6067">https://github.com/paritytech/polkadot-sdk/issues/6067</a>.</p>
+</div><script src="../../../../type.impl/polkadot_primitives/v9/struct.SchedulerParams.js" data-self-path="polkadot_runtime_parachains::configuration::migration::v13::V12SchedulerParams" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

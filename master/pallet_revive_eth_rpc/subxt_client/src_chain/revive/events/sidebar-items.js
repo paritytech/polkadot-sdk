@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["contract_emitted","eth_extrinsic_revert","instantiated"],"struct":["ContractEmitted","EthExtrinsicRevert","Instantiated"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["foreign_assets_reserves"]};

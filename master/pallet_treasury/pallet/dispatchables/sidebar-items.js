@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["check_status","payout","remove_approval","spend","spend_local","void_spend"]};

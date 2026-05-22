@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["sp_core",[]],["sp_runtime",[["impl FromEntropy for <a class=\"enum\" href=\"sp_runtime/enum.MultiSigner.html\" title=\"enum sp_runtime::MultiSigner\">MultiSigner</a>"]]],["yet_another_parachain_runtime",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[14,157,37]}

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["OldBondedPoolInner","OldCommission","VersionUncheckedMigrateV7ToV8"]};

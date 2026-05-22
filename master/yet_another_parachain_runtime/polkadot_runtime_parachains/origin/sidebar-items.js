@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Origin"],"fn":["ensure_parachain"],"mod":["pallet"],"struct":["Pallet"],"trait":["Config"],"type":["Module"]};

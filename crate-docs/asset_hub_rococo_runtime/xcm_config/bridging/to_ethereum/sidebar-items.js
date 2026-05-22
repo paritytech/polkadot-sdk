@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["BridgeHubEthereumBaseFee","BridgeTable","DefaultBridgeHubEthereumBaseFee","SiblingBridgeHubWithEthereumInboundQueueInstance","UniversalAliases"],"type":["IsTrustedBridgedReserveLocationForForeignAsset"]};

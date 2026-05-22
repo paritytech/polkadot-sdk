@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ContractRequiringBinarySearchForGasEstimationCalls"],"struct":["expensive_operationCall","expensive_operationReturn","mainCall","mainReturn"]};

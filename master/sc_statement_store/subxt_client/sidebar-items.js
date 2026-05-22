@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MSG_PREFIX"],"fn":["create_attest_call","create_consumer_registration_params","create_increase_allowance_call","get_account_nonce","set_allowances_via_sudo","submit_extrinsic"],"struct":["CustomConfig","RestrictOrigins","VerifyMultiSignature"]};

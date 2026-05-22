@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["approve_attempt","cancel_attempt","control_inherited_account","finish_attempt","initiate_attempt","revoke_inheritor","set_friend_groups","slash_attempt"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["set_validation_data","sudo_send_upward_message"]};

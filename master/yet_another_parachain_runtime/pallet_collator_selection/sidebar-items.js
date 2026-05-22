@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"mod":["migration","pallet","weights"],"struct":["CandidateInfo","GenesisConfig","IdentityCollator","Pallet","StakingPotAccountId"],"trait":["Config","WeightInfo"],"type":["CandidacyBond","CandidateList","DesiredCandidates","Invulnerables","LastAuthoredBlock","Module"]};

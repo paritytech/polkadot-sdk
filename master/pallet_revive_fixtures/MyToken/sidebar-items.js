@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MyTokenCalls"],"struct":["burnCall","burnReturn","constructorCall","mintCall","mintReturn"]};

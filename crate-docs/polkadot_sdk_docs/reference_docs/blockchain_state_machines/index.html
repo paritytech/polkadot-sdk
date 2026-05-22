@@ -1,0 +1,51 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn about the way Substrate and FRAME view their blockchains as state machines."><title>polkadot_sdk_docs::reference_docs::blockchain_state_machines - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Module blockchain_state_machines</a></h2><div class="sidebar-elems"></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">blockchain_state_machines</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/blockchain_state_machines.rs.html#1-29">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about the way Substrate and FRAME view their blockchains as state machines.</p>
+<h2 id="state-transition-function"><a href="#state-transition-function">State Transition Function</a></h2>
+<p>This document briefly explains how in the context of Substrate-based blockchains, we view the
+blockchain as a <strong>decentralized state transition function</strong>.</p>
+<p>Recall that a blockchain’s main purpose is to help a permissionless set of entities to agree on
+a shared data-set, and how it evolves. This is called the <strong>State</strong>, also referred to as
+“onchain” data, or <em>Storage</em> in the context of FRAME. The state is where the account balance of
+each user is, for example, stored, and there is a canonical version of it that everyone agrees
+upon.</p>
+<p>Then, recall that a typical blockchain system will alter its state through execution of blocks.
+<em>The component that dictates how this state alteration can happen is called the state transition
+function</em>.</p>
+<pre class="mermaid" style="text-align:center;background: transparent;">
+flowchart LR
+	B[Block] --> STF
+    S[State] --> STF
+    STF --> NS[New State]
+
+</pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
+<p>In Substrate-based blockchains, the state transition function is called the <em>Runtime</em>. This is
+explained further in <a href="../wasm_meta_protocol/index.html" title="mod polkadot_sdk_docs::reference_docs::wasm_meta_protocol"><code>crate::reference_docs::wasm_meta_protocol</code></a>.</p>
+<p>With this in mind, we can paint a complete picture of a blockchain as a state machine:</p>
+<pre class="mermaid" style="text-align:center;background: transparent;">
+flowchart LR
+    %%{init: {'flowchart' : {'curve' : 'linear'}}}%%
+    subgraph BData[Blockchain Database]
+        direction LR
+        BN[Block N] -.-> BN1[Block N+1]
+    end
+
+    subgraph SData[State Database]
+        direction LR
+        SN[State N] -.-> SN1[State N+1] -.-> SN2[State N+2]
+    end
+
+    BN --> STFN[STF]
+    SN --> STFN[STF]
+    STFN[STF] --> SN1
+
+    BN1 --> STFN1[STF]
+    SN1 --> STFN1[STF]
+    STFN1[STF] --> SN2
+
+
+
+</pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
+<p>In essence, the state of the blockchain at block N is the outcome of applying the state
+transition function to the the previous state, and the current block as input. This can be
+mathematically represented as:</p>
+<div class="example-wrap"><pre class="language-math"><code>STF = F(State_N, Block_N) -&gt; State_{N+1}
+</code></pre></div></div></details></section></div></main></body></html>

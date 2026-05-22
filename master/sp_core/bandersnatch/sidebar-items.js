@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CRYPTO_ID","PREOUT_SERIALIZED_SIZE","PUBLIC_SERIALIZED_SIZE","SEED_SERIALIZED_SIZE","SIGNATURE_SERIALIZED_SIZE"],"mod":["ring_vrf","vrf"],"struct":["Pair"],"type":["ProofOfPossession","Public","Signature"]};

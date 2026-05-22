@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call"],"mod":["consensus_hook","migration","pallet"],"struct":["BlockExecutor","FixedVelocityConsensusHook","GenesisConfig","Pallet"],"trait":["Config"],"type":["Module"]};

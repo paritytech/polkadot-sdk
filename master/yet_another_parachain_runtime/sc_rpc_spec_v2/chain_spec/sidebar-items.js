@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["api","chain_spec"],"struct":["ChainSpec"],"trait":["ChainSpecApiServer"]};

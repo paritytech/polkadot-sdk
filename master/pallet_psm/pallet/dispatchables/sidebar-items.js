@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["add_external_asset","mint","redeem","remove_external_asset","set_asset_ceiling_weight","set_asset_status","set_max_psm_debt","set_minting_fee","set_redemption_fee"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["compute_max_integer_pair_quotient","compute_max_integer_quotient"],"struct":["BlockRatioFee","Info"],"trait":["InfoT"]};

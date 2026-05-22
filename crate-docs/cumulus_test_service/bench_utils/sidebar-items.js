@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["create_benchmark_accounts","create_benchmarking_transfer_extrinsics","extrinsic_set_time","extrinsic_set_validation_data","get_wasm_module","import_block","set_glutton_parameters"]};

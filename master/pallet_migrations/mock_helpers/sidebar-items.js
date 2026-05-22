@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MockedMigrationKind"],"fn":["mocked_id"],"struct":["MockedMigrations"],"type":["MockedIdentifier"]};

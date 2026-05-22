@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOG_TARGET"],"fn":["build_ext","circuit_breaker","clear_ext","mint_and_redeem"],"struct":["PsmTestConfig"],"type":["AssetIdOf","PsmTestConfigOf"]};

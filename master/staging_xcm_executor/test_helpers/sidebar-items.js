@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["mock_asset_to_holding"],"struct":["MockCredit"]};

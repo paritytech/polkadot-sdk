@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Bounties","BountyCount","ChildBounties","ChildBountiesPerParent","ChildBountiesValuePerParent","CuratorDeposit","TotalChildBountiesPerParent"]};

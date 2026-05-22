@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["caller_funding","default_deposit_limit"],"struct":["CallSetup","Contract","VmBinaryModule"]};

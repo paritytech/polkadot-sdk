@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Code","Data","Salt","StorageDepositLimit","Value","WeightLimit"]};

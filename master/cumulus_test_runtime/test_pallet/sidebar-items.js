@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["TEST_RUNTIME_UPGRADE_KEY"],"fn":["relay_alice_account_key"],"mod":["pallet"]};

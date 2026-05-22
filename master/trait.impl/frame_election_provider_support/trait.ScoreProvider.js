@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["pallet_bags_list",[["impl ScoreProvider&lt;&lt;<a class=\"struct\" href=\"pallet_bags_list/mock/struct.Runtime.html\" title=\"struct pallet_bags_list::mock::Runtime\">Runtime</a> as Config&gt;::AccountId&gt; for <a class=\"struct\" href=\"pallet_bags_list/mock/struct.StakingMock.html\" title=\"struct pallet_bags_list::mock::StakingMock\">StakingMock</a>"],["impl&lt;T: <a class=\"trait\" href=\"pallet_bags_list/pallet/trait.Config.html\" title=\"trait pallet_bags_list::pallet::Config\">Config</a>&lt;I&gt;, I: 'static&gt; ScoreProvider&lt;&lt;T as Config&gt;::AccountId&gt; for <a class=\"struct\" href=\"pallet_bags_list/pallet/struct.Pallet.html\" title=\"struct pallet_bags_list::pallet::Pallet\">Pallet</a>&lt;T, I&gt;"]]],["pallet_staking",[["impl&lt;T: <a class=\"trait\" href=\"pallet_staking/trait.Config.html\" title=\"trait pallet_staking::Config\">Config</a>&gt; ScoreProvider&lt;&lt;T as Config&gt;::AccountId&gt; for <a class=\"struct\" href=\"pallet_staking/struct.Pallet.html\" title=\"struct pallet_staking::Pallet\">Pallet</a>&lt;T&gt;"]]],["pallet_staking_async",[["impl&lt;T: <a class=\"trait\" href=\"pallet_staking_async/trait.Config.html\" title=\"trait pallet_staking_async::Config\">Config</a>&gt; ScoreProvider&lt;&lt;T as Config&gt;::AccountId&gt; for <a class=\"struct\" href=\"pallet_staking_async/struct.Pallet.html\" title=\"struct pallet_staking_async::Pallet\">Pallet</a>&lt;T&gt;"]]],["yet_another_parachain_runtime",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[732,330,360,37]}

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"attr":["storage_alias"],"mod":["account","arithmetic","benchmarking","deps","derive","hashing","pallet_macros","prelude","runtime","testing_prelude","token","traits","transaction","try_runtime","weights_prelude"]};

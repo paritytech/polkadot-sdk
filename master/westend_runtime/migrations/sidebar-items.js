@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ConvictionVotingPalletStr","DrainLegacyTreasuryToAccumulationAccount","OriginsPalletStr","ReferendaPalletStr","TreasuryPalletStr","WhitelistPalletStr"],"type":["Unreleased"]};

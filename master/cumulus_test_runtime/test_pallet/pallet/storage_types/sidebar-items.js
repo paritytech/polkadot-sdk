@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["BigValueMove","HrmpSendingActive","InherentWeightConsume","PendingOutboundHrmpMessages","ScheduleWeightRegistration","TestMap"]};

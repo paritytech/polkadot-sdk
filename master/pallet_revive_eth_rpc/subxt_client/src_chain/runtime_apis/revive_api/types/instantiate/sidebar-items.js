@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["output"],"type":["Code","Data","GasLimit","Origin","Salt","StorageDepositLimit","Value"]};

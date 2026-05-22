@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DAP_PALLET_ID","DAP_STAGING_ACCOUNT_ID"]};

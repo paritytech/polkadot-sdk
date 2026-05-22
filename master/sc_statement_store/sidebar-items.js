@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_MAX_TOTAL_SIZE","DEFAULT_MAX_TOTAL_STATEMENTS","DEFAULT_NETWORK_WORKERS","DEFAULT_PURGE_AFTER_SEC","DEFAULT_RATE_LIMIT","MAX_STATEMENT_SIZE","MAX_TOPICS"],"enum":["Error"],"mod":["subxt_client","test_utils"],"struct":["Config","Store"],"trait":["StatementStore","StatementStoreSubscriptionApi"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Event"],"mod":["migration","pallet"],"struct":["Pallet"],"trait":["Config"],"type":["ConcurrentReportsIndex","Module","Reports"]};

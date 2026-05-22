@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["derivative_account_id"],"mod":["pallet","weights"]};

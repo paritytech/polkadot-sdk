@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["build_verifier","import_queue","slot_duration"],"mod":["collator","collators","equivocation_import_queue"],"struct":["AuraConsensus","AuraVerifier","BuildAuraConsensusParams","BuildAuraWorkerParams","BuildVerifierParams","ImportQueueParams","SlotProportion"],"trait":["InherentDataProviderExt"]};

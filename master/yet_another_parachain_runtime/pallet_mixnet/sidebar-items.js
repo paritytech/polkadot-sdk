@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call"],"mod":["pallet"],"struct":["BoundedMixnode","GenesisConfig","Pallet","Registration"],"trait":["Config"],"type":["AuthorityIndex","BoundedMixnodeFor","Module","RegistrationFor"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AuthorityOf","IdentityOf","PendingUsernames","Registrars","SubsOf","SuperOf","UnbindingUsernames","UsernameInfoOf","UsernameOf"]};

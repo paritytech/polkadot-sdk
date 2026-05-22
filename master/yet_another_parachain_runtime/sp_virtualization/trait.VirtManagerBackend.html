@@ -1,0 +1,225 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The host-side operations driven by the virtualization host functions."><title>VirtManagerBackend in yet_another_parachain_runtime::sp_virtualization - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">VirtManagerBackend</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Virt<wbr>Manager<wbr>Backend</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.compile_from_bytes" title="compile_from_bytes">compile_from_bytes</a></li><li><a href="#tymethod.destroy" title="destroy">destroy</a></li><li><a href="#tymethod.instantiate" title="instantiate">instantiate</a></li><li><a href="#tymethod.lookup" title="lookup">lookup</a></li><li><a href="#tymethod.prepare" title="prepare">prepare</a></li><li><a href="#tymethod.read_memory" title="read_memory">read_memory</a></li><li><a href="#tymethod.run" title="run">run</a></li><li><a href="#tymethod.write_memory" title="write_memory">write_memory</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>sp_<wbr>virtualization</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a>::<wbr><a href="index.html">sp_virtualization</a></div><h1>Trait <span class="trait">Virt<wbr>Manager<wbr>Backend</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/sp_virtualization/host_functions.rs.html#554">Source</a> </span></div><pre class="rust item-decl"><code>pub trait VirtManagerBackend: <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static {
+    // Required methods
+    fn <a href="#tymethod.compile_from_bytes" class="fn">compile_from_bytes</a>(
+        &amp;mut self,
+        program: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>],
+        identifier: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>]&gt;,
+    ) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="struct" href="struct.ModuleId.html" title="struct yet_another_parachain_runtime::sp_virtualization::ModuleId">ModuleId</a>, <a class="enum" href="enum.ModuleError.html" title="enum yet_another_parachain_runtime::sp_virtualization::ModuleError">ModuleError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.lookup" class="fn">lookup</a>(&amp;mut self, identifier: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="struct" href="struct.ModuleId.html" title="struct yet_another_parachain_runtime::sp_virtualization::ModuleId">ModuleId</a>, <a class="enum" href="enum.ModuleError.html" title="enum yet_another_parachain_runtime::sp_virtualization::ModuleError">ModuleError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.instantiate" class="fn">instantiate</a>(
+        &amp;mut self,
+        module_id: <a class="struct" href="struct.ModuleId.html" title="struct yet_another_parachain_runtime::sp_virtualization::ModuleId">ModuleId</a>,
+    ) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="struct" href="struct.InstanceId.html" title="struct yet_another_parachain_runtime::sp_virtualization::InstanceId">InstanceId</a>, <a class="enum" href="enum.InstantiateError.html" title="enum yet_another_parachain_runtime::sp_virtualization::InstantiateError">InstantiateError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.prepare" class="fn">prepare</a>(
+        &amp;mut self,
+        instance_id: <a class="struct" href="struct.InstanceId.html" title="struct yet_another_parachain_runtime::sp_virtualization::InstanceId">InstanceId</a>,
+        function: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ExecError.html" title="enum yet_another_parachain_runtime::sp_virtualization::ExecError">ExecError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.run" class="fn">run</a>(
+        &amp;mut self,
+        instance_id: <a class="struct" href="struct.InstanceId.html" title="struct yet_another_parachain_runtime::sp_virtualization::InstanceId">InstanceId</a>,
+        gas_left: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.i64.html">i64</a>,
+        a0: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u64.html">u64</a>,
+    ) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;(<a class="enum" href="enum.ExecStatus.html" title="enum yet_another_parachain_runtime::sp_virtualization::ExecStatus">ExecStatus</a>, <a class="struct" href="struct.ExecBuffer.html" title="struct yet_another_parachain_runtime::sp_virtualization::ExecBuffer">ExecBuffer</a>), <a class="enum" href="enum.ExecError.html" title="enum yet_another_parachain_runtime::sp_virtualization::ExecError">ExecError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.destroy" class="fn">destroy</a>(&amp;mut self, instance_id: <a class="struct" href="struct.InstanceId.html" title="struct yet_another_parachain_runtime::sp_virtualization::InstanceId">InstanceId</a>) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.DestroyError.html" title="enum yet_another_parachain_runtime::sp_virtualization::DestroyError">DestroyError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.read_memory" class="fn">read_memory</a>(
+        &amp;mut self,
+        instance_id: <a class="struct" href="struct.InstanceId.html" title="struct yet_another_parachain_runtime::sp_virtualization::InstanceId">InstanceId</a>,
+        offset: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
+        dest: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.MemoryError.html" title="enum yet_another_parachain_runtime::sp_virtualization::MemoryError">MemoryError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.write_memory" class="fn">write_memory</a>(
+        &amp;mut self,
+        instance_id: <a class="struct" href="struct.InstanceId.html" title="struct yet_another_parachain_runtime::sp_virtualization::InstanceId">InstanceId</a>,
+        offset: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
+        src: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.MemoryError.html" title="enum yet_another_parachain_runtime::sp_virtualization::MemoryError">MemoryError</a>&gt;;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The host-side operations driven by the virtualization host functions.</p>
+<p>The concrete implementation lives outside this crate (see <code>sc-virtualization</code>) so that
+<code>sp-virtualization</code> itself does not depend on a specific virtual machine backend.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.compile_from_bytes" class="method"><a class="src rightside" href="../../src/sp_virtualization/host_functions.rs.html#561-565">Source</a><h4 class="code-header">fn <a href="#tymethod.compile_from_bytes" class="fn">compile_from_bytes</a>(
+    &amp;mut self,
+    program: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>],
+    identifier: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>]&gt;,
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="struct" href="struct.ModuleId.html" title="struct yet_another_parachain_runtime::sp_virtualization::ModuleId">ModuleId</a>, <a class="enum" href="enum.ModuleError.html" title="enum yet_another_parachain_runtime::sp_virtualization::ModuleError">ModuleError</a>&gt;</h4></section></summary><div class="docblock"><p>Compile <code>program</code> into a new module.</p>
+<p>If <code>identifier</code> is <code>Some</code>, the compiled module is retained in the per-extension cache
+keyed by that opaque byte slice so a later <a href="trait.VirtManagerBackend.html#tymethod.lookup" title="method yet_another_parachain_runtime::sp_virtualization::VirtManagerBackend::lookup"><code>lookup</code></a> with the same bytes can reuse it.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.lookup" class="method"><a class="src rightside" href="../../src/sp_virtualization/host_functions.rs.html#571">Source</a><h4 class="code-header">fn <a href="#tymethod.lookup" class="fn">lookup</a>(&amp;mut self, identifier: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="struct" href="struct.ModuleId.html" title="struct yet_another_parachain_runtime::sp_virtualization::ModuleId">ModuleId</a>, <a class="enum" href="enum.ModuleError.html" title="enum yet_another_parachain_runtime::sp_virtualization::ModuleError">ModuleError</a>&gt;</h4></section></summary><div class="docblock"><p>Look up a module previously cached under <code>identifier</code>.</p>
+<p>Returns <a href="enum.ModuleError.html#variant.NotCached" title="variant yet_another_parachain_runtime::sp_virtualization::ModuleError::NotCached"><code>ModuleError::NotCached</code></a> if no module is cached under that key. The backend
+never reads storage — <code>identifier</code> is an opaque byte slice as far as it is concerned.</p>
+</div></details><section id="tymethod.instantiate" class="method"><a class="src rightside" href="../../src/sp_virtualization/host_functions.rs.html#573">Source</a><h4 class="code-header">fn <a href="#tymethod.instantiate" class="fn">instantiate</a>(
+    &amp;mut self,
+    module_id: <a class="struct" href="struct.ModuleId.html" title="struct yet_another_parachain_runtime::sp_virtualization::ModuleId">ModuleId</a>,
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="struct" href="struct.InstanceId.html" title="struct yet_another_parachain_runtime::sp_virtualization::InstanceId">InstanceId</a>, <a class="enum" href="enum.InstantiateError.html" title="enum yet_another_parachain_runtime::sp_virtualization::InstantiateError">InstantiateError</a>&gt;</h4></section><section id="tymethod.prepare" class="method"><a class="src rightside" href="../../src/sp_virtualization/host_functions.rs.html#575">Source</a><h4 class="code-header">fn <a href="#tymethod.prepare" class="fn">prepare</a>(
+    &amp;mut self,
+    instance_id: <a class="struct" href="struct.InstanceId.html" title="struct yet_another_parachain_runtime::sp_virtualization::InstanceId">InstanceId</a>,
+    function: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>],
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ExecError.html" title="enum yet_another_parachain_runtime::sp_virtualization::ExecError">ExecError</a>&gt;</h4></section><section id="tymethod.run" class="method"><a class="src rightside" href="../../src/sp_virtualization/host_functions.rs.html#577-582">Source</a><h4 class="code-header">fn <a href="#tymethod.run" class="fn">run</a>(
+    &amp;mut self,
+    instance_id: <a class="struct" href="struct.InstanceId.html" title="struct yet_another_parachain_runtime::sp_virtualization::InstanceId">InstanceId</a>,
+    gas_left: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.i64.html">i64</a>,
+    a0: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u64.html">u64</a>,
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;(<a class="enum" href="enum.ExecStatus.html" title="enum yet_another_parachain_runtime::sp_virtualization::ExecStatus">ExecStatus</a>, <a class="struct" href="struct.ExecBuffer.html" title="struct yet_another_parachain_runtime::sp_virtualization::ExecBuffer">ExecBuffer</a>), <a class="enum" href="enum.ExecError.html" title="enum yet_another_parachain_runtime::sp_virtualization::ExecError">ExecError</a>&gt;</h4></section><section id="tymethod.destroy" class="method"><a class="src rightside" href="../../src/sp_virtualization/host_functions.rs.html#584">Source</a><h4 class="code-header">fn <a href="#tymethod.destroy" class="fn">destroy</a>(&amp;mut self, instance_id: <a class="struct" href="struct.InstanceId.html" title="struct yet_another_parachain_runtime::sp_virtualization::InstanceId">InstanceId</a>) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.DestroyError.html" title="enum yet_another_parachain_runtime::sp_virtualization::DestroyError">DestroyError</a>&gt;</h4></section><section id="tymethod.read_memory" class="method"><a class="src rightside" href="../../src/sp_virtualization/host_functions.rs.html#586-591">Source</a><h4 class="code-header">fn <a href="#tymethod.read_memory" class="fn">read_memory</a>(
+    &amp;mut self,
+    instance_id: <a class="struct" href="struct.InstanceId.html" title="struct yet_another_parachain_runtime::sp_virtualization::InstanceId">InstanceId</a>,
+    offset: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
+    dest: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>],
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.MemoryError.html" title="enum yet_another_parachain_runtime::sp_virtualization::MemoryError">MemoryError</a>&gt;</h4></section><section id="tymethod.write_memory" class="method"><a class="src rightside" href="../../src/sp_virtualization/host_functions.rs.html#593-598">Source</a><h4 class="code-header">fn <a href="#tymethod.write_memory" class="fn">write_memory</a>(
+    &amp;mut self,
+    instance_id: <a class="struct" href="struct.InstanceId.html" title="struct yet_another_parachain_runtime::sp_virtualization::InstanceId">InstanceId</a>,
+    offset: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
+    src: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>],
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.MemoryError.html" title="enum yet_another_parachain_runtime::sp_virtualization::MemoryError">MemoryError</a>&gt;</h4></section></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-VirtManagerBackend-for-VirtManager" class="impl"><a class="src rightside" href="../../src/sc_virtualization/lib.rs.html#250">Source</a><a href="#impl-VirtManagerBackend-for-VirtManager" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.VirtManagerBackend.html" title="trait yet_another_parachain_runtime::sp_virtualization::VirtManagerBackend">VirtManagerBackend</a> for <a class="struct" href="../sc_virtualization/struct.VirtManager.html" title="struct yet_another_parachain_runtime::sc_virtualization::VirtManager">VirtManager</a></h3></section></div><script src="../../trait.impl/sp_virtualization/host_functions/trait.VirtManagerBackend.js" data-ignore-extern-crates="sc_virtualization" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_HASH_UPGRADE_BULK_COUNT","MAX_SIZE"],"enum":["OldRequestStatus","RequestStatus"],"mod":["migration","pallet","weights"],"type":["BalanceOf","TicketOf"]};
