@@ -58,7 +58,7 @@ impl_for_tuples_attr! {
 	}
 }
 
-/// Provides a callback to execute logic before the all transactions.
+/// Provides a callback to execute logic after the all transactions.
 pub trait PostTransactions {
 	/// Called after all transactions were applied but before `on_finalize`.
 	fn post_transactions() {}
@@ -128,8 +128,14 @@ impl_for_tuples_attr! {
 		fn on_idle(n: BlockNumber, remaining_weight: Weight) -> Weight {
 			let on_idle_functions: &[fn(BlockNumber, Weight) -> Weight] =
 				&[for_tuples!( #( Tuple::on_idle ),* )];
+
 			let mut weight = Weight::zero();
 			let len = on_idle_functions.len();
+
+			if len == 0 {
+				return Weight::zero()
+			}
+
 			let start_index = n % (len as u32).into();
 			let start_index = start_index.try_into().ok().expect(
 				"`start_index % len` always fits into `usize`, because `len` can be in maximum `usize::MAX`; qed"

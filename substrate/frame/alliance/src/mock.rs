@@ -157,6 +157,7 @@ impl Verify for AccountU64 {
 	}
 }
 
+#[allow(dead_code)]
 pub struct AllianceIdentityVerifier;
 impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
 	fn has_required_identities(who: &AccountId) -> bool {

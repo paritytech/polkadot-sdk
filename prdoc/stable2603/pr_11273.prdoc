@@ -1,0 +1,12 @@
+title: 'grandpa: Ensure to send `Commit` message before rebuilding the voter'
+doc:
+- audience: Node Dev
+  description: |-
+    When there is an authority change, grandpa internally rebuilds the `voter`. This leads to the node not sending the `Commit` message for the finalized block. Light clients that follow these commit messages then need to wait for a justification.
+
+    This pull request fixes the issue by directly sending a commit message, when an authority set change is detected. The message is send before the voter is rebuild.
+
+    Closes: https://github.com/paritytech/polkadot-sdk/issues/9300
+crates:
+- name: sc-consensus-grandpa
+  bump: patch

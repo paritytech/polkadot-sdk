@@ -37,8 +37,10 @@ parameter_types! {
 	/// Maximum number of validators that we may want to elect. 1000 is the end target.
 	pub const MaxValidatorSet: u32 = 1000;
 
-	/// Number of nominators per page of the snapshot, and consequently number of backers in the solution.
-	pub VoterSnapshotPerBlock: u32 = MaxElectingVoters::get() / Pages::get();
+	/// Number of nominators per page of the snapshot, and consequently number of backers in the
+	/// solution. Uses ceiling division so that `VoterSnapshotPerBlock * Pages >= MaxElectingVoters`
+	/// holds for any configured values.
+	pub VoterSnapshotPerBlock: u32 = MaxElectingVoters::get().div_ceil(Pages::get());
 
 	/// Number of validators per page of the snapshot.
 	pub TargetSnapshotPerBlock: u32 = MaxValidatorSet::get();
@@ -228,29 +230,31 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type WeightInfo = weights::pallet_bags_list::WeightInfo<Runtime>;
 }
 
-pub struct EraPayout;
-impl pallet_staking_async::EraPayout<Balance> for EraPayout {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> (Balance, Balance) {
+parameter_types! {
+	pub const StakingPotsPalletId: PalletId = PalletId(*b"py/stkng");
+	// Used for reward pot migration (MigrateEraPotsToPool). Can be removed once executed on-chain.
+	pub const StakingStakerRewardKind: pallet_staking_async::RewardKind =
+		pallet_staking_async::RewardKind::StakerRewards;
+}
+
+/// Westend inflation curve for DAP.
+///
+/// Same computation as the previous `EraPayout` but returns total emission.
+/// The budget split (ex. 85/15 staker/treasury) is now handled by pallet-dap.
+pub struct IssuanceCurve;
+impl sp_staking::budget::IssuanceCurve<Balance> for IssuanceCurve {
+	fn issue(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
 		const MILLISECONDS_PER_YEAR: u64 = (1000 * 3600 * 24 * 36525) / 100;
-		// A normal-sized era will have 1 / 365.25 here:
-		let relative_era_len =
-			FixedU128::from_rational(era_duration_millis.into(), MILLISECONDS_PER_YEAR.into());
+		let relative_period =
+			FixedU128::from_rational(elapsed_millis.into(), MILLISECONDS_PER_YEAR.into());
 
 		// Fixed total TI that we use as baseline for the issuance.
 		let fixed_total_issuance: i128 = 5_216_342_402_773_185_773;
 		let fixed_inflation_rate = FixedU128::from_rational(8, 100);
 		let yearly_emission = fixed_inflation_rate.saturating_mul_int(fixed_total_issuance);
 
-		let era_emission = relative_era_len.saturating_mul_int(yearly_emission);
-		// 15% to treasury, as per Polkadot ref 1139.
-		let to_treasury = FixedU128::from_rational(15, 100).saturating_mul_int(era_emission);
-		let to_stakers = era_emission.saturating_sub(to_treasury);
-
-		(to_stakers.saturated_into(), to_treasury.saturated_into())
+		let emission = relative_period.saturating_mul_int(yearly_emission);
+		emission.saturated_into()
 	}
 }
 
@@ -279,7 +283,7 @@ impl pallet_staking_async::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
-	type RewardRemainder = ();
+	type RewardRemainder = Dap;
 	type Slash = Dap;
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
@@ -287,7 +291,7 @@ impl pallet_staking_async::Config for Runtime {
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type EraPayout = EraPayout;
+	type EraPayout = ();
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type ElectionProvider = MultiBlockElection;
 	type VoterList = VoterList;
@@ -301,6 +305,11 @@ impl pallet_staking_async::Config for Runtime {
 	type PlanningEraOffset = ConstU32<6>;
 	type RcClientInterface = StakingRcClient;
 	type MaxEraDuration = MaxEraDuration;
+	type DisableMinting = ConstBool<true>;
+	type UnclaimedRewardHandler = Dap;
+	type RewardPots = pallet_staking_async::Seed<StakingPotsPalletId>;
+	type StakerRewardCalculator =
+		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type MaxPruningItems = MaxPruningItems;
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 }
@@ -327,7 +336,8 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	// export validator session at end of session 4 within an era.
 	type ValidatorSetExportSession = ConstU32<4>;
 	type RelayChainSessionKeys = RelayChainSessionKeys;
-	type Balance = Balance;
+	type Currency = Balances;
+	type KeyDeposit = ConstU128<{ 10 * UNITS }>;
 	// | Key                 | Crypto  | Public Key | Signature |
 	// |---------------------|---------|------------|-----------|
 	// | grandpa             | Ed25519 | 32 bytes   | 64 bytes  |
@@ -338,18 +348,35 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	// | beefy               | ECDSA   | 33 bytes   | 65 bytes  |
 	// | Total               |         | 193 bytes  | 385 bytes |
 	// We add some buffer for SCALE encoding overhead and future expansions
-	type MaxSessionKeysLength = ConstU32<256>;
-	type MaxSessionKeysProofLength = ConstU32<512>;
 	type WeightInfo = weights::pallet_staking_async_rc_client::WeightInfo<Runtime>;
 }
 
 parameter_types! {
-	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	pub const DapPalletId: frame_support::PalletId = pallet_dap::DAP_PALLET_ID;
+	/// Minimum time (ms) between issuance drips. 60s = drip at most once per minute.
+	pub const IssuanceCadence: u64 = 60_000;
+	/// Safety ceiling (ms) for elapsed time in a single drip. Prevents over-minting after stalls.
+	pub const MaxElapsedPerDrip: u64 = 600_000;
 }
 
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type IssuanceCurve = IssuanceCurve;
+	type BudgetRecipients = (
+		pallet_dap::Pallet<Runtime>,
+		pallet_staking_async::StakerRewardRecipient<
+			pallet_staking_async::Seed<StakingPotsPalletId>,
+		>,
+		pallet_staking_async::ValidatorIncentiveRecipient<
+			pallet_staking_async::Seed<StakingPotsPalletId>,
+		>,
+	);
+	type Time = pallet_timestamp::Pallet<Runtime>;
+	type IssuanceCadence = IssuanceCadence;
+	type MaxElapsedPerDrip = MaxElapsedPerDrip;
+	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = weights::pallet_dap::WeightInfo<Runtime>;
 }
 
 #[derive(Encode, Decode)]
@@ -584,7 +611,12 @@ where
 			frame_system::CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
+			pallet_pgas_allowance::ChargePGAS::<
+				Runtime,
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+			>::from(pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
+				tip, None,
+			)),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
 			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
 		));

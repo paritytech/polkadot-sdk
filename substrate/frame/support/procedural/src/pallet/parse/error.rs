@@ -79,9 +79,9 @@ impl ErrorDef {
 		let instances =
 			vec![helper::check_type_def_gen_no_bounds(&item.generics, item.ident.span())?];
 
-		if item.generics.where_clause.is_some() {
+		if let Some(where_clause) = &item.generics.where_clause {
 			let msg = "Invalid pallet::error, where clause is not allowed on pallet error item";
-			return Err(syn::Error::new(item.generics.where_clause.as_ref().unwrap().span(), msg));
+			return Err(syn::Error::new(where_clause.span(), msg));
 		}
 
 		let error = syn::parse2::<keyword::Error>(item.ident.to_token_stream())?;

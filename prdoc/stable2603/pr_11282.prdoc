@@ -1,0 +1,14 @@
+title: '[CI] Download resolc from GitHub release instead of artifact'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+
+    - Replace the hardcoded artifact-by-ID download of `resolc` in `tests-evm.yml` with a download from the GitHub release (`v1.0.0`)
+    - Artifact IDs expire and break CI; release assets are stable and versioned
+    - Installs `resolc` to `/usr/local/bin` and verifies the version before running tests
+
+    ## Test plan
+
+    - [ ] Verify the `tests-evm` workflow passes with the new download method
+crates: []

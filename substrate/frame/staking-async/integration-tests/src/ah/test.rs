@@ -18,14 +18,18 @@
 use crate::{ah::mock::*, rc, shared};
 use frame::prelude::Perbill;
 use frame_election_provider_support::Weight;
-use frame_support::{assert_ok, hypothetically};
+use frame_support::{
+	assert_ok, hypothetically,
+	traits::fungible::{hold::Inspect as HoldInspect, Inspect, Mutate},
+};
 use pallet_election_provider_multi_block::{
 	unsigned::miner::OffchainWorkerMiner, verifier::Event as VerifierEvent, CurrentPhase,
 	ElectionScore, Event as ElectionEvent, Phase,
 };
 use pallet_staking_async::{
 	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
-	Event as StakingEvent,
+	DisableMintingGuard, ErasValidatorIncentiveBudget, ErasValidatorReward, Event as StakingEvent,
+	PotAccountProvider, RewardKind, RewardPot, SequentialTest,
 };
 use pallet_staking_async_rc_client::{
 	self as rc_client, OutgoingValidatorSet, UnexpectedKind, ValidatorSetReport,
@@ -662,21 +666,21 @@ fn on_offence_current_era() {
 		roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![staking_async::Event::SlashComputed {
+			vec![StakingEvent::SlashComputed {
 				offence_era: 1,
 				slash_era: 3,
 				offender: 5,
-				page: 0
-			},]
+				page: 0,
+			}]
 		);
 		roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![staking_async::Event::SlashComputed {
+			vec![StakingEvent::SlashComputed {
 				offence_era: 1,
 				slash_era: 3,
 				offender: 3,
-				page: 0
+				page: 0,
 			}]
 		);
 
@@ -717,10 +721,9 @@ fn on_offence_current_era_instant_apply() {
 			// flush the events.
 			let _ = staking_events_since_last_call();
 
-			// Record initial state for DAP verification
-			let dap_buffer = pallet_dap::Pallet::<Runtime>::buffer_account();
-			let initial_dap_balance = Balances::free_balance(&dap_buffer);
-			let initial_total_issuance = Balances::total_issuance();
+			let dap_buffer = <pallet_dap::Pallet<Runtime> as sp_staking::budget::BudgetRecipient<
+				AccountId,
+			>>::pot_account();
 
 			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 				RuntimeOrigin::root(),
@@ -760,43 +763,48 @@ fn on_offence_current_era_instant_apply() {
 				]
 			);
 
+			// Capture state before slash application (after DAP drips have occurred).
+			let initial_dap_balance = Balances::free_balance(&dap_buffer);
+			let initial_total_issuance = Balances::total_issuance();
+
 			// 2 blocks to process these offences, and they are applied on the spot.
 			roll_next();
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					staking_async::Event::SlashComputed {
+					StakingEvent::SlashComputed {
 						offence_era: 1,
 						slash_era: 1,
 						offender: 5,
-						page: 0
+						page: 0,
 					},
-					staking_async::Event::Slashed { staker: 5, amount: 50 },
-					staking_async::Event::Slashed { staker: 110, amount: 50 }
+					StakingEvent::Slashed { staker: 5, amount: 50 },
+					StakingEvent::Slashed { staker: 110, amount: 50 },
 				]
 			);
 			roll_next();
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					staking_async::Event::SlashComputed {
+					StakingEvent::SlashComputed {
 						offence_era: 1,
 						slash_era: 1,
 						offender: 3,
-						page: 0
+						page: 0,
 					},
-					staking_async::Event::Slashed { staker: 3, amount: 50 }
+					StakingEvent::Slashed { staker: 3, amount: 50 },
 				]
 			);
 
-			// DAP verification: slashed funds (50 + 50 + 50 = 150) should go to buffer
+			// DAP verification: each block drips 12_000ms of inflation. Budget is 50/50,
+			// so buffer gets 6_000 per block. Two slash-processing blocks = 12_000 drip.
+			// Plus 150 from slashes (50 + 50 + 50).
 			let final_dap_balance = Balances::free_balance(&dap_buffer);
-			let final_total_issuance = Balances::total_issuance();
+			assert_eq!(final_dap_balance - initial_dap_balance, 12_000 + 150);
 
-			// DAP buffer should have received all slashed funds
-			assert_eq!(final_dap_balance, initial_dap_balance + 150);
-			// Total issuance should be preserved (funds not burned)
-			assert_eq!(final_total_issuance, initial_total_issuance);
+			// Slashing redistributes (no burn), DAP mints 2 * 12_000 = 24_000.
+			let final_total_issuance = Balances::total_issuance();
+			assert_eq!(final_total_issuance, initial_total_issuance + 24_000);
 		});
 }
 
@@ -906,12 +914,12 @@ fn on_offence_previous_era() {
 		roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![staking_async::Event::SlashComputed {
+			vec![StakingEvent::SlashComputed {
 				offence_era: 2,
 				slash_era: 4,
 				offender: 3,
-				page: 0
-			},]
+				page: 0,
+			}]
 		);
 
 		// roll to the next era.
@@ -942,11 +950,10 @@ fn on_offence_previous_era_instant_apply() {
 		.build()
 		.execute_with(|| {
 			let _ = roll_until_next_active(0);
-			let _ = roll_until_next_active(5);
-			let active_validators = roll_until_next_active(10);
+			let active_validators = roll_until_next_active(7);
 
 			assert_eq!(active_validators, vec![3, 5, 6, 8]);
-			assert_eq!(Rotator::<Runtime>::active_era(), 3);
+			assert_eq!(Rotator::<Runtime>::active_era(), 2);
 
 			// flush the events.
 			let _ = staking_events_since_last_call();
@@ -982,13 +989,13 @@ fn on_offence_previous_era_instant_apply() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					staking_async::Event::SlashComputed {
+					StakingEvent::SlashComputed {
 						offence_era: 1,
 						slash_era: 1,
 						offender: 3,
-						page: 0
+						page: 0,
 					},
-					staking_async::Event::Slashed { staker: 3, amount: 50 }
+					StakingEvent::Slashed { staker: 3, amount: 50 },
 				]
 			);
 
@@ -1337,7 +1344,9 @@ mod poll_operations {
 			// election for era 2 has started
 			assert_eq!(CurrentEra::<T>::get(), Some(2));
 			assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 7);
-			assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 1, start: Some(1000) }));
+			let active_era = ActiveEra::<T>::get().unwrap();
+			assert_eq!(active_era.index, 1);
+			assert!(active_era.start.is_some());
 			assert!(OutgoingValidatorSet::<T>::get().is_none());
 
 			// roll until signed and submit a solution.
@@ -1415,20 +1424,28 @@ mod poll_operations {
 mod session_keys {
 	use super::*;
 	use crate::ah::mock::{
-		Balances, LocalQueue, OutgoingMessages, ProxyType, PurgeKeysExecutionCost,
+		Balances, KeyDeposit, LocalQueue, OutgoingMessages, ProxyType, PurgeKeysExecutionCost,
 		SetKeysExecutionCost,
 	};
 	use codec::Encode;
-	use frame_support::{assert_noop, BoundedVec};
+	use frame_support::{assert_noop, pallet_prelude::DispatchError};
 	use rc_client::AHStakingInterface;
 
-	type Keys = BoundedVec<u8, <T as rc_client::Config>::MaxSessionKeysLength>;
-	type Proof = BoundedVec<u8, <T as rc_client::Config>::MaxSessionKeysProofLength>;
+	type Keys = Vec<u8>;
+	type Proof = Vec<u8>;
 
 	/// Helper to create properly encoded session keys and ownership proof.
 	fn make_session_keys_and_proof(owner: AccountId) -> (Keys, Proof) {
 		let generated = RCSessionKeys::generate(&owner.encode(), None);
 		(generated.keys.encode().try_into().unwrap(), generated.proof.encode().try_into().unwrap())
+	}
+
+	/// Returns the key-deposit hold for `who`.
+	fn key_deposit_hold(who: AccountId) -> Balance {
+		<Balances as HoldInspect<AccountId>>::balance_on_hold(
+			&rc_client::HoldReason::Keys.into(),
+			&who,
+		)
 	}
 
 	#[test]
@@ -1437,11 +1454,12 @@ mod session_keys {
 			// GIVEN: Account 1 is a validator with delivery fees configured
 			let validator: AccountId = 1;
 			let (keys, proof) = make_session_keys_and_proof(validator);
-			let keys_raw: Vec<u8> = keys.clone().into_inner();
+			let keys_raw: Vec<u8> = keys.clone();
 			let delivery_fee: u128 = 50;
 			XcmDeliveryFee::set(delivery_fee);
 			let execution_cost = SetKeysExecutionCost::get();
 			let total_fee = delivery_fee + execution_cost;
+			let deposit = KeyDeposit::get();
 			let balance_before = Balances::free_balance(validator);
 			let queue_len_before = LocalQueue::get().unwrap().len();
 
@@ -1458,8 +1476,11 @@ mod session_keys {
 				rc_client::Event::<T>::FeesPaid { who: validator, fees: total_fee }.into(),
 			);
 
-			// AND: Validator's balance is reduced by the total fee amount
-			assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
+			// AND: Validator's balance is reduced by fees + deposit held
+			assert_eq!(Balances::free_balance(validator), balance_before - total_fee - deposit);
+
+			// AND: Key deposit is held
+			assert_eq!(key_deposit_hold(validator), deposit);
 
 			// AND: SetKeys message is queued
 			let queue = LocalQueue::get().unwrap();
@@ -1685,9 +1706,10 @@ mod session_keys {
 			XcmDeliveryFee::set(delivery_fee);
 			let execution_cost = SetKeysExecutionCost::get();
 			let total_fee = delivery_fee + execution_cost;
+			let deposit = KeyDeposit::get();
 			let balance_before = Balances::free_balance(validator);
 
-			// max_fee > total: succeeds, charges total fee
+			// max_fee > total: succeeds, charges total fee + deposit
 			hypothetically!({
 				assert_ok!(rc_client::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(validator),
@@ -1695,10 +1717,10 @@ mod session_keys {
 					proof.clone(),
 					Some(total_fee + 100),
 				));
-				assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
+				assert_eq!(Balances::free_balance(validator), balance_before - total_fee - deposit);
 			});
 
-			// max_fee == total: succeeds
+			// max_fee == total: succeeds (max_fee only caps XCM fees, not the deposit)
 			hypothetically!({
 				assert_ok!(rc_client::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(validator),
@@ -1706,7 +1728,7 @@ mod session_keys {
 					proof.clone(),
 					Some(total_fee),
 				));
-				assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
+				assert_eq!(Balances::free_balance(validator), balance_before - total_fee - deposit);
 			});
 
 			// max_fee < total: fails with FeesExceededMax
@@ -1732,7 +1754,8 @@ mod session_keys {
 					proof.clone(),
 					Some(0),
 				));
-				assert_eq!(Balances::free_balance(validator), balance_before);
+				// Only deposit is held, no XCM fees
+				assert_eq!(Balances::free_balance(validator), balance_before - deposit);
 			});
 		});
 	}
@@ -1740,8 +1763,17 @@ mod session_keys {
 	#[test]
 	fn purge_keys_success() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Account 3 is a validator with delivery fees configured
+			// GIVEN: Account 3 is a validator that has set keys (deposit held)
 			let validator: AccountId = 3;
+			let (keys, proof) = make_session_keys_and_proof(validator);
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				keys,
+				proof,
+				None,
+			));
+			assert_eq!(key_deposit_hold(validator), KeyDeposit::get());
+
 			let delivery_fee: u128 = 50;
 			XcmDeliveryFee::set(delivery_fee);
 			let execution_cost = PurgeKeysExecutionCost::get();
@@ -1757,8 +1789,12 @@ mod session_keys {
 				rc_client::Event::<T>::FeesPaid { who: validator, fees: total_fee }.into(),
 			);
 
-			// AND: Validator's balance is reduced by the total fee amount
-			assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
+			// AND: Deposit is released, balance only reduced by purge fee
+			let deposit = KeyDeposit::get();
+			assert_eq!(Balances::free_balance(validator), balance_before - total_fee + deposit);
+
+			// AND: Key deposit is released
+			assert_eq!(key_deposit_hold(validator), 0);
 
 			// AND: PurgeKeys message is queued
 			let queue = LocalQueue::get().unwrap();
@@ -1881,6 +1917,167 @@ mod session_keys {
 		});
 	}
 
+	#[test]
+	fn set_keys_deposit_lifecycle() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			let validator: AccountId = 1;
+			let deposit = KeyDeposit::get();
+			let set_fees = XcmDeliveryFee::get() + SetKeysExecutionCost::get();
+			let purge_fees = XcmDeliveryFee::get() + PurgeKeysExecutionCost::get();
+
+			// First set_keys: deposit held
+			let (keys, proof) = make_session_keys_and_proof(validator);
+			let balance_before = Balances::free_balance(validator);
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				keys,
+				proof,
+				None,
+			));
+			assert_eq!(key_deposit_hold(validator), deposit);
+			assert_eq!(Balances::free_balance(validator), balance_before - set_fees - deposit);
+
+			// Second set_keys: no additional deposit
+			let balance_after_first = Balances::free_balance(validator);
+			let (keys2, proof2) = make_session_keys_and_proof(validator);
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				keys2,
+				proof2,
+				None,
+			));
+			assert_eq!(Balances::free_balance(validator), balance_after_first - set_fees);
+
+			// Purge with XCM failure: deposit NOT released (transactional rollback)
+			let balance_before_failed_purge = Balances::free_balance(validator);
+			hypothetically!({
+				NextRelayDeliveryFails::set(true);
+				assert_noop!(
+					rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None),
+					rc_client::Error::<T>::XcmSendFailed
+				);
+				assert_eq!(key_deposit_hold(validator), deposit);
+				assert_eq!(Balances::free_balance(validator), balance_before_failed_purge);
+			});
+
+			// Successful purge: deposit released
+			let balance_before_purge = Balances::free_balance(validator);
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None));
+			assert_eq!(key_deposit_hold(validator), 0);
+			assert_eq!(
+				Balances::free_balance(validator),
+				balance_before_purge - purge_fees + deposit
+			);
+		});
+	}
+
+	#[test]
+	fn set_keys_deposit_edge_cases() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			let validator: AccountId = 1;
+			let set_fees = XcmDeliveryFee::get() + SetKeysExecutionCost::get();
+
+			// Invalid keys: deposit not charged
+			hypothetically!({
+				let balance_before = Balances::free_balance(validator);
+				assert_noop!(
+					rc_client::Pallet::<T>::set_keys(
+						RuntimeOrigin::signed(validator),
+						vec![0xff, 0xfe, 0xfd],
+						vec![],
+						None,
+					),
+					rc_client::Error::<T>::InvalidKeys
+				);
+				assert_eq!(key_deposit_hold(validator), 0);
+				assert_eq!(Balances::free_balance(validator), balance_before);
+			});
+
+			// Insufficient balance for deposit
+			hypothetically!({
+				let (keys, proof) = make_session_keys_and_proof(validator);
+				KeyDeposit::set(Balances::free_balance(validator) + 1);
+				assert_noop!(
+					rc_client::Pallet::<T>::set_keys(
+						RuntimeOrigin::signed(validator),
+						keys,
+						proof,
+						None,
+					),
+					DispatchError::Token(frame::runtime::prelude::TokenError::FundsUnavailable)
+				);
+			});
+
+			// Zero deposit: set + purge lifecycle works, no hold placed
+			hypothetically!({
+				KeyDeposit::set(0);
+				let (keys, proof) = make_session_keys_and_proof(validator);
+				let balance_before = Balances::free_balance(validator);
+
+				assert_ok!(rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(validator),
+					keys,
+					proof,
+					None,
+				));
+				assert_eq!(key_deposit_hold(validator), 0);
+				assert_eq!(Balances::free_balance(validator), balance_before - set_fees);
+
+				assert_ok!(rc_client::Pallet::<T>::purge_keys(
+					RuntimeOrigin::signed(validator),
+					None,
+				));
+				assert_eq!(key_deposit_hold(validator), 0);
+			});
+
+			// Purge without prior set_keys: no deposit to release, only XCM fees
+			hypothetically!({
+				let other: AccountId = 3;
+				assert_eq!(key_deposit_hold(other), 0);
+				let balance_before = Balances::free_balance(other);
+				let purge_fees = XcmDeliveryFee::get() + PurgeKeysExecutionCost::get();
+
+				assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(other), None,));
+				assert_eq!(Balances::free_balance(other), balance_before - purge_fees);
+			});
+		});
+	}
+
+	#[test]
+	fn purge_keys_on_rc_does_not_release_ah_deposit() {
+		shared::put_ah_state(ExtBuilder::default().build());
+		shared::put_rc_state(rc::ExtBuilder::default().session_keys(vec![1]).build());
+
+		let validator: AccountId = 1;
+		let deposit = KeyDeposit::get();
+
+		// GIVEN: Validator sets keys on AH (deposit is held).
+		shared::in_ah(|| {
+			let (keys, proof) = make_session_keys_and_proof(validator);
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				keys,
+				proof,
+				None,
+			));
+			assert_eq!(key_deposit_hold(validator), deposit);
+		});
+
+		// WHEN: Keys are purged directly on RC (bypassing AH).
+		shared::in_rc(|| {
+			assert_ok!(pallet_session::Pallet::<rc::Runtime>::purge_keys(
+				rc::RuntimeOrigin::signed(validator),
+			));
+			let next_keys = pallet_session::NextKeys::<rc::Runtime>::get(validator);
+			assert!(next_keys.is_none(), "Keys should be purged on RC");
+		});
+
+		// THEN: The AH deposit is still held — only AH's purge_keys releases it.
+		shared::in_ah(|| {
+			assert_eq!(key_deposit_hold(validator), deposit);
+		});
+	}
+
 	/// End-to-end test: set keys on AssetHub, verify on RelayChain, then purge and verify.
 	#[test]
 	fn set_and_purge_keys_e2e() {
@@ -1920,4 +2117,303 @@ mod session_keys {
 			assert!(next_keys.is_none(), "Keys should be purged on RC");
 		});
 	}
+}
+
+/// Mirrors the DAP drip setup migration logic.
+struct LastInflationTs;
+impl frame_support::traits::Get<u64> for LastInflationTs {
+	fn get() -> u64 {
+		ActiveEra::<T>::get().and_then(|e| e.start).unwrap_or(0)
+	}
+}
+
+/// Provides the initial DAP budget (85 staker / 15 buffer / 0 incentive) for the migration.
+struct InitialBudget;
+impl frame_support::traits::Get<pallet_dap::BudgetAllocationMap> for InitialBudget {
+	fn get() -> pallet_dap::BudgetAllocationMap {
+		build_budget(&[(staker_reward_key(), 85), (buffer_key(), 15)])
+	}
+}
+
+/// E2E: legacy → DAP (no incentive) → DAP (with validator incentive).
+///
+/// Budget splits are staker/incentive/treasury throughout:
+/// - Legacy (minting): 85/0/15
+/// - DAP without incentive: 85/0/15
+/// - DAP with incentive: 65/20/15
+///
+/// Era 0: legacy 85/0/15.
+/// Era 1: DAP 85/0/15. First DAP era, no incentive.
+/// Era 2: governance sets incentive config + budget 65/20/15. Transition era.
+/// Era 3: full 65/20/15 — weights picked up from era 2 election.
+#[test]
+fn legacy_to_dap_era_payout_e2e() {
+	// Phase 1: Legacy mode
+	UseLegacyEraPayout::set(true);
+	LegacyStakerPercent::set(85);
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// Validator 5: own=100, nominator 110=100, total=200 (50/50 stake split).
+		let alice: AccountId = 5; // validator
+		let bob: AccountId = 110; // nominator backing alice
+
+		for v in [3u64, 5, 6, 8] {
+			staking_async::Payee::<T>::insert(v, staking_async::RewardDestination::Stash);
+		}
+		// Also set nominator payee to Stash so rewards don't change stake between eras.
+		staking_async::Payee::<T>::insert(bob, staking_async::RewardDestination::Stash);
+
+		let set_reward_points = |era: u32| {
+			staking_async::ErasRewardPoints::<T>::mutate(era, |points| {
+				points.total = 4;
+				for v in [3, 5, 6, 8] {
+					points.individual.try_insert(v, 1).unwrap();
+				}
+			});
+		};
+
+		// -- Era 0 (legacy 85/0/15) --
+
+		roll_until_next_active(1);
+		assert_eq!(Rotator::<T>::active_era(), 1);
+		assert_eq!(DisableMintingGuard::<T>::get(), None);
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::SessionRotated { starting_session: 2, active_era: 0, planned_era: 1 },
+				StakingEvent::PagedElectionProceeded { page: 2, result: Ok(4) },
+				StakingEvent::PagedElectionProceeded { page: 1, result: Ok(0) },
+				StakingEvent::PagedElectionProceeded { page: 0, result: Ok(0) },
+				StakingEvent::SessionRotated { starting_session: 3, active_era: 0, planned_era: 1 },
+				StakingEvent::SessionRotated { starting_session: 4, active_era: 0, planned_era: 1 },
+				StakingEvent::SessionRotated { starting_session: 5, active_era: 0, planned_era: 1 },
+				StakingEvent::SessionRotated { starting_session: 6, active_era: 0, planned_era: 1 },
+				// 27 blocks × 12_000ms = 324_000ms. 85% = 275_400 staker, 15% = 48_600 treasury.
+				StakingEvent::EraPaid { era_index: 0, validator_payout: 275400, remainder: 48600 },
+				StakingEvent::SessionRotated { starting_session: 7, active_era: 1, planned_era: 2 },
+			]
+		);
+
+		// -- Switch to DAP 85/0/15 mid-era via runtime upgrade migration --
+		// Emulates what AH will do in a real upgrade: `MigrateV1ToV2` seeds
+		// `BudgetAllocation`, backfills a catch-up drip from `ActiveEra.start` to `now`,
+		// then sets `LastIssuanceTimestamp = now` so regular drips resume from here.
+
+		UseLegacyEraPayout::set(false);
+		// ED to keep the general staker pot alive for the catch-up drip.
+		let general_staker =
+			SequentialTest::pot_account(RewardPot::General(RewardKind::StakerRewards));
+		Balances::mint_into(&general_staker, 1).unwrap();
+
+		// Roll 5 blocks into era 1 so the migration has a non-trivial elapsed window to
+		// backfill: `elapsed = now - ActiveEra.start`.
+		let era_1_start = ActiveEra::<T>::get().and_then(|e| e.start).unwrap();
+		roll_many(5);
+		let before_migration = MockTime::get();
+		let expected_elapsed = before_migration - era_1_start;
+		assert_eq!(expected_elapsed, 5 * BLOCK_TIME);
+
+		// Reset `LastIssuanceTimestamp` to 0 so the migration sees a fresh DAP install
+		pallet_dap::LastIssuanceTimestamp::<T>::kill();
+		let pot_before_migration = Balances::total_balance(&general_staker);
+
+		// Run the migration.
+		use frame_support::traits::UncheckedOnRuntimeUpgrade;
+		let _ = pallet_dap::migrations::InnerMigrateV1ToV2::<
+			T,
+			LastInflationTs,
+			InitialBudget,
+			frame_support::traits::ConstU64<{ 6 * 12_000 }>,
+		>::on_runtime_upgrade();
+
+		// Migration seeded the budget and anchored `LastIssuanceTimestamp` at `now`.
+		assert!(!pallet_dap::BudgetAllocation::<T>::get().is_empty());
+		assert_eq!(pallet_dap::LastIssuanceTimestamp::<T>::get(), before_migration);
+
+		// Catch-up drip minted 1 token/ms × elapsed; 85% → staker pot.
+		let expected_backfill_to_staker =
+			Perbill::from_percent(85).mul_floor(expected_elapsed as u128);
+		assert_eq!(
+			Balances::total_balance(&general_staker) - pot_before_migration,
+			expected_backfill_to_staker
+		);
+
+		// Regular drips resume per block from here: one `roll_next` → +1 block of drip.
+		let pot_after_migration = Balances::total_balance(&general_staker);
+		roll_next();
+		let expected_per_block_drip = Perbill::from_percent(85).mul_floor(BLOCK_TIME as u128);
+		assert_eq!(
+			Balances::total_balance(&general_staker) - pot_after_migration,
+			expected_per_block_drip
+		);
+
+		// Switching to DAP mode alone doesn't flip the guard; it only flips when the
+		// first DAP era ends (snapshotted into an era pot).
+		assert!(DisableMintingGuard::<T>::get().is_none());
+
+		// -- Era 1 (DAP 85/0/15, no incentive) --
+
+		set_reward_points(1);
+		let _ = staking_events_since_last_call();
+		roll_until_next_active(7);
+		assert_eq!(Rotator::<T>::active_era(), 2);
+		// Era 1 just ended in DAP mode → guard flips to Some(1).
+		assert_eq!(DisableMintingGuard::<T>::get(), Some(1));
+
+		// Same 85% split as legacy, same era duration → identical total staker reward.
+		assert_eq!(ErasValidatorReward::<T>::get(1).unwrap(), 275400);
+		assert_eq!(ErasValidatorIncentiveBudget::<T>::get(1), 0);
+
+		// Payout alice (validator 5): 4 validators with equal points, 0% commission.
+		// Per-validator share = 275400 / 4 = 68850.
+		// Alice has 50% own stake → validator reward = 34425, nominator reward = 34425.
+		let pre_issuance = Balances::total_issuance();
+		let alice_before = Balances::total_balance(&alice);
+		let bob_before = Balances::total_balance(&bob);
+		let _ = staking_events_since_last_call();
+		assert_ok!(staking_async::Pallet::<T>::payout_stakers(
+			RuntimeOrigin::signed(999),
+			alice,
+			1,
+		));
+		assert_eq!(Balances::total_issuance(), pre_issuance); // DAP: no new mint
+
+		let era1_alice = Balances::total_balance(&alice) - alice_before;
+		let era1_bob = Balances::total_balance(&bob) - bob_before;
+		assert_eq!(era1_alice, 34425);
+		assert_eq!(era1_bob, 34425);
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::PayoutStarted {
+					era_index: 1,
+					validator_stash: alice,
+					page: 0,
+					next: None,
+				},
+				StakingEvent::Rewarded {
+					stash: alice,
+					dest: staking_async::RewardDestination::Stash,
+					amount: era1_alice,
+				},
+				StakingEvent::Rewarded {
+					stash: bob,
+					dest: staking_async::RewardDestination::Stash,
+					amount: era1_bob,
+				},
+			]
+		);
+
+		// -- Governance: enable incentive, budget goes to 65/20/15 --
+		// Era 2's election already happened (during era 1) without config so era 2 won't
+		// have incentive weights. Era 3's election runs during era 2 and picks them up.
+
+		assert_ok!(Staking::set_validator_self_stake_incentive_config(
+			RuntimeOrigin::root(),
+			staking_async::ConfigOp::Set(30),   // OptimumSelfStake
+			staking_async::ConfigOp::Set(1000), // HardCapSelfStake
+			staking_async::ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
+		));
+		pallet_dap::BudgetAllocation::<T>::put(build_budget(&[
+			(staker_reward_key(), 65),
+			(validator_incentive_key(), 20),
+			(buffer_key(), 15),
+		]));
+		Balances::mint_into(
+			&SequentialTest::pot_account(RewardPot::General(RewardKind::ValidatorSelfStake)),
+			1,
+		)
+		.unwrap();
+
+		// -- Era 2 (transition — no incentive weights yet, skip payout) --
+
+		set_reward_points(2);
+		let _ = staking_events_since_last_call();
+		roll_until_next_active(13);
+		assert_eq!(Rotator::<T>::active_era(), 3);
+
+		// -- Era 3 (full 65/20/15) --
+
+		set_reward_points(3);
+		let _ = staking_events_since_last_call();
+		roll_until_next_active(19);
+		assert_eq!(Rotator::<T>::active_era(), 4);
+
+		assert_eq!(ErasValidatorReward::<T>::get(3).unwrap(), 210600); // 65%
+		assert_eq!(ErasValidatorIncentiveBudget::<T>::get(3), 64800); // 20%
+
+		// Payout alice for era 3.
+		// Staker share per validator = 210600 / 4 = 52650. Split 50/50 → 26325 each.
+		// Incentive per validator = 64800 / 4 = 16200. Goes entirely to alice.
+		let pre_issuance = Balances::total_issuance();
+		let alice_before = Balances::total_balance(&alice);
+		let bob_before = Balances::total_balance(&bob);
+		let _ = staking_events_since_last_call();
+		assert_ok!(staking_async::Pallet::<T>::payout_stakers(
+			RuntimeOrigin::signed(999),
+			alice,
+			3,
+		));
+		assert_eq!(Balances::total_issuance(), pre_issuance); // DAP: no new mint
+
+		let era3_alice_staker = 26325u128; // 52650 * 50%
+		let era3_alice_incentive = 16200u128; // 64800 / 4
+		let era3_bob = 26325u128; // 52650 * 50%
+		assert_eq!(
+			Balances::total_balance(&alice) - alice_before,
+			era3_alice_staker + era3_alice_incentive
+		);
+		assert_eq!(Balances::total_balance(&bob) - bob_before, era3_bob);
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::PayoutStarted {
+					era_index: 3,
+					validator_stash: alice,
+					page: 0,
+					next: None,
+				},
+				StakingEvent::ValidatorIncentivePaid {
+					era: 3,
+					validator_stash: alice,
+					dest: staking_async::RewardDestination::Stash,
+					amount: era3_alice_incentive,
+				},
+				StakingEvent::Rewarded {
+					stash: alice,
+					dest: staking_async::RewardDestination::Stash,
+					amount: era3_alice_staker,
+				},
+				StakingEvent::Rewarded {
+					stash: bob,
+					dest: staking_async::RewardDestination::Stash,
+					amount: era3_bob,
+				},
+			]
+		);
+
+		// -- Key comparisons across eras --
+		// All eras have identical total issuance rate (324_000 tokens/era).
+
+		// 1) Legacy and DAP produce identical staker rewards with same budget. legacy era 0 staker
+		//    payout = DAP era 1 staker payout = 275400.
+
+		// 2) Validator reward increases with incentive. era 1: alice got 34425 (staker only). era
+		//    3: alice got 26325 + 16200 = 42525 (staker + incentive). +23.5% increase.
+		assert_eq!(era1_alice, 34425);
+		assert_eq!(era3_alice_staker + era3_alice_incentive, 42525);
+		assert!(era3_alice_staker + era3_alice_incentive > era1_alice);
+
+		// 3) Nominator reward decreases (staker budget dropped 85→65%). era 1: bob got 34425. era
+		//    3: bob got 26325. -23.5% decrease.
+		assert_eq!(era1_bob, 34425);
+		assert_eq!(era3_bob, 26325);
+		assert!(era3_bob < era1_bob);
+
+		// 4) Treasury/buffer portion stays at 15% across all phases. legacy: remainder=48600 (15%
+		//    of 324000). DAP: buffer gets 15% of each era's issuance.
+
+		// 5) Total inflation is the same — just distributed differently. era 1 total per-validator:
+		//    34425 + 34425 = 68850. era 3 total per-validator: 42525 + 26325 = 68850. Same!
+		assert_eq!(era1_alice + era1_bob, era3_alice_staker + era3_alice_incentive + era3_bob);
+	});
 }
