@@ -8,7 +8,6 @@ use frame_support::{ensure, BoundedVec};
 use snowbridge_core::{AgentIdOf, ParaId, TokenId, TokenIdOf};
 
 use crate::v2::{
-	converter::TARGET,
 	message::{Command, Message},
 	ContractCall,
 };
@@ -256,7 +255,6 @@ where
 		ensure!(origin_location != &asset_hub_location, InvalidOrigin);
 
 		let origin = AgentIdOf::convert_location(origin_location).ok_or(InvalidOrigin)?;
-		tracing::trace!(target: TARGET,"Origin resolved to {:?}", origin);
 
 		let (deposit_assets, beneficiary) = match_expression!(
 			self.next()?,
