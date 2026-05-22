@@ -1,24 +1,16 @@
 title: Remove deprecated EnsureOneOf type alias
+
 doc:
-- audience: Runtime Dev
-  description: |-
-    # Description
+  - audience: Runtime Dev
+    description: |
+      Removes deprecated `frame_support::EnsureOneOf`, which was an alias for
+      `EitherOfDiverse`. Use `EitherOfDiverse` directly.
 
-    Removes deprecated `frame_support::EnsureOneOf` as part of #11561.
+      ```diff
+      - use frame_support::traits::EnsureOneOf;
+      + use frame_support::traits::EitherOfDiverse;
+      ```
 
-    `EnsureOneOf` was an alias for `EitherOfDiverse` (deprecated in favor of `EitherOfDiverse`). It has no remaining usage in this repository.
-
-    Does not close #11561.
-
-    ## Integration
-
-    ```diff
-    - use frame_support::traits::EnsureOneOf;
-    + use frame_support::traits::EitherOfDiverse;
-    ```
-
-    - 2 files: substrate/frame/support/src/traits/dispatch.rs, traits.rs
-    - Verified no in-repo references before removal
 crates:
-- name: frame-support
-  bump: major
+  - name: frame-support
+    bump: major
