@@ -3105,18 +3105,6 @@ parameter_types! {
 	pub const PsmMinSwapAmount: Balance = 100_000_000;
 	/// PalletId for deriving the PSM system account.
 	pub const PsmPalletId: PalletId = PalletId(*b"py/pegsm");
-	/// Insurance fund account that receives PSM fee revenue.
-	pub PsmInsuranceFundAccount: AccountId =
-		sp_runtime::traits::AccountIdConversion::<AccountId>::into_account_truncating(
-			&PalletId(*b"py/insur"),
-		);
-}
-
-type PsmInternalAsset = ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
-
-parameter_types! {
-	/// No debt ceiling: maximum possible issuance.
-	pub const NoVaultsCeiling: Balance = Balance::MAX;
 }
 
 /// EnsureOrigin implementation for PSM management that supports privilege levels.
@@ -3171,11 +3159,9 @@ impl pallet_psm::BenchmarkHelper<u32, AccountId> for PsmBenchmarkHelper {
 impl pallet_psm::Config for Runtime {
 	type Fungibles = Assets;
 	type AssetId = u32;
-	type MaximumIssuance = NoVaultsCeiling;
 	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = pallet_psm::weights::SubstrateWeight<Runtime>;
-	type InternalAsset = PsmInternalAsset;
-	type FeeDestination = PsmInsuranceFundAccount;
+	type InternalAssetId = PsmStablecoinAssetId;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = PsmMinSwapAmount;
 	type MaxExternalAssets = ConstU32<10>;

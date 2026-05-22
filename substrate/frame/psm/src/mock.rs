@@ -48,14 +48,8 @@ pub const DAI_UNIT: u128 = 1_000_000_000_000_000_000;
 
 // Initial balances for testing
 pub const INITIAL_BALANCE: u128 = 1_000_000 * INTERNAL_UNIT; // 1M units
-
-parameter_types! {
-	pub static MockMaximumIssuance: u128 = 10_000_000 * INTERNAL_UNIT;
-}
-
-pub fn set_mock_maximum_issuance(value: u128) {
-	MockMaximumIssuance::set(value);
-}
+/// Default per-instance debt ceiling at genesis: 50% of the legacy 20M issuance cap.
+pub const DEFAULT_MAX_DEBT: u128 = 10_000_000 * INTERNAL_UNIT;
 
 #[frame_support::runtime]
 mod test_runtime {
@@ -113,7 +107,6 @@ impl pallet_assets::Config for Test {
 
 parameter_types! {
 	pub const InternalAssetId: u32 = INTERNAL_ASSET_ID;
-	pub const InsuranceFundAccount: u64 = INSURANCE_FUND;
 	pub const MinSwapAmount: u128 = 100 * INTERNAL_UNIT;
 	pub const PsmPalletId: PalletId = PalletId(*b"py/psm!!");
 }
@@ -170,11 +163,9 @@ impl crate::BenchmarkHelper<u32, u64> for PsmBenchmarkHelper {
 impl crate::Config for Test {
 	type Fungibles = Assets;
 	type AssetId = u32;
-	type MaximumIssuance = MockMaximumIssuance;
 	type ManagerOrigin = MockManagerOrigin;
 	type WeightInfo = ();
-	type InternalAsset = frame_support::traits::fungible::ItemOf<Assets, InternalAssetId, u64>;
-	type FeeDestination = InsuranceFundAccount;
+	type InternalAssetId = InternalAssetId;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = MinSwapAmount;
 	type MaxExternalAssets = ConstU32<10>;
@@ -228,7 +219,8 @@ pub fn new_test_ext() -> TestState {
 	.unwrap();
 
 	crate::GenesisConfig::<Test> {
-		max_psm_debt_of_total: Permill::from_percent(50),
+		fee_destination: Some(INSURANCE_FUND),
+		max_debt: DEFAULT_MAX_DEBT,
 		asset_configs: [
 			(
 				USDC_ASSET_ID,
@@ -250,7 +242,6 @@ pub fn new_test_ext() -> TestState {
 
 	ext.execute_with(|| {
 		System::set_block_number(1);
-		set_mock_maximum_issuance(20_000_000 * INTERNAL_UNIT);
 	});
 
 	ext
@@ -301,8 +292,12 @@ pub fn set_redemption_fee(asset_id: u32, fee: Permill) {
 	crate::RedemptionFee::<Test>::insert(asset_id, fee);
 }
 
-pub fn set_max_psm_debt_ratio(ratio: Permill) {
-	crate::MaxPsmDebtOfTotal::<Test>::put(ratio);
+pub fn set_max_debt(value: u128) {
+	crate::Psms::<Test>::mutate(INTERNAL_ASSET_ID, |maybe| {
+		if let Some(info) = maybe.as_mut() {
+			info.max_debt = value;
+		}
+	});
 }
 
 pub fn set_asset_ceiling_weight(asset_id: u32, weight: Permill) {

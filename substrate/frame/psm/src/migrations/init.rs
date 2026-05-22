@@ -39,17 +39,14 @@ use alloc::collections::btree_map::BTreeMap;
 use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::{Get, Weight},
-	traits::{
-		fungible::metadata::Inspect as FungibleMetadataInspect,
-		fungibles::metadata::Inspect as FungiblesMetadataInspect,
-	},
+	traits::fungibles::metadata::Inspect as FungiblesMetadataInspect,
 };
 use sp_runtime::Permill;
 
 use crate::{
 	pallet::{
-		AssetCeilingWeight, CircuitBreakerLevel, ExternalAssets, ExternalDecimals,
-		InternalDecimals, MaxPsmDebtOfTotal, MintingFee, RedemptionFee, MAX_DECIMALS_DIFF,
+		AssetCeilingWeight, BalanceOf, CircuitBreakerLevel, ExternalAssets, ExternalDecimals,
+		MintingFee, PsmInfo, Psms, RedemptionFee, MAX_DECIMALS_DIFF,
 	},
 	Config, Pallet,
 };
@@ -66,8 +63,11 @@ const LOG_TARGET: &str = "runtime::psm::migration";
 /// Implement this trait in your runtime to provide the initial values used by
 /// [`InitializePsm`].
 pub trait InitialPsmConfig<T: Config> {
-	/// Max PSM debt as a fraction of MaximumIssuance.
-	fn max_psm_debt_of_total() -> Permill;
+	/// Account receiving minting and redemption fees, denominated in the internal asset.
+	fn fee_destination() -> T::AccountId;
+
+	/// Absolute internal-asset debt ceiling for the instance.
+	fn max_debt() -> BalanceOf<T>;
 
 	/// Per-asset configuration:
 	/// - minting fee
@@ -81,12 +81,12 @@ pub trait InitialPsmConfig<T: Config> {
 /// Idempotent migration to initialize PSM pallet parameters.
 ///
 /// This migration:
-/// 1. Sets `MaxPsmDebtOfTotal`
+/// 1. Inserts the [`PsmInfo`] record for [`Config::InternalAssetId`] if missing.
 /// 2. For each configured external asset, checks if it already exists. If not, adds it with
 ///    `AllEnabled` status and the configured fees and ceiling weight.
-/// 3. Ensures the PSM and fee destination accounts exist
+/// 3. Ensures the PSM and fee destination accounts exist.
 ///
-/// Safe to run multiple times — existing assets are not overwritten.
+/// Safe to run multiple times — existing state is not overwritten.
 pub struct InitializePsm<T, I>(core::marker::PhantomData<(T, I)>);
 
 impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
@@ -102,22 +102,23 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 		let mut reads = 0u64;
 		let mut writes = 0u64;
 
+		let internal_asset = T::InternalAssetId::get();
+		let internal_decimals = T::Fungibles::decimals(internal_asset.clone());
+		let fee_destination = I::fee_destination();
+
 		reads += 1;
-		if !MaxPsmDebtOfTotal::<T>::exists() {
-			MaxPsmDebtOfTotal::<T>::put(I::max_psm_debt_of_total());
+		if !Psms::<T>::contains_key(&internal_asset) {
+			Psms::<T>::insert(
+				&internal_asset,
+				PsmInfo::<T> {
+					fee_destination: fee_destination.clone(),
+					max_debt: I::max_debt(),
+					internal_decimals,
+				},
+			);
 			writes += 1;
 		}
 
-		// Internal decimals snapshot: populate from live metadata if not yet set.
-		// Per-asset snapshots for pre-existing approved assets are owned by
-		// `super::decimals::PopulateDecimals` — this migration only touches `ExternalDecimals` for
-		// assets it adds as new below.
-		let internal_decimals = T::InternalAsset::decimals();
-		reads += 1;
-		if !InternalDecimals::<T>::exists() {
-			InternalDecimals::<T>::put(internal_decimals);
-			writes += 1;
-		}
 		for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in &asset_configs {
 			reads += 1;
 			// Skip assets that are already configured.
@@ -159,7 +160,7 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 		}
 
 		Pallet::<T>::ensure_account_exists(&Pallet::<T>::account_id());
-		Pallet::<T>::ensure_account_exists(&T::FeeDestination::get());
+		Pallet::<T>::ensure_account_exists(&fee_destination);
 		writes += 2;
 
 		log::info!(
@@ -177,9 +178,12 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+		let info =
+			Psms::<T>::get(T::InternalAssetId::get()).ok_or("PsmInfo missing after migration")?;
+		ensure!(info.max_debt == I::max_debt(), "max_debt mismatch after migration");
 		ensure!(
-			MaxPsmDebtOfTotal::<T>::get() == I::max_psm_debt_of_total(),
-			"MaxPsmDebtOfTotal mismatch after migration"
+			info.fee_destination == I::fee_destination(),
+			"fee_destination mismatch after migration"
 		);
 
 		for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in I::asset_configs() {
@@ -214,14 +218,23 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::{new_test_ext, Assets, Test, ALICE, USDC_ASSET_ID, USDT_ASSET_ID};
+	use crate::mock::{
+		new_test_ext, Assets, Test, ALICE, INSURANCE_FUND, INTERNAL_ASSET_ID, INTERNAL_UNIT,
+		USDC_ASSET_ID, USDT_ASSET_ID,
+	};
 	use frame_support::assert_ok;
+
+	const TEST_MAX_DEBT: u128 = 5_000_000 * INTERNAL_UNIT;
 
 	struct TestPsmConfig;
 
 	impl InitialPsmConfig<Test> for TestPsmConfig {
-		fn max_psm_debt_of_total() -> Permill {
-			Permill::from_percent(25)
+		fn fee_destination() -> u64 {
+			INSURANCE_FUND
+		}
+
+		fn max_debt() -> u128 {
+			TEST_MAX_DEBT
 		}
 
 		fn asset_configs() -> BTreeMap<u32, (Permill, Permill, Permill)> {
@@ -249,8 +262,7 @@ mod tests {
 	}
 
 	fn clear_all_psm_state() {
-		MaxPsmDebtOfTotal::<Test>::kill();
-		InternalDecimals::<Test>::kill();
+		Psms::<Test>::remove(INTERNAL_ASSET_ID);
 		ExternalAssets::<Test>::remove(USDC_ASSET_ID);
 		ExternalAssets::<Test>::remove(USDT_ASSET_ID);
 		MintingFee::<Test>::remove(USDC_ASSET_ID);
@@ -265,19 +277,19 @@ mod tests {
 
 	#[test]
 	fn initialize_psm_configures_new_assets() {
-		use frame_support::traits::{
-			fungible::metadata::Inspect as _, fungibles::metadata::Inspect as _, OnRuntimeUpgrade,
-		};
+		use frame_support::traits::{fungibles::metadata::Inspect as _, OnRuntimeUpgrade};
 
 		new_test_ext().execute_with(|| {
 			clear_all_psm_state();
 
 			InitializePsm::<Test, TestPsmConfig>::on_runtime_upgrade();
 
-			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), TestPsmConfig::max_psm_debt_of_total());
+			let info = Psms::<Test>::get(INTERNAL_ASSET_ID).expect("PsmInfo populated");
+			assert_eq!(info.fee_destination, TestPsmConfig::fee_destination());
+			assert_eq!(info.max_debt, TestPsmConfig::max_debt());
 			assert_eq!(
-				InternalDecimals::<Test>::get(),
-				Some(<Test as Config>::InternalAsset::decimals())
+				info.internal_decimals,
+				<Test as Config>::Fungibles::decimals(INTERNAL_ASSET_ID)
 			);
 
 			for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in
@@ -300,34 +312,18 @@ mod tests {
 	}
 
 	#[test]
-	fn initialize_psm_populates_internal_decimals_when_missing() {
-		use frame_support::traits::{fungible::metadata::Inspect as _, OnRuntimeUpgrade};
-
-		new_test_ext().execute_with(|| {
-			// InternalDecimals was populated by genesis; clear it to simulate a
-			// pre-decimal-snapshot deployment where the migration must seed it.
-			InternalDecimals::<Test>::kill();
-
-			InitializePsm::<Test, TestPsmConfig>::on_runtime_upgrade();
-
-			assert_eq!(
-				InternalDecimals::<Test>::get(),
-				Some(<Test as Config>::InternalAsset::decimals())
-			);
-		});
-	}
-
-	#[test]
-	fn initialize_psm_preserves_existing_internal_decimals() {
+	fn initialize_psm_preserves_existing_psm_info() {
 		use frame_support::traits::OnRuntimeUpgrade;
 
 		new_test_ext().execute_with(|| {
-			// Plant a sentinel (non-live) value. The migration must not overwrite.
-			InternalDecimals::<Test>::put(42u8);
+			// Plant a sentinel `PsmInfo`. The migration must not overwrite it.
+			let sentinel =
+				PsmInfo::<Test> { fee_destination: ALICE, max_debt: 42, internal_decimals: 42 };
+			Psms::<Test>::insert(INTERNAL_ASSET_ID, sentinel.clone());
 
 			InitializePsm::<Test, TestPsmConfig>::on_runtime_upgrade();
 
-			assert_eq!(InternalDecimals::<Test>::get(), Some(42));
+			assert_eq!(Psms::<Test>::get(INTERNAL_ASSET_ID), Some(sentinel));
 		});
 	}
 
@@ -398,8 +394,11 @@ mod tests {
 
 			struct MixedDecimalsConfig;
 			impl InitialPsmConfig<Test> for MixedDecimalsConfig {
-				fn max_psm_debt_of_total() -> Permill {
-					Permill::from_percent(50)
+				fn fee_destination() -> u64 {
+					INSURANCE_FUND
+				}
+				fn max_debt() -> u128 {
+					TEST_MAX_DEBT
 				}
 				fn asset_configs() -> BTreeMap<u32, (Permill, Permill, Permill)> {
 					[
@@ -445,7 +444,9 @@ mod tests {
 			InitializePsm::<Test, TestPsmConfig>::on_runtime_upgrade();
 
 			// Same result as running once.
-			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), TestPsmConfig::max_psm_debt_of_total());
+			let info = Psms::<Test>::get(INTERNAL_ASSET_ID).expect("PsmInfo populated");
+			assert_eq!(info.max_debt, TestPsmConfig::max_debt());
+			assert_eq!(info.fee_destination, TestPsmConfig::fee_destination());
 			for (asset_id, _) in TestPsmConfig::asset_configs() {
 				assert_eq!(
 					ExternalAssets::<Test>::get(asset_id),
