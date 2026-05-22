@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779460443737,
+  "lastUpdate": 1779465750359,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "Denzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5f69bea23dcd527dc22b696b3a7e7e5ee47e8083",
-          "message": "chore: add issue numbers to flaky zombienet tests (#9957)\n\n# Description\n#9877 Improve tracking of disabled tests, add link to tracking issue.\n\n# Checklist\n\n* [x] Improve tracking of disabled tests, add link to tracking issue.\n\n---------\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2025-10-09T20:00:03Z",
-          "tree_id": "a9e08b82b5b3e5f06f6f1a303662a46ce3b63fd5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5f69bea23dcd527dc22b696b3a7e7e5ee47e8083"
-        },
-        "date": 1760044100932,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022486596986666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012961792686666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15630258008000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007224681060000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02364734192,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "21db4b68e769b4bd9654a76e328c741a33c21d5c",
+          "message": "Bump spec_version (#12165)\n\nThis PR backports bumped spec_version of Westend runtimes after the\nlatest upgrade",
+          "timestamp": "2026-05-22T13:47:59Z",
+          "tree_id": "b176ac327741d51f1c15836351d6afaf40858591",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/21db4b68e769b4bd9654a76e328c741a33c21d5c"
+        },
+        "date": 1779465721591,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007567357026666669,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14574581462666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010122473126666644,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02375774262,
             "unit": "seconds"
           }
         ]
