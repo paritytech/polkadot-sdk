@@ -32,8 +32,12 @@ use pallet_revive::{
 use sp_core::H256;
 use sp_timestamp::Timestamp;
 use subxt::{
-	Error::Metadata, OnlineClient, backend::legacy::LegacyRpcMethods, error::MetadataError,
-	ext::subxt_core, ext::subxt_rpcs::UserError, runtime_api::Payload,
+	Error::Metadata,
+	OnlineClient,
+	backend::legacy::LegacyRpcMethods,
+	error::MetadataError,
+	ext::{subxt_core, subxt_rpcs::UserError},
+	runtime_api::Payload,
 };
 
 const LOG_TARGET: &str = "eth-rpc::runtime_api";
@@ -285,8 +289,7 @@ impl RuntimeApi {
 			.unvalidated();
 
 		if self.revive_api_version().await? >= REVIVE_API_V2 {
-			let trace =
-				self.api.call(payload).await?.ok_or(ClientError::EthExtrinsicNotFound)?.0;
+			let trace = self.api.call(payload).await?.ok_or(ClientError::EthExtrinsicNotFound)?.0;
 			return Ok(trace);
 		}
 
@@ -339,20 +342,15 @@ impl RuntimeApi {
 		if let Some(overrides) = state_overrides {
 			// trace_call_with_config only exists on ReviveApi v2+.
 			if !is_v2 {
-				return Err(ClientError::Other(
-					"state_overrides require ReviveApi v2+".into(),
-				));
+				return Err(ClientError::Other("state_overrides require ReviveApi v2+".into()));
 			}
 			let config = TracingConfig::new().with_state_overrides(overrides);
 			let payload = subxt_client::apis()
 				.revive_api()
 				.trace_call_with_config(transaction.into(), tracer_type.into(), config.into())
 				.unvalidated();
-			let trace = self
-				.api
-				.call(payload)
-				.await?
-				.map_err(|err| ClientError::TransactError(err.0))?;
+			let trace =
+				self.api.call(payload).await?.map_err(|err| ClientError::TransactError(err.0))?;
 			return Ok(trace.0);
 		}
 
@@ -377,10 +375,7 @@ impl RuntimeApi {
 	/// Encode the args from an existing subxt payload and invoke the wasm runtime function by
 	/// name, returning the raw SCALE response bytes. Used by the V1 fallback paths so they share
 	/// arg-encoding with the V2 callsite (only the response shape differs across the bump).
-	async fn call_raw_with_payload<P: Payload>(
-		&self,
-		payload: &P,
-	) -> Result<Vec<u8>, ClientError> {
+	async fn call_raw_with_payload<P: Payload>(&self, payload: &P) -> Result<Vec<u8>, ClientError> {
 		let metadata = self.client.metadata();
 		let function = subxt_core::runtime_api::call_name(payload);
 		let args = subxt_core::runtime_api::call_args(payload, &metadata)

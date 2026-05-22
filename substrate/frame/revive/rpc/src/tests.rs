@@ -1927,12 +1927,7 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		.connect_with(SqliteConnectOptions::new().in_memory(true))
 		.await?;
 
-<<<<<<< HEAD
 	let receipt_extractor = ReceiptExtractor::new(api.clone(), rpc.clone()).await?;
-	let receipt_provider =
-		ReceiptProvider::new(pool, block_provider.clone(), receipt_extractor, None).await?;
-=======
-	let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
 	let receipt_provider = ReceiptProvider::new(
 		DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER),
 		block_provider.clone(),
@@ -1940,7 +1935,6 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		None,
 	)
 	.await?;
->>>>>>> origin/master
 
 	let (subscription_gap_queue, gap_fill_rx) = SubscriptionGapQueue::new();
 	let client = Client::new(

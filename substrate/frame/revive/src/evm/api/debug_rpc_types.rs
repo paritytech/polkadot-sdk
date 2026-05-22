@@ -1064,8 +1064,7 @@ impl CallTraceV1 {
 				upgraded
 			})
 			.collect();
-		let calls =
-			calls.into_iter().map(|call| call.upgrade_with_indices(next_index)).collect();
+		let calls = calls.into_iter().map(|call| call.upgrade_with_indices(next_index)).collect();
 		CallTrace {
 			from,
 			gas,
