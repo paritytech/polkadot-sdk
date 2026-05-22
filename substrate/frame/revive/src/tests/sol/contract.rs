@@ -701,19 +701,23 @@ fn instantiate_from_constructor_works() {
 	});
 }
 
-/// SELFDESTRUCT of a Root-instantiated contract in the same tx must terminate
-/// cleanly. `do_terminate` previously called `origin.account_id()?` and silently
-/// failed under Root (the error was swallowed by `.ok()` at the call site),
-/// leaving the contract on-chain after a "successful" call.
+/// Root creates a contract via nested CREATE in block N and destroys it via the
+/// system precompile in block N+1. Exercises the full `do_terminate` path under
+/// Root and confirms the deposit waiver holds across both calls.
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
-fn root_call_can_nested_instantiate_and_destroy(
-	caller_type: FixtureType,
-	callee_type: FixtureType,
-) {
-	use crate::{AccountInfo, Pallet, address::create1, test_utils::DJANGO_ADDR, tests::System};
+fn root_call_can_create_and_destroy_in_next_block(caller_type: FixtureType, callee_type: FixtureType) {
+	use crate::{
+		AccountInfo, HoldReason, Pallet,
+		address::{AddressMapper, create1},
+		test_utils::DJANGO_ADDR,
+		tests::{System, initialize_block, test_utils::get_balance_on_hold},
+	};
 	use alloy_core::primitives::Address;
-	use pallet_revive_fixtures::NestedDeployer::{NestedDeployerCalls, deployAndDestroyChildCall};
+	use pallet_revive_fixtures::{
+		NestedChild::{NestedChildCalls, destroyViaPrecompileCall},
+		NestedDeployer::{NestedDeployerCalls, deployChildCall},
+	};
 
 	let (code, _) = compile_module_with_type("NestedDeployer", caller_type).unwrap();
 
@@ -734,31 +738,53 @@ fn root_call_can_nested_instantiate_and_destroy(
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 		let _ = <Test as Config>::Currency::set_balance(&account_id, 100_000_000_000_000);
 
-		let data = NestedDeployerCalls::deployAndDestroyChild(deployAndDestroyChildCall {
-			beneficiary: DJANGO_ADDR.0.into(),
-		})
-		.abi_encode();
+		// Snapshot balances/holds the two Root calls must not touch.
+		let storage_hold = HoldReason::StorageDepositReserve.into();
+		let upload_hold = HoldReason::CodeUploadDepositReserve.into();
+		let pallet_account = Pallet::<Test>::account_id();
+		let deployer_storage_hold_before = get_balance_on_hold(&storage_hold, &account_id);
+		let deployer_free_before = <<Test as Config>::Currency as Inspect<_>>::balance(&account_id);
+		let pallet_upload_hold_before = get_balance_on_hold(&upload_hold, &pallet_account);
 
+		// Block 1: Root creates the child via nested CREATE.
 		let deployer_nonce = System::account_nonce(&account_id);
-		let expected = create1(&addr, deployer_nonce.into());
-
-		let result = builder::bare_call(addr)
+		let child_addr = create1(&addr, deployer_nonce.into());
+		let create_result = builder::bare_call(addr)
 			.origin(RuntimeOrigin::root())
-			.data(data)
+			.data(NestedDeployerCalls::deployChild(deployChildCall {}).abi_encode())
 			.build_and_unwrap_result();
-		assert!(!result.did_revert(), "Root nested CREATE + SELFDESTRUCT should succeed");
+		assert!(!create_result.did_revert());
+		let returned: Address = deployChildCall::abi_decode_returns(&create_result.data).unwrap();
+		assert_eq!(H160::from_slice(returned.as_slice()), child_addr);
+		assert!(AccountInfo::<Test>::load_contract(&child_addr).is_some());
 
-		let returned: Address =
-			deployAndDestroyChildCall::abi_decode_returns(&result.data).unwrap();
-		assert_eq!(H160::from_slice(returned.as_slice()), expected);
+		// Block 2: Root tells the child to self-terminate via the system precompile.
+		initialize_block(System::block_number() + 1);
+		let destroy_result = builder::bare_call(child_addr)
+			.origin(RuntimeOrigin::root())
+			.data(
+				NestedChildCalls::destroyViaPrecompile(destroyViaPrecompileCall {
+					beneficiary: DJANGO_ADDR.0.into(),
+				})
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert!(!destroy_result.did_revert(), "Root cross-tx terminate should succeed");
 
-		// EIP-6780: created-and-destroyed in the same tx must actually remove the
-		// contract. Before the do_terminate fix this silently failed under Root and
-		// the ContractInfo stayed put.
 		assert!(
-			AccountInfo::<Test>::load_contract(&expected).is_none(),
-			"child contract must have been terminated, not silently left on-chain",
+			AccountInfo::<Test>::load_contract(&child_addr).is_none(),
+			"child must be destroyed by the cross-block terminate call",
 		);
+
+		// Deposits stayed waived across both Root calls.
+		let child_id = <Test as crate::Config>::AddressMapper::to_account_id(&child_addr);
+		assert_eq!(get_balance_on_hold(&storage_hold, &child_id), 0);
+		assert_eq!(get_balance_on_hold(&storage_hold, &account_id), deployer_storage_hold_before);
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&account_id),
+			deployer_free_before,
+		);
+		assert_eq!(get_balance_on_hold(&upload_hold, &pallet_account), pallet_upload_hold_before);
 	});
 }
 

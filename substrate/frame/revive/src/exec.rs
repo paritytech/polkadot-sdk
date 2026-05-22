@@ -1731,7 +1731,7 @@ where
 	) -> Result<(), DispatchError> {
 		let contract_address = T::AddressMapper::to_address(contract_account);
 
-		// If root created this contract we need to use the pallet account_id because root no
+		// If root created this contract we need to use the pallet account_id because root has no
 		// account.
 		let synthetic_origin: Origin<T> = Origin::from_account_id(crate::Pallet::<T>::account_id());
 		let effective_origin: &Origin<T> =
