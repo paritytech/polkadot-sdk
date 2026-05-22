@@ -1,7 +1,19 @@
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use pallet_broker::{market::MarketSaleInfo, CoreIndex, Timeslice};
+use pallet_broker::{
+	market::{MarketSaleInfo, TickAction},
+	CoreIndex, Timeslice,
+};
 use scale_info::TypeInfo;
 use sp_arithmetic::Perbill;
+
+pub(crate) type BalanceOf<T> = <T as crate::Config>::Balance;
+pub(crate) type RelayBlockNumberOf<T> = <T as crate::Config>::RelayBlockNumber;
+pub(crate) type ConfigRecordOf<T> = ConfigRecord<RelayBlockNumberOf<T>, BalanceOf<T>>;
+pub(crate) type SaleInfoRecordOf<T> = SaleInfoRecord<BalanceOf<T>, RelayBlockNumberOf<T>>;
+pub(crate) type TickActionOf<T> =
+	TickAction<<T as frame_system::Config>::AccountId, BalanceOf<T>, RelayBlockNumberOf<T>>;
+
+pub type BidId = u32;
 
 /// Provider of renewal rights information from the broker pallet.
 pub trait RenewalRightsProvider<AccountId> {
@@ -147,7 +159,7 @@ pub enum SalePhase {
 )]
 pub struct BidRecord<AccountId, Balance> {
 	/// Unique identifier for this bid.
-	pub bid_id: u32,
+	pub bid_id: BidId,
 	/// The bidder's account.
 	pub who: AccountId,
 	/// The bid price (amount locked from the bidder).
@@ -164,7 +176,7 @@ pub struct AllocationRecord<AccountId, Balance> {
 	/// The original bid price (used for displacement priority — lowest bid displaced first).
 	pub bid_price: Balance,
 	/// The unique bid ID.
-	pub bid_id: u32,
+	pub bid_id: BidId,
 	/// The core index assigned to this allocation.
 	pub core: CoreIndex,
 }

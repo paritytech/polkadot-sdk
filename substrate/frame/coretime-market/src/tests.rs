@@ -245,7 +245,7 @@ fn adjust_bid_raise_works() {
 		}
 		assert_eq!(
 			last_market_event(),
-			Event::BidRaised { who: 1, bid_id: id, new_price: 180, additional: 30 }
+			Event::BidRaised { who: 1, bid_id: id, old_price: 150, new_price: 180 }
 		);
 	});
 }
