@@ -263,11 +263,6 @@ where
 
 			slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
 
-			let Ok(para_slot_duration) = crate::slot_duration(&*para_client) else {
-				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
-				continue;
-			};
-
 			let relay_parent_offset = para_client
 				.runtime_api()
 				.relay_parent_offset(para_best_hash)
@@ -292,15 +287,6 @@ where
 			let relay_parent_header = relay_parent_data.relay_parent().clone();
 			let relay_parent_hash = relay_parent_header.hash();
 
-			// Use the slot calculated from relay parent
-			let Some(para_slot) = adjust_para_to_relay_parent_slot(
-				&relay_parent_header,
-				relay_chain_slot_duration,
-				para_slot_duration,
-			) else {
-				continue;
-			};
-
 			let Some(parent_search_result) = crate::collators::find_parent(
 				relay_parent_hash,
 				para_id,
@@ -324,6 +310,22 @@ where
 			let initial_parent_header = parent_search_result.best_parent_header;
 			let unincluded_segment_len =
 				initial_parent_header.number().saturating_sub(*included_header.number());
+
+			let Ok(para_slot_duration) =
+				crate::slot_duration_at(&*para_client, initial_parent_hash)
+			else {
+				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
+				continue;
+			};
+
+			// Use the slot calculated from relay parent
+			let Some(para_slot) = adjust_para_to_relay_parent_slot(
+				relay_parent_data.relay_parent(),
+				relay_chain_slot_duration,
+				para_slot_duration,
+			) else {
+				continue;
+			};
 
 			let Ok(max_pov_size) = relay_chain_data_cache
 				.get_by_hash(relay_parent_hash)
