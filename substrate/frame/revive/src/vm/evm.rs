@@ -113,7 +113,7 @@ impl<T: Config> ContractBlob<T> {
 	/// sentinel owner (no user can sign as it, so the code can't be removed via
 	/// the owner-gated path) and a zero deposit (both `charge_deposit` and
 	/// `refund_deposit` short-circuit at amount 0).
-	pub(crate) fn from_evm_runtime_code_with_deposit(
+	pub fn from_evm_runtime_code_with_deposit(
 		code: Vec<u8>,
 		owner: AccountIdOf<T>,
 		deposit: BalanceOf<T>,
