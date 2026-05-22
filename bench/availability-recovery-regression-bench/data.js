@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779460409313,
+  "lastUpdate": 1779465712741,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "45130584+l0r1s@users.noreply.github.com",
-            "name": "Loris Moulin",
-            "username": "l0r1s"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c189613a32a58745993059f2fb73080e460c4ae7",
-          "message": "Fix utility::force_batch returning incorrect weights causing mismatch (#9983)\n\n# Description\n\nThe returned weights from the `pallet_utility::force_batch` dispatch is\nusing `batch` weights instead of its own `force_batch` causing a weight\nmismatch log:\n\n```\n2025-10-03 14:57:48 Post dispatch weight is greater than pre dispatch weight. Pre dispatch weight may underestimating the actual weight. Greater post dispatch weight components are ignored.\n                                        Pre dispatch weight: Weight { ref_time: 5963137729, proof_size: 3997 },\n                                        Post dispatch weight: Weight { ref_time: 5963148560, proof_size: 3997 }    \n2025-10-03 14:59:00 Post dispatch weight is greater than pre dispatch weight. Pre dispatch weight may underestimating the actual weight. Greater post dispatch weight components are ignored.\n                                        Pre dispatch weight: Weight { ref_time: 2837593294, proof_size: 8703 },\n                                        Post dispatch weight: Weight { ref_time: 2837604125, proof_size: 8703 }   \n``` \n\nThis PR correct the returned weights.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-10-10T07:26:12Z",
-          "tree_id": "2b90b30c7bc456f310a278da53e3685fb1413266",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c189613a32a58745993059f2fb73080e460c4ae7"
-        },
-        "date": 1760085142200,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19636513593333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.420675297399999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.92066588203333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "21db4b68e769b4bd9654a76e328c741a33c21d5c",
+          "message": "Bump spec_version (#12165)\n\nThis PR backports bumped spec_version of Westend runtimes after the\nlatest upgrade",
+          "timestamp": "2026-05-22T13:47:59Z",
+          "tree_id": "b176ac327741d51f1c15836351d6afaf40858591",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/21db4b68e769b4bd9654a76e328c741a33c21d5c"
+        },
+        "date": 1779465684105,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14529759006666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.817510985766665,
             "unit": "seconds"
           }
         ]
