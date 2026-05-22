@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779464584371,
+  "lastUpdate": 1779467034944,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -93743,6 +93743,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2925472742,
             "range": "± 54287356",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7ffe2bf0840e351298695317311c8a19f55ed436",
+          "message": "Remove deprecated ToStakingPot from parachains-common (#12131)\n\n# Description\n\nRemoves deprecated `parachains_common::ToStakingPot` as part of #11561.\n\n`ToStakingPot` was deprecated in March 2024 in favor of `ResolveTo`. It\nhas no remaining usage in this repository; `DealWithFees` already routes\nfees via `ResolveTo<StakingPotAccountId<Runtime>, Balances>`.\n\nDoes not close #11561 further deprecations will be removed in separate,\none-item PRs per review feedback.\n\n## Integration\n\nDownstream runtimes that still use `ToStakingPot` must migrate before\nupgrading `parachains-common`:\n\n```diff\n- type OnChargeTransaction = ToStakingPot<Runtime>;\n+ type OnChargeTransaction = ResolveTo<StakingPotAccountId<Runtime>, Balances>;\n```\n## Review Notes\n\n- Single-file change: `cumulus/parachains/common/src/impls.rs`\n- Verified no in-repo references to `ToStakingPot` before removal\n- DealWithFees behavior unchanged\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-05-22T14:16:45Z",
+          "tree_id": "92e38e3487bf9c8aa21e4fed89234361b18ec24a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7ffe2bf0840e351298695317311c8a19f55ed436"
+        },
+        "date": 1779467004888,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21010574,
+            "range": "± 281500",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21490865,
+            "range": "± 257522",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23177781,
+            "range": "± 136202",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28417296,
+            "range": "± 406267",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 63223252,
+            "range": "± 671279",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 349343604,
+            "range": "± 3140093",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2652385307,
+            "range": "± 77522138",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18964308,
+            "range": "± 319689",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18790602,
+            "range": "± 229722",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19610518,
+            "range": "± 238435",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24283528,
+            "range": "± 176672",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62559979,
+            "range": "± 443380",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 359765816,
+            "range": "± 4294450",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2886447862,
+            "range": "± 70338727",
             "unit": "ns/iter"
           }
         ]
