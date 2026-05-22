@@ -11,7 +11,6 @@ use crate::utils::{
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
 	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success_with_timeout,
-	wait_for_first_session_change, wait_for_pvf_prepare,
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
