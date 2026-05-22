@@ -105,6 +105,14 @@ fn main() {
 		.set_file_name(elastic_scaling_v3::WASM_FILE_NAME)
 		.build();
 
+	// Elastic scaling V3 with a relay parent offset of 2.
+	WasmBuilder::init_with_defaults()
+		.enable_feature("v3-descriptor")
+		.enable_feature("velocity-3")
+		.enable_feature("relay-parent-offset-2")
+		.set_file_name(elastic_scaling_v3_rpo::WASM_FILE_NAME)
+		.build();
+
 	// A runtime with 18s slot duration with increased spec version for runtime upgrade testing.
 	WasmBuilder::init_with_defaults()
 		.enable_feature("18s-slot")

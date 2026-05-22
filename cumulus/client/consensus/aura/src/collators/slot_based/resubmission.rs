@@ -23,6 +23,7 @@
 //! block-import path.
 
 use super::SlotBasedBlockImportHandle;
+use codec::Encode;
 use cumulus_client_resubmission_store::{
 	prepare_resubmission_aux_data, prune_finalized_entries, prune_missed_finalized_entries,
 };
@@ -31,13 +32,18 @@ use cumulus_primitives_core::{
 		BlockId, BlockNumber as RelayBlockNumber, Hash as RelayHash, Header as RelayHeader,
 		SessionIndex,
 	},
-	CumulusDigestItem, RelayBlockIdentifier,
+	CoreInfo, CumulusDigestItem, PersistedValidationData, RelayBlockIdentifier,
+	SchedulingInfoPayload, SchedulingProof, SignedSchedulingInfo,
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 use futures::{FutureExt, StreamExt};
+use polkadot_primitives::{ApprovedPeerId, Id as ParaId, OccupiedCoreAssumption};
 use sc_client_api::{backend::AuxStore, BlockchainEvents};
 use sp_api::StorageProof;
+use sp_application_crypto::{AppCrypto, AppPublic};
 use sp_blockchain::HeaderBackend;
+use sp_core::{crypto::Pair, ByteArray};
+use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use std::sync::Arc;
 
@@ -178,6 +184,15 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 	let block_hash = header.hash();
 	let number = *header.number();
 
+	// TEMP PROBE: remove after diagnosing missing resubmission entries.
+	tracing::debug!(
+		target: LOG_TARGET,
+		?number,
+		?block_hash,
+		finalized = ?para_client.info().finalized_number,
+		"resubmission probe: backfill received imported block",
+	);
+
 	if number <= para_client.info().finalized_number {
 		return;
 	}
@@ -220,6 +235,8 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 		return;
 	}
 
+	// Store the relay-chain PVD as-is; `unincluded_segment::build_entry` re-anchors `parent_head`
+	// on the block's actual para parent at hydration time.
 	let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
 		block_hash,
 		proof,
@@ -242,4 +259,78 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 			"Failed to store resubmission entry for imported block.",
 		),
 	}
+}
+
+/// Assemble a complete V3 [`SchedulingProof`] (with the signed scheduling info populated) for one
+/// core.
+///
+/// Returns `None` when [`sign_scheduling_info`] fails. The caller is expected to skip the
+/// corresponding send — shipping an unsigned proof would be rejected by the relay-chain verifier
+/// as soon as any candidate in the segment has `relay_parent != ISP`.
+pub(crate) fn build_v3_scheduling_proof<P>(
+	header_chain: Vec<RelayHeader>,
+	internal_scheduling_parent_header: RelayHeader,
+	core_info: &CoreInfo,
+	peer_id: ApprovedPeerId,
+	author_pub: &P::Public,
+	keystore: &KeystorePtr,
+) -> Option<SchedulingProof>
+where
+	P: Pair,
+	P::Public: AppPublic,
+{
+	let signed = sign_scheduling_info::<P>(
+		SchedulingInfoPayload {
+			core_selector: core_info.selector,
+			claim_queue_offset: core_info.claim_queue_offset.0,
+			peer_id,
+			internal_scheduling_parent: internal_scheduling_parent_header.hash(),
+		},
+		author_pub,
+		keystore,
+	)?;
+	Some(SchedulingProof {
+		header_chain,
+		internal_scheduling_parent_header,
+		signed_scheduling_info: Some(signed),
+	})
+}
+
+/// Sign a [`SchedulingInfoPayload`] with the Aura key that won the current slot claim.
+///
+/// On this branch the scheduling proof's `internal_scheduling_parent_header` is the current slot's
+/// relay parent, so the para slot derived from its BABE slot equals the slot the claim was
+/// obtained for — meaning `slot_claim.author_pub()` is the verifier-eligible signer.
+///
+/// Returns `None` when the keystore can't produce a signature for that key, or when the signature
+/// isn't the 64-byte size the verifier expects.
+pub(crate) fn sign_scheduling_info<P>(
+	payload: SchedulingInfoPayload,
+	author_pub: &P::Public,
+	keystore: &KeystorePtr,
+) -> Option<SignedSchedulingInfo>
+where
+	P: Pair,
+	P::Public: AppPublic,
+{
+	let signature = keystore
+		.sign_with(
+			<P::Public as AppCrypto>::ID,
+			<P::Public as AppCrypto>::CRYPTO_ID,
+			author_pub.as_slice(),
+			&payload.encode(),
+		)
+		.ok()
+		.flatten()?;
+	if signature.len() != 64 {
+		tracing::error!(
+			target: LOG_TARGET,
+			signature_len = signature.len(),
+			"Keystore returned non-64-byte signature for SchedulingInfoPayload.",
+		);
+		return None;
+	}
+	let mut signature_bytes = [0u8; 64];
+	signature_bytes.copy_from_slice(&signature);
+	Some(SignedSchedulingInfo { payload, signature: signature_bytes })
 }

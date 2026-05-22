@@ -15,7 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use super::{resubmission::resolve_session, CollatorMessage};
+use super::{
+	resubmission::{build_v3_scheduling_proof, resolve_session},
+	CollatorMessage, CollatorSegmentEntry, CollatorSegmentMessage,
+};
 use crate::{
 	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
 	collators::{
@@ -40,12 +43,13 @@ use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	PersistedValidationData, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
-	TargetBlockRate,
+	PersistedValidationData, RelayParentOffsetApi, SchedulingV3EnabledApi, TargetBlockRate,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
-use polkadot_primitives::{Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId};
+use polkadot_primitives::{
+	ApprovedPeerId, Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId,
+};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
@@ -69,7 +73,7 @@ use sp_trie::{
 	recorder::IgnoredNodes,
 };
 use std::{
-	collections::VecDeque,
+	collections::{HashMap, VecDeque},
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -316,7 +320,7 @@ where
 			// Corresponding checks related to the unincluded segment len are also done by the
 			// runtime in the `set_validation_data` inherent, using the relay parent context.
 			let included_header_at_execution = match v3_enabled {
-				false => parent_search_result.included_at_scheduling,
+				false => parent_search_result.included_at_scheduling().clone(),
 				true => {
 					match fetch_included_from_relay_chain(
 						&relay_client,
@@ -347,8 +351,8 @@ where
 					}
 				},
 			};
-			let initial_parent_hash = parent_search_result.best_parent_header.hash();
-			let initial_parent_header = parent_search_result.best_parent_header;
+			let initial_parent_hash = parent_search_result.best_parent_header().hash();
+			let initial_parent_header = parent_search_result.best_parent_header().clone();
 			let unincluded_segment_len_at_execution = initial_parent_header
 				.number()
 				.saturating_sub(*included_header_at_execution.number());
@@ -530,11 +534,55 @@ where
 			let mut pov_parent_hash = initial_parent_hash;
 			let block_time = relay_chain_slot_duration / number_of_blocks;
 
+			// Core affinity: bucket each unincluded (historical) block by its original
+			// `CoreInfo.selector` (read from the block's digest), mapped into the current core set
+			// via `selector mod total_cores`. Each historical lands in exactly one bucket; entries
+			// with no `CoreInfo` digest are dropped defensively. Buckets are kept as headers here
+			// and hydrated per core just before submission (in the cores loop below), so we never
+			// hydrate buckets for cores we don't reach.
+			let total_cores = cores.total_cores();
+			let mut per_selector_unincluded_headers: HashMap<u32, Vec<Block::Header>> =
+				HashMap::new();
+			if total_cores > 0 {
+				let headers = parent_search_result
+					.unincluded_segment()
+					.map(|s| s.to_vec())
+					.unwrap_or_default();
+				for header in headers {
+					let Some(core_info) = CumulusDigestItem::find_core_info(header.digest()) else {
+						tracing::warn!(
+							target: LOG_TARGET,
+							block_hash = ?header.hash(),
+							"Skipping unincluded entry without CoreInfo digest.",
+						);
+						continue;
+					};
+					let target = (core_info.selector.0 as u32) % total_cores;
+					per_selector_unincluded_headers.entry(target).or_default().push(header);
+				}
+			}
+
 			for blocks_per_core in blocks_per_cores {
+				let core_info = cores.core_info();
+				let this_core_index = cores.core_index();
+				let bucket_idx = (core_info.selector.0 as u32) % total_cores;
 				let time_for_core = slot_time.time_left() / cores.cores_left();
 
-				match build_collation_for_core(BuildCollationParams {
-					pov_parent_header,
+				// For V3, strip the relay-parent descendants (only needed for V2) so the block
+				// built below sees the V3-correct inherent, and keep the header chain to sign the
+				// scheduling proof later — only if this core ends up submitting something.
+				let mut rp_data = relay_parent_data.clone();
+				let v3_header_chain: Option<Vec<RelayHeader>> = if v3_enabled {
+					let descendants = rp_data.take_descendants();
+					Some(descendants.into_iter().rev().collect())
+				} else {
+					None
+				};
+
+				// Time the core build so we can pace after submitting (send early, then sleep).
+				let core_start = Instant::now();
+				let built = match build_collation_for_core(BuildCollationParams {
+					pov_parent_header: pov_parent_header.clone(),
 					pov_parent_hash,
 					relay_parent_header: &relay_parent_header,
 					relay_parent_hash,
@@ -543,34 +591,107 @@ where
 					relay_client: &relay_client,
 					code_hash_provider: &code_hash_provider,
 					slot_claim: &slot_claim,
-					collator_sender: &collator_sender,
 					collator: &mut collator,
 					allowed_pov_size,
-					core_info: cores.core_info(),
-					core_index: cores.core_index(),
+					core_info: core_info.clone(),
+					core_index: this_core_index,
 					block_time,
 					blocks_per_core,
 					time_for_core,
 					is_last_core_in_parachain_slot: cores.is_last_core() &&
 						slot_time.is_parachain_slot_ending(para_slot_duration.as_duration()),
 					collator_peer_id,
-					relay_parent_data: relay_parent_data.clone(),
+					relay_parent_data: rp_data,
 					total_number_of_blocks: number_of_blocks,
 					included_hash_at_execution,
 					relay_slot,
 					para_slot: para_slot.slot,
 					para_client: &*para_client,
-					v3_enabled,
 				})
 				.await
 				{
-					Ok(Some(header)) => {
-						pov_parent_header = header;
-						pov_parent_hash = pov_parent_header.hash();
-					},
-					// Let's wait for the next slot
-					Ok(None) => break,
+					Ok(built) => built,
 					Err(()) => return,
+				};
+
+				let has_fresh = built.is_some();
+
+				// Chain the next core's PoV parent onto the freshly-built tip (if any).
+				if let Some(BuiltCollation { tip_header, .. }) = &built {
+					pov_parent_header = tip_header.clone();
+					pov_parent_hash = pov_parent_header.hash();
+				}
+
+				// Assemble the message. V3: submit this core's resubmitted unincluded bucket (core
+				// affinity) plus the freshly-built block if one was built, or the bucket alone
+				// (resubmit-only). The signed scheduling proof is built only here — when there is
+				// something to submit. V2: a single collation, only when a fresh block was built.
+				let message = match v3_header_chain {
+					Some(header_chain) => {
+						// Ship this core's slice of the prior unincluded segment as bare headers;
+						// the collation task hydrates them (proof/body reads) off the hot path.
+						let unincluded_headers =
+							per_selector_unincluded_headers.remove(&bucket_idx).unwrap_or_default();
+						let bundle = built.map(|BuiltCollation { entry, .. }| entry);
+
+						if unincluded_headers.is_empty() && bundle.is_none() {
+							None
+						} else {
+							// Sign the scheduling proof only now that there is something to submit.
+							let scheduling_proof =
+								ApprovedPeerId::try_from(collator_peer_id.to_bytes())
+									.ok()
+									.and_then(|peer_id| {
+										build_v3_scheduling_proof::<P>(
+											header_chain,
+											relay_parent_header.clone(),
+											&core_info,
+											peer_id,
+											slot_claim.author_pub(),
+											&keystore,
+										)
+									});
+							match scheduling_proof {
+								Some(scheduling_proof) => {
+									Some(CollatorMessage::Segment(CollatorSegmentMessage {
+										scheduling_proof,
+										core_index: this_core_index,
+										unincluded_headers,
+										bundle,
+									}))
+								},
+								None => {
+									tracing::warn!(
+										target: LOG_TARGET,
+										?this_core_index,
+										"Skipping submission: cannot build signed V3 scheduling proof.",
+									);
+									None
+								},
+							}
+						}
+					},
+					None => built.map(|BuiltCollation { entry, .. }| CollatorMessage::Collation {
+						core_index: this_core_index,
+						entry,
+					}),
+				};
+
+				if let Some(message) = message {
+					if collator_sender.unbounded_send(message).is_err() {
+						tracing::error!(
+							target: LOG_TARGET,
+							"Unable to send collation to the collation task.",
+						);
+						return;
+					}
+				}
+
+				// Pace only when a fresh block was built (nothing to pace on resubmit-only).
+				if has_fresh {
+					if let Some(sleep) = time_for_core.checked_sub(core_start.elapsed()) {
+						tokio::time::sleep(sleep).await;
+					}
 				}
 
 				if !cores.advance() {
@@ -579,6 +700,16 @@ where
 			}
 		}
 	}
+}
+
+/// The freshly-built collation returned by [`build_collation_for_core`]. The caller assembles and
+/// submits the segment message (resubmitting the core's unincluded bucket ahead of this block) and
+/// paces the core, so building stays decoupled from resubmission and submission.
+struct BuiltCollation<Block: BlockT> {
+	/// The freshly-built collation entry.
+	entry: CollatorSegmentEntry<Block>,
+	/// The new chain tip (last built block), for `pov_parent` chaining across cores.
+	tip_header: Block::Header,
 }
 
 /// Parameters for [`build_collation_for_core`].
@@ -603,7 +734,6 @@ struct BuildCollationParams<
 	relay_client: &'a RelayClient,
 	code_hash_provider: &'a CHP,
 	slot_claim: &'a SlotClaim<P::Public>,
-	collator_sender: &'a sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
 	collator: &'a mut Collator<Block, P, BI, CIDP, RelayClient, Proposer, CS>,
 	allowed_pov_size: usize,
 	core_info: CoreInfo,
@@ -620,7 +750,6 @@ struct BuildCollationParams<
 	relay_slot: cumulus_primitives_aura::Slot,
 	para_slot: cumulus_primitives_aura::Slot,
 	para_client: &'a Client,
-	v3_enabled: bool,
 }
 
 /// Build a collation for one core.
@@ -647,7 +776,6 @@ async fn build_collation_for_core<
 		relay_client,
 		code_hash_provider,
 		slot_claim,
-		collator_sender,
 		collator,
 		allowed_pov_size,
 		core_info,
@@ -657,15 +785,14 @@ async fn build_collation_for_core<
 		time_for_core: slot_time_for_core,
 		is_last_core_in_parachain_slot,
 		collator_peer_id,
-		mut relay_parent_data,
+		relay_parent_data,
 		total_number_of_blocks,
 		included_hash_at_execution,
 		relay_slot,
 		para_slot,
 		para_client,
-		v3_enabled,
 	}: BuildCollationParams<'_, Block, P, RelayClient, BI, CIDP, Proposer, CS, CHP, Client>,
-) -> Result<Option<Block::Header>, ()>
+) -> Result<Option<BuiltCollation<Block>>, ()>
 where
 	RelayClient: RelayChainInterface + 'static,
 	P: Pair,
@@ -690,34 +817,6 @@ where
 		relay_parent_storage_root: *relay_parent_header.state_root(),
 		max_pov_size,
 	};
-
-	// Check if V3 scheduling is enabled and build scheduling proof if so.
-	let mut scheduling_proof = None;
-	if v3_enabled {
-		// The relay parent descendants are only needed for v2.
-		let descendants = relay_parent_data.take_descendants();
-		// The descendants are ordered from oldest to newest, so we need to reverse them.
-		let header_chain: Vec<_> = descendants.into_iter().rev().collect();
-		let scheduling_parent =
-			header_chain.first().map(|header| header.hash()).unwrap_or(relay_parent_hash);
-
-		tracing::debug!(
-			target: LOG_TARGET,
-			relay_parent = ?relay_parent_hash,
-			?scheduling_parent,
-			header_chain_len = header_chain.len(),
-			"Building V3 collation with scheduling proof",
-		);
-
-		scheduling_proof = Some(SchedulingProof {
-			header_chain,
-			// Initial submission: internal_scheduling_parent == relay_parent, so the
-			// internal scheduling parent header is the relay parent's header itself.
-			internal_scheduling_parent_header: relay_parent_header.clone(),
-			// Initial submission: no signature needed, core selection from UMP signals
-			signed_scheduling_info: None,
-		});
-	}
 
 	let Some(validation_code_hash) = code_hash_provider.code_hash_at(pov_parent_hash) else {
 		tracing::error!(
@@ -969,26 +1068,18 @@ where
 		"Sending out PoV"
 	);
 
-	if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
+	let entry = CollatorSegmentEntry {
 		relay_parent: relay_parent_hash,
-		scheduling_proof,
 		parent_header: pov_parent_header.clone(),
 		blocks,
 		proof,
 		validation_code_hash,
-		core_index,
 		validation_data,
-	}) {
-		tracing::error!(target: LOG_TARGET, ?err, "Unable to send block to collation task.");
-		Err(())
-	} else {
-		// Now let's sleep for the rest of the core.
-		if let Some(sleep) = slot_time_for_core.checked_sub(core_start.elapsed()) {
-			tokio::time::sleep(sleep).await;
-		}
+	};
 
-		Ok(Some(parent_header))
-	}
+	// Return the freshly-built collation to the caller, which assembles and submits the segment
+	// (resubmitting the core's unincluded bucket ahead of this block) and paces the core.
+	Ok(Some(BuiltCollation { entry, tip_header: parent_header }))
 }
 
 /// Translate the slot of the relay parent to the slot of the parachain.
