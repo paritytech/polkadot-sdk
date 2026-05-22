@@ -1321,9 +1321,9 @@ where
 			transient_storage.start_transaction();
 		});
 		let is_first_frame = self.frames.is_empty();
-		// Open an access-list frame for nested CALL/CREATE. The outermost
-		// run is intentionally skipped — its touches land in the bare
-		// journal and persist for the whole transaction.
+		// Open an access-list frame for nested CALL/CREATE. The first frame
+		// is skipped — its touches land in the bare journal and persist
+		// for the whole transaction.
 		if !is_first_frame {
 			self.access_list.enter_frame();
 		}
@@ -1578,7 +1578,7 @@ where
 				transient_storage.rollback_transaction();
 			}
 		});
-		// Close the access-list frame. Skip the outermost run — no parent will
+		// Close the access-list frame. Skip the first frame — no parent will
 		// observe the rolled-back state, and the `Stack` is dropped at tx end.
 		if !is_first_frame {
 			if success {

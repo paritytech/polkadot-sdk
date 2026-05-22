@@ -71,7 +71,7 @@ impl AccessList {
 	/// Initialize for a new transaction with cold/warm tracking enabled.
 	///
 	/// First-touch on any entry is always cold. No initial checkpoint is
-	/// opened — root-scope touches survive the whole transaction.
+	/// opened — first-frame touches survive the whole transaction.
 	pub fn new_enabled() -> Self {
 		Self::Enabled { accessed: BTreeSet::new(), journal: Vec::new(), checkpoints: Vec::new() }
 	}
@@ -197,7 +197,7 @@ impl StorageAccessCost {
 mod tests {
 	use super::*;
 
-	/// Full lifecycle: root scope + two nested frames, one commits, one reverts.
+	/// Full lifecycle: first frame + two nested frames, one commits, one reverts.
 	#[test]
 	fn lifecycle() {
 		let mut al = AccessList::new_enabled();
@@ -230,7 +230,7 @@ mod tests {
 		al.rollback_frame();
 		assert_eq!(al.frame_depth(), 0);
 		assert_eq!(al.len(), 1);
-		assert!(al.is_warm(&a), "A: root scope, survives F1 revert");
+		assert!(al.is_warm(&a), "A: first frame, survives F1 revert");
 		assert!(!al.is_warm(&b), "B: inserted by F1, rolled back");
 		assert!(!al.is_warm(&c), "C: F2-committed-into-F1, gone when F1 reverts");
 		assert!(!al.is_warm(&d), "D: inserted by F1, rolled back");
