@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779454714841,
+  "lastUpdate": 1779460546535,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "Sajjon@users.noreply.github.com",
-            "name": "Alexander Cyon",
-            "username": "Sajjon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1445af004bcac0ec3dd7b055a04bb1d7f9c110f1",
-          "message": "Change `Debug` of ParaId to`\"<ID>\"` instead of `\"Id(<ID>)\"` (#9920)\n\nThe `std::fmt::Debug` impl (derived) of\n[`Id`](https://github.com/paritytech/polkadot-sdk/blob/32cc5d6163781a077c4bdb2cafdf1a538127ebd5/polkadot/parachain/src/primitives.rs#L176)\nresults in `\"Id(42)\"` instead of `\"42\"`, this causes discrepancies in\nlogs. Sometimes we log `\"para_id=Id(3392)\"` but sometimes we log\n`\"para_id=3392\"` (without the `\"Id()\"`).\n\nThis makes e.g. Grafana PromQL queries harder to do, and logs harder to\nsearch in general.\n\n## Example\nSeen in e.g.:\n\n### Without `ID(<ID>)`\n\n```\n2025-09-22 22:28:06.753 DEBUG tokio-runtime-worker parachain::candidate-backing: Candidate backed candidate_hash=0x0cd77dd25cb61040557bb66df8de5c7b637dff05a671765b40bea7222cfa2854 relay_parent=0x7d380118542b6180127a150a86f144c448982c6af40da1dfb9e3119ad7d4c1ab para_id=3392 traceID=17069631741811285016642302447800179835\n```\n\n### With `ID(<ID>)`\n\n```\n2025-09-22 22:28:06.342 DEBUG tokio-runtime-worker parachain::collator-protocol::stats: [Relaychain] Collation expired age=3 collation_state=\"fetched\" relay_parent=0x7b394ee6c4fa2a3cec8fa82fa2afe5a933314e6a64e09256d7c8a28086b16acf para_id=Id(3392) head=0x92959b2b5fe8aba268bce48baf8a4e6b952055984015b8c1c7c3142c60e66e31\n```\n\nThis PR changes the impl of `Debug` to be just `\"<ID>\"`.\n\n([Discussion on\nMatrix](https://matrix.to/#/!oRmZcZCtnViqLdLelR:parity.io/$mTaAp2dRtH5_xUkM-2Bc1NsR-hGEbhV2arGVzuq9g3o?via=parity.io))",
-          "timestamp": "2025-10-09T07:30:25Z",
-          "tree_id": "b5addd1bab93d6414d2240841e5ce7be2d72d353",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1445af004bcac0ec3dd7b055a04bb1d7f9c110f1"
-        },
-        "date": 1760001036150,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008453949089999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005031068679999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0025974417600000007,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.002669850150000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ce0a83d000be64be455a8b58e5ce5b33c196cfdc",
+          "message": "fix zombienet flaky tests  (#12139)\n\nAdjustment in flaky tests\n\n<img width=\"1034\" height=\"170\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/bbee5bba-9f35-45ef-bc01-51d057bc234d\"\n/>\n\n- adjust range.\n\n<img width=\"1021\" height=\"176\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/8ab76bf5-dbc7-467f-beae-8777867880d0\"\n/>\n\n- flip metrics check.",
+          "timestamp": "2026-05-22T11:35:06Z",
+          "tree_id": "41a4db71ba7cec0dd55f2e3d621fa5a93183e2a5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce0a83d000be64be455a8b58e5ce5b33c196cfdc"
+        },
+        "date": 1779460518111,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010324716519999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00935162338999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026311094299999995,
             "unit": "seconds"
           }
         ]
