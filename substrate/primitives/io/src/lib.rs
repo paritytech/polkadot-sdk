@@ -323,7 +323,7 @@ impl AsMut<[u8]> for StorageIterations {
 /// Defines a `#[repr(transparent)]` newtype over a fixed-size byte array with `Default`,
 /// `AsRef<[u8]>`, and `AsMut<[u8]>` implementations.
 macro_rules! define_byte_array_type {
-	($(#[$meta:meta])* $vis:vis struct $name:ident($size:expr);) => {
+	($(#[$meta:meta])* $vis:vis struct $name:ident(pub [u8; $size:expr])) => {
 		$(#[$meta])*
 		#[repr(transparent)]
 		$vis struct $name(pub [u8; $size]);
@@ -350,22 +350,22 @@ macro_rules! define_byte_array_type {
 
 define_byte_array_type! {
 	/// Wrapper type for 512-bit hashes.
-	pub struct Hash512(64);
+	pub struct Hash512(pub [u8; 64])
 }
 
 define_byte_array_type! {
 	/// Wrapper type for 512-bit pubkeys.
-	pub struct Pubkey512(64);
+	pub struct Pubkey512(pub [u8; 64])
 }
 
 define_byte_array_type! {
 	/// A workaround wrapper type for 264-bit values (`[u8; 33]`) not implementing `Default`.
-	pub struct Pubkey264(33);
+	pub struct Pubkey264(pub [u8; 33])
 }
 
 define_byte_array_type! {
 	/// Represents an opaque network peer ID.
-	pub struct NetworkPeerId(38);
+	pub struct NetworkPeerId(pub [u8; 38])
 }
 
 trait IntoI64: Into<i64> {
