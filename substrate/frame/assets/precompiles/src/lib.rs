@@ -354,13 +354,11 @@ where
 		Ok(IERC20::allowanceCall::abi_encode_returns(&value))
 	}
 
-	/// Execute the approve call.
-	///
-	/// Set-style semantics: existing non-zero approvals are cancelled before
-	/// the new value is written, so the stored amount equals the requested
-	/// value (saturated to `Balance::MAX` for values above the runtime cap).
-	/// `stored == Balance::MAX` is the sentinel — `transferFrom` will skip
-	/// the decrement, and `allowance()` returns `U256::MAX`.
+	/// - Set semantics: existing non-zero approvals are cancelled before the new
+	///   value is written, so the stored amount equals the requested value.
+	/// - Saturation: values above the runtime cap clamp to `Balance::MAX`.
+	/// - Sentinel: `stored == Balance::MAX` means "infinite" — `transferFrom`
+	///   skips the decrement and `allowance()` returns `U256::MAX`.
 	fn approve(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &IERC20::approveCall,
@@ -419,9 +417,7 @@ where
 		env.adjust_gas(charged, actual_weight);
 
 		// Keep the event in lockstep with `allowance()`: emit `U256::MAX`
-		// whenever the write lands on the sentinel (`stored == Balance::MAX`),
-		// otherwise emit the literal stored amount. Indexers replaying
-		// `Approval` logs see the same value `allowance()` would return.
+		// whenever the write lands on the sentinel (`stored == Balance::MAX`).
 		let max_balance: <Runtime as Config<Instance>>::Balance =
 			alloy::primitives::U256::MAX.unique_saturated_into();
 		let event_value =
@@ -448,9 +444,6 @@ where
 		call: &IERC20::transferFromCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		// Conservative bound across both branches: `transfer_approved`
-		// covers the common path; the extra `allowance()` term covers the
-		// sentinel-detection probe. `adjust_gas` refunds the rest.
 		let worst_case = <Runtime as Config<Instance>>::WeightInfo::transfer_approved()
 			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::allowance());
 		let charged = env.charge(worst_case)?;
