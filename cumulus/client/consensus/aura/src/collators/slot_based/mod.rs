@@ -268,24 +268,39 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	);
 }
 
-/// Message to be sent from the block builder to the collation task.
+/// Message sent from the block builder to the collation task.
 ///
-/// Contains all data necessary to submit a collation to the relay chain.
-struct CollatorMessage<Block: BlockT> {
-	/// The hash of the relay chain block that provides the context for the parachain block.
-	pub relay_parent: RelayHash,
-	/// V3 scheduling proof. None for V1/V2 candidates.
+/// Represents a segment of collations targeted at a single core. The block builder produces one
+/// message per assigned core per wake-up; each entry in `entries` becomes one `SegmentCollation`
+/// (one PoV / candidate on the relay chain) and the whole vec is submitted as one
+/// `CollationGenerationMessage::SubmitSegment`.
+///
+/// At the moment the builder always emits length-1 segments — resubmission of the unincluded
+/// segment will extend this to multi-entry segments later.
+struct CollatorSegmentMessage<Block: BlockT> {
+	/// Shared V3 scheduling proof. `scheduling_parent` for the whole segment is derived from
+	/// `scheduling_proof.scheduling_parent()`. `None` → V2 descriptors for every entry.
 	pub scheduling_proof: Option<SchedulingProof>,
-	/// The header of the parent block.
+	/// Target core for every entry in the segment.
+	pub core_index: CoreIndex,
+	/// Per-entry payloads, in submission order.
+	pub entries: Vec<CollatorSegmentEntry<Block>>,
+}
+
+/// One entry of a [`CollatorSegmentMessage`]. Each entry produces one `SegmentCollation`
+/// (one PoV / one candidate on the relay chain), and may still bundle multiple parablocks
+/// inside its PoV via `build_multi_block_collation`.
+struct CollatorSegmentEntry<Block: BlockT> {
+	/// The hash of the relay chain block that provides the context for the parachain block(s).
+	pub relay_parent: RelayHash,
+	/// The header of the parent of the first block in this entry.
 	pub parent_header: Block::Header,
-	/// The built blocks.
+	/// The built blocks bundled into this entry.
 	pub blocks: Vec<Block>,
-	/// The storage proof that was collected while building all the blocks.
+	/// The storage proof collected while building all of `blocks`.
 	pub proof: StorageProof,
 	/// The validation code hash at the parent block.
 	pub validation_code_hash: ValidationCodeHash,
-	/// Core index that this block should be submitted on
-	pub core_index: CoreIndex,
-	/// The persisted validation data for this collation.
+	/// The persisted validation data for this entry.
 	pub validation_data: PersistedValidationData,
 }
