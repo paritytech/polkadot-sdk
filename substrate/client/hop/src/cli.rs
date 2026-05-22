@@ -49,7 +49,7 @@ use std::{path::PathBuf, sync::Arc};
 #[derive(Debug, Clone, Parser)]
 pub struct HopParams {
 	/// Enable HOP
-	#[arg(long = "enable-hop", default_value_t = false)]
+	#[arg(id = "enable-hop", long = "enable-hop", default_value_t = false)]
 	pub enabled: bool,
 
 	/// HOP maximum data pool size in MiB. Must be at least 1.
