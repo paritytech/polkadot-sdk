@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779468003766,
+  "lastUpdate": 1779473569663,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "949521966517fdb251f0c9bee574f065c78324c0",
-          "message": "Cumulus `aura-ext`: Harden slot check between relay-parent and parachain (#9712)\n\nBefore this PR, we were preventing parachains from authoring blocks that\nhave a slot from the future. However, we permitted parachains to author\non past slots, which is unnecessary relaxed. This PR enforces that only\nthe author that owns the slot corresponding to the slot of the relay\nparent can author.\n\nThis should no impact on normal Parachain operation. Blocks are already\nproduced on the correct slots, this increased strictness improves some\nedge-cases however.\n\nEven before, the Parachains slot needed to strictly advance, so\nproduction on \"older\" slots was only possible if previous authors\nskipped production opportunities.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-10T09:00:01Z",
-          "tree_id": "47927ccf57a39c58f47f534ca0a4ba402cd17cbb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/949521966517fdb251f0c9bee574f065c78324c0"
-        },
-        "date": 1760090769270,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022357454653333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013312013640000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007170673853333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1573705031200001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14730838076666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "313647ce0acbfcefea301f05bba4ffec9c9e2bc0",
+          "message": "pallet-revive: fix execution tracer reporting zero gas for plain transfers (#12069)\n\nFixes\n[paritytech/contract-issues#278](https://github.com/paritytech/contract-issues/issues/278).\n\n`Stack::run_call`'s no-code branch was passing `Default::default()` to\n`exit_child_span`, so the execution tracer reported `gas: 0` for any\ntransaction whose destination has no contract code (plain EOA\ntransfers),\neven when the meter had charged an existential deposit. The\ncontract-call\nbranch already reads `frame_meter.total_consumed_gas()` /\n`frame_meter.weight_consumed()` and forwards them — this PR does the\nsame\nat the transaction-meter level for the no-code branch.\n\n## Tests\n\n- New regression test\n`execution_tracing_records_consumption_for_plain_transfer`\n  in `tests/pvm.rs`: transfers to an unfunded account, asserts\n  `trace.gas > 0`. Fails on `master`, passes here.\n- Updated `tracing_works_for_transfers`, which previously asserted the\nbuggy zero via `..Default::default()`, to compare against the\n`bare_call`\n  result's `gas_consumed`.\n\nEnd-to-end: 1500 transfers via `manual-seal-6000` then\n`debug_traceBlockByNumber` → before: every trace `gas: 0`; after: every\ntrace `gas: 200000` (the ED charge).\nhttps://github.com/0xRVE/contract-issue-278\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-22T16:42:18Z",
+          "tree_id": "0cca72a61fa5a2d625f7e65b1a56300a16237006",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/313647ce0acbfcefea301f05bba4ffec9c9e2bc0"
+        },
+        "date": 1779473540315,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02395864411333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007668286880000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010360911366666645,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14668506675333334,
             "unit": "seconds"
           }
         ]
