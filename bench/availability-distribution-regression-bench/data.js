@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779465750359,
+  "lastUpdate": 1779468003766,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "45130584+l0r1s@users.noreply.github.com",
-            "name": "Loris Moulin",
-            "username": "l0r1s"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c189613a32a58745993059f2fb73080e460c4ae7",
-          "message": "Fix utility::force_batch returning incorrect weights causing mismatch (#9983)\n\n# Description\n\nThe returned weights from the `pallet_utility::force_batch` dispatch is\nusing `batch` weights instead of its own `force_batch` causing a weight\nmismatch log:\n\n```\n2025-10-03 14:57:48 Post dispatch weight is greater than pre dispatch weight. Pre dispatch weight may underestimating the actual weight. Greater post dispatch weight components are ignored.\n                                        Pre dispatch weight: Weight { ref_time: 5963137729, proof_size: 3997 },\n                                        Post dispatch weight: Weight { ref_time: 5963148560, proof_size: 3997 }    \n2025-10-03 14:59:00 Post dispatch weight is greater than pre dispatch weight. Pre dispatch weight may underestimating the actual weight. Greater post dispatch weight components are ignored.\n                                        Pre dispatch weight: Weight { ref_time: 2837593294, proof_size: 8703 },\n                                        Post dispatch weight: Weight { ref_time: 2837604125, proof_size: 8703 }   \n``` \n\nThis PR correct the returned weights.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-10-10T07:26:12Z",
-          "tree_id": "2b90b30c7bc456f310a278da53e3685fb1413266",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c189613a32a58745993059f2fb73080e460c4ae7"
-        },
-        "date": 1760085175449,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007366836280000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013233189613333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022670588006666662,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15746749743999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02375774262,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7ffe2bf0840e351298695317311c8a19f55ed436",
+          "message": "Remove deprecated ToStakingPot from parachains-common (#12131)\n\n# Description\n\nRemoves deprecated `parachains_common::ToStakingPot` as part of #11561.\n\n`ToStakingPot` was deprecated in March 2024 in favor of `ResolveTo`. It\nhas no remaining usage in this repository; `DealWithFees` already routes\nfees via `ResolveTo<StakingPotAccountId<Runtime>, Balances>`.\n\nDoes not close #11561 further deprecations will be removed in separate,\none-item PRs per review feedback.\n\n## Integration\n\nDownstream runtimes that still use `ToStakingPot` must migrate before\nupgrading `parachains-common`:\n\n```diff\n- type OnChargeTransaction = ToStakingPot<Runtime>;\n+ type OnChargeTransaction = ResolveTo<StakingPotAccountId<Runtime>, Balances>;\n```\n## Review Notes\n\n- Single-file change: `cumulus/parachains/common/src/impls.rs`\n- Verified no in-repo references to `ToStakingPot` before removal\n- DealWithFees behavior unchanged\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-05-22T14:16:45Z",
+          "tree_id": "92e38e3487bf9c8aa21e4fed89234361b18ec24a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7ffe2bf0840e351298695317311c8a19f55ed436"
+        },
+        "date": 1779467973694,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007538173520000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010015020919999975,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023920586900000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14730838076666666,
             "unit": "seconds"
           }
         ]
