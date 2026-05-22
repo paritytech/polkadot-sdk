@@ -732,7 +732,7 @@ impl pallet_recovery::Config for Runtime {
 	>;
 	type SecurityDeposit = ConstU128<{ 10 * UNITS }>;
 	type MaxFriendsPerConfig = ConstU32<100>;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_recovery::WeightInfo<Runtime>;
 	type Slash = Dap;
 }
 
@@ -2241,6 +2241,7 @@ mod benches {
 		[pallet_proxy, Proxy]
 		[pallet_psm, Psm]
 		[pallet_parameters, Parameters]
+		[pallet_recovery, Recovery]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking_async, Staking]
 		[pallet_staking_async_rc_client, StakingRcClientBench::<Runtime>]
