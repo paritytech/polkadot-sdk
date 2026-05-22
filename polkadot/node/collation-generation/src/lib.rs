@@ -208,9 +208,9 @@ impl CollationGenerationSubsystem {
 				false
 			},
 			Ok(FromOrchestra::Communication {
-				msg: CollationGenerationMessage::SubmitCollations(params),
+				msg: CollationGenerationMessage::SubmitSegment(params),
 			}) => {
-				if let Err(err) = self.handle_submit_collations(params, ctx).await {
+				if let Err(err) = self.handle_submit_segment(params, ctx).await {
 					gum::error!(target: LOG_TARGET, ?err, "Failed to submit segment");
 				}
 				false
@@ -288,9 +288,9 @@ impl CollationGenerationSubsystem {
 		Ok(())
 	}
 
-	async fn handle_submit_collations<Context>(
+	async fn handle_submit_segment<Context>(
 		&mut self,
-		params: Vec<SubmitCollationParams>,
+		params: SubmitSegmentParams,
 		ctx: &mut Context,
 	) -> Result<()> {
 		let Some(config) = &self.config else {
