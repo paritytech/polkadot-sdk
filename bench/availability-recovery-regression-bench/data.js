@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779473531982,
+  "lastUpdate": 1779480514048,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1cbdb4d2e384e35e27760f24ca895b2f3d601698",
-          "message": " Wait for transaction receipt if instant seal is enabled (#9914)\n\nFixes https://github.com/paritytech/contract-issues/issues/165\n\nThe main changes in this PR are:\n\n1. Add a new API to revive-dev-node to check whether the node has\ninstant seal enabled.\n2. Add a new debug API to eth-rpc to check whether the node has instant\nseal enabled. (optional)\n3. Query and cache the node’s instant seal status during eth-rpc\ninitialization.\n4. If instant seal is enabled, wait for the transaction receipt to be\navailable\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
-          "timestamp": "2025-10-10T16:01:50Z",
-          "tree_id": "dd524ef9e7b71c82b791e3c22045d3bcc07039ff",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1cbdb4d2e384e35e27760f24ca895b2f3d601698"
-        },
-        "date": 1760116757491,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19314033146666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.350203245033335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14714943969999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1aeb6ec2e32093f332c9f4a96f016a3f302d2922",
+          "message": "WAH: wire pallet-recovery into  benchmark list (#12171)\n\n- Wired `pallet-recovery` into the asset-hub-westend benchmark list.\n- Fixed the benchmark setup: `finish_attempt` / `cancel_attempt` advance\n`frame_system`'s block number, which does not move\n`RelaychainDataProvider`, causing `NotYetInheritable` /\n`NotYetCancelable`. Under `runtime-benchmarks`, use `frame_system` as\nthe `BlockNumberProvider` so the time-delay guards can be satisfied.\n\n\nNote: similar fix in fellowship repo\n[here](https://github.com/polkadot-fellows/runtimes/pull/1183) as part\nof [integration of SDK\n2604](https://github.com/polkadot-fellows/runtimes/pull/1159).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-22T18:21:48Z",
+          "tree_id": "d9a05a0ffc6a7c206aa1acc6e71a3a3c35f2ecb7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1aeb6ec2e32093f332c9f4a96f016a3f302d2922"
+        },
+        "date": 1779480485362,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.821939495000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13443705083333332,
             "unit": "seconds"
           }
         ]
