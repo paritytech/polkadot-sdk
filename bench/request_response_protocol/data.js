@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779459328236,
+  "lastUpdate": 1779462377085,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -93527,6 +93527,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2782107861,
             "range": "± 61489543",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "franciscoaguirreperez@gmail.com",
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ccdacdbf1b2b23b7fca0f19e63f5d02a940bf0d5",
+          "message": "Hand-off protocol (#11662)\n\n## Hand-Off Protocol (HOP): ephemeral off-chain data pool for collator\nnodes\n\nHOP is a node-level service that gives collators a disk-backed data pool\nfor handing off files between users. A sender uploads data to a single\ncollator via RPC; the intended receiver claims it directly from that\nsame collator. If the receiver never shows up within the retention\nwindow (default 24 h), the collator attempts to promote the data to\non-chain storage as a best-effort fallback.\n\n### Motivation\n\nOn-chain storage is expensive for data that only needs to live long\nenough for a recipient to pick it up. HOP sits in front as a lightweight\nhand-off layer: data lives on one collator's disk instead of being\nreplicated across the chain, and latency is well under one block time.\n\n### New crates\n\n| Crate | Path | Purpose |\n|---|---|---|\n| `sc-hop` | `substrate/client/hop/` | Node-side service: data pool, RPC\nserver, promotion task, CLI params |\n| `sp-hop` | `substrate/primitives/hop/` | Runtime API trait\n(`HopRuntimeApi`) shared between node and runtime |\n\n### How to review\n\n1. **`sp-hop/src/lib.rs`** — Start here. Three runtime API methods:\n`can_account_promote`, `create_promotion_extrinsic`,\n`is_promoted_on_chain`.\n\n2. **`sc-hop/src/types.rs`** — Core types and error codes:\n`HopEntryMeta`, `PoolStatus`, `HopError`.\n\n3. **`sc-hop/src/pool.rs`** — The data pool (~1350 LOC, ~700 are tests).\nDisk-backed with in-memory metadata index. Blobs and metadata stored in\n256-shard directories. Key operations: `insert`, `claim`, `ack`,\n`cleanup_expired`, `get_promotable`/`mark_promoted`. Index rebuilds from\n`.meta` files on restart.\n\n4. **`sc-hop/src/rpc.rs`** — Four JSON-RPC methods: `hop_submit`,\n`hop_claim`, `hop_ack`, `hop_poolStatus`. Submit checks the sender's\nauthorization via the `HopRuntimeApi` runtime API.\n\n5. **`sc-hop/src/promotion.rs`** — Background task that promotes\nnear-expiry entries via `create_promotion_extrinsic` + local tx pool\nsubmission, and cleans up expired entries. Degrades to cleanup-only if\nthe runtime doesn't implement `HopRuntimeApi`.\n\n6. **`sc-hop/src/rate_limit.rs`** — Per-account token-bucket gate on\nsubmit requests and bandwidth, checked inside `pool.insert` (after\nauthorization and signature verification).\n\n7. **`sc-hop/src/cli.rs`** — `--enable-hop`, `--hop-max-pool-size`,\n`--hop-max-user-size`, `--hop-retention-secs`, `--hop-check-interval`,\n`--hop-promotion-buffer-secs`, `--hop-submit-rate-per-min`,\n`--hop-submit-burst`, `--hop-bandwidth-per-min-mib`,\n`--hop-bandwidth-burst-mib`, `--hop-disable-rate-limit`,\n`--hop-data-dir`.\n\n8. **`polkadot-omni-node` integration** — Adds HOP CLI flags, extends\n`NodeRuntimeApi` with `HopRuntimeApi` bound, wires up pool\ninitialization + cleanup task + RPC registration behind `--enable-hop`.\n\n### Key design decisions\n\n- **Disk-backed**: blobs go to disk immediately; only metadata lives in\nRAM.\n- **Content-addressed**: entries keyed by `blake2_256(data)`.\n- **Ephemeral keypairs for recipients**: sender generates a one-time\nkeypair per recipient, shares the private key out-of-band. The collator\nverifies signatures on claim/ack without learning recipient identities.\n- **Claim/ack separation**: `claim` is read-only and repeatable; `ack`\ntriggers deletion when all recipients have acknowledged. Both are\nidempotent.\n- **Runtime-defined authorization**: submission is gated by\n`HopRuntimeApi::can_account_promote`; the runtime decides what\n\"authorized\" means. Promotion is free — it fills leftover blockspace\nthat would otherwise go unused.\n- **Per-account rate limiting**: token-bucket caps on submit requests\nand bandwidth per account, checked inside the pool insert path (after\nauthorization and signature verification). Configurable via\n`--hop-submit-*` / `--hop-bandwidth-*` flags;\n  `--hop-disable-rate-limit` for dev/tests. \n- **Graceful degradation**: if the runtime doesn't implement\n`HopRuntimeApi`, the node runs cleanup-only (no promotion), allowing\nnode deployment before runtime upgrade.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Anthony Kveder <anthony.kveder@parity.io>\nCo-authored-by: Anthony Kveder <32168055+antkve@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrii <ndk@parity.io>\nCo-authored-by: Ilia Churin <ilia@parity.io>",
+          "timestamp": "2026-05-22T11:46:21Z",
+          "tree_id": "9f02300fad13ada9da7da5ce42356d55a86a6b95",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ccdacdbf1b2b23b7fca0f19e63f5d02a940bf0d5"
+        },
+        "date": 1779462348364,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 22500452,
+            "range": "± 496065",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 23635945,
+            "range": "± 1688446",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 24087241,
+            "range": "± 585182",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28860566,
+            "range": "± 296083",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 66825667,
+            "range": "± 2387516",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 394709555,
+            "range": "± 5719983",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2865363661,
+            "range": "± 42592658",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18528231,
+            "range": "± 306410",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18699833,
+            "range": "± 202207",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19206252,
+            "range": "± 184746",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 25619292,
+            "range": "± 323363",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 67294987,
+            "range": "± 1459719",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 376988931,
+            "range": "± 7546199",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2945454129,
+            "range": "± 37214275",
             "unit": "ns/iter"
           }
         ]
