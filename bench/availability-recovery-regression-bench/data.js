@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779465712741,
+  "lastUpdate": 1779467964111,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "949521966517fdb251f0c9bee574f065c78324c0",
-          "message": "Cumulus `aura-ext`: Harden slot check between relay-parent and parachain (#9712)\n\nBefore this PR, we were preventing parachains from authoring blocks that\nhave a slot from the future. However, we permitted parachains to author\non past slots, which is unnecessary relaxed. This PR enforces that only\nthe author that owns the slot corresponding to the slot of the relay\nparent can author.\n\nThis should no impact on normal Parachain operation. Blocks are already\nproduced on the correct slots, this increased strictness improves some\nedge-cases however.\n\nEven before, the Parachains slot needed to strictly advance, so\nproduction on \"older\" slots was only possible if previous authors\nskipped production opportunities.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-10T09:00:01Z",
-          "tree_id": "47927ccf57a39c58f47f534ca0a4ba402cd17cbb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/949521966517fdb251f0c9bee574f065c78324c0"
-        },
-        "date": 1760090736522,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19378247616666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.284530747633333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.817510985766665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7ffe2bf0840e351298695317311c8a19f55ed436",
+          "message": "Remove deprecated ToStakingPot from parachains-common (#12131)\n\n# Description\n\nRemoves deprecated `parachains_common::ToStakingPot` as part of #11561.\n\n`ToStakingPot` was deprecated in March 2024 in favor of `ResolveTo`. It\nhas no remaining usage in this repository; `DealWithFees` already routes\nfees via `ResolveTo<StakingPotAccountId<Runtime>, Balances>`.\n\nDoes not close #11561 further deprecations will be removed in separate,\none-item PRs per review feedback.\n\n## Integration\n\nDownstream runtimes that still use `ToStakingPot` must migrate before\nupgrading `parachains-common`:\n\n```diff\n- type OnChargeTransaction = ToStakingPot<Runtime>;\n+ type OnChargeTransaction = ResolveTo<StakingPotAccountId<Runtime>, Balances>;\n```\n## Review Notes\n\n- Single-file change: `cumulus/parachains/common/src/impls.rs`\n- Verified no in-repo references to `ToStakingPot` before removal\n- DealWithFees behavior unchanged\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-05-22T14:16:45Z",
+          "tree_id": "92e38e3487bf9c8aa21e4fed89234361b18ec24a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7ffe2bf0840e351298695317311c8a19f55ed436"
+        },
+        "date": 1779467934437,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1421484791,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.80829424526667,
             "unit": "seconds"
           }
         ]
