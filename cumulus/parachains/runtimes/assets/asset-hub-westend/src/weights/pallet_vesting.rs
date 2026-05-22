@@ -262,4 +262,12 @@ impl<T: frame_system::Config> pallet_vesting::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
+	/// NOTE: placeholder — re-run benchmarks after merging.
+	fn add_to_vesting_create(_l: u32, _s: u32) -> Weight {
+		Weight::zero()
+	}
+	/// NOTE: placeholder — re-run benchmarks after merging.
+	fn add_to_vesting_merge(_l: u32, _s: u32) -> Weight {
+		Weight::zero()
+	}
 }

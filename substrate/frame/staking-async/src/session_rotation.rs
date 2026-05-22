@@ -85,7 +85,7 @@ use frame_support::{
 	weights::WeightMeter,
 };
 use pallet_staking_async_rc_client::RcClientInterface;
-use sp_runtime::{Perbill, Percent, Saturating};
+use sp_runtime::{traits::BlockNumberProvider, Perbill, Percent, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
 	StakerRewardCalculator,
@@ -777,7 +777,7 @@ impl<T: Config> Rotator<T> {
 		// Snapshot the vesting epoch start block when a new bonding-duration window begins.
 		let bonding_duration = T::BondingDuration::get();
 		if bonding_duration != 0 && starting_era % bonding_duration == 0 {
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::VestingBlockNumberProvider::current_block_number();
 			VestingEpochStart::<T>::put(now);
 		}
 

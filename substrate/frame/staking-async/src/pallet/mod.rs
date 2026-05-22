@@ -429,6 +429,17 @@ pub mod pallet {
 		#[pallet::no_default]
 		type VestingDuration: Get<BlockNumberFor<Self>>;
 
+		/// Block number provider used to snapshot [`VestingEpochStart`].
+		///
+		/// Must use the **same** block-number space as `pallet_vesting`'s
+		/// `BlockNumberProvider` so that `start_at` keys round-trip correctly.
+		/// On parachains this should be `RelaychainDataProvider<Runtime>` when
+		/// pallet-vesting is also configured with relay-chain block numbers.
+		#[pallet::no_default]
+		type VestingBlockNumberProvider: sp_runtime::traits::BlockNumberProvider<
+			BlockNumber = BlockNumberFor<Self>,
+		>;
+
 		/// Adapter that delivers validator self-stake incentive payouts.
 		///
 		/// Wire [`crate::VestedIncentivePayout`] for vested delivery, or

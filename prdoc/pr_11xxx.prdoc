@@ -1,0 +1,94 @@
+title: 'staking-async: vesting-based validator self-stake incentive payouts'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Implements the vesting delivery mechanism for the validator self-stake incentive introduced
+    in issue #11876. Payouts are now optionally locked under a vesting schedule instead of
+    being transferred immediately, aligning long-term validator skin-in-the-game with the
+    protocol's bonding window.
+
+    ## Changes to `pallet-vesting`
+
+    - New `VestedPayout` trait method `add_to_vesting(source, dest, amount, duration, start_at)`.
+      Transfers `amount` from `source` into a new or merged vesting schedule on `dest` starting
+      at `start_at` and lasting `duration` blocks.
+    - If a schedule with the same `starting_block` already exists it is merged rather than
+      occupying an additional slot, preventing slot exhaustion within a bonding window.
+    - Two new `WeightInfo` methods: `add_to_vesting_create` and `add_to_vesting_merge`.
+
+    ## Changes to `pallet-staking-async`
+
+    ### New adapter trait
+
+    `ValidatorIncentivePayout<AccountId, Balance, BlockNumber>` decouples payout delivery
+    from staking-async so runtimes without pallet-vesting can compile.
+
+    Two provided implementations:
+    - `LiquidIncentivePayout<C>` — immediate transfer via `fungible::Mutate`.
+    - `VestedIncentivePayout<C, V>` — calls `V::add_to_vesting`; falls back to liquid when
+      `duration` is zero (disabled) or pallet-vesting returns an error.
+
+    ### New `Config` items (all `#[pallet::no_default]`)
+
+    | Item | Purpose |
+    |------|---------|
+    | `VestingDuration` | Length of each vesting window in blocks. Set to `0` to disable vesting. |
+    | `VestingBlockNumberProvider` | Block-number provider whose space matches pallet-vesting's clock (relay-chain blocks on Asset Hub). |
+    | `ValidatorIncentivePayout` | Selects the payout adapter (`LiquidIncentivePayout` or `VestedIncentivePayout`). |
+
+    ### New storage item
+
+    `VestingEpochStart` (`StorageValue<_, BlockNumber, OptionQuery>`) — snapshotted at each
+    `BondingDuration`-era boundary. Used as the `starting_block` merge key so all incentive
+    payouts within one window accumulate into a single vesting slot.
+
+    ### New event
+
+    `ValidatorIncentiveForcedLiquid { era, validator_stash, amount }` — emitted when the
+    vested path fails and the liquid fallback succeeds. Allows operators to detect vesting-slot
+    exhaustion at runtime.
+
+    ### Runtime wiring
+
+    Both reference runtimes are wired up:
+    - `staking-async/runtimes/parachain`: `VestedIncentivePayout` with a one-year vesting
+      window (`365 * DAYS` relay-chain blocks).
+    - `asset-hub-westend`: `VestedIncentivePayout` with `365 * RC_DAYS` relay-chain blocks via
+      `RelaychainDataProvider`.
+
+    ## Migration
+
+    No storage migration required. `VestingEpochStart` starts as `None`; incentive payouts
+    are delivered as liquid transfers until the first bonding-duration boundary is crossed.
+
+    ## Upgrading existing `pallet-staking-async` configs
+
+    Three new associated types must be added to every `impl pallet_staking_async::Config`:
+
+    ```rust
+    // Disable vesting (liquid transfers only):
+    type VestingDuration = ConstU64<0>;  // or ConstU32<0> depending on BlockNumber
+    type VestingBlockNumberProvider = frame_system::Pallet<Runtime>;
+    type ValidatorIncentivePayout = pallet_staking_async::LiquidIncentivePayout<Balances>;
+
+    // Enable vesting:
+    type VestingDuration = ValidatorIncentiveVestingDuration; // e.g. 365 * DAYS
+    type VestingBlockNumberProvider = RelaychainDataProvider<Runtime>; // match pallet-vesting's clock
+    type ValidatorIncentivePayout = pallet_staking_async::VestedIncentivePayout<
+        Balances,
+        pallet_vesting::Pallet<Runtime>,
+    >;
+    ```
+
+crates:
+- name: pallet-staking-async
+  bump: major
+- name: pallet-vesting
+  bump: minor
+- name: frame-support
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor

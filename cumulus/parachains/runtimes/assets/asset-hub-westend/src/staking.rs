@@ -274,6 +274,7 @@ parameter_types! {
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
 	pub MaxPruningItems: u32 = 100;
+	pub const ValidatorIncentiveVestingDuration: BlockNumber = 365 * RC_DAYS;
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -312,6 +313,12 @@ impl pallet_staking_async::Config for Runtime {
 		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type MaxPruningItems = MaxPruningItems;
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
+	type VestingDuration = ValidatorIncentiveVestingDuration;
+	type VestingBlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type ValidatorIncentivePayout = pallet_staking_async::VestedIncentivePayout<
+		Balances,
+		pallet_vesting::Pallet<Runtime>,
+	>;
 }
 
 // Relay Chain session keys type for validating session keys on AssetHub.

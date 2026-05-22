@@ -561,6 +561,7 @@ impl Config for Test {
 	type Slash = Dap;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type VestingDuration = ConstU64<0>;
+	type VestingBlockNumberProvider = frame_system::Pallet<Test>;
 	type ValidatorIncentivePayout = LiquidIncentivePayout<Balances>;
 	type WeightInfo = ();
 }
