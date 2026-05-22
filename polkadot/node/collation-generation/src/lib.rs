@@ -203,6 +203,12 @@ impl CollationGenerationSubsystem {
 
 				false
 			},
+			Ok(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::SubmitSegment(_params),
+			}) => {
+				// TODO: handle segment submission.
+				false
+			},
 			Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => false,
 			Err(err) => {
 				gum::error!(
