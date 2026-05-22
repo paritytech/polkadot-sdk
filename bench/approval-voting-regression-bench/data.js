@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779468042844,
+  "lastUpdate": 1779473606154,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "45130584+l0r1s@users.noreply.github.com",
-            "name": "Loris Moulin",
-            "username": "l0r1s"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c189613a32a58745993059f2fb73080e460c4ae7",
-          "message": "Fix utility::force_batch returning incorrect weights causing mismatch (#9983)\n\n# Description\n\nThe returned weights from the `pallet_utility::force_batch` dispatch is\nusing `batch` weights instead of its own `force_batch` causing a weight\nmismatch log:\n\n```\n2025-10-03 14:57:48 Post dispatch weight is greater than pre dispatch weight. Pre dispatch weight may underestimating the actual weight. Greater post dispatch weight components are ignored.\n                                        Pre dispatch weight: Weight { ref_time: 5963137729, proof_size: 3997 },\n                                        Post dispatch weight: Weight { ref_time: 5963148560, proof_size: 3997 }    \n2025-10-03 14:59:00 Post dispatch weight is greater than pre dispatch weight. Pre dispatch weight may underestimating the actual weight. Greater post dispatch weight components are ignored.\n                                        Pre dispatch weight: Weight { ref_time: 2837593294, proof_size: 8703 },\n                                        Post dispatch weight: Weight { ref_time: 2837604125, proof_size: 8703 }   \n``` \n\nThis PR correct the returned weights.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-10-10T07:26:12Z",
-          "tree_id": "2b90b30c7bc456f310a278da53e3685fb1413266",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c189613a32a58745993059f2fb73080e460c4ae7"
-        },
-        "date": 1760085209360,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63633.15000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52941.59999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000019999480000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6872124510109314,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002017253,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002017253,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.492717118509999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005576018330000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5343262912599998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000019999480000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.5002438502800017,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.451153500490005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4401672299100004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9683776044700043,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.50974538773,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution/test-environment",
             "value": 0.0000234169,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "313647ce0acbfcefea301f05bba4ffec9c9e2bc0",
+          "message": "pallet-revive: fix execution tracer reporting zero gas for plain transfers (#12069)\n\nFixes\n[paritytech/contract-issues#278](https://github.com/paritytech/contract-issues/issues/278).\n\n`Stack::run_call`'s no-code branch was passing `Default::default()` to\n`exit_child_span`, so the execution tracer reported `gas: 0` for any\ntransaction whose destination has no contract code (plain EOA\ntransfers),\neven when the meter had charged an existential deposit. The\ncontract-call\nbranch already reads `frame_meter.total_consumed_gas()` /\n`frame_meter.weight_consumed()` and forwards them — this PR does the\nsame\nat the transaction-meter level for the no-code branch.\n\n## Tests\n\n- New regression test\n`execution_tracing_records_consumption_for_plain_transfer`\n  in `tests/pvm.rs`: transfers to an unfunded account, asserts\n  `trace.gas > 0`. Fails on `master`, passes here.\n- Updated `tracing_works_for_transfers`, which previously asserted the\nbuggy zero via `..Default::default()`, to compare against the\n`bare_call`\n  result's `gas_consumed`.\n\nEnd-to-end: 1500 transfers via `manual-seal-6000` then\n`debug_traceBlockByNumber` → before: every trace `gas: 0`; after: every\ntrace `gas: 200000` (the ED charge).\nhttps://github.com/0xRVE/contract-issue-278\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-22T16:42:18Z",
+          "tree_id": "0cca72a61fa5a2d625f7e65b1a56300a16237006",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/313647ce0acbfcefea301f05bba4ffec9c9e2bc0"
+        },
+        "date": 1779473577361,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63635.72000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7866855387699982,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005531512009999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.323407525179922,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000019677800000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000021569950000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.762456913390001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4023746161799986,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7459647973099983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7725818857399267,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.847812261780001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000019677800000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.344606546312971,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000021569950000000002,
             "unit": "seconds"
           }
         ]
