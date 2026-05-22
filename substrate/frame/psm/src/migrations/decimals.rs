@@ -24,8 +24,9 @@
 //! `Error::Unexpected`) until they are populated. This migration reads live metadata and
 //! writes the snapshots.
 //!
-//! The internal asset's decimals snapshot lives inside [`PsmInfo`] and is seeded by the
-//! [`super::init::InitializePsm`] migration; this one only handles per-external snapshots.
+//! The internal asset's decimals snapshot lives inside [`crate::PsmInfo`] and is seeded by
+//! the [`super::init::InitializePsm`] migration; this one only handles per-external
+//! snapshots.
 //!
 //! Out-of-range assets are handled gracefully: if an existing asset's decimals differ from
 //! the internal asset's decimals by more than [`MAX_DECIMALS_DIFF`], the migration still
