@@ -1,4 +1,4 @@
-title: 'WAH: run pallet-recovery benchmarks and use generated weights'
+title: 'WAH: wire pallet-recovery benchmarks'
 doc:
 - audience: Runtime Dev
   description: |-
