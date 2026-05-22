@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779473569663,
+  "lastUpdate": 1779480552042,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c61e227f2c59fa0ce7df5f977dad4076ff470f00",
-          "message": "`trace_block`: Support overwriting `execute_block` (#9871)\n\nThis is required for example for parachains that require special\nextensions to be registered (e.g. `ProofSizeExt`) to succeed the block\nexecution.\n\nThis pull request changes the signature of `spawn_tasks` which now\nrequires a `tracing_execute_block` parameter. If your chain is a\nsolochain, just set the parameter to `None` or overwrite it if you need\nany special handling. For parachain builders, this value can be set to\n`cumulus_service::ParachainTracingExecuteBlock`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-10T10:26:45Z",
-          "tree_id": "3543a71fa505d9567ad4915814d4e03994df82aa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c61e227f2c59fa0ce7df5f977dad4076ff470f00"
-        },
-        "date": 1760096681449,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007315799866666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1568189427133334,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022331301286666657,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013046095093333336,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14668506675333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1aeb6ec2e32093f332c9f4a96f016a3f302d2922",
+          "message": "WAH: wire pallet-recovery into  benchmark list (#12171)\n\n- Wired `pallet-recovery` into the asset-hub-westend benchmark list.\n- Fixed the benchmark setup: `finish_attempt` / `cancel_attempt` advance\n`frame_system`'s block number, which does not move\n`RelaychainDataProvider`, causing `NotYetInheritable` /\n`NotYetCancelable`. Under `runtime-benchmarks`, use `frame_system` as\nthe `BlockNumberProvider` so the time-delay guards can be satisfied.\n\n\nNote: similar fix in fellowship repo\n[here](https://github.com/polkadot-fellows/runtimes/pull/1183) as part\nof [integration of SDK\n2604](https://github.com/polkadot-fellows/runtimes/pull/1159).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-22T18:21:48Z",
+          "tree_id": "d9a05a0ffc6a7c206aa1acc6e71a3a3c35f2ecb7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1aeb6ec2e32093f332c9f4a96f016a3f302d2922"
+        },
+        "date": 1779480523048,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14681637294000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024000075666666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01040374408666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007650531240000004,
             "unit": "seconds"
           }
         ]
