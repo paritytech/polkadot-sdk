@@ -1007,9 +1007,9 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn barrier_check(i: Linear<1, 100>) -> Result<(), BenchmarkError> {
-		let origin = Location::parent();
-		let mut message = Xcm::<XcmCallOf<T>>(vec![ClearOrigin; i as usize]);
+	fn barrier_check() -> Result<(), BenchmarkError> {
+		let (origin, mut message) =
+			T::worst_case_barrier_check().map_err(|_| BenchmarkError::Skip)?;
 		let mut properties =
 			xcm_executor::traits::Properties { weight_credit: Weight::zero(), message_id: None };
 

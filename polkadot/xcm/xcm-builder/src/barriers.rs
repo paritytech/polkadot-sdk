@@ -529,7 +529,7 @@ impl ShouldExecute for AllowHrmpNotificationsFromRelayChain {
 
 /// Deny executing the XCM if it matches any of the Deny filter regardless of anything else.
 /// If it passes the Deny, and matches one of the Allow cases then it is let through.
-pub struct DenyThenTry<Deny, Allow>(PhantomData<(Deny, Allow)>)
+pub struct DenyThenTry<Deny, Allow>(PhantomData<Deny>, PhantomData<Allow>)
 where
 	Deny: DenyExecution,
 	Allow: ShouldExecute;
@@ -554,11 +554,38 @@ where
 pub struct DenyReserveTransferToRelayChain;
 impl DenyExecution for DenyReserveTransferToRelayChain {
 	fn deny_execution<RuntimeCall>(
-		_origin: &Location,
-		_instructions: &mut [Instruction<RuntimeCall>],
+		origin: &Location,
+		message: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
 		_properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
+		message.matcher().match_next_inst_while(
+			|_| true,
+			|inst| match inst {
+				InitiateReserveWithdraw {
+					reserve: Location { parents: 1, interior: Here },
+					..
+				} |
+				DepositReserveAsset { dest: Location { parents: 1, interior: Here }, .. } |
+				TransferReserveAsset { dest: Location { parents: 1, interior: Here }, .. } => {
+					Err(ProcessMessageError::Unsupported) // Deny
+				},
+
+				// An unexpected reserve transfer has arrived from the Relay Chain. Generally,
+				// `IsReserve` should not allow this, but we just log it here.
+				ReserveAssetDeposited { .. }
+					if matches!(origin, Location { parents: 1, interior: Here }) =>
+				{
+					tracing::debug!(
+						target: "xcm::barriers",
+						"Unexpected ReserveAssetDeposited from the Relay Chain",
+					);
+					Ok(ControlFlow::Continue(()))
+				},
+
+				_ => Ok(ControlFlow::Continue(())),
+			},
+		)?;
 		Ok(())
 	}
 }

@@ -28,6 +28,7 @@ pub mod pallet {
 	use sp_runtime::traits::Dispatchable;
 	use xcm::latest::{
 		Asset, Assets, InteriorLocation, Junction, Location, NetworkId, Response, WeightLimit,
+		Xcm,
 	};
 
 	#[pallet::config]
@@ -96,6 +97,15 @@ pub mod pallet {
 		///
 		/// If set to `Err`, benchmarks which rely on a universal alias will be skipped.
 		fn alias_origin() -> Result<(Location, Location), BenchmarkError>;
+
+		/// The `(origin, message)` pair that causes the most runtime weight when checked by the
+		/// runtime's XCM barrier.
+		///
+		/// If set to `Err`, the `barrier_check` benchmark will be skipped.
+		fn worst_case_barrier_check(
+		) -> Result<(Location, Xcm<<Self as Config<I>>::RuntimeCall>), BenchmarkError> {
+			Err(BenchmarkError::Skip)
+		}
 
 		/// Returns a valid pallet info for `ExpectPallet` or `QueryPallet` benchmark.
 		///

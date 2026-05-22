@@ -29,15 +29,15 @@ use xcm_simulator::fake_message_hash;
 fn assert_teleport_outcome(
 	r: Outcome,
 	weight: Weight,
-	_instruction_index: u8,
-	_expected_error: XcmError,
+	instruction_index: u8,
+	expected_error: XcmError,
 ) {
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	assert_eq!(
 		r,
 		Outcome::Incomplete {
 			used: weight,
-			error: InstructionError { index: _instruction_index, error: _expected_error },
+			error: InstructionError { index: instruction_index, error: expected_error },
 		}
 	);
 	#[cfg(feature = "runtime-benchmarks")]
