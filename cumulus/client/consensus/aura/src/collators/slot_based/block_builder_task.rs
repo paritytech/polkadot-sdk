@@ -188,11 +188,11 @@ where
 			code_hash_provider,
 			relay_chain_slot_duration,
 			para_backend,
-			slot_offset,
+			slot_offset: _,
 			max_pov_percentage,
 		} = params;
 
-		let mut slot_timer = SlotTimer::new_with_offset(slot_offset, relay_chain_slot_duration);
+		let mut slot_timer = SlotTimer::new_with_offset(Duration::ZERO, relay_chain_slot_duration);
 
 		let mut collator = {
 			let params = collator_util::Params {
@@ -219,7 +219,7 @@ where
 				.expect("Relay chain interface must provide overseer handle."),
 		);
 
-		let mut scheduling_info = SchedulingInfo::new(relay_chain_slot_duration, slot_offset);
+		let mut scheduling_info = SchedulingInfo::new(relay_chain_slot_duration, Duration::ZERO);
 		let maybe_best_relay_block_data = scheduling_info
 			.ensure_initialized(&relay_client, &mut relay_chain_data_cache)
 			.await;
@@ -229,7 +229,7 @@ where
 			v3_enabled_on_para,
 			maybe_best_relay_block_data,
 		);
-		slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
+		slot_timer.set_offset_by_scheduling_version(v3_enabled, Duration::ZERO);
 
 		loop {
 			let _ = scheduling_info
@@ -261,7 +261,7 @@ where
 			};
 			let scheduling_parent_hash = scheduling_parent_header.hash();
 
-			slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
+			slot_timer.set_offset_by_scheduling_version(v3_enabled, Duration::ZERO);
 
 			let relay_parent_offset = para_client
 				.runtime_api()
