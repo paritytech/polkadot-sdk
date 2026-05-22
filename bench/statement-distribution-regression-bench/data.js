@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779473643069,
+  "lastUpdate": 1779480627437,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "4697901f84463e423cf46cfbe84744f4c9ad1555",
-          "message": "Return unified gas for `gas_left` syscalls and opcodes (#9968)\n\nIn https://github.com/paritytech/polkadot-sdk/pull/9803 we introduced\nthe new gas mapping. However, when contracts are querying the remaining\ngas we still returned the `ref_time`. This PR changes that.\n\n## Changes\n- Added a new `Stack::gas_left` function that calculates the remaining\ngas as eth gas that matches the gas passed in the transaction. It\nsupports both the `eth_` and non `eth_` flavors of dispatchables.\n- Changed the PVM syscall `ref_time_left` to return the new unified gas.\n- Changes the EVM `GAS` opcode to return the new unified gas\n- When calculating the consumed storage we now take into account what\nwas charged during the current frame\n- Removed `storage_deposit_limit` from `eth_*` dispatchables. It is\nalways uncapped in this case and the overall limit is conveyed using the\ntx credit.\n\n## Follow ups\nNow that we can return the proper remaining gas that also includes the\nstorage deposit we can change the EVM `call` instruction next to take\nthe passed `gas` into account. Since the unified gas takes both the\ntxfee and the deposit into account it will be able to limit both\neffectively.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: xermicus <cyrill@parity.io>",
-          "timestamp": "2025-10-09T14:35:38Z",
-          "tree_id": "542b34f5992d92006956917f952370a5e5861e98",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4697901f84463e423cf46cfbe84744f4c9ad1555"
-        },
-        "date": 1760030442267,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.96799999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034367612314000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.045223451445999964,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038576022669999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1aeb6ec2e32093f332c9f4a96f016a3f302d2922",
+          "message": "WAH: wire pallet-recovery into  benchmark list (#12171)\n\n- Wired `pallet-recovery` into the asset-hub-westend benchmark list.\n- Fixed the benchmark setup: `finish_attempt` / `cancel_attempt` advance\n`frame_system`'s block number, which does not move\n`RelaychainDataProvider`, causing `NotYetInheritable` /\n`NotYetCancelable`. Under `runtime-benchmarks`, use `frame_system` as\nthe `BlockNumberProvider` so the time-delay guards can be satisfied.\n\n\nNote: similar fix in fellowship repo\n[here](https://github.com/polkadot-fellows/runtimes/pull/1183) as part\nof [integration of SDK\n2604](https://github.com/polkadot-fellows/runtimes/pull/1159).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-22T18:21:48Z",
+          "tree_id": "d9a05a0ffc6a7c206aa1acc6e71a3a3c35f2ecb7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1aeb6ec2e32093f332c9f4a96f016a3f302d2922"
+        },
+        "date": 1779480599184,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.094,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09085808400199986,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039102506541999996,
             "unit": "seconds"
           }
         ]
