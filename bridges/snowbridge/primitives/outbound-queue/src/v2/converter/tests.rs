@@ -1283,7 +1283,7 @@ fn xcm_converter_mints_registered_token_id_for_colliding_general_key_location() 
 	let filter: AssetFilter = assets.clone().into();
 
 	// Create an origin location for AliasOrigin
-	let origin_location = Location::new(1, [Parachain(1000)]);
+	let origin_location = Location::new(1, [Parachain(2000)]);
 
 	let message: Xcm<()> = vec![
 		WithdrawAsset(vec![fee_asset.clone()].into()),
@@ -1298,7 +1298,7 @@ fn xcm_converter_mints_registered_token_id_for_colliding_general_key_location() 
 	]
 	.into();
 
-	let mut converter = XcmConverter::<VictimOnlyTokenIdConvert, ()>::new(&message, network);
+	let mut converter = XcmConverter::<VictimOnlyTokenIdConvert, ()>::new(&message, network, AssetHubParaId::get());
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::InvalidAsset));
 }
