@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779468082440,
+  "lastUpdate": 1779473643069,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "Sajjon@users.noreply.github.com",
-            "name": "Alexander Cyon",
-            "username": "Sajjon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1b1cef306d9ceebf963fd15a04b5c79ee2618bce",
-          "message": "Fix bug in logging of expried collation, incorrect `relay_parent` used (#9976)\n\nFixes a bug where wrong `relay_parent` was logged about expired\ncollations",
-          "timestamp": "2025-10-09T12:55:56Z",
-          "tree_id": "8ead97054f7a37135b863fb8c8d207b56fc94f84",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1b1cef306d9ceebf963fd15a04b5c79ee2618bce"
-        },
-        "date": 1760020337644,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.94999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03416205143000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044983782333999967,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08856311703999992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "313647ce0acbfcefea301f05bba4ffec9c9e2bc0",
+          "message": "pallet-revive: fix execution tracer reporting zero gas for plain transfers (#12069)\n\nFixes\n[paritytech/contract-issues#278](https://github.com/paritytech/contract-issues/issues/278).\n\n`Stack::run_call`'s no-code branch was passing `Default::default()` to\n`exit_child_span`, so the execution tracer reported `gas: 0` for any\ntransaction whose destination has no contract code (plain EOA\ntransfers),\neven when the meter had charged an existential deposit. The\ncontract-call\nbranch already reads `frame_meter.total_consumed_gas()` /\n`frame_meter.weight_consumed()` and forwards them — this PR does the\nsame\nat the transaction-meter level for the no-code branch.\n\n## Tests\n\n- New regression test\n`execution_tracing_records_consumption_for_plain_transfer`\n  in `tests/pvm.rs`: transfers to an unfunded account, asserts\n  `trace.gas > 0`. Fails on `master`, passes here.\n- Updated `tracing_works_for_transfers`, which previously asserted the\nbuggy zero via `..Default::default()`, to compare against the\n`bare_call`\n  result's `gas_consumed`.\n\nEnd-to-end: 1500 transfers via `manual-seal-6000` then\n`debug_traceBlockByNumber` → before: every trace `gas: 0`; after: every\ntrace `gas: 200000` (the ED charge).\nhttps://github.com/0xRVE/contract-issue-278\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-22T16:42:18Z",
+          "tree_id": "0cca72a61fa5a2d625f7e65b1a56300a16237006",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/313647ce0acbfcefea301f05bba4ffec9c9e2bc0"
+        },
+        "date": 1779473614612,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.118,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09254952834399992,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038576022669999994,
             "unit": "seconds"
           }
         ]
