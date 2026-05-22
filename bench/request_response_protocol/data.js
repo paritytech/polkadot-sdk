@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779450486499,
+  "lastUpdate": 1779453509017,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -93311,6 +93311,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2881509637,
             "range": "± 30749388",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jfanatiker@gmx.at",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "02ac1f74894f51aa045b9d0b01f8af2f7200a7c9",
+          "message": "Rotation bug fix + simplification (#11967)\n\nSimilar to https://github.com/paritytech/polkadot-sdk/pull/11648, but I\nfound that state machine very hard to reason about. This is an\nalternative, with a more compact implementation (all the logic is a\nsingle function) and it is also correct for more corner cases. In\nparticular capacity tracking for example is now correct.\n\n---------\n\nCo-authored-by: Tsvetomir Dimitrov <tsvetomir@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-22T11:11:24Z",
+          "tree_id": "3954b3017ba1b6599669b82337fab02ff59dc232",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/02ac1f74894f51aa045b9d0b01f8af2f7200a7c9"
+        },
+        "date": 1779453485511,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21848337,
+            "range": "± 317199",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21688772,
+            "range": "± 322090",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23069822,
+            "range": "± 326138",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28123957,
+            "range": "± 390533",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 64243573,
+            "range": "± 1193088",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 369920909,
+            "range": "± 7604190",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2700492802,
+            "range": "± 86592121",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 19076473,
+            "range": "± 196362",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 19008410,
+            "range": "± 317422",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19585520,
+            "range": "± 313856",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24331262,
+            "range": "± 346594",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62829600,
+            "range": "± 598376",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 366118129,
+            "range": "± 3825644",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2926339369,
+            "range": "± 61380685",
             "unit": "ns/iter"
           }
         ]
