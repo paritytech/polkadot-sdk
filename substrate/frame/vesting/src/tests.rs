@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use codec::EncodeLike;
-use frame_support::{assert_noop, assert_ok, assert_storage_noop};
+use frame_support::{assert_noop, assert_ok, assert_storage_noop, traits::tokens::VestedPayout};
 use frame_system::RawOrigin;
 use sp_runtime::{
 	traits::{BadOrigin, Identity},
@@ -1265,7 +1265,7 @@ fn vested_transfer_impl_works() {
 
 #[test]
 fn vested_payout_edge_cases() {
-	use frame_support::{hypothetically, traits::tokens::VestedPayout};
+	use frame_support::hypothetically;
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
 		let alice = 3;
 		let bob = 4;
@@ -1331,7 +1331,6 @@ fn vested_payout_edge_cases() {
 
 #[test]
 fn vested_payout_creates_schedule() {
-	use frame_support::traits::tokens::VestedPayout;
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
 		let alice = 3;
 		let bob = 4;
@@ -1361,7 +1360,6 @@ fn vested_payout_creates_schedule() {
 
 #[test]
 fn vested_payout_self_transfer_creates_schedule() {
-	use frame_support::traits::tokens::VestedPayout;
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
 		let alice = 3;
 		let balance_before = Balances::free_balance(&alice);
@@ -1378,5 +1376,160 @@ fn vested_payout_self_transfer_creates_schedule() {
 		let schedule = VestingStorage::<Test>::get(&alice).unwrap();
 		assert_eq!(schedule.len(), 1);
 		assert_eq!(schedule[0].locked(), amount);
+	});
+}
+
+#[test]
+fn add_to_vesting_zero_shortcuts() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let source = 3u64;
+		let dest = 4u64;
+
+		// Zero amount: no-op, no schedule created.
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(&source, &dest, 0, 10, 1));
+		assert!(VestingStorage::<Test>::get(&dest).is_none());
+
+		// Zero duration: no-op, no schedule created.
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(&source, &dest, 100, 0, 1));
+		assert!(VestingStorage::<Test>::get(&dest).is_none());
+	});
+}
+
+#[test]
+fn add_to_vesting_create_path() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let source = 3u64;
+		let dest = 4u64;
+		let amount = ED * 4; // 1024, above MinVestedTransfer (512)
+		let duration = 20u64;
+		let start_at = 1u64;
+
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
+			&source, &dest, amount, duration, start_at
+		));
+
+		let schedules = VestingStorage::<Test>::get(&dest).unwrap();
+		assert_eq!(schedules.len(), 1);
+		assert_eq!(schedules[0].locked(), amount);
+		assert_eq!(schedules[0].starting_block(), start_at);
+		// per_block = ceil(1024/20) = 52
+		assert_eq!(schedules[0].per_block(), 52);
+	});
+}
+
+#[test]
+fn add_to_vesting_create_rejects_sub_min() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let source = 3u64;
+		let dest = 4u64;
+		let amount = 100u64;
+		assert!(amount < <Test as Config>::MinVestedTransfer::get());
+
+		assert_noop!(
+			<Vesting as VestedPayout<_, _>>::add_to_vesting(&source, &dest, amount, 20, 1),
+			Error::<Test>::AmountLow
+		);
+	});
+}
+
+#[test]
+fn add_to_vesting_merge_path_preserves_starting_block_and_accumulates() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let source = 3u64;
+		let dest = 4u64;
+		let amount1 = ED * 4;
+		let amount2 = amount1;
+		let schedule2_block = 7;
+		let duration = 20u64;
+		let start_at = 1u64;
+
+		// First call: create path at block 1.
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
+			&source, &dest, amount1, duration, start_at
+		));
+
+		// Verify that the schedule was created.
+		let schedules = VestingStorage::<Test>::get(&dest).unwrap();
+		assert_eq!(schedules.len(), 1);
+		assert_eq!(schedules[0].starting_block(), start_at);
+
+		// Advance to second schedule's block, then merge a second payout.
+		System::set_block_number(schedule2_block);
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
+			&source, &dest, amount2, duration, start_at
+		));
+
+		// Ensure there is still only one schedule and the starting block was preserved.
+		let schedules = VestingStorage::<Test>::get(&dest).unwrap();
+		assert_eq!(schedules.len(), 1);
+		assert_eq!(schedules[0].starting_block(), start_at);
+
+		// Calculate the expected locked amount after the merge.
+		let per_block = (amount1 + duration - 1) / duration;
+		let expected_locked_now = (amount1 - (schedule2_block - start_at) * per_block) + amount2;
+
+		assert_eq!(
+			schedules[0].locked_at::<sp_runtime::traits::Identity>(schedule2_block),
+			expected_locked_now
+		);
+
+		// Vesting lock on the account reflects the merged amount.
+		assert_eq!(Vesting::vesting_balance(&dest), Some(expected_locked_now));
+	});
+}
+
+#[test]
+fn add_to_vesting_merge_bypasses_min_vested_transfer() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let source = 3u64;
+		let dest = 4u64;
+		let start_at = 1u64;
+
+		// Create path first with an above-minimum amount.
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
+			&source,
+			&dest,
+			ED * 4,
+			20,
+			start_at
+		));
+
+		// Merge path with a sub-minimum amount — ensure MinVestedTransfer is not enforced on merge.
+		let sub_min_amount = 100u64;
+		assert!(sub_min_amount < <Test as Config>::MinVestedTransfer::get());
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
+			&source,
+			&dest,
+			sub_min_amount,
+			20,
+			start_at
+		));
+
+		// Schedule count unchanged; merge succeeded.
+		assert_eq!(VestingStorage::<Test>::get(&dest).unwrap().len(), 1);
+	});
+}
+
+#[test]
+fn add_to_vesting_at_max_schedules_returns_error() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let source = 3u64;
+		let dest = 4u64;
+		let amount = ED * 4;
+
+		// Mock sets MAX_VESTING_SCHEDULES to 3 and we now fill all 3 slots with distinct
+		// "start_at" values, so we are at maximum schedule capacity.
+		for start_at in [1u64, 2u64, 3u64] {
+			assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
+				&source, &dest, amount, 20, start_at
+			));
+		}
+		assert_eq!(VestingStorage::<Test>::get(&dest).unwrap().len(), 3);
+
+		// Ensure a created path with a new "start_at" hits the cap.
+		assert_noop!(
+			<Vesting as VestedPayout<_, _>>::add_to_vesting(&source, &dest, amount, 20, 4),
+			Error::<Test>::AtMaxVestingSchedules
+		);
 	});
 }

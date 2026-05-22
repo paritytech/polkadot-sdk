@@ -435,6 +435,95 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn add_to_vesting_create(
+		l: Linear<0, { MaxLocksOf::<T>::get() - 1 }>,
+		s: Linear<0, { T::MAX_VESTING_SCHEDULES - 1 }>,
+	) -> Result<(), BenchmarkError> {
+		let source = account::<T::AccountId>("source", 0, SEED);
+		T::Currency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
+
+		let dest = account::<T::AccountId>("dest", 0, SEED);
+		T::Currency::make_free_balance_be(&dest, T::Currency::minimum_balance());
+		add_locks::<T>(&dest, l as u8);
+		add_vesting_schedules::<T>(&dest, s)?;
+
+		T::BlockNumberProvider::set_block_number(BlockNumberFor::<T>::zero());
+
+		// Use a "start_at" that won't match any existing schedules, which all use "starting_block"
+		// set to 1.
+		let start_at: BlockNumberFor<T> = 100_u32.into();
+		let duration: BlockNumberFor<T> = 20_u32.into();
+		let amount = T::MinVestedTransfer::get();
+
+		#[block]
+		{
+			<Pallet<T> as frame_support::traits::tokens::VestedPayout<
+				T::AccountId,
+				BalanceOf<T>,
+			>>::add_to_vesting(&source, &dest, amount, duration, start_at)
+			.unwrap();
+		}
+
+		assert_eq!(
+			Vesting::<T>::get(&dest).unwrap().len(),
+			s as usize + 1,
+			"Schedule should have been created"
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn add_to_vesting_merge(
+		l: Linear<0, { MaxLocksOf::<T>::get() - 1 }>,
+		s: Linear<1, { T::MAX_VESTING_SCHEDULES }>,
+	) -> Result<(), BenchmarkError> {
+		let source = account::<T::AccountId>("source", 0, SEED);
+		T::Currency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
+
+		let dest = account::<T::AccountId>("dest", 0, SEED);
+		T::Currency::make_free_balance_be(&dest, T::Currency::minimum_balance());
+		add_locks::<T>(&dest, l as u8);
+
+		// Add "s - 1" filler schedules (with "starting_block" of 1) and one target schedule (with
+		// "starting_block" of 2).
+		add_vesting_schedules::<T>(&dest, s - 1)?;
+
+		let amount = T::MinVestedTransfer::get();
+		let start_at: BlockNumberFor<T> = 2_u32.into();
+		let duration: BlockNumberFor<T> = 20_u32.into();
+		T::BlockNumberProvider::set_block_number(BlockNumberFor::<T>::zero());
+
+		// Create the schedule that will be merged into.
+		<Pallet<T> as frame_support::traits::tokens::VestedPayout<
+			T::AccountId,
+			BalanceOf<T>,
+		>>::add_to_vesting(&source, &dest, amount, duration, start_at)
+		.unwrap();
+		T::Currency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
+
+		assert_eq!(Vesting::<T>::get(&dest).unwrap().len(), s as usize);
+
+		#[block]
+		{
+			<Pallet<T> as frame_support::traits::tokens::VestedPayout<
+				T::AccountId,
+				BalanceOf<T>,
+			>>::add_to_vesting(&source, &dest, amount, duration, start_at)
+			.unwrap();
+		}
+
+		// Ensure the schedule count is unchanged (the merge did not use a new slot).
+		assert_eq!(
+			Vesting::<T>::get(&dest).unwrap().len(),
+			s as usize,
+			"Merge should not increase schedule count"
+		);
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite! {
 		Pallet,
 		mock::ExtBuilder::default().existential_deposit(256).build(),

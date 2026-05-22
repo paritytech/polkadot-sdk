@@ -81,6 +81,8 @@ pub trait WeightInfo {
 	fn not_unlocking_merge_schedules(l: u32, s: u32, ) -> Weight;
 	fn unlocking_merge_schedules(l: u32, s: u32, ) -> Weight;
 	fn force_remove_vesting_schedule(l: u32, s: u32, ) -> Weight;
+	fn add_to_vesting_create(l: u32, s: u32, ) -> Weight;
+	fn add_to_vesting_merge(l: u32, s: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_vesting` using the Substrate node and recommended hardware.
@@ -285,6 +287,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
+	/// NOTE: placeholder — re-run benchmarks after merging.
+	fn add_to_vesting_create(_l: u32, _s: u32) -> Weight {
+		Weight::zero()
+	}
+	/// NOTE: placeholder — re-run benchmarks after merging.
+	fn add_to_vesting_merge(_l: u32, _s: u32) -> Weight {
+		Weight::zero()
+	}
 }
 
 // For backwards compatibility and tests.
@@ -487,5 +497,13 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(81_931, 0).saturating_mul(s.into()))
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+	/// NOTE: placeholder — re-run benchmarks after merging.
+	fn add_to_vesting_create(_l: u32, _s: u32) -> Weight {
+		Weight::zero()
+	}
+	/// NOTE: placeholder — re-run benchmarks after merging.
+	fn add_to_vesting_merge(_l: u32, _s: u32) -> Weight {
+		Weight::zero()
 	}
 }

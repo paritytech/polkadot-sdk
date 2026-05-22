@@ -549,6 +549,49 @@ impl<T: Config> Pallet<T> {
 		Some(schedule)
 	}
 
+	// Merge two `VestingInfo`s that share the same `starting_block`. For the incoming schedule we
+	// use `incoming.locked()` (the full original amount) and not `locked_at(now)` so that the
+	// complete payout is locked regardless of how far into the epoch it arrives.
+	//
+	// `per_block` is sized to unlock `target_locked_now` over the remaining time to `ending_block`.
+	// `locked` is back-calculated so that `locked_at(now) == target_locked_now` exactly.
+	fn merge_vesting_info_preserving_start(
+		now: BlockNumberFor<T>,
+		existing: VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
+		incoming: VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
+	) -> VestingInfo<BalanceOf<T>, BlockNumberFor<T>> {
+		debug_assert_eq!(
+			existing.starting_block(),
+			incoming.starting_block(),
+			"merge_vesting_info_preserving_start: starting_block mismatch"
+		);
+
+		// Lock the full incoming amount, irrespective of when the existing schedule started.
+		let target_locked_now = existing
+			.locked_at::<T::BlockNumberToBalance>(now)
+			.saturating_add(incoming.locked());
+
+		// The merged schedule should end at the later of the two ending blocks.
+		let ending_block = existing
+			.ending_block_as_balance::<T::BlockNumberToBalance>()
+			.max(incoming.ending_block_as_balance::<T::BlockNumberToBalance>());
+
+		let now_as_balance = T::BlockNumberToBalance::convert(now);
+		let elapsed = now_as_balance
+			.saturating_sub(T::BlockNumberToBalance::convert(existing.starting_block()));
+		let remaining = ending_block.saturating_sub(now_as_balance).max(One::one());
+
+		// Ceiling division: per_block = ceil(target_locked_now / remaining).
+		let per_block = (target_locked_now.saturating_add(remaining).saturating_sub(One::one()) /
+			remaining)
+			.max(One::one());
+
+		// Back-calculate "locked" so that "locked_at(now)" exactly matches "target_locked_now".
+		let locked = target_locked_now.saturating_add(per_block.saturating_mul(elapsed));
+
+		VestingInfo::new(locked, per_block, existing.starting_block())
+	}
+
 	// Execute a vested transfer from `source` to `target` with the given `schedule`.
 	fn do_vested_transfer(
 		source: &T::AccountId,
@@ -741,6 +784,49 @@ where
 					.max(One::one());
 			let schedule = VestingInfo::new(amount, per_block, starting_block);
 			Self::do_vested_transfer(source, dest, schedule)
+		}
+	}
+
+	fn add_to_vesting(
+		source: &T::AccountId,
+		dest: &T::AccountId,
+		amount: BalanceOf<T>,
+		duration: BlockNumberFor<T>,
+		start_at: BlockNumberFor<T>,
+	) -> DispatchResult {
+		if amount.is_zero() || duration.is_zero() {
+			return Ok(());
+		}
+
+		let now = T::BlockNumberProvider::current_block_number();
+		let duration_as_balance = T::BlockNumberToBalance::convert(duration);
+		let per_block = (amount.saturating_add(duration_as_balance).saturating_sub(One::one()) /
+			duration_as_balance)
+			.max(One::one());
+		let incoming = VestingInfo::new(amount, per_block, start_at);
+		let schedules = Vesting::<T>::get(dest).unwrap_or_default();
+
+		if let Some(idx) = schedules.iter().position(|s| s.starting_block() == start_at) {
+			// A schedule exists for "start_at", so we merge the incoming schedule with the existing
+			// one, while intentionally not enforcing "MinVestedTransfer" since per-era amounts
+			// may be sub-minimum.
+			T::Currency::transfer(source, dest, amount, ExistenceRequirement::AllowDeath)?;
+
+			// Merge the incoming schedule with the existing one.
+			let mut schedules = schedules.to_vec();
+			schedules[idx] =
+				Self::merge_vesting_info_preserving_start(now, schedules[idx], incoming);
+
+			// Clean up.
+			let (schedules, locked_now) = Self::exec_action(schedules, VestingAction::Passive)?;
+			Self::write_vesting(dest, schedules)?;
+			Self::write_lock(dest, locked_now);
+
+			Ok(())
+		} else {
+			// No schedule exists for "start_at", so we create a new one, enforcing
+			// MinVestedTransfer.
+			Self::do_vested_transfer(source, dest, incoming)
 		}
 	}
 }

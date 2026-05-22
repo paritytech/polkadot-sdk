@@ -464,4 +464,22 @@ pub trait VestedPayout<AccountId, Balance> {
 		duration: Self::BlockNumber,
 		start_at: Option<Self::BlockNumber>,
 	) -> sp_runtime::DispatchResult;
+
+	/// Transfer `amount` from `source` to `dest`, merging with the existing vesting schedule
+	/// whose `starting_block` equals `start_at`, or creating a new schedule if none exists.
+	/// On the merge path `MinVestedTransfer` is not enforced, allowing sub-minimum era payouts
+	/// to accumulate into the epoch's schedule.
+	///
+	/// # Warning — since `vested_transfer` is a permissionless extrinsic, an external actor can
+	/// fill all remaining schedule slots on `dest`. The next schedule creation (not merge) will
+	/// then fail with `AtMaxVestingSchedules`. Solutions to avoid this may be to simply prevent
+	/// permissionless `vested_transfer` or to fall back to a liquid transfer and emit an
+	/// observable event.
+	fn add_to_vesting(
+		source: &AccountId,
+		dest: &AccountId,
+		amount: Balance,
+		duration: Self::BlockNumber,
+		start_at: Self::BlockNumber,
+	) -> sp_runtime::DispatchResult;
 }
