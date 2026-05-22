@@ -8,10 +8,10 @@ use frame_support::{ensure, BoundedVec};
 use snowbridge_core::{AgentIdOf, ParaId, TokenId, TokenIdOf};
 
 use crate::v2::{
+	converter::TARGET,
 	message::{Command, Message},
 	ContractCall,
 };
-use crate::v2::converter::TARGET;
 
 use sp_core::H160;
 use sp_runtime::traits::MaybeConvert;

@@ -23,14 +23,12 @@ use crate::{
 };
 use emulated_integration_tests_common::snowbridge::{SEPOLIA_ID, WETH};
 use frame_support::assert_noop;
-use snowbridge_core::AssetMetadata;
+use hex_literal::hex;
+use snowbridge_core::{AgentIdOf, AssetMetadata};
+use snowbridge_outbound_queue_primitives::v2::{Command, ContractCall};
 use sp_runtime::DispatchError::BadOrigin;
 use xcm::v5::AssetTransferFilter;
-use snowbridge_outbound_queue_primitives::v2::Command;
-use snowbridge_outbound_queue_primitives::v2::ContractCall;
-use snowbridge_core::AgentIdOf;
 use xcm_executor::traits::ConvertLocation;
-use hex_literal::hex;
 
 #[test]
 fn register_penpal_a_asset_from_penpal_b_will_fail() {
