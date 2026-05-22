@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779451504844,
+  "lastUpdate": 1779454679021,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b6c7f6e948b0d97d0907fc3475e35153d7670ec3",
-          "message": "pallet-revive update basefee instruction (#9945)\n\nThe base fee instruction now returns the proper base price instead of a\nhard coded value.\n\n---------\n\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-08T20:38:43Z",
-          "tree_id": "ce745e9150c1089c080fde908c63caec17e7b041",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b6c7f6e948b0d97d0907fc3475e35153d7670ec3"
-        },
-        "date": 1759960690171,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.97,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04497342926999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034499127736000015,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08749908678799997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jfanatiker@gmx.at",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "02ac1f74894f51aa045b9d0b01f8af2f7200a7c9",
+          "message": "Rotation bug fix + simplification (#11967)\n\nSimilar to https://github.com/paritytech/polkadot-sdk/pull/11648, but I\nfound that state machine very hard to reason about. This is an\nalternative, with a more compact implementation (all the logic is a\nsingle function) and it is also correct for more corner cases. In\nparticular capacity tracking for example is now correct.\n\n---------\n\nCo-authored-by: Tsvetomir Dimitrov <tsvetomir@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-22T11:11:24Z",
+          "tree_id": "3954b3017ba1b6599669b82337fab02ff59dc232",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/02ac1f74894f51aa045b9d0b01f8af2f7200a7c9"
+        },
+        "date": 1779454652322,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.1999999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038738754306,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08527503191999995,
             "unit": "seconds"
           }
         ]
