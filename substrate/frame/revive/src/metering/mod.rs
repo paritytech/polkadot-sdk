@@ -476,10 +476,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// Take a snapshot of the meter's current consumption for later use with
 	/// [`Self::delta_since`].
 	pub fn snapshot(&self) -> MeterSnapshot<T> {
-		MeterSnapshot {
-			weight: self.weight_consumed(),
-			gas: self.eth_gas_consumed_signed(),
-		}
+		MeterSnapshot { weight: self.weight_consumed(), gas: self.eth_gas_consumed_signed() }
 	}
 
 	/// Ethereum gas and weight consumed since `snapshot` was taken.
