@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779454572519,
+  "lastUpdate": 1779460409313,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "Denzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5f69bea23dcd527dc22b696b3a7e7e5ee47e8083",
-          "message": "chore: add issue numbers to flaky zombienet tests (#9957)\n\n# Description\n#9877 Improve tracking of disabled tests, add link to tracking issue.\n\n# Checklist\n\n* [x] Improve tracking of disabled tests, add link to tracking issue.\n\n---------\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2025-10-09T20:00:03Z",
-          "tree_id": "a9e08b82b5b3e5f06f6f1a303662a46ce3b63fd5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5f69bea23dcd527dc22b696b3a7e7e5ee47e8083"
-        },
-        "date": 1760044072157,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1964069969666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.390630583266665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13650467513333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ce0a83d000be64be455a8b58e5ce5b33c196cfdc",
+          "message": "fix zombienet flaky tests  (#12139)\n\nAdjustment in flaky tests\n\n<img width=\"1034\" height=\"170\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/bbee5bba-9f35-45ef-bc01-51d057bc234d\"\n/>\n\n- adjust range.\n\n<img width=\"1021\" height=\"176\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/8ab76bf5-dbc7-467f-beae-8777867880d0\"\n/>\n\n- flip metrics check.",
+          "timestamp": "2026-05-22T11:35:06Z",
+          "tree_id": "41a4db71ba7cec0dd55f2e3d621fa5a93183e2a5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce0a83d000be64be455a8b58e5ce5b33c196cfdc"
+        },
+        "date": 1779460381176,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12918608359999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.92066588203333,
             "unit": "seconds"
           }
         ]
