@@ -42,6 +42,8 @@ fn assert_teleport_outcome(
 	);
 	#[cfg(feature = "runtime-benchmarks")]
 	{
+		// Under benchmarks, barrier checks pass and execution completes; index/error are N/A.
+		let _ = (instruction_index, expected_error);
 		assert_eq!(r, Outcome::Complete { used: weight });
 		mock::clear_sent_xcm();
 	}
