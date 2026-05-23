@@ -3099,8 +3099,6 @@ impl pallet_oracle::Config for Runtime {
 }
 
 parameter_types! {
-	/// The pUSD stablecoin asset ID.
-	pub const PsmStablecoinAssetId: u32 = 4242;
 	/// Minimum swap amount for PSM operations (100 pUSD = 100 * 10^6).
 	pub const PsmMinSwapAmount: Balance = 100_000_000;
 	/// PalletId for deriving the PSM system account.
@@ -3161,10 +3159,9 @@ impl pallet_psm::Config for Runtime {
 	type AssetId = u32;
 	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = pallet_psm::weights::SubstrateWeight<Runtime>;
-	type InternalAssetId = PsmStablecoinAssetId;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = PsmMinSwapAmount;
-	type MaxExternalAssets = ConstU32<10>;
+	type MaxExternalAssetsPerPsm = ConstU32<10>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PsmBenchmarkHelper;
 }
