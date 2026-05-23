@@ -11,6 +11,10 @@ doc:
     the AliasOrigin does not match the Asset Hub's parachain location.
 crates:
 - name: snowbridge-outbound-queue-primitives
+  bump: major
+- name: snowbridge-runtime-common
+  bump: minor
+- name: bridge-hub-westend-runtime
   bump: patch
 - name: bridge-hub-westend-integration-tests
   bump: none
