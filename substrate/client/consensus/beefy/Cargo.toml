@@ -45,6 +45,7 @@ sc-block-builder = { workspace = true, default-features = true }
 sc-network-test = { workspace = true }
 serde = { workspace = true, default-features = true }
 sp-mmr-primitives = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
 

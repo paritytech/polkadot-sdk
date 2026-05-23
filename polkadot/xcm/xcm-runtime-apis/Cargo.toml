@@ -27,6 +27,7 @@ pallet-assets = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-xcm = { workspace = true }
 sp-io = { workspace = true }
+sp-state-machine = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 tracing = { workspace = true }
 xcm-builder = { workspace = true }

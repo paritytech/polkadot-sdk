@@ -107,8 +107,13 @@ async fn import_case_a_attaches_prefetched(
 	assert_eq!(prefetched.renew_payloads.len(), 1);
 	let key = sp_core::H256::from(content_hash);
 	assert_eq!(prefetched.renew_payloads.get(&key).map(|v| v.as_slice()), Some(bytes));
-	assert_eq!(h.api.call_api_at_count(), 1);
-	assert!(h.api.overlay_marker_seen());
+	// Verify the overlay was set with the marker via the typed API path
+	let mut overlay = h.api.overlayed_changes().expect("overlay should be set");
+	assert_eq!(
+		overlay.storage(mock::OVERLAY_MARKER_KEY),
+		Some(Some(mock::OVERLAY_MARKER_VALUE)),
+		"overlay marker should be present",
+	);
 }
 
 #[tokio::test]
@@ -523,8 +528,8 @@ mod mock {
 	type TestHeader = generic::Header<u32, BlakeTwo256>;
 	type Block = TestBlock;
 
-	const OVERLAY_MARKER_KEY: &[u8] = b"storage-chain-sync-overlay-marker";
-	const OVERLAY_MARKER_VALUE: &[u8] = b"visible";
+	pub(super) const OVERLAY_MARKER_KEY: &[u8] = b"storage-chain-sync-overlay-marker";
+	pub(super) const OVERLAY_MARKER_VALUE: &[u8] = b"visible";
 	pub(super) const CASE_B_MARKER_KEY: &[u8] = b"storage-chain-sync-case-b-marker";
 	pub(super) const CASE_B_MARKER_VALUE: &[u8] = b"visible-after-execute-block";
 	pub(super) const CASE_B_ROLLBACK_MARKER_KEY: &[u8] = b"storage-chain-sync-case-b-rollback";
@@ -544,11 +549,15 @@ mod mock {
 	#[derive(Clone)]
 	pub(super) struct MockApiClient {
 		inner: Arc<Mutex<MockApiInner>>,
+		overlayed_changes: Arc<std::sync::Mutex<Option<sp_state_machine::OverlayedChanges<sp_runtime::traits::HashingFor<Block>>>>>,
 	}
 
 	impl Default for MockApiClient {
 		fn default() -> Self {
-			Self { inner: Arc::new(Mutex::new(MockApiInner::default())) }
+			Self {
+				inner: Arc::new(Mutex::new(MockApiInner::default())),
+				overlayed_changes: Arc::new(std::sync::Mutex::new(None)),
+			}
 		}
 	}
 
@@ -561,12 +570,10 @@ mod mock {
 			self.inner.lock().unwrap().indexed_transactions.insert(H256::from(hash), data);
 		}
 
-		pub(super) fn call_api_at_count(&self) -> usize {
-			self.inner.lock().unwrap().call_api_at_count
-		}
-
-		pub(super) fn overlay_marker_seen(&self) -> bool {
-			self.inner.lock().unwrap().overlay_marker_seen
+		pub(super) fn overlayed_changes(
+			&self,
+		) -> Option<sp_state_machine::OverlayedChanges<sp_runtime::traits::HashingFor<Block>>> {
+			self.overlayed_changes.lock().unwrap().clone()
 		}
 
 		#[cfg(feature = "test-helpers")]

@@ -17,7 +17,11 @@
 //! Mock runtime for tests.
 //! Implements both runtime APIs for fee estimation and getting the messages for transfers.
 
-use core::{cell::RefCell, marker::PhantomData};
+use std::cell::RefCell;
+use std::marker::PhantomData;
+use std::sync::{Arc, Mutex};
+
+use sp_state_machine::OverlayedChanges;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types, sp_runtime,
 	sp_runtime::{
@@ -527,12 +531,17 @@ pub(crate) struct TestClient;
 #[allow(dead_code)]
 pub(crate) struct RuntimeApi {
 	_inner: TestClient,
+	overlayed_changes: Arc<Mutex<Option<OverlayedChanges<sp_runtime::traits::HashingFor<Block>>>>>,
 }
 
 impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 	type Api = RuntimeApi;
 	fn runtime_api(&self) -> sp_api::ApiRef<'_, Self::Api> {
-		RuntimeApi { _inner: self.clone() }.into()
+		RuntimeApi {
+			_inner: self.clone(),
+			overlayed_changes: Arc::new(Mutex::new(None)),
+		}
+		.into()
 	}
 }
 

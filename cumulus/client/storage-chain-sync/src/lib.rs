@@ -25,30 +25,28 @@ mod fetcher;
 pub(crate) use fetcher::FetchError;
 pub use fetcher::{BitswapPeerSource, IndexedTransactionFetcher, NetworkHandle, SyncingHandle};
 
-use codec::{Decode, Encode};
+use codec::Encode;
 use sc_client_api::{BlockBackend, PrefetchedIndexedTransactions};
 use sc_consensus::{
 	BlockCheckParams, BlockImport, BlockImportParams, ImportResult, StateAction,
 	StorageChanges as ConsensusStorageChanges,
 };
 use sc_network::bitswap::RAW_CODEC;
-use sp_api::{
-	ApiExt, CallApiAt, CallApiAtParams, CallContext, Core, ProofRecorder, ProvideRuntimeApi,
-	TransactionOutcome,
-};
+use sp_api::{ApiExt, CallApiAt, CallContext, Core, ProofRecorder, ProvideRuntimeApi, TransactionOutcome};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{BlockOrigin, Error as ConsensusError};
 use sp_core::storage::ChildInfo;
+
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
+use sp_trie::proof_size_extension::ProofSizeExt;
 use sp_state_machine::{IndexOperation, OverlayedChanges, StorageChanges};
 use sp_transaction_storage_proof::{
 	runtime_api::TransactionStorageApi, ContentHash, HashingAlgorithm, IndexedTransactionInfo,
 };
-use sp_trie::proof_size_extension::ProofSizeExt;
-use std::{cell::RefCell, collections::HashSet, marker::PhantomData, sync::Arc};
+
+use std::{collections::HashSet, marker::PhantomData, sync::Arc};
 
 const LOG_TARGET: &str = "storage-chain-block-import";
-const INDEXED_TRANSACTIONS_API: &str = "TransactionStorageApi_indexed_transactions";
 
 /// Block-import wrapper that bitswap-fetches missing TRANSACTION-column entries
 /// for tip-sync blocks before delegating to the inner block import.
@@ -107,12 +105,12 @@ where
 	Block: BlockT<Hash = sc_client_db::DbHash>,
 	Inner: BlockImport<Block, Error = ConsensusError> + Send + Sync,
 	Client: ProvideRuntimeApi<Block>
-		+ CallApiAt<Block>
 		+ BlockBackend<Block>
 		+ HeaderBackend<Block>
+		+ CallApiAt<Block>
 		+ Send
 		+ Sync,
-	Client::Api: TransactionStorageApi<Block> + Core<Block>,
+	Client::Api: TransactionStorageApi<Block> + Core<Block> + ApiExt<Block>,
 {
 	type Error = ConsensusError;
 
@@ -151,12 +149,12 @@ where
 	Block: BlockT<Hash = sc_client_db::DbHash>,
 	Inner: BlockImport<Block, Error = ConsensusError> + Send + Sync,
 	Client: ProvideRuntimeApi<Block>
-		+ CallApiAt<Block>
 		+ BlockBackend<Block>
 		+ HeaderBackend<Block>
+		+ CallApiAt<Block>
 		+ Send
 		+ Sync,
-	Client::Api: TransactionStorageApi<Block> + Core<Block>,
+	Client::Api: TransactionStorageApi<Block> + Core<Block> + ApiExt<Block>,
 {
 	/// True iff the block needs bitswap prefetch (tip-only by default; gap-sync only
 	/// under the test-helpers override). Body must be present and the runtime must
@@ -270,7 +268,7 @@ where
 		let block_number = *params.header.number();
 		let finalized_hash = self.client.info().finalized_hash;
 
-		let infos = self.indexed_transactions_at_finalized(finalized_hash, block_number)?;
+		let infos = self.indexed_transactions_at_finalized(block_number)?;
 		let infos_len = infos.len();
 		let body = params.body.as_ref().ok_or_else(|| {
 			ConsensusError::Other(
@@ -372,119 +370,35 @@ where
 		};
 	}
 
-	/// Query TransactionStorageApi against parent state plus supplied StorageChanges.
-	/// Calls `TransactionStorageApi::indexed_transactions(block_number)` against the
-	/// finalized-state context. Used by the gap-sync dispatch to discover indexed
-	/// metadata for a historical block whose `Transactions::<T>::insert(block_number, _)`
+	/// Query `TransactionStorageApi::indexed_transactions` at the latest finalized
+	/// state (post-warp). Used by the gap-sync dispatch to discover indexed metadata
+	/// for a historical block whose `Transactions::<T>::insert(block_number, _)`
 	/// was committed during that block's own `on_finalize` and is now visible at any
 	/// finalized descendant's state (within the retention window).
-	///
-	/// Uses the explicit `call_api_at` path with a clean overlay (no incoming
-	/// `StorageChanges`); the body is the gap-synced one and never executed against the
-	/// finalized state.
 	fn indexed_transactions_at_finalized(
 		&self,
-		finalized_hash: Block::Hash,
 		block_number: sp_runtime::traits::NumberFor<Block>,
 	) -> Result<Vec<IndexedTransactionInfo>, ConsensusError> {
-		let has_api = self
-			.client
-			.runtime_api()
-			.has_api_with::<dyn TransactionStorageApi<Block>, _>(finalized_hash, |v| v >= 2)
-			.unwrap_or(false);
-		if !has_api {
-			return Ok(Vec::new());
-		}
-
-		let overlayed_changes = RefCell::new(OverlayedChanges::default());
-		let recorder = None;
-		let mut extensions = sp_externalities::Extensions::new();
+		let finalized_hash = self.client.info().finalized_hash;
 		self.client
-			.initialize_extensions(finalized_hash, &mut extensions)
-			.map_err(|e| {
-				ConsensusError::Other(
-					format!("gap-sync indexed_transactions: initialize_extensions: {e}").into(),
-				)
-			})?;
-		let extensions = RefCell::new(extensions);
-
-		let encoded = (block_number,).encode();
-		let raw = self
-			.client
-			.call_api_at(CallApiAtParams {
-				at: finalized_hash,
-				function: INDEXED_TRANSACTIONS_API,
-				arguments: encoded,
-				overlayed_changes: &overlayed_changes,
-				call_context: CallContext::Onchain { import: true },
-				recorder: &recorder,
-				extensions: &extensions,
-			})
-			.map_err(|e| {
-				ConsensusError::Other(
-					format!(
-						"gap-sync indexed_transactions: call_api_at at {finalized_hash:?}: {e}"
-					)
-					.into(),
-				)
-			})?;
-
-		Vec::<IndexedTransactionInfo>::decode(&mut &raw[..]).map_err(|e| {
-			ConsensusError::Other(
-				format!("gap-sync indexed_transactions: decode result: {e}").into(),
-			)
-		})
+			.runtime_api()
+			.indexed_transactions(finalized_hash, block_number)
+			.map_err(|e| ConsensusError::Other(format!("indexed_transactions: {e}").into()))
 	}
 
+	/// Query `TransactionStorageApi::indexed_transactions(block_number)` against the
+	/// parent state plus supplied `StorageChanges`, so the runtime reads the
+	/// post-execution state before the block is committed.
 	fn indexed_transactions_with_storage_changes(
 		&self,
 		parent_hash: Block::Hash,
 		block_number: sp_runtime::traits::NumberFor<Block>,
 		changes: &StorageChanges<HashingFor<Block>>,
 	) -> Result<Vec<IndexedTransactionInfo>, ConsensusError> {
-		let has_api = self
-			.client
-			.runtime_api()
-			.has_api_with::<dyn TransactionStorageApi<Block>, _>(parent_hash, |v| v >= 2)
-			.unwrap_or(false);
-		if !has_api {
-			return Ok(Vec::new());
-		}
-
-		let overlayed_changes = RefCell::new(overlay_from_storage_changes::<Block>(changes));
-		let recorder = None;
-		let mut extensions = sp_externalities::Extensions::new();
-		self.client.initialize_extensions(parent_hash, &mut extensions).map_err(|e| {
-			ConsensusError::Other(
-				format!("indexed_transactions: initialize_extensions: {e}").into(),
-			)
-		})?;
-		let extensions = RefCell::new(extensions);
-
-		let encoded = (block_number,).encode();
-		overlayed_changes.borrow_mut().start_transaction();
-		let raw = self.client.call_api_at(CallApiAtParams {
-			at: parent_hash,
-			function: INDEXED_TRANSACTIONS_API,
-			arguments: encoded,
-			overlayed_changes: &overlayed_changes,
-			call_context: CallContext::Onchain { import: true },
-			recorder: &recorder,
-			extensions: &extensions,
-		});
-
-		overlayed_changes
-			.borrow_mut()
-			.rollback_transaction()
-			.expect("transaction was opened immediately above; qed");
-
-		let raw = raw.map_err(|e| {
-			ConsensusError::Other(format!("indexed_transactions: call_api_at: {e}").into())
-		})?;
-
-		Vec::<IndexedTransactionInfo>::decode(&mut &raw[..]).map_err(|e| {
-			ConsensusError::Other(format!("indexed_transactions: decode result: {e}").into())
-		})
+		let mut api = self.client.runtime_api();
+		api.set_overlayed_changes(overlay_from_storage_changes::<Block>(changes));
+		api.indexed_transactions(parent_hash, block_number)
+			.map_err(|e| ConsensusError::Other(format!("indexed_transactions: {e}").into()))
 	}
 
 	/// Execute via runtime API once, query indexed metadata on the same `ApiRef`, and obtain

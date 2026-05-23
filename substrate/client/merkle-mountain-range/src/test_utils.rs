@@ -56,6 +56,7 @@ pub(crate) struct MockRuntimeApiData {
 #[derive(Clone)]
 pub(crate) struct MockRuntimeApi {
 	pub(crate) data: Arc<Mutex<MockRuntimeApiData>>,
+	overlayed_changes: std::sync::Arc<std::sync::Mutex<Option<sp_state_machine::OverlayedChanges<sp_runtime::traits::HashingFor<Block>>>>>,
 }
 
 impl MockRuntimeApi {
@@ -297,7 +298,11 @@ impl ProvideRuntimeApi<Block> for MockClient {
 	type Api = MockRuntimeApi;
 
 	fn runtime_api(&self) -> ApiRef<'_, Self::Api> {
-		MockRuntimeApi { data: self.runtime_api_params.clone() }.into()
+		MockRuntimeApi {
+		data: self.runtime_api_params.clone(),
+		overlayed_changes: std::sync::Arc::new(std::sync::Mutex::new(None)),
+	}
+	.into()
 	}
 }
 

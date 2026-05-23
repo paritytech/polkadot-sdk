@@ -58,7 +58,11 @@ impl ProvideRuntimeApi<Block> for TestApi {
 	type Api = RuntimeApi;
 
 	fn runtime_api(&self) -> ApiRef<'_, Self::Api> {
-		RuntimeApi { authorities: self.authorities.clone() }.into()
+		RuntimeApi {
+			authorities: self.authorities.clone(),
+			overlayed_changes: std::sync::Arc::new(std::sync::Mutex::new(None)),
+		}
+		.into()
 	}
 }
 
@@ -108,6 +112,7 @@ impl<Block: BlockT> HeaderBackend<Block> for TestApi {
 
 pub(crate) struct RuntimeApi {
 	authorities: Vec<AuthorityId>,
+	overlayed_changes: std::sync::Arc<std::sync::Mutex<Option<sp_state_machine::OverlayedChanges<sp_runtime::traits::HashingFor<Block>>>>>,
 }
 
 sp_api::mock_impl_runtime_apis! {
