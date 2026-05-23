@@ -4,8 +4,8 @@
 
 use codec::DecodeAll;
 use core::slice::Iter;
-use frame_support::{ensure, BoundedVec};
-use snowbridge_core::{AgentIdOf, ParaId, TokenId, TokenIdOf};
+use frame_support::{ensure, traits::Contains, BoundedVec};
+use snowbridge_core::{AgentIdOf, TokenId, TokenIdOf};
 
 use crate::v2::{
 	message::{Command, Message},
@@ -56,25 +56,21 @@ macro_rules! match_expression {
 	};
 }
 
-pub struct XcmConverter<'a, ConvertAssetId, Call> {
+pub struct XcmConverter<'a, ConvertAssetId, Call, AllowedAliasOrigin> {
 	iter: Peekable<Iter<'a, Instruction<Call>>>,
 	ethereum_network: NetworkId,
-	asset_hub_para_id: ParaId,
-	_marker: PhantomData<ConvertAssetId>,
+	_marker: PhantomData<(ConvertAssetId, AllowedAliasOrigin)>,
 }
-impl<'a, ConvertAssetId, Call> XcmConverter<'a, ConvertAssetId, Call>
+impl<'a, ConvertAssetId, Call, AllowedAliasOrigin>
+	XcmConverter<'a, ConvertAssetId, Call, AllowedAliasOrigin>
 where
 	ConvertAssetId: MaybeConvert<TokenId, Location>,
+	AllowedAliasOrigin: Contains<Location>,
 {
-	pub fn new(
-		message: &'a Xcm<Call>,
-		ethereum_network: NetworkId,
-		asset_hub_para_id: ParaId,
-	) -> Self {
+	pub fn new(message: &'a Xcm<Call>, ethereum_network: NetworkId) -> Self {
 		Self {
 			iter: message.inner().iter().peekable(),
 			ethereum_network,
-			asset_hub_para_id,
 			_marker: Default::default(),
 		}
 	}
@@ -251,13 +247,11 @@ where
 		let origin_location = match_expression!(self.next()?, AliasOrigin(origin), origin)
 			.ok_or(AliasOriginExpected)?;
 
-		// Reject AliasOrigin claiming to be the Asset Hub sovereign account. The
-		// agent derived from that origin is the bridge's primary agent on Ethereum,
-		// holding all ERC20 assets. This is defense-in-depth: the XCM executor
-		// should already block unprivileged AliasOrigin, but a failed upstream regress
-		// would let a caller execute arbitrary agent calls as that account.
-		let asset_hub_location = Location::new(1, [Parachain(self.asset_hub_para_id.into())]);
-		ensure!(origin_location != &asset_hub_location, InvalidOrigin);
+		// Validate the AliasOrigin using the configured AllowedAliasOrigin filter.
+		// This provides a mechanism for the runtime to restrict which origins
+		// are permitted to alias, providing defense-in-depth against
+		// unprivileged alias attempts.
+		ensure!(AllowedAliasOrigin::contains(origin_location), InvalidOrigin);
 
 		let origin = AgentIdOf::convert_location(origin_location).ok_or(InvalidOrigin)?;
 

@@ -5,4 +5,7 @@
 //! Common traits and types shared by runtimes.
 #![cfg_attr(not(feature = "std"), no_std)]
 pub mod v2;
-pub use v2::register_token::{ForeignAssetOwner, LocalAssetOwner};
+pub use v2::{
+	location::DisallowOrigin,
+	register_token::{ForeignAssetOwner, LocalAssetOwner},
+};

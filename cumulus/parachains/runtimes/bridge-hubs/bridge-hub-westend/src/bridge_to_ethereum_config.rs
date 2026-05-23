@@ -38,6 +38,7 @@ use snowbridge_outbound_queue_primitives::{
 	v1::{ConstantGasMeter, EthereumBlobExporter},
 	v2::{ConstantGasMeter as ConstantGasMeterV2, EthereumBlobExporter as EthereumBlobExporterV2},
 };
+use snowbridge_runtime_common::DisallowOrigin;
 use sp_core::H160;
 use sp_runtime::{
 	traits::{ConstU32, ConstU8, Keccak256},
@@ -72,10 +73,12 @@ pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
 	EthereumOutboundQueueV2,
 	EthereumSystemV2,
 	AssetHubParaId,
+	DisallowOrigin<AssetHubLocation>,
 >;
 
 // Ethereum Bridge
 parameter_types! {
+	pub AssetHubLocation: Location = Location::new(1, [Parachain(AssetHubParaId::get().into())]);
 	pub storage EthereumGatewayAddress: H160 = H160(hex!("b1185ede04202fe62d38f5db72f71e38ff3e8305"));
 }
 
