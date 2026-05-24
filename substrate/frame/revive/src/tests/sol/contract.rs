@@ -706,7 +706,10 @@ fn instantiate_from_constructor_works() {
 /// Root and confirms the deposit waiver holds across both calls.
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
-fn root_call_can_create_and_destroy_in_next_block(caller_type: FixtureType, callee_type: FixtureType) {
+fn root_call_can_create_and_destroy_in_next_block(
+	caller_type: FixtureType,
+	callee_type: FixtureType,
+) {
 	use crate::{
 		AccountInfo, HoldReason, Pallet,
 		address::{AddressMapper, create1},
