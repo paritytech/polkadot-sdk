@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779700708464,
+  "lastUpdate": 1779708660979,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -94175,6 +94175,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3187870184,
             "range": "± 65480191",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7ce38d2617a1730a8e435bf2edfb0f42b3b530ea",
+          "message": "Remove deprecated EnsureOneOf type alias (#12169)\n\n# Description\n\nRemoves deprecated `frame_support::EnsureOneOf` as part of #11561.\n\n`EnsureOneOf` was an alias for `EitherOfDiverse` (deprecated in favor of\n`EitherOfDiverse`). It has no remaining usage in this repository.\n\nDoes not close #11561.\n\n## Integration\n\n```diff\n- use frame_support::traits::EnsureOneOf;\n+ use frame_support::traits::EitherOfDiverse;\n```\n\n- 2 files: substrate/frame/support/src/traits/dispatch.rs, traits.rs\n- Verified no in-repo references before removal\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-05-25T10:14:22Z",
+          "tree_id": "466a7fbe04109885aefffb03835c562ac5541a3e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7ce38d2617a1730a8e435bf2edfb0f42b3b530ea"
+        },
+        "date": 1779708633305,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20815893,
+            "range": "± 146115",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21298752,
+            "range": "± 129336",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22464639,
+            "range": "± 149984",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27776679,
+            "range": "± 219081",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 62155965,
+            "range": "± 606576",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 375105641,
+            "range": "± 20364642",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2845356032,
+            "range": "± 98046529",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18712224,
+            "range": "± 337033",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18862790,
+            "range": "± 215850",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19293861,
+            "range": "± 143616",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24341076,
+            "range": "± 265524",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63319088,
+            "range": "± 566517",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 369413546,
+            "range": "± 5559895",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2883782046,
+            "range": "± 55151559",
             "unit": "ns/iter"
           }
         ]
