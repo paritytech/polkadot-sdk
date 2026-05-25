@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779720820568,
+  "lastUpdate": 1779732195881,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "yrong1997@gmail.com",
-            "name": "Ron",
-            "username": "yrong"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "736230e943c8fd47e9f993c969a6ec53ffdf0105",
-          "message": "Snowbridge: Fix log equal check (#9952)\n\n### Context \n\nThis fix addresses an issue introduced in\n[PR#9204](https://github.com/paritytech/polkadot-sdk/pull/9204), where\nindividual event log topics were not fully verified.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2025-10-14T12:06:52Z",
-          "tree_id": "1e773a14fda234bb5149f7b8c76762482ebed852",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/736230e943c8fd47e9f993c969a6ec53ffdf0105"
-        },
-        "date": 1760447524162,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1994098664333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.280915757066666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.148373438433332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8f3592abc64aee813b97915feb001d6632c4729c",
+          "message": "pallet-revive: skip non-existent accounts in batch_map_accounts (#12179)\n\n## Summary\n\n`batch_map_accounts` now skips non-existing accounts in addition to\neth-derived accounts. Without this, any caller could permanently insert\n`OriginalAccount` entries for arbitrary 32-byte values with no\n`frame_system::Account` backing them, without paying any fees, and with\nno way to clean them up. The proportion check still uses the original\nbatch length, so padding with skipped entries cannot reach the 90%\nfree-tx threshold.\n\n`map_no_deposit` is renamed to `map_no_deposit_unchecked` with a doc\nspelling out the precondition.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-25T16:31:03Z",
+          "tree_id": "ac76e710ca8f302d4c91277a41c73f46bcd56b8f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8f3592abc64aee813b97915feb001d6632c4729c"
+        },
+        "date": 1779732167704,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13534496749999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.2684251929,
             "unit": "seconds"
           }
         ]
