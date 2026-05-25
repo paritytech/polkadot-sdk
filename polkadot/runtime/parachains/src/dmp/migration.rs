@@ -88,9 +88,10 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 
 		// Headroom for at least one full iteration; otherwise this call makes no progress.
 		let minimum = base.saturating_add(per_iter).saturating_add(per_msg);
-		meter
-			.try_consume(minimum)
-			.map_err(|_| SteppedMigrationError::InsufficientWeight { required: minimum })?;
+		if meter.remaining().any_lt(minimum) {
+			return Err(SteppedMigrationError::InsufficientWeight { required: minimum });
+		}
+		meter.consume(base);
 
 		loop {
 			if meter.try_consume(per_iter).is_err() {
