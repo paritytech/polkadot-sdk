@@ -69,8 +69,8 @@ pub trait AddressMapper<T: Config>: private::Sealed {
 	///
 	/// The caller must guarantee that `account_id` exists, or is in the process
 	/// of being created (e.g. from inside `OnNewAccount`). Calling this with an
-	/// arbitrary `AccountId` writes a dangling `OriginalAccount` entry that no
-	/// one can clean up.
+	/// arbitrary `AccountId` permanently writes an unbacked `OriginalAccount`
+	/// entry.
 	fn map_no_deposit_unchecked(account_id: &T::AccountId) -> DispatchResult {
 		Self::map(account_id)
 	}
@@ -645,20 +645,32 @@ mod test {
 	#[test]
 	fn batch_map_accounts_pays_yes_mixed() {
 		ExtBuilder::default().build().execute_with(|| {
-			// 17 real accounts (get mapped) + 1 non-existent + 1 eth-derived.
+			// 17 existing accounts (get mapped) + 1 non-existent + 1 eth-derived.
 			// Below the threshold → Pays::Yes.
-			let mut accounts: Vec<AccountId32> =
+			let existing: Vec<AccountId32> =
 				(10u8..27u8).map(|i| AccountId32::new([i; 32])).collect();
-			for a in &accounts {
+			for a in &existing {
 				<Test as Config>::Currency::set_balance(a, 1_000_000);
 			}
-			accounts.push(AccountId32::new([99u8; 32])); // non-existent
+			let nonexistent = AccountId32::new([99u8; 32]);
+			let mut accounts = existing.clone();
+			accounts.push(nonexistent.clone());
 			accounts.push(ALICE); // eth-derived
 
 			let info =
 				Pallet::<Test>::batch_map_accounts(RuntimeOrigin::signed(ALICE), accounts).unwrap();
 
 			assert_eq!(info.pays_fee, Pays::Yes);
+			for a in &existing {
+				assert!(
+					<Test as Config>::AddressMapper::is_mapped(a),
+					"existing accounts must still be mapped alongside non-existent or eth-derived entries",
+				);
+			}
+			assert!(
+				!<Test as Config>::AddressMapper::is_mapped(&nonexistent),
+				"non-existent accounts must be skipped, not mapped",
+			);
 		});
 	}
 
