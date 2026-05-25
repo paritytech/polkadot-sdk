@@ -5,4 +5,4 @@ doc:
     in Bulletin chain.
 crates:
 - name: sc-rpc-spec-v2
-  bump: patch
+  bump: minor
