@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779709738867,
+  "lastUpdate": 1779720857428,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "409dbfd9abf29fa9a7151585a83147c379cfb6d7",
-          "message": "[pallet-revive] turn on allowEvmByteCode (#9987)\n\nturn on AllowEVMBytecode for westend AH\n\nWe can probably get rid of this config as well now\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-13T11:10:10Z",
-          "tree_id": "e9eb03efeb88d423832c7d9dd9519819f54e669e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/409dbfd9abf29fa9a7151585a83147c379cfb6d7"
-        },
-        "date": 1760357839912,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022621658853333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15757859466666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007352083646666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013338854353333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02368555713333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "314a1667a9fdd4abbea18a737ad3610bf952d8ac",
+          "message": "[Release|CI/CD] Add handling of the cancelation case and message to release eng room to the Publish crates flow (#12168)\n\nThis PR's adds functionality to push post-crates-release branch not only\non failure but also on cancelation for the case if release took more\nthen 6 hours and flow was canceled + it will send e message to rel eng\nchat notifying that flow failed/canceled",
+          "timestamp": "2026-05-25T12:41:42Z",
+          "tree_id": "52a85ab21a0dca104c19603e0ecc3041833c750c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/314a1667a9fdd4abbea18a737ad3610bf952d8ac"
+        },
+        "date": 1779720828932,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023930465420000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007948785846666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14870785205333342,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010474012593333321,
             "unit": "seconds"
           }
         ]
