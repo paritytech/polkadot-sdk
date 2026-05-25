@@ -135,13 +135,10 @@ impl sp_consensus::SyncOracle for MockSyncOracle {
 	}
 }
 
-/// Blake2b-256 multihash code.
-const BLAKE2B_256: u64 = 0xb220;
-
-/// Sha2-256 multihash code.
+// Standard multihash codes.
+// See <https://github.com/multiformats/multicodec/blob/master/table.csv>
 const SHA2_256: u64 = 0x12;
-
-/// Keccak-256 multihash code.
+const BLAKE2B_256: u64 = 0xb220;
 const KECCAK_256: u64 = 0x1b;
 
 /// Create a CIDv1 string from a 32-byte hash digest.
