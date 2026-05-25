@@ -1209,6 +1209,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				Some(channel_info) => channel_info.max_total_size,
 				None => {
 					tracing::warn!(target: LOG_TARGET, "calling `get_channel_info` with no RelevantMessagingState?!");
+					// We use this as a fallback in case the messaging state is not present
 					MAX_POSSIBLE_ALLOCATION
 				},
 			};
