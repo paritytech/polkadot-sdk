@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779720967252,
+  "lastUpdate": 1779732345488,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c61e227f2c59fa0ce7df5f977dad4076ff470f00",
-          "message": "`trace_block`: Support overwriting `execute_block` (#9871)\n\nThis is required for example for parachains that require special\nextensions to be registered (e.g. `ProofSizeExt`) to succeed the block\nexecution.\n\nThis pull request changes the signature of `spawn_tasks` which now\nrequires a `tracing_execute_block` parameter. If your chain is a\nsolochain, just set the parameter to `None` or overwrite it if you need\nany special handling. For parachain builders, this value can be set to\n`cumulus_service::ParachainTracingExecuteBlock`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-10T10:26:45Z",
-          "tree_id": "3543a71fa505d9567ad4915814d4e03994df82aa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c61e227f2c59fa0ce7df5f977dad4076ff470f00"
-        },
-        "date": 1760096779577,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026611179200000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008707314739999982,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005227367409999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009838768099999992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8f3592abc64aee813b97915feb001d6632c4729c",
+          "message": "pallet-revive: skip non-existent accounts in batch_map_accounts (#12179)\n\n## Summary\n\n`batch_map_accounts` now skips non-existing accounts in addition to\neth-derived accounts. Without this, any caller could permanently insert\n`OriginalAccount` entries for arbitrary 32-byte values with no\n`frame_system::Account` backing them, without paying any fees, and with\nno way to clean them up. The proportion check still uses the original\nbatch length, so padding with skipped entries cannot reach the 90%\nfree-tx threshold.\n\n`map_no_deposit` is renamed to `map_no_deposit_unchecked` with a doc\nspelling out the precondition.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-25T16:31:03Z",
+          "tree_id": "ac76e710ca8f302d4c91277a41c73f46bcd56b8f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8f3592abc64aee813b97915feb001d6632c4729c"
+        },
+        "date": 1779732316995,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009509177339999984,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010422751309999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002633816770000001,
             "unit": "seconds"
           }
         ]
