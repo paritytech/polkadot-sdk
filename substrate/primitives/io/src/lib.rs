@@ -3988,7 +3988,7 @@ pub trait Input {
 		let data = self
 			.take_input_data()
 			.expect("input data is not empty on code entry and is only taken once; qed");
-		assert_eq!(data.len(), buffer.len());
+		assert!(buffer.len() >= data.len());
 		buffer.copy_from_slice(&data[..]);
 	}
 }
