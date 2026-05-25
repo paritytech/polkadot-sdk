@@ -608,40 +608,32 @@ impl<T: Config> Pallet<T> {
 				existing_page = Some(page.into_inner());
 			}
 		}
-		let appended_to_existing_page = existing_page.is_some();
 		let mut current_page = existing_page.unwrap_or_else(|| {
 			// We need to add a new page.
 			channel_details.last_index += 1;
-			format.encode()
+			let new_page = format.encode();
+			channel_details.queued_bytes =
+				channel_details.queued_bytes.saturating_add(new_page.len() as u32);
+			new_page
 		});
 
 		current_page.append(&mut encoded_fragment);
+		channel_details.queued_bytes =
+			channel_details.queued_bytes.saturating_add(encoded_fragment_len as u32);
 		let current_page = WeakBoundedVec::try_from(current_page).map_err(|error| {
 			tracing::debug!(target: LOG_TARGET, ?error, "Failed to create bounded message page");
 			MessageSendError::TooBig
 		})?;
 		let page_count =
 			channel_details.last_index.saturating_sub(channel_details.first_index) as u32;
-		let last_page_size = current_page.len();
-		let added_bytes = if appended_to_existing_page {
-			encoded_fragment_len
-		} else {
-		current_page.len()
-		};
-		channel_details.queued_bytes =
-			channel_details.queued_bytes.saturating_add(added_bytes as u32);
 		<OutboundXcmpMessages<T>>::insert(recipient, channel_details.last_index - 1, current_page);
-		<OutboundXcmpStatus<T>>::put(all_channels);
 
-		// We have to count the total size here since `channel_info.total_size` is not updated at
-		// this point in time. We assume all previous pages are filled, which, in practice, is not
-		// always the case.
-		let total_size =
-			page_count.saturating_sub(1) * max_message_size as u32 + last_page_size as u32;
 		let threshold = channel_info.max_total_size / delivery_fee_constants::THRESHOLD_FACTOR;
-		if total_size > threshold {
+		if channel_details.queued_bytes > threshold {
 			Self::increase_fee_factor(recipient, encoded_fragment_len as u128);
 		}
+
+		<OutboundXcmpStatus<T>>::put(all_channels);
 
 		Ok(page_count)
 	}
