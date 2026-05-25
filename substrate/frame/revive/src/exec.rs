@@ -1733,15 +1733,16 @@ where
 
 		// If root created this contract we need to use the pallet account_id because root has no
 		// account.
-		let synthetic_origin: Origin<T> = Origin::from_account_id(crate::Pallet::<T>::account_id());
-		let effective_origin: &Origin<T> =
-			if matches!(origin, Origin::Root) { &synthetic_origin } else { origin };
+		let origin: Origin<T> = match origin {
+			Origin::Signed(o) => Origin::Signed(o.clone()),
+			Origin::Root => Origin::from_account_id(crate::Pallet::<T>::account_id()),
+		};
 
 		let mut delete_contract = |trie_id: &TrieId, code_hash: &H256| {
 			// deposit needs to be removed as it adds a consumer
 			let refund = T::Deposit::refund_all(
 				&contract_account,
-				exec_config.funds(effective_origin.account_id()?),
+				exec_config.funds(origin.account_id()?),
 			)?;
 
 			// we added this consumer manually when instantiating
@@ -1757,7 +1758,7 @@ where
 				contract_address.into(),
 			));
 			Self::transfer(
-				effective_origin,
+				&origin,
 				contract_account,
 				&args.beneficiary,
 				balance,
