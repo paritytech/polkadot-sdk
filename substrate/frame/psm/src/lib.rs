@@ -17,8 +17,8 @@
 
 //! # Peg Stability Module (PSM) Pallet
 //!
-//! A module enabling 1:1 swaps between the runtime's internal stablecoin and pre-approved
-//! external stablecoins.
+//! A module hosting one or more Peg Stability Modules. Each PSM enables 1:1 swaps between a
+//! specific internal stablecoin and that PSM's pre-approved external stablecoins.
 //!
 //! ## Pallet API
 //!
@@ -29,54 +29,56 @@
 //!
 //! Throughout this pallet two distinct token roles are referenced:
 //!
-//! * **Internal** — the stablecoin issued and burned by the PSM. It is a single asset configured
-//!   via [`Config::InternalAssetId`] (e.g. a runtime's pUSD). Mint operations credit the user with
-//!   the internal asset; redeem operations burn it. Fees are collected in the internal asset and
-//!   forwarded to [`PsmInfo::fee_destination`].
-//! * **External** — third-party stablecoins (e.g. USDC, USDT) approved via
-//!   [`Pallet::add_external_asset`] and held in reserve by the PSM. Users deposit external to mint
-//!   internal, and burn internal to redeem external. Multiple external assets can be approved
-//!   simultaneously, each identified by `asset_id`.
+//! * **Internal** — the stablecoin a PSM issues and burns (e.g. a runtime's pUSD). Each PSM
+//!   instance is keyed by its internal asset id; multiple instances can coexist, each with its own
+//!   reserve, debt ceiling, fee destination and approved externals. Mint operations credit the user
+//!   with the internal asset; redeem operations burn it. Fees are collected in the internal asset
+//!   and forwarded to that instance's [`PsmInfo::fee_destination`].
+//! * **External** — third-party stablecoins (e.g. USDC, USDT) approved on a specific PSM via
+//!   [`Pallet::add_external_asset`] and held in that PSM's reserve. Users deposit external to mint
+//!   internal, and burn internal to redeem external. A PSM may approve multiple externals, each
+//!   identified by `asset_id`.
 //!
 //! ## Overview
 //!
-//! The PSM strengthens the internal asset's peg by providing arbitrage opportunities:
+//! A PSM strengthens its internal asset's peg by providing arbitrage opportunities:
 //! - When the internal asset trades **above** $1: Users swap external stablecoins for the internal
-//!   asset and sell for profit
+//!   asset and sell for profit.
 //! - When the internal asset trades **below** $1: Users buy cheap internal asset and swap for
-//!   external stablecoins
+//!   external stablecoins.
 //!
 //! This creates a price corridor bounded by the minting and redemption fees.
 //!
 //! ### Key Concepts
 //!
-//! * **Minting**: Deposit external stablecoin → receive internal asset (minus fee)
-//! * **Redemption**: Burn internal asset → receive external stablecoin (minus fee)
-//! * **Reserve**: External stablecoin balance held by the PSM account (derived, not stored)
-//! * **PSM Debt**: Total internal asset minted through PSM, backed 1:1 by external stablecoins
-//! * **Circuit Breaker**: Emergency control to disable minting or all swaps
-//!
-//! ### Supported Assets
-//!
-//! The PSM supports multiple pre-approved external stablecoins (e.g., USDC, USDT).
-//! Each swap operation specifies which asset to use via the `asset_id` parameter.
+//! * **PSM instance**: A configured Peg Stability Module, keyed by its internal asset id and
+//!   described by [`PsmInfo`]. Each instance has its own reserve account derived as
+//!   `PalletId::into_sub_account_truncating(internal_asset)`.
+//! * **Minting**: Deposit external stablecoin → receive internal asset (minus fee).
+//! * **Redemption**: Burn internal asset → receive external stablecoin (minus fee).
+//! * **Reserve**: External stablecoin balance held by a PSM's reserve account (derived, not stored).
+//! * **PSM Debt**: Total internal asset minted through a PSM, backed 1:1 by external stablecoins
+//!   in that PSM's reserve.
+//! * **Circuit Breaker**: Per-external emergency control to disable minting or all swaps.
 //!
 //! ### Fee Structure
 //!
-//! * **Minting Fee (`MintingFee`)**: Deducted from internal-asset output during minting
+//! * **Minting Fee (`MintingFee`)**: Deducted from internal-asset output during minting,
+//!   configured per `(internal_asset, external_asset)` pair.
 //! * **Redemption Fee (`RedemptionFee`)**: Deducted from external stablecoin output during
-//!   redemption
+//!   redemption, configured per `(internal_asset, external_asset)` pair.
 //!
-//! Fees are collected in the internal asset and transferred to [`PsmInfo::fee_destination`].
+//! Fees are collected in the internal asset and transferred to the instance's
+//! [`PsmInfo::fee_destination`].
 //!
 //! ### Example
 //!
 //! ```ignore
-//! // Mint internal asset by depositing USDC
-//! Psm::mint(RuntimeOrigin::signed(user), USDC_ASSET_ID, 1000 * UNIT)?;
+//! // Mint internal asset by depositing USDC on the pUSD PSM
+//! Psm::mint(RuntimeOrigin::signed(user), PUSD_ASSET_ID, USDC_ASSET_ID, 1000 * UNIT)?;
 //!
-//! // Redeem USDC by burning the internal asset
-//! Psm::redeem(RuntimeOrigin::signed(user), USDC_ASSET_ID, 1000 * UNIT)?;
+//! // Redeem USDC by burning pUSD
+//! Psm::redeem(RuntimeOrigin::signed(user), PUSD_ASSET_ID, USDC_ASSET_ID, 1000 * UNIT)?;
 //! ```
 
 #![cfg_attr(not(feature = "std"), no_std)]
