@@ -7,6 +7,15 @@ contract NestedDeployer {
     function deployChild() external returns (address) {
         return address(new NestedChild());
     }
+
+    /// Create and immediately destroy the child in the same tx — exercises the
+    /// SELFDESTRUCT path (`only_if_same_tx: true`, EIP-6780 compliant).
+    function deployAndDestroyChild(address payable beneficiary) external returns (address) {
+        NestedChild child = new NestedChild();
+        address childAddr = address(child);
+        child.destroy(beneficiary);
+        return childAddr;
+    }
 }
 
 contract NestedChild {
@@ -14,6 +23,13 @@ contract NestedChild {
 
     constructor() {
         state = 42;
+    }
+
+    /// Self-terminate via the SELFDESTRUCT opcode (`only_if_same_tx: true`,
+    /// EIP-6780): only actually destroys the contract if invoked in the same tx
+    /// that created it.
+    function destroy(address payable beneficiary) external {
+        selfdestruct(beneficiary);
     }
 
     /// Self-terminate via the system precompile (`only_if_same_tx: false`), so the
