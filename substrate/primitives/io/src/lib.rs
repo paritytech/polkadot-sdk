@@ -2013,7 +2013,7 @@ pub trait Crypto {
 	fn ed25519_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		out: PassFatPointerAndWrite<&mut [ed25519::Public]>,
+		out: PassFatPointerAndReadWrite<&mut [ed25519::Public]>,
 	) -> u32 {
 		let keys = self
 			.extension::<KeystoreExt>()
@@ -2301,7 +2301,7 @@ pub trait Crypto {
 	fn sr25519_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		out: PassFatPointerAndWrite<&mut [sr25519::Public]>,
+		out: PassFatPointerAndReadWrite<&mut [sr25519::Public]>,
 	) -> u32 {
 		let keys = self
 			.extension::<KeystoreExt>()
@@ -2464,7 +2464,7 @@ pub trait Crypto {
 	fn ecdsa_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		out: PassFatPointerAndWrite<&mut [ecdsa::Public]>,
+		out: PassFatPointerAndReadWrite<&mut [ecdsa::Public]>,
 	) -> u32 {
 		let keys = self
 			.extension::<KeystoreExt>()
