@@ -43,7 +43,7 @@ use sp_runtime::Permill;
 
 use crate::{
 	pallet::{
-		AssetCeilingWeight, BalanceOf, CircuitBreakerLevel, ExternalAssets, ExternalDecimals,
+		AssetCeilingWeight, BalanceOf, CircuitBreakerLevel, ExternalAssetInfo, ExternalAssets,
 		MintingFee, PsmInfo, Psms, RedemptionFee, MAX_DECIMALS_DIFF,
 	},
 	Config, Pallet,
@@ -174,15 +174,17 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 			ExternalAssets::<T>::insert(
 				&internal_asset,
 				&external_asset,
-				CircuitBreakerLevel::AllEnabled,
+				ExternalAssetInfo {
+					status: CircuitBreakerLevel::AllEnabled,
+					decimals: asset_decimals,
+				},
 			);
-			ExternalDecimals::<T>::insert(&internal_asset, &external_asset, asset_decimals);
 			MintingFee::<T>::insert(&internal_asset, &external_asset, minting_fee);
 			RedemptionFee::<T>::insert(&internal_asset, &external_asset, redemption_fee);
 			AssetCeilingWeight::<T>::insert(&internal_asset, &external_asset, ceiling_weight);
 			info.external_count = info.external_count.saturating_add(1);
 			Psms::<T>::insert(&internal_asset, info);
-			writes += 6;
+			writes += 5;
 
 			log::info!(
 				target: LOG_TARGET,
@@ -223,10 +225,11 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 		for (internal_asset, external_asset, minting_fee, redemption_fee, ceiling_weight) in
 			I::externals()
 		{
+			let stored = ExternalAssets::<T>::get(&internal_asset, &external_asset)
+				.ok_or("External asset missing after migration")?;
 			ensure!(
-				ExternalAssets::<T>::get(&internal_asset, &external_asset)
-					== Some(CircuitBreakerLevel::AllEnabled),
-				"External asset missing or not AllEnabled after migration"
+				stored.status == CircuitBreakerLevel::AllEnabled,
+				"External asset is not AllEnabled after migration"
 			);
 			ensure!(
 				MintingFee::<T>::get(&internal_asset, &external_asset) == minting_fee,
@@ -293,8 +296,6 @@ mod tests {
 		RedemptionFee::<Test>::remove(INTERNAL_ASSET_ID, USDT_ASSET_ID);
 		AssetCeilingWeight::<Test>::remove(INTERNAL_ASSET_ID, USDC_ASSET_ID);
 		AssetCeilingWeight::<Test>::remove(INTERNAL_ASSET_ID, USDT_ASSET_ID);
-		ExternalDecimals::<Test>::remove(INTERNAL_ASSET_ID, USDC_ASSET_ID);
-		ExternalDecimals::<Test>::remove(INTERNAL_ASSET_ID, USDT_ASSET_ID);
 	}
 
 	#[test]
@@ -320,15 +321,14 @@ mod tests {
 			for (_, external_asset, minting_fee, redemption_fee, ceiling_weight) in
 				TestPsmConfig::externals()
 			{
+				let stored = ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, external_asset)
+					.expect("external asset present");
+				assert_eq!(stored.status, CircuitBreakerLevel::AllEnabled);
 				assert_eq!(
-					ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, external_asset),
-					Some(CircuitBreakerLevel::AllEnabled)
-				);
-				assert_eq!(
-					ExternalDecimals::<Test>::get(INTERNAL_ASSET_ID, external_asset),
-					Some(<<Test as Config>::Fungibles as FungiblesMetadataInspect<u64>>::decimals(
+					stored.decimals,
+					<<Test as Config>::Fungibles as FungiblesMetadataInspect<u64>>::decimals(
 						external_asset
-					))
+					),
 				);
 				assert_eq!(
 					MintingFee::<Test>::get(INTERNAL_ASSET_ID, external_asset),

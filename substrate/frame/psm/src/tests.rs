@@ -614,7 +614,10 @@ mod governance {
 
 			assert_ok!(Psm::set_asset_status(RuntimeOrigin::root(), INTERNAL_ASSET_ID, USDC_ASSET_ID, new_status));
 
-			assert_eq!(ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID), Some(new_status));
+			assert_eq!(
+				ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID).map(|e| e.status),
+				Some(new_status),
+			);
 
 			System::assert_has_event(
 				Event::<Test>::AssetStatusUpdated { internal_asset: INTERNAL_ASSET_ID, asset_id: USDC_ASSET_ID, status: new_status }
@@ -726,7 +729,9 @@ mod governance {
 			));
 
 			assert_ok!(Psm::add_external_asset(RuntimeOrigin::root(), INTERNAL_ASSET_ID, new_asset));
-			assert_eq!(crate::ExternalDecimals::<Test>::get(INTERNAL_ASSET_ID, new_asset), Some(8));
+			let stored = crate::ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, new_asset)
+				.expect("external present");
+			assert_eq!(stored.decimals, 8);
 		});
 	}
 
@@ -909,7 +914,10 @@ mod governance {
 				new_status
 			));
 
-			assert_eq!(ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID), Some(new_status));
+			assert_eq!(
+				ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID).map(|e| e.status),
+				Some(new_status),
+			);
 		});
 	}
 
@@ -1748,7 +1756,7 @@ mod cycles {
 /// registered with PSM via `register_external_asset_with_weight` inside each test.
 mod decimal_scaling {
 	use super::*;
-	use crate::{ExternalDecimals, MAX_DECIMALS_DIFF};
+	use crate::MAX_DECIMALS_DIFF;
 
 	fn set_zero_fees(asset_id: u32) {
 		set_minting_fee(asset_id, Permill::zero());
@@ -2230,33 +2238,6 @@ mod decimal_scaling {
 	}
 
 	#[test]
-	fn mint_fails_when_asset_decimals_snapshot_missing() {
-		new_test_ext().execute_with(|| {
-			// USDC is approved in genesis but we clear its decimals snapshot to
-			// simulate a partially-migrated state.
-			crate::ExternalDecimals::<Test>::remove(INTERNAL_ASSET_ID, USDC_ASSET_ID);
-
-			assert_noop!(
-				Psm::mint(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID, USDC_ASSET_ID, 1000 * INTERNAL_UNIT),
-				Error::<Test>::UnsupportedAsset
-			);
-		});
-	}
-
-	#[test]
-	fn redeem_fails_when_asset_decimals_snapshot_missing() {
-		new_test_ext().execute_with(|| {
-			fund_internal(ALICE, 1000 * INTERNAL_UNIT);
-			crate::ExternalDecimals::<Test>::remove(INTERNAL_ASSET_ID, USDC_ASSET_ID);
-
-			assert_noop!(
-				Psm::redeem(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID, USDC_ASSET_ID, 100 * INTERNAL_UNIT),
-				Error::<Test>::UnsupportedAsset
-			);
-		});
-	}
-
-	#[test]
 	fn mint_fails_when_psm_not_installed() {
 		new_test_ext().execute_with(|| {
 			crate::Psms::<Test>::remove(INTERNAL_ASSET_ID);
@@ -2287,10 +2268,12 @@ mod decimal_scaling {
 	fn asset_decimals_snapshot_recorded_on_add_and_cleaned_on_remove() {
 		new_test_ext().execute_with(|| {
 			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
-			assert_eq!(ExternalDecimals::<Test>::get(INTERNAL_ASSET_ID, USDX_ASSET_ID), Some(2));
+			let stored = ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, USDX_ASSET_ID)
+				.expect("external present after add");
+			assert_eq!(stored.decimals, 2);
 
 			assert_ok!(Psm::remove_external_asset(RuntimeOrigin::root(), INTERNAL_ASSET_ID, USDX_ASSET_ID));
-			assert_eq!(ExternalDecimals::<Test>::get(INTERNAL_ASSET_ID, USDX_ASSET_ID), None);
+			assert_eq!(ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, USDX_ASSET_ID), None);
 		});
 	}
 

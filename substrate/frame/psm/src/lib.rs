@@ -260,6 +260,26 @@ pub mod pallet {
 		pub external_count: u32,
 	}
 
+	/// On-chain record of an external asset approved on a PSM instance.
+	#[derive(
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		MaxEncodedLen,
+		TypeInfo,
+		Clone,
+		Copy,
+		PartialEq,
+		Eq,
+		Debug,
+	)]
+	pub struct ExternalAssetInfo {
+		/// Per-external circuit breaker status.
+		pub status: CircuitBreakerLevel,
+		/// Snapshot of the external asset's decimals at registration time.
+		pub decimals: u8,
+	}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Fungibles implementation for both internal and external stablecoins.
@@ -373,7 +393,7 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// Approved external assets per PSM and their circuit breaker level.
+	/// Approved external assets per PSM.
 	#[pallet::storage]
 	pub(crate) type ExternalAssets<T: Config> = StorageDoubleMap<
 		_,
@@ -381,19 +401,7 @@ pub mod pallet {
 		T::AssetId,
 		Blake2_128Concat,
 		T::AssetId,
-		CircuitBreakerLevel,
-		OptionQuery,
-	>;
-
-	/// Snapshot of each approved external asset's decimals at registration time.
-	#[pallet::storage]
-	pub(crate) type ExternalDecimals<T: Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		T::AssetId,
-		Blake2_128Concat,
-		T::AssetId,
-		u8,
+		ExternalAssetInfo,
 		OptionQuery,
 	>;
 
@@ -448,8 +456,14 @@ pub mod pallet {
 					MAX_DECIMALS_DIFF,
 				);
 
-				ExternalAssets::<T>::insert(internal, external, CircuitBreakerLevel::AllEnabled);
-				ExternalDecimals::<T>::insert(internal, external, asset_decimals);
+				ExternalAssets::<T>::insert(
+					internal,
+					external,
+					ExternalAssetInfo {
+						status: CircuitBreakerLevel::AllEnabled,
+						decimals: asset_decimals,
+					},
+				);
 				MintingFee::<T>::insert(internal, external, minting_fee);
 				RedemptionFee::<T>::insert(internal, external, redemption_fee);
 				AssetCeilingWeight::<T>::insert(internal, external, ceiling_weight);
@@ -586,12 +600,12 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let info = Psms::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
 
-			let asset_status = ExternalAssets::<T>::get(&internal_asset, &asset_id)
+			let external = ExternalAssets::<T>::get(&internal_asset, &asset_id)
 				.ok_or(Error::<T>::UnsupportedAsset)?;
-			ensure!(asset_status.allows_minting(), Error::<T>::MintingStopped);
+			ensure!(external.status.allows_minting(), Error::<T>::MintingStopped);
 
 			let (ext_decimals, internal_decimals) =
-				Self::ensure_decimals_match(&info, &internal_asset, &asset_id)?;
+				Self::ensure_decimals_match(&info, &internal_asset, &asset_id, &external)?;
 
 			let internal_equivalent =
 				Self::external_to_internal(external_amount, ext_decimals, internal_decimals)?;
@@ -653,12 +667,12 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let info = Psms::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
 
-			let asset_status = ExternalAssets::<T>::get(&internal_asset, &asset_id)
+			let external = ExternalAssets::<T>::get(&internal_asset, &asset_id)
 				.ok_or(Error::<T>::UnsupportedAsset)?;
-			ensure!(asset_status.allows_redemption(), Error::<T>::AllSwapsStopped);
+			ensure!(external.status.allows_redemption(), Error::<T>::AllSwapsStopped);
 
 			let (ext_decimals, internal_decimals) =
-				Self::ensure_decimals_match(&info, &internal_asset, &asset_id)?;
+				Self::ensure_decimals_match(&info, &internal_asset, &asset_id, &external)?;
 
 			ensure!(amount >= T::MinSwapAmount::get(), Error::<T>::BelowMinimumSwap);
 
@@ -815,11 +829,15 @@ pub mod pallet {
 			status: CircuitBreakerLevel,
 		) -> DispatchResult {
 			T::ManagerOrigin::ensure_origin(origin)?;
-			ensure!(
-				ExternalAssets::<T>::contains_key(&internal_asset, &asset_id),
-				Error::<T>::AssetNotApproved
-			);
-			ExternalAssets::<T>::insert(&internal_asset, &asset_id, status);
+			ExternalAssets::<T>::try_mutate(
+				&internal_asset,
+				&asset_id,
+				|maybe| -> DispatchResult {
+					let info = maybe.as_mut().ok_or(Error::<T>::AssetNotApproved)?;
+					info.status = status;
+					Ok(())
+				},
+			)?;
 			Self::deposit_event(Event::AssetStatusUpdated { internal_asset, asset_id, status });
 			Ok(())
 		}
@@ -891,9 +909,11 @@ pub mod pallet {
 				ExternalAssets::<T>::insert(
 					&internal_asset,
 					&asset_id,
-					CircuitBreakerLevel::AllEnabled,
+					ExternalAssetInfo {
+						status: CircuitBreakerLevel::AllEnabled,
+						decimals: asset_decimals,
+					},
 				);
-				ExternalDecimals::<T>::insert(&internal_asset, &asset_id, asset_decimals);
 				info.external_count = info.external_count.saturating_add(1);
 				Self::deposit_event(Event::ExternalAssetAdded {
 					internal_asset: internal_asset.clone(),
@@ -929,7 +949,6 @@ pub mod pallet {
 				MintingFee::<T>::remove(&internal_asset, &asset_id);
 				RedemptionFee::<T>::remove(&internal_asset, &asset_id);
 				AssetCeilingWeight::<T>::remove(&internal_asset, &asset_id);
-				ExternalDecimals::<T>::remove(&internal_asset, &asset_id);
 				PsmDebt::<T>::remove(&internal_asset, &asset_id);
 				info.external_count = info.external_count.saturating_sub(1);
 				Self::deposit_event(Event::ExternalAssetRemoved {
@@ -1070,20 +1089,17 @@ pub mod pallet {
 			info: &PsmInfo<T>,
 			internal_asset: &T::AssetId,
 			asset_id: &T::AssetId,
+			external: &ExternalAssetInfo,
 		) -> Result<(u8, u8), DispatchError> {
-			let ext_decimals = ExternalDecimals::<T>::get(internal_asset, asset_id)
-				.ok_or(Error::<T>::UnsupportedAsset)?;
 			ensure!(
-				T::Fungibles::decimals(asset_id.clone()) == ext_decimals,
+				T::Fungibles::decimals(asset_id.clone()) == external.decimals,
 				Error::<T>::DecimalsMismatch
 			);
-
 			ensure!(
 				T::Fungibles::decimals(internal_asset.clone()) == info.internal_decimals,
 				Error::<T>::DecimalsMismatch
 			);
-
-			Ok((ext_decimals, info.internal_decimals))
+			Ok((external.decimals, info.internal_decimals))
 		}
 
 		/// Ensure an account exists by incrementing its provider count if needed.
@@ -1105,11 +1121,9 @@ pub mod pallet {
 				);
 
 				let mut counted = 0u32;
-				for (asset_id, _) in ExternalAssets::<T>::iter_prefix(&internal_asset) {
-					let snapshot = ExternalDecimals::<T>::get(&internal_asset, &asset_id)
-						.ok_or("Approved external asset missing decimals snapshot")?;
+				for (asset_id, external) in ExternalAssets::<T>::iter_prefix(&internal_asset) {
 					ensure!(
-						T::Fungibles::decimals(asset_id.clone()) == snapshot,
+						T::Fungibles::decimals(asset_id.clone()) == external.decimals,
 						"External asset live decimals diverged from the snapshot"
 					);
 					counted = counted.saturating_add(1);
@@ -1119,7 +1133,7 @@ pub mod pallet {
 					let reserve = Self::get_reserve(&internal_asset, &asset_id);
 					let debt_as_external = Self::internal_to_external(
 						debt,
-						snapshot,
+						external.decimals,
 						info.internal_decimals,
 					)
 					.map_err(|_| "Failed to convert tracked debt to external units")?;
@@ -1152,8 +1166,8 @@ pub mod pallet {
 				);
 
 				// 6. Per-asset debt within its (normalised) ceiling when minting is enabled.
-				for (asset_id, status) in ExternalAssets::<T>::iter_prefix(&internal_asset) {
-					if status.allows_minting() {
+				for (asset_id, external) in ExternalAssets::<T>::iter_prefix(&internal_asset) {
+					if external.status.allows_minting() {
 						let debt = PsmDebt::<T>::get(&internal_asset, &asset_id);
 						let ceiling = Self::max_asset_debt(&internal_asset, &asset_id, &info);
 						ensure!(debt <= ceiling, "Per-asset PSM debt exceeds its ceiling");

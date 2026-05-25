@@ -92,18 +92,23 @@ where
 	}
 
 	// Filler assets only populate PSM storage so mint()'s iterators touch `n`
-	// entries. They are never swapped against, so their underlying fungibles
-	// asset does not need to exist and no ExternalDecimals snapshot is required.
+	// entries. They are never swapped against; we still seed `internal_decimals`
+	// so the storage shape matches the target row.
 	for i in 0..n {
 		let id: T::AssetId = T::BenchmarkHelper::get_asset_id(EXTERNAL_ASSET_OFFSET + i);
-		crate::ExternalAssets::<T>::insert(&internal_id, &id, CircuitBreakerLevel::AllEnabled);
+		crate::ExternalAssets::<T>::insert(
+			&internal_id,
+			&id,
+			crate::ExternalAssetInfo {
+				status: CircuitBreakerLevel::AllEnabled,
+				decimals: internal_decimals,
+			},
+		);
 		crate::AssetCeilingWeight::<T>::insert(&internal_id, &id, Permill::from_percent(1));
 		crate::PsmDebt::<T>::insert(&internal_id, &id, BalanceOf::<T>::from(1u32));
 	}
-	// Target-specific: dominant weight so it can absorb the full mint amount,
-	// and a decimals snapshot so `ensure_decimals_match` passes.
+	// Target-specific: dominant weight so it can absorb the full mint amount.
 	crate::AssetCeilingWeight::<T>::insert(&internal_id, &target_id, Permill::from_percent(100));
-	crate::ExternalDecimals::<T>::insert(&internal_id, &target_id, internal_decimals);
 
 	// Keep `external_count` consistent with the rows we wrote.
 	crate::Psms::<T>::mutate(&internal_id, |maybe| {
@@ -219,7 +224,10 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Root, internal_id.clone(), asset_id.clone(), new_status);
 
-		assert_eq!(crate::ExternalAssets::<T>::get(&internal_id, &asset_id), Some(new_status));
+		assert_eq!(
+			crate::ExternalAssets::<T>::get(&internal_id, &asset_id).map(|e| e.status),
+			Some(new_status),
+		);
 		Ok(())
 	}
 

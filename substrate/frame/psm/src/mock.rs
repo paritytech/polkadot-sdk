@@ -307,7 +307,11 @@ pub fn set_asset_ceiling_weight(asset_id: u32, weight: Permill) {
 }
 
 pub fn set_asset_status(asset_id: u32, status: crate::CircuitBreakerLevel) {
-	crate::ExternalAssets::<Test>::insert(INTERNAL_ASSET_ID, asset_id, status);
+	crate::ExternalAssets::<Test>::mutate(INTERNAL_ASSET_ID, asset_id, |maybe| {
+		if let Some(info) = maybe.as_mut() {
+			info.status = status;
+		}
+	});
 }
 
 /// Register an external asset via the extrinsic (records snapshot decimals) and
