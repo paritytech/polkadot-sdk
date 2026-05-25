@@ -183,9 +183,6 @@ struct ParachainServiceState {
 
     /// PVF (Parachain Validation Function) preimage registry.
     pvf_registry: Map<ValidationCodeHash, PvfEntry>,
-
-    /// Stores when pending upgrades timeout.
-    pending_upgrades_timeouts: Map<Timeslot, Vec<(ValidationCodeHash, ParaId)>>,
 }
 
 struct ErrorEntry {
@@ -451,18 +448,22 @@ Performed once for each work package that is being accumulated in this block, in
    `hash(ParaInfo[para_id].head_data)`. If not, the candidate is rejected. This prevents
    a collator from including a candidate that was built on top of a stale, skipped, or
    non-canonical parent head.
-2. **Validation code check**: Verify the work result's `validation_code_hash` matches
-   either `ParaInfo.validation_code_hash` or the pending upgrade's code hash. If it
-   matches neither, the candidate is rejected and an `ErrorEntry` with
-   `ParachainError::InvalidCodeHash` is appended to `error_log[para_id]`.
-3. **Head data update + code upgrade check**: Writes the new `head_data` from the work
+2. **Reap timed-out pending upgrade (lazy)**: If `ParaInfo.pending_upgrade` is set and
+   its deadline timeslot is `<=` the current timeslot, the upgrade is expired before this
+   candidate is considered. Call `forget()` on the pending new code hash and clear
+   `pending_upgrade`.
+3. **Validation code check**: Verify the work result's `validation_code_hash` matches
+   either `ParaInfo.validation_code_hash` or the pending upgrade's code hash (if step 2
+   did not reap it). If it matches neither, the candidate is rejected and an `ErrorEntry`
+   with `ParachainError::InvalidCodeHash` is appended to `error_log[para_id]`.
+4. **Head data update + code upgrade check**: Writes the new `head_data` from the work
    result into `ParaInfo` for the parachain and immediately checks whether the candidate
    was validated with the pending new PVF code. If so, it activates the new code, calls
    `forget()` on the old code hash, and clears `pending_upgrade`. This must happen here
    because later candidates from the same parachain in the same block may already use
    the new code. Any entries in `error_log[para_id]` whose key (timeslot) is strictly
    less than the current candidate's lookup-anchor timeslot are also pruned here.
-4. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
+5. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
    the work result, applying the effects of each side-effect host function the PVF
    invoked during Refine (code upgrades, transfers, authorizer queue updates, validator
    key updates, etc.). See the side-effect host function table in §4.3 for the full list.
@@ -475,10 +476,7 @@ accumulated, on the always-accumulate control path:
 1. **Apply pending authorizer queues**: For each core whose current 80-slot queue has
    been exhausted (tracked via `last_authorizer_assignment`), drain the matching entry
    from `pending_authorizer_queues` and call JAM `assign` to install it.
-2. **Reap timed-out code upgrades**: Walk `pending_upgrades_timeouts` for the current
-   timeslot; for each entry still pending, call `forget()` on the new code hash and
-   clear the parachain's `pending_upgrade`.
-3. **Incoming transfer processing**: Append any `OnTransfer` calls received from other
+2. **Incoming transfer processing**: Append any `OnTransfer` calls received from other
    JAM services this block to `incoming_transfers`, **after all work reports in the
    block have been processed**. Asset Hub consumes them later via
    `consume_transfers_up_to(index)`.
@@ -530,7 +528,8 @@ Phase 5: Activation or Rejection
 
     (b) Deadline exceeded: If the deadline (set in Phase 2) passes without
         the preimage becoming available or without any block using the new
-        code, Accumulate rejects the upgrade:
+        code, the upgrade is rejected on the next per-work-package
+        accumulate for this parachain (see §5.1, step 2):
         - Calls forget(new_code_hash, code_len) to release the new code
         - Clears pending_upgrade
         The parachain continues with the old code.
