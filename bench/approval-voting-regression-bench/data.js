@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779480590226,
+  "lastUpdate": 1779701767826,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c61e227f2c59fa0ce7df5f977dad4076ff470f00",
-          "message": "`trace_block`: Support overwriting `execute_block` (#9871)\n\nThis is required for example for parachains that require special\nextensions to be registered (e.g. `ProofSizeExt`) to succeed the block\nexecution.\n\nThis pull request changes the signature of `spawn_tasks` which now\nrequires a `tracing_execute_block` parameter. If your chain is a\nsolochain, just set the parameter to `None` or overwrite it if you need\nany special handling. For parachain builders, this value can be set to\n`cumulus_service::ParachainTracingExecuteBlock`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-10T10:26:45Z",
-          "tree_id": "3543a71fa505d9567ad4915814d4e03994df82aa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c61e227f2c59fa0ce7df5f977dad4076ff470f00"
-        },
-        "date": 1760096714381,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63626.56,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52944.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4657939981399997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000023561019999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002275294,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9534271086000061,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.42633818783999927,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002275294,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.474135655119999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6835607074908667,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005876955540000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000023561019999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.500527954399999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.298993460410003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4728936007699995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 14.766448943379947,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "52391767a0bf22f54a56c77d5fd74f0f762b8dff",
+          "message": "[zombienet] large runners by default (#12143)\n\nMake _large_ runners the default option for zombienet test.\n\ncc: @bkchr",
+          "timestamp": "2026-05-25T08:02:27Z",
+          "tree_id": "73cc9eff4db6e71e18b9a76745b03ae58de5365b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/52391767a0bf22f54a56c77d5fd74f0f762b8dff"
+        },
+        "date": 1779701738760,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63641.780000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8263448994799649,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.9088246152399995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002311139,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7681809218,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000019520189999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8702392486,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.797448784949999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005817652160000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000019520189999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.5042852410199914,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.5002700920326015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002311139,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.681141363249953,
             "unit": "seconds"
           }
         ]
