@@ -24,11 +24,7 @@ pub fn bridge_hub_barrier_check<Call>(
 	ethereum_network: NetworkId,
 ) -> (Location, Xcm<Call>) {
 	let inner = Xcm::<Call>(vec![
-		DepositReserveAsset {
-			assets: Wild(All),
-			dest: relay_chain,
-			xcm: Default::default(),
-		},
+		DepositReserveAsset { assets: Wild(All), dest: relay_chain, xcm: Default::default() },
 		ExportMessage { network: ethereum_network, destination: Here, xcm: Default::default() },
 	]);
 	let message = Xcm(vec![ExecuteWithOrigin {

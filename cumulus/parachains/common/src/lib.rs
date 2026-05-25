@@ -20,17 +20,17 @@ extern crate alloc;
 pub mod impls;
 pub mod message_queue;
 pub mod pay;
-pub mod xcm_config;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod xcm_benchmarks;
+pub mod xcm_config;
 pub use constants::*;
 pub use parachains_common_types::{opaque::*, *};
 
 /// Common constants of parachains.
 mod constants {
 	use frame_support::{
-		weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 		PalletId,
+		weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
 	};
 	use parachains_common_types::BlockNumber;
 	use sp_runtime::Perbill;

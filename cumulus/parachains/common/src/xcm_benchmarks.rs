@@ -17,7 +17,8 @@
 
 use xcm::latest::prelude::*;
 
-/// Worst-case `(origin, message)` for barriers using `DenyRecursively<DenyReserveTransferToRelayChain>`.
+/// Worst-case `(origin, message)` for barriers using
+/// `DenyRecursively<DenyReserveTransferToRelayChain>`.
 pub fn deny_reserve_transfer_recursive_barrier_check<Call>(
 	origin: Location,
 	relay_chain: Location,
@@ -34,22 +35,19 @@ pub fn deny_reserve_transfer_recursive_barrier_check<Call>(
 	(origin, message)
 }
 
-/// Worst-case `(origin, message)` for barriers using `WithComputedOrigin` with `max_prefixes` origin
-/// alterations followed by paid execution.
+/// Worst-case `(origin, message)` for barriers using `WithComputedOrigin` with `max_prefixes`
+/// origin alterations followed by paid execution.
 pub fn with_computed_origin_barrier_check<Call>(
 	origin: Location,
 	max_prefixes: u32,
 	fee_asset: Location,
 	fee_amount: u128,
 ) -> (Location, Xcm<Call>) {
-	let mut instructions: Vec<Instruction<Call>> = (0..max_prefixes)
-		.map(|i| DescendOrigin(Parachain(i + 1000).into()))
-		.collect();
+	let mut instructions: Vec<Instruction<Call>> =
+		(0..max_prefixes).map(|i| DescendOrigin(Parachain(i + 1000).into())).collect();
 	instructions.push(WithdrawAsset((fee_asset.clone(), fee_amount).into()));
-	instructions.push(BuyExecution {
-		fees: (fee_asset, fee_amount).into(),
-		weight_limit: Unlimited,
-	});
+	instructions
+		.push(BuyExecution { fees: (fee_asset, fee_amount).into(), weight_limit: Unlimited });
 	instructions.push(SetTopic([0u8; 32]));
 	(origin, Xcm(instructions))
 }
