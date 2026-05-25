@@ -294,26 +294,25 @@ pub(super) async fn expect_declare_msg(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendCollationMessage(
 			to,
-			CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(
-				wire_message,
-			)),
+			wire,
 		)) => {
 			assert_eq!(to[0], *peer);
-			assert_matches!(
-				wire_message,
-				protocol_v2::CollatorProtocolMessage::Declare(
-					collator_id,
-					para_id,
-					signature,
-				) => {
+			match wire {
+				CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(
+					protocol_v2::CollatorProtocolMessage::Declare(collator_id, para_id, signature)
+				)) |
+				CollationProtocols::V4(protocol_v4::CollationProtocol::CollatorProtocol(
+					protocol_v4::CollatorProtocolMessage::Declare(collator_id, para_id, signature)
+				)) => {
 					assert!(signature.verify(
 						&*protocol_v2::declare_signature_payload(&test_state.local_peer_id),
 						&collator_id),
 					);
 					assert_eq!(collator_id, test_state.collator_pair.public());
 					assert_eq!(para_id, test_state.para_id);
-				}
-			);
+				},
+				_ => panic!("expected declare")
+			}
 		}
 	);
 }
@@ -407,17 +406,17 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 			}
 			.build();
 
-			let DistributeCollation { candidate, pov_block: _ } =
-				distribute_collation_with_receipt(
-					virtual_overseer,
-					test_state.current_group_validator_authority_ids(),
-					candidate,
-					pov,
-					parent_head_data_hash,
-				)
-				.await;
+			let distributed = distribute_segment_with_receipts(
+				virtual_overseer,
+				test_state.current_group_validator_authority_ids(),
+				vec![(candidate, pov, parent_head_data_hash)],
+			)
+			.await
+			.into_iter()
+			.next()
+			.expect("len-1");
 
-			let candidate_hash = candidate.hash();
+			let candidate_hash = distributed.candidate.hash();
 
 			// Update peer views.
 			for peer_id in &validator_peer_ids {
@@ -478,13 +477,16 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 			.build();
 			overseer_send(
 				virtual_overseer,
-				CollatorProtocolMessage::DistributeCollation {
-					candidate_receipt: candidate.clone(),
-					parent_head_data_hash,
-					pov: pov.clone(),
-					parent_head_data: HeadData(vec![1, 2, 3]),
-					result_sender: None,
-					core_index: CoreIndex(0),
+				CollatorProtocolMessage::DistributeSegment {
+					candidates: BoundedVec::try_from(vec![SegmentEntry {
+						candidate_receipt: candidate.clone(),
+						parent_head_data_hash,
+						pov: pov.clone(),
+						parent_head_data: HeadData(vec![1, 2, 3]),
+						result_sender: None,
+						core_index: CoreIndex(0),
+					}])
+					.unwrap(),
 				},
 			)
 			.await;
@@ -558,14 +560,15 @@ fn distribute_collation_up_to_limit() {
 					..Default::default()
 				}
 				.build();
-				distribute_collation_with_receipt(
+				distribute_segment_with_receipts(
 					virtual_overseer,
 					test_state.current_group_validator_authority_ids(),
-					candidate,
-					pov,
-					parent_head_data_hash,
+					vec![(candidate, pov, parent_head_data_hash)],
 				)
-				.await;
+				.await
+				.into_iter()
+				.next()
+				.expect("len-1");
 			}
 
 			let pov = PoV { block_data: BlockData(vec![10, 12, 6]) };
@@ -580,13 +583,16 @@ fn distribute_collation_up_to_limit() {
 			.build();
 			overseer_send(
 				virtual_overseer,
-				CollatorProtocolMessage::DistributeCollation {
-					candidate_receipt: candidate.clone(),
-					parent_head_data_hash,
-					pov: pov.clone(),
-					parent_head_data: HeadData(vec![1, 2, 3]),
-					result_sender: None,
-					core_index: CoreIndex(0),
+				CollatorProtocolMessage::DistributeSegment {
+					candidates: BoundedVec::try_from(vec![SegmentEntry {
+						candidate_receipt: candidate,
+						parent_head_data_hash,
+						pov,
+						parent_head_data: HeadData(vec![1, 2, 3]),
+						result_sender: None,
+						core_index: CoreIndex(0),
+					}])
+					.unwrap(),
 				},
 			)
 			.await;
@@ -615,13 +621,16 @@ fn distribute_collation_up_to_limit() {
 			.build();
 			overseer_send(
 				virtual_overseer,
-				CollatorProtocolMessage::DistributeCollation {
-					candidate_receipt: candidate.clone(),
-					parent_head_data_hash,
-					pov: pov.clone(),
-					parent_head_data: HeadData(vec![1, 2, 3]),
-					result_sender: None,
-					core_index: CoreIndex(1),
+				CollatorProtocolMessage::DistributeSegment {
+					candidates: BoundedVec::try_from(vec![SegmentEntry {
+						candidate_receipt: candidate.clone(),
+						parent_head_data_hash,
+						pov: pov.clone(),
+						parent_head_data: HeadData(vec![1, 2, 3]),
+						result_sender: None,
+						core_index: CoreIndex(1),
+					}])
+					.unwrap(),
 				},
 			)
 			.await;
@@ -701,14 +710,15 @@ fn send_parent_head_data_for_elastic_scaling() {
 			let phd = HeadData(vec![1, 2, 3]);
 			let phdh = phd.hash();
 
-			distribute_collation_with_receipt(
+			distribute_segment_with_receipts(
 				&mut virtual_overseer,
 				expected_connected,
-				candidate.clone(),
-				pov_data.clone(),
-				phdh,
+				vec![(candidate.clone(), pov_data.clone(), phdh)],
 			)
-			.await;
+			.await
+			.into_iter()
+			.next()
+			.expect("len-1");
 
 			let peer = test_state.validator_peer_id[0];
 			let validator_id = test_state.current_group_validator_authority_ids()[0].clone();
@@ -833,14 +843,15 @@ fn advertise_and_send_collation_by_hash() {
 				.collect();
 
 			for (candidate, pov) in &candidates {
-				distribute_collation_with_receipt(
+				distribute_segment_with_receipts(
 					&mut virtual_overseer,
 					test_state.current_group_validator_authority_ids(),
-					candidate.clone(),
-					pov.clone(),
-					Hash::zero(),
+					vec![(candidate.clone(), pov.clone(), Hash::zero())],
 				)
-				.await;
+				.await
+				.into_iter()
+				.next()
+				.expect("len-1");
 			}
 
 			let peer = test_state.validator_peer_id[0];
@@ -856,7 +867,9 @@ fn advertise_and_send_collation_by_hash() {
 
 			// Head `b` is not a leaf, but both advertisements are still relevant.
 			send_peer_view_change(&mut virtual_overseer, &peer, vec![head_b]).await;
-			let hashes: Vec<_> = candidates.iter().map(|(candidate, _)| candidate.hash()).collect();
+			// DistributeSegment now overwrites the previous segment. The collations remain
+			// fetchable tho.
+			let hashes: Vec<_> = vec![candidates[1].0.hash()];
 			expect_advertise_collation_msg(&mut virtual_overseer, &[peer], head_b, hashes).await;
 
 			for (candidate, pov_block) in candidates {

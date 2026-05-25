@@ -527,18 +527,16 @@ where
 						// import notification.
 						overseer_handle
 							.send_msg(
-								CollationGenerationMessage::SubmitCollations(
-									vec![SubmitCollationParams {
-										relay_parent,
-										collation,
-										validation_code_hash,
-										result_sender: None,
-										core_index,
-										scheduling_parent: None,
-										session_index,
-										validation_data,
-									}],
-								),
+								CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
+									relay_parent,
+									collation,
+									validation_code_hash,
+									result_sender: None,
+									core_index,
+									scheduling_parent: None,
+									session_index,
+									validation_data,
+								}),
 								"SubmitCollation",
 							)
 							.await;
