@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779714518228,
+  "lastUpdate": 1779717184397,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -94499,6 +94499,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2645915037,
             "range": "± 29756354",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "314a1667a9fdd4abbea18a737ad3610bf952d8ac",
+          "message": "[Release|CI/CD] Add handling of the cancelation case and message to release eng room to the Publish crates flow (#12168)\n\nThis PR's adds functionality to push post-crates-release branch not only\non failure but also on cancelation for the case if release took more\nthen 6 hours and flow was canceled + it will send e message to rel eng\nchat notifying that flow failed/canceled",
+          "timestamp": "2026-05-25T12:41:42Z",
+          "tree_id": "52a85ab21a0dca104c19603e0ecc3041833c750c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/314a1667a9fdd4abbea18a737ad3610bf952d8ac"
+        },
+        "date": 1779717137708,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20316457,
+            "range": "± 147626",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21091722,
+            "range": "± 294658",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22392896,
+            "range": "± 169967",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27470813,
+            "range": "± 330805",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 62055490,
+            "range": "± 793587",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 381174736,
+            "range": "± 5875309",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2845122042,
+            "range": "± 148422989",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18326565,
+            "range": "± 201633",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18732200,
+            "range": "± 350973",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19037166,
+            "range": "± 182790",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24373751,
+            "range": "± 211433",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63215551,
+            "range": "± 575259",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 376866754,
+            "range": "± 4724782",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2893047131,
+            "range": "± 19822297",
             "unit": "ns/iter"
           }
         ]
