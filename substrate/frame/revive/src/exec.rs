@@ -1734,7 +1734,7 @@ where
 		// If root created this contract we need to use the pallet account_id because root has no
 		// account.
 		let origin: Origin<T> = match origin {
-			Origin::Signed(o) => Origin::Signed(o),
+			Origin::Signed(o) => Origin::Signed(o.clone()),
 			Origin::Root => Origin::from_account_id(crate::Pallet::<T>::account_id()),
 		};
 
