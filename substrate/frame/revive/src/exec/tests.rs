@@ -3037,19 +3037,19 @@ fn cold_hot_single_contract() {
 }
 
 #[test]
-fn cold_hot_get_storage_size_keeps_cold() {
+fn cold_hot_get_storage_size_marks_hot() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		let slot_for_load = Key::Fix([12; 32]);
 		let slot_for_store = Key::Fix([20; 32]);
 
 		let (size, size_costs) = ctx.ext.get_storage_size(&slot_for_load);
 		assert_eq!(size, None);
-		assert_eq!(size_costs.is_cold, Some(true), "size always charges cold");
+		assert_eq!(size_costs.is_cold, Some(true), "first size lookup is cold");
 		let (_, load_costs) = ctx.ext.get_storage(&slot_for_load);
 		assert_eq!(
 			load_costs.is_cold,
-			Some(true),
-			"SLOAD after size lookup is still cold — size did not mark the slot as hot",
+			Some(false),
+			"SLOAD after size lookup is hot — size loaded the same trie nodes",
 		);
 
 		let (_, size_costs) = ctx.ext.get_storage_size(&slot_for_store);
@@ -3057,8 +3057,8 @@ fn cold_hot_get_storage_size_keeps_cold() {
 		let (_, set_costs) = ctx.ext.set_storage(&slot_for_store, Some(vec![1]), false);
 		assert_eq!(
 			set_costs.is_cold,
-			Some(true),
-			"SSTORE after size lookup is still cold — size did not mark the slot as hot",
+			Some(false),
+			"SSTORE after size lookup is hot — size loaded the same trie nodes",
 		);
 
 		exec_success()

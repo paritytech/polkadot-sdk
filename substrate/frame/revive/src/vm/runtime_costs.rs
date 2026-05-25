@@ -393,11 +393,9 @@ impl RuntimeCosts {
 		}
 	}
 
-	/// EIP-2929 cold/hot weight for storage opcodes; other variants fall
-	/// through to `legacy_weight`. Cold/hot pairs layer
-	/// `access_list_touch_{cold,hot}` and (cold only)
-	/// `access_list_rollback_amortization`. Hot numbers in `weights.rs` are
-	/// `cold / 5` placeholders until `/cmd bench` runs the `_hot` benches.
+	/// Cold/hot weight for storage opcodes; other variants fall through to
+	/// `legacy_weight`. Cold pairs add `access_list_touch_cold` +
+	/// `access_list_rollback_amortization`; hot pairs add `access_list_touch_hot`.
 	fn new_weight<T: Config>(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match self {

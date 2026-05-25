@@ -534,24 +534,27 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Returns the storage entry of the executing account by the given `key`.
 	///
-	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
-	/// was deleted. The accompanying `StorageAccessCost` records the
-	/// EIP-2929 cold/warm access.
+	/// Returns:
+	/// - The stored value, or `None` if the `key` wasn't previously set by `set_storage` or was
+	///   deleted.
+	/// - A `StorageAccessCost` indicating whether this was a cold or hot access.
 	fn get_storage(&mut self, key: &Key) -> (Option<Vec<u8>>, StorageAccessCost);
 
-	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
+	/// Returns the length (in bytes) of the storage entry at `key`.
 	///
-	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
-	/// was deleted.
-	///
-	/// The returned `StorageAccessCost` always reports `is_cold = Some(true)`:
-	/// the two-tier touch (size-only vs full-value) is not implemented yet, so
-	/// a size lookup conservatively pays cold without marking the slot as hot.
+	/// Returns:
+	/// - `Some(len)` if a storage entry exists at `key`, `None` otherwise.
+	/// - A `StorageAccessCost` indicating whether this was a cold or hot access. A size lookup
+	///   loads the same trie nodes as a full read, so it marks the slot hot just like
+	///   `get_storage`.
 	fn get_storage_size(&mut self, key: &Key) -> (Option<u32>, StorageAccessCost);
 
-	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
-	/// the storage entry is deleted. The accompanying `StorageAccessCost`
-	/// records the EIP-2929 cold/warm access.
+	/// Sets the storage entry by the given key to the specified value. If `value` is `None`,
+	/// the entry is deleted.
+	///
+	/// Returns:
+	/// - A `WriteOutcome` describing the write result (or a `DispatchError` on failure).
+	/// - A `StorageAccessCost` indicating whether this was a cold or hot access.
 	fn set_storage(
 		&mut self,
 		key: &Key,
@@ -2584,11 +2587,9 @@ where
 
 	fn get_storage_size(&mut self, key: &Key) -> (Option<u32>, StorageAccessCost) {
 		assert!(self.has_contract_info());
-		// `size` does not touch the access list — always charges cold. The
-		// `containsStorage` precompile mirrors this by hardcoding `cold()`;
-		// keep the two sites in sync.
+		let is_cold = self.touch_access_list(key);
 		let size = self.top_frame_mut().contract_info().size(key.into());
-		(size, StorageAccessCost::cold())
+		(size, StorageAccessCost { is_cold: Some(is_cold) })
 	}
 
 	fn set_storage(

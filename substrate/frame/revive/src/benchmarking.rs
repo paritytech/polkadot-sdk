@@ -630,7 +630,7 @@ mod benchmarks {
 	/// Worst case: every input account is not eth-derived, not yet mapped, and
 	/// already carries an [`HoldReason::AddressMapping`] hold. The per-account
 	/// loop body in `batch_map_accounts` then both inserts the [`OriginalAccount`]
-	/// entry via `map_no_deposit_unchecked` *and* releases the existing hold.
+	/// entry via `map_no_deposit` *and* releases the existing hold.
 	#[benchmark(pov_mode = Measured)]
 	fn batch_map_accounts(a: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		use frame_benchmarking::v2::account;
@@ -945,7 +945,7 @@ mod benchmarks {
 	fn seal_balance_of() {
 		let len = <sp_core::U256 as MaxEncodedLen>::max_encoded_len();
 		let account = account::<T::AccountId>("target", 0, 0);
-		<T as Config>::AddressMapper::map_no_deposit_unchecked(&account).unwrap();
+		<T as Config>::AddressMapper::map_no_deposit(&account).unwrap();
 
 		let address = T::AddressMapper::to_address(&account);
 		let balance = Pallet::<T>::min_balance() * 2u32.into();
@@ -1323,7 +1323,7 @@ mod benchmarks {
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
-		T::AddressMapper::map_no_deposit_unchecked(&beneficiary)?;
+		T::AddressMapper::map_no_deposit(&beneficiary)?;
 
 		build_runtime!(_runtime, instance, _memory: [vec![0u8; 0], ]);
 		let code_hash = instance.info()?.code_hash;
@@ -1514,126 +1514,6 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Warm variants of get/set _empty/_full: same setup plus
-	// `add_to_whitelist_child` so the proof recorder serves the trie nodes
-	// from cache. The diff captures the unbalanced-trie surcharge under
-	// proof-cache (CPU still grows with depth; PoV stays near-zero).
-	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn get_storage_empty_warm() -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::STORAGE_BYTES as usize;
-		let value = vec![1u8; max_value_len];
-
-		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
-		let info = instance.info()?;
-		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(value.clone()), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
-
-		frame_benchmarking::add_to_whitelist_child(
-			child_trie_info.storage_key().to_vec(),
-			key.clone(),
-		);
-
-		let result;
-		#[block]
-		{
-			result = child::get_raw(&child_trie_info, &key);
-		}
-
-		assert_eq!(result, Some(value));
-		Ok(())
-	}
-
-	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn get_storage_full_warm() -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::STORAGE_BYTES;
-		let value = vec![1u8; max_value_len as usize];
-
-		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
-		let info = instance.info()?;
-		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(value.clone()), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
-
-		frame_benchmarking::add_to_whitelist_child(
-			child_trie_info.storage_key().to_vec(),
-			key.clone(),
-		);
-
-		let result;
-		#[block]
-		{
-			result = child::get_raw(&child_trie_info, &key);
-		}
-
-		assert_eq!(result, Some(value));
-		Ok(())
-	}
-
-	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn set_storage_empty_warm() -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::STORAGE_BYTES as usize;
-		let value = vec![1u8; max_value_len];
-
-		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
-		let info = instance.info()?;
-		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(vec![42u8; max_value_len]), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
-
-		frame_benchmarking::add_to_whitelist_child(
-			child_trie_info.storage_key().to_vec(),
-			key.clone(),
-		);
-
-		let val = Some(value.clone());
-		let result;
-		#[block]
-		{
-			result = info.bench_write_raw(&key, val, true);
-		}
-
-		assert_ok!(result);
-		assert_eq!(child::get_raw(&child_trie_info, &key).unwrap(), value);
-		Ok(())
-	}
-
-	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn set_storage_full_warm() -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::STORAGE_BYTES;
-		let value = vec![1u8; max_value_len as usize];
-
-		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
-		let info = instance.info()?;
-		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(vec![42u8; max_value_len as usize]), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
-
-		frame_benchmarking::add_to_whitelist_child(
-			child_trie_info.storage_key().to_vec(),
-			key.clone(),
-		);
-
-		let val = Some(value.clone());
-		let result;
-		#[block]
-		{
-			result = info.bench_write_raw(&key, val, true);
-		}
-
-		assert_ok!(result);
-		assert_eq!(child::get_raw(&child_trie_info, &key).unwrap(), value);
-		Ok(())
-	}
-
 	// n: new byte size
 	// o: old byte size
 	#[benchmark(skip_meta, pov_mode = Measured)]
@@ -1670,50 +1550,6 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Warm variant of `seal_set_storage`: trie pre-loaded via
-	// `add_to_whitelist_child`. Diff vs cold = the read-of-old leg the
-	// proof recorder skips.
-	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn seal_set_storage_warm(
-		n: Linear<0, { limits::STORAGE_BYTES }>,
-		o: Linear<0, { limits::STORAGE_BYTES }>,
-	) -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
-			.map_err(|_| "Key has wrong length")?;
-		let value = vec![1u8; n as usize];
-
-		build_runtime!(runtime, instance, memory: [ key.unhashed(), value.clone(), ]);
-		let info = instance.info()?;
-
-		info.write(&key, Some(vec![42u8; o as usize]), None, false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
-
-		// Pre-load child trie nodes into the proof recorder — makes this a
-		// warm-state measurement.
-		frame_benchmarking::add_to_whitelist_child(
-			info.child_trie_info().storage_key().to_vec(),
-			key.hash(),
-		);
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_set_storage(
-				memory.as_mut_slice(),
-				StorageFlags::empty().bits(),
-				0,           // key_ptr
-				max_key_len, // key_len
-				max_key_len, // value_ptr
-				n,           // value_len
-			);
-		}
-
-		assert_ok!(result);
-		assert_eq!(info.read(&key).unwrap(), value);
-		Ok(())
-	}
-
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn clear_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
@@ -1728,49 +1564,6 @@ mod benchmarks {
 		.abi_encode();
 
 		let mut call_setup = CallSetup::<T>::default();
-		let (mut ext, _) = call_setup.ext();
-		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
-			.0
-			.map_err(|_| "Failed to write to storage during setup.")?;
-
-		let result;
-		#[block]
-		{
-			result = run_builtin_precompile(
-				&mut ext,
-				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
-				input_bytes,
-			);
-		}
-		assert_ok!(result);
-		assert!(ext.get_storage(&key).0.is_none());
-
-		Ok(())
-	}
-
-	// Warm variant of `clear_storage`. See `seal_set_storage_warm`.
-	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn clear_storage_warm(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
-			.map_err(|_| "Key has wrong length")?;
-
-		let input_bytes = IStorage::IStorageCalls::clearStorage(IStorage::clearStorageCall {
-			flags: StorageFlags::empty().bits(),
-			key: vec![0u8; max_key_len as usize].into(),
-			isFixedKey: false,
-		})
-		.abi_encode();
-
-		let mut call_setup = CallSetup::<T>::default();
-		{
-			let info = call_setup.contract().info()?;
-			frame_benchmarking::add_to_whitelist_child(
-				info.child_trie_info().storage_key().to_vec(),
-				key.hash(),
-			);
-		}
-
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.0
@@ -1821,9 +1614,279 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Warm variant of `seal_get_storage`. See `seal_set_storage_warm`.
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn seal_get_storage_warm(
+	fn contains_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let max_key_len = limits::STORAGE_KEY_BYTES;
+		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
+			.map_err(|_| "Key has wrong length")?;
+		let input_bytes = IStorage::IStorageCalls::containsStorage(IStorage::containsStorageCall {
+			flags: StorageFlags::TRANSIENT.bits(),
+			key: vec![0u8; max_key_len as usize].into(),
+			isFixedKey: false,
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+			.0
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		let result;
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
+		}
+		assert_ok!(result);
+		assert!(ext.get_storage(&key).0.is_some());
+
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn take_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let max_key_len = limits::STORAGE_KEY_BYTES;
+		let key = Key::try_from_var(vec![3u8; max_key_len as usize])
+			.map_err(|_| "Key has wrong length")?;
+
+		let input_bytes = IStorage::IStorageCalls::takeStorage(IStorage::takeStorageCall {
+			flags: StorageFlags::empty().bits(),
+			key: vec![3u8; max_key_len as usize].into(),
+			isFixedKey: false,
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+			.0
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		let result;
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
+		}
+		assert_ok!(result);
+		assert!(ext.get_storage(&key).0.is_none());
+
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn get_storage_empty_hot() -> Result<(), BenchmarkError> {
+		let max_key_len = limits::STORAGE_KEY_BYTES;
+		let key = vec![0u8; max_key_len as usize];
+		let max_value_len = limits::STORAGE_BYTES as usize;
+		let value = vec![1u8; max_value_len];
+
+		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
+		let info = instance.info()?;
+		let child_trie_info = info.child_trie_info();
+		info.bench_write_raw(&key, Some(value.clone()), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		frame_benchmarking::add_to_whitelist_child(
+			child_trie_info.storage_key().to_vec(),
+			key.clone(),
+		);
+
+		let result;
+		#[block]
+		{
+			result = child::get_raw(&child_trie_info, &key);
+		}
+
+		assert_eq!(result, Some(value));
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn get_storage_full_hot() -> Result<(), BenchmarkError> {
+		let max_key_len = limits::STORAGE_KEY_BYTES;
+		let key = vec![0u8; max_key_len as usize];
+		let max_value_len = limits::STORAGE_BYTES;
+		let value = vec![1u8; max_value_len as usize];
+
+		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
+		let info = instance.info()?;
+		let child_trie_info = info.child_trie_info();
+		info.bench_write_raw(&key, Some(value.clone()), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		frame_benchmarking::add_to_whitelist_child(
+			child_trie_info.storage_key().to_vec(),
+			key.clone(),
+		);
+
+		let result;
+		#[block]
+		{
+			result = child::get_raw(&child_trie_info, &key);
+		}
+
+		assert_eq!(result, Some(value));
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn set_storage_empty_hot() -> Result<(), BenchmarkError> {
+		let max_key_len = limits::STORAGE_KEY_BYTES;
+		let key = vec![0u8; max_key_len as usize];
+		let max_value_len = limits::STORAGE_BYTES as usize;
+		let value = vec![1u8; max_value_len];
+
+		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
+		let info = instance.info()?;
+		let child_trie_info = info.child_trie_info();
+		info.bench_write_raw(&key, Some(vec![42u8; max_value_len]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		frame_benchmarking::add_to_whitelist_child(
+			child_trie_info.storage_key().to_vec(),
+			key.clone(),
+		);
+
+		let val = Some(value.clone());
+		let result;
+		#[block]
+		{
+			result = info.bench_write_raw(&key, val, true);
+		}
+
+		assert_ok!(result);
+		assert_eq!(child::get_raw(&child_trie_info, &key).unwrap(), value);
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn set_storage_full_hot() -> Result<(), BenchmarkError> {
+		let max_key_len = limits::STORAGE_KEY_BYTES;
+		let key = vec![0u8; max_key_len as usize];
+		let max_value_len = limits::STORAGE_BYTES;
+		let value = vec![1u8; max_value_len as usize];
+
+		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
+		let info = instance.info()?;
+		let child_trie_info = info.child_trie_info();
+		info.bench_write_raw(&key, Some(vec![42u8; max_value_len as usize]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		frame_benchmarking::add_to_whitelist_child(
+			child_trie_info.storage_key().to_vec(),
+			key.clone(),
+		);
+
+		let val = Some(value.clone());
+		let result;
+		#[block]
+		{
+			result = info.bench_write_raw(&key, val, true);
+		}
+
+		assert_ok!(result);
+		assert_eq!(child::get_raw(&child_trie_info, &key).unwrap(), value);
+		Ok(())
+	}
+
+	// Hot variant of `seal_set_storage`: trie pre-loaded via
+	// `add_to_whitelist_child`. Diff vs cold = the read-of-old leg the
+	// proof recorder skips.
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn seal_set_storage_hot(
+		n: Linear<0, { limits::STORAGE_BYTES }>,
+		o: Linear<0, { limits::STORAGE_BYTES }>,
+	) -> Result<(), BenchmarkError> {
+		let max_key_len = limits::STORAGE_KEY_BYTES;
+		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
+			.map_err(|_| "Key has wrong length")?;
+		let value = vec![1u8; n as usize];
+
+		build_runtime!(runtime, instance, memory: [ key.unhashed(), value.clone(), ]);
+		let info = instance.info()?;
+
+		info.write(&key, Some(vec![42u8; o as usize]), None, false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		// Pre-load child trie nodes into the proof recorder — makes this a
+		// hot-state measurement.
+		frame_benchmarking::add_to_whitelist_child(
+			info.child_trie_info().storage_key().to_vec(),
+			key.hash(),
+		);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_set_storage(
+				memory.as_mut_slice(),
+				StorageFlags::empty().bits(),
+				0,           // key_ptr
+				max_key_len, // key_len
+				max_key_len, // value_ptr
+				n,           // value_len
+			);
+		}
+
+		assert_ok!(result);
+		assert_eq!(info.read(&key).unwrap(), value);
+		Ok(())
+	}
+
+	// Hot variant of `clear_storage`. See `seal_set_storage_hot`.
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn clear_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let max_key_len = limits::STORAGE_KEY_BYTES;
+		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
+			.map_err(|_| "Key has wrong length")?;
+
+		let input_bytes = IStorage::IStorageCalls::clearStorage(IStorage::clearStorageCall {
+			flags: StorageFlags::empty().bits(),
+			key: vec![0u8; max_key_len as usize].into(),
+			isFixedKey: false,
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		{
+			let info = call_setup.contract().info()?;
+			frame_benchmarking::add_to_whitelist_child(
+				info.child_trie_info().storage_key().to_vec(),
+				key.hash(),
+			);
+		}
+
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+			.0
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		let result;
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
+		}
+		assert_ok!(result);
+		assert!(ext.get_storage(&key).0.is_none());
+
+		Ok(())
+	}
+
+	// Hot variant of `seal_get_storage`. See `seal_set_storage_hot`.
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn seal_get_storage_hot(
 		n: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
@@ -1859,42 +1922,9 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// Hot variant of `contains_storage`. See `seal_set_storage_hot`.
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn contains_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
-			.map_err(|_| "Key has wrong length")?;
-		let input_bytes = IStorage::IStorageCalls::containsStorage(IStorage::containsStorageCall {
-			flags: StorageFlags::empty().bits(),
-			key: vec![0u8; max_key_len as usize].into(),
-			isFixedKey: false,
-		})
-		.abi_encode();
-
-		let mut call_setup = CallSetup::<T>::default();
-		let (mut ext, _) = call_setup.ext();
-		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
-			.0
-			.map_err(|_| "Failed to write to storage during setup.")?;
-
-		let result;
-		#[block]
-		{
-			result = run_builtin_precompile(
-				&mut ext,
-				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
-				input_bytes,
-			);
-		}
-		assert_ok!(result);
-		assert!(ext.get_storage(&key).0.is_some());
-
-		Ok(())
-	}
-
-	// Warm variant of `contains_storage`. See `seal_set_storage_warm`.
-	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn contains_storage_warm(
+	fn contains_storage_hot(
 		n: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
@@ -1936,43 +1966,9 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// Hot variant of `take_storage`. See `seal_set_storage_hot`.
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn take_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = Key::try_from_var(vec![3u8; max_key_len as usize])
-			.map_err(|_| "Key has wrong length")?;
-
-		let input_bytes = IStorage::IStorageCalls::takeStorage(IStorage::takeStorageCall {
-			flags: StorageFlags::empty().bits(),
-			key: vec![3u8; max_key_len as usize].into(),
-			isFixedKey: false,
-		})
-		.abi_encode();
-
-		let mut call_setup = CallSetup::<T>::default();
-		let (mut ext, _) = call_setup.ext();
-		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
-			.0
-			.map_err(|_| "Failed to write to storage during setup.")?;
-
-		let result;
-		#[block]
-		{
-			result = run_builtin_precompile(
-				&mut ext,
-				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
-				input_bytes,
-			);
-		}
-		assert_ok!(result);
-		assert!(ext.get_storage(&key).0.is_none());
-
-		Ok(())
-	}
-
-	// Warm variant of `take_storage`. See `seal_set_storage_warm`.
-	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn take_storage_warm(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+	fn take_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![3u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -2030,9 +2026,9 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Warm touch: `BTreeSet::contains` only (entry already present).
+	// Hot touch: `BTreeSet::contains` only (entry already present).
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_warm() -> Result<(), BenchmarkError> {
+	fn access_list_touch_hot() -> Result<(), BenchmarkError> {
 		use crate::access_list::{AccessEntry, AccessList, KeyKind};
 		let mut al = AccessList::new();
 		let entry = AccessEntry { address: H160::zero(), key_kind: KeyKind::Fix, slot: [0u8; 32] };
@@ -2241,7 +2237,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
-		ext.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
+		ext.set_transient_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;
@@ -2312,7 +2308,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
-		ext.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
+		ext.set_transient_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;

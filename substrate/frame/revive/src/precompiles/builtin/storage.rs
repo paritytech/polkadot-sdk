@@ -110,13 +110,10 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					);
 					(outcome.is_some(), value_len)
 				} else {
-					// `get_storage_size` always reports cold; mirror that here.
-					let (outcome, _) = env.get_storage_size(&key);
+					let (outcome, costs) = env.get_storage_size(&key);
 					let value_len = outcome.unwrap_or(0);
-					env.frame_meter_mut().adjust_weight(
-						charged,
-						RuntimeCosts::contains(false, value_len, StorageAccessCost::cold()),
-					);
+					env.frame_meter_mut()
+						.adjust_weight(charged, RuntimeCosts::contains(false, value_len, costs));
 					(outcome.is_some(), value_len)
 				};
 				Ok((exists, value_len).abi_encode())
