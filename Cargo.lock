@@ -3667,11 +3667,10 @@ dependencies = [
 
 [[package]]
 name = "cid"
-version = "0.11.1"
+version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3147d8272e8fa0ccd29ce51194dd98f79ddfb8191ba9e3409884e751798acf3a"
+checksum = "21a304f95f84d169a6f31c4d0a30d784643aaa0bbc9c1e449a2c23e963ec4971"
 dependencies = [
- "core2",
  "multibase",
  "multihash 0.19.5",
  "unsigned-varint 0.8.0",
@@ -4759,9 +4758,9 @@ dependencies = [
 
 [[package]]
 name = "crypto-common"
-version = "0.2.2"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce6e4c961d6cd6c9a86db418387425e8bdeaf05b3c8bc1411e6dca4c252f1453"
+checksum = "77727bb15fa921304124b128af125e7e3b968275d1b108b379190264f4423710"
 dependencies = [
  "hybrid-array",
 ]
@@ -6280,7 +6279,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1dd6dbb5841937940781866fa1281a1ff7bd3bf827091440879f9994983d5c2"
 dependencies = [
  "block-buffer 0.12.0",
- "crypto-common 0.2.2",
+ "crypto-common 0.2.1",
 ]
 
 [[package]]
@@ -10167,7 +10166,7 @@ dependencies = [
  "libp2p-upnp",
  "libp2p-websocket",
  "libp2p-yamux",
- "multiaddr 0.18.1",
+ "multiaddr 0.18.2",
  "pin-project",
  "rw-stream-sink",
  "thiserror 1.0.65",
@@ -10208,7 +10207,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "libp2p-identity",
- "multiaddr 0.18.1",
+ "multiaddr 0.18.2",
  "multihash 0.19.5",
  "multistream-select",
  "once_cell",
@@ -10362,7 +10361,7 @@ dependencies = [
  "futures",
  "libp2p-core",
  "libp2p-identity",
- "multiaddr 0.18.1",
+ "multiaddr 0.18.2",
  "multihash 0.19.5",
  "once_cell",
  "quick-protobuf",
@@ -10743,7 +10742,7 @@ dependencies = [
  "async-trait",
  "bs58",
  "bytes",
- "cid 0.11.1",
+ "cid 0.11.3",
  "ed25519-dalek",
  "futures",
  "futures-timer",
@@ -10783,14 +10782,14 @@ dependencies = [
 
 [[package]]
 name = "litep2p"
-version = "0.13.3"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbf3924cf539a761465543592b34c4198d60db2cda16594769edd43451e5ab41"
+checksum = "68e9c1a55534ab498c75dac677475818b74eebbdf8132cc47783e257b1921228"
 dependencies = [
  "async-trait",
  "bs58",
  "bytes",
- "cid 0.11.1",
+ "cid 0.11.3",
  "ed25519-dalek",
  "enum-display",
  "futures",
@@ -10800,8 +10799,9 @@ dependencies = [
  "ip_network",
  "libc",
  "mockall",
- "multiaddr 0.17.1",
- "multihash 0.17.0",
+ "multiaddr 0.18.2",
+ "multihash 0.19.5",
+ "multihash-codetable",
  "network-interface",
  "parking_lot 0.12.3",
  "pin-project",
@@ -11324,9 +11324,9 @@ dependencies = [
 
 [[package]]
 name = "multiaddr"
-version = "0.18.1"
+version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b852bc02a2da5feed68cd14fa50d0774b92790a5bdbfa932a813926c8472070"
+checksum = "fe6351f60b488e04c1d21bc69e56b89cb3f5e8f5d22557d6e8031bdfd79b6961"
 dependencies = [
  "arrayref",
  "byteorder",
@@ -11337,7 +11337,7 @@ dependencies = [
  "percent-encoding",
  "serde",
  "static_assertions",
- "unsigned-varint 0.7.2",
+ "unsigned-varint 0.8.0",
  "url",
 ]
 
@@ -17088,6 +17088,7 @@ dependencies = [
  "sc-consensus-aura",
  "sc-consensus-manual-seal",
  "sc-executor 0.32.0",
+ "sc-hop",
  "sc-keystore",
  "sc-network 0.34.0",
  "sc-network-statement",
@@ -17112,6 +17113,7 @@ dependencies = [
  "sp-consensus-aura",
  "sp-core 28.0.0",
  "sp-genesis-builder 0.8.0",
+ "sp-hop",
  "sp-inherents 26.0.0",
  "sp-keystore 0.34.0",
  "sp-offchain",
@@ -17688,6 +17690,7 @@ dependencies = [
  "sc-executor-common 0.29.0",
  "sc-executor-polkavm 0.29.0",
  "sc-executor-wasmtime 0.29.0",
+ "sc-hop",
  "sc-informant",
  "sc-keystore",
  "sc-mixnet",
@@ -21637,6 +21640,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "sc-hop"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "futures-timer",
+ "hex",
+ "jsonrpsee",
+ "parity-scale-codec",
+ "parking_lot 0.12.3",
+ "polkadot-primitives",
+ "sc-transaction-pool-api 28.0.0",
+ "serde",
+ "sp-api 26.0.0",
+ "sp-blockchain 28.0.0",
+ "sp-core 28.0.0",
+ "sp-externalities 0.25.0",
+ "sp-hop",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
+ "sp-test-primitives",
+ "sp-version 29.0.0",
+ "tempfile",
+ "thiserror 1.0.65",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "sc-informant"
 version = "0.33.0"
 dependencies = [
@@ -21702,7 +21733,7 @@ dependencies = [
  "async-trait",
  "asynchronous-codec 0.6.2",
  "bytes",
- "cid 0.11.1",
+ "cid 0.11.3",
  "criterion",
  "either",
  "fnv",
@@ -21711,9 +21742,10 @@ dependencies = [
  "ip_network",
  "libp2p",
  "linked_hash_set",
- "litep2p 0.13.3",
+ "litep2p 0.14.0",
  "log",
  "mockall",
+ "multihash-codetable",
  "multistream-select",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -21996,9 +22028,9 @@ dependencies = [
  "ed25519-dalek",
  "libp2p-identity",
  "libp2p-kad",
- "litep2p 0.13.3",
+ "litep2p 0.14.0",
  "log",
- "multiaddr 0.18.1",
+ "multiaddr 0.18.2",
  "multihash 0.19.5",
  "quickcheck",
  "rand 0.8.5",
@@ -22021,7 +22053,7 @@ dependencies = [
  "libp2p-kad",
  "litep2p 0.10.0",
  "log",
- "multiaddr 0.18.1",
+ "multiaddr 0.18.2",
  "multihash 0.19.5",
  "rand 0.8.5",
  "serde",
@@ -22175,7 +22207,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "assert_matches",
  "async-trait",
- "cid 0.11.1",
+ "cid 0.11.3",
  "futures",
  "futures-util",
  "hex",
@@ -31216,7 +31248,7 @@ checksum = "ec3c5d46446e37941750590f903fb4af0cb5d47fff7a5bb37e35e246591bd449"
 dependencies = [
  "anyhow",
  "lazy_static",
- "multiaddr 0.18.1",
+ "multiaddr 0.18.2",
  "regex",
  "reqwest 0.12.9",
  "serde",
@@ -31244,7 +31276,7 @@ dependencies = [
  "hex",
  "libp2p",
  "libsecp256k1",
- "multiaddr 0.18.1",
+ "multiaddr 0.18.2",
  "rand 0.8.5",
  "regex",
  "reqwest 0.12.9",
