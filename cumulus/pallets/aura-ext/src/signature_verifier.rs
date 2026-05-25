@@ -5,10 +5,10 @@
 //! V3 scheduling signature verifier backed by parachain Aura authorities.
 //!
 //! Implements [`VerifySchedulingSignature`] for parachains running Aura: derives the
-//! parachain slot from the BABE pre-digest of the relay header at
-//! `internal_scheduling_parent`, looks up the eligible Aura author from this pallet's
-//! cached authority set, and verifies the 64-byte signature in [`SignedSchedulingInfo`]
-//! over the encoded [`SchedulingInfoPayload`].
+//! parachain slot from the BABE pre-digest of the candidate's `slot_anchor_header`
+//! (the oldest relay header in `SchedulingProof::header_chain`), looks up the eligible
+//! Aura author from this pallet's cached authority set, and verifies the 64-byte
+//! signature in [`SignedSchedulingInfo`] over the encoded [`SchedulingInfoPayload`].
 
 use crate::{Authorities, Config};
 use codec::{Decode, Encode};
@@ -43,14 +43,15 @@ where
 {
 	fn verify(
 		signed_info: &SignedSchedulingInfo,
-		internal_scheduling_parent_header: &RelayChainHeader,
+		slot_anchor_header: &RelayChainHeader,
 		internal_scheduling_parent: RelayHash,
 	) -> bool {
-		// 1. Decode relay slot from the BABE pre-digest of the internal_scheduling_parent header.
-		//    The eligible parachain author is determined by *this* slot, not by the slot at the
-		//    freshest scheduling_parent — that anchors the signature to a specific block (the one
-		//    being submitted/resubmitted) rather than to a moving relay tip.
-		let relay_slot: Slot = match internal_scheduling_parent_header
+		// 1. Decode relay slot from the BABE pre-digest of the slot anchor header (=
+		//    `SchedulingProof::header_chain.last()`, the oldest relay header in the proof). Its
+		//    slot identifies the eligible parachain author for this specific candidate. The
+		//    chain-linkage check in `check_scheduling` proves the anchor header is the actual relay
+		//    block at that position — it can't be substituted.
+		let relay_slot: Slot = match slot_anchor_header
 			.digest
 			.logs()
 			.iter()

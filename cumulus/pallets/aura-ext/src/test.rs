@@ -669,44 +669,49 @@ mod signature_verifier_tests {
 
 	#[test]
 	fn slot_lookup_uses_the_header_passed_in_not_some_other_source() {
-		// Regression test for the internal_scheduling_parent header bug.
+		// The verifier MUST derive the parachain slot from the `slot_anchor_header`
+		// it receives (per the caller contract this is `header_chain.last()`). It
+		// must NOT silently fall back to some other source (a freshest-tip header,
+		// a stored slot, etc.).
 		//
-		// The verifier MUST derive the parachain slot from the header it receives
-		// (= internal_scheduling_parent header). It must NOT silently fall back to
-		// some other source (a freshest-tip header, a stored slot, etc.).
-		//
-		// This test wires two headers with slots picking *different* Aura authors,
-		// then proves that swapping which header is passed in flips which author
-		// the verifier accepts. If a future refactor ever sourced the slot from
-		// anywhere other than the passed-in header, one of these assertions would
-		// flip and the test would fail.
+		// Wires two headers whose slots pick *different* Aura authors, then proves
+		// that swapping which header is passed in flips which author the verifier
+		// accepts. If a future refactor ever sourced the slot from anywhere other
+		// than the passed-in header, one of these assertions would flip and the
+		// test would fail.
 		TestSlotDuration::set_slot_duration(6000);
 		new_test_ext(0).execute_with(|| {
 			// 2 authorities → author = authorities[slot % 2].
 			// Slot 4 → Alice (index 0). Slot 5 → Bob (index 1).
 			put_authorities(vec![Alice.public().into(), Bob.public().into()]);
 
-			let ip_header_alice_slot = header_with_relay_slot(4);
-			let sp_like_header_bob_slot = header_with_relay_slot(5);
+			let anchor_header_alice_slot = header_with_relay_slot(4);
+			let other_header_bob_slot = header_with_relay_slot(5);
 			let internal_sp = H256::repeat_byte(0xAB);
 
-			// Alice signs (she is the eligible author at the IP slot = 4).
+			// Alice signs — she is the eligible author at the anchor slot = 4.
 			let signed = signed_info_for(Alice, CoreSelector(0), internal_sp);
 
-			// Passing the IP header → verifier looks up at slot 4 → expects Alice → accepts.
+			// Passing the correct anchor → verifier looks up at slot 4 → expects
+			// Alice → accepts.
 			assert!(
-				AuraSchedulingVerifier::<Test>::verify(&signed, &ip_header_alice_slot, internal_sp),
-				"verifier must accept Alice's signature when given the IP header (slot 4)",
+				AuraSchedulingVerifier::<Test>::verify(
+					&signed,
+					&anchor_header_alice_slot,
+					internal_sp,
+				),
+				"verifier must accept Alice's signature when given the anchor header (slot 4)",
 			);
 
-			// Passing a different header (the kind of header a buggy caller might pass
-			// — e.g. an SP header at a later slot) → verifier looks up at slot 5 →
-			// expects Bob → rejects Alice's signature. If the verifier started using
-			// this header for slot derivation, the call below would (wrongly) succeed.
+			// Passing a different header (the kind of header a buggy caller might
+			// pass — e.g. a freshest-tip header at a later slot) → verifier looks
+			// up at slot 5 → expects Bob → rejects Alice's signature. If the
+			// verifier started using this header for slot derivation, the call
+			// below would (wrongly) succeed.
 			assert!(
 				!AuraSchedulingVerifier::<Test>::verify(
 					&signed,
-					&sp_like_header_bob_slot,
+					&other_header_bob_slot,
 					internal_sp,
 				),
 				"verifier must reject Alice's signature when given a header at a slot \

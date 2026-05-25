@@ -21,10 +21,11 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{
-		BlockNumber as RNumber, Hash as RHash, UMPSignal, MAX_HEAD_DATA_SIZE, UMP_SEPARATOR,
+		ApprovedPeerId, BlockNumber as RNumber, Hash as RHash, UMPSignal, MAX_HEAD_DATA_SIZE,
+		UMP_SEPARATOR,
 	},
 	ClaimQueueOffset, CoreSelector, CumulusDigestItem, ParachainBlockData, PersistedValidationData,
-	VerifySchedulingSignature,
+	SignedSchedulingInfo, VerifySchedulingSignature,
 };
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
@@ -145,19 +146,35 @@ where
 		block_data.scheduling_proof(),
 		PSC::RelayParentOffset::get(),
 	);
-	if let Some(result) = validated_scheduling {
-		if let Some(proof) = block_data.scheduling_proof() {
-			if let Some(signed_info) = proof.signed_scheduling_info.as_ref() {
-				if !PSC::SchedulingSignatureVerifier::verify(
-					signed_info,
-					&proof.internal_scheduling_parent_header,
-					result.internal_scheduling_parent,
-				) {
-					panic!("V3 scheduling validation failed: invalid signed_scheduling_info");
-				}
+
+	let verified_signed_info: Option<SignedSchedulingInfo> =
+		validated_scheduling.filter(|r| r.is_resubmission).map(|result| {
+			let proof = block_data.scheduling_proof().expect(
+				"`is_resubmission` implies a V3 scheduling proof; \
+				 enforced by `validate_v3_scheduling`; qed",
+			);
+			let signed_info = proof.signed_scheduling_info.as_ref().expect(
+				"`is_resubmission` implies a `signed_scheduling_info`; \
+				 enforced by `check_scheduling`; qed",
+			);
+			// The slot anchor is the oldest header in the proof's chain — its BABE
+			// pre-digest gives the parachain slot used for author lookup.
+			// `check_scheduling` rejects an empty chain whenever
+			// `relay_parent != scheduling_parent`, so `is_resubmission == true`
+			// structurally implies a non-empty chain here.
+			let slot_anchor_header = proof
+				.header_chain
+				.last()
+				.expect("`is_resubmission` implies a non-empty header chain; qed");
+			if !PSC::SchedulingSignatureVerifier::verify(
+				signed_info,
+				slot_anchor_header,
+				result.internal_scheduling_parent,
+			) {
+				panic!("V3 scheduling validation failed: invalid signed_scheduling_info");
 			}
-		}
-	}
+			signed_info.clone()
+		});
 
 	// Initialize hashmaps randomness.
 	sp_trie::add_extra_randomness(build_seed_from_head_data::<B>(
@@ -365,9 +382,23 @@ where
 			.try_push(UMP_SEPARATOR)
 			.expect("UMPSignals does not fit in UMPMessages");
 
-		upward_messages
-			.try_extend(upward_message_signals.into_iter())
-			.expect("UMPSignals does not fit in UMPMessages");
+		if let Some(signed_info) = verified_signed_info.as_ref() {
+			// Resubmission: the verified signed payload overrides the block's
+			// emitted core_selector and peer_id. Emit canonical signals from the
+			// post-override values rather than forwarding the block's bytes.
+			let ((selector, offset), peer_id) =
+				scheduling::apply_resubmission_override(selected_core, signed_info);
+			upward_messages
+				.try_push(UMPSignal::SelectCore(selector, offset).encode())
+				.expect("UMPSignals does not fit in UMPMessages");
+			upward_messages
+				.try_push(UMPSignal::ApprovedPeer(peer_id).encode())
+				.expect("UMPSignals does not fit in UMPMessages");
+		} else {
+			upward_messages
+				.try_extend(upward_message_signals.into_iter())
+				.expect("UMPSignals does not fit in UMPMessages");
+		}
 	}
 
 	horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));

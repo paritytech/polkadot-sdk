@@ -663,11 +663,6 @@ where
 
 		scheduling_proof = Some(SchedulingProof {
 			header_chain,
-			// Initial submission: internal_scheduling_parent == relay_parent, so the
-			// IP header is the relay parent's header itself. The PVF verifier reads
-			// this header's BABE pre-digest to derive the parachain slot used for
-			// author lookup when a signed_scheduling_info is attached.
-			internal_scheduling_parent_header: relay_parent_header.clone(),
 			// Initial submission: no signature needed, core selection from UMP signals
 			signed_scheduling_info: None,
 		});

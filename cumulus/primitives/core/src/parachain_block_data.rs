@@ -331,7 +331,6 @@ mod tests {
 	fn decoding_encoding_v2_works() {
 		let scheduling_proof = crate::SchedulingProof {
 			header_chain: vec![make_relay_header(5)],
-			internal_scheduling_parent_header: make_relay_header(4),
 			signed_scheduling_info: None,
 		};
 
@@ -380,7 +379,6 @@ mod tests {
 	fn v2_into_inner_drops_scheduling_proof() {
 		let scheduling_proof = crate::SchedulingProof {
 			header_chain: vec![make_relay_header(5)],
-			internal_scheduling_parent_header: make_relay_header(4),
 			signed_scheduling_info: None,
 		};
 
@@ -399,7 +397,6 @@ mod tests {
 	fn v2_as_v0_works_with_single_block() {
 		let scheduling_proof = crate::SchedulingProof {
 			header_chain: vec![make_relay_header(5)],
-			internal_scheduling_parent_header: make_relay_header(4),
 			signed_scheduling_info: None,
 		};
 
