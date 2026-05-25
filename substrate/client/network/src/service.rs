@@ -1566,6 +1566,7 @@ where
 							let reason = match err {
 								RequestFailure::NotConnected => "not-connected",
 								RequestFailure::UnknownProtocol => "unknown-protocol",
+								RequestFailure::InvalidRequest => "invalid-request",
 								RequestFailure::Refused => "refused",
 								RequestFailure::Obsolete => "obsolete",
 								RequestFailure::Network(OutboundFailure::DialFailure) => {

@@ -26,6 +26,7 @@
 //! explicitly.
 
 use scale_info::PortableRegistry;
+use sp_core::{sr25519, Pair};
 use subxt::{
 	config::{
 		substrate::SubstrateConfig,
@@ -233,6 +234,97 @@ pub async fn get_account_nonce(
 ) -> Result<u64, anyhow::Error> {
 	let nonce = client.tx().await?.account_nonce(account_id).await?;
 	Ok(nonce)
+}
+
+/// Matches `indiv_pallet_people_lite::MSG_PREFIX`
+pub const MSG_PREFIX: &[u8; 30] = b"pop:people-lite:register using";
+
+/// Builds a sudo call wrapping `PeopleLite::increase_attestation_allowance`
+pub fn create_increase_allowance_call(
+	who: Vec<u8>,
+	count: u32,
+) -> subxt::transactions::DynamicPayload<Vec<Value>> {
+	subxt::tx::dynamic(
+		"Sudo",
+		"sudo",
+		vec![value! {
+			PeopleLite(increase_attestation_allowance {
+				account: Value::from_bytes(who),
+				count: Value::u128(count as u128),
+			})
+		}],
+	)
+}
+
+/// Builds a `PeopleLite::attest` call
+pub fn create_attest_call(
+	candidate: Vec<u8>,
+	candidate_signature: Vec<u8>,
+	ring_vrf_key: Vec<u8>,
+	proof_of_ownership: Vec<u8>,
+	consumer_registration: Option<Value>,
+) -> subxt::transactions::DynamicPayload<Vec<Value>> {
+	let reg = match consumer_registration {
+		Some(v) => Value::unnamed_variant("Some", [v]),
+		None => Value::unnamed_variant("None", []),
+	};
+	subxt::tx::dynamic(
+		"PeopleLite",
+		"attest",
+		vec![
+			Value::from_bytes(candidate),
+			Value::unnamed_variant("Sr25519", [Value::from_bytes(candidate_signature)]),
+			Value::from_bytes(ring_vrf_key),
+			Value::from_bytes(proof_of_ownership),
+			reg,
+		],
+	)
+}
+
+/// Builds consumer registration parameters for `create_attest_call`
+///
+/// The `LiteConsumerRegistrationParams` struct has fields:
+///   signature: `MultiSignature`, account: `AccountId`,
+///   identifier_key: `CommunicationIdentifier` (`[u8; 65]`),
+///   username: `Username` (`BoundedVec<u8, 32>`), reserved_username: `Option<Username>`
+///
+/// The signing payload is `(account, verifier, identifier_key, username_prefix,
+/// reserved_username).encode()` where `verifier` is the attester (origin of the attest call)
+pub fn create_consumer_registration_params(
+	consumer_pair: &sr25519::Pair,
+	consumer_account: &[u8; 32],
+	verifier_account: &[u8; 32],
+) -> Value {
+	use sp_core::Encode;
+
+	let identifier_key = [0u8; 65];
+	let username = b"testuser.00";
+	let reserved_username: Option<Vec<u8>> = None;
+
+	// Build SCALE-encoded signing payload matching LiteConsumerRegistrationParams::signing_payload:
+	// (account, verifier, identifier_key, username[..separator], reserved_username).encode()
+	// The username prefix is the part before the '.' separator
+	let separator_idx = username.iter().position(|b| *b == b'.').unwrap_or(username.len());
+	let username_prefix = &username[..separator_idx];
+	let payload = (
+		consumer_account,
+		verifier_account,
+		&identifier_key,
+		&username_prefix.to_vec(),
+		&reserved_username,
+	)
+		.encode();
+
+	let sig = consumer_pair.sign(&payload);
+	value! {
+		{
+			signature: Value::unnamed_variant("Sr25519", [Value::from_bytes(sig.0.to_vec())]),
+			account: Value::from_bytes(consumer_account.to_vec()),
+			identifier_key: Value::from_bytes(identifier_key.to_vec()),
+			username: Value::from_bytes(username.to_vec()),
+			reserved_username: Value::unnamed_variant("None", []),
+		}
+	}
 }
 
 /// Sets statement allowances at runtime via a sudo extrinsic signed by Alice
