@@ -370,7 +370,7 @@ dependencies = [
  "ruint",
  "rustc-hash 2.1.1",
  "serde",
- "sha3",
+ "sha3 0.10.8",
 ]
 
 [[package]]
@@ -618,7 +618,7 @@ dependencies = [
  "proc-macro-error2",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
- "sha3",
+ "sha3 0.10.8",
  "syn 2.0.98",
  "syn-solidity",
 ]
@@ -1377,7 +1377,7 @@ dependencies = [
  "ark-std 0.5.0",
  "digest 0.10.7",
  "rand_core 0.6.4",
- "sha3",
+ "sha3 0.10.8",
 ]
 
 [[package]]
@@ -9816,6 +9816,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "keccak"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e24a010dd405bd7ed803e5253182815b41bf2e6a80cc3bfc066658e03a198aa"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.3.0",
+]
+
+[[package]]
 name = "keccak-asm"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11099,7 +11109,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "58c38e2799fc0978b65dfff8023ec7843e2330bb462f19198840b34b6582397d"
 dependencies = [
  "byteorder",
- "keccak",
+ "keccak 0.1.4",
  "rand_core 0.6.4",
  "zeroize",
 ]
@@ -11355,7 +11365,7 @@ dependencies = [
  "digest 0.10.7",
  "multihash-derive 0.8.0",
  "sha2 0.10.9",
- "sha3",
+ "sha3 0.10.8",
  "unsigned-varint 0.7.2",
 ]
 
@@ -11378,6 +11388,7 @@ dependencies = [
  "digest 0.11.3",
  "multihash-derive 0.9.3",
  "sha2 0.11.0",
+ "sha3 0.11.0",
 ]
 
 [[package]]
@@ -22203,6 +22214,7 @@ dependencies = [
  "itertools 0.11.0",
  "jsonrpsee",
  "log",
+ "multihash-codetable",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "pretty_assertions",
@@ -23355,7 +23367,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75872d278a8f37ef87fa0ddbda7802605cb18344497949862c0d4dcb291eba60"
 dependencies = [
  "digest 0.10.7",
- "keccak",
+ "keccak 0.1.4",
+]
+
+[[package]]
+name = "sha3"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be176f1a57ce4e3d31c1a166222d9768de5954f811601fb7ca06fc8203905ce1"
+dependencies = [
+ "digest 0.11.3",
+ "keccak 0.2.0",
 ]
 
 [[package]]
@@ -23586,7 +23608,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "sha3",
+ "sha3 0.10.8",
  "siphasher 1.0.1",
  "slab",
  "smallvec",
@@ -23640,7 +23662,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "sha3",
+ "sha3 0.10.8",
  "siphasher 1.0.1",
  "slab",
  "smallvec",
@@ -23694,7 +23716,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "sha3",
+ "sha3 0.10.8",
  "siphasher 1.0.1",
  "slab",
  "smallvec",
@@ -24985,7 +25007,7 @@ dependencies = [
  "criterion",
  "digest 0.10.7",
  "sha2 0.10.9",
- "sha3",
+ "sha3 0.10.8",
  "sp-crypto-hashing-proc-macro 0.1.0",
  "twox-hash 1.6.3",
 ]
@@ -25000,7 +25022,7 @@ dependencies = [
  "byteorder",
  "digest 0.10.7",
  "sha2 0.10.9",
- "sha3",
+ "sha3 0.10.8",
  "twox-hash 1.6.3",
 ]
 
@@ -29034,7 +29056,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "sha2 0.10.9",
- "sha3",
+ "sha3 0.10.8",
  "zeroize",
 ]
 
