@@ -623,11 +623,8 @@ impl<T: Config> Pallet<T> {
 		let page_count =
 			channel_details.last_index.saturating_sub(channel_details.first_index) as u32;
 		let last_page_size = current_page.len();
-		let added_bytes = if appended_to_existing_page {
-			encoded_fragment_len
-		} else {
-		current_page.len()
-		};
+		let added_bytes =
+			if appended_to_existing_page { encoded_fragment_len } else { current_page.len() };
 		channel_details.queued_bytes =
 			channel_details.queued_bytes.saturating_add(added_bytes as u32);
 		<OutboundXcmpMessages<T>>::insert(recipient, channel_details.last_index - 1, current_page);
