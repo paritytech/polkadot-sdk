@@ -57,8 +57,7 @@ pub struct SignedSchedulingInfo {
 	/// `SchedulingInfoPayload`.
 	///
 	/// Stored as a fixed 64-byte blob so the verifier can decode it as either an sr25519
-	/// or ed25519 signature, depending on the parachain's Aura authority crypto. Both
-	/// schemes produce 64-byte signatures.
+	/// or ed25519 signature. Both schemes produce 64-byte signatures.
 	pub signature: [u8; 64],
 }
 
@@ -112,5 +111,48 @@ impl SchedulingProof {
 	/// or `None` if the chain is empty (scheduling_parent == relay_parent).
 	pub fn scheduling_parent(&self) -> Option<polkadot_primitives::Hash> {
 		self.header_chain.first().map(BlakeTwo256::hash_of)
+	}
+}
+
+/// Verifier for V3 scheduling.
+///
+/// Reports whether V3 scheduling is enabled for the parachain (via [`Self::enabled`]) and,
+/// when it is, verifies the [`SignedSchedulingInfo`] attached to a candidate (via
+/// [`Self::verify`]).
+///
+/// Wired into [`cumulus_pallet_parachain_system::Config`] via an associated type.
+pub trait VerifySchedulingSignature {
+	/// Whether V3 scheduling validation is enabled.
+	///
+	/// When `false`, the runtime treats incoming candidates as V1/V2 and rejects any V3
+	/// extension. When `true`, candidates must carry a V3 extension and matching scheduling
+	/// proof.
+	fn enabled() -> bool;
+
+	/// Returns `true` if `signed_info` is a valid signed scheduling info for
+	/// `internal_scheduling_parent`. `descendant_header` is the descendant of
+	/// `internal_scheduling_parent` (the last header in
+	/// [`SchedulingProof::header_chain`]).
+	fn verify(
+		signed_info: &SignedSchedulingInfo,
+		descendant_header: &RelayChainHeader,
+		internal_scheduling_parent: polkadot_primitives::Hash,
+	) -> bool;
+}
+
+/// Default no-op wiring: V3 scheduling disabled, scheduling info accepted unconditionally.
+///
+/// Replacing it with a real verifier should also turn V3 on.
+impl VerifySchedulingSignature for () {
+	fn enabled() -> bool {
+		false
+	}
+
+	fn verify(
+		_signed_info: &SignedSchedulingInfo,
+		_descendant_header: &RelayChainHeader,
+		_internal_scheduling_parent: polkadot_primitives::Hash,
+	) -> bool {
+		true
 	}
 }

@@ -17,9 +17,7 @@
 use super::{transaction_extension::DynamicMaxBlockWeight, *};
 use crate::{self as parachain_system, MessagingStateSnapshot, PreviousCoreCount};
 use codec::Compact;
-use cumulus_primitives_core::{
-	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-};
+use cumulus_primitives_core::{BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -239,7 +237,7 @@ impl crate::Config for Runtime {
 	type WeightInfo = ();
 	type ConsensusHook = crate::ExpectParentIncluded;
 	type RelayParentOffset = ();
-	type SchedulingV3Enabled = ();
+	type SchedulingSignatureVerifier = ();
 }
 
 impl test_pallet::Config for Runtime {}
@@ -302,7 +300,7 @@ pub mod only_operational_runtime {
 		type WeightInfo = ();
 		type ConsensusHook = crate::ExpectParentIncluded;
 		type RelayParentOffset = ();
-		type SchedulingV3Enabled = ();
+		type SchedulingSignatureVerifier = ();
 	}
 
 	impl super::test_pallet::Config for RuntimeOnlyOperational {}

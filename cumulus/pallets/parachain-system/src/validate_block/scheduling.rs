@@ -60,14 +60,14 @@ pub fn validate_v3_scheduling(
 			// V3 disabled but extension present: this should not happen
 			// The relay chain should not send V3 candidates to parachains that have not enabled it
 			panic!(
-				"V3 extension present but SchedulingV3Enabled is false. \
+				"V3 extension present but V3 scheduling is disabled. \
                 Ensure collators and runtime are in sync."
 			);
 		},
 		(true, None) => {
 			// V3 enabled but no extension: candidates must be V3
 			panic!(
-				"SchedulingV3Enabled is true but no V3 extension present. \
+				"V3 scheduling is enabled but no V3 extension present. \
                 Collators must provide V3 candidates when V3 is enabled."
 			);
 		},
@@ -478,7 +478,7 @@ mod tests {
 	}
 
 	#[test]
-	#[should_panic(expected = "V3 extension present but SchedulingV3Enabled is false")]
+	#[should_panic(expected = "V3 extension present but V3 scheduling is disabled")]
 	fn v3_disabled_with_extension_panics() {
 		let ext = ValidationParamsExtension::V3 {
 			relay_parent: RelayHash::default(),
@@ -488,7 +488,7 @@ mod tests {
 	}
 
 	#[test]
-	#[should_panic(expected = "SchedulingV3Enabled is true but no V3 extension present")]
+	#[should_panic(expected = "V3 scheduling is enabled but no V3 extension present")]
 	fn v3_enabled_no_extension_panics() {
 		validate_v3_scheduling(true, &None, None, 0);
 	}

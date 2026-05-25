@@ -20,7 +20,7 @@ use cumulus_pallet_parachain_system::{
 	consensus_hook::ExpectParentIncluded, Ancestor, AnyRelayNumber, ConsensusHook,
 	ParachainSetCode, RelayChainStateProof, UsedBandwidth,
 };
-use cumulus_primitives_core::ParaId;
+use cumulus_primitives_core::{ParaId};
 use frame_support::{
 	derive_impl,
 	pallet_prelude::ConstU32,
@@ -151,7 +151,7 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = ExpectParentIncluded;
 	type RelayParentOffset = ConstU32<0>;
-	type SchedulingV3Enabled = ConstBool<false>;
+	type SchedulingSignatureVerifier = ();
 }
 
 fn set_ancestors() {

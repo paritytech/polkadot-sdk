@@ -24,6 +24,7 @@ use cumulus_primitives_core::{
 		BlockNumber as RNumber, Hash as RHash, UMPSignal, MAX_HEAD_DATA_SIZE, UMP_SEPARATOR,
 	},
 	ClaimQueueOffset, CoreSelector, CumulusDigestItem, ParachainBlockData, PersistedValidationData,
+	VerifySchedulingSignature,
 };
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
@@ -137,7 +138,7 @@ where
 
 	// V3 scheduling validation.
 	let validated_scheduling = scheduling::validate_v3_scheduling(
-		PSC::SchedulingV3Enabled::get(),
+		PSC::SchedulingSignatureVerifier::enabled(),
 		&extension.0,
 		block_data.scheduling_proof(),
 		PSC::RelayParentOffset::get(),

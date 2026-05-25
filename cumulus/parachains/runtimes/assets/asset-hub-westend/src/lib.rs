@@ -49,7 +49,7 @@ use assets_common::{
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
-use cumulus_primitives_core::{relay_chain::AccountIndex, AggregateMessageOrigin, ParaId};
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId, relay_chain::AccountIndex, VerifySchedulingSignature};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -152,7 +152,6 @@ const UNINCLUDED_SEGMENT_CAPACITY: u32 = (3 + RELAY_PARENT_OFFSET) * BLOCK_PROCE
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
 /// Scheduling V3 candidates flag.
-const SCHEDULING_V3_ENABLED: bool = false;
 
 impl_opaque_keys! {
 	pub struct SessionKeys {
@@ -1024,7 +1023,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
-	type SchedulingV3Enabled = ConstBool<SCHEDULING_V3_ENABLED>;
+	type SchedulingSignatureVerifier = ();
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -2295,7 +2294,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
 		fn scheduling_v3_enabled() -> bool {
-			SCHEDULING_V3_ENABLED
+			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::enabled()
 		}
 	}
 

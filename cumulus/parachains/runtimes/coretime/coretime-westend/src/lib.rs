@@ -39,7 +39,7 @@ extern crate alloc;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
-use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId, VerifySchedulingSignature};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -173,7 +173,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 };
 
 const RELAY_PARENT_OFFSET: u32 = 0;
-const SCHEDULING_V3_ENABLED: bool = false;
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -325,7 +324,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
-	type SchedulingV3Enabled = ConstBool<SCHEDULING_V3_ENABLED>;
+	type SchedulingSignatureVerifier = ();
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -790,7 +789,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
 		fn scheduling_v3_enabled() -> bool {
-			SCHEDULING_V3_ENABLED
+			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::enabled()
 		}
 	}
 

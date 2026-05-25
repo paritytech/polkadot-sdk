@@ -23,10 +23,7 @@ use super::*;
 use alloc::collections::vec_deque::VecDeque;
 use codec::Encode;
 use core::num::NonZeroU32;
-use cumulus_primitives_core::{
-	relay_chain::BlockNumber as RelayBlockNumber, AggregateMessageOrigin, InboundDownwardMessage,
-	InboundHrmpMessage, PersistedValidationData,
-};
+use cumulus_primitives_core::{relay_chain::BlockNumber as RelayBlockNumber, AggregateMessageOrigin, InboundDownwardMessage, InboundHrmpMessage, PersistedValidationData};
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{
 	derive_impl,
@@ -38,7 +35,7 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use frame_system::{limits::BlockWeights, pallet_prelude::BlockNumberFor, RawOrigin};
-use sp_core::{ConstBool, ConstU32};
+use sp_core::ConstU32;
 use sp_runtime::{traits::BlakeTwo256, BuildStorage};
 use sp_version::RuntimeVersion;
 use std::cell::RefCell;
@@ -99,7 +96,7 @@ impl Config for Test {
 	type ConsensusHook = TestConsensusHook;
 	type WeightInfo = ();
 	type RelayParentOffset = ConstU32<0>;
-	type SchedulingV3Enabled = ConstBool<false>;
+	type SchedulingSignatureVerifier = ();
 }
 
 std::thread_local! {
