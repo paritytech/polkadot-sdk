@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779701843469,
+  "lastUpdate": 1779709856134,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "45130584+l0r1s@users.noreply.github.com",
-            "name": "Loris Moulin",
-            "username": "l0r1s"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c189613a32a58745993059f2fb73080e460c4ae7",
-          "message": "Fix utility::force_batch returning incorrect weights causing mismatch (#9983)\n\n# Description\n\nThe returned weights from the `pallet_utility::force_batch` dispatch is\nusing `batch` weights instead of its own `force_batch` causing a weight\nmismatch log:\n\n```\n2025-10-03 14:57:48 Post dispatch weight is greater than pre dispatch weight. Pre dispatch weight may underestimating the actual weight. Greater post dispatch weight components are ignored.\n                                        Pre dispatch weight: Weight { ref_time: 5963137729, proof_size: 3997 },\n                                        Post dispatch weight: Weight { ref_time: 5963148560, proof_size: 3997 }    \n2025-10-03 14:59:00 Post dispatch weight is greater than pre dispatch weight. Pre dispatch weight may underestimating the actual weight. Greater post dispatch weight components are ignored.\n                                        Pre dispatch weight: Weight { ref_time: 2837593294, proof_size: 8703 },\n                                        Post dispatch weight: Weight { ref_time: 2837604125, proof_size: 8703 }   \n``` \n\nThis PR correct the returned weights.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-10-10T07:26:12Z",
-          "tree_id": "2b90b30c7bc456f310a278da53e3685fb1413266",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c189613a32a58745993059f2fb73080e460c4ae7"
-        },
-        "date": 1760085277059,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026022112,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008551411129999988,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005069584579999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011184083109999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7ce38d2617a1730a8e435bf2edfb0f42b3b530ea",
+          "message": "Remove deprecated EnsureOneOf type alias (#12169)\n\n# Description\n\nRemoves deprecated `frame_support::EnsureOneOf` as part of #11561.\n\n`EnsureOneOf` was an alias for `EitherOfDiverse` (deprecated in favor of\n`EitherOfDiverse`). It has no remaining usage in this repository.\n\nDoes not close #11561.\n\n## Integration\n\n```diff\n- use frame_support::traits::EnsureOneOf;\n+ use frame_support::traits::EitherOfDiverse;\n```\n\n- 2 files: substrate/frame/support/src/traits/dispatch.rs, traits.rs\n- Verified no in-repo references before removal\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-05-25T10:14:22Z",
+          "tree_id": "466a7fbe04109885aefffb03835c562ac5541a3e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7ce38d2617a1730a8e435bf2edfb0f42b3b530ea"
+        },
+        "date": 1779709826226,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009699470729999977,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002727847060000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010629936939999994,
             "unit": "seconds"
           }
         ]
