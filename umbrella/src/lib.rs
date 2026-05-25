@@ -1142,6 +1142,10 @@ pub use sc_executor_polkavm;
 #[cfg(feature = "sc-executor-wasmtime")]
 pub use sc_executor_wasmtime;
 
+/// Hand-Off Protocol (HOP) ephemeral data pool service.
+#[cfg(feature = "sc-hop")]
+pub use sc_hop;
+
 /// Substrate informant.
 #[cfg(feature = "sc-informant")]
 pub use sc_informant;
