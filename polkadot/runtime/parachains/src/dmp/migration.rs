@@ -50,8 +50,7 @@ pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 /// Identifier for migrations of this pallet.
 const PALLET_MIGRATIONS_ID: &[u8; 21] = b"cumulus-dmp-queue-mbm";
 
-/// The OLD (pre-paged) storage layout. Reachable via the `storage_alias` even though the live
-/// pallet no longer declares this type.
+/// The OLD (pre-paged) storage layout.
 pub mod v0 {
 	use super::*;
 
