@@ -1338,15 +1338,16 @@ fn dmp_on_poll_drives_lazy_delete() {
 			break;
 		}
 		execute_with_try_state(&mut ext, || {
-			let mut wm = WeightMeter::new();
-			<Dmp as frame_support::traits::Hooks<BlockNumberFor<Test>>>::on_poll(
+			let used = <Dmp as frame_support::traits::Hooks<BlockNumberFor<Test>>>::on_idle(
 				System::block_number(),
-				&mut wm,
+				Weight::MAX,
 			);
+
+			assert!(used.all_lte(Weight::MAX) && !used.is_zero(), "on_idle weight insane");
 		});
 		ext.commit_all().unwrap();
 		iterations += 1;
-		assert!((iterations as u64) < total + 10, "on_poll lazy delete should make progress",);
+		assert!((iterations as u64) < total + 10, "on_idle lazy delete should make progress",);
 	}
 	execute_with_try_state(&mut ext, || {
 		assert_eq!(pages_in_storage(a), Vec::<PageIndex>::new());

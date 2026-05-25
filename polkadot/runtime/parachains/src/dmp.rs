@@ -195,23 +195,25 @@ pub mod pallet {
 				.saturating_add(<T as Config>::WeightInfo::migrate_v0_to_v1_step_iter())
 				.saturating_add(<T as Config>::WeightInfo::migrate_v0_to_v1_step_msg());
 
-			// Should be at most 1/3 of max block weight
 			let max = T::BlockWeights::get().max_block.saturating_div(3);
 			assert!(
 				max.all_gte(min_mbm_weight),
 				"DMP queue migration uses more than 1/3 of max block weight"
 			);
 
-			// Also lazy_delete_some weight should be at most 50% of max block weight
 			let lazy_delete_some_weight = <T as Config>::WeightInfo::lazy_delete_some();
 			assert!(
 				max.all_gte(lazy_delete_some_weight),
-				"DMP queue lazy delete uses more than 50% block weight"
+				"DMP queue lazy delete uses more than 1/3 block weight"
 			);
 		}
 
-		fn on_poll(_now: BlockNumberFor<T>, weight_meter: &mut WeightMeter) {
-			InboundDownwardQueue::<T>::lazy_delete_some(weight_meter);
+		fn on_idle(_now: BlockNumberFor<T>, weight: Weight) -> Weight {
+			let mut meter = WeightMeter::with_limit(weight);
+
+			InboundDownwardQueue::<T>::lazy_delete_some(&mut meter);
+
+			meter.consumed()
 		}
 
 		#[cfg(feature = "try-runtime")]
