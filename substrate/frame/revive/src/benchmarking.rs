@@ -627,6 +627,44 @@ mod benchmarks {
 		assert!(!T::AddressMapper::is_mapped(&caller));
 	}
 
+	/// Worst case: every input account is not eth-derived, not yet mapped, and
+	/// already carries an [`HoldReason::AddressMapping`] hold. The per-account
+	/// loop body in `batch_map_accounts` then both inserts the [`OriginalAccount`]
+	/// entry via `map_no_deposit` *and* releases the existing hold.
+	#[benchmark(pov_mode = Measured)]
+	fn batch_map_accounts(a: Linear<0, 1024>) -> Result<(), BenchmarkError> {
+		use frame_benchmarking::v2::account;
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+
+		// Matches the deposit that `AccountId32Mapper::map` would normally take.
+		let deposit = T::DepositPerByte::get()
+			.saturating_mul(52u32.into())
+			.saturating_add(T::DepositPerItem::get());
+
+		let mut accounts = Vec::with_capacity(a as usize);
+		for i in 0..a {
+			let account_id: T::AccountId = account("to_map", i, 0);
+			T::Currency::set_balance(&account_id, caller_funding::<T>());
+			T::Currency::hold(&HoldReason::AddressMapping.into(), &account_id, deposit)?;
+			accounts.push(account_id);
+		}
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), accounts.clone());
+
+		for account_id in &accounts {
+			assert!(T::AddressMapper::is_mapped(account_id));
+			assert_eq!(
+				T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), account_id),
+				0u32.into(),
+			);
+		}
+
+		Ok(())
+	}
+
 	#[benchmark(pov_mode = Measured)]
 	fn dispatch_as_fallback_account() {
 		let caller = whitelisted_caller();
@@ -1527,7 +1565,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
-		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -1581,7 +1619,7 @@ mod benchmarks {
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
 		let input_bytes = IStorage::IStorageCalls::containsStorage(IStorage::containsStorageCall {
-			flags: StorageFlags::TRANSIENT.bits(),
+			flags: StorageFlags::empty().bits(),
 			key: vec![0u8; max_key_len as usize].into(),
 			isFixedKey: false,
 		})
@@ -1589,7 +1627,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
-		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -1622,7 +1660,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
-		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -1819,7 +1857,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
-		ext.set_transient_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;
@@ -1890,7 +1928,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
-		ext.set_transient_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;
