@@ -692,7 +692,7 @@ pub mod v4_collation {
 		pub parent_head_data_hash: Hash,
 		/// Descriptor version for the candidate.
 		pub candidate_descriptor_version: CandidateDescriptorVersion,
-		/// Comment
+		/// Relay parent the advertised candidate builds on.
 		pub relay_parent: Hash,
 	}
 

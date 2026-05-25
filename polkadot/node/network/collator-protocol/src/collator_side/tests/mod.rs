@@ -53,6 +53,7 @@ use polkadot_primitives::{
 	IndexedVec, NodeFeatures, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::TestCandidateBuilder;
+use rstest::rstest;
 
 mod prospective_parachains;
 use prospective_parachains::{expect_declare_msg, update_view};
@@ -411,61 +412,65 @@ async fn expect_determine_validator_group(
 	}
 }
 
-async fn distribute_collation_with_receipt(
+/// Send a `DistributeSegment` message from pre-built receipts.
+///
+/// Returns the collations that validators are expected to fetch.
+async fn distribute_segment_with_receipts(
 	virtual_overseer: &mut VirtualOverseer,
 	expected_connected: Vec<AuthorityDiscoveryId>,
-	candidate: CandidateReceipt,
-	pov: PoV,
-	parent_head_data_hash: Hash,
-) -> DistributeCollation {
-	overseer_send(
-		virtual_overseer,
-		CollatorProtocolMessage::DistributeCollation {
-			candidate_receipt: candidate.clone(),
-			parent_head_data_hash,
+	items: Vec<(CandidateReceipt, PoV, Hash)>,
+) -> Vec<DistributeCollation> {
+	let candidates: Vec<SegmentEntry> = items
+		.iter()
+		.map(|(receipt, pov, parent_head_data_hash)| SegmentEntry {
+			candidate_receipt: receipt.clone(),
+			parent_head_data_hash: *parent_head_data_hash,
 			pov: pov.clone(),
 			parent_head_data: HeadData(vec![1, 2, 3]),
 			result_sender: None,
-			core_index: candidate.descriptor.core_index().unwrap(),
-		},
-	)
-	.await;
-
+			core_index: receipt.descriptor.core_index().unwrap(),
+		})
+		.collect();
+	let candidates = BoundedVec::try_from(candidates).unwrap();
+	overseer_send(virtual_overseer, CollatorProtocolMessage::DistributeSegment { candidates })
+		.await;
 	check_connected_to_validators(virtual_overseer, expected_connected).await;
-	DistributeCollation { candidate, pov_block: pov }
+	items
+		.into_iter()
+		.map(|(candidate, pov_block, _)| DistributeCollation { candidate, pov_block })
+		.collect()
 }
 
-/// Create some PoV and distribute it.
-async fn distribute_collation(
+/// Build and distribute a V3 segment for the given scheduling parent and core.
+async fn distribute_segment(
 	virtual_overseer: &mut VirtualOverseer,
 	expected_connected: Vec<AuthorityDiscoveryId>,
 	test_state: &TestState,
 	relay_parent: Hash,
+	scheduling_parent: Hash,
 	core_index: CoreIndex,
-) -> DistributeCollation {
-	// Now we want to distribute a `PoVBlock`
-	let pov_block = PoV { block_data: BlockData(vec![42, 43, 44]) };
+	len: usize,
+) -> Vec<DistributeCollation> {
+	let mut items = vec![];
+	for i in 0..len {
+		let increaser = i as u8;
+		let pov_block = PoV { block_data: BlockData(vec![increaser, 42, increaser + 3]) };
 
-	let pov_hash = pov_block.hash();
-	let parent_head_data_hash = Hash::zero();
-
-	let candidate = TestCandidateBuilder {
-		para_id: test_state.para_id,
-		relay_parent,
-		pov_hash,
-		core_index,
-		..Default::default()
+		let pov_hash = pov_block.hash();
+		let parent_head_data_hash = Hash::zero();
+		let candidate = TestCandidateBuilder {
+			para_id: test_state.para_id,
+			pov_hash,
+			relay_parent,
+			core_index,
+			scheduling_parent,
+			para_head: Hash::repeat_byte(increaser + 1),
+			..Default::default()
+		}
+		.build_v3();
+		items.push((candidate, pov_block, parent_head_data_hash));
 	}
-	.build();
-
-	distribute_collation_with_receipt(
-		virtual_overseer,
-		expected_connected,
-		candidate,
-		pov_block,
-		parent_head_data_hash,
-	)
-	.await
+	distribute_segment_with_receipts(virtual_overseer, expected_connected, items).await
 }
 
 /// Connect a peer
@@ -554,6 +559,92 @@ async fn expect_advertise_collation_msg(
 	}
 }
 
+// Check that the next received message is a segment advertisement message.
+async fn expect_advertise_segment_msg(
+	virtual_overseer: &mut VirtualOverseer,
+	any_peers: &[PeerId],
+	expected_scheduling_parent: Hash,
+	expected_candidate_hashes: Vec<CandidateHash>,
+) {
+	assert_matches!(overseer_recv(virtual_overseer).await, AllMessages::NetworkBridgeTx(
+		NetworkBridgeTxMessage::SendCollationMessage(to, wire_message)
+	) => {
+		assert!(any_peers.iter().any(|p| to.contains(p)));
+		match wire_message {
+			CollationProtocols::V4(protocol_v4::CollationProtocol::CollatorProtocol(message)) => {
+				assert_matches!(message, protocol_v4::CollatorProtocolMessage::AdvertiseSegment { scheduling_parent, candidates } => {
+					assert_eq!(scheduling_parent, expected_scheduling_parent);
+					assert_eq!(candidates.len(), expected_candidate_hashes.len());
+					for (fingerprint, expected) in candidates.iter().zip(expected_candidate_hashes.iter()) {
+						assert_eq!(fingerprint.candidate_hash, *expected);
+					}
+				})
+			},
+			_ => panic!("Invalid advertisement"),
+		}
+	});
+}
+
+/// Assert that a segment is advertised to V3 peers as individual `AdvertiseCollation` messages.
+async fn expect_advertise_collations_for_segment_v3(
+	virtual_overseer: &mut VirtualOverseer,
+	any_peers: &[PeerId],
+	expected_scheduling_parent: Hash,
+	expected_candidate_hashes: Vec<CandidateHash>,
+) {
+	assert_matches!(overseer_recv(virtual_overseer).await, AllMessages::NetworkBridgeTx(
+		NetworkBridgeTxMessage::SendCollationMessages(messages)
+	) => {
+		assert_eq!(messages.len(), expected_candidate_hashes.len());
+		for (i, (peers, msg)) in messages.iter().enumerate() {
+			assert!(any_peers.iter().any(|p| peers.contains(p)));
+			match msg {
+				CollationProtocols::V3(protocol_v3::CollationProtocol::CollatorProtocol(message)) => {
+					assert_matches!(message, protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
+						scheduling_parent,
+						candidate_hash,
+						..
+					} => {
+						assert_eq!(*scheduling_parent, expected_scheduling_parent);
+						assert_eq!(*candidate_hash, expected_candidate_hashes[i]);
+					})
+				},
+				_ => panic!("Invalid advertisement"),
+			}
+		}
+	});
+}
+
+/// Assert that a segment is advertised to V2 peers as individual `AdvertiseCollation` messages.
+async fn expect_advertise_collations_for_segment_v2(
+	virtual_overseer: &mut VirtualOverseer,
+	any_peers: &[PeerId],
+	expected_scheduling_parent: Hash,
+	expected_candidate_hashes: Vec<CandidateHash>,
+) {
+	assert_matches!(overseer_recv(virtual_overseer).await, AllMessages::NetworkBridgeTx(
+		NetworkBridgeTxMessage::SendCollationMessages(messages)
+	) => {
+		assert_eq!(messages.len(), expected_candidate_hashes.len());
+		for (i, (peers, msg)) in messages.iter().enumerate() {
+			assert!(any_peers.iter().any(|p| peers.contains(p)));
+			match msg {
+				CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(message)) => {
+					assert_matches!(message, protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
+						scheduling_parent,
+						candidate_hash,
+						..
+					} => {
+						assert_eq!(*scheduling_parent, expected_scheduling_parent);
+						assert_eq!(*candidate_hash, expected_candidate_hashes[i]);
+					})
+				},
+				_ => panic!("Invalid advertisement"),
+			}
+		}
+	});
+}
+
 /// Send a message that the given peer's view changed.
 async fn send_peer_view_change(
 	virtual_overseer: &mut VirtualOverseer,
@@ -610,12 +701,14 @@ fn v1_protocol_rejected() {
 			)
 			.await;
 
-			distribute_collation(
+			let _ = distribute_segment(
 				virtual_overseer,
 				test_state.current_group_validator_authority_ids(),
 				&test_state,
 				test_state.scheduling_parent,
+				test_state.scheduling_parent,
 				CoreIndex(0),
+				1,
 			)
 			.await;
 
@@ -671,14 +764,18 @@ fn advertise_and_send_collation() {
 			)
 			.await;
 
-			let DistributeCollation { candidate, pov_block } = distribute_collation(
+			let distributed_collations = distribute_segment(
 				&mut virtual_overseer,
 				test_state.current_group_validator_authority_ids(),
 				&test_state,
 				test_state.scheduling_parent,
+				test_state.scheduling_parent,
 				CoreIndex(0),
+				1,
 			)
 			.await;
+			let candidate = &distributed_collations[0].candidate;
+			let pov_block = &distributed_collations[0].pov_block;
 
 			for (val, peer) in test_state
 				.current_group_validator_authority_ids()
@@ -770,8 +867,8 @@ fn advertise_and_send_collation() {
 						full_response.result
 						.expect("We should have a proper answer").as_ref()
 					);
-					assert_eq!(receipt, candidate);
-					assert_eq!(pov, pov_block);
+					assert_eq!(receipt, *candidate);
+					assert_eq!(pov, *pov_block);
 				}
 			);
 
@@ -814,14 +911,17 @@ fn advertise_and_send_collation() {
 
 			assert!(overseer_recv_with_timeout(&mut virtual_overseer, TIMEOUT).await.is_none());
 
-			let DistributeCollation { candidate, .. } = distribute_collation(
+			let distributed_collations = distribute_segment(
 				&mut virtual_overseer,
 				test_state.current_group_validator_authority_ids(),
 				&test_state,
 				test_state.scheduling_parent,
+				test_state.scheduling_parent,
 				CoreIndex(0),
+				1,
 			)
 			.await;
+			let candidate = &distributed_collations[0].candidate;
 
 			// Send info about peer's view.
 			overseer_send(
@@ -838,6 +938,82 @@ fn advertise_and_send_collation() {
 				&[peer],
 				test_state.scheduling_parent,
 				vec![candidate.hash()],
+			)
+			.await;
+			TestHarness { virtual_overseer, req_v2_cfg }
+		},
+	);
+}
+
+#[test]
+fn advertise_and_send_segment() {
+	let test_state = TestState::default();
+	let local_peer_id = test_state.local_peer_id;
+	let collator_pair = test_state.collator_pair.clone();
+
+	test_harness(
+		local_peer_id,
+		collator_pair,
+		ReputationAggregator::new(|_| true),
+		|test_harness| async move {
+			let mut virtual_overseer = test_harness.virtual_overseer;
+			let req_v2_cfg = test_harness.req_v2_cfg;
+
+			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
+				.await;
+
+			overseer_send(
+				&mut virtual_overseer,
+				CollatorProtocolMessage::CollateOn(test_state.para_id),
+			)
+			.await;
+
+			update_view(
+				Some(test_state.current_group_validator_authority_ids()),
+				&test_state,
+				&mut virtual_overseer,
+				vec![(test_state.scheduling_parent, 10)],
+				1,
+			)
+			.await;
+
+			let distributed_collations = distribute_segment(
+				&mut virtual_overseer,
+				test_state.current_group_validator_authority_ids(),
+				&test_state,
+				test_state.scheduling_parent,
+				test_state.scheduling_parent,
+				CoreIndex(0),
+				3,
+			)
+			.await;
+			for (val, peer) in test_state
+				.current_group_validator_authority_ids()
+				.into_iter()
+				.zip(test_state.current_group_validator_peer_ids())
+			{
+				connect_peer(&mut virtual_overseer, peer, CollationVersion::V4, Some(val.clone()))
+					.await;
+			}
+			// We declare to the connected validators that we are a collator.
+			// We need to catch all `Declare` messages to the validators we've
+			// previously connected to.
+			for peer_id in test_state.current_group_validator_peer_ids() {
+				expect_declare_msg(&mut virtual_overseer, &test_state, &peer_id).await;
+			}
+
+			let peer = test_state.current_group_validator_peer_ids()[0];
+
+			// Send info about peer's view.
+			send_peer_view_change(&mut virtual_overseer, &peer, vec![test_state.scheduling_parent])
+				.await;
+			let expected_candidate_hashes: Vec<CandidateHash> =
+				distributed_collations.iter().map(|d| d.candidate.hash()).collect();
+			expect_advertise_segment_msg(
+				&mut virtual_overseer,
+				&[peer],
+				test_state.scheduling_parent,
+				expected_candidate_hashes,
 			)
 			.await;
 			TestHarness { virtual_overseer, req_v2_cfg }
@@ -877,14 +1053,17 @@ fn delay_reputation_change() {
 			)
 			.await;
 
-			let DistributeCollation { candidate, .. } = distribute_collation(
+			let distributed_collations = distribute_segment(
 				&mut virtual_overseer,
 				test_state.current_group_validator_authority_ids(),
 				&test_state,
 				test_state.scheduling_parent,
+				test_state.scheduling_parent,
 				CoreIndex(0),
+				1,
 			)
 			.await;
+			let candidate = &distributed_collations[0].candidate;
 
 			for (val, peer) in test_state
 				.current_group_validator_authority_ids()
@@ -1097,14 +1276,17 @@ fn collations_are_only_advertised_to_validators_with_correct_view() {
 			send_peer_view_change(virtual_overseer, &peer2, vec![test_state.scheduling_parent])
 				.await;
 
-			let DistributeCollation { candidate, .. } = distribute_collation(
+			let distributed_collations = distribute_segment(
 				virtual_overseer,
 				test_state.current_group_validator_authority_ids(),
 				&test_state,
 				test_state.scheduling_parent,
+				test_state.scheduling_parent,
 				CoreIndex(0),
+				1,
 			)
 			.await;
+			let candidate = &distributed_collations[0].candidate;
 
 			expect_advertise_collation_msg(
 				virtual_overseer,
@@ -1173,14 +1355,17 @@ fn collate_on_two_different_relay_chain_blocks() {
 			expect_declare_msg(virtual_overseer, &test_state, &peer).await;
 			expect_declare_msg(virtual_overseer, &test_state, &peer2).await;
 
-			let DistributeCollation { candidate: old_candidate, .. } = distribute_collation(
+			let distributed_collations = distribute_segment(
 				virtual_overseer,
 				test_state.current_group_validator_authority_ids(),
 				&test_state,
 				test_state.scheduling_parent,
+				test_state.scheduling_parent,
 				CoreIndex(0),
+				1,
 			)
 			.await;
+			let old_candidate = &distributed_collations[0].candidate;
 
 			let old_scheduling_parent = test_state.scheduling_parent;
 
@@ -1196,14 +1381,17 @@ fn collate_on_two_different_relay_chain_blocks() {
 			)
 			.await;
 
-			let DistributeCollation { candidate: new_candidate, .. } = distribute_collation(
+			let distributed_collations = distribute_segment(
 				virtual_overseer,
 				test_state.current_group_validator_authority_ids(),
 				&test_state,
 				test_state.scheduling_parent,
+				test_state.scheduling_parent,
 				CoreIndex(0),
+				1,
 			)
 			.await;
+			let new_candidate = &distributed_collations[0].candidate;
 
 			send_peer_view_change(virtual_overseer, &peer, vec![old_scheduling_parent]).await;
 			expect_advertise_collation_msg(
@@ -1234,8 +1422,14 @@ fn collate_on_two_different_relay_chain_blocks() {
 /// This handles the race condition where we send an advertisement, but the peer disconnects
 /// before receiving it. When they reconnect, we need to re-advertise so they can fetch
 /// the collation.
-#[test]
-fn validator_reconnect_readvertises_collation() {
+#[rstest]
+#[case::v2_len_one(CollationVersion::V2, 1)]
+#[case::v4_len_three(CollationVersion::V4, 3)]
+#[case::v4_len_three(CollationVersion::V4, 1)]
+fn validator_reconnect_readvertises_segment(
+	#[case] peer_version: CollationVersion,
+	#[case] segment_len: usize,
+) {
 	let test_state = TestState::default();
 	let local_peer_id = test_state.local_peer_id;
 	let collator_pair = test_state.collator_pair.clone();
@@ -1265,34 +1459,50 @@ fn validator_reconnect_readvertises_collation() {
 			.await;
 
 			// A validator connected to us
-			connect_peer(virtual_overseer, peer, CollationVersion::V2, Some(validator_id.clone()))
-				.await;
+			connect_peer(virtual_overseer, peer, peer_version, Some(validator_id.clone())).await;
 			expect_declare_msg(virtual_overseer, &test_state, &peer).await;
 
-			let DistributeCollation { candidate, .. } = distribute_collation(
+			let distributed = distribute_segment(
 				virtual_overseer,
 				test_state.current_group_validator_authority_ids(),
 				&test_state,
 				test_state.scheduling_parent,
+				test_state.scheduling_parent,
 				CoreIndex(0),
+				segment_len,
 			)
 			.await;
+			let candidate_hashes: Vec<_> = distributed.iter().map(|d| d.candidate.hash()).collect();
 
 			send_peer_view_change(virtual_overseer, &peer, vec![test_state.scheduling_parent])
 				.await;
-			expect_advertise_collation_msg(
-				virtual_overseer,
-				&[peer],
-				test_state.scheduling_parent,
-				vec![candidate.hash()],
-			)
-			.await;
+			match peer_version {
+				CollationVersion::V2 => {
+					expect_advertise_collation_msg(
+						virtual_overseer,
+						&[peer],
+						test_state.scheduling_parent,
+						candidate_hashes.clone(),
+					)
+					.await;
+				},
+				CollationVersion::V4 => {
+					expect_advertise_segment_msg(
+						virtual_overseer,
+						&[peer],
+						test_state.scheduling_parent,
+						candidate_hashes.clone(),
+					)
+					.await;
+				},
+				_ => panic!("unsupported version in test"),
+			}
 
 			// Disconnect - this resets the advertised_to bit for this peer
 			disconnect_peer(virtual_overseer, peer).await;
 
 			// Reconnect the same validator
-			connect_peer(virtual_overseer, peer, CollationVersion::V2, Some(validator_id)).await;
+			connect_peer(virtual_overseer, peer, peer_version, Some(validator_id)).await;
 			expect_declare_msg(virtual_overseer, &test_state, &peer).await;
 
 			// Send view change - since the advertised_to bit was reset on disconnect,
@@ -1301,13 +1511,27 @@ fn validator_reconnect_readvertises_collation() {
 				.await;
 
 			// We should receive the advertisement again after reconnect
-			expect_advertise_collation_msg(
-				virtual_overseer,
-				&[peer],
-				test_state.scheduling_parent,
-				vec![candidate.hash()],
-			)
-			.await;
+			match peer_version {
+				CollationVersion::V2 => {
+					expect_advertise_collation_msg(
+						virtual_overseer,
+						&[peer],
+						test_state.scheduling_parent,
+						candidate_hashes.clone(),
+					)
+					.await;
+				},
+				CollationVersion::V4 => {
+					expect_advertise_segment_msg(
+						virtual_overseer,
+						&[peer],
+						test_state.scheduling_parent,
+						candidate_hashes.clone(),
+					)
+					.await;
+				},
+				_ => panic!("unsupported version in test"),
+			}
 
 			test_harness
 		},
@@ -1414,14 +1638,18 @@ where
 			)
 			.await;
 
-			let DistributeCollation { candidate, pov_block } = distribute_collation(
+			let distributed_collations = distribute_segment(
 				virtual_overseer,
 				test_state.current_group_validator_authority_ids(),
 				&test_state,
 				test_state.scheduling_parent,
+				test_state.scheduling_parent,
 				CoreIndex(0),
+				1,
 			)
 			.await;
+			let candidate = &distributed_collations[0].candidate;
+			let pov_block = &distributed_collations[0].pov_block;
 
 			for (val, peer) in test_state
 				.current_group_validator_authority_ids()
@@ -1500,8 +1728,8 @@ where
 						full_response.result
 						.expect("We should have a proper answer").as_ref()
 					);
-					assert_eq!(receipt, candidate);
-					assert_eq!(pov, pov_block);
+					assert_eq!(receipt, *candidate);
+					assert_eq!(pov, *pov_block);
 
 					full_response.sent_feedback.expect("Feedback channel is always set")
 				}
@@ -1536,8 +1764,8 @@ where
 						full_response.result
 						.expect("We should have a proper answer").as_ref()
 					);
-					assert_eq!(receipt, candidate);
-					assert_eq!(pov, pov_block);
+					assert_eq!(receipt, *candidate);
+					assert_eq!(pov, *pov_block);
 
 					full_response.sent_feedback.expect("Feedback channel is always set")
 				}
@@ -1584,14 +1812,17 @@ fn connect_to_group_in_view() {
 			let peers_a = test_state.current_group_validator_peer_ids();
 			assert!(group_a.len() > 1);
 
-			let DistributeCollation { candidate, .. } = distribute_collation(
+			let distributed_collations = distribute_segment(
 				&mut virtual_overseer,
 				test_state.current_group_validator_authority_ids(),
 				&test_state,
 				test_state.scheduling_parent,
+				test_state.scheduling_parent,
 				CoreIndex(0),
+				1,
 			)
 			.await;
+			let candidate = &distributed_collations[0].candidate;
 
 			let head_a = test_state.scheduling_parent;
 
@@ -1670,12 +1901,14 @@ fn connect_to_group_in_view() {
 			assert_ne!(head_a, head_b);
 			assert_ne!(group_a, group_b);
 
-			distribute_collation(
+			let _ = distribute_segment(
 				&mut virtual_overseer,
 				expected_group,
 				&test_state,
 				test_state.scheduling_parent,
+				test_state.scheduling_parent,
 				CoreIndex(0),
+				1,
 			)
 			.await;
 
@@ -1719,12 +1952,14 @@ fn connect_with_no_cores_assigned() {
 			let group_a = test_state.current_group_validator_authority_ids();
 			assert!(group_a.len() > 1);
 
-			distribute_collation(
+			let _ = distribute_segment(
 				&mut virtual_overseer,
 				test_state.current_group_validator_authority_ids(),
 				&test_state,
 				test_state.scheduling_parent,
+				test_state.scheduling_parent,
 				CoreIndex(0),
+				1,
 			)
 			.await;
 
@@ -1918,12 +2153,14 @@ fn distribute_collation_forces_connect() {
 			}
 
 			// Distribute a collation
-			let _ = distribute_collation(
+			let _ = distribute_segment(
 				&mut virtual_overseer,
 				test_state.current_group_validator_authority_ids(),
 				&test_state,
 				test_state.scheduling_parent,
+				test_state.scheduling_parent,
 				CoreIndex(0),
+				1,
 			)
 			.await;
 
@@ -2055,14 +2292,17 @@ fn connect_advertise_disconnect_three_backing_groups() {
 			// Distribute collations for first 2 cores
 			let mut candidate_hashes = HashMap::new();
 			for core_idx in [0, 1] {
-				let DistributeCollation { candidate, .. } = distribute_collation(
+				let distributed_collations = distribute_segment(
 					&mut virtual_overseer,
 					expected_validators.clone(),
 					&test_state,
 					test_state.scheduling_parent,
+					test_state.scheduling_parent,
 					CoreIndex(core_idx),
+					1,
 				)
 				.await;
+				let candidate = &distributed_collations[0].candidate;
 
 				// Add the same candidate hash twice we remove them once per validator.
 				candidate_hashes.insert(core_idx as usize, vec![candidate.hash(); 2]);
@@ -2187,14 +2427,17 @@ fn readvertise_collation_on_authority_id_update() {
 			expect_declare_msg(virtual_overseer, &test_state, &peer).await;
 
 			// Distribute a collation
-			let DistributeCollation { candidate, .. } = distribute_collation(
+			let distributed_collations = distribute_segment(
 				virtual_overseer,
 				test_state.current_group_validator_authority_ids(),
 				&test_state,
 				test_state.scheduling_parent,
+				test_state.scheduling_parent,
 				CoreIndex(0),
+				1,
 			)
 			.await;
+			let candidate = &distributed_collations[0].candidate;
 
 			// Send peer view change - peer is interested in the relay parent
 			send_peer_view_change(virtual_overseer, &peer, vec![test_state.scheduling_parent])
@@ -2235,8 +2478,13 @@ fn readvertise_collation_on_authority_id_update() {
 
 /// Test that UpdatedAuthorityIds for existing peers with unchanged matching authority IDs
 /// doesn't cause duplicate advertisements (idempotency check).
-#[test]
-fn no_duplicate_advertisement_on_authority_id_update() {
+#[rstest]
+#[case::v2_len_one(CollationVersion::V2, 1)]
+#[case::v4_len_three(CollationVersion::V4, 3)]
+fn no_duplicate_advertisement_on_authority_id_update(
+	#[case] peer_version: CollationVersion,
+	#[case] segment_len: usize,
+) {
 	let test_state = TestState::default();
 	let local_peer_id = test_state.local_peer_id;
 	let collator_pair = test_state.collator_pair.clone();
@@ -2266,32 +2514,48 @@ fn no_duplicate_advertisement_on_authority_id_update() {
 			.await;
 
 			// Connect peer with matching authority ID
-			connect_peer(virtual_overseer, peer, CollationVersion::V2, Some(validator_id.clone()))
-				.await;
+			connect_peer(virtual_overseer, peer, peer_version, Some(validator_id.clone())).await;
 			expect_declare_msg(virtual_overseer, &test_state, &peer).await;
 
 			// Distribute a collation
-			let DistributeCollation { candidate, .. } = distribute_collation(
+			let distributed = distribute_segment(
 				virtual_overseer,
 				test_state.current_group_validator_authority_ids(),
 				&test_state,
 				test_state.scheduling_parent,
+				test_state.scheduling_parent,
 				CoreIndex(0),
+				segment_len,
 			)
 			.await;
+			let candidate_hashes: Vec<_> = distributed.iter().map(|d| d.candidate.hash()).collect();
 
 			// Peer view change triggers advertisement
 			send_peer_view_change(virtual_overseer, &peer, vec![test_state.scheduling_parent])
 				.await;
 
 			// First advertisement
-			expect_advertise_collation_msg(
-				virtual_overseer,
-				&[peer],
-				test_state.scheduling_parent,
-				vec![candidate.hash()],
-			)
-			.await;
+			match peer_version {
+				CollationVersion::V2 => {
+					expect_advertise_collation_msg(
+						virtual_overseer,
+						&[peer],
+						test_state.scheduling_parent,
+						candidate_hashes.clone(),
+					)
+					.await;
+				},
+				CollationVersion::V4 => {
+					expect_advertise_segment_msg(
+						virtual_overseer,
+						&[peer],
+						test_state.scheduling_parent,
+						candidate_hashes.clone(),
+					)
+					.await;
+				},
+				_ => panic!("unsupported version in test"),
+			}
 
 			// Send UpdatedAuthorityIds with the same authority ID
 			overseer_send(
