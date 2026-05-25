@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779709856134,
+  "lastUpdate": 1779720967252,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "949521966517fdb251f0c9bee574f065c78324c0",
-          "message": "Cumulus `aura-ext`: Harden slot check between relay-parent and parachain (#9712)\n\nBefore this PR, we were preventing parachains from authoring blocks that\nhave a slot from the future. However, we permitted parachains to author\non past slots, which is unnecessary relaxed. This PR enforces that only\nthe author that owns the slot corresponding to the slot of the relay\nparent can author.\n\nThis should no impact on normal Parachain operation. Blocks are already\nproduced on the correct slots, this increased strictness improves some\nedge-cases however.\n\nEven before, the Parachains slot needed to strictly advance, so\nproduction on \"older\" slots was only possible if previous authors\nskipped production opportunities.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-10T09:00:01Z",
-          "tree_id": "47927ccf57a39c58f47f534ca0a4ba402cd17cbb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/949521966517fdb251f0c9bee574f065c78324c0"
-        },
-        "date": 1760090867981,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008462905329999989,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026041145799999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005079862539999991,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010629936939999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "314a1667a9fdd4abbea18a737ad3610bf952d8ac",
+          "message": "[Release|CI/CD] Add handling of the cancelation case and message to release eng room to the Publish crates flow (#12168)\n\nThis PR's adds functionality to push post-crates-release branch not only\non failure but also on cancelation for the case if release took more\nthen 6 hours and flow was canceled + it will send e message to rel eng\nchat notifying that flow failed/canceled",
+          "timestamp": "2026-05-25T12:41:42Z",
+          "tree_id": "52a85ab21a0dca104c19603e0ecc3041833c750c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/314a1667a9fdd4abbea18a737ad3610bf952d8ac"
+        },
+        "date": 1779720938964,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025877046600000014,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009295556829999977,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009838768099999992,
             "unit": "seconds"
           }
         ]
