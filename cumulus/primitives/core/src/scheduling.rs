@@ -120,7 +120,7 @@ impl SchedulingProof {
 /// when it is, verifies the [`SignedSchedulingInfo`] attached to a candidate (via
 /// [`Self::verify`]).
 ///
-/// Wired into [`cumulus_pallet_parachain_system::Config`] via an associated type.
+/// Wired into `cumulus_pallet_parachain_system::Config` via an associated type.
 pub trait VerifySchedulingSignature {
 	/// Whether V3 scheduling validation is enabled.
 	///
