@@ -153,8 +153,6 @@ const UNINCLUDED_SEGMENT_CAPACITY: u32 = (3 + RELAY_PARENT_OFFSET) * BLOCK_PROCE
 /// Relay chain slot duration, in milliseconds.
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
-/// Scheduling V3 candidates flag.
-
 impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub aura: Aura,
