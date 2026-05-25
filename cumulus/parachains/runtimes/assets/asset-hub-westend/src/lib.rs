@@ -1414,15 +1414,15 @@ parameter_types! {
 	pub PsmName: &'static str = "Psm";
 }
 
-/// One-shot migration: writes `pallet_psm`'s on-chain storage version to v4.
+/// One-shot migration: writes `pallet_psm`'s on-chain storage version to v1.
 /// Required because `RemovePallet<PsmName>` (above in the migration tuple)
 /// wipes the pallet's `:__STORAGE_VERSION__:` key, and `InitializePsm` doesn't
-/// re-seed it. Without this, try-runtime's post-upgrade check sees in-code = 4,
+/// re-seed it. Without this, try-runtime's post-upgrade check sees in-code = 1,
 /// on-chain = 0 and panics.
-pub struct SetPsmStorageVersionV4;
-impl frame_support::traits::OnRuntimeUpgrade for SetPsmStorageVersionV4 {
+pub struct SetPsmStorageVersionV1;
+impl frame_support::traits::OnRuntimeUpgrade for SetPsmStorageVersionV1 {
 	fn on_runtime_upgrade() -> Weight {
-		frame_support::traits::StorageVersion::new(4).put::<pallet_psm::Pallet<Runtime>>();
+		frame_support::traits::StorageVersion::new(1).put::<pallet_psm::Pallet<Runtime>>();
 		<Runtime as frame_system::Config>::DbWeight::get().writes(1)
 	}
 
@@ -1431,8 +1431,8 @@ impl frame_support::traits::OnRuntimeUpgrade for SetPsmStorageVersionV4 {
 		use frame_support::{ensure, traits::GetStorageVersion};
 		ensure!(
 			pallet_psm::Pallet::<Runtime>::on_chain_storage_version() ==
-				frame_support::traits::StorageVersion::new(4),
-			"PSM on-chain storage version was not set to 4"
+				frame_support::traits::StorageVersion::new(1),
+			"PSM on-chain storage version was not set to 1"
 		);
 		Ok(())
 	}
@@ -1707,7 +1707,7 @@ impl pallet_psm::Config for Runtime {
 
 /// Initial PSM configuration applied via the init migration.
 ///
-/// Installs a single PSM keyed by the pUSD `Location`, with USDT (trust-backed
+/// Initializes a single PSM keyed by the pUSD `Location`, with USDT (trust-backed
 /// asset `1984`, addressed by its `Location`) as the first external asset.
 pub struct PsmInitialConfig;
 impl pallet_psm::migrations::init::InitialPsmConfig<Runtime> for PsmInitialConfig {
@@ -1994,13 +1994,13 @@ pub type Migrations = (
 
 	// start: PSM reset
 
-	// `RemovePallet` wipes ALL of PSM's storage (entries + CountedStorageMap
-	// counters + the storage version key). `InitializePsm` then re-seeds data
-	// under the new `Location` AssetId, and `SetPsmStorageVersionV4` writes
-	// the on-chain storage version that `RemovePallet` cleared.
+	// `RemovePallet` wipes the old PSM deployment (entries + storage version
+	// key). `InitializePsm` then writes the multi-instance state from
+	// `PsmInitialConfig`, and `SetPsmStorageVersionV1` writes the storage
+	// version key that `RemovePallet` cleared.
 	frame_support::migrations::RemovePallet<PsmName, <Runtime as frame_system::Config>::DbWeight>,
 	pallet_psm::migrations::init::InitializePsm<Runtime, PsmInitialConfig>,
-	SetPsmStorageVersionV4,
+	SetPsmStorageVersionV1,
 	// end: PSM reset
 	pallet_dap::migrations::MigrateV1ToV2<
 		Runtime,

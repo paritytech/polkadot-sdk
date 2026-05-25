@@ -15,10 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Idempotent migration to install PSM instances on a fresh deployment.
+//! Idempotent migration to initialize PSM instances on a fresh deployment.
 //!
 //! Reads a runtime-supplied list of PSM instances and their approved externals, and
-//! materialises them in storage. Already-installed instances and already-approved
+//! writes them to storage. Already-initialized instances and already-approved
 //! externals are skipped, so the migration is safe to run more than once.
 //!
 //! # Usage
@@ -58,7 +58,7 @@ const LOG_TARGET: &str = "runtime::psm::migration";
 
 /// Configuration trait for the [`InitializePsm`] migration.
 pub trait InitialPsmConfig<T: Config> {
-	/// PSM instances to install: `(internal_asset, fee_destination, max_debt)`.
+	/// PSM instances to initialize: `(internal_asset, fee_destination, max_debt)`.
 	fn psms() -> Vec<(T::AssetId, T::AccountId, BalanceOf<T>)>;
 
 	/// Externals to approve, per instance:
@@ -66,7 +66,7 @@ pub trait InitialPsmConfig<T: Config> {
 	fn externals() -> Vec<(T::AssetId, T::AssetId, Permill, Permill, Permill)>;
 }
 
-/// Idempotent migration that installs PSM instances and approved externals.
+/// Idempotent migration that initializes PSM instances and approved externals.
 ///
 /// On each run:
 /// 1. For every entry in `psms()` not already present in `Psms`, inserts a fresh [`PsmInfo`] (with
@@ -85,7 +85,7 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 	fn on_runtime_upgrade() -> Weight {
 		log::info!(
 			target: LOG_TARGET,
-			"Running InitializePsm: installing PSM instances and approved externals"
+			"Running InitializePsm: initializing PSM instances and approved externals"
 		);
 
 		let mut reads = 0u64;
@@ -96,7 +96,7 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 			if Psms::<T>::contains_key(&internal_asset) {
 				log::info!(
 					target: LOG_TARGET,
-					"PSM for {:?} already installed, skipping",
+					"PSM for {:?} already initialized, skipping",
 					internal_asset,
 				);
 				continue;
@@ -120,7 +120,7 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 
 			log::info!(
 				target: LOG_TARGET,
-				"Installed PSM for {:?} (decimals={})",
+				"Initialized PSM for {:?} (decimals={})",
 				internal_asset,
 				internal_decimals,
 			);
