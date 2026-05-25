@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779709700144,
+  "lastUpdate": 1779720820568,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tiago.bandeira@parity.io",
-            "name": "Tiago Bandeira",
-            "username": "tiagobndr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2e716e1e80e6c25dfcce0fb1dad6117c2e2c3008",
-          "message": "`pallet-xcm`: extract precompiles to a separate crate (#9985)\n\nThis PR extracts the XCM precompile from `pallet-xcm` into a new\nstandalone crate `pallet-xcm-precompiles` to resolve an unwanted\ndependency issue. Previously, the XCM precompile was implemented\ndirectly in `pallet-xcm/src/precompiles.rs`, which required `pallet-xcm`\nto depend on `pallet-revive`, introducing it as a transitive dependency\nfor all parachains using `pallet-xcm`.\n\nCloses #9955\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-13T22:14:36Z",
-          "tree_id": "4d4296e10f36c65e0f47623f00624dee7935e4df",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2e716e1e80e6c25dfcce0fb1dad6117c2e2c3008"
-        },
-        "date": 1760398610378,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.274301725266671,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20554923733333336,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.614036319433334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "314a1667a9fdd4abbea18a737ad3610bf952d8ac",
+          "message": "[Release|CI/CD] Add handling of the cancelation case and message to release eng room to the Publish crates flow (#12168)\n\nThis PR's adds functionality to push post-crates-release branch not only\non failure but also on cancelation for the case if release took more\nthen 6 hours and flow was canceled + it will send e message to rel eng\nchat notifying that flow failed/canceled",
+          "timestamp": "2026-05-25T12:41:42Z",
+          "tree_id": "52a85ab21a0dca104c19603e0ecc3041833c750c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/314a1667a9fdd4abbea18a737ad3610bf952d8ac"
+        },
+        "date": 1779720792686,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14062199046666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.148373438433332,
             "unit": "seconds"
           }
         ]
