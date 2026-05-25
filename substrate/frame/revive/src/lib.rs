@@ -1619,7 +1619,7 @@ pub mod pallet {
 
 		/// Map many accounts and make the TX free if at least 90% were unmapped or held deposits.
 		#[pallet::call_index(13)]
-		#[pallet::weight(<T as Config>::WeightInfo::batch_map_accounts(accounts.len() as u32))]
+		#[pallet::weight(<T as Config>::WeightInfo::batch_map_accounts(accounts.len().saturated_into::<u32>()))]
 		pub fn batch_map_accounts(
 			origin: OriginFor<T>,
 			accounts: Vec<T::AccountId>,
@@ -1627,7 +1627,7 @@ pub mod pallet {
 			ensure_signed(origin.clone())?;
 			Self::ensure_non_contract_if_signed(&origin)?;
 
-			let total = accounts.len() as u32;
+			let total: u32 = accounts.len().saturated_into();
 			let mut mapped = 0;
 
 			for account_id in accounts
@@ -1668,7 +1668,7 @@ pub mod pallet {
 				}
 
 				if useful {
-					mapped += 1;
+					mapped = mapped.saturating_add(1);
 				}
 			}
 
