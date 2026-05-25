@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779480664615,
+  "lastUpdate": 1779701843469,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "Denzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5f69bea23dcd527dc22b696b3a7e7e5ee47e8083",
-          "message": "chore: add issue numbers to flaky zombienet tests (#9957)\n\n# Description\n#9877 Improve tracking of disabled tests, add link to tracking issue.\n\n# Checklist\n\n* [x] Improve tracking of disabled tests, add link to tracking issue.\n\n---------\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2025-10-09T20:00:03Z",
-          "tree_id": "a9e08b82b5b3e5f06f6f1a303662a46ce3b63fd5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5f69bea23dcd527dc22b696b3a7e7e5ee47e8083"
-        },
-        "date": 1760044186911,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008641460549999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0051585541999999915,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027042380799999987,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010435853619999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "52391767a0bf22f54a56c77d5fd74f0f762b8dff",
+          "message": "[zombienet] large runners by default (#12143)\n\nMake _large_ runners the default option for zombienet test.\n\ncc: @bkchr",
+          "timestamp": "2026-05-25T08:02:27Z",
+          "tree_id": "73cc9eff4db6e71e18b9a76745b03ae58de5365b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/52391767a0bf22f54a56c77d5fd74f0f762b8dff"
+        },
+        "date": 1779701814382,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0027381162599999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009662744359999972,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011184083109999998,
             "unit": "seconds"
           }
         ]
