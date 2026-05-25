@@ -4097,9 +4097,8 @@ fn tracing_works_for_transfers() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 		let mut tracer = CallTracer::new(Default::default());
-		trace(&mut tracer, || {
-			builder::bare_call(BOB_ADDR).evm_value(10.into()).build_and_unwrap_result();
-		});
+		let result =
+			trace(&mut tracer, || builder::bare_call(BOB_ADDR).evm_value(10.into()).build());
 
 		let trace = tracer.collect_trace();
 		assert_eq!(
@@ -4109,9 +4108,49 @@ fn tracing_works_for_transfers() {
 				to: BOB_ADDR,
 				value: Some(U256::from(10)),
 				call_type: CallType::Call,
+				gas_used: result.gas_consumed.try_into().unwrap_or(u64::MAX),
 				..Default::default()
 			})
 		)
+	});
+}
+
+/// Regression test for paritytech/contract-issues#278.
+///
+/// Calling into an account with no contract code (a plain transfer) takes the
+/// "else" branch in [`crate::exec::Stack::run_call`], where the tracer's
+/// `exit_child_span` is invoked with `Default::default()` for both `gas_used`
+/// and `weight_consumed`. The resulting [`ExecutionTrace`] therefore reports
+/// `gas == 0`, even though the transfer charged a real existential deposit
+/// through the transaction meter. Once that branch is fixed to forward the
+/// meter's actual delta, this test should pass.
+#[test]
+fn execution_tracing_records_consumption_for_plain_transfer() {
+	use crate::evm::{ExecutionTracer, ExecutionTracerConfig};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		// BOB is not pre-funded, so the transfer creates the account and
+		// charges an existential deposit through the meter.
+		assert_eq!(get_balance(&BOB), 0);
+
+		let mut tracer = ExecutionTracer::new(ExecutionTracerConfig::default());
+		let result =
+			trace(&mut tracer, || builder::bare_call(BOB_ADDR).evm_value(1_000_000.into()).build());
+
+		// Sanity: the transfer actually happened and consumed metered resources.
+		let return_value = result.result.as_ref().expect("transfer must succeed");
+		assert!(!return_value.did_revert(), "transfer must succeed");
+		assert!(get_balance(&BOB) > 0, "BOB must be funded after the transfer");
+
+		let trace = tracer.collect_trace();
+		assert_eq!(
+			trace.gas,
+			result.gas_consumed.try_into().unwrap_or(u64::MAX),
+			"ExecutionTrace.gas should match the gas charged for the \
+			 existential-deposit transfer — see issue #278",
+		);
 	});
 }
 
