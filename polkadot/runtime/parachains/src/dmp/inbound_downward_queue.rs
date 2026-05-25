@@ -48,7 +48,7 @@ impl<T: Config> InboundDownwardQueue<T> {
 		Ok(inbound)
 	}
 
-	/// Append a fully-formed [`InboundDownwardMessage`], preserving its `sent_at`.
+	/// Append a [`InboundDownwardMessage`].
 	pub fn push_back_inbound(
 		para: ParaId,
 		inbound: &InboundDownwardMessage<BlockNumberFor<T>>,
