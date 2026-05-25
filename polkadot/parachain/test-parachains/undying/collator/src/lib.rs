@@ -24,7 +24,7 @@ use polkadot_node_primitives::{
 	maybe_compress_pov, AvailableData, Collation, CollationResult, CollationSecondedSignal,
 	CollatorFn, MaybeCompressedPoV, PoV, Statement, UpwardMessages,
 };
-use polkadot_node_subsystem::messages::CollatorProtocolMessage;
+use polkadot_node_subsystem::messages::{CollatorProtocolMessage, SegmentEntry};
 use polkadot_primitives::{
 	CandidateCommitments, CandidateDescriptorV2, CandidateReceiptV2, ClaimQueueOffset, CollatorId,
 	CollatorPair, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption,
@@ -32,7 +32,7 @@ use polkadot_primitives::{
 };
 use polkadot_service::{Handle, NewFull, ParachainHost};
 use sc_client_api::client::BlockchainEvents;
-use sp_core::Pair;
+use sp_core::{bounded::BoundedVec, Pair};
 
 use std::{
 	collections::HashMap,
@@ -631,16 +631,18 @@ impl Collator {
 						// the descriptor and commitments core indexes. To bypass this check, we are
 						// simulating the behavior of SubmitCollation while skipping ump signals
 						// validation.
+						let candidates = BoundedVec::try_from(vec![SegmentEntry {
+							candidate_receipt,
+							parent_head_data_hash,
+							pov: pov.clone(),
+							parent_head_data: parent_head_data.clone(),
+							result_sender: None,
+							core_index: *core_index,
+						}])
+						.expect("len 1 should fit");
 						overseer_handle
 							.send_msg(
-								CollatorProtocolMessage::DistributeCollation {
-									candidate_receipt,
-									parent_head_data_hash,
-									pov: pov.clone(),
-									parent_head_data: parent_head_data.clone(),
-									result_sender: None,
-									core_index: *core_index,
-								},
+								CollatorProtocolMessage::DistributeSegment { candidates },
 								"Collator",
 							)
 							.await;

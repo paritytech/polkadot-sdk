@@ -315,12 +315,6 @@ async fn process_msg<Sender: CollatorProtocolSenderTrait>(
 				"CollateOn message is not expected on the validator side of the protocol",
 			);
 		},
-		DistributeCollation { .. } => {
-			gum::warn!(
-				target: LOG_TARGET,
-				"DistributeCollation message is not expected on the validator side of the protocol",
-			);
-		},
 		DistributeSegment { .. } => {
 			gum::warn!(
 				target: LOG_TARGET,

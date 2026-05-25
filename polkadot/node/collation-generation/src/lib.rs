@@ -70,14 +70,14 @@
 //!    - Fetch validation data and code hash
 //!    - Invoke `CollatorFn` for each assigned core
 //!    - Construct candidate receipt and distribute via
-//!      [`CollatorProtocolMessage::DistributeCollation`]
+//!      [`CollatorProtocolMessage::DistributeSegment`]
 //!
 //! On `SubmitCollation`:
 //!
 //! 1. Validate the subsystem is initialized
 //! 2. Fetch validation data, claim queue, session info
 //! 3. Construct candidate receipt (V2 or V3 based on `scheduling_parent`)
-//! 4. Distribute via [`CollatorProtocolMessage::DistributeCollation`]
+//! 4. Distribute via [`CollatorProtocolMessage::DistributeSegment`]
 //!
 //! [`CollatorFn`]: polkadot_node_primitives::CollatorFn
 //! [`SubmitCollationParams`]: polkadot_node_primitives::SubmitCollationParams
@@ -654,7 +654,7 @@ struct PreparedCollation {
 	scheduling_session: SessionIndex,
 }
 
-/// Comment
+/// Construct a `SegmentEntry` from a prepared collation, including its candidate receipt and PoV.
 fn construct_receipt(
 	collation: PreparedCollation,
 	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
@@ -802,15 +802,17 @@ async fn construct_and_distribute_receipt(
 		scheduling_parent,
 	)?;
 
+	let candidates = BoundedVec::try_from(vec![SegmentEntry {
+		candidate_receipt,
+		parent_head_data_hash,
+		pov,
+		parent_head_data,
+		result_sender,
+		core_index,
+	}])
+	.expect("length-1 fits");
 	sender
-		.send_message(CollatorProtocolMessage::DistributeCollation {
-			candidate_receipt,
-			parent_head_data_hash,
-			pov,
-			parent_head_data,
-			result_sender,
-			core_index,
-		})
+		.send_message(CollatorProtocolMessage::DistributeSegment { candidates })
 		.await;
 
 	Ok(())

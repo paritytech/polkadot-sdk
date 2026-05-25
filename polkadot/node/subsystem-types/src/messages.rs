@@ -269,20 +269,20 @@ impl From<PvfExecKind> for RuntimePvfExecKind {
 	}
 }
 
-/// Comment
+/// Data received from cumulus used to build the advertised segment fingerprint.
 #[derive(Debug)]
 pub struct SegmentEntry {
-	/// Comment
+	/// Candidate receipt to advertise.
 	pub candidate_receipt: CandidateReceipt,
-	/// Comment
+	/// Hash of the parachain head data before candidate execution.
 	pub parent_head_data_hash: Hash,
-	/// Comment
+	/// Proof of validity for the candidate.
 	pub pov: PoV,
-	/// Comment
+	/// Parachain head data before candidate execution.
 	pub parent_head_data: HeadData,
-	/// Comment
+	/// Optional channel notified with the validator's seconded statement.
 	pub result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
-	/// Comment
+	/// Core this candidate is assigned to.
 	pub core_index: CoreIndex,
 }
 
@@ -294,28 +294,11 @@ pub enum CollatorProtocolMessage {
 	/// all, and only by the Collation Generation subsystem. As such, it will overwrite the value
 	/// of the previous signal.
 	///
-	/// This should be sent before any `DistributeCollation` message.
+	/// This should be sent before any `DistributeSegment` message.
 	CollateOn(ParaId),
-	/// Provide a collation to distribute to validators with an optional result sender.
-	DistributeCollation {
-		/// The receipt of the candidate.
-		candidate_receipt: CandidateReceipt,
-		/// The hash of the parent head-data.
-		/// Here to avoid computing the hash of the parent head data twice.
-		parent_head_data_hash: Hash,
-		/// Proof of validity.
-		pov: PoV,
-		/// This parent head-data is needed for elastic scaling.
-		parent_head_data: HeadData,
-		/// The result sender should be informed when at least one parachain validator seconded the
-		/// collation. It is also completely okay to just drop the sender.
-		result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
-		/// The core index where the candidate should be backed.
-		core_index: CoreIndex,
-	},
 	/// Provide an ordered list of collations to the validators.
 	DistributeSegment {
-		/// Comment
+		/// Ordered segment entries to distribute.
 		candidates: BoundedVec<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>,
 	},
 	/// Get a network bridge update.
