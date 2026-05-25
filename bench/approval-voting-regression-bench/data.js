@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779701767826,
+  "lastUpdate": 1779709777916,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1cbdb4d2e384e35e27760f24ca895b2f3d601698",
-          "message": " Wait for transaction receipt if instant seal is enabled (#9914)\n\nFixes https://github.com/paritytech/contract-issues/issues/165\n\nThe main changes in this PR are:\n\n1. Add a new API to revive-dev-node to check whether the node has\ninstant seal enabled.\n2. Add a new debug API to eth-rpc to check whether the node has instant\nseal enabled. (optional)\n3. Query and cache the node’s instant seal status during eth-rpc\ninitialization.\n4. If instant seal is enabled, wait for the transaction receipt to be\navailable\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
-          "timestamp": "2025-10-10T16:01:50Z",
-          "tree_id": "dd524ef9e7b71c82b791e3c22045d3bcc07039ff",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1cbdb4d2e384e35e27760f24ca895b2f3d601698"
-        },
-        "date": 1760116824874,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63637.31999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52940.59999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002384927,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002384927,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005796572679999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.522680296220001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4406256541300003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6728432572008645,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4927836786699986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4915871749999967,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.553657333309999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021334029999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.491368022159989,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.984237312149992,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021334029999999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 14.681141363249953,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7ce38d2617a1730a8e435bf2edfb0f42b3b530ea",
+          "message": "Remove deprecated EnsureOneOf type alias (#12169)\n\n# Description\n\nRemoves deprecated `frame_support::EnsureOneOf` as part of #11561.\n\n`EnsureOneOf` was an alias for `EitherOfDiverse` (deprecated in favor of\n`EitherOfDiverse`). It has no remaining usage in this repository.\n\nDoes not close #11561.\n\n## Integration\n\n```diff\n- use frame_support::traits::EnsureOneOf;\n+ use frame_support::traits::EitherOfDiverse;\n```\n\n- 2 files: substrate/frame/support/src/traits/dispatch.rs, traits.rs\n- Verified no in-repo references before removal\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-05-25T10:14:22Z",
+          "tree_id": "466a7fbe04109885aefffb03835c562ac5541a3e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7ce38d2617a1730a8e435bf2edfb0f42b3b530ea"
+        },
+        "date": 1779709747792,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63623.259999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52938,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7650566905600007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8083577946899707,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.816536456899999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020899900000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7790250439299977,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8961473618400015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4576422962100097,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.431011644162723,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002226213,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002226213,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020899900000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005398389390000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.528164033519976,
             "unit": "seconds"
           }
         ]
