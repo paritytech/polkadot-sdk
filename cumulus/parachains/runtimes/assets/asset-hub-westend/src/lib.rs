@@ -703,7 +703,14 @@ parameter_types! {
 impl pallet_recovery::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeHoldReason = RuntimeHoldReason;
+	// Benchmarks for `finish_attempt` / `cancel_attempt` advance `frame_system`'s block number,
+	// which does not move `RelaychainDataProvider`, causing `NotYetInheritable` /
+	// `NotYetCancelable`. Use `frame_system` under the benchmarking feature so the time-delay
+	// guards can be satisfied.
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 	type Currency = Balances;
 	type FriendGroupsConsideration = HoldConsideration<
 		AccountId,
@@ -725,7 +732,7 @@ impl pallet_recovery::Config for Runtime {
 	>;
 	type SecurityDeposit = ConstU128<{ 10 * UNITS }>;
 	type MaxFriendsPerConfig = ConstU32<100>;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_recovery::WeightInfo<Runtime>;
 	type Slash = Dap;
 }
 
@@ -2234,6 +2241,7 @@ mod benches {
 		[pallet_proxy, Proxy]
 		[pallet_psm, Psm]
 		[pallet_parameters, Parameters]
+		[pallet_recovery, Recovery]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking_async, Staking]
 		[pallet_staking_async_rc_client, StakingRcClientBench::<Runtime>]
