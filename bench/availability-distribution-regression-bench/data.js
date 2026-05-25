@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779720857428,
+  "lastUpdate": 1779732233848,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tiago.bandeira@parity.io",
-            "name": "Tiago Bandeira",
-            "username": "tiagobndr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2e716e1e80e6c25dfcce0fb1dad6117c2e2c3008",
-          "message": "`pallet-xcm`: extract precompiles to a separate crate (#9985)\n\nThis PR extracts the XCM precompile from `pallet-xcm` into a new\nstandalone crate `pallet-xcm-precompiles` to resolve an unwanted\ndependency issue. Previously, the XCM precompile was implemented\ndirectly in `pallet-xcm/src/precompiles.rs`, which required `pallet-xcm`\nto depend on `pallet-revive`, introducing it as a transitive dependency\nfor all parachains using `pallet-xcm`.\n\nCloses #9955\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-13T22:14:36Z",
-          "tree_id": "4d4296e10f36c65e0f47623f00624dee7935e4df",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2e716e1e80e6c25dfcce0fb1dad6117c2e2c3008"
-        },
-        "date": 1760398644002,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02251311950666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007433696746666637,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15665187361333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013207136233333331,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010474012593333321,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8f3592abc64aee813b97915feb001d6632c4729c",
+          "message": "pallet-revive: skip non-existent accounts in batch_map_accounts (#12179)\n\n## Summary\n\n`batch_map_accounts` now skips non-existing accounts in addition to\neth-derived accounts. Without this, any caller could permanently insert\n`OriginalAccount` entries for arbitrary 32-byte values with no\n`frame_system::Account` backing them, without paying any fees, and with\nno way to clean them up. The proportion check still uses the original\nbatch length, so padding with skipped entries cannot reach the 90%\nfree-tx threshold.\n\n`map_no_deposit` is renamed to `map_no_deposit_unchecked` with a doc\nspelling out the precondition.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-25T16:31:03Z",
+          "tree_id": "ac76e710ca8f302d4c91277a41c73f46bcd56b8f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8f3592abc64aee813b97915feb001d6632c4729c"
+        },
+        "date": 1779732205383,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024076298359999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007721866953333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14984096006666678,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010043502366666662,
             "unit": "seconds"
           }
         ]
