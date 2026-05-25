@@ -286,7 +286,7 @@ impl<T: Config> Pallet<T> {
 	pub fn current_price(block_number: RelayBlockNumberOf<T>) -> Option<BalanceOf<T>> {
 		let sale = SaleInfo::<T>::get()?;
 		match sale.phase {
-			SalePhase::Market => Some(descending_price::<T>(block_number, &sale)),
+			SalePhase::Market => descending_price::<T>(block_number, &sale).ok(),
 			SalePhase::Renewal | SalePhase::Settlement => sale.clearing_price,
 		}
 	}
@@ -360,7 +360,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		ensure!(sale.phase == SalePhase::Market, Error::<T>::WrongPhase);
 		ensure!(block_number >= sale.sale_start, Error::<T>::TooEarly);
 
-		let current_price = descending_price::<T>(block_number, &sale);
+		let current_price = descending_price::<T>(block_number, &sale)?;
 		let bid_price = price_limit.min(current_price);
 
 		let bid_id = Bids::<T>::try_mutate(|bids| {
@@ -423,7 +423,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 				.filter(|(_, a)| {
 					let rights = T::RenewalRights::renewal_rights_count(&a.who, sale.region_begin);
 					let wins = Quotas::<T>::get(&a.who).auction_wins;
-					rights <= wins
+					rights < wins
 				})
 				.min_by_key(|(_, a)| a.bid_price)
 				.map(|(i, _)| i)
@@ -483,13 +483,16 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 
 		let mut bids = Bids::<T>::get();
 		let idx = bids.iter().position(|b| b.bid_id == id).ok_or(Error::<T>::BidNotExist)?;
-		ensure!(&bids[idx].who == who, Error::<T>::BidNotExist);
-		ensure!(new_price > bids[idx].price, Error::<T>::Overpriced);
-
-		let current_price = descending_price::<T>(block_number, &sale);
-		ensure!(new_price <= current_price, Error::<T>::BidTooHigh);
+		ensure!(&bids[idx].who == who, Error::<T>::NotAllowed);
 
 		let old_price = bids[idx].price;
+		// RFC-17: bids cannot be lowered, only raised.
+		ensure!(new_price > old_price, Error::<T>::Overpriced);
+
+		let current_price = descending_price::<T>(block_number, &sale)?;
+		// RFC-17: bid price cannot be higher than the current auction price.
+		ensure!(new_price <= current_price, Error::<T>::BidTooHigh);
+
 		let mut record = bids.remove(idx);
 		record.price = new_price;
 		let new_pos = bids.partition_point(|b| b.price > new_price);
@@ -539,12 +542,11 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 						to: SalePhase::Renewal,
 					});
 
-					settlement_actions.push(TickAction::ProcessAutoRenewals {
+					actions.append(&mut settlement_actions);
+					actions.push(TickAction::ProcessAutoRenewals {
 						after_timeslice: sale.region_begin,
 						next_renewal_at: sale.region_end,
 					});
-					actions.append(&mut settlement_actions);
-					return actions;
 				}
 			},
 			SalePhase::Renewal => {
@@ -567,7 +569,6 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 					});
 
 					actions.append(&mut finalize_actions);
-					return actions;
 				}
 			},
 			SalePhase::Settlement => {
@@ -604,7 +605,6 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 						old_sale: sale.to_market_sale_info(),
 						new_sale: new_sale.to_market_sale_info(),
 					});
-					return actions;
 				}
 			},
 		}
@@ -621,13 +621,13 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 fn descending_price<T: Config>(
 	now: RelayBlockNumberOf<T>,
 	sale: &SaleInfoRecordOf<T>,
-) -> BalanceOf<T> {
-	let config = Configuration::<T>::get();
-	let market_period = config.map(|c| c.market_period).unwrap_or_else(|| now);
+) -> Result<BalanceOf<T>, Error<T>> {
+	let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+	let market_period = config.market_period;
 
 	let elapsed = now.saturating_sub(sale.sale_start).min(market_period);
 	if market_period.is_zero() {
-		return sale.reserve_price;
+		return Ok(sale.reserve_price);
 	}
 
 	let price_range = sale.opening_price.saturating_sub(sale.reserve_price);
@@ -636,7 +636,7 @@ fn descending_price<T: Config>(
 	let descent =
 		FixedU64::from_rational(elapsed_u128, period_u128).saturating_mul_int(price_range);
 
-	sale.opening_price.saturating_sub(descent)
+	Ok(sale.opening_price.saturating_sub(descent))
 }
 
 /// Fisher-Yates shuffle of the sub-slice of bids that tie at the clearing price.
@@ -723,7 +723,10 @@ fn settle_auction<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>>
 		.collect();
 
 	let winner_count = allocations.len() as u32;
-	Allocations::<T>::put(BoundedVec::truncate_from(allocations));
+	Allocations::<T>::put(
+		BoundedVec::try_from(allocations)
+			.expect("Auction winner count cannot exceed bid count; qed"),
+	);
 
 	let mut updated_sale = sale.clone();
 	updated_sale.cores_sold = winner_count as u16;
@@ -762,10 +765,8 @@ fn finalize_sale<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> 
 	}
 
 	if sale.renewal_count > 0 {
-		SaleInfo::<T>::mutate(|s| {
-			if let Some(sale) = s {
-				sale.cores_sold = sale.cores_sold.saturating_add(sale.renewal_count as u16);
-			}
+		SaleInfo::<T>::mutate_extant(|sale| {
+			sale.cores_sold.saturating_accrue(sale.renewal_count as u16);
 		});
 	}
 

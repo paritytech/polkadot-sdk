@@ -278,7 +278,7 @@ fn adjust_bid_wrong_owner_fails() {
 		let OrderResult::BidPlaced { id, .. } = place_bid(0, 1, 150).unwrap() else { panic!() };
 
 		// User 2 tries to adjust user 1's bid.
-		assert_noop!(adjust_bid(0, id, 2, Some(180)), Error::BidNotExist);
+		assert_noop!(adjust_bid(0, id, 2, Some(180)), Error::NotAllowed);
 	});
 }
 
