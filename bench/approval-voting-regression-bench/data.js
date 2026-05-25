@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779709777916,
+  "lastUpdate": 1779720893125,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "cyrill@parity.io",
-            "name": "xermicus",
-            "username": "xermicus"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d65db6ef34c0e7b99655576fe2861105557afb97",
-          "message": "[pallet-revive] Implement the consume_all_gas syscall (#9997)\n\nThis PR implements a new API `consume_all_gas` which is required for\n100% EVM `INVALID` opcode compatibility.\n\nSince ceding of all remaining gas is handled in the EVM interpreter, I\ndecided to not add a return flag but make this a dedicated syscall for\nconsistency instead.\n\nDidn't implement a benchmark since the first (and only) thing this does\nis consuming all remaining gas anyways.\n\n---------\n\nSigned-off-by: Cyrill Leutwiler <bigcyrill@hotmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-10T16:59:39Z",
-          "tree_id": "8301f54c9ebb8ba81aad943ffffe9f1980d42d88",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d65db6ef34c0e7b99655576fe2861105557afb97"
-        },
-        "date": 1760120024393,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63633.81,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52942.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000017946760000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000017946760000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001834507,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005620661960000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001834507,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4675766225599998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.50438425669,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4662734931999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.959641130189997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.42009249617999933,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.5720304857507372,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4771235483200007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.300712209099995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 14.528164033519976,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "314a1667a9fdd4abbea18a737ad3610bf952d8ac",
+          "message": "[Release|CI/CD] Add handling of the cancelation case and message to release eng room to the Publish crates flow (#12168)\n\nThis PR's adds functionality to push post-crates-release branch not only\non failure but also on cancelation for the case if release took more\nthen 6 hours and flow was canceled + it will send e message to rel eng\nchat notifying that flow failed/canceled",
+          "timestamp": "2026-05-25T12:41:42Z",
+          "tree_id": "52a85ab21a0dca104c19603e0ecc3041833c750c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/314a1667a9fdd4abbea18a737ad3610bf952d8ac"
+        },
+        "date": 1779720865402,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63641.119999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.446075553849999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7760410866899476,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.4110945492226685,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000024160720000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.747894306000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8306030598300014,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002435054,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.345179079539951,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000024160720000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002435054,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00510688864,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7517806587799996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7876775257500013,
             "unit": "seconds"
           }
         ]
