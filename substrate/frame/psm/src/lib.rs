@@ -580,6 +580,43 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Swap external stablecoin for internal on a specific PSM instance.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be `Signed` by the user performing the swap.
+		///
+		/// ## Details
+		///
+		/// Transfers `external_amount` of `asset_id` from the caller to the
+		/// `internal_asset`'s PSM reserve account, then mints `internal_asset` to the
+		/// caller minus the minting fee. The fee is calculated using ceiling rounding
+		/// (`mul_ceil`), ensuring the protocol never undercharges. The fee is
+		/// transferred to [`PsmInfo::fee_destination`] of the targeted instance.
+		///
+		/// ## Parameters
+		///
+		/// - `internal_asset`: The internal stablecoin that identifies the PSM instance.
+		/// - `asset_id`: The external stablecoin to deposit (must be approved on `internal_asset`).
+		/// - `external_amount`: Amount of external stablecoin to deposit.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::PsmNotFound`]: If no PSM is registered for `internal_asset`.
+		/// - [`Error::UnsupportedAsset`]: If `asset_id` is not approved on this PSM.
+		/// - [`Error::MintingStopped`]: If the per-external circuit breaker is at
+		///   `MintingDisabled` or higher.
+		/// - [`Error::BelowMinimumSwap`]: If `external_amount` is below
+		///   [`Config::MinSwapAmount`].
+		/// - [`Error::ExceedsMaxPsmDebt`]: If minting would exceed this PSM's debt ceiling
+		///   (aggregate or per-asset).
+		/// - [`Error::DecimalsMismatch`]: If live decimals diverged from the snapshot
+		///   taken at registration.
+		/// - [`Error::AmountTooSmallAfterConversion`]: If the conversion to the counter-asset
+		///   rounds to zero; swap would transfer nothing.
+		///
+		/// ## Events
+		///
+		/// - [`Event::Minted`]: Emitted on successful mint.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::mint(T::MaxExternalAssetsPerPsm::get()))]
 		pub fn mint(
@@ -647,6 +684,42 @@ pub mod pallet {
 		}
 
 		/// Swap internal for external stablecoin on a specific PSM instance.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be `Signed` by the user performing the swap.
+		///
+		/// ## Details
+		///
+		/// Burns `amount` of `internal_asset` from the caller minus fee (transferred to
+		/// the instance's [`PsmInfo::fee_destination`]), then transfers the resulting
+		/// amount in `asset_id` from the PSM reserve to the caller. The fee is
+		/// calculated using ceiling rounding (`mul_ceil`), ensuring the protocol never
+		/// undercharges.
+		///
+		/// ## Parameters
+		///
+		/// - `internal_asset`: The internal stablecoin that identifies the PSM instance.
+		/// - `asset_id`: The external stablecoin to receive (must be approved on `internal_asset`).
+		/// - `amount`: Amount of `internal_asset` to redeem.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::PsmNotFound`]: If no PSM is registered for `internal_asset`.
+		/// - [`Error::UnsupportedAsset`]: If `asset_id` is not approved on this PSM.
+		/// - [`Error::AllSwapsStopped`]: If the per-external circuit breaker is at
+		///   `AllDisabled`.
+		/// - [`Error::BelowMinimumSwap`]: If `amount` is below [`Config::MinSwapAmount`].
+		/// - [`Error::InsufficientReserve`]: If the PSM holds less of `asset_id` than the
+		///   redemption requires.
+		/// - [`Error::DecimalsMismatch`]: If live decimals diverged from the snapshot
+		///   taken at registration.
+		/// - [`Error::AmountTooSmallAfterConversion`]: If the conversion to the counter-asset
+		///   rounds to zero; swap would transfer nothing.
+		///
+		/// ## Events
+		///
+		/// - [`Event::Redeemed`]: Emitted on successful redemption.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::redeem())]
 		pub fn redeem(
@@ -735,7 +808,26 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set the minting fee for an `(internal, external)` pair.
+		/// Set the minting fee for an `(internal_asset, asset_id)` pair.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be [`Config::ManagerOrigin`] at the `Full` level.
+		///
+		/// ## Parameters
+		///
+		/// - `internal_asset`: The PSM instance to configure.
+		/// - `asset_id`: The external stablecoin whose minting fee is being updated.
+		/// - `fee`: The new minting fee.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::InsufficientPrivilege`]: If the origin only has `Emergency` privileges.
+		/// - [`Error::AssetNotApproved`]: If `asset_id` is not approved on `internal_asset`.
+		///
+		/// ## Events
+		///
+		/// - [`Event::MintingFeeUpdated`]: Emitted with old and new values.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::set_minting_fee())]
 		pub fn set_minting_fee(
@@ -761,7 +853,26 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set the redemption fee for an `(internal, external)` pair.
+		/// Set the redemption fee for an `(internal_asset, asset_id)` pair.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be [`Config::ManagerOrigin`] at the `Full` level.
+		///
+		/// ## Parameters
+		///
+		/// - `internal_asset`: The PSM instance to configure.
+		/// - `asset_id`: The external stablecoin whose redemption fee is being updated.
+		/// - `fee`: The new redemption fee.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::InsufficientPrivilege`]: If the origin only has `Emergency` privileges.
+		/// - [`Error::AssetNotApproved`]: If `asset_id` is not approved on `internal_asset`.
+		///
+		/// ## Events
+		///
+		/// - [`Event::RedemptionFeeUpdated`]: Emitted with old and new values.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::set_redemption_fee())]
 		pub fn set_redemption_fee(
@@ -788,6 +899,25 @@ pub mod pallet {
 		}
 
 		/// Set the absolute PSM debt ceiling of a specific PSM instance.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be [`Config::ManagerOrigin`]. Both `Full` and `Emergency` levels may use
+		/// this call.
+		///
+		/// ## Parameters
+		///
+		/// - `internal_asset`: The PSM instance to configure.
+		/// - `value`: The new absolute debt ceiling, in internal-asset units.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::InsufficientPrivilege`]: If the origin level cannot set the debt ceiling.
+		/// - [`Error::PsmNotFound`]: If no PSM is registered for `internal_asset`.
+		///
+		/// ## Events
+		///
+		/// - [`Event::MaxDebtUpdated`]: Emitted with old and new values.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::set_max_debt())]
 		pub fn set_max_debt(
@@ -811,6 +941,25 @@ pub mod pallet {
 		}
 
 		/// Set the per-external circuit breaker on a PSM instance.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be [`Config::ManagerOrigin`]. Both `Full` and `Emergency` levels may use
+		/// this call.
+		///
+		/// ## Parameters
+		///
+		/// - `internal_asset`: The PSM instance to configure.
+		/// - `asset_id`: The external stablecoin whose status is being updated.
+		/// - `status`: The new circuit breaker level for that external.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::AssetNotApproved`]: If `asset_id` is not approved on `internal_asset`.
+		///
+		/// ## Events
+		///
+		/// - [`Event::AssetStatusUpdated`]: Emitted on a successful update.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::set_asset_status())]
 		pub fn set_asset_status(
@@ -837,6 +986,26 @@ pub mod pallet {
 		///
 		/// Weights are normalised against the sum of weights within the same instance:
 		/// `max_asset_debt = (weight / sum_of_weights) * info.max_debt`.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be [`Config::ManagerOrigin`]. Both `Full` and `Emergency` levels may use
+		/// this call.
+		///
+		/// ## Parameters
+		///
+		/// - `internal_asset`: The PSM instance to configure.
+		/// - `asset_id`: The external stablecoin whose ceiling weight is being updated.
+		/// - `weight`: The new ceiling weight. Zero disables minting for this external.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::InsufficientPrivilege`]: If the origin level cannot set ceiling weights.
+		/// - [`Error::AssetNotApproved`]: If `asset_id` is not approved on `internal_asset`.
+		///
+		/// ## Events
+		///
+		/// - [`Event::AssetCeilingWeightUpdated`]: Emitted with old and new values.
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::set_asset_ceiling_weight())]
 		pub fn set_asset_ceiling_weight(
@@ -863,6 +1032,36 @@ pub mod pallet {
 		}
 
 		/// Approve an external stablecoin on a PSM instance.
+		///
+		/// Snapshots the external asset's live decimals at registration time and
+		/// increments [`PsmInfo::external_count`].
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be [`Config::ManagerOrigin`] at the `Full` level.
+		///
+		/// ## Parameters
+		///
+		/// - `internal_asset`: The PSM instance to approve the external on.
+		/// - `asset_id`: The external stablecoin to approve.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::InsufficientPrivilege`]: If the origin only has `Emergency` privileges.
+		/// - [`Error::PsmNotFound`]: If no PSM is registered for `internal_asset`.
+		/// - [`Error::TooManyAssets`]: If the PSM is already at
+		///   [`Config::MaxExternalAssetsPerPsm`].
+		/// - [`Error::AssetAlreadyApproved`]: If `asset_id` is already approved on this PSM.
+		/// - [`Error::AssetDoesNotExist`]: If `asset_id` does not exist in the underlying
+		///   fungibles backend.
+		/// - [`Error::DecimalsMismatch`]: If the internal asset's live decimals diverged from
+		///   the snapshot in [`PsmInfo`].
+		/// - [`Error::DecimalsRangeExceeded`]: If `|asset_decimals − internal_decimals|`
+		///   exceeds [`MAX_DECIMALS_DIFF`].
+		///
+		/// ## Events
+		///
+		/// - [`Event::ExternalAssetAdded`]: Emitted on a successful approval.
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::add_external_asset())]
 		pub fn add_external_asset(
@@ -916,7 +1115,29 @@ pub mod pallet {
 
 		/// Remove an external stablecoin from a PSM instance.
 		///
-		/// The external must have zero outstanding debt on this instance.
+		/// Wipes the external's per-instance state (status, decimals, fees, ceiling
+		/// weight, debt counter) and decrements [`PsmInfo::external_count`]. The
+		/// external must have zero outstanding debt on this instance.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be [`Config::ManagerOrigin`] at the `Full` level.
+		///
+		/// ## Parameters
+		///
+		/// - `internal_asset`: The PSM instance to remove the external from.
+		/// - `asset_id`: The external stablecoin to remove.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::InsufficientPrivilege`]: If the origin only has `Emergency` privileges.
+		/// - [`Error::PsmNotFound`]: If no PSM is registered for `internal_asset`.
+		/// - [`Error::AssetNotApproved`]: If `asset_id` is not approved on this PSM.
+		/// - [`Error::AssetHasDebt`]: If the external still has non-zero outstanding debt.
+		///
+		/// ## Events
+		///
+		/// - [`Event::ExternalAssetRemoved`]: Emitted on a successful removal.
 		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::remove_external_asset())]
 		pub fn remove_external_asset(
