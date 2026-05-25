@@ -66,13 +66,17 @@ impl<T: frame_system::Config> snowbridge_pallet_inbound_queue::WeightInfo for We
 	/// Proof: `EthereumSystem::PricingParameters` (`max_values`: Some(1), `max_size`: Some(112), added: 607, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn submit() -> Weight {
+	fn submit(n: u32, s: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `586`
 		//  Estimated: `4051`
 		// Minimum execution time: 165_953_000 picoseconds.
 		Weight::from_parts(171_518_000, 0)
 			.saturating_add(Weight::from_parts(0, 4051))
+			// Per proof-node cost: ~3 ms / node from receipt-trie traversal.
+			.saturating_add(Weight::from_parts(3_000_000, 0).saturating_mul(n.into()))
+			// Per receipt-byte cost: ~2 us / byte from RLP decode and log scan.
+			.saturating_add(Weight::from_parts(2_000, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
