@@ -242,13 +242,13 @@ impl<T: Config> Token<T> for RuntimeCosts {
 	}
 
 	fn weight(&self) -> Weight {
-		self.new_weight::<T>()
+		self.weight_with_access_list::<T>()
 	}
 }
 
 impl RuntimeCosts {
 	/// Weight for opcodes without cold/hot pricing (everything except storage).
-	fn legacy_weight<T: Config>(&self) -> Weight {
+	fn opcode_weight<T: Config>(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match *self {
 			HostFn => cost_args!(noop_host_fn, 1),
@@ -394,9 +394,9 @@ impl RuntimeCosts {
 	}
 
 	/// Cold/hot weight for storage opcodes; other variants fall through to
-	/// `legacy_weight`. Cold pairs add `access_list_touch_cold` +
+	/// `opcode_weight`. Cold pairs add `access_list_touch_cold` +
 	/// `access_list_rollback_amortization`; hot pairs add `access_list_touch_hot`.
-	fn new_weight<T: Config>(&self) -> Weight {
+	fn weight_with_access_list<T: Config>(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match self {
 			GetStorage { len, costs } => Self::cold_hot_weight::<T>(
@@ -424,11 +424,11 @@ impl RuntimeCosts {
 				cost_storage!(write, take_storage, *len),
 				cost_storage!(write_hot, take_storage_hot, *len),
 			),
-			_ => self.legacy_weight::<T>(),
+			_ => self.opcode_weight::<T>(),
 		}
 	}
 
-	/// Cold/hot dispatch shared by `new_weight`'s storage arms. The cold
+	/// Cold/hot dispatch shared by `weight_with_access_list`'s storage arms. The cold
 	/// bench doubles as the `None` (no-access) fallback — it's the substrate
 	/// cost without the access-list overhead the cold arm layers on top.
 	fn cold_hot_weight<T: Config>(is_cold: Option<bool>, cold: Weight, hot: Weight) -> Weight {

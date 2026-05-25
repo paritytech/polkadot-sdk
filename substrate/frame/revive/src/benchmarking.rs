@@ -1886,9 +1886,7 @@ mod benchmarks {
 
 	// Hot variant of `seal_get_storage`. See `seal_set_storage_hot`.
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn seal_get_storage_hot(
-		n: Linear<0, { limits::STORAGE_BYTES }>,
-	) -> Result<(), BenchmarkError> {
+	fn seal_get_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1924,9 +1922,7 @@ mod benchmarks {
 
 	// Hot variant of `contains_storage`. See `seal_set_storage_hot`.
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn contains_storage_hot(
-		n: Linear<0, { limits::STORAGE_BYTES }>,
-	) -> Result<(), BenchmarkError> {
+	fn contains_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
