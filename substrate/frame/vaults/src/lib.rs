@@ -795,21 +795,6 @@ pub mod pallet {
 			)
 		}
 
-		#[pallet::call_index(23)]
-		#[pallet::weight(T::WeightInfo::set_param())]
-		pub fn set_minimum_total_stakes(
-			origin: OriginFor<T>,
-			collateral_id: T::AssetId,
-			value: BalanceOf<T>,
-		) -> DispatchResult {
-			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			ensure!(matches!(level, VaultsManagerLevel::Full), Error::<T>::InsufficientPrivilege);
-			helpers::update_branch_config::<T>(
-				&collateral_id,
-				BranchConfigUpdate::MinimumTotalStakes(value),
-			)
-		}
-
 		#[pallet::call_index(17)]
 		#[pallet::weight(T::WeightInfo::set_param())]
 		pub fn set_borrow_rate_bounds(

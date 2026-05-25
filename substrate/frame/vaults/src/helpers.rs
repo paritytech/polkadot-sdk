@@ -21,6 +21,7 @@ use frame::{
 	deps::{
 		frame_support::{
 			require_transactional,
+			storage::with_storage_layer,
 			traits::{
 				fungible::{Balanced as FungibleBalanced, Mutate as FungibleMutate},
 				fungibles::{

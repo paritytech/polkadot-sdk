@@ -119,10 +119,11 @@ pub fn redist_per_stake<Balance: FixedPointOperand>(
 	if num.is_zero() {
 		return Some(FixedU128::zero());
 	}
-	assert!(!denom.is_zero(), "redist_per_stake: denom == 0; caller must short-circuit");
+	if denom.is_zero() {
+		return None;
+	}
 	let n: u128 = num.unique_saturated_into();
 	let d: u128 = denom.unique_saturated_into();
-	assert!(d > 0);
 	multiply_by_rational_with_rounding(n, FixedU128::DIV, d, Rounding::Down)
 		.map(FixedU128::from_inner)
 }
@@ -135,10 +136,11 @@ pub fn redist_weight_per_stake<Balance: FixedPointOperand>(
 	if redistributed_debt.is_zero() || avg_rate.is_zero() {
 		return Some(FixedU128::zero());
 	}
-	assert!(!denom.is_zero(), "redist_weight_per_stake: denom == 0; caller must short-circuit");
+	if denom.is_zero() {
+		return None;
+	}
 	let n: u128 = redistributed_debt.unique_saturated_into();
 	let d: u128 = denom.unique_saturated_into();
-	assert!(d > 0);
 	multiply_by_rational_with_rounding(n, avg_rate.into_inner(), d, Rounding::Down)
 		.map(FixedU128::from_inner)
 }

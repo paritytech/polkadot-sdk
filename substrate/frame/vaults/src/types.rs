@@ -151,10 +151,13 @@ pub struct RedistSnapshot {
 
 /// Per-vault state. The vault's collateral lives on the `VaultCollateral`
 /// hold for `(owner, collateral_id)` and is intentionally NOT stored here.
-/// `redistribution_stake` is the at-open snapshot of the vault's
-/// redistribution share: deposits/withdrawals do not change it, matching the
-/// branch's frozen stake accounting. Reads of "current collateral" go through
-/// `held_collateral(...)`, not `redistribution_stake`.
+/// `redistribution_stake` mirrors the vault's *current* eligible collateral:
+/// it must equal the `VaultCollateral` hold while the vault is `Active` or
+/// `Dormant` and is set to zero while the vault is in `FinalRecovery`. The
+/// field is refreshed after every op that changes collateral or eligibility,
+/// always after pending redistribution has been applied, so
+/// `BranchStakes.total == Σ vault.redistribution_stake` over the live
+/// eligible set.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
 )]
@@ -178,7 +181,6 @@ pub struct BranchConfig<Balance, Moment> {
 	pub debt_ceiling: Balance,
 	pub minimum_debt: Balance,
 	pub minimum_collateral: Balance,
-	pub minimum_total_stakes: Balance,
 	pub minimum_borrow_rate: FixedU128,
 	pub maximum_borrow_rate: FixedU128,
 	pub upfront_fee_period: Moment,
@@ -199,13 +201,41 @@ pub struct BranchDebt<Balance, Moment> {
 	pub last_interest_update: Moment,
 }
 
-/// Frozen redistribution stake totals for one collateral branch.
+/// Current-collateral redistribution stake totals for one collateral branch.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
 )]
 pub struct BranchStakes<Balance> {
 	pub total: Balance,
 	pub weighted_sum: Balance,
+}
+
+/// Per-branch ownerless rounding residue.
+///
+/// `ownerless_pusd_debt` is debt that exists at the branch level but cannot
+/// be attributed to any specific vault (typically per-stake flooring residue
+/// from a redistribution). `ownerless_pusd_surplus` is the mirror image:
+/// pUSD that arrived without an owner. `add_ownerless_pusd_*` netting keeps
+/// `surplus * debt == 0` so the surplus offsets debt as soon as it appears.
+/// `ownerless_collateral_surplus` is collateral that sits on the
+/// redistribution account but cannot be attributed; it is bookkeeping only,
+/// since the physical balance is already held there.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+	Debug,
+	Default,
+)]
+pub struct BranchRounding<Balance> {
+	pub ownerless_pusd_debt: Balance,
+	pub ownerless_pusd_surplus: Balance,
+	pub ownerless_collateral_surplus: Balance,
 }
 
 /// Per-branch accounting state.
@@ -216,6 +246,7 @@ pub struct BranchState<AccountId, Balance, Moment> {
 	pub total_collateral: Balance,
 	pub debt: BranchDebt<Balance, Moment>,
 	pub stakes: BranchStakes<Balance>,
+	pub rounding: BranchRounding<Balance>,
 	pub redist: RedistSnapshot,
 	pub next_final_recovery_nonce: u128,
 	pub last_dormant_vault_owner: Option<AccountId>,
@@ -296,6 +327,47 @@ impl<AccountId, Balance: FixedPointOperand + Saturating, Moment>
 			.saturating_sub(old_rate.saturating_mul_int(stake))
 			.saturating_add(new_rate.saturating_mul_int(stake));
 	}
+
+	/// Swap a vault's stake contribution after collateral or eligibility has
+	/// changed. The vault rate is unchanged here; rate moves go through
+	/// [`Self::change_vault_rate`].
+	pub fn refresh_vault_stake(&mut self, rate: FixedU128, old_stake: Balance, new_stake: Balance) {
+		self.stakes.total = self.stakes.total.saturating_sub(old_stake).saturating_add(new_stake);
+		self.stakes.weighted_sum = self
+			.stakes
+			.weighted_sum
+			.saturating_sub(rate.saturating_mul_int(old_stake))
+			.saturating_add(rate.saturating_mul_int(new_stake));
+	}
+}
+
+impl<AccountId, Balance: Ord + Saturating + Copy, Moment> BranchState<AccountId, Balance, Moment> {
+	/// Deposit ownerless pUSD debt, netting against any existing ownerless
+	/// surplus first. Preserves the invariant `surplus * debt == 0`.
+	pub fn add_ownerless_pusd_debt(&mut self, amount: Balance) {
+		let offset = core::cmp::min(amount, self.rounding.ownerless_pusd_surplus);
+		self.rounding.ownerless_pusd_surplus =
+			self.rounding.ownerless_pusd_surplus.saturating_sub(offset);
+		self.rounding.ownerless_pusd_debt =
+			self.rounding.ownerless_pusd_debt.saturating_add(amount.saturating_sub(offset));
+	}
+
+	/// Deposit ownerless pUSD surplus, netting against any existing ownerless
+	/// debt first. Preserves the invariant `surplus * debt == 0`.
+	pub fn add_ownerless_pusd_surplus(&mut self, amount: Balance) {
+		let offset = core::cmp::min(amount, self.rounding.ownerless_pusd_debt);
+		self.rounding.ownerless_pusd_debt =
+			self.rounding.ownerless_pusd_debt.saturating_sub(offset);
+		self.rounding.ownerless_pusd_surplus = self
+			.rounding
+			.ownerless_pusd_surplus
+			.saturating_add(amount.saturating_sub(offset));
+	}
+
+	pub fn add_ownerless_collateral_surplus(&mut self, amount: Balance) {
+		self.rounding.ownerless_collateral_surplus =
+			self.rounding.ownerless_collateral_surplus.saturating_add(amount);
+	}
 }
 
 /// Identifier for the parameter changed by an `Event::ParameterUpdated`
@@ -319,7 +391,6 @@ pub enum ParameterId {
 	SafetyCollateralizationRatio,
 	MinimumDebt,
 	MinimumCollateral,
-	MinimumTotalStakes,
 	BorrowRateBounds,
 	UpfrontFeePeriod,
 	RateAdjustmentCooldown,
@@ -335,7 +406,6 @@ pub enum BranchConfigUpdate<Balance, Moment> {
 	SafetyCollateralizationRatio(FixedU128),
 	MinimumDebt(Balance),
 	MinimumCollateral(Balance),
-	MinimumTotalStakes(Balance),
 	BorrowRateBounds { min: FixedU128, max: FixedU128 },
 	UpfrontFeePeriod(Moment),
 	RateAdjustmentCooldown(Moment),
@@ -350,7 +420,6 @@ impl<Balance, Moment> BranchConfigUpdate<Balance, Moment> {
 			Self::SafetyCollateralizationRatio(_) => ParameterId::SafetyCollateralizationRatio,
 			Self::MinimumDebt(_) => ParameterId::MinimumDebt,
 			Self::MinimumCollateral(_) => ParameterId::MinimumCollateral,
-			Self::MinimumTotalStakes(_) => ParameterId::MinimumTotalStakes,
 			Self::BorrowRateBounds { .. } => ParameterId::BorrowRateBounds,
 			Self::UpfrontFeePeriod(_) => ParameterId::UpfrontFeePeriod,
 			Self::RateAdjustmentCooldown(_) => ParameterId::RateAdjustmentCooldown,
@@ -365,7 +434,6 @@ impl<Balance, Moment> BranchConfigUpdate<Balance, Moment> {
 			Self::SafetyCollateralizationRatio(v) => cfg.safety_collateralization_ratio = v,
 			Self::MinimumDebt(v) => cfg.minimum_debt = v,
 			Self::MinimumCollateral(v) => cfg.minimum_collateral = v,
-			Self::MinimumTotalStakes(v) => cfg.minimum_total_stakes = v,
 			Self::BorrowRateBounds { min, max } => {
 				cfg.minimum_borrow_rate = min;
 				cfg.maximum_borrow_rate = max;

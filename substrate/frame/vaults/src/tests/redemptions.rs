@@ -176,13 +176,11 @@ fn dormant_pointer_clears_when_owner_revives_via_borrow() {
 
 // row 19: testZombieTrovePointerGetsResetIfTroveIsResuscitatedViaInterest.
 //
-// Polkadot does NOT auto-revive a Dormant vault when interest accrual pushes
-// debt above MinimumDebt. Per `apply_redemption` and the touch_vault flow,
-// status transitions from Dormant → Active only on owner action that crosses
-// the threshold (see borrow's `dormant_to_active` flag). Pure interest
-// accrual leaves the vault Dormant, so we pin the no-revive behaviour.
+// `touch_vault` auto-revives a Dormant vault once its
+// fully-accrued debt has crossed `MinimumDebt`. Long-horizon interest accrual
+// followed by `poke` should flip status from Dormant back to Active.
 #[test]
-fn dormant_does_not_auto_revive_via_interest_accrual() {
+fn dormant_auto_revives_when_interest_lifts_above_min_debt() {
 	build_and_execute(|| {
 		register_default_branch();
 		// Acct 1 at lower rate so it's the deterministic redemption target.
@@ -190,11 +188,9 @@ fn dormant_does_not_auto_revive_via_interest_accrual() {
 		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(60, 100)));
 		assert_ok!(redeem(DOT, 3, 350));
 
-		// Long horizon — accrued interest grows via update_aggregate_interest /
-		// touch_vault, but derived vault status stays Dormant.
 		advance_time(3650 * ONE_DAY_MS);
 		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(2), 1, DOT));
-		assert!(vault_status(DOT, 1).is_dormant());
+		assert!(vault_status(DOT, 1).is_active());
 	});
 }
 

@@ -65,6 +65,7 @@ pub fn register_branch<T: Config>(
 				total: BalanceOf::<T>::zero(),
 				weighted_sum: BalanceOf::<T>::zero(),
 			},
+			rounding: crate::types::BranchRounding::default(),
 			redist: RedistSnapshot::default(),
 			next_final_recovery_nonce: 0,
 			last_dormant_vault_owner: None,

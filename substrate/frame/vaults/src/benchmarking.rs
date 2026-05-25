@@ -62,7 +62,6 @@ fn default_branch_config<T: Config>() -> BranchConfig<BalanceOf<T>, MomentOf<T>>
 		debt_ceiling: balance::<T>(100_000_000),
 		minimum_debt: balance::<T>(200),
 		minimum_collateral: balance::<T>(1),
-		minimum_total_stakes: balance::<T>(100),
 		minimum_borrow_rate: rate(1, 1_000),
 		maximum_borrow_rate: rate(100, 100),
 		upfront_fee_period: (7 * DAY_MS).saturated_into(),
@@ -576,7 +575,7 @@ mod benchmarks {
 		{
 			if Vaults::<T>::contains_key(&asset, &owner) {
 				let _ = crate::helpers::update_aggregate_interest::<T>(&asset, now);
-				let _ = crate::helpers::touch_vault::<T>(&asset, &owner, now);
+				let _ = crate::helpers::touch_vault::<T>(&asset, &owner, now, None);
 				let _ = T::VaultLists::neighbors(&rate_list_id(&asset), &owner);
 			}
 		}

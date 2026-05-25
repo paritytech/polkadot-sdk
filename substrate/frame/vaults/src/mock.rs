@@ -339,8 +339,8 @@ pub fn build_and_execute(test: impl FnOnce()) {
 }
 
 /// Default branch config: MCR=110%, ICR=120%, Safety=130%, ceiling 100M,
-/// MinDebt=200, MinColl=1, MinTotalStakes=100, rate bounds 0.1%-100%,
-/// 7d upfront fee, 1d rate-cooldown, 5% redistribution penalty.
+/// MinDebt=200, MinColl=1, rate bounds 0.1%-100%, 7d upfront fee,
+/// 1d rate-cooldown, 5% redistribution penalty.
 pub fn default_branch_config() -> pallet_vaults::BranchConfig<Balance, Moment> {
 	pallet_vaults::BranchConfig {
 		minimum_collateralization_ratio: FixedU128::from_rational(110u128, 100u128),
@@ -349,7 +349,6 @@ pub fn default_branch_config() -> pallet_vaults::BranchConfig<Balance, Moment> {
 		debt_ceiling: 100_000_000,
 		minimum_debt: 200,
 		minimum_collateral: 1,
-		minimum_total_stakes: 100,
 		minimum_borrow_rate: FixedU128::from_rational(1u128, 1_000u128),
 		maximum_borrow_rate: FixedU128::from_rational(100u128, 100u128),
 		upfront_fee_period: 7 * 24 * 3_600 * 1_000,

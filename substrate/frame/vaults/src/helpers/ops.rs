@@ -28,9 +28,6 @@ pub fn open_vault<T: Config>(
 
 	let upfront_fee = open_upfront_fee::<T>(&bs_before, &cfg, initial_debt, annual_rate);
 
-	// Stake is frozen at open: the per-stake redistribution math relies on
-	// `bs.stakes.total` matching the sum of vault stakes for the lifetime of
-	// the vault. See `Vault.redistribution_stake` doc.
 	let vault = Vault {
 		debt: VaultDebt { principal: initial_debt, interest: upfront_fee },
 		annual_rate,
@@ -83,9 +80,10 @@ pub fn open_vault<T: Config>(
 	Ok(())
 }
 
-/// Permissionless deposit. The protocol forbids depositing into a `Dormant`
-/// vault without same-op revival; since this call does not change debt, a
-/// `Dormant` target is rejected outright. Owners must use `borrow` to revive.
+/// Permissionless deposit. This call does not change debt, so a target that
+/// is still `Dormant` after `touch_vault` (i.e. accrued interest hasn't lifted
+/// debt above `MinimumDebt`) is rejected. If touch auto-revived the vault to
+/// `Active`, the deposit proceeds against the now-Active row.
 #[require_transactional]
 pub fn deposit_collateral_for<T: Config>(
 	from: T::AccountId,
@@ -97,7 +95,8 @@ pub fn deposit_collateral_for<T: Config>(
 	ensure!(Vaults::<T>::contains_key(&collateral_id, &owner), Error::<T>::VaultNotFound);
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(&collateral_id, now)?;
-	let vault = touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
+	let mut vault =
+		touch_vault::<T>(&collateral_id, &owner, now, None)?.ok_or(Error::<T>::VaultNotFound)?;
 	ensure!(!vault.status::<T>(&collateral_id, &owner).is_dormant(), Error::<T>::DebtBelowMinimum);
 
 	T::CollateralAssets::transfer_and_hold(
@@ -111,11 +110,17 @@ pub fn deposit_collateral_for<T: Config>(
 		Fortitude::Polite,
 	)?;
 
+	let old_stake = vault.redistribution_stake;
+	let new_stake = old_stake.saturating_add(amount);
+	vault.redistribution_stake = new_stake;
+
 	BranchStates::<T>::try_mutate(&collateral_id, |maybe| -> Result<_, DispatchError> {
 		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
 		bs.total_collateral = bs.total_collateral.saturating_add(amount);
+		bs.refresh_vault_stake(vault.annual_rate, old_stake, new_stake);
 		Ok(())
 	})?;
+	Vaults::<T>::insert(&collateral_id, &owner, &vault);
 
 	Pallet::<T>::deposit_event(Event::CollateralDeposited { collateral_id, owner, from, amount });
 	Ok(())
@@ -134,7 +139,8 @@ pub fn withdraw_collateral<T: Config>(
 	let now = T::TimeProvider::now();
 	let price = T::Oracle::provide_price(&collateral_id)?.price;
 	update_aggregate_interest::<T>(&collateral_id, now)?;
-	let vault = touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
+	let mut vault =
+		touch_vault::<T>(&collateral_id, &owner, now, None)?.ok_or(Error::<T>::VaultNotFound)?;
 	ensure!(
 		!vault.status::<T>(&collateral_id, &owner).is_final_recovery(),
 		Error::<T>::VaultInFinalRecovery
@@ -163,6 +169,7 @@ pub fn withdraw_collateral<T: Config>(
 	let pre_tcr = compute_tcr::<T>(&bs_before, price, now)?;
 	let mut bs_after = bs_before.clone();
 	bs_after.remove_collateral(amount);
+	bs_after.refresh_vault_stake(vault.annual_rate, vault.redistribution_stake, new_coll);
 	let post_tcr = compute_tcr::<T>(&bs_after, price, now)?;
 	enforce_mode_rules::<T>(&cfg, &bs_before, pre_tcr, post_tcr, false)?;
 
@@ -177,6 +184,8 @@ pub fn withdraw_collateral<T: Config>(
 		Fortitude::Polite,
 	)?;
 
+	vault.redistribution_stake = new_coll;
+	Vaults::<T>::insert(&collateral_id, &owner, &vault);
 	BranchStates::<T>::insert(&collateral_id, &bs_after);
 	Pallet::<T>::deposit_event(Event::CollateralWithdrawn {
 		collateral_id,
@@ -202,8 +211,14 @@ pub fn borrow<T: Config>(
 	let now = T::TimeProvider::now();
 	let price = T::Oracle::provide_price(&collateral_id)?.price;
 	update_aggregate_interest::<T>(&collateral_id, now)?;
-	let mut vault =
-		touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
+	// If the caller isn't changing the rate, hand the hint to touch_vault so
+	// a Dormant→Active revival inside the touch uses the user-supplied O(1)
+	// position instead of an O(N) `find_position` walk. With a rate change,
+	// the hint is for the new rate; touch would insert at the old rate, so
+	// pass None and let the subsequent `re_insert` consume the hint.
+	let touch_hint = if maybe_new_rate.is_none() { Some(hint.clone()) } else { None };
+	let mut vault = touch_vault::<T>(&collateral_id, &owner, now, touch_hint)?
+		.ok_or(Error::<T>::VaultNotFound)?;
 	let pre_status = vault.status::<T>(&collateral_id, &owner);
 	ensure!(!pre_status.is_final_recovery(), Error::<T>::VaultInFinalRecovery);
 
@@ -300,7 +315,7 @@ pub fn repay_for<T: Config>(
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(&collateral_id, now)?;
 	let mut vault =
-		touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
+		touch_vault::<T>(&collateral_id, &owner, now, None)?.ok_or(Error::<T>::VaultNotFound)?;
 	let pre_status = vault.status::<T>(&collateral_id, &owner);
 	ensure!(!pre_status.is_final_recovery(), Error::<T>::VaultInFinalRecovery);
 
@@ -363,7 +378,7 @@ pub fn change_rate<T: Config>(
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(&collateral_id, now)?;
 	let mut vault =
-		touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
+		touch_vault::<T>(&collateral_id, &owner, now, None)?.ok_or(Error::<T>::VaultNotFound)?;
 	ensure!(vault.status::<T>(&collateral_id, &owner).is_active(), Error::<T>::InvalidVaultStatus);
 	let old_rate = vault.annual_rate;
 	if old_rate == new_rate {
@@ -421,7 +436,8 @@ pub fn close_vault<T: Config>(
 	let now = T::TimeProvider::now();
 	let price = T::Oracle::provide_price(&collateral_id)?.price;
 	update_aggregate_interest::<T>(&collateral_id, now)?;
-	let vault = touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
+	let vault =
+		touch_vault::<T>(&collateral_id, &owner, now, None)?.ok_or(Error::<T>::VaultNotFound)?;
 	let status = vault.status::<T>(&collateral_id, &owner);
 	ensure!(vault.debt.total().is_zero(), Error::<T>::InsufficientRepayment);
 
@@ -509,7 +525,7 @@ pub fn poke<T: Config>(
 ) -> Result<(), DispatchError> {
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(&collateral_id, now)?;
-	touch_vault::<T>(&collateral_id, &owner, now).map(|_| ())
+	touch_vault::<T>(&collateral_id, &owner, now, None).map(|_| ())
 }
 
 #[require_transactional]
@@ -521,7 +537,8 @@ pub fn enter_final_recovery<T: Config>(
 	let now = T::TimeProvider::now();
 	let price = T::Oracle::provide_price(&collateral_id)?.price;
 	update_aggregate_interest::<T>(&collateral_id, now)?;
-	let vault = touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
+	let mut vault =
+		touch_vault::<T>(&collateral_id, &owner, now, None)?.ok_or(Error::<T>::VaultNotFound)?;
 	ensure!(vault.status::<T>(&collateral_id, &owner).is_active(), Error::<T>::InvalidVaultStatus);
 
 	let cfg = branch_cfg_of::<T>(&collateral_id)?;
@@ -535,23 +552,23 @@ pub fn enter_final_recovery<T: Config>(
 		.ok_or(Error::<T>::UnsafeCollateralizationRatio)?;
 	ensure!(cr < cfg.minimum_collateralization_ratio, Error::<T>::UnsafeCollateralizationRatio);
 
-	// Last redistribution recipient: if removing the vault would leave
-	// `stakes.total - vault.redistribution_stake == 0` for the redistribution recipients,
-	// it is the last eligible. We approximate by counting Active+Dormant
-	// vaults — but with the storage shape we have, the cheap proxy is
-	// `bs.stakes.total == vault.redistribution_stake`.
+	// Last eligible redistribution recipient: the candidate is the only
+	// stake-bearer left, so `bs.stakes.total == vault.redistribution_stake`.
 	let bs_check = branch_state_of::<T>(&collateral_id)?;
 	ensure!(bs_check.stakes.total == vault.redistribution_stake, Error::<T>::NotLastEligibleVault);
 
 	T::VaultLists::remove(&rate_list_id(&collateral_id), &owner)
 		.map_err(|_| Error::<T>::RateIndexInvariantBroken)?;
+	let stake_weighted = vault.annual_rate.saturating_mul_int(vault.redistribution_stake);
+	let detached_stake = vault.redistribution_stake;
 	BranchStates::<T>::try_mutate(&collateral_id, |maybe| -> Result<_, DispatchError> {
 		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-		let stake_weighted = vault.annual_rate.saturating_mul_int(vault.redistribution_stake);
-		bs.stakes.total = bs.stakes.total.saturating_sub(vault.redistribution_stake);
+		bs.stakes.total = bs.stakes.total.saturating_sub(detached_stake);
 		bs.stakes.weighted_sum = bs.stakes.weighted_sum.saturating_sub(stake_weighted);
 		Ok(())
 	})?;
+	vault.redistribution_stake = BalanceOf::<T>::zero();
+	Vaults::<T>::insert(&collateral_id, &owner, &vault);
 	recovery::append::<T>(&collateral_id, owner.clone())?;
 
 	Pallet::<T>::deposit_event(Event::VaultStatusChanged {
@@ -581,7 +598,8 @@ pub fn exit_final_recovery<T: Config>(
 	let now = T::TimeProvider::now();
 	let price = T::Oracle::provide_price(&collateral_id)?.price;
 	update_aggregate_interest::<T>(&collateral_id, now)?;
-	let vault = touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
+	let mut vault =
+		touch_vault::<T>(&collateral_id, &owner, now, None)?.ok_or(Error::<T>::VaultNotFound)?;
 	ensure!(
 		vault.status::<T>(&collateral_id, &owner).is_final_recovery(),
 		Error::<T>::InvalidVaultStatus
@@ -602,18 +620,22 @@ pub fn exit_final_recovery<T: Config>(
 	let new_status = if rejoin_active { VaultStatus::Active } else { VaultStatus::Dormant };
 
 	recovery::remove::<T>(&collateral_id, &owner)?;
+	// Stamp the snapshot and set redistribution_stake to the
+	// current held collateral *before* rejoining recipient accounting.
+	let bs_redist = branch_state_of::<T>(&collateral_id)?.redist;
+	vault.redist_snapshot = bs_redist;
+	vault.redistribution_stake = coll;
+	let stake_weighted = vault.annual_rate.saturating_mul_int(coll);
 	BranchStates::<T>::try_mutate(&collateral_id, |maybe| -> Result<_, DispatchError> {
 		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-		bs.stakes.total = bs.stakes.total.saturating_add(vault.redistribution_stake);
-		bs.stakes.weighted_sum = bs
-			.stakes
-			.weighted_sum
-			.saturating_add(vault.annual_rate.saturating_mul_int(vault.redistribution_stake));
+		bs.stakes.total = bs.stakes.total.saturating_add(coll);
+		bs.stakes.weighted_sum = bs.stakes.weighted_sum.saturating_add(stake_weighted);
 		if !rejoin_active && !total_debt.is_zero() {
 			bs.last_dormant_vault_owner = Some(owner.clone());
 		}
 		Ok(())
 	})?;
+	Vaults::<T>::insert(&collateral_id, &owner, &vault);
 	if rejoin_active {
 		T::VaultLists::insert(rate_list_id(&collateral_id), owner.clone(), vault.annual_rate, hint)
 			.map_err(|_| Error::<T>::InvalidPositionHints)?;
@@ -640,7 +662,7 @@ pub fn on_idle_walk<T: Config>(remaining: Weight) -> Weight {
 		if !Vaults::<T>::contains_key(collateral_id, owner) {
 			return true;
 		}
-		let _ = touch_vault::<T>(collateral_id, owner, now);
+		let _ = with_storage_layer(|| touch_vault::<T>(collateral_id, owner, now, None));
 		true
 	};
 	for collateral_id in Branches::<T>::get().iter() {

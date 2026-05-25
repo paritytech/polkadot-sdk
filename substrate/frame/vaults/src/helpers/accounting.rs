@@ -15,7 +15,8 @@ pub fn compute_tcr<T: Config>(
 		.saturating_add(bs.debt.minted_interest)
 		.saturating_add(pending_aggregate)
 		.saturating_add(bs.debt.pending_redist_principal)
-		.saturating_add(bs.debt.bad_debt);
+		.saturating_add(bs.debt.bad_debt)
+		.saturating_add(bs.rounding.ownerless_pusd_debt);
 	if total_debt.is_zero() {
 		// Branch with no debt is treated as "infinitely well-collateralized".
 		return Ok(FixedU128::max_value());
@@ -180,15 +181,22 @@ pub(crate) fn pending_touch_for<T: Config>(
 ///
 /// The caller MUST have already called `update_aggregate_interest` for this
 /// branch in the same dispatch.
+///
+/// `hint` is consulted only when a Dormant vault's freshly accrued debt has
+/// risen above `MinimumDebt` and needs to rejoin the rate index. `None`
+/// triggers an unhinted `find_position` walk.
+#[require_transactional]
 pub fn touch_vault<T: Config>(
 	collateral_id: &T::AssetId,
 	owner: &T::AccountId,
 	now: MomentOf<T>,
+	hint: Option<Position<T::AccountId>>,
 ) -> Result<Option<Vault<BalanceOf<T>, MomentOf<T>>>, DispatchError> {
 	let mut vault = match Vaults::<T>::get(collateral_id, owner) {
 		Some(v) => v,
 		None => return Ok(None),
 	};
+	let pre_status = vault.status::<T>(collateral_id, owner);
 	let mut bs = branch_state_of::<T>(collateral_id)?;
 	let pending = pending_touch_for::<T>(&vault, &bs, now);
 
@@ -222,6 +230,9 @@ pub fn touch_vault<T: Config>(
 		vault.debt.principal = vault.debt.principal.saturating_add(pending.principal);
 	}
 	if !pending.collateral.is_zero() {
+		// The collateral was already part of `bs.total_collateral` at
+		// `finalize_liquidation` time; this only moves it from the
+		// redistribution account onto the owner's hold.
 		T::CollateralAssets::transfer_on_hold(
 			collateral_id.clone(),
 			&HoldReason::VaultCollateral.into(),
@@ -232,7 +243,6 @@ pub fn touch_vault<T: Config>(
 			Restriction::OnHold,
 			Fortitude::Polite,
 		)?;
-		bs.total_collateral = bs.total_collateral.saturating_add(pending.collateral);
 	}
 
 	if vault.redist_snapshot != bs.redist {
@@ -240,11 +250,56 @@ pub fn touch_vault<T: Config>(
 	}
 	vault.last_interest_update = now;
 
-	// FinalRecovery exit is not auto-applied here; callers (typically the
-	// dedicated `exit_final_recovery` extrinsic) own the rate-index reinsertion
-	// so they can supply the O(1) hints.
+	// FinalRecovery vaults are excluded from stake accounting entirely; their
+	// `redistribution_stake` is zeroed on entry and stays zero until they exit.
+	if !pre_status.is_final_recovery() {
+		let new_held = T::CollateralAssets::balance_on_hold(
+			collateral_id.clone(),
+			&HoldReason::VaultCollateral.into(),
+			owner,
+		);
+		if vault.redistribution_stake != new_held {
+			bs.refresh_vault_stake(vault.annual_rate, vault.redistribution_stake, new_held);
+			vault.redistribution_stake = new_held;
+		}
+	}
+
+	let revived_dormant = if pre_status.is_dormant() {
+		let cfg = branch_cfg_of::<T>(collateral_id)?;
+		if vault.debt.total() >= cfg.minimum_debt {
+			let position = hint.unwrap_or_else(|| {
+				T::VaultLists::find_position(&rate_list_id(collateral_id), vault.annual_rate)
+			});
+			T::VaultLists::insert(
+				rate_list_id(collateral_id),
+				owner.clone(),
+				vault.annual_rate,
+				position,
+			)
+			.map_err(|_| Error::<T>::InvalidPositionHints)?;
+			if bs.last_dormant_vault_owner.as_ref() == Some(owner) {
+				bs.last_dormant_vault_owner = None;
+			}
+			true
+		} else {
+			false
+		}
+	} else {
+		false
+	};
+
 	Vaults::<T>::insert(collateral_id, owner, &vault);
 	BranchStates::<T>::insert(collateral_id, &bs);
+
+	if revived_dormant {
+		Pallet::<T>::deposit_event(Event::VaultStatusChanged {
+			collateral_id: collateral_id.clone(),
+			owner: owner.clone(),
+			old_status: VaultStatus::Dormant,
+			new_status: VaultStatus::Active,
+		});
+	}
+
 	Ok(Some(vault))
 }
 
@@ -294,6 +349,12 @@ pub(super) fn simulate_borrow<T: Config>(
 		.weighted_principal_sum
 		.saturating_sub(weighted_old)
 		.saturating_add(weighted_new);
+	if new_rate != vault.annual_rate {
+		let stake_w_old = vault.annual_rate.saturating_mul_int(vault.redistribution_stake);
+		let stake_w_new = new_rate.saturating_mul_int(vault.redistribution_stake);
+		bs_after.stakes.weighted_sum =
+			bs.stakes.weighted_sum.saturating_sub(stake_w_old).saturating_add(stake_w_new);
+	}
 	let avg = math::average_branch_rate(
 		bs_after.debt.weighted_principal_sum,
 		bs_after.debt.principal.saturating_add(bs_after.debt.pending_redist_principal),

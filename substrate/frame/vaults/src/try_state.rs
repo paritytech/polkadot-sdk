@@ -72,7 +72,13 @@ fn check_branch_identities<T: Config>(
 		);
 		sum_owner_held = sum_owner_held.saturating_add(held);
 		if in_recovery {
+			if !vault.redistribution_stake.is_zero() {
+				return Err("FinalRecovery vault has non-zero redistribution_stake".into());
+			}
 			continue;
+		}
+		if vault.redistribution_stake != held {
+			return Err("vault.redistribution_stake != held collateral".into());
 		}
 		sum_stake = sum_stake.saturating_add(vault.redistribution_stake);
 		let snap = vault.redist_snapshot;
@@ -106,14 +112,23 @@ fn check_branch_identities<T: Config>(
 		&Pallet::<T>::redistribution_account(),
 	);
 	let physical = sum_owner_held.saturating_add(held_redist);
-	let expected_total = physical.saturating_sub(sum_pending_collat_share);
-	let coll_drift = if bs.total_collateral >= expected_total {
-		bs.total_collateral.saturating_sub(expected_total)
+	if bs.total_collateral != physical {
+		return Err("total_collateral != Σ owner-held + redistribution-account hold".into());
+	}
+
+	// The redistribution account's hold = Σ pending collateral shares vaults
+	// will pick up on next touch + ownerless collateral surplus. Per-vault
+	// flooring may leave shares slightly below the held amount; treat the gap
+	// as tolerance plus the explicit ownerless bucket.
+	let claimed_plus_surplus =
+		sum_pending_collat_share.saturating_add(bs.rounding.ownerless_collateral_surplus);
+	let collat_drift = if held_redist >= claimed_plus_surplus {
+		held_redist.saturating_sub(claimed_plus_surplus)
 	} else {
-		expected_total.saturating_sub(bs.total_collateral)
+		claimed_plus_surplus.saturating_sub(held_redist)
 	};
-	if coll_drift > tolerance {
-		return Err("total_collateral drift exceeds rounding tolerance".into());
+	if collat_drift > tolerance {
+		return Err("pending collateral share drift exceeds rounding tolerance".into());
 	}
 	Ok(())
 }
