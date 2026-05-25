@@ -17,12 +17,15 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for ethereum_beacon_client.
 pub trait WeightInfo {
-    fn submit() -> Weight;
+    /// Weight of `submit`, parameterized by:
+    /// - `n`: number of nodes in the receipt proof,
+    /// - `s`: size in bytes of the receipt referenced by the proof.
+    fn submit(n: u32, s: u32) -> Weight;
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-    fn submit() -> Weight {
+    fn submit(_n: u32, _s: u32) -> Weight {
         Weight::from_parts(70_000_000, 0)
             .saturating_add(Weight::from_parts(0, 3601))
             .saturating_add(RocksDbWeight::get().reads(2))

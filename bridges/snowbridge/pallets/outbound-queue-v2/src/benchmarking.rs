@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
-use crate::fixture::make_submit_delivery_receipt_message;
 use codec::Encode;
 use frame_benchmarking::v2::*;
 use frame_support::{traits::Hooks, BoundedVec};
@@ -20,7 +19,7 @@ use crate::Pallet as OutboundQueue;
 )]
 mod benchmarks {
 	use super::*;
-	use frame_support::assert_ok;
+	use frame_support::{assert_ok, traits::Get};
 
 	/// Build `Upgrade` message with `MaxMessagePayloadSize`, in the worst-case.
 	fn build_message<T: Config>() -> (Message, OutboundMessage) {
@@ -151,12 +150,13 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn submit_delivery_receipt() -> Result<(), BenchmarkError> {
+	fn submit_delivery_receipt(
+		n: Linear<1, { T::MaxProofNodes::get() }>,
+		s: Linear<320, { T::MaxReceiptBytes::get() }>,
+	) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 
-		let message = make_submit_delivery_receipt_message();
-
-		T::Helper::initialize_storage(message.finalized_header, message.block_roots_root);
+		let message = T::Helper::initialize_storage(n, s);
 
 		let receipt = DeliveryReceipt::try_from(&message.event.event_log).unwrap();
 

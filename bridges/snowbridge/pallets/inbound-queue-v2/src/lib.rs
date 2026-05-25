@@ -74,7 +74,10 @@ pub mod pallet {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub trait BenchmarkHelper<T> {
-		fn initialize_storage() -> EventFixture;
+		/// Build an `EventFixture` whose receipt proof has roughly `n` trie nodes and whose
+		/// receipt body is roughly `s` bytes, prime the verifier's storage so the returned
+		/// event verifies, and hand the fixture back for the benchmark to submit.
+		fn initialize_storage(n: u32, s: u32) -> EventFixture;
 	}
 
 	#[pallet::config]
@@ -98,6 +101,17 @@ pub mod pallet {
 		/// Relayer reward payment.
 		type RewardPayment: RewardLedger<Self::AccountId, Self::RewardKind, u128>;
 		type WeightInfo: WeightInfo;
+
+		/// Upper bound (used only for benchmarking) on the number of trie nodes in a receipt
+		/// proof. Does NOT bound proof size at runtime — the inbound message verifier rejects
+		/// proofs that exceed plausible sizes through its own gas-style cost accounting.
+		#[cfg(feature = "runtime-benchmarks")]
+		type MaxProofNodes: Get<u32>;
+
+		/// Upper bound (used only for benchmarking) on the size in bytes of an Ethereum
+		/// receipt referenced by a proof. Does NOT bound receipt size at runtime.
+		#[cfg(feature = "runtime-benchmarks")]
+		type MaxReceiptBytes: Get<u32>;
 	}
 
 	#[pallet::event]
@@ -181,7 +195,13 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Submit an inbound message originating from the Gateway contract on Ethereum
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::submit())]
+		#[pallet::weight(T::WeightInfo::submit(
+			event.proof.receipt_proof.len() as u32,
+			// The receipt is stored as the value of the leaf (last) node of the receipt-trie
+			// proof, so the leaf's encoded length is a tight upper bound for the receipt size
+			// at dispatch time, before verification has run.
+			event.proof.receipt_proof.last().map(|leaf| leaf.len() as u32).unwrap_or(0),
+		))]
 		pub fn submit(origin: OriginFor<T>, event: Box<EventProof>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(!OperatingMode::<T>::get().is_halted(), Error::<T>::Halted);

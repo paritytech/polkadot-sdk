@@ -11,6 +11,7 @@ use snowbridge_verification_primitives::{EventFixture, EventProof, Log, Proof};
 use sp_core::U256;
 use sp_std::vec;
 
+#[allow(dead_code)]
 pub fn make_submit_delivery_receipt_message() -> EventFixture {
 	EventFixture {
         event: EventProof {

@@ -34,7 +34,10 @@ pub trait WeightInfo {
 	fn do_process_message() -> Weight;
 	fn commit() -> Weight;
 	fn commit_single() -> Weight;
-	fn submit_delivery_receipt() -> Weight;
+	/// Weight of `submit_delivery_receipt`, parameterized by:
+	/// - `n`: number of nodes in the receipt proof,
+	/// - `s`: size in bytes of the receipt referenced by the proof.
+	fn submit_delivery_receipt(n: u32, s: u32) -> Weight;
 	fn on_initialize() -> Weight;
 	fn process() -> Weight;
 }
@@ -82,7 +85,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 
-	fn submit_delivery_receipt() -> Weight {
+	fn submit_delivery_receipt(_n: u32, _s: u32) -> Weight {
 		Weight::from_parts(70_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 3601))
 			.saturating_add(RocksDbWeight::get().reads(2))

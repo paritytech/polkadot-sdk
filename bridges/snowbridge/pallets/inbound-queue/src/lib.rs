@@ -91,7 +91,10 @@ pub mod pallet {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub trait BenchmarkHelper<T> {
-		fn initialize_storage() -> EventFixture;
+		/// Build an `EventFixture` whose receipt proof has roughly `n` trie nodes and whose
+		/// receipt body is roughly `s` bytes, prime the verifier's storage so the returned
+		/// event verifies, and hand the fixture back for the benchmark to submit.
+		fn initialize_storage(n: u32, s: u32) -> EventFixture;
 	}
 
 	#[pallet::config]
@@ -128,6 +131,17 @@ pub mod pallet {
 
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self>;
+
+		/// Upper bound (used only for benchmarking) on the number of trie nodes in a receipt
+		/// proof. Does NOT bound proof size at runtime — the inbound message verifier rejects
+		/// proofs that exceed plausible sizes through its own gas-style cost accounting.
+		#[cfg(feature = "runtime-benchmarks")]
+		type MaxProofNodes: Get<u32>;
+
+		/// Upper bound (used only for benchmarking) on the size in bytes of an Ethereum
+		/// receipt referenced by a proof. Does NOT bound receipt size at runtime.
+		#[cfg(feature = "runtime-benchmarks")]
+		type MaxReceiptBytes: Get<u32>;
 
 		/// Convert a weight value into deductible balance type.
 		type WeightToFee: WeightToFee<Balance = BalanceOf<Self>>;
@@ -233,7 +247,13 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Submit an inbound message originating from the Gateway contract on Ethereum
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::submit())]
+		#[pallet::weight(T::WeightInfo::submit(
+			event.proof.receipt_proof.len() as u32,
+			// The receipt is stored as the value of the leaf (last) node of the receipt-trie
+			// proof, so the leaf's encoded length is a tight upper bound for the receipt size
+			// at dispatch time, before verification has run.
+			event.proof.receipt_proof.last().map(|leaf| leaf.len() as u32).unwrap_or(0),
+		))]
 		pub fn submit(origin: OriginFor<T>, event: EventProof) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
@@ -341,7 +361,13 @@ pub mod pallet {
 		}
 
 		pub fn calculate_delivery_cost(length: u32) -> BalanceOf<T> {
-			let weight_fee = T::WeightToFee::weight_to_fee(&T::WeightInfo::submit());
+			// For delivery-cost estimation, charge the worst-case `submit` weight bound by
+			// `MaxMessageSize` (the upper bound on the inbound message payload).
+			let max_message_size = T::MaxMessageSize::get();
+			let weight_fee = T::WeightToFee::weight_to_fee(&T::WeightInfo::submit(
+				max_message_size,
+				max_message_size,
+			));
 			let len_fee = T::LengthToFee::weight_to_fee(&Weight::from_parts(length as u64, 0));
 			weight_fee
 				.saturating_add(len_fee)
