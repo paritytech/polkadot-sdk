@@ -20,7 +20,7 @@ use cumulus_pallet_parachain_system::{
 	consensus_hook::ExpectParentIncluded, Ancestor, AnyRelayNumber, ConsensusHook,
 	ParachainSetCode, RelayChainStateProof, UsedBandwidth,
 };
-use cumulus_primitives_core::{ParaId};
+use cumulus_primitives_core::ParaId;
 use frame_support::{
 	derive_impl,
 	pallet_prelude::ConstU32,

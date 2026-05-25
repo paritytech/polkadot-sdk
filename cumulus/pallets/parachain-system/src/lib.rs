@@ -285,9 +285,9 @@ pub mod pallet {
 
 		/// Verifier for V3 scheduling proofs.
 		///
-		/// Reports whether V3 scheduling validation is enabled and (in the future) supplies the
-		/// verification logic for the proof itself. Use
-		/// `()` to keep V3 scheduling disabled.
+		/// Reports whether V3 scheduling validation is enabled and supplies the
+		/// verification logic for the proof itself. Use `()` to keep V3 scheduling
+		/// disabled.
 		///
 		/// When enabled, this changes how building on older relay parents is enforced:
 		/// - The old `relay_parent_descendants` validation in the inherent is disabled
@@ -297,8 +297,7 @@ pub mod pallet {
 		/// # Migration Guide
 		///
 		/// v3 scheduling is work in progress, and for the moment this should be left as
-		/// `()`. If V3 is wrongfully enabled, the parachain
-		/// will stall.
+		/// `()`. If V3 is wrongfully enabled, the parachain will stall.
 		///
 		/// Before enabling this:
 		/// 1. Ensure all collators are updated to a version that supports V3 candidates
