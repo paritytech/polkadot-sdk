@@ -14346,6 +14346,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-revive-types"
+version = "0.1.0"
+
+[[package]]
 name = "pallet-revive-uapi"
 version = "0.1.0"
 dependencies = [
@@ -17564,6 +17568,7 @@ dependencies = [
  "pallet-remark",
  "pallet-revive",
  "pallet-revive-proc-macro",
+ "pallet-revive-types",
  "pallet-revive-uapi",
  "pallet-root-offences",
  "pallet-root-testing",
