@@ -546,7 +546,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	///
 	/// The returned `StorageAccessCost` always reports `is_cold = Some(true)`:
 	/// the two-tier touch (size-only vs full-value) is not implemented yet, so
-	/// a size lookup conservatively pays cold without warming the slot.
+	/// a size lookup conservatively pays cold without marking the slot as hot.
 	fn get_storage_size(&mut self, key: &Key) -> (Option<u32>, StorageAccessCost);
 
 	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
@@ -653,7 +653,7 @@ pub struct Stack<'a, T: Config, E> {
 	first_frame: Frame<T>,
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
-	/// Per-transaction cold/warm access list for storage slots (EIP-2929 style,
+	/// Per-transaction cold/hot access list for storage slots (EIP-2929 style,
 	/// scoped to SLOAD/SSTORE and the storage precompile).
 	access_list: AccessList,
 	/// Global behavior determined by the creater of this stack.
@@ -1577,10 +1577,10 @@ where
 		// First frame opens no checkpoint — log final metrics. Nested frames
 		// commit or roll back the checkpoint they opened.
 		if is_first_frame {
-			let (size, cold, warm) = self.access_list.metrics();
+			let (size, cold, hot) = self.access_list.metrics();
 			log::trace!(
 				target: LOG_TARGET,
-				"access list metrics: size={size} cold={cold} warm={warm}",
+				"access list metrics: size={size} cold={cold} hot={hot}",
 			);
 		} else if success {
 			self.access_list.commit_frame();

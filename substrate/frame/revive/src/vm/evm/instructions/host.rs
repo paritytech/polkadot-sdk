@@ -114,7 +114,7 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
 	let key = Key::Fix(index.to_big_endian());
 	// NB: SLOAD loads 32 bytes from storage (i.e. U256)
-	// Pre-charge cold worst-case; refund only if the slot turned out warm.
+	// Pre-charge cold worst-case; refund only if the slot turned out hot.
 	let charged =
 		interpreter
 			.ext
@@ -141,7 +141,7 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	ControlFlow::Continue(())
 }
 
-/// Pre-charge worst-case + refund size and (SSTORE only) cold/warm deltas, on
+/// Pre-charge worst-case + refund size and (SSTORE only) cold/hot deltas, on
 /// Ok and Err. Shared by SSTORE and TSTORE — the TSTORE adapter passes
 /// `Default::default()` as `costs` since transient storage has no access list.
 fn store_helper<'ext, E: Ext>(
@@ -160,7 +160,7 @@ fn store_helper<'ext, E: Ext>(
 
 	let [index, value] = interpreter.stack.popn()?;
 
-	// Pre-charge worst-case; refund the size + cold/warm deltas after the call.
+	// Pre-charge worst-case; refund the size + cold/hot deltas after the call.
 	let pre_costs = if transient { Default::default() } else { StorageAccessCost::cold() };
 	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::set(
 		transient,

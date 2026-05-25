@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Per-transaction cold/warm access list.
+//! Per-transaction cold/hot access list.
 //!
 //! TODO: the per-frame rollback machinery here (flat journal + checkpoint
 //! stack, with `enter_frame` / `commit_frame` / `rollback_frame` wired into
@@ -49,7 +49,7 @@ pub struct AccessEntry {
 /// follows [`crate::transient_storage::TransientStorage`]: a current-state
 /// set, a flat journal of insertions, and journal-index checkpoints.
 pub struct AccessList {
-	/// All currently-warm entries.
+	/// All currently-hot entries.
 	accessed: BTreeSet<AccessEntry>,
 	/// Flat journal of insertions (in order). Each entry was added by exactly
 	/// one frame; `checkpoints` marks the frame boundaries inside this `Vec`.
@@ -61,9 +61,9 @@ pub struct AccessList {
 	/// Total cold touches across the transaction. Includes touches in
 	/// frames that later rolled back.
 	cold_count: u32,
-	/// Total warm touches across the transaction. Includes touches in
+	/// Total hot touches across the transaction. Includes touches in
 	/// frames that later rolled back.
-	warm_count: u32,
+	hot_count: u32,
 }
 
 impl AccessList {
@@ -77,7 +77,7 @@ impl AccessList {
 			journal: Vec::new(),
 			checkpoints: Vec::new(),
 			cold_count: 0,
-			warm_count: 0,
+			hot_count: 0,
 		}
 	}
 
@@ -117,10 +117,10 @@ impl AccessList {
 	}
 
 	/// Register the entry and return `true` if this access is cold (newly
-	/// inserted), `false` if it was already warm.
+	/// inserted), `false` if it was already hot.
 	pub fn touch(&mut self, entry: AccessEntry) -> bool {
 		if self.accessed.contains(&entry) {
-			self.warm_count = self.warm_count.saturating_add(1);
+			self.hot_count = self.hot_count.saturating_add(1);
 			return false;
 		}
 		self.accessed.insert(entry.clone());
@@ -129,19 +129,19 @@ impl AccessList {
 		true
 	}
 
-	/// Per-transaction metrics: (currently-warm entries, total cold touches,
-	/// total warm touches).
+	/// Per-transaction metrics: (currently-hot entries, total cold touches,
+	/// total hot touches).
 	pub fn metrics(&self) -> (usize, u32, u32) {
-		(self.accessed.len(), self.cold_count, self.warm_count)
+		(self.accessed.len(), self.cold_count, self.hot_count)
 	}
 
-	/// Check warmth without registering (testing / introspection).
+	/// Check hot state without registering (testing / introspection).
 	#[cfg(test)]
-	pub fn is_warm(&self, entry: &AccessEntry) -> bool {
+	pub fn is_hot(&self, entry: &AccessEntry) -> bool {
 		self.accessed.contains(entry)
 	}
 
-	/// Returns the current number of warm entries (testing / metrics).
+	/// Returns the current number of hot entries (testing / metrics).
 	#[cfg(test)]
 	pub fn len(&self) -> usize {
 		self.accessed.len()
@@ -154,7 +154,7 @@ impl AccessList {
 	}
 }
 
-/// Cold/warm state of a substrate read seen by an `Ext::*storage` call.
+/// Cold/hot state of a substrate read seen by an `Ext::*storage` call.
 /// `None` = the read didn't happen on this call path.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StorageAccessCost {
@@ -189,20 +189,20 @@ mod tests {
 		);
 
 		assert!(al.touch(a.clone()), "A: first touch cold");
-		assert!(!al.touch(a.clone()), "A: second touch warm");
+		assert!(!al.touch(a.clone()), "A: second touch hot");
 
 		al.enter_frame();
 		assert_eq!(al.frame_depth(), 1);
 
 		assert!(al.touch(b.clone()), "B in F1: cold");
-		assert!(!al.touch(a.clone()), "A in F1: warm via parent");
+		assert!(!al.touch(a.clone()), "A in F1: hot via parent");
 
 		al.enter_frame();
 		assert!(al.touch(c.clone()), "C in F2: cold");
 
 		al.commit_frame();
 		assert_eq!(al.frame_depth(), 1);
-		assert!(al.is_warm(&c), "C: survives F2 commit");
+		assert!(al.is_hot(&c), "C: survives F2 commit");
 
 		assert!(al.touch(d.clone()), "D in F1: cold");
 		assert_eq!(al.len(), 4);
@@ -210,9 +210,9 @@ mod tests {
 		al.rollback_frame();
 		assert_eq!(al.frame_depth(), 0);
 		assert_eq!(al.len(), 1);
-		assert!(al.is_warm(&a), "A: first frame, survives F1 revert");
-		assert!(!al.is_warm(&b), "B: inserted by F1, rolled back");
-		assert!(!al.is_warm(&c), "C: F2-committed-into-F1, gone when F1 reverts");
-		assert!(!al.is_warm(&d), "D: inserted by F1, rolled back");
+		assert!(al.is_hot(&a), "A: first frame, survives F1 revert");
+		assert!(!al.is_hot(&b), "B: inserted by F1, rolled back");
+		assert!(!al.is_hot(&c), "C: F2-committed-into-F1, gone when F1 reverts");
+		assert!(!al.is_hot(&d), "D: inserted by F1, rolled back");
 	}
 }

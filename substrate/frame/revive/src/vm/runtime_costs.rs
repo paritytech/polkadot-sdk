@@ -19,10 +19,7 @@ use crate::{
 	Config, access_list::StorageAccessCost, limits, metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts, weights::WeightInfo,
 };
-use frame_support::{
-	traits::Get,
-	weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
-};
+use frame_support::weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND};
 
 /// Current approximation of the gas/s consumption considering
 /// EVM execution over compiled WASM (on 4.4Ghz CPU).
@@ -213,16 +210,16 @@ macro_rules! cost_storage {
             .saturating_sub(T::WeightInfo::get_storage_empty()))
     };
 
-    (write_warm, $name:ident $(, $arg:expr )*) => {
+    (write_hot, $name:ident $(, $arg:expr )*) => {
         T::WeightInfo::$name($( $arg ),*)
-            .saturating_add(T::WeightInfo::set_storage_full_warm()
-            .saturating_sub(T::WeightInfo::set_storage_empty_warm()))
+            .saturating_add(T::WeightInfo::set_storage_full_hot()
+            .saturating_sub(T::WeightInfo::set_storage_empty_hot()))
     };
 
-    (read_warm, $name:ident $(, $arg:expr )*) => {
+    (read_hot, $name:ident $(, $arg:expr )*) => {
         T::WeightInfo::$name($( $arg ),*)
-            .saturating_add(T::WeightInfo::get_storage_full_warm()
-            .saturating_sub(T::WeightInfo::get_storage_empty_warm()))
+            .saturating_add(T::WeightInfo::get_storage_full_hot()
+            .saturating_sub(T::WeightInfo::get_storage_empty_hot()))
     };
 }
 
@@ -250,7 +247,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 }
 
 impl RuntimeCosts {
-	/// Pre cold/warm feature weight.
+	/// Pre cold/hot feature weight.
 	fn legacy_weight<T: Config>(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match *self {
@@ -396,53 +393,53 @@ impl RuntimeCosts {
 		}
 	}
 
-	/// EIP-2929 cold/warm weight for storage opcodes; other variants fall
-	/// through to `legacy_weight`. Cold/warm pairs layer
-	/// `access_list_touch_{cold,warm}` and (cold only)
-	/// `access_list_rollback_amortization`. Warm numbers in `weights.rs` are
-	/// `cold / 5` placeholders until `/cmd bench` runs the `_warm` benches.
+	/// EIP-2929 cold/hot weight for storage opcodes; other variants fall
+	/// through to `legacy_weight`. Cold/hot pairs layer
+	/// `access_list_touch_{cold,hot}` and (cold only)
+	/// `access_list_rollback_amortization`. Hot numbers in `weights.rs` are
+	/// `cold / 5` placeholders until `/cmd bench` runs the `_hot` benches.
 	fn new_weight<T: Config>(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match self {
-			GetStorage { len, costs } => Self::cold_warm_weight::<T>(
+			GetStorage { len, costs } => Self::cold_hot_weight::<T>(
 				costs.is_cold,
 				cost_storage!(read, seal_get_storage, *len),
-				cost_storage!(read_warm, seal_get_storage_warm, *len),
+				cost_storage!(read_hot, seal_get_storage_hot, *len),
 			),
-			ContainsStorage { len, costs } => Self::cold_warm_weight::<T>(
+			ContainsStorage { len, costs } => Self::cold_hot_weight::<T>(
 				costs.is_cold,
 				cost_storage!(read, contains_storage, *len),
-				cost_storage!(read_warm, contains_storage_warm, *len),
+				cost_storage!(read_hot, contains_storage_hot, *len),
 			),
-			SetStorage { new_bytes, old_bytes, costs } => Self::cold_warm_weight::<T>(
+			SetStorage { new_bytes, old_bytes, costs } => Self::cold_hot_weight::<T>(
 				costs.is_cold,
 				cost_storage!(write, seal_set_storage, *new_bytes, *old_bytes),
-				cost_storage!(write_warm, seal_set_storage_warm, *new_bytes, *old_bytes),
+				cost_storage!(write_hot, seal_set_storage_hot, *new_bytes, *old_bytes),
 			),
-			ClearStorage { len, costs } => Self::cold_warm_weight::<T>(
+			ClearStorage { len, costs } => Self::cold_hot_weight::<T>(
 				costs.is_cold,
 				cost_storage!(write, clear_storage, *len),
-				cost_storage!(write_warm, clear_storage_warm, *len),
+				cost_storage!(write_hot, clear_storage_hot, *len),
 			),
-			TakeStorage { len, costs } => Self::cold_warm_weight::<T>(
+			TakeStorage { len, costs } => Self::cold_hot_weight::<T>(
 				costs.is_cold,
 				cost_storage!(write, take_storage, *len),
-				cost_storage!(write_warm, take_storage_warm, *len),
+				cost_storage!(write_hot, take_storage_hot, *len),
 			),
 			_ => self.legacy_weight::<T>(),
 		}
 	}
 
-	/// Cold/warm dispatch shared by `new_weight`'s storage arms. The cold
+	/// Cold/hot dispatch shared by `new_weight`'s storage arms. The cold
 	/// bench doubles as the `None` (no-access) fallback — it's the substrate
 	/// cost without the access-list overhead the cold arm layers on top.
-	fn cold_warm_weight<T: Config>(is_cold: Option<bool>, cold: Weight, warm: Weight) -> Weight {
+	fn cold_hot_weight<T: Config>(is_cold: Option<bool>, cold: Weight, hot: Weight) -> Weight {
 		match is_cold {
 			None => cold,
 			Some(true) => cold
 				.saturating_add(T::WeightInfo::access_list_touch_cold())
 				.saturating_add(T::WeightInfo::access_list_rollback_amortization()),
-			Some(false) => warm.saturating_add(T::WeightInfo::access_list_touch_warm()),
+			Some(false) => hot.saturating_add(T::WeightInfo::access_list_touch_hot()),
 		}
 	}
 }

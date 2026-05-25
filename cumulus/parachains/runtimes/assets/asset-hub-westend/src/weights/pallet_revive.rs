@@ -935,24 +935,24 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Placeholder: cold / 5 ref_time, PoV zeroed (whitelisted trie path).
-	// Replaced by `/cmd bench` once the warm benchmarks run.
-	fn get_storage_empty_warm() -> Weight {
+	// Replaced by `/cmd bench` once the hot benchmarks run.
+	fn get_storage_empty_hot() -> Weight {
 		// 11_345_000 / 5 = 2_269_000
 		Weight::from_parts(2_269_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
 	}
-	fn get_storage_full_warm() -> Weight {
+	fn get_storage_full_hot() -> Weight {
 		// 43_115_000 / 5 = 8_623_000
 		Weight::from_parts(8_623_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
 	}
-	fn set_storage_empty_warm() -> Weight {
+	fn set_storage_empty_hot() -> Weight {
 		// 12_678_000 / 5 = 2_535_600
 		Weight::from_parts(2_535_600, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	fn set_storage_full_warm() -> Weight {
+	fn set_storage_full_hot() -> Weight {
 		// 45_526_000 / 5 = 9_105_200
 		Weight::from_parts(9_105_200, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
@@ -1040,29 +1040,29 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
 	}
 	// Placeholder: cold benchmark / 5 field-by-field. `cargo bench` populates
-	// real warm-state numbers via the `_warm` benchmarks (whitelist-based).
-	fn seal_set_storage_warm(n: u32, o: u32) -> Weight {
+	// real hot-state numbers via the `_hot` benchmarks (whitelist-based).
+	fn seal_set_storage_hot(n: u32, o: u32) -> Weight {
 		Weight::from_parts(2_197_669, 49)
 			.saturating_add(Weight::from_parts(171, 0).saturating_mul(n.into()))
 			.saturating_add(Weight::from_parts(407, 0).saturating_mul(o.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	fn clear_storage_warm(n: u32) -> Weight {
+	fn clear_storage_hot(n: u32) -> Weight {
 		Weight::from_parts(2_698_535, 75)
 			.saturating_add(Weight::from_parts(5, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	fn seal_get_storage_warm(n: u32) -> Weight {
+	fn seal_get_storage_hot(n: u32) -> Weight {
 		Weight::from_parts(2_121_618, 49)
 			.saturating_add(Weight::from_parts(626, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 	}
-	fn contains_storage_warm(_n: u32) -> Weight {
+	fn contains_storage_hot(_n: u32) -> Weight {
 		Weight::from_parts(739_446, 0)
 	}
-	fn take_storage_warm(n: u32) -> Weight {
+	fn take_storage_hot(n: u32) -> Weight {
 		Weight::from_parts(2_854_225, 75)
 			.saturating_add(Weight::from_parts(5, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
@@ -1072,7 +1072,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	fn access_list_touch_cold() -> Weight {
 		Weight::from_parts(49_875, 0)
 	}
-	fn access_list_touch_warm() -> Weight {
+	fn access_list_touch_hot() -> Weight {
 		Weight::from_parts(16_625, 0)
 	}
 	fn access_list_rollback_amortization() -> Weight {
