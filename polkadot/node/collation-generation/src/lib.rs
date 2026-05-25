@@ -90,7 +90,7 @@ use error::{Error, Result};
 use futures::{channel::oneshot, future::FutureExt, select};
 use polkadot_node_primitives::{
 	AvailableData, Collation, CollationGenerationConfig, CollationSecondedSignal, PoV,
-	SubmitCollationParams,
+	SegmentCollation, SubmitCollationParams, SubmitSegmentParams,
 };
 use polkadot_node_subsystem::{
 	messages::{CollationGenerationMessage, CollatorProtocolMessage, RuntimeApiMessage},
@@ -204,9 +204,12 @@ impl CollationGenerationSubsystem {
 				false
 			},
 			Ok(FromOrchestra::Communication {
-				msg: CollationGenerationMessage::SubmitSegment(_params),
+				msg: CollationGenerationMessage::SubmitSegment(params),
 			}) => {
-				// TODO: handle segment submission.
+				if let Err(err) = self.handle_submit_segment(params, ctx).await {
+					gum::error!(target: LOG_TARGET, ?err, "Failed to submit segment");
+				}
+
 				false
 			},
 			Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => false,
@@ -280,6 +283,54 @@ impl CollationGenerationSubsystem {
 		.await?;
 
 		Ok(())
+	}
+
+	// TODO: once the V4 collator-protocol lands, distribute the receipts for the whole segment as
+	// a single unit instead of one collation at a time, and drop the length-1 restriction.
+	async fn handle_submit_segment<Context>(
+		&mut self,
+		params: SubmitSegmentParams,
+		ctx: &mut Context,
+	) -> Result<()> {
+		let SubmitSegmentParams { scheduling_parent, core_index, mut collations } = params;
+
+		if collations.is_empty() {
+			gum::warn!(target: LOG_TARGET, "received empty segment submission");
+			return Ok(());
+		}
+
+		if collations.len() > 1 {
+			gum::warn!(
+				target: LOG_TARGET,
+				len = collations.len(),
+				"multi-collation segment submission not yet supported; ignoring",
+			);
+			return Ok(());
+		}
+
+		let SegmentCollation {
+			relay_parent,
+			collation,
+			validation_code_hash,
+			result_sender,
+			session_index,
+			validation_data,
+		} = collations.pop().expect("len == 1; qed");
+
+		self.handle_submit_collation(
+			SubmitCollationParams {
+				relay_parent,
+				collation,
+				validation_code_hash,
+				result_sender,
+				core_index,
+				scheduling_parent,
+				session_index,
+				validation_data,
+			},
+			ctx,
+		)
+		.await
 	}
 
 	async fn handle_new_activation<Context>(
