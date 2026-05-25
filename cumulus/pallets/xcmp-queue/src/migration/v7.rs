@@ -72,7 +72,7 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for unversioned::UncheckedMigrateV6ToV
 						first_index: pre_channel_details.first_index,
 						last_index: pre_channel_details.last_index,
 						flags: pre_channel_details.flags,
-						// The new field added by the migration.
+						// Corrects itself over time.
 						queued_bytes: 0,
 					})
 					.collect(),
