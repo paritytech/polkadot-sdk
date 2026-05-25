@@ -193,6 +193,7 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type MultiBlockMigrator = MultiBlockMigrations;
 	type SingleBlockMigrations = Migrations;
+	type BaseCallFilter = ValidatorVestingCallFilter;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -483,6 +484,8 @@ parameter_types! {
 	pub const MinVestedTransfer: Balance = 100 * CENTS;
 	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
 		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
+	pub const VestingLockId: frame_support::traits::LockIdentifier =
+		pallet_vesting::DEFAULT_VESTING_LOCK_ID;
 }
 
 impl pallet_vesting::Config for Runtime {
@@ -494,6 +497,32 @@ impl pallet_vesting::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_vesting::WeightInfo<Runtime>;
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type LockId = VestingLockId;
+}
+
+parameter_types! {
+	pub const ValidatorVestingLockId: frame_support::traits::LockIdentifier = *b"stkinctv";
+}
+
+/// Blocks direct user access to `vested_transfer` on the validator-incentive vesting instance. We
+/// don't include `force_vested_transfer` because it requires root origin, which bypasses all filters.
+pub struct ValidatorVestingCallFilter;
+impl frame_support::traits::Contains<RuntimeCall> for ValidatorVestingCallFilter {
+	fn contains(call: &RuntimeCall) -> bool {
+		!matches!(call, RuntimeCall::ValidatorVesting(pallet_vesting::Call::vested_transfer { .. }))
+	}
+}
+
+impl pallet_vesting::Config<pallet_vesting::Instance1> for Runtime {
+	const MAX_VESTING_SCHEDULES: u32 = 100;
+	type BlockNumberProvider = RelayChainBlockNumberProvider;
+	type BlockNumberToBalance = ConvertInto;
+	type Currency = Balances;
+	type MinVestedTransfer = MinVestedTransfer;
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_vesting::WeightInfo<Runtime>;
+	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type LockId = ValidatorVestingLockId;
 }
 
 parameter_types! {
@@ -1207,6 +1236,7 @@ construct_runtime!(
 
 		// Balances.
 		Vesting: pallet_vesting = 100,
+		ValidatorVesting: pallet_vesting::<Instance1> = 101,
 
 		// AHN specific.
 		Sudo: pallet_sudo = 110,
@@ -1370,6 +1400,7 @@ mod benches {
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_treasury, Treasury]
 		[pallet_vesting, Vesting]
+		[pallet_vesting, ValidatorVesting]
 		[pallet_whitelist, Whitelist]
 		[pallet_xcm_bridge_hub_router, ToRococo]
 		[pallet_asset_conversion_ops, AssetConversionMigration]

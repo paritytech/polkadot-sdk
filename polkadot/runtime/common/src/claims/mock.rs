@@ -58,6 +58,8 @@ parameter_types! {
 	pub const MinVestedTransfer: u64 = 1;
 	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
 		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
+	pub const VestingLockId: frame_support::traits::LockIdentifier =
+		pallet_vesting::DEFAULT_VESTING_LOCK_ID;
 }
 
 impl pallet_vesting::Config for Test {
@@ -68,6 +70,7 @@ impl pallet_vesting::Config for Test {
 	type WeightInfo = ();
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 	type BlockNumberProvider = System;
+	type LockId = VestingLockId;
 	const MAX_VESTING_SCHEDULES: u32 = 28;
 }
 

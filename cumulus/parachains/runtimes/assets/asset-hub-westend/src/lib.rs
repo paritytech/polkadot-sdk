@@ -231,6 +231,7 @@ impl frame_system::Config for Runtime {
 	type SingleBlockMigrations = Migrations;
 	type OnNewAccount = pallet_revive::AutoMapper<Runtime>;
 	type OnKilledAccount = pallet_revive::AutoMapper<Runtime>;
+	type BaseCallFilter = ValidatorVestingCallFilter;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -540,6 +541,8 @@ parameter_types! {
 	pub const MinVestedTransfer: Balance = 100 * CENTS;
 	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
 		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
+	pub const VestingLockId: frame_support::traits::LockIdentifier =
+		pallet_vesting::DEFAULT_VESTING_LOCK_ID;
 }
 
 impl pallet_vesting::Config for Runtime {
@@ -551,6 +554,32 @@ impl pallet_vesting::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_vesting::WeightInfo<Runtime>;
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type LockId = VestingLockId;
+}
+
+parameter_types! {
+	pub const ValidatorVestingLockId: frame_support::traits::LockIdentifier = *b"stkinctv";
+}
+
+/// Blocks direct user access to `vested_transfer` on the validator-incentive vesting instance. We
+/// don't include `force_vested_transfer` because it requires root origin, which bypasses all filters.
+pub struct ValidatorVestingCallFilter;
+impl frame_support::traits::Contains<RuntimeCall> for ValidatorVestingCallFilter {
+	fn contains(call: &RuntimeCall) -> bool {
+		!matches!(call, RuntimeCall::ValidatorVesting(pallet_vesting::Call::vested_transfer { .. }))
+	}
+}
+
+impl pallet_vesting::Config<pallet_vesting::Instance1> for Runtime {
+	const MAX_VESTING_SCHEDULES: u32 = 100;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type BlockNumberToBalance = ConvertInto;
+	type Currency = Balances;
+	type MinVestedTransfer = MinVestedTransfer;
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_vesting::WeightInfo<Runtime>;
+	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type LockId = ValidatorVestingLockId;
 }
 
 parameter_types! {
@@ -1766,6 +1795,7 @@ construct_runtime!(
 		AssetTxPayment: pallet_asset_conversion_tx_payment = 13,
 		Vesting: pallet_vesting = 14,
 		PgasAllowance: pallet_pgas_allowance = 15,
+		ValidatorVesting: pallet_vesting::<Instance1> = 16,
 
 		// Collator support. the order of these 5 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -2259,6 +2289,7 @@ mod benches {
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_treasury, Treasury]
 		[pallet_vesting, Vesting]
+		[pallet_vesting, ValidatorVesting]
 		[pallet_vesting_precompiles, VestingPrecompiles]
 		[pallet_whitelist, Whitelist]
 		[pallet_xcm_bridge_hub_router, ToRococo]

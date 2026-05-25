@@ -25,8 +25,8 @@ pub mod v1 {
 	use super::*;
 
 	#[cfg(feature = "try-runtime")]
-	pub fn pre_migrate<T: Config>() -> Result<(), &'static str> {
-		assert!(StorageVersion::<T>::get() == Releases::V0, "Storage version too high.");
+	pub fn pre_migrate<T: Config<I>, I: 'static>() -> Result<(), &'static str> {
+		assert!(StorageVersion::<T, I>::get() == Releases::V0, "Storage version too high.");
 
 		log::debug!(
 			target: "runtime::vesting",
@@ -38,16 +38,16 @@ pub mod v1 {
 
 	/// Migrate from single schedule to multi schedule storage.
 	/// WARNING: This migration will delete schedules if `MaxVestingSchedules < 1`.
-	pub fn migrate<T: Config>() -> Weight {
+	pub fn migrate<T: Config<I>, I: 'static>() -> Weight {
 		let mut reads_writes = 0;
 
-		Vesting::<T>::translate::<VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, _>(
+		Vesting::<T, I>::translate::<VestingInfo<BalanceOf<T, I>, BlockNumberFor<T>>, _>(
 			|_key, vesting_info| {
 				reads_writes += 1;
 				let v: Option<
 					BoundedVec<
-						VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
-						MaxVestingSchedulesGet<T>,
+						VestingInfo<BalanceOf<T, I>, BlockNumberFor<T>>,
+						MaxVestingSchedulesGet<T, I>,
 					>,
 				> = vec![vesting_info].try_into().ok();
 
@@ -66,10 +66,10 @@ pub mod v1 {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	pub fn post_migrate<T: Config>() -> Result<(), &'static str> {
-		assert_eq!(StorageVersion::<T>::get(), Releases::V1);
+	pub fn post_migrate<T: Config<I>, I: 'static>() -> Result<(), &'static str> {
+		assert_eq!(StorageVersion::<T, I>::get(), Releases::V1);
 
-		for (_key, schedules) in Vesting::<T>::iter() {
+		for (_key, schedules) in Vesting::<T, I>::iter() {
 			assert!(
 				schedules.len() >= 1,
 				"A bounded vec with incorrect count of items was created."
