@@ -1630,38 +1630,41 @@ pub mod pallet {
 			let total = accounts.len() as u32;
 			let mut mapped = 0;
 
-			for account_id in &accounts {
+			for account_id in accounts
+				.iter()
+				// Eth-derived accounts are stateless mapped, nothing to do.
+				.filter(|&a| !T::AddressMapper::is_eth_derived(a))
+				// Skip non-existent accounts: otherwise any caller could permanently
+				// insert mappings for arbitrary AccountIds at no cost.
+				.filter(|&a| frame_system::Pallet::<T>::account_exists(a))
+			{
 				let mut useful = false;
 
-				if T::AddressMapper::is_eth_derived(account_id) {
-					// Eth-derived accounts are stateless mapped, nothing to do.
-				} else {
-					match T::AddressMapper::map_no_deposit(account_id) {
-						Ok(()) => {
-							useful = true;
-						},
-						Err(err) => log::debug!(
-							target: LOG_TARGET,
-							"Failed to map account {account_id:?}: {err:?}",
-						),
-					}
+				match T::AddressMapper::map_no_deposit(account_id) {
+					Ok(()) => {
+						useful = true;
+					},
+					Err(err) => log::debug!(
+						target: LOG_TARGET,
+						"Failed to map account {account_id:?}: {err:?}",
+					),
+				}
 
-					match T::Currency::release_all(
-						&HoldReason::AddressMapping.into(),
-						account_id,
-						Precision::BestEffort,
-					) {
-						// `release_all` returns `Ok(0)` when there is no hold to release,
-						// which is not useful work and must not earn a fee refund.
-						Ok(released) if !released.is_zero() => {
-							useful = true;
-						},
-						Ok(_) => {},
-						Err(err) => log::debug!(
-							target: LOG_TARGET,
-							"Failed to release mapping deposit for {account_id:?}: {err:?}",
-						),
-					}
+				match T::Currency::release_all(
+					&HoldReason::AddressMapping.into(),
+					account_id,
+					Precision::BestEffort,
+				) {
+					// `release_all` returns `Ok(0)` when there is no hold to release,
+					// which is not useful work and must not earn a fee refund.
+					Ok(released) if !released.is_zero() => {
+						useful = true;
+					},
+					Ok(_) => {},
+					Err(err) => log::debug!(
+						target: LOG_TARGET,
+						"Failed to release mapping deposit for {account_id:?}: {err:?}",
+					),
 				}
 
 				if useful {

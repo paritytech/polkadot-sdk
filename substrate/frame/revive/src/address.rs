@@ -568,6 +568,10 @@ mod test {
 		ExtBuilder::default().build().execute_with(|| {
 			let unmapped: Vec<AccountId32> =
 				(10u8..19u8).map(|i| AccountId32::new([i; 32])).collect();
+			// fund each account so it exists on chain.
+			for a in &unmapped {
+				<Test as Config>::Currency::set_balance(a, 1_000_000);
+			}
 			let mut accounts = unmapped.clone();
 			accounts.push(ALICE); // 1 eth-derived account, not counted as useful
 
@@ -621,6 +625,7 @@ mod test {
 		ExtBuilder::default().build().execute_with(|| {
 			// 1 unmapped non-eth-derived account + 9 eth-derived (= 10% useful)
 			let mut accounts: Vec<AccountId32> = alloc::vec![AccountId32::new([10u8; 32])];
+			<Test as Config>::Currency::set_balance(&accounts[0], 1_000_000);
 			for _ in 0..9 {
 				accounts.push(ALICE);
 			}
@@ -629,6 +634,55 @@ mod test {
 				Pallet::<Test>::batch_map_accounts(RuntimeOrigin::signed(ALICE), accounts).unwrap();
 
 			assert_eq!(info.pays_fee, Pays::Yes);
+		});
+	}
+
+	#[test]
+	fn batch_map_accounts_pays_yes_mixed() {
+		ExtBuilder::default().build().execute_with(|| {
+			// 17 real accounts (get mapped) + 1 non-existent + 1 eth-derived.
+			// Below the threshold → Pays::Yes.
+			let mut accounts: Vec<AccountId32> =
+				(10u8..27u8).map(|i| AccountId32::new([i; 32])).collect();
+			for a in &accounts {
+				<Test as Config>::Currency::set_balance(a, 1_000_000);
+			}
+			accounts.push(AccountId32::new([99u8; 32])); // non-existent
+			accounts.push(ALICE); // eth-derived
+
+			let info =
+				Pallet::<Test>::batch_map_accounts(RuntimeOrigin::signed(ALICE), accounts).unwrap();
+
+			assert_eq!(info.pays_fee, Pays::Yes);
+		});
+	}
+
+	#[test]
+	fn batch_map_accounts_rejects_nonexistent_accounts() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Non-existent accounts must not be mapped.
+			// Otherwise any caller could insert mappings for arbitrary bytes at no cost.
+			let unknown = AccountId32::new([0xAB; 32]);
+			assert!(
+				!frame_system::Pallet::<Test>::account_exists(&unknown),
+				"unknown account must not pre-exist on chain",
+			);
+
+			let info = Pallet::<Test>::batch_map_accounts(
+				RuntimeOrigin::signed(ALICE),
+				alloc::vec![unknown.clone()],
+			)
+			.unwrap();
+
+			assert_eq!(
+				info.pays_fee,
+				Pays::Yes,
+				"non-existent accounts must not trigger the free path",
+			);
+			assert!(
+				!<Test as Config>::AddressMapper::is_mapped(&unknown),
+				"OriginalAccount must not be written for a non-existent account",
+			);
 		});
 	}
 }
