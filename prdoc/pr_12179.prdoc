@@ -9,4 +9,4 @@ doc:
     `map_no_deposit` is renamed to `map_no_deposit_unchecked` with a doc spelling out the precondition.
 crates:
 - name: pallet-revive
-  bump: patch
+  bump: major
