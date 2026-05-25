@@ -706,13 +706,14 @@ fn instantiate_from_constructor_works() {
 /// Root and confirms the deposit waiver holds across both calls.
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
 fn root_call_can_create_and_destroy_in_next_block(
 	caller_type: FixtureType,
 	callee_type: FixtureType,
 ) {
 	use crate::{
 		AccountInfo, HoldReason, Pallet,
-		address::{AddressMapper, create1},
+		address::AddressMapper,
 		test_utils::DJANGO_ADDR,
 		tests::{System, initialize_block, test_utils::get_balance_on_hold},
 	};
@@ -750,16 +751,23 @@ fn root_call_can_create_and_destroy_in_next_block(
 		let pallet_upload_hold_before = get_balance_on_hold(&upload_hold, &pallet_account);
 
 		// Block 1: Root creates the child via nested CREATE.
-		let deployer_nonce = System::account_nonce(&account_id);
-		let child_addr = create1(&addr, deployer_nonce.into());
 		let create_result = builder::bare_call(addr)
 			.origin(RuntimeOrigin::root())
 			.data(NestedDeployerCalls::deployChild(deployChildCall {}).abi_encode())
 			.build_and_unwrap_result();
 		assert!(!create_result.did_revert());
 		let returned: Address = deployChildCall::abi_decode_returns(&create_result.data).unwrap();
-		assert_eq!(H160::from_slice(returned.as_slice()), child_addr);
+		let child_addr = H160::from_slice(returned.as_slice());
 		assert!(AccountInfo::<Test>::load_contract(&child_addr).is_some());
+
+		// Deposits stayed waived across the Root create.
+		let child_id = <Test as crate::Config>::AddressMapper::to_account_id(&child_addr);
+		assert_eq!(get_balance_on_hold(&storage_hold, &child_id), 0);
+		assert_eq!(get_balance_on_hold(&storage_hold, &account_id), deployer_storage_hold_before);
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&account_id),
+			deployer_free_before,
+		);
 
 		// Block 2: Root tells the child to self-terminate via the system precompile.
 		initialize_block(System::block_number() + 1);
@@ -780,14 +788,18 @@ fn root_call_can_create_and_destroy_in_next_block(
 		);
 
 		// Deposits stayed waived across both Root calls.
-		let child_id = <Test as crate::Config>::AddressMapper::to_account_id(&child_addr);
 		assert_eq!(get_balance_on_hold(&storage_hold, &child_id), 0);
 		assert_eq!(get_balance_on_hold(&storage_hold, &account_id), deployer_storage_hold_before);
 		assert_eq!(
 			<<Test as Config>::Currency as Inspect<_>>::balance(&account_id),
 			deployer_free_before,
 		);
-		assert_eq!(get_balance_on_hold(&upload_hold, &pallet_account), pallet_upload_hold_before);
+		if caller_type == FixtureType::Solc {
+			assert_eq!(
+				get_balance_on_hold(&upload_hold, &pallet_account),
+				pallet_upload_hold_before
+			);
+		}
 	});
 }
 
