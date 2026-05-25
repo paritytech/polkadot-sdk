@@ -148,10 +148,11 @@ fn commit_impl<H: Clone + AsRef<[u8]>>(
 						value_to_write = Some(value);
 					},
 				},
-				RefCountedOp::Reference =>
+				RefCountedOp::Reference => {
 					if let Some(c) = counter {
 						counter = Some(incr(c)?);
-					},
+					}
+				},
 				RefCountedOp::Release => match counter {
 					Some(1) => {
 						counter = None;
