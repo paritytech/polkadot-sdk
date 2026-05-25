@@ -1319,9 +1319,8 @@ fn queued_bytes_tracks_send_and_take() {
 		}
 
 		while !XcmpQueue::take_outbound_messages(1, &[]).is_empty() {
-			if let Some(status) = OutboundXcmpStatus::<Test>::get()
-				.into_iter()
-				.find(|s| s.recipient == sibling)
+			if let Some(status) =
+				OutboundXcmpStatus::<Test>::get().into_iter().find(|s| s.recipient == sibling)
 			{
 				assert_eq!(status.queued_bytes, actual_queued_bytes(sibling, &status));
 			}
