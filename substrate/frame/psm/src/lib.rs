@@ -113,7 +113,6 @@ pub trait BenchmarkHelper<AssetId, AccountId> {
 pub mod pallet {
 	pub use frame_support::traits::tokens::stable::PsmInterface;
 
-	use alloc::collections::btree_map::BTreeMap;
 	use codec::DecodeWithMemTracking;
 	use frame_support::{
 		pallet_prelude::*,
@@ -425,50 +424,6 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			use alloc::collections::btree_set::BTreeSet;
-
-			let registered: BTreeSet<T::AssetId> =
-				self.psms.iter().map(|(id, ..)| id.clone()).collect();
-
-			// Per-PSM external counter, accumulated as we walk `externals`.
-			let mut counts: BTreeMap<T::AssetId, u32> = BTreeMap::new();
-			for (internal, external, minting_fee, redemption_fee, ceiling_weight) in &self.externals
-			{
-				assert!(
-					registered.contains(internal),
-					"PSM genesis: external configured for unregistered instance",
-				);
-				let count = counts.entry(internal.clone()).or_insert(0);
-				*count = count.saturating_add(1);
-				assert!(
-					*count <= T::MaxExternalAssetsPerPsm::get(),
-					"PSM genesis: externals on an instance exceed MaxExternalAssetsPerPsm",
-				);
-
-				let internal_decimals = T::Fungibles::decimals(internal.clone());
-				let asset_decimals = T::Fungibles::decimals(external.clone());
-				let diff = asset_decimals.abs_diff(internal_decimals) as u32;
-				assert!(
-					diff <= MAX_DECIMALS_DIFF,
-					"PSM genesis: asset {:?} decimals diff ({}) exceeds MAX_DECIMALS_DIFF ({})",
-					external,
-					diff,
-					MAX_DECIMALS_DIFF,
-				);
-
-				ExternalAssets::<T>::insert(
-					internal,
-					external,
-					ExternalAssetInfo {
-						status: CircuitBreakerLevel::AllEnabled,
-						decimals: asset_decimals,
-					},
-				);
-				MintingFee::<T>::insert(internal, external, minting_fee);
-				RedemptionFee::<T>::insert(internal, external, redemption_fee);
-				AssetCeilingWeight::<T>::insert(internal, external, ceiling_weight);
-			}
-
 			for (internal, fee_destination, max_debt) in &self.psms {
 				let internal_decimals = T::Fungibles::decimals(internal.clone());
 				Psms::<T>::insert(
@@ -477,11 +432,47 @@ pub mod pallet {
 						fee_destination: fee_destination.clone(),
 						max_debt: *max_debt,
 						internal_decimals,
-						external_count: counts.get(internal).copied().unwrap_or(0),
+						external_count: 0,
 					},
 				);
 				Pallet::<T>::ensure_account_exists(&Pallet::<T>::psm_account(internal));
 				Pallet::<T>::ensure_account_exists(fee_destination);
+			}
+
+			for (internal, external, minting_fee, redemption_fee, ceiling_weight) in &self.externals
+			{
+				Psms::<T>::mutate(internal, |maybe| {
+					let info = maybe.as_mut().unwrap_or_else(|| {
+						panic!("PSM genesis: external configured for unregistered instance")
+					});
+					assert!(
+						info.external_count < T::MaxExternalAssetsPerPsm::get(),
+						"PSM genesis: externals on an instance exceed MaxExternalAssetsPerPsm",
+					);
+
+					let asset_decimals = T::Fungibles::decimals(external.clone());
+					let diff = asset_decimals.abs_diff(info.internal_decimals) as u32;
+					assert!(
+						diff <= MAX_DECIMALS_DIFF,
+						"PSM genesis: asset {:?} decimals diff ({}) exceeds MAX_DECIMALS_DIFF ({})",
+						external,
+						diff,
+						MAX_DECIMALS_DIFF,
+					);
+
+					ExternalAssets::<T>::insert(
+						internal,
+						external,
+						ExternalAssetInfo {
+							status: CircuitBreakerLevel::AllEnabled,
+							decimals: asset_decimals,
+						},
+					);
+					MintingFee::<T>::insert(internal, external, minting_fee);
+					RedemptionFee::<T>::insert(internal, external, redemption_fee);
+					AssetCeilingWeight::<T>::insert(internal, external, ceiling_weight);
+					info.external_count = info.external_count.saturating_add(1);
+				});
 			}
 		}
 	}
