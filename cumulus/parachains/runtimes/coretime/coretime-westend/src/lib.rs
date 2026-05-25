@@ -1242,6 +1242,13 @@ impl_runtime_apis! {
 					let target = Location::new(1, [Parachain(1000), AccountId32 { id: [128u8; 32], network: None }]);
 					Ok((origin, target))
 				}
+
+				fn worst_case_barrier_check() -> Result<(Location, Xcm<RuntimeCall>), BenchmarkError> {
+					let origin = Location::new(1, [Parachain(1000)]);
+					Ok(parachains_common::xcm_benchmarks::deny_reserve_transfer_recursive_barrier_check::<
+						RuntimeCall,
+					>(origin, xcm_config::TokenRelayLocation::get()))
+				}
 			}
 
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;

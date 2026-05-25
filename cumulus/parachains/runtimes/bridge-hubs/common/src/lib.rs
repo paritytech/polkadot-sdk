@@ -17,6 +17,8 @@
 pub mod barriers;
 pub mod message_queue;
 pub mod xcm_version;
+#[cfg(feature = "runtime-benchmarks")]
+pub mod xcm_benchmarks;
 
 pub use barriers::DenyExportMessageFrom;
 pub use message_queue::{

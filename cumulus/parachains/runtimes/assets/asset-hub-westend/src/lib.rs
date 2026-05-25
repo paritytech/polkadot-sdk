@@ -3223,6 +3223,13 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 						Location::new(1, [Parachain(1001), AccountId32 { id: [111u8; 32], network: None }]),
 					))
 				}
+
+				fn worst_case_barrier_check() -> Result<(Location, Xcm<RuntimeCall>), BenchmarkError> {
+					let origin = Location::new(1, [Parachain(1000)]);
+					Ok(parachains_common::xcm_benchmarks::deny_reserve_transfer_recursive_barrier_check::<
+						RuntimeCall,
+					>(origin, xcm_config::WestendLocation::get()))
+				}
 			}
 
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;

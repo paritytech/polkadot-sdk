@@ -10,6 +10,8 @@ doc:
    
 crates:
 - name: staging-xcm-builder
-  bump: minor
+  bump: patch
 - name: staging-xcm-executor
+  bump: minor
+- name: pallet-xcm-benchmarks
   bump: minor

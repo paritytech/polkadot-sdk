@@ -3050,8 +3050,8 @@ sp_api::impl_runtime_apis! {
 			impl polkadot_runtime_parachains::disputes::slashing::benchmarking::Config for Runtime {}
 
 			use xcm::latest::{
-				AssetId, Fungibility::*, InteriorLocation, Junction, Junctions::*,
-				Asset, Assets, Location, NetworkId, Response,
+				Asset, AssetId, Assets, Fungibility::*, InteriorLocation, Instruction, Junction,
+				Junctions::*, Location, NetworkId, Response, Xcm,
 			};
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
@@ -3158,6 +3158,23 @@ sp_api::impl_runtime_apis! {
 					let origin = Location::new(0, [Parachain(1000)]);
 					let target = Location::new(0, [Parachain(1000), AccountId32 { id: [128u8; 32], network: None }]);
 					Ok((origin, target))
+				}
+
+				fn worst_case_barrier_check() -> Result<(Location, Xcm<RuntimeCall>), BenchmarkError> {
+					use xcm::latest::prelude::*;
+					let origin = Location::new(1, [Parachain(1000)]);
+					let mut instructions: Vec<Instruction<RuntimeCall>> = (0..8)
+						.map(|i| DescendOrigin(Parachain(i + 1000).into()))
+						.collect();
+					instructions.push(WithdrawAsset(
+						(xcm_config::TokenLocation::get(), UNITS).into(),
+					));
+					instructions.push(BuyExecution {
+						fees: (xcm_config::TokenLocation::get(), UNITS).into(),
+						weight_limit: Unlimited,
+					});
+					instructions.push(SetTopic([0u8; 32]));
+					Ok((origin, Xcm(instructions)))
 				}
 			}
 
