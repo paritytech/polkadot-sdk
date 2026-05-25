@@ -415,8 +415,7 @@ pub mod pallet {
 		/// `(internal_asset, fee_destination, max_debt)`.
 		pub psms: alloc::vec::Vec<(T::AssetId, T::AccountId, BalanceOf<T>)>,
 		/// `(internal_asset, external_asset, minting_fee, redemption_fee, ceiling_weight)`.
-		pub externals:
-			alloc::vec::Vec<(T::AssetId, T::AssetId, Permill, Permill, Permill)>,
+		pub externals: alloc::vec::Vec<(T::AssetId, T::AssetId, Permill, Permill, Permill)>,
 		#[serde(skip)]
 		pub _marker: core::marker::PhantomData<T>,
 	}
@@ -603,14 +602,13 @@ pub mod pallet {
 		///
 		/// - [`Error::PsmNotFound`]: If no PSM is registered for `internal_asset`.
 		/// - [`Error::UnsupportedAsset`]: If `asset_id` is not approved on this PSM.
-		/// - [`Error::MintingStopped`]: If the per-external circuit breaker is at
-		///   `MintingDisabled` or higher.
-		/// - [`Error::BelowMinimumSwap`]: If `external_amount` is below
-		///   [`Config::MinSwapAmount`].
+		/// - [`Error::MintingStopped`]: If the per-external circuit breaker is at `MintingDisabled`
+		///   or higher.
+		/// - [`Error::BelowMinimumSwap`]: If `external_amount` is below [`Config::MinSwapAmount`].
 		/// - [`Error::ExceedsMaxPsmDebt`]: If minting would exceed this PSM's debt ceiling
 		///   (aggregate or per-asset).
-		/// - [`Error::DecimalsMismatch`]: If live decimals diverged from the snapshot
-		///   taken at registration.
+		/// - [`Error::DecimalsMismatch`]: If live decimals diverged from the snapshot taken at
+		///   registration.
 		/// - [`Error::AmountTooSmallAfterConversion`]: If the conversion to the counter-asset
 		///   rounds to zero; swap would transfer nothing.
 		///
@@ -643,7 +641,8 @@ pub mod pallet {
 			let effective_external =
 				Self::internal_to_external(internal_equivalent, ext_decimals, internal_decimals)?;
 
-			let fee = MintingFee::<T>::get(&internal_asset, &asset_id).mul_ceil(internal_equivalent);
+			let fee =
+				MintingFee::<T>::get(&internal_asset, &asset_id).mul_ceil(internal_equivalent);
 			let internal_to_user = internal_equivalent.saturating_sub(fee);
 
 			let current_total_psm_debt = Self::total_psm_debt(&internal_asset);
@@ -707,13 +706,12 @@ pub mod pallet {
 		///
 		/// - [`Error::PsmNotFound`]: If no PSM is registered for `internal_asset`.
 		/// - [`Error::UnsupportedAsset`]: If `asset_id` is not approved on this PSM.
-		/// - [`Error::AllSwapsStopped`]: If the per-external circuit breaker is at
-		///   `AllDisabled`.
+		/// - [`Error::AllSwapsStopped`]: If the per-external circuit breaker is at `AllDisabled`.
 		/// - [`Error::BelowMinimumSwap`]: If `amount` is below [`Config::MinSwapAmount`].
 		/// - [`Error::InsufficientReserve`]: If the PSM holds less of `asset_id` than the
 		///   redemption requires.
-		/// - [`Error::DecimalsMismatch`]: If live decimals diverged from the snapshot
-		///   taken at registration.
+		/// - [`Error::DecimalsMismatch`]: If live decimals diverged from the snapshot taken at
+		///   registration.
 		/// - [`Error::AmountTooSmallAfterConversion`]: If the conversion to the counter-asset
 		///   rounds to zero; swap would transfer nothing.
 		///
@@ -1052,12 +1050,12 @@ pub mod pallet {
 		/// - [`Error::TooManyAssets`]: If the PSM is already at
 		///   [`Config::MaxExternalAssetsPerPsm`].
 		/// - [`Error::AssetAlreadyApproved`]: If `asset_id` is already approved on this PSM.
-		/// - [`Error::AssetDoesNotExist`]: If `asset_id` does not exist in the underlying
-		///   fungibles backend.
-		/// - [`Error::DecimalsMismatch`]: If the internal asset's live decimals diverged from
-		///   the snapshot in [`PsmInfo`].
-		/// - [`Error::DecimalsRangeExceeded`]: If `|asset_decimals − internal_decimals|`
-		///   exceeds [`MAX_DECIMALS_DIFF`].
+		/// - [`Error::AssetDoesNotExist`]: If `asset_id` does not exist in the underlying fungibles
+		///   backend.
+		/// - [`Error::DecimalsMismatch`]: If the internal asset's live decimals diverged from the
+		///   snapshot in [`PsmInfo`].
+		/// - [`Error::DecimalsRangeExceeded`]: If `|asset_decimals − internal_decimals|` exceeds
+		///   [`MAX_DECIMALS_DIFF`].
 		///
 		/// ## Events
 		///
@@ -1343,12 +1341,9 @@ pub mod pallet {
 					// 2. Per-external reserve covers tracked debt.
 					let debt = PsmDebt::<T>::get(&internal_asset, &asset_id);
 					let reserve = Self::get_reserve(&internal_asset, &asset_id);
-					let debt_as_external = Self::internal_to_external(
-						debt,
-						external.decimals,
-						info.internal_decimals,
-					)
-					.map_err(|_| "Failed to convert tracked debt to external units")?;
+					let debt_as_external =
+						Self::internal_to_external(debt, external.decimals, info.internal_decimals)
+							.map_err(|_| "Failed to convert tracked debt to external units")?;
 					ensure!(
 						reserve >= debt_as_external,
 						"PSM reserve is less than tracked debt for an asset"
@@ -1372,10 +1367,7 @@ pub mod pallet {
 				);
 
 				// 5. Aggregate debt within the configured ceiling.
-				ensure!(
-					sum <= info.max_debt,
-					"Aggregate PSM debt exceeds the instance's max_debt"
-				);
+				ensure!(sum <= info.max_debt, "Aggregate PSM debt exceeds the instance's max_debt");
 
 				// 6. Per-asset debt within its (normalised) ceiling when minting is enabled.
 				for (asset_id, external) in ExternalAssets::<T>::iter_prefix(&internal_asset) {

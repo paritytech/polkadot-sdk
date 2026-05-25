@@ -93,7 +93,8 @@ where
 {
 	let asset_id = config.external_asset_id.clone();
 	let internal_asset_id = config.internal_asset_id.clone();
-	let psm_account: Runtime::AccountId = pallet_psm::Pallet::<Runtime>::psm_account(&internal_asset_id);
+	let psm_account: Runtime::AccountId =
+		pallet_psm::Pallet::<Runtime>::psm_account(&internal_asset_id);
 
 	// Check that the external asset actually exists on-chain.
 	assert!(

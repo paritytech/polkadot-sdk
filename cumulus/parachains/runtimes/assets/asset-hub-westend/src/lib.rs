@@ -1718,7 +1718,8 @@ impl pallet_psm::migrations::init::InitialPsmConfig<Runtime> for PsmInitialConfi
 			Permill::from_percent(10).mul_floor(dynamic_params::pusd::MaximumIssuance::get());
 		alloc::vec![(PsmInternalAssetLocation::get(), PsmFeeDestination::get(), max_debt)]
 	}
-	fn externals() -> alloc::vec::Vec<(xcm::v5::Location, xcm::v5::Location, Permill, Permill, Permill)> {
+	fn externals(
+	) -> alloc::vec::Vec<(xcm::v5::Location, xcm::v5::Location, Permill, Permill, Permill)> {
 		use xcm::latest::prelude::*;
 		let usdt_location = xcm::v5::Location::new(0, [PalletInstance(50), GeneralIndex(1984)]);
 		alloc::vec![(

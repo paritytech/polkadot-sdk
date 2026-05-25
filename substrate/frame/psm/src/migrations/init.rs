@@ -69,11 +69,11 @@ pub trait InitialPsmConfig<T: Config> {
 /// Idempotent migration that installs PSM instances and approved externals.
 ///
 /// On each run:
-/// 1. For every entry in `psms()` not already present in `Psms`, inserts a fresh
-///    [`PsmInfo`] (with `external_count = 0`).
-/// 2. For every entry in `externals()` whose `(internal, external)` pair is not yet
-///    approved on the corresponding PSM, inserts the per-external storage and bumps the
-///    parent [`PsmInfo::external_count`].
+/// 1. For every entry in `psms()` not already present in `Psms`, inserts a fresh [`PsmInfo`] (with
+///    `external_count = 0`).
+/// 2. For every entry in `externals()` whose `(internal, external)` pair is not yet approved on the
+///    corresponding PSM, inserts the per-external storage and bumps the parent
+///    [`PsmInfo::external_count`].
 /// 3. Ensures the derived PSM account and fee-destination account exist.
 ///
 /// Safe to run multiple times — existing state is not overwritten.
@@ -207,8 +207,7 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: alloc::vec::Vec<u8>) -> Result<(), TryRuntimeError> {
 		for (internal_asset, fee_destination, max_debt) in I::psms() {
-			let info = Psms::<T>::get(&internal_asset)
-				.ok_or("PsmInfo missing after migration")?;
+			let info = Psms::<T>::get(&internal_asset).ok_or("PsmInfo missing after migration")?;
 			ensure!(info.max_debt == max_debt, "max_debt mismatch after migration");
 			ensure!(
 				info.fee_destination == fee_destination,
@@ -330,10 +329,7 @@ mod tests {
 						external_asset
 					),
 				);
-				assert_eq!(
-					MintingFee::<Test>::get(INTERNAL_ASSET_ID, external_asset),
-					minting_fee
-				);
+				assert_eq!(MintingFee::<Test>::get(INTERNAL_ASSET_ID, external_asset), minting_fee);
 				assert_eq!(
 					RedemptionFee::<Test>::get(INTERNAL_ASSET_ID, external_asset),
 					redemption_fee
