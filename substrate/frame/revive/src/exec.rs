@@ -1950,6 +1950,12 @@ where
 			slot: key.to_slot(),
 		})
 	}
+
+	/// Per-transaction access list metrics: (unique entries, cold touches, hot touches).
+	#[cfg(test)]
+	pub(crate) fn access_list_metrics(&self) -> (usize, u32, u32) {
+		self.access_list.metrics()
+	}
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>

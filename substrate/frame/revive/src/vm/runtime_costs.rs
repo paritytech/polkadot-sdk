@@ -247,7 +247,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 }
 
 impl RuntimeCosts {
-	/// Pre cold/hot feature weight.
+	/// Weight for opcodes without cold/hot pricing (everything except storage).
 	fn legacy_weight<T: Config>(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match *self {

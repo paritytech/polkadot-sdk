@@ -3061,6 +3061,14 @@ fn cold_hot_get_storage_size_marks_hot() {
 			"SSTORE after size lookup is hot — size loaded the same trie nodes",
 		);
 
+		// 2 unique slots touched, 2 cold (first size lookup of each),
+		// 2 hot (follow-up SLOAD and SSTORE).
+		assert_eq!(
+			ctx.ext.access_list_metrics(),
+			(2, 2, 2),
+			"metrics counters track cold/hot touches",
+		);
+
 		exec_success()
 	});
 
