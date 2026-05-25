@@ -109,7 +109,7 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 				},
 				Some(MigrationCursor::Iterate) | None => {
 					let Some((p, msgs)) = v0::DownwardMessageQueues::<T>::iter().next() else {
-						// v0 truly drained — leave cursor as None.
+						cursor = None;
 						break;
 					};
 					(p, msgs, 0u64)
