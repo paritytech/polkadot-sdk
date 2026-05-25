@@ -107,7 +107,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	system_version: 1,
 };
 
-
 pub const MILLISECS_PER_BLOCK: u64 = 2000;
 
 pub const SLOT_DURATION: u64 = 24_000;

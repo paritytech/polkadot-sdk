@@ -17,7 +17,9 @@
 use super::{transaction_extension::DynamicMaxBlockWeight, *};
 use crate::{self as parachain_system, MessagingStateSnapshot, PreviousCoreCount};
 use codec::Compact;
-use cumulus_primitives_core::{BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem};
+use cumulus_primitives_core::{
+	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
+};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,

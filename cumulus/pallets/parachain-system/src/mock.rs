@@ -23,7 +23,10 @@ use super::*;
 use alloc::collections::vec_deque::VecDeque;
 use codec::Encode;
 use core::num::NonZeroU32;
-use cumulus_primitives_core::{relay_chain::BlockNumber as RelayBlockNumber, AggregateMessageOrigin, InboundDownwardMessage, InboundHrmpMessage, PersistedValidationData};
+use cumulus_primitives_core::{
+	relay_chain::BlockNumber as RelayBlockNumber, AggregateMessageOrigin, InboundDownwardMessage,
+	InboundHrmpMessage, PersistedValidationData,
+};
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{
 	derive_impl,
