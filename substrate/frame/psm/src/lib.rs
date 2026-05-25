@@ -56,15 +56,16 @@
 //!   `PalletId::into_sub_account_truncating(internal_asset)`.
 //! * **Minting**: Deposit external stablecoin → receive internal asset (minus fee).
 //! * **Redemption**: Burn internal asset → receive external stablecoin (minus fee).
-//! * **Reserve**: External stablecoin balance held by a PSM's reserve account (derived, not stored).
-//! * **PSM Debt**: Total internal asset minted through a PSM, backed 1:1 by external stablecoins
-//!   in that PSM's reserve.
+//! * **Reserve**: External stablecoin balance held by a PSM's reserve account (derived, not
+//!   stored).
+//! * **PSM Debt**: Total internal asset minted through a PSM, backed 1:1 by external stablecoins in
+//!   that PSM's reserve.
 //! * **Circuit Breaker**: Per-external emergency control to disable minting or all swaps.
 //!
 //! ### Fee Structure
 //!
-//! * **Minting Fee (`MintingFee`)**: Deducted from internal-asset output during minting,
-//!   configured per `(internal_asset, external_asset)` pair.
+//! * **Minting Fee (`MintingFee`)**: Deducted from internal-asset output during minting, configured
+//!   per `(internal_asset, external_asset)` pair.
 //! * **Redemption Fee (`RedemptionFee`)**: Deducted from external stablecoin output during
 //!   redemption, configured per `(internal_asset, external_asset)` pair.
 //!
