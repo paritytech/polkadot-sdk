@@ -300,6 +300,10 @@ pub use mmr_gadget;
 #[cfg(feature = "mmr-rpc")]
 pub use mmr_rpc;
 
+/// FRAME pallet for periodic accumulation and forwarding of native token funds.
+#[cfg(feature = "pallet-accumulate-and-forward")]
+pub use pallet_accumulate_and_forward;
+
 /// The Alliance pallet provides a collective for standard-setting industry collaboration.
 #[cfg(feature = "pallet-alliance")]
 pub use pallet_alliance;
@@ -454,10 +458,6 @@ pub use pallet_core_fellowship;
 /// FRAME pallet for Dynamic Allocation Pool (DAP).
 #[cfg(feature = "pallet-dap")]
 pub use pallet_dap;
-
-/// FRAME pallet for DAP Satellite - collects funds for periodic transfer to DAP on AssetHub.
-#[cfg(feature = "pallet-dap-satellite")]
-pub use pallet_dap_satellite;
 
 /// FRAME delegated staking pallet.
 #[cfg(feature = "pallet-delegated-staking")]
@@ -774,10 +774,6 @@ pub use pallet_transaction_payment_rpc;
 /// RPC runtime API for transaction payment FRAME pallet.
 #[cfg(feature = "pallet-transaction-payment-rpc-runtime-api")]
 pub use pallet_transaction_payment_rpc_runtime_api;
-
-/// Storage chain pallet.
-#[cfg(feature = "pallet-transaction-storage")]
-pub use pallet_transaction_storage;
 
 /// FRAME pallet to manage treasury.
 #[cfg(feature = "pallet-treasury")]
@@ -1146,6 +1142,10 @@ pub use sc_executor_polkavm;
 #[cfg(feature = "sc-executor-wasmtime")]
 pub use sc_executor_wasmtime;
 
+/// Hand-Off Protocol (HOP) ephemeral data pool service.
+#[cfg(feature = "sc-hop")]
+pub use sc_hop;
+
 /// Substrate informant.
 #[cfg(feature = "sc-informant")]
 pub use sc_informant;
@@ -1267,6 +1267,10 @@ pub use sc_transaction_pool_api;
 #[cfg(feature = "sc-utils")]
 pub use sc_utils;
 
+/// Host-side PolkaVM backend driving the sp-virtualization host functions.
+#[cfg(feature = "sc-virtualization")]
+pub use sc_virtualization;
+
 /// Helper crate for generating slot ranges for the Polkadot runtime.
 #[cfg(feature = "slot-range-helper")]
 pub use slot_range_helper;
@@ -1371,6 +1375,10 @@ pub use sp_externalities;
 /// Substrate RuntimeGenesisConfig builder API.
 #[cfg(feature = "sp-genesis-builder")]
 pub use sp_genesis_builder;
+
+/// HOP (Hand-Off Protocol) primitives and runtime API.
+#[cfg(feature = "sp-hop")]
+pub use sp_hop;
 
 /// Provides types and traits for creating and checking inherents.
 #[cfg(feature = "sp-inherents")]

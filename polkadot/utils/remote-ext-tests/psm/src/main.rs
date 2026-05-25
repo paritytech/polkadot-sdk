@@ -17,6 +17,7 @@
 //! Remote tests for pallet-psm against live Asset Hub state.
 
 use clap::{Parser, ValueEnum};
+use pallet_psm_remote_tests::PsmTestConfigOf;
 
 #[derive(Clone, Debug, ValueEnum)]
 #[value(rename_all = "PascalCase")]
@@ -35,11 +36,10 @@ struct Cli {
 	asset_id: u32,
 }
 
-fn asset_hub_westend_config(asset_id: u32) -> pallet_psm_remote_tests::PsmTestConfig {
-	let internal_asset_id = asset_hub_westend_runtime::PsmStablecoinAssetId::get();
-	pallet_psm_remote_tests::PsmTestConfig {
-		external_asset_id: asset_id,
-		internal_asset_id,
+fn asset_hub_westend_config(asset_id: u32) -> PsmTestConfigOf<asset_hub_westend_runtime::Runtime> {
+	use xcm::latest::prelude::*;
+	PsmTestConfigOf::<asset_hub_westend_runtime::Runtime> {
+		external_asset_id: Location::new(0, [PalletInstance(50), GeneralIndex(asset_id.into())]),
 		internal_asset_decimals: 6,
 		assets_pallet_name: "Assets".to_string(),
 		pre_create_hook: None,

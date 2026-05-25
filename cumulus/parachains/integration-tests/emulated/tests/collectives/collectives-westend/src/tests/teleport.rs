@@ -112,11 +112,11 @@ fn teleport_via_transfer_assets_from_asset_hub_to_collectives() {
 }
 
 #[test]
-fn dap_satellite_collectives_transfers_native_to_asset_hub_dap() {
+fn accumulate_forward_collectives_transfers_native_to_asset_hub() {
 	type RelayDataProvider = cumulus_pallet_parachain_system::RelaychainDataProvider<
 		collectives_westend_runtime::Runtime,
 	>;
-	emulated_integration_tests_common::dap_helpers::test_dap_satellite_transfers_to_asset_hub::<
+	emulated_integration_tests_common::dap_helpers::test_accumulate_forward_transfers_to_asset_hub::<
 		CollectivesWestend,
 		AssetHubWestend,
 	>(

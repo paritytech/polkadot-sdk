@@ -980,19 +980,13 @@ mod governance {
 	}
 
 	#[test]
-	fn emergency_origin_cannot_set_max_psm_debt() {
+	fn emergency_origin_can_set_max_psm_debt() {
 		new_test_ext().execute_with(|| {
-			let old_ratio = MaxPsmDebtOfTotal::<Test>::get();
+			let new_ratio = Permill::from_percent(20);
 
-			assert_noop!(
-				Psm::set_max_psm_debt(
-					RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
-					Permill::from_percent(20)
-				),
-				Error::<Test>::InsufficientPrivilege
-			);
+			assert_ok!(Psm::set_max_psm_debt(RuntimeOrigin::signed(EMERGENCY_ACCOUNT), new_ratio));
 
-			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), old_ratio);
+			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), new_ratio);
 		});
 	}
 

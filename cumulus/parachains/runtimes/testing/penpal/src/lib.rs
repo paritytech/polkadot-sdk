@@ -434,8 +434,8 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
 	type DoneSlashHandler = ();
 }
 
@@ -498,6 +498,7 @@ impl pallet_assets::Config<AssetsInstance> for Runtime {
 
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
+	pub const LpFee: Permill = Permill::zero(); // Makes account balance tracking in tests a bit easier
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
@@ -568,7 +569,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolSetupFeeAsset = xcm_config::PenpalNativeCurrency;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
-	type LPFee = ConstU32<0>; // Makes account balance tracking in tests a bit easier
+	type LPFee = LpFee;
 	type PalletId = AssetConversionPalletId;
 	type MaxSwapPathLength = ConstU32<3>;
 	type MintMinLiquidity = ConstU128<100>;
@@ -793,6 +794,7 @@ impl pallet_revive::Config for Runtime {
 	type AutoMap = ConstBool<false>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = ();
+	type Deposit = ();
 }
 
 impl pallet_sudo::Config for Runtime {

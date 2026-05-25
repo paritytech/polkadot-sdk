@@ -17,10 +17,11 @@
 
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
-	CodeRemoved, Config, ContractInfo, Error, Event, HoldReason, ImmutableData, ImmutableDataOf,
-	LOG_TARGET, Pallet as Contracts, RuntimeCosts, TrieId,
+	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
+	Pallet as Contracts, RuntimeCosts, TrieId,
 	address::{self, AddressMapper},
-	evm::{block_storage, transfer_with_dust},
+	deposit_payment::Deposit as _,
+	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
 	limits,
 	metering::{ChargedAmount, Diff, FrameMeter, ResourceMeter, State, Token, TransactionMeter},
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
@@ -43,7 +44,7 @@ use frame_support::{
 	storage::{TransactionOutcome, with_transaction},
 	traits::{
 		Time,
-		fungible::{Inspect, Mutate},
+		fungible::{Balanced as _, Inspect, Mutate},
 		tokens::Preservation,
 	},
 	weights::Weight,
@@ -888,15 +889,16 @@ where
 				)
 			};
 
-			if_tracing(|t| match result {
-				Ok(ref output) => {
-					t.exit_child_span(&output, Default::default(), Default::default())
-				},
-				Err(e) => t.exit_child_span_with_error(
-					e.error.into(),
-					Default::default(),
-					Default::default(),
-				),
+			if_tracing(|t| {
+				let gas_used =
+					transaction_meter.total_consumed_gas().try_into().unwrap_or(u64::MAX);
+				let weight_consumed = transaction_meter.weight_consumed();
+				match result {
+					Ok(ref output) => t.exit_child_span(&output, gas_used, weight_consumed),
+					Err(e) => {
+						t.exit_child_span_with_error(e.error.into(), gas_used, weight_consumed)
+					},
+				}
 			});
 
 			log::trace!(target: LOG_TARGET, "call finished with: {result:?}");
@@ -1312,14 +1314,11 @@ where
 			// We need to make sure that the contract's account exists before calling its
 			// constructor.
 			if entry_point == ExportedFunction::Constructor {
-				// Root origin can't be used to instantiate a contract, so it is safe to assume that
-				// if we reached this point the origin has an associated account.
-				let origin = &self.origin.account_id()?;
+				// Root origin can't be used to instantiate a contract.
+				ensure!(matches!(self.origin, Origin::Signed(_)), DispatchError::RootNotAllowed);
 
 				if !frame_system::Pallet::<T>::account_exists(&account_id) {
-					let ed = <Contracts<T>>::min_balance();
-					frame.frame_meter.charge_deposit(&StorageDeposit::Charge(ed))?;
-					<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)?;
+					T::Deposit::init_contract(account_id)?;
 				}
 
 				// A consumer is added at account creation and removed it on termination, otherwise
@@ -1667,10 +1666,23 @@ where
 
 		let origin = origin.account_id()?;
 		let ed = <T as Config>::Currency::minimum_balance();
+		let is_eth_tx = exec_config.collect_deposit_from_hold.is_some();
 		with_transaction(|| -> TransactionOutcome<DispatchResult> {
 			match meter
 				.charge_deposit(&StorageDeposit::Charge(ed))
-				.and_then(|_| <Contracts<T>>::charge_deposit(None, origin, to, ed, exec_config))
+				.and_then(|_| {
+					if is_eth_tx {
+						let credit = T::FeeInfo::withdraw_txfee(ed)
+							.ok_or(Error::<T>::StorageDepositNotEnoughFunds)?;
+						T::Currency::resolve(to, credit)
+							.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
+						Ok(())
+					} else {
+						T::Currency::transfer(origin, to, ed, Preservation::Preserve)
+							.map(|_| ())
+							.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
+					}
+				})
 				.and_then(|_| transfer_with_dust::<T>(from, to, value, preservation))
 			{
 				Ok(_) => TransactionOutcome::Commit(Ok(())),
@@ -1708,37 +1720,18 @@ where
 		origin: &Origin<T>,
 		args: &TerminateArgs<T>,
 	) -> Result<(), DispatchError> {
-		use frame_support::traits::fungible::InspectHold;
-
 		let contract_address = T::AddressMapper::to_address(contract_account);
 
 		let mut delete_contract = |trie_id: &TrieId, code_hash: &H256| {
 			// deposit needs to be removed as it adds a consumer
-			let refund = T::Currency::balance_on_hold(
-				&HoldReason::StorageDepositReserve.into(),
-				&contract_account,
-			);
-			<Contracts<T>>::refund_deposit(
-				HoldReason::StorageDepositReserve,
-				contract_account,
-				origin.account_id()?,
-				refund,
-				Some(exec_config),
-			)?;
+			let refund =
+				T::Deposit::refund_all(&contract_account, exec_config.funds(origin.account_id()?))?;
 
 			// we added this consumer manually when instantiating
 			System::<T>::dec_consumers(&contract_account);
 
-			// ed needs to be send to the origin
-			Self::transfer(
-				origin,
-				contract_account,
-				origin.account_id()?,
-				Contracts::<T>::convert_native_to_evm(T::Currency::minimum_balance()),
-				Preservation::Expendable,
-				transaction_meter,
-				exec_config,
-			)?;
+			// ED was minted when the account was brought into existence; burn it now.
+			T::Deposit::destroy_contract(contract_account)?;
 
 			// this is needed to:
 			// 1) Send any balance that was send to the contract after termination.
@@ -1760,7 +1753,7 @@ where
 			let _code_removed = <CodeInfo<T>>::decrement_refcount(*code_hash)?;
 
 			// delete the contracts data last as its infallible
-			ContractInfo::<T>::queue_trie_for_deletion(trie_id.clone());
+			ContractInfo::<T>::queue_for_deletion(trie_id.clone(), contract_account.clone());
 			AccountInfoOf::<T>::remove(contract_address);
 			ImmutableDataOf::<T>::remove(contract_address);
 
@@ -2153,6 +2146,9 @@ where
 						Default::default(),
 					);
 				});
+
+				let snapshot = if_tracing(|_| top_frame!(self).frame_meter.snapshot());
+
 				let result = if let Some(mock_answer) =
 					self.exec_config.mock_handler.as_ref().and_then(|handler| {
 						handler.mock_call(T::AddressMapper::to_address(&dest), &input_data, value)
@@ -2176,15 +2172,19 @@ where
 					)
 				};
 
-				if_tracing(|t| match result {
-					Ok(ref output) => {
-						t.exit_child_span(&output, Default::default(), Default::default())
-					},
-					Err(e) => t.exit_child_span_with_error(
-						e.error.into(),
-						Default::default(),
-						Default::default(),
-					),
+				if_tracing(|t| {
+					let snapshot = snapshot.as_ref().expect(
+						"snapshot is taken inside if_tracing above; tracing state cannot \
+						 change mid-call, so it is Some whenever this closure runs; qed",
+					);
+					let (gas_used, weight_delta) =
+						top_frame!(self).frame_meter.delta_since(snapshot);
+					match result {
+						Ok(ref output) => t.exit_child_span(&output, gas_used, weight_delta),
+						Err(e) => {
+							t.exit_child_span_with_error(e.error.into(), gas_used, weight_delta)
+						},
+					}
 				});
 
 				result.map(|_| ())

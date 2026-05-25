@@ -62,7 +62,7 @@ pub type HostFunctions = (
 	sp_statement_store::runtime_api::HostFunctions,
 	// Unstable: Only needed here for benchmarking. Do not use in production runtimes.
 	// These host functions are not available on Polkadot and subject to breaking changes.
-	sp_virtualization::host_fn::HostFunctions,
+	sp_virtualization::HostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 
@@ -609,13 +609,14 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	(with_startup_data)(&block_import, &babe_link);
 
 	if let sc_service::config::Role::Authority { .. } = &role {
-		let proposer = sc_basic_authorship::ProposerFactory::new(
+		let mut proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool.clone(),
 			prometheus_registry.as_ref(),
 			telemetry.as_ref().map(|x| x.handle()),
 		);
+		proposer.set_default_block_size_limit(15 * 1024 * 1024);
 
 		let client_clone = client.clone();
 		let slot_duration = babe_link.config().slot_duration();

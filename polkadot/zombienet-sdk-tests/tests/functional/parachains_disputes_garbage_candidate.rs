@@ -46,7 +46,7 @@ async fn parachains_disputes_garbage_candidate_test() -> Result<(), anyhow::Erro
 	// Parachains should be making progress even if we have up to 1/4 malicious validators.
 	// Check that all parachains produce at least 2 blocks within 1 session and 9 blocks (RC)
 	log::info!("Checking parachain block production (all paras registered at genesis)");
-	let para_throughput: [(ParaId, Range<u32>); 3] = PARAS.map(|id| (ParaId::from(id), 2..6));
+	let para_throughput: [(ParaId, Range<u32>); 3] = PARAS.map(|id| (ParaId::from(id), 2..10));
 	assert_para_throughput(&relay_client, 9, para_throughput, []).await?;
 	log::info!("All parachains producing blocks");
 

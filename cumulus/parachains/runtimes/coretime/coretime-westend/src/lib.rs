@@ -79,7 +79,7 @@ use sp_session::OpaqueGeneratedSessionKeys;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
-	consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
+	accumulate_forward::*, consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
 };
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{prelude::*, Version as XcmVersion};
@@ -139,13 +139,10 @@ pub type Migrations = (
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
-	// #11705: drain residual relay-treasury XCM payouts into DAP satellite.
-	// Idempotent. No further activity on the legacy `py/trsry` account is expected.
-	// Safe to remove once confirmed.
-	pallet_dap_satellite::migrations::DrainLegacyTreasuryToDapSatellite<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
@@ -168,7 +165,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("coretime-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("coretime-westend"),
 	authoring_version: 1,
-	spec_version: 1_022_003,
+	spec_version: 1_022_004,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -267,7 +264,7 @@ parameter_types! {
 
 impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
-	type DustRemoval = DapSatellite;
+	type DustRemoval = AccumulateForward;
 	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
@@ -285,17 +282,20 @@ impl pallet_balances::Config for Runtime {
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10
 	pub const TransactionByteFee: Balance = MILLICENTS;
-	/// Percentage of fees to send to DAP satellite.
-	pub const DapSatelliteFeePercent: Percent = Percent::from_percent(100);
+	/// Percentage of fees to send to the accumulation account.
+	pub const AccumulateForwardFeePercent: Percent = Percent::from_percent(100);
 }
 
-pub type DealWithFeesSatellite =
-	pallet_dap_satellite::DealWithFeesSplit<Runtime, DapSatelliteFeePercent, DealWithFees<Runtime>>;
+pub type DealWithFeesAccumulate = pallet_accumulate_and_forward::DealWithFeesSplit<
+	Runtime,
+	AccumulateForwardFeePercent,
+	DealWithFees<Runtime>,
+>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFeesSatellite>;
+		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFeesAccumulate>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -630,19 +630,19 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
-impl pallet_dap_satellite::Config for Runtime {
+impl pallet_accumulate_and_forward::Config for Runtime {
 	type Currency = Balances;
-	type PalletId = DapSatellitePalletId;
-	type SendToDap = xcm_builder::SendToDapViaTeleport<
+	type PalletId = AccumulateForwardPalletId;
+	type Forwarder = xcm_builder::TeleportForwarderForAccountId32<
 		xcm_config::XcmConfig,
 		testnet_parachains_constants::westend::locations::AssetHubLocation,
 		xcm_config::TokenRelayLocation,
 		DapStagingLocation,
 	>;
-	type TransferPeriod = DapSatelliteTransferPeriod;
-	type MinTransferAmount = DapSatelliteMinTransferAmount;
+	type TransferPeriod = ForwardPeriod;
+	type MinTransferAmount = MinForwardAmount;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
-	type WeightInfo = weights::pallet_dap_satellite::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_accumulate_and_forward::WeightInfo<Runtime>;
 }
 
 pub struct BrokerMigrationV4BlockConversion;
@@ -707,7 +707,7 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
 		TransactionPayment: pallet_transaction_payment = 11,
-		DapSatellite: pallet_dap_satellite = 12,
+		AccumulateForward: pallet_accumulate_and_forward = 12,
 
 		// Collator support. The order of these 5 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -759,7 +759,7 @@ mod benches {
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
-		[pallet_dap_satellite, DapSatellite]
+		[pallet_accumulate_and_forward, AccumulateForward]
 	);
 }
 
@@ -1280,7 +1280,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
-			1
+			BLOCK_PROCESSING_VELOCITY
 		}
 	}
 }
