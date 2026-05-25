@@ -64,9 +64,14 @@ pub trait AddressMapper<T: Config>: private::Sealed {
 	/// `account_id` instead of the fallback account id.
 	fn map(account_id: &T::AccountId) -> DispatchResult;
 
-	/// Map an account id without taking any deposit.
-	/// This is only useful for genesis configuration, or benchmarks.
-	fn map_no_deposit(account_id: &T::AccountId) -> DispatchResult {
+	/// Map an account id without taking any deposit, without verifying that the
+	/// account exists.
+	///
+	/// The caller must guarantee that `account_id` exists, or is in the process
+	/// of being created (e.g. from inside `OnNewAccount`). Calling this with an
+	/// arbitrary `AccountId` writes a dangling `OriginalAccount` entry that no
+	/// one can clean up.
+	fn map_no_deposit_unchecked(account_id: &T::AccountId) -> DispatchResult {
 		Self::map(account_id)
 	}
 
@@ -154,7 +159,7 @@ where
 		Ok(())
 	}
 
-	fn map_no_deposit(account_id: &T::AccountId) -> DispatchResult {
+	fn map_no_deposit_unchecked(account_id: &T::AccountId) -> DispatchResult {
 		ensure!(!Self::is_mapped(account_id), <Error<T>>::AccountAlreadyMapped);
 		<OriginalAccount<T>>::insert(Self::to_address(account_id), account_id);
 		Ok(())
@@ -285,7 +290,7 @@ impl<T: Config> OnNewAccount<T::AccountId> for AutoMapper<T> {
 	fn on_new_account(who: &T::AccountId) {
 		if T::AutoMap::get() &&
 			!T::AddressMapper::is_eth_derived(who) &&
-			let Err(err) = T::AddressMapper::map_no_deposit(who)
+			let Err(err) = T::AddressMapper::map_no_deposit_unchecked(who)
 		{
 			log::warn!(
 				target: crate::LOG_TARGET,
@@ -584,7 +589,7 @@ mod test {
 			for a in &unmapped {
 				assert!(<Test as Config>::AddressMapper::is_mapped(a));
 
-				// map_no_deposit must not take a deposit
+				// map_no_deposit_unchecked must not take a deposit
 				assert_eq!(
 					<Test as Config>::Currency::balance_on_hold(
 						&HoldReason::AddressMapping.into(),
@@ -599,7 +604,7 @@ mod test {
 	#[test]
 	fn batch_map_accounts_already_mapped_no_hold_pays_yes() {
 		ExtBuilder::default().build().execute_with(|| {
-			<Test as Config>::AddressMapper::map_no_deposit(&EVE).unwrap();
+			<Test as Config>::AddressMapper::map_no_deposit_unchecked(&EVE).unwrap();
 			assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
 
 			assert_eq!(

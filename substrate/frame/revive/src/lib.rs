@@ -861,7 +861,7 @@ pub mod pallet {
 			}
 
 			for id in &self.mapped_accounts {
-				if let Err(err) = T::AddressMapper::map_no_deposit(id) {
+				if let Err(err) = T::AddressMapper::map_no_deposit_unchecked(id) {
 					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
 				}
 			}
@@ -1640,7 +1640,7 @@ pub mod pallet {
 			{
 				let mut useful = false;
 
-				match T::AddressMapper::map_no_deposit(account_id) {
+				match T::AddressMapper::map_no_deposit_unchecked(account_id) {
 					Ok(()) => {
 						useful = true;
 					},
