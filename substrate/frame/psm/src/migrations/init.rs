@@ -33,8 +33,6 @@
 //! Where `PsmInitialConfig` implements [`InitialPsmConfig`].
 
 use alloc::vec::Vec;
-#[cfg(feature = "try-runtime")]
-use alloc::vec::Vec as _;
 use frame_support::{
 	pallet_prelude::{Get, Weight},
 	traits::fungibles::metadata::Inspect as FungiblesMetadataInspect,
