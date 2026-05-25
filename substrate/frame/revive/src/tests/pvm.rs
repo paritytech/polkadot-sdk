@@ -3970,7 +3970,7 @@ fn mapped_address_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 		<Test as Config>::Currency::set_balance(&account_id, 200);
-		<Test as Config>::AddressMapper::map_no_deposit(&EVE).unwrap();
+		<Test as Config>::AddressMapper::map_no_deposit_unchecked(&EVE).unwrap();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);
 		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 200);
