@@ -428,6 +428,8 @@ pub struct OutboundChannelDetails {
 	last_index: u16,
 	/// Flags
 	flags: OutboundChannelFlags,
+	/// Cached total byte size of the pages currently queued in this channel.
+	queued_bytes: u32,
 }
 
 impl OutboundChannelDetails {
@@ -439,6 +441,7 @@ impl OutboundChannelDetails {
 			first_index: 0,
 			last_index: 0,
 			flags: OutboundChannelFlags::empty(),
+			queued_bytes: 0,
 		}
 	}
 
@@ -605,6 +608,7 @@ impl<T: Config> Pallet<T> {
 				existing_page = Some(page.into_inner());
 			}
 		}
+		let appended_to_existing_page = existing_page.is_some();
 		let mut current_page = existing_page.unwrap_or_else(|| {
 			// We need to add a new page.
 			channel_details.last_index += 1;
@@ -619,6 +623,13 @@ impl<T: Config> Pallet<T> {
 		let page_count =
 			channel_details.last_index.saturating_sub(channel_details.first_index) as u32;
 		let last_page_size = current_page.len();
+		let added_bytes = if appended_to_existing_page {
+			encoded_fragment_len
+		} else {
+			format_size.saturating_add(encoded_fragment_len)
+		};
+		channel_details.queued_bytes =
+			channel_details.queued_bytes.saturating_add(added_bytes as u32);
 		<OutboundXcmpMessages<T>>::insert(recipient, channel_details.last_index - 1, current_page);
 		<OutboundXcmpStatus<T>>::put(all_channels);
 
@@ -1099,6 +1110,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				first_index,
 				last_index,
 				flags,
+				queued_bytes,
 			} = status;
 
 			let (max_size_now, max_size_ever) = match T::ChannelInfo::get_channel_status(*para_id) {
@@ -1154,6 +1166,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 					if page.len() < max_size_now {
 						<OutboundXcmpMessages<T>>::remove(*para_id, *first_index);
 						*first_index += 1;
+						*queued_bytes = queued_bytes.saturating_sub(page.len() as u32);
 						break 'page_fetch page;
 					}
 				}
@@ -1180,6 +1193,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 			if first_index == last_index {
 				*first_index = 0;
 				*last_index = 0;
+				*queued_bytes = 0;
 			}
 
 			if page.len() > max_size_ever {
@@ -1195,14 +1209,11 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				Some(channel_info) => channel_info.max_total_size,
 				None => {
 					tracing::warn!(target: LOG_TARGET, "calling `get_channel_info` with no RelevantMessagingState?!");
-					MAX_POSSIBLE_ALLOCATION // We use this as a fallback in case the messaging state is not present
+					MAX_POSSIBLE_ALLOCATION
 				},
 			};
 			let threshold = max_total_size.saturating_div(delivery_fee_constants::THRESHOLD_FACTOR);
-			let remaining_total_size: usize = (*first_index..*last_index)
-				.map(|index| OutboundXcmpMessages::<T>::decode_len(*para_id, index).unwrap())
-				.sum();
-			if remaining_total_size <= threshold as usize {
+			if *queued_bytes <= threshold {
 				Self::decrease_fee_factor(*para_id);
 			}
 
@@ -1307,6 +1318,7 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 			for details in details_vec {
 				details.first_index = 0;
 				details.last_index = 0;
+				details.queued_bytes = 0;
 			}
 		});
 	}
