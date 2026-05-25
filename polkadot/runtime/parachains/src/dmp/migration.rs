@@ -65,8 +65,6 @@ pub mod v0 {
 }
 
 /// Migrate `v0::DownwardMessageQueues` into the paged layout.
-///
-/// Must be configured to at least 30% of max block weight.
 pub struct MigrateV0ToV1<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
