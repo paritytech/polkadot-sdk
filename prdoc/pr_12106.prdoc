@@ -6,8 +6,8 @@ doc:
     `Store`/`Reference`/`Release` ops on the same key, each op reads a stale on-disk
     counter and writes back to the same counter key — the underlying `DBTransaction`
     keeps only the last `put`, collapsing N ops to a single ±1. `commit_impl` now
-    aggregates per-`(col, key)` deltas across the transaction and performs one
-    read-modify-write per unique key.
+    replays per-`(col, key)` refcount ops in transaction order against one on-disk
+    counter read, then emits one final write per unique key.
 crates:
 - name: sc-client-db
   bump: patch

@@ -18,6 +18,8 @@
 /// A wrapper around `kvdb::Database` that implements `sp_database::Database` trait
 use ::kvdb::{DBTransaction, KeyValueDB};
 use std::collections::HashMap;
+#[cfg(debug_assertions)]
+use std::collections::HashSet;
 
 use crate::{error, Change, ColumnId, Database, Transaction};
 
@@ -57,72 +59,121 @@ fn read_counter(
 	})
 }
 
-#[derive(Default)]
-struct RefCountedKeyState {
-	delta: i64,
-	stored_value: Option<Vec<u8>>,
+enum RefCountedOp {
+	Store(Vec<u8>),
+	Reference,
+	Release,
 }
 
 /// Commit a transaction to a KeyValueDB.
 ///
-/// Ref-counted ops on the same `(col, key)` are aggregated before being applied: without
-/// this, multiple `Store`/`Reference`/`Release` in one tx would each read the stale on-disk
-/// counter and write back to the same counter key — the underlying batch keeps only the
-/// last `put`, collapsing N ops into one.
+/// Ref-counted ops on the same `(col, key)` are replayed in order against one on-disk counter
+/// read, then the final counter/value state is emitted. Without this, multiple
+/// `Store`/`Reference`/`Release` in one tx would each read the stale on-disk counter and write
+/// back to the same counter key — the underlying batch keeps only the last `put`, collapsing N
+/// ops into one.
 ///
 /// `Set`/`Remove` are emitted in submission order; ref-counted ops are emitted afterwards.
-/// Mixing the two styles on the same `(col, key)` in one tx is undefined.
+/// Debug builds assert that raw and ref-counted ops are not mixed on the same `(col, key)`.
 fn commit_impl<H: Clone + AsRef<[u8]>>(
 	db: &dyn KeyValueDB,
 	transaction: Transaction<H>,
 ) -> error::Result<()> {
 	let mut tx = DBTransaction::new();
-	let mut ref_counted: HashMap<(ColumnId, Vec<u8>), RefCountedKeyState> = HashMap::new();
+	let mut ref_counted: HashMap<(ColumnId, Vec<u8>), Vec<RefCountedOp>> = HashMap::new();
+	#[cfg(debug_assertions)]
+	let mut raw_keys: HashSet<(ColumnId, Vec<u8>)> = HashSet::new();
 
 	for change in transaction.0.into_iter() {
 		match change {
-			Change::Set(col, key, value) => tx.put_vec(col, &key, value),
-			Change::Remove(col, key) => tx.delete(col, &key),
+			Change::Set(col, key, value) => {
+				#[cfg(debug_assertions)]
+				raw_keys.insert((col, key.clone()));
+				tx.put_vec(col, &key, value);
+			},
+			Change::Remove(col, key) => {
+				#[cfg(debug_assertions)]
+				raw_keys.insert((col, key.clone()));
+				tx.delete(col, &key);
+			},
 			Change::Store(col, key, value) => {
-				let entry = ref_counted.entry((col, key.as_ref().to_vec())).or_default();
-				entry.delta += 1;
-				// Subsequent Stores ignore the preimage per `Transaction::store` semantics.
-				entry.stored_value.get_or_insert(value);
+				ref_counted
+					.entry((col, key.as_ref().to_vec()))
+					.or_default()
+					.push(RefCountedOp::Store(value));
 			},
 			Change::Reference(col, key) => {
-				ref_counted.entry((col, key.as_ref().to_vec())).or_default().delta += 1;
+				ref_counted
+					.entry((col, key.as_ref().to_vec()))
+					.or_default()
+					.push(RefCountedOp::Reference);
 			},
 			Change::Release(col, key) => {
-				ref_counted.entry((col, key.as_ref().to_vec())).or_default().delta -= 1;
+				ref_counted
+					.entry((col, key.as_ref().to_vec()))
+					.or_default()
+					.push(RefCountedOp::Release);
 			},
 		}
 	}
 
-	for ((col, key), state) in ref_counted {
+	#[cfg(debug_assertions)]
+	for raw_key in &raw_keys {
+		debug_assert!(
+			!ref_counted.contains_key(raw_key),
+			"mixed raw/ref-counted database ops on column {}, key {:02x?}",
+			raw_key.0,
+			raw_key.1,
+		);
+	}
+
+	for ((col, key), ops) in ref_counted {
 		let (counter_key, on_disk_counter) = read_counter(db, col, &key)?;
-		let counter_in_db = on_disk_counter.is_some();
-		// Reference/Release on a key absent from the DB, with no Store to seed it: no-op.
-		if !counter_in_db && state.stored_value.is_none() {
-			continue;
-		}
-		let new_counter = on_disk_counter.unwrap_or(0) as i64 + state.delta;
-		if new_counter <= 0 {
-			tx.delete(col, &counter_key);
-			tx.delete(col, &key);
-		} else {
-			let new_counter_u32: u32 = new_counter.try_into().map_err(|_| {
+		let incr = |c: u32| {
+			c.checked_add(1).ok_or_else(|| {
 				error::DatabaseError(Box::new(std::io::Error::other(format!(
 					"Refcount overflow for key {key:02x?} in column {col}",
 				))))
-			})?;
-			tx.put(col, &counter_key, &new_counter_u32.to_le_bytes());
-			// Counter and value are written/deleted as a pair, so an absent counter means the
-			// value is absent too — emit the Store's preimage alongside the new counter.
-			if !counter_in_db {
-				if let Some(v) = state.stored_value {
-					tx.put_vec(col, &key, v);
-				}
+			})
+		};
+
+		let mut counter = on_disk_counter;
+		let mut value_to_write = None;
+		for op in ops {
+			match op {
+				RefCountedOp::Store(value) => match counter {
+					Some(c) => counter = Some(incr(c)?),
+					None => {
+						counter = Some(1);
+						value_to_write = Some(value);
+					},
+				},
+				RefCountedOp::Reference =>
+					if let Some(c) = counter {
+						counter = Some(incr(c)?);
+					},
+				RefCountedOp::Release => match counter {
+					Some(1) => {
+						counter = None;
+						value_to_write = None;
+					},
+					Some(c) => counter = Some(c - 1),
+					None => {},
+				},
 			}
+		}
+
+		match counter {
+			Some(counter) => {
+				tx.put(col, &counter_key, &counter.to_le_bytes());
+				if let Some(value) = value_to_write {
+					tx.put_vec(col, &key, value);
+				}
+			},
+			None => {
+				tx.delete(col, &counter_key);
+				tx.delete(col, &key);
+			},
 		}
 	}
 
