@@ -157,8 +157,11 @@ pub fn clear_storage(
 	cursor: Option<&mut MultiRemovalCursor>,
 ) -> MultiRemovalCounters {
 	match child_info.child_type() {
-		ChildType::ParentKeyId =>
-			sp_io::default_child_storage::storage_kill(child_info.storage_key(), maybe_limit, cursor),
+		ChildType::ParentKeyId => sp_io::default_child_storage::storage_kill(
+			child_info.storage_key(),
+			maybe_limit,
+			cursor,
+		),
 	}
 }
 

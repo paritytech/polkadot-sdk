@@ -210,8 +210,11 @@ where
 	where
 		KArg1: EncodeLike<K1>,
 	{
-		let counters =
-			unhashed::clear_prefix(Self::storage_double_map_final_key1(k1).as_ref(), maybe_limit, None);
+		let counters = unhashed::clear_prefix(
+			Self::storage_double_map_final_key1(k1).as_ref(),
+			maybe_limit,
+			None,
+		);
 		if counters.more {
 			sp_io::KillStorageResult::SomeRemaining(counters.loops)
 		} else {

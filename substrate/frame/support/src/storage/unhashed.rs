@@ -115,9 +115,9 @@ pub fn kill(key: &[u8]) {
 /// To continue the operation across multiple calls, the caller owns a
 /// [`MultiRemovalCursor`](sp_io::MultiRemovalCursor) and passes `Some(&mut cursor)`: it should be
 /// freshly [created](sp_io::MultiRemovalCursor::new) for the initial call and then passed back in
-/// unchanged on subsequent calls until [`MultiRemovalCounters::more`](sp_io::MultiRemovalCounters::more)
-/// is `false`. Reusing the same cursor object across iterations avoids re-allocating the cursor
-/// buffer on every call.
+/// unchanged on subsequent calls until
+/// [`MultiRemovalCounters::more`](sp_io::MultiRemovalCounters::more) is `false`. Reusing the same
+/// cursor object across iterations avoids re-allocating the cursor buffer on every call.
 ///
 /// Pass `None` when you don't need to continue: no cursor is materialized (no allocation), and
 /// [`MultiRemovalCounters::more`](sp_io::MultiRemovalCounters::more) still reports whether keys

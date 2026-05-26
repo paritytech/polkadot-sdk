@@ -936,12 +936,12 @@ pub trait Storage {
 	/// A convenience wrapper providing a developer-friendly interface for the `clear_prefix` host
 	/// function.
 	///
-	/// Pass `Some` [`MultiRemovalCursor`] only when you need to continue the operation across calls;
-	/// the cursor holds owned buffers reused across invocations (first call allocates nothing, and
-	/// the cached cursor is fetched with an exact-size allocation only when it does not fit the
-	/// reused buffer). Pass `None` when you don't need to continue: no cursor is materialized (no
-	/// `last_cursor` call, no allocation), and [`MultiRemovalCounters::more`] still reports whether
-	/// keys remain.
+	/// Pass `Some` [`MultiRemovalCursor`] only when you need to continue the operation across
+	/// calls; the cursor holds owned buffers reused across invocations (first call allocates
+	/// nothing, and the cached cursor is fetched with an exact-size allocation only when it does
+	/// not fit the reused buffer). Pass `None` when you don't need to continue: no cursor is
+	/// materialized (no `last_cursor` call, no allocation), and [`MultiRemovalCounters::more`]
+	/// still reports whether keys remain.
 	#[wrapper]
 	fn clear_prefix(
 		maybe_prefix: impl AsRef<[u8]>,
@@ -2788,7 +2788,8 @@ pub trait Crypto {
 	///
 	/// Returns the signature.
 	// ERRATA: The RFC gathers all the *_sign_{prehashed} functions under a single definition that
-	// requires `msg` to be a fat pointer which obviously doesn't make sense for a prehashed message.
+	// requires `msg` to be a fat pointer which obviously doesn't make sense for a prehashed
+	// message.
 	fn ecdsa_sign_prehashed(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
