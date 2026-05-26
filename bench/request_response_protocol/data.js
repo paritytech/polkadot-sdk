@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779731032543,
+  "lastUpdate": 1779823709125,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -94715,6 +94715,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2816859354,
             "range": "± 51555799",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jfanatiker@gmx.at",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "670ffa2d5073defd3c2feda75ca2472725679e87",
+          "message": "Candidate descriptor v3 cumulus changes (#10742)\n\nBuilding on top of #10472 \n\nRe-submissions are not yet handled - and not goal of this PR so far was\nto be able to have e2e tests for #10472. Verifying that we have\neverything to support them is necessary though - especially if we forgot\nsomething needed from the relay chain.\n\nFull re-submissions are more involved and I would leave them out for a\nseparate PR, so we can get this one merged quickly.\n\n# Once merged\n\n- [x] Enable core sharing test again, see discussion\n[here](https://github.com/paritytech/polkadot-sdk/pull/11914).\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: eskimor <eskimor@noreply.com>\nCo-authored-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Marios <marios@parity.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Alin Dima <alin@parity.io>",
+          "timestamp": "2026-05-26T18:18:03Z",
+          "tree_id": "99bbd4a30c33a7458b67e69f9a088f482e0499f9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/670ffa2d5073defd3c2feda75ca2472725679e87"
+        },
+        "date": 1779823678958,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19778144,
+            "range": "± 92628",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20215778,
+            "range": "± 107464",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21640803,
+            "range": "± 39201",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26298050,
+            "range": "± 123520",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58853096,
+            "range": "± 630647",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 356646902,
+            "range": "± 3613908",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2700843650,
+            "range": "± 90870845",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17798963,
+            "range": "± 269459",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17914906,
+            "range": "± 104226",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18546573,
+            "range": "± 219475",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23270730,
+            "range": "± 256779",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60045620,
+            "range": "± 735741",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 344428216,
+            "range": "± 1798192",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2986885564,
+            "range": "± 72763015",
             "unit": "ns/iter"
           }
         ]
