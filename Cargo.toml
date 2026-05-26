@@ -279,6 +279,7 @@ members = [
 	"substrate/client/executor/polkavm",
 	"substrate/client/executor/runtime-test",
 	"substrate/client/executor/wasmtime",
+	"substrate/client/hop",
 	"substrate/client/informant",
 	"substrate/client/keystore",
 	"substrate/client/merkle-mountain-range",
@@ -917,7 +918,7 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.13.3", features = ["rsa", "websocket"] }
+litep2p = { version = "0.14.0", features = ["rsa", "websocket"] }
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
@@ -936,6 +937,7 @@ mmr-rpc = { path = "substrate/client/merkle-mountain-range/rpc", default-feature
 mockall = { version = "0.13.1" }
 multiaddr = { version = "0.18.1" }
 multihash = { version = "0.19.1", default-features = false }
+multihash-codetable = { version = "0.2.1", default-features = false, features = ["blake2b"] }
 multistream-select = { version = "0.13.0" }
 names = { version = "0.14.0", default-features = false }
 nix = { version = "0.29.0" }
@@ -1247,6 +1249,7 @@ sc-executor = { path = "substrate/client/executor", default-features = false }
 sc-executor-common = { path = "substrate/client/executor/common", default-features = false }
 sc-executor-polkavm = { path = "substrate/client/executor/polkavm", default-features = false }
 sc-executor-wasmtime = { path = "substrate/client/executor/wasmtime", default-features = false }
+sc-hop = { path = "substrate/client/hop", default-features = false }
 sc-informant = { path = "substrate/client/informant", default-features = false }
 sc-keystore = { path = "substrate/client/keystore", default-features = false }
 sc-mixnet = { path = "substrate/client/mixnet", default-features = false }
