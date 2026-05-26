@@ -3050,8 +3050,8 @@ sp_api::impl_runtime_apis! {
 			impl polkadot_runtime_parachains::disputes::slashing::benchmarking::Config for Runtime {}
 
 			use xcm::latest::{
-				Asset, AssetId, Assets, Fungibility::*, InteriorLocation, Instruction, Junction,
-				Junctions::*, Location, NetworkId, Response, Xcm,
+				Asset, AssetId, Assets, Fungibility::*, InteriorLocation, Junction, Junctions::*,
+				Location, NetworkId, Response, Xcm,
 			};
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
