@@ -170,11 +170,11 @@ pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 )))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 
-#[cfg(feature = "async-backing")]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
-
 #[cfg(all(feature = "sync-backing", not(feature = "async-backing")))]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
+
+#[cfg(feature = "async-backing")]
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3 + RELAY_PARENT_OFFSET;
 
 /// We need `VELOCITY * 3`, because the block flow is the following:
 ///
