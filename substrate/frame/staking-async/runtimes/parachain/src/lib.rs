@@ -505,7 +505,8 @@ parameter_types! {
 }
 
 /// Blocks direct user access to `vested_transfer` on the validator-incentive vesting instance. We
-/// don't include `force_vested_transfer` because it requires root origin, which bypasses all filters.
+/// don't include `force_vested_transfer` because it requires root origin, which bypasses all
+/// filters.
 pub struct ValidatorVestingCallFilter;
 impl frame_support::traits::Contains<RuntimeCall> for ValidatorVestingCallFilter {
 	fn contains(call: &RuntimeCall) -> bool {
