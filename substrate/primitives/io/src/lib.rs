@@ -2602,7 +2602,8 @@ pub trait Crypto {
 	///
 	/// Returns the signature.
 	// ERRATA: The RFC gathers all the *_sign_{prehashed} functions under a single definition that
-	// requires `msg` to be a fat pointer which obviously doesn't make sense for a prehashed message.
+	// requires `msg` to be a fat pointer which obviously doesn't make sense for a prehashed
+	// message.
 	fn ecdsa_sign_prehashed(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
