@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779824806530,
+  "lastUpdate": 1779837271064,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "142614787+andreitrand@users.noreply.github.com",
-            "name": "Andrei Trandafir",
-            "username": "andreitrand"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1594cbd4d087a9f67a029a44ca41ad0a78434d53",
-          "message": "staking: Documentation fixes (#9728)\n\nAdded several documentation-related fixes. In more detail:\n* Typo fixes and rephrasing inside the pallet's Readme file\n* Various code comment fixes\n\nRelated issue: N/A\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
-          "timestamp": "2025-10-14T13:58:27Z",
-          "tree_id": "45644ca50ef216ea93e24622594916c681c91dcd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1594cbd4d087a9f67a029a44ca41ad0a78434d53"
-        },
-        "date": 1760454303678,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15730239066666674,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013058509093333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007441797386666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02242091248,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.023986058860000013,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8579348bb65d89f24850036386bc17067d3c8aff",
+          "message": "Remove deprecated frame_support::error module (#12149)\n\n# Description\n\nRemoves deprecated `frame_support::error` as part of #11561.\n\nThe module was a re-export of `sp_runtime::traits::{BadOrigin,\nLookupError}` (deprecated July 2023). Updates the only in-repo caller,\n`pallet-revive`.\n\nDoes not close #11561.\n\n## Integration\n\n```diff\n- use frame_support::error::BadOrigin;\n+ use sp_runtime::traits::BadOrigin;\n\n- use frame_support::error::LookupError;\n+ use sp_runtime::traits::LookupError;\n```\nReview Notes\n\n- 3 files: remove error mod in frame-support, fix imports in\npallet-revive\n- No other in-repo frame_support::error usage\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
+          "timestamp": "2026-05-26T21:18:42Z",
+          "tree_id": "9cf9fd74c750dabcc1d68c0d1cc60fa6b24e7b2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8579348bb65d89f24850036386bc17067d3c8aff"
+        },
+        "date": 1779837241394,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007708728140000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024082981573333325,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14664151767333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010066948013333313,
             "unit": "seconds"
           }
         ]
