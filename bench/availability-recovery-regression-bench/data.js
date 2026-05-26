@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779824768314,
+  "lastUpdate": 1779837232732,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0e3195df28c6b39d098d4149f9dbc78009e88493",
-          "message": "[pallet-revive] fix subxt submit & add debug statments (#10016)\n\n- Fix subxt submit by default it's using\n`author_submitAndWatchExtrinsic` even though we just want to fire and\nforget\n- Add debug instructions to log the signer & nonce of new eth\ntransactions when the node validate the transaction\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-14T21:35:06Z",
-          "tree_id": "c0fd61b7b9106d5174dd52bca1dcd53376b4ef82",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0e3195df28c6b39d098d4149f9dbc78009e88493"
-        },
-        "date": 1760481856869,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.367958841599998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19843866696666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1447195684,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8579348bb65d89f24850036386bc17067d3c8aff",
+          "message": "Remove deprecated frame_support::error module (#12149)\n\n# Description\n\nRemoves deprecated `frame_support::error` as part of #11561.\n\nThe module was a re-export of `sp_runtime::traits::{BadOrigin,\nLookupError}` (deprecated July 2023). Updates the only in-repo caller,\n`pallet-revive`.\n\nDoes not close #11561.\n\n## Integration\n\n```diff\n- use frame_support::error::BadOrigin;\n+ use sp_runtime::traits::BadOrigin;\n\n- use frame_support::error::LookupError;\n+ use sp_runtime::traits::LookupError;\n```\nReview Notes\n\n- 3 files: remove error mod in frame-support, fix imports in\npallet-revive\n- No other in-repo frame_support::error usage\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
+          "timestamp": "2026-05-26T21:18:42Z",
+          "tree_id": "9cf9fd74c750dabcc1d68c0d1cc60fa6b24e7b2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8579348bb65d89f24850036386bc17067d3c8aff"
+        },
+        "date": 1779837202671,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.201016490166667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13425355050000004,
             "unit": "seconds"
           }
         ]
