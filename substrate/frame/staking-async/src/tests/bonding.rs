@@ -1403,7 +1403,10 @@ mod reap {
 	use super::*;
 
 	#[test]
-	fn reap_stash_works() {
+	fn reap_stash_only_when_ledger_below_ed() {
+		// `reap_stash` is gated by the existential deposit, not by `min_chilled_bond`. A stash
+		// remains safe from permissionless reap as long as its `ledger.total >= ED`, regardless of
+		// how `MinValidatorBond` / `MinNominatorBond` move.
 		ExtBuilder::default()
 			.min_nominator_bond(1_000)
 			.min_validator_bond(1_500)
@@ -1419,36 +1422,44 @@ mod reap {
 				assert!(<Validators<Test>>::contains_key(&11));
 				assert!(<Payee<Test>>::contains_key(&11));
 
-				// stash is not reapable
+				// WHEN attempting to reap a fully funded stash.
+				// THEN it is rejected.
 				assert_noop!(
 					Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0),
 					Error::<Test>::FundedTarget
 				);
 
-				// no easy way to cause an account to go below ED, we tweak their staking ledger
-				// instead.
+				// WHEN the ledger is tweaked to sit below both min bonds but still above ED.
+				// (No easy way to drive the real balance below ED, so we patch the ledger
+				// directly.)
+				Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 999));
 
-				// WHEN: we set the ledger to below min validator bond but above min nominator bond.
-				Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 1499));
-
-				// THEN: still can't reap as the balance is above min nominator bond.
+				// THEN reap is still rejected: ledger.total (999) >= ED (10).
 				assert_noop!(
 					Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0),
 					Error::<Test>::FundedTarget
 				);
 
-				// WHEN: set ledger to below ED
+				// WHEN the ledger sits exactly at ED.
+				Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 10));
+
+				// THEN reap is still rejected.
+				assert_noop!(
+					Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0),
+					Error::<Test>::FundedTarget
+				);
+
+				// WHEN the ledger drops below ED.
 				Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 9));
 
-				// THEN: reap-able
+				// THEN the stash is reapable.
 				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
 
-				// all the data is removed.
+				// And all staking state is gone.
 				assert!(!<Ledger<Test>>::contains_key(&11));
 				assert!(!<Bonded<Test>>::contains_key(&11));
 				assert!(!<Validators<Test>>::contains_key(&11));
 				assert!(!<Payee<Test>>::contains_key(&11));
-				// lock is removed.
 				assert_eq!(asset::staked::<Test>(&11), 0);
 			});
 	}
@@ -1459,7 +1470,7 @@ mod reap {
 			.existential_deposit(0)
 			.balance_factor(10)
 			.build_and_execute(|| {
-				// given
+				// GIVEN a bonded validator on a chain with ED = 0.
 				assert_eq!(asset::staked::<Test>(&11), 10 * 1000);
 				assert_eq!(Staking::bonded(&11), Some(11));
 
@@ -1468,26 +1479,123 @@ mod reap {
 				assert!(<Validators<Test>>::contains_key(&11));
 				assert!(<Payee<Test>>::contains_key(&11));
 
+				// WHEN attempting to reap. THEN rejected: ledger is funded.
+				assert_noop!(
+					Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0),
+					Error::<Test>::FundedTarget
+				);
+
+				// WHEN the ledger is forced to zero.
+				// (No easy way to cause an account to go below ED, we tweak their staking ledger
+				// instead).
+				Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 0));
+
+				// THEN reap succeeds via the `is_zero()` branch (since ED = 0 makes `< ED`
+				// vacuously false).
+				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
+
+				assert!(!<Ledger<Test>>::contains_key(&11));
+				assert!(!<Bonded<Test>>::contains_key(&11));
+				assert!(!<Validators<Test>>::contains_key(&11));
+				assert!(!<Payee<Test>>::contains_key(&11));
+				assert_eq!(asset::staked::<Test>(&11), 0);
+			});
+	}
+
+	#[test]
+	fn raising_min_bonds_does_not_make_non_dust_stash_reapable() {
+		// Regression test: a governance change that raises `MinValidatorBond` and/or
+		// `MinNominatorBond` must not turn existing, non-dust stashes into permissionlessly
+		// reapable targets. The reap gate is the existential deposit, not `min_chilled_bond`.
+		ExtBuilder::default()
+			.existential_deposit(10)
+			.balance_factor(10)
+			.build_and_execute(|| {
+				// GIVEN: 11 is a bonded validator with above-ED ledger.
+				Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 100));
+				assert!(<Ledger<Test>>::contains_key(&11));
+				assert!(<Validators<Test>>::contains_key(&11));
+
 				// stash is not reapable
 				assert_noop!(
 					Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0),
 					Error::<Test>::FundedTarget
 				);
 
-				// no easy way to cause an account to go below ED, we tweak their staking ledger
-				// instead.
-				Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 0));
+				let scenarios: &[(ConfigOp<Balance>, ConfigOp<Balance>)] = &[
+					// only MinValidatorBond raised
+					(ConfigOp::Noop, ConfigOp::Set(10_000)),
+					// only MinNominatorBond raised
+					(ConfigOp::Set(10_000), ConfigOp::Noop),
+					// both raised
+					(ConfigOp::Set(500), ConfigOp::Set(10_000)),
+				];
 
-				// reap-able
-				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
+				for (min_nominator, min_validator) in scenarios {
+					hypothetically!({
+						// WHEN governance applies this min-bond configuration.
+						assert_ok!(Staking::set_staking_configs(
+							RuntimeOrigin::root(),
+							min_nominator.clone(),
+							min_validator.clone(),
+							ConfigOp::Noop,
+							ConfigOp::Noop,
+							ConfigOp::Noop,
+							ConfigOp::Noop,
+							ConfigOp::Noop,
+							ConfigOp::Noop,
+						));
 
-				// then
-				assert!(!<Ledger<Test>>::contains_key(&11));
-				assert!(!<Bonded<Test>>::contains_key(&11));
-				assert!(!<Validators<Test>>::contains_key(&11));
-				assert!(!<Payee<Test>>::contains_key(&11));
-				// lock is removed.
-				assert_eq!(asset::staked::<Test>(&11), 0);
+						// THEN the stash is still NOT reapable — ledger.total (100) >= ED (10).
+						assert_noop!(
+							Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0),
+							Error::<Test>::FundedTarget
+						);
+						assert!(<Ledger<Test>>::contains_key(&11));
+						assert!(<Bonded<Test>>::contains_key(&11));
+						assert!(<Payee<Test>>::contains_key(&11));
+					});
+				}
+			});
+	}
+
+	#[test]
+	fn pending_slash_validator_with_non_dust_ledger_cannot_self_reap() {
+		// A validator with a pending `UnappliedSlash` and a
+		// non-dust ledger must not be reapable.
+		ExtBuilder::default()
+			.existential_deposit(10)
+			.balance_factor(10)
+			.build_and_execute(|| {
+				// GIVEN a validator whose own bond is small but non-dust.
+				Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 100));
+
+				// WHEN MinValidatorBond is raised far above the validator's bond.
+				assert_ok!(Staking::set_staking_configs(
+					RuntimeOrigin::root(),
+					ConfigOp::Noop,
+					ConfigOp::Set(10_000),
+					ConfigOp::Noop,
+					ConfigOp::Noop,
+					ConfigOp::Noop,
+					ConfigOp::Noop,
+					ConfigOp::Noop,
+					ConfigOp::Noop,
+				));
+
+				// AND an offence is queued against the validator.
+				add_slash(11);
+
+				// THEN the validator (or anyone) cannot reap the stash before the slash applies.
+				assert_noop!(
+					Staking::reap_stash(RuntimeOrigin::signed(11), 11, 0),
+					Error::<Test>::FundedTarget
+				);
+				assert_noop!(
+					Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0),
+					Error::<Test>::FundedTarget
+				);
+				assert!(<Ledger<Test>>::contains_key(&11));
 			});
 	}
 }

@@ -783,7 +783,8 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This is called:
 	/// - after a `withdraw_unbonded()` call that frees all of a stash's bonded balance.
-	/// - through `reap_stash()` if the balance has fallen to zero (through slashing).
+	/// - through `reap_stash()` if the balance has fallen below the existential deposit (through
+	///   slashing or full unbond).
 	pub(crate) fn kill_stash(stash: &T::AccountId) -> DispatchResult {
 		// removes controller from `Bonded` and staking ledger from `Ledger`, as well as reward
 		// setting of the stash in `Payee`.
