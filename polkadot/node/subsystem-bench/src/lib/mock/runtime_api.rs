@@ -203,12 +203,6 @@ impl MockRuntimeApi {
 						},
 						RuntimeApiMessage::Request(
 							_block_hash,
-							RuntimeApiRequest::SessionExecutorParams(_session_index, sender),
-						) => {
-							let _ = sender.send(Ok(Some(Default::default())));
-						},
-						RuntimeApiMessage::Request(
-							_block_hash,
 							RuntimeApiRequest::Validators(sender),
 						) => {
 							let _ =
@@ -349,6 +343,12 @@ impl MockRuntimeApi {
 							RuntimeApiRequest::UnappliedSlashesV2(tx),
 						) => {
 							tx.send(Ok(vec![])).unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::SchedulingLookahead(_session, tx),
+						) => {
+							tx.send(Ok(2)).unwrap();
 						},
 						// Long term TODO: implement more as needed.
 						message => {

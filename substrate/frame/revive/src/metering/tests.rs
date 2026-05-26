@@ -821,3 +821,35 @@ fn dry_run_bounded_execution_runs_out_of_gas() {
 		);
 	});
 }
+
+/// Regression test for proxy contract delegatecall with large deposit limits.
+///
+/// When deposit_left is very large (u128::MAX in production), remaining_gas becomes huge,
+/// causing ratio = gas_limit / remaining_gas ≈ 0. This resulted in nested calls receiving
+/// almost no weight. The fix caps remaining_gas to u64::MAX since Ethereum gas is u64.
+#[test]
+fn substrate_nesting_with_large_deposit_and_max_gas_request() {
+	use super::math::substrate_execution;
+
+	ExtBuilder::default()
+		.with_next_fee_multiplier(FixedU128::from_rational(1, 5))
+		.build()
+		.execute_with(|| {
+			let weight_limit = Weight::from_parts(1_000_000_000, 10_000);
+			let deposit_limit: u128 = u64::MAX as _;
+
+			let mut root_meter =
+				substrate_execution::new_root::<Test>(weight_limit, deposit_limit).unwrap();
+
+			root_meter.charge_weight_token(TestToken(1000, 100)).unwrap();
+			root_meter.charge_deposit(&StorageDeposit::Charge(1000)).unwrap();
+
+			let weight_left_before = root_meter.weight_left().unwrap();
+			let nested = root_meter
+				.new_nested(&CallResources::Ethereum { gas: u64::MAX as _, add_stipend: false })
+				.unwrap();
+
+			let nested_weight_left = nested.weight_left().unwrap();
+			assert!(nested_weight_left.eq(&weight_left_before));
+		});
+}
