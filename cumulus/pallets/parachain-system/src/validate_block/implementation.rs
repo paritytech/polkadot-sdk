@@ -157,18 +157,13 @@ where
 				"`is_resubmission` implies a `signed_scheduling_info`; \
 				 enforced by `check_scheduling`; qed",
 			);
-			// The slot anchor is the oldest header in the proof's chain — its BABE
-			// pre-digest gives the parachain slot used for author lookup.
-			// `check_scheduling` rejects an empty chain whenever
-			// `relay_parent != scheduling_parent`, so `is_resubmission == true`
-			// structurally implies a non-empty chain here.
-			let slot_anchor_header = proof
-				.header_chain
-				.last()
-				.expect("`is_resubmission` implies a non-empty header chain; qed");
+			// Author eligibility is decided by the slot at `internal_scheduling_parent`,
+			// so the verifier needs that header — not the freshest one in the chain.
+			// `check_scheduling` has already verified the header hashes to
+			// `result.internal_scheduling_parent`.
 			if !PSC::SchedulingSignatureVerifier::verify(
 				signed_info,
-				slot_anchor_header,
+				&proof.internal_scheduling_parent_header,
 				result.internal_scheduling_parent,
 			) {
 				panic!("V3 scheduling validation failed: invalid signed_scheduling_info");

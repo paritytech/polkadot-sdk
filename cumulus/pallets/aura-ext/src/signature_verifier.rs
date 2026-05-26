@@ -5,10 +5,10 @@
 //! V3 scheduling signature verifier backed by parachain Aura authorities.
 //!
 //! Implements [`VerifySchedulingSignature`] for parachains running Aura: derives the
-//! parachain slot from the BABE pre-digest of the candidate's `slot_anchor_header`
-//! (the oldest relay header in `SchedulingProof::header_chain`), looks up the eligible
-//! Aura author from this pallet's cached authority set, and verifies the 64-byte
-//! signature in [`SignedSchedulingInfo`] over the encoded [`SchedulingInfoPayload`].
+//! parachain slot from the BABE pre-digest of the relay header at
+//! `internal_scheduling_parent`, looks up the eligible Aura author from this pallet's
+//! cached authority set, and verifies the 64-byte signature in [`SignedSchedulingInfo`]
+//! over the encoded [`SchedulingInfoPayload`].
 
 use crate::{Authorities, Config};
 use codec::{Decode, Encode};
@@ -43,15 +43,15 @@ where
 {
 	fn verify(
 		signed_info: &SignedSchedulingInfo,
-		slot_anchor_header: &RelayChainHeader,
+		internal_scheduling_parent_header: &RelayChainHeader,
 		internal_scheduling_parent: RelayHash,
 	) -> bool {
-		// 1. Decode relay slot from the BABE pre-digest of the slot anchor header (=
-		//    `SchedulingProof::header_chain.last()`, the oldest relay header in the proof). Its
-		//    slot identifies the eligible parachain author for this specific candidate. The
-		//    chain-linkage check in `check_scheduling` proves the anchor header is the actual relay
-		//    block at that position — it can't be substituted.
-		let relay_slot: Slot = match slot_anchor_header
+		// 1. Decode relay slot from the BABE pre-digest of the internal_scheduling_parent
+		//    header. The eligible parachain author is determined by *this* slot, anchoring
+		//    the signature to a specific block (the one being submitted/resubmitted) rather
+		//    than to a moving relay tip. `check_scheduling` proves this header is the actual
+		//    relay block at internal_scheduling_parent — it can't be substituted.
+		let relay_slot: Slot = match internal_scheduling_parent_header
 			.digest
 			.logs()
 			.iter()
@@ -69,10 +69,14 @@ where
 				Ok(d) if d > 0 => d,
 				_ => return false,
 			};
-		let para_slot: u64 = (u64::from(relay_slot))
+
+		let para_slot: u64 = match u64::from(relay_slot)
 			.saturating_mul(RELAY_CHAIN_SLOT_DURATION_MILLIS)
 			.checked_div(para_slot_duration)
-			.unwrap_or(0);
+		{
+			Some(s) => s,
+			None => return false,
+		};
 
 		// 3. Look up the eligible Aura author. Use the cached authority set rather than
 		//    `pallet_aura::Authorities` because aura-ext's cache is captured at on_initialize for
