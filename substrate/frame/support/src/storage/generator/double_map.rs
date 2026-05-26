@@ -247,6 +247,7 @@ where
 			previous_key: prefix,
 			drain: false,
 			closure: |_raw_key, mut raw_value| V::decode(&mut raw_value),
+			next_key: Vec::new(),
 			phantom: Default::default(),
 		}
 	}
@@ -373,6 +374,7 @@ where
 				let mut key_material = G::Hasher2::reverse(raw_key_without_prefix);
 				Ok((K2::decode(&mut key_material)?, V::decode(&mut raw_value)?))
 			},
+			next_key: Vec::new(),
 			phantom: Default::default(),
 		}
 	}
@@ -396,6 +398,7 @@ where
 				let mut key_material = G::Hasher2::reverse(raw_key_without_prefix);
 				K2::decode(&mut key_material)
 			},
+			next_key: Vec::new(),
 		}
 	}
 
@@ -427,6 +430,7 @@ where
 				let k2 = K2::decode(&mut k2_material)?;
 				Ok((k1, k2, V::decode(&mut raw_value)?))
 			},
+			next_key: Vec::new(),
 			phantom: Default::default(),
 		}
 	}
@@ -450,6 +454,7 @@ where
 				let k2 = K2::decode(&mut k2_material)?;
 				Ok((k1, k2))
 			},
+			next_key: Vec::new(),
 		}
 	}
 
@@ -468,10 +473,9 @@ where
 	fn translate<O: Decode, F: FnMut(K1, K2, O) -> Option<V>>(mut f: F) {
 		let prefix = G::prefix_hash().to_vec();
 		let mut previous_key = prefix.clone();
-		while let Some(next) =
-			sp_io::storage::next_key(&previous_key).filter(|n| n.starts_with(&prefix))
-		{
-			previous_key = next;
+		let mut next = Vec::new();
+		while sp_io::storage::next_key(&previous_key, &mut next) && next.starts_with(&prefix) {
+			core::mem::swap(&mut previous_key, &mut next);
 			let value = match unhashed::get::<O>(&previous_key) {
 				Some(value) => value,
 				None => {

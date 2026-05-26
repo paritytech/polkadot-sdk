@@ -37,8 +37,10 @@ parameter_types! {
 	/// Maximum number of validators that we may want to elect. 1000 is the end target.
 	pub const MaxValidatorSet: u32 = 1000;
 
-	/// Number of nominators per page of the snapshot, and consequently number of backers in the solution.
-	pub VoterSnapshotPerBlock: u32 = MaxElectingVoters::get() / Pages::get();
+	/// Number of nominators per page of the snapshot, and consequently number of backers in the
+	/// solution. Uses ceiling division so that `VoterSnapshotPerBlock * Pages >= MaxElectingVoters`
+	/// holds for any configured values.
+	pub VoterSnapshotPerBlock: u32 = MaxElectingVoters::get().div_ceil(Pages::get());
 
 	/// Number of validators per page of the snapshot.
 	pub TargetSnapshotPerBlock: u32 = MaxValidatorSet::get();

@@ -221,6 +221,7 @@ where
 			previous_key: prefix,
 			drain: false,
 			closure: |_raw_key, mut raw_value| V::decode(&mut raw_value),
+			next_key: Vec::new(),
 			phantom: Default::default(),
 		}
 	}
@@ -330,6 +331,7 @@ impl<K: ReversibleKeyGenerator, V: FullCodec, G: StorageNMap<K, V>>
 				let partial_key = K::decode_partial_key(raw_key_without_prefix)?;
 				Ok((partial_key, V::decode(&mut raw_value)?))
 			},
+			next_key: Vec::new(),
 			phantom: Default::default(),
 		}
 	}
@@ -356,6 +358,7 @@ impl<K: ReversibleKeyGenerator, V: FullCodec, G: StorageNMap<K, V>>
 			previous_key: prefix,
 			drain: false,
 			closure: K::decode_partial_key,
+			next_key: Vec::new(),
 		}
 	}
 
@@ -394,6 +397,7 @@ impl<K: ReversibleKeyGenerator, V: FullCodec, G: StorageNMap<K, V>>
 				let (final_key, _) = K::decode_final_key(raw_key_without_prefix)?;
 				Ok((final_key, V::decode(&mut raw_value)?))
 			},
+			next_key: Vec::new(),
 			phantom: Default::default(),
 		}
 	}
@@ -412,6 +416,7 @@ impl<K: ReversibleKeyGenerator, V: FullCodec, G: StorageNMap<K, V>>
 				let (final_key, _) = K::decode_final_key(raw_key_without_prefix)?;
 				Ok(final_key)
 			},
+			next_key: Vec::new(),
 		}
 	}
 
@@ -424,10 +429,9 @@ impl<K: ReversibleKeyGenerator, V: FullCodec, G: StorageNMap<K, V>>
 	fn translate<O: Decode, F: FnMut(K::Key, O) -> Option<V>>(mut f: F) {
 		let prefix = G::prefix_hash().to_vec();
 		let mut previous_key = prefix.clone();
-		while let Some(next) =
-			sp_io::storage::next_key(&previous_key).filter(|n| n.starts_with(&prefix))
-		{
-			previous_key = next;
+		let mut next = Vec::new();
+		while sp_io::storage::next_key(&previous_key, &mut next) && next.starts_with(&prefix) {
+			core::mem::swap(&mut previous_key, &mut next);
 			let value = match unhashed::get::<O>(&previous_key) {
 				Some(value) => value,
 				None => {

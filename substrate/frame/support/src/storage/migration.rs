@@ -32,6 +32,7 @@ pub struct StorageIterator<T> {
 	prefix: Vec<u8>,
 	previous_key: Vec<u8>,
 	drain: bool,
+	next_key: Vec<u8>,
 	_phantom: ::core::marker::PhantomData<T>,
 }
 
@@ -53,7 +54,13 @@ impl<T> StorageIterator<T> {
 		prefix.extend_from_slice(&storage_prefix);
 		prefix.extend_from_slice(suffix);
 		let previous_key = prefix.clone();
-		Self { prefix, previous_key, drain: false, _phantom: Default::default() }
+		Self {
+			prefix,
+			previous_key,
+			drain: false,
+			next_key: Vec::new(),
+			_phantom: Default::default(),
+		}
 	}
 
 	/// Mutate this iterator into a draining iterator; items iterated are removed from storage.
@@ -68,24 +75,22 @@ impl<T: Decode + Sized> Iterator for StorageIterator<T> {
 
 	fn next(&mut self) -> Option<(Vec<u8>, T)> {
 		loop {
-			let maybe_next = sp_io::storage::next_key(&self.previous_key)
-				.filter(|n| n.starts_with(&self.prefix));
-			break match maybe_next {
-				Some(next) => {
-					self.previous_key = next.clone();
-					let maybe_value = frame_support::storage::unhashed::get::<T>(&next);
-					match maybe_value {
-						Some(value) => {
-							if self.drain {
-								frame_support::storage::unhashed::kill(&next);
-							}
-							Some((self.previous_key[self.prefix.len()..].to_vec(), value))
-						},
-						None => continue,
+			if !sp_io::storage::next_key(&self.previous_key, &mut self.next_key) ||
+				!self.next_key.starts_with(&self.prefix)
+			{
+				return None;
+			}
+			core::mem::swap(&mut self.previous_key, &mut self.next_key);
+			let maybe_value = frame_support::storage::unhashed::get::<T>(&self.previous_key);
+			match maybe_value {
+				Some(value) => {
+					if self.drain {
+						frame_support::storage::unhashed::kill(&self.previous_key);
 					}
+					return Some((self.previous_key[self.prefix.len()..].to_vec(), value));
 				},
-				None => None,
-			};
+				None => continue,
+			}
 		}
 	}
 }
@@ -95,6 +100,7 @@ pub struct StorageKeyIterator<K, T, H: ReversibleStorageHasher> {
 	prefix: Vec<u8>,
 	previous_key: Vec<u8>,
 	drain: bool,
+	next_key: Vec<u8>,
 	_phantom: ::core::marker::PhantomData<(K, T, H)>,
 }
 
@@ -116,7 +122,13 @@ impl<K, T, H: ReversibleStorageHasher> StorageKeyIterator<K, T, H> {
 		prefix.extend_from_slice(&storage_prefix);
 		prefix.extend_from_slice(suffix);
 		let previous_key = prefix.clone();
-		Self { prefix, previous_key, drain: false, _phantom: Default::default() }
+		Self {
+			prefix,
+			previous_key,
+			drain: false,
+			next_key: Vec::new(),
+			_phantom: Default::default(),
+		}
 	}
 
 	/// Mutate this iterator into a draining iterator; items iterated are removed from storage.
@@ -133,30 +145,29 @@ impl<K: Decode + Sized, T: Decode + Sized, H: ReversibleStorageHasher> Iterator
 
 	fn next(&mut self) -> Option<(K, T)> {
 		loop {
-			let maybe_next = sp_io::storage::next_key(&self.previous_key)
-				.filter(|n| n.starts_with(&self.prefix));
-			break match maybe_next {
-				Some(next) => {
-					self.previous_key = next.clone();
-					let mut key_material = H::reverse(&next[self.prefix.len()..]);
-					match K::decode(&mut key_material) {
-						Ok(key) => {
-							let maybe_value = frame_support::storage::unhashed::get::<T>(&next);
-							match maybe_value {
-								Some(value) => {
-									if self.drain {
-										frame_support::storage::unhashed::kill(&next);
-									}
-									Some((key, value))
-								},
-								None => continue,
+			if !sp_io::storage::next_key(&self.previous_key, &mut self.next_key) ||
+				!self.next_key.starts_with(&self.prefix)
+			{
+				return None;
+			}
+			core::mem::swap(&mut self.previous_key, &mut self.next_key);
+			let mut key_material = H::reverse(&self.previous_key[self.prefix.len()..]);
+			match K::decode(&mut key_material) {
+				Ok(key) => {
+					let maybe_value =
+						frame_support::storage::unhashed::get::<T>(&self.previous_key);
+					match maybe_value {
+						Some(value) => {
+							if self.drain {
+								frame_support::storage::unhashed::kill(&self.previous_key);
 							}
+							return Some((key, value));
 						},
-						Err(_) => continue,
+						None => continue,
 					}
 				},
-				None => None,
-			};
+				Err(_) => continue,
+			}
 		}
 	}
 }
@@ -182,7 +193,14 @@ pub fn storage_iter_with_suffix<T: Decode + Sized>(
 		Ok((raw_key_without_prefix.to_vec(), value))
 	};
 
-	PrefixIterator { prefix, previous_key, drain: false, closure, phantom: Default::default() }
+	PrefixIterator {
+		prefix,
+		previous_key,
+		drain: false,
+		closure,
+		next_key: Vec::new(),
+		phantom: Default::default(),
+	}
 }
 
 /// Construct iterator to iterate over map items in `module` for the map called `item`.
@@ -215,7 +233,14 @@ pub fn storage_key_iter_with_suffix<
 		let value = T::decode(&mut raw_value)?;
 		Ok((key, value))
 	};
-	PrefixIterator { prefix, previous_key, drain: false, closure, phantom: Default::default() }
+	PrefixIterator {
+		prefix,
+		previous_key,
+		drain: false,
+		closure,
+		next_key: Vec::new(),
+		phantom: Default::default(),
+	}
 }
 
 /// Get a particular value in storage by the `module`, the map's `item` name and the key `hash`.
@@ -376,6 +401,7 @@ pub fn move_prefix(from_prefix: &[u8], to_prefix: &[u8]) {
 		previous_key: from_prefix.to_vec(),
 		drain: true,
 		closure: |key, value| Ok((key.to_vec(), value.to_vec())),
+		next_key: Vec::new(),
 		phantom: Default::default(),
 	};
 

@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::LOG_TARGET;
+use alloc::vec::Vec;
 use frame_support::{
 	traits::{Get, StorageVersion},
 	weights::Weight,
@@ -71,28 +72,24 @@ pub fn pre_migration<T: crate::Config, N: AsRef<str>>(new: N) {
 	log::info!("pre-migration grandpa test with new = {}", new);
 
 	// the next key must exist, and start with the hash of `OLD_PREFIX`.
-	let next_key = sp_io::storage::next_key(&twox_128(OLD_PREFIX)).unwrap();
+	let mut next_key = Vec::new();
+	assert!(sp_io::storage::next_key(&twox_128(OLD_PREFIX), &mut next_key));
 	assert!(next_key.starts_with(&twox_128(OLD_PREFIX)));
 
 	// The pallet version is already stored using the pallet name
 	let storage_key = StorageVersion::storage_key::<crate::Pallet<T>>();
 
 	// ensure nothing is stored in the new prefix.
+	let new_prefix = twox_128(new.as_bytes());
+	let has_next = sp_io::storage::next_key(&new_prefix, &mut next_key);
 	assert!(
-		sp_io::storage::next_key(&twox_128(new.as_bytes())).map_or(
-			// either nothing is there
-			true,
-			// or we ensure that it has no common prefix with twox_128(new),
-			// or isn't the pallet version that is already stored using the pallet name
-			|next_key| {
-				!next_key.starts_with(&twox_128(new.as_bytes())) || next_key == storage_key
-			},
-		),
+		// either nothing is there,
+		// or we ensure that it has no common prefix with twox_128(new),
+		// or isn't the pallet version that is already stored using the pallet name
+		!has_next || !next_key.starts_with(&new_prefix) || next_key == storage_key,
 		"unexpected next_key({}) = {:?}",
 		new,
-		sp_core::hexdisplay::HexDisplay::from(
-			&sp_io::storage::next_key(&twox_128(new.as_bytes())).unwrap()
-		),
+		sp_core::hexdisplay::HexDisplay::from(&next_key),
 	);
 	// ensure storage version is 3.
 	assert_eq!(StorageVersion::get::<crate::Pallet<T>>(), 3);
@@ -106,6 +103,9 @@ pub fn post_migration() {
 	log::info!("post-migration grandpa");
 
 	// Assert that nothing remains at the old prefix
-	assert!(sp_io::storage::next_key(&twox_128(OLD_PREFIX))
-		.map_or(true, |next_key| !next_key.starts_with(&twox_128(OLD_PREFIX))));
+	let mut next_key = Vec::new();
+	let old_prefix = twox_128(OLD_PREFIX);
+	assert!(
+		!sp_io::storage::next_key(&old_prefix, &mut next_key) || !next_key.starts_with(&old_prefix)
+	);
 }
