@@ -192,7 +192,7 @@ where
 				log::trace!(
 					target: LOG_TARGET,
 					"eth_transact substrate tx hash: 0x{}",
-					sp_core::hexdisplay::HexDisplay::from(&sp_core::hashing::blake2_256(&self.encode())),
+					sp_core::hexdisplay::HexDisplay::from(&sp_crypto_hashing::blake2_256(&self.encode())),
 				);
 				let checked = E::try_into_checked_extrinsic(payload, self.encoded_size())?;
 				return Ok(checked);
