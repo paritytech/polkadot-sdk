@@ -15,6 +15,7 @@
 
 //! Helpers for XCM barrier benchmarks.
 
+use alloc::vec::{self, Vec};
 use xcm::latest::prelude::*;
 
 /// Worst-case `(origin, message)` for barriers using
