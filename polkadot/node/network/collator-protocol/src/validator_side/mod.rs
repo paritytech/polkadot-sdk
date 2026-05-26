@@ -175,13 +175,9 @@ use polkadot_primitives::{
 
 use super::{modify_reputation, tick_stream, LOG_TARGET};
 
-mod claim_queue_state;
 mod collation;
 pub mod error;
 
-// Only export PerLeafClaimQueueState for validator_side_experimental
-// ClaimQueueState (basic.rs) is no longer used in validator_side after the leaf-based refactoring
-pub(crate) use claim_queue_state::PerLeafClaimQueueState;
 pub use collation::BlockedCollationId;
 use collation::{
 	fetched_collation_sanity_check, CollationEvent, CollationFetchError, CollationFetchRequest,
