@@ -28,7 +28,6 @@ use ethereum_standards::{
 };
 use frame_support::traits::fungibles::metadata::Inspect as MetadataInspect;
 use pallet_assets::{weights::WeightInfo as _, Call, Config, TransferFlags};
-use sp_runtime::traits::{UniqueSaturatedInto, Zero};
 use pallet_revive::precompiles::{
 	alloy::{
 		self,
@@ -37,6 +36,7 @@ use pallet_revive::precompiles::{
 	},
 	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
+use sp_runtime::traits::{UniqueSaturatedInto, Zero};
 use weights::WeightInfo as _;
 
 pub mod foreign_assets;

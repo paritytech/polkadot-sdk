@@ -870,8 +870,7 @@ fn transfer_from_decrements_normally_after_max_approve(asset_index: u16) {
 
 		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
 		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
-		let recipient_addr =
-			<Test as pallet_revive::Config>::AddressMapper::to_address(&recipient);
+		let recipient_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&recipient);
 
 		setup_asset_for_prefix(asset_id, asset_index);
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
