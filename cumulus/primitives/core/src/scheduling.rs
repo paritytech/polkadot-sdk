@@ -109,8 +109,8 @@ pub struct SchedulingProof {
 }
 
 impl SchedulingProof {
-	/// Derive the scheduling parent hash. 
-	/// 
+	/// Derive the scheduling parent hash.
+	///
 	/// Returns the hash of the first/newest header in `header_chain` if non-empty, otherwise
 	/// falls back to `internal_scheduling_parent_header.hash()` (the ISP coincides with the
 	/// scheduling parent when the parachain runs with `relay_parent_offset = 0`).

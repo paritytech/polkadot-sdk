@@ -302,7 +302,8 @@ pub mod pallet {
 		/// Before enabling this:
 		/// 1. Ensure all collators are updated to a version that supports V3 candidates
 		/// 2. Ensure the relay chain has `CandidateReceiptV3` node feature enabled
-		/// 3. Swap the verifier for one whose `V3_SCHEDULING_ENABLED` const is `true`, via a runtime upgrade.
+		/// 3. Swap the verifier for one whose `V3_SCHEDULING_ENABLED` const is `true`, via a
+		///    runtime upgrade.
 		///
 		/// Once enabled, collators will:
 		/// - Stop providing `relay_parent_descendants` in the inherent (empty vec)
