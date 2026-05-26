@@ -910,13 +910,13 @@ pub trait Storage {
 	fn root(&mut self, out: PassFatPointerAndWrite<&mut [u8]>) {
 		let root = self.storage_root();
 		let encoded = codec::Encode::encode(&root);
-		out_len = out.len();
-		encoded_len = encoded_len();
+		let out_len = out.len();
+		let encoded_len = encoded.len();
 		assert!(
 			out_len >= encoded_len,
-			"Output buffer ({out_len} bytes) provided to store the child storage root hash is not large enough ({encoded_len} bytes needed)"
+			"Output buffer ({out_len} bytes) provided to store the storage root hash is not large enough ({encoded_len} bytes needed)"
 		);
-		out[..encoded.len()].copy_from_slice(&encoded[..]);
+		out[..encoded_len].copy_from_slice(&encoded[..]);
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the `root` host
