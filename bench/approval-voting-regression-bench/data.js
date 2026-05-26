@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779824844507,
+  "lastUpdate": 1779837309990,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "yrong1997@gmail.com",
-            "name": "Ron",
-            "username": "yrong"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "736230e943c8fd47e9f993c969a6ec53ffdf0105",
-          "message": "Snowbridge: Fix log equal check (#9952)\n\n### Context \n\nThis fix addresses an issue introduced in\n[PR#9204](https://github.com/paritytech/polkadot-sdk/pull/9204), where\nindividual event log topics were not fully verified.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2025-10-14T12:06:52Z",
-          "tree_id": "1e773a14fda234bb5149f7b8c76762482ebed852",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/736230e943c8fd47e9f993c969a6ec53ffdf0105"
-        },
-        "date": 1760447592084,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63639.61,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52944.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6209675978111084,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001969897,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4607224307200006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001969897,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.216264721950001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000020510290000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006161144410000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000020510290000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.450030281370001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4877859497100006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4504110427400008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9297320887199976,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.43142178427999955,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 14.65454138964996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8579348bb65d89f24850036386bc17067d3c8aff",
+          "message": "Remove deprecated frame_support::error module (#12149)\n\n# Description\n\nRemoves deprecated `frame_support::error` as part of #11561.\n\nThe module was a re-export of `sp_runtime::traits::{BadOrigin,\nLookupError}` (deprecated July 2023). Updates the only in-repo caller,\n`pallet-revive`.\n\nDoes not close #11561.\n\n## Integration\n\n```diff\n- use frame_support::error::BadOrigin;\n+ use sp_runtime::traits::BadOrigin;\n\n- use frame_support::error::LookupError;\n+ use sp_runtime::traits::LookupError;\n```\nReview Notes\n\n- 3 files: remove error mod in frame-support, fix imports in\npallet-revive\n- No other in-repo frame_support::error usage\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
+          "timestamp": "2026-05-26T21:18:42Z",
+          "tree_id": "9cf9fd74c750dabcc1d68c0d1cc60fa6b24e7b2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8579348bb65d89f24850036386bc17067d3c8aff"
+        },
+        "date": 1779837280290,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63620.98999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001885285,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.329480909342765,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.315021877879937,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7852203170599994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8344216782899438,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7773173669399975,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005417980550000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.710563124140002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.432294849559992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001933673,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7697865613400015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001885285,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001933673,
             "unit": "seconds"
           }
         ]
