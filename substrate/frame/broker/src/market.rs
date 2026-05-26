@@ -141,6 +141,7 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 		weight_meter: &mut WeightMeter,
 	) -> Vec<TickAction<AccountId, Balance, RelayBlockNumber>>;
 
+	/// Get an information about the currently active sale.
 	fn get_sale_info() -> Result<MarketSaleInfo<RelayBlockNumber>, Self::Error>;
 }
 

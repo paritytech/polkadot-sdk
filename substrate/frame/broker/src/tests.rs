@@ -17,7 +17,7 @@
 
 #![cfg(test)]
 
-use crate::{core_mask::*, dispatchable_impls::DoRenewResult, mock::*, *};
+use crate::{core_mask::*, mock::*, *};
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
 	traits::nonfungible::{Inspect as NftInspect, Mutate, Transfer},
@@ -2782,7 +2782,7 @@ fn do_renew_and_get_the_new_core(
 	who: <Test as frame_system::Config>::AccountId,
 	core: CoreIndex,
 ) -> Result<CoreIndex, DispatchError> {
-	let DoRenewResult::Renewed { new_core } = Broker::do_renew(who, core)? else {
+	let RenewResult::Renewed { new_core } = Broker::do_renew(who, core)? else {
 		panic!("It's expected that do_renew will immediately resolve")
 	};
 
@@ -2793,13 +2793,9 @@ fn do_purchase_and_get_region_id(
 	who: <Test as frame_system::Config>::AccountId,
 	price_limit: u64,
 ) -> Result<RegionId, DispatchError> {
-	Broker::do_purchase(who, price_limit)?;
+	let PurchaseResult::Purchased { region_id, .. } = Broker::do_purchase(who, price_limit)? else {
+		panic!("It's expected that do_renew will purchase region right away");
+	};
 
-	for event in System::events().into_iter().rev() {
-		if let RuntimeEvent::Broker(Event::Purchased { region_id, .. }) = event.event {
-			return Ok(region_id);
-		}
-	}
-
-	panic!("The `Purchased` event was expected");
+	Ok(region_id)
 }

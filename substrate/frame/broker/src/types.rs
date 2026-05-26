@@ -310,3 +310,39 @@ pub struct AutoRenewalRecord {
 	/// tasks to ensure that the renewal process does not begin until the lease expires.
 	pub next_renewal: Timeslice,
 }
+
+/// A result of the `purchase` exectution.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+pub(crate) enum PurchaseResult<Balance, BidId> {
+	/// The core was purchased right away.
+	Purchased {
+		/// Id of the region that was sold.
+		region_id: RegionId,
+		/// Price that was paid for the purchased region.
+		price: Balance,
+		/// Validity period for the purchased region.
+		duration: Timeslice,
+	},
+	/// A bid for purchase was placed.
+	BidPlaced {
+		/// Id of the bid that was placed.
+		id: BidId,
+	},
+}
+pub(crate) type PurchaseResultOf<T> = PurchaseResult<BalanceOf<T>, MarketBidIdOf<T>>;
+
+/// A result of the `renew` exectution.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+pub(crate) enum RenewResult<BidId> {
+	/// The core was renewed right away.
+	Renewed {
+		/// Index of the core that the renewer received.
+		new_core: CoreIndex,
+	},
+	/// A bid for core renewal was placed.
+	BidPlaced {
+		/// Id of the bid that was placed.
+		id: BidId,
+	},
+}
+pub(crate) type RenewResultOf<T> = RenewResult<MarketBidIdOf<T>>;

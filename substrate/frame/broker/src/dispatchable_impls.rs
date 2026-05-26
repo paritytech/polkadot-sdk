@@ -152,11 +152,13 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_purchase(
 		who: T::AccountId,
 		price_limit: BalanceOf<T>,
-	) -> Result<(), DispatchError> {
+	) -> Result<PurchaseResultOf<T>, DispatchError> {
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		match T::CoretimeMarket::place_order(now, &who, price_limit).map_err(Into::into)? {
-			OrderResult::BidPlaced { id: _, bid_price } => {
+			OrderResult::BidPlaced { id, bid_price } => {
 				Self::lock_funds(&who, bid_price)?;
+
+				Ok(PurchaseResult::BidPlaced { id })
 			},
 			OrderResult::Sold { price, region_id, region_end } => {
 				Self::charge(&who, price)?;
@@ -165,10 +167,10 @@ impl<T: Config> Pallet<T> {
 				let duration = region_end.saturating_sub(region_id.begin);
 
 				Self::deposit_event(Event::Purchased { who, region_id, price, duration });
-			},
-		};
 
-		Ok(())
+				Ok(PurchaseResult::Purchased { region_id, price, duration })
+			},
+		}
 	}
 
 	/// Must be called on a core in `PotentialRenewals` whose value is a timeslice equal to the
@@ -177,7 +179,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_renew(
 		who: T::AccountId,
 		core: CoreIndex,
-	) -> Result<DoRenewResult<T>, DispatchError> {
+	) -> Result<RenewResultOf<T>, DispatchError> {
 		let region_begin = T::CoretimeMarket::get_sale_info()
 			.map_err(|_| Error::<T>::Uninitialized)?
 			.region_begin;
@@ -191,7 +193,7 @@ impl<T: Config> Pallet<T> {
 		match T::CoretimeMarket::place_renewal_order(now, &who, renewal_id).map_err(Into::into)? {
 			RenewalOrderResult::BidPlaced { id, bid_price } => {
 				Self::lock_funds(&who, bid_price)?;
-				Ok(DoRenewResult::BidPlaced { id })
+				Ok(RenewResult::BidPlaced { id })
 			},
 			RenewalOrderResult::Renewed { price, region_id, effective_to } => {
 				Self::charge(&who, price)?;
@@ -223,7 +225,7 @@ impl<T: Config> Pallet<T> {
 					});
 				}
 
-				Ok(DoRenewResult::Renewed { new_core: region_id.core })
+				Ok(RenewResult::Renewed { new_core: region_id.core })
 			},
 		}
 	}
@@ -574,7 +576,7 @@ impl<T: Config> Pallet<T> {
 		if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale_info.region_begin })
 			.is_some()
 		{
-			let DoRenewResult::Renewed { new_core } =
+			let RenewResult::Renewed { new_core } =
 				Self::do_renew(sovereign_account.clone(), core)?
 			else {
 				return Err(Error::<T>::NotAllowed.into());
@@ -640,10 +642,4 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum DoRenewResult<T: Config> {
-	Renewed { new_core: CoreIndex },
-	BidPlaced { id: MarketBidIdOf<T> },
 }

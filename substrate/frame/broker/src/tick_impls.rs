@@ -15,8 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::dispatchable_impls::DoRenewResult;
-
 use super::*;
 use alloc::{vec, vec::Vec};
 use frame_support::{pallet_prelude::*, traits::defensive_prelude::*, weights::WeightMeter};
@@ -344,10 +342,10 @@ impl<T: Config> Pallet<T> {
 
 				let renew_result = Self::do_renew(payer.clone(), record.core);
 				match renew_result {
-					Ok(DoRenewResult::Renewed { new_core }) => {
+					Ok(RenewResult::Renewed { new_core }) => {
 						Some(AutoRenewalRecord { core: new_core, task: record.task, next_renewal })
 					},
-					Ok(DoRenewResult::BidPlaced { .. }) => {
+					Ok(RenewResult::BidPlaced { .. }) => {
 						// We don't support auto-renewals when market doesn't allow purchasing
 						// regions right away.
 						Self::deposit_event(Event::<T>::AutoRenewalFailed {
