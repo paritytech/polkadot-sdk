@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779823709125,
+  "lastUpdate": 1779834618049,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -94823,6 +94823,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2986885564,
             "range": "± 72763015",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4708a606817f7df6056d179cf9b2bfc59e5b447e",
+          "message": "pallet-staking-async: gate reap_stash by existential deposit (#12199)\n\nGated `reap_stash` strictly by ED and not by `min(MinValidatorBond,\nMinNominatorBond).max(ED)`.\n\nApply the same fix for `withdraw_unbonded` to kill stash if\n`ledger.active < ED`.\n\nDriven-by: in the test setup, default both min bonds strictly above ED —\nand to different values — to\n1. mimic the situation we live in (ED < MinNominatorBond <\nMinValidatorBond on Polkadot / Kusama / Westend AH).\n2. avoid tests from accidentally passing because `min_chilled_bond`\nhappens to collapse to ED when all three are equal.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-26T21:05:10Z",
+          "tree_id": "1ceee4f490a311e842b82ff9e22baf23b6fdeabe",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4708a606817f7df6056d179cf9b2bfc59e5b447e"
+        },
+        "date": 1779834589987,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20233764,
+            "range": "± 210103",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20813738,
+            "range": "± 176931",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22423262,
+            "range": "± 174975",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27465517,
+            "range": "± 204379",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61280547,
+            "range": "± 713297",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 373213281,
+            "range": "± 4576246",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2886471175,
+            "range": "± 114709274",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17939664,
+            "range": "± 221254",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18011759,
+            "range": "± 246018",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18458548,
+            "range": "± 236408",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23624181,
+            "range": "± 172909",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61394294,
+            "range": "± 924992",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 355828665,
+            "range": "± 2042596",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2812509537,
+            "range": "± 66046835",
             "unit": "ns/iter"
           }
         ]
