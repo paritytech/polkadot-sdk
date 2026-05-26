@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779824882029,
+  "lastUpdate": 1779837349123,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "cyrill@parity.io",
-            "name": "xermicus",
-            "username": "xermicus"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d65db6ef34c0e7b99655576fe2861105557afb97",
-          "message": "[pallet-revive] Implement the consume_all_gas syscall (#9997)\n\nThis PR implements a new API `consume_all_gas` which is required for\n100% EVM `INVALID` opcode compatibility.\n\nSince ceding of all remaining gas is handled in the EVM interpreter, I\ndecided to not add a return flag but make this a dedicated syscall for\nconsistency instead.\n\nDidn't implement a benchmark since the first (and only) thing this does\nis consuming all remaining gas anyways.\n\n---------\n\nSigned-off-by: Cyrill Leutwiler <bigcyrill@hotmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-10T16:59:39Z",
-          "tree_id": "8301f54c9ebb8ba81aad943ffffe9f1980d42d88",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d65db6ef34c0e7b99655576fe2861105557afb97"
-        },
-        "date": 1760120058451,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.96599999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034092255718,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.045077970043999924,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08213080302399992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8579348bb65d89f24850036386bc17067d3c8aff",
+          "message": "Remove deprecated frame_support::error module (#12149)\n\n# Description\n\nRemoves deprecated `frame_support::error` as part of #11561.\n\nThe module was a re-export of `sp_runtime::traits::{BadOrigin,\nLookupError}` (deprecated July 2023). Updates the only in-repo caller,\n`pallet-revive`.\n\nDoes not close #11561.\n\n## Integration\n\n```diff\n- use frame_support::error::BadOrigin;\n+ use sp_runtime::traits::BadOrigin;\n\n- use frame_support::error::LookupError;\n+ use sp_runtime::traits::LookupError;\n```\nReview Notes\n\n- 3 files: remove error mod in frame-support, fix imports in\npallet-revive\n- No other in-repo frame_support::error usage\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
+          "timestamp": "2026-05-26T21:18:42Z",
+          "tree_id": "9cf9fd74c750dabcc1d68c0d1cc60fa6b24e7b2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8579348bb65d89f24850036386bc17067d3c8aff"
+        },
+        "date": 1779837319065,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.10199999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039394792332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08805689185599994,
             "unit": "seconds"
           }
         ]
