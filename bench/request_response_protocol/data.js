@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779834618049,
+  "lastUpdate": 1779836178987,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -94931,6 +94931,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2812509537,
             "range": "± 66046835",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8579348bb65d89f24850036386bc17067d3c8aff",
+          "message": "Remove deprecated frame_support::error module (#12149)\n\n# Description\n\nRemoves deprecated `frame_support::error` as part of #11561.\n\nThe module was a re-export of `sp_runtime::traits::{BadOrigin,\nLookupError}` (deprecated July 2023). Updates the only in-repo caller,\n`pallet-revive`.\n\nDoes not close #11561.\n\n## Integration\n\n```diff\n- use frame_support::error::BadOrigin;\n+ use sp_runtime::traits::BadOrigin;\n\n- use frame_support::error::LookupError;\n+ use sp_runtime::traits::LookupError;\n```\nReview Notes\n\n- 3 files: remove error mod in frame-support, fix imports in\npallet-revive\n- No other in-repo frame_support::error usage\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
+          "timestamp": "2026-05-26T21:18:42Z",
+          "tree_id": "9cf9fd74c750dabcc1d68c0d1cc60fa6b24e7b2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8579348bb65d89f24850036386bc17067d3c8aff"
+        },
+        "date": 1779836149278,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20739767,
+            "range": "± 211602",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21448856,
+            "range": "± 319239",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23195640,
+            "range": "± 154181",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27781109,
+            "range": "± 416418",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 62322122,
+            "range": "± 852836",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 375054690,
+            "range": "± 10693809",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2753489220,
+            "range": "± 146767046",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18440849,
+            "range": "± 415654",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18148406,
+            "range": "± 259028",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18984735,
+            "range": "± 206408",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23936176,
+            "range": "± 220067",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63161804,
+            "range": "± 793369",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 375422639,
+            "range": "± 4404547",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2877431119,
+            "range": "± 20412013",
             "unit": "ns/iter"
           }
         ]
