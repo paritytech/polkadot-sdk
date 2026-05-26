@@ -434,7 +434,7 @@ pub(crate) struct CollationStats {
 impl CollationStats {
 	/// Create new empty instance.
 	pub fn new(
-		clock: &dyn crate::Clock,
+		clock: &dyn polkadot_node_clock::Clock,
 		head: Hash,
 		relay_parent_number: BlockNumber,
 		relay_parent: Hash,

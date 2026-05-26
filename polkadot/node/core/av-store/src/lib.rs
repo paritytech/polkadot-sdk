@@ -429,11 +429,6 @@ pub struct Config {
 	pub keep_finalized_for: u32,
 }
 
-/// Read the wall-clock duration since the UNIX epoch via the shared [`Clock`] abstraction.
-fn now_since_epoch(clock: &dyn Clock) -> Duration {
-	Duration::from_millis(clock.timestamp_millis() as u64)
-}
-
 /// An implementation of the Availability Store subsystem.
 pub struct AvailabilityStoreSubsystem {
 	pruning_config: PruningConfig,
@@ -647,7 +642,7 @@ async fn start_prune_all<Context>(
 	let metrics = subsystem.metrics.clone();
 	let db = subsystem.db.clone();
 	let config = subsystem.config;
-	let time_now = now_since_epoch(&*subsystem.clock);
+	let time_now = subsystem.clock.duration_since_epoch();
 
 	ctx.spawn_blocking(
 		"av-store-prunning",
@@ -672,7 +667,7 @@ async fn process_block_activated<Context>(
 	subsystem: &mut AvailabilityStoreSubsystem,
 	activated: Hash,
 ) -> Result<(), Error> {
-	let now = now_since_epoch(&*subsystem.clock);
+	let now = subsystem.clock.duration_since_epoch();
 
 	let block_header = {
 		let (tx, rx) = oneshot::channel();
@@ -874,7 +869,7 @@ async fn process_block_finalized<Context>(
 	finalized_hash: Hash,
 	finalized_number: BlockNumber,
 ) -> Result<(), Error> {
-	let now = now_since_epoch(&*subsystem.clock);
+	let now = subsystem.clock.duration_since_epoch();
 
 	let mut next_possible_batch = 0;
 	loop {
@@ -1285,7 +1280,7 @@ fn store_available_data(
 			m
 		},
 		None => {
-			let now = now_since_epoch(&*subsystem.clock);
+			let now = subsystem.clock.duration_since_epoch();
 
 			// Write a pruning record.
 			let prune_at = now + subsystem.pruning_config.keep_unavailable_for;

@@ -28,9 +28,10 @@ use crate::{
 		},
 		error::{Error, FatalResult, Result},
 	},
-	Clock, LeafSchedulingInfo, LOG_TARGET,
+	LeafSchedulingInfo, LOG_TARGET,
 };
 use fatality::Split;
+use polkadot_node_clock::Clock;
 use futures::{channel::oneshot, stream::FusedStream};
 use polkadot_node_network_protocol::{
 	peer_set::CollationVersion,
@@ -1684,14 +1685,14 @@ mod tests {
 			leaf_claim_queues: HashMap::new(),
 			per_scheduling_parent: HashMap::from([(
 				scheduling_parent,
-				PerSchedulingParent::new(0, CoreIndex(0), &*crate::system_clock()),
+				PerSchedulingParent::new(0, CoreIndex(0), &*polkadot_node_clock::system_clock()),
 			)]),
 			blocked_from_seconding: HashMap::new(),
 			per_session: LruMap::new(ByLength::new(2)),
 			fetching: PendingRequests::default(),
 			keystore: Arc::new(sc_keystore::LocalKeystore::in_memory()),
 			leaf_scheduling_info: HashMap::default(),
-			clock: crate::system_clock(),
+			clock: polkadot_node_clock::system_clock(),
 		};
 
 		// No advertisements - returns Left(None).

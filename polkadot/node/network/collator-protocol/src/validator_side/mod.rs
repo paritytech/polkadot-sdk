@@ -145,7 +145,8 @@ use tokio_util::sync::CancellationToken;
 
 use sp_keystore::KeystorePtr;
 
-use crate::{extract_leaf_scheduling_info, is_scheduling_parent_valid, Clock, LeafSchedulingInfo};
+use crate::{extract_leaf_scheduling_info, is_scheduling_parent_valid, LeafSchedulingInfo};
+use polkadot_node_clock::Clock;
 use polkadot_node_network_protocol::{
 	self as net_protocol,
 	peer_set::{CollationVersion, PeerSet, MAX_AUTHORITY_INCOMING_STREAMS},
@@ -476,7 +477,7 @@ impl PeerData {
 	}
 
 	/// Whether the peer is now inactive according to the current instant and the eviction policy.
-	fn is_inactive(&self, clock: &dyn crate::Clock, policy: &crate::CollatorEvictionPolicy) -> bool {
+	fn is_inactive(&self, clock: &dyn Clock, policy: &crate::CollatorEvictionPolicy) -> bool {
 		let now = clock.now();
 		match self.state {
 			PeerState::Connected(connected_at) =>
@@ -589,7 +590,7 @@ struct HeldOffAdvertisement {
 
 /// All state relevant for the validator side of the protocol lives here.
 struct State {
-	/// Clock used for all time reads. Production passes [`crate::SystemClock`]; tests inject a
+	/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`]; tests inject a
 	/// mock.
 	clock: Arc<dyn Clock>,
 	/// Leaves that do support asynchronous backing along with
@@ -2895,7 +2896,7 @@ async fn kick_off_seconding<Context>(
 // receipt of the `PeerDisconnected` event.
 async fn disconnect_inactive_peers(
 	sender: &mut impl overseer::CollatorProtocolSenderTrait,
-	clock: &dyn crate::Clock,
+	clock: &dyn Clock,
 	eviction_policy: &crate::CollatorEvictionPolicy,
 	peers: &HashMap<PeerId, PeerData>,
 ) {

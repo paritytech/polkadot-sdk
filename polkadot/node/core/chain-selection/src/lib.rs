@@ -219,19 +219,6 @@ impl Error {
 	}
 }
 
-/// Read the wall-clock timestamp in seconds since the UNIX epoch, going through the shared
-/// [`Clock`] abstraction.
-///
-/// `SystemTime` is notoriously non-monotonic, so our timers might not work exactly as
-/// expected. Regardless, stagnation is detected on the order of minutes, and slippage of a few
-/// seconds in either direction won't cause any major harm.
-///
-/// The exact time that a block becomes stagnant in the local node is always expected to differ
-/// from other nodes due to network asynchrony and delays in block propagation.
-/// Non-monotonicity exacerbates that somewhat, but not meaningfully.
-fn timestamp_now(clock: &dyn Clock) -> Timestamp {
-	(clock.timestamp_millis() / 1000) as Timestamp
-}
 
 /// The interval, in seconds to check for stagnant blocks.
 #[derive(Debug, Clone)]
@@ -416,7 +403,7 @@ where
 							let write_ops = handle_active_leaf(
 								ctx.sender(),
 								&*backend,
-								timestamp_now(clock) + STAGNANT_TIMEOUT,
+								clock.duration_since_epoch().as_secs() + STAGNANT_TIMEOUT,
 								leaf.hash,
 							).await?;
 
@@ -456,9 +443,9 @@ where
 			}
 			_ = stagnant_check_stream.next().fuse() => {
 				match stagnant_check_mode {
-					StagnantCheckMode::CheckAndPrune => detect_stagnant(backend, timestamp_now(clock), MAX_STAGNANT_ENTRIES),
+					StagnantCheckMode::CheckAndPrune => detect_stagnant(backend, clock.duration_since_epoch().as_secs(), MAX_STAGNANT_ENTRIES),
 					StagnantCheckMode::PruneOnly => {
-						let now_timestamp = timestamp_now(clock);
+						let now_timestamp = clock.duration_since_epoch().as_secs();
 						prune_only_stagnant(backend, now_timestamp - STAGNANT_PRUNE_DELAY, MAX_STAGNANT_ENTRIES)
 					},
 				}?;

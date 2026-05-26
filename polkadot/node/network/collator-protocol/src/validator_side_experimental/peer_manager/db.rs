@@ -87,14 +87,14 @@ impl Backend for Db {
 		leaf_number: BlockNumber,
 		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
 		decay_value: Option<Score>,
-		now_ms: u128,
+		now: std::time::Duration,
 	) -> Vec<ReputationUpdate> {
 		if self.last_finalized.unwrap_or(0) >= leaf_number {
 			return vec![];
 		}
 
 		self.last_finalized = Some(leaf_number);
-		self.bump_reputations(bumps, decay_value, now_ms)
+		self.bump_reputations(bumps, decay_value, now.as_millis())
 	}
 
 	async fn max_scores_for_paras(&self, paras: BTreeSet<ParaId>) -> HashMap<ParaId, Score> {
@@ -114,10 +114,9 @@ impl Db {
 		&mut self,
 		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
 		maybe_decay_value: Option<Score>,
-		now_ms: u128,
+		now: u128,
 	) -> Vec<ReputationUpdate> {
 		let mut reported_updates = vec![];
-		let now = now_ms;
 
 		for (para, bumps_per_para) in bumps {
 			reported_updates.reserve(bumps_per_para.len());
@@ -289,7 +288,7 @@ mod tests {
 		assert_eq!(db.len(), 0);
 
 		// Test empty update with no decay.
-		assert!(db.process_bumps(10, Default::default(), None, 0).await.is_empty());
+		assert!(db.process_bumps(10, Default::default(), None, std::time::Duration::ZERO).await.is_empty());
 		assert_eq!(db.processed_finalized_block_number().await, Some(10));
 		assert_eq!(db.len(), 0);
 
@@ -297,12 +296,12 @@ mod tests {
 		assert_eq!(db.query(&PeerId::random(), &ParaId::from(1000)).await, None);
 
 		// Test empty update with decay.
-		assert!(db.process_bumps(11, Default::default(), Some(Score::new(1)), 0).await.is_empty());
+		assert!(db.process_bumps(11, Default::default(), Some(Score::new(1)), std::time::Duration::ZERO).await.is_empty());
 		assert_eq!(db.processed_finalized_block_number().await, Some(11));
 		assert_eq!(db.len(), 0);
 
 		// Test empty update with a leaf number smaller than the latest one.
-		assert!(db.process_bumps(5, Default::default(), Some(Score::new(1)), 0).await.is_empty());
+		assert!(db.process_bumps(5, Default::default(), Some(Score::new(1)), std::time::Duration::ZERO).await.is_empty());
 		assert_eq!(db.processed_finalized_block_number().await, Some(11));
 		assert_eq!(db.len(), 0);
 
@@ -314,7 +313,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				Some(Score::new(1))
-			, 0)
+			, std::time::Duration::ZERO)
 			.await
 			.is_empty());
 		assert_eq!(db.processed_finalized_block_number().await, Some(12));
@@ -330,7 +329,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				Some(Score::new(1))
-			, 0)
+			, std::time::Duration::ZERO)
 			.await
 			.is_empty());
 		assert_eq!(db.processed_finalized_block_number().await, Some(12));
@@ -345,7 +344,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				Some(Score::new(1))
-			, 0)
+			, std::time::Duration::ZERO)
 			.await,
 			vec![ReputationUpdate {
 				peer_id: first_peer_id,
@@ -370,7 +369,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				Some(Score::new(1))
-			, 0)
+			, std::time::Duration::ZERO)
 			.await
 			.is_empty());
 		assert_eq!(db.processed_finalized_block_number().await, Some(13));
@@ -390,7 +389,7 @@ mod tests {
 				.into_iter()
 				.collect(),
 				None
-			, 0)
+			, std::time::Duration::ZERO)
 			.await,
 			vec![
 				ReputationUpdate {
@@ -414,7 +413,7 @@ mod tests {
 		assert_eq!(db.query(&first_peer_id, &second_para_id).await.unwrap(), Score::new(5));
 
 		// Empty update with decay has no effect.
-		assert!(db.process_bumps(15, Default::default(), Some(Score::new(1)), 0).await.is_empty());
+		assert!(db.process_bumps(15, Default::default(), Some(Score::new(1)), std::time::Duration::ZERO).await.is_empty());
 		assert_eq!(db.processed_finalized_block_number().await, Some(15));
 		assert_eq!(db.len(), 2);
 		assert_eq!(db.query(&first_peer_id, &first_para_id).await.unwrap(), Score::new(10));
@@ -432,7 +431,7 @@ mod tests {
 				.into_iter()
 				.collect(),
 				Some(Score::new(1))
-			, 0)
+			, std::time::Duration::ZERO)
 			.await,
 			vec![
 				ReputationUpdate {
@@ -476,7 +475,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				Some(Score::new(5))
-			, 0)
+			, std::time::Duration::ZERO)
 			.await,
 			vec![
 				ReputationUpdate {
@@ -516,7 +515,7 @@ mod tests {
 				.into_iter()
 				.collect(),
 				None,
-			0)
+			std::time::Duration::ZERO)
 			.await
 			.len(),
 			10
@@ -545,7 +544,7 @@ mod tests {
 				.into_iter()
 				.collect(),
 				Some(Score::new(5)),
-			0)
+			std::time::Duration::ZERO)
 			.await
 			.len(),
 			10
@@ -569,7 +568,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				Some(Score::new(5)),
-			0)
+			std::time::Duration::ZERO)
 			.await
 			.len(),
 			11
@@ -593,7 +592,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				Some(Score::new(10)),
-			0)
+			std::time::Duration::ZERO)
 			.await
 			.len(),
 			11
@@ -632,7 +631,7 @@ mod tests {
 				.into_iter()
 				.collect(),
 				Some(Score::new(10)),
-			0)
+			std::time::Duration::ZERO)
 			.await
 			.len(),
 			3
@@ -682,7 +681,7 @@ mod tests {
 				.into_iter()
 				.collect(),
 				Some(Score::new(10)),
-			0)
+			std::time::Duration::ZERO)
 			.await
 			.len(),
 			3
@@ -757,7 +756,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				None,
-			now)
+			std::time::Duration::from_millis(now as u64))
 			.await;
 
 			// The oldest peer (smallest last_bumped) should have been evicted.
@@ -802,7 +801,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				None,
-			now)
+			std::time::Duration::from_millis(now as u64))
 			.await;
 
 			assert!(db.query(&peer_high_score, &para_id).await.is_some(), "ratio≈0.328, survives");
@@ -858,7 +857,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				None,
-			now)
+			std::time::Duration::from_millis(now as u64))
 			.await;
 
 			assert_eq!(db.query(&peer_old, &para_id).await, None, "ratio=1/30_000, evicted");
@@ -915,7 +914,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				None,
-			now)
+			std::time::Duration::from_millis(now as u64))
 			.await;
 
 			assert_eq!(db.query(&peer_a, &para_id).await, None, "ratio=1/100_000, evicted");
@@ -956,7 +955,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				None,
-			now)
+			std::time::Duration::from_millis(now as u64))
 			.await;
 
 			assert_eq!(db.query(&peer_zero, &para_id).await, None, "ratio=0, evicted");
@@ -997,7 +996,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				None,
-			now)
+			std::time::Duration::from_millis(now as u64))
 			.await;
 
 			assert_eq!(db.query(&peer_a, &para_id).await, None, "lower score wins tie, evicted");

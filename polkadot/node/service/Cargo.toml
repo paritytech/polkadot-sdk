@@ -113,6 +113,7 @@ polkadot-availability-bitfield-distribution = { optional = true, workspace = tru
 polkadot-availability-distribution = { optional = true, workspace = true, default-features = true }
 polkadot-availability-recovery = { optional = true, workspace = true, default-features = true }
 polkadot-collator-protocol = { optional = true, workspace = true, default-features = true }
+polkadot-node-clock = { optional = true, workspace = true, default-features = true }
 polkadot-dispute-distribution = { optional = true, workspace = true, default-features = true }
 polkadot-gossip-support = { optional = true, workspace = true, default-features = true }
 polkadot-network-bridge = { optional = true, workspace = true, default-features = true }
@@ -155,6 +156,7 @@ full-node = [
 	"polkadot-availability-distribution",
 	"polkadot-availability-recovery",
 	"polkadot-collator-protocol",
+	"polkadot-node-clock",
 	"polkadot-dispute-distribution",
 	"polkadot-gossip-support",
 	"polkadot-network-bridge",

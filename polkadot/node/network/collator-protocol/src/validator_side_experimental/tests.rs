@@ -1021,7 +1021,7 @@ async fn make_state<B: Backend>(
 			&mut sender,
 			keystore,
 			new_leaf(initial_leaf_hash, initial_leaf_number),
-			crate::system_clock(),
+			polkadot_node_clock::system_clock(),
 		)
 		.await
 		.unwrap();
@@ -1030,7 +1030,7 @@ async fn make_state<B: Backend>(
 			db,
 			&mut sender,
 			collation_manager.assignments(),
-			crate::system_clock(),
+			polkadot_node_clock::system_clock(),
 		)
 		.await
 		.unwrap();
@@ -1107,7 +1107,7 @@ impl Backend for MockDb {
 		leaf_number: BlockNumber,
 		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
 		_decay_value: Option<Score>,
-		_now_ms: u128,
+		_now: std::time::Duration,
 	) -> Vec<ReputationUpdate> {
 		let old_bumps = std::mem::replace(
 			self.witnessed_bumps.lock().unwrap().deref_mut(),

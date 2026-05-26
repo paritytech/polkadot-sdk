@@ -48,7 +48,7 @@ use sp_core::{sr25519::Pair, testing::TaskExecutor, Pair as PairT};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{Keystore, KeystorePtr};
 
-use polkadot_node_primitives::{Timestamp, ACTIVE_DURATION_SECS};
+use polkadot_node_primitives::ACTIVE_DURATION_SECS;
 use polkadot_node_subsystem::{
 	messages::{AllMessages, BlockDescription, RuntimeApiMessage, RuntimeApiRequest},
 	ActiveLeavesUpdate,
@@ -73,7 +73,7 @@ use crate::{
 	participation::{participation_full_happy_path, participation_missing_availability},
 	Config, DisputeCoordinatorSubsystem,
 };
-use polkadot_node_clock::MockClock;
+use polkadot_node_clock::{Clock, MockClock};
 
 use super::db::v1::DbBackend;
 
@@ -2353,7 +2353,9 @@ fn resume_dispute_without_local_statement() {
 
 			// Advance the clock far enough so that the concluded dispute will be omitted from an
 			// ActiveDisputes query.
-			test_state.clock.set_secs(test_state.clock.now_secs() + ACTIVE_DURATION_SECS + 1);
+			test_state.clock.set_secs(
+				test_state.clock.duration_since_epoch().as_secs() + ACTIVE_DURATION_SECS + 1,
+			);
 
 			{
 				let (tx, rx) = oneshot::channel();

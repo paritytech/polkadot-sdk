@@ -53,9 +53,10 @@ pub trait Clock: Send + Sync {
 	/// Future that resolves after `dur` has elapsed in this clock's frame.
 	fn delay(&self, dur: Duration) -> BoxedDelay;
 
-	/// Wall-clock millisecond timestamp since the UNIX epoch. Used for slot math and persistence
-	/// timestamps; not monotonic.
-	fn timestamp_millis(&self) -> u128;
+	/// Wall-clock duration since the UNIX epoch. Used for slot math and persistence
+	/// timestamps; not monotonic. Callers pick a granularity (`as_secs`, `as_millis`)
+	/// at the call site.
+	fn duration_since_epoch(&self) -> Duration;
 }
 
 /// Production clock backed by `std::time` and `futures_timer`.
@@ -70,11 +71,10 @@ impl Clock for SystemClock {
 		Box::pin(futures_timer::Delay::new(dur))
 	}
 
-	fn timestamp_millis(&self) -> u128 {
+	fn duration_since_epoch(&self) -> Duration {
 		SystemTime::now()
 			.duration_since(UNIX_EPOCH)
-			.map(|d| d.as_millis())
-			.unwrap_or(0)
+			.expect("system time is before the UNIX epoch; check the system clock;")
 	}
 }
 

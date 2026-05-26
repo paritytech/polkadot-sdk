@@ -72,11 +72,6 @@ impl MockClock {
 	pub fn set_secs(&self, secs: u64) {
 		self.set_millis(secs.saturating_mul(1_000));
 	}
-
-	/// Read the current wall-clock time in seconds since the UNIX epoch.
-	pub fn now_secs(&self) -> u64 {
-		self.millis.load(Ordering::SeqCst) / 1_000
-	}
 }
 
 impl Clock for MockClock {
@@ -88,7 +83,7 @@ impl Clock for MockClock {
 		Box::pin(futures_timer::Delay::new(dur))
 	}
 
-	fn timestamp_millis(&self) -> u128 {
-		self.millis.load(Ordering::SeqCst) as u128
+	fn duration_since_epoch(&self) -> Duration {
+		Duration::from_millis(self.millis.load(Ordering::SeqCst))
 	}
 }

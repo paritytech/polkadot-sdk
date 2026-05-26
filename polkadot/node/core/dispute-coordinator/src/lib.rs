@@ -53,7 +53,7 @@ use polkadot_primitives::{
 use crate::{
 	error::{FatalResult, Result},
 	metrics::Metrics,
-	status::{get_active_with_status, timestamp_now},
+	status::get_active_with_status,
 };
 use backend::{Backend, OverlayedBackend};
 use db::v1::DbBackend;
@@ -292,7 +292,7 @@ impl DisputeCoordinatorSubsystem {
 		initialized::OffchainDisabledValidators,
 		ControlledValidatorIndices,
 	)> {
-		let now = timestamp_now(clock);
+		let now = clock.duration_since_epoch().as_secs();
 
 		// We assume the highest session is the passed leaf. If we can't get the session index
 		// we can't initialize the subsystem so we'll wait for a new leaf

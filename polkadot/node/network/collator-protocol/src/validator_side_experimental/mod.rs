@@ -24,8 +24,9 @@ mod tests;
 
 use crate::{
 	validator_side_experimental::{common::MIN_FETCH_TIMER_DELAY, peer_manager::PersistentDb},
-	Clock, LOG_TARGET,
+	LOG_TARGET,
 };
+use polkadot_node_clock::Clock;
 use collation_manager::CollationManager;
 use common::{ProspectiveCandidate, MAX_STORED_SCORES_PER_PARA};
 use error::{log_error, FatalError, FatalResult, Result};

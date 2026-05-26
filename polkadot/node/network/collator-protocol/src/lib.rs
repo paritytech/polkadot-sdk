@@ -54,7 +54,7 @@ use polkadot_primitives::{CollatorPair, Hash, RELAY_CHAIN_SLOT_DURATION_MILLIS};
 use sp_consensus_slots::SlotDuration;
 pub use validator_side_experimental::ReputationConfig;
 
-pub use polkadot_node_clock::{system_clock, BoxedDelay, Clock, SystemClock};
+use polkadot_node_clock::Clock;
 
 mod collator_side;
 mod validator_side;
@@ -287,7 +287,7 @@ pub(crate) fn is_scheduling_parent_valid(
 ) -> bool {
 	let slot_duration = SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS);
 	let current_slot = sp_consensus_slots::Slot::from_timestamp(
-		sp_timestamp::Timestamp::new(clock.timestamp_millis() as u64),
+		sp_timestamp::Timestamp::new(clock.duration_since_epoch().as_millis() as u64),
 		slot_duration,
 	);
 	if let Some(info) = leaf_scheduling_info.get(scheduling_parent) {

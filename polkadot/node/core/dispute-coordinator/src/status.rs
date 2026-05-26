@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use polkadot_node_clock::Clock;
 use polkadot_node_primitives::{dispute_is_inactive, DisputeStatus, Timestamp};
 use polkadot_primitives::{CandidateHash, SessionIndex};
 
@@ -24,14 +23,4 @@ pub fn get_active_with_status(
 	now: Timestamp,
 ) -> impl Iterator<Item = ((SessionIndex, CandidateHash), DisputeStatus)> {
 	recent_disputes.filter(move |(_, status)| !dispute_is_inactive(status, &now))
-}
-
-/// Read the wall-clock timestamp in seconds since the UNIX epoch via the shared [`Clock`].
-///
-/// `SystemTime` is notoriously non-monotonic, so our timers might not work exactly as
-/// expected. Regardless, disputes are considered active based on an order of minutes, so a few
-/// seconds of slippage in either direction shouldn't affect the amount of work the node is
-/// doing significantly.
-pub fn timestamp_now(clock: &dyn Clock) -> Timestamp {
-	(clock.timestamp_millis() / 1000) as Timestamp
 }

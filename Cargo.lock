@@ -18013,6 +18013,7 @@ dependencies = [
  "polkadot-dispute-distribution",
  "polkadot-gossip-support",
  "polkadot-network-bridge",
+ "polkadot-node-clock",
  "polkadot-node-collation-generation",
  "polkadot-node-core-approval-voting",
  "polkadot-node-core-approval-voting-parallel",

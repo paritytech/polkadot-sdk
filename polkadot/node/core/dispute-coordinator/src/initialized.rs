@@ -59,7 +59,7 @@ use crate::{
 	is_potential_spam,
 	metrics::Metrics,
 	scraping::ScrapedUpdates,
-	status::{get_active_with_status, timestamp_now},
+	status::get_active_with_status,
 	DisputeCoordinatorSubsystem, LOG_TARGET,
 };
 
@@ -245,7 +245,7 @@ impl Initialized {
 				ctx,
 				&mut overlay_db,
 				on_chain_votes,
-				timestamp_now(clock),
+				clock.duration_since_epoch().as_secs(),
 				first_leaf.hash,
 			)
 			.await;
@@ -290,7 +290,7 @@ impl Initialized {
 								candidate_receipt,
 								session,
 								valid,
-								timestamp_now(clock),
+								clock.duration_since_epoch().as_secs(),
 							)
 							.await?;
 						} else {
@@ -306,7 +306,7 @@ impl Initialized {
 								ctx,
 								&mut overlay_db,
 								update,
-								timestamp_now(clock),
+								clock.duration_since_epoch().as_secs(),
 							)
 							.await?;
 							default_confirm
@@ -317,7 +317,7 @@ impl Initialized {
 							default_confirm
 						},
 						FromOrchestra::Communication { msg } => {
-							self.handle_incoming(ctx, &mut overlay_db, msg, timestamp_now(clock)).await?
+							self.handle_incoming(ctx, &mut overlay_db, msg, clock.duration_since_epoch().as_secs()).await?
 						},
 					},
 				};
