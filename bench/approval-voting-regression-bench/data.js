@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779732270199,
+  "lastUpdate": 1779824844507,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tiago.bandeira@parity.io",
-            "name": "Tiago Bandeira",
-            "username": "tiagobndr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2e716e1e80e6c25dfcce0fb1dad6117c2e2c3008",
-          "message": "`pallet-xcm`: extract precompiles to a separate crate (#9985)\n\nThis PR extracts the XCM precompile from `pallet-xcm` into a new\nstandalone crate `pallet-xcm-precompiles` to resolve an unwanted\ndependency issue. Previously, the XCM precompile was implemented\ndirectly in `pallet-xcm/src/precompiles.rs`, which required `pallet-xcm`\nto depend on `pallet-revive`, introducing it as a transitive dependency\nfor all parachains using `pallet-xcm`.\n\nCloses #9955\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-13T22:14:36Z",
-          "tree_id": "4d4296e10f36c65e0f47623f00624dee7935e4df",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2e716e1e80e6c25dfcce0fb1dad6117c2e2c3008"
-        },
-        "date": 1760398677821,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63627.35,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.0000216973,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.44235416032,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.201084935699997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.487498913000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6020348603608623,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4381550815000009,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9233900003599942,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4467345702200003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000020615860000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005792468580000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000020615860000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.0000216973,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4571597417200004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 14.47550761470996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jfanatiker@gmx.at",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "670ffa2d5073defd3c2feda75ca2472725679e87",
+          "message": "Candidate descriptor v3 cumulus changes (#10742)\n\nBuilding on top of #10472 \n\nRe-submissions are not yet handled - and not goal of this PR so far was\nto be able to have e2e tests for #10472. Verifying that we have\neverything to support them is necessary though - especially if we forgot\nsomething needed from the relay chain.\n\nFull re-submissions are more involved and I would leave them out for a\nseparate PR, so we can get this one merged quickly.\n\n# Once merged\n\n- [x] Enable core sharing test again, see discussion\n[here](https://github.com/paritytech/polkadot-sdk/pull/11914).\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: eskimor <eskimor@noreply.com>\nCo-authored-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Marios <marios@parity.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Alin Dima <alin@parity.io>",
+          "timestamp": "2026-05-26T18:18:03Z",
+          "tree_id": "99bbd4a30c33a7458b67e69f9a088f482e0499f9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/670ffa2d5073defd3c2feda75ca2472725679e87"
+        },
+        "date": 1779824815057,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63630.17,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52938.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.8419295130200006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005200105440000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000027808360000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.8491255110899987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.792949867000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8346769309700006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000027808360000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4964796080800005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000023002430000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000023002430000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8341798540499565,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.598924323403002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.65454138964996,
             "unit": "seconds"
           }
         ]
