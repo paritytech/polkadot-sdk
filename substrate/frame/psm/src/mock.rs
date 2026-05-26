@@ -108,6 +108,7 @@ impl pallet_assets::Config for Test {
 parameter_types! {
 	pub const MinSwapAmount: u128 = 100 * INTERNAL_UNIT;
 	pub const PsmPalletId: PalletId = PalletId(*b"py/psm!!");
+	pub const PsmCreationDeposit: u128 = 1_000_000;
 }
 
 /// Account used as emergency origin (non-root).
@@ -161,12 +162,14 @@ impl crate::BenchmarkHelper<u32, u64> for PsmBenchmarkHelper {
 
 impl crate::Config for Test {
 	type Fungibles = Assets;
+	type Currency = Balances;
 	type AssetId = u32;
 	type ManagerOrigin = MockManagerOrigin;
 	type WeightInfo = ();
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = MinSwapAmount;
 	type MaxExternalAssetsPerPsm = ConstU32<10>;
+	type CreationDeposit = PsmCreationDeposit;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PsmBenchmarkHelper;
 }

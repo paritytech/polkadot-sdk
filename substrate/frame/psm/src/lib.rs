@@ -53,7 +53,8 @@
 //!
 //! * **PSM instance**: A configured Peg Stability Module, keyed by its internal asset id and
 //!   described by [`PsmInfo`]. Each instance has its own reserve account derived as
-//!   `PalletId::into_sub_account_truncating(internal_asset)`.
+//!   `PalletId::into_sub_account_truncating(blake2_256(internal_asset.encode()))` — the hash
+//!   gives a fixed-size seed so arbitrary asset ids (e.g. XCM `Location`s) do not collide.
 //! * **Minting**: Deposit external stablecoin → receive internal asset (minus fee).
 //! * **Redemption**: Burn internal asset → receive external stablecoin (minus fee).
 //! * **Reserve**: External stablecoin balance held by a PSM's reserve account (derived, not
@@ -125,6 +126,7 @@ pub mod pallet {
 				Mutate as FungiblesMutate,
 			},
 			tokens::{Fortitude, Precision, Preservation},
+			ReservableCurrency,
 		},
 		DefaultNoBound, PalletId,
 	};
@@ -233,6 +235,11 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId,
 	>>::Balance;
 
+	/// Native balance (used for PSM creation deposits).
+	pub(crate) type NativeBalanceOf<T> = <<T as Config>::Currency as frame_support::traits::Currency<
+		<T as frame_system::Config>::AccountId,
+	>>::Balance;
+
 	/// Suggested fee of 0.5% for minting and redemption.
 	pub(crate) struct DefaultFee;
 	impl Get<Permill> for DefaultFee {
@@ -252,6 +259,12 @@ pub mod pallet {
 	)]
 	#[scale_info(skip_type_params(T))]
 	pub struct PsmInfo<T: Config> {
+		/// PSM owner. `Some(account)` for permissionlessly-created PSMs (where `account` is the
+		/// signer of `create_psm` and the reservoir of the creation deposit); `None` for
+		/// force-created, governance-managed PSMs.
+		pub owner: Option<T::AccountId>,
+		/// Native-balance deposit reserved on `create_psm`. Zero when `owner` is `None`.
+		pub deposit: NativeBalanceOf<T>,
 		/// Account receiving minting and redemption fees, denominated in the internal asset.
 		pub fee_destination: T::AccountId,
 		/// Absolute internal-asset debt ceiling.
@@ -288,13 +301,16 @@ pub mod pallet {
 		type Fungibles: FungiblesMutate<Self::AccountId, AssetId = Self::AssetId>
 			+ FungiblesMetadataInspect<Self::AccountId>;
 
+		/// Native currency used to reserve PSM creation deposits.
+		type Currency: ReservableCurrency<Self::AccountId>;
+
 		/// Asset identifier type.
 		type AssetId: Parameter + Member + Clone + MaybeSerializeDeserialize + MaxEncodedLen + Ord;
 
-		/// Origin allowed to update PSM parameters.
+		/// Origin allowed to update PSM parameters and force-create owner-less PSMs.
 		///
 		/// Returns `PsmManagerLevel` to distinguish privilege levels:
-		/// - `Full` (via GeneralAdmin): Can modify all parameters
+		/// - `Full` (via GeneralAdmin): Can modify all parameters and force-create owner-less PSMs.
 		/// - `Emergency` (via EmergencyAction): Can modify circuit breaker status, per-asset
 		///   ceiling weights, and the PSM debt ceiling.
 		type ManagerOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = PsmManagerLevel>;
@@ -313,6 +329,10 @@ pub mod pallet {
 		/// Maximum number of approved external assets per PSM instance.
 		#[pallet::constant]
 		type MaxExternalAssetsPerPsm: Get<u32>;
+
+		/// Native-currency deposit reserved on `create_psm` and returned on `remove_psm`.
+		#[pallet::constant]
+		type CreationDeposit: Get<NativeBalanceOf<Self>>;
 
 		/// Helper for benchmarks to create an external asset with correct metadata.
 		#[cfg(feature = "runtime-benchmarks")]
@@ -431,6 +451,8 @@ pub mod pallet {
 				Psms::<T>::insert(
 					internal,
 					PsmInfo::<T> {
+						owner: None,
+						deposit: Zero::zero(),
 						fee_destination: fee_destination.clone(),
 						max_debt: *max_debt,
 						internal_decimals,
@@ -537,6 +559,15 @@ pub mod pallet {
 		ExternalAssetAdded { internal_asset: T::AssetId, asset_id: T::AssetId },
 		/// An external asset was removed from the approved list.
 		ExternalAssetRemoved { internal_asset: T::AssetId, asset_id: T::AssetId },
+		/// A PSM instance was created.
+		PsmCreated {
+			internal_asset: T::AssetId,
+			owner: Option<T::AccountId>,
+			fee_destination: T::AccountId,
+			max_debt: BalanceOf<T>,
+		},
+		/// A PSM instance was removed.
+		PsmRemoved { internal_asset: T::AssetId },
 	}
 
 	#[pallet::error]
@@ -575,6 +606,12 @@ pub mod pallet {
 		ConversionOverflow,
 		/// Conversion to the counter-asset rounds to zero; swap would transfer nothing.
 		AmountTooSmallAfterConversion,
+		/// A PSM is already registered for this internal asset.
+		PsmAlreadyExists,
+		/// The PSM has non-zero outstanding debt on at least one approved external.
+		PsmHasDebt,
+		/// The PSM still has approved externals; remove them before removing the PSM.
+		PsmHasApprovedExternals,
 		/// An unexpected invariant violation occurred. This should be reported.
 		Unexpected,
 	}
@@ -837,8 +874,7 @@ pub mod pallet {
 			asset_id: T::AssetId,
 			fee: Permill,
 		) -> DispatchResult {
-			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			ensure!(level.can_set_fees(), Error::<T>::InsufficientPrivilege);
+			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_set_fees())?;
 			ensure!(
 				ExternalAssets::<T>::contains_key(&internal_asset, &asset_id),
 				Error::<T>::AssetNotApproved
@@ -882,8 +918,7 @@ pub mod pallet {
 			asset_id: T::AssetId,
 			fee: Permill,
 		) -> DispatchResult {
-			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			ensure!(level.can_set_fees(), Error::<T>::InsufficientPrivilege);
+			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_set_fees())?;
 			ensure!(
 				ExternalAssets::<T>::contains_key(&internal_asset, &asset_id),
 				Error::<T>::AssetNotApproved
@@ -926,8 +961,7 @@ pub mod pallet {
 			internal_asset: T::AssetId,
 			value: BalanceOf<T>,
 		) -> DispatchResult {
-			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			ensure!(level.can_set_max_debt(), Error::<T>::InsufficientPrivilege);
+			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_set_max_debt())?;
 			Psms::<T>::try_mutate(&internal_asset, |maybe| -> DispatchResult {
 				let info = maybe.as_mut().ok_or(Error::<T>::PsmNotFound)?;
 				let old_value = info.max_debt;
@@ -969,7 +1003,7 @@ pub mod pallet {
 			asset_id: T::AssetId,
 			status: CircuitBreakerLevel,
 		) -> DispatchResult {
-			T::ManagerOrigin::ensure_origin(origin)?;
+			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_set_circuit_breaker())?;
 			ExternalAssets::<T>::try_mutate(
 				&internal_asset,
 				&asset_id,
@@ -1015,8 +1049,7 @@ pub mod pallet {
 			asset_id: T::AssetId,
 			weight: Permill,
 		) -> DispatchResult {
-			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			ensure!(level.can_set_asset_ceiling(), Error::<T>::InsufficientPrivilege);
+			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_set_asset_ceiling())?;
 			ensure!(
 				ExternalAssets::<T>::contains_key(&internal_asset, &asset_id),
 				Error::<T>::AssetNotApproved
@@ -1070,8 +1103,7 @@ pub mod pallet {
 			internal_asset: T::AssetId,
 			asset_id: T::AssetId,
 		) -> DispatchResult {
-			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			ensure!(level.can_manage_assets(), Error::<T>::InsufficientPrivilege);
+			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_assets())?;
 			Psms::<T>::try_mutate(&internal_asset, |maybe| -> DispatchResult {
 				let info = maybe.as_mut().ok_or(Error::<T>::PsmNotFound)?;
 				ensure!(
@@ -1146,8 +1178,7 @@ pub mod pallet {
 			internal_asset: T::AssetId,
 			asset_id: T::AssetId,
 		) -> DispatchResult {
-			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			ensure!(level.can_manage_assets(), Error::<T>::InsufficientPrivilege);
+			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_assets())?;
 			Psms::<T>::try_mutate(&internal_asset, |maybe| -> DispatchResult {
 				let info = maybe.as_mut().ok_or(Error::<T>::PsmNotFound)?;
 				ensure!(
@@ -1171,12 +1202,141 @@ pub mod pallet {
 				Ok(())
 			})
 		}
+
+		/// Permissionlessly create a PSM owned by the signer.
+		///
+		/// Reserves [`Config::CreationDeposit`] from the signer's native balance and
+		/// stores them as the PSM owner. The owner may call every per-PSM extrinsic
+		/// on this instance without going through [`Config::ManagerOrigin`].
+		///
+		/// ## Dispatch Origin
+		///
+		/// Signed. The signer becomes the PSM owner and pays the deposit.
+		///
+		/// ## Parameters
+		///
+		/// - `internal_asset`: The internal stablecoin keying the new PSM. Must exist in the
+		///   fungibles backend; must not already have a PSM registered.
+		/// - `fee_destination`: Account that will receive mint/redeem fees.
+		/// - `max_debt`: Initial absolute internal-asset debt ceiling.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::PsmAlreadyExists`]: A PSM is already registered for `internal_asset`.
+		/// - [`Error::AssetDoesNotExist`]: The internal asset does not exist.
+		///
+		/// ## Events
+		///
+		/// - [`Event::PsmCreated`].
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::create_psm())]
+		pub fn create_psm(
+			origin: OriginFor<T>,
+			internal_asset: T::AssetId,
+			fee_destination: T::AccountId,
+			max_debt: BalanceOf<T>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_create_psm(
+				internal_asset,
+				Some(who),
+				fee_destination,
+				max_debt,
+			)
+		}
+
+		/// Force-create a PSM with no owner; only [`Config::ManagerOrigin`] at the `Full`
+		/// level can manage it afterward. No deposit is taken.
+		///
+		/// ## Dispatch Origin
+		///
+		/// [`Config::ManagerOrigin`] at the `Full` level.
+		///
+		/// ## Parameters
+		///
+		/// - `internal_asset`: The internal stablecoin keying the new PSM.
+		/// - `fee_destination`: Account that will receive mint/redeem fees.
+		/// - `max_debt`: Initial absolute internal-asset debt ceiling.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::InsufficientPrivilege`]: If the origin only has `Emergency` privileges.
+		/// - [`Error::PsmAlreadyExists`]: A PSM is already registered for `internal_asset`.
+		/// - [`Error::AssetDoesNotExist`]: The internal asset does not exist.
+		///
+		/// ## Events
+		///
+		/// - [`Event::PsmCreated`].
+		#[pallet::call_index(10)]
+		#[pallet::weight(T::WeightInfo::force_create_psm())]
+		pub fn force_create_psm(
+			origin: OriginFor<T>,
+			internal_asset: T::AssetId,
+			fee_destination: T::AccountId,
+			max_debt: BalanceOf<T>,
+		) -> DispatchResult {
+			let level = T::ManagerOrigin::ensure_origin(origin)?;
+			ensure!(level.can_manage_assets(), Error::<T>::InsufficientPrivilege);
+			Self::do_create_psm(internal_asset, None, fee_destination, max_debt)
+		}
+
+		/// Remove a PSM. The caller must be the PSM owner or `ManagerOrigin` at the
+		/// `Full` level. All approved externals must be removed first and aggregate
+		/// PSM debt must be zero.
+		///
+		/// Returns the creation deposit to the owner (if any).
+		///
+		/// ## Dispatch Origin
+		///
+		/// PSM owner (signed) or [`Config::ManagerOrigin`] at the `Full` level.
+		///
+		/// ## Parameters
+		///
+		/// - `internal_asset`: The PSM instance to remove.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::PsmNotFound`]: No PSM is registered for `internal_asset`.
+		/// - [`Error::PsmHasApprovedExternals`]: Approved externals still exist.
+		/// - [`Error::PsmHasDebt`]: Outstanding aggregate debt is non-zero.
+		///
+		/// ## Events
+		///
+		/// - [`Event::PsmRemoved`].
+		#[pallet::call_index(11)]
+		#[pallet::weight(T::WeightInfo::remove_psm())]
+		pub fn remove_psm(
+			origin: OriginFor<T>,
+			internal_asset: T::AssetId,
+		) -> DispatchResult {
+			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_assets())?;
+			let info = Psms::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
+			ensure!(info.external_count == 0, Error::<T>::PsmHasApprovedExternals);
+			ensure!(Self::total_psm_debt(&internal_asset).is_zero(), Error::<T>::PsmHasDebt);
+
+			if let Some(owner) = info.owner.as_ref() {
+				if !info.deposit.is_zero() {
+					T::Currency::unreserve(owner, info.deposit);
+				}
+			}
+
+			Psms::<T>::remove(&internal_asset);
+			Self::deposit_event(Event::PsmRemoved { internal_asset });
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
 		/// Derive the reserve account for a PSM instance.
+		///
+		/// The encoded `internal_asset` is first hashed with `blake2_256` to produce a
+		/// fixed-size 32-byte seed. This avoids the collision hazard of feeding an
+		/// arbitrarily-long encoded asset id (e.g. an XCM `Location`) into
+		/// `into_sub_account_truncating`, which would otherwise discard the tail and
+		/// collapse different assets onto the same reserve account.
 		pub fn psm_account(internal_asset: &T::AssetId) -> T::AccountId {
-			T::PalletId::get().into_sub_account_truncating(internal_asset)
+			let seed = sp_io::hashing::blake2_256(&internal_asset.encode());
+			T::PalletId::get().into_sub_account_truncating(seed)
 		}
 
 		/// PSM debt ceiling for an instance, read from the stored [`PsmInfo`]. Returns
@@ -1319,6 +1479,82 @@ pub mod pallet {
 		pub(crate) fn ensure_account_exists(account: &T::AccountId) {
 			if !frame_system::Pallet::<T>::account_exists(account) {
 				frame_system::Pallet::<T>::inc_providers(account);
+			}
+		}
+
+		/// Shared logic for `create_psm` / `force_create_psm`. Validates the asset, reserves the
+		/// owner's deposit (when present), and writes the new [`PsmInfo`].
+		pub(crate) fn do_create_psm(
+			internal_asset: T::AssetId,
+			owner: Option<T::AccountId>,
+			fee_destination: T::AccountId,
+			max_debt: BalanceOf<T>,
+		) -> DispatchResult {
+			ensure!(
+				!Psms::<T>::contains_key(&internal_asset),
+				Error::<T>::PsmAlreadyExists
+			);
+			ensure!(
+				T::Fungibles::asset_exists(internal_asset.clone()),
+				Error::<T>::AssetDoesNotExist
+			);
+
+			let deposit = if let Some(who) = owner.as_ref() {
+				let amount = T::CreationDeposit::get();
+				T::Currency::reserve(who, amount)?;
+				amount
+			} else {
+				Zero::zero()
+			};
+
+			let internal_decimals = T::Fungibles::decimals(internal_asset.clone());
+			Psms::<T>::insert(
+				&internal_asset,
+				PsmInfo::<T> {
+					owner: owner.clone(),
+					deposit,
+					fee_destination: fee_destination.clone(),
+					max_debt,
+					internal_decimals,
+					external_count: 0,
+				},
+			);
+			Self::ensure_account_exists(&Self::psm_account(&internal_asset));
+			Self::ensure_account_exists(&fee_destination);
+
+			Self::deposit_event(Event::PsmCreated {
+				internal_asset,
+				owner,
+				fee_destination,
+				max_debt,
+			});
+			Ok(())
+		}
+
+		/// Authorise an operation on the PSM keyed by `internal_asset`.
+		///
+		/// Owned PSMs (those created via `create_psm`) are sovereign to their owner — the
+		/// origin must be a `Signed` origin matching `PsmInfo::owner`, and
+		/// [`Config::ManagerOrigin`] has *no* authority over them. Force-created PSMs
+		/// (`force_create_psm`, no owner) are managed by [`Config::ManagerOrigin`]: the
+		/// origin must pass it and the returned level must satisfy `required`.
+		pub(crate) fn ensure_psm_admin(
+			origin: OriginFor<T>,
+			internal_asset: &T::AssetId,
+			required: impl Fn(PsmManagerLevel) -> bool,
+		) -> DispatchResult {
+			let info = Psms::<T>::get(internal_asset).ok_or(Error::<T>::PsmNotFound)?;
+			match info.owner {
+				Some(owner) => {
+					let who = ensure_signed(origin)?;
+					ensure!(who == owner, sp_runtime::DispatchError::BadOrigin);
+					Ok(())
+				},
+				None => {
+					let level = T::ManagerOrigin::ensure_origin(origin)?;
+					ensure!(required(level), Error::<T>::InsufficientPrivilege);
+					Ok(())
+				},
 			}
 		}
 

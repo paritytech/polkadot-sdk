@@ -104,6 +104,8 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 			Psms::<T>::insert(
 				&internal_asset,
 				PsmInfo::<T> {
+					owner: None,
+					deposit: sp_runtime::traits::Zero::zero(),
 					fee_destination: fee_destination.clone(),
 					max_debt,
 					internal_decimals,
