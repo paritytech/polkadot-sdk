@@ -784,10 +784,7 @@ fn kill_queued_referendum_does_not_desync_deciding_count() {
 		assert!(queue.iter().any(|(idx, _)| *idx == 1), "ref 1 should be in the queue");
 
 		assert_ok!(Referenda::kill(RuntimeOrigin::root(), 1));
-		assert!(matches!(
-			ReferendumInfoFor::<Test>::get(1),
-			Some(ReferendumInfo::Killed(_))
-		));
+		assert!(matches!(ReferendumInfoFor::<Test>::get(1), Some(ReferendumInfo::Killed(_))));
 
 		run_to(6);
 
