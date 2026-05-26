@@ -977,6 +977,7 @@ node = [
 	"sc-executor-common",
 	"sc-executor-polkavm",
 	"sc-executor-wasmtime",
+	"sc-hop",
 	"sc-informant",
 	"sc-keystore",
 	"sc-mixnet",
@@ -2728,6 +2729,11 @@ path = "../substrate/client/executor/polkavm"
 default-features = false
 optional = true
 path = "../substrate/client/executor/wasmtime"
+
+[dependencies.sc-hop]
+default-features = false
+optional = true
+path = "../substrate/client/hop"
 
 [dependencies.sc-informant]
 default-features = false
