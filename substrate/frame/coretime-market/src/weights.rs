@@ -52,10 +52,12 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_coretime_market`.
 pub trait WeightInfo {
+	fn configure() -> Weight;
+	fn start_sales() -> Weight;
 	fn place_order() -> Weight;
+	fn place_renewal_order() -> Weight;
 	fn adjust_bid() -> Weight;
-	fn place_renewal_order_renewal() -> Weight;
-	fn place_renewal_order_displacement() -> Weight;
+
 	fn settle_auction() -> Weight;
 	fn finalize_sale() -> Weight;
 	fn rotate_sale() -> Weight;
@@ -64,266 +66,58 @@ pub trait WeightInfo {
 /// Weights for `pallet_coretime_market` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	/// Storage: `CoretimeMarket::SaleInfo` (r:1 w:0)
-	/// Proof: `CoretimeMarket::SaleInfo` (`max_values`: Some(1), `max_size`: Some(74), added: 569, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::Configuration` (r:1 w:0)
-	/// Proof: `CoretimeMarket::Configuration` (`max_values`: Some(1), `max_size`: Some(91), added: 586, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::Bids` (r:1 w:1)
-	/// Proof: `CoretimeMarket::Bids` (`max_values`: Some(1), `max_size`: Some(5202), added: 5697, mode: `MaxEncodedLen`)
+	fn configure() -> Weight {
+		Weight::zero()
+	}
+	fn start_sales() -> Weight {
+		Weight::zero()
+	}
 	fn place_order() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `5373`
-		//  Estimated: `6687`
-		// Minimum execution time: 8_000_000 picoseconds.
-		Weight::from_parts(10_000_000, 6687)
-			.saturating_add(T::DbWeight::get().reads(3_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+		Weight::zero()
 	}
-	/// Storage: `CoretimeMarket::SaleInfo` (r:1 w:0)
-	/// Proof: `CoretimeMarket::SaleInfo` (`max_values`: Some(1), `max_size`: Some(74), added: 569, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::Bids` (r:1 w:1)
-	/// Proof: `CoretimeMarket::Bids` (`max_values`: Some(1), `max_size`: Some(5202), added: 5697, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::Configuration` (r:1 w:0)
-	/// Proof: `CoretimeMarket::Configuration` (`max_values`: Some(1), `max_size`: Some(91), added: 586, mode: `MaxEncodedLen`)
+	fn place_renewal_order() -> Weight {
+		Weight::zero()
+	}
 	fn adjust_bid() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `5425`
-		//  Estimated: `6687`
-		// Minimum execution time: 8_000_000 picoseconds.
-		Weight::from_parts(10_000_000, 6687)
-			.saturating_add(T::DbWeight::get().reads(3_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+		Weight::zero()
 	}
-	/// Storage: `CoretimeMarket::Configuration` (r:1 w:0)
-	/// Proof: `CoretimeMarket::Configuration` (`max_values`: Some(1), `max_size`: Some(91), added: 586, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::SaleInfo` (r:1 w:1)
-	/// Proof: `CoretimeMarket::SaleInfo` (`max_values`: Some(1), `max_size`: Some(74), added: 569, mode: `MaxEncodedLen`)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473c96890f0` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473c96890f0` (r:1 w:0)
-	/// Storage: `CoretimeMarket::Quotas` (r:1 w:1)
-	/// Proof: `CoretimeMarket::Quotas` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::Allocations` (r:1 w:0)
-	/// Proof: `CoretimeMarket::Allocations` (`max_values`: Some(1), `max_size`: Some(5402), added: 5897, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::PendingRenewalActions` (r:1 w:1)
-	/// Proof: `CoretimeMarket::PendingRenewalActions` (`max_values`: Some(1), `max_size`: Some(4902), added: 5397, mode: `MaxEncodedLen`)
-	fn place_renewal_order_renewal() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `585`
-		//  Estimated: `6887`
-		// Minimum execution time: 13_000_000 picoseconds.
-		Weight::from_parts(15_000_000, 6887)
-			.saturating_add(T::DbWeight::get().reads(6_u64))
-			.saturating_add(T::DbWeight::get().writes(3_u64))
-	}
-	/// Storage: `CoretimeMarket::Configuration` (r:1 w:0)
-	/// Proof: `CoretimeMarket::Configuration` (`max_values`: Some(1), `max_size`: Some(91), added: 586, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::SaleInfo` (r:1 w:1)
-	/// Proof: `CoretimeMarket::SaleInfo` (`max_values`: Some(1), `max_size`: Some(74), added: 569, mode: `MaxEncodedLen`)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473c96890f0` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473c96890f0` (r:1 w:0)
-	/// Storage: `CoretimeMarket::Quotas` (r:11 w:1)
-	/// Proof: `CoretimeMarket::Quotas` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::Allocations` (r:1 w:1)
-	/// Proof: `CoretimeMarket::Allocations` (`max_values`: Some(1), `max_size`: Some(5402), added: 5897, mode: `MaxEncodedLen`)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473dddb8581` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473dddb8581` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473edcfa714` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473edcfa714` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d7269676874731d6344fb` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d7269676874731d6344fb` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473369b9cb8` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473369b9cb8` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d7269676874733b9ab6e5` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d7269676874733b9ab6e5` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473bf46703c` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473bf46703c` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d72696768747387b788a2` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d72696768747387b788a2` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d7269676874738813aa86` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d7269676874738813aa86` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473c86ff7fb` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473c86ff7fb` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473603f50ec` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473603f50ec` (r:1 w:0)
-	/// Storage: `CoretimeMarket::PendingRenewalActions` (r:1 w:1)
-	/// Proof: `CoretimeMarket::PendingRenewalActions` (`max_values`: Some(1), `max_size`: Some(4902), added: 5397, mode: `MaxEncodedLen`)
-	fn place_renewal_order_displacement() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `1633`
-		//  Estimated: `28831`
-		// Minimum execution time: 43_000_000 picoseconds.
-		Weight::from_parts(49_000_000, 28831)
-			.saturating_add(T::DbWeight::get().reads(26_u64))
-			.saturating_add(T::DbWeight::get().writes(4_u64))
-	}
-	/// Storage: `CoretimeMarket::Bids` (r:1 w:1)
-	/// Proof: `CoretimeMarket::Bids` (`max_values`: Some(1), `max_size`: Some(5202), added: 5697, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::Quotas` (r:10 w:10)
-	/// Proof: `CoretimeMarket::Quotas` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::SaleInfo` (r:0 w:1)
-	/// Proof: `CoretimeMarket::SaleInfo` (`max_values`: Some(1), `max_size`: Some(74), added: 569, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::Allocations` (r:0 w:1)
-	/// Proof: `CoretimeMarket::Allocations` (`max_values`: Some(1), `max_size`: Some(5402), added: 5897, mode: `MaxEncodedLen`)
+
 	fn settle_auction() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `5319`
-		//  Estimated: `26300`
-		// Minimum execution time: 24_000_000 picoseconds.
-		Weight::from_parts(27_000_000, 26300)
-			.saturating_add(T::DbWeight::get().reads(11_u64))
-			.saturating_add(T::DbWeight::get().writes(13_u64))
+		Weight::zero()
 	}
-	/// Storage: `CoretimeMarket::Allocations` (r:1 w:1)
-	/// Proof: `CoretimeMarket::Allocations` (`max_values`: Some(1), `max_size`: Some(5402), added: 5897, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::PendingRenewalActions` (r:1 w:0)
-	/// Proof: `CoretimeMarket::PendingRenewalActions` (`max_values`: Some(1), `max_size`: Some(4902), added: 5397, mode: `MaxEncodedLen`)
 	fn finalize_sale() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `639`
-		//  Estimated: `6887`
-		// Minimum execution time: 4_000_000 picoseconds.
-		Weight::from_parts(6_000_000, 6887)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+		Weight::zero()
 	}
 	fn rotate_sale() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 1_000_000 picoseconds.
-		Weight::from_parts(1_000_000, 0)
+		Weight::zero()
 	}
 }
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
-	/// Storage: `CoretimeMarket::SaleInfo` (r:1 w:0)
-	/// Proof: `CoretimeMarket::SaleInfo` (`max_values`: Some(1), `max_size`: Some(74), added: 569, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::Configuration` (r:1 w:0)
-	/// Proof: `CoretimeMarket::Configuration` (`max_values`: Some(1), `max_size`: Some(91), added: 586, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::Bids` (r:1 w:1)
-	/// Proof: `CoretimeMarket::Bids` (`max_values`: Some(1), `max_size`: Some(5202), added: 5697, mode: `MaxEncodedLen`)
+	fn configure() -> Weight {
+		Weight::zero()
+	}
+	fn start_sales() -> Weight {
+		Weight::zero()
+	}
 	fn place_order() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `5373`
-		//  Estimated: `6687`
-		// Minimum execution time: 8_000_000 picoseconds.
-		Weight::from_parts(10_000_000, 6687)
-			.saturating_add(RocksDbWeight::get().reads(3_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+		Weight::zero()
 	}
-	/// Storage: `CoretimeMarket::SaleInfo` (r:1 w:0)
-	/// Proof: `CoretimeMarket::SaleInfo` (`max_values`: Some(1), `max_size`: Some(74), added: 569, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::Bids` (r:1 w:1)
-	/// Proof: `CoretimeMarket::Bids` (`max_values`: Some(1), `max_size`: Some(5202), added: 5697, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::Configuration` (r:1 w:0)
-	/// Proof: `CoretimeMarket::Configuration` (`max_values`: Some(1), `max_size`: Some(91), added: 586, mode: `MaxEncodedLen`)
+	fn place_renewal_order() -> Weight {
+		Weight::zero()
+	}
 	fn adjust_bid() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `5425`
-		//  Estimated: `6687`
-		// Minimum execution time: 8_000_000 picoseconds.
-		Weight::from_parts(10_000_000, 6687)
-			.saturating_add(RocksDbWeight::get().reads(3_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+		Weight::zero()
 	}
-	/// Storage: `CoretimeMarket::Configuration` (r:1 w:0)
-	/// Proof: `CoretimeMarket::Configuration` (`max_values`: Some(1), `max_size`: Some(91), added: 586, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::SaleInfo` (r:1 w:1)
-	/// Proof: `CoretimeMarket::SaleInfo` (`max_values`: Some(1), `max_size`: Some(74), added: 569, mode: `MaxEncodedLen`)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473c96890f0` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473c96890f0` (r:1 w:0)
-	/// Storage: `CoretimeMarket::Quotas` (r:1 w:1)
-	/// Proof: `CoretimeMarket::Quotas` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::Allocations` (r:1 w:0)
-	/// Proof: `CoretimeMarket::Allocations` (`max_values`: Some(1), `max_size`: Some(5402), added: 5897, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::PendingRenewalActions` (r:1 w:1)
-	/// Proof: `CoretimeMarket::PendingRenewalActions` (`max_values`: Some(1), `max_size`: Some(4902), added: 5397, mode: `MaxEncodedLen`)
-	fn place_renewal_order_renewal() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `585`
-		//  Estimated: `6887`
-		// Minimum execution time: 13_000_000 picoseconds.
-		Weight::from_parts(15_000_000, 6887)
-			.saturating_add(RocksDbWeight::get().reads(6_u64))
-			.saturating_add(RocksDbWeight::get().writes(3_u64))
-	}
-	/// Storage: `CoretimeMarket::Configuration` (r:1 w:0)
-	/// Proof: `CoretimeMarket::Configuration` (`max_values`: Some(1), `max_size`: Some(91), added: 586, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::SaleInfo` (r:1 w:1)
-	/// Proof: `CoretimeMarket::SaleInfo` (`max_values`: Some(1), `max_size`: Some(74), added: 569, mode: `MaxEncodedLen`)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473c96890f0` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473c96890f0` (r:1 w:0)
-	/// Storage: `CoretimeMarket::Quotas` (r:11 w:1)
-	/// Proof: `CoretimeMarket::Quotas` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::Allocations` (r:1 w:1)
-	/// Proof: `CoretimeMarket::Allocations` (`max_values`: Some(1), `max_size`: Some(5402), added: 5897, mode: `MaxEncodedLen`)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473dddb8581` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473dddb8581` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473edcfa714` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473edcfa714` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d7269676874731d6344fb` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d7269676874731d6344fb` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473369b9cb8` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473369b9cb8` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d7269676874733b9ab6e5` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d7269676874733b9ab6e5` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473bf46703c` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473bf46703c` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d72696768747387b788a2` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d72696768747387b788a2` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d7269676874738813aa86` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d7269676874738813aa86` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473c86ff7fb` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473c86ff7fb` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473603f50ec` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x636f726574696d652d6d61726b65742f62656e63682d726967687473603f50ec` (r:1 w:0)
-	/// Storage: `CoretimeMarket::PendingRenewalActions` (r:1 w:1)
-	/// Proof: `CoretimeMarket::PendingRenewalActions` (`max_values`: Some(1), `max_size`: Some(4902), added: 5397, mode: `MaxEncodedLen`)
-	fn place_renewal_order_displacement() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `1633`
-		//  Estimated: `28831`
-		// Minimum execution time: 43_000_000 picoseconds.
-		Weight::from_parts(49_000_000, 28831)
-			.saturating_add(RocksDbWeight::get().reads(26_u64))
-			.saturating_add(RocksDbWeight::get().writes(4_u64))
-	}
-	/// Storage: `CoretimeMarket::Bids` (r:1 w:1)
-	/// Proof: `CoretimeMarket::Bids` (`max_values`: Some(1), `max_size`: Some(5202), added: 5697, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::Quotas` (r:10 w:10)
-	/// Proof: `CoretimeMarket::Quotas` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::SaleInfo` (r:0 w:1)
-	/// Proof: `CoretimeMarket::SaleInfo` (`max_values`: Some(1), `max_size`: Some(74), added: 569, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::Allocations` (r:0 w:1)
-	/// Proof: `CoretimeMarket::Allocations` (`max_values`: Some(1), `max_size`: Some(5402), added: 5897, mode: `MaxEncodedLen`)
+
 	fn settle_auction() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `5319`
-		//  Estimated: `26300`
-		// Minimum execution time: 24_000_000 picoseconds.
-		Weight::from_parts(27_000_000, 26300)
-			.saturating_add(RocksDbWeight::get().reads(11_u64))
-			.saturating_add(RocksDbWeight::get().writes(13_u64))
+		Weight::zero()
 	}
-	/// Storage: `CoretimeMarket::Allocations` (r:1 w:1)
-	/// Proof: `CoretimeMarket::Allocations` (`max_values`: Some(1), `max_size`: Some(5402), added: 5897, mode: `MaxEncodedLen`)
-	/// Storage: `CoretimeMarket::PendingRenewalActions` (r:1 w:0)
-	/// Proof: `CoretimeMarket::PendingRenewalActions` (`max_values`: Some(1), `max_size`: Some(4902), added: 5397, mode: `MaxEncodedLen`)
 	fn finalize_sale() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `639`
-		//  Estimated: `6887`
-		// Minimum execution time: 4_000_000 picoseconds.
-		Weight::from_parts(6_000_000, 6887)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+		Weight::zero()
 	}
 	fn rotate_sale() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 1_000_000 picoseconds.
-		Weight::from_parts(1_000_000, 0)
+		Weight::zero()
 	}
 }
