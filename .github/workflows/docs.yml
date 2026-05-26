@@ -162,7 +162,7 @@ jobs:
           git status | wc -l
 
           echo "${Green}Add new remote with gh app token${NC}"
-          git remote set-url origin $(git config remote.origin.url | sed "s/github.com/${APP_NAME}:${TOKEN}@github.com/g")
+          git remote set-url origin $(git config remote.origin.url | sed "s|github.com|x-access-token:${TOKEN}@github.com|g")
 
           echo "${Green}Remove http section that causes issues with gh app auth token${NC}"
           sed -i.bak '/\[http/d' ./.git/config
