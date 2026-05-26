@@ -23,12 +23,9 @@
 
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{
-		fungibles::{
-			metadata::{Inspect as FungiblesMetadataInspect, Mutate as FungiblesMetadataMutate},
-			Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
-		},
-		Get,
+	traits::fungibles::{
+		metadata::{Inspect as FungiblesMetadataInspect, Mutate as FungiblesMetadataMutate},
+		Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 	},
 };
 use remote_externalities::{Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
@@ -53,6 +50,8 @@ pub type PsmTestConfigOf<Runtime> = PsmTestConfig<AssetIdOf<Runtime>>;
 
 /// Configuration for which asset to use as the external stablecoin in tests.
 pub struct PsmTestConfig<AssetId> {
+	/// The internal stablecoin asset ID for the PSM instance under test.
+	pub internal_asset_id: AssetId,
 	/// The external stablecoin asset ID.
 	pub external_asset_id: AssetId,
 	/// The expected decimal precision for the internal asset (e.g., 6).
@@ -75,6 +74,7 @@ const SMALL_REDEEM: u128 = 100;
 
 /// Common test state returned by [`setup`].
 struct TestEnv<Runtime: pallet_psm::Config + frame_system::Config> {
+	internal_asset_id: Runtime::AssetId,
 	asset_id: Runtime::AssetId,
 	caller: Runtime::AccountId,
 	psm_account: Runtime::AccountId,
@@ -92,8 +92,9 @@ where
 	InitialPsmConfig: pallet_psm::migrations::init::InitialPsmConfig<Runtime>,
 {
 	let asset_id = config.external_asset_id.clone();
-	let internal_asset_id = Runtime::InternalAssetId::get();
-	let psm_account: Runtime::AccountId = Runtime::PalletId::get().into_account_truncating();
+	let internal_asset_id = config.internal_asset_id.clone();
+	let psm_account: Runtime::AccountId =
+		pallet_psm::Pallet::<Runtime>::psm_account(&internal_asset_id);
 
 	// Check that the external asset actually exists on-chain.
 	assert!(
@@ -186,7 +187,7 @@ where
 		.try_into()
 		.unwrap_or_else(|_| panic!("balance conversion failed"));
 
-	TestEnv { asset_id, caller, psm_account, swap_amount }
+	TestEnv { internal_asset_id, asset_id, caller, psm_account, swap_amount }
 }
 
 const SNAPSHOT_PATH: &str = "psm_remote_test.snap";
@@ -245,8 +246,7 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 	InitialPsmConfig: pallet_psm::migrations::init::InitialPsmConfig<Runtime>,
 {
 	ext.execute_with(|| {
-		let internal_asset_id = Runtime::InternalAssetId::get();
-		let TestEnv { asset_id, caller, psm_account, swap_amount } =
+		let TestEnv { internal_asset_id, asset_id, caller, psm_account, swap_amount } =
 			setup::<Runtime, InitialPsmConfig>(config);
 
 		let balance_before = <Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
@@ -263,6 +263,7 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 		// Test mint
 		assert_ok!(pallet_psm::Pallet::<Runtime>::mint(
 			frame_system::RawOrigin::Signed(caller.clone()).into(),
+			internal_asset_id.clone(),
 			asset_id.clone(),
 			swap_amount,
 		));
@@ -306,6 +307,7 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 
 		assert_ok!(pallet_psm::Pallet::<Runtime>::redeem(
 			frame_system::RawOrigin::Signed(caller.clone()).into(),
+			internal_asset_id.clone(),
 			asset_id,
 			redeem_amount,
 		));
@@ -363,12 +365,13 @@ pub fn circuit_breaker<Runtime, Block, InitialPsmConfig>(
 	InitialPsmConfig: pallet_psm::migrations::init::InitialPsmConfig<Runtime>,
 {
 	ext.execute_with(|| {
-		let TestEnv { asset_id, caller, swap_amount, .. } =
+		let TestEnv { internal_asset_id, asset_id, caller, swap_amount, .. } =
 			setup::<Runtime, InitialPsmConfig>(config);
 
 		// Mint some internal asset first so we have something to redeem later.
 		assert_ok!(pallet_psm::Pallet::<Runtime>::mint(
 			frame_system::RawOrigin::Signed(caller.clone()).into(),
+			internal_asset_id.clone(),
 			asset_id.clone(),
 			swap_amount,
 		));
@@ -381,6 +384,7 @@ pub fn circuit_breaker<Runtime, Block, InitialPsmConfig>(
 		// Test: MintingDisabled. Mint fails, redeem still works
 		assert_ok!(pallet_psm::Pallet::<Runtime>::set_asset_status(
 			frame_system::RawOrigin::Root.into(),
+			internal_asset_id.clone(),
 			asset_id.clone(),
 			pallet_psm::CircuitBreakerLevel::MintingDisabled,
 		));
@@ -388,6 +392,7 @@ pub fn circuit_breaker<Runtime, Block, InitialPsmConfig>(
 		assert_noop!(
 			pallet_psm::Pallet::<Runtime>::mint(
 				frame_system::RawOrigin::Signed(caller.clone()).into(),
+				internal_asset_id.clone(),
 				asset_id.clone(),
 				swap_amount,
 			),
@@ -396,6 +401,7 @@ pub fn circuit_breaker<Runtime, Block, InitialPsmConfig>(
 
 		assert_ok!(pallet_psm::Pallet::<Runtime>::redeem(
 			frame_system::RawOrigin::Signed(caller.clone()).into(),
+			internal_asset_id.clone(),
 			asset_id.clone(),
 			small_redeem,
 		));
@@ -405,6 +411,7 @@ pub fn circuit_breaker<Runtime, Block, InitialPsmConfig>(
 		// Test: AllDisabled. Both mint and redeem fail
 		assert_ok!(pallet_psm::Pallet::<Runtime>::set_asset_status(
 			frame_system::RawOrigin::Root.into(),
+			internal_asset_id.clone(),
 			asset_id.clone(),
 			pallet_psm::CircuitBreakerLevel::AllDisabled,
 		));
@@ -412,6 +419,7 @@ pub fn circuit_breaker<Runtime, Block, InitialPsmConfig>(
 		assert_noop!(
 			pallet_psm::Pallet::<Runtime>::mint(
 				frame_system::RawOrigin::Signed(caller.clone()).into(),
+				internal_asset_id.clone(),
 				asset_id.clone(),
 				swap_amount,
 			),
@@ -421,6 +429,7 @@ pub fn circuit_breaker<Runtime, Block, InitialPsmConfig>(
 		assert_noop!(
 			pallet_psm::Pallet::<Runtime>::redeem(
 				frame_system::RawOrigin::Signed(caller.clone()).into(),
+				internal_asset_id.clone(),
 				asset_id.clone(),
 				small_redeem,
 			),
@@ -432,18 +441,21 @@ pub fn circuit_breaker<Runtime, Block, InitialPsmConfig>(
 		// Test: Re-enable. Both operations resume
 		assert_ok!(pallet_psm::Pallet::<Runtime>::set_asset_status(
 			frame_system::RawOrigin::Root.into(),
+			internal_asset_id.clone(),
 			asset_id.clone(),
 			pallet_psm::CircuitBreakerLevel::AllEnabled,
 		));
 
 		assert_ok!(pallet_psm::Pallet::<Runtime>::mint(
 			frame_system::RawOrigin::Signed(caller.clone()).into(),
+			internal_asset_id.clone(),
 			asset_id.clone(),
 			swap_amount,
 		));
 
 		assert_ok!(pallet_psm::Pallet::<Runtime>::redeem(
 			frame_system::RawOrigin::Signed(caller.clone()).into(),
+			internal_asset_id,
 			asset_id,
 			small_redeem,
 		));

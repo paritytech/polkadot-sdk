@@ -39,6 +39,7 @@ struct Cli {
 fn asset_hub_westend_config(asset_id: u32) -> PsmTestConfigOf<asset_hub_westend_runtime::Runtime> {
 	use xcm::latest::prelude::*;
 	PsmTestConfigOf::<asset_hub_westend_runtime::Runtime> {
+		internal_asset_id: asset_hub_westend_runtime::PsmInternalAssetLocation::get(),
 		external_asset_id: Location::new(0, [PalletInstance(50), GeneralIndex(asset_id.into())]),
 		internal_asset_decimals: 6,
 		assets_pallet_name: "Assets".to_string(),
