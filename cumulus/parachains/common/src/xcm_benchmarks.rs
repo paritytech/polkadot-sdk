@@ -15,6 +15,8 @@
 
 //! Helpers for XCM barrier benchmarks.
 
+#[cfg(not(feature = "std"))]
+use alloc::vec;
 use alloc::vec::Vec;
 use xcm::latest::prelude::*;
 
