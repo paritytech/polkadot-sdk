@@ -203,6 +203,8 @@ pub struct RequestedCandidate {
 	in_flight: ArrayVec<PeerId, MAX_PARALLEL_FETCH_SLOTS>,
 	/// Time the first slot was dispatched, used to gate the staggered parallel-fire timer.
 	first_request_sent_at: Option<Instant>,
+	/// Time we first learned about this candidate.
+	first_learned_at: Instant,
 	/// The timestamp for the next time we should retry, if the response failed.
 	next_retry_time: Option<Instant>,
 }
@@ -320,6 +322,7 @@ impl RequestManager {
 					known_by: VecDeque::new(),
 					in_flight: ArrayVec::new(),
 					first_request_sent_at: None,
+					first_learned_at: Instant::now(),
 					next_retry_time: None,
 				}),
 				true,
@@ -467,7 +470,7 @@ impl RequestManager {
 	/// Returns the soonest instant at which any candidate's next parallel slot becomes ready
 	/// to dispatch. For a candidate with `k` slots already in flight (`1 <= k < MAX`), the
 	/// next slot fires at `first_request_sent_at + k * PARALLEL_FETCH_THRESHOLD`
-	/// 
+	///
 	/// Returns `None` if no candidate has a parallel slot available.
 	/// available (either nothing in flight, or all MAX slots filled).
 	pub fn next_parallel_fire_time(&self) -> Option<Instant> {
@@ -810,10 +813,16 @@ impl UnhandledResponse {
 						outcome: FetchOutcome::Dropped,
 						duration,
 					},
-				}
+					// Entry already gone — typically the winner of a parallel race already
+					// observed the learn-to-fetch duration on its own resolution.
+					learn_to_fetch: None,
+				};
 			},
 			Some(e) => e,
 		};
+
+		// Capture this before any potential `manager.remove_for` consumes the entry.
+		let first_learned_at = entry.first_learned_at;
 
 		let priority_index = match manager
 			.by_priority
@@ -864,6 +873,9 @@ impl UnhandledResponse {
 						outcome: FetchOutcome::Invalid,
 						duration,
 					},
+					// Not Complete yet — retry may follow. Only emit learn-to-fetch on the
+					// terminal Complete observation.
+					learn_to_fetch: None,
 				};
 			},
 			Err(e @ RequestError::NetworkError(_) | e @ RequestError::Canceled(_)) => {
@@ -882,6 +894,7 @@ impl UnhandledResponse {
 						outcome: FetchOutcome::TimeoutOther,
 						duration,
 					},
+					learn_to_fetch: None,
 				};
 			},
 			Ok(response) => response,
@@ -911,6 +924,11 @@ impl UnhandledResponse {
 		};
 
 		if let CandidateRequestStatus::Complete { .. } = output.request_status {
+			// End-to-end "we knew about this candidate" → "we have it" duration. Includes
+			// queue wait, retry-cooldown, and the winning fetch RTT. The caller emits this
+			// into `learn_to_fetch_seconds`.
+			output.learn_to_fetch =
+				Some(Instant::now().saturating_duration_since(first_learned_at));
 			manager.remove_for(identifier.candidate_hash);
 		}
 
@@ -948,6 +966,7 @@ fn validate_complete_response(
 
 	// `fetch_completion` is backfilled by the caller (`validate_response`) which has the
 	// slot/duration context. Use a placeholder here that will be overwritten.
+	// `learn_to_fetch` stays None for Incomplete outcomes.
 	let invalid_candidate_output = |cost: Rep| ResponseValidationOutput {
 		request_status: CandidateRequestStatus::Incomplete,
 		reputation_changes: vec![(requested_peer, cost)],
@@ -957,6 +976,7 @@ fn validate_complete_response(
 			outcome: FetchOutcome::Invalid,
 			duration: Duration::ZERO,
 		},
+		learn_to_fetch: None,
 	};
 
 	let mut rep_changes = Vec::new();
@@ -1136,6 +1156,7 @@ fn validate_complete_response(
 			outcome: FetchOutcome::Success,
 			duration: Duration::ZERO,
 		},
+		learn_to_fetch: None,
 	}
 }
 
@@ -1167,6 +1188,11 @@ pub struct ResponseValidationOutput {
 	/// Observation for the `fetch_completion_seconds` histogram and the
 	/// `parallel_fetch_won_total` counter. Always populated.
 	pub fetch_completion: FetchCompletion,
+	/// Observation for the `learn_to_fetch_seconds` histogram. Set to `Some` only
+	/// on `Complete` — the duration from when we first learned about the candidate (first
+	/// insertion into the `RequestManager`) to now. Captures queue-wait + retry-cooldown +
+	/// fetch RTT, end-to-end.
+	pub learn_to_fetch: Option<Duration>,
 }
 
 fn insert_or_update_priority(
@@ -2025,6 +2051,8 @@ mod tests {
 		assert!(matches!(output.request_status, CandidateRequestStatus::Complete { .. }));
 		assert_eq!(output.fetch_completion.slot, FetchSlot::First);
 		assert_eq!(output.fetch_completion.outcome, FetchOutcome::Success);
+		// End-to-end learn-to-fetch duration must be populated on Complete.
+		assert!(output.learn_to_fetch.is_some());
 		// `Complete` triggers `remove_for`; the entry is gone.
 		assert_eq!(request_manager.total_requests_count(), 0);
 
@@ -2056,6 +2084,8 @@ mod tests {
 		assert_eq!(output.reputation_changes, vec![]);
 		assert_eq!(output.fetch_completion.slot, FetchSlot::Parallel);
 		assert_eq!(output.fetch_completion.outcome, FetchOutcome::Dropped);
+		// Outdated path — entry already gone — no learn-to-fetch measurement.
+		assert!(output.learn_to_fetch.is_none());
 	}
 
 	#[test]

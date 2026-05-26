@@ -3038,6 +3038,12 @@ pub(crate) async fn handle_response<Context>(
 			metrics.on_parallel_fetch_won();
 		}
 
+		// Emit end-to-end "first knew about candidate → have candidate" duration. Populated
+		// only on `Complete`.
+		if let Some(d) = res.learn_to_fetch {
+			metrics.on_learn_to_fetch(d);
+		}
+
 		for (peer, rep) in res.reputation_changes {
 			modify_reputation(reputation, ctx.sender(), peer, rep).await;
 		}

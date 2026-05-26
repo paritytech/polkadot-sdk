@@ -30,6 +30,10 @@ const HISTOGRAM_LATENCY_BUCKETS: &[f64] = &[
 const HISTOGRAM_FETCH_BUCKETS: &[f64] =
 	&[0.010, 0.025, 0.050, 0.100, 0.150, 0.250, 0.500, 0.750, 1.000, 1.500, 2.000, 2.500, 5.000];
 
+/// Buckets for end-to-end "first knew about candidate -> have candidate" latency.
+const HISTOGRAM_LEARN_TO_FETCH_BUCKETS: &[f64] =
+	&[0.025, 0.050, 0.100, 0.200, 0.300, 0.400, 0.500, 0.600, 0.700, 1.0, 1.5, 2.0, 2.5, 3.0, 5.0, 7.5, 10.0, 15.0, 30.0];
+
 #[derive(Clone)]
 struct MetricsInner {
 	// V1
@@ -50,6 +54,7 @@ struct MetricsInner {
 	parallel_fetch_won: prometheus::Counter<prometheus::U64>,
 	parallel_fetch_skipped_no_alt_peer: prometheus::Counter<prometheus::U64>,
 	fetch_completion_seconds: prometheus::HistogramVec,
+	learn_to_fetch_seconds: prometheus::Histogram,
 }
 
 /// Statement Distribution metrics.
@@ -190,6 +195,14 @@ impl Metrics {
 				.observe(duration.as_secs_f64());
 		}
 	}
+
+	/// Observe how much it took us to fetch a candidate from when we first learned about it 
+	/// to when we got a complete response.
+	pub fn on_learn_to_fetch(&self, duration: Duration) {
+		if let Some(metrics) = &self.0 {
+			metrics.learn_to_fetch_seconds.observe(duration.as_secs_f64());
+		}
+	}
 }
 
 impl metrics::Metrics for Metrics {
@@ -318,6 +331,19 @@ impl metrics::Metrics for Metrics {
 					)
 					.buckets(HISTOGRAM_FETCH_BUCKETS.into()),
 					&["slot", "outcome"],
+				)?,
+				registry,
+			)?,
+			learn_to_fetch_seconds: prometheus::register(
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_statement_distribution_learn_to_fetch_seconds",
+						"Time from first learning about a candidate (manifest received or \
+						 cluster statement) to successfully fetching it (Complete response). \
+						 Captures queue wait + retry-cooldown + winning-slot fetch RTT \
+						 end-to-end.",
+					)
+					.buckets(HISTOGRAM_LEARN_TO_FETCH_BUCKETS.into()),
 				)?,
 				registry,
 			)?,
