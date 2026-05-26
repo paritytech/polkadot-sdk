@@ -289,7 +289,7 @@ impl<T: Config> Pallet<T> {
 	/// Record a successful renewal: update counters, track for finalization, emit event.
 	fn record_renewal(
 		who: &T::AccountId,
-		renewal: PotentialRenewalId,
+		_renewal: PotentialRenewalId,
 		price: BalanceOf<T>,
 		region_id: RegionId,
 		region_end: Timeslice,

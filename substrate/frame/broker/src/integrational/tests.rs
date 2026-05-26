@@ -17,13 +17,15 @@
 
 use fp_coretime::RegionId;
 use frame_support::{assert_err, assert_noop, assert_ok};
-use pallet_coretime_market::{Event as MarketEvent, InitData, SalePhase};
+use pallet_coretime_market::{Event as MarketEvent, Error as MarketError, InitData, SalePhase};
 use sp_runtime::TokenError;
 
 use crate::{
-	Error as BrokerError, Event as BrokerEvent, Finality, PotentialRenewals, integrational::{
-		Broker, MarketPallet, RuntimeOrigin, System, Test, TestExt, advance_one_block, advance_to, balance
-	}
+	integrational::{
+		advance_one_block, advance_to, balance, Broker, MarketPallet, RuntimeOrigin,
+		System, Test, TestExt,
+	},
+	Error as BrokerError, Event as BrokerEvent, Finality, PotentialRenewals,
 };
 
 #[test]
@@ -162,45 +164,97 @@ fn bid_displacement_works() {
 
 	const INITIAL_BALANCE: u64 = 1000;
 
-	TestExt::new().endow(PURCHASER_1, INITIAL_BALANCE).endow(PURCHASER_2, INITIAL_BALANCE).endow(PURCHASER_3, INITIAL_BALANCE).execute_with(|| {
-		advance_to(2);
-		assert_ok!(Broker::do_start_sales(InitData { reserve_price: 10 }, 2));
+	TestExt::new()
+		.endow(PURCHASER_1, INITIAL_BALANCE)
+		.endow(PURCHASER_2, INITIAL_BALANCE)
+		.endow(PURCHASER_3, INITIAL_BALANCE)
+		.execute_with(|| {
+			advance_to(2);
+			assert_ok!(Broker::do_start_sales(InitData { reserve_price: 10 }, 2));
 
-		advance_to_market_phase(SalePhase::Market);
+			advance_to_market_phase(SalePhase::Market);
 
-		let price = MarketPallet::current_price(System::block_number()).expect("The price should be known");
+			let price = MarketPallet::current_price(System::block_number())
+				.expect("The price should be known");
 
-		assert_ok!(Broker::do_purchase(PURCHASER_1, price));
-		assert_ok!(Broker::do_purchase(PURCHASER_2, price - 1));
-		assert_ok!(Broker::do_purchase(PURCHASER_3, price));
+			assert_ok!(Broker::do_purchase(PURCHASER_1, price));
+			assert_ok!(Broker::do_purchase(PURCHASER_2, price - 1));
+			assert_ok!(Broker::do_purchase(PURCHASER_3, price));
 
-		System::assert_has_event(MarketEvent::BidPlaced { who: PURCHASER_1, bid_id: 0, amount: price }.into());
-		System::assert_has_event(MarketEvent::BidPlaced { who: PURCHASER_2, bid_id: 1, amount: price - 1 }.into());
-		System::assert_has_event(MarketEvent::BidPlaced { who: PURCHASER_3, bid_id: 2, amount: price }.into());
-		assert_eq!(balance(PURCHASER_1), INITIAL_BALANCE - price);
-		assert_eq!(balance(PURCHASER_2), INITIAL_BALANCE - (price - 1));
-		assert_eq!(balance(PURCHASER_3), INITIAL_BALANCE - price);
+			System::assert_has_event(
+				MarketEvent::BidPlaced { who: PURCHASER_1, bid_id: 0, amount: price }.into(),
+			);
+			System::assert_has_event(
+				MarketEvent::BidPlaced { who: PURCHASER_2, bid_id: 1, amount: price - 1 }.into(),
+			);
+			System::assert_has_event(
+				MarketEvent::BidPlaced { who: PURCHASER_3, bid_id: 2, amount: price }.into(),
+			);
+			assert_eq!(balance(PURCHASER_1), INITIAL_BALANCE - price);
+			assert_eq!(balance(PURCHASER_2), INITIAL_BALANCE - (price - 1));
+			assert_eq!(balance(PURCHASER_3), INITIAL_BALANCE - price);
 
-		advance_to_market_phase(SalePhase::Renewal);
+			advance_to_market_phase(SalePhase::Renewal);
 
-		System::assert_has_event(BrokerEvent::Refunded { who: PURCHASER_2, amount: price - 1 }.into());
-		assert_eq!(balance(PURCHASER_1), INITIAL_BALANCE - price);
-		assert_eq!(balance(PURCHASER_2), INITIAL_BALANCE);
-		assert_eq!(balance(PURCHASER_3), INITIAL_BALANCE - price);
-	});
+			System::assert_has_event(
+				BrokerEvent::Refunded { who: PURCHASER_2, amount: price - 1 }.into(),
+			);
+			assert_eq!(balance(PURCHASER_1), INITIAL_BALANCE - price);
+			assert_eq!(balance(PURCHASER_2), INITIAL_BALANCE);
+			assert_eq!(balance(PURCHASER_3), INITIAL_BALANCE - price);
+		});
 }
 
 #[test]
-fn place_order_with_not_enough_funds_reverts_state_of_both_pallets() {
+fn purchase_with_not_enough_funds_reverts_state_of_both_pallets() {
 	TestExt::new().execute_with(|| {
 		advance_to(2);
 		assert_ok!(Broker::do_start_sales(InitData { reserve_price: 10 }, 0));
 
 		assert_noop!(Broker::purchase(RuntimeOrigin::signed(1), 100), TokenError::FundsUnavailable);
 
-		assert_eq!(market_events()
-			.into_iter()
-			.any(|event| matches!(event, MarketEvent::BidPlaced { ..})), false);
+		assert_eq!(
+			market_events()
+				.into_iter()
+				.any(|event| matches!(event, MarketEvent::BidPlaced { .. })),
+			false
+		);
+	});
+}
+
+#[test]
+fn do_renew_with_not_enough_funds_reverts_state_of_both_pallets() {
+	const PURCHASER: u64 = 1;
+
+	TestExt::new().endow(PURCHASER, 10).execute_with(|| {
+		advance_to(2);
+		assert_ok!(Broker::do_start_sales(InitData { reserve_price: 10 }, 1));
+		assert_ok!(Broker::do_purchase(PURCHASER, 10));
+
+		advance_to_market_phase(SalePhase::Settlement);
+
+		let region_id = get_region_id_from_latest_purchased_event(PURCHASER);
+		let Some(region_id) = region_id else {
+			panic!("Expected the bid to be executed at market settlement phase");
+		};
+
+		assert_ok!(Broker::do_assign(region_id, None, 1001, Finality::Final));
+
+		advance_to_market_phase(SalePhase::Renewal);
+
+		assert_noop!(Broker::renew(RuntimeOrigin::signed(PURCHASER), region_id.core), TokenError::FundsUnavailable);
+	});
+}
+
+#[test]
+fn start_sales_without_config_reverts_state_of_both_pallets() {
+	TestExt::new().execute_with(|| {
+		advance_to(2);
+
+		pallet_coretime_market::Configuration::<Test>::kill();
+
+		let init_data = InitData { reserve_price: 10 };
+		assert_err!(Broker::start_sales(RuntimeOrigin::root(), init_data, 0), MarketError::<Test>::Uninitialized);
 	});
 }
 
