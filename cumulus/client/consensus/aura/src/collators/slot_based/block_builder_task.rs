@@ -669,6 +669,9 @@ where
 
 		scheduling_proof = Some(SchedulingProof {
 			header_chain,
+			// Initial submission: internal_scheduling_parent == relay_parent, so the
+			// internal scheduling parent header is the relay parent's header itself.
+			internal_scheduling_parent_header: relay_parent_header.clone(),
 			// Initial submission: no signature needed, core selection from UMP signals
 			signed_scheduling_info: None,
 		});

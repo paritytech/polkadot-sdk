@@ -57,8 +57,7 @@ pub struct SignedSchedulingInfo {
 	/// `SchedulingInfoPayload`.
 	///
 	/// Stored as a fixed 64-byte blob so the verifier can decode it as either an sr25519
-	/// or ed25519 signature, depending on the parachain's Aura authority crypto. Both
-	/// schemes produce 64-byte signatures.
+	/// or ed25519 signature. Both schemes produce 64-byte signatures.
 	pub signature: [u8; 64],
 }
 
@@ -88,6 +87,10 @@ pub struct SchedulingProof {
 	/// The last header's parent_hash is the internal scheduling parent.
 	/// Length is defined by the parachain runtime config (RelayParentOffset).
 	pub header_chain: Vec<RelayChainHeader>,
+	/// The relay chain header at `internal_scheduling_parent`. Its hash must equal the
+	/// `internal_scheduling_parent` derived from `header_chain` (the parent of the chain's
+	/// last header, or `scheduling_parent` if the chain is empty).
+	pub internal_scheduling_parent_header: RelayChainHeader,
 	/// Signed scheduling info for core selection override.
 	///
 	/// - `None` with `relay_parent == internal_scheduling_parent`: Initial submission. Core
@@ -106,11 +109,45 @@ pub struct SchedulingProof {
 }
 
 impl SchedulingProof {
-	/// Derive the scheduling parent hash from the header chain.
+	/// Derive the scheduling parent hash.
 	///
-	/// Returns `Some(hash)` if the header chain is non-empty (hash of the first/newest header),
-	/// or `None` if the chain is empty (scheduling_parent == relay_parent).
-	pub fn scheduling_parent(&self) -> Option<polkadot_primitives::Hash> {
-		self.header_chain.first().map(BlakeTwo256::hash_of)
+	/// Returns the hash of the first/newest header in `header_chain` if non-empty, otherwise
+	/// falls back to `internal_scheduling_parent_header.hash()` (the ISP coincides with the
+	/// scheduling parent when the parachain runs with `relay_parent_offset = 0`).
+	pub fn scheduling_parent(&self) -> polkadot_primitives::Hash {
+		self.header_chain
+			.first()
+			.map(BlakeTwo256::hash_of)
+			.unwrap_or_else(|| self.internal_scheduling_parent_header.hash())
+	}
+}
+
+/// Verifier for V3 scheduling.
+///
+/// Reports whether V3 scheduling is enabled for the parachain (via
+/// [`Self::V3_SCHEDULING_ENABLED`]) and, when it is, verifies the [`SignedSchedulingInfo`]
+/// attached to a candidate (via [`Self::verify`]).
+pub trait VerifySchedulingSignature {
+	/// Whether V3 scheduling validation is enabled.
+	const V3_SCHEDULING_ENABLED: bool;
+
+	/// Verifies `signed_info` against `internal_scheduling_parent_header`.
+	fn verify(
+		signed_info: &SignedSchedulingInfo,
+		internal_scheduling_parent_header: &RelayChainHeader,
+	) -> bool;
+}
+
+/// Default no-op wiring: V3 scheduling disabled, scheduling info accepted unconditionally.
+///
+/// Replacing it with a real verifier should also turn V3 on.
+impl VerifySchedulingSignature for () {
+	const V3_SCHEDULING_ENABLED: bool = false;
+
+	fn verify(
+		_signed_info: &SignedSchedulingInfo,
+		_internal_scheduling_parent_header: &RelayChainHeader,
+	) -> bool {
+		true
 	}
 }

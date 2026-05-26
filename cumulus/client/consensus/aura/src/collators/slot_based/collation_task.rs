@@ -130,10 +130,9 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 		validation_data,
 	} = message;
 
-	// Derive scheduling_parent from the proof's header chain.
-	// If header chain is empty, it means we're building at the relay parent.
-	let scheduling_parent =
-		scheduling_proof.as_ref().map(|p| p.scheduling_parent().unwrap_or(relay_parent));
+	// Derive scheduling_parent from the proof (the ISP header's hash is used when the
+	// header chain is empty — that's the case with `relay_parent_offset = 0`).
+	let scheduling_parent = scheduling_proof.as_ref().map(|p| p.scheduling_parent());
 	let (collation, block_data) = match collator_service.build_multi_block_collation(
 		&parent_header,
 		blocks,

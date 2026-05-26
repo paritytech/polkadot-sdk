@@ -60,14 +60,14 @@ pub fn validate_v3_scheduling(
 			// V3 disabled but extension present: this should not happen
 			// The relay chain should not send V3 candidates to parachains that have not enabled it
 			panic!(
-				"V3 extension present but SchedulingV3Enabled is false. \
+				"V3 extension present but V3 scheduling is disabled. \
                 Ensure collators and runtime are in sync."
 			);
 		},
 		(true, None) => {
 			// V3 enabled but no extension: candidates must be V3
 			panic!(
-				"SchedulingV3Enabled is true but no V3 extension present. \
+				"V3 scheduling is enabled but no V3 extension present. \
                 Collators must provide V3 candidates when V3 is enabled."
 			);
 		},
@@ -184,19 +184,28 @@ mod tests {
 		[0u8; 64]
 	}
 
-	/// Creates a chain of headers where each header's parent_hash points to the next.
-	/// Returns headers ordered newest-to-oldest (index 0 = newest = scheduling_parent).
-	fn make_header_chain(len: usize) -> (Vec<RelayHeader>, RelayHash) {
+	/// Creates a chain of headers where each header's parent_hash points to the next, plus the
+	/// relay header at `internal_scheduling_parent` (its hash equals the chain's last header's
+	/// `parent_hash`, or `scheduling_parent` for an empty chain).
+	///
+	/// Returns:
+	/// - chain headers ordered newest-to-oldest (index 0 = newest = scheduling_parent),
+	/// - and the internal scheduling parent header.
+	fn make_header_chain(len: usize) -> (Vec<RelayHeader>, RelayHeader) {
+		let isp_header = RelayHeader::new(
+			0u32,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		);
+		let relay_parent = isp_header.hash();
+
 		if len == 0 {
-			// For empty chain, return arbitrary hash as the "relay_parent"
-			return (vec![], RelayHash::repeat_byte(0x00));
+			return (vec![], isp_header);
 		}
 
 		let mut headers = Vec::with_capacity(len);
-
-		// Build from oldest to newest, then reverse
-		// Start with oldest header pointing to relay_parent
-		let relay_parent = RelayHash::repeat_byte(0x42);
 		let mut parent_hash = relay_parent;
 
 		for i in 0..len {
@@ -213,7 +222,7 @@ mod tests {
 
 		// Reverse so newest is first (matches expected ordering)
 		headers.reverse();
-		(headers, relay_parent)
+		(headers, isp_header)
 	}
 
 	// =========================================================================
@@ -223,10 +232,15 @@ mod tests {
 	#[test]
 	fn valid_header_chain_length_3() {
 		// Test: A valid 3-header chain should validate successfully.
-		let (headers, relay_parent) = make_header_chain(3);
+		let (headers, isp_header) = make_header_chain(3);
+		let relay_parent = isp_header.hash();
 		let scheduling_parent = headers[0].hash();
 
-		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
+		let proof = SchedulingProof {
+			header_chain: headers,
+			internal_scheduling_parent_header: isp_header.clone(),
+			signed_scheduling_info: None,
+		};
 		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 3);
 
 		assert!(result.is_ok());
@@ -237,10 +251,15 @@ mod tests {
 	#[test]
 	fn valid_empty_header_chain() {
 		// Test: Empty chain (offset=0) means scheduling_parent == relay_parent.
-		let scheduling_parent = RelayHash::repeat_byte(0xAA);
-		let relay_parent = scheduling_parent; // Must be equal for offset=0
+		let (_, isp_header) = make_header_chain(0);
+		let scheduling_parent = isp_header.hash();
+		let relay_parent = scheduling_parent;
 
-		let proof = SchedulingProof { header_chain: vec![], signed_scheduling_info: None };
+		let proof = SchedulingProof {
+			header_chain: vec![],
+			internal_scheduling_parent_header: isp_header,
+			signed_scheduling_info: None,
+		};
 		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 0);
 
 		assert!(result.is_ok());
@@ -250,10 +269,15 @@ mod tests {
 	#[test]
 	fn valid_single_header_chain() {
 		// Test: Single header chain (offset=1).
-		let (headers, relay_parent) = make_header_chain(1);
+		let (headers, isp_header) = make_header_chain(1);
+		let relay_parent = isp_header.hash();
 		let scheduling_parent = headers[0].hash();
 
-		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
+		let proof = SchedulingProof {
+			header_chain: headers,
+			internal_scheduling_parent_header: isp_header.clone(),
+			signed_scheduling_info: None,
+		};
 		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 1);
 
 		assert!(result.is_ok());
@@ -267,10 +291,15 @@ mod tests {
 	#[test]
 	fn reject_wrong_header_chain_length_too_short() {
 		// Test: Chain shorter than expected should be rejected.
-		let (headers, relay_parent) = make_header_chain(2);
+		let (headers, isp_header) = make_header_chain(2);
+		let relay_parent = isp_header.hash();
 		let scheduling_parent = headers[0].hash();
 
-		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
+		let proof = SchedulingProof {
+			header_chain: headers,
+			internal_scheduling_parent_header: isp_header.clone(),
+			signed_scheduling_info: None,
+		};
 		// Expect 3, but only 2 provided
 		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 3);
 
@@ -283,10 +312,15 @@ mod tests {
 	#[test]
 	fn reject_wrong_header_chain_length_too_long() {
 		// Test: Chain longer than expected should be rejected.
-		let (headers, relay_parent) = make_header_chain(4);
+		let (headers, isp_header) = make_header_chain(4);
+		let relay_parent = isp_header.hash();
 		let scheduling_parent = headers[0].hash();
 
-		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
+		let proof = SchedulingProof {
+			header_chain: headers,
+			internal_scheduling_parent_header: isp_header.clone(),
+			signed_scheduling_info: None,
+		};
 		// Expect 3, but 4 provided
 		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 3);
 
@@ -303,10 +337,15 @@ mod tests {
 	#[test]
 	fn reject_scheduling_parent_mismatch() {
 		// Test: scheduling_parent must hash to the first header.
-		let (headers, relay_parent) = make_header_chain(3);
+		let (headers, isp_header) = make_header_chain(3);
+		let relay_parent = isp_header.hash();
 		let wrong_scheduling_parent = RelayHash::repeat_byte(0xFF);
 
-		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
+		let proof = SchedulingProof {
+			header_chain: headers,
+			internal_scheduling_parent_header: isp_header.clone(),
+			signed_scheduling_info: None,
+		};
 		let result = check_scheduling(&proof, relay_parent, wrong_scheduling_parent, 3);
 
 		assert_eq!(result, Err(SchedulingValidationError::SchedulingParentMismatch));
@@ -319,7 +358,8 @@ mod tests {
 	#[test]
 	fn reject_broken_header_chain() {
 		// Test: Headers must form a valid chain via parent_hash linkage.
-		let (mut headers, relay_parent) = make_header_chain(3);
+		let (mut headers, isp_header) = make_header_chain(3);
+		let relay_parent = isp_header.hash();
 		let scheduling_parent = headers[0].hash();
 
 		// Corrupt the middle header's parent_hash to break the chain
@@ -331,7 +371,11 @@ mod tests {
 			Default::default(),
 		);
 
-		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
+		let proof = SchedulingProof {
+			header_chain: headers,
+			internal_scheduling_parent_header: isp_header.clone(),
+			signed_scheduling_info: None,
+		};
 		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 3);
 
 		// Chain breaks at index 0 (first header's parent doesn't match second header's hash)
@@ -346,12 +390,16 @@ mod tests {
 	fn reject_relay_parent_inside_header_chain() {
 		// Test: relay_parent must not be one of the headers in the chain.
 		// It should either equal internal_scheduling_parent or be an ancestor of it.
-		let (headers, _correct_relay_parent) = make_header_chain(3);
+		let (headers, isp_header) = make_header_chain(3);
 		let scheduling_parent = headers[0].hash();
 		// Use the middle header's hash as relay_parent (invalid)
 		let relay_parent_in_chain = headers[1].hash();
 
-		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
+		let proof = SchedulingProof {
+			header_chain: headers,
+			internal_scheduling_parent_header: isp_header.clone(),
+			signed_scheduling_info: None,
+		};
 		let result = check_scheduling(&proof, relay_parent_in_chain, scheduling_parent, 3);
 
 		assert_eq!(result, Err(SchedulingValidationError::RelayParentInHeaderChain));
@@ -366,7 +414,8 @@ mod tests {
 		// Test: Initial submission (relay_parent == internal_scheduling_parent) may
 		// optionally include signed_scheduling_info. This is legal because collators
 		// should refuse to acknowledge blocks with invalid scheduling info anyway.
-		let (headers, relay_parent) = make_header_chain(3);
+		let (headers, isp_header) = make_header_chain(3);
+		let relay_parent = isp_header.hash();
 		let scheduling_parent = headers[0].hash();
 
 		let signed_info = SignedSchedulingInfo {
@@ -379,8 +428,11 @@ mod tests {
 			signature: dummy_signature(),
 		};
 
-		let proof =
-			SchedulingProof { header_chain: headers, signed_scheduling_info: Some(signed_info) };
+		let proof = SchedulingProof {
+			header_chain: headers,
+			internal_scheduling_parent_header: isp_header.clone(),
+			signed_scheduling_info: Some(signed_info),
+		};
 		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 3);
 
 		// Validation passes - signed_scheduling_info is optional for initial submission
@@ -393,12 +445,16 @@ mod tests {
 	fn reject_resubmission_without_signed_scheduling_info() {
 		// Test: Resubmission (relay_parent != internal_scheduling_parent) requires
 		// signed_scheduling_info to prove the resubmitting collator's eligibility.
-		let (headers, _internal_scheduling_parent) = make_header_chain(3);
+		let (headers, isp_header) = make_header_chain(3);
 		let scheduling_parent = headers[0].hash();
 		// Use an unrelated hash as relay_parent (simulates resubmission)
 		let older_relay_parent = RelayHash::repeat_byte(0xBB);
 
-		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
+		let proof = SchedulingProof {
+			header_chain: headers,
+			internal_scheduling_parent_header: isp_header.clone(),
+			signed_scheduling_info: None,
+		};
 		let result = check_scheduling(&proof, older_relay_parent, scheduling_parent, 3);
 
 		assert_eq!(result, Err(SchedulingValidationError::MissingSignedSchedulingInfo));
@@ -408,7 +464,8 @@ mod tests {
 	fn valid_resubmission_with_signed_scheduling_info() {
 		// Test: Resubmission with signed_scheduling_info passes validation
 		// (signature verification happens separately).
-		let (headers, internal_scheduling_parent) = make_header_chain(3);
+		let (headers, isp_header) = make_header_chain(3);
+		let internal_scheduling_parent = isp_header.hash();
 		let scheduling_parent = headers[0].hash();
 		// Use an unrelated hash as relay_parent (simulates resubmission where
 		// relay_parent is an ancestor of internal_scheduling_parent)
@@ -424,8 +481,11 @@ mod tests {
 			signature: dummy_signature(),
 		};
 
-		let proof =
-			SchedulingProof { header_chain: headers, signed_scheduling_info: Some(signed_info) };
+		let proof = SchedulingProof {
+			header_chain: headers,
+			internal_scheduling_parent_header: isp_header.clone(),
+			signed_scheduling_info: Some(signed_info),
+		};
 		let result = check_scheduling(&proof, older_relay_parent, scheduling_parent, 3);
 
 		// Validation passes - signature verification is done separately
@@ -438,10 +498,15 @@ mod tests {
 	#[test]
 	fn initial_submission_is_not_resubmission() {
 		// Test: Initial submission has is_resubmission = false
-		let (headers, relay_parent) = make_header_chain(3);
+		let (headers, isp_header) = make_header_chain(3);
+		let relay_parent = isp_header.hash();
 		let scheduling_parent = headers[0].hash();
 
-		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
+		let proof = SchedulingProof {
+			header_chain: headers,
+			internal_scheduling_parent_header: isp_header.clone(),
+			signed_scheduling_info: None,
+		};
 		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 3);
 
 		assert!(result.is_ok());
@@ -459,13 +524,19 @@ mod tests {
 	fn make_v3_initial_submission(
 		chain_len: u32,
 	) -> (ValidationParamsExtension, SchedulingProof, SchedulingValidationResult) {
-		let (headers, relay_parent) = make_header_chain(chain_len as usize);
-		let scheduling_parent = if headers.is_empty() { relay_parent } else { headers[0].hash() };
+		let (headers, isp_header) = make_header_chain(chain_len as usize);
+		let scheduling_parent =
+			if headers.is_empty() { isp_header.hash() } else { headers[0].hash() };
 
-		let extension = ValidationParamsExtension::V3 { relay_parent, scheduling_parent };
-		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
+		let extension =
+			ValidationParamsExtension::V3 { relay_parent: isp_header.hash(), scheduling_parent };
+		let proof = SchedulingProof {
+			header_chain: headers,
+			internal_scheduling_parent_header: isp_header.clone(),
+			signed_scheduling_info: None,
+		};
 		let expected = SchedulingValidationResult {
-			internal_scheduling_parent: relay_parent,
+			internal_scheduling_parent: isp_header.hash(),
 			is_resubmission: false,
 		};
 		(extension, proof, expected)
@@ -478,7 +549,7 @@ mod tests {
 	}
 
 	#[test]
-	#[should_panic(expected = "V3 extension present but SchedulingV3Enabled is false")]
+	#[should_panic(expected = "V3 extension present but V3 scheduling is disabled")]
 	fn v3_disabled_with_extension_panics() {
 		let ext = ValidationParamsExtension::V3 {
 			relay_parent: RelayHash::default(),
@@ -488,7 +559,7 @@ mod tests {
 	}
 
 	#[test]
-	#[should_panic(expected = "SchedulingV3Enabled is true but no V3 extension present")]
+	#[should_panic(expected = "V3 scheduling is enabled but no V3 extension present")]
 	fn v3_enabled_no_extension_panics() {
 		validate_v3_scheduling(true, &None, None, 0);
 	}
@@ -525,7 +596,7 @@ mod tests {
 
 	#[test]
 	fn v3_enabled_valid_resubmission() {
-		let (headers, relay_parent) = make_header_chain(3);
+		let (headers, isp_header) = make_header_chain(3);
 		let scheduling_parent = headers[0].hash();
 		// Use an unrelated hash as relay_parent to simulate a resubmission
 		let older_relay_parent = RelayHash::repeat_byte(0xBB);
@@ -534,12 +605,13 @@ mod tests {
 			ValidationParamsExtension::V3 { relay_parent: older_relay_parent, scheduling_parent };
 		let proof = SchedulingProof {
 			header_chain: headers,
+			internal_scheduling_parent_header: isp_header.clone(),
 			signed_scheduling_info: Some(SignedSchedulingInfo {
 				payload: SchedulingInfoPayload::new(
 					CoreSelector(0),
 					0,
 					Default::default(),
-					relay_parent,
+					isp_header.hash(),
 				),
 				signature: dummy_signature(),
 			}),
@@ -548,19 +620,23 @@ mod tests {
 		let result = validate_v3_scheduling(true, &Some(ext), Some(&proof), 3);
 		let result = result.expect("should succeed");
 		assert!(result.is_resubmission);
-		assert_eq!(result.internal_scheduling_parent, relay_parent);
+		assert_eq!(result.internal_scheduling_parent, isp_header.hash());
 	}
 
 	#[test]
 	#[should_panic(expected = "V3 scheduling validation failed")]
 	fn v3_enabled_resubmission_without_signature_panics() {
-		let (headers, _relay_parent) = make_header_chain(3);
+		let (headers, isp_header) = make_header_chain(3);
 		let scheduling_parent = headers[0].hash();
 		let older_relay_parent = RelayHash::repeat_byte(0xBB);
 
 		let ext =
 			ValidationParamsExtension::V3 { relay_parent: older_relay_parent, scheduling_parent };
-		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
+		let proof = SchedulingProof {
+			header_chain: headers,
+			internal_scheduling_parent_header: isp_header.clone(),
+			signed_scheduling_info: None,
+		};
 
 		// Should panic because resubmission requires signed_scheduling_info
 		validate_v3_scheduling(true, &Some(ext), Some(&proof), 3);
