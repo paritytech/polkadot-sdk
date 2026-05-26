@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779732308229,
+  "lastUpdate": 1779824882029,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1cbdb4d2e384e35e27760f24ca895b2f3d601698",
-          "message": " Wait for transaction receipt if instant seal is enabled (#9914)\n\nFixes https://github.com/paritytech/contract-issues/issues/165\n\nThe main changes in this PR are:\n\n1. Add a new API to revive-dev-node to check whether the node has\ninstant seal enabled.\n2. Add a new debug API to eth-rpc to check whether the node has instant\nseal enabled. (optional)\n3. Query and cache the node’s instant seal status during eth-rpc\ninitialization.\n4. If instant seal is enabled, wait for the transaction receipt to be\navailable\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
-          "timestamp": "2025-10-10T16:01:50Z",
-          "tree_id": "dd524ef9e7b71c82b791e3c22045d3bcc07039ff",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1cbdb4d2e384e35e27760f24ca895b2f3d601698"
-        },
-        "date": 1760116858496,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.97600000000003,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034251585168000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04482160289199992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.09697018014199993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jfanatiker@gmx.at",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "670ffa2d5073defd3c2feda75ca2472725679e87",
+          "message": "Candidate descriptor v3 cumulus changes (#10742)\n\nBuilding on top of #10472 \n\nRe-submissions are not yet handled - and not goal of this PR so far was\nto be able to have e2e tests for #10472. Verifying that we have\neverything to support them is necessary though - especially if we forgot\nsomething needed from the relay chain.\n\nFull re-submissions are more involved and I would leave them out for a\nseparate PR, so we can get this one merged quickly.\n\n# Once merged\n\n- [x] Enable core sharing test again, see discussion\n[here](https://github.com/paritytech/polkadot-sdk/pull/11914).\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: eskimor <eskimor@noreply.com>\nCo-authored-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Marios <marios@parity.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Alin Dima <alin@parity.io>",
+          "timestamp": "2026-05-26T18:18:03Z",
+          "tree_id": "99bbd4a30c33a7458b67e69f9a088f482e0499f9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/670ffa2d5073defd3c2feda75ca2472725679e87"
+        },
+        "date": 1779824853293,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.08799999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038379320906000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08213080302399992,
             "unit": "seconds"
           }
         ]
