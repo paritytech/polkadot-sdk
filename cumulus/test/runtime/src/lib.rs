@@ -418,19 +418,17 @@ const SCHEDULING_V3_ENABLED: bool = cfg!(feature = "v3-descriptor");
 
 /// Scheduling-info verifier used by `cumulus-test-runtime`.
 ///
-/// Accepts any signature; `enabled()` is gated on the `v3-descriptor` cargo feature so the
-/// test runtime can flip V3 scheduling on without needing a runtime upgrade per build.
+/// Accepts any signature; `V3_SCHEDULING_ENABLED` is gated on the `v3-descriptor` cargo
+/// feature so the test runtime can flip V3 scheduling on without needing a runtime upgrade
+/// per build.
 pub struct NoVerification;
 
 impl VerifySchedulingSignature for NoVerification {
-	fn enabled() -> bool {
-		SCHEDULING_V3_ENABLED
-	}
+	const V3_SCHEDULING_ENABLED: bool = SCHEDULING_V3_ENABLED;
 
 	fn verify(
 		_signed_info: &cumulus_primitives_core::SignedSchedulingInfo,
-		_descendant_header: &cumulus_primitives_core::relay_chain::Header,
-		_internal_scheduling_parent: polkadot_primitives::Hash,
+		_internal_scheduling_parent_header: &cumulus_primitives_core::relay_chain::Header,
 	) -> bool {
 		true
 	}
@@ -623,7 +621,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
 		fn scheduling_v3_enabled() -> bool {
-			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::enabled()
+			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED
 		}
 	}
 

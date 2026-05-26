@@ -637,7 +637,7 @@ pub mod pallet {
 			) {
 				CoreInfoExistsAtMaxOnce::Once(core_info) => {
 					let mut max_allowed_offset = Self::max_claim_queue_offset();
-					if !T::SchedulingSignatureVerifier::enabled() {
+					if !T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED {
 						max_allowed_offset = max_allowed_offset
 							.saturating_add(T::RelayParentOffset::get().saturated_into::<u8>())
 					}
@@ -718,7 +718,7 @@ pub mod pallet {
 			// When V3 scheduling is enabled: skip this validation, V3 scheduling validation
 			// happens in validate_block with header chain from PVF params
 			let expected_rp_descendants_num = T::RelayParentOffset::get();
-			let v3_enabled = T::SchedulingSignatureVerifier::enabled();
+			let v3_enabled = T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED;
 
 			if expected_rp_descendants_num > 0 && !v3_enabled {
 				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
@@ -1171,7 +1171,7 @@ impl<T: Config> Pallet<T> {
 	/// This is used by the [cumulus_primitives_core::RelayParentOffsetApi::max_claim_queue_offset]
 	/// runtime API to expose the value to collators.
 	pub fn max_claim_queue_offset() -> u8 {
-		if !T::SchedulingSignatureVerifier::enabled() {
+		if !T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED {
 			return 1;
 		}
 

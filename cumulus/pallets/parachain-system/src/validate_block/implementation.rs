@@ -138,7 +138,7 @@ where
 
 	// V3 scheduling validation.
 	let validated_scheduling = scheduling::validate_v3_scheduling(
-		PSC::SchedulingSignatureVerifier::enabled(),
+		PSC::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED,
 		&extension.0,
 		block_data.scheduling_proof(),
 		PSC::RelayParentOffset::get(),

@@ -87,6 +87,10 @@ pub struct SchedulingProof {
 	/// The last header's parent_hash is the internal scheduling parent.
 	/// Length is defined by the parachain runtime config (RelayParentOffset).
 	pub header_chain: Vec<RelayChainHeader>,
+	/// The relay chain header at `internal_scheduling_parent`. Its hash must equal the
+	/// `internal_scheduling_parent` derived from `header_chain` (the parent of the chain's
+	/// last header, or `scheduling_parent` if the chain is empty).
+	pub internal_scheduling_parent_header: RelayChainHeader,
 	/// Signed scheduling info for core selection override.
 	///
 	/// - `None` with `relay_parent == internal_scheduling_parent`: Initial submission. Core
@@ -116,27 +120,19 @@ impl SchedulingProof {
 
 /// Verifier for V3 scheduling.
 ///
-/// Reports whether V3 scheduling is enabled for the parachain (via [`Self::enabled`]) and,
-/// when it is, verifies the [`SignedSchedulingInfo`] attached to a candidate (via
-/// [`Self::verify`]).
+/// Reports whether V3 scheduling is enabled for the parachain (via
+/// [`Self::V3_SCHEDULING_ENABLED`]) and, when it is, verifies the [`SignedSchedulingInfo`]
+/// attached to a candidate (via [`Self::verify`]).
 ///
 /// Wired into `cumulus_pallet_parachain_system::Config` via an associated type.
 pub trait VerifySchedulingSignature {
 	/// Whether V3 scheduling validation is enabled.
-	///
-	/// When `false`, the runtime treats incoming candidates as V1/V2 and rejects any V3
-	/// extension. When `true`, candidates must carry a V3 extension and matching scheduling
-	/// proof.
-	fn enabled() -> bool;
+	const V3_SCHEDULING_ENABLED: bool;
 
-	/// Returns `true` if `signed_info` is a valid signed scheduling info for
-	/// `internal_scheduling_parent`. `descendant_header` is the descendant of
-	/// `internal_scheduling_parent` (the last header in
-	/// [`SchedulingProof::header_chain`]).
+	/// Verifies `signed_info` against `internal_scheduling_parent_header`.
 	fn verify(
 		signed_info: &SignedSchedulingInfo,
-		descendant_header: &RelayChainHeader,
-		internal_scheduling_parent: polkadot_primitives::Hash,
+		internal_scheduling_parent_header: &RelayChainHeader,
 	) -> bool;
 }
 
@@ -144,14 +140,11 @@ pub trait VerifySchedulingSignature {
 ///
 /// Replacing it with a real verifier should also turn V3 on.
 impl VerifySchedulingSignature for () {
-	fn enabled() -> bool {
-		false
-	}
+	const V3_SCHEDULING_ENABLED: bool = false;
 
 	fn verify(
 		_signed_info: &SignedSchedulingInfo,
-		_descendant_header: &RelayChainHeader,
-		_internal_scheduling_parent: polkadot_primitives::Hash,
+		_internal_scheduling_parent_header: &RelayChainHeader,
 	) -> bool {
 		true
 	}
