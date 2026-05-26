@@ -1,0 +1,8 @@
+title: 'pallet-staking-async: gate reap_stash by existential deposit'
+doc:
+- audience: Runtime Dev
+  description: "Gated `reap_stash` strictly by ED and not by `min(MinValidatorBond,\
+    \ MinNominatorBond).max(ED)`.\r\n"
+crates:
+- name: pallet-staking-async
+  bump: patch
