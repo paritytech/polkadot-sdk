@@ -20,6 +20,8 @@
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 
+pub use sp_io::{MultiRemovalCounters, MultiRemovalCursor, MultiRemovalResults};
+
 /// Return the value of the item in storage under `key`, or `None` if there is no explicit entry.
 pub fn get<T: Decode + Sized>(key: &[u8]) -> Option<T> {
 	sp_io::storage::get(key).and_then(|val| {
@@ -110,30 +112,33 @@ pub fn kill(key: &[u8]) {
 ///
 /// # Cursor
 ///
-/// A *cursor* may be passed in to this operation with `maybe_cursor`. `None` should only be
-/// passed once (in the initial call) for any attempt to clear storage. In general, subsequent calls
-/// operating on the same prefix should pass `Some` and this value should be equal to the
-/// previous call result's `maybe_cursor` field. The only exception to this is when you can
-/// guarantee that the subsequent call is in a new block; in this case the previous call's result
-/// cursor need not be passed in and a `None` may be passed instead. This exception may be useful
-/// then making this call solely from a block-hook such as `on_initialize`.
+/// To continue the operation across multiple calls, the caller owns a
+/// [`MultiRemovalCursor`](sp_io::MultiRemovalCursor) and passes `Some(&mut cursor)`: it should be
+/// freshly [created](sp_io::MultiRemovalCursor::new) for the initial call and then passed back in
+/// unchanged on subsequent calls until [`MultiRemovalCounters::more`](sp_io::MultiRemovalCounters::more)
+/// is `false`. Reusing the same cursor object across iterations avoids re-allocating the cursor
+/// buffer on every call.
 ///
-/// Returns [`MultiRemovalResults`](sp_io::MultiRemovalResults) to inform about the result. Once the
-/// resultant `maybe_cursor` field is `None`, then no further items remain to be deleted.
+/// Pass `None` when you don't need to continue: no cursor is materialized (no allocation), and
+/// [`MultiRemovalCounters::more`](sp_io::MultiRemovalCounters::more) still reports whether keys
+/// remain.
 ///
-/// NOTE: After the initial call for any given child storage, it is important that no keys further
-/// keys are inserted. If so, then they may or may not be deleted by subsequent calls.
+/// Returns [`MultiRemovalCounters`](sp_io::MultiRemovalCounters) to inform about the result. Once
+/// `more` is `false`, no further items remain to be deleted.
+///
+/// NOTE: After the initial call for any given prefix, it is important that no further keys are
+/// inserted. If so, then they may or may not be deleted by subsequent calls.
 ///
 /// # Note
 ///
-/// Please note that keys which are residing in the overlay for the child are deleted without
+/// Please note that keys which are residing in the overlay for that prefix are deleted without
 /// counting towards the `limit`.
 pub fn clear_prefix(
 	prefix: &[u8],
 	maybe_limit: Option<u32>,
-	maybe_cursor: Option<&[u8]>,
-) -> sp_io::MultiRemovalResults {
-	sp_io::storage::clear_prefix(prefix, maybe_limit, maybe_cursor)
+	cursor: Option<&mut sp_io::MultiRemovalCursor>,
+) -> sp_io::MultiRemovalCounters {
+	sp_io::storage::clear_prefix(prefix, maybe_limit, cursor)
 }
 
 /// Returns `true` if the storage contains any key, which starts with a certain prefix,

@@ -705,7 +705,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn crowdloan_kill(index: FundIndex) -> child::MultiRemovalResults {
-		child::clear_storage(&Self::id_from_index(index), Some(T::RemoveKeysLimit::get()), None)
+		let mut cursor = child::MultiRemovalCursor::new();
+		child::clear_storage(
+			&Self::id_from_index(index),
+			Some(T::RemoveKeysLimit::get()),
+			Some(&mut cursor),
+		)
+		.into_results(cursor)
 	}
 
 	pub fn contribution_iterator(

@@ -139,6 +139,106 @@ use sp_externalities::{Externalities, ExternalitiesExt};
 
 pub use sp_externalities::MultiRemovalResults;
 
+/// A reusable cursor object that holds owned buffers across multiple invocations of a
+/// storage-removal operation (e.g. [`storage::clear_prefix`]).
+///
+/// The buffers are reused across calls so that subsequent iterations do not allocate
+/// (assuming the cursor stays roughly the same size). On the first call no memory is
+/// allocated — the buffers grow lazily only when the host actually returns a cursor.
+#[derive(Default)]
+pub struct MultiRemovalCursor {
+	/// Input cursor buffer.
+	in_buf: Vec<u8>,
+	/// Output cursor buffer.
+	out_buf: Vec<u8>,
+	/// Whether `in_buf` currently contains a valid cursor.
+	has_cursor: bool,
+}
+
+impl MultiRemovalCursor {
+	/// Create an empty cursor. No memory is allocated.
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	/// Returns `true` if the previous call left a cursor, meaning more work is required to
+	/// complete the operation.
+	pub fn has_more(&self) -> bool {
+		self.has_cursor
+	}
+
+	/// Returns the current cursor as a byte slice, or `None` if there is no cursor.
+	pub fn as_slice(&self) -> Option<&[u8]> {
+		self.has_cursor.then(|| self.in_buf.as_slice())
+	}
+
+	/// Reset the cursor to the empty state. Allocated buffer capacity is retained for reuse.
+	pub fn reset(&mut self) {
+		self.in_buf.clear();
+		self.out_buf.clear();
+		self.has_cursor = false;
+	}
+
+	/// Bootstrap the cursor from an externally-provided value. Allocates if the input is `Some`.
+	///
+	/// This is intended for compatibility shims that adapt the legacy `Option<&[u8]>` /
+	/// `Option<Vec<u8>>` cursor APIs to the new buffer-reusing wrapper; runtime code that owns its
+	/// own [`MultiRemovalCursor`] across iterations should not need to call this.
+	pub fn set_input(&mut self, cursor: Option<&[u8]>) {
+		self.in_buf.clear();
+		if let Some(c) = cursor {
+			self.in_buf.extend_from_slice(c);
+			self.has_cursor = true;
+		} else {
+			self.has_cursor = false;
+		}
+	}
+
+	/// Consume the cursor, returning the current cursor as an owned `Option<Vec<u8>>`.
+	///
+	/// Compatibility shim for code that still produces the legacy `maybe_cursor: Option<Vec<u8>>`
+	/// shape.
+	pub fn into_inner(self) -> Option<Vec<u8>> {
+		if self.has_cursor {
+			Some(self.in_buf)
+		} else {
+			None
+		}
+	}
+}
+
+/// Counters returned by storage-removal operations such as [`storage::clear_prefix`].
+///
+/// When the caller passes a [`MultiRemovalCursor`] it also holds the continuation cursor bytes;
+/// callers that don't need to continue can pass `None` and rely solely on [`more`](Self::more).
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq)]
+pub struct MultiRemovalCounters {
+	/// The number of items removed from the backend database.
+	pub backend: u32,
+	/// The number of unique keys removed, taking into account both the backend and the overlay.
+	pub unique: u32,
+	/// The number of iterations (each requiring a storage seek/read) which were done.
+	pub loops: u32,
+	/// Whether a continuation cursor remains, i.e. the operation is *not* complete and another
+	/// call is required to remove the rest. Equivalent to "some keys remain".
+	pub more: bool,
+}
+
+impl MultiRemovalCounters {
+	/// Combine these counters with the (consumed) `cursor` into the legacy [`MultiRemovalResults`]
+	/// shape.
+	///
+	/// Convenience for compatibility shims that still expose the `Option<Vec<u8>>` cursor.
+	pub fn into_results(self, cursor: MultiRemovalCursor) -> MultiRemovalResults {
+		MultiRemovalResults {
+			maybe_cursor: cursor.into_inner(),
+			backend: self.backend,
+			unique: self.unique,
+			loops: self.loops,
+		}
+	}
+}
+
 #[cfg(all(not(feature = "disable_allocator"), substrate_runtime, target_family = "wasm"))]
 mod global_alloc_wasm;
 
@@ -835,36 +935,68 @@ pub trait Storage {
 
 	/// A convenience wrapper providing a developer-friendly interface for the `clear_prefix` host
 	/// function.
+	///
+	/// Pass `Some` [`MultiRemovalCursor`] only when you need to continue the operation across calls;
+	/// the cursor holds owned buffers reused across invocations (first call allocates nothing, and
+	/// the cached cursor is fetched with an exact-size allocation only when it does not fit the
+	/// reused buffer). Pass `None` when you don't need to continue: no cursor is materialized (no
+	/// `last_cursor` call, no allocation), and [`MultiRemovalCounters::more`] still reports whether
+	/// keys remain.
 	#[wrapper]
 	fn clear_prefix(
 		maybe_prefix: impl AsRef<[u8]>,
 		maybe_limit: Option<u32>,
-		maybe_cursor_in: Option<&[u8]>,
-	) -> MultiRemovalResults {
-		let mut result = MultiRemovalResults::default();
-		let mut maybe_cursor_out = vec![0u8; 1024];
+		cursor: Option<&mut MultiRemovalCursor>,
+	) -> MultiRemovalCounters {
 		let mut counters = StorageIterations::default();
+
+		let Some(cursor) = cursor else {
+			// No continuation requested: single pass without materializing the output cursor.
+			let cursor_len =
+				clear_prefix__raw(maybe_prefix.as_ref(), maybe_limit, None, &mut [], &mut counters)
+					as usize;
+			return MultiRemovalCounters {
+				backend: counters.backend,
+				unique: counters.unique,
+				loops: counters.loops,
+				more: cursor_len > 0,
+			};
+		};
+
+		// Make as much as already allocated bytes available for the new cursor
+		cursor.out_buf.resize(cursor.out_buf.capacity(), 0);
+
+		let cursor_in: Option<&[u8]> = cursor.has_cursor.then(|| cursor.in_buf.as_slice());
+		let output_avail = cursor.out_buf.len();
+
 		let cursor_len = clear_prefix__raw(
 			maybe_prefix.as_ref(),
 			maybe_limit,
-			maybe_cursor_in,
-			&mut maybe_cursor_out,
+			cursor_in,
+			&mut cursor.out_buf,
 			&mut counters,
 		) as usize;
-		result.backend = counters.backend;
-		result.unique = counters.unique;
-		result.loops = counters.loops;
-		if cursor_len > 0 {
-			if maybe_cursor_out.len() < cursor_len {
-				maybe_cursor_out.resize(cursor_len, 0);
-				let cached_cursor_len = misc::last_cursor(maybe_cursor_out.as_mut_slice());
-				debug_assert!(cached_cursor_len.is_some());
-				debug_assert_eq!(cached_cursor_len.unwrap_or(0) as usize, cursor_len);
-			}
-			maybe_cursor_out.truncate(cursor_len);
-			result.maybe_cursor = Some(maybe_cursor_out);
+
+		if cursor_len > output_avail {
+			// The cursor did not fit in `out_buf`; retrieve the cached cursor from the host.
+			cursor.out_buf.resize(cursor_len, 0);
+			let fetched = misc::last_cursor(&mut cursor.out_buf);
+			debug_assert_eq!(fetched.map(|n| n as usize), Some(cursor_len));
+		} else {
+			cursor.out_buf.truncate(cursor_len);
 		}
-		result
+
+		// Swap: `out_buf` becomes the input for the next call; the previous input buffer
+		// becomes the next scratch space with its capacity preserved.
+		core::mem::swap(&mut cursor.in_buf, &mut cursor.out_buf);
+		cursor.has_cursor = cursor_len > 0;
+
+		MultiRemovalCounters {
+			backend: counters.backend,
+			unique: counters.unique,
+			loops: counters.loops,
+			more: cursor_len > 0,
+		}
 	}
 
 	/// Append the encoded `value` to the storage item at `key`.
@@ -1257,37 +1389,61 @@ pub trait DefaultChildStorage {
 
 	/// A convenience wrapper providing a developer-friendly interface for the `storage_kill` host
 	/// function.
+	///
+	/// See [`MultiRemovalCursor`] for details on how the cursor object is reused across calls. Pass
+	/// `None` when you don't need to continue the operation: no cursor is materialized and
+	/// [`MultiRemovalCounters::more`] still reports whether keys remain.
 	#[wrapper]
 	fn storage_kill(
 		storage_key: impl AsRef<[u8]>,
 		maybe_limit: Option<u32>,
-		maybe_cursor: Option<&[u8]>,
-	) -> MultiRemovalResults {
-		let mut result = MultiRemovalResults::default();
-		let mut maybe_cursor_out = vec![0u8; 1024];
+		cursor: Option<&mut MultiRemovalCursor>,
+	) -> MultiRemovalCounters {
 		let mut counters = StorageIterations::default();
+
+		let Some(cursor) = cursor else {
+			let cursor_len =
+				storage_kill__raw(storage_key.as_ref(), maybe_limit, None, &mut [], &mut counters)
+					as usize;
+			return MultiRemovalCounters {
+				backend: counters.backend,
+				unique: counters.unique,
+				loops: counters.loops,
+				more: cursor_len > 0,
+			};
+		};
+
+		let out_cap = cursor.out_buf.capacity();
+		cursor.out_buf.resize(out_cap, 0);
+
+		let cursor_in: Option<&[u8]> = cursor.has_cursor.then(|| cursor.in_buf.as_slice());
+		let output_avail = cursor.out_buf.len();
+
 		let cursor_len = storage_kill__raw(
 			storage_key.as_ref(),
 			maybe_limit,
-			maybe_cursor,
-			&mut maybe_cursor_out[..],
+			cursor_in,
+			&mut cursor.out_buf,
 			&mut counters,
 		) as usize;
-		result.backend = counters.backend;
-		result.unique = counters.unique;
-		result.loops = counters.loops;
-		if cursor_len > 0 {
-			if maybe_cursor_out.len() < cursor_len {
-				maybe_cursor_out.resize(cursor_len, 0);
-				let cached_cursor_len = misc::last_cursor(maybe_cursor_out.as_mut_slice());
-				debug_assert!(cached_cursor_len.is_some());
-				debug_assert_eq!(cached_cursor_len.unwrap_or(0) as usize, cursor_len);
-			}
-			maybe_cursor_out.truncate(cursor_len);
-			result.maybe_cursor = Some(maybe_cursor_out);
+
+		if cursor_len > output_avail {
+			cursor.out_buf.resize(cursor_len, 0);
+			let fetched = misc::last_cursor(&mut cursor.out_buf);
+			debug_assert_eq!(fetched.map(|n| n as usize), Some(cursor_len));
+		} else {
+			cursor.out_buf.truncate(cursor_len);
 		}
 
-		result
+		core::mem::swap(&mut cursor.in_buf, &mut cursor.out_buf);
+		cursor.has_cursor = cursor_len > 0;
+
+		MultiRemovalCounters {
+			backend: counters.backend,
+			unique: counters.unique,
+			loops: counters.loops,
+			more: cursor_len > 0,
+		}
 	}
 
 	/// Check a child storage key.
@@ -1386,38 +1542,68 @@ pub trait DefaultChildStorage {
 
 	/// A convenience wrapper providing a developer-friendly interface for the `clear_prefix` host
 	/// function.
+	///
+	/// See [`MultiRemovalCursor`] for details on how the cursor object is reused across calls. Pass
+	/// `None` when you don't need to continue the operation: no cursor is materialized and
+	/// [`MultiRemovalCounters::more`] still reports whether keys remain.
 	#[wrapper]
 	fn clear_prefix(
 		storage_key: impl AsRef<[u8]>,
 		maybe_prefix: impl AsRef<[u8]>,
 		maybe_limit: Option<u32>,
-		maybe_cursor_in: Option<&[u8]>,
-	) -> MultiRemovalResults {
-		let mut result = MultiRemovalResults::default();
-		let mut maybe_cursor_out = vec![0u8; 1024];
+		cursor: Option<&mut MultiRemovalCursor>,
+	) -> MultiRemovalCounters {
 		let mut counters = StorageIterations::default();
+
+		let Some(cursor) = cursor else {
+			let cursor_len = clear_prefix__raw(
+				storage_key.as_ref(),
+				maybe_prefix.as_ref(),
+				maybe_limit,
+				None,
+				&mut [],
+				&mut counters,
+			) as usize;
+			return MultiRemovalCounters {
+				backend: counters.backend,
+				unique: counters.unique,
+				loops: counters.loops,
+				more: cursor_len > 0,
+			};
+		};
+
+		let out_cap = cursor.out_buf.capacity();
+		cursor.out_buf.resize(out_cap, 0);
+
+		let cursor_in: Option<&[u8]> = cursor.has_cursor.then(|| cursor.in_buf.as_slice());
+		let output_avail = cursor.out_buf.len();
+
 		let cursor_len = clear_prefix__raw(
 			storage_key.as_ref(),
 			maybe_prefix.as_ref(),
 			maybe_limit,
-			maybe_cursor_in,
-			&mut maybe_cursor_out,
+			cursor_in,
+			&mut cursor.out_buf,
 			&mut counters,
 		) as usize;
-		result.backend = counters.backend;
-		result.unique = counters.unique;
-		result.loops = counters.loops;
-		if cursor_len > 0 {
-			if maybe_cursor_out.len() < cursor_len {
-				maybe_cursor_out.resize(cursor_len, 0);
-				let cached_cursor_len = misc::last_cursor(maybe_cursor_out.as_mut_slice());
-				debug_assert!(cached_cursor_len.is_some());
-				debug_assert_eq!(cached_cursor_len.unwrap_or(0) as usize, cursor_len);
-			}
-			maybe_cursor_out.truncate(cursor_len);
-			result.maybe_cursor = Some(maybe_cursor_out);
+
+		if cursor_len > output_avail {
+			cursor.out_buf.resize(cursor_len, 0);
+			let fetched = misc::last_cursor(&mut cursor.out_buf);
+			debug_assert_eq!(fetched.map(|n| n as usize), Some(cursor_len));
+		} else {
+			cursor.out_buf.truncate(cursor_len);
 		}
-		result
+
+		core::mem::swap(&mut cursor.in_buf, &mut cursor.out_buf);
+		cursor.has_cursor = cursor_len > 0;
+
+		MultiRemovalCounters {
+			backend: counters.backend,
+			unique: counters.unique,
+			loops: counters.loops,
+			more: cursor_len > 0,
+		}
 	}
 
 	/// Default child root calculation.
@@ -4100,20 +4286,24 @@ mod tests {
 		});
 
 		t.execute_with(|| {
-			let res = storage::clear_prefix(b":abc", None, None);
+			let mut cursor = MultiRemovalCursor::new();
+			let res = storage::clear_prefix(b":abc", None, Some(&mut cursor));
 			assert_eq!(res.backend, 2);
 			assert_eq!(res.unique, 2);
 			assert_eq!(res.loops, 2);
+			assert!(!res.more);
+			assert!(!cursor.has_more());
 
 			assert!(storage::get(b":a").is_some());
 			assert!(storage::get(b":abdd").is_some());
 			assert!(storage::get(b":abcd").is_none());
 			assert!(storage::get(b":abc").is_none());
 
-			let res = storage::clear_prefix(b":abc", None, None);
+			let res = storage::clear_prefix(b":abc", None, Some(&mut cursor));
 			assert_eq!(res.backend, 0);
 			assert_eq!(res.unique, 0);
 			assert_eq!(res.loops, 0);
+			assert!(!cursor.has_more());
 		});
 	}
 

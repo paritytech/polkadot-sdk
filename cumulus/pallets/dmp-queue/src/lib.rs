@@ -246,16 +246,18 @@ pub mod pallet {
 					let hashed_prefix =
 						twox_128(<Pallet<T> as PalletInfoAccess>::name().as_bytes());
 
-					let result = frame_support::storage::unhashed::clear_prefix(
+					let mut removal_cursor = sp_io::MultiRemovalCursor::new();
+					removal_cursor.set_input(cursor.as_ref().map(|c| c.as_ref()));
+					let counters = frame_support::storage::unhashed::clear_prefix(
 						&hashed_prefix,
 						Some(2), // Somehow it does nothing when set to 1, so we set it to 2.
-						cursor.as_ref().map(|c| c.as_ref()),
+						Some(&mut removal_cursor),
 					);
-					Self::deposit_event(Event::CleanedSome { keys_removed: result.backend });
+					Self::deposit_event(Event::CleanedSome { keys_removed: counters.backend });
 
 					// GOTCHA! We deleted *all* pallet storage; hence we also our own
 					// `MigrationState`. BUT we insert it back:
-					if let Some(unbound_cursor) = result.maybe_cursor {
+					if let Some(unbound_cursor) = removal_cursor.into_inner() {
 						if let Ok(cursor) = unbound_cursor.try_into() {
 							log::debug!(target: LOG, "Next cursor: {:?}", &cursor);
 							MigrationStatus::<T>::put(MigrationState::StartedCleanup {

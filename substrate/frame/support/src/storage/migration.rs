@@ -313,7 +313,10 @@ pub fn clear_storage_prefix(
 	let storage_prefix = storage_prefix(module, item);
 	key[0..32].copy_from_slice(&storage_prefix);
 	key[32..].copy_from_slice(hash);
-	frame_support::storage::unhashed::clear_prefix(&key, maybe_limit, maybe_cursor)
+	let mut cursor = sp_io::MultiRemovalCursor::new();
+	cursor.set_input(maybe_cursor);
+	frame_support::storage::unhashed::clear_prefix(&key, maybe_limit, Some(&mut cursor))
+		.into_results(cursor)
 }
 
 /// Take a particular item in storage by the `module`, the map's `item` name and the key `hash`.

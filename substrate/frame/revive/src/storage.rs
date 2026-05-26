@@ -460,7 +460,7 @@ impl<T: Config> ContractInfo<T> {
 				None,
 			);
 
-			if outcome.maybe_cursor.is_some() {
+			if outcome.more {
 				remaining = remaining
 					.saturating_sub(weight_per_trie_key.saturating_mul(outcome.backend.into()));
 				break;

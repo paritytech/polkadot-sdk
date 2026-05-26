@@ -327,14 +327,13 @@ impl<T: Config> ContractInfo<T> {
 		while remaining_key_budget > 0 {
 			let Some(entry) = queue.next() else { break };
 
-			#[allow(deprecated)]
 			let outcome = child::clear_storage(
 				&ChildInfo::new_default(&entry.trie_id),
 				Some(remaining_key_budget),
 				None,
 			);
 
-			if outcome.maybe_cursor.is_some() {
+			if outcome.more {
 				remaining_key_budget.saturating_reduce(outcome.backend);
 				break;
 			} else {

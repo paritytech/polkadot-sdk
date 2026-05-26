@@ -186,7 +186,13 @@ where
 	where
 		K: HasKeyPrefix<KP>,
 	{
-		unhashed::clear_prefix(&Self::storage_n_map_partial_key(partial_key), limit, None).into()
+		let counters =
+			unhashed::clear_prefix(&Self::storage_n_map_partial_key(partial_key), limit, None);
+		if counters.more {
+			sp_io::KillStorageResult::SomeRemaining(counters.loops)
+		} else {
+			sp_io::KillStorageResult::AllRemoved(counters.loops)
+		}
 	}
 
 	fn clear_prefix<KP>(
@@ -197,11 +203,14 @@ where
 	where
 		K: HasKeyPrefix<KP>,
 	{
+		let mut cursor = sp_io::MultiRemovalCursor::new();
+		cursor.set_input(maybe_cursor);
 		unhashed::clear_prefix(
 			&Self::storage_n_map_partial_key(partial_key),
 			Some(limit),
-			maybe_cursor,
+			Some(&mut cursor),
 		)
+		.into_results(cursor)
 	}
 
 	fn contains_prefix<KP>(partial_key: KP) -> bool

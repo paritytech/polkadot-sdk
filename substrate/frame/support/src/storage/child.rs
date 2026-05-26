@@ -24,7 +24,7 @@
 use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode};
 pub use sp_core::storage::{ChildInfo, ChildType, StateVersion};
-pub use sp_io::{KillStorageResult, MultiRemovalResults};
+pub use sp_io::{KillStorageResult, MultiRemovalCounters, MultiRemovalCursor, MultiRemovalResults};
 
 /// Return the value of the item in storage under `key`, or `None` if there is no explicit entry.
 pub fn get<T: Decode + Sized>(child_info: &ChildInfo, key: &[u8]) -> Option<T> {
@@ -132,19 +132,20 @@ pub fn exists(child_info: &ChildInfo, key: &[u8]) -> bool {
 ///
 /// # Cursor
 ///
-/// A *cursor* may be passed in to this operation with `maybe_cursor`. `None` should only be
-/// passed once (in the initial call) for any attempt to clear storage. In general, subsequent calls
-/// operating on the same prefix should pass `Some` and this value should be equal to the
-/// previous call result's `maybe_cursor` field. The only exception to this is when you can
-/// guarantee that the subsequent call is in a new block; in this case the previous call's result
-/// cursor need not be passed in and a `None` may be passed instead. This exception may be useful
-/// then making this call solely from a block-hook such as `on_initialize`.
-
-/// Returns [`MultiRemovalResults`] to inform about the result. Once the resultant `maybe_cursor`
-/// field is `None`, then no further items remain to be deleted.
+/// To continue the operation across multiple calls, the caller owns a [`MultiRemovalCursor`] and
+/// passes `Some(&mut cursor)`: it should be freshly [created](MultiRemovalCursor::new) for the
+/// initial call and then passed back in unchanged on subsequent calls until
+/// [`MultiRemovalCounters::more`] is `false`. Reusing the same cursor object across iterations
+/// avoids re-allocating the cursor buffer on every call.
 ///
-/// NOTE: After the initial call for any given child storage, it is important that no keys further
-/// keys are inserted. If so, then they may or may not be deleted by subsequent calls.
+/// Pass `None` when you don't need to continue: no cursor is materialized (no allocation), and
+/// [`MultiRemovalCounters::more`] still reports whether keys remain.
+///
+/// Returns [`MultiRemovalCounters`] to inform about the result. Once `more` is `false`, no further
+/// items remain to be deleted.
+///
+/// NOTE: After the initial call for any given child storage, it is important that no further keys
+/// are inserted. If so, then they may or may not be deleted by subsequent calls.
 ///
 /// # Note
 ///
@@ -153,14 +154,11 @@ pub fn exists(child_info: &ChildInfo, key: &[u8]) -> bool {
 pub fn clear_storage(
 	child_info: &ChildInfo,
 	maybe_limit: Option<u32>,
-	maybe_cursor: Option<&[u8]>,
-) -> MultiRemovalResults {
+	cursor: Option<&mut MultiRemovalCursor>,
+) -> MultiRemovalCounters {
 	match child_info.child_type() {
-		ChildType::ParentKeyId => sp_io::default_child_storage::storage_kill(
-			child_info.storage_key(),
-			maybe_limit,
-			maybe_cursor,
-		),
+		ChildType::ParentKeyId =>
+			sp_io::default_child_storage::storage_kill(child_info.storage_key(), maybe_limit, cursor),
 	}
 }
 

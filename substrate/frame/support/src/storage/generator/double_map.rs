@@ -210,8 +210,13 @@ where
 	where
 		KArg1: EncodeLike<K1>,
 	{
-		unhashed::clear_prefix(Self::storage_double_map_final_key1(k1).as_ref(), maybe_limit, None)
-			.into()
+		let counters =
+			unhashed::clear_prefix(Self::storage_double_map_final_key1(k1).as_ref(), maybe_limit, None);
+		if counters.more {
+			sp_io::KillStorageResult::SomeRemaining(counters.loops)
+		} else {
+			sp_io::KillStorageResult::AllRemoved(counters.loops)
+		}
 	}
 
 	fn clear_prefix<KArg1>(
@@ -222,12 +227,14 @@ where
 	where
 		KArg1: EncodeLike<K1>,
 	{
+		let mut cursor = sp_io::MultiRemovalCursor::new();
+		cursor.set_input(maybe_cursor);
 		unhashed::clear_prefix(
 			Self::storage_double_map_final_key1(k1).as_ref(),
 			Some(limit),
-			maybe_cursor,
+			Some(&mut cursor),
 		)
-		.into()
+		.into_results(cursor)
 	}
 
 	fn contains_prefix<KArg1>(k1: KArg1) -> bool
