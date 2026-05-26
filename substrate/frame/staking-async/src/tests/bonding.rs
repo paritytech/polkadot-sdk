@@ -36,9 +36,13 @@ fn existing_stash_cannot_bond() {
 #[test]
 fn existing_controller_cannot_bond() {
 	ExtBuilder::default().build_and_execute(|| {
+		// `create_unique_stash_controller` bonds `ED * (balance_factor / 10).max(1)`. Pass a
+		// `balance_factor` large enough that the bonded amount clears `min_chilled_bond` under
+		// the default builder. The test's concern is the `AlreadyPaired` path, not the min-bond
+		// thresholds.
 		let (_stash, controller) = testing_utils::create_unique_stash_controller::<T>(
 			0,
-			7,
+			100,
 			RewardDestination::Staked,
 			false,
 		)
@@ -118,12 +122,16 @@ fn cannot_bond_less_than_ed() {
 
 #[test]
 fn do_not_die_when_active_is_ed() {
-	let ed = 10;
+	// `withdraw_unbonded` must not kill a stash whose remaining `active` is at the
+	// existential deposit, even when both `MinValidatorBond` and `MinNominatorBond` sit strictly
+	// above ED. The default `ExtBuilder` already supplies that configuration
+	// (ED < `min_nominator_bond`  < `min_validator_bond`)
+	let ed = 1;
 	ExtBuilder::default()
 		.existential_deposit(ed)
 		.balance_factor(ed)
 		.build_and_execute(|| {
-			// given
+			// given a stash whose ledger.active is above any min bond.
 			assert_eq!(
 				Staking::ledger(21.into()).unwrap(),
 				StakingLedgerInspect {
@@ -133,14 +141,17 @@ fn do_not_die_when_active_is_ed() {
 					unlocking: Default::default(),
 				}
 			);
+			// 21 must chill first: as a validator, unbonding below `min_validator_bond` is
+			// rejected.
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(21)));
 
-			// when unbond all of it except ed.
+			// when unbonding all of it except ed.
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(21), 999 * ed));
 
 			Session::roll_until_active_era(4);
 			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(21), 0));
 
-			// then
+			// then the ledger is still there, sitting exactly at ED.
 			assert_eq!(
 				Staking::ledger(21.into()).unwrap(),
 				StakingLedgerInspect {
@@ -991,58 +1002,64 @@ fn bond_with_no_staked_value() {
 
 #[test]
 fn bond_with_little_staked_value_bounded() {
-	ExtBuilder::default().validator_count(3).nominate(false).build_and_execute(|| {
-		// setup
-		assert_ok!(Staking::chill(RuntimeOrigin::signed(31)));
-		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
+	// This test exercises a "stingy" validator bonded at exactly ED. The `ExtBuilder` defaults
+	// would block that with `InsufficientBond`, so here we set instead `min_*_bond == ED`.
+	ExtBuilder::default()
+		.min_nominator_bond(ExistentialDeposit::get())
+		.min_validator_bond(ExistentialDeposit::get())
+		.validator_count(3)
+		.nominate(false)
+		.build_and_execute(|| {
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(31)));
+			assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
 
-		// Stingy validator.
-		assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 1, RewardDestination::Account(1)));
-		assert_ok!(Staking::validate(RuntimeOrigin::signed(1), ValidatorPrefs::default()));
+			// Stingy validator.
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 1, RewardDestination::Account(1)));
+			assert_ok!(Staking::validate(RuntimeOrigin::signed(1), ValidatorPrefs::default()));
 
-		reward_all_elected();
-		Session::roll_until_active_era(2);
-		let _ = staking_events_since_last_call();
-		mock::make_all_reward_payment(1);
+			reward_all_elected();
+			Session::roll_until_active_era(2);
+			let _ = staking_events_since_last_call();
+			mock::make_all_reward_payment(1);
 
-		// 1 is elected.
-		assert_eq_uvec!(session_validators(), vec![21, 11, 1]);
+			// 1 is elected.
+			assert_eq_uvec!(session_validators(), vec![21, 11, 1]);
 
-		// Old ones are rewarded.
-		assert_eq!(
-			staking_events_since_last_call(),
-			vec![
-				Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: None },
-				Event::Rewarded { stash: 11, dest: RewardDestination::Stash, amount: 2499 },
-				Event::PayoutStarted { era_index: 1, validator_stash: 21, page: 0, next: None },
-				Event::Rewarded { stash: 21, dest: RewardDestination::Staked, amount: 2499 },
-				Event::PayoutStarted { era_index: 1, validator_stash: 31, page: 0, next: None },
-				Event::Rewarded { stash: 31, dest: RewardDestination::Staked, amount: 2499 }
-			]
-		);
+			// Old ones are rewarded.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: None },
+					Event::Rewarded { stash: 11, dest: RewardDestination::Stash, amount: 2499 },
+					Event::PayoutStarted { era_index: 1, validator_stash: 21, page: 0, next: None },
+					Event::Rewarded { stash: 21, dest: RewardDestination::Staked, amount: 2499 },
+					Event::PayoutStarted { era_index: 1, validator_stash: 31, page: 0, next: None },
+					Event::Rewarded { stash: 31, dest: RewardDestination::Staked, amount: 2499 }
+				]
+			);
 
-		// reward era 2
-		reward_all_elected();
-		Session::roll_until_active_era(3);
-		let _ = staking_events_since_last_call();
-		mock::make_all_reward_payment(2);
+			// reward era 2
+			reward_all_elected();
+			Session::roll_until_active_era(3);
+			let _ = staking_events_since_last_call();
+			mock::make_all_reward_payment(2);
 
-		// 1 is also rewarded
-		assert_eq!(
-			staking_events_since_last_call(),
-			vec![
-				Event::PayoutStarted { era_index: 2, validator_stash: 1, page: 0, next: None },
-				Event::Rewarded { stash: 1, dest: RewardDestination::Account(1), amount: 2499 },
-				Event::PayoutStarted { era_index: 2, validator_stash: 11, page: 0, next: None },
-				Event::Rewarded { stash: 11, dest: RewardDestination::Stash, amount: 2499 },
-				Event::PayoutStarted { era_index: 2, validator_stash: 21, page: 0, next: None },
-				Event::Rewarded { stash: 21, dest: RewardDestination::Staked, amount: 2499 }
-			]
-		);
+			// 1 is also rewarded
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::PayoutStarted { era_index: 2, validator_stash: 1, page: 0, next: None },
+					Event::Rewarded { stash: 1, dest: RewardDestination::Account(1), amount: 2499 },
+					Event::PayoutStarted { era_index: 2, validator_stash: 11, page: 0, next: None },
+					Event::Rewarded { stash: 11, dest: RewardDestination::Stash, amount: 2499 },
+					Event::PayoutStarted { era_index: 2, validator_stash: 21, page: 0, next: None },
+					Event::Rewarded { stash: 21, dest: RewardDestination::Staked, amount: 2499 }
+				]
+			);
 
-		assert_eq_uvec!(session_validators(), vec![21, 11, 1]);
-		assert_eq!(Staking::eras_stakers(active_era(), &1).total, 1);
-	});
+			assert_eq_uvec!(session_validators(), vec![21, 11, 1]);
+			assert_eq!(Staking::eras_stakers(active_era(), &1).total, 1);
+		});
 }
 
 #[test]
