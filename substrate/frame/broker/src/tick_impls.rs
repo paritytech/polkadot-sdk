@@ -175,11 +175,14 @@ impl<T: Config> Pallet<T> {
 		match action {
 			TickAction::RenewRegion { owner, renewal_id } => {
 				meter.consume(T::WeightInfo::process_tick_action_renew_region());
-
-				// TODO: Either accept `region_id` at `do_renew` or provide `core` instead of
-				// `renewal_id` in `TickAction::RenewRegion`.
-				// TODO: Deposit event instead of failing here?
-				Self::do_renew(owner, renewal_id.core).defensive_ok();
+				if let Err(e) = Self::do_renew(owner.clone(), renewal_id.core) {
+					log::error!(
+						"failed to renew (id: {:?}, owned by: {:?}) by the market request: {:?}",
+						renewal_id,
+						owner,
+						e
+					);
+				}
 			},
 			TickAction::SellRegion { owner, paid, region_id, region_end } => {
 				meter.consume(T::WeightInfo::process_tick_action_sell_region());
