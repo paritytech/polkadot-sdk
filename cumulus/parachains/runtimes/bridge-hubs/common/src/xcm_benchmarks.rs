@@ -14,6 +14,7 @@
 // limitations under the License.
 //! Helpers for XCM barrier benchmarks on bridge hubs.
 
+use sp_std::vec;
 use xcm::latest::prelude::*;
 
 /// Worst-case `(origin, message)` for bridge hub barriers that deny reserve transfers to the relay
