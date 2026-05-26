@@ -109,10 +109,11 @@ pub struct SchedulingProof {
 }
 
 impl SchedulingProof {
-	/// Derive the scheduling parent hash. Returns the hash of the first/newest header in
-	/// `header_chain` if non-empty, otherwise falls back to
-	/// `internal_scheduling_parent_header.hash()` (the ISP coincides with the scheduling
-	/// parent when the parachain runs with `relay_parent_offset = 0`).
+	/// Derive the scheduling parent hash. 
+	/// 
+	/// Returns the hash of the first/newest header in `header_chain` if non-empty, otherwise
+	/// falls back to `internal_scheduling_parent_header.hash()` (the ISP coincides with the
+	/// scheduling parent when the parachain runs with `relay_parent_offset = 0`).
 	pub fn scheduling_parent(&self) -> polkadot_primitives::Hash {
 		self.header_chain
 			.first()
@@ -126,8 +127,6 @@ impl SchedulingProof {
 /// Reports whether V3 scheduling is enabled for the parachain (via
 /// [`Self::V3_SCHEDULING_ENABLED`]) and, when it is, verifies the [`SignedSchedulingInfo`]
 /// attached to a candidate (via [`Self::verify`]).
-///
-/// Wired into `cumulus_pallet_parachain_system::Config` via an associated type.
 pub trait VerifySchedulingSignature {
 	/// Whether V3 scheduling validation is enabled.
 	const V3_SCHEDULING_ENABLED: bool;

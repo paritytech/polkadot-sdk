@@ -190,8 +190,7 @@ mod tests {
 	///
 	/// Returns:
 	/// - chain headers ordered newest-to-oldest (index 0 = newest = scheduling_parent),
-	/// - and the internal scheduling parent header (its hash is the ISP, which equals
-	///   `relay_parent` when `relay_parent_offset = 0`).
+	/// - and the internal scheduling parent header.
 	fn make_header_chain(len: usize) -> (Vec<RelayHeader>, RelayHeader) {
 		let isp_header = RelayHeader::new(
 			0u32,
