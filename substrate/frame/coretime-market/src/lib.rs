@@ -100,7 +100,13 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config:
+		frame_system::Config<
+		RuntimeEvent: From<Event<Self>>
+		                  + IsType<<Self as frame_system::Config>::RuntimeEvent>
+		                  + TryInto<Event<Self>>,
+	>
+	{
 		/// Balance type used for bid amounts and prices.
 		type Balance: BalanceT + FixedPointOperand;
 

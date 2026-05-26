@@ -47,18 +47,52 @@ fn fill_bids<T: Config>(n: u32) -> Result<(), BenchmarkError> {
 	Ok(())
 }
 
-fn advance_to_renewal<T: Config>(n_bids: u32) -> Result<(), BenchmarkError> {
-	setup_sale::<T>()?;
-	fill_bids::<T>(n_bids)?;
+fn advance_to_renewal<T: Config>() -> Result<(), BenchmarkError> {
 	let mut meter = frame_support::weights::WeightMeter::new();
 	Pallet::<T>::tick(20u32.into(), &mut meter);
 	assert_eq!(SaleInfo::<T>::get().map(|s| s.phase), Some(SalePhase::Renewal));
 	Ok(())
 }
 
+fn market_events<T: Config>() -> Vec<Event<T>> {
+	frame_system::Pallet::<T>::read_events_for_pallet::<Event<T>>()
+}
+
 #[benchmarks]
 mod benches {
 	use super::*;
+
+	#[benchmark]
+	fn configure() -> Result<(), BenchmarkError> {
+		let config = default_config::<T>();
+
+		#[block]
+		{
+			Pallet::<T>::configure(config).map_err(|_| BenchmarkError::Weightless)?;
+		}
+
+		assert!(Configuration::<T>::get().is_some());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn start_sales() -> Result<(), BenchmarkError> {
+		let config = default_config::<T>();
+		Pallet::<T>::configure(config).map_err(|_| BenchmarkError::Weightless)?;
+		let init = InitData { reserve_price: 100u32.into() };
+
+		#[block]
+		{
+			Pallet::<T>::start_sales(0u32.into(), init).map_err(|_| BenchmarkError::Weightless)?;
+		}
+
+		assert!(market_events::<T>()
+			.into_iter()
+			.any(|event| matches!(event, Event::<T>::SaleInitialized { .. })));
+
+		Ok(())
+	}
 
 	#[benchmark]
 	fn place_order() -> Result<(), BenchmarkError> {
@@ -74,7 +108,42 @@ mod benches {
 				.map_err(|_| BenchmarkError::Weightless)?;
 		}
 
-		assert_eq!(pallet::Bids::<T>::get().len(), max as usize);
+		assert_eq!(
+			market_events::<T>()
+				.into_iter()
+				.filter(|event| { matches!(event, Event::BidPlaced { .. }) })
+				.count(),
+			max as usize
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn place_renewal_order() -> Result<(), BenchmarkError> {
+		setup_sale::<T>()?;
+
+		let cores = T::CoreRangeProvider::core_range().map(|r| r.to - r.from).unwrap();
+		fill_bids::<T>(cores as u32)?;
+
+		advance_to_renewal::<T>()?;
+
+		let region_begin =
+			pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?.region_begin;
+		let caller: T::AccountId = account("renewer", 0, SEED);
+		T::RenewalRights::set_rights_count(&caller, region_begin, 1);
+		let renewal_id = PotentialRenewalId { core: 0, when: region_begin };
+
+		#[block]
+		{
+			Pallet::<T>::place_renewal_order(0u32.into(), &caller, renewal_id)
+				.map_err(|_| BenchmarkError::Weightless)?;
+		}
+
+		assert!(market_events::<T>()
+			.into_iter()
+			.any(|event| matches!(event, Event::BidDisplaced { .. })));
+
 		Ok(())
 	}
 
@@ -99,40 +168,9 @@ mod benches {
 				.map_err(|_| BenchmarkError::Weightless)?;
 		}
 
-		Ok(())
-	}
-
-	#[benchmark]
-	fn place_renewal_order_renewal() -> Result<(), BenchmarkError> {
-		advance_to_renewal::<T>(1)?;
-		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
-		let caller: T::AccountId = account("renewer", 0, SEED);
-		T::RenewalRights::set_rights_count(&caller, sale.region_begin, 1);
-		let renewal_id = PotentialRenewalId { core: 0, when: sale.region_begin };
-
-		#[block]
-		{
-			Pallet::<T>::place_renewal_order(25u32.into(), &caller, renewal_id)
-				.map_err(|_| BenchmarkError::Weightless)?;
-		}
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn place_renewal_order_displacement() -> Result<(), BenchmarkError> {
-		let cores = T::CoreRangeProvider::core_range().map(|r| r.to - r.from).unwrap_or(2);
-		advance_to_renewal::<T>(cores as u32)?;
-		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
-		let caller: T::AccountId = account("renewer", 0, SEED);
-		T::RenewalRights::set_rights_count(&caller, sale.region_begin, 1);
-		let renewal_id = PotentialRenewalId { core: 0, when: sale.region_begin };
-
-		#[block]
-		{
-			Pallet::<T>::place_renewal_order(25u32.into(), &caller, renewal_id)
-				.map_err(|_| BenchmarkError::Weightless)?;
-		}
+		assert!(market_events::<T>()
+			.into_iter()
+			.any(|event| matches!(event, Event::BidRaised { .. })));
 
 		Ok(())
 	}
@@ -154,8 +192,13 @@ mod benches {
 
 	#[benchmark]
 	fn finalize_sale() -> Result<(), BenchmarkError> {
+		setup_sale::<T>()?;
+
 		let cores = T::CoreRangeProvider::core_range().map(|r| r.to - r.from).unwrap_or(2);
-		advance_to_renewal::<T>(cores as u32)?;
+		fill_bids::<T>(cores as u32)?;
+
+		advance_to_renewal::<T>()?;
+
 		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
 
 		#[block]

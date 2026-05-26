@@ -6,7 +6,6 @@ use crate::{
 	BidDisplacement, Event, InitData, SalePhase,
 };
 use frame_support::{assert_noop, assert_ok, weights::WeightMeter};
-use frame_system::EventRecord;
 use pallet_broker::{
 	market::{AdjustBidResult, Market, OrderResult, RenewalOrderResult, TickAction},
 	PotentialRenewalId, Timeslice,
@@ -14,21 +13,9 @@ use pallet_broker::{
 
 type CoretimeMarket = crate::Pallet<Test>;
 type Error = crate::pallet::Error<Test>;
-type RuntimeEvent = <Test as frame_system::Config>::RuntimeEvent;
 
 fn market_events() -> Vec<Event<Test>> {
-	frame_system::Pallet::<Test>::events()
-		.into_iter()
-		.filter_map(
-			|EventRecord { event, .. }| {
-				if let RuntimeEvent::CoretimeMarket(e) = event {
-					Some(e)
-				} else {
-					None
-				}
-			},
-		)
-		.collect()
+	frame_system::Pallet::<Test>::read_events_for_pallet::<Event<Test>>()
 }
 
 fn last_market_event() -> Event<Test> {
