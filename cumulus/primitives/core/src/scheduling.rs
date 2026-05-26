@@ -109,12 +109,15 @@ pub struct SchedulingProof {
 }
 
 impl SchedulingProof {
-	/// Derive the scheduling parent hash from the header chain.
-	///
-	/// Returns `Some(hash)` if the header chain is non-empty (hash of the first/newest header),
-	/// or `None` if the chain is empty (scheduling_parent == relay_parent).
-	pub fn scheduling_parent(&self) -> Option<polkadot_primitives::Hash> {
-		self.header_chain.first().map(BlakeTwo256::hash_of)
+	/// Derive the scheduling parent hash. Returns the hash of the first/newest header in
+	/// `header_chain` if non-empty, otherwise falls back to
+	/// `internal_scheduling_parent_header.hash()` (the ISP coincides with the scheduling
+	/// parent when the parachain runs with `relay_parent_offset = 0`).
+	pub fn scheduling_parent(&self) -> polkadot_primitives::Hash {
+		self.header_chain
+			.first()
+			.map(BlakeTwo256::hash_of)
+			.unwrap_or_else(|| self.internal_scheduling_parent_header.hash())
 	}
 }
 
