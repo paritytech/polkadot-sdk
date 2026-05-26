@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779732233848,
+  "lastUpdate": 1779824806530,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "yrong1997@gmail.com",
-            "name": "Ron",
-            "username": "yrong"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "736230e943c8fd47e9f993c969a6ec53ffdf0105",
-          "message": "Snowbridge: Fix log equal check (#9952)\n\n### Context \n\nThis fix addresses an issue introduced in\n[PR#9204](https://github.com/paritytech/polkadot-sdk/pull/9204), where\nindividual event log topics were not fully verified.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2025-10-14T12:06:52Z",
-          "tree_id": "1e773a14fda234bb5149f7b8c76762482ebed852",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/736230e943c8fd47e9f993c969a6ec53ffdf0105"
-        },
-        "date": 1760447557978,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15717564479333346,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013178737093333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02246770775333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0071775358666666565,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010043502366666662,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jfanatiker@gmx.at",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "670ffa2d5073defd3c2feda75ca2472725679e87",
+          "message": "Candidate descriptor v3 cumulus changes (#10742)\n\nBuilding on top of #10472 \n\nRe-submissions are not yet handled - and not goal of this PR so far was\nto be able to have e2e tests for #10472. Verifying that we have\neverything to support them is necessary though - especially if we forgot\nsomething needed from the relay chain.\n\nFull re-submissions are more involved and I would leave them out for a\nseparate PR, so we can get this one merged quickly.\n\n# Once merged\n\n- [x] Enable core sharing test again, see discussion\n[here](https://github.com/paritytech/polkadot-sdk/pull/11914).\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: eskimor <eskimor@noreply.com>\nCo-authored-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Marios <marios@parity.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Alin Dima <alin@parity.io>",
+          "timestamp": "2026-05-26T18:18:03Z",
+          "tree_id": "99bbd4a30c33a7458b67e69f9a088f482e0499f9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/670ffa2d5073defd3c2feda75ca2472725679e87"
+        },
+        "date": 1779824777482,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1457719506200001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010151388973333304,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0076860858333333325,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023986058860000013,
             "unit": "seconds"
           }
         ]
