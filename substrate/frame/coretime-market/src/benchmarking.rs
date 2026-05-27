@@ -60,6 +60,8 @@ fn market_events<T: Config>() -> Vec<Event<T>> {
 
 #[benchmarks]
 mod benches {
+	use frame_support::assert_ok;
+
 	use super::*;
 
 	#[benchmark]
@@ -176,56 +178,110 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn settle_auction() -> Result<(), BenchmarkError> {
+	fn tick_base() -> Result<(), BenchmarkError> {
 		setup_sale::<T>()?;
-		fill_bids::<T>(T::MaxBids::get())?;
-		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
 
+		assert!(SaleInfo::<T>::exists());
+		assert!(Configuration::<T>::exists());
+
+		// The most expensive check is performed at this phase.
+		SaleInfo::<T>::mutate_extant(|sale| sale.phase = SalePhase::Settlement);
+
+		let mut meter = WeightMeter::new();
 		#[block]
 		{
-			super::settle_auction::<T>(&sale);
+			Pallet::<T>::tick(0u32.into(), &mut meter);
 		}
 
-		assert!(pallet::Bids::<T>::get().is_empty());
 		Ok(())
 	}
 
 	#[benchmark]
-	fn finalize_sale() -> Result<(), BenchmarkError> {
+	fn sale_phase_transition_to_renewal() -> Result<(), BenchmarkError> {
 		setup_sale::<T>()?;
 
-		let cores = T::CoreRangeProvider::core_range().map(|r| r.to - r.from).unwrap_or(2);
+		for i in 0..T::MaxBids::get() {
+			let who: T::AccountId = account("bidder", i, SEED);
+			// Equal bids will result in the worst-case scenario for marginal bids shuffle.
+			let price: u32 = 200u32;
+			assert_ok!(Pallet::<T>::place_order(0u32.into(), &who, price.into()));
+		}
+
+		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
+		let config = pallet::Configuration::<T>::get().ok_or(BenchmarkError::Weightless)?;
+
+		let market_end = sale.sale_start.saturating_add(config.market_period);
+
+		frame_system::Pallet::<T>::reset_events();
+		let mut weight_meter = WeightMeter::new();
+		#[block]
+		{
+			Pallet::<T>::tick(market_end, &mut weight_meter);
+		}
+
+		frame_system::Pallet::<T>::assert_has_event(
+			Event::<T>::PhaseTransitioned { from: SalePhase::Market, to: SalePhase::Renewal }
+				.into(),
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn sale_phase_transition_to_settlement() -> Result<(), BenchmarkError> {
+		setup_sale::<T>()?;
+
+		let cores = T::CoreRangeProvider::core_range().map(|r| r.to - r.from).unwrap();
 		fill_bids::<T>(cores as u32)?;
 
 		advance_to_renewal::<T>()?;
 
 		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
+		let config = pallet::Configuration::<T>::get().ok_or(BenchmarkError::Weightless)?;
 
-		#[block]
-		{
-			super::finalize_sale::<T>(&sale);
+		for i in 0..(cores as u32) {
+			let renewer: T::AccountId = account("renewer", i, SEED);
+			T::RenewalRights::set_rights_count(&renewer, sale.region_begin, 1);
+
+			assert_ok!(Pallet::<T>::place_renewal_order(
+				0u32.into(),
+				&renewer,
+				PotentialRenewalId { core: 0, when: sale.region_begin }
+			));
 		}
 
-		assert!(pallet::Allocations::<T>::get().is_empty());
+		let market_end = sale.sale_start.saturating_add(config.market_period);
+		let renewal_end = market_end.saturating_add(config.renewal_period);
+
+		frame_system::Pallet::<T>::reset_events();
+		let mut weight_meter = WeightMeter::new();
+		#[block]
+		{
+			Pallet::<T>::tick(renewal_end, &mut weight_meter);
+		}
+
+		frame_system::Pallet::<T>::assert_has_event(
+			Event::<T>::PhaseTransitioned { from: SalePhase::Renewal, to: SalePhase::Settlement }
+				.into(),
+		);
+
 		Ok(())
 	}
 
 	#[benchmark]
-	fn rotate_sale() -> Result<(), BenchmarkError> {
+	fn sale_phase_transition_to_market() -> Result<(), BenchmarkError> {
 		setup_sale::<T>()?;
-		fill_bids::<T>(2)?;
+
 		let mut meter = frame_support::weights::WeightMeter::new();
-		Pallet::<T>::tick(20u32.into(), &mut meter);
-		Pallet::<T>::tick(30u32.into(), &mut meter);
-
-		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
-		let config = pallet::Configuration::<T>::get().ok_or(BenchmarkError::Weightless)?;
-		let range = T::CoreRangeProvider::core_range().ok_or(BenchmarkError::Weightless)?;
-
 		#[block]
 		{
-			super::rotate_sale::<T>(&sale, &config, &range, 35u32.into());
+			Pallet::<T>::tick(0u32.into(), &mut meter);
 		}
+
+		frame_system::Pallet::<T>::assert_has_event(
+			Event::<T>::PhaseTransitioned { from: SalePhase::Settlement, to: SalePhase::Market }
+				.into(),
+		);
 
 		Ok(())
 	}

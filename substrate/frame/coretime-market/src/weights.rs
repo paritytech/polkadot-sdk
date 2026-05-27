@@ -58,9 +58,10 @@ pub trait WeightInfo {
 	fn place_renewal_order() -> Weight;
 	fn adjust_bid() -> Weight;
 
-	fn settle_auction() -> Weight;
-	fn finalize_sale() -> Weight;
-	fn rotate_sale() -> Weight;
+	fn tick_base() -> Weight;
+	fn sale_phase_transition_to_renewal() -> Weight;
+	fn sale_phase_transition_to_settlement() -> Weight;
+	fn sale_phase_transition_to_market() -> Weight;
 }
 
 /// Weights for `pallet_coretime_market` using the Substrate node and recommended hardware.
@@ -82,13 +83,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::zero()
 	}
 
-	fn settle_auction() -> Weight {
+	fn tick_base() -> Weight {
 		Weight::zero()
 	}
-	fn finalize_sale() -> Weight {
+	fn sale_phase_transition_to_renewal() -> Weight {
 		Weight::zero()
 	}
-	fn rotate_sale() -> Weight {
+	fn sale_phase_transition_to_settlement() -> Weight {
+		Weight::zero()
+	}
+	fn sale_phase_transition_to_market() -> Weight {
 		Weight::zero()
 	}
 }
@@ -111,13 +115,16 @@ impl WeightInfo for () {
 		Weight::zero()
 	}
 
-	fn settle_auction() -> Weight {
+	fn tick_base() -> Weight {
 		Weight::zero()
 	}
-	fn finalize_sale() -> Weight {
+	fn sale_phase_transition_to_renewal() -> Weight {
 		Weight::zero()
 	}
-	fn rotate_sale() -> Weight {
+	fn sale_phase_transition_to_settlement() -> Weight {
+		Weight::zero()
+	}
+	fn sale_phase_transition_to_market() -> Weight {
 		Weight::zero()
 	}
 }

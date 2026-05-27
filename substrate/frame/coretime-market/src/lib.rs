@@ -521,6 +521,8 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		block_number: RelayBlockNumberOf<T>,
 		weight_meter: &mut WeightMeter,
 	) -> Vec<TickActionOf<T>> {
+		weight_meter.consume(T::WeightInfo::tick_base());
+
 		let mut actions: Vec<TickActionOf<T>> = vec![];
 
 		let Some(config) = Configuration::<T>::get() else {
@@ -535,10 +537,10 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 				let market_end = sale.sale_start.saturating_add(config.market_period);
 
 				if block_number >= market_end {
-					if !weight_meter.can_consume(T::WeightInfo::settle_auction()) {
-						return actions;
-					}
-					weight_meter.consume(T::WeightInfo::settle_auction());
+					weight_meter.consume(
+						T::WeightInfo::sale_phase_transition_to_renewal()
+							.saturating_sub(T::WeightInfo::tick_base()),
+					);
 
 					let mut settlement_actions = settle_auction::<T>(&sale);
 					Self::set_phase(SalePhase::Renewal);
@@ -560,10 +562,10 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 				let renewal_end = market_end.saturating_add(config.renewal_period);
 
 				if block_number >= renewal_end {
-					if !weight_meter.can_consume(T::WeightInfo::finalize_sale()) {
-						return actions;
-					}
-					weight_meter.consume(T::WeightInfo::finalize_sale());
+					weight_meter.consume(
+						T::WeightInfo::sale_phase_transition_to_settlement()
+							.saturating_sub(T::WeightInfo::tick_base()),
+					);
 
 					let mut finalize_actions = finalize_sale::<T>(&sale);
 					Self::set_phase(SalePhase::Settlement);
@@ -580,10 +582,10 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 			SalePhase::Settlement => {
 				let ready = Self::TimesliceProvider::latest_timeslice_ready_to_commit();
 				if ready.map_or(false, |ts| ts >= sale.region_begin) {
-					if !weight_meter.can_consume(T::WeightInfo::rotate_sale()) {
-						return actions;
-					}
-					weight_meter.consume(T::WeightInfo::rotate_sale());
+					weight_meter.consume(
+						T::WeightInfo::sale_phase_transition_to_market()
+							.saturating_sub(T::WeightInfo::tick_base()),
+					);
 
 					let Some(range) = Self::CoreRangeProvider::core_range() else {
 						return actions;
