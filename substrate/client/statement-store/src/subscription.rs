@@ -37,10 +37,18 @@ const MATCHERS_TASK_CHANNEL_BUFFER_SIZE: usize = 80_000;
 const SUBSCRIPTION_BUFFER_SIZE: usize = 128;
 const STOP_RESERVE_CHANNEL_SLOTS: usize = 1;
 
-/// Maximum number of active filters attached to one statement subscription
+/// Maximum number of active filters attached to one statement subscription.
+///
+/// Keeps one subscription useful for multiplexing, while bounding internal per-event filter-id
+/// metadata to 128 `u64`s, i.e. 1 KiB before `Vec` overhead.
 pub const MAX_FILTERS_PER_SUBSCRIPTION: usize = 128;
+// Keep replay batches bounded by raw statement bytes. The JSON response is roughly twice this size
+// because statements are hex-encoded.
 const REPLAY_CHUNK_RAW_BYTES: usize = 4 * 1024 * 1024;
+// Buffer live statements that cannot be delivered yet as hashes plus filter ids, not as full
+// statements. 64k entries is about 1.3s at the default 50k statements/sec per-peer rate limit.
 const PENDING_LIVE_HARD_CAP: usize = 64 * 1024;
+// Keep live-event dedupe bounded on the same scale as the pending-live backlog.
 const EMITTED_VIA_NEW_HARD_CAP: usize = 64 * 1024;
 
 use futures::{Stream, StreamExt};
