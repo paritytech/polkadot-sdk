@@ -16,14 +16,18 @@
 // limitations under the License.
 
 use crate::{
-	BalanceOf, CallResources, Code, Config, EthTxInfo, StorageDeposit, TransactionLimits,
-	TransactionMeter, WeightToken,
+	BalanceOf, CallResources, Code, Config, Error, EthTxInfo, ExecConfig, StorageDeposit,
+	TransactionLimits, TransactionMeter, WeightToken,
 	storage::AccountInfo,
-	test_utils::{ALICE, ALICE_ADDR, builder::Contract},
+	test_utils::{ALICE, ALICE_ADDR, CHARLIE, builder::Contract},
 	tests::{ExtBuilder, Test, builder},
 };
 use alloy_core::sol_types::SolCall;
-use frame_support::traits::fungible::Mutate;
+use frame_support::{
+	storage::{TransactionOutcome, with_transaction},
+	traits::fungible::Mutate,
+};
+use frame_system::RawOrigin;
 use pallet_revive_fixtures::{
 	CatchConstructorTest, DepositPrecompile, FixtureType, compile_module_with_type,
 };
@@ -162,13 +166,15 @@ fn nested_call_storage_refund(fixture_type: FixtureType, fixture_name: &str) {
 /// A dry-run from an unfunded account should still report the `max_storage_deposit`
 /// that a successful run would need, so that the caller can size the allowance
 /// required to cover the storage deposit before submitting the real transaction.
-#[test]
-fn max_storage_deposit_reported_for_unfunded_dry_run() {
-	use crate::{ExecConfig, test_utils::CHARLIE};
-	use frame_support::storage::{TransactionOutcome, with_transaction};
-	use frame_system::RawOrigin;
-
-	let (code, _) = compile_module_with_type("DepositDirect", FixtureType::Resolc).unwrap();
+#[test_case(FixtureType::Solc   , "DepositPrecompile" ; "solc precompiles")]
+#[test_case(FixtureType::Resolc , "DepositPrecompile" ; "resolc precompiles")]
+#[test_case(FixtureType::Solc   , "DepositDirect" ; "solc direct")]
+#[test_case(FixtureType::Resolc , "DepositDirect" ; "resolc direct")]
+fn max_storage_deposit_reported_for_unfunded_dry_run(
+	fixture_type: FixtureType,
+	fixture_name: &str,
+) {
+	let (code, _) = compile_module_with_type(fixture_name, fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -198,8 +204,9 @@ fn max_storage_deposit_reported_for_unfunded_dry_run() {
 		);
 
 		// Same call from CHARLIE, who has no balance, using the runtime-api dry-run
-		// `ExecConfig`. The reported `max_storage_deposit` must match the funded run
-		// so the caller can size the allowance needed to cover the deposit.
+		// `ExecConfig`. Collecting the deposit fails because CHARLIE cannot fund it, but
+		// the reported `max_storage_deposit` must still match the funded run so the
+		// caller can size the allowance needed to cover the deposit.
 		let unfunded = run_in_rollback(&|| {
 			builder::bare_call(caller_addr)
 				.origin(RawOrigin::Signed(CHARLIE).into())
@@ -208,6 +215,10 @@ fn max_storage_deposit_reported_for_unfunded_dry_run() {
 				.build()
 		});
 
+		assert_eq!(
+			unfunded.result.unwrap_err(),
+			Error::<Test>::StorageDepositNotEnoughFunds.into()
+		);
 		assert_eq!(unfunded.max_storage_deposit, funded.max_storage_deposit);
 	});
 }
