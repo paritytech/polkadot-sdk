@@ -562,6 +562,13 @@ pub trait PrecompileExt: sealing::Sealed {
 		take_old: bool,
 	) -> (Result<WriteOutcome, DispatchError>, StorageAccessCost);
 
+	/// Touch the access list for `(address, key)` and return `true` if the access
+	/// is cold (newly added to the access list).
+	///
+	/// Used by opcode handlers (EVM SLOAD/SSTORE, PVM `seal_*_storage`, the storage
+	/// precompile) to determine the cold/hot status before charging.
+	fn touch_storage_access(&mut self, address: H160, key: &Key) -> bool;
+
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
 }
@@ -2614,6 +2621,17 @@ where
 			take_old,
 		);
 		(result, StorageAccessCost { is_cold: Some(is_cold) })
+	}
+
+	fn touch_storage_access(&mut self, address: H160, key: &Key) -> bool {
+		self.access_list.touch(AccessEntry {
+			address,
+			key_kind: match key {
+				Key::Fix(_) => KeyKind::Fix,
+				Key::Var(_) => KeyKind::Var,
+			},
+			slot: key.to_slot(),
+		})
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {
