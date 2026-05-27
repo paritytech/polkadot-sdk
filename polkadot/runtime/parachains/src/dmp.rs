@@ -186,6 +186,13 @@ pub mod pallet {
 	pub(crate) type DeliveryFeeFactor<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, GetMinFeeFactor<Pallet<T>>>;
 
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// Legacy V0 DMP queue storage has been cleaned.
+		DmpQueueV0Cleaned { para: ParaId },
+	}
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		// NOTE: We disable for our `mock` runtime since that only has 4M ps weight per block :(

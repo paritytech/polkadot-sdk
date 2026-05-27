@@ -32,9 +32,15 @@ impl<T: Config> InboundDownwardQueue<T> {
 
 	/// Length of a queue or 0 if not exists.
 	pub fn len(para: ParaId) -> Option<u64> {
-		let meta = Self::meta(para)?;
+		let len_v0 = migration::v0::DownwardMessageQueues::<T>::decode_len(para);
+		let len_v1 = Self::meta(para)
+			.map(|meta| meta.first_free.defensive_saturating_sub(meta.first_full) as usize);
 
-		Some(meta.first_free.defensive_saturating_sub(meta.first_full))
+		if len_v0.is_none() && len_v1.is_none() {
+			None
+		} else {
+			Some(len_v0.unwrap_or_default().saturating_add(len_v1.unwrap_or_default()) as u64)
+		}
 	}
 
 	/// Append the message at the end of the queue and return the appended message.
@@ -48,8 +54,21 @@ impl<T: Config> InboundDownwardQueue<T> {
 		Ok(inbound)
 	}
 
-	/// Append a [`InboundDownwardMessage`].
 	pub fn push_back_inbound(
+		para: ParaId,
+		inbound: &InboundDownwardMessage<BlockNumberFor<T>>,
+	) -> Result<(), ()> {
+		// v0 else v1
+		if migration::v0::DownwardMessageQueues::<T>::decode_len(para).map_or(false, |l| l > 0) {
+			migration::v0::DownwardMessageQueues::<T>::append(para, inbound);
+			return Ok(());
+		}
+
+		Self::push_back_inbound_v1(para, inbound)
+	}
+
+	/// Append a [`InboundDownwardMessage`].
+	pub fn push_back_inbound_v1(
 		para: ParaId,
 		inbound: &InboundDownwardMessage<BlockNumberFor<T>>,
 	) -> Result<(), ()> {
@@ -77,25 +96,63 @@ impl<T: Config> InboundDownwardQueue<T> {
 
 	/// Try to remove the next message from the front of the queue.
 	pub fn pop_front(para: ParaId) -> Option<InboundDownwardMessage<BlockNumberFor<T>>> {
-		let mut meta = Self::meta(para)?;
-		let inbound = DownwardMessageQueuePages::<T>::take(para, meta.first_full)?;
+		// v1 else v0
+		let Some(mut meta) = Self::meta(para) else {
+			return Self::pop_front_v0(para);
+		};
 
+		let front = DownwardMessageQueuePages::<T>::take(para, meta.first_full)?;
 		meta.first_full = meta.first_full.checked_add(1)?;
 		DownwardMessageQueueMeta::<T>::insert(para, meta);
 
-		Some(inbound)
+		Some(front)
+	}
+
+	pub fn pop_front_v0(para: ParaId) -> Option<InboundDownwardMessage<BlockNumberFor<T>>> {
+		let mut msgs = migration::v0::DownwardMessageQueues::<T>::get(para);
+		if msgs.is_empty() {
+			migration::v0::DownwardMessageQueues::<T>::remove(para); // should not happen
+			return None;
+		}
+
+		let front = msgs.remove(0); // safe, checked above
+		if msgs.is_empty() {
+			migration::v0::DownwardMessageQueues::<T>::remove(para);
+		} else {
+			migration::v0::DownwardMessageQueues::<T>::set(para, msgs);
+		}
+
+		Some(front)
 	}
 
 	/// Peek at the first message in the queue without removing it.
 	pub fn peek_front(para: ParaId) -> Option<InboundDownwardMessage<BlockNumberFor<T>>> {
-		let meta = Self::meta(para)?;
-		DownwardMessageQueuePages::<T>::get(para, meta.first_full)
+		let front_v0 = || migration::v0::DownwardMessageQueues::<T>::get(para).first().cloned();
+
+		let front_v1 = Self::meta(para)
+			.map(|meta| DownwardMessageQueuePages::<T>::get(para, meta.first_full))
+			.flatten();
+
+		front_v1.or_else(front_v0)
+	}
+
+	pub fn drop_front_n(para: ParaId, mut n: u64) -> Option<u64> {
+		// v1 else v0
+		let dropped_v1 = Self::drop_front_n_v1(para, n);
+		n = n.saturating_sub(dropped_v1.unwrap_or_default());
+		let dropped_v0 = Self::drop_front_n_v0(para, n);
+
+		if dropped_v0.is_none() && dropped_v1.is_none() {
+			None
+		} else {
+			Some(dropped_v0.unwrap_or_default().saturating_add(dropped_v1.unwrap_or_default()))
+		}
 	}
 
 	/// Drop first `n` messages from the queue.
 	///
 	/// Returns the number of messages dropped or `None` if the queue does not exist.
-	pub fn drop_front_n(para: ParaId, n: u64) -> Option<u64> {
+	fn drop_front_n_v1(para: ParaId, n: u64) -> Option<u64> {
 		let mut meta = Self::meta(para)?;
 
 		let old_first_full = meta.first_full;
@@ -110,8 +167,28 @@ impl<T: Config> InboundDownwardQueue<T> {
 		Some(to_drop)
 	}
 
+	fn drop_front_n_v0(para: ParaId, n: u64) -> Option<u64> {
+		if !migration::v0::DownwardMessageQueues::<T>::decode_len(para).map_or(false, |l| l > 0) {
+			return None;
+		}
+
+		let mut msgs = migration::v0::DownwardMessageQueues::<T>::get(para);
+		let take = n.min(msgs.len() as u64) as usize;
+		msgs.drain(..take);
+
+		if msgs.is_empty() {
+			migration::v0::DownwardMessageQueues::<T>::remove(para);
+		} else {
+			migration::v0::DownwardMessageQueues::<T>::set(para, msgs);
+		}
+
+		Some(take as u64)
+	}
+
 	/// Try to delete all messages at once and schedule lazy deletion if not possible.
 	pub fn delete_all(para: ParaId) {
+		migration::v0::DownwardMessageQueues::<T>::remove(para);
+
 		let Some(meta) = DownwardMessageQueueMeta::<T>::take(para) else {
 			return;
 		};
@@ -164,14 +241,16 @@ impl<T: Config> InboundDownwardQueue<T> {
 	pub fn peek_all_do_not_call_in_consensus(
 		para: ParaId,
 	) -> Vec<InboundDownwardMessage<BlockNumberFor<T>>> {
-		let Some(meta) = Self::meta(para) else {
-			return Vec::new();
-		};
 		let mut messages = Vec::new();
 
-		for i in meta.first_full..meta.first_free {
-			messages.push(DownwardMessageQueuePages::<T>::get(para, i).unwrap());
-		}
+		// v1 is head
+		if let Some(meta) = Self::meta(para) {
+			for i in meta.first_full..meta.first_free {
+				messages.push(DownwardMessageQueuePages::<T>::get(para, i).unwrap());
+			}
+		};
+
+		messages.extend(migration::v0::DownwardMessageQueues::<T>::get(para));
 
 		messages
 	}
@@ -184,8 +263,12 @@ impl<T: Config> InboundDownwardQueue<T> {
 	/// - Every page `(para, idx)` in storage is covered by *either* the para's meta range
 	///   `[first_full, first_free)` *or* its lazy-delete range `[first, last)`. Anything else is an
 	///   orphan.
+	/// - No v0 entry is present but empty: drained queues must be removed, not left as `[]`.
 	#[cfg(any(feature = "std", feature = "try-runtime"))]
 	pub fn try_state() {
+		for (para, msgs) in migration::v0::DownwardMessageQueues::<T>::iter() {
+			assert!(!msgs.is_empty(), "v0 queue for {:?} is present but empty", para);
+		}
 		for (para, meta) in DownwardMessageQueueMeta::<T>::iter() {
 			assert!(
 				meta.first_full <= meta.first_free,

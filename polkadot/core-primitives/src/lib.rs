@@ -148,13 +148,22 @@ pub struct InboundDownwardMessage<BlockNumber = crate::BlockNumber> {
 
 pub type PageIndex = u64;
 
+/// Stores inbound downward page indices and assumes that each message is written to one page.
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Debug, PartialEq, TypeInfo)]
 pub struct InboundDownwardQueueMeta {
-	/// First page that holds data.
+	/// First page full page.
 	pub first_full: PageIndex,
 
 	/// First unused page index where to write data to.
 	pub first_free: PageIndex,
+}
+
+impl InboundDownwardQueueMeta {
+	pub fn is_empty(&self) -> bool {
+		debug_assert!(self.first_free >= self.first_full);
+
+		self.first_free > self.first_full
+	}
 }
 
 /// An HRMP message seen from the perspective of a recipient.

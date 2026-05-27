@@ -1531,7 +1531,7 @@ fn migrate_v0_to_v1_step_skips_in_progress_cursor_with_vanished_v0_entry() {
 			(0..3u8).map(|i| InboundDownwardMessage { sent_at: 1, msg: vec![i] }).collect();
 		migration::v0::DownwardMessageQueues::<Test>::insert(live, &msgs);
 
-		let cursor = Some(MigrationCursor::InProgress { para: vanished, next_v0_idx: 5 });
+		let cursor = Some(MigrationCursor::InProgress { para: vanished });
 		let mut meter = WeightMeter::new();
 		assert_eq!(MigrateV0ToV1::<Test>::step(cursor, &mut meter), Ok(None));
 
@@ -1699,5 +1699,79 @@ fn migrate_v0_to_v1_pre_post_upgrade_idempotent() {
 		// Re-running the hooks against an already-migrated state must not panic.
 		let snapshot_after = MigrateV0ToV1::<Test>::pre_upgrade().unwrap();
 		MigrateV0ToV1::<Test>::post_upgrade(snapshot_after).unwrap();
+	});
+}
+
+#[test]
+fn peek_front_falls_through_to_v0_when_v1_range_empty() {
+	new_test_ext_integrity(default_genesis_config(), || {
+		let para = ParaId::from(1);
+		let v0_msg = InboundDownwardMessage { sent_at: 1, msg: vec![42] };
+
+		DownwardMessageQueueMeta::<Test>::insert(
+			para,
+			InboundDownwardQueueMeta { first_full: 2, first_free: 2 },
+		);
+		migration::v0::DownwardMessageQueues::<Test>::insert(para, &vec![v0_msg.clone()]);
+
+		assert_eq!(InboundDownwardQueue::<Test>::peek_front(para), Some(v0_msg));
+	});
+}
+
+#[test]
+fn pop_front_v0_returns_oldest_not_newest() {
+	new_test_ext_integrity(default_genesis_config(), || {
+		let para = ParaId::from(1);
+		let msgs: Vec<InboundDownwardMessage<polkadot_primitives::BlockNumber>> =
+			(0..3u8).map(|i| InboundDownwardMessage { sent_at: 1, msg: vec![i] }).collect();
+		migration::v0::DownwardMessageQueues::<Test>::insert(para, &msgs);
+
+		assert_eq!(InboundDownwardQueue::<Test>::pop_front(para), Some(msgs[0].clone()));
+	});
+}
+
+#[test]
+fn drop_front_n_removes_v0_entry_when_drained() {
+	new_test_ext_integrity(default_genesis_config(), || {
+		let para = ParaId::from(1);
+		let msg = InboundDownwardMessage { sent_at: 1, msg: vec![42] };
+		migration::v0::DownwardMessageQueues::<Test>::insert(para, &vec![msg]);
+
+		InboundDownwardQueue::<Test>::drop_front_n(para, 1);
+
+		assert!(!migration::v0::DownwardMessageQueues::<Test>::contains_key(para));
+	});
+}
+
+#[test]
+fn pop_front_does_not_leave_empty_v0_entry() {
+	new_test_ext_integrity(default_genesis_config(), || {
+		let para = ParaId::from(1);
+		let msg = InboundDownwardMessage { sent_at: 1, msg: vec![1] };
+		migration::v0::DownwardMessageQueues::<Test>::insert(para, &vec![msg]);
+
+		InboundDownwardQueue::<Test>::pop_front(para);
+
+		assert!(!migration::v0::DownwardMessageQueues::<Test>::contains_key(para));
+	});
+}
+
+#[test]
+fn push_back_routes_to_v1_when_v0_entry_is_empty() {
+	// Deliberately injects an empty v0 entry (a state `try_state` forbids) to check
+	// `push_back` dispatches on content, not row presence — so it runs without the
+	// integrity wrapper.
+	new_test_ext(default_genesis_config()).execute_with(|| {
+		let para = ParaId::from(1);
+		let msg = InboundDownwardMessage { sent_at: 1, msg: vec![0] };
+		migration::v0::DownwardMessageQueues::<Test>::insert(para, &vec![msg]);
+		migration::v0::DownwardMessageQueues::<Test>::mutate(para, |v| v.clear());
+		assert!(migration::v0::DownwardMessageQueues::<Test>::contains_key(para));
+
+		InboundDownwardQueue::<Test>::push_back(para, vec![99]).unwrap();
+
+		let meta =
+			InboundDownwardQueue::<Test>::meta(para).expect("push must have written meta in v1");
+		assert_eq!(meta.first_free, 1);
 	});
 }

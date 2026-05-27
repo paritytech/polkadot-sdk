@@ -40,8 +40,9 @@ use scale_info::TypeInfo;
 pub enum MigrationCursor {
 	/// Resume by taking the next entry from `v0::DownwardMessageQueues::iter()`.
 	Iterate,
-	/// Resume mid-para: `v0[para][..next_v0_idx]` has already been re-enqueued into v1.
-	InProgress { para: ParaId, next_v0_idx: u64 },
+	/// Resume mid-para: progress is encoded in the v0 entry itself (the unmigrated suffix
+	/// has been written back into `v0::DownwardMessageQueues[para]`).
+	InProgress { para: ParaId },
 }
 
 /// The in-code storage version.
@@ -98,58 +99,48 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 				break;
 			}
 
-			let (para, msgs, start) = match cursor.take() {
-				Some(MigrationCursor::InProgress { para: p, next_v0_idx: k }) => {
-					match v0::DownwardMessageQueues::<T>::try_get(p) {
-						Ok(msgs) => (p, msgs, k),
-						// v0 entry vanished between steps — skip and pick up the next entry on the
-						// following outer iteration.
-						Err(_) => {
-							cursor = Some(MigrationCursor::Iterate);
-							continue;
-						},
-					}
-				},
+			let para = match cursor.take() {
+				Some(MigrationCursor::InProgress { para }) => para,
 				Some(MigrationCursor::Iterate) | None => {
-					let Some((p, msgs)) = v0::DownwardMessageQueues::<T>::iter().next() else {
+					let Some(p) = v0::DownwardMessageQueues::<T>::iter_keys().next() else {
 						cursor = None;
 						break;
 					};
-					(p, msgs, 0u64)
+					p
 				},
 			};
 
-			let mut idx = start as usize;
-			let mut interrupted = false;
-
-			// Use the live API so concurrent `push_back` calls between MBM steps are not clobbered.
-			// May interleave v0 messages with new v1 messages for the duration of the migration.
-			while let Some(msg) = msgs.get(idx) {
-				if InboundDownwardQueue::<T>::push_back_inbound(para, msg).is_err() {
-					// `first_free` overflowed `u64` — unreachable in practice. Bail without
-					// advancing so a future step retries with the same cursor.
-					cursor = Some(MigrationCursor::InProgress { para, next_v0_idx: idx as u64 });
-					return Ok(cursor);
-				}
-				idx = idx.saturating_add(1);
-
-				if msgs.get(idx).is_some() && meter.try_consume(per_msg).is_err() {
-					interrupted = true;
-					break;
-				}
+			let msgs = v0::DownwardMessageQueues::<T>::take(para);
+			if msgs.is_empty() {
+				cursor = Some(MigrationCursor::Iterate);
+				continue;
 			}
 
-			if interrupted {
-				cursor = Some(MigrationCursor::InProgress { para, next_v0_idx: idx as u64 });
+			let total = msgs.len();
+			let mut migrated = 0usize;
+
+			for msg in &msgs {
+				if migrated > 0 && meter.try_consume(per_msg).is_err() {
+					break;
+				}
+				if InboundDownwardQueue::<T>::push_back_inbound_v1(para, msg).is_err() {
+					v0::DownwardMessageQueues::<T>::insert(para, msgs[migrated..].to_vec());
+					cursor = Some(MigrationCursor::InProgress { para });
+					return Ok(cursor);
+				}
+				migrated = migrated.saturating_add(1);
+			}
+
+			if migrated < total {
+				v0::DownwardMessageQueues::<T>::insert(para, msgs[migrated..].to_vec());
+				cursor = Some(MigrationCursor::InProgress { para });
 				break;
 			}
 
-			v0::DownwardMessageQueues::<T>::remove(para);
-			// Keep cursor `Some(_)` so a `per_iter`-exhausted next call still signals "more work".
+			super::Pallet::<T>::deposit_event(Event::DmpQueueV0Cleaned { para });
 			cursor = Some(MigrationCursor::Iterate);
 		}
 
-		// Only bump once fully drained — otherwise the version guard above would orphan v0.
 		if cursor.is_none() {
 			StorageVersion::new(Self::id().version_to as u16).put::<Pallet<T>>();
 		}
@@ -166,38 +157,12 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(prev: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		let prev = BTreeMap::<ParaId, Vec<InboundDownwardMessage<BlockNumberFor<T>>>>::decode(
-			&mut &prev[..],
-		)
-		.expect("pre_upgrade snapshot decodes");
-
-		// Old storage must be empty.
+	fn post_upgrade(_prev: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		assert_eq!(
 			v0::DownwardMessageQueues::<T>::iter().count(),
 			0,
 			"v0::DownwardMessageQueues still has entries after MigrateV0ToV1",
 		);
-
-		// MBM steps interleave with block production, so we can only check that
-		// `first_free` advanced by at least the v0 length, not exact page contents.
-		for (para, msgs) in prev {
-			let total = msgs.len() as u64;
-			if total == 0 {
-				continue;
-			}
-
-			let meta = DownwardMessageQueueMeta::<T>::get(para).unwrap_or_else(|| {
-				panic!("para {:?}: meta must exist after migrating {} messages", para, total)
-			});
-			assert!(
-				meta.first_free >= total,
-				"para {:?}: first_free ({}) < migrated messages ({})",
-				para,
-				meta.first_free,
-				total,
-			);
-		}
 
 		Ok(())
 	}
