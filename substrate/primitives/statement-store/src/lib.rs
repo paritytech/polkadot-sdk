@@ -1070,7 +1070,6 @@ mod test {
 		const MAX_ACCEPTED_OVERHEAD: usize = 33;
 
 		// Use Secp256k1Ecdsa: with sig=65 + signer=33 bytes, it is the worst-case proof payload
-		// after Proof::OnChain was removed, so this test bounds preallocation correctly.
 		let proof = Proof::Secp256k1Ecdsa { signature: [42u8; 65], signer: [24u8; 33] };
 		let decryption_key = [0xde; 32];
 		let data = vec![55; 1000];

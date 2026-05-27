@@ -1891,9 +1891,7 @@ mod tests {
 	}
 
 	/// Returns the deterministic ed25519 keypair used to author statements for the
-	/// synthetic test account `seed`. Replaces the pre-deletion design where the
-	/// "account" was a synthetic byte pattern signed off by `Proof::OnChain` — that
-	/// proof variant has been removed, so the test fixture needs a real keypair.
+	/// synthetic test account `seed`.
 	///
 	/// Uses ed25519 rather than sr25519 because schnorrkel signing is non-deterministic
 	/// (the signature depends on RNG state), so calling `statement(id, prio, ch, len)`
