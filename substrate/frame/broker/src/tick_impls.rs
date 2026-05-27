@@ -172,7 +172,10 @@ impl<T: Config> Pallet<T> {
 	) {
 		match action {
 			TickAction::RenewRegion { owner, renewal_id } => {
-				meter.consume(T::WeightInfo::process_tick_action_renew_region());
+				meter.consume(
+					T::WeightInfo::process_tick_action_renew_region() +
+						MarketWeightsOf::<T>::place_renewal_order(),
+				);
 				if let Err(e) = Self::do_renew(owner.clone(), renewal_id.core) {
 					log::error!(
 						"failed to renew (id: {:?}, owned by: {:?}) by the market request: {:?}",
@@ -207,7 +210,7 @@ impl<T: Config> Pallet<T> {
 				));
 
 				if let Ok(auto_renewals) =
-					Self::renew_cores(auto_renewals, after_timeslice, next_renewal_at)
+					Self::renew_cores(auto_renewals, after_timeslice, next_renewal_at, meter)
 				{
 					AutoRenewals::<T>::set(auto_renewals);
 				} else {
@@ -322,6 +325,7 @@ impl<T: Config> Pallet<T> {
 		auto_renewals: BoundedVec<AutoRenewalRecord, T::MaxAutoRenewals>,
 		after_timeslice: Timeslice,
 		next_renewal: Timeslice,
+		weight_meter: &mut WeightMeter,
 	) -> Result<BoundedVec<AutoRenewalRecord, T::MaxAutoRenewals>, ()> {
 		auto_renewals
 			.into_iter()
@@ -340,6 +344,7 @@ impl<T: Config> Pallet<T> {
 					return None;
 				};
 
+				weight_meter.consume(MarketWeightsOf::<T>::place_renewal_order());
 				let renew_result = Self::do_renew(payer.clone(), record.core);
 				match renew_result {
 					Ok(RenewResult::Renewed { new_core }) => {
