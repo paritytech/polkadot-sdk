@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779890635894,
+  "lastUpdate": 1779920114332,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tiago.bandeira@parity.io",
-            "name": "Tiago Bandeira",
-            "username": "tiagobndr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2e716e1e80e6c25dfcce0fb1dad6117c2e2c3008",
-          "message": "`pallet-xcm`: extract precompiles to a separate crate (#9985)\n\nThis PR extracts the XCM precompile from `pallet-xcm` into a new\nstandalone crate `pallet-xcm-precompiles` to resolve an unwanted\ndependency issue. Previously, the XCM precompile was implemented\ndirectly in `pallet-xcm/src/precompiles.rs`, which required `pallet-xcm`\nto depend on `pallet-revive`, introducing it as a transitive dependency\nfor all parachains using `pallet-xcm`.\n\nCloses #9955\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-13T22:14:36Z",
-          "tree_id": "4d4296e10f36c65e0f47623f00624dee7935e4df",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2e716e1e80e6c25dfcce0fb1dad6117c2e2c3008"
-        },
-        "date": 1760398745114,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008509751559999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005103635659999992,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026144149100000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009440086409999979,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f124c411c2496b8b3800766265b713602d499a6f",
+          "message": "sc-client-db: add prefetched indexed transactions support (#12086)\n\nThe transaction-index database column (TRANSACTION) is normally\npopulated as a side-effect of block execution: the runtime emits\nIndexOperations, the client applies them in apply_index_ops, and the\nbytes referenced by each IndexOperation::Insert are extracted from the\nblock body. For two upcoming consumers — Cumulus storage-chain tip-sync\nand gap-sync backfill — this side-effect doesn't fit:\n\n1. **Tip-sync (block executed, payload missing).** The runtime emits\nIndexOperation::Renew { hash } to extend an existing transaction's TTL,\nbut the local node doesn't yet hold the bytes for hash because the\noriginal Insert block was never executed locally. Today this fails at\napply_index_ops because Renew only bumps the refcount on an entry that\nmust already exist.\n\n2. **Gap-sync (block not executed, ops missing).** Older blocks in a gap\nare imported without execution, so the runtime never emits any\nIndexOperations for them. Without a side channel, the wrapper can't\nreconstruct what the runtime would have produced.\n\nSo in this PR I add a mechanism to allow BlockImport implementers up in\nthe pipeline to provide missing renew payloads and supply custom index\noperations.",
+          "timestamp": "2026-05-27T18:58:01Z",
+          "tree_id": "3437579a58ac430763f92e35ae35a108ed2939d8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f124c411c2496b8b3800766265b713602d499a6f"
+        },
+        "date": 1779920083947,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010284732929999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00941116062999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026571231799999984,
             "unit": "seconds"
           }
         ]
