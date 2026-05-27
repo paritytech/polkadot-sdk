@@ -4519,6 +4519,87 @@ async fn cross_protocol_version_carriers_fetched_once() {
 	test_state.assert_no_messages().await;
 }
 
+// Co-advertiser fallback. Two peers advertise the *same* V2 candidate (same `Advertisement`,
+// different carrier `peer_id`). Dedup means only one fetch fires at a time — but the parked
+// co-advertiser's ad is deliberately kept (see `try_accept_advertisement` in
+// `collation_manager/mod.rs`) precisely so that, if the in-flight fetch fails (peer offline,
+// timeout, network error), we can retry from the other carrier *without waiting for
+// re-advertisement*.
+//
+// This is the failure-path counterpart to `v2_same_candidate_from_multiple_peers_fetched_once`
+// (which only checks that the happy path fetches once). Here we drive the first fetch to
+// failure and assert the planner re-launches against the second carrier.
+//
+// Reputation makes the choice deterministic: peer_high wins the first fetch; once its fetch
+// fails, peer_low is the only remaining carrier for the offer, so the fallback must go to it.
+#[tokio::test]
+async fn v2_co_carrier_fallback_fetches_from_second_peer_on_failure() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let core = test_state.rp_info[&active_leaf].assigned_core;
+
+	let peer_high = peer_id(0);
+	let peer_low = peer_id(1);
+
+	// peer_high outranks peer_low for para 100, so it is picked for the first fetch.
+	let query_fn = move |peer: PeerId, _: ParaId| {
+		if peer == peer_high {
+			Some(Score::new(100))
+		} else {
+			Some(Score::new(0))
+		}
+	};
+	let db = MockDb::new(Arc::new(Mutex::new(query_fn)));
+
+	let mut state = make_state(db, &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	for &p in &[peer_high, peer_low] {
+		state.handle_peer_connected(&mut sender, p, CollationVersion::V2).await;
+		state.handle_declare(&mut sender, p, 100.into()).await;
+	}
+
+	// Same offer, two carriers.
+	let pvd_hash = dummy_pvd().hash();
+	let (_, adv_high) = dummy_candidate(active_leaf, 100.into(), peer_high, core, 1, pvd_hash);
+	let (_, adv_low) = dummy_candidate(active_leaf, 100.into(), peer_low, core, 1, pvd_hash);
+	assert_eq!(adv_high.advertisement, adv_low.advertisement);
+	assert_ne!(adv_high.peer_id, adv_low.peer_id);
+
+	test_state.handle_advertisement(&mut state, adv_high).await;
+	test_state.handle_advertisement(&mut state, adv_low).await;
+
+	// Both carriers' ads are parked; only the rep-best one fetches now.
+	assert_eq!(state.advertisements(), [adv_high, adv_low].into());
+
+	// First fetch fires and goes to the rep-best carrier (peer_high).
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(adv_high).await;
+	test_state.assert_no_messages().await;
+
+	// peer_high's fetch fails. This clears it from the in-flight set; peer_low's parked ad
+	// (which we never re-advertise) stays available as the fallback.
+	state
+		.handle_fetched_collation(
+			&mut sender,
+			(
+				adv_high,
+				Err(CollationFetchError::Request(RequestError::NetworkError(
+					RequestFailure::NotConnected,
+				))),
+			),
+		)
+		.await;
+	test_state.assert_no_messages().await;
+
+	// Re-planning now fetches the same candidate from the fallback carrier (peer_low),
+	// without any new advertisement having arrived.
+	assert_eq!(state.advertisements(), [adv_low].into());
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(adv_low).await;
+	test_state.assert_no_messages().await;
+}
+
 // TODO:
 // - Test subsystem startup: make sure we are properly populating the db.
 // - Test a change in the registered paras on finalized block notification.
