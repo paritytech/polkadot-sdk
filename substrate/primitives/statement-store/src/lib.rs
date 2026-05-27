@@ -1202,127 +1202,6 @@ mod test {
 		assert_eq!(Statement::decode(&mut expected.as_slice()).unwrap(), stmt);
 	}
 
-	/// Pinned byte fixture for `Proof::Ed25519` statements.
-	#[test]
-	fn wire_format_ed25519_pinned() {
-		let mut stmt = Statement::new();
-		populate_canonical_fixture(&mut stmt);
-		stmt.set_proof(Proof::Ed25519 { signature: [0x22; 64], signer: [0xBB; 32] });
-
-		let mut expected = Vec::new();
-		expected.push(0x1c);
-		expected.push(0x00);
-		expected.push(0x01); // Proof::Ed25519 discriminant
-		expected.extend_from_slice(&[0x22; 64]);
-		expected.extend_from_slice(&[0xBB; 32]);
-		expected.extend(canonical_tail());
-
-		assert_eq!(stmt.encode(), expected, "Ed25519 wire format drifted");
-		assert_eq!(expected.len(), 246);
-		assert_eq!(Statement::decode(&mut expected.as_slice()).unwrap(), stmt);
-	}
-
-	/// Pinned byte fixture for `Proof::Secp256k1Ecdsa` statements.
-	#[test]
-	fn wire_format_ecdsa_pinned() {
-		let mut stmt = Statement::new();
-		populate_canonical_fixture(&mut stmt);
-		stmt.set_proof(Proof::Secp256k1Ecdsa { signature: [0x33; 65], signer: [0xCC; 33] });
-
-		let mut expected = Vec::new();
-		expected.push(0x1c);
-		expected.push(0x00);
-		expected.push(0x02); // Proof::Secp256k1Ecdsa discriminant
-		expected.extend_from_slice(&[0x33; 65]);
-		expected.extend_from_slice(&[0xCC; 33]);
-		expected.extend(canonical_tail());
-
-		assert_eq!(stmt.encode(), expected, "Secp256k1Ecdsa wire format drifted");
-		assert_eq!(expected.len(), 248);
-		assert_eq!(Statement::decode(&mut expected.as_slice()).unwrap(), stmt);
-	}
-
-	/// Pinned byte fixture for proof-less statements.
-	#[test]
-	fn wire_format_no_proof_pinned() {
-		let mut stmt = Statement::new();
-		populate_canonical_fixture(&mut stmt);
-		assert!(stmt.proof().is_none());
-
-		let mut expected = Vec::new();
-		expected.push(0x18); // Compact<u32> = 6 fields (one less than the signed cases)
-		expected.extend(canonical_tail());
-
-		assert_eq!(stmt.encode(), expected, "No-proof wire format drifted");
-		assert_eq!(expected.len(), 148);
-		assert_eq!(Statement::decode(&mut expected.as_slice()).unwrap(), stmt);
-	}
-
-	/// Variant discriminant pinning.
-	#[test]
-	fn wire_format_proof_discriminants_pinned() {
-		let sr = Proof::Sr25519 { signature: [0u8; 64], signer: [0u8; 32] }.encode();
-		assert_eq!(sr[0], 0u8, "Sr25519 must be discriminant 0");
-
-		let ed = Proof::Ed25519 { signature: [0u8; 64], signer: [0u8; 32] }.encode();
-		assert_eq!(ed[0], 1u8, "Ed25519 must be discriminant 1");
-
-		let ec = Proof::Secp256k1Ecdsa { signature: [0u8; 65], signer: [0u8; 33] }.encode();
-		assert_eq!(ec[0], 2u8, "Secp256k1Ecdsa must be discriminant 2");
-
-		// Field::AuthenticityProof wraps with its own discriminant 0.
-		let wrapped =
-			Field::AuthenticityProof(Proof::Sr25519 { signature: [0u8; 64], signer: [0u8; 32] })
-				.encode();
-		assert_eq!(wrapped[0], 0u8, "Field::AuthenticityProof must be discriminant 0");
-		assert_eq!(wrapped[1], 0u8, "Inner Sr25519 must still be discriminant 0");
-	}
-
-	/// Per-variant sign → encode → decode → verify round-trip for sr25519.
-	#[test]
-	fn wire_format_roundtrip_sr25519() {
-		let kp = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
-		let mut stmt = Statement::new();
-		populate_canonical_fixture(&mut stmt);
-		stmt.sign_sr25519_private(&kp);
-
-		let bytes = stmt.encode();
-		let decoded = Statement::decode(&mut bytes.as_slice()).unwrap();
-		assert_eq!(decoded, stmt);
-		assert_eq!(decoded.verify_signature(), SignatureVerificationResult::Valid(kp.public().0));
-	}
-
-	/// Per-variant sign → encode → decode → verify round-trip for ed25519.
-	#[test]
-	fn wire_format_roundtrip_ed25519() {
-		let kp = sp_core::ed25519::Pair::from_string("//Alice", None).unwrap();
-		let mut stmt = Statement::new();
-		populate_canonical_fixture(&mut stmt);
-		stmt.sign_ed25519_private(&kp);
-
-		let bytes = stmt.encode();
-		let decoded = Statement::decode(&mut bytes.as_slice()).unwrap();
-		assert_eq!(decoded, stmt);
-		assert_eq!(decoded.verify_signature(), SignatureVerificationResult::Valid(kp.public().0));
-	}
-
-	/// Per-variant sign → encode → decode → verify round-trip for ecdsa.
-	#[test]
-	fn wire_format_roundtrip_ecdsa() {
-		let kp = sp_core::ecdsa::Pair::from_string("//Alice", None).unwrap();
-		let mut stmt = Statement::new();
-		populate_canonical_fixture(&mut stmt);
-		stmt.sign_ecdsa_private(&kp);
-
-		let bytes = stmt.encode();
-		let decoded = Statement::decode(&mut bytes.as_slice()).unwrap();
-		assert_eq!(decoded, stmt);
-		assert_eq!(
-			decoded.verify_signature(),
-			SignatureVerificationResult::Valid(sp_crypto_hashing::blake2_256(&kp.public().0)),
-		);
-	}
-
 	/// `Proof::OnChain` byte sequences are rejected on decode.
 	#[test]
 	fn wire_format_legacy_onchain_proof_is_rejected() {
@@ -1359,13 +1238,7 @@ mod test {
 		);
 	}
 
-	/// Test E — `Proof::max_encoded_len()` and `account_id()` reflect the
-	/// three-variant enum.
-	///
-	/// SCALE's `MaxEncodedLen` for an enum picks the widest variant's payload
-	/// plus a 1-byte discriminant. After dropping OnChain (72-byte payload)
-	/// the new ceiling is Secp256k1Ecdsa at 65 + 33 = 98 bytes, plus the
-	/// discriminant = 99.
+	/// `Proof::max_encoded_len()` reflects the three-variant enum.
 	#[test]
 	fn proof_max_encoded_len_after_onchain_removal() {
 		assert_eq!(

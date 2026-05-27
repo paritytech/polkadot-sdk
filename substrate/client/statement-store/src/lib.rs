@@ -1676,12 +1676,6 @@ mod tests {
 	/// `u64` seed it was derived from. Populated once with seeds in
 	/// `0..=MAX_TEST_ACCOUNT_SEED`, then consulted by `TestClient::storage` to
 	/// figure out which allowance bucket to return for a given account.
-	///
-	/// Replaces the pre-deletion design where `account(id)` produced a synthetic
-	/// `[id, 0, 0, ..., 0]` byte pattern and the storage stub recovered `id`
-	/// straight out of the bytes. After `Proof::OnChain` was removed,
-	/// statements must carry a real signature, so the test account must be a
-	/// real keypair whose pubkey is opaque.
 	fn account_seed_table() -> &'static std::collections::BTreeMap<AccountId, u64> {
 		use std::sync::OnceLock;
 		static TABLE: OnceLock<std::collections::BTreeMap<AccountId, u64>> = OnceLock::new();
