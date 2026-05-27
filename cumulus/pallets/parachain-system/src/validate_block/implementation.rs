@@ -16,7 +16,7 @@
 
 //! The actual implementation of the validate block functionality.
 
-use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
+use super::{scheduling, trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
@@ -24,6 +24,7 @@ use cumulus_primitives_core::{
 		BlockNumber as RNumber, Hash as RHash, UMPSignal, MAX_HEAD_DATA_SIZE, UMP_SEPARATOR,
 	},
 	ClaimQueueOffset, CoreSelector, CumulusDigestItem, ParachainBlockData, PersistedValidationData,
+	VerifySchedulingSignature,
 };
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
@@ -79,12 +80,17 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 		parent_head: parachain_head,
 		relay_parent_number,
 		relay_parent_storage_root,
+		extension,
 	}: MemoryOptimizedValidationParams,
 ) -> ValidationResult
 where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
 {
+	// Decode block data first - we need it for both scheduling validation and block execution
+	let block_data = codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(block_data)
+		.expect("Invalid parachain block data");
+
 	let _guard = (
 		// Replace storage calls with our own implementations
 		sp_io::storage::host_read.replace_implementation(host_storage_read),
@@ -130,8 +136,18 @@ where
 		sp_io::transaction_index::host_renew.replace_implementation(host_transaction_index_renew),
 	);
 
-	let block_data = codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(block_data)
-		.expect("Invalid parachain block data");
+	// V3 scheduling validation.
+	let validated_scheduling = scheduling::validate_v3_scheduling(
+		PSC::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED,
+		&extension.0,
+		block_data.scheduling_proof(),
+		PSC::RelayParentOffset::get(),
+	);
+	if let Some(result) = validated_scheduling {
+		if result.is_resubmission {
+			panic!("Resubmission not yet supported; reject candidate.");
+		}
+	}
 
 	// Initialize hashmaps randomness.
 	sp_trie::add_extra_randomness(build_seed_from_head_data::<B>(
