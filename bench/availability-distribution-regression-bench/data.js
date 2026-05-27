@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779837271064,
+  "lastUpdate": 1779890522881,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0e3195df28c6b39d098d4149f9dbc78009e88493",
-          "message": "[pallet-revive] fix subxt submit & add debug statments (#10016)\n\n- Fix subxt submit by default it's using\n`author_submitAndWatchExtrinsic` even though we just want to fire and\nforget\n- Add debug instructions to log the signer & nonce of new eth\ntransactions when the node validate the transaction\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-14T21:35:06Z",
-          "tree_id": "c0fd61b7b9106d5174dd52bca1dcd53376b4ef82",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0e3195df28c6b39d098d4149f9dbc78009e88493"
-        },
-        "date": 1760481890418,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012739867379999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022360302593333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1568168647066667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007282660959999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010066948013333313,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7d525248d594c79dcc5e30217becbd56d2fcda40",
+          "message": "allow Root-originated nested CREATE (#12144)\n\n# Allow Root-originated nested CREATE in pallet-revive\n\nCloses paritytech/contract-issues#279.\n\n## Motivation\n\n`pallet-revive`'s exec stack rejects `Origin::Root` at every constructor\nframe, so `bare_call(RuntimeOrigin::root(), contract_addr, ...)` errors\n`RootNotAllowed` the moment the called contract reaches a\n`CREATE`/`CREATE2` opcode — even though the contract itself is the\nsemantic instantiator.\n\nThe historical reason for the block was that the origin had to fund the\nnew contract's ED. Since the PGAS rework, the ED is freshly minted by\n`T::Deposit::init_contract` and immediately deactivated for issuance\naccounting, so the origin no longer needs to pay it.\n\n## Changes\n\n- **Remove the `RootNotAllowed` ensure** at the start of the constructor\nframe in [`exec.rs`](substrate/frame/revive/src/exec.rs).\n- **EVM CREATE under Root**: when constructing the runtime code's\n`CodeInfo`, substitute the missing origin account with the pallet's own\naccount as a sentinel owner and a zero deposit. Both `charge_deposit`\nand `refund_deposit` short-circuit at amount 0, and the sentinel can't\nbe signed for, so the code can't be removed via the owner-gated path. A\nnew `ContractBlob::from_evm_runtime_code_with_deposit` exposes the\n(owner, deposit) construction explicitly.\n- **`do_terminate` under Root**: the function called\n`origin.account_id()?` and silently failed for Root (the result was\nswallowed by `.ok()` at the SELFDESTRUCT queue site), leaving the\ncontract on-chain after a \"successful\" call. Substitute the missing\norigin with the pallet-account sentinel at the top of the function so\nrefund destination and beneficiary-ED bootstrap don't need to\nspecial-case `Root`.\n\nRoot is still **not** allowed to instantiate directly:\n`instantiate`/`bare_instantiate` continue to gate on\n`T::InstantiateOrigin::ensure_origin` (default `EnsureSigned` →\n`BadOrigin`). The change only unblocks the case where another contract\nsits between Root and the new contract and acts as the instantiator.\nGiving Root its own contract-address attribution is intentionally out of\nscope.\n\n## Test plan\n\nTwo parametrized Solidity tests (Solc and Resolc backends) using a new\n`NestedDeployer` fixture:\n\n- **`root_call_can_create_and_destroy_in_same_tx`** — Root invokes a\ndeployer that creates a child and immediately calls `selfdestruct` on it\n(`only_if_same_tx: true`, EIP-6780). Asserts the child is gone\npost-call.\n- **`root_call_can_create_and_destroy_in_next_block`** — Root creates\nthe child in block N, then in block N+1 calls the child's\n`destroyViaPrecompile` (`ISystem.terminate`, `only_if_same_tx: false`).\nAsserts the child is gone, and that no storage-deposit hold landed on\nthe child or deployer and no EVM upload deposit hit the pallet sentinel.\n\nThe `resolc → solc` combination is omitted because PVM `new` references\na baked-in PVM code hash; a Resolc parent cannot create an EVM child.\nThe runtime has no Root-only path that could bypass this (Root only\nreaches CREATE via an intermediary contract, which is constrained by its\ncompilation backend).\n\nExisting `root_cannot_instantiate{,_with_code}` and `root_can_call`\ncontinue to pass. Full `pallet-revive` suite is green.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
+          "timestamp": "2026-05-27T11:21:50Z",
+          "tree_id": "47b6ec7abd3be0a292ad1f148ba6861fee590a4e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d525248d594c79dcc5e30217becbd56d2fcda40"
+        },
+        "date": 1779890494475,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023841377413333344,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009932993133333316,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14500844019999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007506939733333334,
             "unit": "seconds"
           }
         ]
