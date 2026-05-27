@@ -4,9 +4,10 @@ doc:
   - audience: Node Dev
     description: |
       Introduces a new `polkadot-node-clock` crate exporting a unified `Clock`
-      trait (`now/delay/timestamp_millis`) plus a production `SystemClock`
-      implementation. Migrates four subsystems off their ad-hoc per-crate
-      clock traits and onto the shared abstraction:
+      trait (`now` / `delay` / `duration_since_epoch`) plus a production
+      `SystemClock` implementation and a feature-gated `MockClock` for tests.
+      Migrates four subsystems off their ad-hoc per-crate clock traits and
+      onto the shared abstraction:
 
       - `polkadot-collator-protocol`: full migration of all time reads
         (production paths use the shared `SystemClock`; the crate-level
@@ -39,6 +40,7 @@ doc:
 crates:
   - name: polkadot-node-clock
     bump: major
+    validate: false
   - name: polkadot-collator-protocol
     bump: major
   - name: polkadot-node-core-chain-selection
