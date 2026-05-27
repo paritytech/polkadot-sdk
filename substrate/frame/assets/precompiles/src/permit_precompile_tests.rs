@@ -79,7 +79,7 @@ const SUBMITTER_ACCOUNT: u64 = 555;
 /// Free balance given to a funded account — large enough to cover the
 /// permit-call storage deposits and the `Caller` fixture's contract
 /// deposit in the STATICCALL test.
-const SUBMITTER_FUNDING: u64 = 1_000_000_000_000;
+const SUBMITTER_FUNDING: u128 = 1_000_000_000_000;
 /// Account id used to deploy the `Caller` fixture contract in the
 /// STATICCALL test. Distinct from the relayer / signer / spender so a
 /// regression that crosses roles is visible.
@@ -163,7 +163,7 @@ fn raw_permit(
 	v: u8,
 	r: [u8; 32],
 	s: [u8; 32],
-) -> pallet_revive::ContractResult<pallet_revive::ExecReturnValue, u64> {
+) -> pallet_revive::ContractResult<pallet_revive::ExecReturnValue, u128> {
 	let data = IERC20::permitCall {
 		owner: owner.0.into(),
 		spender: spender.0.into(),
@@ -178,7 +178,7 @@ fn raw_permit(
 		RuntimeOrigin::signed(sender),
 		asset_addr,
 		0u32.into(),
-		TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u64::MAX },
+		TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u128::MAX },
 		data,
 		&ExecConfig::new_substrate_tx(),
 	)
@@ -209,7 +209,7 @@ fn permit_sign_and_call(
 /// pallet error) cannot silently keep the test green if the failure
 /// surface changes.
 fn assert_permit_dispatch_err<E>(
-	result: pallet_revive::ContractResult<pallet_revive::ExecReturnValue, u64>,
+	result: pallet_revive::ContractResult<pallet_revive::ExecReturnValue, u128>,
 	expected: E,
 ) where
 	E: Into<sp_runtime::DispatchError>,
@@ -237,7 +237,7 @@ fn assert_permit_dispatch_err<E>(
 /// example, `"Invalid signature"` is a prefix of `"Invalid signature v
 /// value"`, and matching the bare prefix would silently accept either.
 fn assert_permit_reverted_with(
-	result: pallet_revive::ContractResult<pallet_revive::ExecReturnValue, u64>,
+	result: pallet_revive::ContractResult<pallet_revive::ExecReturnValue, u128>,
 	expected_substring: &str,
 ) {
 	let exec = match result.result.as_ref() {
@@ -327,7 +327,7 @@ fn permit_set_and_revoke(asset_index: u16) {
 
 	new_test_ext().execute_with(|| {
 		let setup = permit_setup(asset_index);
-		let deposit: u64 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
+		let deposit: u128 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
 
 		assert_eq!(
 			permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
@@ -464,7 +464,7 @@ fn permit_nonzero_to_nonzero() {
 
 	new_test_ext().execute_with(|| {
 		let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
-		let deposit: u64 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
+		let deposit: u128 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
 
 		permit_sign_and_call(
 			setup.submitter,
@@ -647,7 +647,7 @@ fn permit_rollback_preserves_prior_allowance() {
 
 	new_test_ext().execute_with(|| {
 		let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
-		let deposit: u64 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
+		let deposit: u128 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
 
 		assert_ok!(Assets::approve_transfer(
 			RuntimeOrigin::signed(setup.owner_account),
@@ -698,9 +698,6 @@ fn permit_rollback_preserves_prior_allowance() {
 /// has incremented the nonce. The `with_transaction` wrapper must roll
 /// the nonce back. Distinct failure surface from the frozen-asset test
 /// (revert vs DispatchError trap).
-///
-/// Note: this test depends on the mock's `Balance = u64`. On a runtime
-/// with `Balance = u128` the same input would not overflow `to_balance`.
 #[test]
 fn permit_value_overflow_rolls_back() {
 	use frame_support::traits::fungibles::approvals::Inspect;
@@ -708,7 +705,7 @@ fn permit_value_overflow_rolls_back() {
 	new_test_ext().execute_with(|| {
 		let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
 
-		let huge = AlloyU256::from(1u128 << 64);
+		let huge = AlloyU256::MAX;
 		let (v, r, s) = sign_permit(setup.asset_addr, setup.spender_addr, huge, setup.deadline);
 		let result = raw_permit(
 			setup.submitter,
@@ -1035,7 +1032,7 @@ fn permit_staticcall_is_rejected() {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			Code::Upload(init_code),
 			vec![],
@@ -1074,7 +1071,7 @@ fn permit_staticcall_is_rejected() {
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			},
 			calldata,
 			&ExecConfig::new_substrate_tx(),
@@ -1117,7 +1114,7 @@ fn nonces_via_precompile() {
 				0u32.into(),
 				TransactionLimits::WeightAndDeposit {
 					weight_limit: Weight::MAX,
-					deposit_limit: u64::MAX,
+					deposit_limit: u128::MAX,
 				},
 				data,
 				&ExecConfig::new_substrate_tx(),

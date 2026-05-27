@@ -29,7 +29,9 @@ pub mod types;
 
 use crate::cli::AuthoringPolicy;
 
-use cumulus_primitives_core::{CollectCollationInfo, GetParachainInfo, RelayParentOffsetApi};
+use cumulus_primitives_core::{
+	CollectCollationInfo, GetParachainInfo, RelayParentOffsetApi, SchedulingV3EnabledApi,
+};
 use sc_client_db::DbHash;
 use sc_offchain::OffchainWorkerApi;
 use serde::de::DeserializeOwned;
@@ -78,6 +80,7 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ TransactionStorageApi<Block>
 	+ RelayParentOffsetApi<Block>
 	+ sp_authority_discovery::AuthorityDiscoveryApi<Block>
+	+ SchedulingV3EnabledApi<Block>
 	+ Sized
 {
 }
@@ -94,6 +97,7 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ GetParachainInfo<Block>
 		+ TransactionStorageApi<Block>
 		+ sp_authority_discovery::AuthorityDiscoveryApi<Block>
+		+ SchedulingV3EnabledApi<Block>
 {
 }
 
@@ -137,4 +141,8 @@ pub struct NodeExtraArgs {
 
 	/// Upper bound on collator reserved-peer slots.
 	pub collator_reserved_slots: usize,
+
+	/// HOP (Hand-Off Protocol) configuration parameters.
+	/// `None` disables HOP.
+	pub hop: Option<sc_hop::HopParams>,
 }

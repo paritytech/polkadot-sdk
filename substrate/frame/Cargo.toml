@@ -23,6 +23,7 @@ serde = { workspace = true }
 # primitive deps, used for developing FRAME pallets.
 sp-arithmetic = { workspace = true }
 sp-core = { workspace = true }
+sp-crypto-hashing = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 
@@ -77,6 +78,7 @@ std = [
 	"sp-consensus-aura?/std",
 	"sp-consensus-grandpa?/std",
 	"sp-core/std",
+	"sp-crypto-hashing/std",
 	"sp-genesis-builder?/std",
 	"sp-inherents?/std",
 	"sp-io/std",
