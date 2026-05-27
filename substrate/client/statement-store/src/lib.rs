@@ -1906,11 +1906,9 @@ mod tests {
 		account_keypair(id).public().0
 	}
 
-	/// Re-signs `stmt` with `account_id`'s test keypair. Use this after any test
-	/// that mutates a statement returned by `statement()` (encryption, expiry
-	/// change, topic update, etc.) — the original signature would no longer
-	/// cover the new payload and `Store::submit` would reject with `BadProof`.
-	fn re_sign(stmt: &mut Statement, account_id: u64) {
+	/// Signs `stmt` with `account_id`'s test keypair. Tests that build a statement via
+	/// `unsigned_statement(..)` and then mutate it call this exactly once at the end.
+	fn sign_with(stmt: &mut Statement, account_id: u64) {
 		stmt.sign_ed25519_private(&account_keypair(account_id));
 	}
 
@@ -1920,7 +1918,15 @@ mod tests {
 		channel
 	}
 
-	fn statement(account_id: u64, priority: u32, c: Option<u64>, data_len: usize) -> Statement {
+	/// Builds a test statement without signing it. Use this when a test needs to mutate
+	/// the statement (encryption, expiry change, topic update, etc.) before submission —
+	/// call `sign_with(&mut stmt, account_id)` once after all mutations.
+	fn unsigned_statement(
+		account_id: u64,
+		priority: u32,
+		c: Option<u64>,
+		data_len: usize,
+	) -> Statement {
 		assert!(
 			account_id <= MAX_TEST_ACCOUNT_SEED,
 			"account_id {account_id} exceeds MAX_TEST_ACCOUNT_SEED ({MAX_TEST_ACCOUNT_SEED}); \
@@ -1934,7 +1940,12 @@ mod tests {
 		if let Some(c) = c {
 			statement.set_channel(channel(c));
 		}
-		statement.sign_ed25519_private(&account_keypair(account_id));
+		statement
+	}
+
+	fn statement(account_id: u64, priority: u32, c: Option<u64>, data_len: usize) -> Statement {
+		let mut statement = unsigned_statement(account_id, priority, c, data_len);
+		sign_with(&mut statement, account_id);
 		statement
 	}
 
@@ -2176,10 +2187,10 @@ mod tests {
 	fn expired_statements_are_purged() {
 		use super::DEFAULT_PURGE_AFTER_SEC;
 		let (mut store, temp) = test_store();
-		let mut statement = statement(1, 1, Some(3), 100);
+		let mut statement = unsigned_statement(1, 1, Some(3), 100);
 		store.set_time(0);
 		statement.set_topic(0, topic(4));
-		re_sign(&mut statement, 1);
+		sign_with(&mut statement, 1);
 		store.submit(statement.clone(), StatementSource::Network);
 		assert_eq!(store.submit_index.read().entries.len(), 1);
 		store.remove(&statement.hash()).unwrap();
@@ -2215,10 +2226,10 @@ mod tests {
 			.ed25519_generate_new(sp_core::crypto::key_types::STATEMENT, None)
 			.unwrap();
 		let statement1 = statement(1, 1, None, 100);
-		let mut statement2 = statement(1, 2, None, 0);
+		let mut statement2 = unsigned_statement(1, 2, None, 0);
 		let plain = b"The most valuable secret".to_vec();
 		statement2.encrypt(&plain, &public).unwrap();
-		re_sign(&mut statement2, 1);
+		sign_with(&mut statement2, 1);
 		store.submit(statement1, StatementSource::Network);
 		store.submit(statement2, StatementSource::Network);
 		let posted_clear = store.posted_clear(&[], public.into()).unwrap();
@@ -2278,16 +2289,16 @@ mod tests {
 			.unwrap();
 
 		// A statement that does have dec_key = dest
-		let mut s_with_key = statement(1, 1, None, 0);
+		let mut s_with_key = unsigned_statement(1, 1, None, 0);
 		let plain1 = b"The most valuable secret".to_vec();
 		s_with_key.encrypt(&plain1, &public1).unwrap();
-		re_sign(&mut s_with_key, 1);
+		sign_with(&mut s_with_key, 1);
 
 		// A statement with a different dec_key
-		let mut s_other_key = statement(2, 2, None, 0);
+		let mut s_other_key = unsigned_statement(2, 2, None, 0);
 		let plain2 = b"The second most valuable secret".to_vec();
 		s_other_key.encrypt(&plain2, &public2).unwrap();
-		re_sign(&mut s_other_key, 2);
+		sign_with(&mut s_other_key, 2);
 
 		// Submit them all
 		for s in [&s_with_key, &s_other_key] {
@@ -2323,16 +2334,16 @@ mod tests {
 			.unwrap();
 
 		// A statement that does have dec_key = dest
-		let mut s_with_key = statement(1, 1, None, 0);
+		let mut s_with_key = unsigned_statement(1, 1, None, 0);
 		let plain1 = b"The most valuable secret".to_vec();
 		s_with_key.encrypt(&plain1, &public1).unwrap();
-		re_sign(&mut s_with_key, 1);
+		sign_with(&mut s_with_key, 1);
 
 		// A statement with a different dec_key
-		let mut s_other_key = statement(2, 2, None, 0);
+		let mut s_other_key = unsigned_statement(2, 2, None, 0);
 		let plain2 = b"The second most valuable secret".to_vec();
 		s_other_key.encrypt(&plain2, &public2).unwrap();
-		re_sign(&mut s_other_key, 2);
+		sign_with(&mut s_other_key, 2);
 
 		// Submit them all
 		for s in [&s_with_key, &s_other_key] {
@@ -2372,23 +2383,23 @@ mod tests {
 			.unwrap();
 
 		// statement that SHOULD be returned (matches dest & topic 42)
-		let mut s_good = statement(1, 1, None, 0);
+		let mut s_good = unsigned_statement(1, 1, None, 0);
 		let plaintext_good = b"The most valuable secret".to_vec();
 		s_good.encrypt(&plaintext_good, &public_dest).unwrap();
 		s_good.set_topic(0, topic(42));
-		re_sign(&mut s_good, 1);
+		sign_with(&mut s_good, 1);
 
 		// statement that should NOT be returned (same dest but different topic)
-		let mut s_wrong_topic = statement(2, 2, None, 0);
+		let mut s_wrong_topic = unsigned_statement(2, 2, None, 0);
 		s_wrong_topic.encrypt(b"Wrong topic", &public_dest).unwrap();
 		s_wrong_topic.set_topic(0, topic(99));
-		re_sign(&mut s_wrong_topic, 2);
+		sign_with(&mut s_wrong_topic, 2);
 
 		// statement that should NOT be returned (different dest)
-		let mut s_other_dest = statement(3, 3, None, 0);
+		let mut s_other_dest = unsigned_statement(3, 3, None, 0);
 		s_other_dest.encrypt(b"Other dest", &public_other).unwrap();
 		s_other_dest.set_topic(0, topic(42));
-		re_sign(&mut s_other_dest, 3);
+		sign_with(&mut s_other_dest, 3);
 
 		// submit all
 		for s in [&s_good, &s_wrong_topic, &s_other_dest] {
@@ -2411,10 +2422,10 @@ mod tests {
 
 		// Create a statement that has already expired (expiration at 500 seconds, before current
 		// time)
-		let mut expired_statement = statement(1, 1, None, 100);
+		let mut expired_statement = unsigned_statement(1, 1, None, 100);
 		// set_expiry_from_parts: first arg is expiration timestamp in seconds, second is priority
 		expired_statement.set_expiry_from_parts(500, 1);
-		re_sign(&mut expired_statement, 1);
+		sign_with(&mut expired_statement, 1);
 
 		// Submit should fail with AlreadyExpired
 		assert_eq!(
@@ -2427,9 +2438,9 @@ mod tests {
 
 		// Now create a statement that is not expired (expiration at 2000 seconds, after current
 		// time)
-		let mut valid_statement = statement(1, 1, None, 100);
+		let mut valid_statement = unsigned_statement(1, 1, None, 100);
 		valid_statement.set_expiry_from_parts(2000, 1);
-		re_sign(&mut valid_statement, 1);
+		sign_with(&mut valid_statement, 1);
 
 		// Submit should succeed
 		assert_eq!(store.submit(valid_statement, StatementSource::Network), SubmitResult::New);
@@ -2450,14 +2461,14 @@ mod tests {
 
 		// Account A = 4 (has per-account limits (4, 1000) in the mock runtime)
 		// - Mix of topic, decryption-key and channel to exercise every index.
-		let mut s_a1 = statement(4, 10, Some(100), 100);
+		let mut s_a1 = unsigned_statement(4, 10, Some(100), 100);
 		s_a1.set_topic(0, t42);
-		re_sign(&mut s_a1, 4);
+		sign_with(&mut s_a1, 4);
 		let h_a1 = s_a1.hash();
 
-		let mut s_a2 = statement(4, 20, Some(200), 150);
+		let mut s_a2 = unsigned_statement(4, 20, Some(200), 150);
 		s_a2.set_decryption_key(k7);
-		re_sign(&mut s_a2, 4);
+		sign_with(&mut s_a2, 4);
 		let h_a2 = s_a2.hash();
 
 		let s_a3 = statement(4, 30, None, 50);
@@ -2467,10 +2478,10 @@ mod tests {
 		let s_b1 = statement(3, 10, None, 100);
 		let h_b1 = s_b1.hash();
 
-		let mut s_b2 = statement(3, 15, Some(300), 100);
+		let mut s_b2 = unsigned_statement(3, 15, Some(300), 100);
 		s_b2.set_topic(0, t42);
 		s_b2.set_decryption_key(k7);
-		re_sign(&mut s_b2, 3);
+		sign_with(&mut s_b2, 3);
 		let h_b2 = s_b2.hash();
 
 		// Submit all statements.
@@ -2597,9 +2608,9 @@ mod tests {
 		store.set_time(100);
 
 		// Create a statement that will expire at timestamp 500
-		let mut expired_stmt = statement(1, 1, None, 100);
+		let mut expired_stmt = unsigned_statement(1, 1, None, 100);
 		expired_stmt.set_expiry_from_parts(500, 1);
-		re_sign(&mut expired_stmt, 1);
+		sign_with(&mut expired_stmt, 1);
 		let expired_hash = expired_stmt.hash();
 		store.submit(expired_stmt, StatementSource::Network);
 
@@ -2647,19 +2658,19 @@ mod tests {
 		store.set_time(100);
 
 		// Create statements with expiry at timestamp 200
-		let mut stmt1 = statement(1, 1, None, 100);
+		let mut stmt1 = unsigned_statement(1, 1, None, 100);
 		stmt1.set_expiry_from_parts(200, 1);
-		re_sign(&mut stmt1, 1);
+		sign_with(&mut stmt1, 1);
 		store.submit(stmt1, StatementSource::Network);
 
-		let mut stmt2 = statement(2, 1, None, 100);
+		let mut stmt2 = unsigned_statement(2, 1, None, 100);
 		stmt2.set_expiry_from_parts(200, 1);
-		re_sign(&mut stmt2, 2);
+		sign_with(&mut stmt2, 2);
 		store.submit(stmt2, StatementSource::Network);
 
-		let mut stmt3 = statement(3, 1, None, 100);
+		let mut stmt3 = unsigned_statement(3, 1, None, 100);
 		stmt3.set_expiry_from_parts(200, 1);
-		re_sign(&mut stmt3, 3);
+		sign_with(&mut stmt3, 3);
 		store.submit(stmt3, StatementSource::Network);
 
 		// First call populates the list
@@ -2726,21 +2737,21 @@ mod tests {
 
 		// Create multiple statements for the same account with different expiry timestamps
 		// Account 42 has limit of 42 statements
-		let mut stmt1 = statement(42, 1, Some(1), 100);
+		let mut stmt1 = unsigned_statement(42, 1, Some(1), 100);
 		stmt1.set_expiry_from_parts(200, 1); // Expires at timestamp 200
-		re_sign(&mut stmt1, 42);
+		sign_with(&mut stmt1, 42);
 		let hash1 = stmt1.hash();
 		store.submit(stmt1, StatementSource::Network);
 
-		let mut stmt2 = statement(42, 2, Some(2), 100);
+		let mut stmt2 = unsigned_statement(42, 2, Some(2), 100);
 		stmt2.set_expiry_from_parts(300, 2); // Expires at timestamp 300
-		re_sign(&mut stmt2, 42);
+		sign_with(&mut stmt2, 42);
 		let hash2 = stmt2.hash();
 		store.submit(stmt2, StatementSource::Network);
 
-		let mut stmt3 = statement(42, 3, Some(3), 100);
+		let mut stmt3 = unsigned_statement(42, 3, Some(3), 100);
 		stmt3.set_expiry_from_parts(500, 3); // Expires at timestamp 500
-		re_sign(&mut stmt3, 42);
+		sign_with(&mut stmt3, 42);
 		let hash3 = stmt3.hash();
 		store.submit(stmt3, StatementSource::Network);
 
@@ -2823,9 +2834,9 @@ mod tests {
 		store.set_time(100);
 
 		// Create a statement with expiry at timestamp 200
-		let mut stmt = statement(1, 1, Some(1), 100);
+		let mut stmt = unsigned_statement(1, 1, Some(1), 100);
 		stmt.set_expiry_from_parts(200, 1);
-		re_sign(&mut stmt, 1);
+		sign_with(&mut stmt, 1);
 		let hash = stmt.hash();
 		store.submit(stmt, StatementSource::Network);
 
@@ -2859,11 +2870,11 @@ mod tests {
 		store.set_time(100);
 
 		// Create a statement with topic and decryption key
-		let mut stmt = statement(1, 1, Some(1), 100);
+		let mut stmt = unsigned_statement(1, 1, Some(1), 100);
 		stmt.set_expiry_from_parts(200, 1);
 		stmt.set_topic(0, topic(42));
 		stmt.set_decryption_key(dec_key(7));
-		re_sign(&mut stmt, 1);
+		sign_with(&mut stmt, 1);
 		let hash = stmt.hash();
 		store.submit(stmt, StatementSource::Network);
 
@@ -2927,9 +2938,9 @@ mod tests {
 		store.set_time(1000);
 
 		// Create a statement with expiration timestamp just 1 second in the future
-		let mut stmt = statement(1, 1, None, 100);
+		let mut stmt = unsigned_statement(1, 1, None, 100);
 		stmt.set_expiry_from_parts(1001, 1); // Expires at timestamp 1001
-		re_sign(&mut stmt, 1);
+		sign_with(&mut stmt, 1);
 		let hash = stmt.hash();
 		store.submit(stmt, StatementSource::Network);
 
@@ -2961,9 +2972,9 @@ mod tests {
 		store.set_time(100);
 
 		// Create a statement with expiry at timestamp 200
-		let mut stmt = statement(1, 1, None, 100);
+		let mut stmt = unsigned_statement(1, 1, None, 100);
 		stmt.set_expiry_from_parts(200, 1);
-		re_sign(&mut stmt, 1);
+		sign_with(&mut stmt, 1);
 		let hash = stmt.hash();
 		store.submit(stmt.clone(), StatementSource::Network);
 
