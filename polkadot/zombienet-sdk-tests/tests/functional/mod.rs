@@ -17,6 +17,7 @@ mod parachains_disputes;
 mod parachains_disputes_garbage_candidate;
 mod parachains_max_tranche0;
 mod parachains_pvf;
+mod scheduling_v3;
 mod shared_core_idle_parachain;
 mod spam_statement_distribution_requests;
 mod sync_backing;

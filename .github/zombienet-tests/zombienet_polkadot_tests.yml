@@ -218,6 +218,18 @@
   runner-type: "default"
   use-zombienet-sdk: true
 
+- job-name: "zombienet-polkadot-scheduling-v2-and-v3-collator-with-v3-validators"
+  test-filter: "functional::scheduling_v3::scheduling_v2_and_v3_collator_with_v3_validators"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+
+- job-name: "zombienet-polkadot-scheduling-v3-es-collator-with-v3-validators"
+  test-filter: "functional::scheduling_v3::scheduling_v3_es_collator_with_v3_validators"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+
 - job-name: "zombienet-polkadot-scheduling-v3-dynamic-enablement"
   test-filter: "functional::v3_dynamic_enablement::v3_dynamic_enablement_test"
   runner-type: "default"
