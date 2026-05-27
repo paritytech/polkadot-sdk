@@ -1813,7 +1813,8 @@ fn migrate_v0_to_v1_preserves_mqc_head_with_interleaved_pushes() {
 			run_to_block(System::block_number() + 1, None);
 			// Record whether this push lands in the reordering window: v0 still non-empty means
 			// some old messages are not yet migrated, so the new one must queue behind them.
-			if migration::v0::DownwardMessageQueues::<Test>::decode_len(para).map_or(false, |l| l > 0)
+			if migration::v0::DownwardMessageQueues::<Test>::decode_len(para)
+				.map_or(false, |l| l > 0)
 			{
 				pushed_into_half_migrated = true;
 			}
@@ -1831,7 +1832,11 @@ fn migrate_v0_to_v1_preserves_mqc_head_with_interleaved_pushes() {
 		// The invariant: the head (chained at send time, never recomputed) must equal the chain
 		// folded over the delivered order. Any reordering diverges here with overwhelming odds.
 		let delivered = InboundDownwardQueue::<Test>::peek_all_do_not_call_in_consensus(para);
-		assert_eq!(delivered.len(), pre_msgs as usize + live as usize, "messages lost or duplicated");
+		assert_eq!(
+			delivered.len(),
+			pre_msgs as usize + live as usize,
+			"messages lost or duplicated"
+		);
 		assert_eq!(
 			mqc_head_over(&delivered),
 			DownwardMessageQueueHeads::<Test>::get(para),
