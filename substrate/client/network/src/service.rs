@@ -1617,10 +1617,20 @@ where
 						addr.clone(),
 					);
 				}
-				self.peer_store_handle.add_known_peer(peer_id.into());
+				let peer = peer_id.into();
+				self.peer_store_handle.add_known_peer(peer);
+				self.event_streams.send(Event::PeerIdentified {
+					peer,
+					supported_protocols: protocols
+						.into_iter()
+						.map(|protocol| ProtocolName::from(protocol.to_string()))
+						.collect(),
+				});
 			},
 			SwarmEvent::Behaviour(BehaviourOut::Discovered(peer_id)) => {
-				self.peer_store_handle.add_known_peer(peer_id.into());
+				let peer = peer_id.into();
+				self.peer_store_handle.add_known_peer(peer);
+				self.event_streams.send(Event::PeerDiscovered(peer));
 			},
 			SwarmEvent::Behaviour(BehaviourOut::RandomKademliaStarted) => {
 				if let Some(metrics) = self.metrics.as_ref() {

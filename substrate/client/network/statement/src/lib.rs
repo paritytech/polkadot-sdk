@@ -27,38 +27,42 @@
 //! `Future` that processes statements.
 
 mod affinity;
+pub mod v2dht;
 
-use crate::config::*;
+use crate::{
+	config::*,
+	v2dht::peers_topology::{PeersTopology, PeersTopologyConfig},
+};
 
 use affinity::AffinityFilter;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
 use futures::{
 	channel::oneshot,
-	future::{pending, FusedFuture},
+	future::{FusedFuture, pending},
 	prelude::*,
 	stream::FuturesUnordered,
 };
 use governor::{
+	Quota, RateLimiter,
 	clock::DefaultClock,
 	state::{InMemoryState, NotKeyed},
-	Quota, RateLimiter,
 };
 use prometheus_endpoint::{
-	exponential_buckets, register, Counter, Gauge, GaugeVec, Histogram, HistogramOpts, Opts,
-	PrometheusError, Registry, U64,
+	Counter, Gauge, GaugeVec, Histogram, HistogramOpts, Opts, PrometheusError, Registry, U64,
+	exponential_buckets, register,
 };
 use rand::seq::IteratorRandom;
 use sc_network::{
+	Event, NetworkBackend, NetworkEventStream, NetworkPeers, NetworkStateInfo,
 	config::{NonReservedPeerMode, SetConfig},
 	error, multiaddr,
 	peer_store::PeerStoreProvider,
 	service::{
-		traits::{NotificationEvent, NotificationService, ValidationResult},
 		NotificationMetrics,
+		traits::{NotificationEvent, NotificationService, ValidationResult},
 	},
 	types::ProtocolName,
-	utils::{interval, LruHashSet},
-	NetworkBackend, NetworkEventStream, NetworkPeers,
+	utils::{LruHashSet, interval},
 };
 use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
@@ -67,7 +71,7 @@ use sp_statement_store::{
 	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
 };
 use std::{
-	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
+	collections::{HashMap, HashSet, VecDeque, hash_map::Entry},
 	iter,
 	num::{NonZeroU32, NonZeroUsize},
 	pin::Pin,
@@ -367,7 +371,7 @@ impl StatementHandlerPrototype {
 	/// Important: the statements handler is initially disabled and doesn't gossip statements.
 	/// Gossiping is enabled when major syncing is done.
 	pub fn build<
-		N: NetworkPeers + NetworkEventStream,
+		N: NetworkPeers + NetworkEventStream + NetworkStateInfo,
 		S: SyncEventStream + sp_consensus::SyncOracle,
 	>(
 		self,
@@ -432,6 +436,10 @@ impl StatementHandlerPrototype {
 			);
 		}
 
+		let network_event_stream = network.event_stream("statement-handler-network");
+		let peers_topology =
+			PeersTopology::new(network.local_peer_id(), true, PeersTopologyConfig::default());
+
 		let handler = StatementHandler {
 			protocol_name: self.protocol_name,
 			notification_service: self.notification_service,
@@ -443,6 +451,8 @@ impl StatementHandlerPrototype {
 			network,
 			sync,
 			sync_event_stream: sync_event_stream.fuse(),
+			network_event_stream: network_event_stream.fuse(),
+			peers_topology,
 			peers: HashMap::new(),
 			statement_store,
 			queue_sender,
@@ -466,7 +476,7 @@ impl StatementHandlerPrototype {
 
 /// Handler for statements. Call [`StatementHandler::run`] to start the processing.
 pub struct StatementHandler<
-	N: NetworkPeers + NetworkEventStream,
+	N: NetworkPeers + NetworkEventStream + NetworkStateInfo,
 	S: SyncEventStream + sp_consensus::SyncOracle,
 > {
 	protocol_name: ProtocolName,
@@ -486,6 +496,10 @@ pub struct StatementHandler<
 	sync: S,
 	/// Receiver for syncing-related events.
 	sync_event_stream: stream::Fuse<Pin<Box<dyn Stream<Item = SyncEvent> + Send>>>,
+	/// Receiver for network topology events.
+	network_event_stream: stream::Fuse<Pin<Box<dyn Stream<Item = Event> + Send>>>,
+	/// Local view of statement-store peers known through network topology events.
+	peers_topology: PeersTopology,
 	/// Notification service.
 	notification_service: Box<dyn NotificationService>,
 	// All connected peers
@@ -686,7 +700,7 @@ impl Peer {
 
 impl<N, S> StatementHandler<N, S>
 where
-	N: NetworkPeers + NetworkEventStream,
+	N: NetworkPeers + NetworkEventStream + NetworkStateInfo,
 	S: SyncEventStream + sp_consensus::SyncOracle,
 {
 	/// Create a new `StatementHandler` for testing/benchmarking purposes.
@@ -703,6 +717,8 @@ where
 		queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
 		statements_per_second: NonZeroU32,
 	) -> Self {
+		let local_peer = network.local_peer_id();
+
 		Self {
 			protocol_name,
 			notification_service,
@@ -712,6 +728,10 @@ where
 			network,
 			sync,
 			sync_event_stream,
+			network_event_stream: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = Event> + Send>>)
+				.fuse(),
+			peers_topology: PeersTopology::new(local_peer, true, PeersTopologyConfig::default()),
 			peers,
 			statement_store,
 			queue_sender,
@@ -765,6 +785,14 @@ where
 						return;
 					}
 				}
+				network_event = self.network_event_stream.next() => {
+					if let Some(network_event) = network_event {
+						self.handle_network_event(network_event);
+					} else {
+						// Network event stream has seemingly closed. Closing as well.
+						return;
+					}
+				}
 				event = self.notification_service.next_event().fuse() => {
 					if let Some(event) = event {
 						self.handle_notification_event(event).await
@@ -793,6 +821,16 @@ where
 				self.drain_deferred_peers();
 				self.start_sync_recovery();
 			}
+		}
+	}
+
+	fn handle_network_event(&mut self, event: Event) {
+		match event {
+			Event::PeerDiscovered(peer) => self.peers_topology.note_seen(peer),
+			Event::PeerIdentified { peer, supported_protocols } => self
+				.peers_topology
+				.note_identified(peer, supported_protocols.contains(&self.protocol_name)),
+			_ => {},
 		}
 	}
 
@@ -1000,6 +1038,7 @@ where
 					return;
 				};
 				let is_light = peer_role.is_light();
+				let dht_eligible = protocol_version == PeerProtocolVersion::V2 && !is_light;
 				log::debug!(
 					target: LOG_TARGET,
 					"Peer {peer} connected with statement protocol {protocol_version:?}, role={peer_role:?}"
@@ -1025,6 +1064,7 @@ where
 					},
 				);
 				debug_assert!(_was_in.is_none());
+				self.peers_topology.on_peer_connected(peer, dht_eligible);
 
 				self.metrics.as_ref().map(|metrics| {
 					if let Some(peer) = self.peers.get(&peer) {
@@ -1039,6 +1079,7 @@ where
 				}
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
+				self.peers_topology.on_peer_disconnected(peer);
 				let removed_peer = self.peers.remove(&peer);
 				debug_assert!(removed_peer.is_some());
 
@@ -1517,8 +1558,8 @@ mod tests {
 
 	use super::*;
 	use std::sync::{
-		atomic::{AtomicBool, Ordering},
 		Mutex,
+		atomic::{AtomicBool, Ordering},
 	};
 
 	/// Default seed used for bloom filters in tests.
@@ -1526,6 +1567,7 @@ mod tests {
 
 	#[derive(Clone)]
 	struct TestNetwork {
+		local_peer: PeerId,
 		reported_peers: Arc<Mutex<Vec<(PeerId, sc_network::ReputationChange)>>>,
 		disconnected_peers: Arc<Mutex<Vec<PeerId>>>,
 		/// Role to return from `peer_role`. Default: `Full`.
@@ -1537,6 +1579,7 @@ mod tests {
 	impl TestNetwork {
 		fn new() -> Self {
 			Self {
+				local_peer: PeerId::random(),
 				reported_peers: Arc::new(Mutex::new(Vec::new())),
 				disconnected_peers: Arc::new(Mutex::new(Vec::new())),
 				default_role: sc_network::ObservedRole::Full,
@@ -1547,6 +1590,7 @@ mod tests {
 
 		fn new_light() -> Self {
 			Self {
+				local_peer: PeerId::random(),
 				reported_peers: Arc::new(Mutex::new(Vec::new())),
 				disconnected_peers: Arc::new(Mutex::new(Vec::new())),
 				default_role: sc_network::ObservedRole::Light,
@@ -1688,6 +1732,20 @@ mod tests {
 
 		fn is_offline(&self) -> bool {
 			unimplemented!()
+		}
+	}
+
+	impl NetworkStateInfo for TestNetwork {
+		fn external_addresses(&self) -> Vec<sc_network::Multiaddr> {
+			Vec::new()
+		}
+
+		fn listen_addresses(&self) -> Vec<sc_network::Multiaddr> {
+			Vec::new()
+		}
+
+		fn local_peer_id(&self) -> PeerId {
+			self.local_peer
 		}
 	}
 
@@ -1966,6 +2024,14 @@ mod tests {
 			sync_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
 				.fuse(),
+			network_event_stream: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = Event> + Send>>)
+				.fuse(),
+			peers_topology: PeersTopology::new(
+				network.local_peer_id(),
+				true,
+				PeersTopologyConfig::default(),
+			),
 			peers,
 			statement_store: Arc::new(statement_store.clone()),
 			queue_sender,
@@ -1992,6 +2058,41 @@ mod tests {
 			})
 			.map(|s| s.hash())
 			.collect()
+	}
+
+	#[tokio::test]
+	async fn network_events_update_statement_peer_topology() {
+		let (mut handler, _statement_store, _network, _notification_service, _, _) =
+			build_handler(0);
+		let peer = PeerId::random();
+		let topic = [1; 32];
+
+		handler.handle_network_event(Event::PeerDiscovered(peer));
+		handler.handle_network_event(Event::PeerIdentified {
+			peer,
+			supported_protocols: std::iter::once(handler.protocol_name.clone()).collect(),
+		});
+
+		assert_eq!(handler.peers_topology.known_peers_count(), 1);
+		assert!(handler.peers_topology.closest_known(topic, 1).is_empty());
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		assert!(handler.peers_topology.is_connected(&peer));
+		assert_eq!(handler.peers_topology.closest_known(topic, 1), vec![peer]);
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamClosed { peer })
+			.await;
+
+		assert!(!handler.peers_topology.is_connected(&peer));
 	}
 
 	/// Simulate the network closing the substream for every disconnected
@@ -2201,6 +2302,14 @@ mod tests {
 			sync_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
 				.fuse(),
+			network_event_stream: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = Event> + Send>>)
+				.fuse(),
+			peers_topology: PeersTopology::new(
+				network.local_peer_id(),
+				true,
+				PeersTopologyConfig::default(),
+			),
 			peers: HashMap::new(),
 			statement_store: Arc::new(statement_store.clone()),
 			queue_sender,
@@ -2244,6 +2353,14 @@ mod tests {
 			sync_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
 				.fuse(),
+			network_event_stream: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = Event> + Send>>)
+				.fuse(),
+			peers_topology: PeersTopology::new(
+				network.local_peer_id(),
+				true,
+				PeersTopologyConfig::default(),
+			),
 			peers: HashMap::new(),
 			statement_store: Arc::new(statement_store.clone()),
 			queue_sender,
@@ -3661,6 +3778,14 @@ mod tests {
 			sync_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
 				.fuse(),
+			network_event_stream: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = Event> + Send>>)
+				.fuse(),
+			peers_topology: PeersTopology::new(
+				network.local_peer_id(),
+				true,
+				PeersTopologyConfig::default(),
+			),
 			peers: HashMap::new(),
 			statement_store: Arc::new(statement_store.clone()),
 			queue_sender,
@@ -4016,6 +4141,14 @@ mod tests {
 			sync_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
 				.fuse(),
+			network_event_stream: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = Event> + Send>>)
+				.fuse(),
+			peers_topology: PeersTopology::new(
+				network.local_peer_id(),
+				true,
+				PeersTopologyConfig::default(),
+			),
 			peers: HashMap::new(),
 			statement_store: Arc::new(statement_store),
 			queue_sender,
@@ -4081,6 +4214,14 @@ mod tests {
 			sync_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
 				.fuse(),
+			network_event_stream: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = Event> + Send>>)
+				.fuse(),
+			peers_topology: PeersTopology::new(
+				network.local_peer_id(),
+				true,
+				PeersTopologyConfig::default(),
+			),
 			peers: HashMap::new(),
 			statement_store: Arc::new(statement_store),
 			queue_sender,
@@ -4158,6 +4299,14 @@ mod tests {
 			sync_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
 				.fuse(),
+			network_event_stream: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = Event> + Send>>)
+				.fuse(),
+			peers_topology: PeersTopology::new(
+				network.local_peer_id(),
+				true,
+				PeersTopologyConfig::default(),
+			),
 			peers,
 			statement_store: Arc::new(statement_store),
 			queue_sender,
@@ -4243,6 +4392,7 @@ mod tests {
 			|network: TestNetwork, dropped: bool| -> StatementHandler<TestNetwork, TestSync> {
 				let (sync, _) = TestSync::with_syncing(false);
 				let (queue_sender, _) = async_channel::bounded(2);
+				let local_peer = network.local_peer_id();
 				let mut peers = HashMap::new();
 				peers.insert(PeerId::random(), make_peer());
 				StatementHandler {
@@ -4258,6 +4408,14 @@ mod tests {
 					sync_event_stream: (Box::pin(futures::stream::pending())
 						as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
 						.fuse(),
+					network_event_stream: (Box::pin(futures::stream::pending())
+						as Pin<Box<dyn Stream<Item = Event> + Send>>)
+						.fuse(),
+					peers_topology: PeersTopology::new(
+						local_peer,
+						true,
+						PeersTopologyConfig::default(),
+					),
 					peers,
 					statement_store: Arc::new(TestStatementStore::new()),
 					queue_sender,
