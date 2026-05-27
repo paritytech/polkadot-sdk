@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779837232732,
+  "lastUpdate": 1779890485729,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "3a2008517f4f9e6ef6fc97f9ecf7fa3f5b8c18e9",
-          "message": "Version bumps and prdocs reordering from stable2509 (#9974)\n\nThis PR backports regular version bumps and prdocs reordering from the\nstable2509 branch back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2025-10-15T08:34:35Z",
-          "tree_id": "cb6d88dbf9b95d1d659f37bf0d70240e684a4e9c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3a2008517f4f9e6ef6fc97f9ecf7fa3f5b8c18e9"
-        },
-        "date": 1760521255242,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.314192790933333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20002449180000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13425355050000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7d525248d594c79dcc5e30217becbd56d2fcda40",
+          "message": "allow Root-originated nested CREATE (#12144)\n\n# Allow Root-originated nested CREATE in pallet-revive\n\nCloses paritytech/contract-issues#279.\n\n## Motivation\n\n`pallet-revive`'s exec stack rejects `Origin::Root` at every constructor\nframe, so `bare_call(RuntimeOrigin::root(), contract_addr, ...)` errors\n`RootNotAllowed` the moment the called contract reaches a\n`CREATE`/`CREATE2` opcode — even though the contract itself is the\nsemantic instantiator.\n\nThe historical reason for the block was that the origin had to fund the\nnew contract's ED. Since the PGAS rework, the ED is freshly minted by\n`T::Deposit::init_contract` and immediately deactivated for issuance\naccounting, so the origin no longer needs to pay it.\n\n## Changes\n\n- **Remove the `RootNotAllowed` ensure** at the start of the constructor\nframe in [`exec.rs`](substrate/frame/revive/src/exec.rs).\n- **EVM CREATE under Root**: when constructing the runtime code's\n`CodeInfo`, substitute the missing origin account with the pallet's own\naccount as a sentinel owner and a zero deposit. Both `charge_deposit`\nand `refund_deposit` short-circuit at amount 0, and the sentinel can't\nbe signed for, so the code can't be removed via the owner-gated path. A\nnew `ContractBlob::from_evm_runtime_code_with_deposit` exposes the\n(owner, deposit) construction explicitly.\n- **`do_terminate` under Root**: the function called\n`origin.account_id()?` and silently failed for Root (the result was\nswallowed by `.ok()` at the SELFDESTRUCT queue site), leaving the\ncontract on-chain after a \"successful\" call. Substitute the missing\norigin with the pallet-account sentinel at the top of the function so\nrefund destination and beneficiary-ED bootstrap don't need to\nspecial-case `Root`.\n\nRoot is still **not** allowed to instantiate directly:\n`instantiate`/`bare_instantiate` continue to gate on\n`T::InstantiateOrigin::ensure_origin` (default `EnsureSigned` →\n`BadOrigin`). The change only unblocks the case where another contract\nsits between Root and the new contract and acts as the instantiator.\nGiving Root its own contract-address attribution is intentionally out of\nscope.\n\n## Test plan\n\nTwo parametrized Solidity tests (Solc and Resolc backends) using a new\n`NestedDeployer` fixture:\n\n- **`root_call_can_create_and_destroy_in_same_tx`** — Root invokes a\ndeployer that creates a child and immediately calls `selfdestruct` on it\n(`only_if_same_tx: true`, EIP-6780). Asserts the child is gone\npost-call.\n- **`root_call_can_create_and_destroy_in_next_block`** — Root creates\nthe child in block N, then in block N+1 calls the child's\n`destroyViaPrecompile` (`ISystem.terminate`, `only_if_same_tx: false`).\nAsserts the child is gone, and that no storage-deposit hold landed on\nthe child or deployer and no EVM upload deposit hit the pallet sentinel.\n\nThe `resolc → solc` combination is omitted because PVM `new` references\na baked-in PVM code hash; a Resolc parent cannot create an EVM child.\nThe runtime has no Root-only path that could bypass this (Root only\nreaches CREATE via an intermediary contract, which is constrained by its\ncompilation backend).\n\nExisting `root_cannot_instantiate{,_with_code}` and `root_can_call`\ncontinue to pass. Full `pallet-revive` suite is green.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
+          "timestamp": "2026-05-27T11:21:50Z",
+          "tree_id": "47b6ec7abd3be0a292ad1f148ba6861fee590a4e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d525248d594c79dcc5e30217becbd56d2fcda40"
+        },
+        "date": 1779890457097,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.285334177900001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1384189308,
             "unit": "seconds"
           }
         ]
