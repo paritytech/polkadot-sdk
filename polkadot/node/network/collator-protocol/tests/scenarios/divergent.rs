@@ -1143,6 +1143,7 @@ use crate::{
 	common::world::activated_world,
 };
 use crate::common::world::WorldExt as _;
+use polkadot_collator_protocol::validator_side_consts::MAX_UNSHARED_DOWNLOAD_TIME;
 use polkadot_node_subsystem::OverseerSignal;
 use polkadot_primitives::{
 	CandidateEvent, CoreIndex, GroupIndex, HeadData, Id as ParaId,
@@ -1262,5 +1263,62 @@ fn v2_co_carrier_rep_arbitration_picks_high_rep_peer<S: CollatorSut>() {
 		1,
 		"exactly one fetch and it goes to the rep-best peer",
 	);
+}
+
+/// Co-advertiser *fallback*: when several peers carry the same candidate, the validator
+/// fetches from one and *parks* the others as fallbacks — and if the in-flight fetch
+/// fails, it retries from a parked co-advertiser without waiting for re-advertisement.
+///
+/// This is the failure-path companion to `v2_same_candidate_from_multiple_peers_fetched_once`
+/// (which only checks the happy path fires once). Reviewer ask on #12004:
+/// "exercise the fallback of fetching a collation based on a duplicated advertisement from
+/// a queued peer."
+///
+/// Two V2 peers advertise the same candidate; the validator must:
+///   1. fire *exactly one* fetch and keep the duplicate parked, then
+///   2. on that fetch timing out, fire the fallback fetch to the other carrier.
+///
+/// `bug_on = "experimental"`: legacy parks the duplicate and re-fetches on timeout. Pre-
+/// #12004 experimental keys in-flight dedup on `(offer, peer_id)`, so the two carriers'
+/// `Advertisement`s differ and *both* fetches fire at once (bug 1) — there is no parked
+/// fallback, and step 1's "exactly one fetch" assertion fails. Post-#12004 the offer-only
+/// dedup makes the second carrier a true fallback and this passes on experimental too.
+#[crate::sim_test(
+	bug_on = "experimental",
+	bug_url = "github:paritytech/polkadot-sdk#12004"
+)]
+fn v2_co_carrier_fallback_fetches_from_second_peer_on_failure<S: CollatorSut>() {
+	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
+	let leaf = w.leaf();
+
+	let peer_a = w.declared_peer(PARA, V2);
+	let peer_b = w.declared_peer(PARA, V2);
+	// Same candidate (hash) advertised by both peers.
+	let cand = w.candidate_at(leaf).para(PARA).build();
+	w.advertise_with_parent_head(&peer_a, leaf, cand.hash(), cand.parent_head_hash());
+	w.advertise_with_parent_head(&peer_b, leaf, cand.hash(), cand.parent_head_hash());
+
+	// Settle long enough that any second concurrent fetch would have fired.
+	w.base.sim.advance(Duration::from_millis(300));
+
+	// Step 1 — exactly one fetch in flight; the other carrier is parked as a fallback.
+	// (This is the assertion pre-#12004 experimental fails: it double-fetches.)
+	w.base.sim.expect_count(
+		|e| matches!(e, Effect::SendRequest { .. }),
+		1,
+		"exactly one fetch for the shared V2 candidate; the duplicate must be parked",
+	);
+
+	// Identify which carrier got the (single) first fetch, so we can assert the fallback
+	// targets the *other* one.
+	let (first_peer, _) = w
+		.first_fetch_after(0)
+		.expect("exactly one fetch fired, so first_fetch_after must find it");
+	let other_peer = if first_peer == peer_a.peer_id { peer_b.peer_id } else { peer_a.peer_id };
+
+	// Step 2 — never respond; advance past the per-fetch deadline. The parked co-advertiser
+	// must now be used as the fallback, without any new advertisement having arrived.
+	w.base.sim.advance(MAX_UNSHARED_DOWNLOAD_TIME + Duration::from_millis(100));
+	let _ = w.expect_fetch_to(other_peer);
 }
 }
