@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779837309990,
+  "lastUpdate": 1779890560206,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "142614787+andreitrand@users.noreply.github.com",
-            "name": "Andrei Trandafir",
-            "username": "andreitrand"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1594cbd4d087a9f67a029a44ca41ad0a78434d53",
-          "message": "staking: Documentation fixes (#9728)\n\nAdded several documentation-related fixes. In more detail:\n* Typo fixes and rephrasing inside the pallet's Readme file\n* Various code comment fixes\n\nRelated issue: N/A\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
-          "timestamp": "2025-10-14T13:58:27Z",
-          "tree_id": "45644ca50ef216ea93e24622594916c681c91dcd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1594cbd4d087a9f67a029a44ca41ad0a78434d53"
-        },
-        "date": 1760454338963,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63624.920000000006,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52939.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.46038585128,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4577231385900005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4581237495600017,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9344211449599924,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4959741532399993,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.657719510540981,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005400502900000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000018618120000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000020782109999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000020782109999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.43389560305999897,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.245924143589992,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000018618120000000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 0.00001933673,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7d525248d594c79dcc5e30217becbd56d2fcda40",
+          "message": "allow Root-originated nested CREATE (#12144)\n\n# Allow Root-originated nested CREATE in pallet-revive\n\nCloses paritytech/contract-issues#279.\n\n## Motivation\n\n`pallet-revive`'s exec stack rejects `Origin::Root` at every constructor\nframe, so `bare_call(RuntimeOrigin::root(), contract_addr, ...)` errors\n`RootNotAllowed` the moment the called contract reaches a\n`CREATE`/`CREATE2` opcode — even though the contract itself is the\nsemantic instantiator.\n\nThe historical reason for the block was that the origin had to fund the\nnew contract's ED. Since the PGAS rework, the ED is freshly minted by\n`T::Deposit::init_contract` and immediately deactivated for issuance\naccounting, so the origin no longer needs to pay it.\n\n## Changes\n\n- **Remove the `RootNotAllowed` ensure** at the start of the constructor\nframe in [`exec.rs`](substrate/frame/revive/src/exec.rs).\n- **EVM CREATE under Root**: when constructing the runtime code's\n`CodeInfo`, substitute the missing origin account with the pallet's own\naccount as a sentinel owner and a zero deposit. Both `charge_deposit`\nand `refund_deposit` short-circuit at amount 0, and the sentinel can't\nbe signed for, so the code can't be removed via the owner-gated path. A\nnew `ContractBlob::from_evm_runtime_code_with_deposit` exposes the\n(owner, deposit) construction explicitly.\n- **`do_terminate` under Root**: the function called\n`origin.account_id()?` and silently failed for Root (the result was\nswallowed by `.ok()` at the SELFDESTRUCT queue site), leaving the\ncontract on-chain after a \"successful\" call. Substitute the missing\norigin with the pallet-account sentinel at the top of the function so\nrefund destination and beneficiary-ED bootstrap don't need to\nspecial-case `Root`.\n\nRoot is still **not** allowed to instantiate directly:\n`instantiate`/`bare_instantiate` continue to gate on\n`T::InstantiateOrigin::ensure_origin` (default `EnsureSigned` →\n`BadOrigin`). The change only unblocks the case where another contract\nsits between Root and the new contract and acts as the instantiator.\nGiving Root its own contract-address attribution is intentionally out of\nscope.\n\n## Test plan\n\nTwo parametrized Solidity tests (Solc and Resolc backends) using a new\n`NestedDeployer` fixture:\n\n- **`root_call_can_create_and_destroy_in_same_tx`** — Root invokes a\ndeployer that creates a child and immediately calls `selfdestruct` on it\n(`only_if_same_tx: true`, EIP-6780). Asserts the child is gone\npost-call.\n- **`root_call_can_create_and_destroy_in_next_block`** — Root creates\nthe child in block N, then in block N+1 calls the child's\n`destroyViaPrecompile` (`ISystem.terminate`, `only_if_same_tx: false`).\nAsserts the child is gone, and that no storage-deposit hold landed on\nthe child or deployer and no EVM upload deposit hit the pallet sentinel.\n\nThe `resolc → solc` combination is omitted because PVM `new` references\na baked-in PVM code hash; a Resolc parent cannot create an EVM child.\nThe runtime has no Root-only path that could bypass this (Root only\nreaches CREATE via an intermediary contract, which is constrained by its\ncompilation backend).\n\nExisting `root_cannot_instantiate{,_with_code}` and `root_can_call`\ncontinue to pass. Full `pallet-revive` suite is green.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
+          "timestamp": "2026-05-27T11:21:50Z",
+          "tree_id": "47b6ec7abd3be0a292ad1f148ba6861fee590a4e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d525248d594c79dcc5e30217becbd56d2fcda40"
+        },
+        "date": 1779890531616,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63634.22000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52936.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7904070469300017,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002377835,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002154634,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8078923630299645,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.85004983545,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002377835,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.455407806852899,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.5113551329100012,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.8379003110300003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8546958503500024,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.65808917085997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005788631160000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002154634,
             "unit": "seconds"
           }
         ]
