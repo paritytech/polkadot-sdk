@@ -23,8 +23,8 @@
 //! `AUTHORITY_DISCOVERY` key.
 //!
 //! Once the API is detected, it's assumed to remain available. The authority set is taken in
-//! authoring order and each node reserves up to `max_reserved` of its nearest ring neighbors 
-//! on both sides. The immediate neighbors get a direct 1-hop block-announcement path, and more 
+//! authoring order and each node reserves up to `max_reserved` of its nearest ring neighbors
+//! on both sides. The immediate neighbors get a direct 1-hop block-announcement path, and more
 //! distant authors receive blocks with enough lead time before they author.
 
 use std::{

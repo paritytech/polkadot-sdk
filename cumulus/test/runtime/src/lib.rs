@@ -677,7 +677,7 @@ pub mod migrations {
 				);
 
 				// Mirror `pallet_session::do_set_keys`: increment the account's consumer
-				// count so a future `purge_keys` decrements it correctly. Zombienet-injected 
+				// count so a future `purge_keys` decrements it correctly. Zombienet-injected
 				// aura keys without endowment are skipped — they have no consumer to track.
 				if frame_system::Pallet::<Runtime>::providers(&account) > 0 {
 					let inc_ok = frame_system::Pallet::<Runtime>::inc_consumers(&account).is_ok();
