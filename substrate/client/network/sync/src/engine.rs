@@ -88,6 +88,24 @@ const MAX_KNOWN_BLOCKS: usize = 1024; // ~32kb per peer + LruHashSet overhead
 /// Maximum allowed size for a block announce.
 const MAX_BLOCK_ANNOUNCE_SIZE: u64 = 1024 * 1024;
 
+/// Generate the block announces protocol name from the genesis hash and fork id.
+pub fn block_announces_protocol_name<Hash: AsRef<[u8]>>(
+	genesis_hash: Hash,
+	fork_id: Option<&str>,
+) -> String {
+	let genesis_hash = genesis_hash.as_ref();
+	if let Some(fork_id) = fork_id {
+		format!("/{}/{}/block-announces/1", array_bytes::bytes2hex("", genesis_hash), fork_id)
+	} else {
+		format!("/{}/block-announces/1", array_bytes::bytes2hex("", genesis_hash))
+	}
+}
+
+/// Generate the legacy block announces protocol name from chain specific protocol identifier.
+pub fn block_announces_legacy_protocol_name(protocol_id: &ProtocolId) -> String {
+	format!("/{}/block-announces/1", protocol_id.as_ref())
+}
+
 mod rep {
 	use sc_network::ReputationChange as Rep;
 	/// Peer has different genesis.
@@ -1146,22 +1164,11 @@ where
 		metrics: NotificationMetrics,
 		peer_store_handle: Arc<dyn PeerStoreProvider>,
 	) -> (N::NotificationProtocolConfig, Box<dyn NotificationService>) {
-		let block_announces_protocol = {
-			let genesis_hash = genesis_hash.as_ref();
-			if let Some(fork_id) = fork_id {
-				format!(
-					"/{}/{}/block-announces/1",
-					array_bytes::bytes2hex("", genesis_hash),
-					fork_id
-				)
-			} else {
-				format!("/{}/block-announces/1", array_bytes::bytes2hex("", genesis_hash))
-			}
-		};
+		let block_announces_protocol = block_announces_protocol_name(genesis_hash, fork_id);
 
 		N::notification_config(
 			block_announces_protocol.into(),
-			iter::once(format!("/{}/block-announces/1", protocol_id.as_ref()).into()).collect(),
+			iter::once(block_announces_legacy_protocol_name(&protocol_id).into()).collect(),
 			MAX_BLOCK_ANNOUNCE_SIZE,
 			Some(NotificationHandshake::new(BlockAnnouncesHandshake::<B>::build(
 				roles,

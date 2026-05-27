@@ -45,7 +45,7 @@ use sp_core::crypto::key_types;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block as BlockT;
 
-use sc_network_sync::SyncingService;
+use sc_network_sync::{block_announces_protocol_name, SyncingService};
 
 const LOG_TARGET: &str = "collator-discovery";
 
@@ -124,11 +124,8 @@ where
 		return Ok(());
 	}
 
-	let genesis_hex = array_bytes::bytes2hex("", genesis_hash.as_ref());
-	let protocol: ProtocolName = match fork_id.as_deref() {
-		Some(f) => format!("/{}/{}/block-announces/1", genesis_hex, f).into(),
-		None => format!("/{}/block-announces/1", genesis_hex).into(),
-	};
+	let protocol: ProtocolName =
+		block_announces_protocol_name(genesis_hash, fork_id.as_deref()).into();
 
 	use futures::StreamExt;
 	let dht_event_stream = network_event_stream.filter_map(|e| async move {
