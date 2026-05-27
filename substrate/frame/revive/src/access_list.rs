@@ -35,14 +35,18 @@ pub enum KeyKind {
 }
 
 /// One entry per `(contract address, storage slot)` accessed in the current tx.
+///
+/// Field order is `slot, address, key_kind` so the derived `Ord` short-circuits
+/// on the slot first — the most-discriminating field in the typical access
+/// pattern (one contract touching many slots within a transaction).
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
 pub struct AccessEntry {
+	/// 32-byte slot identifier, projected from a `Key` via [`crate::exec::Key::to_slot`].
+	pub slot: [u8; 32],
 	/// Contract whose child trie is being touched.
 	pub address: H160,
 	/// Whether the originating `Key` was `Fix` or `Var`.
 	pub key_kind: KeyKind,
-	/// 32-byte slot identifier, projected from a `Key` via [`crate::exec::Key::to_slot`].
-	pub slot: [u8; 32],
 }
 
 /// Per-transaction access list with per-frame rollback support. Layout
