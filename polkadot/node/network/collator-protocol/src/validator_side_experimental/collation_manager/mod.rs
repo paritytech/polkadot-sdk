@@ -31,8 +31,8 @@ use crate::{
 	LeafSchedulingInfo, LOG_TARGET,
 };
 use fatality::Split;
-use polkadot_node_clock::Clock;
 use futures::{channel::oneshot, stream::FusedStream};
+use polkadot_node_clock::Clock;
 use polkadot_node_network_protocol::{
 	peer_set::CollationVersion,
 	request_response::{outgoing::RequestError, v2 as request_v2, Requests},
@@ -252,10 +252,8 @@ impl CollationManager {
 						continue;
 					},
 				};
-				self.per_scheduling_parent.insert(
-					*ancestor,
-					PerSchedulingParent::new(session_index, core, &*self.clock),
-				);
+				self.per_scheduling_parent
+					.insert(*ancestor, PerSchedulingParent::new(session_index, core, &*self.clock));
 			}
 
 			// Fetch and store the leaf's full per-core claim queue. Capacity at every

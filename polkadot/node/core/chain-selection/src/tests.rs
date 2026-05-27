@@ -29,8 +29,8 @@ use std::{
 use assert_matches::assert_matches;
 use codec::Encode;
 use futures::channel::oneshot;
-use polkadot_node_clock::MockClock;
 use parking_lot::Mutex;
+use polkadot_node_clock::MockClock;
 use sp_core::testing::TaskExecutor;
 
 use polkadot_node_subsystem::{messages::AllMessages, ActiveLeavesUpdate};

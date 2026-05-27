@@ -480,10 +480,12 @@ impl PeerData {
 	fn is_inactive(&self, clock: &dyn Clock, policy: &crate::CollatorEvictionPolicy) -> bool {
 		let now = clock.now();
 		match self.state {
-			PeerState::Connected(connected_at) =>
-				now.saturating_duration_since(connected_at) >= policy.undeclared,
-			PeerState::Collating(ref state) =>
-				now.saturating_duration_since(state.last_active) >= policy.inactive_collator,
+			PeerState::Connected(connected_at) => {
+				now.saturating_duration_since(connected_at) >= policy.undeclared
+			},
+			PeerState::Collating(ref state) => {
+				now.saturating_duration_since(state.last_active) >= policy.inactive_collator
+			},
 		}
 	}
 }
@@ -590,8 +592,8 @@ struct HeldOffAdvertisement {
 
 /// All state relevant for the validator side of the protocol lives here.
 struct State {
-	/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`]; tests inject a
-	/// mock.
+	/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`];
+	/// tests inject a mock.
 	clock: Arc<dyn Clock>,
 	/// Leaves that do support asynchronous backing along with
 	/// implicit ancestry. Leaves from the implicit view are present in

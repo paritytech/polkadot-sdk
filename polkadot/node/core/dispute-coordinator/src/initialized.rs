@@ -317,7 +317,13 @@ impl Initialized {
 							default_confirm
 						},
 						FromOrchestra::Communication { msg } => {
-							self.handle_incoming(ctx, &mut overlay_db, msg, clock.duration_since_epoch().as_secs()).await?
+							self.handle_incoming(
+								ctx,
+								&mut overlay_db,
+								msg,
+								clock.duration_since_epoch().as_secs(),
+							)
+							.await?
 						},
 					},
 				};

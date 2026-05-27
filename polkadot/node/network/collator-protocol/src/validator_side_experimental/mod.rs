@@ -26,11 +26,11 @@ use crate::{
 	validator_side_experimental::{common::MIN_FETCH_TIMER_DELAY, peer_manager::PersistentDb},
 	LOG_TARGET,
 };
-use polkadot_node_clock::Clock;
 use collation_manager::CollationManager;
 use common::{ProspectiveCandidate, MAX_STORED_SCORES_PER_PARA};
 use error::{log_error, FatalError, FatalResult, Result};
 use futures::{future::Fuse, select, FutureExt, StreamExt};
+use polkadot_node_clock::Clock;
 use polkadot_node_network_protocol::{
 	self as net_protocol, peer_set::PeerSet, v1 as protocol_v1, v2 as protocol_v2,
 	v3_collation as protocol_v3, CollationProtocols, PeerId,

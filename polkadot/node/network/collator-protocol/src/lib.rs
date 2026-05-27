@@ -196,16 +196,11 @@ impl<Context> CollatorProtocolSubsystem {
 				request_receiver_v2,
 				metrics,
 				clock,
-			} => collator_side::run(
-				ctx,
-				peer_id,
-				collator_pair,
-				request_receiver_v2,
-				metrics,
-				clock,
-			)
-			.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
-			.boxed(),
+			} => {
+				collator_side::run(ctx, peer_id, collator_pair, request_receiver_v2, metrics, clock)
+					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
+					.boxed()
+			},
 			ProtocolSide::None => return DummySubsystem.start(ctx),
 		};
 
@@ -231,11 +226,7 @@ async fn modify_reputation(
 }
 
 /// Wait until tick and return the timestamp for the following one.
-async fn wait_until_next_tick(
-	clock: &dyn Clock,
-	last_poll: Instant,
-	period: Duration,
-) -> Instant {
+async fn wait_until_next_tick(clock: &dyn Clock, last_poll: Instant, period: Duration) -> Instant {
 	let now = clock.now();
 	let next_poll = last_poll + period;
 

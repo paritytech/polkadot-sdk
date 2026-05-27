@@ -219,7 +219,6 @@ impl Error {
 	}
 }
 
-
 /// The interval, in seconds to check for stagnant blocks.
 #[derive(Debug, Clone)]
 pub struct StagnantCheckInterval(Option<Duration>);

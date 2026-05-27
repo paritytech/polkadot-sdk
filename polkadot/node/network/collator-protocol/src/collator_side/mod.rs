@@ -344,8 +344,8 @@ impl PerSchedulingParent {
 }
 
 struct State {
-	/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`]; tests inject a
-	/// mock.
+	/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`];
+	/// tests inject a mock.
 	clock: Arc<dyn Clock>,
 
 	/// Our network peer id.
