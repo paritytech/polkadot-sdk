@@ -16,12 +16,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::statement::event::{NewStatementEntry, SubscribeEvent};
 use jsonrpsee::ConnectionId;
 use parking_lot::RwLock;
 use sc_rpc::utils::Subscription;
 use sc_statement_store::{MultiFilterSubscriptionEvent, SubscriptionHandle};
-use sp_statement_store::FilterId;
+use sp_statement_store::{FilterId, NewStatementEntry, SubscribeEvent};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::Notify;
 
@@ -76,7 +75,7 @@ impl StatementSubscriptions {
 
 	// Temporary workaround for the race where jsonrpsee exposes the subscription id
 	// only after `PendingSubscriptionSink::accept()`, while the client can call
-	// `statement_unstable_add_filter` as soon as it receives the subscription
+	// `statement_unstable_addFilter` as soon as it receives the subscription
 	// response. Once `PendingSubscriptionSink::subscription_id()` is available in
 	// the jsonrpsee version used by polkadot-sdk, register the subscription before
 	// accepting it and replace this with a plain `get`.

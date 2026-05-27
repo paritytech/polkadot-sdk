@@ -18,13 +18,10 @@
 
 #![allow(non_snake_case)]
 
-use crate::statement::{
-	error::Error,
-	event::{AddFilterResponse, SubscribeEvent},
-};
+use crate::statement::error::Error;
 use jsonrpsee::proc_macros::rpc;
 use sp_core::Bytes;
-use sp_statement_store::{SubmitOutcome, TopicFilter};
+use sp_statement_store::{AddFilterResponse, SubmitOutcome, SubscribeEvent, TopicFilter};
 
 #[rpc(client, server)]
 pub trait StatementSpecApi {
@@ -38,7 +35,7 @@ pub trait StatementSpecApi {
 	async fn statement_unstable_subscribe(&self);
 
 	/// Attaches a filter to an existing subscription
-	#[method(name = "statement_unstable_add_filter", with_extensions)]
+	#[method(name = "statement_unstable_addFilter", with_extensions)]
 	async fn statement_unstable_add_filter(
 		&self,
 		subscription: String,
@@ -46,7 +43,7 @@ pub trait StatementSpecApi {
 	) -> Result<AddFilterResponse, Error>;
 
 	/// Detaches a filter from a subscription
-	#[method(name = "statement_unstable_remove_filter", with_extensions)]
+	#[method(name = "statement_unstable_removeFilter", with_extensions)]
 	fn statement_unstable_remove_filter(
 		&self,
 		subscription: String,

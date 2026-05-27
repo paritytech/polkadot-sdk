@@ -17,28 +17,27 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
+	SubscriptionTaskExecutor,
 	statement::{
+		LOG_TARGET,
 		api::StatementSpecApiServer,
 		error::Error,
-		event::AddFilterResponse,
 		subscription::{
-			filter_id_to_string, parse_filter_id, send_subscription_event, StatementSubscriptions,
+			StatementSubscriptions, filter_id_to_string, parse_filter_id, send_subscription_event,
 		},
-		LOG_TARGET,
 	},
-	SubscriptionTaskExecutor,
 };
 use codec::Decode;
 use futures::{FutureExt, StreamExt};
 use jsonrpsee::{
-	core::async_trait, types::SubscriptionId, ConnectionId, Extensions, PendingSubscriptionSink,
+	ConnectionId, Extensions, PendingSubscriptionSink, core::async_trait, types::SubscriptionId,
 };
 use sc_rpc::utils::Subscription;
 use sc_statement_store::{AddFilterError, MultiFilterSubscriptionApi};
 use sp_core::Bytes;
 use sp_statement_store::{
-	OptimizedTopicFilter, Statement, StatementSource, StatementStore, SubmitOutcome, SubmitResult,
-	TopicFilter,
+	AddFilterResponse, OptimizedTopicFilter, Statement, StatementSource, StatementStore,
+	SubmitOutcome, SubmitResult, SubscribeEvent, TopicFilter,
 };
 use std::sync::Arc;
 
@@ -76,7 +75,7 @@ fn connection_id(ext: &Extensions) -> ConnectionId {
 fn validate_topic_filter(filter: TopicFilter) -> Result<OptimizedTopicFilter, Error> {
 	match &filter {
 		TopicFilter::MatchAny(_) => Err(Error::InvalidParam(
-			"`matchAny` topic filter is not supported by statement_unstable_add_filter; \
+			"`matchAny` topic filter is not supported by statement_unstable_addFilter; \
 			 use `\"any\"` or `{\"matchAll\": [...]}` instead"
 				.to_string(),
 		)),
@@ -105,11 +104,13 @@ where
 
 		let Some(entry) = subscriptions.register(connection_id, sub_id.clone(), handle) else {
 			log::debug!(target: LOG_TARGET, "duplicate subscription id {sub_id}; aborting");
-			let _ = sink.send(&crate::statement::event::SubscribeEvent::Stop).await;
+			let _ = sink.send(&SubscribeEvent::Stop).await;
 			return;
 		};
 
 		let fut = async move {
+			// Keep the registry entry alive for as long as the subscription task is running;
+			// dropping it unregisters this subscription from subsequent filter operations.
 			let _subscription_entry = entry;
 			loop {
 				tokio::select! {

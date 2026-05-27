@@ -20,8 +20,6 @@
 pub mod api;
 /// Error types for statement store RPC.
 pub mod error;
-/// Event and response types for statement store RPC.
-pub mod event;
 mod statement;
 mod subscription;
 
@@ -30,8 +28,7 @@ mod tests;
 
 pub use api::StatementSpecApiServer;
 pub use error::Error;
-pub use event::{AddFilterResponse, SubscribeEvent};
-pub use sp_statement_store::SubmitOutcome;
+pub use sp_statement_store::{AddFilterResponse, SubmitOutcome, SubscribeEvent};
 pub use statement::StatementSpec;
 
 pub(crate) const LOG_TARGET: &str = "rpc-spec-v2::statement";

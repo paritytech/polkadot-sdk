@@ -17,16 +17,16 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{
-	error::rpc_spec_v2::INVALID_SUBSCRIPTION,
-	event::{NewStatementEntry, SubscribeEvent},
-	StatementSpec, StatementSpecApiServer, SubmitOutcome,
+	error::rpc_spec_v2::INVALID_SUBSCRIPTION, StatementSpec, StatementSpecApiServer, SubmitOutcome,
 };
 use codec::Encode;
 use jsonrpsee::{core::server::Subscription as RpcSubscription, MethodsError, RpcModule};
 use sc_rpc::testing::TokioTestExecutor;
 use sc_statement_store::Store;
 use sp_core::Bytes;
-use sp_statement_store::{Statement, StatementAllowance, TopicFilter};
+use sp_statement_store::{
+	NewStatementEntry, Statement, StatementAllowance, SubscribeEvent, TopicFilter,
+};
 use std::{
 	sync::Arc,
 	time::{Duration, Instant},
@@ -283,7 +283,7 @@ async fn submit_then_subscribe_replays_and_then_lives() {
 	let mut sub = subscribe(&rpc).await;
 	let sub_id = sub_id_string(&sub);
 	let filter_id: super::AddFilterResponse = rpc
-		.call("statement_unstable_add_filter", (sub_id, TopicFilter::Any))
+		.call("statement_unstable_addFilter", (sub_id, TopicFilter::Any))
 		.await
 		.expect("add_filter Any");
 	let filter_id = match filter_id {
@@ -322,7 +322,7 @@ async fn add_filter_rejects_match_any_topic_filter() {
 	let topic = sp_statement_store::Topic::from([1u8; 32]);
 	let filter = TopicFilter::MatchAny(BoundedVec::truncate_from(vec![topic]));
 	let err = rpc
-		.call::<_, super::AddFilterResponse>("statement_unstable_add_filter", (sub_id, filter))
+		.call::<_, super::AddFilterResponse>("statement_unstable_addFilter", (sub_id, filter))
 		.await
 		.expect_err("matchAny must be rejected");
 
@@ -340,7 +340,7 @@ async fn remove_filter_frees_rpc_filter_capacity() {
 
 	for i in 0..sc_statement_store::MAX_FILTERS_PER_SUBSCRIPTION {
 		let resp: super::AddFilterResponse = rpc
-			.call("statement_unstable_add_filter", (sub_id.clone(), TopicFilter::Any))
+			.call("statement_unstable_addFilter", (sub_id.clone(), TopicFilter::Any))
 			.await
 			.unwrap_or_else(|e| panic!("filter {i} should be accepted: {e:?}"));
 		let filter_id = match resp {
@@ -353,18 +353,18 @@ async fn remove_filter_frees_rpc_filter_capacity() {
 	}
 
 	let resp: super::AddFilterResponse = rpc
-		.call("statement_unstable_add_filter", (sub_id.clone(), TopicFilter::Any))
+		.call("statement_unstable_addFilter", (sub_id.clone(), TopicFilter::Any))
 		.await
 		.expect("filter beyond cap returns a successful RPC response");
 	assert_eq!(resp, super::AddFilterResponse::limit_reached());
 
 	let _: () = rpc
-		.call("statement_unstable_remove_filter", (sub_id.clone(), filter_ids[0].clone()))
+		.call("statement_unstable_removeFilter", (sub_id.clone(), filter_ids[0].clone()))
 		.await
 		.expect("remove_filter frees capacity");
 
 	let resp: super::AddFilterResponse = rpc
-		.call("statement_unstable_add_filter", (sub_id, TopicFilter::Any))
+		.call("statement_unstable_addFilter", (sub_id, TopicFilter::Any))
 		.await
 		.expect("replacement filter should be accepted");
 	assert!(
@@ -380,7 +380,7 @@ async fn add_filter_for_unknown_subscription_yields_invalid_subscription() {
 	let rpc = make_server();
 	let err = rpc
 		.call::<_, super::AddFilterResponse>(
-			"statement_unstable_add_filter",
+			"statement_unstable_addFilter",
 			("does-not-exist".to_string(), TopicFilter::Any),
 		)
 		.await
@@ -398,14 +398,14 @@ async fn remove_filter_is_silent_for_unknown_subscription_and_filter() {
 	let rpc = make_server();
 
 	let _: () = rpc
-		.call("statement_unstable_remove_filter", ("does-not-exist".to_string(), "0".to_string()))
+		.call("statement_unstable_removeFilter", ("does-not-exist".to_string(), "0".to_string()))
 		.await
 		.expect("remove_filter on unknown sub is no-op");
 
 	let sub = subscribe(&rpc).await;
 	let sub_id = sub_id_string(&sub);
 	let _: () = rpc
-		.call("statement_unstable_remove_filter", (sub_id, "999".to_string()))
+		.call("statement_unstable_removeFilter", (sub_id, "999".to_string()))
 		.await
 		.expect("remove_filter on unknown filter is no-op");
 	drop(sub);

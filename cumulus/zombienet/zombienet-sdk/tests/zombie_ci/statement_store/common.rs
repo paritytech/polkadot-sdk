@@ -47,6 +47,8 @@ pub(super) async fn submit_statement(
 	Ok(result)
 }
 
+// Helpers for the unstable statement JSON-RPC methods specified in:
+// https://github.com/paritytech/json-rpc-interface-spec/pull/185
 pub(super) async fn submit_statement_unstable(
 	rpc: &RpcClient,
 	statement: &sp_statement_store::Statement,
@@ -85,7 +87,7 @@ pub(super) async fn add_filter_unstable(
 	filter: TopicFilter,
 ) -> Result<UnstableAddFilterResponse, anyhow::Error> {
 	let response = rpc
-		.request("statement_unstable_add_filter", rpc_params![subscription_id, filter])
+		.request("statement_unstable_addFilter", rpc_params![subscription_id, filter])
 		.await?;
 	Ok(response)
 }
@@ -95,7 +97,7 @@ pub(super) async fn remove_filter_unstable(
 	subscription_id: &str,
 	filter_id: &str,
 ) -> Result<(), anyhow::Error> {
-	rpc.request::<()>("statement_unstable_remove_filter", rpc_params![subscription_id, filter_id])
+	rpc.request::<()>("statement_unstable_removeFilter", rpc_params![subscription_id, filter_id])
 		.await?;
 	Ok(())
 }

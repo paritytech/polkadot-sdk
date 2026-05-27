@@ -97,7 +97,7 @@ pub trait StatementStoreSubscriptionApi: Send + Sync {
 /// Creates multi-filter subscriptions for the RPC module
 pub trait MultiFilterSubscriptionApi: Send + Sync {
 	/// Creates an empty subscription that can receive filters dynamically
-	fn create_subscription(&self) -> (SubscriptionHandle, LiveEventStream);
+	fn create_subscription(&self) -> (SubscriptionHandle, MultiFilterEventStream);
 }
 
 /// Provides replay snapshots while holding the store index read lock during snapshot collection.
@@ -114,16 +114,16 @@ pub(crate) trait ReplaySnapshotProvider: Send + Sync {
 #[derive(Clone)]
 pub struct SubscriptionHandle {
 	pub(crate) sub_id: SeqID,
-	pub(crate) inner: Arc<Mutex<SubscriptionHandleState>>,
+	pub(crate) inner: Arc<Mutex<SubscriptionHandleInner>>,
 	pub(crate) matchers: SubscriptionsMatchersHandlers,
 }
 
-pub(crate) struct SubscriptionHandleState {
+pub(crate) struct SubscriptionHandleInner {
 	active_filter_ids: HashSet<FilterId>,
 	next_filter_id: u64,
 }
 
-impl SubscriptionHandleState {
+impl SubscriptionHandleInner {
 	pub(crate) fn new() -> Self {
 		Self { active_filter_ids: HashSet::new(), next_filter_id: 0 }
 	}
@@ -416,13 +416,13 @@ pub enum MultiFilterSubscriptionEvent {
 }
 
 /// Stream of multi-filter subscription events
-pub struct LiveEventStream {
+pub struct MultiFilterEventStream {
 	sub_id: SeqID,
 	matchers: SubscriptionsMatchersHandlers,
 	rx: async_channel::Receiver<MultiFilterSubscriptionEvent>,
 }
 
-impl Stream for LiveEventStream {
+impl Stream for MultiFilterEventStream {
 	type Item = MultiFilterSubscriptionEvent;
 
 	fn poll_next(
@@ -433,7 +433,7 @@ impl Stream for LiveEventStream {
 	}
 }
 
-impl Drop for LiveEventStream {
+impl Drop for MultiFilterEventStream {
 	fn drop(&mut self) {
 		self.matchers
 			.send_by_seq_id(self.sub_id, MatcherMessage::Unsubscribe(self.sub_id));
@@ -574,7 +574,7 @@ impl SubscriptionsHandle {
 	pub(crate) fn subscribe_empty(
 		&self,
 		snapshot_provider: Arc<dyn ReplaySnapshotProvider>,
-	) -> (SeqID, LiveEventStream) {
+	) -> (SeqID, MultiFilterEventStream) {
 		let sub_id = self.next_id();
 		let (tx, rx) =
 			async_channel::bounded(SUBSCRIPTION_BUFFER_SIZE + STOP_RESERVE_CHANNEL_SLOTS);
@@ -583,7 +583,7 @@ impl SubscriptionsHandle {
 			MatcherMessage::SubscribeEmpty { seq_id: sub_id, snapshot_provider, tx },
 		);
 
-		let stream = LiveEventStream { sub_id, matchers: self.matchers.clone(), rx };
+		let stream = MultiFilterEventStream { sub_id, matchers: self.matchers.clone(), rx };
 		(sub_id, stream)
 	}
 
@@ -603,11 +603,11 @@ enum SubscriptionFilterKey {
 }
 
 enum SubscriptionRecord {
-	Statements {
+	SingleFilter {
 		tx: async_channel::Sender<StatementEvent>,
 		filter: OptimizedTopicFilter,
 	},
-	Live {
+	MultiFilter {
 		filters: HashMap<FilterId, OptimizedTopicFilter>,
 		state: MultiFilterSubscriptionState,
 		tx: async_channel::Sender<MultiFilterSubscriptionEvent>,
@@ -687,7 +687,7 @@ impl SubscriptionsInfo {
 	) {
 		self.by_sub_id.insert(
 			subscription_info.seq_id,
-			SubscriptionRecord::Statements { tx, filter: subscription_info.topic_filter.clone() },
+			SubscriptionRecord::SingleFilter { tx, filter: subscription_info.topic_filter.clone() },
 		);
 		self.index_filter(subscription_info);
 	}
@@ -700,7 +700,7 @@ impl SubscriptionsInfo {
 	) {
 		self.by_sub_id.insert(
 			seq_id,
-			SubscriptionRecord::Live {
+			SubscriptionRecord::MultiFilter {
 				filters: HashMap::new(),
 				state: MultiFilterSubscriptionState::new(),
 				tx,
@@ -711,37 +711,28 @@ impl SubscriptionsInfo {
 
 	fn add_filter(&mut self, sub_id: SeqID, filter_id: FilterId, filter: OptimizedTopicFilter) {
 		let filter_key = SubscriptionFilterKey::Dynamic(filter_id);
-		let Some(SubscriptionRecord::Live { snapshot_provider, .. }) = self.by_sub_id.get(&sub_id)
-		else {
-			return;
-		};
-		let provider = snapshot_provider.clone();
-		let result = provider.collect_snapshot_hashes(&filter);
+		{
+			let Some(SubscriptionRecord::MultiFilter { filters, state, tx, snapshot_provider }) =
+				self.by_sub_id.get_mut(&sub_id)
+			else {
+				return;
+			};
 
-		let snapshot = match result {
-			Ok(snapshot) => snapshot,
-			Err(_) => {
-				if let Some(SubscriptionRecord::Live { state, tx, .. }) =
-					self.by_sub_id.get_mut(&sub_id)
-				{
+			let snapshot = match snapshot_provider.collect_snapshot_hashes(&filter) {
+				Ok(snapshot) => snapshot,
+				Err(_) => {
 					state.stopped = true;
 					Self::send_stop(tx);
-				}
-				return;
-			},
-		};
+					return;
+				},
+			};
 
-		let Some(record) = self.by_sub_id.get_mut(&sub_id) else {
-			return;
-		};
-		let SubscriptionRecord::Live { filters, state, .. } = record else {
-			return;
-		};
-		let Entry::Vacant(entry) = filters.entry(filter_id) else {
-			return;
-		};
-		entry.insert(filter.clone());
-		state.record_filter_added(filter_id, snapshot);
+			let Entry::Vacant(entry) = filters.entry(filter_id) else {
+				return;
+			};
+			entry.insert(filter.clone());
+			state.record_filter_added(filter_id, snapshot);
+		}
 		self.index_filter(IndexedSubscription { topic_filter: filter, seq_id: sub_id, filter_key });
 
 		self.drain_ready_events(sub_id);
@@ -751,7 +742,7 @@ impl SubscriptionsInfo {
 		let Some(record) = self.by_sub_id.get_mut(&sub_id) else {
 			return;
 		};
-		let SubscriptionRecord::Live { filters, state, .. } = record else {
+		let SubscriptionRecord::MultiFilter { filters, state, .. } = record else {
 			return;
 		};
 		let Some(filter) = filters.remove(&filter_id) else {
@@ -801,7 +792,8 @@ impl SubscriptionsInfo {
 				let Some(record) = self.by_sub_id.get_mut(&sub_id) else {
 					return;
 				};
-				let SubscriptionRecord::Live { filters, state, tx, snapshot_provider } = record
+				let SubscriptionRecord::MultiFilter { filters, state, tx, snapshot_provider } =
+					record
 				else {
 					return;
 				};
@@ -860,7 +852,7 @@ impl SubscriptionsInfo {
 		for (sub_id, matched) in matches {
 			match matched {
 				MatchedSubscription::Statements => {
-					let Some(SubscriptionRecord::Statements { tx, .. }) =
+					let Some(SubscriptionRecord::SingleFilter { tx, .. }) =
 						self.by_sub_id.get(&sub_id)
 					else {
 						continue;
@@ -878,7 +870,7 @@ impl SubscriptionsInfo {
 				},
 				MatchedSubscription::Live(filter_ids) if !filter_ids.is_empty() => {
 					let handling = {
-						let Some(SubscriptionRecord::Live { filters, state, .. }) =
+						let Some(SubscriptionRecord::MultiFilter { filters, state, .. }) =
 							self.by_sub_id.get_mut(&sub_id)
 						else {
 							continue;
@@ -895,7 +887,7 @@ impl SubscriptionsInfo {
 					};
 					match handling {
 						LiveEventHandling::Ready(event) => {
-							let Some(SubscriptionRecord::Live { state, tx, .. }) =
+							let Some(SubscriptionRecord::MultiFilter { state, tx, .. }) =
 								self.by_sub_id.get_mut(&sub_id)
 							else {
 								continue;
@@ -1006,10 +998,10 @@ impl SubscriptionsInfo {
 		};
 
 		match entry {
-			SubscriptionRecord::Statements { filter, .. } => {
+			SubscriptionRecord::SingleFilter { filter, .. } => {
 				self.remove_indexed_filter(id, SubscriptionFilterKey::Fixed, &filter);
 			},
-			SubscriptionRecord::Live { filters, .. } => {
+			SubscriptionRecord::MultiFilter { filters, .. } => {
 				for (filter_id, filter) in filters {
 					self.remove_indexed_filter(
 						id,
@@ -1342,7 +1334,8 @@ mod tests {
 			},
 			other => panic!("expected pushed live statement, got {other:?}"),
 		}
-		let Some(SubscriptionRecord::Live { state, .. }) = subscriptions.by_sub_id.get(&sub_id)
+		let Some(SubscriptionRecord::MultiFilter { state, .. }) =
+			subscriptions.by_sub_id.get(&sub_id)
 		else {
 			panic!("expected live subscription record")
 		};

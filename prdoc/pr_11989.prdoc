@@ -8,14 +8,14 @@ doc:
 
     ## Changes
 
-    - Add `statement_unstable_submit`, `statement_unstable_subscribe`, `statement_unstable_add_filter`, and `statement_unstable_remove_filter`
+    - Add `statement_unstable_submit`, `statement_unstable_subscribe`, `statement_unstable_addFilter`, and `statement_unstable_removeFilter`
     - Add multi-filter subscription support with replay and live statement delivery
     - Add zombienet test for the unstable RPC multi-filter flow
 crates:
 - name: polkadot-omni-node-lib
   bump: patch
 - name: sc-rpc-spec-v2
-  bump: patch
+  bump: major
 - name: sc-statement-store
   bump: patch
 - name: sp-statement-store
