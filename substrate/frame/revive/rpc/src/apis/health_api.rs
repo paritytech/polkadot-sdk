@@ -17,7 +17,7 @@
 //! Heatlh JSON-RPC methods.
 
 use crate::*;
-use jsonrpsee::{core::RpcResult, proc_macros::rpc, types::ErrorCode};
+use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use sc_rpc_api::system::helpers::Health;
 
 #[rpc(server, client)]

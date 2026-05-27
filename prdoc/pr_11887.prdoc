@@ -4,7 +4,7 @@ doc:
   description: |-
     closes https://github.com/paritytech/polkadot-sdk/issues/11886
 
-    Map each `EthRpcError` variant to the JSON-RPC error code defined in EIP-1474 (-32602 invalid params, -32001 resource not found, -32003 transaction rejected) instead of collapsing every non-`ClientError` to a blanket `-32600 Invalid Request`.
+    Map `EthRpcError::ConversionError` to `-32602` (invalid params) and the remaining execution-time variants (`RlpError`, `InvalidSignature`, `AccountNotFound`, `InvalidTransaction`, `TransactionTypeNotSupported`) to `-32000`, matching Geth and Nethermind, instead of collapsing every non-`ClientError` to a blanket `-32600 Invalid Request`.
 crates:
 - name: pallet-revive-eth-rpc
   bump: patch

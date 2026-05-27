@@ -22,7 +22,7 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use jsonrpsee::{
 	PendingSubscriptionSink, SubscriptionMessage, SubscriptionSink,
 	core::{RpcResult, async_trait},
-	types::ErrorObjectOwned,
+	types::{ErrorCode, ErrorObjectOwned},
 };
 use pallet_revive::evm::*;
 use sp_core::{H160, H256, U256, keccak_256};
@@ -129,29 +129,20 @@ pub enum EthRpcError {
 	TransactionTypeNotSupported(Byte),
 }
 
-/// EIP-1474 JSON-RPC error codes that are not provided by `jsonrpsee`.
-///
-/// See <https://eips.ethereum.org/EIPS/eip-1474#error-codes>.
-mod eip1474 {
-	/// Requested resource not found (`-32001`).
-	pub const RESOURCE_NOT_FOUND: i32 = -32001;
-	/// Transaction creation failed (`-32003`).
-	pub const TRANSACTION_REJECTED: i32 = -32003;
-}
-
 impl From<EthRpcError> for ErrorObjectOwned {
 	fn from(value: EthRpcError) -> Self {
-		use jsonrpsee::types::error::INVALID_PARAMS_CODE;
-		let (code, message) = match value {
+		use jsonrpsee::types::error::CALL_EXECUTION_FAILED_CODE;
+		let message = value.to_string();
+		let code = match value {
 			// `ClientError` already produces a fully formed JSON-RPC error object.
 			EthRpcError::ClientError(err) => return Self::from(err),
-			err @ (EthRpcError::RlpError(_) | EthRpcError::ConversionError) => {
-				(INVALID_PARAMS_CODE, err.to_string())
-			},
-			err @ EthRpcError::AccountNotFound(_) => (eip1474::RESOURCE_NOT_FOUND, err.to_string()),
-			err @ (EthRpcError::InvalidSignature |
+			EthRpcError::ConversionError => ErrorCode::InvalidParams.code(),
+			// Matches Geth/Nethermind, which return `-32000` for these execution-time errors.
+			EthRpcError::RlpError(_) |
+			EthRpcError::InvalidSignature |
+			EthRpcError::AccountNotFound(_) |
 			EthRpcError::InvalidTransaction |
-			EthRpcError::TransactionTypeNotSupported(_)) => (eip1474::TRANSACTION_REJECTED, err.to_string()),
+			EthRpcError::TransactionTypeNotSupported(_) => CALL_EXECUTION_FAILED_CODE,
 		};
 		Self::owned::<String>(code, message, None)
 	}
@@ -621,59 +612,27 @@ impl EthRpcServerImpl {
 #[cfg(test)]
 mod error_codes_tests {
 	use super::*;
-	use jsonrpsee::types::error::INVALID_PARAMS_CODE;
-
-	fn into_obj(err: EthRpcError) -> ErrorObjectOwned {
-		ErrorObjectOwned::from(err)
-	}
+	use jsonrpsee::types::error::{CALL_EXECUTION_FAILED_CODE, INVALID_PARAMS_CODE};
 
 	#[test]
-	fn rlp_error_maps_to_invalid_params() {
-		let obj = into_obj(EthRpcError::RlpError(rlp::DecoderError::RlpIsTooShort));
-		assert_eq!(obj.code(), INVALID_PARAMS_CODE);
-	}
+	fn eth_rpc_error_maps_to_expected_code_and_message() {
+		let cases: Vec<(EthRpcError, i32)> = vec![
+			(EthRpcError::RlpError(rlp::DecoderError::RlpIsTooShort), CALL_EXECUTION_FAILED_CODE),
+			(EthRpcError::ConversionError, INVALID_PARAMS_CODE),
+			(EthRpcError::InvalidSignature, CALL_EXECUTION_FAILED_CODE),
+			(EthRpcError::AccountNotFound(H160::repeat_byte(0xab)), CALL_EXECUTION_FAILED_CODE),
+			(EthRpcError::InvalidTransaction, CALL_EXECUTION_FAILED_CODE),
+			(
+				EthRpcError::TransactionTypeNotSupported(Byte::from(0x7eu8)),
+				CALL_EXECUTION_FAILED_CODE,
+			),
+		];
 
-	#[test]
-	fn conversion_error_maps_to_invalid_params() {
-		let obj = into_obj(EthRpcError::ConversionError);
-		assert_eq!(obj.code(), INVALID_PARAMS_CODE);
-	}
-
-	#[test]
-	fn account_not_found_maps_to_resource_not_found() {
-		let obj = into_obj(EthRpcError::AccountNotFound(H160::repeat_byte(0xab)));
-		assert_eq!(obj.code(), eip1474::RESOURCE_NOT_FOUND);
-	}
-
-	#[test]
-	fn invalid_signature_maps_to_transaction_rejected() {
-		let obj = into_obj(EthRpcError::InvalidSignature);
-		assert_eq!(obj.code(), eip1474::TRANSACTION_REJECTED);
-	}
-
-	#[test]
-	fn invalid_transaction_maps_to_transaction_rejected() {
-		let obj = into_obj(EthRpcError::InvalidTransaction);
-		assert_eq!(obj.code(), eip1474::TRANSACTION_REJECTED);
-	}
-
-	#[test]
-	fn transaction_type_not_supported_maps_to_transaction_rejected() {
-		let obj = into_obj(EthRpcError::TransactionTypeNotSupported(Byte::from(0x7eu8)));
-		assert_eq!(obj.code(), eip1474::TRANSACTION_REJECTED);
-	}
-
-	#[test]
-	fn eip1474_constants_match_spec() {
-		assert_eq!(eip1474::RESOURCE_NOT_FOUND, -32001);
-		assert_eq!(eip1474::TRANSACTION_REJECTED, -32003);
-	}
-
-	#[test]
-	fn error_message_is_preserved() {
-		let address = H160::repeat_byte(0xab);
-		let expected = EthRpcError::AccountNotFound(address).to_string();
-		let obj = into_obj(EthRpcError::AccountNotFound(address));
-		assert_eq!(obj.message(), expected);
+		for (err, expected_code) in cases {
+			let expected_message = err.to_string();
+			let obj = ErrorObjectOwned::from(err);
+			assert_eq!(obj.code(), expected_code, "unexpected code for `{expected_message}`");
+			assert_eq!(obj.message(), expected_message);
+		}
 	}
 }
