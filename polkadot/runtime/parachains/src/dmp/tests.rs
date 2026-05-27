@@ -1702,6 +1702,144 @@ fn migrate_v0_to_v1_pre_post_upgrade_idempotent() {
 	});
 }
 
+/// Re-derive the MQC head by folding over `msgs` in delivery (FIFO) order, mirroring
+/// `queue_downward_message`. Reimplemented here so the test is an independent oracle for the
+/// on-chain head: the outer hash is `BlakeTwo256` (hard-coded in production) and the inner
+/// message hash is `T::Hashing`, which is `BlakeTwo256` in this mock.
+fn mqc_head_over(
+	msgs: &[InboundDownwardMessage<polkadot_primitives::BlockNumber>],
+) -> polkadot_primitives::Hash {
+	use sp_runtime::traits::{BlakeTwo256, Hash as HashT};
+
+	let mut head = polkadot_primitives::Hash::zero();
+	for m in msgs {
+		head = BlakeTwo256::hash_of(&(head, m.sent_at, BlakeTwo256::hash_of(&m.msg)));
+	}
+	head
+}
+
+/// Seed `para` with an `n`-message queue built through the real `queue_downward_message` path —
+/// so the MQC head is genuinely chained over them — then relocate the messages into the
+/// pre-upgrade v0 `Vec` layout. Returns the head that was built.
+fn seed_v0_with_built_mqc_head(para: ParaId, n: u8) -> polkadot_primitives::Hash {
+	register_paras(&[para]);
+	for i in 0..n {
+		// Spread across blocks so `sent_at` varies and actually feeds into the chain.
+		run_to_block(System::block_number() + 1, None);
+		queue_downward_message(para, vec![0xA0, i]).unwrap();
+	}
+	let head = DownwardMessageQueueHeads::<Test>::get(para);
+
+	// Guard against an oracle bug masking (or faking) a regression: the re-derivation must
+	// already match the production head for the freshly-built queue.
+	let built = InboundDownwardQueue::<Test>::peek_all_do_not_call_in_consensus(para);
+	assert_eq!(mqc_head_over(&built), head, "oracle disagrees with production head");
+
+	// Move the v1 pages into the v0 layout to mimic the pre-upgrade on-chain state: all
+	// messages in `v0::DownwardMessageQueues`, head already reflecting them, version still 0.
+	DownwardMessageQueueMeta::<Test>::remove(para);
+	for idx in pages_in_storage(para) {
+		DownwardMessageQueuePages::<Test>::remove(para, idx);
+	}
+	migration::v0::DownwardMessageQueues::<Test>::insert(para, &built);
+
+	head
+}
+
+#[test]
+fn migrate_v0_to_v1_is_mqc_head_transparent() {
+	// The migration only relocates messages between storage layouts: it must neither touch the
+	// stored MQC head nor reorder the queue, even when drained over several metered steps.
+	new_test_ext_integrity(default_genesis_config(), || {
+		let para = ParaId::from(1);
+		let head = seed_v0_with_built_mqc_head(para, 5);
+		assert!(!head.is_zero(), "precondition: head must have been built");
+
+		// Tight meter (~2 msgs/step) so the para migrates over several steps, exercising the
+		// suffix write-back rather than a single take-all drain.
+		let base = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_base();
+		let per_iter = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_iter();
+		let per_msg = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_msg();
+		let budget = base.saturating_add(per_iter).saturating_add(per_msg.saturating_mul(2));
+
+		let mut cursor = None;
+		let mut steps = 0u32;
+		while let Some(c) =
+			MigrateV0ToV1::<Test>::step(cursor, &mut WeightMeter::with_limit(budget)).unwrap()
+		{
+			cursor = Some(c);
+			steps += 1;
+			assert!(steps < 100, "migration not making progress");
+		}
+		assert!(steps > 1, "expected a multi-step migration, got {}", steps);
+		assert_eq!(migration::v0::DownwardMessageQueues::<Test>::iter().count(), 0);
+
+		// Migration does not chain new links, so the head must be bit-identical, and the
+		// delivered order must still hash to it.
+		assert_eq!(DownwardMessageQueueHeads::<Test>::get(para), head, "migration moved the head");
+		let delivered = InboundDownwardQueue::<Test>::peek_all_do_not_call_in_consensus(para);
+		assert_eq!(mqc_head_over(&delivered), head, "migration reordered the queue");
+	});
+}
+
+#[test]
+fn migrate_v0_to_v1_preserves_mqc_head_with_interleaved_pushes() {
+	// Regression test for the MQC inconsistency. A DMP message that arrives while v0 is only
+	// half-migrated must still be *delivered* after the un-migrated v0 messages. If it jumped
+	// ahead (straight into v1, which `peek_all` reads first), the relay's send-order head would
+	// no longer match the parachain's receive-order head and the parachain would stall.
+	new_test_ext_integrity(default_genesis_config(), || {
+		let para = ParaId::from(1);
+		let pre_msgs = 5u8;
+		seed_v0_with_built_mqc_head(para, pre_msgs);
+
+		let base = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_base();
+		let per_iter = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_iter();
+		let per_msg = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_msg();
+		let budget = base.saturating_add(per_iter).saturating_add(per_msg.saturating_mul(2));
+
+		// Drive the MBM, queuing a fresh message between every step at an advancing block.
+		let mut cursor = None;
+		let mut live = 0u8;
+		let mut steps = 0u32;
+		let mut pushed_into_half_migrated = false;
+		while let Some(c) =
+			MigrateV0ToV1::<Test>::step(cursor, &mut WeightMeter::with_limit(budget)).unwrap()
+		{
+			cursor = Some(c);
+			steps += 1;
+			assert!(steps < 100, "migration not making progress");
+
+			run_to_block(System::block_number() + 1, None);
+			// Record whether this push lands in the reordering window: v0 still non-empty means
+			// some old messages are not yet migrated, so the new one must queue behind them.
+			if migration::v0::DownwardMessageQueues::<Test>::decode_len(para).map_or(false, |l| l > 0)
+			{
+				pushed_into_half_migrated = true;
+			}
+			queue_downward_message(para, vec![0xB0, live]).unwrap();
+			live += 1;
+		}
+
+		assert!(steps > 1, "expected a multi-step migration, got {}", steps);
+		assert!(
+			pushed_into_half_migrated,
+			"test ineffective: no message was queued while v0 was half-migrated",
+		);
+		assert_eq!(migration::v0::DownwardMessageQueues::<Test>::iter().count(), 0);
+
+		// The invariant: the head (chained at send time, never recomputed) must equal the chain
+		// folded over the delivered order. Any reordering diverges here with overwhelming odds.
+		let delivered = InboundDownwardQueue::<Test>::peek_all_do_not_call_in_consensus(para);
+		assert_eq!(delivered.len(), pre_msgs as usize + live as usize, "messages lost or duplicated");
+		assert_eq!(
+			mqc_head_over(&delivered),
+			DownwardMessageQueueHeads::<Test>::get(para),
+			"MQC head diverged from delivery order — parachains would stall",
+		);
+	});
+}
+
 #[test]
 fn peek_front_falls_through_to_v0_when_v1_range_empty() {
 	new_test_ext_integrity(default_genesis_config(), || {
