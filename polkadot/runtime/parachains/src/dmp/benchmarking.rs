@@ -75,9 +75,10 @@ mod benchmarks {
 		let para = ParaId::from(1);
 		let max_size = configuration::ActiveConfig::<T>::get().max_downward_message_size;
 		let payload = vec![0u8; max_size as usize];
-		let max_msgs = 1usize;
 
-		let messages: Vec<InboundDownwardMessage<BlockNumberFor<T>>> = (0..max_msgs)
+		// One step migrates two messages (the per-iter freebie plus one per-msg), so a third
+		// forces the write-back of the unmigrated suffix into `v0::DownwardMessageQueues`.
+		let messages: Vec<InboundDownwardMessage<BlockNumberFor<T>>> = (0..3)
 			.map(|_| InboundDownwardMessage {
 				sent_at: frame_system::Pallet::<T>::block_number(),
 				msg: payload.clone(),
@@ -85,19 +86,24 @@ mod benchmarks {
 			.collect();
 
 		migration::v0::DownwardMessageQueues::<T>::insert(para, &messages);
-		let mut meter = WeightMeter::new();
+
+		// `step` and this bound read the same `WeightInfo`, so they agree on where the meter
+		// runs out: after one full iteration, mid-para.
+		let minimum = <T as Config>::WeightInfo::migrate_v0_to_v1_step_base()
+			.saturating_add(<T as Config>::WeightInfo::migrate_v0_to_v1_step_iter())
+			.saturating_add(<T as Config>::WeightInfo::migrate_v0_to_v1_step_msg());
+		let mut meter = WeightMeter::with_limit(minimum);
 
 		#[block]
 		{
-			migration::MigrateV0ToV1::<T>::step(None, &mut meter).expect("step has full meter");
+			migration::MigrateV0ToV1::<T>::step(None, &mut meter).expect("step has minimum meter");
 		}
 
-		// Para was migrated.
 		let meta =
 			DownwardMessageQueueMeta::<T>::get(para).expect("meta written for non-empty queue");
 		assert_eq!(meta.first_full, 0);
-		assert_eq!(meta.first_free, max_msgs as u64);
-		assert!(!migration::v0::DownwardMessageQueues::<T>::contains_key(para));
+		assert_eq!(meta.first_free, 2);
+		assert_eq!(migration::v0::DownwardMessageQueues::<T>::decode_len(para), Some(1));
 	}
 
 	/// One re-enqueue from the inner loop of [`migration::MigrateV0ToV1::step`].
