@@ -3103,6 +3103,8 @@ parameter_types! {
 	pub const PsmMinSwapAmount: Balance = 100_000_000;
 	/// PalletId for deriving the PSM system account.
 	pub const PsmPalletId: PalletId = PalletId(*b"py/pegsm");
+	/// Native-currency deposit reserved when permissionlessly creating a PSM.
+	pub const PsmCreationDeposit: Balance = 10 * DOLLARS;
 }
 
 /// EnsureOrigin implementation for PSM management that supports privilege levels.
@@ -3156,12 +3158,14 @@ impl pallet_psm::BenchmarkHelper<u32, AccountId> for PsmBenchmarkHelper {
 /// Configure the PSM (Peg Stability Module) pallet.
 impl pallet_psm::Config for Runtime {
 	type Fungibles = Assets;
+	type Currency = Balances;
 	type AssetId = u32;
 	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = pallet_psm::weights::SubstrateWeight<Runtime>;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = PsmMinSwapAmount;
 	type MaxExternalAssetsPerPsm = ConstU32<10>;
+	type CreationDeposit = PsmCreationDeposit;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PsmBenchmarkHelper;
 }

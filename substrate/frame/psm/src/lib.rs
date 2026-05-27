@@ -87,7 +87,6 @@
 
 extern crate alloc;
 
-pub mod migrations;
 pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]

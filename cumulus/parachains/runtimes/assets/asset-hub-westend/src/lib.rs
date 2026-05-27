@@ -1622,6 +1622,8 @@ parameter_types! {
 	pub const PsmStablecoinAssetId: AssetIdForTrustBackedAssets = 50000342;
 	/// Minimum swap amount for PSM operations (1 pUSD).
 	pub const PsmMinSwapAmount: Balance = PUSD;
+	/// Native-currency deposit reserved when permissionlessly creating a PSM.
+	pub const PsmCreationDeposit: Balance = deposit(1, 68);
 	/// PalletId for deriving the PSM system account.
 	pub const PsmPalletId: PalletId = PalletId(*b"py/pegsm");
 	/// Fee revenue destination: pUSD insurance fund account.
@@ -1695,41 +1697,16 @@ impl pallet_psm::BenchmarkHelper<xcm::v5::Location, AccountId> for PsmBenchmarkH
 
 impl pallet_psm::Config for Runtime {
 	type Fungibles = LocalAndForeignAssets;
+	type Currency = Balances;
 	type AssetId = xcm::v5::Location;
 	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = weights::pallet_psm::WeightInfo<Runtime>;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = PsmMinSwapAmount;
 	type MaxExternalAssetsPerPsm = ConstU32<3>;
+	type CreationDeposit = PsmCreationDeposit;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PsmBenchmarkHelper;
-}
-
-/// Initial PSM configuration applied via the init migration.
-///
-/// Initializes a single PSM keyed by the pUSD `Location`, with USDT (trust-backed
-/// asset `1984`, addressed by its `Location`) as the first external asset.
-pub struct PsmInitialConfig;
-impl pallet_psm::migrations::init::InitialPsmConfig<Runtime> for PsmInitialConfig {
-	fn psms() -> alloc::vec::Vec<(xcm::v5::Location, AccountId, Balance)> {
-		use frame_support::traits::Get;
-		// 10% of the 50M pUSD issuance cap.
-		let max_debt =
-			Permill::from_percent(10).mul_floor(dynamic_params::pusd::MaximumIssuance::get());
-		alloc::vec![(PsmInternalAssetLocation::get(), PsmFeeDestination::get(), max_debt)]
-	}
-	fn externals(
-	) -> alloc::vec::Vec<(xcm::v5::Location, xcm::v5::Location, Permill, Permill, Permill)> {
-		use xcm::latest::prelude::*;
-		let usdt_location = xcm::v5::Location::new(0, [PalletInstance(50), GeneralIndex(1984)]);
-		alloc::vec![(
-			PsmInternalAssetLocation::get(),
-			usdt_location,
-			Permill::zero(),                         // 0% minting fee
-			Permill::from_rational(1u32, 10_000u32), // 0.01% redemption fee
-			Permill::from_percent(100),              // ceiling weight
-		)]
-	}
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1995,11 +1972,9 @@ pub type Migrations = (
 	// start: PSM reset
 
 	// `RemovePallet` wipes the old PSM deployment (entries + storage version
-	// key). `InitializePsm` then writes the multi-instance state from
-	// `PsmInitialConfig`, and `SetPsmStorageVersionV1` writes the storage
-	// version key that `RemovePallet` cleared.
+	// key). `SetPsmStorageVersionV1` re-seeds the storage version key that
+	// `RemovePallet` cleared.
 	frame_support::migrations::RemovePallet<PsmName, <Runtime as frame_system::Config>::DbWeight>,
-	pallet_psm::migrations::init::InitializePsm<Runtime, PsmInitialConfig>,
 	SetPsmStorageVersionV1,
 	// end: PSM reset
 	pallet_dap::migrations::MigrateV1ToV2<
