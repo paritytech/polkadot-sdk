@@ -1145,10 +1145,9 @@ mod test {
 
 	// Wire-format regression tests.
 	//
-	// `Proof::OnChain` was removed in favour of cryptographic-only proofs (see
-	// commit history and `report_security.md`). These tests pin the SCALE encoding
-	// of the surviving variants so that any future reordering, renaming, or
-	// payload change is caught immediately.
+	// `Proof::OnChain` was removed in favour of cryptographic-only proofs.
+	// These tests pin the SCALE encoding of the surviving variants so that any future reordering,
+	// renaming, or payload change is caught immediately.
 
 	/// Canonical fixture: a `Statement` with three topics, a channel, an expiry,
 	/// and a 4-byte payload. Used by every wire-format test in this section.
