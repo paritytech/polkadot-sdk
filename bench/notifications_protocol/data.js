@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779836139813,
+  "lastUpdate": 1779889459523,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -170111,6 +170111,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2322098861,
             "range": "± 41479532",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7d525248d594c79dcc5e30217becbd56d2fcda40",
+          "message": "allow Root-originated nested CREATE (#12144)\n\n# Allow Root-originated nested CREATE in pallet-revive\n\nCloses paritytech/contract-issues#279.\n\n## Motivation\n\n`pallet-revive`'s exec stack rejects `Origin::Root` at every constructor\nframe, so `bare_call(RuntimeOrigin::root(), contract_addr, ...)` errors\n`RootNotAllowed` the moment the called contract reaches a\n`CREATE`/`CREATE2` opcode — even though the contract itself is the\nsemantic instantiator.\n\nThe historical reason for the block was that the origin had to fund the\nnew contract's ED. Since the PGAS rework, the ED is freshly minted by\n`T::Deposit::init_contract` and immediately deactivated for issuance\naccounting, so the origin no longer needs to pay it.\n\n## Changes\n\n- **Remove the `RootNotAllowed` ensure** at the start of the constructor\nframe in [`exec.rs`](substrate/frame/revive/src/exec.rs).\n- **EVM CREATE under Root**: when constructing the runtime code's\n`CodeInfo`, substitute the missing origin account with the pallet's own\naccount as a sentinel owner and a zero deposit. Both `charge_deposit`\nand `refund_deposit` short-circuit at amount 0, and the sentinel can't\nbe signed for, so the code can't be removed via the owner-gated path. A\nnew `ContractBlob::from_evm_runtime_code_with_deposit` exposes the\n(owner, deposit) construction explicitly.\n- **`do_terminate` under Root**: the function called\n`origin.account_id()?` and silently failed for Root (the result was\nswallowed by `.ok()` at the SELFDESTRUCT queue site), leaving the\ncontract on-chain after a \"successful\" call. Substitute the missing\norigin with the pallet-account sentinel at the top of the function so\nrefund destination and beneficiary-ED bootstrap don't need to\nspecial-case `Root`.\n\nRoot is still **not** allowed to instantiate directly:\n`instantiate`/`bare_instantiate` continue to gate on\n`T::InstantiateOrigin::ensure_origin` (default `EnsureSigned` →\n`BadOrigin`). The change only unblocks the case where another contract\nsits between Root and the new contract and acts as the instantiator.\nGiving Root its own contract-address attribution is intentionally out of\nscope.\n\n## Test plan\n\nTwo parametrized Solidity tests (Solc and Resolc backends) using a new\n`NestedDeployer` fixture:\n\n- **`root_call_can_create_and_destroy_in_same_tx`** — Root invokes a\ndeployer that creates a child and immediately calls `selfdestruct` on it\n(`only_if_same_tx: true`, EIP-6780). Asserts the child is gone\npost-call.\n- **`root_call_can_create_and_destroy_in_next_block`** — Root creates\nthe child in block N, then in block N+1 calls the child's\n`destroyViaPrecompile` (`ISystem.terminate`, `only_if_same_tx: false`).\nAsserts the child is gone, and that no storage-deposit hold landed on\nthe child or deployer and no EVM upload deposit hit the pallet sentinel.\n\nThe `resolc → solc` combination is omitted because PVM `new` references\na baked-in PVM code hash; a Resolc parent cannot create an EVM child.\nThe runtime has no Root-only path that could bypass this (Root only\nreaches CREATE via an intermediary contract, which is constrained by its\ncompilation backend).\n\nExisting `root_cannot_instantiate{,_with_code}` and `root_can_call`\ncontinue to pass. Full `pallet-revive` suite is green.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
+          "timestamp": "2026-05-27T11:21:50Z",
+          "tree_id": "47b6ec7abd3be0a292ad1f148ba6861fee590a4e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d525248d594c79dcc5e30217becbd56d2fcda40"
+        },
+        "date": 1779889431796,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 5274932,
+            "range": "± 124333",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 347038,
+            "range": "± 4533",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4987894,
+            "range": "± 31508",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 425313,
+            "range": "± 4956",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 6134993,
+            "range": "± 36917",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 1024560,
+            "range": "± 9630",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 12286787,
+            "range": "± 95153",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5575908,
+            "range": "± 84427",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 51280229,
+            "range": "± 1027118",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 42795040,
+            "range": "± 448309",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 417277619,
+            "range": "± 6711230",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 323936743,
+            "range": "± 2411226",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2861900666,
+            "range": "± 12540658",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 3040855282,
+            "range": "± 74729115",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 4400036,
+            "range": "± 67651",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 2190766,
+            "range": "± 13912",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 4551481,
+            "range": "± 42818",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2236718,
+            "range": "± 16696",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 5171380,
+            "range": "± 78831",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2588961,
+            "range": "± 72373",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 9672112,
+            "range": "± 158362",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 6015507,
+            "range": "± 74842",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 43417929,
+            "range": "± 174297",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 40791412,
+            "range": "± 396050",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 369850900,
+            "range": "± 6374758",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 310819591,
+            "range": "± 3628552",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2853666333,
+            "range": "± 29129594",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2641995384,
+            "range": "± 57040124",
             "unit": "ns/iter"
           }
         ]
