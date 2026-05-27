@@ -19,7 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{AccessEntry, AccessList, KeyKind},
+	access_list::{AccessEntry, AccessList, Slot},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -110,12 +110,22 @@ impl Key {
 		}
 	}
 
-	/// Project to a 32-byte identifier. `Fix` is used as-is; `Var` is hashed
-	/// via `blake2_256`.
-	pub fn to_slot(&self) -> [u8; 32] {
+	/// Project to a [`Slot`]. `Fix` keys map to `Slot::Fix`; `Var` keys up to
+	/// 36 bytes map to `Slot::VarInline` (no allocation); longer `Var` keys
+	/// map to `Slot::VarLong` (one clone of the underlying bounded vec).
+	pub fn to_slot(&self) -> Slot {
 		match self {
-			Key::Fix(v) => *v,
-			Key::Var(v) => blake2_256(v.as_ref()),
+			Key::Fix(v) => Slot::Fix(*v),
+			Key::Var(v) => {
+				let raw: &[u8] = v.as_ref();
+				if raw.len() <= 36 {
+					let mut bytes = [0u8; 36];
+					bytes[..raw.len()].copy_from_slice(raw);
+					Slot::VarInline { bytes, len: raw.len() as u8 }
+				} else {
+					Slot::VarLong(v.clone())
+				}
+			},
 		}
 	}
 
@@ -2590,14 +2600,7 @@ where
 	}
 
 	fn touch_storage_access(&mut self, address: H160, key: &Key) -> bool {
-		self.access_list.touch(AccessEntry {
-			address,
-			key_kind: match key {
-				Key::Fix(_) => KeyKind::Fix,
-				Key::Var(_) => KeyKind::Var,
-			},
-			slot: key.to_slot(),
-		})
+		self.access_list.touch(AccessEntry { address, slot: key.to_slot() })
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {

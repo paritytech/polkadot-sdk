@@ -36,7 +36,7 @@ use frame_support::{assert_err, assert_ok, parameter_types};
 use frame_system::AccountInfo;
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
-use sp_io::hashing::{blake2_256, keccak_256};
+use sp_io::hashing::keccak_256;
 use sp_runtime::DispatchError;
 use std::{cell::RefCell, collections::hash_map::HashMap, rc::Rc};
 
@@ -3143,26 +3143,24 @@ fn cold_hot_child_commit_keying() {
 }
 
 #[test]
-fn cold_hot_fix_var_disjoint() {
+fn cold_hot_var_inline_len_distinguishes() {
+	// After zero-padding to `[u8; 36]`, both keys share the same `bytes`
+	// field — only `len` distinguishes them.
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
-		let var_bytes = b"alias-attempt".to_vec();
-		// Fix slot bytes engineered to equal what Var would project to.
-		let fix_bytes = blake2_256(&var_bytes);
-
-		let fix_key = Key::Fix(fix_bytes);
-		let var_key = Key::try_from_var(var_bytes).unwrap();
+		let short_key = Key::try_from_var(vec![1, 2, 3]).unwrap();
+		let long_key = Key::try_from_var(vec![1, 2, 3, 0]).unwrap();
 		let address = ctx.ext.address();
 
-		let fix_cold = ctx.ext.touch_storage_access(address, &fix_key);
-		assert!(fix_cold);
-		ctx.ext.set_storage(&fix_key, Some(vec![1]), false).unwrap();
+		let short_cold = ctx.ext.touch_storage_access(address, &short_key);
+		assert!(short_cold);
+		ctx.ext.set_storage(&short_key, Some(vec![1]), false).unwrap();
 
-		let var_cold = ctx.ext.touch_storage_access(address, &var_key);
+		let long_cold = ctx.ext.touch_storage_access(address, &long_key);
 		assert!(
-			var_cold,
-			"Var(y) must NOT alias Fix(blake2_256(y)) — `key_kind` tag missing on AccessEntry?",
+			long_cold,
+			"VarInline keys with same byte prefix but different `len` must NOT alias",
 		);
-		ctx.ext.set_storage(&var_key, Some(vec![2]), false).unwrap();
+		ctx.ext.set_storage(&long_key, Some(vec![2]), false).unwrap();
 		exec_success()
 	});
 

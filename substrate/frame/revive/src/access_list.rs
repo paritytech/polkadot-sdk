@@ -24,29 +24,34 @@
 //! have both `TransientStorage` and `AccessList` depend on it.
 
 use alloc::{collections::BTreeSet, vec::Vec};
-use sp_core::H160;
+use frame_support::BoundedVec;
+use sp_core::{ConstU32, H160};
 
-/// Tags an [`AccessEntry`] with the `Key` variant it came from. Prevents
-/// `Fix(blake2_256(v))` and `Var(v)` from aliasing on the projected `slot`.
-#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone, Copy)]
-pub enum KeyKind {
-	Fix,
-	Var,
+use crate::limits;
+
+/// Storage slot identifier for an access-list entry.
+#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
+pub enum Slot {
+	/// Fixed 32-byte storage key.
+	Fix([u8; 32]),
+	/// Variable-length key up to 36 bytes — covers SCALE-encoded `Address`,
+	/// `H256`, `AccountId32`, etc., with or without a 4-byte storage prefix.
+	VarInline { bytes: [u8; 36], len: u8 },
+	/// Variable-length key 37..=128 bytes.
+	VarLong(BoundedVec<u8, ConstU32<{ limits::STORAGE_KEY_BYTES }>>),
 }
 
 /// One entry per `(contract address, storage slot)` accessed in the current tx.
 ///
-/// Field order is `slot, address, key_kind` so the derived `Ord` short-circuits
-/// on the slot first — the most-discriminating field in the typical access
-/// pattern (one contract touching many slots within a transaction).
+/// Field order is `slot, address` so the derived `Ord` short-circuits on
+/// `slot` first — the most-discriminating field in the typical access pattern
+/// (one contract touching many slots within a transaction).
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
 pub struct AccessEntry {
-	/// 32-byte slot identifier, projected from a `Key` via [`crate::exec::Key::to_slot`].
-	pub slot: [u8; 32],
+	/// Slot identifier; the variant tag carries the `Fix` / `Var` distinction.
+	pub slot: Slot,
 	/// Contract whose child trie is being touched.
 	pub address: H160,
-	/// Whether the originating `Key` was `Fix` or `Var`.
-	pub key_kind: KeyKind,
 }
 
 /// Per-transaction access list with per-frame rollback support. Layout
@@ -171,10 +176,10 @@ mod tests {
 	fn lifecycle() {
 		let mut al = AccessList::new();
 		let (a, b, c, d) = (
-			AccessEntry { address: H160::zero(), key_kind: KeyKind::Fix, slot: [0xA; 32] },
-			AccessEntry { address: H160::zero(), key_kind: KeyKind::Fix, slot: [0xB; 32] },
-			AccessEntry { address: H160::zero(), key_kind: KeyKind::Fix, slot: [0xC; 32] },
-			AccessEntry { address: H160::zero(), key_kind: KeyKind::Fix, slot: [0xD; 32] },
+			AccessEntry { address: H160::zero(), slot: Slot::Fix([0xA; 32]) },
+			AccessEntry { address: H160::zero(), slot: Slot::Fix([0xB; 32]) },
+			AccessEntry { address: H160::zero(), slot: Slot::Fix([0xC; 32]) },
+			AccessEntry { address: H160::zero(), slot: Slot::Fix([0xD; 32]) },
 		);
 
 		assert!(al.touch(a.clone()), "A: first touch cold");
