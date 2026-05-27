@@ -22,9 +22,10 @@
 //! [`sp_authority_discovery::AuthorityDiscoveryApi`], and that the collator's keystore contains an
 //! `AUTHORITY_DISCOVERY` key.
 //!
-//! Once the API is detected, it's assumed to remain available. If there are more authorities
-//! than `max_reserved`, the set is sorted by raw public key bytes and trimmed so all nodes
-//! select the same subset.
+//! Once the API is detected, it's assumed to remain available. The authority set is taken in
+//! authoring order and each node reserves up to `max_reserved` of its nearest ring neighbors 
+//! on both sides. The immediate neighbors get a direct 1-hop block-announcement path, and more 
+//! distant authors receive blocks with enough lead time before they author.
 
 use std::{
 	collections::HashSet,
@@ -250,7 +251,7 @@ async fn discovery_refresh_loop<Block, Client, AD>(
 
 	loop {
 		// Read the authority set from the latest *finalized* parachain block so all
-		// collators converge on the same subset across short-lived forks.
+		// collators converge on the same ring across short-lived forks.
 		let at = client.info().finalized_hash;
 		if !ad_enabled {
 			ad_enabled = client
@@ -297,25 +298,50 @@ impl LoopState {
 	}
 }
 
-/// Take the `max_reserved` smallest pubkeys by raw bytes, sorted.
-fn select_authorities(
+/// Select up to `max_reserved` AURA neighbors of the node.
+///
+/// `authorities` is taken in authoring order, the order Aura uses to assign slots. We locate
+/// the local authority on this ring and take its nearest neighbors on both sides, wrapping
+/// around. Neighbors are added symmetrically (distance `d` on each side at once) so that
+/// the relationship is mutual — if we reserve the peer `d` positions away, that peer reserves us
+/// back. An odd `max_reserved` therefore leaves one slot unused. Once `max_reserved` reaches the
+/// ring size the result is the full mesh.
+///
+/// The immediate neighbors (`N-1`, `N+1`) get a direct, 1-hop block-announcement path; more
+/// distant authors receive blocks via the ring with enough lead time before they author.
+fn select_ring_neighbors(
 	authorities: Vec<AuthorityId>,
 	local_pub_keys: &HashSet<AuthorityId>,
 	max_reserved: usize,
 ) -> Vec<AuthorityId> {
-	let mut selected: Vec<AuthorityId> =
-		authorities.into_iter().filter(|id| !local_pub_keys.contains(id)).collect();
-
-	let cmp_bytes = |a: &AuthorityId, b: &AuthorityId| {
-		let a: &[u8] = a.as_ref();
-		let b: &[u8] = b.as_ref();
-		a.cmp(b)
-	};
-	if selected.len() > max_reserved {
-		selected.select_nth_unstable_by(max_reserved, cmp_bytes);
-		selected.truncate(max_reserved);
+	let n = authorities.len();
+	if n == 0 || max_reserved == 0 {
+		return Vec::new();
 	}
-	selected.sort_unstable_by(cmp_bytes);
+
+	let Some(local_idx) = authorities.iter().position(|id| local_pub_keys.contains(id)) else {
+		return authorities.into_iter().take(max_reserved).collect();
+	};
+
+	let mut selected = Vec::with_capacity(max_reserved.min(n.saturating_sub(1)));
+	for d in 1..=(n / 2) {
+		let right = (local_idx + d) % n;
+		let left = (local_idx + n - d) % n;
+
+		// At the antipode (even `n`, `d == n / 2`) both sides point at the same node.
+		let mut shell: Vec<usize> = if right == left { vec![right] } else { vec![right, left] };
+		// Never reserve our own keys (relevant only if this node holds several).
+		shell.retain(|&idx| !local_pub_keys.contains(&authorities[idx]));
+		if shell.is_empty() {
+			continue;
+		}
+		// Only take a shell if it fits whole, so we never keep one side and drop its mirror.
+		if selected.len() + shell.len() > max_reserved {
+			break;
+		}
+		selected.extend(shell.into_iter().map(|idx| authorities[idx].clone()));
+	}
+
 	selected
 }
 
@@ -345,7 +371,7 @@ async fn update_parachain_authorities<Block, AD>(
 		},
 	};
 
-	let selected = select_authorities(authorities, local_pub_keys, max_reserved);
+	let selected = select_ring_neighbors(authorities, local_pub_keys, max_reserved);
 	let target_count = selected.len();
 	let (addrs, unresolved) =
 		resolve_authority_addresses(&selected, authority_discovery_service, local_peer_id).await;
@@ -507,41 +533,102 @@ mod tests {
 		AuthorityId::from(sr25519::Public::from_raw([seed_byte; 32]))
 	}
 
-	#[test]
-	fn select_authorities_sorts_deterministically_and_truncates() {
-		let inputs = vec![authority_id(3), authority_id(1), authority_id(2)];
-		let selected = select_authorities(inputs, &HashSet::new(), 2);
-		assert_eq!(selected, vec![authority_id(1), authority_id(2)]);
+	/// A ring `0..n` of authorities in authoring order, with `local` as our single local key.
+	fn ring(n: u8) -> Vec<AuthorityId> {
+		(0..n).map(authority_id).collect()
+	}
+
+	fn local_set(seed: u8) -> HashSet<AuthorityId> {
+		let mut s = HashSet::new();
+		s.insert(authority_id(seed));
+		s
 	}
 
 	#[test]
-	fn select_authorities_filters_self() {
-		let me = authority_id(2);
-		let mut local = HashSet::new();
-		local.insert(me.clone());
-		let selected = select_authorities(vec![authority_id(1), me, authority_id(3)], &local, 10);
-		assert_eq!(selected, vec![authority_id(1), authority_id(3)]);
+	fn ring_picks_immediate_neighbors_with_min_budget() {
+		// Local at index 2 in a ring of 5; budget 2 -> exactly N-1 (1) and N+1 (3).
+		let selected = select_ring_neighbors(ring(5), &local_set(2), 2);
+		assert_eq!(selected, vec![authority_id(3), authority_id(1)]);
 	}
 
 	#[test]
-	fn select_authorities_is_idempotent_on_equal_input() {
-		let inputs = vec![authority_id(5), authority_id(1), authority_id(7), authority_id(1)]; // dup is permitted by API
-		let first = select_authorities(inputs.clone(), &HashSet::new(), 10);
-		let second = select_authorities(inputs, &HashSet::new(), 10);
-		assert_eq!(first, second);
+	fn ring_wraps_around_at_the_ends() {
+		// Local at index 0; neighbors are index 1 (right) and index 4 (wrapped left).
+		let selected = select_ring_neighbors(ring(5), &local_set(0), 2);
+		assert_eq!(selected, vec![authority_id(1), authority_id(4)]);
 	}
 
 	#[test]
-	fn select_authorities_truncate_preserves_sort_order() {
-		let inputs = vec![
-			authority_id(9),
-			authority_id(3),
-			authority_id(6),
-			authority_id(1),
-			authority_id(4),
-		];
-		let selected = select_authorities(inputs, &HashSet::new(), 3);
-		assert_eq!(selected, vec![authority_id(1), authority_id(3), authority_id(4)]);
+	fn ring_grows_balanced_on_both_sides() {
+		// Budget 4 around index 2: shell d=1 {3,1}, shell d=2 {4,0}.
+		let selected = select_ring_neighbors(ring(5), &local_set(2), 4);
+		assert_eq!(
+			selected,
+			vec![authority_id(3), authority_id(1), authority_id(4), authority_id(0)]
+		);
+	}
+
+	#[test]
+	fn ring_odd_budget_leaves_one_slot_unused_to_stay_symmetric() {
+		// Budget 3 around index 2: only the full d=1 shell {3,1} fits; the d=2 shell can't be
+		// added whole, so we stop at 2 rather than break symmetry.
+		let selected = select_ring_neighbors(ring(5), &local_set(2), 3);
+		assert_eq!(selected, vec![authority_id(3), authority_id(1)]);
+	}
+
+	#[test]
+	fn ring_becomes_full_mesh_when_budget_covers_everyone() {
+		let selected = select_ring_neighbors(ring(5), &local_set(2), 100);
+		let got: HashSet<_> = selected.into_iter().collect();
+		let expected: HashSet<_> = [0u8, 1, 3, 4].into_iter().map(authority_id).collect();
+		assert_eq!(got, expected);
+	}
+
+	#[test]
+	fn ring_excludes_self() {
+		let selected = select_ring_neighbors(ring(4), &local_set(1), 100);
+		assert!(!selected.contains(&authority_id(1)));
+	}
+
+	#[test]
+	fn ring_handles_even_antipode_without_duplicates() {
+		// n = 4, local at 0: d=1 -> {1,3}, d=2 -> antipode {2} (single node, no dup).
+		let selected = select_ring_neighbors(ring(4), &local_set(0), 100);
+		assert_eq!(selected, vec![authority_id(1), authority_id(3), authority_id(2)]);
+	}
+
+	#[test]
+	fn ring_alone_selects_nothing() {
+		let selected = select_ring_neighbors(ring(1), &local_set(0), 100);
+		assert!(selected.is_empty());
+	}
+
+	#[test]
+	fn ring_fallback_when_not_an_authority() {
+		// Local key not in the set: deterministic first-`max_reserved` fallback.
+		let selected = select_ring_neighbors(ring(5), &local_set(99), 3);
+		assert_eq!(selected, vec![authority_id(0), authority_id(1), authority_id(2)]);
+	}
+
+	#[test]
+	fn ring_neighbor_relationships_are_mutual() {
+		// For every node, the neighbors it reserves must reserve it back.
+		let n = 7u8;
+		let budget = 4;
+		let pick = |me: u8| -> HashSet<u8> {
+			select_ring_neighbors(ring(n), &local_set(me), budget)
+				.into_iter()
+				.map(|id| AsRef::<[u8]>::as_ref(&id)[0])
+				.collect()
+		};
+		for me in 0..n {
+			for peer in pick(me) {
+				assert!(
+					pick(peer).contains(&me),
+					"{me} reserved {peer} but {peer} did not reserve {me} back",
+				);
+			}
+		}
 	}
 
 	#[test]

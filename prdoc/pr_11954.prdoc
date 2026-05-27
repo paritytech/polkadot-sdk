@@ -3,10 +3,18 @@ title: "Cumulus: introduce authority discovery for parachains"
 doc:
   - audience: Node Dev
     description: |
-      Adds authority discovery support for parachains to keep all parachain
-      collators connected to each other as reserved peers on the block-announce
-      protocol. This makes block propagation between collators more reliable
-      under churn.
+      Adds authority discovery support for parachains to connect parachain
+      collators as reserved peers on the block-announce protocol. This enables
+      1 hop block propagation between collators.
+
+      Rather than a full mesh, collators connect in a ring. The authority set is
+      taken in authoring order, and each collator reserves up to `--collator-reserved-slots`
+      of its nearest neighbours on both sides of the ring. Because
+      every node sees the same ring, these neighbour relationships are mutual: the
+      immediate neighbours (`N-1`/`N+1`) get a direct, 1-hop block-announcement path,
+      while more distant authors receive blocks through the ring with enough lead
+      time before they author. With a large enough reserved-slot budget the ring
+      becomes a full mesh.
 
       Enabling this on a parachain requires adding `pallet-authority-discovery`
       (and `pallet-session` to feed it) to the runtime and exposing
