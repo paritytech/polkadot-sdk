@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779890485729,
+  "lastUpdate": 1779919958676,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "192d0a5e1527f6693540aaf21d639e41d07772fc",
-          "message": "[Release|CI/CD] Fix polkadot prod docker image (#9975)\n\nThis PR introduces a workaround to fix failing polkadot production image\nflow.\nThe initial issue is that, for some reason, our key that used to sign\nthe deb `InRelease` repo noted as expired on the first `apt update` run.\nBut reimport of the same key fixes is it. Until the reason for this\nissue is fixed, this work around helps to keep the flow working",
-          "timestamp": "2025-10-15T08:42:01Z",
-          "tree_id": "b024d9694e64406af696005e848748af7fcc0f55",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/192d0a5e1527f6693540aaf21d639e41d07772fc"
-        },
-        "date": 1760524971734,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.314786118633336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19259544866666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1384189308,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f124c411c2496b8b3800766265b713602d499a6f",
+          "message": "sc-client-db: add prefetched indexed transactions support (#12086)\n\nThe transaction-index database column (TRANSACTION) is normally\npopulated as a side-effect of block execution: the runtime emits\nIndexOperations, the client applies them in apply_index_ops, and the\nbytes referenced by each IndexOperation::Insert are extracted from the\nblock body. For two upcoming consumers — Cumulus storage-chain tip-sync\nand gap-sync backfill — this side-effect doesn't fit:\n\n1. **Tip-sync (block executed, payload missing).** The runtime emits\nIndexOperation::Renew { hash } to extend an existing transaction's TTL,\nbut the local node doesn't yet hold the bytes for hash because the\noriginal Insert block was never executed locally. Today this fails at\napply_index_ops because Renew only bumps the refcount on an entry that\nmust already exist.\n\n2. **Gap-sync (block not executed, ops missing).** Older blocks in a gap\nare imported without execution, so the runtime never emits any\nIndexOperations for them. Without a side channel, the wrapper can't\nreconstruct what the runtime would have produced.\n\nSo in this PR I add a mechanism to allow BlockImport implementers up in\nthe pipeline to provide missing renew payloads and supply custom index\noperations.",
+          "timestamp": "2026-05-27T18:58:01Z",
+          "tree_id": "3437579a58ac430763f92e35ae35a108ed2939d8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f124c411c2496b8b3800766265b713602d499a6f"
+        },
+        "date": 1779919928901,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.428901308799999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14180793206666661,
             "unit": "seconds"
           }
         ]
