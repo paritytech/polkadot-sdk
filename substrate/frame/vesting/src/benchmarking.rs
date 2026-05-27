@@ -69,7 +69,7 @@ fn add_vesting_schedules<T: Config<I>, I: 'static>(
 	Ok(total_locked)
 }
 
-#[benchmarks]
+#[instance_benchmarks]
 mod benchmarks {
 	use super::*;
 
@@ -504,9 +504,9 @@ mod benchmarks {
 		T::BlockNumberProvider::set_block_number(BlockNumberFor::<T>::zero());
 
 		// Create the schedule that will be merged into.
-		<Pallet<T> as frame_support::traits::tokens::VestedPayout<
+		<Pallet<T, I> as frame_support::traits::tokens::VestedPayout<
 			T::AccountId,
-			BalanceOf<T>,
+			BalanceOf<T, I>,
 		>>::add_to_vesting(&source, &dest, amount, duration, start_at)
 		.unwrap();
 		T::Currency::make_free_balance_be(&source, BalanceOf::<T, I>::max_value());
