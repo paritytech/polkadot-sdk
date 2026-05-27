@@ -21,8 +21,7 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{
-		ApprovedPeerId, BlockNumber as RNumber, Hash as RHash, UMPSignal, MAX_HEAD_DATA_SIZE,
-		UMP_SEPARATOR,
+		BlockNumber as RNumber, Hash as RHash, UMPSignal, MAX_HEAD_DATA_SIZE, UMP_SEPARATOR,
 	},
 	ClaimQueueOffset, CoreSelector, CumulusDigestItem, ParachainBlockData, PersistedValidationData,
 	SignedSchedulingInfo, VerifySchedulingSignature,

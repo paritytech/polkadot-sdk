@@ -13,20 +13,20 @@
 use crate::{Authorities, Config};
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain::Header as RelayChainHeader, SignedSchedulingInfo, VerifySchedulingSignature,
+	relay_chain::{Header as RelayChainHeader, RELAY_CHAIN_SLOT_DURATION_MILLIS},
+	SignedSchedulingInfo, VerifySchedulingSignature,
 };
 use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus_aura::Slot;
 use sp_consensus_babe::digests::CompatibleDigestItem as BabeDigestItem;
 
-/// Polkadot/Kusama relay chain slot duration in milliseconds.
-const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6_000;
-
 /// Verifier for V3 [`SignedSchedulingInfo`] against parachain Aura authorities.
 ///
 /// Wired by the parachain runtime as
 /// `type SchedulingSignatureVerifier = AuraSchedulingVerifier<Runtime>;` on
-/// [`cumulus_pallet_parachain_system::Config`].
+/// [`cumulus_pallet_parachain_system::Config`]. The relay slot duration is the
+/// global [`polkadot_primitives::RELAY_CHAIN_SLOT_DURATION_MILLIS`] (6000 ms),
+/// which is fixed across Polkadot, Kusama, Westend, and Rococo.
 ///
 /// `T` is the runtime; the Aura crypto is derived from
 /// [`pallet_aura::Config::AuthorityId`] (typically `sr25519` or `ed25519`). The
@@ -46,11 +46,17 @@ where
 		signed_info: &SignedSchedulingInfo,
 		internal_scheduling_parent_header: &RelayChainHeader,
 	) -> bool {
-		// 1. Decode relay slot from the BABE pre-digest of the internal_scheduling_parent
-		//    header. The eligible parachain author is determined by *this* slot, anchoring
-		//    the signature to a specific block (the one being submitted/resubmitted) rather
-		//    than to a moving relay tip. `check_scheduling` proves this header is the actual
-		//    relay block at internal_scheduling_parent — it can't be substituted.
+		if signed_info.payload.internal_scheduling_parent !=
+			internal_scheduling_parent_header.hash()
+		{
+			return false;
+		}
+
+		// 1. Decode relay slot from the BABE pre-digest of the internal_scheduling_parent header.
+		//    The eligible parachain author is determined by *this* slot, anchoring the signature to
+		//    a specific block (the one being submitted/resubmitted) rather than to a moving relay
+		//    tip. `check_scheduling` proves this header is the actual relay block at
+		//    internal_scheduling_parent — it can't be substituted.
 		let relay_slot: Slot = match internal_scheduling_parent_header
 			.digest
 			.logs()
@@ -62,8 +68,10 @@ where
 		};
 
 		// 2. Convert relay slot to parachain slot. Both slot durations are in milliseconds; the
-		//    relay slot duration is fixed at 6s and the para slot duration is read from
-		//    pallet-aura.
+		//    relay slot duration is the global Polkadot/Kusama/Westend/Rococo value re-exported by
+		//    polkadot-primitives, and the para slot duration is read from pallet-aura. Fail closed
+		//    on overflow rather than saturating, so an out-of-range relay slot can't quietly
+		//    produce a wrong author index.
 		let para_slot_duration: u64 =
 			match TryInto::<u64>::try_into(pallet_aura::Pallet::<T>::slot_duration()) {
 				Ok(d) if d > 0 => d,
@@ -71,8 +79,8 @@ where
 			};
 
 		let para_slot: u64 = match u64::from(relay_slot)
-			.saturating_mul(RELAY_CHAIN_SLOT_DURATION_MILLIS)
-			.checked_div(para_slot_duration)
+			.checked_mul(RELAY_CHAIN_SLOT_DURATION_MILLIS)
+			.and_then(|product| product.checked_div(para_slot_duration))
 		{
 			Some(s) => s,
 			None => return false,

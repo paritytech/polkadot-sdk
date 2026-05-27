@@ -522,3 +522,274 @@ fn block_executor_does_not_influence_proof_size_recordings() {
 		BlockExecutor::<Test, TestExecutive>::execute_verified_block(block);
 	});
 }
+
+// =============================================================================
+// AuraSchedulingVerifier tests
+// =============================================================================
+
+mod scheduling_verifier_tests {
+	use super::*;
+	use crate::signature_verifier::AuraSchedulingVerifier;
+	use codec::Encode;
+	use cumulus_primitives_core::{
+		relay_chain::{ApprovedPeerId, Hash as RelayHash, Header as RelayChainHeader},
+		SchedulingInfoPayload, SignedSchedulingInfo, VerifySchedulingSignature,
+	};
+	use sp_consensus_aura::sr25519::AuthorityId;
+	use sp_consensus_babe::digests::{
+		CompatibleDigestItem as BabeDigestItem, PreDigest, SecondaryPlainPreDigest,
+	};
+	use sp_keyring::Sr25519Keyring;
+	use sp_runtime::generic::Digest;
+
+	const PARA_SLOT_DURATION_MS: u64 = 6_000;
+	const RELAY_SLOT_DURATION_MS: u64 = 6_000;
+
+	/// Build a relay chain header whose digest carries a BABE secondary-plain pre-digest
+	/// at the given slot. The verifier only reads the slot off the pre-digest, so the
+	/// exact pre-digest variant doesn't matter.
+	fn relay_header_at_slot(relay_slot: u64) -> RelayChainHeader {
+		let mut digest = Digest::default();
+		digest.push(<sp_runtime::generic::DigestItem as BabeDigestItem>::babe_pre_digest(
+			PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
+				authority_index: 0,
+				slot: relay_slot.into(),
+			}),
+		));
+		RelayChainHeader {
+			parent_hash: Default::default(),
+			number: 0,
+			state_root: Default::default(),
+			extrinsics_root: Default::default(),
+			digest,
+		}
+	}
+
+	/// Build a payload whose `internal_scheduling_parent` matches `isp`. Tests that want
+	/// a mismatch (replay-detection check) pass a different hash explicitly.
+	fn make_payload(isp: RelayHash) -> SchedulingInfoPayload {
+		SchedulingInfoPayload::new(
+			cumulus_primitives_core::CoreSelector(0),
+			0,
+			ApprovedPeerId::default(),
+			isp,
+		)
+	}
+
+	/// Sign `payload` with the given keyring. Returns the encoded 64-byte signature blob.
+	fn sign_payload(signer: Sr25519Keyring, payload: &SchedulingInfoPayload) -> [u8; 64] {
+		signer.sign(&payload.encode()).0
+	}
+
+	/// Configure aura-ext's cached authority set for the verifier to read.
+	fn set_authorities(keys: &[Sr25519Keyring]) {
+		let authorities: BoundedVec<AuthorityId, ConstU32<100_000>> = keys
+			.iter()
+			.map(|k| AuthorityId::from(k.public()))
+			.collect::<Vec<_>>()
+			.try_into()
+			.expect("test fixture stays under MaxAuthorities; qed");
+		Authorities::<Test>::put(authorities);
+	}
+
+	/// Para slot derived as `relay_slot * 6000ms / para_slot_duration` (matches the
+	/// verifier's arithmetic). With equal slot durations this is the identity.
+	fn para_slot_from_relay(relay_slot: u64, para_slot_duration: u64) -> u64 {
+		relay_slot.saturating_mul(RELAY_SLOT_DURATION_MS) / para_slot_duration
+	}
+
+	#[rstest]
+	#[case::eligible_author_signs(Sr25519Keyring::Alice, true)]
+	#[case::non_eligible_author_signs(Sr25519Keyring::Bob, false)]
+	fn single_authority_verifier(#[case] signer: Sr25519Keyring, #[case] expected: bool) {
+		// Single-authority fixture (Alice). The eligible-author signature passes; any
+		// other signer is rejected.
+		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
+		new_test_ext(1).execute_with(|| {
+			set_authorities(&[Sr25519Keyring::Alice]);
+			let header = relay_header_at_slot(7);
+			let payload = make_payload(header.hash());
+			let signed =
+				SignedSchedulingInfo { signature: sign_payload(signer, &payload), payload };
+			assert_eq!(AuraSchedulingVerifier::<Test>::verify(&signed, &header), expected);
+		});
+	}
+
+	#[test]
+	fn tampered_payload_is_rejected() {
+		// Sign one payload, verify against a different one — verification must fail.
+		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
+		new_test_ext(1).execute_with(|| {
+			set_authorities(&[Sr25519Keyring::Alice]);
+			let header = relay_header_at_slot(7);
+			let original = make_payload(header.hash());
+			let signature = sign_payload(Sr25519Keyring::Alice, &original);
+			let tampered = SchedulingInfoPayload::new(
+				cumulus_primitives_core::CoreSelector(99),
+				0,
+				ApprovedPeerId::default(),
+				header.hash(),
+			);
+			let signed = SignedSchedulingInfo { signature, payload: tampered };
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header));
+		});
+	}
+
+	#[test]
+	fn payload_isp_mismatching_header_is_rejected() {
+		// Replay-detection: an attacker takes a signature created at ISP X and tries to
+		// use it at ISP Y (different relay block). The verifier must reject because the
+		// payload's claimed `internal_scheduling_parent` no longer matches the header's
+		// hash, even though the signer is otherwise eligible.
+		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
+		new_test_ext(1).execute_with(|| {
+			set_authorities(&[Sr25519Keyring::Alice]);
+			let header = relay_header_at_slot(7);
+			let payload = make_payload(RelayHash::repeat_byte(0xAA)); // different ISP
+			let signed = SignedSchedulingInfo {
+				signature: sign_payload(Sr25519Keyring::Alice, &payload),
+				payload,
+			};
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header));
+		});
+	}
+
+	#[rstest]
+	// Fixture: authorities = [Alice, Bob, Charlie, Dave], relay slot 7, 6s para slots.
+	// Para slot = 7, 7 mod 4 = 3 → only authorities[3] (Dave) is eligible.
+	#[case::eligible_index_signs(3, true)]
+	#[case::non_eligible_index_signs(0, false)]
+	fn multi_authority_verifier_picks_index_via_para_slot_mod_len(
+		#[case] signer_idx: usize,
+		#[case] expected: bool,
+	) {
+		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
+		new_test_ext(1).execute_with(|| {
+			let keys = [
+				Sr25519Keyring::Alice,
+				Sr25519Keyring::Bob,
+				Sr25519Keyring::Charlie,
+				Sr25519Keyring::Dave,
+			];
+			set_authorities(&keys);
+
+			let relay_slot = 7u64;
+			let para_slot = para_slot_from_relay(relay_slot, PARA_SLOT_DURATION_MS);
+			assert_eq!(
+				(para_slot % keys.len() as u64) as usize,
+				3,
+				"test fixture: para_slot=7 mod 4 == 3"
+			);
+
+			let header = relay_header_at_slot(relay_slot);
+			let payload = make_payload(header.hash());
+			let signed = SignedSchedulingInfo {
+				signature: sign_payload(keys[signer_idx], &payload),
+				payload,
+			};
+			assert_eq!(AuraSchedulingVerifier::<Test>::verify(&signed, &header), expected);
+		});
+	}
+
+	#[test]
+	fn short_para_slot_duration_picks_correct_author() {
+		// 2s para slots, 6s relay slots: para_slot = relay_slot * 3. At relay slot 5 the
+		// para slot is 15; with three authorities 15 mod 3 = 0, so Alice must sign.
+		// Exercises the slot-conversion arithmetic for sub-6s parachains.
+		const SHORT_PARA_SLOT: u64 = 2_000;
+		TestSlotDuration::set_slot_duration(SHORT_PARA_SLOT);
+		new_test_ext(1).execute_with(|| {
+			let keys = [Sr25519Keyring::Alice, Sr25519Keyring::Bob, Sr25519Keyring::Charlie];
+			set_authorities(&keys);
+
+			let relay_slot = 5u64;
+			let para_slot = para_slot_from_relay(relay_slot, SHORT_PARA_SLOT);
+			assert_eq!(para_slot, 15);
+			let expected_idx = (para_slot % keys.len() as u64) as usize;
+			assert_eq!(expected_idx, 0);
+
+			let header = relay_header_at_slot(relay_slot);
+			let payload = make_payload(header.hash());
+			let signed = SignedSchedulingInfo {
+				signature: sign_payload(keys[expected_idx], &payload),
+				payload,
+			};
+			assert!(AuraSchedulingVerifier::<Test>::verify(&signed, &header));
+		});
+	}
+
+	#[test]
+	fn empty_authority_set_is_rejected() {
+		// `Authorities::<T>` empty means no eligible author exists; verification fails
+		// closed rather than panicking on `para_slot % 0`.
+		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
+		new_test_ext(1).execute_with(|| {
+			set_authorities(&[]);
+			let header = relay_header_at_slot(7);
+			let payload = make_payload(header.hash());
+			let signed = SignedSchedulingInfo {
+				signature: sign_payload(Sr25519Keyring::Alice, &payload),
+				payload,
+			};
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header));
+		});
+	}
+
+	#[test]
+	fn zero_para_slot_duration_is_rejected() {
+		// A misconfigured pallet-aura returning `slot_duration() == 0` would otherwise
+		// divide-by-zero; the verifier must reject up front.
+		TestSlotDuration::set_slot_duration(0);
+		new_test_ext(1).execute_with(|| {
+			set_authorities(&[Sr25519Keyring::Alice]);
+			let header = relay_header_at_slot(7);
+			let payload = make_payload(header.hash());
+			let signed = SignedSchedulingInfo {
+				signature: sign_payload(Sr25519Keyring::Alice, &payload),
+				payload,
+			};
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header));
+		});
+	}
+
+	#[test]
+	fn missing_babe_pre_digest_is_rejected() {
+		// Without a BABE pre-digest the verifier can't derive the relay slot and must
+		// reject — there is no fallback that could pick an author.
+		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
+		new_test_ext(1).execute_with(|| {
+			set_authorities(&[Sr25519Keyring::Alice]);
+			let header_no_digest = RelayChainHeader {
+				parent_hash: Default::default(),
+				number: 0,
+				state_root: Default::default(),
+				extrinsics_root: Default::default(),
+				digest: Digest::default(),
+			};
+			let payload = make_payload(header_no_digest.hash());
+			let signed = SignedSchedulingInfo {
+				signature: sign_payload(Sr25519Keyring::Alice, &payload),
+				payload,
+			};
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header_no_digest));
+		});
+	}
+
+	#[test]
+	fn relay_slot_overflow_is_rejected() {
+		// `relay_slot * RELAY_CHAIN_SLOT_DURATION_MILLIS` must overflow on adversarial
+		// input. `u64::MAX * 6000` overflows; `checked_mul` returns `None` and the
+		// verifier rejects rather than silently saturating to a wrong author index.
+		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
+		new_test_ext(1).execute_with(|| {
+			set_authorities(&[Sr25519Keyring::Alice]);
+			let header = relay_header_at_slot(u64::MAX);
+			let payload = make_payload(header.hash());
+			let signed = SignedSchedulingInfo {
+				signature: sign_payload(Sr25519Keyring::Alice, &payload),
+				payload,
+			};
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header));
+		});
+	}
+}

@@ -149,7 +149,7 @@ pub fn check_scheduling(
 	let internal_scheduling_parent = if header_chain.is_empty() {
 		scheduling_parent
 	} else {
-		*header_chain.last().expect("checked non-empty").parent_hash()
+		*header_chain.last().expect("checked non-empty; qed").parent_hash()
 	};
 
 	// 4. The internal_scheduling_parent_header carried in the proof must hash to the
@@ -212,6 +212,7 @@ mod tests {
 	use cumulus_primitives_core::{
 		CoreSelector, SchedulingInfoPayload, SchedulingProof, SignedSchedulingInfo,
 	};
+	use rstest::rstest;
 	use sp_runtime::{generic::Header, traits::BlakeTwo256};
 
 	type RelayHeader = Header<u32, BlakeTwo256>;
@@ -286,10 +287,15 @@ mod tests {
 	// Valid cases
 	// =========================================================================
 
-	#[test]
-	fn valid_header_chain_length_3() {
-		// Test: A valid 3-header chain should validate successfully.
-		let (headers, ip_header, relay_parent) = make_header_chain(3);
+	#[rstest]
+	#[case::len_1(1)]
+	#[case::len_3(3)]
+	fn valid_non_empty_header_chain(#[case] len: usize) {
+		// Valid N-header chain on initial submission (`relay_parent == ISP`): validation
+		// passes, `internal_scheduling_parent == relay_parent`, and `is_resubmission`
+		// is false. Length 0 is structurally different (no chain headers) and lives in
+		// its own test.
+		let (headers, ip_header, relay_parent) = make_header_chain(len);
 		let scheduling_parent = headers[0].hash();
 
 		let proof = SchedulingProof {
@@ -297,16 +303,15 @@ mod tests {
 			internal_scheduling_parent_header: ip_header.clone(),
 			signed_scheduling_info: None,
 		};
-		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 3);
-
-		assert!(result.is_ok());
-		// internal_scheduling_parent should equal relay_parent for valid chains
-		assert_eq!(result.unwrap().internal_scheduling_parent, relay_parent);
+		let result = check_scheduling(&proof, relay_parent, scheduling_parent, len as u32)
+			.expect("valid chain should pass");
+		assert_eq!(result.internal_scheduling_parent, relay_parent);
+		assert!(!result.is_resubmission);
 	}
 
 	#[test]
 	fn valid_empty_header_chain() {
-		// Test: Empty chain (offset=0) means scheduling_parent == relay_parent and the
+		// Empty chain (offset=0) means scheduling_parent == relay_parent and the
 		// IP header must hash to scheduling_parent.
 		let (_, ip_header, scheduling_parent) = make_header_chain(0);
 		let relay_parent = scheduling_parent; // Must be equal for offset=0
@@ -316,37 +321,23 @@ mod tests {
 			internal_scheduling_parent_header: ip_header,
 			signed_scheduling_info: None,
 		};
-		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 0);
-
-		assert!(result.is_ok());
-		assert_eq!(result.unwrap().internal_scheduling_parent, scheduling_parent);
-	}
-
-	#[test]
-	fn valid_single_header_chain() {
-		// Test: Single header chain (offset=1).
-		let (headers, ip_header, relay_parent) = make_header_chain(1);
-		let scheduling_parent = headers[0].hash();
-
-		let proof = SchedulingProof {
-			header_chain: headers,
-			internal_scheduling_parent_header: ip_header.clone(),
-			signed_scheduling_info: None,
-		};
-		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 1);
-
-		assert!(result.is_ok());
-		assert_eq!(result.unwrap().internal_scheduling_parent, relay_parent);
+		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 0)
+			.expect("valid empty chain should pass");
+		assert_eq!(result.internal_scheduling_parent, scheduling_parent);
+		assert!(!result.is_resubmission);
 	}
 
 	// =========================================================================
 	// Invalid length cases
 	// =========================================================================
 
-	#[test]
-	fn reject_wrong_header_chain_length_too_short() {
-		// Test: Chain shorter than expected should be rejected.
-		let (headers, ip_header, relay_parent) = make_header_chain(2);
+	#[rstest]
+	#[case::too_short(2)]
+	#[case::too_long(4)]
+	fn reject_wrong_header_chain_length(#[case] actual: usize) {
+		// Chain whose length doesn't match the expected (3) is rejected with
+		// `InvalidHeaderChainLength`, both when too short and when too long.
+		let (headers, ip_header, relay_parent) = make_header_chain(actual);
 		let scheduling_parent = headers[0].hash();
 
 		let proof = SchedulingProof {
@@ -354,32 +345,11 @@ mod tests {
 			internal_scheduling_parent_header: ip_header.clone(),
 			signed_scheduling_info: None,
 		};
-		// Expect 3, but only 2 provided
 		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 3);
 
 		assert_eq!(
 			result,
-			Err(SchedulingValidationError::InvalidHeaderChainLength { expected: 3, actual: 2 })
-		);
-	}
-
-	#[test]
-	fn reject_wrong_header_chain_length_too_long() {
-		// Test: Chain longer than expected should be rejected.
-		let (headers, ip_header, relay_parent) = make_header_chain(4);
-		let scheduling_parent = headers[0].hash();
-
-		let proof = SchedulingProof {
-			header_chain: headers,
-			internal_scheduling_parent_header: ip_header.clone(),
-			signed_scheduling_info: None,
-		};
-		// Expect 3, but 4 provided
-		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 3);
-
-		assert_eq!(
-			result,
-			Err(SchedulingValidationError::InvalidHeaderChainLength { expected: 3, actual: 4 })
+			Err(SchedulingValidationError::InvalidHeaderChainLength { expected: 3, actual })
 		);
 	}
 
@@ -528,25 +498,6 @@ mod tests {
 		assert_eq!(result.internal_scheduling_parent, internal_scheduling_parent);
 	}
 
-	#[test]
-	fn initial_submission_is_not_resubmission() {
-		// Test: Initial submission has is_resubmission = false
-		let (headers, ip_header, relay_parent) = make_header_chain(3);
-		let scheduling_parent = headers[0].hash();
-
-		let proof = SchedulingProof {
-			header_chain: headers,
-			internal_scheduling_parent_header: ip_header.clone(),
-			signed_scheduling_info: None,
-		};
-		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 3);
-
-		assert!(result.is_ok());
-		let result = result.unwrap();
-		assert!(!result.is_resubmission);
-		assert_eq!(result.internal_scheduling_parent, relay_parent);
-	}
-
 	// =========================================================================
 	// validate_v3_scheduling tests
 	// =========================================================================
@@ -594,17 +545,12 @@ mod tests {
 		validate_v3_scheduling(true, &None, None, 0);
 	}
 
-	#[test]
-	fn v3_enabled_valid_initial_submission() {
-		let (ext, proof, expected) = make_v3_initial_submission(3);
-		let result = validate_v3_scheduling(true, &Some(ext), Some(&proof), 3);
-		assert_eq!(result, Some(expected));
-	}
-
-	#[test]
-	fn v3_enabled_valid_empty_header_chain() {
-		let (ext, proof, expected) = make_v3_initial_submission(0);
-		let result = validate_v3_scheduling(true, &Some(ext), Some(&proof), 0);
+	#[rstest]
+	#[case::empty(0)]
+	#[case::len_3(3)]
+	fn v3_enabled_valid_initial_submission(#[case] chain_len: u32) {
+		let (ext, proof, expected) = make_v3_initial_submission(chain_len);
+		let result = validate_v3_scheduling(true, &Some(ext), Some(&proof), chain_len);
 		assert_eq!(result, Some(expected));
 	}
 
