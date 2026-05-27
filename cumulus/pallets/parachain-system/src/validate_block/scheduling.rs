@@ -33,12 +33,6 @@ pub enum SchedulingValidationError {
 	/// When relay_parent != internal_scheduling_parent, the resubmitting collator must
 	/// sign the core selection to prove slot eligibility.
 	MissingSignedSchedulingInfo,
-	/// Empty header chain with `relay_parent != scheduling_parent`.
-	///
-	/// With `RelayParentOffset = 0` the chain is empty and the V3 design requires
-	/// `relay_parent == scheduling_parent`. A candidate with `relay_parent !=
-	/// scheduling_parent` here is structurally inconsistent with the V3 layout.
-	RelayParentMismatchOnEmptyChain,
 	/// `internal_scheduling_parent_header` does not hash to the internal scheduling
 	/// parent derived from the header chain (or `scheduling_parent` when the chain
 	/// is empty). The PVF reads the BABE pre-digest from this header to derive the
@@ -149,25 +143,28 @@ pub fn check_scheduling(
 		}
 	}
 
-	// 3. Derive internal_scheduling_parent
-	// It's the parent_hash of the last (oldest) header in the chain
+	// 3. Derive internal_scheduling_parent. It's the parent_hash of the last (oldest)
+	// header in the chain, or `scheduling_parent` itself when the chain is empty
+	// (`RelayParentOffset = 0`).
 	let internal_scheduling_parent = if header_chain.is_empty() {
-		// If header chain is empty, internal_scheduling_parent == scheduling_parent.
-		// With no chain there's no slot-anchor header, so resubmission is structurally
-		// impossible — require relay_parent == scheduling_parent so is_resubmission stays
-		// false and the verifier is never asked to look at a missing header_chain.last().
-		if relay_parent != scheduling_parent {
-			return Err(SchedulingValidationError::RelayParentMismatchOnEmptyChain);
-		}
 		scheduling_parent
 	} else {
 		*header_chain.last().expect("checked non-empty").parent_hash()
 	};
 
-	// 4. Validate relay_parent position
-	// relay_parent must NOT be inside the header chain (it can equal internal_scheduling_parent
-	// or be an ancestor of it, but not somewhere between scheduling_parent and
-	// internal_scheduling_parent)
+	// 4. The internal_scheduling_parent_header carried in the proof must hash to the
+	// internal_scheduling_parent we just derived. The PVF reads the BABE pre-digest
+	// out of this header to derive the parachain slot used for author lookup; without
+	// the linkage check a collator could attach an unrelated header pointing the
+	// verifier at an arbitrary slot.
+	if scheduling_proof.internal_scheduling_parent_header.hash() != internal_scheduling_parent {
+		return Err(SchedulingValidationError::InternalSchedulingParentHeaderMismatch);
+	}
+
+	// 5. Validate relay_parent position. relay_parent must NOT be inside the header
+	// chain — it either equals internal_scheduling_parent (initial submission) or is
+	// an ancestor of it (resubmission), but never between scheduling_parent and
+	// internal_scheduling_parent.
 	for header in header_chain.iter() {
 		let header_hash = header.hash();
 		if relay_parent == header_hash {
@@ -175,7 +172,7 @@ pub fn check_scheduling(
 		}
 	}
 
-	// 5. Validate signed_scheduling_info based on relay_parent position
+	// 6. Validate signed_scheduling_info based on relay_parent position.
 	let is_initial_submission = relay_parent == internal_scheduling_parent;
 
 	if !is_initial_submission {
@@ -184,21 +181,7 @@ pub fn check_scheduling(
 		if scheduling_proof.signed_scheduling_info.is_none() {
 			return Err(SchedulingValidationError::MissingSignedSchedulingInfo);
 		}
-		// Signature verification is done separately after slot/authority lookup
-	}
-	// Note: For initial submission (relay_parent == internal_scheduling_parent),
-	// signed_scheduling_info is optional. If absent, core selection comes from the
-	// block's UMP signals. If present, signature verification is still performed.
-	// Collators should refuse to acknowledge blocks with invalid scheduling info,
-	// so providing signed_scheduling_info is not necessary but is legal.
-
-	// 6. The internal_scheduling_parent_header carried in the proof must hash to the
-	// internal_scheduling_parent we just derived. The PVF reads the BABE pre-digest
-	// out of this header to derive the parachain slot used for author lookup; without
-	// the linkage check a collator could attach an unrelated header pointing the
-	// verifier at an arbitrary slot.
-	if scheduling_proof.internal_scheduling_parent_header.hash() != internal_scheduling_parent {
-		return Err(SchedulingValidationError::InternalSchedulingParentHeaderMismatch);
+		// Signature verification is done separately after slot/authority lookup.
 	}
 
 	Ok(SchedulingValidationResult {
@@ -699,9 +682,12 @@ mod tests {
 	}
 
 	#[test]
-	fn reject_empty_chain_with_mismatched_relay_parent() {
-		// With an empty chain the V3 layout requires `relay_parent == scheduling_parent`.
-		// A candidate with mismatched values is structurally inconsistent and rejected.
+	fn empty_chain_with_mismatched_relay_parent_is_resubmission() {
+		// With `RelayParentOffset = 0` the header chain is always empty, for both
+		// initial submissions and resubmissions. When `relay_parent != scheduling_parent`
+		// the candidate is a resubmission: `internal_scheduling_parent` falls back to
+		// `scheduling_parent`, and the linkage check (against the proof's IP header)
+		// is what ultimately rejects an inconsistent proof.
 		let (_, ip_header, scheduling_parent) = make_header_chain(0);
 		let relay_parent = RelayHash::repeat_byte(0xBB);
 		let proof = SchedulingProof {
@@ -709,8 +695,24 @@ mod tests {
 			internal_scheduling_parent_header: ip_header,
 			signed_scheduling_info: Some(dummy_signed(CoreSelector(0))),
 		};
+		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 0).unwrap();
+		assert!(result.is_resubmission);
+		assert_eq!(result.internal_scheduling_parent, scheduling_parent);
+	}
+
+	#[test]
+	fn empty_chain_resubmission_without_signed_info_is_rejected() {
+		// Empty chain + `relay_parent != scheduling_parent` is treated as a resubmission;
+		// without `signed_scheduling_info` we reject as we would for any other resubmission.
+		let (_, ip_header, scheduling_parent) = make_header_chain(0);
+		let relay_parent = RelayHash::repeat_byte(0xBB);
+		let proof = SchedulingProof {
+			header_chain: vec![],
+			internal_scheduling_parent_header: ip_header,
+			signed_scheduling_info: None,
+		};
 		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 0);
-		assert_eq!(result, Err(SchedulingValidationError::RelayParentMismatchOnEmptyChain));
+		assert_eq!(result, Err(SchedulingValidationError::MissingSignedSchedulingInfo));
 	}
 
 	#[test]
