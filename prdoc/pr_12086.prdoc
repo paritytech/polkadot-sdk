@@ -21,3 +21,5 @@ crates:
   bump: minor
 - name: sc-consensus
   bump: minor
+- name: sc-service
+  bump: minor
