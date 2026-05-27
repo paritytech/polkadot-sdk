@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779890560206,
+  "lastUpdate": 1779920035809,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0e3195df28c6b39d098d4149f9dbc78009e88493",
-          "message": "[pallet-revive] fix subxt submit & add debug statments (#10016)\n\n- Fix subxt submit by default it's using\n`author_submitAndWatchExtrinsic` even though we just want to fire and\nforget\n- Add debug instructions to log the signer & nonce of new eth\ntransactions when the node validate the transaction\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-14T21:35:06Z",
-          "tree_id": "c0fd61b7b9106d5174dd52bca1dcd53376b4ef82",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0e3195df28c6b39d098d4149f9dbc78009e88493"
-        },
-        "date": 1760481924142,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52938.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63624.380000000005,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.24524518542999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005851051109999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001680604,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4741531834500003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4583971150800012,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.0000190955,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.45245441361,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4270073417499997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.0000190955,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001680604,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5031636161399993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.924218464289991,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.615751300031067,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 0.00002154634,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f124c411c2496b8b3800766265b713602d499a6f",
+          "message": "sc-client-db: add prefetched indexed transactions support (#12086)\n\nThe transaction-index database column (TRANSACTION) is normally\npopulated as a side-effect of block execution: the runtime emits\nIndexOperations, the client applies them in apply_index_ops, and the\nbytes referenced by each IndexOperation::Insert are extracted from the\nblock body. For two upcoming consumers — Cumulus storage-chain tip-sync\nand gap-sync backfill — this side-effect doesn't fit:\n\n1. **Tip-sync (block executed, payload missing).** The runtime emits\nIndexOperation::Renew { hash } to extend an existing transaction's TTL,\nbut the local node doesn't yet hold the bytes for hash because the\noriginal Insert block was never executed locally. Today this fails at\napply_index_ops because Renew only bumps the refcount on an entry that\nmust already exist.\n\n2. **Gap-sync (block not executed, ops missing).** Older blocks in a gap\nare imported without execution, so the runtime never emits any\nIndexOperations for them. Without a side channel, the wrapper can't\nreconstruct what the runtime would have produced.\n\nSo in this PR I add a mechanism to allow BlockImport implementers up in\nthe pipeline to provide missing renew payloads and supply custom index\noperations.",
+          "timestamp": "2026-05-27T18:58:01Z",
+          "tree_id": "3437579a58ac430763f92e35ae35a108ed2939d8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f124c411c2496b8b3800766265b713602d499a6f"
+        },
+        "date": 1779920006418,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63628.18000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001940188,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005075546250000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.718520165369958,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.818718049870001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8181904659699551,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.38700996153297,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000023670630000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001940188,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.889905080100001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.8149374732499997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.49501197954,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000023670630000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.876681570390001,
             "unit": "seconds"
           }
         ]
