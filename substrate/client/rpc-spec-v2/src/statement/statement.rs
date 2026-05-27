@@ -17,20 +17,20 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
-	SubscriptionTaskExecutor,
 	statement::{
-		LOG_TARGET,
 		api::StatementSpecApiServer,
 		error::Error,
 		subscription::{
-			StatementSubscriptions, filter_id_to_string, parse_filter_id, send_subscription_event,
+			filter_id_to_string, parse_filter_id, send_subscription_event, StatementSubscriptions,
 		},
+		LOG_TARGET,
 	},
+	SubscriptionTaskExecutor,
 };
 use codec::Decode;
 use futures::{FutureExt, StreamExt};
 use jsonrpsee::{
-	ConnectionId, Extensions, PendingSubscriptionSink, core::async_trait, types::SubscriptionId,
+	core::async_trait, types::SubscriptionId, ConnectionId, Extensions, PendingSubscriptionSink,
 };
 use sc_rpc::utils::Subscription;
 use sc_statement_store::{AddFilterError, MultiFilterSubscriptionApi};

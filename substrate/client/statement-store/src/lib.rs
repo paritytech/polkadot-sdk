@@ -71,7 +71,7 @@ use sp_statement_store::{
 	OptimizedTopicFilter, Proof, RejectionReason, Result, SignatureVerificationResult, Statement,
 	StatementAllowance, StatementEvent, SubmitResult, Topic,
 };
-pub use sp_statement_store::{Error, MAX_TOPICS, StatementStore};
+pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 use std::{
 	collections::{BTreeMap, BTreeSet, HashMap, HashSet},
 	sync::{Arc, Weak},
@@ -79,9 +79,9 @@ use std::{
 };
 use subscription::ReplaySnapshotProvider;
 pub use subscription::{
-	AddFilterError, MAX_FILTERS_PER_SUBSCRIPTION, MultiFilterEventStream,
-	MultiFilterSubscriptionApi, MultiFilterSubscriptionEvent, StatementStoreSubscriptionApi,
-	SubscriptionHandle,
+	AddFilterError, MultiFilterEventStream, MultiFilterSubscriptionApi,
+	MultiFilterSubscriptionEvent, StatementStoreSubscriptionApi, SubscriptionHandle,
+	MAX_FILTERS_PER_SUBSCRIPTION,
 };
 
 const KEY_VERSION: &[u8] = b"version".as_slice();
@@ -2876,12 +2876,10 @@ mod tests {
 		{
 			let query_index = store.query_index.read();
 			assert!(query_index.by_topic.get(&topic(42)).map_or(false, |s| s.contains(&hash)));
-			assert!(
-				query_index
-					.by_dec_key
-					.get(&Some(dec_key(7)))
-					.map_or(false, |s| s.contains(&hash))
-			);
+			assert!(query_index
+				.by_dec_key
+				.get(&Some(dec_key(7)))
+				.map_or(false, |s| s.contains(&hash)));
 		}
 
 		// Populate and then expire
