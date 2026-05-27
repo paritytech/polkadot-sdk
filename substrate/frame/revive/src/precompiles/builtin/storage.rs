@@ -68,15 +68,17 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					let address = env.address();
 					env.touch_storage_access(address, &key)
 				};
-				let charged = env.frame_meter_mut().charge_weight_token(RuntimeCosts::clear(
-					transient, max_size, is_cold,
-				))?;
+				let charged = env
+					.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::clear(transient, max_size, is_cold))?;
 				let (existed, old_len) = if transient {
 					let outcome = env
 						.set_transient_storage(&key, None, false)
 						.map_err(|_| Error::Revert("failed setting transient storage".into()))?;
-					env.frame_meter_mut()
-						.adjust_weight(charged, RuntimeCosts::clear(true, outcome.old_len(), false));
+					env.frame_meter_mut().adjust_weight(
+						charged,
+						RuntimeCosts::clear(true, outcome.old_len(), false),
+					);
 					(outcome != WriteOutcome::New, outcome.old_len())
 				} else {
 					let result = env.set_storage(&key, None, false);
@@ -102,9 +104,9 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					let address = env.address();
 					env.touch_storage_access(address, &key)
 				};
-				let charged = env.frame_meter_mut().charge_weight_token(
-					RuntimeCosts::contains(transient, max_size, is_cold),
-				)?;
+				let charged = env
+					.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::contains(transient, max_size, is_cold))?;
 				let (exists, value_len) = if transient {
 					let outcome = env.get_transient_storage_size(&key);
 					let value_len = outcome.unwrap_or(0);
@@ -129,16 +131,18 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					let address = env.address();
 					env.touch_storage_access(address, &key)
 				};
-				let charged = env.frame_meter_mut().charge_weight_token(RuntimeCosts::take(
-					transient, max_size, is_cold,
-				))?;
+				let charged = env
+					.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::take(transient, max_size, is_cold))?;
 				let value: Vec<u8> = if transient {
 					let value = match env.set_transient_storage(&key, None, true)? {
 						WriteOutcome::Taken(v) => v,
 						_ => Vec::new(),
 					};
-					env.frame_meter_mut()
-						.adjust_weight(charged, RuntimeCosts::take(true, value.len() as u32, false));
+					env.frame_meter_mut().adjust_weight(
+						charged,
+						RuntimeCosts::take(true, value.len() as u32, false),
+					);
 					value
 				} else {
 					let result = env.set_storage(&key, None, true);

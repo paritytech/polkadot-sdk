@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	Config, limits, metering::Token,
-	weightinfo_extension::OnFinalizeBlockParts, weights::WeightInfo,
+	Config, limits, metering::Token, weightinfo_extension::OnFinalizeBlockParts,
+	weights::WeightInfo,
 };
 use frame_support::weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND};
 
@@ -374,7 +374,11 @@ impl RuntimeCosts {
 	}
 
 	pub fn clear(transient: bool, len: u32, is_cold: bool) -> Self {
-		if transient { Self::ClearTransientStorage(len) } else { Self::ClearStorage { len, is_cold } }
+		if transient {
+			Self::ClearTransientStorage(len)
+		} else {
+			Self::ClearStorage { len, is_cold }
+		}
 	}
 
 	pub fn take(transient: bool, len: u32, is_cold: bool) -> Self {

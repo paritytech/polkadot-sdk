@@ -1935,7 +1935,6 @@ where
 			f(&self.transient_storage)
 		}
 	}
-
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>

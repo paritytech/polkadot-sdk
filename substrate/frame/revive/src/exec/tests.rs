@@ -1848,26 +1848,23 @@ fn set_storage_varsized_key_works() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		// Write
 		assert_eq!(
-			ctx.ext
-				.set_storage(
-					&Key::try_from_var([1; 64].to_vec()).unwrap(),
-					Some(vec![1, 2, 3]),
-					false
-				),
+			ctx.ext.set_storage(
+				&Key::try_from_var([1; 64].to_vec()).unwrap(),
+				Some(vec![1, 2, 3]),
+				false
+			),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
-			ctx.ext
-				.set_storage(
-					&Key::try_from_var([2; 19].to_vec()).unwrap(),
-					Some(vec![4, 5, 6]),
-					true
-				),
+			ctx.ext.set_storage(
+				&Key::try_from_var([2; 19].to_vec()).unwrap(),
+				Some(vec![4, 5, 6]),
+				true
+			),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
-			ctx.ext
-				.set_storage(&Key::try_from_var([3; 19].to_vec()).unwrap(), None, false),
+			ctx.ext.set_storage(&Key::try_from_var([3; 19].to_vec()).unwrap(), None, false),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
@@ -1887,22 +1884,23 @@ fn set_storage_varsized_key_works() {
 
 		// Overwrite
 		assert_eq!(
-			ctx.ext
-				.set_storage(
-					&Key::try_from_var([1; 64].to_vec()).unwrap(),
-					Some(vec![42, 43, 44]),
-					false
-				),
+			ctx.ext.set_storage(
+				&Key::try_from_var([1; 64].to_vec()).unwrap(),
+				Some(vec![42, 43, 44]),
+				false
+			),
 			Ok(WriteOutcome::Overwritten(3))
 		);
 		assert_eq!(
-			ctx.ext
-				.set_storage(&Key::try_from_var([2; 19].to_vec()).unwrap(), Some(vec![48]), true),
+			ctx.ext.set_storage(
+				&Key::try_from_var([2; 19].to_vec()).unwrap(),
+				Some(vec![48]),
+				true
+			),
 			Ok(WriteOutcome::Taken(vec![4, 5, 6]))
 		);
 		assert_eq!(
-			ctx.ext
-				.set_storage(&Key::try_from_var([3; 19].to_vec()).unwrap(), None, false),
+			ctx.ext.set_storage(&Key::try_from_var([3; 19].to_vec()).unwrap(), None, false),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
@@ -2023,12 +2021,11 @@ fn get_storage_size_works() {
 fn get_storage_varsized_key_works() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_eq!(
-			ctx.ext
-				.set_storage(
-					&Key::try_from_var([1; 19].to_vec()).unwrap(),
-					Some(vec![1, 2, 3]),
-					false
-				),
+			ctx.ext.set_storage(
+				&Key::try_from_var([1; 19].to_vec()).unwrap(),
+				Some(vec![1, 2, 3]),
+				false
+			),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
@@ -2073,12 +2070,11 @@ fn get_storage_varsized_key_works() {
 fn get_storage_size_varsized_key_works() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_eq!(
-			ctx.ext
-				.set_storage(
-					&Key::try_from_var([1; 19].to_vec()).unwrap(),
-					Some(vec![1, 2, 3]),
-					false
-				),
+			ctx.ext.set_storage(
+				&Key::try_from_var([1; 19].to_vec()).unwrap(),
+				Some(vec![1, 2, 3]),
+				false
+			),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
@@ -3120,10 +3116,7 @@ fn cold_hot_child_commit_keying() {
 		//    same slot bytes.
 		let parent_address = ctx.ext.address();
 		let is_cold = ctx.ext.touch_storage_access(parent_address, &key_for_parent);
-		assert!(
-			is_cold,
-			"parent (CHARLIE, key) is distinct from child's (BOB, key)",
-		);
+		assert!(is_cold, "parent (CHARLIE, key) is distinct from child's (BOB, key)",);
 		ctx.ext.set_storage(&key_for_parent, Some(vec![2]), false).unwrap();
 		// 3. Child call #2: touches (BOB, key) again — now hot, since call #1 committed and the
 		//    entry survived back into the parent frame.
@@ -3189,10 +3182,7 @@ fn cold_hot_delegate_call_marks_parent_slot_hot() {
 		// parent will see on its next SLOAD.
 		let address = ctx.ext.address();
 		let is_cold = ctx.ext.touch_storage_access(address, &Key::Fix(SLOT));
-		assert!(
-			is_cold,
-			"child via delegate-call: first touch on `(parent_addr, slot)` is cold",
-		);
+		assert!(is_cold, "child via delegate-call: first touch on `(parent_addr, slot)` is cold",);
 		let _ = ctx.ext.get_storage(&Key::Fix(SLOT));
 		exec_success()
 	});
