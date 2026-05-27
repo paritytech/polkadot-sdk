@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779890522881,
+  "lastUpdate": 1779919997138,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "3a2008517f4f9e6ef6fc97f9ecf7fa3f5b8c18e9",
-          "message": "Version bumps and prdocs reordering from stable2509 (#9974)\n\nThis PR backports regular version bumps and prdocs reordering from the\nstable2509 branch back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2025-10-15T08:34:35Z",
-          "tree_id": "cb6d88dbf9b95d1d659f37bf0d70240e684a4e9c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3a2008517f4f9e6ef6fc97f9ecf7fa3f5b8c18e9"
-        },
-        "date": 1760521289205,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007568304013333315,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013248426773333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15727222637333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02249472101333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007506939733333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f124c411c2496b8b3800766265b713602d499a6f",
+          "message": "sc-client-db: add prefetched indexed transactions support (#12086)\n\nThe transaction-index database column (TRANSACTION) is normally\npopulated as a side-effect of block execution: the runtime emits\nIndexOperations, the client applies them in apply_index_ops, and the\nbytes referenced by each IndexOperation::Insert are extracted from the\nblock body. For two upcoming consumers — Cumulus storage-chain tip-sync\nand gap-sync backfill — this side-effect doesn't fit:\n\n1. **Tip-sync (block executed, payload missing).** The runtime emits\nIndexOperation::Renew { hash } to extend an existing transaction's TTL,\nbut the local node doesn't yet hold the bytes for hash because the\noriginal Insert block was never executed locally. Today this fails at\napply_index_ops because Renew only bumps the refcount on an entry that\nmust already exist.\n\n2. **Gap-sync (block not executed, ops missing).** Older blocks in a gap\nare imported without execution, so the runtime never emits any\nIndexOperations for them. Without a side channel, the wrapper can't\nreconstruct what the runtime would have produced.\n\nSo in this PR I add a mechanism to allow BlockImport implementers up in\nthe pipeline to provide missing renew payloads and supply custom index\noperations.",
+          "timestamp": "2026-05-27T18:58:01Z",
+          "tree_id": "3437579a58ac430763f92e35ae35a108ed2939d8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f124c411c2496b8b3800766265b713602d499a6f"
+        },
+        "date": 1779919967463,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14842972105333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023845911906666656,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009950212006666652,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007891523346666665,
             "unit": "seconds"
           }
         ]
