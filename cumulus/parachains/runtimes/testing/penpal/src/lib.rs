@@ -51,7 +51,7 @@ use alloc::{vec, vec::Vec};
 pub use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use assets_common::{foreign_creators::ForeignCreators, local_and_foreign_assets::TargetFromLeft};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId, VerifySchedulingSignature};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -290,7 +290,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 };
 
 const RELAY_PARENT_OFFSET: u32 = 0;
-const SCHEDULING_V3_ENABLED: bool = false;
 
 // Unit = the base number of indivisible units for balances
 pub const UNIT: Balance = 1_000_000_000_000;
@@ -618,8 +617,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	>;
 
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
-	type SchedulingV3Enabled = ConstBool<SCHEDULING_V3_ENABLED>;
-	type SchedulingSignatureVerifier = cumulus_primitives_core::NoVerification;
+	type SchedulingSignatureVerifier = ();
 }
 
 impl parachain_info::Config for Runtime {}
@@ -1205,7 +1203,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
 		fn scheduling_v3_enabled() -> bool {
-			SCHEDULING_V3_ENABLED
+			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED
 		}
 	}
 );

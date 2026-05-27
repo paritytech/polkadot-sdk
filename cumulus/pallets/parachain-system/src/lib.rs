@@ -36,10 +36,9 @@ use cumulus_primitives_core::{
 	relay_chain::{self, UMPSignal, UMP_SEPARATOR},
 	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, CoreInfo,
 	CumulusDigestItem, GetChannelInfo, ListChannelInfos, MessageSendError, OutboundHrmpMessage,
-	ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender, XcmpMessageHandler,
-	XcmpMessageSource,
+	ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender, VerifySchedulingSignature,
+	XcmpMessageHandler, XcmpMessageSource,
 };
-pub use cumulus_primitives_core::{NoVerification, VerifySchedulingSignature};
 use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
 use frame_support::{
 	dispatch::{DispatchClass, DispatchResult},
@@ -204,15 +203,6 @@ pub mod ump_constants {
 	pub const THRESHOLD_FACTOR: u32 = 2;
 }
 
-/// Maximum claim queue offset for async backing flexibility.
-///
-/// This limits how far "into the future" collators can target when selecting cores
-/// from the claim queue. The effective claim queue depth is:
-/// `relay_parent_offset + MAX_CLAIM_QUEUE_OFFSET`
-///
-/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
-const MAX_CLAIM_QUEUE_OFFSET: u8 = 2;
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -293,7 +283,11 @@ pub mod pallet {
 		/// If set to 0, this config has no impact.
 		type RelayParentOffset: Get<u32>;
 
-		/// Enable V3 scheduling validation for candidates.
+		/// Verifier for V3 scheduling proofs.
+		///
+		/// Reports whether V3 scheduling validation is enabled and supplies the
+		/// verification logic for the proof itself. Use `()` to keep V3 scheduling
+		/// disabled.
 		///
 		/// When enabled, this changes how building on older relay parents is enforced:
 		/// - The old `relay_parent_descendants` validation in the inherent is disabled
@@ -302,28 +296,20 @@ pub mod pallet {
 		///
 		/// # Migration Guide
 		///
-		/// v3 scheduling is work in progress, and for the moment this value should be set to false.
-		/// If this value is wrongfully enabled, the parachain will stall.
+		/// v3 scheduling is work in progress, and for the moment this should be left as
+		/// `()`. If V3 is wrongfully enabled, the parachain will stall.
 		///
 		/// Before enabling this:
 		/// 1. Ensure all collators are updated to a version that supports V3 candidates
 		/// 2. Ensure the relay chain has `CandidateReceiptV3` node feature enabled
-		/// 3. Enable this config option via a runtime upgrade
+		/// 3. Swap the verifier for one whose `V3_SCHEDULING_ENABLED` const is `true`, via a
+		///    runtime upgrade.
 		///
 		/// Once enabled, collators will:
 		/// - Stop providing `relay_parent_descendants` in the inherent (empty vec)
 		/// - Provide the header chain via V3 extension in PVF parameters
 		///
 		/// The `RelayParentOffset` config continues to define the header chain length.
-		type SchedulingV3Enabled: Get<bool>;
-
-		/// Verifies the [`cumulus_primitives_core::SignedSchedulingInfo`] attached to V3
-		/// candidates.
-		///
-		/// Wired by the parachain runtime to a type that knows the parachain's Aura crypto:
-		/// typically `cumulus_pallet_aura_ext::AuraSchedulingVerifier<Self, AuraPair>`.
-		/// Runtimes that have not opted into V3 resubmission verification can use
-		/// [`cumulus_primitives_core::NoVerification`].
 		type SchedulingSignatureVerifier: cumulus_primitives_core::VerifySchedulingSignature;
 	}
 
@@ -644,7 +630,7 @@ pub mod pallet {
 			// Ensure `CoreInfo` digest exists only once and validate claim_queue_offset.
 			//
 			// With V3: the collator looks up the claim queue at the scheduling parent
-			// (fresh tip), so the max offset is just MAX_CLAIM_QUEUE_OFFSET.
+			// (fresh tip), so the max offset is just the `max_claim_queue_offset()`.
 			// Without V3: the collator looks up at the relay parent which is offset
 			// behind the tip, so the effective max includes relay_parent_offset.
 			match CumulusDigestItem::core_info_exists_at_max_once(
@@ -652,7 +638,7 @@ pub mod pallet {
 			) {
 				CoreInfoExistsAtMaxOnce::Once(core_info) => {
 					let mut max_allowed_offset = Self::max_claim_queue_offset();
-					if !T::SchedulingV3Enabled::get() {
+					if !T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED {
 						max_allowed_offset = max_allowed_offset
 							.saturating_add(T::RelayParentOffset::get().saturated_into::<u8>())
 					}
@@ -729,11 +715,11 @@ pub mod pallet {
 			.expect("Invalid relay chain state proof");
 
 			// Relay parent offset validation:
-			// When SchedulingV3Enabled is false: validate relay_parent_descendants (old mechanism)
-			// When SchedulingV3Enabled is true: skip this validation, V3 scheduling validation
+			// When V3 scheduling is disabled: validate relay_parent_descendants (old mechanism)
+			// When V3 scheduling is enabled: skip this validation, V3 scheduling validation
 			// happens in validate_block with header chain from PVF params
 			let expected_rp_descendants_num = T::RelayParentOffset::get();
-			let v3_enabled = T::SchedulingV3Enabled::get();
+			let v3_enabled = T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED;
 
 			if expected_rp_descendants_num > 0 && !v3_enabled {
 				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
@@ -1186,11 +1172,11 @@ impl<T: Config> Pallet<T> {
 	/// This is used by the [cumulus_primitives_core::RelayParentOffsetApi::max_claim_queue_offset]
 	/// runtime API to expose the value to collators.
 	pub fn max_claim_queue_offset() -> u8 {
-		if !T::SchedulingV3Enabled::get() {
+		if !T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED {
 			return 1;
 		}
 
-		MAX_CLAIM_QUEUE_OFFSET
+		2
 	}
 }
 

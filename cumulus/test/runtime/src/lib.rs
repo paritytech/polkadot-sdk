@@ -107,7 +107,7 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use cumulus_primitives_core::{ParaId, RelayProofRequest};
+use cumulus_primitives_core::{ParaId, RelayProofRequest, VerifySchedulingSignature};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -416,6 +416,24 @@ const RELAY_PARENT_OFFSET: u32 = 0;
 
 const SCHEDULING_V3_ENABLED: bool = cfg!(feature = "v3-descriptor");
 
+/// Scheduling-info verifier used by `cumulus-test-runtime`.
+///
+/// Accepts any signature; `V3_SCHEDULING_ENABLED` is gated on the `v3-descriptor` cargo
+/// feature so the test runtime can flip V3 scheduling on without needing a runtime upgrade
+/// per build.
+pub struct NoVerification;
+
+impl VerifySchedulingSignature for NoVerification {
+	const V3_SCHEDULING_ENABLED: bool = SCHEDULING_V3_ENABLED;
+
+	fn verify(
+		_signed_info: &cumulus_primitives_core::SignedSchedulingInfo,
+		_internal_scheduling_parent_header: &cumulus_primitives_core::relay_chain::Header,
+	) -> bool {
+		true
+	}
+}
+
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
@@ -437,8 +455,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
-	type SchedulingV3Enabled = ConstBool<SCHEDULING_V3_ENABLED>;
-	type SchedulingSignatureVerifier = cumulus_primitives_core::NoVerification;
+	type SchedulingSignatureVerifier = NoVerification;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -604,7 +621,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
 		fn scheduling_v3_enabled() -> bool {
-			SCHEDULING_V3_ENABLED
+			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED
 		}
 	}
 

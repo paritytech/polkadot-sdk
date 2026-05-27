@@ -31,7 +31,9 @@ use crate::{
 };
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
-use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
+use cumulus_client_consensus_common::{
+	self as consensus_common, get_relay_slot, ParachainBlockImportMarker,
+};
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
@@ -123,7 +125,9 @@ pub struct BuilderTaskParams<
 	pub max_pov_percentage: Option<u32>,
 }
 
-fn get_para_info<Block: BlockT, Client>(para_client: &Arc<Client>) -> (Block::Hash, bool)
+fn get_best_hash_and_v3_status<Block: BlockT, Client>(
+	para_client: &Arc<Client>,
+) -> (Block::Hash, bool)
 where
 	Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	Client::Api: SchedulingV3EnabledApi<Block>,
@@ -205,9 +209,6 @@ where
 			Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
-		let mut scheduling_info =
-			super::scheduling::SchedulingInfo::new(relay_chain_slot_duration, slot_offset);
-
 		let mut relay_chain_data_cache = RelayChainDataCache::new(relay_client.clone(), para_id);
 		let mut connection_helper = BackingGroupConnectionHelper::new(
 			keystore.clone(),
@@ -218,15 +219,20 @@ where
 				.expect("Relay chain interface must provide overseer handle."),
 		);
 
-		let (_para_best_hash, v3_enabled_on_para) = get_para_info(&para_client);
+		let mut scheduling_info = SchedulingInfo::new(relay_chain_slot_duration, slot_offset);
+		let maybe_best_relay_block_data = scheduling_info
+			.ensure_initialized(&relay_client, &mut relay_chain_data_cache)
+			.await;
+
+		let (_para_best_hash, v3_enabled_on_para) = get_best_hash_and_v3_status(&para_client);
 		let v3_enabled = SchedulingInfo::<RelayClient>::is_v3_enabled(
 			v3_enabled_on_para,
-			relay_chain_data_cache.get_best_relay_block_data().await.ok(),
+			maybe_best_relay_block_data,
 		);
 		slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
 
 		loop {
-			scheduling_info
+			let _ = scheduling_info
 				.ensure_initialized(&relay_client, &mut relay_chain_data_cache)
 				.await;
 
@@ -242,7 +248,7 @@ where
 			// values was done through an unbacked/unincluded candidate. In that
 			// edge case, block building will fail and self-correct once the upgrade
 			// is included on the relay chain.
-			let (para_best_hash, v3_enabled_on_para) = get_para_info(&para_client);
+			let (para_best_hash, v3_enabled_on_para) = get_best_hash_and_v3_status(&para_client);
 			let Some((scheduling_parent_header, v3_enabled)) = scheduling_info
 				.wait_for_scheduling_parent(&mut relay_chain_data_cache, v3_enabled_on_para)
 				.await
@@ -256,11 +262,6 @@ where
 			let scheduling_parent_hash = scheduling_parent_header.hash();
 
 			slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
-
-			let Ok(para_slot_duration) = crate::slot_duration(&*para_client) else {
-				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
-				continue;
-			};
 
 			let relay_parent_offset = para_client
 				.runtime_api()
@@ -286,15 +287,6 @@ where
 			let relay_parent_header = relay_parent_data.relay_parent().clone();
 			let relay_parent_hash = relay_parent_header.hash();
 
-			// Use the slot calculated from relay parent
-			let Some(para_slot) = adjust_para_to_relay_parent_slot(
-				&relay_parent_header,
-				relay_chain_slot_duration,
-				para_slot_duration,
-			) else {
-				continue;
-			};
-
 			let Some(parent_search_result) = crate::collators::find_parent(
 				relay_parent_hash,
 				para_id,
@@ -318,6 +310,22 @@ where
 			let initial_parent_header = parent_search_result.best_parent_header;
 			let unincluded_segment_len =
 				initial_parent_header.number().saturating_sub(*included_header.number());
+
+			let Ok(para_slot_duration) =
+				crate::slot_duration_at(&*para_client, initial_parent_hash)
+			else {
+				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
+				continue;
+			};
+
+			// Use the slot calculated from relay parent
+			let Some(para_slot) = adjust_para_to_relay_parent_slot(
+				relay_parent_data.relay_parent(),
+				relay_chain_slot_duration,
+				para_slot_duration,
+			) else {
+				continue;
+			};
 
 			let Ok(max_pov_size) = relay_chain_data_cache
 				.get_by_hash(relay_parent_hash)
@@ -343,13 +351,7 @@ where
 				.collator_service()
 				.check_block_status(initial_parent_hash, &initial_parent_header);
 
-			let Ok(relay_slot) =
-				sc_consensus_babe::find_pre_digest::<RelayBlock>(&relay_parent_header)
-					.map(|babe_pre_digest| babe_pre_digest.slot())
-			else {
-				tracing::error!(target: LOG_TARGET, "Relay chain does not contain babe slot. This should never happen.");
-				continue;
-			};
+			let Some(relay_slot) = get_relay_slot(&relay_parent_header) else { continue };
 
 			let included_header_hash = included_header.hash();
 
@@ -415,6 +417,8 @@ where
 				(&scheduling_parent_header, maybe_max_claim_queue_offset.unwrap_or(2))
 			} else {
 				// V1/V2: look up at relay_parent, add relay_parent_offset
+				// For the `max_claim_queue_offset` we use a default of `0` for backwards
+				// compatibility when the runtime API is not implemented.
 				let total_offset = relay_parent_offset + maybe_max_claim_queue_offset.unwrap_or(0);
 				(&relay_parent_header, total_offset)
 			};
@@ -648,8 +652,10 @@ where
 	// Check if V3 scheduling is enabled and build scheduling proof if so.
 	let mut scheduling_proof = None;
 	if v3_enabled {
+		// The relay parent descendants are only needed for v2.
+		let descendants = relay_parent_data.take_descendants();
 		// The descendants are ordered from oldest to newest, so we need to reverse them.
-		let header_chain: Vec<_> = relay_parent_data.descendants().iter().rev().cloned().collect();
+		let header_chain: Vec<_> = descendants.into_iter().rev().collect();
 		let scheduling_parent =
 			header_chain.first().map(|header| header.hash()).unwrap_or(relay_parent_hash);
 
@@ -664,16 +670,11 @@ where
 		scheduling_proof = Some(SchedulingProof {
 			header_chain,
 			// Initial submission: internal_scheduling_parent == relay_parent, so the
-			// IP header is the relay parent's header itself. The PVF verifier reads
-			// this header's BABE pre-digest to derive the parachain slot used for
-			// author lookup when a signed_scheduling_info is attached.
+			// internal scheduling parent header is the relay parent's header itself.
 			internal_scheduling_parent_header: relay_parent_header.clone(),
 			// Initial submission: no signature needed, core selection from UMP signals
 			signed_scheduling_info: None,
 		});
-
-		// The relay parent descendants are only needed for v2.
-		relay_parent_data.descendants = vec![];
 	}
 
 	let Some(validation_code_hash) = code_hash_provider.code_hash_at(pov_parent_hash) else {

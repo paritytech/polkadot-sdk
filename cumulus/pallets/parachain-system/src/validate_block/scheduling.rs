@@ -83,14 +83,14 @@ pub fn validate_v3_scheduling(
 			// V3 disabled but extension present: this should not happen
 			// The relay chain should not send V3 candidates to parachains that have not enabled it
 			panic!(
-				"V3 extension present but SchedulingV3Enabled is false. \
+				"V3 extension present but V3 scheduling is disabled. \
                 Ensure collators and runtime are in sync."
 			);
 		},
 		(true, None) => {
 			// V3 enabled but no extension: candidates must be V3
 			panic!(
-				"SchedulingV3Enabled is true but no V3 extension present. \
+				"V3 scheduling is enabled but no V3 extension present. \
                 Collators must provide V3 candidates when V3 is enabled."
 			);
 		},
@@ -207,22 +207,28 @@ pub fn check_scheduling(
 	})
 }
 
-/// Apply the resubmission override from a verified `SignedSchedulingInfo` to the
-/// `(core_selector, claim_queue_offset)` and `approved_peer` values emitted by the
-/// block's own UMP signals.
+/// Apply the resubmission override from a verified `SignedSchedulingInfo`: the
+/// canonical `(core_selector, claim_queue_offset)` and `approved_peer` to emit as
+/// the block's UMP signals are read directly from the signed payload, since the
+/// resubmitting collator signed over all three.
 pub fn apply_resubmission_override(
-	block_select_core: Option<(CoreSelector, ClaimQueueOffset)>,
 	signed_info: &SignedSchedulingInfo,
 ) -> ((CoreSelector, ClaimQueueOffset), ApprovedPeerId) {
-	let (_, offset) = block_select_core
-		.expect("V3 resubmission requires a `SelectCore` UMP signal from the block; qed");
-	((signed_info.core_selector.clone(), offset), signed_info.peer_id.clone())
+	(
+		(
+			signed_info.payload.core_selector.clone(),
+			ClaimQueueOffset(signed_info.payload.claim_queue_offset),
+		),
+		signed_info.payload.peer_id.clone(),
+	)
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use cumulus_primitives_core::{CoreSelector, SchedulingProof, SignedSchedulingInfo};
+	use cumulus_primitives_core::{
+		CoreSelector, SchedulingInfoPayload, SchedulingProof, SignedSchedulingInfo,
+	};
 	use sp_runtime::{generic::Header, traits::BlakeTwo256};
 
 	type RelayHeader = Header<u32, BlakeTwo256>;
@@ -230,6 +236,23 @@ mod tests {
 	/// Creates a dummy signature blob for testing (not cryptographically valid).
 	fn dummy_signature() -> [u8; 64] {
 		[0u8; 64]
+	}
+
+	/// Builds a `SignedSchedulingInfo` with the given core selector and a dummy signature.
+	/// `claim_queue_offset`, `peer_id`, and the inner `internal_scheduling_parent` use
+	/// default/zero values; `check_scheduling` only inspects the proof's
+	/// `signed_scheduling_info.is_some()` (signature verification happens elsewhere), so
+	/// payload contents don't affect shape validation.
+	fn dummy_signed(core_selector: CoreSelector) -> SignedSchedulingInfo {
+		SignedSchedulingInfo {
+			payload: SchedulingInfoPayload::new(
+				core_selector,
+				0,
+				Default::default(),
+				Default::default(),
+			),
+			signature: dummy_signature(),
+		}
 	}
 
 	/// Creates a chain of headers where each header's parent_hash points to the next,
@@ -462,11 +485,7 @@ mod tests {
 		let (headers, ip_header, relay_parent) = make_header_chain(3);
 		let scheduling_parent = headers[0].hash();
 
-		let signed_info = SignedSchedulingInfo {
-			core_selector: CoreSelector(0),
-			peer_id: Default::default(),
-			signature: dummy_signature(),
-		};
+		let signed_info = dummy_signed(CoreSelector(0));
 
 		let proof = SchedulingProof {
 			header_chain: headers,
@@ -510,11 +529,7 @@ mod tests {
 		// relay_parent is an ancestor of internal_scheduling_parent)
 		let older_relay_parent = RelayHash::repeat_byte(0xBB);
 
-		let signed_info = SignedSchedulingInfo {
-			core_selector: CoreSelector(0),
-			peer_id: Default::default(),
-			signature: dummy_signature(),
-		};
+		let signed_info = dummy_signed(CoreSelector(0));
 
 		let proof = SchedulingProof {
 			header_chain: headers,
@@ -581,7 +596,7 @@ mod tests {
 	}
 
 	#[test]
-	#[should_panic(expected = "V3 extension present but SchedulingV3Enabled is false")]
+	#[should_panic(expected = "V3 extension present but V3 scheduling is disabled")]
 	fn v3_disabled_with_extension_panics() {
 		let ext = ValidationParamsExtension::V3 {
 			relay_parent: RelayHash::default(),
@@ -591,7 +606,7 @@ mod tests {
 	}
 
 	#[test]
-	#[should_panic(expected = "SchedulingV3Enabled is true but no V3 extension present")]
+	#[should_panic(expected = "V3 scheduling is enabled but no V3 extension present")]
 	fn v3_enabled_no_extension_panics() {
 		validate_v3_scheduling(true, &None, None, 0);
 	}
@@ -638,11 +653,7 @@ mod tests {
 		let proof = SchedulingProof {
 			header_chain: headers,
 			internal_scheduling_parent_header: ip_header.clone(),
-			signed_scheduling_info: Some(SignedSchedulingInfo {
-				core_selector: CoreSelector(0),
-				peer_id: Default::default(),
-				signature: dummy_signature(),
-			}),
+			signed_scheduling_info: Some(dummy_signed(CoreSelector(0))),
 		};
 
 		let result = validate_v3_scheduling(true, &Some(ext), Some(&proof), 3);
@@ -680,11 +691,7 @@ mod tests {
 		let proof = SchedulingProof {
 			header_chain: vec![],
 			internal_scheduling_parent_header: ip_header,
-			signed_scheduling_info: Some(SignedSchedulingInfo {
-				core_selector: CoreSelector(0),
-				peer_id: Default::default(),
-				signature: dummy_signature(),
-			}),
+			signed_scheduling_info: Some(dummy_signed(CoreSelector(0))),
 		};
 		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 0);
 		assert!(result.is_ok());
@@ -700,11 +707,7 @@ mod tests {
 		let proof = SchedulingProof {
 			header_chain: vec![],
 			internal_scheduling_parent_header: ip_header,
-			signed_scheduling_info: Some(SignedSchedulingInfo {
-				core_selector: CoreSelector(0),
-				peer_id: Default::default(),
-				signature: dummy_signature(),
-			}),
+			signed_scheduling_info: Some(dummy_signed(CoreSelector(0))),
 		};
 		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 0);
 		assert_eq!(result, Err(SchedulingValidationError::RelayParentMismatchOnEmptyChain));
@@ -739,8 +742,20 @@ mod tests {
 	// apply_resubmission_override tests
 	// =========================================================================
 
-	fn signed_with(core_selector: CoreSelector, peer_id: ApprovedPeerId) -> SignedSchedulingInfo {
-		SignedSchedulingInfo { core_selector, peer_id, signature: [0u8; 64] }
+	fn signed_with(
+		core_selector: CoreSelector,
+		claim_queue_offset: u8,
+		peer_id: ApprovedPeerId,
+	) -> SignedSchedulingInfo {
+		SignedSchedulingInfo {
+			payload: SchedulingInfoPayload::new(
+				core_selector,
+				claim_queue_offset,
+				peer_id,
+				Default::default(),
+			),
+			signature: [0u8; 64],
+		}
 	}
 
 	fn peer(byte: u8) -> ApprovedPeerId {
@@ -748,33 +763,17 @@ mod tests {
 	}
 
 	#[test]
-	fn override_takes_selector_and_peer_from_signed_keeps_offset_from_block() {
-		// Distinct values across all three return-value fields ensure no field is
-		// silently sourced from the wrong place. Note that `apply_resubmission_override`
-		// doesn't even take the block's prior approved_peer as input — it always wins
-		// from the signed payload — so a separate "override replaces" test would add
-		// no coverage over this one.
-		let block_select = Some((CoreSelector(1), ClaimQueueOffset(2)));
-		let signed = signed_with(CoreSelector(7), peer(0xAA));
+	fn override_returns_all_fields_from_signed_payload() {
+		// All three values — `core_selector`, `claim_queue_offset`, and `peer_id` — are
+		// signed by the resubmitting collator, so the override sources every field from
+		// the signed payload. Distinct values across the three return-value fields ensure
+		// no field is silently sourced from the wrong place.
+		let signed = signed_with(CoreSelector(7), 3, peer(0xAA));
 
-		let ((selector, offset), peer_id) = apply_resubmission_override(block_select, &signed);
+		let ((selector, offset), peer_id) = apply_resubmission_override(&signed);
 
 		assert_eq!(selector, CoreSelector(7), "core_selector must come from the signed payload");
-		assert_eq!(
-			offset,
-			ClaimQueueOffset(2),
-			"offset must be preserved from the block's emitted signal (runtime-config-derived)",
-		);
+		assert_eq!(offset, ClaimQueueOffset(3), "offset must come from the signed payload");
 		assert_eq!(peer_id, peer(0xAA), "approved_peer must come from the signed payload");
-	}
-
-	#[test]
-	#[should_panic(expected = "V3 resubmission requires a `SelectCore` UMP signal from the block")]
-	fn override_panics_when_block_emitted_no_select_core() {
-		// V3 candidates must emit a SelectCore signal; reaching the override path
-		// with None means a malformed candidate — fail loudly rather than silently
-		// fabricating an offset.
-		let signed = signed_with(CoreSelector(0), peer(0));
-		let _ = apply_resubmission_override(None, &signed);
 	}
 }

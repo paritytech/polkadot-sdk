@@ -21,7 +21,7 @@ use cumulus_pallet_parachain_system::AnyRelayNumber;
 use cumulus_primitives_core::{ChannelInfo, IsSystem, ParaId};
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{BatchesFootprints, ConstBool, ConstU32, Everything, OriginTrait},
+	traits::{BatchesFootprints, ConstU32, Everything, OriginTrait},
 	BoundedSlice,
 };
 use frame_system::EnsureRoot;
@@ -106,8 +106,7 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = cumulus_pallet_parachain_system::consensus_hook::ExpectParentIncluded;
 	type RelayParentOffset = ConstU32<0>;
-	type SchedulingV3Enabled = ConstBool<false>;
-	type SchedulingSignatureVerifier = cumulus_primitives_core::NoVerification;
+	type SchedulingSignatureVerifier = ();
 }
 
 parameter_types! {

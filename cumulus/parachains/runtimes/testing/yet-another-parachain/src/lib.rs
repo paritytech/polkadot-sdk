@@ -33,7 +33,7 @@ pub use polkadot_sdk::{staging_parachain_info as parachain_info, *};
 use staging_xcm_builder as xcm_builder;
 use staging_xcm_executor as xcm_executor;
 
-use cumulus_primitives_core::ParaId;
+use cumulus_primitives_core::{ParaId, VerifySchedulingSignature};
 use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
 use polkadot_runtime_common::{prod_or_fast, xcm_sender::NoPriceForMessageDelivery};
 
@@ -106,8 +106,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	transaction_version: 6,
 	system_version: 1,
 };
-
-const SCHEDULING_V3_ENABLED: bool = false;
 
 pub const MILLISECS_PER_BLOCK: u64 = 2000;
 
@@ -375,8 +373,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
-	type SchedulingV3Enabled = ConstBool<SCHEDULING_V3_ENABLED>;
-	type SchedulingSignatureVerifier = cumulus_primitives_core::NoVerification;
+	type SchedulingSignatureVerifier = ();
 }
 
 impl pallet_message_queue::Config for Runtime {
@@ -775,7 +772,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
 		fn scheduling_v3_enabled() -> bool {
-			SCHEDULING_V3_ENABLED
+			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED
 		}
 	}
 

@@ -104,6 +104,14 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		}
 	}
 
+	async fn get_best_relay_block_data<'a>(
+		relay_client: &RelayClient,
+		relay_chain_data_cache: &'a mut RelayChainDataCache<RelayClient>,
+	) -> Result<&'a RelayChainData, ()> {
+		let best_relay_hash = relay_client.best_block_hash().await.map_err(|_| ())?;
+		relay_chain_data_cache.get_by_hash(best_relay_hash).await.map_err(|_| ())
+	}
+
 	/// `true` if the best-block notification stream is terminated and must be replaced
 	/// before the next `wait_for_scheduling_parent` call.
 	///
@@ -113,13 +121,13 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		self.best_notifications.is_terminated()
 	}
 
-	pub async fn ensure_initialized(
-		&mut self,
+	pub async fn ensure_initialized<'a>(
+		&'a mut self,
 		relay_client: &RelayClient,
-		relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
-	) {
+		relay_chain_data_cache: &'a mut RelayChainDataCache<RelayClient>,
+	) -> Option<&'a RelayChainData> {
 		if !self.should_reinit() {
-			return;
+			return None;
 		}
 
 		match relay_client.new_best_notification_stream().await {
@@ -136,18 +144,21 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 			},
 		};
 
-		let best_relay_block_data = match relay_chain_data_cache.get_best_relay_block_data().await {
-			Ok(best_relay_block_data) => best_relay_block_data,
-			Err(()) => {
-				tracing::error!(
-					target: crate::LOG_TARGET,
-					"Failed to get the `RelayChainData` for the best relay chain block. \
-					The next call to `wait_for_scheduling_parent` might fail."
-				);
-				return;
-			},
-		};
+		let best_relay_block_data =
+			match Self::get_best_relay_block_data(relay_client, relay_chain_data_cache).await {
+				Ok(best_relay_block_data) => best_relay_block_data,
+				Err(()) => {
+					tracing::error!(
+						target: crate::LOG_TARGET,
+						"Failed to get the `RelayChainData` for the best relay chain block. \
+						The next call to `wait_for_scheduling_parent` might fail."
+					);
+					return None;
+				},
+			};
 		self.maybe_best_relay_header = Some(best_relay_block_data.relay_header.clone());
+
+		Some(best_relay_block_data)
 	}
 
 	pub fn is_v3_enabled(
@@ -190,25 +201,26 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 			let best_relay_slot = get_relay_slot(&best_relay_header_data.relay_header)?;
 
 			let v3_enabled = Self::is_v3_enabled(v3_enabled_on_para, Some(&best_relay_header_data));
-
-			// V2
-			if !v3_enabled {
-				let current_relay_slot =
-					get_current_relay_slot(self.slot_offset, self.relay_slot_duration);
-				if best_relay_slot >= current_relay_slot {
-					return Some((best_relay_header_data.relay_header.clone(), false));
-				}
-				continue;
+			if v3_enabled {
+				// For scheduling v3 we don't need to loop since we need to return a
+				// scheduling parent associated with a finished slot.
+				break (best_relay_slot, best_relay_header_data);
 			}
 
-			break (best_relay_slot, best_relay_header_data);
+			// For v2, we need to loop until we find a scheduling parent associated with a
+			// current slot.
+			if best_relay_slot >= get_current_relay_slot(self.slot_offset, self.relay_slot_duration)
+			{
+				return Some((best_relay_header_data.relay_header.clone(), false));
+			}
 		};
 
-		// V3
-		let current_relay_slot = get_current_relay_slot(Duration::ZERO, self.relay_slot_duration);
+		// v3: walk back to the first finished slot
 		let mut scheduling_parent_data = best_relay_header_data;
 		let mut scheduling_parent_slot = best_relay_slot;
-		while scheduling_parent_slot >= current_relay_slot {
+		while scheduling_parent_slot >=
+			get_current_relay_slot(Duration::ZERO, self.relay_slot_duration)
+		{
 			// The scheduling parent should be part of the same session as the best
 			// relay block.
 			if sc_consensus_babe::contains_epoch_change::<RelayBlock>(

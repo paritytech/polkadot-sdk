@@ -239,8 +239,7 @@ impl crate::Config for Runtime {
 	type WeightInfo = ();
 	type ConsensusHook = crate::ExpectParentIncluded;
 	type RelayParentOffset = ();
-	type SchedulingV3Enabled = ();
-	type SchedulingSignatureVerifier = cumulus_primitives_core::NoVerification;
+	type SchedulingSignatureVerifier = ();
 }
 
 impl test_pallet::Config for Runtime {}
@@ -303,8 +302,7 @@ pub mod only_operational_runtime {
 		type WeightInfo = ();
 		type ConsensusHook = crate::ExpectParentIncluded;
 		type RelayParentOffset = ();
-		type SchedulingV3Enabled = ();
-		type SchedulingSignatureVerifier = cumulus_primitives_core::NoVerification;
+		type SchedulingSignatureVerifier = ();
 	}
 
 	impl super::test_pallet::Config for RuntimeOnlyOperational {}

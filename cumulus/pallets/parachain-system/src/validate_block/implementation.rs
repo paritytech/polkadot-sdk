@@ -141,14 +141,14 @@ where
 	// `signed_scheduling_info` happens here at the call site so the verifier wiring
 	// stays out of the pure shape check.
 	let validated_scheduling = scheduling::validate_v3_scheduling(
-		PSC::SchedulingV3Enabled::get(),
+		PSC::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED,
 		&extension.0,
 		block_data.scheduling_proof(),
 		PSC::RelayParentOffset::get(),
 	);
 
 	let verified_signed_info: Option<SignedSchedulingInfo> =
-		validated_scheduling.filter(|r| r.is_resubmission).map(|result| {
+		validated_scheduling.filter(|r| r.is_resubmission).map(|_result| {
 			let proof = block_data.scheduling_proof().expect(
 				"`is_resubmission` implies a V3 scheduling proof; \
 				 enforced by `validate_v3_scheduling`; qed",
@@ -159,12 +159,11 @@ where
 			);
 			// Author eligibility is decided by the slot at `internal_scheduling_parent`,
 			// so the verifier needs that header — not the freshest one in the chain.
-			// `check_scheduling` has already verified the header hashes to
-			// `result.internal_scheduling_parent`.
+			// `check_scheduling` has already verified the header hashes to the derived
+			// `internal_scheduling_parent`.
 			if !PSC::SchedulingSignatureVerifier::verify(
 				signed_info,
 				&proof.internal_scheduling_parent_header,
-				result.internal_scheduling_parent,
 			) {
 				panic!("V3 scheduling validation failed: invalid signed_scheduling_info");
 			}
@@ -378,11 +377,12 @@ where
 			.expect("UMPSignals does not fit in UMPMessages");
 
 		if let Some(signed_info) = verified_signed_info.as_ref() {
-			// Resubmission: the verified signed payload overrides the block's
-			// emitted core_selector and peer_id. Emit canonical signals from the
-			// post-override values rather than forwarding the block's bytes.
+			// Resubmission: the verified signed payload supplies the canonical
+			// (core_selector, claim_queue_offset, peer_id) — all three are signed by
+			// the resubmitting collator. Emit signals from those values rather than
+			// forwarding the block's emitted bytes.
 			let ((selector, offset), peer_id) =
-				scheduling::apply_resubmission_override(selected_core, signed_info);
+				scheduling::apply_resubmission_override(signed_info);
 			upward_messages
 				.try_push(UMPSignal::SelectCore(selector, offset).encode())
 				.expect("UMPSignals does not fit in UMPMessages");

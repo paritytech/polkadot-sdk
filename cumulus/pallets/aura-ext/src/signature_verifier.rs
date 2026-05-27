@@ -13,8 +13,7 @@
 use crate::{Authorities, Config};
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain::{Hash as RelayHash, Header as RelayChainHeader},
-	SchedulingInfoPayload, SignedSchedulingInfo, VerifySchedulingSignature,
+	relay_chain::Header as RelayChainHeader, SignedSchedulingInfo, VerifySchedulingSignature,
 };
 use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus_aura::Slot;
@@ -41,10 +40,11 @@ where
 	T: Config,
 	T: pallet_timestamp::Config,
 {
+	const V3_SCHEDULING_ENABLED: bool = true;
+
 	fn verify(
 		signed_info: &SignedSchedulingInfo,
 		internal_scheduling_parent_header: &RelayChainHeader,
-		internal_scheduling_parent: RelayHash,
 	) -> bool {
 		// 1. Decode relay slot from the BABE pre-digest of the internal_scheduling_parent
 		//    header. The eligible parachain author is determined by *this* slot, anchoring
@@ -97,10 +97,6 @@ where
 			Err(_) => return false,
 		};
 
-		let payload = SchedulingInfoPayload::new(
-			signed_info.core_selector.clone(),
-			internal_scheduling_parent,
-		);
-		author.verify(&payload.encode(), &signature)
+		author.verify(&signed_info.payload.encode(), &signature)
 	}
 }
