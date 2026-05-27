@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779889496800,
+  "lastUpdate": 1779918679392,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -95147,6 +95147,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2935355452,
             "range": "± 305549072",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f124c411c2496b8b3800766265b713602d499a6f",
+          "message": "sc-client-db: add prefetched indexed transactions support (#12086)\n\nThe transaction-index database column (TRANSACTION) is normally\npopulated as a side-effect of block execution: the runtime emits\nIndexOperations, the client applies them in apply_index_ops, and the\nbytes referenced by each IndexOperation::Insert are extracted from the\nblock body. For two upcoming consumers — Cumulus storage-chain tip-sync\nand gap-sync backfill — this side-effect doesn't fit:\n\n1. **Tip-sync (block executed, payload missing).** The runtime emits\nIndexOperation::Renew { hash } to extend an existing transaction's TTL,\nbut the local node doesn't yet hold the bytes for hash because the\noriginal Insert block was never executed locally. Today this fails at\napply_index_ops because Renew only bumps the refcount on an entry that\nmust already exist.\n\n2. **Gap-sync (block not executed, ops missing).** Older blocks in a gap\nare imported without execution, so the runtime never emits any\nIndexOperations for them. Without a side channel, the wrapper can't\nreconstruct what the runtime would have produced.\n\nSo in this PR I add a mechanism to allow BlockImport implementers up in\nthe pipeline to provide missing renew payloads and supply custom index\noperations.",
+          "timestamp": "2026-05-27T18:58:01Z",
+          "tree_id": "3437579a58ac430763f92e35ae35a108ed2939d8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f124c411c2496b8b3800766265b713602d499a6f"
+        },
+        "date": 1779918649965,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19916718,
+            "range": "± 198039",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20248563,
+            "range": "± 123026",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21761171,
+            "range": "± 99634",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26460588,
+            "range": "± 187375",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59035777,
+            "range": "± 654647",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 324013854,
+            "range": "± 2555163",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2439016329,
+            "range": "± 27193278",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17595045,
+            "range": "± 238077",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17889204,
+            "range": "± 333118",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18134804,
+            "range": "± 139739",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23117360,
+            "range": "± 141820",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58416550,
+            "range": "± 328888",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 337644073,
+            "range": "± 1938603",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2657052354,
+            "range": "± 31571350",
             "unit": "ns/iter"
           }
         ]
