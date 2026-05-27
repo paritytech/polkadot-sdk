@@ -41,8 +41,7 @@ use sc_client_api::{
 	execution_extensions::ExecutionExtensions,
 	notifications::{StorageEventStream, StorageNotifications},
 	CallExecutor, ExecutorProvider, KeysIter, OnFinalityAction, OnImportAction, PairsIter,
-	PrefetchedIndexedTransactions, ProofProvider, StaleBlock, TrieCacheContext, UnpinWorkerMessage,
-	UsageProvider,
+	ProofProvider, StaleBlock, TrieCacheContext, UnpinWorkerMessage, UsageProvider,
 };
 use sc_consensus::{
 	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
@@ -484,7 +483,8 @@ where
 			intermediates,
 			import_existing,
 			create_gap,
-			prefetched_indexed_transactions,
+			index_ops,
+			renew_payloads,
 			..
 		} = import_block;
 
@@ -492,10 +492,8 @@ where
 			return Err(Error::IncompletePipeline);
 		}
 
-		let PrefetchedIndexedTransactions { ops: prefetched_index_ops, renew_payloads } =
-			prefetched_indexed_transactions;
 		operation.op.set_renew_payloads(renew_payloads)?;
-		operation.op.update_transaction_index(prefetched_index_ops)?;
+		operation.op.update_transaction_index(index_ops)?;
 
 		let fork_choice = fork_choice.ok_or(Error::IncompletePipeline)?;
 
@@ -613,8 +611,7 @@ where
 		let storage_changes = match storage_changes {
 			Some(sc_consensus::StorageChanges::Changes(storage_changes)) => {
 				self.backend.begin_state_operation(&mut operation.op, parent_hash)?;
-				let (main_sc, child_sc, offchain_sc, tx, _, tx_index) =
-					storage_changes.into_inner();
+				let (main_sc, child_sc, offchain_sc, tx, _) = storage_changes.into_inner();
 
 				if self.config.offchain_indexing_api {
 					operation.op.update_offchain_storage(offchain_sc)?;
@@ -622,7 +619,6 @@ where
 
 				operation.op.update_db_storage(tx)?;
 				operation.op.update_storage(main_sc.clone(), child_sc.clone())?;
-				operation.op.update_transaction_index(tx_index)?;
 
 				Some((main_sc, child_sc))
 			},
@@ -862,7 +858,7 @@ where
 				)?;
 
 				let state = self.backend.state_at(*parent_hash, call_context.into())?;
-				let gen_storage_changes = runtime_api
+				let (gen_storage_changes, gen_index_ops) = runtime_api
 					.into_storage_changes(&state, *parent_hash)
 					.map_err(sp_blockchain::Error::Storage)?;
 
@@ -870,6 +866,7 @@ where
 				{
 					return Err(Error::InvalidStateRoot);
 				}
+				import_block.index_ops = gen_index_ops;
 				Some(sc_consensus::StorageChanges::Changes(gen_storage_changes))
 			},
 			// No block body, no storage changes

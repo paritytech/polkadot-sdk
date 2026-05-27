@@ -184,6 +184,7 @@ where
 		import_block.body = Some(body);
 		import_block.state_action =
 			StateAction::ApplyChanges(StorageChanges::Changes(build.proposal.storage_changes));
+		import_block.index_ops = build.proposal.index_ops;
 
 		let intermediate = PowIntermediate::<Algorithm::Difficulty> {
 			difficulty: Some(build.metadata.difficulty),

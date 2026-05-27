@@ -193,9 +193,6 @@ pub struct StorageChanges<H: Hasher> {
 	pub transaction: BackendTransaction<H>,
 	/// The storage root after applying the transaction.
 	pub transaction_storage_root: H::Out,
-	/// Changes to the transaction index,
-	#[cfg(feature = "std")]
-	pub transaction_index_changes: Vec<IndexOperation>,
 }
 
 #[cfg(feature = "std")]
@@ -209,7 +206,6 @@ impl<H: Hasher> StorageChanges<H> {
 		OffchainChangesCollection,
 		BackendTransaction<H>,
 		H::Out,
-		Vec<IndexOperation>,
 	) {
 		(
 			self.main_storage_changes,
@@ -217,7 +213,6 @@ impl<H: Hasher> StorageChanges<H> {
 			self.offchain_storage_changes,
 			self.transaction,
 			self.transaction_storage_root,
-			self.transaction_index_changes,
 		)
 	}
 }
@@ -230,8 +225,6 @@ impl<H: Hasher> Default for StorageChanges<H> {
 			offchain_storage_changes: Default::default(),
 			transaction: BackendTransaction::with_hasher(Default::default()),
 			transaction_storage_root: Default::default(),
-			#[cfg(feature = "std")]
-			transaction_index_changes: Default::default(),
 		}
 	}
 }
@@ -575,12 +568,13 @@ impl<H: Hasher> OverlayedChanges<H> {
 		&self.transaction_index_ops
 	}
 
-	/// Drain all changes into a [`StorageChanges`] instance. Leave empty overlay in place.
+	/// Drain all changes into a [`StorageChanges`] instance and a separate list of
+	/// transaction-index operations. Leave empty overlay in place.
 	pub fn drain_storage_changes<B: Backend<H>>(
 		&mut self,
 		backend: &B,
 		state_version: StateVersion,
-	) -> Result<StorageChanges<H>, DefaultError>
+	) -> Result<(StorageChanges<H>, Vec<IndexOperation>), DefaultError>
 	where
 		H::Out: Ord + Encode + 'static,
 	{
@@ -605,20 +599,20 @@ impl<H: Hasher> OverlayedChanges<H> {
 			});
 		let offchain_storage_changes = self.offchain_drain_committed().collect();
 
-		#[cfg(feature = "std")]
-		let transaction_index_changes = std::mem::take(&mut self.transaction_index_ops);
+		let transaction_index_ops = take(&mut self.transaction_index_ops);
 
-		Ok(StorageChanges {
-			main_storage_changes: main_storage_changes.collect(),
-			child_storage_changes: child_storage_changes
-				.map(|(sk, it)| (sk, it.0.collect()))
-				.collect(),
-			offchain_storage_changes,
-			transaction,
-			transaction_storage_root,
-			#[cfg(feature = "std")]
-			transaction_index_changes,
-		})
+		Ok((
+			StorageChanges {
+				main_storage_changes: main_storage_changes.collect(),
+				child_storage_changes: child_storage_changes
+					.map(|(sk, it)| (sk, it.0.collect()))
+					.collect(),
+				offchain_storage_changes,
+				transaction,
+				transaction_storage_root,
+			},
+			transaction_index_ops,
+		))
 	}
 
 	/// Inserts storage entry responsible for current extrinsic index.

@@ -38,7 +38,7 @@ mod select_chain;
 pub use self::error::Error;
 pub use select_chain::SelectChain;
 pub use sp_inherents::InherentData;
-pub use sp_state_machine::Backend as StateBackend;
+pub use sp_state_machine::{Backend as StateBackend, IndexOperation};
 
 /// Block status.
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -109,6 +109,8 @@ pub struct Proposal<Block: BlockT> {
 	pub block: Block,
 	/// The storage changes while building this block.
 	pub storage_changes: sp_state_machine::StorageChanges<HashingFor<Block>>,
+	/// Transaction-index operations produced by the runtime while building this block.
+	pub index_ops: Vec<IndexOperation>,
 }
 
 /// Arguments for [`Proposer::propose`].

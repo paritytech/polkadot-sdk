@@ -233,7 +233,8 @@ where
 	///
 	/// This will panic if there are still open transactions.
 	pub fn commit_all(&mut self) -> Result<(), String> {
-		let changes = self.overlay.drain_storage_changes(&self.backend, self.state_version)?;
+		let (changes, _index_ops) =
+			self.overlay.drain_storage_changes(&self.backend, self.state_version)?;
 
 		self.backend
 			.apply_transaction(changes.transaction_storage_root, changes.transaction);

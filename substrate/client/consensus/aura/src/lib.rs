@@ -45,7 +45,9 @@ use sc_telemetry::TelemetryHandle;
 use sp_api::{ApiExt, Core, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
-use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, SelectChain};
+use sp_consensus::{
+	BlockOrigin, Environment, Error as ConsensusError, IndexOperation, Proposer, SelectChain,
+};
 use sp_consensus_slots::Slot;
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
@@ -391,6 +393,7 @@ where
 		header_hash: &B::Hash,
 		body: Vec<B::Extrinsic>,
 		storage_changes: StorageChanges<B>,
+		index_ops: Vec<IndexOperation>,
 		public: Self::Claim,
 		_authorities: Self::AuxData,
 	) -> Result<sc_consensus::BlockImportParams<B>, ConsensusError> {
@@ -402,6 +405,7 @@ where
 		import_block.body = Some(body);
 		import_block.state_action =
 			StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(storage_changes));
+		import_block.index_ops = index_ops;
 		import_block.fork_choice = Some(ForkChoiceStrategy::LongestChain);
 
 		Ok(import_block)
@@ -603,7 +607,11 @@ mod tests {
 				.build();
 
 			future::ready(
-				r.map(|b| Proposal { block: b.block, storage_changes: b.storage_changes }),
+				r.map(|b| Proposal {
+					block: b.block,
+					storage_changes: b.storage_changes,
+					index_ops: b.index_ops,
+				}),
 			)
 		}
 	}

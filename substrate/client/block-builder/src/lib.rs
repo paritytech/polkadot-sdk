@@ -29,8 +29,8 @@
 use codec::Encode;
 
 use sp_api::{
-	ApiExt, ApiRef, CallApiAt, Core, ProofRecorder, ProvideRuntimeApi, StorageChanges,
-	TransactionOutcome,
+	ApiExt, ApiRef, CallApiAt, Core, IndexOperation, ProofRecorder, ProvideRuntimeApi,
+	StorageChanges, TransactionOutcome,
 };
 use sp_blockchain::{ApplyExtrinsicFailed, Error, HeaderBackend};
 use sp_core::traits::CallContext;
@@ -193,12 +193,14 @@ pub struct BuiltBlock<Block: BlockT> {
 	pub block: Block,
 	/// The changes that need to be applied to the backend to get the state of the build block.
 	pub storage_changes: StorageChanges<Block>,
+	/// Transaction-index operations produced by the runtime while building this block.
+	pub index_ops: Vec<IndexOperation>,
 }
 
 impl<Block: BlockT> BuiltBlock<Block> {
 	/// Convert into the inner values.
-	pub fn into_inner(self) -> (Block, StorageChanges<Block>) {
-		(self.block, self.storage_changes)
+	pub fn into_inner(self) -> (Block, StorageChanges<Block>, Vec<IndexOperation>) {
+		(self.block, self.storage_changes, self.index_ops)
 	}
 }
 
@@ -336,12 +338,16 @@ where
 
 		let state = self.call_api_at.state_at(self.parent_hash)?;
 
-		let storage_changes = self
+		let (storage_changes, index_ops) = self
 			.api
 			.into_storage_changes(&state, self.parent_hash)
 			.map_err(sp_blockchain::Error::StorageChanges)?;
 
-		Ok(BuiltBlock { block: <Block as BlockT>::new(header, self.extrinsics), storage_changes })
+		Ok(BuiltBlock {
+			block: <Block as BlockT>::new(header, self.extrinsics),
+			storage_changes,
+			index_ops,
+		})
 	}
 
 	/// Create the inherents for the block.

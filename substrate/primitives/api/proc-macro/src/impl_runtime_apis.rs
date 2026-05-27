@@ -346,7 +346,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 					backend: &B,
 					parent_hash: Block::Hash,
 				) -> ::core::result::Result<
-					#crate_::StorageChanges<Block>,
+					(#crate_::StorageChanges<Block>, std::vec::Vec<#crate_::IndexOperation>),
 				String
 					> where Self: Sized {
 						let state_version = #crate_::CallApiAt::<Block>::runtime_version_at(self.call, std::clone::Clone::clone(&parent_hash), self.call_context)

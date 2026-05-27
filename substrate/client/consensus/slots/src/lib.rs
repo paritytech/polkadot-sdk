@@ -38,7 +38,7 @@ use log::{debug, info, warn};
 use sc_consensus::{BlockImport, JustificationSyncLink};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO, CONSENSUS_WARN};
 use sp_arithmetic::traits::BaseArithmetic;
-use sp_consensus::{Proposal, ProposeArgs, Proposer, SelectChain, SyncOracle};
+use sp_consensus::{IndexOperation, Proposal, ProposeArgs, Proposer, SelectChain, SyncOracle};
 use sp_consensus_slots::{Slot, SlotDuration};
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
@@ -137,6 +137,7 @@ pub trait SimpleSlotWorker<B: BlockT> {
 		header_hash: &B::Hash,
 		body: Vec<B::Extrinsic>,
 		storage_changes: StorageChanges<B>,
+		index_ops: Vec<IndexOperation>,
 		public: Self::Claim,
 		aux_data: Self::AuxData,
 	) -> Result<sc_consensus::BlockImportParams<B>, sp_consensus::Error>;
@@ -381,6 +382,7 @@ pub trait SimpleSlotWorker<B: BlockT> {
 				&header_hash,
 				body.clone(),
 				proposal.storage_changes,
+				proposal.index_ops,
 				claim,
 				aux_data,
 			)

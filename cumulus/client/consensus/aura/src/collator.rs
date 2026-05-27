@@ -46,7 +46,7 @@ use sc_consensus_aura::standalone as aura_internal;
 use sc_network_types::PeerId;
 use sp_api::{ApiExt, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
-use sp_consensus::{BlockOrigin, Environment, ProposeArgs, Proposer};
+use sp_consensus::{BlockOrigin, Environment, IndexOperation, ProposeArgs, Proposer};
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
 use sp_core::crypto::Pair;
 use sp_externalities::Extensions;
@@ -314,6 +314,7 @@ where
 		let sealed_importable = seal::<_, P>(
 			proposal.block,
 			proposal.storage_changes,
+			proposal.index_ops,
 			&params.slot_claim.author_pub,
 			&self.keystore,
 		)
@@ -516,6 +517,7 @@ where
 pub fn seal<B: BlockT, P>(
 	pre_sealed: B,
 	storage_changes: StorageChanges<HashingFor<B>>,
+	index_ops: Vec<IndexOperation>,
 	author_pub: &P::Public,
 	keystore: &KeystorePtr,
 ) -> Result<BlockImportParams<B>, Box<dyn Error + Send + Sync + 'static>>
@@ -537,6 +539,7 @@ where
 		block_import_params.body = Some(body);
 		block_import_params.state_action =
 			StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(storage_changes));
+		block_import_params.index_ops = index_ops;
 		block_import_params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
 		block_import_params
 	};

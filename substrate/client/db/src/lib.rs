@@ -911,7 +911,7 @@ pub struct BlockImportOperation<Block: BlockT> {
 	create_gap: bool,
 	reset_storage: bool,
 	index_ops: Vec<IndexOperation>,
-	prefetched_indexed_transactions: HashMap<DbHash, Vec<u8>>,
+	renew_payloads: HashMap<DbHash, Vec<u8>>,
 }
 
 impl<Block: BlockT> BlockImportOperation<Block> {
@@ -1076,7 +1076,7 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 	}
 
 	fn set_renew_payloads(&mut self, payloads: HashMap<DbHash, Vec<u8>>) -> ClientResult<()> {
-		self.prefetched_indexed_transactions = payloads;
+		self.renew_payloads = payloads;
 		Ok(())
 	}
 
@@ -1700,7 +1700,7 @@ impl<Block: BlockT> Backend<Block> {
 						&mut transaction,
 						body,
 						operation.index_ops,
-						operation.prefetched_indexed_transactions,
+						operation.renew_payloads,
 					);
 					transaction.set_from_vec(columns::BODY_INDEX, &lookup_key, body);
 				}
@@ -2408,7 +2408,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			create_gap: true,
 			reset_storage: false,
 			index_ops: Default::default(),
-			prefetched_indexed_transactions: Default::default(),
+			renew_payloads: Default::default(),
 		})
 	}
 

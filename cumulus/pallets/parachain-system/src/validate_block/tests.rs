@@ -252,7 +252,9 @@ fn build_multiple_blocks_with_witness(
 			import.body = Some(extrinsics);
 			import.post_digests.push(seal);
 			import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
-			import.state_action = api.into_storage_changes(&state, parent_hash).unwrap().into();
+			let (changes, index_ops) = api.into_storage_changes(&state, parent_hash).unwrap();
+			import.state_action = changes.into();
+			import.index_ops = index_ops;
 
 			BlockImport::import_block(&client, import)
 		})

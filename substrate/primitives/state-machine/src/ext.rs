@@ -596,7 +596,7 @@ where
 		for _ in 0..self.overlay.transaction_depth() {
 			self.overlay.commit_transaction().expect(BENCHMARKING_FN);
 		}
-		let changes = self
+		let (changes, _index_ops) = self
 			.overlay
 			.drain_storage_changes(self.backend, state_version)
 			.expect(EXT_NOT_ALLOWED_TO_FAIL);

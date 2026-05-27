@@ -162,16 +162,6 @@ impl NewBlockState {
 	}
 }
 
-/// Out-of-band indexed-transaction data attached by upstream block-import wrappers.
-#[derive(Default, Debug, Clone)]
-pub struct PrefetchedIndexedTransactions {
-	/// Ops applied when the runtime produced none.
-	pub ops: Vec<IndexOperation>,
-
-	/// Payload bytes for `IndexOperation::Renew` hashes not yet in `TRANSACTION`.
-	pub renew_payloads: HashMap<H256, Vec<u8>>,
-}
-
 /// Block insertion operation.
 ///
 /// Keeps hold if the inserted block state and data.
@@ -266,7 +256,7 @@ pub trait BlockImportOperation<Block: BlockT> {
 		-> sp_blockchain::Result<()>;
 
 	/// Provide payload bytes for `IndexOperation::Renew` hashes that are not yet present in the
-	/// `TRANSACTION` column.
+	/// `TRANSACTION` column. See [`BlockImportParams::renew_payloads`].
 	fn set_renew_payloads(&mut self, payloads: HashMap<H256, Vec<u8>>)
 		-> sp_blockchain::Result<()>;
 

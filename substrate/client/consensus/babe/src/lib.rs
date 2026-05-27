@@ -116,7 +116,9 @@ use sp_blockchain::{
 	Backend as _, BlockStatus, Error as ClientError, HeaderBackend, HeaderMetadata,
 	Result as ClientResult,
 };
-use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, SelectChain};
+use sp_consensus::{
+	BlockOrigin, Environment, Error as ConsensusError, IndexOperation, Proposer, SelectChain,
+};
 use sp_consensus_babe::{inherents::BabeInherentData, SlotDuration};
 use sp_consensus_slots::Slot;
 use sp_core::traits::SpawnEssentialNamed;
@@ -813,6 +815,7 @@ where
 		header_hash: &B::Hash,
 		body: Vec<B::Extrinsic>,
 		storage_changes: StorageChanges<B>,
+		index_ops: Vec<IndexOperation>,
 		(_, public): Self::Claim,
 		epoch_descriptor: Self::AuxData,
 	) -> Result<BlockImportParams<B>, ConsensusError> {
@@ -834,6 +837,7 @@ where
 		import_block.body = Some(body);
 		import_block.state_action =
 			StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(storage_changes));
+		import_block.index_ops = index_ops;
 		import_block
 			.insert_intermediate(INTERMEDIATE_KEY, BabeIntermediate::<B> { epoch_descriptor });
 

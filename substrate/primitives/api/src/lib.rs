@@ -84,8 +84,8 @@ pub mod __private {
 		pub use sp_externalities::{Extension, Extensions, TransactionType};
 		pub use sp_runtime::StateVersion;
 		pub use sp_state_machine::{
-			Backend as StateBackend, InMemoryBackend, OverlayedChanges, StorageProof, TrieBackend,
-			TrieBackendBuilder,
+			Backend as StateBackend, IndexOperation, InMemoryBackend, OverlayedChanges,
+			StorageProof, TrieBackend, TrieBackendBuilder,
 		};
 	}
 	#[cfg(feature = "std")]
@@ -125,6 +125,8 @@ pub use sp_runtime::TransactionOutcome;
 use sp_runtime::{traits::Block as BlockT, ExtrinsicInclusionMode};
 #[cfg(feature = "std")]
 pub use sp_state_machine::StorageProof;
+#[cfg(feature = "std")]
+pub use sp_state_machine::IndexOperation;
 #[cfg(feature = "std")]
 use sp_state_machine::{backend::AsTrieBackend, Backend as StateBackend, OverlayedChanges};
 use sp_version::RuntimeVersion;
@@ -636,14 +638,14 @@ pub trait ApiExt<Block: BlockT> {
 	fn proof_recorder(&self) -> Option<ProofRecorder<Block>>;
 
 	/// Convert the api object into the storage changes that were done while executing runtime
-	/// api functions.
+	/// api functions, paired with the transaction-index operations produced by the runtime.
 	///
 	/// After executing this function, all collected changes are reset.
 	fn into_storage_changes<B: StateBackend<HashingFor<Block>>>(
 		&self,
 		backend: &B,
 		parent_hash: Block::Hash,
-	) -> Result<StorageChanges<Block>, String>
+	) -> Result<(StorageChanges<Block>, Vec<IndexOperation>), String>
 	where
 		Self: Sized;
 

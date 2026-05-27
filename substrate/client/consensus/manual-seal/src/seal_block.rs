@@ -153,6 +153,7 @@ pub async fn seal_block<B, BI, SC, C, E, TP, CIDP>(
 		params.state_action = StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(
 			proposal.storage_changes,
 		));
+		params.index_ops = proposal.index_ops;
 
 		if let Some(digest_provider) = digest_provider {
 			digest_provider.append_block_import(&parent, &mut params, &inherent_data, proof)?;

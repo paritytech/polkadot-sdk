@@ -275,7 +275,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 			runtime_api.extract_proof().expect("Proof recording was enabled above; qed");
 
 		let state = self.client.state_at(parent_hash).map_err(|e| Box::new(e) as Box<_>)?;
-		let gen_storage_changes = runtime_api
+		let (gen_storage_changes, gen_index_ops) = runtime_api
 			.into_storage_changes(&state, parent_hash)
 			.map_err(sp_consensus::Error::ChainLookup)?;
 
@@ -317,6 +317,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 
 		params.state_action =
 			StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(gen_storage_changes));
+		params.index_ops = gen_index_ops;
 
 		Ok(())
 	}

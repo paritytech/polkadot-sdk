@@ -124,7 +124,7 @@ fn record_proof_works() {
 		.unwrap();
 	builder.push(transaction.clone()).unwrap();
 
-	let (block, _) = builder.build().expect("Bake block").into_inner();
+	let (block, _, _) = builder.build().expect("Bake block").into_inner();
 
 	let proof = storage_proof_recorder.drain_storage_proof();
 
@@ -243,7 +243,7 @@ fn ensure_transactional_works() {
 		TransactionOutcome::Commit(())
 	});
 
-	let changes = runtime_api
+	let (changes, _) = runtime_api
 		.into_storage_changes(&client.state_at(best_hash).unwrap(), best_hash)
 		.unwrap();
 	assert_eq!(changes.main_storage_changes[0].1, Some(vec![1, 2, 3, 4]));
@@ -256,7 +256,7 @@ fn ensure_transactional_works() {
 		TransactionOutcome::Commit(())
 	});
 
-	let changes = runtime_api
+	let (changes, _) = runtime_api
 		.into_storage_changes(&client.state_at(best_hash).unwrap(), best_hash)
 		.unwrap();
 	assert_eq!(changes.main_storage_changes[0].1, Some(vec![1, 2, 3]));
@@ -269,7 +269,7 @@ fn ensure_transactional_works() {
 		TransactionOutcome::Rollback(())
 	});
 
-	let changes = runtime_api
+	let (changes, _) = runtime_api
 		.into_storage_changes(&client.state_at(best_hash).unwrap(), best_hash)
 		.unwrap();
 	assert!(changes.main_storage_changes.is_empty());

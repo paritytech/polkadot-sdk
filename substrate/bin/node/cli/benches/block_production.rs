@@ -135,6 +135,7 @@ fn import_block(client: &FullClient, built: BuiltBlock<node_primitives::Block>) 
 	let mut params = BlockImportParams::new(BlockOrigin::File, built.block.header);
 	params.state_action =
 		StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(built.storage_changes));
+	params.index_ops = built.index_ops;
 	params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
 	futures::executor::block_on(client.import_block(params))
 		.expect("importing a block doesn't fail");

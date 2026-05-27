@@ -309,11 +309,11 @@ where
 			},
 			ExtrinsicInclusionMode::OnlyInherents => EndProposingReason::TransactionForbidden,
 		};
-		let (block, storage_changes) = block_builder.build()?.into_inner();
+		let (block, storage_changes, index_ops) = block_builder.build()?.into_inner();
 		let block_took = block_timer.elapsed();
 
 		self.print_summary(&block, end_reason, block_took, block_timer.elapsed());
-		Ok(Proposal { block, storage_changes })
+		Ok(Proposal { block, storage_changes, index_ops })
 	}
 
 	/// Apply all inherents to the block.
@@ -759,7 +759,7 @@ mod tests {
 
 		let state = backend.state_at(genesis_hash, TrieCacheContext::Untrusted).unwrap();
 
-		let storage_changes = api.into_storage_changes(&state, genesis_hash).unwrap();
+		let (storage_changes, _index_ops) = api.into_storage_changes(&state, genesis_hash).unwrap();
 
 		assert_eq!(
 			proposal.storage_changes.transaction_storage_root,

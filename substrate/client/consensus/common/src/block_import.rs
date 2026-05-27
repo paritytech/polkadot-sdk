@@ -19,14 +19,14 @@
 //! Block import helpers.
 
 use serde::{Deserialize, Serialize};
+use sp_core::H256;
 use sp_runtime::{
 	traits::{Block as BlockT, HashingFor, Header as HeaderT, NumberFor},
 	DigestItem, Justification, Justifications,
 };
 use std::{any::Any, borrow::Cow, collections::HashMap, sync::Arc};
 
-use sc_client_api::PrefetchedIndexedTransactions;
-use sp_consensus::{BlockOrigin, Error};
+use sp_consensus::{BlockOrigin, Error, IndexOperation};
 
 /// Block import result.
 #[derive(Debug, PartialEq, Eq)]
@@ -254,9 +254,15 @@ pub struct BlockImportParams<Block: BlockT> {
 	pub create_gap: bool,
 	/// Cached full header hash (with post-digests applied).
 	pub post_hash: Option<Block::Hash>,
-	/// Indexed-transaction data attached by upstream block-import wrappers.
-	/// See [`PrefetchedIndexedTransactions`].
-	pub prefetched_indexed_transactions: PrefetchedIndexedTransactions,
+	/// Transaction-index operations to apply when committing this block.
+	///
+	/// Populated by the proposer (runtime-produced) on the authoring path or by an upstream
+	/// block-import wrapper (gap-sync / tip-sync) on the importing path.
+	pub index_ops: Vec<IndexOperation>,
+	/// Payload bytes for `IndexOperation::Renew` hashes that are not yet present in the
+	/// `TRANSACTION` column. Supplied by upstream block-import wrappers when re-syncing
+	/// historical blocks whose original `Insert` was never executed locally.
+	pub renew_payloads: HashMap<H256, Vec<u8>>,
 }
 
 impl<Block: BlockT> BlockImportParams<Block> {
@@ -288,7 +294,8 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			// block with state is imported.
 			create_gap: origin != BlockOrigin::WarpSync,
 			post_hash: None,
-			prefetched_indexed_transactions: PrefetchedIndexedTransactions::default(),
+			index_ops: Vec::new(),
+			renew_payloads: HashMap::new(),
 		}
 	}
 

@@ -118,7 +118,7 @@ fn implement_common_api_traits(block_type: TypePath, self_ty: Type) -> Result<To
 				_: &B,
 				_: <#block_type as #crate_::BlockT>::Hash,
 			) -> std::result::Result<
-				#crate_::StorageChanges<#block_type>,
+				(#crate_::StorageChanges<#block_type>, std::vec::Vec<#crate_::IndexOperation>),
 				String
 			> where Self: Sized {
 				unimplemented!("`into_storage_changes` not implemented for runtime api mocks")

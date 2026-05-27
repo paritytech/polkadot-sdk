@@ -1992,7 +1992,7 @@ mod tests {
 			ext.set_child_storage(&child_info_1, b"abc".to_vec(), b"def".to_vec());
 			ext.set_child_storage(&child_info_2, b"abc".to_vec(), b"def".to_vec());
 			ext.storage_root(state_version);
-			overlay.drain_storage_changes(&backend, state_version).unwrap().transaction
+			overlay.drain_storage_changes(&backend, state_version).unwrap().0.transaction
 		};
 		let mut duplicate = false;
 		for (k, (value, rc)) in transaction.drain().iter() {
