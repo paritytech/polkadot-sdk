@@ -154,21 +154,6 @@ impl AccessList {
 	}
 }
 
-/// Cold/hot state of a substrate read seen by an `Ext::*storage` call.
-/// `None` = the read didn't happen on this call path.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct StorageAccessCost {
-	pub is_cold: Option<bool>,
-}
-
-impl StorageAccessCost {
-	/// Worst-case marker for pre-charging: assume cold, then `adjust_weight`
-	/// once the real signal is known.
-	pub const fn cold() -> Self {
-		Self { is_cold: Some(true) }
-	}
-}
-
 // ===========================================================================
 // Unit tests.
 // ===========================================================================

@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	Config, access_list::StorageAccessCost, limits, metering::Token,
+	Config, limits, metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts, weights::WeightInfo,
 };
 use frame_support::weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND};
@@ -100,18 +100,18 @@ pub enum RuntimeCosts {
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
 	DepositEvent { num_topic: u32, len: u32 },
 	/// Weight of calling `seal_set_storage` for the given storage item sizes.
-	SetStorage { old_bytes: u32, new_bytes: u32, costs: StorageAccessCost },
+	SetStorage { old_bytes: u32, new_bytes: u32, is_cold: bool },
 	/// Weight of calling the `clearStorage` function of the `Storage` pre-compile
 	/// per cleared byte.
-	ClearStorage { len: u32, costs: StorageAccessCost },
+	ClearStorage { len: u32, is_cold: bool },
 	/// Weight of calling the `containsStorage` function of the `Storage` pre-compile
 	/// per byte of the checked item.
-	ContainsStorage { len: u32, costs: StorageAccessCost },
+	ContainsStorage { len: u32, is_cold: bool },
 	/// Weight of calling `seal_get_storage` with the specified size in storage.
-	GetStorage { len: u32, costs: StorageAccessCost },
+	GetStorage { len: u32, is_cold: bool },
 	/// Weight of calling the `takeStorage` function of the `Storage` pre-compile
 	/// for the given size.
-	TakeStorage { len: u32, costs: StorageAccessCost },
+	TakeStorage { len: u32, is_cold: bool },
 	/// Weight of calling `seal_set_transient_storage` for the given storage item sizes.
 	SetTransientStorage { old_bytes: u32, new_bytes: u32 },
 	/// Weight of calling `seal_clear_transient_storage` per cleared byte.
@@ -363,33 +363,33 @@ impl RuntimeCosts {
 	}
 
 	/// Pick the persistent or transient variant from `transient: bool`.
-	/// `costs` is ignored on the transient branch. Mirrored by `clear`, `take`,
+	/// `is_cold` is ignored on the transient branch. Mirrored by `clear`, `take`,
 	/// `get`, `contains` below.
-	pub fn set(transient: bool, new_bytes: u32, old_bytes: u32, costs: StorageAccessCost) -> Self {
+	pub fn set(transient: bool, new_bytes: u32, old_bytes: u32, is_cold: bool) -> Self {
 		if transient {
 			Self::SetTransientStorage { new_bytes, old_bytes }
 		} else {
-			Self::SetStorage { new_bytes, old_bytes, costs }
+			Self::SetStorage { new_bytes, old_bytes, is_cold }
 		}
 	}
 
-	pub fn clear(transient: bool, len: u32, costs: StorageAccessCost) -> Self {
-		if transient { Self::ClearTransientStorage(len) } else { Self::ClearStorage { len, costs } }
+	pub fn clear(transient: bool, len: u32, is_cold: bool) -> Self {
+		if transient { Self::ClearTransientStorage(len) } else { Self::ClearStorage { len, is_cold } }
 	}
 
-	pub fn take(transient: bool, len: u32, costs: StorageAccessCost) -> Self {
-		if transient { Self::TakeTransientStorage(len) } else { Self::TakeStorage { len, costs } }
+	pub fn take(transient: bool, len: u32, is_cold: bool) -> Self {
+		if transient { Self::TakeTransientStorage(len) } else { Self::TakeStorage { len, is_cold } }
 	}
 
-	pub fn get(transient: bool, len: u32, costs: StorageAccessCost) -> Self {
-		if transient { Self::GetTransientStorage(len) } else { Self::GetStorage { len, costs } }
+	pub fn get(transient: bool, len: u32, is_cold: bool) -> Self {
+		if transient { Self::GetTransientStorage(len) } else { Self::GetStorage { len, is_cold } }
 	}
 
-	pub fn contains(transient: bool, len: u32, costs: StorageAccessCost) -> Self {
+	pub fn contains(transient: bool, len: u32, is_cold: bool) -> Self {
 		if transient {
 			Self::ContainsTransientStorage(len)
 		} else {
-			Self::ContainsStorage { len, costs }
+			Self::ContainsStorage { len, is_cold }
 		}
 	}
 
@@ -399,28 +399,28 @@ impl RuntimeCosts {
 	fn weight_with_access_list<T: Config>(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match self {
-			GetStorage { len, costs } => Self::cold_hot_weight::<T>(
-				costs.is_cold,
+			GetStorage { len, is_cold } => Self::cold_hot_weight::<T>(
+				*is_cold,
 				cost_storage!(read, seal_get_storage, *len),
 				cost_storage!(read_hot, seal_get_storage_hot, *len),
 			),
-			ContainsStorage { len, costs } => Self::cold_hot_weight::<T>(
-				costs.is_cold,
+			ContainsStorage { len, is_cold } => Self::cold_hot_weight::<T>(
+				*is_cold,
 				cost_storage!(read, contains_storage, *len),
 				cost_storage!(read_hot, contains_storage_hot, *len),
 			),
-			SetStorage { new_bytes, old_bytes, costs } => Self::cold_hot_weight::<T>(
-				costs.is_cold,
+			SetStorage { new_bytes, old_bytes, is_cold } => Self::cold_hot_weight::<T>(
+				*is_cold,
 				cost_storage!(write, seal_set_storage, *new_bytes, *old_bytes),
 				cost_storage!(write_hot, seal_set_storage_hot, *new_bytes, *old_bytes),
 			),
-			ClearStorage { len, costs } => Self::cold_hot_weight::<T>(
-				costs.is_cold,
+			ClearStorage { len, is_cold } => Self::cold_hot_weight::<T>(
+				*is_cold,
 				cost_storage!(write, clear_storage, *len),
 				cost_storage!(write_hot, clear_storage_hot, *len),
 			),
-			TakeStorage { len, costs } => Self::cold_hot_weight::<T>(
-				costs.is_cold,
+			TakeStorage { len, is_cold } => Self::cold_hot_weight::<T>(
+				*is_cold,
 				cost_storage!(write, take_storage, *len),
 				cost_storage!(write_hot, take_storage_hot, *len),
 			),
@@ -428,16 +428,15 @@ impl RuntimeCosts {
 		}
 	}
 
-	/// Cold/hot dispatch shared by `weight_with_access_list`'s storage arms. The cold
-	/// bench doubles as the `None` (no-access) fallback — it's the substrate
-	/// cost without the access-list overhead the cold arm layers on top.
-	fn cold_hot_weight<T: Config>(is_cold: Option<bool>, cold: Weight, hot: Weight) -> Weight {
-		match is_cold {
-			None => cold,
-			Some(true) => cold
-				.saturating_add(T::WeightInfo::access_list_touch_cold())
-				.saturating_add(T::WeightInfo::access_list_rollback_amortization()),
-			Some(false) => hot.saturating_add(T::WeightInfo::access_list_touch_hot()),
+	/// Cold/hot dispatch shared by `weight_with_access_list`'s storage arms. Cold pairs
+	/// layer `access_list_touch_cold` + `access_list_rollback_amortization` on top of the
+	/// substrate cost; hot pairs use the cheaper bench and add `access_list_touch_hot`.
+	fn cold_hot_weight<T: Config>(is_cold: bool, cold: Weight, hot: Weight) -> Weight {
+		if is_cold {
+			cold.saturating_add(T::WeightInfo::access_list_touch_cold())
+				.saturating_add(T::WeightInfo::access_list_rollback_amortization())
+		} else {
+			hot.saturating_add(T::WeightInfo::access_list_touch_hot())
 		}
 	}
 }

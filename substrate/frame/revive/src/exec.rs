@@ -19,7 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{AccessEntry, AccessList, KeyKind, StorageAccessCost},
+	access_list::{AccessEntry, AccessList, KeyKind},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -534,33 +534,24 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Returns the storage entry of the executing account by the given `key`.
 	///
-	/// Returns:
-	/// - The stored value, or `None` if the `key` wasn't previously set by `set_storage` or was
-	///   deleted.
-	/// - A `StorageAccessCost` indicating whether this was a cold or hot access.
-	fn get_storage(&mut self, key: &Key) -> (Option<Vec<u8>>, StorageAccessCost);
+	/// Returns the stored value, or `None` if the `key` wasn't previously set by `set_storage`
+	/// or was deleted. Pure storage lookup — does not consult the access list.
+	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>>;
 
 	/// Returns the length (in bytes) of the storage entry at `key`.
 	///
-	/// Returns:
-	/// - `Some(len)` if a storage entry exists at `key`, `None` otherwise.
-	/// - A `StorageAccessCost` indicating whether this was a cold or hot access. A size lookup
-	///   loads the same trie nodes as a full read, so it marks the slot hot just like
-	///   `get_storage`.
-	fn get_storage_size(&mut self, key: &Key) -> (Option<u32>, StorageAccessCost);
+	/// Returns `Some(len)` if a storage entry exists at `key`, `None` otherwise. Pure
+	/// storage lookup — does not consult the access list.
+	fn get_storage_size(&mut self, key: &Key) -> Option<u32>;
 
 	/// Sets the storage entry by the given key to the specified value. If `value` is `None`,
-	/// the entry is deleted.
-	///
-	/// Returns:
-	/// - A `WriteOutcome` describing the write result (or a `DispatchError` on failure).
-	/// - A `StorageAccessCost` indicating whether this was a cold or hot access.
+	/// the entry is deleted. Pure storage write — does not consult the access list.
 	fn set_storage(
 		&mut self,
 		key: &Key,
 		value: Option<Vec<u8>>,
 		take_old: bool,
-	) -> (Result<WriteOutcome, DispatchError>, StorageAccessCost);
+	) -> Result<WriteOutcome, DispatchError>;
 
 	/// Touch the access list for `(address, key)` and return `true` if the access
 	/// is cold (newly added to the access list).
@@ -1945,24 +1936,6 @@ where
 		}
 	}
 
-	/// Touch the access list with an entry built from `key` and the current
-	/// frame's address. Returns `true` when the access is cold.
-	fn touch_access_list(&mut self, key: &Key) -> bool {
-		self.access_list.touch(AccessEntry {
-			address: T::AddressMapper::to_address(self.account_id()),
-			key_kind: match key {
-				Key::Fix(_) => KeyKind::Fix,
-				Key::Var(_) => KeyKind::Var,
-			},
-			slot: key.to_slot(),
-		})
-	}
-
-	/// Per-transaction access list metrics: (unique entries, cold touches, hot touches).
-	#[cfg(test)]
-	pub(crate) fn access_list_metrics(&self) -> (usize, u32, u32) {
-		self.access_list.metrics()
-	}
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>
@@ -2591,18 +2564,14 @@ where
 		frame.frame_meter.eth_gas_left().unwrap_or_default().saturated_into::<u64>()
 	}
 
-	fn get_storage(&mut self, key: &Key) -> (Option<Vec<u8>>, StorageAccessCost) {
+	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {
 		assert!(self.has_contract_info());
-		let is_cold = self.touch_access_list(key);
-		let value = self.top_frame_mut().contract_info().read(key);
-		(value, StorageAccessCost { is_cold: Some(is_cold) })
+		self.top_frame_mut().contract_info().read(key)
 	}
 
-	fn get_storage_size(&mut self, key: &Key) -> (Option<u32>, StorageAccessCost) {
+	fn get_storage_size(&mut self, key: &Key) -> Option<u32> {
 		assert!(self.has_contract_info());
-		let is_cold = self.touch_access_list(key);
-		let size = self.top_frame_mut().contract_info().size(key.into());
-		(size, StorageAccessCost { is_cold: Some(is_cold) })
+		self.top_frame_mut().contract_info().size(key.into())
 	}
 
 	fn set_storage(
@@ -2610,17 +2579,15 @@ where
 		key: &Key,
 		value: Option<Vec<u8>>,
 		take_old: bool,
-	) -> (Result<WriteOutcome, DispatchError>, StorageAccessCost) {
+	) -> Result<WriteOutcome, DispatchError> {
 		assert!(self.has_contract_info());
-		let is_cold = self.touch_access_list(key);
 		let frame = self.top_frame_mut();
-		let result = frame.contract_info.get(&frame.account_id).write(
+		frame.contract_info.get(&frame.account_id).write(
 			key.into(),
 			value,
 			Some(&mut frame.frame_meter),
 			take_old,
-		);
-		(result, StorageAccessCost { is_cold: Some(is_cold) })
+		)
 	}
 
 	fn touch_storage_access(&mut self, address: H160, key: &Key) -> bool {

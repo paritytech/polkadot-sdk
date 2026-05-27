@@ -15,9 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	DispatchError, Error, Key, LOG_TARGET, RuntimeCosts, U256,
-	access_list::StorageAccessCost,
-	limits,
+	DispatchError, Error, Key, LOG_TARGET, RuntimeCosts, U256, limits,
 	metering::Token,
 	storage::WriteOutcome,
 	vec::Vec,
@@ -114,18 +112,11 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
 	let key = Key::Fix(index.to_big_endian());
 	// NB: SLOAD loads 32 bytes from storage (i.e. U256)
-	// Pre-charge cold worst-case; refund only if the slot turned out hot.
-	let charged =
-		interpreter
-			.ext
-			.charge_or_halt(RuntimeCosts::get(false, 32, StorageAccessCost::cold()))?;
-	let (value, costs) = interpreter.ext.get_storage(&key);
-	if costs.is_cold == Some(false) {
-		interpreter
-			.ext
-			.frame_meter_mut()
-			.adjust_weight(charged, RuntimeCosts::get(false, 32, costs));
-	}
+	// Peek-then-charge: touch the access list to determine cold/hot, then charge exact.
+	let address = interpreter.ext.address();
+	let is_cold = interpreter.ext.touch_storage_access(address, &key);
+	interpreter.ext.charge_or_halt(RuntimeCosts::get(false, 32, is_cold))?;
+	let value = interpreter.ext.get_storage(&key);
 
 	*index = if let Some(storage_value) = value {
 		// sload always reads a word
@@ -141,9 +132,9 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	ControlFlow::Continue(())
 }
 
-/// Pre-charge worst-case + refund size and (SSTORE only) cold/hot deltas, on
-/// Ok and Err. Shared by SSTORE and TSTORE — the TSTORE adapter passes
-/// `Default::default()` as `costs` since transient storage has no access list.
+/// Peek-then-charge for cold/hot + pre-charge worst-case for size, then refund the
+/// size delta after execution. Shared by SSTORE and TSTORE — TSTORE skips the
+/// access-list touch since transient storage has no access list.
 fn store_helper<'ext, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 	transient: bool,
@@ -152,35 +143,43 @@ fn store_helper<'ext, E: Ext>(
 		&Key,
 		Option<Vec<u8>>,
 		bool,
-	) -> (Result<WriteOutcome, DispatchError>, StorageAccessCost),
+	) -> Result<WriteOutcome, DispatchError>,
 ) -> ControlFlow<Halt> {
 	if interpreter.ext.is_read_only() {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
 
 	let [index, value] = interpreter.stack.popn()?;
+	let key = Key::Fix(index.to_big_endian());
 
-	// Pre-charge worst-case; refund the size + cold/hot deltas after the call.
-	let pre_costs = if transient { Default::default() } else { StorageAccessCost::cold() };
+	// Touch the access list for SSTORE; transient storage has no access list.
+	let is_cold = if transient {
+		false
+	} else {
+		let address = interpreter.ext.address();
+		interpreter.ext.touch_storage_access(address, &key)
+	};
+
+	// Cold/hot is exact (from the access-list touch); size is pre-charged worst-case
+	// and refunded after the call.
 	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::set(
 		transient,
 		32,
 		limits::STORAGE_BYTES,
-		pre_costs,
+		is_cold,
 	))?;
 
-	let key = Key::Fix(index.to_big_endian());
 	let value_to_store = if value.is_zero() { None } else { Some(value.to_big_endian().to_vec()) };
 	let new_bytes = value_to_store.as_ref().map(|v| v.len() as u32).unwrap_or(0);
-	let (result, costs) = set_function(interpreter.ext, &key, value_to_store, false);
+	let result = set_function(interpreter.ext, &key, value_to_store, false);
 
-	// Refund regardless of Ok/Err. On Err the real `old_bytes` is unknown, so
-	// it stays at worst-case.
+	// Refund the size delta regardless of Ok/Err. On Err the real `old_bytes` is
+	// unknown, so it stays at worst-case.
 	let old_bytes = result.as_ref().map(|w| w.old_len()).unwrap_or(limits::STORAGE_BYTES);
 	interpreter
 		.ext
 		.frame_meter_mut()
-		.adjust_weight(charged, RuntimeCosts::set(transient, new_bytes, old_bytes, costs));
+		.adjust_weight(charged, RuntimeCosts::set(transient, new_bytes, old_bytes, is_cold));
 
 	match result {
 		Ok(_) => ControlFlow::Continue(()),
@@ -201,7 +200,7 @@ pub fn sstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// Store value to transient storage
 pub fn tstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	store_helper(interpreter, true, |ext, key, value, take_old| {
-		(ext.set_transient_storage(key, value, take_old), Default::default())
+		ext.set_transient_storage(key, value, take_old)
 	})
 }
 
