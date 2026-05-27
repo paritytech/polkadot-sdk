@@ -80,3 +80,17 @@ crates:
   bump: patch
 - name: pallet-node-authorization
   bump: patch
+- name: pallet-collective
+  bump: patch
+- name: pallet-staking
+  bump: patch
+- name: pallet-grandpa
+  bump: patch
+- name: frame-remote-externalities
+  bump: patch
+- name: pallet-bounties
+  bump: patch
+- name: pallet-elections-phragmen
+  bump: patch
+- name: pallet-state-trie-migration
+  bump: patch
