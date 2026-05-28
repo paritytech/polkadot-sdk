@@ -630,7 +630,7 @@ mod benchmarks {
 	/// Worst case: every input account is not eth-derived, not yet mapped, and
 	/// already carries an [`HoldReason::AddressMapping`] hold. The per-account
 	/// loop body in `batch_map_accounts` then both inserts the [`OriginalAccount`]
-	/// entry via `map_no_deposit` *and* releases the existing hold.
+	/// entry via `map_no_deposit_unchecked` *and* releases the existing hold.
 	#[benchmark(pov_mode = Measured)]
 	fn batch_map_accounts(a: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		use frame_benchmarking::v2::account;
@@ -945,7 +945,7 @@ mod benchmarks {
 	fn seal_balance_of() {
 		let len = <sp_core::U256 as MaxEncodedLen>::max_encoded_len();
 		let account = account::<T::AccountId>("target", 0, 0);
-		<T as Config>::AddressMapper::map_no_deposit(&account).unwrap();
+		<T as Config>::AddressMapper::map_no_deposit_unchecked(&account).unwrap();
 
 		let address = T::AddressMapper::to_address(&account);
 		let balance = Pallet::<T>::min_balance() * 2u32.into();
@@ -1323,7 +1323,7 @@ mod benchmarks {
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
-		T::AddressMapper::map_no_deposit(&beneficiary)?;
+		T::AddressMapper::map_no_deposit_unchecked(&beneficiary)?;
 
 		build_runtime!(_runtime, instance, _memory: [vec![0u8; 0], ]);
 		let code_hash = instance.info()?.code_hash;
