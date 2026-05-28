@@ -48,6 +48,8 @@ pub mod pallet {
 		/// A DMP message couldn't be sent because it exceeds the maximum size allowed for a
 		/// downward message.
 		ExceedsMaxMessageSize,
+		/// A DMP message couldn't be sent because the destination's queue is full.
+		ExceedsMaxQueueSize,
 		/// A DMP message couldn't be sent because the destination is unreachable.
 		Unroutable,
 		/// Could not schedule para cleanup.
@@ -157,8 +159,12 @@ pub mod pallet {
 			let config = configuration::ActiveConfig::<T>::get();
 			dmp::Pallet::<T>::queue_downward_message(&config, id, xcm.encode()).map_err(|e| match e
 			{
-				dmp::QueueDownwardMessageError::ExceedsMaxMessageSize |
-				dmp::QueueDownwardMessageError::ExceedsMaxQueueSize => Error::<T>::ExceedsMaxMessageSize.into(),
+				dmp::QueueDownwardMessageError::ExceedsMaxMessageSize => {
+					Error::<T>::ExceedsMaxMessageSize.into()
+				},
+				dmp::QueueDownwardMessageError::ExceedsMaxQueueSize => {
+					Error::<T>::ExceedsMaxQueueSize.into()
+				},
 				dmp::QueueDownwardMessageError::Unroutable => Error::<T>::Unroutable.into(),
 			})
 		}

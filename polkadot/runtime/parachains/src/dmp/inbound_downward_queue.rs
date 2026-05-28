@@ -130,8 +130,7 @@ impl<T: Config> InboundDownwardQueue<T> {
 		let front_v0 = || migration::v0::DownwardMessageQueues::<T>::get(para).first().cloned();
 
 		let front_v1 = Self::meta(para)
-			.map(|meta| DownwardMessageQueuePages::<T>::get(para, meta.first_full))
-			.flatten();
+			.and_then(|meta| DownwardMessageQueuePages::<T>::get(para, meta.first_full));
 
 		front_v1.or_else(front_v0)
 	}
