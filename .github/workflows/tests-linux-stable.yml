@@ -122,7 +122,7 @@ jobs:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
-  # some tests do not run with `try-runtime` feature enabled
+  # some tests do not run with `try-runtime` feature enabled 
   # https://github.com/paritytech/polkadot-sdk/pull/4251#discussion_r1624282143
   test-linux-stable-no-try-runtime:
     needs: [preflight]
@@ -147,6 +147,7 @@ jobs:
       - name: script
         id: required
         run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
           forklift cargo nextest run --workspace \
                    --locked \
                    --release \
