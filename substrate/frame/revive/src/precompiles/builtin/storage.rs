@@ -67,7 +67,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				let access_kind = env.touch_storage_access_list(transient, &key);
 				let charged = env
 					.frame_meter_mut()
-					.charge_weight_token(RuntimeCosts::clear(access_kind, max_size))?;
+					.charge_weight_token(RuntimeCosts::clear_storage(access_kind, max_size))?;
 				let outcome = if transient {
 					env.set_transient_storage(&key, None, false)
 						.map_err(|_| Error::Revert("failed setting transient storage".into()))?
@@ -75,8 +75,10 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					env.set_storage(&key, None, false)
 						.map_err(|_| Error::Revert("failed setting storage".into()))?
 				};
-				env.frame_meter_mut()
-					.adjust_weight(charged, RuntimeCosts::clear(access_kind, outcome.old_len()));
+				env.frame_meter_mut().adjust_weight(
+					charged,
+					RuntimeCosts::clear_storage(access_kind, outcome.old_len()),
+				);
 				Ok((outcome != WriteOutcome::New, outcome.old_len()).abi_encode())
 			},
 			IStorageCalls::containsStorage(IStorage::containsStorageCall {
@@ -91,7 +93,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				let access_kind = env.touch_storage_access_list(transient, &key);
 				let charged = env
 					.frame_meter_mut()
-					.charge_weight_token(RuntimeCosts::contains(access_kind, max_size))?;
+					.charge_weight_token(RuntimeCosts::contains_storage(access_kind, max_size))?;
 				let outcome = if transient {
 					env.get_transient_storage_size(&key)
 				} else {
@@ -99,7 +101,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				};
 				let value_len = outcome.unwrap_or(0);
 				env.frame_meter_mut()
-					.adjust_weight(charged, RuntimeCosts::contains(access_kind, value_len));
+					.adjust_weight(charged, RuntimeCosts::contains_storage(access_kind, value_len));
 				Ok((outcome.is_some(), value_len).abi_encode())
 			},
 			IStorageCalls::takeStorage(IStorage::takeStorageCall { flags, key, isFixedKey }) => {
@@ -110,7 +112,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				let access_kind = env.touch_storage_access_list(transient, &key);
 				let charged = env
 					.frame_meter_mut()
-					.charge_weight_token(RuntimeCosts::take(access_kind, max_size))?;
+					.charge_weight_token(RuntimeCosts::take_storage(access_kind, max_size))?;
 				let outcome = if transient {
 					env.set_transient_storage(&key, None, true)
 						.map_err(|_| Error::Revert("failed setting transient storage".into()))?
@@ -122,8 +124,10 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					WriteOutcome::Taken(v) => v,
 					_ => Vec::new(),
 				};
-				env.frame_meter_mut()
-					.adjust_weight(charged, RuntimeCosts::take(access_kind, value.len() as u32));
+				env.frame_meter_mut().adjust_weight(
+					charged,
+					RuntimeCosts::take_storage(access_kind, value.len() as u32),
+				);
 				Ok(value.abi_encode())
 			},
 		}

@@ -29,15 +29,20 @@ use sp_core::{ConstU32, H160};
 
 use crate::limits;
 
+/// Inline-storage cap for `Slot::VarInline`. Sized to fit SCALE-encoded
+/// `Address`, `H256`, `AccountId32`, etc., with or without a 4-byte storage
+/// prefix; longer keys fall through to `Slot::VarLong`.
+pub const MAX_INLINE_KEY_LEN: usize = 36;
+
 /// Storage slot identifier for an access-list entry.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
 pub enum Slot {
 	/// Fixed 32-byte storage key.
 	Fix([u8; 32]),
-	/// Variable-length key up to 36 bytes — covers SCALE-encoded `Address`,
-	/// `H256`, `AccountId32`, etc., with or without a 4-byte storage prefix.
-	VarInline { bytes: [u8; 36], len: u8 },
-	/// Variable-length key 37..=128 bytes.
+	/// Variable-length key up to [`MAX_INLINE_KEY_LEN`].
+	VarInline { bytes: [u8; MAX_INLINE_KEY_LEN], len: u8 },
+	/// Variable-length key longer than [`MAX_INLINE_KEY_LEN`], up to
+	/// `limits::STORAGE_KEY_BYTES`.
 	VarLong(BoundedVec<u8, ConstU32<{ limits::STORAGE_KEY_BYTES }>>),
 }
 
@@ -53,11 +58,11 @@ pub enum StorageAccessKind {
 }
 
 impl StorageAccessKind {
-	/// `Transient` if `transient`; otherwise dispatch on the `is_cold` closure.
-	pub fn for_access(transient: bool, is_cold: impl FnOnce() -> bool) -> Self {
+	/// Classify a storage access for pricing.
+	pub fn for_access(transient: bool, cold_check: impl FnOnce() -> bool) -> Self {
 		if transient {
 			Self::Transient
-		} else if is_cold() {
+		} else if cold_check() {
 			Self::PersistentCold
 		} else {
 			Self::PersistentHot
@@ -83,7 +88,7 @@ pub struct AccessListMetrics {
 /// contract touching many slots within a transaction).
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
 pub struct AccessEntry {
-	/// Slot identifier; the variant tag carries the `Fix` / `Var` distinction.
+	/// Slot identifier.
 	pub slot: Slot,
 	/// Contract whose child trie is being touched.
 	pub address: H160,
@@ -160,6 +165,11 @@ impl AccessList {
 		}
 	}
 
+	/// Non-mutating sibling of `touch`. Returns `true` if `entry` is cold.
+	pub fn peek(&self, entry: &AccessEntry) -> bool {
+		!self.accessed.contains(entry)
+	}
+
 	/// Register the entry and return `true` if this access is cold (newly
 	/// inserted), `false` if it was already hot.
 	pub fn touch(&mut self, entry: AccessEntry) -> bool {
@@ -176,11 +186,6 @@ impl AccessList {
 	/// Per-transaction metrics snapshot.
 	pub fn metrics(&self) -> AccessListMetrics {
 		AccessListMetrics { size: self.accessed.len(), cold: self.cold_count, hot: self.hot_count }
-	}
-
-	/// Non-mutating sibling of `touch`. Returns `true` if `entry` is cold.
-	pub fn peek(&self, entry: &AccessEntry) -> bool {
-		!self.accessed.contains(entry)
 	}
 
 	/// Check hot state without registering (testing / introspection).

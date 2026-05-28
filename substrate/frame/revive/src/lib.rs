@@ -1106,7 +1106,7 @@ pub mod pallet {
 			// `set_storage` host function. `PersistentCold` is the worst case.
 			let max_storage_size = max_block_weight
 				.checked_div_per_component(
-					&<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::set(
+					&<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::set_storage(
 						StorageAccessKind::PersistentCold,
 						limits::STORAGE_BYTES,
 						0,

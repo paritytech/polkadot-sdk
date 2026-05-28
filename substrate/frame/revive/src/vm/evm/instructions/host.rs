@@ -113,7 +113,7 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let key = Key::Fix(index.to_big_endian());
 	// NB: SLOAD loads 32 bytes from storage (i.e. U256).
 	let access_kind = interpreter.ext.touch_storage_access_list(false, &key);
-	interpreter.ext.charge_or_halt(RuntimeCosts::get(access_kind, 32))?;
+	interpreter.ext.charge_or_halt(RuntimeCosts::get_storage(access_kind, 32))?;
 	let value = interpreter.ext.get_storage(&key);
 
 	*index = if let Some(storage_value) = value {
@@ -145,7 +145,7 @@ fn store_helper<'ext, E: Ext>(
 	let key = Key::Fix(index.to_big_endian());
 
 	let access_kind = interpreter.ext.touch_storage_access_list(transient, &key);
-	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::set(
+	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::set_storage(
 		access_kind,
 		32,
 		limits::STORAGE_BYTES,
@@ -157,10 +157,10 @@ fn store_helper<'ext, E: Ext>(
 		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 	};
 
-	interpreter
-		.ext
-		.frame_meter_mut()
-		.adjust_weight(charged, RuntimeCosts::set(access_kind, new_bytes, write_outcome.old_len()));
+	interpreter.ext.frame_meter_mut().adjust_weight(
+		charged,
+		RuntimeCosts::set_storage(access_kind, new_bytes, write_outcome.old_len()),
+	);
 	ControlFlow::Continue(())
 }
 
@@ -185,9 +185,9 @@ pub fn tstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// Load value from transient storage
 pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
-	interpreter.ext.charge_or_halt(RuntimeCosts::GetTransientStorage(32))?;
-
 	let key = Key::Fix(index.to_big_endian());
+	let access_kind = interpreter.ext.touch_storage_access_list(true, &key);
+	interpreter.ext.charge_or_halt(RuntimeCosts::get_storage(access_kind, 32))?;
 	let bytes = interpreter.ext.get_transient_storage(&key);
 
 	*index = if let Some(storage_value) = bytes {

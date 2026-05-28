@@ -236,6 +236,20 @@ macro_rules! cost_args {
 	(@replace_token $_in:tt) => { 0 };
 }
 
+/// Defines a storage cost constructor that maps `(kind, len)` to the
+/// matching persistent or transient variant.
+macro_rules! storage_cost_by_kind {
+	($fn_name:ident, $persistent:ident, $transient:ident) => {
+		pub fn $fn_name(kind: StorageAccessKind, len: u32) -> Self {
+			match kind {
+				StorageAccessKind::PersistentCold => Self::$persistent { len, is_cold: true },
+				StorageAccessKind::PersistentHot => Self::$persistent { len, is_cold: false },
+				StorageAccessKind::Transient => Self::$transient(len),
+			}
+		}
+	};
+}
+
 impl<T: Config> Token<T> for RuntimeCosts {
 	fn influence_lowest_weight_limit(&self) -> bool {
 		true
@@ -296,6 +310,10 @@ impl RuntimeCosts {
 					limits::EXTRA_EVENT_CHARGE_PER_BYTE.saturating_mul(len.into()).into(),
 					0,
 				)),
+			// Defensive fallback: `Token::weight` routes persistent storage through
+			// `weight_with_access_list` for exact cold/hot pricing. These arms only
+			// fire if `opcode_weight` is called directly, charging the base persistent
+			// cost (without the access-list overhead).
 			SetStorage { new_bytes, old_bytes, .. } => {
 				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
 			},
@@ -362,9 +380,9 @@ impl RuntimeCosts {
 		}
 	}
 
-	/// Pick the variant for `set` based on `kind`. The three dispatch cases
+	/// Pick the variant for `SetStorage` based on `kind`. The three dispatch cases
 	/// map 1:1 to the three storage variants.
-	pub fn set(kind: StorageAccessKind, new_bytes: u32, old_bytes: u32) -> Self {
+	pub fn set_storage(kind: StorageAccessKind, new_bytes: u32, old_bytes: u32) -> Self {
 		match kind {
 			StorageAccessKind::PersistentCold => {
 				Self::SetStorage { new_bytes, old_bytes, is_cold: true }
@@ -376,37 +394,10 @@ impl RuntimeCosts {
 		}
 	}
 
-	pub fn clear(kind: StorageAccessKind, len: u32) -> Self {
-		match kind {
-			StorageAccessKind::PersistentCold => Self::ClearStorage { len, is_cold: true },
-			StorageAccessKind::PersistentHot => Self::ClearStorage { len, is_cold: false },
-			StorageAccessKind::Transient => Self::ClearTransientStorage(len),
-		}
-	}
-
-	pub fn take(kind: StorageAccessKind, len: u32) -> Self {
-		match kind {
-			StorageAccessKind::PersistentCold => Self::TakeStorage { len, is_cold: true },
-			StorageAccessKind::PersistentHot => Self::TakeStorage { len, is_cold: false },
-			StorageAccessKind::Transient => Self::TakeTransientStorage(len),
-		}
-	}
-
-	pub fn get(kind: StorageAccessKind, len: u32) -> Self {
-		match kind {
-			StorageAccessKind::PersistentCold => Self::GetStorage { len, is_cold: true },
-			StorageAccessKind::PersistentHot => Self::GetStorage { len, is_cold: false },
-			StorageAccessKind::Transient => Self::GetTransientStorage(len),
-		}
-	}
-
-	pub fn contains(kind: StorageAccessKind, len: u32) -> Self {
-		match kind {
-			StorageAccessKind::PersistentCold => Self::ContainsStorage { len, is_cold: true },
-			StorageAccessKind::PersistentHot => Self::ContainsStorage { len, is_cold: false },
-			StorageAccessKind::Transient => Self::ContainsTransientStorage(len),
-		}
-	}
+	storage_cost_by_kind!(clear_storage, ClearStorage, ClearTransientStorage);
+	storage_cost_by_kind!(take_storage, TakeStorage, TakeTransientStorage);
+	storage_cost_by_kind!(get_storage, GetStorage, GetTransientStorage);
+	storage_cost_by_kind!(contains_storage, ContainsStorage, ContainsTransientStorage);
 
 	/// Cold/hot weight for storage opcodes; other variants fall through to
 	/// `opcode_weight`. Cold pairs add `access_list_touch_cold` +
