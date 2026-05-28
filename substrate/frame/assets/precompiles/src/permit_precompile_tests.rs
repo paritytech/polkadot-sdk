@@ -693,13 +693,13 @@ fn permit_rollback_preserves_prior_allowance() {
 	});
 }
 
-/// `to_balance` failure (value > runtime Balance capacity) returns
-/// `Error::Revert("Balance conversion failed")` *after* `use_permit`
-/// has incremented the nonce. The `with_transaction` wrapper must roll
-/// the nonce back. Distinct failure surface from the frozen-asset test
-/// (revert vs DispatchError trap).
+/// `permit(value = uint256.max)` is the gasless infinite-allowance idiom
+/// (EIP-2612). `U256::MAX` doesn't fit in the runtime `Balance`, so the
+/// precompile saturates the *stored* allowance at `Balance::MAX` rather
+/// than reverting at the conversion. Nonce advances normally and the
+/// `Approval` event carries the raw signed value.
 #[test]
-fn permit_value_overflow_rolls_back() {
+fn permit_saturates_on_uint256_max() {
 	use frame_support::traits::fungibles::approvals::Inspect;
 
 	new_test_ext().execute_with(|| {
@@ -718,17 +718,80 @@ fn permit_value_overflow_rolls_back() {
 			r,
 			s,
 		);
-		assert_permit_reverted_with(result, "Balance conversion failed");
-		assert_eq!(
-			permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
-			U256::zero(),
-			"nonce must roll back when to_balance fails after use_permit"
-		);
+		let exec = result.result.expect("permit must not trap");
+		assert!(!exec.did_revert(), "permit(uint256.max) must not revert: {:?}", exec);
+
+		// Stored allowance is saturated to `Balance::MAX`; nonce advanced.
 		assert_eq!(
 			Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
-			0
+			u128::MAX,
 		);
-		assert_no_contract_event_from(setup.asset_addr);
+		assert_eq!(
+			permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
+			U256::one(),
+		);
+
+		// Event carries the raw signed value, not the saturated stored amount.
+		assert_contract_event(
+			setup.asset_addr,
+			IERC20Events::Approval(IERC20::Approval {
+				owner: HARDHAT_ACCOUNT_0.0.into(),
+				spender: setup.spender_addr.0.into(),
+				value: huge,
+			}),
+		);
+	});
+}
+
+/// Mirrors `approve_saturates_above_balance_max`: pins the invariant that
+/// saturation applies to *any* `U256` exceeding `Balance::MAX`, not only the
+/// `U256::MAX` sentinel. Both `approve` and `permit` go through the same
+/// `unique_saturated_into()` conversion, so a regression that scopes the
+/// saturation to the sentinel would break this path identically.
+#[test]
+fn permit_saturates_just_above_balance_max() {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
+
+		// Smallest `U256` that doesn't fit in the mock's `Balance` (u128).
+		let just_over = AlloyU256::from(u128::MAX) + AlloyU256::from(1u64);
+		let (v, r, s) =
+			sign_permit(setup.asset_addr, setup.spender_addr, just_over, setup.deadline);
+		let result = raw_permit(
+			setup.submitter,
+			setup.asset_addr,
+			HARDHAT_ACCOUNT_0,
+			setup.spender_addr,
+			just_over,
+			setup.deadline,
+			v,
+			r,
+			s,
+		);
+		let exec = result.result.expect("permit must not trap");
+		assert!(!exec.did_revert(), "permit(u128::MAX + 1) must not revert: {:?}", exec);
+
+		// Stored allowance is saturated to `Balance::MAX`; nonce advanced.
+		assert_eq!(
+			Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
+			u128::MAX,
+		);
+		assert_eq!(
+			permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
+			U256::one(),
+		);
+
+		// Event carries the raw signed value, not the saturated stored amount.
+		assert_contract_event(
+			setup.asset_addr,
+			IERC20Events::Approval(IERC20::Approval {
+				owner: HARDHAT_ACCOUNT_0.0.into(),
+				spender: setup.spender_addr.0.into(),
+				value: just_over,
+			}),
+		);
 	});
 }
 
