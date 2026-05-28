@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779955358508,
+  "lastUpdate": 1779960674611,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "304a977aa21f08c2e54ba85151cbd5835096f0fb",
-          "message": "frame/revive: ETH block storage (#9418)\n\nThis PR constructs the Ethereum block in the following way:\n- events (logs) are captured via an `environmental!` variable to reduce\nreliance on pallet storage\n- A maximum of 512 events is allowed per transaction, with the size of\nan event capped to `self.ext.max_value_size()`\n- A memory-efficient intermediate block builder is deserialized and\nserialized back to the pallet storage\n- The intermediate block builder builds the transaction and event root\nhashes using low level RLP encoding primitives to achieve around 90%\npallet storage optimization\n- For more details, see\nhttps://github.com/paritytech/polkadot-sdk/pull/9764\n- A fixup is included for 7702 transaction rlp\nserialization/deserialization is added to ensure we can build the\nEthereum block hash from live Ethereum blocks.\n- The maximum `CALL_PARAMS_MAX_SIZE` is increased to 512 to 244 to\naccommodate the transaction added to the Eth call\n\n\nThis PR also includes benchmarking:\n- https://github.com/paritytech/polkadot-sdk/pull/9496\n\n### Testing Done\n- pallet storage testing and capturing of events / transactions are\nadded at `tests/block_hash.rs`\n- incremental block storage is tested in `evm/block_hash.rs`, which\nensures RLP encoding / hash builder and identical hashes from live\nethereum blocks\n- tested via RPC work\n\n### Next Steps\n- https://github.com/paritytech/polkadot-sdk/pull/9512\n- https://github.com/paritytech/polkadot-sdk/pull/9616\n- https://github.com/paritytech/polkadot-sdk/pull/9452\n\n\nBuilds upon https://github.com/paritytech/polkadot-sdk/pull/9413\n\nPart of: https://github.com/paritytech/contract-issues/issues/139\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Lukasz Rubaszewski <117115317+lrubasze@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-16T07:55:20Z",
-          "tree_id": "5023ba13244cf77a60456e3cd46cf21948a9689a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/304a977aa21f08c2e54ba85151cbd5835096f0fb"
-        },
-        "date": 1760607922409,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15856878076666675,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01350390952666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007404321106666656,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022516155673333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010043312293333311,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0de1cd93121a98bcde560c5ff8d3ddb8f541f7b8",
+          "message": "[pallet-revive] test dry run max storage deposit (#12216)\n\n## Summary\n\nAdds a regression test that verifies a `bare_call` dispatched with the\nruntime-api dry-run `ExecConfig` from an account with no balance still\nreports the same `max_storage`\n\n---------\n\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-28T07:32:26Z",
+          "tree_id": "67d13a99654ea5410add0bf4a5a039b6d710240d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0de1cd93121a98bcde560c5ff8d3ddb8f541f7b8"
+        },
+        "date": 1779960644640,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007715809773333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14555185186000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010031443819999972,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023980686399999996,
             "unit": "seconds"
           }
         ]
