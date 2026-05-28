@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779919958676,
+  "lastUpdate": 1779930398682,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cbab8ed4be1941420dd25dc81102fb79d8e2a7f0",
-          "message": "pallet_revive: Fix incorrect `block.gaslimit` (#10026)\n\nFixes https://github.com/paritytech/contract-issues/issues/112\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-15T12:04:45Z",
-          "tree_id": "1dda7ab0725dc1694661747eb3364deed13b6723",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cbab8ed4be1941420dd25dc81102fb79d8e2a7f0"
-        },
-        "date": 1760535730060,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.410722472533333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19963023826666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14180793206666661,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "828e52d33e5ab20fa49ba660e0ca4771e7e0d554",
+          "message": "pallet-referenda: Check before decrement deciding count (#12203)\n\nThis ensures when a referendum is canceled or killed that we check if it\nwas deciding before decrementing the deciding counter.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-27T22:57:59Z",
+          "tree_id": "4c791464c8a4f1f6874fa16b5ed8700919cbb7f5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/828e52d33e5ab20fa49ba660e0ca4771e7e0d554"
+        },
+        "date": 1779930369849,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13540343246666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.340157110666665,
             "unit": "seconds"
           }
         ]
