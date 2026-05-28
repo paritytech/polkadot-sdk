@@ -52,6 +52,17 @@ pub enum StorageAccessKind {
 	Transient,
 }
 
+/// Snapshot of per-transaction access-list counters.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AccessListMetrics {
+	/// Currently-hot entries (across all open frames).
+	pub size: usize,
+	/// Total cold touches across the transaction, including ones later rolled back.
+	pub cold: u32,
+	/// Total hot touches across the transaction, including ones later rolled back.
+	pub hot: u32,
+}
+
 /// One entry per `(contract address, storage slot)` accessed in the current tx.
 ///
 /// Field order is `slot, address` so the derived `Ord` decides on `slot`
@@ -139,20 +150,23 @@ impl AccessList {
 	/// Register the entry and return `true` if this access is cold (newly
 	/// inserted), `false` if it was already hot.
 	pub fn touch(&mut self, entry: AccessEntry) -> bool {
-		if self.accessed.contains(&entry) {
+		if self.accessed.insert(entry.clone()) {
+			self.journal.push(entry);
+			self.cold_count = self.cold_count.saturating_add(1);
+			true
+		} else {
 			self.hot_count = self.hot_count.saturating_add(1);
-			return false;
+			false
 		}
-		self.accessed.insert(entry.clone());
-		self.journal.push(entry);
-		self.cold_count = self.cold_count.saturating_add(1);
-		true
 	}
 
-	/// Per-transaction metrics: (currently-hot entries, total cold touches,
-	/// total hot touches).
-	pub fn metrics(&self) -> (usize, u32, u32) {
-		(self.accessed.len(), self.cold_count, self.hot_count)
+	/// Per-transaction metrics snapshot.
+	pub fn metrics(&self) -> AccessListMetrics {
+		AccessListMetrics {
+			size: self.accessed.len(),
+			cold: self.cold_count,
+			hot: self.hot_count,
+		}
 	}
 
 	/// Non-mutating sibling of `touch`. Returns `true` if `entry` is cold.
@@ -224,5 +238,14 @@ mod tests {
 		assert!(!al.is_hot(&b), "B: inserted by F1, rolled back");
 		assert!(!al.is_hot(&c), "C: F2-committed-into-F1, gone when F1 reverts");
 		assert!(!al.is_hot(&d), "D: inserted by F1, rolled back");
+
+		// Counters never decrement, even for entries that later roll back:
+		// A (cold) + B,C,D (cold) → 4 cold; A,A (hot) → 2 hot. Only A still hot,
+		// so `size` is 1.
+		assert_eq!(
+			al.metrics(),
+			AccessListMetrics { size: 1, cold: 4, hot: 2 },
+			"counters must include rolled-back touches",
+		);
 	}
 }

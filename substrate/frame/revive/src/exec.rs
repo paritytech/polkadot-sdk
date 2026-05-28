@@ -1621,10 +1621,11 @@ where
 		// First frame opens no checkpoint — log final metrics. Nested frames
 		// commit or roll back the checkpoint they opened.
 		if is_first_frame {
-			let (size, cold, hot) = self.access_list.metrics();
+			let m = self.access_list.metrics();
 			log::trace!(
 				target: LOG_TARGET,
 				"access list metrics: size={size} cold={cold} hot={hot}",
+				size = m.size, cold = m.cold, hot = m.hot,
 			);
 		} else if success {
 			self.access_list.commit_frame();
