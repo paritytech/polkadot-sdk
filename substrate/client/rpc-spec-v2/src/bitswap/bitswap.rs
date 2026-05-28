@@ -32,6 +32,7 @@ use crate::{
 };
 use cid::Cid;
 use jsonrpsee::{core::RpcResult, types::ErrorObject, PendingSubscriptionSink};
+use multihash_codetable::Code;
 use sc_client_api::BlockBackend;
 use sc_rpc::utils::Subscription;
 use sp_core::H256;
@@ -41,11 +42,6 @@ use std::{collections::HashSet, sync::Arc};
 /// Log target for this file. Filterable independently of the rest of `rpc-spec-v2`, matching
 /// the `rpc-spec-v2::<module>` convention from `archive/archive.rs:58`.
 const LOG_TARGET: &str = "rpc-spec-v2::bitswap";
-
-// Standard multihash codes.
-// See <https://github.com/multiformats/multicodec/blob/master/table.csv>
-const SHA2_256: u64 = 0x12;
-const BLAKE2B_256: u64 = 0xb220;
 
 /// Maximum number of CIDs accepted by `bitswap_unstable_stream` in a single subscription. Bounds
 /// worst-case response at ≤128 MiB (64 × 2 MiB/chunk). Spec only requires ≥16.
@@ -81,10 +77,13 @@ fn parse_and_validate_cid(cid_str: &str) -> Result<H256, Error> {
 
 	let hash = cid.hash();
 
-	// Only sha2-256 & blake2b-256 hash functions are supported according to the spec.
-	if hash.code() != SHA2_256 && hash.code() != BLAKE2B_256 {
+	// Only sha2-256, blake2b-256 & keccak-256 hash functions are supported according to the spec.
+	if hash.code() != u64::from(Code::Sha2_256) &&
+		hash.code() != u64::from(Code::Blake2b256) &&
+		hash.code() != u64::from(Code::Keccak256)
+	{
 		return Err(Error::InvalidCid(
-			"Only sha2-256 & blake2b-256 hash functions are supported".into(),
+			"Only sha2-256, blake2b-256 & keccak-256 hash functions are supported".into(),
 		));
 	}
 

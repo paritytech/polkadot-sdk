@@ -51,7 +51,7 @@ use alloc::{vec, vec::Vec};
 pub use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use assets_common::{foreign_creators::ForeignCreators, local_and_foreign_assets::TargetFromLeft};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId, VerifySchedulingSignature};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -288,6 +288,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	transaction_version: 1,
 	system_version: 1,
 };
+
+const RELAY_PARENT_OFFSET: u32 = 0;
 
 // Unit = the base number of indivisible units for balances
 pub const UNIT: Balance = 1_000_000_000_000;
@@ -613,7 +615,9 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		BLOCK_PROCESSING_VELOCITY,
 		UNINCLUDED_SEGMENT_CAPACITY,
 	>;
-	type RelayParentOffset = ConstU32<0>;
+
+	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type SchedulingSignatureVerifier = ();
 }
 
 impl parachain_info::Config for Runtime {}
@@ -1184,6 +1188,22 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			slot: cumulus_primitives_aura::Slot,
 		) -> bool {
 			ConsensusHook::can_build_upon(included_hash, slot)
+		}
+	}
+
+	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
+		fn relay_parent_offset() -> u32 {
+			RELAY_PARENT_OFFSET
+		}
+
+		fn max_claim_queue_offset() -> u8 {
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
+		}
+	}
+
+	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
+		fn scheduling_v3_enabled() -> bool {
+			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED
 		}
 	}
 );
