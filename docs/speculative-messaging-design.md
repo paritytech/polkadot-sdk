@@ -211,6 +211,131 @@ Instead of routing messages through relay chain state, we:
 
 ## Detailed Design
 
+## Parachain Communication
+
+Parachain collators operating on different peer-to-peer (P2P) networks need a way to exchange messages off-chain.
+The relay chain only processes message commitments, not the messages themselves. Direct communication between
+collators of different parachains is not possible due to different genesis hashes and sync protocols.
+
+To enable off-chain communicaiton between collators, a dedicated P2P network is created.
+This **Speculative Messaging Network** includes collators from al parachains that opt into
+speculative messaging.
+
+Alternative architectures were considered:
+- Routing through relay chain peers: Adds unnecessary laod and stress on the relay chain,
+  as well as new protocols for message exchange between collators.
+- Spawning a dedicated network backend for each parachain: Highly resource-intensive and doesn't scale
+  well with the number of parachains.
+
+By deploying a single network backend for the entire speculative messaging work, we keep the relay chain side
+changes to a minimum (needed for JAM compatibility) and we can leverage the existing bootnodes on DHT
+mechanism for collator discovery.
+
+The **Speculative Messaging Network** exposes the following protocols:
+- Kademlia DHT: `/spec-msg/kad` for peer discovery.
+- Identify and Ping: `/spec-msg/identify` and `/spec-msg/ping` for obtaining peer addresses and keeping connections alive.
+- Speculative Messaging Protocol: `/spec-msg/exchange` for exchanging messages between collators.
+- Light Client Request-Response: `/spec-msg/light/2` for fetching authority discovery keys of other collators.
+
+Parachains outside a trust domain, or those that don't wish to participate can simply ignore the Speculative Messaging
+Network and not register themselves in the DHT.
+
+### Bootnodes for the Speculative Messaging Network
+
+The architecture leverages the existing bootnodes on DHT mechanism on the relay chain side. 
+For more info, see [RFC 08](https://github.com/polkadot-fellows/RFCs/blob/main/text/0008-parachain-bootnodes-dht.md).
+
+Typically, relay chain peers of parachains advertise themselves as providers under the key `para ID || epoch randomness`
+in the relay chain DHT. Only the 20 closest peer IDs to this key are kept as providers, and the provider set is updated on every epoch change.
+
+Similarly, relay chain peers of collators advertise themselves as providers in the relay chain DHT.
+This utilizes the `ADD_PROVIDER` mechanism of the Kademlia DHT.
+The routing key is defined as `sha256(concat("spec-msg", epoch randomness))`, where the epoch randomness has the
+same semantics of the RFC 08, and can be obtained by calling `BabeApi_currentEpoch`.
+
+This extracts the relay chain side peer IDs of the 20 closest peers to the speculative messaging key.
+To obtain the actual bootnode addresses, the `/paranode` request-response is extended in a backwards compatible way.
+Originally, this request accepted a SCALE-compact-encoded `para ID` and returned a list of bootnode multiaddresses
+for that parchain. The protocol is extended to support the SCALE-compact-encoded `spec-msg` key as input,
+and the response is a list of multiaddresses of the collators that are bootnodes for the Speculative Messaging Network.
+
+To obtain the bootnodes of the Speculative Messaging Network, a relay chain side peer:
+- Queries the DHT for providers under the key `sha256(concat("spec-msg", epoch randomness))`, obtaining 20 peer IDs
+- For each peerID, it sends a request-response over `/paranode` with the `spec-msg` key, and obtains a list of multiaddresses
+for the collators that are bootnodes for the Speculative Messaging Network.
+
+### Speculative Messaging Network
+
+Once a collator obtains the bootnode list from the relay chain, it spawns a dedicated network backend for the 
+Speculative Messaging Network and connects to the bootnodes. Because the network connects collators from
+*all* parachains, collators from Parachain A must establish communication with collators from Parachain B.
+
+Peers register themself in the Speculative Messaging DHT as providers under the key `para ID || randomness`,
+exactly as bootnodes on the relay chain DHT do using the `ADD_PROVIDER` mechanism.
+This allows collators to quickly discover 20 closest peers. These peers serve as explicit entry points to
+validate collators and fetch their authority discovery keys.
+
+Separately to the `ADD_PROVIDER` mechanism, collators publish their `SignedCollatorAuthorityRecord` records into the DHT,
+using the `PUT_VALUE` kademlia mechanism. This ensures collators can discover the addresses of other collators and verify their integrity, strengthening the trust model for collators.
+This mechanism mirrors the authority discovery on the relay chain for validators.
+
+The `SignedCollatorAuthorityRecord` record has the following format:
+
+```rust
+/// Collator record to provide public reachable addresses for the collator,
+/// and the time of creation of the record.
+pub struct CollatorAuthority {
+    /// Parachain ID scale encoded.
+    pub parachain_id: Vec<u8>,
+    /// A vector of multiaddresses scale encoded.
+    pub addresses: Vec<Vec<u8>>,
+    /// The time since UNIX_EPOCH in nanoseconds, scale encoded.
+    /// Similar to authority-discovery this is used to update peers that have
+    /// stale records with newly discovered ones.
+    pub creation_time: Vec<u8>,
+}
+
+/// The speculative messaging peer signs the `CollatorAuthority` record with their private key,
+/// and includes the public key in the signature.
+pub struct PeerSignature {
+    /// The signature of the peer, scale encoded.
+    pub signature: Vec<u8>,
+    /// The public key of the peer, scale encoded.
+    pub public_key: Vec<u8>,
+}
+
+/// Record published in the DHT.
+pub struct SignedCollatorAuthorityRecord {
+    /// The actual record containing the multiaddresses and creation time.
+    pub record: CollatorAuthority,
+    /// The signature of the peer over the record.
+    pub peer_signature: PeerSignature,
+    /// The record signed by the authority discovery key of the collator, scale encoded.
+    pub auth_signature: Vec<u8>,
+}
+```
+
+### Trust Model for Collators
+
+For Parachain A to securely exchange messages with Parachain B, it must first obtain Parachain B's discovery keys.
+These keys allow Parachain A to map out collator addresses and verify peer integrity.
+
+The `SignedCollatorAuthorityRecord` guarantees that communication stirctly happens with legitimate collators
+of Parachain B, preventing eclipse attacks where malicious peers impersonate collators to drop or manipulate
+messages.
+
+Parachain A relies on light-client similar approach to fetch the discovery key from Parachain B:
+- 1. Read relay header: Parachain A reads Parachain B's header from the relay chain via `paras::Heads::get(Para B)`. This storage entry is located at [relay_well_known_keys::para_head(Para B)](https://github.com/paritytech/polkadot-sdk/blob/acf45cfbb1080f123aab1f2001967073977798c2/substrate/primitives/state-machine/src/lib.rs#L828-L833).
+- 2. Extract state root: The header is decoded to obtain the `state_root` of the block.
+- 3. Craft storage key: We craft the key for the storage read `twox_128("AuthorityDiscovery") ++ twox_128("Keys")`.
+- 4. Query peers: A request is made to the 20 closest peers that registered as providers under `para ID || randomness` key.
+- 5. Submit request: The request is submitted over `/spec-msg/light/2` which includes `RemoteReadRequest { block, keys }` protobuf encoded.
+- 6. Receive proof: The response contains `RemoteReadResponse` containing a storage proof.
+- 7. Verify proof: Parachain A verified via [read_proof_check()](https://github.com/paritytech/polkadot-sdk/blob/acf45cfbb1080f123aab1f2001967073977798c2/substrate/primitives/state-machine/src/lib.rs#L828-L833), passing in the `state_root` (step 2), crafted key (step 3), and the provided storage proof (step 6).
+
+Once verified, parachain A knows the authority keys of parachain B and starts `GET_VALUE` kademlia requests to fetch the multiaddresses of the collators on the Speculative Messaging Network. With the multiaddresses, parachain A can establish direct communication with parachain B's collators over the `/spec-msg/exchange` protocol.
+
+
 ### Message Accumulators
 
 Each parachain maintains a Merkle Mountain Range (MMR) accumulating all outgoing
