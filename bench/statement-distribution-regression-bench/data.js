@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779965885828,
+  "lastUpdate": 1779981215193,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "192d0a5e1527f6693540aaf21d639e41d07772fc",
-          "message": "[Release|CI/CD] Fix polkadot prod docker image (#9975)\n\nThis PR introduces a workaround to fix failing polkadot production image\nflow.\nThe initial issue is that, for some reason, our key that used to sign\nthe deb `InRelease` repo noted as expired on the first `apt update` run.\nBut reimport of the same key fixes is it. Until the reason for this\nissue is fixed, this work around helps to keep the flow working",
-          "timestamp": "2025-10-15T08:42:01Z",
-          "tree_id": "b024d9694e64406af696005e848748af7fcc0f55",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/192d0a5e1527f6693540aaf21d639e41d07772fc"
-        },
-        "date": 1760525072375,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95599999999993,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.033996667438,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04473002303999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08879851290399995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "acf45cfbb1080f123aab1f2001967073977798c2",
+          "message": "make polkadot/cumulus workflows required (#12162)\n\nMake polkadot/cumulus zombienet test required again.\n\ncc: @sandreim",
+          "timestamp": "2026-05-28T12:20:19Z",
+          "tree_id": "c3cfd83a1463798ce8453ceded322826676769f9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/acf45cfbb1080f123aab1f2001967073977798c2"
+        },
+        "date": 1779981186442,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.14600000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09078780712799984,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03877910918600002,
             "unit": "seconds"
           }
         ]
