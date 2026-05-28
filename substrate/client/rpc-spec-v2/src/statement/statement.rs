@@ -169,9 +169,6 @@ where
 	fn statement_unstable_submit(&self, encoded: Bytes) -> Result<SubmitOutcome, Error> {
 		let statement = Statement::decode(&mut &encoded[..])
 			.map_err(|e| Error::InvalidParam(format!("Error decoding statement: {e}")))?;
-		if self.store.has_statement(&statement.hash()) {
-			return Ok(SubmitOutcome::Known);
-		}
 		let submit_result = self.store.submit(statement, StatementSource::Local);
 		match SubmitOutcome::from_submit_result(submit_result) {
 			Ok(outcome) => Ok(outcome),

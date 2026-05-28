@@ -317,23 +317,12 @@ impl MultiFilterSubscriptionState {
 		None
 	}
 
-	fn handle_live_event(
-		&mut self,
-		event: LiveStatementEvent,
-		active_filter_ids: &HashSet<FilterId>,
-	) -> LiveEventHandling {
-		let matched_filter_ids: HashSet<FilterId> = event
-			.matched_filter_ids
-			.into_iter()
-			.filter(|filter_id| active_filter_ids.contains(filter_id))
-			.collect();
-		if matched_filter_ids.is_empty() {
-			return LiveEventHandling::Ignored;
-		}
-
+	fn handle_live_event(&mut self, event: LiveStatementEvent) -> LiveEventHandling {
+		let matched_filter_ids: HashSet<FilterId> = event.matched_filter_ids.into_iter().collect();
 		let blocked_by_replay = matched_filter_ids
 			.iter()
 			.any(|filter_id| self.replays_in_progress.contains(filter_id));
+		
 		let has_backlog = !self.pending_replays.is_empty() || !self.pending_live.is_empty();
 		if !blocked_by_replay && !has_backlog {
 			let was_stopped = self.stopped;
@@ -874,20 +863,16 @@ impl SubscriptionsInfo {
 				},
 				MatchedSubscription::Live(filter_ids) if !filter_ids.is_empty() => {
 					let handling = {
-						let Some(SubscriptionRecord::MultiFilter { filters, state, .. }) =
+						let Some(SubscriptionRecord::MultiFilter { state, .. }) =
 							self.by_sub_id.get_mut(&sub_id)
 						else {
 							continue;
 						};
-						let active_filter_ids = filters.keys().copied().collect();
-						state.handle_live_event(
-							LiveStatementEvent {
-								hash: statement.hash(),
-								encoded: encoded.clone(),
-								matched_filter_ids: filter_ids.into_iter().collect(),
-							},
-							&active_filter_ids,
-						)
+						state.handle_live_event(LiveStatementEvent {
+							hash: statement.hash(),
+							encoded: encoded.clone(),
+							matched_filter_ids: filter_ids.into_iter().collect(),
+						})
 					};
 					match handling {
 						LiveEventHandling::Ready(event) => {
@@ -1231,10 +1216,7 @@ mod tests {
 		assert_eq!(replay_provider.loads(), 0);
 
 		assert!(matches!(
-			state.handle_live_event(
-				live_event_for(&statement, vec![replay_filter, live_filter]),
-				&active_filter_ids,
-			),
+			state.handle_live_event(live_event_for(&statement, vec![replay_filter, live_filter])),
 			LiveEventHandling::Blocked
 		));
 		assert_eq!(state.pending_live.len(), 1);
@@ -1278,10 +1260,7 @@ mod tests {
 		state.record_filter_added(replay_filter, vec![replay_statement.hash()]);
 		let active_filter_ids = HashSet::from([replay_filter, live_filter]);
 		assert!(matches!(
-			state.handle_live_event(
-				live_event_for(&live_statement, vec![live_filter]),
-				&active_filter_ids,
-			),
+			state.handle_live_event(live_event_for(&live_statement, vec![live_filter])),
 			LiveEventHandling::Blocked
 		));
 		assert_eq!(state.pending_live.len(), 1);
@@ -1434,11 +1413,13 @@ mod tests {
 		let replay_provider = TestReplaySnapshotProvider::new(std::slice::from_ref(&statement));
 		let active_filter_ids = HashSet::from([live_filter]);
 
-		match state.handle_live_event(
-			live_event_for(&statement, vec![removed_filter, live_filter]),
-			&active_filter_ids,
-		) {
-			LiveEventHandling::Ready(MultiFilterSubscriptionEvent::NewStatement(event)) => {
+		state.pending_live.push_back(PendingLiveStatement {
+			hash: statement.hash(),
+			matched_filter_ids: vec![removed_filter, live_filter],
+		});
+
+		match state.next_event(&replay_provider, &active_filter_ids) {
+			Some(MultiFilterSubscriptionEvent::NewStatement(event)) => {
 				assert_eq!(event.hash, statement.hash());
 				assert_eq!(event.matched_filter_ids, vec![live_filter]);
 			},

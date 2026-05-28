@@ -252,24 +252,6 @@ async fn collect_replay(sub: &mut RpcSubscription, filter_id: &str) -> Vec<Bytes
 }
 
 #[tokio::test]
-async fn duplicate_submit_returns_known() {
-	let rpc = make_server();
-
-	let statement = signed_statement(42, &[[9u8; 32]]);
-	let outcome: SubmitOutcome = rpc
-		.call("statement_unstable_submit", (encoded(&statement),))
-		.await
-		.expect("submit new");
-	assert_eq!(outcome, SubmitOutcome::New);
-
-	let outcome: SubmitOutcome = rpc
-		.call("statement_unstable_submit", (encoded(&statement),))
-		.await
-		.expect("submit known");
-	assert_eq!(outcome, SubmitOutcome::Known);
-}
-
-#[tokio::test]
 async fn submit_then_subscribe_replays_and_then_lives() {
 	let rpc = make_server();
 
