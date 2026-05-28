@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779955319663,
+  "lastUpdate": 1779960635231,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ced629a7f33430d1b425e6a3e92ca5c44a04158f",
-          "message": "Bump AH westend spec version (#10024)\n\nUpdate spec version of westend AH\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-16T10:31:14Z",
-          "tree_id": "a7bac3854aefe589993db87a45999acb18a484bc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ced629a7f33430d1b425e6a3e92ca5c44a04158f"
-        },
-        "date": 1760614797232,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2005455006,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.371381565900004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14090504716666669,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0de1cd93121a98bcde560c5ff8d3ddb8f541f7b8",
+          "message": "[pallet-revive] test dry run max storage deposit (#12216)\n\n## Summary\n\nAdds a regression test that verifies a `bare_call` dispatched with the\nruntime-api dry-run `ExecConfig` from an account with no balance still\nreports the same `max_storage`\n\n---------\n\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-28T07:32:26Z",
+          "tree_id": "67d13a99654ea5410add0bf4a5a039b6d710240d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0de1cd93121a98bcde560c5ff8d3ddb8f541f7b8"
+        },
+        "date": 1779960604988,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.9277991897,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1443048984,
             "unit": "seconds"
           }
         ]
