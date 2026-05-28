@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779930474174,
+  "lastUpdate": 1779955397126,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "192d0a5e1527f6693540aaf21d639e41d07772fc",
-          "message": "[Release|CI/CD] Fix polkadot prod docker image (#9975)\n\nThis PR introduces a workaround to fix failing polkadot production image\nflow.\nThe initial issue is that, for some reason, our key that used to sign\nthe deb `InRelease` repo noted as expired on the first `apt update` run.\nBut reimport of the same key fixes is it. Until the reason for this\nissue is fixed, this work around helps to keep the flow working",
-          "timestamp": "2025-10-15T08:42:01Z",
-          "tree_id": "b024d9694e64406af696005e848748af7fcc0f55",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/192d0a5e1527f6693540aaf21d639e41d07772fc"
-        },
-        "date": 1760525039188,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63631.05,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6600117979407774,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001876164,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.220260440410005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00556670328,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4593960947500006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.462989866180002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001876164,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4875261556799995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002016297,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9155825343800021,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.454508587440001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4346904986999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002016297,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 0.00002177382,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5416907f07b6a611fd5e11edfe209707de54de2d",
+          "message": "[pallet-assets-precompiles] saturate permit/approval allowance (#12196)\n\n## Summary\n\n`approve()` / `permit()` previously reverted with `\"Balance conversion\nfailed\"` on `call.value > Balance::MAX` — including `type(uint256).max`,\nthe universal \"infinite allowance\" idiom hard-coded by MetaMask,\nUniswap, and every mainstream DEX router. The U256 → Balance conversion\nnow saturates at `Balance::MAX`. `transfer` / `transferFrom` keep the\nexisting revert-on-overflow behavior — they move exact amounts, so\nsilently clamping would produce partial transfers the caller never asked\nfor. The emitted `Approval` event still carries the raw `call.value`,\nmatching the ERC-20 / OpenZeppelin convention.\n\n## Non-goals\n\nNo `transferFrom` sentinel branch — saturated allowances decrement on\nevery spend; on a `u128` runtime `Balance::MAX` is large enough to be\noperationally indistinguishable from infinite. No `allowance()` readback\nlift — returns the stored value as-is.\n\n## Test plan\n\n- [x] `cargo test -p pallet-assets-precompiles`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-28T06:11:33Z",
+          "tree_id": "7786d679e0a815bc78446f7bda8fac4d105c2d2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5416907f07b6a611fd5e11edfe209707de54de2d"
+        },
+        "date": 1779955367193,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63623.990000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002039672,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002147911,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002039672,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005491759420000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.8212453764299994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8288918519200013,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7707057266299997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7681691231700007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.401682515379999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8221331685499651,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002147911,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.540594448462728,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.418319521499964,
             "unit": "seconds"
           }
         ]
