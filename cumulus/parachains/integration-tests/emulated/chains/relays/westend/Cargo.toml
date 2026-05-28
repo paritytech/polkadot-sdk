@@ -11,15 +11,18 @@ publish = false
 workspace = true
 
 [dependencies]
-emulated-integration-tests-common = { workspace = true }
-pallet-staking = { workspace = true }
-parachains-common = { default-features = true, workspace = true }
-polkadot-primitives = { workspace = true }
-sc-consensus-grandpa = { workspace = true }
-sp-authority-discovery = { workspace = true }
-sp-consensus-babe = { workspace = true }
-sp-consensus-beefy = { default-features = true, workspace = true }
-sp-core = { workspace = true }
-sp-runtime = { workspace = true }
-westend-runtime = { default-features = true, workspace = true }
-westend-runtime-constants = { workspace = true }
+emulated-integration-tests-common.workspace = true
+pallet-staking.workspace = true
+parachains-common.workspace = true
+parachains-common.default-features = true
+polkadot-primitives.workspace = true
+sc-consensus-grandpa.workspace = true
+sp-authority-discovery.workspace = true
+sp-consensus-babe.workspace = true
+sp-consensus-beefy.workspace = true
+sp-consensus-beefy.default-features = true
+sp-core.workspace = true
+sp-runtime.workspace = true
+westend-runtime.workspace = true
+westend-runtime.default-features = true
+westend-runtime-constants.workspace = true

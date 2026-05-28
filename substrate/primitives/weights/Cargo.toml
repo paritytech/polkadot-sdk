@@ -22,8 +22,8 @@ scale-info = { features = ["derive"], workspace = true }
 schemars = { optional = true, workspace = true }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 smallvec = { workspace = true, default-features = true }
-sp-arithmetic = { workspace = true }
-sp-debug-derive = { workspace = true }
+sp-arithmetic.workspace = true
+sp-debug-derive.workspace = true
 
 [features]
 default = ["std"]

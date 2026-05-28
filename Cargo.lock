@@ -4234,7 +4234,7 @@ dependencies = [
  "parity-scale-codec",
  "prost 0.12.6",
  "prost-build 0.13.2",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-service",
  "sp-consensus-babe",
  "sp-runtime 46.0.0",
@@ -4360,7 +4360,7 @@ dependencies = [
  "sc-client-api 45.0.0",
  "sc-consensus",
  "sc-consensus-babe",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "schnellru",
  "sp-blockchain 44.0.0",
  "sp-consensus 0.47.0",
@@ -4419,7 +4419,7 @@ dependencies = [
  "polkadot-test-client",
  "rstest",
  "sc-client-api 45.0.0",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sp-api 41.0.0",
  "sp-blockchain 44.0.0",
  "sp-consensus 0.47.0",
@@ -4475,7 +4475,7 @@ dependencies = [
  "rstest",
  "sc-client-api 45.0.0",
  "sc-consensus",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-utils 20.1.0",
  "sp-api 41.0.0",
  "sp-blockchain 44.0.0",
@@ -4510,7 +4510,7 @@ dependencies = [
  "prometheus",
  "sc-client-api 45.0.0",
  "sc-consensus",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-sync",
  "sc-network-transactions",
  "sc-rpc",
@@ -4870,7 +4870,7 @@ dependencies = [
  "prioritized-metered-channel",
  "sc-cli",
  "sc-client-api 45.0.0",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-sysinfo",
  "sc-telemetry 30.0.1",
  "sc-tracing",
@@ -4893,7 +4893,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-overseer",
  "sc-client-api 45.0.0",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sp-api 41.0.0",
  "sp-blockchain 44.0.0",
  "sp-state-machine 0.50.0",
@@ -4923,7 +4923,7 @@ dependencies = [
  "polkadot-service",
  "sc-authority-discovery",
  "sc-client-api 45.0.0",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-common 0.53.0",
  "sc-service",
  "sc-tracing",
@@ -5129,7 +5129,7 @@ dependencies = [
  "sc-executor 0.48.0",
  "sc-executor-common 0.44.0",
  "sc-executor-wasmtime 0.44.0",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-service",
  "sc-telemetry 30.0.1",
  "sc-tracing",
@@ -6871,7 +6871,7 @@ dependencies = [
 
 [[package]]
 name = "frame-omni-bencher"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -13291,7 +13291,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "alloy-consensus",
  "alloy-core",
@@ -13356,7 +13356,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-eth-rpc"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -13399,7 +13399,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-fixtures"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "alloy-core",
  "anyhow",
@@ -15195,7 +15195,7 @@ dependencies = [
  "polkadot-subsystem-bench",
  "rand 0.8.5",
  "rstest",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "schnellru",
  "sp-core 40.0.0",
  "sp-keyring",
@@ -15226,7 +15226,7 @@ dependencies = [
  "polkadot-subsystem-bench",
  "rand 0.8.5",
  "rstest",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "schnellru",
  "sp-core 40.0.0",
  "sp-keyring",
@@ -15294,7 +15294,7 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "rstest",
  "sc-keystore",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-types 0.20.2",
  "schnellru",
  "sp-consensus-babe",
@@ -15341,7 +15341,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "sc-keystore",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sp-application-crypto 45.0.0",
  "sp-keyring",
  "sp-keystore 0.46.0",
@@ -15382,7 +15382,7 @@ dependencies = [
  "quickcheck",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sp-application-crypto 45.0.0",
  "sp-authority-discovery",
  "sp-consensus-babe",
@@ -15426,7 +15426,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sp-consensus 0.47.0",
  "sp-core 40.0.0",
  "sp-keyring",
@@ -15946,7 +15946,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "sc-authority-discovery",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-types 0.20.2",
  "sp-runtime 46.0.0",
  "strum 0.26.3",
@@ -16020,7 +16020,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-statement-table",
  "sc-client-api 45.0.0",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-types 0.20.2",
  "sc-transaction-pool-api 44.0.0",
  "smallvec",
@@ -16080,7 +16080,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-omni-node-lib"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "assert_cmd",
  "async-trait",
@@ -16126,7 +16126,7 @@ dependencies = [
  "sc-consensus-manual-seal",
  "sc-executor 0.48.0",
  "sc-keystore",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-statement",
  "sc-network-sync",
  "sc-offchain",
@@ -16724,7 +16724,7 @@ dependencies = [
  "sc-informant",
  "sc-keystore",
  "sc-mixnet",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-common 0.53.0",
  "sc-network-gossip",
  "sc-network-light",
@@ -16891,7 +16891,7 @@ dependencies = [
  "sc-consensus-manual-seal",
  "sc-consensus-pow",
  "sc-executor 0.48.0",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-rpc",
  "sc-rpc-api",
  "sc-service",
@@ -17062,7 +17062,7 @@ dependencies = [
  "sc-consensus-slots",
  "sc-executor 0.48.0",
  "sc-keystore",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-sync",
  "sc-offchain",
  "sc-service",
@@ -17127,7 +17127,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rstest",
  "sc-keystore",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sp-application-crypto 45.0.0",
  "sp-authority-discovery",
  "sp-core 40.0.0",
@@ -17191,7 +17191,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rand_distr",
  "sc-keystore",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-types 0.20.2",
  "sc-service",
  "serde",
@@ -17346,7 +17346,7 @@ dependencies = [
  "sc-client-api 45.0.0",
  "sc-consensus",
  "sc-consensus-grandpa",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-service",
  "sc-tracing",
  "serde_json",
@@ -19764,7 +19764,7 @@ dependencies = [
  "quickcheck",
  "rand 0.8.5",
  "sc-client-api 45.0.0",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-types 0.20.2",
  "sc-service",
  "serde",
@@ -19866,7 +19866,7 @@ dependencies = [
  "sc-chain-spec-derive 12.0.0",
  "sc-client-api 45.0.0",
  "sc-executor 0.48.0",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-telemetry 30.0.1",
  "serde",
  "serde_json",
@@ -19929,7 +19929,7 @@ dependencies = [
  "sc-client-db",
  "sc-keystore",
  "sc-mixnet",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-service",
  "sc-telemetry 30.0.1",
  "sc-tracing",
@@ -20075,7 +20075,7 @@ dependencies = [
  "sc-consensus",
  "sc-consensus-slots",
  "sc-keystore",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-test",
  "sc-telemetry 30.0.1",
  "sp-api 41.0.0",
@@ -20181,7 +20181,7 @@ dependencies = [
  "sc-block-builder",
  "sc-client-api 45.0.0",
  "sc-consensus",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-gossip",
  "sc-network-sync",
  "sc-network-test",
@@ -20261,7 +20261,7 @@ dependencies = [
  "sc-client-api 45.0.0",
  "sc-client-db",
  "sc-consensus",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-common 0.53.0",
  "sc-network-gossip",
  "sc-network-sync",
@@ -20560,7 +20560,7 @@ dependencies = [
  "futures-timer",
  "log",
  "sc-client-api 45.0.0",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-sync",
  "sp-blockchain 44.0.0",
  "sp-runtime 46.0.0",
@@ -20595,7 +20595,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "sc-client-api 45.0.0",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-types 0.20.2",
  "sc-transaction-pool-api 44.0.0",
  "sp-api 41.0.0",
@@ -20660,7 +20660,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network"
-version = "0.56.0"
+version = "0.56.1"
 dependencies = [
  "array-bytes 6.2.2",
  "assert_matches",
@@ -20749,7 +20749,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "quickcheck",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-common 0.53.0",
  "sc-network-sync",
  "sc-network-types 0.20.2",
@@ -20773,7 +20773,7 @@ dependencies = [
  "prost 0.12.6",
  "prost-build 0.13.2",
  "sc-client-api 45.0.0",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-types 0.20.2",
  "sp-blockchain 44.0.0",
  "sp-core 40.0.0",
@@ -20795,7 +20795,7 @@ dependencies = [
  "parity-scale-codec",
  "rand 0.8.5",
  "sc-keystore",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-common 0.53.0",
  "sc-network-sync",
  "sc-network-types 0.20.2",
@@ -20831,7 +20831,7 @@ dependencies = [
  "sc-block-builder",
  "sc-client-api 45.0.0",
  "sc-consensus",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-common 0.53.0",
  "sc-network-types 0.20.2",
  "sc-utils 20.1.0",
@@ -20866,7 +20866,7 @@ dependencies = [
  "sc-block-builder",
  "sc-client-api 45.0.0",
  "sc-consensus",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-common 0.53.0",
  "sc-network-light",
  "sc-network-sync",
@@ -20891,7 +20891,7 @@ dependencies = [
  "futures",
  "log",
  "parity-scale-codec",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-common 0.53.0",
  "sc-network-sync",
  "sc-network-types 0.20.2",
@@ -20966,7 +20966,7 @@ dependencies = [
  "sc-block-builder",
  "sc-client-api 45.0.0",
  "sc-client-db",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-types 0.20.2",
  "sc-transaction-pool",
  "sc-transaction-pool-api 44.0.0",
@@ -21011,7 +21011,7 @@ dependencies = [
  "sc-client-api 45.0.0",
  "sc-keystore",
  "sc-mixnet",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-rpc-api",
  "sc-statement-store",
  "sc-tracing",
@@ -21177,7 +21177,7 @@ dependencies = [
  "sc-executor 0.48.0",
  "sc-informant",
  "sc-keystore",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-common 0.53.0",
  "sc-network-light",
  "sc-network-sync",
@@ -21236,7 +21236,7 @@ dependencies = [
  "sc-client-db",
  "sc-consensus",
  "sc-executor 0.48.0",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-network-sync",
  "sc-service",
  "sc-transaction-pool-api 44.0.0",
@@ -22612,7 +22612,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-inbound-queue-primitives"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "alloy-core",
  "assets-common",
@@ -23117,7 +23117,7 @@ dependencies = [
  "sc-consensus-aura",
  "sc-consensus-grandpa",
  "sc-executor 0.48.0",
- "sc-network 0.56.0",
+ "sc-network 0.56.1",
  "sc-offchain",
  "sc-service",
  "sc-telemetry 30.0.1",
