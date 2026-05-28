@@ -258,24 +258,19 @@ impl<B: Backend> State<B> {
 			return;
 		};
 
+		let advertisement = Advertisement {
+			peer_id,
+			para_id: *para_id,
+			scheduling_parent,
+			prospective_candidate: maybe_prospective_candidate,
+			advertised_descriptor_version,
+		};
+
 		// We have a result here, but it's not worth affecting reputations because advertisements
 		// are cheap.
 		// Note: `try_accept_advertisement` involves two other subsystems, so it's not super cheap,
 		// actually, but cheap enough.
-		match self
-			.collation_manager
-			.try_accept_advertisement(
-				sender,
-				Advertisement {
-					peer_id,
-					para_id: *para_id,
-					scheduling_parent,
-					prospective_candidate: maybe_prospective_candidate,
-					advertised_descriptor_version,
-				},
-			)
-			.await
-		{
+		match self.collation_manager.try_accept_advertisement(sender, advertisement).await {
 			Err(err) => {
 				gum::debug!(
 					target: LOG_TARGET,
@@ -402,17 +397,14 @@ impl<B: Backend> State<B> {
 			"Invalid collation",
 		);
 
-		self.collation_manager.release_slot(
+		let maybe_peer_id = self.collation_manager.release_slot(
 			&scheduling_parent,
 			receipt.descriptor.para_id(),
 			Some(&candidate_hash),
 			Some(receipt.descriptor.para_head()),
 		);
 
-		let Some(peer_id) = self
-			.collation_manager
-			.get_fetched_collation_peer_id(&scheduling_parent, &candidate_hash)
-		else {
+		let Some(peer_id) = maybe_peer_id else {
 			gum::warn!(
 				target: LOG_TARGET,
 				para_id = ?receipt.descriptor.para_id(),
@@ -432,7 +424,7 @@ impl<B: Backend> State<B> {
 		);
 
 		self.peer_manager
-			.slash_reputation(peer_id, &receipt.descriptor.para_id(), INVALID_COLLATION_SLASH)
+			.slash_reputation(&peer_id, &receipt.descriptor.para_id(), INVALID_COLLATION_SLASH)
 			.await;
 	}
 
@@ -513,8 +505,10 @@ impl<B: Backend> State<B> {
 		let connected_rep_query_fn = move |peer_id: &PeerId, para_id: &ParaId| {
 			peer_manager.connected_peer_score(peer_id, para_id)
 		};
-		let all_free_slots = self.collation_manager.all_free_slots();
-		let max_reps = self.peer_manager.max_scores_for_paras(all_free_slots).await;
+		let max_reps = self
+			.peer_manager
+			.max_scores_for_paras(self.collation_manager.assignments())
+			.await;
 
 		let metrics = &self.metrics;
 		let create_timer_fn = || metrics.time_collation_request_duration();
@@ -622,7 +616,7 @@ impl<B: Backend> State<B> {
 	}
 
 	#[cfg(test)]
-	pub fn advertisements(&self) -> std::collections::BTreeSet<Advertisement> {
+	pub fn advertisements(&self) -> std::collections::BTreeSet<super::common::Advertisement> {
 		self.collation_manager.advertisements()
 	}
 }
