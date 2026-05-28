@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779930398682,
+  "lastUpdate": 1779955319663,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "304a977aa21f08c2e54ba85151cbd5835096f0fb",
-          "message": "frame/revive: ETH block storage (#9418)\n\nThis PR constructs the Ethereum block in the following way:\n- events (logs) are captured via an `environmental!` variable to reduce\nreliance on pallet storage\n- A maximum of 512 events is allowed per transaction, with the size of\nan event capped to `self.ext.max_value_size()`\n- A memory-efficient intermediate block builder is deserialized and\nserialized back to the pallet storage\n- The intermediate block builder builds the transaction and event root\nhashes using low level RLP encoding primitives to achieve around 90%\npallet storage optimization\n- For more details, see\nhttps://github.com/paritytech/polkadot-sdk/pull/9764\n- A fixup is included for 7702 transaction rlp\nserialization/deserialization is added to ensure we can build the\nEthereum block hash from live Ethereum blocks.\n- The maximum `CALL_PARAMS_MAX_SIZE` is increased to 512 to 244 to\naccommodate the transaction added to the Eth call\n\n\nThis PR also includes benchmarking:\n- https://github.com/paritytech/polkadot-sdk/pull/9496\n\n### Testing Done\n- pallet storage testing and capturing of events / transactions are\nadded at `tests/block_hash.rs`\n- incremental block storage is tested in `evm/block_hash.rs`, which\nensures RLP encoding / hash builder and identical hashes from live\nethereum blocks\n- tested via RPC work\n\n### Next Steps\n- https://github.com/paritytech/polkadot-sdk/pull/9512\n- https://github.com/paritytech/polkadot-sdk/pull/9616\n- https://github.com/paritytech/polkadot-sdk/pull/9452\n\n\nBuilds upon https://github.com/paritytech/polkadot-sdk/pull/9413\n\nPart of: https://github.com/paritytech/contract-issues/issues/139\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Lukasz Rubaszewski <117115317+lrubasze@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-16T07:55:20Z",
-          "tree_id": "5023ba13244cf77a60456e3cd46cf21948a9689a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/304a977aa21f08c2e54ba85151cbd5835096f0fb"
-        },
-        "date": 1760607887147,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20173571183333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.481805627333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.340157110666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5416907f07b6a611fd5e11edfe209707de54de2d",
+          "message": "[pallet-assets-precompiles] saturate permit/approval allowance (#12196)\n\n## Summary\n\n`approve()` / `permit()` previously reverted with `\"Balance conversion\nfailed\"` on `call.value > Balance::MAX` — including `type(uint256).max`,\nthe universal \"infinite allowance\" idiom hard-coded by MetaMask,\nUniswap, and every mainstream DEX router. The U256 → Balance conversion\nnow saturates at `Balance::MAX`. `transfer` / `transferFrom` keep the\nexisting revert-on-overflow behavior — they move exact amounts, so\nsilently clamping would produce partial transfers the caller never asked\nfor. The emitted `Approval` event still carries the raw `call.value`,\nmatching the ERC-20 / OpenZeppelin convention.\n\n## Non-goals\n\nNo `transferFrom` sentinel branch — saturated allowances decrement on\nevery spend; on a `u128` runtime `Balance::MAX` is large enough to be\noperationally indistinguishable from infinite. No `allowance()` readback\nlift — returns the stored value as-is.\n\n## Test plan\n\n- [x] `cargo test -p pallet-assets-precompiles`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-28T06:11:33Z",
+          "tree_id": "7786d679e0a815bc78446f7bda8fac4d105c2d2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5416907f07b6a611fd5e11edfe209707de54de2d"
+        },
+        "date": 1779955290018,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.2609441115,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14090504716666669,
             "unit": "seconds"
           }
         ]
