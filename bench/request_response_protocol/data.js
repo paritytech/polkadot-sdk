@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779929275191,
+  "lastUpdate": 1779954078223,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -95363,6 +95363,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2817938008,
             "range": "± 39471994",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5416907f07b6a611fd5e11edfe209707de54de2d",
+          "message": "[pallet-assets-precompiles] saturate permit/approval allowance (#12196)\n\n## Summary\n\n`approve()` / `permit()` previously reverted with `\"Balance conversion\nfailed\"` on `call.value > Balance::MAX` — including `type(uint256).max`,\nthe universal \"infinite allowance\" idiom hard-coded by MetaMask,\nUniswap, and every mainstream DEX router. The U256 → Balance conversion\nnow saturates at `Balance::MAX`. `transfer` / `transferFrom` keep the\nexisting revert-on-overflow behavior — they move exact amounts, so\nsilently clamping would produce partial transfers the caller never asked\nfor. The emitted `Approval` event still carries the raw `call.value`,\nmatching the ERC-20 / OpenZeppelin convention.\n\n## Non-goals\n\nNo `transferFrom` sentinel branch — saturated allowances decrement on\nevery spend; on a `u128` runtime `Balance::MAX` is large enough to be\noperationally indistinguishable from infinite. No `allowance()` readback\nlift — returns the stored value as-is.\n\n## Test plan\n\n- [x] `cargo test -p pallet-assets-precompiles`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-28T06:11:33Z",
+          "tree_id": "7786d679e0a815bc78446f7bda8fac4d105c2d2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5416907f07b6a611fd5e11edfe209707de54de2d"
+        },
+        "date": 1779954047936,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21843259,
+            "range": "± 183261",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 22420850,
+            "range": "± 172907",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 24138404,
+            "range": "± 273575",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 29209172,
+            "range": "± 295274",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 66540523,
+            "range": "± 570799",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 443593200,
+            "range": "± 6002551",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2726926023,
+            "range": "± 186419645",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 19319189,
+            "range": "± 155129",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 19757102,
+            "range": "± 267773",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 20031715,
+            "range": "± 113543",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 25332547,
+            "range": "± 235648",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 66518086,
+            "range": "± 461393",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 411375303,
+            "range": "± 7907551",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 3135379695,
+            "range": "± 101717387",
             "unit": "ns/iter"
           }
         ]
