@@ -46,7 +46,7 @@ jobs:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
-  # https://github.com/paritytech/ci_cd/issues/864
+  # https://github.com/paritytech/ci_cd/issues/864 
   test-linux-stable-runtime-benchmarks:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
@@ -147,6 +147,7 @@ jobs:
       - name: script
         id: required
         run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
           forklift cargo nextest run --workspace \
                    --locked \
                    --release \
