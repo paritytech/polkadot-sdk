@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779960635231,
+  "lastUpdate": 1779965766977,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b21cbb58ab50d5d10371393967537f6f221bb92f",
-          "message": "Improve statement-store gossiping performance (#9912)\n\n# Description\n\nFixes gossiping and scalability issues in the statement-store\nnetworking.\n\n1. Reduced gossiping traffic by propagating only recent statements\ninstead of all.\n2. Added an early check for statements that the node already has to skip\nduplicate processing.\n3. Added splitting of large statement batches to stay under\nMAX_STATEMENT_NOTIFICATION_SIZE; oversized individual statements are\nskipped.\n4. MAX_STATEMENT_NOTIFICATION_SIZE was updated to the commonly used 1MB,\nwhich drastically improved the gossiping speed.\n5. Notifications are sent asynchronously. I don't see much difference in\nperformance, but according to @lexnv, it's better to do:\nhttps://github.com/paritytech/polkadot-sdk/pull/9296.\n6. Added a 10s timeout to handle very slow or disconnected peers.\n\n## Integration\n\nInternal optimizations to the gossip protocol. No downstream changes\nrequired.\n\nRelated PR: https://github.com/paritytech/polkadot-sdk/pull/9965\n\n## Things to handle in further PRs\n- After this PR, nodes don't send all statements to new peers anymore,\nonly the recent ones.\n- After restarting, the node doesn't re-gossip statements it wasn't\ngossiped.\n- Broadcasting notifications to all peers when the first peer is slow is\nlimited. We could instead use a FuturesUnordered.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-10-16T15:46:38Z",
-          "tree_id": "64e829882f470997b31739fc7f0e726294518cb8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b21cbb58ab50d5d10371393967537f6f221bb92f"
-        },
-        "date": 1760633543729,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19921004993333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.389281013533331,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1443048984,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "franciscoaguirreperez@gmail.com",
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6baed95a807650a13bb815354b357766991862d8",
+          "message": "Remove stale non-audited warning in pallet-parameters (#12222)\n\n`pallet-parameters` is audited and being used in production already. The\nwarning in the pallet file is misleading",
+          "timestamp": "2026-05-28T09:23:47Z",
+          "tree_id": "411c9bcd579427979b741f40144d4467895dd2e9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6baed95a807650a13bb815354b357766991862d8"
+        },
+        "date": 1779965736923,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.86296539216667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13437517913333336,
             "unit": "seconds"
           }
         ]
