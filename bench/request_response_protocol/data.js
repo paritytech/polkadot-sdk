@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779918679392,
+  "lastUpdate": 1779929275191,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -95255,6 +95255,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2657052354,
             "range": "± 31571350",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "828e52d33e5ab20fa49ba660e0ca4771e7e0d554",
+          "message": "pallet-referenda: Check before decrement deciding count (#12203)\n\nThis ensures when a referendum is canceled or killed that we check if it\nwas deciding before decrementing the deciding counter.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-27T22:57:59Z",
+          "tree_id": "4c791464c8a4f1f6874fa16b5ed8700919cbb7f5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/828e52d33e5ab20fa49ba660e0ca4771e7e0d554"
+        },
+        "date": 1779929245698,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20752402,
+            "range": "± 189720",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20276701,
+            "range": "± 168358",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21717723,
+            "range": "± 132059",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26675712,
+            "range": "± 319454",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60813248,
+            "range": "± 744773",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 349206757,
+            "range": "± 4798768",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2738638458,
+            "range": "± 36875555",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17830357,
+            "range": "± 191398",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18054651,
+            "range": "± 198988",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18514261,
+            "range": "± 226174",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23644615,
+            "range": "± 235192",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61048056,
+            "range": "± 509181",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 359210763,
+            "range": "± 4022583",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2817938008,
+            "range": "± 39471994",
             "unit": "ns/iter"
           }
         ]
