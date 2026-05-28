@@ -94,6 +94,17 @@ pub enum VoteImportResult<B: Block, AuthorityId: AuthorityIdBound> {
 
 pub(crate) type VoteWeight = u32;
 
+/// Compute per-authority voting weights from a validator set: each duplicate
+/// occurrence of the same authority contributes +1 to its weight.
+pub(crate) fn compute_voting_weights<AuthorityId: AuthorityIdBound>(
+	validator_set: &ValidatorSet<AuthorityId>,
+) -> BTreeMap<AuthorityId, VoteWeight> {
+	validator_set.validators().iter().fold(BTreeMap::new(), |mut acc, authority| {
+		*acc.entry(authority.to_owned()).or_insert(0) += 1;
+		acc
+	})
+}
+
 /// Keeps track of all voting rounds (block numbers) within a session.
 /// Only round numbers > `best_done` are of interest, all others are considered stale.
 ///
@@ -121,11 +132,7 @@ where
 		session_start: NumberFor<B>,
 		validator_set: ValidatorSet<AuthorityId>,
 	) -> Self {
-		let voting_weights =
-			validator_set.validators().iter().fold(BTreeMap::new(), |mut acc, authority| {
-				*acc.entry(authority.to_owned()).or_insert(0) += 1;
-				acc
-			});
+		let voting_weights = compute_voting_weights(&validator_set);
 
 		Rounds {
 			rounds: BTreeMap::new(),
@@ -176,19 +183,14 @@ where
 				vote,
 			);
 			return VoteImportResult::Invalid;
-		} else if !self.validators().iter().any(|id| &vote.id == id) {
-			debug!(
-				target: LOG_TARGET,
-				"🥩 received vote {:?} from validator that is not in the validator set, ignoring",
-				vote
-			);
-			return VoteImportResult::Invalid;
 		}
 
+		// `voting_weights` is built from `validator_set` in `Rounds::new`, so a missing entry
+		// means the vote is from an authority outside the active set.
 		let Some(vote_weight) = self.voting_weights.get(&vote.id).copied() else {
 			debug!(
 				target: LOG_TARGET,
-				"🥩 invalid validator.id (missing vote weight), ignoring vote {:?}",
+				"🥩 received vote {:?} from validator that is not in the validator set, ignoring",
 				vote
 			);
 			return VoteImportResult::Invalid;

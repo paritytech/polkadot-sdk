@@ -18,7 +18,12 @@
 
 //! Schema for BEEFY state persisted in the aux-db.
 
-use crate::{error::Error, round::VoteWeight, worker::PersistedState, LOG_TARGET};
+use crate::{
+	error::Error,
+	round::{compute_voting_weights, VoteWeight},
+	worker::PersistedState,
+	LOG_TARGET,
+};
 use codec::{Decode, DecodeAll, Encode};
 use log::{debug, trace, warn};
 use sc_client_api::{backend::AuxStore, Backend};
@@ -81,7 +86,7 @@ mod v4 {
 		type Error = ClientError;
 
 		fn try_from(old: Rounds<B, AuthorityId>) -> Result<Self, Self::Error> {
-			let voting_weights = super::compute_voting_weights(&old.validator_set);
+			let voting_weights = compute_voting_weights(&old.validator_set);
 			let rounds: BTreeMap<
 				Commitment<NumberFor<B>>,
 				crate::round::RoundTracker<AuthorityId>,
@@ -152,15 +157,6 @@ mod v4 {
 			super::decode_from_migrated((old.best_voted, voting_oracle, old.pallet_genesis))
 		}
 	}
-}
-
-fn compute_voting_weights<AuthorityId: AuthorityIdBound>(
-	validator_set: &ValidatorSet<AuthorityId>,
-) -> BTreeMap<AuthorityId, VoteWeight> {
-	validator_set.validators().iter().fold(BTreeMap::new(), |mut acc, authority| {
-		*acc.entry(authority.to_owned()).or_insert(0) += 1;
-		acc
-	})
 }
 
 fn accumulated_votes_weight<AuthorityId: AuthorityIdBound>(
