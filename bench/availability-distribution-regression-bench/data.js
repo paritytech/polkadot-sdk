@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779986535982,
+  "lastUpdate": 1779996737018,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "43147091+BigTava@users.noreply.github.com",
-            "name": "Tiago Tavares ⭕️",
-            "username": "BigTava"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "6173140aa84e3f537e8fdcbb7132d06c8fddb049",
-          "message": "pallet-multi-asset-bounties: create first version of the pallet (#8381)\n\nCloses #8768\n\n## Description\n\nThis PR introduces `pallet-multi-asset-bounties`, which enables bounties\nto be funded by assets other than the native token and adds several key\nenhancements to bounty management. The motivation for creating this\npallet is to support stablecoin funding in order to mitigate volatility\nin bounty value and reduce curator overhead.\n\nSee the pallet docs for more info about the pallet.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-17T13:43:34Z",
-          "tree_id": "c7d08349cbab5d490411cac4424049f6d3b43ea6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6173140aa84e3f537e8fdcbb7132d06c8fddb049"
-        },
-        "date": 1760714610556,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007728967619999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013194462753333337,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15815554340000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02268233047333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009876124779999983,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pgherveou@gmail.com",
+            "name": "PG Herveou",
+            "username": "pgherveou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6ce30ddd18ecdeb59acbfaec105f6b2352bf696c",
+          "message": "pallet-revive: map account in prepare_dry_run (#12225)\n\n- Map the origin account in `prepare_dry_run` when it is not already\nmapped, so dry-running contract calls/instantiations does not fail with\n`AccountUnmapped` for callers that never registered a mapping (e.g fresh\nproduct account that does not exist on chain yet)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-28T17:57:51Z",
+          "tree_id": "10b73d6208904d40c645c9018b51ecdda27cec67",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ce30ddd18ecdeb59acbfaec105f6b2352bf696c"
+        },
+        "date": 1779996707536,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1443635616866667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007772463013333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02385146966666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010223677093333307,
             "unit": "seconds"
           }
         ]
