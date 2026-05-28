@@ -248,4 +248,29 @@ mod tests {
 			"counters must include rolled-back touches",
 		);
 	}
+
+	/// `peek` reports cold/hot without mutating the access list or its counters.
+	#[test]
+	fn peek_does_not_mutate() {
+		let mut al = AccessList::new();
+		let entry = AccessEntry { address: H160::zero(), slot: Slot::Fix([1; 32]) };
+
+		assert!(al.peek(&entry), "peek on untouched entry: cold");
+		assert!(al.peek(&entry), "repeated peek: still cold");
+		assert_eq!(
+			al.metrics(),
+			AccessListMetrics { size: 0, cold: 0, hot: 0 },
+			"peek must not bump counters",
+		);
+
+		al.touch(entry.clone());
+
+		assert!(!al.peek(&entry), "peek after touch: hot");
+		assert!(!al.peek(&entry), "repeated peek: still hot");
+		assert_eq!(
+			al.metrics(),
+			AccessListMetrics { size: 1, cold: 1, hot: 0 },
+			"peek must not bump the hot counter",
+		);
+	}
 }

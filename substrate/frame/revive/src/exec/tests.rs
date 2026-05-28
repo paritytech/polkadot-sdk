@@ -3206,3 +3206,28 @@ fn cold_hot_delegate_call_marks_parent_slot_hot() {
 		run_call_to(CHARLIE_ADDR);
 	});
 }
+
+#[test]
+fn cold_hot_transient_skips_access_list() {
+	let code_hash = MockLoader::insert(Call, |ctx, _| {
+		let key = Key::Fix([42; 32]);
+		let address = ctx.ext.address();
+
+		// `transient: true` classifies as `Transient` without touching the access list.
+		let kind = ctx.ext.storage_access_list_kind(true, &key);
+		assert!(matches!(kind, StorageAccessKind::Transient));
+
+		// The same key is still cold in the persistent access list.
+		assert!(
+			ctx.ext.peek_storage_access_list(address, &key),
+			"transient access must not warm the persistent access list",
+		);
+
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&BOB, code_hash);
+		run_call_to(BOB_ADDR);
+	});
+}

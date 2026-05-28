@@ -111,11 +111,9 @@ pub fn blockhash<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> 
 pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
 	let key = Key::Fix(index.to_big_endian());
-	// NB: SLOAD loads 32 bytes from storage (i.e. U256)
-	// Peek-then-charge: touch the access list to determine cold/hot, then charge exact.
-	let address = interpreter.ext.address();
-	let is_cold = interpreter.ext.touch_storage_access_list(address, &key);
-	interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage { len: 32, is_cold })?;
+	// NB: SLOAD loads 32 bytes from storage (i.e. U256).
+	let access_kind = interpreter.ext.storage_access_list_kind(false, &key);
+	interpreter.ext.charge_or_halt(RuntimeCosts::get(access_kind, 32))?;
 	let value = interpreter.ext.get_storage(&key);
 
 	*index = if let Some(storage_value) = value {
@@ -132,9 +130,8 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	ControlFlow::Continue(())
 }
 
-/// Peek-then-charge for cold/hot + pre-charge worst-case for size, then refund the
-/// size delta after execution. Shared by SSTORE and TSTORE — TSTORE skips the
-/// access-list touch since transient storage has no access list.
+/// SSTORE/TSTORE charging: cold/hot is exact (access-list touch);
+/// `old_bytes` is pre-charged worst-case and refunded on Ok.
 fn store_helper<'ext, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 	transient: bool,
@@ -147,28 +144,21 @@ fn store_helper<'ext, E: Ext>(
 	let [index, value] = interpreter.stack.popn()?;
 	let key = Key::Fix(index.to_big_endian());
 
-	// Cold/hot is exact (from the access-list touch); size is pre-charged worst-case
-	// and refunded after the call.
 	let access_kind = interpreter.ext.storage_access_list_kind(transient, &key);
 	let charged =
 		interpreter.ext.charge_or_halt(RuntimeCosts::set(access_kind, 32, limits::STORAGE_BYTES))?;
 
 	let value_to_store = if value.is_zero() { None } else { Some(value.to_big_endian().to_vec()) };
 	let new_bytes = value_to_store.as_ref().map(|v| v.len() as u32).unwrap_or(0);
-	let result = set_function(interpreter.ext, &key, value_to_store, false);
+	let Ok(write_outcome) = set_function(interpreter.ext, &key, value_to_store, false) else {
+		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
+	};
 
-	// Refund the size delta regardless of Ok/Err. On Err the real `old_bytes` is
-	// unknown, so it stays at worst-case.
-	let old_bytes = result.as_ref().map(|w| w.old_len()).unwrap_or(limits::STORAGE_BYTES);
-	interpreter
-		.ext
-		.frame_meter_mut()
-		.adjust_weight(charged, RuntimeCosts::set(access_kind, new_bytes, old_bytes));
-
-	match result {
-		Ok(_) => ControlFlow::Continue(()),
-		Err(_) => ControlFlow::Break(Error::<E::T>::ContractTrapped.into()),
-	}
+	interpreter.ext.frame_meter_mut().adjust_weight(
+		charged,
+		RuntimeCosts::set(access_kind, new_bytes, write_outcome.old_len()),
+	);
+	ControlFlow::Continue(())
 }
 
 /// Implements the SSTORE instruction.

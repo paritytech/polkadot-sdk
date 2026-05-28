@@ -506,22 +506,14 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			StorageValue::Value(data) => Some(data),
 		};
 
-		if transient {
-			let write_outcome = self.ext.set_transient_storage(&key, value, false)?;
-			self.adjust_gas(
-				charged,
-				RuntimeCosts::set(access_kind, value_len, write_outcome.old_len()),
-			);
-			Ok(write_outcome.old_len_with_sentinel())
+		let write_outcome = if transient {
+			self.ext.set_transient_storage(&key, value, false)?
 		} else {
-			let result = self.ext.set_storage(&key, value, false);
-			// Refund the size delta on Ok/Err. On Err the real `old_bytes` is unknown;
-			// keep worst-case.
-			let old_bytes = result.as_ref().map(|w| w.old_len()).unwrap_or(max_size);
-			self.adjust_gas(charged, RuntimeCosts::set(access_kind, value_len, old_bytes));
-			let write_outcome = result?;
-			Ok(write_outcome.old_len_with_sentinel())
-		}
+			self.ext.set_storage(&key, value, false)?
+		};
+
+		self.adjust_gas(charged, RuntimeCosts::set(access_kind, value_len, write_outcome.old_len()));
+		Ok(write_outcome.old_len_with_sentinel())
 	}
 
 	fn clear_storage(
@@ -535,17 +527,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = self.ext.storage_access_list_kind(transient, &key);
 		let charged = self.charge_gas(RuntimeCosts::clear(access_kind, limits::STORAGE_BYTES))?;
-		if transient {
-			let outcome = self.ext.set_transient_storage(&key, None, false)?;
-			self.adjust_gas(charged, RuntimeCosts::clear(access_kind, outcome.old_len()));
-			Ok(outcome.old_len_with_sentinel())
+		let outcome = if transient {
+			self.ext.set_transient_storage(&key, None, false)?
 		} else {
-			let result = self.ext.set_storage(&key, None, false);
-			let len = result.as_ref().map(|w| w.old_len()).unwrap_or(limits::STORAGE_BYTES);
-			self.adjust_gas(charged, RuntimeCosts::clear(access_kind, len));
-			let outcome = result?;
-			Ok(outcome.old_len_with_sentinel())
-		}
+			self.ext.set_storage(&key, None, false)?
+		};
+		self.adjust_gas(charged, RuntimeCosts::clear(access_kind, outcome.old_len()));
+		Ok(outcome.old_len_with_sentinel())
 	}
 
 	fn get_storage(
