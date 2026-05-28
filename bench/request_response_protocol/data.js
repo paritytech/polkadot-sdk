@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779985471683,
+  "lastUpdate": 1779995619415,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -96011,6 +96011,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2767841613,
             "range": "± 31940196",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pgherveou@gmail.com",
+            "name": "PG Herveou",
+            "username": "pgherveou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6ce30ddd18ecdeb59acbfaec105f6b2352bf696c",
+          "message": "pallet-revive: map account in prepare_dry_run (#12225)\n\n- Map the origin account in `prepare_dry_run` when it is not already\nmapped, so dry-running contract calls/instantiations does not fail with\n`AccountUnmapped` for callers that never registered a mapping (e.g fresh\nproduct account that does not exist on chain yet)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-28T17:57:51Z",
+          "tree_id": "10b73d6208904d40c645c9018b51ecdda27cec67",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ce30ddd18ecdeb59acbfaec105f6b2352bf696c"
+        },
+        "date": 1779995591897,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20527051,
+            "range": "± 203234",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21182107,
+            "range": "± 179671",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22600959,
+            "range": "± 175795",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27501230,
+            "range": "± 327841",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60940049,
+            "range": "± 978215",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 367652047,
+            "range": "± 10311629",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2824787926,
+            "range": "± 79681671",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18275213,
+            "range": "± 288280",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18400713,
+            "range": "± 174595",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19199000,
+            "range": "± 238177",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23796601,
+            "range": "± 161916",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61437553,
+            "range": "± 918771",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 358278685,
+            "range": "± 4228498",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2913213992,
+            "range": "± 43705565",
             "unit": "ns/iter"
           }
         ]
