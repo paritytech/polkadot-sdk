@@ -205,38 +205,6 @@ fn load_decode<BE: AuxStore, T: Decode>(backend: &BE, key: &[u8]) -> ClientResul
 	}
 }
 
-fn migrate_v4_to_v5<B, BE, AuthorityId>(
-	backend: &BE,
-) -> ClientResult<Option<PersistedState<B, AuthorityId>>>
-where
-	B: BlockT,
-	BE: AuxStore,
-	AuthorityId: AuthorityIdBound,
-{
-	let version_key = CURRENT_VERSION.encode();
-
-	let Some(old) =
-		load_decode::<_, v4::PersistedState<B, AuthorityId>>(backend, WORKER_STATE_KEY)?
-	else {
-		// v4 marker present, but no state.
-		return Ok(None);
-	};
-
-	let new_state: PersistedState<B, AuthorityId> = old.try_into()?;
-
-	debug!(
-		target: LOG_TARGET,
-		"🥩 Migrating BEEFY aux-db schema v4 -> v5",
-	);
-
-	backend.insert_aux(
-		&[(VERSION_KEY, version_key.as_slice()), (WORKER_STATE_KEY, new_state.encode().as_slice())],
-		&[],
-	)?;
-
-	load_decode::<_, PersistedState<B, AuthorityId>>(backend, WORKER_STATE_KEY)
-}
-
 /// Load or initialize persistent data from backend.
 pub(crate) fn load_persistent<B, BE, AuthorityId: AuthorityIdBound>(
 	backend: &BE,
@@ -255,7 +223,32 @@ where
 		{
 			warn!(target: LOG_TARGET,  "🥩 backend contains a BEEFY state of an obsolete version {v}. ignoring...")
 		},
-		Some(4) => return migrate_v4_to_v5::<B, _, AuthorityId>(backend),
+		Some(4) => {
+			let Some(old) =
+				load_decode::<_, v4::PersistedState<B, AuthorityId>>(backend, WORKER_STATE_KEY)?
+			else {
+				// v4 marker present, but no state.
+				return Ok(None);
+			};
+
+			let new_state: PersistedState<B, AuthorityId> = old.try_into()?;
+			let version_key = CURRENT_VERSION.encode();
+
+			debug!(
+				target: LOG_TARGET,
+				"🥩 Migrating BEEFY aux-db schema v4 -> v5",
+			);
+
+			backend.insert_aux(
+				&[
+					(VERSION_KEY, version_key.as_slice()),
+					(WORKER_STATE_KEY, new_state.encode().as_slice()),
+				],
+				&[],
+			)?;
+
+			return load_decode::<_, PersistedState<B, AuthorityId>>(backend, WORKER_STATE_KEY);
+		},
 		Some(5) => {
 			return load_decode::<_, PersistedState<B, AuthorityId>>(backend, WORKER_STATE_KEY)
 		},
