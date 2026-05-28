@@ -257,47 +257,6 @@ jobs:
   #
   #
   #
-  build-statement-store-tools:
-    needs: [preflight]
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    timeout-minutes: 60
-    container:
-      image: ${{ needs.preflight.outputs.IMAGE }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: build
-        id: required
-        run: |
-          forklift cargo build --locked --release -p statement-latency-bench --bin statement-latency-bench --bin setup-allowances
-      - name: pack artifacts
-        run: |
-          mkdir -p ./artifacts
-          mv ./target/release/statement-latency-bench ./artifacts/.
-          mv ./target/release/setup-allowances ./artifacts/.
-          echo -n "${{ needs.preflight.outputs.SOURCE_REF_SLUG }}" > ./artifacts/VERSION
-          echo -n "${{ needs.preflight.outputs.SOURCE_REF_SLUG }}-${COMMIT_SHA}" > ./artifacts/EXTRATAG
-          echo "statement-store-tools = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
-          cp -r ./docker/* ./artifacts
-
-      - name: tar
-        run: tar -cvf artifacts.tar artifacts
-
-      - name: upload artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          path: artifacts.tar
-          retention-days: 1
-      - name: Stop all workflows if failed
-        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
-        uses: ./.github/actions/workflow-stopper
-        with:
-          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
-          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
-  #
-  #
-  #
   build-linux-substrate:
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
@@ -645,32 +604,6 @@ jobs:
   #
   #
   #
-  build-push-image-statement-store-tools:
-    needs: [preflight, build-statement-store-tools]
-    runs-on: ${{ needs.preflight.outputs.RUNNER_DEFAULT }}
-    timeout-minutes: 60
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: build-statement-store-tools-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-
-      - name: tar
-        run: tar -xvf artifacts.tar
-
-      - name: build and push image
-        uses: ./.github/actions/build-push-image
-        with:
-          image-name: "statement-store-tools"
-          dockerfile: "docker/dockerfiles/statement-store-tools_injected.Dockerfile"
-          username: ${{ secrets.PARITYPR_DOCKERHUB_USERNAME }}
-          password: ${{ secrets.PARITYPR_DOCKERHUB_PASSWORD }}
-
-  #
-  #
-  #
   build-push-image-substrate-pr:
     needs: [preflight, build-linux-substrate]
     runs-on: ${{ needs.preflight.outputs.RUNNER_DEFAULT }}
@@ -781,7 +714,6 @@ jobs:
       - build-test-parachain
       - build-test-collators
       - build-malus
-      - build-statement-store-tools
       - build-linux-substrate
       - build-templates-node
       - prepare-cumulus-zombienet-artifacts

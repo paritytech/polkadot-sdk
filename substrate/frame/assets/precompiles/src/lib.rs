@@ -36,6 +36,7 @@ use pallet_revive::precompiles::{
 	},
 	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
+use sp_runtime::traits::{UniqueSaturatedInto, Zero};
 use weights::WeightInfo as _;
 
 pub mod foreign_assets;
@@ -344,13 +345,16 @@ where
 	/// Implements ERC-20 set semantics: `approve(spender, N)` sets the allowance to exactly `N`
 	/// rather than adding to it. When overwriting a non-zero allowance, the existing approval is
 	/// cancelled first so the new value replaces (not accumulates with) the old one.
+	///
+	/// `call.value > Balance::MAX` (the `type(uint256).max` "infinite allowance" idiom)
+	/// saturates the stored allowance at `Balance::MAX`. The `Approval` event carries the
+	/// raw `call.value`.
 	fn approve(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &IERC20::approveCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		use frame_support::traits::fungibles::approvals::Inspect as ApprovalsInspect;
-		use sp_runtime::traits::Zero;
 
 		// Reserve worst-case gas upfront, then refund the unused portion.
 		let worst_case = <Runtime as Config<Instance>>::WeightInfo::allowance()
@@ -363,7 +367,9 @@ where
 			<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner);
 		let spender: H160 = call.spender.into_array().into();
 		let spender_account = env.to_account_id(&spender);
-		let new_amount = Self::to_balance(call.value)?;
+		// Saturate: `type(uint256).max` is the standard "infinite allowance" idiom and must
+		// not revert at the conversion boundary.
+		let new_amount: <Runtime as Config<Instance>>::Balance = call.value.unique_saturated_into();
 
 		let current = pallet_assets::Pallet::<Runtime, Instance>::allowance(
 			asset_id.clone(),
@@ -467,7 +473,8 @@ where
 	/// Execute the permit call (EIP-2612).
 	///
 	/// This verifies the signature, consumes the permit (increments nonce),
-	/// and sets the approval.
+	/// and sets the approval. Saturation policy and event payload match `approve` —
+	/// see its doc-comment.
 	pub(crate) fn permit(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		verifying_contract: H160,
@@ -531,14 +538,15 @@ where
 				let spender_account =
 					<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender_h160);
 
-				let new_amount = Self::to_balance(call.value)?;
+				// Saturate: see `approve` for the rationale (infinite-allowance idiom).
+				let new_amount: <Runtime as Config<Instance>>::Balance =
+					call.value.unique_saturated_into();
 				let current = pallet_assets::Pallet::<Runtime, Instance>::allowance(
 					asset_id.clone(),
 					&owner_account,
 					&spender_account,
 				);
 
-				use sp_runtime::traits::Zero;
 				let actual_weight;
 				if new_amount.is_zero() {
 					if !current.is_zero() {
