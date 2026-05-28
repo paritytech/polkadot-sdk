@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779960753602,
+  "lastUpdate": 1779965885828,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "3a2008517f4f9e6ef6fc97f9ecf7fa3f5b8c18e9",
-          "message": "Version bumps and prdocs reordering from stable2509 (#9974)\n\nThis PR backports regular version bumps and prdocs reordering from the\nstable2509 branch back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2025-10-15T08:34:35Z",
-          "tree_id": "cb6d88dbf9b95d1d659f37bf0d70240e684a4e9c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3a2008517f4f9e6ef6fc97f9ecf7fa3f5b8c18e9"
-        },
-        "date": 1760521358383,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.96399999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03395907062800001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04491458263199996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08278598445399993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "franciscoaguirreperez@gmail.com",
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6baed95a807650a13bb815354b357766991862d8",
+          "message": "Remove stale non-audited warning in pallet-parameters (#12222)\n\n`pallet-parameters` is audited and being used in production already. The\nwarning in the pallet file is misleading",
+          "timestamp": "2026-05-28T09:23:47Z",
+          "tree_id": "411c9bcd579427979b741f40144d4467895dd2e9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6baed95a807650a13bb815354b357766991862d8"
+        },
+        "date": 1779965855154,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.12399999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03886641664999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08879851290399995,
             "unit": "seconds"
           }
         ]
