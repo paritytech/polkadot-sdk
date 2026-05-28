@@ -149,9 +149,9 @@ fn store_helper<'ext, E: Ext>(
 
 	// Cold/hot is exact (from the access-list touch); size is pre-charged worst-case
 	// and refunded after the call.
-	let kind = interpreter.ext.storage_access_list_kind(transient, &key);
+	let access_kind = interpreter.ext.storage_access_list_kind(transient, &key);
 	let charged =
-		interpreter.ext.charge_or_halt(RuntimeCosts::set(kind, 32, limits::STORAGE_BYTES))?;
+		interpreter.ext.charge_or_halt(RuntimeCosts::set(access_kind, 32, limits::STORAGE_BYTES))?;
 
 	let value_to_store = if value.is_zero() { None } else { Some(value.to_big_endian().to_vec()) };
 	let new_bytes = value_to_store.as_ref().map(|v| v.len() as u32).unwrap_or(0);
@@ -163,7 +163,7 @@ fn store_helper<'ext, E: Ext>(
 	interpreter
 		.ext
 		.frame_meter_mut()
-		.adjust_weight(charged, RuntimeCosts::set(kind, new_bytes, old_bytes));
+		.adjust_weight(charged, RuntimeCosts::set(access_kind, new_bytes, old_bytes));
 
 	match result {
 		Ok(_) => ControlFlow::Continue(()),
