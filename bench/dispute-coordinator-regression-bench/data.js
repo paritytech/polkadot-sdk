@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779986650014,
+  "lastUpdate": 1779996853681,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "304a977aa21f08c2e54ba85151cbd5835096f0fb",
-          "message": "frame/revive: ETH block storage (#9418)\n\nThis PR constructs the Ethereum block in the following way:\n- events (logs) are captured via an `environmental!` variable to reduce\nreliance on pallet storage\n- A maximum of 512 events is allowed per transaction, with the size of\nan event capped to `self.ext.max_value_size()`\n- A memory-efficient intermediate block builder is deserialized and\nserialized back to the pallet storage\n- The intermediate block builder builds the transaction and event root\nhashes using low level RLP encoding primitives to achieve around 90%\npallet storage optimization\n- For more details, see\nhttps://github.com/paritytech/polkadot-sdk/pull/9764\n- A fixup is included for 7702 transaction rlp\nserialization/deserialization is added to ensure we can build the\nEthereum block hash from live Ethereum blocks.\n- The maximum `CALL_PARAMS_MAX_SIZE` is increased to 512 to 244 to\naccommodate the transaction added to the Eth call\n\n\nThis PR also includes benchmarking:\n- https://github.com/paritytech/polkadot-sdk/pull/9496\n\n### Testing Done\n- pallet storage testing and capturing of events / transactions are\nadded at `tests/block_hash.rs`\n- incremental block storage is tested in `evm/block_hash.rs`, which\nensures RLP encoding / hash builder and identical hashes from live\nethereum blocks\n- tested via RPC work\n\n### Next Steps\n- https://github.com/paritytech/polkadot-sdk/pull/9512\n- https://github.com/paritytech/polkadot-sdk/pull/9616\n- https://github.com/paritytech/polkadot-sdk/pull/9452\n\n\nBuilds upon https://github.com/paritytech/polkadot-sdk/pull/9413\n\nPart of: https://github.com/paritytech/contract-issues/issues/139\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Lukasz Rubaszewski <117115317+lrubasze@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-16T07:55:20Z",
-          "tree_id": "5023ba13244cf77a60456e3cd46cf21948a9689a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/304a977aa21f08c2e54ba85151cbd5835096f0fb"
-        },
-        "date": 1760608027595,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005171220919999989,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008650126989999991,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00261860531,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009282252219999981,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pgherveou@gmail.com",
+            "name": "PG Herveou",
+            "username": "pgherveou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6ce30ddd18ecdeb59acbfaec105f6b2352bf696c",
+          "message": "pallet-revive: map account in prepare_dry_run (#12225)\n\n- Map the origin account in `prepare_dry_run` when it is not already\nmapped, so dry-running contract calls/instantiations does not fail with\n`AccountUnmapped` for callers that never registered a mapping (e.g fresh\nproduct account that does not exist on chain yet)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-28T17:57:51Z",
+          "tree_id": "10b73d6208904d40c645c9018b51ecdda27cec67",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ce30ddd18ecdeb59acbfaec105f6b2352bf696c"
+        },
+        "date": 1779996823936,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00954301551999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011559738459999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026404629900000005,
             "unit": "seconds"
           }
         ]
