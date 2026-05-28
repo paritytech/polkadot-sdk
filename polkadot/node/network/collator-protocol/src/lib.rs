@@ -98,7 +98,7 @@ pub enum ProtocolSide {
 		invulnerables: HashSet<PeerId>,
 		/// Override for `HOLD_OFF_DURATION` constant .
 		collator_protocol_hold_off: Option<Duration>,
-		/// Clock used for all time reads. Production passes [`SystemClock`]; tests inject a mock.
+		/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`]; tests inject a mock.
 		clock: Arc<dyn Clock>,
 	},
 	/// Experimental variant of the validator side. Do not use in production.
@@ -111,7 +111,7 @@ pub enum ProtocolSide {
 		db: Arc<dyn Database>,
 		/// Reputation configuration (column number).
 		reputation_config: validator_side_experimental::ReputationConfig,
-		/// Clock used for all time reads. Production passes [`SystemClock`]; tests inject a mock.
+		/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`]; tests inject a mock.
 		clock: Arc<dyn Clock>,
 	},
 	/// Collators operate on a parachain.
@@ -124,7 +124,7 @@ pub enum ProtocolSide {
 		request_receiver_v2: IncomingRequestReceiver<protocol_v2::CollationFetchingRequest>,
 		/// Metrics.
 		metrics: collator_side::Metrics,
-		/// Clock used for all time reads. Production passes [`SystemClock`]; tests inject a mock.
+		/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`]; tests inject a mock.
 		clock: Arc<dyn Clock>,
 	},
 	/// No protocol side, just disable it.
