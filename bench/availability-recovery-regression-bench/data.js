@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779981101270,
+  "lastUpdate": 1779986498074,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "43147091+BigTava@users.noreply.github.com",
-            "name": "Tiago Tavares ⭕️",
-            "username": "BigTava"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "6173140aa84e3f537e8fdcbb7132d06c8fddb049",
-          "message": "pallet-multi-asset-bounties: create first version of the pallet (#8381)\n\nCloses #8768\n\n## Description\n\nThis PR introduces `pallet-multi-asset-bounties`, which enables bounties\nto be funded by assets other than the native token and adds several key\nenhancements to bounty management. The motivation for creating this\npallet is to support stablecoin funding in order to mitigate volatility\nin bounty value and reduce curator overhead.\n\nSee the pallet docs for more info about the pallet.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-17T13:43:34Z",
-          "tree_id": "c7d08349cbab5d490411cac4424049f6d3b43ea6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6173140aa84e3f537e8fdcbb7132d06c8fddb049"
-        },
-        "date": 1760714576688,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.3998550004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20219948160000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14784717783333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9cd6318cfd2a65da30c8c7f08b49568efd7374d6",
+          "message": "xcmp-queue: Store the bytes in the channel status (#12176)\n\nThis improves the performance of xcmp-queue by not requiring to check\nall pages individually.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2026-05-28T14:54:18Z",
+          "tree_id": "3e85e6615efbd60ee320f2d7abe42c82ea44b27b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9cd6318cfd2a65da30c8c7f08b49568efd7374d6"
+        },
+        "date": 1779986468938,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.843890281400002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13321203486666666,
             "unit": "seconds"
           }
         ]
