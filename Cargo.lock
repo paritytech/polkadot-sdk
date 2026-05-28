@@ -14348,6 +14348,11 @@ dependencies = [
 [[package]]
 name = "pallet-revive-types"
 version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+]
 
 [[package]]
 name = "pallet-revive-uapi"
