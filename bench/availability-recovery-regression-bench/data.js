@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779986498074,
+  "lastUpdate": 1779996698255,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1fe5ee6ec35e44e773a2d81722a235bbaadba561",
-          "message": "[pallet-revive] improve revive genesis config (#9988)\n\n- Update test to make sure contracts created at genesis are callable\n- make sure that contracts are brought to existence by minting e.d first\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-18T10:38:44Z",
-          "tree_id": "f76b7080db20d6f489613da22260d1a155e76516",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1fe5ee6ec35e44e773a2d81722a235bbaadba561"
-        },
-        "date": 1760788449009,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.380445621766663,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20106530316666663,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13321203486666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pgherveou@gmail.com",
+            "name": "PG Herveou",
+            "username": "pgherveou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6ce30ddd18ecdeb59acbfaec105f6b2352bf696c",
+          "message": "pallet-revive: map account in prepare_dry_run (#12225)\n\n- Map the origin account in `prepare_dry_run` when it is not already\nmapped, so dry-running contract calls/instantiations does not fail with\n`AccountUnmapped` for callers that never registered a mapping (e.g fresh\nproduct account that does not exist on chain yet)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-28T17:57:51Z",
+          "tree_id": "10b73d6208904d40c645c9018b51ecdda27cec67",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ce30ddd18ecdeb59acbfaec105f6b2352bf696c"
+        },
+        "date": 1779996668664,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.886209732866668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13889644193333334,
             "unit": "seconds"
           }
         ]
