@@ -23,6 +23,8 @@ doc:
 crates:
   - name: cumulus-client-collator-discovery
     bump: patch
+  - name: cumulus-relay-chain-minimal-node
+    bump: patch
   - name: polkadot-omni-node-lib
     bump: major
   - name: sc-network-sync
