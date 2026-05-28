@@ -48,6 +48,22 @@ impl<AuthorityId: AuthorityIdBound> Default for RoundTracker<AuthorityId> {
 }
 
 impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId> {
+	pub(crate) fn from_votes(
+		votes: BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+		voting_weights: &BTreeMap<AuthorityId, VoteWeight>,
+	) -> Result<Self, &'static str> {
+		let accumulated_votes_weight = votes.keys().try_fold(0u32, |acc, authority| {
+			let weight = voting_weights
+				.get(authority)
+				.copied()
+				.ok_or("authority not found in voting weights")?;
+
+			acc.checked_add(weight).ok_or("accumulated vote weight overflow")
+		})?;
+
+		Ok(Self { votes, accumulated_votes_weight })
+	}
+
 	fn add_vote(
 		&mut self,
 		vote: (AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature),

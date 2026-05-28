@@ -93,14 +93,13 @@ mod v4 {
 			> = old.rounds
 				.into_iter()
 				.map(|(commitment, tracker)| {
-					let accumulated =
-						super::accumulated_votes_weight(&tracker.votes, &voting_weights)?;
-					Ok((
-						commitment,
-						super::decode_from_migrated::<crate::round::RoundTracker<AuthorityId>, _>(
-							(tracker.votes, accumulated),
-						)?,
-					))
+					let tracker =
+						crate::round::RoundTracker::from_votes(tracker.votes, &voting_weights)
+							.map_err(|e| {
+								ClientError::Backend(format!("BEEFY DB is corrupted: {}", e))
+							})?;
+
+					Ok((commitment, tracker))
 				})
 				.collect::<ClientResult<_>>()?;
 
@@ -157,22 +156,6 @@ mod v4 {
 			super::decode_from_migrated((old.best_voted, voting_oracle, old.pallet_genesis))
 		}
 	}
-}
-
-fn accumulated_votes_weight<AuthorityId: AuthorityIdBound>(
-	votes: &BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
-	voting_weights: &BTreeMap<AuthorityId, VoteWeight>,
-) -> ClientResult<VoteWeight> {
-	votes.keys().try_fold(0u32, |acc, authority| {
-		let weight = voting_weights.get(authority).copied().ok_or_else(|| {
-			ClientError::Backend(
-				"BEEFY DB is corrupted: authority not found in voting weights".into(),
-			)
-		})?;
-		acc.checked_add(weight).ok_or_else(|| {
-			ClientError::Backend("BEEFY DB is corrupted: accumulated vote weight overflow".into())
-		})
-	})
 }
 
 fn decode_from_migrated<T: Decode, U: Encode>(value: U) -> ClientResult<T> {
