@@ -23,20 +23,38 @@ use scale_info::TypeInfo;
 use sp_core::{H160, U256};
 
 /// Configuration specific to a dry-run execution.
-#[derive(Debug, Encode, Decode, TypeInfo, Clone, DefaultNoBound)]
+#[derive(Debug, Encode, Decode, TypeInfo, Clone, Copy, DefaultNoBound)]
 pub struct DryRunConfig<Moment> {
 	/// Optional timestamp override for dry-run in pending block.
 	pub timestamp_override: Option<Moment>,
-	/// Used for future extensions without breaking encoding.
-	pub reserved: Option<()>,
+	/// Used to control if the dry run logic should perform the balance checks or not.
+	pub perform_balance_checks: Option<bool>,
 }
 impl<Moment> DryRunConfig<Moment> {
 	/// Create a new `DryRunConfig` with an optional timestamp override.
 	pub fn new(timestamp_override: Option<Moment>) -> Self {
 		Self {
 			timestamp_override,
-			reserved: None, // default value
+			perform_balance_checks: Some(true), // default value
 		}
+	}
+
+	/// A builder method which consumes the object and modifies the `timestamp_override` field.
+	pub fn with_timestamp_override(
+		mut self,
+		timestamp_override: impl Into<Option<Moment>>,
+	) -> Self {
+		self.timestamp_override = timestamp_override.into();
+		self
+	}
+
+	/// A builder method which consumes the object and modifies the `perform_balance_checks` field.
+	pub fn with_perform_balance_checks(
+		mut self,
+		perform_balance_checks: impl Into<Option<bool>>,
+	) -> Self {
+		self.perform_balance_checks = perform_balance_checks.into();
+		self
 	}
 }
 
