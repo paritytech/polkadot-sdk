@@ -494,12 +494,12 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		if value_len > max_size {
 			// Don't warm the slot on a failed validation.
-			let access_kind = self.ext.storage_access_list_kind_peek(transient, &key);
+			let access_kind = self.ext.peek_storage_access_list(transient, &key);
 			self.charge_gas(RuntimeCosts::set(access_kind, value_len, max_size))?;
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
-		let access_kind = self.ext.storage_access_list_kind(transient, &key);
+		let access_kind = self.ext.touch_storage_access_list(transient, &key);
 		let charged = self.charge_gas(RuntimeCosts::set(access_kind, value_len, max_size))?;
 		let value = match value {
 			StorageValue::Memory { ptr, len } => Some(memory.read(ptr, len)?),
@@ -512,7 +512,10 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			self.ext.set_storage(&key, value, false)?
 		};
 
-		self.adjust_gas(charged, RuntimeCosts::set(access_kind, value_len, write_outcome.old_len()));
+		self.adjust_gas(
+			charged,
+			RuntimeCosts::set(access_kind, value_len, write_outcome.old_len()),
+		);
 		Ok(write_outcome.old_len_with_sentinel())
 	}
 
@@ -525,7 +528,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let access_kind = self.ext.storage_access_list_kind(transient, &key);
+		let access_kind = self.ext.touch_storage_access_list(transient, &key);
 		let charged = self.charge_gas(RuntimeCosts::clear(access_kind, limits::STORAGE_BYTES))?;
 		let outcome = if transient {
 			self.ext.set_transient_storage(&key, None, false)?
@@ -547,7 +550,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let access_kind = self.ext.storage_access_list_kind(transient, &key);
+		let access_kind = self.ext.touch_storage_access_list(transient, &key);
 		let charged = self.charge_gas(RuntimeCosts::get(access_kind, limits::STORAGE_BYTES))?;
 		let outcome = if transient {
 			self.ext.get_transient_storage(&key)

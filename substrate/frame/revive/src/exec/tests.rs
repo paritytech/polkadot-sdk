@@ -2973,6 +2973,16 @@ fn delegatecall_tracer_reports_correct_addresses() {
 // `is_cold` flag, with frame rollback semantics across nested CALLs.
 // ===========================================================================
 
+/// Touch the access list (persistent) and return `true` if the access was cold.
+fn is_cold_touch<E: Ext>(ext: &mut E, key: &Key) -> bool {
+	matches!(ext.touch_storage_access_list(false, key), StorageAccessKind::PersistentCold)
+}
+
+/// Non-mutating sibling of `is_cold_touch`.
+fn is_cold_peek<E: Ext>(ext: &E, key: &Key) -> bool {
+	matches!(ext.peek_storage_access_list(false, key), StorageAccessKind::PersistentCold)
+}
+
 /// Common setup: fund ALICE, build a fresh transaction meter, and dispatch
 /// a call to `contract_addr`. **Asserts success internally** — only use
 /// when the test expects the outer call to return `Ok`. For tests that
@@ -2996,22 +3006,17 @@ fn cold_hot_single_contract() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		let key_a = Key::Fix([7; 32]);
 		let key_b = Key::Fix([8; 32]);
-		let address = ctx.ext.address();
 
-		let first = ctx.ext.touch_storage_access_list(address, &key_a);
-		assert!(first, "first SSTORE on key_a is cold");
+		assert!(is_cold_touch(ctx.ext, &key_a), "first SSTORE on key_a is cold");
 		ctx.ext.set_storage(&key_a, Some(vec![1]), false).unwrap();
 
-		let second = ctx.ext.touch_storage_access_list(address, &key_a);
-		assert!(!second, "second SSTORE on key_a is hot");
+		assert!(!is_cold_touch(ctx.ext, &key_a), "second SSTORE on key_a is hot");
 		ctx.ext.set_storage(&key_a, Some(vec![2]), false).unwrap();
 
-		let get_a = ctx.ext.touch_storage_access_list(address, &key_a);
-		assert!(!get_a, "SLOAD after SSTORE on key_a is hot");
+		assert!(!is_cold_touch(ctx.ext, &key_a), "SLOAD after SSTORE on key_a is hot");
 		let _ = ctx.ext.get_storage(&key_a);
 
-		let set_b = ctx.ext.touch_storage_access_list(address, &key_b);
-		assert!(set_b, "SSTORE on a distinct slot is cold");
+		assert!(is_cold_touch(ctx.ext, &key_b), "SSTORE on a distinct slot is cold");
 		ctx.ext.set_storage(&key_b, Some(vec![3]), false).unwrap();
 
 		exec_success()
@@ -3037,10 +3042,8 @@ fn cold_hot_child_revert_rolls_back() {
 			*c += 1;
 			*c
 		};
-		let address = ctx.ext.address();
-		let is_cold = ctx.ext.touch_storage_access_list(address, &key);
 		assert!(
-			is_cold,
+			is_cold_touch(ctx.ext, &key),
 			"child call #{n}: touch must be cold (previous revert should have rolled back)",
 		);
 		ctx.ext.set_storage(&key, Some(vec![1]), false).unwrap();
@@ -3089,8 +3092,7 @@ fn cold_hot_child_commit_keying() {
 	// Child touches (BOB, key) — cold on the first call, hot on the second
 	// (the first call's commit propagates the entry up into the parent frame).
 	let child_ch = MockLoader::insert(Call, move |ctx, _| {
-		let address = ctx.ext.address();
-		let is_cold = ctx.ext.touch_storage_access_list(address, &key_for_child);
+		let is_cold = is_cold_touch(ctx.ext, &key_for_child);
 		let want_cold = *expected_in_child.borrow();
 		assert_eq!(is_cold, want_cold, "child expected cold={want_cold}");
 		ctx.ext.set_storage(&key_for_child, Some(vec![1]), false).unwrap();
@@ -3114,9 +3116,10 @@ fn cold_hot_child_commit_keying() {
 		// 2. Parent runs in CHARLIE's context — (CHARLIE, key) is a distinct AccessEntry from (BOB,
 		//    key), so it must still be cold even though the child just touched BOB's view of the
 		//    same slot bytes.
-		let parent_address = ctx.ext.address();
-		let is_cold = ctx.ext.touch_storage_access_list(parent_address, &key_for_parent);
-		assert!(is_cold, "parent (CHARLIE, key) is distinct from child's (BOB, key)",);
+		assert!(
+			is_cold_touch(ctx.ext, &key_for_parent),
+			"parent (CHARLIE, key) is distinct from child's (BOB, key)",
+		);
 		ctx.ext.set_storage(&key_for_parent, Some(vec![2]), false).unwrap();
 		// 3. Child call #2: touches (BOB, key) again — now hot, since call #1 committed and the
 		//    entry survived back into the parent frame.
@@ -3149,15 +3152,12 @@ fn cold_hot_var_inline_len_distinguishes() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		let short_key = Key::try_from_var(vec![1, 2, 3]).unwrap();
 		let long_key = Key::try_from_var(vec![1, 2, 3, 0]).unwrap();
-		let address = ctx.ext.address();
 
-		let short_cold = ctx.ext.touch_storage_access_list(address, &short_key);
-		assert!(short_cold);
+		assert!(is_cold_touch(ctx.ext, &short_key));
 		ctx.ext.set_storage(&short_key, Some(vec![1]), false).unwrap();
 
-		let long_cold = ctx.ext.touch_storage_access_list(address, &long_key);
 		assert!(
-			long_cold,
+			is_cold_touch(ctx.ext, &long_key),
 			"VarInline keys with same byte prefix but different `len` must NOT alias",
 		);
 		ctx.ext.set_storage(&long_key, Some(vec![2]), false).unwrap();
@@ -3178,9 +3178,10 @@ fn cold_hot_delegate_call_marks_parent_slot_hot() {
 		// Runs in the parent's storage context (delegate-call), so this touch
 		// keys on `(parent_addr, SLOT)` — the same access-list entry the
 		// parent will see on its next SLOAD.
-		let address = ctx.ext.address();
-		let is_cold = ctx.ext.touch_storage_access_list(address, &Key::Fix(SLOT));
-		assert!(is_cold, "child via delegate-call: first touch on `(parent_addr, slot)` is cold",);
+		assert!(
+			is_cold_touch(ctx.ext, &Key::Fix(SLOT)),
+			"child via delegate-call: first touch on `(parent_addr, slot)` is cold",
+		);
 		let _ = ctx.ext.get_storage(&Key::Fix(SLOT));
 		exec_success()
 	});
@@ -3189,10 +3190,8 @@ fn cold_hot_delegate_call_marks_parent_slot_hot() {
 		ctx.ext
 			.delegate_call(&Default::default(), BOB_ADDR, Vec::new())
 			.expect("delegate-call to child must succeed");
-		let address = ctx.ext.address();
-		let is_cold = ctx.ext.touch_storage_access_list(address, &Key::Fix(SLOT));
 		assert!(
-			!is_cold,
+			!is_cold_touch(ctx.ext, &Key::Fix(SLOT)),
 			"parent SLOAD after delegate-call is hot — child's touch keyed on \
 			 `(parent_addr, slot)`, not `(child_addr, slot)`",
 		);
@@ -3211,15 +3210,14 @@ fn cold_hot_delegate_call_marks_parent_slot_hot() {
 fn cold_hot_transient_skips_access_list() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		let key = Key::Fix([42; 32]);
-		let address = ctx.ext.address();
 
 		// `transient: true` classifies as `Transient` without touching the access list.
-		let kind = ctx.ext.storage_access_list_kind(true, &key);
+		let kind = ctx.ext.touch_storage_access_list(true, &key);
 		assert!(matches!(kind, StorageAccessKind::Transient));
 
 		// The same key is still cold in the persistent access list.
 		assert!(
-			ctx.ext.peek_storage_access_list(address, &key),
+			is_cold_peek(ctx.ext, &key),
 			"transient access must not warm the persistent access list",
 		);
 

@@ -366,10 +366,12 @@ impl RuntimeCosts {
 	/// map 1:1 to the three storage variants.
 	pub fn set(kind: StorageAccessKind, new_bytes: u32, old_bytes: u32) -> Self {
 		match kind {
-			StorageAccessKind::PersistentCold =>
-				Self::SetStorage { new_bytes, old_bytes, is_cold: true },
-			StorageAccessKind::PersistentHot =>
-				Self::SetStorage { new_bytes, old_bytes, is_cold: false },
+			StorageAccessKind::PersistentCold => {
+				Self::SetStorage { new_bytes, old_bytes, is_cold: true }
+			},
+			StorageAccessKind::PersistentHot => {
+				Self::SetStorage { new_bytes, old_bytes, is_cold: false }
+			},
 			StorageAccessKind::Transient => Self::SetTransientStorage { new_bytes, old_bytes },
 		}
 	}

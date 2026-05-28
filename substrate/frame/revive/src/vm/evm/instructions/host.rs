@@ -112,7 +112,7 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
 	let key = Key::Fix(index.to_big_endian());
 	// NB: SLOAD loads 32 bytes from storage (i.e. U256).
-	let access_kind = interpreter.ext.storage_access_list_kind(false, &key);
+	let access_kind = interpreter.ext.touch_storage_access_list(false, &key);
 	interpreter.ext.charge_or_halt(RuntimeCosts::get(access_kind, 32))?;
 	let value = interpreter.ext.get_storage(&key);
 
@@ -144,9 +144,12 @@ fn store_helper<'ext, E: Ext>(
 	let [index, value] = interpreter.stack.popn()?;
 	let key = Key::Fix(index.to_big_endian());
 
-	let access_kind = interpreter.ext.storage_access_list_kind(transient, &key);
-	let charged =
-		interpreter.ext.charge_or_halt(RuntimeCosts::set(access_kind, 32, limits::STORAGE_BYTES))?;
+	let access_kind = interpreter.ext.touch_storage_access_list(transient, &key);
+	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::set(
+		access_kind,
+		32,
+		limits::STORAGE_BYTES,
+	))?;
 
 	let value_to_store = if value.is_zero() { None } else { Some(value.to_big_endian().to_vec()) };
 	let new_bytes = value_to_store.as_ref().map(|v| v.len() as u32).unwrap_or(0);
@@ -154,10 +157,10 @@ fn store_helper<'ext, E: Ext>(
 		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 	};
 
-	interpreter.ext.frame_meter_mut().adjust_weight(
-		charged,
-		RuntimeCosts::set(access_kind, new_bytes, write_outcome.old_len()),
-	);
+	interpreter
+		.ext
+		.frame_meter_mut()
+		.adjust_weight(charged, RuntimeCosts::set(access_kind, new_bytes, write_outcome.old_len()));
 	ControlFlow::Continue(())
 }
 

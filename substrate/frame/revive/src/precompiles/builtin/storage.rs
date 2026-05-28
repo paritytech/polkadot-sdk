@@ -60,11 +60,14 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 			},
 
 			IStorageCalls::clearStorage(IStorage::clearStorageCall { flags, key, isFixedKey }) => {
-				let transient = is_transient(*flags)?;
-				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
-				let access_kind = env.storage_access_list_kind(transient, &key);
-				let charged =
-					env.frame_meter_mut().charge_weight_token(RuntimeCosts::clear(access_kind, max_size))?;
+				let transient = is_transient(*flags)
+					.map_err(|_| Error::Revert("invalid storage flag".into()))?;
+				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
+					.map_err(|_| Error::Revert("failed decoding key".into()))?;
+				let access_kind = env.touch_storage_access_list(transient, &key);
+				let charged = env
+					.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::clear(access_kind, max_size))?;
 				let outcome = if transient {
 					env.set_transient_storage(&key, None, false)
 						.map_err(|_| Error::Revert("failed setting transient storage".into()))?
@@ -81,9 +84,11 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				key,
 				isFixedKey,
 			}) => {
-				let transient = is_transient(*flags)?;
-				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
-				let access_kind = env.storage_access_list_kind(transient, &key);
+				let transient = is_transient(*flags)
+					.map_err(|_| Error::Revert("invalid storage flag".into()))?;
+				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
+					.map_err(|_| Error::Revert("failed decoding key".into()))?;
+				let access_kind = env.touch_storage_access_list(transient, &key);
 				let charged = env
 					.frame_meter_mut()
 					.charge_weight_token(RuntimeCosts::contains(access_kind, max_size))?;
@@ -98,11 +103,14 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				Ok((outcome.is_some(), value_len).abi_encode())
 			},
 			IStorageCalls::takeStorage(IStorage::takeStorageCall { flags, key, isFixedKey }) => {
-				let transient = is_transient(*flags)?;
-				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
-				let access_kind = env.storage_access_list_kind(transient, &key);
-				let charged =
-					env.frame_meter_mut().charge_weight_token(RuntimeCosts::take(access_kind, max_size))?;
+				let transient = is_transient(*flags)
+					.map_err(|_| Error::Revert("invalid storage flag".into()))?;
+				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
+					.map_err(|_| Error::Revert("failed decoding key".into()))?;
+				let access_kind = env.touch_storage_access_list(transient, &key);
+				let charged = env
+					.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::take(access_kind, max_size))?;
 				let outcome = if transient {
 					env.set_transient_storage(&key, None, true)
 						.map_err(|_| Error::Revert("failed setting transient storage".into()))?
@@ -122,38 +130,29 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 	}
 }
 
-struct InvalidStorageFlag;
-struct InvalidKey;
-
-impl From<InvalidStorageFlag> for Error {
-	fn from(_: InvalidStorageFlag) -> Self {
-		Error::Revert("invalid storage flag".into())
-	}
-}
-
-impl From<InvalidKey> for Error {
-	fn from(_: InvalidKey) -> Self {
-		Error::Revert("failed decoding key".into())
-	}
-}
-
+struct InvalidStorageFlag();
 fn is_transient(flags: u32) -> Result<bool, InvalidStorageFlag> {
 	StorageFlags::from_bits(flags)
-		.ok_or(InvalidStorageFlag)
+		.ok_or_else(InvalidStorageFlag)
 		.map(|flags| flags.contains(StorageFlags::TRANSIENT))
 }
 
-fn decode_key(key_bytes: &[u8], is_fixed_key: bool) -> Result<Key, InvalidKey> {
+fn decode_key(key_bytes: &[u8], is_fixed_key: bool) -> Result<Key, ()> {
 	match is_fixed_key {
 		true => {
 			if key_bytes.len() != 32 {
-				return Err(InvalidKey);
+				return Err(());
 			}
 			let mut decode_buf = [0u8; 32];
 			decode_buf[..32].copy_from_slice(&key_bytes[..32]);
 			Ok(Key::from_fixed(decode_buf))
 		},
-		false => Key::try_from_var(key_bytes.to_vec()).map_err(|_| InvalidKey),
+		false => {
+			if key_bytes.len() as u32 > crate::limits::STORAGE_KEY_BYTES {
+				return Err(());
+			}
+			Key::try_from_var(key_bytes.to_vec())
+		},
 	}
 }
 

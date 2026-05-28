@@ -544,18 +544,18 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Returns the storage entry of the executing account by the given `key`.
 	///
-	/// Returns the stored value, or `None` if the `key` wasn't previously set by `set_storage`
-	/// or was deleted. Pure storage lookup — does not consult the access list.
+	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
+	/// was deleted.
 	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>>;
 
-	/// Returns the length (in bytes) of the storage entry at `key`.
+	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
 	///
-	/// Returns `Some(len)` if a storage entry exists at `key`, `None` otherwise. Pure
-	/// storage lookup — does not consult the access list.
+	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
+	/// was deleted.
 	fn get_storage_size(&mut self, key: &Key) -> Option<u32>;
 
-	/// Sets the storage entry by the given key to the specified value. If `value` is `None`,
-	/// the entry is deleted. Pure storage write — does not consult the access list.
+	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
+	/// the storage entry is deleted.
 	fn set_storage(
 		&mut self,
 		key: &Key,
@@ -563,45 +563,12 @@ pub trait PrecompileExt: sealing::Sealed {
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError>;
 
-	/// Touch the access list for `(address, key)` and return `true` if the access
-	/// is cold (newly added to the access list).
-	///
-	/// Used by opcode handlers (EVM SLOAD/SSTORE, PVM `seal_*_storage`, the storage
-	/// precompile) to determine the cold/hot status before charging.
-	fn touch_storage_access_list(&mut self, address: H160, key: &Key) -> bool;
+	/// Returns a [`StorageAccessKind`] for the access at `key`, touching the
+	/// access list so subsequent accesses to the same slot bill as hot.
+	fn touch_storage_access_list(&mut self, transient: bool, key: &Key) -> StorageAccessKind;
 
-	/// Non-mutating sibling of `touch_storage_access_list`. Returns `true` if cold.
-	fn peek_storage_access_list(&self, address: H160, key: &Key) -> bool;
-
-	/// Convenience over `touch_storage_access_list`: returns a [`StorageAccessKind`]
-	/// classifying the access for direct hand-off to the
-	/// `RuntimeCosts::{set,clear,take,get,contains}` helpers.
-	fn storage_access_list_kind(&mut self, transient: bool, key: &Key) -> StorageAccessKind {
-		if transient {
-			StorageAccessKind::Transient
-		} else {
-			let address = self.address();
-			if self.touch_storage_access_list(address, key) {
-				StorageAccessKind::PersistentCold
-			} else {
-				StorageAccessKind::PersistentHot
-			}
-		}
-	}
-
-	/// Non-mutating sibling of `storage_access_list_kind`.
-	fn storage_access_list_kind_peek(&self, transient: bool, key: &Key) -> StorageAccessKind {
-		if transient {
-			StorageAccessKind::Transient
-		} else {
-			let address = self.address();
-			if self.peek_storage_access_list(address, key) {
-				StorageAccessKind::PersistentCold
-			} else {
-				StorageAccessKind::PersistentHot
-			}
-		}
-	}
+	/// Non-mutating sibling of `touch_storage_access_list`.
+	fn peek_storage_access_list(&self, transient: bool, key: &Key) -> StorageAccessKind;
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -697,8 +664,7 @@ pub struct Stack<'a, T: Config, E> {
 	first_frame: Frame<T>,
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
-	/// Per-transaction cold/hot access list for storage slots (EIP-2929 style,
-	/// scoped to SLOAD/SSTORE and the storage precompile).
+	/// Per-transaction cold/hot access list for storage slots (EIP-2929 style).
 	access_list: AccessList,
 	/// Global behavior determined by the creater of this stack.
 	exec_config: &'a ExecConfig<T>,
@@ -2633,12 +2599,18 @@ where
 		)
 	}
 
-	fn peek_storage_access_list(&self, address: H160, key: &Key) -> bool {
-		self.access_list.peek(&AccessEntry { address, slot: key.to_slot() })
+	fn touch_storage_access_list(&mut self, transient: bool, key: &Key) -> StorageAccessKind {
+		let address = self.address();
+		StorageAccessKind::for_access(transient, || {
+			self.access_list.touch(AccessEntry { address, slot: key.to_slot() })
+		})
 	}
 
-	fn touch_storage_access_list(&mut self, address: H160, key: &Key) -> bool {
-		self.access_list.touch(AccessEntry { address, slot: key.to_slot() })
+	fn peek_storage_access_list(&self, transient: bool, key: &Key) -> StorageAccessKind {
+		let address = self.address();
+		StorageAccessKind::for_access(transient, || {
+			self.access_list.peek(&AccessEntry { address, slot: key.to_slot() })
+		})
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {

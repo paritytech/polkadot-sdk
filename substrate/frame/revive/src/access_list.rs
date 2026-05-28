@@ -52,6 +52,19 @@ pub enum StorageAccessKind {
 	Transient,
 }
 
+impl StorageAccessKind {
+	/// `Transient` if `transient`; otherwise dispatch on the `is_cold` closure.
+	pub fn for_access(transient: bool, is_cold: impl FnOnce() -> bool) -> Self {
+		if transient {
+			Self::Transient
+		} else if is_cold() {
+			Self::PersistentCold
+		} else {
+			Self::PersistentHot
+		}
+	}
+}
+
 /// Snapshot of per-transaction access-list counters.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AccessListMetrics {
@@ -162,11 +175,7 @@ impl AccessList {
 
 	/// Per-transaction metrics snapshot.
 	pub fn metrics(&self) -> AccessListMetrics {
-		AccessListMetrics {
-			size: self.accessed.len(),
-			cold: self.cold_count,
-			hot: self.hot_count,
-		}
+		AccessListMetrics { size: self.accessed.len(), cold: self.cold_count, hot: self.hot_count }
 	}
 
 	/// Non-mutating sibling of `touch`. Returns `true` if `entry` is cold.
