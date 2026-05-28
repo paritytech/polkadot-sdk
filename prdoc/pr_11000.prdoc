@@ -12,5 +12,9 @@ doc:
 crates:
 - name: pallet-revive
   bump: minor
+  validate: false
 - name: pallet-revive-eth-rpc
   bump: minor
+  validate: false
+- name: pallet-revive-fixtures
+  bump: patch
