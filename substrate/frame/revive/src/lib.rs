@@ -1863,13 +1863,19 @@ impl<T: Config> Pallet<T> {
 	/// amount of storage deposits needed without any kind of caching from the previous dry runs.
 	pub fn eth_estimate_gas(
 		tx: GenericTransaction,
-		config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
+		mut config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
 	) -> Result<U256, EthTransactError>
 	where
 		T::Nonce: Into<U256> + TryFrom<U256>,
 		CallOf<T>: SetWeightLimit,
 	{
 		log::debug!(target: LOG_TARGET, "eth_estimate_gas: {tx:?}");
+
+		// Apply state overrides once so `is_simple_transfer` and the dry runs all observe them,
+		// without re-applying per iteration.
+		if let Some(overrides) = config.state_overrides.take() {
+			state_overrides::apply_state_overrides::<T>(overrides)?;
+		}
 
 		let mut low = U256::zero();
 		let mut high = Self::evm_block_gas_limit();
@@ -1904,7 +1910,7 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		if Self::is_simple_transfer(&tx, &config) {
+		if Self::is_simple_transfer(&tx) {
 			let mut transaction = tx.clone();
 			transaction.gas = Some(high);
 			let dry_run_config = config.with_perform_balance_checks(perform_balance_checks);
@@ -2027,39 +2033,16 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns true when `tx` is a "simple" EOA-to-EOA value transfer whose gas cost is
 	/// deterministic, so [`Pallet::eth_estimate_gas`] can settle it with a single dry-run
-	/// instead of a binary search.
-	pub(crate) fn is_simple_transfer(
-		tx: &GenericTransaction,
-		config: &DryRunConfig<<<T as Config>::Time as Time>::Moment>,
-	) -> bool {
-		let Some(to) = tx.to else { return false };
-
-		if !tx.input.is_empty() {
-			return false;
-		}
-
-		if tx.access_list.as_ref().is_some_and(|list| !list.is_empty()) {
-			return false;
-		}
-		if !tx.authorization_list.is_empty() {
-			return false;
-		}
-		if !tx.blob_versioned_hashes.is_empty() || !tx.blobs.is_empty() {
-			return false;
-		}
-
-		if config.state_overrides.as_ref().is_some_and(|s| !s.0.is_empty()) {
-			return false;
-		}
-
-		if exec::is_precompile::<T, ContractBlob<T>>(&to) {
-			return false;
-		}
-		if <AccountInfo<T>>::is_contract(&to) {
-			return false;
-		}
-
-		true
+	/// instead of a binary search. Assumes any caller-supplied state overrides are already
+	/// applied, so the contract/precompile checks read post-override state.
+	pub(crate) fn is_simple_transfer(tx: &GenericTransaction) -> bool {
+		tx.to
+			.map(|to| {
+				tx.has_simple_transfer_fields() &&
+					!exec::is_precompile::<T, ContractBlob<T>>(&to) &&
+					!<AccountInfo<T>>::is_contract(&to)
+			})
+			.unwrap_or(false)
 	}
 
 	/// Return the pre-dispatch weight booked for the signed Ethereum transaction payload.

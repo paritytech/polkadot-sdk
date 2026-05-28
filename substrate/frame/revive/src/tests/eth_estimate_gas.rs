@@ -18,12 +18,13 @@
 //! Tests for the `eth_estimate_gas` short-circuit fast path.
 
 use crate::{
-	EthTransactError, Pallet,
+	EthTransactError, Pallet, RUNTIME_PALLETS_ADDR,
 	address::AddressMapper,
 	evm::{
-		AccessListEntry, AuthorizationListEntry, DryRunConfig, GenericTransaction, StateOverride,
-		StateOverrideSet,
+		AccessListEntry, AuthorizationListEntry, Bytes, DryRunConfig, GenericTransaction,
+		StateOverride, StateOverrideSet,
 	},
+	state_overrides::apply_state_overrides,
 	test_utils::{ALICE_ADDR, BOB, BOB_ADDR, CHARLIE_ADDR},
 	tests::{Config, ExtBuilder, Test, test_utils::place_contract},
 };
@@ -42,10 +43,7 @@ fn simple_transfer_tx() -> GenericTransaction {
 #[test]
 fn is_simple_transfer_eoa_to_eoa_with_empty_input() {
 	ExtBuilder::default().build().execute_with(|| {
-		assert!(Pallet::<Test>::is_simple_transfer(
-			&simple_transfer_tx(),
-			&DryRunConfig::default(),
-		));
+		assert!(Pallet::<Test>::is_simple_transfer(&simple_transfer_tx()));
 	});
 }
 
@@ -53,7 +51,15 @@ fn is_simple_transfer_eoa_to_eoa_with_empty_input() {
 fn is_simple_transfer_rejects_contract_creation() {
 	ExtBuilder::default().build().execute_with(|| {
 		let tx = GenericTransaction { to: None, ..simple_transfer_tx() };
-		assert!(!Pallet::<Test>::is_simple_transfer(&tx, &DryRunConfig::default()));
+		assert!(!Pallet::<Test>::is_simple_transfer(&tx));
+	});
+}
+
+#[test]
+fn is_simple_transfer_rejects_runtime_pallets_address() {
+	ExtBuilder::default().build().execute_with(|| {
+		let tx = GenericTransaction { to: Some(RUNTIME_PALLETS_ADDR), ..simple_transfer_tx() };
+		assert!(!Pallet::<Test>::is_simple_transfer(&tx));
 	});
 }
 
@@ -61,7 +67,7 @@ fn is_simple_transfer_rejects_contract_creation() {
 fn is_simple_transfer_rejects_non_empty_input() {
 	ExtBuilder::default().build().execute_with(|| {
 		let tx = GenericTransaction { input: vec![0x01].into(), ..simple_transfer_tx() };
-		assert!(!Pallet::<Test>::is_simple_transfer(&tx, &DryRunConfig::default()));
+		assert!(!Pallet::<Test>::is_simple_transfer(&tx));
 	});
 }
 
@@ -75,7 +81,7 @@ fn is_simple_transfer_rejects_access_list() {
 			}]),
 			..simple_transfer_tx()
 		};
-		assert!(!Pallet::<Test>::is_simple_transfer(&tx, &DryRunConfig::default()));
+		assert!(!Pallet::<Test>::is_simple_transfer(&tx));
 	});
 }
 
@@ -83,7 +89,7 @@ fn is_simple_transfer_rejects_access_list() {
 fn is_simple_transfer_accepts_empty_access_list() {
 	ExtBuilder::default().build().execute_with(|| {
 		let tx = GenericTransaction { access_list: Some(vec![]), ..simple_transfer_tx() };
-		assert!(Pallet::<Test>::is_simple_transfer(&tx, &DryRunConfig::default()));
+		assert!(Pallet::<Test>::is_simple_transfer(&tx));
 	});
 }
 
@@ -101,7 +107,7 @@ fn is_simple_transfer_rejects_authorization_list() {
 			}],
 			..simple_transfer_tx()
 		};
-		assert!(!Pallet::<Test>::is_simple_transfer(&tx, &DryRunConfig::default()));
+		assert!(!Pallet::<Test>::is_simple_transfer(&tx));
 	});
 }
 
@@ -112,36 +118,53 @@ fn is_simple_transfer_rejects_blob_payload() {
 			blob_versioned_hashes: vec![H256::zero()],
 			..simple_transfer_tx()
 		};
-		assert!(!Pallet::<Test>::is_simple_transfer(&tx, &DryRunConfig::default()));
+		assert!(!Pallet::<Test>::is_simple_transfer(&tx));
 	});
 }
 
 #[test]
-fn is_simple_transfer_rejects_non_empty_state_overrides() {
+fn is_simple_transfer_rejects_blobs() {
 	ExtBuilder::default().build().execute_with(|| {
+		let tx =
+			GenericTransaction { blobs: vec![Bytes::from(vec![0u8; 32])], ..simple_transfer_tx() };
+		assert!(!Pallet::<Test>::is_simple_transfer(&tx));
+	});
+}
+
+#[test]
+fn is_simple_transfer_rejects_max_fee_per_blob_gas() {
+	ExtBuilder::default().build().execute_with(|| {
+		let tx = GenericTransaction {
+			max_fee_per_blob_gas: Some(U256::from(1)),
+			..simple_transfer_tx()
+		};
+		assert!(!Pallet::<Test>::is_simple_transfer(&tx));
+	});
+}
+
+#[test]
+fn is_simple_transfer_observes_applied_state_overrides() {
+	ExtBuilder::default().build().execute_with(|| {
+		assert!(Pallet::<Test>::is_simple_transfer(&simple_transfer_tx()));
+
+		// Make CHARLIE_ADDR a contract via state override.
 		let mut overrides = StateOverrideSet::default();
-		overrides.0.insert(CHARLIE_ADDR, StateOverride::default());
-		let config = DryRunConfig::default().with_state_overrides(overrides);
-		assert!(!Pallet::<Test>::is_simple_transfer(&simple_transfer_tx(), &config));
-	});
-}
+		overrides.0.insert(
+			CHARLIE_ADDR,
+			StateOverride { code: Some(Bytes::from(vec![0xfeu8; 32])), ..Default::default() },
+		);
+		apply_state_overrides::<Test>(overrides).unwrap();
 
-#[test]
-fn is_simple_transfer_accepts_empty_state_overrides() {
-	ExtBuilder::default().build().execute_with(|| {
-		let config = DryRunConfig::default().with_state_overrides(StateOverrideSet::default());
-		assert!(Pallet::<Test>::is_simple_transfer(&simple_transfer_tx(), &config));
+		assert!(!Pallet::<Test>::is_simple_transfer(&simple_transfer_tx()));
 	});
 }
 
 #[test]
 fn is_simple_transfer_rejects_contract_destination() {
 	ExtBuilder::default().build().execute_with(|| {
-		// Place a contract at BOB so BOB_ADDR is now a contract account.
 		place_contract(&BOB, H256::repeat_byte(0xab));
-
 		let tx = GenericTransaction { to: Some(BOB_ADDR), ..simple_transfer_tx() };
-		assert!(!Pallet::<Test>::is_simple_transfer(&tx, &DryRunConfig::default()));
+		assert!(!Pallet::<Test>::is_simple_transfer(&tx));
 	});
 }
 
