@@ -3,7 +3,11 @@ use crate::{
 	v2::{convert::XcmConverterError, Command, Message},
 	SendError, SendMessageFeeProvider,
 };
-use frame_support::{parameter_types, traits::Everything, BoundedVec};
+use frame_support::{
+	parameter_types,
+	traits::{Equals, Everything, EverythingBut},
+	BoundedVec,
+};
 use hex_literal::hex;
 use snowbridge_core::{AgentIdOf, TokenIdOf};
 use sp_core::H256;
@@ -65,13 +69,6 @@ pub struct MockTokenIdConvert;
 impl MaybeConvert<TokenId, Location> for MockTokenIdConvert {
 	fn maybe_convert(_id: TokenId) -> Option<Location> {
 		Some(Location::new(1, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]))
-	}
-}
-
-pub struct DisallowOrigin<ExcludedLocation>(PhantomData<ExcludedLocation>);
-impl<ExcludedLocation: Get<Location>> Contains<Location> for DisallowOrigin<ExcludedLocation> {
-	fn contains(l: &Location) -> bool {
-		l != &ExcludedLocation::get()
 	}
 }
 
@@ -1305,7 +1302,7 @@ fn xcm_converter_mints_registered_token_id_for_colliding_general_key_location() 
 	.into();
 
 	let mut converter =
-		XcmConverter::<VictimOnlyTokenIdConvert, (), DisallowOrigin<AssetHubLocation>>::new(
+		XcmConverter::<VictimOnlyTokenIdConvert, (), EverythingBut<Equals<AssetHubLocation>>>::new(
 			&message, network,
 		);
 	let result = converter.convert();

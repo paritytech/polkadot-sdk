@@ -24,7 +24,11 @@ use crate::{
 };
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
 use bridge_hub_common::AggregateMessageOrigin;
-use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
+use frame_support::{
+	parameter_types,
+	traits::{Contains, Equals, EverythingBut},
+	weights::ConstantMultiplier,
+};
 use frame_system::EnsureRootWithSuccess;
 use hex_literal::hex;
 use pallet_xcm::EnsureXcm;
@@ -38,7 +42,6 @@ use snowbridge_outbound_queue_primitives::{
 	v1::{ConstantGasMeter, EthereumBlobExporter},
 	v2::{ConstantGasMeter as ConstantGasMeterV2, EthereumBlobExporter as EthereumBlobExporterV2},
 };
-use snowbridge_runtime_common::DisallowOrigin;
 use sp_core::H160;
 use sp_runtime::{
 	traits::{ConstU32, ConstU8, Keccak256},
@@ -73,7 +76,7 @@ pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
 	EthereumOutboundQueueV2,
 	EthereumSystemV2,
 	AssetHubParaId,
-	DisallowOrigin<AssetHubLocation>,
+	EverythingBut<Equals<AssetHubLocation>>,
 >;
 
 // Ethereum Bridge
