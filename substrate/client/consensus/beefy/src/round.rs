@@ -57,12 +57,13 @@ impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId> {
 			return false;
 		}
 
-		match self.accumulated_votes_weight.checked_add(vote_weight) {
-			Some(aggregated_vote) => self.accumulated_votes_weight = aggregated_vote,
+		self.accumulated_votes_weight = match self.accumulated_votes_weight.checked_add(vote_weight)
+		{
+			Some(sum) => sum,
 			None => {
 				return false;
 			},
-		}
+		};
 
 		self.votes.insert(vote.0, vote.1);
 
