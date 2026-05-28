@@ -1821,6 +1821,12 @@ impl<T: Config> Pallet<T> {
 		// Bump the  nonce to simulate what would happen
 		// `pre-dispatch` if the transaction was executed.
 		frame_system::Pallet::<T>::inc_account_nonce(account);
+
+		// Map the account if it is not mapped already so we don't hit
+		// `AccountUnmapped` from the origin when dry-running.
+		if !T::AddressMapper::is_mapped(account) {
+			let _ = T::AddressMapper::map_no_deposit_unchecked(account);
+		}
 	}
 
 	/// A generalized version of [`Self::instantiate`] or [`Self::instantiate_with_code`].

@@ -3946,6 +3946,18 @@ fn origin_must_be_mapped() {
 }
 
 #[test]
+fn prepare_dry_run_maps_unmapped_account() {
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		assert!(!frame_system::Pallet::<Test>::account_exists(&EVE));
+		assert!(!<Test as Config>::AddressMapper::is_mapped(&EVE));
+
+		Pallet::<Test>::prepare_dry_run(&EVE);
+
+		assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
+	});
+}
+
+#[test]
 fn mapped_address_works() {
 	let (code, _) = compile_module("terminate_and_send_to_argument").unwrap();
 
