@@ -264,7 +264,7 @@ where
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::{round::VoteImportResult, tests::BeefyTestNet};
+	use crate::tests::BeefyTestNet;
 	use codec::DecodeAll;
 	use sc_network_test::TestNetFactory;
 	use sp_consensus_beefy::{
@@ -315,6 +315,28 @@ pub(crate) mod tests {
 		type TestBlock = test_client::runtime::Block;
 		type TestAuthority = ecdsa_crypto::AuthorityId;
 		type TestSig = <TestAuthority as RuntimeAppPublic>::Signature;
+		type PreviousVotes = BTreeMap<
+			(TestAuthority, NumberFor<TestBlock>),
+			VoteMessage<NumberFor<TestBlock>, TestAuthority, TestSig>,
+		>;
+		type MigratedRoundTracker = (BTreeMap<TestAuthority, TestSig>, VoteWeight);
+		type MigratedRounds = (
+			BTreeMap<Commitment<NumberFor<TestBlock>>, MigratedRoundTracker>,
+			PreviousVotes,
+			NumberFor<TestBlock>,
+			ValidatorSet<TestAuthority>,
+			BTreeMap<TestAuthority, VoteWeight>,
+			bool,
+			Option<NumberFor<TestBlock>>,
+		);
+		type MigratedVoterOracle = (
+			VecDeque<MigratedRounds>,
+			u32,
+			<TestBlock as BlockT>::Header,
+			NumberFor<TestBlock>,
+			PhantomData<fn() -> TestAuthority>,
+		);
+		type MigratedState = (NumberFor<TestBlock>, MigratedVoterOracle, NumberFor<TestBlock>);
 
 		let mut net = BeefyTestNet::new(1);
 		let backend = net.peer(0).client().as_backend();
@@ -344,12 +366,13 @@ pub(crate) mod tests {
 			Keyring::<TestAuthority>::Alice.public(),
 			Keyring::<TestAuthority>::Alice.sign(b"vote"),
 		);
+		let expected_voting_weights = compute_voting_weights(&validator_set);
 		let tracker = v4::RoundTracker::<TestAuthority> { votes };
 		let mut rounds_map: BTreeMap<
 			Commitment<NumberFor<TestBlock>>,
 			v4::RoundTracker<TestAuthority>,
 		> = BTreeMap::new();
-		rounds_map.insert(commitment, tracker);
+		rounds_map.insert(commitment.clone(), tracker);
 
 		let voting_oracle = v4::VoterOracle::<TestBlock, TestAuthority> {
 			sessions: VecDeque::from([v4::Rounds::<TestBlock, TestAuthority> {
@@ -359,12 +382,12 @@ pub(crate) mod tests {
 					VoteMessage<NumberFor<TestBlock>, TestAuthority, TestSig>,
 				>::new(),
 				session_start: beefy_genesis,
-				validator_set,
+				validator_set: validator_set.clone(),
 				mandatory_done: false,
 				best_done: None,
 			}]),
 			min_block_delta: 1,
-			best_grandpa_block_header: best_grandpa,
+			best_grandpa_block_header: best_grandpa.clone(),
 			best_beefy_block: Zero::zero(),
 			_phantom: PhantomData,
 		};
@@ -393,40 +416,53 @@ pub(crate) mod tests {
 			.unwrap()
 			.expect("migration should produce a state; qed.");
 
-		assert_eq!(migrated.pallet_genesis(), beefy_genesis);
-		assert_eq!(migrated.voting_oracle().voting_target(), Some(beefy_genesis));
+		let (
+			migrated_best_voted,
+			(
+				mut migrated_sessions,
+				migrated_min_block_delta,
+				migrated_best_grandpa,
+				migrated_best_beefy,
+				_phantom,
+			),
+			migrated_pallet_genesis,
+		): MigratedState =
+			DecodeAll::decode_all(&mut &*migrated.encode()).expect("decode migrated state; qed.");
 
-		// Between v4 and v5 we changed how vote weights are accumulated.
-		// Check this indirectly: with Alice(2) already present, a single Bob(1) vote should
-		// immediately conclude the round (threshold=3 for 3 validators).
-		{
-			assert_eq!(migrated.voting_oracle().sessions().len(), 1);
-			assert_eq!(
-				migrated
-					.voting_oracle()
-					.mandatory_pending()
-					.map(|(block, _validator_set)| block),
-				Some(beefy_genesis)
-			);
-			let rounds = migrated
-				.voting_oracle()
-				.sessions()
-				.front()
-				.expect("session exists; checked above; qed.");
-			let mut rounds: crate::round::Rounds<TestBlock, TestAuthority> =
-				DecodeAll::decode_all(&mut &*rounds.encode())
-					.expect("decode migrated rounds; qed.");
-			let bob_vote = VoteMessage {
-				commitment: Commitment {
-					payload: Payload::from_single_entry(known_payloads::MMR_ROOT_ID, vec![]),
-					block_number: beefy_genesis,
-					validator_set_id: rounds.validator_set_id(),
-				},
-				id: Keyring::<TestAuthority>::Bob.public(),
-				signature: Keyring::<TestAuthority>::Bob.sign(b"vote"),
-			};
-			assert!(matches!(rounds.add_vote(bob_vote), VoteImportResult::RoundConcluded(_)));
-		}
+		assert_eq!(migrated_best_voted, Zero::zero());
+		assert_eq!(migrated_min_block_delta, 1);
+		assert_eq!(migrated_best_grandpa, best_grandpa);
+		assert_eq!(migrated_best_beefy, Zero::zero());
+		assert_eq!(migrated_pallet_genesis, beefy_genesis);
+		assert_eq!(migrated_sessions.len(), 1);
+
+		let (
+			migrated_rounds,
+			migrated_previous_votes,
+			migrated_session_start,
+			migrated_validator_set,
+			migrated_voting_weights,
+			migrated_mandatory_done,
+			migrated_best_done,
+		) = migrated_sessions.pop_front().expect("session exists; checked above; qed.");
+
+		assert_eq!(migrated_previous_votes, BTreeMap::new());
+		assert_eq!(migrated_session_start, beefy_genesis);
+		assert_eq!(migrated_validator_set, validator_set);
+		assert_eq!(migrated_voting_weights, expected_voting_weights);
+		assert!(!migrated_mandatory_done);
+		assert_eq!(migrated_best_done, None);
+		assert_eq!(migrated_rounds.len(), 1);
+
+		let (migrated_votes, migrated_accumulated_votes_weight) =
+			migrated_rounds.get(&commitment).expect("round exists; checked above; qed.");
+
+		assert_eq!(migrated_votes.len(), 1);
+		assert_eq!(
+			migrated_votes.get(&Keyring::<TestAuthority>::Alice.public()),
+			Some(&Keyring::<TestAuthority>::Alice.sign(b"vote"))
+		);
+		assert_eq!(*migrated_accumulated_votes_weight, 2);
 
 		assert!(verify_persisted_version(&*backend));
 	}
