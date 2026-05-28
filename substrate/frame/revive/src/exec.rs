@@ -19,7 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{AccessEntry, AccessList, Slot},
+	access_list::{AccessEntry, AccessList, Slot, StorageAccessKind},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -568,7 +568,40 @@ pub trait PrecompileExt: sealing::Sealed {
 	///
 	/// Used by opcode handlers (EVM SLOAD/SSTORE, PVM `seal_*_storage`, the storage
 	/// precompile) to determine the cold/hot status before charging.
-	fn touch_storage_access(&mut self, address: H160, key: &Key) -> bool;
+	fn touch_storage_access_list(&mut self, address: H160, key: &Key) -> bool;
+
+	/// Non-mutating sibling of `touch_storage_access_list`. Returns `true` if cold.
+	fn peek_storage_access_list(&self, address: H160, key: &Key) -> bool;
+
+	/// Convenience over `touch_storage_access_list`: returns a [`StorageAccessKind`]
+	/// classifying the access for direct hand-off to the
+	/// `RuntimeCosts::{set,clear,take,get,contains}` helpers.
+	fn storage_access_list_kind(&mut self, transient: bool, key: &Key) -> StorageAccessKind {
+		if transient {
+			StorageAccessKind::Transient
+		} else {
+			let address = self.address();
+			if self.touch_storage_access_list(address, key) {
+				StorageAccessKind::PersistentCold
+			} else {
+				StorageAccessKind::PersistentHot
+			}
+		}
+	}
+
+	/// Non-mutating sibling of `storage_access_list_kind`.
+	fn storage_access_list_kind_peek(&self, transient: bool, key: &Key) -> StorageAccessKind {
+		if transient {
+			StorageAccessKind::Transient
+		} else {
+			let address = self.address();
+			if self.peek_storage_access_list(address, key) {
+				StorageAccessKind::PersistentCold
+			} else {
+				StorageAccessKind::PersistentHot
+			}
+		}
+	}
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -2599,7 +2632,11 @@ where
 		)
 	}
 
-	fn touch_storage_access(&mut self, address: H160, key: &Key) -> bool {
+	fn peek_storage_access_list(&self, address: H160, key: &Key) -> bool {
+		self.access_list.peek(&AccessEntry { address, slot: key.to_slot() })
+	}
+
+	fn touch_storage_access_list(&mut self, address: H160, key: &Key) -> bool {
 		self.access_list.touch(AccessEntry { address, slot: key.to_slot() })
 	}
 

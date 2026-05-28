@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	Config, limits, metering::Token, weightinfo_extension::OnFinalizeBlockParts,
-	weights::WeightInfo,
+	Config, access_list::StorageAccessKind, limits, metering::Token,
+	weightinfo_extension::OnFinalizeBlockParts, weights::WeightInfo,
 };
 use frame_support::weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND};
 
@@ -362,38 +362,47 @@ impl RuntimeCosts {
 		}
 	}
 
-	/// Pick the persistent or transient variant from `transient: bool`.
-	/// `is_cold` is ignored on the transient branch. Mirrored by `clear`, `take`,
-	/// `get`, `contains` below.
-	pub fn set(transient: bool, new_bytes: u32, old_bytes: u32, is_cold: bool) -> Self {
-		if transient {
-			Self::SetTransientStorage { new_bytes, old_bytes }
-		} else {
-			Self::SetStorage { new_bytes, old_bytes, is_cold }
+	/// Pick the variant for `set` based on `kind`. The three dispatch cases
+	/// map 1:1 to the three storage variants.
+	pub fn set(kind: StorageAccessKind, new_bytes: u32, old_bytes: u32) -> Self {
+		match kind {
+			StorageAccessKind::PersistentCold =>
+				Self::SetStorage { new_bytes, old_bytes, is_cold: true },
+			StorageAccessKind::PersistentHot =>
+				Self::SetStorage { new_bytes, old_bytes, is_cold: false },
+			StorageAccessKind::Transient => Self::SetTransientStorage { new_bytes, old_bytes },
 		}
 	}
 
-	pub fn clear(transient: bool, len: u32, is_cold: bool) -> Self {
-		if transient {
-			Self::ClearTransientStorage(len)
-		} else {
-			Self::ClearStorage { len, is_cold }
+	pub fn clear(kind: StorageAccessKind, len: u32) -> Self {
+		match kind {
+			StorageAccessKind::PersistentCold => Self::ClearStorage { len, is_cold: true },
+			StorageAccessKind::PersistentHot => Self::ClearStorage { len, is_cold: false },
+			StorageAccessKind::Transient => Self::ClearTransientStorage(len),
 		}
 	}
 
-	pub fn take(transient: bool, len: u32, is_cold: bool) -> Self {
-		if transient { Self::TakeTransientStorage(len) } else { Self::TakeStorage { len, is_cold } }
+	pub fn take(kind: StorageAccessKind, len: u32) -> Self {
+		match kind {
+			StorageAccessKind::PersistentCold => Self::TakeStorage { len, is_cold: true },
+			StorageAccessKind::PersistentHot => Self::TakeStorage { len, is_cold: false },
+			StorageAccessKind::Transient => Self::TakeTransientStorage(len),
+		}
 	}
 
-	pub fn get(transient: bool, len: u32, is_cold: bool) -> Self {
-		if transient { Self::GetTransientStorage(len) } else { Self::GetStorage { len, is_cold } }
+	pub fn get(kind: StorageAccessKind, len: u32) -> Self {
+		match kind {
+			StorageAccessKind::PersistentCold => Self::GetStorage { len, is_cold: true },
+			StorageAccessKind::PersistentHot => Self::GetStorage { len, is_cold: false },
+			StorageAccessKind::Transient => Self::GetTransientStorage(len),
+		}
 	}
 
-	pub fn contains(transient: bool, len: u32, is_cold: bool) -> Self {
-		if transient {
-			Self::ContainsTransientStorage(len)
-		} else {
-			Self::ContainsStorage { len, is_cold }
+	pub fn contains(kind: StorageAccessKind, len: u32) -> Self {
+		match kind {
+			StorageAccessKind::PersistentCold => Self::ContainsStorage { len, is_cold: true },
+			StorageAccessKind::PersistentHot => Self::ContainsStorage { len, is_cold: false },
+			StorageAccessKind::Transient => Self::ContainsTransientStorage(len),
 		}
 	}
 

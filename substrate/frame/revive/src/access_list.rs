@@ -41,11 +41,22 @@ pub enum Slot {
 	VarLong(BoundedVec<u8, ConstU32<{ limits::STORAGE_KEY_BYTES }>>),
 }
 
+/// Classification of a storage access for pricing.
+#[derive(Clone, Copy, Debug)]
+pub enum StorageAccessKind {
+	/// Persistent storage, first access in this transaction.
+	PersistentCold,
+	/// Persistent storage, slot already in the access list.
+	PersistentHot,
+	/// Transient storage — not tracked by the access list.
+	Transient,
+}
+
 /// One entry per `(contract address, storage slot)` accessed in the current tx.
 ///
-/// Field order is `slot, address` so the derived `Ord` short-circuits on
-/// `slot` first — the most-discriminating field in the typical access pattern
-/// (one contract touching many slots within a transaction).
+/// Field order is `slot, address` so the derived `Ord` decides on `slot`
+/// first — the most-discriminating field in the typical access pattern (one
+/// contract touching many slots within a transaction).
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
 pub struct AccessEntry {
 	/// Slot identifier; the variant tag carries the `Fix` / `Var` distinction.
@@ -142,6 +153,11 @@ impl AccessList {
 	/// total hot touches).
 	pub fn metrics(&self) -> (usize, u32, u32) {
 		(self.accessed.len(), self.cold_count, self.hot_count)
+	}
+
+	/// Non-mutating sibling of `touch`. Returns `true` if `entry` is cold.
+	pub fn peek(&self, entry: &AccessEntry) -> bool {
+		!self.accessed.contains(entry)
 	}
 
 	/// Check hot state without registering (testing / introspection).

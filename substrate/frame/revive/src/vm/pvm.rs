@@ -490,21 +490,17 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		};
 
 		let max_size = limits::STORAGE_BYTES;
+		let key = self.decode_key(memory, key_ptr, key_len)?;
+
 		if value_len > max_size {
-			// Validation failed before any access list touch — charge cold worst-case.
-			self.charge_gas(RuntimeCosts::set(transient, value_len, max_size, true))?;
+			// Don't warm the slot on a failed validation.
+			let kind = self.ext.storage_access_list_kind_peek(transient, &key);
+			self.charge_gas(RuntimeCosts::set(kind, value_len, max_size))?;
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
-		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let is_cold = if transient {
-			false
-		} else {
-			let address = self.ext.address();
-			self.ext.touch_storage_access(address, &key)
-		};
-		let charged =
-			self.charge_gas(RuntimeCosts::set(transient, value_len, max_size, is_cold))?;
+		let kind = self.ext.storage_access_list_kind(transient, &key);
+		let charged = self.charge_gas(RuntimeCosts::set(kind, value_len, max_size))?;
 		let value = match value {
 			StorageValue::Memory { ptr, len } => Some(memory.read(ptr, len)?),
 			StorageValue::Value(data) => Some(data),
@@ -514,7 +510,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			let write_outcome = self.ext.set_transient_storage(&key, value, false)?;
 			self.adjust_gas(
 				charged,
-				RuntimeCosts::set(true, value_len, write_outcome.old_len(), false),
+				RuntimeCosts::set(kind, value_len, write_outcome.old_len()),
 			);
 			Ok(write_outcome.old_len_with_sentinel())
 		} else {
@@ -522,7 +518,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			// Refund the size delta on Ok/Err. On Err the real `old_bytes` is unknown;
 			// keep worst-case.
 			let old_bytes = result.as_ref().map(|w| w.old_len()).unwrap_or(max_size);
-			self.adjust_gas(charged, RuntimeCosts::set(false, value_len, old_bytes, is_cold));
+			self.adjust_gas(charged, RuntimeCosts::set(kind, value_len, old_bytes));
 			let write_outcome = result?;
 			Ok(write_outcome.old_len_with_sentinel())
 		}
@@ -537,22 +533,16 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let is_cold = if transient {
-			false
-		} else {
-			let address = self.ext.address();
-			self.ext.touch_storage_access(address, &key)
-		};
-		let charged =
-			self.charge_gas(RuntimeCosts::clear(transient, limits::STORAGE_BYTES, is_cold))?;
+		let kind = self.ext.storage_access_list_kind(transient, &key);
+		let charged = self.charge_gas(RuntimeCosts::clear(kind, limits::STORAGE_BYTES))?;
 		if transient {
 			let outcome = self.ext.set_transient_storage(&key, None, false)?;
-			self.adjust_gas(charged, RuntimeCosts::clear(true, outcome.old_len(), false));
+			self.adjust_gas(charged, RuntimeCosts::clear(kind, outcome.old_len()));
 			Ok(outcome.old_len_with_sentinel())
 		} else {
 			let result = self.ext.set_storage(&key, None, false);
 			let len = result.as_ref().map(|w| w.old_len()).unwrap_or(limits::STORAGE_BYTES);
-			self.adjust_gas(charged, RuntimeCosts::clear(false, len, is_cold));
+			self.adjust_gas(charged, RuntimeCosts::clear(kind, len));
 			let outcome = result?;
 			Ok(outcome.old_len_with_sentinel())
 		}
@@ -569,25 +559,15 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let is_cold = if transient {
-			false
-		} else {
-			let address = self.ext.address();
-			self.ext.touch_storage_access(address, &key)
-		};
-		let charged =
-			self.charge_gas(RuntimeCosts::get(transient, limits::STORAGE_BYTES, is_cold))?;
+		let kind = self.ext.storage_access_list_kind(transient, &key);
+		let charged = self.charge_gas(RuntimeCosts::get(kind, limits::STORAGE_BYTES))?;
 		let outcome = if transient {
-			let outcome = self.ext.get_transient_storage(&key);
-			let len = outcome.as_ref().map(|v| v.len() as u32).unwrap_or(0);
-			self.adjust_gas(charged, RuntimeCosts::get(true, len, false));
-			outcome
+			self.ext.get_transient_storage(&key)
 		} else {
-			let outcome = self.ext.get_storage(&key);
-			let len = outcome.as_ref().map(|v| v.len() as u32).unwrap_or(0);
-			self.adjust_gas(charged, RuntimeCosts::get(false, len, is_cold));
-			outcome
+			self.ext.get_storage(&key)
 		};
+		let len = outcome.as_ref().map(|v| v.len() as u32).unwrap_or(0);
+		self.adjust_gas(charged, RuntimeCosts::get(kind, len));
 
 		if let Some(value) = outcome {
 			match read_mode {

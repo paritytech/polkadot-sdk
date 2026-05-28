@@ -2998,19 +2998,19 @@ fn cold_hot_single_contract() {
 		let key_b = Key::Fix([8; 32]);
 		let address = ctx.ext.address();
 
-		let first = ctx.ext.touch_storage_access(address, &key_a);
+		let first = ctx.ext.touch_storage_access_list(address, &key_a);
 		assert!(first, "first SSTORE on key_a is cold");
 		ctx.ext.set_storage(&key_a, Some(vec![1]), false).unwrap();
 
-		let second = ctx.ext.touch_storage_access(address, &key_a);
+		let second = ctx.ext.touch_storage_access_list(address, &key_a);
 		assert!(!second, "second SSTORE on key_a is hot");
 		ctx.ext.set_storage(&key_a, Some(vec![2]), false).unwrap();
 
-		let get_a = ctx.ext.touch_storage_access(address, &key_a);
+		let get_a = ctx.ext.touch_storage_access_list(address, &key_a);
 		assert!(!get_a, "SLOAD after SSTORE on key_a is hot");
 		let _ = ctx.ext.get_storage(&key_a);
 
-		let set_b = ctx.ext.touch_storage_access(address, &key_b);
+		let set_b = ctx.ext.touch_storage_access_list(address, &key_b);
 		assert!(set_b, "SSTORE on a distinct slot is cold");
 		ctx.ext.set_storage(&key_b, Some(vec![3]), false).unwrap();
 
@@ -3038,7 +3038,7 @@ fn cold_hot_child_revert_rolls_back() {
 			*c
 		};
 		let address = ctx.ext.address();
-		let is_cold = ctx.ext.touch_storage_access(address, &key);
+		let is_cold = ctx.ext.touch_storage_access_list(address, &key);
 		assert!(
 			is_cold,
 			"child call #{n}: touch must be cold (previous revert should have rolled back)",
@@ -3090,7 +3090,7 @@ fn cold_hot_child_commit_keying() {
 	// (the first call's commit propagates the entry up into the parent frame).
 	let child_ch = MockLoader::insert(Call, move |ctx, _| {
 		let address = ctx.ext.address();
-		let is_cold = ctx.ext.touch_storage_access(address, &key_for_child);
+		let is_cold = ctx.ext.touch_storage_access_list(address, &key_for_child);
 		let want_cold = *expected_in_child.borrow();
 		assert_eq!(is_cold, want_cold, "child expected cold={want_cold}");
 		ctx.ext.set_storage(&key_for_child, Some(vec![1]), false).unwrap();
@@ -3115,7 +3115,7 @@ fn cold_hot_child_commit_keying() {
 		//    key), so it must still be cold even though the child just touched BOB's view of the
 		//    same slot bytes.
 		let parent_address = ctx.ext.address();
-		let is_cold = ctx.ext.touch_storage_access(parent_address, &key_for_parent);
+		let is_cold = ctx.ext.touch_storage_access_list(parent_address, &key_for_parent);
 		assert!(is_cold, "parent (CHARLIE, key) is distinct from child's (BOB, key)",);
 		ctx.ext.set_storage(&key_for_parent, Some(vec![2]), false).unwrap();
 		// 3. Child call #2: touches (BOB, key) again — now hot, since call #1 committed and the
@@ -3151,11 +3151,11 @@ fn cold_hot_var_inline_len_distinguishes() {
 		let long_key = Key::try_from_var(vec![1, 2, 3, 0]).unwrap();
 		let address = ctx.ext.address();
 
-		let short_cold = ctx.ext.touch_storage_access(address, &short_key);
+		let short_cold = ctx.ext.touch_storage_access_list(address, &short_key);
 		assert!(short_cold);
 		ctx.ext.set_storage(&short_key, Some(vec![1]), false).unwrap();
 
-		let long_cold = ctx.ext.touch_storage_access(address, &long_key);
+		let long_cold = ctx.ext.touch_storage_access_list(address, &long_key);
 		assert!(
 			long_cold,
 			"VarInline keys with same byte prefix but different `len` must NOT alias",
@@ -3179,7 +3179,7 @@ fn cold_hot_delegate_call_marks_parent_slot_hot() {
 		// keys on `(parent_addr, SLOT)` — the same access-list entry the
 		// parent will see on its next SLOAD.
 		let address = ctx.ext.address();
-		let is_cold = ctx.ext.touch_storage_access(address, &Key::Fix(SLOT));
+		let is_cold = ctx.ext.touch_storage_access_list(address, &Key::Fix(SLOT));
 		assert!(is_cold, "child via delegate-call: first touch on `(parent_addr, slot)` is cold",);
 		let _ = ctx.ext.get_storage(&Key::Fix(SLOT));
 		exec_success()
@@ -3190,7 +3190,7 @@ fn cold_hot_delegate_call_marks_parent_slot_hot() {
 			.delegate_call(&Default::default(), BOB_ADDR, Vec::new())
 			.expect("delegate-call to child must succeed");
 		let address = ctx.ext.address();
-		let is_cold = ctx.ext.touch_storage_access(address, &Key::Fix(SLOT));
+		let is_cold = ctx.ext.touch_storage_access_list(address, &Key::Fix(SLOT));
 		assert!(
 			!is_cold,
 			"parent SLOAD after delegate-call is hot — child's touch keyed on \

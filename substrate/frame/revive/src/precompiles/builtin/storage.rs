@@ -62,29 +62,20 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 			IStorageCalls::clearStorage(IStorage::clearStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
-				let is_cold = if transient {
-					false
-				} else {
-					let address = env.address();
-					env.touch_storage_access(address, &key)
-				};
-				let charged = env
-					.frame_meter_mut()
-					.charge_weight_token(RuntimeCosts::clear(transient, max_size, is_cold))?;
+				let kind = env.storage_access_list_kind(transient, &key);
+				let charged =
+					env.frame_meter_mut().charge_weight_token(RuntimeCosts::clear(kind, max_size))?;
 				let (existed, old_len) = if transient {
 					let outcome = env
 						.set_transient_storage(&key, None, false)
 						.map_err(|_| Error::Revert("failed setting transient storage".into()))?;
-					env.frame_meter_mut().adjust_weight(
-						charged,
-						RuntimeCosts::clear(true, outcome.old_len(), false),
-					);
+					env.frame_meter_mut()
+						.adjust_weight(charged, RuntimeCosts::clear(kind, outcome.old_len()));
 					(outcome != WriteOutcome::New, outcome.old_len())
 				} else {
 					let result = env.set_storage(&key, None, false);
 					let len = result.as_ref().map(|w| w.old_len()).unwrap_or(max_size);
-					env.frame_meter_mut()
-						.adjust_weight(charged, RuntimeCosts::clear(false, len, is_cold));
+					env.frame_meter_mut().adjust_weight(charged, RuntimeCosts::clear(kind, len));
 					let outcome =
 						result.map_err(|_| Error::Revert("failed setting storage".into()))?;
 					(outcome != WriteOutcome::New, outcome.old_len())
@@ -98,51 +89,33 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 			}) => {
 				let transient = is_transient(*flags)?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
-				let is_cold = if transient {
-					false
-				} else {
-					let address = env.address();
-					env.touch_storage_access(address, &key)
-				};
+				let kind = env.storage_access_list_kind(transient, &key);
 				let charged = env
 					.frame_meter_mut()
-					.charge_weight_token(RuntimeCosts::contains(transient, max_size, is_cold))?;
-				let (exists, value_len) = if transient {
-					let outcome = env.get_transient_storage_size(&key);
-					let value_len = outcome.unwrap_or(0);
-					env.frame_meter_mut()
-						.adjust_weight(charged, RuntimeCosts::contains(true, value_len, false));
-					(outcome.is_some(), value_len)
+					.charge_weight_token(RuntimeCosts::contains(kind, max_size))?;
+				let outcome = if transient {
+					env.get_transient_storage_size(&key)
 				} else {
-					let outcome = env.get_storage_size(&key);
-					let value_len = outcome.unwrap_or(0);
-					env.frame_meter_mut()
-						.adjust_weight(charged, RuntimeCosts::contains(false, value_len, is_cold));
-					(outcome.is_some(), value_len)
+					env.get_storage_size(&key)
 				};
-				Ok((exists, value_len).abi_encode())
+				let value_len = outcome.unwrap_or(0);
+				env.frame_meter_mut()
+					.adjust_weight(charged, RuntimeCosts::contains(kind, value_len));
+				Ok((outcome.is_some(), value_len).abi_encode())
 			},
 			IStorageCalls::takeStorage(IStorage::takeStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
-				let is_cold = if transient {
-					false
-				} else {
-					let address = env.address();
-					env.touch_storage_access(address, &key)
-				};
-				let charged = env
-					.frame_meter_mut()
-					.charge_weight_token(RuntimeCosts::take(transient, max_size, is_cold))?;
+				let kind = env.storage_access_list_kind(transient, &key);
+				let charged =
+					env.frame_meter_mut().charge_weight_token(RuntimeCosts::take(kind, max_size))?;
 				let value: Vec<u8> = if transient {
 					let value = match env.set_transient_storage(&key, None, true)? {
 						WriteOutcome::Taken(v) => v,
 						_ => Vec::new(),
 					};
-					env.frame_meter_mut().adjust_weight(
-						charged,
-						RuntimeCosts::take(true, value.len() as u32, false),
-					);
+					env.frame_meter_mut()
+						.adjust_weight(charged, RuntimeCosts::take(kind, value.len() as u32));
 					value
 				} else {
 					let result = env.set_storage(&key, None, true);
@@ -151,8 +124,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 						Ok(_) => 0,
 						Err(_) => max_size,
 					};
-					env.frame_meter_mut()
-						.adjust_weight(charged, RuntimeCosts::take(false, len, is_cold));
+					env.frame_meter_mut().adjust_weight(charged, RuntimeCosts::take(kind, len));
 					match result? {
 						WriteOutcome::Taken(v) => v,
 						_ => Vec::new(),
@@ -195,12 +167,7 @@ fn decode_key(key_bytes: &[u8], is_fixed_key: bool) -> Result<Key, InvalidKey> {
 			decode_buf[..32].copy_from_slice(&key_bytes[..32]);
 			Ok(Key::from_fixed(decode_buf))
 		},
-		false => {
-			if key_bytes.len() as u32 > crate::limits::STORAGE_KEY_BYTES {
-				return Err(InvalidKey);
-			}
-			Key::try_from_var(key_bytes.to_vec()).map_err(|_| InvalidKey)
-		},
+		false => Key::try_from_var(key_bytes.to_vec()).map_err(|_| InvalidKey),
 	}
 }
 
