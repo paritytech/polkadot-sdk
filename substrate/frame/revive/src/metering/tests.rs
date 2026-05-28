@@ -25,7 +25,7 @@ use crate::{
 use alloy_core::sol_types::SolCall;
 use frame_support::{
 	storage::{TransactionOutcome, with_transaction},
-	traits::{Get, fungible::Mutate},
+	traits::fungible::Mutate,
 };
 use frame_system::RawOrigin;
 use pallet_revive_fixtures::{
