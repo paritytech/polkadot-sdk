@@ -37,7 +37,7 @@ use sc_statement_store::{AddFilterError, MultiFilterSubscriptionApi};
 use sp_core::Bytes;
 use sp_statement_store::{
 	AddFilterResponse, OptimizedTopicFilter, Statement, StatementSource, StatementStore,
-	SubmitOutcome, SubmitResult, SubscribeEvent, TopicFilter,
+	SubmitOutcome, SubmitResult, TopicFilter,
 };
 use std::sync::Arc;
 
@@ -59,8 +59,8 @@ where
 	}
 }
 
-fn read_subscription_id_as_string(sink: &Subscription) -> String {
-	match sink.subscription_id() {
+fn subscription_id_to_string(id: SubscriptionId) -> String {
+	match id {
 		SubscriptionId::Num(n) => n.to_string(),
 		SubscriptionId::Str(s) => s.into_owned(),
 	}
@@ -97,16 +97,18 @@ where
 		let subscriptions = self.subscriptions.clone();
 		let store = self.store.clone();
 		let connection_id = pending.connection_id();
+		let sub_id = subscription_id_to_string(pending.subscription_id());
 
 		let (handle, mut live_stream) = store.create_subscription();
-		let Ok(sink) = pending.accept().await.map(Subscription::from) else { return };
-		let sub_id = read_subscription_id_as_string(&sink);
 
 		let Some(entry) = subscriptions.register(connection_id, sub_id.clone(), handle) else {
 			log::debug!(target: LOG_TARGET, "duplicate subscription id {sub_id}; aborting");
-			let _ = sink.send(&SubscribeEvent::Stop).await;
+			let _ = pending.reject(Error::InvalidSubscription).await;
 			return;
 		};
+
+		// On accept failure, dropping `entry` unregisters the subscription.
+		let Ok(sink) = pending.accept().await.map(Subscription::from) else { return };
 
 		let fut = async move {
 			// Keep the registry entry alive for as long as the subscription task is running;
@@ -140,7 +142,7 @@ where
 		let conn_id = connection_id(ext);
 		let topic_filter = validate_topic_filter(topic_filter)?;
 
-		let Some(state) = self.subscriptions.get_with_timeout(conn_id, &subscription).await else {
+		let Some(state) = self.subscriptions.get(conn_id, &subscription) else {
 			return Err(Error::InvalidSubscription);
 		};
 
