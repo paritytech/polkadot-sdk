@@ -298,15 +298,19 @@ impl MultiFilterSubscriptionState {
 		let mut idx = 0usize;
 		while idx < self.pending_live.len() {
 			let entry = &self.pending_live[idx];
-			let matched_filters: HashSet<FilterId> = entry
+			let active_matched_filters: HashSet<FilterId> = entry
 				.matched_filter_ids
 				.iter()
 				.copied()
 				.filter(|filter_id| active_filter_ids.contains(filter_id))
 				.collect();
-			let still_blocked =
-				matched_filters.iter().any(|f| self.replays_in_progress.contains(f));
-			if still_blocked {
+			// Pending live entries can match both replaying and ready filters. Keep the
+			// entry queued until every still-active matched replay is done, otherwise a
+			// filter could observe live data before its replay completes.
+			let blocked_by_replay = active_matched_filters
+				.iter()
+				.any(|filter_id| self.replays_in_progress.contains(filter_id));
+			if blocked_by_replay {
 				idx += 1;
 				continue;
 			}
@@ -314,7 +318,9 @@ impl MultiFilterSubscriptionState {
 			let Ok(Some(encoded)) = snapshot_provider.statement_by_hash(&popped.hash) else {
 				continue;
 			};
-			if let Some(event) = self.new_statement_event(popped.hash, encoded, &matched_filters) {
+			if let Some(event) =
+				self.new_statement_event(popped.hash, encoded, &active_matched_filters)
+			{
 				return Some(event);
 			}
 		}
