@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779960713847,
+  "lastUpdate": 1779965846322,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "304a977aa21f08c2e54ba85151cbd5835096f0fb",
-          "message": "frame/revive: ETH block storage (#9418)\n\nThis PR constructs the Ethereum block in the following way:\n- events (logs) are captured via an `environmental!` variable to reduce\nreliance on pallet storage\n- A maximum of 512 events is allowed per transaction, with the size of\nan event capped to `self.ext.max_value_size()`\n- A memory-efficient intermediate block builder is deserialized and\nserialized back to the pallet storage\n- The intermediate block builder builds the transaction and event root\nhashes using low level RLP encoding primitives to achieve around 90%\npallet storage optimization\n- For more details, see\nhttps://github.com/paritytech/polkadot-sdk/pull/9764\n- A fixup is included for 7702 transaction rlp\nserialization/deserialization is added to ensure we can build the\nEthereum block hash from live Ethereum blocks.\n- The maximum `CALL_PARAMS_MAX_SIZE` is increased to 512 to 244 to\naccommodate the transaction added to the Eth call\n\n\nThis PR also includes benchmarking:\n- https://github.com/paritytech/polkadot-sdk/pull/9496\n\n### Testing Done\n- pallet storage testing and capturing of events / transactions are\nadded at `tests/block_hash.rs`\n- incremental block storage is tested in `evm/block_hash.rs`, which\nensures RLP encoding / hash builder and identical hashes from live\nethereum blocks\n- tested via RPC work\n\n### Next Steps\n- https://github.com/paritytech/polkadot-sdk/pull/9512\n- https://github.com/paritytech/polkadot-sdk/pull/9616\n- https://github.com/paritytech/polkadot-sdk/pull/9452\n\n\nBuilds upon https://github.com/paritytech/polkadot-sdk/pull/9413\n\nPart of: https://github.com/paritytech/contract-issues/issues/139\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Lukasz Rubaszewski <117115317+lrubasze@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-16T07:55:20Z",
-          "tree_id": "5023ba13244cf77a60456e3cd46cf21948a9689a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/304a977aa21f08c2e54ba85151cbd5835096f0fb"
-        },
-        "date": 1760607957471,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52940.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63631.25,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001990877,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000020046199999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001990877,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.527958541889994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006295372440000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5706240390899997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.5109415374600013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9774456663999966,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.45911010700999616,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.817817237711006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000020046199999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4931866317900004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.5103551876999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.453565526112761,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "franciscoaguirreperez@gmail.com",
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6baed95a807650a13bb815354b357766991862d8",
+          "message": "Remove stale non-audited warning in pallet-parameters (#12222)\n\n`pallet-parameters` is audited and being used in production already. The\nwarning in the pallet file is misleading",
+          "timestamp": "2026-05-28T09:23:47Z",
+          "tree_id": "411c9bcd579427979b741f40144d4467895dd2e9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6baed95a807650a13bb815354b357766991862d8"
+        },
+        "date": 1779965816093,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63620.18999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7816597582099996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.241263145222674,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.006166710630000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002361774,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.379080184869911,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8086480758499994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020316440000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020316440000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7299818979399992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8545713070999261,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002361774,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4374579746499885,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7605944604900015,
             "unit": "seconds"
           }
         ]
