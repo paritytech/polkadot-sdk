@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779954078223,
+  "lastUpdate": 1779957753904,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -95471,6 +95471,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3135379695,
             "range": "± 101717387",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d041717cd03e3117cb99463f0285d5860fd3a88c",
+          "message": "Bump jsonrpsee to 0.24.11 (#12219)\n\nBumps `jsonrpsee` and `jsonrpsee-core` to 0.24.11 to pick up the new\n`subscription_id()` getter on\n  `PendingSubscriptionSink` (paritytech/jsonrpsee#1634).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-28T07:17:00Z",
+          "tree_id": "4fa25f7d74a30a83a962514c5993b4653d9da755",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d041717cd03e3117cb99463f0285d5860fd3a88c"
+        },
+        "date": 1779957725721,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20537357,
+            "range": "± 118480",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20980024,
+            "range": "± 185047",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22421328,
+            "range": "± 136153",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27496820,
+            "range": "± 221335",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 62399713,
+            "range": "± 916282",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 398421094,
+            "range": "± 7769468",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2951271443,
+            "range": "± 186956186",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18416624,
+            "range": "± 244769",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18751913,
+            "range": "± 294900",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19106901,
+            "range": "± 224883",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24311847,
+            "range": "± 209059",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63154268,
+            "range": "± 409781",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 375738305,
+            "range": "± 2954190",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2883238955,
+            "range": "± 48157510",
             "unit": "ns/iter"
           }
         ]
