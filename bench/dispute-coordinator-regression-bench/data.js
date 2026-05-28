@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779930549486,
+  "lastUpdate": 1779955474880,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "142614787+andreitrand@users.noreply.github.com",
-            "name": "Andrei Trandafir",
-            "username": "andreitrand"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1594cbd4d087a9f67a029a44ca41ad0a78434d53",
-          "message": "staking: Documentation fixes (#9728)\n\nAdded several documentation-related fixes. In more detail:\n* Typo fixes and rephrasing inside the pallet's Readme file\n* Various code comment fixes\n\nRelated issue: N/A\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
-          "timestamp": "2025-10-14T13:58:27Z",
-          "tree_id": "45644ca50ef216ea93e24622594916c681c91dcd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1594cbd4d087a9f67a029a44ca41ad0a78434d53"
-        },
-        "date": 1760454409924,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005210334979999989,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026360535700000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008703691399999986,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0026001679499999993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5416907f07b6a611fd5e11edfe209707de54de2d",
+          "message": "[pallet-assets-precompiles] saturate permit/approval allowance (#12196)\n\n## Summary\n\n`approve()` / `permit()` previously reverted with `\"Balance conversion\nfailed\"` on `call.value > Balance::MAX` — including `type(uint256).max`,\nthe universal \"infinite allowance\" idiom hard-coded by MetaMask,\nUniswap, and every mainstream DEX router. The U256 → Balance conversion\nnow saturates at `Balance::MAX`. `transfer` / `transferFrom` keep the\nexisting revert-on-overflow behavior — they move exact amounts, so\nsilently clamping would produce partial transfers the caller never asked\nfor. The emitted `Approval` event still carries the raw `call.value`,\nmatching the ERC-20 / OpenZeppelin convention.\n\n## Non-goals\n\nNo `transferFrom` sentinel branch — saturated allowances decrement on\nevery spend; on a `u128` runtime `Balance::MAX` is large enough to be\noperationally indistinguishable from infinite. No `allowance()` readback\nlift — returns the stored value as-is.\n\n## Test plan\n\n- [x] `cargo test -p pallet-assets-precompiles`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-28T06:11:33Z",
+          "tree_id": "7786d679e0a815bc78446f7bda8fac4d105c2d2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5416907f07b6a611fd5e11edfe209707de54de2d"
+        },
+        "date": 1779955445241,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026299111900000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010332677799999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009355417589999974,
             "unit": "seconds"
           }
         ]
