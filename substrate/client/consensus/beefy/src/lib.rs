@@ -443,7 +443,7 @@ where
 		is_authority: bool,
 	) -> Result<PersistedState<B, AuthorityId>, Error> {
 		// Initialize voter state from AUX DB if compatible.
-		if let Some(mut state) = crate::aux_schema::load_persistent(backend.as_ref())?
+		if let Some(mut state) = crate::aux_schema::load_or_migrate_persistent(backend.as_ref())?
 			// Verify state pallet genesis matches runtime.
 			.filter(|state| state.pallet_genesis() == beefy_genesis)
 		{
