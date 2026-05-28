@@ -25,7 +25,7 @@ use crate::{
 use alloy_core::sol_types::SolCall;
 use frame_support::{
 	storage::{TransactionOutcome, with_transaction},
-	traits::fungible::Mutate,
+	traits::{Get, fungible::Mutate},
 };
 use frame_system::RawOrigin;
 use pallet_revive_fixtures::{
@@ -197,6 +197,7 @@ fn max_storage_deposit_reported_for_unfunded_dry_run(
 				.data(DepositPrecompile::setAndClearCall {}.abi_encode())
 				.build()
 		});
+		assert!(funded.result.is_ok(), "reference run must succeed, got {:?}", funded.result);
 		assert!(
 			funded.max_storage_deposit.charge_or_zero() > 0,
 			"expected the funded reference run to require some storage deposit, got {:?}",
@@ -208,9 +209,14 @@ fn max_storage_deposit_reported_for_unfunded_dry_run(
 		// the reported `max_storage_deposit` must still match the funded run so the
 		// caller can size the allowance needed to cover the deposit.
 		let unfunded = run_in_rollback(&|| {
+			crate::Pallet::<Test>::prepare_dry_run(&CHARLIE);
 			builder::bare_call(caller_addr)
 				.origin(RawOrigin::Signed(CHARLIE).into())
 				.data(DepositPrecompile::setAndClearCall {}.abi_encode())
+				.transaction_limits(TransactionLimits::WeightAndDeposit {
+					weight_limit: <Test as frame_system::Config>::BlockWeights::get().max_block,
+					deposit_limit: u128::MAX,
+				})
 				.exec_config(ExecConfig::new_substrate_tx().with_dry_run(Default::default()))
 				.build()
 		});
