@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779960674611,
+  "lastUpdate": 1779965806847,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ced629a7f33430d1b425e6a3e92ca5c44a04158f",
-          "message": "Bump AH westend spec version (#10024)\n\nUpdate spec version of westend AH\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-16T10:31:14Z",
-          "tree_id": "a7bac3854aefe589993db87a45999acb18a484bc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ced629a7f33430d1b425e6a3e92ca5c44a04158f"
-        },
-        "date": 1760614831249,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007190942086666654,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15963539564666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013269637620000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022880826659999985,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.023980686399999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "franciscoaguirreperez@gmail.com",
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6baed95a807650a13bb815354b357766991862d8",
+          "message": "Remove stale non-audited warning in pallet-parameters (#12222)\n\n`pallet-parameters` is audited and being used in production already. The\nwarning in the pallet file is misleading",
+          "timestamp": "2026-05-28T09:23:47Z",
+          "tree_id": "411c9bcd579427979b741f40144d4467895dd2e9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6baed95a807650a13bb815354b357766991862d8"
+        },
+        "date": 1779965776115,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010003959233333306,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14442286378000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007659787226666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02365803586666666,
             "unit": "seconds"
           }
         ]
