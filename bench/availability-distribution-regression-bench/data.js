@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779919997138,
+  "lastUpdate": 1779930436583,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "192d0a5e1527f6693540aaf21d639e41d07772fc",
-          "message": "[Release|CI/CD] Fix polkadot prod docker image (#9975)\n\nThis PR introduces a workaround to fix failing polkadot production image\nflow.\nThe initial issue is that, for some reason, our key that used to sign\nthe deb `InRelease` repo noted as expired on the first `apt update` run.\nBut reimport of the same key fixes is it. Until the reason for this\nissue is fixed, this work around helps to keep the flow working",
-          "timestamp": "2025-10-15T08:42:01Z",
-          "tree_id": "b024d9694e64406af696005e848748af7fcc0f55",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/192d0a5e1527f6693540aaf21d639e41d07772fc"
-        },
-        "date": 1760525005429,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15680339038,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022392990120000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01300708618,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007314361339999971,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007891523346666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "828e52d33e5ab20fa49ba660e0ca4771e7e0d554",
+          "message": "pallet-referenda: Check before decrement deciding count (#12203)\n\nThis ensures when a referendum is canceled or killed that we check if it\nwas deciding before decrementing the deciding counter.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-27T22:57:59Z",
+          "tree_id": "4c791464c8a4f1f6874fa16b5ed8700919cbb7f5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/828e52d33e5ab20fa49ba660e0ca4771e7e0d554"
+        },
+        "date": 1779930407687,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010166062146666646,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023913888240000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14924859029333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007760764326666666,
             "unit": "seconds"
           }
         ]
