@@ -112,31 +112,19 @@ where
 			},
 		};
 
-		match self.client.indexed_transaction(digest) {
-			Ok(Some(data)) => {
+		match lookup_by_digest(&self.client, self.sync_oracle.is_major_syncing(), digest) {
+			Ok(value) => {
 				log::trace!(
 					target: LOG_TARGET,
 					"bitswap_unstable_get hit cid={cid_str} bytes={}",
-					data.len(),
+					// `value` is hex-encoded with `0x` prefix; payload bytes = (len-2)/2.
+					value.len().saturating_sub(2) / 2,
 				);
-				Ok(crate::hex_string(&data))
+				Ok(value)
 			},
-			Ok(None) => {
-				if self.sync_oracle.is_major_syncing() {
-					log::trace!(target: LOG_TARGET, "bitswap_unstable_get miss cid={cid_str} reason=major_syncing");
-					Err(Error::MajorSyncing.into())
-				} else {
-					log::trace!(target: LOG_TARGET, "bitswap_unstable_get miss cid={cid_str} reason=not_found");
-					Err(Error::NotFound.into())
-				}
-			},
-			Err(err) => {
-				// Note: this never happens in practice, because `indexed_transaction`
-				// implementation in `substrate/client/db` always returns Ok(_), and is only
-				// needed to handle possible future API changes.
-				log::warn!(target: LOG_TARGET, "Indexed transaction fetch failed: {err:?}");
-
-				Err(Error::Internal(err).into())
+			Err(e) => {
+				log::trace!(target: LOG_TARGET, "bitswap_unstable_get miss cid={cid_str} reason={e}");
+				Err(e.into())
 			},
 		}
 	}
@@ -162,13 +150,13 @@ where
 				pending.reject(Error::EmptyCids).await;
 				return;
 			}
-			if cids.len() > MAX_CIDS_PER_REQUEST {
+			if cids_len > MAX_CIDS_PER_REQUEST {
 				log::trace!(
 					target: LOG_TARGET,
 					"bitswap_unstable_stream reject reason=too_many_cids got={cids_len} max={MAX_CIDS_PER_REQUEST}",
 				);
 				pending
-					.reject(Error::TooManyCids { max: MAX_CIDS_PER_REQUEST, got: cids.len() })
+					.reject(Error::TooManyCids { max: MAX_CIDS_PER_REQUEST, got: cids_len })
 					.await;
 				return;
 			}
@@ -275,9 +263,6 @@ fn parse_and_dedup(cids: Vec<String>) -> Result<Vec<(String, Result<H256, Error>
 /// On a miss, distinguishes "not yet synced" (`MajorSyncing` → `-32812 FailRetryBackoff`,
 /// transient: caller should retry with backoff) from "permanently absent"
 /// (`NotFound` → `-32810 Fail`).
-///
-/// `is_major_syncing` is a snapshot taken once by the caller and reused across the whole batch —
-/// every CID in a single batch gets a consistent "sync moment".
 fn lookup_by_digest<Block, Client>(
 	client: &Arc<Client>,
 	is_major_syncing: bool,
@@ -298,7 +283,7 @@ where
 		},
 		Err(err) => {
 			log::warn!(target: LOG_TARGET, "Indexed transaction fetch failed: {err:?}");
-			Err(Error::NotFound)
+			Err(Error::Internal(err))
 		},
 	}
 }

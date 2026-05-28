@@ -155,12 +155,19 @@ const SHA2_256: u64 = 0x12;
 /// `dag-pb` multicodec — used for the CID `codec` field in test CIDs.
 /// See <https://github.com/multiformats/multicodec/blob/master/table.csv>.
 const DAG_PB_CODEC: u64 = 0x70;
+/// `raw` multicodec — used to exercise stage-B (digest-equal but string-different) dedup.
+const RAW_CODEC: u64 = 0x55;
 
-/// Create a CIDv1 string from a 32-byte hash digest.
+/// Create a CIDv1 string from a 32-byte hash digest, using the `dag-pb` codec.
 fn make_cid_v1(code: u64, digest: &[u8; 32]) -> String {
-	let mh = cid::multihash::Multihash::<64>::wrap(code, digest)
+	make_cid_v1_with_codec(DAG_PB_CODEC, code, digest)
+}
+
+/// Create a CIDv1 string with an explicit multicodec.
+fn make_cid_v1_with_codec(codec: u64, hash_code: u64, digest: &[u8; 32]) -> String {
+	let mh = cid::multihash::Multihash::<64>::wrap(hash_code, digest)
 		.expect("32 bytes fits in Multihash<32>");
-	let c = cid::Cid::new_v1(DAG_PB_CODEC, mh);
+	let c = cid::Cid::new_v1(codec, mh);
 	c.to_string()
 }
 
@@ -434,7 +441,11 @@ async fn assert_stream_done(sub: &mut Subscription<StreamEvent>) {
 }
 
 #[tokio::test]
-async fn stream_happy_path_emits_in_input_order() {
+async fn stream_happy_path_emits_every_cid() {
+	// Spec contract is *arrival order*, not input order. The current implementation
+	// happens to deliver in input order because lookups are sequential and synchronous,
+	// but pinning that down would break the test as soon as peer-fetch (or any other
+	// parallel resolver) lands. Assert set-membership instead.
 	let (ws_client, _handle, mock_client) = setup(false).await;
 
 	let cid_a = store_chunk(&mock_client, vec![1u8], BLAKE2B_256);
@@ -451,9 +462,18 @@ async fn stream_happy_path_emits_in_input_order() {
 		.await
 		.unwrap();
 
-	for expected_cid in &[cid_a, cid_b, cid_c] {
+	let mut seen: HashMap<String, StreamEvent> = HashMap::new();
+	for _ in 0..cids.len() {
 		let ev = next_event(&mut sub).await;
-		let _ = assert_stream_item(ev, expected_cid);
+		match &ev {
+			StreamEvent::StreamItem { cid, .. } => {
+				assert!(seen.insert(cid.clone(), ev).is_none(), "duplicate item for cid");
+			},
+			other => panic!("expected StreamItem, got {other:?}"),
+		}
+	}
+	for cid in &cids {
+		assert!(seen.contains_key(cid), "missing StreamItem for cid={cid}");
 	}
 	assert_stream_done(&mut sub).await;
 	assert_no_more_events(&mut sub).await;
@@ -534,6 +554,31 @@ async fn stream_duplicate_valid_cids_rejects_subscription() {
 		.subscribe::<StreamEvent, _>(
 			"bitswap_unstable_stream",
 			rpc_params![vec![cid.clone(), cid]],
+			"bitswap_unstable_unstream",
+		)
+		.await
+		.unwrap_err();
+
+	assert_error_code(&err, -32803);
+}
+
+#[tokio::test]
+async fn stream_duplicate_digest_different_codec_rejects_subscription() {
+	// Stage-B dedup: two CID strings that differ only in their multicodec byte
+	// (dag-pb vs raw) but decode to the same 32-byte content digest. Stage A
+	// (literal string equality) lets them through; stage B (digest equality) must
+	// catch them.
+	let (ws_client, _handle, _mock_client) = setup(false).await;
+
+	let digest = [0xAB; 32];
+	let cid_dag_pb = make_cid_v1(BLAKE2B_256, &digest);
+	let cid_raw = make_cid_v1_with_codec(RAW_CODEC, BLAKE2B_256, &digest);
+	assert_ne!(cid_dag_pb, cid_raw, "test precondition: codec change must alter the CID string");
+
+	let err = ws_client
+		.subscribe::<StreamEvent, _>(
+			"bitswap_unstable_stream",
+			rpc_params![vec![cid_dag_pb, cid_raw]],
 			"bitswap_unstable_unstream",
 		)
 		.await
