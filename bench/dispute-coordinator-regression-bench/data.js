@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779981252640,
+  "lastUpdate": 1779986650014,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cbab8ed4be1941420dd25dc81102fb79d8e2a7f0",
-          "message": "pallet_revive: Fix incorrect `block.gaslimit` (#10026)\n\nFixes https://github.com/paritytech/contract-issues/issues/112\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-15T12:04:45Z",
-          "tree_id": "1dda7ab0725dc1694661747eb3364deed13b6723",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cbab8ed4be1941420dd25dc81102fb79d8e2a7f0"
-        },
-        "date": 1760535871278,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026178058000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008590181329999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005110388959999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0026791505199999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9cd6318cfd2a65da30c8c7f08b49568efd7374d6",
+          "message": "xcmp-queue: Store the bytes in the channel status (#12176)\n\nThis improves the performance of xcmp-queue by not requiring to check\nall pages individually.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2026-05-28T14:54:18Z",
+          "tree_id": "3e85e6615efbd60ee320f2d7abe42c82ea44b27b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9cd6318cfd2a65da30c8c7f08b49568efd7374d6"
+        },
+        "date": 1779986621273,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01029161682999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00260260028,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009282252219999981,
             "unit": "seconds"
           }
         ]
