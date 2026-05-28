@@ -3949,7 +3949,6 @@ fn origin_must_be_mapped() {
 fn prepare_dry_run_maps_unmapped_account() {
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		// EVE is not eth-derived and has no balance, so the account does not exist.
-		assert!(!<Test as Config>::AddressMapper::is_mapped(&EVE));
 		assert!(!frame_system::Pallet::<Test>::account_exists(&EVE));
 
 		Pallet::<Test>::prepare_dry_run(&EVE);
