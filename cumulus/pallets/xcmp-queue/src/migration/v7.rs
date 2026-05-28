@@ -14,37 +14,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Migrates the storage to version 6.
+//! Migrates the storage to version 7.
 
 use crate::*;
 use frame_support::{pallet_prelude::*, traits::UncheckedOnRuntimeUpgrade};
 
 /// [`VersionedMigration`](frame_support::migrations::VersionedMigration), that is performed only
-/// when the on-chain version is 5.
-pub type MigrateV5ToV6<T> = frame_support::migrations::VersionedMigration<
-	5,
+/// when the on-chain version is 6.
+pub type MigrateV6ToV7<T> = frame_support::migrations::VersionedMigration<
 	6,
-	unversioned::UncheckedMigrateV5ToV6<T>,
+	7,
+	unversioned::UncheckedMigrateV6ToV7<T>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
 
-// V5 storage aliases
-mod v5 {
+// V6 storage aliases
+mod v6 {
 	use super::*;
 
 	#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, Debug, MaxEncodedLen)]
 	pub struct OutboundChannelDetails {
-		/// The `ParaId` of the parachain that this channel is connected with.
 		pub recipient: ParaId,
-		/// The state of the channel.
 		pub state: OutboundState,
-		/// Whether any signals exist in this channel.
 		pub signals_exist: bool,
-		/// The index of the first outbound message.
 		pub first_index: u16,
-		/// The index of the last outbound message.
 		pub last_index: u16,
+		pub flags: OutboundChannelFlags,
 	}
 
 	#[frame_support::storage_alias]
@@ -57,15 +53,15 @@ mod v5 {
 
 mod unversioned {
 	use super::*;
-	pub struct UncheckedMigrateV5ToV6<T: Config>(PhantomData<T>);
+	pub struct UncheckedMigrateV6ToV7<T: Config>(PhantomData<T>);
 }
 
-impl<T: Config> UncheckedOnRuntimeUpgrade for unversioned::UncheckedMigrateV5ToV6<T> {
+impl<T: Config> UncheckedOnRuntimeUpgrade for unversioned::UncheckedMigrateV6ToV7<T> {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
 		// We use `Vec` instead of `BoundedVec` for `pre` in order to avoid any decoding error
 		// in case `T::MaxActiveOutboundChannels` is decreased in the same runtime upgrade where
 		// the migration is executed.
-		let translate = |pre: Vec<v5::OutboundChannelDetails>|
+		let translate = |pre: Vec<v6::OutboundChannelDetails>|
 		 -> BoundedVec<OutboundChannelDetails, T::MaxActiveOutboundChannels> {
 			BoundedVec::defensive_truncate_from(
 				pre.iter()
@@ -75,8 +71,8 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for unversioned::UncheckedMigrateV5ToV
 						signals_exist: pre_channel_details.signals_exist,
 						first_index: pre_channel_details.first_index,
 						last_index: pre_channel_details.last_index,
-						// The new field added by the migration.
-						flags: OutboundChannelFlags::empty(),
+						flags: pre_channel_details.flags,
+						// Corrects itself over time.
 						queued_bytes: 0,
 					})
 					.collect(),
@@ -86,12 +82,10 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for unversioned::UncheckedMigrateV5ToV
 		if OutboundXcmpStatus::<T>::translate(|pre| pre.map(translate)).is_err() {
 			defensive!(
 				"unexpected error when performing translation of the OutboundXcmpStatus type \
-				during storage upgrade to v6"
+				during storage upgrade to v7"
 			);
 		}
 
-		// We need to account for the proof size and ref time of reading and writing
-		// `OutboundChannelDetails` once.
 		let proof_size = 2 * BoundedVec::<
 			OutboundChannelDetails,
 			<T as Config>::MaxActiveOutboundChannels,
