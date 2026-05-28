@@ -44,10 +44,12 @@ crates:
   - name: polkadot-collator-protocol
     bump: major
   - name: polkadot-node-core-chain-selection
-    bump: patch
+    bump: major
   - name: polkadot-node-core-av-store
-    bump: patch
+    bump: major
   - name: polkadot-node-core-dispute-coordinator
-    bump: patch
+    bump: minor
   - name: polkadot-service
-    bump: patch
+    bump: minor
+  - name: polkadot-sdk
+    bump: minor
