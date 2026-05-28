@@ -761,7 +761,7 @@ impl PalletCmd {
 					e
 				)
 			})?;
-			let hash = sp_core::blake2_256(&code).to_vec();
+			let hash = sp_crypto_hashing::blake2_256(&code).to_vec();
 			let wrapped_code = WrappedRuntimeCode(Cow::Owned(code));
 
 			Ok(FetchedCode::FromFile { wrapped_code, heap_pages: self.heap_pages, hash })

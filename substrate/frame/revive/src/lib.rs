@@ -120,7 +120,8 @@ use frame_support::traits::tokens::Precision;
 pub use frame_support::{self, dispatch::DispatchInfo, traits::Time, weights::Weight};
 pub use frame_system::{self, limits::BlockWeights};
 pub use primitives::*;
-pub use sp_core::{H160, H256, U256, keccak_256};
+pub use sp_core::{H160, H256, U256};
+pub use sp_crypto_hashing::keccak_256;
 pub use sp_runtime;
 pub use weights::WeightInfo;
 
