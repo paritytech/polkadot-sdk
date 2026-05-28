@@ -282,6 +282,9 @@ impl MultiFilterSubscriptionState {
 				break;
 			}
 		}
+		// All remaining snapshot hashes may have disappeared from the store before
+		// lazy replay loads them. Finish the replay instead of emitting an empty batch
+		// or keeping the filter blocked.
 		if statements.is_empty() {
 			self.pending_replays.pop_front();
 			self.replays_in_progress.remove(&filter_id);
