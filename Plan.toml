@@ -492,9 +492,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/revive/fixtures
 name = "pallet-revive-fixtures"
-from = "0.9.1"
-to = "0.10.0"
-bump = "major"
+from = "0.10.0"
+to = "0.10.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -1762,9 +1762,9 @@ reason = "changed"
 [[crate]]
 # substrate/client/network
 name = "sc-network"
-from = "0.55.2"
-to = "0.56.0"
-bump = "major"
+from = "0.56.0"
+to = "0.56.1"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -1954,9 +1954,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/revive
 name = "pallet-revive"
-from = "0.12.2"
-to = "0.13.0"
-bump = "major"
+from = "0.13.0"
+to = "0.13.1"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -3462,9 +3462,9 @@ reason = "changed"
 [[crate]]
 # bridges/snowbridge/primitives/inbound-queue
 name = "snowbridge-inbound-queue-primitives"
-from = "0.8.0"
-to = "0.10.0"
-bump = "major"
+from = "0.10.0"
+to = "0.10.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -4092,9 +4092,9 @@ reason = "changed"
 [[crate]]
 # substrate/utils/frame/omni-bencher
 name = "frame-omni-bencher"
-from = "0.17.3"
-to = "0.18.0"
-bump = "major"
+from = "0.18.0"
+to = "0.18.1"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -4120,9 +4120,9 @@ to = "0.1.0"
 [[crate]]
 # cumulus/polkadot-omni-node/lib
 name = "polkadot-omni-node-lib"
-from = "0.13.0"
-to = "0.14.0"
-bump = "major"
+from = "0.14.0"
+to = "0.14.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -4196,9 +4196,9 @@ to = "3.0.0"
 [[crate]]
 # substrate/frame/revive/rpc
 name = "pallet-revive-eth-rpc"
-from = "0.13.0"
-to = "0.14.0"
-bump = "major"
+from = "0.14.0"
+to = "0.14.1"
+bump = "minor"
 reason = "changed"
 
 [[crate]]

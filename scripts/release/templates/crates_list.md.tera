@@ -1,23 +1,9 @@
 The following crates were updated to the corresponding versions:
 
-- staging-xcm@22.0.1
-- snowbridge-verification-primitives@0.10.0
-- snowbridge-pallet-ethereum-client-fixtures@0.29.0
-- sc-network-sync@0.55.1
-- snowbridge-outbound-queue-primitives@0.10.0
-- snowbridge-pallet-ethereum-client@0.21.0
-- snowbridge-outbound-queue-runtime-api@0.21.0
-- snowbridge-pallet-outbound-queue@0.21.0
-- snowbridge-pallet-outbound-queue-v2@0.10.0
-- snowbridge-pallet-system@0.21.0
-- snowbridge-test-utils@0.11.0
-- snowbridge-pallet-system-v2@0.10.0
-- snowbridge-inbound-queue-primitives@0.10.0
-- snowbridge-runtime-test-common@0.24.0
-- asset-hub-westend-runtime@0.45.0
-- snowbridge-pallet-inbound-queue-fixtures@0.29.0
-- snowbridge-pallet-inbound-queue-v2-fixtures@0.10.0
-- snowbridge-pallet-inbound-queue@0.21.0
-- snowbridge-pallet-inbound-queue-v2@0.10.0
-- bridge-hub-rococo-runtime@0.28.0
-- bridge-hub-westend-runtime@0.25.0
+- pallet-revive-fixtures@0.10.1
+- sc-network@0.56.1
+- pallet-revive@0.13.1
+- snowbridge-inbound-queue-primitives@0.10.1
+- frame-omni-bencher@0.18.1
+- polkadot-omni-node-lib@0.14.1
+- pallet-revive-eth-rpc@0.14.1
