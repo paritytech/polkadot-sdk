@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779981177219,
+  "lastUpdate": 1779986574542,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b21cbb58ab50d5d10371393967537f6f221bb92f",
-          "message": "Improve statement-store gossiping performance (#9912)\n\n# Description\n\nFixes gossiping and scalability issues in the statement-store\nnetworking.\n\n1. Reduced gossiping traffic by propagating only recent statements\ninstead of all.\n2. Added an early check for statements that the node already has to skip\nduplicate processing.\n3. Added splitting of large statement batches to stay under\nMAX_STATEMENT_NOTIFICATION_SIZE; oversized individual statements are\nskipped.\n4. MAX_STATEMENT_NOTIFICATION_SIZE was updated to the commonly used 1MB,\nwhich drastically improved the gossiping speed.\n5. Notifications are sent asynchronously. I don't see much difference in\nperformance, but according to @lexnv, it's better to do:\nhttps://github.com/paritytech/polkadot-sdk/pull/9296.\n6. Added a 10s timeout to handle very slow or disconnected peers.\n\n## Integration\n\nInternal optimizations to the gossip protocol. No downstream changes\nrequired.\n\nRelated PR: https://github.com/paritytech/polkadot-sdk/pull/9965\n\n## Things to handle in further PRs\n- After this PR, nodes don't send all statements to new peers anymore,\nonly the recent ones.\n- After restarting, the node doesn't re-gossip statements it wasn't\ngossiped.\n- Broadcasting notifications to all peers when the first peer is slow is\nlimited. We could instead use a FuturesUnordered.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-10-16T15:46:38Z",
-          "tree_id": "64e829882f470997b31739fc7f0e726294518cb8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b21cbb58ab50d5d10371393967537f6f221bb92f"
-        },
-        "date": 1760633610054,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52943.59999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63645.340000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002198035,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001977217,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5205225216200007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4871737272900014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.43315850861999705,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.741422804641089,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001977217,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.35395869737,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002198035,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005922506509999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.486221917929998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.938404418560004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4825550968399996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-gather-signatures",
             "value": 0.005490466060000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9cd6318cfd2a65da30c8c7f08b49568efd7374d6",
+          "message": "xcmp-queue: Store the bytes in the channel status (#12176)\n\nThis improves the performance of xcmp-queue by not requiring to check\nall pages individually.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2026-05-28T14:54:18Z",
+          "tree_id": "3e85e6615efbd60ee320f2d7abe42c82ea44b27b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9cd6318cfd2a65da30c8c7f08b49568efd7374d6"
+        },
+        "date": 1779986545014,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63627.02999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00003750224,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8250841847400006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002118458,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005088764180000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7854016600199324,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.511879084402833,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002118458,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00003750224,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.72044992514,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.451373349909994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.341495972929925,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.81496616956,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7391319193799997,
             "unit": "seconds"
           }
         ]
