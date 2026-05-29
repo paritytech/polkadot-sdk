@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779996698255,
+  "lastUpdate": 1780040489618,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ffe5417da3c44afb9e5a063794a586d9073ff09c",
-          "message": "Fix check-pr-author (#10050)",
-          "timestamp": "2025-10-18T18:21:45Z",
-          "tree_id": "fc7229e7a608611d3dd8fef42275fb2f07ad2801",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ffe5417da3c44afb9e5a063794a586d9073ff09c"
-        },
-        "date": 1760815737876,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.332806487466666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20694633676666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13889644193333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dharjeezy@gmail.com",
+            "name": "dharjeezy",
+            "username": "dharjeezy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d9f061d4218dd7801722effe412a46aa084ed812",
+          "message": "Try state check for pallet beefy mmr (#11734)\n\nThis PR introduces try state hook into the Beefy MMR Pallet. It also\ndefines the invariants that holds for the pallet.\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/239\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-29T05:46:01Z",
+          "tree_id": "eb4a30a924b7edeea20945586e6a84d89bef5366",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d9f061d4218dd7801722effe412a46aa084ed812"
+        },
+        "date": 1780040459500,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.821636344133335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13072341216666664,
             "unit": "seconds"
           }
         ]
