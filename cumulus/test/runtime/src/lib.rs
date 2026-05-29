@@ -22,7 +22,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-pub mod wasm_spec_version_incremented {
+pub mod spec_version_incremented {
 	#[cfg(feature = "std")]
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_spec_version_incremented.rs"));
 }
@@ -35,10 +35,6 @@ pub mod relay_parent_offset {
 pub mod elastic_scaling_500ms {
 	#[cfg(feature = "std")]
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_500ms.rs"));
-}
-pub mod elastic_scaling_mvp {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_mvp.rs"));
 }
 
 pub mod elastic_scaling {

@@ -103,7 +103,7 @@ std = [
 	"tracing/std",
 ]
 increment-spec-version = []
-# A runtime which expects to build behind the relay chain tip.
+# A runtime that uses a relay parent offset of 2.
 relay-parent-offset = []
 # A runtime with elastic-scaling configuration.
 elastic-scaling = []
