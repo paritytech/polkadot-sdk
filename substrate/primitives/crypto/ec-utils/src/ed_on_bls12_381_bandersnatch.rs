@@ -73,6 +73,14 @@ pub type SWProjective = ark_ed_on_bls12_381_bandersnatch_ext::SWProjective<HostH
 /// Group scalar field (Fr).
 pub type ScalarField = <BandersnatchConfig as CurveConfig>::ScalarField;
 
+/// The unified `(0, -1)` non-subgroup fallback (lifted to projective). Used
+/// by the hooks to substitute a `z = 0` result that cannot ride the affine
+/// FFI channel.
+#[inline(always)]
+fn fallback_projective() -> EdwardsProjective {
+	te_non_subgroup_fallback::<EdwardsConfig>().into_group()
+}
+
 /// Curve hooks jumping into [`host_calls`] host functions.
 #[derive(Copy, Clone)]
 pub struct HostHooks;
@@ -89,7 +97,7 @@ impl CurveHooks for HostHooks {
 			// Bandersnatch is incomplete: HWCD on non-subgroup bases can land
 			// at `z = 0`. Substitute the unified `(0, -1)` non-subgroup
 			// fallback so a downstream subgroup check rejects it.
-			Err(Error::DegeneratePoint) => te_non_subgroup_fallback::<EdwardsConfig>().into_group(),
+			Err(Error::DegeneratePoint) => fallback_projective(),
 			Err(_) => panic!("{FAIL_MSG}"),
 		}
 	}
@@ -101,7 +109,7 @@ impl CurveHooks for HostHooks {
 		// host applies on its side, locally. Honest subgroup-validated
 		// callers never produce such a projective.
 		let Some(base_aff) = base.into_affine_safe() else {
-			return te_non_subgroup_fallback::<EdwardsConfig>().into_group();
+			return fallback_projective();
 		};
 		let mut out = utils::buffer_for::<EdwardsAffine>();
 		match host_calls::ed_on_bls12_381_bandersnatch_mul(
@@ -110,7 +118,7 @@ impl CurveHooks for HostHooks {
 			&mut out,
 		) {
 			Ok(()) => utils::decode::<EdwardsAffine>(&out).expect(FAIL_MSG).into_group(),
-			Err(Error::DegeneratePoint) => te_non_subgroup_fallback::<EdwardsConfig>().into_group(),
+			Err(Error::DegeneratePoint) => fallback_projective(),
 			Err(_) => panic!("{FAIL_MSG}"),
 		}
 	}
@@ -186,13 +194,6 @@ mod tests {
 	#[test]
 	fn msm_works_sw() {
 		msm_test::<SWAffine, ark_ed_on_bls12_381_bandersnatch::SWAffine>();
-	}
-
-	/// The unified `(0, -1)` fallback (lifted to projective) that both
-	/// `mul_te` and `msm_te` write on a `z = 0` result, and that
-	/// `mul_projective_te` returns when handed a `z = 0` *input* projective.
-	fn fallback_projective() -> EdwardsProjective {
-		te_non_subgroup_fallback::<EdwardsConfig>().into_group()
 	}
 
 	/// The cofactor-admixed `y = 2` non-subgroup point used as the

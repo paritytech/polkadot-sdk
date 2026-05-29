@@ -246,6 +246,7 @@ pub fn mul_sw<T: SWCurveConfig>(base: &[u8], scalar: &[u8], out: &mut [u8]) -> R
 ///
 /// Order 2 means it is never in a prime-order subgroup (`r` is an odd
 /// prime), so a downstream `is_in_correct_subgroup_*` check rejects it.
+#[inline(always)]
 pub fn te_non_subgroup_fallback<T: TECurveConfig>() -> TEAffine<T> {
 	TEAffine::<T>::new_unchecked(T::BaseField::ZERO, -T::BaseField::ONE)
 }
