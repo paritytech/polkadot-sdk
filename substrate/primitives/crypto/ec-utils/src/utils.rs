@@ -233,6 +233,22 @@ pub fn mul_sw<T: SWCurveConfig>(base: &[u8], scalar: &[u8], out: &mut [u8]) -> R
 	encode_into::<SWAffine<T>>(res, out)
 }
 
+/// Invalid projective point with all-zero coordinates.
+///
+/// This is not a valid curve point — it represents an undefined/degenerate
+/// result in projective coordinates. Useful as a sentinel value when
+/// operations produce a `z = 0` projective that has no affine representative.
+/// Any downstream validity or subgroup check will reject it.
+#[inline(always)]
+pub fn invalid_projective_point_fallback<T: TECurveConfig>() -> TEProjective<T> {
+	TEProjective::<T>::new_unchecked(
+		T::BaseField::ZERO,
+		T::BaseField::ZERO,
+		T::BaseField::ZERO,
+		T::BaseField::ZERO,
+	)
+}
+
 /// Universal twisted Edwards "no affine representative" fallback.
 ///
 /// Returned by [`mul_te`] / [`msm_te`] when the projective result has
