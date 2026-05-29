@@ -119,6 +119,13 @@ pub(crate) fn compute_voting_weights<AuthorityId: AuthorityIdBound>(
 	})
 }
 
+/// A [`ValidatorSet`] paired with each authority's voting weight, where weight is the number
+/// of times that authority appears in the set.
+///
+/// Construction invariant: `voting_weights == compute_voting_weights(&validator_set)`. The
+/// invariant is established by [`WeightedValidatorSet::new`] and preserved because the fields
+/// are private. The weights are persisted alongside `validator_set` so they survive aux-db
+/// round-trips without recomputation.
 #[derive(Debug, Decode, Encode, PartialEq)]
 pub(crate) struct WeightedValidatorSet<AuthorityId: AuthorityIdBound> {
 	validator_set: ValidatorSet<AuthorityId>,
