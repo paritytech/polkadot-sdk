@@ -263,7 +263,14 @@ mod tests {
 			"all-zero projective must map to None via IntoAffineSafe",
 		);
 
-		// (3) The trait-level z=0 detection also catches other degenerate shapes.
+		// (3) Another degenerate z=0 shape: (X=0, Y!=0, Z=0).
+		// arkworks' `into_affine()` panics here because `is_zero()`
+		// requires `!y.is_zero()` AND `y == z`, so with Y!=0 and Z=0
+		// it returns false, falling through to `z.inverse().unwrap()`
+		// which panics. `into_affine_safe` returns `None` instead.
+		// Note: `msm_te` / `mul_te` can produce either this shape or
+		// the all-zero `(0,0,0,0)` shape — both have z=0 and both are
+		// caught by `into_affine_safe`.
 		let degenerate = TEProjective::<RawConfig>::new_unchecked(
 			Fq::ZERO,        // X = 0
 			Fq::from(7u64),  // Y != 0 (F-exception)
