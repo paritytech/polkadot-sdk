@@ -539,3 +539,57 @@ fn test_deferred_dispatch_with_signed_origin() {
 		assert!(!Preimage::is_requested(&balance_call_hash));
 	});
 }
+
+/// Deferring with an inline preimage must not leave stale entries in
+/// pallet-preimage storage after the dispatch lifecycle completes.
+#[test]
+fn deferred_preimage_does_not_leak() {
+	new_test_ext().execute_with(|| {
+		let call =
+			Box::new(RuntimeCall::System(frame_system::Call::remark { remark: vec![1u8; 32] }));
+		let call_hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
+
+		assert_ok!(Whitelist::dispatch_whitelisted_call_with_preimage(
+			RuntimeOrigin::root(),
+			call.clone(),
+		));
+		assert_eq!(pallet_preimage::PreimageFor::<Test>::iter().count(), 1);
+		assert_eq!(pallet_preimage::RequestStatusFor::<Test>::iter().count(), 1);
+
+		assert_ok!(Whitelist::whitelist_call(RuntimeOrigin::root(), call_hash));
+		assert_ok!(Whitelist::dispatch_whitelisted_call_with_preimage(
+			RuntimeOrigin::signed(1),
+			call,
+		));
+
+		assert!(!Preimage::is_requested(&call_hash));
+		assert_eq!(pallet_preimage::RequestStatusFor::<Test>::iter().count(), 0);
+		assert_eq!(pallet_preimage::PreimageFor::<Test>::iter().count(), 0);
+	});
+}
+
+/// A signed relayer must not be able to dispatch a deferred call after
+/// the whitelist has been revoked via `remove_whitelisted_call`.
+#[test]
+fn relayer_cannot_bypass_unwhitelisting_with_preimage_variant() {
+	new_test_ext().execute_with(|| {
+		let call =
+			Box::new(RuntimeCall::System(frame_system::Call::remark { remark: vec![2u8; 16] }));
+		let call_hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
+
+		assert_ok!(Whitelist::dispatch_whitelisted_call_with_preimage(
+			RuntimeOrigin::root(),
+			call.clone(),
+		));
+		assert_ok!(Whitelist::whitelist_call(RuntimeOrigin::root(), call_hash));
+		assert_ok!(Whitelist::remove_whitelisted_call(RuntimeOrigin::root(), call_hash));
+
+		assert_noop!(
+			Whitelist::dispatch_whitelisted_call_with_preimage(
+				RuntimeOrigin::signed(1),
+				call,
+			),
+			crate::Error::<Test>::CallIsNotWhitelisted,
+		);
+	});
+}
