@@ -28,10 +28,11 @@ use crate::{
 	keystore::BeefyKeystore,
 	metric_inc, metric_set,
 	metrics::VoterMetrics,
-	round::{Rounds, VoteImportResult},
+	round::{Rounds, RoundsV4, VoteImportResult},
 	BeefyComms, BeefyVoterLinks, UnpinnedFinalityNotification, LOG_TARGET,
 };
 use sp_application_crypto::RuntimeAppPublic;
+use sp_blockchain::{Error as ClientError, Result as ClientResult};
 
 use codec::{Codec, Decode, DecodeAll, Encode};
 use futures::{stream::Fuse, FutureExt, StreamExt};
@@ -284,6 +285,72 @@ pub(crate) struct PersistedState<B: Block, AuthorityId: AuthorityIdBound> {
 	pallet_genesis: NumberFor<B>,
 }
 
+/// `VoterOracle` as persisted by aux-db schema v4.
+///
+/// Kept only to migrate v4 state to the current schema.
+#[derive(Debug, Decode, Encode, PartialEq)]
+pub(crate) struct VoterOracleV4<B: Block, AuthorityId: AuthorityIdBound> {
+	pub(crate) sessions: VecDeque<RoundsV4<B, AuthorityId>>,
+	pub(crate) min_block_delta: u32,
+	pub(crate) best_grandpa_block_header: <B as Block>::Header,
+	pub(crate) best_beefy_block: NumberFor<B>,
+	pub(crate) _phantom: PhantomData<fn() -> AuthorityId>,
+}
+
+impl<B, AuthorityId> TryFrom<VoterOracleV4<B, AuthorityId>> for VoterOracle<B, AuthorityId>
+where
+	B: Block,
+	AuthorityId: AuthorityIdBound,
+{
+	type Error = ClientError;
+
+	fn try_from(old: VoterOracleV4<B, AuthorityId>) -> Result<Self, Self::Error> {
+		let sessions = old
+			.sessions
+			.into_iter()
+			.map(TryInto::try_into)
+			.collect::<ClientResult<VecDeque<_>>>()?;
+
+		VoterOracle::checked_new(
+			sessions,
+			old.min_block_delta,
+			old.best_grandpa_block_header,
+			old.best_beefy_block,
+		)
+		.ok_or_else(|| {
+			ClientError::Backend("BEEFY DB is corrupted: invalid migrated voter oracle".into())
+		})
+	}
+}
+
+/// `PersistedState` as persisted by aux-db schema v4.
+///
+/// Kept only to migrate v4 state to the current schema.
+#[derive(Debug, Decode, Encode, PartialEq)]
+pub(crate) struct PersistedStateV4<B: Block, AuthorityId: AuthorityIdBound> {
+	pub(crate) best_voted: NumberFor<B>,
+	pub(crate) voting_oracle: VoterOracleV4<B, AuthorityId>,
+	pub(crate) pallet_genesis: NumberFor<B>,
+}
+
+impl<B, AuthorityId> TryFrom<PersistedStateV4<B, AuthorityId>> for PersistedState<B, AuthorityId>
+where
+	B: Block,
+	AuthorityId: AuthorityIdBound,
+{
+	type Error = ClientError;
+
+	fn try_from(old: PersistedStateV4<B, AuthorityId>) -> Result<Self, Self::Error> {
+		let voting_oracle: VoterOracle<B, AuthorityId> = old.voting_oracle.try_into()?;
+
+		Ok(PersistedState {
+			best_voted: old.best_voted,
+			voting_oracle,
+			pallet_genesis: old.pallet_genesis,
+		})
+	}
+}
+
 impl<B: Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId> {
 	pub fn checked_new(
 		grandpa_header: <B as Block>::Header,
@@ -299,17 +366,6 @@ impl<B: Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId> {
 				pallet_genesis,
 			},
 		)
-	}
-
-	/// Build `PersistedState` directly from its parts, without any validation.
-	///
-	/// Intended for reconstructing state during aux-db schema migrations.
-	pub(crate) fn unchecked_from_parts(
-		best_voted: NumberFor<B>,
-		voting_oracle: VoterOracle<B, AuthorityId>,
-		pallet_genesis: NumberFor<B>,
-	) -> Self {
-		PersistedState { best_voted, voting_oracle, pallet_genesis }
 	}
 
 	pub fn pallet_genesis(&self) -> NumberFor<B> {

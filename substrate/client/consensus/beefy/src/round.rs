@@ -21,6 +21,7 @@ use crate::LOG_TARGET;
 use codec::{Decode, Encode};
 use log::{debug, info};
 use sp_application_crypto::RuntimeAppPublic;
+use sp_blockchain::{Error as ClientError, Result as ClientResult};
 use sp_consensus_beefy::{
 	AuthorityIdBound, Commitment, DoubleVotingProof, SignedCommitment, ValidatorSet,
 	ValidatorSetId, VoteMessage,
@@ -87,6 +88,14 @@ impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId> {
 	fn is_done(&self, threshold: usize) -> bool {
 		self.accumulated_votes_weight as usize >= threshold
 	}
+}
+
+/// `RoundTracker` as persisted by aux-db schema v4.
+///
+/// Kept only to migrate v4 state to the current schema; see [`Rounds`]'s `TryFrom` impl.
+#[derive(Debug, Decode, Encode, PartialEq)]
+pub(crate) struct RoundTrackerV4<AuthorityId: AuthorityIdBound> {
+	pub(crate) votes: BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
 }
 
 /// Minimum size of `authorities` subset that produced valid signatures for a block to finalize.
@@ -177,6 +186,54 @@ pub(crate) struct Rounds<B: Block, AuthorityId: AuthorityIdBound> {
 	best_done: Option<NumberFor<B>>,
 }
 
+/// `Rounds` as persisted by aux-db schema v4.
+///
+/// Kept only to migrate v4 state to the current schema. The `validator_set` is unweighted; the
+/// `TryFrom` impl derives the per-authority weights while converting to the current [`Rounds`].
+#[derive(Debug, Decode, Encode, PartialEq)]
+pub(crate) struct RoundsV4<B: Block, AuthorityId: AuthorityIdBound> {
+	pub(crate) rounds: BTreeMap<Commitment<NumberFor<B>>, RoundTrackerV4<AuthorityId>>,
+	pub(crate) previous_votes: BTreeMap<
+		(AuthorityId, NumberFor<B>),
+		VoteMessage<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+	>,
+	pub(crate) session_start: NumberFor<B>,
+	pub(crate) validator_set: ValidatorSet<AuthorityId>,
+	pub(crate) mandatory_done: bool,
+	pub(crate) best_done: Option<NumberFor<B>>,
+}
+
+impl<B, AuthorityId> TryFrom<RoundsV4<B, AuthorityId>> for Rounds<B, AuthorityId>
+where
+	B: Block,
+	AuthorityId: AuthorityIdBound,
+{
+	type Error = ClientError;
+
+	fn try_from(old: RoundsV4<B, AuthorityId>) -> Result<Self, Self::Error> {
+		let validator_set = WeightedValidatorSet::new(old.validator_set);
+		let rounds: BTreeMap<Commitment<NumberFor<B>>, RoundTracker<AuthorityId>> = old
+			.rounds
+			.into_iter()
+			.map(|(commitment, tracker)| {
+				let tracker = RoundTracker::from_votes(tracker.votes, &validator_set)
+					.map_err(|e| ClientError::Backend(format!("BEEFY DB is corrupted: {}", e)))?;
+
+				Ok((commitment, tracker))
+			})
+			.collect::<ClientResult<_>>()?;
+
+		Ok(Rounds {
+			rounds,
+			previous_votes: old.previous_votes,
+			session_start: old.session_start,
+			validator_set,
+			mandatory_done: old.mandatory_done,
+			best_done: old.best_done,
+		})
+	}
+}
+
 impl<B, AuthorityId> Rounds<B, AuthorityId>
 where
 	B: Block,
@@ -194,23 +251,6 @@ where
 			mandatory_done: false,
 			best_done: None,
 		}
-	}
-
-	/// Build `Rounds` directly from its parts, without any validation.
-	///
-	/// Intended for reconstructing state during aux-db schema migrations.
-	pub(crate) fn unchecked_from_parts(
-		rounds: BTreeMap<Commitment<NumberFor<B>>, RoundTracker<AuthorityId>>,
-		previous_votes: BTreeMap<
-			(AuthorityId, NumberFor<B>),
-			VoteMessage<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
-		>,
-		session_start: NumberFor<B>,
-		validator_set: WeightedValidatorSet<AuthorityId>,
-		mandatory_done: bool,
-		best_done: Option<NumberFor<B>>,
-	) -> Self {
-		Rounds { rounds, previous_votes, session_start, validator_set, mandatory_done, best_done }
 	}
 
 	pub(crate) fn validator_set(&self) -> &ValidatorSet<AuthorityId> {
