@@ -41,6 +41,28 @@ pub(crate) fn write_current_version<BE: AuxStore>(backend: &BE) -> Result<(), Er
 		.map_err(|e| Error::Backend(e.to_string()))
 }
 
+/// Write current schema version and voter state atomically.
+pub(crate) fn write_current_version_and_voter_state<
+	B: BlockT,
+	BE: AuxStore,
+	AuthorityId: AuthorityIdBound,
+>(
+	backend: &BE,
+	state: &PersistedState<B, AuthorityId>,
+) -> ClientResult<()> {
+	debug!(target: LOG_TARGET, "🥩 write aux schema version {:?}", CURRENT_VERSION);
+	trace!(target: LOG_TARGET, "🥩 persisting {:?}", state);
+
+	let version = CURRENT_VERSION.encode();
+	let state = state.encode();
+
+	AuxStore::insert_aux(
+		backend,
+		&[(VERSION_KEY, version.as_slice()), (WORKER_STATE_KEY, state.as_slice())],
+		&[],
+	)
+}
+
 /// Write voter state.
 pub(crate) fn write_voter_state<B: BlockT, BE: AuxStore, AuthorityId: AuthorityIdBound>(
 	backend: &BE,
@@ -89,21 +111,13 @@ where
 			};
 
 			let new_state: PersistedState<B, AuthorityId> = old.try_into()?;
-			let version_key = CURRENT_VERSION.encode();
 
 			debug!(
 				target: LOG_TARGET,
 				"🥩 Migrating BEEFY aux-db schema v4 -> v5",
 			);
 
-			AuxStore::insert_aux(
-				backend,
-				&[
-					(VERSION_KEY, version_key.as_slice()),
-					(WORKER_STATE_KEY, new_state.encode().as_slice()),
-				],
-				&[],
-			)?;
+			write_current_version_and_voter_state(backend, &new_state)?;
 
 			// `new_state` and the freshly persisted bytes are equivalent (encode/decode is a
 			// round-trip), so return the in-memory value directly and avoid the extra DB read.

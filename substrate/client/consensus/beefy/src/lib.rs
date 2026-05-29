@@ -427,8 +427,7 @@ where
 			header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY).await?;
 		};
 
-		aux_schema::write_current_version(backend.as_ref())?;
-		aux_schema::write_voter_state(backend.as_ref(), &state)?;
+		aux_schema::write_current_version_and_voter_state(backend.as_ref(), &state)?;
 		Ok(state)
 	}
 
