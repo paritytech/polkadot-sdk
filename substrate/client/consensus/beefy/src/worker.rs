@@ -301,6 +301,17 @@ impl<B: Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId> {
 		)
 	}
 
+	/// Build `PersistedState` directly from its parts, without any validation.
+	///
+	/// Intended for reconstructing state during aux-db schema migrations.
+	pub(crate) fn unchecked_from_parts(
+		best_voted: NumberFor<B>,
+		voting_oracle: VoterOracle<B, AuthorityId>,
+		pallet_genesis: NumberFor<B>,
+	) -> Self {
+		PersistedState { best_voted, voting_oracle, pallet_genesis }
+	}
+
 	pub fn pallet_genesis(&self) -> NumberFor<B> {
 		self.pallet_genesis
 	}

@@ -53,9 +53,8 @@ impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId> {
 		validator_set: &WeightedValidatorSet<AuthorityId>,
 	) -> Result<Self, &'static str> {
 		let accumulated_votes_weight = votes.keys().try_fold(0u32, |acc, authority| {
-			let weight = validator_set
-				.weight(authority)
-				.ok_or("authority not found in voting weights")?;
+			let weight =
+				validator_set.weight(authority).ok_or("authority not found in voting weights")?;
 
 			acc.checked_add(weight).ok_or("accumulated vote weight overflow")
 		})?;
@@ -188,6 +187,23 @@ where
 			mandatory_done: false,
 			best_done: None,
 		}
+	}
+
+	/// Build `Rounds` directly from its parts, without any validation.
+	///
+	/// Intended for reconstructing state during aux-db schema migrations.
+	pub(crate) fn unchecked_from_parts(
+		rounds: BTreeMap<Commitment<NumberFor<B>>, RoundTracker<AuthorityId>>,
+		previous_votes: BTreeMap<
+			(AuthorityId, NumberFor<B>),
+			VoteMessage<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+		>,
+		session_start: NumberFor<B>,
+		validator_set: WeightedValidatorSet<AuthorityId>,
+		mandatory_done: bool,
+		best_done: Option<NumberFor<B>>,
+	) -> Self {
+		Rounds { rounds, previous_votes, session_start, validator_set, mandatory_done, best_done }
 	}
 
 	pub(crate) fn validator_set(&self) -> &ValidatorSet<AuthorityId> {
@@ -455,7 +471,9 @@ mod tests {
 		);
 
 		assert_eq!(
-			rounds.validator_set.weight(&Keyring::<ecdsa_crypto::AuthorityId>::Alice.public()),
+			rounds
+				.validator_set
+				.weight(&Keyring::<ecdsa_crypto::AuthorityId>::Alice.public()),
 			Some(3)
 		);
 		assert_eq!(
@@ -463,11 +481,15 @@ mod tests {
 			Some(1)
 		);
 		assert_eq!(
-			rounds.validator_set.weight(&Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public()),
+			rounds
+				.validator_set
+				.weight(&Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public()),
 			Some(2)
 		);
 		assert_eq!(
-			rounds.validator_set.weight(&Keyring::<ecdsa_crypto::AuthorityId>::Dave.public()),
+			rounds
+				.validator_set
+				.weight(&Keyring::<ecdsa_crypto::AuthorityId>::Dave.public()),
 			Some(1)
 		);
 		// Eve is not part of the committee, should have no weight

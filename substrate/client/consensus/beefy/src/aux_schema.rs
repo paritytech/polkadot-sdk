@@ -18,12 +18,7 @@
 
 //! Schema for BEEFY state persisted in the aux-db.
 
-use crate::{
-	error::Error,
-	round::{compute_voting_weights, VoteWeight},
-	worker::PersistedState,
-	LOG_TARGET,
-};
+use crate::{error::Error, worker::PersistedState, LOG_TARGET};
 use codec::{Decode, DecodeAll, Encode};
 use log::{debug, trace, warn};
 use sc_client_api::{backend::AuxStore, Backend};
@@ -103,7 +98,7 @@ mod v4 {
 				})
 				.collect::<ClientResult<_>>()?;
 
-			super::decode_from_migrated((
+			Ok(crate::round::Rounds::unchecked_from_parts(
 				rounds,
 				old.previous_votes,
 				old.session_start,
@@ -152,15 +147,13 @@ mod v4 {
 		fn try_from(old: PersistedState<B, AuthorityId>) -> Result<Self, Self::Error> {
 			let voting_oracle: crate::worker::VoterOracle<B, AuthorityId> =
 				old.voting_oracle.try_into()?;
-			super::decode_from_migrated((old.best_voted, voting_oracle, old.pallet_genesis))
+			Ok(crate::worker::PersistedState::unchecked_from_parts(
+				old.best_voted,
+				voting_oracle,
+				old.pallet_genesis,
+			))
 		}
 	}
-}
-
-fn decode_from_migrated<T: Decode, U: Encode>(value: U) -> ClientResult<T> {
-	let encoded = value.encode();
-	T::decode_all(&mut &encoded[..])
-		.map_err(|e| ClientError::Backend(format!("BEEFY DB is corrupted: {}", e)))
 }
 
 pub(crate) fn write_current_version<BE: AuxStore>(backend: &BE) -> Result<(), Error> {
@@ -233,7 +226,9 @@ where
 				&[],
 			)?;
 
-			return load_decode::<_, PersistedState<B, AuthorityId>>(backend, WORKER_STATE_KEY);
+			// `new_state` and the freshly persisted bytes are equivalent (encode/decode is a
+			// round-trip), so return the in-memory value directly and avoid the extra DB read.
+			return Ok(Some(new_state));
 		},
 		Some(5) => {
 			return load_decode::<_, PersistedState<B, AuthorityId>>(backend, WORKER_STATE_KEY)
@@ -250,7 +245,10 @@ where
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::tests::BeefyTestNet;
+	use crate::{
+		round::{compute_voting_weights, VoteWeight},
+		tests::BeefyTestNet,
+	};
 	use codec::DecodeAll;
 	use sc_network_test::TestNetFactory;
 	use sp_consensus_beefy::{
