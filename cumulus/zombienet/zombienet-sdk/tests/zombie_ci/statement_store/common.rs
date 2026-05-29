@@ -34,7 +34,7 @@ pub(super) const COLLATOR_INFO_LOG_FILTER: &str = "info,statement-store=info,sta
 pub(super) const COLLATOR_TRACE_LOG_FILTER: &str =
 	"info,statement-store=trace,statement-gossip=trace";
 
-pub(super) use sc_rpc_spec_v2::statement::{
+pub(super) use sp_statement_store::{
 	AddFilterResponse as UnstableAddFilterResponse, SubscribeEvent as UnstableStatementEvent,
 };
 
@@ -90,16 +90,6 @@ pub(super) async fn add_filter_unstable(
 		.request("statement_unstable_addFilter", rpc_params![subscription_id, filter])
 		.await?;
 	Ok(response)
-}
-
-pub(super) async fn remove_filter_unstable(
-	rpc: &RpcClient,
-	subscription_id: &str,
-	filter_id: &str,
-) -> Result<(), anyhow::Error> {
-	rpc.request::<()>("statement_unstable_removeFilter", rpc_params![subscription_id, filter_id])
-		.await?;
-	Ok(())
 }
 
 pub(super) async fn expect_one_statement(

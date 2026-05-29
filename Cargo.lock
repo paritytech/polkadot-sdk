@@ -5812,7 +5812,6 @@ dependencies = [
  "sc-executor 0.32.0",
  "sc-executor-common 0.29.0",
  "sc-network-statement",
- "sc-rpc-spec-v2",
  "sc-statement-store",
  "scale-info",
  "serde",

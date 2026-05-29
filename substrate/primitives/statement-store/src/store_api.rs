@@ -36,12 +36,6 @@ impl FilterId {
 	}
 }
 
-impl std::fmt::Display for FilterId {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{}", self.0)
-	}
-}
-
 /// Live statement event emitted by a multi-filter subscription
 #[derive(Debug, Clone)]
 pub struct LiveStatementEvent {

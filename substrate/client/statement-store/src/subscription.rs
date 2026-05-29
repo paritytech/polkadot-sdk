@@ -168,11 +168,6 @@ impl SubscriptionHandle {
 		);
 		true
 	}
-
-	/// Returns active filter identifiers for this subscription
-	pub fn filter_ids(&self) -> Vec<FilterId> {
-		self.inner.lock().active_filter_ids.iter().copied().collect()
-	}
 }
 
 struct PendingReplay {

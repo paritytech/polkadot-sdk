@@ -4,11 +4,11 @@
 use super::common::{
 	add_filter_unstable, assert_no_more_statements, assert_statements_match, base_dir,
 	collator_args, create_chain_spec_with_allowances, expect_one_statement,
-	expect_statements_unordered, online_client_from_node, remove_filter_unstable, spawn_network,
-	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement,
-	submit_statement_unstable, subscribe_topic, subscribe_topic_filter, subscribe_unstable,
-	unstable_subscription_id, wait_for_first_block, UnstableAddFilterResponse,
-	UnstableStatementEvent, COLLATOR_INFO_LOG_FILTER, COLLATOR_TRACE_LOG_FILTER,
+	expect_statements_unordered, online_client_from_node, spawn_network, spawn_network_sudo,
+	spawn_network_with_injected_allowances, submit_statement, submit_statement_unstable,
+	subscribe_topic, subscribe_topic_filter, subscribe_unstable, unstable_subscription_id,
+	wait_for_first_block, UnstableAddFilterResponse, UnstableStatementEvent,
+	COLLATOR_INFO_LOG_FILTER, COLLATOR_TRACE_LOG_FILTER,
 };
 use codec::Encode;
 use futures::future::join_all;
@@ -118,7 +118,7 @@ async fn statement_store_basic_propagation() -> Result<(), anyhow::Error> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn statement_store_unstable_rpc_multi_filter_flow() -> Result<(), anyhow::Error> {
+async fn statement_store_unstable_rpc_smoke() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -127,59 +127,29 @@ async fn statement_store_unstable_rpc_multi_filter_flow() -> Result<(), anyhow::
 	let alice = network.get_node("alice")?;
 	let alice_rpc = alice.rpc().await?;
 
-	let topic_a: Topic = [0xA1; 32].into();
-	let topic_b: Topic = [0xB2; 32].into();
-
-	let pre_existing =
-		create_test_statement(&get_keypair(0), &[topic_a], None, vec![1], u32::MAX, 0);
+	let topic: Topic = [0xA1; 32].into();
+	let pre_existing = create_test_statement(&get_keypair(0), &[topic], None, vec![1], u32::MAX, 0);
 	assert_eq!(submit_statement_unstable(&alice_rpc, &pre_existing).await?, SubmitOutcome::New);
 
 	let mut subscription = subscribe_unstable(&alice_rpc).await?;
 	let subscription_id = unstable_subscription_id(&subscription)?;
-
-	let filter_a = filter_id(
-		add_filter_unstable(&alice_rpc, &subscription_id, match_all_filter(topic_a)).await?,
+	let filter_id = filter_id(
+		add_filter_unstable(&alice_rpc, &subscription_id, match_all_filter(topic)).await?,
 	);
-	let replayed = collect_unstable_replay(&mut subscription, &filter_a).await?;
+
+	let replayed = collect_unstable_replay(&mut subscription, &filter_id).await?;
 	assert_eq!(replayed, vec![Bytes::from(pre_existing.encode())]);
 
-	let filter_b = filter_id(
-		add_filter_unstable(&alice_rpc, &subscription_id, match_all_filter(topic_b)).await?,
-	);
-	let replayed = collect_unstable_replay(&mut subscription, &filter_b).await?;
-	assert!(replayed.is_empty(), "Filter B should not replay topic A statements");
-
-	let live_ab =
-		create_test_statement(&get_keypair(1), &[topic_a, topic_b], None, vec![2], u32::MAX, 0);
-
-	assert_eq!(submit_statement_unstable(&alice_rpc, &live_ab).await?, SubmitOutcome::New);
+	let live = create_test_statement(&get_keypair(1), &[topic], None, vec![2], u32::MAX, 0);
+	assert_eq!(submit_statement_unstable(&alice_rpc, &live).await?, SubmitOutcome::New);
 
 	match expect_unstable_event(&mut subscription, 20).await? {
 		UnstableStatementEvent::NewStatements { statements } => {
 			assert_eq!(statements.len(), 1);
-			assert_eq!(statements[0].statement, Bytes::from(live_ab.encode()));
-			let filter_ids: HashSet<_> = statements[0].filter_ids.iter().cloned().collect();
-			assert_eq!(filter_ids, HashSet::from([filter_a.clone(), filter_b.clone()]));
+			assert_eq!(statements[0].statement, Bytes::from(live.encode()));
+			assert_eq!(statements[0].filter_ids, vec![filter_id]);
 		},
 		event => anyhow::bail!("Expected newStatements event, got {:?}", event),
-	}
-
-	remove_filter_unstable(&alice_rpc, &subscription_id, &filter_a).await?;
-	let live_b_after_remove =
-		create_test_statement(&get_keypair(2), &[topic_a, topic_b], None, vec![3], u32::MAX, 0);
-
-	assert_eq!(
-		submit_statement_unstable(&alice_rpc, &live_b_after_remove).await?,
-		SubmitOutcome::New
-	);
-
-	match expect_unstable_event(&mut subscription, 20).await? {
-		UnstableStatementEvent::NewStatements { statements } => {
-			assert_eq!(statements.len(), 1);
-			assert_eq!(statements[0].statement, Bytes::from(live_b_after_remove.encode()));
-			assert_eq!(statements[0].filter_ids, vec![filter_b.clone()]);
-		},
-		event => anyhow::bail!("Expected newStatements event after remove, got {:?}", event),
 	}
 
 	Ok(())

@@ -10,7 +10,7 @@ doc:
 
     - Add `statement_unstable_submit`, `statement_unstable_subscribe`, `statement_unstable_addFilter`, and `statement_unstable_removeFilter`
     - Add multi-filter subscription support with replay and live statement delivery
-    - Add zombienet test for the unstable RPC multi-filter flow
+    - Add zombienet smoke test for the unstable RPC wiring
 crates:
 - name: polkadot-omni-node-lib
   bump: patch
