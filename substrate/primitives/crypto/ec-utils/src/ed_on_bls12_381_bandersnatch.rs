@@ -21,28 +21,25 @@
 //! add/double formulas can produce projective points with `z = 0` when fed
 //! cofactor-admixed (non-prime-order-subgroup) inputs. Such points have no
 //! affine representative, so the standard `(x || y)` FFI channel cannot
-//! carry them — arkworks' `From<Projective> for Affine` panics on
+//! carry them: arkworks' `From<Projective> for Affine` panics on
 //! `z.inverse().unwrap()`.
 //!
 //! The shared [`utils::mul_te`] / [`utils::msm_te`] helpers detect the
 //! degenerate case via [`utils::IntoAffineSafe`] and, instead of attempting
-//! to serialize it, write a deterministic non-result: `mul` echoes the
-//! input `base`, and `msm` writes `(0, -1)` — a TE point of order 2 that
-//! is universally outside any prime-order subgroup. The wire format stays
-//! byte-identical to `ArkScale<EdwardsAffine>` — no sentinel bit, no
-//! dedicated projective codec.
+//! to serialize it, write a single deterministic fallback: `(0, -1)`. This
+//! is a TE point of order 2 that is universally outside any prime-order
+//! subgroup, on every TE curve. The wire format stays byte-identical to
+//! `ArkScale<EdwardsAffine>`: no sentinel bit, no dedicated projective codec.
 //!
-//! Semantic contract: `mul(base, scalar)` returns `scalar · base` for all
-//! subgroup-valid inputs and *may* return `base` itself when the result
-//! lands at `z = 0`; `msm(bases, scalars)` returns the correct sum for
-//! subgroup-valid bases and *may* return `(0, -1)` on a `z = 0` result.
-//! Both fallbacks are designed so that an honest caller's downstream
-//! subgroup check on the output will catch the degenerate case (the echo
-//! of a non-subgroup `base` stays non-subgroup; `(0, -1)` is never in the
-//! prime-order subgroup). Honest callers that subgroup-validate inputs
-//! upstream never observe the degenerate branch in the first place.
+//! Semantic contract: both `mul(base, scalar)` and `msm(bases, scalars)`
+//! return the mathematically correct result for all subgroup-valid inputs;
+//! when the projective result lands at `z = 0` they return `(0, -1)`. An
+//! honest caller's downstream subgroup check on the output catches the
+//! degenerate case (`(0, -1)` is never in the prime-order subgroup), and
+//! callers that subgroup-validate inputs upstream never observe it in the
+//! first place.
 
-use crate::utils::{self, HostcallResult, IntoAffineSafe, FAIL_MSG};
+use crate::utils::{self, te_non_subgroup_fallback, HostcallResult, IntoAffineSafe, FAIL_MSG};
 use alloc::vec::Vec;
 use ark_ec::{AffineRepr, CurveConfig};
 use ark_ed_on_bls12_381_bandersnatch_ext::CurveHooks;
@@ -89,13 +86,13 @@ impl CurveHooks for HostHooks {
 	}
 
 	fn mul_projective_te(base: &EdwardsProjective, scalar: &[u64]) -> EdwardsProjective {
-		// A `z = 0` projective cannot ride the affine FFI channel —
+		// A `z = 0` projective cannot ride the affine FFI channel:
 		// `into_affine()` would panic. `into_affine_safe()` returns `None`
-		// in that case; we honor the same "echo input on degenerate"
-		// contract the host applies, locally. Honest subgroup-validated
+		// in that case; we honor the same unified `(0, -1)` fallback the
+		// host applies on its side, locally. Honest subgroup-validated
 		// callers never produce such a projective.
 		let Some(base_aff) = base.into_affine_safe() else {
-			return *base;
+			return te_non_subgroup_fallback::<EdwardsConfig>().into_group();
 		};
 		let mut out = utils::buffer_for::<EdwardsAffine>();
 		host_calls::ed_on_bls12_381_bandersnatch_mul(
@@ -118,9 +115,9 @@ impl CurveHooks for HostHooks {
 /// and "not-compressed".
 ///
 /// When the projective result of a host call lands at `z = 0` (only reachable
-/// via non-subgroup inputs), the host writes a deterministic non-result that
-/// stays outside the prime-order subgroup: the input `base` for `mul`, the
-/// universal sentinel `(0, -1)` for `msm`.
+/// via non-subgroup inputs), the host writes the unified non-subgroup
+/// fallback `(0, -1)` instead of panicking. See the module-level doc for the
+/// full contract.
 #[runtime_interface]
 pub trait HostCalls {
 	/// Twisted Edwards multi scalar multiplication for *Ed-on-BLS12-381-Bandersnatch*.
@@ -180,12 +177,19 @@ mod tests {
 		msm_test::<SWAffine, ark_ed_on_bls12_381_bandersnatch::SWAffine>();
 	}
 
+	/// The unified `(0, -1)` fallback (lifted to projective) that both
+	/// `mul_te` and `msm_te` write on a `z = 0` result, and that
+	/// `mul_projective_te` returns when handed a `z = 0` *input* projective.
+	fn fallback_projective() -> EdwardsProjective {
+		te_non_subgroup_fallback::<EdwardsConfig>().into_group()
+	}
+
 	/// `y = 2` is on the curve but outside the prime-order subgroup
 	/// (cofactor admixture). Multiplying it by `Fr::MODULUS` makes the
 	/// HWCD arithmetic land at `z = 0`. The host call must not panic and
-	/// must echo the input affine bytes back to the runtime.
+	/// must write the unified `(0, -1)` fallback into the output buffer.
 	#[test]
-	fn host_mul_with_z_zero_result_echoes_input() {
+	fn host_mul_with_z_zero_result_returns_fallback() {
 		let p_aff = ark_ed_on_bls12_381_bandersnatch::EdwardsAffine::get_point_from_y_unchecked(
 			Fq::from(2u64),
 			false,
@@ -196,41 +200,42 @@ mod tests {
 		let raw_res = <RawConfig as TECurveConfig>::mul_projective(&proj, Fr::MODULUS.0.as_ref());
 		assert!(raw_res.z.is_zero(), "test precondition: y=2 * Fr::MODULUS must hit z=0");
 
-		// Now exercise the host call: input is the affine point, output buffer
-		// should come back equal to the input bytes.
+		// Expected wire bytes: the `(0, -1)` fallback affine encoding,
+		// from the same shared helper the host call uses internally.
+		let fallback_aff = te_non_subgroup_fallback::<RawConfig>();
+		let expected = utils::encode(fallback_aff);
+
+		// Exercise the host call.
 		let scalar_bigint: Vec<u64> = Fr::MODULUS.0.to_vec();
 		let input_enc = utils::encode(p_aff);
 		let scalar_enc = utils::encode(scalar_bigint);
 		let mut out = utils::buffer_for::<EdwardsAffine>();
 		host_calls::ed_on_bls12_381_bandersnatch_mul(&input_enc, &scalar_enc, &mut out).unwrap();
-		assert_eq!(out, input_enc, "z=0 result must echo input affine bytes");
+		assert_eq!(out, expected, "z=0 result must serialize as (0, -1)");
 
-		// And the runtime-side hook returns the input projective (after the
-		// usual affine→projective lift, with z = 1).
+		// The runtime-side hook returns the fallback (lifted to projective).
 		let p_ext: EdwardsProjective =
 			EdwardsAffine::get_point_from_y_unchecked(Fq::from(2u64), false)
 				.unwrap()
 				.into_group();
 		let r = <HostHooks as CurveHooks>::mul_projective_te(&p_ext, Fr::MODULUS.0.as_ref());
-		assert_eq!(r, p_ext, "hook must return input on degenerate");
+		assert_eq!(r, fallback_projective(), "hook must return (0, -1) on degenerate");
 	}
 
 	/// `z = 0` input to `mul_projective_te` is short-circuited locally: we
-	/// can't serialize it for the host, so we honor the same contract by
-	/// returning the input unchanged. The detection now goes through
-	/// `IntoAffineSafe::into_affine_safe`, which returns `None` on `z = 0`.
+	/// can't serialize it for the host, so we honor the sme unified
+	/// `(0, -1)` contract that the host applies on its side. The detection
+	/// goes through `IntoAffineSafe::into_affine_safe`, which returns
+	/// `None` on `z = 0`.
 	#[test]
-	fn mul_projective_with_z_zero_input_returns_input() {
+	fn mul_projective_with_z_zero_input_returns_fallback() {
 		use ark_std::{test_rng, UniformRand};
 		let mut rng = test_rng();
 		let y = Fq::rand(&mut rng);
 		let t = Fq::rand(&mut rng);
 		let p = EdwardsProjective::new_unchecked(Fq::ZERO, y, t, Fq::ZERO);
 		let r = <HostHooks as CurveHooks>::mul_projective_te(&p, &[7u64, 0, 0, 0]);
-		assert_eq!(r.x, p.x);
-		assert_eq!(r.y, p.y);
-		assert_eq!(r.t, p.t);
-		assert_eq!(r.z, p.z);
+		assert_eq!(r, fallback_projective(), "z=0 input must yield (0, -1) projective");
 	}
 
 	/// The `msm_te` helper falls back to the universal TE sentinel
@@ -238,7 +243,7 @@ mod tests {
 	/// hinges on two properties:
 	///   1. `(0, -1)` is on every TE curve (`a·0 + 1 = 1 + 0`), so it encodes as a valid `TEAffine`
 	///      and the runtime side can decode it without rejecting "off-curve."
-	///   2. `(0, -1)` has order 2, so it is not in any prime-order subgroup — a downstream
+	///   2. `(0, -1)` has order 2, so it is not in any prime-order subgroup, and a downstream
 	///      `is_in_correct_subgroup_*` check on the helper's output will reject the degenerate case
 	///      rather than silently accepting an identity-like value.
 	///
@@ -254,7 +259,7 @@ mod tests {
 		use ark_ed_on_bls12_381_bandersnatch::EdwardsAffine as RawAffine;
 
 		// (1) The fallback constant the helper hardcodes.
-		let fallback = RawAffine::new_unchecked(Fq::ZERO, -Fq::ONE);
+		let fallback: RawAffine = te_non_subgroup_fallback::<RawConfig>();
 		assert!(fallback.is_on_curve(), "fallback (0, -1) must lie on the curve");
 		assert!(
 			!fallback.is_in_correct_subgroup_assuming_on_curve(),

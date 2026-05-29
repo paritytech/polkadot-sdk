@@ -11,23 +11,21 @@ doc:
     The `mul_te` and `msm_te` helpers in `sp-crypto-ec-utils` previously
     called `.into_affine()` unconditionally and would crash on such inputs.
     They now go through a new `IntoAffineSafe` trait that returns `None` on
-    `z = 0`, and substitute a deterministic non-subgroup fallback instead of
-    panicking:
-      - `mul_te` echoes the input `base` back unchanged.
-      - `msm_te` writes the universal TE point `(0, -1)` (on every TE curve,
-        order 2, never in any prime-order subgroup).
+    `z = 0`, and on the degenerate branch both write the same unified
+    fallback: the affine point `(0, -1)`. This is on every TE curve
+    (`a·0 + 1 = 1 + 0`), has order 2, and is therefore never in any
+    prime-order subgroup, so a downstream `is_in_correct_subgroup_*` check
+    on the result catches the degenerate case rather than silently
+    accepting an identity-like value.
 
-    Both fallbacks stay outside the prime-order subgroup so that a downstream
-    `is_in_correct_subgroup_*` check on the result catches the degenerate
-    case rather than silently accepting an identity-like value. The wire
-    format on the FFI boundary is unchanged: still `ArkScale<TEAffine>`, no
-    sentinel bit, no new codec. Honest callers that subgroup-validate inputs
-    upstream never reach the fallback branch.
+    The wire format on the FFI boundary is unchanged: still
+    `ArkScale<TEAffine>`, no sentinel bit, no new codec. Honest callers
+    that subgroup-validate inputs upstream never reach the fallback branch.
 
     The Bandersnatch hostcall hook (`mul_projective_te`) now also short-
-    circuits locally when given a `z = 0` projective input, mirroring the
-    same echo-input contract instead of attempting to serialize an
-    unrepresentable point for the host.
+    circuits locally when given a `z = 0` projective input, returning the
+    same `(0, -1)` fallback (lifted to projective) instead of attempting
+    to serialize an unrepresentable point for the host.
 crates:
 - name: sp-crypto-ec-utils
   bump: minor

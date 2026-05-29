@@ -160,7 +160,7 @@ pub fn decode<T: CanonicalDeserialize>(mut buf: &[u8]) -> Result<T, Error> {
 /// returns `None` in that case so callers can choose what to ship over
 /// the FFI boundary instead of crashing.
 ///
-/// Not defined for short Weierstrass: SW `into_affine()` is total —
+/// Not defined for short Weierstrass: SW `into_affine()` is total.
 /// `z = 0` there is just the point at infinity (the identity), with a
 /// valid affine representation through arkworks' `infinity` flag.
 pub trait IntoAffineSafe {
@@ -225,26 +225,32 @@ pub fn mul_sw<T: SWCurveConfig>(base: &[u8], scalar: &[u8], out: &mut [u8]) -> R
 	encode_into::<SWAffine<T>>(res, out)
 }
 
+/// Universal twisted Edwards "no affine representative" fallback.
+///
+/// Returned by [`mul_te`] / [`msm_te`] when the projective result has
+/// `z = 0` (reachable on incomplete TE forms like Bandersnatch when fed
+/// non-subgroup inputs). `(0, -1)` is on every TE curve
+/// (`a·0 + 1 = 1 + 0`) and has order 2, so it is never in any prime-order
+/// subgroup, so a downstream `is_in_correct_subgroup_*` check on the
+/// result will reject the degenerate case rather than silently accept
+/// an identity-like value.
+pub const fn te_non_subgroup_fallback<T: TECurveConfig>() -> TEAffine<T> {
+	TEAffine::<T>::new_unchecked(T::BaseField::ZERO, -T::BaseField::ONE)
+}
+
 /// Twisted Edwards multi scalar multiplication.
 ///
 /// Expects encoded:
 /// - `bases`: `Vec<TEAffine<TECurveConfig>>`.
 /// - `scalars`: `Vec<TECurveConfig::ScalarField>`.
 /// Writes encoded `TEAffine<TECurveConfig>` to `out`. If the projective result
-/// has `z = 0` (no affine representative — reachable on incomplete TE forms
-/// like Bandersnatch when fed non-subgroup bases), writes `(0, -1)` instead:
-/// a universal TE point of order 2 that is guaranteed not to lie in any
-/// prime-order subgroup, so a downstream subgroup check on the result will
-/// reject the degenerate case rather than silently accept identity.
+/// has `z = 0`, writes the [`te_non_subgroup_fallback`] point `(0, -1)`
+/// instead. Honest msm with subgroup-valid bases never hits this branch.
 pub fn msm_te<T: TECurveConfig>(bases: &[u8], scalars: &[u8], out: &mut [u8]) -> Result<(), Error> {
 	let bases = decode::<Vec<TEAffine<T>>>(bases)?;
 	let scalars = decode::<Vec<T::ScalarField>>(scalars)?;
 	let res = T::msm(&bases, &scalars).map_err(|_| Error::LengthMismatch)?;
-	// `(0, -1)` is on every TE curve (`a·0 + 1 = 1 + 0`) and has order 2,
-	// so it never lies in any prime-order subgroup. Honest msm with
-	// subgroup-valid bases never hits this branch.
-	let non_subgroup = TEAffine::<T>::new_unchecked(T::BaseField::ZERO, -T::BaseField::ONE);
-	let aff = res.into_affine_safe().unwrap_or(non_subgroup);
+	let aff = res.into_affine_safe().unwrap_or_else(te_non_subgroup_fallback::<T>);
 	encode_into::<TEAffine<T>>(aff, out)
 }
 
@@ -254,14 +260,15 @@ pub fn msm_te<T: TECurveConfig>(bases: &[u8], scalars: &[u8], out: &mut [u8]) ->
 /// - `base`: `TEAffine<TECurveConfig>`.
 /// - `scalar`: `BigInteger`.
 /// Writes encoded `TEAffine<TECurveConfig>` to `out`. If the projective result
-/// has `z = 0` (no affine representative — reachable on incomplete TE forms
-/// like Bandersnatch when fed non-subgroup inputs), echoes `base` back
-/// unchanged.
+/// has `z = 0` (reachable on incomplete TE forms like Bandersnatch when fed
+/// non-subgroup inputs), writes the [`te_non_subgroup_fallback`] point
+/// `(0, -1)` instead. Same fallback `msm_te` uses, so callers see a
+/// single unified contract.
 pub fn mul_te<T: TECurveConfig>(base: &[u8], scalar: &[u8], out: &mut [u8]) -> Result<(), Error> {
 	let base_aff = decode::<TEAffine<T>>(base)?;
 	let scalar = decode::<BigInteger>(scalar)?;
 	let res = T::mul_affine(&base_aff, &scalar);
-	let aff = res.into_affine_safe().unwrap_or(base_aff);
+	let aff = res.into_affine_safe().unwrap_or_else(te_non_subgroup_fallback::<T>);
 	encode_into::<TEAffine<T>>(aff, out)
 }
 
