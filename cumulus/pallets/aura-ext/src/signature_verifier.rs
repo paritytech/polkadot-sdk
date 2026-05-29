@@ -42,6 +42,23 @@ where
 {
 	const V3_SCHEDULING_ENABLED: bool = true;
 
+	/// Verify that `signed_info` was produced by the Aura author eligible at the parachain slot
+	/// derived from `internal_scheduling_parent_header`.
+	///
+	/// Returns `true` only when every step succeeds; all error paths return `false` (fail-closed)
+	/// so the PVF rejects the candidate without panicking on adversarial input.
+	///
+	/// Steps:
+	/// 1. `signed_info.payload.internal_scheduling_parent` must equal the hash of the supplied
+	///    header. The caller (`check_scheduling`) has already verified the header hashes to the
+	///    derived internal scheduling parent, so this binds the signature to that same anchor.
+	/// 2. Read the relay slot from the BABE pre-digest of the header.
+	/// 3. Convert it to a parachain slot via `relay_slot * RELAY_CHAIN_SLOT_DURATION_MILLIS /
+	///    para_slot_duration`, using checked arithmetic.
+	/// 4. Pick the eligible author as `authorities[para_slot % authorities.len()]` from the cached
+	///    Aura authority set in this pallet.
+	/// 5. Decode the 64-byte signature blob as `<T::AuthorityId as RuntimeAppPublic>::Signature`
+	///    and verify it against the SCALE-encoded `SchedulingInfoPayload`.
 	fn verify(
 		signed_info: &SignedSchedulingInfo,
 		internal_scheduling_parent_header: &RelayChainHeader,
