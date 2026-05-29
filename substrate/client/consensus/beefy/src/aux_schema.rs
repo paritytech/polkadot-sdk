@@ -245,10 +245,7 @@ where
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::{
-		round::{compute_voting_weights, VoteWeight},
-		tests::BeefyTestNet,
-	};
+	use crate::{round::VoteWeight, tests::BeefyTestNet};
 	use codec::DecodeAll;
 	use sc_network_test::TestNetFactory;
 	use sp_consensus_beefy::{
@@ -354,7 +351,12 @@ pub(crate) mod tests {
 			Keyring::<TestAuthority>::Alice.public(),
 			Keyring::<TestAuthority>::Alice.sign(b"vote"),
 		);
-		let expected_voting_weights = compute_voting_weights(&validator_set);
+		// Hardcoded so the migration assertion is independent of the production helper that
+		// derives weights from a validator set.
+		let expected_voting_weights = BTreeMap::from([
+			(Keyring::<TestAuthority>::Alice.public(), 2 as VoteWeight),
+			(Keyring::<TestAuthority>::Bob.public(), 1 as VoteWeight),
+		]);
 		let tracker = v4::RoundTracker::<TestAuthority> { votes };
 		let mut rounds_map: BTreeMap<
 			Commitment<NumberFor<TestBlock>>,
