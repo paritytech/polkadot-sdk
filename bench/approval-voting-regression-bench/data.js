@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780040567391,
+  "lastUpdate": 1780071256528,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1fe5ee6ec35e44e773a2d81722a235bbaadba561",
-          "message": "[pallet-revive] improve revive genesis config (#9988)\n\n- Update test to make sure contracts created at genesis are callable\n- make sure that contracts are brought to existence by minting e.d first\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-18T10:38:44Z",
-          "tree_id": "f76b7080db20d6f489613da22260d1a155e76516",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1fe5ee6ec35e44e773a2d81722a235bbaadba561"
-        },
-        "date": 1760788514999,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52942.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63633.749999999985,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006120140590000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000019741659999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.53829888795,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000018566809999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000018566809999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.386415410309988,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4719973471700003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4893007666900013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000019741659999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.44308008130000154,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.956655307349985,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.669477963991046,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.480962879260001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution/test-environment",
             "value": 0.00002357015,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian@parity.io",
+            "name": "Adrian Catangiu",
+            "username": "acatangiu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "29e6c27e53c556fdc6a80b80ddc7d622c7c8f9ea",
+          "message": "pallet-beefy-mmr: align ECDSA→ETH failure sentinel between converter and consumer (#12214)\n\nBeefyEcdsaToEthereum returned an empty Vec<u8> on conversion failure,\nwhile compute_authority_set counted failures by matching [0u8; 20].\nExtract the sentinel into a shared FAILED_BEEFY_TO_ETH_ADDRESS constant\nreferenced by both sites.\nFix mock_beefy_id to derive valid ECDSA keys so tests exercise the happy\npath as well as the failure branch.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-29T14:29:47Z",
+          "tree_id": "b847239acbae6ac4dd78b16ec6ac9871d7d4096c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/29e6c27e53c556fdc6a80b80ddc7d622c7c8f9ea"
+        },
+        "date": 1780071227931,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52945.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63634.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.424766096409925,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.374339854252852,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.0000192953,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.792702172789998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.754050268459999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4934816905699853,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.830973346639998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.0000192953,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002028499,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.753653425739998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005121975880000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7947832163299496,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002028499,
             "unit": "seconds"
           }
         ]
