@@ -21,7 +21,8 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{
-		BlockNumber as RNumber, Hash as RHash, UMPSignal, MAX_HEAD_DATA_SIZE, UMP_SEPARATOR,
+		BlockNumber as RNumber, Hash as RHash, Header as RelayChainHeader, UMPSignal,
+		MAX_HEAD_DATA_SIZE, UMP_SEPARATOR,
 	},
 	ClaimQueueOffset, CoreSelector, CumulusDigestItem, ParachainBlockData, PersistedValidationData,
 	SignedSchedulingInfo, VerifySchedulingSignature,
@@ -146,29 +147,26 @@ where
 		PSC::RelayParentOffset::get(),
 	);
 
-	let verified_signed_info: Option<SignedSchedulingInfo> =
+	// Extract the resubmission inputs (signed payload + the ISP header the signer
+	// committed to) from the proof. The actual signature verification needs to read
+	// `Authorities::<T>` from parachain state, so it runs inside the first block's
+	// seal-verification externalities scope below — externalities aren't installed
+	// at this point.
+	let resubmission_inputs: Option<(SignedSchedulingInfo, RelayChainHeader)> =
 		validated_scheduling.filter(|r| r.is_resubmission).map(|_result| {
 			let proof = block_data.scheduling_proof().expect(
 				"`is_resubmission` implies a V3 scheduling proof; \
 				 enforced by `validate_v3_scheduling`; qed",
 			);
-			let signed_info = proof.signed_scheduling_info.as_ref().expect(
-				"`is_resubmission` implies a `signed_scheduling_info`; \
-				 enforced by `check_scheduling`; qed",
-			);
-			// Author eligibility is decided by the slot at `internal_scheduling_parent`,
-			// so the verifier needs that header — not the freshest one in the chain.
-			// `check_scheduling` has already verified the header hashes to the derived
-			// `internal_scheduling_parent`.
-			let isp_header = &proof.internal_scheduling_parent_header;
-			if !PSC::SchedulingSignatureVerifier::verify(signed_info, isp_header) {
-				panic!(
-					"V3 scheduling validation failed: invalid signed_scheduling_info \
-					 (ISP: {:?})",
-					isp_header.hash(),
-				);
-			}
-			signed_info.clone()
+			let signed_info = proof
+				.signed_scheduling_info
+				.as_ref()
+				.expect(
+					"`is_resubmission` implies a `signed_scheduling_info`; \
+					 enforced by `check_scheduling`; qed",
+				)
+				.clone();
+			(signed_info, proof.internal_scheduling_parent_header.clone())
 		});
 
 	// Initialize hashmaps randomness.
@@ -233,6 +231,21 @@ where
 			&mut Default::default(),
 			|| {
 				E::verify_and_remove_seal(&mut block);
+				// The scheduling-signature verifier reads `Authorities::<T>` from
+				// parachain state, which requires externalities — only available
+				// inside this scope. Run it once per PoV (on the first block) using
+				// the same authority set the seal was verified against.
+				if block_index == 0 {
+					if let Some((signed_info, isp_header)) = resubmission_inputs.as_ref() {
+						if !PSC::SchedulingSignatureVerifier::verify(signed_info, isp_header) {
+							panic!(
+								"V3 scheduling validation failed: invalid \
+								 signed_scheduling_info (ISP: {:?})",
+								isp_header.hash(),
+							);
+						}
+					}
+				}
 			},
 		);
 
@@ -377,7 +390,7 @@ where
 			.try_push(UMP_SEPARATOR)
 			.expect("UMPSignals does not fit in UMPMessages");
 
-		if let Some(signed_info) = verified_signed_info.as_ref() {
+		if let Some((signed_info, _)) = resubmission_inputs.as_ref() {
 			// Resubmission: the verified signed payload supplies the canonical
 			// (core_selector, claim_queue_offset, peer_id) — all three are signed by
 			// the resubmitting collator. Emit signals from those values rather than
