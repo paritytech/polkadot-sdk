@@ -561,7 +561,7 @@ pub trait PrecompileExt: sealing::Sealed {
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError>;
 
-	/// Returns a [`StorageAccessKind`] for the access at `key`, touching the
+	/// Returns a [`StorageAccessKind`] for the access at `key` and touches the
 	/// access list so subsequent accesses to the same slot bill as hot.
 	fn touch_storage_access_list(&mut self, transient: bool, key: &Key) -> StorageAccessKind;
 
@@ -1582,8 +1582,8 @@ where
 				transient_storage.rollback_transaction();
 			}
 		});
-		// First frame opens no checkpoint; log final metrics. Nested frames
-		// commit or roll back the checkpoint they opened.
+		// For the first frame, only log the final metrics since it doesn't open a
+		// checkpoint. Nested frames commit or roll back the checkpoint they opened.
 		if is_first_frame {
 			let m = self.access_list.metrics();
 			log::trace!(

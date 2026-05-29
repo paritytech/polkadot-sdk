@@ -261,7 +261,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 }
 
 impl RuntimeCosts {
-	/// Weight for opcodes without cold/hot pricing (everything except storage).
+	/// Base weight per `RuntimeCosts` variant.
 	fn opcode_weight<T: Config>(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match *self {
@@ -396,8 +396,7 @@ impl RuntimeCosts {
 	storage_cost_by_kind!(contains_storage, ContainsStorage, ContainsTransientStorage);
 
 	/// Cold/hot weight for storage opcodes; other variants fall through to
-	/// `opcode_weight`. Cold pairs add `access_list_touch_cold` +
-	/// `access_list_rollback_amortization`; hot pairs add `access_list_touch_hot`.
+	/// `opcode_weight`.
 	fn weight_with_access_list<T: Config>(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match self {
@@ -430,9 +429,7 @@ impl RuntimeCosts {
 		}
 	}
 
-	/// Cold/hot dispatch shared by `weight_with_access_list`'s storage arms. Cold pairs
-	/// layer `access_list_touch_cold` + `access_list_rollback_amortization` on top of the
-	/// substrate cost; hot pairs use the cheaper bench and add `access_list_touch_hot`.
+	/// Cold/hot dispatch shared by `weight_with_access_list`'s storage arms.
 	fn cold_hot_weight<T: Config>(is_cold: bool, cold: Weight, hot: Weight) -> Weight {
 		if is_cold {
 			cold.saturating_add(T::WeightInfo::access_list_touch_cold())

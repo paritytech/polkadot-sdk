@@ -153,7 +153,8 @@ fn store_helper<'ext, E: Ext>(
 
 	let value_to_store = if value.is_zero() { None } else { Some(value.to_big_endian().to_vec()) };
 	let new_bytes = value_to_store.as_ref().map(|v| v.len() as u32).unwrap_or(0);
-	let Ok(write_outcome) = set_function(interpreter.ext, &key, value_to_store, false) else {
+	let take_old = false;
+	let Ok(write_outcome) = set_function(interpreter.ext, &key, value_to_store, take_old) else {
 		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 	};
 

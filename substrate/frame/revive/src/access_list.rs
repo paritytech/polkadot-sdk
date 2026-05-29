@@ -30,8 +30,7 @@ use sp_core::{ConstU32, H160};
 use crate::limits;
 
 /// Inline-storage cap for `Slot::VarInline`. Sized to fit SCALE-encoded
-/// `Address`, `H256`, `AccountId32`, etc., with or without a 4-byte storage
-/// prefix; longer keys fall through to `Slot::VarLong`.
+/// `Address`, `H256`, `AccountId32`, etc., with or without a 4-byte storage prefix.
 pub const MAX_INLINE_KEY_LEN: usize = 36;
 
 /// Maximum number of distinct `(address, slot)` entries tracked in the
@@ -39,19 +38,13 @@ pub const MAX_INLINE_KEY_LEN: usize = 36;
 ///
 /// Bounds the working memory `AccessList` can allocate per transaction.
 /// EIP-2929 does not specify a structural cap; Ethereum relies on gas to
-/// implicitly bound growth, but that only bounds the cost paid by the
-/// caller, not the memory held on validators while the transaction runs.
+/// implicitly bound growth.
 ///
 /// Past this cap, new touches bill cold without being added to the set;
-/// slots already tracked continue to bill hot. This can only over-charge,
-/// never under-charge, and keeps the working memory of `AccessList`
-/// bounded.
+/// slots already tracked continue to bill hot.
 ///
 /// Memory grows discontinuously due to the runtime allocator (sc-allocator)
-/// rounding allocations up to power-of-2 size classes. The memory cost at
-/// small N is dominated by a constant overhead (~1.3 KB) that doesn't scale
-/// with the number of entries; the per-entry rate only dominates at larger
-/// N.
+/// rounding allocations up to power-of-2 size classes.
 ///
 /// - **best case**: `Slot::Fix` / `Slot::VarInline`
 /// - **worst case**: `Slot::VarLong` at 128 bytes
@@ -222,22 +215,22 @@ impl AccessList {
 	/// Past [`MAX_ACCESS_LIST_ENTRIES`], new entries are billed cold without
 	/// being inserted; previously-hot slots continue to bill hot.
 	pub fn touch(&mut self, entry: AccessEntry) -> bool {
-		if self.accessed.len() >= MAX_ACCESS_LIST_ENTRIES {
-			if self.accessed.contains(&entry) {
-				self.hot_count = self.hot_count.saturating_add(1);
-				return false;
+		let is_cold = if self.accessed.len() >= MAX_ACCESS_LIST_ENTRIES {
+			!self.accessed.contains(&entry)
+		} else {
+			let inserted = self.accessed.insert(entry.clone());
+			if inserted {
+				self.journal.push(entry);
 			}
+			inserted
+		};
+
+		if is_cold {
 			self.cold_count = self.cold_count.saturating_add(1);
-			return true;
-		}
-		if self.accessed.insert(entry.clone()) {
-			self.journal.push(entry);
-			self.cold_count = self.cold_count.saturating_add(1);
-			true
 		} else {
 			self.hot_count = self.hot_count.saturating_add(1);
-			false
 		}
+		is_cold
 	}
 
 	/// Per-transaction metrics snapshot.
@@ -272,9 +265,10 @@ impl AccessList {
 mod tests {
 	use super::*;
 
-	/// Full lifecycle: first frame + two nested frames, one commits, one reverts.
+	/// Entries committed from a nested frame still get dropped when the parent
+	/// frame later rolls back. First-frame touches survive throughout.
 	#[test]
-	fn lifecycle() {
+	fn nested_commit_then_parent_rollback_drops_all() {
 		let mut al = AccessList::new();
 		let (a, b, c, d) = (
 			AccessEntry { address: H160::zero(), slot: Slot::Fix([0xA; 32]) },
@@ -332,7 +326,6 @@ mod tests {
 		}
 		assert_eq!(al.len(), MAX_ACCESS_LIST_ENTRIES);
 
-		// A new entry past the cap bills cold and is NOT inserted.
 		let new_entry = AccessEntry {
 			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64),
 			slot: Slot::Fix([0; 32]),
@@ -341,10 +334,8 @@ mod tests {
 		assert_eq!(al.len(), MAX_ACCESS_LIST_ENTRIES, "set size stays at cap");
 		assert!(!al.is_hot(&new_entry), "past-cap entry is not tracked");
 
-		// Re-touching the same not-tracked entry bills cold again.
 		assert!(al.touch(new_entry), "past cap re-touch: still cold (not tracked)");
 
-		// An entry already in the set still bills hot.
 		let existing = AccessEntry { address: H160::zero(), slot: Slot::Fix([0; 32]) };
 		assert!(!al.touch(existing), "existing entry still hot at cap");
 	}
