@@ -50,6 +50,21 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_revive`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
+	// TODO: regenerate via `/cmd bench --runtime asset-hub-westend --pallet pallet_revive` once the
+	// post-master-merge tree compiles. Placeholder weights below are conservative upper bounds
+	// derived from comparable benches; safe to over-charge.
+	fn process_new_account_authorization(n: u32, ) -> Weight {
+		Weight::from_parts(30_000_000, 0)
+			.saturating_add(Weight::from_parts(20_000_000, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(n.into())))
+	}
+	fn process_existing_account_authorization(n: u32, ) -> Weight {
+		Weight::from_parts(20_000_000, 0)
+			.saturating_add(Weight::from_parts(10_000_000, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
+	}
 	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:0)
 	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	fn deletion_queue_batch() -> Weight {
