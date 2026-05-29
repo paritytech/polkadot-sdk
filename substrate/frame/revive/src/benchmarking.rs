@@ -2006,13 +2006,21 @@ mod benchmarks {
 	// `BTreeSet::insert/contains/remove` pay their full `O(log N)` cost). Without
 	// this setup the bench would measure `O(log 1)` and undercharge the cold/hot
 	// pricing added on top of every storage op.
+	// Worst-case slot: `Slot::VarLong` at max key length. Maximizes both
+	// per-clone allocation and per-comparison memcmp inside the `BTreeSet`.
+	fn worst_case_slot() -> crate::access_list::Slot {
+		Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
+			.expect("key fits STORAGE_KEY_BYTES bound; qed")
+			.to_slot()
+	}
+
 	fn near_full_access_list() -> crate::access_list::AccessList {
-		use crate::access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES, Slot};
+		use crate::access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES};
 		let mut al = AccessList::new();
 		for i in 0..(MAX_ACCESS_LIST_ENTRIES - 1) {
 			al.touch(AccessEntry {
 				address: H160::from_low_u64_be(i as u64),
-				slot: Slot::Fix([0u8; 32]),
+				slot: worst_case_slot(),
 			});
 		}
 		al
@@ -2021,10 +2029,10 @@ mod benchmarks {
 	// Cold touch: `BTreeSet::insert` (with clone) + journal `Vec::push`.
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold() -> Result<(), BenchmarkError> {
-		use crate::access_list::{AccessEntry, Slot};
+		use crate::access_list::AccessEntry;
 		let mut al = near_full_access_list();
 		let entry =
-			AccessEntry { address: H160::from_low_u64_be(u64::MAX), slot: Slot::Fix([0xFFu8; 32]) };
+			AccessEntry { address: H160::from_low_u64_be(u64::MAX), slot: worst_case_slot() };
 		let was_cold;
 		#[block]
 		{
@@ -2037,11 +2045,11 @@ mod benchmarks {
 	// Hot touch: `BTreeSet::contains` only (entry already present).
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot() -> Result<(), BenchmarkError> {
-		use crate::access_list::{AccessEntry, Slot};
+		use crate::access_list::AccessEntry;
 		let mut al = near_full_access_list();
 		// Re-touch a pre-loaded entry so the bench measures the hot path at full
 		// BTreeSet depth.
-		let entry = AccessEntry { address: H160::zero(), slot: Slot::Fix([0u8; 32]) };
+		let entry = AccessEntry { address: H160::zero(), slot: worst_case_slot() };
 		let was_cold;
 		#[block]
 		{
@@ -2054,16 +2062,15 @@ mod benchmarks {
 	// Per-entry rollback cost (`BTreeSet::remove` + journal `Vec` drain),
 	// isolated by rolling back a frame with exactly one journaled entry on top
 	// of a near-full `AccessList`. Prepaid by every cold touch since frame
-	// revert can't charge gas itself.
+	// revert can't charge gas itself; touches in frames that never revert
+	// over-pay, touches in frames that do are covered by the touching frame
+	// rather than the reverting one.
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_rollback_amortization() -> Result<(), BenchmarkError> {
-		use crate::access_list::{AccessEntry, Slot};
+		use crate::access_list::AccessEntry;
 		let mut al = near_full_access_list();
 		al.enter_frame();
-		al.touch(AccessEntry {
-			address: H160::from_low_u64_be(u64::MAX),
-			slot: Slot::Fix([0xFFu8; 32]),
-		});
+		al.touch(AccessEntry { address: H160::from_low_u64_be(u64::MAX), slot: worst_case_slot() });
 		#[block]
 		{
 			al.rollback_frame();

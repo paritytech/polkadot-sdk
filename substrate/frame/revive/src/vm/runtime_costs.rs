@@ -310,10 +310,8 @@ impl RuntimeCosts {
 					limits::EXTRA_EVENT_CHARGE_PER_BYTE.saturating_mul(len.into()).into(),
 					0,
 				)),
-			// Defensive fallback: `Token::weight` routes persistent storage through
-			// `weight_with_access_list` for exact cold/hot pricing. These arms only
-			// fire if `opcode_weight` is called directly, charging the base persistent
-			// cost (without the access-list overhead).
+			// Storage variants are dispatched by `weight_with_access_list`;
+			// these arms are a defensive fallback and should never fire.
 			SetStorage { new_bytes, old_bytes, .. } => {
 				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
 			},

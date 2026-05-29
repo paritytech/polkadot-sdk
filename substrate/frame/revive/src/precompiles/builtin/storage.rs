@@ -120,7 +120,14 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				};
 				let value = match outcome {
 					WriteOutcome::Taken(v) => v,
-					_ => Vec::new(),
+					WriteOutcome::New => Vec::new(),
+					WriteOutcome::Overwritten(_) => {
+						log::error!(
+							target: crate::LOG_TARGET,
+							"takeStorage: unexpected WriteOutcome::Overwritten with take_old=true",
+						);
+						Vec::new()
+					},
 				};
 				env.frame_meter_mut().adjust_weight(
 					charged,

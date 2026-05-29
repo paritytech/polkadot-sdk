@@ -982,12 +982,11 @@ pub mod pallet {
 			// The memory available in the block building runtime
 			let max_runtime_mem: u64 = T::RuntimeMemory::get().into();
 
-			// We allow ~57% of the runtime memory to be utilized by the contracts call
-			// stack, keeping the rest for other facilities, such as PoV, etc.
+			// ~57% of runtime memory for the contracts call stack; rest reserved for
+			// PoV etc. Was 50/50 before `MAX_ACCESS_LIST_BYTES` (~8 MiB) joined
+			// `MEMORY_REQUIRED`.
 			//
-			// TODO: revisit this split. Was 50/50 (divider = 2) before the access-list
-			// working memory was added to `MEMORY_REQUIRED`; temporarily bumped to
-			// 4/7 (~1.75).
+			// TODO: revisit when `MEMORY_REQUIRED` stabilises.
 			const CONTRACTS_MEMORY_NUM: u64 = 4;
 			const CONTRACTS_MEMORY_DEN: u64 = 7;
 

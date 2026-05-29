@@ -493,7 +493,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 
 		if value_len > max_size {
-			// Don't warm the slot on a failed validation.
+			// Don't warm the slot on a failed validation as the storage was not accessed.
 			let access_kind = self.ext.peek_storage_access_list(transient, &key);
 			self.charge_gas(RuntimeCosts::set_storage(access_kind, value_len, max_size))?;
 			return Err(Error::<E::T>::ValueTooLarge.into());
