@@ -19,7 +19,6 @@
 //! Schema for BEEFY state persisted in the aux-db.
 
 use crate::{
-	error::Error,
 	worker::{PersistedState, PersistedStateV4},
 	LOG_TARGET,
 };
@@ -34,12 +33,6 @@ const VERSION_KEY: &[u8] = b"beefy_auxschema_version";
 const WORKER_STATE_KEY: &[u8] = b"beefy_voter_state";
 
 const CURRENT_VERSION: u32 = 5;
-
-pub(crate) fn write_current_version<BE: AuxStore>(backend: &BE) -> Result<(), Error> {
-	debug!(target: LOG_TARGET, "🥩 write aux schema version {:?}", CURRENT_VERSION);
-	AuxStore::insert_aux(backend, &[(VERSION_KEY, CURRENT_VERSION.encode().as_slice())], &[])
-		.map_err(|e| Error::Backend(e.to_string()))
-}
 
 /// Write current schema version and voter state atomically.
 pub(crate) fn write_current_version_and_voter_state<
@@ -182,7 +175,12 @@ pub(crate) mod tests {
 		);
 
 		// populate version in db
-		write_current_version(&*backend).unwrap();
+		AuxStore::insert_aux(
+			&*backend,
+			&[(VERSION_KEY, CURRENT_VERSION.encode().as_slice())],
+			&[],
+		)
+		.unwrap();
 		// verify correct version is retrieved
 		assert_eq!(load_decode(&*backend, VERSION_KEY).unwrap(), Some(CURRENT_VERSION));
 
