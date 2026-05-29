@@ -676,7 +676,7 @@ where
 
 	/// Reconcile per-peer slot tracking against `new_dynamic_no_slot`. See
 	/// [`apply_no_slot_set_inner`] for details.
-	fn apply_no_slot_set(&mut self, new_dynamic_no_slot: &HashSet<PeerId>) {
+	fn apply_no_slot_set(&mut self, new_dynamic_no_slot: HashSet<PeerId>) {
 		let connected_peers = &self.peers;
 		apply_no_slot_set_inner(
 			|peer_id| {
@@ -686,13 +686,14 @@ where
 			},
 			&self.default_peers_set_no_slot_peers,
 			&self.dynamic_no_slot_peers,
-			new_dynamic_no_slot,
+			&new_dynamic_no_slot,
 			&mut self.default_peers_set_no_slot_connected_peers,
 			&mut self.num_in_peers,
 			self.max_in_peers,
 			&self.network_service,
 			&self.block_announce_protocol_name,
 		);
+		self.dynamic_no_slot_peers = new_dynamic_no_slot;
 	}
 
 	fn process_service_command(&mut self, command: ToServiceCommand<B>) {
@@ -780,10 +781,7 @@ where
 					self.peers.iter().map(|(peer_id, peer)| (*peer_id, peer.info)).collect();
 				let _ = tx.send(peers_info);
 			},
-			ToServiceCommand::SetNoSlotPeers(peers) => {
-				self.apply_no_slot_set(&peers);
-				self.dynamic_no_slot_peers = peers;
-			},
+			ToServiceCommand::SetNoSlotPeers(peers) => self.apply_no_slot_set(peers),
 			ToServiceCommand::OnBlockFinalized(hash, header) => {
 				self.strategy.on_block_finalized(&hash, *header.number())
 			},
