@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780071187430,
+  "lastUpdate": 1780091301975,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "db5c89ffb65503c766fec651cf4dabfa8c820398",
-          "message": "collator-protocol: cleanup connecting to backing group (#9178)\n\nThere are a few things wrong with the way we are handling connecting the\nvalidators in the backing group:\n1. `validators_to_connect` returns only validators in groups we already\nhave a block to advertise and the last backing groups we advertised\nsomething to, that means that if our backing group changes, but we don't\nhave anything to advertise it will continue to try to connect to the\nprevious backing group and validator will log this and disconnect it\nimmediately.\nOn the validator you will see`Declared as collator for unneeded para`\nand on the collator you will see Connect/Disconnect requests. This will\ncontinue every reconnect_timeout(4s from each active signal) until the\ncollator advertises something to the new backing group. This is\nharmless, but it pollutes both the collator and the validator logs.\n\n2. A collator connects only when it has something to advertise to its\nbacking group, this is a bit too late and we can improve it by\nconnecting the collators to the backing group immediately after they\nnotice their assigned backing group.\n\n3. Staying connected to the last backingroup we advertised something\ndoes not work for elastic scaling because we have different backing\ngroups and if the collator set is big enough that collators author just\none block per group rotation, then we will always connect just when we\nhave a candidate to advertise.\n\n## Proposal to fix:\n\nHave collators always connect to the backing group they got assigned to\nand keep the connection open until backing group changes. Also, try to\nconnect when have something to advertise or on timeout to have more\nchances of being correctly connected.\n\n## Todo\n- [x] Confirm that proposal does not have other undesired side effects.\n- [x] Tests\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-20T12:20:14Z",
-          "tree_id": "216cea35257ae4f3f415c840fb75efa5e2c7aebb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/db5c89ffb65503c766fec651cf4dabfa8c820398"
-        },
-        "date": 1760966854909,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.449981946299996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20626669276666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14512950689999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e1c5425b23f1b0c14974075c8dfa89f12959ed6e",
+          "message": "litep2p: bitswap metrics added (#12232)\n\nRelated to: paritytech/polkadot-sdk#12083 (bitswap section).\n\nAdds four Prometheus metrics to the litep2p bitswap inbound handler so\nwe can observe bitswap-driven load from network clients:\n\n| Metric | Type | Labels |\n|---|---|---|\n| `substrate_sub_libp2p_bitswap_entries_total` | counter | `outcome` ∈\n`block_served`, `have`, `dont_have`, `unsupported_cid` |\n| `substrate_sub_libp2p_bitswap_request_errors_total` | counter |\n`reason` ∈ `too_many_entries`, `client` |\n| `substrate_sub_libp2p_bitswap_inbound_request_duration_seconds` |\nhistogram | — |\n| `substrate_sub_libp2p_bitswap_response_bytes_total` | counter | — |\n\n`NetworkBackend::bitswap_server` gains an `Option<Registry>` parameter\n(mirroring `peer_store`). The libp2p backend impl accepts and ignores it\n— bitswap isn't wired into its request-response framework. Bitswap\nremains gated by `--ipfs-server`.\n\nLabels are pruned vs paritytech/polkadot-sdk#12083: `missing`/`bad_cid`\noutcomes and `decode`/`encode`/`invalid_wantlist` errors are absorbed by\nlitep2p before reaching the shim.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-29T19:19:46Z",
+          "tree_id": "b1a597f0f6c62389bb3f746583748340a2adb16f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e1c5425b23f1b0c14974075c8dfa89f12959ed6e"
+        },
+        "date": 1780091273378,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13968983089999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.065653539233333,
             "unit": "seconds"
           }
         ]
