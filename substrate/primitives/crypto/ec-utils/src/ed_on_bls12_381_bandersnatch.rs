@@ -155,7 +155,7 @@ mod tests {
 	use crate::utils::testing::*;
 	use ark_ec::twisted_edwards::{Projective as TEProjective, TECurveConfig};
 	use ark_ed_on_bls12_381_bandersnatch::{EdwardsConfig as RawConfig, Fq, Fr};
-	use ark_ff::{AdditiveGroup, Field, PrimeField, Zero};
+	use ark_ff::{AdditiveGroup, PrimeField, Zero};
 
 	#[test]
 	fn mul_works() {

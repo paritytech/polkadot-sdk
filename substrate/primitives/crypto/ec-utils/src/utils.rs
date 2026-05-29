@@ -234,7 +234,7 @@ pub fn mul_sw<T: SWCurveConfig>(base: &[u8], scalar: &[u8], out: &mut [u8]) -> R
 /// subgroup, so a downstream `is_in_correct_subgroup_*` check on the
 /// result will reject the degenerate case rather than silently accept
 /// an identity-like value.
-pub const fn te_non_subgroup_fallback<T: TECurveConfig>() -> TEAffine<T> {
+pub fn te_non_subgroup_fallback<T: TECurveConfig>() -> TEAffine<T> {
 	TEAffine::<T>::new_unchecked(T::BaseField::ZERO, -T::BaseField::ONE)
 }
 
