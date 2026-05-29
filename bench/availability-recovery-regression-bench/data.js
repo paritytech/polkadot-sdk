@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780040489618,
+  "lastUpdate": 1780071187430,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "590f23d2d83c2b79aabfda711a91fe0bdc5e64a0",
-          "message": "added baltathar, charleth, dorothy, and ethan to eth-rpc and revive-d… (#10041)\n\nadds more funded accounts to eth-rpc and dev-node\n\n---------\n\nCo-authored-by: Robert van Eerdewijk <robert@Roberts-MacBook-Pro.local>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-19T10:24:14Z",
-          "tree_id": "0628e0b6d5cb5f94fa40c93339cd24b13db5825b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/590f23d2d83c2b79aabfda711a91fe0bdc5e64a0"
-        },
-        "date": 1760873490564,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.376719094133334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2040694915666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13072341216666664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian@parity.io",
+            "name": "Adrian Catangiu",
+            "username": "acatangiu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "29e6c27e53c556fdc6a80b80ddc7d622c7c8f9ea",
+          "message": "pallet-beefy-mmr: align ECDSA→ETH failure sentinel between converter and consumer (#12214)\n\nBeefyEcdsaToEthereum returned an empty Vec<u8> on conversion failure,\nwhile compute_authority_set counted failures by matching [0u8; 20].\nExtract the sentinel into a shared FAILED_BEEFY_TO_ETH_ADDRESS constant\nreferenced by both sites.\nFix mock_beefy_id to derive valid ECDSA keys so tests exercise the happy\npath as well as the failure branch.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-29T14:29:47Z",
+          "tree_id": "b847239acbae6ac4dd78b16ec6ac9871d7d4096c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/29e6c27e53c556fdc6a80b80ddc7d622c7c8f9ea"
+        },
+        "date": 1780071159011,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.945908509699997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14512950689999998,
             "unit": "seconds"
           }
         ]
