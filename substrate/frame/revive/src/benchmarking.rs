@@ -627,6 +627,44 @@ mod benchmarks {
 		assert!(!T::AddressMapper::is_mapped(&caller));
 	}
 
+	/// Worst case: every input account is not eth-derived, not yet mapped, and
+	/// already carries an [`HoldReason::AddressMapping`] hold. The per-account
+	/// loop body in `batch_map_accounts` then both inserts the [`OriginalAccount`]
+	/// entry via `map_no_deposit_unchecked` *and* releases the existing hold.
+	#[benchmark(pov_mode = Measured)]
+	fn batch_map_accounts(a: Linear<0, 1024>) -> Result<(), BenchmarkError> {
+		use frame_benchmarking::v2::account;
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+
+		// Matches the deposit that `AccountId32Mapper::map` would normally take.
+		let deposit = T::DepositPerByte::get()
+			.saturating_mul(52u32.into())
+			.saturating_add(T::DepositPerItem::get());
+
+		let mut accounts = Vec::with_capacity(a as usize);
+		for i in 0..a {
+			let account_id: T::AccountId = account("to_map", i, 0);
+			T::Currency::set_balance(&account_id, caller_funding::<T>());
+			T::Currency::hold(&HoldReason::AddressMapping.into(), &account_id, deposit)?;
+			accounts.push(account_id);
+		}
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), accounts.clone());
+
+		for account_id in &accounts {
+			assert!(T::AddressMapper::is_mapped(account_id));
+			assert_eq!(
+				T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), account_id),
+				0u32.into(),
+			);
+		}
+
+		Ok(())
+	}
+
 	#[benchmark(pov_mode = Measured)]
 	fn dispatch_as_fallback_account() {
 		let caller = whitelisted_caller();
@@ -907,7 +945,7 @@ mod benchmarks {
 	fn seal_balance_of() {
 		let len = <sp_core::U256 as MaxEncodedLen>::max_encoded_len();
 		let account = account::<T::AccountId>("target", 0, 0);
-		<T as Config>::AddressMapper::map_no_deposit(&account).unwrap();
+		<T as Config>::AddressMapper::map_no_deposit_unchecked(&account).unwrap();
 
 		let address = T::AddressMapper::to_address(&account);
 		let balance = Pallet::<T>::min_balance() * 2u32.into();
@@ -1285,7 +1323,7 @@ mod benchmarks {
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
-		T::AddressMapper::map_no_deposit(&beneficiary)?;
+		T::AddressMapper::map_no_deposit_unchecked(&beneficiary)?;
 
 		build_runtime!(_runtime, instance, _memory: [vec![0u8; 0], ]);
 		let code_hash = instance.info()?.code_hash;
@@ -1579,7 +1617,7 @@ mod benchmarks {
 		}
 
 		let (mut ext, _) = call_setup.ext();
-		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -1733,7 +1771,7 @@ mod benchmarks {
 		}
 
 		let (mut ext, _) = call_setup.ext();
-		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -1813,7 +1851,7 @@ mod benchmarks {
 		}
 
 		let (mut ext, _) = call_setup.ext();
-		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -2046,7 +2084,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
-		ext.set_transient_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;
@@ -2117,7 +2155,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
-		ext.set_transient_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;

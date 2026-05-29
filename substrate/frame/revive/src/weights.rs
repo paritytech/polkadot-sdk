@@ -90,6 +90,7 @@ pub trait WeightInfo {
 	fn set_code() -> Weight;
 	fn map_account() -> Weight;
 	fn unmap_account() -> Weight;
+	fn batch_map_accounts(a: u32, ) -> Weight;
 	fn dispatch_as_fallback_account() -> Weight;
 	fn noop_host_fn(r: u32, ) -> Weight;
 	fn seal_caller() -> Weight;
@@ -570,6 +571,24 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(42_044_000, 3558)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	/// Storage: `Revive::OriginalAccount` (r:1024 w:1024)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `Balances::Holds` (r:1024 w:1024)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(535), added: 3010, mode: `Measured`)
+	/// The range of component `a` is `[0, 1024]`.
+	fn batch_map_accounts(a: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `563 + a * (209 ±0)`
+		//  Estimated: `4008 + a * (2684 ±0)`
+		// Minimum execution time: 10_249_000 picoseconds.
+		Weight::from_parts(10_692_000, 4008)
+			// Standard Error: 38_371
+			.saturating_add(Weight::from_parts(46_892_848, 0).saturating_mul(a.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().reads((3_u64).saturating_mul(a.into())))
+			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(a.into())))
+			.saturating_add(Weight::from_parts(0, 2684).saturating_mul(a.into()))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
@@ -2014,6 +2033,24 @@ impl WeightInfo for () {
 		Weight::from_parts(42_044_000, 3558)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	/// Storage: `Revive::OriginalAccount` (r:1024 w:1024)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `Balances::Holds` (r:1024 w:1024)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(535), added: 3010, mode: `Measured`)
+	/// The range of component `a` is `[0, 1024]`.
+	fn batch_map_accounts(a: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `563 + a * (209 ±0)`
+		//  Estimated: `4008 + a * (2684 ±0)`
+		// Minimum execution time: 10_249_000 picoseconds.
+		Weight::from_parts(10_692_000, 4008)
+			// Standard Error: 38_371
+			.saturating_add(Weight::from_parts(46_892_848, 0).saturating_mul(a.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().reads((3_u64).saturating_mul(a.into())))
+			.saturating_add(RocksDbWeight::get().writes((3_u64).saturating_mul(a.into())))
+			.saturating_add(Weight::from_parts(0, 2684).saturating_mul(a.into()))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
