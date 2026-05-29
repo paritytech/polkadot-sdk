@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780040528166,
+  "lastUpdate": 1780071221983,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ffe5417da3c44afb9e5a063794a586d9073ff09c",
-          "message": "Fix check-pr-author (#10050)",
-          "timestamp": "2025-10-18T18:21:45Z",
-          "tree_id": "fc7229e7a608611d3dd8fef42275fb2f07ad2801",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ffe5417da3c44afb9e5a063794a586d9073ff09c"
-        },
-        "date": 1760815771090,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013342928759999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02256212497333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15881314350666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0072121669933333365,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.023695790633333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian@parity.io",
+            "name": "Adrian Catangiu",
+            "username": "acatangiu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "29e6c27e53c556fdc6a80b80ddc7d622c7c8f9ea",
+          "message": "pallet-beefy-mmr: align ECDSA→ETH failure sentinel between converter and consumer (#12214)\n\nBeefyEcdsaToEthereum returned an empty Vec<u8> on conversion failure,\nwhile compute_authority_set counted failures by matching [0u8; 20].\nExtract the sentinel into a shared FAILED_BEEFY_TO_ETH_ADDRESS constant\nreferenced by both sites.\nFix mock_beefy_id to derive valid ECDSA keys so tests exercise the happy\npath as well as the failure branch.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-29T14:29:47Z",
+          "tree_id": "b847239acbae6ac4dd78b16ec6ac9871d7d4096c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/29e6c27e53c556fdc6a80b80ddc7d622c7c8f9ea"
+        },
+        "date": 1780071193922,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010186647493333303,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023794402966666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14415060966666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007942830226666664,
             "unit": "seconds"
           }
         ]
