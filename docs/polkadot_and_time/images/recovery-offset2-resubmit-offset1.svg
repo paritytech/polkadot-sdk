@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1050 460" font-family="sans-serif" font-size="14">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 460" font-family="sans-serif" font-size="14">
   <style>
     .axis { stroke: #333; stroke-width: 1.5; }
     .grid { stroke: #bbb; stroke-dasharray: 4,3; }
@@ -7,96 +7,62 @@
     .pending { fill: #d4a017; }
     .ci { fill: #cfe4ff; stroke: #3a7bd5; }
     .cinext { fill: #efe6ff; stroke: #6a4fb5; }
-    .seal { fill: #dfd; stroke: #2e8b57; }
-    .seal-text { fill: #2e8b57; font-weight: bold; }
+    .deadline { fill: #fee; stroke: #c00; }
+    .deadline-text { fill: #c00; font-weight: bold; }
     .title { font-weight: bold; font-size: 17px; fill: #2e8b57; }
     .caption { font-size: 13px; fill: #333; }
     .label { font-size: 12px; }
     .small { font-size: 10px; fill: #666; }
   </style>
 
-  <!--
-    Time map (1 s = 48.33 px, slot = 290 px):
-      80  → t=0  (slot S+1 start)
-      370 → t=6  (slot S+2 start)
-      660 → t=12 (slot S+3 start)
-      950 → t=18 (slot S+3 end; N+3 seals)
-    Build sub-times:
-      Y advert  0..2  → 80..177
-      V1 backs Y 2..4  → 177..274
-      Y+1 advert 2..4 → 177..274
-      Y+2 advert 4..6 → 274..370
-      V3 validates Y+2 ~4..6 → 274..370 (parallel to advert) — keep simple: shown as "validates" block 4..6
-      C_{i+1} resubmits Y+1 6..8 (370..467)
-      V_1' backs Y+1 8..10 (467..564)
-      V_3 statement chains in (Y+1 now backed) 10..12 (564..660)
-  -->
+  <text x="450" y="26" text-anchor="middle" class="title">Resubmission on the same core (sticky) — fits before N+3's RC author starts</text>
 
-  <text x="525" y="26" text-anchor="middle" class="title">Offset 2 for submissions, offset 1 for resubmissions — gap filled before N+3 seals</text>
-
-  <!-- axes + slot boundaries -->
-  <line x1="80" y1="380" x2="950" y2="380" class="axis"/>
+  <line x1="80" y1="380" x2="800" y2="380" class="axis"/>
   <line x1="80"  y1="60" x2="80"  y2="380" class="axis"/>
-  <line x1="370" y1="60" x2="370" y2="380" class="grid"/>
-  <line x1="660" y1="60" x2="660" y2="380" class="grid"/>
-  <line x1="950" y1="60" x2="950" y2="380" class="axis"/>
+  <line x1="440" y1="60" x2="440" y2="380" class="grid"/>
+  <line x1="800" y1="60" x2="800" y2="380" class="axis" stroke="#c00" stroke-width="2"/>
 
-  <text x="225" y="48" text-anchor="middle" class="label" font-weight="bold">slot S+1</text>
-  <text x="515" y="48" text-anchor="middle" class="label" font-weight="bold">slot S+2</text>
-  <text x="805" y="48" text-anchor="middle" class="label" font-weight="bold">slot S+3 — N+3 is built</text>
+  <text x="260" y="48" text-anchor="middle" class="label" font-weight="bold">slot S+1 — C_i builds</text>
+  <text x="620" y="48" text-anchor="middle" class="label" font-weight="bold">slot S+2 — resubmission window</text>
 
-  <!-- N+3 seal -->
-  <rect x="930" y="68" width="40" height="22" class="seal"/>
-  <text x="950" y="84" text-anchor="middle" class="seal-text" font-size="11">N+3 seals</text>
+  <rect x="780" y="68" width="40" height="22" class="deadline"/>
+  <text x="800" y="84" text-anchor="middle" class="deadline-text" font-size="11">N+3 starts</text>
 
-  <!-- V_1 row: Y advert 0..2, V1 backs Y 2..4, arrow to N+3 -->
   <text x="60" y="135" text-anchor="end" class="label" font-weight="bold">V₁</text>
-  <rect x="80"  y="120" width="97" height="26" class="ci"/>
-  <text x="128" y="137" text-anchor="middle" class="label">Y advert</text>
-  <rect x="177" y="120" width="97" height="26" class="ci"/>
-  <text x="225" y="137" text-anchor="middle" class="label">V₁ backs Y</text>
-  <line x1="274" y1="133" x2="930" y2="133" stroke="#2e8b57" stroke-width="2"/>
-  <polygon points="925,128 935,133 925,138" class="ok"/>
-  <text x="600" y="125" text-anchor="middle" class="label ok">Y → N+3 ✓ (offset 2)</text>
+  <rect x="80"  y="120" width="120" height="26" class="ci"/>
+  <text x="140" y="137" text-anchor="middle" class="label">Y advert</text>
+  <rect x="200" y="120" width="240" height="26" class="ci"/>
+  <text x="320" y="137" text-anchor="middle" class="label">V₁ validates Y</text>
+  <line x1="440" y1="133" x2="780" y2="133" stroke="#2e8b57" stroke-width="2"/>
+  <polygon points="775,128 785,133 775,138" class="ok"/>
+  <text x="610" y="125" text-anchor="middle" class="label ok">Y → N+3 ✓</text>
 
-  <!-- V_2: Y+1 advert 2..4, V_2 fails -->
   <text x="60" y="195" text-anchor="end" class="label" font-weight="bold">V₂</text>
-  <rect x="177" y="180" width="97" height="26" fill="#ffe2e2" stroke="#c00"/>
-  <text x="225" y="197" text-anchor="middle" class="label">Y+1 advert</text>
-  <text x="282" y="197" class="label bad" font-weight="bold">✗ V₂ fails — Y+1 lost</text>
+  <rect x="200" y="180" width="120" height="26" fill="#ffe2e2" stroke="#c00"/>
+  <text x="260" y="197" text-anchor="middle" class="label">Y+1 advert</text>
+  <text x="335" y="197" class="label bad" font-weight="bold">✗ V₂ fails — Y+1 lost</text>
 
-  <!-- V_3 row: Y+2 advert 4..6, V_3 validates 6..8 (370..467), statement held until parent on chain -->
   <text x="60" y="255" text-anchor="end" class="label" font-weight="bold">V₃</text>
-  <rect x="274" y="240" width="96" height="26" fill="#fff2cc" stroke="#d4a017"/>
-  <text x="322" y="257" text-anchor="middle" class="label">Y+2 advert</text>
-  <rect x="370" y="240" width="97" height="26" fill="#fff2cc" stroke="#d4a017"/>
-  <text x="418" y="257" text-anchor="middle" class="label">V₃ validates Y+2</text>
-  <rect x="467" y="240" width="193" height="26" fill="#fff2cc" stroke="#d4a017" stroke-dasharray="3,2"/>
-  <text x="563" y="257" text-anchor="middle" class="label pending">statement held (parent off-chain)</text>
-  <line x1="660" y1="253" x2="930" y2="253" stroke="#2e8b57" stroke-width="2"/>
-  <polygon points="925,248 935,253 925,258" class="ok"/>
-  <text x="795" y="245" text-anchor="middle" class="label ok">Y+2 → N+3 ✓ (parent now on chain)</text>
+  <rect x="320" y="240" width="120" height="26" fill="#fff2cc" stroke="#d4a017"/>
+  <text x="380" y="257" text-anchor="middle" class="label">Y+2 advert</text>
+  <rect x="440" y="240" width="120" height="26" fill="#fff2cc" stroke="#d4a017"/>
+  <text x="500" y="257" text-anchor="middle" class="label">validate</text>
+  <rect x="560" y="240" width="240" height="26" fill="#fff2cc" stroke="#d4a017" stroke-dasharray="3,2"/>
+  <text x="680" y="257" text-anchor="middle" class="label pending">statement held (parent off-chain)</text>
 
-  <!-- C_{i+1}: resubmit Y+1 6..8 (370..467), V_1' backs Y+1 8..10 (467..564) -->
-  <text x="60" y="325" text-anchor="end" class="label" font-weight="bold">C_(i+1)</text>
-  <rect x="370" y="310" width="97" height="26" class="cinext"/>
-  <text x="418" y="327" text-anchor="middle" class="label" font-size="11">resubmit Y+1 off1</text>
-  <rect x="467" y="310" width="97" height="26" class="ci"/>
-  <text x="515" y="327" text-anchor="middle" class="label">V₁' backs Y+1</text>
-  <line x1="564" y1="323" x2="930" y2="323" stroke="#2e8b57" stroke-width="2"/>
-  <polygon points="925,318 935,323 925,328" class="ok"/>
-  <text x="747" y="315" text-anchor="middle" class="label ok">Y+1 → N+3 ✓ (offset-1 overlap)</text>
+  <text x="60" y="325" text-anchor="end" class="label" font-weight="bold">V₂' (C_(i+1))</text>
+  <rect x="440" y="310" width="240" height="26" class="ci"/>
+  <text x="560" y="327" text-anchor="middle" class="label">V₂' validates Y+1 (re-advertised, sticky core)</text>
+  <line x1="680" y1="323" x2="780" y2="323" stroke="#2e8b57" stroke-width="2"/>
+  <polygon points="775,318 785,323 775,328" class="ok"/>
+  <text x="730" y="315" text-anchor="middle" class="label ok">→ N+3 ✓</text>
 
-  <!-- arrow from Y+1 backed → V_3's pending statement chains in -->
-  <path d="M 564 310 Q 564 290 564 266" stroke="#6a4fb5" stroke-width="1.5" fill="none" stroke-dasharray="3,2"/>
-  <polygon points="559,272 564,266 569,272" fill="#6a4fb5"/>
-  <text x="370" y="358" class="small" fill="#6a4fb5">Y+1 backed → V₃'s pending Y+2 statement now has parent on chain → included in N+3</text>
+  <path d="M 680 310 Q 680 290 680 266" stroke="#6a4fb5" stroke-width="1.5" fill="none" stroke-dasharray="3,2"/>
+  <polygon points="675,272 680,266 685,272" fill="#6a4fb5"/>
 
-  <!-- bottom labels -->
   <text x="80"  y="402" class="small">t = 0</text>
-  <text x="370" y="402" text-anchor="middle" class="small">S+1 → S+2</text>
-  <text x="660" y="402" text-anchor="middle" class="small">S+2 → S+3</text>
-  <text x="950" y="402" text-anchor="end" class="small">S+3 end</text>
+  <text x="440" y="402" text-anchor="middle" class="small">+6 s (S+1 → S+2)</text>
+  <text x="800" y="402" text-anchor="middle" class="small" font-weight="bold" fill="#c00">+12 s (N+3 starts)</text>
 
-  <text x="525" y="428" text-anchor="middle" class="caption" font-weight="bold" fill="#2e8b57">Cost: +1 slot latency only for the first-of-slot ES block (the rest were already at offset 2; non-ES chains stay at offset 1).</text>
+  <text x="450" y="430" text-anchor="middle" class="caption" font-weight="bold" fill="#2e8b57">All 3 cores of N+3 filled — no core lost. Naive freshness + core stickiness suffice.</text>
 </svg>

@@ -127,7 +127,7 @@ Async backing's property: a parachain block no longer has to land in the *child*
 
 What it did not address: **there is still no minimum on how early a candidate can be backed.** Pre-ES this didn't bite — only one candidate per scheduling parent ever existed, so its tail had the slot to itself.
 
-Elastic scaling produces N candidates per scheduling parent. Their tails now share the slot's propagation window, and the absence of a floor lets all N target the same RC block instead of splitting across the next two.
+Elastic scaling produces N candidates per scheduling parent. Their tails now share the slot's propagation window, and the absence of a floor lets all N race the same RC block with compressed budgets.
 
 ---
 
@@ -144,7 +144,7 @@ Elastic scaling produces N candidates per scheduling parent. Their tails now sha
 
 ![tail compression](images/tail-compression.svg)
 
-**This is the state right now on mainnet.** Per-candidate budget: `2 s build + 4 s tail = 6 s`. Today p1 is at budget, p2 half, p3 zero. Floor would split candidates across two RC blocks → every candidate gets full tail.
+**This is the state right now on mainnet.** Per-candidate budget: `2 s build + 4 s tail = 6 s`. Today p1 is at budget, p2 half, p3 zero. The v3 fix (see slide 21) aligns the contract with the worst case — all 3 candidates target an RC block one slot further out, so every candidate gets a full tail with margin to spare.
 
 ---
 
@@ -190,7 +190,7 @@ This is the easy case.
 
 Empty PoVs. Small ecosystem. Cluster-friendly validator distribution. And we are already breaking the budget.
 
-The moment blocks fill, PoV validation takes its full 2s, or the parachain count grows — the situation only gets worse.
+The moment blocks fill, PoV validation takes its full 2s, or the parachain count grows — the situation only gets worse and crucially - behavior is load dependent/unstable.
 
 **The system is failing the workload it was sized for.**
 
@@ -228,32 +228,33 @@ Each layer makes parachain timing more well-defined.
 1. **Build on the relay chain block of the last *finished* slot.**
    No more racing the current-slot RC block. Honor the protocol budget for RC block propagation.
 2. **Validators enforce this.** Parachain slots become well-defined; the #11621 / #11453 bug class is structurally impossible.
-3. **(#12063) Enforce the minimum claim-queue offset on the relay chain.** A candidate's declared `cq_offset` is a *floor*. Backing can happen *at or after*, never *before*.
+3. **(#12063) Enforce the minimum claim-queue offset on the relay chain.** A candidate's declared `cq_offset` is a *floor*. Backing can happen *at or after*, never *before*. The floor is enabling infrastructure: it lets the collator-side rule (next slide) deliver predictable timing and a clean recovery channel.
 
 Layers (1) and (2) are already in v3. (3) is the proposal.
 
 ---
 
-## The collator-side rule for elastic scaling
+## The collator-side rule
 
-Given the layer-3 floor, the collator picks its declared offset based on where it is in the slot:
+| Case | `cq_offset` | Targets |
+|------|-------------|---------|
+| Normal submission (ES) | **2** | great-grandchild of scheduling parent |
+| Resubmission (first core of next slot only) | **1** | same RC block as previous slot's offset 2 |
+| Non-ES chains | 1 | grandchild |
 
-| Time into slot | `cq_offset` | Targets                    |
-|----------------|-------------|----------------------------|
-| 0 – 2 s        | 1           | grandchild of scheduling parent |
-| 2 – 6 s        | 2           | great-grandchild           |
+**Why always offset 2 for ES:** aligns the protocol-minimum timing contract with the *worst-case last core*. Every candidate gets a full slot-sized propagation budget by construction — no compression.
 
-Under one block per 2 s, the first-of-slot candidate qualifies for offset 1; the other two roll into offset 2.
+**Why offset 1 only for resubmission:** valid only after a new scheduling parent has arrived, i.e. once the next slot has started. In practice = the *first core of the next collator's slot*. This is the recovery channel — same target RC block as the previous slot's offset-2 candidates, one slot earlier, so it lands before the target seals.
 
-**Steady state: 3 candidates per RC block. Full ES throughput.** Each candidate's full `2 s build + 4 s tail` fits before the target RC block's slot starts — the slot itself is then free for RC-author inclusion. No candidate is under budget.
+Cost: +1 slot inclusion latency for the first-of-slot ES block (the rest were already at offset 2). Non-ES chains can stay at offset 1.
 
 ---
 
-## Steady-state v3 elastic scaling
+## The wall-clock budget under always-offset-2
 
-![v3 elastic scaling timing](images/es-3cores.png)
+![time budget](images/time-budget-offset-2.svg)
 
-Same steady-state throughput (3 candidates per RC block). **Different timing contract.** Each candidate now has a full slot of tail before its target RC block seals — reachable for validators in LATAM.
+All 3 cores' candidates target N+3. Cores 1/2/3 finish with 6/4/2 s slack before N+3's RC author starts. Resubmission earliest re-advert at t=8 (Y+1 was advertised at t=4; freshness threshold 4 s) → 4 s tail → lands at t=12 exactly. **Zero slack, but it fits.**
 
 ---
 
@@ -286,7 +287,7 @@ instead of one-per-slot. That's it.
 The rewards angle is real, but it's a downstream symptom. The mechanism upstream is *structural exclusion*: non-EU validators produce valid statements that never make it into the inherent, because the backing window closes before their statements arrive. They aren't "paid less for slow work" — their work is correct, just discarded.
 
 Fixing rewards alone:
-- doesn't restore the **prediction model** that #11903, speculative XCM, and agile coretime all build on.
+- doesn't restore the **prediction model** that #11903, speculative XCM, and agile coretime all build on. Without it, predictions become load dependent and unreliable.
 - doesn't remove the centralizing pressure (rational operators still move to EU to avoid being structurally cut off).
 
 The time model has to be right *before* the rewards layer can be sensible.
@@ -306,36 +307,19 @@ The fix has to be on the time model, not the threshold.
 
 ---
 
-## "Backing is async. This is by design."
-
-(Andrei)
-
-What async backing actually gave us: **a parachain block no longer has to go directly into the child of its scheduling parent.** It can land later — grandchild, great-grandchild — within the unincluded segment.
-
-The unincluded segment itself encodes a *later-than* contract: a child candidate cannot be backed before its parent is backed, only after. Async backing is built on this contract, not free of it.
-
-The `cq_offset` floor is the same shape — a minimum, not a deadline. Fully consistent. The gap today is that the minimum for "where on the relay chain a candidate is allowed to land" simply isn't enforced.
-
----
-
 ## "This is just a slowdown"
 
 (Andrei)
 
-Steady state, 3 cores:
+Steady state, 3 cores: same throughput in both cases (3 per RC block). The change is *which* RC block.
 
-| Scenario           | Candidates / RC block |
-|--------------------|------------------------|
-| Today              | 3                      |
-| With minimum floor | 3                      |
+Today (no floor, no offset rule): tails 4 s / 2 s / **0 s**. Only p1 in budget - where things land is unstable/load dependent.
 
-Same throughput. The change is *which RC block* each candidate lands in, not *how many*.
+With v3 + always-offset-2: all 3 candidates target the same RC block 3 slots out. Each gets a full slot-sized tail. The worst core still finishes with margin to spare; the resubmission channel fits inside the same envelope.
 
-Today (3 candidates targeting same RC block): tails are 4 s / 2 s / **0 s**. p3 is structurally below budget.
+Cost: **+1 slot inclusion latency for the first-of-slot ES block** (the others were already at offset 2). Non-ES chains are unaffected.
 
-With floor (split across 2 RC blocks): each tail is the full 4 s. Every candidate runs the race the protocol sized for.
-
-Not a slowdown. A budget restoration.
+Not a slowdown. A budget restoration that buys recovery for free.
 
 ---
 
@@ -349,69 +333,30 @@ Allowing candidates to land *later* than declared is a useful **optimization** f
 
 What is **not** fine: allowing candidates to land *earlier* than declared. That breaks the slot budget and burns non-EU validators. The floor closes that direction. Late-tolerance stays.
 
+Note: the floor alone is necessary but not sufficient. The full proposal pairs it with the always-offset-2 collator rule (slide 21) so that even when failures happen, there is wall-clock margin left for the next slot's resubmission to land.
+
 ---
 
 ## Part 7 — What this unblocks
 
 ---
 
-## #11903 resubmissions: naive freshness needs slack
+## #11903 resubmission protocol — two simple rules
 
-V4 collator protocol (#11903): collator advertises the **whole unincluded segment** to a backing group. Validator picks the first non-dedup entry. Re-advertising across groups omits bundles fresher than ~4 s (otherwise the validator may not yet know it via gossip → redundant fetches).
+**Rule 1 — Freshness**: advertise the whole unincluded segment, but **omit** bundles younger than ~4 s. Below threshold the validator may not yet know via gossip → fetching it again wastes a core.
 
-"Naive" recovery = freshness rule + output-head dedup. No tracking of who fetched what.
+**Rule 2 — Core affinity**: each bundle stays on the **core it was first advertised on**. Re-advertisements keep the same `core_index`.
 
-The catch: when a candidate fails, by the time the *next* slot's collator notices, the original target RC block is about to seal — too late to refill.
+**Cadence**: collator advertises **every ~2 s on every core**, sending the unincluded segment for that core. When a new block becomes available on a core, it joins the segment for that core.
 
-The floor doesn't fix this on its own; it makes the problem **addressable**.
-
----
-
-## Fix: offset 2 for submissions, offset 1 for resubmissions
-
-![offset-2 + resubmit channel](images/recovery-offset2-resubmit-offset1.svg)
-
-Normal builds at offset 2 → one extra slot of buffer. Resubmissions at offset 1 → same RC block, one slot earlier, fills gaps in time.
-
-Cost: only the **first-of-slot** elastic-scaling block pays +1 slot latency (the rest were already at offset 2). Non-ES chains can keep offset 1. Benefit: naive freshness recovers gaps.
 
 ---
 
-## Speculative messaging: must not depend on the future
+## Recovery: Y+1 fails, picked up next slot
 
-Speculative messaging (#10449): receiver block **B** consumes messages from sender block **A** by committing to A's `provides` root. The relay chain matches `B.requires == A.provides` at inclusion. For matching to succeed, **A must be backed no later than B**.
+![recovery via core-affinity re-advertisement](images/recovery-offset2-resubmit-offset1.svg)
 
-The hard rule the receiver must respect: *do not depend on something that will only be backed later than you*.
-
-How the floor enables it:
-
-- Each sender A<sub>i</sub> declares `cq_offset = k_i`. Floor: A<sub>i</sub> is backed at depth ≥ k<sub>i</sub>, never earlier.
-- B picks its own `cq_offset = k_B ≥ max(k_i)`. Floor: B is backed at depth ≥ k<sub>B</sub>, never earlier.
-- Combined: B cannot end up backed *before* any sender it depends on.
-
-Without the floor: B's declared k<sub>B</sub> is best-effort. B may land at any depth ≥ 0. If B lands before its senders, `B.requires` references commitments not yet on chain — matching fails, pipeline stalls.
-
-The floor turns declared depth from "prediction" into a **commitment the receiver can build on**.
-
----
-
-## Agile coretime: each para owns exactly one depth
-
-Claim queue with elastic scaling (one para):
-
-```
-[A, A, A, A]   ← any depth works; the para owns all of them
-```
-
-Claim queue with agile coretime / core sharing:
-
-```
-[A, B, C, D]   ← each para owns exactly one depth
-```
-
-Once core sharing is in play, parachains aren't generic queue-fillers — each targets the specific depth it was assigned. That's the basic motivation for thinking carefully about which depth a candidate is supposed to land in, period.
-
-(For this specific case, the depth assignment itself already prevents earlier landings — only the assigned para can use its slot. The floor's value here is structural clarity, not blocking misbehavior.)
+Y+1 fails on V₂. Y+2 sits validated at V₃, statement held. C_(i+1) re-advertises Y+1 (same core, > 4 s old). V₂' fetches and backs. Y+1 chain-backed → Y+2's held statement now has its parent on chain → chain-backed in N+3. **All 3 cores of N+3 filled. No core lost.**
 
 ---
 
@@ -426,7 +371,7 @@ Once core sharing is in play, parachains aren't generic queue-fillers — each t
 - Elastic scaling = N propagation problems = N slots' worth of budget.
 - Today's behavior squeezes N into 1. The data shows the cost: 14× MVR penalty for non-EU.
 - v3 layers 1 & 2 already fix the parachain slot definition. Layer 3 (#12063) closes the contract: minimum claim-queue offset enforced.
-- The change is small. The downstream simplification is large.
+- The change is small and it lets us reason properly about timing.
 
 ---
 
