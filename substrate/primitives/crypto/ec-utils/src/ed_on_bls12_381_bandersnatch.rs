@@ -153,7 +153,7 @@ pub trait HostCalls {
 mod tests {
 	use super::*;
 	use crate::utils::testing::*;
-	use ark_ec::twisted_edwards::{Projective as TEProjective, TECurveConfig};
+	use ark_ec::twisted_edwards::{Affine as TEAffine, Projective as TEProjective, TECurveConfig};
 	use ark_ed_on_bls12_381_bandersnatch::{EdwardsConfig as RawConfig, Fq, Fr};
 	use ark_ff::{AdditiveGroup, PrimeField, Zero};
 
@@ -184,49 +184,40 @@ mod tests {
 		te_non_subgroup_fallback::<EdwardsConfig>().into_group()
 	}
 
-	/// `y = 2` is on the curve but outside the prime-order subgroup
-	/// (cofactor admixture). Multiplying it by `Fr::MODULUS` makes the
-	/// HWCD arithmetic land at `z = 0`. The host call must not panic and
-	/// must write the unified `(0, -1)` fallback into the output buffer.
+	/// The cofactor-admixed `y = 2` non-subgroup point used as the
+	/// degenerate trigger throughout the tests below. Generic so the same
+	/// constructor serves both `RawConfig` (for raw-arithmetic precondition
+	/// checks) and `EdwardsConfig<HostHooks>` (the runtime-facing type).
+	fn y2_non_subgroup<P: TECurveConfig<BaseField = Fq>>() -> TEAffine<P> {
+		TEAffine::<P>::get_point_from_y_unchecked(Fq::from(2u64), false)
+			.expect("y=2 must yield a valid TEAffine point")
+	}
+
 	#[test]
 	fn host_mul_with_z_zero_result_returns_fallback() {
-		let p_aff = ark_ed_on_bls12_381_bandersnatch::EdwardsAffine::get_point_from_y_unchecked(
-			Fq::from(2u64),
-			false,
-		)
-		.unwrap();
 		// Sanity: the raw operation does produce z = 0.
-		let proj: TEProjective<RawConfig> = p_aff.into_group();
+		let proj: TEProjective<RawConfig> = y2_non_subgroup::<RawConfig>().into_group();
 		let raw_res = <RawConfig as TECurveConfig>::mul_projective(&proj, Fr::MODULUS.0.as_ref());
 		assert!(raw_res.z.is_zero(), "test precondition: y=2 * Fr::MODULUS must hit z=0");
 
 		// Expected wire bytes: the `(0, -1)` fallback affine encoding,
 		// from the same shared helper the host call uses internally.
-		let fallback_aff = te_non_subgroup_fallback::<RawConfig>();
-		let expected = utils::encode(fallback_aff);
+		let expected = utils::encode(te_non_subgroup_fallback::<RawConfig>());
 
 		// Exercise the host call.
 		let scalar_bigint: Vec<u64> = Fr::MODULUS.0.to_vec();
-		let input_enc = utils::encode(p_aff);
+		let input_enc = utils::encode(y2_non_subgroup::<EdwardsConfig>());
 		let scalar_enc = utils::encode(scalar_bigint);
 		let mut out = utils::buffer_for::<EdwardsAffine>();
 		host_calls::ed_on_bls12_381_bandersnatch_mul(&input_enc, &scalar_enc, &mut out).unwrap();
 		assert_eq!(out, expected, "z=0 result must serialize as (0, -1)");
 
 		// The runtime-side hook returns the fallback (lifted to projective).
-		let p_ext: EdwardsProjective =
-			EdwardsAffine::get_point_from_y_unchecked(Fq::from(2u64), false)
-				.unwrap()
-				.into_group();
+		let p_ext: EdwardsProjective = y2_non_subgroup::<EdwardsConfig>().into_group();
 		let r = <HostHooks as CurveHooks>::mul_projective_te(&p_ext, Fr::MODULUS.0.as_ref());
 		assert_eq!(r, fallback_projective(), "hook must return (0, -1) on degenerate");
 	}
 
-	/// `z = 0` input to `mul_projective_te` is short-circuited locally: we
-	/// can't serialize it for the host, so we honor the sme unified
-	/// `(0, -1)` contract that the host applies on its side. The detection
-	/// goes through `IntoAffineSafe::into_affine_safe`, which returns
-	/// `None` on `z = 0`.
 	#[test]
 	fn mul_projective_with_z_zero_input_returns_fallback() {
 		use ark_std::{test_rng, UniformRand};
@@ -238,24 +229,8 @@ mod tests {
 		assert_eq!(r, fallback_projective(), "z=0 input must yield (0, -1) projective");
 	}
 
-	/// The `msm_te` helper falls back to the universal TE sentinel
-	/// `(0, -1)` when the projective result has `z = 0`. The contract
-	/// hinges on two properties:
-	///   1. `(0, -1)` is on every TE curve (`a·0 + 1 = 1 + 0`), so it encodes as a valid `TEAffine`
-	///      and the runtime side can decode it without rejecting "off-curve."
-	///   2. `(0, -1)` has order 2, so it is not in any prime-order subgroup, and a downstream
-	///      `is_in_correct_subgroup_*` check on the helper's output will reject the degenerate case
-	///      rather than silently accepting an identity-like value.
-	///
-	/// We don't drive a real msm to `z = 0` here: msm scalars are `Fr`
-	/// (canonicalized mod `r`), so the `Fr::MODULUS` trigger we use for
-	/// `mul_projective` can't be reproduced through msm without
-	/// curve-specific scalar search. Instead we verify the design
-	/// directly: the fallback constant has the required properties and
-	/// `IntoAffineSafe` produces `None` for a `z = 0` projective (which
-	/// is exactly the branch where `msm_te` substitutes the sentinel).
 	#[test]
-	fn msm_fallback_is_non_subgroup_te_sentinel() {
+	fn fallback_is_non_subgroup_te_sentinel() {
 		use ark_ed_on_bls12_381_bandersnatch::EdwardsAffine as RawAffine;
 
 		// (1) The fallback constant the helper hardcodes.
@@ -290,5 +265,33 @@ mod tests {
 		let decoded: RawAffine = utils::decode(&buf).unwrap();
 		assert_eq!(decoded, fallback);
 		assert!(!decoded.is_in_correct_subgroup_assuming_on_curve());
+	}
+
+	#[test]
+	fn y2_point_deserialize_checked_vs_unchecked() {
+		use ark_scale::ark_serialize::{
+			CanonicalDeserialize, CanonicalSerialize, Compress, Validate,
+		};
+
+		let p = y2_non_subgroup::<EdwardsConfig>();
+		assert!(p.is_on_curve(), "y=2 point must be on curve");
+		assert!(
+			!p.is_in_correct_subgroup_assuming_on_curve(),
+			"y=2 point must NOT be in the prime-order subgroup",
+		);
+
+		let mut bytes = Vec::new();
+		p.serialize_with_mode(&mut bytes, Compress::No).unwrap();
+
+		// `Validate::No` accepts the non-subgroup point.
+		let decoded =
+			EdwardsAffine::deserialize_with_mode(&bytes[..], Compress::No, Validate::No).unwrap();
+		assert_eq!(decoded, p);
+
+		// `Validate::Yes` over the same bytes rejects it at decode time.
+		assert!(
+			EdwardsAffine::deserialize_with_mode(&bytes[..], Compress::No, Validate::Yes).is_err(),
+			"Validate::Yes must reject non-subgroup point",
+		);
 	}
 }
