@@ -1,0 +1,33 @@
+title: 'ec-utils: handle twisted Edwards z=0 results via IntoAffineSafe instead of panicking'
+doc:
+- audience: Runtime Dev
+  description: |-
+    On incomplete twisted Edwards curves such as Bandersnatch, HWCD arithmetic
+    fed non-subgroup inputs can produce projective points with `z = 0`. These
+    have no affine representative, and arkworks' standard
+    `From<Projective> for Affine` panics on `z.inverse().unwrap()` for the
+    F-exception shapes that miss the `is_zero()` short-circuit.
+
+    The `mul_te` and `msm_te` helpers in `sp-crypto-ec-utils` previously
+    called `.into_affine()` unconditionally and would crash on such inputs.
+    They now go through a new `IntoAffineSafe` trait that returns `None` on
+    `z = 0`, and substitute a deterministic non-subgroup fallback instead of
+    panicking:
+      - `mul_te` echoes the input `base` back unchanged.
+      - `msm_te` writes the universal TE point `(0, -1)` (on every TE curve,
+        order 2, never in any prime-order subgroup).
+
+    Both fallbacks stay outside the prime-order subgroup so that a downstream
+    `is_in_correct_subgroup_*` check on the result catches the degenerate
+    case rather than silently accepting an identity-like value. The wire
+    format on the FFI boundary is unchanged: still `ArkScale<TEAffine>`, no
+    sentinel bit, no new codec. Honest callers that subgroup-validate inputs
+    upstream never reach the fallback branch.
+
+    The Bandersnatch hostcall hook (`mul_projective_te`) now also short-
+    circuits locally when given a `z = 0` projective input, mirroring the
+    same echo-input contract instead of attempting to serialize an
+    unrepresentable point for the host.
+crates:
+- name: sp-crypto-ec-utils
+  bump: minor
