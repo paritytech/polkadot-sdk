@@ -24,9 +24,9 @@
 //! carry them: arkworks' `From<Projective> for Affine` panics on
 //! `z.inverse().unwrap()`.
 //!
-//! The shared [`utils::mul_te`] / [`utils::msm_te`] helpers detect the
-//! degenerate case via [`utils::IntoAffineSafe`] and return
-//! [`utils::Error::DegeneratePoint`] across the FFI boundary instead of
+//! The shared `utils::mul_te` / `utils::msm_te` helpers detect the
+//! degenerate case via `utils::IntoAffineSafe` and return
+//! `utils::Error::DegeneratePoint` across the FFI boundary instead of
 //! attempting to serialize an unrepresentable point. The runtime-side
 //! hooks defined in this module catch that error and substitute the
 //! unified `(0, -1)` fallback: a TE point of order 2 that is universally
@@ -133,7 +133,7 @@ impl CurveHooks for HostHooks {
 /// and "not-compressed".
 ///
 /// When the projective result of a host call lands at `z = 0` (only reachable
-/// via non-subgroup inputs), the host returns [`utils::Error::DegeneratePoint`]
+/// via non-subgroup inputs), the host returns `utils::Error::DegeneratePoint`
 /// instead of panicking, and the runtime-side `HostHooks` impl substitutes the
 /// unified `(0, -1)` non-subgroup fallback. See the module-level doc for the
 /// full contract.
