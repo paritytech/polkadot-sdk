@@ -175,12 +175,8 @@ pub(crate) mod tests {
 		);
 
 		// populate version in db
-		AuxStore::insert_aux(
-			&*backend,
-			&[(VERSION_KEY, CURRENT_VERSION.encode().as_slice())],
-			&[],
-		)
-		.unwrap();
+		AuxStore::insert_aux(&*backend, &[(VERSION_KEY, CURRENT_VERSION.encode().as_slice())], &[])
+			.unwrap();
 		// verify correct version is retrieved
 		assert_eq!(load_decode(&*backend, VERSION_KEY).unwrap(), Some(CURRENT_VERSION));
 
