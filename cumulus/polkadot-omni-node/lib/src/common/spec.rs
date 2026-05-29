@@ -76,12 +76,6 @@ use std::{
 // `idle_connection_timeout`.
 const IPFS_WORKAROUND_TIMEOUT: Duration = Duration::from_secs(3600);
 
-/// `BlockImport` after wrapping with `StorageChainBlockImport`. All downstream
-/// `BuildImportQueue`/`StartConsensus`/`ParachainBlockImport` users see this
-/// type, not the inner one.
-pub(crate) type WrappedBlockImport<Block, InnerBI, RuntimeApi> =
-	StorageChainBlockImport<Block, InnerBI, ParachainClient<Block, RuntimeApi>>;
-
 pub(crate) trait BuildImportQueue<
 	Block: BlockT,
 	RuntimeApi,
@@ -138,30 +132,51 @@ fn warn_if_slow_hardware(hwbench: &sc_sysinfo::HwBench) {
 }
 
 pub(crate) trait InitBlockImport<Block: BlockT, RuntimeApi> {
+	/// The block import type as it appears OUTSIDE of `ParachainBlockImport`,
+	/// i.e. after any path-specific outer wrapping has been applied. For the
+	/// lookahead path this is `StorageChainBlockImport<…>`; for the slot-based
+	/// path this is `SlotBasedBlockImport<…, StorageChainBlockImport<…>, …>`.
 	type BlockImport: sc_consensus::BlockImport<Block, Error = sp_consensus::Error>
 		+ Clone
 		+ Send
 		+ Sync;
 	type BlockImportAuxiliaryData;
 
+	/// Build the path-specific outer block import on top of the supplied
+	/// `StorageChainBlockImport`.
 	fn init_block_import(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
+		storage_chain_block_import: StorageChainBlockImport<
+			Block,
+			Arc<ParachainClient<Block, RuntimeApi>>,
+			ParachainClient<Block, RuntimeApi>,
+		>,
 	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)>;
 }
 
 pub(crate) struct ClientBlockImport;
 
-impl<Block: BlockT, RuntimeApi> InitBlockImport<Block, RuntimeApi> for ClientBlockImport
+impl<Block, RuntimeApi> InitBlockImport<Block, RuntimeApi> for ClientBlockImport
 where
+	Block: BlockT<Hash = sc_client_db::DbHash>,
 	RuntimeApi: Send + ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 {
-	type BlockImport = Arc<ParachainClient<Block, RuntimeApi>>;
+	type BlockImport = StorageChainBlockImport<
+		Block,
+		Arc<ParachainClient<Block, RuntimeApi>>,
+		ParachainClient<Block, RuntimeApi>,
+	>;
 	type BlockImportAuxiliaryData = ();
 
 	fn init_block_import(
-		client: Arc<ParachainClient<Block, RuntimeApi>>,
+		_client: Arc<ParachainClient<Block, RuntimeApi>>,
+		storage_chain_block_import: StorageChainBlockImport<
+			Block,
+			Arc<ParachainClient<Block, RuntimeApi>>,
+			ParachainClient<Block, RuntimeApi>,
+		>,
 	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
-		Ok((client.clone(), ()))
+		Ok((storage_chain_block_import, ()))
 	}
 }
 
@@ -176,11 +191,7 @@ pub(crate) trait BaseNodeSpec {
 	type BuildImportQueue: BuildImportQueue<
 		Self::Block,
 		Self::RuntimeApi,
-		WrappedBlockImport<
-			Self::Block,
-			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
-			Self::RuntimeApi,
-		>,
+		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
 	>;
 
 	type InitBlockImport: self::InitBlockImport<Self::Block, Self::RuntimeApi>;
@@ -235,11 +246,7 @@ pub(crate) trait BaseNodeSpec {
 		ParachainService<
 			Self::Block,
 			Self::RuntimeApi,
-			WrappedBlockImport<
-				Self::Block,
-				<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
-				Self::RuntimeApi,
-			>,
+			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
 			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImportAuxiliaryData
 		>
 	>{
@@ -295,9 +302,6 @@ pub(crate) trait BaseNodeSpec {
 			.build(),
 		);
 
-		let (inner_block_import, block_import_auxiliary_data) =
-			Self::InitBlockImport::init_block_import(client.clone())?;
-
 		let network_handle: NetworkHandle = Arc::new(OnceLock::new());
 		let syncing_handle: SyncingHandle = Arc::new(OnceLock::new());
 
@@ -307,9 +311,12 @@ pub(crate) trait BaseNodeSpec {
 		);
 
 		let storage_chain_block_import =
-			StorageChainBlockImport::new(inner_block_import, client.clone(), fetcher);
+			StorageChainBlockImport::new(client.clone(), client.clone(), fetcher);
 
-		let block_import = ParachainBlockImport::new(storage_chain_block_import, backend.clone());
+		let (outer_block_import, block_import_auxiliary_data) =
+			Self::InitBlockImport::init_block_import(client.clone(), storage_chain_block_import)?;
+
+		let block_import = ParachainBlockImport::new(outer_block_import, backend.clone());
 
 		let import_queue = Self::BuildImportQueue::build_import_queue(
 			client.clone(),
@@ -350,11 +357,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	type StartConsensus: StartConsensus<
 		Self::Block,
 		Self::RuntimeApi,
-		WrappedBlockImport<
-			Self::Block,
-			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
-			Self::RuntimeApi,
-		>,
+		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
 		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImportAuxiliaryData,
 	>;
 

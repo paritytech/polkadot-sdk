@@ -48,6 +48,7 @@ use cumulus_client_consensus_aura::{
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_client_service::CollatorSybilResistance;
+use cumulus_client_storage_chain_sync::StorageChainBlockImport;
 use cumulus_primitives_core::{
 	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
 	RelayParentOffsetApi, TargetBlockRate,
@@ -189,7 +190,7 @@ where
 		Block,
 		RuntimeApi,
 		AuraId,
-		crate::common::spec::WrappedBlockImport<Block, InitBlockImport::BlockImport, RuntimeApi>,
+		InitBlockImport::BlockImport,
 	>;
 	type InitBlockImport = InitBlockImport;
 }
@@ -206,11 +207,7 @@ where
 	StartConsensus: self::StartConsensus<
 			Block,
 			RuntimeApi,
-			crate::common::spec::WrappedBlockImport<
-				Block,
-				InitBlockImport::BlockImport,
-				RuntimeApi,
-			>,
+			InitBlockImport::BlockImport,
 			InitBlockImport::BlockImportAuxiliaryData,
 		> + 'static,
 	InitBlockImport: self::InitBlockImport<Block, RuntimeApi> + Send + 'static,
@@ -637,14 +634,14 @@ where
 			Block,
 			ParachainBlockImport<
 				Block,
-				crate::common::spec::WrappedBlockImport<
+				SlotBasedBlockImport<
 					Block,
-					SlotBasedBlockImport<
+					StorageChainBlockImport<
 						Block,
 						Arc<ParachainClient<Block, RuntimeApi>>,
 						ParachainClient<Block, RuntimeApi>,
 					>,
-					RuntimeApi,
+					ParachainClient<Block, RuntimeApi>,
 				>,
 			>,
 			CIDP,
@@ -677,14 +674,14 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 	StartConsensus<
 		Block,
 		RuntimeApi,
-		crate::common::spec::WrappedBlockImport<
+		SlotBasedBlockImport<
 			Block,
-			SlotBasedBlockImport<
+			StorageChainBlockImport<
 				Block,
 				Arc<ParachainClient<Block, RuntimeApi>>,
 				ParachainClient<Block, RuntimeApi>,
 			>,
-			RuntimeApi,
+			ParachainClient<Block, RuntimeApi>,
 		>,
 		SlotBasedBlockImportHandle<Block>,
 	> for StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
@@ -698,14 +695,14 @@ where
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
 		block_import: ParachainBlockImport<
 			Block,
-			crate::common::spec::WrappedBlockImport<
+			SlotBasedBlockImport<
 				Block,
-				SlotBasedBlockImport<
+				StorageChainBlockImport<
 					Block,
 					Arc<ParachainClient<Block, RuntimeApi>>,
 					ParachainClient<Block, RuntimeApi>,
 				>,
-				RuntimeApi,
+				ParachainClient<Block, RuntimeApi>,
 			>,
 		>,
 		prometheus_registry: Option<&Registry>,
@@ -806,15 +803,24 @@ where
 {
 	type BlockImport = SlotBasedBlockImport<
 		Block,
-		Arc<ParachainClient<Block, RuntimeApi>>,
+		StorageChainBlockImport<
+			Block,
+			Arc<ParachainClient<Block, RuntimeApi>>,
+			ParachainClient<Block, RuntimeApi>,
+		>,
 		ParachainClient<Block, RuntimeApi>,
 	>;
 	type BlockImportAuxiliaryData = SlotBasedBlockImportHandle<Block>;
 
 	fn init_block_import(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
+		storage_chain_block_import: StorageChainBlockImport<
+			Block,
+			Arc<ParachainClient<Block, RuntimeApi>>,
+			ParachainClient<Block, RuntimeApi>,
+		>,
 	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
-		Ok(SlotBasedBlockImport::new(client.clone(), client))
+		Ok(SlotBasedBlockImport::new(storage_chain_block_import, client))
 	}
 }
 
@@ -850,10 +856,10 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 	StartConsensus<
 		Block,
 		RuntimeApi,
-		crate::common::spec::WrappedBlockImport<
+		StorageChainBlockImport<
 			Block,
 			Arc<ParachainClient<Block, RuntimeApi>>,
-			RuntimeApi,
+			ParachainClient<Block, RuntimeApi>,
 		>,
 		(),
 	> for StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>
@@ -867,10 +873,10 @@ where
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
 		block_import: ParachainBlockImport<
 			Block,
-			crate::common::spec::WrappedBlockImport<
+			StorageChainBlockImport<
 				Block,
 				Arc<ParachainClient<Block, RuntimeApi>>,
-				RuntimeApi,
+				ParachainClient<Block, RuntimeApi>,
 			>,
 		>,
 		prometheus_registry: Option<&Registry>,
