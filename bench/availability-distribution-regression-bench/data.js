@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780071221983,
+  "lastUpdate": 1780091340233,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "590f23d2d83c2b79aabfda711a91fe0bdc5e64a0",
-          "message": "added baltathar, charleth, dorothy, and ethan to eth-rpc and revive-d… (#10041)\n\nadds more funded accounts to eth-rpc and dev-node\n\n---------\n\nCo-authored-by: Robert van Eerdewijk <robert@Roberts-MacBook-Pro.local>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-19T10:24:14Z",
-          "tree_id": "0628e0b6d5cb5f94fa40c93339cd24b13db5825b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/590f23d2d83c2b79aabfda711a91fe0bdc5e64a0"
-        },
-        "date": 1760873523967,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013088508033333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15797795258666675,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.0226718557,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0072162697599999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007942830226666664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e1c5425b23f1b0c14974075c8dfa89f12959ed6e",
+          "message": "litep2p: bitswap metrics added (#12232)\n\nRelated to: paritytech/polkadot-sdk#12083 (bitswap section).\n\nAdds four Prometheus metrics to the litep2p bitswap inbound handler so\nwe can observe bitswap-driven load from network clients:\n\n| Metric | Type | Labels |\n|---|---|---|\n| `substrate_sub_libp2p_bitswap_entries_total` | counter | `outcome` ∈\n`block_served`, `have`, `dont_have`, `unsupported_cid` |\n| `substrate_sub_libp2p_bitswap_request_errors_total` | counter |\n`reason` ∈ `too_many_entries`, `client` |\n| `substrate_sub_libp2p_bitswap_inbound_request_duration_seconds` |\nhistogram | — |\n| `substrate_sub_libp2p_bitswap_response_bytes_total` | counter | — |\n\n`NetworkBackend::bitswap_server` gains an `Option<Registry>` parameter\n(mirroring `peer_store`). The libp2p backend impl accepts and ignores it\n— bitswap isn't wired into its request-response framework. Bitswap\nremains gated by `--ipfs-server`.\n\nLabels are pruned vs paritytech/polkadot-sdk#12083: `missing`/`bad_cid`\noutcomes and `decode`/`encode`/`invalid_wantlist` errors are absorbed by\nlitep2p before reaching the shim.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-29T19:19:46Z",
+          "tree_id": "b1a597f0f6c62389bb3f746583748340a2adb16f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e1c5425b23f1b0c14974075c8dfa89f12959ed6e"
+        },
+        "date": 1780091311025,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02391117091333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007915763873333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15001828214000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01014029793999998,
             "unit": "seconds"
           }
         ]
