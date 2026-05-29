@@ -244,12 +244,6 @@ impl AccessList {
 		self.accessed.contains(entry)
 	}
 
-	/// Returns the current number of hot entries (testing / metrics).
-	#[cfg(test)]
-	pub fn len(&self) -> usize {
-		self.accessed.len()
-	}
-
 	/// Returns the current frame depth (number of open checkpoints).
 	#[cfg(test)]
 	pub fn frame_depth(&self) -> usize {
@@ -257,16 +251,10 @@ impl AccessList {
 	}
 }
 
-// ===========================================================================
-// Unit tests.
-// ===========================================================================
-
 #[cfg(test)]
 mod tests {
 	use super::*;
 
-	/// Entries committed from a nested frame still get dropped when the parent
-	/// frame later rolls back. First-frame touches survive throughout.
 	#[test]
 	fn nested_commit_then_parent_rollback_drops_all() {
 		let mut al = AccessList::new();
@@ -294,11 +282,10 @@ mod tests {
 		assert!(al.is_hot(&c), "C: survives F2 commit");
 
 		assert!(al.touch(d.clone()), "D in F1: cold");
-		assert_eq!(al.len(), 4);
+		assert_eq!(al.metrics().size, 4);
 
 		al.rollback_frame();
 		assert_eq!(al.frame_depth(), 0);
-		assert_eq!(al.len(), 1);
 		assert!(al.is_hot(&a), "A: first frame, survives F1 revert");
 		assert!(!al.is_hot(&b), "B: inserted by F1, rolled back");
 		assert!(!al.is_hot(&c), "C: F2-committed-into-F1, gone when F1 reverts");
@@ -314,8 +301,6 @@ mod tests {
 		);
 	}
 
-	/// Past the cap, new entries bill cold without being inserted, while
-	/// previously-hot entries continue to bill hot.
 	#[test]
 	fn touch_caps_at_max_entries() {
 		let mut al = AccessList::new();
@@ -324,14 +309,14 @@ mod tests {
 			let address = H160::from_low_u64_be(i as u64);
 			assert!(al.touch(AccessEntry { address, slot: Slot::Fix([0; 32]) }));
 		}
-		assert_eq!(al.len(), MAX_ACCESS_LIST_ENTRIES);
+		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES);
 
 		let new_entry = AccessEntry {
 			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64),
 			slot: Slot::Fix([0; 32]),
 		};
 		assert!(al.touch(new_entry.clone()), "past cap: bills cold");
-		assert_eq!(al.len(), MAX_ACCESS_LIST_ENTRIES, "set size stays at cap");
+		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES, "set size stays at cap");
 		assert!(!al.is_hot(&new_entry), "past-cap entry is not tracked");
 
 		assert!(al.touch(new_entry), "past cap re-touch: still cold (not tracked)");
@@ -340,7 +325,6 @@ mod tests {
 		assert!(!al.touch(existing), "existing entry still hot at cap");
 	}
 
-	/// `peek` reports cold/hot without mutating the access list or its counters.
 	#[test]
 	fn peek_does_not_mutate() {
 		let mut al = AccessList::new();

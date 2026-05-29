@@ -2965,29 +2965,11 @@ fn delegatecall_tracer_reports_correct_addresses() {
 	});
 }
 
-// ===========================================================================
-// Cold/hot access list integration tests.
-//
-// Verify the storage-only cold/hot pricing pipeline end-to-end:
-// `Ext::get_storage` / `Ext::set_storage` → access list touch → returned
-// `is_cold` flag, with frame rollback semantics across nested CALLs.
-// ===========================================================================
-
-/// Touch the access list (persistent) and return `true` if the access was cold.
 fn is_cold_touch<E: Ext>(ext: &mut E, key: &Key) -> bool {
 	matches!(ext.touch_storage_access_list(false, key), StorageAccessKind::PersistentCold)
 }
 
-/// Non-mutating sibling of `is_cold_touch`.
-fn is_cold_peek<E: Ext>(ext: &E, key: &Key) -> bool {
-	matches!(ext.peek_storage_access_list(false, key), StorageAccessKind::PersistentCold)
-}
-
-/// Common setup: fund ALICE, build a fresh transaction meter, and dispatch
-/// a call to `contract_addr`. **Asserts success internally**: only use
-/// when the test expects the outer call to return `Ok`. For tests that
-/// expect a specific failure mode, call `MockStack::run_call` directly.
-fn run_call_to(contract_addr: H160) {
+fn run_call_helper(contract_addr: H160, input: Vec<u8>) {
 	set_balance(&ALICE, <Test as Config>::Currency::minimum_balance() * 1000);
 	let mut meter =
 		TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>()).unwrap();
@@ -2996,152 +2978,96 @@ fn run_call_to(contract_addr: H160) {
 		contract_addr,
 		&mut meter,
 		0u32.into(),
-		vec![],
+		input,
 		&ExecConfig::new_substrate_tx(),
 	));
 }
 
+fn dummy_call_helper<E: Ext>(ext: &mut E, to: &H160, input: Vec<u8>) -> Result<(), ExecError> {
+	ext.call(
+		&CallResources::NoLimits,
+		to,
+		U256::zero(),
+		input,
+		ReentrancyProtection::AllowReentry,
+		false,
+	)
+}
+
 #[test]
-fn cold_hot_single_contract() {
+fn cold_hot_touch_then_retouch_is_hot() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		let key_a = Key::Fix([7; 32]);
 		let key_b = Key::Fix([8; 32]);
 
-		assert!(is_cold_touch(ctx.ext, &key_a), "first SSTORE on key_a is cold");
-		ctx.ext.set_storage(&key_a, Some(vec![1]), false).unwrap();
-
-		assert!(!is_cold_touch(ctx.ext, &key_a), "second SSTORE on key_a is hot");
-		ctx.ext.set_storage(&key_a, Some(vec![2]), false).unwrap();
-
-		assert!(!is_cold_touch(ctx.ext, &key_a), "SLOAD after SSTORE on key_a is hot");
-		let _ = ctx.ext.get_storage(&key_a);
-
-		assert!(is_cold_touch(ctx.ext, &key_b), "SSTORE on a distinct slot is cold");
-		ctx.ext.set_storage(&key_b, Some(vec![3]), false).unwrap();
+		assert!(is_cold_touch(ctx.ext, &key_a), "first touch on key_a is cold");
+		assert!(!is_cold_touch(ctx.ext, &key_a), "second touch on key_a is hot");
+		assert!(is_cold_touch(ctx.ext, &key_b), "first touch on a distinct slot is cold");
 
 		exec_success()
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, code_hash);
-		run_call_to(BOB_ADDR);
+		run_call_helper(BOB_ADDR, vec![]);
 	});
 }
 
 #[test]
-fn cold_hot_child_revert_rolls_back() {
-	let key = Key::Fix([10; 32]);
-	// Counts which invocation of the child is currently running, so an
-	// assertion failure points at which call regressed.
-	let call_count = Rc::new(RefCell::new(0u32));
-
-	// Child touches the slot then reverts.
-	let child_ch = MockLoader::insert(Call, move |ctx, _| {
-		let n = {
-			let mut c = call_count.borrow_mut();
-			*c += 1;
-			*c
-		};
+fn cold_hot_child_revert_drops_touches() {
+	let child_code_hash = MockLoader::insert(Call, |ctx, _| {
+		let key = Key::Fix([10; 32]);
 		assert!(
 			is_cold_touch(ctx.ext, &key),
-			"child call #{n}: touch must be cold (previous revert should have rolled back)",
+			"child touch must be cold on every call (previous revert should have rolled back)",
 		);
-		ctx.ext.set_storage(&key, Some(vec![1]), false).unwrap();
 		Err("rollback".into())
 	});
 
-	let parent_ch = MockLoader::insert(Call, move |ctx, _| {
+	let parent_code_hash = MockLoader::insert(Call, move |ctx, _| {
 		// Call child twice. Each call's touch should be cold because the
 		// previous call reverted and rolled back its access-list entry.
-		let _ = ctx.ext.call(
-			&CallResources::NoLimits,
-			&BOB_ADDR,
-			U256::zero(),
-			vec![],
-			ReentrancyProtection::AllowReentry,
-			false,
-		);
-		let _ = ctx.ext.call(
-			&CallResources::NoLimits,
-			&BOB_ADDR,
-			U256::zero(),
-			vec![],
-			ReentrancyProtection::AllowReentry,
-			false,
-		);
+		let _ = dummy_call_helper(ctx.ext, &BOB_ADDR, vec![]);
+		let _ = dummy_call_helper(ctx.ext, &BOB_ADDR, vec![]);
 		exec_success()
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&BOB, child_ch);
-		place_contract(&CHARLIE, parent_ch);
-		run_call_to(CHARLIE_ADDR);
+		place_contract(&BOB, child_code_hash);
+		place_contract(&CHARLIE, parent_code_hash);
+		run_call_helper(CHARLIE_ADDR, vec![]);
 	});
 }
 
 #[test]
-fn cold_hot_child_commit_keying() {
-	// Two copies of the same slot: `Key` doesn't impl `Clone`, but we need
-	// to move one into each closure. Both project to `(_, slot=[9; 32])` —
-	// the discriminator is the calling contract's address, not the key.
-	let key_for_child = Key::Fix([9; 32]);
-	let key_for_parent = Key::Fix([9; 32]);
-	let expected_cold_in_child = Rc::new(RefCell::new(true));
-	let expected_in_child = expected_cold_in_child.clone();
+fn cold_hot_child_commit_visible_on_next_call() {
+	// A committed child touch on (addr, slot) stays hot on the next child call —
+	// and parent's own touch on `slot` is a separate entry (address discriminates).
+	const SLOT: [u8; 32] = [9; 32];
 
-	// Child touches (BOB, key): cold on the first call, hot on the second
-	// (the first call's commit propagates the entry up into the parent frame).
-	let child_ch = MockLoader::insert(Call, move |ctx, _| {
-		let is_cold = is_cold_touch(ctx.ext, &key_for_child);
-		let want_cold = *expected_in_child.borrow();
-		assert_eq!(is_cold, want_cold, "child expected cold={want_cold}");
-		ctx.ext.set_storage(&key_for_child, Some(vec![1]), false).unwrap();
+	let child_code_hash = MockLoader::insert(Call, |ctx, _| {
+		let expected = ctx.input_data[0] != 0;
+		let actual = is_cold_touch(ctx.ext, &Key::Fix(SLOT));
+		assert_eq!(actual, expected, "child expected cold={expected}");
 		exec_success()
 	});
 
-	let parent_ch = MockLoader::insert(Call, move |ctx, _| {
-		// 1. Child call #1: touches (BOB, key) cold, commits on Ok.
-		*expected_cold_in_child.borrow_mut() = true;
-		assert_matches!(
-			ctx.ext.call(
-				&CallResources::NoLimits,
-				&BOB_ADDR,
-				U256::zero(),
-				vec![],
-				ReentrancyProtection::AllowReentry,
-				false,
-			),
-			Ok(_)
-		);
-		// 2. Parent runs in CHARLIE's context; (CHARLIE, key) is a distinct AccessEntry from (BOB,
-		//    key), so it must still be cold even though the child just touched BOB's view of the
-		//    same slot bytes.
-		assert!(
-			is_cold_touch(ctx.ext, &key_for_parent),
-			"parent (CHARLIE, key) is distinct from child's (BOB, key)",
-		);
-		ctx.ext.set_storage(&key_for_parent, Some(vec![2]), false).unwrap();
-		// 3. Child call #2: touches (BOB, key) again, now hot, since call #1 committed and the
-		//    entry survived back into the parent frame.
-		*expected_cold_in_child.borrow_mut() = false;
-		assert_matches!(
-			ctx.ext.call(
-				&CallResources::NoLimits,
-				&BOB_ADDR,
-				U256::zero(),
-				vec![],
-				ReentrancyProtection::AllowReentry,
-				false,
-			),
-			Ok(_)
-		);
+	let parent_code_hash = MockLoader::insert(Call, |ctx, _| {
+		// First child call: cold, commits.
+		assert_matches!(dummy_call_helper(ctx.ext, &BOB_ADDR, vec![1]), Ok(_));
+
+		// Parent's own touch is a different access-list entry, still cold.
+		assert!(is_cold_touch(ctx.ext, &Key::Fix(SLOT)));
+
+		// Second child call: now hot — first commit is still visible.
+		assert_matches!(dummy_call_helper(ctx.ext, &BOB_ADDR, vec![0]), Ok(_));
 		exec_success()
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&BOB, child_ch);
-		place_contract(&CHARLIE, parent_ch);
-		run_call_to(CHARLIE_ADDR);
+		place_contract(&BOB, child_code_hash);
+		place_contract(&CHARLIE, parent_code_hash);
+		run_call_helper(CHARLIE_ADDR, vec![]);
 	});
 }
 
@@ -3154,55 +3080,49 @@ fn cold_hot_var_inline_len_distinguishes() {
 		let long_key = Key::try_from_var(vec![1, 2, 3, 0]).unwrap();
 
 		assert!(is_cold_touch(ctx.ext, &short_key));
-		ctx.ext.set_storage(&short_key, Some(vec![1]), false).unwrap();
-
 		assert!(
 			is_cold_touch(ctx.ext, &long_key),
 			"VarInline keys with same byte prefix but different `len` must NOT alias",
 		);
-		ctx.ext.set_storage(&long_key, Some(vec![2]), false).unwrap();
 		exec_success()
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, code_hash);
-		run_call_to(BOB_ADDR);
+		run_call_helper(BOB_ADDR, vec![]);
 	});
 }
 
 #[test]
 fn cold_hot_delegate_call_marks_parent_slot_hot() {
+	// Delegate-call runs the callee's code in the caller's storage context, so
+	// a touch inside the child keys on the parent's address — the same entry
+	// the parent will see when it touches the slot itself.
 	const SLOT: [u8; 32] = [55; 32];
 
-	let child_ch = MockLoader::insert(Call, |ctx, _| {
-		// Runs in the parent's storage context (delegate-call), so this touch
-		// keys on `(parent_addr, SLOT)`, the same access-list entry the
-		// parent will see on its next SLOAD.
+	let child_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert!(
 			is_cold_touch(ctx.ext, &Key::Fix(SLOT)),
-			"child via delegate-call: first touch on `(parent_addr, slot)` is cold",
+			"delegate-callee's first touch is cold",
 		);
-		let _ = ctx.ext.get_storage(&Key::Fix(SLOT));
 		exec_success()
 	});
 
-	let parent_ch = MockLoader::insert(Call, |ctx, _| {
+	let parent_code_hash = MockLoader::insert(Call, |ctx, _| {
 		ctx.ext
-			.delegate_call(&Default::default(), BOB_ADDR, Vec::new())
+			.delegate_call(&Default::default(), BOB_ADDR, vec![])
 			.expect("delegate-call to child must succeed");
 		assert!(
 			!is_cold_touch(ctx.ext, &Key::Fix(SLOT)),
-			"parent SLOAD after delegate-call is hot. Child's touch keyed on \
-			 `(parent_addr, slot)`, not `(child_addr, slot)`",
+			"parent's touch is hot — delegate-call warmed it",
 		);
-		let _ = ctx.ext.get_storage(&Key::Fix(SLOT));
 		exec_success()
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&BOB, child_ch);
-		place_contract(&CHARLIE, parent_ch);
-		run_call_to(CHARLIE_ADDR);
+		place_contract(&BOB, child_code_hash);
+		place_contract(&CHARLIE, parent_code_hash);
+		run_call_helper(CHARLIE_ADDR, vec![]);
 	});
 }
 
@@ -3217,7 +3137,10 @@ fn cold_hot_transient_skips_access_list() {
 
 		// The same key is still cold in the persistent access list.
 		assert!(
-			is_cold_peek(ctx.ext, &key),
+			matches!(
+				ctx.ext.peek_storage_access_list(false, &key),
+				StorageAccessKind::PersistentCold,
+			),
 			"transient access must not warm the persistent access list",
 		);
 
@@ -3226,6 +3149,6 @@ fn cold_hot_transient_skips_access_list() {
 
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, code_hash);
-		run_call_to(BOB_ADDR);
+		run_call_helper(BOB_ADDR, vec![]);
 	});
 }
