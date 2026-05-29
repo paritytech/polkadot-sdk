@@ -75,6 +75,13 @@ pub enum Error {
 	/// Input sequences have different lengths.
 	/// Applies to `msm` operations.
 	LengthMismatch = 3,
+	/// The projective result of a twisted Edwards operation has `z = 0`
+	/// and therefore no affine representative. Reachable on *incomplete*
+	/// TE curves like Bandersnatch when the inputs are not in the
+	/// prime-order subgroup. The runtime-side hook decides whether to
+	/// recover (e.g. by substituting [`te_non_subgroup_fallback`]) or to
+	/// surface the error.
+	DegeneratePoint = 4,
 	/// Unknown error.
 	Unknown = 255,
 }
@@ -118,6 +125,7 @@ impl sp_runtime_interface::wasm::FromFFIValue for HostcallResult {
 			1 => Err(Error::Encode),
 			2 => Err(Error::Decode),
 			3 => Err(Error::LengthMismatch),
+			4 => Err(Error::DegeneratePoint),
 			_ => Err(Error::Unknown),
 		}
 	}
@@ -247,14 +255,17 @@ pub fn te_non_subgroup_fallback<T: TECurveConfig>() -> TEAffine<T> {
 /// Expects encoded:
 /// - `bases`: `Vec<TEAffine<TECurveConfig>>`.
 /// - `scalars`: `Vec<TECurveConfig::ScalarField>`.
-/// Writes encoded `TEAffine<TECurveConfig>` to `out`. If the projective result
-/// has `z = 0`, writes the [`te_non_subgroup_fallback`] point `(0, -1)`
-/// instead. Honest msm with subgroup-valid bases never hits this branch.
+/// Writes encoded `TEAffine<TECurveConfig>` to `out`. Returns
+/// [`Error::DegeneratePoint`] if the projective result has `z = 0` and
+/// therefore no affine representative (reachable on incomplete TE forms
+/// like Bandersnatch when fed non-subgroup bases). The runtime-side hook
+/// decides the policy for that case (e.g. substitute
+/// [`te_non_subgroup_fallback`]).
 pub fn msm_te<T: TECurveConfig>(bases: &[u8], scalars: &[u8], out: &mut [u8]) -> Result<(), Error> {
 	let bases = decode::<Vec<TEAffine<T>>>(bases)?;
 	let scalars = decode::<Vec<T::ScalarField>>(scalars)?;
 	let res = T::msm(&bases, &scalars).map_err(|_| Error::LengthMismatch)?;
-	let aff = res.into_affine_safe().unwrap_or_else(te_non_subgroup_fallback::<T>);
+	let aff = res.into_affine_safe().ok_or(Error::DegeneratePoint)?;
 	encode_into::<TEAffine<T>>(aff, out)
 }
 
@@ -263,16 +274,14 @@ pub fn msm_te<T: TECurveConfig>(bases: &[u8], scalars: &[u8], out: &mut [u8]) ->
 /// Expects encoded:
 /// - `base`: `TEAffine<TECurveConfig>`.
 /// - `scalar`: `BigInteger`.
-/// Writes encoded `TEAffine<TECurveConfig>` to `out`. If the projective result
-/// has `z = 0` (reachable on incomplete TE forms like Bandersnatch when fed
-/// non-subgroup inputs), writes the [`te_non_subgroup_fallback`] point
-/// `(0, -1)` instead. Same fallback `msm_te` uses, so callers see a
-/// single unified contract.
+/// Writes encoded `TEAffine<TECurveConfig>` to `out`. Returns
+/// [`Error::DegeneratePoint`] if the projective result has `z = 0`,
+/// under the same conditions and contract as [`msm_te`].
 pub fn mul_te<T: TECurveConfig>(base: &[u8], scalar: &[u8], out: &mut [u8]) -> Result<(), Error> {
 	let base_aff = decode::<TEAffine<T>>(base)?;
 	let scalar = decode::<BigInteger>(scalar)?;
 	let res = T::mul_affine(&base_aff, &scalar);
-	let aff = res.into_affine_safe().unwrap_or_else(te_non_subgroup_fallback::<T>);
+	let aff = res.into_affine_safe().ok_or(Error::DegeneratePoint)?;
 	encode_into::<TEAffine<T>>(aff, out)
 }
 

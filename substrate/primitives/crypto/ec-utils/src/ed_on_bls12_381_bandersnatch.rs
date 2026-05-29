@@ -25,11 +25,14 @@
 //! `z.inverse().unwrap()`.
 //!
 //! The shared [`utils::mul_te`] / [`utils::msm_te`] helpers detect the
-//! degenerate case via [`utils::IntoAffineSafe`] and, instead of attempting
-//! to serialize it, write a single deterministic fallback: `(0, -1)`. This
-//! is a TE point of order 2 that is universally outside any prime-order
-//! subgroup, on every TE curve. The wire format stays byte-identical to
-//! `ArkScale<EdwardsAffine>`: no sentinel bit, no dedicated projective codec.
+//! degenerate case via [`utils::IntoAffineSafe`] and return
+//! [`utils::Error::DegeneratePoint`] across the FFI boundary instead of
+//! attempting to serialize an unrepresentable point. The runtime-side
+//! hooks defined in this module catch that error and substitute the
+//! unified `(0, -1)` fallback: a TE point of order 2 that is universally
+//! outside any prime-order subgroup, on every TE curve. The wire format
+//! stays byte-identical to `ArkScale<EdwardsAffine>`: no sentinel bit, no
+//! dedicated projective codec.
 //!
 //! Semantic contract: both `mul(base, scalar)` and `msm(bases, scalars)`
 //! return the mathematically correct result for all subgroup-valid inputs;
@@ -39,7 +42,9 @@
 //! callers that subgroup-validate inputs upstream never observe it in the
 //! first place.
 
-use crate::utils::{self, te_non_subgroup_fallback, HostcallResult, IntoAffineSafe, FAIL_MSG};
+use crate::utils::{
+	self, te_non_subgroup_fallback, Error, HostcallResult, IntoAffineSafe, FAIL_MSG,
+};
 use alloc::vec::Vec;
 use ark_ec::{AffineRepr, CurveConfig};
 use ark_ed_on_bls12_381_bandersnatch_ext::CurveHooks;
@@ -75,14 +80,19 @@ pub struct HostHooks;
 impl CurveHooks for HostHooks {
 	fn msm_te(bases: &[EdwardsAffine], scalars: &[ScalarField]) -> EdwardsProjective {
 		let mut out = utils::buffer_for::<EdwardsAffine>();
-		host_calls::ed_on_bls12_381_bandersnatch_msm(
+		match host_calls::ed_on_bls12_381_bandersnatch_msm(
 			&utils::encode(bases),
 			&utils::encode(scalars),
 			&mut out,
-		)
-		.and_then(|_| utils::decode::<EdwardsAffine>(&out))
-		.expect(FAIL_MSG)
-		.into_group()
+		) {
+			Ok(()) => utils::decode::<EdwardsAffine>(&out).expect(FAIL_MSG).into_group(),
+			// Bandersnatch is incomplete: HWCD on non-subgroup bases can land
+			// at `z = 0`. Substitute the unified `(0, -1)` non-subgroup
+			// fallback so a downstream subgroup check rejects it.
+			Err(Error::DegeneratePoint) =>
+				te_non_subgroup_fallback::<EdwardsConfig>().into_group(),
+			Err(_) => panic!("{FAIL_MSG}"),
+		}
 	}
 
 	fn mul_projective_te(base: &EdwardsProjective, scalar: &[u64]) -> EdwardsProjective {
@@ -95,14 +105,16 @@ impl CurveHooks for HostHooks {
 			return te_non_subgroup_fallback::<EdwardsConfig>().into_group();
 		};
 		let mut out = utils::buffer_for::<EdwardsAffine>();
-		host_calls::ed_on_bls12_381_bandersnatch_mul(
+		match host_calls::ed_on_bls12_381_bandersnatch_mul(
 			&utils::encode(base_aff),
 			&utils::encode(scalar),
 			&mut out,
-		)
-		.and_then(|_| utils::decode::<EdwardsAffine>(&out))
-		.expect(FAIL_MSG)
-		.into_group()
+		) {
+			Ok(()) => utils::decode::<EdwardsAffine>(&out).expect(FAIL_MSG).into_group(),
+			Err(Error::DegeneratePoint) =>
+				te_non_subgroup_fallback::<EdwardsConfig>().into_group(),
+			Err(_) => panic!("{FAIL_MSG}"),
+		}
 	}
 }
 
@@ -115,8 +127,9 @@ impl CurveHooks for HostHooks {
 /// and "not-compressed".
 ///
 /// When the projective result of a host call lands at `z = 0` (only reachable
-/// via non-subgroup inputs), the host writes the unified non-subgroup
-/// fallback `(0, -1)` instead of panicking. See the module-level doc for the
+/// via non-subgroup inputs), the host returns [`utils::Error::DegeneratePoint`]
+/// instead of panicking, and the runtime-side `HostHooks` impl substitutes the
+/// unified `(0, -1)` non-subgroup fallback. See the module-level doc for the
 /// full contract.
 #[runtime_interface]
 pub trait HostCalls {
@@ -200,19 +213,18 @@ mod tests {
 		let raw_res = <RawConfig as TECurveConfig>::mul_projective(&proj, Fr::MODULUS.0.as_ref());
 		assert!(raw_res.z.is_zero(), "test precondition: y=2 * Fr::MODULUS must hit z=0");
 
-		// Expected wire bytes: the `(0, -1)` fallback affine encoding,
-		// from the same shared helper the host call uses internally.
-		let expected = utils::encode(te_non_subgroup_fallback::<RawConfig>());
-
-		// Exercise the host call.
+		// The raw host call surfaces the degenerate result as an error
+		// (the helper can't represent it on the affine FFI channel).
 		let scalar_bigint: Vec<u64> = Fr::MODULUS.0.to_vec();
 		let input_enc = utils::encode(y2_non_subgroup::<EdwardsConfig>());
 		let scalar_enc = utils::encode(scalar_bigint);
 		let mut out = utils::buffer_for::<EdwardsAffine>();
-		host_calls::ed_on_bls12_381_bandersnatch_mul(&input_enc, &scalar_enc, &mut out).unwrap();
-		assert_eq!(out, expected, "z=0 result must serialize as (0, -1)");
+		let err = host_calls::ed_on_bls12_381_bandersnatch_mul(&input_enc, &scalar_enc, &mut out)
+			.expect_err("z=0 result must surface as Err(DegeneratePoint)");
+		assert_eq!(err, Error::DegeneratePoint);
 
-		// The runtime-side hook returns the fallback (lifted to projective).
+		// The runtime-side hook catches that error and substitutes the
+		// `(0, -1)` fallback (lifted to projective).
 		let p_ext: EdwardsProjective = y2_non_subgroup::<EdwardsConfig>().into_group();
 		let r = <HostHooks as CurveHooks>::mul_projective_te(&p_ext, Fr::MODULUS.0.as_ref());
 		assert_eq!(r, fallback_projective(), "hook must return (0, -1) on degenerate");
@@ -241,10 +253,11 @@ mod tests {
 			"fallback (0, -1) must NOT be in the prime-order subgroup",
 		);
 
-		// (2) The trait-level z=0 detection that drives the helper into
-		// the fallback branch. Use an F-exception shape (X=0, Y!=0, Z=0):
-		// arkworks' standard into_affine() panics here; into_affine_safe
-		// must return None instead, so msm_te substitutes the sentinel.
+		// (2) The trait-level z=0 detection. Use an F-exception shape
+		// (X=0, Y!=0, Z=0): arkworks' standard into_affine() panics here;
+		// into_affine_safe must return None instead, which is exactly the
+		// branch where `msm_te` / `mul_te` return Err(DegeneratePoint) and
+		// the hook substitutes the fallback.
 		let degenerate = TEProjective::<RawConfig>::new_unchecked(
 			Fq::ZERO,        // X = 0
 			Fq::from(7u64),  // Y != 0 (F-exception)
@@ -257,7 +270,7 @@ mod tests {
 		);
 
 		// (3) End-to-end: encode the fallback and decode it back, to
-		// confirm the wire bytes the helper would write on the degenerate
+		// confirm the wire bytes the hook would write on the degenerate
 		// path round-trip to the same point through the standard
 		// `ArkScale<TEAffine>` codec the runtime uses.
 		let mut buf = utils::buffer_for::<EdwardsAffine>();
