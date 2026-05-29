@@ -113,8 +113,8 @@ pub fn process_authorizations<T: Config>(
 			// the ED must remain as transferable balance so the account exists.
 			// Funded from the tx fee pool (process_authorizations only runs from
 			// eth-tx contexts).
-			let credit =
-				<T as Config>::FeeInfo::withdraw_txfee(ed).ok_or(Error::<T>::StorageDepositNotEnoughFunds)?;
+			let credit = <T as Config>::FeeInfo::withdraw_txfee(ed)
+				.ok_or(Error::<T>::StorageDepositNotEnoughFunds)?;
 			<T as Config>::Currency::resolve(&account_id, credit)
 				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 			result.deposit.saturating_accrue(ed);

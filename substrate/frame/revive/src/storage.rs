@@ -19,7 +19,7 @@
 
 use crate::{
 	AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfoOf, Config, DeletionQueue,
-	DeletionQueueCounter, Error, NativeDepositOf, LOG_TARGET, SENTINEL, TrieId,
+	DeletionQueueCounter, Error, LOG_TARGET, NativeDepositOf, SENTINEL, TrieId,
 	address::AddressMapper,
 	exec::{AccountIdOf, Key},
 	metering::FrameMeter,
