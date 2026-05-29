@@ -86,7 +86,7 @@ mod v4 {
 		type Error = ClientError;
 
 		fn try_from(old: Rounds<B, AuthorityId>) -> Result<Self, Self::Error> {
-			let voting_weights = compute_voting_weights(&old.validator_set);
+			let validator_set = crate::round::WeightedValidatorSet::new(old.validator_set);
 			let rounds: BTreeMap<
 				Commitment<NumberFor<B>>,
 				crate::round::RoundTracker<AuthorityId>,
@@ -94,7 +94,7 @@ mod v4 {
 				.into_iter()
 				.map(|(commitment, tracker)| {
 					let tracker =
-						crate::round::RoundTracker::from_votes(tracker.votes, &voting_weights)
+						crate::round::RoundTracker::from_votes(tracker.votes, &validator_set)
 							.map_err(|e| {
 								ClientError::Backend(format!("BEEFY DB is corrupted: {}", e))
 							})?;
@@ -107,8 +107,7 @@ mod v4 {
 				rounds,
 				old.previous_votes,
 				old.session_start,
-				old.validator_set,
-				voting_weights,
+				validator_set,
 				old.mandatory_done,
 				old.best_done,
 			))
