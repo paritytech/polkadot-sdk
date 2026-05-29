@@ -209,3 +209,10 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<(u64, BeefyId)>) -> TestExt
 
 	ext
 }
+
+pub fn build_and_execute(ids: Vec<u8>, test: impl FnOnce()) {
+	new_test_ext(ids).execute_with(|| {
+		test();
+		crate::Pallet::<Test>::do_try_state().expect("All invariants must hold after a test");
+	})
+}
