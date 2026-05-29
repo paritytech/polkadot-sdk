@@ -89,8 +89,7 @@ impl CurveHooks for HostHooks {
 			// Bandersnatch is incomplete: HWCD on non-subgroup bases can land
 			// at `z = 0`. Substitute the unified `(0, -1)` non-subgroup
 			// fallback so a downstream subgroup check rejects it.
-			Err(Error::DegeneratePoint) =>
-				te_non_subgroup_fallback::<EdwardsConfig>().into_group(),
+			Err(Error::DegeneratePoint) => te_non_subgroup_fallback::<EdwardsConfig>().into_group(),
 			Err(_) => panic!("{FAIL_MSG}"),
 		}
 	}
@@ -111,8 +110,7 @@ impl CurveHooks for HostHooks {
 			&mut out,
 		) {
 			Ok(()) => utils::decode::<EdwardsAffine>(&out).expect(FAIL_MSG).into_group(),
-			Err(Error::DegeneratePoint) =>
-				te_non_subgroup_fallback::<EdwardsConfig>().into_group(),
+			Err(Error::DegeneratePoint) => te_non_subgroup_fallback::<EdwardsConfig>().into_group(),
 			Err(_) => panic!("{FAIL_MSG}"),
 		}
 	}
