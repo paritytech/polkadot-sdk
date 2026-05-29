@@ -2,8 +2,6 @@ title: 'litep2p: bitswap metrics added'
 doc:
   - audience: Node Dev
     description: |
-      Related to paritytech/polkadot-sdk#12083 (bitswap section).
-
       Adds four Prometheus metrics to the litep2p bitswap inbound handler so we can observe bitswap-driven load:
 
       - `substrate_sub_libp2p_bitswap_entries_total` — counter, label `outcome` one of: `block_served`, `have`, `dont_have`, `unsupported_cid`.
