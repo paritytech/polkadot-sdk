@@ -544,12 +544,8 @@ mod scheduling_verifier_tests {
 	const PARA_SLOT_DURATION_MS: u64 = 6_000;
 	const RELAY_SLOT_DURATION_MS: u64 = 6_000;
 
-	// -------------------------------------------------------------------------
-	// Second mock runtime configured with ed25519 Aura authorities. Mirrors the
-	// minimal subset of the top-level `Test` runtime needed by the verifier
-	// (frame_system + pallet_aura + pallet_timestamp + aura-ext). Parachain-system
-	// and the test_pallet are intentionally omitted — the verifier doesn't use them.
-	// -------------------------------------------------------------------------
+	// Ed25519Test is a minimal mock runtime for the ed25519 smoke test only.
+	// All other tests use the top-level `Test` runtime (sr25519).
 
 	type Ed25519Block = frame_system::mocking::MockBlock<Ed25519Test>;
 
@@ -583,105 +579,6 @@ mod scheduling_verifier_tests {
 		type OnTimestampSet = ();
 		type MinimumPeriod = ();
 		type WeightInfo = ();
-	}
-
-	// -------------------------------------------------------------------------
-	// Crypto fixture: abstracts the runtime + keyring pair so each verifier test
-	// body is written once and instantiated for both sr25519 and ed25519.
-	// -------------------------------------------------------------------------
-
-	trait CryptoFixture {
-		type Runtime: crate::Config + pallet_aura::Config + pallet_timestamp::Config;
-		type Keyring: Copy + 'static;
-
-		fn alice() -> Self::Keyring;
-		fn bob() -> Self::Keyring;
-		fn charlie() -> Self::Keyring;
-		fn dave() -> Self::Keyring;
-
-		/// Returns the encoded 64-byte signature blob, matching the wire format the
-		/// verifier decodes into `<AuthorityId as RuntimeAppPublic>::Signature`.
-		fn sign(signer: Self::Keyring, msg: &[u8]) -> [u8; 64];
-
-		fn set_authorities(keys: &[Self::Keyring]);
-
-		fn new_test_ext() -> sp_io::TestExternalities {
-			sp_io::TestExternalities::new_empty()
-		}
-
-		fn verify(signed: &SignedSchedulingInfo, header: &RelayChainHeader) -> bool {
-			AuraSchedulingVerifier::<Self::Runtime>::verify(signed, header)
-		}
-	}
-
-	struct Sr25519Fixture;
-
-	impl CryptoFixture for Sr25519Fixture {
-		type Runtime = Test;
-		type Keyring = Sr25519Keyring;
-
-		fn alice() -> Self::Keyring {
-			Sr25519Keyring::Alice
-		}
-		fn bob() -> Self::Keyring {
-			Sr25519Keyring::Bob
-		}
-		fn charlie() -> Self::Keyring {
-			Sr25519Keyring::Charlie
-		}
-		fn dave() -> Self::Keyring {
-			Sr25519Keyring::Dave
-		}
-
-		fn sign(signer: Self::Keyring, msg: &[u8]) -> [u8; 64] {
-			signer.sign(msg).0
-		}
-
-		fn set_authorities(keys: &[Self::Keyring]) {
-			type Id = sp_consensus_aura::sr25519::AuthorityId;
-			let authorities: BoundedVec<Id, ConstU32<100_000>> = keys
-				.iter()
-				.map(|k| Id::from(k.public()))
-				.collect::<Vec<_>>()
-				.try_into()
-				.expect("test fixture stays under MaxAuthorities; qed");
-			Authorities::<Test>::put(authorities);
-		}
-	}
-
-	struct Ed25519Fixture;
-
-	impl CryptoFixture for Ed25519Fixture {
-		type Runtime = Ed25519Test;
-		type Keyring = Ed25519Keyring;
-
-		fn alice() -> Self::Keyring {
-			Ed25519Keyring::Alice
-		}
-		fn bob() -> Self::Keyring {
-			Ed25519Keyring::Bob
-		}
-		fn charlie() -> Self::Keyring {
-			Ed25519Keyring::Charlie
-		}
-		fn dave() -> Self::Keyring {
-			Ed25519Keyring::Dave
-		}
-
-		fn sign(signer: Self::Keyring, msg: &[u8]) -> [u8; 64] {
-			signer.sign(msg).0
-		}
-
-		fn set_authorities(keys: &[Self::Keyring]) {
-			type Id = sp_consensus_aura::ed25519::AuthorityId;
-			let authorities: BoundedVec<Id, ConstU32<100_000>> = keys
-				.iter()
-				.map(|k| Id::from(k.public()))
-				.collect::<Vec<_>>()
-				.try_into()
-				.expect("test fixture stays under MaxAuthorities; qed");
-			Authorities::<Ed25519Test>::put(authorities);
-		}
 	}
 
 	// -------------------------------------------------------------------------
@@ -725,33 +622,49 @@ mod scheduling_verifier_tests {
 		relay_slot.saturating_mul(RELAY_SLOT_DURATION_MS) / para_slot_duration
 	}
 
+	type Sr25519Id = sp_consensus_aura::sr25519::AuthorityId;
+	type Ed25519Id = sp_consensus_aura::ed25519::AuthorityId;
+
+	fn set_authorities<T>(authorities: Vec<<T as pallet_aura::Config>::AuthorityId>)
+	where
+		T: crate::Config,
+	{
+		let bounded: BoundedVec<_, <T as pallet_aura::Config>::MaxAuthorities> =
+			authorities.try_into().expect("test fixture stays under MaxAuthorities; qed");
+		Authorities::<T>::put(bounded);
+	}
+
 	// -------------------------------------------------------------------------
-	// Generic test bodies. Each is instantiated once per fixture below.
+	// sr25519 tests (default crypto scheme).
 	// -------------------------------------------------------------------------
 
-	fn single_authority_verifier_impl<F: CryptoFixture>(eligible_signer: bool) {
+	#[rstest]
+	#[case::eligible_author_signs(true)]
+	#[case::non_eligible_author_signs(false)]
+	fn single_authority_verifier(#[case] eligible_signer: bool) {
 		// Single-authority fixture (Alice). The eligible-author signature passes; any
 		// other signer is rejected.
 		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
-		F::new_test_ext().execute_with(|| {
-			F::set_authorities(&[F::alice()]);
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			set_authorities::<Test>(vec![Sr25519Id::from(Sr25519Keyring::Alice.public())]);
 			let header = relay_header_at_slot(7);
 			let payload = make_payload(header.hash());
-			let signer = if eligible_signer { F::alice() } else { F::bob() };
+			let signer = if eligible_signer { Sr25519Keyring::Alice } else { Sr25519Keyring::Bob };
 			let signed =
-				SignedSchedulingInfo { signature: F::sign(signer, &payload.encode()), payload };
-			assert_eq!(F::verify(&signed, &header), eligible_signer);
+				SignedSchedulingInfo { signature: signer.sign(&payload.encode()).0, payload };
+			assert_eq!(AuraSchedulingVerifier::<Test>::verify(&signed, &header), eligible_signer);
 		});
 	}
 
-	fn tampered_payload_is_rejected_impl<F: CryptoFixture>() {
+	#[test]
+	fn tampered_payload_is_rejected() {
 		// Sign one payload, verify against a different one — verification must fail.
 		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
-		F::new_test_ext().execute_with(|| {
-			F::set_authorities(&[F::alice()]);
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			set_authorities::<Test>(vec![Sr25519Id::from(Sr25519Keyring::Alice.public())]);
 			let header = relay_header_at_slot(7);
 			let original = make_payload(header.hash());
-			let signature = F::sign(F::alice(), &original.encode());
+			let signature = Sr25519Keyring::Alice.sign(&original.encode()).0;
 			let tampered = SchedulingInfoPayload::new(
 				cumulus_primitives_core::CoreSelector(99),
 				0,
@@ -759,36 +672,44 @@ mod scheduling_verifier_tests {
 				header.hash(),
 			);
 			let signed = SignedSchedulingInfo { signature, payload: tampered };
-			assert!(!F::verify(&signed, &header));
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header));
 		});
 	}
 
-	fn payload_isp_mismatching_header_is_rejected_impl<F: CryptoFixture>() {
+	#[test]
+	fn payload_isp_mismatching_header_is_rejected() {
 		// Replay-detection: an attacker takes a signature created at ISP X and tries to
 		// use it at ISP Y (different relay block). The verifier must reject because the
 		// payload's claimed `internal_scheduling_parent` no longer matches the header's
 		// hash, even though the signer is otherwise eligible.
 		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
-		F::new_test_ext().execute_with(|| {
-			F::set_authorities(&[F::alice()]);
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			set_authorities::<Test>(vec![Sr25519Id::from(Sr25519Keyring::Alice.public())]);
 			let header = relay_header_at_slot(7);
 			let payload = make_payload(RelayHash::repeat_byte(0xAA)); // different ISP
-			let signed =
-				SignedSchedulingInfo { signature: F::sign(F::alice(), &payload.encode()), payload };
-			assert!(!F::verify(&signed, &header));
+			let signed = SignedSchedulingInfo {
+				signature: Sr25519Keyring::Alice.sign(&payload.encode()).0,
+				payload,
+			};
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header));
 		});
 	}
 
-	fn multi_authority_verifier_picks_index_impl<F: CryptoFixture>(
-		signer_idx: usize,
-		expected: bool,
-	) {
+	#[rstest]
+	#[case::eligible_index_signs(3, true)]
+	#[case::non_eligible_index_signs(0, false)]
+	fn multi_authority_verifier_picks_index(#[case] signer_idx: usize, #[case] expected: bool) {
 		// Fixture: authorities = [Alice, Bob, Charlie, Dave], relay slot 7, 6s para slots.
 		// Para slot = 7, 7 mod 4 = 3 → only authorities[3] (Dave) is eligible.
 		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
-		F::new_test_ext().execute_with(|| {
-			let keys = [F::alice(), F::bob(), F::charlie(), F::dave()];
-			F::set_authorities(&keys);
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			let keys = [
+				Sr25519Keyring::Alice,
+				Sr25519Keyring::Bob,
+				Sr25519Keyring::Charlie,
+				Sr25519Keyring::Dave,
+			];
+			set_authorities::<Test>(keys.iter().map(|k| Sr25519Id::from(k.public())).collect());
 
 			let relay_slot = 7u64;
 			let para_slot = para_slot_from_relay(relay_slot, PARA_SLOT_DURATION_MS);
@@ -801,22 +722,23 @@ mod scheduling_verifier_tests {
 			let header = relay_header_at_slot(relay_slot);
 			let payload = make_payload(header.hash());
 			let signed = SignedSchedulingInfo {
-				signature: F::sign(keys[signer_idx], &payload.encode()),
+				signature: keys[signer_idx].sign(&payload.encode()).0,
 				payload,
 			};
-			assert_eq!(F::verify(&signed, &header), expected);
+			assert_eq!(AuraSchedulingVerifier::<Test>::verify(&signed, &header), expected);
 		});
 	}
 
-	fn short_para_slot_duration_picks_correct_author_impl<F: CryptoFixture>() {
+	#[test]
+	fn short_para_slot_duration_picks_correct_author() {
 		// 2s para slots, 6s relay slots: para_slot = relay_slot * 3. At relay slot 5 the
 		// para slot is 15; with three authorities 15 mod 3 = 0, so Alice must sign.
 		// Exercises the slot-conversion arithmetic for sub-6s parachains.
 		const SHORT_PARA_SLOT: u64 = 2_000;
 		TestSlotDuration::set_slot_duration(SHORT_PARA_SLOT);
-		F::new_test_ext().execute_with(|| {
-			let keys = [F::alice(), F::bob(), F::charlie()];
-			F::set_authorities(&keys);
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			let keys = [Sr25519Keyring::Alice, Sr25519Keyring::Bob, Sr25519Keyring::Charlie];
+			set_authorities::<Test>(keys.iter().map(|k| Sr25519Id::from(k.public())).collect());
 
 			let relay_slot = 5u64;
 			let para_slot = para_slot_from_relay(relay_slot, SHORT_PARA_SLOT);
@@ -827,47 +749,54 @@ mod scheduling_verifier_tests {
 			let header = relay_header_at_slot(relay_slot);
 			let payload = make_payload(header.hash());
 			let signed = SignedSchedulingInfo {
-				signature: F::sign(keys[expected_idx], &payload.encode()),
+				signature: keys[expected_idx].sign(&payload.encode()).0,
 				payload,
 			};
-			assert!(F::verify(&signed, &header));
+			assert!(AuraSchedulingVerifier::<Test>::verify(&signed, &header));
 		});
 	}
 
-	fn empty_authority_set_is_rejected_impl<F: CryptoFixture>() {
+	#[test]
+	fn empty_authority_set_is_rejected() {
 		// `Authorities::<T>` empty means no eligible author exists; verification fails
 		// closed rather than panicking on `para_slot % 0`.
 		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
-		F::new_test_ext().execute_with(|| {
-			F::set_authorities(&[]);
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			set_authorities::<Test>(Vec::<Sr25519Id>::new());
 			let header = relay_header_at_slot(7);
 			let payload = make_payload(header.hash());
-			let signed =
-				SignedSchedulingInfo { signature: F::sign(F::alice(), &payload.encode()), payload };
-			assert!(!F::verify(&signed, &header));
+			let signed = SignedSchedulingInfo {
+				signature: Sr25519Keyring::Alice.sign(&payload.encode()).0,
+				payload,
+			};
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header));
 		});
 	}
 
-	fn zero_para_slot_duration_is_rejected_impl<F: CryptoFixture>() {
+	#[test]
+	fn zero_para_slot_duration_is_rejected() {
 		// A misconfigured pallet-aura returning `slot_duration() == 0` would otherwise
 		// divide-by-zero; the verifier must reject up front.
 		TestSlotDuration::set_slot_duration(0);
-		F::new_test_ext().execute_with(|| {
-			F::set_authorities(&[F::alice()]);
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			set_authorities::<Test>(vec![Sr25519Id::from(Sr25519Keyring::Alice.public())]);
 			let header = relay_header_at_slot(7);
 			let payload = make_payload(header.hash());
-			let signed =
-				SignedSchedulingInfo { signature: F::sign(F::alice(), &payload.encode()), payload };
-			assert!(!F::verify(&signed, &header));
+			let signed = SignedSchedulingInfo {
+				signature: Sr25519Keyring::Alice.sign(&payload.encode()).0,
+				payload,
+			};
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header));
 		});
 	}
 
-	fn missing_babe_pre_digest_is_rejected_impl<F: CryptoFixture>() {
+	#[test]
+	fn missing_babe_pre_digest_is_rejected() {
 		// Without a BABE pre-digest the verifier can't derive the relay slot and must
 		// reject — there is no fallback that could pick an author.
 		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
-		F::new_test_ext().execute_with(|| {
-			F::set_authorities(&[F::alice()]);
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			set_authorities::<Test>(vec![Sr25519Id::from(Sr25519Keyring::Alice.public())]);
 			let header_no_digest = RelayChainHeader {
 				parent_hash: Default::default(),
 				number: 0,
@@ -876,96 +805,52 @@ mod scheduling_verifier_tests {
 				digest: Digest::default(),
 			};
 			let payload = make_payload(header_no_digest.hash());
-			let signed =
-				SignedSchedulingInfo { signature: F::sign(F::alice(), &payload.encode()), payload };
-			assert!(!F::verify(&signed, &header_no_digest));
+			let signed = SignedSchedulingInfo {
+				signature: Sr25519Keyring::Alice.sign(&payload.encode()).0,
+				payload,
+			};
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header_no_digest));
 		});
 	}
 
-	fn relay_slot_overflow_is_rejected_impl<F: CryptoFixture>() {
+	#[test]
+	fn relay_slot_overflow_is_rejected() {
 		// `relay_slot * RELAY_CHAIN_SLOT_DURATION_MILLIS` must overflow on adversarial
 		// input. `u64::MAX * 6000` overflows; `checked_mul` returns `None` and the
 		// verifier rejects rather than silently saturating to a wrong author index.
 		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
-		F::new_test_ext().execute_with(|| {
-			F::set_authorities(&[F::alice()]);
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			set_authorities::<Test>(vec![Sr25519Id::from(Sr25519Keyring::Alice.public())]);
 			let header = relay_header_at_slot(u64::MAX);
 			let payload = make_payload(header.hash());
-			let signed =
-				SignedSchedulingInfo { signature: F::sign(F::alice(), &payload.encode()), payload };
-			assert!(!F::verify(&signed, &header));
+			let signed = SignedSchedulingInfo {
+				signature: Sr25519Keyring::Alice.sign(&payload.encode()).0,
+				payload,
+			};
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header));
 		});
 	}
 
 	// -------------------------------------------------------------------------
-	// `crypto_test!` declares one rstest that runs against both crypto schemes.
-	// `Scheme` is a runtime tag rstest can use as a `#[values]` case; the macro
-	// emits a match that monomorphises the generic `_impl` body against the
-	// matching fixture, so type resolution still happens at compile time.
+	// ed25519 smoke test — confirms the ed25519 code path through the verifier.
 	// -------------------------------------------------------------------------
 
-	#[derive(Copy, Clone, Debug)]
-	enum Scheme {
-		Sr25519,
-		Ed25519,
+	#[test]
+	fn ed25519_smoke_eligible_author_verifies() {
+		// Exercises AuraSchedulingVerifier against Ed25519Test (ed25519 AuthorityId).
+		// Uses the same happy-path scenario as single_authority_verifier: Alice is the
+		// sole authority at relay slot 7 and signs the matching payload — must pass.
+		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			set_authorities::<Ed25519Test>(vec![Ed25519Id::from(Ed25519Keyring::Alice.public())]);
+
+			let header = relay_header_at_slot(7);
+			let payload = make_payload(header.hash());
+			let signed = SignedSchedulingInfo {
+				signature: Ed25519Keyring::Alice.sign(&payload.encode()).0,
+				payload,
+			};
+			assert!(AuraSchedulingVerifier::<Ed25519Test>::verify(&signed, &header));
+		});
 	}
-
-	macro_rules! crypto_test {
-		// No extra parameters — a single test per scheme.
-		($name:ident) => {
-			#[rstest]
-			fn $name(#[values(Scheme::Sr25519, Scheme::Ed25519)] scheme: Scheme) {
-				paste::paste! {
-					match scheme {
-						Scheme::Sr25519 => [<$name _impl>]::<Sr25519Fixture>(),
-						Scheme::Ed25519 => [<$name _impl>]::<Ed25519Fixture>(),
-					}
-				}
-			}
-		};
-		// With `#[case]` parameters — fans out scheme × cases.
-		(
-			$name:ident,
-			$(#[$case_attr:meta])+
-			($($pname:ident: $pty:ty),+ $(,)?)
-		) => {
-			#[rstest]
-			$(#[$case_attr])+
-			fn $name(
-				#[values(Scheme::Sr25519, Scheme::Ed25519)] scheme: Scheme,
-				$(#[case] $pname: $pty,)+
-			) {
-				paste::paste! {
-					match scheme {
-						Scheme::Sr25519 =>
-							[<$name _impl>]::<Sr25519Fixture>($($pname),+),
-						Scheme::Ed25519 =>
-							[<$name _impl>]::<Ed25519Fixture>($($pname),+),
-					}
-				}
-			}
-		};
-	}
-
-	crypto_test!(tampered_payload_is_rejected);
-	crypto_test!(payload_isp_mismatching_header_is_rejected);
-	crypto_test!(short_para_slot_duration_picks_correct_author);
-	crypto_test!(empty_authority_set_is_rejected);
-	crypto_test!(zero_para_slot_duration_is_rejected);
-	crypto_test!(missing_babe_pre_digest_is_rejected);
-	crypto_test!(relay_slot_overflow_is_rejected);
-
-	crypto_test!(
-		single_authority_verifier,
-		#[case::eligible_author_signs(true)]
-		#[case::non_eligible_author_signs(false)]
-		(eligible: bool)
-	);
-
-	crypto_test!(
-		multi_authority_verifier_picks_index,
-		#[case::eligible_index_signs(3, true)]
-		#[case::non_eligible_index_signs(0, false)]
-		(signer_idx: usize, expected: bool)
-	);
 }

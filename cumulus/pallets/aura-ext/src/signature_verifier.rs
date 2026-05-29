@@ -8,7 +8,7 @@
 //! parachain slot from the BABE pre-digest of the relay header at
 //! `internal_scheduling_parent`, looks up the eligible Aura author from this pallet's
 //! cached authority set, and verifies the 64-byte signature in [`SignedSchedulingInfo`]
-//! over the encoded [`SchedulingInfoPayload`].
+//! over the encoded `SchedulingInfoPayload`.
 
 use crate::{Authorities, Config};
 use codec::{Decode, Encode};
@@ -25,7 +25,7 @@ use sp_consensus_babe::digests::CompatibleDigestItem as BabeDigestItem;
 /// Wired by the parachain runtime as
 /// `type SchedulingSignatureVerifier = AuraSchedulingVerifier<Runtime>;` on
 /// [`cumulus_pallet_parachain_system::Config`]. The relay slot duration is the
-/// global [`polkadot_primitives::RELAY_CHAIN_SLOT_DURATION_MILLIS`] (6000 ms),
+/// global `RELAY_CHAIN_SLOT_DURATION_MILLIS` (6000 ms),
 /// which is fixed across Polkadot, Kusama, Westend, and Rococo.
 ///
 /// `T` is the runtime; the Aura crypto is derived from
@@ -97,7 +97,7 @@ where
 
 		let para_slot: u64 = match u64::from(relay_slot)
 			.checked_mul(RELAY_CHAIN_SLOT_DURATION_MILLIS)
-			.and_then(|product| product.checked_div(para_slot_duration))
+			.map(|product| product / para_slot_duration)
 		{
 			Some(s) => s,
 			None => return false,

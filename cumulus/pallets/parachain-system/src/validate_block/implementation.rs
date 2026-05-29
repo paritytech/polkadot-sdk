@@ -160,11 +160,13 @@ where
 			// so the verifier needs that header — not the freshest one in the chain.
 			// `check_scheduling` has already verified the header hashes to the derived
 			// `internal_scheduling_parent`.
-			if !PSC::SchedulingSignatureVerifier::verify(
-				signed_info,
-				&proof.internal_scheduling_parent_header,
-			) {
-				panic!("V3 scheduling validation failed: invalid signed_scheduling_info");
+			let isp_header = &proof.internal_scheduling_parent_header;
+			if !PSC::SchedulingSignatureVerifier::verify(signed_info, isp_header) {
+				panic!(
+					"V3 scheduling validation failed: invalid signed_scheduling_info \
+					 (ISP: {:?})",
+					isp_header.hash(),
+				);
 			}
 			signed_info.clone()
 		});
