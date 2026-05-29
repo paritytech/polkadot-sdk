@@ -2858,7 +2858,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Assumes a new account delegating to a contract with the maximum code size.
 	pub(crate) fn worst_case_delegation_deposit() -> BalanceOf<T> {
-		let ed = Self::min_balance();
+		let ed = <T as Config>::Currency::minimum_balance();
 		let contract_deposit = T::DepositPerByte::get()
 			.saturating_mul((<ContractInfo<T>>::max_encoded_len() as u32).into())
 			.saturating_add(T::DepositPerItem::get());
