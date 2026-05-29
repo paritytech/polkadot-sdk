@@ -1242,7 +1242,15 @@ fn apply_no_slot_set_inner(
 
 	for peer_id in new_dynamic_no_slot.difference(old_dynamic_no_slot) {
 		let Some(affects_slots) = slot_impact(peer_id) else { continue };
-		connected_no_slot.insert(*peer_id);
+		// Defensive check, should never happen as we filter above.
+		if !connected_no_slot.insert(*peer_id) {
+			log::error!(
+				target: LOG_TARGET,
+				"{peer_id} promoted to no-slot but was already in connected_no_slot",
+			);
+			debug_assert!(false);
+			continue;
+		}
 		if affects_slots {
 			if let Some(n) = num_in_peers.checked_sub(1) {
 				*num_in_peers = n;

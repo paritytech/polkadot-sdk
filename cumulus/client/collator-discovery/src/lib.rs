@@ -320,7 +320,7 @@ fn select_ring_neighbors(
 	}
 
 	let Some(local_idx) = authorities.iter().position(|id| local_pub_keys.contains(id)) else {
-		return authorities.into_iter().take(max_reserved).collect();
+		return Vec::new();
 	};
 
 	let mut selected = Vec::with_capacity(max_reserved.min(n.saturating_sub(1)));
@@ -604,10 +604,10 @@ mod tests {
 	}
 
 	#[test]
-	fn ring_fallback_when_not_an_authority() {
-		// Local key not in the set: deterministic first-`max_reserved` fallback.
+	fn ring_empty_when_not_an_authority() {
+		// Local key not in the set: nothing to reserve — non-authorities rely on gossip.
 		let selected = select_ring_neighbors(ring(5), &local_set(99), 3);
-		assert_eq!(selected, vec![authority_id(0), authority_id(1), authority_id(2)]);
+		assert!(selected.is_empty());
 	}
 
 	#[test]
