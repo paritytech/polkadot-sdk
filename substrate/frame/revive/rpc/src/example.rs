@@ -39,6 +39,7 @@ pub struct TransactionBuilder<Client: EthRpcClient + Sync + Send> {
 	to: Option<H160>,
 	nonce: Option<U256>,
 	authorization_list: Vec<AuthorizationListEntry>,
+	gas: Option<U256>,
 	mutate: Box<dyn FnOnce(&mut TransactionUnsigned)>,
 }
 
@@ -69,28 +70,32 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 		self.tx.clone()
 	}
 
-	/// Wait for the receipt of the transaction.
-	pub async fn wait_for_receipt(&self) -> anyhow::Result<ReceiptInfo> {
+	/// Wait for the receipt regardless of success or failure status.
+	pub async fn wait_for_receipt_any(&self) -> anyhow::Result<ReceiptInfo> {
 		let hash = self.hash();
 		for _ in 0..30 {
 			tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-			let receipt = self.client.get_transaction_receipt(hash).await?;
-			if let Some(receipt) = receipt {
-				if receipt.is_success() {
-					assert!(
-						self.gas() > receipt.gas_used,
-						"Gas used {:?} should be less than gas estimated {:?}",
-						receipt.gas_used,
-						self.gas()
-					);
-					return Ok(receipt);
-				} else {
-					anyhow::bail!("Transaction failed receipt: {receipt:?}")
-				}
+			if let Some(receipt) = self.client.get_transaction_receipt(hash).await? {
+				return Ok(receipt);
 			}
 		}
+		anyhow::bail!("Timeout, failed to get receipt for {hash:?}")
+	}
 
-		anyhow::bail!("Timeout, failed to get receipt")
+	/// Wait for the receipt and assert the transaction succeeded.
+	pub async fn wait_for_receipt(&self) -> anyhow::Result<ReceiptInfo> {
+		let receipt = self.wait_for_receipt_any().await?;
+		if receipt.is_success() {
+			assert!(
+				self.gas() >= receipt.gas_used,
+				"Gas used {:?} should be less than or equal to gas limit {:?}",
+				receipt.gas_used,
+				self.gas()
+			);
+			Ok(receipt)
+		} else {
+			anyhow::bail!("Transaction failed receipt: {receipt:?}")
+		}
 	}
 }
 
@@ -104,6 +109,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 			to: None,
 			nonce: None,
 			authorization_list: vec![],
+			gas: None,
 			mutate: Box::new(|_| {}),
 		}
 	}
@@ -143,6 +149,12 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 		self
 	}
 
+	/// Set the gas limit explicitly, skipping eth_estimateGas.
+	pub fn gas(mut self, gas: U256) -> Self {
+		self.gas = Some(gas);
+		self
+	}
+
 	/// Set a mutation function, that mutates the transaction before sending.
 	pub fn mutate(mut self, mutate: impl FnOnce(&mut TransactionUnsigned) + 'static) -> Self {
 		self.mutate = Box::new(mutate);
@@ -164,6 +176,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 					authorization_list,
 					..Default::default()
 				},
+				None,
 				None,
 			)
 			.await
@@ -189,6 +202,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 			to,
 			nonce,
 			authorization_list,
+			gas,
 			mutate,
 		} = self;
 
@@ -211,23 +225,26 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 			TransactionType::Eip4844 => Some(Byte(3)),
 			TransactionType::Eip7702 => Some(Byte(4)),
 		};
-
-		let gas = client
-			.estimate_gas(
-				GenericTransaction {
-					from: Some(from),
-					input: input.clone().into(),
-					value: Some(value),
-					gas_price: Some(gas_price),
-					to,
-					r#type,
-					authorization_list: authorization_list.clone(),
-					..Default::default()
-				},
-				None,
-			)
-			.await
-			.with_context(|| "Failed to fetch gas estimate")?;
+		let gas = if let Some(gas) = gas {
+			gas
+		} else {
+			client
+				.estimate_gas(
+					GenericTransaction {
+						from: Some(from),
+						input: input.clone().into(),
+						value: Some(value),
+						gas_price: Some(gas_price),
+						to,
+						r#type,
+						authorization_list: authorization_list.clone(),
+						..Default::default()
+					},
+					None,
+				)
+				.await
+				.with_context(|| "Failed to fetch gas estimate")?
+		};
 
 		println!("Gas estimate: {gas:?}");
 

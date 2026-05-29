@@ -77,6 +77,38 @@ fn main() {
 		.set_file_name("wasm_binary_elastic_scaling_12s_slot.rs")
 		.build();
 
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("block-bundling")
+		.import_memory()
+		.set_file_name("wasm_binary_block_bundling.rs")
+		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("async-backing")
+		.enable_feature("v3-descriptor")
+		.import_memory()
+		.set_file_name("wasm_binary_async_backing_v3.rs")
+		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("async-backing")
+		.enable_feature("v3-descriptor")
+		.enable_feature("relay-parent-offset")
+		.import_memory()
+		.set_file_name("wasm_binary_async_backing_v3_rpo.rs")
+		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("elastic-scaling")
+		.enable_feature("v3-descriptor")
+		.import_memory()
+		.set_file_name("wasm_binary_elastic_scaling_v3.rs")
+		.build();
+
 	WasmBuilder::init_with_defaults()
 		.enable_feature("slot-duration-18s")
 		.enable_feature("increment-spec-version")

@@ -36,6 +36,7 @@ use pallet_revive::precompiles::{
 	},
 	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
+use sp_runtime::traits::{UniqueSaturatedInto, Zero};
 use weights::WeightInfo as _;
 
 pub mod foreign_assets;
@@ -53,7 +54,11 @@ mod migration_tests;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
+mod permit_precompile_tests;
+#[cfg(test)]
 mod permit_tests;
+#[cfg(test)]
+mod test_helpers;
 #[cfg(test)]
 mod tests;
 
@@ -61,7 +66,7 @@ pub use foreign_assets::{pallet, pallet::Config as ForeignAssetsConfig, ForeignA
 pub use migration::MigrateForeignAssetPrecompileMappings;
 pub use permit::pallet::Config as PermitConfig;
 
-/// Mean of extracting the asset id from the precompile address.
+/// Means of extracting the asset id from the precompile address.
 pub trait AssetIdExtractor {
 	type AssetId;
 	/// Extracts the asset id from the address.
@@ -85,7 +90,7 @@ impl AssetIdExtractor for InlineAssetIdExtractor {
 	fn asset_id_from_address(addr: &[u8; 20]) -> Result<Self::AssetId, Error> {
 		let bytes: [u8; 4] = addr[0..4].try_into().expect("slice is 4 bytes; qed");
 		let index = u32::from_be_bytes(bytes);
-		return Ok(index.into());
+		Ok(index)
 	}
 }
 
@@ -160,6 +165,11 @@ where
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
+		frame_support::ensure!(
+			!env.is_delegate_call(),
+			pallet_revive::Error::<Self::T>::PrecompileDelegateDenied,
+		);
+
 		let asset_id = PrecompileConfig::AssetIdExtractor::asset_id_from_address(address)?.into();
 		let contract_addr = H160::from(*address);
 
@@ -228,7 +238,7 @@ where
 	}
 
 	/// Convert a balance to a `U256` value.
-	/// Note this is needed cause From is not implemented for unsigned integer types
+	/// Note: this is needed because `From` is not implemented for unsigned integer types.
 	fn to_u256(
 		value: <Runtime as Config<Instance>>::Balance,
 	) -> Result<alloy::primitives::U256, Error> {
@@ -242,7 +252,7 @@ where
 		let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
 		env.frame_meter_mut().charge_weight_token(RuntimeCosts::DepositEvent {
 			num_topic: topics.len() as u32,
-			len: topics.len() as u32,
+			len: data.len() as u32,
 		})?;
 		env.deposit_event(topics, data.to_vec());
 		Ok(())
@@ -280,7 +290,7 @@ where
 			}),
 		)?;
 
-		return Ok(IERC20::transferCall::abi_encode_returns(&true));
+		Ok(IERC20::transferCall::abi_encode_returns(&true))
 	}
 
 	/// Execute the total supply call.
@@ -293,7 +303,7 @@ where
 
 		let value =
 			Self::to_u256(pallet_assets::Pallet::<Runtime, Instance>::total_issuance(asset_id))?;
-		return Ok(IERC20::totalSupplyCall::abi_encode_returns(&value));
+		Ok(IERC20::totalSupplyCall::abi_encode_returns(&value))
 	}
 
 	/// Execute the balance_of call.
@@ -307,7 +317,7 @@ where
 		let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&account);
 		let value =
 			Self::to_u256(pallet_assets::Pallet::<Runtime, Instance>::balance(asset_id, account))?;
-		return Ok(IERC20::balanceOfCall::abi_encode_returns(&value));
+		Ok(IERC20::balanceOfCall::abi_encode_returns(&value))
 	}
 
 	/// Execute the allowance call.
@@ -327,26 +337,87 @@ where
 			asset_id, &owner, &spender,
 		))?;
 
-		return Ok(IERC20::allowanceCall::abi_encode_returns(&value));
+		Ok(IERC20::allowanceCall::abi_encode_returns(&value))
 	}
 
 	/// Execute the approve call.
+	///
+	/// Implements ERC-20 set semantics: `approve(spender, N)` sets the allowance to exactly `N`
+	/// rather than adding to it. When overwriting a non-zero allowance, the existing approval is
+	/// cancelled first so the new value replaces (not accumulates with) the old one.
+	///
+	/// `call.value > Balance::MAX` (the `type(uint256).max` "infinite allowance" idiom)
+	/// saturates the stored allowance at `Balance::MAX`. The `Approval` event carries the
+	/// raw `call.value`.
 	fn approve(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &IERC20::approveCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		env.charge(<Runtime as Config<Instance>>::WeightInfo::approve_transfer())?;
-		let owner = Self::caller(env)?;
-		let spender = call.spender.into_array().into();
-		let spender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
+		use frame_support::traits::fungibles::approvals::Inspect as ApprovalsInspect;
 
-		pallet_assets::Pallet::<Runtime, Instance>::do_approve_transfer(
-			asset_id,
-			&<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner),
-			&spender,
-			Self::to_balance(call.value)?,
-		)?;
+		// Reserve worst-case gas upfront, then refund the unused portion.
+		let worst_case = <Runtime as Config<Instance>>::WeightInfo::allowance()
+			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::cancel_approval())
+			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::approve_transfer());
+		let charged = env.charge(worst_case)?;
+
+		let owner = Self::caller(env)?;
+		let owner_account =
+			<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner);
+		let spender: H160 = call.spender.into_array().into();
+		let spender_account = env.to_account_id(&spender);
+		// Saturate: `type(uint256).max` is the standard "infinite allowance" idiom and must
+		// not revert at the conversion boundary.
+		let new_amount: <Runtime as Config<Instance>>::Balance = call.value.unique_saturated_into();
+
+		let current = pallet_assets::Pallet::<Runtime, Instance>::allowance(
+			asset_id.clone(),
+			&owner_account,
+			&spender_account,
+		);
+
+		let actual_weight;
+		if new_amount.is_zero() {
+			if !current.is_zero() {
+				// Revoke: use the pallet's cancel logic to remove the approval and
+				// unreserve the deposit.
+				pallet_assets::Pallet::<Runtime, Instance>::do_cancel_approval(
+					&asset_id,
+					&owner_account,
+					&spender_account,
+				)?;
+				actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance()
+					.saturating_add(<Runtime as Config<Instance>>::WeightInfo::cancel_approval());
+			} else {
+				// 0→0 no-op: only the allowance read was needed.
+				actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance();
+			}
+		} else {
+			// If there's an existing non-zero allowance, cancel it first so we
+			// overwrite (not accumulate) — matching ERC-20 spec semantics.
+			// NOTE: This does not mitigate the well-known ERC-20 approve front-running
+			// race condition. Callers concerned about this should approve to 0 first,
+			// or use increaseAllowance/decreaseAllowance if available.
+			if !current.is_zero() {
+				pallet_assets::Pallet::<Runtime, Instance>::do_cancel_approval(
+					&asset_id,
+					&owner_account,
+					&spender_account,
+				)?;
+				actual_weight = worst_case;
+			} else {
+				actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance()
+					.saturating_add(<Runtime as Config<Instance>>::WeightInfo::approve_transfer());
+			}
+			pallet_assets::Pallet::<Runtime, Instance>::do_approve_transfer(
+				asset_id,
+				&owner_account,
+				&spender_account,
+				new_amount,
+			)?;
+		}
+		env.adjust_gas(charged, actual_weight);
 
 		Self::deposit_event(
 			env,
@@ -357,7 +428,7 @@ where
 			}),
 		)?;
 
-		return Ok(IERC20::approveCall::abi_encode_returns(&true));
+		Ok(IERC20::approveCall::abi_encode_returns(&true))
 	}
 
 	/// Execute the transfer_from call.
@@ -394,7 +465,7 @@ where
 			}),
 		)?;
 
-		return Ok(IERC20::transferFromCall::abi_encode_returns(&true));
+		Ok(IERC20::transferFromCall::abi_encode_returns(&true))
 	}
 
 	// ==================== ERC20Permit Functions (EIP-2612) ====================
@@ -402,14 +473,23 @@ where
 	/// Execute the permit call (EIP-2612).
 	///
 	/// This verifies the signature, consumes the permit (increments nonce),
-	/// and sets the approval.
+	/// and sets the approval. Saturation policy and event payload match `approve` —
+	/// see its doc-comment.
 	pub(crate) fn permit(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		verifying_contract: H160,
 		call: &IERC20::permitCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		env.charge(<Runtime as permit::Config>::WeightInfo::permit())?;
+		// Reserve worst-case gas upfront, then refund the unused portion.
+		// The total cost is: use_permit (signature verification + nonce) +
+		// worst-case asset approval operations (allowance read + cancel + approve).
+		let use_permit_weight = <Runtime as permit::Config>::WeightInfo::use_permit();
+		let worst_case = use_permit_weight
+			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::allowance())
+			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::cancel_approval())
+			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::approve_transfer());
+		let charged = env.charge(worst_case)?;
 
 		let owner_h160: H160 = call.owner.into_array().into();
 		let spender_h160: H160 = call.spender.into_array().into();
@@ -450,19 +530,67 @@ where
 					Error::Revert(Revert { reason: msg.into() })
 				})?;
 
-				// TODO: do_approve_transfer saturating-adds; EIP-2612 requires set.
-				// Apply cancel + approve (set semantics) once PR #11279 lands.
+				// Delete-set semantic: cancel any existing approval first so
+				// do_approve_transfer sets (not accumulates) the new value.
+				use frame_support::traits::fungibles::approvals::Inspect as ApprovalsInspect;
 				let owner_account =
 					<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner_h160);
 				let spender_account =
 					<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender_h160);
 
-				pallet_assets::Pallet::<Runtime, Instance>::do_approve_transfer(
-					asset_id,
+				// Saturate: see `approve` for the rationale (infinite-allowance idiom).
+				let new_amount: <Runtime as Config<Instance>>::Balance =
+					call.value.unique_saturated_into();
+				let current = pallet_assets::Pallet::<Runtime, Instance>::allowance(
+					asset_id.clone(),
 					&owner_account,
 					&spender_account,
-					Self::to_balance(call.value)?,
-				)?;
+				);
+
+				let actual_weight;
+				if new_amount.is_zero() {
+					if !current.is_zero() {
+						// clear approval if it exists, to match ERC-20 semantics of setting
+						// allowance to 0
+						pallet_assets::Pallet::<Runtime, Instance>::do_cancel_approval(
+							&asset_id,
+							&owner_account,
+							&spender_account,
+						)?;
+						actual_weight = use_permit_weight
+							.saturating_add(<Runtime as Config<Instance>>::WeightInfo::allowance())
+							.saturating_add(
+								<Runtime as Config<Instance>>::WeightInfo::cancel_approval(),
+							);
+					} else {
+						// noop: set allowance to zerowhen it is already zero
+						actual_weight = use_permit_weight
+							.saturating_add(<Runtime as Config<Instance>>::WeightInfo::allowance());
+					}
+				} else {
+					if !current.is_zero() {
+						// If there's an existing non-zero allowance, cancel it first
+						pallet_assets::Pallet::<Runtime, Instance>::do_cancel_approval(
+							&asset_id,
+							&owner_account,
+							&spender_account,
+						)?;
+						actual_weight = worst_case;
+					} else {
+						// set new approval
+						actual_weight = use_permit_weight
+							.saturating_add(<Runtime as Config<Instance>>::WeightInfo::allowance())
+							.saturating_add(
+								<Runtime as Config<Instance>>::WeightInfo::approve_transfer(),
+							);
+					}
+					pallet_assets::Pallet::<Runtime, Instance>::do_approve_transfer(
+						asset_id,
+						&owner_account,
+						&spender_account,
+						new_amount,
+					)?;
+				}
 
 				// Emit Approval event
 				Self::deposit_event(
@@ -473,10 +601,12 @@ where
 						value: call.value,
 					}),
 				)?;
-				Ok::<_, Error>(())
+				Ok::<_, Error>(actual_weight)
 			})();
 			match result {
-				Ok(_) => frame_support::storage::TransactionOutcome::Commit(Ok(())),
+				Ok(actual_weight) => {
+					frame_support::storage::TransactionOutcome::Commit(Ok(actual_weight))
+				},
 				Err(e) => {
 					log::trace!(target: frame_support::LOG_TARGET, "Call to permit failed: {e:?}");
 					frame_support::storage::TransactionOutcome::Rollback(Err(e))
@@ -486,7 +616,10 @@ where
 
 		// permit returns void
 		match transaction_outcome {
-			Ok(()) => Ok(Vec::new()),
+			Ok(actual_weight) => {
+				env.adjust_gas(charged, actual_weight);
+				Ok(Vec::new())
+			},
 			Err(e) => Err(e),
 		}
 	}

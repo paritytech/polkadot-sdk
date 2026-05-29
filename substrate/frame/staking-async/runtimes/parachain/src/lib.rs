@@ -303,6 +303,7 @@ impl pallet_assets_freezer::Config<AssetsFreezerInstance> for Runtime {
 
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
+	pub LpFee: Permill = Permill::from_rational(3u32, 1_000u32); // 0.3%
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
@@ -443,7 +444,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolSetupFeeAsset = WestendLocation;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
-	type LPFee = ConstU32<3>;
+	type LPFee = LpFee;
 	type PalletId = AssetConversionPalletId;
 	type MaxSwapPathLength = ConstU32<3>;
 	type MintMinLiquidity = ConstU128<100>;
@@ -818,6 +819,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<0>;
+	type SchedulingSignatureVerifier = ();
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -1089,6 +1091,8 @@ impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime
 	type LocalXcmChannelManager =
 		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<Runtime>;
 
+	type UnpaidExport = frame_support::traits::ConstBool<true>;
+
 	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;
 	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
 }
@@ -1138,6 +1142,7 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment = 11,
 		// AssetTxPayment: pallet_asset_tx_payment = 12,
 		AssetTxPayment: pallet_asset_conversion_tx_payment = 13,
+		Dap: pallet_dap = 14,
 
 		// Collator support. the order of these 5 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -1199,9 +1204,6 @@ construct_runtime!(
 		Whitelist: pallet_whitelist = 95,
 		Treasury: pallet_treasury = 96,
 		AssetRate: pallet_asset_rate = 97,
-
-		// Dynamic Allocation Pool / Issuance buffer
-		Dap: pallet_dap = 98,
 
 		// Balances.
 		Vesting: pallet_vesting = 100,
@@ -1345,6 +1347,7 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
+		[pallet_dap, Dap]
 		[pallet_election_provider_multi_block, MultiBlockElection]
 		[pallet_election_provider_multi_block_verifier, MultiBlockElectionVerifier]
 		[pallet_election_provider_multi_block_unsigned, MultiBlockElectionUnsigned]
@@ -1394,6 +1397,10 @@ impl_runtime_apis! {
 		fn relay_parent_offset() -> u32 {
 			0
 		}
+
+		fn max_claim_queue_offset() -> u8 {
+			0
+		}
 	}
 
 	impl cumulus_primitives_aura::AuraUnincludedSegmentApi<Block> for Runtime {
@@ -1430,6 +1437,15 @@ impl_runtime_apis! {
 
 		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
+		}
+	}
+
+	impl frame_support::view_functions::runtime_api::RuntimeViewFunction<Block> for Runtime {
+		fn execute_view_function(
+			id: frame_support::view_functions::ViewFunctionId,
+			input: Vec<u8>,
+		) -> Result<Vec<u8>, frame_support::view_functions::ViewFunctionDispatchError> {
+			Runtime::execute_view_function(id, input)
 		}
 	}
 

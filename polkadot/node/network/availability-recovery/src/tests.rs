@@ -41,8 +41,8 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	node_features, AuthorityDiscoveryId, Block, ExecutorParams, Hash, HeadData, IndexedVec,
-	MutateDescriptorV2, NodeFeatures, PersistedValidationData, SessionInfo, ValidatorId,
+	node_features, AuthorityDiscoveryId, Block, Hash, HeadData, IndexedVec, MutateDescriptorV2,
+	NodeFeatures, PersistedValidationData, SessionInfo, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_network::{IfDisconnected, OutboundFailure, ProtocolName, RequestFailure};
@@ -401,21 +401,6 @@ impl TestState {
 					dispute_period: 6,
 					random_seed: [0u8; 32],
 				}))).unwrap();
-			}
-		);
-		assert_matches!(
-			overseer_recv(virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				relay_parent,
-				RuntimeApiRequest::SessionExecutorParams(
-					session_index,
-					tx,
-				)
-			)) => {
-				assert_eq!(relay_parent, self.current);
-				assert_eq!(session_index, self.session_index);
-
-				tx.send(Ok(Some(ExecutorParams::new()))).unwrap();
 			}
 		);
 	}

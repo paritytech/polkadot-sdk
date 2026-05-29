@@ -33,7 +33,7 @@ pub use polkadot_sdk::{staging_parachain_info as parachain_info, *};
 use staging_xcm_builder as xcm_builder;
 use staging_xcm_executor as xcm_executor;
 
-use cumulus_primitives_core::ParaId;
+use cumulus_primitives_core::{ParaId, VerifySchedulingSignature};
 use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
 use polkadot_runtime_common::{prod_or_fast, xcm_sender::NoPriceForMessageDelivery};
 
@@ -100,7 +100,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: Cow::Borrowed("yet-another-parachain"),
 	impl_name: Cow::Borrowed("yet-another-parachain"),
 	authoring_version: 1,
-	spec_version: 1_003_000,
+	spec_version: 1_003_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -109,7 +109,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 
 pub const MILLISECS_PER_BLOCK: u64 = 2000;
 
-pub const SLOT_DURATION: u64 = 3 * MILLISECS_PER_BLOCK;
+pub const SLOT_DURATION: u64 = 24_000;
 
 pub const EPOCH_DURATION_IN_BLOCKS: u32 = 10 * MINUTES;
 
@@ -141,14 +141,15 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 
 /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
 /// into the relay chain.
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 10;
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = (3 + RELAY_PARENT_OFFSET) * BLOCK_PROCESSING_VELOCITY;
 
-/// Build with an offset of 1 behind the relay chain.
+/// Build with an offset behind the relay chain.
 const RELAY_PARENT_OFFSET: u32 = 1;
 
 /// How many parachain blocks are processed by the relay chain per parent. Limits the
 /// number of blocks authored per slot.
-const BLOCK_PROCESSING_VELOCITY: u32 = 3;
+const BLOCK_PROCESSING_VELOCITY: u32 = 12;
+
 /// Relay chain slot duration, in milliseconds.
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
@@ -372,6 +373,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type SchedulingSignatureVerifier = ();
 }
 
 impl pallet_message_queue::Config for Runtime {
@@ -560,7 +562,7 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
-/// The TransactionExtension to the basic transaction logic.
+/// The extension to the basic transaction logic.
 pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
@@ -576,6 +578,7 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	),
 >;
+
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
@@ -760,6 +763,16 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
 			RELAY_PARENT_OFFSET
+		}
+
+		fn max_claim_queue_offset() -> u8 {
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
+		}
+	}
+
+	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
+		fn scheduling_v3_enabled() -> bool {
+			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED
 		}
 	}
 

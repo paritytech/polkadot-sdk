@@ -31,7 +31,7 @@ mod debug_rpc_types;
 pub use debug_rpc_types::*;
 
 mod rpc_types;
-pub use rpc_types::DryRunConfig;
+pub use rpc_types::{DryRunConfig, TracingConfig};
 
 mod rpc_types_gen;
 pub use rpc_types_gen::*;

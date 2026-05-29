@@ -22,15 +22,21 @@
 //! authorization tuples attached to transactions.
 
 use crate::{
-	BalanceOf, Config, ExecConfig, HoldReason, LOG_TARGET, Pallet, RuntimeCosts,
+	BalanceOf, Config, Error, ExecConfig, HoldReason, LOG_TARGET, Pallet, RuntimeCosts,
 	address::AddressMapper,
-	evm::api::{AuthorizationListEntry, recover_eth_address_from_message},
+	evm::{
+		api::{AuthorizationListEntry, recover_eth_address_from_message},
+		fees::InfoT as _,
+	},
 	metering,
 	primitives::StorageDeposit,
 	storage::AccountInfo,
 };
 use alloc::vec::Vec;
-use frame_support::{traits::fungible::Inspect, weights::Weight};
+use frame_support::{
+	traits::fungible::{Balanced as _, Inspect},
+	weights::Weight,
+};
 use sp_core::{Get, H160, U256};
 use sp_runtime::{SaturatedConversion, Saturating};
 
@@ -103,7 +109,14 @@ pub fn process_authorizations<T: Config>(
 		}
 
 		if !account_exists {
-			Pallet::<T>::charge_deposit(None, origin, &account_id, ed, exec_config)?;
+			// Transfer ED to the new authority account without placing a hold:
+			// the ED must remain as transferable balance so the account exists.
+			// Funded from the tx fee pool (process_authorizations only runs from
+			// eth-tx contexts).
+			let credit =
+				<T as Config>::FeeInfo::withdraw_txfee(ed).ok_or(Error::<T>::StorageDepositNotEnoughFunds)?;
+			<T as Config>::Currency::resolve(&account_id, credit)
+				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 			result.deposit.saturating_accrue(ed);
 			result.new_accounts += 1;
 		} else {
@@ -125,7 +138,7 @@ pub fn process_authorizations<T: Config>(
 		match deposit {
 			StorageDeposit::Charge(amount) => {
 				Pallet::<T>::charge_deposit(
-					Some(HoldReason::StorageDepositReserve),
+					HoldReason::StorageDepositReserve,
 					origin,
 					&account_id,
 					amount,
@@ -137,9 +150,8 @@ pub fn process_authorizations<T: Config>(
 				Pallet::<T>::refund_deposit(
 					HoldReason::StorageDepositReserve,
 					&account_id,
-					origin,
+					exec_config.funds(origin),
 					amount,
-					Some(exec_config),
 				)?;
 				result.deposit = result.deposit.saturating_sub(amount);
 			},
@@ -186,7 +198,7 @@ pub fn sign_authorization(
 	nonce: U256,
 ) -> AuthorizationListEntry {
 	let unsigned = AuthorizationListEntry { chain_id, address, nonce, ..Default::default() };
-	let hash = sp_core::keccak_256(&signing_message(&unsigned));
+	let hash = sp_io::hashing::keccak_256(&signing_message(&unsigned));
 	let (signature, recovery_id) =
 		key.sign_prehash_recoverable(&hash).expect("signing success; qed");
 
@@ -209,5 +221,5 @@ pub fn eth_address(key: &k256::ecdsa::SigningKey) -> H160 {
 	let public_key = key.verifying_key();
 	let encoded = public_key.to_encoded_point(false);
 	// Skip the 0x04 prefix byte to get the uncompressed public key
-	H160::from_slice(&sp_core::keccak_256(&encoded.as_bytes()[1..])[12..])
+	H160::from_slice(&sp_io::hashing::keccak_256(&encoded.as_bytes()[1..])[12..])
 }
