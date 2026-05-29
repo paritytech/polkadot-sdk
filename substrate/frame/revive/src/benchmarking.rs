@@ -2006,10 +2006,7 @@ mod benchmarks {
 	// `BTreeSet::insert/contains/remove` pay their full `O(log N)` cost). Without
 	// this setup the bench would measure `O(log 1)` and undercharge the cold/hot
 	// pricing added on top of every storage op.
-
-	// Cold touch: `BTreeSet::insert` (with clone) + journal `Vec::push`.
-	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold() -> Result<(), BenchmarkError> {
+	fn near_full_access_list() -> crate::access_list::AccessList {
 		use crate::access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES, Slot};
 		let mut al = AccessList::new();
 		for i in 0..(MAX_ACCESS_LIST_ENTRIES - 1) {
@@ -2018,6 +2015,14 @@ mod benchmarks {
 				slot: Slot::Fix([0u8; 32]),
 			});
 		}
+		al
+	}
+
+	// Cold touch: `BTreeSet::insert` (with clone) + journal `Vec::push`.
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_cold() -> Result<(), BenchmarkError> {
+		use crate::access_list::{AccessEntry, Slot};
+		let mut al = near_full_access_list();
 		let entry =
 			AccessEntry { address: H160::from_low_u64_be(u64::MAX), slot: Slot::Fix([0xFFu8; 32]) };
 		let was_cold;
@@ -2032,14 +2037,8 @@ mod benchmarks {
 	// Hot touch: `BTreeSet::contains` only (entry already present).
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot() -> Result<(), BenchmarkError> {
-		use crate::access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES, Slot};
-		let mut al = AccessList::new();
-		for i in 0..(MAX_ACCESS_LIST_ENTRIES - 1) {
-			al.touch(AccessEntry {
-				address: H160::from_low_u64_be(i as u64),
-				slot: Slot::Fix([0u8; 32]),
-			});
-		}
+		use crate::access_list::{AccessEntry, Slot};
+		let mut al = near_full_access_list();
 		// Re-touch a pre-loaded entry so the bench measures the hot path at full
 		// BTreeSet depth.
 		let entry = AccessEntry { address: H160::zero(), slot: Slot::Fix([0u8; 32]) };
@@ -2058,14 +2057,8 @@ mod benchmarks {
 	// revert can't charge gas itself.
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_rollback_amortization() -> Result<(), BenchmarkError> {
-		use crate::access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES, Slot};
-		let mut al = AccessList::new();
-		for i in 0..(MAX_ACCESS_LIST_ENTRIES - 1) {
-			al.touch(AccessEntry {
-				address: H160::from_low_u64_be(i as u64),
-				slot: Slot::Fix([0u8; 32]),
-			});
-		}
+		use crate::access_list::{AccessEntry, Slot};
+		let mut al = near_full_access_list();
 		al.enter_frame();
 		al.touch(AccessEntry {
 			address: H160::from_low_u64_be(u64::MAX),
