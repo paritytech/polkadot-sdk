@@ -233,8 +233,8 @@ pub fn mul_sw<T: SWCurveConfig>(base: &[u8], scalar: &[u8], out: &mut [u8]) -> R
 ///
 /// On any TE curve `a·x² + y² = 1 + d·x²·y²`:
 /// - on-curve: `a·0 + 1 = 1 + d·0`, holds for any `a`, `d`.
-/// - order 2: doubling `(0, -1)` gives `(0, 1)` = identity (X numerator
-///   `2·0·(-1) = 0`, Y numerator `1 - a·0 = 1`, both denominators `1`).
+/// - order 2: doubling `(0, -1)` gives `(0, 1)` = identity (X numerator `2·0·(-1) = 0`, Y numerator
+///   `1 - a·0 = 1`, both denominators `1`).
 ///
 /// Order 2 means it is never in a prime-order subgroup (`r` is an odd
 /// prime), so a downstream `is_in_correct_subgroup_*` check rejects it.
