@@ -111,7 +111,7 @@ impl Key {
 	}
 
 	/// Project to a [`Slot`] for access-list keying.
-	pub fn to_slot(&self) -> Slot {
+	pub(crate) fn to_slot(&self) -> Slot {
 		match self {
 			Key::Fix(v) => Slot::Fix(*v),
 			Key::Var(v) => {

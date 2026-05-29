@@ -402,40 +402,45 @@ impl RuntimeCosts {
 		match self {
 			GetStorage { len, is_cold } => Self::cold_hot_weight::<T>(
 				*is_cold,
-				cost_storage!(read, seal_get_storage, *len),
-				cost_storage!(read_hot, seal_get_storage_hot, *len),
+				|| cost_storage!(read, seal_get_storage, *len),
+				|| cost_storage!(read_hot, seal_get_storage_hot, *len),
 			),
 			ContainsStorage { len, is_cold } => Self::cold_hot_weight::<T>(
 				*is_cold,
-				cost_storage!(read, contains_storage, *len),
-				cost_storage!(read_hot, contains_storage_hot, *len),
+				|| cost_storage!(read, contains_storage, *len),
+				|| cost_storage!(read_hot, contains_storage_hot, *len),
 			),
 			SetStorage { new_bytes, old_bytes, is_cold } => Self::cold_hot_weight::<T>(
 				*is_cold,
-				cost_storage!(write, seal_set_storage, *new_bytes, *old_bytes),
-				cost_storage!(write_hot, seal_set_storage_hot, *new_bytes, *old_bytes),
+				|| cost_storage!(write, seal_set_storage, *new_bytes, *old_bytes),
+				|| cost_storage!(write_hot, seal_set_storage_hot, *new_bytes, *old_bytes),
 			),
 			ClearStorage { len, is_cold } => Self::cold_hot_weight::<T>(
 				*is_cold,
-				cost_storage!(write, clear_storage, *len),
-				cost_storage!(write_hot, clear_storage_hot, *len),
+				|| cost_storage!(write, clear_storage, *len),
+				|| cost_storage!(write_hot, clear_storage_hot, *len),
 			),
 			TakeStorage { len, is_cold } => Self::cold_hot_weight::<T>(
 				*is_cold,
-				cost_storage!(write, take_storage, *len),
-				cost_storage!(write_hot, take_storage_hot, *len),
+				|| cost_storage!(write, take_storage, *len),
+				|| cost_storage!(write_hot, take_storage_hot, *len),
 			),
 			_ => self.opcode_weight::<T>(),
 		}
 	}
 
 	/// Cold/hot dispatch shared by `weight_with_access_list`'s storage arms.
-	fn cold_hot_weight<T: Config>(is_cold: bool, cold: Weight, hot: Weight) -> Weight {
+	fn cold_hot_weight<T: Config>(
+		is_cold: bool,
+		cold: impl FnOnce() -> Weight,
+		hot: impl FnOnce() -> Weight,
+	) -> Weight {
 		if is_cold {
-			cold.saturating_add(T::WeightInfo::access_list_touch_cold())
+			cold()
+				.saturating_add(T::WeightInfo::access_list_touch_cold())
 				.saturating_add(T::WeightInfo::access_list_rollback_amortization())
 		} else {
-			hot.saturating_add(T::WeightInfo::access_list_touch_hot())
+			hot().saturating_add(T::WeightInfo::access_list_touch_hot())
 		}
 	}
 }

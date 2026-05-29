@@ -3019,7 +3019,7 @@ fn cold_hot_child_revert_drops_touches() {
 		let key = Key::Fix([10; 32]);
 		assert!(
 			is_cold_touch(ctx.ext, &key),
-			"child touch must be cold on every call (previous revert should have rolled back)",
+			"child touch must be cold (any prior revert should have rolled back its entry)",
 		);
 		Err("rollback".into())
 	});
