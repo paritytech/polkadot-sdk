@@ -1,0 +1,40 @@
+title: 'cumulus: add SignedSchedulingInfo PVF verification'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Verifies the `SignedSchedulingInfo` payload inside the PVF when a candidate is a V3
+    resubmission (`relay_parent != internal_scheduling_parent`). The verifier confirms
+    that the signature was produced by the parachain author eligible at the slot derived
+    from the relay header at `internal_scheduling_parent`, proving the resubmitting
+    collator owns the para slot at that anchor.
+
+    Changes:
+    - `cumulus-pallet-aura-ext` exposes a new `AuraSchedulingVerifier<T>` implementing
+      `cumulus_primitives_core::VerifySchedulingSignature`. It derives the para slot from
+      the BABE pre-digest of the supplied relay header, looks up the eligible Aura author
+      from the cached authority set, and verifies the signature over the encoded
+      `SchedulingInfoPayload`.
+    - `cumulus-pallet-parachain-system` invokes the configured `SchedulingSignatureVerifier`
+      from `validate_block` on resubmission, and overrides the block's emitted UMP signals
+      (`SelectCore`, `ApprovedPeer`) with the values from the verified payload.
+    - Two new variants are added to `SchedulingValidationError`:
+      `InternalSchedulingParentHeaderMismatch` and `SignedSchedulingInfoIspMismatch`.
+      The first ensures the proof's `internal_scheduling_parent_header` actually hashes to
+      the derived ISP (so a collator cannot point the slot oracle at an arbitrary header);
+      the second ensures the signed payload commits to the same ISP the proof points to.
+
+    Integration:
+    - Parachains that want to enable resubmissions must set
+      `type SchedulingSignatureVerifier = AuraSchedulingVerifier<Runtime>` on
+      `cumulus_pallet_parachain_system::Config`. Runtimes that leave the default `()`
+      keep V3 scheduling disabled and are unaffected.
+    - Concerns like parachain session or para slot duration changes must be handled by
+      the resubmission engine, not the on-chain verifier
+      (see paritytech/polkadot-sdk#12036 (comment) 4479412418).
+
+    Closes paritytech/polkadot-sdk#12152.
+crates:
+- name: cumulus-pallet-aura-ext
+  bump: minor
+- name: cumulus-pallet-parachain-system
+  bump: major
