@@ -72,6 +72,14 @@ pub const MAX_INLINE_KEY_LEN: usize = 36;
 /// |  16 384 |   ~6 MB   |    ~8 MB   |         34.4 M gas |
 pub const MAX_ACCESS_LIST_ENTRIES: usize = 16_384;
 
+/// Worst-case per-entry memory in the `BTreeSet` + journal.
+/// See the table on [`MAX_ACCESS_LIST_ENTRIES`] for the full breakdown.
+pub const MAX_ACCESS_LIST_ENTRY_BYTES: usize = 500;
+
+/// Worst-case total memory the access list can hold per transaction.
+pub const MAX_ACCESS_LIST_BYTES: u32 =
+	MAX_ACCESS_LIST_ENTRIES.saturating_mul(MAX_ACCESS_LIST_ENTRY_BYTES) as u32;
+
 /// Storage slot identifier for an access-list entry.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
 pub enum Slot {
