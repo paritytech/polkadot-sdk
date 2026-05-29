@@ -1,0 +1,94 @@
+title: '[pallet-revive] EIP-7702 (continued)'
+doc:
+- audience: Runtime Dev
+  description: "Continuation of #10851.\nevm-test-suite PR: https://github.com/paritytech/evm-test-suite/pull/141\n\
+    \nThis PR implements [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702) (\"Set\
+    \ EOA Account Code\") for `pallet-revive`, enabling Externally Owned Accounts\
+    \ (EOAs) to designate a contract whose code will be executed on their behalf when\
+    \ they are called.\n\n## What is EIP-7702?\n\nEIP-7702 lets an EOA sign an authorization\
+    \ that says \"when someone calls me, execute contract X's code\". When a transaction\
+    \ includes these authorizations, any subsequent calls to the delegated EOA will\
+    \ execute the target contract's code \u2014 but using the EOA's own storage and\
+    \ balance. This enables smart account patterns (batching, gas sponsorship, etc.)\
+    \ without requiring [account abstraction (ERC-4337)](https://eips.ethereum.org/EIPS/eip-4337)\
+    \ or proxy contracts.\n\nFor background:\n- [EIP-7702 spec](https://eips.ethereum.org/EIPS/eip-7702)\n\
+    - [Vitalik's \"Why we need wide adoption of account abstraction\"](https://vitalik.eth.limo/general/2023/06/09/three_transitions.html)\n\
+    - [EIP-7702 overview (ethereum.org)](https://ethereum.org/en/roadmap/account-abstraction/#eip-7702)\n\
+    \n## Changes\n\n### Pallet integration\n\nThe `eth_call` dispatchable now accepts\
+    \ and processes an authorization list before executing the call.\n\nThe `authorization_list`\
+    \ parameter is a `BoundedVec` capped at `limits::AUTHORIZATION_LIST_MAX` (256).\
+    \ In normal operation the size is already constrained by the gas-validation logic\
+    \ in `eth_transact` (each entry costs at least `worst_case_delegation_deposit`),\
+    \ but the `BoundedVec` is a defense-in-depth bound for any future call path that\
+    \ might bypass that check. Oversized lists are rejected in `into_call` with `InvalidTransaction::Call`.\n\
+    \n> **Note**: Updating the `eth_call` signature is safe \u2014 it is not dispatched\
+    \ directly by users but is the inner call of `eth_transact`, which is signed by\
+    \ an Ethereum wallet and submitted via `eth-rpc`.\n\n### Authorization processing\n\
+    \nThe `Transaction7702` type (with its `authorization_list`) was already defined\
+    \ and parsed; this PR adds the actual processing logic.\n\n`process_authorizations`\
+    \ validates each entry (chain ID, signature, nonce, account type), creates the\
+    \ authority account if needed, and sets or clears the delegation. Invalid authorizations\
+    \ are silently skipped per spec.\n\n**Key semantics:**\n- **Authorizations always\
+    \ succeed.** A type-4 transaction is only valid if the origin has enough gas to\
+    \ cover the worst case for every authorization entry. Processing itself cannot\
+    \ fail.\n- **Authorizations are not reverted.** If the transaction's call fails\
+    \ and its state changes revert, the delegation changes from authorization processing\
+    \ persist.\n\n**Revive-specific complexity.** In Revive the per-authorization\
+    \ pre-dispatch weight/gas is higher than in EVM because:\n- An authorization can\
+    \ touch a **new account**, so the gas must cover the existential deposit (ED)\
+    \ for account creation.\n- Code is shared across contracts (same blob for init\
+    \ and runtime), so delegating to a contract requires a **code lockup deposit**\
+    \ and increments a **refcount** on the code hash to prevent deletion while delegated.\n\
+    \n### Storage changes\n\nA new **`AccountType::DelegatedEOA`** variant is introduced:\n\
+    - `delegate_target: Option<H160>` \u2014 the contract address this EOA delegates\
+    \ to.\n- `contract_info: ContractInfo` \u2014 storage accounting (child trie,\
+    \ base deposit) for delegated EOAs.\n\n**Key behaviors:**\n- Once delegated, an\
+    \ account transitions from `EOA` to `DelegatedEOA` permanently.\n- Clearing delegation\
+    \ sets `delegate_target = None` but the account stays `DelegatedEOA`.\n- Delegated\
+    \ EOAs get their own child trie for storage, keyed by the EOA's address (not the\
+    \ target).\n- Re-delegating to a different target preserves the child trie \u2014\
+    \ storage survives across target changes.\n- Code refcounts are managed: setting\
+    \ delegation increments the target's code refcount, clearing it decrements.\n\n\
+    **Deposit lifecycle.** Clearing a delegation refunds the `storage_base_deposit`\
+    \ (the code-lockup portion) but preserves the child trie and per-item storage\
+    \ accounting. To recover the per-item deposit, the user must re-delegate to a\
+    \ contract that lets them clear the stored items through the normal storage path.\n\
+    \n### Execution changes\n\nDuring a call, the runtime resolves delegation:\n-\
+    \ If the callee is an EOA with a `delegate_target`, code is loaded from the target\
+    \ contract but execution uses the EOA's storage.\n- Constructors skip delegation\
+    \ lookup (cannot deploy via delegation).\n- **No chain following.** Delegation\
+    \ is resolved at most once. If A delegates to B and B delegates to C, calling\
+    \ A looks up code at B directly (without following B's delegation to C). If B\
+    \ is an EOA, calling A behaves like calling a plain EOA.\n\n### Benchmarks\n\n\
+    - `process_new_account_authorization(n)` \u2014 worst case: creates `n` new accounts\
+    \ with delegations.\n- `process_existing_account_authorization(n)` \u2014 best\
+    \ case: processes `n` authorizations for existing accounts (used for weight-refund\
+    \ calculation).\n\n### RPC integration\n\n- `eth-rpc` supports submitting and\
+    \ dry-running EIP-7702 transactions.\n- `eth_getCode` returns the `0xef0100 ||\
+    \ address` prefix for delegated EOAs (per EIP-7702 spec).\n\n## Tests\n\nTest\
+    \ coverage includes:\n- **Validation**: invalid chain_id, nonce mismatch, duplicate\
+    \ signers, chain_id 0 wildcard, contract accounts rejected.\n- **Delegation lifecycle**:\
+    \ set, clear, re-delegate, delegation resolution during calls.\n- **Storage persistence**:\
+    \ re-delegation preserves storage across different targets; clear-then-redelegate\
+    \ preserves the trie and recovers read/write access to previously written state\
+    \ (`storage_persists_across_clear_and_redelegate`).\n- **Deposit accounting**:\
+    \ delegation charges, clearing refunds, re-delegation adjustments, code-refcount\
+    \ tracking, EOA \u2192 EOA delegations charge no deposit, multiple authorities\
+    \ to the same target each get their own deposit.\n- **Edge cases**: delegation\
+    \ chains not followed, SELFDESTRUCT preserves delegation, constructors skip delegation,\
+    \ delegation to nonexistent addresses is a no-op."
+crates:
+- name: pallet-revive-eth-rpc
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: assets-common
+  bump: major
+- name: pallet-xcm-precompiles
+  bump: major
+- name: pallet-assets-precompiles
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
