@@ -116,8 +116,9 @@ impl BitswapMetrics {
 		let outcome = match response {
 			ResponseType::Block { .. } => outcomes::BLOCK_SERVED,
 			ResponseType::Presence { presence: BlockPresenceType::Have, .. } => outcomes::HAVE,
-			ResponseType::Presence { presence: BlockPresenceType::DontHave, .. } =>
-				outcomes::DONT_HAVE,
+			ResponseType::Presence { presence: BlockPresenceType::DontHave, .. } => {
+				outcomes::DONT_HAVE
+			},
 		};
 		self.record_entry(outcome);
 	}
@@ -171,8 +172,7 @@ mod tests {
 
 		metrics.record_response(&ResponseType::Block { cid, block: vec![1, 2, 3] });
 		metrics.record_response(&ResponseType::Block { cid, block: vec![4] });
-		metrics
-			.record_response(&ResponseType::Presence { cid, presence: BlockPresenceType::Have });
+		metrics.record_response(&ResponseType::Presence { cid, presence: BlockPresenceType::Have });
 		metrics.record_response(&ResponseType::Presence {
 			cid,
 			presence: BlockPresenceType::DontHave,
