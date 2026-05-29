@@ -34,6 +34,44 @@ use crate::limits;
 /// prefix; longer keys fall through to `Slot::VarLong`.
 pub const MAX_INLINE_KEY_LEN: usize = 36;
 
+/// Maximum number of distinct `(address, slot)` entries tracked in the
+/// access list within a single transaction.
+///
+/// Bounds the working memory `AccessList` can allocate per transaction.
+/// EIP-2929 does not specify a structural cap; Ethereum relies on gas to
+/// implicitly bound growth, but that only bounds the cost paid by the
+/// caller, not the memory held on validators while the transaction runs.
+///
+/// Past this cap, new touches bill cold without being added to the set;
+/// slots already tracked continue to bill hot. This can only over-charge,
+/// never under-charge, and keeps the working memory of `AccessList`
+/// bounded.
+///
+/// Memory grows discontinuously due to the runtime allocator (sc-allocator)
+/// rounding allocations up to power-of-2 size classes. The memory cost at
+/// small N is dominated by a constant overhead (~1.3 KB) that doesn't scale
+/// with the number of entries; the per-entry rate only dominates at larger
+/// N.
+///
+/// - **best case**: `Slot::Fix` / `Slot::VarInline`
+/// - **worst case**: `Slot::VarLong` at 128 bytes
+///
+/// All figures below are approximate order-of-magnitude estimates. The
+/// Ethereum-gas column shows the EIP-2929 cost of filling the set to that
+/// size via cold SLOADs (2 100 gas each).
+///
+/// | Entries | Best case | Worst case |     Gas (Ethereum) |
+/// |---------|-----------|------------|--------------------|
+/// |       1 |  ~1.3 KB  |   ~1.4 KB  |          2.1 k gas |
+/// |       2 |  ~1.3 KB  |   ~1.6 KB  |          4.2 k gas |
+/// |       4 |  ~1.3 KB  |   ~1.8 KB  |          8.4 k gas |
+/// |       8 |  ~1.5 KB  |   ~2.6 KB  |         16.8 k gas |
+/// |      32 |   ~7 KB   |    ~11 KB  |         67.2 k gas |
+/// |     128 |  ~45 KB   |    ~65 KB  |          269 k gas |
+/// |    1024 |  ~365 KB  |   ~500 KB  |         2.15 M gas |
+/// |  16 384 |   ~6 MB   |    ~8 MB   |         34.4 M gas |
+pub const MAX_ACCESS_LIST_ENTRIES: usize = 16_384;
+
 /// Storage slot identifier for an access-list entry.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
 pub enum Slot {
@@ -172,7 +210,18 @@ impl AccessList {
 
 	/// Register the entry and return `true` if this access is cold (newly
 	/// inserted), `false` if it was already hot.
+	///
+	/// Past [`MAX_ACCESS_LIST_ENTRIES`], new entries are billed cold without
+	/// being inserted; previously-hot slots continue to bill hot.
 	pub fn touch(&mut self, entry: AccessEntry) -> bool {
+		if self.accessed.len() >= MAX_ACCESS_LIST_ENTRIES {
+			if self.accessed.contains(&entry) {
+				self.hot_count = self.hot_count.saturating_add(1);
+				return false;
+			}
+			self.cold_count = self.cold_count.saturating_add(1);
+			return true;
+		}
 		if self.accessed.insert(entry.clone()) {
 			self.journal.push(entry);
 			self.cold_count = self.cold_count.saturating_add(1);
@@ -261,6 +310,35 @@ mod tests {
 			AccessListMetrics { size: 1, cold: 4, hot: 2 },
 			"counters must include rolled-back touches",
 		);
+	}
+
+	/// Past the cap, new entries bill cold without being inserted, while
+	/// previously-hot entries continue to bill hot.
+	#[test]
+	fn touch_caps_at_max_entries() {
+		let mut al = AccessList::new();
+		// Fill to the cap with distinct addresses.
+		for i in 0..MAX_ACCESS_LIST_ENTRIES {
+			let address = H160::from_low_u64_be(i as u64);
+			assert!(al.touch(AccessEntry { address, slot: Slot::Fix([0; 32]) }));
+		}
+		assert_eq!(al.len(), MAX_ACCESS_LIST_ENTRIES);
+
+		// A new entry past the cap bills cold and is NOT inserted.
+		let new_entry = AccessEntry {
+			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64),
+			slot: Slot::Fix([0; 32]),
+		};
+		assert!(al.touch(new_entry.clone()), "past cap: bills cold");
+		assert_eq!(al.len(), MAX_ACCESS_LIST_ENTRIES, "set size stays at cap");
+		assert!(!al.is_hot(&new_entry), "past-cap entry is not tracked");
+
+		// Re-touching the same not-tracked entry bills cold again.
+		assert!(al.touch(new_entry), "past cap re-touch: still cold (not tracked)");
+
+		// An entry already in the set still bills hot.
+		let existing = AccessEntry { address: H160::zero(), slot: Slot::Fix([0; 32]) };
+		assert!(!al.touch(existing), "existing entry still hot at cap");
 	}
 
 	/// `peek` reports cold/hot without mutating the access list or its counters.
