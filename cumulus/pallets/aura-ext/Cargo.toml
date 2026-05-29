@@ -30,7 +30,6 @@ cumulus-pallet-parachain-system = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 
 [dev-dependencies]
-paste = { workspace = true, default-features = true }
 rstest = { workspace = true }
 
 # Cumulus
