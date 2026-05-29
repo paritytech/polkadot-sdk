@@ -59,8 +59,7 @@ fn read_mmr_leaf(ext: &mut TestExternalities, key: Vec<u8>) -> MmrLeaf {
 
 #[test]
 fn should_contain_mmr_digest() {
-	let mut ext = new_test_ext(vec![1, 2, 3, 4]);
-	ext.execute_with(|| {
+	build_and_execute(vec![1, 2, 3, 4], || {
 		init_block(1, None);
 		assert_eq!(
 			System::digest().logs,
@@ -151,7 +150,7 @@ fn should_contain_valid_leaf_data() {
 
 #[test]
 fn should_update_authorities() {
-	new_test_ext(vec![1, 2, 3, 4]).execute_with(|| {
+	build_and_execute(vec![1, 2, 3, 4], || {
 		let auth_set = BeefyMmr::authority_set_proof();
 		let next_auth_set = BeefyMmr::next_authority_set_proof();
 

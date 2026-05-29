@@ -258,7 +258,7 @@ mod tests {
 
 		// Fixed snapshot — if this changes the wire format has been modified.
 		assert_eq!(
-			sp_core::blake2_256(&encoded),
+			sp_crypto_hashing::blake2_256(&encoded),
 			[
 				180, 34, 58, 78, 198, 24, 137, 83, 154, 127, 9, 152, 171, 50, 197, 27, 242, 158,
 				30, 79, 143, 192, 53, 151, 174, 106, 132, 105, 20, 145, 133, 0

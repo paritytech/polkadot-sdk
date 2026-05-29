@@ -117,6 +117,8 @@ block-bundling = []
 sync-backing = []
 # A runtime with 6s slot duration which only authors one block per slot.
 async-backing = []
+# A runtime that uses `CandidateDescriptorV3`.
+v3-descriptor = []
 # An elastic scaling runtime with 12s slots.
 elastic-scaling-12s-slot = []
 # A runtime with 18s slot duration with increased spec version for runtime upgrade testing.

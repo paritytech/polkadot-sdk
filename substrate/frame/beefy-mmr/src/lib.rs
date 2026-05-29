@@ -51,6 +51,8 @@ use sp_consensus_beefy::{
 	ValidatorSet as BeefyValidatorSet,
 };
 
+#[cfg(any(feature = "try-runtime", test))]
+use frame_support::ensure;
 use frame_support::{crypto::ecdsa::ECDSAExt, pallet_prelude::Weight, traits::Get};
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 
@@ -148,6 +150,14 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type BeefyNextAuthorities<T: Config> =
 		StorageValue<_, BeefyNextAuthoritySet<MerkleRootOf<T>>, ValueQuery>;
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
 }
 
 impl<T: Config> LeafDataProvider for Pallet<T> {
@@ -356,6 +366,20 @@ impl<T: Config> Pallet<T> {
 		>(beefy_addresses)
 		.into();
 		BeefyAuthoritySet { id, len, keyset_commitment }
+	}
+
+	/// Validates the invariants of this pallet's storage.
+	#[cfg(any(feature = "try-runtime", test))]
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		let current = BeefyAuthorities::<T>::get();
+		let next = BeefyNextAuthorities::<T>::get();
+
+		ensure!(next.id == current.id + 1, "Next authority set id must be one ahead of current");
+
+		ensure!(current.len > 0, "Current authority set must not be empty");
+		ensure!(next.len > 0, "Next authority set must not be empty");
+
+		Ok(())
 	}
 }
 
