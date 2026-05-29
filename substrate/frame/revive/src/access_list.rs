@@ -53,7 +53,7 @@ pub enum StorageAccessKind {
 	PersistentCold,
 	/// Persistent storage, slot already in the access list.
 	PersistentHot,
-	/// Transient storage — not tracked by the access list.
+	/// Transient storage, not tracked by the access list.
 	Transient,
 }
 
@@ -84,7 +84,7 @@ pub struct AccessListMetrics {
 /// One entry per `(contract address, storage slot)` accessed in the current tx.
 ///
 /// Field order is `slot, address` so the derived `Ord` decides on `slot`
-/// first — the most-discriminating field in the typical access pattern (one
+/// first, the most-discriminating field in the typical access pattern (one
 /// contract touching many slots within a transaction).
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
 pub struct AccessEntry {
@@ -118,8 +118,8 @@ pub struct AccessList {
 impl AccessList {
 	/// Initialize for a new transaction.
 	///
-	/// First-touch on any entry is always cold. No initial checkpoint is
-	/// opened — first-frame touches survive the whole transaction.
+	/// The first touch on any entry is cold. No initial checkpoint is
+	/// opened; first-frame touches survive the whole transaction.
 	pub fn new() -> Self {
 		Self {
 			accessed: BTreeSet::new(),
@@ -254,7 +254,7 @@ mod tests {
 		assert!(!al.is_hot(&d), "D: inserted by F1, rolled back");
 
 		// Counters never decrement, even for entries that later roll back:
-		// A (cold) + B,C,D (cold) → 4 cold; A,A (hot) → 2 hot. Only A still hot,
+		// A (cold) + B,C,D (cold) -> 4 cold; A,A (hot) -> 2 hot. Only A still hot,
 		// so `size` is 1.
 		assert_eq!(
 			al.metrics(),

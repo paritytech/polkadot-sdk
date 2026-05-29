@@ -380,8 +380,6 @@ impl RuntimeCosts {
 		}
 	}
 
-	/// Pick the variant for `SetStorage` based on `kind`. The three dispatch cases
-	/// map 1:1 to the three storage variants.
 	pub fn set_storage(kind: StorageAccessKind, new_bytes: u32, old_bytes: u32) -> Self {
 		match kind {
 			StorageAccessKind::PersistentCold => {

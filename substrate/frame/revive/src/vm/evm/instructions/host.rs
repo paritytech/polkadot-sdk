@@ -111,7 +111,7 @@ pub fn blockhash<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> 
 pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
 	let key = Key::Fix(index.to_big_endian());
-	// NB: SLOAD loads 32 bytes from storage (i.e. U256).
+	// NB: SLOAD loads 32 bytes from storage.
 	let access_kind = interpreter.ext.touch_storage_access_list(false, &key);
 	interpreter.ext.charge_or_halt(RuntimeCosts::get_storage(access_kind, 32))?;
 	let value = interpreter.ext.get_storage(&key);
@@ -187,6 +187,7 @@ pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
 	let key = Key::Fix(index.to_big_endian());
 	let access_kind = interpreter.ext.touch_storage_access_list(true, &key);
+	// TLOAD reads 32 bytes.
 	interpreter.ext.charge_or_halt(RuntimeCosts::get_storage(access_kind, 32))?;
 	let bytes = interpreter.ext.get_transient_storage(&key);
 

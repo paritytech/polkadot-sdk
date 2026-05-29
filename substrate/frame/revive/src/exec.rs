@@ -1326,7 +1326,7 @@ where
 		});
 		let is_first_frame = self.frames.is_empty();
 		// Open an access-list frame for nested CALL/CREATE. The first frame
-		// is skipped — its touches land in the bare journal and persist
+		// is skipped; its touches land in the bare journal and persist
 		// for the whole transaction.
 		if !is_first_frame {
 			self.access_list.enter_frame();
@@ -1582,7 +1582,7 @@ where
 				transient_storage.rollback_transaction();
 			}
 		});
-		// First frame opens no checkpoint — log final metrics. Nested frames
+		// First frame opens no checkpoint; log final metrics. Nested frames
 		// commit or roll back the checkpoint they opened.
 		if is_first_frame {
 			let m = self.access_list.metrics();

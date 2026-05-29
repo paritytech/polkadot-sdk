@@ -114,11 +114,9 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					.frame_meter_mut()
 					.charge_weight_token(RuntimeCosts::take_storage(access_kind, max_size))?;
 				let outcome = if transient {
-					env.set_transient_storage(&key, None, true)
-						.map_err(|_| Error::Revert("failed setting transient storage".into()))?
+					env.set_transient_storage(&key, None, true)?
 				} else {
-					env.set_storage(&key, None, true)
-						.map_err(|_| Error::Revert("failed setting storage".into()))?
+					env.set_storage(&key, None, true)?
 				};
 				let value = match outcome {
 					WriteOutcome::Taken(v) => v,
