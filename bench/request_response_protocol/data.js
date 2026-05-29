@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780039412845,
+  "lastUpdate": 1780070094095,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -96227,6 +96227,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2669631928,
             "range": "± 15315427",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian@parity.io",
+            "name": "Adrian Catangiu",
+            "username": "acatangiu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "29e6c27e53c556fdc6a80b80ddc7d622c7c8f9ea",
+          "message": "pallet-beefy-mmr: align ECDSA→ETH failure sentinel between converter and consumer (#12214)\n\nBeefyEcdsaToEthereum returned an empty Vec<u8> on conversion failure,\nwhile compute_authority_set counted failures by matching [0u8; 20].\nExtract the sentinel into a shared FAILED_BEEFY_TO_ETH_ADDRESS constant\nreferenced by both sites.\nFix mock_beefy_id to derive valid ECDSA keys so tests exercise the happy\npath as well as the failure branch.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-29T14:29:47Z",
+          "tree_id": "b847239acbae6ac4dd78b16ec6ac9871d7d4096c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/29e6c27e53c556fdc6a80b80ddc7d622c7c8f9ea"
+        },
+        "date": 1780070064116,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20091963,
+            "range": "± 183047",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20575641,
+            "range": "± 184042",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21968844,
+            "range": "± 146452",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26679021,
+            "range": "± 203743",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60823558,
+            "range": "± 855549",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 359769336,
+            "range": "± 4220002",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2634097910,
+            "range": "± 96740043",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17863866,
+            "range": "± 246468",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18267952,
+            "range": "± 160912",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18483384,
+            "range": "± 119234",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23811273,
+            "range": "± 207096",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61013359,
+            "range": "± 637138",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 360503015,
+            "range": "± 3466546",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2887141802,
+            "range": "± 60955090",
             "unit": "ns/iter"
           }
         ]
