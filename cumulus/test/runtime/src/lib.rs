@@ -145,59 +145,62 @@ impl_opaque_keys! {
 /// The para-id used in this runtime.
 pub const PARACHAIN_ID: u32 = 100;
 
-#[cfg(any(feature = "elastic-scaling-500ms", feature = "block-bundling"))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 12;
+const SCHEDULING_V3_ENABLED: bool = cfg!(feature = "v3-descriptor");
 
-#[cfg(all(feature = "elastic-scaling-multi-block-slot", not(feature = "elastic-scaling-500ms")))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 6;
+const fn relay_parent_offset() -> u32 {
+	if cfg!(feature = "relay-parent-offset-2") {
+		return 2;
+	}
 
-#[cfg(all(
-	feature = "elastic-scaling",
-	not(feature = "elastic-scaling-500ms"),
-	not(feature = "elastic-scaling-multi-block-slot")
-))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
+	0
+}
 
-#[cfg(not(any(
-	feature = "elastic-scaling",
-	feature = "elastic-scaling-500ms",
-	feature = "elastic-scaling-multi-block-slot",
-	feature = "block-bundling",
-)))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
+const fn slot_duration() -> u64 {
+	if cfg!(feature = "18s-slot") {
+		return 18000;
+	}
 
-#[cfg(all(feature = "sync-backing", not(feature = "async-backing")))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
+	if cfg!(feature = "12s-slot") {
+		return 12000;
+	}
 
-#[cfg(feature = "async-backing")]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3 + RELAY_PARENT_OFFSET;
+	6000
+}
 
-/// We need `VELOCITY * 3`, because the block flow is the following:
-///
-/// - Collator produces the block(s) on relay chain block `X`
-/// - In the mean time the relay chain is building block `X + 1`
-/// - The collator sends the collation to the relay chain and it gets backed on chain in relay block
-///   `X + 2`
-/// - The collation then gets included on chain in relay block `X + 3`
-/// - As we are building on `RELAY_PARENT_OFFSET` old relay parents, the included block from the
-///   parachain is also `RELAY_PARENT_OFFSET` relay blocks older (one relay block may contains
-///   multiple parachain blocks).
-#[cfg(all(not(feature = "sync-backing"), not(feature = "async-backing")))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (3 + RELAY_PARENT_OFFSET);
+const fn block_processing_velocity() -> u32 {
+	if cfg!(feature = "velocity-12") {
+		return 12;
+	}
 
-#[cfg(feature = "slot-duration-18s")]
-pub const SLOT_DURATION: u64 = 18000;
-#[cfg(all(
-	any(feature = "sync-backing", feature = "elastic-scaling-12s-slot"),
-	not(feature = "slot-duration-18s")
-))]
-pub const SLOT_DURATION: u64 = 12000;
-#[cfg(not(any(
-	feature = "sync-backing",
-	feature = "elastic-scaling-12s-slot",
-	feature = "slot-duration-18s"
-)))]
-pub const SLOT_DURATION: u64 = 6000;
+	if cfg!(feature = "velocity-6") {
+		return 6;
+	}
+
+	if cfg!(feature = "velocity-3") {
+		return 3;
+	}
+
+	1
+}
+
+const fn unincluded_segment_capacity() -> u32 {
+	if cfg!(feature = "sync-backing") {
+		return 1;
+	}
+
+	// Without sync backing, the block flow is the following:
+	//
+	// - Collator produces the block(s) on relay chain block `X`
+	// - In the meantime the relay chain is building block `X + 1`
+	// - The collator sends the collation to the relay chain, and it gets backed on chain in relay
+	//   block `X + 2`
+	// - The collation then gets included on chain in relay block `X + 3`
+	// - As we are building on `RELAY_PARENT_OFFSET` old relay parents, the included block from the
+	//   parachain is also `RELAY_PARENT_OFFSET` relay blocks older (one relay block may contain
+	//   multiple parachain blocks).
+	block_processing_velocity() * (3 + relay_parent_offset())
+}
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = unincluded_segment_capacity();
 
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
@@ -212,7 +215,7 @@ const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 // details. Since macro kicks in early, it operates on AST. Thus you cannot use constants.
 // Macros are expanded top to bottom, meaning we also cannot use `cfg` here.
 
-#[cfg(all(not(feature = "increment-spec-version"), not(feature = "elastic-scaling")))]
+#[cfg(not(feature = "increment-spec-version"))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
@@ -226,7 +229,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	system_version: 3,
 };
 
-#[cfg(any(feature = "increment-spec-version", feature = "elastic-scaling"))]
+#[cfg(feature = "increment-spec-version")]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
@@ -243,7 +246,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 pub const EPOCH_DURATION_IN_BLOCKS: u32 = 10 * MINUTES;
 
 // These time units are defined in number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (SLOT_DURATION as BlockNumber);
+pub const MINUTES: BlockNumber = 60_000 / (slot_duration() as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
@@ -265,7 +268,7 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
 type MaximumBlockWeight = cumulus_pallet_parachain_system::block_weight::MaxParachainBlockWeight<
 	Runtime,
-	ConstU32<BLOCK_PROCESSING_VELOCITY>,
+	ConstU32<{ block_processing_velocity() }>,
 >;
 
 parameter_types! {
@@ -319,7 +322,7 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type PreInherents = cumulus_pallet_parachain_system::block_weight::DynamicMaxBlockWeightHooks<
 		Runtime,
-		ConstU32<BLOCK_PROCESSING_VELOCITY>,
+		ConstU32<{ block_processing_velocity() }>,
 	>;
 	type SingleBlockMigrations = SingleBlockMigrations;
 }
@@ -404,14 +407,6 @@ impl pallet_glutton::Config for Runtime {
 	type WeightInfo = pallet_glutton::weights::SubstrateWeight<Runtime>;
 }
 
-#[cfg(feature = "relay-parent-offset")]
-const RELAY_PARENT_OFFSET: u32 = 2;
-
-#[cfg(not(feature = "relay-parent-offset"))]
-const RELAY_PARENT_OFFSET: u32 = 0;
-
-const SCHEDULING_V3_ENABLED: bool = cfg!(feature = "v3-descriptor");
-
 /// Scheduling-info verifier used by `cumulus-test-runtime`.
 ///
 /// Accepts any signature; `V3_SCHEDULING_ENABLED` is gated on the `v3-descriptor` cargo
@@ -433,7 +428,7 @@ impl VerifySchedulingSignature for NoVerification {
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
-	BLOCK_PROCESSING_VELOCITY,
+	{ block_processing_velocity() },
 	UNINCLUDED_SEGMENT_CAPACITY,
 >;
 impl cumulus_pallet_parachain_system::Config for Runtime {
@@ -450,7 +445,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber =
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
-	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type RelayParentOffset = ConstU32<{ relay_parent_offset() }>;
 	type SchedulingSignatureVerifier = NoVerification;
 }
 
@@ -460,11 +455,8 @@ impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<32>;
-	#[cfg(feature = "sync-backing")]
-	type AllowMultipleBlocksPerSlot = ConstBool<false>;
-	#[cfg(not(feature = "sync-backing"))]
-	type AllowMultipleBlocksPerSlot = ConstBool<true>;
-	type SlotDuration = ConstU64<SLOT_DURATION>;
+	type AllowMultipleBlocksPerSlot = ConstBool<{ !cfg!(feature = "sync-backing") }>;
+	type SlotDuration = ConstU64<{ slot_duration() }>;
 }
 
 impl test_pallet::Config for Runtime {}
@@ -531,7 +523,7 @@ pub type TxExtension = cumulus_pallet_parachain_system::block_weight::DynamicMax
 			test_pallet::TestTransactionExtension<Runtime>,
 		),
 	>,
-	ConstU32<BLOCK_PROCESSING_VELOCITY>,
+	ConstU32<{ block_processing_velocity() }>,
 >;
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -607,7 +599,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
-			RELAY_PARENT_OFFSET
+			relay_parent_offset()
 		}
 
 		fn max_claim_queue_offset() -> u8 {
@@ -623,7 +615,7 @@ impl_runtime_apis! {
 
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
+			sp_consensus_aura::SlotDuration::from_millis(slot_duration())
 		}
 
 		fn authorities() -> Vec<AuraId> {
@@ -732,11 +724,11 @@ impl_runtime_apis! {
 		}
 	}
 
-	// "Elastic scaling" should run with the fallback method.
-	#[cfg(any(not(feature = "elastic-scaling"), feature = "std"))]
+	// Some runtimes should run with the fallback method.
+	#[cfg(any(not(feature = "fallback-target-block-rate"), feature = "std"))]
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
-			BLOCK_PROCESSING_VELOCITY
+			block_processing_velocity()
 		}
 	}
 
