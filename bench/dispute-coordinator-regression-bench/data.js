@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780040645285,
+  "lastUpdate": 1780071324402,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b21cbb58ab50d5d10371393967537f6f221bb92f",
-          "message": "Improve statement-store gossiping performance (#9912)\n\n# Description\n\nFixes gossiping and scalability issues in the statement-store\nnetworking.\n\n1. Reduced gossiping traffic by propagating only recent statements\ninstead of all.\n2. Added an early check for statements that the node already has to skip\nduplicate processing.\n3. Added splitting of large statement batches to stay under\nMAX_STATEMENT_NOTIFICATION_SIZE; oversized individual statements are\nskipped.\n4. MAX_STATEMENT_NOTIFICATION_SIZE was updated to the commonly used 1MB,\nwhich drastically improved the gossiping speed.\n5. Notifications are sent asynchronously. I don't see much difference in\nperformance, but according to @lexnv, it's better to do:\nhttps://github.com/paritytech/polkadot-sdk/pull/9296.\n6. Added a 10s timeout to handle very slow or disconnected peers.\n\n## Integration\n\nInternal optimizations to the gossip protocol. No downstream changes\nrequired.\n\nRelated PR: https://github.com/paritytech/polkadot-sdk/pull/9965\n\n## Things to handle in further PRs\n- After this PR, nodes don't send all statements to new peers anymore,\nonly the recent ones.\n- After restarting, the node doesn't re-gossip statements it wasn't\ngossiped.\n- Broadcasting notifications to all peers when the first peer is slow is\nlimited. We could instead use a FuturesUnordered.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-10-16T15:46:38Z",
-          "tree_id": "64e829882f470997b31739fc7f0e726294518cb8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b21cbb58ab50d5d10371393967537f6f221bb92f"
-        },
-        "date": 1760633676732,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008672169669999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005199683799999992,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002629186680000001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009335343079999966,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian@parity.io",
+            "name": "Adrian Catangiu",
+            "username": "acatangiu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "29e6c27e53c556fdc6a80b80ddc7d622c7c8f9ea",
+          "message": "pallet-beefy-mmr: align ECDSA→ETH failure sentinel between converter and consumer (#12214)\n\nBeefyEcdsaToEthereum returned an empty Vec<u8> on conversion failure,\nwhile compute_authority_set counted failures by matching [0u8; 20].\nExtract the sentinel into a shared FAILED_BEEFY_TO_ETH_ADDRESS constant\nreferenced by both sites.\nFix mock_beefy_id to derive valid ECDSA keys so tests exercise the happy\npath as well as the failure branch.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-29T14:29:47Z",
+          "tree_id": "b847239acbae6ac4dd78b16ec6ac9871d7d4096c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/29e6c27e53c556fdc6a80b80ddc7d622c7c8f9ea"
+        },
+        "date": 1780071296046,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010451285499999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009210511759999975,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002587401559999999,
             "unit": "seconds"
           }
         ]
