@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779996853681,
+  "lastUpdate": 1780040645285,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ced629a7f33430d1b425e6a3e92ca5c44a04158f",
-          "message": "Bump AH westend spec version (#10024)\n\nUpdate spec version of westend AH\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-16T10:31:14Z",
-          "tree_id": "a7bac3854aefe589993db87a45999acb18a484bc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ced629a7f33430d1b425e6a3e92ca5c44a04158f"
-        },
-        "date": 1760614933780,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026183590999999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008582046279999991,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005020174269999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0026404629900000005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dharjeezy@gmail.com",
+            "name": "dharjeezy",
+            "username": "dharjeezy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d9f061d4218dd7801722effe412a46aa084ed812",
+          "message": "Try state check for pallet beefy mmr (#11734)\n\nThis PR introduces try state hook into the Beefy MMR Pallet. It also\ndefines the invariants that holds for the pallet.\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/239\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-05-29T05:46:01Z",
+          "tree_id": "eb4a30a924b7edeea20945586e6a84d89bef5366",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d9f061d4218dd7801722effe412a46aa084ed812"
+        },
+        "date": 1780040615281,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002611479559999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01056225255,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009335343079999966,
             "unit": "seconds"
           }
         ]
