@@ -89,21 +89,14 @@ where
 			};
 
 			let new_state: PersistedState<B, AuthorityId> = old.try_into()?;
-			let version_key = CURRENT_VERSION.encode();
 
 			debug!(
 				target: LOG_TARGET,
 				"🥩 Migrating BEEFY aux-db schema v4 -> v5",
 			);
 
-			AuxStore::insert_aux(
-				backend,
-				&[
-					(VERSION_KEY, version_key.as_slice()),
-					(WORKER_STATE_KEY, new_state.encode().as_slice()),
-				],
-				&[],
-			)?;
+			write_voter_state(backend, &new_state)?;
+			write_current_version(backend).map_err(|e| ClientError::Backend(e.to_string()))?;
 
 			// `new_state` and the freshly persisted bytes are equivalent (encode/decode is a
 			// round-trip), so return the in-memory value directly and avoid the extra DB read.
