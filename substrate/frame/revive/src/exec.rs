@@ -2598,15 +2598,15 @@ where
 	}
 
 	fn touch_storage_access_list(&mut self, transient: bool, key: &Key) -> StorageAccessKind {
-		let address = self.address();
 		StorageAccessKind::for_access(transient, || {
+			let address = self.address();
 			self.access_list.touch(AccessEntry { address, slot: key.to_slot() })
 		})
 	}
 
 	fn peek_storage_access_list(&self, transient: bool, key: &Key) -> StorageAccessKind {
-		let address = self.address();
 		StorageAccessKind::for_access(transient, || {
+			let address = self.address();
 			self.access_list.peek(&AccessEntry { address, slot: key.to_slot() })
 		})
 	}
