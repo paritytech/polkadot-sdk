@@ -278,9 +278,6 @@ struct SourceState {
     last_processed: u64,
     /// The source's root we last built against
     last_seen_root: Hash,
-    /// The source's per-destination MMR root for us
-    /// TODO: Why do we need this?
-    last_seen_subtree_root: Hash,
 }
 ```
 
