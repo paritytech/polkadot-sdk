@@ -218,16 +218,22 @@ impl<T: frame_system::Config> pallet_psm::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
-	fn force_create_psm() -> Weight {
-		Weight::from_parts(25_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 3501))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(2))
-	}
 	fn remove_psm() -> Weight {
 		Weight::from_parts(25_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 3501))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
+	}
+	fn set_full_admin() -> Weight {
+		Weight::from_parts(20_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3501))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	fn set_emergency_admin() -> Weight {
+		Weight::from_parts(20_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3501))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }

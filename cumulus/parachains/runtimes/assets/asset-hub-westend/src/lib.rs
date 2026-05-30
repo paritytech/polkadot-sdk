@@ -1637,30 +1637,6 @@ parameter_types! {
 	};
 }
 
-/// EnsureOrigin for PSM management with privilege levels.
-/// - Root gets Full privileges (all parameter changes).
-/// - MonetaryGuard gets Emergency privileges (circuit breaker only).
-pub struct EnsurePsmManager;
-impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
-	type Success = pallet_psm::PsmManagerLevel;
-
-	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
-		// Try Root first.
-		let o = match o.clone().into() {
-			Ok(frame_system::RawOrigin::Root) => return Ok(pallet_psm::PsmManagerLevel::Full),
-			_ => o,
-		};
-		// Try MonetaryGuard — circuit breaker only.
-		pallet_custom_origins::MonetaryGuard::try_origin(o)
-			.map(|_| pallet_psm::PsmManagerLevel::Emergency)
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
-		Ok(RuntimeOrigin::root())
-	}
-}
-
 #[cfg(feature = "runtime-benchmarks")]
 pub struct PsmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
@@ -1698,8 +1674,9 @@ impl pallet_psm::BenchmarkHelper<xcm::v5::Location, AccountId> for PsmBenchmarkH
 impl pallet_psm::Config for Runtime {
 	type Fungibles = LocalAndForeignAssets;
 	type Currency = Balances;
+	type RuntimeOrigin = RuntimeOrigin;
+	type PalletsOrigin = OriginCaller;
 	type AssetId = xcm::v5::Location;
-	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = weights::pallet_psm::WeightInfo<Runtime>;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = PsmMinSwapAmount;

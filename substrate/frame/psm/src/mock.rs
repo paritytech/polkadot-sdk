@@ -17,7 +17,7 @@
 
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU128, ConstU32, ConstU64, EnsureOrigin},
+	traits::{AsEnsureOriginWithArg, ConstU128, ConstU32, ConstU64},
 	weights::constants::RocksDbWeight,
 	PalletId,
 };
@@ -30,6 +30,8 @@ pub const ALICE: u64 = 1;
 pub const BOB: u64 = 2;
 pub const CHARLIE: u64 = 3;
 pub const INSURANCE_FUND: u64 = 100;
+/// Account whose signed origin acts as the emergency admin on the test PSM.
+pub const EMERGENCY_ACCOUNT: u64 = 999;
 
 // Asset IDs
 pub const INTERNAL_ASSET_ID: u32 = 1;
@@ -111,31 +113,6 @@ parameter_types! {
 	pub const PsmCreationDeposit: u128 = 1_000_000;
 }
 
-/// Account used as emergency origin (non-root).
-pub const EMERGENCY_ACCOUNT: u64 = 999;
-
-/// Maps Root to Full level, EMERGENCY_ACCOUNT to Emergency level.
-pub struct MockManagerOrigin;
-impl EnsureOrigin<RuntimeOrigin> for MockManagerOrigin {
-	type Success = crate::PsmManagerLevel;
-
-	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
-		use frame_system::RawOrigin;
-		match o.clone().into() {
-			Ok(RawOrigin::Root) => Ok(crate::PsmManagerLevel::Full),
-			Ok(RawOrigin::Signed(who)) if who == EMERGENCY_ACCOUNT => {
-				Ok(crate::PsmManagerLevel::Emergency)
-			},
-			_ => Err(o),
-		}
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
-		Ok(RuntimeOrigin::root())
-	}
-}
-
 #[cfg(feature = "runtime-benchmarks")]
 pub struct PsmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
@@ -163,8 +140,9 @@ impl crate::BenchmarkHelper<u32, u64> for PsmBenchmarkHelper {
 impl crate::Config for Test {
 	type Fungibles = Assets;
 	type Currency = Balances;
+	type RuntimeOrigin = RuntimeOrigin;
+	type PalletsOrigin = OriginCaller;
 	type AssetId = u32;
-	type ManagerOrigin = MockManagerOrigin;
 	type WeightInfo = ();
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = MinSwapAmount;
@@ -219,36 +197,60 @@ pub fn new_test_ext() -> TestState {
 	.assimilate_storage(&mut storage)
 	.unwrap();
 
-	crate::GenesisConfig::<Test> {
-		psms: vec![(INTERNAL_ASSET_ID, INSURANCE_FUND, DEFAULT_MAX_DEBT)],
-		externals: vec![
-			(
-				INTERNAL_ASSET_ID,
-				USDC_ASSET_ID,
-				Permill::from_percent(1),
-				Permill::from_percent(1),
-				Permill::from_percent(60),
-			),
-			(
-				INTERNAL_ASSET_ID,
-				USDT_ASSET_ID,
-				Permill::from_percent(1),
-				Permill::from_percent(1),
-				Permill::from_percent(40),
-			),
-		],
-		_marker: Default::default(),
-	}
-	.assimilate_storage(&mut storage)
-	.unwrap();
-
 	let mut ext: TestState = storage.into();
 
 	ext.execute_with(|| {
 		System::set_block_number(1);
+		install_test_psm();
 	});
 
 	ext
+}
+
+/// Direct storage install of the test PSM with `Root` as full_admin and
+/// `Signed(EMERGENCY_ACCOUNT)` as emergency_admin, mirroring what the old genesis
+/// builder used to do. We bypass `create_psm` here so tests don't depend on
+/// balance funding plumbing.
+fn install_test_psm() {
+	let internal_decimals = <Assets as frame_support::traits::fungibles::metadata::Inspect<u64>>::decimals(
+		INTERNAL_ASSET_ID,
+	);
+	let full_admin: OriginCaller = frame_system::RawOrigin::<u64>::Root.into();
+	let emergency_admin: OriginCaller =
+		frame_system::RawOrigin::<u64>::Signed(EMERGENCY_ACCOUNT).into();
+	crate::Psms::<Test>::insert(
+		INTERNAL_ASSET_ID,
+		crate::PsmInfo::<Test> {
+			full_admin,
+			emergency_admin,
+			deposit: 0,
+			fee_destination: INSURANCE_FUND,
+			max_debt: DEFAULT_MAX_DEBT,
+			internal_decimals,
+			external_count: 2,
+		},
+	);
+	crate::Pallet::<Test>::ensure_account_exists(
+		&crate::Pallet::<Test>::psm_account(&INTERNAL_ASSET_ID),
+	);
+	crate::Pallet::<Test>::ensure_account_exists(&INSURANCE_FUND);
+
+	for (asset, weight, decimals) in [
+		(USDC_ASSET_ID, Permill::from_percent(60), 6u8),
+		(USDT_ASSET_ID, Permill::from_percent(40), 6u8),
+	] {
+		crate::ExternalAssets::<Test>::insert(
+			INTERNAL_ASSET_ID,
+			asset,
+			crate::ExternalAssetInfo {
+				status: crate::CircuitBreakerLevel::AllEnabled,
+				decimals,
+			},
+		);
+		crate::MintingFee::<Test>::insert(INTERNAL_ASSET_ID, asset, Permill::from_percent(1));
+		crate::RedemptionFee::<Test>::insert(INTERNAL_ASSET_ID, asset, Permill::from_percent(1));
+		crate::AssetCeilingWeight::<Test>::insert(INTERNAL_ASSET_ID, asset, weight);
+	}
 }
 
 pub struct ExtBuilder {

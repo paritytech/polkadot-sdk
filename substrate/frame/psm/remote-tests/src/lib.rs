@@ -176,14 +176,32 @@ where
 		internal_decimals, external_decimals,
 	);
 
-	// Bootstrap the PSM via the public dispatchables (no migration). Tests run as
-	// root, mirroring the way governance would call `force_create_psm` post-upgrade.
-	assert_ok!(pallet_psm::Pallet::<Runtime>::force_create_psm(
-		frame_system::RawOrigin::Root.into(),
-		internal_asset_id.clone(),
-		config.fee_destination.clone(),
-		config.max_debt,
-	));
+	// Bootstrap the PSM by writing the [`PsmInfo`] directly with `Root` as both admins,
+	// then setting up the external via the public dispatchables (dispatched as root, which
+	// matches `full_admin`). This avoids needing to fund a signer for `create_psm` in the
+	// remote-ext environment.
+	let internal_decimals_u8 = internal_decimals;
+	let root_origin: <Runtime as pallet_psm::Config>::PalletsOrigin =
+		frame_system::RawOrigin::<Runtime::AccountId>::Root.into();
+	pallet_psm::Psms::<Runtime>::insert(
+		&internal_asset_id,
+		pallet_psm::PsmInfo::<Runtime> {
+			full_admin: root_origin.clone(),
+			emergency_admin: root_origin,
+			deposit: Zero::zero(),
+			fee_destination: config.fee_destination.clone(),
+			max_debt: config.max_debt,
+			internal_decimals: internal_decimals_u8,
+			external_count: 0,
+		},
+	);
+	let psm_account_id = pallet_psm::Pallet::<Runtime>::psm_account(&internal_asset_id);
+	if !frame_system::Pallet::<Runtime>::account_exists(&psm_account_id) {
+		let _ = frame_system::Pallet::<Runtime>::inc_providers(&psm_account_id);
+	}
+	if !frame_system::Pallet::<Runtime>::account_exists(&config.fee_destination) {
+		let _ = frame_system::Pallet::<Runtime>::inc_providers(&config.fee_destination);
+	}
 	assert_ok!(pallet_psm::Pallet::<Runtime>::add_external_asset(
 		frame_system::RawOrigin::Root.into(),
 		internal_asset_id.clone(),

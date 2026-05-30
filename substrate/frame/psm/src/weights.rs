@@ -69,8 +69,9 @@ pub trait WeightInfo {
 	fn add_external_asset() -> Weight;
 	fn remove_external_asset() -> Weight;
 	fn create_psm() -> Weight;
-	fn force_create_psm() -> Weight;
 	fn remove_psm() -> Weight;
+	fn set_full_admin() -> Weight;
+	fn set_emergency_admin() -> Weight;
 }
 
 /// Weights for `pallet_psm` using the Substrate node and recommended hardware.
@@ -224,15 +225,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
-	fn force_create_psm() -> Weight {
-		Weight::from_parts(25_000_000, 3501)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
-	}
 	fn remove_psm() -> Weight {
 		Weight::from_parts(25_000_000, 3501)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	fn set_full_admin() -> Weight {
+		Weight::from_parts(20_000_000, 3501)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn set_emergency_admin() -> Weight {
+		Weight::from_parts(20_000_000, 3501)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -386,14 +392,19 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
-	fn force_create_psm() -> Weight {
-		Weight::from_parts(25_000_000, 3501)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
-	}
 	fn remove_psm() -> Weight {
 		Weight::from_parts(25_000_000, 3501)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	fn set_full_admin() -> Weight {
+		Weight::from_parts(20_000_000, 3501)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn set_emergency_admin() -> Weight {
+		Weight::from_parts(20_000_000, 3501)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
