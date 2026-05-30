@@ -101,7 +101,7 @@ pub enum RuntimeCosts {
 	DepositEvent { num_topic: u32, len: u32 },
 	/// Weight of `seal_set_storage` / `seal_set_transient_storage`. `kind` picks
 	/// the persistent (cold/hot) or transient bench.
-	SetStorage { old_bytes: u32, new_bytes: u32, kind: StorageAccessKind },
+	SetStorage { new_bytes: u32, old_bytes: u32, kind: StorageAccessKind },
 	/// Weight of the `clearStorage` precompile / `seal_clear_transient_storage`.
 	ClearStorage { len: u32, kind: StorageAccessKind },
 	/// Weight of the `containsStorage` precompile / `seal_contains_transient_storage`.
@@ -168,11 +168,39 @@ pub enum RuntimeCosts {
 	Modexp(u64),
 }
 
-/// For functions that modify storage, benchmarks are performed with one item in the
-/// storage. To account for the worst-case scenario, the weight of the overhead of
-/// writing to or reading from full storage is included. For transient storage writes,
-/// the rollback weight is added to reflect the worst-case scenario for this operation.
+/// Storage op weight = `$name(args)` + worst-case full-storage overhead.
+/// One arm per (read/write) × (persistent cold / persistent hot / transient).
+/// Transient writes additionally include the rollback weight.
 macro_rules! cost_storage {
+    // Persistent cold write: full-storage overhead from the cold benches.
+    (write, $name:ident $(, $arg:expr )*) => {
+        T::WeightInfo::$name($( $arg ),*)
+            .saturating_add(T::WeightInfo::set_storage_full()
+            .saturating_sub(T::WeightInfo::set_storage_empty()))
+    };
+
+    // Persistent cold read: full-storage overhead from the cold benches.
+    (read, $name:ident $(, $arg:expr )*) => {
+        T::WeightInfo::$name($( $arg ),*)
+            .saturating_add(T::WeightInfo::get_storage_full()
+            .saturating_sub(T::WeightInfo::get_storage_empty()))
+    };
+
+    // Persistent hot write: trie pre-loaded in the proof recorder; cheaper bench.
+    (write_hot, $name:ident $(, $arg:expr )*) => {
+        T::WeightInfo::$name($( $arg ),*)
+            .saturating_add(T::WeightInfo::set_storage_full_hot()
+            .saturating_sub(T::WeightInfo::set_storage_empty_hot()))
+    };
+
+    // Persistent hot read: trie pre-loaded in the proof recorder; cheaper bench.
+    (read_hot, $name:ident $(, $arg:expr )*) => {
+        T::WeightInfo::$name($( $arg ),*)
+            .saturating_add(T::WeightInfo::get_storage_full_hot()
+            .saturating_sub(T::WeightInfo::get_storage_empty_hot()))
+    };
+
+    // Transient write: include rollback weight on top of the full-storage overhead.
     (write_transient, $name:ident $(, $arg:expr )*) => {
         T::WeightInfo::$name($( $arg ),*)
             .saturating_add(T::WeightInfo::rollback_transient_storage())
@@ -180,34 +208,11 @@ macro_rules! cost_storage {
             .saturating_sub(T::WeightInfo::set_transient_storage_empty()))
     };
 
+    // Transient read.
     (read_transient, $name:ident $(, $arg:expr )*) => {
         T::WeightInfo::$name($( $arg ),*)
             .saturating_add(T::WeightInfo::get_transient_storage_full()
             .saturating_sub(T::WeightInfo::get_transient_storage_empty()))
-    };
-
-    (write, $name:ident $(, $arg:expr )*) => {
-        T::WeightInfo::$name($( $arg ),*)
-            .saturating_add(T::WeightInfo::set_storage_full()
-            .saturating_sub(T::WeightInfo::set_storage_empty()))
-    };
-
-    (read, $name:ident $(, $arg:expr )*) => {
-        T::WeightInfo::$name($( $arg ),*)
-            .saturating_add(T::WeightInfo::get_storage_full()
-            .saturating_sub(T::WeightInfo::get_storage_empty()))
-    };
-
-    (write_hot, $name:ident $(, $arg:expr )*) => {
-        T::WeightInfo::$name($( $arg ),*)
-            .saturating_add(T::WeightInfo::set_storage_full_hot()
-            .saturating_sub(T::WeightInfo::set_storage_empty_hot()))
-    };
-
-    (read_hot, $name:ident $(, $arg:expr )*) => {
-        T::WeightInfo::$name($( $arg ),*)
-            .saturating_add(T::WeightInfo::get_storage_full_hot()
-            .saturating_sub(T::WeightInfo::get_storage_empty_hot()))
     };
 }
 
@@ -244,25 +249,6 @@ impl RuntimeCosts {
 	pub fn contains_storage(kind: StorageAccessKind, len: u32) -> Self {
 		Self::ContainsStorage { len, kind }
 	}
-
-	/// Pick the matching storage bench for `kind`. Persistent kinds also
-	/// add the access-list overhead.
-	fn weight_for_storage_access<T: Config>(
-		kind: StorageAccessKind,
-		cold: impl FnOnce() -> Weight,
-		hot: impl FnOnce() -> Weight,
-		transient: impl FnOnce() -> Weight,
-	) -> Weight {
-		match kind {
-			StorageAccessKind::PersistentCold => cold()
-				.saturating_add(T::WeightInfo::access_list_touch_cold())
-				.saturating_add(T::WeightInfo::access_list_rollback_amortization()),
-			StorageAccessKind::PersistentHot =>
-				hot().saturating_add(T::WeightInfo::access_list_touch_hot()),
-			StorageAccessKind::Transient => transient(),
-		}
-	}
-
 }
 
 impl<T: Config> Token<T> for RuntimeCosts {
@@ -391,5 +377,25 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Modexp(gas) => Weight::from_parts(gas.saturating_mul(WEIGHT_PER_GAS), 0),
 		}
 	}
+}
 
+impl RuntimeCosts {
+	/// Pick the matching storage bench for `kind`. Persistent kinds also
+	/// add the access-list overhead.
+	fn weight_for_storage_access<T: Config>(
+		kind: StorageAccessKind,
+		cold: impl FnOnce() -> Weight,
+		hot: impl FnOnce() -> Weight,
+		transient: impl FnOnce() -> Weight,
+	) -> Weight {
+		match kind {
+			StorageAccessKind::PersistentCold => cold()
+				.saturating_add(T::WeightInfo::access_list_touch_cold())
+				.saturating_add(T::WeightInfo::access_list_rollback_amortization()),
+			StorageAccessKind::PersistentHot => {
+				hot().saturating_add(T::WeightInfo::access_list_touch_hot())
+			},
+			StorageAccessKind::Transient => transient(),
+		}
+	}
 }

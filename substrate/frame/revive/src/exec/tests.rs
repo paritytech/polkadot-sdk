@@ -3014,32 +3014,6 @@ fn cold_hot_touch_then_retouch_is_hot() {
 }
 
 #[test]
-fn cold_hot_child_revert_drops_touches() {
-	let child_code_hash = MockLoader::insert(Call, |ctx, _| {
-		let key = Key::Fix([10; 32]);
-		assert!(
-			is_cold_touch(ctx.ext, &key),
-			"child touch must be cold (any prior revert should have rolled back its entry)",
-		);
-		Err("rollback".into())
-	});
-
-	let parent_code_hash = MockLoader::insert(Call, move |ctx, _| {
-		// Call child twice. Each call's touch should be cold because the
-		// previous call reverted and rolled back its access-list entry.
-		let _ = dummy_call_helper(ctx.ext, &BOB_ADDR, vec![]);
-		let _ = dummy_call_helper(ctx.ext, &BOB_ADDR, vec![]);
-		exec_success()
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&BOB, child_code_hash);
-		place_contract(&CHARLIE, parent_code_hash);
-		run_call_helper(CHARLIE_ADDR, vec![]);
-	});
-}
-
-#[test]
 fn cold_hot_child_commit_visible_on_next_call() {
 	// A committed child touch on (addr, slot) stays hot on the next child call —
 	// and parent's own touch on `slot` is a separate entry (address discriminates).
@@ -3101,10 +3075,7 @@ fn cold_hot_delegate_call_marks_parent_slot_hot() {
 	const SLOT: [u8; 32] = [55; 32];
 
 	let child_code_hash = MockLoader::insert(Call, |ctx, _| {
-		assert!(
-			is_cold_touch(ctx.ext, &Key::Fix(SLOT)),
-			"delegate-callee's first touch is cold",
-		);
+		assert!(is_cold_touch(ctx.ext, &Key::Fix(SLOT)), "delegate-callee's first touch is cold",);
 		exec_success()
 	});
 
@@ -3136,11 +3107,9 @@ fn cold_hot_transient_skips_access_list() {
 		assert!(matches!(kind, StorageAccessKind::Transient));
 
 		// The same key is still cold in the persistent access list.
+		let persistent_kind = ctx.ext.peek_storage_access_list(false, &key);
 		assert!(
-			matches!(
-				ctx.ext.peek_storage_access_list(false, &key),
-				StorageAccessKind::PersistentCold,
-			),
+			matches!(persistent_kind, StorageAccessKind::PersistentCold),
 			"transient access must not warm the persistent access list",
 		);
 
@@ -3150,5 +3119,41 @@ fn cold_hot_transient_skips_access_list() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, code_hash);
 		run_call_helper(BOB_ADDR, vec![]);
+	});
+}
+
+#[test]
+fn cold_hot_3level_commit_then_revert_drops_committed() {
+	// 3-level nesting: root → A → grandchild. Grandchild commits a touch into A's
+	// frame; A then reverts. On the next call into grandchild, the previously-
+	// committed entry must be gone — A's revert drops both its own touches and
+	// the ones grandchild committed into it.
+	let grandchild_code_hash = MockLoader::insert(Call, |ctx, _| {
+		let key = Key::Fix([99; 32]);
+		assert!(
+			is_cold_touch(ctx.ext, &key),
+			"grandchild touch must be cold (A's revert should have dropped the committed entry)",
+		);
+		exec_success()
+	});
+
+	// A calls grandchild (which commits a touch), then reverts.
+	let a_code_hash = MockLoader::insert(Call, |ctx, _| {
+		assert_matches!(dummy_call_helper(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
+		Err("rollback A".into())
+	});
+
+	// Root calls A twice. Each grandchild invocation must see the slot as cold.
+	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
+		let _ = dummy_call_helper(ctx.ext, &BOB_ADDR, vec![]);
+		let _ = dummy_call_helper(ctx.ext, &BOB_ADDR, vec![]);
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&DJANGO, grandchild_code_hash);
+		place_contract(&BOB, a_code_hash);
+		place_contract(&CHARLIE, root_code_hash);
+		run_call_helper(CHARLIE_ADDR, vec![]);
 	});
 }

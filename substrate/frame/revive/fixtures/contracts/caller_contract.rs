@@ -90,8 +90,9 @@ pub extern "C" fn call() {
 	assert!(matches!(res, Err(ReturnErrorCode::OutOfResources)));
 
 	// Fail to deploy because the body runs out of proof_size after code load.
-	// Done before the successful deploy so the storage slot touched in `call()` is still cold;
-	// once a successful deploy commits, the slot is hot and `clear_storage` no longer OOGs.
+	// Done before the successful deploy so the storage slot touched inside this entrypoint's body
+	// is still cold; once a successful deploy commits, the slot is hot and `clear_storage` no
+	// longer OOGs.
 	let mut deploy_revert_output = [0u8; 4];
 	let res = api::instantiate(
 		u64::MAX, // How much ref_time weight to devote for the execution. u64::MAX = use all.
