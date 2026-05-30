@@ -29,7 +29,6 @@ fn main() {
 	WasmBuilder::init_with_defaults()
 		.enable_feature("velocity-3")
 		.enable_feature("increment-spec-version")
-		.enable_feature("fallback-target-block-rate")
 		.set_file_name("wasm_binary_elastic_scaling.rs")
 		.build();
 
@@ -61,7 +60,6 @@ fn main() {
 	WasmBuilder::init_with_defaults()
 		.enable_feature("12s-slot")
 		.enable_feature("velocity-3")
-		.enable_feature("fallback-target-block-rate")
 		.enable_feature("increment-spec-version")
 		.set_file_name("wasm_binary_elastic_scaling_12s_slot.rs")
 		.build();

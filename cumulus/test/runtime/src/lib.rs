@@ -724,8 +724,6 @@ impl_runtime_apis! {
 		}
 	}
 
-	// Some runtimes should run with the fallback method.
-	#[cfg(any(not(feature = "fallback-target-block-rate"), feature = "std"))]
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
 			block_processing_velocity()

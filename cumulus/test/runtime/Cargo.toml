@@ -112,7 +112,6 @@ sync-backing = []
 velocity-3 = []
 velocity-6 = []
 velocity-12 = []
-fallback-target-block-rate = []
 
 relay-parent-offset-2 = []
 
