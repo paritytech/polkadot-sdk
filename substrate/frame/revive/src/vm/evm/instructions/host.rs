@@ -130,8 +130,9 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	ControlFlow::Continue(())
 }
 
-/// SSTORE/TSTORE charging: cold/hot is exact (access-list touch);
-/// `old_bytes` is pre-charged worst-case and refunded on Ok.
+/// Shared helper for SSTORE and TSTORE: touch the access list, perform the
+/// write via `set_function`, and pre-charge worst-case `old_bytes` (refunded
+/// on Ok).
 fn store_helper<'ext, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 	transient: bool,

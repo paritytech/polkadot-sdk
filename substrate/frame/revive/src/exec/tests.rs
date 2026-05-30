@@ -3058,6 +3058,16 @@ fn cold_hot_var_inline_len_distinguishes() {
 			is_cold_touch(ctx.ext, &long_key),
 			"VarInline keys with same byte prefix but different `len` must NOT alias",
 		);
+
+		let inline_max = Key::try_from_var(vec![7u8; MAX_INLINE_KEY_LEN]).unwrap();
+		let just_over = Key::try_from_var(vec![7u8; MAX_INLINE_KEY_LEN + 1]).unwrap();
+
+		assert!(is_cold_touch(ctx.ext, &inline_max), "{MAX_INLINE_KEY_LEN}-byte key is cold");
+		assert!(
+			is_cold_touch(ctx.ext, &just_over),
+			"{}-byte key crosses into VarLong and must NOT alias with the VarInline at the cap",
+			MAX_INLINE_KEY_LEN + 1,
+		);
 		exec_success()
 	});
 

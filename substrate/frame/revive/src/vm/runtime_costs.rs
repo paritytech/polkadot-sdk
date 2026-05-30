@@ -173,14 +173,14 @@ pub enum RuntimeCosts {
 /// Transient writes additionally include the rollback weight.
 macro_rules! cost_storage {
     // Persistent cold write: full-storage overhead from the cold benches.
-    (write, $name:ident $(, $arg:expr )*) => {
+    (write_cold, $name:ident $(, $arg:expr )*) => {
         T::WeightInfo::$name($( $arg ),*)
             .saturating_add(T::WeightInfo::set_storage_full()
             .saturating_sub(T::WeightInfo::set_storage_empty()))
     };
 
     // Persistent cold read: full-storage overhead from the cold benches.
-    (read, $name:ident $(, $arg:expr )*) => {
+    (read_cold, $name:ident $(, $arg:expr )*) => {
         T::WeightInfo::$name($( $arg ),*)
             .saturating_add(T::WeightInfo::get_storage_full()
             .saturating_sub(T::WeightInfo::get_storage_empty()))
@@ -249,6 +249,25 @@ impl RuntimeCosts {
 	pub fn contains_storage(kind: StorageAccessKind, len: u32) -> Self {
 		Self::ContainsStorage { len, kind }
 	}
+
+	/// Pick the matching storage bench for `kind`. Persistent kinds also
+	/// add the access-list overhead.
+	fn weight_for_storage_access<T: Config>(
+		kind: StorageAccessKind,
+		cold: impl FnOnce() -> Weight,
+		hot: impl FnOnce() -> Weight,
+		transient: impl FnOnce() -> Weight,
+	) -> Weight {
+		match kind {
+			StorageAccessKind::PersistentCold => cold()
+				.saturating_add(T::WeightInfo::access_list_touch_cold())
+				.saturating_add(T::WeightInfo::access_list_rollback_amortization()),
+			StorageAccessKind::PersistentHot => {
+				hot().saturating_add(T::WeightInfo::access_list_touch_hot())
+			},
+			StorageAccessKind::Transient => transient(),
+		}
+	}
 }
 
 impl<T: Config> Token<T> for RuntimeCosts {
@@ -306,31 +325,31 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				)),
 			SetStorage { new_bytes, old_bytes, kind } => Self::weight_for_storage_access::<T>(
 				kind,
-				|| cost_storage!(write, seal_set_storage, new_bytes, old_bytes),
+				|| cost_storage!(write_cold, seal_set_storage, new_bytes, old_bytes),
 				|| cost_storage!(write_hot, seal_set_storage_hot, new_bytes, old_bytes),
 				|| cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes),
 			),
 			ClearStorage { len, kind } => Self::weight_for_storage_access::<T>(
 				kind,
-				|| cost_storage!(write, clear_storage, len),
+				|| cost_storage!(write_cold, clear_storage, len),
 				|| cost_storage!(write_hot, clear_storage_hot, len),
 				|| cost_storage!(write_transient, seal_clear_transient_storage, len),
 			),
 			ContainsStorage { len, kind } => Self::weight_for_storage_access::<T>(
 				kind,
-				|| cost_storage!(read, contains_storage, len),
+				|| cost_storage!(read_cold, contains_storage, len),
 				|| cost_storage!(read_hot, contains_storage_hot, len),
 				|| cost_storage!(read_transient, seal_contains_transient_storage, len),
 			),
 			GetStorage { len, kind } => Self::weight_for_storage_access::<T>(
 				kind,
-				|| cost_storage!(read, seal_get_storage, len),
+				|| cost_storage!(read_cold, seal_get_storage, len),
 				|| cost_storage!(read_hot, seal_get_storage_hot, len),
 				|| cost_storage!(read_transient, seal_get_transient_storage, len),
 			),
 			TakeStorage { len, kind } => Self::weight_for_storage_access::<T>(
 				kind,
-				|| cost_storage!(write, take_storage, len),
+				|| cost_storage!(write_cold, take_storage, len),
 				|| cost_storage!(write_hot, take_storage_hot, len),
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
@@ -375,27 +394,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Identity(len) => T::WeightInfo::identity(len),
 			Blake2F(rounds) => T::WeightInfo::blake2f(rounds),
 			Modexp(gas) => Weight::from_parts(gas.saturating_mul(WEIGHT_PER_GAS), 0),
-		}
-	}
-}
-
-impl RuntimeCosts {
-	/// Pick the matching storage bench for `kind`. Persistent kinds also
-	/// add the access-list overhead.
-	fn weight_for_storage_access<T: Config>(
-		kind: StorageAccessKind,
-		cold: impl FnOnce() -> Weight,
-		hot: impl FnOnce() -> Weight,
-		transient: impl FnOnce() -> Weight,
-	) -> Weight {
-		match kind {
-			StorageAccessKind::PersistentCold => cold()
-				.saturating_add(T::WeightInfo::access_list_touch_cold())
-				.saturating_add(T::WeightInfo::access_list_rollback_amortization()),
-			StorageAccessKind::PersistentHot => {
-				hot().saturating_add(T::WeightInfo::access_list_touch_hot())
-			},
-			StorageAccessKind::Transient => transient(),
 		}
 	}
 }
