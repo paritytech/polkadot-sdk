@@ -99,29 +99,17 @@ pub enum RuntimeCosts {
 	Terminate { code_removed: bool },
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
 	DepositEvent { num_topic: u32, len: u32 },
-	/// Weight of calling `seal_set_storage` for the given storage item sizes.
-	SetStorage { old_bytes: u32, new_bytes: u32, is_cold: bool },
-	/// Weight of calling the `clearStorage` function of the `Storage` pre-compile
-	/// per cleared byte.
-	ClearStorage { len: u32, is_cold: bool },
-	/// Weight of calling the `containsStorage` function of the `Storage` pre-compile
-	/// per byte of the checked item.
-	ContainsStorage { len: u32, is_cold: bool },
-	/// Weight of calling `seal_get_storage` with the specified size in storage.
-	GetStorage { len: u32, is_cold: bool },
-	/// Weight of calling the `takeStorage` function of the `Storage` pre-compile
-	/// for the given size.
-	TakeStorage { len: u32, is_cold: bool },
-	/// Weight of calling `seal_set_transient_storage` for the given storage item sizes.
-	SetTransientStorage { old_bytes: u32, new_bytes: u32 },
-	/// Weight of calling `seal_clear_transient_storage` per cleared byte.
-	ClearTransientStorage(u32),
-	/// Weight of calling `seal_contains_transient_storage` per byte of the checked item.
-	ContainsTransientStorage(u32),
-	/// Weight of calling `seal_get_transient_storage` with the specified size in storage.
-	GetTransientStorage(u32),
-	/// Weight of calling `seal_take_transient_storage` for the given size.
-	TakeTransientStorage(u32),
+	/// Weight of `seal_set_storage` / `seal_set_transient_storage`. `kind` picks
+	/// the persistent (cold/hot) or transient bench.
+	SetStorage { old_bytes: u32, new_bytes: u32, kind: StorageAccessKind },
+	/// Weight of the `clearStorage` precompile / `seal_clear_transient_storage`.
+	ClearStorage { len: u32, kind: StorageAccessKind },
+	/// Weight of the `containsStorage` precompile / `seal_contains_transient_storage`.
+	ContainsStorage { len: u32, kind: StorageAccessKind },
+	/// Weight of `seal_get_storage` / `seal_get_transient_storage`.
+	GetStorage { len: u32, kind: StorageAccessKind },
+	/// Weight of the `takeStorage` precompile / `seal_take_transient_storage`.
+	TakeStorage { len: u32, kind: StorageAccessKind },
 	/// Base weight of calling `seal_call`.
 	CallBase,
 	/// Weight of calling `seal_delegate_call` for the given input size.
@@ -236,18 +224,45 @@ macro_rules! cost_args {
 	(@replace_token $_in:tt) => { 0 };
 }
 
-/// Defines a storage cost constructor that maps `(kind, len)` to the
-/// matching persistent or transient variant.
-macro_rules! storage_cost_by_kind {
-	($fn_name:ident, $persistent:ident, $transient:ident) => {
-		pub fn $fn_name(kind: StorageAccessKind, len: u32) -> Self {
-			match kind {
-				StorageAccessKind::PersistentCold => Self::$persistent { len, is_cold: true },
-				StorageAccessKind::PersistentHot => Self::$persistent { len, is_cold: false },
-				StorageAccessKind::Transient => Self::$transient(len),
-			}
+impl RuntimeCosts {
+	pub fn set_storage(kind: StorageAccessKind, new_bytes: u32, old_bytes: u32) -> Self {
+		Self::SetStorage { new_bytes, old_bytes, kind }
+	}
+
+	pub fn clear_storage(kind: StorageAccessKind, len: u32) -> Self {
+		Self::ClearStorage { len, kind }
+	}
+
+	pub fn take_storage(kind: StorageAccessKind, len: u32) -> Self {
+		Self::TakeStorage { len, kind }
+	}
+
+	pub fn get_storage(kind: StorageAccessKind, len: u32) -> Self {
+		Self::GetStorage { len, kind }
+	}
+
+	pub fn contains_storage(kind: StorageAccessKind, len: u32) -> Self {
+		Self::ContainsStorage { len, kind }
+	}
+
+	/// Pick the matching storage bench for `kind`. Persistent kinds also
+	/// add the access-list overhead.
+	fn weight_for_storage_access<T: Config>(
+		kind: StorageAccessKind,
+		cold: impl FnOnce() -> Weight,
+		hot: impl FnOnce() -> Weight,
+		transient: impl FnOnce() -> Weight,
+	) -> Weight {
+		match kind {
+			StorageAccessKind::PersistentCold => cold()
+				.saturating_add(T::WeightInfo::access_list_touch_cold())
+				.saturating_add(T::WeightInfo::access_list_rollback_amortization()),
+			StorageAccessKind::PersistentHot =>
+				hot().saturating_add(T::WeightInfo::access_list_touch_hot()),
+			StorageAccessKind::Transient => transient(),
 		}
-	};
+	}
+
 }
 
 impl<T: Config> Token<T> for RuntimeCosts {
@@ -256,13 +271,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 	}
 
 	fn weight(&self) -> Weight {
-		self.weight_with_access_list::<T>()
-	}
-}
-
-impl RuntimeCosts {
-	/// Base weight per `RuntimeCosts` variant.
-	fn opcode_weight<T: Config>(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match *self {
 			HostFn => cost_args!(noop_host_fn, 1),
@@ -310,30 +318,36 @@ impl RuntimeCosts {
 					limits::EXTRA_EVENT_CHARGE_PER_BYTE.saturating_mul(len.into()).into(),
 					0,
 				)),
-			// Storage variants are dispatched by `weight_with_access_list`;
-			// these arms are a defensive fallback and should never fire.
-			SetStorage { new_bytes, old_bytes, .. } => {
-				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
-			},
-			ClearStorage { len, .. } => cost_storage!(write, clear_storage, len),
-			ContainsStorage { len, .. } => cost_storage!(read, contains_storage, len),
-			GetStorage { len, .. } => cost_storage!(read, seal_get_storage, len),
-			TakeStorage { len, .. } => cost_storage!(write, take_storage, len),
-			SetTransientStorage { new_bytes, old_bytes } => {
-				cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes)
-			},
-			ClearTransientStorage(len) => {
-				cost_storage!(write_transient, seal_clear_transient_storage, len)
-			},
-			ContainsTransientStorage(len) => {
-				cost_storage!(read_transient, seal_contains_transient_storage, len)
-			},
-			GetTransientStorage(len) => {
-				cost_storage!(read_transient, seal_get_transient_storage, len)
-			},
-			TakeTransientStorage(len) => {
-				cost_storage!(write_transient, seal_take_transient_storage, len)
-			},
+			SetStorage { new_bytes, old_bytes, kind } => Self::weight_for_storage_access::<T>(
+				kind,
+				|| cost_storage!(write, seal_set_storage, new_bytes, old_bytes),
+				|| cost_storage!(write_hot, seal_set_storage_hot, new_bytes, old_bytes),
+				|| cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes),
+			),
+			ClearStorage { len, kind } => Self::weight_for_storage_access::<T>(
+				kind,
+				|| cost_storage!(write, clear_storage, len),
+				|| cost_storage!(write_hot, clear_storage_hot, len),
+				|| cost_storage!(write_transient, seal_clear_transient_storage, len),
+			),
+			ContainsStorage { len, kind } => Self::weight_for_storage_access::<T>(
+				kind,
+				|| cost_storage!(read, contains_storage, len),
+				|| cost_storage!(read_hot, contains_storage_hot, len),
+				|| cost_storage!(read_transient, seal_contains_transient_storage, len),
+			),
+			GetStorage { len, kind } => Self::weight_for_storage_access::<T>(
+				kind,
+				|| cost_storage!(read, seal_get_storage, len),
+				|| cost_storage!(read_hot, seal_get_storage_hot, len),
+				|| cost_storage!(read_transient, seal_get_transient_storage, len),
+			),
+			TakeStorage { len, kind } => Self::weight_for_storage_access::<T>(
+				kind,
+				|| cost_storage!(write, take_storage, len),
+				|| cost_storage!(write_hot, take_storage_hot, len),
+				|| cost_storage!(write_transient, seal_take_transient_storage, len),
+			),
 			CallBase => T::WeightInfo::seal_call(0, 0, 0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
@@ -378,69 +392,4 @@ impl RuntimeCosts {
 		}
 	}
 
-	pub fn set_storage(kind: StorageAccessKind, new_bytes: u32, old_bytes: u32) -> Self {
-		match kind {
-			StorageAccessKind::PersistentCold => {
-				Self::SetStorage { new_bytes, old_bytes, is_cold: true }
-			},
-			StorageAccessKind::PersistentHot => {
-				Self::SetStorage { new_bytes, old_bytes, is_cold: false }
-			},
-			StorageAccessKind::Transient => Self::SetTransientStorage { new_bytes, old_bytes },
-		}
-	}
-
-	storage_cost_by_kind!(clear_storage, ClearStorage, ClearTransientStorage);
-	storage_cost_by_kind!(take_storage, TakeStorage, TakeTransientStorage);
-	storage_cost_by_kind!(get_storage, GetStorage, GetTransientStorage);
-	storage_cost_by_kind!(contains_storage, ContainsStorage, ContainsTransientStorage);
-
-	/// Cold/hot weight for storage opcodes; other variants fall through to
-	/// `opcode_weight`.
-	fn weight_with_access_list<T: Config>(&self) -> Weight {
-		use self::RuntimeCosts::*;
-		match self {
-			GetStorage { len, is_cold } => Self::cold_hot_weight::<T>(
-				*is_cold,
-				|| cost_storage!(read, seal_get_storage, *len),
-				|| cost_storage!(read_hot, seal_get_storage_hot, *len),
-			),
-			ContainsStorage { len, is_cold } => Self::cold_hot_weight::<T>(
-				*is_cold,
-				|| cost_storage!(read, contains_storage, *len),
-				|| cost_storage!(read_hot, contains_storage_hot, *len),
-			),
-			SetStorage { new_bytes, old_bytes, is_cold } => Self::cold_hot_weight::<T>(
-				*is_cold,
-				|| cost_storage!(write, seal_set_storage, *new_bytes, *old_bytes),
-				|| cost_storage!(write_hot, seal_set_storage_hot, *new_bytes, *old_bytes),
-			),
-			ClearStorage { len, is_cold } => Self::cold_hot_weight::<T>(
-				*is_cold,
-				|| cost_storage!(write, clear_storage, *len),
-				|| cost_storage!(write_hot, clear_storage_hot, *len),
-			),
-			TakeStorage { len, is_cold } => Self::cold_hot_weight::<T>(
-				*is_cold,
-				|| cost_storage!(write, take_storage, *len),
-				|| cost_storage!(write_hot, take_storage_hot, *len),
-			),
-			_ => self.opcode_weight::<T>(),
-		}
-	}
-
-	/// Cold/hot dispatch shared by `weight_with_access_list`'s storage arms.
-	fn cold_hot_weight<T: Config>(
-		is_cold: bool,
-		cold: impl FnOnce() -> Weight,
-		hot: impl FnOnce() -> Weight,
-	) -> Weight {
-		if is_cold {
-			cold()
-				.saturating_add(T::WeightInfo::access_list_touch_cold())
-				.saturating_add(T::WeightInfo::access_list_rollback_amortization())
-		} else {
-			hot().saturating_add(T::WeightInfo::access_list_touch_hot())
-		}
-	}
 }

@@ -86,6 +86,7 @@ pub enum Slot {
 }
 
 /// Classification of a storage access for pricing.
+#[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Clone, Copy, Debug)]
 pub enum StorageAccessKind {
 	/// Persistent storage, first access in this transaction.
