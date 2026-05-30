@@ -21,11 +21,11 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{
-		BlockNumber as RNumber, Hash as RHash, Header as RelayChainHeader, UMPSignal,
-		MAX_HEAD_DATA_SIZE, UMP_SEPARATOR,
+		BlockNumber as RNumber, Hash as RHash, Header as RelayChainHeader, MAX_HEAD_DATA_SIZE,
+		UMP_SEPARATOR,
 	},
-	ClaimQueueOffset, CoreSelector, CumulusDigestItem, ParachainBlockData, PersistedValidationData,
-	SignedSchedulingInfo, VerifySchedulingSignature,
+	CumulusDigestItem, ParachainBlockData, PersistedValidationData, SignedSchedulingInfo,
+	VerifySchedulingSignature,
 };
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
@@ -145,6 +145,7 @@ where
 		&extension.0,
 		block_data.scheduling_proof(),
 		PSC::RelayParentOffset::get(),
+		crate::Pallet::<PSC>::max_claim_queue_offset(),
 	);
 
 	// Extract the resubmission inputs (signed payload + the ISP header the signer
@@ -354,61 +355,12 @@ where
 		}
 	}
 
-	if !upward_message_signals.is_empty() {
-		let mut selected_core: Option<(CoreSelector, ClaimQueueOffset)> = None;
-		let mut approved_peer = None;
-
-		upward_message_signals.iter().for_each(|s| {
-			match UMPSignal::decode(&mut &s[..]).expect("Failed to decode `UMPSignal`") {
-				UMPSignal::SelectCore(selector, offset) => match &selected_core {
-					Some(selected_core) if *selected_core != (selector, offset) => {
-						panic!(
-							"All `SelectCore` signals need to select the same core: {selected_core:?} vs {:?}",
-							(selector, offset),
-						)
-					},
-					Some(_) => {},
-					None => {
-						selected_core = Some((selector, offset));
-					},
-				},
-				UMPSignal::ApprovedPeer(new_approved_peer) => match &approved_peer {
-					Some(approved_peer) if *approved_peer != new_approved_peer => {
-						panic!(
-							"All `ApprovedPeer` signals need to select the same peer_id: {new_approved_peer:?} vs {approved_peer:?}",
-						)
-					},
-					Some(_) => {},
-					None => {
-						approved_peer = Some(new_approved_peer);
-					},
-				},
-			}
-		});
-
-		upward_messages
-			.try_push(UMP_SEPARATOR)
-			.expect("UMPSignals does not fit in UMPMessages");
-
-		if let Some((signed_info, _)) = resubmission_inputs.as_ref() {
-			// Resubmission: the verified signed payload supplies the canonical
-			// (core_selector, claim_queue_offset, peer_id) — all three are signed by
-			// the resubmitting collator. Emit signals from those values rather than
-			// forwarding the block's emitted bytes.
-			let ((selector, offset), peer_id) =
-				scheduling::apply_resubmission_override(signed_info);
-			upward_messages
-				.try_push(UMPSignal::SelectCore(selector, offset).encode())
-				.expect("UMPSignals does not fit in UMPMessages");
-			upward_messages
-				.try_push(UMPSignal::ApprovedPeer(peer_id).encode())
-				.expect("UMPSignals does not fit in UMPMessages");
-		} else {
-			upward_messages
-				.try_extend(upward_message_signals.into_iter())
-				.expect("UMPSignals does not fit in UMPMessages");
-		}
-	}
+	// Resubmission overrides the block's emitted signals wholesale — they are ignored, not merged.
+	let scheduling_signals = match resubmission_inputs.as_ref() {
+		Some((signed_info, _)) => scheduling::SchedulingSignals::from_resubmission(signed_info),
+		None => scheduling::SchedulingSignals::from_block_signals(&upward_message_signals),
+	};
+	scheduling_signals.emit(&mut upward_messages);
 
 	horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));
 

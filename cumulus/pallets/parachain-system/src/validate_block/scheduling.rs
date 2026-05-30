@@ -7,10 +7,13 @@
 //! Validates the header chain from scheduling_parent to internal_scheduling_parent,
 //! and verifies relay_parent is at or before internal_scheduling_parent.
 
+use alloc::{vec, vec::Vec};
+use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain::ApprovedPeerId, ClaimQueueOffset, CoreSelector, SchedulingProof,
-	SignedSchedulingInfo,
+	relay_chain::{ApprovedPeerId, UMPSignal, UMP_SEPARATOR},
+	ClaimQueueOffset, CoreSelector, SchedulingProof, SignedSchedulingInfo,
 };
+use frame_support::{traits::Get, BoundedVec};
 use polkadot_parachain_primitives::primitives::ValidationParamsExtension;
 use sp_runtime::traits::Header as HeaderT;
 
@@ -44,6 +47,11 @@ pub enum SchedulingValidationError {
 	/// over the same ISP the proof points to; rejecting the mismatch here prevents a
 	/// signature meant for a different scheduling context from being reused.
 	SignedSchedulingInfoIspMismatch,
+	/// Signed `claim_queue_offset` exceeds the runtime cap. The resubmission override takes the
+	/// offset from the signed payload, bypassing the in-block check `pallet_parachain_system`
+	/// applies to the block's own `CoreInfo` digest — so we re-apply the bound here, else a
+	/// resubmitter could sign an out-of-range offset.
+	ClaimQueueOffsetTooLarge { offset: u8, max: u8 },
 }
 
 /// Result of successful scheduling validation.
@@ -72,6 +80,7 @@ pub fn validate_v3_scheduling(
 	extension: &Option<ValidationParamsExtension>,
 	scheduling_proof: Option<&SchedulingProof>,
 	expected_header_chain_length: u32,
+	max_claim_queue_offset: u8,
 ) -> Option<SchedulingValidationResult> {
 	match (v3_enabled, extension) {
 		(false, None) => {
@@ -103,6 +112,7 @@ pub fn validate_v3_scheduling(
 				*relay_parent,
 				*scheduling_parent,
 				expected_header_chain_length,
+				max_claim_queue_offset,
 			) {
 				Ok(result) => Some(result),
 				Err(e) => panic!("V3 scheduling validation failed: {:?}", e),
@@ -131,6 +141,7 @@ pub fn check_scheduling(
 	relay_parent: RelayHash,
 	scheduling_parent: RelayHash,
 	expected_header_chain_length: u32,
+	max_claim_queue_offset: u8,
 ) -> Result<SchedulingValidationResult, SchedulingValidationError> {
 	let header_chain = &scheduling_proof.header_chain;
 
@@ -200,11 +211,17 @@ pub fn check_scheduling(
 		}
 	}
 
-	// 7. When signed_scheduling_info is present, its payload must commit to the same
-	// ISP the proof points to.
+	// 7. When signed_scheduling_info is present, its payload must commit to the ISP the proof
+	// points to, and its claim_queue_offset must be within the runtime cap.
 	if let Some(signed_info) = &scheduling_proof.signed_scheduling_info {
 		if signed_info.payload.internal_scheduling_parent != internal_scheduling_parent {
 			return Err(SchedulingValidationError::SignedSchedulingInfoIspMismatch);
+		}
+		if signed_info.payload.claim_queue_offset > max_claim_queue_offset {
+			return Err(SchedulingValidationError::ClaimQueueOffsetTooLarge {
+				offset: signed_info.payload.claim_queue_offset,
+				max: max_claim_queue_offset,
+			});
 		}
 	}
 
@@ -214,20 +231,99 @@ pub fn check_scheduling(
 	})
 }
 
-/// Apply the resubmission override from a verified `SignedSchedulingInfo`: the
-/// canonical `(core_selector, claim_queue_offset)` and `approved_peer` to emit as
-/// the block's UMP signals are read directly from the signed payload, since the
-/// resubmitting collator signed over all three.
-pub fn apply_resubmission_override(
-	signed_info: &SignedSchedulingInfo,
-) -> ((CoreSelector, ClaimQueueOffset), ApprovedPeerId) {
-	(
-		(
-			signed_info.payload.core_selector,
-			ClaimQueueOffset(signed_info.payload.claim_queue_offset),
-		),
-		signed_info.payload.peer_id.clone(),
-	)
+/// The UMP signal tail a candidate emits to the relay chain, parachain-side mirror of
+/// [`polkadot_primitives::vstaging::CandidateUMPSignals`].
+///
+/// The relay decoder (`CandidateCommitments::ump_signals`) is the contract we build for: it
+/// rejects a second occurrence of either variant (`DuplicateUMPSignal`) and any third signal
+/// (`TooManyUMPSignals`), and parses only the run after the *first* `UMP_SEPARATOR`. We panic
+/// rather than emit a tail it would reject — a violation here is our own runtime's bug, not
+/// adversarial input.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct SchedulingSignals {
+	select_core: Option<(CoreSelector, ClaimQueueOffset)>,
+	approved_peer: Option<ApprovedPeerId>,
+}
+
+impl SchedulingSignals {
+	/// Parse the encoded `UMPSignal`s a PoV's blocks emitted after the in-block `UMP_SEPARATOR`.
+	///
+	/// Panics on a repeated variant *even when values match*: the relay decoder counts
+	/// occurrences, not distinct values. Only the last block of a PoV may emit signals
+	/// (`pallet_parachain_system` gates on `is_last_block_in_core`), so a duplicate is a bug.
+	pub fn from_block_signals(raw: &[Vec<u8>]) -> Self {
+		let mut signals = Self::default();
+		for bytes in raw {
+			// NOTE: this match is intentionally exhaustive (no `_` arm). Adding a new
+			// `UMPSignal` variant must fail to compile here, forcing a deliberate decision:
+			// new non-scheduling signal classes (e.g. the speculative-messaging
+			// `Requires`/`Provides` commitments) must be handled explicitly — either passed
+			// through untouched or routed to their own override path — and must NOT be
+			// silently dropped. Such classes may also have different cardinality rules; the
+			// per-variant singleton check below applies only to the scheduling signals.
+			match UMPSignal::decode(&mut &bytes[..]).expect("Failed to decode `UMPSignal`") {
+				UMPSignal::SelectCore(selector, offset) => {
+					if signals.select_core.replace((selector, offset)).is_some() {
+						panic!(
+							"Parachain emitted more than one `SelectCore` UMP signal; \
+							 only the last block of a PoV may emit one"
+						);
+					}
+				},
+				UMPSignal::ApprovedPeer(peer_id) => {
+					if signals.approved_peer.replace(peer_id).is_some() {
+						panic!(
+							"Parachain emitted more than one `ApprovedPeer` UMP signal; \
+							 only the last block of a PoV may emit one"
+						);
+					}
+				},
+			}
+		}
+		signals
+	}
+
+	/// Build the tail from a verified resubmission payload, which wholesale replaces the
+	/// block's emitted signals (the resubmitter signed all three fields).
+	///
+	/// `peer_id` is a plain (non-`Option`) type, so the contract is "always override". Was not my
+	/// original idea (had optional override in mind), but it is fine either way.
+	pub fn from_resubmission(signed_info: &SignedSchedulingInfo) -> Self {
+		let payload = &signed_info.payload;
+		Self {
+			select_core: Some((
+				payload.core_selector,
+				ClaimQueueOffset(payload.claim_queue_offset),
+			)),
+			approved_peer: Some(payload.peer_id.clone()),
+		}
+	}
+
+	pub fn is_empty(&self) -> bool {
+		self.select_core.is_none() && self.approved_peer.is_none()
+	}
+
+	/// Order is `SelectCore` then `ApprovedPeer`, matching
+	/// `pallet_parachain_system::send_ump_signals`. Emits nothing — not even a separator — when
+	/// empty, since the relay decoder keys off the first `UMP_SEPARATOR`.
+	pub fn emit<S: Get<u32>>(self, upward_messages: &mut BoundedVec<Vec<u8>, S>) {
+		if self.is_empty() {
+			return;
+		}
+		upward_messages
+			.try_push(UMP_SEPARATOR)
+			.expect("UMPSignals does not fit in UMPMessages");
+		if let Some((selector, offset)) = self.select_core {
+			upward_messages
+				.try_push(UMPSignal::SelectCore(selector, offset).encode())
+				.expect("UMPSignals does not fit in UMPMessages");
+		}
+		if let Some(peer_id) = self.approved_peer {
+			upward_messages
+				.try_push(UMPSignal::ApprovedPeer(peer_id).encode())
+				.expect("UMPSignals does not fit in UMPMessages");
+		}
+	}
 }
 
 #[cfg(test)]
@@ -240,6 +336,10 @@ mod tests {
 	use sp_runtime::{generic::Header, traits::BlakeTwo256};
 
 	type RelayHeader = Header<u32, BlakeTwo256>;
+
+	/// Claim-queue-offset cap used in tests. Matches the V3 value returned by
+	/// `pallet_parachain_system::max_claim_queue_offset()`.
+	const TEST_MAX_CQ_OFFSET: u8 = 2;
 
 	/// Creates a dummy signature blob for testing (not cryptographically valid).
 	fn dummy_signature() -> [u8; 64] {
@@ -323,8 +423,14 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: None,
 		};
-		let result = check_scheduling(&proof, relay_parent, scheduling_parent, len as u32)
-			.expect("valid chain should pass");
+		let result = check_scheduling(
+			&proof,
+			relay_parent,
+			scheduling_parent,
+			len as u32,
+			TEST_MAX_CQ_OFFSET,
+		)
+		.expect("valid chain should pass");
 		assert_eq!(result.internal_scheduling_parent, relay_parent);
 		assert!(!result.is_resubmission);
 	}
@@ -342,8 +448,9 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: None,
 		};
-		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 0)
-			.expect("valid empty chain should pass");
+		let result =
+			check_scheduling(&proof, relay_parent, scheduling_parent, 0, TEST_MAX_CQ_OFFSET)
+				.expect("valid empty chain should pass");
 		assert_eq!(result.internal_scheduling_parent, scheduling_parent);
 		assert!(!result.is_resubmission);
 	}
@@ -367,7 +474,8 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: None,
 		};
-		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 3);
+		let result =
+			check_scheduling(&proof, relay_parent, scheduling_parent, 3, TEST_MAX_CQ_OFFSET);
 
 		assert_eq!(
 			result,
@@ -391,7 +499,8 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: None,
 		};
-		let result = check_scheduling(&proof, relay_parent, wrong_scheduling_parent, 3);
+		let result =
+			check_scheduling(&proof, relay_parent, wrong_scheduling_parent, 3, TEST_MAX_CQ_OFFSET);
 
 		assert_eq!(result, Err(SchedulingValidationError::SchedulingParentMismatch));
 	}
@@ -421,7 +530,8 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: None,
 		};
-		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 3);
+		let result =
+			check_scheduling(&proof, relay_parent, scheduling_parent, 3, TEST_MAX_CQ_OFFSET);
 
 		// Chain breaks at index 0 (first header's parent doesn't match second header's hash)
 		assert_eq!(result, Err(SchedulingValidationError::BrokenHeaderChain { index: 0 }));
@@ -445,7 +555,13 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: None,
 		};
-		let result = check_scheduling(&proof, relay_parent_in_chain, scheduling_parent, 3);
+		let result = check_scheduling(
+			&proof,
+			relay_parent_in_chain,
+			scheduling_parent,
+			3,
+			TEST_MAX_CQ_OFFSET,
+		);
 
 		assert_eq!(result, Err(SchedulingValidationError::RelayParentInHeaderChain));
 	}
@@ -470,7 +586,8 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: Some(signed_info),
 		};
-		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 3);
+		let result =
+			check_scheduling(&proof, relay_parent, scheduling_parent, 3, TEST_MAX_CQ_OFFSET);
 
 		// Validation passes - signed_scheduling_info is optional for initial submission
 		assert!(result.is_ok());
@@ -492,7 +609,8 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: None,
 		};
-		let result = check_scheduling(&proof, older_relay_parent, scheduling_parent, 3);
+		let result =
+			check_scheduling(&proof, older_relay_parent, scheduling_parent, 3, TEST_MAX_CQ_OFFSET);
 
 		assert_eq!(result, Err(SchedulingValidationError::MissingSignedSchedulingInfo));
 	}
@@ -515,7 +633,8 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: Some(signed_info),
 		};
-		let result = check_scheduling(&proof, older_relay_parent, scheduling_parent, 3);
+		let result =
+			check_scheduling(&proof, older_relay_parent, scheduling_parent, 3, TEST_MAX_CQ_OFFSET);
 
 		// Validation passes - signature verification is done separately
 		assert!(result.is_ok());
@@ -552,7 +671,7 @@ mod tests {
 
 	#[test]
 	fn v3_disabled_no_extension_returns_none() {
-		let result = validate_v3_scheduling(false, &None, None, 0);
+		let result = validate_v3_scheduling(false, &None, None, 0, TEST_MAX_CQ_OFFSET);
 		assert!(result.is_none());
 	}
 
@@ -563,13 +682,13 @@ mod tests {
 			relay_parent: RelayHash::default(),
 			scheduling_parent: RelayHash::default(),
 		};
-		validate_v3_scheduling(false, &Some(ext), None, 0);
+		validate_v3_scheduling(false, &Some(ext), None, 0, TEST_MAX_CQ_OFFSET);
 	}
 
 	#[test]
 	#[should_panic(expected = "V3 scheduling is enabled but no V3 extension present")]
 	fn v3_enabled_no_extension_panics() {
-		validate_v3_scheduling(true, &None, None, 0);
+		validate_v3_scheduling(true, &None, None, 0, TEST_MAX_CQ_OFFSET);
 	}
 
 	#[rstest]
@@ -577,7 +696,8 @@ mod tests {
 	#[case::len_3(3)]
 	fn v3_enabled_valid_initial_submission(#[case] chain_len: u32) {
 		let (ext, proof, expected) = make_v3_initial_submission(chain_len);
-		let result = validate_v3_scheduling(true, &Some(ext), Some(&proof), chain_len);
+		let result =
+			validate_v3_scheduling(true, &Some(ext), Some(&proof), chain_len, TEST_MAX_CQ_OFFSET);
 		assert_eq!(result, Some(expected));
 	}
 
@@ -586,7 +706,7 @@ mod tests {
 	fn v3_enabled_missing_scheduling_proof_panics() {
 		let (ext, _, _) = make_v3_initial_submission(3);
 		// Pass None as scheduling_proof to simulate a V0/V1 POV
-		validate_v3_scheduling(true, &Some(ext), None, 3);
+		validate_v3_scheduling(true, &Some(ext), None, 3, TEST_MAX_CQ_OFFSET);
 	}
 
 	#[test]
@@ -594,7 +714,7 @@ mod tests {
 	fn v3_enabled_invalid_header_chain_length_panics() {
 		let (ext, proof, _) = make_v3_initial_submission(3);
 		// Expect 5 headers but proof only has 3
-		validate_v3_scheduling(true, &Some(ext), Some(&proof), 5);
+		validate_v3_scheduling(true, &Some(ext), Some(&proof), 5, TEST_MAX_CQ_OFFSET);
 	}
 
 	#[test]
@@ -613,7 +733,7 @@ mod tests {
 			signed_scheduling_info: Some(dummy_signed(CoreSelector(0), internal_scheduling_parent)),
 		};
 
-		let result = validate_v3_scheduling(true, &Some(ext), Some(&proof), 3);
+		let result = validate_v3_scheduling(true, &Some(ext), Some(&proof), 3, TEST_MAX_CQ_OFFSET);
 		let result = result.expect("should succeed");
 		assert!(result.is_resubmission);
 		assert_eq!(result.internal_scheduling_parent, internal_scheduling_parent);
@@ -635,7 +755,7 @@ mod tests {
 		};
 
 		// Should panic because resubmission requires signed_scheduling_info
-		validate_v3_scheduling(true, &Some(ext), Some(&proof), 3);
+		validate_v3_scheduling(true, &Some(ext), Some(&proof), 3, TEST_MAX_CQ_OFFSET);
 	}
 
 	#[test]
@@ -651,7 +771,8 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: Some(dummy_signed(CoreSelector(0), scheduling_parent)),
 		};
-		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 0);
+		let result =
+			check_scheduling(&proof, relay_parent, scheduling_parent, 0, TEST_MAX_CQ_OFFSET);
 		assert!(result.is_ok());
 		assert!(!result.unwrap().is_resubmission);
 	}
@@ -671,7 +792,9 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: Some(dummy_signed(CoreSelector(0), scheduling_parent)),
 		};
-		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 0).unwrap();
+		let result =
+			check_scheduling(&proof, relay_parent, scheduling_parent, 0, TEST_MAX_CQ_OFFSET)
+				.unwrap();
 		assert!(result.is_resubmission);
 		assert_eq!(result.internal_scheduling_parent, scheduling_parent);
 	}
@@ -688,7 +811,8 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: None,
 		};
-		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 0);
+		let result =
+			check_scheduling(&proof, relay_parent, scheduling_parent, 0, TEST_MAX_CQ_OFFSET);
 		assert_eq!(result, Err(SchedulingValidationError::MissingSignedSchedulingInfo));
 	}
 
@@ -714,7 +838,8 @@ mod tests {
 			internal_scheduling_parent_header: unrelated_isp_header,
 			signed_scheduling_info: None,
 		};
-		let result = check_scheduling(&proof, relay_parent, scheduling_parent, 3);
+		let result =
+			check_scheduling(&proof, relay_parent, scheduling_parent, 3, TEST_MAX_CQ_OFFSET);
 		assert_eq!(result, Err(SchedulingValidationError::InternalSchedulingParentHeaderMismatch));
 	}
 
@@ -737,12 +862,70 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: Some(signed_info),
 		};
-		let result = check_scheduling(&proof, older_relay_parent, scheduling_parent, 3);
+		let result =
+			check_scheduling(&proof, older_relay_parent, scheduling_parent, 3, TEST_MAX_CQ_OFFSET);
 		assert_eq!(result, Err(SchedulingValidationError::SignedSchedulingInfoIspMismatch));
 	}
 
 	// =========================================================================
-	// apply_resubmission_override tests
+	// claim_queue_offset bound (step 7b) tests
+	// =========================================================================
+
+	/// Build a resubmission proof (empty chain, `relay_parent != scheduling_parent`) whose
+	/// signed payload carries the given `claim_queue_offset`. Used to drive the offset-bound
+	/// check in `check_scheduling`.
+	fn resubmission_proof_with_offset(offset: u8) -> (SchedulingProof, RelayHash, RelayHash) {
+		let (_, isp_header) = make_header_chain(0);
+		let scheduling_parent = isp_header.hash();
+		let relay_parent = RelayHash::repeat_byte(0xBB);
+		let signed = SignedSchedulingInfo {
+			payload: SchedulingInfoPayload::new(
+				CoreSelector(0),
+				offset,
+				Default::default(),
+				scheduling_parent,
+			),
+			signature: dummy_signature(),
+		};
+		let proof = SchedulingProof {
+			header_chain: vec![],
+			internal_scheduling_parent_header: isp_header,
+			signed_scheduling_info: Some(signed),
+		};
+		(proof, relay_parent, scheduling_parent)
+	}
+
+	#[test]
+	fn reject_resubmission_offset_exceeding_cap() {
+		// A signed offset above the runtime cap is rejected: on resubmission the offset is
+		// taken from the signed payload and overrides the block's emitted value, so the
+		// bound must be re-applied here (the in-block check is bypassed).
+		let (proof, relay_parent, scheduling_parent) =
+			resubmission_proof_with_offset(TEST_MAX_CQ_OFFSET + 1);
+		let result =
+			check_scheduling(&proof, relay_parent, scheduling_parent, 0, TEST_MAX_CQ_OFFSET);
+		assert_eq!(
+			result,
+			Err(SchedulingValidationError::ClaimQueueOffsetTooLarge {
+				offset: TEST_MAX_CQ_OFFSET + 1,
+				max: TEST_MAX_CQ_OFFSET,
+			})
+		);
+	}
+
+	#[test]
+	fn accept_resubmission_offset_at_cap() {
+		// An offset exactly at the cap is within bounds and passes.
+		let (proof, relay_parent, scheduling_parent) =
+			resubmission_proof_with_offset(TEST_MAX_CQ_OFFSET);
+		let result =
+			check_scheduling(&proof, relay_parent, scheduling_parent, 0, TEST_MAX_CQ_OFFSET)
+				.expect("offset at cap is valid");
+		assert!(result.is_resubmission);
+	}
+
+	// =========================================================================
+	// SchedulingSignals tests
 	// =========================================================================
 
 	fn signed_with(
@@ -765,18 +948,140 @@ mod tests {
 		ApprovedPeerId::try_from(vec![byte; 4]).expect("4 bytes fits the bound; qed")
 	}
 
+	/// A `BoundedVec` with the same shape as `validate_block`'s `upward_messages`, for
+	/// exercising `SchedulingSignals::emit`.
+	type TestUpwardMessages = BoundedVec<Vec<u8>, frame_support::traits::ConstU32<1024>>;
+
 	#[test]
-	fn override_returns_all_fields_from_signed_payload() {
-		// All three values — `core_selector`, `claim_queue_offset`, and `peer_id` — are
-		// signed by the resubmitting collator, so the override sources every field from
-		// the signed payload. Distinct values across the three return-value fields ensure
-		// no field is silently sourced from the wrong place.
+	fn from_block_signals_roundtrips_select_core_and_approved_peer() {
+		// Both signals present: parsed into the canonical tail, then emitted as
+		// [SEPARATOR, SelectCore, ApprovedPeer] in that exact order.
+		let raw = vec![
+			UMPSignal::SelectCore(CoreSelector(7), ClaimQueueOffset(1)).encode(),
+			UMPSignal::ApprovedPeer(peer(0xAA)).encode(),
+		];
+		let signals = SchedulingSignals::from_block_signals(&raw);
+
+		let mut out = TestUpwardMessages::default();
+		signals.emit(&mut out);
+		assert_eq!(
+			out.into_inner(),
+			vec![
+				UMP_SEPARATOR,
+				UMPSignal::SelectCore(CoreSelector(7), ClaimQueueOffset(1)).encode(),
+				UMPSignal::ApprovedPeer(peer(0xAA)).encode(),
+			]
+		);
+	}
+
+	#[test]
+	fn from_block_signals_select_core_only() {
+		// Block emitted only a `SelectCore`: no `ApprovedPeer` field, one signal emitted.
+		let raw = vec![UMPSignal::SelectCore(CoreSelector(3), ClaimQueueOffset(0)).encode()];
+		let signals = SchedulingSignals::from_block_signals(&raw);
+
+		let mut out = TestUpwardMessages::default();
+		signals.emit(&mut out);
+		assert_eq!(
+			out.into_inner(),
+			vec![
+				UMP_SEPARATOR,
+				UMPSignal::SelectCore(CoreSelector(3), ClaimQueueOffset(0)).encode()
+			]
+		);
+	}
+
+	#[test]
+	#[should_panic(expected = "more than one `SelectCore`")]
+	fn from_block_signals_panics_on_duplicate_select_core_same_value() {
+		// Two identical `SelectCore` signals: still an error. The relay decoder counts
+		// occurrences, not distinct values, so matching duplicates would be rejected too.
+		let raw = vec![
+			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode(),
+			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode(),
+		];
+		let _ = SchedulingSignals::from_block_signals(&raw);
+	}
+
+	#[test]
+	#[should_panic(expected = "more than one `SelectCore`")]
+	fn from_block_signals_panics_on_duplicate_select_core_different_value() {
+		let raw = vec![
+			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode(),
+			UMPSignal::SelectCore(CoreSelector(2), ClaimQueueOffset(0)).encode(),
+		];
+		let _ = SchedulingSignals::from_block_signals(&raw);
+	}
+
+	#[test]
+	#[should_panic(expected = "more than one `ApprovedPeer`")]
+	fn from_block_signals_panics_on_duplicate_approved_peer() {
+		let raw = vec![
+			UMPSignal::ApprovedPeer(peer(0xAA)).encode(),
+			UMPSignal::ApprovedPeer(peer(0xBB)).encode(),
+		];
+		let _ = SchedulingSignals::from_block_signals(&raw);
+	}
+
+	#[test]
+	fn from_block_signals_empty_emits_nothing() {
+		// No signals in, nothing out — not even a separator.
+		let signals = SchedulingSignals::from_block_signals(&[]);
+		assert!(signals.is_empty());
+
+		let mut out = TestUpwardMessages::default();
+		signals.emit(&mut out);
+		assert!(out.is_empty());
+	}
+
+	#[test]
+	fn from_resubmission_sources_all_fields() {
+		// All three values — `core_selector`, `claim_queue_offset`, `peer_id` — are signed
+		// by the resubmitting collator, so the override sources every field from the signed
+		// payload. Distinct values ensure no field is sourced from the wrong place.
 		let signed = signed_with(CoreSelector(7), 3, peer(0xAA));
+		let signals = SchedulingSignals::from_resubmission(&signed);
 
-		let ((selector, offset), peer_id) = apply_resubmission_override(&signed);
+		let mut out = TestUpwardMessages::default();
+		signals.emit(&mut out);
+		assert_eq!(
+			out.into_inner(),
+			vec![
+				UMP_SEPARATOR,
+				UMPSignal::SelectCore(CoreSelector(7), ClaimQueueOffset(3)).encode(),
+				UMPSignal::ApprovedPeer(peer(0xAA)).encode(),
+			]
+		);
+	}
 
-		assert_eq!(selector, CoreSelector(7), "core_selector must come from the signed payload");
-		assert_eq!(offset, ClaimQueueOffset(3), "offset must come from the signed payload");
-		assert_eq!(peer_id, peer(0xAA), "approved_peer must come from the signed payload");
+	#[test]
+	fn from_resubmission_emits_peer_verbatim_even_if_empty() {
+		// The payload `peer_id` is a plain (non-`Option`) type → always-override. An empty
+		// peer is emitted verbatim as `ApprovedPeer([])`, NOT omitted and NOT replaced by the
+		// block's peer. Empty/invalid peers are the resubmitter's own reputation loss and are
+		// handled gracefully downstream; the PVF forwards exactly what was signed.
+		let signed = signed_with(CoreSelector(5), 1, ApprovedPeerId::default());
+		let signals = SchedulingSignals::from_resubmission(&signed);
+
+		let mut out = TestUpwardMessages::default();
+		signals.emit(&mut out);
+		assert_eq!(
+			out.into_inner(),
+			vec![
+				UMP_SEPARATOR,
+				UMPSignal::SelectCore(CoreSelector(5), ClaimQueueOffset(1)).encode(),
+				UMPSignal::ApprovedPeer(ApprovedPeerId::default()).encode(),
+			]
+		);
+	}
+
+	#[test]
+	fn from_resubmission_emits_even_when_block_emitted_nothing() {
+		// The override is authoritative and independent of what the block emitted: a
+		// resubmission always produces its tail. (At the call site this is what decouples
+		// the override from the old `!upward_message_signals.is_empty()` guard.)
+		let signed = signed_with(CoreSelector(0), 0, peer(0xCC));
+		let signals = SchedulingSignals::from_resubmission(&signed);
+		assert!(!signals.is_empty());
 	}
 }
