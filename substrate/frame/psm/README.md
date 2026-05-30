@@ -71,7 +71,7 @@ ceiling weights:
 ```
 max_asset_debt(internal, external) =
     (AssetCeilingWeight[internal, external] / sum_of_weights[internal])
-        * Psms[internal].max_debt
+        * Psm[internal].max_debt
 ```
 
 Setting an asset's weight to 0% disables minting for that external and
@@ -85,7 +85,7 @@ Capacity reserved by a PSM is exposed via the `PsmInterface` trait:
 fn reserved_capacity(asset: AssetId) -> Balance
 ```
 
-Returns `Psms[asset].max_debt` for the matching PSM, or zero if no PSM is
+Returns `Psm[asset].max_debt` for the matching PSM, or zero if no PSM is
 registered for that internal asset. Consumers (e.g. the Vaults pallet) read
 this to size their own available capacity without trampling PSM's share.
 

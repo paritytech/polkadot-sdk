@@ -176,14 +176,14 @@ where
 		internal_decimals, external_decimals,
 	);
 
-	// Bootstrap the PSM by writing the [`PsmInfo`] / [`PsmAdmin`] records directly with
+	// Bootstrap the PSM by writing the [`PsmInfo`] / [`PsmAdminInfo`] records directly with
 	// `Root` as both admins, then setting up the external via the public dispatchables
 	// (dispatched as root, which matches `full_admin`). This avoids needing to fund a
 	// signer for `create_psm` in the remote-ext environment.
 	let internal_decimals_u8 = internal_decimals;
 	let root_origin: <Runtime as pallet_psm::Config>::PalletsOrigin =
 		frame_system::RawOrigin::<Runtime::AccountId>::Root.into();
-	pallet_psm::Psms::<Runtime>::insert(
+	pallet_psm::Psm::<Runtime>::insert(
 		&internal_asset_id,
 		pallet_psm::PsmInfo::<Runtime> {
 			fee_destination: config.fee_destination.clone(),
@@ -192,9 +192,9 @@ where
 			external_count: 0,
 		},
 	);
-	pallet_psm::PsmAdmins::<Runtime>::insert(
+	pallet_psm::PsmAdmin::<Runtime>::insert(
 		&internal_asset_id,
-		pallet_psm::PsmAdmin::<Runtime> {
+		pallet_psm::PsmAdminInfo::<Runtime> {
 			full_admin: root_origin.clone(),
 			emergency_admin: root_origin,
 			depositor: config.fee_destination.clone(),
@@ -390,7 +390,7 @@ pub fn mint_and_redeem<Runtime, Block>(
 		assert!(debt_after < total_debt, "Debt should decrease after redeem");
 
 		// Fee destination should have received fees.
-		let fee_dest = pallet_psm::Psms::<Runtime>::get(internal_asset_id.clone())
+		let fee_dest = pallet_psm::Psm::<Runtime>::get(internal_asset_id.clone())
 			.expect("PSM installed by setup")
 			.fee_destination;
 		let fee_balance = <Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(

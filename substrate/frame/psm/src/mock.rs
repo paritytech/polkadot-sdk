@@ -219,7 +219,7 @@ fn install_test_psm() {
 	let full_admin: OriginCaller = frame_system::RawOrigin::<u64>::Root.into();
 	let emergency_admin: OriginCaller =
 		frame_system::RawOrigin::<u64>::Signed(EMERGENCY_ACCOUNT).into();
-	crate::Psms::<Test>::insert(
+	crate::Psm::<Test>::insert(
 		INTERNAL_ASSET_ID,
 		crate::PsmInfo::<Test> {
 			fee_destination: INSURANCE_FUND,
@@ -228,9 +228,9 @@ fn install_test_psm() {
 			external_count: 2,
 		},
 	);
-	crate::PsmAdmins::<Test>::insert(
+	crate::PsmAdmin::<Test>::insert(
 		INTERNAL_ASSET_ID,
-		crate::PsmAdmin::<Test> { full_admin, emergency_admin, depositor: ALICE, deposit: 0 },
+		crate::PsmAdminInfo::<Test> { full_admin, emergency_admin, depositor: ALICE, deposit: 0 },
 	);
 	crate::Pallet::<Test>::ensure_account_exists(&crate::Pallet::<Test>::psm_account(
 		&INTERNAL_ASSET_ID,
@@ -299,7 +299,7 @@ pub fn set_redemption_fee(asset_id: u32, fee: Permill) {
 }
 
 pub fn set_max_debt(value: u128) {
-	crate::Psms::<Test>::mutate(INTERNAL_ASSET_ID, |maybe| {
+	crate::Psm::<Test>::mutate(INTERNAL_ASSET_ID, |maybe| {
 		if let Some(info) = maybe.as_mut() {
 			info.max_debt = value;
 		}

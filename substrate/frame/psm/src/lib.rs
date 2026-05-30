@@ -271,12 +271,12 @@ pub mod pallet {
 
 	/// Cold, admin-only record for a PSM instance, kept out of [`PsmInfo`] so the swap
 	/// hot path (`mint`/`redeem`) never decodes the (potentially large) `PalletsOrigin`
-	/// admins. Written and removed in lockstep with the [`Psms`] entry.
+	/// admins. Written and removed in lockstep with the [`Psm`] entry.
 	#[derive(
 		Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
 	)]
 	#[scale_info(skip_type_params(T))]
-	pub struct PsmAdmin<T: Config> {
+	pub struct PsmAdminInfo<T: Config> {
 		/// Origin with `Full` management privileges over this PSM. Set to
 		/// `Signed(signer)` on `create_psm` and reassignable to any origin via
 		/// `set_full_admin`.
@@ -383,14 +383,14 @@ pub mod pallet {
 
 	/// Registered PSM instances, keyed by the internal asset id.
 	#[pallet::storage]
-	pub type Psms<T: Config> = StorageMap<_, Blake2_128Concat, T::AssetId, PsmInfo<T>, OptionQuery>;
+	pub type Psm<T: Config> = StorageMap<_, Blake2_128Concat, T::AssetId, PsmInfo<T>, OptionQuery>;
 
 	/// Admin origins and creation-deposit bookkeeping per PSM, keyed by the internal
-	/// asset id. Held separately from [`Psms`] so swaps never decode the admin origins.
-	/// Always written and removed together with the corresponding [`Psms`] entry.
+	/// asset id. Held separately from [`Psm`] so swaps never decode the admin origins.
+	/// Always written and removed together with the corresponding [`Psm`] entry.
 	#[pallet::storage]
-	pub type PsmAdmins<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AssetId, PsmAdmin<T>, OptionQuery>;
+	pub type PsmAdmin<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AssetId, PsmAdminInfo<T>, OptionQuery>;
 
 	/// Internal-asset debt minted through PSM, per `(internal, external)` pair.
 	#[pallet::storage]
@@ -633,7 +633,7 @@ pub mod pallet {
 			external_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let info = Psms::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
+			let info = Psm::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
 
 			let external = ExternalAssets::<T>::get(&internal_asset, &asset_id)
 				.ok_or(Error::<T>::UnsupportedAsset)?;
@@ -736,7 +736,7 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let info = Psms::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
+			let info = Psm::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
 
 			let external = ExternalAssets::<T>::get(&internal_asset, &asset_id)
 				.ok_or(Error::<T>::UnsupportedAsset)?;
@@ -931,7 +931,7 @@ pub mod pallet {
 			value: BalanceOf<T>,
 		) -> DispatchResult {
 			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_set_max_debt())?;
-			Psms::<T>::try_mutate(&internal_asset, |maybe| -> DispatchResult {
+			Psm::<T>::try_mutate(&internal_asset, |maybe| -> DispatchResult {
 				let info = maybe.as_mut().ok_or(Error::<T>::PsmNotFound)?;
 				let old_value = info.max_debt;
 				info.max_debt = value;
@@ -1073,7 +1073,7 @@ pub mod pallet {
 			asset_id: T::AssetId,
 		) -> DispatchResult {
 			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_assets())?;
-			Psms::<T>::try_mutate(&internal_asset, |maybe| -> DispatchResult {
+			Psm::<T>::try_mutate(&internal_asset, |maybe| -> DispatchResult {
 				let info = maybe.as_mut().ok_or(Error::<T>::PsmNotFound)?;
 				ensure!(
 					info.external_count < T::MaxExternalAssetsPerPsm::get(),
@@ -1148,7 +1148,7 @@ pub mod pallet {
 			asset_id: T::AssetId,
 		) -> DispatchResult {
 			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_assets())?;
-			Psms::<T>::try_mutate(&internal_asset, |maybe| -> DispatchResult {
+			Psm::<T>::try_mutate(&internal_asset, |maybe| -> DispatchResult {
 				let info = maybe.as_mut().ok_or(Error::<T>::PsmNotFound)?;
 				ensure!(
 					ExternalAssets::<T>::contains_key(&internal_asset, &asset_id),
@@ -1207,7 +1207,7 @@ pub mod pallet {
 			max_debt: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(!Psms::<T>::contains_key(&internal_asset), Error::<T>::PsmAlreadyExists);
+			ensure!(!Psm::<T>::contains_key(&internal_asset), Error::<T>::PsmAlreadyExists);
 			ensure!(
 				T::Fungibles::asset_exists(internal_asset.clone()),
 				Error::<T>::AssetDoesNotExist
@@ -1219,7 +1219,7 @@ pub mod pallet {
 			let signer_origin: T::PalletsOrigin =
 				frame_system::RawOrigin::Signed(who.clone()).into();
 			let internal_decimals = T::Fungibles::decimals(internal_asset.clone());
-			Psms::<T>::insert(
+			Psm::<T>::insert(
 				&internal_asset,
 				PsmInfo::<T> {
 					fee_destination: fee_destination.clone(),
@@ -1228,9 +1228,9 @@ pub mod pallet {
 					external_count: 0,
 				},
 			);
-			PsmAdmins::<T>::insert(
+			PsmAdmin::<T>::insert(
 				&internal_asset,
-				PsmAdmin::<T> {
+				PsmAdminInfo::<T> {
 					full_admin: signer_origin.clone(),
 					emergency_admin: signer_origin.clone(),
 					depositor: who,
@@ -1277,17 +1277,17 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::remove_psm())]
 		pub fn remove_psm(origin: OriginFor<T>, internal_asset: T::AssetId) -> DispatchResult {
 			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_assets())?;
-			let info = Psms::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
+			let info = Psm::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
 			ensure!(info.external_count == 0, Error::<T>::PsmHasApprovedExternals);
 			ensure!(Self::total_psm_debt(&internal_asset).is_zero(), Error::<T>::PsmHasDebt);
 
-			let admin = PsmAdmins::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
+			let admin = PsmAdmin::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
 			if !admin.deposit.is_zero() {
 				T::Currency::unreserve(&admin.depositor, admin.deposit);
 			}
 
-			Psms::<T>::remove(&internal_asset);
-			PsmAdmins::<T>::remove(&internal_asset);
+			Psm::<T>::remove(&internal_asset);
+			PsmAdmin::<T>::remove(&internal_asset);
 			Self::deposit_event(Event::PsmRemoved { internal_asset });
 			Ok(())
 		}
@@ -1319,7 +1319,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_assets())?;
 			let new_admin = *new_admin;
-			let old_admin = PsmAdmins::<T>::try_mutate(
+			let old_admin = PsmAdmin::<T>::try_mutate(
 				&internal_asset,
 				|maybe| -> Result<T::PalletsOrigin, DispatchError> {
 					let admin = maybe.as_mut().ok_or(Error::<T>::PsmNotFound)?;
@@ -1358,7 +1358,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_assets())?;
 			let new_admin = *new_admin;
-			let old_admin = PsmAdmins::<T>::try_mutate(
+			let old_admin = PsmAdmin::<T>::try_mutate(
 				&internal_asset,
 				|maybe| -> Result<T::PalletsOrigin, DispatchError> {
 					let admin = maybe.as_mut().ok_or(Error::<T>::PsmNotFound)?;
@@ -1393,7 +1393,7 @@ pub mod pallet {
 		/// zero if no PSM is installed for `internal_asset`.
 		#[cfg(test)]
 		pub(crate) fn max_psm_debt(internal_asset: &T::AssetId) -> BalanceOf<T> {
-			Psms::<T>::get(internal_asset).map(|p| p.max_debt).unwrap_or_default()
+			Psm::<T>::get(internal_asset).map(|p| p.max_debt).unwrap_or_default()
 		}
 
 		/// Calculate max debt for a specific external on a PSM.
@@ -1535,15 +1535,15 @@ pub mod pallet {
 		/// Authorise an operation on the PSM keyed by `internal_asset`.
 		///
 		/// Matches the incoming origin's caller against the PSM's stored
-		/// [`PsmAdmin::full_admin`] (yielding `Full`) or [`PsmAdmin::emergency_admin`] (yielding
-		/// `Emergency`). The resolved level is then checked against `required`. No other
-		/// authority can manage a PSM.
+		/// [`PsmAdminInfo::full_admin`] (yielding `Full`) or [`PsmAdminInfo::emergency_admin`]
+		/// (yielding `Emergency`). The resolved level is then checked against `required`. No
+		/// other authority can manage a PSM.
 		pub(crate) fn ensure_psm_admin(
 			origin: OriginFor<T>,
 			internal_asset: &T::AssetId,
 			required: impl Fn(PsmManagerLevel) -> bool,
 		) -> DispatchResult {
-			let admin = PsmAdmins::<T>::get(internal_asset).ok_or(Error::<T>::PsmNotFound)?;
+			let admin = PsmAdmin::<T>::get(internal_asset).ok_or(Error::<T>::PsmNotFound)?;
 			let caller = <T as Config>::RuntimeOrigin::from(origin).into_caller();
 			let level = if caller == admin.full_admin {
 				PsmManagerLevel::Full
@@ -1560,11 +1560,11 @@ pub mod pallet {
 		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 			use sp_runtime::traits::CheckedAdd;
 
-			for (internal_asset, info) in Psms::<T>::iter() {
+			for (internal_asset, info) in Psm::<T>::iter() {
 				// 0. Every PSM has its paired admin record.
 				ensure!(
-					PsmAdmins::<T>::contains_key(&internal_asset),
-					"PSM instance without a paired PsmAdmins record"
+					PsmAdmin::<T>::contains_key(&internal_asset),
+					"PSM instance without a paired PsmAdmin record"
 				);
 
 				// 1. Live internal decimals must match the snapshot.
@@ -1625,20 +1625,20 @@ pub mod pallet {
 			// 7. No orphaned per-asset state outside registered PSMs.
 			for (internal_asset, _, _) in ExternalAssets::<T>::iter() {
 				ensure!(
-					Psms::<T>::contains_key(&internal_asset),
+					Psm::<T>::contains_key(&internal_asset),
 					"Orphaned ExternalAssets row without parent PSM"
 				);
 			}
 			for (internal_asset, _, _) in PsmDebt::<T>::iter() {
 				ensure!(
-					Psms::<T>::contains_key(&internal_asset),
+					Psm::<T>::contains_key(&internal_asset),
 					"Orphaned PsmDebt row without parent PSM"
 				);
 			}
-			for (internal_asset, _) in PsmAdmins::<T>::iter() {
+			for (internal_asset, _) in PsmAdmin::<T>::iter() {
 				ensure!(
-					Psms::<T>::contains_key(&internal_asset),
-					"Orphaned PsmAdmins row without parent PSM"
+					Psm::<T>::contains_key(&internal_asset),
+					"Orphaned PsmAdmin row without parent PSM"
 				);
 			}
 
@@ -1652,6 +1652,6 @@ impl<T: pallet::Config> PsmInterface for pallet::Pallet<T> {
 	type Balance = pallet::BalanceOf<T>;
 
 	fn reserved_capacity(asset: Self::AssetId) -> Self::Balance {
-		pallet::Psms::<T>::get(asset).map(|p| p.max_debt).unwrap_or_default()
+		pallet::Psm::<T>::get(asset).map(|p| p.max_debt).unwrap_or_default()
 	}
 }

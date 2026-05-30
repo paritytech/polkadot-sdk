@@ -18,17 +18,19 @@
 use super::mock::*;
 use crate::{
 	AssetCeilingWeight, CircuitBreakerLevel, Error, Event, ExternalAssets, MintingFee, PsmDebt,
-	Psms, RedemptionFee,
+	RedemptionFee,
 };
 use frame_support::{assert_noop, assert_ok, hypothetically};
 use sp_runtime::{DispatchError, Permill, TokenError};
 
 fn psm_max_debt() -> u128 {
-	Psms::<Test>::get(INTERNAL_ASSET_ID).map(|p| p.max_debt).unwrap_or_default()
+	crate::Psm::<Test>::get(INTERNAL_ASSET_ID)
+		.map(|p| p.max_debt)
+		.unwrap_or_default()
 }
 
 fn psm_max_asset_debt(asset_id: u32) -> u128 {
-	let info = Psms::<Test>::get(INTERNAL_ASSET_ID).expect("PSM exists at genesis");
+	let info = crate::Psm::<Test>::get(INTERNAL_ASSET_ID).expect("PSM exists at genesis");
 	crate::Pallet::<Test>::max_asset_debt(&INTERNAL_ASSET_ID, &asset_id, &info)
 }
 
@@ -1326,7 +1328,7 @@ mod helpers {
 			set_max_debt(1_000_000 * INTERNAL_UNIT);
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
 
-			let info = Psms::<Test>::get(INTERNAL_ASSET_ID).unwrap();
+			let info = crate::Psm::<Test>::get(INTERNAL_ASSET_ID).unwrap();
 			let max_asset_debt =
 				crate::Pallet::<Test>::max_asset_debt(&INTERNAL_ASSET_ID, &USDC_ASSET_ID, &info);
 			// 1M * 60% / (60% + 40%) = 600K
@@ -1911,7 +1913,7 @@ mod cycles {
 			set_max_debt(2_000_000 * INTERNAL_UNIT);
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(50));
 
-			let info = Psms::<Test>::get(INTERNAL_ASSET_ID).unwrap();
+			let info = crate::Psm::<Test>::get(INTERNAL_ASSET_ID).unwrap();
 			let max_debt =
 				crate::Pallet::<Test>::max_asset_debt(&INTERNAL_ASSET_ID, &USDC_ASSET_ID, &info);
 
@@ -2738,7 +2740,7 @@ mod decimal_scaling {
 	#[test]
 	fn mint_fails_when_psm_not_installed() {
 		new_test_ext().execute_with(|| {
-			crate::Psms::<Test>::remove(INTERNAL_ASSET_ID);
+			crate::Psm::<Test>::remove(INTERNAL_ASSET_ID);
 
 			assert_noop!(
 				Psm::mint(
@@ -2756,7 +2758,7 @@ mod decimal_scaling {
 	fn redeem_fails_when_psm_not_installed() {
 		new_test_ext().execute_with(|| {
 			fund_internal(ALICE, 1000 * INTERNAL_UNIT);
-			crate::Psms::<Test>::remove(INTERNAL_ASSET_ID);
+			crate::Psm::<Test>::remove(INTERNAL_ASSET_ID);
 
 			assert_noop!(
 				Psm::redeem(

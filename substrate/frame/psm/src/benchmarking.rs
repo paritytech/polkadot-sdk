@@ -49,8 +49,8 @@ where
 		let _ = T::Fungibles::create(internal_id.clone(), admin.clone(), true, 1u32.into());
 	}
 	let internal_decimals = T::Fungibles::decimals(internal_id.clone());
-	if !crate::Psms::<T>::contains_key(&internal_id) {
-		crate::Psms::<T>::insert(
+	if !crate::Psm::<T>::contains_key(&internal_id) {
+		crate::Psm::<T>::insert(
 			&internal_id,
 			crate::PsmInfo::<T> {
 				fee_destination: admin.clone(),
@@ -62,9 +62,9 @@ where
 		// Admins set to `Root` so the admin benchmarks (dispatched as `RawOrigin::Root`)
 		// match `full_admin` in `ensure_psm_admin`.
 		let root_origin: T::PalletsOrigin = RawOrigin::Root.into();
-		crate::PsmAdmins::<T>::insert(
+		crate::PsmAdmin::<T>::insert(
 			&internal_id,
-			crate::PsmAdmin::<T> {
+			crate::PsmAdminInfo::<T> {
 				full_admin: root_origin.clone(),
 				emergency_admin: root_origin,
 				depositor: admin,
@@ -123,7 +123,7 @@ where
 	crate::AssetCeilingWeight::<T>::insert(&internal_id, &target_id, Permill::from_percent(100));
 
 	// Keep `external_count` consistent with the rows we wrote.
-	crate::Psms::<T>::mutate(&internal_id, |maybe| {
+	crate::Psm::<T>::mutate(&internal_id, |maybe| {
 		if let Some(info) = maybe.as_mut() {
 			info.external_count = n.max(1);
 		}
@@ -224,7 +224,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Root, internal_id.clone(), new_value);
 
-		assert_eq!(crate::Psms::<T>::get(&internal_id).unwrap().max_debt, new_value);
+		assert_eq!(crate::Psm::<T>::get(&internal_id).unwrap().max_debt, new_value);
 		Ok(())
 	}
 
