@@ -29,7 +29,7 @@ use frame_support::traits::{
 };
 use frame_system::RawOrigin;
 use pallet::BalanceOf;
-use sp_runtime::{Permill, Saturating};
+use sp_runtime::{traits::Zero, Permill, Saturating};
 
 /// Asset-ID indices passed to `BenchmarkHelper::get_asset_id`. Chosen to avoid
 /// collision with typical genesis assets.
@@ -53,10 +53,22 @@ where
 		crate::Psms::<T>::insert(
 			&internal_id,
 			crate::PsmInfo::<T> {
-				fee_destination: admin,
+				fee_destination: admin.clone(),
 				max_debt: BalanceOf::<T>::from(u32::MAX).saturating_mul(1_000_000u32.into()),
 				internal_decimals,
 				external_count: 0,
+			},
+		);
+		// Admins set to `Root` so the admin benchmarks (dispatched as `RawOrigin::Root`)
+		// match `full_admin` in `ensure_psm_admin`.
+		let root_origin: T::PalletsOrigin = RawOrigin::Root.into();
+		crate::PsmAdmins::<T>::insert(
+			&internal_id,
+			crate::PsmAdmin::<T> {
+				full_admin: root_origin.clone(),
+				emergency_admin: root_origin,
+				depositor: admin,
+				deposit: Zero::zero(),
 			},
 		);
 	}

@@ -212,27 +212,29 @@ pub fn new_test_ext() -> TestState {
 /// builder used to do. We bypass `create_psm` here so tests don't depend on
 /// balance funding plumbing.
 fn install_test_psm() {
-	let internal_decimals = <Assets as frame_support::traits::fungibles::metadata::Inspect<u64>>::decimals(
-		INTERNAL_ASSET_ID,
-	);
+	let internal_decimals =
+		<Assets as frame_support::traits::fungibles::metadata::Inspect<u64>>::decimals(
+			INTERNAL_ASSET_ID,
+		);
 	let full_admin: OriginCaller = frame_system::RawOrigin::<u64>::Root.into();
 	let emergency_admin: OriginCaller =
 		frame_system::RawOrigin::<u64>::Signed(EMERGENCY_ACCOUNT).into();
 	crate::Psms::<Test>::insert(
 		INTERNAL_ASSET_ID,
 		crate::PsmInfo::<Test> {
-			full_admin,
-			emergency_admin,
-			deposit: 0,
 			fee_destination: INSURANCE_FUND,
 			max_debt: DEFAULT_MAX_DEBT,
 			internal_decimals,
 			external_count: 2,
 		},
 	);
-	crate::Pallet::<Test>::ensure_account_exists(
-		&crate::Pallet::<Test>::psm_account(&INTERNAL_ASSET_ID),
+	crate::PsmAdmins::<Test>::insert(
+		INTERNAL_ASSET_ID,
+		crate::PsmAdmin::<Test> { full_admin, emergency_admin, depositor: ALICE, deposit: 0 },
 	);
+	crate::Pallet::<Test>::ensure_account_exists(&crate::Pallet::<Test>::psm_account(
+		&INTERNAL_ASSET_ID,
+	));
 	crate::Pallet::<Test>::ensure_account_exists(&INSURANCE_FUND);
 
 	for (asset, weight, decimals) in [
@@ -242,10 +244,7 @@ fn install_test_psm() {
 		crate::ExternalAssets::<Test>::insert(
 			INTERNAL_ASSET_ID,
 			asset,
-			crate::ExternalAssetInfo {
-				status: crate::CircuitBreakerLevel::AllEnabled,
-				decimals,
-			},
+			crate::ExternalAssetInfo { status: crate::CircuitBreakerLevel::AllEnabled, decimals },
 		);
 		crate::MintingFee::<Test>::insert(INTERNAL_ASSET_ID, asset, Permill::from_percent(1));
 		crate::RedemptionFee::<Test>::insert(INTERNAL_ASSET_ID, asset, Permill::from_percent(1));
