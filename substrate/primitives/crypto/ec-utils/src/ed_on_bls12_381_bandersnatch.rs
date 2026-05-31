@@ -29,18 +29,11 @@
 //! `utils::Error::DegeneratePoint` across the FFI boundary instead of
 //! attempting to serialize an unrepresentable point. The runtime-side
 //! hooks defined in this module catch that error and substitute the
-//! unified `(0, -1)` fallback: a TE point of order 2 that is universally
-//! outside any prime-order subgroup, on every TE curve. The wire format
+//! all-zero projective point `(0, 0, 0, 0)`: not a valid curve point and
+//! with `z = 0` it has no affine representative, so any downstream
+//! validity or subgroup check on the result rejects it. The wire format
 //! stays byte-identical to `ArkScale<EdwardsAffine>`: no sentinel bit, no
 //! dedicated projective codec.
-//!
-//! Semantic contract: both `mul(base, scalar)` and `msm(bases, scalars)`
-//! return the mathematically correct result for all subgroup-valid inputs;
-//! when the projective result lands at `z = 0` they return `(0, -1)`. An
-//! honest caller's downstream subgroup check on the output catches the
-//! degenerate case (`(0, -1)` is never in the prime-order subgroup), and
-//! callers that subgroup-validate inputs upstream never observe it in the
-//! first place.
 
 use crate::utils::{
 	self, invalid_projective_fallback, Error, HostcallResult, IntoAffineSafe, FAIL_MSG,
@@ -86,9 +79,6 @@ impl CurveHooks for HostHooks {
 			&mut out,
 		) {
 			Ok(()) => utils::decode::<EdwardsAffine>(&out).expect(FAIL_MSG).into_group(),
-			// Bandersnatch is incomplete: HWCD on non-subgroup bases can land
-			// at `z = 0`. Substitute the unified `(0, -1)` non-subgroup
-			// fallback so a downstream subgroup check rejects it.
 			Err(Error::DegeneratePoint) => invalid_projective_fallback::<EdwardsConfig>(),
 			Err(_) => panic!("{FAIL_MSG}"),
 		}
@@ -97,7 +87,7 @@ impl CurveHooks for HostHooks {
 	fn mul_projective_te(base: &EdwardsProjective, scalar: &[u64]) -> EdwardsProjective {
 		// A `z = 0` projective cannot ride the affine FFI channel:
 		// `into_affine()` would panic. `into_affine_safe()` returns `None`
-		// in that case; we honor the same unified `(0, -1)` fallback the
+		// in that case; we honor the same all-zero projective fallback the
 		// host applies on its side, locally. Honest subgroup-validated
 		// callers never produce such a projective.
 		let Some(base_aff) = base.into_affine_safe() else {
@@ -127,7 +117,7 @@ impl CurveHooks for HostHooks {
 /// When the projective result of a host call lands at `z = 0` (only reachable
 /// via non-subgroup inputs), the host returns `utils::Error::DegeneratePoint`
 /// instead of panicking, and the runtime-side `HostHooks` impl substitutes the
-/// unified `(0, -1)` non-subgroup fallback. See the module-level doc for the
+/// all-zero projective point `(0, 0, 0, 0)`. See the module-level doc for the
 /// full contract.
 #[runtime_interface]
 pub trait HostCalls {
