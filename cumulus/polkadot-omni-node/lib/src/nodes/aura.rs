@@ -186,12 +186,8 @@ where
 {
 	type Block = Block;
 	type RuntimeApi = RuntimeApi;
-	type BuildImportQueue = BuildRelayToAuraImportQueue<
-		Block,
-		RuntimeApi,
-		AuraId,
-		InitBlockImport::BlockImport,
-	>;
+	type BuildImportQueue =
+		BuildRelayToAuraImportQueue<Block, RuntimeApi, AuraId, InitBlockImport::BlockImport>;
 	type InitBlockImport = InitBlockImport;
 }
 

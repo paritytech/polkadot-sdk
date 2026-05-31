@@ -32,17 +32,19 @@ use sc_consensus::{
 	StorageChanges as ConsensusStorageChanges,
 };
 use sc_network::bitswap::RAW_CODEC;
-use sp_api::{ApiExt, CallApiAt, CallContext, Core, ProofRecorder, ProvideRuntimeApi, TransactionOutcome};
+use sp_api::{
+	ApiExt, CallApiAt, CallContext, Core, ProofRecorder, ProvideRuntimeApi, TransactionOutcome,
+};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{BlockOrigin, Error as ConsensusError};
 use sp_core::storage::ChildInfo;
 
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
-use sp_trie::proof_size_extension::ProofSizeExt;
 use sp_state_machine::{IndexOperation, OverlayedChanges, StorageChanges};
 use sp_transaction_storage_proof::{
 	runtime_api::TransactionStorageApi, ContentHash, HashingAlgorithm, IndexedTransactionInfo,
 };
+use sp_trie::proof_size_extension::ProofSizeExt;
 
 use std::{collections::HashSet, marker::PhantomData, sync::Arc};
 
@@ -80,13 +82,7 @@ impl<Block: BlockT, Inner, Client> StorageChainBlockImport<Block, Inner, Client>
 		client: Arc<Client>,
 		fetcher: IndexedTransactionFetcher<Block>,
 	) -> Self {
-		Self {
-			inner,
-			client,
-			fetcher,
-			intercept_gap_sync: false,
-			_phantom: PhantomData,
-		}
+		Self { inner, client, fetcher, intercept_gap_sync: false, _phantom: PhantomData }
 	}
 
 	/// Test-only: bypass the production origin filter so the wrapper intercepts
@@ -169,10 +165,11 @@ where
 			BlockOrigin::ConsensusBroadcast |
 			BlockOrigin::Own => {},
 			BlockOrigin::Genesis | BlockOrigin::File | BlockOrigin::WarpSync => return false,
-			BlockOrigin::GapSync =>
+			BlockOrigin::GapSync => {
 				if !self.intercept_gap_sync_enabled() {
 					return false;
-				},
+				}
+			},
 		}
 		let parent_hash = *params.header.parent_hash();
 		self.client
@@ -271,9 +268,7 @@ where
 		let infos = self.indexed_transactions_at_finalized(block_number)?;
 		let infos_len = infos.len();
 		let body = params.body.as_ref().ok_or_else(|| {
-			ConsensusError::Other(
-				"StorageChainBlockImport: gap-sync body absent after gate".into(),
-			)
+			ConsensusError::Other("StorageChainBlockImport: gap-sync body absent after gate".into())
 		})?;
 		let (synthetic_ops, renew_wants) = body_classify_to_ops::<Block>(&infos, body);
 
@@ -762,9 +757,27 @@ mod tests {
 	fn body_classify_to_ops_pure_renews_only_emits_renews_and_fetch_set() {
 		let body = vec![extrinsic(&[1]), extrinsic(&[2]), extrinsic(&[3])];
 		let infos = vec![
-			info([0xA1; 32], body[0].encode().len() as u32, HashingAlgorithm::Blake2b256, RAW_CODEC, 0),
-			info([0xB2; 32], body[1].encode().len() as u32, HashingAlgorithm::Sha2_256, RAW_CODEC, 1),
-			info([0xC3; 32], body[2].encode().len() as u32, HashingAlgorithm::Keccak256, RAW_CODEC, 2),
+			info(
+				[0xA1; 32],
+				body[0].encode().len() as u32,
+				HashingAlgorithm::Blake2b256,
+				RAW_CODEC,
+				0,
+			),
+			info(
+				[0xB2; 32],
+				body[1].encode().len() as u32,
+				HashingAlgorithm::Sha2_256,
+				RAW_CODEC,
+				1,
+			),
+			info(
+				[0xC3; 32],
+				body[2].encode().len() as u32,
+				HashingAlgorithm::Keccak256,
+				RAW_CODEC,
+				2,
+			),
 		];
 
 		let (ops, renew_wants) = body_classify_to_ops::<Block>(&infos, &body);
@@ -785,17 +798,24 @@ mod tests {
 
 	#[test]
 	fn body_classify_to_ops_mixed_store_renew_emits_both() {
-		let body = vec![
-			extrinsic(&[10]),
-			extrinsic(&[20]),
-			extrinsic(&[30]),
-			extrinsic(&[40]),
-		];
+		let body = vec![extrinsic(&[10]), extrinsic(&[20]), extrinsic(&[30]), extrinsic(&[40])];
 		let infos = vec![
 			body_info(&body[0], 0, HashingAlgorithm::Blake2b256, RAW_CODEC), // store
-			info([0xAB; 32], body[1].encode().len() as u32, HashingAlgorithm::Sha2_256, RAW_CODEC, 1), // renew
-			body_info(&body[2], 2, HashingAlgorithm::Keccak256, RAW_CODEC), // store
-			info([0xCD; 32], body[3].encode().len() as u32, HashingAlgorithm::Blake2b256, RAW_CODEC, 3), // renew
+			info(
+				[0xAB; 32],
+				body[1].encode().len() as u32,
+				HashingAlgorithm::Sha2_256,
+				RAW_CODEC,
+				1,
+			), // renew
+			body_info(&body[2], 2, HashingAlgorithm::Keccak256, RAW_CODEC),  // store
+			info(
+				[0xCD; 32],
+				body[3].encode().len() as u32,
+				HashingAlgorithm::Blake2b256,
+				RAW_CODEC,
+				3,
+			), // renew
 		];
 
 		let (ops, renew_wants) = body_classify_to_ops::<Block>(&infos, &body);
@@ -851,7 +871,8 @@ mod tests {
 	fn body_classify_to_ops_skips_u32_max_extrinsic_index() {
 		let body = vec![extrinsic(&[0xBB])];
 		let encoded_len = body[0].encode().len() as u32;
-		let infos = vec![info([0x55; 32], encoded_len, HashingAlgorithm::Blake2b256, RAW_CODEC, u32::MAX)];
+		let infos =
+			vec![info([0x55; 32], encoded_len, HashingAlgorithm::Blake2b256, RAW_CODEC, u32::MAX)];
 
 		let (ops, renew_wants) = body_classify_to_ops::<Block>(&infos, &body);
 
@@ -875,7 +896,8 @@ mod tests {
 	fn body_classify_to_ops_skips_extrinsic_index_out_of_range() {
 		let body = vec![extrinsic(&[0xDD])];
 		let encoded_len = body[0].encode().len() as u32;
-		let infos = vec![info([0x22; 32], encoded_len, HashingAlgorithm::Blake2b256, RAW_CODEC, 99)];
+		let infos =
+			vec![info([0x22; 32], encoded_len, HashingAlgorithm::Blake2b256, RAW_CODEC, 99)];
 
 		let (ops, renew_wants) = body_classify_to_ops::<Block>(&infos, &body);
 
@@ -890,7 +912,13 @@ mod tests {
 		let body = vec![extrinsic(&[1]), extrinsic(&[2])];
 		let infos = vec![
 			body_info(&body[0], 0, HashingAlgorithm::Blake2b256, RAW_CODEC), // store
-			info([0xEE; 32], body[1].encode().len() as u32, HashingAlgorithm::Sha2_256, RAW_CODEC, 1), // renew
+			info(
+				[0xEE; 32],
+				body[1].encode().len() as u32,
+				HashingAlgorithm::Sha2_256,
+				RAW_CODEC,
+				1,
+			), // renew
 		];
 
 		let renews = body_classify_renews::<Block>(&infos, &body);

@@ -385,8 +385,10 @@ async fn import_gap_sync_uses_finalized_hash_not_parent_hash() {
 	let params = gap_sync_params(1, Some(body));
 	let _ = h.wrapper.import_block(params).await.expect("gap-sync import");
 
-	let observed_state =
-		h.api.last_indexed_transactions_state().expect("API must be invoked at least once");
+	let observed_state = h
+		.api
+		.last_indexed_transactions_state()
+		.expect("API must be invoked at least once");
 	assert_eq!(
 		observed_state, finalized,
 		"gap-sync runtime API call must use finalized_hash, NOT parent_hash",
@@ -428,10 +430,7 @@ async fn import_gap_sync_filters_already_present_hashes() {
 	assert_eq!(prefetched.ops.len(), 2, "both entries produce ops");
 	let expected: std::collections::HashMap<sp_core::H256, Vec<u8>> =
 		std::iter::once((sp_core::H256::from(hash_to_fetch), bytes_to_fetch)).collect();
-	assert_eq!(
-		prefetched.renew_payloads, expected,
-		"only the missing hash is in renew_payloads",
-	);
+	assert_eq!(prefetched.renew_payloads, expected, "only the missing hash is in renew_payloads",);
 }
 
 #[cfg(feature = "test-helpers")]
@@ -442,10 +441,8 @@ async fn import_gap_sync_fetcher_partial_failure_propagates_error() {
 
 	let hash_unfetchable: ContentHash = [0xDE; 32];
 	let body = vec![OpaqueExtrinsic::from_blob(b"renew-call".to_vec())];
-	h.api.set_indexed(
-		1,
-		vec![info(hash_unfetchable, 32, HashingAlgorithm::Blake2b256, 0)],
-	);
+	h.api
+		.set_indexed(1, vec![info(hash_unfetchable, 32, HashingAlgorithm::Blake2b256, 0)]);
 	// No `h.network.insert(...)` -> fetcher returns zero bytes.
 
 	let params = gap_sync_params(1, Some(body));
@@ -549,7 +546,11 @@ mod mock {
 	#[derive(Clone)]
 	pub(super) struct MockApiClient {
 		inner: Arc<Mutex<MockApiInner>>,
-		overlayed_changes: Arc<std::sync::Mutex<Option<sp_state_machine::OverlayedChanges<sp_runtime::traits::HashingFor<Block>>>>>,
+		overlayed_changes: Arc<
+			std::sync::Mutex<
+				Option<sp_state_machine::OverlayedChanges<sp_runtime::traits::HashingFor<Block>>>,
+			>,
+		>,
 	}
 
 	impl Default for MockApiClient {

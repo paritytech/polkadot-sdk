@@ -473,10 +473,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 			let _ = network_handle
 				.set(network.clone() as Arc<dyn sc_network::NetworkRequest + Send + Sync>);
-			let _ = syncing_handle.set(
-				sync_service.clone()
-					as Arc<dyn cumulus_client_storage_chain_sync::BitswapPeerSource + Send + Sync>,
-			);
+			let _ = syncing_handle.set(sync_service.clone()
+				as Arc<dyn cumulus_client_storage_chain_sync::BitswapPeerSource + Send + Sync>);
 
 			let peer_id = network.local_peer_id();
 
