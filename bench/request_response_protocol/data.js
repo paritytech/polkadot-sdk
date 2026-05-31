@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780087448166,
+  "lastUpdate": 1780268902705,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -96443,6 +96443,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2948396245,
             "range": "± 36323386",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d5d56f3a6265b143e35d08985bd8e4be137408db",
+          "message": "Remove deprecated AssetsToBlockAuthor from parachains-common (#12209)\n\n# Description\n\nRemoves deprecated `parachains_common::AssetsToBlockAuthor` as part of\n#11561.\n\n`AssetsToBlockAuthor` was deprecated in favor of\n`frame_support::traits::tokens::imbalance::MaybeResolveTo<BlockAuthor,\n...>`. It has no remaining usage in this repository; system parachain\nruntimes already use `MaybeResolveAssetTo<BlockAuthor<Runtime>, ...>`\nfor asset transaction fees.\n\n## Integration\n\nDownstream code using `AssetsToBlockAuthor` must migrate before\nupgrading `parachains-common`:\n\n```diff\n- type CreditHandler = AssetsToBlockAuthor<Runtime, Instance>;\n+ type CreditHandler = MaybeResolveAssetTo<BlockAuthor<Runtime>, NativeAndAssets, AccountId>;\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-05-31T21:46:18Z",
+          "tree_id": "2fc3c8eb77649de1068ccbecd88b4149d1d70d0d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d5d56f3a6265b143e35d08985bd8e4be137408db"
+        },
+        "date": 1780268875169,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20736131,
+            "range": "± 218308",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21395312,
+            "range": "± 207303",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22507282,
+            "range": "± 191971",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27375373,
+            "range": "± 277021",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 62128217,
+            "range": "± 765001",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 367585177,
+            "range": "± 8564190",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2653754951,
+            "range": "± 42316727",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18266028,
+            "range": "± 306275",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18494168,
+            "range": "± 233744",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19038665,
+            "range": "± 222720",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24014417,
+            "range": "± 211113",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62063042,
+            "range": "± 1004809",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 369825904,
+            "range": "± 4301263",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2875627242,
+            "range": "± 53718937",
             "unit": "ns/iter"
           }
         ]
