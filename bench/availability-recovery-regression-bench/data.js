@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780091301975,
+  "lastUpdate": 1780269957393,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b6ef912d74af2c43b90f542e09b74abe061ff859",
-          "message": "pallet_revive: when a dry run simulates contract deployment, return the execution result data. (#10032)\n\nFixes https://github.com/paritytech/contract-issues/issues/177\n\nExpose the deployed contract's runtime bytecode in eth_call responses\nduring simulated contract creation.\n\nThe test from issue\nhttps://github.com/paritytech/contract-issues/issues/177 sends an\neth_call request without a destination address, while providing contract\nbytecode in the data field. This simulates a contract creation\ntransaction. The test expects the RPC response to return the result of\nexecuting the init code, which is the deployed contract's runtime\nbytecode. While this result is not returned in actual deployments, it is\nexpected in dry-run simulations.\n\n---------\n\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-20T15:34:23Z",
-          "tree_id": "604d5347b0a64183e4502f179bae670c63f754a1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b6ef912d74af2c43b90f542e09b74abe061ff859"
-        },
-        "date": 1760980151358,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.223860377800001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20400741079999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.065653539233333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d5d56f3a6265b143e35d08985bd8e4be137408db",
+          "message": "Remove deprecated AssetsToBlockAuthor from parachains-common (#12209)\n\n# Description\n\nRemoves deprecated `parachains_common::AssetsToBlockAuthor` as part of\n#11561.\n\n`AssetsToBlockAuthor` was deprecated in favor of\n`frame_support::traits::tokens::imbalance::MaybeResolveTo<BlockAuthor,\n...>`. It has no remaining usage in this repository; system parachain\nruntimes already use `MaybeResolveAssetTo<BlockAuthor<Runtime>, ...>`\nfor asset transaction fees.\n\n## Integration\n\nDownstream code using `AssetsToBlockAuthor` must migrate before\nupgrading `parachains-common`:\n\n```diff\n- type CreditHandler = AssetsToBlockAuthor<Runtime, Instance>;\n+ type CreditHandler = MaybeResolveAssetTo<BlockAuthor<Runtime>, NativeAndAssets, AccountId>;\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-05-31T21:46:18Z",
+          "tree_id": "2fc3c8eb77649de1068ccbecd88b4149d1d70d0d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d5d56f3a6265b143e35d08985bd8e4be137408db"
+        },
+        "date": 1780269928997,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14016821953333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.143048646833336,
             "unit": "seconds"
           }
         ]
