@@ -1,0 +1,7 @@
+title: '[pallet-revive] differential tests fail on weight update'
+doc:
+- audience: Runtime Dev
+  description: https://github.com/paritytech/contract-issues/issues/276
+crates:
+- name: pallet-revive
+  bump: patch
