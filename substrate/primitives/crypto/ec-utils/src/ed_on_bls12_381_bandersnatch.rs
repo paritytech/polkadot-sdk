@@ -43,7 +43,7 @@
 //! first place.
 
 use crate::utils::{
-	self, invalid_projective_point_fallback, Error, HostcallResult, IntoAffineSafe, FAIL_MSG,
+	self, invalid_projective_fallback, Error, HostcallResult, IntoAffineSafe, FAIL_MSG,
 };
 use alloc::vec::Vec;
 use ark_ec::{AffineRepr, CurveConfig};
@@ -73,13 +73,6 @@ pub type SWProjective = ark_ed_on_bls12_381_bandersnatch_ext::SWProjective<HostH
 /// Group scalar field (Fr).
 pub type ScalarField = <BandersnatchConfig as CurveConfig>::ScalarField;
 
-/// Invalid projective point fallback with all-zero coordinates. Used by the
-/// hooks to substitute a `z = 0` result that cannot ride the affine FFI channel.
-#[inline(always)]
-fn fallback_projective() -> EdwardsProjective {
-	invalid_projective_point_fallback::<EdwardsConfig>()
-}
-
 /// Curve hooks jumping into [`host_calls`] host functions.
 #[derive(Copy, Clone)]
 pub struct HostHooks;
@@ -96,7 +89,7 @@ impl CurveHooks for HostHooks {
 			// Bandersnatch is incomplete: HWCD on non-subgroup bases can land
 			// at `z = 0`. Substitute the unified `(0, -1)` non-subgroup
 			// fallback so a downstream subgroup check rejects it.
-			Err(Error::DegeneratePoint) => fallback_projective(),
+			Err(Error::DegeneratePoint) => invalid_projective_fallback::<EdwardsConfig>(),
 			Err(_) => panic!("{FAIL_MSG}"),
 		}
 	}
@@ -108,7 +101,7 @@ impl CurveHooks for HostHooks {
 		// host applies on its side, locally. Honest subgroup-validated
 		// callers never produce such a projective.
 		let Some(base_aff) = base.into_affine_safe() else {
-			return fallback_projective();
+			return invalid_projective_fallback::<EdwardsConfig>();
 		};
 		let mut out = utils::buffer_for::<EdwardsAffine>();
 		match host_calls::ed_on_bls12_381_bandersnatch_mul(
@@ -117,7 +110,7 @@ impl CurveHooks for HostHooks {
 			&mut out,
 		) {
 			Ok(()) => utils::decode::<EdwardsAffine>(&out).expect(FAIL_MSG).into_group(),
-			Err(Error::DegeneratePoint) => fallback_projective(),
+			Err(Error::DegeneratePoint) => invalid_projective_fallback::<EdwardsConfig>(),
 			Err(_) => panic!("{FAIL_MSG}"),
 		}
 	}
@@ -228,7 +221,7 @@ mod tests {
 		// all-zero invalid projective point.
 		let p_ext: EdwardsProjective = y2_non_subgroup::<EdwardsConfig>().into_group();
 		let r = <HostHooks as CurveHooks>::mul_projective_te(&p_ext, Fr::MODULUS.0.as_ref());
-		assert_eq!(r, fallback_projective(), "hook must return all-zero projective on degenerate");
+		assert_eq!(r, invalid_projective_fallback::<EdwardsConfig>(), "hook must return all-zero projective on degenerate");
 	}
 
 	#[test]
@@ -239,13 +232,13 @@ mod tests {
 		let t = Fq::rand(&mut rng);
 		let p = EdwardsProjective::new_unchecked(Fq::ZERO, y, t, Fq::ZERO);
 		let r = <HostHooks as CurveHooks>::mul_projective_te(&p, &[7u64, 0, 0, 0]);
-		assert_eq!(r, fallback_projective(), "z=0 input must yield all-zero coordinate projective");
+		assert_eq!(r, invalid_projective_fallback::<EdwardsConfig>(), "z=0 input must yield all-zero coordinate projective");
 	}
 
 	#[test]
 	fn fallback_is_invalid_projective_point() {
 		// (1) The fallback is the all-zero projective point.
-		let fallback = fallback_projective();
+		let fallback = invalid_projective_fallback::<EdwardsConfig>();
 		assert!(fallback.x.is_zero(), "fallback x must be zero");
 		assert!(fallback.y.is_zero(), "fallback y must be zero");
 		assert!(fallback.t.is_zero(), "fallback t must be zero");
@@ -342,7 +335,7 @@ mod tests {
 		let a_plus_ark_sum = a_proj + ark_sum;
 		assert_eq!(
 			a_plus_ark_sum,
-			invalid_projective_point_fallback::<EdwardsConfig>(),
+			invalid_projective_fallback::<EdwardsConfig>(),
 			"A + (A+B from arkworks) must produce all-zero projective"
 		);
 
@@ -372,7 +365,7 @@ mod tests {
 
 		assert_eq!(
 			result,
-			fallback_projective(),
+			invalid_projective_fallback::<EdwardsConfig>(),
 			"msm([A, B], [2, 1]) must produce invalid projective fallback"
 		);
 	}
@@ -387,7 +380,7 @@ mod tests {
 		let scalars = vec![Fr::from(2u64), Fr::from(1u64)];
 		let result = <HostHooks as CurveHooks>::msm_te(&bases, &scalars);
 
-		assert_eq!(result, fallback_projective(), "msm_te must return invalid projective fallback");
+		assert_eq!(result, invalid_projective_fallback::<EdwardsConfig>(), "msm_te must return invalid projective fallback");
 	}
 
 	#[test]

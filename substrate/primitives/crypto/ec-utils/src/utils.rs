@@ -79,8 +79,8 @@ pub enum Error {
 	/// and therefore no affine representative. Reachable on *incomplete*
 	/// TE curves like Bandersnatch when the inputs are not in the
 	/// prime-order subgroup. The runtime-side hook decides whether to
-	/// recover (e.g. by substituting [`te_non_subgroup_fallback`]) or to
-	/// surface the error.
+	/// recover (e.g. by substituting [`invalid_projective_fallback`])
+	/// or to surface the error.
 	DegeneratePoint = 4,
 	/// Unknown error.
 	Unknown = 255,
@@ -235,36 +235,18 @@ pub fn mul_sw<T: SWCurveConfig>(base: &[u8], scalar: &[u8], out: &mut [u8]) -> R
 
 /// Invalid projective point with all-zero coordinates.
 ///
-/// This is not a valid curve point — it represents an undefined/degenerate
+/// This is not a valid curve point - it represents an undefined/degenerate
 /// result in projective coordinates. Useful as a sentinel value when
 /// operations produce a `z = 0` projective that has no affine representative.
 /// Any downstream validity or subgroup check will reject it.
 #[inline(always)]
-pub fn invalid_projective_point_fallback<T: TECurveConfig>() -> TEProjective<T> {
+pub fn invalid_projective_fallback<T: TECurveConfig>() -> TEProjective<T> {
 	TEProjective::<T>::new_unchecked(
 		T::BaseField::ZERO,
 		T::BaseField::ZERO,
 		T::BaseField::ZERO,
 		T::BaseField::ZERO,
 	)
-}
-
-/// Universal twisted Edwards "no affine representative" fallback.
-///
-/// Returned by [`mul_te`] / [`msm_te`] when the projective result has
-/// `z = 0` (reachable on incomplete TE forms like Bandersnatch when fed
-/// non-subgroup inputs).
-///
-/// On any TE curve `a·x² + y² = 1 + d·x²·y²`:
-/// - on-curve: `a·0 + 1 = 1 + d·0`, holds for any `a`, `d`.
-/// - order 2: doubling `(0, -1)` gives `(0, 1)` = identity (X numerator `2·0·(-1) = 0`, Y numerator
-///   `1 - a·0 = 1`, both denominators `1`).
-///
-/// Order 2 means it is never in a prime-order subgroup (`r` is an odd
-/// prime), so a downstream `is_in_correct_subgroup_*` check rejects it.
-#[inline(always)]
-pub fn te_non_subgroup_fallback<T: TECurveConfig>() -> TEAffine<T> {
-	TEAffine::<T>::new_unchecked(T::BaseField::ZERO, -T::BaseField::ONE)
 }
 
 /// Twisted Edwards multi scalar multiplication.
@@ -277,7 +259,7 @@ pub fn te_non_subgroup_fallback<T: TECurveConfig>() -> TEAffine<T> {
 /// therefore no affine representative (reachable on incomplete TE forms
 /// like Bandersnatch when fed non-subgroup bases). The runtime-side hook
 /// decides the policy for that case (e.g. substitute
-/// [`te_non_subgroup_fallback`]).
+/// [`invalid_projective_fallback`]).
 pub fn msm_te<T: TECurveConfig>(bases: &[u8], scalars: &[u8], out: &mut [u8]) -> Result<(), Error> {
 	let bases = decode::<Vec<TEAffine<T>>>(bases)?;
 	let scalars = decode::<Vec<T::ScalarField>>(scalars)?;
