@@ -239,8 +239,7 @@ pub fn mul_sw<T: SWCurveConfig>(base: &[u8], scalar: &[u8], out: &mut [u8]) -> R
 /// result in projective coordinates. Useful as a sentinel value when
 /// operations produce a `z = 0` projective that has no affine representative.
 /// Any downstream validity or subgroup check will reject it.
-#[inline(always)]
-pub fn invalid_projective_fallback<T: TECurveConfig>() -> TEProjective<T> {
+pub const fn invalid_projective_fallback<T: TECurveConfig>() -> TEProjective<T> {
 	TEProjective::<T>::new_unchecked(
 		T::BaseField::ZERO,
 		T::BaseField::ZERO,
