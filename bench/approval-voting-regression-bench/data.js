@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780091378344,
+  "lastUpdate": 1780270029601,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "590f23d2d83c2b79aabfda711a91fe0bdc5e64a0",
-          "message": "added baltathar, charleth, dorothy, and ethan to eth-rpc and revive-d… (#10041)\n\nadds more funded accounts to eth-rpc and dev-node\n\n---------\n\nCo-authored-by: Robert van Eerdewijk <robert@Roberts-MacBook-Pro.local>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-19T10:24:14Z",
-          "tree_id": "0628e0b6d5cb5f94fa40c93339cd24b13db5825b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/590f23d2d83c2b79aabfda711a91fe0bdc5e64a0"
-        },
-        "date": 1760873556907,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52939.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63624.98999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.309614369070006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005574870909999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001743288,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000016345539999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4666392620599997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4634254454800004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.507394585510001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4483664070900012,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001743288,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.48534915616,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000016345539999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9328646418600066,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.707806995141044,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 14.353367931389945,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d5d56f3a6265b143e35d08985bd8e4be137408db",
+          "message": "Remove deprecated AssetsToBlockAuthor from parachains-common (#12209)\n\n# Description\n\nRemoves deprecated `parachains_common::AssetsToBlockAuthor` as part of\n#11561.\n\n`AssetsToBlockAuthor` was deprecated in favor of\n`frame_support::traits::tokens::imbalance::MaybeResolveTo<BlockAuthor,\n...>`. It has no remaining usage in this repository; system parachain\nruntimes already use `MaybeResolveAssetTo<BlockAuthor<Runtime>, ...>`\nfor asset transaction fees.\n\n## Integration\n\nDownstream code using `AssetsToBlockAuthor` must migrate before\nupgrading `parachains-common`:\n\n```diff\n- type CreditHandler = AssetsToBlockAuthor<Runtime, Instance>;\n+ type CreditHandler = MaybeResolveAssetTo<BlockAuthor<Runtime>, NativeAndAssets, AccountId>;\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-05-31T21:46:18Z",
+          "tree_id": "2fc3c8eb77649de1068ccbecd88b4149d1d70d0d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d5d56f3a6265b143e35d08985bd8e4be137408db"
+        },
+        "date": 1780270001550,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52937.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63631.43000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.539670813392816,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8329012472299993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.0000238596,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.45261607353994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7891707290700007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7699807599599997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000025461999999999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4558141986299917,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005279662949999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.0000238596,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000025461999999999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8034874705699512,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.795982005129999,
             "unit": "seconds"
           }
         ]
