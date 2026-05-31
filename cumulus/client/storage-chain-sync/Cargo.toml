@@ -38,9 +38,7 @@ thiserror = { workspace = true }
 prost = { workspace = true }
 rstest = { workspace = true }
 sc-network = { workspace = true, default-features = true, features = ["test-helpers"] }
-sp-core = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
-sp-externalities = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 tokio = { workspace = true, default-features = true, features = ["macros", "rt"] }

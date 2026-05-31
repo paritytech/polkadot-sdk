@@ -96,12 +96,8 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 		Self { network, peer_source, _phantom: std::marker::PhantomData }
 	}
 
-	/// Resolve a batch of `(content_hash, hashing)` pairs via bitswap across up to
-	/// [`MAX_PEERS_PER_IMPORT`] peers, sending one multi-entry `WANT-BLOCK` request per peer.
-	///
-	/// Returns only successfully fetched entries; `Missing`/`DontHave` outcomes from each peer
-	/// fall through to the next peer in the candidate list. The caller detects partial fill
-	/// by comparing `result.len()` against `wants.len()`.
+	/// Resolve a batch of indexed-transaction hashes via bitswap, rotating across up to
+	/// [`MAX_PEERS_PER_IMPORT`] peers. Returns only successfully fetched entries.
 	pub async fn fetch_many(
 		&self,
 		wants: &[(ContentHash, HashingAlgorithm)],
@@ -130,7 +126,11 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 		// Build per-want CIDs once; reuse across peers and chunks.
 		let cids: Vec<(ContentHash, Cid)> = wants
 			.iter()
-			.map(|(hash, algo)| Ok::<_, FetchError>((*hash, cid_for(*hash, *algo)?)))
+			.map(|(hash, algo)| {
+				let mh = Multihash::<64>::wrap(algo.multihash_code(), hash)
+					.map_err(|e| FetchError::Multihash(e.to_string()))?;
+				Ok::<_, FetchError>((*hash, Cid::new_v1(RAW_CODEC, mh)))
+			})
 			.collect::<Result<_, _>>()?;
 		let mut remaining = cids;
 		let mut acquired: HashMap<ContentHash, Vec<u8>> = HashMap::new();
@@ -190,13 +190,6 @@ async fn try_fetch_from_peer<N: NetworkRequest + ?Sized>(
 		}
 	}
 	acquired
-}
-
-/// Build a CIDv1 over RAW_CODEC with the supplied hash + algorithm's multihash code.
-fn cid_for(hash: ContentHash, algo: HashingAlgorithm) -> Result<Cid, FetchError> {
-	let mh = Multihash::<64>::wrap(algo.multihash_code(), &hash)
-		.map_err(|e| FetchError::Multihash(e.to_string()))?;
-	Ok(Cid::new_v1(RAW_CODEC, mh))
 }
 
 async fn with_timeout<F, T>(fut: F, timeout: Duration) -> Option<T>

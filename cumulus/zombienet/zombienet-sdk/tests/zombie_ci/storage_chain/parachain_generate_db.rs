@@ -39,12 +39,6 @@ const DEFAULT_DB_OUTPUT_DIR: &str = "./zombienet/test-databases";
 const STORE_START_BLOCK: u64 = 50;
 const GEN_TIMEOUT_SECS: u64 = 1800;
 
-fn get_db_output_dir() -> PathBuf {
-	std::env::var(DB_OUTPUT_DIR_ENV)
-		.map(PathBuf::from)
-		.unwrap_or_else(|_| DEFAULT_DB_OUTPUT_DIR.into())
-}
-
 fn build_gendb_network_config(pruning_blocks: u32) -> Result<NetworkConfig> {
 	let relay_args: Vec<_> = vec!["-lruntime=debug"].into_iter().map(Into::into).collect();
 	let collator_args: Vec<_> =
@@ -176,7 +170,9 @@ async fn parachain_generate_databases() -> Result<()> {
 	verify_parachain_binaries()?;
 
 	let total_payload_bytes = payload_stats()?;
-	let output_dir = get_db_output_dir();
+	let output_dir = std::env::var(DB_OUTPUT_DIR_ENV)
+		.map(PathBuf::from)
+		.unwrap_or_else(|_| DEFAULT_DB_OUTPUT_DIR.into());
 	std::fs::create_dir_all(&output_dir)
 		.with_context(|| format!("Failed to create output dir {}", output_dir.display()))?;
 	log::info!("Generating storage-chain fixture data into {}", output_dir.display());

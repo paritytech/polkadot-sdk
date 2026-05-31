@@ -1,9 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! Proves a warp-synced node fetches pre-warp transaction bytes on renewal and
-//! serves them through `bitswap_v1_get`.
-
 use super::{
 	common::{
 		bitswap_v1_get, build_parachain_network_config, expect_dont_have, expect_no_log_line,
@@ -37,10 +34,6 @@ const RENEW_BLOCK_SYNC_TIMEOUT_SECS: u64 = 600;
 const RENEW_BATCH_SIZE: usize = 5;
 
 type Entry = ([u8; 32], HashingAlgorithm);
-
-fn fixture_entries() -> Vec<Entry> {
-	(0..N_RENEW_EXERCISES).map(|i| (content_hash(i), algorithm(i))).collect()
-}
 
 fn verify_metadata(metadata: &super::fixture::SnapshotMetadata) -> Result<()> {
 	anyhow::ensure!(metadata.total_blocks == TIP_SYNC_TARGET_BLOCKS);
@@ -219,7 +212,8 @@ async fn parachain_tip_sync_with_renewals_test() -> Result<()> {
 	wait_for_block_height(sync_node, warp_target, SYNC_TIMEOUT_SECS).await?;
 	verify_warp_sync_completed(sync_node).await?;
 
-	let entries = fixture_entries();
+	let entries: Vec<Entry> =
+		(0..N_RENEW_EXERCISES).map(|i| (content_hash(i), algorithm(i))).collect();
 	assert_missing_before_renewal(sync_node, &entries).await?;
 
 	let collator_client: OnlineClient<SubstrateConfig> = collator.wait_client().await?;
