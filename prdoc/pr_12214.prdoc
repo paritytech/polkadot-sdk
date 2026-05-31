@@ -8,4 +8,4 @@ doc:
     Fix mock_beefy_id to derive valid ECDSA keys so tests exercise the happy path as well as the failure branch.
 crates:
 - name: pallet-beefy-mmr
-  bump: patch
+  bump: minor
