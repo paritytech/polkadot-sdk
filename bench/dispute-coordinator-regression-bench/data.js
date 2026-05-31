@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780091453670,
+  "lastUpdate": 1780270102965,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "43147091+BigTava@users.noreply.github.com",
-            "name": "Tiago Tavares ⭕️",
-            "username": "BigTava"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "6173140aa84e3f537e8fdcbb7132d06c8fddb049",
-          "message": "pallet-multi-asset-bounties: create first version of the pallet (#8381)\n\nCloses #8768\n\n## Description\n\nThis PR introduces `pallet-multi-asset-bounties`, which enables bounties\nto be funded by assets other than the native token and adds several key\nenhancements to bounty management. The motivation for creating this\npallet is to support stablecoin funding in order to mitigate volatility\nin bounty value and reduce curator overhead.\n\nSee the pallet docs for more info about the pallet.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-17T13:43:34Z",
-          "tree_id": "c7d08349cbab5d490411cac4424049f6d3b43ea6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6173140aa84e3f537e8fdcbb7132d06c8fddb049"
-        },
-        "date": 1760714712285,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027004427400000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00885830387999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005272279449999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010122464139999985,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d5d56f3a6265b143e35d08985bd8e4be137408db",
+          "message": "Remove deprecated AssetsToBlockAuthor from parachains-common (#12209)\n\n# Description\n\nRemoves deprecated `parachains_common::AssetsToBlockAuthor` as part of\n#11561.\n\n`AssetsToBlockAuthor` was deprecated in favor of\n`frame_support::traits::tokens::imbalance::MaybeResolveTo<BlockAuthor,\n...>`. It has no remaining usage in this repository; system parachain\nruntimes already use `MaybeResolveAssetTo<BlockAuthor<Runtime>, ...>`\nfor asset transaction fees.\n\n## Integration\n\nDownstream code using `AssetsToBlockAuthor` must migrate before\nupgrading `parachains-common`:\n\n```diff\n- type CreditHandler = AssetsToBlockAuthor<Runtime, Instance>;\n+ type CreditHandler = MaybeResolveAssetTo<BlockAuthor<Runtime>, NativeAndAssets, AccountId>;\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-05-31T21:46:18Z",
+          "tree_id": "2fc3c8eb77649de1068ccbecd88b4149d1d70d0d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d5d56f3a6265b143e35d08985bd8e4be137408db"
+        },
+        "date": 1780270074820,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009816776849999967,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0027628182499999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011834278620000003,
             "unit": "seconds"
           }
         ]
