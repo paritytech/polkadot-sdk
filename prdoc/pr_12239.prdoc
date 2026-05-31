@@ -1,0 +1,8 @@
+title: affine safe failure results in invalid projective point
+doc:
+- audience: Runtime Dev
+  description: This is more similar to arkworks behavoir when it hit the incompleteness
+    of the incomplete formula.
+crates:
+- name: sp-crypto-ec-utils
+  bump: major
