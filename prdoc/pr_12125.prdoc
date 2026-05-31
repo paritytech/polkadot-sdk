@@ -20,14 +20,14 @@ doc:
 
       * **Bandersnatch** (incomplete TE form): the `HostHooks` impl catches
         `Err(DegeneratePoint)` for both `msm_te` and `mul_projective_te` and
-        substitutes the unified affine fallback `(0, -1)`, lifted to
-        projective. `(0, -1)` is on every TE curve (`a·0 + 1 = 1 + 0`), has
-        order 2, and is therefore never in any prime-order subgroup, so a
-        downstream `is_in_correct_subgroup_*` check on the result catches
-        the degenerate case rather than silently accepting an identity-like
-        value. The Bandersnatch `mul_projective_te` hook also short-circuits
-        locally with the same fallback when handed a `z = 0` projective
-        *input* that can't be serialized for the host at all.
+        substitutes the all-zero projective point `(0, 0, 0, 0)`. This is
+        not a valid curve point: it has no affine representative (`z = 0`)
+        and any downstream validity or `is_in_correct_subgroup_*` check on
+        the result rejects it rather than silently accepting an
+        identity-like value. The Bandersnatch `mul_projective_te` hook also
+        short-circuits locally with the same all-zero projective fallback
+        when handed a `z = 0` projective *input* that can't be serialized
+        for the host at all.
       * **Other TE curves** (e.g. `ed_on_bls12_377`, which is complete by
         construction so `z = 0` cannot occur on subgroup-valid arithmetic):
         the existing `.expect(FAIL_MSG)` propagates the error as a panic,
