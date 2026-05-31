@@ -1394,7 +1394,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 12_908_000 picoseconds.
 		Weight::from_parts(56_458_813, 0)
 			// Standard Error: 694
-			.saturating_add(Weight::from_parts(76_184, 0).saturating_mul(r.into()))
+			.saturating_add(Weight::from_parts(161_108, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 10000]`.
 	fn instr_empty_loop(r: u32, ) -> Weight {
@@ -1404,7 +1404,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 3_374_000 picoseconds.
 		Weight::from_parts(3_590_402, 0)
 			// Standard Error: 17
-			.saturating_add(Weight::from_parts(40_233, 0).saturating_mul(r.into()))
+			.saturating_add(Weight::from_parts(115_822, 0).saturating_mul(r.into()))
 	}
 	/// Storage: `Revive::PristineCode` (r:1 w:0)
 	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -2818,7 +2818,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 12_908_000 picoseconds.
 		Weight::from_parts(56_458_813, 0)
 			// Standard Error: 694
-			.saturating_add(Weight::from_parts(76_184, 0).saturating_mul(r.into()))
+			.saturating_add(Weight::from_parts(161_108, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 10000]`.
 	fn instr_empty_loop(r: u32, ) -> Weight {
@@ -2828,7 +2828,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 3_374_000 picoseconds.
 		Weight::from_parts(3_590_402, 0)
 			// Standard Error: 17
-			.saturating_add(Weight::from_parts(40_233, 0).saturating_mul(r.into()))
+			.saturating_add(Weight::from_parts(115_822, 0).saturating_mul(r.into()))
 	}
 	/// Storage: `Revive::PristineCode` (r:1 w:0)
 	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
