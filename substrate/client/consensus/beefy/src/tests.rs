@@ -288,7 +288,11 @@ impl TestApi {
 #[allow(dead_code)]
 pub(crate) struct RuntimeApi {
 	inner: TestApi,
-	overlayed_changes: std::sync::Arc<std::sync::Mutex<Option<sp_state_machine::OverlayedChanges<sp_runtime::traits::HashingFor<Block>>>>>,
+	overlayed_changes: std::sync::Arc<
+		std::sync::Mutex<
+			Option<sp_state_machine::OverlayedChanges<sp_runtime::traits::HashingFor<Block>>>,
+		>,
+	>,
 }
 
 impl ProvideRuntimeApi<Block> for TestApi {

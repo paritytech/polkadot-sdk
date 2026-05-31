@@ -112,7 +112,11 @@ impl<Block: BlockT> HeaderBackend<Block> for TestApi {
 
 pub(crate) struct RuntimeApi {
 	authorities: Vec<AuthorityId>,
-	overlayed_changes: std::sync::Arc<std::sync::Mutex<Option<sp_state_machine::OverlayedChanges<sp_runtime::traits::HashingFor<Block>>>>>,
+	overlayed_changes: std::sync::Arc<
+		std::sync::Mutex<
+			Option<sp_state_machine::OverlayedChanges<sp_runtime::traits::HashingFor<Block>>>,
+		>,
+	>,
 }
 
 sp_api::mock_impl_runtime_apis! {
