@@ -221,7 +221,11 @@ mod tests {
 		// all-zero invalid projective point.
 		let p_ext: EdwardsProjective = y2_non_subgroup::<EdwardsConfig>().into_group();
 		let r = <HostHooks as CurveHooks>::mul_projective_te(&p_ext, Fr::MODULUS.0.as_ref());
-		assert_eq!(r, invalid_projective_fallback::<EdwardsConfig>(), "hook must return all-zero projective on degenerate");
+		assert_eq!(
+			r,
+			invalid_projective_fallback::<EdwardsConfig>(),
+			"hook must return all-zero projective on degenerate"
+		);
 	}
 
 	#[test]
@@ -232,7 +236,11 @@ mod tests {
 		let t = Fq::rand(&mut rng);
 		let p = EdwardsProjective::new_unchecked(Fq::ZERO, y, t, Fq::ZERO);
 		let r = <HostHooks as CurveHooks>::mul_projective_te(&p, &[7u64, 0, 0, 0]);
-		assert_eq!(r, invalid_projective_fallback::<EdwardsConfig>(), "z=0 input must yield all-zero coordinate projective");
+		assert_eq!(
+			r,
+			invalid_projective_fallback::<EdwardsConfig>(),
+			"z=0 input must yield all-zero coordinate projective"
+		);
 	}
 
 	#[test]
@@ -283,12 +291,10 @@ mod tests {
 		let xa: Fq = MontFp!(
 			"12611587488970178020234800979835231446181428428390492190317266241455236381927"
 		);
-		let ya: Fq = MontFp!(
-			"8625363597705895091270672088731506059935752500467284843225771956507605756711"
-		);
-		let xb: Fq = MontFp!(
-			"5253339395048946693631279295832797565125937378490576959411837397991361739535"
-		);
+		let ya: Fq =
+			MontFp!("8625363597705895091270672088731506059935752500467284843225771956507605756711");
+		let xb: Fq =
+			MontFp!("5253339395048946693631279295832797565125937378490576959411837397991361739535");
 		let yb: Fq = MontFp!(
 			"24752777243643877000069062635360441442644758493268974317933177186378585499408"
 		);
@@ -380,7 +386,11 @@ mod tests {
 		let scalars = vec![Fr::from(2u64), Fr::from(1u64)];
 		let result = <HostHooks as CurveHooks>::msm_te(&bases, &scalars);
 
-		assert_eq!(result, invalid_projective_fallback::<EdwardsConfig>(), "msm_te must return invalid projective fallback");
+		assert_eq!(
+			result,
+			invalid_projective_fallback::<EdwardsConfig>(),
+			"msm_te must return invalid projective fallback"
+		);
 	}
 
 	#[test]
