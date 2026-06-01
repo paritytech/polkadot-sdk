@@ -15417,7 +15417,6 @@ dependencies = [
  "cumulus-primitives-utility",
  "frame-support",
  "frame-system",
- "pallet-asset-tx-payment",
  "pallet-assets",
  "pallet-authorship",
  "pallet-balances",
@@ -16252,6 +16251,7 @@ dependencies = [
  "itertools 0.11.0",
  "kvdb-memorydb",
  "parity-scale-codec",
+ "polkadot-node-clock",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
@@ -16403,6 +16403,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-node-clock"
+version = "7.0.0"
+dependencies = [
+ "futures-timer",
+]
+
+[[package]]
 name = "polkadot-node-collation-generation"
 version = "7.0.0"
 dependencies = [
@@ -16507,8 +16514,8 @@ dependencies = [
  "futures-timer",
  "kvdb-memorydb",
  "parity-scale-codec",
- "parking_lot 0.12.3",
  "polkadot-erasure-coding",
+ "polkadot-node-clock",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
@@ -16627,6 +16634,7 @@ dependencies = [
  "kvdb-memorydb",
  "parity-scale-codec",
  "parking_lot 0.12.3",
+ "polkadot-node-clock",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
@@ -16647,6 +16655,7 @@ dependencies = [
  "futures-timer",
  "kvdb-memorydb",
  "parity-scale-codec",
+ "polkadot-node-clock",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
@@ -17636,6 +17645,7 @@ dependencies = [
  "polkadot-erasure-coding",
  "polkadot-gossip-support",
  "polkadot-network-bridge",
+ "polkadot-node-clock",
  "polkadot-node-collation-generation",
  "polkadot-node-core-approval-voting",
  "polkadot-node-core-approval-voting-parallel",
@@ -18003,6 +18013,7 @@ dependencies = [
  "polkadot-dispute-distribution",
  "polkadot-gossip-support",
  "polkadot-network-bridge",
+ "polkadot-node-clock",
  "polkadot-node-collation-generation",
  "polkadot-node-core-approval-voting",
  "polkadot-node-core-approval-voting-parallel",

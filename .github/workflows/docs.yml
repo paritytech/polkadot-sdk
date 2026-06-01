@@ -122,6 +122,8 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: gh-pages
+          fetch-depth: 0
+          persist-credentials: false
       - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         id: app-token
         with:
@@ -164,12 +166,8 @@ jobs:
           echo "${Green}Add new remote with gh app token${NC}"
           git remote set-url origin $(git config remote.origin.url | sed "s|github.com|x-access-token:${TOKEN}@github.com|g")
 
-          echo "${Green}Remove http section that causes issues with gh app auth token${NC}"
-          sed -i.bak '/\[http/d' ./.git/config
-          sed -i.bak '/extraheader/d' ./.git/config
-
           echo "${Green}Git push${NC}"
           git config user.email "ci@parity.io"
           git config user.name "${APP_NAME}"
-          git commit --amend -m "___Updated docs" || echo "___Nothing to commit___"
-          git push origin gh-pages --force
+          git commit -m "Updated docs for ${REF_NAME}" || echo "___Nothing to commit___"
+          git push origin gh-pages
