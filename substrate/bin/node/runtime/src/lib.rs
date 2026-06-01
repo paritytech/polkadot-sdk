@@ -3103,26 +3103,8 @@ parameter_types! {
 	pub const PsmMinSwapAmount: Balance = 100_000_000;
 	/// PalletId for deriving the PSM system account.
 	pub const PsmPalletId: PalletId = PalletId(*b"py/pegsm");
-}
-
-/// EnsureOrigin implementation for PSM management that supports privilege levels.
-pub struct EnsurePsmManager;
-impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
-	type Success = pallet_psm::PsmManagerLevel;
-
-	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
-		use frame_system::RawOrigin;
-
-		match o.clone().into() {
-			Ok(RawOrigin::Root) => Ok(pallet_psm::PsmManagerLevel::Full),
-			_ => Err(o),
-		}
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
-		Ok(RuntimeOrigin::root())
-	}
+	/// Native-currency deposit reserved when permissionlessly creating a PSM.
+	pub const PsmCreationDeposit: Balance = 10 * DOLLARS;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -3156,12 +3138,15 @@ impl pallet_psm::BenchmarkHelper<u32, AccountId> for PsmBenchmarkHelper {
 /// Configure the PSM (Peg Stability Module) pallet.
 impl pallet_psm::Config for Runtime {
 	type Fungibles = Assets;
+	type Currency = Balances;
+	type RuntimeOrigin = RuntimeOrigin;
+	type PalletsOrigin = OriginCaller;
 	type AssetId = u32;
-	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = pallet_psm::weights::SubstrateWeight<Runtime>;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = PsmMinSwapAmount;
 	type MaxExternalAssetsPerPsm = ConstU32<10>;
+	type CreationDeposit = PsmCreationDeposit;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PsmBenchmarkHelper;
 }
