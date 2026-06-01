@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780309876686,
+  "lastUpdate": 1780319007951,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ffe5417da3c44afb9e5a063794a586d9073ff09c",
-          "message": "Fix check-pr-author (#10050)",
-          "timestamp": "2025-10-18T18:21:45Z",
-          "tree_id": "fc7229e7a608611d3dd8fef42275fb2f07ad2801",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ffe5417da3c44afb9e5a063794a586d9073ff09c"
-        },
-        "date": 1760815871228,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00262877819,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008674618949999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005194065449999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009399371429999992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jfanatiker@gmx.at",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6076625415efe1550ffafbe2e657a5de28cd64b1",
+          "message": "Clock abstraction: Preparation for deterministic simulation testing (#12212)\n\nAll prod changes needed for\nhttps://github.com/paritytech/polkadot-sdk/pull/12007 . With this\nmerged, 12007 should be test code only. We skipped full determinism for\nnow on subsystems we don't have deterministic tests yet anyways. Those\nwill come later as needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-01T11:23:37Z",
+          "tree_id": "04e3b0f66b75639b8c4815d2ed95a27339c08fba",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6076625415efe1550ffafbe2e657a5de28cd64b1"
+        },
+        "date": 1780318979488,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00939369004999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025079278,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010783102709999982,
             "unit": "seconds"
           }
         ]
