@@ -1,23 +1,10 @@
 title: Remove deprecated match_type macro from frame-support
 doc:
-- audience: Runtime Dev
-  description: |-
-    # Description
+  - audience: Runtime Dev
+    description: |
+      Removes deprecated `frame_support::match_type!`, a thin alias for `match_types!`.
+      Use `match_types!` directly.
 
-    Removes deprecated `frame_support::match_type!` as part of #11561.
-
-    `match_type!` was a thin alias for `match_types!` with no remaining usage in this repository.
-
-    ## Integration
-
-    ```diff
-    - frame_support::match_type! { ... }
-    + frame_support::match_types! { ... }
-    ```
-
-    Review Notes
-    Single-file change: substrate/frame/support/src/traits/members.rs
-    Verified no in-repo references before removal
 crates:
-- name: frame-support
-  bump: major
+  - name: frame-support
+    bump: major
