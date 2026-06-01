@@ -46,7 +46,10 @@
 #![cfg_attr(test, allow(clippy::disallowed_methods))]
 #![recursion_limit = "256"]
 
-// Acknowledge dev-deps used only by integration tests under `tests/`.
+// Acknowledge dev-deps used only by integration tests under `tests/`. The
+// `unused_crate_dependencies` lint checks each Cargo target against the whole dependency set,
+// so the lib target flags deps that only the `tests/` target uses.
+// See https://github.com/rust-lang/rust/issues/95513.
 #[cfg(test)]
 use {
 	polkadot_collator_protocol_test_sim_macros as _, polkadot_node_core_backing as _,
