@@ -3370,7 +3370,11 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						TraceBlockVersionedInputPayload::V1(payload) => (
 							TraceBlockInputPayload::from(payload),
 							Box::new(|output| TraceBlockVersionedOutputPayload::V1(output.into()))
-						)
+						),
+						TraceBlockVersionedInputPayload::V2(payload) => (
+							TraceBlockInputPayload::from(payload),
+							Box::new(|output| TraceBlockVersionedOutputPayload::V2(output.into()))
+						),
 					};
 
 					if matches!(input.config, $crate::evm::TracerType::ExecutionTracer(_)) &&

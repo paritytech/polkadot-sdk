@@ -282,6 +282,16 @@ impl From<Trace> for TraceV1 {
 	}
 }
 
+impl From<Trace> for TraceV2 {
+	fn from(value: Trace) -> Self {
+		match value {
+			Trace::Call(value) => Self::Call(value.into()),
+			Trace::Prestate(value) => Self::Prestate(value.into()),
+			Trace::Execution(value) => Self::Execution(value.into()),
+		}
+	}
+}
+
 /// A prestate Trace
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PrestateTrace {
@@ -520,6 +530,26 @@ impl From<CallTrace> for CallTraceV1 {
 	}
 }
 
+impl From<CallTrace> for CallTraceV2 {
+	fn from(value: CallTrace) -> Self {
+		Self {
+			from: value.from,
+			gas: value.gas,
+			gas_used: value.gas_used,
+			to: value.to,
+			input: value.input,
+			output: value.output,
+			error: value.error,
+			revert_reason: value.revert_reason,
+			calls: value.calls.into_iter().map(Into::into).collect(),
+			logs: value.logs.into_iter().map(Into::into).collect(),
+			value: value.value,
+			call_type: value.call_type.into(),
+			child_call_count: value.child_call_count,
+		}
+	}
+}
+
 /// A log emitted during a call.
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct CallLog {
@@ -532,6 +562,10 @@ pub struct CallLog {
 	/// Position of the log relative to subcalls within the same trace
 	/// See <https://github.com/ethereum/go-ethereum/pull/28389> for details
 	pub position: u32,
+	/// represents the transaction-level log index (matching `logIndex` in receipts), distinct from
+	/// the existing `position` field which tracks ordering relative to sub-calls within the same
+	/// trace frame.
+	pub index: u32,
 }
 
 impl From<CallLog> for CallLogV1 {
@@ -541,6 +575,18 @@ impl From<CallLog> for CallLogV1 {
 			topics: value.topics,
 			data: value.data,
 			position: value.position,
+		}
+	}
+}
+
+impl From<CallLog> for CallLogV2 {
+	fn from(value: CallLog) -> Self {
+		Self {
+			address: value.address,
+			topics: value.topics,
+			data: value.data,
+			position: value.position,
+			index: value.index,
 		}
 	}
 }

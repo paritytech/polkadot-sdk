@@ -94,8 +94,16 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceV1>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::traces::TraceV2",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceV2>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::types::traces::CallTraceV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallTraceV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::traces::CallTraceV2",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallTraceV2>"
 	),
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::types::traces::PrestateTraceV1",
@@ -108,6 +116,10 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::types::traces::CallLogV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallLogV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::traces::CallLogV2",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallLogV2>"
 	),
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::types::traces::CallTypeV1",
@@ -124,6 +136,30 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::types::traces::ExecutionStepKindV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ExecutionStepKindV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_block::TraceBlockInputPayloadV1<Block>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceBlockInputPayloadV1<Block>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_block::TraceBlockInputPayloadV2<Block>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceBlockInputPayloadV2<Block>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_block::TraceBlockVersionedInputPayload<Block>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceBlockVersionedInputPayload<Block>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_block::TraceBlockOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceBlockOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_block::TraceBlockOutputPayloadV2",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceBlockOutputPayloadV2>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_block::TraceBlockVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceBlockVersionedOutputPayload>"
 	),
 
 	derive_for_all_types = "codec::Encode, codec::Decode"

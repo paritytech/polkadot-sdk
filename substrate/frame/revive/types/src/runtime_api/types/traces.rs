@@ -34,6 +34,14 @@ pub enum TraceV1 {
 	Execution(ExecutionTraceV1),
 }
 
+#[derive(TypeInfo, Deserialize, Serialize, From, Encode, Decode, Clone, Debug, Eq, PartialEq)]
+#[serde(untagged)]
+pub enum TraceV2 {
+	Call(CallTraceV2),
+	Prestate(PrestateTraceV1),
+	Execution(ExecutionTraceV1),
+}
+
 #[derive(
 	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
 )]
@@ -56,6 +64,36 @@ pub struct CallTraceV1 {
 	pub calls: Vec<Self>,
 	#[serde(skip_serializing_if = "Vec::is_empty")]
 	pub logs: Vec<CallLogV1>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub value: Option<U256>,
+	#[serde(rename = "type")]
+	pub call_type: CallTypeV1,
+	#[serde(skip)]
+	pub child_call_count: u32,
+}
+
+#[derive(
+	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct CallTraceV2 {
+	pub from: H160,
+	#[serde(with = "hex_serde")]
+	pub gas: u64,
+	#[serde(with = "hex_serde")]
+	pub gas_used: u64,
+	pub to: H160,
+	pub input: Bytes,
+	#[serde(skip_serializing_if = "Bytes::is_empty")]
+	pub output: Bytes,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub error: Option<String>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub revert_reason: Option<String>,
+	#[serde(skip_serializing_if = "Vec::is_empty")]
+	pub calls: Vec<Self>,
+	#[serde(skip_serializing_if = "Vec::is_empty")]
+	pub logs: Vec<CallLogV2>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub value: Option<U256>,
 	#[serde(rename = "type")]
@@ -94,6 +132,20 @@ pub struct CallLogV1 {
 	pub data: Bytes,
 	#[serde(with = "hex_serde")]
 	pub position: u32,
+}
+
+#[derive(
+	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
+)]
+pub struct CallLogV2 {
+	pub address: H160,
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub topics: Vec<H256>,
+	pub data: Bytes,
+	#[serde(with = "hex_serde")]
+	pub position: u32,
+	#[serde(with = "hex_serde")]
+	pub index: u32,
 }
 
 #[derive(

@@ -4198,23 +4198,27 @@ fn call_tracing_works() {
 		assert_eq!(gas_trace.gas_used, gas_used as u64);
 
 		for config in tracer_configs {
-			let logs = if config.with_logs {
+			let with_logs = config.with_logs;
+			let make_logs = |start_index: u32| -> Vec<CallLog> {
+				if !with_logs {
+					return vec![];
+				}
 				vec![
 					CallLog {
 						address: addr,
 						topics: Default::default(),
 						data: b"before".to_vec().into(),
 						position: 0,
+						index: start_index,
 					},
 					CallLog {
 						address: addr,
 						topics: Default::default(),
 						data: b"after".to_vec().into(),
 						position: 1,
+						index: start_index + 1,
 					},
 				]
-			} else {
-				vec![]
 			};
 
 			let calls = if config.only_top_call {
@@ -4241,7 +4245,7 @@ fn call_tracing_works() {
 							to: addr,
 							input: (2u32, addr_callee).encode().into(),
 							call_type: Call,
-							logs: logs.clone(),
+							logs: make_logs(2),
 							value: Some(U256::from(0)),
 							gas: 0,
 							gas_used: 0,
@@ -4263,7 +4267,7 @@ fn call_tracing_works() {
 									to: addr,
 									input: (1u32, addr_callee).encode().into(),
 									call_type: Call,
-									logs: logs.clone(),
+									logs: make_logs(4),
 									value: Some(U256::from(0)),
 									gas: 0,
 									gas_used: 0,
@@ -4321,7 +4325,7 @@ fn call_tracing_works() {
 					to: addr,
 					input: (3u32, addr_callee).encode().into(),
 					call_type: Call,
-					logs: logs.clone(),
+					logs: make_logs(0),
 					value: Some(U256::from(0)),
 					calls: calls,
 					child_call_count: 2,
