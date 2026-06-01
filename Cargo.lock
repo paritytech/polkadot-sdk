@@ -14233,6 +14233,7 @@ dependencies = [
  "pallet-proxy",
  "pallet-revive-fixtures",
  "pallet-revive-proc-macro",
+ "pallet-revive-types",
  "pallet-revive-uapi",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -14291,6 +14292,7 @@ dependencies = [
  "log",
  "pallet-revive",
  "pallet-revive-fixtures",
+ "pallet-revive-types",
  "parity-scale-codec",
  "pretty_assertions",
  "revive-dev-node",
@@ -14349,6 +14351,7 @@ dependencies = [
 name = "pallet-revive-types"
 version = "0.1.0"
 dependencies = [
+ "num-traits",
  "parity-scale-codec",
  "scale-info",
  "serde",

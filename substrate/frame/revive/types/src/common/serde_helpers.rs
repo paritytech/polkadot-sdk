@@ -15,7 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![cfg_attr(not(feature = "std"), no_std)]
+use num_traits::Zero;
+use serde::{Deserialize, Deserializer};
 
-pub mod common;
-pub mod runtime_api;
+pub fn zero_to_none<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+	D: Deserializer<'de>,
+	T: Deserialize<'de> + Zero,
+{
+	let value = Option::<T>::deserialize(deserializer)?;
+	match value {
+		Some(value) if value.is_zero() => Ok(None),
+		Some(value) => Ok(Some(value)),
+		None => Ok(None),
+	}
+}

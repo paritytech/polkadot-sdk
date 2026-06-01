@@ -19,6 +19,7 @@ use crate::{Weight, evm::Bytes};
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use codec::{Decode, Encode};
 use derive_more::From;
+use pallet_revive_types::runtime_api as runtime_api_types;
 use scale_info::TypeInfo;
 use serde::{
 	Deserialize, Serialize,
@@ -176,20 +177,13 @@ impl Default for PrestateTracerConfig {
 	}
 }
 
-fn zero_to_none<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
-where
-	D: Deserializer<'de>,
-{
-	let opt = Option::<u64>::deserialize(deserializer)?;
-	Ok(match opt {
-		Some(0) => None,
-		other => other,
-	})
-}
-
 /// The configuration for the execution tracer.
-#[derive(Clone, Debug, Decode, Serialize, Deserialize, Encode, PartialEq, TypeInfo)]
-#[serde(default, rename_all = "camelCase")]
+#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo, Serialize, Deserialize)]
+// TODO: Remove once the top-level types no longer need to implement serde.
+#[serde(
+	from = "runtime_api_types::ExecutionTracerConfigV1",
+	into = "runtime_api_types::ExecutionTracerConfigV1"
+)]
 pub struct ExecutionTracerConfig {
 	/// Whether to enable memory capture
 	pub enable_memory: bool,
@@ -207,7 +201,6 @@ pub struct ExecutionTracerConfig {
 	pub disable_syscall_details: bool,
 
 	/// Limit number of steps captured
-	#[serde(skip_serializing_if = "Option::is_none", deserialize_with = "zero_to_none")]
 	pub limit: Option<u64>,
 
 	/// Maximum number of memory words to capture per step (default: 16)
@@ -224,6 +217,35 @@ impl Default for ExecutionTracerConfig {
 			disable_syscall_details: false,
 			limit: None,
 			memory_word_limit: 16,
+		}
+	}
+}
+
+impl From<ExecutionTracerConfig> for runtime_api_types::ExecutionTracerConfigV1 {
+	fn from(value: ExecutionTracerConfig) -> Self {
+		Self {
+			enable_memory: value.enable_memory,
+			disable_stack: value.disable_stack,
+			disable_storage: value.disable_storage,
+			enable_return_data: value.enable_return_data,
+			disable_syscall_details: value.disable_syscall_details,
+			limit: value.limit,
+			memory_word_limit: value.memory_word_limit,
+		}
+	}
+}
+
+// TODO: Remove once the top-level types no longer need to implement serde.
+impl From<runtime_api_types::ExecutionTracerConfigV1> for ExecutionTracerConfig {
+	fn from(value: runtime_api_types::ExecutionTracerConfigV1) -> Self {
+		Self {
+			enable_memory: value.enable_memory,
+			disable_stack: value.disable_stack,
+			disable_storage: value.disable_storage,
+			enable_return_data: value.enable_return_data,
+			disable_syscall_details: value.disable_syscall_details,
+			limit: value.limit,
+			memory_word_limit: value.memory_word_limit,
 		}
 	}
 }

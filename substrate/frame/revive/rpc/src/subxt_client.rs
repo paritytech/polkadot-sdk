@@ -79,6 +79,15 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		path = "pallet_revive::evm::block_hash::ReceiptGasInfo",
 		with = "::subxt::utils::Static<::pallet_revive::evm::ReceiptGasInfo>"
 	),
+
+	// Versioning replacements
+	// TODO: We need to add the `v1` postfix to the models from pallet-revive. We can only do that
+	// when they're used in the runtime API.
+	substitute_type(
+		path = "pallet_revive::evm::api::debug_rpc_types::ExecutionTracerConfig",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ExecutionTracerConfigV1>"
+	),
+
 	derive_for_all_types = "codec::Encode, codec::Decode"
 )]
 mod src_chain {}
