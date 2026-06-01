@@ -84,6 +84,18 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	// TODO: We need to add the `v1` postfix to the models from pallet-revive. We can only do that
 	// when they're used in the runtime API.
 	substitute_type(
+		path = "pallet_revive::evm::api::debug_rpc_types::TracerType",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TracerTypeV1>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::api::debug_rpc_types::CallTracerConfig",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallTracerConfigV1>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::api::debug_rpc_types::PrestateTracerConfig",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::PrestateTracerConfigV1>"
+	),
+	substitute_type(
 		path = "pallet_revive::evm::api::debug_rpc_types::ExecutionTracerConfig",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ExecutionTracerConfigV1>"
 	),

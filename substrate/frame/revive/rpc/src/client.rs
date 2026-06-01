@@ -22,7 +22,7 @@ pub(crate) mod storage_api;
 
 use crate::{
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
-	SyncLabel, TracerType, TransactionInfo,
+	SyncLabel, TransactionInfo,
 	block_sync::SyncCheckpoint,
 	subxt_client::{self, SrcChainConfig, revive::calls::types::EthTransact},
 };
@@ -37,6 +37,7 @@ use pallet_revive::{
 		decode_revert_reason,
 	},
 };
+use pallet_revive_types::runtime_api::*;
 use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
@@ -987,7 +988,7 @@ impl Client {
 	pub async fn trace_block_by_number(
 		&self,
 		at: BlockNumberOrTag,
-		config: TracerType,
+		config: TracerTypeV1,
 	) -> Result<Vec<TransactionTrace>, ClientError> {
 		if self.receipt_provider.is_before_earliest_block(&at) {
 			return Ok(vec![]);
@@ -1020,7 +1021,7 @@ impl Client {
 	pub async fn trace_transaction(
 		&self,
 		transaction_hash: H256,
-		config: TracerType,
+		config: TracerTypeV1,
 	) -> Result<Trace, ClientError> {
 		let (block_hash, transaction_index) = self
 			.receipt_provider
@@ -1040,7 +1041,7 @@ impl Client {
 		&self,
 		transaction: GenericTransaction,
 		block: BlockNumberOrTagOrHash,
-		config: TracerType,
+		config: TracerTypeV1,
 		state_overrides: Option<StateOverrideSet>,
 	) -> Result<Trace, ClientError> {
 		let block_hash = self.block_hash_for_tag(block).await?;

@@ -16,10 +16,46 @@
 // limitations under the License.
 
 use codec::{Decode, Encode};
+use derive_more::From;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 
 use crate::common::*;
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, Serialize, Deserialize, PartialEq, From)]
+#[serde(tag = "tracer", content = "tracerConfig", rename_all = "camelCase")]
+pub enum TracerTypeV1 {
+	CallTracer(Option<CallTracerConfigV1>),
+	PrestateTracer(Option<PrestateTracerConfigV1>),
+	ExecutionTracer(Option<ExecutionTracerConfigV1>),
+}
+
+impl Default for TracerTypeV1 {
+	fn default() -> Self {
+		TracerTypeV1::ExecutionTracer(Some(ExecutionTracerConfigV1::default()))
+	}
+}
+
+#[derive(Clone, Debug, Decode, Serialize, Deserialize, Encode, PartialEq, TypeInfo)]
+#[serde(default, rename_all = "camelCase")]
+pub struct CallTracerConfigV1 {
+	pub with_logs: bool,
+	pub only_top_call: bool,
+}
+
+impl Default for CallTracerConfigV1 {
+	fn default() -> Self {
+		Self { with_logs: true, only_top_call: false }
+	}
+}
+
+#[derive(Clone, Debug, Decode, Serialize, Deserialize, Encode, PartialEq, TypeInfo, Default)]
+#[serde(default, rename_all = "camelCase")]
+pub struct PrestateTracerConfigV1 {
+	pub diff_mode: bool,
+	pub disable_storage: bool,
+	pub disable_code: bool,
+}
 
 #[derive(Clone, Debug, Decode, Serialize, Deserialize, Encode, PartialEq, TypeInfo)]
 #[serde(default, rename_all = "camelCase")]

@@ -28,6 +28,7 @@ use pallet_revive::{
 		ReceiptGasInfo, StateOverrideSet, Trace, U256,
 	},
 };
+use pallet_revive_types::runtime_api::*;
 use sp_core::H256;
 use sp_timestamp::Timestamp;
 use subxt::{Error::Metadata, OnlineClient, error::MetadataError, ext::subxt_rpcs::UserError};
@@ -235,7 +236,7 @@ impl RuntimeApi {
 			sp_runtime::OpaqueExtrinsic,
 		>,
 		transaction_index: u32,
-		tracer_type: crate::TracerType,
+		tracer_type: TracerTypeV1,
 	) -> Result<Trace, ClientError> {
 		let payload = subxt_client::apis()
 			.revive_api()
@@ -253,7 +254,7 @@ impl RuntimeApi {
 			sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
 			sp_runtime::OpaqueExtrinsic,
 		>,
-		tracer_type: crate::TracerType,
+		tracer_type: TracerTypeV1,
 	) -> Result<Vec<(u32, Trace)>, ClientError> {
 		let payload = subxt_client::apis()
 			.revive_api()
@@ -272,7 +273,7 @@ impl RuntimeApi {
 	pub async fn trace_call(
 		&self,
 		transaction: GenericTransaction,
-		tracer_type: crate::TracerType,
+		tracer_type: TracerTypeV1,
 		state_overrides: Option<StateOverrideSet>,
 	) -> Result<Trace, ClientError> {
 		let result = if let Some(overrides) = state_overrides {
