@@ -21,9 +21,10 @@
    - 5.1 [What Accumulate Does](#51-what-accumulate-does)
    - 5.2 [Code Upgrade Lifecycle](#52-code-upgrade-lifecycle)
 6. [Parachain Management](#6-parachain-management)
-   - 6.1 [Registration](#61-registration)
-   - 6.2 [Forced Updates (Recovery)](#62-forced-updates-recovery)
-   - 6.3 [Clean-up (Deregistration)](#63-clean-up-deregistration)
+   - 6.1 [State-Balance Accounting](#61-state-balance-accounting)
+   - 6.2 [Registration](#62-registration)
+   - 6.3 [Forced Updates (Recovery)](#63-forced-updates-recovery)
+   - 6.4 [Clean-up (Deregistration)](#64-clean-up-deregistration)
 7. [Authorization & Coretime](#7-authorization-coretime)
    - 7.1 [Authorizer Design: AURA Example](#71-authorizer-design-aura-example)
    - 7.2 [On-Demand Parachains](#72-on-demand-parachains)
@@ -165,11 +166,11 @@ struct ParachainServiceState {
     /// and empty, the index resets to 0.
     incoming_transfers: Vec<(ServiceId, Amount, Memo)>,
 
-    /// Per-parachain error log. Stores the opaque error payload and
-    /// authorizer trace from failed Refine executions, keyed by the JAM
-    /// block timeslot at which Accumulate recorded them. Each parachain
-    /// keeps at most 8 entries.
-    error_log: Map<ParaId, CountedMap<Timeslot, ErrorEntry, 8>>,
+    /// Per-parachain log. Records both Refine failures (with the
+    /// originating authorizer trace) and events recorded during Accumulate
+    /// (both errors and positive events). Each parachain keeps at most
+    /// 8 entries.
+    parachain_log: Map<ParaId, CountedMap<Timeslot, LogEntry, 8>>,
 
     /// Pending authorizer queue updates that should be applied once the
     /// current 80-slot queue has been consumed.
@@ -181,35 +182,68 @@ struct ParachainServiceState {
     /// `pending_authorizer_queues` should be applied.
     last_authorizer_assignment: Map<CoreIndex, Timeslot>,
 
-    /// PVF (Parachain Validation Function) preimage registry.
-    pvf_registry: Map<ValidationCodeHash, PvfEntry>,
+    /// Cross-parachain preimage registry. See §6.1.
+    preimage_registry: Map<Hash, PreimageEntry>,
 }
 
-struct ErrorEntry {
-    /// The error that caused this entry, either a structured Parachain
-    /// Service error or the PVF's opaque payload.
-    error: ParachainError,
-    /// Authorizer trace from the work-report.
-    auth_trace: Vec<u8>,
+enum LogEntry {
+    Refine(RefineLogEntry),
+    Accumulate(AccumulateLogEntry),
 }
 
-enum ParachainError {
-    /// Refine used a validation code hash that matches neither
-    /// `ParaInfo.validation_code_hash` nor the pending upgrade's code hash.
-    /// Emitted by Accumulate when validating the work result.
+struct RefineLogEntry {
+    /// What went wrong during Refine.
+    error: RefineLog,
+    /// Authorizer trace from the work-report that produced this failure.
+    auth_trace: BoundedVec<u8, 256>,
+}
+
+enum RefineLog {
+    /// `historical_lookup(validation_code_hash)` returned `None`: the
+    /// validation code preimage is not available in the service's store
+    /// at the lookup-anchor. See §4.1 step 3.
     InvalidCodeHash,
     /// Opaque payload supplied by the PVF via `report_error(data)` before
     /// failing the execution (max 1024 bytes).
     Opaque(BoundedVec<u8, 1024>),
 }
 
-struct PvfEntry {
-    /// Length of the solicited preimage, used when forgetting it later.
-    code_len: u32,
-    /// Number of parachains currently referencing this validation code.
-    /// When this drops to zero the preimage can be released immediately.
-    ref_count: u32,
+struct AccumulateLogEntry {
+    /// Events recorded while Accumulating a work result for this parachain.
+    /// Capped at 30 — further entries in the same Accumulate invocation
+    /// are dropped.
+    entries: BoundedVec<AccumulateLog, 30>,
 }
+
+enum AccumulateLog {
+    /// The work result's `validation_code_hash` matches neither
+    /// `ParaInfo.validation_code_hash` nor the pending upgrade's code hash.
+    /// This is the authoritative validation-code check (Refine does not
+    /// perform it). See §5.1 step 3.
+    InvalidCodeHash { hash: ValidationCodeHash },
+    /// Available state balance insufficient to cover the preimage at
+    /// `hash`. See §6.1.
+    InsufficientStateBalance { hash: Hash },
+    /// `parachain_set_state_balance(para_id, attempted)` was rejected
+    /// because `attempted < current_used`. See §6.1.
+    StateBalanceUpdateRejected {
+        attempted: Balance,
+        current_total: Balance,
+        current_used: Balance,
+    },
+}
+
+struct PreimageEntry {
+    /// Length of the preimage. JAM keys preimage requests by `(hash, len)`.
+    len: u32,
+    /// Parachains currently referencing this preimage. Bounded by the
+    /// protocol-level maximum number of parachains.
+    referencers: BoundedBTreeSet<ParaId>,
+}
+
+/// Head data is capped at 4 KiB to bound the per-parachain footprint that
+/// `ParaInfo` contributes to the baseline state-balance reservation (see §6.1).
+type HeadData = BoundedVec<u8, { 4 * 1024 }>;
 
 struct ParaInfo {
     /// Current head data (output of last included block).
@@ -219,6 +253,13 @@ struct ParaInfo {
     /// Pending code upgrade, if any: the new validation code hash and the
     /// deadline timeslot after which the upgrade is rejected. See §5.2.
     pending_upgrade: Option<(ValidationCodeHash, Timeslot)>,
+    /// Total state balance allocated to this parachain. Set exclusively by
+    /// the Coretime chain via `parachain_set_state_balance`. See §6.1.
+    total_state_balance: Balance,
+    /// State balance currently consumed by this parachain's solicited PVF
+    /// preimages (active validation code + pending upgrade, if any).
+    /// Increased on `solicit()`, decreased on `forget()`. See §6.1.
+    used_state_balance: Balance,
 }
 ```
 
@@ -277,19 +318,28 @@ enum ParachainWorkResult {
     },
     /// PVF execution failed (e.g. invalid PoV, bad state proof, panic).
     ///
-    /// Carries a structured `ParachainError`. The PVF may call
+    /// Carries a structured `RefineLog`. The PVF may call
     /// `report_error(data)` to provide an opaque payload (max 1024 bytes)
     /// before failing.
     Err {
         /// The parachain this failure belongs to.
         para_id: ParaId,
-        error: ParachainError,
+        error: RefineLog,
     },
 }
 
 enum UpwardMessage {
     /// From `request_code_upgrade` — start a PVF code upgrade (see §5.2).
     RequestCodeUpgrade(ValidationCodeHash),
+    /// From `solicit` — request a preimage be made available in the
+    /// parachain's own preimage store. Accumulate forwards this to JAM
+    /// and increments `ParaInfo.used_state_balance` (rejected if it
+    /// would exceed `total_state_balance`). See §6.1.
+    Solicit { hash: Hash, len: u32 },
+    /// From `forget` — release a previously solicited preimage.
+    /// Accumulate forwards this to JAM and decrements
+    /// `ParaInfo.used_state_balance`. See §6.1.
+    Forget { hash: Hash, len: u32 },
     /// From `transfer_out` — transfer balance to another JAM service.
     TransferOut { dest: ServiceId, amount: Amount, memo: Memo },
     /// From `set_authorizer_queue` — update a core's authorizer queue.
@@ -318,6 +368,8 @@ enum UpwardMessage {
     ParachainSetValidationCode { para_id: ParaId, new_validation_code_hash: ValidationCodeHash },
     /// From `parachain_clean_up` — remove all per-parachain state.
     ParachainCleanUp(ParaId),
+    /// From `parachain_set_state_balance`. See §6.1.
+    ParachainSetStateBalance { para_id: ParaId, new_total: Balance },
 }
 ```
 
@@ -328,14 +380,9 @@ to **48 KiB** by the Gray Paper.
   during Refine (code upgrades, transfers, authorizer updates, etc.) are carried alongside
   this result and applied by Accumulate.
 
-- **`Err`** is returned when validation fails. It carries a `ParachainError`, which is
-  either `InvalidCodeHash` (Accumulate detected the work result's `validation_code_hash`
-  doesn't match any accepted code) or `Opaque(payload)` (the PVF called `report_error`
-  before failing, up to 1024 bytes). Accumulate stores the error together with the
-  authorizer trace in the per-parachain error log (see §3.1), keyed by the timeslot of the
-  JAM block in which Accumulate is running. The entry is deleted when a later successful
-  candidate for the same parachain is accumulated **whose lookup-anchor timeslot is
-  strictly greater than the stored entry's key**. This can be used for example to slash a
+- **`Err`** is returned when Refine fails (see `RefineLog`). Accumulate appends
+  a `LogEntry::Refine` to the parachain's `parachain_log` (see §3.1) together
+  with the work-report's authorizer trace — useful for example to slash a
   collator who claimed an authorizer slot that was not theirs.
 
 ---
@@ -352,6 +399,8 @@ index `item_index` the Parachain Service performs:
    with an `Err`.
 2. Takes `para_id = authorized_paras[item_index]` as authoritative for this item.
 3. Fetches the PVF bytecode via `historical_lookup` (using `validation_code_hash`).
+   If the lookup returns `None` (the preimage isn't available in the service's
+   store at the lookup-anchor), aborts with `Err(RefineLog::InvalidCodeHash)`.
 4. Instantiates a child PVM with the PVF.
 5. Executes the PVF against the PoV (the `jam_validate_block` call).
 6. Assembles a `ParachainWorkResult` from the PVF's host-function side effects and the
@@ -413,7 +462,9 @@ These produce effects carried in the work result and applied by Accumulate:
 |---|---|---|
 | `export(data: Vec<u8>)` | `u32` | Write a segment to the JAM Data Lake (e.g. outbound XCMP payloads). Returns segment index. |
 | `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate. |
-| `request_code_upgrade(hash: ValidationCodeHash)` | `()` | Signal a PVF code upgrade request (see §5.2) |
+| `request_code_upgrade(hash: ValidationCodeHash)` | `()` | Signal a PVF code upgrade request (see §5.2). Internally this is a typed wrapper around `solicit` plus the code-upgrade bookkeeping; do not combine it with a separate `solicit` for the same hash. |
+| `solicit(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `solicit` (see §6.1). Idempotent — no-op if the parachain is already in `preimage_registry[hash].referencers`. May fail with `InsufficientStateBalance`. |
+| `forget(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent — no-op if the parachain is not in `preimage_registry[hash].referencers`. |
 | `transfer_out(dest: ServiceId, amount: Balance, memo: Vec<u8>)` | `()` | Transfer balance to another JAM service (Asset Hub only) |
 | `set_authorizer_queue(core: CoreIndex, queue: Vec<AuthorizerHash>, mode: QueueUpdateMode, new_assigner: Option<ServiceId>)` | `()` | Update the authorizer queue for a core (Coretime chain only). `mode` determines whether the queue is applied immediately or cached in service state until the current 80-slot queue is exhausted. `new_assigner`, when `Some`, hands off `assigners[core]` to another service so that service can manage its own core queue going forward; when `None`, the current assigner (Parachain Service) is retained. |
 | `set_validator_keys(keys: Vec<ValidatorKey>)` | `()` | Write the upcoming validator keys to JAM's `stagingset` (Asset Hub only). Keys take effect two epoch transitions later, after flowing through `pendingset → activeset`. |
@@ -422,6 +473,7 @@ These produce effects carried in the work result and applied by Accumulate:
 | `parachain_set_head(para_id: ParaId, new_head: HeadData)` | `()` | Upsert a parachain's head data (Coretime chain only). Used for both initial registration and recovery from a stuck chain. See §6. |
 | `parachain_set_validation_code(para_id: ParaId, new_validation_code_hash: ValidationCodeHash)` | `()` | Upsert a parachain's validation code, bypassing the normal upgrade lifecycle (Coretime chain only). Used for both initial registration and forced code replacement. See §6. |
 | `parachain_clean_up(para_id: ParaId)` | `()` | Remove all per-parachain state (Coretime chain only). See §6. |
+| `parachain_set_state_balance(para_id: ParaId, new_total: Balance)` | `()` | Overwrite `ParaInfo[para_id].total_state_balance` (Coretime chain only). On rejection an `AccumulateLog::StateBalanceUpdateRejected` is appended to the parachain's log. See §6.1. |
 
 Host functions that are restricted to specific services (e.g. Coretime chain, Asset Hub)
 will abort with an error when called by any other service.
@@ -448,21 +500,23 @@ Performed once for each work package that is being accumulated in this block, in
    `hash(ParaInfo[para_id].head_data)`. If not, the candidate is rejected. This prevents
    a collator from including a candidate that was built on top of a stale, skipped, or
    non-canonical parent head.
-2. **Reap timed-out pending upgrade (lazy)**: If `ParaInfo.pending_upgrade` is set and
-   its deadline timeslot is `<=` the current timeslot, the upgrade is expired before this
-   candidate is considered. Call `forget()` on the pending new code hash and clear
+2. **Reap timed-out pending upgrade (lazy)**: If `ParaInfo.pending_upgrade` is set
+   and its deadline timeslot is `<=` the current timeslot, the upgrade is expired
+   before this candidate is considered: release the new code (see §6.1) and clear
    `pending_upgrade`.
-3. **Validation code check**: Verify the work result's `validation_code_hash` matches
-   either `ParaInfo.validation_code_hash` or the pending upgrade's code hash (if step 2
-   did not reap it). If it matches neither, the candidate is rejected and an `ErrorEntry`
-   with `ParachainError::InvalidCodeHash` is appended to `error_log[para_id]`.
-4. **Head data update + code upgrade check**: Writes the new `head_data` from the work
-   result into `ParaInfo` for the parachain and immediately checks whether the candidate
-   was validated with the pending new PVF code. If so, it activates the new code, calls
-   `forget()` on the old code hash, and clears `pending_upgrade`. This must happen here
-   because later candidates from the same parachain in the same block may already use
-   the new code. Any entries in `error_log[para_id]` whose key (timeslot) is strictly
-   less than the current candidate's lookup-anchor timeslot are also pruned here.
+3. **Validation code check**: This is the authoritative check. Verify the work
+   result's `validation_code_hash` matches either `ParaInfo.validation_code_hash` or
+   the pending upgrade's code hash. If it matches
+   neither, the candidate is rejected and `AccumulateLog::InvalidCodeHash { hash }`
+   is recorded in the parachain's `LogEntry::Accumulate` for this timeslot.
+4. **Head data update + code upgrade check**: Writes the new `head_data` from the
+   work result into `ParaInfo` for the parachain and immediately checks whether the
+   candidate was validated with the pending new PVF code. If so, activate the new
+   code, release the old code (see §6.1), and clear `pending_upgrade`. This must
+   happen here because later candidates from the same parachain in the same block
+   may already use the new code. Any entries in `parachain_log[para_id]` whose key
+   (timeslot) is strictly less than the current candidate's lookup-anchor timeslot
+   are also pruned here.
 5. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
    the work result, applying the effects of each side-effect host function the PVF
    invoked during Refine (code upgrades, transfers, authorizer queue updates, validator
@@ -499,9 +553,10 @@ Phase 1: Request
     │
     ▼
 Phase 2: Request Preimage
-    Accumulate calls solicit(new_code_hash, code_len).
-    Sets pending_upgrade with a deadline (current timeslot + UPGRADE_TIMEOUT).
-    The parachain now pays for TWO PVF codes in the preimage store.
+    Accumulate solicits the new code (see §6.1) and sets pending_upgrade
+    with a deadline (current timeslot + UPGRADE_TIMEOUT). If the new code's
+    footprint doesn't fit in the available state balance, the upgrade is
+    rejected with AccumulateLog::InsufficientStateBalance.
     │
     ▼
 Phase 3: Preimage Submission
@@ -520,39 +575,25 @@ Phase 4: Transition Period
     ▼
 Phase 5: Activation or Rejection
     (a) First block using new code: Accumulate detects the candidate was
-        validated with new_code_hash. It:
-        - Sets validation_code_hash = new_code_hash
-        - Calls forget(old_code_hash, old_code_len) to release the old code
-        - Clears pending_upgrade
-        The transition is complete. Only the new code is accepted from now on.
+        validated with new_code_hash, sets validation_code_hash =
+        new_code_hash, releases the old code (§6.1), and clears
+        pending_upgrade.
 
     (b) Deadline exceeded: If the deadline (set in Phase 2) passes without
         the preimage becoming available or without any block using the new
         code, the upgrade is rejected on the next per-work-package
-        accumulate for this parachain (see §5.1, step 2):
-        - Calls forget(new_code_hash, code_len) to release the new code
-        - Clears pending_upgrade
-        The parachain continues with the old code.
+        accumulate for this parachain (see §5.1, step 2): the new code is
+        released (§6.1) and pending_upgrade is cleared. The parachain
+        continues with the old code.
 ```
 
 **Key properties:**
 
 - **No pre-checking needed**: PVM has no compilation bomb risk (unlike WASM), so there is
   no pre-checking vote. The code is accepted as soon as the preimage is available.
-- **Dual-code cost**: During the transition period, the parachain pays for both the old
-   and new PVF code in the preimage store. This incentivizes timely adoption.
-
-   > **Open question**: How exactly the dual-code cost is billed is not yet decided.
-   > Upgrades are self-initiated by the parachain from within Refine via
-   > `request_code_upgrade`, so the Coretime chain is not on the upgrade path and cannot
-   > collect an upgrade-time deposit synchronously. Plausible options include: charging
-   > the parachain's own service balance for the second preimage while `pending_upgrade`
-   > is set (deducted by Accumulate, requires the service to carry balance); sizing the
-   > base registration deposit to cover one concurrent pending upgrade (simple, but makes
-   > registration more expensive for parachains that never upgrade); or pre-funding an
-   > "upgrade credit" on the Coretime chain that the parachain draws down out-of-band
-   > before attempting an upgrade. To be resolved alongside economic modeling of the
-   > preimage store.
+- **Dual-code cost**: During the transition period, both the old and new PVF code
+   are counted against `ParaInfo.used_state_balance`. This incentivizes timely adoption.
+   See the accounting model below.
 - **Permissionless submission**: The preimage can be submitted by anyone — the collator,
   block author, or any third party. The JAM protocol validates the hash against the
   solicitation.
@@ -568,38 +609,154 @@ Parachain lifecycle and management is driven by the **Coretime chain**, which ow
 policy layer: ParaId allocation, deposits, and deciding when to create, overwrite, or
 clean up a parachain's state.
 
-The Parachain Service itself deliberately exposes only three low-level, idempotent host
-functions. Registration, forced updates, and deregistration all map onto them:
+The Parachain Service exposes four low-level, idempotent host functions that drive
+state-balance management, registration, forced updates, and deregistration:
 
+- `parachain_set_state_balance(para_id, new_total)` — set the parachain's quota
 - `parachain_set_head(para_id, new_head)` — upsert head data
 - `parachain_set_validation_code(para_id, new_validation_code_hash)` — upsert validation code
 - `parachain_clean_up(para_id)` — remove all per-parachain state
 
-All three are Coretime-chain-only; the Parachain Service performs no rights-checking of
-its own and in particular **does not enforce ParaId uniqueness** — the Coretime chain is
-the sole authority on which `ParaId`s are live and who owns them. If the Coretime chain
-calls `parachain_set_head` / `parachain_set_validation_code` for an existing `ParaId`, the
-service simply overwrites (useful for forced recovery). If it calls them for a fresh
-`ParaId`, a new `ParaInfo` entry is created.
+All four are Coretime-chain-only; the Parachain Service performs no rights-checking
+of its own and in particular **does not enforce ParaId uniqueness** — the Coretime
+chain is the sole authority on which `ParaId`s are live and who owns them.
+`parachain_set_state_balance` is the sole creator of `ParaInfo` (see §6.1);
+`parachain_set_head`, `parachain_set_validation_code`, and `parachain_clean_up`
+silently no-op when invoked on a `ParaId` whose `ParaInfo` doesn't exist yet, so
+Coretime must call `parachain_set_state_balance` first in any registration
+sequence. On an existing `ParaId`, `parachain_set_head` /
+`parachain_set_validation_code` simply overwrite (useful for forced recovery).
 
-### 6.1 Registration
+### 6.1 State-Balance Accounting
 
-Registration is just the composition of `parachain_set_head` and
-`parachain_set_validation_code` on a previously-unused `ParaId`:
+JAM bills each service for **everything it holds in state** — its storage key/value
+entries, its solicited preimages, and the protocol-level service record itself — by
+requiring the service to keep a minimum balance proportional to that footprint. The
+Parachain Service inherits that obligation for the *aggregate* footprint of all
+parachains it hosts, and re-attributes it **per parachain** via `used_state_balance`.
+
+The per-parachain footprint includes everything the service stores under this
+parachain's `ParaId` — `ParaInfo`, solicited preimages, the `parachain_log` reserve,
+slots in shared structures like `preimage_registry`, and any future per-`ParaId`
+state.
+
+Each parachain is billed as if it were the **sole user** of every data structure it
+touches in service state. For a shared `Map<K, V>`, the parachain pays
+`len(encode((key, value)))` against a value that contains only its own
+contribution. Applied to `preimage_registry: Map<Hash, PreimageEntry>`, each
+referencer of a hash `h` pays for `(h, PreimageEntry { len, referencers: [self] })`
+— including the SCALE length prefix on `referencers` — even though the on-chain
+entry may include many referencers. The same rule applies to the underlying
+preimage data that JAM itself bills the Parachain Service for: one underlying
+preimage, but each referencer pays the full data cost. The sum is the referencer's
+**preimage footprint**. Shared structures end up over-collateralized; existing
+parachains' contributions never need recomputing when set membership changes.
+
+#### Total balance management (Coretime chain only)
+
+The Coretime chain is the sole authority on `total_state_balance`. It calls
+`parachain_set_state_balance(para_id, new_total)` to set the value — at registration
+to create the initial budget (see §6.2), and at any later point to grant additional
+headroom for any additional state requirements or to reclaim slack once the parachain stabilizes.
+
+`parachain_set_state_balance` is the sole creator of `ParaInfo`. Called on a
+previously-unused `ParaId`, it creates a fresh entry with
+`total_state_balance = new_total`, `used_state_balance = baseline_footprint`, and
+the other fields uninitialized (to be filled in by subsequent `parachain_set_head` /
+`parachain_set_validation_code` calls in the same registration sequence). Called on
+an existing `ParaId`, it overwrites `total_state_balance` in place.
+
+In either case the call is applied only if `new_total >= used_state_balance` (so
+the Coretime chain cannot strand currently-paid-for state by under-funding the
+parachain). Otherwise no state change happens and an
+`AccumulateLog::StateBalanceUpdateRejected { attempted, current_total, current_used }`
+is appended to the parachain log so the Coretime chain can observe the rejection
+and size a retry. To free state balance, the parachain (or the Coretime chain via
+a forced update / clean-up; see §6) must first reduce `used_state_balance` by
+releasing preimages.
+
+Verifying the user has enough balance to cover at least the baseline is the Coretime
+chain's responsibility, done before starting the registration sequence.
+
+Deposits, sizing, and refunds are owned end-to-end by the Coretime chain; end users
+interact with it via its usual extrinsics, and the Coretime chain reflects those
+interactions into the Parachain Service via `parachain_set_state_balance`.
+
+#### Preimage multiplexing
+
+JAM allows only one `(hash, len)` solicitation per service. The Parachain Service is
+a single service hosting many parachains, so it multiplexes via `preimage_registry`:
+each entry records the set of `ParaId`s referencing the hash. JAM `solicit` is
+called when the set transitions empty → non-empty; JAM `forget` is called when it
+transitions back to empty (at which point the entry is removed).
+
+#### Sizing the baseline footprint
+
+`baseline_footprint` is the worst-case state cost of an empty parachain — the
+`(ParaId, ParaInfo)` entry plus the `(ParaId, parachain_log[para_id])` entry, with
+every bounded field SCALE-encoded at its maximum so the value is static across
+the parachain's lifetime. Taking `ParaId = u32` (4 B), `Hash = 32 B`,
+`Timeslot = u32` (4 B), `Balance = u128` (16 B):
+
+`(ParaId, ParaInfo)` entry:
+
+```
+ParaId                                                                    =       4 B
+head_data: BoundedVec<u8, 4096>      = 2 (compact len) + 4096             =   4 098 B
+validation_code_hash: Hash                                                =      32 B
+pending_upgrade: Option<(Hash, Timeslot)> = 1 + 32 + 4                    =      37 B
+total_state_balance: Balance                                              =      16 B
+used_state_balance: Balance                                               =      16 B
+                                                                            -------
+                                                                              4 203 B
+```
+
+`(ParaId, parachain_log[para_id])` entry, with `parachain_log[para_id]` typed as
+`CountedMap<Timeslot, LogEntry, 8>`:
+
+```
+LogEntry, Refine variant (dominates Accumulate variant at 992 B):
+  enum discriminant                                                       =       1 B
+  RefineLogEntry.error: RefineLog::Opaque(BoundedVec<u8, 1024>)
+    enum discriminant + 2 (compact len) + 1024                            =   1 027 B
+  RefineLogEntry.auth_trace: BoundedVec<u8, 256> = 2 + 256               =     258 B
+                                                                            -------
+                                                                              1 286 B
+
+per slot: Timeslot + LogEntry = 4 + 1 286                               =   1 290 B
+8 slots                                                                   =  10 320 B
+CountedMap compact length prefix                                          =       1 B
+ParaId key                                                                =       4 B
+                                                                            -------
+                                                                             10 325 B
+```
+
+**`baseline_footprint = 4 203 + 10 325 = 14 528 B`** per parachain.
+
+### 6.2 Registration
+
+Registration is the composition of `parachain_set_state_balance`,
+`parachain_set_head`, and `parachain_set_validation_code` on a previously-unused
+`ParaId`, in that order:
 
 ```
 Coretime chain
     │  Account submits registration with genesis head + validation code hash,
-    │  placing the required deposit.
+    │  placing the required deposit. Coretime verifies the user has enough
+    │  balance to cover the parachain's required state balance.
     │  Coretime chain allocates the ParaId and verifies it is not already live.
+    │  Calls parachain_set_state_balance(para_id, total)  // creates ParaInfo
     │  Calls parachain_set_head(para_id, genesis_head)
     │  Calls parachain_set_validation_code(para_id, validation_code_hash)
     ▼
 Parachain Service (Accumulate)
-    │  Creates ParaInfo { head_data: genesis_head, validation_code_hash,
-    │                     pending_upgrade: None }
-    │  Solicits the validation code preimage via the JAM preimage store
-    │  Increments pvf_registry[validation_code_hash].ref_count
+    │  parachain_set_state_balance creates a fresh ParaInfo with
+    │    total_state_balance = total and used_state_balance = baseline
+    │    footprint (ParaInfo + worst-case parachain_log reserve). Rejected
+    │    if total < baseline.
+    │  parachain_set_head fills in head_data.
+    │  parachain_set_validation_code fills in validation_code_hash and
+    │    solicits the validation code (see §6.1).
     ▼
 User submits the validation code preimage to JAM (xtpreimages extrinsic)
     ▼
@@ -611,7 +768,11 @@ code hash is needed. The Parachain Service solicits the preimage immediately, an
 anyone can submit the actual PVF bytecode via `xtpreimages`. Once the preimage is
 available the parachain is ready to produce blocks.
 
-### 6.2 Forced Updates (Recovery)
+The Coretime chain must raise `total_state_balance` further before any state beyond
+the baseline can be accommodated (pending code upgrade, PVF-initiated `solicit`,
+etc.).
+
+### 6.3 Forced Updates (Recovery)
 
 The same two host functions also handle exceptional recovery — e.g. unsticking a chain
 whose last included block cannot be built on, or swapping in a new PVF outside the normal
@@ -619,22 +780,26 @@ upgrade lifecycle:
 
 - `parachain_set_head(para_id, new_head)` overwrites `ParaInfo.head_data`.
 - `parachain_set_validation_code(para_id, new_hash)` overwrites
-  `ParaInfo.validation_code_hash`, solicits the new preimage, decrements the refcount of
-  the old code (calling `forget()` if it drops to zero), and clears any `pending_upgrade`.
+  `ParaInfo.validation_code_hash`, swaps the parachain's referencer slot from the
+  old code's `preimage_registry` entry to the new one's (§6.1), and clears any
+  `pending_upgrade`. The Coretime chain must raise `total_state_balance` first
+  (in the same batch) if the new code's footprint wouldn't fit.
 
 ```
 Coretime chain
     │  Verifies the rights of the caller
+    │  Calls parachain_set_state_balance(para_id, new_total) if needed
     │  Calls parachain_set_head(para_id, new_head) OR
     │        parachain_set_validation_code(para_id, new_validation_code_hash)
     ▼
 Parachain Service (Accumulate)
-    │  Applies the change, updates pvf_registry refcounts and preimage
-    │  solicitations as needed. When the old validation code's refcount
-    │  drops to zero, calls forget() on its preimage.
+    │  Applies the change, updating each affected preimage_registry entry's
+    │  referencers set as needed. When the old validation code's referencers
+    │  set becomes empty, the entry is removed and JAM forget is called.
+    │  used_state_balance is adjusted accordingly.
 ```
 
-### 6.3 Clean-up (Deregistration)
+### 6.4 Clean-up (Deregistration)
 
 ```
 Coretime chain
@@ -642,13 +807,12 @@ Coretime chain
     │  Calls parachain_clean_up(para_id)
     ▼
 Parachain Service (Accumulate)
-    │  Removes parachains[para_id]
-    │  Decrements pvf_registry[validation_code_hash].ref_count
-    │    → when refcount hits 0, forget() is called on the preimage
-    │  Drops error_log[para_id], pending_upgrade, and any per-para state
+    │  Removes para_id from every preimage_registry entry's referencers set
+    │  (releasing each preimage; see §6.1), then drops parachains[para_id].
 ```
 
-Deposits and any economic unwinding are handled by the Coretime chain.
+The Coretime chain handles deposit refund and any economic unwinding according to
+its own policy.
 
 ---
 
@@ -756,8 +920,8 @@ Preventing this is the responsibility of the **parachain's validation code**, no
 authorizer. If the PVF detects that the claimed anchor timeslot is inconsistent with the
 parachain's own slot progression (e.g. the same collator claiming back-to-back slots they
 are not entitled to), it can fail Refine and use `report_error(data)` to record a
-structured complaint against the offending collator in the error log, which can then be
-read by slashing logic of the parachain.
+structured complaint against the offending collator in the parachain log, which can
+then be read by the parachain's slashing logic.
 
 #### Collator Set Rotation Flow
 
@@ -876,3 +1040,8 @@ Parachain Service protocol:
 - [Demystifying JAM](https://blog.kianenigma.com/posts/tech/demystifying-jam/) — Kian Paimani
 - [JAM PVM Common API](https://docs.rs/jam-pvm-common/latest/jam_pvm_common/) — Host call specifications for Refine and Accumulate
 - [JIP-1: Log Host Call](https://github.com/polkadot-fellows/JIPs/blob/main/JIP-1.md) — PVM logging specification
+
+## TODOS
+
+- We can not set all validators in one go, we need to cache them in accumulate
+- 
