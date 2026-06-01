@@ -117,6 +117,10 @@ pub use cumulus_client_proof_size_recording;
 #[cfg(feature = "cumulus-client-service")]
 pub use cumulus_client_service;
 
+/// Storage-chain bitswap peer rotation and indexed transaction fetching service.
+#[cfg(feature = "cumulus-client-storage-chain-sync")]
+pub use cumulus_client_storage_chain_sync;
+
 /// AURA consensus extension pallet for parachains.
 #[cfg(feature = "cumulus-pallet-aura-ext")]
 pub use cumulus_pallet_aura_ext;

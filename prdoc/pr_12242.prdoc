@@ -16,22 +16,12 @@ doc:
     \ change once the sync-layer work lands."
 crates:
 - name: cumulus-client-storage-chain-sync
-  bump: minor
+  bump: major
 - name: polkadot-omni-node-lib
-  bump: minor
+  bump: patch
 - name: sc-network
   bump: minor
 - name: sp-transaction-storage-proof
   bump: minor
-- name: xcm-runtime-apis
-  bump: minor
-- name: sc-authority-discovery
-  bump: minor
-- name: sc-consensus-beefy
-  bump: minor
-- name: sc-consensus-grandpa
-  bump: minor
-- name: mmr-gadget
-  bump: minor
 - name: sp-api-proc-macro
-  bump: minor
+  bump: major
