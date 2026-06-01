@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780318862035,
+  "lastUpdate": 1780350096190,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "6d647465b3d3ab2ed8839c6a3fa3d456b545b011",
-          "message": "Lazy decode block extrinsics (#9480)\n\nRelated to https://github.com/paritytech/polkadot-sdk/issues/4255\n\nAddresses\nhttps://github.com/paritytech/polkadot-sdk/pull/7902#pullrequestreview-3079855302\n\nThis PR enables us to lazily decode the block extrinsics when needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-21T13:06:53Z",
-          "tree_id": "b8d830a3e42ab4d72a0637b4bae61c0c944103ad",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6d647465b3d3ab2ed8839c6a3fa3d456b545b011"
-        },
-        "date": 1761056968403,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.285956438933331,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19988431976666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14262114859999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e5d5a28c9f1a596fbe0a5a00c28c507610dd84ce",
+          "message": "pallet-dap: re-export WeightInfo at crate root (#12246)\n\nThe trait was only reachable at `pallet_dap::weights::WeightInfo`, so\nthe benchmark template's generated `pallet_dap::WeightInfo` path failed\nto resolve and required a manual fixup in every consumer. Add the\nstandard FRAME re-export (`pub use weights::WeightInfo;`) and switch the\nAsset Hub Westend weights file and the staking-async integration test\nback to the canonical `pallet_dap::WeightInfo` path.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-01T18:06:33Z",
+          "tree_id": "e5dc875c6c04739f9088692e0df0f504559c2c67",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e5d5a28c9f1a596fbe0a5a00c28c507610dd84ce"
+        },
+        "date": 1780350065500,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.40281621033333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14049535756666667,
             "unit": "seconds"
           }
         ]
