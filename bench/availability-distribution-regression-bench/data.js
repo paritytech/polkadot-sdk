@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780309758156,
+  "lastUpdate": 1780318898597,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "5588131+kianenigma@users.noreply.github.com",
-            "name": "Kian Paimani",
-            "username": "kianenigma"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "56e4b10bbbbcefcf9e4fe879c88c68902181fc4a",
-          "message": "[AHM/Staking] Allow own stake to be collected in all pages (#10051)\n\nTLDR: Thanks to a number of reports from Kusama validator, we have been\ninvestigating an issue where the self stake of some validators is not\npresent in `ErasStakersPaged` and `ErasStakersOverview`, and\nconsequently not earning staking rewards.\n\nAfter investigation, it was clear that the `polkadot-staking-miner` is\ndoing the right thing, and the self-stake is indeed submitted to the\nchain as a part of the staking election result.\n\nThe root cause in how `pallet-staking-async` ingests the staking\nelection result. This code **made a (wrong) assumption that self-stake\nis only present in the first page of a multi-page election. This PR\nfixes this issue.**\n\n---\n\n- [x] (nice to have) revisit try-state checks of the pallet,\n`ErasStakersPaged`, `ErasStakersOverview` and `ErasTotalStake` are\ntriple checked for correctness\n- [ ] (nice to have) fix related displays in PJS:\nhttps://github.com/polkadot-js/apps/pull/11930\n- [ ] backport to 2507 and 2509\n- Westend \n- [ ] Find a similar issue in westend for monitoring\n(https://github.com/paritytech/devops/issues/4402)\n  - [ ] Upgrade westend to a branch/release containing this fix \n- [ ] Upgrade westend with this fix, observe test examples are resolved\n- [ ] Bump backported version in `fellowship/runtimes`\n- [ ] Release 1.9.3 for Kusama with this fix\n- [ ] Ensure known test cases are fixed\n- One example: `F2WyUUFXLYnBg6acv7t2KFzH6D7CyNcvC4mRCwUdsHTUB4t` (in\nelection round 46, likely repeating in subsequent ones too)\n- This PR will be part of Polkadot release 2.0.0, the Polkadot AHM.\n- [ ] Forum post with further explanation once PR is merged.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-20T19:13:45Z",
-          "tree_id": "d2786f7afae7fac3c39e274963ad57630f271778",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/56e4b10bbbbcefcf9e4fe879c88c68902181fc4a"
-        },
-        "date": 1760991788095,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1598404309866667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01325997142,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022601217206666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007276254239999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010243288613333304,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jfanatiker@gmx.at",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6076625415efe1550ffafbe2e657a5de28cd64b1",
+          "message": "Clock abstraction: Preparation for deterministic simulation testing (#12212)\n\nAll prod changes needed for\nhttps://github.com/paritytech/polkadot-sdk/pull/12007 . With this\nmerged, 12007 should be test code only. We skipped full determinism for\nnow on subsystems we don't have deterministic tests yet anyways. Those\nwill come later as needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-01T11:23:37Z",
+          "tree_id": "04e3b0f66b75639b8c4815d2ed95a27339c08fba",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6076625415efe1550ffafbe2e657a5de28cd64b1"
+        },
+        "date": 1780318870375,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1430488843,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007377164880000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023614301133333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010003202406666634,
             "unit": "seconds"
           }
         ]
