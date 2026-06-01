@@ -239,6 +239,7 @@ impl<'de> Deserialize<'de> for EvmOpcodeV1 {
 	strum::Display,
 	strum::EnumString,
 	strum::IntoStaticStr,
+	strum::VariantArray,
 )]
 #[serde(into = "&'static str")]
 #[strum(serialize_all = "snake_case")]

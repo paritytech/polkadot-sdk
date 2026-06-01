@@ -58,6 +58,7 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_revive_fixtures::compile_module;
+use pallet_revive_types::runtime_api::*;
 use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::U256;
@@ -5467,18 +5468,15 @@ fn existential_deposit_shall_not_be_charged_twice() {
 
 #[test]
 fn self_destruct_by_syscall_tracing_works() {
-	use crate::{
-		Trace,
-		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig, Tracer},
-	};
+	use crate::evm::{PrestateTracer, PrestateTracerConfig, Tracer};
 
 	let (binary, _code_hash) = compile_module("self_destruct_by_syscall").unwrap();
 
 	struct TestCase {
 		description: &'static str,
 		create_tracer: Box<dyn FnOnce() -> Tracer<Test>>,
-		expected_trace_fn: Box<dyn FnOnce(H160, Vec<u8>) -> Trace>,
-		modify_trace_fn: Option<Box<dyn FnOnce(Trace) -> Trace>>,
+		expected_trace_fn: Box<dyn FnOnce(H160, Vec<u8>) -> TraceV1>,
+		modify_trace_fn: Option<Box<dyn FnOnce(TraceV1) -> TraceV1>>,
 	}
 
 	let test_cases = vec![
@@ -5486,19 +5484,19 @@ fn self_destruct_by_syscall_tracing_works() {
 			description: "CallTracer",
 			create_tracer: Box::new(|| Tracer::CallTracer(CallTracer::new(Default::default()))),
 			expected_trace_fn: Box::new(|addr, _binary| {
-				Trace::Call(CallTrace {
+				TraceV1::Call(CallTraceV1 {
 					from: ALICE_ADDR,
 					to: addr,
-					call_type: CallType::Call,
+					call_type: CallTypeV1::Call,
 					value: Some(U256::zero()),
 					gas: 0,
 					gas_used: 0,
-					calls: vec![CallTrace {
+					calls: vec![CallTraceV1 {
 						from: addr,
 						to: DJANGO_ADDR,
 						gas: 0,
 
-						call_type: CallType::Selfdestruct,
+						call_type: CallTypeV1::Selfdestruct,
 						value: Some(Pallet::<Test>::convert_native_to_evm(100_000u128)),
 						..Default::default()
 					}],
@@ -5506,7 +5504,7 @@ fn self_destruct_by_syscall_tracing_works() {
 				})
 			}),
 			modify_trace_fn: Some(Box::new(|mut actual_trace| {
-				if let Trace::Call(trace) = &mut actual_trace {
+				if let TraceV1::Call(trace) = &mut actual_trace {
 					trace.gas = 0;
 					trace.gas_used = 0;
 					trace.calls[0].gas = 0;
@@ -5572,8 +5570,8 @@ fn self_destruct_by_syscall_tracing_works() {
 					.replace("{{DJANGO_BALANCE_POST}}", &format!("{:#x}", django_balance_post))
 					.replace("{{CONTRACT_CODE}}", &format!("0x{}", hex::encode(&binary)));
 
-				let expected: PrestateTrace = serde_json::from_str(&json).unwrap();
-				Trace::Prestate(expected)
+				let expected: PrestateTraceV1 = serde_json::from_str(&json).unwrap();
+				TraceV1::Prestate(expected)
 			}),
 			modify_trace_fn: None,
 		},
@@ -5617,8 +5615,8 @@ fn self_destruct_by_syscall_tracing_works() {
 					.replace("{{DJANGO_BALANCE}}", &format!("{:#x}", django_balance))
 					.replace("{{CONTRACT_CODE}}", &format!("0x{}", hex::encode(&binary)));
 
-				let expected: PrestateTrace = serde_json::from_str(&json).unwrap();
-				Trace::Prestate(expected)
+				let expected: PrestateTraceV1 = serde_json::from_str(&json).unwrap();
+				TraceV1::Prestate(expected)
 			}),
 			modify_trace_fn: None,
 		},
@@ -5640,15 +5638,15 @@ fn self_destruct_by_syscall_tracing_works() {
 				builder::call(addr).build().unwrap();
 			});
 
-			let mut trace = tracer.collect_trace().unwrap();
+			let mut trace = TraceV1::from(tracer.collect_trace().unwrap());
 
 			if let Some(modify_trace_fn) = modify_trace_fn {
 				trace = modify_trace_fn(trace);
 			}
 			let trace_wrapped = match trace {
-				crate::evm::Trace::Call(ct) => Trace::Call(ct),
-				crate::evm::Trace::Prestate(pt) => Trace::Prestate(pt),
-				crate::evm::Trace::Execution(_) => panic!("Execution trace not expected"),
+				TraceV1::Call(ct) => TraceV1::Call(ct),
+				TraceV1::Prestate(pt) => TraceV1::Prestate(pt),
+				TraceV1::Execution(_) => panic!("Execution trace not expected"),
 			};
 
 			assert_eq!(trace_wrapped, expected_trace, "Trace mismatch for: {}", description);
