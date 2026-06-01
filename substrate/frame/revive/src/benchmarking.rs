@@ -1463,6 +1463,55 @@ mod benchmarks {
 		Ok((info, key, value))
 	}
 
+	enum StorageCall {
+		Clear,
+		Contains,
+		Take,
+	}
+
+	fn setup_precompile_bench<T: Config>(
+		op: StorageCall,
+		key_byte: u8,
+		access: SlotAccess,
+	) -> Result<(CallSetup<T>, Key, Vec<u8>), BenchmarkError> {
+		let max_key_len = limits::STORAGE_KEY_BYTES;
+		let key = Key::try_from_var(vec![key_byte; max_key_len as usize])
+			.map_err(|_| "Key has wrong length")?;
+		let raw_key = vec![key_byte; max_key_len as usize].into();
+		let input_bytes = match op {
+			StorageCall::Clear => {
+				IStorage::IStorageCalls::clearStorage(IStorage::clearStorageCall {
+					flags: StorageFlags::empty().bits(),
+					key: raw_key,
+					isFixedKey: false,
+				})
+			},
+			StorageCall::Contains => {
+				IStorage::IStorageCalls::containsStorage(IStorage::containsStorageCall {
+					flags: StorageFlags::empty().bits(),
+					key: raw_key,
+					isFixedKey: false,
+				})
+			},
+			StorageCall::Take => IStorage::IStorageCalls::takeStorage(IStorage::takeStorageCall {
+				flags: StorageFlags::empty().bits(),
+				key: raw_key,
+				isFixedKey: false,
+			}),
+		}
+		.abi_encode();
+
+		let call_setup = CallSetup::<T>::default();
+		if matches!(access, SlotAccess::Hot) {
+			let info = call_setup.contract().info()?;
+			frame_benchmarking::add_to_whitelist_child(
+				info.child_trie_info().storage_key().to_vec(),
+				key.hash(),
+			);
+		}
+		Ok((call_setup, key, input_bytes))
+	}
+
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn get_storage_empty() -> Result<(), BenchmarkError> {
 		let (info, key, value) =
@@ -1647,8 +1696,6 @@ mod benchmarks {
 		info.write(&key, Some(vec![42u8; o as usize]), None, false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		// Pre-load child trie nodes into the proof recorder — makes this a
-		// hot-state measurement.
 		frame_benchmarking::add_to_whitelist_child(
 			info.child_trie_info().storage_key().to_vec(),
 			key.hash(),
@@ -1674,18 +1721,9 @@ mod benchmarks {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn clear_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
-			.map_err(|_| "Key has wrong length")?;
-
-		let input_bytes = IStorage::IStorageCalls::clearStorage(IStorage::clearStorageCall {
-			flags: StorageFlags::empty().bits(),
-			key: vec![0u8; max_key_len as usize].into(),
-			isFixedKey: false,
-		})
-		.abi_encode();
-
-		let mut call_setup = CallSetup::<T>::default();
+		let key_byte = 0;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Clear, key_byte, SlotAccess::Cold)?;
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
@@ -1707,26 +1745,9 @@ mod benchmarks {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn clear_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
-			.map_err(|_| "Key has wrong length")?;
-
-		let input_bytes = IStorage::IStorageCalls::clearStorage(IStorage::clearStorageCall {
-			flags: StorageFlags::empty().bits(),
-			key: vec![0u8; max_key_len as usize].into(),
-			isFixedKey: false,
-		})
-		.abi_encode();
-
-		let mut call_setup = CallSetup::<T>::default();
-		{
-			let info = call_setup.contract().info()?;
-			frame_benchmarking::add_to_whitelist_child(
-				info.child_trie_info().storage_key().to_vec(),
-				key.hash(),
-			);
-		}
-
+		let key_byte = 0;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Clear, key_byte, SlotAccess::Hot)?;
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
@@ -1813,17 +1834,9 @@ mod benchmarks {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn contains_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
-			.map_err(|_| "Key has wrong length")?;
-		let input_bytes = IStorage::IStorageCalls::containsStorage(IStorage::containsStorageCall {
-			flags: StorageFlags::empty().bits(),
-			key: vec![0u8; max_key_len as usize].into(),
-			isFixedKey: false,
-		})
-		.abi_encode();
-
-		let mut call_setup = CallSetup::<T>::default();
+		let key_byte = 0;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Contains, key_byte, SlotAccess::Cold)?;
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
@@ -1845,25 +1858,9 @@ mod benchmarks {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn contains_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
-			.map_err(|_| "Key has wrong length")?;
-		let input_bytes = IStorage::IStorageCalls::containsStorage(IStorage::containsStorageCall {
-			flags: StorageFlags::empty().bits(),
-			key: vec![0u8; max_key_len as usize].into(),
-			isFixedKey: false,
-		})
-		.abi_encode();
-
-		let mut call_setup = CallSetup::<T>::default();
-		{
-			let info = call_setup.contract().info()?;
-			frame_benchmarking::add_to_whitelist_child(
-				info.child_trie_info().storage_key().to_vec(),
-				key.hash(),
-			);
-		}
-
+		let key_byte = 0;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Contains, key_byte, SlotAccess::Hot)?;
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
@@ -1885,18 +1882,9 @@ mod benchmarks {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn take_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = Key::try_from_var(vec![3u8; max_key_len as usize])
-			.map_err(|_| "Key has wrong length")?;
-
-		let input_bytes = IStorage::IStorageCalls::takeStorage(IStorage::takeStorageCall {
-			flags: StorageFlags::empty().bits(),
-			key: vec![3u8; max_key_len as usize].into(),
-			isFixedKey: false,
-		})
-		.abi_encode();
-
-		let mut call_setup = CallSetup::<T>::default();
+		let key_byte = 3;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Take, key_byte, SlotAccess::Cold)?;
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
@@ -1918,26 +1906,9 @@ mod benchmarks {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn take_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = Key::try_from_var(vec![3u8; max_key_len as usize])
-			.map_err(|_| "Key has wrong length")?;
-
-		let input_bytes = IStorage::IStorageCalls::takeStorage(IStorage::takeStorageCall {
-			flags: StorageFlags::empty().bits(),
-			key: vec![3u8; max_key_len as usize].into(),
-			isFixedKey: false,
-		})
-		.abi_encode();
-
-		let mut call_setup = CallSetup::<T>::default();
-		{
-			let info = call_setup.contract().info()?;
-			frame_benchmarking::add_to_whitelist_child(
-				info.child_trie_info().storage_key().to_vec(),
-				key.hash(),
-			);
-		}
-
+		let key_byte = 3;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Take, key_byte, SlotAccess::Hot)?;
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
