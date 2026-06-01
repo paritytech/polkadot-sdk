@@ -599,6 +599,11 @@ mod mock {
 		pub(super) fn last_indexed_transactions_state(&self) -> Option<H256> {
 			self.inner.lock().unwrap().last_indexed_transactions_state
 		}
+
+		#[cfg(feature = "test-helpers")]
+		pub(super) fn call_api_at_count(&self) -> usize {
+			self.inner.lock().unwrap().call_api_at_count
+		}
 	}
 
 	mock_impl_runtime_apis! {
