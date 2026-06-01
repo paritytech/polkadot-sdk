@@ -428,7 +428,8 @@ fn scraper_requests_candidates_of_non_finalized_ancestors() {
 			&chain,
 			finalized_block_number,
 			BLOCKS_TO_SKIP -
-				(finalized_block_number - *DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION) as usize, /* Expect the provider not to go past finalized block. */
+				(finalized_block_number - *DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION)
+					as usize, // Expect the provider not to go past finalized block.
 			get_backed_and_included_candidate_events,
 		);
 		join(process_active_leaves_update(ctx.sender(), &mut ordering, next_update), overseer_fut)
