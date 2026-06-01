@@ -66,6 +66,21 @@ pub mod async_backing {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 }
 
+pub mod async_backing_v3 {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_async_backing_v3.rs"));
+}
+
+pub mod async_backing_v3_rpo {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_async_backing_v3_rpo.rs"));
+}
+
+pub mod elastic_scaling_v3 {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_v3.rs"));
+}
+
 pub mod slot_duration_18s {
 	#[cfg(feature = "std")]
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_slot_duration_18s.rs"));
@@ -92,7 +107,7 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use cumulus_primitives_core::{ParaId, RelayProofRequest};
+use cumulus_primitives_core::{ParaId, RelayProofRequest, VerifySchedulingSignature};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -141,7 +156,7 @@ pub const BLOCK_PROCESSING_VELOCITY: u32 = 12;
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 6;
 
 #[cfg(all(
-	any(feature = "elastic-scaling", feature = "relay-parent-offset"),
+	feature = "elastic-scaling",
 	not(feature = "elastic-scaling-500ms"),
 	not(feature = "elastic-scaling-multi-block-slot")
 ))]
@@ -151,7 +166,6 @@ pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 	feature = "elastic-scaling",
 	feature = "elastic-scaling-500ms",
 	feature = "elastic-scaling-multi-block-slot",
-	feature = "relay-parent-offset",
 	feature = "block-bundling",
 )))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
@@ -400,6 +414,26 @@ const RELAY_PARENT_OFFSET: u32 = 2;
 #[cfg(not(feature = "relay-parent-offset"))]
 const RELAY_PARENT_OFFSET: u32 = 0;
 
+const SCHEDULING_V3_ENABLED: bool = cfg!(feature = "v3-descriptor");
+
+/// Scheduling-info verifier used by `cumulus-test-runtime`.
+///
+/// Accepts any signature; `V3_SCHEDULING_ENABLED` is gated on the `v3-descriptor` cargo
+/// feature so the test runtime can flip V3 scheduling on without needing a runtime upgrade
+/// per build.
+pub struct NoVerification;
+
+impl VerifySchedulingSignature for NoVerification {
+	const V3_SCHEDULING_ENABLED: bool = SCHEDULING_V3_ENABLED;
+
+	fn verify(
+		_signed_info: &cumulus_primitives_core::SignedSchedulingInfo,
+		_internal_scheduling_parent_header: &cumulus_primitives_core::relay_chain::Header,
+	) -> bool {
+		true
+	}
+}
+
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
@@ -421,6 +455,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type SchedulingSignatureVerifier = NoVerification;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -577,6 +612,16 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
 			RELAY_PARENT_OFFSET
+		}
+
+		fn max_claim_queue_offset() -> u8 {
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
+		}
+	}
+
+	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
+		fn scheduling_v3_enabled() -> bool {
+			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED
 		}
 	}
 
