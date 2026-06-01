@@ -1606,3 +1606,16 @@ pub use xcm_runtime_apis;
 /// Test kit to simulate cross-chain message passing and XCM execution.
 #[cfg(feature = "xcm-simulator")]
 pub use xcm_simulator;
+
+/// Doppelganger
+pub use doppelganger as doppelganger_lib;
+
+/// Polkadot crate that contains the logic for executing PVFs. Used by the
+/// polkadot-execute-worker binary.
+#[cfg(feature = "polkadot-node-core-pvf-execute-worker")]
+pub use polkadot_node_core_pvf_execute_worker;
+
+/// Polkadot crate that contains the logic for preparing PVFs. Used by the
+/// polkadot-prepare-worker binary.
+#[cfg(feature = "polkadot-node-core-pvf-prepare-worker")]
+pub use polkadot_node_core_pvf_prepare_worker;

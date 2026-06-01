@@ -939,6 +939,8 @@ node = [
 	"polkadot-node-core-pvf",
 	"polkadot-node-core-pvf-checker",
 	"polkadot-node-core-pvf-common",
+	"polkadot-node-core-pvf-execute-worker",
+	"polkadot-node-core-pvf-prepare-worker",
 	"polkadot-node-core-runtime-api",
 	"polkadot-node-metrics",
 	"polkadot-node-network-protocol",
@@ -1038,6 +1040,11 @@ tuples-96 = [
 	"frame-support?/tuples-96",
 ]
 
+doppelganger = [
+	"polkadot-cli/doppelganger",
+	"polkadot-omni-node-lib/doppelganger",
+]
+
 [package.edition]
 workspace = true
 
@@ -1049,6 +1056,11 @@ workspace = true
 
 [package.repository]
 workspace = true
+
+[dependencies.doppelganger]
+default-features = false
+optional = false
+path = "../doppelganger"
 
 [dependencies.assets-common]
 default-features = false
@@ -2459,6 +2471,16 @@ path = "../polkadot/node/network/gossip-support"
 default-features = false
 optional = true
 path = "../polkadot/node/network/bridge"
+
+[dependencies.polkadot-node-core-pvf-execute-worker]
+default-features = false
+optional = true
+path = "../polkadot/node/core/pvf/execute-worker"
+
+[dependencies.polkadot-node-core-pvf-prepare-worker]
+default-features = false
+optional = true
+path = "../polkadot/node/core/pvf/prepare-worker"
 
 [dependencies.polkadot-node-collation-generation]
 default-features = false

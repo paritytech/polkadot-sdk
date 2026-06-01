@@ -172,6 +172,11 @@ impl<Block: BlockT> GrandpaJustification<Block> {
 		NumberFor<Block>: finality_grandpa::BlockNumberOps,
 	{
 		use finality_grandpa::Chain;
+		// Doppelganger
+		if std::env::var("ZOMBIE_IS_WESTEND").is_ok() {
+			println!("[DOPPELGANGER]: bypass for westend");
+			return Ok(());
+		}
 
 		let ancestry_chain = AncestryChain::<Block>::new(&self.justification.votes_ancestries);
 
