@@ -137,6 +137,9 @@ polkadot-statement-distribution = { optional = true, workspace = true, default-f
 xcm = { workspace = true, default-features = true }
 xcm-runtime-apis = { workspace = true, default-features = true }
 
+# Doppelganger
+doppelganger-consensus = { path = "../../../doppelganger/consensus", optional = true }
+
 [dev-dependencies]
 assert_matches = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
@@ -231,4 +234,9 @@ runtime-metrics = [
 	"polkadot-runtime-parachains/runtime-metrics",
 	"rococo-runtime?/runtime-metrics",
 	"westend-runtime?/runtime-metrics",
+]
+
+doppelganger = [
+	"dep:doppelganger-consensus",
+	"full-node"
 ]

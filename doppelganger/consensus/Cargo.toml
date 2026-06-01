@@ -30,6 +30,7 @@ sp-io = { workspace = true, default-features = true }
 
 frame-system = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
+futures = { workspace = true }
 
 
 [features]
