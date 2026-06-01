@@ -84,6 +84,8 @@
 use alloc::{
 	boxed::Box,
 	collections::btree_map::{BTreeMap, Entry},
+	string::String,
+	vec::Vec,
 };
 use core::any::{Any, TypeId};
 
@@ -196,9 +198,73 @@ pub fn run_in_context<R>(run: impl FnOnce() -> R) -> R {
 	DISPATCH_CONTEXT::using_once(&mut Default::default(), run)
 }
 
+/// A single event field captured during dispatch for chain batching.
+pub struct CapturedEventEntry {
+	/// Pallet that emitted the event.
+	pub pallet: String,
+	/// Name of the event variant.
+	pub variant: String,
+	/// Capture name specified in `#[chain_batch(capture = "name")]`.
+	pub field_name: String,
+	/// SCALE-encoded value of the field.
+	pub value: Vec<u8>,
+}
+
+#[derive(Default)]
+struct EventCaptureCtx(Vec<CapturedEventEntry>);
+
+/// Stores an encoded event field value in the current dispatch context for chain batching.
+///
+/// Called by the FRAME macro for pallets annotated with `#[pallet::capture_for_chain_batch]`
+/// on their event enum, for each variant field marked with `#[chain_batch(capture = "name")]`.
+/// No-op outside a dispatch context.
+pub fn capture_event_field(pallet: &str, variant: &str, field_name: &str, value: Vec<u8>) {
+	with_context::<EventCaptureCtx, _>(|ctx| {
+		ctx.or_default().0.push(CapturedEventEntry {
+			pallet: pallet.into(),
+			variant: variant.into(),
+			field_name: field_name.into(),
+			value,
+		});
+	});
+}
+
+/// Drains all event fields captured in the current dispatch context.
+///
+/// Returns `None` outside a dispatch context. Inside a context returns `Some(vec)`,
+/// where the vec may be empty if no fields were captured. The captured entries are
+/// consumed: a subsequent call returns an empty vec.
+pub fn get_captured_event_fields() -> Option<Vec<CapturedEventEntry>> {
+	with_context::<EventCaptureCtx, _>(|ctx| core::mem::take(ctx.or_default()).0)
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn capture_event_fields_works() {
+		assert!(get_captured_event_fields().is_none());
+
+		run_in_context(|| {
+			let empty = get_captured_event_fields().unwrap();
+			assert!(empty.is_empty());
+
+			capture_event_field("pallet_foo", "Transfer", "amount", vec![1, 2, 3]);
+			capture_event_field("pallet_foo", "Transfer", "from", vec![4, 5]);
+
+			let fields = get_captured_event_fields().unwrap();
+			assert_eq!(fields.len(), 2);
+			assert_eq!(fields[0].pallet, "pallet_foo");
+			assert_eq!(fields[0].variant, "Transfer");
+			assert_eq!(fields[0].field_name, "amount");
+			assert_eq!(fields[0].value, vec![1, 2, 3]);
+			assert_eq!(fields[1].field_name, "from");
+
+			let drained = get_captured_event_fields().unwrap();
+			assert!(drained.is_empty());
+		});
+	}
 
 	#[test]
 	fn dispatch_context_works() {
