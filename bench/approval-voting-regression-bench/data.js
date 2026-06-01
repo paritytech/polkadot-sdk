@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780309797461,
+  "lastUpdate": 1780318935123,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b6ef912d74af2c43b90f542e09b74abe061ff859",
-          "message": "pallet_revive: when a dry run simulates contract deployment, return the execution result data. (#10032)\n\nFixes https://github.com/paritytech/contract-issues/issues/177\n\nExpose the deployed contract's runtime bytecode in eth_call responses\nduring simulated contract creation.\n\nThe test from issue\nhttps://github.com/paritytech/contract-issues/issues/177 sends an\neth_call request without a destination address, while providing contract\nbytecode in the data field. This simulates a contract creation\ntransaction. The test expects the RPC response to return the result of\nexecuting the init code, which is the deployed contract's runtime\nbytecode. While this result is not returned in actual deployments, it is\nexpected in dry-run simulations.\n\n---------\n\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-20T15:34:23Z",
-          "tree_id": "604d5347b0a64183e4502f179bae670c63f754a1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b6ef912d74af2c43b90f542e09b74abe061ff859"
-        },
-        "date": 1760980216109,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52942.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63627.31999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002134083,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.578949853200001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002134083,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.44436728297000083,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002119485,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.526698411620001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.547340220550001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.5174918199000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002119485,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7273335576208386,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.577559115699996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9569321564399924,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005779371020000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-db",
             "value": 2.533626543169994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jfanatiker@gmx.at",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6076625415efe1550ffafbe2e657a5de28cd64b1",
+          "message": "Clock abstraction: Preparation for deterministic simulation testing (#12212)\n\nAll prod changes needed for\nhttps://github.com/paritytech/polkadot-sdk/pull/12007 . With this\nmerged, 12007 should be test code only. We skipped full determinism for\nnow on subsystems we don't have deterministic tests yet anyways. Those\nwill come later as needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-01T11:23:37Z",
+          "tree_id": "04e3b0f66b75639b8c4815d2ed95a27339c08fba",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6076625415efe1550ffafbe2e657a5de28cd64b1"
+        },
+        "date": 1780318906780,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63619.66000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.768570877390002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005587296320000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000023003299999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000024068399999999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.414587591949976,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000024068399999999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.752602722760001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000023003299999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8137810044699672,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.451900572792699,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.800278101470001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.478105606250005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7956619832900005,
             "unit": "seconds"
           }
         ]
