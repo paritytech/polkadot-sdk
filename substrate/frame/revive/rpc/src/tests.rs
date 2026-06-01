@@ -759,13 +759,18 @@ async fn test_evm_blocks_should_match() -> anyhow::Result<()> {
 	let evm_block_from_rpc_by_hash =
 		client.get_block_by_hash(block_hash, false).await?.expect("Block should exist");
 
-	assert!(
-		matches!(
-			evm_block_from_rpc_by_number.transactions,
-			pallet_revive::evm::HashesOrTransactionInfos::Hashes(_)
-		),
-		"Block should not have hydrated transactions"
-	);
+	let tx_hash = tx.hash();
+	match &evm_block_from_rpc_by_number.transactions {
+		HashesOrTransactionInfos::Hashes(hashes) => {
+			assert!(
+				hashes.contains(&tx_hash),
+				"non-hydrated block missing submitted tx hash {tx_hash:?}; got {hashes:?}"
+			);
+		},
+		HashesOrTransactionInfos::TransactionInfos(_) => {
+			panic!("non-hydrated block must use Hashes variant")
+		},
+	}
 
 	// All EVM blocks must match
 	assert_eq!(evm_block_from_storage, evm_block_from_rpc_by_number, "EVM blocks should match");

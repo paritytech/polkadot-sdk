@@ -23,10 +23,7 @@ use crate::{
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
 use sp_core::{H256, U256};
 use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool, query};
-use std::{
-	collections::{BTreeMap, HashMap},
-	sync::Arc,
-};
+use std::{collections::BTreeMap, sync::Arc};
 use tokio::sync::Mutex;
 
 const LOG_TARGET: &str = "eth-rpc::receipt_provider";
@@ -857,30 +854,31 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Some(count)
 	}
 
-	/// Return all transaction hashes for the given block hash.
-	pub async fn block_transaction_hashes(
-		&self,
-		block_hash: &H256,
-	) -> Option<HashMap<usize, H256>> {
+	/// Return all transaction hashes for the given substrate block hash, in EVM
+	/// transaction-index order (position in the returned `Vec` equals the
+	/// transaction's `transaction_index`).
+	///
+	/// Returns an empty `Vec` if the block has no cached transactions or was never
+	/// seen — callers that care about distinguishing the two should check separately.
+	pub async fn block_transaction_hashes(&self, block_hash: &H256) -> Vec<H256> {
 		let block_hash = block_hash.as_ref();
-		let rows = query!(
+		let result = query!(
 			r#"
-		      SELECT transaction_index, transaction_hash
+		      SELECT transaction_hash
 		      FROM transaction_hashes
 		      WHERE block_hash = $1
+		      ORDER BY transaction_index ASC
 		      "#,
 			block_hash
 		)
-		.map(|row| {
-			let transaction_index = row.transaction_index as usize;
-			let transaction_hash = H256::from_slice(&row.transaction_hash);
-			(transaction_index, transaction_hash)
-		})
+		.map(|row| H256::from_slice(&row.transaction_hash))
 		.fetch_all(&self.db_ctx.pool)
-		.await
-		.ok()?;
+		.await;
 
-		Some(rows.into_iter().collect())
+		match result {
+			Ok(rows) => rows,
+			Err(_) => Vec::new(),
+		}
 	}
 
 	/// Get the receipt for the given block hash and transaction index.
@@ -1812,6 +1810,66 @@ mod tests {
 		assert_eq!(count(&provider.db_ctx.pool, "logs", Some(ethereum_hash)).await, 15);
 		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 1);
 
+		Ok(())
+	}
+
+	/// `block_transaction_hashes` is what `Client::recover_block_tx_hashes` (and
+	/// `trace_block_by_number`) use to assemble the per-block tx hash list. SQLite
+	/// must return rows in EVM `transaction_index` order so position-in-vec equals
+	/// the EVM index. Mis-ordering would break tracers and consumer indexing by
+	/// position. See #6790.
+	#[sqlx::test]
+	async fn test_block_transaction_hashes_returns_by_tx_index(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await.with_keep_latest(None);
+		let block = MockBlockInfo { hash: make_hash(7, 0xAA), number: 1 };
+		let ethereum_hash = make_hash(7, 0xBB);
+
+		// `make_receipts` assigns `transaction_index = i` for i in 0..N.
+		let n_tx = 5;
+		let receipts = make_receipts(0, n_tx, 0);
+		provider.insert(&block, &receipts, &ethereum_hash).await?;
+
+		let hashes = provider.block_transaction_hashes(&block.hash()).await;
+		let expected: Vec<H256> = receipts.iter().map(|(_, r)| r.transaction_hash).collect();
+		assert_eq!(hashes, expected, "must yield hashes ordered by transaction_index");
+
+		Ok(())
+	}
+
+	/// Cache miss returns an empty `Vec` (not panic, not `None`) — recover uses
+	/// emptiness as the "fall through to backfill" signal.
+	#[sqlx::test]
+	async fn test_block_transaction_hashes_unknown_block_is_empty(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let never_seen = make_hash(99, 0x77);
+		assert!(
+			provider.block_transaction_hashes(&never_seen).await.is_empty(),
+			"cache miss on unknown block must yield empty Vec"
+		);
+		Ok(())
+	}
+
+	/// A block known to the eth-rpc store but with zero EVM transactions also returns
+	/// an empty `Vec` — recover treats this as "nothing to do" rather than re-attempting
+	/// backfill on every read.
+	#[sqlx::test]
+	async fn test_block_transaction_hashes_known_empty_block(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await.with_keep_latest(None);
+		let block = MockBlockInfo { hash: make_hash(11, 0xCC), number: 2 };
+		let ethereum_hash = make_hash(11, 0xDD);
+
+		provider.insert(&block, &[], &ethereum_hash).await?;
+
+		assert!(
+			provider.block_transaction_hashes(&block.hash()).await.is_empty(),
+			"empty block must yield empty Vec"
+		);
 		Ok(())
 	}
 
