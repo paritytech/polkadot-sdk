@@ -60,7 +60,8 @@ use polkadot_primitives::{
 	SessionIndex,
 };
 
-use crate::{modify_reputation, Clock, LOG_TARGET, LOG_TARGET_STATS};
+use crate::{modify_reputation, LOG_TARGET, LOG_TARGET_STATS};
+use polkadot_node_clock::{BoxedDelay, Clock};
 
 mod collation;
 mod error;
@@ -113,7 +114,7 @@ const MAX_PARALLEL_CHAIN_API_REQUESTS: usize = 10;
 ///
 /// `Pending` variant never finishes and should be used when there're no peers
 /// connected.
-type ReconnectTimeout = Fuse<crate::clock::BoxedDelay>;
+type ReconnectTimeout = Fuse<BoxedDelay>;
 
 /// A future that returns a candidate hash along with validator discovery
 /// keys once a timeout hit.
@@ -122,7 +123,7 @@ type ReconnectTimeout = Fuse<crate::clock::BoxedDelay>;
 /// we should reset its interest in this advertisement in a buffer. For example,
 /// when the PoV was already requested from another peer.
 struct ResetInterestTimeout {
-	fut: crate::clock::BoxedDelay,
+	fut: BoxedDelay,
 	candidate_hash: CandidateHash,
 	peer_id: PeerId,
 }
@@ -343,8 +344,8 @@ impl PerSchedulingParent {
 }
 
 struct State {
-	/// Clock used for all time reads. Production passes [`crate::SystemClock`]; tests inject a
-	/// mock.
+	/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`];
+	/// tests inject a mock.
 	clock: Arc<dyn Clock>,
 
 	/// Our network peer id.

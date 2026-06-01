@@ -83,9 +83,7 @@ use polkadot_primitives::{CollatorPair, Hash, RELAY_CHAIN_SLOT_DURATION_MILLIS};
 use sp_consensus_slots::SlotDuration;
 pub use validator_side_experimental::ReputationConfig;
 
-pub mod clock;
-pub use clock::{system_clock, Clock, SystemClock};
-
+use polkadot_node_clock::Clock;
 
 mod collator_side;
 mod validator_side;
@@ -141,7 +139,8 @@ pub enum ProtocolSide {
 		invulnerables: HashSet<PeerId>,
 		/// Override for `HOLD_OFF_DURATION` constant .
 		collator_protocol_hold_off: Option<Duration>,
-		/// Clock used for all time reads. Production passes [`SystemClock`]; tests inject a mock.
+		/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`];
+		/// tests inject a mock.
 		clock: Arc<dyn Clock>,
 	},
 	/// Experimental variant of the validator side. Do not use in production.
@@ -154,7 +153,8 @@ pub enum ProtocolSide {
 		db: Arc<dyn Database>,
 		/// Reputation configuration (column number).
 		reputation_config: validator_side_experimental::ReputationConfig,
-		/// Clock used for all time reads. Production passes [`SystemClock`]; tests inject a mock.
+		/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`];
+		/// tests inject a mock.
 		clock: Arc<dyn Clock>,
 	},
 	/// Collators operate on a parachain.
@@ -167,7 +167,8 @@ pub enum ProtocolSide {
 		request_receiver_v2: IncomingRequestReceiver<protocol_v2::CollationFetchingRequest>,
 		/// Metrics.
 		metrics: collator_side::Metrics,
-		/// Clock used for all time reads. Production passes [`SystemClock`]; tests inject a mock.
+		/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`];
+		/// tests inject a mock.
 		clock: Arc<dyn Clock>,
 	},
 	/// No protocol side, just disable it.
@@ -239,16 +240,11 @@ impl<Context> CollatorProtocolSubsystem {
 				request_receiver_v2,
 				metrics,
 				clock,
-			} => collator_side::run(
-				ctx,
-				peer_id,
-				collator_pair,
-				request_receiver_v2,
-				metrics,
-				clock,
-			)
-			.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
-			.boxed(),
+			} => {
+				collator_side::run(ctx, peer_id, collator_pair, request_receiver_v2, metrics, clock)
+					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
+					.boxed()
+			},
 			ProtocolSide::None => return DummySubsystem.start(ctx),
 		};
 
@@ -274,11 +270,7 @@ async fn modify_reputation(
 }
 
 /// Wait until tick and return the timestamp for the following one.
-async fn wait_until_next_tick(
-	clock: &dyn Clock,
-	last_poll: Instant,
-	period: Duration,
-) -> Instant {
+async fn wait_until_next_tick(clock: &dyn Clock, last_poll: Instant, period: Duration) -> Instant {
 	let now = clock.now();
 	let next_poll = last_poll + period;
 
@@ -330,7 +322,7 @@ pub(crate) fn is_scheduling_parent_valid(
 ) -> bool {
 	let slot_duration = SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS);
 	let current_slot = sp_consensus_slots::Slot::from_timestamp(
-		sp_timestamp::Timestamp::new(clock.timestamp_millis() as u64),
+		sp_timestamp::Timestamp::new(clock.duration_since_epoch().as_millis() as u64),
 		slot_duration,
 	);
 	if let Some(info) = leaf_scheduling_info.get(scheduling_parent) {

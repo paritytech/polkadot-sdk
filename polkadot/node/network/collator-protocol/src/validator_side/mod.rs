@@ -145,7 +145,8 @@ use tokio_util::sync::CancellationToken;
 
 use sp_keystore::KeystorePtr;
 
-use crate::{extract_leaf_scheduling_info, is_scheduling_parent_valid, Clock, LeafSchedulingInfo};
+use crate::{extract_leaf_scheduling_info, is_scheduling_parent_valid, LeafSchedulingInfo};
+use polkadot_node_clock::Clock;
 use polkadot_node_network_protocol::{
 	self as net_protocol,
 	peer_set::{CollationVersion, PeerSet, MAX_AUTHORITY_INCOMING_STREAMS},
@@ -177,13 +178,9 @@ use polkadot_primitives::{
 
 use super::{modify_reputation, tick_stream, LOG_TARGET};
 
-mod claim_queue_state;
 mod collation;
 pub mod error;
 
-// Only export PerLeafClaimQueueState for validator_side_experimental
-// ClaimQueueState (basic.rs) is no longer used in validator_side after the leaf-based refactoring
-pub(crate) use claim_queue_state::PerLeafClaimQueueState;
 pub use collation::BlockedCollationId;
 use collation::{
 	fetched_collation_sanity_check, CollationEvent, CollationFetchError, CollationFetchRequest,
@@ -500,13 +497,15 @@ impl PeerData {
 	}
 
 	/// Whether the peer is now inactive according to the current instant and the eviction policy.
-	fn is_inactive(&self, clock: &dyn crate::Clock, policy: &crate::CollatorEvictionPolicy) -> bool {
+	fn is_inactive(&self, clock: &dyn Clock, policy: &crate::CollatorEvictionPolicy) -> bool {
 		let now = clock.now();
 		match self.state {
-			PeerState::Connected(connected_at) =>
-				now.saturating_duration_since(connected_at) >= policy.undeclared,
-			PeerState::Collating(ref state) =>
-				now.saturating_duration_since(state.last_active) >= policy.inactive_collator,
+			PeerState::Connected(connected_at) => {
+				now.saturating_duration_since(connected_at) >= policy.undeclared
+			},
+			PeerState::Collating(ref state) => {
+				now.saturating_duration_since(state.last_active) >= policy.inactive_collator
+			},
 		}
 	}
 }
@@ -613,8 +612,8 @@ struct HeldOffAdvertisement {
 
 /// All state relevant for the validator side of the protocol lives here.
 struct State {
-	/// Clock used for all time reads. Production passes [`crate::SystemClock`]; tests inject a
-	/// mock.
+	/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`];
+	/// tests inject a mock.
 	clock: Arc<dyn Clock>,
 	/// Leaves that do support asynchronous backing along with
 	/// implicit ancestry. Leaves from the implicit view are present in
@@ -2919,7 +2918,7 @@ async fn kick_off_seconding<Context>(
 // receipt of the `PeerDisconnected` event.
 async fn disconnect_inactive_peers(
 	sender: &mut impl overseer::CollatorProtocolSenderTrait,
-	clock: &dyn crate::Clock,
+	clock: &dyn Clock,
 	eviction_policy: &crate::CollatorEvictionPolicy,
 	peers: &HashMap<PeerId, PeerData>,
 ) {
