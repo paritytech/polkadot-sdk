@@ -33,7 +33,7 @@ doc:
     The performance cost of the subgroup check is a one-time cost during sync committee preparation (512 checks per sync committee period, approximately every 27 hours). This is negligible compared to the BLS signature verification that occurs on every update. So just check it as defense-in-depth.
 crates:
 - name: staging-xcm-executor
-  bump: patch
+  bump: minor
 - name: cumulus-primitives-utility
   bump: patch
 - name: snowbridge-runtime-common
