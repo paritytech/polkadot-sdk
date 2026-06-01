@@ -7,8 +7,10 @@ doc:
     "defense in depth" against upstream XCM regressions, protecting the bridge's primary
     agent account (derived from the Asset Hub Root location) which holds ERC20 assets.
 
-    The XcmConverter now requires an `asset_hub_para_id` parameter and validates that
-    the AliasOrigin does not match the Asset Hub's parachain location.
+    The `EthereumBlobExporter` and `XcmConverter` now accept a generic
+    `AllowedAliasOrigin: Contains<Location>` type parameter. Runtimes pass
+    `EverythingBut<Equals<AssetHubLocation>>` to reject any `AliasOrigin` that
+    matches the Asset Hub's parachain location.
 crates:
 - name: snowbridge-outbound-queue-primitives
   bump: major
