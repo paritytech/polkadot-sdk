@@ -2932,3 +2932,329 @@ mod decimal_scaling {
 		});
 	}
 }
+
+/// Lifecycle (`create_psm`/`remove_psm`) and per-instance admin reassignment
+/// (`set_full_admin`/`set_emergency_admin`).
+mod admin {
+	use super::*;
+
+	/// A fresh internal asset id with no PSM installed by the mock.
+	const NEW_INTERNAL: u32 = 50;
+
+	fn root_origin() -> OriginCaller {
+		frame_system::RawOrigin::<u64>::Root.into()
+	}
+
+	fn signed_origin(who: u64) -> OriginCaller {
+		frame_system::RawOrigin::<u64>::Signed(who).into()
+	}
+
+	#[test]
+	fn create_psm_works() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
+			let reserved_before = Balances::reserved_balance(&ALICE);
+
+			assert_ok!(Psm::create_psm(
+				RuntimeOrigin::signed(ALICE),
+				NEW_INTERNAL,
+				INSURANCE_FUND,
+				DEFAULT_MAX_DEBT,
+			));
+
+			// Hot record.
+			let info = crate::Psm::<Test>::get(NEW_INTERNAL).expect("PSM created");
+			assert_eq!(info.fee_destination, INSURANCE_FUND);
+			assert_eq!(info.max_debt, DEFAULT_MAX_DEBT);
+			assert_eq!(info.external_count, 0);
+
+			// Admin record: the signer is both admins and the depositor; the deposit is
+			// reserved from the signer.
+			let admin = crate::PsmAdmin::<Test>::get(NEW_INTERNAL).expect("admin record");
+			assert_eq!(admin.full_admin, signed_origin(ALICE));
+			assert_eq!(admin.emergency_admin, signed_origin(ALICE));
+			assert_eq!(admin.depositor, ALICE);
+			assert!(admin.deposit > 0);
+			assert_eq!(Balances::reserved_balance(&ALICE), reserved_before + admin.deposit);
+
+			System::assert_has_event(
+				Event::<Test>::PsmCreated {
+					internal_asset: NEW_INTERNAL,
+					full_admin: signed_origin(ALICE),
+					emergency_admin: signed_origin(ALICE),
+					fee_destination: INSURANCE_FUND,
+					max_debt: DEFAULT_MAX_DEBT,
+				}
+				.into(),
+			);
+
+			// The signer is now the full admin and can manage the instance.
+			assert_ok!(Psm::set_max_debt(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, 1));
+		});
+	}
+
+	#[test]
+	fn create_psm_fails_if_already_exists() {
+		new_test_ext().execute_with(|| {
+			assert_noop!(
+				Psm::create_psm(
+					RuntimeOrigin::signed(ALICE),
+					INTERNAL_ASSET_ID,
+					INSURANCE_FUND,
+					DEFAULT_MAX_DEBT,
+				),
+				Error::<Test>::PsmAlreadyExists
+			);
+		});
+	}
+
+	#[test]
+	fn create_psm_fails_if_asset_missing() {
+		new_test_ext().execute_with(|| {
+			assert_noop!(
+				Psm::create_psm(
+					RuntimeOrigin::signed(ALICE),
+					4242u32,
+					INSURANCE_FUND,
+					DEFAULT_MAX_DEBT,
+				),
+				Error::<Test>::AssetDoesNotExist
+			);
+		});
+	}
+
+	#[test]
+	fn remove_psm_works_and_refunds_creator() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
+			let reserved_before = Balances::reserved_balance(&ALICE);
+			assert_ok!(Psm::create_psm(
+				RuntimeOrigin::signed(ALICE),
+				NEW_INTERNAL,
+				INSURANCE_FUND,
+				DEFAULT_MAX_DEBT,
+			));
+			assert!(Balances::reserved_balance(&ALICE) > reserved_before);
+
+			assert_ok!(Psm::remove_psm(RuntimeOrigin::signed(ALICE), NEW_INTERNAL));
+
+			assert!(!crate::Psm::<Test>::contains_key(NEW_INTERNAL));
+			assert!(!crate::PsmAdmin::<Test>::contains_key(NEW_INTERNAL));
+			// Deposit returned to the creator.
+			assert_eq!(Balances::reserved_balance(&ALICE), reserved_before);
+			System::assert_has_event(
+				Event::<Test>::PsmRemoved { internal_asset: NEW_INTERNAL }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn remove_psm_refunds_original_depositor_after_reassign() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
+			let reserved_before = Balances::reserved_balance(&ALICE);
+			assert_ok!(Psm::create_psm(
+				RuntimeOrigin::signed(ALICE),
+				NEW_INTERNAL,
+				INSURANCE_FUND,
+				DEFAULT_MAX_DEBT,
+			));
+
+			// Hand off full control to Root, then let Root remove the PSM.
+			assert_ok!(Psm::set_full_admin(
+				RuntimeOrigin::signed(ALICE),
+				NEW_INTERNAL,
+				Box::new(root_origin()),
+			));
+			assert_ok!(Psm::remove_psm(RuntimeOrigin::root(), NEW_INTERNAL));
+
+			// The deposit still returns to ALICE, the original depositor.
+			assert_eq!(Balances::reserved_balance(&ALICE), reserved_before);
+		});
+	}
+
+	#[test]
+	fn remove_psm_fails_with_approved_externals() {
+		new_test_ext().execute_with(|| {
+			// The PSM pre-installed by the test harness has USDC & USDT approved.
+			assert_noop!(
+				Psm::remove_psm(RuntimeOrigin::root(), INTERNAL_ASSET_ID),
+				Error::<Test>::PsmHasApprovedExternals
+			);
+		});
+	}
+
+	#[test]
+	fn remove_psm_fails_with_debt() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
+			assert_ok!(Psm::create_psm(
+				RuntimeOrigin::signed(ALICE),
+				NEW_INTERNAL,
+				INSURANCE_FUND,
+				DEFAULT_MAX_DEBT,
+			));
+			// Inject debt while there are no approved externals so the debt check is reached.
+			PsmDebt::<Test>::insert(NEW_INTERNAL, USDC_ASSET_ID, 1u128);
+			assert_noop!(
+				Psm::remove_psm(RuntimeOrigin::signed(ALICE), NEW_INTERNAL),
+				Error::<Test>::PsmHasDebt
+			);
+		});
+	}
+
+	#[test]
+	fn remove_psm_unauthorized() {
+		new_test_ext().execute_with(|| {
+			// Stranger: the pre-installed test PSM's full_admin is Root.
+			assert_noop!(
+				Psm::remove_psm(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID),
+				DispatchError::BadOrigin
+			);
+			// Emergency admin lacks the Full level.
+			assert_noop!(
+				Psm::remove_psm(RuntimeOrigin::signed(EMERGENCY_ACCOUNT), INTERNAL_ASSET_ID),
+				Error::<Test>::InsufficientPrivilege
+			);
+		});
+	}
+
+	#[test]
+	fn set_full_admin_works() {
+		new_test_ext().execute_with(|| {
+			// The pre-installed test PSM's full_admin is Root; hand off to ALICE.
+			assert_ok!(Psm::set_full_admin(
+				RuntimeOrigin::root(),
+				INTERNAL_ASSET_ID,
+				Box::new(signed_origin(ALICE)),
+			));
+
+			assert_eq!(
+				crate::PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap().full_admin,
+				signed_origin(ALICE)
+			);
+			System::assert_has_event(
+				Event::<Test>::FullAdminChanged {
+					internal_asset: INTERNAL_ASSET_ID,
+					old_admin: root_origin(),
+					new_admin: signed_origin(ALICE),
+				}
+				.into(),
+			);
+
+			// The new full admin can manage; the old one no longer can.
+			assert_ok!(Psm::set_minting_fee(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				Permill::from_percent(2),
+			));
+			assert_noop!(
+				Psm::set_minting_fee(
+					RuntimeOrigin::root(),
+					INTERNAL_ASSET_ID,
+					USDC_ASSET_ID,
+					Permill::from_percent(3),
+				),
+				DispatchError::BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn set_full_admin_requires_full_admin() {
+		new_test_ext().execute_with(|| {
+			// Emergency admin cannot reassign.
+			assert_noop!(
+				Psm::set_full_admin(
+					RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
+					INTERNAL_ASSET_ID,
+					Box::new(signed_origin(BOB)),
+				),
+				Error::<Test>::InsufficientPrivilege
+			);
+			// Stranger cannot reassign.
+			assert_noop!(
+				Psm::set_full_admin(
+					RuntimeOrigin::signed(BOB),
+					INTERNAL_ASSET_ID,
+					Box::new(signed_origin(BOB)),
+				),
+				DispatchError::BadOrigin
+			);
+			assert_eq!(
+				crate::PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap().full_admin,
+				root_origin()
+			);
+		});
+	}
+
+	#[test]
+	fn set_emergency_admin_works() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Psm::set_emergency_admin(
+				RuntimeOrigin::root(),
+				INTERNAL_ASSET_ID,
+				Box::new(signed_origin(BOB)),
+			));
+
+			assert_eq!(
+				crate::PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap().emergency_admin,
+				signed_origin(BOB)
+			);
+			System::assert_has_event(
+				Event::<Test>::EmergencyAdminChanged {
+					internal_asset: INTERNAL_ASSET_ID,
+					old_admin: signed_origin(EMERGENCY_ACCOUNT),
+					new_admin: signed_origin(BOB),
+				}
+				.into(),
+			);
+
+			// The new emergency admin can act; the old one no longer can.
+			assert_ok!(Psm::set_asset_status(
+				RuntimeOrigin::signed(BOB),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				CircuitBreakerLevel::MintingDisabled,
+			));
+			assert_noop!(
+				Psm::set_asset_status(
+					RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
+					INTERNAL_ASSET_ID,
+					USDC_ASSET_ID,
+					CircuitBreakerLevel::AllEnabled,
+				),
+				DispatchError::BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn set_emergency_admin_requires_full_admin() {
+		new_test_ext().execute_with(|| {
+			// The emergency admin cannot reassign itself.
+			assert_noop!(
+				Psm::set_emergency_admin(
+					RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
+					INTERNAL_ASSET_ID,
+					Box::new(signed_origin(BOB)),
+				),
+				Error::<Test>::InsufficientPrivilege
+			);
+			// Stranger cannot reassign.
+			assert_noop!(
+				Psm::set_emergency_admin(
+					RuntimeOrigin::signed(BOB),
+					INTERNAL_ASSET_ID,
+					Box::new(signed_origin(BOB)),
+				),
+				DispatchError::BadOrigin
+			);
+			assert_eq!(
+				crate::PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap().emergency_admin,
+				signed_origin(EMERGENCY_ACCOUNT)
+			);
+		});
+	}
+}
