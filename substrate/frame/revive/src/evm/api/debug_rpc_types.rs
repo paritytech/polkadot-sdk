@@ -293,7 +293,7 @@ pub enum PrestateTrace {
 	/// The result only contains the accounts that were modified by the transaction
 	DiffMode {
 		/// The state before the call.
-		///  The accounts in the `pre` field will contain all of their basic fields, even if those
+		/// The accounts in the `pre` field will contain all of their basic fields, even if those
 		/// fields have not been modified. For `storage` however, only non-empty slots that have
 		/// been modified will be included
 		pre: BTreeMap<H160, PrestateTraceInfo>,
@@ -525,9 +525,7 @@ impl From<CallTrace> for CallTraceV1 {
 }
 
 /// A log emitted during a call.
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
+#[derive(Debug, Default, Clone, Encode, Decode, TypeInfo, Eq, PartialEq)]
 pub struct CallLog {
 	/// The address of the contract that emitted the log.
 	pub address: H160,
