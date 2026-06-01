@@ -17,7 +17,6 @@
 
 use crate::{Weight, evm::Bytes};
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
-use codec::{Decode, Encode};
 use derive_more::From;
 use pallet_revive_types::runtime_api::*;
 use scale_info::TypeInfo;
@@ -25,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use sp_core::{H160, H256, U256};
 
 /// The type of tracer to use.
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From)]
+#[derive(Debug, Clone, PartialEq, From)]
 pub enum TracerType {
 	/// A tracer that traces calls.
 	CallTracer(Option<CallTracerConfig>),
@@ -128,7 +127,7 @@ pub struct TraceCallConfig {
 }
 
 /// The configuration for the call tracer.
-#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CallTracerConfig {
 	/// Whether to include logs in the trace.
 	pub with_logs: bool,
@@ -150,7 +149,7 @@ impl From<CallTracerConfigV1> for CallTracerConfig {
 }
 
 /// The configuration for the prestate tracer.
-#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PrestateTracerConfig {
 	/// Whether to include the diff mode in the trace.
 	pub diff_mode: bool,
@@ -179,7 +178,7 @@ impl From<PrestateTracerConfigV1> for PrestateTracerConfig {
 }
 
 /// The configuration for the execution tracer.
-#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ExecutionTracerConfig {
 	/// Whether to enable memory capture
 	pub enable_memory: bool,
@@ -232,7 +231,7 @@ impl From<ExecutionTracerConfigV1> for ExecutionTracerConfig {
 }
 
 /// The type of call that was executed.
-#[derive(Default, TypeInfo, Encode, Decode, Eq, PartialEq, Clone, Debug)]
+#[derive(Default, Eq, PartialEq, Clone, Debug)]
 pub enum CallType {
 	/// A regular call.
 	#[default]
@@ -263,7 +262,7 @@ impl From<CallType> for CallTypeV1 {
 }
 
 /// A Trace
-#[derive(TypeInfo, From, Encode, Decode, Clone, Debug, Eq, PartialEq)]
+#[derive(From, Clone, Debug, Eq, PartialEq)]
 pub enum Trace {
 	/// A call trace.
 	Call(CallTrace),
@@ -284,7 +283,7 @@ impl From<Trace> for TraceV1 {
 }
 
 /// A prestate Trace
-#[derive(TypeInfo, Encode, Decode, Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PrestateTrace {
 	/// The Prestate mode returns the accounts necessary to execute a given transaction
 	Prestate(BTreeMap<H160, PrestateTraceInfo>),
@@ -331,7 +330,7 @@ impl From<PrestateTrace> for PrestateTraceV1 {
 }
 
 /// The info of a prestate trace.
-#[derive(TypeInfo, Default, Encode, Decode, Clone, Debug, Eq, PartialEq)]
+#[derive(Default, Clone, Debug, Eq, PartialEq)]
 pub struct PrestateTraceInfo {
 	/// The balance of the account.
 	pub balance: Option<U256>,
@@ -356,7 +355,7 @@ impl From<PrestateTraceInfo> for PrestateTraceInfoV1 {
 
 /// An execution trace containing the step-by-step execution of EVM opcodes and PVM syscalls.
 /// This matches Geth's structLogger output format.
-#[derive(Default, TypeInfo, Encode, Decode, Clone, Debug, Eq, PartialEq)]
+#[derive(Default, Clone, Debug, Eq, PartialEq)]
 pub struct ExecutionTrace {
 	/// Total gas used by the transaction.
 	pub gas: u64,
@@ -386,13 +385,11 @@ impl From<ExecutionTrace> for ExecutionTraceV1 {
 }
 
 /// An execution step which can be either an EVM opcode or a PVM syscall.
-#[derive(TypeInfo, Encode, Decode, Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
 pub struct ExecutionStep {
 	/// Remaining gas before executing this step.
-	#[codec(compact)]
 	pub gas: u64,
 	/// Gas Cost of executing this step.
-	#[codec(compact)]
 	pub gas_cost: u64,
 	/// Weight cost of executing this step.
 	pub weight_cost: Weight,
@@ -421,12 +418,11 @@ impl From<ExecutionStep> for ExecutionStepV1 {
 }
 
 /// The kind of execution step.
-#[derive(TypeInfo, Encode, Decode, Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ExecutionStepKind {
 	/// An EVM opcode execution.
 	EVMOpcode {
 		/// The program counter.
-		#[codec(compact)]
 		pc: u32,
 		/// The opcode being executed.
 		op: u8,
@@ -474,7 +470,7 @@ impl From<ExecutionStepKind> for ExecutionStepKindV1 {
 }
 
 /// A smart contract execution call trace.
-#[derive(TypeInfo, Default, Encode, Decode, Clone, Debug, Eq, PartialEq)]
+#[derive(Default, Clone, Debug, Eq, PartialEq)]
 pub struct CallTrace {
 	/// Address of the sender.
 	pub from: H160,
@@ -525,7 +521,7 @@ impl From<CallTrace> for CallTraceV1 {
 }
 
 /// A log emitted during a call.
-#[derive(Debug, Default, Clone, Encode, Decode, TypeInfo, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct CallLog {
 	/// The address of the contract that emitted the log.
 	pub address: H160,
