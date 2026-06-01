@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780346074501,
+  "lastUpdate": 1780347627761,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -96875,6 +96875,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2750791212,
             "range": "± 18176192",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e5d5a28c9f1a596fbe0a5a00c28c507610dd84ce",
+          "message": "pallet-dap: re-export WeightInfo at crate root (#12246)\n\nThe trait was only reachable at `pallet_dap::weights::WeightInfo`, so\nthe benchmark template's generated `pallet_dap::WeightInfo` path failed\nto resolve and required a manual fixup in every consumer. Add the\nstandard FRAME re-export (`pub use weights::WeightInfo;`) and switch the\nAsset Hub Westend weights file and the staking-async integration test\nback to the canonical `pallet_dap::WeightInfo` path.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-01T18:06:33Z",
+          "tree_id": "e5dc875c6c04739f9088692e0df0f504559c2c67",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e5d5a28c9f1a596fbe0a5a00c28c507610dd84ce"
+        },
+        "date": 1780347595954,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20717113,
+            "range": "± 341621",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21308971,
+            "range": "± 257774",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22698226,
+            "range": "± 339752",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27593688,
+            "range": "± 414393",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 62534948,
+            "range": "± 4303155",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 401867249,
+            "range": "± 13836720",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2859533023,
+            "range": "± 154517952",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18333657,
+            "range": "± 343391",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18668747,
+            "range": "± 236261",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19321247,
+            "range": "± 267276",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23941287,
+            "range": "± 219517",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61669573,
+            "range": "± 948609",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 378724044,
+            "range": "± 9260966",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2914191451,
+            "range": "± 25869601",
             "unit": "ns/iter"
           }
         ]
