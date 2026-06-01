@@ -854,31 +854,41 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Some(count)
 	}
 
-	/// Return all transaction hashes for the given substrate block hash, in EVM
-	/// transaction-index order (position in the returned `Vec` equals the
-	/// transaction's `transaction_index`).
+	/// Return all transaction hashes for the given substrate block hash, keyed by
+	/// the (substrate) `transaction_index` stored at receipt-extraction time.
 	///
-	/// Returns an empty `Vec` if the block has no cached transactions or was never
-	/// seen — callers that care about distinguishing the two should check separately.
-	pub async fn block_transaction_hashes(&self, block_hash: &H256) -> Vec<H256> {
+	/// Indices in real blocks start at the first ETH `EthTransact` extrinsic — typically
+	/// `2..` after the timestamp and parachain-system inherents — so position-in-iteration
+	/// does **not** equal the EVM 0-based index. `BTreeMap` gives random access by index
+	/// (used by tracers) and ordered iteration (used by `eth_getBlockBy*` payload
+	/// reconstruction) without a separate sort.
+	pub async fn block_transaction_hashes(&self, block_hash: &H256) -> BTreeMap<usize, H256> {
 		let block_hash = block_hash.as_ref();
-		let result = query!(
+		let rows = match query!(
 			r#"
-		      SELECT transaction_hash
+		      SELECT transaction_index, transaction_hash
 		      FROM transaction_hashes
 		      WHERE block_hash = $1
-		      ORDER BY transaction_index ASC
 		      "#,
 			block_hash
 		)
-		.map(|row| H256::from_slice(&row.transaction_hash))
+		.map(|row| {
+			let transaction_index = row.transaction_index as usize;
+			let transaction_hash = H256::from_slice(&row.transaction_hash);
+			(transaction_index, transaction_hash)
+		})
 		.fetch_all(&self.db_ctx.pool)
-		.await;
-
-		match result {
+		.await
+		{
 			Ok(rows) => rows,
-			Err(_) => Vec::new(),
-		}
+			Err(err) => {
+				log::error!(target: LOG_TARGET,
+					"block_transaction_hashes db error for block {block_hash:?}: {err:?}");
+				return BTreeMap::new();
+			},
+		};
+
+		rows.into_iter().collect()
 	}
 
 	/// Get the receipt for the given block hash and transaction index.
@@ -1813,13 +1823,15 @@ mod tests {
 		Ok(())
 	}
 
-	/// `block_transaction_hashes` is what `Client::recover_block_tx_hashes` (and
-	/// `trace_block_by_number`) use to assemble the per-block tx hash list. SQLite
-	/// must return rows in EVM `transaction_index` order so position-in-vec equals
-	/// the EVM index. Mis-ordering would break tracers and consumer indexing by
-	/// position. See #6790.
+	/// `block_transaction_hashes` underlies both `Client::recover_block_tx_hashes`
+	/// (which iterates in order to assemble the `Hashes(...)` payload) and
+	/// `trace_block_by_number` (which looks up by substrate extrinsic index). The
+	/// `BTreeMap` shape gives both: ordered iteration via `into_values()`, and
+	/// random access via `remove(&idx)`. Real blocks have sparse keys (typically
+	/// starting at 2 after timestamp + parachain-system inherents), so the map
+	/// must preserve the actual index, not collapse to 0-based positions.
 	#[sqlx::test]
-	async fn test_block_transaction_hashes_returns_by_tx_index(
+	async fn test_block_transaction_hashes_returns_by_substrate_index(
 		pool: SqlitePool,
 	) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await.with_keep_latest(None);
@@ -1831,15 +1843,24 @@ mod tests {
 		let receipts = make_receipts(0, n_tx, 0);
 		provider.insert(&block, &receipts, &ethereum_hash).await?;
 
-		let hashes = provider.block_transaction_hashes(&block.hash()).await;
+		let map = provider.block_transaction_hashes(&block.hash()).await;
+		assert_eq!(map.len(), n_tx);
+		for (_, receipt) in &receipts {
+			let idx = receipt.transaction_index.as_u32() as usize;
+			assert_eq!(map.get(&idx), Some(&receipt.transaction_hash), "lookup at idx {idx}");
+		}
+
+		// Ordered iteration (BTreeMap iterates by key) matches insertion order
+		// here because `make_receipts` uses sequential indices 0..N.
+		let ordered: Vec<H256> = map.into_values().collect();
 		let expected: Vec<H256> = receipts.iter().map(|(_, r)| r.transaction_hash).collect();
-		assert_eq!(hashes, expected, "must yield hashes ordered by transaction_index");
+		assert_eq!(ordered, expected, "BTreeMap into_values must yield hashes in index order");
 
 		Ok(())
 	}
 
-	/// Cache miss returns an empty `Vec` (not panic, not `None`) — recover uses
-	/// emptiness as the "fall through to backfill" signal.
+	/// Unknown block returns an empty `BTreeMap` — recover uses emptiness as the
+	/// "fall through to backfill" signal.
 	#[sqlx::test]
 	async fn test_block_transaction_hashes_unknown_block_is_empty(
 		pool: SqlitePool,
@@ -1848,14 +1869,14 @@ mod tests {
 		let never_seen = make_hash(99, 0x77);
 		assert!(
 			provider.block_transaction_hashes(&never_seen).await.is_empty(),
-			"cache miss on unknown block must yield empty Vec"
+			"unknown block must yield empty BTreeMap"
 		);
 		Ok(())
 	}
 
-	/// A block known to the eth-rpc store but with zero EVM transactions also returns
-	/// an empty `Vec` — recover treats this as "nothing to do" rather than re-attempting
-	/// backfill on every read.
+	/// A block known to the eth-rpc store but with zero EVM transactions yields
+	/// an empty `BTreeMap` — recover treats this as "nothing to do" rather than
+	/// re-attempting backfill on every read.
 	#[sqlx::test]
 	async fn test_block_transaction_hashes_known_empty_block(
 		pool: SqlitePool,
@@ -1868,7 +1889,7 @@ mod tests {
 
 		assert!(
 			provider.block_transaction_hashes(&block.hash()).await.is_empty(),
-			"empty block must yield empty Vec"
+			"empty block must yield empty BTreeMap"
 		);
 		Ok(())
 	}

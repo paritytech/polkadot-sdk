@@ -1003,13 +1003,13 @@ impl Client {
 		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(parent_hash));
 		let traces = runtime_api.trace_block(block, config.clone()).await?;
 
-		let hashes = self.receipt_provider.block_transaction_hashes(&block_hash).await;
+		let mut hashes = self.receipt_provider.block_transaction_hashes(&block_hash).await;
 		if !traces.is_empty() && hashes.is_empty() {
 			return Err(ClientError::EthExtrinsicNotFound);
 		}
 
 		let traces = traces.into_iter().filter_map(|(index, trace)| {
-			Some(TransactionTrace { tx_hash: *hashes.get(index as usize)?, trace })
+			Some(TransactionTrace { tx_hash: hashes.remove(&(index as usize))?, trace })
 		});
 
 		Ok(traces.collect())
@@ -1129,7 +1129,7 @@ impl Client {
 
 		let cached = self.receipt_provider.block_transaction_hashes(&substrate_hash).await;
 		if !cached.is_empty() {
-			return cached;
+			return cached.into_values().collect();
 		}
 
 		let eth_hash = if hint_eth_hash != H256::zero() {
@@ -1152,7 +1152,11 @@ impl Client {
 			return Vec::new();
 		}
 
-		self.receipt_provider.block_transaction_hashes(&substrate_hash).await
+		self.receipt_provider
+			.block_transaction_hashes(&substrate_hash)
+			.await
+			.into_values()
+			.collect()
 	}
 
 	/// Get the chain ID.
