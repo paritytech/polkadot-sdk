@@ -1416,9 +1416,10 @@ parameter_types! {
 
 /// One-shot migration: writes `pallet_psm`'s on-chain storage version to v1.
 /// Required because `RemovePallet<PsmName>` (above in the migration tuple)
-/// wipes the pallet's `:__STORAGE_VERSION__:` key, and `InitializePsm` doesn't
-/// re-seed it. Without this, try-runtime's post-upgrade check sees in-code = 1,
-/// on-chain = 0 and panics.
+/// wipes the pallet's `:__STORAGE_VERSION__:` key, and nothing else re-seeds it
+/// (PSMs are now created on demand via the permissionless `create_psm` extrinsic).
+/// Without this, try-runtime's post-upgrade check sees in-code = 1, on-chain = 0
+/// and panics.
 pub struct SetPsmStorageVersionV1;
 impl frame_support::traits::OnRuntimeUpgrade for SetPsmStorageVersionV1 {
 	fn on_runtime_upgrade() -> Weight {

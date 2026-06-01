@@ -60,7 +60,7 @@ pub struct PsmTestConfig<AssetId, AccountId, Balance> {
 	pub external_asset_id: AssetId,
 	/// The expected decimal precision for the internal asset (e.g., 6).
 	pub internal_asset_decimals: u8,
-	/// PSM fee destination passed to `force_create_psm`.
+	/// PSM fee destination written into the bootstrapped `PsmInfo`.
 	pub fee_destination: AccountId,
 	/// Absolute internal-asset debt ceiling for the PSM instance.
 	pub max_debt: Balance,

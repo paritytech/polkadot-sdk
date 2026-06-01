@@ -113,8 +113,8 @@ with three levels:
 | `MintingDisabled` | Blocked | Allowed    | Drain debt from a problematic external |
 | `AllDisabled`     | Blocked | Blocked    | Full emergency halt of an external |
 
-`set_asset_status` is callable by both `Full` (e.g. GeneralAdmin) and
-`Emergency` (e.g. EmergencyAction) origins.
+`set_asset_status` is callable at both the `Full` (`full_admin`) and
+`Emergency` (`emergency_admin`) levels.
 
 ## Governance Operations
 
@@ -133,11 +133,14 @@ identify the PSM instance being configured.
 
 ### Privilege Levels
 
-The `ManagerOrigin` returns a privilege level:
+Each PSM instance stores two admin origins, both set to the creator on `create_psm`
+and reassignable by the `full_admin`. An incoming origin is matched against them to
+resolve a privilege level:
 
-- **Full** (via e.g. GeneralAdmin): can modify all parameters and approve/remove externals
-- **Emergency** (via e.g. EmergencyAction): can modify circuit breaker status, ceiling weights,
-  and debt ceilings only
+- **Full** (the `full_admin`): can modify all parameters, approve/remove externals,
+  reassign either admin, and remove the instance
+- **Emergency** (the `emergency_admin`): can modify circuit breaker status, ceiling
+  weights, and debt ceilings only
 
 ### Asset Offboarding Workflow
 
@@ -162,12 +165,15 @@ Before calling `add_external_asset(internal_asset, asset_id)`:
 ```rust
 impl pallet_psm::Config for Runtime {
     type Fungibles = Assets;
+    type Currency = Balances;
+    type RuntimeOrigin = RuntimeOrigin;
+    type PalletsOrigin = OriginCaller;
     type AssetId = u32;
-    type ManagerOrigin = EnsurePsmManager;
     type WeightInfo = weights::SubstrateWeight<Runtime>;
     type PalletId = PsmPalletId;
     type MinSwapAmount = MinSwapAmount;
     type MaxExternalAssetsPerPsm = ConstU32<10>;
+    type CreationDeposit = PsmCreationDeposit;
 }
 ```
 

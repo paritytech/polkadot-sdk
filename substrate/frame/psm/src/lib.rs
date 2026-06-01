@@ -173,10 +173,11 @@ pub mod pallet {
 		}
 	}
 
-	/// Privilege level returned by ManagerOrigin.
+	/// Privilege level of an origin acting on a PSM instance.
 	///
-	/// Enables tiered authorization where different origins have different
-	/// capabilities for managing PSM parameters.
+	/// Resolved by matching the incoming origin against the instance's stored
+	/// [`PsmAdminInfo::full_admin`] (`Full`) or [`PsmAdminInfo::emergency_admin`]
+	/// (`Emergency`), enabling tiered authorization over the instance's parameters.
 	#[derive(
 		Encode,
 		Decode,
@@ -191,12 +192,13 @@ pub mod pallet {
 		Default,
 	)]
 	pub enum PsmManagerLevel {
-		/// Full administrative access via GeneralAdmin origin.
-		/// Can modify all parameters including fees, ceilings, and asset management.
+		/// Full administrative access, held by the instance's `full_admin`.
+		/// Can modify all parameters including fees, ceilings, and asset management,
+		/// reassign admins, and remove the instance.
 		#[default]
 		Full,
-		/// Emergency access via EmergencyAction origin.
-		/// Can modify circuit breaker status and asset ceiling weights.
+		/// Emergency access, held by the instance's `emergency_admin`.
+		/// Can modify circuit breaker status, the debt ceiling, and asset ceiling weights.
 		Emergency,
 	}
 
@@ -563,7 +565,8 @@ pub mod pallet {
 		AssetNotApproved,
 		/// Cannot remove asset: has non-zero PSM debt.
 		AssetHasDebt,
-		/// Operation requires Full manager level (GeneralAdmin), not Emergency.
+		/// Operation requires the instance's `full_admin` (Full level); the caller only
+		/// matched the `emergency_admin` (Emergency level).
 		InsufficientPrivilege,
 		/// Maximum number of approved external assets reached.
 		TooManyAssets,
@@ -819,7 +822,7 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be [`Config::ManagerOrigin`] at the `Full` level.
+		/// Must match the PSM instance's `full_admin` (the `Full` privilege level).
 		///
 		/// ## Parameters
 		///
@@ -863,7 +866,7 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be [`Config::ManagerOrigin`] at the `Full` level.
+		/// Must match the PSM instance's `full_admin` (the `Full` privilege level).
 		///
 		/// ## Parameters
 		///
@@ -907,8 +910,8 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be [`Config::ManagerOrigin`]. Both `Full` and `Emergency` levels may use
-		/// this call.
+		/// Must match the PSM instance's `full_admin` or `emergency_admin`; either the
+		/// `Full` or `Emergency` privilege level may use this call.
 		///
 		/// ## Parameters
 		///
@@ -948,8 +951,8 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be [`Config::ManagerOrigin`]. Both `Full` and `Emergency` levels may use
-		/// this call.
+		/// Must match the PSM instance's `full_admin` or `emergency_admin`; either the
+		/// `Full` or `Emergency` privilege level may use this call.
 		///
 		/// ## Parameters
 		///
@@ -993,8 +996,8 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be [`Config::ManagerOrigin`]. Both `Full` and `Emergency` levels may use
-		/// this call.
+		/// Must match the PSM instance's `full_admin` or `emergency_admin`; either the
+		/// `Full` or `Emergency` privilege level may use this call.
 		///
 		/// ## Parameters
 		///
@@ -1041,7 +1044,7 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be [`Config::ManagerOrigin`] at the `Full` level.
+		/// Must match the PSM instance's `full_admin` (the `Full` privilege level).
 		///
 		/// ## Parameters
 		///
@@ -1123,7 +1126,7 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be [`Config::ManagerOrigin`] at the `Full` level.
+		/// Must match the PSM instance's `full_admin` (the `Full` privilege level).
 		///
 		/// ## Parameters
 		///
