@@ -21,7 +21,7 @@ use codec::{Decode, Encode};
 use derive_more::From;
 use pallet_revive_types::runtime_api::*;
 use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize, de::Deserializer};
+use serde::{Deserialize, Serialize};
 use sp_core::{H160, H256, U256};
 
 /// The type of tracer to use.
@@ -70,7 +70,7 @@ pub struct TracerConfig {
 impl<'de> Deserialize<'de> for TracerConfig {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
-		D: Deserializer<'de>,
+		D: serde::de::Deserializer<'de>,
 	{
 		#[derive(Deserialize)]
 		#[serde(rename_all = "camelCase")]

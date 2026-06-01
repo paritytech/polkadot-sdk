@@ -34,14 +34,6 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		::sp_runtime::OpaqueExtrinsic
 		>>"
 	),
-	substitute_type(
-		path = "pallet_revive::evm::api::debug_rpc_types::Trace",
-		with = "::subxt::utils::Static<::pallet_revive::evm::Trace>"
-	),
-	substitute_type(
-		path = "pallet_revive::evm::api::debug_rpc_types::TracerType",
-		with = "::subxt::utils::Static<::pallet_revive::evm::TracerType>"
-	),
 
 	substitute_type(
 		path = "pallet_revive::evm::api::rpc_types_gen::GenericTransaction",
@@ -81,58 +73,56 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	),
 
 	// Versioning replacements
-	// TODO: We need to add the `v1` postfix to the models from pallet-revive. We can only do that
-	// when they're used in the runtime API.
 	substitute_type(
-		path = "pallet_revive::evm::api::debug_rpc_types::TracerType",
+		path = "pallet_revive_types::runtime_api::types::tracer::TracerTypeV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TracerTypeV1>"
 	),
 	substitute_type(
-		path = "pallet_revive::evm::api::debug_rpc_types::CallTracerConfig",
+		path = "pallet_revive_types::runtime_api::types::tracer::CallTracerConfigV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallTracerConfigV1>"
 	),
 	substitute_type(
-		path = "pallet_revive::evm::api::debug_rpc_types::PrestateTracerConfig",
+		path = "pallet_revive_types::runtime_api::types::tracer::PrestateTracerConfigV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::PrestateTracerConfigV1>"
 	),
 	substitute_type(
-		path = "pallet_revive::evm::api::debug_rpc_types::ExecutionTracerConfig",
+		path = "pallet_revive_types::runtime_api::types::tracer::ExecutionTracerConfigV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ExecutionTracerConfigV1>"
 	),
 	substitute_type(
-		path = "pallet_revive::evm::api::debug_rpc_types::Trace",
+		path = "pallet_revive_types::runtime_api::types::traces::TraceV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceV1>"
 	),
 	substitute_type(
-		path = "pallet_revive::evm::api::debug_rpc_types::CallTrace",
+		path = "pallet_revive_types::runtime_api::types::traces::CallTraceV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallTraceV1>"
 	),
 	substitute_type(
-		path = "pallet_revive::evm::api::debug_rpc_types::PrestateTrace",
+		path = "pallet_revive_types::runtime_api::types::traces::PrestateTraceV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::PrestateTraceV1>"
 	),
 	substitute_type(
-		path = "pallet_revive::evm::api::debug_rpc_types::ExecutionTrace",
+		path = "pallet_revive_types::runtime_api::types::traces::ExecutionTraceV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ExecutionTraceV1>"
 	),
 	substitute_type(
-		path = "pallet_revive::evm::api::debug_rpc_types::CallLog",
+		path = "pallet_revive_types::runtime_api::types::traces::CallLogV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallLogV1>"
 	),
 	substitute_type(
-		path = "pallet_revive::evm::api::debug_rpc_types::CallType",
+		path = "pallet_revive_types::runtime_api::types::traces::CallTypeV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallTypeV1>"
 	),
 	substitute_type(
-		path = "pallet_revive::evm::api::debug_rpc_types::PrestateTraceInfo",
+		path = "pallet_revive_types::runtime_api::types::traces::PrestateTraceInfoV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::PrestateTraceInfoV1>"
 	),
 	substitute_type(
-		path = "pallet_revive::evm::api::debug_rpc_types::ExecutionStep",
+		path = "pallet_revive_types::runtime_api::types::traces::ExecutionStepV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ExecutionStepV1>"
 	),
 	substitute_type(
-		path = "pallet_revive::evm::api::debug_rpc_types::ExecutionStepKind",
+		path = "pallet_revive_types::runtime_api::types::traces::ExecutionStepKindV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ExecutionStepKindV1>"
 	),
 

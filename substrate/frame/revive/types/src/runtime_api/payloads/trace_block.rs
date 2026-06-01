@@ -43,13 +43,7 @@ pub enum TraceBlockVersionedInputPayload<Block> {
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct TraceBlockOutputPayloadV1 {
-	pub traces: Vec<IndexedTrace<TraceV1>>,
-}
-
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct IndexedTrace<Trace> {
-	pub transaction_index: u32,
-	pub trace: Trace,
+	pub traces: Vec<(u32, TraceV1)>,
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
