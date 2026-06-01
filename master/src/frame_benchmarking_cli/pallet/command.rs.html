@@ -911,7 +911,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#761 id=761 data-nosnippet>761</a>					e
 <a href=#762 id=762 data-nosnippet>762</a>				)
 <a href=#763 id=763 data-nosnippet>763</a>			})<span class="question-mark">?</span>;
-<a href=#764 id=764 data-nosnippet>764</a>			<span class="kw">let </span>hash = sp_core::blake2_256(<span class="kw-2">&amp;</span>code).to_vec();
+<a href=#764 id=764 data-nosnippet>764</a>			<span class="kw">let </span>hash = sp_crypto_hashing::blake2_256(<span class="kw-2">&amp;</span>code).to_vec();
 <a href=#765 id=765 data-nosnippet>765</a>			<span class="kw">let </span>wrapped_code = WrappedRuntimeCode(Cow::Owned(code));
 <a href=#766 id=766 data-nosnippet>766</a>
 <a href=#767 id=767 data-nosnippet>767</a>			<span class="prelude-val">Ok</span>(FetchedCode::FromFile { wrapped_code, heap_pages: <span class="self">self</span>.heap_pages, hash })

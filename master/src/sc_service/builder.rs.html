@@ -1393,354 +1393,355 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1243 id=1243 data-nosnippet>1243</a>
 <a href=#1244 id=1244 data-nosnippet>1244</a>	<span class="comment">// Initialize IPFS server.
 <a href=#1245 id=1245 data-nosnippet>1245</a>	</span><span class="kw">let </span>ipfs_config = net_config.network_config.ipfs_server.then(|| {
-<a href=#1246 id=1246 data-nosnippet>1246</a>		<span class="kw">let </span>(handler, bitswap_config) = Net::bitswap_server(client.clone());
-<a href=#1247 id=1247 data-nosnippet>1247</a>		spawn_handle.spawn(<span class="string">"bitswap-request-handler"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), handler);
-<a href=#1248 id=1248 data-nosnippet>1248</a>
-<a href=#1249 id=1249 data-nosnippet>1249</a>		<span class="kw">let </span>ipfs_num_blocks = <span class="kw">match </span>blocks_pruning {
-<a href=#1250 id=1250 data-nosnippet>1250</a>			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized =&gt; IPFS_MAX_BLOCKS,
-<a href=#1251 id=1251 data-nosnippet>1251</a>			BlocksPruning::Some(num) =&gt; std::cmp::min(num, IPFS_MAX_BLOCKS),
-<a href=#1252 id=1252 data-nosnippet>1252</a>		};
-<a href=#1253 id=1253 data-nosnippet>1253</a>
-<a href=#1254 id=1254 data-nosnippet>1254</a>		IpfsConfig {
-<a href=#1255 id=1255 data-nosnippet>1255</a>			bitswap_config,
-<a href=#1256 id=1256 data-nosnippet>1256</a>			block_provider: Box::new(IpfsIndexedTransactions::new(client.clone(), ipfs_num_blocks)),
-<a href=#1257 id=1257 data-nosnippet>1257</a>			bootnodes: net_config.network_config.ipfs_bootnodes.clone(),
-<a href=#1258 id=1258 data-nosnippet>1258</a>		}
-<a href=#1259 id=1259 data-nosnippet>1259</a>	});
-<a href=#1260 id=1260 data-nosnippet>1260</a>
-<a href=#1261 id=1261 data-nosnippet>1261</a>	<span class="comment">// Create transactions protocol and add it to the list of supported protocols of
-<a href=#1262 id=1262 data-nosnippet>1262</a>	</span><span class="kw">let </span>(transactions_handler_proto, transactions_config) =
-<a href=#1263 id=1263 data-nosnippet>1263</a>		sc_network_transactions::TransactionsHandlerPrototype::new::&lt;<span class="kw">_</span>, Block, Net&gt;(
-<a href=#1264 id=1264 data-nosnippet>1264</a>			protocol_id.clone(),
-<a href=#1265 id=1265 data-nosnippet>1265</a>			genesis_hash,
-<a href=#1266 id=1266 data-nosnippet>1266</a>			fork_id,
-<a href=#1267 id=1267 data-nosnippet>1267</a>			metrics.clone(),
-<a href=#1268 id=1268 data-nosnippet>1268</a>			net_config.peer_store_handle(),
-<a href=#1269 id=1269 data-nosnippet>1269</a>		);
-<a href=#1270 id=1270 data-nosnippet>1270</a>	net_config.add_notification_protocol(transactions_config);
-<a href=#1271 id=1271 data-nosnippet>1271</a>
-<a href=#1272 id=1272 data-nosnippet>1272</a>	<span class="comment">// Start task for `PeerStore`
-<a href=#1273 id=1273 data-nosnippet>1273</a>	</span><span class="kw">let </span>peer_store = net_config.take_peer_store();
-<a href=#1274 id=1274 data-nosnippet>1274</a>	spawn_handle.spawn(<span class="string">"peer-store"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), peer_store.run());
-<a href=#1275 id=1275 data-nosnippet>1275</a>
-<a href=#1276 id=1276 data-nosnippet>1276</a>	<span class="kw">let </span>sync_service = Arc::new(sync_service);
-<a href=#1277 id=1277 data-nosnippet>1277</a>
-<a href=#1278 id=1278 data-nosnippet>1278</a>	<span class="kw">let </span>network_params = sc_network::config::Params::&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash, Net&gt; {
-<a href=#1279 id=1279 data-nosnippet>1279</a>		role,
-<a href=#1280 id=1280 data-nosnippet>1280</a>		executor: {
-<a href=#1281 id=1281 data-nosnippet>1281</a>			<span class="kw">let </span>spawn_handle = Clone::clone(<span class="kw-2">&amp;</span>spawn_handle);
-<a href=#1282 id=1282 data-nosnippet>1282</a>			Box::new(<span class="kw">move </span>|fut| {
-<a href=#1283 id=1283 data-nosnippet>1283</a>				spawn_handle.spawn(<span class="string">"libp2p-node"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), fut);
-<a href=#1284 id=1284 data-nosnippet>1284</a>			})
-<a href=#1285 id=1285 data-nosnippet>1285</a>		},
-<a href=#1286 id=1286 data-nosnippet>1286</a>		network_config: net_config,
-<a href=#1287 id=1287 data-nosnippet>1287</a>		genesis_hash,
-<a href=#1288 id=1288 data-nosnippet>1288</a>		protocol_id,
-<a href=#1289 id=1289 data-nosnippet>1289</a>		fork_id: fork_id.map(ToOwned::to_owned),
-<a href=#1290 id=1290 data-nosnippet>1290</a>		metrics_registry: metrics_registry.cloned(),
-<a href=#1291 id=1291 data-nosnippet>1291</a>		block_announce_config,
-<a href=#1292 id=1292 data-nosnippet>1292</a>		ipfs_config,
-<a href=#1293 id=1293 data-nosnippet>1293</a>		notification_metrics: metrics,
-<a href=#1294 id=1294 data-nosnippet>1294</a>	};
-<a href=#1295 id=1295 data-nosnippet>1295</a>
-<a href=#1296 id=1296 data-nosnippet>1296</a>	<span class="kw">let </span>has_bootnodes = !network_params.network_config.network_config.boot_nodes.is_empty();
-<a href=#1297 id=1297 data-nosnippet>1297</a>	<span class="kw">let </span>network_mut = Net::new(network_params)<span class="question-mark">?</span>;
-<a href=#1298 id=1298 data-nosnippet>1298</a>	<span class="kw">let </span>network = network_mut.network_service().clone();
-<a href=#1299 id=1299 data-nosnippet>1299</a>
-<a href=#1300 id=1300 data-nosnippet>1300</a>	<span class="kw">let </span>(tx_handler, tx_handler_controller) = transactions_handler_proto.build(
-<a href=#1301 id=1301 data-nosnippet>1301</a>		network.clone(),
-<a href=#1302 id=1302 data-nosnippet>1302</a>		sync_service.clone(),
-<a href=#1303 id=1303 data-nosnippet>1303</a>		Arc::new(TransactionPoolAdapter { pool: transaction_pool, client: client.clone() }),
-<a href=#1304 id=1304 data-nosnippet>1304</a>		metrics_registry,
-<a href=#1305 id=1305 data-nosnippet>1305</a>	)<span class="question-mark">?</span>;
-<a href=#1306 id=1306 data-nosnippet>1306</a>	spawn_handle.spawn_blocking(
-<a href=#1307 id=1307 data-nosnippet>1307</a>		<span class="string">"network-transactions-handler"</span>,
-<a href=#1308 id=1308 data-nosnippet>1308</a>		<span class="prelude-val">Some</span>(<span class="string">"networking"</span>),
-<a href=#1309 id=1309 data-nosnippet>1309</a>		tx_handler.run(),
-<a href=#1310 id=1310 data-nosnippet>1310</a>	);
-<a href=#1311 id=1311 data-nosnippet>1311</a>
-<a href=#1312 id=1312 data-nosnippet>1312</a>	spawn_handle.spawn_blocking(
-<a href=#1313 id=1313 data-nosnippet>1313</a>		<span class="string">"chain-sync-network-service-provider"</span>,
-<a href=#1314 id=1314 data-nosnippet>1314</a>		<span class="prelude-val">Some</span>(<span class="string">"networking"</span>),
-<a href=#1315 id=1315 data-nosnippet>1315</a>		network_service_provider.run(Arc::new(network.clone())),
-<a href=#1316 id=1316 data-nosnippet>1316</a>	);
-<a href=#1317 id=1317 data-nosnippet>1317</a>	spawn_handle.spawn(<span class="string">"import-queue"</span>, <span class="prelude-val">None</span>, {
-<a href=#1318 id=1318 data-nosnippet>1318</a>		<span class="kw">let </span>sync_service = sync_service.clone();
-<a href=#1319 id=1319 data-nosnippet>1319</a>
-<a href=#1320 id=1320 data-nosnippet>1320</a>		<span class="kw">async move </span>{ import_queue.run(sync_service.as_ref()).<span class="kw">await </span>}
-<a href=#1321 id=1321 data-nosnippet>1321</a>	});
-<a href=#1322 id=1322 data-nosnippet>1322</a>
-<a href=#1323 id=1323 data-nosnippet>1323</a>	<span class="kw">let </span>(system_rpc_tx, system_rpc_rx) = tracing_unbounded(<span class="string">"mpsc_system_rpc"</span>, <span class="number">10_000</span>);
-<a href=#1324 id=1324 data-nosnippet>1324</a>	spawn_handle.spawn(
-<a href=#1325 id=1325 data-nosnippet>1325</a>		<span class="string">"system-rpc-handler"</span>,
-<a href=#1326 id=1326 data-nosnippet>1326</a>		<span class="prelude-val">Some</span>(<span class="string">"networking"</span>),
-<a href=#1327 id=1327 data-nosnippet>1327</a>		build_system_rpc_future::&lt;<span class="kw">_</span>, <span class="kw">_</span>, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;(
-<a href=#1328 id=1328 data-nosnippet>1328</a>			role,
-<a href=#1329 id=1329 data-nosnippet>1329</a>			network_mut.network_service(),
-<a href=#1330 id=1330 data-nosnippet>1330</a>			sync_service.clone(),
-<a href=#1331 id=1331 data-nosnippet>1331</a>			client.clone(),
-<a href=#1332 id=1332 data-nosnippet>1332</a>			system_rpc_rx,
-<a href=#1333 id=1333 data-nosnippet>1333</a>			has_bootnodes,
-<a href=#1334 id=1334 data-nosnippet>1334</a>		),
-<a href=#1335 id=1335 data-nosnippet>1335</a>	);
-<a href=#1336 id=1336 data-nosnippet>1336</a>
-<a href=#1337 id=1337 data-nosnippet>1337</a>	<span class="kw">let </span>future = build_network_future::&lt;<span class="kw">_</span>, <span class="kw">_</span>, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash, <span class="kw">_</span>&gt;(
-<a href=#1338 id=1338 data-nosnippet>1338</a>		network_mut,
-<a href=#1339 id=1339 data-nosnippet>1339</a>		client,
-<a href=#1340 id=1340 data-nosnippet>1340</a>		sync_service.clone(),
-<a href=#1341 id=1341 data-nosnippet>1341</a>		announce_block,
-<a href=#1342 id=1342 data-nosnippet>1342</a>	);
-<a href=#1343 id=1343 data-nosnippet>1343</a>
-<a href=#1344 id=1344 data-nosnippet>1344</a>	<span class="comment">// The network worker is responsible for gathering all network messages and processing
-<a href=#1345 id=1345 data-nosnippet>1345</a>	// them. This is quite a heavy task, and at the time of the writing of this comment it
-<a href=#1346 id=1346 data-nosnippet>1346</a>	// frequently happens that this future takes several seconds or in some situations
-<a href=#1347 id=1347 data-nosnippet>1347</a>	// even more than a minute until it has processed its entire queue. This is clearly an
-<a href=#1348 id=1348 data-nosnippet>1348</a>	// issue, and ideally we would like to fix the network future to take as little time as
-<a href=#1349 id=1349 data-nosnippet>1349</a>	// possible, but we also take the extra harm-prevention measure to execute the networking
-<a href=#1350 id=1350 data-nosnippet>1350</a>	// future using `spawn_blocking`.
-<a href=#1351 id=1351 data-nosnippet>1351</a>	//
-<a href=#1352 id=1352 data-nosnippet>1352</a>	// The network worker is spawned as an essential task, meaning if it exits unexpectedly
-<a href=#1353 id=1353 data-nosnippet>1353</a>	// the service will shut down.
-<a href=#1354 id=1354 data-nosnippet>1354</a>	</span>spawn_essential_handle.spawn_blocking(<span class="string">"network-worker"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), future);
-<a href=#1355 id=1355 data-nosnippet>1355</a>
-<a href=#1356 id=1356 data-nosnippet>1356</a>	<span class="prelude-val">Ok</span>((network, system_rpc_tx, tx_handler_controller, sync_service.clone()))
-<a href=#1357 id=1357 data-nosnippet>1357</a>}
-<a href=#1358 id=1358 data-nosnippet>1358</a>
-<a href=#1359 id=1359 data-nosnippet>1359</a><span class="doccomment">/// Configuration for [`build_default_syncing_engine`].
-<a href=#1360 id=1360 data-nosnippet>1360</a></span><span class="kw">pub struct </span>DefaultSyncingEngineConfig&lt;<span class="lifetime">'a</span>, Block, Client, Net&gt;
-<a href=#1361 id=1361 data-nosnippet>1361</a><span class="kw">where
-<a href=#1362 id=1362 data-nosnippet>1362</a>	</span>Block: BlockT,
-<a href=#1363 id=1363 data-nosnippet>1363</a>	Net: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
-<a href=#1364 id=1364 data-nosnippet>1364</a>{
-<a href=#1365 id=1365 data-nosnippet>1365</a>	<span class="doccomment">/// Role of the local node.
-<a href=#1366 id=1366 data-nosnippet>1366</a>	</span><span class="kw">pub </span>role: Role,
-<a href=#1367 id=1367 data-nosnippet>1367</a>	<span class="doccomment">/// Protocol name prefix.
-<a href=#1368 id=1368 data-nosnippet>1368</a>	</span><span class="kw">pub </span>protocol_id: ProtocolId,
-<a href=#1369 id=1369 data-nosnippet>1369</a>	<span class="doccomment">/// Fork ID.
-<a href=#1370 id=1370 data-nosnippet>1370</a>	</span><span class="kw">pub </span>fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
-<a href=#1371 id=1371 data-nosnippet>1371</a>	<span class="doccomment">/// Full network configuration.
-<a href=#1372 id=1372 data-nosnippet>1372</a>	</span><span class="kw">pub </span>net_config: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>FullNetworkConfiguration&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash, Net&gt;,
-<a href=#1373 id=1373 data-nosnippet>1373</a>	<span class="doccomment">/// Validator for incoming block announcements.
-<a href=#1374 id=1374 data-nosnippet>1374</a>	</span><span class="kw">pub </span>block_announce_validator: Box&lt;<span class="kw">dyn </span>BlockAnnounceValidator&lt;Block&gt; + Send&gt;,
-<a href=#1375 id=1375 data-nosnippet>1375</a>	<span class="doccomment">/// Handle to communicate with `NetworkService`.
-<a href=#1376 id=1376 data-nosnippet>1376</a>	</span><span class="kw">pub </span>network_service_handle: NetworkServiceHandle,
-<a href=#1377 id=1377 data-nosnippet>1377</a>	<span class="doccomment">/// Warp sync configuration (when used).
-<a href=#1378 id=1378 data-nosnippet>1378</a>	</span><span class="kw">pub </span>warp_sync_config: <span class="prelude-ty">Option</span>&lt;WarpSyncConfig&lt;Block&gt;&gt;,
-<a href=#1379 id=1379 data-nosnippet>1379</a>	<span class="doccomment">/// A shared client returned by `new_full_parts`.
-<a href=#1380 id=1380 data-nosnippet>1380</a>	</span><span class="kw">pub </span>client: Arc&lt;Client&gt;,
-<a href=#1381 id=1381 data-nosnippet>1381</a>	<span class="doccomment">/// Blocks import queue API.
-<a href=#1382 id=1382 data-nosnippet>1382</a>	</span><span class="kw">pub </span>import_queue_service: Box&lt;<span class="kw">dyn </span>ImportQueueService&lt;Block&gt;&gt;,
-<a href=#1383 id=1383 data-nosnippet>1383</a>	<span class="doccomment">/// Expected max total number of peer connections (in + out).
-<a href=#1384 id=1384 data-nosnippet>1384</a>	</span><span class="kw">pub </span>num_peers_hint: usize,
-<a href=#1385 id=1385 data-nosnippet>1385</a>	<span class="doccomment">/// A handle for spawning tasks.
-<a href=#1386 id=1386 data-nosnippet>1386</a>	</span><span class="kw">pub </span>spawn_handle: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>SpawnTaskHandle,
-<a href=#1387 id=1387 data-nosnippet>1387</a>	<span class="doccomment">/// Prometheus metrics registry.
-<a href=#1388 id=1388 data-nosnippet>1388</a>	</span><span class="kw">pub </span>metrics_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Registry&gt;,
-<a href=#1389 id=1389 data-nosnippet>1389</a>	<span class="doccomment">/// Metrics.
-<a href=#1390 id=1390 data-nosnippet>1390</a>	</span><span class="kw">pub </span>metrics: NotificationMetrics,
-<a href=#1391 id=1391 data-nosnippet>1391</a>	<span class="doccomment">/// Whether to archive blocks. When `true`, gap sync requests bodies to maintain complete
-<a href=#1392 id=1392 data-nosnippet>1392</a>	/// block history.
-<a href=#1393 id=1393 data-nosnippet>1393</a>	</span><span class="kw">pub </span>archive_blocks: bool,
-<a href=#1394 id=1394 data-nosnippet>1394</a>}
-<a href=#1395 id=1395 data-nosnippet>1395</a>
-<a href=#1396 id=1396 data-nosnippet>1396</a><span class="doccomment">/// Build default syncing engine using [`build_default_block_downloader`] and
-<a href=#1397 id=1397 data-nosnippet>1397</a>/// [`build_polkadot_syncing_strategy`] internally.
-<a href=#1398 id=1398 data-nosnippet>1398</a></span><span class="kw">pub fn </span>build_default_syncing_engine&lt;Block, Client, Net&gt;(
-<a href=#1399 id=1399 data-nosnippet>1399</a>	config: DefaultSyncingEngineConfig&lt;Block, Client, Net&gt;,
-<a href=#1400 id=1400 data-nosnippet>1400</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(SyncingService&lt;Block&gt;, Net::NotificationProtocolConfig), Error&gt;
-<a href=#1401 id=1401 data-nosnippet>1401</a><span class="kw">where
-<a href=#1402 id=1402 data-nosnippet>1402</a>	</span>Block: BlockT,
-<a href=#1403 id=1403 data-nosnippet>1403</a>	Client: HeaderBackend&lt;Block&gt;
-<a href=#1404 id=1404 data-nosnippet>1404</a>		+ BlockBackend&lt;Block&gt;
-<a href=#1405 id=1405 data-nosnippet>1405</a>		+ HeaderMetadata&lt;Block, Error = sp_blockchain::Error&gt;
-<a href=#1406 id=1406 data-nosnippet>1406</a>		+ ProofProvider&lt;Block&gt;
-<a href=#1407 id=1407 data-nosnippet>1407</a>		+ Send
-<a href=#1408 id=1408 data-nosnippet>1408</a>		+ Sync
-<a href=#1409 id=1409 data-nosnippet>1409</a>		+ <span class="lifetime">'static</span>,
-<a href=#1410 id=1410 data-nosnippet>1410</a>	Net: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
-<a href=#1411 id=1411 data-nosnippet>1411</a>{
-<a href=#1412 id=1412 data-nosnippet>1412</a>	<span class="kw">let </span>DefaultSyncingEngineConfig {
-<a href=#1413 id=1413 data-nosnippet>1413</a>		role,
-<a href=#1414 id=1414 data-nosnippet>1414</a>		protocol_id,
-<a href=#1415 id=1415 data-nosnippet>1415</a>		fork_id,
-<a href=#1416 id=1416 data-nosnippet>1416</a>		net_config,
-<a href=#1417 id=1417 data-nosnippet>1417</a>		block_announce_validator,
-<a href=#1418 id=1418 data-nosnippet>1418</a>		network_service_handle,
-<a href=#1419 id=1419 data-nosnippet>1419</a>		warp_sync_config,
-<a href=#1420 id=1420 data-nosnippet>1420</a>		client,
-<a href=#1421 id=1421 data-nosnippet>1421</a>		import_queue_service,
-<a href=#1422 id=1422 data-nosnippet>1422</a>		num_peers_hint,
-<a href=#1423 id=1423 data-nosnippet>1423</a>		spawn_handle,
-<a href=#1424 id=1424 data-nosnippet>1424</a>		metrics_registry,
-<a href=#1425 id=1425 data-nosnippet>1425</a>		metrics,
-<a href=#1426 id=1426 data-nosnippet>1426</a>		archive_blocks,
-<a href=#1427 id=1427 data-nosnippet>1427</a>	} = config;
-<a href=#1428 id=1428 data-nosnippet>1428</a>
-<a href=#1429 id=1429 data-nosnippet>1429</a>	<span class="kw">let </span>block_downloader = build_default_block_downloader(
-<a href=#1430 id=1430 data-nosnippet>1430</a>		<span class="kw-2">&amp;</span>protocol_id,
-<a href=#1431 id=1431 data-nosnippet>1431</a>		fork_id,
-<a href=#1432 id=1432 data-nosnippet>1432</a>		net_config,
-<a href=#1433 id=1433 data-nosnippet>1433</a>		network_service_handle.clone(),
-<a href=#1434 id=1434 data-nosnippet>1434</a>		client.clone(),
-<a href=#1435 id=1435 data-nosnippet>1435</a>		num_peers_hint,
-<a href=#1436 id=1436 data-nosnippet>1436</a>		spawn_handle,
-<a href=#1437 id=1437 data-nosnippet>1437</a>	);
-<a href=#1438 id=1438 data-nosnippet>1438</a>	<span class="kw">let </span>syncing_strategy = build_polkadot_syncing_strategy(
-<a href=#1439 id=1439 data-nosnippet>1439</a>		protocol_id.clone(),
-<a href=#1440 id=1440 data-nosnippet>1440</a>		fork_id,
-<a href=#1441 id=1441 data-nosnippet>1441</a>		net_config,
-<a href=#1442 id=1442 data-nosnippet>1442</a>		warp_sync_config,
-<a href=#1443 id=1443 data-nosnippet>1443</a>		block_downloader,
-<a href=#1444 id=1444 data-nosnippet>1444</a>		client.clone(),
-<a href=#1445 id=1445 data-nosnippet>1445</a>		spawn_handle,
-<a href=#1446 id=1446 data-nosnippet>1446</a>		metrics_registry,
-<a href=#1447 id=1447 data-nosnippet>1447</a>		archive_blocks,
-<a href=#1448 id=1448 data-nosnippet>1448</a>	)<span class="question-mark">?</span>;
-<a href=#1449 id=1449 data-nosnippet>1449</a>
-<a href=#1450 id=1450 data-nosnippet>1450</a>	<span class="kw">let </span>(syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
-<a href=#1451 id=1451 data-nosnippet>1451</a>		Roles::from(<span class="kw-2">&amp;</span>role),
-<a href=#1452 id=1452 data-nosnippet>1452</a>		client,
-<a href=#1453 id=1453 data-nosnippet>1453</a>		metrics_registry,
-<a href=#1454 id=1454 data-nosnippet>1454</a>		metrics,
-<a href=#1455 id=1455 data-nosnippet>1455</a>		<span class="kw-2">&amp;</span>net_config,
-<a href=#1456 id=1456 data-nosnippet>1456</a>		protocol_id,
-<a href=#1457 id=1457 data-nosnippet>1457</a>		fork_id,
-<a href=#1458 id=1458 data-nosnippet>1458</a>		block_announce_validator,
-<a href=#1459 id=1459 data-nosnippet>1459</a>		syncing_strategy,
-<a href=#1460 id=1460 data-nosnippet>1460</a>		network_service_handle,
-<a href=#1461 id=1461 data-nosnippet>1461</a>		import_queue_service,
-<a href=#1462 id=1462 data-nosnippet>1462</a>		net_config.peer_store_handle(),
-<a href=#1463 id=1463 data-nosnippet>1463</a>	)<span class="question-mark">?</span>;
-<a href=#1464 id=1464 data-nosnippet>1464</a>
-<a href=#1465 id=1465 data-nosnippet>1465</a>	spawn_handle.spawn_blocking(<span class="string">"syncing"</span>, <span class="prelude-val">None</span>, syncing_engine.run());
-<a href=#1466 id=1466 data-nosnippet>1466</a>
-<a href=#1467 id=1467 data-nosnippet>1467</a>	<span class="prelude-val">Ok</span>((sync_service, block_announce_config))
-<a href=#1468 id=1468 data-nosnippet>1468</a>}
-<a href=#1469 id=1469 data-nosnippet>1469</a>
-<a href=#1470 id=1470 data-nosnippet>1470</a><span class="doccomment">/// Build default block downloader
-<a href=#1471 id=1471 data-nosnippet>1471</a></span><span class="kw">pub fn </span>build_default_block_downloader&lt;Block, Client, Net&gt;(
-<a href=#1472 id=1472 data-nosnippet>1472</a>	protocol_id: <span class="kw-2">&amp;</span>ProtocolId,
-<a href=#1473 id=1473 data-nosnippet>1473</a>	fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-<a href=#1474 id=1474 data-nosnippet>1474</a>	net_config: <span class="kw-2">&amp;mut </span>FullNetworkConfiguration&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash, Net&gt;,
-<a href=#1475 id=1475 data-nosnippet>1475</a>	network_service_handle: NetworkServiceHandle,
-<a href=#1476 id=1476 data-nosnippet>1476</a>	client: Arc&lt;Client&gt;,
-<a href=#1477 id=1477 data-nosnippet>1477</a>	num_peers_hint: usize,
-<a href=#1478 id=1478 data-nosnippet>1478</a>	spawn_handle: <span class="kw-2">&amp;</span>SpawnTaskHandle,
-<a href=#1479 id=1479 data-nosnippet>1479</a>) -&gt; Arc&lt;<span class="kw">dyn </span>BlockDownloader&lt;Block&gt;&gt;
-<a href=#1480 id=1480 data-nosnippet>1480</a><span class="kw">where
-<a href=#1481 id=1481 data-nosnippet>1481</a>	</span>Block: BlockT,
-<a href=#1482 id=1482 data-nosnippet>1482</a>	Client: HeaderBackend&lt;Block&gt; + BlockBackend&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#1483 id=1483 data-nosnippet>1483</a>	Net: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
-<a href=#1484 id=1484 data-nosnippet>1484</a>{
-<a href=#1485 id=1485 data-nosnippet>1485</a>	<span class="comment">// Custom protocol was not specified, use the default block handler.
-<a href=#1486 id=1486 data-nosnippet>1486</a>	// Allow both outgoing and incoming requests.
-<a href=#1487 id=1487 data-nosnippet>1487</a>	</span><span class="kw">let </span>BlockRelayParams { <span class="kw-2">mut </span>server, downloader, request_response_config } =
-<a href=#1488 id=1488 data-nosnippet>1488</a>		BlockRequestHandler::new::&lt;Net&gt;(
-<a href=#1489 id=1489 data-nosnippet>1489</a>			network_service_handle,
-<a href=#1490 id=1490 data-nosnippet>1490</a>			<span class="kw-2">&amp;</span>protocol_id,
-<a href=#1491 id=1491 data-nosnippet>1491</a>			fork_id,
-<a href=#1492 id=1492 data-nosnippet>1492</a>			client.clone(),
-<a href=#1493 id=1493 data-nosnippet>1493</a>			num_peers_hint,
-<a href=#1494 id=1494 data-nosnippet>1494</a>		);
-<a href=#1495 id=1495 data-nosnippet>1495</a>
-<a href=#1496 id=1496 data-nosnippet>1496</a>	spawn_handle.spawn(<span class="string">"block-request-handler"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), <span class="kw">async move </span>{
-<a href=#1497 id=1497 data-nosnippet>1497</a>		server.run().<span class="kw">await</span>;
-<a href=#1498 id=1498 data-nosnippet>1498</a>	});
-<a href=#1499 id=1499 data-nosnippet>1499</a>
-<a href=#1500 id=1500 data-nosnippet>1500</a>	net_config.add_request_response_protocol(request_response_config);
-<a href=#1501 id=1501 data-nosnippet>1501</a>
-<a href=#1502 id=1502 data-nosnippet>1502</a>	downloader
-<a href=#1503 id=1503 data-nosnippet>1503</a>}
-<a href=#1504 id=1504 data-nosnippet>1504</a>
-<a href=#1505 id=1505 data-nosnippet>1505</a><span class="doccomment">/// Build standard polkadot syncing strategy
-<a href=#1506 id=1506 data-nosnippet>1506</a></span><span class="kw">pub fn </span>build_polkadot_syncing_strategy&lt;Block, Client, Net&gt;(
-<a href=#1507 id=1507 data-nosnippet>1507</a>	protocol_id: ProtocolId,
-<a href=#1508 id=1508 data-nosnippet>1508</a>	fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-<a href=#1509 id=1509 data-nosnippet>1509</a>	net_config: <span class="kw-2">&amp;mut </span>FullNetworkConfiguration&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash, Net&gt;,
-<a href=#1510 id=1510 data-nosnippet>1510</a>	warp_sync_config: <span class="prelude-ty">Option</span>&lt;WarpSyncConfig&lt;Block&gt;&gt;,
-<a href=#1511 id=1511 data-nosnippet>1511</a>	block_downloader: Arc&lt;<span class="kw">dyn </span>BlockDownloader&lt;Block&gt;&gt;,
-<a href=#1512 id=1512 data-nosnippet>1512</a>	client: Arc&lt;Client&gt;,
-<a href=#1513 id=1513 data-nosnippet>1513</a>	spawn_handle: <span class="kw-2">&amp;</span>SpawnTaskHandle,
-<a href=#1514 id=1514 data-nosnippet>1514</a>	metrics_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;,
-<a href=#1515 id=1515 data-nosnippet>1515</a>	archive_blocks: bool,
-<a href=#1516 id=1516 data-nosnippet>1516</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>SyncingStrategy&lt;Block&gt;&gt;, Error&gt;
-<a href=#1517 id=1517 data-nosnippet>1517</a><span class="kw">where
-<a href=#1518 id=1518 data-nosnippet>1518</a>	</span>Block: BlockT,
-<a href=#1519 id=1519 data-nosnippet>1519</a>	Client: HeaderBackend&lt;Block&gt;
-<a href=#1520 id=1520 data-nosnippet>1520</a>		+ BlockBackend&lt;Block&gt;
-<a href=#1521 id=1521 data-nosnippet>1521</a>		+ HeaderMetadata&lt;Block, Error = sp_blockchain::Error&gt;
-<a href=#1522 id=1522 data-nosnippet>1522</a>		+ ProofProvider&lt;Block&gt;
-<a href=#1523 id=1523 data-nosnippet>1523</a>		+ Send
-<a href=#1524 id=1524 data-nosnippet>1524</a>		+ Sync
-<a href=#1525 id=1525 data-nosnippet>1525</a>		+ <span class="lifetime">'static</span>,
-<a href=#1526 id=1526 data-nosnippet>1526</a>	Net: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
-<a href=#1527 id=1527 data-nosnippet>1527</a>{
-<a href=#1528 id=1528 data-nosnippet>1528</a>	<span class="kw">if </span>warp_sync_config.is_none() &amp;&amp; net_config.network_config.sync_mode.is_warp() {
-<a href=#1529 id=1529 data-nosnippet>1529</a>		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Warp sync enabled, but no warp sync provider configured."</span>.into());
-<a href=#1530 id=1530 data-nosnippet>1530</a>	}
-<a href=#1531 id=1531 data-nosnippet>1531</a>
-<a href=#1532 id=1532 data-nosnippet>1532</a>	<span class="kw">if </span>client.requires_full_sync() {
-<a href=#1533 id=1533 data-nosnippet>1533</a>		<span class="kw">match </span>net_config.network_config.sync_mode {
-<a href=#1534 id=1534 data-nosnippet>1534</a>			SyncMode::LightState { .. } =&gt; {
-<a href=#1535 id=1535 data-nosnippet>1535</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Fast sync doesn't work for archive nodes"</span>.into())
-<a href=#1536 id=1536 data-nosnippet>1536</a>			},
-<a href=#1537 id=1537 data-nosnippet>1537</a>			SyncMode::Warp =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Warp sync doesn't work for archive nodes"</span>.into()),
-<a href=#1538 id=1538 data-nosnippet>1538</a>			SyncMode::Full =&gt; {},
-<a href=#1539 id=1539 data-nosnippet>1539</a>		}
-<a href=#1540 id=1540 data-nosnippet>1540</a>	}
-<a href=#1541 id=1541 data-nosnippet>1541</a>
-<a href=#1542 id=1542 data-nosnippet>1542</a>	<span class="kw">let </span>genesis_hash = client.info().genesis_hash;
-<a href=#1543 id=1543 data-nosnippet>1543</a>
-<a href=#1544 id=1544 data-nosnippet>1544</a>	<span class="kw">let </span>(state_request_protocol_config, state_request_protocol_name) = {
-<a href=#1545 id=1545 data-nosnippet>1545</a>		<span class="kw">let </span>num_peer_hint = net_config.network_config.default_peers_set_num_full <span class="kw">as </span>usize +
-<a href=#1546 id=1546 data-nosnippet>1546</a>			net_config.network_config.default_peers_set.reserved_nodes.len();
-<a href=#1547 id=1547 data-nosnippet>1547</a>		<span class="comment">// Allow both outgoing and incoming requests.
-<a href=#1548 id=1548 data-nosnippet>1548</a>		</span><span class="kw">let </span>(handler, protocol_config) =
-<a href=#1549 id=1549 data-nosnippet>1549</a>			StateRequestHandler::new::&lt;Net&gt;(<span class="kw-2">&amp;</span>protocol_id, fork_id, client.clone(), num_peer_hint);
-<a href=#1550 id=1550 data-nosnippet>1550</a>		<span class="kw">let </span>config_name = protocol_config.protocol_name().clone();
-<a href=#1551 id=1551 data-nosnippet>1551</a>
-<a href=#1552 id=1552 data-nosnippet>1552</a>		spawn_handle.spawn(<span class="string">"state-request-handler"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), handler.run());
-<a href=#1553 id=1553 data-nosnippet>1553</a>		(protocol_config, config_name)
-<a href=#1554 id=1554 data-nosnippet>1554</a>	};
-<a href=#1555 id=1555 data-nosnippet>1555</a>	net_config.add_request_response_protocol(state_request_protocol_config);
-<a href=#1556 id=1556 data-nosnippet>1556</a>
-<a href=#1557 id=1557 data-nosnippet>1557</a>	<span class="kw">let </span>(warp_sync_protocol_config, warp_sync_protocol_name) = <span class="kw">match </span>warp_sync_config.as_ref() {
-<a href=#1558 id=1558 data-nosnippet>1558</a>		<span class="prelude-val">Some</span>(WarpSyncConfig::WithProvider(warp_with_provider)) =&gt; {
-<a href=#1559 id=1559 data-nosnippet>1559</a>			<span class="comment">// Allow both outgoing and incoming requests.
-<a href=#1560 id=1560 data-nosnippet>1560</a>			</span><span class="kw">let </span>(handler, protocol_config) = WarpSyncRequestHandler::new::&lt;<span class="kw">_</span>, Net&gt;(
-<a href=#1561 id=1561 data-nosnippet>1561</a>				protocol_id,
-<a href=#1562 id=1562 data-nosnippet>1562</a>				genesis_hash,
-<a href=#1563 id=1563 data-nosnippet>1563</a>				fork_id,
-<a href=#1564 id=1564 data-nosnippet>1564</a>				warp_with_provider.clone(),
-<a href=#1565 id=1565 data-nosnippet>1565</a>			);
-<a href=#1566 id=1566 data-nosnippet>1566</a>			<span class="kw">let </span>config_name = protocol_config.protocol_name().clone();
-<a href=#1567 id=1567 data-nosnippet>1567</a>
-<a href=#1568 id=1568 data-nosnippet>1568</a>			spawn_handle.spawn(<span class="string">"warp-sync-request-handler"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), handler.run());
-<a href=#1569 id=1569 data-nosnippet>1569</a>			(<span class="prelude-val">Some</span>(protocol_config), <span class="prelude-val">Some</span>(config_name))
-<a href=#1570 id=1570 data-nosnippet>1570</a>		},
-<a href=#1571 id=1571 data-nosnippet>1571</a>		<span class="kw">_ </span>=&gt; (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>),
-<a href=#1572 id=1572 data-nosnippet>1572</a>	};
-<a href=#1573 id=1573 data-nosnippet>1573</a>	<span class="kw">if let </span><span class="prelude-val">Some</span>(config) = warp_sync_protocol_config {
-<a href=#1574 id=1574 data-nosnippet>1574</a>		net_config.add_request_response_protocol(config);
-<a href=#1575 id=1575 data-nosnippet>1575</a>	}
-<a href=#1576 id=1576 data-nosnippet>1576</a>
-<a href=#1577 id=1577 data-nosnippet>1577</a>	<span class="kw">let </span>syncing_config = PolkadotSyncingStrategyConfig {
-<a href=#1578 id=1578 data-nosnippet>1578</a>		mode: net_config.network_config.sync_mode,
-<a href=#1579 id=1579 data-nosnippet>1579</a>		max_parallel_downloads: net_config.network_config.max_parallel_downloads,
-<a href=#1580 id=1580 data-nosnippet>1580</a>		max_blocks_per_request: net_config.network_config.max_blocks_per_request,
-<a href=#1581 id=1581 data-nosnippet>1581</a>		min_peers_to_start_warp_sync: net_config.network_config.min_peers_to_start_warp_sync,
-<a href=#1582 id=1582 data-nosnippet>1582</a>		metrics_registry: metrics_registry.cloned(),
-<a href=#1583 id=1583 data-nosnippet>1583</a>		state_request_protocol_name,
-<a href=#1584 id=1584 data-nosnippet>1584</a>		block_downloader,
-<a href=#1585 id=1585 data-nosnippet>1585</a>		archive_blocks,
-<a href=#1586 id=1586 data-nosnippet>1586</a>	};
-<a href=#1587 id=1587 data-nosnippet>1587</a>	<span class="prelude-val">Ok</span>(Box::new(PolkadotSyncingStrategy::new(
-<a href=#1588 id=1588 data-nosnippet>1588</a>		syncing_config,
-<a href=#1589 id=1589 data-nosnippet>1589</a>		client,
-<a href=#1590 id=1590 data-nosnippet>1590</a>		warp_sync_config,
-<a href=#1591 id=1591 data-nosnippet>1591</a>		warp_sync_protocol_name,
-<a href=#1592 id=1592 data-nosnippet>1592</a>	)<span class="question-mark">?</span>))
-<a href=#1593 id=1593 data-nosnippet>1593</a>}
+<a href=#1246 id=1246 data-nosnippet>1246</a>		<span class="kw">let </span>(handler, bitswap_config) =
+<a href=#1247 id=1247 data-nosnippet>1247</a>			Net::bitswap_server(client.clone(), metrics_registry.cloned());
+<a href=#1248 id=1248 data-nosnippet>1248</a>		spawn_handle.spawn(<span class="string">"bitswap-request-handler"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), handler);
+<a href=#1249 id=1249 data-nosnippet>1249</a>
+<a href=#1250 id=1250 data-nosnippet>1250</a>		<span class="kw">let </span>ipfs_num_blocks = <span class="kw">match </span>blocks_pruning {
+<a href=#1251 id=1251 data-nosnippet>1251</a>			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized =&gt; IPFS_MAX_BLOCKS,
+<a href=#1252 id=1252 data-nosnippet>1252</a>			BlocksPruning::Some(num) =&gt; std::cmp::min(num, IPFS_MAX_BLOCKS),
+<a href=#1253 id=1253 data-nosnippet>1253</a>		};
+<a href=#1254 id=1254 data-nosnippet>1254</a>
+<a href=#1255 id=1255 data-nosnippet>1255</a>		IpfsConfig {
+<a href=#1256 id=1256 data-nosnippet>1256</a>			bitswap_config,
+<a href=#1257 id=1257 data-nosnippet>1257</a>			block_provider: Box::new(IpfsIndexedTransactions::new(client.clone(), ipfs_num_blocks)),
+<a href=#1258 id=1258 data-nosnippet>1258</a>			bootnodes: net_config.network_config.ipfs_bootnodes.clone(),
+<a href=#1259 id=1259 data-nosnippet>1259</a>		}
+<a href=#1260 id=1260 data-nosnippet>1260</a>	});
+<a href=#1261 id=1261 data-nosnippet>1261</a>
+<a href=#1262 id=1262 data-nosnippet>1262</a>	<span class="comment">// Create transactions protocol and add it to the list of supported protocols of
+<a href=#1263 id=1263 data-nosnippet>1263</a>	</span><span class="kw">let </span>(transactions_handler_proto, transactions_config) =
+<a href=#1264 id=1264 data-nosnippet>1264</a>		sc_network_transactions::TransactionsHandlerPrototype::new::&lt;<span class="kw">_</span>, Block, Net&gt;(
+<a href=#1265 id=1265 data-nosnippet>1265</a>			protocol_id.clone(),
+<a href=#1266 id=1266 data-nosnippet>1266</a>			genesis_hash,
+<a href=#1267 id=1267 data-nosnippet>1267</a>			fork_id,
+<a href=#1268 id=1268 data-nosnippet>1268</a>			metrics.clone(),
+<a href=#1269 id=1269 data-nosnippet>1269</a>			net_config.peer_store_handle(),
+<a href=#1270 id=1270 data-nosnippet>1270</a>		);
+<a href=#1271 id=1271 data-nosnippet>1271</a>	net_config.add_notification_protocol(transactions_config);
+<a href=#1272 id=1272 data-nosnippet>1272</a>
+<a href=#1273 id=1273 data-nosnippet>1273</a>	<span class="comment">// Start task for `PeerStore`
+<a href=#1274 id=1274 data-nosnippet>1274</a>	</span><span class="kw">let </span>peer_store = net_config.take_peer_store();
+<a href=#1275 id=1275 data-nosnippet>1275</a>	spawn_handle.spawn(<span class="string">"peer-store"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), peer_store.run());
+<a href=#1276 id=1276 data-nosnippet>1276</a>
+<a href=#1277 id=1277 data-nosnippet>1277</a>	<span class="kw">let </span>sync_service = Arc::new(sync_service);
+<a href=#1278 id=1278 data-nosnippet>1278</a>
+<a href=#1279 id=1279 data-nosnippet>1279</a>	<span class="kw">let </span>network_params = sc_network::config::Params::&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash, Net&gt; {
+<a href=#1280 id=1280 data-nosnippet>1280</a>		role,
+<a href=#1281 id=1281 data-nosnippet>1281</a>		executor: {
+<a href=#1282 id=1282 data-nosnippet>1282</a>			<span class="kw">let </span>spawn_handle = Clone::clone(<span class="kw-2">&amp;</span>spawn_handle);
+<a href=#1283 id=1283 data-nosnippet>1283</a>			Box::new(<span class="kw">move </span>|fut| {
+<a href=#1284 id=1284 data-nosnippet>1284</a>				spawn_handle.spawn(<span class="string">"libp2p-node"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), fut);
+<a href=#1285 id=1285 data-nosnippet>1285</a>			})
+<a href=#1286 id=1286 data-nosnippet>1286</a>		},
+<a href=#1287 id=1287 data-nosnippet>1287</a>		network_config: net_config,
+<a href=#1288 id=1288 data-nosnippet>1288</a>		genesis_hash,
+<a href=#1289 id=1289 data-nosnippet>1289</a>		protocol_id,
+<a href=#1290 id=1290 data-nosnippet>1290</a>		fork_id: fork_id.map(ToOwned::to_owned),
+<a href=#1291 id=1291 data-nosnippet>1291</a>		metrics_registry: metrics_registry.cloned(),
+<a href=#1292 id=1292 data-nosnippet>1292</a>		block_announce_config,
+<a href=#1293 id=1293 data-nosnippet>1293</a>		ipfs_config,
+<a href=#1294 id=1294 data-nosnippet>1294</a>		notification_metrics: metrics,
+<a href=#1295 id=1295 data-nosnippet>1295</a>	};
+<a href=#1296 id=1296 data-nosnippet>1296</a>
+<a href=#1297 id=1297 data-nosnippet>1297</a>	<span class="kw">let </span>has_bootnodes = !network_params.network_config.network_config.boot_nodes.is_empty();
+<a href=#1298 id=1298 data-nosnippet>1298</a>	<span class="kw">let </span>network_mut = Net::new(network_params)<span class="question-mark">?</span>;
+<a href=#1299 id=1299 data-nosnippet>1299</a>	<span class="kw">let </span>network = network_mut.network_service().clone();
+<a href=#1300 id=1300 data-nosnippet>1300</a>
+<a href=#1301 id=1301 data-nosnippet>1301</a>	<span class="kw">let </span>(tx_handler, tx_handler_controller) = transactions_handler_proto.build(
+<a href=#1302 id=1302 data-nosnippet>1302</a>		network.clone(),
+<a href=#1303 id=1303 data-nosnippet>1303</a>		sync_service.clone(),
+<a href=#1304 id=1304 data-nosnippet>1304</a>		Arc::new(TransactionPoolAdapter { pool: transaction_pool, client: client.clone() }),
+<a href=#1305 id=1305 data-nosnippet>1305</a>		metrics_registry,
+<a href=#1306 id=1306 data-nosnippet>1306</a>	)<span class="question-mark">?</span>;
+<a href=#1307 id=1307 data-nosnippet>1307</a>	spawn_handle.spawn_blocking(
+<a href=#1308 id=1308 data-nosnippet>1308</a>		<span class="string">"network-transactions-handler"</span>,
+<a href=#1309 id=1309 data-nosnippet>1309</a>		<span class="prelude-val">Some</span>(<span class="string">"networking"</span>),
+<a href=#1310 id=1310 data-nosnippet>1310</a>		tx_handler.run(),
+<a href=#1311 id=1311 data-nosnippet>1311</a>	);
+<a href=#1312 id=1312 data-nosnippet>1312</a>
+<a href=#1313 id=1313 data-nosnippet>1313</a>	spawn_handle.spawn_blocking(
+<a href=#1314 id=1314 data-nosnippet>1314</a>		<span class="string">"chain-sync-network-service-provider"</span>,
+<a href=#1315 id=1315 data-nosnippet>1315</a>		<span class="prelude-val">Some</span>(<span class="string">"networking"</span>),
+<a href=#1316 id=1316 data-nosnippet>1316</a>		network_service_provider.run(Arc::new(network.clone())),
+<a href=#1317 id=1317 data-nosnippet>1317</a>	);
+<a href=#1318 id=1318 data-nosnippet>1318</a>	spawn_handle.spawn(<span class="string">"import-queue"</span>, <span class="prelude-val">None</span>, {
+<a href=#1319 id=1319 data-nosnippet>1319</a>		<span class="kw">let </span>sync_service = sync_service.clone();
+<a href=#1320 id=1320 data-nosnippet>1320</a>
+<a href=#1321 id=1321 data-nosnippet>1321</a>		<span class="kw">async move </span>{ import_queue.run(sync_service.as_ref()).<span class="kw">await </span>}
+<a href=#1322 id=1322 data-nosnippet>1322</a>	});
+<a href=#1323 id=1323 data-nosnippet>1323</a>
+<a href=#1324 id=1324 data-nosnippet>1324</a>	<span class="kw">let </span>(system_rpc_tx, system_rpc_rx) = tracing_unbounded(<span class="string">"mpsc_system_rpc"</span>, <span class="number">10_000</span>);
+<a href=#1325 id=1325 data-nosnippet>1325</a>	spawn_handle.spawn(
+<a href=#1326 id=1326 data-nosnippet>1326</a>		<span class="string">"system-rpc-handler"</span>,
+<a href=#1327 id=1327 data-nosnippet>1327</a>		<span class="prelude-val">Some</span>(<span class="string">"networking"</span>),
+<a href=#1328 id=1328 data-nosnippet>1328</a>		build_system_rpc_future::&lt;<span class="kw">_</span>, <span class="kw">_</span>, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;(
+<a href=#1329 id=1329 data-nosnippet>1329</a>			role,
+<a href=#1330 id=1330 data-nosnippet>1330</a>			network_mut.network_service(),
+<a href=#1331 id=1331 data-nosnippet>1331</a>			sync_service.clone(),
+<a href=#1332 id=1332 data-nosnippet>1332</a>			client.clone(),
+<a href=#1333 id=1333 data-nosnippet>1333</a>			system_rpc_rx,
+<a href=#1334 id=1334 data-nosnippet>1334</a>			has_bootnodes,
+<a href=#1335 id=1335 data-nosnippet>1335</a>		),
+<a href=#1336 id=1336 data-nosnippet>1336</a>	);
+<a href=#1337 id=1337 data-nosnippet>1337</a>
+<a href=#1338 id=1338 data-nosnippet>1338</a>	<span class="kw">let </span>future = build_network_future::&lt;<span class="kw">_</span>, <span class="kw">_</span>, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash, <span class="kw">_</span>&gt;(
+<a href=#1339 id=1339 data-nosnippet>1339</a>		network_mut,
+<a href=#1340 id=1340 data-nosnippet>1340</a>		client,
+<a href=#1341 id=1341 data-nosnippet>1341</a>		sync_service.clone(),
+<a href=#1342 id=1342 data-nosnippet>1342</a>		announce_block,
+<a href=#1343 id=1343 data-nosnippet>1343</a>	);
+<a href=#1344 id=1344 data-nosnippet>1344</a>
+<a href=#1345 id=1345 data-nosnippet>1345</a>	<span class="comment">// The network worker is responsible for gathering all network messages and processing
+<a href=#1346 id=1346 data-nosnippet>1346</a>	// them. This is quite a heavy task, and at the time of the writing of this comment it
+<a href=#1347 id=1347 data-nosnippet>1347</a>	// frequently happens that this future takes several seconds or in some situations
+<a href=#1348 id=1348 data-nosnippet>1348</a>	// even more than a minute until it has processed its entire queue. This is clearly an
+<a href=#1349 id=1349 data-nosnippet>1349</a>	// issue, and ideally we would like to fix the network future to take as little time as
+<a href=#1350 id=1350 data-nosnippet>1350</a>	// possible, but we also take the extra harm-prevention measure to execute the networking
+<a href=#1351 id=1351 data-nosnippet>1351</a>	// future using `spawn_blocking`.
+<a href=#1352 id=1352 data-nosnippet>1352</a>	//
+<a href=#1353 id=1353 data-nosnippet>1353</a>	// The network worker is spawned as an essential task, meaning if it exits unexpectedly
+<a href=#1354 id=1354 data-nosnippet>1354</a>	// the service will shut down.
+<a href=#1355 id=1355 data-nosnippet>1355</a>	</span>spawn_essential_handle.spawn_blocking(<span class="string">"network-worker"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), future);
+<a href=#1356 id=1356 data-nosnippet>1356</a>
+<a href=#1357 id=1357 data-nosnippet>1357</a>	<span class="prelude-val">Ok</span>((network, system_rpc_tx, tx_handler_controller, sync_service.clone()))
+<a href=#1358 id=1358 data-nosnippet>1358</a>}
+<a href=#1359 id=1359 data-nosnippet>1359</a>
+<a href=#1360 id=1360 data-nosnippet>1360</a><span class="doccomment">/// Configuration for [`build_default_syncing_engine`].
+<a href=#1361 id=1361 data-nosnippet>1361</a></span><span class="kw">pub struct </span>DefaultSyncingEngineConfig&lt;<span class="lifetime">'a</span>, Block, Client, Net&gt;
+<a href=#1362 id=1362 data-nosnippet>1362</a><span class="kw">where
+<a href=#1363 id=1363 data-nosnippet>1363</a>	</span>Block: BlockT,
+<a href=#1364 id=1364 data-nosnippet>1364</a>	Net: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
+<a href=#1365 id=1365 data-nosnippet>1365</a>{
+<a href=#1366 id=1366 data-nosnippet>1366</a>	<span class="doccomment">/// Role of the local node.
+<a href=#1367 id=1367 data-nosnippet>1367</a>	</span><span class="kw">pub </span>role: Role,
+<a href=#1368 id=1368 data-nosnippet>1368</a>	<span class="doccomment">/// Protocol name prefix.
+<a href=#1369 id=1369 data-nosnippet>1369</a>	</span><span class="kw">pub </span>protocol_id: ProtocolId,
+<a href=#1370 id=1370 data-nosnippet>1370</a>	<span class="doccomment">/// Fork ID.
+<a href=#1371 id=1371 data-nosnippet>1371</a>	</span><span class="kw">pub </span>fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
+<a href=#1372 id=1372 data-nosnippet>1372</a>	<span class="doccomment">/// Full network configuration.
+<a href=#1373 id=1373 data-nosnippet>1373</a>	</span><span class="kw">pub </span>net_config: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>FullNetworkConfiguration&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash, Net&gt;,
+<a href=#1374 id=1374 data-nosnippet>1374</a>	<span class="doccomment">/// Validator for incoming block announcements.
+<a href=#1375 id=1375 data-nosnippet>1375</a>	</span><span class="kw">pub </span>block_announce_validator: Box&lt;<span class="kw">dyn </span>BlockAnnounceValidator&lt;Block&gt; + Send&gt;,
+<a href=#1376 id=1376 data-nosnippet>1376</a>	<span class="doccomment">/// Handle to communicate with `NetworkService`.
+<a href=#1377 id=1377 data-nosnippet>1377</a>	</span><span class="kw">pub </span>network_service_handle: NetworkServiceHandle,
+<a href=#1378 id=1378 data-nosnippet>1378</a>	<span class="doccomment">/// Warp sync configuration (when used).
+<a href=#1379 id=1379 data-nosnippet>1379</a>	</span><span class="kw">pub </span>warp_sync_config: <span class="prelude-ty">Option</span>&lt;WarpSyncConfig&lt;Block&gt;&gt;,
+<a href=#1380 id=1380 data-nosnippet>1380</a>	<span class="doccomment">/// A shared client returned by `new_full_parts`.
+<a href=#1381 id=1381 data-nosnippet>1381</a>	</span><span class="kw">pub </span>client: Arc&lt;Client&gt;,
+<a href=#1382 id=1382 data-nosnippet>1382</a>	<span class="doccomment">/// Blocks import queue API.
+<a href=#1383 id=1383 data-nosnippet>1383</a>	</span><span class="kw">pub </span>import_queue_service: Box&lt;<span class="kw">dyn </span>ImportQueueService&lt;Block&gt;&gt;,
+<a href=#1384 id=1384 data-nosnippet>1384</a>	<span class="doccomment">/// Expected max total number of peer connections (in + out).
+<a href=#1385 id=1385 data-nosnippet>1385</a>	</span><span class="kw">pub </span>num_peers_hint: usize,
+<a href=#1386 id=1386 data-nosnippet>1386</a>	<span class="doccomment">/// A handle for spawning tasks.
+<a href=#1387 id=1387 data-nosnippet>1387</a>	</span><span class="kw">pub </span>spawn_handle: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>SpawnTaskHandle,
+<a href=#1388 id=1388 data-nosnippet>1388</a>	<span class="doccomment">/// Prometheus metrics registry.
+<a href=#1389 id=1389 data-nosnippet>1389</a>	</span><span class="kw">pub </span>metrics_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Registry&gt;,
+<a href=#1390 id=1390 data-nosnippet>1390</a>	<span class="doccomment">/// Metrics.
+<a href=#1391 id=1391 data-nosnippet>1391</a>	</span><span class="kw">pub </span>metrics: NotificationMetrics,
+<a href=#1392 id=1392 data-nosnippet>1392</a>	<span class="doccomment">/// Whether to archive blocks. When `true`, gap sync requests bodies to maintain complete
+<a href=#1393 id=1393 data-nosnippet>1393</a>	/// block history.
+<a href=#1394 id=1394 data-nosnippet>1394</a>	</span><span class="kw">pub </span>archive_blocks: bool,
+<a href=#1395 id=1395 data-nosnippet>1395</a>}
+<a href=#1396 id=1396 data-nosnippet>1396</a>
+<a href=#1397 id=1397 data-nosnippet>1397</a><span class="doccomment">/// Build default syncing engine using [`build_default_block_downloader`] and
+<a href=#1398 id=1398 data-nosnippet>1398</a>/// [`build_polkadot_syncing_strategy`] internally.
+<a href=#1399 id=1399 data-nosnippet>1399</a></span><span class="kw">pub fn </span>build_default_syncing_engine&lt;Block, Client, Net&gt;(
+<a href=#1400 id=1400 data-nosnippet>1400</a>	config: DefaultSyncingEngineConfig&lt;Block, Client, Net&gt;,
+<a href=#1401 id=1401 data-nosnippet>1401</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(SyncingService&lt;Block&gt;, Net::NotificationProtocolConfig), Error&gt;
+<a href=#1402 id=1402 data-nosnippet>1402</a><span class="kw">where
+<a href=#1403 id=1403 data-nosnippet>1403</a>	</span>Block: BlockT,
+<a href=#1404 id=1404 data-nosnippet>1404</a>	Client: HeaderBackend&lt;Block&gt;
+<a href=#1405 id=1405 data-nosnippet>1405</a>		+ BlockBackend&lt;Block&gt;
+<a href=#1406 id=1406 data-nosnippet>1406</a>		+ HeaderMetadata&lt;Block, Error = sp_blockchain::Error&gt;
+<a href=#1407 id=1407 data-nosnippet>1407</a>		+ ProofProvider&lt;Block&gt;
+<a href=#1408 id=1408 data-nosnippet>1408</a>		+ Send
+<a href=#1409 id=1409 data-nosnippet>1409</a>		+ Sync
+<a href=#1410 id=1410 data-nosnippet>1410</a>		+ <span class="lifetime">'static</span>,
+<a href=#1411 id=1411 data-nosnippet>1411</a>	Net: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
+<a href=#1412 id=1412 data-nosnippet>1412</a>{
+<a href=#1413 id=1413 data-nosnippet>1413</a>	<span class="kw">let </span>DefaultSyncingEngineConfig {
+<a href=#1414 id=1414 data-nosnippet>1414</a>		role,
+<a href=#1415 id=1415 data-nosnippet>1415</a>		protocol_id,
+<a href=#1416 id=1416 data-nosnippet>1416</a>		fork_id,
+<a href=#1417 id=1417 data-nosnippet>1417</a>		net_config,
+<a href=#1418 id=1418 data-nosnippet>1418</a>		block_announce_validator,
+<a href=#1419 id=1419 data-nosnippet>1419</a>		network_service_handle,
+<a href=#1420 id=1420 data-nosnippet>1420</a>		warp_sync_config,
+<a href=#1421 id=1421 data-nosnippet>1421</a>		client,
+<a href=#1422 id=1422 data-nosnippet>1422</a>		import_queue_service,
+<a href=#1423 id=1423 data-nosnippet>1423</a>		num_peers_hint,
+<a href=#1424 id=1424 data-nosnippet>1424</a>		spawn_handle,
+<a href=#1425 id=1425 data-nosnippet>1425</a>		metrics_registry,
+<a href=#1426 id=1426 data-nosnippet>1426</a>		metrics,
+<a href=#1427 id=1427 data-nosnippet>1427</a>		archive_blocks,
+<a href=#1428 id=1428 data-nosnippet>1428</a>	} = config;
+<a href=#1429 id=1429 data-nosnippet>1429</a>
+<a href=#1430 id=1430 data-nosnippet>1430</a>	<span class="kw">let </span>block_downloader = build_default_block_downloader(
+<a href=#1431 id=1431 data-nosnippet>1431</a>		<span class="kw-2">&amp;</span>protocol_id,
+<a href=#1432 id=1432 data-nosnippet>1432</a>		fork_id,
+<a href=#1433 id=1433 data-nosnippet>1433</a>		net_config,
+<a href=#1434 id=1434 data-nosnippet>1434</a>		network_service_handle.clone(),
+<a href=#1435 id=1435 data-nosnippet>1435</a>		client.clone(),
+<a href=#1436 id=1436 data-nosnippet>1436</a>		num_peers_hint,
+<a href=#1437 id=1437 data-nosnippet>1437</a>		spawn_handle,
+<a href=#1438 id=1438 data-nosnippet>1438</a>	);
+<a href=#1439 id=1439 data-nosnippet>1439</a>	<span class="kw">let </span>syncing_strategy = build_polkadot_syncing_strategy(
+<a href=#1440 id=1440 data-nosnippet>1440</a>		protocol_id.clone(),
+<a href=#1441 id=1441 data-nosnippet>1441</a>		fork_id,
+<a href=#1442 id=1442 data-nosnippet>1442</a>		net_config,
+<a href=#1443 id=1443 data-nosnippet>1443</a>		warp_sync_config,
+<a href=#1444 id=1444 data-nosnippet>1444</a>		block_downloader,
+<a href=#1445 id=1445 data-nosnippet>1445</a>		client.clone(),
+<a href=#1446 id=1446 data-nosnippet>1446</a>		spawn_handle,
+<a href=#1447 id=1447 data-nosnippet>1447</a>		metrics_registry,
+<a href=#1448 id=1448 data-nosnippet>1448</a>		archive_blocks,
+<a href=#1449 id=1449 data-nosnippet>1449</a>	)<span class="question-mark">?</span>;
+<a href=#1450 id=1450 data-nosnippet>1450</a>
+<a href=#1451 id=1451 data-nosnippet>1451</a>	<span class="kw">let </span>(syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
+<a href=#1452 id=1452 data-nosnippet>1452</a>		Roles::from(<span class="kw-2">&amp;</span>role),
+<a href=#1453 id=1453 data-nosnippet>1453</a>		client,
+<a href=#1454 id=1454 data-nosnippet>1454</a>		metrics_registry,
+<a href=#1455 id=1455 data-nosnippet>1455</a>		metrics,
+<a href=#1456 id=1456 data-nosnippet>1456</a>		<span class="kw-2">&amp;</span>net_config,
+<a href=#1457 id=1457 data-nosnippet>1457</a>		protocol_id,
+<a href=#1458 id=1458 data-nosnippet>1458</a>		fork_id,
+<a href=#1459 id=1459 data-nosnippet>1459</a>		block_announce_validator,
+<a href=#1460 id=1460 data-nosnippet>1460</a>		syncing_strategy,
+<a href=#1461 id=1461 data-nosnippet>1461</a>		network_service_handle,
+<a href=#1462 id=1462 data-nosnippet>1462</a>		import_queue_service,
+<a href=#1463 id=1463 data-nosnippet>1463</a>		net_config.peer_store_handle(),
+<a href=#1464 id=1464 data-nosnippet>1464</a>	)<span class="question-mark">?</span>;
+<a href=#1465 id=1465 data-nosnippet>1465</a>
+<a href=#1466 id=1466 data-nosnippet>1466</a>	spawn_handle.spawn_blocking(<span class="string">"syncing"</span>, <span class="prelude-val">None</span>, syncing_engine.run());
+<a href=#1467 id=1467 data-nosnippet>1467</a>
+<a href=#1468 id=1468 data-nosnippet>1468</a>	<span class="prelude-val">Ok</span>((sync_service, block_announce_config))
+<a href=#1469 id=1469 data-nosnippet>1469</a>}
+<a href=#1470 id=1470 data-nosnippet>1470</a>
+<a href=#1471 id=1471 data-nosnippet>1471</a><span class="doccomment">/// Build default block downloader
+<a href=#1472 id=1472 data-nosnippet>1472</a></span><span class="kw">pub fn </span>build_default_block_downloader&lt;Block, Client, Net&gt;(
+<a href=#1473 id=1473 data-nosnippet>1473</a>	protocol_id: <span class="kw-2">&amp;</span>ProtocolId,
+<a href=#1474 id=1474 data-nosnippet>1474</a>	fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+<a href=#1475 id=1475 data-nosnippet>1475</a>	net_config: <span class="kw-2">&amp;mut </span>FullNetworkConfiguration&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash, Net&gt;,
+<a href=#1476 id=1476 data-nosnippet>1476</a>	network_service_handle: NetworkServiceHandle,
+<a href=#1477 id=1477 data-nosnippet>1477</a>	client: Arc&lt;Client&gt;,
+<a href=#1478 id=1478 data-nosnippet>1478</a>	num_peers_hint: usize,
+<a href=#1479 id=1479 data-nosnippet>1479</a>	spawn_handle: <span class="kw-2">&amp;</span>SpawnTaskHandle,
+<a href=#1480 id=1480 data-nosnippet>1480</a>) -&gt; Arc&lt;<span class="kw">dyn </span>BlockDownloader&lt;Block&gt;&gt;
+<a href=#1481 id=1481 data-nosnippet>1481</a><span class="kw">where
+<a href=#1482 id=1482 data-nosnippet>1482</a>	</span>Block: BlockT,
+<a href=#1483 id=1483 data-nosnippet>1483</a>	Client: HeaderBackend&lt;Block&gt; + BlockBackend&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#1484 id=1484 data-nosnippet>1484</a>	Net: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
+<a href=#1485 id=1485 data-nosnippet>1485</a>{
+<a href=#1486 id=1486 data-nosnippet>1486</a>	<span class="comment">// Custom protocol was not specified, use the default block handler.
+<a href=#1487 id=1487 data-nosnippet>1487</a>	// Allow both outgoing and incoming requests.
+<a href=#1488 id=1488 data-nosnippet>1488</a>	</span><span class="kw">let </span>BlockRelayParams { <span class="kw-2">mut </span>server, downloader, request_response_config } =
+<a href=#1489 id=1489 data-nosnippet>1489</a>		BlockRequestHandler::new::&lt;Net&gt;(
+<a href=#1490 id=1490 data-nosnippet>1490</a>			network_service_handle,
+<a href=#1491 id=1491 data-nosnippet>1491</a>			<span class="kw-2">&amp;</span>protocol_id,
+<a href=#1492 id=1492 data-nosnippet>1492</a>			fork_id,
+<a href=#1493 id=1493 data-nosnippet>1493</a>			client.clone(),
+<a href=#1494 id=1494 data-nosnippet>1494</a>			num_peers_hint,
+<a href=#1495 id=1495 data-nosnippet>1495</a>		);
+<a href=#1496 id=1496 data-nosnippet>1496</a>
+<a href=#1497 id=1497 data-nosnippet>1497</a>	spawn_handle.spawn(<span class="string">"block-request-handler"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), <span class="kw">async move </span>{
+<a href=#1498 id=1498 data-nosnippet>1498</a>		server.run().<span class="kw">await</span>;
+<a href=#1499 id=1499 data-nosnippet>1499</a>	});
+<a href=#1500 id=1500 data-nosnippet>1500</a>
+<a href=#1501 id=1501 data-nosnippet>1501</a>	net_config.add_request_response_protocol(request_response_config);
+<a href=#1502 id=1502 data-nosnippet>1502</a>
+<a href=#1503 id=1503 data-nosnippet>1503</a>	downloader
+<a href=#1504 id=1504 data-nosnippet>1504</a>}
+<a href=#1505 id=1505 data-nosnippet>1505</a>
+<a href=#1506 id=1506 data-nosnippet>1506</a><span class="doccomment">/// Build standard polkadot syncing strategy
+<a href=#1507 id=1507 data-nosnippet>1507</a></span><span class="kw">pub fn </span>build_polkadot_syncing_strategy&lt;Block, Client, Net&gt;(
+<a href=#1508 id=1508 data-nosnippet>1508</a>	protocol_id: ProtocolId,
+<a href=#1509 id=1509 data-nosnippet>1509</a>	fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+<a href=#1510 id=1510 data-nosnippet>1510</a>	net_config: <span class="kw-2">&amp;mut </span>FullNetworkConfiguration&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash, Net&gt;,
+<a href=#1511 id=1511 data-nosnippet>1511</a>	warp_sync_config: <span class="prelude-ty">Option</span>&lt;WarpSyncConfig&lt;Block&gt;&gt;,
+<a href=#1512 id=1512 data-nosnippet>1512</a>	block_downloader: Arc&lt;<span class="kw">dyn </span>BlockDownloader&lt;Block&gt;&gt;,
+<a href=#1513 id=1513 data-nosnippet>1513</a>	client: Arc&lt;Client&gt;,
+<a href=#1514 id=1514 data-nosnippet>1514</a>	spawn_handle: <span class="kw-2">&amp;</span>SpawnTaskHandle,
+<a href=#1515 id=1515 data-nosnippet>1515</a>	metrics_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;,
+<a href=#1516 id=1516 data-nosnippet>1516</a>	archive_blocks: bool,
+<a href=#1517 id=1517 data-nosnippet>1517</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>SyncingStrategy&lt;Block&gt;&gt;, Error&gt;
+<a href=#1518 id=1518 data-nosnippet>1518</a><span class="kw">where
+<a href=#1519 id=1519 data-nosnippet>1519</a>	</span>Block: BlockT,
+<a href=#1520 id=1520 data-nosnippet>1520</a>	Client: HeaderBackend&lt;Block&gt;
+<a href=#1521 id=1521 data-nosnippet>1521</a>		+ BlockBackend&lt;Block&gt;
+<a href=#1522 id=1522 data-nosnippet>1522</a>		+ HeaderMetadata&lt;Block, Error = sp_blockchain::Error&gt;
+<a href=#1523 id=1523 data-nosnippet>1523</a>		+ ProofProvider&lt;Block&gt;
+<a href=#1524 id=1524 data-nosnippet>1524</a>		+ Send
+<a href=#1525 id=1525 data-nosnippet>1525</a>		+ Sync
+<a href=#1526 id=1526 data-nosnippet>1526</a>		+ <span class="lifetime">'static</span>,
+<a href=#1527 id=1527 data-nosnippet>1527</a>	Net: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
+<a href=#1528 id=1528 data-nosnippet>1528</a>{
+<a href=#1529 id=1529 data-nosnippet>1529</a>	<span class="kw">if </span>warp_sync_config.is_none() &amp;&amp; net_config.network_config.sync_mode.is_warp() {
+<a href=#1530 id=1530 data-nosnippet>1530</a>		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Warp sync enabled, but no warp sync provider configured."</span>.into());
+<a href=#1531 id=1531 data-nosnippet>1531</a>	}
+<a href=#1532 id=1532 data-nosnippet>1532</a>
+<a href=#1533 id=1533 data-nosnippet>1533</a>	<span class="kw">if </span>client.requires_full_sync() {
+<a href=#1534 id=1534 data-nosnippet>1534</a>		<span class="kw">match </span>net_config.network_config.sync_mode {
+<a href=#1535 id=1535 data-nosnippet>1535</a>			SyncMode::LightState { .. } =&gt; {
+<a href=#1536 id=1536 data-nosnippet>1536</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Fast sync doesn't work for archive nodes"</span>.into())
+<a href=#1537 id=1537 data-nosnippet>1537</a>			},
+<a href=#1538 id=1538 data-nosnippet>1538</a>			SyncMode::Warp =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Warp sync doesn't work for archive nodes"</span>.into()),
+<a href=#1539 id=1539 data-nosnippet>1539</a>			SyncMode::Full =&gt; {},
+<a href=#1540 id=1540 data-nosnippet>1540</a>		}
+<a href=#1541 id=1541 data-nosnippet>1541</a>	}
+<a href=#1542 id=1542 data-nosnippet>1542</a>
+<a href=#1543 id=1543 data-nosnippet>1543</a>	<span class="kw">let </span>genesis_hash = client.info().genesis_hash;
+<a href=#1544 id=1544 data-nosnippet>1544</a>
+<a href=#1545 id=1545 data-nosnippet>1545</a>	<span class="kw">let </span>(state_request_protocol_config, state_request_protocol_name) = {
+<a href=#1546 id=1546 data-nosnippet>1546</a>		<span class="kw">let </span>num_peer_hint = net_config.network_config.default_peers_set_num_full <span class="kw">as </span>usize +
+<a href=#1547 id=1547 data-nosnippet>1547</a>			net_config.network_config.default_peers_set.reserved_nodes.len();
+<a href=#1548 id=1548 data-nosnippet>1548</a>		<span class="comment">// Allow both outgoing and incoming requests.
+<a href=#1549 id=1549 data-nosnippet>1549</a>		</span><span class="kw">let </span>(handler, protocol_config) =
+<a href=#1550 id=1550 data-nosnippet>1550</a>			StateRequestHandler::new::&lt;Net&gt;(<span class="kw-2">&amp;</span>protocol_id, fork_id, client.clone(), num_peer_hint);
+<a href=#1551 id=1551 data-nosnippet>1551</a>		<span class="kw">let </span>config_name = protocol_config.protocol_name().clone();
+<a href=#1552 id=1552 data-nosnippet>1552</a>
+<a href=#1553 id=1553 data-nosnippet>1553</a>		spawn_handle.spawn(<span class="string">"state-request-handler"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), handler.run());
+<a href=#1554 id=1554 data-nosnippet>1554</a>		(protocol_config, config_name)
+<a href=#1555 id=1555 data-nosnippet>1555</a>	};
+<a href=#1556 id=1556 data-nosnippet>1556</a>	net_config.add_request_response_protocol(state_request_protocol_config);
+<a href=#1557 id=1557 data-nosnippet>1557</a>
+<a href=#1558 id=1558 data-nosnippet>1558</a>	<span class="kw">let </span>(warp_sync_protocol_config, warp_sync_protocol_name) = <span class="kw">match </span>warp_sync_config.as_ref() {
+<a href=#1559 id=1559 data-nosnippet>1559</a>		<span class="prelude-val">Some</span>(WarpSyncConfig::WithProvider(warp_with_provider)) =&gt; {
+<a href=#1560 id=1560 data-nosnippet>1560</a>			<span class="comment">// Allow both outgoing and incoming requests.
+<a href=#1561 id=1561 data-nosnippet>1561</a>			</span><span class="kw">let </span>(handler, protocol_config) = WarpSyncRequestHandler::new::&lt;<span class="kw">_</span>, Net&gt;(
+<a href=#1562 id=1562 data-nosnippet>1562</a>				protocol_id,
+<a href=#1563 id=1563 data-nosnippet>1563</a>				genesis_hash,
+<a href=#1564 id=1564 data-nosnippet>1564</a>				fork_id,
+<a href=#1565 id=1565 data-nosnippet>1565</a>				warp_with_provider.clone(),
+<a href=#1566 id=1566 data-nosnippet>1566</a>			);
+<a href=#1567 id=1567 data-nosnippet>1567</a>			<span class="kw">let </span>config_name = protocol_config.protocol_name().clone();
+<a href=#1568 id=1568 data-nosnippet>1568</a>
+<a href=#1569 id=1569 data-nosnippet>1569</a>			spawn_handle.spawn(<span class="string">"warp-sync-request-handler"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), handler.run());
+<a href=#1570 id=1570 data-nosnippet>1570</a>			(<span class="prelude-val">Some</span>(protocol_config), <span class="prelude-val">Some</span>(config_name))
+<a href=#1571 id=1571 data-nosnippet>1571</a>		},
+<a href=#1572 id=1572 data-nosnippet>1572</a>		<span class="kw">_ </span>=&gt; (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>),
+<a href=#1573 id=1573 data-nosnippet>1573</a>	};
+<a href=#1574 id=1574 data-nosnippet>1574</a>	<span class="kw">if let </span><span class="prelude-val">Some</span>(config) = warp_sync_protocol_config {
+<a href=#1575 id=1575 data-nosnippet>1575</a>		net_config.add_request_response_protocol(config);
+<a href=#1576 id=1576 data-nosnippet>1576</a>	}
+<a href=#1577 id=1577 data-nosnippet>1577</a>
+<a href=#1578 id=1578 data-nosnippet>1578</a>	<span class="kw">let </span>syncing_config = PolkadotSyncingStrategyConfig {
+<a href=#1579 id=1579 data-nosnippet>1579</a>		mode: net_config.network_config.sync_mode,
+<a href=#1580 id=1580 data-nosnippet>1580</a>		max_parallel_downloads: net_config.network_config.max_parallel_downloads,
+<a href=#1581 id=1581 data-nosnippet>1581</a>		max_blocks_per_request: net_config.network_config.max_blocks_per_request,
+<a href=#1582 id=1582 data-nosnippet>1582</a>		min_peers_to_start_warp_sync: net_config.network_config.min_peers_to_start_warp_sync,
+<a href=#1583 id=1583 data-nosnippet>1583</a>		metrics_registry: metrics_registry.cloned(),
+<a href=#1584 id=1584 data-nosnippet>1584</a>		state_request_protocol_name,
+<a href=#1585 id=1585 data-nosnippet>1585</a>		block_downloader,
+<a href=#1586 id=1586 data-nosnippet>1586</a>		archive_blocks,
+<a href=#1587 id=1587 data-nosnippet>1587</a>	};
+<a href=#1588 id=1588 data-nosnippet>1588</a>	<span class="prelude-val">Ok</span>(Box::new(PolkadotSyncingStrategy::new(
+<a href=#1589 id=1589 data-nosnippet>1589</a>		syncing_config,
+<a href=#1590 id=1590 data-nosnippet>1590</a>		client,
+<a href=#1591 id=1591 data-nosnippet>1591</a>		warp_sync_config,
+<a href=#1592 id=1592 data-nosnippet>1592</a>		warp_sync_protocol_name,
+<a href=#1593 id=1593 data-nosnippet>1593</a>	)<span class="question-mark">?</span>))
+<a href=#1594 id=1594 data-nosnippet>1594</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

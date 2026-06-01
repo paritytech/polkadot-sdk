@@ -293,14 +293,44 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#143 id=143 data-nosnippet>143</a>	)
 <a href=#144 id=144 data-nosnippet>144</a>}
 <a href=#145 id=145 data-nosnippet>145</a>
-<a href=#146 id=146 data-nosnippet>146</a><span class="kw">pub fn </span>get_async_backing_chain_spec(id: <span class="prelude-ty">Option</span>&lt;ParaId&gt;) -&gt; GenericChainSpec {
-<a href=#147 id=147 data-nosnippet>147</a>	get_chain_spec_with_extra_endowed(
-<a href=#148 id=148 data-nosnippet>148</a>		id,
-<a href=#149 id=149 data-nosnippet>149</a>		Default::default(),
-<a href=#150 id=150 data-nosnippet>150</a>		cumulus_test_runtime::async_backing::WASM_BINARY
-<a href=#151 id=151 data-nosnippet>151</a>			.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
-<a href=#152 id=152 data-nosnippet>152</a>	)
-<a href=#153 id=153 data-nosnippet>153</a>}
+<a href=#146 id=146 data-nosnippet>146</a><span class="comment">// Async backing with scheduling V3 enabled.
+<a href=#147 id=147 data-nosnippet>147</a></span><span class="kw">pub fn </span>get_async_backing_v3_chain_spec(id: <span class="prelude-ty">Option</span>&lt;ParaId&gt;) -&gt; GenericChainSpec {
+<a href=#148 id=148 data-nosnippet>148</a>	get_chain_spec_with_extra_endowed(
+<a href=#149 id=149 data-nosnippet>149</a>		id,
+<a href=#150 id=150 data-nosnippet>150</a>		Default::default(),
+<a href=#151 id=151 data-nosnippet>151</a>		cumulus_test_runtime::async_backing_v3::WASM_BINARY
+<a href=#152 id=152 data-nosnippet>152</a>			.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
+<a href=#153 id=153 data-nosnippet>153</a>	)
+<a href=#154 id=154 data-nosnippet>154</a>}
+<a href=#155 id=155 data-nosnippet>155</a>
+<a href=#156 id=156 data-nosnippet>156</a><span class="comment">// Async backing with scheduling V3 and relay parent offset enabled.
+<a href=#157 id=157 data-nosnippet>157</a></span><span class="kw">pub fn </span>get_async_backing_v3_rpo_chain_spec(id: <span class="prelude-ty">Option</span>&lt;ParaId&gt;) -&gt; GenericChainSpec {
+<a href=#158 id=158 data-nosnippet>158</a>	get_chain_spec_with_extra_endowed(
+<a href=#159 id=159 data-nosnippet>159</a>		id,
+<a href=#160 id=160 data-nosnippet>160</a>		Default::default(),
+<a href=#161 id=161 data-nosnippet>161</a>		cumulus_test_runtime::async_backing_v3_rpo::WASM_BINARY
+<a href=#162 id=162 data-nosnippet>162</a>			.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
+<a href=#163 id=163 data-nosnippet>163</a>	)
+<a href=#164 id=164 data-nosnippet>164</a>}
+<a href=#165 id=165 data-nosnippet>165</a>
+<a href=#166 id=166 data-nosnippet>166</a><span class="comment">// Elastic scaling with scheduling V3 enabled.
+<a href=#167 id=167 data-nosnippet>167</a></span><span class="kw">pub fn </span>get_elastic_scaling_v3_chain_spec(id: <span class="prelude-ty">Option</span>&lt;ParaId&gt;) -&gt; GenericChainSpec {
+<a href=#168 id=168 data-nosnippet>168</a>	get_chain_spec_with_extra_endowed(
+<a href=#169 id=169 data-nosnippet>169</a>		id,
+<a href=#170 id=170 data-nosnippet>170</a>		Default::default(),
+<a href=#171 id=171 data-nosnippet>171</a>		cumulus_test_runtime::elastic_scaling_v3::WASM_BINARY
+<a href=#172 id=172 data-nosnippet>172</a>			.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
+<a href=#173 id=173 data-nosnippet>173</a>	)
+<a href=#174 id=174 data-nosnippet>174</a>}
+<a href=#175 id=175 data-nosnippet>175</a>
+<a href=#176 id=176 data-nosnippet>176</a><span class="kw">pub fn </span>get_async_backing_chain_spec(id: <span class="prelude-ty">Option</span>&lt;ParaId&gt;) -&gt; GenericChainSpec {
+<a href=#177 id=177 data-nosnippet>177</a>	get_chain_spec_with_extra_endowed(
+<a href=#178 id=178 data-nosnippet>178</a>		id,
+<a href=#179 id=179 data-nosnippet>179</a>		Default::default(),
+<a href=#180 id=180 data-nosnippet>180</a>		cumulus_test_runtime::async_backing::WASM_BINARY
+<a href=#181 id=181 data-nosnippet>181</a>			.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
+<a href=#182 id=182 data-nosnippet>182</a>	)
+<a href=#183 id=183 data-nosnippet>183</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

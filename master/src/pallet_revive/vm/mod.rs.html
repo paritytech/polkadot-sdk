@@ -178,7 +178,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#28 id=28 data-nosnippet>28</a>	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 <a href=#29 id=29 data-nosnippet>29</a>	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight, deposit_payment,
 <a href=#30 id=30 data-nosnippet>30</a>	exec::{ExecResult, Executable, ExportedFunction, Ext},
-<a href=#31 id=31 data-nosnippet>31</a>	frame_support::{ensure, error::BadOrigin},
+<a href=#31 id=31 data-nosnippet>31</a>	frame_support::ensure,
 <a href=#32 id=32 data-nosnippet>32</a>	metering::{ResourceMeter, State, Token},
 <a href=#33 id=33 data-nosnippet>33</a>	weights::WeightInfo,
 <a href=#34 id=34 data-nosnippet>34</a>};
@@ -187,7 +187,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#37 id=37 data-nosnippet>37</a><span class="kw">use </span>frame_support::dispatch::DispatchResult;
 <a href=#38 id=38 data-nosnippet>38</a><span class="kw">use </span>pallet_revive_uapi::ReturnErrorCode;
 <a href=#39 id=39 data-nosnippet>39</a><span class="kw">use </span>sp_core::{Get, H256};
-<a href=#40 id=40 data-nosnippet>40</a><span class="kw">use </span>sp_runtime::{DispatchError, Saturating};
+<a href=#40 id=40 data-nosnippet>40</a><span class="kw">use </span>sp_runtime::{DispatchError, Saturating, traits::BadOrigin};
 <a href=#41 id=41 data-nosnippet>41</a>
 <a href=#42 id=42 data-nosnippet>42</a><span class="doccomment">/// Validated Vm module ready for execution.
 <a href=#43 id=43 data-nosnippet>43</a>/// This data structure is immutable once created and stored.

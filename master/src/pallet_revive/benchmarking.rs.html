@@ -780,7 +780,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#630 id=630 data-nosnippet>630</a>	<span class="doccomment">/// Worst case: every input account is not eth-derived, not yet mapped, and
 <a href=#631 id=631 data-nosnippet>631</a>	/// already carries an [`HoldReason::AddressMapping`] hold. The per-account
 <a href=#632 id=632 data-nosnippet>632</a>	/// loop body in `batch_map_accounts` then both inserts the [`OriginalAccount`]
-<a href=#633 id=633 data-nosnippet>633</a>	/// entry via `map_no_deposit` *and* releases the existing hold.
+<a href=#633 id=633 data-nosnippet>633</a>	/// entry via `map_no_deposit_unchecked` *and* releases the existing hold.
 <a href=#634 id=634 data-nosnippet>634</a>	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 <a href=#635 id=635 data-nosnippet>635</a>	</span><span class="kw">fn </span>batch_map_accounts(a: Linear&lt;<span class="number">0</span>, <span class="number">1024</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 <a href=#636 id=636 data-nosnippet>636</a>		<span class="kw">use </span>frame_benchmarking::v2::account;
@@ -1095,7 +1095,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#945 id=945 data-nosnippet>945</a>	</span><span class="kw">fn </span>seal_balance_of() {
 <a href=#946 id=946 data-nosnippet>946</a>		<span class="kw">let </span>len = &lt;sp_core::U256 <span class="kw">as </span>MaxEncodedLen&gt;::max_encoded_len();
 <a href=#947 id=947 data-nosnippet>947</a>		<span class="kw">let </span>account = account::&lt;T::AccountId&gt;(<span class="string">"target"</span>, <span class="number">0</span>, <span class="number">0</span>);
-<a href=#948 id=948 data-nosnippet>948</a>		&lt;T <span class="kw">as </span>Config&gt;::AddressMapper::map_no_deposit(<span class="kw-2">&amp;</span>account).unwrap();
+<a href=#948 id=948 data-nosnippet>948</a>		&lt;T <span class="kw">as </span>Config&gt;::AddressMapper::map_no_deposit_unchecked(<span class="kw-2">&amp;</span>account).unwrap();
 <a href=#949 id=949 data-nosnippet>949</a>
 <a href=#950 id=950 data-nosnippet>950</a>		<span class="kw">let </span>address = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>account);
 <a href=#951 id=951 data-nosnippet>951</a>		<span class="kw">let </span>balance = Pallet::&lt;T&gt;::min_balance() * <span class="number">2u32</span>.into();
@@ -1473,7 +1473,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1323 id=1323 data-nosnippet>1323</a>	</span><span class="kw">fn </span>seal_terminate_logic() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 <a href=#1324 id=1324 data-nosnippet>1324</a>		<span class="kw">let </span>caller = whitelisted_caller();
 <a href=#1325 id=1325 data-nosnippet>1325</a>		<span class="kw">let </span>beneficiary = account::&lt;T::AccountId&gt;(<span class="string">"beneficiary"</span>, <span class="number">0</span>, <span class="number">0</span>);
-<a href=#1326 id=1326 data-nosnippet>1326</a>		T::AddressMapper::map_no_deposit(<span class="kw-2">&amp;</span>beneficiary)<span class="question-mark">?</span>;
+<a href=#1326 id=1326 data-nosnippet>1326</a>		T::AddressMapper::map_no_deposit_unchecked(<span class="kw-2">&amp;</span>beneficiary)<span class="question-mark">?</span>;
 <a href=#1327 id=1327 data-nosnippet>1327</a>
 <a href=#1328 id=1328 data-nosnippet>1328</a>		<span class="macro">build_runtime!</span>(_runtime, instance, _memory: [<span class="macro">vec!</span>[<span class="number">0u8</span>; <span class="number">0</span>], ]);
 <a href=#1329 id=1329 data-nosnippet>1329</a>		<span class="kw">let </span>code_hash = instance.info()<span class="question-mark">?</span>.code_hash;

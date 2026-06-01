@@ -225,211 +225,218 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#75 id=75 data-nosnippet>75</a><span class="kw">use </span>cumulus_client_consensus_common::{<span class="self">self </span><span class="kw">as </span>consensus_common, ParachainBlockImportMarker};
 <a href=#76 id=76 data-nosnippet>76</a><span class="kw">use </span>cumulus_client_proof_size_recording::register_proof_size_recording_cleanup;
 <a href=#77 id=77 data-nosnippet>77</a><span class="kw">use </span>cumulus_primitives_aura::AuraUnincludedSegmentApi;
-<a href=#78 id=78 data-nosnippet>78</a><span class="kw">use </span>cumulus_primitives_core::{KeyToIncludeInRelayProof, RelayParentOffsetApi, TargetBlockRate};
-<a href=#79 id=79 data-nosnippet>79</a><span class="kw">use </span>cumulus_relay_chain_interface::RelayChainInterface;
-<a href=#80 id=80 data-nosnippet>80</a><span class="kw">use </span>futures::FutureExt;
-<a href=#81 id=81 data-nosnippet>81</a><span class="kw">use </span>polkadot_primitives::{
-<a href=#82 id=82 data-nosnippet>82</a>	CollatorPair, CoreIndex, Hash <span class="kw">as </span>RelayHash, Id <span class="kw">as </span>ParaId, PersistedValidationData,
-<a href=#83 id=83 data-nosnippet>83</a>	ValidationCodeHash,
-<a href=#84 id=84 data-nosnippet>84</a>};
-<a href=#85 id=85 data-nosnippet>85</a><span class="kw">use </span>sc_client_api::{
-<a href=#86 id=86 data-nosnippet>86</a>	backend::AuxStore, client::PreCommitActions, BlockBackend, BlockOf, UsageProvider,
+<a href=#78 id=78 data-nosnippet>78</a><span class="kw">use </span>cumulus_primitives_core::{
+<a href=#79 id=79 data-nosnippet>79</a>	KeyToIncludeInRelayProof, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
+<a href=#80 id=80 data-nosnippet>80</a>	TargetBlockRate,
+<a href=#81 id=81 data-nosnippet>81</a>};
+<a href=#82 id=82 data-nosnippet>82</a><span class="kw">use </span>cumulus_relay_chain_interface::RelayChainInterface;
+<a href=#83 id=83 data-nosnippet>83</a><span class="kw">use </span>futures::FutureExt;
+<a href=#84 id=84 data-nosnippet>84</a><span class="kw">use </span>polkadot_primitives::{
+<a href=#85 id=85 data-nosnippet>85</a>	CollatorPair, CoreIndex, Hash <span class="kw">as </span>RelayHash, Id <span class="kw">as </span>ParaId, PersistedValidationData,
+<a href=#86 id=86 data-nosnippet>86</a>	ValidationCodeHash,
 <a href=#87 id=87 data-nosnippet>87</a>};
-<a href=#88 id=88 data-nosnippet>88</a><span class="kw">use </span>sc_consensus::BlockImport;
-<a href=#89 id=89 data-nosnippet>89</a><span class="kw">use </span>sc_network_types::PeerId;
-<a href=#90 id=90 data-nosnippet>90</a><span class="kw">use </span>sc_utils::mpsc::tracing_unbounded;
-<a href=#91 id=91 data-nosnippet>91</a><span class="kw">use </span>sp_api::{ProvideRuntimeApi, StorageProof};
-<a href=#92 id=92 data-nosnippet>92</a><span class="kw">use </span>sp_application_crypto::AppPublic;
-<a href=#93 id=93 data-nosnippet>93</a><span class="kw">use </span>sp_block_builder::BlockBuilder;
-<a href=#94 id=94 data-nosnippet>94</a><span class="kw">use </span>sp_blockchain::HeaderBackend;
-<a href=#95 id=95 data-nosnippet>95</a><span class="kw">use </span>sp_consensus::Environment;
-<a href=#96 id=96 data-nosnippet>96</a><span class="kw">use </span>sp_consensus_aura::AuraApi;
-<a href=#97 id=97 data-nosnippet>97</a><span class="kw">use </span>sp_core::{crypto::Pair, traits::SpawnEssentialNamed};
-<a href=#98 id=98 data-nosnippet>98</a><span class="kw">use </span>sp_inherents::CreateInherentDataProviders;
-<a href=#99 id=99 data-nosnippet>99</a><span class="kw">use </span>sp_keystore::KeystorePtr;
-<a href=#100 id=100 data-nosnippet>100</a><span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Member};
-<a href=#101 id=101 data-nosnippet>101</a><span class="kw">use </span>std::{path::PathBuf, sync::Arc, time::Duration};
-<a href=#102 id=102 data-nosnippet>102</a>
-<a href=#103 id=103 data-nosnippet>103</a><span class="kw">mod </span>block_builder_task;
-<a href=#104 id=104 data-nosnippet>104</a><span class="kw">mod </span>block_import;
-<a href=#105 id=105 data-nosnippet>105</a><span class="kw">mod </span>collation_task;
-<a href=#106 id=106 data-nosnippet>106</a><span class="kw">mod </span>relay_chain_data_cache;
-<a href=#107 id=107 data-nosnippet>107</a><span class="kw">mod </span>slot_timer;
-<a href=#108 id=108 data-nosnippet>108</a>
-<a href=#109 id=109 data-nosnippet>109</a><span class="attr">#[cfg(test)]
-<a href=#110 id=110 data-nosnippet>110</a></span><span class="kw">mod </span>tests;
-<a href=#111 id=111 data-nosnippet>111</a>
-<a href=#112 id=112 data-nosnippet>112</a><span class="doccomment">/// Parameters for [`run`].
-<a href=#113 id=113 data-nosnippet>113</a></span><span class="kw">pub struct </span>Params&lt;Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner&gt; {
-<a href=#114 id=114 data-nosnippet>114</a>	<span class="doccomment">/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
-<a href=#115 id=115 data-nosnippet>115</a>	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
-<a href=#116 id=116 data-nosnippet>116</a>	/// collator.
-<a href=#117 id=117 data-nosnippet>117</a>	</span><span class="kw">pub </span>create_inherent_data_providers: CIDP,
-<a href=#118 id=118 data-nosnippet>118</a>	<span class="doccomment">/// Used to actually import blocks.
-<a href=#119 id=119 data-nosnippet>119</a>	</span><span class="kw">pub </span>block_import: BI,
-<a href=#120 id=120 data-nosnippet>120</a>	<span class="doccomment">/// The underlying para client.
-<a href=#121 id=121 data-nosnippet>121</a>	</span><span class="kw">pub </span>para_client: Arc&lt;Client&gt;,
-<a href=#122 id=122 data-nosnippet>122</a>	<span class="doccomment">/// The para client's backend, used to access the database.
-<a href=#123 id=123 data-nosnippet>123</a>	</span><span class="kw">pub </span>para_backend: Arc&lt;Backend&gt;,
-<a href=#124 id=124 data-nosnippet>124</a>	<span class="doccomment">/// A handle to the relay-chain client.
-<a href=#125 id=125 data-nosnippet>125</a>	</span><span class="kw">pub </span>relay_client: RClient,
-<a href=#126 id=126 data-nosnippet>126</a>	<span class="doccomment">/// A validation code hash provider, used to get the current validation code hash.
-<a href=#127 id=127 data-nosnippet>127</a>	</span><span class="kw">pub </span>code_hash_provider: CHP,
-<a href=#128 id=128 data-nosnippet>128</a>	<span class="doccomment">/// The underlying keystore, which should contain Aura consensus keys.
-<a href=#129 id=129 data-nosnippet>129</a>	</span><span class="kw">pub </span>keystore: KeystorePtr,
-<a href=#130 id=130 data-nosnippet>130</a>	<span class="doccomment">/// The collator key used to sign collations before submitting to validators.
-<a href=#131 id=131 data-nosnippet>131</a>	</span><span class="kw">pub </span>collator_key: CollatorPair,
-<a href=#132 id=132 data-nosnippet>132</a>	<span class="doccomment">/// The collator network peer id.
-<a href=#133 id=133 data-nosnippet>133</a>	</span><span class="kw">pub </span>collator_peer_id: PeerId,
-<a href=#134 id=134 data-nosnippet>134</a>	<span class="doccomment">/// The para's ID.
-<a href=#135 id=135 data-nosnippet>135</a>	</span><span class="kw">pub </span>para_id: ParaId,
-<a href=#136 id=136 data-nosnippet>136</a>	<span class="doccomment">/// The proposer for building blocks.
-<a href=#137 id=137 data-nosnippet>137</a>	</span><span class="kw">pub </span>proposer: Proposer,
-<a href=#138 id=138 data-nosnippet>138</a>	<span class="doccomment">/// The generic collator service used to plug into this consensus engine.
-<a href=#139 id=139 data-nosnippet>139</a>	</span><span class="kw">pub </span>collator_service: CS,
-<a href=#140 id=140 data-nosnippet>140</a>	<span class="doccomment">/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
-<a href=#141 id=141 data-nosnippet>141</a>	</span><span class="kw">pub </span>reinitialize: bool,
-<a href=#142 id=142 data-nosnippet>142</a>	<span class="doccomment">/// Offset slots by a fixed duration. This can be used to create more preferrable authoring
-<a href=#143 id=143 data-nosnippet>143</a>	/// timings.
-<a href=#144 id=144 data-nosnippet>144</a>	</span><span class="kw">pub </span>slot_offset: Duration,
-<a href=#145 id=145 data-nosnippet>145</a>	<span class="doccomment">/// The handle returned by [`SlotBasedBlockImport`].
-<a href=#146 id=146 data-nosnippet>146</a>	</span><span class="kw">pub </span>block_import_handle: SlotBasedBlockImportHandle&lt;Block&gt;,
-<a href=#147 id=147 data-nosnippet>147</a>	<span class="doccomment">/// Spawner for spawning futures.
-<a href=#148 id=148 data-nosnippet>148</a>	</span><span class="kw">pub </span>spawner: Spawner,
-<a href=#149 id=149 data-nosnippet>149</a>	<span class="doccomment">/// Slot duration of the relay chain
-<a href=#150 id=150 data-nosnippet>150</a>	</span><span class="kw">pub </span>relay_chain_slot_duration: Duration,
-<a href=#151 id=151 data-nosnippet>151</a>	<span class="doccomment">/// When set, the collator will export every produced `POV` to this folder.
-<a href=#152 id=152 data-nosnippet>152</a>	</span><span class="kw">pub </span>export_pov: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
-<a href=#153 id=153 data-nosnippet>153</a>	<span class="doccomment">/// The maximum percentage of the maximum PoV size that the collator can use.
-<a href=#154 id=154 data-nosnippet>154</a>	/// It will be removed once &lt;https://github.com/paritytech/polkadot-sdk/issues/6020&gt; is fixed.
-<a href=#155 id=155 data-nosnippet>155</a>	</span><span class="kw">pub </span>max_pov_percentage: <span class="prelude-ty">Option</span>&lt;u32&gt;,
-<a href=#156 id=156 data-nosnippet>156</a>}
-<a href=#157 id=157 data-nosnippet>157</a>
-<a href=#158 id=158 data-nosnippet>158</a><span class="doccomment">/// Run aura-based block building and collation task.
-<a href=#159 id=159 data-nosnippet>159</a></span><span class="kw">pub fn </span>run&lt;Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner&gt;(
-<a href=#160 id=160 data-nosnippet>160</a>	params: Params&lt;Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner&gt;,
-<a href=#161 id=161 data-nosnippet>161</a>) <span class="kw">where
-<a href=#162 id=162 data-nosnippet>162</a>	</span>Block: BlockT,
-<a href=#163 id=163 data-nosnippet>163</a>	Client: ProvideRuntimeApi&lt;Block&gt;
-<a href=#164 id=164 data-nosnippet>164</a>		+ BlockOf
-<a href=#165 id=165 data-nosnippet>165</a>		+ AuxStore
-<a href=#166 id=166 data-nosnippet>166</a>		+ HeaderBackend&lt;Block&gt;
-<a href=#167 id=167 data-nosnippet>167</a>		+ BlockBackend&lt;Block&gt;
-<a href=#168 id=168 data-nosnippet>168</a>		+ UsageProvider&lt;Block&gt;
-<a href=#169 id=169 data-nosnippet>169</a>		+ PreCommitActions&lt;Block&gt;
-<a href=#170 id=170 data-nosnippet>170</a>		+ Send
-<a href=#171 id=171 data-nosnippet>171</a>		+ Sync
-<a href=#172 id=172 data-nosnippet>172</a>		+ <span class="lifetime">'static</span>,
-<a href=#173 id=173 data-nosnippet>173</a>	Client::Api: AuraApi&lt;Block, P::Public&gt;
-<a href=#174 id=174 data-nosnippet>174</a>		+ AuraUnincludedSegmentApi&lt;Block&gt;
-<a href=#175 id=175 data-nosnippet>175</a>		+ RelayParentOffsetApi&lt;Block&gt;
-<a href=#176 id=176 data-nosnippet>176</a>		+ TargetBlockRate&lt;Block&gt;
-<a href=#177 id=177 data-nosnippet>177</a>		+ BlockBuilder&lt;Block&gt;
-<a href=#178 id=178 data-nosnippet>178</a>		+ KeyToIncludeInRelayProof&lt;Block&gt;,
-<a href=#179 id=179 data-nosnippet>179</a>	Backend: sc_client_api::Backend&lt;Block&gt; + <span class="lifetime">'static</span>,
-<a href=#180 id=180 data-nosnippet>180</a>	RClient: RelayChainInterface + Clone + <span class="lifetime">'static</span>,
-<a href=#181 id=181 data-nosnippet>181</a>	CIDP: CreateInherentDataProviders&lt;Block, ()&gt; + <span class="lifetime">'static</span>,
-<a href=#182 id=182 data-nosnippet>182</a>	CIDP::InherentDataProviders: Send,
-<a href=#183 id=183 data-nosnippet>183</a>	BI: BlockImport&lt;Block&gt; + ParachainBlockImportMarker + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#184 id=184 data-nosnippet>184</a>	Proposer: Environment&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#185 id=185 data-nosnippet>185</a>	CS: CollatorServiceInterface&lt;Block&gt; + Send + Sync + Clone + <span class="lifetime">'static</span>,
-<a href=#186 id=186 data-nosnippet>186</a>	CHP: consensus_common::ValidationCodeHashProvider&lt;Block::Hash&gt; + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#187 id=187 data-nosnippet>187</a>	P: Pair + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#188 id=188 data-nosnippet>188</a>	P::Public: AppPublic + Member + Codec,
-<a href=#189 id=189 data-nosnippet>189</a>	P::Signature: TryFrom&lt;Vec&lt;u8&gt;&gt; + Member + Codec,
-<a href=#190 id=190 data-nosnippet>190</a>	Spawner: SpawnEssentialNamed + Clone + <span class="lifetime">'static</span>,
-<a href=#191 id=191 data-nosnippet>191</a>{
-<a href=#192 id=192 data-nosnippet>192</a>	<span class="kw">let </span>Params {
-<a href=#193 id=193 data-nosnippet>193</a>		create_inherent_data_providers,
-<a href=#194 id=194 data-nosnippet>194</a>		block_import,
-<a href=#195 id=195 data-nosnippet>195</a>		para_client,
-<a href=#196 id=196 data-nosnippet>196</a>		para_backend,
-<a href=#197 id=197 data-nosnippet>197</a>		relay_client,
-<a href=#198 id=198 data-nosnippet>198</a>		code_hash_provider,
-<a href=#199 id=199 data-nosnippet>199</a>		keystore,
-<a href=#200 id=200 data-nosnippet>200</a>		collator_key,
-<a href=#201 id=201 data-nosnippet>201</a>		collator_peer_id,
-<a href=#202 id=202 data-nosnippet>202</a>		para_id,
-<a href=#203 id=203 data-nosnippet>203</a>		proposer,
-<a href=#204 id=204 data-nosnippet>204</a>		collator_service,
-<a href=#205 id=205 data-nosnippet>205</a>		reinitialize,
-<a href=#206 id=206 data-nosnippet>206</a>		slot_offset,
-<a href=#207 id=207 data-nosnippet>207</a>		block_import_handle,
-<a href=#208 id=208 data-nosnippet>208</a>		spawner,
-<a href=#209 id=209 data-nosnippet>209</a>		export_pov,
-<a href=#210 id=210 data-nosnippet>210</a>		relay_chain_slot_duration,
-<a href=#211 id=211 data-nosnippet>211</a>		max_pov_percentage,
-<a href=#212 id=212 data-nosnippet>212</a>	} = params;
-<a href=#213 id=213 data-nosnippet>213</a>
-<a href=#214 id=214 data-nosnippet>214</a>	<span class="comment">// Initialize proof size recording cleanup
-<a href=#215 id=215 data-nosnippet>215</a>	</span>register_proof_size_recording_cleanup(para_client.clone());
-<a href=#216 id=216 data-nosnippet>216</a>
-<a href=#217 id=217 data-nosnippet>217</a>	<span class="kw">let </span>(tx, rx) = tracing_unbounded(<span class="string">"mpsc_builder_to_collator"</span>, <span class="number">100</span>);
-<a href=#218 id=218 data-nosnippet>218</a>	<span class="kw">let </span>collator_task_params = collation_task::Params {
-<a href=#219 id=219 data-nosnippet>219</a>		relay_client: relay_client.clone(),
-<a href=#220 id=220 data-nosnippet>220</a>		collator_key,
-<a href=#221 id=221 data-nosnippet>221</a>		para_id,
-<a href=#222 id=222 data-nosnippet>222</a>		reinitialize,
-<a href=#223 id=223 data-nosnippet>223</a>		collator_service: collator_service.clone(),
-<a href=#224 id=224 data-nosnippet>224</a>		collator_receiver: rx,
-<a href=#225 id=225 data-nosnippet>225</a>		block_import_handle,
-<a href=#226 id=226 data-nosnippet>226</a>		export_pov,
-<a href=#227 id=227 data-nosnippet>227</a>	};
-<a href=#228 id=228 data-nosnippet>228</a>
-<a href=#229 id=229 data-nosnippet>229</a>	<span class="kw">let </span>collation_task_fut = run_collation_task::&lt;Block, <span class="kw">_</span>, <span class="kw">_</span>&gt;(collator_task_params);
-<a href=#230 id=230 data-nosnippet>230</a>
-<a href=#231 id=231 data-nosnippet>231</a>	<span class="kw">let </span>block_builder_params = block_builder_task::BuilderTaskParams {
-<a href=#232 id=232 data-nosnippet>232</a>		create_inherent_data_providers,
-<a href=#233 id=233 data-nosnippet>233</a>		block_import,
-<a href=#234 id=234 data-nosnippet>234</a>		para_client,
-<a href=#235 id=235 data-nosnippet>235</a>		para_backend,
-<a href=#236 id=236 data-nosnippet>236</a>		relay_client,
-<a href=#237 id=237 data-nosnippet>237</a>		code_hash_provider,
-<a href=#238 id=238 data-nosnippet>238</a>		keystore,
-<a href=#239 id=239 data-nosnippet>239</a>		collator_peer_id,
-<a href=#240 id=240 data-nosnippet>240</a>		para_id,
-<a href=#241 id=241 data-nosnippet>241</a>		proposer,
-<a href=#242 id=242 data-nosnippet>242</a>		collator_service,
-<a href=#243 id=243 data-nosnippet>243</a>		collator_sender: tx,
-<a href=#244 id=244 data-nosnippet>244</a>		relay_chain_slot_duration,
-<a href=#245 id=245 data-nosnippet>245</a>		slot_offset,
-<a href=#246 id=246 data-nosnippet>246</a>		max_pov_percentage,
-<a href=#247 id=247 data-nosnippet>247</a>	};
-<a href=#248 id=248 data-nosnippet>248</a>
-<a href=#249 id=249 data-nosnippet>249</a>	<span class="kw">let </span>block_builder_fut =
-<a href=#250 id=250 data-nosnippet>250</a>		run_block_builder::&lt;Block, P, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(block_builder_params);
-<a href=#251 id=251 data-nosnippet>251</a>
-<a href=#252 id=252 data-nosnippet>252</a>	spawner.spawn_essential_blocking(
-<a href=#253 id=253 data-nosnippet>253</a>		<span class="string">"slot-based-block-builder"</span>,
-<a href=#254 id=254 data-nosnippet>254</a>		<span class="prelude-val">Some</span>(<span class="string">"slot-based-collator"</span>),
-<a href=#255 id=255 data-nosnippet>255</a>		block_builder_fut.boxed(),
-<a href=#256 id=256 data-nosnippet>256</a>	);
+<a href=#88 id=88 data-nosnippet>88</a><span class="kw">use </span>sc_client_api::{
+<a href=#89 id=89 data-nosnippet>89</a>	backend::AuxStore, client::PreCommitActions, BlockBackend, BlockOf, UsageProvider,
+<a href=#90 id=90 data-nosnippet>90</a>};
+<a href=#91 id=91 data-nosnippet>91</a><span class="kw">use </span>sc_consensus::BlockImport;
+<a href=#92 id=92 data-nosnippet>92</a><span class="kw">use </span>sc_network_types::PeerId;
+<a href=#93 id=93 data-nosnippet>93</a><span class="kw">use </span>sc_utils::mpsc::tracing_unbounded;
+<a href=#94 id=94 data-nosnippet>94</a><span class="kw">use </span>sp_api::{ProvideRuntimeApi, StorageProof};
+<a href=#95 id=95 data-nosnippet>95</a><span class="kw">use </span>sp_application_crypto::AppPublic;
+<a href=#96 id=96 data-nosnippet>96</a><span class="kw">use </span>sp_block_builder::BlockBuilder;
+<a href=#97 id=97 data-nosnippet>97</a><span class="kw">use </span>sp_blockchain::HeaderBackend;
+<a href=#98 id=98 data-nosnippet>98</a><span class="kw">use </span>sp_consensus::Environment;
+<a href=#99 id=99 data-nosnippet>99</a><span class="kw">use </span>sp_consensus_aura::AuraApi;
+<a href=#100 id=100 data-nosnippet>100</a><span class="kw">use </span>sp_core::{crypto::Pair, traits::SpawnEssentialNamed};
+<a href=#101 id=101 data-nosnippet>101</a><span class="kw">use </span>sp_inherents::CreateInherentDataProviders;
+<a href=#102 id=102 data-nosnippet>102</a><span class="kw">use </span>sp_keystore::KeystorePtr;
+<a href=#103 id=103 data-nosnippet>103</a><span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Member};
+<a href=#104 id=104 data-nosnippet>104</a><span class="kw">use </span>std::{path::PathBuf, sync::Arc, time::Duration};
+<a href=#105 id=105 data-nosnippet>105</a>
+<a href=#106 id=106 data-nosnippet>106</a><span class="kw">mod </span>block_builder_task;
+<a href=#107 id=107 data-nosnippet>107</a><span class="kw">mod </span>block_import;
+<a href=#108 id=108 data-nosnippet>108</a><span class="kw">mod </span>collation_task;
+<a href=#109 id=109 data-nosnippet>109</a><span class="kw">mod </span>relay_chain_data_cache;
+<a href=#110 id=110 data-nosnippet>110</a><span class="kw">mod </span>scheduling;
+<a href=#111 id=111 data-nosnippet>111</a><span class="kw">mod </span>slot_timer;
+<a href=#112 id=112 data-nosnippet>112</a>
+<a href=#113 id=113 data-nosnippet>113</a><span class="attr">#[cfg(test)]
+<a href=#114 id=114 data-nosnippet>114</a></span><span class="kw">mod </span>tests;
+<a href=#115 id=115 data-nosnippet>115</a>
+<a href=#116 id=116 data-nosnippet>116</a><span class="doccomment">/// Parameters for [`run`].
+<a href=#117 id=117 data-nosnippet>117</a></span><span class="kw">pub struct </span>Params&lt;Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner&gt; {
+<a href=#118 id=118 data-nosnippet>118</a>	<span class="doccomment">/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
+<a href=#119 id=119 data-nosnippet>119</a>	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
+<a href=#120 id=120 data-nosnippet>120</a>	/// collator.
+<a href=#121 id=121 data-nosnippet>121</a>	</span><span class="kw">pub </span>create_inherent_data_providers: CIDP,
+<a href=#122 id=122 data-nosnippet>122</a>	<span class="doccomment">/// Used to actually import blocks.
+<a href=#123 id=123 data-nosnippet>123</a>	</span><span class="kw">pub </span>block_import: BI,
+<a href=#124 id=124 data-nosnippet>124</a>	<span class="doccomment">/// The underlying para client.
+<a href=#125 id=125 data-nosnippet>125</a>	</span><span class="kw">pub </span>para_client: Arc&lt;Client&gt;,
+<a href=#126 id=126 data-nosnippet>126</a>	<span class="doccomment">/// The para client's backend, used to access the database.
+<a href=#127 id=127 data-nosnippet>127</a>	</span><span class="kw">pub </span>para_backend: Arc&lt;Backend&gt;,
+<a href=#128 id=128 data-nosnippet>128</a>	<span class="doccomment">/// A handle to the relay-chain client.
+<a href=#129 id=129 data-nosnippet>129</a>	</span><span class="kw">pub </span>relay_client: RClient,
+<a href=#130 id=130 data-nosnippet>130</a>	<span class="doccomment">/// A validation code hash provider, used to get the current validation code hash.
+<a href=#131 id=131 data-nosnippet>131</a>	</span><span class="kw">pub </span>code_hash_provider: CHP,
+<a href=#132 id=132 data-nosnippet>132</a>	<span class="doccomment">/// The underlying keystore, which should contain Aura consensus keys.
+<a href=#133 id=133 data-nosnippet>133</a>	</span><span class="kw">pub </span>keystore: KeystorePtr,
+<a href=#134 id=134 data-nosnippet>134</a>	<span class="doccomment">/// The collator key used to sign collations before submitting to validators.
+<a href=#135 id=135 data-nosnippet>135</a>	</span><span class="kw">pub </span>collator_key: CollatorPair,
+<a href=#136 id=136 data-nosnippet>136</a>	<span class="doccomment">/// The collator network peer id.
+<a href=#137 id=137 data-nosnippet>137</a>	</span><span class="kw">pub </span>collator_peer_id: PeerId,
+<a href=#138 id=138 data-nosnippet>138</a>	<span class="doccomment">/// The para's ID.
+<a href=#139 id=139 data-nosnippet>139</a>	</span><span class="kw">pub </span>para_id: ParaId,
+<a href=#140 id=140 data-nosnippet>140</a>	<span class="doccomment">/// The proposer for building blocks.
+<a href=#141 id=141 data-nosnippet>141</a>	</span><span class="kw">pub </span>proposer: Proposer,
+<a href=#142 id=142 data-nosnippet>142</a>	<span class="doccomment">/// The generic collator service used to plug into this consensus engine.
+<a href=#143 id=143 data-nosnippet>143</a>	</span><span class="kw">pub </span>collator_service: CS,
+<a href=#144 id=144 data-nosnippet>144</a>	<span class="doccomment">/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
+<a href=#145 id=145 data-nosnippet>145</a>	</span><span class="kw">pub </span>reinitialize: bool,
+<a href=#146 id=146 data-nosnippet>146</a>	<span class="doccomment">/// Offset slots by a fixed duration. This can be used to create more preferrable authoring
+<a href=#147 id=147 data-nosnippet>147</a>	/// timings.
+<a href=#148 id=148 data-nosnippet>148</a>	</span><span class="kw">pub </span>slot_offset: Duration,
+<a href=#149 id=149 data-nosnippet>149</a>	<span class="doccomment">/// The handle returned by [`SlotBasedBlockImport`].
+<a href=#150 id=150 data-nosnippet>150</a>	</span><span class="kw">pub </span>block_import_handle: SlotBasedBlockImportHandle&lt;Block&gt;,
+<a href=#151 id=151 data-nosnippet>151</a>	<span class="doccomment">/// Spawner for spawning futures.
+<a href=#152 id=152 data-nosnippet>152</a>	</span><span class="kw">pub </span>spawner: Spawner,
+<a href=#153 id=153 data-nosnippet>153</a>	<span class="doccomment">/// Slot duration of the relay chain
+<a href=#154 id=154 data-nosnippet>154</a>	</span><span class="kw">pub </span>relay_chain_slot_duration: Duration,
+<a href=#155 id=155 data-nosnippet>155</a>	<span class="doccomment">/// When set, the collator will export every produced `POV` to this folder.
+<a href=#156 id=156 data-nosnippet>156</a>	</span><span class="kw">pub </span>export_pov: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+<a href=#157 id=157 data-nosnippet>157</a>	<span class="doccomment">/// The maximum percentage of the maximum PoV size that the collator can use.
+<a href=#158 id=158 data-nosnippet>158</a>	/// It will be removed once &lt;https://github.com/paritytech/polkadot-sdk/issues/6020&gt; is fixed.
+<a href=#159 id=159 data-nosnippet>159</a>	</span><span class="kw">pub </span>max_pov_percentage: <span class="prelude-ty">Option</span>&lt;u32&gt;,
+<a href=#160 id=160 data-nosnippet>160</a>}
+<a href=#161 id=161 data-nosnippet>161</a>
+<a href=#162 id=162 data-nosnippet>162</a><span class="doccomment">/// Run aura-based block building and collation task.
+<a href=#163 id=163 data-nosnippet>163</a></span><span class="kw">pub fn </span>run&lt;Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner&gt;(
+<a href=#164 id=164 data-nosnippet>164</a>	params: Params&lt;Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner&gt;,
+<a href=#165 id=165 data-nosnippet>165</a>) <span class="kw">where
+<a href=#166 id=166 data-nosnippet>166</a>	</span>Block: BlockT,
+<a href=#167 id=167 data-nosnippet>167</a>	Client: ProvideRuntimeApi&lt;Block&gt;
+<a href=#168 id=168 data-nosnippet>168</a>		+ BlockOf
+<a href=#169 id=169 data-nosnippet>169</a>		+ AuxStore
+<a href=#170 id=170 data-nosnippet>170</a>		+ HeaderBackend&lt;Block&gt;
+<a href=#171 id=171 data-nosnippet>171</a>		+ BlockBackend&lt;Block&gt;
+<a href=#172 id=172 data-nosnippet>172</a>		+ UsageProvider&lt;Block&gt;
+<a href=#173 id=173 data-nosnippet>173</a>		+ PreCommitActions&lt;Block&gt;
+<a href=#174 id=174 data-nosnippet>174</a>		+ Send
+<a href=#175 id=175 data-nosnippet>175</a>		+ Sync
+<a href=#176 id=176 data-nosnippet>176</a>		+ <span class="lifetime">'static</span>,
+<a href=#177 id=177 data-nosnippet>177</a>	Client::Api: AuraApi&lt;Block, P::Public&gt;
+<a href=#178 id=178 data-nosnippet>178</a>		+ AuraUnincludedSegmentApi&lt;Block&gt;
+<a href=#179 id=179 data-nosnippet>179</a>		+ RelayParentOffsetApi&lt;Block&gt;
+<a href=#180 id=180 data-nosnippet>180</a>		+ TargetBlockRate&lt;Block&gt;
+<a href=#181 id=181 data-nosnippet>181</a>		+ BlockBuilder&lt;Block&gt;
+<a href=#182 id=182 data-nosnippet>182</a>		+ KeyToIncludeInRelayProof&lt;Block&gt;
+<a href=#183 id=183 data-nosnippet>183</a>		+ SchedulingV3EnabledApi&lt;Block&gt;,
+<a href=#184 id=184 data-nosnippet>184</a>	Backend: sc_client_api::Backend&lt;Block&gt; + <span class="lifetime">'static</span>,
+<a href=#185 id=185 data-nosnippet>185</a>	RClient: RelayChainInterface + Clone + <span class="lifetime">'static</span>,
+<a href=#186 id=186 data-nosnippet>186</a>	CIDP: CreateInherentDataProviders&lt;Block, ()&gt; + <span class="lifetime">'static</span>,
+<a href=#187 id=187 data-nosnippet>187</a>	CIDP::InherentDataProviders: Send,
+<a href=#188 id=188 data-nosnippet>188</a>	BI: BlockImport&lt;Block&gt; + ParachainBlockImportMarker + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#189 id=189 data-nosnippet>189</a>	Proposer: Environment&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#190 id=190 data-nosnippet>190</a>	CS: CollatorServiceInterface&lt;Block&gt; + Send + Sync + Clone + <span class="lifetime">'static</span>,
+<a href=#191 id=191 data-nosnippet>191</a>	CHP: consensus_common::ValidationCodeHashProvider&lt;Block::Hash&gt; + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#192 id=192 data-nosnippet>192</a>	P: Pair + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#193 id=193 data-nosnippet>193</a>	P::Public: AppPublic + Member + Codec,
+<a href=#194 id=194 data-nosnippet>194</a>	P::Signature: TryFrom&lt;Vec&lt;u8&gt;&gt; + Member + Codec,
+<a href=#195 id=195 data-nosnippet>195</a>	Spawner: SpawnEssentialNamed + Clone + <span class="lifetime">'static</span>,
+<a href=#196 id=196 data-nosnippet>196</a>{
+<a href=#197 id=197 data-nosnippet>197</a>	<span class="kw">let </span>Params {
+<a href=#198 id=198 data-nosnippet>198</a>		create_inherent_data_providers,
+<a href=#199 id=199 data-nosnippet>199</a>		block_import,
+<a href=#200 id=200 data-nosnippet>200</a>		para_client,
+<a href=#201 id=201 data-nosnippet>201</a>		para_backend,
+<a href=#202 id=202 data-nosnippet>202</a>		relay_client,
+<a href=#203 id=203 data-nosnippet>203</a>		code_hash_provider,
+<a href=#204 id=204 data-nosnippet>204</a>		keystore,
+<a href=#205 id=205 data-nosnippet>205</a>		collator_key,
+<a href=#206 id=206 data-nosnippet>206</a>		collator_peer_id,
+<a href=#207 id=207 data-nosnippet>207</a>		para_id,
+<a href=#208 id=208 data-nosnippet>208</a>		proposer,
+<a href=#209 id=209 data-nosnippet>209</a>		collator_service,
+<a href=#210 id=210 data-nosnippet>210</a>		reinitialize,
+<a href=#211 id=211 data-nosnippet>211</a>		slot_offset,
+<a href=#212 id=212 data-nosnippet>212</a>		block_import_handle,
+<a href=#213 id=213 data-nosnippet>213</a>		spawner,
+<a href=#214 id=214 data-nosnippet>214</a>		export_pov,
+<a href=#215 id=215 data-nosnippet>215</a>		relay_chain_slot_duration,
+<a href=#216 id=216 data-nosnippet>216</a>		max_pov_percentage,
+<a href=#217 id=217 data-nosnippet>217</a>	} = params;
+<a href=#218 id=218 data-nosnippet>218</a>
+<a href=#219 id=219 data-nosnippet>219</a>	<span class="comment">// Initialize proof size recording cleanup
+<a href=#220 id=220 data-nosnippet>220</a>	</span>register_proof_size_recording_cleanup(para_client.clone());
+<a href=#221 id=221 data-nosnippet>221</a>
+<a href=#222 id=222 data-nosnippet>222</a>	<span class="kw">let </span>(tx, rx) = tracing_unbounded(<span class="string">"mpsc_builder_to_collator"</span>, <span class="number">100</span>);
+<a href=#223 id=223 data-nosnippet>223</a>	<span class="kw">let </span>collator_task_params = collation_task::Params {
+<a href=#224 id=224 data-nosnippet>224</a>		relay_client: relay_client.clone(),
+<a href=#225 id=225 data-nosnippet>225</a>		collator_key,
+<a href=#226 id=226 data-nosnippet>226</a>		para_id,
+<a href=#227 id=227 data-nosnippet>227</a>		reinitialize,
+<a href=#228 id=228 data-nosnippet>228</a>		collator_service: collator_service.clone(),
+<a href=#229 id=229 data-nosnippet>229</a>		collator_receiver: rx,
+<a href=#230 id=230 data-nosnippet>230</a>		block_import_handle,
+<a href=#231 id=231 data-nosnippet>231</a>		export_pov,
+<a href=#232 id=232 data-nosnippet>232</a>	};
+<a href=#233 id=233 data-nosnippet>233</a>
+<a href=#234 id=234 data-nosnippet>234</a>	<span class="kw">let </span>collation_task_fut = run_collation_task::&lt;Block, <span class="kw">_</span>, <span class="kw">_</span>&gt;(collator_task_params);
+<a href=#235 id=235 data-nosnippet>235</a>
+<a href=#236 id=236 data-nosnippet>236</a>	<span class="kw">let </span>block_builder_params = block_builder_task::BuilderTaskParams {
+<a href=#237 id=237 data-nosnippet>237</a>		create_inherent_data_providers,
+<a href=#238 id=238 data-nosnippet>238</a>		block_import,
+<a href=#239 id=239 data-nosnippet>239</a>		para_client,
+<a href=#240 id=240 data-nosnippet>240</a>		para_backend,
+<a href=#241 id=241 data-nosnippet>241</a>		relay_client,
+<a href=#242 id=242 data-nosnippet>242</a>		code_hash_provider,
+<a href=#243 id=243 data-nosnippet>243</a>		keystore,
+<a href=#244 id=244 data-nosnippet>244</a>		collator_peer_id,
+<a href=#245 id=245 data-nosnippet>245</a>		para_id,
+<a href=#246 id=246 data-nosnippet>246</a>		proposer,
+<a href=#247 id=247 data-nosnippet>247</a>		collator_service,
+<a href=#248 id=248 data-nosnippet>248</a>		collator_sender: tx,
+<a href=#249 id=249 data-nosnippet>249</a>		relay_chain_slot_duration,
+<a href=#250 id=250 data-nosnippet>250</a>		slot_offset,
+<a href=#251 id=251 data-nosnippet>251</a>		max_pov_percentage,
+<a href=#252 id=252 data-nosnippet>252</a>	};
+<a href=#253 id=253 data-nosnippet>253</a>
+<a href=#254 id=254 data-nosnippet>254</a>	<span class="kw">let </span>block_builder_fut =
+<a href=#255 id=255 data-nosnippet>255</a>		run_block_builder::&lt;Block, P, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(block_builder_params);
+<a href=#256 id=256 data-nosnippet>256</a>
 <a href=#257 id=257 data-nosnippet>257</a>	spawner.spawn_essential_blocking(
-<a href=#258 id=258 data-nosnippet>258</a>		<span class="string">"slot-based-collation"</span>,
+<a href=#258 id=258 data-nosnippet>258</a>		<span class="string">"slot-based-block-builder"</span>,
 <a href=#259 id=259 data-nosnippet>259</a>		<span class="prelude-val">Some</span>(<span class="string">"slot-based-collator"</span>),
-<a href=#260 id=260 data-nosnippet>260</a>		collation_task_fut.boxed(),
+<a href=#260 id=260 data-nosnippet>260</a>		block_builder_fut.boxed(),
 <a href=#261 id=261 data-nosnippet>261</a>	);
-<a href=#262 id=262 data-nosnippet>262</a>}
-<a href=#263 id=263 data-nosnippet>263</a>
-<a href=#264 id=264 data-nosnippet>264</a><span class="doccomment">/// Message to be sent from the block builder to the collation task.
-<a href=#265 id=265 data-nosnippet>265</a>///
-<a href=#266 id=266 data-nosnippet>266</a>/// Contains all data necessary to submit a collation to the relay chain.
-<a href=#267 id=267 data-nosnippet>267</a></span><span class="kw">struct </span>CollatorMessage&lt;Block: BlockT&gt; {
-<a href=#268 id=268 data-nosnippet>268</a>	<span class="doccomment">/// The hash of the relay chain block that provides the context for the parachain block.
-<a href=#269 id=269 data-nosnippet>269</a>	</span><span class="kw">pub </span>relay_parent: RelayHash,
-<a href=#270 id=270 data-nosnippet>270</a>	<span class="doccomment">/// The header of the parent block.
-<a href=#271 id=271 data-nosnippet>271</a>	</span><span class="kw">pub </span>parent_header: Block::Header,
-<a href=#272 id=272 data-nosnippet>272</a>	<span class="doccomment">/// The built blocks.
-<a href=#273 id=273 data-nosnippet>273</a>	</span><span class="kw">pub </span>blocks: Vec&lt;Block&gt;,
-<a href=#274 id=274 data-nosnippet>274</a>	<span class="doccomment">/// The storage proof that was collected while building all the blocks.
-<a href=#275 id=275 data-nosnippet>275</a>	</span><span class="kw">pub </span>proof: StorageProof,
-<a href=#276 id=276 data-nosnippet>276</a>	<span class="doccomment">/// The validation code hash at the parent block.
-<a href=#277 id=277 data-nosnippet>277</a>	</span><span class="kw">pub </span>validation_code_hash: ValidationCodeHash,
-<a href=#278 id=278 data-nosnippet>278</a>	<span class="doccomment">/// Core index that this block should be submitted on
-<a href=#279 id=279 data-nosnippet>279</a>	</span><span class="kw">pub </span>core_index: CoreIndex,
-<a href=#280 id=280 data-nosnippet>280</a>	<span class="doccomment">/// The persisted validation data for this collation.
-<a href=#281 id=281 data-nosnippet>281</a>	</span><span class="kw">pub </span>validation_data: PersistedValidationData,
-<a href=#282 id=282 data-nosnippet>282</a>}
+<a href=#262 id=262 data-nosnippet>262</a>	spawner.spawn_essential_blocking(
+<a href=#263 id=263 data-nosnippet>263</a>		<span class="string">"slot-based-collation"</span>,
+<a href=#264 id=264 data-nosnippet>264</a>		<span class="prelude-val">Some</span>(<span class="string">"slot-based-collator"</span>),
+<a href=#265 id=265 data-nosnippet>265</a>		collation_task_fut.boxed(),
+<a href=#266 id=266 data-nosnippet>266</a>	);
+<a href=#267 id=267 data-nosnippet>267</a>}
+<a href=#268 id=268 data-nosnippet>268</a>
+<a href=#269 id=269 data-nosnippet>269</a><span class="doccomment">/// Message to be sent from the block builder to the collation task.
+<a href=#270 id=270 data-nosnippet>270</a>///
+<a href=#271 id=271 data-nosnippet>271</a>/// Contains all data necessary to submit a collation to the relay chain.
+<a href=#272 id=272 data-nosnippet>272</a></span><span class="kw">struct </span>CollatorMessage&lt;Block: BlockT&gt; {
+<a href=#273 id=273 data-nosnippet>273</a>	<span class="doccomment">/// The hash of the relay chain block that provides the context for the parachain block.
+<a href=#274 id=274 data-nosnippet>274</a>	</span><span class="kw">pub </span>relay_parent: RelayHash,
+<a href=#275 id=275 data-nosnippet>275</a>	<span class="doccomment">/// V3 scheduling proof. None for V1/V2 candidates.
+<a href=#276 id=276 data-nosnippet>276</a>	</span><span class="kw">pub </span>scheduling_proof: <span class="prelude-ty">Option</span>&lt;SchedulingProof&gt;,
+<a href=#277 id=277 data-nosnippet>277</a>	<span class="doccomment">/// The header of the parent block.
+<a href=#278 id=278 data-nosnippet>278</a>	</span><span class="kw">pub </span>parent_header: Block::Header,
+<a href=#279 id=279 data-nosnippet>279</a>	<span class="doccomment">/// The built blocks.
+<a href=#280 id=280 data-nosnippet>280</a>	</span><span class="kw">pub </span>blocks: Vec&lt;Block&gt;,
+<a href=#281 id=281 data-nosnippet>281</a>	<span class="doccomment">/// The storage proof that was collected while building all the blocks.
+<a href=#282 id=282 data-nosnippet>282</a>	</span><span class="kw">pub </span>proof: StorageProof,
+<a href=#283 id=283 data-nosnippet>283</a>	<span class="doccomment">/// The validation code hash at the parent block.
+<a href=#284 id=284 data-nosnippet>284</a>	</span><span class="kw">pub </span>validation_code_hash: ValidationCodeHash,
+<a href=#285 id=285 data-nosnippet>285</a>	<span class="doccomment">/// Core index that this block should be submitted on
+<a href=#286 id=286 data-nosnippet>286</a>	</span><span class="kw">pub </span>core_index: CoreIndex,
+<a href=#287 id=287 data-nosnippet>287</a>	<span class="doccomment">/// The persisted validation data for this collation.
+<a href=#288 id=288 data-nosnippet>288</a>	</span><span class="kw">pub </span>validation_data: PersistedValidationData,
+<a href=#289 id=289 data-nosnippet>289</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

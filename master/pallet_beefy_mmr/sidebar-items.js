@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["pallet"],"struct":["BeefyEcdsaToEthereum","DepositBeefyDigest"],"trait":["BeefyMmrApi","WeightInfo"]};
+window.SIDEBAR_ITEMS = {"constant":["FAILED_BEEFY_TO_ETH_ADDRESS"],"mod":["pallet"],"struct":["BeefyEcdsaToEthereum","DepositBeefyDigest"],"trait":["BeefyMmrApi","WeightInfo"]};

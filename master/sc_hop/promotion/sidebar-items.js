@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["build_maintenance_task","try_build_promoter"],"struct":["HopMaintenanceTask","RuntimeApiPromoter"],"trait":["HopPromoter"]};

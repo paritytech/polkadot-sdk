@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["can_account_promote","create_promotion_extrinsic","is_promoted_on_chain","max_promotion_size"]};

@@ -243,37 +243,38 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#93 id=93 data-nosnippet>93</a>				<span class="kw">type </span>WeightInfo = ();
 <a href=#94 id=94 data-nosnippet>94</a>				<span class="kw">type </span>DmpQueue = frame::traits::EnqueueWithOrigin&lt;(), sp_core::ConstU8&lt;<span class="number">0</span>&gt;&gt;;
 <a href=#95 id=95 data-nosnippet>95</a>				<span class="kw">type </span>RelayParentOffset = ConstU32&lt;<span class="number">0</span>&gt;;
-<a href=#96 id=96 data-nosnippet>96</a>			}
-<a href=#97 id=97 data-nosnippet>97</a>
-<a href=#98 id=98 data-nosnippet>98</a>			<span class="kw">impl </span>parachain_info::Config <span class="kw">for </span>Runtime {}
-<a href=#99 id=99 data-nosnippet>99</a>		}
-<a href=#100 id=100 data-nosnippet>100</a>
-<a href=#101 id=101 data-nosnippet>101</a>		<span class="attr">#[docify::export]
-<a href=#102 id=102 data-nosnippet>102</a>		</span><span class="kw">mod </span>consensus_pallets {
-<a href=#103 id=103 data-nosnippet>103</a>			<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#104 id=104 data-nosnippet>104</a>
-<a href=#105 id=105 data-nosnippet>105</a>			<span class="kw">impl </span>pallet_aura::Config <span class="kw">for </span>Runtime {
-<a href=#106 id=106 data-nosnippet>106</a>				<span class="kw">type </span>AuthorityId = AuraId;
-<a href=#107 id=107 data-nosnippet>107</a>				<span class="kw">type </span>DisabledValidators = ();
-<a href=#108 id=108 data-nosnippet>108</a>				<span class="kw">type </span>MaxAuthorities = ConstU32&lt;<span class="number">100_000</span>&gt;;
-<a href=#109 id=109 data-nosnippet>109</a>				<span class="kw">type </span>AllowMultipleBlocksPerSlot = ConstBool&lt;<span class="bool-val">false</span>&gt;;
-<a href=#110 id=110 data-nosnippet>110</a>				<span class="kw">type </span>SlotDuration = pallet_aura::MinimumPeriodTimesTwo&lt;<span class="self">Self</span>&gt;;
-<a href=#111 id=111 data-nosnippet>111</a>			}
-<a href=#112 id=112 data-nosnippet>112</a>
-<a href=#113 id=113 data-nosnippet>113</a>			<span class="attr">#[docify::export(timestamp)]
-<a href=#114 id=114 data-nosnippet>114</a>			#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
-<a href=#115 id=115 data-nosnippet>115</a>			</span><span class="kw">impl </span>pallet_timestamp::Config <span class="kw">for </span>Runtime {}
-<a href=#116 id=116 data-nosnippet>116</a>
-<a href=#117 id=117 data-nosnippet>117</a>			<span class="kw">impl </span>cumulus_pallet_aura_ext::Config <span class="kw">for </span>Runtime {}
-<a href=#118 id=118 data-nosnippet>118</a>		}
-<a href=#119 id=119 data-nosnippet>119</a>
-<a href=#120 id=120 data-nosnippet>120</a>		<span class="attr">#[docify::export(validate_block)]
-<a href=#121 id=121 data-nosnippet>121</a>		</span><span class="macro">cumulus_pallet_parachain_system::register_validate_block!</span> {
-<a href=#122 id=122 data-nosnippet>122</a>			Runtime = Runtime,
-<a href=#123 id=123 data-nosnippet>123</a>			BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::&lt;Runtime, Executive&gt;,
-<a href=#124 id=124 data-nosnippet>124</a>		}
-<a href=#125 id=125 data-nosnippet>125</a>	}
-<a href=#126 id=126 data-nosnippet>126</a>}
+<a href=#96 id=96 data-nosnippet>96</a>				<span class="kw">type </span>SchedulingSignatureVerifier = ();
+<a href=#97 id=97 data-nosnippet>97</a>			}
+<a href=#98 id=98 data-nosnippet>98</a>
+<a href=#99 id=99 data-nosnippet>99</a>			<span class="kw">impl </span>parachain_info::Config <span class="kw">for </span>Runtime {}
+<a href=#100 id=100 data-nosnippet>100</a>		}
+<a href=#101 id=101 data-nosnippet>101</a>
+<a href=#102 id=102 data-nosnippet>102</a>		<span class="attr">#[docify::export]
+<a href=#103 id=103 data-nosnippet>103</a>		</span><span class="kw">mod </span>consensus_pallets {
+<a href=#104 id=104 data-nosnippet>104</a>			<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#105 id=105 data-nosnippet>105</a>
+<a href=#106 id=106 data-nosnippet>106</a>			<span class="kw">impl </span>pallet_aura::Config <span class="kw">for </span>Runtime {
+<a href=#107 id=107 data-nosnippet>107</a>				<span class="kw">type </span>AuthorityId = AuraId;
+<a href=#108 id=108 data-nosnippet>108</a>				<span class="kw">type </span>DisabledValidators = ();
+<a href=#109 id=109 data-nosnippet>109</a>				<span class="kw">type </span>MaxAuthorities = ConstU32&lt;<span class="number">100_000</span>&gt;;
+<a href=#110 id=110 data-nosnippet>110</a>				<span class="kw">type </span>AllowMultipleBlocksPerSlot = ConstBool&lt;<span class="bool-val">false</span>&gt;;
+<a href=#111 id=111 data-nosnippet>111</a>				<span class="kw">type </span>SlotDuration = pallet_aura::MinimumPeriodTimesTwo&lt;<span class="self">Self</span>&gt;;
+<a href=#112 id=112 data-nosnippet>112</a>			}
+<a href=#113 id=113 data-nosnippet>113</a>
+<a href=#114 id=114 data-nosnippet>114</a>			<span class="attr">#[docify::export(timestamp)]
+<a href=#115 id=115 data-nosnippet>115</a>			#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
+<a href=#116 id=116 data-nosnippet>116</a>			</span><span class="kw">impl </span>pallet_timestamp::Config <span class="kw">for </span>Runtime {}
+<a href=#117 id=117 data-nosnippet>117</a>
+<a href=#118 id=118 data-nosnippet>118</a>			<span class="kw">impl </span>cumulus_pallet_aura_ext::Config <span class="kw">for </span>Runtime {}
+<a href=#119 id=119 data-nosnippet>119</a>		}
+<a href=#120 id=120 data-nosnippet>120</a>
+<a href=#121 id=121 data-nosnippet>121</a>		<span class="attr">#[docify::export(validate_block)]
+<a href=#122 id=122 data-nosnippet>122</a>		</span><span class="macro">cumulus_pallet_parachain_system::register_validate_block!</span> {
+<a href=#123 id=123 data-nosnippet>123</a>			Runtime = Runtime,
+<a href=#124 id=124 data-nosnippet>124</a>			BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::&lt;Runtime, Executive&gt;,
+<a href=#125 id=125 data-nosnippet>125</a>		}
+<a href=#126 id=126 data-nosnippet>126</a>	}
+<a href=#127 id=127 data-nosnippet>127</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

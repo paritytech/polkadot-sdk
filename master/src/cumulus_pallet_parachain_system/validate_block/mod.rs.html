@@ -169,58 +169,68 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#19 id=19 data-nosnippet>19</a></span><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 <a href=#20 id=20 data-nosnippet>20</a>#[doc(hidden)]
 <a href=#21 id=21 data-nosnippet>21</a></span><span class="kw">pub mod </span>implementation;
-<a href=#22 id=22 data-nosnippet>22</a><span class="attr">#[cfg(test)]
-<a href=#23 id=23 data-nosnippet>23</a></span><span class="kw">mod </span>tests;
-<a href=#24 id=24 data-nosnippet>24</a>
-<a href=#25 id=25 data-nosnippet>25</a><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-<a href=#26 id=26 data-nosnippet>26</a>#[doc(hidden)]
-<a href=#27 id=27 data-nosnippet>27</a></span><span class="kw">pub mod </span>trie_cache;
-<a href=#28 id=28 data-nosnippet>28</a>
-<a href=#29 id=29 data-nosnippet>29</a><span class="attr">#[cfg(any(test, not(feature = <span class="string">"std"</span>)))]
-<a href=#30 id=30 data-nosnippet>30</a>#[doc(hidden)]
-<a href=#31 id=31 data-nosnippet>31</a></span><span class="kw">pub mod </span>trie_recorder;
-<a href=#32 id=32 data-nosnippet>32</a>
-<a href=#33 id=33 data-nosnippet>33</a><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-<a href=#34 id=34 data-nosnippet>34</a>#[doc(hidden)]
-<a href=#35 id=35 data-nosnippet>35</a></span><span class="kw">pub use </span>alloc::{boxed::Box, slice};
-<a href=#36 id=36 data-nosnippet>36</a><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-<a href=#37 id=37 data-nosnippet>37</a>#[doc(hidden)]
-<a href=#38 id=38 data-nosnippet>38</a></span><span class="kw">pub use </span>bytes;
-<a href=#39 id=39 data-nosnippet>39</a><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-<a href=#40 id=40 data-nosnippet>40</a>#[doc(hidden)]
-<a href=#41 id=41 data-nosnippet>41</a></span><span class="kw">pub use </span>codec::decode_from_bytes;
-<a href=#42 id=42 data-nosnippet>42</a><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-<a href=#43 id=43 data-nosnippet>43</a>#[doc(hidden)]
-<a href=#44 id=44 data-nosnippet>44</a></span><span class="kw">pub use </span>polkadot_parachain_primitives;
-<a href=#45 id=45 data-nosnippet>45</a><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-<a href=#46 id=46 data-nosnippet>46</a>#[doc(hidden)]
-<a href=#47 id=47 data-nosnippet>47</a></span><span class="kw">pub use </span>sp_api;
-<a href=#48 id=48 data-nosnippet>48</a><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-<a href=#49 id=49 data-nosnippet>49</a>#[doc(hidden)]
-<a href=#50 id=50 data-nosnippet>50</a></span><span class="kw">pub use </span>sp_runtime::traits::GetRuntimeBlockType;
-<a href=#51 id=51 data-nosnippet>51</a><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-<a href=#52 id=52 data-nosnippet>52</a>#[doc(hidden)]
-<a href=#53 id=53 data-nosnippet>53</a></span><span class="kw">pub use </span>sp_std;
-<a href=#54 id=54 data-nosnippet>54</a>
-<a href=#55 id=55 data-nosnippet>55</a><span class="doccomment">/// Basically the same as
-<a href=#56 id=56 data-nosnippet>56</a>/// [`ValidationParams`](polkadot_parachain_primitives::primitives::ValidationParams), but a little
-<a href=#57 id=57 data-nosnippet>57</a>/// bit optimized for our use case here.
-<a href=#58 id=58 data-nosnippet>58</a>///
-<a href=#59 id=59 data-nosnippet>59</a>/// `block_data` and `head_data` are represented as [`bytes::Bytes`] to make them reuse
-<a href=#60 id=60 data-nosnippet>60</a>/// the memory of the input parameter of the exported `validate_blocks` function.
-<a href=#61 id=61 data-nosnippet>61</a>///
-<a href=#62 id=62 data-nosnippet>62</a>/// The layout of this type must match exactly the layout of
-<a href=#63 id=63 data-nosnippet>63</a>/// [`ValidationParams`](polkadot_parachain_primitives::primitives::ValidationParams) to have the
-<a href=#64 id=64 data-nosnippet>64</a>/// same SCALE encoding.
-<a href=#65 id=65 data-nosnippet>65</a></span><span class="attr">#[derive(codec::Decode)]
-<a href=#66 id=66 data-nosnippet>66</a>#[cfg_attr(feature = <span class="string">"std"</span>, derive(codec::Encode))]
-<a href=#67 id=67 data-nosnippet>67</a>#[doc(hidden)]
-<a href=#68 id=68 data-nosnippet>68</a></span><span class="kw">pub struct </span>MemoryOptimizedValidationParams {
-<a href=#69 id=69 data-nosnippet>69</a>	<span class="kw">pub </span>parent_head: bytes::Bytes,
-<a href=#70 id=70 data-nosnippet>70</a>	<span class="kw">pub </span>block_data: bytes::Bytes,
-<a href=#71 id=71 data-nosnippet>71</a>	<span class="kw">pub </span>relay_parent_number: cumulus_primitives_core::relay_chain::BlockNumber,
-<a href=#72 id=72 data-nosnippet>72</a>	<span class="kw">pub </span>relay_parent_storage_root: cumulus_primitives_core::relay_chain::Hash,
-<a href=#73 id=73 data-nosnippet>73</a>}
+<a href=#22 id=22 data-nosnippet>22</a>
+<a href=#23 id=23 data-nosnippet>23</a><span class="attr">#[cfg(any(test, not(feature = <span class="string">"std"</span>)))]
+<a href=#24 id=24 data-nosnippet>24</a>#[doc(hidden)]
+<a href=#25 id=25 data-nosnippet>25</a></span><span class="kw">pub mod </span>scheduling;
+<a href=#26 id=26 data-nosnippet>26</a>
+<a href=#27 id=27 data-nosnippet>27</a><span class="attr">#[cfg(test)]
+<a href=#28 id=28 data-nosnippet>28</a></span><span class="kw">mod </span>tests;
+<a href=#29 id=29 data-nosnippet>29</a>
+<a href=#30 id=30 data-nosnippet>30</a><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+<a href=#31 id=31 data-nosnippet>31</a>#[doc(hidden)]
+<a href=#32 id=32 data-nosnippet>32</a></span><span class="kw">pub mod </span>trie_cache;
+<a href=#33 id=33 data-nosnippet>33</a>
+<a href=#34 id=34 data-nosnippet>34</a><span class="attr">#[cfg(any(test, not(feature = <span class="string">"std"</span>)))]
+<a href=#35 id=35 data-nosnippet>35</a>#[doc(hidden)]
+<a href=#36 id=36 data-nosnippet>36</a></span><span class="kw">pub mod </span>trie_recorder;
+<a href=#37 id=37 data-nosnippet>37</a>
+<a href=#38 id=38 data-nosnippet>38</a><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+<a href=#39 id=39 data-nosnippet>39</a>#[doc(hidden)]
+<a href=#40 id=40 data-nosnippet>40</a></span><span class="kw">pub use </span>alloc::{boxed::Box, slice};
+<a href=#41 id=41 data-nosnippet>41</a><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+<a href=#42 id=42 data-nosnippet>42</a>#[doc(hidden)]
+<a href=#43 id=43 data-nosnippet>43</a></span><span class="kw">pub use </span>bytes;
+<a href=#44 id=44 data-nosnippet>44</a><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+<a href=#45 id=45 data-nosnippet>45</a>#[doc(hidden)]
+<a href=#46 id=46 data-nosnippet>46</a></span><span class="kw">pub use </span>codec::decode_from_bytes;
+<a href=#47 id=47 data-nosnippet>47</a><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+<a href=#48 id=48 data-nosnippet>48</a>#[doc(hidden)]
+<a href=#49 id=49 data-nosnippet>49</a></span><span class="kw">pub use </span>polkadot_parachain_primitives;
+<a href=#50 id=50 data-nosnippet>50</a><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+<a href=#51 id=51 data-nosnippet>51</a>#[doc(hidden)]
+<a href=#52 id=52 data-nosnippet>52</a></span><span class="kw">pub use </span>sp_api;
+<a href=#53 id=53 data-nosnippet>53</a><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+<a href=#54 id=54 data-nosnippet>54</a>#[doc(hidden)]
+<a href=#55 id=55 data-nosnippet>55</a></span><span class="kw">pub use </span>sp_runtime::traits::GetRuntimeBlockType;
+<a href=#56 id=56 data-nosnippet>56</a><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+<a href=#57 id=57 data-nosnippet>57</a>#[doc(hidden)]
+<a href=#58 id=58 data-nosnippet>58</a></span><span class="kw">pub use </span>sp_std;
+<a href=#59 id=59 data-nosnippet>59</a>
+<a href=#60 id=60 data-nosnippet>60</a><span class="doccomment">/// Basically the same as
+<a href=#61 id=61 data-nosnippet>61</a>/// [`ValidationParams`](polkadot_parachain_primitives::primitives::ValidationParams), but a little
+<a href=#62 id=62 data-nosnippet>62</a>/// bit optimized for our use case here.
+<a href=#63 id=63 data-nosnippet>63</a>///
+<a href=#64 id=64 data-nosnippet>64</a>/// `block_data` and `head_data` are represented as [`bytes::Bytes`] to make them reuse
+<a href=#65 id=65 data-nosnippet>65</a>/// the memory of the input parameter of the exported `validate_blocks` function.
+<a href=#66 id=66 data-nosnippet>66</a>///
+<a href=#67 id=67 data-nosnippet>67</a>/// The layout of this type must match exactly the layout of
+<a href=#68 id=68 data-nosnippet>68</a>/// [`ValidationParams`](polkadot_parachain_primitives::primitives::ValidationParams) to have the
+<a href=#69 id=69 data-nosnippet>69</a>/// same SCALE encoding, with the extension field at the end for V3+ candidates.
+<a href=#70 id=70 data-nosnippet>70</a></span><span class="attr">#[derive(codec::Decode)]
+<a href=#71 id=71 data-nosnippet>71</a>#[cfg_attr(feature = <span class="string">"std"</span>, derive(codec::Encode))]
+<a href=#72 id=72 data-nosnippet>72</a>#[doc(hidden)]
+<a href=#73 id=73 data-nosnippet>73</a></span><span class="kw">pub struct </span>MemoryOptimizedValidationParams {
+<a href=#74 id=74 data-nosnippet>74</a>	<span class="kw">pub </span>parent_head: bytes::Bytes,
+<a href=#75 id=75 data-nosnippet>75</a>	<span class="kw">pub </span>block_data: bytes::Bytes,
+<a href=#76 id=76 data-nosnippet>76</a>	<span class="kw">pub </span>relay_parent_number: cumulus_primitives_core::relay_chain::BlockNumber,
+<a href=#77 id=77 data-nosnippet>77</a>	<span class="kw">pub </span>relay_parent_storage_root: cumulus_primitives_core::relay_chain::Hash,
+<a href=#78 id=78 data-nosnippet>78</a>	<span class="doccomment">/// V3+ extension containing relay_parent and scheduling_parent hashes.
+<a href=#79 id=79 data-nosnippet>79</a>	/// None for V1/V2 candidates (no trailing bytes).
+<a href=#80 id=80 data-nosnippet>80</a>	</span><span class="kw">pub </span>extension: polkadot_parachain_primitives::primitives::TrailingOption&lt;
+<a href=#81 id=81 data-nosnippet>81</a>		polkadot_parachain_primitives::primitives::ValidationParamsExtension,
+<a href=#82 id=82 data-nosnippet>82</a>	&gt;,
+<a href=#83 id=83 data-nosnippet>83</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

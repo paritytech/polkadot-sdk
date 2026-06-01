@@ -152,7 +152,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <h2 id="multi-block-migration-v3"><a class="doc-anchor" href="#multi-block-migration-v3">§</a>Multi-Block Migration v3</h2>
 <p>Iterates <code>frame_system::Account</code> and for each account:</p>
 <ul>
-<li>If unmapped: calls <code>map_no_deposit</code> to create a deposit-free mapping.</li>
+<li>If unmapped: calls <code>map_no_deposit_unchecked</code> to create a deposit-free mapping.</li>
 <li>If already mapped: releases the held address mapping deposit.</li>
 </ul>
 </div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Migration.html" title="struct yet_another_parachain_runtime::pallet_revive::migrations::v3::Migration">Migration</a></dt><dd>Maps all existing accounts that are not yet address-mapped.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

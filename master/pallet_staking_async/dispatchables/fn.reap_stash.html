@@ -151,11 +151,16 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">reap_stash</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_staking_async/index.html">pallet_<wbr>staking_<wbr>async</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">reap_<wbr>stash</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#parameters" title="Parameters">Parameters</a></li><li><a href="#warning-doc-only" title="Warning: Doc-Only">Warning: Doc-Only</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>staking_<wbr>async::<wbr>dispatchables</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">pallet_staking_async</a>::<wbr><a href="index.html">dispatchables</a></div><h1>Function <span class="fn">reap_<wbr>stash</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_staking_async/pallet/mod.rs.html#64">Source</a> </span></div><pre class="rust item-decl"><code>pub fn reap_stash&lt;T: <a class="trait" href="../trait.Config.html" title="trait pallet_staking_async::Config">Config</a>&gt;(stash: T::AccountId, _num_slashing_spans: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>)</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Remove all data structures concerning a staker/stash once it is at a state where it can
 be considered <code>dust</code> in the staking system. The requirements are:</p>
 <ol>
-<li>the <code>total_balance</code> of the stash is below <code>min_chilled_bond</code> or is zero.</li>
-<li>or, the <code>ledger.total</code> of the stash is below <code>min_chilled_bond</code> or is zero.</li>
+<li>the <code>total_balance</code> of the stash is below the existential deposit.</li>
+<li>or, the <code>ledger.total</code> of the stash is below the existential deposit.</li>
 </ol>
 <p>The former can happen in cases like a slash; the latter when a fully unbonded account
 is still receiving staking rewards in <code>RewardDestination::Staked</code>.</p>
+<p>The gate is intentionally the existential deposit and <em>not</em> <code>min_chilled_bond</code>: a
+governance change to <code>MinValidatorBond</code> / <code>MinNominatorBond</code> must not turn previously
+safe stashes into permissionlessly reapable ones. Accounts that fall below the new
+minimums after such a change should be <code>chill_other</code>-ed (which has a density gate and
+does not destroy the ledger), not reaped.</p>
 <p>It can be called by anyone, as long as <code>stash</code> meets the above requirements.</p>
 <p>Refunds the transaction fees upon successful execution.</p>
 <h3 id="parameters"><a class="doc-anchor" href="#parameters">§</a>Parameters</h3>

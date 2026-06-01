@@ -1,0 +1,177 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="HOP types and data structures."><title>yet_another_parachain_runtime::sc_hop::types - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module types</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module types</a></h2><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>sc_<wbr>hop</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../index.html">sc_hop</a></div><h1>Module <span>types</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/sc_hop/lib.rs.html#34">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>HOP types and data structures.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.HopEntryMeta.html" title="struct yet_another_parachain_runtime::sc_hop::types::HopEntryMeta">HopEntry<wbr>Meta</a></dt><dd>Metadata for a pool entry (stored in-memory index and on-disk .meta files).</dd><dt><a class="struct" href="struct.PoolStatus.html" title="struct yet_another_parachain_runtime::sc_hop::types::PoolStatus">Pool<wbr>Status</a></dt><dd>Pool statistics</dd><dt><a class="struct" href="struct.Recipient.html" title="struct yet_another_parachain_runtime::sc_hop::types::Recipient">Recipient</a></dt><dd>One intended recipient of a HOP entry: the ephemeral public key the sender
+generated for this handoff, paired with the <code>claimed</code> flag that tracks whether
+this recipient has acked. Fusing the two into a single struct (and a single
+<code>BoundedVec&lt;Recipient, ...&gt;</code>) makes it impossible — by construction and on
+disk — for the key list and the ack state to drift out of sync.</dd><dt><a class="struct" href="struct.SubmitResult.html" title="struct yet_another_parachain_runtime::sc_hop::types::SubmitResult">Submit<wbr>Result</a></dt><dd>Result of a successful <code>hop_submit</code> call</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.HopError.html" title="enum yet_another_parachain_runtime::sc_hop::types::HopError">HopError</a></dt><dd>HOP errors</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.DEFAULT_BANDWIDTH_BURST_MIB.html" title="constant yet_another_parachain_runtime::sc_hop::types::DEFAULT_BANDWIDTH_BURST_MIB">DEFAULT_<wbr>BANDWIDTH_<wbr>BURST_<wbr>MIB</a></dt><dd>Default bandwidth burst per account in MiB.</dd><dt><a class="constant" href="constant.DEFAULT_BANDWIDTH_PER_MIN_MIB.html" title="constant yet_another_parachain_runtime::sc_hop::types::DEFAULT_BANDWIDTH_PER_MIN_MIB">DEFAULT_<wbr>BANDWIDTH_<wbr>PER_<wbr>MIN_<wbr>MIB</a></dt><dd>Default sustained bandwidth per account in MiB per minute.</dd><dt><a class="constant" href="constant.DEFAULT_CHECK_INTERVAL_SECS.html" title="constant yet_another_parachain_runtime::sc_hop::types::DEFAULT_CHECK_INTERVAL_SECS">DEFAULT_<wbr>CHECK_<wbr>INTERVAL_<wbr>SECS</a></dt><dd>Default maintenance interval in seconds (5 minutes)</dd><dt><a class="constant" href="constant.DEFAULT_MAX_POOL_SIZE.html" title="constant yet_another_parachain_runtime::sc_hop::types::DEFAULT_MAX_POOL_SIZE">DEFAULT_<wbr>MAX_<wbr>POOL_<wbr>SIZE</a></dt><dd>Default maximum pool size in bytes (10 GiB)</dd><dt><a class="constant" href="constant.DEFAULT_MAX_POOL_SIZE_MIB.html" title="constant yet_another_parachain_runtime::sc_hop::types::DEFAULT_MAX_POOL_SIZE_MIB">DEFAULT_<wbr>MAX_<wbr>POOL_<wbr>SIZE_<wbr>MIB</a></dt><dd>Default maximum pool size in MiB (10 GiB = 10240 MiB)</dd><dt><a class="constant" href="constant.DEFAULT_MAX_USER_SIZE_MIB.html" title="constant yet_another_parachain_runtime::sc_hop::types::DEFAULT_MAX_USER_SIZE_MIB">DEFAULT_<wbr>MAX_<wbr>USER_<wbr>SIZE_<wbr>MIB</a></dt><dd>Default per-user quota in MiB (256 MiB). Hard cap, not scaled by active users.</dd><dt><a class="constant" href="constant.DEFAULT_PROMOTION_BUFFER_SECS.html" title="constant yet_another_parachain_runtime::sc_hop::types::DEFAULT_PROMOTION_BUFFER_SECS">DEFAULT_<wbr>PROMOTION_<wbr>BUFFER_<wbr>SECS</a></dt><dd>Default buffer before expiry at which to start promoting entries on-chain (2 h).</dd><dt><a class="constant" href="constant.DEFAULT_RETENTION_SECS.html" title="constant yet_another_parachain_runtime::sc_hop::types::DEFAULT_RETENTION_SECS">DEFAULT_<wbr>RETENTION_<wbr>SECS</a></dt><dd>Default retention period in seconds (24 hours).</dd><dt><a class="constant" href="constant.DEFAULT_SUBMIT_BURST.html" title="constant yet_another_parachain_runtime::sc_hop::types::DEFAULT_SUBMIT_BURST">DEFAULT_<wbr>SUBMIT_<wbr>BURST</a></dt><dd>Default submit burst per account (requests).</dd><dt><a class="constant" href="constant.DEFAULT_SUBMIT_RATE_PER_MIN.html" title="constant yet_another_parachain_runtime::sc_hop::types::DEFAULT_SUBMIT_RATE_PER_MIN">DEFAULT_<wbr>SUBMIT_<wbr>RATE_<wbr>PER_<wbr>MIN</a></dt><dd>Default sustained submit rate per account (requests per minute).</dd><dt><a class="constant" href="constant.HOP_ACK_CONTEXT.html" title="constant yet_another_parachain_runtime::sc_hop::types::HOP_ACK_CONTEXT">HOP_<wbr>ACK_<wbr>CONTEXT</a></dt><dd>Domain-separator prefix for <code>hop_ack</code> signatures.</dd><dt><a class="constant" href="constant.HOP_BLOCK_TIME_SECS.html" title="constant yet_another_parachain_runtime::sc_hop::types::HOP_BLOCK_TIME_SECS">HOP_<wbr>BLOCK_<wbr>TIME_<wbr>SECS</a></dt><dd>Block-time assumption used when translating the wall-clock maintenance
+interval into block deltas for the promotion back-off scheduler.</dd><dt><a class="constant" href="constant.HOP_CLAIM_CONTEXT.html" title="constant yet_another_parachain_runtime::sc_hop::types::HOP_CLAIM_CONTEXT">HOP_<wbr>CLAIM_<wbr>CONTEXT</a></dt><dd>Domain-separator prefix for <code>hop_claim</code> signatures.</dd><dt><a class="constant" href="constant.HOP_META_VERSION.html" title="constant yet_another_parachain_runtime::sc_hop::types::HOP_META_VERSION">HOP_<wbr>META_<wbr>VERSION</a></dt><dd>On-disk format version for <code>HopEntryMeta</code> records. Startup recovery rejects
+<code>.meta</code> files whose <code>version</code> field doesn’t match, so same-shape schema
+changes (e.g. semantic reinterpretation of an existing field) can be rolled
+out by bumping this constant; shape changes are caught by SCALE decode failure.</dd><dt><a class="constant" href="constant.HOP_SUBMIT_CONTEXT.html" title="constant yet_another_parachain_runtime::sc_hop::types::HOP_SUBMIT_CONTEXT">HOP_<wbr>SUBMIT_<wbr>CONTEXT</a></dt><dd>Domain-separator prefix for <code>hop_submit</code> signatures.</dd><dt><a class="constant" href="constant.MAX_PROMOTION_ATTEMPTS.html" title="constant yet_another_parachain_runtime::sc_hop::types::MAX_PROMOTION_ATTEMPTS">MAX_<wbr>PROMOTION_<wbr>ATTEMPTS</a></dt><dd>Maximum number of promotion attempts per entry before the maintenance
+task gives up and lets the entry expire naturally. With the back-off
+schedule below this caps wasted work at 1+2+4+8+16 = 31 check
+intervals (~2.6 h at the default 5 min cadence) per stuck entry. The
+first 5 attempts fit inside the default 2 h promotion buffer; the 6th
+is an upper bound that may land past expiry on a stuck entry.</dd><dt><a class="constant" href="constant.MAX_RECIPIENTS.html" title="constant yet_another_parachain_runtime::sc_hop::types::MAX_RECIPIENTS">MAX_<wbr>RECIPIENTS</a></dt><dd>Maximum number of recipients allowed per submission.</dd><dt><a class="constant" href="constant.METADATA_COST_PER_RECIPIENT.html" title="constant yet_another_parachain_runtime::sc_hop::types::METADATA_COST_PER_RECIPIENT">METADATA_<wbr>COST_<wbr>PER_<wbr>RECIPIENT</a></dt><dd>Per-recipient overhead charged against pool capacity and per-user quota, in bytes.
+Covers the in-memory <code>Recipient</code> (a <code>MultiSigner</code> plus a <code>bool</code>). Kept as a
+small constant that over-approximates <code>size_of::&lt;Recipient&gt;()</code>.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.entry_accounted_size.html" title="fn yet_another_parachain_runtime::sc_hop::types::entry_accounted_size">entry_<wbr>accounted_<wbr>size</a></dt><dd>Total bytes an entry charges against pool capacity: the blob plus bounded
+per-recipient metadata overhead.</dd><dt><a class="fn" href="fn.promotion_backoff_blocks.html" title="fn yet_another_parachain_runtime::sc_hop::types::promotion_backoff_blocks">promotion_<wbr>backoff_<wbr>blocks</a></dt><dd>Compute the back-off in blocks to wait before the next promotion attempt
+after <code>attempts</code> consecutive failures. The first failure triggers a 1×
+wait, doubling each subsequent failure: <code>1×, 2×, 4×, 8×, 16×, 32×</code> the
+check interval, with the shift saturated to keep multiplication safe.</dd><dt><a class="fn" href="fn.signing_payload.html" title="fn yet_another_parachain_runtime::sc_hop::types::signing_payload">signing_<wbr>payload</a></dt><dd>Compute the 32-byte payload that HOP recipients / submitters sign for a given
+operation. This is <code>blake2_256(context || hash)</code> and ensures signatures from
+one operation cannot be replayed in another.</dd><dt><a class="fn" href="fn.submit_signing_payload.html" title="fn yet_another_parachain_runtime::sc_hop::types::submit_signing_payload">submit_<wbr>signing_<wbr>payload</a></dt><dd>Compute the 32-byte payload signed at <code>hop_submit</code> time.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.HopBlockNumber.html" title="type yet_another_parachain_runtime::sc_hop::types::HopBlockNumber">HopBlock<wbr>Number</a></dt><dd>Block number type used by HOP.</dd><dt><a class="type" href="type.HopHash.html" title="type yet_another_parachain_runtime::sc_hop::types::HopHash">HopHash</a></dt><dd>Hash type used by HOP.</dd><dt><a class="type" href="type.RecipientVec.html" title="type yet_another_parachain_runtime::sc_hop::types::RecipientVec">Recipient<wbr>Vec</a></dt><dd>A <code>Vec&lt;Recipient&gt;</code> that SCALE-decode rejects if it exceeds <code>MAX_RECIPIENTS</code>,
+enforcing the fan-out cap at the type level instead of via scattered runtime checks.</dd><dt><a class="type" href="type.SenderId.html" title="type yet_another_parachain_runtime::sc_hop::types::SenderId">Sender<wbr>Id</a></dt><dd>Sender identity derived from the account that signed the submission.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -202,7 +202,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#52 id=52 data-nosnippet>52</a>{
 <a href=#53 id=53 data-nosnippet>53</a>	<span class="kw">let </span><span class="kw-2">mut </span>entries: Vec&lt;E&gt; = <span class="kw">if let </span><span class="prelude-val">Some</span>(limit) = keys_limit {
 <a href=#54 id=54 data-nosnippet>54</a>		<span class="kw">let </span>first_key =
-<a href=#55 id=55 data-nosnippet>55</a>			random_seed.map(|seed| sp_core::blake2_256(<span class="kw-2">&amp;</span>seed.to_be_bytes()[..]).to_vec());
+<a href=#55 id=55 data-nosnippet>55</a>			random_seed.map(|seed| sp_crypto_hashing::blake2_256(<span class="kw-2">&amp;</span>seed.to_be_bytes()[..]).to_vec());
 <a href=#56 id=56 data-nosnippet>56</a>		<span class="kw">let </span>from_first = iter_from_first_key(first_key.as_deref())<span class="question-mark">?</span>;
 <a href=#57 id=57 data-nosnippet>57</a>		<span class="kw">let </span><span class="kw-2">mut </span>collected: Vec&lt;E&gt; = from_first.take(limit).collect();
 <a href=#58 id=58 data-nosnippet>58</a>		<span class="kw">if </span>collected.len() &lt; limit {

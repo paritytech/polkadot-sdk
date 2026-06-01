@@ -729,88 +729,89 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#579 id=579 data-nosnippet>579</a>///
 <a href=#580 id=580 data-nosnippet>580</a>/// This is already part of the main [`prelude`].
 <a href=#581 id=581 data-nosnippet>581</a></span><span class="kw">pub mod </span>hashing {
-<a href=#582 id=582 data-nosnippet>582</a>	<span class="kw">pub use </span>sp_core::{hashing::<span class="kw-2">*</span>, H160, H256, H512, U256, U512};
-<a href=#583 id=583 data-nosnippet>583</a>	<span class="kw">pub use </span>sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
-<a href=#584 id=584 data-nosnippet>584</a>}
-<a href=#585 id=585 data-nosnippet>585</a>
-<a href=#586 id=586 data-nosnippet>586</a><span class="comment">// Systems involved in transaction execution in the runtime.
-<a href=#587 id=587 data-nosnippet>587</a></span><span class="doccomment">/// This is already part of the [`prelude`].
-<a href=#588 id=588 data-nosnippet>588</a></span><span class="kw">pub mod </span>transaction {
-<a href=#589 id=589 data-nosnippet>589</a>	<span class="kw">pub use </span>frame_support::traits::{CallMetadata, GetCallMetadata};
-<a href=#590 id=590 data-nosnippet>590</a>	<span class="kw">pub use </span>sp_runtime::{
-<a href=#591 id=591 data-nosnippet>591</a>		generic::ExtensionVersion,
-<a href=#592 id=592 data-nosnippet>592</a>		impl_tx_ext_default,
-<a href=#593 id=593 data-nosnippet>593</a>		traits::{
-<a href=#594 id=594 data-nosnippet>594</a>			AsTransactionAuthorizedOrigin, DispatchTransaction, TransactionExtension,
-<a href=#595 id=595 data-nosnippet>595</a>			ValidateResult,
-<a href=#596 id=596 data-nosnippet>596</a>		},
-<a href=#597 id=597 data-nosnippet>597</a>		transaction_validity::{InvalidTransaction, ValidTransaction},
-<a href=#598 id=598 data-nosnippet>598</a>	};
-<a href=#599 id=599 data-nosnippet>599</a>}
-<a href=#600 id=600 data-nosnippet>600</a>
-<a href=#601 id=601 data-nosnippet>601</a><span class="doccomment">/// All account management related traits.
-<a href=#602 id=602 data-nosnippet>602</a>///
-<a href=#603 id=603 data-nosnippet>603</a>/// This is already part of the [`prelude`].
-<a href=#604 id=604 data-nosnippet>604</a></span><span class="kw">pub mod </span>account {
-<a href=#605 id=605 data-nosnippet>605</a>	<span class="kw">pub use </span>frame_support::traits::{
-<a href=#606 id=606 data-nosnippet>606</a>		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, InitializeMembers,
-<a href=#607 id=607 data-nosnippet>607</a>	};
-<a href=#608 id=608 data-nosnippet>608</a>	<span class="kw">pub use </span>sp_runtime::traits::{IdentifyAccount, IdentityLookup};
-<a href=#609 id=609 data-nosnippet>609</a>}
-<a href=#610 id=610 data-nosnippet>610</a>
-<a href=#611 id=611 data-nosnippet>611</a><span class="doccomment">/// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
-<a href=#612 id=612 data-nosnippet>612</a>/// this module can be used.
-<a href=#613 id=613 data-nosnippet>613</a>///
-<a href=#614 id=614 data-nosnippet>614</a>/// Note: Before using these direct dependencies, please check if the item you need is available
-<a href=#615 id=615 data-nosnippet>615</a>/// through the preludes or domain-specific modules, as they provide a more organized and
-<a href=#616 id=616 data-nosnippet>616</a>/// maintainable way to access these dependencies.
-<a href=#617 id=617 data-nosnippet>617</a></span><span class="kw">pub mod </span>deps {
-<a href=#618 id=618 data-nosnippet>618</a>	<span class="comment">// Notes for maintainers: Any time one uses this module to access a dependency, you can have a
-<a href=#619 id=619 data-nosnippet>619</a>	// moment to think about whether this item could have been placed in any of the other modules
-<a href=#620 id=620 data-nosnippet>620</a>	// and preludes in this crate. In most cases, hopefully the answer is yes.
-<a href=#621 id=621 data-nosnippet>621</a>
-<a href=#622 id=622 data-nosnippet>622</a>	</span><span class="kw">pub use </span>frame_support;
-<a href=#623 id=623 data-nosnippet>623</a>	<span class="kw">pub use </span>frame_system;
-<a href=#624 id=624 data-nosnippet>624</a>
-<a href=#625 id=625 data-nosnippet>625</a>	<span class="kw">pub use </span>sp_arithmetic;
-<a href=#626 id=626 data-nosnippet>626</a>	<span class="kw">pub use </span>sp_core;
-<a href=#627 id=627 data-nosnippet>627</a>	<span class="kw">pub use </span>sp_io;
-<a href=#628 id=628 data-nosnippet>628</a>	<span class="kw">pub use </span>sp_runtime;
-<a href=#629 id=629 data-nosnippet>629</a>
-<a href=#630 id=630 data-nosnippet>630</a>	<span class="kw">pub use </span>codec;
-<a href=#631 id=631 data-nosnippet>631</a>	<span class="kw">pub use </span>scale_info;
-<a href=#632 id=632 data-nosnippet>632</a>
-<a href=#633 id=633 data-nosnippet>633</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
-<a href=#634 id=634 data-nosnippet>634</a>	</span><span class="kw">pub use </span>frame_executive;
-<a href=#635 id=635 data-nosnippet>635</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
-<a href=#636 id=636 data-nosnippet>636</a>	</span><span class="kw">pub use </span>sp_api;
-<a href=#637 id=637 data-nosnippet>637</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
-<a href=#638 id=638 data-nosnippet>638</a>	</span><span class="kw">pub use </span>sp_block_builder;
-<a href=#639 id=639 data-nosnippet>639</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
-<a href=#640 id=640 data-nosnippet>640</a>	</span><span class="kw">pub use </span>sp_consensus_aura;
-<a href=#641 id=641 data-nosnippet>641</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
-<a href=#642 id=642 data-nosnippet>642</a>	</span><span class="kw">pub use </span>sp_consensus_grandpa;
-<a href=#643 id=643 data-nosnippet>643</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
-<a href=#644 id=644 data-nosnippet>644</a>	</span><span class="kw">pub use </span>sp_genesis_builder;
-<a href=#645 id=645 data-nosnippet>645</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
-<a href=#646 id=646 data-nosnippet>646</a>	</span><span class="kw">pub use </span>sp_inherents;
-<a href=#647 id=647 data-nosnippet>647</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
-<a href=#648 id=648 data-nosnippet>648</a>	</span><span class="kw">pub use </span>sp_keyring;
-<a href=#649 id=649 data-nosnippet>649</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
-<a href=#650 id=650 data-nosnippet>650</a>	</span><span class="kw">pub use </span>sp_offchain;
-<a href=#651 id=651 data-nosnippet>651</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
-<a href=#652 id=652 data-nosnippet>652</a>	</span><span class="kw">pub use </span>sp_storage;
-<a href=#653 id=653 data-nosnippet>653</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
-<a href=#654 id=654 data-nosnippet>654</a>	</span><span class="kw">pub use </span>sp_version;
-<a href=#655 id=655 data-nosnippet>655</a>
-<a href=#656 id=656 data-nosnippet>656</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#657 id=657 data-nosnippet>657</a>	</span><span class="kw">pub use </span>frame_benchmarking;
-<a href=#658 id=658 data-nosnippet>658</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#659 id=659 data-nosnippet>659</a>	</span><span class="kw">pub use </span>frame_system_benchmarking;
-<a href=#660 id=660 data-nosnippet>660</a>
-<a href=#661 id=661 data-nosnippet>661</a>	<span class="attr">#[cfg(feature = <span class="string">"frame-try-runtime"</span>)]
-<a href=#662 id=662 data-nosnippet>662</a>	</span><span class="kw">pub use </span>frame_try_runtime;
-<a href=#663 id=663 data-nosnippet>663</a>}
+<a href=#582 id=582 data-nosnippet>582</a>	<span class="kw">pub use </span>sp_core::{H160, H256, H512, U256, U512};
+<a href=#583 id=583 data-nosnippet>583</a>	<span class="kw">pub use </span>sp_crypto_hashing::<span class="kw-2">*</span>;
+<a href=#584 id=584 data-nosnippet>584</a>	<span class="kw">pub use </span>sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+<a href=#585 id=585 data-nosnippet>585</a>}
+<a href=#586 id=586 data-nosnippet>586</a>
+<a href=#587 id=587 data-nosnippet>587</a><span class="comment">// Systems involved in transaction execution in the runtime.
+<a href=#588 id=588 data-nosnippet>588</a></span><span class="doccomment">/// This is already part of the [`prelude`].
+<a href=#589 id=589 data-nosnippet>589</a></span><span class="kw">pub mod </span>transaction {
+<a href=#590 id=590 data-nosnippet>590</a>	<span class="kw">pub use </span>frame_support::traits::{CallMetadata, GetCallMetadata};
+<a href=#591 id=591 data-nosnippet>591</a>	<span class="kw">pub use </span>sp_runtime::{
+<a href=#592 id=592 data-nosnippet>592</a>		generic::ExtensionVersion,
+<a href=#593 id=593 data-nosnippet>593</a>		impl_tx_ext_default,
+<a href=#594 id=594 data-nosnippet>594</a>		traits::{
+<a href=#595 id=595 data-nosnippet>595</a>			AsTransactionAuthorizedOrigin, DispatchTransaction, TransactionExtension,
+<a href=#596 id=596 data-nosnippet>596</a>			ValidateResult,
+<a href=#597 id=597 data-nosnippet>597</a>		},
+<a href=#598 id=598 data-nosnippet>598</a>		transaction_validity::{InvalidTransaction, ValidTransaction},
+<a href=#599 id=599 data-nosnippet>599</a>	};
+<a href=#600 id=600 data-nosnippet>600</a>}
+<a href=#601 id=601 data-nosnippet>601</a>
+<a href=#602 id=602 data-nosnippet>602</a><span class="doccomment">/// All account management related traits.
+<a href=#603 id=603 data-nosnippet>603</a>///
+<a href=#604 id=604 data-nosnippet>604</a>/// This is already part of the [`prelude`].
+<a href=#605 id=605 data-nosnippet>605</a></span><span class="kw">pub mod </span>account {
+<a href=#606 id=606 data-nosnippet>606</a>	<span class="kw">pub use </span>frame_support::traits::{
+<a href=#607 id=607 data-nosnippet>607</a>		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, InitializeMembers,
+<a href=#608 id=608 data-nosnippet>608</a>	};
+<a href=#609 id=609 data-nosnippet>609</a>	<span class="kw">pub use </span>sp_runtime::traits::{IdentifyAccount, IdentityLookup};
+<a href=#610 id=610 data-nosnippet>610</a>}
+<a href=#611 id=611 data-nosnippet>611</a>
+<a href=#612 id=612 data-nosnippet>612</a><span class="doccomment">/// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
+<a href=#613 id=613 data-nosnippet>613</a>/// this module can be used.
+<a href=#614 id=614 data-nosnippet>614</a>///
+<a href=#615 id=615 data-nosnippet>615</a>/// Note: Before using these direct dependencies, please check if the item you need is available
+<a href=#616 id=616 data-nosnippet>616</a>/// through the preludes or domain-specific modules, as they provide a more organized and
+<a href=#617 id=617 data-nosnippet>617</a>/// maintainable way to access these dependencies.
+<a href=#618 id=618 data-nosnippet>618</a></span><span class="kw">pub mod </span>deps {
+<a href=#619 id=619 data-nosnippet>619</a>	<span class="comment">// Notes for maintainers: Any time one uses this module to access a dependency, you can have a
+<a href=#620 id=620 data-nosnippet>620</a>	// moment to think about whether this item could have been placed in any of the other modules
+<a href=#621 id=621 data-nosnippet>621</a>	// and preludes in this crate. In most cases, hopefully the answer is yes.
+<a href=#622 id=622 data-nosnippet>622</a>
+<a href=#623 id=623 data-nosnippet>623</a>	</span><span class="kw">pub use </span>frame_support;
+<a href=#624 id=624 data-nosnippet>624</a>	<span class="kw">pub use </span>frame_system;
+<a href=#625 id=625 data-nosnippet>625</a>
+<a href=#626 id=626 data-nosnippet>626</a>	<span class="kw">pub use </span>sp_arithmetic;
+<a href=#627 id=627 data-nosnippet>627</a>	<span class="kw">pub use </span>sp_core;
+<a href=#628 id=628 data-nosnippet>628</a>	<span class="kw">pub use </span>sp_io;
+<a href=#629 id=629 data-nosnippet>629</a>	<span class="kw">pub use </span>sp_runtime;
+<a href=#630 id=630 data-nosnippet>630</a>
+<a href=#631 id=631 data-nosnippet>631</a>	<span class="kw">pub use </span>codec;
+<a href=#632 id=632 data-nosnippet>632</a>	<span class="kw">pub use </span>scale_info;
+<a href=#633 id=633 data-nosnippet>633</a>
+<a href=#634 id=634 data-nosnippet>634</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
+<a href=#635 id=635 data-nosnippet>635</a>	</span><span class="kw">pub use </span>frame_executive;
+<a href=#636 id=636 data-nosnippet>636</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
+<a href=#637 id=637 data-nosnippet>637</a>	</span><span class="kw">pub use </span>sp_api;
+<a href=#638 id=638 data-nosnippet>638</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
+<a href=#639 id=639 data-nosnippet>639</a>	</span><span class="kw">pub use </span>sp_block_builder;
+<a href=#640 id=640 data-nosnippet>640</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
+<a href=#641 id=641 data-nosnippet>641</a>	</span><span class="kw">pub use </span>sp_consensus_aura;
+<a href=#642 id=642 data-nosnippet>642</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
+<a href=#643 id=643 data-nosnippet>643</a>	</span><span class="kw">pub use </span>sp_consensus_grandpa;
+<a href=#644 id=644 data-nosnippet>644</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
+<a href=#645 id=645 data-nosnippet>645</a>	</span><span class="kw">pub use </span>sp_genesis_builder;
+<a href=#646 id=646 data-nosnippet>646</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
+<a href=#647 id=647 data-nosnippet>647</a>	</span><span class="kw">pub use </span>sp_inherents;
+<a href=#648 id=648 data-nosnippet>648</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
+<a href=#649 id=649 data-nosnippet>649</a>	</span><span class="kw">pub use </span>sp_keyring;
+<a href=#650 id=650 data-nosnippet>650</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
+<a href=#651 id=651 data-nosnippet>651</a>	</span><span class="kw">pub use </span>sp_offchain;
+<a href=#652 id=652 data-nosnippet>652</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
+<a href=#653 id=653 data-nosnippet>653</a>	</span><span class="kw">pub use </span>sp_storage;
+<a href=#654 id=654 data-nosnippet>654</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
+<a href=#655 id=655 data-nosnippet>655</a>	</span><span class="kw">pub use </span>sp_version;
+<a href=#656 id=656 data-nosnippet>656</a>
+<a href=#657 id=657 data-nosnippet>657</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#658 id=658 data-nosnippet>658</a>	</span><span class="kw">pub use </span>frame_benchmarking;
+<a href=#659 id=659 data-nosnippet>659</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#660 id=660 data-nosnippet>660</a>	</span><span class="kw">pub use </span>frame_system_benchmarking;
+<a href=#661 id=661 data-nosnippet>661</a>
+<a href=#662 id=662 data-nosnippet>662</a>	<span class="attr">#[cfg(feature = <span class="string">"frame-try-runtime"</span>)]
+<a href=#663 id=663 data-nosnippet>663</a>	</span><span class="kw">pub use </span>frame_try_runtime;
+<a href=#664 id=664 data-nosnippet>664</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

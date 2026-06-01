@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["NestedChildCalls"],"struct":["constructorCall","destroyCall","destroyReturn","destroyViaPrecompileCall","destroyViaPrecompileReturn","stateCall","stateReturn"]};

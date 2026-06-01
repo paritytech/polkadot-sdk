@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Call"],"mod":["pallet"],"struct":["BeefyEcdsaToEthereum","DepositBeefyDigest","Pallet"],"trait":["BeefyMmrApi","Config","WeightInfo"],"type":["BeefyAuthorities","BeefyNextAuthorities","Module"]};
+window.SIDEBAR_ITEMS = {"constant":["FAILED_BEEFY_TO_ETH_ADDRESS"],"enum":["Call"],"mod":["pallet"],"struct":["BeefyEcdsaToEthereum","DepositBeefyDigest","Pallet"],"trait":["BeefyMmrApi","Config","WeightInfo"],"type":["BeefyAuthorities","BeefyNextAuthorities","Module"]};

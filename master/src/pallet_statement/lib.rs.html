@@ -180,7 +180,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#30 id=30 data-nosnippet>30</a>
 <a href=#31 id=31 data-nosnippet>31</a></span><span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, traits::fungible::Inspect};
 <a href=#32 id=32 data-nosnippet>32</a><span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
-<a href=#33 id=33 data-nosnippet>33</a><span class="kw">use </span>sp_statement_store::{Proof, Statement};
+<a href=#33 id=33 data-nosnippet>33</a><span class="kw">use </span>sp_statement_store::Statement;
 <a href=#34 id=34 data-nosnippet>34</a>
 <a href=#35 id=35 data-nosnippet>35</a><span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <a href=#36 id=36 data-nosnippet>36</a>
@@ -269,23 +269,13 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#119 id=119 data-nosnippet>119</a>	}
 <a href=#120 id=120 data-nosnippet>120</a>
 <a href=#121 id=121 data-nosnippet>121</a>	<span class="kw">fn </span>collect_statements() {
-<a href=#122 id=122 data-nosnippet>122</a>		<span class="comment">// Find `NewStatement` events and submit them to the store
-<a href=#123 id=123 data-nosnippet>123</a>		</span><span class="kw">for </span>(index, event) <span class="kw">in </span>frame_system::Pallet::&lt;T&gt;::read_events_no_consensus().enumerate() {
-<a href=#124 id=124 data-nosnippet>124</a>			<span class="kw">if let </span><span class="prelude-val">Ok</span>(Event::&lt;T&gt;::NewStatement { account, <span class="kw-2">mut </span>statement }) = event.event.try_into()
-<a href=#125 id=125 data-nosnippet>125</a>			{
-<a href=#126 id=126 data-nosnippet>126</a>				<span class="kw">if </span>statement.proof().is_none() {
-<a href=#127 id=127 data-nosnippet>127</a>					<span class="kw">let </span>proof = Proof::OnChain {
-<a href=#128 id=128 data-nosnippet>128</a>						who: account.into(),
-<a href=#129 id=129 data-nosnippet>129</a>						block_hash: frame_system::Pallet::&lt;T&gt;::parent_hash().into(),
-<a href=#130 id=130 data-nosnippet>130</a>						event_index: index <span class="kw">as </span>u64,
-<a href=#131 id=131 data-nosnippet>131</a>					};
-<a href=#132 id=132 data-nosnippet>132</a>					statement.set_proof(proof);
-<a href=#133 id=133 data-nosnippet>133</a>				}
-<a href=#134 id=134 data-nosnippet>134</a>				sp_statement_store::runtime_api::statement_store::submit_statement(statement);
-<a href=#135 id=135 data-nosnippet>135</a>			}
-<a href=#136 id=136 data-nosnippet>136</a>		}
-<a href=#137 id=137 data-nosnippet>137</a>	}
-<a href=#138 id=138 data-nosnippet>138</a>}
+<a href=#122 id=122 data-nosnippet>122</a>		<span class="kw">for </span>event <span class="kw">in </span>frame_system::Pallet::&lt;T&gt;::read_events_no_consensus() {
+<a href=#123 id=123 data-nosnippet>123</a>			<span class="kw">if let </span><span class="prelude-val">Ok</span>(Event::&lt;T&gt;::NewStatement { account: <span class="kw">_</span>, statement }) = event.event.try_into() {
+<a href=#124 id=124 data-nosnippet>124</a>				sp_statement_store::runtime_api::statement_store::submit_statement(statement);
+<a href=#125 id=125 data-nosnippet>125</a>			}
+<a href=#126 id=126 data-nosnippet>126</a>		}
+<a href=#127 id=127 data-nosnippet>127</a>	}
+<a href=#128 id=128 data-nosnippet>128</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
