@@ -192,7 +192,7 @@ where
 				log::trace!(
 					target: LOG_TARGET,
 					"eth_transact substrate tx hash: 0x{}",
-					sp_core::hexdisplay::HexDisplay::from(&sp_core::hashing::blake2_256(&self.encode())),
+					sp_core::hexdisplay::HexDisplay::from(&sp_crypto_hashing::blake2_256(&self.encode())),
 				);
 				let checked = E::try_into_checked_extrinsic(payload, self.encoded_size())?;
 				return Ok(checked);
@@ -448,9 +448,9 @@ mod test {
 			Address, ExtBuilder, RuntimeCall, RuntimeOrigin, SignedExtra, Test, UncheckedExtrinsic,
 		},
 	};
-	use frame_support::{error::LookupError, traits::fungible::Mutate};
+	use frame_support::traits::fungible::Mutate;
 	use pallet_revive_fixtures::compile_module;
-	use sp_runtime::traits::{self, Checkable, DispatchTransaction};
+	use sp_runtime::traits::{self, Checkable, DispatchTransaction, LookupError};
 
 	type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 

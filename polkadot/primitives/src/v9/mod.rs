@@ -448,9 +448,8 @@ pub const MIN_CODE_SIZE: u32 = 9;
 /// Used for:
 /// * initial genesis for the Parachains configuration
 /// * checking updates to this stored runtime configuration do not exceed this limit
-/// * when detecting a code decompression bomb in the client
 // NOTE: This value is used in the runtime so be careful when changing it.
-pub const MAX_CODE_SIZE: u32 = 3 * 1024 * 1024;
+pub const MAX_CODE_SIZE: u32 = 5 * 1024 * 1024;
 
 /// Maximum head data size we support right now.
 ///
