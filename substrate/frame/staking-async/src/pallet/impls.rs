@@ -678,11 +678,23 @@ impl<T: Config> Pallet<T> {
 	/// Calculate the validator incentive amount for a single page.
 	///
 	/// Computes the validator's slice of the era incentive budget for one payout page:
-	/// `share × budget × page_stake_part`, where
-	/// `share = (weight_stash · ep_stash) / Σ_v(weight_v · ep_v)` and the denominator is
-	/// read from [`ErasSumWeightedPoints`] (maintained incrementally on every session
-	/// report). Returns `None` if the validator has no incentive weight, no era points, or
-	/// the computed amount rounds to zero.
+	/// `share × budget × page_stake_part`.
+	///
+	/// The share formula depends on [`WeightedPointsFormulaStartEra`]:
+	///
+	/// - For eras `>= start` (or all eras when the storage is unset, e.g. on a chain
+	///   that activated the weighted-points formula at genesis), the new
+	///   weighted-points share is used:
+	///   `share = (weight_stash · ep_stash) / Σ_v(weight_v · ep_v)` with the denominator
+	///   read from [`ErasSumWeightedPoints`] (maintained incrementally on every session
+	///   report).
+	/// - For eras `< start`, the legacy stake-only share `share = weight_stash / Σ weight`
+	///   is used, because the new denominator was never accumulated for those eras and
+	///   a backfill migration would cost `HistoryDepth × MaxValidatorSet` reads. See
+	///   [`crate::migrations::SetWeightedPointsFormulaStartEra`].
+	///
+	/// Returns `None` if the validator has no incentive weight, no era points, or the
+	/// computed amount rounds to zero.
 	fn calculate_validator_incentive_for_page(
 		era: EraIndex,
 		stash: &T::AccountId,
@@ -718,14 +730,29 @@ impl<T: Config> Pallet<T> {
 			return None;
 		}
 
-		let sum_weighted_points = ErasSumWeightedPoints::<T>::get(era);
-		if sum_weighted_points.is_zero() {
-			return None;
-		}
-		let validator_points: RewardPoint =
-			era_reward_points.individual.get(stash).copied().unwrap_or(0);
-		let numerator = validator_weight.saturating_mul(BalanceOf::<T>::from(validator_points));
-		let share_part = Perbill::from_rational(numerator, sum_weighted_points);
+		// Branch on the cutoff: legacy formula for eras whose denominator was never
+		// maintained, new weighted-points formula otherwise.
+		let use_weighted_points = match WeightedPointsFormulaStartEra::<T>::get() {
+			Some(start) => era >= start,
+			None => true,
+		};
+
+		let share_part = if use_weighted_points {
+			let sum_weighted_points = ErasSumWeightedPoints::<T>::get(era);
+			if sum_weighted_points.is_zero() {
+				return None;
+			}
+			let validator_points: RewardPoint =
+				era_reward_points.individual.get(stash).copied().unwrap_or(0);
+			let numerator =
+				validator_weight.saturating_mul(BalanceOf::<T>::from(validator_points));
+			Perbill::from_rational(numerator, sum_weighted_points)
+		} else {
+			// Legacy formula: every validator with non-zero reward points (the caller
+			// already gates `validator_reward_points == 0`) gets a stake-only share.
+			Perbill::from_rational(validator_weight, total_weight)
+		};
+
 		if share_part.is_zero() {
 			return None;
 		}

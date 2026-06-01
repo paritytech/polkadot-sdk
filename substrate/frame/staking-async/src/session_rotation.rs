@@ -532,10 +532,20 @@ impl<T: Config> Eras<T> {
 		// of the maps populated.
 		let oldest_present_era = active_era.saturating_sub(T::HistoryDepth::get()).max(1);
 
+		// Eras strictly older than `weighted_points_start` were paid out under the
+		// legacy stake-only formula and never had `ErasSumWeightedPoints` populated,
+		// so skip the denominator consistency check for them. See
+		// [`crate::migrations::SetWeightedPointsFormulaStartEra`].
+		let weighted_points_start = crate::WeightedPointsFormulaStartEra::<T>::get();
+
 		for e in oldest_present_era..=active_era {
 			Self::era_fully_present(e)?;
 			Self::check_validator_incentive_weight_consistency(e)?;
-			Self::check_sum_weighted_points_consistency(e)?;
+			let use_weighted_points =
+				weighted_points_start.map_or(true, |start| e >= start);
+			if use_weighted_points {
+				Self::check_sum_weighted_points_consistency(e)?;
+			}
 		}
 
 		// Ensure all eras older than oldest_present_era are either fully pruned or marked for

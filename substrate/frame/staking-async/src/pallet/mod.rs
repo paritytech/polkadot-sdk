@@ -589,6 +589,27 @@ pub mod pallet {
 	pub type ErasSumWeightedPoints<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, IncentiveWeight<T>, ValueQuery>;
 
+	/// First era for which the validator self-stake incentive uses the weighted-points
+	/// formula `share_i = (w_i · ep_i) / Σ_j(w_j · ep_j)`.
+	///
+	/// Eras strictly older than this value are paid out with the pre-existing
+	/// stake-only formula `share_i = w_i / Σ_j w_j`, because their
+	/// [`ErasSumWeightedPoints`] denominator was never accumulated and recomputing it
+	/// for the full [`Config::HistoryDepth`] window on a runtime upgrade would be
+	/// expensive.
+	///
+	/// Semantics:
+	/// - `None`: the chain started with the weighted-points formula already in place
+	///   (e.g. genesis), so every era uses the new formula.
+	/// - `Some(e)`: set once by the upgrade migration to `active_era + 1`. Eras
+	///   `< e` use the legacy formula, eras `>= e` use the weighted-points formula.
+	///
+	/// The legacy branch (and this storage item) can be removed once
+	/// [`Config::HistoryDepth`] eras have elapsed since the upgrade, at which point
+	/// no pre-cutoff era remains claimable.
+	#[pallet::storage]
+	pub type WeightedPointsFormulaStartEra<T: Config> = StorageValue<_, EraIndex, OptionQuery>;
+
 	/// Whether nominators are slashable or not.
 	///
 	/// - When set to `true` (default), nominators are slashed along with validators and must wait

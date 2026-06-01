@@ -1122,3 +1122,177 @@ fn sum_weighted_points_accrues_across_sequential_calls() {
 		assert_eq!(ErasSumWeightedPoints::<Test>::get(2), alice_weight * 7);
 	});
 }
+
+// ===== Cutoff-era / legacy-formula fallback tests =====
+//
+// These pin the [`WeightedPointsFormulaStartEra`] branch in
+// `calculate_validator_incentive_for_page`: eras strictly older than the cutoff
+// fall back to the legacy stake-only share, so pending payouts from before the
+// runtime upgrade still pay out correctly even though their
+// `ErasSumWeightedPoints` denominator was never populated.
+
+#[test]
+fn legacy_formula_used_for_eras_before_cutoff() {
+	// Simulates the post-upgrade situation: era 2 was active when the new code
+	// shipped, so `WeightedPointsFormulaStartEra = 3` and era 2 must still pay
+	// out under the legacy `w_i / Σ_j w_j` share (which ignores points beyond
+	// the zero-gate). We clear `ErasSumWeightedPoints` to prove the legacy path
+	// does not read it.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11;
+		let bob = 21;
+
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		// Unequal points; under the new formula this would yield a 10:1 split,
+		// under the legacy formula (equal weights) this is a 1:1 split.
+		Eras::<Test>::reward_active_era(vec![(alice, 10), (bob, 1)]);
+		Session::roll_until_active_era(3);
+
+		// WHEN: pin era 2 as pre-cutoff and wipe its weighted-points denominator
+		// to mimic an era whose points were credited before the new code shipped.
+		WeightedPointsFormulaStartEra::<Test>::put(3);
+		ErasSumWeightedPoints::<Test>::remove(2);
+		let _ = staking_events_since_last_call();
+
+		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
+		let alice_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
+		let bob_weight = ErasValidatorIncentiveWeight::<Test>::get(2, bob).unwrap();
+		let sum_weight = ErasSumValidatorIncentiveWeight::<Test>::get(2);
+
+		// WHEN: payout era 2.
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		// THEN: split follows the legacy formula — equal weights ⇒ equal shares,
+		// regardless of the 10:1 points imbalance.
+		let alice_expected =
+			Perbill::from_rational(alice_weight, sum_weight).mul_floor(budget);
+		let bob_expected =
+			Perbill::from_rational(bob_weight, sum_weight).mul_floor(budget);
+		assert_eq!(incentive_paid_for(alice, &events), Some(alice_expected));
+		assert_eq!(incentive_paid_for(bob, &events), Some(bob_expected));
+	});
+}
+
+#[test]
+fn new_formula_used_for_eras_at_and_after_cutoff() {
+	// Cutoff at era 2 ⇒ era 2 itself uses the weighted-points formula. With a
+	// 2:1 points split between alice and bob (equal weights), shares are 2/3
+	// and 1/3.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11;
+		let bob = 21;
+
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		WeightedPointsFormulaStartEra::<Test>::put(2);
+
+		Eras::<Test>::reward_active_era(vec![(alice, 2), (bob, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
+
+		// WHEN: payout era 2.
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		// THEN: 2/3 vs 1/3 of the budget.
+		let alice_expected = Perbill::from_rational(2u32, 3u32).mul_floor(budget);
+		let bob_expected = Perbill::from_rational(1u32, 3u32).mul_floor(budget);
+		assert_eq!(incentive_paid_for(alice, &events), Some(alice_expected));
+		assert_eq!(incentive_paid_for(bob, &events), Some(bob_expected));
+	});
+}
+
+#[test]
+fn legacy_era_pays_out_even_without_weighted_points_storage() {
+	// Regression for the original bug: under the new formula, era 2 would pay
+	// zero because `ErasSumWeightedPoints[2] == 0` (was never accumulated for
+	// pending pre-upgrade eras). With the cutoff in place, the legacy branch
+	// must still pay alice her full share.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11;
+		let bob = 21;
+
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		// Both validators earn points so the caller's zero-points gate is open.
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 1)]);
+		Session::roll_until_active_era(3);
+
+		// Pretend the new code only just shipped: cutoff sits in the future and
+		// the denominator for era 2 is empty.
+		WeightedPointsFormulaStartEra::<Test>::put(3);
+		ErasSumWeightedPoints::<Test>::remove(2);
+		let _ = staking_events_since_last_call();
+
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		// Both validators are paid (would have been `None` under the new formula
+		// because the denominator is zero).
+		assert!(incentive_paid_for(alice, &events).is_some());
+		assert!(incentive_paid_for(bob, &events).is_some());
+	});
+}
+
+#[test]
+fn try_state_skips_weighted_points_check_for_pre_cutoff_eras() {
+	use crate::session_rotation::Eras as ErasMod;
+
+	ExtBuilder::default().try_state(false).build_and_execute(|| {
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(11, 1), (21, 1)]);
+
+		// GIVEN: no cutoff yet ⇒ new formula assumed everywhere ⇒ a missing
+		// denominator must trip try-state.
+		ErasSumWeightedPoints::<Test>::remove(2);
+		assert!(
+			ErasMod::<Test>::do_try_state().is_err(),
+			"try-state should flag missing denominator without a cutoff"
+		);
+
+		// WHEN: declare era 2 as pre-cutoff (legacy formula territory).
+		WeightedPointsFormulaStartEra::<Test>::put(3);
+
+		// THEN: the same missing-denominator state is now expected and accepted.
+		assert_ok!(ErasMod::<Test>::do_try_state());
+	});
+}
+
+#[test]
+fn migration_sets_cutoff_to_active_era_plus_one() {
+	use crate::migrations::SetWeightedPointsFormulaStartEra;
+	use frame_support::traits::OnRuntimeUpgrade;
+
+	ExtBuilder::default().build_and_execute(|| {
+		Session::roll_until_active_era(3);
+		assert!(WeightedPointsFormulaStartEra::<Test>::get().is_none());
+
+		let _ = SetWeightedPointsFormulaStartEra::<Test>::on_runtime_upgrade();
+
+		// Active era at upgrade time was 3 ⇒ cutoff = 4. Era 3 (which may already
+		// have points credited without a denominator) stays on the legacy formula.
+		assert_eq!(WeightedPointsFormulaStartEra::<Test>::get(), Some(4));
+	});
+}
+
+#[test]
+fn migration_is_idempotent_when_cutoff_already_set() {
+	use crate::migrations::SetWeightedPointsFormulaStartEra;
+	use frame_support::traits::OnRuntimeUpgrade;
+
+	ExtBuilder::default().build_and_execute(|| {
+		Session::roll_until_active_era(2);
+		// Pre-seed as if a previous upgrade already set the cutoff.
+		WeightedPointsFormulaStartEra::<Test>::put(7);
+
+		let _ = SetWeightedPointsFormulaStartEra::<Test>::on_runtime_upgrade();
+
+		// Cutoff must not move on subsequent runs.
+		assert_eq!(WeightedPointsFormulaStartEra::<Test>::get(), Some(7));
+	});
+}

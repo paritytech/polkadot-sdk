@@ -17,7 +17,10 @@
 
 //! Storage migrations for the staking-async pallet.
 
-use crate::{log, reward::EraRewardManager, Config, DisableMintingGuard, RewardKind, RewardPot};
+use crate::{
+	log, reward::EraRewardManager, Config, DisableMintingGuard, RewardKind, RewardPot,
+	WeightedPointsFormulaStartEra,
+};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -190,5 +193,86 @@ impl<T: Config, S: Get<PalletId>, K: Get<RewardKind>> MigrateEraPotsToPool<T, S,
 			},
 			_ => 0..0,
 		}
+	}
+}
+
+/// One-shot, single-block migration that records the cutoff era from which the
+/// validator self-stake incentive uses the weighted-points formula
+/// `share_i = (w_i · ep_i) / Σ_j(w_j · ep_j)`.
+///
+/// The denominator [`crate::ErasSumWeightedPoints`] is maintained incrementally by
+/// the new code as session reports credit reward points. Eras whose points were
+/// credited before this code shipped therefore have a zero/incomplete denominator.
+/// Rather than paying the cost of recomputing it for the full
+/// [`Config::HistoryDepth`] window (`HistoryDepth × MaxValidatorSet` reads), this
+/// migration sets [`WeightedPointsFormulaStartEra`] to `active_era + 1`:
+///
+/// - eras `<= active_era` keep the legacy stake-only share `w_i / Σ_j w_j`;
+/// - eras `> active_era` use the new weighted-points share, with their
+///   [`crate::ErasSumWeightedPoints`] accumulated from session 0 of the era.
+///
+/// Idempotent: if the cutoff is already set (e.g. from a fresh chain at genesis or
+/// a prior application of this migration) it is left untouched.
+pub struct SetWeightedPointsFormulaStartEra<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> OnRuntimeUpgrade for SetWeightedPointsFormulaStartEra<T> {
+	fn on_runtime_upgrade() -> Weight {
+		let mut weight = T::DbWeight::get().reads(1);
+
+		if WeightedPointsFormulaStartEra::<T>::exists() {
+			log!(info, "WeightedPointsFormulaStartEra already set, nothing to do");
+			return weight;
+		}
+
+		let active_era = crate::session_rotation::Rotator::<T>::active_era();
+		// `active_era` may already have reward points credited without
+		// `ErasSumWeightedPoints` having been maintained for them, so the new
+		// formula can only safely apply from the next era onwards.
+		let cutoff = active_era.saturating_add(1);
+		WeightedPointsFormulaStartEra::<T>::put(cutoff);
+		weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+
+		log!(
+			info,
+			"WeightedPointsFormulaStartEra set to {} (active_era {} uses legacy formula)",
+			cutoff,
+			active_era,
+		);
+
+		weight
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+		use codec::Encode;
+		Ok(WeightedPointsFormulaStartEra::<T>::get().encode())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use codec::Decode;
+
+		let pre: Option<EraIndex> =
+			Decode::decode(&mut &state[..]).map_err(|_| "decode pre_upgrade state")?;
+		let post = WeightedPointsFormulaStartEra::<T>::get();
+
+		match (pre, post) {
+			(Some(p), Some(q)) => frame_support::ensure!(
+				p == q,
+				"SetWeightedPointsFormulaStartEra must be idempotent when already set"
+			),
+			(None, Some(q)) => {
+				let active = crate::session_rotation::Rotator::<T>::active_era();
+				frame_support::ensure!(
+					q == active.saturating_add(1),
+					"cutoff must be active_era + 1 after a fresh migration"
+				);
+			},
+			(_, None) => {
+				return Err("WeightedPointsFormulaStartEra was not set by the migration".into())
+			},
+		}
+
+		Ok(())
 	}
 }

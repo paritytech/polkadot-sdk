@@ -13,8 +13,18 @@ doc:
     nothing, and non-zero weighted performers share the era budget subject to
     normal rounding.
 
+    Pre-upgrade pending eras keep paying out under the legacy stake-only share
+    `w_i / Σ_j w_j` so they are not zeroed out by the missing
+    `ErasSumWeightedPoints` denominator. The cutoff era is recorded by a
+    one-shot migration `SetWeightedPointsFormulaStartEra` into a new
+    `WeightedPointsFormulaStartEra` storage item; eras strictly older than the
+    cutoff use the legacy formula, eras at or after the cutoff use the new
+    weighted-points formula.
+
     The `rc_on_session_report` benchmark/weight now scales with the number of
     validators included in the relay-chain session report.
 crates:
 - name: pallet-staking-async
+  bump: patch
+- name: asset-hub-westend-runtime
   bump: patch
