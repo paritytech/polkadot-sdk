@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780269957393,
+  "lastUpdate": 1780309718479,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "5588131+kianenigma@users.noreply.github.com",
-            "name": "Kian Paimani",
-            "username": "kianenigma"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "56e4b10bbbbcefcf9e4fe879c88c68902181fc4a",
-          "message": "[AHM/Staking] Allow own stake to be collected in all pages (#10051)\n\nTLDR: Thanks to a number of reports from Kusama validator, we have been\ninvestigating an issue where the self stake of some validators is not\npresent in `ErasStakersPaged` and `ErasStakersOverview`, and\nconsequently not earning staking rewards.\n\nAfter investigation, it was clear that the `polkadot-staking-miner` is\ndoing the right thing, and the self-stake is indeed submitted to the\nchain as a part of the staking election result.\n\nThe root cause in how `pallet-staking-async` ingests the staking\nelection result. This code **made a (wrong) assumption that self-stake\nis only present in the first page of a multi-page election. This PR\nfixes this issue.**\n\n---\n\n- [x] (nice to have) revisit try-state checks of the pallet,\n`ErasStakersPaged`, `ErasStakersOverview` and `ErasTotalStake` are\ntriple checked for correctness\n- [ ] (nice to have) fix related displays in PJS:\nhttps://github.com/polkadot-js/apps/pull/11930\n- [ ] backport to 2507 and 2509\n- Westend \n- [ ] Find a similar issue in westend for monitoring\n(https://github.com/paritytech/devops/issues/4402)\n  - [ ] Upgrade westend to a branch/release containing this fix \n- [ ] Upgrade westend with this fix, observe test examples are resolved\n- [ ] Bump backported version in `fellowship/runtimes`\n- [ ] Release 1.9.3 for Kusama with this fix\n- [ ] Ensure known test cases are fixed\n- One example: `F2WyUUFXLYnBg6acv7t2KFzH6D7CyNcvC4mRCwUdsHTUB4t` (in\nelection round 46, likely repeating in subsequent ones too)\n- This PR will be part of Polkadot release 2.0.0, the Polkadot AHM.\n- [ ] Forum post with further explanation once PR is merged.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-20T19:13:45Z",
-          "tree_id": "d2786f7afae7fac3c39e274963ad57630f271778",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/56e4b10bbbbcefcf9e4fe879c88c68902181fc4a"
-        },
-        "date": 1760991755451,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.202232888,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.231907840666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.143048646833336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8680d7c1aba4fabdd406d9a7f0356b7bac60870c",
+          "message": "ci: another attempt to fix docs workflow (#12215)\n\nLLM suggests that there might be some token leftovers. Let's check.\n\n\ncc https://github.com/paritytech/devops/issues/5306",
+          "timestamp": "2026-06-01T08:04:56Z",
+          "tree_id": "f1b81d459c372145c470daf164a746516887bcb0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8680d7c1aba4fabdd406d9a7f0356b7bac60870c"
+        },
+        "date": 1780309688290,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.140527712166667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1429314681,
             "unit": "seconds"
           }
         ]
