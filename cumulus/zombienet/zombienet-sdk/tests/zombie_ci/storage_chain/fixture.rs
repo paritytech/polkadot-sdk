@@ -24,9 +24,9 @@ pub const RAW_RELAY_CHAIN_SPEC_ENV: &str = "STORAGE_CHAIN_RAW_RELAY_CHAIN_SPEC";
 pub const TIP_SYNC_METADATA_ENV: &str = "STORAGE_CHAIN_TIP_SYNC_METADATA";
 
 const DEFAULT_TIP_SYNC_SNAPSHOT: &str =
-	"https://storage.googleapis.com/zombienet-db-snaps/zombienet/storage_chain_tip_sync_db/tip-sync-100.tgz";
+	"https://storage.googleapis.com/zombienet-db-snaps/zombienet/storage_chain_sync/pruned.tgz";
 const DEFAULT_RELAY_SNAPSHOT: &str =
-	"https://storage.googleapis.com/zombienet-db-snaps/zombienet/storage_chain_tip_sync_db/relay.tgz";
+	"https://storage.googleapis.com/zombienet-db-snaps/zombienet/storage_chain_sync/relay.tgz";
 const SNAPSHOT_DIR: &str = "tests/zombie_ci/storage_chain/fixtures/test-databases";
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
