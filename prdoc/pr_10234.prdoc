@@ -1,0 +1,62 @@
+title: 'frame-support: implement transaction chain batching via event field capture'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds opt-in chain batch capture to FRAME pallet events.
+
+    ## New attributes
+
+    Pallets can annotate their event enum with `#[pallet::capture_for_chain_batch]` and
+    mark individual named variant fields with `#[chain_batch(capture = "name")]`. When
+    `deposit_event` is called, the macro-generated implementation will SCALE-encode those
+    fields and push them into the dispatch context alongside the normal event deposit. Any
+    code running in the same dispatch can then retrieve and consume the captured data via
+    `frame_support::dispatch_context::get_captured_event_fields()`.
+
+    ```rust
+    #[pallet::event]
+    #[pallet::generate_deposit(pub fn deposit_event)]
+    #[pallet::capture_for_chain_batch]
+    pub enum Event<T: Config> {
+        Transfer {
+            #[chain_batch(capture = "amount")]
+            amount: T::Balance,
+            #[chain_batch(capture = "from")]
+            from: T::AccountId,
+            to: T::AccountId, // not captured
+        },
+    }
+    ```
+
+    ## New runtime API (`frame-support`)
+
+    - `dispatch_context::capture_event_field(pallet, variant, field_name, encoded_bytes)` —
+      called automatically by the generated `deposit_event`; no-op outside a dispatch context.
+    - `dispatch_context::get_captured_event_fields() -> Option<Vec<CapturedEventEntry>>` —
+      drains all captured entries for the current dispatch; returns `None` outside a context.
+    - `dispatch_context::CapturedEventEntry` — public struct carrying `pallet`, `variant`,
+      `field_name`, and the raw SCALE-encoded `value`.
+
+    ## Fixes applied to the original implementation
+
+    The original commit left the feature entirely non-functional. The following bugs were
+    found and fixed before any pallet could successfully compile with the new attributes:
+
+    - `capture_event_field` and `get_captured_event_fields` did not exist; added them.
+    - `#[pallet::capture_for_chain_batch]` was not stripped from the event enum's attribute
+      list, causing an "unknown attribute" compile error in every consumer crate.
+    - `#[chain_batch(capture = "...")]` was not stripped from variant field attributes,
+      causing `Encode`, `Decode`, and `TypeInfo` derive macros to reject the unknown attribute.
+    - `maybe_allow_attrs` was not forwarded to the capture code path, silently dropping
+      compiler-warning suppression on adopting pallets.
+    - `.encode()` was called as a method, requiring `Encode` to be in scope in generated
+      code where it is not; replaced with UFCS `Encode::encode(field)`.
+    - Local variables (`event_use_gen`, `type_impl_gen`, etc.) were computed before the
+      capture/normal branch, making them dead code in the capture path.
+    - `HashMap` was used to group variant fields, producing non-deterministic token order
+      across compilations; replaced with `BTreeMap` for reproducible macro output.
+crates:
+- name: frame-support
+  bump: minor
+- name: frame-support-procedural
+  bump: minor
