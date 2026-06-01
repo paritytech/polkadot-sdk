@@ -16,10 +16,7 @@
 // limitations under the License.
 //! JSON-RPC methods and types, for Ethereum.
 
-mod hex_serde;
-
-mod byte;
-pub use byte::*;
+pub use pallet_revive_types::common::{Byte, Bytes, Bytes8, Bytes32, Bytes256};
 
 mod rlp_codec;
 pub use rlp;

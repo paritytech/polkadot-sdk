@@ -17,7 +17,9 @@
 //! Generated JSON-RPC types.
 #![allow(missing_docs)]
 
-use super::{TypeEip1559, TypeEip2930, TypeEip4844, TypeEip7702, TypeLegacy, byte::*};
+use super::{
+	Byte, Bytes, Bytes8, Bytes256, TypeEip1559, TypeEip2930, TypeEip4844, TypeEip7702, TypeLegacy,
+};
 use alloc::{
 	boxed::Box,
 	collections::{BTreeMap, BTreeSet},

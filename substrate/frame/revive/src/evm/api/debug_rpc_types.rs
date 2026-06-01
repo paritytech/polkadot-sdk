@@ -19,7 +19,7 @@ use crate::{Weight, evm::Bytes};
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use codec::{Decode, Encode};
 use derive_more::From;
-use pallet_revive_types::runtime_api::*;
+use pallet_revive_types::{common::hex_serde, runtime_api::*};
 use scale_info::TypeInfo;
 use serde::{
 	Deserialize, Serialize,
@@ -501,15 +501,11 @@ pub enum ExecutionStepKind {
 		op: u8,
 		/// The syscall arguments (register values a0-a5).
 		/// Omitted when `disable_syscall_details` is true in ExecutionTracerConfig.
-		#[serde(default, skip_serializing_if = "Vec::is_empty", with = "super::hex_serde::vec")]
+		#[serde(default, skip_serializing_if = "Vec::is_empty", with = "hex_serde::vec")]
 		args: Vec<u64>,
 		/// The syscall return value.
 		/// Omitted when `disable_syscall_details` is true in ExecutionTracerConfig.
-		#[serde(
-			default,
-			skip_serializing_if = "Option::is_none",
-			with = "super::hex_serde::option"
-		)]
+		#[serde(default, skip_serializing_if = "Option::is_none", with = "hex_serde::option")]
 		returned: Option<u64>,
 	},
 }
@@ -753,10 +749,10 @@ pub struct CallTrace {
 	/// Address of the sender.
 	pub from: H160,
 	/// Amount of gas provided for the call.
-	#[serde(with = "super::hex_serde")]
+	#[serde(with = "hex_serde")]
 	pub gas: u64,
 	/// Amount of gas used.
-	#[serde(with = "super::hex_serde")]
+	#[serde(with = "hex_serde")]
 	pub gas_used: u64,
 	/// Address of the receiver.
 	pub to: H160,
@@ -802,7 +798,7 @@ pub struct CallLog {
 	pub data: Bytes,
 	/// Position of the log relative to subcalls within the same trace
 	/// See <https://github.com/ethereum/go-ethereum/pull/28389> for details
-	#[serde(with = "super::hex_serde")]
+	#[serde(with = "hex_serde")]
 	pub position: u32,
 }
 
