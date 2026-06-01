@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780269993484,
+  "lastUpdate": 1780309758156,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b6ef912d74af2c43b90f542e09b74abe061ff859",
-          "message": "pallet_revive: when a dry run simulates contract deployment, return the execution result data. (#10032)\n\nFixes https://github.com/paritytech/contract-issues/issues/177\n\nExpose the deployed contract's runtime bytecode in eth_call responses\nduring simulated contract creation.\n\nThe test from issue\nhttps://github.com/paritytech/contract-issues/issues/177 sends an\neth_call request without a destination address, while providing contract\nbytecode in the data field. This simulates a contract creation\ntransaction. The test expects the RPC response to return the result of\nexecuting the init code, which is the deployed contract's runtime\nbytecode. While this result is not returned in actual deployments, it is\nexpected in dry-run simulations.\n\n---------\n\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-20T15:34:23Z",
-          "tree_id": "604d5347b0a64183e4502f179bae670c63f754a1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b6ef912d74af2c43b90f542e09b74abe061ff859"
-        },
-        "date": 1760980183570,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007269302793333331,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013186977213333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1601486909600001,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022627631179999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007322766193333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8680d7c1aba4fabdd406d9a7f0356b7bac60870c",
+          "message": "ci: another attempt to fix docs workflow (#12215)\n\nLLM suggests that there might be some token leftovers. Let's check.\n\n\ncc https://github.com/paritytech/devops/issues/5306",
+          "timestamp": "2026-06-01T08:04:56Z",
+          "tree_id": "f1b81d459c372145c470daf164a746516887bcb0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8680d7c1aba4fabdd406d9a7f0356b7bac60870c"
+        },
+        "date": 1780309727946,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.008020726700000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14908129176666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02400491120666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010243288613333304,
             "unit": "seconds"
           }
         ]
