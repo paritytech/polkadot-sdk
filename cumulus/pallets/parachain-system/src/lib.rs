@@ -2034,10 +2034,6 @@ pub trait RelaychainStateProvider {
 /// When validation data is not available (e.g. within `on_initialize`), it will fallback to use
 /// [`Pallet::last_relay_block_number()`].
 ///
-/// **NOTE**: This has been deprecated, please use [`RelaychainDataProvider`]
-#[deprecated = "Use `RelaychainDataProvider` instead"]
-pub type RelaychainBlockNumberProvider<T> = RelaychainDataProvider<T>;
-
 /// Implements [`BlockNumberProvider`] and [`RelaychainStateProvider`] that returns relevant relay
 /// data fetched from validation data.
 ///
