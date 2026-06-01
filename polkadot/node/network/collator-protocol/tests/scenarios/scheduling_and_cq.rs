@@ -92,6 +92,31 @@ fn ancestor_with_para_at_valid_position_accepts<S: CollatorSut>() {
 	let _ = w.fetch_request(&cand);
 }
 
+/// A para scheduled at the last claim-queue position must be fetchable from the ancestor whose
+/// window still reaches that position — even when the chain's ancestry and the claim queue are
+/// both shorter than the scheduling lookahead (e.g. near genesis, or the first blocks after a
+/// session change).
+///
+/// Lookahead is 3; the leaf is at height 1 (ancestry reaches only genesis) with claim queue
+/// `[A, B]`. B's slot is one ahead of the leaf, which the genesis ancestor can still serve, so
+/// the advertisement must fetch.
+#[crate::sim_test(
+	bug_on = "legacy",
+	bug_on = "experimental",
+)]
+fn ancestor_can_fetch_last_claim_queue_position<S: CollatorSut>() {
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_B));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	// Leaf at height 1 (genesis + 1) → allowed-RP path is 2 (< lookahead 3). CQ override is
+	// length 2 (< lookahead 3). B is at position 1.
+	w.new_block().with_claim_queue_at(CoreIndex(0), [PARA_A, PARA_B]).activate();
+	let peer_b = w.declared_peer(PARA_B, V2);
+	let ancestor = w.ancestors()[0];
+	let cand = w.advertise(&peer_b, ancestor, PARA_B);
+	let _ = w.fetch_request(&cand);
+}
+
 #[crate::sim_test]
 fn ancestor_with_para_at_obsolete_position_rejects<S: CollatorSut>() {
 	let mut w = world_with_leaf_cq::<S>(1, [PARA_B, PARA_B, PARA_A]);
