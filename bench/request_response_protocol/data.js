@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780317848285,
+  "lastUpdate": 1780346074501,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -96767,6 +96767,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2839209200,
             "range": "± 11873296",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "davxy@datawok.net",
+            "name": "Davide Galassi",
+            "username": "davxy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8db80314d4cdf99479821b2db5265b66af97fe91",
+          "message": "Bandersnatch ec-utils: handle TE z = 0 results via non-subgroup fallbacks (#12125)\n\nSuperseeds https://github.com/paritytech/polkadot-sdk/pull/12043.\n\nBandersnatch HWCD on non-subgroup inputs can produce z = 0 projectives,\nwhich arkworks' `into_affine()` panics on. Instead of extending the wire\nformat to carry these states, this PR adds an `IntoAffineSafe` trait in\n`utils.rs` and uses it to substitute a non-subgroup affine on the\ndegenerate path:\n\n- mul_te / msm_te: returns (0, 0, 0, 0) to arkworks as the fallback\n\nWire format is byte-identical to the current `EdwardsAffine` encoding. A\ndownstream subgroup check on the output rejects the degenerate case;\nhonest callers that subgroup-validate inputs never hit it.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: drskalman <35698397+drskalman@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-01T17:32:17Z",
+          "tree_id": "01abef8a34715a527c6c7743c9bef7c9da944095",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8db80314d4cdf99479821b2db5265b66af97fe91"
+        },
+        "date": 1780346042556,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19810343,
+            "range": "± 119514",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20273408,
+            "range": "± 272370",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21636340,
+            "range": "± 142527",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26517054,
+            "range": "± 236740",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59265389,
+            "range": "± 429800",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 350256401,
+            "range": "± 3987101",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2619903110,
+            "range": "± 51980405",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17804880,
+            "range": "± 184170",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17732335,
+            "range": "± 78866",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18502235,
+            "range": "± 203224",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23114763,
+            "range": "± 205246",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59985711,
+            "range": "± 798578",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 341739128,
+            "range": "± 1944609",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2750791212,
+            "range": "± 18176192",
             "unit": "ns/iter"
           }
         ]
