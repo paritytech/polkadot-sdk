@@ -1,0 +1,29 @@
+title: Remove deprecated AllowAll, DenyAll, and Filter from frame-support
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    Removes deprecated `frame_support::AllowAll`, `DenyAll`, and `Filter` as part of #11561.
+
+    These were legacy aliases for `Everything`, `Nothing`, and `Contains`. They have no remaining usage in this repository.
+
+    ## Integration
+
+    ```diff
+    - use frame_support::traits::AllowAll;
+    + use frame_support::traits::Everything;
+
+    - use frame_support::traits::DenyAll;
+    + use frame_support::traits::Nothing;
+
+    - impl frame_support::traits::Filter<MyType> for MyFilter { ... }
+    + impl frame_support::traits::Contains<MyType> for MyFilter { ... }
+    ```
+    Review Notes
+    `2 files: substrate/frame/support/src/traits/members.rs, traits.rs
+    `
+    Verified no in-repo references before removal
+crates:
+- name: frame-support
+  bump: major
