@@ -38,6 +38,7 @@ use pallet_revive::{
 	},
 };
 use runtime_api::RuntimeApi;
+use sp_crypto_hashing::keccak_256;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
 use std::{
@@ -1078,20 +1079,20 @@ impl Client {
 		};
 		log::trace!(target: LOG_TARGET, "Ethereum block from runtime API hash {:?}", eth_block.hash);
 
-		// Blocks produced before pallet-revive shipped the ETH-block storage value have an
-		// unset `EthereumBlock`; the runtime API returns `EthBlock::default()`, uniquely
-		// identifiable by `hash == H256::zero()` (the post-upgrade builder always assigns
-		// a real `header_hash()`). Recover the real eth hash from the receipt-provider
-		// mapping, fix `eth_block.hash` (used to stamp `block_hash` on hydrated tx infos),
-		// and, for non-hydrated requests, populate the `Hashes` vec from the sqlite cache
-		// (backfilling if needed). See #6790.
-		if eth_block.hash == H256::zero() {
-			self.recover_pre_upgrade_block(&mut eth_block, &block, hydrated_transactions)
-				.await;
-		}
-
+		// Blocks produced before pallet-revive shipped the ETH-block storage value
+		// have an unset `EthereumBlock`; the runtime API returns `EthBlock::default()`,
+		// uniquely identifiable by `hash.is_zero()` (the post-upgrade builder always
+		// assigns a real `header_hash()`). Recover the `transactions` array by
+		// walking the substrate block's extrinsics — each `EthTransact` carries its
+		// RLP-encoded payload, from which we can derive both the tx hash
+		// (`keccak256(payload)`) and the full `TransactionInfo` (RLP-decode +
+		// `recover_eth_address`). This bypasses both the runtime storage
+		// (`EthereumBlock`/`ReceiptInfoData`) and the eth-rpc sqlite cache, neither
+		// of which has data for pre-upgrade blocks under any current writer.
+		// `block_hash` on the inner `TransactionInfo`s stays zero — pre-upgrade
+		// blocks have no real ethereum hash. See #6790.
 		if hydrated_transactions {
-			let tx_infos = self
+			let mut tx_infos = self
 				.receipt_provider
 				.receipts_from_block(&block, eth_block.hash)
 				.await
@@ -1105,63 +1106,19 @@ impl Client {
 				.map(|(signed_tx, receipt)| TransactionInfo::new(&receipt, signed_tx))
 				.collect::<Vec<_>>();
 
+			if tx_infos.is_empty() && eth_block.hash.is_zero() {
+				tx_infos = pre_upgrade_tx_infos_from_extrinsics(&block).await;
+			}
+
 			eth_block.transactions = HashesOrTransactionInfos::TransactionInfos(tx_infos);
+		} else if eth_block.hash.is_zero() {
+			let hashes = pre_upgrade_tx_hashes_from_extrinsics(&block).await;
+			if !hashes.is_empty() {
+				eth_block.transactions = HashesOrTransactionInfos::Hashes(hashes);
+			}
 		}
 
 		Some(eth_block)
-	}
-
-	/// Recovery path for pre-upgrade blocks whose `EthereumBlock` storage was never
-	/// written (runtime API returned `EthBlock::default()`).
-	///
-	/// Always overwrites `eth_block.hash` with the real ethereum hash if a mapping
-	/// exists in the receipt-provider. Additionally, for non-hydrated requests,
-	/// populates `eth_block.transactions` from the sqlite cache — extracting from
-	/// extrinsics and backfilling on first read. The hydrated path doesn't need the
-	/// tx list pre-populated because it re-extracts via `receipts_from_block`; it
-	/// only needs the corrected `eth_block.hash` so receipts carry the right
-	/// `block_hash`.
-	///
-	/// Callers must only invoke this when `eth_block.hash == H256::zero()`. On
-	/// post-upgrade blocks the runtime supplies real data and this path is wasted work.
-	async fn recover_pre_upgrade_block(
-		&self,
-		eth_block: &mut Block,
-		block: &Arc<SubstrateBlock>,
-		hydrated: bool,
-	) {
-		let substrate_hash = block.hash();
-
-		let Some(eth_hash) = self.receipt_provider.get_ethereum_hash(&substrate_hash).await else {
-			log::trace!(target: LOG_TARGET,
-				"No ethereum hash mapping for substrate block {substrate_hash:?}; \
-				 cannot recover pre-upgrade block");
-			return;
-		};
-		eth_block.hash = eth_hash;
-
-		if hydrated {
-			return;
-		}
-
-		let cached = self.receipt_provider.block_transaction_hashes(&substrate_hash).await;
-		let hashes = if !cached.is_empty() {
-			cached
-		} else {
-			if let Err(err) =
-				self.receipt_provider.insert_block_receipts_past(block, &eth_hash).await
-			{
-				log::trace!(target: LOG_TARGET,
-					"Backfill of receipts for block #{} failed: {err:?}", block.number());
-				return;
-			}
-			self.receipt_provider.block_transaction_hashes(&substrate_hash).await
-		};
-
-		if !hashes.is_empty() {
-			eth_block.transactions =
-				HashesOrTransactionInfos::Hashes(hashes.into_values().collect());
-		}
 	}
 
 	/// Get the chain ID.
@@ -1237,4 +1194,72 @@ impl Client {
 
 fn to_hex(bytes: impl AsRef<[u8]>) -> String {
 	format!("0x{}", hex::encode(bytes.as_ref()))
+}
+
+/// Walk a substrate block's extrinsics and return the Ethereum tx hashes of every
+/// `EthTransact` call, in extrinsic-index order.
+///
+/// Used by `evm_block` to recover the `transactions` array for pre-upgrade blocks
+/// whose `EthereumBlock` storage is unset — the runtime returns an empty hash list
+/// for those, but the underlying extrinsics still contain the RLP-encoded
+/// payloads, and `keccak256(payload)` is the Ethereum tx hash. Independent of
+/// `ReceiptInfoData` and the eth-rpc sqlite cache.
+async fn pre_upgrade_tx_hashes_from_extrinsics(block: &SubstrateBlock) -> Vec<H256> {
+	let extrinsics = match block.extrinsics().await {
+		Ok(extrinsics) => extrinsics,
+		Err(err) => {
+			log::warn!(target: LOG_TARGET,
+				"Failed to fetch extrinsics for pre-upgrade block #{}: {err:?}",
+				block.number());
+			return Vec::new();
+		},
+	};
+
+	extrinsics
+		.iter()
+		.filter_map(|ext| ext.as_extrinsic::<EthTransact>().ok().flatten())
+		.map(|call| H256(keccak_256(&call.payload)))
+		.collect()
+}
+
+/// Hydrated counterpart of [`pre_upgrade_tx_hashes_from_extrinsics`]: walks a substrate
+/// block's extrinsics and builds a `Vec<TransactionInfo>` for every `EthTransact` call.
+///
+/// Used by `evm_block` for `eth_getBlockBy*(.., true)` on pre-upgrade blocks. Every field
+/// of `TransactionInfo` except `block_hash` is reconstructible from the substrate block:
+/// the signed tx itself is RLP-decoded from the payload, `from` is recovered via
+/// `recover_eth_address()`, `hash` is `keccak256(payload)`, and `block_number` /
+/// `transaction_index` come from substrate. `block_hash` stays zero — the pre-upgrade
+/// header has no real ethereum hash. Receipt-side data (`status`, `logs`,
+/// `effectiveGasPrice`, gas usage) is not exposed by `eth_getBlockBy*`, so its absence
+/// from `ReceiptInfoData` is irrelevant here. See #6790.
+async fn pre_upgrade_tx_infos_from_extrinsics(block: &SubstrateBlock) -> Vec<TransactionInfo> {
+	let extrinsics = match block.extrinsics().await {
+		Ok(extrinsics) => extrinsics,
+		Err(err) => {
+			log::warn!(target: LOG_TARGET,
+				"Failed to fetch extrinsics for pre-upgrade block #{}: {err:?}",
+				block.number());
+			return Vec::new();
+		},
+	};
+	let block_number = U256::from(block.number());
+
+	extrinsics
+		.iter()
+		.enumerate()
+		.filter_map(|(ext_idx, ext)| {
+			let call = ext.as_extrinsic::<EthTransact>().ok().flatten()?;
+			let signed_tx = TransactionSigned::decode(&call.payload).ok()?;
+			let from = signed_tx.recover_eth_address().ok()?;
+			Some(TransactionInfo {
+				block_hash: H256::zero(),
+				block_number,
+				from,
+				hash: H256(keccak_256(&call.payload)),
+				transaction_index: U256::from(ext_idx),
+				transaction_signed: signed_tx,
+			})
+		})
+		.collect()
 }

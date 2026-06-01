@@ -526,17 +526,20 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 	/// Like [`Self::insert_block_receipts`] but writes only to the DB (no cache update).
 	/// Used for historic sync where fork detection is unnecessary.
+	///
+	/// Returns the extracted receipts so callers can use them without a second sqlite
+	/// read for the just-written rows.
 	pub async fn insert_block_receipts_past(
 		&self,
 		block: &SubstrateBlock,
 		ethereum_hash: &H256,
-	) -> Result<(), ClientError> {
+	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
 		let receipts = self
 			.receipt_extractor
 			.extract_from_block_with_eth_hash(block, *ethereum_hash)
 			.await?;
 		self.insert_into_db(block, &receipts, ethereum_hash).await?;
-		Ok(())
+		Ok(receipts)
 	}
 
 	/// Insert pre-extracted receipts and update the block cache (with fork detection).
@@ -857,11 +860,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Return all transaction hashes for the given substrate block hash, keyed by
 	/// the (substrate) `transaction_index` stored at receipt-extraction time.
 	///
-	/// Indices in real blocks start at the first ETH `EthTransact` extrinsic — typically
-	/// `2..` after the timestamp and parachain-system inherents — so position-in-iteration
-	/// does **not** equal the EVM 0-based index. `BTreeMap` gives random access by index
-	/// (used by tracers) and ordered iteration (used by `eth_getBlockBy*` payload
-	/// reconstruction) without a separate sort.
+	/// Keys are the substrate extrinsic indices of the ETH `EthTransact` calls in the
+	/// block, not 0-based EVM indices: a parachain typically starts them at 2 (after
+	/// timestamp + parachain-system inherents), a solo chain at 1 (after timestamp).
+	/// `BTreeMap` gives random access by index (used by tracers) and ordered iteration
+	/// (used by `eth_getBlockBy*` payload reconstruction) without a separate sort.
 	pub async fn block_transaction_hashes(&self, block_hash: &H256) -> BTreeMap<usize, H256> {
 		let block_hash = block_hash.as_ref();
 		let rows = match query!(
