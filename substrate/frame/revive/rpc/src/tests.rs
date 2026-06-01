@@ -20,7 +20,7 @@
 
 use crate::{
 	BlockInfoProvider, ChainMetadata, DbContext, DebugRpcClient, EthRpcClient, ReceiptExtractor,
-	ReceiptProvider, SubxtBlockInfoProvider, SyncLabel,
+	ReceiptProvider, SubxtBlockInfoProvider, SyncLabel, TraceV1,
 	cli::{self, CliCommand},
 	client::{Client, GapFillRequest, SubscriptionGapQueue, connect},
 	example::TransactionBuilder,
@@ -48,7 +48,7 @@ use pallet_revive::{
 		Account, Block, BlockHeader, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag,
 		BoundedOneOrMany, Filter, FilterResults, GenericTransaction, H256,
 		HashesOrTransactionInfos, Log, SubscriptionItem, SubscriptionKind, SubscriptionOptions,
-		Trace, TransactionInfo, TransactionUnsigned, U256,
+		TransactionInfo, TransactionUnsigned, U256,
 	},
 	precompiles::alloy::{
 		self,
@@ -989,7 +989,7 @@ async fn test_earliest_block_tag() -> anyhow::Result<()> {
 	let trace =
 		DebugRpcClient::trace_call(&*client, tx.clone(), BlockTag::Earliest.into(), None).await?;
 	assert!(
-		matches!(trace, Trace::Call(_) | Trace::Execution(_)),
+		matches!(trace, TraceV1::Call(_) | TraceV1::Execution(_)),
 		"traceCall should return a trace"
 	);
 

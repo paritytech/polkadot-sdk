@@ -25,6 +25,7 @@ use jsonrpsee::{
 	types::{ErrorCode, ErrorObjectOwned},
 };
 use pallet_revive::evm::*;
+use pallet_revive_types::runtime_api::*;
 use sp_core::{H160, H256, U256, keccak_256};
 use subxt::backend::legacy::rpc_methods::TransactionStatus;
 use subxt_signer::bip39::core::pin::Pin;

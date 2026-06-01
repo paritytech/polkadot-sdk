@@ -15,10 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use alloc::{format, string::String, vec::Vec};
+use alloc::{collections::BTreeMap, format, string::String, vec::Vec};
 use alloy_core::hex;
 use num_traits::Zero;
-use serde::{Deserialize, Deserializer, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeMap};
+
+use crate::common::Bytes;
 
 pub mod hex_serde {
 	use super::*;
@@ -150,6 +152,85 @@ pub mod hex_serde {
 				.map(|s| T::from_hex(s).map_err(|e| serde::de::Error::custom(format!("{:?}", e))))
 				.collect()
 		}
+	}
+}
+
+pub fn serialize_stack_minimal<S>(stack: &Vec<Bytes>, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: Serializer,
+{
+	let minimal_values: Vec<String> = stack.iter().map(|bytes| bytes.to_short_hex()).collect();
+	minimal_values.serialize(serializer)
+}
+
+pub fn deserialize_stack_minimal<'de, D>(deserializer: D) -> Result<Vec<Bytes>, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let strings = Vec::<String>::deserialize(deserializer)?;
+	strings
+		.into_iter()
+		.map(|s| {
+			let s = s.trim_start_matches("0x");
+			let value = sp_core::U256::from_str_radix(s, 16)
+				.map_err(|e| serde::de::Error::custom(alloc::format!("{:?}", e)))?;
+			let bytes = value.to_big_endian();
+			let trimmed = bytes
+				.iter()
+				.position(|&b| b != 0)
+				.map(|pos| bytes[pos..].to_vec())
+				.unwrap_or_else(|| alloc::vec![0u8]);
+			Ok(Bytes::from(trimmed))
+		})
+		.collect()
+}
+
+pub fn serialize_memory_no_prefix<S>(memory: &Vec<Bytes>, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: Serializer,
+{
+	let hex_values: Vec<String> = memory.iter().map(|bytes| bytes.to_hex_no_prefix()).collect();
+	hex_values.serialize(serializer)
+}
+
+pub fn serialize_storage_no_prefix<S>(
+	storage: &Option<BTreeMap<Bytes, Bytes>>,
+	serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+	S: Serializer,
+{
+	match storage {
+		None => serializer.serialize_none(),
+		Some(map) => {
+			let mut ser_map = serializer.serialize_map(Some(map.len()))?;
+			for (key, value) in map {
+				ser_map.serialize_entry(&key.to_hex_no_prefix(), &value.to_hex_no_prefix())?;
+			}
+			ser_map.end()
+		},
+	}
+}
+
+pub mod option_value_map {
+	use super::*;
+
+	pub fn is_empty<'a, K: 'a, V: 'a>(
+		iterator: impl IntoIterator<Item = (&'a K, &'a Option<V>)>,
+	) -> bool {
+		!iterator.into_iter().any(|(_, value)| value.is_some())
+	}
+
+	pub fn serialize_skip_none<'a, K, V, S>(
+		iterator: impl IntoIterator<Item = (&'a K, &'a Option<V>)>,
+		serializer: S,
+	) -> Result<S::Ok, S::Error>
+	where
+		K: Serialize + 'a,
+		V: Serialize + 'a,
+		S: Serializer,
+	{
+		serializer.collect_map(iterator.into_iter().filter_map(|(k, v)| v.as_ref().map(|v| (k, v))))
 	}
 }
 

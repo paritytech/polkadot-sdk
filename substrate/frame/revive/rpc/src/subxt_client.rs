@@ -99,6 +99,42 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		path = "pallet_revive::evm::api::debug_rpc_types::ExecutionTracerConfig",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ExecutionTracerConfigV1>"
 	),
+	substitute_type(
+		path = "pallet_revive::evm::api::debug_rpc_types::Trace",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceV1>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::api::debug_rpc_types::CallTrace",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallTraceV1>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::api::debug_rpc_types::PrestateTrace",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::PrestateTraceV1>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::api::debug_rpc_types::ExecutionTrace",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ExecutionTraceV1>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::api::debug_rpc_types::CallLog",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallLogV1>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::api::debug_rpc_types::CallType",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallTypeV1>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::api::debug_rpc_types::PrestateTraceInfo",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::PrestateTraceInfoV1>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::api::debug_rpc_types::ExecutionStep",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ExecutionStepV1>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::api::debug_rpc_types::ExecutionStepKind",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ExecutionStepKindV1>"
+	),
 
 	derive_for_all_types = "codec::Encode, codec::Decode"
 )]

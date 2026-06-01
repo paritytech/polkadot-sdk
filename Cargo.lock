@@ -14355,11 +14355,15 @@ dependencies = [
  "derive_more 0.99.17",
  "humantime-serde",
  "num-traits",
+ "num_enum",
  "parity-scale-codec",
+ "revm-bytecode",
  "scale-info",
  "serde",
  "serde_json",
  "sp-core 28.0.0",
+ "sp-weights 27.0.0",
+ "strum 0.26.3",
 ]
 
 [[package]]
@@ -19947,6 +19951,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "66c52031b73cae95d84cd1b07725808b5fd1500da3e5e24574a3b2dc13d9f16d"
 dependencies = [
  "bitvec",
+ "paste",
  "phf",
  "revm-primitives",
  "serde",

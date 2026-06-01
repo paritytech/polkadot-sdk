@@ -16,5 +16,7 @@
 // limitations under the License.
 
 mod tracer;
+mod traces;
 
 pub use tracer::*;
+pub use traces::*;

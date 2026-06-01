@@ -15,14 +15,18 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-alloy-core.workspace = true
+alloy-core = { workspace = true }
 codec = { workspace = true, features = ["derive", "max-encoded-len"] }
 derive_more = { workspace = true, features = ["from"] }
 humantime-serde = { workspace = true, optional = true }
-num-traits.workspace = true
+num-traits = { workspace = true }
+num_enum = { workspace = true }
+revm-bytecode = { workspace = true, features = ["parse"] }
 scale-info = { workspace = true, features = ["derive"] }
 serde = { workspace = true, features = ["alloc", "derive"] }
-sp-core.workspace = true
+sp-core = { workspace = true, features = ["serde"] }
+sp-weights = { workspace = true, features = ["serde"] }
+strum = { workspace = true, features = ["derive"] }
 
 [features]
 default = ["std"]
@@ -31,11 +35,14 @@ std = [
 	"codec/std",
 	"humantime-serde",
 	"num-traits/std",
+	"num_enum/std",
+	"revm-bytecode/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-core/std",
+	"sp-weights/std",
+	"strum/std",
 ]
-humantime-serde = ["dep:humantime-serde"]
 
 [dev-dependencies]
 serde_json = { workspace = true, features = ["std"] }

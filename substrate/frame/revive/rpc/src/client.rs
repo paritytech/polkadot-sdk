@@ -33,7 +33,7 @@ use pallet_revive::{
 	evm::{
 		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult, Filter,
 		GenericTransaction, H256, HashesOrTransactionInfos, Log, ReceiptInfo, StateOverrideSet,
-		SyncingProgress, SyncingStatus, Trace, TransactionSigned, TransactionTrace, U256,
+		SyncingProgress, SyncingStatus, TransactionSigned, TransactionTrace, U256,
 		decode_revert_reason,
 	},
 };
@@ -1022,7 +1022,7 @@ impl Client {
 		&self,
 		transaction_hash: H256,
 		config: TracerTypeV1,
-	) -> Result<Trace, ClientError> {
+	) -> Result<TraceV1, ClientError> {
 		let (block_hash, transaction_index) = self
 			.receipt_provider
 			.find_transaction(&transaction_hash)
@@ -1043,7 +1043,7 @@ impl Client {
 		block: BlockNumberOrTagOrHash,
 		config: TracerTypeV1,
 		state_overrides: Option<StateOverrideSet>,
-	) -> Result<Trace, ClientError> {
+	) -> Result<TraceV1, ClientError> {
 		let block_hash = self.block_hash_for_tag(block).await?;
 		let runtime_api = self.runtime_api(block_hash);
 		runtime_api.trace_call(transaction, config, state_overrides).await
