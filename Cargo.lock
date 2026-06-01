@@ -370,7 +370,7 @@ dependencies = [
  "ruint",
  "rustc-hash 2.1.1",
  "serde",
- "sha3",
+ "sha3 0.10.8",
 ]
 
 [[package]]
@@ -618,7 +618,7 @@ dependencies = [
  "proc-macro-error2",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
- "sha3",
+ "sha3 0.10.8",
  "syn 2.0.98",
  "syn-solidity",
 ]
@@ -1377,7 +1377,7 @@ dependencies = [
  "ark-std 0.5.0",
  "digest 0.10.7",
  "rand_core 0.6.4",
- "sha3",
+ "sha3 0.10.8",
 ]
 
 [[package]]
@@ -5819,6 +5819,7 @@ dependencies = [
  "sp-consensus-aura",
  "sp-consensus-slots",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-keyring",
  "sp-maybe-compressed-blob 11.0.0",
  "sp-rpc",
@@ -7365,6 +7366,7 @@ dependencies = [
  "sp-block-builder",
  "sp-blockchain 28.0.0",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-database 10.0.0",
  "sp-externalities 0.25.0",
  "sp-genesis-builder 0.8.0",
@@ -9594,9 +9596,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee"
-version = "0.24.10"
+version = "0.24.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e281ae70cc3b98dac15fced3366a880949e65fc66e345ce857a5682d152f3e62"
+checksum = "72c4b1f204b655b36b24dc4939af20366c649431d4711863bbbae5c495f3eeb4"
 dependencies = [
  "jsonrpsee-client-transport",
  "jsonrpsee-core",
@@ -9612,9 +9614,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-client-transport"
-version = "0.24.10"
+version = "0.24.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc4280b709ac3bb5e16cf3bad5056a0ec8df55fa89edfe996361219aadc2c7ea"
+checksum = "b3e1420b1792cff778e2a1ebaa44115f156ee62a94dd106eaa51163f037d2023"
 dependencies = [
  "base64 0.22.1",
  "futures-channel",
@@ -9637,9 +9639,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-core"
-version = "0.24.10"
+version = "0.24.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "348ee569eaed52926b5e740aae20863762b16596476e943c9e415a6479021622"
+checksum = "f49bfa9334963e1c85866b39dff3ffcc81f1c286eb23334267c5cb97677543a4"
 dependencies = [
  "async-trait",
  "bytes",
@@ -9664,9 +9666,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-http-client"
-version = "0.24.10"
+version = "0.24.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f50c389d6e6a52eb7c3548a6600c90cf74d9b71cb5912209833f00a5479e9a01"
+checksum = "c215647e43482d478a6c21f021a013b50d64cf63431c1176eda9ef925dc54ec8"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -9689,9 +9691,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-proc-macros"
-version = "0.24.10"
+version = "0.24.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7398cddf5013cca4702862a2692b66c48a3bd6cf6ec681a47453c93d63cf8de5"
+checksum = "f5248249c016692f1465a753057ae8347681995dd490c2cb65c48b14b46215a8"
 dependencies = [
  "heck 0.5.0",
  "proc-macro-crate 3.1.0",
@@ -9702,9 +9704,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-server"
-version = "0.24.10"
+version = "0.24.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21429bcdda37dcf2d43b68621b994adede0e28061f816b038b0f18c70c143d51"
+checksum = "c625c78b8d545478370b6e7a2a191b0d921f831a9eef38dc1e7efb57e7a5472f"
 dependencies = [
  "futures-util",
  "http 1.1.0",
@@ -9729,9 +9731,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-types"
-version = "0.24.10"
+version = "0.24.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0f05e0028e55b15dbd2107163b3c744cd3bb4474f193f95d9708acbf5677e44"
+checksum = "41d86fc943f81dab0ecdd6c0240b6e0f55ad57a2ea9ad8ad7efe8456fb9cc7a4"
 dependencies = [
  "http 1.1.0",
  "serde",
@@ -9741,9 +9743,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-wasm-client"
-version = "0.24.10"
+version = "0.24.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9d745e4f543fc10fc0e2b11aa1f3be506b1e475d412167e7191a65ecd239f1c"
+checksum = "735df2088674c87f7fecdf51c80878a7aa19a8116b32d703b000f5b1a7acf95a"
 dependencies = [
  "jsonrpsee-client-transport",
  "jsonrpsee-core",
@@ -9752,9 +9754,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-ws-client"
-version = "0.24.10"
+version = "0.24.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78fc744f17e7926d57f478cf9ca6e1ee5d8332bf0514860b1a3cdf1742e614cc"
+checksum = "9df5bd5c38c0906a6e8b3a38c8c22cc8525fda25fd1a03a3fe010686aea66b70"
 dependencies = [
  "http 1.1.0",
  "jsonrpsee-client-transport",
@@ -9813,6 +9815,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f6d5ed8676d904364de097082f4e7d240b571b67989ced0240f08b7f966f940"
 dependencies = [
  "cpufeatures 0.2.9",
+]
+
+[[package]]
+name = "keccak"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e24a010dd405bd7ed803e5253182815b41bf2e6a80cc3bfc066658e03a198aa"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.3.0",
 ]
 
 [[package]]
@@ -11099,7 +11111,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "58c38e2799fc0978b65dfff8023ec7843e2330bb462f19198840b34b6582397d"
 dependencies = [
  "byteorder",
- "keccak",
+ "keccak 0.1.4",
  "rand_core 0.6.4",
  "zeroize",
 ]
@@ -11355,7 +11367,7 @@ dependencies = [
  "digest 0.10.7",
  "multihash-derive 0.8.0",
  "sha2 0.10.9",
- "sha3",
+ "sha3 0.10.8",
  "unsigned-varint 0.7.2",
 ]
 
@@ -11378,6 +11390,7 @@ dependencies = [
  "digest 0.11.3",
  "multihash-derive 0.9.3",
  "sha2 0.11.0",
+ "sha3 0.11.0",
 ]
 
 [[package]]
@@ -13252,6 +13265,7 @@ dependencies = [
  "scale-info",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
  "sp-npos-elections",
  "sp-runtime 31.0.1",
@@ -13686,6 +13700,7 @@ dependencies = [
  "pretty_assertions",
  "scale-info",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
@@ -14055,6 +14070,7 @@ dependencies = [
  "scale-info",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "verifiable",
@@ -14259,6 +14275,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-slots",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
@@ -14626,6 +14643,7 @@ dependencies = [
  "sp-application-crypto 30.0.0",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
  "sp-npos-elections",
  "sp-runtime 31.0.1",
@@ -15420,7 +15438,6 @@ dependencies = [
  "cumulus-primitives-utility",
  "frame-support",
  "frame-system",
- "pallet-asset-tx-payment",
  "pallet-assets",
  "pallet-authorship",
  "pallet-balances",
@@ -17963,6 +17980,7 @@ dependencies = [
  "sp-consensus-aura",
  "sp-consensus-grandpa",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-genesis-builder 0.8.0",
  "sp-inherents 26.0.0",
  "sp-io 30.0.0",
@@ -18378,6 +18396,7 @@ dependencies = [
  "polkadot-primitives",
  "rand 0.8.5",
  "regex",
+ "rstest",
  "sc-executor 0.32.0",
  "sc-runtime-utilities",
  "serde",
@@ -21667,6 +21686,7 @@ dependencies = [
  "sp-api 26.0.0",
  "sp-blockchain 28.0.0",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-externalities 0.25.0",
  "sp-hop",
  "sp-runtime 31.0.1",
@@ -21934,6 +21954,7 @@ dependencies = [
  "sp-blockchain 28.0.0",
  "sp-consensus 0.32.0",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-keyring",
  "sp-runtime 31.0.1",
  "sp-statement-store",
@@ -22226,6 +22247,7 @@ dependencies = [
  "itertools 0.11.0",
  "jsonrpsee",
  "log",
+ "multihash-codetable",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "pretty_assertions",
@@ -23378,7 +23400,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75872d278a8f37ef87fa0ddbda7802605cb18344497949862c0d4dcb291eba60"
 dependencies = [
  "digest 0.10.7",
- "keccak",
+ "keccak 0.1.4",
+]
+
+[[package]]
+name = "sha3"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be176f1a57ce4e3d31c1a166222d9768de5954f811601fb7ca06fc8203905ce1"
+dependencies = [
+ "digest 0.11.3",
+ "keccak 0.2.0",
 ]
 
 [[package]]
@@ -23609,7 +23641,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "sha3",
+ "sha3 0.10.8",
  "siphasher 1.0.1",
  "slab",
  "smallvec",
@@ -23663,7 +23695,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "sha3",
+ "sha3 0.10.8",
  "siphasher 1.0.1",
  "slab",
  "smallvec",
@@ -23717,7 +23749,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "sha3",
+ "sha3 0.10.8",
  "siphasher 1.0.1",
  "slab",
  "smallvec",
@@ -23930,6 +23962,7 @@ dependencies = [
  "snowbridge-test-utils",
  "snowbridge-verification-primitives",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
@@ -24354,6 +24387,7 @@ dependencies = [
  "snowbridge-core",
  "snowbridge-outbound-queue-primitives",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
@@ -24571,6 +24605,7 @@ dependencies = [
  "sp-api 26.0.0",
  "sp-consensus 0.32.0",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-externalities 0.25.0",
  "sp-metadata-ir 0.6.0",
  "sp-runtime 31.0.1",
@@ -25008,7 +25043,7 @@ dependencies = [
  "criterion",
  "digest 0.10.7",
  "sha2 0.10.9",
- "sha3",
+ "sha3 0.10.8",
  "sp-crypto-hashing-proc-macro 0.1.0",
  "twox-hash 1.6.3",
 ]
@@ -25023,7 +25058,7 @@ dependencies = [
  "byteorder",
  "digest 0.10.7",
  "sha2 0.10.9",
- "sha3",
+ "sha3 0.10.8",
  "twox-hash 1.6.3",
 ]
 
@@ -29057,7 +29092,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "sha2 0.10.9",
- "sha3",
+ "sha3 0.10.8",
  "zeroize",
 ]
 
@@ -30984,6 +31019,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "scale-info",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",

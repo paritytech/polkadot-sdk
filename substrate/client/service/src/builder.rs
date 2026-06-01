@@ -1243,7 +1243,8 @@ where
 
 	// Initialize IPFS server.
 	let ipfs_config = net_config.network_config.ipfs_server.then(|| {
-		let (handler, bitswap_config) = Net::bitswap_server(client.clone());
+		let (handler, bitswap_config) =
+			Net::bitswap_server(client.clone(), metrics_registry.cloned());
 		spawn_handle.spawn("bitswap-request-handler", Some("networking"), handler);
 
 		let ipfs_num_blocks = match blocks_pruning {
