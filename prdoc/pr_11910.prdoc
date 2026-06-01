@@ -38,5 +38,7 @@ crates:
   bump: patch
 - name: snowbridge-runtime-common
   bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
 - name: snowbridge-beacon-primitives
   bump: patch
