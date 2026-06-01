@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780308842532,
+  "lastUpdate": 1780317848285,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -96659,6 +96659,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2856121623,
             "range": "± 22317639",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jfanatiker@gmx.at",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6076625415efe1550ffafbe2e657a5de28cd64b1",
+          "message": "Clock abstraction: Preparation for deterministic simulation testing (#12212)\n\nAll prod changes needed for\nhttps://github.com/paritytech/polkadot-sdk/pull/12007 . With this\nmerged, 12007 should be test code only. We skipped full determinism for\nnow on subsystems we don't have deterministic tests yet anyways. Those\nwill come later as needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-01T11:23:37Z",
+          "tree_id": "04e3b0f66b75639b8c4815d2ed95a27339c08fba",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6076625415efe1550ffafbe2e657a5de28cd64b1"
+        },
+        "date": 1780317819678,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20582097,
+            "range": "± 229444",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20893111,
+            "range": "± 164789",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22424212,
+            "range": "± 142852",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27115698,
+            "range": "± 344783",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60503656,
+            "range": "± 966251",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 378778671,
+            "range": "± 12632102",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2663950721,
+            "range": "± 66231484",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18106662,
+            "range": "± 184986",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18038445,
+            "range": "± 130047",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18881812,
+            "range": "± 177950",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23720690,
+            "range": "± 188179",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61126058,
+            "range": "± 516011",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 364521228,
+            "range": "± 3002709",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2839209200,
+            "range": "± 11873296",
             "unit": "ns/iter"
           }
         ]
