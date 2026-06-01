@@ -938,17 +938,31 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
 	/// The range of component `o` is `[0, 416]`.
-	fn seal_set_storage(n: u32, o: u32, ) -> Weight {
+	fn seal_set_storage_hot(n: u32, o: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `253 + o * (1 ±0)`
-		//  Estimated: `252 + o * (1 ±0)`
-		// Minimum execution time: 11_752_000 picoseconds.
-		Weight::from_parts(13_012_834, 0)
-			.saturating_add(Weight::from_parts(0, 252))
-			// Standard Error: 27
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 4_243_000 picoseconds.
+		Weight::from_parts(4_708_960, 0)
+			// Standard Error: 11
 			.saturating_add(Weight::from_parts(423, 0).saturating_mul(n.into()))
-			// Standard Error: 27
-			.saturating_add(Weight::from_parts(344, 0).saturating_mul(o.into()))
+			// Standard Error: 11
+			.saturating_add(Weight::from_parts(599, 0).saturating_mul(o.into()))
+	}
+	/// Storage: `Skipped::Metadata` (r:0 w:0)
+	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `n` is `[0, 416]`.
+	/// The range of component `o` is `[0, 416]`.
+	fn seal_set_storage_cold(n: u32, o: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `248 + o * (1 ±0)`
+		//  Estimated: `247 + o * (1 ±0)`
+		// Minimum execution time: 9_324_000 picoseconds.
+		Weight::from_parts(10_488_372, 247)
+			// Standard Error: 18
+			.saturating_add(Weight::from_parts(459, 0).saturating_mul(n.into()))
+			// Standard Error: 18
+			.saturating_add(Weight::from_parts(896, 0).saturating_mul(o.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(o.into()))
@@ -956,64 +970,105 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
-	fn clear_storage(n: u32, ) -> Weight {
+	fn clear_storage_hot(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `253 + n * (1 ±0)`
-		//  Estimated: `252 + n * (1 ±0)`
-		// Minimum execution time: 13_911_000 picoseconds.
-		Weight::from_parts(15_327_010, 0)
-			.saturating_add(Weight::from_parts(0, 252))
-			// Standard Error: 27
-			.saturating_add(Weight::from_parts(958, 0).saturating_mul(n.into()))
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 5_761_000 picoseconds.
+		Weight::from_parts(6_519_767, 0)
+			// Standard Error: 12
+			.saturating_add(Weight::from_parts(742, 0).saturating_mul(n.into()))
+	}
+	/// Storage: `Skipped::Metadata` (r:0 w:0)
+	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `n` is `[0, 416]`.
+	fn clear_storage_cold(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `376`
+		//  Estimated: `376`
+		// Minimum execution time: 11_551_000 picoseconds.
+		Weight::from_parts(12_692_249, 376)
+			// Standard Error: 19
+			.saturating_add(Weight::from_parts(160, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
-			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
-	fn seal_get_storage(n: u32, ) -> Weight {
+	fn seal_get_storage_hot(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `253 + n * (1 ±0)`
-		//  Estimated: `252 + n * (1 ±0)`
-		// Minimum execution time: 10_438_000 picoseconds.
-		Weight::from_parts(12_011_610, 0)
-			.saturating_add(Weight::from_parts(0, 252))
-			// Standard Error: 21
-			.saturating_add(Weight::from_parts(1_561, 0).saturating_mul(n.into()))
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 3_096_000 picoseconds.
+		Weight::from_parts(3_615_135, 0)
+			// Standard Error: 6
+			.saturating_add(Weight::from_parts(699, 0).saturating_mul(n.into()))
+	}
+	/// Storage: `Skipped::Metadata` (r:0 w:0)
+	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `n` is `[0, 416]`.
+	fn seal_get_storage_cold(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `248 + n * (1 ±0)`
+		//  Estimated: `247 + n * (1 ±0)`
+		// Minimum execution time: 8_174_000 picoseconds.
+		Weight::from_parts(9_460_925, 247)
+			// Standard Error: 15
+			.saturating_add(Weight::from_parts(1_220, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
-	fn contains_storage(n: u32, ) -> Weight {
+	fn contains_storage_hot(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `253 + n * (1 ±0)`
-		//  Estimated: `252 + n * (1 ±0)`
-		// Minimum execution time: 12_223_000 picoseconds.
-		Weight::from_parts(13_499_517, 0)
-			.saturating_add(Weight::from_parts(0, 252))
-			// Standard Error: 22
-			.saturating_add(Weight::from_parts(937, 0).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 4_456_000 picoseconds.
+		Weight::from_parts(5_069_810, 0)
+			// Standard Error: 8
+			.saturating_add(Weight::from_parts(135, 0).saturating_mul(n.into()))
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
-	fn take_storage(n: u32, ) -> Weight {
+	fn contains_storage_cold(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `253 + n * (1 ±0)`
-		//  Estimated: `252 + n * (1 ±0)`
-		// Minimum execution time: 14_177_000 picoseconds.
-		Weight::from_parts(16_024_403, 0)
-			.saturating_add(Weight::from_parts(0, 252))
-			// Standard Error: 29
-			.saturating_add(Weight::from_parts(1_623, 0).saturating_mul(n.into()))
+		//  Measured:  `376`
+		//  Estimated: `376`
+		// Minimum execution time: 10_032_000 picoseconds.
+		Weight::from_parts(11_127_965, 376)
+			// Standard Error: 14
+			.saturating_add(Weight::from_parts(25, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(1))
+	}
+	/// Storage: `Skipped::Metadata` (r:0 w:0)
+	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `n` is `[0, 416]`.
+	fn take_storage_hot(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 5_760_000 picoseconds.
+		Weight::from_parts(6_777_299, 0)
+			// Standard Error: 14
+			.saturating_add(Weight::from_parts(1_017, 0).saturating_mul(n.into()))
+	}
+	/// Storage: `Skipped::Metadata` (r:0 w:0)
+	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `n` is `[0, 416]`.
+	fn take_storage_cold(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `376`
+		//  Estimated: `376`
+		// Minimum execution time: 11_557_000 picoseconds.
+		Weight::from_parts(12_838_421, 376)
+			// Standard Error: 17
+			.saturating_add(Weight::from_parts(111, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
-			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
 	}
 	fn set_transient_storage_empty() -> Weight {
 		// Proof Size summary in bytes:
