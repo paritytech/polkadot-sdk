@@ -203,7 +203,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#53 id=53 data-nosnippet>53</a><span class="kw">use crate</span>::{
 <a href=#54 id=54 data-nosnippet>54</a>	error::{FatalResult, <span class="prelude-ty">Result</span>},
 <a href=#55 id=55 data-nosnippet>55</a>	metrics::Metrics,
-<a href=#56 id=56 data-nosnippet>56</a>	status::{get_active_with_status, SystemClock},
+<a href=#56 id=56 data-nosnippet>56</a>	status::get_active_with_status,
 <a href=#57 id=57 data-nosnippet>57</a>};
 <a href=#58 id=58 data-nosnippet>58</a><span class="kw">use </span>backend::{Backend, OverlayedBackend};
 <a href=#59 id=59 data-nosnippet>59</a><span class="kw">use </span>db::v1::DbBackend;
@@ -260,7 +260,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#110 id=110 data-nosnippet>110</a><span class="doccomment">/// Status tracking of disputes (`DisputeStatus`).
 <a href=#111 id=111 data-nosnippet>111</a></span><span class="kw">mod </span>status;
 <a href=#112 id=112 data-nosnippet>112</a>
-<a href=#113 id=113 data-nosnippet>113</a><span class="kw">use </span><span class="kw">crate</span>::status::Clock;
+<a href=#113 id=113 data-nosnippet>113</a><span class="kw">use </span>polkadot_node_clock::Clock;
 <a href=#114 id=114 data-nosnippet>114</a>
 <a href=#115 id=115 data-nosnippet>115</a><span class="attr">#[cfg(test)]
 <a href=#116 id=116 data-nosnippet>116</a></span><span class="kw">mod </span>tests;
@@ -297,7 +297,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#147 id=147 data-nosnippet>147</a>				<span class="self">self</span>.config.column_config(),
 <a href=#148 id=148 data-nosnippet>148</a>				<span class="self">self</span>.metrics.clone(),
 <a href=#149 id=149 data-nosnippet>149</a>			);
-<a href=#150 id=150 data-nosnippet>150</a>			<span class="self">self</span>.run(ctx, backend, Box::new(SystemClock))
+<a href=#150 id=150 data-nosnippet>150</a>			<span class="self">self</span>.run(ctx, backend, polkadot_node_clock::system_clock())
 <a href=#151 id=151 data-nosnippet>151</a>				.<span class="kw">await
 <a href=#152 id=152 data-nosnippet>152</a>				</span>.map_err(|e| SubsystemError::with_origin(<span class="string">"dispute-coordinator"</span>, e))
 <a href=#153 id=153 data-nosnippet>153</a>		}
@@ -324,7 +324,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#174 id=174 data-nosnippet>174</a>		<span class="self">self</span>,
 <a href=#175 id=175 data-nosnippet>175</a>		<span class="kw-2">mut </span>ctx: Context,
 <a href=#176 id=176 data-nosnippet>176</a>		backend: B,
-<a href=#177 id=177 data-nosnippet>177</a>		clock: Box&lt;<span class="kw">dyn </span>Clock&gt;,
+<a href=#177 id=177 data-nosnippet>177</a>		clock: Arc&lt;<span class="kw">dyn </span>Clock&gt;,
 <a href=#178 id=178 data-nosnippet>178</a>	) -&gt; FatalResult&lt;()&gt;
 <a href=#179 id=179 data-nosnippet>179</a>	<span class="kw">where
 <a href=#180 id=180 data-nosnippet>180</a>		</span>B: Backend + <span class="lifetime">'static</span>,
@@ -442,7 +442,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#292 id=292 data-nosnippet>292</a>		initialized::OffchainDisabledValidators,
 <a href=#293 id=293 data-nosnippet>293</a>		ControlledValidatorIndices,
 <a href=#294 id=294 data-nosnippet>294</a>	)&gt; {
-<a href=#295 id=295 data-nosnippet>295</a>		<span class="kw">let </span>now = clock.now();
+<a href=#295 id=295 data-nosnippet>295</a>		<span class="kw">let </span>now = clock.duration_since_epoch().as_secs();
 <a href=#296 id=296 data-nosnippet>296</a>
 <a href=#297 id=297 data-nosnippet>297</a>		<span class="comment">// We assume the highest session is the passed leaf. If we can't get the session index
 <a href=#298 id=298 data-nosnippet>298</a>		// we can't initialize the subsystem so we'll wait for a new leaf

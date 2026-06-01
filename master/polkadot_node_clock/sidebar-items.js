@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["system_clock"],"mod":["mock"],"struct":["SystemClock"],"trait":["Clock"],"type":["BoxedDelay"]};
