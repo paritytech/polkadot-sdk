@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780318898597,
+  "lastUpdate": 1780350133689,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "8bdc024d73d8522ba894af30954f19cca8fbff5c",
-          "message": "eth-rpc add trace logs (#10065)\n\nAdd extra tracing logs for estimate_gas and send_raw_transaction\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: xermicus <cyrill@parity.io>",
-          "timestamp": "2025-10-21T10:57:36Z",
-          "tree_id": "4d6e71a13d505c70bd6e48b84346df90c701daea",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8bdc024d73d8522ba894af30954f19cca8fbff5c"
-        },
-        "date": 1761048633376,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007198408559999973,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022520478073333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15955436890000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013219740893333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010003202406666634,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e5d5a28c9f1a596fbe0a5a00c28c507610dd84ce",
+          "message": "pallet-dap: re-export WeightInfo at crate root (#12246)\n\nThe trait was only reachable at `pallet_dap::weights::WeightInfo`, so\nthe benchmark template's generated `pallet_dap::WeightInfo` path failed\nto resolve and required a manual fixup in every consumer. Add the\nstandard FRAME re-export (`pub use weights::WeightInfo;`) and switch the\nAsset Hub Westend weights file and the staking-async integration test\nback to the canonical `pallet_dap::WeightInfo` path.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-01T18:06:33Z",
+          "tree_id": "e5dc875c6c04739f9088692e0df0f504559c2c67",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e5d5a28c9f1a596fbe0a5a00c28c507610dd84ce"
+        },
+        "date": 1780350102923,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007538844026666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14483765792666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02384945389999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010172696119999968,
             "unit": "seconds"
           }
         ]
