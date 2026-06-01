@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780270066149,
+  "lastUpdate": 1780309837226,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1fe5ee6ec35e44e773a2d81722a235bbaadba561",
-          "message": "[pallet-revive] improve revive genesis config (#9988)\n\n- Update test to make sure contracts created at genesis are callable\n- make sure that contracts are brought to existence by minting e.d first\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-18T10:38:44Z",
-          "tree_id": "f76b7080db20d6f489613da22260d1a155e76516",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1fe5ee6ec35e44e773a2d81722a235bbaadba561"
-        },
-        "date": 1760788548135,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.96999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04510208872399994,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03433723396399999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08956119077999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8680d7c1aba4fabdd406d9a7f0356b7bac60870c",
+          "message": "ci: another attempt to fix docs workflow (#12215)\n\nLLM suggests that there might be some token leftovers. Let's check.\n\n\ncc https://github.com/paritytech/devops/issues/5306",
+          "timestamp": "2026-06-01T08:04:56Z",
+          "tree_id": "f1b81d459c372145c470daf164a746516887bcb0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8680d7c1aba4fabdd406d9a7f0356b7bac60870c"
+        },
+        "date": 1780309806987,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.13,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038658475256,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08615609830599996,
             "unit": "seconds"
           }
         ]
