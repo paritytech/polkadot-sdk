@@ -1078,15 +1078,17 @@ impl Client {
 		};
 		log::trace!(target: LOG_TARGET, "Ethereum block from runtime API hash {:?}", eth_block.hash);
 
-		// Blocks produced before pallet-revive shipped the ETH-block storage value
-		// have an unset `EthereumBlock`; the runtime API returns `EthBlock::default()`
-		// which surfaces as `Hashes(vec![])`. Fall back to recovering the transactions
-		// from extrinsics in that case so `eth_getBlockBy*` callers don't see an empty
-		// `transactions` array on a block that actually had transactions. See #6790.
-		let storage_empty = matches!(
-			&eth_block.transactions,
-			HashesOrTransactionInfos::Hashes(h) if h.is_empty()
-		);
+		// Blocks produced before pallet-revive shipped the ETH-block storage value have an
+		// unset `EthereumBlock`; the runtime API returns `EthBlock::default()`, uniquely
+		// identifiable by `hash == H256::zero()` (the post-upgrade builder always assigns
+		// a real `header_hash()`). Recover the real eth hash from the receipt-provider
+		// mapping, fix `eth_block.hash` (used to stamp `block_hash` on hydrated tx infos),
+		// and, for non-hydrated requests, populate the `Hashes` vec from the sqlite cache
+		// (backfilling if needed). See #6790.
+		if eth_block.hash == H256::zero() {
+			self.recover_pre_upgrade_block(&mut eth_block, &block, hydrated_transactions)
+				.await;
+		}
 
 		if hydrated_transactions {
 			let tx_infos = self
@@ -1104,59 +1106,62 @@ impl Client {
 				.collect::<Vec<_>>();
 
 			eth_block.transactions = HashesOrTransactionInfos::TransactionInfos(tx_infos);
-		} else if storage_empty {
-			let hashes = self.recover_block_tx_hashes(&block, eth_block.hash).await;
-			if !hashes.is_empty() {
-				eth_block.transactions = HashesOrTransactionInfos::Hashes(hashes);
-			}
 		}
 
 		Some(eth_block)
 	}
 
-	/// Recover the ordered list of Ethereum transaction hashes for a substrate block
-	/// when the runtime did not populate `EthereumBlock` storage (pre-upgrade blocks).
+	/// Recovery path for pre-upgrade blocks whose `EthereumBlock` storage was never
+	/// written (runtime API returned `EthBlock::default()`).
 	///
-	/// Cheap path: lookup the eth-rpc sqlite cache.
-	/// Slow path: extract from the block's extrinsics and backfill the cache so the
-	/// next read is served from sqlite.
-	async fn recover_block_tx_hashes(
+	/// Always overwrites `eth_block.hash` with the real ethereum hash if a mapping
+	/// exists in the receipt-provider. Additionally, for non-hydrated requests,
+	/// populates `eth_block.transactions` from the sqlite cache — extracting from
+	/// extrinsics and backfilling on first read. The hydrated path doesn't need the
+	/// tx list pre-populated because it re-extracts via `receipts_from_block`; it
+	/// only needs the corrected `eth_block.hash` so receipts carry the right
+	/// `block_hash`.
+	///
+	/// Callers must only invoke this when `eth_block.hash == H256::zero()`. On
+	/// post-upgrade blocks the runtime supplies real data and this path is wasted work.
+	async fn recover_pre_upgrade_block(
 		&self,
+		eth_block: &mut Block,
 		block: &Arc<SubstrateBlock>,
-		hint_eth_hash: H256,
-	) -> Vec<H256> {
+		hydrated: bool,
+	) {
 		let substrate_hash = block.hash();
 
-		let cached = self.receipt_provider.block_transaction_hashes(&substrate_hash).await;
-		if !cached.is_empty() {
-			return cached.into_values().collect();
+		let Some(eth_hash) = self.receipt_provider.get_ethereum_hash(&substrate_hash).await else {
+			log::trace!(target: LOG_TARGET,
+				"No ethereum hash mapping for substrate block {substrate_hash:?}; \
+				 cannot recover pre-upgrade block");
+			return;
+		};
+		eth_block.hash = eth_hash;
+
+		if hydrated {
+			return;
 		}
 
-		let eth_hash = if hint_eth_hash != H256::zero() {
-			hint_eth_hash
+		let cached = self.receipt_provider.block_transaction_hashes(&substrate_hash).await;
+		let hashes = if !cached.is_empty() {
+			cached
 		} else {
-			match self.receipt_provider.get_ethereum_hash(&substrate_hash).await {
-				Some(h) => h,
-				None => {
-					log::trace!(target: LOG_TARGET,
-						"No ethereum hash available for substrate block {substrate_hash:?}; \
-						 cannot recover tx hashes");
-					return Vec::new();
-				},
+			if let Err(err) =
+				self.receipt_provider.insert_block_receipts_past(block, &eth_hash).await
+			{
+				log::trace!(target: LOG_TARGET,
+					"Backfill of receipts for block #{} failed: {err:?}", block.number());
+				return;
 			}
+			self.receipt_provider.block_transaction_hashes(&substrate_hash).await
 		};
 
-		if let Err(err) = self.receipt_provider.insert_block_receipts_past(block, &eth_hash).await {
-			log::trace!(target: LOG_TARGET,
-				"Backfill of receipts for block #{} failed: {err:?}", block.number());
-			return Vec::new();
+		if !hashes.is_empty() {
+			eth_block.transactions =
+				HashesOrTransactionInfos::Hashes(hashes.into_values().collect());
 		}
-
-		self.receipt_provider
-			.block_transaction_hashes(&substrate_hash)
-			.await
-			.into_values()
-			.collect()
 	}
 
 	/// Get the chain ID.
