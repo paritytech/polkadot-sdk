@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780318935123,
+  "lastUpdate": 1780350171234,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "5588131+kianenigma@users.noreply.github.com",
-            "name": "Kian Paimani",
-            "username": "kianenigma"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "56e4b10bbbbcefcf9e4fe879c88c68902181fc4a",
-          "message": "[AHM/Staking] Allow own stake to be collected in all pages (#10051)\n\nTLDR: Thanks to a number of reports from Kusama validator, we have been\ninvestigating an issue where the self stake of some validators is not\npresent in `ErasStakersPaged` and `ErasStakersOverview`, and\nconsequently not earning staking rewards.\n\nAfter investigation, it was clear that the `polkadot-staking-miner` is\ndoing the right thing, and the self-stake is indeed submitted to the\nchain as a part of the staking election result.\n\nThe root cause in how `pallet-staking-async` ingests the staking\nelection result. This code **made a (wrong) assumption that self-stake\nis only present in the first page of a multi-page election. This PR\nfixes this issue.**\n\n---\n\n- [x] (nice to have) revisit try-state checks of the pallet,\n`ErasStakersPaged`, `ErasStakersOverview` and `ErasTotalStake` are\ntriple checked for correctness\n- [ ] (nice to have) fix related displays in PJS:\nhttps://github.com/polkadot-js/apps/pull/11930\n- [ ] backport to 2507 and 2509\n- Westend \n- [ ] Find a similar issue in westend for monitoring\n(https://github.com/paritytech/devops/issues/4402)\n  - [ ] Upgrade westend to a branch/release containing this fix \n- [ ] Upgrade westend with this fix, observe test examples are resolved\n- [ ] Bump backported version in `fellowship/runtimes`\n- [ ] Release 1.9.3 for Kusama with this fix\n- [ ] Ensure known test cases are fixed\n- One example: `F2WyUUFXLYnBg6acv7t2KFzH6D7CyNcvC4mRCwUdsHTUB4t` (in\nelection round 46, likely repeating in subsequent ones too)\n- This PR will be part of Polkadot release 2.0.0, the Polkadot AHM.\n- [ ] Forum post with further explanation once PR is merged.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-20T19:13:45Z",
-          "tree_id": "d2786f7afae7fac3c39e274963ad57630f271778",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/56e4b10bbbbcefcf9e4fe879c88c68902181fc4a"
-        },
-        "date": 1760991821281,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52942.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63646.22000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000018534340000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.520309041720003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4471157504300011,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.5083208321099995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5724339377700014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021349829999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000018534340000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9538258817100016,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.510081575950001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021349829999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005765035190000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.5227660285599995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7082215491310033,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-0",
             "value": 2.7956619832900005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e5d5a28c9f1a596fbe0a5a00c28c507610dd84ce",
+          "message": "pallet-dap: re-export WeightInfo at crate root (#12246)\n\nThe trait was only reachable at `pallet_dap::weights::WeightInfo`, so\nthe benchmark template's generated `pallet_dap::WeightInfo` path failed\nto resolve and required a manual fixup in every consumer. Add the\nstandard FRAME re-export (`pub use weights::WeightInfo;`) and switch the\nAsset Hub Westend weights file and the staking-async integration test\nback to the canonical `pallet_dap::WeightInfo` path.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-01T18:06:33Z",
+          "tree_id": "e5dc875c6c04739f9088692e0df0f504559c2c67",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e5d5a28c9f1a596fbe0a5a00c28c507610dd84ce"
+        },
+        "date": 1780350140070,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63637.829999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.409889813342616,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.29025344520995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.82625835262,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7390539724600007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000027040029999999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7905123015800006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005536007580000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000027040029999999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7613402200199997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000022113710000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7219408235099527,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4456117674399955,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000022113710000000002,
             "unit": "seconds"
           }
         ]
