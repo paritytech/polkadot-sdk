@@ -20,7 +20,7 @@ use std::collections::BTreeMap;
 use frame_support::{
 	assert_ok, derive_impl,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Parameter, Pays},
-	dispatch_context::with_context,
+	dispatch_context::{get_captured_event_fields, run_in_context, with_context},
 	pallet_prelude::{StorageInfoTrait, ValueQuery},
 	parameter_types,
 	storage::{unhashed, unhashed::contains_prefixed_key},
@@ -718,6 +718,44 @@ pub mod pallet5 {
 	pub struct Pallet<T>(_);
 }
 
+/// Test pallet for #[pallet::capture_for_chain_batch] end-to-end verification.
+#[frame_support::pallet]
+pub mod pallet_chain_batch {
+	use frame_support::pallet_prelude::*;
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	}
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {}
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub fn deposit_event)]
+	#[pallet::capture_for_chain_batch]
+	pub enum Event<T: Config> {
+		/// Two captured fields plus one unannotated field.
+		Transfer {
+			#[chain_batch(capture = "amount")]
+			amount: u64,
+			#[chain_batch(capture = "from")]
+			from: u64,
+			to: u64,
+		},
+		/// Single captured field.
+		Burned {
+			#[chain_batch(capture = "value")]
+			value: u64,
+		},
+		/// No capture annotations — falls through to `_ => {}`.
+		Minted { who: u64 },
+	}
+}
+
 frame_support::parameter_types!(
 	pub const MyGetParam3: u32 = 12;
 );
@@ -760,6 +798,10 @@ impl pallet2::Config for Runtime {
 }
 
 impl pallet4::Config for Runtime {}
+
+impl pallet_chain_batch::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+}
 
 #[cfg(feature = "frame-feature-testing")]
 impl pallet3::Config for Runtime {
@@ -856,6 +898,9 @@ mod runtime {
 	#[cfg(feature = "frame-feature-testing-2")]
 	#[runtime::pallet_index(5)]
 	pub type Example5 = pallet5;
+
+	#[runtime::pallet_index(6)]
+	pub type ChainBatch = pallet_chain_batch;
 }
 
 // Test that the part `RuntimeCall` is excluded from Example2 and included in Example4.
@@ -1365,7 +1410,7 @@ fn migrate_from_pallet_version_to_storage_version() {
 			AllPalletsWithSystem,
 		>(&db_weight);
 
-		let mut pallet_num = 4;
+		let mut pallet_num = 5; // System, Example, Example2, Example4, ChainBatch
 		if cfg!(feature = "frame-feature-testing") {
 			pallet_num += 1;
 		};
@@ -1850,6 +1895,16 @@ fn metadata_v15() {
 			error: None,
 			docs: vec![" Test that the supertrait check works when we pass some parameter to the `frame_system::Config`."],
 		},
+		PalletMetadata {
+			index: 6,
+			name: "ChainBatch",
+			storage: None,
+			calls: Some(meta_type::<pallet_chain_batch::Call<Runtime>>().into()),
+			event: Some(meta_type::<pallet_chain_batch::Event<Runtime>>().into()),
+			constants: vec![],
+			error: None,
+			docs: vec![" Test pallet for #[pallet::capture_for_chain_batch] end-to-end verification."],
+		},
 	];
 
 	let empty_doc = pallets[0].event.as_ref().unwrap().ty.type_info().docs.is_empty() &&
@@ -2256,19 +2311,19 @@ fn assert_type_all_pallets_with_system_is_correct() {
 	// Just ensure the 2 types are same.
 	fn _a(_t: AllPalletsWithSystem) {}
 	#[cfg(all(not(feature = "frame-feature-testing"), not(feature = "frame-feature-testing-2")))]
-	fn _b(t: (System, Example, Example2, Example4)) {
+	fn _b(t: (System, Example, Example2, Example4, ChainBatch)) {
 		_a(t)
 	}
 	#[cfg(all(feature = "frame-feature-testing", not(feature = "frame-feature-testing-2")))]
-	fn _b(t: (System, Example, Example2, Example3, Example4)) {
+	fn _b(t: (System, Example, Example2, Example3, Example4, ChainBatch)) {
 		_a(t)
 	}
 	#[cfg(all(not(feature = "frame-feature-testing"), feature = "frame-feature-testing-2"))]
-	fn _b(t: (System, Example, Example2, Example4, Example5)) {
+	fn _b(t: (System, Example, Example2, Example4, Example5, ChainBatch)) {
 		_a(t)
 	}
 	#[cfg(all(feature = "frame-feature-testing", feature = "frame-feature-testing-2"))]
-	fn _b(t: (System, Example, Example2, Example3, Example4, Example5)) {
+	fn _b(t: (System, Example, Example2, Example3, Example4, Example5, ChainBatch)) {
 		_a(t)
 	}
 }
@@ -2278,19 +2333,19 @@ fn assert_type_all_pallets_without_system_is_correct() {
 	// Just ensure the 2 types are same.
 	fn _a(_t: AllPalletsWithoutSystem) {}
 	#[cfg(all(not(feature = "frame-feature-testing"), not(feature = "frame-feature-testing-2")))]
-	fn _b(t: (Example, Example2, Example4)) {
+	fn _b(t: (Example, Example2, Example4, ChainBatch)) {
 		_a(t)
 	}
 	#[cfg(all(feature = "frame-feature-testing", not(feature = "frame-feature-testing-2")))]
-	fn _b(t: (Example, Example2, Example3, Example4)) {
+	fn _b(t: (Example, Example2, Example3, Example4, ChainBatch)) {
 		_a(t)
 	}
 	#[cfg(all(not(feature = "frame-feature-testing"), feature = "frame-feature-testing-2"))]
-	fn _b(t: (Example, Example2, Example4, Example5)) {
+	fn _b(t: (Example, Example2, Example4, Example5, ChainBatch)) {
 		_a(t)
 	}
 	#[cfg(all(feature = "frame-feature-testing", feature = "frame-feature-testing-2"))]
-	fn _b(t: (Example, Example2, Example3, Example4, Example5)) {
+	fn _b(t: (Example, Example2, Example3, Example4, Example5, ChainBatch)) {
 		_a(t)
 	}
 }
@@ -2583,4 +2638,125 @@ fn pallet_metadata() {
 		let meta = example2.event.unwrap();
 		assert!(!meta.deprecation_info.has_deprecated_variants());
 	}
+}
+
+// ── chain batch capture tests ─────────────────────────────────────────────────
+
+#[test]
+fn chain_batch_capture_single_field() {
+	use codec::Encode;
+
+	sp_io::TestExternalities::default().execute_with(|| {
+		run_in_context(|| {
+			pallet_chain_batch::Pallet::<Runtime>::deposit_event(
+				pallet_chain_batch::Event::Burned { value: 99u64 },
+			);
+
+			let fields = get_captured_event_fields().unwrap();
+			assert_eq!(fields.len(), 1);
+			assert_eq!(fields[0].pallet, "pallet_chain_batch");
+			assert_eq!(fields[0].variant, "Burned");
+			assert_eq!(fields[0].field_name, "value");
+			assert_eq!(fields[0].value, 99u64.encode());
+		});
+	});
+}
+
+#[test]
+fn chain_batch_capture_multiple_fields() {
+	use codec::Encode;
+
+	sp_io::TestExternalities::default().execute_with(|| {
+		run_in_context(|| {
+			pallet_chain_batch::Pallet::<Runtime>::deposit_event(
+				pallet_chain_batch::Event::Transfer {
+					amount: 500u64,
+					from: 1u64,
+					to: 2u64, // not annotated — must not appear in captures
+				},
+			);
+
+			let fields = get_captured_event_fields().unwrap();
+			// Only `amount` and `from` are annotated; `to` must be absent.
+			assert_eq!(fields.len(), 2);
+
+			assert_eq!(fields[0].pallet, "pallet_chain_batch");
+			assert_eq!(fields[0].variant, "Transfer");
+			assert_eq!(fields[0].field_name, "amount");
+			assert_eq!(fields[0].value, 500u64.encode());
+
+			assert_eq!(fields[1].pallet, "pallet_chain_batch");
+			assert_eq!(fields[1].variant, "Transfer");
+			assert_eq!(fields[1].field_name, "from");
+			assert_eq!(fields[1].value, 1u64.encode());
+		});
+	});
+}
+
+#[test]
+fn chain_batch_unannotated_variant_produces_no_captures() {
+	sp_io::TestExternalities::default().execute_with(|| {
+		run_in_context(|| {
+			pallet_chain_batch::Pallet::<Runtime>::deposit_event(
+				pallet_chain_batch::Event::Minted { who: 42u64 },
+			);
+
+			let fields = get_captured_event_fields().unwrap();
+			assert!(fields.is_empty(), "unannotated variant must not produce any captures");
+		});
+	});
+}
+
+#[test]
+fn chain_batch_no_capture_outside_dispatch_context() {
+	sp_io::TestExternalities::default().execute_with(|| {
+		// capture_event_field is a no-op when there is no run_in_context wrapper
+		pallet_chain_batch::Pallet::<Runtime>::deposit_event(pallet_chain_batch::Event::Burned {
+			value: 42u64,
+		});
+
+		assert!(
+			get_captured_event_fields().is_none(),
+			"must return None outside a dispatch context"
+		);
+	});
+}
+
+#[test]
+fn chain_batch_multiple_deposits_accumulate_in_order() {
+	use codec::Encode;
+
+	sp_io::TestExternalities::default().execute_with(|| {
+		run_in_context(|| {
+			pallet_chain_batch::Pallet::<Runtime>::deposit_event(
+				pallet_chain_batch::Event::Burned { value: 10u64 },
+			);
+			pallet_chain_batch::Pallet::<Runtime>::deposit_event(
+				pallet_chain_batch::Event::Burned { value: 20u64 },
+			);
+			pallet_chain_batch::Pallet::<Runtime>::deposit_event(
+				pallet_chain_batch::Event::Transfer { amount: 100u64, from: 1u64, to: 2u64 },
+			);
+			// Minted produces no captures — total must still be 4.
+			pallet_chain_batch::Pallet::<Runtime>::deposit_event(
+				pallet_chain_batch::Event::Minted { who: 99u64 },
+			);
+
+			let fields = get_captured_event_fields().unwrap();
+			// Burned(10) → 1, Burned(20) → 1, Transfer → 2, Minted → 0  =  4
+			assert_eq!(fields.len(), 4);
+
+			assert_eq!(fields[0].field_name, "value");
+			assert_eq!(fields[0].value, 10u64.encode());
+
+			assert_eq!(fields[1].field_name, "value");
+			assert_eq!(fields[1].value, 20u64.encode());
+
+			assert_eq!(fields[2].field_name, "amount");
+			assert_eq!(fields[2].value, 100u64.encode());
+
+			assert_eq!(fields[3].field_name, "from");
+			assert_eq!(fields[3].value, 1u64.encode());
+		});
+	});
 }

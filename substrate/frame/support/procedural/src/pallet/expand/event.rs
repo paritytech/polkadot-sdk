@@ -17,7 +17,10 @@
 
 use crate::{
 	deprecation::extract_or_return_allow_attrs,
-	pallet::{parse::event::{PalletEventDepositAttr, CapturedField}, Def},
+	pallet::{
+		parse::event::{CapturedField, PalletEventDepositAttr},
+		Def,
+	},
 	COUNTER,
 };
 use frame_support_procedural_tools::get_doc_literals;
@@ -298,7 +301,7 @@ fn generate_capture_arms(
 		};
 		arms.push(arm);
 	}
-	
+
 	quote::quote! {
 		match &event {
 			#(#arms)*

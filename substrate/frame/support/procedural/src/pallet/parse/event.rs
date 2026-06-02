@@ -25,8 +25,8 @@ mod keyword {
 	syn::custom_keyword!(pallet);
 	syn::custom_keyword!(generate_deposit);
 	syn::custom_keyword!(deposit_event);
-    syn::custom_keyword!(chain_batch);
-    syn::custom_keyword!(capture);
+	syn::custom_keyword!(chain_batch);
+	syn::custom_keyword!(capture);
 }
 
 /// Definition for pallet event enum.
@@ -45,9 +45,9 @@ pub struct EventDef {
 	pub where_clause: Option<syn::WhereClause>,
 	/// The span of the pallet::event attribute.
 	pub attr_span: proc_macro2::Span,
-    /// Whether `deposit_event` should also capture fields for chain batching.
-    pub capture_for_chain_batch: bool,
-    /// Fields annotated with `#[chain_batch(capture = "name")]` across all event variants.
+	/// Whether `deposit_event` should also capture fields for chain batching.
+	pub capture_for_chain_batch: bool,
+	/// Fields annotated with `#[chain_batch(capture = "name")]` across all event variants.
 	pub captured_fields: Vec<CapturedField>,
 }
 
@@ -96,25 +96,19 @@ impl syn::parse::Parse for PalletEventDepositAttr {
 
 impl syn::parse::Parse for ChainBatchCaptureAttr {
 	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-		let content;
-		syn::parenthesized!(content in input);
-		
-		content.parse::<keyword::capture>()?;
-		content.parse::<syn::Token![=]>()?;
-		
-		let capture_name = content.parse::<syn::LitStr>()?.value();
-		
+		input.parse::<keyword::capture>()?;
+		input.parse::<syn::Token![=]>()?;
+		let capture_name = input.parse::<syn::LitStr>()?.value();
 		Ok(ChainBatchCaptureAttr { capture_name })
 	}
 }
 
 struct PalletEventAttrInfo {
 	deposit_event: Option<PalletEventDepositAttr>,
-    capture_for_chain_batch: bool,
 }
 
 impl PalletEventAttrInfo {
-	fn from_attrs(attrs: Vec<PalletEventDepositAttr>, item_attrs: &[syn::Attribute]) -> syn::Result<Self> {
+	fn from_attrs(attrs: Vec<PalletEventDepositAttr>) -> syn::Result<Self> {
 		let mut deposit_event = None;
 		for attr in attrs {
 			if deposit_event.is_none() {
@@ -123,14 +117,7 @@ impl PalletEventAttrInfo {
 				return Err(syn::Error::new(attr.span, "Duplicate attribute"))
 			}
 		}
-
-		let capture_for_chain_batch = item_attrs.iter().any(|attr| {
-			attr.path().segments.len() == 2 &&
-			attr.path().segments[0].ident == "pallet" &&
-			attr.path().segments[1].ident == "capture_for_chain_batch"
-		});
-
-		Ok(PalletEventAttrInfo { deposit_event, capture_for_chain_batch })
+		Ok(PalletEventAttrInfo { deposit_event })
 	}
 }
 
@@ -148,19 +135,27 @@ impl EventDef {
 
 		crate::deprecation::prevent_deprecation_attr_on_outer_enum(&item.attrs)?;
 
+		// Consume #[pallet::capture_for_chain_batch] before take_item_pallet_attrs.
+		// take_item_pallet_attrs tries to parse every pallet::* attr as
+		// PalletEventDepositAttr and would fail on this unknown variant.
+		let capture_for_chain_batch = {
+			let pos = item.attrs.iter().position(|attr| {
+				attr.path().segments.len() == 2 &&
+					attr.path().segments[0].ident == "pallet" &&
+					attr.path().segments[1].ident == "capture_for_chain_batch"
+			});
+			if let Some(idx) = pos {
+				item.attrs.remove(idx);
+				true
+			} else {
+				false
+			}
+		};
+
 		let event_attrs: Vec<PalletEventDepositAttr> =
 			helper::take_item_pallet_attrs(&mut item.attrs)?;
-		let attr_info = PalletEventAttrInfo::from_attrs(event_attrs, &item.attrs)?;
+		let attr_info = PalletEventAttrInfo::from_attrs(event_attrs)?;
 		let deposit_event = attr_info.deposit_event;
-		let capture_for_chain_batch = attr_info.capture_for_chain_batch;
-
-		if capture_for_chain_batch {
-			item.attrs.retain(|attr| {
-				!(attr.path().segments.len() == 2
-					&& attr.path().segments[0].ident == "pallet"
-					&& attr.path().segments[1].ident == "capture_for_chain_batch")
-			});
-		}
 
 		if !matches!(item.vis, syn::Visibility::Public(_)) {
 			let msg = "Invalid pallet::event, `Event` must be public";
@@ -193,8 +188,8 @@ impl EventDef {
 					for field in &fields_named.named {
 						if let Some(ident) = &field.ident {
 							for attr in &field.attrs {
-								if attr.path().segments.len() == 1
-									&& attr.path().segments[0].ident == "chain_batch"
+								if attr.path().segments.len() == 1 &&
+									attr.path().segments[0].ident == "chain_batch"
 								{
 									if let syn::Meta::List(meta_list) = &attr.meta {
 										let tokens = meta_list.tokens.clone();
@@ -221,8 +216,8 @@ impl EventDef {
 				if let syn::Fields::Named(fields_named) = &mut variant.fields {
 					for field in &mut fields_named.named {
 						field.attrs.retain(|attr| {
-							!(attr.path().segments.len() == 1
-								&& attr.path().segments[0].ident == "chain_batch")
+							!(attr.path().segments.len() == 1 &&
+								attr.path().segments[0].ident == "chain_batch")
 						});
 					}
 				}
