@@ -240,11 +240,12 @@ impl RuntimeCosts {
 	) -> Weight {
 		match kind {
 			StorageAccessKind::PersistentCold => cold()
-				.saturating_add(T::WeightInfo::access_list_touch_cold())
+				.saturating_add(T::WeightInfo::access_list_touch_cold_full())
+				.saturating_sub(T::WeightInfo::access_list_touch_cold_empty())
 				.saturating_add(T::WeightInfo::access_list_rollback_amortization()),
-			StorageAccessKind::PersistentHot => {
-				hot().saturating_add(T::WeightInfo::access_list_touch_hot())
-			},
+			StorageAccessKind::PersistentHot => hot()
+				.saturating_add(T::WeightInfo::access_list_touch_hot_full())
+				.saturating_sub(T::WeightInfo::access_list_touch_hot_single_element()),
 			StorageAccessKind::Transient => transient(),
 		}
 	}

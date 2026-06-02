@@ -20,6 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	Pallet as Contracts,
+	access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES},
 	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
 	evm::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
@@ -1701,6 +1702,8 @@ mod benchmarks {
 			key.hash(),
 		);
 
+		runtime.ext().touch_storage_access_list(false, &key);
+
 		let result;
 		#[block]
 		{
@@ -1751,6 +1754,8 @@ mod benchmarks {
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		ext.touch_storage_access_list(false, &key);
 
 		let result;
 		#[block]
@@ -1813,6 +1818,8 @@ mod benchmarks {
 			key.hash(),
 		);
 
+		runtime.ext().touch_storage_access_list(false, &key);
+
 		let out_ptr = max_key_len + 4;
 		let result;
 		#[block]
@@ -1865,6 +1872,8 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
+		ext.touch_storage_access_list(false, &key);
+
 		let result;
 		#[block]
 		{
@@ -1913,6 +1922,8 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
+		ext.touch_storage_access_list(false, &key);
+
 		let result;
 		#[block]
 		{
@@ -1935,23 +1946,22 @@ mod benchmarks {
 	}
 
 	fn near_full_access_list() -> crate::access_list::AccessList {
-		use crate::access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES};
 		let mut al = AccessList::new();
 		for i in 0..(MAX_ACCESS_LIST_ENTRIES - 1) {
 			al.touch(AccessEntry {
-				address: H160::from_low_u64_be(i as u64),
 				slot: worst_case_slot(),
+				address: H160::from_low_u64_be(i as u64),
 			});
 		}
 		al
 	}
 
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold() -> Result<(), BenchmarkError> {
-		use crate::access_list::AccessEntry;
+	fn access_list_touch_cold_full() -> Result<(), BenchmarkError> {
 		let mut al = near_full_access_list();
+		// Insert a new entry (u64::MAX is past the fill range, so the touch is cold).
 		let entry =
-			AccessEntry { address: H160::from_low_u64_be(u64::MAX), slot: worst_case_slot() };
+			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
 		let was_cold;
 		#[block]
 		{
@@ -1962,11 +1972,39 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot() -> Result<(), BenchmarkError> {
-		use crate::access_list::AccessEntry;
+	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
 		let mut al = near_full_access_list();
 		// Re-touch an entry that is already present (address zero is in the fill range).
-		let entry = AccessEntry { address: H160::zero(), slot: worst_case_slot() };
+		let entry = AccessEntry { slot: worst_case_slot(), address: H160::zero() };
+		let was_cold;
+		#[block]
+		{
+			was_cold = al.touch(entry);
+		}
+		assert!(!was_cold);
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_cold_empty() -> Result<(), BenchmarkError> {
+		let mut al = AccessList::new();
+		let entry =
+			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
+		let was_cold;
+		#[block]
+		{
+			was_cold = al.touch(entry);
+		}
+		assert!(was_cold);
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_single_element() -> Result<(), BenchmarkError> {
+		let mut al = AccessList::new();
+		let entry =
+			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
+		al.touch(entry.clone());
 		let was_cold;
 		#[block]
 		{
@@ -1981,10 +2019,9 @@ mod benchmarks {
 	// journaled entry on top of a near-full `AccessList`.
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_rollback_amortization() -> Result<(), BenchmarkError> {
-		use crate::access_list::AccessEntry;
 		let mut al = near_full_access_list();
 		al.enter_frame();
-		al.touch(AccessEntry { address: H160::from_low_u64_be(u64::MAX), slot: worst_case_slot() });
+		al.touch(AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) });
 		#[block]
 		{
 			al.rollback_frame();

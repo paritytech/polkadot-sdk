@@ -144,8 +144,10 @@ pub trait WeightInfo {
 	fn seal_get_storage_hot(n: u32, ) -> Weight;
 	fn contains_storage_hot(n: u32, ) -> Weight;
 	fn take_storage_hot(n: u32, ) -> Weight;
-	fn access_list_touch_cold() -> Weight;
-	fn access_list_touch_hot() -> Weight;
+	fn access_list_touch_cold_full() -> Weight;
+	fn access_list_touch_cold_empty() -> Weight;
+	fn access_list_touch_hot_full() -> Weight;
+	fn access_list_touch_hot_single_element() -> Weight;
 	fn access_list_rollback_amortization() -> Weight;
 	fn set_transient_storage_empty() -> Weight;
 	fn set_transient_storage_full() -> Weight;
@@ -1149,19 +1151,33 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 14
 			.saturating_add(Weight::from_parts(754, 0).saturating_mul(n.into()))
 	}
-	fn access_list_touch_cold() -> Weight {
+	fn access_list_touch_cold_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 586_000 picoseconds.
 		Weight::from_parts(841_000, 0)
 	}
-	fn access_list_touch_hot() -> Weight {
+	fn access_list_touch_cold_empty() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// PLACEHOLDER: regenerate via `/cmd bench`.
+		Weight::from_parts(450_000, 0)
+	}
+	fn access_list_touch_hot_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 839_000 picoseconds.
 		Weight::from_parts(1_307_000, 0)
+	}
+	fn access_list_touch_hot_single_element() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// PLACEHOLDER: regenerate via `/cmd bench`.
+		Weight::from_parts(450_000, 0)
 	}
 	fn access_list_rollback_amortization() -> Weight {
 		// Proof Size summary in bytes:
@@ -2691,19 +2707,33 @@ impl WeightInfo for () {
 			// Standard Error: 14
 			.saturating_add(Weight::from_parts(754, 0).saturating_mul(n.into()))
 	}
-	fn access_list_touch_cold() -> Weight {
+	fn access_list_touch_cold_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 586_000 picoseconds.
 		Weight::from_parts(841_000, 0)
 	}
-	fn access_list_touch_hot() -> Weight {
+	fn access_list_touch_cold_empty() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// PLACEHOLDER: regenerate via `/cmd bench`.
+		Weight::from_parts(450_000, 0)
+	}
+	fn access_list_touch_hot_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 839_000 picoseconds.
 		Weight::from_parts(1_307_000, 0)
+	}
+	fn access_list_touch_hot_single_element() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// PLACEHOLDER: regenerate via `/cmd bench`.
+		Weight::from_parts(450_000, 0)
 	}
 	fn access_list_rollback_amortization() -> Weight {
 		// Proof Size summary in bytes:

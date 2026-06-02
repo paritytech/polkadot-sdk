@@ -1123,7 +1123,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			// Standard Error: 17
 			.saturating_add(Weight::from_parts(559, 0).saturating_mul(n.into()))
 	}
-	fn access_list_touch_cold() -> Weight {
+	fn access_list_touch_cold_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1131,12 +1131,28 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(757_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
-	fn access_list_touch_hot() -> Weight {
+	fn access_list_touch_cold_empty() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// PLACEHOLDER: regenerate via `/cmd bench`.
+		Weight::from_parts(400_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+	}
+	fn access_list_touch_hot_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 772_000 picoseconds.
 		Weight::from_parts(1_184_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+	}
+	fn access_list_touch_hot_single_element() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// PLACEHOLDER: regenerate via `/cmd bench`.
+		Weight::from_parts(400_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
 	fn access_list_rollback_amortization() -> Weight {
