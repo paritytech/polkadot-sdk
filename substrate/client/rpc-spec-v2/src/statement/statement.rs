@@ -116,7 +116,14 @@ where
 			let _subscription_entry = entry;
 			loop {
 				tokio::select! {
-					_ = sink.closed() => break,
+					_ = sink.closed() => {
+						log::debug!(
+							target: LOG_TARGET,
+							"Statement subscription sink closed (connection={connection_id:?}, \
+							 sub_id={sub_id}); terminating subscription task",
+						);
+						break;
+					},
 					event = live_stream.next() => match event {
 						Some(event) => {
 							if !send_subscription_event(&sink, event).await {
@@ -143,6 +150,10 @@ where
 		let topic_filter = validate_topic_filter(topic_filter)?;
 
 		let Some(state) = self.subscriptions.get(conn_id, &subscription) else {
+			log::trace!(
+				target: LOG_TARGET,
+				"add_filter for unknown subscription {subscription} on connection {conn_id:?}",
+			);
 			return Err(Error::InvalidSubscription);
 		};
 
