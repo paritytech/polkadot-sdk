@@ -131,9 +131,9 @@ impl From<InvalidTransaction> for &'static str {
 			InvalidTransaction::UnknownOrigin => {
 				"The transaction extension did not authorize any origin"
 			},
-			InvalidTransaction::Module(ModuleInvalidity { message, .. }) => {
-				message.unwrap_or("Invalid transaction: Unknown module error")
-			},
+			InvalidTransaction::Module(m) => m
+				.message
+				.unwrap_or("Invalid transaction: module error, decode using metadata"),
 		}
 	}
 }
@@ -514,21 +514,40 @@ mod tests {
 	}
 
 	#[test]
-	fn module_invalidity_should_encode_and_decode() {
-		let v: TransactionValidity = Err(InvalidTransaction::Module(ModuleInvalidity {
+	fn module_invalidity_message_available_in_runtime_only() {
+		let in_runtime = ModuleInvalidity {
 			index: 1,
 			error: [2, 0, 0, 0],
 			message: Some("Test error"),
-		})
-		.into());
+		};
+		let error_str: &'static str = InvalidTransaction::Module(in_runtime).into();
+		assert_eq!(error_str, "Test error");
+	}
+
+	/// Simulates `validate_transaction` returning to the node: `message` is stripped, index/error stay.
+	#[test]
+	fn module_invalidity_message_stripped_after_scale_roundtrip() {
+		let in_runtime = ModuleInvalidity {
+			index: 1,
+			error: [2, 0, 0, 0],
+			message: Some("Test error"),
+		};
+		let v: TransactionValidity = InvalidTransaction::Module(in_runtime).into();
 
 		let encoded = v.encode();
-		assert_eq!(TransactionValidity::decode(&mut &*encoded), Ok(v.clone()));
-
-		let error_str: &'static str = match v {
-			Err(TransactionValidityError::Invalid(e)) => e.into(),
-			_ => panic!("Expected invalid error"),
+		let decoded = TransactionValidity::decode(&mut &*encoded).unwrap();
+		let Err(TransactionValidityError::Invalid(InvalidTransaction::Module(on_node))) = decoded
+		else {
+			panic!("Expected invalid module error");
 		};
-		assert_eq!(error_str, "Test error");
+
+		assert_eq!(on_node.index, 1);
+		assert_eq!(on_node.error, [2, 0, 0, 0]);
+		assert_eq!(on_node.message, None);
+
+		// This is what RPC can forward; clients decode the name via metadata (PAPI / polkadot-js).
+		let rpc = on_node.rpc_details();
+		assert_eq!(rpc.pallet_index, 1);
+		assert_eq!(rpc.error, "0x02000000");
 	}
 }
