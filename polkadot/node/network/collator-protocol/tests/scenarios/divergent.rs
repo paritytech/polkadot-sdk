@@ -137,299 +137,152 @@ fn activity_extends_life_then_silence_evicts<S: CollatorSut>() {
 }
 }
 
-mod reputation_behavior {
+mod reputation_priority {
 use crate::{
-	common::builders::ProtocolVersion::V2,
-	common::contract::Effect,
+	common::builders::{Peer, ProtocolVersion::V2},
 	common::harness::CollatorSut,
-	common::world::activated_world,
+	common::world::{activated_world, World},
 };
 use crate::common::world::WorldExt as _;
 use polkadot_node_subsystem::OverseerSignal;
-use polkadot_primitives::{
-	CandidateEvent, CoreIndex, GroupIndex, HeadData, Id as ParaId,
-};
+use polkadot_primitives::{CandidateEvent, CoreIndex, GroupIndex, Hash, HeadData, Id as ParaId};
 use std::time::Duration;
 
 const PARA: ParaId = ParaId::new(2000);
 
-/// `MAX_FETCH_DELAY` from `validator_side_experimental/common.rs:113`. Re-exported
-/// privately here to avoid a public-API tax on the production crate just for tests.
-const MAX_FETCH_DELAY: Duration = Duration::from_millis(300);
-
-/// Higher-scored peer fetches at sim_t = 0 (instant); fresh peer waits the
-/// `MAX_FETCH_DELAY` penalty box before its fetch fires.
+/// Reputation arbitrates among carriers of the same candidate that pile up while the single fetch
+/// slot is **busy** — independently of the fetch *delay*.
 ///
-/// The setup ramps peer A's score to 1 via the natural finalization path, then puts A
-/// and a fresh peer B in head-to-head competition on the next leaf. Because A's score
-/// (1) ≥ `INSTANT_FETCH_REP_THRESHOLD`, A bypasses the delay; B's score (0) is below
-/// both the threshold AND the per-para max (= A's 1), so B falls into the 300ms box.
+/// The experimental validator postpones a 0-rep peer's fetch by a fixed delay today, but that delay
+/// is being removed (#12004 / the bounded-parallel-fetch design #11023), so we deliberately do not
+/// rely on it. The mechanism this test uses instead is the one-fetch-in-flight slot: while a fetch
+/// occupies the single claim-queue slot, further advertisements queue, and when the slot frees the
+/// validator picks the best remaining carrier by reputation. Every peer here has reputation ≥ 1, so
+/// the delay path is never taken — the prioritisation comes purely from the busy pipeline and the
+/// re-fetch-on-failure path, which keeps the test valid before and after #12004.
+///
+/// Layout: a length-1 claim queue (one fetchable slot). All three peers advertise the *same*
+/// candidate. A throwaway "first carrier" advertises first and is fetched immediately, occupying the
+/// slot; meanwhile A and B queue as co-carriers of that same candidate. The first carrier's fetch
+/// then fails with undecodable bytes (`FAILED_FETCH_SLASH` — it is a throwaway whose reputation we
+/// don't care about), which frees the slot *and* leaves the candidate un-fetched, so the validator
+/// re-fetches it from the best remaining carrier by reputation.
+///
+/// Round 1 (A=2, B=1): A wins the re-fetch. We then slash A to 0. Round 2 (A=0, B=1): B wins.
 #[crate::sim_test(only = "experimental")]
-fn higher_score_peer_fetches_first_fresh_peer_waits_in_penalty_box<S: CollatorSut>() {
+fn busy_pipeline_arbitrates_by_reputation_then_slash_demotes<S: CollatorSut>() {
 	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
-	let leaf0 = w.leaf();
 
-	// --- Round 1: peer A advertises + seconds a candidate at leaf0 ---
-	let peer_a = w.declared_peer(PARA, V2);
-	let cand_a = w
-		.candidate_at(leaf0)
-		.para(PARA)
-		.parent_head(HeadData(Vec::new()))
-		.head_data(HeadData(vec![1]))
-		.approved_peer(peer_a.peer_id)
-		.build();
-	w.outputs.insert(cand_a.hash(), cand_a.commitments.clone(), cand_a.pvd.clone());
-	w.full_second(&peer_a, &cand_a);
-
-	// --- Drive finalization: candidate is included at leaf0; finalize leaf0 ---
-	{
-		let mut chain = w.base.chain.lock();
-		chain.set_pending_availability(PARA, vec![cand_a.committed()]);
-		chain.set_candidate_events(
-			leaf0,
-			vec![CandidateEvent::CandidateIncluded(
-				cand_a.receipt.clone(),
-				cand_a.commitments.head_data.clone(),
-				CoreIndex(0),
-				GroupIndex(0),
-			)],
-		);
-		chain.set_finalized(leaf0);
+	fn earn_one_inclusion<S: CollatorSut>(w: &mut World<S>, peer: &Peer, leaf: Hash) {
+		let cand = w
+			.candidate_at(leaf)
+			.para(PARA)
+			.head_data(HeadData(vec![leaf.as_bytes()[0]]))
+			.approved_peer(peer.peer_id)
+			.build();
+		{
+			let mut chain = w.base.chain.lock();
+			chain.set_pending_availability(PARA, vec![cand.committed()]);
+			chain.set_candidate_events(
+				leaf,
+				vec![CandidateEvent::CandidateIncluded(
+					cand.receipt.clone(),
+					cand.commitments.head_data.clone(),
+					CoreIndex(0),
+					GroupIndex(0),
+				)],
+			);
+			chain.set_finalized(leaf);
+		}
+		w.base.sim.signal(OverseerSignal::BlockFinalized(leaf, w.leaf_number()));
+		w.base.sim.advance(Duration::from_millis(50));
 	}
-	w.base.sim.signal(OverseerSignal::BlockFinalized(leaf0, w.leaf_number()));
-	// Let the peer_manager finalization handler complete its runtime-API round trip.
-	w.base.sim.advance(Duration::from_millis(50));
 
-	// --- Round 2: extend chain, activate new leaf, both peers advertise there ---
-	let leaf1 = w.new_block().from_parent(leaf0).activate().hash;
+	// One contention round on a fresh, single-slot leaf. All three peers carry the *same* candidate:
+	//   1. `first_carrier` advertises first → fetched immediately, occupying the only slot;
+	//   2. `held` (lower rep) and `winner` (higher rep) advertise the same candidate and queue;
+	//   3. fail the first carrier's fetch (undecodable bytes) → the slot frees and the candidate is
+	//      re-fetched from the best remaining carrier by reputation → `winner`.
+	// Returns `winner`'s `RequestId` so the caller can resolve it (e.g. fail it to drive a slash).
+	fn contended_round<S: CollatorSut>(
+		w: &mut World<S>,
+		parent: Hash,
+		head: u8,
+		first_carrier: &Peer,
+		held: &Peer,
+		winner: &Peer,
+	) -> crate::common::contract::RequestId {
+		// Length-1 claim queue → a single fetchable slot, so one in-flight fetch blocks the rest.
+		let leaf = w
+			.new_block()
+			.from_parent(parent)
+			.with_claim_queue_at(CoreIndex(0), [PARA])
+			.activate()
+			.hash;
 
-	// Capture sim_t at the moment of advertisement so we can measure the fetch latency
-	// against the leaf's activation. (The penalty box delay is measured from
-	// `activated_at` of the scheduling parent, not advertisement arrival.)
-	let activation_t = w.base.sim.now_sim_t();
+		let cand = w
+			.candidate_at(leaf)
+			.para(PARA)
+			.parent_head(HeadData(vec![head, 0]))
+			.head_data(HeadData(vec![head, 1]))
+			.build();
+		w.outputs.insert(cand.hash(), cand.commitments.clone(), cand.pvd.clone());
 
-	let peer_b = w.declared_peer(PARA, V2); // fresh peer, score = 0
-	let cand_a2 = w
-		.candidate_at(leaf1)
-		.para(PARA)
-		.parent_head(cand_a.output_head())
-		.head_data(HeadData(vec![2]))
-		.build();
-	let cand_b = w
-		.candidate_at(leaf1)
-		.para(PARA)
-		.parent_head(cand_a.output_head())
-		.head_data(HeadData(vec![3]))
-		.build();
-	w.outputs.insert(cand_a2.hash(), cand_a2.commitments.clone(), cand_a2.pvd.clone());
-	w.outputs.insert(cand_b.hash(), cand_b.commitments.clone(), cand_b.pvd.clone());
+		// First carrier advertises and is fetched immediately, occupying the slot; we don't answer
+		// it yet.
+		w.advertise_with_parent_head(first_carrier, leaf, cand.hash(), cand.parent_head_hash());
+		let first_id = w.expect_fetch_to(first_carrier.peer_id);
 
-	// Both peers advertise immediately at leaf1.
-	w.advertise_with_parent_head(&peer_a, leaf1, cand_a2.hash(), cand_a2.parent_head_hash());
-	w.advertise_with_parent_head(&peer_b, leaf1, cand_b.hash(), cand_b.parent_head_hash());
+		// With the slot busy, the other two carriers of the same candidate advertise and queue.
+		w.advertise_with_parent_head(held, leaf, cand.hash(), cand.parent_head_hash());
+		w.advertise_with_parent_head(winner, leaf, cand.hash(), cand.parent_head_hash());
 
-	// A's fetch must fire promptly — score ≥ INSTANT_FETCH_REP_THRESHOLD.
-	let a_fetch = w.base.sim.expect(
-		|e| matches!(
-			e,
-			Effect::SendRequest { candidate_hash: Some(c), .. } if *c == cand_a2.hash(),
-		),
-		Duration::from_millis(50),
-		"peer A's fetch fires within 50ms (score >= 1 bypasses penalty box)",
-	);
-	let _ = a_fetch;
-	let a_fetch_t = w.base.sim.now_sim_t() - activation_t;
-	assert!(
-		a_fetch_t < MAX_FETCH_DELAY,
-		"peer A's fetch fired at {:?} after leaf activation; expected < {:?}",
-		a_fetch_t,
-		MAX_FETCH_DELAY,
-	);
+		// While the slot is busy, no further fetch for the candidate may fire.
+		w.no_fetch_for(&cand, Duration::from_millis(1000));
 
-	// B's fetch must wait at least MAX_FETCH_DELAY (penalty box).
-	let _b_fetch = w.base.sim.expect(
-		|e| matches!(
-			e,
-			Effect::SendRequest { candidate_hash: Some(c), .. } if *c == cand_b.hash(),
-		),
-		MAX_FETCH_DELAY + Duration::from_millis(200),
-		"peer B's fetch fires within 500ms (penalty box releases at 300ms)",
-	);
-	let b_fetch_t = w.base.sim.now_sim_t() - activation_t;
-	assert!(
-		b_fetch_t >= MAX_FETCH_DELAY,
-		"peer B's fetch fired at {:?} after leaf activation; expected >= {:?} (penalty box)",
-		b_fetch_t,
-		MAX_FETCH_DELAY,
-	);
-}
+		// Fail the first carrier → the slot frees and the candidate is re-fetched from the best
+		// remaining carrier by reputation.
+		let barrier = w.recorder_barrier();
+		w.respond_fetch_invalid(first_id);
 
-/// Sequel to the test above, exercising the slash side of the rep ledger: a peer that
-/// gets `FAILED_FETCH_SLASH`-ed loses its priority.
-///
-/// 1. Ramp peer A AND peer B both to score 1 (two consecutive finalize cycles).
-/// 2. At the slashing leaf, A advertises. Validator starts fetching from A. We do not
-///    respond → after `MAX_UNSHARED_DOWNLOAD_TIME` the per-fetch deadline expires →
-///    A is hit with `FAILED_FETCH_SLASH = 10922`. A's score saturates to 0.
-/// 3. At the next leaf, A and B both advertise. A is back in the penalty box
-///    (B has score 1, max-for-para = 1, A's = 0); B fetches at sim_t = 0; A's fetch
-///    waits `MAX_FETCH_DELAY`.
-///
-/// Witness: the slash actually demotes fetch priority — not just decrements a counter.
-#[crate::sim_test(only = "experimental")]
-fn slashed_peer_loses_priority<S: CollatorSut>() {
-
-	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
-	let leaf0 = w.leaf();
-
-	// --- Ramp peer A: full second + finalize at leaf0 ---
-	let peer_a = w.declared_peer(PARA, V2);
-	let cand_a = w
-		.candidate_at(leaf0)
-		.para(PARA)
-		.parent_head(HeadData(Vec::new()))
-		.head_data(HeadData(vec![1]))
-		.approved_peer(peer_a.peer_id)
-		.build();
-	w.outputs.insert(cand_a.hash(), cand_a.commitments.clone(), cand_a.pvd.clone());
-	w.full_second(&peer_a, &cand_a);
-	{
-		let mut chain = w.base.chain.lock();
-		chain.set_pending_availability(PARA, vec![cand_a.committed()]);
-		chain.set_candidate_events(
-			leaf0,
-			vec![CandidateEvent::CandidateIncluded(
-				cand_a.receipt.clone(),
-				cand_a.commitments.head_data.clone(),
-				CoreIndex(0),
-				GroupIndex(0),
-			)],
-		);
-		chain.set_finalized(leaf0);
+		let req_id = w.expect_fetch_to(winner.peer_id);
+		let (first, _) = w
+			.first_fetch_after(barrier)
+			.expect("the candidate must be re-fetched once the slot frees");
+		assert_eq!(first, winner.peer_id, "the higher-rep carrier must win the re-fetch");
+		req_id
 	}
-	w.base.sim.signal(OverseerSignal::BlockFinalized(leaf0, w.leaf_number()));
-	w.base.sim.advance(Duration::from_millis(50));
 
-	// --- Ramp peer B: bypass full_second; seed an "included" candidate and finalize ---
-	//
-	// We don't need the subsystem to actually second this candidate to bump B's score —
-	// experimental's `+VALID_INCLUDED_CANDIDATE_BUMP` path walks finalized-block candidate
-	// events and looks up `approved_peer` from the receipt's UMP signals. As long as
-	// pending_availability + candidate_events agree on the receipt + parent_rp, the bump
-	// fires for whatever peer the receipt names.
+	let leaf0 = w.leaf();
+	// A distinct throwaway first-carrier per round, so the per-round `expect_fetch_to(first_carrier)`
+	// can never match the previous round's (still-recorded) fetch.
+	let carrier1 = w.declared_peer(PARA, V2);
+	let carrier2 = w.declared_peer(PARA, V2);
+	let peer_a = w.declared_peer(PARA, V2);
 	let peer_b = w.declared_peer(PARA, V2);
+
+	// Reputations: A = 2, B = 1, each carrier = 1 (so the carrier also fetches immediately).
+	earn_one_inclusion(&mut w, &peer_a, leaf0);
 	let leaf1 = w.new_block().from_parent(leaf0).activate().hash;
-	let cand_b_seed = w
-		.candidate_at(leaf1)
-		.para(PARA)
-		.head_data(HeadData(vec![2]))
-		.approved_peer(peer_b.peer_id)
-		.build();
-	{
-		let mut chain = w.base.chain.lock();
-		chain.set_pending_availability(PARA, vec![cand_b_seed.committed()]);
-		chain.set_candidate_events(
-			leaf1,
-			vec![CandidateEvent::CandidateIncluded(
-				cand_b_seed.receipt.clone(),
-				cand_b_seed.commitments.head_data.clone(),
-				CoreIndex(0),
-				GroupIndex(0),
-			)],
-		);
-		chain.set_finalized(leaf1);
-	}
-	w.base.sim.signal(OverseerSignal::BlockFinalized(leaf1, w.base.leaves[w.base.leaves.len() - 1].number));
-	w.base.sim.advance(Duration::from_millis(50));
-
-	// --- Slash leaf: A advertises a new candidate; validator fetches; we don't respond ---
+	earn_one_inclusion(&mut w, &peer_a, leaf1);
 	let leaf2 = w.new_block().from_parent(leaf1).activate().hash;
-	let cand_a_slash = w
-		.candidate_at(leaf2)
-		.para(PARA)
-		.parent_head(cand_a.output_head())
-		.head_data(HeadData(vec![3]))
-		.build();
-	w.advertise_with_parent_head(
-		&peer_a,
-		leaf2,
-		cand_a_slash.hash(),
-		cand_a_slash.parent_head_hash(),
-	);
-	let req_id = w.fetch_request(&cand_a_slash);
-	// Cancel the fetch — drops the response oneshot, which resolves on the subsystem
-	// side as `RequestError::Canceled`. Experimental classifies that as a timeout
-	// (`is_timed_out() == true`) and applies `FAILED_FETCH_SLASH` to peer A.
-	w.base.sim.cancel_fetch(req_id);
+	earn_one_inclusion(&mut w, &peer_b, leaf2);
+	let leaf3 = w.new_block().from_parent(leaf2).activate().hash;
+	earn_one_inclusion(&mut w, &carrier1, leaf3);
+	let leaf4 = w.new_block().from_parent(leaf3).activate().hash;
+	earn_one_inclusion(&mut w, &carrier2, leaf4);
+
+	// Round 1: A (2) beats B (1) for the re-fetch.
+	let fetch_id = contended_round(&mut w, leaf4, 1, &carrier1, &peer_b, &peer_a);
+
+	// Fail A's now-in-flight fetch → `FAILED_FETCH_SLASH` saturates A's 2 to 0.
+	w.respond_fetch_invalid(fetch_id);
 	w.base.sim.advance(Duration::from_millis(50));
 
-	// --- Outcome leaf: A and B both advertise; B wins, A waits in penalty box ---
-	let leaf3 = w.new_block().from_parent(leaf2).activate().hash;
-	let activation_t = w.base.sim.now_sim_t();
-	let cand_a_after = w
-		.candidate_at(leaf3)
-		.para(PARA)
-		.parent_head(cand_a.output_head())
-		.head_data(HeadData(vec![4]))
-		.build();
-	let cand_b_after = w
-		.candidate_at(leaf3)
-		.para(PARA)
-		.parent_head(cand_a.output_head())
-		.head_data(HeadData(vec![5]))
-		.build();
-	w.outputs
-		.insert(cand_a_after.hash(), cand_a_after.commitments.clone(), cand_a_after.pvd.clone());
-	w.outputs
-		.insert(cand_b_after.hash(), cand_b_after.commitments.clone(), cand_b_after.pvd.clone());
-
-	w.advertise_with_parent_head(
-		&peer_a,
-		leaf3,
-		cand_a_after.hash(),
-		cand_a_after.parent_head_hash(),
-	);
-	w.advertise_with_parent_head(
-		&peer_b,
-		leaf3,
-		cand_b_after.hash(),
-		cand_b_after.parent_head_hash(),
-	);
-
-	// B fetches first — score 1 ≥ INSTANT_FETCH_REP_THRESHOLD.
-	let _ = w.base.sim.expect(
-		|e| matches!(
-			e,
-			Effect::SendRequest { candidate_hash: Some(c), .. } if *c == cand_b_after.hash(),
-		),
-		Duration::from_millis(50),
-		"peer B's fetch fires within 50ms (score 1 bypasses penalty box)",
-	);
-	let b_fetch_t = w.base.sim.now_sim_t() - activation_t;
-	assert!(
-		b_fetch_t < MAX_FETCH_DELAY,
-		"peer B's fetch fired at {:?} after leaf activation; expected < {:?}",
-		b_fetch_t,
-		MAX_FETCH_DELAY,
-	);
-
-	// A's fetch is delayed — score 0 (slashed) and max-for-para = 1.
-	let _ = w.base.sim.expect(
-		|e| matches!(
-			e,
-			Effect::SendRequest { candidate_hash: Some(c), .. } if *c == cand_a_after.hash(),
-		),
-		MAX_FETCH_DELAY + Duration::from_millis(200),
-		"peer A's fetch fires within 500ms (penalty box releases at 300ms)",
-	);
-	let a_fetch_t = w.base.sim.now_sim_t() - activation_t;
-	assert!(
-		a_fetch_t >= MAX_FETCH_DELAY,
-		"peer A's fetch fired at {:?} after leaf activation; expected >= {:?} (slashed → penalty box)",
-		a_fetch_t,
-		MAX_FETCH_DELAY,
-	);
+	// Round 2: A is now 0-rep, B keeps its 1 → B wins the re-fetch.
+	let _ = contended_round(&mut w, leaf4, 2, &carrier2, &peer_a, &peer_b);
 }
+
 }
 
 mod reputation_emission {
@@ -1129,7 +982,6 @@ use crate::{
 	common::world::activated_world,
 };
 use crate::common::world::WorldExt as _;
-use polkadot_collator_protocol::validator_side_consts::MAX_UNSHARED_DOWNLOAD_TIME;
 use polkadot_node_subsystem::OverseerSignal;
 use polkadot_primitives::{
 	CandidateEvent, CoreIndex, GroupIndex, HeadData, Id as ParaId,
@@ -1302,9 +1154,9 @@ fn v2_co_carrier_fallback_fetches_from_second_peer_on_failure<S: CollatorSut>() 
 		.expect("exactly one fetch fired, so first_fetch_after must find it");
 	let other_peer = if first_peer == peer_a.peer_id { peer_b.peer_id } else { peer_a.peer_id };
 
-	// Step 2 — never respond; advance past the per-fetch deadline. The parked co-advertiser
-	// must now be used as the fallback, without any new advertisement having arrived.
-	w.base.sim.advance(MAX_UNSHARED_DOWNLOAD_TIME + Duration::from_millis(100));
+	// Step 2 — never respond. `expect_fetch_to` drives the clock to the subsystem's per-fetch
+	// abandon timer, after which the parked co-advertiser must be used as the fallback, without
+	// any new advertisement having arrived.
 	let _ = w.expect_fetch_to(other_peer);
 }
 }

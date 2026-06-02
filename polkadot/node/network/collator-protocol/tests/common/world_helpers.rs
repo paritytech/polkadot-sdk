@@ -314,6 +314,15 @@ impl<S: CollatorSut> World<S> {
 			.respond_fetch(request_id, Ok((response.encode(), ProtocolName::from(""))));
 	}
 
+	/// Resolve the pending fetch with bytes that cannot be decoded as a
+	/// `CollationFetchingResponse`. The subsystem's fetch future fails with `InvalidResponse`,
+	/// which the experimental validator treats as a slashable failed fetch
+	/// (`FAILED_FETCH_SLASH`). Use to drive reputation slashes from the network layer.
+	pub fn respond_fetch_invalid(&mut self, request_id: RequestId) {
+		self.base.sim
+			.respond_fetch(request_id, Ok((vec![0xff; 8], ProtocolName::from(""))));
+	}
+
 	/// V1 variant of [`Self::respond_fetch_v2`].
 	pub fn respond_fetch_v1(
 		&mut self,
