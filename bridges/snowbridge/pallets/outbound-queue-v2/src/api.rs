@@ -10,7 +10,9 @@ where
 	T: Config,
 {
 	let messages = Messages::<T>::get();
-	if messages.is_empty() {
+	// `merkle_proof` panics if `leaf_index` is out of range, so guard against it here and return
+	// `None` instead. This also covers the empty-`Messages` case.
+	if leaf_index >= messages.len() as u64 {
 		return None;
 	}
 	// `MessageLeaves` is not persisted to state, so the committed leaves are recomputed from the

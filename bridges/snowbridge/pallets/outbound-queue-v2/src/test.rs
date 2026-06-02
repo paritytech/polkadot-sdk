@@ -84,6 +84,9 @@ fn prove_message_recomputes_committed_leaves_after_commit() {
 			assert_eq!(proof.leaf_index, index as u64);
 			assert_eq!(proof.number_of_leaves, messages.len() as u64);
 		}
+
+		// An out-of-range `leaf_index` returns `None` instead of panicking in `merkle_proof`.
+		assert!(crate::api::prove_message::<Test>(messages.len() as u64).is_none());
 	});
 }
 
