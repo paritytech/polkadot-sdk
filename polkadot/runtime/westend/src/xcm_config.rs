@@ -208,7 +208,7 @@ type WestendWeightBounds = WeightInfoBounds<
 	MaxInstructions,
 >;
 
-/// Weigher that delegates message/instruction weighing to [`WestendWeightBounds`] and, in addition,
+/// Weigher that delegates message/instruction weighing to `WestendWeightBounds` and, in addition,
 /// reports the benchmarked weight of a barrier check so barrier rejections are charged precisely
 /// instead of the full message weight.
 pub struct WestendWeigher;

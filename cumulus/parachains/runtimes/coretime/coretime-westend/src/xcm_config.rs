@@ -226,7 +226,7 @@ type CoretimeWestendWeightBounds = WeightInfoBounds<
 	MaxInstructions,
 >;
 
-/// Weigher that delegates message/instruction weighing to [`CoretimeWestendWeightBounds`] and, in
+/// Weigher that delegates message/instruction weighing to `CoretimeWestendWeightBounds` and, in
 /// addition, reports the benchmarked weight of a barrier check so barrier rejections are
 /// charged precisely instead of the full message weight.
 pub struct CoretimeWestendWeigher;
