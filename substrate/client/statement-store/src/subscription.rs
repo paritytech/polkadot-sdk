@@ -355,7 +355,7 @@ impl Drop for MultiFilterEventStream {
 }
 
 /// Messages sent to matcher tasks.
-pub enum MatcherMessage {
+enum MatcherMessage {
 	/// A new statement has been submitted.
 	NewStatement(Statement),
 	/// A new subscription has been created.
@@ -574,7 +574,7 @@ struct SubscriptionsInfo {
 
 // Information about one indexed subscription filter.
 #[derive(Clone, Debug)]
-pub(crate) struct IndexedSubscription {
+struct IndexedSubscription {
 	// The filter used for this subscription.
 	topic_filter: OptimizedTopicFilter,
 	// The unique ID of this subscription.
@@ -982,9 +982,7 @@ pub struct SubscriptionsMatchersHandlers {
 
 impl SubscriptionsMatchersHandlers {
 	/// Create new SubscriptionsMatchersHandlers with the given matcher task senders.
-	pub(crate) fn new(
-		matchers: Vec<async_channel::Sender<MatcherMessage>>,
-	) -> SubscriptionsMatchersHandlers {
+	fn new(matchers: Vec<async_channel::Sender<MatcherMessage>>) -> SubscriptionsMatchersHandlers {
 		SubscriptionsMatchersHandlers { matchers }
 	}
 

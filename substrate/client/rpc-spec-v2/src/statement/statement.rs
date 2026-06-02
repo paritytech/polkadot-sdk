@@ -37,7 +37,7 @@ use sc_statement_store::{AddFilterError, MultiFilterSubscriptionApi};
 use sp_core::Bytes;
 use sp_statement_store::{
 	AddFilterResponse, OptimizedTopicFilter, Statement, StatementSource, StatementStore,
-	SubmitOutcome, SubmitResult, TopicFilter,
+	SubmitOutcome, TopicFilter,
 };
 use std::sync::Arc;
 
@@ -183,12 +183,7 @@ where
 		let statement = Statement::decode(&mut &encoded[..])
 			.map_err(|e| Error::InvalidParam(format!("Error decoding statement: {e}")))?;
 		let submit_result = self.store.submit(statement, StatementSource::Local);
-		match SubmitOutcome::from_submit_result(submit_result) {
-			Ok(outcome) => Ok(outcome),
-			Err(SubmitResult::InternalError(e)) => Err(Error::InternalError(e.to_string())),
-			Err(other) => Err(Error::InternalError(format!(
-				"store returned unsupported submit result: {other:?}",
-			))),
-		}
+		SubmitOutcome::from_submit_result(submit_result)
+			.map_err(|e| Error::InternalError(e.to_string()))
 	}
 }

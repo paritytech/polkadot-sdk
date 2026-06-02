@@ -334,7 +334,7 @@ pub enum SubmitOutcome {
 
 impl SubmitOutcome {
 	/// Converts a store submission result into the RPC-visible outcome
-	pub fn from_submit_result(result: SubmitResult) -> std::result::Result<Self, SubmitResult> {
+	pub fn from_submit_result(result: SubmitResult) -> std::result::Result<Self, Error> {
 		match result {
 			SubmitResult::New => Ok(SubmitOutcome::New),
 			SubmitResult::Known => Ok(SubmitOutcome::Known),
@@ -343,7 +343,7 @@ impl SubmitOutcome {
 			},
 			SubmitResult::Rejected(reason) => Ok(SubmitOutcome::Rejected(reason.into())),
 			SubmitResult::Invalid(reason) => Ok(SubmitOutcome::Invalid(reason.into())),
-			other => Err(other),
+			SubmitResult::InternalError(error) => Err(error),
 		}
 	}
 }
