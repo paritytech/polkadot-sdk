@@ -1,0 +1,20 @@
+title: 'collator-protocol revamp: Increase channel size used by the background writer
+  of `PersistentDb`'
+doc:
+- audience: Node Dev
+  description: |-
+    While testing the collator revamp on versi I've noticed a lot of ["Reputation persistence channel full. Modifications kept in memory for next retry"](https://github.com/paritytech/polkadot-sdk/blob/2d69a9182eed3a79a9443905439a8e971d7c318d/polkadot/node/network/collator-protocol/src/validator_side_experimental/peer_manager/persistent_db.rs#L362) warnings which happen during advertisement spam.
+
+    The reason is that we persist reputation slashes immediately in the DB so if we get two slashes in a very short time the channel is still full and processing is deferred. Here is an example:
+    ```
+    WARN tokio-runtime-worker parachain::collator-protocol: Reputation persistence channel full. Modifications kept in memory for next retry.
+    DEBUG tokio-runtime-worker parachain::collator-protocol: Slashing peer's reputation peer_id=PeerId("12D3KooWLwsXNV3gqUWuihotcVoncCXxzarUTpHhqu1BDaxAM1FJ") para_id=1306 value=Score(10922)
+    DEBUG tokio-runtime-worker parachain::collator-protocol: Slashing peer's reputation peer_id=PeerId("12D3KooWLwsXNV3gqUWuihotcVoncCXxzarUTpHhqu1BDaxAM1FJ") para_id=1306 value=Score(10922)
+    ```
+
+    This is not fatal since the update is not lost, just delayed. Despite that I believe it's worth increasing the channel size between `PersistentDb` and its internal background writer from 1 to 3.
+
+    Additionally the PR introduces a separate log target for the persistent_db module.
+crates:
+- name: polkadot-collator-protocol
+  bump: patch
