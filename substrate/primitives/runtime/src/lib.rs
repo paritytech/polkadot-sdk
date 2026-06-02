@@ -590,7 +590,8 @@ pub struct ModuleInvalidity {
 	/// Optional error message for logging inside the runtime.
 	///
 	/// Not SCALE-encoded: it is **not** available on the node after `validate_transaction`
-	/// returns. RPC clients must decode [`error`] using chain metadata (same as [`ModuleError`]).
+	/// returns. RPC clients must decode the `error` field using chain metadata (same as
+	/// [`ModuleError`]).
 	#[codec(skip)]
 	#[cfg_attr(feature = "serde", serde(skip_deserializing))]
 	pub message: Option<&'static str>,
