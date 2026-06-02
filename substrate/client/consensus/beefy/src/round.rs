@@ -29,12 +29,65 @@ use sp_consensus_beefy::{
 use sp_runtime::traits::{Block, NumberFor};
 use std::collections::BTreeMap;
 
+pub(crate) type VoteWeight = u32;
+
+/// A [`ValidatorSet`] paired with each authority's voting weight, where weight is the number
+/// of times that authority appears in the set.
+///
+/// The weights are computed in [`WeightedValidatorSet::new`] and persisted alongside
+/// `validator_set` so they survive aux-db round-trips without recomputation.
+#[derive(Debug, Decode, Encode, PartialEq)]
+struct WeightedValidatorSet<AuthorityId: AuthorityIdBound> {
+	validator_set: ValidatorSet<AuthorityId>,
+	voting_weights: BTreeMap<AuthorityId, VoteWeight>,
+}
+
+impl<AuthorityId: AuthorityIdBound> WeightedValidatorSet<AuthorityId> {
+	fn new(validator_set: ValidatorSet<AuthorityId>) -> Self {
+		let voting_weights =
+			validator_set.validators().iter().fold(BTreeMap::new(), |mut acc, authority| {
+				*acc.entry(authority.to_owned()).or_insert(0) += 1;
+				acc
+			});
+
+		Self { validator_set, voting_weights }
+	}
+
+	fn validator_set(&self) -> &ValidatorSet<AuthorityId> {
+		&self.validator_set
+	}
+
+	fn id(&self) -> ValidatorSetId {
+		self.validator_set.id()
+	}
+
+	fn validators(&self) -> &[AuthorityId] {
+		self.validator_set.validators()
+	}
+
+	fn len(&self) -> usize {
+		self.validator_set.len()
+	}
+
+	fn weight(&self, authority: &AuthorityId) -> Option<VoteWeight> {
+		self.voting_weights.get(authority).copied()
+	}
+}
+
+/// `RoundTracker` as persisted by aux-db schema v4.
+///
+/// Kept only to migrate v4 state to the current schema; see [`Rounds`]'s `TryFrom` impl.
+#[derive(Debug, Decode, Encode, PartialEq)]
+pub(crate) struct RoundTrackerV4<AuthorityId: AuthorityIdBound> {
+	pub(crate) votes: BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+}
+
 /// Tracks for each round which validators have voted/signed and
 /// whether the local `self` validator has voted/signed.
 ///
 /// Does not do any validation on votes or signatures, layers above need to handle that (gossip).
 #[derive(Debug, Decode, Encode, PartialEq)]
-pub(crate) struct RoundTracker<AuthorityId: AuthorityIdBound> {
+struct RoundTracker<AuthorityId: AuthorityIdBound> {
 	/// Map of votes already committed in this round.
 	votes: BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
 	/// Total accumulated weight from authorities that have already voted.
@@ -49,7 +102,7 @@ impl<AuthorityId: AuthorityIdBound> Default for RoundTracker<AuthorityId> {
 }
 
 impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId> {
-	pub(crate) fn from_votes(
+	fn from_votes(
 		votes: BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
 		validator_set: &WeightedValidatorSet<AuthorityId>,
 	) -> Result<Self, &'static str> {
@@ -72,13 +125,7 @@ impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId> {
 			return false;
 		}
 
-		self.accumulated_votes_weight = match self.accumulated_votes_weight.checked_add(vote_weight)
-		{
-			Some(sum) => sum,
-			None => {
-				return false;
-			},
-		};
+		self.accumulated_votes_weight = self.accumulated_votes_weight.saturating_add(vote_weight);
 
 		self.votes.insert(vote.0, vote.1);
 
@@ -90,22 +137,14 @@ impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId> {
 	}
 }
 
-/// `RoundTracker` as persisted by aux-db schema v4.
-///
-/// Kept only to migrate v4 state to the current schema; see [`Rounds`]'s `TryFrom` impl.
-#[derive(Debug, Decode, Encode, PartialEq)]
-pub(crate) struct RoundTrackerV4<AuthorityId: AuthorityIdBound> {
-	pub(crate) votes: BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
-}
-
 /// Minimum size of `authorities` subset that produced valid signatures for a block to finalize.
-pub fn threshold(authorities: usize) -> usize {
+pub(crate) fn threshold(authorities: usize) -> usize {
 	let faulty = authorities.saturating_sub(1) / 3;
 	authorities - faulty
 }
 
 #[derive(Debug, PartialEq)]
-pub enum VoteImportResult<B: Block, AuthorityId: AuthorityIdBound> {
+pub(crate) enum VoteImportResult<B: Block, AuthorityId: AuthorityIdBound> {
 	Ok,
 	RoundConcluded(SignedCommitment<NumberFor<B>, <AuthorityId as RuntimeAppPublic>::Signature>),
 	DoubleVoting(
@@ -113,60 +152,6 @@ pub enum VoteImportResult<B: Block, AuthorityId: AuthorityIdBound> {
 	),
 	Invalid,
 	Stale,
-}
-
-pub(crate) type VoteWeight = u32;
-
-/// Compute per-authority voting weights from a validator set: each duplicate
-/// occurrence of the same authority contributes +1 to its weight.
-pub(crate) fn compute_voting_weights<AuthorityId: AuthorityIdBound>(
-	validator_set: &ValidatorSet<AuthorityId>,
-) -> BTreeMap<AuthorityId, VoteWeight> {
-	validator_set.validators().iter().fold(BTreeMap::new(), |mut acc, authority| {
-		*acc.entry(authority.to_owned()).or_insert(0) += 1;
-		acc
-	})
-}
-
-/// A [`ValidatorSet`] paired with each authority's voting weight, where weight is the number
-/// of times that authority appears in the set.
-///
-/// Construction invariant: `voting_weights == compute_voting_weights(&validator_set)`. The
-/// invariant is established by [`WeightedValidatorSet::new`] and preserved because the fields
-/// are private. The weights are persisted alongside `validator_set` so they survive aux-db
-/// round-trips without recomputation.
-#[derive(Debug, Decode, Encode, PartialEq)]
-pub(crate) struct WeightedValidatorSet<AuthorityId: AuthorityIdBound> {
-	validator_set: ValidatorSet<AuthorityId>,
-	voting_weights: BTreeMap<AuthorityId, VoteWeight>,
-}
-
-impl<AuthorityId: AuthorityIdBound> WeightedValidatorSet<AuthorityId> {
-	pub(crate) fn new(validator_set: ValidatorSet<AuthorityId>) -> Self {
-		let voting_weights = compute_voting_weights(&validator_set);
-
-		Self { validator_set, voting_weights }
-	}
-
-	pub(crate) fn validator_set(&self) -> &ValidatorSet<AuthorityId> {
-		&self.validator_set
-	}
-
-	pub(crate) fn id(&self) -> ValidatorSetId {
-		self.validator_set.id()
-	}
-
-	pub(crate) fn validators(&self) -> &[AuthorityId] {
-		self.validator_set.validators()
-	}
-
-	pub(crate) fn len(&self) -> usize {
-		self.validator_set.len()
-	}
-
-	pub(crate) fn weight(&self, authority: &AuthorityId) -> Option<VoteWeight> {
-		self.voting_weights.get(authority).copied()
-	}
 }
 
 /// Keeps track of all voting rounds (block numbers) within a session.
@@ -365,11 +350,11 @@ mod tests {
 	use sc_network_test::Block;
 
 	use sp_consensus_beefy::{
-		ecdsa_crypto, known_payloads::MMR_ROOT_ID, test_utils::Keyring, Commitment,
-		DoubleVotingProof, Payload, SignedCommitment, ValidatorSet, VoteMessage,
+		Commitment, DoubleVotingProof, Payload, SignedCommitment, ValidatorSet, VoteMessage,
+		ecdsa_crypto, known_payloads::MMR_ROOT_ID, test_utils::Keyring,
 	};
 
-	use super::{threshold, Block as BlockT, RoundTracker, Rounds};
+	use super::{Block as BlockT, RoundTracker, Rounds, threshold};
 	use crate::round::VoteImportResult;
 
 	impl<B> Rounds<B, ecdsa_crypto::AuthorityId>
