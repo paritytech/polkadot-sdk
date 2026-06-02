@@ -7,18 +7,21 @@ doc:
       collators as reserved peers on the block-announce protocol. This enables
       1 hop block propagation between collators.
 
-      Rather than a full mesh, collators connect in a ring. The authority set is
-      taken in authoring order, and each collator reserves up to `--collator-reserved-slots`
-      of its nearest neighbours on both sides of the ring. Because
-      every node sees the same ring, these neighbour relationships are mutual: the
-      immediate neighbours (`N-1`/`N+1`) get a direct, 1-hop block-announcement path,
-      while more distant authors receive blocks through the ring with enough lead
-      time before they author. With a large enough reserved-slot budget the ring
+      Rather than a full mesh, collators connect in a ring in authoring
+      (session/validator-index) order, the order Aura uses to assign slots.
+      Each collator reserves up to `--collator-reserved-slots` of its nearest
+      neighbours on both sides of the ring. Because every node sees the same
+      ring, these neighbour relationships are mutual: the immediate neighbours
+      (`N-1`/`N+1`) get a direct, 1-hop block-announcement path, while more
+      distant authors receive blocks through the ring with enough lead time
+      before they author. With a large enough reserved-slot budget the ring
       becomes a full mesh.
 
       Enabling this on a parachain requires adding `pallet-authority-discovery`
-      (and `pallet-session` to feed it) to the runtime and exposing
-      `AuthorityDiscoveryApi` and setting up the authority discovery keys.
+      (and `pallet-session` to feed it) to the runtime, setting up the authority
+      discovery keys, and exposing `AuthorityDiscoveryApi`. Adopters should
+      implement `AuthorityDiscoveryApi::authorities()` as
+      `pallet_authority_discovery::Pallet::current_authorities().to_vec()`.
 
 crates:
   - name: cumulus-client-collator-discovery

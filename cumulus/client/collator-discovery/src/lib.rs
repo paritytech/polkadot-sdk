@@ -22,10 +22,14 @@
 //! [`sp_authority_discovery::AuthorityDiscoveryApi`], and that the collator's keystore contains an
 //! `AUTHORITY_DISCOVERY` key.
 //!
-//! Once the API is detected, it's assumed to remain available. The authority set is taken in
-//! authoring order and each node reserves up to `max_reserved` of its nearest ring neighbors
-//! on both sides. The immediate neighbors get a direct 1-hop block-announcement path, and more
-//! distant authors receive blocks with enough lead time before they author.
+//! Once the API is detected, it's assumed to remain available. The authority set is expected in
+//! authoring (session/validator-index) order — adopting parachain runtimes should implement
+//! [`sp_authority_discovery::AuthorityDiscoveryApi::authorities`] as
+//! `pallet_authority_discovery::Pallet::current_authorities().to_vec()` rather than the
+//! standard `Pallet::authorities()`, which sorts by pubkey and merges in next-session keys.
+//! Each node reserves up to `max_reserved` of its nearest ring neighbors on both sides. The
+//! immediate neighbors get a direct 1-hop block-announcement path, and more distant authors
+//! receive blocks with enough lead time before they author.
 
 use std::{
 	collections::HashSet,

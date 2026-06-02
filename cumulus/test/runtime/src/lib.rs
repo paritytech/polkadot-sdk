@@ -1040,9 +1040,10 @@ impl_runtime_apis! {
 	}
 
 	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
+		// Return the current authority set in authoring (session/validator-index) order,
 		fn authorities() -> Vec<AuthorityDiscoveryId> {
 			#[cfg(feature = "with-authority-discovery")]
-			{ AuthorityDiscovery::authorities() }
+			{ AuthorityDiscovery::current_authorities().to_vec() }
 			#[cfg(not(feature = "with-authority-discovery"))]
 			{ Vec::new() }
 		}
