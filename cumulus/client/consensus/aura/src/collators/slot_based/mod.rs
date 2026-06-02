@@ -221,14 +221,16 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	register_proof_size_recording_cleanup(para_client.clone());
 	UnincludedSegmentStore::<Block, _>::new(para_client.clone()).register_cleanup();
 
-	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
+	let (collation_tx, collation_rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
+	let (segment_tx, segment_rx) = tracing_unbounded("mpsc_builder_to_collator_segment", 100);
 	let collator_task_params = collation_task::Params {
 		relay_client: relay_client.clone(),
 		collator_key,
 		para_id,
 		reinitialize,
 		collator_service: collator_service.clone(),
-		collator_receiver: rx,
+		collator_receiver: collation_rx,
+		segment_receiver: segment_rx,
 		block_import_handle,
 		export_pov,
 	};
@@ -247,7 +249,8 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		para_id,
 		proposer,
 		collator_service,
-		collator_sender: tx,
+		collator_sender: collation_tx,
+		segment_sender: segment_tx,
 		relay_chain_slot_duration,
 		slot_offset,
 		max_pov_percentage,
@@ -268,15 +271,31 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	);
 }
 
-/// Message sent from the block builder to the collation task.
-///
-/// Represents a segment of collations targeted at a single core. The block builder produces one
-/// message per assigned core per wake-up; each entry in `entries` becomes one `SegmentCollation`
-/// (one PoV / candidate on the relay chain) and the whole vec is submitted as one
-/// `CollationGenerationMessage::SubmitSegment`.
-///
-/// At the moment the builder always emits length-1 segments — resubmission of the unincluded
-/// segment will extend this to multi-entry segments later.
+/// Single-bundle message sent from the block builder for V2 candidates. Routed to
+/// [`CollationGenerationMessage::SubmitCollation`] by the collation task.
+struct CollatorMessage<Block: BlockT> {
+	/// The hash of the relay chain block that provides the context for the parachain block.
+	pub relay_parent: RelayHash,
+	/// V3 scheduling proof. `None` for V2 candidates emitted on this channel.
+	pub scheduling_proof: Option<SchedulingProof>,
+	/// The header of the parent block.
+	pub parent_header: Block::Header,
+	/// The built blocks.
+	pub blocks: Vec<Block>,
+	/// The storage proof that was collected while building all the blocks.
+	pub proof: StorageProof,
+	/// The validation code hash at the parent block.
+	pub validation_code_hash: ValidationCodeHash,
+	/// Core index that this block should be submitted on.
+	pub core_index: CoreIndex,
+	/// The persisted validation data for this collation.
+	pub validation_data: PersistedValidationData,
+}
+
+/// Segment message sent from the block builder for V3 candidates. Routed to
+/// [`CollationGenerationMessage::SubmitSegment`] by the collation task. The builder always
+/// emits length-1 segments.
+// TODO: support multi-entry segments to enable unincluded-segment resubmission.
 struct CollatorSegmentMessage<Block: BlockT> {
 	/// Shared V3 scheduling proof. `scheduling_parent` for the whole segment is derived from
 	/// `scheduling_proof.scheduling_parent()`. `None` → V2 descriptors for every entry.

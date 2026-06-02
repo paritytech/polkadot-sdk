@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use super::{CollatorSegmentEntry, CollatorSegmentMessage};
+use super::{CollatorMessage, CollatorSegmentEntry, CollatorSegmentMessage};
 use crate::{
 	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
 	collators::{
@@ -112,8 +112,10 @@ pub struct BuilderTaskParams<
 	pub proposer: Proposer,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
-	/// Channel to send built blocks to the collation task.
-	pub collator_sender: sc_utils::mpsc::TracingUnboundedSender<CollatorSegmentMessage<Block>>,
+	/// Channel for V2 single-bundle collations.
+	pub collator_sender: sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
+	/// Channel for V3 segment collations.
+	pub segment_sender: sc_utils::mpsc::TracingUnboundedSender<CollatorSegmentMessage<Block>>,
 	/// Slot duration of the relay chain.
 	pub relay_chain_slot_duration: Duration,
 	/// Offset all time operations by this duration.
@@ -189,6 +191,7 @@ where
 			proposer,
 			collator_service,
 			collator_sender,
+			segment_sender,
 			code_hash_provider,
 			relay_chain_slot_duration,
 			para_backend,
@@ -528,6 +531,7 @@ where
 					code_hash_provider: &code_hash_provider,
 					slot_claim: &slot_claim,
 					collator_sender: &collator_sender,
+					segment_sender: &segment_sender,
 					collator: &mut collator,
 					allowed_pov_size,
 					core_info: cores.core_info(),
@@ -587,7 +591,8 @@ struct BuildCollationParams<
 	relay_client: &'a RelayClient,
 	code_hash_provider: &'a CHP,
 	slot_claim: &'a SlotClaim<P::Public>,
-	collator_sender: &'a sc_utils::mpsc::TracingUnboundedSender<CollatorSegmentMessage<Block>>,
+	collator_sender: &'a sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
+	segment_sender: &'a sc_utils::mpsc::TracingUnboundedSender<CollatorSegmentMessage<Block>>,
 	collator: &'a mut Collator<Block, P, BI, CIDP, RelayClient, Proposer, CS>,
 	allowed_pov_size: usize,
 	core_info: CoreInfo,
@@ -632,6 +637,7 @@ async fn build_collation_for_core<
 		code_hash_provider,
 		slot_claim,
 		collator_sender,
+		segment_sender,
 		collator,
 		allowed_pov_size,
 		core_info,
@@ -934,19 +940,38 @@ where
 		"Sending out PoV"
 	);
 
-	if let Err(err) = collator_sender.unbounded_send(CollatorSegmentMessage {
-		scheduling_proof,
-		core_index,
-		entries: vec![CollatorSegmentEntry {
-			relay_parent: relay_parent_hash,
-			parent_header: pov_parent_header.clone(),
-			blocks,
-			proof,
-			validation_code_hash,
-			validation_data,
-		}],
-	}) {
-		tracing::error!(target: LOG_TARGET, ?err, "Unable to send block to collation task.");
+	let send_ok = if v3_enabled {
+		segment_sender
+			.unbounded_send(CollatorSegmentMessage {
+				scheduling_proof,
+				core_index,
+				entries: vec![CollatorSegmentEntry {
+					relay_parent: relay_parent_hash,
+					parent_header: pov_parent_header.clone(),
+					blocks,
+					proof,
+					validation_code_hash,
+					validation_data,
+				}],
+			})
+			.is_ok()
+	} else {
+		collator_sender
+			.unbounded_send(CollatorMessage {
+				scheduling_proof,
+				core_index,
+				relay_parent: relay_parent_hash,
+				parent_header: pov_parent_header.clone(),
+				blocks,
+				proof,
+				validation_code_hash,
+				validation_data,
+			})
+			.is_ok()
+	};
+
+	if !send_ok {
+		tracing::error!(target: LOG_TARGET, "Unable to send block to collation task.");
 		Err(())
 	} else {
 		// Now let's sleep for the rest of the core.
