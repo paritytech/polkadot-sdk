@@ -137,7 +137,6 @@ use crate::{
 	common::world::{bootstrap_world, collator_world_config, World},
 };
 use crate::common::world::WorldExt as _;
-use polkadot_collator_protocol::validator_side_consts::ASSET_HUB_PARA_ID;
 
 /// The hold-off duration we **configure the subsystem with** for these tests — passed in via
 /// `ah_world(Some(HOLD_OFF))`, which sets `ProtocolSide::Validator::collator_protocol_hold_off`
@@ -159,7 +158,9 @@ use polkadot_primitives::{CoreIndex, Id as ParaId};
 use sc_network_types::PeerId;
 use std::{collections::HashSet, time::Duration};
 
-const PARA_AH: ParaId = ASSET_HUB_PARA_ID;
+/// Asset Hub's para id. The legacy validator special-cases this exact value for its permissionless
+/// connection-limit gating, which is what these tests exercise.
+const PARA_AH: ParaId = ParaId::new(1000);
 
 /// Build a world configured for AH permissionless tests.
 ///

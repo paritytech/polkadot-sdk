@@ -92,18 +92,6 @@ mod collator_side;
 mod validator_side;
 mod validator_side_experimental;
 
-/// Production values the test-sim scenarios need verbatim — currently just the AssetHub para id
-/// they configure the world with. Re-exported so scenarios reference the real value rather than
-/// hardcoding it.
-///
-/// Timing constants are deliberately NOT exposed: tests assert the *contract* (a stalled fetch is
-/// abandoned within a physically-reasoned bound; a configured hold-off delays then bypasses), not
-/// the production tuning value. Reputation costs are NOT exposed either: tests assert reputation
-/// changes through the effect contract (buckets), not by comparing to the raw `Rep`.
-pub mod validator_side_consts {
-	pub use super::validator_side::ASSET_HUB_PARA_ID;
-}
-
 // TODO: move into validator_side_experimental once `validator_side` is retired
 mod validator_side_metrics;
 
