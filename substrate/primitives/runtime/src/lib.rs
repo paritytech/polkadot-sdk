@@ -49,6 +49,8 @@
 extern crate alloc;
 
 #[doc(hidden)]
+pub use alloc::string::String;
+#[doc(hidden)]
 pub use alloc::vec::Vec;
 #[doc(hidden)]
 pub use codec;
