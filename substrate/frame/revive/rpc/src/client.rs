@@ -1207,7 +1207,7 @@ fn to_hex(bytes: impl AsRef<[u8]>) -> String {
 fn eth_transact_payload_to_info(
 	payload: &[u8],
 	block_number: U256,
-	transaction_index: U256,
+	transaction_index: usize,
 ) -> Option<TransactionInfo> {
 	let signed_tx = TransactionSigned::decode(payload)
 		.inspect_err(|err| {
@@ -1228,13 +1228,13 @@ fn eth_transact_payload_to_info(
 		block_number,
 		from,
 		hash: H256(keccak_256(payload)),
-		transaction_index,
+		transaction_index: U256::from(transaction_index),
 		transaction_signed: signed_tx,
 	})
 }
 
 /// Walk a substrate block's extrinsics and return the Ethereum tx hashes of every
-/// `EthTransact` call, in extrinsic-index order.
+/// `EthTransact` call, in the order they appear in the block.
 async fn pre_upgrade_tx_hashes_from_extrinsics(block: &SubstrateBlock) -> Vec<H256> {
 	let extrinsics = match block.extrinsics().await {
 		Ok(extrinsics) => extrinsics,
@@ -1248,13 +1248,25 @@ async fn pre_upgrade_tx_hashes_from_extrinsics(block: &SubstrateBlock) -> Vec<H2
 
 	extrinsics
 		.iter()
-		.filter_map(|ext| ext.as_extrinsic::<EthTransact>().ok().flatten())
+		.filter_map(|ext| {
+			ext.as_extrinsic::<EthTransact>()
+				.inspect_err(|err| {
+					log::debug!(target: LOG_TARGET,
+						"as_extrinsic::<EthTransact> failed (likely metadata/codec drift): \
+						 {err:?}");
+				})
+				.ok()
+				.flatten()
+		})
 		.map(|call| H256(keccak_256(&call.payload)))
 		.collect()
 }
 
 /// Hydrated counterpart of [`pre_upgrade_tx_hashes_from_extrinsics`]: walks a substrate
 /// block's extrinsics and builds a `Vec<TransactionInfo>` for every `EthTransact` call.
+///
+/// Length asymmetry: see [`pre_upgrade_tx_hashes_from_extrinsics`]. RLP-decode and
+/// `recover_eth_address` failures drop the offending payload (logged at WARN).
 async fn pre_upgrade_tx_infos_from_extrinsics(block: &SubstrateBlock) -> Vec<TransactionInfo> {
 	let extrinsics = match block.extrinsics().await {
 		Ok(extrinsics) => extrinsics,
@@ -1271,8 +1283,16 @@ async fn pre_upgrade_tx_infos_from_extrinsics(block: &SubstrateBlock) -> Vec<Tra
 		.iter()
 		.enumerate()
 		.filter_map(|(ext_idx, ext)| {
-			let call = ext.as_extrinsic::<EthTransact>().ok().flatten()?;
-			eth_transact_payload_to_info(&call.payload, block_number, U256::from(ext_idx))
+			let call = ext
+				.as_extrinsic::<EthTransact>()
+				.inspect_err(|err| {
+					log::debug!(target: LOG_TARGET,
+						"as_extrinsic::<EthTransact> failed at ext_idx {ext_idx} \
+						 (likely metadata/codec drift): {err:?}");
+				})
+				.ok()
+				.flatten()?;
+			eth_transact_payload_to_info(&call.payload, block_number, ext_idx)
 		})
 		.collect()
 }
@@ -1299,7 +1319,7 @@ mod helpers_tests {
 		let payload = signer.sign_transaction(unsigned).signed_payload();
 		let expected_hash = H256(keccak_256(&payload));
 
-		let info = eth_transact_payload_to_info(&payload, U256::from(123u64), U256::from(2u64))
+		let info = eth_transact_payload_to_info(&payload, U256::from(123u64), 2)
 			.expect("well-formed payload must decode");
 
 		assert_eq!(info.hash, expected_hash);
@@ -1315,7 +1335,36 @@ mod helpers_tests {
 	#[test]
 	fn eth_transact_payload_to_info_decode_failure() {
 		let garbage = [0xFFu8; 32];
-		let info = eth_transact_payload_to_info(&garbage, U256::from(1u64), U256::from(2u64));
+		let info = eth_transact_payload_to_info(&garbage, U256::from(1u64), 2);
 		assert!(info.is_none(), "garbage payload must yield None");
+	}
+
+	/// A payload that RLP-decodes but whose signature can't be recovered (e.g.
+	/// `r = s = 0`) also returns `None`. Hits the `recover_eth_address` branch
+	/// of `eth_transact_payload_to_info`, distinct from the RLP-decode branch.
+	#[test]
+	fn eth_transact_payload_to_info_recovery_failure() {
+		let signer = Account::default();
+		let unsigned = TransactionUnsigned::from(TransactionLegacyUnsigned {
+			chain_id: Some(U256::from(42)),
+			to: Some(signer.address()),
+			gas: U256::from(21_000),
+			gas_price: U256::from(1),
+			nonce: U256::from(7),
+			value: U256::from(1_000_000),
+			..Default::default()
+		});
+		let mut signed = signer.sign_transaction(unsigned);
+		match signed {
+			TransactionSigned::TransactionLegacySigned(ref mut tx) => {
+				tx.r = U256::zero();
+				tx.s = U256::zero();
+			},
+			_ => panic!("test built a legacy tx"),
+		}
+		let payload = signed.signed_payload();
+
+		let info = eth_transact_payload_to_info(&payload, U256::from(1u64), 0);
+		assert!(info.is_none(), "payload with unrecoverable signature must yield None");
 	}
 }

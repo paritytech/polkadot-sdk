@@ -23,7 +23,10 @@ use crate::{
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
 use sp_core::{H256, U256};
 use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool, query};
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+	collections::{BTreeMap, HashMap},
+	sync::Arc,
+};
 use tokio::sync::Mutex;
 
 const LOG_TARGET: &str = "eth-rpc::receipt_provider";
@@ -857,12 +860,14 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Return all transaction hashes for the given substrate block hash, keyed by
 	/// the (substrate) `transaction_index` stored at receipt-extraction time.
 	///
-	/// Keys are the substrate extrinsic indices of the ETH `EthTransact` calls in the
+	/// Keys are substrate extrinsic indices of the ETH `EthTransact` calls in the
 	/// block, not 0-based EVM indices: a parachain typically starts them at 2 (after
 	/// timestamp + parachain-system inherents), a solo chain at 1 (after timestamp).
-	/// `BTreeMap` gives random access by index (used by tracers) and ordered iteration
-	/// (used by `eth_getBlockBy*` payload reconstruction) without a separate sort.
-	pub async fn block_transaction_hashes(&self, block_hash: &H256) -> BTreeMap<usize, H256> {
+	/// Used by `trace_block_by_number` for random-access lookup by index.
+	///
+	/// Returns an empty map on a DB error (logged); callers cannot distinguish that
+	/// from "block has no ETH transactions".
+	pub async fn block_transaction_hashes(&self, block_hash: &H256) -> HashMap<usize, H256> {
 		let block_hash = block_hash.as_ref();
 		let rows = match query!(
 			r#"
@@ -884,7 +889,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			Err(err) => {
 				log::error!(target: LOG_TARGET,
 					"block_transaction_hashes db error for block {block_hash:?}: {err:?}");
-				return BTreeMap::new();
+				return HashMap::new();
 			},
 		};
 
@@ -1823,13 +1828,11 @@ mod tests {
 		Ok(())
 	}
 
-	/// `block_transaction_hashes` underlies both `Client::recover_block_tx_hashes`
-	/// (which iterates in order to assemble the `Hashes(...)` payload) and
-	/// `trace_block_by_number` (which looks up by substrate extrinsic index). The
-	/// `BTreeMap` shape gives both: ordered iteration via `into_values()`, and
-	/// random access via `remove(&idx)`. Real blocks have sparse keys (typically
-	/// starting at 2 after timestamp + parachain-system inherents), so the map
-	/// must preserve the actual index, not collapse to 0-based positions.
+	/// `block_transaction_hashes` is consumed by `trace_block_by_number` for
+	/// random-access lookup by substrate extrinsic index. Keys are sparse
+	/// (typically starting at 2 after the timestamp + parachain-system inherents),
+	/// so the map must preserve the actual index — never collapse to 0-based
+	/// positions.
 	#[sqlx::test]
 	async fn test_block_transaction_hashes_returns_by_substrate_index(
 		pool: SqlitePool,
@@ -1849,18 +1852,10 @@ mod tests {
 			let idx = receipt.transaction_index.as_u32() as usize;
 			assert_eq!(map.get(&idx), Some(&receipt.transaction_hash), "lookup at idx {idx}");
 		}
-
-		// Ordered iteration (BTreeMap iterates by key) matches insertion order
-		// here because `make_receipts` uses sequential indices 0..N.
-		let ordered: Vec<H256> = map.into_values().collect();
-		let expected: Vec<H256> = receipts.iter().map(|(_, r)| r.transaction_hash).collect();
-		assert_eq!(ordered, expected, "BTreeMap into_values must yield hashes in index order");
-
 		Ok(())
 	}
 
-	/// Unknown block returns an empty `BTreeMap` — recover uses emptiness as the
-	/// "fall through to backfill" signal.
+	/// Unknown block returns an empty map.
 	#[sqlx::test]
 	async fn test_block_transaction_hashes_unknown_block_is_empty(
 		pool: SqlitePool,
@@ -1869,14 +1864,13 @@ mod tests {
 		let never_seen = make_hash(99, 0x77);
 		assert!(
 			provider.block_transaction_hashes(&never_seen).await.is_empty(),
-			"unknown block must yield empty BTreeMap"
+			"unknown block must yield empty map"
 		);
 		Ok(())
 	}
 
-	/// A block known to the eth-rpc store but with zero EVM transactions yields
-	/// an empty `BTreeMap` — recover treats this as "nothing to do" rather than
-	/// re-attempting backfill on every read.
+	/// A block known to the eth-rpc store but with zero EVM transactions yields an
+	/// empty map.
 	#[sqlx::test]
 	async fn test_block_transaction_hashes_known_empty_block(
 		pool: SqlitePool,
@@ -1889,7 +1883,7 @@ mod tests {
 
 		assert!(
 			provider.block_transaction_hashes(&block.hash()).await.is_empty(),
-			"empty block must yield empty BTreeMap"
+			"empty block must yield empty map"
 		);
 		Ok(())
 	}
