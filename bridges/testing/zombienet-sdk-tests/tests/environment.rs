@@ -621,11 +621,6 @@ fn rococo_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						.with_rpc_port(8943)
 						.with_args(bh_args.clone())
 				})
-				.with_collator(|n| {
-					n.with_name("bridge-hub-rococo-collator2")
-						.with_rpc_port(8944)
-						.with_args(bh_args.clone())
-				})
 		})
 		.with_parachain(|p| {
 			p.with_id(ASSET_HUB_PARA_ID)
@@ -638,10 +633,8 @@ fn rococo_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						.with_rpc_port(9910)
 						.with_args(ah_args.clone())
 				})
-				.with_collator(|n| {
-					n.with_name("asset-hub-rococo-collator2").with_args(ah_args.clone())
-				})
 		})
+		.with_global_settings(global_settings)
 		.build()
 		.map_err(config_errs)
 }
@@ -688,11 +681,6 @@ fn westend_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						.with_rpc_port(8945)
 						.with_args(bh_args.clone())
 				})
-				.with_collator(|n| {
-					n.with_name("bridge-hub-westend-collator2")
-						.with_rpc_port(8946)
-						.with_args(bh_args.clone())
-				})
 		})
 		.with_parachain(|p| {
 			p.with_id(ASSET_HUB_PARA_ID)
@@ -705,12 +693,21 @@ fn westend_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						.with_rpc_port(9010)
 						.with_args(ah_args.clone())
 				})
-				.with_collator(|n| {
-					n.with_name("asset-hub-westend-collator2").with_args(ah_args.clone())
-				})
 		})
+		.with_global_settings(global_settings)
 		.build()
 		.map_err(config_errs)
+}
+
+/// Shared global settings for both networks. We disable `tear_down_on_failure` so the background
+/// node-monitoring task (which declares a node "crashed" if its metrics endpoint does not respond
+/// within ~5s) does not tear the network down on a transient, load-induced timeout — the same
+/// approach the polkadot zombienet-sdk tests use on busy CI runners.
+fn global_settings(
+	settings: zombienet_sdk::GlobalSettingsBuilder,
+) -> zombienet_sdk::GlobalSettingsBuilder {
+	// `with_node_spawn_timeout` takes seconds (zombienet's own `Duration` alias, i.e. `u32`).
+	settings.with_tear_down_on_failure(false).with_node_spawn_timeout(600)
 }
 
 fn config_errs(errs: Vec<anyhow::Error>) -> anyhow::Error {
