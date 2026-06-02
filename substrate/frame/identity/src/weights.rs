@@ -73,6 +73,7 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_identity`.
 pub trait WeightInfo {
 	fn add_registrar(r: u32, ) -> Weight;
+	fn remove_registrar(r: u32, ) -> Weight;
 	fn set_identity(r: u32, ) -> Weight;
 	fn set_subs_new(s: u32, ) -> Weight;
 	fn set_subs_old(p: u32, ) -> Weight;
@@ -112,6 +113,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Identity::Registrars` (`max_values`: Some(1), `max_size`: Some(1141), added: 1636, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[1, 19]`.
 	fn add_registrar(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `6 + r * (57 ±0)`
+		//  Estimated: `2626`
+		// Minimum execution time: 7_086_000 picoseconds.
+		Weight::from_parts(8_205_421, 2626)
+			// Standard Error: 2_290
+			.saturating_add(Weight::from_parts(124_282, 0).saturating_mul(r.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Identity::Registrars` (r:1 w:1)
+	/// Proof: `Identity::Registrars` (`max_values`: Some(1), `max_size`: Some(1141), added: 1636, mode: `MaxEncodedLen`)
+	/// The range of component `r` is `[1, 19]`.
+	fn remove_registrar(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `6 + r * (57 ±0)`
 		//  Estimated: `2626`
@@ -601,6 +616,20 @@ impl WeightInfo for () {
 	/// Proof: `Identity::Registrars` (`max_values`: Some(1), `max_size`: Some(1141), added: 1636, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[1, 19]`.
 	fn add_registrar(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `6 + r * (57 ±0)`
+		//  Estimated: `2626`
+		// Minimum execution time: 7_086_000 picoseconds.
+		Weight::from_parts(8_205_421, 2626)
+			// Standard Error: 2_290
+			.saturating_add(Weight::from_parts(124_282, 0).saturating_mul(r.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Identity::Registrars` (r:1 w:1)
+	/// Proof: `Identity::Registrars` (`max_values`: Some(1), `max_size`: Some(1141), added: 1636, mode: `MaxEncodedLen`)
+	/// The range of component `r` is `[1, 19]`.
+	fn remove_registrar(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `6 + r * (57 ±0)`
 		//  Estimated: `2626`

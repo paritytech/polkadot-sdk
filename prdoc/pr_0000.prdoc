@@ -1,0 +1,26 @@
+# Rename this file to `pr_<PR_NUMBER>.prdoc` once the PR number is known.
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add `remove_registrar` extrinsic to `pallet-identity`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds a `remove_registrar(index)` extrinsic to `pallet-identity`, gated by the same
+      `RegistrarOrigin` as `add_registrar`. Until now there was no on-chain way to disable a
+      compromised or malicious registrar; the only remedy was a runtime upgrade with a bespoke
+      storage migration.
+
+      The registrar's slot is tombstoned (`*slot = None`) rather than removed from the vector, so
+      every existing `RegistrarIndex` — and any judgements already recorded against other
+      registrars — stays stable. The freed index is not reused by `add_registrar`. Because the
+      `Registrars` storage is already `BoundedVec<Option<RegistrarInfo>, MaxRegistrars>` and all
+      read sites already handle `None`, no storage migration and no `Config` change are required.
+
+      A new `RegistrarRemoved { registrar_index }` event is emitted on success. The call returns
+      `InvalidIndex` for an out-of-range index or an already-empty slot.
+
+crates:
+  - name: pallet-identity
+    bump: minor
