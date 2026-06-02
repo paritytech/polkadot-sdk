@@ -1,0 +1,36 @@
+[package]
+name = "bridges-zombienet-sdk-tests"
+version = "0.1.0"
+description = "Bridges zombienet-sdk tests (Rococo <> Westend)."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+# Only `tests/lib.rs` is an integration-test target; the other files in `tests/` are its modules.
+autotests = false
+
+[[test]]
+name = "bridges"
+path = "tests/lib.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+codec = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+subxt = { workspace = true, default-features = false, features = ["native"] }
+subxt-signer = { workspace = true, default-features = true }
+tokio = { workspace = true, features = ["macros", "process", "rt-multi-thread", "time"] }
+zombienet-sdk = { workspace = true }
+
+[features]
+# Generates the subxt metadata `.scale` files from locally built runtime WASM blobs.
+zombie-metadata = []
+# Enables the tests for CI.
+zombie-ci = []
+
+[build-dependencies]
+sc-executor = { workspace = true, default-features = true }
+sc-runtime-utilities = { workspace = true, default-features = true }
+sp-io = { workspace = true }
+substrate-build-script-utils = { workspace = true, default-features = true }

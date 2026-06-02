@@ -1,0 +1,104 @@
+# ============================================================================
+# TEMPORARY verification workflow — DELETE AFTER CONFIRMING THE TESTS RUN.
+#
+# This builds the binaries needed by the migrated bridge zombienet-sdk tests
+# (`bridges/testing/zombienet-sdk-tests`) from source, fetches `substrate-relay`
+# from its public Docker image, and actually runs the two tests end-to-end
+# (each spawns two relay-chain networks with Bridge Hub + Asset Hub parachains
+# and drives the relayer), so we can confirm the migration works.
+#
+# It is intentionally self-contained (one file, GitHub-hosted runner) so it can
+# be removed in a single commit once verified. It does NOT touch the shared
+# zombienet CI infrastructure.
+# ============================================================================
+name: TEMP - Bridges zombienet-sdk tests
+
+on:
+  pull_request:
+    paths:
+      - "bridges/testing/**"
+      - ".github/workflows/temp-bridges-zombienet-sdk.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: temp-bridges-zombienet-sdk-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  bridges-zombienet-sdk:
+    runs-on: ubuntu-latest
+    # Building `polkadot` (with `fast-runtime`) and `polkadot-parachain` from
+    # scratch is slow; give it plenty of head-room. Bump `runs-on` to a larger
+    # runner if the GitHub-hosted one runs out of resources.
+    timeout-minutes: 350
+    env:
+      # Match the toolchain pinned by `.github/env`.
+      RUST_TOOLCHAIN: "1.93.0"
+      SUBSTRATE_RELAY_IMAGE: "docker.io/paritytech/substrate-relay:v1.8.0"
+      RUST_BACKTRACE: "1"
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - name: Free disk space
+        run: |
+          set -x
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
+          sudo docker image prune --all --force || true
+          df -h
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            protobuf-compiler clang libclang-dev cmake pkg-config libssl-dev procps
+
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+          rustup default "$RUST_TOOLCHAIN"
+          rustup component add rust-src --toolchain "$RUST_TOOLCHAIN"
+          rustup target add wasm32v1-none --toolchain "$RUST_TOOLCHAIN"
+          rustc --version
+
+      - name: Fetch substrate-relay binary
+        run: |
+          set -eux
+          docker create --name relay "$SUBSTRATE_RELAY_IMAGE"
+          docker cp relay:/home/user/substrate-relay "$GITHUB_WORKSPACE/substrate-relay"
+          docker rm relay
+          chmod +x "$GITHUB_WORKSPACE/substrate-relay"
+          "$GITHUB_WORKSPACE/substrate-relay" --version
+
+      - name: Build polkadot (fast-runtime)
+        run: cargo build --release -p polkadot --features fast-runtime
+
+      - name: Build polkadot-parachain
+        run: cargo build --release -p polkadot-parachain-bin
+
+      - name: Run bridge zombienet-sdk tests
+        run: |
+          set -eux
+          export PATH="$GITHUB_WORKSPACE/target/release:$PATH"
+          export SUBSTRATE_RELAY_BINARY="$GITHUB_WORKSPACE/substrate-relay"
+          polkadot --version
+          polkadot-parachain --version
+          # The two tests bind fixed RPC ports (9942/8943/...), so they must run
+          # serially (`--test-threads=1`) rather than in parallel.
+          cargo test -p bridges-zombienet-sdk-tests \
+            --features zombie-ci,zombie-metadata \
+            -- --nocapture --test-threads=1
+
+      - name: Upload zombienet logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: temp-bridges-zombienet-sdk-logs
+          path: |
+            /tmp/zombie*/**/*.log
+          if-no-files-found: ignore
