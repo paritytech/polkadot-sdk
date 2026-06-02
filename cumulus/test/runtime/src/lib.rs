@@ -22,66 +22,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-pub mod spec_version_incremented {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_spec_version_incremented.rs"));
-}
-
-pub mod relay_parent_offset {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_relay_parent_offset.rs"));
-}
-
-pub mod elastic_scaling_500ms {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_500ms.rs"));
-}
-
-pub mod elastic_scaling {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling.rs"));
-}
-
-pub mod elastic_scaling_12s_slot {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_12s_slot.rs"));
-}
-
-pub mod block_bundling {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_block_bundling.rs"));
-}
-
-pub mod sync_backing {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_sync_backing.rs"));
-}
-
-pub mod async_backing {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
-}
-
-pub mod async_backing_v3 {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_async_backing_v3.rs"));
-}
-
-pub mod async_backing_v3_rpo {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_async_backing_v3_rpo.rs"));
-}
-
-pub mod elastic_scaling_v3 {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_v3.rs"));
-}
-
-pub mod slot_duration_18s {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_slot_duration_18s.rs"));
-}
-
+pub mod flavors;
 mod genesis_config_presets;
 pub mod test_pallet;
 
@@ -106,6 +47,7 @@ use sp_version::RuntimeVersion;
 use cumulus_primitives_core::{ParaId, RelayProofRequest, VerifySchedulingSignature};
 
 // A few exports that help ease life for downstream crates.
+pub use flavors::*;
 pub use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
@@ -144,63 +86,6 @@ impl_opaque_keys! {
 
 /// The para-id used in this runtime.
 pub const PARACHAIN_ID: u32 = 100;
-
-const SCHEDULING_V3_ENABLED: bool = cfg!(feature = "v3-descriptor");
-
-const fn relay_parent_offset() -> u32 {
-	if cfg!(feature = "relay-parent-offset-2") {
-		return 2;
-	}
-
-	0
-}
-
-const fn slot_duration() -> u64 {
-	if cfg!(feature = "18s-slot") {
-		return 18000;
-	}
-
-	if cfg!(feature = "12s-slot") {
-		return 12000;
-	}
-
-	6000
-}
-
-const fn block_processing_velocity() -> u32 {
-	if cfg!(feature = "velocity-12") {
-		return 12;
-	}
-
-	if cfg!(feature = "velocity-6") {
-		return 6;
-	}
-
-	if cfg!(feature = "velocity-3") {
-		return 3;
-	}
-
-	1
-}
-
-const fn unincluded_segment_capacity() -> u32 {
-	if cfg!(feature = "sync-backing") {
-		return 1;
-	}
-
-	// Without sync backing, the block flow is the following:
-	//
-	// - Collator produces the block(s) on relay chain block `X`
-	// - In the meantime the relay chain is building block `X + 1`
-	// - The collator sends the collation to the relay chain, and it gets backed on chain in relay
-	//   block `X + 2`
-	// - The collation then gets included on chain in relay block `X + 3`
-	// - As we are building on `RELAY_PARENT_OFFSET` old relay parents, the included block from the
-	//   parachain is also `RELAY_PARENT_OFFSET` relay blocks older (one relay block may contain
-	//   multiple parachain blocks).
-	block_processing_velocity() * (3 + relay_parent_offset())
-}
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = unincluded_segment_capacity();
 
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
@@ -429,7 +314,7 @@ type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
 	{ block_processing_velocity() },
-	UNINCLUDED_SEGMENT_CAPACITY,
+	{ unincluded_segment_capacity() },
 >;
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = ();

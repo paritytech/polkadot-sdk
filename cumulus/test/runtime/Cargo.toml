@@ -105,14 +105,28 @@ std = [
 
 increment-spec-version = []
 
+# The default parachain slot duration is 6s. The following features can be used to change this value:
+# Change the parachain slot duration to 12s
 12s-slot = []
+# Change the parachain slot duration to 12s
 18s-slot = []
 
+# Configure the runtime to use sync backing. More specifically, this leads to:
+# - setting `AllowMultipleBlocksPerSlot` to `false`
+# - setting the unincluded segment capacity to 1
 sync-backing = []
+
+# The default block processing velocity is 1. The following features can be used to change this value:
+# Change the block processing velocity to 3
 velocity-3 = []
+# Change the block processing velocity to 6
 velocity-6 = []
+# Change the block processing velocity to 12
 velocity-12 = []
 
+# The default relay parent offset is 0. The following features can be used to change this value:
+# Change the relay parent offset to 2
 relay-parent-offset-2 = []
 
+# Configure the runtiem to use scheduling V3
 v3-descriptor = []

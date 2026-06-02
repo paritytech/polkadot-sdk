@@ -32,7 +32,8 @@ fn main() {
 		.set_file_name("wasm_binary_elastic_scaling.rs")
 		.build();
 
-	// A runtime with low slot duration of 500ms for low-latency testing with 12 cores.
+	// A runtime with 6s slots and block velocity 12.
+	// Coupled with 12 cores it can produce a block every 500ms.
 	WasmBuilder::init_with_defaults()
 		.enable_feature("velocity-12")
 		.set_file_name("wasm_binary_elastic_scaling_500ms.rs")
