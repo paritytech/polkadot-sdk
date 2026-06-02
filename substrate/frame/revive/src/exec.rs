@@ -2607,7 +2607,7 @@ where
 	fn peek_storage_access_list(&self, transient: bool, key: &Key) -> StorageAccessKind {
 		StorageAccessKind::for_access(transient, || {
 			let address = self.address();
-			self.access_list.peek(&AccessEntry { address, slot: key.to_slot() })
+			self.access_list.is_cold(&AccessEntry { address, slot: key.to_slot() })
 		})
 	}
 

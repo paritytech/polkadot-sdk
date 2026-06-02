@@ -17,11 +17,9 @@
 
 //! Per-transaction cold/hot access list.
 //!
-//! TODO: the per-frame rollback machinery here (flat journal + checkpoint
-//! stack, with `enter_frame` / `commit_frame` / `rollback_frame` wired into
-//! `Stack::run`) duplicates [`crate::transient_storage::TransientStorage`].
-//! Factor the shared layout into a generic helper (e.g. `Journaled<T>`) and
-//! have both `TransientStorage` and `AccessList` depend on it.
+//! The per-frame rollback machinery here (flat journal + checkpoint stack, with
+//! `enter_frame` / `commit_frame` / `rollback_frame` wired into `Stack::run`)
+//! mirrors [`crate::transient_storage::TransientStorage`].
 
 use alloc::{collections::BTreeSet, vec::Vec};
 use frame_support::BoundedVec;
@@ -29,8 +27,9 @@ use sp_core::{ConstU32, H160};
 
 use crate::limits;
 
-/// Inline-storage cap for `Slot::VarInline`. Sized to fit SCALE-encoded
-/// `Address`, `H256`, `AccountId32`, etc., with or without a 4-byte storage prefix.
+/// Inline-storage cap for `Slot::VarInline`. Covers word-sized keys (`H160`,
+/// `H256`, `AccountId32`). `Slot` stays 40 bytes for any cap up to ~38, at no
+/// memory cost.
 pub const MAX_INLINE_KEY_LEN: usize = 36;
 
 /// Maximum number of distinct `(address, slot)` entries tracked in the
@@ -203,7 +202,7 @@ impl AccessList {
 	}
 
 	/// Non-mutating sibling of `touch`. Returns `true` if `entry` is cold.
-	pub fn peek(&self, entry: &AccessEntry) -> bool {
+	pub fn is_cold(&self, entry: &AccessEntry) -> bool {
 		!self.accessed.contains(entry)
 	}
 
@@ -236,13 +235,7 @@ impl AccessList {
 		AccessListMetrics { size: self.accessed.len(), cold: self.cold_count, hot: self.hot_count }
 	}
 
-	/// Check hot state without registering (testing / introspection).
-	#[cfg(test)]
-	pub fn is_hot(&self, entry: &AccessEntry) -> bool {
-		self.accessed.contains(entry)
-	}
-
-	/// Returns the current frame depth (number of open checkpoints).
+	/// Returns the number of open checkpoints.
 	#[cfg(test)]
 	pub fn frame_depth(&self) -> usize {
 		self.checkpoints.len()
@@ -277,17 +270,17 @@ mod tests {
 
 		al.commit_frame();
 		assert_eq!(al.frame_depth(), 1);
-		assert!(al.is_hot(&c), "C: survives F2 commit");
+		assert!(!al.is_cold(&c), "C: survives F2 commit");
 
 		assert!(al.touch(d.clone()), "D in F1: cold");
 		assert_eq!(al.metrics().size, 4);
 
 		al.rollback_frame();
 		assert_eq!(al.frame_depth(), 0);
-		assert!(al.is_hot(&a), "A: first frame, survives F1 revert");
-		assert!(!al.is_hot(&b), "B: inserted by F1, rolled back");
-		assert!(!al.is_hot(&c), "C: F2-committed-into-F1, gone when F1 reverts");
-		assert!(!al.is_hot(&d), "D: inserted by F1, rolled back");
+		assert!(!al.is_cold(&a), "A: first frame, survives F1 revert");
+		assert!(al.is_cold(&b), "B: inserted by F1, rolled back");
+		assert!(al.is_cold(&c), "C: F2-committed-into-F1, gone when F1 reverts");
+		assert!(al.is_cold(&d), "D: inserted by F1, rolled back");
 
 		// Counters never decrement, even for entries that later roll back:
 		// A (cold) + B,C,D (cold) -> 4 cold; A,A (hot) -> 2 hot. Only A still hot,
@@ -315,7 +308,7 @@ mod tests {
 		};
 		assert!(al.touch(new_entry.clone()), "past cap: bills cold");
 		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES, "set size stays at cap");
-		assert!(!al.is_hot(&new_entry), "past-cap entry is not tracked");
+		assert!(al.is_cold(&new_entry), "past-cap entry is not tracked");
 
 		assert!(al.touch(new_entry), "past cap re-touch: still cold (not tracked)");
 
@@ -324,26 +317,26 @@ mod tests {
 	}
 
 	#[test]
-	fn peek_does_not_mutate() {
+	fn is_cold_does_not_mutate() {
 		let mut al = AccessList::new();
 		let entry = AccessEntry { address: H160::zero(), slot: Slot::Fix([1; 32]) };
 
-		assert!(al.peek(&entry), "peek on untouched entry: cold");
-		assert!(al.peek(&entry), "repeated peek: still cold");
+		assert!(al.is_cold(&entry), "untouched entry: cold");
+		assert!(al.is_cold(&entry), "repeated query: still cold");
 		assert_eq!(
 			al.metrics(),
 			AccessListMetrics { size: 0, cold: 0, hot: 0 },
-			"peek must not bump counters",
+			"is_cold must not bump counters",
 		);
 
 		al.touch(entry.clone());
 
-		assert!(!al.peek(&entry), "peek after touch: hot");
-		assert!(!al.peek(&entry), "repeated peek: still hot");
+		assert!(!al.is_cold(&entry), "after touch: hot");
+		assert!(!al.is_cold(&entry), "repeated query: still hot");
 		assert_eq!(
 			al.metrics(),
 			AccessListMetrics { size: 1, cold: 1, hot: 0 },
-			"peek must not bump the hot counter",
+			"is_cold must not bump the hot counter",
 		);
 	}
 }

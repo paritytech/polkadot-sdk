@@ -1440,7 +1440,7 @@ mod benchmarks {
 	) -> Result<(ContractInfo<T>, Vec<u8>, Vec<u8>), BenchmarkError> {
 		let key = vec![0u8; limits::STORAGE_KEY_BYTES as usize];
 		let value = vec![1u8; limits::STORAGE_BYTES as usize];
-		let prewrite = match op {
+		let initial_value = match op {
 			StorageOp::Read => value.clone(),
 			StorageOp::Write => vec![42u8; limits::STORAGE_BYTES as usize],
 		};
@@ -1452,7 +1452,7 @@ mod benchmarks {
 			TrieFill::Empty => Contract::<T>::new(VmBinaryModule::dummy(), vec![])?,
 		};
 		let info = instance.info()?;
-		info.bench_write_raw(&key, Some(prewrite), false)
+		info.bench_write_raw(&key, Some(initial_value), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 		if matches!(access, SlotAccess::Hot) {
 			frame_benchmarking::add_to_whitelist_child(
