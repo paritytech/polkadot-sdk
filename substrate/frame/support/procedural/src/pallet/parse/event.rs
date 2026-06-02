@@ -135,9 +135,6 @@ impl EventDef {
 
 		crate::deprecation::prevent_deprecation_attr_on_outer_enum(&item.attrs)?;
 
-		// Consume #[pallet::capture_for_chain_batch] before take_item_pallet_attrs.
-		// take_item_pallet_attrs tries to parse every pallet::* attr as
-		// PalletEventDepositAttr and would fail on this unknown variant.
 		let capture_for_chain_batch = {
 			let pos = item.attrs.iter().position(|attr| {
 				attr.path().segments.len() == 2 &&
