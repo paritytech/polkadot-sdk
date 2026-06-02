@@ -41,7 +41,7 @@ use frame_system::{pallet_prelude::AccountIdFor, EnsureRoot, EnsureSignedBy};
 use sp_core::{ConstU32, ConstU64, Get};
 use sp_runtime::{
 	traits::{BlockNumberProvider, Identity, MaybeConvert},
-	BuildStorage, DispatchError, Saturating,
+	BuildStorage, DispatchError, Saturating, Weight,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -244,6 +244,7 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 	type Configuration = ();
 	type CoreRangeProvider = CoreRangeProviderImpl<Test>;
 	type TimesliceProvider = TimesliceProviderImpl<Test>;
+	type Weights = MockWeights;
 
 	fn configure(_configuration: Self::Configuration) -> Result<(), Self::Error> {
 		Ok(())
@@ -332,7 +333,7 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 
 	fn tick(
 		now: RelayBlockNumberOf<Test>,
-		weight_meter: &mut frame_support::weights::WeightMeter,
+		_weight_meter: &mut frame_support::weights::WeightMeter,
 	) -> Vec<TickAction<AccountIdFor<Test>, BalanceOf<Test>, RelayBlockNumberOf<Test>>> {
 		let mut actions = vec![];
 		let config = new_config();
@@ -376,12 +377,36 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 		unimplemented!()
 	}
 
-	fn get_region_begin() -> Result<Timeslice, ()> {
-		Ok(MarketSaleInfoStorage::<Test>::get().ok_or(())?.region_begin)
+	fn get_sale_info() -> Result<MarketSaleInfo<RelayBlockNumberOf<Test>>, Self::Error> {
+		MarketSaleInfoStorage::<Test>::get().ok_or(Error::<Test>::Uninitialized.into())
+	}
+}
+
+pub struct MockWeights {}
+
+impl MarketWeights for MockWeights {
+	fn configure() -> Weight {
+		Weight::zero()
 	}
 
-	fn get_region_end() -> Result<Timeslice, ()> {
-		Ok(MarketSaleInfoStorage::<Test>::get().ok_or(())?.region_end)
+	fn start_sales() -> Weight {
+		Weight::zero()
+	}
+
+	fn place_order() -> Weight {
+		Weight::zero()
+	}
+
+	fn place_renewal_order() -> Weight {
+		Weight::zero()
+	}
+
+	fn adjust_bid() -> Weight {
+		Weight::zero()
+	}
+
+	fn get_sale_info() -> Weight {
+		Weight::zero()
 	}
 }
 

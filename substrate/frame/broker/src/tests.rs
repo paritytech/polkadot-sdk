@@ -24,11 +24,10 @@ use frame_support::{
 	traits::nonfungible::{Inspect as NftInspect, Mutate, Transfer},
 	BoundedVec,
 };
-use frame_system::RawOrigin::Root;
 use pretty_assertions::assert_eq;
 use sp_runtime::{
 	traits::{BadOrigin, Get},
-	DispatchError, Perbill, TokenError,
+	DispatchError, TokenError,
 };
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
@@ -1953,7 +1952,7 @@ fn auto_renewal_works() {
 		assert_ok!(Broker::do_assign(region_2, Some(1), 1002, Final));
 		assert_ok!(Broker::do_assign(region_3, Some(1), 1003, Final));
 
-		let workload_end = MarketMock::get_region_end().unwrap();
+		let workload_end = MarketMock::get_sale_info().unwrap().region_end;
 
 		assert_ok!(Broker::do_enable_auto_renew(1001, region_1.core, 1001, Some(workload_end)));
 		assert_ok!(Broker::do_enable_auto_renew(1002, region_2.core, 1002, Some(workload_end)));
@@ -2009,7 +2008,7 @@ fn auto_renewal_works() {
 			.into(),
 		);
 
-		let next_renewal = MarketMock::get_region_end().unwrap();
+		let next_renewal = MarketMock::get_sale_info().unwrap().region_end;
 
 		// Given that core #1 didn't get renewed due to the account not being sufficiently funded,
 		// Task (1003) will now be assigned to that core instead of core #2.
@@ -2047,19 +2046,19 @@ fn enable_auto_renew_immediate_updates_core_and_renews() {
 			vec![AutoRenewalRecord {
 				core: expected_new_core,
 				task: 1001,
-				next_renewal: MarketMock::get_region_end().unwrap()
+				next_renewal: MarketMock::get_sale_info().unwrap().region_end
 			}]
 		);
 
 		// Potential renewal moved to the new core index.
 		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
 			core: expected_new_core,
-			when: MarketMock::get_region_end().unwrap()
+			when: MarketMock::get_sale_info().unwrap().region_end
 		})
 		.is_some());
 		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
 			core: region_id.core,
-			when: MarketMock::get_region_end().unwrap()
+			when: MarketMock::get_sale_info().unwrap().region_end
 		})
 		.is_none());
 
@@ -2068,10 +2067,13 @@ fn enable_auto_renew_immediate_updates_core_and_renews() {
 		let auto_after_renew = AutoRenewals::<Test>::get().to_vec();
 		assert_eq!(auto_after_renew.len(), 1);
 		assert_eq!(auto_after_renew[0].task, 1001);
-		assert_eq!(auto_after_renew[0].next_renewal, MarketMock::get_region_end().unwrap());
+		assert_eq!(
+			auto_after_renew[0].next_renewal,
+			MarketMock::get_sale_info().unwrap().region_end
+		);
 		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
 			core: auto_after_renew[0].core,
-			when: MarketMock::get_region_end().unwrap()
+			when: MarketMock::get_sale_info().unwrap().region_end
 		})
 		.is_some());
 	});
@@ -2781,7 +2783,7 @@ fn do_renew_and_get_the_new_core(
 	who: <Test as frame_system::Config>::AccountId,
 	core: CoreIndex,
 ) -> Result<CoreIndex, DispatchError> {
-	let DoRenewResult::Renewed { new_core } = Broker::do_renew(who, core)? else {
+	let RenewResult::Renewed { new_core } = Broker::do_renew(who, core)? else {
 		panic!("It's expected that do_renew will immediately resolve")
 	};
 
@@ -2792,13 +2794,9 @@ fn do_purchase_and_get_region_id(
 	who: <Test as frame_system::Config>::AccountId,
 	price_limit: u64,
 ) -> Result<RegionId, DispatchError> {
-	Broker::do_purchase(who, price_limit)?;
+	let PurchaseResult::Purchased { region_id, .. } = Broker::do_purchase(who, price_limit)? else {
+		panic!("It's expected that do_renew will purchase region right away");
+	};
 
-	for event in System::events().into_iter().rev() {
-		if let RuntimeEvent::Broker(Event::Purchased { region_id, .. }) = event.event {
-			return Ok(region_id);
-		}
-	}
-
-	panic!("The `Purchased` event was expected");
+	Ok(region_id)
 }

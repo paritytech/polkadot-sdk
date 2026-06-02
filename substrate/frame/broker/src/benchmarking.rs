@@ -159,12 +159,13 @@ mod benches {
 	#[benchmark]
 	fn configure() -> Result<(), BenchmarkError> {
 		let config = new_config_record::<T>();
+		let market_config = Default::default();
 
 		let origin =
 			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, config.clone());
+		_(origin as T::RuntimeOrigin, config.clone(), market_config);
 
 		assert_eq!(Configuration::<T>::get(), Some(config));
 
@@ -308,8 +309,9 @@ mod benches {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), REGION_PRICE.into());
 
-		let region_begin =
-			T::CoretimeMarket::get_region_begin().map_err(|_| BenchmarkError::Weightless)?;
+		let region_begin = T::CoretimeMarket::get_sale_info()
+			.map_err(|_| BenchmarkError::Weightless)?
+			.region_begin;
 		assert_last_event::<T>(
 			Event::Purchased {
 				who: caller,
@@ -1031,8 +1033,9 @@ mod benches {
 
 		advance_to::<T>(2);
 
-		let region_end =
-			T::CoretimeMarket::get_region_end().map_err(|_| BenchmarkError::Weightless)?;
+		let region_end = T::CoretimeMarket::get_sale_info()
+			.map_err(|_| BenchmarkError::Weightless)?
+			.region_end;
 		// We assume max auto renewals for worst case.
 		(0..T::MaxAutoRenewals::get() - 1).try_for_each(|indx| -> Result<(), BenchmarkError> {
 			let task = 1000 + indx;
@@ -1081,8 +1084,9 @@ mod benches {
 
 		assert_last_event::<T>(Event::AutoRenewalEnabled { core: region.core, task: 2001 }.into());
 		// Make sure we indeed renewed:
-		let region_end =
-			T::CoretimeMarket::get_region_end().map_err(|_| BenchmarkError::Weightless)?;
+		let region_end = T::CoretimeMarket::get_sale_info()
+			.map_err(|_| BenchmarkError::Weightless)?
+			.region_end;
 		assert!(PotentialRenewals::<T>::get(PotentialRenewalId {
 			core: region.core,
 			when: region_end,
@@ -1099,8 +1103,9 @@ mod benches {
 
 		advance_to::<T>(2);
 
-		let region_end =
-			T::CoretimeMarket::get_region_end().map_err(|_| BenchmarkError::Weightless)?;
+		let region_end = T::CoretimeMarket::get_sale_info()
+			.map_err(|_| BenchmarkError::Weightless)?
+			.region_end;
 		// We assume max auto renewals for worst case.
 		(0..T::MaxAutoRenewals::get()).try_for_each(|indx| -> Result<(), BenchmarkError> {
 			let task = 1000 + indx;
@@ -1325,8 +1330,9 @@ mod benches {
 		setup_and_start_sale::<T>()?;
 		advance_to::<T>(2);
 
-		let region_end =
-			T::CoretimeMarket::get_region_end().map_err(|_| BenchmarkError::Weightless)?;
+		let region_end = T::CoretimeMarket::get_sale_info()
+			.map_err(|_| BenchmarkError::Weightless)?
+			.region_end;
 		(0..renewable_count.into()).try_for_each(|indx| -> Result<(), BenchmarkError> {
 			let task = 1000 + indx;
 			let caller: T::AccountId = T::SovereignAccountOf::maybe_convert(task)
@@ -1360,11 +1366,11 @@ mod benches {
 			Broker::<T>::process_tick_action(action, &mut meter);
 		}
 
-		let region_begin =
-			T::CoretimeMarket::get_region_begin().map_err(|_| BenchmarkError::Weightless)?;
-		let region_length = T::CoretimeMarket::get_region_end()
-			.map_err(|_| BenchmarkError::Weightless)?
-			.saturating_sub(region_begin);
+		let sale_info =
+			T::CoretimeMarket::get_sale_info().map_err(|_| BenchmarkError::Weightless)?;
+
+		let region_begin = sale_info.region_begin;
+		let region_length = sale_info.region_end.saturating_sub(region_begin);
 
 		// Make sure all cores got renewed:
 		(0..renewable_count).for_each(|indx| {

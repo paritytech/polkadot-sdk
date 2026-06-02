@@ -66,8 +66,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn do_force_reserve(workload: Schedule, core: CoreIndex) -> DispatchResult {
-		let region_begin =
-			T::CoretimeMarket::get_region_begin().map_err(|_| Error::<T>::Uninitialized)?;
+		let region_begin = T::CoretimeMarket::get_sale_info()
+			.map_err(|_| Error::<T>::Uninitialized)?
+			.region_begin;
 
 		// Reserve - starts at second sale period boundary from now.
 		Self::do_reserve(workload.clone())?;
@@ -152,11 +153,13 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_purchase(
 		who: T::AccountId,
 		price_limit: BalanceOf<T>,
-	) -> Result<(), DispatchError> {
+	) -> Result<PurchaseResultOf<T>, DispatchError> {
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		match T::CoretimeMarket::place_order(now, &who, price_limit).map_err(Into::into)? {
-			OrderResult::BidPlaced { id: _, bid_price } => {
+			OrderResult::BidPlaced { id, bid_price } => {
 				Self::lock_funds(&who, bid_price)?;
+
+				Ok(PurchaseResult::BidPlaced { id })
 			},
 			OrderResult::Sold { price, region_id, region_end } => {
 				Self::charge(&who, price)?;
@@ -165,10 +168,10 @@ impl<T: Config> Pallet<T> {
 				let duration = region_end.saturating_sub(region_id.begin);
 
 				Self::deposit_event(Event::Purchased { who, region_id, price, duration });
-			},
-		};
 
-		Ok(())
+				Ok(PurchaseResult::Purchased { region_id, price, duration })
+			},
+		}
 	}
 
 	/// Must be called on a core in `PotentialRenewals` whose value is a timeslice equal to the
@@ -177,9 +180,10 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_renew(
 		who: T::AccountId,
 		core: CoreIndex,
-	) -> Result<DoRenewResult<T>, DispatchError> {
-		let region_begin =
-			T::CoretimeMarket::get_region_begin().map_err(|_| Error::<T>::Uninitialized)?;
+	) -> Result<RenewResultOf<T>, DispatchError> {
+		let region_begin = T::CoretimeMarket::get_sale_info()
+			.map_err(|_| Error::<T>::Uninitialized)?
+			.region_begin;
 
 		let renewal_id = PotentialRenewalId { core, when: region_begin };
 		let record = PotentialRenewals::<T>::get(renewal_id).ok_or(Error::<T>::NotAllowed)?;
@@ -190,7 +194,7 @@ impl<T: Config> Pallet<T> {
 		match T::CoretimeMarket::place_renewal_order(now, &who, renewal_id).map_err(Into::into)? {
 			RenewalOrderResult::BidPlaced { id, bid_price } => {
 				Self::lock_funds(&who, bid_price)?;
-				Ok(DoRenewResult::BidPlaced { id })
+				Ok(RenewResult::BidPlaced { id })
 			},
 			RenewalOrderResult::Renewed { price, region_id, effective_to } => {
 				Self::charge(&who, price)?;
@@ -222,7 +226,7 @@ impl<T: Config> Pallet<T> {
 					});
 				}
 
-				Ok(DoRenewResult::Renewed { new_core: region_id.core })
+				Ok(RenewResult::Renewed { new_core: region_id.core })
 			},
 		}
 	}
@@ -562,12 +566,20 @@ impl<T: Config> Pallet<T> {
 		task: TaskId,
 		workload_end_hint: Option<Timeslice>,
 	) -> DispatchResult {
-		let region_end =
-			T::CoretimeMarket::get_region_end().map_err(|_| Error::<T>::Uninitialized)?;
+		let sale_info =
+			T::CoretimeMarket::get_sale_info().map_err(|_| Error::<T>::Uninitialized)?;
 		let mut core = core;
 
-		if let Ok(renew_result) = Self::do_renew(sovereign_account.clone(), core) {
-			let DoRenewResult::Renewed { new_core } = renew_result else {
+		// Check if the core is expiring in the next bulk period; if so, we will renew it now.
+		//
+		// In case we renew it now, we don't need to check the workload end since we know it is
+		// eligible for renewal.
+		if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale_info.region_begin })
+			.is_some()
+		{
+			let RenewResult::Renewed { new_core } =
+				Self::do_renew(sovereign_account.clone(), core)?
+			else {
 				return Err(Error::<T>::NotAllowed.into());
 			};
 
@@ -592,7 +604,7 @@ impl<T: Config> Pallet<T> {
 				AutoRenewalRecord {
 					core,
 					task,
-					next_renewal: workload_end_hint.unwrap_or(region_end),
+					next_renewal: workload_end_hint.unwrap_or(sale_info.region_end),
 				},
 			)
 		})
@@ -631,10 +643,4 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum DoRenewResult<T: Config> {
-	Renewed { new_core: CoreIndex },
-	BidPlaced { id: MarketBidIdOf<T> },
 }

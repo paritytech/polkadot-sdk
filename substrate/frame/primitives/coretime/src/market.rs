@@ -63,6 +63,9 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 	/// Provides information about timeslice scheduling.
 	type TimesliceProvider: TimesliceProvider;
 
+	/// Provides information about the weights of calling market functions.
+	type Weights: MarketWeights;
+
 	/// Set or update the market configuration.
 	///
 	/// ### Parameters
@@ -138,9 +141,24 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 		weight_meter: &mut WeightMeter,
 	) -> Vec<TickAction<AccountId, Balance, RelayBlockNumber>>;
 
-	// TODO: Remove.
-	fn get_region_begin() -> Result<Timeslice, ()>;
-	fn get_region_end() -> Result<Timeslice, ()>;
+	/// Get an information about the currently active sale.
+	fn get_sale_info() -> Result<MarketSaleInfo<RelayBlockNumber>, Self::Error>;
+}
+
+/// Weights of calling market functions.
+pub trait MarketWeights {
+	/// Weight of calling [`Market::configure`].
+	fn configure() -> Weight;
+	/// Weight of calling [`Market::start_sales`].
+	fn start_sales() -> Weight;
+	/// Weight of calling [`Market::place_order`].
+	fn place_order() -> Weight;
+	/// Weight of calling [`Market::place_renewal_order`].
+	fn place_renewal_order() -> Weight;
+	/// Weight of calling [`Market::adjust_bid`].
+	fn adjust_bid() -> Weight;
+	/// Weight of calling [`Market::get_sale_info`].
+	fn get_sale_info() -> Weight;
 }
 
 /// Provides information about the range of cores that can be sold on a market.

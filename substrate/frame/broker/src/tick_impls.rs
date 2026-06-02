@@ -15,8 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::dispatchable_impls::DoRenewResult;
-
 use super::*;
 use alloc::{vec, vec::Vec};
 use fp_coretime::market::{Market, MarketSaleInfo, TickAction};
@@ -175,12 +173,18 @@ impl<T: Config> Pallet<T> {
 	) {
 		match action {
 			TickAction::RenewRegion { owner, renewal_id } => {
-				meter.consume(T::WeightInfo::process_tick_action_renew_region());
-
-				// TODO: Either accept `region_id` at `do_renew` or provide `core` instead of
-				// `renewal_id` in `TickAction::RenewRegion`.
-				// TODO: Deposit event instead of failing here?
-				Self::do_renew(owner, renewal_id.core).defensive_ok();
+				meter.consume(
+					T::WeightInfo::process_tick_action_renew_region() +
+						MarketWeightsOf::<T>::place_renewal_order(),
+				);
+				if let Err(e) = Self::do_renew(owner.clone(), renewal_id.core) {
+					log::error!(
+						"failed to renew (id: {:?}, owned by: {:?}) by the market request: {:?}",
+						renewal_id,
+						owner,
+						e
+					);
+				}
 			},
 			TickAction::SellRegion { owner, paid, region_id, region_end } => {
 				meter.consume(T::WeightInfo::process_tick_action_sell_region());
@@ -209,7 +213,7 @@ impl<T: Config> Pallet<T> {
 				));
 
 				if let Ok(auto_renewals) =
-					Self::renew_cores(auto_renewals, after_timeslice, next_renewal_at)
+					Self::renew_cores(auto_renewals, after_timeslice, next_renewal_at, meter)
 				{
 					AutoRenewals::<T>::set(auto_renewals);
 				} else {
@@ -324,6 +328,7 @@ impl<T: Config> Pallet<T> {
 		auto_renewals: BoundedVec<AutoRenewalRecord, T::MaxAutoRenewals>,
 		after_timeslice: Timeslice,
 		next_renewal: Timeslice,
+		weight_meter: &mut WeightMeter,
 	) -> Result<BoundedVec<AutoRenewalRecord, T::MaxAutoRenewals>, ()> {
 		auto_renewals
 			.into_iter()
@@ -342,12 +347,13 @@ impl<T: Config> Pallet<T> {
 					return None;
 				};
 
+				weight_meter.consume(MarketWeightsOf::<T>::place_renewal_order());
 				let renew_result = Self::do_renew(payer.clone(), record.core);
 				match renew_result {
-					Ok(DoRenewResult::Renewed { new_core }) => {
+					Ok(RenewResult::Renewed { new_core }) => {
 						Some(AutoRenewalRecord { core: new_core, task: record.task, next_renewal })
 					},
-					Ok(DoRenewResult::BidPlaced { .. }) => {
+					Ok(RenewResult::BidPlaced { .. }) => {
 						// We don't support auto-renewals when market doesn't allow purchasing
 						// regions right away.
 						Self::deposit_event(Event::<T>::AutoRenewalFailed {
