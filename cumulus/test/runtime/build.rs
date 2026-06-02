@@ -73,12 +73,10 @@ fn main() {
 
 	WasmBuilder::init_with_defaults()
 		.enable_feature("v3-descriptor")
-		.import_memory()
 		.set_file_name("wasm_binary_async_backing_v3.rs")
 		.build();
 
-	WasmBuilder::new()
-		.with_current_project()
+	WasmBuilder::init_with_defaults()
 		.enable_feature("v3-descriptor")
 		.enable_feature("relay-parent-offset-2")
 		.set_file_name("wasm_binary_async_backing_v3_rpo.rs")

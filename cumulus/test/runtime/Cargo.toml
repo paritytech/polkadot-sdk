@@ -108,7 +108,7 @@ increment-spec-version = []
 # The default parachain slot duration is 6s. The following features can be used to change this value:
 # Change the parachain slot duration to 12s
 12s-slot = []
-# Change the parachain slot duration to 12s
+# Change the parachain slot duration to 18s
 18s-slot = []
 
 # Configure the runtime to use sync backing. More specifically, this leads to:
