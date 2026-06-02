@@ -163,8 +163,9 @@ pub struct OverheadParams {
 	/// (subxt-based signed remark) unless a custom builder is provided via
 	/// `run_with_extrinsic_builder*`. Raw timing statistics are left unchanged.
 	///
-	/// This flag controls whether the generated weight expression in the template includes explicit
-	/// `Weight::saturating_sub(...)` terms for `--signature-weight` and `--extension-weight`.
+	/// This flag controls whether the generated weight expression in the template includes
+	/// explicit `Weight::saturating_sub(...)` terms for `--signature-weight` and
+	/// `--extension-weight`.
 	#[arg(long, default_value_t = true, alias = "subtract-extensions")]
 	pub extrinsic_subtract_weight: bool,
 
