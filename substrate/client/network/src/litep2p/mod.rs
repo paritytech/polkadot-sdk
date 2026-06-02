@@ -26,7 +26,6 @@ use crate::{
 	error::Error,
 	event::{DhtEvent, Event},
 	litep2p::{
-		bitswap::BitswapService,
 		discovery::{Discovery, DiscoveryEvent},
 		ipfs_dht::IpfsDht,
 		peerstore::Peerstore,
@@ -72,7 +71,6 @@ use litep2p::{
 use prometheus_endpoint::Registry;
 use sc_network_types::kad::{Key as RecordKey, PeerRecord, Record as P2PRecord};
 
-use sc_client_api::BlockBackend;
 use sc_network_common::{role::Roles, ExHashT};
 use sc_network_types::PeerId;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
@@ -92,7 +90,6 @@ use std::{
 	time::{Duration, Instant},
 };
 
-mod bitswap;
 mod discovery;
 mod ipfs_dht;
 mod peerstore;
@@ -194,6 +191,18 @@ pub struct Litep2pNetworkBackend {
 
 	/// Prometheus metrics.
 	metrics: Option<Metrics>,
+
+	/// Sender for Bitswap peer events. `Some` when `--ipfs-server` is enabled. The main
+	/// loop publishes [`crate::bitswap::PeerEvent::Connected`] /
+	/// [`crate::bitswap::PeerEvent::Disconnected`] into this channel from its
+	/// `ConnectionEstablished` / `ConnectionClosed` arms; the receiver lives inside the
+	/// Bitswap service actor.
+	bitswap_peer_event_tx: Option<tokio::sync::mpsc::Sender<crate::bitswap::PeerEvent>>,
+
+	/// Per-peer connection count, used to dedup Bitswap peer events. Empty when
+	/// `bitswap_peer_event_tx` is `None`. We track this independently of
+	/// [`Self::peers`] because that map is only populated when metrics are enabled.
+	bitswap_peer_conn_count: HashMap<litep2p::PeerId, usize>,
 }
 
 impl Litep2pNetworkBackend {
@@ -343,7 +352,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 	type RequestResponseProtocolConfig = RequestResponseConfig;
 	type NetworkService<Block, Hash> = Arc<Litep2pNetworkService>;
 	type PeerStore = Peerstore;
-	type BitswapConfig = bitswap::BitswapConfig;
 
 	fn new(mut params: Params<B, H, Self>) -> Result<Self, Error>
 	where
@@ -510,15 +518,22 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				Arc::clone(&peer_store_handle),
 			);
 
-		let bitswap_cmd_tx = params.ipfs_config.as_ref().map(|c| c.bitswap_config.cmd_tx.clone());
+		let mut bitswap_user_handle: Option<crate::bitswap::BitswapHandle> = None;
+		let mut bitswap_peer_event_tx: Option<
+			tokio::sync::mpsc::Sender<crate::bitswap::PeerEvent>,
+		> = None;
 
-		// enable Bitswap & IPFS DHT
-		if let Some(config) = params.ipfs_config {
-			config_builder =
-				config_builder.with_libp2p_bitswap(config.bitswap_config.litep2p_config);
+		if let Some(ipfs) = params.ipfs_config {
+			let wiring = ipfs.bitswap_wiring.expect(
+				"ipfs_config.bitswap_wiring must be Some when ipfs_server is enabled; \
+					 build_network constructs it via sc_network::bitswap::start; qed",
+			);
+			config_builder = config_builder.with_libp2p_bitswap(wiring.litep2p_config);
+			bitswap_user_handle = Some(wiring.user_handle);
+			bitswap_peer_event_tx = Some(wiring.peer_event_tx);
 
-			if !config.bootnodes.is_empty() {
-				let (ipfs_dht, kad_config) = IpfsDht::new(config.bootnodes, config.block_provider);
+			if !ipfs.bootnodes.is_empty() {
+				let (ipfs_dht, kad_config) = IpfsDht::new(ipfs.bootnodes, ipfs.block_provider);
 				config_builder = config_builder.with_libp2p_kademlia(kad_config);
 				executor.run(Box::pin(ipfs_dht.run()));
 			} else {
@@ -577,7 +592,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			request_response_senders,
 			Arc::clone(&listen_addresses),
 			public_addresses,
-			bitswap_cmd_tx,
+			bitswap_user_handle,
 		));
 
 		// register rest of the metrics now that `Litep2p` has been created
@@ -602,6 +617,8 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			event_streams: out_events::OutChannels::new(None)?,
 			peers: HashMap::new(),
 			litep2p,
+			bitswap_peer_event_tx,
+			bitswap_peer_conn_count: HashMap::new(),
 		})
 	}
 
@@ -618,13 +635,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 	fn register_notification_metrics(registry: Option<&Registry>) -> NotificationMetrics {
 		NotificationMetrics::new(registry)
-	}
-
-	/// Create Bitswap server.
-	fn bitswap_server(
-		client: Arc<dyn BlockBackend<B> + Send + Sync>,
-	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Self::BitswapConfig) {
-		BitswapService::new(client)
 	}
 
 	/// Create notification protocol configuration for `protocol`.
@@ -1178,6 +1188,14 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				},
 				event = self.litep2p.next_event() => match event {
 					Some(Litep2pEvent::ConnectionEstablished { peer, endpoint }) => {
+						if let Some(tx) = self.bitswap_peer_event_tx.as_ref() {
+							let count = self.bitswap_peer_conn_count.entry(peer).or_insert(0);
+							*count += 1;
+							if *count == 1 {
+								let _ = tx.try_send(crate::bitswap::PeerEvent::Connected { peer });
+							}
+						}
+
 						let Some(metrics) = &self.metrics else {
 							continue;
 						};
@@ -1212,6 +1230,16 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 					}
 					Some(Litep2pEvent::ConnectionClosed { peer, connection_id }) => {
+						if let Some(tx) = self.bitswap_peer_event_tx.as_ref() {
+							if let Some(count) = self.bitswap_peer_conn_count.get_mut(&peer) {
+								*count = count.saturating_sub(1);
+								if *count == 0 {
+									self.bitswap_peer_conn_count.remove(&peer);
+									let _ = tx.try_send(crate::bitswap::PeerEvent::Disconnected { peer });
+								}
+							}
+						}
+
 						let Some(metrics) = &self.metrics else {
 							continue;
 						};

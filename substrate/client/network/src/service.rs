@@ -29,7 +29,6 @@
 
 use crate::{
 	behaviour::{self, Behaviour, BehaviourOut},
-	bitswap::BitswapRequestHandler,
 	config::{
 		parse_addr, FullNetworkConfiguration, IncomingRequest, MultiaddrWithPeerId,
 		NonDefaultSetConfig, NotificationHandshake, Params, SetConfig, TransportConfig,
@@ -78,7 +77,6 @@ use parking_lot::Mutex;
 use prometheus_endpoint::Registry;
 use sc_network_types::kad::{Key as KademliaKey, Record};
 
-use sc_client_api::BlockBackend;
 use sc_network_common::{
 	role::{ObservedRole, Roles},
 	ExHashT,
@@ -171,7 +169,6 @@ where
 	type RequestResponseProtocolConfig = RequestResponseConfig;
 	type NetworkService<Block, Hash> = Arc<NetworkService<B, H>>;
 	type PeerStore = PeerStore;
-	type BitswapConfig = RequestResponseConfig;
 
 	fn new(params: Params<B, H, Self>) -> Result<Self, Error>
 	where
@@ -195,14 +192,6 @@ where
 
 	fn register_notification_metrics(registry: Option<&Registry>) -> NotificationMetrics {
 		NotificationMetrics::new(registry)
-	}
-
-	fn bitswap_server(
-		client: Arc<dyn BlockBackend<B> + Send + Sync>,
-	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Self::BitswapConfig) {
-		let (handler, protocol_config) = BitswapRequestHandler::new(client.clone());
-
-		(Box::pin(async move { handler.run().await }), protocol_config)
 	}
 
 	/// Create notification protocol configuration.
@@ -1237,6 +1226,13 @@ where
 			connect,
 		});
 	}
+}
+
+impl<B, H> crate::service::traits::BitswapProvider for NetworkService<B, H>
+where
+	B: BlockT + 'static,
+	H: ExHashT,
+{
 }
 
 /// A `NotificationSender` allows for sending notifications to a peer with a chosen protocol.

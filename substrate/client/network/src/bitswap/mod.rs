@@ -15,70 +15,47 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate. If not, see <https://www.gnu.org/licenses/>.
 
-//! Bitswap server for Substrate.
+//! Bitswap support for Substrate.
 //!
-//! Supports querying indexed transactions by hash over the standard bitswap protocol (v1.2.0).
-//! CIDs must reference a supported 256-bit transaction hash.
+//! Implements both the server side (serving indexed-transaction blocks to peers that send
+//! Bitswap v1.2.0 wantlists) and the client side (a long-lived service plus user-facing
+//! [`BitswapHandle`] for fetching CIDs from the network).
+//!
+//! Only available on the litep2p network backend. The user-facing handle is reached via
+//! `NetworkService::bitswap_handle()` and is `Some(_)` when the node was started with
+//! `--ipfs-server` and a litep2p backend, `None` otherwise.
 
-use crate::{
-	request_responses::{IncomingRequest, OutgoingResponse, ProtocolConfig},
-	types::ProtocolName,
-	MAX_RESPONSE_SIZE,
-};
+use cid::Version as CidVersion;
 
-use cid::{Error as CidError, Version as CidVersion};
-use futures::StreamExt;
-use log::{debug, error, trace};
-use prost::Message;
-use sc_client_api::BlockBackend;
-use sc_network_types::PeerId;
-use schema::bitswap::{
-	message::{wantlist::WantType, Block as MessageBlock, BlockPresence, BlockPresenceType},
-	Message as BitswapMessage,
-};
-use sp_core::H256;
-use sp_runtime::traits::Block as BlockT;
-use std::{io, sync::Arc, time::Duration};
-use unsigned_varint::encode as varint_encode;
-
-/// Bitswap client.
-mod client;
-pub(crate) mod schema;
+mod handle;
+mod service;
 
 pub use cid::Cid;
-
-/// Test helpers re-exporting the internal bitswap protobuf schema and the CID prefix
-/// constructor for use by downstream test crates.
-#[cfg(any(test, feature = "test-helpers"))]
-pub mod test_helpers {
-	pub use super::{schema::bitswap as schema, Prefix};
-}
-
-pub use client::{
-	request_bitswap_blocks, request_bitswap_blocks_unverified, BitswapError, FetchOutcome,
-	BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, SHA2_256_MULTIHASH_CODE,
+pub(crate) use handle::BitswapCommand;
+pub use handle::{
+	BitswapError, BitswapHandle, BitswapRequest, BitswapServiceConfig, BitswapWiring, FetchItem,
+	FetchOutcome, PeerEvent, MAX_CIDS_PER_REQUEST,
 };
-
-pub(crate) use schema::bitswap::Message as BitswapProtoMessage;
+pub use service::start;
 
 pub(crate) const LOG_TARGET: &str = "sub-libp2p::bitswap";
 
-// Use the network-wide response cap for Bitswap messages.
-const MAX_PACKET_SIZE: u64 = MAX_RESPONSE_SIZE;
-
-/// Max number of queued responses before denying requests.
-const MAX_REQUEST_QUEUE: usize = 20;
-
-/// Max number of blocks per wantlist.
+/// Max number of blocks per wantlist, enforced both on the wire and at admission.
 pub const MAX_WANTED_BLOCKS: usize = 16;
-
-/// Bitswap protocol name.
-pub(crate) const PROTOCOL_NAME: &str = "/ipfs/bitswap/1.2.0";
 
 /// IPFS raw multicodec used for indexed transaction payload bytes.
 pub const RAW_CODEC: u64 = 0x55;
 
-/// Check if a CID is supported by the bitswap protocol — CIDv1, 32-byte digest, with a
+/// Multihash code for BLAKE2b-256, per the multicodec table.
+pub const BLAKE2B_256_MULTIHASH_CODE: u64 = 0xb220;
+
+/// Multihash code for SHA2-256, per the multicodec table.
+pub const SHA2_256_MULTIHASH_CODE: u64 = 0x12;
+
+/// Multihash code for Keccak-256, per the multicodec table.
+pub const KECCAK_256_MULTIHASH_CODE: u64 = 0x1b;
+
+/// Check if a CID is supported by the Bitswap protocol: CIDv1, 32-byte digest, with a
 /// supported multihash code (Blake2b-256, SHA2-256, or Keccak-256).
 pub fn is_cid_supported(cid: &Cid) -> bool {
 	cid.version() != CidVersion::V0 &&
@@ -86,36 +63,15 @@ pub fn is_cid_supported(cid: &Cid) -> bool {
 		is_supported_multihash_code(cid.hash().code())
 }
 
-/// Return `true` if `code` is a supported multihash code.
 pub(crate) fn is_supported_multihash_code(code: u64) -> bool {
 	matches!(code, BLAKE2B_256_MULTIHASH_CODE | SHA2_256_MULTIHASH_CODE | KECCAK_256_MULTIHASH_CODE)
 }
 
-/// CID metadata without the actual content bytes.
-#[cfg(not(any(test, feature = "test-helpers")))]
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub(crate) struct Prefix {
-	/// The version of CID.
 	pub version: CidVersion,
-	/// The codec of CID.
 	pub codec: u64,
-	/// The multihash type of CID.
 	pub mh_type: u64,
-	/// The multihash length of CID.
-	pub mh_len: u8,
-}
-
-/// CID prefix builder, re-exported for downstream test crates under `test-helpers`.
-#[cfg(any(test, feature = "test-helpers"))]
-#[derive(PartialEq, Eq, Clone, Debug)]
-pub struct Prefix {
-	/// The version of CID.
-	pub version: CidVersion,
-	/// The codec of CID.
-	pub codec: u64,
-	/// The multihash type of CID.
-	pub mh_type: u64,
-	/// The multihash length of CID.
 	pub mh_len: u8,
 }
 
@@ -130,550 +86,9 @@ impl From<&Cid> for Prefix {
 	}
 }
 
-impl Prefix {
-	/// Convert the prefix to encoded bytes.
-	#[cfg(not(any(test, feature = "test-helpers")))]
-	pub(crate) fn to_bytes(&self) -> Vec<u8> {
-		self.to_bytes_inner()
-	}
-
-	/// Convert the prefix to encoded bytes.
-	#[cfg(any(test, feature = "test-helpers"))]
-	pub fn to_bytes(&self) -> Vec<u8> {
-		self.to_bytes_inner()
-	}
-
-	fn to_bytes_inner(&self) -> Vec<u8> {
-		let mut res = Vec::with_capacity(4);
-		let mut buf = varint_encode::u64_buffer();
-		let version = varint_encode::u64(self.version.into(), &mut buf);
-		res.extend_from_slice(version);
-		let mut buf = varint_encode::u64_buffer();
-		let codec = varint_encode::u64(self.codec, &mut buf);
-		res.extend_from_slice(codec);
-		let mut buf = varint_encode::u64_buffer();
-		let mh_type = varint_encode::u64(self.mh_type, &mut buf);
-		res.extend_from_slice(mh_type);
-		let mut buf = varint_encode::u64_buffer();
-		let mh_len = varint_encode::u64(self.mh_len as u64, &mut buf);
-		res.extend_from_slice(mh_len);
-		res
-	}
-}
-
-/// Bitswap request handler.
-pub(crate) struct BitswapRequestHandler<B> {
-	client: Arc<dyn BlockBackend<B> + Send + Sync>,
-	request_receiver: async_channel::Receiver<IncomingRequest>,
-}
-
-impl<B: BlockT> BitswapRequestHandler<B> {
-	/// Create a new [`BitswapRequestHandler`].
-	pub(crate) fn new(client: Arc<dyn BlockBackend<B> + Send + Sync>) -> (Self, ProtocolConfig) {
-		let (tx, request_receiver) = async_channel::bounded(MAX_REQUEST_QUEUE);
-
-		let config = ProtocolConfig {
-			name: ProtocolName::from(PROTOCOL_NAME),
-			fallback_names: vec![],
-			max_request_size: MAX_PACKET_SIZE,
-			max_response_size: MAX_PACKET_SIZE,
-			request_timeout: Duration::from_secs(15),
-			inbound_queue: Some(tx),
-		};
-
-		(Self { client, request_receiver }, config)
-	}
-
-	/// Run [`BitswapRequestHandler`].
-	pub(crate) async fn run(mut self) {
-		while let Some(request) = self.request_receiver.next().await {
-			let IncomingRequest { peer, payload, pending_response } = request;
-
-			match self.handle_message(&peer, &payload) {
-				Ok(response) => {
-					let response = OutgoingResponse {
-						result: Ok(response),
-						reputation_changes: Vec::new(),
-						sent_feedback: None,
-					};
-
-					match pending_response.send(response) {
-						Ok(()) => {
-							trace!(target: LOG_TARGET, "Handled bitswap request from {peer}.",)
-						},
-						Err(_) => debug!(
-							target: LOG_TARGET,
-							"Failed to handle bitswap request from {peer}: {}",
-							RequestHandlerError::SendResponse,
-						),
-					}
-				},
-				Err(err) => {
-					error!(target: LOG_TARGET, "Failed to process request from {peer}: {err}");
-
-					// TODO: adjust reputation?
-
-					let response = OutgoingResponse {
-						result: Err(()),
-						reputation_changes: vec![],
-						sent_feedback: None,
-					};
-
-					if pending_response.send(response).is_err() {
-						debug!(
-							target: LOG_TARGET,
-							"Failed to handle bitswap request from {peer}: {}",
-							RequestHandlerError::SendResponse,
-						);
-					}
-				},
-			}
-		}
-	}
-
-	/// Handle received Bitswap request
-	fn handle_message(
-		&mut self,
-		peer: &PeerId,
-		payload: &[u8],
-	) -> Result<Vec<u8>, RequestHandlerError> {
-		let request = schema::bitswap::Message::decode(payload)?;
-
-		trace!(target: LOG_TARGET, "Received request: {:?} from {}", request, peer);
-
-		let mut response = BitswapMessage::default();
-
-		let wantlist = match request.wantlist {
-			Some(wantlist) => wantlist,
-			None => {
-				debug!(target: LOG_TARGET, "Unexpected bitswap message from {}", peer);
-				return Err(RequestHandlerError::InvalidWantList);
-			},
-		};
-
-		if wantlist.entries.len() > MAX_WANTED_BLOCKS {
-			trace!(target: LOG_TARGET, "Ignored request: too many entries");
-			return Err(RequestHandlerError::TooManyEntries);
-		}
-
-		for entry in wantlist.entries {
-			let cid = match Cid::read_bytes(entry.block.as_slice()) {
-				Ok(cid) => cid,
-				Err(e) => {
-					trace!(target: LOG_TARGET, "Bad CID {:?}: {:?}", entry.block, e);
-					continue;
-				},
-			};
-
-			if !is_cid_supported(&cid) {
-				trace!(target: LOG_TARGET, "Ignoring unsupported CID {}: {}", peer, cid);
-				continue;
-			}
-
-			let mut hash = H256::default();
-			hash.as_mut().copy_from_slice(&cid.hash().digest()[0..32]);
-			let transaction = match self.client.indexed_transaction(hash) {
-				Ok(ex) => ex,
-				Err(e) => {
-					error!(target: LOG_TARGET, "Error retrieving transaction {}: {}", hash, e);
-					None
-				},
-			};
-
-			match transaction {
-				Some(transaction) => {
-					trace!(target: LOG_TARGET, "Found CID {:?}, hash {:?}", cid, hash);
-
-					if entry.want_type == WantType::Block as i32 {
-						let prefix: Prefix = (&cid).into();
-						response
-							.payload
-							.push(MessageBlock { prefix: prefix.to_bytes(), data: transaction });
-					} else {
-						response.block_presences.push(BlockPresence {
-							r#type: BlockPresenceType::Have as i32,
-							cid: cid.to_bytes(),
-						});
-					}
-				},
-				None => {
-					trace!(target: LOG_TARGET, "Missing CID {:?}, hash {:?}", cid, hash);
-
-					if entry.send_dont_have {
-						response.block_presences.push(BlockPresence {
-							r#type: BlockPresenceType::DontHave as i32,
-							cid: cid.to_bytes(),
-						});
-					}
-				},
-			}
-		}
-
-		Ok(response.encode_to_vec())
-	}
-}
-
-/// Bitswap protocol error.
-#[derive(Debug, thiserror::Error)]
-enum RequestHandlerError {
-	/// Protobuf decoding error.
-	#[error("Failed to decode request: {0}.")]
-	DecodeProto(#[from] prost::DecodeError),
-
-	/// Protobuf encoding error.
-	#[error("Failed to encode response: {0}.")]
-	EncodeProto(#[from] prost::EncodeError),
-
-	/// Client backend error.
-	#[error(transparent)]
-	Client(#[from] sp_blockchain::Error),
-
-	/// Error parsing CID
-	#[error(transparent)]
-	BadCid(#[from] CidError),
-
-	/// Packet read error.
-	#[error(transparent)]
-	Read(#[from] io::Error),
-
-	/// Error sending response.
-	#[error("Failed to send response.")]
-	SendResponse,
-
-	/// Message doesn't have a WANT list.
-	#[error("Invalid WANT list.")]
-	InvalidWantList,
-
-	/// Too many blocks requested.
-	#[error("Too many block entries in the request.")]
-	TooManyEntries,
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use futures::channel::oneshot;
-	use litep2p::types::multihash::Code as LiteP2pCode;
-	use sc_block_builder::BlockBuilderBuilder;
-	use schema::bitswap::{
-		message::{wantlist::Entry, Wantlist},
-		Message as BitswapMessage,
-	};
-	use sp_consensus::BlockOrigin;
-	use sp_runtime::codec::Encode;
-	use substrate_test_runtime::ExtrinsicBuilder;
-	use substrate_test_runtime_client::{self, prelude::*, TestClientBuilder};
-
-	#[tokio::test]
-	async fn undecodable_message() {
-		let client = substrate_test_runtime_client::new();
-		let (bitswap, config) = BitswapRequestHandler::new(Arc::new(client));
-
-		tokio::spawn(async move { bitswap.run().await });
-
-		let (tx, rx) = oneshot::channel();
-		config
-			.inbound_queue
-			.unwrap()
-			.send(IncomingRequest {
-				peer: PeerId::random(),
-				payload: vec![0x13, 0x37, 0x13, 0x38],
-				pending_response: tx,
-			})
-			.await
-			.unwrap();
-
-		if let Ok(OutgoingResponse { result, reputation_changes, sent_feedback }) = rx.await {
-			assert_eq!(result, Err(()));
-			assert_eq!(reputation_changes, Vec::new());
-			assert!(sent_feedback.is_none());
-		} else {
-			panic!("invalid event received");
-		}
-	}
-
-	#[tokio::test]
-	async fn empty_want_list() {
-		let client = substrate_test_runtime_client::new();
-		let (bitswap, mut config) = BitswapRequestHandler::new(Arc::new(client));
-
-		tokio::spawn(async move { bitswap.run().await });
-
-		let (tx, rx) = oneshot::channel();
-		config
-			.inbound_queue
-			.as_mut()
-			.unwrap()
-			.send(IncomingRequest {
-				peer: PeerId::random(),
-				payload: BitswapMessage { wantlist: None, ..Default::default() }.encode_to_vec(),
-				pending_response: tx,
-			})
-			.await
-			.unwrap();
-
-		if let Ok(OutgoingResponse { result, reputation_changes, sent_feedback }) = rx.await {
-			assert_eq!(result, Err(()));
-			assert_eq!(reputation_changes, Vec::new());
-			assert!(sent_feedback.is_none());
-		} else {
-			panic!("invalid event received");
-		}
-
-		// Empty WANT list should not cause an error
-		let (tx, rx) = oneshot::channel();
-		config
-			.inbound_queue
-			.unwrap()
-			.send(IncomingRequest {
-				peer: PeerId::random(),
-				payload: BitswapMessage {
-					wantlist: Some(Default::default()),
-					..Default::default()
-				}
-				.encode_to_vec(),
-				pending_response: tx,
-			})
-			.await
-			.unwrap();
-
-		if let Ok(OutgoingResponse { result, reputation_changes, sent_feedback }) = rx.await {
-			assert_eq!(result, Ok(BitswapMessage::default().encode_to_vec()));
-			assert_eq!(reputation_changes, Vec::new());
-			assert!(sent_feedback.is_none());
-		} else {
-			panic!("invalid event received");
-		}
-	}
-
-	#[tokio::test]
-	async fn too_long_want_list() {
-		let client = substrate_test_runtime_client::new();
-		let (bitswap, config) = BitswapRequestHandler::new(Arc::new(client));
-
-		tokio::spawn(async move { bitswap.run().await });
-
-		let (tx, rx) = oneshot::channel();
-		config
-			.inbound_queue
-			.unwrap()
-			.send(IncomingRequest {
-				peer: PeerId::random(),
-				payload: BitswapMessage {
-					wantlist: Some(Wantlist {
-						entries: (0..MAX_WANTED_BLOCKS + 1)
-							.map(|_| Entry::default())
-							.collect::<Vec<_>>(),
-						full: false,
-					}),
-					..Default::default()
-				}
-				.encode_to_vec(),
-				pending_response: tx,
-			})
-			.await
-			.unwrap();
-
-		if let Ok(OutgoingResponse { result, reputation_changes, sent_feedback }) = rx.await {
-			assert_eq!(result, Err(()));
-			assert_eq!(reputation_changes, Vec::new());
-			assert!(sent_feedback.is_none());
-		} else {
-			panic!("invalid event received");
-		}
-	}
-
-	#[tokio::test]
-	async fn transaction_not_found() {
-		let client = TestClientBuilder::with_tx_storage(u32::MAX).build();
-
-		let (bitswap, config) = BitswapRequestHandler::new(Arc::new(client));
-		tokio::spawn(async move { bitswap.run().await });
-
-		let (tx, rx) = oneshot::channel();
-		config
-			.inbound_queue
-			.unwrap()
-			.send(IncomingRequest {
-				peer: PeerId::random(),
-				payload: BitswapMessage {
-					wantlist: Some(Wantlist {
-						entries: vec![Entry {
-							block: cid::Cid::new_v1(
-								0x70,
-								cid::multihash::Multihash::wrap(
-									u64::from(LiteP2pCode::Blake2b256),
-									&[0u8; 32],
-								)
-								.unwrap(),
-							)
-							.to_bytes(),
-							..Default::default()
-						}],
-						full: false,
-					}),
-					..Default::default()
-				}
-				.encode_to_vec(),
-				pending_response: tx,
-			})
-			.await
-			.unwrap();
-
-		if let Ok(OutgoingResponse { result, reputation_changes, sent_feedback }) = rx.await {
-			assert_eq!(result, Ok(vec![]));
-			assert_eq!(reputation_changes, Vec::new());
-			assert!(sent_feedback.is_none());
-		} else {
-			panic!("invalid event received");
-		}
-	}
-
-	#[tokio::test]
-	async fn transaction_found() {
-		let client = TestClientBuilder::with_tx_storage(u32::MAX).build();
-		let mut block_builder = BlockBuilderBuilder::new(&client)
-			.on_parent_block(client.chain_info().genesis_hash)
-			.with_parent_block_number(0)
-			.build()
-			.unwrap();
-
-		// encoded extrinsic: [161, .. , 2, 6, 16, 19, 55, 19, 56]
-		let ext = ExtrinsicBuilder::new_indexed_call(vec![0x13, 0x37, 0x13, 0x38]).build();
-		let pattern_index = ext.encoded_size() - 4;
-
-		block_builder.push(ext.clone()).unwrap();
-		let block = block_builder.build().unwrap().block;
-
-		client.import(BlockOrigin::File, block).await.unwrap();
-
-		let (bitswap, config) = BitswapRequestHandler::new(Arc::new(client));
-
-		tokio::spawn(async move { bitswap.run().await });
-
-		let (tx, rx) = oneshot::channel();
-		config
-			.inbound_queue
-			.unwrap()
-			.send(IncomingRequest {
-				peer: PeerId::random(),
-				payload: BitswapMessage {
-					wantlist: Some(Wantlist {
-						entries: vec![Entry {
-							block: cid::Cid::new_v1(
-								0x70,
-								cid::multihash::Multihash::wrap(
-									u64::from(LiteP2pCode::Blake2b256),
-									&sp_crypto_hashing::blake2_256(&ext.encode()[pattern_index..]),
-								)
-								.unwrap(),
-							)
-							.to_bytes(),
-							..Default::default()
-						}],
-						full: false,
-					}),
-					..Default::default()
-				}
-				.encode_to_vec(),
-				pending_response: tx,
-			})
-			.await
-			.unwrap();
-
-		if let Ok(OutgoingResponse { result, reputation_changes, sent_feedback }) = rx.await {
-			assert_eq!(reputation_changes, Vec::new());
-			assert!(sent_feedback.is_none());
-
-			let response =
-				schema::bitswap::Message::decode(&result.expect("fetch to succeed")[..]).unwrap();
-			assert_eq!(response.payload[0].data, vec![0x13, 0x37, 0x13, 0x38]);
-		} else {
-			panic!("invalid event received");
-		}
-	}
-
-	#[tokio::test]
-	async fn transaction_not_found_sends_dont_have_when_requested() {
-		let client = TestClientBuilder::with_tx_storage(u32::MAX).build();
-		let (mut bitswap, _config) = BitswapRequestHandler::new(Arc::new(client));
-		let cid = cid::Cid::new_v1(
-			0x70,
-			cid::multihash::Multihash::wrap(u64::from(LiteP2pCode::Blake2b256), &[0u8; 32])
-				.unwrap(),
-		);
-		let request = BitswapMessage {
-			wantlist: Some(Wantlist {
-				entries: vec![Entry {
-					block: cid.to_bytes(),
-					send_dont_have: true,
-					..Default::default()
-				}],
-				full: false,
-			}),
-			..Default::default()
-		}
-		.encode_to_vec();
-
-		let response = BitswapMessage::decode(
-			bitswap.handle_message(&PeerId::random(), &request).unwrap().as_slice(),
-		)
-		.unwrap();
-
-		assert!(response.payload.is_empty());
-		assert_eq!(response.block_presences.len(), 1);
-		assert_eq!(response.block_presences[0].cid, cid.to_bytes());
-		assert_eq!(response.block_presences[0].r#type, BlockPresenceType::DontHave as i32);
-	}
-
-	#[tokio::test]
-	async fn transaction_found_sends_have_for_want_have() {
-		let client = TestClientBuilder::with_tx_storage(u32::MAX).build();
-		let mut block_builder = BlockBuilderBuilder::new(&client)
-			.on_parent_block(client.chain_info().genesis_hash)
-			.with_parent_block_number(0)
-			.build()
-			.unwrap();
-
-		let ext = ExtrinsicBuilder::new_indexed_call(vec![0x13, 0x37, 0x13, 0x38]).build();
-		let pattern_index = ext.encoded_size() - 4;
-		let cid = cid::Cid::new_v1(
-			0x70,
-			cid::multihash::Multihash::wrap(
-				u64::from(LiteP2pCode::Blake2b256),
-				&sp_crypto_hashing::blake2_256(&ext.encode()[pattern_index..]),
-			)
-			.unwrap(),
-		);
-
-		block_builder.push(ext).unwrap();
-		let block = block_builder.build().unwrap().block;
-		client.import(BlockOrigin::File, block).await.unwrap();
-
-		let (mut bitswap, _config) = BitswapRequestHandler::new(Arc::new(client));
-		let request = BitswapMessage {
-			wantlist: Some(Wantlist {
-				entries: vec![Entry {
-					block: cid.to_bytes(),
-					want_type: WantType::Have as i32,
-					..Default::default()
-				}],
-				full: false,
-			}),
-			..Default::default()
-		}
-		.encode_to_vec();
-
-		let response = BitswapMessage::decode(
-			bitswap.handle_message(&PeerId::random(), &request).unwrap().as_slice(),
-		)
-		.unwrap();
-
-		assert!(response.payload.is_empty());
-		assert_eq!(response.block_presences.len(), 1);
-		assert_eq!(response.block_presences[0].cid, cid.to_bytes());
-		assert_eq!(response.block_presences[0].r#type, BlockPresenceType::Have as i32);
-	}
 
 	#[test]
 	fn is_cid_supported_accepts_all_three_supported_hashings() {

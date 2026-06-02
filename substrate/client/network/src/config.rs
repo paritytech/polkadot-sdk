@@ -762,9 +762,11 @@ impl NetworkConfiguration {
 }
 
 /// IPFS server configuration.
-pub struct IpfsConfig<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
-	/// Network-backend-specific Bitswap configuration.
-	pub bitswap_config: N::BitswapConfig,
+pub struct IpfsConfig {
+	/// Bitswap wiring produced by [`crate::bitswap::start`]. Carries the litep2p protocol
+	/// config, the user-facing handle, and the peer-event sender. Consumed by the litep2p
+	/// backend at construction. `None` is unsupported when `ipfs_server = true`.
+	pub bitswap_wiring: Option<crate::bitswap::BitswapWiring>,
 	/// Indexed transactions provider.
 	pub block_provider: Box<dyn crate::IpfsBlockProvider>,
 	/// IPFS bootstrap nodes.
@@ -799,7 +801,7 @@ pub struct Params<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
 	pub block_announce_config: N::NotificationProtocolConfig,
 
 	/// Bitswap configuration, if the server has been enabled.
-	pub ipfs_config: Option<IpfsConfig<Block, H, N>>,
+	pub ipfs_config: Option<IpfsConfig>,
 
 	/// Notification metrics.
 	pub notification_metrics: NotificationMetrics,
