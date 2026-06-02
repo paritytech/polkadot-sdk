@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780350208253,
+  "lastUpdate": 1780389973272,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "db5c89ffb65503c766fec651cf4dabfa8c820398",
-          "message": "collator-protocol: cleanup connecting to backing group (#9178)\n\nThere are a few things wrong with the way we are handling connecting the\nvalidators in the backing group:\n1. `validators_to_connect` returns only validators in groups we already\nhave a block to advertise and the last backing groups we advertised\nsomething to, that means that if our backing group changes, but we don't\nhave anything to advertise it will continue to try to connect to the\nprevious backing group and validator will log this and disconnect it\nimmediately.\nOn the validator you will see`Declared as collator for unneeded para`\nand on the collator you will see Connect/Disconnect requests. This will\ncontinue every reconnect_timeout(4s from each active signal) until the\ncollator advertises something to the new backing group. This is\nharmless, but it pollutes both the collator and the validator logs.\n\n2. A collator connects only when it has something to advertise to its\nbacking group, this is a bit too late and we can improve it by\nconnecting the collators to the backing group immediately after they\nnotice their assigned backing group.\n\n3. Staying connected to the last backingroup we advertised something\ndoes not work for elastic scaling because we have different backing\ngroups and if the collator set is big enough that collators author just\none block per group rotation, then we will always connect just when we\nhave a candidate to advertise.\n\n## Proposal to fix:\n\nHave collators always connect to the backing group they got assigned to\nand keep the connection open until backing group changes. Also, try to\nconnect when have something to advertise or on timeout to have more\nchances of being correctly connected.\n\n## Todo\n- [x] Confirm that proposal does not have other undesired side effects.\n- [x] Tests\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-20T12:20:14Z",
-          "tree_id": "216cea35257ae4f3f415c840fb75efa5e2c7aebb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/db5c89ffb65503c766fec651cf4dabfa8c820398"
-        },
-        "date": 1760966955248,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.96799999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034558533723999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04525621589399998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.0385377887,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a6871c6d1cba2be86b611ca1084bff2b28e7f16d",
+          "message": "Version bumps and prdocs reordering after stable2603-3 (#12230)\n\nThis PR backports regular version bumps and perdocs reordering from\nstable2603 branch back to master\n\n---------\n\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
+          "timestamp": "2026-06-02T07:18:53Z",
+          "tree_id": "7539c3842806d3dbb9b16009446277595358186c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a6871c6d1cba2be86b611ca1084bff2b28e7f16d"
+        },
+        "date": 1780389943138,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.14799999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03848266644600001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.086380686762,
             "unit": "seconds"
           }
         ]
