@@ -286,11 +286,19 @@ mod benches {
 		Ok(())
 	}
 
-	// TODO
-	// #[benchmark]
-	// fn get_sale_info() {
-	// 	todo!()
-	// }
+	#[benchmark]
+	fn get_sale_info() -> Result<(), BenchmarkError> {
+		setup_sale::<T>()?;
+
+		assert!(SaleInfo::<T>::get().is_some());
+
+		#[block]
+		{
+			Pallet::<T>::get_sale_info().expect("SaleInfo is asserted to be in the storage");
+		}
+
+		Ok(())
+	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }
