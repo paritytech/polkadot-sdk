@@ -16,14 +16,14 @@ allowance ([`StatementAllowance`]); an account with no allowance cannot store st
 
 **Channels** act as a single-slot mailbox per `(account, channel)` pair: only one statement per
 channel is kept, and a new one replaces the old one **only if it has strictly higher priority**
-(a greater `expiry`). This makes them ideal for replaceable state (presence, latest status). A
-lower-or-equal-priority submission on an existing channel is rejected with
+(a greater `expiry`). This makes them ideal for replaceable state, keeping only the latest value on
+a channel. A lower-or-equal-priority submission on an existing channel is rejected with
 [`RejectionReason::ChannelPriorityTooLow`]. There is no built-in way to fetch statements by
 channel — retrieval is by topic only.
 
 **Topics** are network-wide, public, and unreserved: anyone may post to any topic, and every
-subscriber listening on a topic receives matching statements. They are the main routing element
-for chats (private or group). The store does not prescribe how a `TopicID` (32 bytes) is chosen;
+subscriber listening on a topic receives matching statements. They are the main element for
+grouping related statements. The store does not prescribe how a `TopicID` (32 bytes) is chosen;
 two common patterns and their trade-offs:
 
 - `hash(app_name + public_key)` — convenient, but since the public key is known this lets an
@@ -40,20 +40,20 @@ UNIX epoch) in the **high 32 bits** and a sequence number in the **low 32 bits**
 higher priority. Eviction is purely priority-based and treats channel and non-channel statements
 uniformly — there is no separate per-channel eviction.
 
-For example, a presence indicator that keeps only the latest status uses one channel with a fixed
-future expiry timestamp and an incrementing sequence number:
+For example, to keep only the latest value on a channel, use a fixed future expiry timestamp with
+an incrementing sequence number:
 
 ```rust
-// "Online" and a later "Away" update share the same channel and the same future expiry
-// timestamp, but the sequence number increments so the new status outranks the old one.
+// Two successive updates share the same channel and the same future expiry timestamp, but the
+// sequence number increments so the newer one outranks the older.
 let expires_at: u64 = 0x69F5_4B54; // ~30 days in the future, seconds since the UNIX epoch
 
-let online: u64 = (expires_at << 32) | 1;
-let away: u64 = (expires_at << 32) | 2;
+let first: u64 = (expires_at << 32) | 1;
+let second: u64 = (expires_at << 32) | 2;
 
-// Higher priority, so submitting `away` on the same channel replaces the `online` statement.
-assert!(away > online);
-assert_eq!(away, 0x69F5_4B54_0000_0002);
+// Higher priority, so submitting `second` on the same channel replaces the `first` statement.
+assert!(second > first);
+assert_eq!(second, 0x69F5_4B54_0000_0002);
 ```
 
 A caveat for client design: within a shared application namespace, a statement with a very high

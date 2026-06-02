@@ -103,9 +103,9 @@ Subscriptions filter by topic in one of three ways:
   `MAX_ANY_TOPICS` = 128 topics).
 
 Topics are neither private nor reserved: any statement may use any topic, so it is the
-application's responsibility to filter or validate them (for example, to scope a private chat).
-At the network layer, peers can additionally advertise a topic *affinity* (a bloom filter) so that
-only statements matching their interests are propagated to them.
+application's responsibility to filter or validate them. At the network layer, peers can
+additionally advertise a topic *affinity* (a bloom filter) so that only statements matching their
+interests are propagated to them.
 
 ## Best practices
 
