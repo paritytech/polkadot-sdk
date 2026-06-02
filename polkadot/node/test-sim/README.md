@@ -49,22 +49,66 @@ Compared to hand-rolled subsystem tests against a mock overseer:
 
 - **~10× less code, and far less of the brittle kind.** A scenario is the prose of the test;
   the harness plumbing is gone. No `assert_matches!(overseer.recv(), RuntimeApi(...))` ladders.
-- **Order-independent.** Mock-overseer tests must answer runtime requests in the exact order the
-  subsystem happens to make them — get it wrong and the test hangs. Here the chain model answers
-  any query in any order, so you model *facts*, not the subsystem's internal control flow.
+- **You declare the world, not the subsystem's control flow.** Against a mock overseer you must
+  answer each runtime request in the exact order the subsystem happens to make it — every
+  `assert_matches!(overseer.recv(), RuntimeApi(..)) => tx.send(..)` in sequence, or the test
+  hangs. Here you state the chain as facts (schedule, claim queues, lookahead, sessions) and the
+  chain model answers any query, in any order, on demand. The scenario stays an explicit causal
+  sequence — advertise → fetch → second — which *is* the behavior under test; what you no longer
+  hand-script is the subsystem's internal request choreography.
+- **Failures pinpoint the root cause instead of hanging.** This is the big day-to-day win. A
+  mismatch between what the subsystem requests and what your mock answers used to surface as a
+  silent timeout/hang that you bisected by hand. Here an unmet expectation fails immediately with
+  the expected effect, what actually happened, and the full timeline of observed effects in the
+  assertion window (see below).
 - **Differential testing is a free correctness oracle.** When a subsystem has two
   implementations (collator-protocol's legacy and experimental), one scenario runs against both
   and any divergence in observable behavior fails the test — which *locates* a bug to one side
   with no extra work.
 - **Deterministic time.** Timeouts, delays and reputation decay are driven via the mock clock
   (`advance(dur)`), not slept on. No flakes, no wall-clock waits.
-- **Observability.** Assertions read the recorded effect stream, so a failure shows exactly which
-  effect was (not) emitted and when, instead of being buried in a message exchange.
 
 These compound: cheap, sharp tests mean the edge cases actually get written. The collator-protocol
 work that introduced this framework surfaced several distinct production bugs (claim-queue /
 scheduling-lookahead handling at session boundaries among them) precisely because writing the
 edge-case scenario was a five-minute job rather than an afternoon of harness wrestling.
+
+### What a failure looks like
+
+When an expected effect doesn't show up, you get the assertion, the actual outcome, and the
+recorded effect timeline for the window — not a hang:
+
+```text
+expectation failed:
+  expected:  Effect::SendRequest CollationFetching for the advertised candidate
+  actual:    timed out at sim_t = 500ms
+             observed effects since the When step (sim_t = 0ms..500ms):
+               [    0ms]  DisconnectPeers(n=1, peer_set=Collation)
+```
+
+That single block told us, in the work that built this framework, that the subsystem was
+*disconnecting* the peer instead of fetching from it — the root cause, visible in the failure
+itself, with no instrumentation added and nothing to bisect.
+
+The equivalent mock-overseer test asserts on the *next* message pulled off the pump:
+
+```rust
+assert_matches!(
+    overseer_recv(&mut virtual_overseer).await,   // each recv is `.timeout(TIMEOUT)`
+    AllMessages::NetworkBridgeTx(SendRequest(req, ..)) => { /* ... */ }
+);
+```
+
+When the subsystem does the wrong thing, that goes one of two unhelpful ways:
+
+- It emitted a *different* message first (here, the disconnect). `assert_matches!` panics with
+  "got `NetworkBridgeTx(DisconnectPeers(..))`, expected `SendRequest`" — at *this* line, with no
+  timeline and no hint why the disconnect happened or what came after.
+- It emitted *nothing*. `overseer_recv` hits `TIMEOUT` and the test hangs for the full timeout,
+  then fails on the timeout itself (or CI kills it) — pointing at the `recv`, never the cause.
+
+Same bug, same root cause; the sim surfaces it in the failure, the mock overseer makes you go
+find it.
 
 ## 2. Known-bug tests & test-first flow
 
