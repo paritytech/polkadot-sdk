@@ -164,6 +164,10 @@ impl Contains<Location> for FellowsPlurality {
 	}
 }
 
+/// Maximum number of origin-altering instructions [`WithComputedOrigin`] will process before
+/// giving up. Also the worst case for the barrier-check benchmark.
+pub const MAX_COMPUTED_ORIGIN_PREFIXES: u32 = 8;
+
 pub type Barrier = TrailingSetTopicAsId<
 	DenyThenTry<
 		DenyRecursively<DenyReserveTransferToRelayChain>,
@@ -191,7 +195,7 @@ pub type Barrier = TrailingSetTopicAsId<
 					AllowHrmpNotificationsFromRelayChain,
 				),
 				UniversalLocation,
-				ConstU32<8>,
+				ConstU32<MAX_COMPUTED_ORIGIN_PREFIXES>,
 			>,
 		),
 	>,

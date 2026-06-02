@@ -16,23 +16,36 @@
 //! Helpers for XCM barrier benchmarks.
 
 #[cfg(not(feature = "std"))]
-use alloc::vec;
+use alloc::{vec, vec::Vec};
 use xcm::latest::prelude::*;
 
-/// Worst-case `(origin, message)` for barriers using
-/// `DenyRecursively<DenyReserveTransferToRelayChain>`.
+/// Worst-case `(origin, message)` for barriers shaped like
+/// `DenyThenTry<DenyRecursively<DenyReserveTransferToRelayChain>, (.., WithComputedOrigin<..,
+/// MaxPrefixes>)>`.
+///
+/// The message is built to maximise the work the barrier performs before it rejects the message;
+/// rejection is the only path on which the benchmarked weight is charged.
+///
+/// - It leads with `max_computed_origin_prefixes` `DescendOrigin` instructions, so
+///   `WithComputedOrigin` processes its entire prefix budget. Each `DescendOrigin` appends to the
+///   computed origin, which is the dominant cost of the whole check. For all of the prefixes to be
+///   processed (instead of overflowing the computed origin's junctions and bailing out early),
+///   `origin` must have an empty interior — callers pass the relay/parent location.
+/// - The computed origin and the trailing instruction match none of the `Allow*` cases, so every
+///   allow-barrier in the tuple is evaluated before the message is finally rejected.
+/// - It nests a benign `SetAppendix`/`SetErrorHandler`/`ExecuteWithOrigin` chain (containing no
+///   reserve transfer to the relay), so `DenyRecursively` recurses through every nesting
+///   instruction type without short-circuiting on a denied instruction.
 pub fn deny_reserve_transfer_recursive_barrier_check<Call>(
 	origin: Location,
-	relay_chain: Location,
+	max_computed_origin_prefixes: u32,
 ) -> (Location, Xcm<Call>) {
-	let reserve = Xcm::<Call>(vec![DepositReserveAsset {
-		assets: Wild(All),
-		dest: relay_chain,
-		xcm: Xcm(vec![ClearOrigin].into()),
-	}]);
-	let message = Xcm(vec![ExecuteWithOrigin {
-		xcm: Xcm(vec![SetErrorHandler(Xcm(vec![SetAppendix(reserve.into())].into()))].into()),
+	let mut instructions: Vec<Instruction<Call>> = (0..max_computed_origin_prefixes)
+		.map(|_| DescendOrigin(OnlyChild.into()))
+		.collect();
+	instructions.push(SetAppendix(Xcm(vec![SetErrorHandler(Xcm(vec![ExecuteWithOrigin {
 		descendant_origin: None,
-	}]);
-	(origin, message)
+		xcm: Xcm(vec![ClearOrigin]),
+	}]))])));
+	(origin, Xcm(instructions))
 }

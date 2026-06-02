@@ -1326,13 +1326,13 @@ impl_runtime_apis! {
 				}
 
 				fn worst_case_barrier_check() -> Result<(Location, Xcm<RuntimeCall>), BenchmarkError> {
-					use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
-					// Origin must not be the asset hub for `DenyExportMessageFrom` to scan the message.
-					let origin = Location::new(1, [Parachain(4444)]);
+					// The origin must not be the asset hub (so `DenyExportMessageFrom` scans the
+					// message) and must have an empty interior (so all the message's `DescendOrigin`
+					// prefixes are processed by `WithComputedOrigin` instead of overflowing).
+					let origin = Location::parent();
 					Ok(bridge_hub_common::xcm_benchmarks::bridge_hub_barrier_check::<RuntimeCall>(
 						origin,
-						xcm_config::WestendLocation::get(),
-						EthereumNetwork::get(),
+						xcm_config::MAX_COMPUTED_ORIGIN_PREFIXES,
 					))
 				}
 

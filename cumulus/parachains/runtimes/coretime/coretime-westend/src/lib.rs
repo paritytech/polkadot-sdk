@@ -1258,10 +1258,12 @@ impl_runtime_apis! {
 				}
 
 				fn worst_case_barrier_check() -> Result<(Location, Xcm<RuntimeCall>), BenchmarkError> {
-					let origin = Location::new(1, [Parachain(1000)]);
+					// The origin must have an empty interior so all the message's `DescendOrigin`
+					// prefixes are processed by `WithComputedOrigin` instead of overflowing.
+					let origin = Location::parent();
 					Ok(parachains_common::xcm_benchmarks::deny_reserve_transfer_recursive_barrier_check::<
 						RuntimeCall,
-					>(origin, xcm_config::TokenRelayLocation::get()))
+					>(origin, xcm_config::MAX_COMPUTED_ORIGIN_PREFIXES))
 				}
 			}
 
