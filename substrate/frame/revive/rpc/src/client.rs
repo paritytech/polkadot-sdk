@@ -1092,24 +1092,25 @@ impl Client {
 		// `block_hash` on the inner `TransactionInfo`s stays zero — pre-upgrade
 		// blocks have no real ethereum hash. See #6790.
 		if hydrated_transactions {
-			let mut tx_infos = self
-				.receipt_provider
-				.receipts_from_block(&block, eth_block.hash)
-				.await
-				.inspect_err(|err| {
-					log::trace!(target: LOG_TARGET,
-						"Failed to extract receipts for block #{}: {err:?}",
-						block.number());
-				})
-				.unwrap_or_default()
-				.into_iter()
-				.map(|(signed_tx, receipt)| TransactionInfo::new(&receipt, signed_tx))
-				.collect::<Vec<_>>();
-
-			if tx_infos.is_empty() && eth_block.hash.is_zero() {
-				tx_infos = pre_upgrade_tx_infos_from_extrinsics(&block).await;
-			}
-
+			let tx_infos = if eth_block.hash.is_zero() {
+				// Pre-upgrade: `receipts_from_block` always fails on these (no
+				// `ReceiptInfoData`) — skip its three substrate RPCs entirely and go
+				// straight to the extrinsics walk.
+				pre_upgrade_tx_infos_from_extrinsics(&block).await
+			} else {
+				self.receipt_provider
+					.receipts_from_block(&block, eth_block.hash)
+					.await
+					.inspect_err(|err| {
+						log::trace!(target: LOG_TARGET,
+							"Failed to extract receipts for block #{}: {err:?}",
+							block.number());
+					})
+					.unwrap_or_default()
+					.into_iter()
+					.map(|(signed_tx, receipt)| TransactionInfo::new(&receipt, signed_tx))
+					.collect::<Vec<_>>()
+			};
 			eth_block.transactions = HashesOrTransactionInfos::TransactionInfos(tx_infos);
 		} else if eth_block.hash.is_zero() {
 			let hashes = pre_upgrade_tx_hashes_from_extrinsics(&block).await;
@@ -1196,6 +1197,42 @@ fn to_hex(bytes: impl AsRef<[u8]>) -> String {
 	format!("0x{}", hex::encode(bytes.as_ref()))
 }
 
+/// Decode an `EthTransact` RLP payload into a `TransactionInfo` with `block_hash = 0`.
+/// Returns `None` when the payload cannot be RLP-decoded or the sender cannot be
+/// recovered — failures are logged at WARN since both should be infallible for any
+/// payload the chain itself processed via `process_transaction`.
+///
+/// Pure: no I/O, no state. Used by `pre_upgrade_tx_infos_from_extrinsics` and
+/// directly unit-tested.
+fn eth_transact_payload_to_info(
+	payload: &[u8],
+	block_number: U256,
+	transaction_index: U256,
+) -> Option<TransactionInfo> {
+	let signed_tx = TransactionSigned::decode(payload)
+		.inspect_err(|err| {
+			log::warn!(target: LOG_TARGET,
+				"Failed to RLP-decode EthTransact payload at tx_index {transaction_index}: \
+				 {err:?}");
+		})
+		.ok()?;
+	let from = signed_tx
+		.recover_eth_address()
+		.inspect_err(|_| {
+			log::warn!(target: LOG_TARGET,
+				"Failed to recover sender for EthTransact payload at tx_index {transaction_index}");
+		})
+		.ok()?;
+	Some(TransactionInfo {
+		block_hash: H256::zero(),
+		block_number,
+		from,
+		hash: H256(keccak_256(payload)),
+		transaction_index,
+		transaction_signed: signed_tx,
+	})
+}
+
 /// Walk a substrate block's extrinsics and return the Ethereum tx hashes of every
 /// `EthTransact` call, in extrinsic-index order.
 async fn pre_upgrade_tx_hashes_from_extrinsics(block: &SubstrateBlock) -> Vec<H256> {
@@ -1235,16 +1272,50 @@ async fn pre_upgrade_tx_infos_from_extrinsics(block: &SubstrateBlock) -> Vec<Tra
 		.enumerate()
 		.filter_map(|(ext_idx, ext)| {
 			let call = ext.as_extrinsic::<EthTransact>().ok().flatten()?;
-			let signed_tx = TransactionSigned::decode(&call.payload).ok()?;
-			let from = signed_tx.recover_eth_address().ok()?;
-			Some(TransactionInfo {
-				block_hash: H256::zero(),
-				block_number,
-				from,
-				hash: H256(keccak_256(&call.payload)),
-				transaction_index: U256::from(ext_idx),
-				transaction_signed: signed_tx,
-			})
+			eth_transact_payload_to_info(&call.payload, block_number, U256::from(ext_idx))
 		})
 		.collect()
+}
+
+#[cfg(test)]
+mod helpers_tests {
+	use super::*;
+	use pallet_revive::evm::{Account, TransactionLegacyUnsigned, TransactionUnsigned};
+
+	/// A well-formed RLP payload (signed by a known dev account) decodes successfully
+	/// and produces a `TransactionInfo` with the expected `from`, `hash`, and indices.
+	#[test]
+	fn eth_transact_payload_to_info_happy_path() {
+		let signer = Account::default();
+		let unsigned = TransactionUnsigned::from(TransactionLegacyUnsigned {
+			chain_id: Some(U256::from(42)),
+			to: Some(signer.address()),
+			gas: U256::from(21_000),
+			gas_price: U256::from(1),
+			nonce: U256::from(7),
+			value: U256::from(1_000_000),
+			..Default::default()
+		});
+		let payload = signer.sign_transaction(unsigned).signed_payload();
+		let expected_hash = H256(keccak_256(&payload));
+
+		let info = eth_transact_payload_to_info(&payload, U256::from(123u64), U256::from(2u64))
+			.expect("well-formed payload must decode");
+
+		assert_eq!(info.hash, expected_hash);
+		assert_eq!(info.from, signer.address());
+		assert_eq!(info.block_number, U256::from(123u64));
+		assert_eq!(info.transaction_index, U256::from(2u64));
+		assert_eq!(info.block_hash, H256::zero(), "block_hash stays zero on pre-upgrade");
+	}
+
+	/// A malformed payload returns `None`. A genuine corruption (e.g. payload that
+	/// the chain wouldn't have accepted) must not panic and must not produce a
+	/// half-populated `TransactionInfo`.
+	#[test]
+	fn eth_transact_payload_to_info_decode_failure() {
+		let garbage = [0xFFu8; 32];
+		let info = eth_transact_payload_to_info(&garbage, U256::from(1u64), U256::from(2u64));
+		assert!(info.is_none(), "garbage payload must yield None");
+	}
 }

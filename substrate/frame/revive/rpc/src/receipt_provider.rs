@@ -526,20 +526,17 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 	/// Like [`Self::insert_block_receipts`] but writes only to the DB (no cache update).
 	/// Used for historic sync where fork detection is unnecessary.
-	///
-	/// Returns the extracted receipts so callers can use them without a second sqlite
-	/// read for the just-written rows.
 	pub async fn insert_block_receipts_past(
 		&self,
 		block: &SubstrateBlock,
 		ethereum_hash: &H256,
-	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
+	) -> Result<(), ClientError> {
 		let receipts = self
 			.receipt_extractor
 			.extract_from_block_with_eth_hash(block, *ethereum_hash)
 			.await?;
 		self.insert_into_db(block, &receipts, ethereum_hash).await?;
-		Ok(receipts)
+		Ok(())
 	}
 
 	/// Insert pre-extracted receipts and update the block cache (with fork detection).
