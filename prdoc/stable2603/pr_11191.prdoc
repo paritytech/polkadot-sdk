@@ -1,0 +1,10 @@
+title: 'Cumulus: Improve logging'
+doc:
+- audience: Node Dev
+  description: |-
+    Use correct target and ensure we log when we did not find any parent.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: cumulus-client-consensus-common
+  bump: patch

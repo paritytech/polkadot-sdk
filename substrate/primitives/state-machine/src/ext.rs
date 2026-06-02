@@ -29,6 +29,8 @@ use sp_core::hexdisplay::HexDisplay;
 use sp_core::storage::{
 	well_known_keys::is_child_storage_key, ChildInfo, StateVersion, TrackedStorageKey,
 };
+#[cfg(feature = "std")]
+use sp_externalities::TransactionType;
 use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults};
 
 use crate::{trace, warn};
@@ -273,11 +275,11 @@ where
 
 					// If `backend_key` is less than the `overlay_key`, we found out next key.
 					if cmp == Some(Ordering::Less) {
-						return next_backend_key
+						return next_backend_key;
 					} else if overlay_key.1.value().is_some() {
 						// If there exists a value for the `overlay_key` in the overlay
 						// (aka the key is still valid), it means we have found our next key.
-						return Some(overlay_key.0.to_vec())
+						return Some(overlay_key.0.to_vec());
 					} else if cmp == Some(Ordering::Equal) {
 						// If the `backend_key` and `overlay_key` are equal, it means that we need
 						// to search for the next backend key, because the overlay has overwritten
@@ -314,11 +316,11 @@ where
 
 					// If `backend_key` is less than the `overlay_key`, we found out next key.
 					if cmp == Some(Ordering::Less) {
-						return next_backend_key
+						return next_backend_key;
 					} else if overlay_key.1.value().is_some() {
 						// If there exists a value for the `overlay_key` in the overlay
 						// (aka the key is still valid), it means we have found our next key.
-						return Some(overlay_key.0.to_vec())
+						return Some(overlay_key.0.to_vec());
 					} else if cmp == Some(Ordering::Equal) {
 						// If the `backend_key` and `overlay_key` are equal, it means that we need
 						// to search for the next backend key, because the overlay has overwritten
@@ -343,7 +345,7 @@ where
 		let _guard = guard();
 		if is_child_storage_key(&key) {
 			warn!(target: "trie", "Refuse to directly set child storage key");
-			return
+			return;
 		}
 
 		// NOTE: be careful about touching the key names – used outside substrate!
@@ -421,7 +423,7 @@ where
 				target: "trie",
 				"Refuse to directly clear prefix that is part or contains of child storage key",
 			);
-			return MultiRemovalResults { maybe_cursor: None, backend: 0, unique: 0, loops: 0 }
+			return MultiRemovalResults { maybe_cursor: None, backend: 0, unique: 0, loops: 0 };
 		}
 
 		let overlay = self.overlay.clear_prefix(prefix);
@@ -545,15 +547,34 @@ where
 	}
 
 	fn storage_start_transaction(&mut self) {
-		self.overlay.start_transaction()
+		self.overlay.start_transaction();
+
+		#[cfg(feature = "std")]
+		if let Some(exts) = self.extensions.as_mut() {
+			exts.start_transaction(TransactionType::Runtime);
+		}
 	}
 
 	fn storage_rollback_transaction(&mut self) -> Result<(), ()> {
-		self.overlay.rollback_transaction().map_err(|_| ())
+		self.overlay.rollback_transaction().map_err(|_| ())?;
+
+		#[cfg(feature = "std")]
+		if let Some(exts) = self.extensions.as_mut() {
+			exts.rollback_transaction(TransactionType::Runtime);
+		}
+
+		Ok(())
 	}
 
 	fn storage_commit_transaction(&mut self) -> Result<(), ()> {
-		self.overlay.commit_transaction().map_err(|_| ())
+		self.overlay.commit_transaction().map_err(|_| ())?;
+
+		#[cfg(feature = "std")]
+		if let Some(exts) = self.extensions.as_mut() {
+			exts.commit_transaction(TransactionType::Runtime);
+		}
+
+		Ok(())
 	}
 
 	fn wipe(&mut self) {
@@ -639,7 +660,7 @@ where
 			Ok(iter) => iter,
 			Err(error) => {
 				log::debug!(target: "trie", "Error while iterating the storage: {}", error);
-				return (None, 0, 0)
+				return (None, 0, 0);
 			},
 		};
 
@@ -651,13 +672,13 @@ where
 				Ok(key) => key,
 				Err(error) => {
 					log::debug!(target: "trie", "Error while iterating the storage: {}", error);
-					break
+					break;
 				},
 			};
 
 			if maybe_limit.map_or(false, |limit| loop_count == limit) {
 				maybe_next_key = Some(key);
-				break
+				break;
 			}
 			let overlay = match child_info {
 				Some(child_info) => self.overlay.child_storage(child_info, &key),

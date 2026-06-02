@@ -386,7 +386,7 @@ sp_api::impl_runtime_apis! {
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(_: Option<Vec<u8>>) -> Vec<u8> {
+		fn generate_session_keys(_: Vec<u8>, _: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
 			unimplemented!()
 		}
 
@@ -440,7 +440,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn query_delivery_fees(_: VersionedLocation, _: VersionedXcm<()>) -> Result<VersionedAssets, xcm_runtime_apis::fees::Error> {
+		fn query_delivery_fees(_: VersionedLocation, _: VersionedXcm<()>, _: VersionedAssetId) -> Result<VersionedAssets, xcm_runtime_apis::fees::Error> {
 			unimplemented!()
 		}
 	}

@@ -16,6 +16,11 @@ on:
         description: "Run tests which names match this pattern (also flaky)"
         default: ""
         required: false
+    secrets:
+      ARTIFACTS_DOWNLOADER_APP_ID:
+        required: false
+      ARTIFACTS_DOWNLOADER_PRIVATE_KEY:
+        required: false
   workflow_dispatch:
     inputs:
       test_pattern:
@@ -57,7 +62,7 @@ jobs:
 
   zombienet-cumulus-tests:
     name: ${{ matrix.test.job-name }}
-    runs-on: ${{ matrix.test.runner-type == 'large' && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
+    runs-on: ${{ matrix.test.runner-type == 'default' && needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER || needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 70 # 60 for test + 10 for send logs
     needs: [preflight]
     # Run if: called from build workflow OR merge_group OR (changes detected)
@@ -78,25 +83,34 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      - name: Generate App token for artifact downloads
+        id: artifact_token
         if: ${{ matrix.test.needs-wasm-binary }}
-        with:
-          name: build-test-parachain-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
-
-      - name: provide_wasm_binary
-        if: ${{ matrix.test.needs-wasm-binary }}
+        shell: bash
         run: |
-          tar -xvf artifacts.tar
-          ls -ltr artifacts/*
-          cp ./artifacts/zombienet/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm /tmp/
-          cp ./artifacts/zombienet/wasm_binary_elastic_scaling.rs.compact.compressed.wasm /tmp/
-          cp ./artifacts/zombienet/wasm_binary_elastic_scaling_12s_slot.rs.compact.compressed.wasm /tmp/
-          ls -ltr /tmp
-          rm -rf artifacts
+          if [[ -n "${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}" ]]; then
+            echo "use_app_token=true" >> $GITHUB_OUTPUT
+          else
+            echo "use_app_token=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create App installation token
+        id: app_token
+        if: ${{ matrix.test.needs-wasm-binary && steps.artifact_token.outputs.use_app_token == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          app-id: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
+          private-key: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
+
+      - name: Download test parachain artifact
+        if: ${{ matrix.test.needs-wasm-binary }}
+        uses: ./.github/actions/download-artifact-extract
+        with:
+          artifact-name: build-test-parachain-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          gh-token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          run-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
 
       - name: zombienet_test
         timeout-minutes: 60
@@ -108,6 +122,8 @@ jobs:
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          app-id: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
+          app-private-key: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
 
       - name: process_logs
         if: ${{ always() }}
@@ -125,7 +141,7 @@ jobs:
 
 
       - name: upload_logs
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() }}
         with:
           name: zombienet-logs-${{ matrix.test.job-name }}-${{ github.sha }}

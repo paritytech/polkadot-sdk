@@ -130,6 +130,7 @@ impl pallet_assets::Config for Runtime {
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type AssetIdParameter = codec::Compact<AssetId>;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
@@ -232,8 +233,8 @@ impl BenchmarkHelperTrait<u64, u32, u32> for Helper {
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),
 			asset_id.into(),
-			42,   /* owner */
-			true, /* is_sufficient */
+			42,   // owner
+			true, // is_sufficient
 			min_balance
 		));
 

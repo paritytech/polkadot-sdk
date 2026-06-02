@@ -19,33 +19,49 @@
 
 #![deny(missing_docs)]
 #![deny(unused_crate_dependencies)]
+#![deny(clippy::disallowed_methods)]
+// Tests still call `Instant::now`, `Delay::new`, etc directly. The deterministic-clock plumbing
+// is enforced for production code; legacy tests retain their original behavior.
+#![cfg_attr(test, allow(clippy::disallowed_methods))]
 #![recursion_limit = "256"]
 
 use std::{
-	collections::HashSet,
+	collections::{HashMap, HashSet},
+	sync::Arc,
 	time::{Duration, Instant},
 };
 
 use futures::{
+	channel::oneshot,
 	stream::{FusedStream, StreamExt},
 	FutureExt, TryFutureExt,
 };
 
-use polkadot_node_subsystem_util::reputation::ReputationAggregator;
+use polkadot_node_subsystem::CollatorProtocolSenderTrait;
+use polkadot_node_subsystem_util::{database::Database, reputation::ReputationAggregator};
+use sp_consensus_babe::digests::CompatibleDigestItem;
+use sp_core::H256;
 use sp_keystore::KeystorePtr;
 
 use polkadot_node_network_protocol::{
 	request_response::{v2 as protocol_v2, IncomingRequestReceiver},
 	PeerId, UnifiedReputationChange as Rep,
 };
-use polkadot_primitives::CollatorPair;
+use polkadot_node_subsystem::{
+	errors::SubsystemError, messages::ChainApiMessage, overseer, DummySubsystem, SpawnedSubsystem,
+};
+use polkadot_primitives::{CollatorPair, Hash, RELAY_CHAIN_SLOT_DURATION_MILLIS};
+use sp_consensus_slots::SlotDuration;
+pub use validator_side_experimental::ReputationConfig;
 
-use polkadot_node_subsystem::{errors::SubsystemError, overseer, DummySubsystem, SpawnedSubsystem};
+use polkadot_node_clock::Clock;
 
 mod collator_side;
 mod validator_side;
-#[cfg(feature = "experimental-collator-protocol")]
 mod validator_side_experimental;
+
+// TODO: move into validator_side_experimental once `validator_side` is retired
+mod validator_side_metrics;
 
 const LOG_TARGET: &'static str = "parachain::collator-protocol";
 const LOG_TARGET_STATS: &'static str = "parachain::collator-protocol::stats";
@@ -82,14 +98,23 @@ pub enum ProtocolSide {
 		invulnerables: HashSet<PeerId>,
 		/// Override for `HOLD_OFF_DURATION` constant .
 		collator_protocol_hold_off: Option<Duration>,
+		/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`];
+		/// tests inject a mock.
+		clock: Arc<dyn Clock>,
 	},
 	/// Experimental variant of the validator side. Do not use in production.
-	#[cfg(feature = "experimental-collator-protocol")]
 	ValidatorExperimental {
 		/// The keystore holding validator keys.
 		keystore: KeystorePtr,
 		/// Prometheus metrics for validators.
 		metrics: validator_side_experimental::Metrics,
+		/// Database used for reputation house keeping.
+		db: Arc<dyn Database>,
+		/// Reputation configuration (column number).
+		reputation_config: validator_side_experimental::ReputationConfig,
+		/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`];
+		/// tests inject a mock.
+		clock: Arc<dyn Clock>,
 	},
 	/// Collators operate on a parachain.
 	Collator {
@@ -101,6 +126,9 @@ pub enum ProtocolSide {
 		request_receiver_v2: IncomingRequestReceiver<protocol_v2::CollationFetchingRequest>,
 		/// Metrics.
 		metrics: collator_side::Metrics,
+		/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`];
+		/// tests inject a mock.
+		clock: Arc<dyn Clock>,
 	},
 	/// No protocol side, just disable it.
 	None,
@@ -114,9 +142,6 @@ pub struct CollatorProtocolSubsystem {
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 impl CollatorProtocolSubsystem {
 	/// Start the collator protocol.
-	/// If `id` is `Some` this is a collator side of the protocol.
-	/// If `id` is `None` this is a validator side of the protocol.
-	/// Caller must provide a registry for prometheus metrics.
 	pub fn new(protocol_side: ProtocolSide) -> Self {
 		Self { protocol_side }
 	}
@@ -132,6 +157,7 @@ impl<Context> CollatorProtocolSubsystem {
 				metrics,
 				invulnerables,
 				collator_protocol_hold_off,
+				clock,
 			} => {
 				gum::trace!(
 					target: LOG_TARGET,
@@ -146,19 +172,38 @@ impl<Context> CollatorProtocolSubsystem {
 					metrics,
 					invulnerables,
 					collator_protocol_hold_off,
+					clock,
 				)
 				.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
 				.boxed()
 			},
-			#[cfg(feature = "experimental-collator-protocol")]
-			ProtocolSide::ValidatorExperimental { keystore, metrics } =>
-				validator_side_experimental::run(ctx, keystore, metrics)
+			ProtocolSide::ValidatorExperimental {
+				keystore,
+				metrics,
+				db,
+				reputation_config,
+				clock,
+			} => validator_side_experimental::run(
+				ctx,
+				keystore,
+				metrics,
+				db,
+				reputation_config,
+				clock,
+			)
+			.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
+			.boxed(),
+			ProtocolSide::Collator {
+				peer_id,
+				collator_pair,
+				request_receiver_v2,
+				metrics,
+				clock,
+			} => {
+				collator_side::run(ctx, peer_id, collator_pair, request_receiver_v2, metrics, clock)
 					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
-					.boxed(),
-			ProtocolSide::Collator { peer_id, collator_pair, request_receiver_v2, metrics } =>
-				collator_side::run(ctx, peer_id, collator_pair, request_receiver_v2, metrics)
-					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
-					.boxed(),
+					.boxed()
+			},
 			ProtocolSide::None => return DummySubsystem.start(ctx),
 		};
 
@@ -184,21 +229,70 @@ async fn modify_reputation(
 }
 
 /// Wait until tick and return the timestamp for the following one.
-async fn wait_until_next_tick(last_poll: Instant, period: Duration) -> Instant {
-	let now = Instant::now();
+async fn wait_until_next_tick(clock: &dyn Clock, last_poll: Instant, period: Duration) -> Instant {
+	let now = clock.now();
 	let next_poll = last_poll + period;
 
 	if next_poll > now {
-		futures_timer::Delay::new(next_poll - now).await
+		clock.delay(next_poll - now).await
 	}
 
-	Instant::now()
+	clock.now()
 }
 
 /// Returns an infinite stream that yields with an interval of `period`.
-fn tick_stream(period: Duration) -> impl FusedStream<Item = ()> {
-	futures::stream::unfold(Instant::now(), move |next_check| async move {
-		Some(((), wait_until_next_tick(next_check, period).await))
+fn tick_stream(clock: Arc<dyn Clock>, period: Duration) -> impl FusedStream<Item = ()> {
+	futures::stream::unfold(clock.now(), move |next_check| {
+		let clock = clock.clone();
+		async move { Some(((), wait_until_next_tick(&*clock, next_check, period).await)) }
 	})
 	.fuse()
+}
+
+/// Scheduling info tracked per active leaf, used for V3 scheduling parent validation.
+/// Stores the leaf's BABE slot and parent hash so the validator can determine whether
+/// the scheduling parent corresponds to the last finished relay chain slot.
+struct LeafSchedulingInfo {
+	/// The parent hash of the leaf block.
+	parent_hash: Hash,
+	/// The BABE slot of the leaf block.
+	slot: sp_consensus_slots::Slot,
+}
+
+pub(crate) async fn extract_leaf_scheduling_info<Sender: CollatorProtocolSenderTrait>(
+	sender: &mut Sender,
+	leaf: H256,
+) -> Option<LeafSchedulingInfo> {
+	// Fetch leaf header to extract BABE slot for V3 scheduling parent validation.
+	// Without this info, V3 advertisements referencing this leaf will be rejected.
+	let (tx, rx) = oneshot::channel();
+	sender.send_message(ChainApiMessage::BlockHeader(leaf, tx)).await;
+	let header = rx.await.ok().and_then(|r| r.ok().flatten());
+	header.and_then(|header| {
+		let slot = header.digest.logs().iter().find_map(|log| log.as_babe_pre_digest())?.slot();
+		Some(LeafSchedulingInfo { parent_hash: header.parent_hash, slot })
+	})
+}
+
+pub(crate) fn is_scheduling_parent_valid(
+	clock: &dyn Clock,
+	scheduling_parent: &Hash,
+	leaf_scheduling_info: &HashMap<Hash, LeafSchedulingInfo>,
+) -> bool {
+	let slot_duration = SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS);
+	let current_slot = sp_consensus_slots::Slot::from_timestamp(
+		sp_timestamp::Timestamp::new(clock.duration_since_epoch().as_millis() as u64),
+		slot_duration,
+	);
+	if let Some(info) = leaf_scheduling_info.get(scheduling_parent) {
+		// scheduling_parent is a leaf. This is allowed only when the leaf's slot is
+		// the previous slot.
+		*current_slot == *info.slot + 1
+	} else {
+		// scheduling_parent is not a leaf. This is allowed only if the sp is the parent of
+		// any leaf whose slot is still in progress.
+		leaf_scheduling_info
+			.iter()
+			.any(|(_, info)| *current_slot == *info.slot && *scheduling_parent == info.parent_hash)
+	}
 }

@@ -118,8 +118,11 @@ pub unsafe fn execute_artifact(
 	let mut ext = ValidationExternalities(extensions);
 
 	match sc_executor::with_externalities_safe(&mut ext, || {
+		let (semantics, _) = params_to_wasmtime_semantics(executor_params);
 		let runtime = create_runtime_from_artifact_bytes(compiled_artifact_blob, executor_params)?;
-		runtime.new_instance()?.call("validate_block", params)
+		runtime
+			.new_instance(semantics.heap_alloc_strategy)?
+			.call("validate_block", params)
 	}) {
 		Ok(Ok(ok)) => Ok(ok),
 		Ok(Err(err)) | Err(err) => Err(err),
@@ -142,10 +145,23 @@ pub unsafe fn create_runtime_from_artifact_bytes(
 	let mut config = DEFAULT_CONFIG.clone();
 	config.semantics = params_to_wasmtime_semantics(executor_params).0;
 
-	sc_executor_wasmtime::create_runtime_from_artifact_bytes::<HostFunctions>(
-		compiled_artifact_blob,
-		config,
-	)
+	let ecc_hf_enabled = executor_params.iter().any(|p| {
+		p == &ExecutorParam::EnabledHostFunction(
+			polkadot_primitives::ExecutorHostFunction::EccRfc163,
+		)
+	});
+
+	if ecc_hf_enabled {
+		sc_executor_wasmtime::create_runtime_from_artifact_bytes::<HostFunctionsWithEcc>(
+			compiled_artifact_blob,
+			config,
+		)
+	} else {
+		sc_executor_wasmtime::create_runtime_from_artifact_bytes::<HostFunctions>(
+			compiled_artifact_blob,
+			config,
+		)
+	}
 }
 
 /// Takes the default config and overwrites any settings with existing executor parameters.
@@ -160,16 +176,18 @@ pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> (Semantics, Determi
 
 	for p in par.iter() {
 		match p {
-			ExecutorParam::MaxMemoryPages(max_pages) =>
+			ExecutorParam::MaxMemoryPages(max_pages) => {
 				sem.heap_alloc_strategy = HeapAllocStrategy::Dynamic {
 					maximum_pages: Some((*max_pages).saturating_add(DEFAULT_HEAP_PAGES_ESTIMATE)),
-				},
+				}
+			},
 			ExecutorParam::StackLogicalMax(slm) => stack_limit.logical_max = *slm,
 			ExecutorParam::StackNativeMax(snm) => stack_limit.native_stack_max = *snm,
 			ExecutorParam::WasmExtBulkMemory => sem.wasm_bulk_memory = true,
 			ExecutorParam::PrecheckingMaxMemory(_) |
 			ExecutorParam::PvfPrepTimeout(_, _) |
-			ExecutorParam::PvfExecTimeout(_, _) => (), /* Not used here */
+			ExecutorParam::PvfExecTimeout(_, _) |
+			ExecutorParam::EnabledHostFunction(_) => (), // Not used here
 		}
 	}
 	sem.deterministic_stack_limit = Some(stack_limit.clone());
@@ -209,6 +227,10 @@ type HostFunctions = (
 	sp_io::logging::HostFunctions,
 	sp_io::trie::HostFunctions,
 );
+
+/// Host functions with ECC (elliptic curve cryptography) support.
+/// Only used when `ExecutorParam::EnabledHostFunction(ExecutorHostFunction::EccRfc163)` is present.
+type HostFunctionsWithEcc = (HostFunctions, sp_crypto_ec_utils::HostFunctionsRfc163);
 
 /// The validation externalities that will panic on any storage related access. (PVFs should not
 /// have a notion of a persistent storage/trie.)
@@ -376,6 +398,132 @@ impl sp_core::traits::ReadRuntimeVersion for ReadRuntimeVersion {
 				Ok(version.encode())
 			},
 			None => Err("runtime version section is not found".to_string()),
+		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn prep_hash_matches_artifact_effect_of_executor_params() {
+		use ExecutorParam::*;
+
+		// If you're adding a new ExecutorParam, please add it to the `cases` below.
+
+		let _coverage_check = |param: &ExecutorParam| match param {
+			MaxMemoryPages(_) => true,
+			StackLogicalMax(_) => true,
+			StackNativeMax(_) => true,
+			PrecheckingMaxMemory(_) => true,
+			PvfPrepTimeout(_, _) => true,
+			PvfExecTimeout(_, _) => true,
+			WasmExtBulkMemory => true,
+			EnabledHostFunction(_) => true,
+		};
+
+		// A minimal module with memory and an exported `validate_block` function.
+		let wat = r#"(module
+			(memory 1)
+			(func (export "validate_block") (param i32 i32))
+		)"#;
+		let wasm = wat::parse_str(wat).expect("wat parsing failed");
+		let blob = prevalidate(&wasm).expect("valid runtime blob");
+
+		let base = ExecutorParams::default();
+
+		let prepare_with = |params: &ExecutorParams| -> Vec<u8> {
+			prepare(blob.clone(), params).expect("prepare should succeed")
+		};
+
+		// Define pairs that toggle exactly one parameter.
+		let cases: Vec<(&str, ExecutorParams, ExecutorParams)> = vec![
+			(
+				"MaxMemoryPages",
+				base.clone(),
+				ExecutorParams::from(&[ExecutorParam::MaxMemoryPages(128)][..]),
+			),
+			(
+				"StackLogicalMax",
+				base.clone(),
+				ExecutorParams::from(
+					&[ExecutorParam::StackLogicalMax(DEFAULT_LOGICAL_STACK_MAX + 1)][..],
+				),
+			),
+			(
+				"StackNativeMax",
+				base.clone(),
+				ExecutorParams::from(
+					&[ExecutorParam::StackNativeMax(DEFAULT_NATIVE_STACK_MAX + 1024)][..],
+				),
+			),
+			(
+				"PrecheckingMaxMemory",
+				base.clone(),
+				ExecutorParams::from(&[ExecutorParam::PrecheckingMaxMemory(300 * 1024 * 1024)][..]),
+			),
+			(
+				"PvfPrepTimeout(Precheck)",
+				base.clone(),
+				ExecutorParams::from(
+					&[ExecutorParam::PvfPrepTimeout(polkadot_primitives::PvfPrepKind::Precheck, 1)]
+						[..],
+				),
+			),
+			(
+				"PvfPrepTimeout(Prepare)",
+				base.clone(),
+				ExecutorParams::from(
+					&[ExecutorParam::PvfPrepTimeout(polkadot_primitives::PvfPrepKind::Prepare, 2)]
+						[..],
+				),
+			),
+			(
+				"PvfExecTimeout(Backing)",
+				base.clone(),
+				ExecutorParams::from(
+					&[ExecutorParam::PvfExecTimeout(polkadot_primitives::PvfExecKind::Backing, 1)]
+						[..],
+				),
+			),
+			(
+				"PvfExecTimeout(Approval)",
+				base.clone(),
+				ExecutorParams::from(
+					&[ExecutorParam::PvfExecTimeout(polkadot_primitives::PvfExecKind::Approval, 2)]
+						[..],
+				),
+			),
+			(
+				"WasmExtBulkMemory",
+				base.clone(),
+				ExecutorParams::from(&[ExecutorParam::WasmExtBulkMemory][..]),
+			),
+			(
+				"EnabledHostFunction(EccRfc163)",
+				base.clone(),
+				ExecutorParams::from(
+					&[ExecutorParam::EnabledHostFunction(
+						polkadot_primitives::ExecutorHostFunction::EccRfc163,
+					)][..],
+				),
+			),
+		];
+
+		for (name, a, b) in cases.into_iter() {
+			let art_a = prepare_with(&a);
+			let art_b = prepare_with(&b);
+			let artifact_changed = art_a != art_b;
+			let prep_hash_changed = a.prep_hash() != b.prep_hash();
+			assert_eq!(
+				artifact_changed,
+				prep_hash_changed,
+				"ExecutorParam classification mismatch for {}: artifact_changed={}, prep_hash_changed={}",
+				name,
+				artifact_changed,
+				prep_hash_changed,
+			);
 		}
 	}
 }

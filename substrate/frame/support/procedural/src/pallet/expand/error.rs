@@ -27,7 +27,6 @@ use frame_support_procedural_tools::get_doc_literals;
 use quote::ToTokens;
 use syn::spanned::Spanned;
 
-///
 /// * impl various trait on Error
 pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 	let count = COUNTER.with(|counter| counter.borrow_mut().inc());
@@ -56,7 +55,7 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 
 			pub use #error_token_unique_id as tt_error_token;
-		}
+		};
 	};
 
 	let error_ident = &error.error;

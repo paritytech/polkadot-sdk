@@ -30,18 +30,17 @@ mod builtin;
 mod tests;
 
 pub use crate::{
+	AddressMapper, TransactionLimits,
 	exec::{ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo},
-	gas::{GasMeter, Token},
-	storage::meter::Diff,
+	metering::{Diff, Token},
 	vm::RuntimeCosts,
-	AddressMapper,
 };
 pub use alloy_core as alloy;
 pub use sp_core::{H160, H256, U256};
 
 use crate::{
-	exec::ExecResult, precompiles::builtin::Builtin, primitives::ExecReturnValue, Config,
-	Error as CrateError,
+	Config, Error as CrateError, exec::ExecResult, precompiles::builtin::Builtin,
+	primitives::ExecReturnValue,
 };
 use alloc::vec::Vec;
 use alloy::sol_types::{Panic, PanicKind, Revert, SolError, SolInterface};
@@ -136,6 +135,19 @@ impl From<DispatchError> for Error {
 impl<T: Config> From<CrateError<T>> for Error {
 	fn from(error: CrateError<T>) -> Self {
 		Self::Error(DispatchError::from(error).into())
+	}
+}
+
+impl Error {
+	pub fn try_to_revert<T: Config>(e: DispatchError) -> Self {
+		let delegate_denied = CrateError::<T>::PrecompileDelegateDenied.into();
+		let construct = CrateError::<T>::TerminatedInConstructor.into();
+		let message = match () {
+			_ if e == delegate_denied => "illegal to call this pre-compile via delegate call",
+			_ if e == construct => "terminate pre-compile cannot be called from the constructor",
+			_ => return e.into(),
+		};
+		Self::Revert(message.into())
 	}
 }
 
@@ -299,8 +311,9 @@ impl<E> Instance<E> {
 		let result = (self.function)(&self.address, input, env);
 		match result {
 			Ok(data) => Ok(ExecReturnValue { flags: ReturnFlags::empty(), data }),
-			Err(Error::Revert(msg)) =>
-				Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data: msg.abi_encode() }),
+			Err(Error::Revert(msg)) => {
+				Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data: msg.abi_encode() })
+			},
 			Err(Error::Panic(kind)) => Ok(ExecReturnValue {
 				flags: ReturnFlags::REVERT,
 				data: Panic::from(kind).abi_encode(),
@@ -392,6 +405,7 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 	}
 }
 
+/// The collision check is verified by a trybuild test in `ui-tests/src/ui/precompiles_ui.rs`.
 #[impl_trait_for_tuples::impl_for_tuples(20)]
 #[tuple_types_custom_trait_bound(PrimitivePrecompile<T=T>)]
 impl<T: Config> Precompiles<T> for Tuple {
@@ -455,6 +469,13 @@ impl<T: Config> Precompiles<T> for Tuple {
 		);
 		instance
 	}
+}
+
+/// This references the private trait inside the crate.
+#[cfg(feature = "trybuild")]
+#[allow(private_bounds)]
+pub const fn check_collision_for<T: Config, Tuple: Precompiles<T>>() {
+	let _ = <Tuple as Precompiles<T>>::CHECK_COLLISION;
 }
 
 impl<T: Config> Precompiles<T> for (Builtin<T>, <T as Config>::Precompiles) {
@@ -540,7 +561,7 @@ impl BuiltinAddressMatcher {
 		};
 		while i < base_address.len() {
 			if address[i] != base_address[i] {
-				return false
+				return false;
 			}
 			i = i + 1;
 		}
@@ -583,8 +604,8 @@ impl BuiltinAddressMatcher {
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 pub mod run {
 	pub use crate::{
-		call_builder::{CallSetup, Contract, VmBinaryModule},
 		BalanceOf, MomentOf,
+		call_builder::{CallSetup, Contract, VmBinaryModule},
 	};
 	pub use sp_core::{H256, U256};
 
@@ -618,7 +639,10 @@ pub mod run {
 		E: ExtWithInfo,
 	{
 		let precompile = <Builtin<E::T>>::get(address)
-			.ok_or(DispatchError::from("No pre-compile at address"))?;
+			.ok_or(DispatchError::from("No pre-compile at address"))
+			.inspect_err(|_| {
+				log::debug!(target: crate::LOG_TARGET, "No pre-compile at address {address:?}");
+			})?;
 		precompile.call(input, ext)
 	}
 }

@@ -11,11 +11,11 @@ publish = false
 workspace = true
 
 [dependencies]
-async-std = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
-log = { workspace = true }
 relay-utils = { workspace = true }
+tokio = { features = ["macros", "rt-multi-thread", "sync", "time"], workspace = true }
+tracing = { workspace = true }
 
 # Bridge dependencies
 bp-polkadot-core = { workspace = true, default-features = true }

@@ -149,8 +149,9 @@ fn save_solution<T: Config>(call: &Call<T>) -> Result<(), MinerError> {
 	let storage = StorageValueRef::persistent(OFFCHAIN_CACHED_CALL);
 	match storage.mutate::<_, (), _>(|_| Ok(call.clone())) {
 		Ok(_) => Ok(()),
-		Err(MutateStorageError::ConcurrentModification(_)) =>
-			Err(MinerError::FailedToStoreSolution),
+		Err(MutateStorageError::ConcurrentModification(_)) => {
+			Err(MinerError::FailedToStoreSolution)
+		},
 		Err(MutateStorageError::ValueFunctionFailed(_)) => {
 			// this branch should be unreachable according to the definition of
 			// `StorageValueRef::mutate`: that function should only ever `Err` if the closure we
@@ -351,8 +352,9 @@ impl<T: Config + CreateBare<Call<T>>> Pallet<T> {
 			|maybe_head: Result<Option<BlockNumberFor<T>>, _>| {
 				match maybe_head {
 					Ok(Some(head)) if now < head => Err("fork."),
-					Ok(Some(head)) if now >= head && now <= head + threshold =>
-						Err("recently executed."),
+					Ok(Some(head)) if now >= head && now <= head + threshold => {
+						Err("recently executed.")
+					},
 					Ok(Some(head)) if now > head + threshold => {
 						// we can run again now. Write the new head.
 						Ok(now)
@@ -369,8 +371,9 @@ impl<T: Config + CreateBare<Call<T>>> Pallet<T> {
 			// all good
 			Ok(_) => Ok(()),
 			// failed to write.
-			Err(MutateStorageError::ConcurrentModification(_)) =>
-				Err(MinerError::Lock("failed to write to offchain db (concurrent modification).")),
+			Err(MutateStorageError::ConcurrentModification(_)) => {
+				Err(MinerError::Lock("failed to write to offchain db (concurrent modification)."))
+			},
 			// fork etc.
 			Err(MutateStorageError::ValueFunctionFailed(why)) => Err(MinerError::Lock(why)),
 		}
@@ -655,7 +658,7 @@ impl<T: MinerConfig> Miner<T> {
 
 		// not much we can do if assignments are already empty.
 		if high == low {
-			return Ok(0)
+			return Ok(0);
 		}
 
 		while high - low > 1 {
@@ -749,7 +752,7 @@ impl<T: MinerConfig> Miner<T> {
 		max_weight: Weight,
 	) -> u32 {
 		if size.voters < 1 {
-			return size.voters
+			return size.voters;
 		}
 
 		let max_voters = size.voters.max(1);
@@ -838,9 +841,8 @@ impl<T: MinerConfig> Miner<T> {
 		// Ensure that the solution's score can pass absolute min-score.
 		let submitted_score = raw_solution.score;
 		ensure!(
-			minimum_untrusted_score.map_or(true, |min_score| {
-				submitted_score.strict_threshold_better(min_score, sp_runtime::Perbill::zero())
-			}),
+			minimum_untrusted_score
+				.map_or(true, |min_score| { submitted_score.strict_better(min_score) }),
 			FeasibilityError::UntrustedScoreTooLow
 		);
 
@@ -873,7 +875,7 @@ impl<T: MinerConfig> Miner<T> {
 
 			// Check that all of the targets are valid based on the snapshot.
 			if assignment.distribution.iter().any(|(d, _)| !targets.contains(d)) {
-				return Err(FeasibilityError::InvalidVote)
+				return Err(FeasibilityError::InvalidVote);
 			}
 			Ok(())
 		})?;
@@ -1109,13 +1111,17 @@ mod tests {
 	use sp_runtime::{
 		bounded_vec,
 		offchain::storage_lock::{BlockAndTime, StorageLock},
-		traits::{Dispatchable, ValidateUnsigned, Zero},
+		traits::{Dispatchable, Zero},
 		ModuleError, PerU16,
 	};
+
+	#[allow(deprecated)]
+	use sp_runtime::traits::ValidateUnsigned;
 
 	type Assignment = crate::unsigned::Assignment<Runtime>;
 
 	#[test]
+	#[allow(deprecated)]
 	fn validate_unsigned_retracts_wrong_phase() {
 		ExtBuilder::default().desired_targets(0).build_and_execute(|| {
 			let solution = RawSolution::<TestNposSolution> {
@@ -1188,6 +1194,7 @@ mod tests {
 	}
 
 	#[test]
+	#[allow(deprecated)]
 	fn validate_unsigned_retracts_low_score() {
 		ExtBuilder::default().desired_targets(0).build_and_execute(|| {
 			roll_to_unsigned();
@@ -1234,6 +1241,7 @@ mod tests {
 	}
 
 	#[test]
+	#[allow(deprecated)]
 	fn validate_unsigned_retracts_incorrect_winner_count() {
 		ExtBuilder::default().desired_targets(1).build_and_execute(|| {
 			roll_to_unsigned();
@@ -1260,6 +1268,7 @@ mod tests {
 	}
 
 	#[test]
+	#[allow(deprecated)]
 	fn priority_is_set() {
 		ExtBuilder::default()
 			.miner_tx_priority(20)
@@ -1905,6 +1914,7 @@ mod tests {
 	}
 
 	#[test]
+	#[allow(deprecated)]
 	fn ocw_solution_must_have_correct_round() {
 		let (mut ext, pool) = ExtBuilder::default().build_offchainify(0);
 		ext.execute_with(|| {

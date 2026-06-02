@@ -17,13 +17,12 @@
 use super::*;
 
 use crate::{disputes::SlashingHandler, initializer, shared};
-use codec::Decode;
 use frame_benchmarking::v2::*;
 use frame_support::traits::{OnFinalize, OnInitialize};
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_staking::testing_utils::create_validators;
 use polkadot_primitives::{Hash, PARACHAIN_KEY_TYPE_ID};
-use sp_runtime::traits::{One, OpaqueKeys, StaticLookup};
+use sp_runtime::traits::{One, StaticLookup};
 use sp_session::MembershipProof;
 
 // Candidate hash of the disputed candidate.
@@ -36,6 +35,7 @@ pub const fn max_validators_for<T: super::Config>() -> u32 {
 
 pub trait Config:
 	pallet_session::Config
+	+ pallet_session_benchmarking::Config
 	+ pallet_session::historical::Config
 	+ pallet_staking::Config
 	+ super::Config
@@ -51,29 +51,12 @@ where
 	pallet_staking::ValidatorCount::<T>::put(n);
 
 	let balance_factor = 1000;
-	// create validators and set random session keys
-	for (n, who) in create_validators::<T>(n, balance_factor).unwrap().into_iter().enumerate() {
-		use rand::{RngCore, SeedableRng};
-
+	// Create validators and set random session keys
+	for who in create_validators::<T>(n, balance_factor).unwrap().into_iter() {
 		let validator = T::Lookup::lookup(who).unwrap();
 		let controller = pallet_staking::Pallet::<T>::bonded(&validator).unwrap();
 
-		let keys = {
-			const SESSION_KEY_LEN: usize = 32;
-			let key_ids = T::Keys::key_ids();
-			let mut keys_len = key_ids.len() * SESSION_KEY_LEN;
-			if key_ids.contains(&sp_core::crypto::key_types::BEEFY) {
-				// BEEFY key is 33 bytes long, not 32.
-				keys_len += 1;
-			}
-			let mut keys = vec![0u8; keys_len];
-			let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(n as u64);
-			rng.fill_bytes(&mut keys);
-			keys
-		};
-
-		let keys: T::Keys = Decode::decode(&mut &keys[..]).expect("wrong number of session keys?");
-		let proof: Vec<u8> = vec![];
+		let (keys, proof) = T::generate_session_keys_and_proof(controller.clone());
 
 		whitelist_account!(controller);
 		pallet_session::Pallet::<T>::ensure_can_pay_key_deposit(&controller).unwrap();

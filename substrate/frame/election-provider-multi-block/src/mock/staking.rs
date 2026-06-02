@@ -70,7 +70,7 @@ impl ElectionDataProvider for MockStaking {
 			);
 		}
 		if bounds.slice_exhausted(&targets) {
-			return Err("Targets too big")
+			return Err("Targets too big");
 		}
 
 		Ok(targets)
@@ -95,7 +95,7 @@ impl ElectionDataProvider for MockStaking {
 		}
 
 		if voters.is_empty() {
-			return Ok(vec![])
+			return Ok(vec![]);
 		}
 
 		if remaining > 0 {

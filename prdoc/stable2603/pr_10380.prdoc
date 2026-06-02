@@ -1,0 +1,8 @@
+title: pallet-revive benchmark opcode fix
+doc:
+- audience: Runtime Dev
+  description: "Benchmark opcode was using the invalid opcode instead of defining\
+    \ a new one. \n"
+crates:
+- name: pallet-revive
+  bump: patch

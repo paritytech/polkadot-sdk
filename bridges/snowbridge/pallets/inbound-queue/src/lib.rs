@@ -50,7 +50,6 @@ use frame_system::ensure_signed;
 use scale_info::TypeInfo;
 use sp_core::H160;
 use sp_runtime::traits::Zero;
-use sp_std::vec;
 use xcm::prelude::{
 	send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, Xcm, XcmContext, XcmHash,
 };
@@ -209,10 +208,12 @@ pub mod pallet {
 				XcmpSendError::NotApplicable => Error::<T>::Send(SendError::NotApplicable),
 				XcmpSendError::Unroutable => Error::<T>::Send(SendError::NotRoutable),
 				XcmpSendError::Transport(_) => Error::<T>::Send(SendError::Transport),
-				XcmpSendError::DestinationUnsupported =>
-					Error::<T>::Send(SendError::DestinationUnsupported),
-				XcmpSendError::ExceedsMaxMessageSize =>
-					Error::<T>::Send(SendError::ExceedsMaxMessageSize),
+				XcmpSendError::DestinationUnsupported => {
+					Error::<T>::Send(SendError::DestinationUnsupported)
+				},
+				XcmpSendError::ExceedsMaxMessageSize => {
+					Error::<T>::Send(SendError::ExceedsMaxMessageSize)
+				},
 				XcmpSendError::MissingArgument => Error::<T>::Send(SendError::MissingArgument),
 				XcmpSendError::Fees => Error::<T>::Send(SendError::Fees),
 			}
@@ -255,7 +256,7 @@ pub mod pallet {
 			// Verify message nonce
 			<Nonce<T>>::try_mutate(envelope.channel_id, |nonce| -> DispatchResult {
 				if *nonce == u64::MAX {
-					return Err(Error::<T>::MaxNonceReached.into())
+					return Err(Error::<T>::MaxNonceReached.into());
 				}
 				if envelope.nonce != nonce.saturating_add(1) {
 					Err(Error::<T>::InvalidNonce.into())
@@ -286,11 +287,11 @@ pub mod pallet {
 			// Decode message into XCM
 			let (xcm, fee) = Self::do_convert(envelope.message_id, message.clone())?;
 
-			log::info!(
+			tracing::info!(
 				target: LOG_TARGET,
-				"💫 xcm decoded as {:?} with fee {:?}",
-				xcm,
-				fee
+				?xcm,
+				?fee,
+				"💫 xcm decoded"
 			);
 
 			// Burning fees for teleport
@@ -354,17 +355,19 @@ pub mod pallet {
 			let dest = Location::new(1, [Parachain(para_id.into())]);
 			let fees = (Location::parent(), fee.saturated_into::<u128>()).into();
 			T::AssetTransactor::can_check_out(&dest, &fees, &dummy_context).map_err(|error| {
-				log::error!(
+				tracing::error!(
 					target: LOG_TARGET,
-					"XCM asset check out failed with error {:?}", error
+					?error,
+					"XCM asset check out failed with error"
 				);
 				TokenError::FundsUnavailable
 			})?;
 			T::AssetTransactor::check_out(&dest, &fees, &dummy_context);
 			T::AssetTransactor::withdraw_asset(&fees, &dest, None).map_err(|error| {
-				log::error!(
+				tracing::error!(
 					target: LOG_TARGET,
-					"XCM asset withdraw failed with error {:?}", error
+					?error,
+					"XCM asset withdraw failed with error"
 				);
 				TokenError::FundsUnavailable
 			})?;

@@ -40,7 +40,10 @@
 
 use crate::{
 	peer_store::{PeerStoreProvider, ProtocolHandle},
-	service::traits::{self, ValidationResult},
+	service::{
+		metrics::NotificationMetrics,
+		traits::{self, ValidationResult},
+	},
 	ProtocolName, ReputationChange as Reputation,
 };
 
@@ -123,8 +126,9 @@ pub enum Direction {
 impl Direction {
 	fn set_reserved(&mut self, new_reserved: Reserved) {
 		match self {
-			Direction::Inbound(ref mut reserved) | Direction::Outbound(ref mut reserved) =>
-				*reserved = new_reserved,
+			Direction::Inbound(ref mut reserved) | Direction::Outbound(ref mut reserved) => {
+				*reserved = new_reserved
+			},
 		}
 	}
 }
@@ -197,18 +201,24 @@ pub enum PeersetCommand {
 
 /// Commands emitted by [`Peerset`] to the notification protocol.
 #[derive(Debug)]
-pub enum PeersetNotificationCommand {
+pub struct PeersetNotificationCommand {
 	/// Open substreams to one or more peers.
-	OpenSubstream {
-		/// Peer IDs.
-		peers: Vec<PeerId>,
-	},
+	pub open_peers: Vec<PeerId>,
 
 	/// Close substream to one or more peers.
-	CloseSubstream {
-		/// Peer IDs.
-		peers: Vec<PeerId>,
-	},
+	pub close_peers: Vec<PeerId>,
+}
+
+impl PeersetNotificationCommand {
+	/// Open substream to peers.
+	pub fn open_substream(peers: Vec<PeerId>) -> Self {
+		Self { open_peers: peers, close_peers: vec![] }
+	}
+
+	/// Close substream to peers.
+	pub fn close_substream(peers: Vec<PeerId>) -> Self {
+		Self { open_peers: vec![], close_peers: peers }
+	}
 }
 
 /// Peer state.
@@ -361,6 +371,9 @@ pub struct Peerset {
 
 	/// Next time when [`Peerset`] should perform slot allocation.
 	next_slot_allocation: Delay,
+
+	/// Notification metrics.
+	metrics: NotificationMetrics,
 }
 
 macro_rules! decrement_or_warn {
@@ -405,6 +418,7 @@ impl Peerset {
 		reserved_peers: HashSet<PeerId>,
 		connected_peers: Arc<AtomicUsize>,
 		peerstore_handle: Arc<dyn PeerStoreProvider>,
+		metrics: NotificationMetrics,
 	) -> (Self, TracingUnboundedSender<PeersetCommand>) {
 		let (cmd_tx, cmd_rx) = tracing_unbounded("mpsc-peerset-protocol", 100_000);
 		let peers = reserved_peers
@@ -440,6 +454,7 @@ impl Peerset {
 				connected_peers,
 				pending_backoffs: FuturesUnordered::new(),
 				next_slot_allocation: Delay::new(SLOT_ALLOCATION_FREQUENCY),
+				metrics,
 			},
 			cmd_tx,
 		)
@@ -467,7 +482,7 @@ impl Peerset {
 		let Some(state) = self.peers.get_mut(&peer) else {
 			log::warn!(target: LOG_TARGET, "{}: substream opened for unknown peer {peer:?}", self.protocol);
 			debug_assert!(false);
-			return OpenResult::Reject
+			return OpenResult::Reject;
 		};
 
 		match state {
@@ -477,7 +492,7 @@ impl Peerset {
 				*state = PeerState::Connected { direction: *substream_direction };
 				self.connected_peers.fetch_add(1usize, Ordering::Relaxed);
 
-				return OpenResult::Accept { direction: real_direction }
+				return OpenResult::Accept { direction: real_direction };
 			},
 			// litep2p doesn't support the ability to cancel an opening substream so if the
 			// substream was closed while it was opening, it was marked as canceled and if the
@@ -492,7 +507,7 @@ impl Peerset {
 				self.connected_peers.fetch_add(1usize, Ordering::Relaxed);
 				*state = PeerState::Closing { direction: *substream_direction };
 
-				return OpenResult::Reject
+				return OpenResult::Reject;
 			},
 			// The peer was already rejected by the `report_inbound_substream` call and this
 			// should never happen. However, this code path is exercised by our fuzzer.
@@ -502,7 +517,7 @@ impl Peerset {
 					"{}: substream opened for a peer that was previously rejected {peer:?}",
 					self.protocol,
 				);
-				return OpenResult::Reject
+				return OpenResult::Reject;
 			},
 			state => {
 				log::error!(
@@ -529,7 +544,7 @@ impl Peerset {
 		let Some(state) = self.peers.get_mut(&peer) else {
 			log::warn!(target: LOG_TARGET, "{}: substream closed for unknown peer {peer:?}", self.protocol);
 			debug_assert!(false);
-			return
+			return;
 		};
 
 		match &state {
@@ -627,7 +642,7 @@ impl Peerset {
 					self.protocol,
 				);
 
-				return ValidationResult::Reject
+				return ValidationResult::Reject;
 			},
 			// disconnected peers proceed directly to inbound slot allocation
 			PeerState::Disconnected => {},
@@ -641,14 +656,14 @@ impl Peerset {
 						self.protocol,
 					);
 
-					return ValidationResult::Reject
+					return ValidationResult::Reject;
 				}
 
 				// The peer remains in the `PeerState::Backoff` state until the current timer
 				// expires. Then, the peer will be in the disconnected state, subject to further
 				// rejection if the peer is not reserved by then.
 				if should_reject {
-					return ValidationResult::Reject
+					return ValidationResult::Reject;
 				}
 			},
 
@@ -674,7 +689,7 @@ impl Peerset {
 					);
 
 					*state = PeerState::Canceled { direction: Direction::Outbound(*reserved) };
-					return ValidationResult::Reject
+					return ValidationResult::Reject;
 				}
 
 				log::trace!(
@@ -693,7 +708,7 @@ impl Peerset {
 				);
 
 				*state = PeerState::Canceled { direction: *direction };
-				return ValidationResult::Reject
+				return ValidationResult::Reject;
 			},
 			state => {
 				log::warn!(
@@ -702,7 +717,7 @@ impl Peerset {
 					self.protocol
 				);
 				debug_assert!(false);
-				return ValidationResult::Reject
+				return ValidationResult::Reject;
 			},
 		}
 
@@ -714,7 +729,7 @@ impl Peerset {
 			);
 
 			*state = PeerState::Opening { direction: Direction::Inbound(is_reserved_peer.into()) };
-			return ValidationResult::Accept
+			return ValidationResult::Accept;
 		}
 
 		if self.num_in < self.max_in {
@@ -727,7 +742,7 @@ impl Peerset {
 			self.num_in += 1;
 
 			*state = PeerState::Opening { direction: Direction::Inbound(is_reserved_peer.into()) };
-			return ValidationResult::Accept
+			return ValidationResult::Accept;
 		}
 
 		log::trace!(
@@ -737,7 +752,7 @@ impl Peerset {
 		);
 
 		*state = PeerState::Disconnected;
-		return ValidationResult::Reject
+		return ValidationResult::Reject;
 	}
 
 	/// Report to [`Peerset`] that there was an error opening a substream.
@@ -924,6 +939,75 @@ impl Peerset {
 		}
 	}
 
+	/// Report connected peer counts to metrics.
+	fn update_slot_metrics(&self) {
+		let (mut in_reserved, mut in_non_reserved) = (0usize, 0usize);
+		let (mut out_reserved, mut out_non_reserved) = (0usize, 0usize);
+		let (mut num_disconnected, mut num_backoff) = (0usize, 0usize);
+
+		for state in self.peers.values() {
+			match state {
+				PeerState::Connected { direction: Direction::Inbound(Reserved::Yes) } => {
+					in_reserved += 1
+				},
+				PeerState::Connected { direction: Direction::Inbound(Reserved::No) } => {
+					in_non_reserved += 1
+				},
+				PeerState::Connected { direction: Direction::Outbound(Reserved::Yes) } => {
+					out_reserved += 1
+				},
+				PeerState::Connected { direction: Direction::Outbound(Reserved::No) } => {
+					out_non_reserved += 1
+				},
+				PeerState::Disconnected => num_disconnected += 1,
+				PeerState::Backoff => num_backoff += 1,
+
+				_ => {},
+			}
+		}
+
+		self.metrics.set_peerset_num_connected(
+			&self.protocol,
+			in_reserved,
+			in_non_reserved,
+			out_reserved,
+			out_non_reserved,
+			num_disconnected,
+			num_backoff,
+		);
+	}
+
+	/// Connect to all reserved peers.
+	///
+	/// Under the following conditions:
+	/// 1. The peer must be present to the current set of peers.
+	/// 2. The peer must be disconnected.
+	/// 3. The peer must not be banned.
+	///
+	/// All reserved peers returned are transitioned to the `PeerState::Opening` state.
+	fn connect_reserved_peers(&mut self) -> Vec<PeerId> {
+		self.reserved_peers
+			.iter()
+			.filter_map(|peer| {
+				let peer_state = self.peers.get(peer);
+				if peer_state != Some(&PeerState::Disconnected) {
+					return None;
+				}
+
+				if self.peerstore_handle.is_banned(peer) {
+					return None;
+				}
+
+				// Transition peer to the opening state.
+				self.peers.insert(
+					*peer,
+					PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) },
+				);
+				Some(*peer)
+			})
+			.collect::<Vec<_>>()
+	}
+
 	/// Get the number of inbound peers.
 	#[cfg(test)]
 	pub fn num_in(&self) -> usize {
@@ -974,7 +1058,7 @@ impl Stream for Peerset {
 			log::trace!(target: LOG_TARGET, "{}: received command {action:?}", self.protocol);
 
 			match action {
-				PeersetCommand::DisconnectPeer { peer } if !self.reserved_peers.contains(&peer) =>
+				PeersetCommand::DisconnectPeer { peer } if !self.reserved_peers.contains(&peer) => {
 					match self.peers.remove(&peer) {
 						Some(PeerState::Connected { direction }) => {
 							log::trace!(
@@ -984,9 +1068,9 @@ impl Stream for Peerset {
 							);
 
 							self.peers.insert(peer, PeerState::Closing { direction });
-							return Poll::Ready(Some(PeersetNotificationCommand::CloseSubstream {
-								peers: vec![peer],
-							}))
+							return Poll::Ready(Some(PeersetNotificationCommand::close_substream(
+								vec![peer],
+							)));
 						},
 						Some(PeerState::Backoff) => {
 							log::trace!(
@@ -1052,7 +1136,8 @@ impl Stream for Peerset {
 						None => {
 							log::debug!(target: LOG_TARGET, "{}: {peer:?} doesn't exist", self.protocol);
 						},
-					},
+					}
+				},
 				PeersetCommand::DisconnectPeer { peer } => {
 					log::debug!(
 						target: LOG_TARGET,
@@ -1152,15 +1237,22 @@ impl Stream for Peerset {
 						})
 						.collect();
 
+					// Open substreams to the new reserved peers that are disconnected.
+					// This ensures we are not relying on the slot allocation timer to connect to
+					// the new reserved peers. Therefore, we start connecting to them immediately.
+					let connect_to = self.connect_reserved_peers();
+					let command = PeersetNotificationCommand {
+						open_peers: connect_to,
+						close_peers: peers_to_remove,
+					};
+
 					log::trace!(
 						target: LOG_TARGET,
-						"{}: close substreams to {peers_to_remove:?}",
+						"{}: SetReservedPeers result {command:?}",
 						self.protocol,
 					);
 
-					return Poll::Ready(Some(PeersetNotificationCommand::CloseSubstream {
-						peers: peers_to_remove,
-					}))
+					return Poll::Ready(Some(command));
 				},
 				PeersetCommand::AddReservedPeers { peers } => {
 					log::debug!(target: LOG_TARGET, "{}: add reserved peers {peers:?}", self.protocol);
@@ -1184,7 +1276,7 @@ impl Stream for Peerset {
 									"{}: {peer:?} is already a reserved peer",
 									self.protocol,
 								);
-								return None
+								return None;
 							}
 
 							std::matches!(
@@ -1205,7 +1297,7 @@ impl Stream for Peerset {
 
 					log::debug!(target: LOG_TARGET, "{}: start connecting to {peers:?}", self.protocol);
 
-					return Poll::Ready(Some(PeersetNotificationCommand::OpenSubstream { peers }))
+					return Poll::Ready(Some(PeersetNotificationCommand::open_substream(peers)));
 				},
 				PeersetCommand::RemoveReservedPeers { peers } => {
 					log::debug!(target: LOG_TARGET, "{}: remove reserved peers {peers:?}", self.protocol);
@@ -1380,9 +1472,9 @@ impl Stream for Peerset {
 						self.protocol,
 					);
 
-					return Poll::Ready(Some(PeersetNotificationCommand::CloseSubstream {
-						peers: peers_to_remove,
-					}))
+					return Poll::Ready(Some(PeersetNotificationCommand::close_substream(
+						peers_to_remove,
+					)));
 				},
 				PeersetCommand::SetReservedOnly { reserved_only } => {
 					log::debug!(target: LOG_TARGET, "{}: set reserved only mode to {reserved_only}", self.protocol);
@@ -1418,9 +1510,9 @@ impl Stream for Peerset {
 							_ => {},
 						});
 
-						return Poll::Ready(Some(PeersetNotificationCommand::CloseSubstream {
-							peers: peers_to_remove,
-						}))
+						return Poll::Ready(Some(PeersetNotificationCommand::close_substream(
+							peers_to_remove,
+						)));
 					}
 				},
 				PeersetCommand::GetReservedPeers { tx } => {
@@ -1435,23 +1527,7 @@ impl Stream for Peerset {
 		// also check if there are free outbound slots and if so, fetch peers with highest
 		// reputations from `Peerstore` and start opening substreams to these peers
 		if let Poll::Ready(()) = Pin::new(&mut self.next_slot_allocation).poll(cx) {
-			let mut connect_to = self
-				.peers
-				.iter()
-				.filter_map(|(peer, state)| {
-					(self.reserved_peers.contains(peer) &&
-						std::matches!(state, PeerState::Disconnected) &&
-						!self.peerstore_handle.is_banned(peer))
-					.then_some(*peer)
-				})
-				.collect::<Vec<_>>();
-
-			connect_to.iter().for_each(|peer| {
-				self.peers.insert(
-					*peer,
-					PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) },
-				);
-			});
+			let mut connect_to = self.connect_reserved_peers();
 
 			// if the number of outbound peers is lower than the desired amount of outbound peers,
 			// query `PeerStore` and try to get a new outbound candidated.
@@ -1485,9 +1561,13 @@ impl Stream for Peerset {
 				}
 			}
 
-			// start timer for the next allocation and if there were peers which the `Peerset`
+			// Start timer for the next allocation and if there were peers which the `Peerset`
 			// wasn't connected but should be, send command to litep2p to start opening substreams.
 			self.next_slot_allocation = Delay::new(SLOT_ALLOCATION_FREQUENCY);
+
+			// Update metrics on every tick of slot allocation. This ensures metrics are
+			// eventually consistent at 1s intervals.
+			self.update_slot_metrics();
 
 			if !connect_to.is_empty() {
 				log::trace!(
@@ -1496,9 +1576,7 @@ impl Stream for Peerset {
 					self.protocol,
 				);
 
-				return Poll::Ready(Some(PeersetNotificationCommand::OpenSubstream {
-					peers: connect_to,
-				}))
+				return Poll::Ready(Some(PeersetNotificationCommand::open_substream(connect_to)));
 			}
 		}
 

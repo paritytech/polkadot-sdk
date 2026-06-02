@@ -55,9 +55,8 @@ use sp_runtime::{
 		AccountIdConversion, BadOrigin, BlakeTwo256, BlockNumberProvider, Dispatchable, Hash,
 		Saturating, Zero,
 	},
-	Either, RuntimeDebug, SaturatedConversion,
+	Debug, Either, SaturatedConversion,
 };
-use storage::{with_transaction, TransactionOutcome};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::{
 	ExecuteController, ExecuteControllerWeightInfo, InspectMessageQueues, QueryController,
@@ -636,15 +635,7 @@ pub mod pallet {
 
 	#[pallet::origin]
 	#[derive(
-		PartialEq,
-		Eq,
-		Clone,
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		RuntimeDebug,
-		TypeInfo,
-		MaxEncodedLen,
+		PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
 	)]
 	pub enum Origin {
 		/// It comes from somewhere in the XCM space wanting to transact.
@@ -757,7 +748,7 @@ pub mod pallet {
 	}
 
 	/// The status of a query.
-	#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 	pub enum QueryStatus<BlockNumber> {
 		/// The query was sent but no response has yet been received.
 		Pending {
@@ -1026,7 +1017,7 @@ pub mod pallet {
 					if Self::request_version_notify(dest).is_ok() {
 						// TODO: correct weights.
 						weight_used.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-						break
+						break;
 					}
 				}
 			}
@@ -1048,7 +1039,7 @@ pub mod pallet {
 		use super::*;
 		use frame_support::traits::{PalletInfoAccess, StorageVersion};
 
-		#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+		#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 		enum QueryStatusV0<BlockNumber> {
 			Pending {
 				responder: VersionedLocation,
@@ -1074,8 +1065,9 @@ pub mod pallet {
 						timeout,
 						maybe_match_querier: Some(Location::here().into()),
 					},
-					VersionNotifier { origin, is_active } =>
-						QueryStatus::VersionNotifier { origin, is_active },
+					VersionNotifier { origin, is_active } => {
+						QueryStatus::VersionNotifier { origin, is_active }
+					},
 					Ready { response, at } => QueryStatus::Ready { response, at },
 				}
 			}
@@ -1721,8 +1713,9 @@ pub mod pallet {
 			ensure!(origin_location != new_aliaser, Error::<T>::BadLocation);
 			// remove `network` from inner `AccountId32` for easier matching
 			let origin_location = match origin_location.unpack() {
-				(0, [AccountId32 { network: _, id }]) =>
-					Location::new(0, [AccountId32 { network: None, id: *id }]),
+				(0, [AccountId32 { network: _, id }]) => {
+					Location::new(0, [AccountId32 { network: None, id: *id }])
+				},
 				_ => return Err(Error::<T>::InvalidOrigin.into()),
 			};
 			tracing::debug!(target: "xcm::pallet_xcm::add_authorized_alias", ?origin_location, ?new_aliaser, ?expires);
@@ -1803,8 +1796,9 @@ pub mod pallet {
 			ensure!(origin_location != to_remove, Error::<T>::BadLocation);
 			// remove `network` from inner `AccountId32` for easier matching
 			let origin_location = match origin_location.unpack() {
-				(0, [AccountId32 { network: _, id }]) =>
-					Location::new(0, [AccountId32 { network: None, id: *id }]),
+				(0, [AccountId32 { network: _, id }]) => {
+					Location::new(0, [AccountId32 { network: None, id: *id }])
+				},
 				_ => return Err(Error::<T>::InvalidOrigin.into()),
 			};
 			tracing::debug!(target: "xcm::pallet_xcm::remove_authorized_alias", ?origin_location, ?to_remove);
@@ -1853,8 +1847,9 @@ pub mod pallet {
 			let origin_location: Location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 			// remove `network` from inner `AccountId32` for easier matching
 			let origin_location = match origin_location.unpack() {
-				(0, [AccountId32 { network: _, id }]) =>
-					Location::new(0, [AccountId32 { network: None, id: *id }]),
+				(0, [AccountId32 { network: _, id }]) => {
+					Location::new(0, [AccountId32 { network: None, id: *id }])
+				},
 				_ => return Err(Error::<T>::InvalidOrigin.into()),
 			};
 			tracing::debug!(target: "xcm::pallet_xcm::remove_all_authorized_aliases", ?origin_location);
@@ -2218,8 +2213,9 @@ impl<T: Config> Pallet<T> {
 					fees,
 					weight_limit,
 				)?,
-				TransferType::RemoteReserve(_) =>
-					return Err(Error::<T>::InvalidAssetUnsupportedReserve.into()),
+				TransferType::RemoteReserve(_) => {
+					return Err(Error::<T>::InvalidAssetUnsupportedReserve.into())
+				},
 			};
 			FeesHandling::Separate { local_xcm, remote_xcm }
 		};
@@ -2840,7 +2836,7 @@ impl<T: Config> Pallet<T> {
 					}
 					weight_used.saturating_accrue(sv_migrate_weight);
 					if weight_used.any_gte(weight_cutoff) {
-						return (weight_used, Some(stage))
+						return (weight_used, Some(stage));
 					}
 				}
 			}
@@ -2854,7 +2850,7 @@ impl<T: Config> Pallet<T> {
 					}
 					weight_used.saturating_accrue(vn_migrate_weight);
 					if weight_used.any_gte(weight_cutoff) {
-						return (weight_used, Some(stage))
+						return (weight_used, Some(stage));
 					}
 				}
 			}
@@ -2876,7 +2872,7 @@ impl<T: Config> Pallet<T> {
 						// We don't early return here since we need to be certain that we
 						// make some progress.
 						weight_used.saturating_accrue(vnt_already_notified_weight);
-						continue
+						continue;
 					},
 				};
 				let response = Response::Version(xcm_version);
@@ -2902,7 +2898,7 @@ impl<T: Config> Pallet<T> {
 				weight_used.saturating_accrue(vnt_notify_weight);
 				if weight_used.any_gte(weight_cutoff) {
 					let last = Some(iter.last_raw_key().into());
-					return (weight_used, Some(NotifyCurrentTargets(last)))
+					return (weight_used, Some(NotifyCurrentTargets(last)));
 				}
 			}
 			stage = MigrateAndNotifyOldTargets;
@@ -2920,9 +2916,9 @@ impl<T: Config> Pallet<T> {
 							});
 							weight_used.saturating_accrue(vnt_migrate_fail_weight);
 							if weight_used.any_gte(weight_cutoff) {
-								return (weight_used, Some(stage))
+								return (weight_used, Some(stage));
 							}
-							continue
+							continue;
 						},
 					};
 
@@ -2963,7 +2959,7 @@ impl<T: Config> Pallet<T> {
 						weight_used.saturating_accrue(vnt_notify_migrate_weight);
 					}
 					if weight_used.any_gte(weight_cutoff) {
-						return (weight_used, Some(stage))
+						return (weight_used, Some(stage));
 					}
 				}
 			}
@@ -3073,7 +3069,7 @@ impl<T: Config> Pallet<T> {
 			.map(|xcm| VersionedXcm::<()>::from(xcm).into_version(result_xcms_version))
 			.transpose()
 			.map_err(|()| {
-				tracing::error!(
+				tracing::debug!(
 					target: "xcm::DryRunApi::dry_run_call",
 					"Local xcm version conversion failed"
 				);
@@ -3085,7 +3081,7 @@ impl<T: Config> Pallet<T> {
 		let forwarded_xcms =
 			Self::convert_forwarded_xcms(result_xcms_version, Router::get_messages()).inspect_err(
 				|error| {
-					tracing::error!(
+					tracing::debug!(
 						target: "xcm::DryRunApi::dry_run_call",
 						?error, "Forwarded xcms version conversion failed with error"
 					);
@@ -3115,7 +3111,7 @@ impl<T: Config> Pallet<T> {
 		Router: InspectMessageQueues,
 	{
 		let origin_location: Location = origin_location.try_into().map_err(|error| {
-			tracing::error!(
+			tracing::debug!(
 				target: "xcm::DryRunApi::dry_run_xcm",
 				?error, "Location version conversion failed with error"
 			);
@@ -3123,7 +3119,7 @@ impl<T: Config> Pallet<T> {
 		})?;
 		let xcm_version = xcm.identify_version();
 		let xcm: Xcm<<T as Config>::RuntimeCall> = xcm.try_into().map_err(|error| {
-			tracing::error!(
+			tracing::debug!(
 				target: "xcm::DryRunApi::dry_run_xcm",
 				?error, "Xcm version conversion failed with error"
 			);
@@ -3144,7 +3140,7 @@ impl<T: Config> Pallet<T> {
 		);
 		let forwarded_xcms = Self::convert_forwarded_xcms(xcm_version, Router::get_messages())
 			.inspect_err(|error| {
-				tracing::error!(
+				tracing::debug!(
 					target: "xcm::DryRunApi::dry_run_xcm",
 					?error, "Forwarded xcms version conversion failed with error"
 				);
@@ -3233,49 +3229,40 @@ impl<T: Config> Pallet<T> {
 	/// `u128` overflow.
 	pub fn query_weight_to_asset_fee<Trader: xcm_executor::traits::WeightTrader>(
 		weight: Weight,
-		asset: VersionedAssetId,
+		asset_id: VersionedAssetId,
 	) -> Result<u128, XcmPaymentApiError> {
-		let asset: AssetId = asset.clone().try_into()
+		let asset_id: AssetId = asset_id.clone().try_into()
 			.map_err(|e| {
-				tracing::debug!(target: "xcm::pallet::query_weight_to_asset_fee", ?e, ?asset, "Failed to convert versioned asset");
+				tracing::debug!(target: "xcm::pallet::query_weight_to_asset_fee", ?e, ?asset_id, "Failed to convert versioned asset");
 				XcmPaymentApiError::VersionedConversionFailed
 			})?;
 
-		let max_amount = u128::MAX / 2;
-		let max_payment: Asset = (asset.clone(), max_amount).into();
 		let context = XcmContext::with_message_id(XcmHash::default());
 
-		// We return the unspent amount without affecting the state
-		// as we used a big amount of the asset without any check.
-		let unspent = with_transaction(|| {
-			let mut trader = Trader::new();
-			let result = trader.buy_weight(weight, max_payment.into(), &context)
-				.map_err(|e| {
-					tracing::error!(target: "xcm::pallet::query_weight_to_asset_fee", ?e, ?asset, "Failed to buy weight");
-
-					// Return something convertible to `DispatchError` as required by the `with_transaction` fn.
-					DispatchError::Other("Failed to buy weight")
-				});
-
-			TransactionOutcome::Rollback(result)
-		}).map_err(|error| {
-			tracing::debug!(target: "xcm::pallet::query_weight_to_asset_fee", ?error, "Failed to execute transaction");
-			XcmPaymentApiError::AssetNotFound
-		})?;
-
-		let Some(unspent) = unspent.fungible.get(&asset) else {
-			tracing::error!(target: "xcm::pallet::query_weight_to_asset_fee", ?asset, "The trader didn't return the needed fungible asset");
-			return Err(XcmPaymentApiError::AssetNotFound);
-		};
-
-		let paid = max_amount - unspent;
-		Ok(paid)
+		let mut trader = Trader::new();
+		let required = trader.quote_weight(weight, asset_id.clone(), &context)
+			.map_err(|e| {
+				tracing::debug!(target: "xcm::pallet::query_weight_to_asset_fee", ?e, ?asset_id, "Failed to quote weight");
+				XcmPaymentApiError::AssetNotFound
+			})?;
+		match (required.id, required.fun) {
+			(required_id, Fungible(required_amount)) if required_id.eq(&asset_id) => {
+				Ok(required_amount)
+			},
+			_ => Err(XcmPaymentApiError::AssetNotFound),
+		}
 	}
 
 	/// Given a `destination` and XCM `message`, return assets to be charged as XCM delivery fees.
-	pub fn query_delivery_fees(
+	///
+	/// Meant to be called by the `XcmPaymentApi`.
+	/// It's necessary to specify the asset in which fees are desired.
+	///
+	/// NOTE: Only use this if delivery fees consist of only 1 asset, else this function will error.
+	pub fn query_delivery_fees<AssetExchanger: xcm_executor::traits::AssetExchange>(
 		destination: VersionedLocation,
 		message: VersionedXcm<()>,
+		versioned_asset_id: VersionedAssetId,
 	) -> Result<VersionedAssets, XcmPaymentApiError> {
 		let result_version = destination.identify_version().max(message.identify_version());
 
@@ -3283,27 +3270,58 @@ impl<T: Config> Pallet<T> {
 			.clone()
 			.try_into()
 			.map_err(|e| {
-				tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?e, ?destination, "Failed to convert versioned destination");
+				tracing::debug!(target: "xcm::pallet_xcm::query_delivery_fees", ?e, ?destination, "Failed to convert versioned destination");
 				XcmPaymentApiError::VersionedConversionFailed
 			})?;
 
 		let message: Xcm<()> =
 			message.clone().try_into().map_err(|e| {
-				tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?e, ?message, "Failed to convert versioned message");
+				tracing::debug!(target: "xcm::pallet_xcm::query_delivery_fees", ?e, ?message, "Failed to convert versioned message");
 				XcmPaymentApiError::VersionedConversionFailed
 			})?;
 
 		let (_, fees) = validate_send::<T::XcmRouter>(destination.clone(), message.clone()).map_err(|error| {
-			tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?error, ?destination, ?message, "Failed to validate send to destination");
+			tracing::debug!(target: "xcm::pallet_xcm::query_delivery_fees", ?error, ?destination, ?message, "Failed to validate send to destination");
 			XcmPaymentApiError::Unroutable
 		})?;
 
-		VersionedAssets::from(fees)
-			.into_version(result_version)
-			.map_err(|e| {
-				tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?e, ?result_version, "Failed to convert fees into version");
-				XcmPaymentApiError::VersionedConversionFailed
-			})
+		// This helper only works for routers that return 1 and only 1 asset for delivery fees.
+		if fees.len() != 1 {
+			return Err(XcmPaymentApiError::Unimplemented);
+		}
+
+		let fee = fees.get(0).ok_or(XcmPaymentApiError::Unimplemented)?;
+
+		let asset_id = versioned_asset_id.clone().try_into().map_err(|()| {
+			tracing::trace!(
+				target: "xcm::xcm_runtime_apis::query_delivery_fees",
+				"Failed to convert asset id: {versioned_asset_id:?}!"
+			);
+			XcmPaymentApiError::VersionedConversionFailed
+		})?;
+
+		let assets_to_pay = if fee.id == asset_id {
+			// If the fee asset is the same as the desired one, just return that.
+			fees
+		} else {
+			// We get the fees in the desired asset.
+			AssetExchanger::quote_exchange_price(
+				&fees.into(),
+				&(asset_id, Fungible(1)).into(),
+				true, // Maximal.
+			)
+			.ok_or(XcmPaymentApiError::AssetNotFound)?
+		};
+
+		VersionedAssets::from(assets_to_pay).into_version(result_version).map_err(|e| {
+			tracing::trace!(
+				target: "xcm::pallet_xcm::query_delivery_fees",
+				?e,
+				?result_version,
+				"Failed to convert fees into desired version"
+			);
+			XcmPaymentApiError::VersionedConversionFailed
+		})
 	}
 
 	/// Given an Asset and a Location, returns if the provided location is a trusted reserve for the
@@ -3582,7 +3600,7 @@ impl<T: Config> Pallet<T> {
 		// if migration has been already scheduled, everything is ok and data will be eventually
 		// migrated
 		if CurrentMigration::<T>::exists() {
-			return Ok(())
+			return Ok(());
 		}
 
 		// if migration has NOT been scheduled yet, we need to check all operational data
@@ -3881,10 +3899,18 @@ impl<T: Config> VersionChangeNotifier for Pallet<T> {
 }
 
 impl<T: Config> DropAssets for Pallet<T> {
-	fn drop_assets(origin: &Location, assets: AssetsInHolding, _context: &XcmContext) -> Weight {
-		if assets.is_empty() {
-			return Weight::zero()
+	fn drop_assets(origin: &Location, holding: AssetsInHolding, _context: &XcmContext) -> Weight {
+		if holding.is_empty() {
+			return Weight::zero();
 		}
+		let assets: Vec<Asset> = holding.assets_iter().collect();
+		// SAFETY: "forget" about any fungible imbalances so that they are not dropped/resolved
+		// here. The mirrored asset claiming operation will "recover" the imbalances by minting
+		// back into holding, effectively duplicating the imbalance and only then dropping the
+		// duplicate. As a result, total issuance doesn't change.
+		holding.fungible.into_iter().for_each(|(_, mut accounting)| {
+			accounting.forget_imbalance();
+		});
 		let versioned = VersionedAssets::from(Assets::from(assets));
 		let hash = BlakeTwo256::hash_of(&(&origin, &versioned));
 		AssetTraps::<T>::mutate(hash, |n| *n += 1);
@@ -3903,30 +3929,58 @@ impl<T: Config> ClaimAssets for Pallet<T> {
 		origin: &Location,
 		ticket: &Location,
 		assets: &Assets,
-		_context: &XcmContext,
-	) -> bool {
+		context: &XcmContext,
+	) -> Option<AssetsInHolding> {
 		let mut versioned = VersionedAssets::from(assets.clone());
 		match ticket.unpack() {
-			(0, [GeneralIndex(i)]) =>
+			(0, [GeneralIndex(i)]) => {
 				versioned = match versioned.into_version(*i as u32) {
 					Ok(v) => v,
-					Err(()) => return false,
-				},
+					Err(()) => return None,
+				}
+			},
 			(0, []) => (),
-			_ => return false,
+			_ => return None,
 		};
 		let hash = BlakeTwo256::hash_of(&(origin.clone(), versioned.clone()));
 		match AssetTraps::<T>::get(hash) {
-			0 => return false,
+			0 => return None,
 			1 => AssetTraps::<T>::remove(hash),
 			n => AssetTraps::<T>::insert(hash, n - 1),
+		}
+		let mut claimed = AssetsInHolding::new();
+		for asset in assets.inner() {
+			match <T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(asset, context)
+			{
+				Ok(minted) => {
+					// SAFETY: Any fungible imbalances are now effectively duplicated because they
+					// were not resolved when the asset was trapped (so total issuance tracks
+					// trapped assets too), and now a duplicate asset was just minted.
+					// To balance the system and keep total issuance constant, we drop and resolve
+					// one of the duplicates. As a result, total issuance doesn't change.
+					//
+					// Note: This may emit Burned/Minted events even though the net issuance change
+					// is zero. The mint creates a +X imbalance, and dropping the clone resolves -X,
+					// resulting in no net change but potentially two events. This is an acceptable
+					// tradeoff for the asset trap/claim mechanism.
+					minted.fungible.iter().for_each(|(_, imbalance)| {
+						let to_resolve = imbalance.unsafe_clone();
+						core::mem::drop(to_resolve);
+					});
+					claimed.subsume_assets(minted)
+				},
+				Err(error) => tracing::debug!(
+					target: "xcm::pallet_xcm::claim_assets",
+					?asset, ?error, "Asset claimed from trap but unable to mint."
+				),
+			}
 		}
 		Self::deposit_event(Event::AssetsClaimed {
 			hash,
 			origin: origin.clone(),
 			assets: versioned,
 		});
-		return true
+		Some(claimed)
 	}
 }
 
@@ -3937,15 +3991,17 @@ impl<T: Config> OnResponse for Pallet<T> {
 		querier: Option<&Location>,
 	) -> bool {
 		match Queries::<T>::get(query_id) {
-			Some(QueryStatus::Pending { responder, maybe_match_querier, .. }) =>
+			Some(QueryStatus::Pending { responder, maybe_match_querier, .. }) => {
 				Location::try_from(responder).map_or(false, |r| origin == &r) &&
 					maybe_match_querier.map_or(true, |match_querier| {
 						Location::try_from(match_querier).map_or(false, |match_querier| {
 							querier.map_or(false, |q| q == &match_querier)
 						})
-					}),
-			Some(QueryStatus::VersionNotifier { origin: r, .. }) =>
-				Location::try_from(r).map_or(false, |r| origin == &r),
+					})
+			},
+			Some(QueryStatus::VersionNotifier { origin: r, .. }) => {
+				Location::try_from(r).map_or(false, |r| origin == &r)
+			},
 			_ => false,
 		}
 	}
@@ -3972,7 +4028,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 							query_id,
 							expected_location: Some(o),
 						});
-						return Weight::zero()
+						return Weight::zero();
 					},
 					_ => {
 						Self::deposit_event(Event::InvalidResponder {
@@ -3981,7 +4037,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 							expected_location: None,
 						});
 						// TODO #3735: Correct weight for this.
-						return Weight::zero()
+						return Weight::zero();
 					},
 				};
 				// TODO #3735: Check max_weight is correct.
@@ -4014,7 +4070,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 								origin: origin.clone(),
 								query_id,
 							});
-							return Weight::zero()
+							return Weight::zero();
 						},
 					};
 					if querier.map_or(true, |q| q != &match_querier) {
@@ -4024,7 +4080,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 							expected_querier: match_querier,
 							maybe_actual_querier: querier.cloned(),
 						});
-						return Weight::zero()
+						return Weight::zero();
 					}
 				}
 				let responder = match Location::try_from(responder) {
@@ -4034,7 +4090,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 							origin: origin.clone(),
 							query_id,
 						});
-						return Weight::zero()
+						return Weight::zero();
 					},
 				};
 				if origin != responder {
@@ -4043,7 +4099,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 						query_id,
 						expected_location: Some(responder),
 					});
-					return Weight::zero()
+					return Weight::zero();
 				}
 				match maybe_notify {
 					Some((pallet_index, call_index)) => {
@@ -4065,7 +4121,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 									max_budgeted_weight: max_weight,
 								};
 								Self::deposit_event(e);
-								return Weight::zero()
+								return Weight::zero();
 							}
 							let dispatch_origin = Origin::Response(origin.clone()).into();
 							match call.dispatch(dispatch_origin) {
@@ -4225,12 +4281,13 @@ where
 
 	fn try_origin(outer: O) -> Result<Self::Success, O> {
 		match outer.caller().try_into() {
-			Ok(Origin::Xcm(ref location)) =>
+			Ok(Origin::Xcm(ref location)) => {
 				if let Ok(location) = location.clone().try_into() {
 					if F::contains(&location) {
 						return Ok(location);
 					}
-				},
+				}
+			},
 			_ => (),
 		}
 

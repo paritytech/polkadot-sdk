@@ -29,6 +29,11 @@ pub struct StorageQuery<Key> {
 	/// The type of the storage query.
 	#[serde(rename = "type")]
 	pub query_type: StorageQueryType,
+	/// The optional pagination start key for descendants queries.
+	/// Only valid for `DescendantsValues` and `DescendantsHashes` query types.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default)]
+	pub pagination_start_key: Option<Key>,
 }
 
 /// The type of the storage query.
@@ -377,7 +382,11 @@ mod tests {
 	#[test]
 	fn storage_query() {
 		// Item with Value.
-		let item = StorageQuery { key: "0x1", query_type: StorageQueryType::Value };
+		let item = StorageQuery {
+			key: "0x1",
+			query_type: StorageQueryType::Value,
+			pagination_start_key: None,
+		};
 		// Encode
 		let ser = serde_json::to_string(&item).unwrap();
 		let exp = r#"{"key":"0x1","type":"value"}"#;
@@ -387,7 +396,11 @@ mod tests {
 		assert_eq!(dec, item);
 
 		// Item with Hash.
-		let item = StorageQuery { key: "0x1", query_type: StorageQueryType::Hash };
+		let item = StorageQuery {
+			key: "0x1",
+			query_type: StorageQueryType::Hash,
+			pagination_start_key: None,
+		};
 		// Encode
 		let ser = serde_json::to_string(&item).unwrap();
 		let exp = r#"{"key":"0x1","type":"hash"}"#;
@@ -397,7 +410,11 @@ mod tests {
 		assert_eq!(dec, item);
 
 		// Item with DescendantsValues.
-		let item = StorageQuery { key: "0x1", query_type: StorageQueryType::DescendantsValues };
+		let item = StorageQuery {
+			key: "0x1",
+			query_type: StorageQueryType::DescendantsValues,
+			pagination_start_key: None,
+		};
 		// Encode
 		let ser = serde_json::to_string(&item).unwrap();
 		let exp = r#"{"key":"0x1","type":"descendantsValues"}"#;
@@ -407,7 +424,11 @@ mod tests {
 		assert_eq!(dec, item);
 
 		// Item with DescendantsHashes.
-		let item = StorageQuery { key: "0x1", query_type: StorageQueryType::DescendantsHashes };
+		let item = StorageQuery {
+			key: "0x1",
+			query_type: StorageQueryType::DescendantsHashes,
+			pagination_start_key: None,
+		};
 		// Encode
 		let ser = serde_json::to_string(&item).unwrap();
 		let exp = r#"{"key":"0x1","type":"descendantsHashes"}"#;
@@ -417,11 +438,42 @@ mod tests {
 		assert_eq!(dec, item);
 
 		// Item with Merkle.
-		let item =
-			StorageQuery { key: "0x1", query_type: StorageQueryType::ClosestDescendantMerkleValue };
+		let item = StorageQuery {
+			key: "0x1",
+			query_type: StorageQueryType::ClosestDescendantMerkleValue,
+			pagination_start_key: None,
+		};
 		// Encode
 		let ser = serde_json::to_string(&item).unwrap();
 		let exp = r#"{"key":"0x1","type":"closestDescendantMerkleValue"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+
+		// Item with DescendantsValues and paginationStartKey.
+		let item = StorageQuery {
+			key: "0x1",
+			query_type: StorageQueryType::DescendantsValues,
+			pagination_start_key: Some("0x2"),
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","type":"descendantsValues","paginationStartKey":"0x2"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+
+		// Item with DescendantsHashes and paginationStartKey.
+		let item = StorageQuery {
+			key: "0x1",
+			query_type: StorageQueryType::DescendantsHashes,
+			pagination_start_key: Some("0x2"),
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","type":"descendantsHashes","paginationStartKey":"0x2"}"#;
 		assert_eq!(ser, exp);
 		// Decode
 		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();

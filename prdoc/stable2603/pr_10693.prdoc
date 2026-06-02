@@ -1,0 +1,9 @@
+title: refund deposit_eth_extrinsic_revert_event on the base_weight
+doc:
+- audience: Runtime Dev
+  description: |-
+    When an eth transaction succeed we refund the pre-charged revert_event.
+    The refund should be done on the base weight and not the weight_consumed, as the latest could be lower than the cost of the revert_event
+crates:
+- name: pallet-revive
+  bump: patch

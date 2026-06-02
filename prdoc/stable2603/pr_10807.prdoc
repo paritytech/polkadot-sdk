@@ -1,0 +1,8 @@
+title: 'Omni-node: Move timestamps closer to now'
+doc:
+- audience: Node Dev
+  description: |-
+    Blocks produced with Omni-nodes dev-mode are now closer to the current time. Previously they were starting at `UNIX_EPOCH`.
+crates:
+- name: polkadot-omni-node-lib
+  bump: patch

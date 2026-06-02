@@ -1,0 +1,20 @@
+[package]
+name = "polkadot-node-clock"
+version = "7.0.0"
+description = "Clock abstraction shared by Polkadot node subsystems."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+futures-timer = { workspace = true }
+
+[features]
+default = []
+# Exposes test helpers: a deterministic `MockClock` implementation.
+test = []

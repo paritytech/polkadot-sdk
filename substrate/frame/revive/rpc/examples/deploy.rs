@@ -19,7 +19,7 @@ use pallet_revive::{
 	create1,
 	evm::{Account, BlockTag, ReceiptInfo, U256},
 };
-use pallet_revive_eth_rpc::{example::TransactionBuilder, EthRpcClient};
+use pallet_revive_eth_rpc::{EthRpcClient, example::TransactionBuilder};
 use std::sync::Arc;
 
 #[tokio::main]
@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
 	println!("\n\n=== Deploying contract ===\n\n");
 
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
-	let tx = TransactionBuilder::new(&client)
+	let tx = TransactionBuilder::new(client.clone())
 		.value(5_000_000_000_000u128.into())
 		.input(input)
 		.send()
@@ -65,7 +65,7 @@ async fn main() -> anyhow::Result<()> {
 	}
 
 	println!("\n\n=== Calling contract ===\n\n");
-	let tx = TransactionBuilder::new(&client)
+	let tx = TransactionBuilder::new(client.clone())
 		.value(U256::from(1_000_000u32))
 		.to(contract_address)
 		.send()

@@ -32,8 +32,9 @@ pub enum TransactionPoolType {
 impl Into<sc_transaction_pool::TransactionPoolType> for TransactionPoolType {
 	fn into(self) -> sc_transaction_pool::TransactionPoolType {
 		match self {
-			TransactionPoolType::SingleState =>
-				sc_transaction_pool::TransactionPoolType::SingleState,
+			TransactionPoolType::SingleState => {
+				sc_transaction_pool::TransactionPoolType::SingleState
+			},
 			TransactionPoolType::ForkAware => sc_transaction_pool::TransactionPoolType::ForkAware,
 		}
 	}

@@ -91,6 +91,9 @@ const DEFENSIVE_PROOF: &'static str = "disputes module should bail on old sessio
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+#[cfg(test)]
+mod tests;
+
 /// The benchmarking configuration.
 pub trait BenchmarkingConfiguration {
 	const MAX_VALIDATORS: u32;
@@ -207,7 +210,7 @@ where
 					).map(|full_id| (id, full_id))
 				})
 				.collect::<Vec<IdentificationTuple<T>>>();
-			return Some(fully_identified)
+			return Some(fully_identified);
 		}
 		None
 	}
@@ -220,7 +223,7 @@ where
 	) {
 		let losers: BTreeSet<_> = losers.into_iter().collect();
 		if losers.is_empty() {
-			return
+			return;
 		}
 		let session_info = crate::session_info::Sessions::<T>::get(session_index);
 		let session_info = match session_info.defensive_proof(DEFENSIVE_PROOF) {
@@ -242,7 +245,7 @@ where
 			// This is the first time we report an offence for this dispute,
 			// so it is not a duplicate.
 			let _ = T::HandleReports::report_offence(offence);
-			return
+			return;
 		}
 
 		let keys = losers
@@ -478,13 +481,18 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
 			let validator_set_count = key_owner_proof.validator_count() as ValidatorSetCount;
-			// check the membership proof to extract the offender's id
+			let session_index = dispute_proof.time_slot.session_index;
+
+			// The membership proof must be for the same session as the dispute.
+			ensure!(
+				key_owner_proof.session() == session_index,
+				Error::<T>::InvalidKeyOwnershipProof,
+			);
+
 			let key =
 				(polkadot_primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
 			let offender = T::KeyOwnerProofSystem::check_proof(key, key_owner_proof)
 				.ok_or(Error::<T>::InvalidKeyOwnershipProof)?;
-
-			let session_index = dispute_proof.time_slot.session_index;
 
 			// check that there is a pending slash for the given
 			// validator index and candidate hash
@@ -492,14 +500,15 @@ pub mod pallet {
 			let try_remove = |v: &mut Option<PendingSlashes>| -> Result<(), DispatchError> {
 				let pending = v.as_mut().ok_or(Error::<T>::InvalidCandidateHash)?;
 				if pending.kind != dispute_proof.kind {
-					return Err(Error::<T>::InvalidCandidateHash.into())
+					return Err(Error::<T>::InvalidCandidateHash.into());
 				}
 
 				match pending.keys.entry(dispute_proof.validator_index) {
 					Entry::Vacant(_) => return Err(Error::<T>::InvalidValidatorIndex.into()),
 					// check that `validator_index` matches `validator_id`
-					Entry::Occupied(e) if e.get() != &dispute_proof.validator_id =>
-						return Err(Error::<T>::ValidatorIndexIdMismatch.into()),
+					Entry::Occupied(e) if e.get() != &dispute_proof.validator_id => {
+						return Err(Error::<T>::ValidatorIndexIdMismatch.into())
+					},
 					Entry::Occupied(e) => {
 						e.remove(); // the report is correct
 					},
@@ -530,6 +539,7 @@ pub mod pallet {
 		}
 	}
 
+	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
@@ -561,7 +571,7 @@ impl<T: Config> Pallet<T> {
 
 		let config = crate::configuration::ActiveConfig::<T>::get();
 		if session_index <= config.dispute_period + 1 {
-			return
+			return;
 		}
 
 		let old_session = session_index - config.dispute_period - 1;
@@ -597,7 +607,7 @@ impl<T: Config> Pallet<T> {
 						"rejecting unsigned transaction because it is not local/in-block."
 					);
 
-					return InvalidTransaction::Call.into()
+					return InvalidTransaction::Call.into();
 				},
 			}
 
@@ -639,7 +649,11 @@ fn is_known_offence<T: Config>(
 	dispute_proof: &DisputeProof,
 	key_owner_proof: &T::KeyOwnerProof,
 ) -> Result<(), TransactionValidityError> {
-	// check the membership proof to extract the offender's id
+	// The membership proof must be for the same session as the dispute.
+	if key_owner_proof.session() != dispute_proof.time_slot.session_index {
+		return Err(InvalidTransaction::BadProof.into());
+	}
+
 	let key = (polkadot_primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
 
 	let offender = T::KeyOwnerProofSystem::check_proof(key, key_owner_proof.clone())

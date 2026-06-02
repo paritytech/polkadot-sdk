@@ -243,7 +243,8 @@
 //! More precise usage details are still being worked on and will likely change in the future.
 
 mod behaviour;
-mod bitswap;
+pub mod bitswap;
+mod ipfs_block_provider;
 mod litep2p;
 mod protocol;
 
@@ -266,6 +267,9 @@ pub mod utils;
 
 pub use crate::litep2p::Litep2pNetworkBackend;
 pub use event::{DhtEvent, Event};
+pub use ipfs_block_provider::{
+	BlockProvider as IpfsBlockProvider, IndexedTransactions as IpfsIndexedTransactions,
+};
 #[doc(inline)]
 pub use request_responses::{Config, IfDisconnected, RequestFailure};
 pub use sc_network_common::{

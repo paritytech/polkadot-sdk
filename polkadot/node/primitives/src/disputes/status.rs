@@ -103,12 +103,15 @@ impl DisputeStatus {
 	/// candidate. This may be a no-op if the status was already concluded.
 	pub fn conclude_against(self, now: Timestamp) -> DisputeStatus {
 		match self {
-			DisputeStatus::Active | DisputeStatus::Confirmed =>
-				DisputeStatus::ConcludedAgainst(now),
-			DisputeStatus::ConcludedFor(at) =>
-				DisputeStatus::ConcludedAgainst(std::cmp::min(at, now)),
-			DisputeStatus::ConcludedAgainst(at) =>
-				DisputeStatus::ConcludedAgainst(std::cmp::min(at, now)),
+			DisputeStatus::Active | DisputeStatus::Confirmed => {
+				DisputeStatus::ConcludedAgainst(now)
+			},
+			DisputeStatus::ConcludedFor(at) => {
+				DisputeStatus::ConcludedAgainst(std::cmp::min(at, now))
+			},
+			DisputeStatus::ConcludedAgainst(at) => {
+				DisputeStatus::ConcludedAgainst(std::cmp::min(at, now))
+			},
 		}
 	}
 

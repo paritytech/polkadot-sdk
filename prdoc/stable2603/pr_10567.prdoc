@@ -1,0 +1,10 @@
+title: '[Revive] Fix construction of negative zero SignedGas'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Closes https://github.com/paritytech-secops/srlabs_findings/issues/603
+
+    This fixes an issue where a zero `SignedGas` value can be constructed that uses the `Negative` variant. The rest of the code relies on the invariant that zero `SignedGas` has always the `Positive` variant and this is also documented in the code.
+crates:
+- name: pallet-revive
+  bump: patch

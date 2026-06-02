@@ -18,19 +18,20 @@
 //! The pallet-revive ETH block hash specific integration test suite.
 
 use crate::{
-	evm::{block_hash::EthereumBlockBuilder, fees::InfoT, Block, TransactionSigned},
-	test_utils::{builder::Contract, deposit_limit, ALICE},
-	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeOrigin, Test},
 	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderFirstValues, EthBlockBuilderIR,
 	EthereumBlock, Pallet, ReceiptGasInfo, ReceiptInfoData,
+	evm::{Block, TransactionSigned, block_hash::EthereumBlockBuilder, fees::InfoT},
+	test_utils::{ALICE, builder::Contract, deposit_limit},
+	tests::{Contracts, ExtBuilder, RuntimeOrigin, System, Test, Timestamp, assert_ok, builder},
 };
 use alloy_consensus::RlpEncodableReceipt;
 use alloy_core::primitives::{FixedBytes, Log as AlloyLog};
 use frame_support::traits::{
-	fungible::{Balanced, Mutate},
 	Hooks,
+	fungible::{Balanced, Mutate},
 };
 use pallet_revive_fixtures::compile_module;
+use sp_state_machine::BasicExternalities;
 
 #[test]
 fn on_initialize_clears_storage() {
@@ -53,6 +54,26 @@ fn on_initialize_clears_storage() {
 }
 
 #[test]
+fn genesis_block_number_and_timestamp_fetched_from_storage() {
+	let mut ext = BasicExternalities::new_empty();
+	ext.execute_with(|| {
+		System::set_block_number(10);
+		Timestamp::set_timestamp(10000000);
+	});
+	let storage = ext.into_storages();
+
+	ExtBuilder::default()
+		.with_genesis_state_overrides(storage)
+		.build()
+		.execute_with(|| {
+			let block = EthereumBlock::<Test>::get();
+			// The timestamp is divided by 1000 (converted to seconds)
+			assert_eq!(block.timestamp, 10000.into());
+			assert_eq!(block.number, 10.into());
+		});
+}
+
+#[test]
 fn transactions_are_captured() {
 	let (binary, _) = compile_module("dummy").unwrap();
 	let (gas_binary, _code_hash) = compile_module("run_out_of_gas").unwrap();
@@ -72,10 +93,12 @@ fn transactions_are_captured() {
 
 		// eth calls are captured.
 		assert_ok!(builder::eth_call(addr).transaction_encoded(vec![1]).value(balance).build());
-		assert_ok!(builder::eth_instantiate_with_code(binary)
-			.value(balance)
-			.transaction_encoded(vec![2])
-			.build());
+		assert_ok!(
+			builder::eth_instantiate_with_code(binary)
+				.value(balance)
+				.transaction_encoded(vec![2])
+				.build()
+		);
 		assert_ok!(builder::eth_call(addr2).transaction_encoded(vec![3]).build());
 
 		// non-eth calls are not captured.

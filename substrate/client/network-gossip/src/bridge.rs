@@ -200,7 +200,7 @@ impl<B: BlockT> Future for GossipEngine<B> {
 					let sync_event_stream = this.sync_event_stream.poll_next_unpin(cx);
 
 					if next_notification_event.is_pending() && sync_event_stream.is_pending() {
-						break
+						break;
 					}
 
 					match next_notification_event {
@@ -220,7 +220,7 @@ impl<B: BlockT> Future for GossipEngine<B> {
 							},
 							NotificationEvent::NotificationStreamOpened {
 								peer, handshake, ..
-							} =>
+							} => {
 								if let Some(role) = this.network.peer_role(peer, handshake) {
 									this.state_machine.new_peer(
 										&mut this.notification_service,
@@ -229,7 +229,8 @@ impl<B: BlockT> Future for GossipEngine<B> {
 									);
 								} else {
 									log::debug!(target: "gossip", "role for {peer} couldn't be determined");
-								},
+								}
+							},
 							NotificationEvent::NotificationStreamClosed { peer } => {
 								this.state_machine
 									.peer_disconnected(&mut this.notification_service, peer);
@@ -247,22 +248,24 @@ impl<B: BlockT> Future for GossipEngine<B> {
 						// The network event stream closed. Do the same for [`GossipValidator`].
 						Poll::Ready(None) => {
 							self.is_terminated = true;
-							return Poll::Ready(())
+							return Poll::Ready(());
 						},
 						Poll::Pending => {},
 					}
 
 					match sync_event_stream {
 						Poll::Ready(Some(event)) => match event {
-							SyncEvent::PeerConnected(remote) =>
-								this.network.add_set_reserved(remote, this.protocol.clone()),
-							SyncEvent::PeerDisconnected(remote) =>
-								this.network.remove_set_reserved(remote, this.protocol.clone()),
+							SyncEvent::PeerConnected(remote) => {
+								this.network.add_set_reserved(remote, this.protocol.clone())
+							},
+							SyncEvent::PeerDisconnected(remote) => {
+								this.network.remove_set_reserved(remote, this.protocol.clone())
+							},
 						},
 						// The sync event stream closed. Do the same for [`GossipValidator`].
 						Poll::Ready(None) => {
 							self.is_terminated = true;
-							return Poll::Ready(())
+							return Poll::Ready(());
 						},
 						Poll::Pending => {},
 					}
@@ -272,7 +275,7 @@ impl<B: BlockT> Future for GossipEngine<B> {
 						Some(n) => n,
 						None => {
 							this.forwarding_state = ForwardingState::Idle;
-							continue
+							continue;
 						},
 					};
 
@@ -290,7 +293,7 @@ impl<B: BlockT> Future for GossipEngine<B> {
 							Poll::Pending => {
 								// Push back onto queue for later.
 								to_forward.push_front((topic, notification));
-								break 'outer
+								break 'outer;
 							},
 						}
 					}
@@ -300,7 +303,7 @@ impl<B: BlockT> Future for GossipEngine<B> {
 
 					if sinks.is_empty() {
 						this.message_sinks.remove(&topic);
-						continue
+						continue;
 					}
 
 					trace!(
@@ -857,7 +860,7 @@ mod tests {
 					}
 
 					if !progress {
-						break
+						break;
 					}
 				}
 				Poll::Ready(())

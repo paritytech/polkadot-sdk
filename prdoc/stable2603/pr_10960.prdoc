@@ -1,0 +1,13 @@
+title: Warn when dropping an out of view candidate
+doc:
+- audience: Node Dev
+  description: |-
+    This changes a debug log to a warning. The other log messages around the candidate state are also partially warnings. A candidate that is directly out of view counts clearly as a warning. Besides that this pull request also increases
+     the lookahead for Westend + Rococo to `5` to align it with Kusama.
+crates:
+- name: polkadot-collator-protocol
+  bump: patch
+- name: rococo-runtime
+  bump: patch
+- name: westend-runtime
+  bump: patch

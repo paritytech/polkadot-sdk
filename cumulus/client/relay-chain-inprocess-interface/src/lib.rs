@@ -33,9 +33,11 @@ use cumulus_primitives_core::{
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
-use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
+use cumulus_relay_chain_interface::{
+	ChildInfo, RelayChainError, RelayChainInterface, RelayChainResult,
+};
 use futures::{FutureExt, Stream, StreamExt};
-use polkadot_primitives::CandidateEvent;
+use polkadot_primitives::{CandidateEvent, NodeFeatures};
 use polkadot_service::{
 	builder::PolkadotServiceBuilder, CollatorOverseerGen, CollatorPair, Configuration, FullBackend,
 	FullClient, Handle, NewFull, NewFullParams, TaskManager,
@@ -84,7 +86,7 @@ impl RelayChainInProcessInterface {
 #[async_trait]
 impl RelayChainInterface for RelayChainInProcessInterface {
 	async fn version(&self, relay_parent: PHash) -> RelayChainResult<RuntimeVersion> {
-		Ok(self.full_client.runtime_version_at(relay_parent)?)
+		Ok(self.full_client.runtime_version_at(relay_parent, CallContext::Offchain)?)
 	}
 
 	async fn retrieve_dmq_contents(
@@ -109,12 +111,13 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
 		let hash = match block_id {
 			BlockId::Hash(hash) => hash,
-			BlockId::Number(num) =>
+			BlockId::Number(num) => {
 				if let Some(hash) = self.full_client.hash(num)? {
 					hash
 				} else {
-					return Ok(None)
-				},
+					return Ok(None);
+				}
+			},
 		};
 		let header = self.full_client.header(hash)?;
 
@@ -240,6 +243,18 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 			.map_err(RelayChainError::StateMachineError)
 	}
 
+	async fn prove_child_read(
+		&self,
+		relay_parent: PHash,
+		child_info: &ChildInfo,
+		child_keys: &[Vec<u8>],
+	) -> RelayChainResult<StorageProof> {
+		let state_backend = self.backend.state_at(relay_parent, TrieCacheContext::Untrusted)?;
+
+		sp_state_machine::prove_child_read(state_backend, child_info, child_keys)
+			.map_err(RelayChainError::StateMachineError)
+	}
+
 	/// Wait for a given relay chain block in an async way.
 	///
 	/// The caller needs to pass the hash of a block it waits for and the function will return when
@@ -333,6 +348,14 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 	async fn candidate_events(&self, hash: PHash) -> RelayChainResult<Vec<CandidateEvent>> {
 		Ok(self.full_client.runtime_api().candidate_events(hash)?)
 	}
+
+	async fn max_relay_parent_session_age(&self, at: PHash) -> RelayChainResult<u32> {
+		Ok(self.full_client.runtime_api().max_relay_parent_session_age(at)?)
+	}
+
+	async fn node_features(&self, at: PHash) -> RelayChainResult<NodeFeatures> {
+		Ok(self.full_client.runtime_api().node_features(at)?)
+	}
 }
 
 pub enum BlockCheckStatus {
@@ -351,7 +374,7 @@ pub fn check_block_in_chain(
 	let _lock = backend.get_import_lock().read();
 
 	if backend.blockchain().status(hash)? == BlockStatus::InChain {
-		return Ok(BlockCheckStatus::InChain)
+		return Ok(BlockCheckStatus::InChain);
 	}
 
 	let listener = client.import_notification_stream();
@@ -419,6 +442,8 @@ fn build_polkadot_full_node(
 		keep_finalized_for: None,
 		invulnerable_ah_collators: HashSet::new(),
 		collator_protocol_hold_off: None,
+		experimental_collator_protocol: false,
+		collator_reputation_persist_interval: None,
 	};
 
 	let (relay_chain_full_node, paranode_req_receiver) = match config.network.network_backend {
@@ -441,7 +466,7 @@ pub fn build_inprocess_relay_chain(
 	task_manager: &mut TaskManager,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> RelayChainResult<(
-	Arc<(dyn RelayChainInterface + 'static)>,
+	Arc<dyn RelayChainInterface + 'static>,
 	Option<CollatorPair>,
 	Arc<dyn NetworkService>,
 	async_channel::Receiver<IncomingRequest>,

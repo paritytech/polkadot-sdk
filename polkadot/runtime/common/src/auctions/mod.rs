@@ -340,10 +340,10 @@ impl<T: Config> Auctioneer<BlockNumberFor<T>> for Pallet<T> {
 			let sample_length = T::SampleLength::get().max(One::one());
 			let sample = after_early_end / sample_length;
 			let sub_sample = after_early_end % sample_length;
-			return AuctionStatus::EndingPeriod(sample, sub_sample)
+			return AuctionStatus::EndingPeriod(sample, sub_sample);
 		} else {
 			// This is safe because of the comparison operator above
-			return AuctionStatus::VrfDelay(after_early_end - ending_period)
+			return AuctionStatus::VrfDelay(after_early_end - ending_period);
 		}
 	}
 
@@ -560,7 +560,7 @@ impl<T: Config> Pallet<T> {
 					#[allow(deprecated)]
 					Winning::<T>::remove_all(None);
 					AuctionInfo::<T>::kill();
-					return Some((res, lease_period_index))
+					return Some((res, lease_period_index));
 				}
 			}
 		}

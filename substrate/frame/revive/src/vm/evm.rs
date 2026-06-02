@@ -15,11 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
+	AccountIdOf, BalanceOf, CodeInfo, Config, ContractBlob, DispatchError, Error, H256, LOG_TARGET,
+	Weight,
 	debug::DebugSettings,
 	precompiles::Token,
-	vm::{evm::instructions::exec_instruction, BytecodeType, ExecResult, Ext},
+	tracing,
+	vm::{BytecodeType, ExecResult, Ext, evm::instructions::exec_instruction},
 	weights::WeightInfo,
-	AccountIdOf, CodeInfo, Config, ContractBlob, DispatchError, Error, Weight, H256, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{convert::Infallible, ops::ControlFlow};
@@ -50,7 +52,7 @@ pub(crate) const DIFFICULTY: u64 = 2500000000000000_u64;
 
 /// Cost  for a single unit of EVM gas.
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
-pub struct EVMGas(u64);
+pub struct EVMGas(pub u64);
 
 impl<T: Config> Token<T> for EVMGas {
 	fn weight(&self) -> Weight {
@@ -98,6 +100,24 @@ impl<T: Config> ContractBlob<T> {
 		code: Vec<u8>,
 		owner: AccountIdOf<T>,
 	) -> Result<Self, DispatchError> {
+		let code_len = code.len() as u32;
+		let deposit = super::calculate_code_deposit::<T>(code_len);
+		Self::from_evm_runtime_code_with_deposit(code, owner, deposit)
+	}
+
+	/// Create a new contract from EVM runtime code with an explicit owner and
+	/// deposit amount.
+	///
+	/// Used for `Origin::Root` uploads: there is no origin account to attribute
+	/// the deposit to, so the caller passes the pallet's own account as a
+	/// sentinel owner (no user can sign as it, so the code can't be removed via
+	/// the owner-gated path) and a zero deposit (both `charge_deposit` and
+	/// `refund_deposit` short-circuit at amount 0).
+	pub fn from_evm_runtime_code_with_deposit(
+		code: Vec<u8>,
+		owner: AccountIdOf<T>,
+		deposit: BalanceOf<T>,
+	) -> Result<Self, DispatchError> {
 		if code.len() > revm::primitives::eip170::MAX_CODE_SIZE &&
 			!DebugSettings::is_unlimited_contract_size_allowed::<T>()
 		{
@@ -105,7 +125,6 @@ impl<T: Config> ContractBlob<T> {
 		}
 
 		let code_len = code.len() as u32;
-		let deposit = super::calculate_code_deposit::<T>(code_len);
 
 		let code_info = CodeInfo {
 			owner,
@@ -129,7 +148,13 @@ impl<T: Config> ContractBlob<T> {
 /// Calls the EVM interpreter with the provided bytecode and inputs.
 pub fn call<E: Ext>(bytecode: Bytecode, ext: &mut E, input: Vec<u8>) -> ExecResult {
 	let mut interpreter = Interpreter::new(ExtBytecode::new(bytecode), input, ext);
-	let ControlFlow::Break(halt) = run_plain(&mut interpreter);
+	let tracing_enabled = tracing::if_tracing(|t| t.is_execution_tracer()).unwrap_or(false);
+
+	let ControlFlow::Break(halt) = if tracing_enabled {
+		run_plain_with_tracing(&mut interpreter)
+	} else {
+		run_plain(&mut interpreter)
+	};
 	halt.into()
 }
 
@@ -138,5 +163,24 @@ fn run_plain<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt, Infa
 		let opcode = interpreter.bytecode.opcode();
 		interpreter.bytecode.relative_jump(1);
 		exec_instruction(interpreter, opcode)?;
+	}
+}
+
+fn run_plain_with_tracing<E: Ext>(
+	interpreter: &mut Interpreter<E>,
+) -> ControlFlow<Halt, Infallible> {
+	loop {
+		let opcode = interpreter.bytecode.opcode();
+		tracing::if_tracing(|tracer| {
+			let pc = interpreter.bytecode.pc() as u64;
+			tracer.enter_opcode(pc, opcode, interpreter)
+		});
+
+		interpreter.bytecode.relative_jump(1);
+		let res = exec_instruction(interpreter, opcode);
+
+		tracing::if_tracing(|tracer| tracer.exit_step(interpreter, None));
+
+		res?;
 	}
 }

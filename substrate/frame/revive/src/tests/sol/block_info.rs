@@ -18,15 +18,15 @@
 //! The pallet-revive shared VM integration test suite.
 
 use crate::{
-	test_utils::{builder::Contract, ALICE},
-	tests::{builder, Contracts, ExtBuilder, System, Test, Timestamp},
+	Code, Config, DryRunConfig, ExecConfig, Pallet,
+	test_utils::{ALICE, builder::Contract},
+	tests::{Contracts, ExtBuilder, System, Test, Timestamp, builder},
 	vm::evm::DIFFICULTY,
-	Code, Config, Pallet,
 };
 
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{compile_module_with_type, BlockInfo, FixtureType};
+use pallet_revive_fixtures::{BlockInfo, FixtureType, compile_module_with_type};
 use pretty_assertions::assert_eq;
 use sp_core::H160;
 use test_case::test_case;
@@ -50,6 +50,33 @@ fn block_number_works(fixture_type: FixtureType) {
 			.build_and_unwrap_result();
 		let decoded = BlockInfo::blockNumberCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(42u64, decoded);
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn block_number_dry_run_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		System::set_block_number(42);
+		let timestamp_override = Some(Timestamp::get() + 10_000);
+
+		let result = builder::bare_call(addr)
+			.data(
+				BlockInfo::BlockInfoCalls::blockNumber(BlockInfo::blockNumberCall {}).abi_encode(),
+			)
+			.exec_config(
+				ExecConfig::new_substrate_tx().with_dry_run(
+					DryRunConfig::default().with_timestamp_override(timestamp_override),
+				),
+			)
+			.build_and_unwrap_result();
+		let decoded = BlockInfo::blockNumberCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(43u64, decoded);
 	});
 }
 
@@ -108,6 +135,34 @@ fn timestamp_works(fixture_type: FixtureType) {
 			// Solidity expects timestamps in seconds, whereas pallet_timestamp uses
 			// milliseconds.
 			(Timestamp::get() / 1000) as u64,
+			decoded
+		);
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn timestamp_dry_run_override_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		Timestamp::set_timestamp(2000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let timestamp_override = Timestamp::get() + 10_000;
+		let result: crate::ExecReturnValue = builder::bare_call(addr)
+			.data(BlockInfo::BlockInfoCalls::timestamp(BlockInfo::timestampCall {}).abi_encode())
+			.exec_config(
+				ExecConfig::new_substrate_tx().with_dry_run(
+					DryRunConfig::default().with_timestamp_override(timestamp_override),
+				),
+			)
+			.build_and_unwrap_result();
+		let decoded = BlockInfo::timestampCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(
+			// Solidity expects timestamps in seconds, whereas pallet_timestamp uses
+			// milliseconds.
+			(timestamp_override / 1000) as u64,
 			decoded
 		);
 	});

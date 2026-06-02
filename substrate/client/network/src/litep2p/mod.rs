@@ -26,11 +26,12 @@ use crate::{
 	error::Error,
 	event::{DhtEvent, Event},
 	litep2p::{
+		bitswap::BitswapService,
 		discovery::{Discovery, DiscoveryEvent},
+		ipfs_dht::IpfsDht,
 		peerstore::Peerstore,
 		service::{Litep2pNetworkService, NetworkServiceCommand},
 		shim::{
-			bitswap::BitswapServer,
 			notification::{
 				config::{NotificationProtocolConfig, ProtocolControlHandle},
 				peerset::PeersetCommand,
@@ -55,10 +56,7 @@ use litep2p::{
 	error::{DialError, NegotiationError},
 	executor::Executor,
 	protocol::{
-		libp2p::{
-			bitswap::Config as BitswapConfig,
-			kademlia::{QueryId, Record},
-		},
+		libp2p::kademlia::{QueryId, Record},
 		request_response::ConfigBuilder as RequestResponseConfigBuilder,
 	},
 	transport::{
@@ -94,7 +92,10 @@ use std::{
 	time::{Duration, Instant},
 };
 
+mod bitswap;
+mod bitswap_metrics;
 mod discovery;
+mod ipfs_dht;
 mod peerstore;
 mod service;
 mod shim;
@@ -153,6 +154,8 @@ enum KadQuery {
 	PutValue(RecordKey, Instant),
 	/// `GET_PROVIDERS` query for key and when it was initiated.
 	GetProviders(RecordKey, Instant),
+	/// `ADD_PROVIDER` query for key and when it was initiated.
+	AddProvider(RecordKey, Instant),
 }
 
 /// Networking backend for `litep2p`.
@@ -211,12 +214,10 @@ impl Litep2pNetworkBackend {
 					Protocol::Ip4(_),
 				) => match address.iter().find(|protocol| std::matches!(protocol, Protocol::P2p(_)))
 				{
-					Some(Protocol::P2p(multihash)) => PeerId::from_multihash(multihash.into())
-						.map_or(None, |peer| Some((peer, Some(address)))),
+					Some(Protocol::P2p(peer_id)) => Some((peer_id.into(), Some(address))),
 					_ => None,
 				},
-				Some(Protocol::P2p(multihash)) =>
-					PeerId::from_multihash(multihash.into()).map_or(None, |peer| Some((peer, None))),
+				Some(Protocol::P2p(peer_id)) => Some((peer_id.into(), None)),
 				_ => None,
 			})
 			.fold(HashMap::new(), |mut acc, (peer, maybe_address)| {
@@ -234,7 +235,7 @@ impl Litep2pNetworkBackend {
 			.filter_map(|(peer, addresses)| {
 				// `peers` contained multiaddress in the form `/p2p/<peer ID>`
 				if addresses.is_empty() {
-					return Some(peer)
+					return Some(peer);
 				}
 
 				if self.litep2p.add_known_address(peer.into(), addresses.clone().into_iter()) == 0 {
@@ -242,7 +243,7 @@ impl Litep2pNetworkBackend {
 						target: LOG_TARGET,
 						"couldn't add any addresses for {peer:?} and it won't be added as reserved peer",
 					);
-					return None
+					return None;
 				}
 
 				self.peerstore_handle.add_known_peer(peer);
@@ -292,14 +293,15 @@ impl Litep2pNetworkBackend {
 							"unknown protocol {protocol:?}, ignoring {address:?}",
 						);
 
-						return None
+						return None;
 					},
 				}
 
 				match iter.next() {
 					Some(Protocol::Tcp(_)) => match iter.next() {
-						Some(Protocol::Ws(_) | Protocol::Wss(_)) =>
-							Some((None, Some(address.clone()))),
+						Some(Protocol::Ws(_) | Protocol::Wss(_)) => {
+							Some((None, Some(address.clone())))
+						},
 						Some(Protocol::P2p(_)) | None => Some((Some(address.clone()), None)),
 						protocol => {
 							log::error!(
@@ -342,7 +344,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 	type RequestResponseProtocolConfig = RequestResponseConfig;
 	type NetworkService<Block, Hash> = Arc<Litep2pNetworkService>;
 	type PeerStore = Peerstore;
-	type BitswapConfig = BitswapConfig;
+	type BitswapConfig = bitswap::BitswapConfig;
 
 	fn new(mut params: Params<B, H, Self>) -> Result<Self, Error>
 	where
@@ -482,8 +484,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				use sc_network_types::multiaddr::Protocol;
 
 				let address = match address.iter().last() {
-					Some(Protocol::Ws(_) | Protocol::Wss(_) | Protocol::Tcp(_)) =>
-						address.with(Protocol::P2p(peer.into())),
+					Some(Protocol::Ws(_) | Protocol::Wss(_) | Protocol::Tcp(_)) => {
+						address.with(Protocol::P2p(peer.into()))
+					},
 					Some(Protocol::P2p(_)) => address,
 					_ => return acc,
 				};
@@ -508,6 +511,26 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				Arc::clone(&peer_store_handle),
 			);
 
+		let bitswap_cmd_tx = params.ipfs_config.as_ref().map(|c| c.bitswap_config.cmd_tx.clone());
+
+		// enable Bitswap & IPFS DHT
+		if let Some(config) = params.ipfs_config {
+			config_builder =
+				config_builder.with_libp2p_bitswap(config.bitswap_config.litep2p_config);
+
+			if !config.bootnodes.is_empty() {
+				let (ipfs_dht, kad_config) = IpfsDht::new(config.bootnodes, config.block_provider);
+				config_builder = config_builder.with_libp2p_kademlia(kad_config);
+				executor.run(Box::pin(ipfs_dht.run()));
+			} else {
+				log::warn!(
+					target: LOG_TARGET,
+					"Not starting IPFS DHT publisher because no IPFS bootnodes are configured. \
+					 Only direct Bitswap requests will be handled.",
+				);
+			}
+		}
+
 		config_builder = config_builder
 			.with_known_addresses(known_addresses.clone().into_iter())
 			.with_libp2p_ping(ping_config)
@@ -524,10 +547,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 		if let Some(config) = maybe_mdns_config {
 			config_builder = config_builder.with_mdns(config);
-		}
-
-		if let Some(config) = params.bitswap_config {
-			config_builder = config_builder.with_libp2p_bitswap(config);
 		}
 
 		let litep2p =
@@ -559,6 +578,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			request_response_senders,
 			Arc::clone(&listen_addresses),
 			public_addresses,
+			bitswap_cmd_tx,
 		));
 
 		// register rest of the metrics now that `Litep2p` has been created
@@ -604,8 +624,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 	/// Create Bitswap server.
 	fn bitswap_server(
 		client: Arc<dyn BlockBackend<B> + Send + Sync>,
+		metrics_registry: Option<Registry>,
 	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Self::BitswapConfig) {
-		BitswapServer::new(client)
+		BitswapService::new(client, metrics_registry.as_ref())
 	}
 
 	/// Create notification protocol configuration for `protocol`.
@@ -684,7 +705,8 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							self.discovery.store_record(key, value, publisher.map(Into::into), expires).await;
 						}
 						NetworkServiceCommand::StartProviding { key } => {
-							self.discovery.start_providing(key).await;
+							let query_id = self.discovery.start_providing(key.clone()).await;
+							self.pending_queries.insert(query_id, KadQuery::AddProvider(key, Instant::now()));
 						}
 						NetworkServiceCommand::StopProviding { key } => {
 							self.discovery.stop_providing(key).await;
@@ -967,6 +989,42 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							}
 						}
 					}
+					Some(DiscoveryEvent::AddProviderSuccess { query_id, provided_key }) => {
+						match self.pending_queries.remove(&query_id) {
+							Some(KadQuery::AddProvider(key, started)) => {
+								debug_assert_eq!(key, provided_key.into());
+
+								log::trace!(
+									target: LOG_TARGET,
+									"`ADD_PROVIDER` for {key:?} ({query_id:?}) succeeded",
+								);
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::StartedProviding(key.into())
+								));
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["provider-add"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							}
+							Some(_) => {
+								log::error!(
+									target: LOG_TARGET,
+									"Invalid pending query for `ADD_PROVIDER`: {query_id:?}"
+								);
+								debug_assert!(false);
+							}
+							None => {
+								log::trace!(
+									target: LOG_TARGET,
+									"`ADD_PROVIDER` for key {provided_key:?} ({query_id:?}) succeeded (republishing)",
+								);
+							}
+						}
+					}
 					Some(DiscoveryEvent::QueryFailed { query_id }) => {
 						match self.pending_queries.remove(&query_id) {
 							Some(KadQuery::FindNode(peer_id, started)) => {
@@ -1037,10 +1095,27 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 										.observe(started.elapsed().as_secs_f64());
 								}
 							},
-							None => {
-								log::warn!(
+							Some(KadQuery::AddProvider(key, started)) => {
+								log::debug!(
 									target: LOG_TARGET,
-									"non-existent query failed ({query_id:?})",
+									"`ADD_PROVIDER` ({query_id:?}) failed with key {key:?}",
+								);
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::StartProvidingFailed(key)
+								));
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["provider-add-failed"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							},
+							None => {
+								log::debug!(
+									target: LOG_TARGET,
+									"non-existent query (likely republishing a provider) failed ({query_id:?})",
 								);
 							}
 						}
@@ -1066,7 +1141,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 						// Litep2p requires the peer ID to be present in the address.
 						let address = if !std::matches!(address.iter().last(), Some(Protocol::P2p(_))) {
-							address.with(Protocol::P2p(*local_peer_id.as_ref()))
+							address.with(Protocol::P2p((*local_peer_id).into()))
 						} else {
 							address
 						};

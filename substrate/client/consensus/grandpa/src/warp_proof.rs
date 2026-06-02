@@ -24,7 +24,9 @@ use crate::{
 	BlockNumberOps, GrandpaJustification, SharedAuthoritySet,
 };
 use sc_client_api::Backend as ClientBackend;
-use sc_network_sync::strategy::warp::{EncodedProof, VerificationResult, WarpSyncProvider};
+use sc_network_sync::strategy::warp::{
+	EncodedProof, VerificationResult, Verifier, WarpSyncProvider,
+};
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus_grandpa::{AuthorityList, SetId, GRANDPA_ENGINE_ID};
 use sp_runtime::{
@@ -96,7 +98,7 @@ impl<Block: BlockT> WarpSyncProof<Block> {
 			.ok_or_else(|| Error::InvalidRequest("Missing start block".to_string()))?;
 
 		if begin_number > blockchain.info().finalized_number {
-			return Err(Error::InvalidRequest("Start block is not finalized".to_string()))
+			return Err(Error::InvalidRequest("Start block is not finalized".to_string()));
 		}
 
 		let canon_hash = blockchain.hash(begin_number)?.expect(
@@ -108,7 +110,7 @@ impl<Block: BlockT> WarpSyncProof<Block> {
 		if canon_hash != begin {
 			return Err(Error::InvalidRequest(
 				"Start block is not in the finalized chain".to_string(),
-			))
+			));
 		}
 
 		let mut proofs = Vec::new();
@@ -131,7 +133,7 @@ impl<Block: BlockT> WarpSyncProof<Block> {
 				// if it doesn't contain a signal for standard change then the set must have changed
 				// through a forced changed, in which case we stop collecting proofs as the chain of
 				// trust in authority handoffs was broken.
-				break
+				break;
 			}
 
 			let justification = blockchain
@@ -149,7 +151,7 @@ impl<Block: BlockT> WarpSyncProof<Block> {
 			// room for rest of the data (the size of the `Vec` and the boolean).
 			if proofs_encoded_len + proof_size >= MAX_WARP_SYNC_PROOF_SIZE - 50 {
 				proof_limit_reached = true;
-				break
+				break;
 			}
 
 			proofs_encoded_len += proof_size;
@@ -228,7 +230,7 @@ impl<Block: BlockT> WarpSyncProof<Block> {
 				if proof.justification.target().1 != hash {
 					return Err(Error::InvalidProof(
 						"Mismatch between header and justification".to_owned(),
-					))
+					));
 				}
 
 				if let Some(scheduled_change) = find_scheduled_change::<Block>(&proof.header) {
@@ -239,7 +241,7 @@ impl<Block: BlockT> WarpSyncProof<Block> {
 					// authority set change.
 					return Err(Error::InvalidProof(
 						"Header is missing authority set change digest".to_string(),
-					))
+					));
 				}
 			}
 		}
@@ -278,6 +280,79 @@ where
 	}
 }
 
+/// Verifier state for GRANDPA warp sync.
+struct VerifierState<Block: BlockT> {
+	set_id: SetId,
+	authorities: AuthorityList,
+	next_proof_context: Block::Hash,
+}
+
+/// Verifier implementation for GRANDPA warp sync.
+struct GrandpaVerifier<Block: BlockT> {
+	state: VerifierState<Block>,
+	hard_forks: HashMap<(Block::Hash, NumberFor<Block>), (SetId, AuthorityList)>,
+	eras_synced: u64,
+}
+
+impl<Block: BlockT> Verifier<Block> for GrandpaVerifier<Block>
+where
+	NumberFor<Block>: BlockNumberOps,
+{
+	fn verify(
+		&mut self,
+		proof: &EncodedProof,
+	) -> Result<VerificationResult<Block>, Box<dyn std::error::Error + Send + Sync>> {
+		let EncodedProof(proof) = proof;
+		let proof = WarpSyncProof::<Block>::decode_all(&mut proof.as_slice())
+			.map_err(|e| format!("Proof decoding error: {:?}", e))?;
+		let last_header = proof
+			.proofs
+			.last()
+			.map(|p| p.header.clone())
+			.ok_or_else(|| "Empty proof".to_string())?;
+
+		let (current_set_id, current_authorities) =
+			(self.state.set_id, self.state.authorities.clone());
+
+		let (next_set_id, next_authorities) = proof
+			.verify(current_set_id, current_authorities, &self.hard_forks)
+			.map_err(Box::new)?;
+
+		self.state = VerifierState {
+			set_id: next_set_id,
+			authorities: next_authorities,
+			next_proof_context: last_header.hash(),
+		};
+
+		// Track eras synced
+		self.eras_synced += proof.proofs.len() as u64;
+
+		let justifications = proof
+			.proofs
+			.into_iter()
+			.map(|p| {
+				let justifications =
+					Justifications::new(vec![(GRANDPA_ENGINE_ID, p.justification.encode())]);
+				(p.header, justifications)
+			})
+			.collect::<Vec<_>>();
+
+		if proof.is_finished {
+			Ok(VerificationResult::Complete(last_header, justifications))
+		} else {
+			Ok(VerificationResult::Partial(justifications))
+		}
+	}
+
+	fn next_proof_context(&self) -> Block::Hash {
+		self.state.next_proof_context
+	}
+
+	fn status(&self) -> Option<String> {
+		Some(format!("{} eras synced", self.eras_synced))
+	}
+}
+
 impl<Block: BlockT, Backend: ClientBackend<Block>> WarpSyncProvider<Block>
 	for NetworkProvider<Block, Backend>
 where
@@ -296,50 +371,18 @@ where
 		Ok(EncodedProof(proof.encode()))
 	}
 
-	fn verify(
-		&self,
-		proof: &EncodedProof,
-		set_id: SetId,
-		authorities: AuthorityList,
-	) -> Result<VerificationResult<Block>, Box<dyn std::error::Error + Send + Sync>> {
-		let EncodedProof(proof) = proof;
-		let proof = WarpSyncProof::<Block>::decode_all(&mut proof.as_slice())
-			.map_err(|e| format!("Proof decoding error: {:?}", e))?;
-		let last_header = proof
-			.proofs
-			.last()
-			.map(|p| p.header.clone())
-			.ok_or_else(|| "Empty proof".to_string())?;
-		let (next_set_id, next_authorities) =
-			proof.verify(set_id, authorities, &self.hard_forks).map_err(Box::new)?;
-		let justifications = proof
-			.proofs
-			.into_iter()
-			.map(|p| {
-				let justifications =
-					Justifications::new(vec![(GRANDPA_ENGINE_ID, p.justification.encode())]);
-				(p.header, justifications)
-			})
-			.collect::<Vec<_>>();
-		if proof.is_finished {
-			Ok(VerificationResult::<Block>::Complete(
-				next_set_id,
-				next_authorities,
-				last_header,
-				justifications,
-			))
-		} else {
-			Ok(VerificationResult::<Block>::Partial(
-				next_set_id,
-				next_authorities,
-				last_header.hash(),
-				justifications,
-			))
-		}
-	}
-
-	fn current_authorities(&self) -> AuthorityList {
-		self.authority_set.inner().current_authorities.clone()
+	fn create_verifier(&self) -> Box<dyn Verifier<Block>> {
+		let authority_set = self.authority_set.inner();
+		let genesis_hash = self.backend.blockchain().info().genesis_hash;
+		Box::new(GrandpaVerifier {
+			state: VerifierState {
+				set_id: authority_set.set_id,
+				authorities: authority_set.current_authorities.clone(),
+				next_proof_context: genesis_hash,
+			},
+			hard_forks: self.hard_forks.clone(),
+			eras_synced: 0,
+		})
 	}
 }
 

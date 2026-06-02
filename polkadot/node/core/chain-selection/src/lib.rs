@@ -16,6 +16,7 @@
 
 //! Implements the Chain Selection Subsystem.
 
+use polkadot_node_clock::Clock;
 use polkadot_node_primitives::BlockWeight;
 use polkadot_node_subsystem::{
 	errors::ChainApiError,
@@ -29,10 +30,7 @@ use polkadot_primitives::{BlockNumber, ConsensusLog, Hash, Header};
 use codec::Error as CodecError;
 use futures::{channel::oneshot, future::Either, prelude::*};
 
-use std::{
-	sync::Arc,
-	time::{Duration, SystemTime, UNIX_EPOCH},
-};
+use std::{sync::Arc, time::Duration};
 
 use crate::backend::{Backend, BackendWriteOp, OverlayedBackend};
 
@@ -144,11 +142,11 @@ impl LeafEntrySet {
 		let mut pos = None;
 		for (i, e) in self.inner.iter().enumerate() {
 			if e == &new {
-				return
+				return;
 			}
 			if e < &new {
 				pos = Some(i);
-				break
+				break;
 			}
 		}
 
@@ -217,39 +215,6 @@ impl Error {
 			Self::Oneshot(_) => gum::debug!(target: LOG_TARGET, err = ?self),
 			// it's worth reporting otherwise
 			_ => gum::warn!(target: LOG_TARGET, err = ?self),
-		}
-	}
-}
-
-/// A clock used for fetching the current timestamp.
-pub trait Clock {
-	/// Get the current timestamp.
-	fn timestamp_now(&self) -> Timestamp;
-}
-
-struct SystemClock;
-
-impl Clock for SystemClock {
-	fn timestamp_now(&self) -> Timestamp {
-		// `SystemTime` is notoriously non-monotonic, so our timers might not work
-		// exactly as expected. Regardless, stagnation is detected on the order of minutes,
-		// and slippage of a few seconds in either direction won't cause any major harm.
-		//
-		// The exact time that a block becomes stagnant in the local node is always expected
-		// to differ from other nodes due to network asynchrony and delays in block propagation.
-		// Non-monotonicity exacerbates that somewhat, but not meaningfully.
-
-		match SystemTime::now().duration_since(UNIX_EPOCH) {
-			Ok(d) => d.as_secs(),
-			Err(e) => {
-				gum::warn!(
-					target: LOG_TARGET,
-					err = ?e,
-					"Current time is before unix epoch. Validation will not work correctly."
-				);
-
-				0
-			},
 		}
 	}
 }
@@ -364,7 +329,7 @@ impl<Context> ChainSelectionSubsystem {
 				backend,
 				self.config.stagnant_check_interval,
 				self.config.stagnant_check_mode,
-				Box::new(SystemClock),
+				polkadot_node_clock::system_clock(),
 			)
 			.map(Ok)
 			.boxed(),
@@ -379,7 +344,7 @@ async fn run<Context, B>(
 	mut backend: B,
 	stagnant_check_interval: StagnantCheckInterval,
 	stagnant_check_mode: StagnantCheckMode,
-	clock: Box<dyn Clock + Send + Sync>,
+	clock: Arc<dyn Clock>,
 ) where
 	B: Backend,
 {
@@ -397,11 +362,11 @@ async fn run<Context, B>(
 			Err(e) => {
 				e.trace();
 				// All errors are considered fatal right now:
-				break
+				break;
 			},
 			Ok(()) => {
 				gum::info!(target: LOG_TARGET, "received `Conclude` signal, exiting");
-				break
+				break;
 			},
 		}
 	}
@@ -418,7 +383,7 @@ async fn run_until_error<Context, B>(
 	backend: &mut B,
 	stagnant_check_interval: &StagnantCheckInterval,
 	stagnant_check_mode: &StagnantCheckMode,
-	clock: &(dyn Clock + Sync),
+	clock: &dyn Clock,
 ) -> Result<(), Error>
 where
 	B: Backend,
@@ -437,7 +402,7 @@ where
 							let write_ops = handle_active_leaf(
 								ctx.sender(),
 								&*backend,
-								clock.timestamp_now() + STAGNANT_TIMEOUT,
+								clock.duration_since_epoch().as_secs() + STAGNANT_TIMEOUT,
 								leaf.hash,
 							).await?;
 
@@ -477,9 +442,9 @@ where
 			}
 			_ = stagnant_check_stream.next().fuse() => {
 				match stagnant_check_mode {
-					StagnantCheckMode::CheckAndPrune => detect_stagnant(backend, clock.timestamp_now(), MAX_STAGNANT_ENTRIES),
+					StagnantCheckMode::CheckAndPrune => detect_stagnant(backend, clock.duration_since_epoch().as_secs(), MAX_STAGNANT_ENTRIES),
 					StagnantCheckMode::PruneOnly => {
-						let now_timestamp = clock.timestamp_now();
+						let now_timestamp = clock.duration_since_epoch().as_secs();
 						prune_only_stagnant(backend, now_timestamp - STAGNANT_PRUNE_DELAY, MAX_STAGNANT_ENTRIES)
 					},
 				}?;
@@ -499,7 +464,7 @@ async fn fetch_finalized(
 		Ok(number) => number,
 		Err(err) => {
 			gum::warn!(target: LOG_TARGET, ?err, "Fetching finalized number failed");
-			return Ok(None)
+			return Ok(None);
 		},
 	};
 
@@ -568,7 +533,7 @@ async fn handle_active_leaf(
 	let header = match fetch_header(sender, hash).await? {
 		None => {
 			gum::warn!(target: LOG_TARGET, ?hash, "Missing header for new head");
-			return Ok(Vec::new())
+			return Ok(Vec::new());
 		},
 		Some(h) => h,
 	};
@@ -597,7 +562,7 @@ async fn handle_active_leaf(
 
 				// If we don't know the weight, we can't import the block.
 				// And none of its descendants either.
-				break
+				break;
 			},
 			Some(w) => w,
 		};

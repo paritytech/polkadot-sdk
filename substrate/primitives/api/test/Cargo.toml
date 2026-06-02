@@ -25,6 +25,7 @@ sc-block-builder = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-api = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
+sp-externalities = { workspace = true, default-features = true }
 sp-metadata-ir = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
@@ -38,6 +39,7 @@ criterion = { workspace = true, default-features = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
 static_assertions = { workspace = true, default-features = true }
 
 [features]

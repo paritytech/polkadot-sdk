@@ -22,11 +22,11 @@ tracing = { workspace = true }
 # Substrate
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-pallet-asset-tx-payment = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-message-queue = { workspace = true }
+pallet-multi-asset-bounties = { workspace = true }
 pallet-treasury = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
@@ -45,6 +45,7 @@ cumulus-primitives-core = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
 pallet-collator-selection = { workspace = true }
 parachain-info = { workspace = true }
+parachains-common-types = { workspace = true }
 
 [features]
 default = ["std"]
@@ -54,15 +55,16 @@ std = [
 	"cumulus-primitives-utility/std",
 	"frame-support/std",
 	"frame-system/std",
-	"pallet-asset-tx-payment/std",
 	"pallet-assets/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
 	"pallet-message-queue/std",
+	"pallet-multi-asset-bounties/std",
 	"pallet-treasury/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
+	"parachains-common-types/std",
 	"polkadot-primitives/std",
 	"polkadot-runtime-common/std",
 	"scale-info/std",
@@ -79,11 +81,11 @@ runtime-benchmarks = [
 	"cumulus-primitives-utility/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-asset-tx-payment/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-multi-asset-bounties/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
@@ -96,12 +98,12 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-asset-tx-payment/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-collator-selection/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-multi-asset-bounties/try-runtime",
 	"pallet-treasury/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",

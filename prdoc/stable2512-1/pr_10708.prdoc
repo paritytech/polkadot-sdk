@@ -1,0 +1,37 @@
+title: '[stable2512] pallet_revive changes'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Backport all the changes we applied in https://github.com/paritytech/polkadot-sdk/pull/10552,
+
+    This is so the next runtime upgrade will not be a downgrade in terms of `pallet_revive` as we backported a substantial amount of code to `unstable2507`.
+crates:
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: assets-common
+  bump: minor
+- name: penpal-runtime
+  bump: minor
+- name: pallet-xcm-precompiles
+  bump: patch
+- name: pallet-assets-precompiles
+  bump: patch
+- name: pallet-contracts
+  bump: patch
+- name: pallet-revive
+  bump: minor
+  validate: false
+- name: revive-dev-runtime
+  bump: minor
+- name: pallet-revive-fixtures
+  bump: minor
+  validate: false
+- name: pallet-revive-proc-macro
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: minor
+  validate: false
+- name: pallet-revive-uapi
+  bump: minor
+- name: substrate-wasm-builder
+  bump: minor

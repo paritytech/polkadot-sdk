@@ -20,7 +20,6 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{parse_quote, Item};
 
-///
 /// * Generate default rust doc
 pub fn expand_config(def: &mut Def) -> TokenStream {
 	let config = &def.config;
@@ -59,8 +58,9 @@ Consequently, a runtime that wants to include this pallet must implement this tr
 			let event_use_gen = match event.gen_kind {
 				GenericKind::None => quote!(),
 				GenericKind::Config => quote::quote_spanned! {event.attr_span => Self},
-				GenericKind::ConfigAndInstance =>
-					quote::quote_spanned! {event.attr_span => Self, I},
+				GenericKind::ConfigAndInstance => {
+					quote::quote_spanned! {event.attr_span => Self, I}
+				},
 			};
 
 			let supertrait_with_event_bound = syn::parse2::<syn::TypeParamBound>(

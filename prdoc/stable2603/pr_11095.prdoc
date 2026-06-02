@@ -1,0 +1,8 @@
+title: '`prefix_logs_with`: Ensure the macro works correctly for futures'
+doc:
+- audience: Node Dev
+  description: |-
+    When setting up a tracing span in an async future, it may gets invalidated by any `await` point. The problem is that after continuing a future, it may runs on a different thread where the `span` isn't active anymore. The solution for this is to `instrument` the future properly.
+crates:
+- name: sc-tracing-proc-macro
+  bump: patch

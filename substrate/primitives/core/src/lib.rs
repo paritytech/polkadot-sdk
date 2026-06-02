@@ -43,16 +43,8 @@ pub use serde;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-pub use sp_debug_derive::RuntimeDebug;
-
 #[cfg(feature = "serde")]
 pub use impl_serde::serialize as bytes;
-
-#[deprecated(
-	since = "27.0.0",
-	note = "`sp-crypto-hashing` re-exports will be removed after June 2024. Use `sp-crypto-hashing` instead."
-)]
-pub use sp_crypto_hashing::{self as hashing, *};
 
 pub mod const_hex2array;
 pub mod crypto;
@@ -111,7 +103,7 @@ pub use sp_storage as storage;
 pub use sp_std;
 
 /// Hex-serialized shim for `Vec<u8>`.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize, Hash, PartialOrd, Ord))]
 pub struct Bytes(#[cfg_attr(feature = "serde", serde(with = "bytes"))] pub Vec<u8>);
 
@@ -179,7 +171,7 @@ impl Deref for OpaqueMetadata {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -366,15 +358,7 @@ pub fn to_substrate_wasm_fn_return_value(value: &impl Encode) -> u64 {
 /// The void type - it cannot exist.
 // Oh rust, you crack me up...
 #[derive(
-	Clone,
-	Decode,
-	DecodeWithMemTracking,
-	Encode,
-	Eq,
-	PartialEq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
+	Clone, Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub enum Void {}
 
@@ -519,8 +503,6 @@ macro_rules! generate_feature_enabled_macro {
 
 #[cfg(test)]
 mod tests {
-	use super::*;
-
 	generate_feature_enabled_macro!(if_test, test, $);
 	generate_feature_enabled_macro!(if_not_test, not(test), $);
 

@@ -100,7 +100,7 @@ async fn build_interface(
 	task_manager: &mut TaskManager,
 	client: RelayChainRpcClient,
 ) -> RelayChainResult<(
-	Arc<(dyn RelayChainInterface + 'static)>,
+	Arc<dyn RelayChainInterface + 'static>,
 	Option<CollatorPair>,
 	Arc<dyn NetworkService>,
 	async_channel::Receiver<GenericIncomingRequest>,
@@ -108,20 +108,22 @@ async fn build_interface(
 	let collator_pair = CollatorPair::generate().0;
 	let blockchain_rpc_client = Arc::new(BlockChainRpcClient::new(client.clone()));
 	let collator_node = match polkadot_config.network.network_backend {
-		sc_network::config::NetworkBackendType::Libp2p =>
+		sc_network::config::NetworkBackendType::Libp2p => {
 			new_minimal_relay_chain::<RelayBlock, sc_network::NetworkWorker<RelayBlock, RelayHash>>(
 				polkadot_config,
 				collator_pair.clone(),
 				blockchain_rpc_client,
 			)
-			.await?,
-		sc_network::config::NetworkBackendType::Litep2p =>
+			.await?
+		},
+		sc_network::config::NetworkBackendType::Litep2p => {
 			new_minimal_relay_chain::<RelayBlock, sc_network::Litep2pNetworkBackend>(
 				polkadot_config,
 				collator_pair.clone(),
 				blockchain_rpc_client,
 			)
-			.await?,
+			.await?
+		},
 	};
 	task_manager.add_child(collator_node.task_manager);
 	Ok((
@@ -138,7 +140,7 @@ pub async fn build_minimal_relay_chain_node_with_rpc(
 	task_manager: &mut TaskManager,
 	relay_chain_url: Vec<Url>,
 ) -> RelayChainResult<(
-	Arc<(dyn RelayChainInterface + 'static)>,
+	Arc<dyn RelayChainInterface + 'static>,
 	Option<CollatorPair>,
 	Arc<dyn NetworkService>,
 	async_channel::Receiver<GenericIncomingRequest>,

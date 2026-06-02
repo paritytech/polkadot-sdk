@@ -1,0 +1,12 @@
+title: 'Rocksdb: Force compact columns on after warp sync'
+doc:
+- audience: Node Operator
+  description: |-
+    Recently we introduced a change that was always force compacting a Rocksdb database when starting a node and after writing a lot of data. We found out that force compacting a huge RocksDB of more than 600GB takes quite some time (more than one hour) and this every time.
+
+    So, this pull request changes the compaction to only happen after warp sync (and genesis) when we reset the state column to some given state. This way we don't run it anymore on startup of the node and it should fix the problems we have seen with archive nodes.
+crates:
+- name: sc-client-db
+  bump: patch
+- name: sp-database
+  bump: patch

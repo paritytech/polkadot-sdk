@@ -32,4 +32,8 @@ contract Callee {
             stop()
         }
     }
+
+    function consumeAllReftime() external {
+    	while (true) {}
+    }
 }

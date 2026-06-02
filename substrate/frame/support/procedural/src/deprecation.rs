@@ -52,10 +52,12 @@ fn parse_deprecated_meta(
 	target: DeprecationTarget,
 ) -> Result<TokenStream> {
 	let target = match target {
-		DeprecationTarget::Item =>
-			quote! { #crate_::__private::metadata_ir::ItemDeprecationInfoIR },
-		DeprecationTarget::Variant =>
-			quote! { #crate_::__private::metadata_ir::VariantDeprecationInfoIR },
+		DeprecationTarget::Item => {
+			quote! { #crate_::__private::metadata_ir::ItemDeprecationInfoIR }
+		},
+		DeprecationTarget::Variant => {
+			quote! { #crate_::__private::metadata_ir::VariantDeprecationInfoIR }
+		},
 	};
 
 	match &attr.meta {

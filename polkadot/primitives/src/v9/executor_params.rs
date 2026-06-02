@@ -120,6 +120,34 @@ pub enum ExecutorParam {
 	/// Enables WASM bulk memory proposal
 	#[codec(index = 7)]
 	WasmExtBulkMemory,
+	/// Enables optional host functions. Multiple entries with different [`ExecutorHostFunction`]
+	/// variants can be present in the executor parameters simultaneously.
+	#[codec(index = 8)]
+	EnabledHostFunction(ExecutorHostFunction),
+}
+
+/// Optional host functions that can be enabled via [`ExecutorParam::EnabledHostFunction`].
+///
+/// Each variant represents a set of host functions that can be independently toggled on or off.
+/// New host function sets should be added here with deterministic discriminants.
+#[derive(
+	Clone,
+	Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	PartialEq,
+	Eq,
+	TypeInfo,
+	Serialize,
+	Deserialize,
+)]
+pub enum ExecutorHostFunction {
+	/// Elliptic curve cryptography (ECC) host functions.
+	///
+	/// Specifically: BLS12-381, Ed-on-BLS12-381-Bandersnatch, Pallas, Vesta.
+	#[codec(index = 1)]
+	EccRfc163,
 }
 
 /// Possible inconsistencies of executor params.
@@ -192,14 +220,13 @@ impl core::fmt::LowerHex for ExecutorParamsPrepHash {
 /// # Deterministically serialized execution environment semantics
 /// Represents an arbitrary semantics of an arbitrary execution environment, so should be kept as
 /// abstract as possible.
-//
 // ADR: For mandatory entries, mandatoriness should be enforced in code rather than separating them
 // into individual fields of the structure. Thus, complex migrations shall be avoided when adding
 // new entries and removing old ones. At the moment, there's no mandatory parameters defined. If
 // they show up, they must be clearly documented as mandatory ones.
 //
 // !!! Any new parameter that does not affect the prepared artifact must be added to the exclusion
-// !!! list in `prep_hash()` to avoid unneccessary artifact rebuilds.
+// !!! list in `prep_hash()` to avoid unnecessary artifact rebuilds.
 #[derive(
 	Clone,
 	Debug,
@@ -226,7 +253,8 @@ impl ExecutorParams {
 		ExecutorParamsHash(BlakeTwo256::hash(&self.encode()))
 	}
 
-	/// Returns hash of preparation-related executor parameters
+	/// Returns hash of preparation-related executor parameters (those affecting the artifact
+	/// produced on the preparation step).
 	pub fn prep_hash(&self) -> ExecutorParamsPrepHash {
 		use ExecutorParam::*;
 
@@ -239,9 +267,10 @@ impl ExecutorParams {
 				StackLogicalMax(..) => Some(param),
 				StackNativeMax(..) => None,
 				PrecheckingMaxMemory(..) => None,
-				PvfPrepTimeout(..) => Some(param),
+				PvfPrepTimeout(..) => None,
 				PvfExecTimeout(..) => None,
 				WasmExtBulkMemory => Some(param),
+				EnabledHostFunction(..) => None,
 			})
 			.for_each(|p| enc.extend(p.encode()));
 
@@ -253,7 +282,7 @@ impl ExecutorParams {
 		for param in &self.0 {
 			if let ExecutorParam::PvfPrepTimeout(k, timeout) = param {
 				if kind == *k {
-					return Some(Duration::from_millis(*timeout))
+					return Some(Duration::from_millis(*timeout));
 				}
 			}
 		}
@@ -265,7 +294,7 @@ impl ExecutorParams {
 		for param in &self.0 {
 			if let ExecutorParam::PvfExecTimeout(k, timeout) = param {
 				if kind == *k {
-					return Some(Duration::from_millis(*timeout))
+					return Some(Duration::from_millis(*timeout));
 				}
 			}
 		}
@@ -276,7 +305,7 @@ impl ExecutorParams {
 	pub fn prechecking_max_memory(&self) -> Option<u64> {
 		for param in &self.0 {
 			if let ExecutorParam::PrecheckingMaxMemory(limit) = param {
-				return Some(*limit)
+				return Some(*limit);
 			}
 		}
 		None
@@ -292,7 +321,7 @@ impl ExecutorParams {
 		macro_rules! check {
 			($param:ident, $val:expr $(,)?) => {
 				if seen.contains_key($param) {
-					return Err(DuplicatedParam($param))
+					return Err(DuplicatedParam($param));
 				}
 				seen.insert($param, $val as u64);
 			};
@@ -300,10 +329,10 @@ impl ExecutorParams {
 			// should check existence before range
 			($param:ident, $val:expr, $out_of_limit:expr $(,)?) => {
 				if seen.contains_key($param) {
-					return Err(DuplicatedParam($param))
+					return Err(DuplicatedParam($param));
 				}
 				if $out_of_limit {
-					return Err(OutsideLimit($param))
+					return Err(OutsideLimit($param));
 				}
 				seen.insert($param, $val as u64);
 			};
@@ -311,7 +340,7 @@ impl ExecutorParams {
 
 		for param in &self.0 {
 			// should ensure to be unique
-			let param_ident = match *param {
+			let param_ident = match param {
 				MaxMemoryPages(_) => "MaxMemoryPages",
 				StackLogicalMax(_) => "StackLogicalMax",
 				StackNativeMax(_) => "StackNativeMax",
@@ -325,6 +354,9 @@ impl ExecutorParams {
 					PvfExecKind::Approval => "PvfExecKind::Approval",
 				},
 				WasmExtBulkMemory => "WasmExtBulkMemory",
+				EnabledHostFunction(hf) => match hf {
+					ExecutorHostFunction::EccRfc163 => "EnabledHostFunction::EccRfc163",
+				},
 			};
 
 			match *param {
@@ -359,6 +391,10 @@ impl ExecutorParams {
 				WasmExtBulkMemory => {
 					check!(param_ident, 1);
 				},
+
+				EnabledHostFunction(_) => {
+					check!(param_ident, 1);
+				},
 			}
 		}
 
@@ -367,7 +403,7 @@ impl ExecutorParams {
 			seen.get("StackNativeMax").or(Some(&(DEFAULT_NATIVE_STACK_MAX as u64))),
 		) {
 			if *nm < 128 * *lm {
-				return Err(IncompatibleValues("StackLogicalMax", "StackNativeMax"))
+				return Err(IncompatibleValues("StackLogicalMax", "StackNativeMax"));
 			}
 		}
 
@@ -378,7 +414,7 @@ impl ExecutorParams {
 				.or(Some(&DEFAULT_LENIENT_PREPARATION_TIMEOUT_MS)),
 		) {
 			if *precheck >= *lenient {
-				return Err(IncompatibleValues("PvfPrepKind::Precheck", "PvfPrepKind::Prepare"))
+				return Err(IncompatibleValues("PvfPrepKind::Precheck", "PvfPrepKind::Prepare"));
 			}
 		}
 
@@ -388,7 +424,7 @@ impl ExecutorParams {
 				.or(Some(&DEFAULT_APPROVAL_EXECUTION_TIMEOUT_MS)),
 		) {
 			if *backing >= *approval {
-				return Err(IncompatibleValues("PvfExecKind::Backing", "PvfExecKind::Approval"))
+				return Err(IncompatibleValues("PvfExecKind::Backing", "PvfExecKind::Approval"));
 			}
 		}
 
@@ -413,7 +449,7 @@ impl From<&[ExecutorParam]> for ExecutorParams {
 // This test ensures the hash generated by `prep_hash()` changes if any preparation-related
 // executor parameter changes. If you're adding a new executor parameter, you must add it into
 // this test, and if changing that parameter may not affect the artifact produced on the
-// preparation step, it must be added to the list of exlusions in `pre_hash()` as well.
+// preparation step, it must be added to the list of exclusions in `pre_hash()` as well.
 // See also `prep_hash()` comments.
 #[test]
 fn ensure_prep_hash_changes() {
@@ -429,6 +465,7 @@ fn ensure_prep_hash_changes() {
 			PvfExecTimeout(PvfExecKind::Backing, 0),
 			PvfExecTimeout(PvfExecKind::Approval, 0),
 			WasmExtBulkMemory,
+			EnabledHostFunction(ExecutorHostFunction::EccRfc163),
 		][..],
 	);
 
@@ -441,17 +478,12 @@ fn ensure_prep_hash_changes() {
 			),
 			StackNativeMax(_) => continue,
 			PrecheckingMaxMemory(_) => continue,
-			PvfPrepTimeout(PvfPrepKind::Precheck, _) => (
-				ExecutorParams::from(&[PvfPrepTimeout(PvfPrepKind::Precheck, 1)][..]),
-				ExecutorParams::from(&[PvfPrepTimeout(PvfPrepKind::Precheck, 2)][..]),
-			),
-			PvfPrepTimeout(PvfPrepKind::Prepare, _) => (
-				ExecutorParams::from(&[PvfPrepTimeout(PvfPrepKind::Prepare, 1)][..]),
-				ExecutorParams::from(&[PvfPrepTimeout(PvfPrepKind::Prepare, 2)][..]),
-			),
+			PvfPrepTimeout(_, _) => continue,
 			PvfExecTimeout(_, _) => continue,
-			WasmExtBulkMemory =>
-				(ExecutorParams::default(), ExecutorParams::from(&[WasmExtBulkMemory][..])),
+			WasmExtBulkMemory => {
+				(ExecutorParams::default(), ExecutorParams::from(&[WasmExtBulkMemory][..]))
+			},
+			EnabledHostFunction(_) => continue,
 		};
 
 		assert_ne!(ep1.prep_hash(), ep2.prep_hash());

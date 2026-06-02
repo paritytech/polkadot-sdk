@@ -9,20 +9,11 @@ pub use milagro_bls::{
 };
 use scale_info::TypeInfo;
 use sp_core::H256;
-use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
+use Debug;
 
 #[derive(
-	Copy,
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Eq,
-	PartialEq,
-	TypeInfo,
-	RuntimeDebug,
-	PalletError,
+	Copy, Clone, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, TypeInfo, Debug, PalletError,
 )]
 pub enum BlsError {
 	InvalidSignature,

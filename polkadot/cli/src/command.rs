@@ -64,14 +64,15 @@ fn get_invulnerable_ah_collators(
 		"12D3KooWAeLjabo2foz6gAQvLRfwF2d3WnpUGDjhg8V5AQUnv5AZ",
 	];
 
-	const POLKADOT: [&str; 7] = [
-		"12D3KooWEyGg3oUwYfaLWM5AJ2pvXCUxBuXNapX1tQXLsbDmMV6z",
-		"12D3KooWD9dTKLW65NFFLVjqgaXNzb3zKXBfwRS5iovxV6XaoVX6",
-		"12D3KooWPJfGGisRMkiD5yhySZggEhyMSwELb34P2bEuAmUh9RYy",
-		"12D3KooWQB9RBoJEByMtXtD8aC1WR1DJQb3QMXRcsQmNxrghsQLv",
-		"12D3KooWFhBYG98e53DQB7W2JKBL9xWrP83ANkAjzvp4enEJAt3k",
-		"12D3KooWG3GrM6XKMM4gp3cvemdwUvu96ziYoJmqmetLZBXE8bSa",
-		"12D3KooWMRyTLrCEPcAQD6c4EnudL3vVzg9zji3whvsMYPUYevpq",
+	const POLKADOT: [&str; 8] = [
+		"12D3KooWSrq7vRZcu6ADkeFVTtBaTgfZ1r74bbnyumXrsrGUux5i",
+		"12D3KooWNd2qr3FQUxggCaff5hzTWJxG9dQxzpKbeT5QKTC3ChFR",
+		"12D3KooWSEJ4xgQYFFcM6j9yVqdeVqaQAVkeEp6yv37HuF2W2Low",
+		"12D3KooWDKCVBr59zEK8vG6PomxDdbMMvULYEAWmtqwWmngMf8Qq",
+		"12D3KooWT3XMzDWrmv7ah85aBRpWc3e8sUaeg2oJwzSpS53V61DY",
+		"12D3KooWLo5prRCchbZR6cGayQmks3stuC7ccgSJVh3ZdGkbcLFR",
+		"12D3KooWJQGQ4kQ3MxDJr8CZpmVkW6k1CHiAo8ZEZ681C3XQTtBG",
+		"12D3KooWNvw7LjmzRhUeGJy9mPEZ1uE8ADpjik1DPEuNmmfEeYco",
 	];
 
 	let invulnerables = if chain_spec.is_kusama() {
@@ -257,6 +258,7 @@ where
 	// Parse collator protocol hold off value and get the list of the invlunerable collators.
 	let collator_protocol_hold_off = cli.run.collator_protocol_hold_off.map(Duration::from_millis);
 	let invulnerable_ah_collators = get_invulnerable_ah_collators(&chain_spec);
+	let experimental_collator_protocol = cli.run.experimental_collator_protocol;
 
 	runner.run_node_until_exit(move |config| async move {
 		let hwbench = (!cli.run.no_hardware_benchmarks)
@@ -292,6 +294,11 @@ where
 				keep_finalized_for: cli.run.keep_finalized_for,
 				invulnerable_ah_collators,
 				collator_protocol_hold_off,
+				experimental_collator_protocol,
+				collator_reputation_persist_interval: cli
+					.run
+					.collator_reputation_persist_interval
+					.map(std::time::Duration::from_secs),
 			},
 		)
 		.map(|full| full.task_manager)?;
@@ -333,7 +340,7 @@ pub fn run() -> Result<()> {
 
 	#[cfg(not(feature = "pyroscope"))]
 	if cli.run.pyroscope_server.is_some() {
-		return Err(Error::PyroscopeNotCompiledIn)
+		return Err(Error::PyroscopeNotCompiledIn);
 	}
 
 	match &cli.subcommand {

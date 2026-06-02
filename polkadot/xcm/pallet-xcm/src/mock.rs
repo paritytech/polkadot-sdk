@@ -21,7 +21,10 @@ use frame_support::{
 		fungible::HoldConsideration, AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals,
 		Everything, EverythingBut, Footprint, Nothing,
 	},
-	weights::Weight,
+	weights::{
+		constants::{WEIGHT_PROOF_SIZE_PER_MB, WEIGHT_REF_TIME_PER_SECOND},
+		Weight,
+	},
 };
 use frame_system::EnsureRoot;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
@@ -290,10 +293,11 @@ impl pallet_balances::Config for Test {
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
 pub struct XcmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<Location> for XcmBenchmarkHelper {
+impl pallet_assets::BenchmarkHelper<Location, ()> for XcmBenchmarkHelper {
 	fn create_asset_id_parameter(id: u32) -> Location {
 		Location::new(1, [Parachain(id)])
 	}
+	fn create_reserve_id_parameter(_: u32) {}
 }
 
 impl pallet_assets::Config for Test {
@@ -301,6 +305,7 @@ impl pallet_assets::Config for Test {
 	type Balance = Balance;
 	type AssetId = Location;
 	type AssetIdParameter = Location;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
@@ -451,7 +456,7 @@ type LocalOriginConverter = (
 
 parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
-	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (AssetId(RelayLocation::get()), 1, 1);
+	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (AssetId(RelayLocation::get()), WEIGHT_REF_TIME_PER_SECOND.into(), WEIGHT_PROOF_SIZE_PER_MB.into());
 	pub TrustedLocal: (AssetFilter, Location) = (All.into(), Here.into());
 	pub TrustedSystemPara: (AssetFilter, Location) = (NativeAsset::get().into(), SystemParachainLocation::get());
 	pub TrustedUsdt: (AssetFilter, Location) = (Usdt::get().into(), UsdtTeleportLocation::get());
@@ -513,7 +518,6 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTrap = XcmPallet;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type AssetClaims = XcmPallet;
 	type SubscriptionService = XcmPallet;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
@@ -733,6 +737,7 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 	safe_xcm_version: Option<XcmVersion>,
 	supported_version: Vec<(Location, XcmVersion)>,
 ) -> sp_io::TestExternalities {
+	sp_tracing::try_init_simple();
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }

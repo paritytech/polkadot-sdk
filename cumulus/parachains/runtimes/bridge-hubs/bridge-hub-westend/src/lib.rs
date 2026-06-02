@@ -40,16 +40,18 @@ use alloc::{vec, vec::Vec};
 use bridge_runtime_common::extensions::{
 	CheckAndBoostBridgeGrandpaTransactions, CheckAndBoostBridgeParachainsTransactions,
 };
-use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use cumulus_primitives_core::ParaId;
+use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
+use cumulus_primitives_core::{ParaId, VerifySchedulingSignature};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::Block as BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, Percent,
 };
+
+use sp_session::OpaqueGeneratedSessionKeys;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -73,7 +75,7 @@ use frame_system::{
 };
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-use xcm_config::{XcmOriginToTransactDispatchOrigin, XcmRouter};
+use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin, XcmRouter};
 
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
@@ -97,9 +99,11 @@ use parachains_common::{
 	impls::DealWithFees, AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
-use snowbridge_core::{AgentId, PricingParameters};
+use snowbridge_core::{sparse_bitmap::SparseBitmap, AgentId, PricingParameters};
 use snowbridge_outbound_queue_primitives::v1::{Command, Fee};
-use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
+use testnet_parachains_constants::westend::{
+	accumulate_forward::*, consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
+};
 use xcm::{Version as XcmVersion, VersionedLocation};
 
 use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID};
@@ -149,6 +153,8 @@ pub type Migrations = (
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v7::MigrateV6ToV7<Runtime>,
 	pallet_bridge_messages::migration::v1::MigrationToV1<
 		Runtime,
 		bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
@@ -186,6 +192,7 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
 );
 
 parameter_types! {
@@ -242,12 +249,14 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("bridge-hub-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("bridge-hub-westend"),
 	authoring_version: 1,
-	spec_version: 1_020_002,
+	spec_version: 1_022_004,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
 	system_version: 1,
 };
+
+const RELAY_PARENT_OFFSET: u32 = 0;
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -258,7 +267,10 @@ pub fn native_version() -> NativeVersion {
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 	pub RuntimeBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+		BlockLength::builder()
+			.max_length(5 * 1024 * 1024)
+			.modify_max_length_for_class(DispatchClass::Normal, |m| { *m = NORMAL_DISPATCH_RATIO * *m; })
+			.build();
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
@@ -340,7 +352,7 @@ parameter_types! {
 impl pallet_balances::Config for Runtime {
 	/// The type for recording an account's balance.
 	type Balance = Balance;
-	type DustRemoval = ();
+	type DustRemoval = AccumulateForward;
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
@@ -359,12 +371,21 @@ impl pallet_balances::Config for Runtime {
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10
 	pub const TransactionByteFee: Balance = MILLICENTS;
+	/// Percentage of fees to send to the accumulation account.
+	pub const AccumulateForwardFeePercent: Percent = Percent::from_percent(100);
 }
+
+/// Fee handler that splits fees between the accumulation account and staking pot.
+type DealWithFeesAccumulate = pallet_accumulate_and_forward::DealWithFeesSplit<
+	Runtime,
+	AccumulateForwardFeePercent,
+	DealWithFees<Runtime>,
+>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees<Runtime>>;
+		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFeesAccumulate>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -389,7 +410,8 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ReservedXcmpWeight = ReservedXcmpWeight;
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
-	type RelayParentOffset = ConstU32<0>;
+	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type SchedulingSignatureVerifier = ();
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -552,6 +574,21 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
 }
 
+impl pallet_accumulate_and_forward::Config for Runtime {
+	type Currency = Balances;
+	type PalletId = AccumulateForwardPalletId;
+	type Forwarder = xcm_builder::TeleportForwarderForAccountId32<
+		xcm_config::XcmConfig,
+		testnet_parachains_constants::westend::locations::AssetHubLocation,
+		xcm_config::WestendLocation,
+		DapStagingLocation,
+	>;
+	type TransferPeriod = ForwardPeriod;
+	type MinTransferAmount = MinForwardAmount;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type WeightInfo = weights::pallet_accumulate_and_forward::WeightInfo<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -566,6 +603,7 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
 		TransactionPayment: pallet_transaction_payment = 11,
+		AccumulateForward: pallet_accumulate_and_forward = 12,
 
 		// Collator support. The order of these 4 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -612,7 +650,7 @@ bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 		Runtime,
 		bridge_to_rococo_config::BridgeGrandpaRococoInstance,
 		bridge_to_rococo_config::PriorityBoostPerRelayHeader,
-		xcm_config::TreasuryAccount,
+		xcm_config::AccumulateAccount,
 	>,
 	// Parachains
 	CheckAndBoostBridgeParachainsTransactions<
@@ -620,7 +658,7 @@ bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 		bridge_to_rococo_config::BridgeParachainRococoInstance,
 		bp_bridge_hub_rococo::BridgeHubRococo,
 		bridge_to_rococo_config::PriorityBoostPerParachainHeader,
-		xcm_config::TreasuryAccount,
+		xcm_config::AccumulateAccount,
 	>,
 	// Messages
 	BridgeRococoMessages
@@ -662,6 +700,7 @@ mod benches {
 		[snowbridge_pallet_outbound_queue_v2, EthereumOutboundQueueV2]
 
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
+		[pallet_accumulate_and_forward, AccumulateForward]
 	);
 }
 
@@ -678,9 +717,20 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
-			0
+			RELAY_PARENT_OFFSET
+		}
+
+		fn max_claim_queue_offset() -> u8 {
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
 		}
 	}
+
+	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
+		fn scheduling_v3_enabled() -> bool {
+			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED
+		}
+	}
+
 
 	impl cumulus_primitives_aura::AuraUnincludedSegmentApi<Block> for Runtime {
 		fn can_build_upon(
@@ -757,8 +807,8 @@ impl_runtime_apis! {
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(seed)
+		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> OpaqueGeneratedSessionKeys {
+			SessionKeys::generate(&owner, seed).into()
 		}
 
 		fn decode_session_keys(
@@ -825,10 +875,7 @@ impl_runtime_apis! {
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			use crate::xcm_config::XcmConfig;
-
 			type Trader = <XcmConfig as xcm_executor::Config>::Trader;
-
 			PolkadotXcm::query_weight_to_asset_fee::<Trader>(weight, asset)
 		}
 
@@ -836,8 +883,9 @@ impl_runtime_apis! {
 			PolkadotXcm::query_xcm_weight(message)
 		}
 
-		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
-			PolkadotXcm::query_delivery_fees(destination, message)
+		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>, asset_id: VersionedAssetId) -> Result<VersionedAssets, XcmPaymentApiError> {
+			type AssetExchanger = <XcmConfig as xcm_executor::Config>::AssetExchanger;
+			PolkadotXcm::query_delivery_fees::<AssetExchanger>(destination, message, asset_id)
 		}
 	}
 
@@ -973,6 +1021,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl snowbridge_pallet_inbound_queue_v2::InboundQueueV2Api<Block> for Runtime {
+		fn is_message_relayed(nonce: u64) -> bool {
+			snowbridge_pallet_inbound_queue_v2::Nonce::<Runtime>::get(nonce)
+		}
+	}
+
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
 		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
@@ -1030,6 +1084,7 @@ impl_runtime_apis! {
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 			use frame_benchmarking::{BenchmarkBatch, BenchmarkError};
 			use sp_storage::TrackedStorageKey;
+			use codec::Encode;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
@@ -1045,7 +1100,14 @@ impl_runtime_apis! {
 			}
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+			impl cumulus_pallet_session_benchmarking::Config for Runtime {
+				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+					let keys = SessionKeys::generate(&owner.encode(), None);
+					(keys.keys, keys.proof.encode())
+				}
+			}
+
+			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
 
 			use xcm::latest::prelude::*;
 			use xcm_config::WestendLocation;
@@ -1120,15 +1182,15 @@ impl_runtime_apis! {
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(AssetHubLocation::get())
 				}
-				fn worst_case_holding(_depositable_count: u32) -> Assets {
+				fn worst_case_holding(_depositable_count: u32) -> xcm_executor::AssetsInHolding {
+					use pallet_xcm_benchmarks::MockCredit;
 					// just assets according to relay chain.
-					let assets: Vec<Asset> = vec![
-						Asset {
-							id: AssetId(WestendLocation::get()),
-							fun: Fungible(1_000_000 * UNITS),
-						}
-					];
-					assets.into()
+					let mut holding = xcm_executor::AssetsInHolding::new();
+					holding.fungible.insert(
+						AssetId(WestendLocation::get()),
+						alloc::boxed::Box::new(MockCredit(1_000_000 * UNITS)),
+					);
+					holding
 				}
 			}
 
@@ -1311,7 +1373,7 @@ impl_runtime_apis! {
 					params: MessageProofParams<LaneIdOf<Runtime, bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>>,
 				) -> (bridge_to_rococo_config::FromRococoBridgeHubMessagesProof<bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>, Weight) {
 					use cumulus_primitives_core::XcmpMessageSource;
-					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+					assert!(XcmpQueue::take_outbound_messages(usize::MAX, &[]).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
 					let universal_source = bridge_to_rococo_config::open_bridge_for_benchmarks::<
 						Runtime,
@@ -1342,7 +1404,7 @@ impl_runtime_apis! {
 
 				fn is_message_successfully_dispatched(_nonce: bp_messages::MessageNonce) -> bool {
 					use cumulus_primitives_core::XcmpMessageSource;
-					!XcmpQueue::take_outbound_messages(usize::MAX).is_empty()
+					!XcmpQueue::take_outbound_messages(usize::MAX, &[]).is_empty()
 				}
 			}
 
@@ -1387,10 +1449,14 @@ impl_runtime_apis! {
 				}
 
 				fn prepare_rewards_account(
+					relayer: &AccountId,
 					reward_kind: Self::Reward,
 					reward: Balance,
-				) -> Option<pallet_bridge_relayers::BeneficiaryOf<Runtime, bridge_common_config::BridgeRelayersInstance>> {
-					let bridge_common_config::BridgeReward::RococoWestend(reward_kind) = reward_kind else {
+				) -> Option<(
+					Self::Reward,
+					pallet_bridge_relayers::BeneficiaryOf<Runtime, bridge_common_config::BridgeRelayersInstance>,
+				)> {
+					let bridge_common_config::BridgeReward::RococoWestend(legacy_reward_kind) = reward_kind else {
 						panic!("Unexpected reward_kind: {:?} - not compatible with `bench_reward`!", reward_kind);
 					};
 					let rewards_account = bp_relayers::PayRewardFromAccount::<
@@ -1398,10 +1464,30 @@ impl_runtime_apis! {
 						AccountId,
 						bp_messages::LegacyLaneId,
 						u128,
-					>::rewards_account(reward_kind);
+					>::rewards_account(legacy_reward_kind);
 					Self::deposit_account(rewards_account, reward);
 
-					None
+					// Worst-case `claim_rewards_to` path on Westend BridgeHub: Snowbridge
+					// rewards routed via XCM to an account on AssetHub. The XCM-routed
+					// payment charges the relayer for delivery fees on BridgeHub, so fund
+					// the relayer generously. Also open the outbound HRMP channel to
+					// AssetHub so the XCM router can validate/deliver.
+					Self::deposit_account(relayer.clone(), 100 * UNITS);
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
+						ASSET_HUB_ID.into(),
+					);
+
+					let beneficiary_on_ah = Location::new(
+						0,
+						[Junction::AccountId32 { network: None, id: [99u8; 32] }],
+					);
+
+					Some((
+						bridge_common_config::BridgeReward::Snowbridge,
+						bridge_common_config::BridgeRewardBeneficiaries::AssetHubLocation(
+							VersionedLocation::from(beneficiary_on_ah),
+						),
+					))
 				}
 
 				fn deposit_account(account: AccountId, balance: Balance) {
@@ -1441,9 +1527,9 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl cumulus_primitives_core::SlotSchedule<Block> for Runtime {
-		fn next_slot_schedule(_num_cores: u32) -> cumulus_primitives_core::NextSlotSchedule {
-			cumulus_primitives_core::NextSlotSchedule::one_block_using_one_core()
+	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
+		fn target_block_rate() -> u32 {
+			BLOCK_PROCESSING_VELOCITY
 		}
 	}
 }

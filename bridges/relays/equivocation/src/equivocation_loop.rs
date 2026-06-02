@@ -51,10 +51,11 @@ impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>, TC: TargetClient<P>>
 		match self.finality_proofs_stream.ensure_stream(&self.source_client).await {
 			Ok(_) => {},
 			Err(e) => {
-				log::error!(
+				tracing::error!(
 					target: "bridge",
-					"Could not connect to the {} `FinalityProofsStream`: {e:?}",
-					P::SOURCE_NAME,
+					error=?e,
+					source=%P::SOURCE_NAME,
+					"Could not connect to `FinalityProofsStream`"
 				);
 
 				// Reconnect to the source client if needed
@@ -67,10 +68,11 @@ impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>, TC: TargetClient<P>>
 		match self.target_client.best_finalized_header_number().await {
 			Ok(block_num) => Some(block_num),
 			Err(e) => {
-				log::error!(
+				tracing::error!(
 					target: "bridge",
-					"Could not read best finalized header number from {}: {e:?}",
-					P::TARGET_NAME,
+					error=?e,
+					target=%P::TARGET_NAME,
+					"Could not read best finalized header number"
 				);
 
 				// Reconnect target client and move on
@@ -107,11 +109,12 @@ impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>, TC: TargetClient<P>>
 				self.finality_proofs_buf.fill(&mut self.finality_proofs_stream);
 				let block_checker = BlockChecker::new(current_block_number);
 				let _ = block_checker
-					.run(
+					.run_with_retry(
 						&mut self.source_client,
 						&mut self.target_client,
 						&mut self.finality_proofs_buf,
 						&mut self.reporter,
+						(5, tick),
 					)
 					.await;
 				current_block_number = current_block_number.saturating_add(1.into());
@@ -120,7 +123,7 @@ impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>, TC: TargetClient<P>>
 
 			select_biased! {
 				_ = exit_signal => return,
-				_ = async_std::task::sleep(tick).fuse() => {},
+				_ = tokio::time::sleep(tick).fuse() => {},
 			}
 		}
 	}
@@ -195,7 +198,7 @@ mod tests {
 		result
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn multiple_blocks_are_checked_correctly() {
 		let best_finalized_headers = Arc::new(Mutex::new(VecDeque::from([Ok(10), Ok(12), Ok(13)])));
 		let (exit_sender, exit_receiver) = futures::channel::mpsc::unbounded();
@@ -265,7 +268,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn blocks_following_error_are_checked_correctly() {
 		let best_finalized_headers = Mutex::new(VecDeque::from([Ok(10), Ok(11)]));
 		let (exit_sender, exit_receiver) = futures::channel::mpsc::unbounded();

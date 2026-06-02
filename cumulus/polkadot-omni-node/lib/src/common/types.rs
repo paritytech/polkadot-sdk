@@ -23,7 +23,7 @@ use sc_telemetry::{Telemetry, TelemetryWorkerHandle};
 use sc_transaction_pool::TransactionPoolHandle;
 use sp_runtime::{generic, traits::BlakeTwo256};
 
-pub use parachains_common::{AccountId, Balance, Hash, Nonce};
+pub use parachains_common_types::{AccountId, Balance, Hash, Nonce};
 
 type Header<BlockNumber> = generic::Header<BlockNumber, BlakeTwo256>;
 pub type Block<BlockNumber> = generic::Block<Header<BlockNumber>, UncheckedExtrinsic>;

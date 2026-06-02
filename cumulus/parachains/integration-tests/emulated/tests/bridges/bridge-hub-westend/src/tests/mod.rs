@@ -26,6 +26,7 @@ mod snowbridge_common;
 // mod snowbridge_v2_inbound;
 mod snowbridge_edge_case;
 mod snowbridge_v2_inbound;
+mod snowbridge_v2_inbound_edge_case;
 mod snowbridge_v2_inbound_to_rococo;
 mod snowbridge_v2_outbound;
 mod snowbridge_v2_outbound_edge_case;
@@ -104,19 +105,38 @@ pub(crate) fn weth_at_asset_hubs() -> Location {
 	)
 }
 
-pub(crate) fn create_foreign_on_ah_rococo(id: v5::Location, sufficient: bool) {
+pub(crate) fn create_foreign_on_ah_rococo(
+	id: v5::Location,
+	sufficient: bool,
+	reserves: Vec<ForeignAssetReserveData>,
+) {
 	let owner = AssetHubRococo::account_id_of(ALICE);
-	AssetHubRococo::force_create_foreign_asset(id, owner, sufficient, ASSET_MIN_BALANCE, vec![]);
+	AssetHubRococo::force_create_foreign_asset(
+		id.clone(),
+		owner.clone(),
+		sufficient,
+		ASSET_MIN_BALANCE,
+		vec![],
+	);
+	AssetHubRococo::set_foreign_asset_reserves(id, owner, reserves);
 }
 
 pub(crate) fn create_foreign_on_ah_westend(
 	id: v5::Location,
 	sufficient: bool,
+	reserves: Vec<ForeignAssetReserveData>,
 	prefund_accounts: Vec<(AccountId, u128)>,
 ) {
 	let owner = AssetHubWestend::account_id_of(ALICE);
 	let min = ASSET_MIN_BALANCE;
-	AssetHubWestend::force_create_foreign_asset(id, owner, sufficient, min, prefund_accounts);
+	AssetHubWestend::force_create_foreign_asset(
+		id.clone(),
+		owner.clone(),
+		sufficient,
+		min,
+		prefund_accounts,
+	);
+	AssetHubWestend::set_foreign_asset_reserves(id, owner, reserves);
 }
 
 pub(crate) fn foreign_balance_on_ah_rococo(id: v5::Location, who: &AccountId) -> u128 {
@@ -179,8 +199,6 @@ pub(crate) fn assert_bridge_hub_westend_message_accepted(expected_processed: boo
 			assert_expected_events!(
 				BridgeHubWestend,
 				vec![
-					// pay for bridge fees
-					RuntimeEvent::Balances(pallet_balances::Event::Burned { .. }) => {},
 					// message exported
 					RuntimeEvent::BridgeRococoMessages(
 						pallet_bridge_messages::Event::MessageAccepted { .. }

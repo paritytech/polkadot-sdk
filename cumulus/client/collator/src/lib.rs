@@ -16,7 +16,6 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! Cumulus Collator implementation for Substrate.
-
 use polkadot_node_primitives::CollationGenerationConfig;
 use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
 use polkadot_overseer::Handle as OverseerHandle;
@@ -93,7 +92,7 @@ pub mod relay_chain_driven {
 						CollationRequest { relay_parent, pvd: validation_data, sender: this_tx };
 
 					if stream_tx.send(request).await.is_err() {
-						return None
+						return None;
 					}
 
 					this_rx.await.ok().flatten()

@@ -23,9 +23,9 @@ use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators,
 	snowbridge::{ETHER_MIN_BALANCE, WETH},
 	xcm_emulator::ConvertLocation,
-	PenpalASiblingSovereignAccount, PenpalATeleportableAssetLocation,
-	PenpalBSiblingSovereignAccount, PenpalBTeleportableAssetLocation, RESERVABLE_ASSET_ID,
-	SAFE_XCM_VERSION, USDT_ID,
+	PenpalALocation, PenpalAPen2TeleportableAssetLocation, PenpalASiblingSovereignAccount,
+	PenpalBLocation, PenpalBPen2TeleportableAssetLocation, PenpalBSiblingSovereignAccount,
+	RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID,
 };
 use parachains_common::{AccountId, Balance};
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
@@ -42,14 +42,15 @@ parameter_types! {
 	pub AssetHubRococoAssetOwner: AccountId = Keyring::Alice.to_account_id();
 	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
 	pub AssetHubRococoUniversalLocation: InteriorLocation = [GlobalConsensus(RococoGlobalConsensusNetwork::get()), Parachain(PARA_ID)].into();
+	pub AssetHubWestendLocation: Location = Location::new(
+			2,
+			[GlobalConsensus( NetworkId::ByGenesis(WESTEND_GENESIS_HASH)), Parachain(PARA_ID)],
+		);
 	pub AssetHubWestendSovereignAccount: AccountId = ExternalConsensusLocationsConverterFor::<
 			AssetHubRococoUniversalLocation,
 			AccountId,
-		>::convert_location(&Location::new(
-			2,
-			[Junction::GlobalConsensus( NetworkId::ByGenesis(WESTEND_GENESIS_HASH)), Parachain(PARA_ID)],
-		))
-		.unwrap();
+		>::convert_location(&AssetHubWestendLocation::get()).unwrap();
+	pub EthereumLocation: Location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
 }
 
 pub fn genesis() -> Storage {
@@ -98,32 +99,34 @@ pub fn genesis() -> Storage {
 		},
 		foreign_assets: asset_hub_rococo_runtime::ForeignAssetsConfig {
 			assets: vec![
-				// PenpalA's teleportable asset representation
+				// PenpalA's native asset representation
+				(PenpalALocation::get(), PenpalASiblingSovereignAccount::get(), true, ED),
+				// PenpalB's native asset representation
+				(PenpalBLocation::get(), PenpalBSiblingSovereignAccount::get(), true, ED),
 				(
-					PenpalATeleportableAssetLocation::get(),
+					PenpalAPen2TeleportableAssetLocation::get(),
 					PenpalASiblingSovereignAccount::get(),
 					false,
 					ED,
 				),
 				// PenpalB's teleportable asset representation
 				(
-					PenpalBTeleportableAssetLocation::get(),
+					PenpalBPen2TeleportableAssetLocation::get(),
 					PenpalBSiblingSovereignAccount::get(),
 					false,
 					ED,
 				),
 				// Ether
 				(
-					xcm::v5::Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
-					AssetHubWestendSovereignAccount::get(), /* To emulate double bridging, where
-					                                         * WAH is the owner of assets from
-					                                         * Ethereum on RAH */
+					EthereumLocation::get(),
+					// Emulate double bridging; WAH is the owner of assets from Ethereum on RAH.
+					AssetHubWestendSovereignAccount::get(),
 					true,
 					ETHER_MIN_BALANCE,
 				),
 				// Weth
 				(
-					xcm::v5::Location::new(
+					Location::new(
 						2,
 						[
 							GlobalConsensus(EthereumNetwork::get()),
@@ -133,6 +136,29 @@ pub fn genesis() -> Storage {
 					AssetHubWestendSovereignAccount::get(),
 					true,
 					ETHER_MIN_BALANCE,
+				),
+			],
+			reserves: vec![
+				(PenpalALocation::get(), vec![(PenpalALocation::get(), true).into()]),
+				(PenpalBLocation::get(), vec![(PenpalBLocation::get(), true).into()]),
+				(
+					PenpalAPen2TeleportableAssetLocation::get(),
+					vec![(PenpalALocation::get(), true).into()],
+				),
+				(
+					PenpalBPen2TeleportableAssetLocation::get(),
+					vec![(PenpalBLocation::get(), true).into()],
+				),
+				(EthereumLocation::get(), vec![(AssetHubWestendLocation::get(), false).into()]),
+				(
+					Location::new(
+						2,
+						[
+							GlobalConsensus(EthereumNetwork::get()),
+							AccountKey20 { network: None, key: WETH.into() },
+						],
+					),
+					vec![(AssetHubWestendLocation::get(), false).into()],
 				),
 			],
 			..Default::default()

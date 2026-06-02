@@ -16,21 +16,21 @@
 // limitations under the License.
 
 use crate::{
+	ClientError, LOG_TARGET,
 	client::{SubscriptionType, SubstrateBlock, SubstrateBlockNumber},
 	subxt_client::SrcChainConfig,
-	ClientError,
 };
 use jsonrpsee::core::async_trait;
 use sp_core::H256;
 use std::sync::Arc;
-use subxt::{backend::legacy::LegacyRpcMethods, OnlineClient};
+use subxt::{OnlineClient, backend::legacy::LegacyRpcMethods};
 use tokio::sync::RwLock;
 
 /// BlockInfoProvider cache and retrieves information about blocks.
 #[async_trait]
 pub trait BlockInfoProvider: Send + Sync {
 	/// Update the latest block
-	async fn update_latest(&self, block: SubstrateBlock, subscription_type: SubscriptionType);
+	async fn update_latest(&self, block: Arc<SubstrateBlock>, subscription_type: SubscriptionType);
 
 	/// Return the latest finalized block.
 	async fn latest_finalized_block(&self) -> Arc<SubstrateBlock>;
@@ -40,7 +40,7 @@ pub trait BlockInfoProvider: Send + Sync {
 
 	/// Return the latest block number
 	async fn latest_block_number(&self) -> SubstrateBlockNumber {
-		return self.latest_block().await.number()
+		return self.latest_block().await.number();
 	}
 
 	/// Get block by block_number.
@@ -86,12 +86,12 @@ impl SubxtBlockInfoProvider {
 
 #[async_trait]
 impl BlockInfoProvider for SubxtBlockInfoProvider {
-	async fn update_latest(&self, block: SubstrateBlock, subscription_type: SubscriptionType) {
+	async fn update_latest(&self, block: Arc<SubstrateBlock>, subscription_type: SubscriptionType) {
 		let mut latest = match subscription_type {
 			SubscriptionType::FinalizedBlocks => self.latest_finalized_block.write().await,
 			SubscriptionType::BestBlocks => self.latest_block.write().await,
 		};
-		*latest = Arc::new(block);
+		*latest = block;
 	}
 
 	async fn latest_block(&self) -> Arc<SubstrateBlock> {
@@ -140,8 +140,14 @@ impl BlockInfoProvider for SubxtBlockInfoProvider {
 
 		match self.api.blocks().at(*hash).await {
 			Ok(block) => Ok(Some(Arc::new(block))),
-			Err(subxt::Error::Block(subxt::error::BlockError::NotFound(_))) => Ok(None),
-			Err(err) => Err(err.into()),
+			Err(subxt::Error::Block(subxt::error::BlockError::NotFound(_))) => {
+				log::trace!(target: LOG_TARGET, "block_by_hash: block {hash:?} not found");
+				Ok(None)
+			},
+			Err(err) => {
+				log::trace!(target: LOG_TARGET, "block_by_hash: failed to fetch block {hash:?}: {err:?}");
+				Err(err.into())
+			},
 		}
 	}
 }
@@ -172,7 +178,7 @@ pub mod test {
 	impl BlockInfoProvider for MockBlockInfoProvider {
 		async fn update_latest(
 			&self,
-			_block: SubstrateBlock,
+			_block: Arc<SubstrateBlock>,
 			_subscription_type: SubscriptionType,
 		) {
 		}

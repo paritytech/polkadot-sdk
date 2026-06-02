@@ -1,0 +1,23 @@
+title: 'net: Spawn network backend as essential task'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR spawns the network backends as essential (libp2p / litep2p).
+
+    When the network future exits, it will bring down the whole process.
+    - there's no point in running a node without the core network backend as it will not be able to communicate with peers
+    - while at it, have changed some logs from debug to warn
+    - the network backend can be brought down unintentionally by the `import_notif_stream`
+
+
+    Discovered during:
+    - https://github.com/paritytech/polkadot-sdk/issues/10821
+crates:
+- name: cumulus-client-service
+  bump: patch
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: polkadot-service
+  bump: patch
+- name: sc-service
+  bump: patch

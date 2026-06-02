@@ -3,6 +3,12 @@
 pragma solidity ^0.8.20;
 
 contract System {
+	constructor(bool panic) {
+		if (panic) {
+			revert("Reverted because revert=true was set as constructor argument");
+		}
+	}
+
     function keccak256Func(bytes memory data) public pure returns (bytes32) {
         return keccak256(data);
     }

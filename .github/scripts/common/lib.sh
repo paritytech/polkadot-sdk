@@ -237,6 +237,38 @@ fetch_release_artifacts() {
   popd > /dev/null
 }
 
+# Fetch rpm package from S3.
+fetch_rpm_package_from_s3() {
+  BINARY=$1
+  OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
+  
+  echo "--- Preparing to fetch RPM package ---"
+  echo "Git Tag (VERSION):           $VERSION"
+  echo "Code Version (NODE_VERSION): $NODE_VERSION"
+  
+  URL_BASE=$(get_s3_url_base $BINARY)
+  
+  # CORRECTED FILENAME: Changed underscore to hyphen to match the uploaded file.
+  FILENAME="${BINARY}-${NODE_VERSION}-1.x86_64.rpm"
+  
+  URL="${URL_BASE}/${VERSION}/x86_64-unknown-linux-gnu/${FILENAME}"
+  
+  echo "Constructed URL:             $URL"
+  echo "------------------------------------"
+
+  mkdir -p "$OUTPUT_DIR"
+  pushd "$OUTPUT_DIR" > /dev/null
+
+  echo "Fetching rpm package..."
+
+  # This curl command will now succeed because the URL is correct.
+  curl --fail --progress-bar -LO "$URL"
+
+  echo "Download successful."
+  ls -al
+  popd > /dev/null
+}
+
 # Fetch deb package from S3. Assumes the ENV are set:
 # - RELEASE_ID
 # - GITHUB_TOKEN
@@ -323,6 +355,9 @@ function get_s3_url_base() {
       frame-omni-bencher)
         printf "https://releases.parity.io/frame-omni-bencher"
         ;;
+      eth-rpc)
+        printf "https://releases.parity.io/eth-rpc"
+        ;;
       *)
         printf "UNSUPPORTED BINARY $name"
         exit 1
@@ -340,9 +375,6 @@ function check_sha256() {
 # Import GPG keys of the release team members
 function import_gpg_keys() {
   GPG_KEYSERVER=${GPG_KEYSERVER:-"hkps://keyserver.ubuntu.com"}
-  SEC="9D4B2B6EB8F97156D19669A9FF0812D491B96798"
-  EGOR="E6FC4D4782EB0FA64A4903CCDB7D3555DD3932D3"
-  MORGAN="2E92A9D8B15D7891363D1AE8AF9E6C43F7F8C4CF"
   PARITY_RELEASES="90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE"
   PARITY_RELEASES_SIGN_COMMITS="D8018FBB3F534D866A45998293C5FB5F6A367B51"
 

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//!Types, and traits to integrate pallet-revive with EVM.
+//! Types, and traits to integrate pallet-revive with EVM.
 #![warn(missing_docs)]
 
 mod receipt;
@@ -30,7 +30,7 @@ pub use block_builder::{EthereumBlockBuilder, EthereumBlockBuilderIR};
 use crate::evm::Block;
 
 use alloc::vec::Vec;
-use alloy_core::primitives::{bytes::BufMut, B256};
+use alloy_core::primitives::{B256, bytes::BufMut};
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -38,7 +38,7 @@ use sp_core::{H256, U256};
 
 /// Details needed to reconstruct the receipt info in the RPC
 /// layer without losing accuracy.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
 pub struct ReceiptGasInfo {
 	/// The amount of gas used for this specific transaction alone.
 	pub gas_used: U256,

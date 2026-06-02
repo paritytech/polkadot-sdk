@@ -16,10 +16,28 @@
 // limitations under the License.
 
 use alloc::vec::Vec;
+use codec::{Decode, Encode};
 pub use sp_core::crypto::KeyTypeId;
+use sp_runtime::traits::GeneratedSessionKeys;
+
+/// Opaque [`GeneratedSessionKeys`].
+#[derive(Debug, Default, Decode, Encode, scale_info::TypeInfo)]
+pub struct OpaqueGeneratedSessionKeys {
+	/// The public session keys.
+	pub keys: Vec<u8>,
+	/// The proof proving the ownership of the public session keys for some owner.
+	pub proof: Vec<u8>,
+}
+
+impl<K: Encode, P: Encode> From<GeneratedSessionKeys<K, P>> for OpaqueGeneratedSessionKeys {
+	fn from(value: GeneratedSessionKeys<K, P>) -> Self {
+		Self { keys: value.keys.encode(), proof: value.proof.encode() }
+	}
+}
 
 sp_api::decl_runtime_apis! {
 	/// Session keys runtime api.
+	#[api_version(2)]
 	pub trait SessionKeys {
 		/// Generate a set of session keys with optionally using the given seed.
 		/// The keys should be stored within the keystore exposed via runtime
@@ -28,11 +46,14 @@ sp_api::decl_runtime_apis! {
 		/// The seed needs to be a valid `utf8` string.
 		///
 		/// Returns the concatenated SCALE encoded public keys.
+		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> OpaqueGeneratedSessionKeys;
+
+		#[changed_in(2)]
 		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8>;
 
 		/// Decode the given public session keys.
 		///
 		/// Returns the list of public raw public keys + key type.
-		fn decode_session_keys(encoded: Vec<u8>) -> Option<Vec<(Vec<u8>, sp_core::crypto::KeyTypeId)>>;
+		fn decode_session_keys(encoded: Vec<u8>) -> Option<Vec<(Vec<u8>, KeyTypeId)>>;
 	}
 }
