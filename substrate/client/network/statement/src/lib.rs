@@ -1299,12 +1299,20 @@ where
 		}
 	}
 
-	/// Adjust a peer's reputation based on the result of importing a statement it sent:
+	/// Adjust the sending peer's reputation based on the outcome of importing a statement it sent.
 	///
-	/// - `New` → `rep::GOOD_STATEMENT`.
-	/// - `Known` → refunds the initial `rep::ANY_STATEMENT` cost via `rep::ANY_STATEMENT_REFUND`.
-	/// - `Invalid` → `rep::INVALID_STATEMENT`.
-	/// - `Rejected`, `KnownExpired`, `InternalError` → no reputation change.
+	/// Every newly received statement is first charged `rep::ANY_STATEMENT` (a small **decrease**)
+	/// in [`on_statements`](Self::on_statements); this method applies the follow-up adjustment
+	/// once the statement has been validated:
+	///
+	/// - `New` → **increase** by `rep::GOOD_STATEMENT` — a valid, previously unknown statement; the
+	///   net change is positive (the reward outweighs the initial charge).
+	/// - `Known` → **increase** by `rep::ANY_STATEMENT_REFUND`, which exactly cancels the initial
+	///   `rep::ANY_STATEMENT` charge (net zero) — valid but already in the store.
+	/// - `Invalid` → **decrease** by `rep::INVALID_STATEMENT`, a large penalty — the statement
+	///   failed validation.
+	/// - `KnownExpired`, `Rejected`, `InternalError` → no follow-up change, so the peer keeps the
+	///   initial `rep::ANY_STATEMENT` charge.
 	fn on_handle_statement_import(&mut self, who: PeerId, import: &SubmitResult) {
 		match import {
 			SubmitResult::New => self.network.report_peer(who, rep::GOOD_STATEMENT),
