@@ -46,8 +46,12 @@ async fn free_headers_synced_while_idle() -> Result<(), anyhow::Error> {
 	//   * on Rococo BH we expect free Westend (relay) + a single Westend BH (parachain) header.
 	let rococo_to_westend =
 		count_synced_headers(&bhw, "BridgeRococoGrandpa", "BridgeRococoParachains", OBSERVE_WINDOW);
-	let westend_to_rococo =
-		count_synced_headers(&bhr, "BridgeWestendGrandpa", "BridgeWestendParachains", OBSERVE_WINDOW);
+	let westend_to_rococo = count_synced_headers(
+		&bhr,
+		"BridgeWestendGrandpa",
+		"BridgeWestendParachains",
+		OBSERVE_WINDOW,
+	);
 	let ((r2w_grandpa, r2w_para), (w2r_grandpa, w2r_para)) =
 		tokio::try_join!(rococo_to_westend, westend_to_rococo)?;
 

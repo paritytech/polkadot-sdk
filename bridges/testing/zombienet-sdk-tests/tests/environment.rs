@@ -22,8 +22,9 @@ use tokio::{
 	process::{Child, Command},
 	time::{sleep, timeout_at, Instant},
 };
-use zombienet_sdk::{environment::get_spawn_fn, Arg, LocalFileSystem, Network, NetworkConfig,
-	NetworkConfigBuilder};
+use zombienet_sdk::{
+	environment::get_spawn_fn, Arg, LocalFileSystem, Network, NetworkConfig, NetworkConfigBuilder,
+};
 
 // `1u64 << 60` — the amount the local chain specs endow every well-known account with. The
 // finality/parachain relayers (`//Charlie` / `//Dave`) only submit free or mandatory headers, so
@@ -77,7 +78,6 @@ macro_rules! relay_ops {
 		pub mod $name {
 			use super::sign_submit_wait;
 			use crate::$relay::runtime_types::{
-				$runtime::RuntimeCall,
 				pallet_xcm::pallet::Call as XcmPalletCall,
 				polkadot_parachain_primitives::primitives::Id,
 				polkadot_runtime_parachains::hrmp::pallet::Call as HrmpCall,
@@ -90,6 +90,7 @@ macro_rules! relay_ops {
 					v3::{OriginKind, WeightLimit},
 					VersionedLocation, VersionedXcm,
 				},
+				$runtime::RuntimeCall,
 			};
 			use subxt::{OnlineClient, PolkadotConfig};
 			use subxt_signer::sr25519::Keypair;
@@ -157,14 +158,14 @@ macro_rules! asset_hub_ops {
 	($name:ident, $ah:ident) => {
 		pub mod $name {
 			use super::{free_balance_at, sign_submit_wait};
-			use crate::$ah::runtime_types::staging_xcm::v5::{
-				asset::{Asset, AssetId, Assets, Fungibility},
-				junction::{Junction, NetworkId},
-				junctions::Junctions,
-				location::Location,
-			};
-			use crate::$ah::runtime_types::xcm::{
-				v3::WeightLimit, VersionedAssets, VersionedLocation,
+			use crate::$ah::runtime_types::{
+				staging_xcm::v5::{
+					asset::{Asset, AssetId, Assets, Fungibility},
+					junction::{Junction, NetworkId},
+					junctions::Junctions,
+					location::Location,
+				},
+				xcm::{v3::WeightLimit, VersionedAssets, VersionedLocation},
 			};
 			use subxt::{tx::Payload, OnlineClient, PolkadotConfig};
 			use subxt_signer::sr25519::Keypair;
@@ -184,7 +185,8 @@ macro_rules! asset_hub_ops {
 				}
 			}
 
-			/// The remote Asset Hub location, `{ parents: 2, X2(GlobalConsensus, Parachain(1000)) }`.
+			/// The remote Asset Hub location, `{ parents: 2, X2(GlobalConsensus, Parachain(1000))
+			/// }`.
 			pub fn remote_asset_hub(by_genesis: [u8; 32]) -> Location {
 				Location {
 					parents: 2,
@@ -201,10 +203,9 @@ macro_rules! asset_hub_ops {
 				signer: &Keypair,
 				bridged_by_genesis: [u8; 32],
 			) -> Result<(), anyhow::Error> {
-				let tx = crate::$ah::tx().asset_conversion().create_pool(
-					native_asset(),
-					bridged_asset(bridged_by_genesis),
-				);
+				let tx = crate::$ah::tx()
+					.asset_conversion()
+					.create_pool(native_asset(), bridged_asset(bridged_by_genesis));
 				sign_submit_wait(client, &tx, signer).await
 			}
 
@@ -349,8 +350,7 @@ macro_rules! bridge_hub_ops {
 				client: &OnlineClient<PolkadotConfig>,
 				remote: Location,
 			) -> Result<Vec<u8>, anyhow::Error> {
-				let call =
-					crate::$bh::tx().polkadot_xcm().force_xcm_version(remote, XCM_VERSION);
+				let call = crate::$bh::tx().polkadot_xcm().force_xcm_version(remote, XCM_VERSION);
 				Ok(call.encode_call_data(&client.metadata())?)
 			}
 
@@ -386,7 +386,9 @@ pub async fn bridge_hub_rococo_relayer_reward(
 		bridged_chain_id: BRIDGED_CHAIN_ID_BHWD,
 		lane_id: LegacyLaneId(LANE_ID),
 	};
-	let addr = crate::bridge_hub_rococo::storage().bridge_relayers().relayer_rewards(relayer, reward);
+	let addr = crate::bridge_hub_rococo::storage()
+		.bridge_relayers()
+		.relayer_rewards(relayer, reward);
 	Ok(client.storage().at_latest().await?.fetch(&addr).await?)
 }
 
@@ -406,8 +408,9 @@ pub async fn bridge_hub_westend_relayer_reward(
 		bridged_chain_id: BRIDGED_CHAIN_ID_BHRO,
 		lane_id: LegacyLaneId(LANE_ID),
 	});
-	let addr =
-		crate::bridge_hub_westend::storage().bridge_relayers().relayer_rewards(relayer, reward);
+	let addr = crate::bridge_hub_westend::storage()
+		.bridge_relayers()
+		.relayer_rewards(relayer, reward);
 	Ok(client.storage().at_latest().await?.fetch(&addr).await?)
 }
 
@@ -494,8 +497,7 @@ pub async fn count_synced_headers(
 		for event in block.events().await?.iter() {
 			let event = event?;
 			match (event.pallet_name(), event.variant_name()) {
-				(p, "UpdatedBestFinalizedHeader") if p == grandpa_pallet =>
-					grandpa_headers += 1,
+				(p, "UpdatedBestFinalizedHeader") if p == grandpa_pallet => grandpa_headers += 1,
 				(p, "UpdatedParachainHead") if p == parachains_pallet => parachain_headers += 1,
 				_ => {},
 			}
@@ -844,7 +846,8 @@ impl BridgeTestEnv {
 
 		// Remote XCM versions (Asset Hub <-> Asset Hub, Bridge Hub <-> Bridge Hub).
 		let ahw_on_ahr = asset_hub_rococo::remote_asset_hub(WESTEND_GENESIS_HASH);
-		let force_ahw = asset_hub_rococo::force_xcm_version_call(&ahr, ahw_on_ahr, XCM_VERSION).await?;
+		let force_ahw =
+			asset_hub_rococo::force_xcm_version_call(&ahr, ahw_on_ahr, XCM_VERSION).await?;
 		relay_rococo::send_governance_transact(
 			&rococo_relay,
 			&alice,
@@ -855,10 +858,8 @@ impl BridgeTestEnv {
 		)
 		.await?;
 
-		let bhw_on_bhr = bridge_hub_rococo::remote_bridge_hub(
-			WESTEND_GENESIS_HASH,
-			BRIDGE_HUB_WESTEND_PARA_ID,
-		);
+		let bhw_on_bhr =
+			bridge_hub_rococo::remote_bridge_hub(WESTEND_GENESIS_HASH, BRIDGE_HUB_WESTEND_PARA_ID);
 		let force_bhw = bridge_hub_rococo::force_xcm_version_call(&bhr, bhw_on_bhr).await?;
 		relay_rococo::send_governance_transact(
 			&rococo_relay,
@@ -871,7 +872,8 @@ impl BridgeTestEnv {
 		.await?;
 
 		let ahr_on_ahw = asset_hub_westend::remote_asset_hub(ROCOCO_GENESIS_HASH);
-		let force_ahr = asset_hub_westend::force_xcm_version_call(&ahw, ahr_on_ahw, XCM_VERSION).await?;
+		let force_ahr =
+			asset_hub_westend::force_xcm_version_call(&ahw, ahr_on_ahw, XCM_VERSION).await?;
 		relay_westend::send_governance_transact(
 			&westend_relay,
 			&alice,
@@ -882,10 +884,8 @@ impl BridgeTestEnv {
 		)
 		.await?;
 
-		let bhr_on_bhw = bridge_hub_westend::remote_bridge_hub(
-			ROCOCO_GENESIS_HASH,
-			BRIDGE_HUB_ROCOCO_PARA_ID,
-		);
+		let bhr_on_bhw =
+			bridge_hub_westend::remote_bridge_hub(ROCOCO_GENESIS_HASH, BRIDGE_HUB_ROCOCO_PARA_ID);
 		let force_bhr = bridge_hub_westend::force_xcm_version_call(&bhw, bhr_on_bhw).await?;
 		relay_westend::send_governance_transact(
 			&westend_relay,
@@ -901,12 +901,20 @@ impl BridgeTestEnv {
 		log::info!("Waiting for HRMP channels to open");
 		retry_until(Duration::from_secs(600), || {
 			let ahr = ahr.clone();
-			async move { Ok(asset_hub_rococo::hrmp_egress_open(&ahr, BRIDGE_HUB_ROCOCO_PARA_ID).await?.then_some(())) }
+			async move {
+				Ok(asset_hub_rococo::hrmp_egress_open(&ahr, BRIDGE_HUB_ROCOCO_PARA_ID)
+					.await?
+					.then_some(()))
+			}
 		})
 		.await?;
 		retry_until(Duration::from_secs(600), || {
 			let ahw = ahw.clone();
-			async move { Ok(asset_hub_westend::hrmp_egress_open(&ahw, BRIDGE_HUB_WESTEND_PARA_ID).await?.then_some(())) }
+			async move {
+				Ok(asset_hub_westend::hrmp_egress_open(&ahw, BRIDGE_HUB_WESTEND_PARA_ID)
+					.await?
+					.then_some(()))
+			}
 		})
 		.await?;
 
@@ -935,15 +943,27 @@ impl BridgeTestEnv {
 
 		// init-bridge-hub-*-local: fund sovereign / reward accounts.
 		log::info!("Funding sovereign and reward accounts on the Bridge Hubs");
-		for account in [ASSET_HUB_SOVEREIGN_AT_BRIDGE_HUB, BHR_LANE_THIS_CHAIN, BHR_LANE_BRIDGED_CHAIN]
+		for account in
+			[ASSET_HUB_SOVEREIGN_AT_BRIDGE_HUB, BHR_LANE_THIS_CHAIN, BHR_LANE_BRIDGED_CHAIN]
 		{
-			bridge_hub_rococo::transfer_balance(&bhr, &alice, parse_account(account)?, SOVEREIGN_FUNDING)
-				.await?;
+			bridge_hub_rococo::transfer_balance(
+				&bhr,
+				&alice,
+				parse_account(account)?,
+				SOVEREIGN_FUNDING,
+			)
+			.await?;
 		}
-		for account in [ASSET_HUB_SOVEREIGN_AT_BRIDGE_HUB, BHW_LANE_THIS_CHAIN, BHW_LANE_BRIDGED_CHAIN]
+		for account in
+			[ASSET_HUB_SOVEREIGN_AT_BRIDGE_HUB, BHW_LANE_THIS_CHAIN, BHW_LANE_BRIDGED_CHAIN]
 		{
-			bridge_hub_westend::transfer_balance(&bhw, &alice, parse_account(account)?, SOVEREIGN_FUNDING)
-				.await?;
+			bridge_hub_westend::transfer_balance(
+				&bhw,
+				&alice,
+				parse_account(account)?,
+				SOVEREIGN_FUNDING,
+			)
+			.await?;
 		}
 
 		log::info!("Bridge initialization complete");
