@@ -68,6 +68,18 @@ pub(crate) enum RoundAction {
 	Enqueue,
 }
 
+/// `VoterOracle` as persisted by aux-db schema v4.
+///
+/// Kept only to migrate v4 state to the current schema.
+#[derive(Debug, Decode, Encode, PartialEq)]
+pub(crate) struct VoterOracleV4<B: Block, AuthorityId: AuthorityIdBound> {
+	pub(crate) sessions: VecDeque<RoundsV4<B, AuthorityId>>,
+	pub(crate) min_block_delta: u32,
+	pub(crate) best_grandpa_block_header: <B as Block>::Header,
+	pub(crate) best_beefy_block: NumberFor<B>,
+	pub(crate) _phantom: PhantomData<fn() -> AuthorityId>,
+}
+
 /// Responsible for the voting strategy.
 /// It chooses which incoming votes to accept and which votes to generate.
 /// Keeps track of voting seen for current and future rounds.
@@ -271,32 +283,6 @@ where
 	}
 }
 
-/// BEEFY voter state persisted in aux DB.
-///
-/// Note: Any changes here should also bump aux-db schema version.
-#[derive(Debug, Decode, Encode, PartialEq)]
-pub(crate) struct PersistedState<B: Block, AuthorityId: AuthorityIdBound> {
-	/// Best block we voted on.
-	best_voted: NumberFor<B>,
-	/// Chooses which incoming votes to accept and which votes to generate.
-	/// Keeps track of voting seen for current and future rounds.
-	voting_oracle: VoterOracle<B, AuthorityId>,
-	/// Pallet-beefy genesis block - block number when BEEFY consensus started for this chain.
-	pallet_genesis: NumberFor<B>,
-}
-
-/// `VoterOracle` as persisted by aux-db schema v4.
-///
-/// Kept only to migrate v4 state to the current schema.
-#[derive(Debug, Decode, Encode, PartialEq)]
-pub(crate) struct VoterOracleV4<B: Block, AuthorityId: AuthorityIdBound> {
-	pub(crate) sessions: VecDeque<RoundsV4<B, AuthorityId>>,
-	pub(crate) min_block_delta: u32,
-	pub(crate) best_grandpa_block_header: <B as Block>::Header,
-	pub(crate) best_beefy_block: NumberFor<B>,
-	pub(crate) _phantom: PhantomData<fn() -> AuthorityId>,
-}
-
 impl<B, AuthorityId> TryFrom<VoterOracleV4<B, AuthorityId>> for VoterOracle<B, AuthorityId>
 where
 	B: Block,
@@ -331,6 +317,20 @@ pub(crate) struct PersistedStateV4<B: Block, AuthorityId: AuthorityIdBound> {
 	pub(crate) best_voted: NumberFor<B>,
 	pub(crate) voting_oracle: VoterOracleV4<B, AuthorityId>,
 	pub(crate) pallet_genesis: NumberFor<B>,
+}
+
+/// BEEFY voter state persisted in aux DB.
+///
+/// Note: Any changes here should also bump aux-db schema version.
+#[derive(Debug, Decode, Encode, PartialEq)]
+pub(crate) struct PersistedState<B: Block, AuthorityId: AuthorityIdBound> {
+	/// Best block we voted on.
+	best_voted: NumberFor<B>,
+	/// Chooses which incoming votes to accept and which votes to generate.
+	/// Keeps track of voting seen for current and future rounds.
+	voting_oracle: VoterOracle<B, AuthorityId>,
+	/// Pallet-beefy genesis block - block number when BEEFY consensus started for this chain.
+	pallet_genesis: NumberFor<B>,
 }
 
 impl<B, AuthorityId> TryFrom<PersistedStateV4<B, AuthorityId>> for PersistedState<B, AuthorityId>
