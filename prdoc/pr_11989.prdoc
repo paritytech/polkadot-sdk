@@ -8,7 +8,7 @@ doc:
 
     ## Changes
 
-    - Add `statement_unstable_submit`, `statement_unstable_subscribe`, `statement_unstable_addFilter`, and `statement_unstable_removeFilter`
+    - Add `statement_unstable_submit`, `statement_unstable_subscribe`, `statement_unstable_add_filter`, and `statement_unstable_remove_filter`
     - Add multi-filter subscription support with replay and live statement delivery
     - Add zombienet smoke test for the unstable RPC wiring
 crates:

@@ -1004,8 +1004,8 @@ impl SubscriptionsMatchersHandlers {
 		&self,
 		id: SeqID,
 		message: MatcherMessage,
-	) -> std::result::Result<(), async_channel::SendError<MatcherMessage>> {
-		self.sender_by_seq_id(id).send_blocking(message)
+	) -> std::result::Result<(), async_channel::TrySendError<MatcherMessage>> {
+		self.sender_by_seq_id(id).try_send(message)
 	}
 
 	fn sender_by_seq_id(&self, id: SeqID) -> async_channel::Sender<MatcherMessage> {

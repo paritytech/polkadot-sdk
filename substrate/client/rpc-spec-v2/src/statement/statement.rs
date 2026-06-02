@@ -75,7 +75,7 @@ fn connection_id(ext: &Extensions) -> ConnectionId {
 fn validate_topic_filter(filter: TopicFilter) -> Result<OptimizedTopicFilter, Error> {
 	match &filter {
 		TopicFilter::MatchAny(_) => Err(Error::InvalidParam(
-			"`matchAny` topic filter is not supported by statement_unstable_addFilter; \
+			"`matchAny` topic filter is not supported by statement_unstable_add_filter; \
 			 use `\"any\"` or `{\"matchAll\": [...]}` instead"
 				.to_string(),
 		)),

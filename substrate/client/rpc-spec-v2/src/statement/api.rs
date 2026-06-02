@@ -35,7 +35,7 @@ pub trait StatementSpecApi {
 	async fn statement_unstable_subscribe(&self);
 
 	/// Attaches a filter to an existing subscription
-	#[method(name = "statement_unstable_addFilter", with_extensions)]
+	#[method(name = "statement_unstable_add_filter", with_extensions)]
 	async fn statement_unstable_add_filter(
 		&self,
 		subscription: String,
@@ -43,7 +43,7 @@ pub trait StatementSpecApi {
 	) -> Result<AddFilterResponse, Error>;
 
 	/// Detaches a filter from a subscription
-	#[method(name = "statement_unstable_removeFilter", with_extensions)]
+	#[method(name = "statement_unstable_remove_filter", with_extensions)]
 	fn statement_unstable_remove_filter(
 		&self,
 		subscription: String,

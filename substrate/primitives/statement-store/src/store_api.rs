@@ -135,10 +135,7 @@ impl From<TopicFilter> for OptimizedTopicFilter {
 /// Reason why a statement was rejected from the store.
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-	feature = "serde",
-	serde(tag = "reason", rename_all = "camelCase", rename_all_fields = "camelCase")
-)]
+#[cfg_attr(feature = "serde", serde(tag = "reason", rename_all = "camelCase"))]
 pub enum RejectionReason {
 	/// Statement data exceeds the maximum allowed size for the account.
 	DataTooLarge {
@@ -183,10 +180,7 @@ impl RejectionReason {
 /// Reason why a statement failed validation.
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-	feature = "serde",
-	serde(tag = "reason", rename_all = "camelCase", rename_all_fields = "camelCase")
-)]
+#[cfg_attr(feature = "serde", serde(tag = "reason", rename_all = "camelCase"))]
 pub enum InvalidReason {
 	/// Statement has no proof.
 	NoProof,
@@ -234,7 +228,96 @@ pub enum SubmitResult {
 	InternalError(Error),
 }
 
-/// Statement submission outcome exposed by RPC APIs
+/// Rejection reason as exposed by the spec-v2 `statement_unstable_submit` RPC.
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+	feature = "serde",
+	serde(tag = "reason", rename_all = "camelCase", rename_all_fields = "camelCase")
+)]
+pub enum SubmitRejectionReason {
+	/// Statement data exceeds the maximum allowed size for the account.
+	DataTooLarge {
+		/// The size of the submitted statement data.
+		submitted_size: usize,
+		/// Still available data size for the account.
+		available_size: usize,
+	},
+	/// Attempting to replace a channel message with lower or equal expiry.
+	ChannelPriorityTooLow {
+		/// The expiry of the submitted statement.
+		submitted_expiry: u64,
+		/// The minimum expiry of the existing channel message.
+		min_expiry: u64,
+	},
+	/// Account reached its statement limit and submitted expiry is too low to evict existing.
+	AccountFull {
+		/// The expiry of the submitted statement.
+		submitted_expiry: u64,
+		/// The minimum expiry of the existing statement.
+		min_expiry: u64,
+	},
+	/// The global statement store is full and cannot accept new statements.
+	StoreFull,
+	/// Account has no allowance set.
+	NoAllowance,
+}
+
+impl From<RejectionReason> for SubmitRejectionReason {
+	fn from(reason: RejectionReason) -> Self {
+		match reason {
+			RejectionReason::DataTooLarge { submitted_size, available_size } => {
+				SubmitRejectionReason::DataTooLarge { submitted_size, available_size }
+			},
+			RejectionReason::ChannelPriorityTooLow { submitted_expiry, min_expiry } => {
+				SubmitRejectionReason::ChannelPriorityTooLow { submitted_expiry, min_expiry }
+			},
+			RejectionReason::AccountFull { submitted_expiry, min_expiry } => {
+				SubmitRejectionReason::AccountFull { submitted_expiry, min_expiry }
+			},
+			RejectionReason::StoreFull => SubmitRejectionReason::StoreFull,
+			RejectionReason::NoAllowance => SubmitRejectionReason::NoAllowance,
+		}
+	}
+}
+
+/// Invalid reason as exposed by the spec-v2 `statement_unstable_submit` RPC.
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+	feature = "serde",
+	serde(tag = "reason", rename_all = "camelCase", rename_all_fields = "camelCase")
+)]
+pub enum SubmitInvalidReason {
+	/// Statement has no proof.
+	NoProof,
+	/// Proof validation failed.
+	BadProof,
+	/// Statement exceeds max allowed statement size.
+	EncodingTooLarge {
+		/// The size of the submitted statement encoding.
+		submitted_size: usize,
+		/// The maximum allowed size.
+		max_size: usize,
+	},
+	/// Statement has already expired. The expiry field is in the past.
+	AlreadyExpired,
+}
+
+impl From<InvalidReason> for SubmitInvalidReason {
+	fn from(reason: InvalidReason) -> Self {
+		match reason {
+			InvalidReason::NoProof => SubmitInvalidReason::NoProof,
+			InvalidReason::BadProof => SubmitInvalidReason::BadProof,
+			InvalidReason::EncodingTooLarge { submitted_size, max_size } => {
+				SubmitInvalidReason::EncodingTooLarge { submitted_size, max_size }
+			},
+			InvalidReason::AlreadyExpired => SubmitInvalidReason::AlreadyExpired,
+		}
+	}
+}
+
+/// Statement submission outcome exposed by the spec-v2 `statement_unstable_submit` RPC.
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(tag = "status", rename_all = "camelCase"))]
@@ -244,9 +327,9 @@ pub enum SubmitOutcome {
 	/// Statement was already known
 	Known,
 	/// Statement was rejected because the store is full or priority is too low
-	Rejected(RejectionReason),
+	Rejected(SubmitRejectionReason),
 	/// Statement failed validation
-	Invalid(InvalidReason),
+	Invalid(SubmitInvalidReason),
 }
 
 impl SubmitOutcome {
@@ -255,9 +338,11 @@ impl SubmitOutcome {
 		match result {
 			SubmitResult::New => Ok(SubmitOutcome::New),
 			SubmitResult::Known => Ok(SubmitOutcome::Known),
-			SubmitResult::KnownExpired => Ok(SubmitOutcome::Invalid(InvalidReason::AlreadyExpired)),
-			SubmitResult::Rejected(reason) => Ok(SubmitOutcome::Rejected(reason)),
-			SubmitResult::Invalid(reason) => Ok(SubmitOutcome::Invalid(reason)),
+			SubmitResult::KnownExpired => {
+				Ok(SubmitOutcome::Invalid(SubmitInvalidReason::AlreadyExpired))
+			},
+			SubmitResult::Rejected(reason) => Ok(SubmitOutcome::Rejected(reason.into())),
+			SubmitResult::Invalid(reason) => Ok(SubmitOutcome::Invalid(reason.into())),
 			other => Err(other),
 		}
 	}

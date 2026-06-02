@@ -87,7 +87,7 @@ pub(super) async fn add_filter_unstable(
 	filter: TopicFilter,
 ) -> Result<UnstableAddFilterResponse, anyhow::Error> {
 	let response = rpc
-		.request("statement_unstable_addFilter", rpc_params![subscription_id, filter])
+		.request("statement_unstable_add_filter", rpc_params![subscription_id, filter])
 		.await?;
 	Ok(response)
 }

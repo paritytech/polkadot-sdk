@@ -57,7 +57,7 @@ pub struct NewStatementEntry {
 	pub filter_ids: Vec<String>,
 }
 
-/// Response returned by `statement_unstable_addFilter`.
+/// Response returned by `statement_unstable_add_filter`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
