@@ -146,7 +146,7 @@ impl PersistentDb {
 		// Create empty in-memory DB
 		let inner = Db::new(stored_limit_per_para).await;
 
-		let (tx, rx) = mpsc::channel(1);
+		let (tx, rx) = mpsc::channel(3);
 		// Load data from disk into the in-memory DB
 		let mut instance = Self {
 			inner,
