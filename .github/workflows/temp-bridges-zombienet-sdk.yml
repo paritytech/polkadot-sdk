@@ -95,7 +95,7 @@ jobs:
           export SUBSTRATE_RELAY_BINARY="$GITHUB_WORKSPACE/relay-bin/substrate-relay"
           polkadot --version
           polkadot-parachain --version
-          substrate-relay --version
+          "$SUBSTRATE_RELAY_BINARY" --version
           # The two tests bind fixed RPC ports (9942/8943/...), so they must run
           # serially (`--test-threads=1`) rather than in parallel.
           cargo test -p bridges-zombienet-sdk-tests \
