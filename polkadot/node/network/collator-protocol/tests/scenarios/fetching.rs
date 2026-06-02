@@ -284,6 +284,42 @@ fn shared_core_third_para_a_advertisement_silently_dropped<S: CollatorSut>() {
 	w.advertise_with_parent_head(&peer_a, leaf, extra_hash, Hash::zero());
 	w.no_fetch_within(Duration::from_millis(200));
 }
+
+/// On-demand under-scheduled core: the claim queue (`[A]`, length 1) is shorter than the
+/// scheduling lookahead (3). Para A holds exactly one slot. After A seconds its one candidate,
+/// a second advertisement for A at the same relay parent must be rejected — the slot is full
+/// and the positions within the lookahead beyond the claim queue are unscheduled, available to
+/// no para.
+///
+/// Guards against treating those padding positions as free: sourcing the window length from the
+/// runtime lookahead (rather than the claim-queue length) means the window now extends past the
+/// claim queue, so the padding must be marked occupied, not available — otherwise A would be
+/// admitted into a phantom slot.
+#[crate::sim_test]
+fn under_scheduled_core_rejects_beyond_claim_queue<S: CollatorSut>() {
+	let config = collator_world_config()
+		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
+	let mut w: World<S> = bootstrap_world::<S>(config, None);
+	w.new_block().with_claim_queue_at(CoreIndex(0), [PARA_A]).activate();
+	let leaf = w.leaf();
+	let leaf_n = w.leaf_number();
+
+	let a1 = Candidate::builder()
+		.para(PARA_A)
+		.relay_parent(leaf)
+		.relay_parent_number(leaf_n)
+		.parent_head(HeadData(Vec::new()))
+		.head_data(HeadData(vec![1]))
+		.build();
+
+	let peer_a = w.declared_peer(PARA_A, V2);
+	w.full_second(&peer_a, &a1);
+
+	// A's one slot is now consumed; a second advertisement must not fetch.
+	let extra_hash = CandidateHash(Hash::repeat_byte(0xCC));
+	w.advertise_with_parent_head(&peer_a, leaf, extra_hash, Hash::zero());
+	w.no_fetch_within(Duration::from_millis(200));
+}
 }
 
 mod response_sanity_check {
