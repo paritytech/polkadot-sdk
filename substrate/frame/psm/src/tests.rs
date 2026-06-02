@@ -775,6 +775,73 @@ mod governance {
 	}
 
 	#[test]
+	fn set_max_debt_rejects_value_undershooting_an_asset_ceiling() {
+		new_test_ext().execute_with(|| {
+			// Test PSM splits ceilings USDC 60% / USDT 40%. Pin max_debt and fill USDC to its
+			// 60% ceiling (600 of 1000).
+			set_max_debt(1_000 * INTERNAL_UNIT);
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				600 * INTERNAL_UNIT
+			));
+			assert_eq!(PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID), 600 * INTERNAL_UNIT);
+
+			// Lowering max_debt to 700 keeps the AGGREGATE within bounds (600 <= 700) but drops
+			// USDC's 60% ceiling to 420 < 600. The per-asset guard rejects it — a plain aggregate
+			// floor would not have.
+			assert_noop!(
+				Psm::set_max_debt(RuntimeOrigin::root(), INTERNAL_ASSET_ID, 700 * INTERNAL_UNIT),
+				Error::<Test>::CeilingBelowOutstandingDebt
+			);
+
+			// A value where USDC's ceiling still covers its debt is accepted, and the per-asset
+			// invariant holds.
+			assert_ok!(Psm::set_max_debt(
+				RuntimeOrigin::root(),
+				INTERNAL_ASSET_ID,
+				1_000 * INTERNAL_UNIT
+			));
+			assert_ok!(Psm::do_try_state());
+		});
+	}
+
+	#[test]
+	fn set_asset_ceiling_weight_rejects_weight_undershooting_debt() {
+		new_test_ext().execute_with(|| {
+			set_max_debt(1_000 * INTERNAL_UNIT);
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				600 * INTERNAL_UNIT
+			));
+
+			// USDC holds 600 at its 60% (=600) ceiling. Cutting its weight to 30% would drop the
+			// ceiling to (30/70)*1000 = 428 < 600 — rejected.
+			assert_noop!(
+				Psm::set_asset_ceiling_weight(
+					RuntimeOrigin::root(),
+					INTERNAL_ASSET_ID,
+					USDC_ASSET_ID,
+					Permill::from_percent(30)
+				),
+				Error::<Test>::CeilingBelowOutstandingDebt
+			);
+
+			// Raising its weight only grows the ceiling, so it is accepted.
+			assert_ok!(Psm::set_asset_ceiling_weight(
+				RuntimeOrigin::root(),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				Permill::from_percent(80)
+			));
+			assert_ok!(Psm::do_try_state());
+		});
+	}
+
+	#[test]
 	fn set_asset_status_works() {
 		new_test_ext().execute_with(|| {
 			let new_status = CircuitBreakerLevel::MintingDisabled;

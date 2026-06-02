@@ -176,8 +176,7 @@ impl<
 		Criterion: Convert<AssetKind, Either<Left::AssetId, Right::AssetId>>,
 		AssetKind: AssetId,
 		AccountId,
-	> fungibles::roles::Inspect<AccountId>
-	for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+	> fungibles::roles::Inspect<AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
 {
 	fn owner(asset: Self::AssetId) -> Option<AccountId> {
 		match Criterion::convert(asset) {
