@@ -18,16 +18,16 @@ targets = ["x86_64-unknown-linux-gnu"]
 alloy-core = { workspace = true, features = ["sol-types"] }
 codec = { workspace = true }
 frame-benchmarking = { workspace = true, optional = true }
-frame-support.workspace = true
-frame-system.workspace = true
-pallet-balances.workspace = true
-pallet-revive.workspace = true
-pallet-timestamp.workspace = true
-pallet-vesting.workspace = true
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-revive = { workspace = true }
+pallet-timestamp = { workspace = true }
+pallet-vesting = { workspace = true }
 scale-info = { workspace = true }
-sp-core.workspace = true
-sp-io.workspace = true
-sp-runtime.workspace = true
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
 
 [features]
 default = ["std"]

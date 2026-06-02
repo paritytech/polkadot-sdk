@@ -17,7 +17,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-binary-merkle-tree.workspace = true
+binary-merkle-tree = { workspace = true }
 bytes = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 docify = { workspace = true }
@@ -30,13 +30,13 @@ paste = { workspace = true, default-features = true }
 rand = { optional = true, workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
-sp-application-crypto.workspace = true
-sp-arithmetic.workspace = true
-sp-core.workspace = true
-sp-io.workspace = true
-sp-std.workspace = true
-sp-trie.workspace = true
-sp-weights.workspace = true
+sp-application-crypto = { workspace = true }
+sp-arithmetic = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-std = { workspace = true }
+sp-trie = { workspace = true }
+sp-weights = { workspace = true }
 strum = { workspace = true, features = ["derive"] }
 tracing = { workspace = true, features = ["log"], default-features = false }
 
@@ -46,11 +46,11 @@ tuplex = { workspace = true, default-features = false }
 [dev-dependencies]
 rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sp-api = { default-features = true, path = "../api" }
-sp-keystore = { default-features = true, path = "../keystore" }
-sp-state-machine = { default-features = true, path = "../state-machine" }
-sp-tracing = { default-features = true, path = "../tracing" }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+sp-api = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }
 zstd = { workspace = true }
 
 [features]
@@ -70,11 +70,14 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"simple-mermaid",
+	"sp-api/std",
 	"sp-application-crypto/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-io/std",
+	"sp-state-machine/std",
 	"sp-std/std",
+	"sp-tracing/std",
 	"sp-trie/std",
 	"sp-weights/std",
 	"strum/std",
@@ -99,4 +102,5 @@ bls-experimental = [
 	"sp-application-crypto/bls-experimental",
 	"sp-core/bls-experimental",
 	"sp-io/bls-experimental",
+	"substrate-test-runtime-client/bls-experimental",
 ]

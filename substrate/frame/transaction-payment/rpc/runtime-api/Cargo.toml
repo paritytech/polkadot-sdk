@@ -17,10 +17,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-pallet-transaction-payment.workspace = true
-sp-api.workspace = true
-sp-runtime.workspace = true
-sp-weights.workspace = true
+pallet-transaction-payment = { workspace = true }
+sp-api = { workspace = true }
+sp-runtime = { workspace = true }
+sp-weights = { workspace = true }
 
 [features]
 default = ["std"]

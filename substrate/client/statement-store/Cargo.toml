@@ -26,35 +26,25 @@ itertools = { workspace = true }
 log = { workspace = true, default-features = true }
 parity-db = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-prometheus-endpoint.workspace = true
-prometheus-endpoint.default-features = true
-sc-client-api.workspace = true
-sc-client-api.default-features = true
-sc-keystore.workspace = true
-sc-keystore.default-features = true
-sc-network-statement.workspace = true
-sc-network-statement.default-features = true
-sc-utils.workspace = true
+prometheus-endpoint = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-keystore = { workspace = true, default-features = true }
+sc-network-statement = { workspace = true, default-features = true }
+sc-utils = { workspace = true }
 scale-info = { workspace = true, default-features = true, optional = true }
-sp-api.workspace = true
-sp-api.default-features = true
-sp-blockchain.workspace = true
-sp-blockchain.default-features = true
-sp-core.workspace = true
-sp-core.default-features = true
-sp-runtime.workspace = true
-sp-runtime.default-features = true
-sp-statement-store.workspace = true
-sp-statement-store.default-features = true
-sp-storage.workspace = true
-sp-storage.default-features = true
+sp-api = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-statement-store = { workspace = true, default-features = true }
+sp-storage = { workspace = true, default-features = true }
 subxt = { version = "0.50", features = ["jsonrpsee", "native"], optional = true }
 subxt-signer = { version = "0.50", features = ["sr25519"], optional = true }
 tokio = { features = ["time"], workspace = true, default-features = true }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
-sp-tracing = { path = "../../primitives/tracing", default-features = false }
+sp-tracing = { workspace = true }
 tempfile = { workspace = true }
 
 [[bench]]

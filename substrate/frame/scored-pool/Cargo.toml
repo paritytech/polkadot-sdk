@@ -17,14 +17,14 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-frame-support.workspace = true
-frame-system.workspace = true
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-io.workspace = true
-sp-runtime.workspace = true
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
 
 [dev-dependencies]
-pallet-balances = { default-features = true, path = "../balances" }
+pallet-balances = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -32,6 +32,7 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
+	"pallet-balances/std",
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
@@ -39,5 +40,6 @@ std = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]
