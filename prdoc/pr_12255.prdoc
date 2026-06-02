@@ -1,0 +1,34 @@
+title: Collator protocol — honor the scheduling lookahead, not a claim-queue/ancestry length
+
+doc:
+- audience: Node Dev
+  description: |-
+    Both validator sides of the collator protocol derived the claim-queue window length from a
+    value that is only a *lower bound* on the runtime scheduling lookahead, and so truncated the
+    tail of the claim queue — silently dropping advertisement positions that are in fact
+    fetchable.
+
+    * Experimental (`validator_side_experimental`) used the allowed-ancestry path length.
+    * Legacy (`validator_side`, `is_slot_available`) used the claim-queue length.
+
+    Either bound is below the true scheduling lookahead in two production-reachable situations:
+
+    * near genesis (the chain is shorter than the lookahead), and
+    * for the first `lookahead - 1` blocks after a **session change**, where the implicit view
+      clamps ancestry at the session boundary (the relay chain cannot back candidates from a
+      previous session), so the allowed-ancestry path is shorter than the lookahead.
+
+    In those windows, advertisements landing on the tail claim-queue positions — reachable from
+    the in-session scheduling parents, including the leaf itself — were rejected, reducing
+    collation throughput for a few blocks after every session rotation.
+
+    Fix: fetch the scheduling lookahead from the runtime (`SchedulingLookahead`) per active leaf
+    and use it as the window bound in both validator sides. The per-leaf claim queues and the
+    lookahead are now carried together in a shared `LeafClaimQueues` type, fetched in one place
+    so the lookahead can never again be inferred from a length.
+
+    No public API changes; behavior change is confined to the collator-protocol validator sides.
+
+crates:
+- name: polkadot-collator-protocol
+  bump: patch
