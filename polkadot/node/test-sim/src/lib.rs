@@ -57,6 +57,7 @@ pub mod builders;
 pub mod chain;
 pub mod clock;
 pub mod contract;
+pub mod known_bug;
 pub mod harness;
 pub mod report;
 pub mod responder;
@@ -64,4 +65,5 @@ pub mod runtime;
 pub mod world_base;
 
 pub use clock::{BoxedDelay, Clock};
+pub use known_bug::run_known_bug;
 pub use world_base::{build_chain_model, BlockBuilder, HasBase, LeafRef, WorldBase, WorldConfig};

@@ -193,6 +193,7 @@ members = [
 	"polkadot/node/network/collator-protocol/test-sim-divergence-report",
 	"polkadot/node/network/collator-protocol/test-sim-macros",
 	"polkadot/node/test-sim",
+	"polkadot/node/test-sim/macros",
 	"polkadot/node/network/dispute-distribution",
 	"polkadot/node/network/gossip-support",
 	"polkadot/node/network/protocol",
@@ -1169,6 +1170,7 @@ polkadot-statement-distribution = { path = "polkadot/node/network/statement-dist
 polkadot-statement-table = { path = "polkadot/statement-table", default-features = false }
 polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
 polkadot-subsystem-test-sim = { path = "polkadot/node/test-sim" }
+polkadot-subsystem-test-sim-macros = { path = "polkadot/node/test-sim/macros" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }

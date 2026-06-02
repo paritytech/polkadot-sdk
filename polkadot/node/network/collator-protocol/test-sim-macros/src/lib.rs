@@ -93,37 +93,32 @@ pub fn sim_test(attr: TokenStream, item: TokenStream) -> TokenStream {
 	let legacy_name = format_ident!("{}__legacy", fn_name);
 	let experimental_name = format_ident!("{}__experimental", fn_name);
 
+	let bug_url = match &opts.bug_url {
+		Some(url) => quote! { Some(#url) },
+		None => quote! { None },
+	};
+
 	let legacy_test = if opts.filter.includes_legacy() {
-		let should_panic = if opts.bug_on_legacy {
-			quote! { #[should_panic] }
-		} else {
-			quote! {}
-		};
-		quote! {
-			#[::core::prelude::v1::test]
-			#[allow(non_snake_case)]
-			#should_panic
-			fn #legacy_name() {
-				#fn_name::<crate::impls::LegacyValidator>();
-			}
-		}
+		gen_variant(
+			&fn_name,
+			&legacy_name,
+			quote! { crate::impls::LegacyValidator },
+			"legacy",
+			opts.bug_on_legacy,
+			&bug_url,
+		)
 	} else {
 		quote! {}
 	};
 	let experimental_test = if opts.filter.includes_experimental() {
-		let should_panic = if opts.bug_on_experimental {
-			quote! { #[should_panic] }
-		} else {
-			quote! {}
-		};
-		quote! {
-			#[::core::prelude::v1::test]
-			#[allow(non_snake_case)]
-			#should_panic
-			fn #experimental_name() {
-				#fn_name::<crate::impls::ExperimentalValidator>();
-			}
-		}
+		gen_variant(
+			&fn_name,
+			&experimental_name,
+			quote! { crate::impls::ExperimentalValidator },
+			"experimental",
+			opts.bug_on_experimental,
+			&bug_url,
+		)
 	} else {
 		quote! {}
 	};
@@ -134,6 +129,46 @@ pub fn sim_test(attr: TokenStream, item: TokenStream) -> TokenStream {
 		#experimental_test
 	};
 	expanded.into()
+}
+
+/// Generate one `#[test]` wrapper for a single impl.
+///
+/// Without `bug_on`, the wrapper just runs the scenario. With `bug_on`, the scenario is a known
+/// bug on this impl: it is expected to fail until fixed. The known-bug semantics — swallow the
+/// failure while the bug is open, fail loudly with a self-documenting message once it's fixed —
+/// live in the generic `polkadot_subsystem_test_sim::run_known_bug`; this just wires the
+/// generated test into it. `impl_label` disambiguates the message between the two impls.
+fn gen_variant(
+	fn_name: &proc_macro2::Ident,
+	test_name: &proc_macro2::Ident,
+	impl_ty: proc_macro2::TokenStream,
+	impl_label: &str,
+	bug_on: bool,
+	bug_url: &proc_macro2::TokenStream,
+) -> proc_macro2::TokenStream {
+	let body = if bug_on {
+		// Label the known-bug message with both the generated test name and the impl, e.g.
+		// `foo__experimental (experimental)`, so a fixed-bug failure points at exactly one wrapper.
+		let labelled = format!("{test_name} ({impl_label})");
+		quote! {
+			polkadot_subsystem_test_sim::run_known_bug(
+				#labelled,
+				#bug_url,
+				|| #fn_name::<#impl_ty>(),
+			);
+		}
+	} else {
+		quote! {
+			#fn_name::<#impl_ty>();
+		}
+	};
+	quote! {
+		#[::core::prelude::v1::test]
+		#[allow(non_snake_case)]
+		fn #test_name() {
+			#body
+		}
+	}
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
