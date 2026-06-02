@@ -44,9 +44,11 @@ use polkadot_node_subsystem::{
 	ActivatedLeaf, CollatorProtocolSenderTrait,
 };
 use polkadot_node_subsystem_util::{
-	backing_implicit_view::View as ImplicitView, metrics::prometheus::prometheus::HistogramTimer,
+	backing_implicit_view::View as ImplicitView,
+	metrics::prometheus::prometheus::HistogramTimer,
 	request_claim_queue, request_session_index_for_child, request_validator_groups,
-	request_validators, runtime::recv_runtime,
+	request_validators,
+	runtime::{fetch_scheduling_lookahead, recv_runtime},
 };
 use polkadot_primitives::{
 	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex,
@@ -87,12 +89,8 @@ pub struct CollationManager {
 	// ancestors.
 	implicit_view: ImplicitView,
 
-	// The full claim queue per core for each active leaf, fetched once per leaf via
-	// `request_claim_queue`. This is the authoritative CQ — it's what the runtime will see
-	// when candidates get backed on-chain — so all capacity reasoning routes through it.
-	// Per-scheduling-parent capacity is derived via offset arithmetic from the leaf's CQ
-	// (`unfulfilled_claim_queue_entries`, `slots_available`).
-	leaf_claim_queues: HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
+	// The per-core claim queues (plus scheduling lookahead) for each active leaf.
+	leaf_claim_queues: HashMap<Hash, LeafClaimQueues>,
 
 	// Collations which we haven't been able to second due to their parent not being known by
 	// prospective-parachains. Mapped from the para_id and parent_head_hash to the fetched
@@ -256,12 +254,19 @@ impl CollationManager {
 					.insert(*ancestor, PerSchedulingParent::new(session_index, core, &*self.clock));
 			}
 
-			// Fetch and store the leaf's full per-core claim queue. Capacity at every
-			// scheduling parent on a path to this leaf is computed from this CQ via offset
-			// arithmetic — the leaf is authoritative because it's closest to what the runtime
-			// will see when candidates get backed.
-			let claim_queues = recv_runtime(request_claim_queue(*leaf, sender).await).await?;
-			self.leaf_claim_queues.insert(*leaf, claim_queues);
+			// Fetch and store the leaf's per-core claim queues and scheduling lookahead. Capacity
+			// at every scheduling parent on a path to this leaf is computed from these via offset
+			// arithmetic — the leaf is authoritative because it's closest to what the runtime will
+			// see when candidates get backed.
+			match LeafClaimQueues::fetch(*leaf, session_index, sender).await {
+				Ok(leaf_claim_queues) => {
+					self.leaves.insert(*leaf, leaf_claim_queues);
+				},
+				Err(err) => {
+					err.split()?.log();
+					continue;
+				},
+			}
 		}
 
 		Ok(())
@@ -357,11 +362,6 @@ impl CollationManager {
 		Ok(())
 	}
 
-	/// Claim queue for `core` at `leaf`.
-	fn cq(&self, leaf: &Hash, core: CoreIndex) -> Option<&VecDeque<ParaId>> {
-		self.leaf_claim_queues.get(leaf).and_then(|cqs| cqs.get(&core))
-	}
-
 	/// CQ positions at `core` schedulable by an advertisement made at `scheduling_parent`.
 	///
 	/// We use the *leaf's* CQ rather than the SP's: the SP's original CQ predicted slots
@@ -386,22 +386,12 @@ impl CollationManager {
 			.into_iter()
 			.filter_map(|path| {
 				let leaf = path.last()?;
-				let cq = self.leaf_claim_queues.get(leaf)?.get(&core)?;
-				// SP at depth `d` from the leaf can host advertisements landing at leaf-CQ
-				// positions `i` where `i + d < lookahead`. The bound is the lookahead, NOT
-				// `cq.len()`, which may be shorter.
-				let lookahead = self
-					.implicit_view
-					.known_allowed_relay_parents_under(leaf)
-					.map(|p| p.len())
-					.unwrap_or(0);
 				let depth = path
 					.iter()
 					.rev()
 					.position(|h| h == scheduling_parent)
 					.expect("paths_via_relay_parent only returns paths containing the SP; qed");
-				let valid_len = lookahead.saturating_sub(depth).min(cq.len());
-				Some(cq.iter().take(valid_len).copied().collect::<Vec<_>>())
+				Some(self.leaf_claim_queues.get(leaf)?.window(core, depth))
 			})
 			.max_by_key(Vec::len)
 			.unwrap_or_default()
@@ -494,20 +484,11 @@ impl CollationManager {
 		let mut out: Vec<LeafCoreCq> = Vec::new();
 		for leaf in leaves {
 			for &core in &cores {
-				let Some(cq) = self.cq(&leaf, core) else { continue };
+				let Some(leaf_cqs) = self.leaf_claim_queues.get(&leaf) else { continue };
 				let Some(path) = self.implicit_view.known_allowed_relay_parents_under(&leaf) else {
 					continue;
 				};
-				// Pad the CQ up to the lookahead so `cq.len() == sps_by_depth.len()`. The
-				// runtime may return a CQ shorter than the lookahead.
-				let lookahead = path.len();
-				let mut cq: Vec<Option<ParaId>> = cq
-					.iter()
-					.copied()
-					.map(Some)
-					.chain(std::iter::repeat(None))
-					.take(lookahead)
-					.collect();
+				let Some(mut cq) = leaf_cqs.slots(core) else { continue };
 				// SPs by depth from the leaf (leaf = 0). Cross-core ancestors are masked as
 				// `None` so `sps_reaching` and `reserve_slot` automatically skip them.
 				let sps_by_depth: Vec<Option<Hash>> = path
@@ -515,8 +496,8 @@ impl CollationManager {
 					.map(|sp_hash| {
 						self.per_scheduling_parent
 							.get(sp_hash)
-							.filter(|per_sp| per_sp.core_index == core)
-							.map(|_| *sp_hash)
+							.is_some_and(|per_sp| per_sp.core_index == core)
+							.then_some(*sp_hash)
 					})
 					.collect();
 
@@ -1146,10 +1127,9 @@ struct FetchedCollationInfo {
 /// candidates for our slots, and cross-core reservations are no-ops because the SP isn't
 /// found in `sps_by_depth`.
 ///
-/// Invariant: `cq.len() == sps_by_depth.len() == scheduling_lookahead`. The runtime may
-/// return a CQ shorter than the lookahead (on-demand cores); `build_leaf_core_cqs` pads it
-/// with `None` so the SP-window arithmetic (`cq.len() - depth`) matches the lookahead, not
-/// the runtime CQ length.
+/// `cq` is padded to the scheduling lookahead (`build_leaf_core_cqs`), so the SP-window
+/// arithmetic (`cq.len() - depth`) is bounded by the lookahead, not the runtime CQ length
+/// (which may be shorter for e.g. on-demand cores).
 struct LeafCoreCq {
 	sps_by_depth: Vec<Option<Hash>>,
 	cq: Vec<Option<ParaId>>,
@@ -1177,6 +1157,56 @@ impl LeafCoreCq {
 		if let Some(latest) = self.cq[..valid_len].iter().rposition(|slot| *slot == Some(para)) {
 			self.cq[latest] = None;
 		}
+	}
+}
+
+/// The per-core claim queues for one active leaf, together with the runtime scheduling
+/// lookahead that bounds them.
+struct LeafClaimQueues {
+	claim_queues: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+	/// Actual lookahead.
+	///
+	/// claim queues might have shorter length, e.g. under-scheduled on-demand cores, ancestry
+	/// length can also be shorter (e.g. close to Genesis or a session boundary).
+	scheduling_lookahead: usize,
+}
+
+impl LeafClaimQueues {
+	/// Fetch the per-core claim queues and the scheduling lookahead for `leaf` from the runtime.
+	async fn fetch<Sender: CollatorProtocolSenderTrait>(
+		leaf: Hash,
+		session_index: SessionIndex,
+		sender: &mut Sender,
+	) -> Result<Self> {
+		let scheduling_lookahead =
+			fetch_scheduling_lookahead(leaf, session_index, sender).await? as usize;
+		let claim_queues = recv_runtime(request_claim_queue(leaf, sender).await).await?;
+		Ok(Self { claim_queues, scheduling_lookahead })
+	}
+
+	/// The core's claim queue padded to the scheduling lookahead: slot `i` is `Some(para)` where
+	/// scheduled, `None` for positions within the lookahead the runtime left unscheduled. Length
+	/// is always the lookahead. `None` if the core has no claim queue at this core.
+	fn slots(&self, core: CoreIndex) -> Option<Vec<Option<ParaId>>> {
+		let cq = self.claim_queues.get(&core)?;
+		Some(
+			cq.iter()
+				.copied()
+				.map(Some)
+				.chain(std::iter::repeat(None))
+				.take(self.scheduling_lookahead)
+				.collect(),
+		)
+	}
+
+	/// Claim-queue positions on `core` reachable from a scheduling parent at `depth` from this
+	/// leaf (leaf = depth 0). A depth-`d` SP can host advertisements landing at leaf-CQ positions
+	/// `i` with `i + d < lookahead`, so the window is `cq[0 .. lookahead - d]` capped to the
+	/// scheduled entries.
+	fn window(&self, core: CoreIndex, depth: usize) -> Vec<ParaId> {
+		let Some(cq) = self.claim_queues.get(&core) else { return Vec::new() };
+		let valid_len = self.scheduling_lookahead.saturating_sub(depth).min(cq.len());
+		cq.iter().take(valid_len).copied().collect()
 	}
 }
 
