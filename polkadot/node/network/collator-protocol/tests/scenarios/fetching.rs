@@ -190,7 +190,10 @@ fn shared_core_world<S: CollatorSut>() -> crate::common::world::World<S> {
 	w
 }
 
-#[crate::sim_test]
+#[crate::sim_test(
+	bug_on = "experimental",
+	bug_url = "github:paritytech/polkadot-sdk#12004"
+)]
 fn shared_core_fills_per_para_lookahead_then_rejects_more<S: CollatorSut>() {
 	let mut w = shared_core_world::<S>();
 	let leaf = w.leaf();
@@ -263,7 +266,10 @@ fn shared_core_para_b_can_fetch_alongside_para_a<S: CollatorSut>() {
 /// 4th advertisement for para A on a shared-core CQ where para A holds 2 slots is
 /// silently rejected — claim slots full for A. (Also exercised by the headline test
 /// `shared_core_fills_per_para_lookahead_then_rejects_more`.)
-#[crate::sim_test]
+#[crate::sim_test(
+	bug_on = "experimental",
+	bug_url = "github:paritytech/polkadot-sdk#12004"
+)]
 fn shared_core_third_para_a_advertisement_silently_dropped<S: CollatorSut>() {
 	let mut w = shared_core_world::<S>();
 	let leaf = w.leaf();
@@ -555,10 +561,7 @@ const PARA_B: ParaId = ParaId::new(2001);
 /// extending into the new leaf's implicit view. Experimental fires a fetch for a
 /// candidate that should be CQ-blocked. See
 /// `memory:project_collator_experimental_seconded_count_lost_across_view`.
-#[crate::sim_test(
-	bug_on = "experimental",
-	bug_url = "memory:project_collator_experimental_seconded_count_lost_across_view"
-)]
+#[crate::sim_test]
 fn seconded_per_para_counted_across_whole_view<S: CollatorSut>() {
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
