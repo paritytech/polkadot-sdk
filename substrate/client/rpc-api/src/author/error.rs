@@ -202,11 +202,7 @@ mod tests {
 	/// RPC must expose those bytes so PAPI / polkadot-js can resolve the name via metadata.
 	#[test]
 	fn author_submit_extrinsic_module_invalidity_rpc_data() {
-		let on_node = ModuleInvalidity {
-			index: 42,
-			error: [1, 0, 0, 0],
-			message: None,
-		};
+		let on_node = ModuleInvalidity { index: 42, error: [1, 0, 0, 0], message: None };
 		let err = Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Module(on_node)));
 		let rpc_error: ErrorObjectOwned = err.into();
 

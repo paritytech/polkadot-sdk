@@ -1252,28 +1252,18 @@ mod tests {
 	/// Same encoding rules as [`dispatch_error_encoding`]: `message` does not cross the boundary.
 	#[test]
 	fn module_invalidity_encoding_strips_message() {
-		let invalidity = ModuleInvalidity {
-			index: 7,
-			error: [3, 0, 0, 0],
-			message: Some("NotEnoughFunds"),
-		};
+		let invalidity =
+			ModuleInvalidity { index: 7, error: [3, 0, 0, 0], message: Some("NotEnoughFunds") };
 		let encoded = invalidity.encode();
 		let decoded = ModuleInvalidity::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(encoded, vec![7, 3, 0, 0, 0]);
-		assert_eq!(
-			decoded,
-			ModuleInvalidity { index: 7, error: [3, 0, 0, 0], message: None }
-		);
+		assert_eq!(decoded, ModuleInvalidity { index: 7, error: [3, 0, 0, 0], message: None });
 	}
 
 	/// What the node can expose over RPC after validation: index + error bytes, not `message`.
 	#[test]
 	fn module_invalidity_rpc_details_exclude_message() {
-		let on_node = ModuleInvalidity {
-			index: 7,
-			error: [3, 0, 0, 0],
-			message: None,
-		};
+		let on_node = ModuleInvalidity { index: 7, error: [3, 0, 0, 0], message: None };
 		let details = on_node.rpc_details();
 		assert_eq!(details.pallet_index, 7);
 		assert_eq!(details.error, "0x03000000");
