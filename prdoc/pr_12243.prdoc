@@ -36,11 +36,10 @@ doc:
 
     Observable API changes:
     * `ReceiptProvider::block_transaction_hashes` return type changed from
-      `Option<HashMap<usize, H256>>` to `BTreeMap<usize, H256>` (ordered by
-      substrate extrinsic index; empty on cache miss or DB error, the latter
-      logged).
-    * `ReceiptProvider::insert_block_receipts_past` now returns the extracted
-      receipts (`Vec<(TransactionSigned, ReceiptInfo)>`).
+      `Option<HashMap<usize, H256>>` to `HashMap<usize, H256>`. DB errors are now
+      logged and collapsed into an empty map instead of `None`; callers that
+      previously distinguished a DB error from "block has no ETH transactions"
+      no longer can.
     * `eth_debug_traceBlockByNumber` (`Client::trace_block_by_number`) now returns
       `EthExtrinsicNotFound` when the runtime emits traces but the receipt
       provider has no rows for the block. Previously this silently produced an

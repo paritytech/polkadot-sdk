@@ -1079,23 +1079,15 @@ impl Client {
 		};
 		log::trace!(target: LOG_TARGET, "Ethereum block from runtime API hash {:?}", eth_block.hash);
 
-		// Blocks produced before pallet-revive shipped the ETH-block storage value
-		// have an unset `EthereumBlock`; the runtime API returns `EthBlock::default()`,
-		// uniquely identifiable by `hash.is_zero()` (the post-upgrade builder always
-		// assigns a real `header_hash()`). Recover the `transactions` array by
-		// walking the substrate block's extrinsics — each `EthTransact` carries its
-		// RLP-encoded payload, from which we can derive both the tx hash
-		// (`keccak256(payload)`) and the full `TransactionInfo` (RLP-decode +
-		// `recover_eth_address`). This bypasses both the runtime storage
-		// (`EthereumBlock`/`ReceiptInfoData`) and the eth-rpc sqlite cache, neither
-		// of which has data for pre-upgrade blocks under any current writer.
-		// `block_hash` on the inner `TransactionInfo`s stays zero — pre-upgrade
-		// blocks have no real ethereum hash. See #6790.
+		// Pre-upgrade blocks (`hash.is_zero()` ⇒ runtime returned `EthBlock::default()`)
+		// have no `EthereumBlock`/`ReceiptInfoData` storage and no sqlite mapping. Recover
+		// `transactions` by walking the substrate extrinsics directly. Inner `block_hash`
+		// stays zero. See #6790.
 		if hydrated_transactions {
 			let tx_infos = if eth_block.hash.is_zero() {
-				// Pre-upgrade: `receipts_from_block` always fails on these (no
-				// `ReceiptInfoData`) — skip its three substrate RPCs entirely and go
-				// straight to the extrinsics walk.
+				// `receipts_from_block` errors on these (no `ReceiptInfoData`) after
+				// issuing 3 RPCs: extrinsics(), events(), eth_receipt_data runtime API.
+				// Skipping it saves 2 (the extrinsics-walk fallback still does extrinsics()).
 				pre_upgrade_tx_infos_from_extrinsics(&block).await
 			} else {
 				self.receipt_provider
@@ -1198,12 +1190,8 @@ fn to_hex(bytes: impl AsRef<[u8]>) -> String {
 }
 
 /// Decode an `EthTransact` RLP payload into a `TransactionInfo` with `block_hash = 0`.
-/// Returns `None` when the payload cannot be RLP-decoded or the sender cannot be
-/// recovered — failures are logged at WARN since both should be infallible for any
-/// payload the chain itself processed via `process_transaction`.
-///
-/// Pure: no I/O, no state. Used by `pre_upgrade_tx_infos_from_extrinsics` and
-/// directly unit-tested.
+/// Returns `None` on RLP-decode or `recover_eth_address` failure (both logged at WARN —
+/// they should be infallible for any payload the chain itself accepted).
 fn eth_transact_payload_to_info(
 	payload: &[u8],
 	block_number: U256,
@@ -1233,8 +1221,8 @@ fn eth_transact_payload_to_info(
 	})
 }
 
-/// Walk a substrate block's extrinsics and return the Ethereum tx hashes of every
-/// `EthTransact` call, in the order they appear in the block.
+/// Tx hash for every `EthTransact` call in `block`, in block order. Cannot fail
+/// per-entry; the hydrated counterpart may return fewer entries on decode failure.
 async fn pre_upgrade_tx_hashes_from_extrinsics(block: &SubstrateBlock) -> Vec<H256> {
 	let extrinsics = match block.extrinsics().await {
 		Ok(extrinsics) => extrinsics,
@@ -1262,11 +1250,9 @@ async fn pre_upgrade_tx_hashes_from_extrinsics(block: &SubstrateBlock) -> Vec<H2
 		.collect()
 }
 
-/// Hydrated counterpart of [`pre_upgrade_tx_hashes_from_extrinsics`]: walks a substrate
-/// block's extrinsics and builds a `Vec<TransactionInfo>` for every `EthTransact` call.
-///
-/// Length asymmetry: see [`pre_upgrade_tx_hashes_from_extrinsics`]. RLP-decode and
-/// `recover_eth_address` failures drop the offending payload (logged at WARN).
+/// `TransactionInfo` for every `EthTransact` call in `block`, in block order. Drops
+/// payloads that fail to RLP-decode or whose sender can't be recovered (logged at
+/// WARN); the hash-only counterpart returns one entry per extrinsic regardless.
 async fn pre_upgrade_tx_infos_from_extrinsics(block: &SubstrateBlock) -> Vec<TransactionInfo> {
 	let extrinsics = match block.extrinsics().await {
 		Ok(extrinsics) => extrinsics,
@@ -1302,8 +1288,7 @@ mod helpers_tests {
 	use super::*;
 	use pallet_revive::evm::{Account, TransactionLegacyUnsigned, TransactionUnsigned};
 
-	/// A well-formed RLP payload (signed by a known dev account) decodes successfully
-	/// and produces a `TransactionInfo` with the expected `from`, `hash`, and indices.
+	/// Well-formed payload → `from`/`hash`/indices match the signing account.
 	#[test]
 	fn eth_transact_payload_to_info_happy_path() {
 		let signer = Account::default();
@@ -1329,9 +1314,7 @@ mod helpers_tests {
 		assert_eq!(info.block_hash, H256::zero(), "block_hash stays zero on pre-upgrade");
 	}
 
-	/// A malformed payload returns `None`. A genuine corruption (e.g. payload that
-	/// the chain wouldn't have accepted) must not panic and must not produce a
-	/// half-populated `TransactionInfo`.
+	/// Garbage that fails RLP decode → `None` (no panic).
 	#[test]
 	fn eth_transact_payload_to_info_decode_failure() {
 		let garbage = [0xFFu8; 32];
@@ -1339,9 +1322,8 @@ mod helpers_tests {
 		assert!(info.is_none(), "garbage payload must yield None");
 	}
 
-	/// A payload that RLP-decodes but whose signature can't be recovered (e.g.
-	/// `r = s = 0`) also returns `None`. Hits the `recover_eth_address` branch
-	/// of `eth_transact_payload_to_info`, distinct from the RLP-decode branch.
+	/// Valid RLP but unrecoverable signature (`r = s = 0`) → `None`. Covers the
+	/// `recover_eth_address` branch, distinct from the RLP-decode branch above.
 	#[test]
 	fn eth_transact_payload_to_info_recovery_failure() {
 		let signer = Account::default();

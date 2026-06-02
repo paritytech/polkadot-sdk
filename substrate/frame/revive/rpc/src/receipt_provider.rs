@@ -858,15 +858,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Return all transaction hashes for the given substrate block hash, keyed by
-	/// the (substrate) `transaction_index` stored at receipt-extraction time.
+	/// substrate `transaction_index` — NOT 0-based EVM index. Real blocks have sparse
+	/// keys starting at 1 or 2 (after timestamp + optional parachain-system inherents).
 	///
-	/// Keys are substrate extrinsic indices of the ETH `EthTransact` calls in the
-	/// block, not 0-based EVM indices: a parachain typically starts them at 2 (after
-	/// timestamp + parachain-system inherents), a solo chain at 1 (after timestamp).
-	/// Used by `trace_block_by_number` for random-access lookup by index.
-	///
-	/// Returns an empty map on a DB error (logged); callers cannot distinguish that
-	/// from "block has no ETH transactions".
+	/// Returns an empty map on DB error (logged) or unknown block; callers can't
+	/// distinguish the two.
 	pub async fn block_transaction_hashes(&self, block_hash: &H256) -> HashMap<usize, H256> {
 		let block_hash = block_hash.as_ref();
 		let rows = match query!(
@@ -1828,11 +1824,8 @@ mod tests {
 		Ok(())
 	}
 
-	/// `block_transaction_hashes` is consumed by `trace_block_by_number` for
-	/// random-access lookup by substrate extrinsic index. Keys are sparse
-	/// (typically starting at 2 after the timestamp + parachain-system inherents),
-	/// so the map must preserve the actual index — never collapse to 0-based
-	/// positions.
+	/// Keys must be the substrate extrinsic index (sparse), not 0-based positions
+	/// — `trace_block_by_number` does random-access lookup by those indices.
 	#[sqlx::test]
 	async fn test_block_transaction_hashes_returns_by_substrate_index(
 		pool: SqlitePool,
@@ -1855,7 +1848,6 @@ mod tests {
 		Ok(())
 	}
 
-	/// Unknown block returns an empty map.
 	#[sqlx::test]
 	async fn test_block_transaction_hashes_unknown_block_is_empty(
 		pool: SqlitePool,
@@ -1869,8 +1861,6 @@ mod tests {
 		Ok(())
 	}
 
-	/// A block known to the eth-rpc store but with zero EVM transactions yields an
-	/// empty map.
 	#[sqlx::test]
 	async fn test_block_transaction_hashes_known_empty_block(
 		pool: SqlitePool,
