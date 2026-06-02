@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780350096190,
+  "lastUpdate": 1780389858434,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gui.thiolliere@gmail.com",
-            "name": "Guillaume Thiolliere",
-            "username": "gui1117"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "268973379fe74d6b071ac247a0057fc7cd01afee",
-          "message": "pallet-assets: make touch other permissionless (#7456)\n\nFix https://github.com/paritytech/polkadot-sdk/issues/7450\n\nPallet assets don't have the assumption that Admin and Freezer are\ntrusted by the chain, so I don't see any security concern from this\nchange.\n\nThe only difference I see is that people can create more account with 0\nbalance for a given asset, whereas in the past only privileged role\ncould do it (privileged from the point of view of the asset, not the\nchain).\n\nThat said maybe this is not the actual fix we want, maybe it would be\nbetter to have accounts being able to increase their `MaxConsumers`\nvalue by adding some deposit.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
-          "timestamp": "2025-10-21T13:31:36Z",
-          "tree_id": "95a8a05e2bb7b08c5c9264705c5f54da9c54626b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/268973379fe74d6b071ac247a0057fc7cd01afee"
-        },
-        "date": 1761059409876,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.3010684705,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20370954450000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14049535756666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a6871c6d1cba2be86b611ca1084bff2b28e7f16d",
+          "message": "Version bumps and prdocs reordering after stable2603-3 (#12230)\n\nThis PR backports regular version bumps and perdocs reordering from\nstable2603 branch back to master\n\n---------\n\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
+          "timestamp": "2026-06-02T07:18:53Z",
+          "tree_id": "7539c3842806d3dbb9b16009446277595358186c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a6871c6d1cba2be86b611ca1084bff2b28e7f16d"
+        },
+        "date": 1780389828785,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.131137881833336,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13654820230000003,
             "unit": "seconds"
           }
         ]
