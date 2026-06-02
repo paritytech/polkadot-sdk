@@ -262,6 +262,11 @@ async fn discovery_refresh_loop<Block, Client, AD>(
 				.runtime_api()
 				.has_api::<dyn AuthorityDiscoveryApi<Block>>(at)
 				.unwrap_or(false);
+			log::debug!(
+				target: LOG_TARGET,
+				"AuthorityDiscoveryApi at {at:?}: {}",
+				if ad_enabled { "enabled" } else { "disabled" },
+			);
 		}
 		if ad_enabled {
 			let local_pub_keys: HashSet<AuthorityId> = keystore
