@@ -1,15 +1,18 @@
 # ============================================================================
 # TEMPORARY verification workflow — DELETE AFTER CONFIRMING THE TESTS RUN.
 #
-# This builds the binaries needed by the migrated bridge zombienet-sdk tests
-# (`bridges/testing/zombienet-sdk-tests`) from source, fetches `substrate-relay`
-# from its public Docker image, and actually runs the two tests end-to-end
-# (each spawns two relay-chain networks with Bridge Hub + Asset Hub parachains
-# and drives the relayer), so we can confirm the migration works.
+# Builds the binaries needed by the migrated bridge zombienet-sdk tests
+# (`bridges/testing/zombienet-sdk-tests`), fetches `substrate-relay`, and runs
+# the two tests end-to-end (each spawns two relay-chain networks with Bridge Hub
+# + Asset Hub parachains and drives the relayer), so we can confirm the
+# migration works.
 #
-# It is intentionally self-contained (one file, GitHub-hosted runner) so it can
-# be removed in a single commit once verified. It does NOT touch the shared
-# zombienet CI infrastructure.
+# It runs on the self-hosted `parity-large` runner (the bridge test spawns ~10
+# nodes and is too heavy for a 4-vCPU GitHub-hosted runner). The build/test job
+# runs inside the `ci-unified` image, which provides the toolchain and ships
+# OpenSSL 1.1, matching what `substrate-relay` is linked against.
+#
+# Remove this single file once verified.
 # ============================================================================
 name: TEMP - Bridges zombienet-sdk tests
 
@@ -28,62 +31,55 @@ permissions:
   contents: read
 
 jobs:
-  bridges-zombienet-sdk:
-    runs-on: ubuntu-latest
-    # Building `polkadot` (with `fast-runtime`) and `polkadot-parachain` from
-    # scratch is slow; give it plenty of head-room. Bump `runs-on` to a larger
-    # runner if the GitHub-hosted one runs out of resources.
-    timeout-minutes: 350
-    env:
-      # Match the toolchain pinned by `.github/env`.
-      RUST_TOOLCHAIN: "1.93.0"
-      SUBSTRATE_RELAY_IMAGE: "docker.io/paritytech/substrate-relay:v1.8.0"
-      RUST_BACKTRACE: "1"
-      CARGO_INCREMENTAL: "0"
+  # Extract the `substrate-relay` binary from its public image. Runs on the host
+  # (no container) so the Docker CLI is available, and publishes the binary as an
+  # artifact for the build/test job.
+  prepare-substrate-relay:
+    runs-on: parity-large
     steps:
-      - name: Free disk space
-        run: |
-          set -x
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
-            /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
-          sudo docker image prune --all --force || true
-          df -h
-
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            protobuf-compiler clang libclang-dev cmake pkg-config libssl-dev procps
-
-      - name: Install Rust toolchain
-        run: |
-          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
-          rustup default "$RUST_TOOLCHAIN"
-          rustup component add rust-src --toolchain "$RUST_TOOLCHAIN"
-          rustup target add wasm32v1-none --toolchain "$RUST_TOOLCHAIN"
-          rustc --version
-
       - name: Fetch substrate-relay binary
         run: |
           set -eux
-          docker create --name relay "$SUBSTRATE_RELAY_IMAGE"
-          docker cp relay:/home/user/substrate-relay "$GITHUB_WORKSPACE/substrate-relay"
-          # The relay binary is linked against OpenSSL 1.1 (libssl.so.1.1), which is not
-          # available on ubuntu-latest (OpenSSL 3 only). Copy the matching libs out of the
-          # relay's own image and run it against them via LD_LIBRARY_PATH. polkadot keeps
-          # using the system OpenSSL 3 — the sonames differ, so the two do not conflict.
-          mkdir -p "$GITHUB_WORKSPACE/relay-libs"
-          for lib in libssl.so.1.1 libcrypto.so.1.1; do
-            docker cp "relay:/usr/lib/x86_64-linux-gnu/$lib" "$GITHUB_WORKSPACE/relay-libs/" 2>/dev/null \
-              || docker cp "relay:/lib/x86_64-linux-gnu/$lib" "$GITHUB_WORKSPACE/relay-libs/"
-          done
+          docker create --name relay docker.io/paritytech/substrate-relay:v1.8.0
+          docker cp relay:/home/user/substrate-relay ./substrate-relay
           docker rm relay
-          chmod +x "$GITHUB_WORKSPACE/substrate-relay"
-          LD_LIBRARY_PATH="$GITHUB_WORKSPACE/relay-libs:${LD_LIBRARY_PATH:-}" \
-            "$GITHUB_WORKSPACE/substrate-relay" --version
+          chmod +x ./substrate-relay
+      - name: Upload substrate-relay
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: substrate-relay
+          path: ./substrate-relay
+          if-no-files-found: error
+
+  bridges-zombienet-sdk:
+    runs-on: parity-large
+    needs: prepare-substrate-relay
+    timeout-minutes: 180
+    container:
+      image: docker.io/paritytech/ci-unified:bullseye-1.93.0-2026-01-27-v202605151311
+      # PVF workers need elevated privileges to set up their sandbox.
+      options: --privileged
+    env:
+      RUST_BACKTRACE: "1"
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Prepare environment
+        run: |
+          set -eux
+          git config --global --add safe.directory '*'
+          # `ci-unified` already provides these; add them defensively.
+          rustup target add wasm32v1-none || true
+          rustup component add rust-src || true
+          apt-get update && apt-get install -y --no-install-recommends procps || true
+
+      - name: Download substrate-relay
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: substrate-relay
+          path: ./relay-bin
 
       - name: Build polkadot (fast-runtime)
         run: cargo build --release -p polkadot --features fast-runtime
@@ -94,14 +90,12 @@ jobs:
       - name: Run bridge zombienet-sdk tests
         run: |
           set -eux
+          chmod +x "$GITHUB_WORKSPACE/relay-bin/substrate-relay"
           export PATH="$GITHUB_WORKSPACE/target/release:$PATH"
-          export SUBSTRATE_RELAY_BINARY="$GITHUB_WORKSPACE/substrate-relay"
-          # Make the OpenSSL 1.1 libs visible to the relay subprocess spawned by the tests.
-          # polkadot/polkadot-parachain look for libssl.so.3 and fall back to the system libs,
-          # so this does not affect them.
-          export LD_LIBRARY_PATH="$GITHUB_WORKSPACE/relay-libs:${LD_LIBRARY_PATH:-}"
+          export SUBSTRATE_RELAY_BINARY="$GITHUB_WORKSPACE/relay-bin/substrate-relay"
           polkadot --version
           polkadot-parachain --version
+          substrate-relay --version
           # The two tests bind fixed RPC ports (9942/8943/...), so they must run
           # serially (`--test-threads=1`) rather than in parallel.
           cargo test -p bridges-zombienet-sdk-tests \
