@@ -725,9 +725,7 @@ pub mod pallet_chain_batch {
 	use frame_support::pallet_prelude::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-	}
+	pub trait Config: frame_system::Config {}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -800,9 +798,7 @@ impl pallet2::Config for Runtime {
 
 impl pallet4::Config for Runtime {}
 
-impl pallet_chain_batch::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-}
+impl pallet_chain_batch::Config for Runtime {}
 
 #[cfg(feature = "frame-feature-testing")]
 impl pallet3::Config for Runtime {
