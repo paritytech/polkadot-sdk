@@ -22,18 +22,18 @@ crates:
 - name: pallet-xcm-benchmarks
   bump: minor
 - name: parachains-common
-  bump: patch
+  bump: minor
 - name: bridge-hub-common
-  bump: patch
+  bump: minor
 - name: westend-runtime
-  bump: patch
+  bump: minor
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: minor
 - name: bridge-hub-westend-runtime
-  bump: patch
+  bump: minor
 - name: collectives-westend-runtime
-  bump: patch
+  bump: minor
 - name: coretime-westend-runtime
-  bump: patch
+  bump: minor
 - name: people-westend-runtime
-  bump: patch
+  bump: minor
