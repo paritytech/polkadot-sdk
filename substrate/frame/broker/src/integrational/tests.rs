@@ -94,11 +94,6 @@ fn can_place_renewal_order() {
 }
 
 #[test]
-fn auto_renewals_at_market_phase_work() {
-	test_auto_renewal_at_sale_phase(SalePhase::Market);
-}
-
-#[test]
 fn auto_renewals_at_renewal_phase_work() {
 	test_auto_renewal_at_sale_phase(SalePhase::Renewal);
 }

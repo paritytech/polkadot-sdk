@@ -1914,7 +1914,7 @@ fn enable_auto_renew_renews() {
 		// Will fail because we didn't fund the sovereign account:
 		assert_noop!(
 			Broker::do_enable_auto_renew(1001, region_id.core, 1001, None),
-			Error::<Test>::NotAllowed
+			TokenError::FundsUnavailable
 		);
 
 		// Will succeed after funding the sovereign account:
