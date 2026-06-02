@@ -37,14 +37,15 @@ struct Cli {
 }
 
 fn asset_hub_westend_config(asset_id: u32) -> PsmTestConfigOf<asset_hub_westend_runtime::Runtime> {
-	use sp_runtime::Permill;
+	use frame_support::PalletId;
+	use sp_runtime::{traits::AccountIdConversion, Permill};
 	use xcm::latest::prelude::*;
 	PsmTestConfigOf::<asset_hub_westend_runtime::Runtime> {
-		internal_asset_id: asset_hub_westend_runtime::PsmInternalAssetLocation::get(),
+		internal_asset_id: Location::new(0, [PalletInstance(50), GeneralIndex(50_000_342)]),
 		external_asset_id: Location::new(0, [PalletInstance(50), GeneralIndex(asset_id.into())]),
 		internal_asset_decimals: 6,
-		fee_destination: asset_hub_westend_runtime::PsmFeeDestination::get(),
-		max_debt: 5_000_000 * 1_000_000, // 5M pUSD (6 decimals)
+		fee_destination: PalletId(*b"psm/test").into_account_truncating(),
+		max_debt: 5_000_000 * 1_000_000, // 5M units (6 decimals)
 		minting_fee: Permill::zero(),
 		redemption_fee: Permill::from_rational(1u32, 10_000u32),
 		ceiling_weight: Permill::from_percent(100),

@@ -146,9 +146,15 @@ resolve a privilege level:
 
 For an external `asset_id` on instance `internal_asset`:
 
-1. `set_asset_ceiling_weight(internal_asset, asset_id, 0%)` -- blocks minting, redistributes capacity
+1. `set_asset_status(internal_asset, asset_id, MintingDisabled)` -- halts new minting while
+   still allowing redemptions
 2. Redemptions slowly drain `PsmDebt[internal_asset, asset_id]`
 3. Once debt reaches zero, call `remove_external_asset(internal_asset, asset_id)`
+
+Minting is halted via the circuit breaker, not by zeroing the ceiling weight:
+`set_asset_ceiling_weight` rejects any weight that would drop an external's normalised ceiling
+below its outstanding debt (`CeilingBelowOutstandingDebt`), so the weight can only be lowered to
+zero once the debt has already drained.
 
 ### Asset Onboarding Requirements
 

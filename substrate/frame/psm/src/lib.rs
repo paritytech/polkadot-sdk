@@ -1291,8 +1291,8 @@ pub mod pallet {
 		/// Remove a PSM. Callable by the current `full_admin`. All approved externals
 		/// must be removed first and aggregate PSM debt must be zero.
 		///
-		/// If `full_admin` is a signed account at the time of removal, the creation
-		/// deposit is returned to that account; otherwise the deposit is forfeited.
+		/// The creation deposit is always returned to the account that originally paid it
+		/// (the depositor), regardless of any later admin reassignment.
 		///
 		/// ## Dispatch Origin
 		///
@@ -1407,7 +1407,6 @@ pub mod pallet {
 			Self::deposit_event(Event::EmergencyAdminChanged {
 				internal_asset,
 				old_admin,
-
 				new_admin,
 			});
 			Ok(())
