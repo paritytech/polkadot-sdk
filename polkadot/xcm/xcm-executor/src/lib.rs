@@ -313,8 +313,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			}
 		}
 
-		let message_weight = vm.message_weight;
-		vm.post_process(message_weight)
+		vm.post_process(xcm_weight)
 	}
 
 	fn charge_fees(origin: impl Into<Location>, fees: Assets) -> XcmResult {

@@ -14,6 +14,9 @@
 // limitations under the License.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+extern crate alloc;
+
 pub mod barriers;
 pub mod message_queue;
 #[cfg(feature = "runtime-benchmarks")]

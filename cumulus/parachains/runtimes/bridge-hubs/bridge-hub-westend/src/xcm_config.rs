@@ -53,7 +53,7 @@ use xcm_builder::{
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
 };
-use xcm_executor::XcmExecutor;
+use xcm_executor::{traits::WeightBounds, XcmExecutor};
 
 // Re-export
 pub use testnet_parachains_constants::westend::locations::GovernanceLocation;
@@ -189,6 +189,32 @@ pub type TrustedTeleporters = ConcreteAssetFromSystem<WestendLocation>;
 /// - Allow origins explicitly authorized by the alias target location.
 pub type TrustedAliasers = (AliasChildLocation, AuthorizedAliasers<Runtime>);
 
+/// Standard message weigher for the executor.
+type BridgeHubWestendWeightBounds = WeightInfoBounds<
+	crate::weights::xcm::BridgeHubWestendXcmWeight<RuntimeCall>,
+	RuntimeCall,
+	MaxInstructions,
+>;
+
+/// Weigher that delegates message/instruction weighing to [`BridgeHubWestendWeightBounds`] and, in
+/// addition, reports the benchmarked weight of a barrier check so barrier rejections are
+/// charged precisely instead of the full message weight.
+pub struct BridgeHubWestendWeigher;
+impl WeightBounds<RuntimeCall> for BridgeHubWestendWeigher {
+	fn weight(
+		message: &mut Xcm<RuntimeCall>,
+		weight_limit: Weight,
+	) -> Result<Weight, InstructionError> {
+		BridgeHubWestendWeightBounds::weight(message, weight_limit)
+	}
+	fn instr_weight(instruction: &mut Instruction<RuntimeCall>) -> Result<Weight, XcmError> {
+		BridgeHubWestendWeightBounds::instr_weight(instruction)
+	}
+	fn barrier_check_weight() -> Option<Weight> {
+		Some(crate::weights::xcm::XcmGeneric::<Runtime>::barrier_check())
+	}
+}
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -202,11 +228,7 @@ impl xcm_executor::Config for XcmConfig {
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
-	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::BridgeHubWestendXcmWeight<RuntimeCall>,
-		RuntimeCall,
-		MaxInstructions,
-	>;
+	type Weigher = BridgeHubWestendWeigher;
 	// TODO: once DAP allocates collator budgets, redirect XCM execution fees to the accumulation
 	// account instead of StakingPot (use crate::DealWithFeesAccumulate as the OnUnbalanced
 	// handler).

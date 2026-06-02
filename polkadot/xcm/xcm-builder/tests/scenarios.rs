@@ -42,7 +42,9 @@ fn assert_teleport_outcome(
 	);
 	#[cfg(feature = "runtime-benchmarks")]
 	{
-		// Under benchmarks, barrier checks pass and execution completes; index/error are N/A.
+		// Under `runtime-benchmarks` the executor skips the `IsTeleporter`/`IsReserve` trust checks
+		// (see `xcm-executor`), so the message executes to completion instead of failing; the
+		// expected instruction index and error therefore do not apply.
 		let _ = (instruction_index, expected_error);
 		assert_eq!(r, Outcome::Complete { used: weight });
 		mock::clear_sent_xcm();
@@ -437,10 +439,139 @@ fn recursive_xcm_execution_fail() {
 			Weight::zero(),
 		);
 
+		// `FixedWeightBounds` does not override `barrier_check_weight()` (returns `None`), so the
+		// executor falls back to the full message weight on barrier rejection.
 		assert_eq!(
 			outcome,
 			Outcome::Incomplete {
 				used: weight,
+				error: InstructionError { index: 0, error: XcmError::Barrier },
+			}
+		);
+	});
+}
+
+/// Scenario:
+/// A message rejected by the barrier, with a weigher that reports a precise barrier-check weight.
+/// The executor should charge exactly that weight, not the full message weight.
+#[test]
+fn barrier_rejection_charges_precise_weight() {
+	use crate::mock::*;
+	use frame_support::traits::{Everything, Nothing, ProcessMessageError};
+	use staging_xcm_builder::*;
+	use std::ops::ControlFlow;
+	use xcm::opaque::latest::prelude::*;
+	use xcm_executor::traits::{DenyExecution, Properties, ShouldExecute, WeightBounds};
+
+	// The precise weight a barrier check costs; deliberately far smaller than the message weight.
+	const PRECISE_BARRIER_WEIGHT: Weight = Weight::from_parts(1_000, 0);
+
+	struct AllowAll;
+	impl ShouldExecute for AllowAll {
+		fn should_execute<RuntimeCall>(
+			_: &Location,
+			_: &mut [Instruction<RuntimeCall>],
+			_: Weight,
+			_: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
+			Ok(())
+		}
+	}
+
+	struct DenyClearOrigin;
+	impl DenyExecution for DenyClearOrigin {
+		fn deny_execution<RuntimeCall>(
+			_: &Location,
+			instructions: &mut [Instruction<RuntimeCall>],
+			_: Weight,
+			_: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
+			instructions.matcher().match_next_inst_while(
+				|_| true,
+				|inst| match inst {
+					ClearOrigin => Err(ProcessMessageError::Unsupported),
+					_ => Ok(ControlFlow::Continue(())),
+				},
+			)?;
+			Ok(())
+		}
+	}
+
+	/// Weigher that reports `PRECISE_BARRIER_WEIGHT` for a barrier check.
+	struct PreciseBarrierWeigher;
+	impl WeightBounds<RuntimeCall> for PreciseBarrierWeigher {
+		fn weight(
+			message: &mut Xcm<RuntimeCall>,
+			weight_limit: Weight,
+		) -> Result<Weight, InstructionError> {
+			FixedWeightBounds::<BaseXcmWeight, RuntimeCall, MaxInstructions>::weight(
+				message,
+				weight_limit,
+			)
+		}
+		fn instr_weight(instruction: &mut Instruction<RuntimeCall>) -> Result<Weight, XcmError> {
+			FixedWeightBounds::<BaseXcmWeight, RuntimeCall, MaxInstructions>::instr_weight(
+				instruction,
+			)
+		}
+		fn barrier_check_weight() -> Option<Weight> {
+			Some(PRECISE_BARRIER_WEIGHT)
+		}
+	}
+
+	struct XcmTestConfig;
+	impl xcm_executor::Config for XcmTestConfig {
+		type RuntimeCall = RuntimeCall;
+		type XcmSender = TestXcmRouter;
+		type XcmEventEmitter = ();
+		type AssetTransactor = LocalAssetTransactor;
+		type OriginConverter = ();
+		type IsReserve = ();
+		type IsTeleporter = TrustedTeleporters;
+		type UniversalLocation = UniversalLocation;
+		type Barrier = DenyThenTry<DenyRecursively<DenyClearOrigin>, AllowAll>;
+		type Weigher = PreciseBarrierWeigher;
+		type Trader = FixedRateOfFungible<KsmPerSecondPerByte, ()>;
+		type ResponseHandler = XcmPallet;
+		type AssetTrap = XcmPallet;
+		type AssetLocker = ();
+		type AssetExchanger = ();
+		type SubscriptionService = XcmPallet;
+		type PalletInstancesInfo = AllPalletsWithSystem;
+		type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
+		type FeeManager = ();
+		type MessageExporter = ();
+		type UniversalAliases = Nothing;
+		type CallDispatcher = RuntimeCall;
+		type SafeCallFilter = Everything;
+		type Aliasers = Nothing;
+		type TransactionalProcessor = ();
+		type HrmpNewChannelOpenRequestHandler = ();
+		type HrmpChannelAcceptedHandler = ();
+		type HrmpChannelClosingHandler = ();
+		type XcmRecorder = XcmPallet;
+	}
+
+	let para_acc: AccountId = ParaId::from(PARA_ID).into_account_truncating();
+	let balances = vec![(ALICE, INITIAL_BALANCE), (para_acc, INITIAL_BALANCE)];
+	let origin = Parachain(PARA_ID);
+	let message = Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![ClearOrigin]))]))]);
+	let mut hash = fake_message_hash(&message);
+	let message_weight = BaseXcmWeight::get() * 3;
+
+	kusama_like_with_balances(balances).execute_with(|| {
+		let outcome = XcmExecutor::<XcmTestConfig>::prepare_and_execute(
+			origin,
+			message,
+			&mut hash,
+			message_weight,
+			Weight::zero(),
+		);
+
+		assert_eq!(
+			outcome,
+			Outcome::Incomplete {
+				used: PRECISE_BARRIER_WEIGHT,
 				error: InstructionError { index: 0, error: XcmError::Barrier },
 			}
 		);

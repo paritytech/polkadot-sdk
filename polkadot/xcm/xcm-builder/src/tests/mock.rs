@@ -53,6 +53,11 @@ pub use xcm_simulator::helpers::derive_topic_id;
 
 pub use xcm_executor::test_helpers::{mock_asset_to_holding as asset_to_holding, MockCredit};
 
+/// Weight the test weigher reports for a barrier check. Deliberately distinct from
+/// `UnitWeightCost` and the message weight so tests can prove the executor charges *this* value on
+/// barrier rejection rather than the full message weight.
+pub const BARRIER_CHECK_WEIGHT: Weight = Weight::from_parts(7, 7);
+
 pub struct TestWeigher;
 impl WeightBounds<TestCall> for TestWeigher {
 	fn weight(
@@ -68,7 +73,7 @@ impl WeightBounds<TestCall> for TestWeigher {
 		FixedWeightBounds::<UnitWeightCost, TestCall, MaxInstructions>::instr_weight(instruction)
 	}
 	fn barrier_check_weight() -> Option<Weight> {
-		Some(Weight::zero())
+		Some(BARRIER_CHECK_WEIGHT)
 	}
 }
 

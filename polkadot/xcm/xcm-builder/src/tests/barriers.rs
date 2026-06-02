@@ -964,8 +964,8 @@ fn deny_then_try_works() {
 		}
 	}
 
-	/// A dummy `ShouldExecute` impl which returns `Ok(())` when XCM contains a single
-	/// `ClearError`, else return `ProcessMessageError::Yield`
+	/// A dummy `ShouldExecute` impl which returns `Ok(())` when XCM contains a single `ClearError`,
+	/// else return `ProcessMessageError::Yield`
 	struct AllowSingleClearErrorOrYield;
 	impl ShouldExecute for AllowSingleClearErrorOrYield {
 		fn should_execute<Call>(
@@ -984,8 +984,8 @@ fn deny_then_try_works() {
 		}
 	}
 
-	/// A dummy `ShouldExecute` impl which returns `Ok(())` when XCM contains
-	/// `ClearTopic` and origin from `Here`, else return `ProcessMessageError::Unsupported`
+	/// A dummy `ShouldExecute` impl which returns `Ok(())` when XCM contains `ClearTopic` and
+	/// origin from `Here`, else return `ProcessMessageError::Unsupported`
 	struct AllowClearTopicFromHere;
 	impl ShouldExecute for AllowClearTopicFromHere {
 		fn should_execute<Call>(

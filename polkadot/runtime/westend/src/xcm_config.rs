@@ -43,7 +43,7 @@ use xcm_builder::{
 	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
 };
-use xcm_executor::XcmExecutor;
+use xcm_executor::{traits::WeightBounds, XcmExecutor};
 
 parameter_types! {
 	pub const TokenLocation: Location = Here.into_location();
@@ -167,6 +167,10 @@ impl Contains<Location> for LocalPlurality {
 	}
 }
 
+/// Maximum number of origin-altering instructions [`WithComputedOrigin`] will process before
+/// giving up. Also the worst case for the barrier-check benchmark.
+pub const MAX_COMPUTED_ORIGIN_PREFIXES: u32 = 8;
+
 /// The barriers one of which must be passed for an XCM message to be executed.
 pub type Barrier = TrailingSetTopicAsId<(
 	// Weight that is paid for may be consumed.
@@ -183,7 +187,7 @@ pub type Barrier = TrailingSetTopicAsId<(
 			AllowExplicitUnpaidExecutionFrom<(IsChildSystemParachain<ParaId>, Fellows)>,
 		),
 		UniversalLocation,
-		ConstU32<8>,
+		ConstU32<MAX_COMPUTED_ORIGIN_PREFIXES>,
 	>,
 )>;
 
@@ -197,6 +201,32 @@ pub type WaivedLocations =
 /// the `DescendOrigin` instruction.
 pub type Aliasers = AliasChildLocation;
 
+/// Standard message weigher for the executor.
+type WestendWeightBounds = WeightInfoBounds<
+	crate::weights::xcm::WestendXcmWeight<RuntimeCall>,
+	RuntimeCall,
+	MaxInstructions,
+>;
+
+/// Weigher that delegates message/instruction weighing to [`WestendWeightBounds`] and, in addition,
+/// reports the benchmarked weight of a barrier check so barrier rejections are charged precisely
+/// instead of the full message weight.
+pub struct WestendWeigher;
+impl WeightBounds<RuntimeCall> for WestendWeigher {
+	fn weight(
+		message: &mut Xcm<RuntimeCall>,
+		weight_limit: Weight,
+	) -> Result<Weight, InstructionError> {
+		WestendWeightBounds::weight(message, weight_limit)
+	}
+	fn instr_weight(instruction: &mut Instruction<RuntimeCall>) -> Result<Weight, XcmError> {
+		WestendWeightBounds::instr_weight(instruction)
+	}
+	fn barrier_check_weight() -> Option<Weight> {
+		Some(crate::weights::xcm::XcmGeneric::<Runtime>::barrier_check())
+	}
+}
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -208,11 +238,7 @@ impl xcm_executor::Config for XcmConfig {
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
-	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::WestendXcmWeight<RuntimeCall>,
-		RuntimeCall,
-		MaxInstructions,
-	>;
+	type Weigher = WestendWeigher;
 	// TODO: once DAP allocates validator/author budgets, redirect XCM execution fees to the
 	// accumulation account instead of block author (use AccumulateForward as the OnUnbalanced
 	// handler).

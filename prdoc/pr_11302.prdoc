@@ -1,17 +1,39 @@
-title: 'fix(xcm): use Outcome::Incomplete for barrier rejection and improve weight
-  accounting'
+title: 'fix(xcm): charge precise barrier-check weight on barrier rejection'
 doc:
 - audience: Runtime Dev
   description: |-
-    # Description
-    This PR improves XCM weight accounting by ensuring the executor reports precise used weight when a message is rejected by a barrier. Previously, the executor could overestimate weight (e.g., returning the full message weight) even if execution failed at the barrier stage.
-    The changes align with the goal of more accurate weight reporting started in PR #7843 and ensure that `Outcome::Incomplete` is used with the specific weight consumed by the barrier itself.
-    Closes #7965
-   
+    When a barrier rejects an XCM, the executor previously reported the full message weight as
+    `used`, over-estimating the work actually done. This adds an optional
+    `WeightBounds::barrier_check_weight()` hook (default `None`): when a weigher provides it, the
+    executor charges that precise weight on barrier rejection; otherwise it falls back to the
+    previous full-message-weight behaviour, so existing `XcmConfig`s are unaffected.
+
+    A `barrier_check` benchmark is added to `pallet_xcm_benchmarks::generic` (driven by a new
+    `worst_case_barrier_check()` config method) to measure that weight. Westend and the Westend
+    system parachains (Asset Hub, Bridge Hub, Collectives, Coretime, People) wire their executor
+    `Weigher` to report the benchmarked value.
+
+    Closes #7965.
 crates:
-- name: staging-xcm-builder
-  bump: patch
 - name: staging-xcm-executor
   bump: minor
+- name: staging-xcm-builder
+  bump: none
 - name: pallet-xcm-benchmarks
   bump: minor
+- name: parachains-common
+  bump: patch
+- name: bridge-hub-common
+  bump: patch
+- name: westend-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch

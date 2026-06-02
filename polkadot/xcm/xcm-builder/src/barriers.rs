@@ -200,9 +200,9 @@ impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPref
 			|inst| {
 				match inst {
 					UniversalOrigin(new_global) => {
-						// Note the origin is *relative to local consensus*! So we need to
-						// escape local consensus with the `parents` before diving in
-						// into the `universal_location`.
+						// Note the origin is *relative to local consensus*! So we need to escape
+						// local consensus with the `parents` before diving in into the
+						// `universal_location`.
 						actual_origin =
 							Junctions::from([*new_global]).relative_to(&LocalUniversal::get());
 					},

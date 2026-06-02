@@ -26,7 +26,7 @@ use xcm::{
 };
 
 use pallet_xcm_benchmarks_fungible::WeightInfo as XcmBalancesWeight;
-use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
+pub use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
 use sp_runtime::BoundedVec;
 use xcm::latest::AssetTransferFilter;
 

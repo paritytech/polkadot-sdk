@@ -3163,9 +3163,10 @@ sp_api::impl_runtime_apis! {
 				fn worst_case_barrier_check() -> Result<(Location, Xcm<RuntimeCall>), BenchmarkError> {
 					use xcm::latest::prelude::*;
 					let origin = Location::new(1, [Parachain(1000)]);
-					let mut instructions: Vec<Instruction<RuntimeCall>> = (0..8)
-						.map(|i| DescendOrigin(Parachain(i + 1000).into()))
-						.collect();
+					let mut instructions: Vec<Instruction<RuntimeCall>> =
+						(0..xcm_config::MAX_COMPUTED_ORIGIN_PREFIXES)
+							.map(|i| DescendOrigin(Parachain(i + 1000).into()))
+							.collect();
 					instructions.push(WithdrawAsset(
 						(xcm_config::TokenLocation::get(), UNITS).into(),
 					));
