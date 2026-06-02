@@ -61,7 +61,7 @@ use sp_core::{
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
 	DispatchError, SaturatedConversion,
-	traits::{BadOrigin, Saturating, TrailingZeroInput},
+	traits::{BadOrigin, Saturating, TrailingZeroInput, Zero},
 };
 
 #[cfg(test)]
@@ -1314,9 +1314,6 @@ where
 			// We need to make sure that the contract's account exists before calling its
 			// constructor.
 			if entry_point == ExportedFunction::Constructor {
-				// Root origin can't be used to instantiate a contract.
-				ensure!(matches!(self.origin, Origin::Signed(_)), DispatchError::RootNotAllowed);
-
 				if !frame_system::Pallet::<T>::account_exists(&account_id) {
 					T::Deposit::init_contract(account_id)?;
 				}
@@ -1410,7 +1407,6 @@ where
 			// The deposit we charge for a contract depends on the size of the immutable data.
 			// Hence we need to delay charging the base deposit after execution.
 			let frame = if entry_point == ExportedFunction::Constructor {
-				let origin = self.origin.account_id()?.clone();
 				let frame = top_frame_mut!(self);
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
@@ -1426,7 +1422,21 @@ where
 						output.data.clone()
 					};
 
-					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(data, origin)?;
+					// Under Root there is no origin account to attribute the upload
+					// deposit to: use the pallet's own account as a sentinel owner
+					// with zero deposit so charge/refund are no-ops.
+					let mut module = match &self.origin {
+						Origin::Signed(o) => {
+							crate::ContractBlob::<T>::from_evm_runtime_code(data, o.clone())?
+						},
+						Origin::Root => {
+							crate::ContractBlob::<T>::from_evm_runtime_code_with_deposit(
+								data,
+								crate::Pallet::<T>::account_id(),
+								Zero::zero(),
+							)?
+						},
+					};
 					module.store_code(&self.exec_config, &mut frame.frame_meter)?;
 					code_deposit = module.code_info().deposit();
 
@@ -1722,6 +1732,13 @@ where
 	) -> Result<(), DispatchError> {
 		let contract_address = T::AddressMapper::to_address(contract_account);
 
+		// If root created this contract we need to use the pallet account_id because root has no
+		// account.
+		let origin: Origin<T> = match origin {
+			Origin::Signed(o) => Origin::Signed(o.clone()),
+			Origin::Root => Origin::from_account_id(crate::Pallet::<T>::account_id()),
+		};
+
 		let mut delete_contract = |trie_id: &TrieId, code_hash: &H256| {
 			// deposit needs to be removed as it adds a consumer
 			let refund =
@@ -1740,7 +1757,7 @@ where
 				contract_address.into(),
 			));
 			Self::transfer(
-				origin,
+				&origin,
 				contract_account,
 				&args.beneficiary,
 				balance,

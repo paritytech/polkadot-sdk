@@ -3946,6 +3946,18 @@ fn origin_must_be_mapped() {
 }
 
 #[test]
+fn prepare_dry_run_maps_unmapped_account() {
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		assert!(!frame_system::Pallet::<Test>::account_exists(&EVE));
+		assert!(!<Test as Config>::AddressMapper::is_mapped(&EVE));
+
+		Pallet::<Test>::prepare_dry_run(&EVE);
+
+		assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
+	});
+}
+
+#[test]
 fn mapped_address_works() {
 	let (code, _) = compile_module("terminate_and_send_to_argument").unwrap();
 
@@ -3970,7 +3982,7 @@ fn mapped_address_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 		<Test as Config>::Currency::set_balance(&account_id, 200);
-		<Test as Config>::AddressMapper::map_no_deposit(&EVE).unwrap();
+		<Test as Config>::AddressMapper::map_no_deposit_unchecked(&EVE).unwrap();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);
 		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 200);
