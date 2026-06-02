@@ -5,12 +5,11 @@ use crate::{
 	pallet::{Configuration, SaleInfo},
 	BidDisplacement, Event, InitData, SalePhase,
 };
-use frame_support::{assert_noop, assert_ok, weights::WeightMeter};
-use frame_system::EventRecord;
-use pallet_broker::{
+use fp_coretime::{
 	market::{AdjustBidResult, Market, OrderResult, RenewalOrderResult, TickAction},
 	PotentialRenewalId, Timeslice,
 };
+use frame_support::{assert_noop, assert_ok, weights::WeightMeter};
 
 type CoretimeMarket = crate::Pallet<Test>;
 type Error = crate::pallet::Error<Test>;

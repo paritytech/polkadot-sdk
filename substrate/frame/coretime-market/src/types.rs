@@ -1,5 +1,5 @@
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use pallet_broker::{
+use fp_coretime::{
 	market::{MarketSaleInfo, TickAction},
 	CoreIndex, Timeslice,
 };

@@ -17,7 +17,7 @@
 
 #![cfg(test)]
 
-use crate::{dispatchable_impls::DoRenewResult, mock::*, *};
+use crate::{mock::*, *};
 use fp_coretime::market::Market;
 use frame_support::{
 	assert_err, assert_noop, assert_ok,

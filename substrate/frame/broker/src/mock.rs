@@ -24,8 +24,8 @@ use crate::{
 };
 use alloc::collections::btree_map::BTreeMap;
 use fp_coretime::market::{
-	AdjustBidResult, CoreRangeProvider, Market, MarketSaleInfo, OrderResult, RenewalOrderResult,
-	SalesStarted, TickAction, TimesliceProvider,
+	AdjustBidResult, CoreRangeProvider, Market, MarketSaleInfo, MarketWeights, OrderResult,
+	RenewalOrderResult, SalesStarted, TickAction, TimesliceProvider,
 };
 use frame_support::{
 	assert_ok, derive_impl, ensure, ord_parameter_types, parameter_types, storage_alias,

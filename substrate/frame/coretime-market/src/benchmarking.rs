@@ -286,5 +286,11 @@ mod benches {
 		Ok(())
 	}
 
+	// TODO
+	// #[benchmark]
+	// fn get_sale_info() {
+	// 	todo!()
+	// }
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

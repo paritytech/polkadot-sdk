@@ -261,7 +261,6 @@ impl pallet_coretime_market::Config for Test {
 	type CoreRangeProvider = CoreRangeProviderImpl<Test>;
 	type TimesliceProvider = TimesliceProviderImpl<Test>;
 	type RenewalRights = TestRenewalRights;
-	type TimeslicePeriod = TimeslicePeriod;
 	type MaxBids = ConstU32<100>;
 	type Randomness = TestRandomness;
 }

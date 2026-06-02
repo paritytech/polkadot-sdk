@@ -46,7 +46,8 @@ pub use weights::WeightInfo;
 
 pub use coretime_interface::*;
 pub use fp_coretime::{
-	market, CoreIndex, CoreMask, PartsOf57600, PotentialRenewalId, RegionId, TaskId, Timeslice,
+	market::{self, MarketWeights},
+	CoreIndex, CoreMask, PartsOf57600, PotentialRenewalId, RegionId, TaskId, Timeslice,
 	CORE_MASK_BITS,
 };
 pub use types::*;

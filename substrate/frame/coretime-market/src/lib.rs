@@ -50,6 +50,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use core::marker::PhantomData;
+
 pub use pallet::*;
 pub use types::*;
 
@@ -72,8 +74,8 @@ extern crate alloc;
 use alloc::{vec, vec::Vec};
 use fp_coretime::{
 	market::{
-		AdjustBidResult, CoreRangeProvider, Market, OrderResult, RenewalOrderResult, SalesStarted,
-		TickAction, TimesliceProvider,
+		AdjustBidResult, CoreRangeProvider, Market, MarketSaleInfo, OrderResult,
+		RenewalOrderResult, SalesStarted, TickAction, TimesliceProvider,
 	},
 	CoreIndex, CoreMask, PotentialRenewalId, RegionId, Timeslice,
 };
@@ -83,13 +85,6 @@ use frame_support::{
 	weights::WeightMeter,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use pallet_broker::{
-	market::{
-		AdjustBidResult, CoreRangeProvider, Market, OrderResult, RenewalOrderResult, SalesStarted,
-		TickAction, TimesliceProvider,
-	},
-	CoreIndex, CoreMask, PotentialRenewalId, RegionId, Timeslice,
-};
 use sp_arithmetic::{FixedPointNumber, Perbill};
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, SaturatedConversion, Saturating, Zero},
@@ -312,6 +307,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 	type Configuration = ConfigRecordOf<T>;
 	type CoreRangeProvider = T::CoreRangeProvider;
 	type TimesliceProvider = T::TimesliceProvider;
+	type Weights = MarketWeights<T>;
 
 	fn configure(configuration: Self::Configuration) -> Result<(), Self::Error> {
 		configuration.validate().map_err(|_| Error::<T>::InvalidConfig)?;
@@ -627,12 +623,40 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		actions
 	}
 
-	fn get_region_begin() -> Result<Timeslice, ()> {
-		SaleInfo::<T>::get().ok_or(()).map(|info| info.region_begin)
+	fn get_sale_info() -> Result<MarketSaleInfo<RelayBlockNumberOf<T>>, Self::Error> {
+		SaleInfo::<T>::get()
+			.map(|sale| sale.to_market_sale_info())
+			.ok_or(Error::<T>::NoSales)
+	}
+}
+
+pub struct MarketWeights<T: Config> {
+	_config: PhantomData<T>,
+}
+
+impl<T: Config> fp_coretime::market::MarketWeights for MarketWeights<T> {
+	fn configure() -> sp_runtime::Weight {
+		T::WeightInfo::configure()
 	}
 
-	fn get_region_end() -> Result<Timeslice, ()> {
-		SaleInfo::<T>::get().ok_or(()).map(|info| info.region_end)
+	fn start_sales() -> sp_runtime::Weight {
+		T::WeightInfo::start_sales()
+	}
+
+	fn place_order() -> sp_runtime::Weight {
+		T::WeightInfo::place_order()
+	}
+
+	fn place_renewal_order() -> sp_runtime::Weight {
+		T::WeightInfo::place_renewal_order()
+	}
+
+	fn adjust_bid() -> sp_runtime::Weight {
+		T::WeightInfo::adjust_bid()
+	}
+
+	fn get_sale_info() -> sp_runtime::Weight {
+		T::WeightInfo::get_sale_info()
 	}
 }
 

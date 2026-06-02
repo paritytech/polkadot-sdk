@@ -57,6 +57,7 @@ pub trait WeightInfo {
 	fn place_order() -> Weight;
 	fn place_renewal_order() -> Weight;
 	fn adjust_bid() -> Weight;
+	fn get_sale_info() -> Weight;
 
 	fn tick_base() -> Weight;
 	fn sale_phase_transition_to_renewal() -> Weight;
@@ -80,6 +81,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::zero()
 	}
 	fn adjust_bid() -> Weight {
+		Weight::zero()
+	}
+	fn get_sale_info() -> Weight {
 		Weight::zero()
 	}
 
@@ -112,6 +116,9 @@ impl WeightInfo for () {
 		Weight::zero()
 	}
 	fn adjust_bid() -> Weight {
+		Weight::zero()
+	}
+	fn get_sale_info() -> Weight {
 		Weight::zero()
 	}
 

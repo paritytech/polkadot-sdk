@@ -26,7 +26,7 @@ use core::fmt::Debug;
 use codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
-use sp_weights::WeightMeter;
+use sp_weights::{Weight, WeightMeter};
 
 use crate::{CoreIndex, PotentialRenewalId, RegionId, Timeslice};
 
