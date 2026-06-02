@@ -138,8 +138,9 @@ a large transaction throughput.
 - [`--metric`](../shared/README.md#arguments)
 - [`--weight-path`](../shared/README.md#arguments)
 - [`--header`](../shared/README.md#arguments)
-- `--subtract-extensions`: Enable subtraction of signature and extension weights from the measured
-  extrinsic overhead (default: true).
+- `--extrinsic-subtract-weight`: Enable subtraction of signature and extension weights from the
+  generated extrinsic base weight expression (default: true). (`--subtract-extensions` is kept as
+  an alias.)
 - `--signature-weight`: Manual weight of the signature verification to subtract
   (format: `ref_time,proof_size`).
 - `--extension-weight`: Manual weight of the transaction extensions to subtract
@@ -149,8 +150,8 @@ a large transaction throughput.
 
 By default, the benchmark uses a signed `System::remark` extrinsic. To accurately calculate the
 `ExtrinsicBaseWeight` without double-counting the overhead already charged by
-`TransactionExtensions`, use `--subtract-extensions` and provide the relevant weights if they are
-significantly non-zero in your runtime.
+`TransactionExtensions`, use `--extrinsic-subtract-weight` and provide the relevant weights if
+they are significantly non-zero in your runtime.
 
 License: Apache-2.0
 

@@ -7,6 +7,9 @@
 //! WARMUPS: `{{params.bench.warmup}}`, REPEAT: `{{params.bench.repeat}}`
 //! WEIGHT-PATH: `{{params.weight.weight_path}}`
 //! WEIGHT-METRIC: `{{params.weight.weight_metric}}`, WEIGHT-MUL: `{{params.weight.weight_mul}}`, WEIGHT-ADD: `{{params.weight.weight_add}}`
+//! EXTRINSIC-SUBTRACT-WEIGHT: `{{params.extrinsic_subtract_weight}}`
+//! SIGNATURE-WEIGHT: `{{params.signature_weight}}`
+//! EXTENSION-WEIGHT: `{{params.extension_weight}}`
 
 // Executed Command:
 {{#each args as |arg|}}
@@ -20,10 +23,15 @@ parameter_types! {
 	{{#if (eq short_name "block")}}
 	/// Weight of executing an empty block.
 	{{else}}
-	/// Weight of executing a NO-OP extrinsic, for example `System::remark` using the overhead
-	/// benchmark's extrinsic builder (transaction extensions / signature format match that
-	/// builder). When extension weights are subtracted in the CLI, only the generated constant is
-	/// adjusted; the stats below are raw wall-clock nanoseconds.
+	/// Weight of executing a NO-OP extrinsic, for example `System::remark`.
+	///
+	/// NOTE: This benchmark uses the overhead extrinsic builder (default:
+	/// `SubstrateRemarkBuilder`, a signed subxt remark) unless a custom builder is wired in by
+	/// code. If subtraction is enabled, this generated constant explicitly subtracts the configured
+	/// signature and extension weights.
+	///
+	/// For signed transactions, ensure signature/extension costs are re-accounted in transaction
+	/// extension validation/dispatch weights where applicable.
 	{{/if}}
 	/// Calculated by multiplying the *{{params.weight.weight_metric}}* with `{{params.weight.weight_mul}}` and adding `{{params.weight.weight_add}}`.
 	///
@@ -37,8 +45,25 @@ parameter_types! {
 	///   99th: {{underscore stats.p99}}
 	///   95th: {{underscore stats.p95}}
 	///   75th: {{underscore stats.p75}}
-	pub const {{long_name}}Weight: Weight =
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul({{underscore ref_time}}), {{underscore proof_size}});
+	pub const {{long_name}}Weight: Weight = Weight::from_parts(
+		WEIGHT_REF_TIME_PER_NANOS.saturating_mul({{underscore ref_time}}),
+		{{underscore proof_size}},
+	)
+	{{#if (eq short_name "extrinsic")}}
+	{{#if extrinsic_subtract_weight}}
+	// Subtract configured signature weight for this benchmark setup.
+	.saturating_sub(Weight::from_parts(
+		{{underscore signature_ref_time}},
+		{{underscore signature_proof_size}},
+	))
+	// Subtract configured transaction extension weight for this benchmark setup.
+	.saturating_sub(Weight::from_parts(
+		{{underscore extension_ref_time}},
+		{{underscore extension_proof_size}},
+	))
+	{{/if}}
+	{{/if}}
+	;
 }
 
 #[cfg(test)]

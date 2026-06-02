@@ -156,28 +156,28 @@ pub struct OverheadParams {
 	#[arg(long)]
 	pub genesis_patch: Option<PathBuf>,
 
-	/// Subtract extension and signature weights from the **generated** extrinsic base weight.
+	/// Subtract extension and signature weights from the generated extrinsic base weight.
 	///
 	/// The per-extrinsic overhead benchmark measures wall-clock time to execute a block that
-	/// contains `System::remark` extrinsics built by the configured extrinsic builder (including
-	/// whatever transaction extensions and signature format that builder uses). Raw timing
-	/// statistics are left unchanged; only the final `Weight` written into the template is reduced
-	/// by the combined `--extension-weight` and `--signature-weight` (after converting
-	/// `ref_time` into the same nanoseconds domain as the benchmark metric via
-	/// `WEIGHT_REF_TIME_PER_NANOS`).
-	#[arg(long, default_value_t = true)]
-	pub subtract_extensions: bool,
+	/// contains `System::remark` extrinsics built by the default [SubstrateRemarkBuilder]
+	/// (subxt-based signed remark) unless a custom builder is provided via
+	/// `run_with_extrinsic_builder*`. Raw timing statistics are left unchanged.
+	///
+	/// This flag controls whether the generated weight expression in the template includes explicit
+	/// `Weight::saturating_sub(...)` terms for `--signature-weight` and `--extension-weight`.
+	#[arg(long, default_value_t = true, alias = "subtract-extensions")]
+	pub extrinsic_subtract_weight: bool,
 
 	/// Weight of signature verification for the remark extrinsic used by the benchmark.
 	///
-	/// Used with `--subtract-extensions` only when producing the output constant, not when
+	/// Used with `--extrinsic-subtract-weight` only when producing the output constant, not when
 	/// reporting benchmark statistics. Format: `ref_time,proof_size` (`Weight::from_parts`).
 	#[arg(long, value_parser = parse_weight)]
 	pub signature_weight: Option<Weight>,
 
 	/// Weight of all transaction extensions on the remark extrinsic used by the benchmark.
 	///
-	/// Used with `--subtract-extensions` only when producing the output constant, not when
+	/// Used with `--extrinsic-subtract-weight` only when producing the output constant, not when
 	/// reporting benchmark statistics. Format: `ref_time,proof_size` (`Weight::from_parts`).
 	#[arg(long, value_parser = parse_weight)]
 	pub extension_weight: Option<Weight>,
@@ -671,12 +671,10 @@ impl OverheadCmd {
 		{
 			let (stats, proof_size) = bench.bench_extrinsic(ext_builder)?;
 
-			let subtract_weight = self.params.subtract_extensions.then(|| {
-				self.params
-					.extension_weight
-					.unwrap_or_default()
-					.saturating_add(self.params.signature_weight.unwrap_or_default())
-			});
+			let subtract_weights = self.params.extrinsic_subtract_weight.then_some((
+				self.params.signature_weight.unwrap_or_default(),
+				self.params.extension_weight.unwrap_or_default(),
+			));
 
 			info!(target: LOG_TARGET, "Per-extrinsic execution overhead [ns]:\n{:?}", stats);
 			let template = TemplateData::new(
@@ -685,7 +683,7 @@ impl OverheadCmd {
 				&self.params,
 				&stats,
 				proof_size,
-				subtract_weight,
+				subtract_weights,
 			)?;
 			template.write(&self.params.weight.weight_path)?;
 		}

@@ -23,7 +23,7 @@ use sc_cli::Result;
 use handlebars::Handlebars;
 use log::info;
 use serde::Serialize;
-use sp_weights::{constants::WEIGHT_REF_TIME_PER_NANOS, Weight};
+use sp_weights::Weight;
 use std::{env, fs, path::PathBuf};
 
 use crate::{
@@ -63,28 +63,32 @@ pub(crate) struct TemplateData {
 	ref_time: u64,
 	/// The size of the proof weight.
 	proof_size: u64,
+	/// Signature ref_time to subtract from generated extrinsic base weight.
+	signature_ref_time: u64,
+	/// Signature proof_size to subtract from generated extrinsic base weight.
+	signature_proof_size: u64,
+	/// Extension ref_time to subtract from generated extrinsic base weight.
+	extension_ref_time: u64,
+	/// Extension proof_size to subtract from generated extrinsic base weight.
+	extension_proof_size: u64,
+	/// Whether generated extrinsic output should include explicit subtract terms.
+	extrinsic_subtract_weight: bool,
 }
 
 impl TemplateData {
 	/// Returns a new [`Self`] from the given params.
 	///
-	/// `subtract_weight` is applied only when generating `ref_time` / `proof_size` for the output
-	/// constant. [`Stats`] stay as measured (see `OverheadParams::subtract_extensions`).
+	/// [`Stats`] stay as measured. Optional subtraction is modeled in the template output.
 	pub(crate) fn new(
 		t: BenchmarkType,
 		chain_name: &String,
 		params: &OverheadParams,
 		stats: &Stats,
 		proof_size: u64,
-		subtract_weight: Option<Weight>,
+		subtract_weights: Option<(Weight, Weight)>,
 	) -> Result<Self> {
-		let mut ref_time = params.weight.calc_weight(stats)?;
-		let mut proof_size = proof_size;
-		if let Some(adjust) = subtract_weight {
-			let subtract_ns = adjust.ref_time().saturating_div(WEIGHT_REF_TIME_PER_NANOS);
-			ref_time = ref_time.saturating_sub(subtract_ns);
-			proof_size = proof_size.saturating_sub(adjust.proof_size());
-		}
+		let ref_time = params.weight.calc_weight(stats)?;
+		let (signature_weight, extension_weight) = subtract_weights.unwrap_or_default();
 		let header = params
 			.header
 			.as_ref()
@@ -106,6 +110,11 @@ impl TemplateData {
 			stats: stats.clone(),
 			ref_time,
 			proof_size,
+			signature_ref_time: signature_weight.ref_time(),
+			signature_proof_size: signature_weight.proof_size(),
+			extension_ref_time: extension_weight.ref_time(),
+			extension_proof_size: extension_weight.proof_size(),
+			extrinsic_subtract_weight: subtract_weights.is_some(),
 		})
 	}
 
