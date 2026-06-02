@@ -3024,6 +3024,25 @@ mod admin {
 	}
 
 	#[test]
+	fn create_psm_fails_if_caller_not_asset_owner() {
+		new_test_ext().execute_with(|| {
+			// The asset is owned by ALICE; BOB does not control it and must not be able to
+			// wrap it in a PSM — otherwise anyone could create a PSM over an asset they don't
+			// own and mint it against worthless collateral.
+			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
+			assert_noop!(
+				Psm::create_psm(
+					RuntimeOrigin::signed(BOB),
+					NEW_INTERNAL,
+					INSURANCE_FUND,
+					DEFAULT_MAX_DEBT,
+				),
+				Error::<Test>::NotAssetOwner
+			);
+		});
+	}
+
+	#[test]
 	fn remove_psm_works_and_refunds_creator() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));

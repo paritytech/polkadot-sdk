@@ -121,8 +121,8 @@ pub mod pallet {
 		pallet_prelude::*,
 		traits::{
 			fungibles::{
-				metadata::Inspect as FungiblesMetadataInspect, Inspect as FungiblesInspect,
-				Mutate as FungiblesMutate,
+				metadata::Inspect as FungiblesMetadataInspect, roles::Inspect as FungiblesRolesInspect,
+				Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 			},
 			tokens::{Fortitude, Precision, Preservation},
 			CallerTrait, OriginTrait, ReservableCurrency,
@@ -319,7 +319,8 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// Fungibles implementation for both internal and external stablecoins.
 		type Fungibles: FungiblesMutate<Self::AccountId, AssetId = Self::AssetId>
-			+ FungiblesMetadataInspect<Self::AccountId>;
+			+ FungiblesMetadataInspect<Self::AccountId>
+			+ FungiblesRolesInspect<Self::AccountId>;
 
 		/// Native currency used to reserve PSM creation deposits.
 		type Currency: ReservableCurrency<Self::AccountId>;
@@ -561,6 +562,8 @@ pub mod pallet {
 		AssetAlreadyApproved,
 		/// Asset does not exist.
 		AssetDoesNotExist,
+		/// The caller is not the owner of the internal asset, so it cannot create a PSM over it.
+		NotAssetOwner,
 		/// Cannot remove asset: not in approved list.
 		AssetNotApproved,
 		/// Cannot remove asset: has non-zero PSM debt.
@@ -1182,14 +1185,21 @@ pub mod pallet {
 		/// and may later be reassigned via [`Pallet::set_full_admin`] /
 		/// [`Pallet::set_emergency_admin`].
 		///
+		/// The caller must be the owner of `internal_asset`. The PSM mints/burns the internal
+		/// asset through the privileged `fungibles` trait path, so restricting creation to the
+		/// asset's owner is what prevents wrapping an asset you don't control and minting it
+		/// against worthless collateral. The owner keeps ownership and may run other minters
+		/// (e.g. a vault) over the same asset; its holders trust its owner regardless.
+		///
 		/// ## Dispatch Origin
 		///
-		/// Signed.
+		/// Signed by the owner of `internal_asset`.
 		///
 		/// ## Parameters
 		///
 		/// - `internal_asset`: The internal stablecoin keying the new PSM. Must exist in the
-		///   fungibles backend; must not already have a PSM registered.
+		///   fungibles backend and be owned by the caller; must not already have a PSM
+		///   registered.
 		/// - `fee_destination`: Account that will receive mint/redeem fees.
 		/// - `max_debt`: Initial absolute internal-asset debt ceiling.
 		///
@@ -1197,6 +1207,7 @@ pub mod pallet {
 		///
 		/// - [`Error::PsmAlreadyExists`]: A PSM is already registered for `internal_asset`.
 		/// - [`Error::AssetDoesNotExist`]: The internal asset does not exist.
+		/// - [`Error::NotAssetOwner`]: The caller is not the owner of `internal_asset`.
 		///
 		/// ## Events
 		///
@@ -1214,6 +1225,14 @@ pub mod pallet {
 			ensure!(
 				T::Fungibles::asset_exists(internal_asset.clone()),
 				Error::<T>::AssetDoesNotExist
+			);
+			// The PSM mints and burns the internal asset through the privileged `fungibles`
+			// trait path, which bypasses pallet-assets' issuer check. Require the caller to be
+			// the asset's owner so a PSM can only be created by the party that controls the
+			// asset.
+			ensure!(
+				T::Fungibles::owner(internal_asset.clone()) == Some(who.clone()),
+				Error::<T>::NotAssetOwner
 			);
 
 			let deposit = T::CreationDeposit::get();

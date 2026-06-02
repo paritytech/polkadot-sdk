@@ -53,7 +53,6 @@ use cumulus_primitives_core::{relay_chain::AccountIndex, AggregateMessageOrigin,
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
-	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	genesis_builder_helper::{build_state, get_preset},
 	ord_parameter_types, parameter_types,
 	traits::{
@@ -1412,6 +1411,7 @@ parameter_types! {
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
 	pub FastUnstakeName: &'static str = "FastUnstake";
 	pub PsmName: &'static str = "Psm";
+	pub ParametersName: &'static str = "Parameters";
 }
 
 /// One-shot migration: writes `pallet_psm`'s on-chain storage version to v1.
@@ -1564,78 +1564,14 @@ impl pallet_verify_signature::Config for Runtime {
 	type BenchmarkHelper = ();
 }
 
-// Dynamic parameters configurable via governance.
-/// One pUSD (6 decimals).
-const PUSD: Balance = 1_000_000;
-
-#[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<Runtime>)]
-pub mod dynamic_params {
-	use super::*;
-
-	#[dynamic_pallet_params]
-	#[codec(index = 0)]
-	pub mod pusd {
-		/// Maximum pUSD issuance across the system (50 million pUSD) with precision 1e6.
-		#[codec(index = 0)]
-		pub static MaximumIssuance: Balance = 50_000_000 * PUSD;
-	}
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-impl Default for RuntimeParameters {
-	fn default() -> Self {
-		use frame_support::traits::Get;
-		RuntimeParameters::Pusd(dynamic_params::pusd::Parameters::MaximumIssuance(
-			dynamic_params::pusd::MaximumIssuance,
-			Some(dynamic_params::pusd::MaximumIssuance::get()),
-		))
-	}
-}
-
-/// Origin check for dynamic parameter changes — only Root can modify.
-pub struct DynamicParameterOrigin;
-impl frame_support::traits::EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey>
-	for DynamicParameterOrigin
-{
-	type Success = ();
-	fn try_origin(
-		origin: RuntimeOrigin,
-		_key: &RuntimeParametersKey,
-	) -> Result<Self::Success, RuntimeOrigin> {
-		frame_system::ensure_root(origin.clone()).map_err(|_| origin)
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn try_successful_origin(_key: &RuntimeParametersKey) -> Result<RuntimeOrigin, ()> {
-		Ok(RuntimeOrigin::root())
-	}
-}
-
-impl pallet_parameters::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeParameters = RuntimeParameters;
-	type AdminOrigin = DynamicParameterOrigin;
-	type WeightInfo = weights::pallet_parameters::WeightInfo<Runtime>;
-}
-
 // PSM configuration.
 parameter_types! {
-	/// The pUSD stablecoin asset ID (trust-backed asset).
-	pub const PsmStablecoinAssetId: AssetIdForTrustBackedAssets = 50000342;
-	/// Minimum swap amount for PSM operations (1 pUSD).
-	pub const PsmMinSwapAmount: Balance = PUSD;
+	/// Minimum swap amount for PSM operations (1 unit at 6-decimal precision).
+	pub const PsmMinSwapAmount: Balance = 1_000_000;
 	/// Native-currency deposit reserved when permissionlessly creating a PSM.
 	pub const PsmCreationDeposit: Balance = deposit(1, 68);
 	/// PalletId for deriving the PSM system account.
 	pub const PsmPalletId: PalletId = PalletId(*b"py/pegsm");
-	/// Fee revenue destination: pUSD insurance fund account.
-	pub const PsmFeeDestinationPalletId: PalletId = PalletId(*b"pusd/ins");
-	pub PsmFeeDestination: AccountId = PsmFeeDestinationPalletId::get().into_account_truncating();
-	/// The pUSD asset id expressed as an XCM `Location`, matching the AssetId type used
-	/// by the PSM pallet on this runtime.
-	pub PsmInternalAssetLocation: xcm::v5::Location = {
-		use xcm::latest::prelude::*;
-		xcm::v5::Location::new(0, [PalletInstance(50), GeneralIndex(PsmStablecoinAssetId::get() as u128)])
-	};
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -1735,7 +1671,6 @@ construct_runtime!(
 		Indices: pallet_indices = 43,
 		MetaTx: pallet_meta_tx = 44,
 		VerifySignature: pallet_verify_signature = 45,
-		Parameters: pallet_parameters = 46,
 		Recovery: pallet_recovery = 47,
 
 		// The main stage.
@@ -1955,6 +1890,14 @@ pub type Migrations = (
 	frame_support::migrations::RemovePallet<PsmName, <Runtime as frame_system::Config>::DbWeight>,
 	SetPsmStorageVersionV1,
 	// end: PSM reset
+
+	// `pallet_parameters` only ever hosted the now-removed system-wide PSM issuance cap
+	// (the per-PSM `max_debt` replaced it). Wipe its on-chain storage now that the pallet
+	// is gone from the runtime.
+	frame_support::migrations::RemovePallet<
+		ParametersName,
+		<Runtime as frame_system::Config>::DbWeight,
+	>,
 	pallet_dap::migrations::MigrateV1ToV2<
 		Runtime,
 		DapLastIssuanceTimestamp,
@@ -2185,7 +2128,6 @@ mod benches {
 		[pallet_nfts, Nfts]
 		[pallet_proxy, Proxy]
 		[pallet_psm, Psm]
-		[pallet_parameters, Parameters]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking_async, Staking]
 		[pallet_staking_async_rc_client, StakingRcClientBench::<Runtime>]

@@ -17,7 +17,10 @@ doc:
     - PSMs are created permissionlessly via the new `create_psm` extrinsic, which reserves
       a refundable deposit (`Config::CreationDeposit`) in the native `Currency`. The creator
       becomes the PSM's admin and picks its initial parameters. `remove_psm` returns the
-      deposit to the original depositor.
+      deposit to the original depositor. The caller must be the owner of the internal asset,
+      so a PSM can only be created over an asset its creator controls (the PSM mints/burns
+      through the privileged `fungibles` trait path, which bypasses the issuer check). The
+      owner keeps the asset and may run other minters, e.g. a vault, over it.
     - Per-PSM authorization: each PSM stores a `full_admin` and an `emergency_admin` origin,
       reassignable via `set_full_admin` / `set_emergency_admin`. This replaces the single,
       global governance manager origin.
@@ -43,7 +46,13 @@ doc:
 
     The `frame-support` `PsmInterface` trait (used by consumers such as the Vaults pallet)
     gains an `AssetId` associated type, and `reserved_capacity` now takes the asset whose
-    reserved issuance is being queried.
+    reserved issuance is being queried. Additionally, `fungibles::UnionOf` now implements
+    `fungibles::roles::Inspect` (forwarding `owner`/`issuer`/`admin`/`freezer` to the side
+    that owns the asset), so unions of role-aware backends expose team roles.
+
+    Asset Hub Westend drops `pallet-parameters`: it only ever hosted a system-wide PSM
+    issuance cap, which the per-PSM `max_debt` ceiling replaced, so the pallet is removed
+    from the runtime and a `RemovePallet<Parameters>` migration wipes its on-chain storage.
 
 crates:
 - name: pallet-psm
