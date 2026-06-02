@@ -41,6 +41,7 @@ use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
 use std::{
+	collections::BTreeMap,
 	sync::{
 		Arc,
 		atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -800,7 +801,15 @@ impl Client {
 		let ReceiptInfo { block_hash, transaction_index, .. } = self.receipt(tx_hash).await?;
 		let block_hash = self.resolve_substrate_hash(&block_hash).await?;
 		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
-		let ext = block.extrinsics().await.ok()?.iter().nth(transaction_index.as_u32() as _)?;
+		// EVM index → substrate extrinsic index; the full extrinsic list includes inherents.
+		let extrinsic_index = self
+			.receipt_provider
+			.eth_transact_extrinsic_indices(&block)
+			.await
+			.ok()?
+			.get(transaction_index.as_u32() as usize)
+			.copied()?;
+		let ext = block.extrinsics().await.ok()?.iter().nth(extrinsic_index)?;
 		let event = ext.events().await.ok()?.find_first::<ExtrinsicSuccess>().ok()??;
 		Some(event.dispatch_info.weight.0)
 	}
@@ -1009,8 +1018,22 @@ impl Client {
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
+		// `trace_block` returns substrate-keyed traces; `hashes` is EVM-keyed. Translate at
+		// the eth-rpc boundary rather than changing the runtime API contract.
+		let substrate_block =
+			self.block_by_hash(&block_hash).await?.ok_or(ClientError::BlockNotFound)?;
+		let evm_index_by_extrinsic: BTreeMap<usize, usize> = self
+			.receipt_provider
+			.eth_transact_extrinsic_indices(&substrate_block)
+			.await?
+			.into_iter()
+			.enumerate()
+			.map(|(evm_index, extrinsic_index)| (extrinsic_index, evm_index))
+			.collect();
+
 		let traces = traces.into_iter().filter_map(|(index, trace)| {
-			Some(TransactionTrace { tx_hash: hashes.remove(&(index as usize))?, trace })
+			let evm_index = evm_index_by_extrinsic.get(&(index as usize))?;
+			Some(TransactionTrace { tx_hash: hashes.remove(evm_index)?, trace })
 		});
 
 		Ok(traces.collect())
@@ -1028,11 +1051,22 @@ impl Client {
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
+		// EVM index (from DB) → substrate extrinsic index, expected by `trace_tx`.
+		let substrate_block =
+			self.block_by_hash(&block_hash).await?.ok_or(ClientError::BlockNotFound)?;
+		let extrinsic_index = self
+			.receipt_provider
+			.eth_transact_extrinsic_indices(&substrate_block)
+			.await?
+			.get(transaction_index)
+			.copied()
+			.ok_or(ClientError::EthExtrinsicNotFound)?;
+
 		let block = self.tracing_block(block_hash).await?;
 		let parent_hash = block.header.parent_hash;
 		let runtime_api = self.runtime_api(parent_hash);
 
-		runtime_api.trace_tx(block, transaction_index as u32, config).await
+		runtime_api.trace_tx(block, extrinsic_index as u32, config).await
 	}
 
 	/// Get the transaction traces for the given block.

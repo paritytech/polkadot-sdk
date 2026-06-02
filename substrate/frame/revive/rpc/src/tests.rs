@@ -351,6 +351,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_invalid_transaction,
 		test_evm_blocks_should_match,
 		test_evm_blocks_hydrated_should_match,
+		test_transaction_index_is_zero_based,
 		test_block_hash_for_tag_with_proper_ethereum_block_hash_works,
 		test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails,
 		test_block_hash_for_tag_with_block_number_works,
@@ -824,6 +825,54 @@ async fn test_evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
 		panic!("Expected hydrated transactions");
 	};
 	assert_eq!(expected_tx_info, tx_info, "TransationInfos should match");
+
+	Ok(())
+}
+
+/// #6790 pt 3: `transactionIndex` must be 0-based EVM, not substrate extrinsic index. The
+/// dev runtime puts a `timestamp` inherent at substrate index 0, so the first EVM tx sits
+/// at substrate index ≥ 1 — the RPC must still report it as 0.
+async fn test_transaction_index_is_zero_based() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
+	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let tx = TransactionBuilder::new(client.clone())
+		.value(U256::from(5_000_000_000_000u128))
+		.input(bytes.to_vec())
+		.send()
+		.await?;
+	let receipt = tx.wait_for_receipt().await?;
+	let block_number: BlockNumberOrTag = receipt.block_number.try_into().unwrap();
+
+	let tx_count = client
+		.get_block_transaction_count_by_number(Some(block_number))
+		.await?
+		.expect("block should exist");
+	assert!(tx_count >= U256::one(), "block should contain at least our transaction");
+
+	// Before the fix, index 0 returned null (substrate index 0 is the timestamp inherent).
+	let first = client
+		.get_transaction_by_block_number_and_index(block_number, U256::zero())
+		.await?;
+	assert!(first.is_some(), "index 0 must return the first EVM transaction, not null");
+
+	// Dense 0-based: `tx_count` is one past the end.
+	let past_end = client
+		.get_transaction_by_block_number_and_index(block_number, tx_count)
+		.await?;
+	assert!(past_end.is_none(), "index == tx_count must return null");
+
+	// Receipt's index is 0-based (< count) and round-trips. Pre-fix it carried the
+	// substrate extrinsic index (≥ 1) and failed both checks.
+	assert!(
+		receipt.transaction_index < tx_count,
+		"transaction_index {} must be 0-based (< count {tx_count})",
+		receipt.transaction_index,
+	);
+	let ours = client
+		.get_transaction_by_block_number_and_index(block_number, receipt.transaction_index)
+		.await?
+		.expect("our transaction must be addressable by its receipt index");
+	assert_eq!(ours.hash, receipt.transaction_hash);
 
 	Ok(())
 }

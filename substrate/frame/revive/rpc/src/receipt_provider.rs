@@ -883,6 +883,15 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Some(rows.into_iter().collect())
 	}
 
+	/// See [`ReceiptExtractor::eth_transact_extrinsic_indices`]. Bridges the substrate
+	/// extrinsic-index space and the 0-based EVM index space (#6790 pt 3).
+	pub async fn eth_transact_extrinsic_indices(
+		&self,
+		block: &SubstrateBlock,
+	) -> Result<Vec<usize>, ClientError> {
+		self.receipt_extractor.eth_transact_extrinsic_indices(block).await
+	}
+
 	/// Get the receipt for the given block hash and transaction index.
 	pub async fn receipt_by_block_hash_and_index(
 		&self,
