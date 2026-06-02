@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780350133689,
+  "lastUpdate": 1780389896433,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "6d647465b3d3ab2ed8839c6a3fa3d456b545b011",
-          "message": "Lazy decode block extrinsics (#9480)\n\nRelated to https://github.com/paritytech/polkadot-sdk/issues/4255\n\nAddresses\nhttps://github.com/paritytech/polkadot-sdk/pull/7902#pullrequestreview-3079855302\n\nThis PR enables us to lazily decode the block extrinsics when needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-21T13:06:53Z",
-          "tree_id": "b8d830a3e42ab4d72a0637b4bae61c0c944103ad",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6d647465b3d3ab2ed8839c6a3fa3d456b545b011"
-        },
-        "date": 1761057001446,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013166008979999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00744001335999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15983139394000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022803000980000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010172696119999968,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a6871c6d1cba2be86b611ca1084bff2b28e7f16d",
+          "message": "Version bumps and prdocs reordering after stable2603-3 (#12230)\n\nThis PR backports regular version bumps and perdocs reordering from\nstable2603 branch back to master\n\n---------\n\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
+          "timestamp": "2026-06-02T07:18:53Z",
+          "tree_id": "7539c3842806d3dbb9b16009446277595358186c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a6871c6d1cba2be86b611ca1084bff2b28e7f16d"
+        },
+        "date": 1780389866720,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14428874000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010242620273333301,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007892553339999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023861636700000008,
             "unit": "seconds"
           }
         ]
