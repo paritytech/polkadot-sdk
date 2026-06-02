@@ -70,7 +70,10 @@ fn linear_para_world<S: CollatorSut>(
 	w
 }
 
-#[crate::sim_test]
+#[crate::sim_test(
+	bug_on = "experimental",
+	bug_url = "github:paritytech/polkadot-sdk#12004"
+)]
 fn para_at_last_claim_queue_position_accepts_at_leaf<S: CollatorSut>() {
 	let mut w = world_with_leaf_cq::<S>(0, [PARA_B, PARA_B, PARA_A]);
 	let peer = w.declared_peer(PARA_A, V2);
@@ -78,10 +81,7 @@ fn para_at_last_claim_queue_position_accepts_at_leaf<S: CollatorSut>() {
 	let _ = w.fetch_request(&cand);
 }
 
-#[crate::sim_test(
-	bug_on = "experimental",
-	bug_url = "memory:project_collator_experimental_no_ancestor_rp_advertise"
-)]
+#[crate::sim_test]
 fn ancestor_with_para_at_valid_position_accepts<S: CollatorSut>() {
 	// Linear chain, same para A scheduled at every block. Ancestor R has para A at
 	// position 0 → in-window for the offset=1 ancestor.
@@ -135,10 +135,7 @@ fn ancestor_with_para_at_obsolete_position_rejects<S: CollatorSut>() {
 /// KNOWN BUG (experimental): same root cause as
 /// `ancestor_with_para_at_valid_position_accepts` — `claim_queue_state` keyed by leaf only.
 /// See `memory:project_collator_experimental_no_ancestor_rp_advertise`.
-#[crate::sim_test(
-	bug_on = "experimental",
-	bug_url = "memory:project_collator_experimental_no_ancestor_rp_advertise"
-)]
+#[crate::sim_test]
 fn ancestor_advertisements_at_parent_and_grandparent_both_fetch<S: CollatorSut>() {
 	let mut w = linear_para_world::<S>(2, CoreIndex(0), PARA_A);
 	let peer = w.declared_peer(PARA_A, V2);
@@ -188,10 +185,7 @@ fn linear_para_world<S: CollatorSut>(
 /// KNOWN BUG (experimental): the ancestor-RP advertisement at step 1 is silently dropped,
 /// so the test never reaches the slot-full assertion. See
 /// `memory:project_collator_experimental_no_ancestor_rp_advertise`.
-#[crate::sim_test(
-	bug_on = "experimental",
-	bug_url = "memory:project_collator_experimental_no_ancestor_rp_advertise"
-)]
+#[crate::sim_test]
 fn claims_below_are_counted_correctly<S: CollatorSut>() {
 	let mut w = linear_para_world::<S>(1, CoreIndex(0), PARA);
 	let leaf = w.leaf();
@@ -357,10 +351,7 @@ fn seconded_candidates_consume_capacity<S: CollatorSut>() {
 /// Marked bug_on=experimental because experimental drops ancestor-RP advertisements
 /// (`memory:project_collator_experimental_no_ancestor_rp_advertise`); the test
 /// flips green when that bug is fixed.
-#[crate::sim_test(
-	bug_on = "experimental",
-	bug_url = "memory:project_collator_experimental_no_ancestor_rp_advertise"
-)]
+#[crate::sim_test]
 fn non_obsolete_position_accepted<S: CollatorSut>() {
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A));
@@ -633,10 +624,7 @@ fn v3_scheduling_parent_rejected_on_stalled_relay_chain<S: CollatorSut>() {
 /// KNOWN BUG (experimental): the advertisement is at the leaf's parent (an ancestor RP) —
 /// silently dropped on experimental. Same root cause as the ancestor-RP-drop bug. See
 /// `memory:project_collator_experimental_no_ancestor_rp_advertise`.
-#[crate::sim_test(
-	bug_on = "experimental",
-	bug_url = "memory:project_collator_experimental_no_ancestor_rp_advertise"
-)]
+#[crate::sim_test]
 fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent<S: CollatorSut>() {
 	// 1 ancestor → leaf.slot = 2. current_slot = 2 → in-progress.
 	let mut w = v3_world::<S>(1, 2);
