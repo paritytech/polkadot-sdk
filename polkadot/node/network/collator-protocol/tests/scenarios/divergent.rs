@@ -705,10 +705,7 @@ fn cross_core_reservation_does_not_consume_other_cores_slots<S: CollatorSut>() {
 /// 3 peers advertise PARA_A at 3 different SPs on a linear path. Leaf CQ has 2 slots
 /// for PARA_A → exactly 2 fetches. >2 = over-fetch (third candidate has nowhere to
 /// land); <2 = under-fetch (a wide-window candidate stole a slot).
-#[crate::sim_test(
-	bug_on = "experimental",
-	bug_url = "github:paritytech/polkadot-sdk#11967"
-)]
+#[crate::sim_test]
 fn linear_multi_sp_same_para_capacity_not_double_counted<S: CollatorSut>() {
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
@@ -748,10 +745,7 @@ fn linear_multi_sp_same_para_capacity_not_double_counted<S: CollatorSut>() {
 /// Narrow-window SP (= older ancestor) and wide-window SP (= leaf) both advertise
 /// PARA_A. Leaf CQ `[A, other, A]` — narrow can only fill position 0; wide can fill
 /// 0 or 2. Both must fetch — wide must not steal position 0.
-#[crate::sim_test(
-	bug_on = "experimental",
-	bug_url = "github:paritytech/polkadot-sdk#11967"
-)]
+#[crate::sim_test]
 fn linear_multi_sp_no_under_fetch_when_wide_and_narrow_compete<S: CollatorSut>() {
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
@@ -793,7 +787,6 @@ fn linear_multi_sp_no_under_fetch_when_wide_and_narrow_compete<S: CollatorSut>()
 /// legacy carries the same bug.
 #[crate::sim_test(
 	bug_on = "legacy",
-	bug_on = "experimental",
 	bug_url = "github:paritytech/polkadot-sdk#11967"
 )]
 fn short_claim_queue_does_not_reject_ancestor_advertisements<S: CollatorSut>() {
@@ -826,10 +819,7 @@ const PARA_Y: ParaId = ParaId::new(200);
 /// both forks are active, both peers stay connected (assignments are the union).
 /// After dropping fork_b, peer_y must be disconnected (its para is no longer
 /// scheduled at any active leaf); peer_x stays.
-#[crate::sim_test(
-	bug_on = "experimental",
-	bug_url = "github:paritytech/polkadot-sdk#11967"
-)]
+#[crate::sim_test]
 fn fork_assignments_are_union_of_leaves<S: CollatorSut>() {
 	use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
 
@@ -964,10 +954,7 @@ fn fork_shared_sp_capacity_not_double_counted<S: CollatorSut>() {
 /// peer_y declares Y, advertises a candidate at fork_b, validator launches a
 /// fetch (we don't respond). Drop fork_b → peer_y disconnects, fetch is
 /// cancelled (we observe via no second emitted within a settle window).
-#[crate::sim_test(
-	bug_on = "experimental",
-	bug_url = "github:paritytech/polkadot-sdk#11967"
-)]
+#[crate::sim_test]
 fn fork_drop_reclaims_capacity_and_disconnects_peers<S: CollatorSut>() {
 	use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
 
@@ -1029,8 +1016,7 @@ const PARA_OTHER: ParaId = ParaId::new(200);
 /// the leaf. Setup: leaf CQ `[A, other, other]` → 1 PARA_A slot. peer_low (score 0)
 /// at leaf; peer_high (score 1, ramped via finalize) at parent. Single fetch goes to
 /// peer_high.
-#[crate::sim_test(only = "experimental", bug_on = "experimental",
-	bug_url = "github:paritytech/polkadot-sdk#11980")]
+#[crate::sim_test(only = "experimental")]
 fn high_rep_peer_at_ancestor_wins_over_low_rep_at_leaf<S: CollatorSut>() {
 	let config = collator_world_config()
 		.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A));
