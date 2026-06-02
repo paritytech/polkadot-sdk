@@ -240,6 +240,9 @@ pub mod pallet {
 		InvalidStatement,
 		/// The account already has a vested balance.
 		VestedBalanceExists,
+		/// The claim has a vesting schedule but its value is below the existential deposit, so the
+		/// destination account could not be kept alive to carry the vesting lock.
+		ClaimBelowExistentialDeposit,
 	}
 
 	#[pallet::storage]
@@ -377,6 +380,16 @@ pub mod pallet {
 			statement: Option<StatementKind>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+
+			// A vesting claim installs a balance lock on claim, which requires the destination
+			// account to remain alive. Reject vesting claims below ED here so the defect is
+			// caught at mint time rather than surfacing at claim time.
+			if vesting_schedule.is_some() {
+				ensure!(
+					value >= CurrencyOf::<T>::minimum_balance(),
+					Error::<T>::ClaimBelowExistentialDeposit,
+				);
+			}
 
 			Total::<T>::mutate(|t| *t += value);
 			Claims::<T>::insert(who, value);
@@ -599,15 +612,22 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::VestedBalanceExists.into());
 		}
 
+		// A vesting schedule installs a balance lock, which requires the account to stay alive. If
+		// the claimed amount is below the existential deposit, the account would be dusted and
+		// the lock placed on a non-existent account, so reject such claims up front.
+		if vesting.is_some() && balance_due < CurrencyOf::<T>::minimum_balance() {
+			return Err(Error::<T>::ClaimBelowExistentialDeposit.into());
+		}
+
 		// We first need to deposit the balance to ensure that the account exists.
 		let _ = CurrencyOf::<T>::deposit_creating(&dest, balance_due);
 
 		// Check if this claim should have a vesting schedule.
 		if let Some(vs) = vesting {
-			// This can only fail if the account already has a vesting schedule,
-			// but this is checked above.
+			// This can only fail if the account already has a vesting schedule or its balance is
+			// below the existential deposit, both of which are checked above.
 			T::VestingSchedule::add_vesting_schedule(&dest, vs.0, vs.1, vs.2)
-				.expect("No other vesting schedule exists, as checked above; qed");
+				.map_err(|_| Error::<T>::VestedBalanceExists)?;
 		}
 
 		Total::<T>::put(new_total);

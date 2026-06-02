@@ -403,6 +403,55 @@ fn add_claim_with_vesting_works() {
 }
 
 #[test]
+fn mint_claim_rejects_sub_ed_vesting_claim() {
+	new_test_ext().execute_with(|| {
+		// The mock's existential deposit is 1, so a value of 0 is below it. A vesting claim must
+		// stay at or above ED, otherwise the dest account would be dusted and could not carry the
+		// vesting lock. This is rejected up front at mint time.
+		assert_noop!(
+			claims::mock::Claims::mint_claim(
+				RuntimeOrigin::root(),
+				eth(&bob()),
+				0,
+				Some((0, 0, 1)),
+				None
+			),
+			Error::<Test>::ClaimBelowExistentialDeposit,
+		);
+		// The same sub-ED value without a vesting schedule is fine: the guard is scoped to vesting
+		// claims, since a non-vesting claim that dusts is harmless.
+		assert_ok!(claims::mock::Claims::mint_claim(
+			RuntimeOrigin::root(),
+			eth(&bob()),
+			0,
+			None,
+			None
+		));
+	});
+}
+
+#[test]
+fn claim_rejects_sub_ed_vesting_claim_from_storage() {
+	new_test_ext().execute_with(|| {
+		// Simulate a sub-ED vesting claim that bypassed `mint_claim` (e.g. seeded via genesis) by
+		// inserting directly into storage. `claim` must reject it rather than dusting the account
+		// and placing a vesting lock on a dead account.
+		claims::Claims::<Test>::insert(eth(&bob()), 0);
+		claims::Vesting::<Test>::insert(eth(&bob()), (0, 0, 1));
+		assert_noop!(
+			claims::mock::Claims::claim(
+				RuntimeOrigin::none(),
+				69,
+				sig::<Test>(&bob(), &69u64.encode(), &[][..])
+			),
+			Error::<Test>::ClaimBelowExistentialDeposit,
+		);
+		// The guard fires before `deposit_creating`, so no balance was created.
+		assert_eq!(Balances::free_balance(&69), 0);
+	});
+}
+
+#[test]
 fn add_claim_with_statement_works() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
