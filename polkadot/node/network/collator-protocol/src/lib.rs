@@ -92,16 +92,16 @@ mod collator_side;
 mod validator_side;
 mod validator_side_experimental;
 
-/// Reputation costs and benefits applied by the validator side, plus the per-fetch
-/// timeout. Re-exported so the test-sim framework can pin assertions to the production
-/// values — change a constant here and tests that lock to it will fail loudly.
+/// Production values the test-sim scenarios need verbatim — currently just the AssetHub para id
+/// they configure the world with. Re-exported so scenarios reference the real value rather than
+/// hardcoding it.
+///
+/// Timing constants are deliberately NOT exposed: tests assert the *contract* (a stalled fetch is
+/// abandoned within a physically-reasoned bound; a configured hold-off delays then bypasses), not
+/// the production tuning value. Reputation costs are NOT exposed either: tests assert reputation
+/// changes through the effect contract (buckets), not by comparing to the raw `Rep`.
 pub mod validator_side_consts {
-	pub use super::validator_side::{
-		ACTIVITY_POLL, ASSET_HUB_PARA_ID, BENEFIT_NOTIFY_GOOD, COST_CORRUPTED_MESSAGE,
-		COST_INVALID_SCHEDULING_PARENT, COST_INVALID_SIGNATURE, COST_NETWORK_ERROR,
-		COST_PROTOCOL_MISUSE, COST_REPORT_BAD, COST_UNEXPECTED_MESSAGE, COST_UNNEEDED_COLLATOR,
-		COST_WRONG_PARA, HOLD_OFF_DURATION_DEFAULT_VALUE, MAX_UNSHARED_DOWNLOAD_TIME,
-	};
+	pub use super::validator_side::ASSET_HUB_PARA_ID;
 }
 
 // TODO: move into validator_side_experimental once `validator_side` is retired

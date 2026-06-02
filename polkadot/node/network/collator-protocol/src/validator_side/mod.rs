@@ -189,8 +189,7 @@ use collation::{
 };
 use error::{Error, FetchError, HoldOffError, Result, SecondingError};
 
-/// Asset Hub para id (1000 on both Kusama and Polkadot). Permissionless-collator
-/// protections in `kick_off_seconding` only kick in for this para.
+/// Asset Hub's para id (1000 on both Kusama and Polkadot).
 pub const ASSET_HUB_PARA_ID: ParaId = ParaId::new(1000);
 
 #[cfg(test)]
@@ -198,25 +197,17 @@ mod tests;
 
 pub use crate::validator_side_metrics::Metrics;
 
-/// Cost applied when a peer sends an unexpected message.
-pub const COST_UNEXPECTED_MESSAGE: Rep = Rep::CostMinor("An unexpected message");
+const COST_UNEXPECTED_MESSAGE: Rep = Rep::CostMinor("An unexpected message");
 /// Message could not be decoded properly.
-pub const COST_CORRUPTED_MESSAGE: Rep = Rep::CostMinor("Message was corrupt");
+const COST_CORRUPTED_MESSAGE: Rep = Rep::CostMinor("Message was corrupt");
 /// Network errors that originated at the remote host should have same cost as timeout.
-pub const COST_NETWORK_ERROR: Rep = Rep::CostMinor("Some network error");
-/// Cost applied for an invalid signature on a network message.
-pub const COST_INVALID_SIGNATURE: Rep = Rep::Malicious("Invalid network message signature");
-/// Cost applied when another subsystem reports a collator's candidate as bad.
-pub const COST_REPORT_BAD: Rep =
-	Rep::Malicious("A collator was reported by another subsystem");
-/// Cost applied when a collator provides a collation for the wrong para.
-pub const COST_WRONG_PARA: Rep =
-	Rep::Malicious("A collator provided a collation for the wrong para");
-/// Cost applied when a V1 collator advertises a collation for an async-backing relay parent.
-pub const COST_PROTOCOL_MISUSE: Rep =
+const COST_NETWORK_ERROR: Rep = Rep::CostMinor("Some network error");
+const COST_INVALID_SIGNATURE: Rep = Rep::Malicious("Invalid network message signature");
+const COST_REPORT_BAD: Rep = Rep::Malicious("A collator was reported by another subsystem");
+const COST_WRONG_PARA: Rep = Rep::Malicious("A collator provided a collation for the wrong para");
+const COST_PROTOCOL_MISUSE: Rep =
 	Rep::Malicious("A collator advertising a collation for an async backing relay parent using V1");
-/// Cost applied when an unneeded collator connects.
-pub const COST_UNNEEDED_COLLATOR: Rep = Rep::CostMinor("An unneeded collator connected");
+const COST_UNNEEDED_COLLATOR: Rep = Rep::CostMinor("An unneeded collator connected");
 /// Minor penalty for V3 advertisements whose scheduling parent doesn't match the
 /// last finished relay chain slot. This deters spamming invalid advertisements while
 /// remaining safe for honest collators that occasionally hit slot-boundary timing edges.
@@ -226,10 +217,9 @@ pub const COST_UNNEEDED_COLLATOR: Rep = Rep::CostMinor("An unneeded collator con
 /// An honest collator hitting this once per 6s slot reaches a steady-state of roughly
 /// -3.4 million — about 450x away from the ban threshold. Only sustained rapid-fire
 /// spamming (thousands of bad advertisements) can accumulate enough to trigger a disconnect.
-pub const COST_INVALID_SCHEDULING_PARENT: Rep =
+const COST_INVALID_SCHEDULING_PARENT: Rep =
 	Rep::CostMinor("V3 advertisement with invalid scheduling parent");
-/// Benefit applied when another subsystem reports a candidate from this collator as good.
-pub const BENEFIT_NOTIFY_GOOD: Rep =
+const BENEFIT_NOTIFY_GOOD: Rep =
 	Rep::BenefitMinor("A collator was noted good by another subsystem");
 
 /// Time after starting a collation download from a collator we will start another one from the
@@ -243,33 +233,24 @@ pub const BENEFIT_NOTIFY_GOOD: Rep =
 /// to finish on time.
 ///
 /// There is debug logging output, so we can adjust this value based on production results.
-/// Time after starting a collation download from a collator we will start another one
-/// from the next collator even if the upload was not finished yet. See module-level docs
-/// on the `MAX_UNSHARED_DOWNLOAD_TIME` const above for rationale.
 #[cfg(not(test))]
-pub const MAX_UNSHARED_DOWNLOAD_TIME: Duration = Duration::from_millis(400);
+const MAX_UNSHARED_DOWNLOAD_TIME: Duration = Duration::from_millis(400);
 
-/// How often to check all peers with activity.
+// How often to check all peers with activity.
 #[cfg(not(test))]
-pub const ACTIVITY_POLL: Duration = Duration::from_secs(1);
+const ACTIVITY_POLL: Duration = Duration::from_secs(1);
 
-/// Test-only override of [`MAX_UNSHARED_DOWNLOAD_TIME`]. Production timeout is 400ms;
-/// shrunk here so unit tests don't sit on a slow real-time clock.
 #[cfg(test)]
-pub const MAX_UNSHARED_DOWNLOAD_TIME: Duration = Duration::from_millis(100);
+const MAX_UNSHARED_DOWNLOAD_TIME: Duration = Duration::from_millis(100);
 
-/// Test-only override of [`ACTIVITY_POLL`].
 #[cfg(test)]
-pub const ACTIVITY_POLL: Duration = Duration::from_millis(10);
+const ACTIVITY_POLL: Duration = Duration::from_millis(10);
 
-/// How long to hold off AssetHub advertisements from permissionless collators when no
-/// `collator_protocol_hold_off` override is supplied. Production: 300ms; test override
-/// is shorter so unit tests don't sit on a slow real-time clock.
+// How long to hold off AssetHub advertisements from permissionless collators.
 #[cfg(not(test))]
-pub const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(300);
-/// Test-only override of [`HOLD_OFF_DURATION_DEFAULT_VALUE`].
+const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(300);
 #[cfg(test)]
-pub const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(50);
+const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(50);
 
 #[derive(Debug)]
 struct CollatingPeerState {

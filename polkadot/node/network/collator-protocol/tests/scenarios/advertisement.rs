@@ -137,9 +137,19 @@ use crate::{
 	common::world::{bootstrap_world, collator_world_config, World},
 };
 use crate::common::world::WorldExt as _;
-use polkadot_collator_protocol::validator_side_consts::{
-	ASSET_HUB_PARA_ID, HOLD_OFF_DURATION_DEFAULT_VALUE,
-};
+use polkadot_collator_protocol::validator_side_consts::ASSET_HUB_PARA_ID;
+
+/// The hold-off duration we **configure the subsystem with** for these tests — passed in via
+/// `ah_world(Some(HOLD_OFF))`, which sets `ProtocolSide::Validator::collator_protocol_hold_off`
+/// (the same operator-facing knob exposed as the `--collator-protocol-hold-off` CLI flag).
+///
+/// The specific value is arbitrary: the test does not assert any particular production duration
+/// (the prod default is unpinned tuning). It asserts only that whatever the operator configures
+/// is *honored* — the first permissionless AssetHub fetch is delayed by exactly this duration —
+/// and that the hold-off is applied at most once per relay parent.
+///
+/// Must be larger than `BYPASS_WINDOW` (see below) for the once-per-RP check to be meaningful.
+const HOLD_OFF: Duration = Duration::from_millis(200);
 use polkadot_node_network_protocol::{
 	peer_set::{PeerSet, MAX_AUTHORITY_INCOMING_STREAMS},
 	ObservedRole,
@@ -264,18 +274,18 @@ fn invulnerable_collations_are_preferred_over_permissionless_ones<S: CollatorSut
 /// Mirrors `permissionless_are_held_off_only_once`.
 ///
 /// When no invulnerable shows up, a permissionless collator's first advertisement is
-/// held off for `HOLD_OFF_DURATION_DEFAULT_VALUE` then fetched. Subsequent advertisements
+/// held off for the configured hold-off (`HOLD_OFF`) then fetched. Subsequent advertisements
 /// from the same peer at the same RP fetch immediately (the hold-off is per-RP, not
 /// per-advertisement — once the hold-off completes for an RP, the per-RP state is `Done`
 /// and further advertisements bypass the gate).
 ///
 /// First step asserts the held-off latency directly: the fetch's recorded sim_t must be
-/// `>= HOLD_OFF_DURATION_DEFAULT_VALUE`. Second step (chained child candidate) confirms
-/// the bypass — fetch fires within a window much shorter than the hold-off.
+/// `>= HOLD_OFF`. Second step (chained child candidate) confirms the bypass — fetch fires
+/// within a window much shorter than the hold-off.
 #[crate::sim_test(only = "legacy")]
 fn permissionless_are_held_off_only_once<S: CollatorSut>() {
 	let invulnerable = PeerId::random();
-	let mut w = ah_world::<S>(HashSet::from_iter([invulnerable]), None);
+	let mut w = ah_world::<S>(HashSet::from_iter([invulnerable]), Some(HOLD_OFF));
 	let leaf = w.leaf();
 	let perm_peer = w.declared_peer(PARA_AH, V2);
 
@@ -293,9 +303,9 @@ fn permissionless_are_held_off_only_once<S: CollatorSut>() {
 	let req1 = w.fetch_request(&cand1);
 	let fetch_sim_t_after = w.base.sim.now_sim_t();
 	assert!(
-		fetch_sim_t_after - fetch_sim_t_before >= HOLD_OFF_DURATION_DEFAULT_VALUE,
+		fetch_sim_t_after - fetch_sim_t_before >= HOLD_OFF,
 		"first permissionless fetch must wait at least {:?} (held-off); waited {:?}",
-		HOLD_OFF_DURATION_DEFAULT_VALUE,
+		HOLD_OFF,
 		fetch_sim_t_after - fetch_sim_t_before,
 	);
 	w.respond_fetch_v2(req1, cand1.receipt.clone(), Candidate::empty_pov());
@@ -304,9 +314,9 @@ fn permissionless_are_held_off_only_once<S: CollatorSut>() {
 	// clean per-RP state.
 	w.base.sim.advance(Duration::from_millis(200));
 
-	// Chain a child candidate (cand1's output_head becomes cand2's parent_head). Per-RP
-	// hold-off state is `Done` after cand1 completed, so cand2's fetch fires without any
-	// further wait. Window of 50ms < HOLD_OFF_DURATION_DEFAULT_VALUE = unambiguous proof.
+	// Chain a child candidate (cand1's output_head becomes cand2's parent_head). The per-RP
+	// hold-off state is `Done` once cand1 completed, so cand2's fetch must fire without any
+	// further hold-off.
 	let cand2 = w
 		.candidate_at(leaf)
 		.para(PARA_AH)
@@ -315,20 +325,24 @@ fn permissionless_are_held_off_only_once<S: CollatorSut>() {
 		.build();
 	w.outputs.insert(cand2.hash(), cand2.commitments.clone(), cand2.pvd.clone());
 	w.advertise_with_parent_head(&perm_peer, leaf, cand2.hash(), cand2.parent_head_hash());
-	let bypass_t_before = w.base.sim.now_sim_t();
+
+	// `BYPASS_WINDOW` is the maximum simulated time we allow cand2's fetch to take. The `expect`
+	// below advances the deterministic clock by up to this much, looking for the fetch. It is the
+	// discriminator for "no second hold-off":
+	//   - must be > 0, so the `expect` actually advances and can observe the already-armed fetch;
+	//   - must be < `HOLD_OFF`, so that IF the bug were present (a second hold-off wrongly armed),
+	//     cand2's fetch would be delayed by `HOLD_OFF` and not appear within this window — making
+	//     the `expect` time out and the test fail.
+	// The exact value is arbitrary between those bounds.
+	const BYPASS_WINDOW: Duration = Duration::from_millis(50);
+	assert!(BYPASS_WINDOW < HOLD_OFF, "bypass window must be shorter than the hold-off");
 	let _req2 = w.base.sim.expect(
 		|e| matches!(
 			e,
 			crate::common::contract::Effect::SendRequest { candidate_hash: Some(c), .. } if *c == cand2.hash(),
 		),
-		Duration::from_millis(50),
-		"cand2 fetch fires within 50ms (no further hold-off)",
-	);
-	let bypass_elapsed = w.base.sim.now_sim_t() - bypass_t_before;
-	assert!(
-		bypass_elapsed < HOLD_OFF_DURATION_DEFAULT_VALUE,
-		"second fetch must bypass hold-off; waited {:?}",
-		bypass_elapsed,
+		BYPASS_WINDOW,
+		"cand2 fetch fires without a further hold-off (within a window shorter than HOLD_OFF)",
 	);
 }
 }

@@ -25,9 +25,7 @@ use crate::{
 	common::world::activated_world,
 };
 use crate::common::world::WorldExt as _;
-use polkadot_collator_protocol::validator_side_consts::MAX_UNSHARED_DOWNLOAD_TIME;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
-use std::time::Duration;
 
 const PARA: ParaId = ParaId::new(2000);
 
@@ -48,9 +46,9 @@ fn stalled_fetch_falls_back_to_next_peer_after_timeout<S: CollatorSut>() {
 	// First fetch fires (which peer is unspecified).
 	let (_first_peer, _, _) = w.expect_any_fetch();
 
-	// Don't respond. Advance past the deadline; ≥1 follow-up fetch must fire.
+	// Don't respond. `expect_at_least_after` drives the clock to the subsystem's per-fetch
+	// abandon timer, after which ≥1 follow-up fetch must fire.
 	let barrier = w.base.sim.now_sim_t();
-	w.base.sim.advance(MAX_UNSHARED_DOWNLOAD_TIME + Duration::from_millis(100));
 	w.base.sim.expect_at_least_after(
 		barrier,
 		|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
@@ -104,9 +102,7 @@ use crate::{
 	common::world::activated_world,
 };
 use crate::common::world::WorldExt as _;
-use polkadot_collator_protocol::validator_side_consts::MAX_UNSHARED_DOWNLOAD_TIME;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
-use std::time::Duration;
 
 const PARA: ParaId = ParaId::new(2000);
 
@@ -127,9 +123,8 @@ fn fetch_timeout_advances_to_next_peer<S: CollatorSut>() {
 	let (first_peer, _, _) = w.expect_any_fetch();
 	let other_peer = if first_peer == peer_a.peer_id { peer_b.peer_id } else { peer_a.peer_id };
 
-	// Don't respond. Advance past the per-fetch deadline.
-	w.base.sim.advance(MAX_UNSHARED_DOWNLOAD_TIME + Duration::from_millis(100));
-
+	// Don't respond. `expect_fetch_to` drives the clock to the subsystem's per-fetch abandon
+	// timer, after which the fetch falls back to the other peer.
 	let _ = w.expect_fetch_to(other_peer);
 }
 }
