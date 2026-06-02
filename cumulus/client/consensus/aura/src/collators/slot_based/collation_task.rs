@@ -20,7 +20,9 @@ use std::path::PathBuf;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_relay_chain_interface::RelayChainInterface;
 
-use polkadot_node_primitives::{MaybeCompressedPoV, SegmentCollation, SubmitSegmentParams};
+use polkadot_node_primitives::{
+	MaybeCompressedPoV, SegmentCollation, SubmitCollationParams, SubmitSegmentParams,
+};
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Id as ParaId};
@@ -32,7 +34,7 @@ use crate::export_pov_to_path;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_runtime::traits::{Block as BlockT, Header};
 
-use super::CollatorSegmentMessage;
+use super::{CollatorMessage, CollatorSegmentMessage};
 
 const LOG_TARGET: &str = "aura::cumulus::collation_task";
 
@@ -48,8 +50,10 @@ pub struct Params<Block: BlockT, RClient, CS> {
 	pub reinitialize: bool,
 	/// Collator service interface
 	pub collator_service: CS,
-	/// Receiver channel for communication with the block builder task.
-	pub collator_receiver: TracingUnboundedReceiver<CollatorSegmentMessage<Block>>,
+	/// Receiver channel for V2 single-bundle collations from the block builder task.
+	pub collator_receiver: TracingUnboundedReceiver<CollatorMessage<Block>>,
+	/// Receiver channel for V3 segment collations from the block builder task.
+	pub segment_receiver: TracingUnboundedReceiver<CollatorSegmentMessage<Block>>,
 	/// The handle from the special slot based block import.
 	pub block_import_handle: super::SlotBasedBlockImportHandle<Block>,
 	/// When set, the collator will export every produced `POV` to this folder.
@@ -70,6 +74,7 @@ pub async fn run_collation_task<Block, RClient, CS>(
 		reinitialize,
 		collator_service,
 		mut collator_receiver,
+		mut segment_receiver,
 		mut block_import_handle,
 		export_pov,
 	}: Params<Block, RClient, CS>,
@@ -98,6 +103,13 @@ pub async fn run_collation_task<Block, RClient, CS>(
 					return;
 				};
 
+				handle_collation_message(message, &collator_service, &mut overseer_handle, relay_client.clone(), export_pov.clone()).await;
+			},
+			segment_message = segment_receiver.next() => {
+				let Some(message) = segment_message else {
+					return;
+				};
+
 				handle_segment_message(message, &collator_service, &mut overseer_handle, relay_client.clone(), export_pov.clone()).await;
 			},
 			block_import_msg = block_import_handle.next().fuse() => {
@@ -107,6 +119,109 @@ pub async fn run_collation_task<Block, RClient, CS>(
 			}
 		}
 	}
+}
+
+/// Handle an incoming single-bundle V2 [`CollatorMessage`] and forward it to the collation
+/// generation subsystem as a [`CollationGenerationMessage::SubmitCollation`].
+async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + Clone + 'static>(
+	message: CollatorMessage<Block>,
+	collator_service: &impl CollatorServiceInterface<Block>,
+	overseer_handle: &mut OverseerHandle,
+	relay_client: RClient,
+	export_pov: Option<PathBuf>,
+) {
+	let CollatorMessage {
+		scheduling_proof,
+		parent_header,
+		blocks,
+		proof,
+		validation_code_hash,
+		relay_parent,
+		core_index,
+		validation_data,
+	} = message;
+
+	let scheduling_parent = scheduling_proof.as_ref().map(|p| p.scheduling_parent());
+	let (collation, block_data) = match collator_service.build_multi_block_collation(
+		&parent_header,
+		blocks,
+		proof,
+		scheduling_proof,
+	) {
+		Some(collation) => collation,
+		None => {
+			tracing::warn!(target: LOG_TARGET, ?core_index, "Unable to build collation.");
+			return;
+		},
+	};
+
+	block_data.log_size_info();
+
+	if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
+		if let Some(pov_path) = export_pov {
+			if let Ok(Some(relay_parent_header)) =
+				relay_client.header(BlockId::Hash(relay_parent)).await
+			{
+				if let Some(header) = block_data.blocks().first().map(|b| b.header()) {
+					export_pov_to_path::<Block>(
+						pov_path.clone(),
+						pov.clone(),
+						header.hash(),
+						*header.number(),
+						parent_header.clone(),
+						relay_parent_header.state_root,
+						relay_parent_header.number,
+						validation_data.max_pov_size,
+					);
+				}
+			} else {
+				tracing::error!(target: LOG_TARGET, "Failed to get relay parent header from hash: {relay_parent:?}");
+			}
+		}
+
+		tracing::info!(
+			target: LOG_TARGET,
+			block_numbers = ?block_data.blocks().iter().map(|b| *b.header().number()).collect::<Vec<_>>(),
+			"Compressed PoV size: {}kb",
+			pov.block_data.0.len() as f64 / 1024f64,
+		);
+	}
+
+	let session_index = match relay_client.session_index_for_child(relay_parent).await {
+		Ok(session_index) => session_index,
+		Err(err) => {
+			tracing::error!(
+				target: LOG_TARGET,
+				?err,
+				?relay_parent,
+				"Failed to fetch session index."
+			);
+			return;
+		},
+	};
+
+	tracing::debug!(
+		target: LOG_TARGET,
+		?core_index,
+		block_numbers = ?block_data.blocks().iter().map(|b| *b.header().number()).collect::<Vec<_>>(),
+		"Submitting collation for core.",
+	);
+
+	overseer_handle
+		.send_msg(
+			CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
+				relay_parent,
+				collation,
+				validation_code_hash,
+				core_index,
+				result_sender: None,
+				scheduling_parent,
+				session_index,
+				validation_data,
+			}),
+			"SubmitCollation",
+		)
+		.await;
 }
 
 /// Handle an incoming segment message from the block builder task. Each entry is built into a
