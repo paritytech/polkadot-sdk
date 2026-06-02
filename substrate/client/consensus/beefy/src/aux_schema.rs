@@ -74,11 +74,11 @@ fn load_decode<BE: AuxStore, T: Decode>(backend: &BE, key: &[u8]) -> ClientResul
 	}
 }
 
-/// Load or initialize persistent data from backend.
+/// Load persistent data from the backend, migrating older schemas when present.
 ///
 /// If the backend contains an older supported schema, migrate it to the latest schema and save the
 /// migrated state back to the aux-db.
-pub(crate) fn load_or_migrate_persistent<B, BE, AuthorityId: AuthorityIdBound>(
+pub(crate) fn load_and_migrate_persistent<B, BE, AuthorityId: AuthorityIdBound>(
 	backend: &BE,
 ) -> ClientResult<Option<PersistedState<B, AuthorityId>>>
 where
@@ -161,13 +161,13 @@ pub(crate) mod tests {
 	}
 
 	#[tokio::test]
-	async fn should_load_or_migrate_persistent_sanity_checks() {
+	async fn should_load_and_migrate_persistent_sanity_checks() {
 		let mut net = BeefyTestNet::new(1);
 		let backend = net.peer(0).client().as_backend();
 
 		// version not available in db -> None
 		assert_eq!(
-			load_or_migrate_persistent::<test_client::runtime::Block, _, ecdsa_crypto::AuthorityId>(
+			load_and_migrate_persistent::<test_client::runtime::Block, _, ecdsa_crypto::AuthorityId>(
 				&*backend,
 			)
 			.unwrap(),
@@ -182,7 +182,7 @@ pub(crate) mod tests {
 
 		// version is available in db but state isn't -> None
 		assert_eq!(
-			load_or_migrate_persistent::<test_client::runtime::Block, _, ecdsa_crypto::AuthorityId>(
+			load_and_migrate_persistent::<test_client::runtime::Block, _, ecdsa_crypto::AuthorityId>(
 				&*backend,
 			)
 			.unwrap(),
@@ -299,7 +299,7 @@ pub(crate) mod tests {
 
 		assert_eq!(load_decode::<_, u32>(&*backend, VERSION_KEY).unwrap(), Some(4));
 
-		let migrated = load_or_migrate_persistent::<TestBlock, _, TestAuthority>(&*backend)
+		let migrated = load_and_migrate_persistent::<TestBlock, _, TestAuthority>(&*backend)
 			.unwrap()
 			.expect("migration should produce a state; qed.");
 
