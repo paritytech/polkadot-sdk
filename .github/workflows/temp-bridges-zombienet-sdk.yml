@@ -71,9 +71,19 @@ jobs:
           set -eux
           docker create --name relay "$SUBSTRATE_RELAY_IMAGE"
           docker cp relay:/home/user/substrate-relay "$GITHUB_WORKSPACE/substrate-relay"
+          # The relay binary is linked against OpenSSL 1.1 (libssl.so.1.1), which is not
+          # available on ubuntu-latest (OpenSSL 3 only). Copy the matching libs out of the
+          # relay's own image and run it against them via LD_LIBRARY_PATH. polkadot keeps
+          # using the system OpenSSL 3 — the sonames differ, so the two do not conflict.
+          mkdir -p "$GITHUB_WORKSPACE/relay-libs"
+          for lib in libssl.so.1.1 libcrypto.so.1.1; do
+            docker cp "relay:/usr/lib/x86_64-linux-gnu/$lib" "$GITHUB_WORKSPACE/relay-libs/" 2>/dev/null \
+              || docker cp "relay:/lib/x86_64-linux-gnu/$lib" "$GITHUB_WORKSPACE/relay-libs/"
+          done
           docker rm relay
           chmod +x "$GITHUB_WORKSPACE/substrate-relay"
-          "$GITHUB_WORKSPACE/substrate-relay" --version
+          LD_LIBRARY_PATH="$GITHUB_WORKSPACE/relay-libs:${LD_LIBRARY_PATH:-}" \
+            "$GITHUB_WORKSPACE/substrate-relay" --version
 
       - name: Build polkadot (fast-runtime)
         run: cargo build --release -p polkadot --features fast-runtime
@@ -86,6 +96,10 @@ jobs:
           set -eux
           export PATH="$GITHUB_WORKSPACE/target/release:$PATH"
           export SUBSTRATE_RELAY_BINARY="$GITHUB_WORKSPACE/substrate-relay"
+          # Make the OpenSSL 1.1 libs visible to the relay subprocess spawned by the tests.
+          # polkadot/polkadot-parachain look for libssl.so.3 and fall back to the system libs,
+          # so this does not affect them.
+          export LD_LIBRARY_PATH="$GITHUB_WORKSPACE/relay-libs:${LD_LIBRARY_PATH:-}"
           polkadot --version
           polkadot-parachain --version
           # The two tests bind fixed RPC ports (9942/8943/...), so they must run
