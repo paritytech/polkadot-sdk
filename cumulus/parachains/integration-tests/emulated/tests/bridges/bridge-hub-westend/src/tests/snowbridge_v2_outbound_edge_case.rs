@@ -333,8 +333,9 @@ fn transfer_from_penpal_to_ethereum_trapped_on_ah_and_then_claim_can_work() {
 		AssetHubWestend::events()
 			.iter()
 			.find_map(|event| match event {
-				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { assets, .. }) =>
-					Some(assets.clone()),
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { assets, .. }) => {
+					Some(assets.clone())
+				},
 				_ => None,
 			})
 			.expect("assets should be trapped when the remote fee is insufficient")
@@ -365,10 +366,7 @@ fn transfer_from_penpal_to_ethereum_trapped_on_ah_and_then_claim_can_work() {
 				preserve_origin: true,
 				assets: BoundedVec::truncate_from(vec![]),
 				remote_xcm: Xcm(vec![
-					ClaimAsset {
-						assets: trapped_assets.clone(),
-						ticket: GeneralIndex(5).into(),
-					},
+					ClaimAsset { assets: trapped_assets.clone(), ticket: GeneralIndex(5).into() },
 					RefundSurplus,
 					DepositAsset {
 						assets: Wild(All),
