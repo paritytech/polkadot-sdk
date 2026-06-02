@@ -1,0 +1,22 @@
+title: 'claims: Reject vesting claims below the existential deposit'
+doc:
+- audience: Todo
+  description: |-
+    ## Description
+
+    A vesting claim attaches a balance lock to the destination account, which requires the account to stay alive (balance >= existential deposit). This is currently not enforced: If a claim's value was below ED, `process_claim`'s `deposit_creating` left the account below ED, and the subsequent `add_vesting_schedule` -> `update_locks` -> `try_mutate_account` saw `free < ED`. This dusted the account and tripped `pallet_balances`' "caused unexpected dusting/balance update" defensive failure. `defensive!` panics in tests and benchmarks but only logs in release, so in production this produced silently inconsistent state (a vesting lock written onto a dusted account). `process_claim` also relied on an `.expect()` over `add_vesting_schedule` that assumed the failure was impossible.
+
+    Guard the invariant in `process_claim` and `mint_claim`, and add a `ClaimBelowExistentialDeposit` error. The benchmark was updated to floor its claim amount at `max(ED, 1_000_000)`, which satisfies the invariants.
+
+    ## Integration
+
+    No action required for downstream users. The changes are additive:
+
+    - An error variant `ClaimBelowExistentialDeposit` was appended to `claims::Error`, so the indices of existing variants remain unchanged.
+    - `mint_claim` now rejects a sub-ED claim when a vesting schedule is attached. Governance and tooling that mint vesting claims must ensure `value >= ExistentialDeposit`. Non-vesting claims are unaffected.
+    - `process_claim` rejects sub-ED vesting claims at claim time. Such a claim now fails with `ClaimBelowExistentialDeposit` and is reverted by the dispatch's storage layer.
+
+    There is no storage migration and no change to dispatchable signatures or weights.
+crates:
+- name: polkadot-runtime-common
+  bump: major
