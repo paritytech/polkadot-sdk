@@ -1198,12 +1198,6 @@ fn to_hex(bytes: impl AsRef<[u8]>) -> String {
 
 /// Walk a substrate block's extrinsics and return the Ethereum tx hashes of every
 /// `EthTransact` call, in extrinsic-index order.
-///
-/// Used by `evm_block` to recover the `transactions` array for pre-upgrade blocks
-/// whose `EthereumBlock` storage is unset — the runtime returns an empty hash list
-/// for those, but the underlying extrinsics still contain the RLP-encoded
-/// payloads, and `keccak256(payload)` is the Ethereum tx hash. Independent of
-/// `ReceiptInfoData` and the eth-rpc sqlite cache.
 async fn pre_upgrade_tx_hashes_from_extrinsics(block: &SubstrateBlock) -> Vec<H256> {
 	let extrinsics = match block.extrinsics().await {
 		Ok(extrinsics) => extrinsics,
@@ -1224,15 +1218,6 @@ async fn pre_upgrade_tx_hashes_from_extrinsics(block: &SubstrateBlock) -> Vec<H2
 
 /// Hydrated counterpart of [`pre_upgrade_tx_hashes_from_extrinsics`]: walks a substrate
 /// block's extrinsics and builds a `Vec<TransactionInfo>` for every `EthTransact` call.
-///
-/// Used by `evm_block` for `eth_getBlockBy*(.., true)` on pre-upgrade blocks. Every field
-/// of `TransactionInfo` except `block_hash` is reconstructible from the substrate block:
-/// the signed tx itself is RLP-decoded from the payload, `from` is recovered via
-/// `recover_eth_address()`, `hash` is `keccak256(payload)`, and `block_number` /
-/// `transaction_index` come from substrate. `block_hash` stays zero — the pre-upgrade
-/// header has no real ethereum hash. Receipt-side data (`status`, `logs`,
-/// `effectiveGasPrice`, gas usage) is not exposed by `eth_getBlockBy*`, so its absence
-/// from `ReceiptInfoData` is irrelevant here. See #6790.
 async fn pre_upgrade_tx_infos_from_extrinsics(block: &SubstrateBlock) -> Vec<TransactionInfo> {
 	let extrinsics = match block.extrinsics().await {
 		Ok(extrinsics) => extrinsics,

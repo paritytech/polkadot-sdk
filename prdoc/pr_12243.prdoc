@@ -1,0 +1,51 @@
+title: "revive eth-rpc: recover transactions for pre-upgrade blocks in eth_getBlockBy* (#6790)"
+doc:
+- audience: Node Operator
+  description: |-
+    For blocks whose `EthereumBlock` runtime storage is unset (produced before
+    pallet-revive shipped the ETH-block storage value — runtime API returns
+    `EthBlock::default()`, identified by `eth_block.hash.is_zero()`),
+    `eth_getBlockByNumber` / `eth_getBlockByHash` previously returned an empty
+    `transactions` array even though the block had ETH transactions.
+
+    `evm_block` now walks the substrate block's extrinsics for those blocks. Each
+    `EthTransact` extrinsic carries the RLP-encoded transaction payload, from
+    which we can derive:
+    * The Ethereum tx hash (`keccak256(payload)`) — recovers the non-hydrated
+      `Hashes(...)` array.
+    * The full `TransactionInfo` (RLP-decode → `recover_eth_address()` for `from`,
+      plus block number and substrate extrinsic index) — recovers the hydrated
+      `TransactionInfos(...)` array.
+
+    Recovery is independent of `EthereumBlock`/`ReceiptInfoData` and of the eth-rpc
+    sqlite cache, all of which lack data for pre-upgrade blocks under any current
+    writer.
+
+    Known limitations of recovered pre-upgrade blocks:
+    * `block_hash` on inner `TransactionInfo`s stays `H256::zero()` — the
+      pre-upgrade header has no real ethereum hash to stamp.
+    * Other top-level header fields (`parent_hash`, `state_root`, `gas_limit`,
+      `timestamp`, `miner`, etc.) remain default. The response is internally
+      inconsistent but at least the `transactions` array is recovered.
+    * `transactionIndex` on inner objects is the substrate extrinsic index
+      (typically `2..` after the timestamp + parachain-system inherents), not the
+      0-based EVM index. This is pre-existing behaviour (#6790 point 3) — not
+      introduced or fixed here.
+    * `eth_getTransactionReceipt` for transactions in pre-upgrade blocks remains
+      bugged (would need gas-usage data from `ReceiptInfoData`). Separate follow-up.
+
+    Observable API changes:
+    * `ReceiptProvider::block_transaction_hashes` return type changed from
+      `Option<HashMap<usize, H256>>` to `BTreeMap<usize, H256>` (ordered by
+      substrate extrinsic index; empty on cache miss or DB error, the latter
+      logged).
+    * `ReceiptProvider::insert_block_receipts_past` now returns the extracted
+      receipts (`Vec<(TransactionSigned, ReceiptInfo)>`).
+    * `eth_debug_traceBlockByNumber` (`Client::trace_block_by_number`) now returns
+      `EthExtrinsicNotFound` when the runtime emits traces but the receipt
+      provider has no rows for the block. Previously this silently produced an
+      empty list.
+
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor
