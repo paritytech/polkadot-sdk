@@ -116,7 +116,12 @@ pub type Hash = [u8; 32];
 pub type BlockHash = [u8; 32];
 /// Account id
 pub type AccountId = [u8; 32];
-/// Statement channel.
+/// Identifier of a per-account communication channel, used for message replacement.
+///
+/// A channel is unique per `(account, channel)` pair: a new statement on an existing channel
+/// replaces the previous one from the same account when it has a strictly higher expiry (see
+/// [`Statement::channel`]). The 32 bytes are opaque to the store — it does not prescribe how a
+/// channel id is generated. A statement with no channel is subject only to priority-based eviction.
 pub type Channel = [u8; 32];
 
 /// Total number of topic fields allowed in a statement and in `MatchAll` filters.
@@ -125,7 +130,20 @@ pub const MAX_TOPICS: usize = 4;
 /// topics allowed.
 pub const MAX_ANY_TOPICS: usize = 128;
 
-/// Statement allowance limits for an account.
+/// Per-account statement allowance: the resource budget an account may consume in the store.
+///
+/// The allowance is enforced on two axes at once — a maximum number of statements
+/// ([`max_count`](Self::max_count)) and a maximum total data size in bytes
+/// ([`max_size`](Self::max_size)). Because the binding constraint is primarily size, an account
+/// may spend its budget as either a few large statements or many small ones, up to whichever
+/// limit it hits first. When a submission would exceed either limit, the account's
+/// lowest-priority statements are evicted to make room.
+///
+/// Allowances are not fixed in this crate: they are held in chain state under
+/// [`STATEMENT_ALLOWANCE_PREFIX`] (keyed by [`statement_allowance_key`]) and granted or revoked by
+/// the runtime via [`increase_allowance_by`] / [`decrease_allowance_by`]; the store reads the
+/// current value with [`get_allowance`] when validating a submission. An account with no allowance
+/// (or a depleted one) cannot store statements.
 #[derive(Clone, Default, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct StatementAllowance {
 	/// Maximum number of statements allowed
@@ -156,7 +174,8 @@ impl StatementAllowance {
 		}
 	}
 
-	/// Check if the statement allowance is depleted.
+	/// Returns `true` if the allowance is exhausted on either axis — that is, if `max_count` or
+	/// `max_size` has reached zero.
 	pub fn is_depleted(&self) -> bool {
 		self.max_count == 0 || self.max_size == 0
 	}
@@ -506,10 +525,6 @@ impl Statement {
 	/// Returns `true` if signing worked (private key present etc).
 	///
 	/// NOTE: This can only be called from the runtime.
-	///
-	/// Returns `true` if signing worked (private key present etc).
-	///
-	/// NOTE: This can only be called from the runtime.
 	pub fn sign_ecdsa_public(&mut self, key: &ecdsa::Public) -> bool {
 		let to_sign = self.signature_material();
 		if let Some(signature) = key.sign(&to_sign) {
@@ -533,7 +548,12 @@ impl Statement {
 		self.set_proof(proof);
 	}
 
-	/// Check proof signature, if any.
+	/// Verify the proof's signature over the statement's signature material (all fields except the
+	/// proof itself).
+	///
+	/// Returns [`SignatureVerificationResult::NoSignature`] when there is no proof. On success the
+	/// returned account is the signer for sr25519/ed25519, but for ECDSA it is the BLAKE2-256 hash
+	/// of the signer key, not the key itself.
 	pub fn verify_signature(&self) -> SignatureVerificationResult {
 		use sp_runtime::traits::Verify;
 
@@ -574,7 +594,11 @@ impl Statement {
 		}
 	}
 
-	/// Calculate statement hash.
+	/// The statement's hash: the BLAKE2-256 hash of its SCALE encoding.
+	///
+	/// This is the statement's identity for deduplication and indexing across the store and
+	/// network. It covers the full encoding (including the proof), so changing any field changes
+	/// the hash.
 	#[cfg(feature = "std")]
 	pub fn hash(&self) -> [u8; 32] {
 		self.using_encoded(hash_encoded)
@@ -595,7 +619,7 @@ impl Statement {
 		self.decryption_key
 	}
 
-	/// Convert to internal data.
+	/// Consume the statement and return its data field (see [`data`](Self::data)).
 	pub fn into_data(self) -> Option<Vec<u8>> {
 		self.data
 	}
@@ -610,12 +634,17 @@ impl Statement {
 		self.proof.as_ref().map(Proof::account_id)
 	}
 
-	/// Get plain data.
+	/// Returns the statement's data field, if any. The bytes are plaintext when set via
+	/// [`set_plain_data`](Self::set_plain_data) or ciphertext when set via
+	/// [`encrypt`](Self::encrypt).
 	pub fn data(&self) -> Option<&Vec<u8>> {
 		self.data.as_ref()
 	}
 
-	/// Get plain data len.
+	/// Length in bytes of the statement's data field (`0` if absent).
+	///
+	/// This is the size the per-account quota ([`StatementAllowance::max_size`]) is measured
+	/// against — the data length, not the full SCALE-encoded statement size.
 	pub fn data_len(&self) -> usize {
 		self.data().map_or(0, Vec::len)
 	}
@@ -668,7 +697,9 @@ impl Statement {
 		self.channel = Some(channel)
 	}
 
-	/// Set topic by index. Does noting if index is over `MAX_TOPICS`.
+	/// Set topic by index. Does nothing if `index` is at or beyond [`MAX_TOPICS`].
+	///
+	/// Grows the statement's topic count so that `index` becomes addressable.
 	pub fn set_topic(&mut self, index: usize, topic: Topic) {
 		if index < MAX_TOPICS {
 			self.topics[index] = topic;
@@ -769,7 +800,10 @@ impl Statement {
 		output
 	}
 
-	/// Encrypt give data with given key and store both in the statements.
+	/// Encrypt `data` to `key` (ECIES) and store both the ciphertext and the matching decryption
+	/// key on the statement.
+	///
+	/// Note: encryption is experimental (the decryption-key field is deprecated).
 	#[allow(deprecated)]
 	#[cfg(feature = "std")]
 	pub fn encrypt(
@@ -783,7 +817,10 @@ impl Statement {
 		Ok(())
 	}
 
-	/// Decrypt data (if any) with the given private key.
+	/// Decrypt the statement's data with the given private key (ECIES).
+	///
+	/// Returns `Ok(None)` if the statement has no data; errors if the data was not encrypted to
+	/// this key.
 	#[cfg(feature = "std")]
 	pub fn decrypt_private(
 		&self,
