@@ -464,13 +464,17 @@ pub async fn best_finalized_bridged_header(
 	Ok(decoded.map(|(number, _hash)| number))
 }
 
-/// Waits until `client` reports a finalized block of at least `height`, or `timeout` elapses.
+/// Waits until `client` reports a best block of at least `height`, or `timeout` elapses.
+///
+/// Uses best (not finalized) blocks to mirror the legacy zombienet "reports block height" check:
+/// it confirms block *production*, without also depending on the full finality chain (which lags
+/// and can stall a freshly-started, loaded network).
 pub async fn wait_for_block_height(
 	client: &OnlineClient<PolkadotConfig>,
 	height: u32,
 	timeout: Duration,
 ) -> Result<(), anyhow::Error> {
-	let mut sub = client.blocks().subscribe_finalized().await?;
+	let mut sub = client.blocks().subscribe_best().await?;
 	let deadline = Instant::now() + timeout;
 	while let Ok(Some(block)) = timeout_at(deadline, sub.next()).await {
 		if block?.number() >= height {
@@ -480,16 +484,17 @@ pub async fn wait_for_block_height(
 	Err(anyhow!("timeout waiting for block height {height}"))
 }
 
-/// Subscribes to finalized blocks of `client` for `duration` and counts the GRANDPA
+/// Subscribes to best blocks of `client` for `duration` and counts the GRANDPA
 /// (`UpdatedBestFinalizedHeader`) and parachain (`UpdatedParachainHead`) header-import events
-/// emitted by the given bridge pallets (mirrors `multiple-headers-synced.js`).
+/// emitted by the given bridge pallets (mirrors `multiple-headers-synced.js`, which observes new
+/// best heads via `subscribeNewHeads`).
 pub async fn count_synced_headers(
 	client: &OnlineClient<PolkadotConfig>,
 	grandpa_pallet: &str,
 	parachains_pallet: &str,
 	duration: Duration,
 ) -> Result<(u32, u32), anyhow::Error> {
-	let mut sub = client.blocks().subscribe_finalized().await?;
+	let mut sub = client.blocks().subscribe_best().await?;
 	let deadline = Instant::now() + duration;
 	let (mut grandpa_headers, mut parachain_headers) = (0u32, 0u32);
 	while let Ok(Some(block)) = timeout_at(deadline, sub.next()).await {
@@ -593,7 +598,11 @@ fn rococo_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec!["-lparachain=debug,xcm=trace".into()])
+				.with_default_args(vec![
+					"-lparachain=debug,xcm=trace".into(),
+					// Validators run in a container without full secure-mode support; allow them.
+					"--insecure-validator-i-know-what-i-do".into(),
+				])
 				.with_validator(|n| {
 					n.with_name("alice-rococo-validator")
 						.with_rpc_port(9942)
@@ -653,7 +662,11 @@ fn westend_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			r.with_chain("westend-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec!["-lparachain=debug,xcm=trace".into()])
+				.with_default_args(vec![
+					"-lparachain=debug,xcm=trace".into(),
+					// Validators run in a container without full secure-mode support; allow them.
+					"--insecure-validator-i-know-what-i-do".into(),
+				])
 				.with_validator(|n| {
 					n.with_name("alice-westend-validator")
 						.with_rpc_port(9945)
@@ -797,10 +810,10 @@ impl BridgeTestEnv {
 
 		// rococo-start / westend-start: parachains produce blocks reliably.
 		log::info!("Waiting for parachains to start producing blocks");
-		wait_for_block_height(&ahr, 10, Duration::from_secs(180)).await?;
-		wait_for_block_height(&bhr, 10, Duration::from_secs(180)).await?;
-		wait_for_block_height(&ahw, 10, Duration::from_secs(180)).await?;
-		wait_for_block_height(&bhw, 10, Duration::from_secs(180)).await?;
+		wait_for_block_height(&ahr, 10, Duration::from_secs(300)).await?;
+		wait_for_block_height(&bhr, 10, Duration::from_secs(300)).await?;
+		wait_for_block_height(&ahw, 10, Duration::from_secs(300)).await?;
+		wait_for_block_height(&bhw, 10, Duration::from_secs(300)).await?;
 
 		// init-rococo-local / init-westend-local: HRMP channels + remote XCM versions.
 		log::info!("Opening HRMP channels and setting remote XCM versions");
