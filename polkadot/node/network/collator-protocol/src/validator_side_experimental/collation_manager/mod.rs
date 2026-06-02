@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	extract_leaf_scheduling_info, is_scheduling_parent_valid,
+	extract_leaf_scheduling_info, is_scheduling_parent_valid, LeafClaimQueues,
 	validator_side::{
 		descriptor_version_sanity_check_with_params, error::SecondingError,
 		request_persisted_validation_data, request_prospective_validation_data, BlockedCollationId,
@@ -46,9 +46,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	metrics::prometheus::prometheus::HistogramTimer,
-	request_claim_queue, request_session_index_for_child, request_validator_groups,
-	request_validators,
-	runtime::{fetch_scheduling_lookahead, recv_runtime},
+	request_session_index_for_child, request_validator_groups, request_validators,
+	runtime::recv_runtime,
 };
 use polkadot_primitives::{
 	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex,
@@ -60,7 +59,7 @@ use schnellru::{ByLength, LruMap};
 use sp_keystore::KeystorePtr;
 use sp_runtime::Either;
 use std::{
-	collections::{BTreeMap, BTreeSet, HashMap, VecDeque},
+	collections::{BTreeSet, HashMap},
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -258,9 +257,9 @@ impl CollationManager {
 			// at every scheduling parent on a path to this leaf is computed from these via offset
 			// arithmetic — the leaf is authoritative because it's closest to what the runtime will
 			// see when candidates get backed.
-			match LeafClaimQueues::fetch(*leaf, session_index, sender).await {
+			match LeafClaimQueues::fetch(*leaf, session_index, sender).await.map_err(Error::Runtime) {
 				Ok(leaf_claim_queues) => {
-					self.leaves.insert(*leaf, leaf_claim_queues);
+					self.leaf_claim_queues.insert(*leaf, leaf_claim_queues);
 				},
 				Err(err) => {
 					err.split()?.log();
@@ -1157,56 +1156,6 @@ impl LeafCoreCq {
 		if let Some(latest) = self.cq[..valid_len].iter().rposition(|slot| *slot == Some(para)) {
 			self.cq[latest] = None;
 		}
-	}
-}
-
-/// The per-core claim queues for one active leaf, together with the runtime scheduling
-/// lookahead that bounds them.
-struct LeafClaimQueues {
-	claim_queues: BTreeMap<CoreIndex, VecDeque<ParaId>>,
-	/// Actual lookahead.
-	///
-	/// claim queues might have shorter length, e.g. under-scheduled on-demand cores, ancestry
-	/// length can also be shorter (e.g. close to Genesis or a session boundary).
-	scheduling_lookahead: usize,
-}
-
-impl LeafClaimQueues {
-	/// Fetch the per-core claim queues and the scheduling lookahead for `leaf` from the runtime.
-	async fn fetch<Sender: CollatorProtocolSenderTrait>(
-		leaf: Hash,
-		session_index: SessionIndex,
-		sender: &mut Sender,
-	) -> Result<Self> {
-		let scheduling_lookahead =
-			fetch_scheduling_lookahead(leaf, session_index, sender).await? as usize;
-		let claim_queues = recv_runtime(request_claim_queue(leaf, sender).await).await?;
-		Ok(Self { claim_queues, scheduling_lookahead })
-	}
-
-	/// The core's claim queue padded to the scheduling lookahead: slot `i` is `Some(para)` where
-	/// scheduled, `None` for positions within the lookahead the runtime left unscheduled. Length
-	/// is always the lookahead. `None` if the core has no claim queue at this core.
-	fn slots(&self, core: CoreIndex) -> Option<Vec<Option<ParaId>>> {
-		let cq = self.claim_queues.get(&core)?;
-		Some(
-			cq.iter()
-				.copied()
-				.map(Some)
-				.chain(std::iter::repeat(None))
-				.take(self.scheduling_lookahead)
-				.collect(),
-		)
-	}
-
-	/// Claim-queue positions on `core` reachable from a scheduling parent at `depth` from this
-	/// leaf (leaf = depth 0). A depth-`d` SP can host advertisements landing at leaf-CQ positions
-	/// `i` with `i + d < lookahead`, so the window is `cq[0 .. lookahead - d]` capped to the
-	/// scheduled entries.
-	fn window(&self, core: CoreIndex, depth: usize) -> Vec<ParaId> {
-		let Some(cq) = self.claim_queues.get(&core) else { return Vec::new() };
-		let valid_len = self.scheduling_lookahead.saturating_sub(depth).min(cq.len());
-		cq.iter().take(valid_len).copied().collect()
 	}
 }
 
