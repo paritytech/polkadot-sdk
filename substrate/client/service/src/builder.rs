@@ -558,11 +558,7 @@ where
 	spawn_handle.spawn(
 		"txpool-notifications",
 		Some("transaction-pool"),
-		sc_transaction_pool::notification_future(
-			client.clone(),
-			transaction_pool.clone(),
-			config.transaction_pool.use_all_block_notifications(),
-		),
+		sc_transaction_pool::notification_future(client.clone(), transaction_pool.clone()),
 	);
 
 	spawn_handle.spawn(
@@ -1234,23 +1230,39 @@ where
 	// install request handlers to `FullNetworkConfiguration`
 	net_config.add_request_response_protocol(light_client_request_protocol_config);
 
-	// Initialize IPFS server.
-	let ipfs_config = net_config.network_config.ipfs_server.then(|| {
-		let (handler, bitswap_config) =
-			Net::bitswap_server(client.clone(), metrics_registry.cloned());
-		spawn_handle.spawn("bitswap-request-handler", Some("networking"), handler);
+	// Initialize IPFS server. Bitswap is only supported on the litep2p backend; reject the
+	// libp2p + `--ipfs-server` combination loudly rather than silently disabling Bitswap.
+	let ipfs_config = if net_config.network_config.ipfs_server {
+		if matches!(
+			net_config.network_config.network_backend,
+			sc_network::config::NetworkBackendType::Libp2p
+		) {
+			return Err(Error::Other(
+				"Bitswap requires the litep2p network backend; \
+				 set --network-backend litep2p or disable --ipfs-server"
+					.into(),
+			));
+		}
+
+		let (handler, bitswap_wiring) = sc_network::bitswap::start::<Block>(
+			client.clone(),
+			sc_network::bitswap::BitswapServiceConfig::default(),
+		);
+		spawn_handle.spawn("bitswap-service", Some("networking"), handler);
 
 		let ipfs_num_blocks = match blocks_pruning {
 			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => IPFS_MAX_BLOCKS,
 			BlocksPruning::Some(num) => std::cmp::min(num, IPFS_MAX_BLOCKS),
 		};
 
-		IpfsConfig {
-			bitswap_config,
+		Some(IpfsConfig {
+			bitswap_wiring: Some(bitswap_wiring),
 			block_provider: Box::new(IpfsIndexedTransactions::new(client.clone(), ipfs_num_blocks)),
 			bootnodes: net_config.network_config.ipfs_bootnodes.clone(),
-		}
-	});
+		})
+	} else {
+		None
+	};
 
 	// Create transactions protocol and add it to the list of supported protocols of
 	let (transactions_handler_proto, transactions_config) =

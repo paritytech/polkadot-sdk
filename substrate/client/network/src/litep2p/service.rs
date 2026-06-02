@@ -19,7 +19,6 @@
 //! `NetworkService` implementation for `litep2p`.
 
 use crate::{
-	bitswap::schema::bitswap::message::wantlist::WantType as ProtoBitswapWantType,
 	config::MultiaddrWithPeerId,
 	litep2p::shim::{
 		notification::{config::ProtocolControlHandle, peerset::PeersetCommand},
@@ -38,7 +37,6 @@ use futures::{channel::oneshot, stream::BoxStream};
 use libp2p::identity::SigningError;
 use litep2p::{
 	addresses::PublicAddresses, crypto::ed25519::Keypair,
-	protocol::libp2p::bitswap::WantType as LitepBitswapWantType,
 	types::multiaddr::Multiaddr as LiteP2pMultiaddr,
 };
 use parking_lot::RwLock;
@@ -218,8 +216,8 @@ pub struct Litep2pNetworkService {
 	/// External addresses.
 	external_addresses: PublicAddresses,
 
-	/// Sender for outbound bitswap requests; `None` if IPFS/bitswap is not configured.
-	bitswap_cmd_tx: Option<tokio::sync::mpsc::Sender<super::bitswap::BitswapOutboundCmd>>,
+	/// User-facing Bitswap handle; `Some` when `--ipfs-server` is enabled, `None` otherwise.
+	bitswap_handle: Option<crate::bitswap::BitswapHandle>,
 }
 
 impl Litep2pNetworkService {
@@ -234,7 +232,7 @@ impl Litep2pNetworkService {
 		request_response_protocols: HashMap<ProtocolName, TracingUnboundedSender<OutboundRequest>>,
 		listen_addresses: Arc<RwLock<HashSet<LiteP2pMultiaddr>>>,
 		external_addresses: PublicAddresses,
-		bitswap_cmd_tx: Option<tokio::sync::mpsc::Sender<super::bitswap::BitswapOutboundCmd>>,
+		bitswap_handle: Option<crate::bitswap::BitswapHandle>,
 	) -> Self {
 		Self {
 			local_peer_id,
@@ -246,81 +244,12 @@ impl Litep2pNetworkService {
 			request_response_protocols,
 			listen_addresses,
 			external_addresses,
-			bitswap_cmd_tx,
+			bitswap_handle,
 		}
 	}
 
-	/// Route an outbound request whose protocol name matches the bitswap protocol.
-	///
-	/// Native bitswap is not registered as a generic request-response protocol, so this bridges
-	/// the `NetworkRequest` payload to the litep2p bitswap service.
-	fn route_bitswap_request(
-		&self,
-		peer: PeerId,
-		request_payload: Vec<u8>,
-		sender: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
-	) {
-		use prost::Message as _;
-
-		let Some(cmd_tx) = self.bitswap_cmd_tx.as_ref() else {
-			log::warn!(
-				target: LOG_TARGET,
-				"bitswap: received outbound request but BitswapService is not configured"
-			);
-			let _ = sender.send(Err(RequestFailure::UnknownProtocol));
-			return;
-		};
-
-		let msg = match crate::bitswap::BitswapProtoMessage::decode(request_payload.as_slice()) {
-			Ok(m) => m,
-			Err(e) => {
-				log::warn!(target: LOG_TARGET, "bitswap: failed to decode WANT payload: {e}");
-				let _ = sender.send(Err(RequestFailure::InvalidRequest));
-				return;
-			},
-		};
-
-		let wantlist = match msg.wantlist {
-			Some(w) if !w.entries.is_empty() => w,
-			_ => {
-				log::warn!(target: LOG_TARGET, "bitswap: WANT message has no wantlist entries");
-				let _ = sender.send(Err(RequestFailure::InvalidRequest));
-				return;
-			},
-		};
-
-		let mut cids = Vec::with_capacity(wantlist.entries.len());
-		for entry in wantlist.entries {
-			let cid = match crate::bitswap::Cid::read_bytes(entry.block.as_slice()) {
-				Ok(c) => c,
-				Err(e) => {
-					log::warn!(target: LOG_TARGET, "bitswap: invalid CID in WANT entry: {e}");
-					let _ = sender.send(Err(RequestFailure::InvalidRequest));
-					return;
-				},
-			};
-			let want_type = if entry.want_type == ProtoBitswapWantType::Have as i32 {
-				LitepBitswapWantType::Have
-			} else {
-				LitepBitswapWantType::Block
-			};
-			cids.push((cid, want_type));
-		}
-
-		let cmd = super::bitswap::BitswapOutboundCmd {
-			peer: peer.into(),
-			wants: cids,
-			response_tx: sender,
-		};
-
-		if let Err(e) = cmd_tx.try_send(cmd) {
-			log::warn!(
-				target: LOG_TARGET,
-				"bitswap cmd channel full or closed; dropping request for {peer:?}: {e}",
-			);
-			let cmd = e.into_inner();
-			let _ = cmd.response_tx.send(Err(RequestFailure::UnknownProtocol));
-		}
+	pub(crate) fn bitswap_handle(&self) -> Option<crate::bitswap::BitswapHandle> {
+		self.bitswap_handle.clone()
 	}
 }
 
@@ -645,11 +574,6 @@ impl NetworkRequest for Litep2pNetworkService {
 		sender: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 		connect: IfDisconnected,
 	) {
-		if protocol.as_ref() == crate::bitswap::PROTOCOL_NAME {
-			self.route_bitswap_request(peer, request, sender);
-			return;
-		}
-
 		match self.request_response_protocols.get(&protocol) {
 			Some(tx) => {
 				let _ = tx.unbounded_send(OutboundRequest::new(
@@ -665,5 +589,11 @@ impl NetworkRequest for Litep2pNetworkService {
 				"{protocol} doesn't exist, cannot send request to {peer:?}"
 			),
 		}
+	}
+}
+
+impl crate::service::traits::BitswapProvider for Litep2pNetworkService {
+	fn bitswap_handle(&self) -> Option<crate::bitswap::BitswapHandle> {
+		self.bitswap_handle()
 	}
 }

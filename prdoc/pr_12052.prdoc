@@ -1,0 +1,33 @@
+title: "Network: refactor Bitswap client API to a long-lived service"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Replaces the request-response-shaped `request_bitswap_blocks` helper introduced in
+      PR #12038 with a long-lived Bitswap service exposed via
+      `NetworkService::bitswap_handle()`. The handle's only method is
+      `request_stream(cids) -> Receiver<Result<(Cid, FetchOutcome), BitswapError>>`,
+      which streams per-CID outcomes as they resolve.
+
+      The service runs an internal actor that owns peer selection, per-peer timeouts (5s),
+      per-waiter deadlines (configurable, default 30s), hash verification on every received
+      block, and bounded admission. Inbound serving is off-loaded to a bounded
+      `spawn_blocking` worker pool so storage reads never block outbound traffic or
+      response correlation.
+
+      The libp2p Bitswap implementation is removed entirely. Enabling `--ipfs-server`
+      together with `--network-backend libp2p` now fails at startup with a clear error.
+
+      The unverified Bitswap client codepath is removed as obsolete.
+
+      Closes https://github.com/paritytech/polkadot-sdk/issues/12052.
+
+      Note: this PR is substrate-only. The cumulus storage-chain-sync consumer of the old
+      helper is migrated in a separate follow-up PR; until that follow-up lands,
+      `cumulus-client-storage-chain-sync` will not compile against master.
+
+crates:
+  - name: sc-network
+    bump: major
+  - name: sc-service
+    bump: minor
