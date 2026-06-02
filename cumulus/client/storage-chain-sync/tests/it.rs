@@ -120,12 +120,9 @@ async fn import_case_a_attaches_prefetched(
 	assert_eq!(prefetched.renew_payloads.len(), 1);
 	let key = sp_core::H256::from(content_hash);
 	assert_eq!(prefetched.renew_payloads.get(&key).map(|v| v.as_slice()), Some(bytes));
-	// Verify the overlay was set with the marker via the typed API path
-	let mut overlay = h.api.overlayed_changes().expect("overlay should be set");
-	assert_eq!(
-		overlay.storage(mock::OVERLAY_MARKER_KEY),
-		Some(Some(mock::OVERLAY_MARKER_VALUE)),
-		"overlay marker should be present",
+	assert!(
+		h.api.overlay_marker_seen(),
+		"overlay marker should have been observed by call_api_at",
 	);
 }
 
@@ -517,7 +514,7 @@ mod mock {
 		types::ProtocolName,
 		NetworkRequest, PeerId,
 	};
-	use sp_api::{mock_impl_runtime_apis, ApiError, ConstructRuntimeApi};
+	use sp_api::{ApiError, ConstructRuntimeApi};
 	use sp_consensus::{BlockOrigin, Error as ConsensusError};
 	use sp_core::H256;
 	use sp_runtime::{
@@ -526,9 +523,7 @@ mod mock {
 		Digest, Justifications, OpaqueExtrinsic,
 	};
 	use sp_state_machine::{InMemoryBackend, IndexOperation, OverlayedChanges, StorageChanges};
-	use sp_transaction_storage_proof::{
-		runtime_api::TransactionStorageApi, ContentHash, IndexedTransactionInfo,
-	};
+	use sp_transaction_storage_proof::{ContentHash, IndexedTransactionInfo};
 	use std::{
 		collections::HashMap,
 		sync::{Arc, Mutex, OnceLock},
@@ -556,23 +551,9 @@ mod mock {
 		last_indexed_transactions_state: Option<H256>,
 	}
 
-	#[derive(Clone)]
+	#[derive(Clone, Default)]
 	pub(super) struct MockApiClient {
 		inner: Arc<Mutex<MockApiInner>>,
-		overlayed_changes: Arc<
-			std::sync::Mutex<
-				Option<sp_state_machine::OverlayedChanges<sp_runtime::traits::HashingFor<Block>>>,
-			>,
-		>,
-	}
-
-	impl Default for MockApiClient {
-		fn default() -> Self {
-			Self {
-				inner: Arc::new(Mutex::new(MockApiInner::default())),
-				overlayed_changes: Arc::new(std::sync::Mutex::new(None)),
-			}
-		}
 	}
 
 	impl MockApiClient {
@@ -584,10 +565,8 @@ mod mock {
 			self.inner.lock().unwrap().indexed_transactions.insert(H256::from(hash), data);
 		}
 
-		pub(super) fn overlayed_changes(
-			&self,
-		) -> Option<sp_state_machine::OverlayedChanges<sp_runtime::traits::HashingFor<Block>>> {
-			self.overlayed_changes.lock().unwrap().clone()
+		pub(super) fn overlay_marker_seen(&self) -> bool {
+			self.inner.lock().unwrap().overlay_marker_seen
 		}
 
 		#[cfg(feature = "test-helpers")]
@@ -606,28 +585,11 @@ mod mock {
 		}
 	}
 
-	mock_impl_runtime_apis! {
-		impl TransactionStorageApi<Block> for MockApiClient {
-			fn retention_period(&self) -> u32 {
-				0
-			}
-
-			fn indexed_transactions(&self, block: u32) -> Vec<IndexedTransactionInfo> {
-				self.inner
-					.lock()
-					.unwrap()
-					.indexed_at_block_number
-					.get(&block)
-					.cloned()
-					.unwrap_or_default()
-			}
-		}
-	}
-
 	impl sp_api::ProvideRuntimeApi<TestBlock> for MockApiClient {
-		type Api = MockApiClient;
+		type Api = RuntimeApiImpl<TestBlock, MockApiClient>;
+
 		fn runtime_api(&self) -> sp_api::ApiRef<'_, Self::Api> {
-			self.clone().into()
+			RuntimeApi::construct_runtime_api(self)
 		}
 	}
 
@@ -666,7 +628,7 @@ mod mock {
 			_at: <TestBlock as sp_runtime::traits::Block>::Hash,
 			_call_context: sp_core::traits::CallContext,
 		) -> Result<sp_version::RuntimeVersion, ApiError> {
-			unreachable!("not used by the wrapper in these tests")
+			Ok(case_b_runtime_version())
 		}
 
 		fn state_at(

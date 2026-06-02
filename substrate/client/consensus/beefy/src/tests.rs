@@ -288,21 +288,12 @@ impl TestApi {
 #[allow(dead_code)]
 pub(crate) struct RuntimeApi {
 	inner: TestApi,
-	overlayed_changes: std::sync::Arc<
-		std::sync::Mutex<
-			Option<sp_state_machine::OverlayedChanges<sp_runtime::traits::HashingFor<Block>>>,
-		>,
-	>,
 }
 
 impl ProvideRuntimeApi<Block> for TestApi {
 	type Api = RuntimeApi;
 	fn runtime_api(&self) -> ApiRef<'_, Self::Api> {
-		RuntimeApi {
-			inner: self.clone(),
-			overlayed_changes: std::sync::Arc::new(std::sync::Mutex::new(None)),
-		}
-		.into()
+		RuntimeApi { inner: self.clone() }.into()
 	}
 }
 sp_api::mock_impl_runtime_apis! {

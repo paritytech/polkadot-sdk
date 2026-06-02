@@ -445,11 +445,6 @@ pub use sp_api_proc_macro::impl_runtime_apis;
 /// # }
 /// struct MockApi {
 ///     balance: u64,
-///     overlayed_changes: std::sync::Arc<
-///         std::sync::Mutex<
-///             Option<sp_state_machine::OverlayedChanges<sp_runtime::traits::HashingFor<Block>>>,
-///         >,
-///     >,
 /// }
 ///
 /// /// All runtime api mock implementations need to be done in one call of the macro!
@@ -502,11 +497,6 @@ pub use sp_api_proc_macro::impl_runtime_apis;
 /// # }
 /// struct MockApi {
 ///     balance: u64,
-///     overlayed_changes: std::sync::Arc<
-///         std::sync::Mutex<
-///             Option<sp_state_machine::OverlayedChanges<sp_runtime::traits::HashingFor<Block>>>,
-///         >,
-///     >,
 /// }
 ///
 /// sp_api::mock_impl_runtime_apis! {

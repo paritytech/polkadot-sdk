@@ -150,11 +150,6 @@ impl_runtime_apis! {
 
 struct MockApi {
 	block: Option<Block>,
-	overlayed_changes: std::sync::Arc<
-		std::sync::Mutex<
-			Option<sp_state_machine::OverlayedChanges<sp_runtime::traits::HashingFor<Block>>>,
-		>,
-	>,
 }
 
 mock_impl_runtime_apis! {
@@ -293,10 +288,7 @@ fn check_runtime_api_versions() {
 #[test]
 #[allow(deprecated)]
 fn mock_runtime_api_has_api() {
-	let mock = MockApi {
-		block: None,
-		overlayed_changes: std::sync::Arc::new(std::sync::Mutex::new(None)),
-	};
+	let mock = MockApi { block: None };
 
 	assert!(mock.has_api::<dyn ApiWithCustomVersion<Block>>(Hash::default()).unwrap());
 	assert!(mock.has_api::<dyn Api<Block>>(Hash::default()).unwrap());
@@ -305,10 +297,7 @@ fn mock_runtime_api_has_api() {
 #[test]
 #[should_panic(expected = "Calling deprecated methods is not supported by mocked runtime api.")]
 fn mock_runtime_api_panics_on_calling_old_version() {
-	let mock = MockApi {
-		block: None,
-		overlayed_changes: std::sync::Arc::new(std::sync::Mutex::new(None)),
-	};
+	let mock = MockApi { block: None };
 
 	#[allow(deprecated)]
 	let _ = mock.same_name_before_version_2(Hash::default());
@@ -317,10 +306,7 @@ fn mock_runtime_api_panics_on_calling_old_version() {
 #[test]
 #[allow(deprecated)]
 fn mock_runtime_api_works_with_advanced() {
-	let mock = MockApi {
-		block: None,
-		overlayed_changes: std::sync::Arc::new(std::sync::Mutex::new(None)),
-	};
+	let mock = MockApi { block: None };
 
 	Api::<Block>::same_name(&mock, Hash::default()).unwrap();
 	mock.wild_card(Hash::repeat_byte(0x0f), 1).unwrap();

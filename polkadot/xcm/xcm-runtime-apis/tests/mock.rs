@@ -17,12 +17,7 @@
 //! Mock runtime for tests.
 //! Implements both runtime APIs for fee estimation and getting the messages for transfers.
 
-use std::{
-	cell::RefCell,
-	marker::PhantomData,
-	sync::{Arc, Mutex},
-};
-
+use core::{cell::RefCell, marker::PhantomData};
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types, sp_runtime,
 	sp_runtime::{
@@ -37,7 +32,6 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, RawOrigin as SystemRawOrigin};
 use pallet_xcm::TestWeightInfo;
-use sp_state_machine::OverlayedChanges;
 use xcm::{prelude::*, Version as XcmVersion};
 use xcm_builder::{
 	AllowTopLevelPaidExecutionFrom, ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible,
@@ -533,13 +527,12 @@ pub(crate) struct TestClient;
 #[allow(dead_code)]
 pub(crate) struct RuntimeApi {
 	_inner: TestClient,
-	overlayed_changes: Arc<Mutex<Option<OverlayedChanges<sp_runtime::traits::HashingFor<Block>>>>>,
 }
 
 impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 	type Api = RuntimeApi;
 	fn runtime_api(&self) -> sp_api::ApiRef<'_, Self::Api> {
-		RuntimeApi { _inner: self.clone(), overlayed_changes: Arc::new(Mutex::new(None)) }.into()
+		RuntimeApi { _inner: self.clone() }.into()
 	}
 }
 
