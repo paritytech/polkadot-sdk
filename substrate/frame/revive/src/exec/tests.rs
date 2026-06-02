@@ -2966,7 +2966,7 @@ fn delegatecall_tracer_reports_correct_addresses() {
 }
 
 fn is_cold_touch<E: Ext>(ext: &mut E, key: &Key) -> bool {
-	matches!(ext.touch_storage_access_list(false, key), StorageAccessKind::PersistentCold)
+	matches!(ext.touch_storage_access(false, key), StorageAccessKind::PersistentCold)
 }
 
 fn run_root_call(contract_addr: H160, input: Vec<u8>) {
@@ -3113,11 +3113,11 @@ fn cold_hot_transient_skips_access_list() {
 		let key = Key::Fix([42; 32]);
 
 		// `transient: true` classifies as `Transient` without touching the access list.
-		let kind = ctx.ext.touch_storage_access_list(true, &key);
+		let kind = ctx.ext.touch_storage_access(true, &key);
 		assert!(matches!(kind, StorageAccessKind::Transient));
 
 		// The same key is still cold in the persistent access list.
-		let persistent_kind = ctx.ext.peek_storage_access_list(false, &key);
+		let persistent_kind = ctx.ext.peek_storage_access(false, &key);
 		assert!(
 			matches!(persistent_kind, StorageAccessKind::PersistentCold),
 			"transient access must not warm the persistent access list",

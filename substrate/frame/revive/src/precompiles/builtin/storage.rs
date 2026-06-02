@@ -64,7 +64,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					.map_err(|_| Error::Revert("invalid storage flag".into()))?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
 					.map_err(|_| Error::Revert("failed decoding key".into()))?;
-				let access_kind = env.touch_storage_access_list(transient, &key);
+				let access_kind = env.touch_storage_access(transient, &key);
 				let charged =
 					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ClearStorage {
 						len: max_size,
@@ -92,7 +92,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					.map_err(|_| Error::Revert("invalid storage flag".into()))?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
 					.map_err(|_| Error::Revert("failed decoding key".into()))?;
-				let access_kind = env.touch_storage_access_list(transient, &key);
+				let access_kind = env.touch_storage_access(transient, &key);
 				let charged =
 					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ContainsStorage {
 						len: max_size,
@@ -115,7 +115,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					.map_err(|_| Error::Revert("invalid storage flag".into()))?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
 					.map_err(|_| Error::Revert("failed decoding key".into()))?;
-				let access_kind = env.touch_storage_access_list(transient, &key);
+				let access_kind = env.touch_storage_access(transient, &key);
 				let charged =
 					env.frame_meter_mut().charge_weight_token(RuntimeCosts::TakeStorage {
 						len: max_size,

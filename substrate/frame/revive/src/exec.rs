@@ -563,10 +563,10 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Returns a [`StorageAccessKind`] for the access at `key` and touches the
 	/// access list so subsequent accesses to the same slot bill as hot.
-	fn touch_storage_access_list(&mut self, transient: bool, key: &Key) -> StorageAccessKind;
+	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> StorageAccessKind;
 
-	/// Non-mutating sibling of `touch_storage_access_list`.
-	fn peek_storage_access_list(&self, transient: bool, key: &Key) -> StorageAccessKind;
+	/// Non-mutating sibling of `touch_storage_access`.
+	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind;
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -2597,14 +2597,14 @@ where
 		)
 	}
 
-	fn touch_storage_access_list(&mut self, transient: bool, key: &Key) -> StorageAccessKind {
+	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> StorageAccessKind {
 		StorageAccessKind::for_access(transient, || {
 			let address = self.address();
 			self.access_list.touch(AccessEntry { address, slot: key.to_slot() })
 		})
 	}
 
-	fn peek_storage_access_list(&self, transient: bool, key: &Key) -> StorageAccessKind {
+	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind {
 		StorageAccessKind::for_access(transient, || {
 			let address = self.address();
 			self.access_list.is_cold(&AccessEntry { address, slot: key.to_slot() })

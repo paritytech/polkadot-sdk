@@ -494,7 +494,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		if value_len > max_size {
 			// Don't warm the slot on a failed validation as the storage was not accessed.
-			let access_kind = self.ext.peek_storage_access_list(transient, &key);
+			let access_kind = self.ext.peek_storage_access(transient, &key);
 			self.charge_gas(RuntimeCosts::SetStorage {
 				new_bytes: value_len,
 				old_bytes: max_size,
@@ -503,7 +503,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
-		let access_kind = self.ext.touch_storage_access_list(transient, &key);
+		let access_kind = self.ext.touch_storage_access(transient, &key);
 		let charged = self.charge_gas(RuntimeCosts::SetStorage {
 			new_bytes: value_len,
 			old_bytes: max_size,
@@ -540,7 +540,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let access_kind = self.ext.touch_storage_access_list(transient, &key);
+		let access_kind = self.ext.touch_storage_access(transient, &key);
 		let charged = self.charge_gas(RuntimeCosts::ClearStorage {
 			len: limits::STORAGE_BYTES,
 			kind: access_kind,
@@ -568,7 +568,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let access_kind = self.ext.touch_storage_access_list(transient, &key);
+		let access_kind = self.ext.touch_storage_access(transient, &key);
 		let charged = self.charge_gas(RuntimeCosts::GetStorage {
 			len: limits::STORAGE_BYTES,
 			kind: access_kind,

@@ -112,7 +112,7 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
 	let key = Key::Fix(index.to_big_endian());
 	// NB: SLOAD loads 32 bytes from storage.
-	let access_kind = interpreter.ext.touch_storage_access_list(false, &key);
+	let access_kind = interpreter.ext.touch_storage_access(false, &key);
 	interpreter
 		.ext
 		.charge_or_halt(RuntimeCosts::GetStorage { len: 32, kind: access_kind })?;
@@ -147,7 +147,7 @@ fn store_helper<'ext, E: Ext>(
 	let [index, value] = interpreter.stack.popn()?;
 	let key = Key::Fix(index.to_big_endian());
 
-	let access_kind = interpreter.ext.touch_storage_access_list(transient, &key);
+	let access_kind = interpreter.ext.touch_storage_access(transient, &key);
 	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::SetStorage {
 		new_bytes: 32,
 		old_bytes: limits::STORAGE_BYTES,
@@ -194,7 +194,7 @@ pub fn tstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
 	let key = Key::Fix(index.to_big_endian());
-	let access_kind = interpreter.ext.touch_storage_access_list(true, &key);
+	let access_kind = interpreter.ext.touch_storage_access(true, &key);
 	// TLOAD reads 32 bytes.
 	interpreter
 		.ext

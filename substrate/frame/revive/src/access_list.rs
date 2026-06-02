@@ -64,9 +64,11 @@ pub const MAX_INLINE_KEY_LEN: usize = 36;
 /// |  16 384 |   ~6 MB   |    ~8 MB   |         34.4 M gas |
 pub const MAX_ACCESS_LIST_ENTRIES: usize = 16_384;
 
-/// Worst-case per-entry memory in the `BTreeSet` + journal.
-/// See the table on [`MAX_ACCESS_LIST_ENTRIES`] for the full breakdown.
-pub const MAX_ACCESS_LIST_ENTRY_BYTES: usize = 500;
+/// Worst-case per-entry memory in the `BTreeSet` + journal, measured against
+/// sc-allocator (8-byte headers, power-of-2 buckets). `Slot::Fix` and
+/// `Slot::VarInline` measure ~366 B; `Slot::VarLong` ~502 B. Rounded up to 512
+/// for headroom. See the table on [`MAX_ACCESS_LIST_ENTRIES`] for the full breakdown.
+pub const MAX_ACCESS_LIST_ENTRY_BYTES: usize = 512;
 
 /// Worst-case total memory the access list can hold per transaction.
 pub const MAX_ACCESS_LIST_BYTES: u32 =
@@ -98,10 +100,10 @@ pub enum StorageAccessKind {
 
 impl StorageAccessKind {
 	/// Classify a storage access for pricing.
-	pub fn for_access(transient: bool, cold_check: impl FnOnce() -> bool) -> Self {
+	pub fn for_access(transient: bool, peek_or_touch: impl FnOnce() -> bool) -> Self {
 		if transient {
 			Self::Transient
-		} else if cold_check() {
+		} else if peek_or_touch() {
 			Self::PersistentCold
 		} else {
 			Self::PersistentHot
