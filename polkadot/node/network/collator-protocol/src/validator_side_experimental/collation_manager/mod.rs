@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	extract_leaf_scheduling_info, is_scheduling_parent_valid, LeafClaimQueues,
+	extract_leaf_scheduling_info, is_scheduling_parent_valid,
 	validator_side::{
 		descriptor_version_sanity_check_with_params, error::SecondingError,
 		request_persisted_validation_data, request_prospective_validation_data, BlockedCollationId,
@@ -28,7 +28,7 @@ use crate::{
 		},
 		error::{Error, FatalResult, Result},
 	},
-	LeafSchedulingInfo, LOG_TARGET,
+	LeafClaimQueues, LeafSchedulingInfo, LOG_TARGET,
 };
 use fatality::Split;
 use futures::{channel::oneshot, stream::FusedStream};
@@ -44,8 +44,7 @@ use polkadot_node_subsystem::{
 	ActivatedLeaf, CollatorProtocolSenderTrait,
 };
 use polkadot_node_subsystem_util::{
-	backing_implicit_view::View as ImplicitView,
-	metrics::prometheus::prometheus::HistogramTimer,
+	backing_implicit_view::View as ImplicitView, metrics::prometheus::prometheus::HistogramTimer,
 	request_session_index_for_child, request_validator_groups, request_validators,
 	runtime::recv_runtime,
 };
@@ -257,7 +256,10 @@ impl CollationManager {
 			// at every scheduling parent on a path to this leaf is computed from these via offset
 			// arithmetic — the leaf is authoritative because it's closest to what the runtime will
 			// see when candidates get backed.
-			match LeafClaimQueues::fetch(*leaf, session_index, sender).await.map_err(Error::Runtime) {
+			match LeafClaimQueues::fetch(*leaf, session_index, sender)
+				.await
+				.map_err(Error::Runtime)
+			{
 				Ok(leaf_claim_queues) => {
 					self.leaf_claim_queues.insert(*leaf, leaf_claim_queues);
 				},
