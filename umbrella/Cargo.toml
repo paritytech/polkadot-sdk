@@ -80,7 +80,6 @@ std = [
 	"pallet-bridge-parachains?/std",
 	"pallet-bridge-relayers?/std",
 	"pallet-broker?/std",
-	"pallet-coretime-market?/std",
 	"pallet-child-bounties?/std",
 	"pallet-collator-selection?/std",
 	"pallet-collective-content?/std",
@@ -89,6 +88,8 @@ std = [
 	"pallet-contracts?/std",
 	"pallet-conviction-voting?/std",
 	"pallet-core-fellowship?/std",
+	"pallet-coretime-market?/std",
+	"pallet-dap-satellite?/std",
 	"pallet-dap?/std",
 	"pallet-delegated-staking?/std",
 	"pallet-democracy?/std",
@@ -285,7 +286,6 @@ runtime-benchmarks = [
 	"pallet-bridge-parachains?/runtime-benchmarks",
 	"pallet-bridge-relayers?/runtime-benchmarks",
 	"pallet-broker?/runtime-benchmarks",
-	"pallet-coretime-market?/runtime-benchmarks",
 	"pallet-child-bounties?/runtime-benchmarks",
 	"pallet-collator-selection?/runtime-benchmarks",
 	"pallet-collective-content?/runtime-benchmarks",
@@ -294,6 +294,8 @@ runtime-benchmarks = [
 	"pallet-contracts?/runtime-benchmarks",
 	"pallet-conviction-voting?/runtime-benchmarks",
 	"pallet-core-fellowship?/runtime-benchmarks",
+	"pallet-coretime-market?/runtime-benchmarks",
+	"pallet-dap-satellite?/runtime-benchmarks",
 	"pallet-dap?/runtime-benchmarks",
 	"pallet-delegated-staking?/runtime-benchmarks",
 	"pallet-democracy?/runtime-benchmarks",
@@ -433,7 +435,6 @@ try-runtime = [
 	"pallet-bridge-parachains?/try-runtime",
 	"pallet-bridge-relayers?/try-runtime",
 	"pallet-broker?/try-runtime",
-	"pallet-coretime-market?/try-runtime",
 	"pallet-child-bounties?/try-runtime",
 	"pallet-collator-selection?/try-runtime",
 	"pallet-collective-content?/try-runtime",
@@ -441,6 +442,8 @@ try-runtime = [
 	"pallet-contracts?/try-runtime",
 	"pallet-conviction-voting?/try-runtime",
 	"pallet-core-fellowship?/try-runtime",
+	"pallet-coretime-market?/try-runtime",
+	"pallet-dap-satellite?/try-runtime",
 	"pallet-dap?/try-runtime",
 	"pallet-delegated-staking?/try-runtime",
 	"pallet-democracy?/try-runtime",
@@ -650,7 +653,6 @@ runtime-full = [
 	"pallet-bridge-parachains",
 	"pallet-bridge-relayers",
 	"pallet-broker",
-	"pallet-coretime-market",
 	"pallet-child-bounties",
 	"pallet-collator-selection",
 	"pallet-collective",
@@ -660,6 +662,7 @@ runtime-full = [
 	"pallet-contracts-uapi",
 	"pallet-conviction-voting",
 	"pallet-core-fellowship",
+	"pallet-coretime-market",
 	"pallet-dap",
 	"pallet-delegated-staking",
 	"pallet-democracy",
@@ -1038,10 +1041,7 @@ node = [
 	"xcm-emulator",
 	"xcm-simulator",
 ]
-tuples-96 = [
-	"frame-support-procedural?/tuples-96",
-	"frame-support?/tuples-96",
-]
+tuples-96 = ["frame-support-procedural?/tuples-96", "frame-support?/tuples-96"]
 
 [package.edition]
 workspace = true

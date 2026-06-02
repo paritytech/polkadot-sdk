@@ -3,32 +3,20 @@
 use crate::{
 	mock::*,
 	pallet::{Configuration, SaleInfo},
-	Event, InitData, SalePhase,
+	BidDisplacement, Event, InitData, SalePhase,
 };
-use fp_coretime::{
+use frame_support::{assert_noop, assert_ok, weights::WeightMeter};
+use frame_system::EventRecord;
+use pallet_broker::{
 	market::{AdjustBidResult, Market, OrderResult, RenewalOrderResult, TickAction},
 	PotentialRenewalId, Timeslice,
 };
-use frame_support::weights::WeightMeter;
-use frame_system::EventRecord;
 
 type CoretimeMarket = crate::Pallet<Test>;
 type Error = crate::pallet::Error<Test>;
-type RuntimeEvent = <Test as frame_system::Config>::RuntimeEvent;
 
 fn market_events() -> Vec<Event<Test>> {
-	frame_system::Pallet::<Test>::events()
-		.into_iter()
-		.filter_map(
-			|EventRecord { event, .. }| {
-				if let RuntimeEvent::CoretimeMarket(e) = event {
-					Some(e)
-				} else {
-					None
-				}
-			},
-		)
-		.collect()
+	frame_system::Pallet::<Test>::read_events_for_pallet::<Event<Test>>()
 }
 
 fn last_market_event() -> Event<Test> {
@@ -111,7 +99,10 @@ fn configure_rejects_invalid() {
 	TestExt::new().execute_with(|| {
 		let mut config = new_config();
 		config.market_period = 0; // Invalid.
-		assert!(<CoretimeMarket as Market<u64, u64, u64>>::configure(config).is_err());
+		assert_noop!(
+			<CoretimeMarket as Market<u64, u64, u64>>::configure(config),
+			Error::InvalidConfig
+		);
 	});
 }
 
@@ -132,8 +123,10 @@ fn start_sales_fails_without_config() {
 		TestCoreRangeProvider::set(0, 2);
 		// No configure() called — should fail.
 		let init = InitData { reserve_price: 100 };
-		let result = <CoretimeMarket as Market<u64, u64, u64>>::start_sales(0, init);
-		assert!(result.is_err());
+		assert_noop!(
+			<CoretimeMarket as Market<u64, u64, u64>>::start_sales(0, init),
+			Error::Uninitialized
+		);
 	});
 }
 
@@ -143,8 +136,10 @@ fn start_sales_fails_without_core_range() {
 		<CoretimeMarket as Market<u64, u64, u64>>::configure(new_config()).unwrap();
 		// CoreRangeProvider returns None — should fail.
 		let init = InitData { reserve_price: 100 };
-		let result = <CoretimeMarket as Market<u64, u64, u64>>::start_sales(0, init);
-		assert!(result.is_err());
+		assert_noop!(
+			<CoretimeMarket as Market<u64, u64, u64>>::start_sales(0, init),
+			Error::Uninitialized
+		);
 	});
 }
 
@@ -170,7 +165,7 @@ fn place_bid_works() {
 fn place_bid_wrong_phase() {
 	TestExt::new().execute_with(|| {
 		// No sales started.
-		assert!(place_bid(0, 1, 100).is_err());
+		assert_noop!(place_bid(0, 1, 100), Error::NoSales);
 	});
 }
 
@@ -181,7 +176,7 @@ fn place_bid_too_early() {
 		let sale = SaleInfo::<Test>::get().unwrap();
 
 		if sale.sale_start > 0 {
-			assert!(matches!(place_bid(sale.sale_start - 1, 1, 200), Err(Error::TooEarly)));
+			assert_noop!(place_bid(sale.sale_start - 1, 1, 200), Error::TooEarly);
 		}
 	});
 }
@@ -217,7 +212,7 @@ fn max_bids_limit_enforced() {
 		}
 
 		// 101st bid should fail.
-		assert!(matches!(place_bid(0, 101, 200), Err(Error::TooManyBids)));
+		assert_noop!(place_bid(0, 101, 200), Error::TooManyBids);
 	});
 }
 
@@ -238,7 +233,7 @@ fn adjust_bid_raise_works() {
 		}
 		assert_eq!(
 			last_market_event(),
-			Event::BidRaised { who: 1, bid_id: id, new_price: 180, additional: 30 }
+			Event::BidRaised { who: 1, bid_id: id, old_price: 150, new_price: 180 }
 		);
 	});
 }
@@ -250,7 +245,7 @@ fn adjust_bid_withdraw_not_allowed() {
 		let OrderResult::BidPlaced { id, .. } = place_bid(0, 1, 150).unwrap() else { panic!() };
 
 		// Withdrawal should fail (RFC-17: binding bids).
-		assert!(matches!(adjust_bid(0, id, 1, None), Err(Error::NotAllowed)));
+		assert_noop!(adjust_bid(0, id, 1, None), Error::NotAllowed);
 	});
 }
 
@@ -260,7 +255,7 @@ fn adjust_bid_lower_fails() {
 		start_sales(100);
 		let OrderResult::BidPlaced { id, .. } = place_bid(0, 1, 150).unwrap() else { panic!() };
 
-		assert!(matches!(adjust_bid(0, id, 1, Some(100)), Err(Error::Overpriced)));
+		assert_noop!(adjust_bid(0, id, 1, Some(100)), Error::Overpriced);
 	});
 }
 
@@ -271,7 +266,7 @@ fn adjust_bid_wrong_owner_fails() {
 		let OrderResult::BidPlaced { id, .. } = place_bid(0, 1, 150).unwrap() else { panic!() };
 
 		// User 2 tries to adjust user 1's bid.
-		assert!(matches!(adjust_bid(0, id, 2, Some(180)), Err(Error::BidNotExist)));
+		assert_noop!(adjust_bid(0, id, 2, Some(180)), Error::NotAllowed);
 	});
 }
 
@@ -279,7 +274,7 @@ fn adjust_bid_wrong_owner_fails() {
 fn adjust_bid_nonexistent_fails() {
 	TestExt::new().execute_with(|| {
 		start_sales(100);
-		assert!(matches!(adjust_bid(0, 999, 1, Some(100)), Err(Error::BidNotExist)));
+		assert_noop!(adjust_bid(0, 999, 1, Some(100)), Error::BidNotExist);
 	});
 }
 
@@ -292,7 +287,7 @@ fn adjust_bid_wrong_phase_fails() {
 		tick(20);
 		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Renewal));
 
-		assert!(matches!(adjust_bid(25, id, 1, Some(180)), Err(Error::WrongPhase)));
+		assert_noop!(adjust_bid(25, id, 1, Some(180)), Error::WrongPhase);
 	});
 }
 
@@ -303,7 +298,7 @@ fn adjust_bid_above_current_price_fails() {
 		// At block 10, price = 150 (midpoint between 200 and 100).
 		let OrderResult::BidPlaced { id, .. } = place_bid(10, 1, 140).unwrap() else { panic!() };
 
-		assert!(matches!(adjust_bid(10, id, 1, Some(160)), Err(Error::BidTooHigh)));
+		assert_noop!(adjust_bid(10, id, 1, Some(160)), Error::BidTooHigh);
 	});
 }
 
@@ -504,9 +499,7 @@ fn renewal_during_renewal_phase() {
 fn renewal_without_rights_fails() {
 	TestExt::new().execute_with(|| {
 		let sale = setup_renewal_phase(&[(1, 200)]);
-
-		let result = place_renewal(25, 2, 0, sale.region_begin);
-		assert!(matches!(result, Err(Error::Unavailable)));
+		assert_noop!(place_renewal(25, 2, 0, sale.region_begin), Error::Unavailable);
 	});
 }
 
@@ -517,8 +510,7 @@ fn renewal_wrong_phase_fails() {
 		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Market));
 
 		TestRenewalRights::set(1, 3, 1);
-		let result = place_renewal(5, 1, 0, 3);
-		assert!(matches!(result, Err(Error::WrongPhase)));
+		assert_noop!(place_renewal(5, 1, 0, 3), Error::WrongPhase);
 	});
 }
 
@@ -530,8 +522,7 @@ fn renewal_with_wrong_timeslice_fails() {
 		TestRenewalRights::set(2, sale.region_begin, 1);
 
 		// Pass a PotentialRenewalId with wrong `when` — doesn't match sale.region_begin.
-		let result = place_renewal(25, 2, 0, sale.region_begin + 1);
-		assert!(matches!(result, Err(Error::Unavailable)));
+		assert_noop!(place_renewal(25, 2, 0, sale.region_begin + 1), Error::Unavailable);
 	});
 }
 
@@ -543,29 +534,7 @@ fn double_renewal_prevented() {
 		TestRenewalRights::set(1, sale.region_begin, 1);
 		assert!(place_renewal(25, 1, 0, sale.region_begin).is_ok());
 
-		let result = place_renewal(25, 1, 0, sale.region_begin);
-		assert!(matches!(result, Err(Error::Unavailable)));
-	});
-}
-
-#[test]
-fn renewal_fails_when_pending_actions_full() {
-	TestExt::new().execute_with(|| {
-		let sale = setup_renewal_phase(&[]);
-
-		// Pre-fill PendingRenewalActions to capacity (MaxBids = 100).
-		crate::pallet::PendingRenewalActions::<Test>::put(sp_runtime::BoundedVec::truncate_from(
-			(0..100u64)
-				.map(|i| crate::RenewalAction::Renewed {
-					who: i,
-					renewal_id: PotentialRenewalId { core: i as u16, when: 0 },
-				})
-				.collect::<alloc::vec::Vec<_>>(),
-		));
-
-		TestRenewalRights::set(1, sale.region_begin, 1);
-		let result = place_renewal(25, 1, 0, sale.region_begin);
-		assert!(matches!(result, Err(Error::TooManyBids)));
+		assert_noop!(place_renewal(25, 1, 0, sale.region_begin), Error::Unavailable);
 	});
 }
 
@@ -575,15 +544,14 @@ fn displacement_fails_when_pending_actions_full() {
 		let sale = setup_renewal_phase(&[(1, 200), (2, 150)]);
 
 		// Pre-fill PendingRenewalActions to capacity.
-		crate::pallet::PendingRenewalActions::<Test>::put(sp_runtime::BoundedVec::truncate_from(
+		crate::pallet::PendingDisplacements::<Test>::put(sp_runtime::BoundedVec::truncate_from(
 			(0..100u64)
-				.map(|i| crate::RenewalAction::Displaced { who: i, refund: 50 })
+				.map(|i| BidDisplacement { who: i, refund: 50 })
 				.collect::<alloc::vec::Vec<_>>(),
 		));
 
 		TestRenewalRights::set(3, sale.region_begin, 1);
-		let result = place_renewal(25, 3, 0, sale.region_begin);
-		assert!(matches!(result, Err(Error::TooManyBids)));
+		assert_noop!(place_renewal(25, 3, 0, sale.region_begin), Error::TooManyBids);
 	});
 }
 
@@ -596,35 +564,7 @@ fn multiple_renewal_rights_respected() {
 		assert!(place_renewal(25, 1, 0, sale.region_begin).is_ok());
 		assert!(place_renewal(25, 1, 1, sale.region_begin).is_ok());
 
-		assert!(matches!(place_renewal(25, 1, 2, sale.region_begin), Err(Error::Unavailable)));
-	});
-}
-
-#[test]
-fn renewal_emits_renew_region_in_finalize() {
-	TestExt::new().execute_with(|| {
-		let sale = setup_renewal_phase(&[(1, 200)]);
-
-		TestRenewalRights::set(2, sale.region_begin, 1);
-		place_renewal(25, 2, 0, sale.region_begin).unwrap();
-
-		let actions = tick(30);
-		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Settlement));
-
-		let sell_count =
-			actions.iter().filter(|a| matches!(a, TickAction::SellRegion { .. })).count();
-		assert_eq!(sell_count, 1);
-
-		let renew_count =
-			actions.iter().filter(|a| matches!(a, TickAction::RenewRegion { .. })).count();
-		assert_eq!(renew_count, 1);
-
-		let renew_action =
-			actions.iter().find(|a| matches!(a, TickAction::RenewRegion { .. })).unwrap();
-		match renew_action {
-			TickAction::RenewRegion { owner, .. } => assert_eq!(*owner, 2),
-			_ => unreachable!(),
-		}
+		assert_noop!(place_renewal(25, 1, 2, sale.region_begin), Error::Unavailable);
 	});
 }
 
@@ -749,8 +689,8 @@ fn renewal_quota_reduced_by_auction_wins() {
 		let sale = SaleInfo::<Test>::get().unwrap();
 
 		// remaining = 3 total - 2 auction wins = 1 renewal allowed.
-		assert!(place_renewal(25, 1, 0, sale.region_begin).is_ok());
-		assert!(matches!(place_renewal(25, 1, 1, sale.region_begin), Err(Error::Unavailable)));
+		assert_ok!(place_renewal(25, 1, 0, sale.region_begin));
+		assert_noop!(place_renewal(25, 1, 1, sale.region_begin), Error::Unavailable);
 	});
 }
 
@@ -766,11 +706,11 @@ fn auction_wins_plus_renewals_exhaust_quota() {
 		let sale = SaleInfo::<Test>::get().unwrap();
 
 		// remaining = 3 total - 1 auction win = 2 renewals allowed.
-		assert!(place_renewal(25, 1, 0, sale.region_begin).is_ok());
-		assert!(place_renewal(25, 1, 1, sale.region_begin).is_ok());
+		assert_ok!(place_renewal(25, 1, 0, sale.region_begin));
+		assert_ok!(place_renewal(25, 1, 1, sale.region_begin));
 
 		// Third renewal fails: 1 auction + 2 renewals = 3 = total rights.
-		assert!(matches!(place_renewal(25, 1, 2, sale.region_begin), Err(Error::Unavailable)));
+		assert_noop!(place_renewal(25, 1, 2, sale.region_begin), Error::Unavailable);
 	});
 }
 
@@ -785,17 +725,14 @@ fn renewer_who_also_won_auction() {
 		tick(20);
 		let sale = SaleInfo::<Test>::get().unwrap();
 
-		assert!(place_renewal(25, 1, 0, sale.region_begin).is_ok());
-		assert!(place_renewal(25, 1, 1, sale.region_begin).is_ok());
+		assert_ok!(place_renewal(25, 1, 0, sale.region_begin));
+		assert_ok!(place_renewal(25, 1, 1, sale.region_begin));
 
 		// Finalize: 1 SellRegion (auction win) + 2 RenewRegion.
 		let actions = tick(30);
 		let sell_count =
 			actions.iter().filter(|a| matches!(a, TickAction::SellRegion { .. })).count();
-		let renew_count =
-			actions.iter().filter(|a| matches!(a, TickAction::RenewRegion { .. })).count();
 		assert_eq!(sell_count, 1);
-		assert_eq!(renew_count, 2);
 	});
 }
 
@@ -824,13 +761,10 @@ fn displacement_works_when_oversubscribed() {
 		let actions = tick(30);
 		let sell_count =
 			actions.iter().filter(|a| matches!(a, TickAction::SellRegion { .. })).count();
-		let renew_count =
-			actions.iter().filter(|a| matches!(a, TickAction::RenewRegion { .. })).count();
 		let refund_count =
 			actions.iter().filter(|a| matches!(a, TickAction::Refund { .. })).count();
 
 		assert_eq!(sell_count, 1, "1 remaining auction winner");
-		assert_eq!(renew_count, 1, "1 renewal");
 		assert_eq!(refund_count, 1, "1 displaced refund");
 	});
 }
@@ -888,8 +822,7 @@ fn displacement_fails_when_all_winners_are_tenants() {
 		let sale = setup_renewal_phase(&[(1, 200), (2, 150)]);
 
 		TestRenewalRights::set(3, sale.region_begin, 1);
-		let result = place_renewal(25, 3, 0, sale.region_begin);
-		assert!(matches!(result, Err(Error::Unavailable)));
+		assert_noop!(place_renewal(25, 3, 0, sale.region_begin), Error::Unavailable);
 	});
 }
 
@@ -972,13 +905,10 @@ fn multiple_displacements_in_one_renewal_phase() {
 		let actions = tick(30);
 		let sell_count =
 			actions.iter().filter(|a| matches!(a, TickAction::SellRegion { .. })).count();
-		let renew_count =
-			actions.iter().filter(|a| matches!(a, TickAction::RenewRegion { .. })).count();
 		let refund_count =
 			actions.iter().filter(|a| matches!(a, TickAction::Refund { .. })).count();
 
 		assert_eq!(sell_count, 1, "1 remaining auction winner");
-		assert_eq!(renew_count, 2, "2 renewals");
 		assert_eq!(refund_count, 2, "2 displaced refunds");
 	});
 }

@@ -75,8 +75,9 @@ impl TimesliceProvider for TestTimesliceProvider {
 	fn next_timeslice_to_commit() -> Option<Timeslice> {
 		LATEST_TS_READY.with(|c| c.get().map(|ts| ts.saturating_add(1)))
 	}
+
 	fn latest_timeslice_ready_to_commit() -> Option<Timeslice> {
-		LATEST_TS_READY.with(|c| c.get())
+		Self::next_timeslice_to_commit()
 	}
 }
 
@@ -114,7 +115,6 @@ impl crate::pallet::Config for Test {
 	type CoreRangeProvider = TestCoreRangeProvider;
 	type TimesliceProvider = TestTimesliceProvider;
 	type RenewalRights = TestRenewalRights;
-	type TimeslicePeriod = sp_core::ConstU64<2>;
 	type MaxBids = ConstU32<100>;
 	type Randomness = TestRandomness;
 }

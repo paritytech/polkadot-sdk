@@ -55,6 +55,9 @@ pub use types::*;
 
 mod types;
 
+mod weights;
+use weights::*;
+
 pub mod runtime_api;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -76,60 +79,27 @@ use fp_coretime::{
 };
 use frame_support::{
 	ensure,
-	traits::{tokens::Balance as BalanceT, Get, Randomness},
-	weights::{Weight, WeightMeter},
+	traits::{tokens::Balance as BalanceT, Defensive, Get, Randomness},
+	weights::WeightMeter,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+use pallet_broker::{
+	market::{
+		AdjustBidResult, CoreRangeProvider, Market, OrderResult, RenewalOrderResult, SalesStarted,
+		TickAction, TimesliceProvider,
+	},
+	CoreIndex, CoreMask, PotentialRenewalId, RegionId, Timeslice,
+};
 use sp_arithmetic::{FixedPointNumber, Perbill};
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, SaturatedConversion, Saturating, Zero},
 	BoundedVec, FixedPointOperand, FixedU64,
 };
 
-type BalanceOf<T> = <T as pallet::Config>::Balance;
-type RelayBlockNumberOf<T> = <T as pallet::Config>::RelayBlockNumber;
-type ConfigRecordOf<T> = ConfigRecord<RelayBlockNumberOf<T>, BalanceOf<T>>;
-type SaleInfoRecordOf<T> = SaleInfoRecord<BalanceOf<T>, RelayBlockNumberOf<T>>;
-type TickActionOf<T> =
-	TickAction<<T as frame_system::Config>::AccountId, BalanceOf<T>, RelayBlockNumberOf<T>>;
-
-/// Weight functions needed by the market pallet.
-pub trait WeightInfo {
-	fn place_order() -> Weight;
-	fn adjust_bid() -> Weight;
-	fn place_renewal_order_renewal() -> Weight;
-	fn place_renewal_order_displacement() -> Weight;
-	fn settle_auction() -> Weight;
-	fn finalize_sale() -> Weight;
-	fn rotate_sale() -> Weight;
-}
-
-impl WeightInfo for () {
-	fn place_order() -> Weight {
-		Weight::zero()
-	}
-	fn adjust_bid() -> Weight {
-		Weight::zero()
-	}
-	fn place_renewal_order_renewal() -> Weight {
-		Weight::zero()
-	}
-	fn place_renewal_order_displacement() -> Weight {
-		Weight::zero()
-	}
-	fn settle_auction() -> Weight {
-		Weight::zero()
-	}
-	fn finalize_sale() -> Weight {
-		Weight::zero()
-	}
-	fn rotate_sale() -> Weight {
-		Weight::zero()
-	}
-}
-
 #[frame_support::pallet]
 pub mod pallet {
+	use crate::weights::WeightInfo;
+
 	use super::*;
 	use frame_support::pallet_prelude::*;
 
@@ -137,7 +107,13 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config:
+		frame_system::Config<
+		RuntimeEvent: From<Event<Self>>
+		                  + IsType<<Self as frame_system::Config>::RuntimeEvent>
+		                  + TryInto<Event<Self>>,
+	>
+	{
 		/// Balance type used for bid amounts and prices.
 		type Balance: BalanceT + FixedPointOperand;
 
@@ -160,54 +136,99 @@ pub mod pallet {
 		/// Provider of renewal rights information from the broker pallet.
 		type RenewalRights: RenewalRightsProvider<Self::AccountId>;
 
-		/// The number of relay chain blocks in a timeslice.
-		#[pallet::constant]
-		type TimeslicePeriod: Get<Self::RelayBlockNumber>;
-
 		/// Maximum number of bids that can be placed in a single sale.
 		#[pallet::constant]
-		type MaxBids: Get<u32>;
+		type MaxBids: Get<BidId>;
 
 		/// Source of randomness for shuffling marginal bids at settlement.
-		type Randomness: frame_support::traits::Randomness<Self::Hash, BlockNumberFor<Self>>;
+		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A new bid was placed during the Market phase.
-		BidPlaced { who: T::AccountId, bid_id: u32, amount: BalanceOf<T> },
+		BidPlaced {
+			/// Who have placed the bid.
+			who: T::AccountId,
+			/// Id of the bid that was placed.
+			bid_id: BidId,
+			/// Amount of the bid.
+			amount: BalanceOf<T>,
+		},
 		/// An existing bid was raised to a higher price.
 		BidRaised {
+			/// A bidder who raised the bid.
 			who: T::AccountId,
-			bid_id: u32,
+			/// Id of the bid that was raised.
+			bid_id: BidId,
+			/// A price of the bid before it was raised.
+			old_price: BalanceOf<T>,
+			/// A price of the bid after it was raised.
 			new_price: BalanceOf<T>,
-			additional: BalanceOf<T>,
 		},
 		/// The Market phase auction has been settled with a clearing price.
-		AuctionSettled { clearing_price: BalanceOf<T>, winners: u32 },
+		AuctionSettled {
+			/// A clearing price that was determined when the market phase was settled.
+			clearing_price: BalanceOf<T>,
+			/// The number of auction winners.
+			winners: u32,
+		},
 		/// Regions have been issued to auction winners at the end of the Renewal phase.
-		SaleFinalized { regions_issued: u32 },
+		SaleFinalized {
+			/// How much regions were issued.
+			regions_issued: u32,
+		},
 		/// A renewal right was exercised during the Renewal phase.
-		RenewalExercised { who: T::AccountId, price: BalanceOf<T>, region_id: RegionId },
+		RenewalExercised {
+			/// The renewer who exercised his renewal right.
+			who: T::AccountId,
+			/// Price that was paid for the renewal.
+			price: BalanceOf<T>,
+			/// Id of the region that's being renewed.
+			region_id: RegionId,
+		},
 		/// An auction winner was displaced by a renewer during the Renewal phase.
-		BidDisplaced { who: T::AccountId, bid_id: u32, refund: BalanceOf<T> },
+		BidDisplaced {
+			/// Whose bid was displaced.
+			who: T::AccountId,
+			/// Id of the bid that was displaced.
+			bid_id: BidId,
+			/// Amount that will be returned to the bidder whose bid was displaced(the full amount
+			/// of the bid).
+			refund: BalanceOf<T>,
+		},
 		/// The sale phase has changed.
-		PhaseTransitioned { from: SalePhase, to: SalePhase },
+		PhaseTransitioned {
+			/// A sale phase before the transition.
+			from: SalePhase,
+			/// A sale phase after the transition.
+			to: SalePhase,
+		},
 		/// A new sale has been initialized.
 		SaleInitialized {
+			/// The relay block number at which the sale starts.
 			sale_start: RelayBlockNumberOf<T>,
+			/// The length in blocks of the Market (auction) phase.
 			market_period: RelayBlockNumberOf<T>,
+			/// The opening price of the descending Dutch auction.
 			start_price: BalanceOf<T>,
+			/// The floor price of the descending Dutch auction.
 			reserve_price: BalanceOf<T>,
+			/// The first timeslice of the Regions which are being sold in this sale.
 			region_begin: Timeslice,
+			/// The timeslice on which the Regions being sold in this sale expire.
 			region_end: Timeslice,
+			/// The number of cores we want to sell, ideally. Selling this amount would result in
+			/// no change to the price for the next sale.
 			ideal_cores_sold: CoreIndex,
+			/// Number of cores offered for sale.
 			cores_offered: CoreIndex,
 		},
 	}
 
 	#[pallet::error]
+	#[derive(PartialEq)]
 	pub enum Error<T> {
 		/// No active sales.
 		NoSales,
@@ -261,61 +282,32 @@ pub mod pallet {
 
 	/// Actions accumulated during the Renewal phase, resolved at sale finalization.
 	#[pallet::storage]
-	pub type PendingRenewalActions<T: Config> = StorageValue<
+	pub type PendingDisplacements<T: Config> = StorageValue<
 		_,
-		BoundedVec<RenewalAction<T::AccountId, BalanceOf<T>>, T::MaxBids>,
+		BoundedVec<BidDisplacement<T::AccountId, BalanceOf<T>>, T::MaxBids>,
 		ValueQuery,
 	>;
 }
 
 impl<T: Config> Pallet<T> {
-	/// Get the current price at a given block number.
-	fn set_phase(phase: SalePhase) {
-		SaleInfo::<T>::mutate(|s| {
-			if let Some(sale) = s {
-				sale.phase = phase;
-			}
-		});
+	/// Set the current sale phase.
+	pub fn set_phase(phase: SalePhase) {
+		SaleInfo::<T>::mutate_extant(|sale| sale.phase = phase);
 	}
 
+	/// Get the current price at a given block number.
 	pub fn current_price(block_number: RelayBlockNumberOf<T>) -> Option<BalanceOf<T>> {
 		let sale = SaleInfo::<T>::get()?;
 		match sale.phase {
-			SalePhase::Market => Some(descending_price::<T>(block_number, &sale)),
+			SalePhase::Market => descending_price::<T>(block_number, &sale).ok(),
 			SalePhase::Renewal | SalePhase::Settlement => sale.clearing_price,
 		}
-	}
-
-	/// Record a successful renewal: update counters, track for finalization, emit event.
-	fn record_renewal(
-		who: &T::AccountId,
-		_renewal: PotentialRenewalId,
-		price: BalanceOf<T>,
-		region_id: RegionId,
-		region_end: Timeslice,
-	) -> Result<RenewalOrderResult<BalanceOf<T>, u32>, Error<T>> {
-		// PendingRenewalActions::<T>::try_mutate(|actions| {
-		// 	actions
-		// 		.try_push(RenewalAction::Renewed { who: who.clone(), renewal_id: renewal })
-		// 		.map_err(|_| Error::<T>::TooManyBids)
-		// })?;
-
-		SaleInfo::<T>::mutate(|s| {
-			if let Some(sale) = s {
-				sale.renewal_count.saturating_inc();
-			}
-		});
-		Quotas::<T>::mutate(who, |q| q.renewals_used.saturating_inc());
-
-		Self::deposit_event(Event::RenewalExercised { who: who.clone(), price, region_id });
-
-		Ok(RenewalOrderResult::Renewed { price, region_id, effective_to: region_end })
 	}
 }
 
 impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pallet<T> {
 	type Error = Error<T>;
-	type BidId = u32;
+	type BidId = BidId;
 	type InitData = InitData<BalanceOf<T>>;
 	type Configuration = ConfigRecordOf<T>;
 	type CoreRangeProvider = T::CoreRangeProvider;
@@ -332,10 +324,11 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		init_data: Self::InitData,
 	) -> Result<SalesStarted<RelayBlockNumberOf<T>>, Self::Error> {
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
-		let range = Self::CoreRangeProvider::core_range().ok_or(Error::<T>::Uninitialized)?;
+		let core_range = Self::CoreRangeProvider::core_range().ok_or(Error::<T>::Uninitialized)?;
 
 		let reserve_price = init_data.reserve_price;
-		let commit_timeslice = latest_timeslice_ready_to_commit::<T>(block_number, &config);
+		let commit_timeslice = T::TimesliceProvider::latest_timeslice_ready_to_commit()
+			.ok_or(Error::<T>::Uninitialized)?;
 
 		// Bootstrap with an imaginary previous sale.
 		let old_sale = SaleInfoRecord {
@@ -353,7 +346,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 			phase: SalePhase::Settlement, // Dummy — rotate_sale will create the real one.
 		};
 
-		let new_sale = rotate_sale::<T>(&old_sale, &config, &range, block_number);
+		let new_sale = rotate_sale::<T>(&old_sale, &config, &core_range, block_number);
 
 		SaleInfo::<T>::put(&new_sale);
 
@@ -380,15 +373,15 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		ensure!(sale.phase == SalePhase::Market, Error::<T>::WrongPhase);
 		ensure!(block_number >= sale.sale_start, Error::<T>::TooEarly);
 
-		let current_price = descending_price::<T>(block_number, &sale);
+		let current_price = descending_price::<T>(block_number, &sale)?;
 		let bid_price = price_limit.min(current_price);
 
 		let bid_id = Bids::<T>::try_mutate(|bids| {
-			let bid_id = bids.len() as u32;
+			let bid_id = bids.len() as BidId;
 			let record = BidRecord { bid_id, who: who.clone(), price: bid_price };
 			let pos = bids.partition_point(|b| b.price > bid_price);
 			bids.try_insert(pos, record).map_err(|_| Error::<T>::TooManyBids)?;
-			Ok::<u32, Error<T>>(bid_id)
+			Ok::<_, Error<T>>(bid_id)
 		})?;
 
 		Self::deposit_event(Event::BidPlaced { who: who.clone(), bid_id, amount: bid_price });
@@ -415,7 +408,9 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 			.saturating_sub(quota.renewals_used);
 		ensure!(remaining > 0, Error::<T>::Unavailable);
 
-		let clearing = sale.clearing_price.unwrap_or(sale.reserve_price);
+		// TODO: Put `clearing_price` into `SalePhase::Renewal` to have the guarantee that it will
+		// be present.
+		let clearing = sale.clearing_price.defensive_unwrap_or(sale.reserve_price);
 
 		let allocations = Allocations::<T>::get();
 		// Use cores_sold from settlement (not Allocations len, which shrinks
@@ -433,27 +428,27 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		} else if oversubscribed {
 			// All cores allocated: displace the lowest-priced winner whose renewal
 			// rights are fully consumed by auction wins.
-			let mut allocs = allocations;
+			let mut allocations = allocations;
 
-			let displace_idx = allocs
+			let displace_idx = allocations
 				.iter()
 				.enumerate()
 				.filter(|(_, a)| {
 					let rights = T::RenewalRights::renewal_rights_count(&a.who, sale.region_begin);
 					let wins = Quotas::<T>::get(&a.who).auction_wins;
-					rights <= wins
+					rights < wins
 				})
 				.min_by_key(|(_, a)| a.bid_price)
 				.map(|(i, _)| i)
 				.ok_or(Error::<T>::Unavailable)?;
 
-			let displaced = allocs.remove(displace_idx);
+			let displaced = allocations.remove(displace_idx);
 			let core = displaced.core;
 			let refund = sale.clearing_price.unwrap_or_default();
 
-			PendingRenewalActions::<T>::try_mutate(|actions| {
-				actions
-					.try_push(RenewalAction::Displaced { who: displaced.who.clone(), refund })
+			PendingDisplacements::<T>::try_mutate(|displacements| {
+				displacements
+					.try_push(BidDisplacement { who: displaced.who.clone(), refund })
 					.map_err(|_| Error::<T>::TooManyBids)
 			})?;
 
@@ -462,7 +457,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 				bid_id: displaced.bid_id,
 				refund,
 			});
-			Allocations::<T>::put(allocs);
+			Allocations::<T>::put(allocations);
 
 			core
 		} else {
@@ -470,7 +465,21 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		};
 
 		let region_id = RegionId { begin: sale.region_begin, core, mask: CoreMask::complete() };
-		Self::record_renewal(who, renewal, renewal_price, region_id, sale.region_end)
+
+		SaleInfo::<T>::mutate_extant(|sale| sale.renewal_count.saturating_inc());
+		Quotas::<T>::mutate(who, |quota| quota.renewals_used.saturating_inc());
+
+		Self::deposit_event(Event::RenewalExercised {
+			who: who.clone(),
+			price: renewal_price,
+			region_id,
+		});
+
+		Ok(RenewalOrderResult::Renewed {
+			price: renewal_price,
+			region_id,
+			effective_to: sale.region_end,
+		})
 	}
 
 	fn adjust_bid(
@@ -487,13 +496,16 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 
 		let mut bids = Bids::<T>::get();
 		let idx = bids.iter().position(|b| b.bid_id == id).ok_or(Error::<T>::BidNotExist)?;
-		ensure!(&bids[idx].who == who, Error::<T>::BidNotExist);
-		ensure!(new_price > bids[idx].price, Error::<T>::Overpriced);
+		ensure!(&bids[idx].who == who, Error::<T>::NotAllowed);
 
-		let current_price = descending_price::<T>(block_number, &sale);
+		let old_price = bids[idx].price;
+		// RFC-17: bids cannot be lowered, only raised.
+		ensure!(new_price > old_price, Error::<T>::Overpriced);
+
+		let current_price = descending_price::<T>(block_number, &sale)?;
+		// RFC-17: bid price cannot be higher than the current auction price.
 		ensure!(new_price <= current_price, Error::<T>::BidTooHigh);
 
-		let additional = new_price.saturating_sub(bids[idx].price);
 		let mut record = bids.remove(idx);
 		record.price = new_price;
 		let new_pos = bids.partition_point(|b| b.price > new_price);
@@ -505,17 +517,19 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		Self::deposit_event(Event::BidRaised {
 			who: who.clone(),
 			bid_id: id,
+			old_price,
 			new_price,
-			additional,
 		});
 
-		Ok(AdjustBidResult::Lock { amount: additional })
+		Ok(AdjustBidResult::Lock { amount: new_price.saturating_sub(old_price) })
 	}
 
 	fn tick(
 		block_number: RelayBlockNumberOf<T>,
 		weight_meter: &mut WeightMeter,
 	) -> Vec<TickActionOf<T>> {
+		weight_meter.consume(T::WeightInfo::tick_base());
+
 		let mut actions: Vec<TickActionOf<T>> = vec![];
 
 		let Some(config) = Configuration::<T>::get() else {
@@ -530,10 +544,10 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 				let market_end = sale.sale_start.saturating_add(config.market_period);
 
 				if block_number >= market_end {
-					if !weight_meter.can_consume(T::WeightInfo::settle_auction()) {
-						return actions;
-					}
-					weight_meter.consume(T::WeightInfo::settle_auction());
+					weight_meter.consume(
+						T::WeightInfo::sale_phase_transition_to_renewal()
+							.saturating_sub(T::WeightInfo::tick_base()),
+					);
 
 					let mut settlement_actions = settle_auction::<T>(&sale);
 					Self::set_phase(SalePhase::Renewal);
@@ -543,12 +557,11 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 						to: SalePhase::Renewal,
 					});
 
-					settlement_actions.push(TickAction::ProcessAutoRenewals {
+					actions.append(&mut settlement_actions);
+					actions.push(TickAction::ProcessAutoRenewals {
 						after_timeslice: sale.region_begin,
 						next_renewal_at: sale.region_end,
 					});
-					actions.append(&mut settlement_actions);
-					return actions;
 				}
 			},
 			SalePhase::Renewal => {
@@ -556,10 +569,10 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 				let renewal_end = market_end.saturating_add(config.renewal_period);
 
 				if block_number >= renewal_end {
-					if !weight_meter.can_consume(T::WeightInfo::finalize_sale()) {
-						return actions;
-					}
-					weight_meter.consume(T::WeightInfo::finalize_sale());
+					weight_meter.consume(
+						T::WeightInfo::sale_phase_transition_to_settlement()
+							.saturating_sub(T::WeightInfo::tick_base()),
+					);
 
 					let mut finalize_actions = finalize_sale::<T>(&sale);
 					Self::set_phase(SalePhase::Settlement);
@@ -571,16 +584,15 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 					});
 
 					actions.append(&mut finalize_actions);
-					return actions;
 				}
 			},
 			SalePhase::Settlement => {
 				let ready = Self::TimesliceProvider::latest_timeslice_ready_to_commit();
 				if ready.map_or(false, |ts| ts >= sale.region_begin) {
-					if !weight_meter.can_consume(T::WeightInfo::rotate_sale()) {
-						return actions;
-					}
-					weight_meter.consume(T::WeightInfo::rotate_sale());
+					weight_meter.consume(
+						T::WeightInfo::sale_phase_transition_to_market()
+							.saturating_sub(T::WeightInfo::tick_base()),
+					);
 
 					let Some(range) = Self::CoreRangeProvider::core_range() else {
 						return actions;
@@ -608,7 +620,6 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 						old_sale: sale.to_market_sale_info(),
 						new_sale: new_sale.to_market_sale_info(),
 					});
-					return actions;
 				}
 			},
 		}
@@ -633,13 +644,13 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 fn descending_price<T: Config>(
 	now: RelayBlockNumberOf<T>,
 	sale: &SaleInfoRecordOf<T>,
-) -> BalanceOf<T> {
-	let config = Configuration::<T>::get();
-	let market_period = config.map(|c| c.market_period).unwrap_or_else(|| now);
+) -> Result<BalanceOf<T>, Error<T>> {
+	let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+	let market_period = config.market_period;
 
 	let elapsed = now.saturating_sub(sale.sale_start).min(market_period);
 	if market_period.is_zero() {
-		return sale.reserve_price;
+		return Ok(sale.reserve_price);
 	}
 
 	let price_range = sale.opening_price.saturating_sub(sale.reserve_price);
@@ -648,7 +659,7 @@ fn descending_price<T: Config>(
 	let descent =
 		FixedU64::from_rational(elapsed_u128, period_u128).saturating_mul_int(price_range);
 
-	sale.opening_price.saturating_sub(descent)
+	Ok(sale.opening_price.saturating_sub(descent))
 }
 
 /// Fisher-Yates shuffle of the sub-slice of bids that tie at the clearing price.
@@ -735,7 +746,10 @@ fn settle_auction<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>>
 		.collect();
 
 	let winner_count = allocations.len() as u32;
-	Allocations::<T>::put(BoundedVec::truncate_from(allocations));
+	Allocations::<T>::put(
+		BoundedVec::try_from(allocations)
+			.expect("Auction winner count cannot exceed bid count; qed"),
+	);
 
 	let mut updated_sale = sale.clone();
 	updated_sale.cores_sold = winner_count as u16;
@@ -769,38 +783,19 @@ fn finalize_sale<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> 
 		});
 	}
 
-	// Process pending renewal actions: renewals and displacement refunds.
-	for action in PendingRenewalActions::<T>::take() {
-		match action {
-			RenewalAction::Renewed { who, renewal_id } => {
-				actions.push(TickAction::RenewRegion { owner: who, renewal_id })
-			},
-			RenewalAction::Displaced { who, refund } => {
-				actions.push(TickAction::Refund { amount: refund, who })
-			},
-		}
+	for displacement in PendingDisplacements::<T>::take() {
+		actions.push(TickAction::Refund { who: displacement.who, amount: displacement.refund });
 	}
 
 	if sale.renewal_count > 0 {
-		SaleInfo::<T>::mutate(|s| {
-			if let Some(sale) = s {
-				sale.cores_sold = sale.cores_sold.saturating_add(sale.renewal_count as u16);
-			}
+		SaleInfo::<T>::mutate_extant(|sale| {
+			sale.cores_sold.saturating_accrue(sale.renewal_count as u16);
 		});
 	}
 
 	Pallet::<T>::deposit_event(Event::SaleFinalized { regions_issued: count });
 
 	actions
-}
-
-fn latest_timeslice_ready_to_commit<T: Config>(
-	now: RelayBlockNumberOf<T>,
-	config: &ConfigRecordOf<T>,
-) -> Timeslice {
-	let advanced = now.saturating_add(config.advance_notice);
-	let timeslice_period = T::TimeslicePeriod::get();
-	(advanced / timeslice_period).saturated_into()
 }
 
 /// Compute the new reserve price per RFC-17's exponential adjustment.

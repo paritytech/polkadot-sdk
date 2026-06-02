@@ -47,18 +47,54 @@ fn fill_bids<T: Config>(n: u32) -> Result<(), BenchmarkError> {
 	Ok(())
 }
 
-fn advance_to_renewal<T: Config>(n_bids: u32) -> Result<(), BenchmarkError> {
-	setup_sale::<T>()?;
-	fill_bids::<T>(n_bids)?;
+fn advance_to_renewal<T: Config>() -> Result<(), BenchmarkError> {
 	let mut meter = frame_support::weights::WeightMeter::new();
 	Pallet::<T>::tick(20u32.into(), &mut meter);
 	assert_eq!(SaleInfo::<T>::get().map(|s| s.phase), Some(SalePhase::Renewal));
 	Ok(())
 }
 
+fn market_events<T: Config>() -> Vec<Event<T>> {
+	frame_system::Pallet::<T>::read_events_for_pallet::<Event<T>>()
+}
+
 #[benchmarks]
 mod benches {
+	use frame_support::assert_ok;
+
 	use super::*;
+
+	#[benchmark]
+	fn configure() -> Result<(), BenchmarkError> {
+		let config = default_config::<T>();
+
+		#[block]
+		{
+			Pallet::<T>::configure(config).map_err(|_| BenchmarkError::Weightless)?;
+		}
+
+		assert!(Configuration::<T>::get().is_some());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn start_sales() -> Result<(), BenchmarkError> {
+		let config = default_config::<T>();
+		Pallet::<T>::configure(config).map_err(|_| BenchmarkError::Weightless)?;
+		let init = InitData { reserve_price: 100u32.into() };
+
+		#[block]
+		{
+			Pallet::<T>::start_sales(0u32.into(), init).map_err(|_| BenchmarkError::Weightless)?;
+		}
+
+		assert!(market_events::<T>()
+			.into_iter()
+			.any(|event| matches!(event, Event::<T>::SaleInitialized { .. })));
+
+		Ok(())
+	}
 
 	#[benchmark]
 	fn place_order() -> Result<(), BenchmarkError> {
@@ -74,7 +110,42 @@ mod benches {
 				.map_err(|_| BenchmarkError::Weightless)?;
 		}
 
-		assert_eq!(pallet::Bids::<T>::get().len(), max as usize);
+		assert_eq!(
+			market_events::<T>()
+				.into_iter()
+				.filter(|event| { matches!(event, Event::BidPlaced { .. }) })
+				.count(),
+			max as usize
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn place_renewal_order() -> Result<(), BenchmarkError> {
+		setup_sale::<T>()?;
+
+		let cores = T::CoreRangeProvider::core_range().map(|r| r.to - r.from).unwrap();
+		fill_bids::<T>(cores as u32)?;
+
+		advance_to_renewal::<T>()?;
+
+		let region_begin =
+			pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?.region_begin;
+		let caller: T::AccountId = account("renewer", 0, SEED);
+		T::RenewalRights::set_rights_count(&caller, region_begin, 1);
+		let renewal_id = PotentialRenewalId { core: 0, when: region_begin };
+
+		#[block]
+		{
+			Pallet::<T>::place_renewal_order(0u32.into(), &caller, renewal_id)
+				.map_err(|_| BenchmarkError::Weightless)?;
+		}
+
+		assert!(market_events::<T>()
+			.into_iter()
+			.any(|event| matches!(event, Event::BidDisplaced { .. })));
+
 		Ok(())
 	}
 
@@ -99,90 +170,118 @@ mod benches {
 				.map_err(|_| BenchmarkError::Weightless)?;
 		}
 
-		Ok(())
-	}
-
-	#[benchmark]
-	fn place_renewal_order_renewal() -> Result<(), BenchmarkError> {
-		advance_to_renewal::<T>(1)?;
-		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
-		let caller: T::AccountId = account("renewer", 0, SEED);
-		T::RenewalRights::set_rights_count(&caller, sale.region_begin, 1);
-		let renewal_id = PotentialRenewalId { core: 0, when: sale.region_begin };
-
-		#[block]
-		{
-			Pallet::<T>::place_renewal_order(25u32.into(), &caller, renewal_id)
-				.map_err(|_| BenchmarkError::Weightless)?;
-		}
+		assert!(market_events::<T>()
+			.into_iter()
+			.any(|event| matches!(event, Event::BidRaised { .. })));
 
 		Ok(())
 	}
 
 	#[benchmark]
-	fn place_renewal_order_displacement() -> Result<(), BenchmarkError> {
-		let cores = T::CoreRangeProvider::core_range().map(|r| r.to - r.from).unwrap_or(2);
-		advance_to_renewal::<T>(cores as u32)?;
-		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
-		let caller: T::AccountId = account("renewer", 0, SEED);
-		T::RenewalRights::set_rights_count(&caller, sale.region_begin, 1);
-		let renewal_id = PotentialRenewalId { core: 0, when: sale.region_begin };
-
-		#[block]
-		{
-			Pallet::<T>::place_renewal_order(25u32.into(), &caller, renewal_id)
-				.map_err(|_| BenchmarkError::Weightless)?;
-		}
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn settle_auction() -> Result<(), BenchmarkError> {
+	fn tick_base() -> Result<(), BenchmarkError> {
 		setup_sale::<T>()?;
-		fill_bids::<T>(T::MaxBids::get())?;
-		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
 
+		assert!(SaleInfo::<T>::exists());
+		assert!(Configuration::<T>::exists());
+
+		// The most expensive check is performed at this phase.
+		SaleInfo::<T>::mutate_extant(|sale| sale.phase = SalePhase::Settlement);
+
+		let mut meter = WeightMeter::new();
 		#[block]
 		{
-			super::settle_auction::<T>(&sale);
+			Pallet::<T>::tick(0u32.into(), &mut meter);
 		}
 
-		assert!(pallet::Bids::<T>::get().is_empty());
 		Ok(())
 	}
 
 	#[benchmark]
-	fn finalize_sale() -> Result<(), BenchmarkError> {
-		let cores = T::CoreRangeProvider::core_range().map(|r| r.to - r.from).unwrap_or(2);
-		advance_to_renewal::<T>(cores as u32)?;
-		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
-
-		#[block]
-		{
-			super::finalize_sale::<T>(&sale);
-		}
-
-		assert!(pallet::Allocations::<T>::get().is_empty());
-		Ok(())
-	}
-
-	#[benchmark]
-	fn rotate_sale() -> Result<(), BenchmarkError> {
+	fn sale_phase_transition_to_renewal() -> Result<(), BenchmarkError> {
 		setup_sale::<T>()?;
-		fill_bids::<T>(2)?;
-		let mut meter = frame_support::weights::WeightMeter::new();
-		Pallet::<T>::tick(20u32.into(), &mut meter);
-		Pallet::<T>::tick(30u32.into(), &mut meter);
+
+		for i in 0..T::MaxBids::get() {
+			let who: T::AccountId = account("bidder", i, SEED);
+			// Equal bids will result in the worst-case scenario for marginal bids shuffle.
+			let price: u32 = 200u32;
+			assert_ok!(Pallet::<T>::place_order(0u32.into(), &who, price.into()));
+		}
 
 		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
 		let config = pallet::Configuration::<T>::get().ok_or(BenchmarkError::Weightless)?;
-		let range = T::CoreRangeProvider::core_range().ok_or(BenchmarkError::Weightless)?;
 
+		let market_end = sale.sale_start.saturating_add(config.market_period);
+
+		frame_system::Pallet::<T>::reset_events();
+		let mut weight_meter = WeightMeter::new();
 		#[block]
 		{
-			super::rotate_sale::<T>(&sale, &config, &range, 35u32.into());
+			Pallet::<T>::tick(market_end, &mut weight_meter);
 		}
+
+		frame_system::Pallet::<T>::assert_has_event(
+			Event::<T>::PhaseTransitioned { from: SalePhase::Market, to: SalePhase::Renewal }
+				.into(),
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn sale_phase_transition_to_settlement() -> Result<(), BenchmarkError> {
+		setup_sale::<T>()?;
+
+		let cores = T::CoreRangeProvider::core_range().map(|r| r.to - r.from).unwrap();
+		fill_bids::<T>(cores as u32)?;
+
+		advance_to_renewal::<T>()?;
+
+		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
+		let config = pallet::Configuration::<T>::get().ok_or(BenchmarkError::Weightless)?;
+
+		for i in 0..(cores as u32) {
+			let renewer: T::AccountId = account("renewer", i, SEED);
+			T::RenewalRights::set_rights_count(&renewer, sale.region_begin, 1);
+
+			assert_ok!(Pallet::<T>::place_renewal_order(
+				0u32.into(),
+				&renewer,
+				PotentialRenewalId { core: 0, when: sale.region_begin }
+			));
+		}
+
+		let market_end = sale.sale_start.saturating_add(config.market_period);
+		let renewal_end = market_end.saturating_add(config.renewal_period);
+
+		frame_system::Pallet::<T>::reset_events();
+		let mut weight_meter = WeightMeter::new();
+		#[block]
+		{
+			Pallet::<T>::tick(renewal_end, &mut weight_meter);
+		}
+
+		frame_system::Pallet::<T>::assert_has_event(
+			Event::<T>::PhaseTransitioned { from: SalePhase::Renewal, to: SalePhase::Settlement }
+				.into(),
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn sale_phase_transition_to_market() -> Result<(), BenchmarkError> {
+		setup_sale::<T>()?;
+
+		let mut meter = frame_support::weights::WeightMeter::new();
+		#[block]
+		{
+			Pallet::<T>::tick(0u32.into(), &mut meter);
+		}
+
+		frame_system::Pallet::<T>::assert_has_event(
+			Event::<T>::PhaseTransitioned { from: SalePhase::Settlement, to: SalePhase::Market }
+				.into(),
+		);
 
 		Ok(())
 	}
