@@ -113,7 +113,9 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let key = Key::Fix(index.to_big_endian());
 	// NB: SLOAD loads 32 bytes from storage.
 	let access_kind = interpreter.ext.touch_storage_access_list(false, &key);
-	interpreter.ext.charge_or_halt(RuntimeCosts::get_storage(access_kind, 32))?;
+	interpreter
+		.ext
+		.charge_or_halt(RuntimeCosts::GetStorage { len: 32, kind: access_kind })?;
 	let value = interpreter.ext.get_storage(&key);
 
 	*index = if let Some(storage_value) = value {
@@ -146,11 +148,11 @@ fn store_helper<'ext, E: Ext>(
 	let key = Key::Fix(index.to_big_endian());
 
 	let access_kind = interpreter.ext.touch_storage_access_list(transient, &key);
-	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::set_storage(
-		access_kind,
-		32,
-		limits::STORAGE_BYTES,
-	))?;
+	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::SetStorage {
+		new_bytes: 32,
+		old_bytes: limits::STORAGE_BYTES,
+		kind: access_kind,
+	})?;
 
 	let value_to_store = if value.is_zero() { None } else { Some(value.to_big_endian().to_vec()) };
 	let new_bytes = value_to_store.as_ref().map(|v| v.len() as u32).unwrap_or(0);
@@ -161,7 +163,11 @@ fn store_helper<'ext, E: Ext>(
 
 	interpreter.ext.frame_meter_mut().adjust_weight(
 		charged,
-		RuntimeCosts::set_storage(access_kind, new_bytes, write_outcome.old_len()),
+		RuntimeCosts::SetStorage {
+			new_bytes,
+			old_bytes: write_outcome.old_len(),
+			kind: access_kind,
+		},
 	);
 	ControlFlow::Continue(())
 }
@@ -190,7 +196,9 @@ pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let key = Key::Fix(index.to_big_endian());
 	let access_kind = interpreter.ext.touch_storage_access_list(true, &key);
 	// TLOAD reads 32 bytes.
-	interpreter.ext.charge_or_halt(RuntimeCosts::get_storage(access_kind, 32))?;
+	interpreter
+		.ext
+		.charge_or_halt(RuntimeCosts::GetStorage { len: 32, kind: access_kind })?;
 	let bytes = interpreter.ext.get_transient_storage(&key);
 
 	*index = if let Some(storage_value) = bytes {

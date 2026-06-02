@@ -2969,7 +2969,7 @@ fn is_cold_touch<E: Ext>(ext: &mut E, key: &Key) -> bool {
 	matches!(ext.touch_storage_access_list(false, key), StorageAccessKind::PersistentCold)
 }
 
-fn run_call_helper(contract_addr: H160, input: Vec<u8>) {
+fn run_root_call(contract_addr: H160, input: Vec<u8>) {
 	set_balance(&ALICE, <Test as Config>::Currency::minimum_balance() * 1000);
 	let mut meter =
 		TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>()).unwrap();
@@ -2983,7 +2983,7 @@ fn run_call_helper(contract_addr: H160, input: Vec<u8>) {
 	));
 }
 
-fn dummy_call_helper<E: Ext>(ext: &mut E, to: &H160, input: Vec<u8>) -> Result<(), ExecError> {
+fn run_child_call<E: Ext>(ext: &mut E, to: &H160, input: Vec<u8>) -> Result<(), ExecError> {
 	ext.call(
 		&CallResources::NoLimits,
 		to,
@@ -2995,7 +2995,7 @@ fn dummy_call_helper<E: Ext>(ext: &mut E, to: &H160, input: Vec<u8>) -> Result<(
 }
 
 #[test]
-fn cold_hot_touch_then_retouch_is_hot() {
+fn cold_hot_retouch_marks_slot_hot() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		let key_a = Key::Fix([7; 32]);
 		let key_b = Key::Fix([8; 32]);
@@ -3009,7 +3009,7 @@ fn cold_hot_touch_then_retouch_is_hot() {
 
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, code_hash);
-		run_call_helper(BOB_ADDR, vec![]);
+		run_root_call(BOB_ADDR, vec![]);
 	});
 }
 
@@ -3028,20 +3028,20 @@ fn cold_hot_child_commit_visible_on_next_call() {
 
 	let parent_code_hash = MockLoader::insert(Call, |ctx, _| {
 		// First child call: cold, commits.
-		assert_matches!(dummy_call_helper(ctx.ext, &BOB_ADDR, vec![1]), Ok(_));
+		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![1]), Ok(_));
 
 		// Parent's own touch is a different access-list entry, still cold.
 		assert!(is_cold_touch(ctx.ext, &Key::Fix(SLOT)));
 
 		// Second child call: now hot — first commit is still visible.
-		assert_matches!(dummy_call_helper(ctx.ext, &BOB_ADDR, vec![0]), Ok(_));
+		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![0]), Ok(_));
 		exec_success()
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, child_code_hash);
 		place_contract(&CHARLIE, parent_code_hash);
-		run_call_helper(CHARLIE_ADDR, vec![]);
+		run_root_call(CHARLIE_ADDR, vec![]);
 	});
 }
 
@@ -3073,7 +3073,7 @@ fn cold_hot_var_inline_len_distinguishes() {
 
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, code_hash);
-		run_call_helper(BOB_ADDR, vec![]);
+		run_root_call(BOB_ADDR, vec![]);
 	});
 }
 
@@ -3103,7 +3103,7 @@ fn cold_hot_delegate_call_marks_parent_slot_hot() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, child_code_hash);
 		place_contract(&CHARLIE, parent_code_hash);
-		run_call_helper(CHARLIE_ADDR, vec![]);
+		run_root_call(CHARLIE_ADDR, vec![]);
 	});
 }
 
@@ -3128,7 +3128,7 @@ fn cold_hot_transient_skips_access_list() {
 
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, code_hash);
-		run_call_helper(BOB_ADDR, vec![]);
+		run_root_call(BOB_ADDR, vec![]);
 	});
 }
 
@@ -3149,14 +3149,14 @@ fn cold_hot_3level_commit_then_revert_drops_committed() {
 
 	// A calls grandchild (which commits a touch), then reverts.
 	let a_code_hash = MockLoader::insert(Call, |ctx, _| {
-		assert_matches!(dummy_call_helper(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
+		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
 		Err("rollback A".into())
 	});
 
 	// Root calls A twice. Each grandchild invocation must see the slot as cold.
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
-		let _ = dummy_call_helper(ctx.ext, &BOB_ADDR, vec![]);
-		let _ = dummy_call_helper(ctx.ext, &BOB_ADDR, vec![]);
+		let _ = run_child_call(ctx.ext, &BOB_ADDR, vec![]);
+		let _ = run_child_call(ctx.ext, &BOB_ADDR, vec![]);
 		exec_success()
 	});
 
@@ -3164,6 +3164,6 @@ fn cold_hot_3level_commit_then_revert_drops_committed() {
 		place_contract(&DJANGO, grandchild_code_hash);
 		place_contract(&BOB, a_code_hash);
 		place_contract(&CHARLIE, root_code_hash);
-		run_call_helper(CHARLIE_ADDR, vec![]);
+		run_root_call(CHARLIE_ADDR, vec![]);
 	});
 }

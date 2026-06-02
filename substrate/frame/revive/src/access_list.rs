@@ -89,7 +89,7 @@ pub enum Slot {
 #[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Clone, Copy, Debug)]
 pub enum StorageAccessKind {
-	/// Persistent storage, first access in this transaction.
+	/// Persistent storage, first access for a slot in this transaction.
 	PersistentCold,
 	/// Persistent storage, slot already in the access list.
 	PersistentHot,
@@ -156,10 +156,7 @@ pub struct AccessList {
 }
 
 impl AccessList {
-	/// Initialize for a new transaction.
-	///
-	/// The first touch on any entry is cold. No initial checkpoint is
-	/// opened; first-frame touches survive the whole transaction.
+	/// Create an empty access list for a new transaction.
 	pub fn new() -> Self {
 		Self {
 			accessed: BTreeSet::new(),

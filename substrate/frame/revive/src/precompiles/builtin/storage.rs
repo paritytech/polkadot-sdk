@@ -65,9 +65,11 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
 					.map_err(|_| Error::Revert("failed decoding key".into()))?;
 				let access_kind = env.touch_storage_access_list(transient, &key);
-				let charged = env
-					.frame_meter_mut()
-					.charge_weight_token(RuntimeCosts::clear_storage(access_kind, max_size))?;
+				let charged =
+					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ClearStorage {
+						len: max_size,
+						kind: access_kind,
+					})?;
 				let outcome = if transient {
 					env.set_transient_storage(&key, None, false)
 						.map_err(|_| Error::Revert("failed setting transient storage".into()))?
@@ -77,7 +79,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				};
 				env.frame_meter_mut().adjust_weight(
 					charged,
-					RuntimeCosts::clear_storage(access_kind, outcome.old_len()),
+					RuntimeCosts::ClearStorage { len: outcome.old_len(), kind: access_kind },
 				);
 				Ok((outcome != WriteOutcome::New, outcome.old_len()).abi_encode())
 			},
@@ -91,17 +93,21 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
 					.map_err(|_| Error::Revert("failed decoding key".into()))?;
 				let access_kind = env.touch_storage_access_list(transient, &key);
-				let charged = env
-					.frame_meter_mut()
-					.charge_weight_token(RuntimeCosts::contains_storage(access_kind, max_size))?;
+				let charged =
+					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ContainsStorage {
+						len: max_size,
+						kind: access_kind,
+					})?;
 				let outcome = if transient {
 					env.get_transient_storage_size(&key)
 				} else {
 					env.get_storage_size(&key)
 				};
 				let value_len = outcome.unwrap_or(0);
-				env.frame_meter_mut()
-					.adjust_weight(charged, RuntimeCosts::contains_storage(access_kind, value_len));
+				env.frame_meter_mut().adjust_weight(
+					charged,
+					RuntimeCosts::ContainsStorage { len: value_len, kind: access_kind },
+				);
 				Ok((outcome.is_some(), value_len).abi_encode())
 			},
 			IStorageCalls::takeStorage(IStorage::takeStorageCall { flags, key, isFixedKey }) => {
@@ -110,9 +116,11 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
 					.map_err(|_| Error::Revert("failed decoding key".into()))?;
 				let access_kind = env.touch_storage_access_list(transient, &key);
-				let charged = env
-					.frame_meter_mut()
-					.charge_weight_token(RuntimeCosts::take_storage(access_kind, max_size))?;
+				let charged =
+					env.frame_meter_mut().charge_weight_token(RuntimeCosts::TakeStorage {
+						len: max_size,
+						kind: access_kind,
+					})?;
 				let outcome = if transient {
 					env.set_transient_storage(&key, None, true)?
 				} else {
@@ -131,7 +139,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				};
 				env.frame_meter_mut().adjust_weight(
 					charged,
-					RuntimeCosts::take_storage(access_kind, value.len() as u32),
+					RuntimeCosts::TakeStorage { len: value.len() as u32, kind: access_kind },
 				);
 				Ok(value.abi_encode())
 			},

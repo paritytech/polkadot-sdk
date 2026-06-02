@@ -168,9 +168,12 @@ pub enum RuntimeCosts {
 	Modexp(u64),
 }
 
-/// Storage op weight = `$name(args)` + worst-case full-storage overhead.
-/// One arm per (read/write) × (persistent cold / persistent hot / transient).
-/// Transient writes additionally include the rollback weight.
+/// For functions that modify storage, benchmarks are performed with one item in the
+/// storage. To account for the worst-case scenario, the weight of the overhead of
+/// writing to or reading from full storage is included. There is one arm per
+/// (read/write) × (persistent cold / persistent hot / transient); the cold and hot arms
+/// draw the overhead from the matching benches. For transient storage writes, the
+/// rollback weight is added to reflect the worst-case scenario for this operation.
 macro_rules! cost_storage {
     // Persistent cold write: full-storage overhead from the cold benches.
     (write_cold, $name:ident $(, $arg:expr )*) => {
@@ -186,14 +189,12 @@ macro_rules! cost_storage {
             .saturating_sub(T::WeightInfo::get_storage_empty()))
     };
 
-    // Persistent hot write: trie pre-loaded in the proof recorder; cheaper bench.
     (write_hot, $name:ident $(, $arg:expr )*) => {
         T::WeightInfo::$name($( $arg ),*)
             .saturating_add(T::WeightInfo::set_storage_full_hot()
             .saturating_sub(T::WeightInfo::set_storage_empty_hot()))
     };
 
-    // Persistent hot read: trie pre-loaded in the proof recorder; cheaper bench.
     (read_hot, $name:ident $(, $arg:expr )*) => {
         T::WeightInfo::$name($( $arg ),*)
             .saturating_add(T::WeightInfo::get_storage_full_hot()
@@ -230,28 +231,7 @@ macro_rules! cost_args {
 }
 
 impl RuntimeCosts {
-	pub fn set_storage(kind: StorageAccessKind, new_bytes: u32, old_bytes: u32) -> Self {
-		Self::SetStorage { new_bytes, old_bytes, kind }
-	}
-
-	pub fn clear_storage(kind: StorageAccessKind, len: u32) -> Self {
-		Self::ClearStorage { len, kind }
-	}
-
-	pub fn take_storage(kind: StorageAccessKind, len: u32) -> Self {
-		Self::TakeStorage { len, kind }
-	}
-
-	pub fn get_storage(kind: StorageAccessKind, len: u32) -> Self {
-		Self::GetStorage { len, kind }
-	}
-
-	pub fn contains_storage(kind: StorageAccessKind, len: u32) -> Self {
-		Self::ContainsStorage { len, kind }
-	}
-
-	/// Pick the matching storage bench for `kind`. Persistent kinds also
-	/// add the access-list overhead.
+	/// Pick the matching storage bench for `kind`.
 	fn weight_for_storage_access<T: Config>(
 		kind: StorageAccessKind,
 		cold: impl FnOnce() -> Weight,
