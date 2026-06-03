@@ -490,7 +490,7 @@ mod upcoming_pr_11967 {
 	/// cancelled by the rotation.
 	///
 	/// Pre-#11967: advertisement at the old core silently dropped. Post-#11967: accepted.
-	#[crate::sim_test(bug_on = "experimental", bug_url = "github:paritytech/polkadot-sdk#11967")]
+	#[crate::sim_test]
 	fn core_rotation_accepts_candidates_for_both_cores<S: CollatorSut>() {
 		// 3 validator groups. With `group_rotation_frequency=1` and
 		// `group_for_core(c, 3)` at `now=N` returning `(c + N) mod 3`, group 0 owns core
@@ -661,7 +661,7 @@ mod upcoming_pr_11967 {
 	/// Both impls fail this today — both use a cq-length-based reachability check
 	/// rather than the lookahead-based one. #11967 fixes it on experimental;
 	/// legacy carries the same bug.
-	#[crate::sim_test(bug_on = "legacy", bug_url = "github:paritytech/polkadot-sdk#11967")]
+	#[crate::sim_test]
 	fn short_claim_queue_does_not_reject_ancestor_advertisements<S: CollatorSut>() {
 		let config =
 			collator_world_config().with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
@@ -737,11 +737,7 @@ mod upcoming_pr_11967 {
 	/// Both impls fail this today: legacy uses the *shorter* window (1) and only
 	/// fetches one ad; experimental fails for the same root cause that #11967
 	/// addresses. Test prompts a fix on both sides.
-	#[crate::sim_test(
-		bug_on = "legacy",
-		bug_on = "experimental",
-		bug_url = "github:paritytech/polkadot-sdk#11967"
-	)]
+	#[crate::sim_test]
 	fn fork_capacity_uses_longest_window_across_paths<S: CollatorSut>() {
 		let config =
 			collator_world_config().with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
@@ -786,11 +782,7 @@ mod upcoming_pr_11967 {
 	///
 	/// Both impls fail this today: legacy under-fetches (1 instead of 2);
 	/// experimental fails for #11967's root cause.
-	#[crate::sim_test(
-		bug_on = "legacy",
-		bug_on = "experimental",
-		bug_url = "github:paritytech/polkadot-sdk#11967"
-	)]
+	#[crate::sim_test]
 	fn fork_shared_sp_capacity_not_double_counted<S: CollatorSut>() {
 		let config =
 			collator_world_config().with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
