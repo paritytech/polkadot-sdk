@@ -58,3 +58,11 @@ crates:
     bump: none
   - name: polkadot-node-core-prospective-parachains
     bump: none
+  # Test-only churn: the `MockClock` method rename (`inc`/`set_*` → `advance`/`advance_secs`)
+  # rippled into these crates' `src/tests.rs`; no public API change.
+  - name: polkadot-node-core-av-store
+    bump: none
+  - name: polkadot-node-core-chain-selection
+    bump: none
+  - name: polkadot-node-core-dispute-coordinator
+    bump: none
