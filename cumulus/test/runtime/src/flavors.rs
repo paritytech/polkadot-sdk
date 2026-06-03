@@ -124,5 +124,5 @@ pub(crate) const fn unincluded_segment_capacity() -> u32 {
 	// - The collator sends the collation to the relay chain, and it gets backed on chain in relay
 	//   block `X + 2`
 	// - The collation then gets included on chain in relay block `X + 3`
-	block_processing_velocity() * (3 + relay_parent_offset())
+	block_processing_velocity() * 3
 }
