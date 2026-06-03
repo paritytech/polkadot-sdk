@@ -102,8 +102,9 @@ pub fn classify(msg: AllMessages, pending: &mut PendingFetches) -> Vec<Classifie
 		AllMessages::NetworkBridgeTx(inner) => from_network_bridge_tx(inner, pending),
 		AllMessages::RuntimeApi(inner) => vec![Classified::Query(Query::Runtime(inner))],
 		AllMessages::ChainApi(inner) => vec![Classified::Query(Query::ChainApi(inner))],
-		AllMessages::ProspectiveParachains(inner) =>
-			vec![Classified::Query(Query::Prospective(inner))],
+		AllMessages::ProspectiveParachains(inner) => {
+			vec![Classified::Query(Query::Prospective(inner))]
+		},
 		other => panic!(
 			"collator-protocol emitted undeclared egress: {:?}\n\
 			 If this is a legitimate effect, add a variant to `Effect` and a classifier arm.",
@@ -114,14 +115,16 @@ pub fn classify(msg: AllMessages, pending: &mut PendingFetches) -> Vec<Classifie
 
 fn from_candidate_backing(msg: CandidateBackingMessage) -> Vec<Classified> {
 	match msg {
-		CandidateBackingMessage::Second { scheduling_parent, candidate, pvd: _, pov: _ } =>
+		CandidateBackingMessage::Second { scheduling_parent, candidate, pvd: _, pov: _ } => {
 			vec![Classified::Effect(Effect::SecondCandidate {
 				scheduling_parent,
 				candidate_hash: candidate.hash(),
 				para: candidate.descriptor.para_id(),
-			})],
-		msg @ CandidateBackingMessage::CanSecond(..) =>
-			vec![Classified::Query(Query::CanSecond(msg))],
+			})]
+		},
+		msg @ CandidateBackingMessage::CanSecond(..) => {
+			vec![Classified::Query(Query::CanSecond(msg))]
+		},
 		// Other CandidateBackingMessage variants (`GetBackableCandidates`, `Statement`) are not
 		// emitted by the collator-protocol.
 		other => panic!(
@@ -137,16 +140,18 @@ fn from_network_bridge_tx(
 ) -> Vec<Classified> {
 	match msg {
 		NetworkBridgeTxMessage::ReportPeer(report) => from_report_peer(report),
-		NetworkBridgeTxMessage::DisconnectPeers(peers, peer_set) =>
+		NetworkBridgeTxMessage::DisconnectPeers(peers, peer_set) => {
 			vec![Classified::Effect(Effect::DisconnectPeers {
 				peers: peers.into_iter().collect::<BTreeSet<_>>(),
 				peer_set,
-			})],
-		NetworkBridgeTxMessage::ConnectToValidators { validator_ids, peer_set, failed: _ } =>
+			})]
+		},
+		NetworkBridgeTxMessage::ConnectToValidators { validator_ids, peer_set, failed: _ } => {
 			vec![Classified::Effect(Effect::ConnectValidators {
 				validator_ids: validator_ids.into_iter().collect::<BTreeSet<_>>(),
 				peer_set,
-			})],
+			})]
+		},
 		NetworkBridgeTxMessage::SendCollationMessage(peers, proto) => {
 			let kind = wire_kind_from_collation_protocol(&proto);
 			vec![Classified::Effect(Effect::SendCollation { peers, kind })]
@@ -158,8 +163,9 @@ fn from_network_bridge_tx(
 				Classified::Effect(Effect::SendCollation { peers, kind })
 			})
 			.collect(),
-		NetworkBridgeTxMessage::SendRequests(requests, _) =>
-			requests.into_iter().map(|r| classify_request(r, pending)).collect(),
+		NetworkBridgeTxMessage::SendRequests(requests, _) => {
+			requests.into_iter().map(|r| classify_request(r, pending)).collect()
+		},
 
 		// The collator-protocol never sends validation-protocol messages or connect/extend
 		// resolved-validators commands. If that changes, we want to know at compile time, not
@@ -167,10 +173,9 @@ fn from_network_bridge_tx(
 		NetworkBridgeTxMessage::SendValidationMessage(..) |
 		NetworkBridgeTxMessage::SendValidationMessages(..) |
 		NetworkBridgeTxMessage::ConnectToResolvedValidators { .. } |
-		NetworkBridgeTxMessage::AddToResolvedValidators { .. } => panic!(
-			"collator-protocol emitted unexpected NetworkBridgeTxMessage variant: {:?}",
-			msg
-		),
+		NetworkBridgeTxMessage::AddToResolvedValidators { .. } => {
+			panic!("collator-protocol emitted unexpected NetworkBridgeTxMessage variant: {:?}", msg)
+		},
 	}
 }
 
@@ -227,35 +232,41 @@ fn classify_request(req: Requests, pending: &mut PendingFetches) -> Classified {
 		Requests::PoVFetchingV1(_) |
 		Requests::AvailableDataFetchingV1(_) |
 		Requests::DisputeSendingV1(_) |
-		Requests::AttestedCandidateV2(_) =>
-			panic!("collator-protocol emitted unexpected request kind: {:?}", req),
+		Requests::AttestedCandidateV2(_) => {
+			panic!("collator-protocol emitted unexpected request kind: {:?}", req)
+		},
 	}
 }
 
 fn wire_kind_from_collation_protocol(
 	proto: &polkadot_node_network_protocol::VersionedCollationProtocol,
 ) -> WireMsgKind {
-	use polkadot_node_network_protocol::v1::CollationProtocol as V1;
-	use polkadot_node_network_protocol::v2::CollationProtocol as V2;
-	use polkadot_node_network_protocol::v3_collation::CollationProtocol as V3;
+	use polkadot_node_network_protocol::{
+		v1::CollationProtocol as V1, v2::CollationProtocol as V2,
+		v3_collation::CollationProtocol as V3,
+	};
 	match proto {
 		CollationProtocols::V1(V1::CollatorProtocol(msg)) => match msg {
-			protocol_v1::CollatorProtocolMessage::Declare(_, para, _) =>
-				WireMsgKind::Declare { para: *para },
-			protocol_v1::CollatorProtocolMessage::AdvertiseCollation(rp) =>
+			protocol_v1::CollatorProtocolMessage::Declare(_, para, _) => {
+				WireMsgKind::Declare { para: *para }
+			},
+			protocol_v1::CollatorProtocolMessage::AdvertiseCollation(rp) => {
 				WireMsgKind::Advertise {
 					summary: AdvertisementSummary {
 						scheduling_parent: *rp,
 						candidate_hash: None,
 						parent_head_hash: None,
 					},
-				},
-			protocol_v1::CollatorProtocolMessage::CollationSeconded(rp, _) =>
-				WireMsgKind::CollationSeconded { relay_parent: *rp },
+				}
+			},
+			protocol_v1::CollatorProtocolMessage::CollationSeconded(rp, _) => {
+				WireMsgKind::CollationSeconded { relay_parent: *rp }
+			},
 		},
 		CollationProtocols::V2(V2::CollatorProtocol(msg)) => match msg {
-			protocol_v2::CollatorProtocolMessage::Declare(_, para, _) =>
-				WireMsgKind::Declare { para: *para },
+			protocol_v2::CollatorProtocolMessage::Declare(_, para, _) => {
+				WireMsgKind::Declare { para: *para }
+			},
 			protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 				scheduling_parent,
 				candidate_hash,
@@ -267,12 +278,14 @@ fn wire_kind_from_collation_protocol(
 					parent_head_hash: Some(*parent_head_data_hash),
 				},
 			},
-			protocol_v2::CollatorProtocolMessage::CollationSeconded(rp, _) =>
-				WireMsgKind::CollationSeconded { relay_parent: *rp },
+			protocol_v2::CollatorProtocolMessage::CollationSeconded(rp, _) => {
+				WireMsgKind::CollationSeconded { relay_parent: *rp }
+			},
 		},
 		CollationProtocols::V3(V3::CollatorProtocol(msg)) => match msg {
-			protocol_v3::CollatorProtocolMessage::Declare(_, para, _) =>
-				WireMsgKind::Declare { para: *para },
+			protocol_v3::CollatorProtocolMessage::Declare(_, para, _) => {
+				WireMsgKind::Declare { para: *para }
+			},
 			protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
 				scheduling_parent,
 				candidate_hash,
@@ -285,8 +298,9 @@ fn wire_kind_from_collation_protocol(
 					parent_head_hash: Some(*parent_head_data_hash),
 				},
 			},
-			protocol_v3::CollatorProtocolMessage::CollationSeconded(rp, _) =>
-				WireMsgKind::CollationSeconded { relay_parent: *rp },
+			protocol_v3::CollatorProtocolMessage::CollationSeconded(rp, _) => {
+				WireMsgKind::CollationSeconded { relay_parent: *rp }
+			},
 		},
 	}
 }
@@ -297,8 +311,9 @@ fn recipient_to_peer_id(
 	use polkadot_node_network_protocol::request_response::outgoing::Recipient;
 	match recipient {
 		Recipient::Peer(p) => *p,
-		Recipient::Authority(_) =>
-			panic!("collator-protocol fetches always target a PeerId, not an AuthorityDiscoveryId"),
+		Recipient::Authority(_) => {
+			panic!("collator-protocol fetches always target a PeerId, not an AuthorityDiscoveryId")
+		},
 	}
 }
 

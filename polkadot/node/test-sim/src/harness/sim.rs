@@ -97,9 +97,7 @@ where
 	/// (e.g. `prospective-parachains`) leave this. Adapters for subsystems that DO
 	/// consume them override it; the framework's [`crate::world_base::BlockBuilder`]
 	/// automatically publishes the view on `.activate()` when this returns `Some`.
-	fn our_view_change(
-		_view: polkadot_node_network_protocol::OurView,
-	) -> Option<Self::Message> {
+	fn our_view_change(_view: polkadot_node_network_protocol::OurView) -> Option<Self::Message> {
 		None
 	}
 }
@@ -464,9 +462,13 @@ where
 	/// Count the number of recorded effects matching `predicate`. Useful for "exactly N
 	/// fetches in flight" assertions.
 	pub fn count_effects<F: Fn(&Effect) -> bool>(&self, predicate: F) -> usize {
-		self.recorder.entries().iter().filter(|o| match o {
-			crate::harness::observation::Observation::Effect(s) => predicate(&s.value),
-		}).count()
+		self.recorder
+			.entries()
+			.iter()
+			.filter(|o| match o {
+				crate::harness::observation::Observation::Effect(s) => predicate(&s.value),
+			})
+			.count()
 	}
 
 	/// Convenience: assert exactly `expected` effects matching `predicate` are recorded
@@ -480,7 +482,8 @@ where
 	) {
 		let actual = self.count_effects(predicate);
 		assert_eq!(
-			actual, expected,
+			actual,
+			expected,
 			"expected exactly {} {} (got {}):\n\n{}",
 			expected,
 			description,
@@ -501,10 +504,16 @@ where
 		at_least: usize,
 		description: &str,
 	) {
-		let actual = self.recorder.entries().iter().filter(|o| match o {
-			crate::harness::observation::Observation::Effect(s) =>
-				s.sim_t >= since && predicate(&s.value),
-		}).count();
+		let actual = self
+			.recorder
+			.entries()
+			.iter()
+			.filter(|o| match o {
+				crate::harness::observation::Observation::Effect(s) => {
+					s.sim_t >= since && predicate(&s.value)
+				},
+			})
+			.count();
 		assert!(
 			actual >= at_least,
 			"expected at least {} {} since sim_t={}ms (got {}):\n\n{}",
@@ -527,12 +536,19 @@ where
 		expected: usize,
 		description: &str,
 	) {
-		let actual = self.recorder.entries().iter().filter(|o| match o {
-			crate::harness::observation::Observation::Effect(s) =>
-				s.sim_t >= since && predicate(&s.value),
-		}).count();
+		let actual = self
+			.recorder
+			.entries()
+			.iter()
+			.filter(|o| match o {
+				crate::harness::observation::Observation::Effect(s) => {
+					s.sim_t >= since && predicate(&s.value)
+				},
+			})
+			.count();
 		assert_eq!(
-			actual, expected,
+			actual,
+			expected,
 			"expected exactly {} {} since sim_t={}ms (got {}):\n\n{}",
 			expected,
 			description,
@@ -574,12 +590,13 @@ where
 		since: Duration,
 	) -> Option<Effect> {
 		self.recorder.entries().iter().find_map(|o| match o {
-			crate::harness::observation::Observation::Effect(s) =>
+			crate::harness::observation::Observation::Effect(s) => {
 				if s.sim_t >= since && predicate(&s.value) {
 					Some(s.value.clone())
 				} else {
 					None
-				},
+				}
+			},
 		})
 	}
 
@@ -636,11 +653,13 @@ where
 	fn try_route(&self, msg: AllMessages) -> RouteAttempt {
 		match S::try_extract_inbound(msg) {
 			Ok(inner) => {
-				let fut = self.uut.send_typed(polkadot_node_subsystem::FromOrchestra::Communication { msg: inner });
+				let fut =
+					self.uut.send_typed(polkadot_node_subsystem::FromOrchestra::Communication {
+						msg: inner,
+					});
 				RouteAttempt::Accepted(fut)
 			},
 			Err(other) => RouteAttempt::Declined(other),
 		}
 	}
 }
-

@@ -34,8 +34,7 @@ impl AvailabilityStoreStub {
 	pub fn spawn<S>(sim: &mut crate::harness::Sim<S>) -> Self
 	where
 		S: crate::harness::SubsystemUnderTest,
-		AllMessages:
-			From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+		AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
 		AllMessages: From<S::Message>,
 	{
 		let (inbound_tx, mut inbound_rx) =

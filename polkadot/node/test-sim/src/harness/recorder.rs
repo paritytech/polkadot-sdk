@@ -72,12 +72,13 @@ impl Recorder {
 			Observation::Effect(s) => s.sim_t,
 		});
 		self.entries.iter().filter_map(move |o| match o {
-			Observation::Effect(s) =>
+			Observation::Effect(s) => {
 				if cutoff.map_or(false, |c| c.saturating_sub(s.sim_t) <= window) {
 					Some(s)
 				} else {
 					None
-				},
+				}
+			},
 		})
 	}
 

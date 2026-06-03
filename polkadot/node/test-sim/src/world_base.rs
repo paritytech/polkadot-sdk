@@ -47,8 +47,8 @@ use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_overseer::AssociateOutgoing;
 use polkadot_primitives::{
 	async_backing::{CandidatePendingAvailability, Constraints, InboundHrmpLimitations},
-	BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, HeadData,
-	Hash, Id as ParaId, SessionIndex, ValidatorId, ValidatorIndex, ValidationCodeHash,
+	BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, Hash,
+	HeadData, Id as ParaId, SessionIndex, ValidationCodeHash, ValidatorId, ValidatorIndex,
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use polkadot_primitives_test_helpers::dummy_validation_code;
@@ -324,7 +324,8 @@ pub fn synthesise_constraints(
 /// active-leaves signal, suite-wide config accessors.
 pub trait HasBase
 where
-	AllMessages: From<<<Self::Sut as SubsystemUnderTest>::Message as AssociateOutgoing>::OutgoingMessages>,
+	AllMessages:
+		From<<<Self::Sut as SubsystemUnderTest>::Message as AssociateOutgoing>::OutgoingMessages>,
 	AllMessages: From<<Self::Sut as SubsystemUnderTest>::Message>,
 {
 	/// The subsystem-under-test type the `Sim<S>` inside `WorldBase` is parameterised by.
@@ -344,16 +345,15 @@ where
 	///
 	/// Two terminal verbs:
 	///
-	/// * [`BlockBuilder::register`] — writes the block to the chain model only. The
-	///   subsystem is **not** told. Use this for ancestor blocks that should exist
-	///   in the chain history but were never independently signalled as active
-	///   leaves (skipped activations, fast-sync gaps, blocks that were never tip).
+	/// * [`BlockBuilder::register`] — writes the block to the chain model only. The subsystem is
+	///   **not** told. Use this for ancestor blocks that should exist in the chain history but were
+	///   never independently signalled as active leaves (skipped activations, fast-sync gaps,
+	///   blocks that were never tip).
 	///
 	/// * [`BlockBuilder::activate`] — `register` + signal
-	///   `OverseerSignal::ActiveLeaves(start_work(new), deactivated=[parent if it
-	///   was an active leaf])`. Mirrors the production `block_imported` signal:
-	///   when a child of an active leaf is imported, the parent stops being a leaf
-	///   in the same `ActiveLeavesUpdate`.
+	///   `OverseerSignal::ActiveLeaves(start_work(new), deactivated=[parent if it was an active
+	///   leaf])`. Mirrors the production `block_imported` signal: when a child of an active leaf is
+	///   imported, the parent stops being a leaf in the same `ActiveLeavesUpdate`.
 	fn new_block(&mut self) -> BlockBuilder<'_, Self::Sut> {
 		BlockBuilder::new(self.base_mut())
 	}
@@ -364,7 +364,8 @@ where
 	/// [`BlockBuilder::activate`].
 	fn deactivate_leaf(&mut self, hash: Hash) {
 		let base = self.base_mut();
-		base.sim.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::stop_work(hash)));
+		base.sim
+			.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::stop_work(hash)));
 		base.leaves.retain(|l| l.hash != hash);
 	}
 
@@ -372,12 +373,11 @@ where
 	/// `ActiveLeavesUpdate` that prunes orphaned leaves. Mirrors the production
 	/// `block_finalized` path:
 	///
-	/// * any active leaf at `number <= finalized.number` other than the finalized
-	///   block itself is removed (those leaves are on branches that can no longer
-	///   extend the finalized chain);
+	/// * any active leaf at `number <= finalized.number` other than the finalized block itself is
+	///   removed (those leaves are on branches that can no longer extend the finalized chain);
 	/// * the finalized block itself stays an active leaf if it currently is one;
-	/// * higher-numbered orphan leaves stay until they fall below a future
-	///   finalized number — production accepts that and so do we.
+	/// * higher-numbered orphan leaves stay until they fall below a future finalized number —
+	///   production accepts that and so do we.
 	///
 	/// The empty-update case (no leaves to prune) skips the second signal,
 	/// matching production behaviour.
@@ -399,10 +399,7 @@ where
 			}
 		});
 		if !deactivated.is_empty() {
-			let update = ActiveLeavesUpdate {
-				activated: None,
-				deactivated: deactivated.into(),
-			};
+			let update = ActiveLeavesUpdate { activated: None, deactivated: deactivated.into() };
 			base.sim.signal(OverseerSignal::ActiveLeaves(update));
 		}
 	}
@@ -484,25 +481,22 @@ where
 /// 1. Allocates the block's hash + number via [`ChainModel::extend`] (or honours an
 ///    explicitly-pinned hash via [`Self::with_hash_and_number`]).
 /// 2. Writes per-para head data + pending availability to the chain model.
-/// 3. Synthesises permissive backing constraints (using `world.config`'s
-///    `validation_code_hash` + optional `min_relay_parent_number_override`) and writes
-///    them to the chain model.
-/// 4. (`activate` only) Signals `OverseerSignal::ActiveLeaves` with
-///    `start_work(new)` plus `deactivated=[parent]` if the parent was an active
-///    leaf — mirroring the production `block_imported` signal.
+/// 3. Synthesises permissive backing constraints (using `world.config`'s `validation_code_hash` +
+///    optional `min_relay_parent_number_override`) and writes them to the chain model.
+/// 4. (`activate` only) Signals `OverseerSignal::ActiveLeaves` with `start_work(new)` plus
+///    `deactivated=[parent]` if the parent was an active leaf — mirroring the production
+///    `block_imported` signal.
 ///
 /// Two real-world flows the API mirrors:
 ///
-/// * **Tip-following** = repeated `.activate()` calls. Each new block becomes the
-///   active leaf; its parent (the previous tip) is deactivated in the same signal.
-///   Models normal block production where the overseer always emits one
-///   `ActiveLeavesUpdate` per imported block.
+/// * **Tip-following** = repeated `.activate()` calls. Each new block becomes the active leaf; its
+///   parent (the previous tip) is deactivated in the same signal. Models normal block production
+///   where the overseer always emits one `ActiveLeavesUpdate` per imported block.
 ///
-/// * **Skipping** = `.register()` for intermediate blocks, `.activate()` only for
-///   the next tip the overseer announces. Models scenarios where the overseer
-///   doesn't emit a per-block signal — e.g. fast-syncing, restart catch-up, the
-///   parachains-API gap. Tests use this to verify the subsystem handles gaps in
-///   the activation sequence correctly via implicit view.
+/// * **Skipping** = `.register()` for intermediate blocks, `.activate()` only for the next tip the
+///   overseer announces. Models scenarios where the overseer doesn't emit a per-block signal — e.g.
+///   fast-syncing, restart catch-up, the parachains-API gap. Tests use this to verify the subsystem
+///   handles gaps in the activation sequence correctly via implicit view.
 pub struct BlockBuilder<'w, S: SubsystemUnderTest>
 where
 	AllMessages: From<<S::Message as AssociateOutgoing>::OutgoingMessages>,
@@ -648,10 +642,8 @@ where
 		// Publish the new view to the subsystem under test, if the adapter consumes
 		// network-bridge events. Mirrors the production sequence: overseer emits
 		// `ActiveLeaves`, network bridge separately broadcasts the new view.
-		let view = polkadot_node_network_protocol::OurView::new(
-			base.leaves.iter().map(|l| l.hash),
-			0,
-		);
+		let view =
+			polkadot_node_network_protocol::OurView::new(base.leaves.iter().map(|l| l.hash), 0);
 		if let Some(msg) = S::our_view_change(view) {
 			base.sim.send(msg);
 		}
@@ -663,14 +655,7 @@ where
 	/// per-para state + synthesised constraints to the chain model. Returns
 	/// `&mut WorldBase` so `.activate()` can re-borrow the sim.
 	fn flush_to_chain(self) -> (&'w mut WorldBase<S>, LeafRef) {
-		let BlockBuilder {
-			base,
-			hash_and_number,
-			parent,
-			head_data,
-			pending,
-			claim_queue,
-		} = self;
+		let BlockBuilder { base, hash_and_number, parent, head_data, pending, claim_queue } = self;
 		let validation_code_hash = base.config.validation_code_hash;
 		let min_relay_parent_number_override = base.config.min_relay_parent_number_override;
 
@@ -681,10 +666,8 @@ where
 			} else {
 				let parent = parent.unwrap_or_else(|| chain.tip());
 				let hash = chain.extend(parent);
-				let number = chain
-					.block(&hash)
-					.expect("just-extended block must be registered")
-					.number;
+				let number =
+					chain.block(&hash).expect("just-extended block must be registered").number;
 				(hash, number)
 			};
 			let ancestry_len = (DEFAULT_SCHEDULING_LOOKAHEAD - 1) as u32;

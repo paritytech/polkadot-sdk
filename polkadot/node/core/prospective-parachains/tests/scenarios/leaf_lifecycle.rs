@@ -25,16 +25,14 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_primitives::{
-	async_backing::CandidatePendingAvailability, BlockNumber, CandidateHash, CoreIndex, HeadData,
-	Hash, Id as ParaId, SessionIndex, DEFAULT_SCHEDULING_LOOKAHEAD,
+	async_backing::CandidatePendingAvailability, BlockNumber, CandidateHash, CoreIndex, Hash,
+	HeadData, Id as ParaId, SessionIndex, DEFAULT_SCHEDULING_LOOKAHEAD,
 };
-use polkadot_subsystem_test_sim::chain::CoreSchedule;
 use polkadot_primitives_test_helpers::make_candidate;
-use polkadot_subsystem_test_sim::chain::SessionInfo;
+use polkadot_subsystem_test_sim::chain::{CoreSchedule, SessionInfo};
 use std::collections::HashSet;
 
 const MAX_POV_SIZE: u32 = 1_000_000;
-
 
 #[test]
 fn correctly_updates_leaves() {
@@ -122,12 +120,9 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 	assert!(world.introduce_seconded_candidate(candidate_a.clone(), pvd_a));
 	world.back_candidate(para_id, candidate_hash_a);
 
-	let (candidate_b, candidate_hash_b) =
-		world.make_and_back_candidate(&leaf_a, &candidate_a, 2);
-	let (candidate_c, candidate_hash_c) =
-		world.make_and_back_candidate(&leaf_a, &candidate_b, 3);
-	let (candidate_d, candidate_hash_d) =
-		world.make_and_back_candidate(&leaf_a, &candidate_c, 4);
+	let (candidate_b, candidate_hash_b) = world.make_and_back_candidate(&leaf_a, &candidate_a, 2);
+	let (candidate_c, candidate_hash_c) = world.make_and_back_candidate(&leaf_a, &candidate_b, 3);
+	let (candidate_d, candidate_hash_d) = world.make_and_back_candidate(&leaf_a, &candidate_c, 4);
 
 	let mut all_candidates_resp = vec![
 		BackableCandidateRef { candidate_hash: candidate_hash_a, scheduling_parent: leaf_a.hash },
@@ -173,7 +168,9 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 		.activate();
 
 	// Empty ancestors → empty (A,B are pending availability, not part of chain).
-	assert!(world.get_backable_candidates(leaf_b.hash, para_id, 5, Ancestors::default()).is_empty());
+	assert!(world
+		.get_backable_candidates(leaf_b.hash, para_id, 5, Ancestors::default())
+		.is_empty());
 
 	// Ancestors=[A,B] → C,D remaining.
 	assert_eq!(
@@ -184,20 +181,32 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 			[candidate_a.hash(), candidate_b.hash()].into_iter().collect(),
 		),
 		vec![
-			BackableCandidateRef { candidate_hash: candidate_c.hash(), scheduling_parent: leaf_a.hash },
-			BackableCandidateRef { candidate_hash: candidate_d.hash(), scheduling_parent: leaf_a.hash },
+			BackableCandidateRef {
+				candidate_hash: candidate_c.hash(),
+				scheduling_parent: leaf_a.hash
+			},
+			BackableCandidateRef {
+				candidate_hash: candidate_d.hash(),
+				scheduling_parent: leaf_a.hash
+			},
 		],
 	);
 
 	// Empty ancestors at leaf_b → still empty.
-	assert!(world.get_backable_candidates(leaf_b.hash, para_id, 5, Ancestors::default()).is_empty());
+	assert!(world
+		.get_backable_candidates(leaf_b.hash, para_id, 5, Ancestors::default())
+		.is_empty());
 
 	// leaf_a is no longer an active leaf (auto-deactivated when leaf_b — its child — was
 	// activated). Querying it returns empty, just like any deactivated leaf.
-	assert!(world.get_backable_candidates(leaf_a.hash, para_id, 5, Ancestors::default()).is_empty());
+	assert!(world
+		.get_backable_candidates(leaf_a.hash, para_id, 5, Ancestors::default())
+		.is_empty());
 
 	// leaf_b still empty without ancestors; with [A,B] → C,D.
-	assert!(world.get_backable_candidates(leaf_b.hash, para_id, 5, Ancestors::default()).is_empty());
+	assert!(world
+		.get_backable_candidates(leaf_b.hash, para_id, 5, Ancestors::default())
+		.is_empty());
 	assert_eq!(
 		world.get_backable_candidates(
 			leaf_b.hash,
@@ -206,8 +215,14 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 			[candidate_a.hash(), candidate_b.hash()].into_iter().collect(),
 		),
 		vec![
-			BackableCandidateRef { candidate_hash: candidate_c.hash(), scheduling_parent: leaf_a.hash },
-			BackableCandidateRef { candidate_hash: candidate_d.hash(), scheduling_parent: leaf_a.hash },
+			BackableCandidateRef {
+				candidate_hash: candidate_c.hash(),
+				scheduling_parent: leaf_a.hash
+			},
+			BackableCandidateRef {
+				candidate_hash: candidate_d.hash(),
+				scheduling_parent: leaf_a.hash
+			},
 		],
 	);
 
@@ -228,8 +243,14 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 			[candidate_a.hash(), candidate_b.hash()].into_iter().collect(),
 		),
 		vec![
-			BackableCandidateRef { candidate_hash: candidate_c.hash(), scheduling_parent: leaf_a.hash },
-			BackableCandidateRef { candidate_hash: candidate_d.hash(), scheduling_parent: leaf_a.hash },
+			BackableCandidateRef {
+				candidate_hash: candidate_c.hash(),
+				scheduling_parent: leaf_a.hash
+			},
+			BackableCandidateRef {
+				candidate_hash: candidate_d.hash(),
+				scheduling_parent: leaf_a.hash
+			},
 		],
 	);
 	assert_eq!(
@@ -243,7 +264,8 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 	let (candidate_e, _) = world.make_and_back_candidate(&leaf_a, &candidate_d, 5);
 	// Re-signal `start_work` for the existing leaf_c — chain state is already registered,
 	// so we go through `signal_active_leaves` rather than building a new leaf.
-	world.signal_active_leaves(ActiveLeavesUpdate::start_work(new_leaf(leaf_c.hash, leaf_c.number)));
+	world
+		.signal_active_leaves(ActiveLeavesUpdate::start_work(new_leaf(leaf_c.hash, leaf_c.number)));
 
 	assert_eq!(
 		world.get_backable_candidates(
@@ -253,9 +275,18 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 			[candidate_a.hash(), candidate_b.hash()].into_iter().collect(),
 		),
 		vec![
-			BackableCandidateRef { candidate_hash: candidate_c.hash(), scheduling_parent: leaf_a.hash },
-			BackableCandidateRef { candidate_hash: candidate_d.hash(), scheduling_parent: leaf_a.hash },
-			BackableCandidateRef { candidate_hash: candidate_e.hash(), scheduling_parent: leaf_a.hash },
+			BackableCandidateRef {
+				candidate_hash: candidate_c.hash(),
+				scheduling_parent: leaf_a.hash
+			},
+			BackableCandidateRef {
+				candidate_hash: candidate_d.hash(),
+				scheduling_parent: leaf_a.hash
+			},
+			BackableCandidateRef {
+				candidate_hash: candidate_e.hash(),
+				scheduling_parent: leaf_a.hash
+			},
 		],
 	);
 
@@ -269,7 +300,9 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 	);
 
 	// Querying a deactivated leaf returns empty.
-	assert!(world.get_backable_candidates(leaf_a.hash, para_id, 5, Ancestors::new()).is_empty());
+	assert!(world
+		.get_backable_candidates(leaf_a.hash, para_id, 5, Ancestors::new())
+		.is_empty());
 }
 
 // Contract: a leaf's implicit-view depth is bounded at `scheduling_lookahead`
@@ -348,12 +381,7 @@ fn handle_active_leaves_update_bounded_implicit_view() {
 	// Querying backables on the latest leaf: in-view candidate appears; past-boundary
 	// candidate is filtered out because its scheduling parent is no longer in the
 	// latest leaf's bounded implicit view.
-	let backables = world.get_backable_candidates(
-		latest.hash,
-		para_id,
-		10,
-		Ancestors::default(),
-	);
+	let backables = world.get_backable_candidates(latest.hash, para_id, 10, Ancestors::default());
 	let returned: HashSet<CandidateHash> = backables.iter().map(|b| b.candidate_hash).collect();
 	assert!(
 		returned.contains(&cand_in_hash),
@@ -580,14 +608,8 @@ fn uses_ancestry_only_within_session() {
 	// view, so the subsystem accepts the seconded candidate. This confirms setup is
 	// sound — without it, a "negative-only" probe could pass for the wrong reason
 	// (e.g. unrelated rejection in the introduce path).
-	let (cand_in, pvd_in) = make_candidate(
-		in_session_rp,
-		4,
-		para_id,
-		parent_head.clone(),
-		HeadData(vec![0xAA]),
-		vch,
-	);
+	let (cand_in, pvd_in) =
+		make_candidate(in_session_rp, 4, para_id, parent_head.clone(), HeadData(vec![0xAA]), vch);
 	assert!(
 		world.introduce_seconded_candidate(cand_in, pvd_in),
 		"in-session ancestor must be in implicit view (positive control)"

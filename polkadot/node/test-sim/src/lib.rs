@@ -22,27 +22,27 @@
 //!
 //! # How a consumer crate wires up
 //!
-//! 1. Implement [`harness::SubsystemUnderTest`] for the production subsystem's `ProtocolSide`
-//!    or equivalent constructor. The impl describes how to spawn the subsystem and how to
-//!    extract its inbound message variant from `AllMessages`.
-//! 2. Define a per-subsystem `ClockAdapter` that wraps `Arc<MockClock>` (impls
-//!    [`Clock`]) into the production crate's own `Clock` trait — see
+//! 1. Implement [`harness::SubsystemUnderTest`] for the production subsystem's `ProtocolSide` or
+//!    equivalent constructor. The impl describes how to spawn the subsystem and how to extract its
+//!    inbound message variant from `AllMessages`.
+//! 2. Define a per-subsystem `ClockAdapter` that wraps `Arc<MockClock>` (impls [`Clock`]) into the
+//!    production crate's own `Clock` trait — see
 //!    `polkadot_collator_protocol_test_sim::clock_adapter` for the canonical example.
-//! 3. Write scenarios that drive `Sim` through stimuli and assert on outbound
-//!    [`contract::Effect`] entries via `Sim::expect` / `expect_no` / `count_effects`.
+//! 3. Write scenarios that drive `Sim` through stimuli and assert on outbound [`contract::Effect`]
+//!    entries via `Sim::expect` / `expect_no` / `count_effects`.
 //!
 //! # Why a hand-rolled harness instead of a real `polkadot-overseer`?
 //!
 //! Considered and rejected. Two load-bearing reasons:
 //!
 //! 1. **`tokio::time::pause()` does not control `futures_timer::Delay`**, and orchestra's
-//!    `TimeoutExt::timeout` plus the overseer's metrics metronome both use
-//!    `futures_timer::Delay`. Running the harness on a paused tokio runtime would leave
-//!    multiple time sources still ticking against real wall-clock — kills determinism.
-//! 2. **Precise quiescence.** `LocalPool::run_until_stalled()` polls every spawned task
-//!    until each returns `Pending`. Tokio current_thread has no equivalent; the folklore
-//!    is `yield_now` loops or sleeps, both heuristic. Scenario tests that read like specs
-//!    require deterministic ordering, not best-effort settling.
+//!    `TimeoutExt::timeout` plus the overseer's metrics metronome both use `futures_timer::Delay`.
+//!    Running the harness on a paused tokio runtime would leave multiple time sources still ticking
+//!    against real wall-clock — kills determinism.
+//! 2. **Precise quiescence.** `LocalPool::run_until_stalled()` polls every spawned task until each
+//!    returns `Pending`. Tokio current_thread has no equivalent; the folklore is `yield_now` loops
+//!    or sleeps, both heuristic. Scenario tests that read like specs require deterministic
+//!    ordering, not best-effort settling.
 //!
 //! Subsystem-bench's mock subsystems are real `overseer::Subsystem` impls designed for a
 //! multi-thread tokio runtime against a benchmark workload — different problem, not
@@ -57,8 +57,8 @@ pub mod builders;
 pub mod chain;
 pub mod clock;
 pub mod contract;
-pub mod known_bug;
 pub mod harness;
+pub mod known_bug;
 pub mod report;
 pub mod responder;
 pub mod runtime;

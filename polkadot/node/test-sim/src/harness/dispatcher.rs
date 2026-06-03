@@ -31,11 +31,11 @@ use std::time::Instant;
 ///
 /// Two methods, with one of them having a default implementation:
 ///
-/// - [`AnswerQuery::try_answer`] is used by the harness's responder chain. It returns
-///   `Some(query)` if the responder declined the query (so the next layer gets a chance),
-///   or `None` if it consumed it.
-/// - [`AnswerQuery::answer`] is the convenience entry point for unit tests and for
-///   responders that always handle (or always panic on) every query they see.
+/// - [`AnswerQuery::try_answer`] is used by the harness's responder chain. It returns `Some(query)`
+///   if the responder declined the query (so the next layer gets a chance), or `None` if it
+///   consumed it.
+/// - [`AnswerQuery::answer`] is the convenience entry point for unit tests and for responders that
+///   always handle (or always panic on) every query they see.
 ///
 /// Most responders implement `answer` only. `try_answer` then defaults to "delegate to
 /// `answer`, never decline". Composable responders (e.g. a chain-model wrapper that only

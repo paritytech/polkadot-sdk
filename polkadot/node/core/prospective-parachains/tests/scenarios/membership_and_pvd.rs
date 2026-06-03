@@ -17,7 +17,7 @@
 //! Read-only queries: `GetHypotheticalMembership` and `GetProspectiveValidationData`.
 
 use crate::common::world::{default_world_config, World, WorldExt as _};
-use polkadot_primitives::{HeadData, Hash, Id as ParaId};
+use polkadot_primitives::{Hash, HeadData, Id as ParaId};
 use polkadot_primitives_test_helpers::make_candidate;
 use std::collections::HashSet;
 

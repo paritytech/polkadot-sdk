@@ -21,9 +21,8 @@
 //! [`crate::common::harness::Sim::send`].
 
 use polkadot_node_network_protocol::{
-	peer_set::CollationVersion as ProtoCollationVersion,
-	v1 as protocol_v1, v2 as protocol_v2, v3_collation as protocol_v3, CollationProtocols,
-	ObservedRole,
+	peer_set::CollationVersion as ProtoCollationVersion, v1 as protocol_v1, v2 as protocol_v2,
+	v3_collation as protocol_v3, CollationProtocols, ObservedRole,
 };
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
 use polkadot_primitives::{CandidateHash, CollatorPair, Hash, Id as ParaId};
@@ -86,7 +85,13 @@ impl Peer {
 
 	/// Wrap a NetworkBridgeRx event so it lands on `CollatorProtocolMessage::NetworkBridgeUpdate`.
 	fn wrap(
-		event: NetworkBridgeEvent<polkadot_node_network_protocol::CollationProtocols<protocol_v1::CollatorProtocolMessage, protocol_v2::CollatorProtocolMessage, protocol_v3::CollatorProtocolMessage>>,
+		event: NetworkBridgeEvent<
+			polkadot_node_network_protocol::CollationProtocols<
+				protocol_v1::CollatorProtocolMessage,
+				protocol_v2::CollatorProtocolMessage,
+				protocol_v3::CollatorProtocolMessage,
+			>,
+		>,
 	) -> CollatorProtocolMessage {
 		CollatorProtocolMessage::NetworkBridgeUpdate(event)
 	}
@@ -104,21 +109,27 @@ impl Peer {
 	/// `Declare` wire message signed correctly for this peer's protocol version.
 	pub fn declare(&self) -> CollatorProtocolMessage {
 		let proto = match self.version {
-			ProtocolVersion::V1 => CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::Declare(
-				self.collator.public(),
-				self.para,
-				self.collator.sign(&protocol_v1::declare_signature_payload(&self.peer_id)),
-			)),
-			ProtocolVersion::V2 => CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::Declare(
-				self.collator.public(),
-				self.para,
-				self.collator.sign(&protocol_v2::declare_signature_payload(&self.peer_id)),
-			)),
-			ProtocolVersion::V3 => CollationProtocols::V3(protocol_v3::CollatorProtocolMessage::Declare(
-				self.collator.public(),
-				self.para,
-				self.collator.sign(&protocol_v3::declare_signature_payload(&self.peer_id)),
-			)),
+			ProtocolVersion::V1 => {
+				CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::Declare(
+					self.collator.public(),
+					self.para,
+					self.collator.sign(&protocol_v1::declare_signature_payload(&self.peer_id)),
+				))
+			},
+			ProtocolVersion::V2 => {
+				CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::Declare(
+					self.collator.public(),
+					self.para,
+					self.collator.sign(&protocol_v2::declare_signature_payload(&self.peer_id)),
+				))
+			},
+			ProtocolVersion::V3 => {
+				CollationProtocols::V3(protocol_v3::CollatorProtocolMessage::Declare(
+					self.collator.public(),
+					self.para,
+					self.collator.sign(&protocol_v3::declare_signature_payload(&self.peer_id)),
+				))
+			},
 		};
 		Self::wrap(NetworkBridgeEvent::PeerMessage(self.peer_id, proto))
 	}
@@ -128,21 +139,27 @@ impl Peer {
 		// Sign garbage so the validator rejects the declaration.
 		let bad = self.collator.sign(&[42u8]);
 		let proto = match self.version {
-			ProtocolVersion::V1 => CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::Declare(
-				self.collator.public(),
-				self.para,
-				bad,
-			)),
-			ProtocolVersion::V2 => CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::Declare(
-				self.collator.public(),
-				self.para,
-				bad,
-			)),
-			ProtocolVersion::V3 => CollationProtocols::V3(protocol_v3::CollatorProtocolMessage::Declare(
-				self.collator.public(),
-				self.para,
-				bad,
-			)),
+			ProtocolVersion::V1 => {
+				CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::Declare(
+					self.collator.public(),
+					self.para,
+					bad,
+				))
+			},
+			ProtocolVersion::V2 => {
+				CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::Declare(
+					self.collator.public(),
+					self.para,
+					bad,
+				))
+			},
+			ProtocolVersion::V3 => {
+				CollationProtocols::V3(protocol_v3::CollatorProtocolMessage::Declare(
+					self.collator.public(),
+					self.para,
+					bad,
+				))
+			},
 		};
 		Self::wrap(NetworkBridgeEvent::PeerMessage(self.peer_id, proto))
 	}
@@ -161,24 +178,27 @@ impl Peer {
 			ProtocolVersion::V1 => CollationProtocols::V1(
 				protocol_v1::CollatorProtocolMessage::AdvertiseCollation(relay_parent),
 			),
-			ProtocolVersion::V2 => CollationProtocols::V2(
-				protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
+			ProtocolVersion::V2 => {
+				CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 					scheduling_parent: relay_parent,
-					candidate_hash: candidate_hash.expect("V2 advertisement requires candidate hash"),
+					candidate_hash: candidate_hash
+						.expect("V2 advertisement requires candidate hash"),
 					parent_head_data_hash: parent_head_data_hash
 						.expect("V2 advertisement requires parent head-data hash"),
-				},
-			),
-			ProtocolVersion::V3 =>
+				})
+			},
+			ProtocolVersion::V3 => {
 				CollationProtocols::V3(protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
 					scheduling_parent: relay_parent,
-					candidate_hash: candidate_hash.expect("V3 advertisement requires candidate hash"),
+					candidate_hash: candidate_hash
+						.expect("V3 advertisement requires candidate hash"),
 					parent_head_data_hash: parent_head_data_hash
 						.expect("V3 advertisement requires parent head-data hash"),
 					candidate_descriptor_version:
 						polkadot_primitives::CandidateDescriptorVersion::V2,
 					relay_parent,
-				}),
+				})
+			},
 		};
 		Self::wrap(NetworkBridgeEvent::PeerMessage(self.peer_id, proto))
 	}
@@ -200,15 +220,14 @@ impl Peer {
 			ProtocolVersion::V3,
 			"advertise_v3 requires a peer constructed with ProtocolVersion::V3"
 		);
-		let proto = CollationProtocols::V3(
-			protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
+		let proto =
+			CollationProtocols::V3(protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
 				scheduling_parent,
 				candidate_hash,
 				parent_head_data_hash,
 				candidate_descriptor_version: descriptor_version,
 				relay_parent,
-			},
-		);
+			});
 		Self::wrap(NetworkBridgeEvent::PeerMessage(self.peer_id, proto))
 	}
 }

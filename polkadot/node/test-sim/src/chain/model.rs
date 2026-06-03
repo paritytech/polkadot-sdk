@@ -16,10 +16,7 @@
 
 //! `ChainModel`: an in-memory replacement for `runtime-api` + `chain-api`.
 
-use crate::{
-	contract::Query,
-	harness::dispatcher::AnswerQuery,
-};
+use crate::{contract::Query, harness::dispatcher::AnswerQuery};
 use polkadot_node_subsystem::messages::{ChainApiMessage, RuntimeApiMessage, RuntimeApiRequest};
 use polkadot_primitives::{
 	async_backing::{AsyncBackingParams, Constraints, InboundHrmpLimitations},
@@ -62,8 +59,10 @@ impl BlockInfo {
 	/// Materialise a `Header` for this block. Includes the BABE pre-digest derived from
 	/// `slot` so V3 scheduling-parent validation can extract the slot from the header.
 	pub fn header(&self) -> Header {
-		let pre_digest =
-			PreDigest::SecondaryPlain(SecondaryPlainPreDigest { authority_index: 0, slot: self.slot });
+		let pre_digest = PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
+			authority_index: 0,
+			slot: self.slot,
+		});
 		Header {
 			parent_hash: self.parent_hash,
 			number: self.number,
@@ -479,9 +478,9 @@ impl ChainModel {
 	}
 
 	fn session_info(&self, session_index: SessionIndex) -> &SessionInfo {
-		self.sessions
-			.get(&session_index)
-			.unwrap_or_else(|| panic!("ChainModel: no SessionInfo registered for {}", session_index))
+		self.sessions.get(&session_index).unwrap_or_else(|| {
+			panic!("ChainModel: no SessionInfo registered for {}", session_index)
+		})
 	}
 
 	fn answer_runtime(&self, msg: RuntimeApiMessage) {
@@ -773,9 +772,7 @@ fn synthetic_child_hash_with_sibling(parent: Hash, number: BlockNumber, sibling:
 	// Sibling index is shifted into a higher byte so primary children retain the
 	// historical hash for backwards compatibility with existing tests.
 	let parent_low = parent.to_low_u64_be();
-	Hash::from_low_u64_be(
-		parent_low.wrapping_add(0x100_0000 + number as u64 + (sibling << 32)),
-	)
+	Hash::from_low_u64_be(parent_low.wrapping_add(0x100_0000 + number as u64 + (sibling << 32)))
 }
 
 #[cfg(test)]

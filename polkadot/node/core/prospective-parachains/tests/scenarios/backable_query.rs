@@ -20,10 +20,10 @@
 use crate::common::world::{default_world_config, World, WorldExt as _};
 use polkadot_node_subsystem::messages::{Ancestors, BackableCandidateRef};
 use polkadot_primitives::{
-	CandidateHash, CoreIndex, HeadData, Hash, Id as ParaId, MutateDescriptorV2,
+	CandidateHash, CoreIndex, Hash, HeadData, Id as ParaId, MutateDescriptorV2,
 };
-use polkadot_subsystem_test_sim::chain::CoreSchedule;
 use polkadot_primitives_test_helpers::make_candidate;
+use polkadot_subsystem_test_sim::chain::CoreSchedule;
 
 #[test]
 fn check_backable_query_single_candidate() {
@@ -63,10 +63,20 @@ fn check_backable_query_single_candidate() {
 
 	// Without backed candidates: nothing is backable.
 	assert!(world
-		.get_backable_candidates(leaf_a.hash, ParaId::from(1), 1, vec![candidate_hash_a].into_iter().collect())
+		.get_backable_candidates(
+			leaf_a.hash,
+			ParaId::from(1),
+			1,
+			vec![candidate_hash_a].into_iter().collect()
+		)
 		.is_empty());
 	assert!(world
-		.get_backable_candidates(leaf_a.hash, ParaId::from(1), 0, vec![candidate_hash_a].into_iter().collect())
+		.get_backable_candidates(
+			leaf_a.hash,
+			ParaId::from(1),
+			0,
+			vec![candidate_hash_a].into_iter().collect()
+		)
 		.is_empty());
 	assert!(world
 		.get_backable_candidates(leaf_a.hash, ParaId::from(1), 0, Ancestors::new())
@@ -79,7 +89,9 @@ fn check_backable_query_single_candidate() {
 	world.back_candidate(ParaId::from(1), CandidateHash(Hash::random()));
 
 	// Other para gets nothing.
-	assert!(world.get_backable_candidates(leaf_a.hash, ParaId::from(2), 1, Ancestors::new()).is_empty());
+	assert!(world
+		.get_backable_candidates(leaf_a.hash, ParaId::from(2), 1, Ancestors::new())
+		.is_empty());
 	assert!(world
 		.get_backable_candidates(
 			leaf_a.hash,
@@ -154,16 +166,17 @@ fn check_backable_query_multiple_candidates() {
 	assert!(world.introduce_seconded_candidate(candidate_a.clone(), pvd_a));
 	world.back_candidate(ParaId::from(1), candidate_hash_a);
 
-	let (candidate_b, candidate_hash_b) =
-		world.make_and_back_candidate(&leaf_a, &candidate_a, 2);
-	let (candidate_c, candidate_hash_c) =
-		world.make_and_back_candidate(&leaf_a, &candidate_b, 3);
-	let (_candidate_d, candidate_hash_d) =
-		world.make_and_back_candidate(&leaf_a, &candidate_c, 4);
+	let (candidate_b, candidate_hash_b) = world.make_and_back_candidate(&leaf_a, &candidate_a, 2);
+	let (candidate_c, candidate_hash_c) = world.make_and_back_candidate(&leaf_a, &candidate_b, 3);
+	let (_candidate_d, candidate_hash_d) = world.make_and_back_candidate(&leaf_a, &candidate_c, 4);
 
 	// Para 2 is empty.
-	assert!(world.get_backable_candidates(leaf_a.hash, ParaId::from(2), 1, Ancestors::new()).is_empty());
-	assert!(world.get_backable_candidates(leaf_a.hash, ParaId::from(2), 5, Ancestors::new()).is_empty());
+	assert!(world
+		.get_backable_candidates(leaf_a.hash, ParaId::from(2), 1, Ancestors::new())
+		.is_empty());
+	assert!(world
+		.get_backable_candidates(leaf_a.hash, ParaId::from(2), 5, Ancestors::new())
+		.is_empty());
 	assert!(world
 		.get_backable_candidates(
 			leaf_a.hash,
@@ -267,9 +280,7 @@ fn check_backable_query_multiple_candidates() {
 			leaf_a.hash,
 			ParaId::from(1),
 			1,
-			vec![candidate_hash_a, candidate_hash_b, candidate_hash_c]
-				.into_iter()
-				.collect(),
+			vec![candidate_hash_a, candidate_hash_b, candidate_hash_c].into_iter().collect(),
 		),
 		vec![BackableCandidateRef {
 			candidate_hash: candidate_hash_d,
@@ -363,9 +374,7 @@ fn check_backable_query_multiple_candidates() {
 			leaf_a.hash,
 			ParaId::from(1),
 			2,
-			vec![candidate_hash_a, candidate_hash_c, candidate_hash_d]
-				.into_iter()
-				.collect(),
+			vec![candidate_hash_a, candidate_hash_c, candidate_hash_d].into_iter().collect(),
 		),
 		vec![
 			BackableCandidateRef {
@@ -402,9 +411,16 @@ fn check_backable_query_multiple_candidates() {
 	);
 
 	// count=0 always empty.
-	assert!(world.get_backable_candidates(leaf_a.hash, ParaId::from(1), 0, Ancestors::new()).is_empty());
 	assert!(world
-		.get_backable_candidates(leaf_a.hash, ParaId::from(1), 0, vec![candidate_hash_a].into_iter().collect())
+		.get_backable_candidates(leaf_a.hash, ParaId::from(1), 0, Ancestors::new())
+		.is_empty());
+	assert!(world
+		.get_backable_candidates(
+			leaf_a.hash,
+			ParaId::from(1),
+			0,
+			vec![candidate_hash_a].into_iter().collect()
+		)
 		.is_empty());
 	assert!(world
 		.get_backable_candidates(
@@ -679,8 +695,12 @@ fn introduce_candidate_parent_leaving_view() {
 	world.deactivate_leaf(leaf_a.hash);
 
 	// A1, A2 gone. B, C remain.
-	assert!(world.get_backable_candidates(leaf_a.hash, ParaId::from(1), 5, Ancestors::default()).is_empty());
-	assert!(world.get_backable_candidates(leaf_a.hash, ParaId::from(2), 5, Ancestors::default()).is_empty());
+	assert!(world
+		.get_backable_candidates(leaf_a.hash, ParaId::from(1), 5, Ancestors::default())
+		.is_empty());
+	assert!(world
+		.get_backable_candidates(leaf_a.hash, ParaId::from(2), 5, Ancestors::default())
+		.is_empty());
 	assert_eq!(
 		world.get_backable_candidates(leaf_b.hash, ParaId::from(1), 5, Ancestors::default()),
 		response_b,
@@ -693,9 +713,15 @@ fn introduce_candidate_parent_leaving_view() {
 	world.deactivate_leaf(leaf_b.hash);
 
 	// B gone too. C remains.
-	assert!(world.get_backable_candidates(leaf_a.hash, ParaId::from(1), 5, Ancestors::default()).is_empty());
-	assert!(world.get_backable_candidates(leaf_a.hash, ParaId::from(2), 5, Ancestors::default()).is_empty());
-	assert!(world.get_backable_candidates(leaf_b.hash, ParaId::from(1), 5, Ancestors::default()).is_empty());
+	assert!(world
+		.get_backable_candidates(leaf_a.hash, ParaId::from(1), 5, Ancestors::default())
+		.is_empty());
+	assert!(world
+		.get_backable_candidates(leaf_a.hash, ParaId::from(2), 5, Ancestors::default())
+		.is_empty());
+	assert!(world
+		.get_backable_candidates(leaf_b.hash, ParaId::from(1), 5, Ancestors::default())
+		.is_empty());
 	assert_eq!(
 		world.get_backable_candidates(leaf_c.hash, ParaId::from(2), 5, Ancestors::default()),
 		response_c,
@@ -704,10 +730,18 @@ fn introduce_candidate_parent_leaving_view() {
 	world.deactivate_leaf(leaf_c.hash);
 
 	// All gone.
-	assert!(world.get_backable_candidates(leaf_a.hash, ParaId::from(1), 5, Ancestors::default()).is_empty());
-	assert!(world.get_backable_candidates(leaf_a.hash, ParaId::from(2), 5, Ancestors::default()).is_empty());
-	assert!(world.get_backable_candidates(leaf_b.hash, ParaId::from(1), 5, Ancestors::default()).is_empty());
-	assert!(world.get_backable_candidates(leaf_c.hash, ParaId::from(2), 5, Ancestors::default()).is_empty());
+	assert!(world
+		.get_backable_candidates(leaf_a.hash, ParaId::from(1), 5, Ancestors::default())
+		.is_empty());
+	assert!(world
+		.get_backable_candidates(leaf_a.hash, ParaId::from(2), 5, Ancestors::default())
+		.is_empty());
+	assert!(world
+		.get_backable_candidates(leaf_b.hash, ParaId::from(1), 5, Ancestors::default())
+		.is_empty());
+	assert!(world
+		.get_backable_candidates(leaf_c.hash, ParaId::from(2), 5, Ancestors::default())
+		.is_empty());
 
 	assert_eq!(world.base.leaves.len(), 0);
 }

@@ -18,23 +18,19 @@
 //! `build_*` helpers, then drives the `Sim` through stimuli and assertions on outbound
 //! `Effect`s. The fluent surface lives in [`super::world`].
 
-use crate::{
-	common::aux::{
-		AvailabilityDistributionNoop, AvailabilityStoreStub, CandidateBackingAux,
-		CandidateOutputs, CandidateValidationStub, ProspectiveParachainsAux, ProvisionerNoop,
+use crate::common::{
+	aux::{
+		AvailabilityDistributionNoop, AvailabilityStoreStub, CandidateBackingAux, CandidateOutputs,
+		CandidateValidationStub, ProspectiveParachainsAux, ProvisionerNoop,
 		StatementDistributionNoop,
 	},
-	common::chain::CoreSchedule,
-	common::harness::{LayeredResponder, SubsystemUnderTest},
-	common::responder::PanicResponder,
-};
-use polkadot_subsystem_test_sim::world_base::{
-	build_chain_model, HasBase, WorldBase, WorldConfig,
+	chain::CoreSchedule,
+	harness::{LayeredResponder, SubsystemUnderTest},
+	responder::PanicResponder,
 };
 use polkadot_node_subsystem::messages::{AllMessages, CollatorProtocolMessage};
-use polkadot_primitives::{
-	CoreIndex, Id as ParaId, ValidatorIndex,
-};
+use polkadot_primitives::{CoreIndex, Id as ParaId, ValidatorIndex};
+use polkadot_subsystem_test_sim::world_base::{build_chain_model, HasBase, WorldBase, WorldConfig};
 
 /// Collator-flavoured test world. Composes [`WorldBase`] for shared scaffolding (`Sim`,
 /// `SharedChain`, leaf bookkeeping) and adds the collator-specific `outputs` registry.
@@ -76,8 +72,8 @@ where
 pub use polkadot_subsystem_test_sim::world_base::HasBase as WorldExt;
 
 /// Default [`WorldConfig`] for collator scenarios. Sets:
-/// * `session_index = 0` — the whole synthetic chain runs in session 0; collator
-///   tests' validator-side infra (group rotation, etc.) was tuned against that.
+/// * `session_index = 0` — the whole synthetic chain runs in session 0; collator tests'
+///   validator-side infra (group rotation, etc.) was tuned against that.
 /// * `validators` = the standard test fixture (Alice, Bob, …).
 /// * `validator_groups = [[0, 1]]` — Alice + Bob in one group.
 ///
@@ -98,25 +94,21 @@ pub fn collator_world_config() -> WorldConfig {
 ///
 /// `can_second_verdict` controls how the `CandidateBacking::CanSecond` query
 /// resolves:
-/// * `None` — spawn the real `candidate-backing` subsystem; CanSecond is answered
-///   by the production code path against the chain's actual claim-queue +
-///   constraints state. The default for almost every scenario.
-/// * `Some(true)` / `Some(false)` — replace `candidate-backing` with a stub that
-///   answers every `CanSecond` query with the given verdict and drops every other
-///   `CandidateBacking` message. Use only when a scenario specifically needs a
-///   verdict that real backing would not produce in our minimal chain shape (e.g.
-///   forcing a "would-not-second" path that depends on chain state we don't
-///   model).
+/// * `None` — spawn the real `candidate-backing` subsystem; CanSecond is answered by the production
+///   code path against the chain's actual claim-queue + constraints state. The default for almost
+///   every scenario.
+/// * `Some(true)` / `Some(false)` — replace `candidate-backing` with a stub that answers every
+///   `CanSecond` query with the given verdict and drops every other `CandidateBacking` message. Use
+///   only when a scenario specifically needs a verdict that real backing would not produce in our
+///   minimal chain shape (e.g. forcing a "would-not-second" path that depends on chain state we
+///   don't model).
 ///
 /// The standard aux graph: real `prospective-parachains`, real `candidate-backing`
 /// (or the `CanSecond` stub above), `CandidateValidationStub::always_valid`, an
 /// `AvailabilityStoreStub`, and noop stubs for `statement-distribution`,
 /// `provisioner`, and `availability-distribution` (they receive collator-side
 /// fan-out but don't drive any contract under test).
-pub fn bootstrap_world<S>(
-	config: WorldConfig,
-	can_second_verdict: Option<bool>,
-) -> World<S>
+pub fn bootstrap_world<S>(config: WorldConfig, can_second_verdict: Option<bool>) -> World<S>
 where
 	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
 	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
@@ -181,4 +173,3 @@ where
 	world.new_block().activate();
 	world
 }
-

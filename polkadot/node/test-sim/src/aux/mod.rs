@@ -16,11 +16,11 @@
 
 //! Auxiliary subsystem helpers.
 //!
-//! - Stubs / noops with no production-crate deps live here in the test-sim core (they're
-//!   reusable across tenants).
-//! - Real-subsystem spawners (prospective-parachains, candidate-backing) live in their
-//!   per-tenant consumer crates. The generic [`spawn_aux`] helper builds the boilerplate
-//!   so each consumer's spawn function is a one-liner.
+//! - Stubs / noops with no production-crate deps live here in the test-sim core (they're reusable
+//!   across tenants).
+//! - Real-subsystem spawners (prospective-parachains, candidate-backing) live in their per-tenant
+//!   consumer crates. The generic [`spawn_aux`] helper builds the boilerplate so each consumer's
+//!   spawn function is a one-liner.
 //!
 //! [`Sim`]: crate::harness::Sim
 //! [`Sim::register_aux`]: crate::harness::Sim::register_aux

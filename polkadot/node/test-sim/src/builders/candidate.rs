@@ -20,7 +20,7 @@ use codec::Encode;
 use polkadot_node_primitives::PoV;
 use polkadot_primitives::{
 	ApprovedPeerId, CandidateCommitments, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
-	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, HeadData, Hash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, Hash, HeadData,
 	Id as ParaId, MutateDescriptorV2, PersistedValidationData, UMPSignal, UMP_SEPARATOR,
 };
 use polkadot_primitives_test_helpers::{
@@ -54,10 +54,7 @@ impl Candidate {
 	/// Build a fresh candidate for the given para id at the given relay parent with empty
 	/// parent and output head data. Most one-shot scenarios want this.
 	pub fn for_para_at(para: ParaId, relay_parent: Hash) -> Self {
-		Self::builder()
-			.para(para)
-			.relay_parent(relay_parent)
-			.build()
+		Self::builder().para(para).relay_parent(relay_parent).build()
 	}
 
 	/// Start a fluent builder. All fields default to the framework's zero-shape (empty head
@@ -222,21 +219,22 @@ impl CandidateBuilder {
 		let commitments = CandidateCommitments {
 			head_data: self.head_data,
 			horizontal_messages: Default::default(),
-			upward_messages: upward_messages.try_into().expect("upward_messages fits in BoundedVec"),
+			upward_messages: upward_messages
+				.try_into()
+				.expect("upward_messages fits in BoundedVec"),
 			new_validation_code: None,
 			processed_downward_messages: 0,
 			hrmp_watermark: 0,
 		};
 
 		// Two descriptor shapes:
-		// - Default (`approved_peer = None`): legacy bad-sig dummy. `descriptor.version()`
-		//   reports V1 because the collator's id bytes spill into the V2 layout's
-		//   `reserved1` field. Most scenarios are V1-shaped and need this for prior
-		//   compatibility.
-		// - V2-shaped (`approved_peer = Some(_)`): build via
-		//   `make_valid_candidate_descriptor_v2`, which zeros `reserved1`. Required for
-		//   experimental's `+VALID_INCLUDED_CANDIDATE_BUMP` path — that path filters out
-		//   non-V2/V3 receipts before attempting the ump-signal lookup.
+		// - Default (`approved_peer = None`): legacy bad-sig dummy. `descriptor.version()` reports
+		//   V1 because the collator's id bytes spill into the V2 layout's `reserved1` field. Most
+		//   scenarios are V1-shaped and need this for prior compatibility.
+		// - V2-shaped (`approved_peer = Some(_)`): build via `make_valid_candidate_descriptor_v2`,
+		//   which zeros `reserved1`. Required for experimental's `+VALID_INCLUDED_CANDIDATE_BUMP`
+		//   path — that path filters out non-V2/V3 receipts before attempting the ump-signal
+		//   lookup.
 		let mut receipt = if self.approved_peer.is_some() {
 			let invalid = Hash::zero();
 			let mut descriptor = make_valid_candidate_descriptor_v2(

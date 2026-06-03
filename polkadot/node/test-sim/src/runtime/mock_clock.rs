@@ -72,10 +72,7 @@ impl MockClock {
 			inner.wall_clock_ms = inner.wall_clock_ms.saturating_add(dur.as_millis());
 			inner.now
 		};
-		self.inner
-			.lock()
-			.expect("MockClock mutex poisoned")
-			.wakeup_up_to(new_now);
+		self.inner.lock().expect("MockClock mutex poisoned").wakeup_up_to(new_now);
 	}
 
 	/// Advance the clock to the deadline of the next pending wakeup, returning the elapsed
@@ -124,11 +121,7 @@ impl Clock for MockClock {
 			let inner = self.inner.lock().expect("MockClock mutex poisoned");
 			inner.now + dur
 		};
-		let rx = self
-			.inner
-			.lock()
-			.expect("MockClock mutex poisoned")
-			.register_wakeup(deadline);
+		let rx = self.inner.lock().expect("MockClock mutex poisoned").register_wakeup(deadline);
 
 		Box::pin(async move {
 			// `oneshot::Receiver::await` resolves with `Err` when the sender is dropped. That

@@ -26,10 +26,7 @@
 //! query (and its embedded reply channel) and answers via that channel. Unhandled queries panic
 //! with a clear message — the test forgot to script the path.
 
-use crate::{
-	contract::Query,
-	harness::dispatcher::AnswerQuery,
-};
+use crate::{contract::Query, harness::dispatcher::AnswerQuery};
 use polkadot_node_subsystem::messages::{
 	CandidateBackingMessage, ChainApiMessage, ProspectiveParachainsMessage, RuntimeApiMessage,
 };

@@ -23,20 +23,18 @@
 //!
 //! # Topics
 //!
-//! - `advertisement.rs`        Declare → advertise → accept/reject, spam protection,
-//!                             v1 advertisement-on-non-leaf, AssetHub permissionless.
-//! - `fetching.rs`             Fetch queueing, retries, timeouts, fairness, per-RP
-//!                             serialisation.
-//! - `seconding.rs`            Full advertise→fetch→respond→second pipelines,
-//!                             fragment-chain seconding, multi-candidate seconding.
-//! - `declare_and_peer.rs`     Declare validation, malicious-para handling,
-//!                             peer-disconnect / view-change effects.
-//! - `scheduling_and_cq.rs`    Per-leaf claim-queue shape, claims counting, group
-//!                             rotation, V3 scheduling-parent semantics.
-//! - `descriptors.rs`          V1 / V3 descriptor handling: version detection,
-//!                             session-index checks.
-//! - `divergent.rs`            Legacy vs experimental divergences (intended or
-//!                             bug_on-tracked).
+//! - `advertisement.rs`        Declare → advertise → accept/reject, spam protection, v1
+//!   advertisement-on-non-leaf, AssetHub permissionless.
+//! - `fetching.rs`             Fetch queueing, retries, timeouts, fairness, per-RP serialisation.
+//! - `seconding.rs`            Full advertise→fetch→respond→second pipelines, fragment-chain
+//!   seconding, multi-candidate seconding.
+//! - `declare_and_peer.rs`     Declare validation, malicious-para handling, peer-disconnect /
+//!   view-change effects.
+//! - `scheduling_and_cq.rs`    Per-leaf claim-queue shape, claims counting, group rotation, V3
+//!   scheduling-parent semantics.
+//! - `descriptors.rs`          V1 / V3 descriptor handling: version detection, session-index
+//!   checks.
+//! - `divergent.rs`            Legacy vs experimental divergences (intended or bug_on-tracked).
 
 #![allow(missing_docs)]
 

@@ -19,7 +19,7 @@
 use crate::common::world::{default_world_config, World, WorldExt as _};
 use polkadot_node_subsystem::messages::{Ancestors, BackableCandidateRef};
 use polkadot_primitives::{
-	BlockNumber, HeadData, Hash, Id as ParaId, PersistedValidationData,
+	BlockNumber, Hash, HeadData, Id as ParaId, PersistedValidationData,
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use polkadot_primitives_test_helpers::make_candidate_v3;
@@ -28,7 +28,6 @@ use std::collections::HashSet;
 const MAX_POV_SIZE: u32 = 1_000_000;
 const LEAF_NUMBER: BlockNumber = 100;
 const OLDER_RELAY_PARENT_NUMBER: BlockNumber = LEAF_NUMBER - 4 * DEFAULT_SCHEDULING_LOOKAHEAD;
-
 
 #[test]
 fn introduce_v3_candidate_with_older_relay_parent() {

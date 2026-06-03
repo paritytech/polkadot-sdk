@@ -42,18 +42,16 @@
 //! Scenarios that need the raw API still have `world.base.sim.send(...)` /
 //! `world.base.sim.expect(...)` available — these helpers are additive, not gating.
 
-use crate::{
-	common::builders::{Candidate, CandidateBuilder, Peer, ProtocolVersion},
-	common::contract::{Effect, RepBucket, ReqKind, RequestId},
-	common::harness::CollatorSut,
-	common::world::World,
+use crate::common::{
+	builders::{Candidate, CandidateBuilder, Peer, ProtocolVersion},
+	contract::{Effect, RepBucket, ReqKind, RequestId},
+	harness::CollatorSut,
+	world::World,
 };
 use codec::Encode;
 use polkadot_node_network_protocol::request_response::{v1 as protocol_v1, v2 as protocol_v2};
 use polkadot_node_primitives::PoV;
-use polkadot_primitives::{
-	CandidateHash, CandidateReceiptV2, HeadData, Hash, Id as ParaId,
-};
+use polkadot_primitives::{CandidateHash, CandidateReceiptV2, Hash, HeadData, Id as ParaId};
 use sc_network::ProtocolName;
 use std::time::Duration;
 
@@ -73,7 +71,8 @@ impl<S: CollatorSut> World<S> {
 	/// real prospective.
 	pub fn candidate_at(&self, relay_parent: Hash) -> CandidateBuilder {
 		let n = self
-			.base.chain
+			.base
+			.chain
 			.lock()
 			.block(&relay_parent)
 			.unwrap_or_else(|| {
@@ -199,14 +198,16 @@ impl<S: CollatorSut> World<S> {
 		candidate_hash: polkadot_primitives::CandidateHash,
 	) -> RequestId {
 		let send_request = self.base.sim.expect(
-			|e| matches!(
-				e,
-				Effect::SendRequest {
-					kind: ReqKind::CollationFetchingV2,
-					candidate_hash: Some(c),
-					..
-				} if *c == candidate_hash,
-			),
+			|e| {
+				matches!(
+					e,
+					Effect::SendRequest {
+						kind: ReqKind::CollationFetchingV2,
+						candidate_hash: Some(c),
+						..
+					} if *c == candidate_hash,
+				)
+			},
 			HAPPY_PATH_TIMEOUT,
 			"Effect::SendRequest CollationFetchingV2 for the specified hash",
 		);
@@ -217,14 +218,16 @@ impl<S: CollatorSut> World<S> {
 	/// the candidate hash is unknown (the test only cares about which peer was picked).
 	pub fn expect_fetch_to(&mut self, peer: sc_network_types::PeerId) -> RequestId {
 		let send_request = self.base.sim.expect(
-			|e| matches!(
-				e,
-				Effect::SendRequest {
-					kind: ReqKind::CollationFetchingV1 | ReqKind::CollationFetchingV2,
-					to,
-					..
-				} if *to == peer,
-			),
+			|e| {
+				matches!(
+					e,
+					Effect::SendRequest {
+						kind: ReqKind::CollationFetchingV1 | ReqKind::CollationFetchingV2,
+						to,
+						..
+					} if *to == peer,
+				)
+			},
 			HAPPY_PATH_TIMEOUT,
 			"Effect::SendRequest CollationFetching to the specified peer",
 		);
@@ -242,19 +245,22 @@ impl<S: CollatorSut> World<S> {
 		&mut self,
 	) -> (sc_network_types::PeerId, RequestId, Option<polkadot_primitives::CandidateHash>) {
 		let send_request = self.base.sim.expect(
-			|e| matches!(
-				e,
-				Effect::SendRequest {
-					kind: ReqKind::CollationFetchingV1 | ReqKind::CollationFetchingV2,
-					..
-				}
-			),
+			|e| {
+				matches!(
+					e,
+					Effect::SendRequest {
+						kind: ReqKind::CollationFetchingV1 | ReqKind::CollationFetchingV2,
+						..
+					}
+				)
+			},
 			HAPPY_PATH_TIMEOUT,
 			"Effect::SendRequest CollationFetching from any peer",
 		);
 		match send_request {
-			Effect::SendRequest { to, request_id, candidate_hash, .. } =>
-				(to, request_id, candidate_hash),
+			Effect::SendRequest { to, request_id, candidate_hash, .. } => {
+				(to, request_id, candidate_hash)
+			},
 			_ => unreachable!("filter ensures SendRequest"),
 		}
 	}
@@ -266,10 +272,14 @@ impl<S: CollatorSut> World<S> {
 		let send_request = self.base.sim.expect(
 			|e| match e {
 				Effect::SendRequest {
-					kind: ReqKind::CollationFetchingV1, candidate_hash: None, ..
+					kind: ReqKind::CollationFetchingV1,
+					candidate_hash: None,
+					..
 				} => true,
 				Effect::SendRequest {
-					kind: ReqKind::CollationFetchingV2, candidate_hash: Some(c), ..
+					kind: ReqKind::CollationFetchingV2,
+					candidate_hash: Some(c),
+					..
 				} if *c == candidate.hash() => true,
 				_ => false,
 			},
@@ -282,10 +292,12 @@ impl<S: CollatorSut> World<S> {
 	/// Assert that **no** fetch fires for `candidate` within `within`.
 	pub fn no_fetch_for(&mut self, candidate: &Candidate, within: Duration) {
 		self.base.sim.expect_no(
-			|e| matches!(
-				e,
-				Effect::SendRequest { candidate_hash: Some(c), .. } if *c == candidate.hash(),
-			),
+			|e| {
+				matches!(
+					e,
+					Effect::SendRequest { candidate_hash: Some(c), .. } if *c == candidate.hash(),
+				)
+			},
 			within,
 			"SendRequest for the candidate (must NOT fire)",
 		);
@@ -310,7 +322,8 @@ impl<S: CollatorSut> World<S> {
 		pov: PoV,
 	) {
 		let response = protocol_v2::CollationFetchingResponse::Collation(receipt, pov);
-		self.base.sim
+		self.base
+			.sim
 			.respond_fetch(request_id, Ok((response.encode(), ProtocolName::from(""))));
 	}
 
@@ -319,7 +332,8 @@ impl<S: CollatorSut> World<S> {
 	/// which the experimental validator treats as a slashable failed fetch
 	/// (`FAILED_FETCH_SLASH`). Use to drive reputation slashes from the network layer.
 	pub fn respond_fetch_invalid(&mut self, request_id: RequestId) {
-		self.base.sim
+		self.base
+			.sim
 			.respond_fetch(request_id, Ok((vec![0xff; 8], ProtocolName::from(""))));
 	}
 
@@ -331,7 +345,8 @@ impl<S: CollatorSut> World<S> {
 		pov: PoV,
 	) {
 		let response = protocol_v1::CollationFetchingResponse::Collation(receipt.into(), pov);
-		self.base.sim
+		self.base
+			.sim
 			.respond_fetch(request_id, Ok((response.encode(), ProtocolName::from(""))));
 	}
 
@@ -351,7 +366,8 @@ impl<S: CollatorSut> World<S> {
 			pov,
 			parent_head_data,
 		};
-		self.base.sim
+		self.base
+			.sim
 			.respond_fetch(request_id, Ok((response.encode(), ProtocolName::from(""))));
 	}
 
@@ -368,11 +384,8 @@ impl<S: CollatorSut> World<S> {
 	/// On expectation failures (no fetch, no second), the underlying `Sim::expect` calls
 	/// dump the timeline and panic — same dev-ex as a hand-rolled scenario.
 	pub fn full_second(&mut self, peer: &Peer, candidate: &Candidate) {
-		self.outputs.insert(
-			candidate.hash(),
-			candidate.commitments.clone(),
-			candidate.pvd.clone(),
-		);
+		self.outputs
+			.insert(candidate.hash(), candidate.commitments.clone(), candidate.pvd.clone());
 		self.advertise_with_parent_head(
 			peer,
 			candidate.relay_parent(),
@@ -393,10 +406,12 @@ impl<S: CollatorSut> World<S> {
 	/// Wait for `Effect::SecondCandidate` whose candidate hash equals `candidate`'s.
 	pub fn expect_second(&mut self, candidate: &Candidate) {
 		let _ = self.base.sim.expect(
-			|e| matches!(
-				e,
-				Effect::SecondCandidate { candidate_hash, .. } if candidate_hash == &candidate.hash()
-			),
+			|e| {
+				matches!(
+					e,
+					Effect::SecondCandidate { candidate_hash, .. } if candidate_hash == &candidate.hash()
+				)
+			},
 			HAPPY_PATH_TIMEOUT,
 			"Effect::SecondCandidate for the candidate",
 		);
@@ -409,10 +424,12 @@ impl<S: CollatorSut> World<S> {
 	/// observation; only the *signal* of rejection differs.
 	pub fn expect_no_second(&mut self, candidate: &Candidate, within: Duration) {
 		self.base.sim.expect_no(
-			|e| matches!(
-				e,
-				Effect::SecondCandidate { candidate_hash, .. } if candidate_hash == &candidate.hash()
-			),
+			|e| {
+				matches!(
+					e,
+					Effect::SecondCandidate { candidate_hash, .. } if candidate_hash == &candidate.hash()
+				)
+			},
 			within,
 			"Effect::SecondCandidate for the candidate (must NOT fire — candidate rejected)",
 		);
@@ -427,10 +444,12 @@ impl<S: CollatorSut> World<S> {
 	/// scenario obtained the id from an effect rather than from a `Peer` builder.
 	pub fn expect_rep_id(&mut self, peer_id: sc_network_types::PeerId, bucket: RepBucket) {
 		let _ = self.base.sim.expect(
-			|e| matches!(
-				e,
-				Effect::Reputation { peer: p, bucket: b } if *p == peer_id && *b == bucket,
-			),
+			|e| {
+				matches!(
+					e,
+					Effect::Reputation { peer: p, bucket: b } if *p == peer_id && *b == bucket,
+				)
+			},
 			HAPPY_PATH_TIMEOUT,
 			"Effect::Reputation for peer (matching bucket)",
 		);
@@ -440,10 +459,12 @@ impl<S: CollatorSut> World<S> {
 	/// within [`NEGATIVE_TIMEOUT`].
 	pub fn expect_no_rep(&mut self, peer: &Peer, bucket: RepBucket) {
 		self.base.sim.expect_no(
-			|e| matches!(
-				e,
-				Effect::Reputation { peer: p, bucket: b } if *p == peer.peer_id && *b == bucket,
-			),
+			|e| {
+				matches!(
+					e,
+					Effect::Reputation { peer: p, bucket: b } if *p == peer.peer_id && *b == bucket,
+				)
+			},
 			NEGATIVE_TIMEOUT,
 			"Effect::Reputation for peer (must NOT fire with this bucket)",
 		);
@@ -453,11 +474,13 @@ impl<S: CollatorSut> World<S> {
 	pub fn expect_disconnect(&mut self, peer: &Peer) {
 		use polkadot_node_network_protocol::peer_set::PeerSet;
 		let _ = self.base.sim.expect(
-			|e| matches!(
-				e,
-				Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation }
-					if peers.contains(&peer.peer_id),
-			),
+			|e| {
+				matches!(
+					e,
+					Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation }
+						if peers.contains(&peer.peer_id),
+				)
+			},
 			HAPPY_PATH_TIMEOUT,
 			"Effect::DisconnectPeers for peer on the Collation peer-set",
 		);
@@ -467,14 +490,15 @@ impl<S: CollatorSut> World<S> {
 	pub fn expect_no_disconnect(&mut self, peer: &Peer, within: Duration) {
 		use polkadot_node_network_protocol::peer_set::PeerSet;
 		self.base.sim.expect_no(
-			|e| matches!(
-				e,
-				Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation }
-					if peers.contains(&peer.peer_id),
-			),
+			|e| {
+				matches!(
+					e,
+					Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation }
+						if peers.contains(&peer.peer_id),
+				)
+			},
 			within,
 			"Effect::DisconnectPeers for peer (must NOT fire)",
 		);
 	}
-
 }

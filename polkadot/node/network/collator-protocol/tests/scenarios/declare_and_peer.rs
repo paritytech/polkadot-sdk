@@ -16,184 +16,172 @@
 
 //! Declare validation, peer-disconnect, view-change.
 
-
 mod bad_signature {
-use crate::{
-	common::builders::ProtocolVersion::V1,
-	common::contract::RepBucket,
-	common::harness::CollatorSut,
-	common::world::activated_world,
-};
-use polkadot_primitives::{CoreIndex, Id as ParaId};
+	use crate::common::{
+		builders::ProtocolVersion::V1, contract::RepBucket, harness::CollatorSut,
+		world::activated_world,
+	};
+	use polkadot_primitives::{CoreIndex, Id as ParaId};
 
-const PARA: ParaId = ParaId::new(2000);
+	const PARA: ParaId = ParaId::new(2000);
 
-#[crate::sim_test(
-	bug_on = "experimental",
-	bug_url = "memory:project_collator_experimental_skips_declare_sig"
-)]
-fn declare_with_bad_signature_yields_malicious_reputation<S: CollatorSut>() {
-	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
-	let peer = w.connected_peer(PARA, V1);
-	w.base.sim.send(peer.declare_with_bad_signature());
-	w.expect_rep(&peer, RepBucket::Malicious);
-}
+	#[crate::sim_test(
+		bug_on = "experimental",
+		bug_url = "memory:project_collator_experimental_skips_declare_sig"
+	)]
+	fn declare_with_bad_signature_yields_malicious_reputation<S: CollatorSut>() {
+		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
+		let peer = w.connected_peer(PARA, V1);
+		w.base.sim.send(peer.declare_with_bad_signature());
+		w.expect_rep(&peer, RepBucket::Malicious);
+	}
 
-#[crate::sim_test]
-fn declare_with_valid_signature_does_not_get_malicious_reputation<S: CollatorSut>() {
-	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
-	let _peer = w.declared_peer(PARA, V1);
-	// Sanity counterpart: a *valid* declare must NOT trip the malicious bucket. Pairs with
-	// the bad-signature scenario above to rule out "any declare in this setup yields a
-	// Reputation::Malicious" as a false positive.
-	w.expect_no_rep(&_peer, RepBucket::Malicious);
-}
+	#[crate::sim_test]
+	fn declare_with_valid_signature_does_not_get_malicious_reputation<S: CollatorSut>() {
+		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
+		let _peer = w.declared_peer(PARA, V1);
+		// Sanity counterpart: a *valid* declare must NOT trip the malicious bucket. Pairs with
+		// the bad-signature scenario above to rule out "any declare in this setup yields a
+		// Reputation::Malicious" as a false positive.
+		w.expect_no_rep(&_peer, RepBucket::Malicious);
+	}
 }
 
 mod disconnect_if_wrong_declare {
-use crate::{
-	common::builders::ProtocolVersion::V1,
-	common::harness::CollatorSut,
-	common::world::activated_world,
-};
-use polkadot_primitives::{CoreIndex, Id as ParaId};
-use std::time::Duration;
+	use crate::common::{
+		builders::ProtocolVersion::V1, harness::CollatorSut, world::activated_world,
+	};
+	use polkadot_primitives::{CoreIndex, Id as ParaId};
+	use std::time::Duration;
 
-const SCHEDULED: ParaId = ParaId::new(2000);
-const WRONG: ParaId = ParaId::new(3000);
+	const SCHEDULED: ParaId = ParaId::new(2000);
+	const WRONG: ParaId = ParaId::new(3000);
 
-#[crate::sim_test]
-fn peer_disconnected_after_declaring_for_wrong_para<S: CollatorSut>() {
-	let mut w = activated_world::<S>(&[(CoreIndex(0), SCHEDULED)]);
-	let peer = w.declared_peer(WRONG, V1);
-	w.expect_disconnect(&peer);
-}
+	#[crate::sim_test]
+	fn peer_disconnected_after_declaring_for_wrong_para<S: CollatorSut>() {
+		let mut w = activated_world::<S>(&[(CoreIndex(0), SCHEDULED)]);
+		let peer = w.declared_peer(WRONG, V1);
+		w.expect_disconnect(&peer);
+	}
 
-#[crate::sim_test]
-fn peer_with_correct_declare_is_not_disconnected<S: CollatorSut>() {
-	let mut w = activated_world::<S>(&[(CoreIndex(0), SCHEDULED)]);
-	let peer = w.declared_peer(SCHEDULED, V1);
-	w.expect_no_disconnect(&peer, Duration::from_millis(200));
-}
+	#[crate::sim_test]
+	fn peer_with_correct_declare_is_not_disconnected<S: CollatorSut>() {
+		let mut w = activated_world::<S>(&[(CoreIndex(0), SCHEDULED)]);
+		let peer = w.declared_peer(SCHEDULED, V1);
+		w.expect_no_disconnect(&peer, Duration::from_millis(200));
+	}
 }
 
 mod malicious_para {
-use crate::{
-	common::builders::ProtocolVersion::V2,
-	common::harness::CollatorSut,
-	common::world::activated_world,
-};
-use polkadot_primitives::{CoreIndex, Id as ParaId};
+	use crate::common::{
+		builders::ProtocolVersion::V2, harness::CollatorSut, world::activated_world,
+	};
+	use polkadot_primitives::{CoreIndex, Id as ParaId};
 
-const SCHEDULED: ParaId = ParaId::new(2000);
-const UNSCHEDULED: ParaId = ParaId::new(3000);
+	const SCHEDULED: ParaId = ParaId::new(2000);
+	const UNSCHEDULED: ParaId = ParaId::new(3000);
 
-#[crate::sim_test]
-fn declare_for_unscheduled_para_disconnects_peer<S: CollatorSut>() {
-	let mut w = activated_world::<S>(&[(CoreIndex(0), SCHEDULED)]);
-	let peer = w.declared_peer(UNSCHEDULED, V2);
-	w.expect_disconnect(&peer);
-}
+	#[crate::sim_test]
+	fn declare_for_unscheduled_para_disconnects_peer<S: CollatorSut>() {
+		let mut w = activated_world::<S>(&[(CoreIndex(0), SCHEDULED)]);
+		let peer = w.declared_peer(UNSCHEDULED, V2);
+		w.expect_disconnect(&peer);
+	}
 }
 
 mod unneeded_para {
-use crate::{
-	common::builders::ProtocolVersion::V1,
-	common::harness::CollatorSut,
-	common::world::activated_world,
-};
-use polkadot_primitives::Id as ParaId;
+	use crate::common::{
+		builders::ProtocolVersion::V1, harness::CollatorSut, world::activated_world,
+	};
+	use polkadot_primitives::Id as ParaId;
 
-#[crate::sim_test]
-fn declare_for_unneeded_para_disconnects_peer<S: CollatorSut>() {
-	let mut w = activated_world::<S>(&[]); // empty schedule = nothing scheduled
-	let peer = w.declared_peer(ParaId::from(2000), V1);
-	w.expect_disconnect(&peer);
-}
+	#[crate::sim_test]
+	fn declare_for_unneeded_para_disconnects_peer<S: CollatorSut>() {
+		let mut w = activated_world::<S>(&[]); // empty schedule = nothing scheduled
+		let peer = w.declared_peer(ParaId::from(2000), V1);
+		w.expect_disconnect(&peer);
+	}
 }
 
 mod peer_disconnect_clears_queue {
-use crate::{
-	common::builders::{Candidate, ProtocolVersion::V1},
-	common::contract::Effect,
-	common::harness::CollatorSut,
-	common::world::activated_world,
-};
-use crate::common::world::WorldExt as _;
-use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
-use polkadot_primitives::{CoreIndex, Id as ParaId};
-use std::time::Duration;
+	use crate::common::{
+		builders::{Candidate, ProtocolVersion::V1},
+		contract::Effect,
+		harness::CollatorSut,
+		world::{activated_world, WorldExt as _},
+	};
+	use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
+	use polkadot_primitives::{CoreIndex, Id as ParaId};
+	use std::time::Duration;
 
-const PARA: ParaId = ParaId::new(2000);
+	const PARA: ParaId = ParaId::new(2000);
 
-#[crate::sim_test]
-fn disconnect_clears_queued_advertisement<S: CollatorSut>() {
-	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
-	let leaf = w.leaf();
-	let leaf_n = w.leaf_number();
+	#[crate::sim_test]
+	fn disconnect_clears_queued_advertisement<S: CollatorSut>() {
+		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
+		let leaf = w.leaf();
+		let leaf_n = w.leaf_number();
 
-	// Build a candidate consistent with the framework's empty-parent-head PVD.
-	let candidate = Candidate::builder()
-		.para(PARA)
-		.relay_parent(leaf)
-		.relay_parent_number(leaf_n)
-		.build();
+		// Build a candidate consistent with the framework's empty-parent-head PVD.
+		let candidate = Candidate::builder()
+			.para(PARA)
+			.relay_parent(leaf)
+			.relay_parent_number(leaf_n)
+			.build();
 
-	let peer_a = w.declared_peer(PARA, V1);
-	let peer_b = w.declared_peer(PARA, V1);
+		let peer_a = w.declared_peer(PARA, V1);
+		let peer_b = w.declared_peer(PARA, V1);
 
-	// peer_a advertises; first fetch fires for peer_a (only declared peer with an ad).
-	w.base.sim.send(peer_a.advertise(leaf, None, None));
-	let request_id = w.fetch_request(&candidate);
+		// peer_a advertises; first fetch fires for peer_a (only declared peer with an ad).
+		w.base.sim.send(peer_a.advertise(leaf, None, None));
+		let request_id = w.fetch_request(&candidate);
 
-	// peer_b queues behind peer_a, then disconnects.
-	w.base.sim.send(peer_b.advertise(leaf, None, None));
-	w.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
-		NetworkBridgeEvent::PeerDisconnected(peer_b.peer_id),
-	));
+		// peer_b queues behind peer_a, then disconnects.
+		w.base.sim.send(peer_b.advertise(leaf, None, None));
+		w.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
+			NetworkBridgeEvent::PeerDisconnected(peer_b.peer_id),
+		));
 
-	// peer_a's fetch resolves valid → seconding emits.
-	w.respond_fetch_v1(request_id, candidate.receipt.clone(), Candidate::empty_pov());
-	w.expect_second(&candidate);
+		// peer_a's fetch resolves valid → seconding emits.
+		w.respond_fetch_v1(request_id, candidate.receipt.clone(), Candidate::empty_pov());
+		w.expect_second(&candidate);
 
-	// No fetch ever targets peer_b.
-	w.base.sim.expect_no(
-		|e| matches!(e, Effect::SendRequest { to, .. } if *to == peer_b.peer_id),
-		Duration::from_millis(100),
-		"SendRequest targeting peer_b after peer_b disconnected its advertisement",
-	);
-}
+		// No fetch ever targets peer_b.
+		w.base.sim.expect_no(
+			|e| matches!(e, Effect::SendRequest { to, .. } if *to == peer_b.peer_id),
+			Duration::from_millis(100),
+			"SendRequest targeting peer_b after peer_b disconnected its advertisement",
+		);
+	}
 }
 
 mod view_change_disconnects {
-use crate::{
-	common::builders::ProtocolVersion::V1,
-	common::harness::CollatorSut,
-	common::world::activated_world,
-};
-use polkadot_node_network_protocol::OurView;
-use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
-use polkadot_primitives::{CoreIndex, Id as ParaId};
-use std::time::Duration;
+	use crate::common::{
+		builders::ProtocolVersion::V1, harness::CollatorSut, world::activated_world,
+	};
+	use polkadot_node_network_protocol::OurView;
+	use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
+	use polkadot_primitives::{CoreIndex, Id as ParaId};
+	use std::time::Duration;
 
-const PARA: ParaId = ParaId::new(2000);
+	const PARA: ParaId = ParaId::new(2000);
 
-#[crate::sim_test]
-fn empty_view_disconnects_declared_peer<S: CollatorSut>() {
-	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
-	let peer = w.declared_peer(PARA, V1);
+	#[crate::sim_test]
+	fn empty_view_disconnects_declared_peer<S: CollatorSut>() {
+		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
+		let peer = w.declared_peer(PARA, V1);
 
-	w.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
-		NetworkBridgeEvent::OurViewChange(OurView::new(std::iter::empty(), 0)),
-	));
+		w.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
+			NetworkBridgeEvent::OurViewChange(OurView::new(std::iter::empty(), 0)),
+		));
 
-	w.expect_disconnect(&peer);
-}
+		w.expect_disconnect(&peer);
+	}
 
-#[crate::sim_test]
-fn declared_peer_stays_connected_when_view_unchanged<S: CollatorSut>() {
-	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
-	let peer = w.declared_peer(PARA, V1);
-	w.expect_no_disconnect(&peer, Duration::from_millis(200));
-}
+	#[crate::sim_test]
+	fn declared_peer_stays_connected_when_view_unchanged<S: CollatorSut>() {
+		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
+		let peer = w.declared_peer(PARA, V1);
+		w.expect_no_disconnect(&peer, Duration::from_millis(200));
+	}
 }

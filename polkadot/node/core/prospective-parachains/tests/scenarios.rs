@@ -23,18 +23,17 @@
 //!
 //! # Topics
 //!
-//! - `introduce.rs`           tests of `IntroduceSecondedCandidate` accept/reject
-//!                            behaviour and idempotence.
-//! - `backable_query.rs`      tests of what `GetBackableCandidates` returns under
-//!                            various fragment-chain shapes, ancestor sets, and counts.
-//! - `membership_and_pvd.rs`  tests of read-only queries: `GetHypotheticalMembership`
-//!                            and `GetProspectiveValidationData`.
+//! - `introduce.rs`           tests of `IntroduceSecondedCandidate` accept/reject behaviour and
+//!   idempotence.
+//! - `backable_query.rs`      tests of what `GetBackableCandidates` returns under various
+//!   fragment-chain shapes, ancestor sets, and counts.
+//! - `membership_and_pvd.rs`  tests of read-only queries: `GetHypotheticalMembership` and
+//!   `GetProspectiveValidationData`.
 //! - `leaf_lifecycle.rs`      `ActiveLeavesUpdate` handling — simple activate/deactivate,
-//!                            parent-inheritance, implicit-view bound,
-//!                            pending-availability persistence across RP-out-of-scope,
-//!                            session-boundary ancestry stops.
-//! - `older_relay_parent.rs`  V3 candidates whose `relay_parent` is older than the
-//!                            scheduling lookahead.
+//!   parent-inheritance, implicit-view bound, pending-availability persistence across
+//!   RP-out-of-scope, session-boundary ancestry stops.
+//! - `older_relay_parent.rs`  V3 candidates whose `relay_parent` is older than the scheduling
+//!   lookahead.
 //! - `smoke.rs`               framework wiring smoke (spawn + conclude).
 
 mod common;

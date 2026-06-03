@@ -42,9 +42,8 @@ pub use polkadot_subsystem_test_sim::{chain, contract, responder, runtime};
 /// Aux subsystems: stubs/noops from the test-sim core, plus collator-flavoured
 /// real-subsystem spawners (prospective + backing).
 pub mod aux {
-	pub use polkadot_subsystem_test_sim::aux::*;
 	pub use crate::common::aux_real::{
-		backing::CandidateBackingAux,
-		prospective::ProspectiveParachainsAux,
+		backing::CandidateBackingAux, prospective::ProspectiveParachainsAux,
 	};
+	pub use polkadot_subsystem_test_sim::aux::*;
 }

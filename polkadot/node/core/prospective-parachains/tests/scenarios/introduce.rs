@@ -20,8 +20,8 @@
 use crate::common::world::{default_world_config, World, WorldExt as _};
 use polkadot_node_subsystem::messages::{Ancestors, BackableCandidateRef};
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
-use polkadot_subsystem_test_sim::chain::CoreSchedule;
 use polkadot_primitives_test_helpers::make_candidate;
+use polkadot_subsystem_test_sim::chain::CoreSchedule;
 
 #[test]
 fn introduce_candidates_basic() {
@@ -198,7 +198,9 @@ fn introduce_candidates_error() {
 	);
 
 	// Hypothetical membership: A directly addable, B potential. Both report leaf_a.hash.
-	for (candidate, pvd) in [(candidate_a.clone(), pvd_a.clone()), (candidate_b.clone(), pvd_b.clone())] {
+	for (candidate, pvd) in
+		[(candidate_a.clone(), pvd_a.clone()), (candidate_b.clone(), pvd_b.clone())]
+	{
 		let hash = candidate.hash();
 		let resp = world.get_hypothetical_membership(hash, candidate, pvd);
 		assert_eq!(resp.len(), 1);
@@ -208,8 +210,11 @@ fn introduce_candidates_error() {
 
 	// Hypothetical membership of C: empty (fails constraint check).
 	{
-		let resp =
-			world.get_hypothetical_membership(candidate_c.hash(), candidate_c.clone(), pvd_c.clone());
+		let resp = world.get_hypothetical_membership(
+			candidate_c.hash(),
+			candidate_c.clone(),
+			pvd_c.clone(),
+		);
 		assert_eq!(resp.len(), 1);
 		let (_, membership) = &resp[0];
 		assert!(membership.is_empty());

@@ -15,8 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Shared scaffolding for prospective-parachains test-sim scenarios:
-//! - [`sut::ProspectiveParachains`] — `SubsystemUnderTest` adapter for the production
-//!   subsystem.
+//! - [`sut::ProspectiveParachains`] — `SubsystemUnderTest` adapter for the production subsystem.
 //! - [`world`] — `World`, `TestState`, `TestLeaf`, fluent verbs.
 //!
 //! Cargo treats `tests/common/mod.rs` as a non-target subdirectory module — referenced

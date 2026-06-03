@@ -30,8 +30,8 @@ use polkadot_node_subsystem::messages::{
 	ProspectiveParachainsMessage, ProspectiveValidationDataRequest,
 };
 use polkadot_primitives::{
-	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, HeadData,
-	Hash, Id as ParaId, MutateDescriptorV2, PersistedValidationData, SessionIndex,
+	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, Hash,
+	HeadData, Id as ParaId, MutateDescriptorV2, PersistedValidationData, SessionIndex,
 };
 use polkadot_primitives_test_helpers::make_candidate;
 use polkadot_subsystem_test_sim::{
@@ -109,7 +109,9 @@ impl World {
 			persisted_validation_data: pvd,
 		};
 		let (tx, rx) = oneshot::channel();
-		self.base.sim.send(ProspectiveParachainsMessage::IntroduceSecondedCandidate(req, tx));
+		self.base
+			.sim
+			.send(ProspectiveParachainsMessage::IntroduceSecondedCandidate(req, tx));
 		rx.now_or_never_ok()
 			.expect("subsystem replied to IntroduceSecondedCandidate before parking")
 	}
@@ -137,7 +139,8 @@ impl World {
 			ancestors,
 			sender: tx,
 		});
-		rx.now_or_never_ok().expect("subsystem replied to GetBackableCandidates before parking")
+		rx.now_or_never_ok()
+			.expect("subsystem replied to GetBackableCandidates before parking")
 	}
 
 	/// Drive `GetHypotheticalMembership` and return the reply for the single submitted

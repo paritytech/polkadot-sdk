@@ -86,8 +86,14 @@ mod tests {
 
 	#[test]
 	fn raw_mapping() {
-		assert_eq!(RepBucket::from_raw(&ReputationChange::new(i32::MIN, "bad")), RepBucket::Malicious);
-		assert_eq!(RepBucket::from_raw(&ReputationChange::new(-100, "slow")), RepBucket::Performance);
+		assert_eq!(
+			RepBucket::from_raw(&ReputationChange::new(i32::MIN, "bad")),
+			RepBucket::Malicious
+		);
+		assert_eq!(
+			RepBucket::from_raw(&ReputationChange::new(-100, "slow")),
+			RepBucket::Performance
+		);
 		assert_eq!(RepBucket::from_raw(&ReputationChange::new(100, "nice")), RepBucket::Benefit);
 	}
 }

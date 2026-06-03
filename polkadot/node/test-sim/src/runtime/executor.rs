@@ -24,8 +24,8 @@
 //! - [`Executor::poll_until_pending`] — drive every spawned task forward until each is `Pending`
 //!   (i.e., parked on a channel / clock wakeup / external event). The "settle" step that every
 //!   stimulus injection ends with.
-//! - [`Executor::run_until`] — block until a single future completes, draining auxiliary tasks
-//!   as needed.
+//! - [`Executor::run_until`] — block until a single future completes, draining auxiliary tasks as
+//!   needed.
 
 use crate::runtime::local_spawner::LocalPoolSpawnDrain;
 use futures::{
@@ -82,10 +82,7 @@ impl Executor {
 	where
 		Fut: Future<Output = ()> + Send + 'static,
 	{
-		self.pool
-			.spawner()
-			.spawn(fut)
-			.expect("LocalPool spawner accepts spawns; qed");
+		self.pool.spawner().spawn(fut).expect("LocalPool spawner accepts spawns; qed");
 	}
 
 	/// Poll every spawned task until none can make further progress. Returns when every task
@@ -112,10 +109,7 @@ impl Executor {
 			return false;
 		}
 		for fut in pending {
-			self.pool
-				.spawner()
-				.spawn(fut)
-				.expect("LocalPool spawner accepts spawns; qed");
+			self.pool.spawner().spawn(fut).expect("LocalPool spawner accepts spawns; qed");
 		}
 		true
 	}

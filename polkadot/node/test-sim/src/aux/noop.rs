@@ -65,4 +65,8 @@ macro_rules! noop_slot {
 
 noop_slot!(StatementDistributionNoop, "statement-distribution-noop", StatementDistribution);
 noop_slot!(ProvisionerNoop, "provisioner-noop", Provisioner);
-noop_slot!(AvailabilityDistributionNoop, "availability-distribution-noop", AvailabilityDistribution);
+noop_slot!(
+	AvailabilityDistributionNoop,
+	"availability-distribution-noop",
+	AvailabilityDistribution
+);

@@ -44,11 +44,7 @@ use crate::{
 	},
 	runtime::LocalPoolSpawner,
 };
-use futures::{
-	channel::mpsc,
-	future::BoxFuture,
-	FutureExt, SinkExt,
-};
+use futures::{channel::mpsc, future::BoxFuture, FutureExt, SinkExt};
 use polkadot_node_subsystem::{
 	messages::AllMessages, FromOrchestra, OverseerSignal, SpawnGlue, SpawnedSubsystem,
 };

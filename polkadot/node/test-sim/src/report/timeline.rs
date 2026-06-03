@@ -70,12 +70,13 @@ impl fmt::Display for TimelineReport<'_> {
 			.entries()
 			.iter()
 			.filter_map(|o| match o {
-				Observation::Effect(s) =>
+				Observation::Effect(s) => {
 					if s.sim_t >= start && s.sim_t <= end {
 						Some(s)
 					} else {
 						None
-					},
+					}
+				},
 			})
 			.collect();
 
@@ -83,7 +84,12 @@ impl fmt::Display for TimelineReport<'_> {
 			writeln!(f, "               <no effects observed in this window>")?;
 		} else {
 			for e in &entries {
-				writeln!(f, "               [{:>5}ms]  {}", e.sim_t.as_millis(), format_effect(&e.value))?;
+				writeln!(
+					f,
+					"               [{:>5}ms]  {}",
+					e.sim_t.as_millis(),
+					format_effect(&e.value)
+				)?;
 			}
 		}
 
@@ -110,12 +116,15 @@ impl fmt::Display for TimelineReport<'_> {
 /// code can pretty-print recorder entries when an assertion fires.
 pub fn format_effect(effect: &Effect) -> String {
 	match effect {
-		Effect::SecondCandidate { para, candidate_hash, .. } =>
-			format!("SecondCandidate(para={}, cand={:?})", u32::from(*para), candidate_hash),
-		Effect::SendAdvertisement { peers, .. } =>
-			format!("SendAdvertisement(peers={})", peers.len()),
-		Effect::SendCollation { peers, kind } =>
-			format!("SendCollation(peers={}, kind={:?})", peers.len(), kind),
+		Effect::SecondCandidate { para, candidate_hash, .. } => {
+			format!("SecondCandidate(para={}, cand={:?})", u32::from(*para), candidate_hash)
+		},
+		Effect::SendAdvertisement { peers, .. } => {
+			format!("SendAdvertisement(peers={})", peers.len())
+		},
+		Effect::SendCollation { peers, kind } => {
+			format!("SendCollation(peers={}, kind={:?})", peers.len(), kind)
+		},
 		Effect::SendRequest { request_id, to, kind, candidate_hash } => format!(
 			"SendRequest(req={:?}, to={}, kind={:?}, cand={:?})",
 			request_id,
@@ -123,14 +132,18 @@ pub fn format_effect(effect: &Effect) -> String {
 			kind,
 			candidate_hash
 		),
-		Effect::Reputation { peer, bucket } =>
-			format!("Reputation(peer={}, bucket={:?})", short_peer(peer), bucket),
-		Effect::ConnectValidators { validator_ids, peer_set } =>
-			format!("ConnectValidators(n={}, peer_set={:?})", validator_ids.len(), peer_set),
-		Effect::DisconnectPeers { peers, peer_set } =>
-			format!("DisconnectPeers(n={}, peer_set={:?})", peers.len(), peer_set),
-		Effect::RequestResponseSent { request_id, kind } =>
-			format!("RequestResponseSent(req={}, kind={:?})", request_id, kind),
+		Effect::Reputation { peer, bucket } => {
+			format!("Reputation(peer={}, bucket={:?})", short_peer(peer), bucket)
+		},
+		Effect::ConnectValidators { validator_ids, peer_set } => {
+			format!("ConnectValidators(n={}, peer_set={:?})", validator_ids.len(), peer_set)
+		},
+		Effect::DisconnectPeers { peers, peer_set } => {
+			format!("DisconnectPeers(n={}, peer_set={:?})", peers.len(), peer_set)
+		},
+		Effect::RequestResponseSent { request_id, kind } => {
+			format!("RequestResponseSent(req={}, kind={:?})", request_id, kind)
+		},
 	}
 }
 
@@ -152,11 +165,7 @@ pub fn format_timeline(recorder: &Recorder) -> String {
 		return out;
 	}
 	for e in entries {
-		out.push_str(&format!(
-			"  [{:>6}ms] {}\n",
-			e.sim_t.as_millis(),
-			format_effect(&e.value),
-		));
+		out.push_str(&format!("  [{:>6}ms] {}\n", e.sim_t.as_millis(), format_effect(&e.value),));
 	}
 	out
 }

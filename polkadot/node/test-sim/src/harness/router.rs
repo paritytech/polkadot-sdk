@@ -36,11 +36,7 @@ use crate::{
 	contract::{classify, peek_effects, Classified},
 	harness::{dispatcher::AnswerQuery, pending_fetches::PendingFetches, Recorder},
 };
-use futures::{
-	channel::mpsc,
-	future::BoxFuture,
-	FutureExt, SinkExt,
-};
+use futures::{channel::mpsc, future::BoxFuture, FutureExt, SinkExt};
 use polkadot_node_subsystem::{messages::AllMessages, FromOrchestra, OverseerSignal};
 use std::time::Instant;
 
@@ -108,18 +104,18 @@ impl<M: 'static + Send + std::fmt::Debug> UutSlot<M> {
 
 /// Run a single outbound `AllMessages` through the routing pipeline:
 ///
-/// 1. **Peek** for dual-delivery effects (e.g. `CandidateBackingMessage::Second{...}`): these
-///    are observable effects *and* inputs to a real auxiliary subsystem. The descriptions are
-///    captured before the message is moved.
-/// 2. **Try the UUT** if `uut_route` is supplied. If the UUT accepts (the message is
-///    addressed to the unit under test), the message is forwarded into its inbound channel
-///    and routing finishes. (Real auxiliary subsystems sometimes emit messages targeted at
-///    the UUT, e.g. `CollatorProtocolMessage::Seconded` from `candidate-backing`.)
-/// 3. **Offer** the message to each registered auxiliary slot in `aux` order; the first slot
-///    that accepts consumes the message. If a slot accepted, the dual-delivery effects from
-///    step 1 are recorded.
-/// 4. If neither UUT nor aux accepts, **classify** the message: effects go to the recorder,
-///    queries to the responder.
+/// 1. **Peek** for dual-delivery effects (e.g. `CandidateBackingMessage::Second{...}`): these are
+///    observable effects *and* inputs to a real auxiliary subsystem. The descriptions are captured
+///    before the message is moved.
+/// 2. **Try the UUT** if `uut_route` is supplied. If the UUT accepts (the message is addressed to
+///    the unit under test), the message is forwarded into its inbound channel and routing finishes.
+///    (Real auxiliary subsystems sometimes emit messages targeted at the UUT, e.g.
+///    `CollatorProtocolMessage::Seconded` from `candidate-backing`.)
+/// 3. **Offer** the message to each registered auxiliary slot in `aux` order; the first slot that
+///    accepts consumes the message. If a slot accepted, the dual-delivery effects from step 1 are
+///    recorded.
+/// 4. If neither UUT nor aux accepts, **classify** the message: effects go to the recorder, queries
+///    to the responder.
 pub async fn route<R: AnswerQuery + ?Sized>(
 	now: Instant,
 	msg: AllMessages,
@@ -151,9 +147,7 @@ pub async fn route<R: AnswerQuery + ?Sized>(
 	// Step 3: offer to aux slots if UUT didn't accept.
 	if !accepted {
 		for slot in aux {
-			let m = current
-				.take()
-				.expect("loop invariant: current is Some at top of iteration");
+			let m = current.take().expect("loop invariant: current is Some at top of iteration");
 			match slot.try_route(m) {
 				RouteAttempt::Accepted(fut) => {
 					fut.await;

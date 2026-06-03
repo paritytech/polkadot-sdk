@@ -68,13 +68,13 @@ impl CandidateOutputs {
 		commitments: CandidateCommitments,
 		pvd: PersistedValidationData,
 	) {
-		self.inner.lock().expect("CandidateOutputs lock").insert(hash, (commitments, pvd));
+		self.inner
+			.lock()
+			.expect("CandidateOutputs lock")
+			.insert(hash, (commitments, pvd));
 	}
 
-	fn get(
-		&self,
-		hash: &CandidateHash,
-	) -> Option<(CandidateCommitments, PersistedValidationData)> {
+	fn get(&self, hash: &CandidateHash) -> Option<(CandidateCommitments, PersistedValidationData)> {
 		self.inner.lock().expect("CandidateOutputs lock").get(hash).cloned()
 	}
 }
@@ -101,14 +101,10 @@ impl CandidateValidationStub {
 	/// shape (no upward messages, no horizontal messages, head data the candidate descriptor
 	/// already implies). For fragment-chain scenarios, register specific outputs via
 	/// [`CandidateOutputs`] — the registry takes precedence over the default.
-	pub fn always_valid<S>(
-		sim: &mut crate::harness::Sim<S>,
-		outputs: CandidateOutputs,
-	) -> Self
+	pub fn always_valid<S>(sim: &mut crate::harness::Sim<S>, outputs: CandidateOutputs) -> Self
 	where
 		S: crate::harness::SubsystemUnderTest,
-		AllMessages:
-			From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+		AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
 		AllMessages: From<S::Message>,
 	{
 		Self::with_verdict(sim, move |receipt, _| {
@@ -127,8 +123,7 @@ impl CandidateValidationStub {
 	where
 		S: crate::harness::SubsystemUnderTest,
 		F: FnMut(&CandidateReceipt, &PoV) -> Verdict + Send + 'static,
-		AllMessages:
-			From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+		AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
 		AllMessages: From<S::Message>,
 	{
 		let (inbound_tx, mut inbound_rx) =
@@ -149,8 +144,9 @@ impl CandidateValidationStub {
 							..
 						} => {
 							let result = match verdict(&candidate_receipt, &pov) {
-								Verdict::Valid(commitments, pvd) =>
-									ValidationResult::Valid(commitments, pvd),
+								Verdict::Valid(commitments, pvd) => {
+									ValidationResult::Valid(commitments, pvd)
+								},
 								Verdict::Invalid(reason) => ValidationResult::Invalid(reason),
 							};
 							let _ = response_sender.send(Ok(result));
@@ -211,4 +207,3 @@ fn default_commitments() -> CandidateCommitments {
 		hrmp_watermark: 0,
 	}
 }
-

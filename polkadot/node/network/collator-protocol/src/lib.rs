@@ -26,8 +26,8 @@
 //!
 //! When a scenario needs a private type the answer is one of:
 //!
-//! - Add a variant to the contract enums in `test-sim/src/contract/{effect,query}.rs`. The
-//!   scenario then asserts/queries the new observable rather than reaching into state.
+//! - Add a variant to the contract enums in `test-sim/src/contract/{effect,query}.rs`. The scenario
+//!   then asserts/queries the new observable rather than reaching into state.
 //! - Add a public builder method on the test-sim builders (`World`, `Peer`, `Candidate`).
 //! - Refactor the scenario to drive the property via a stimulus that makes it observable.
 //!

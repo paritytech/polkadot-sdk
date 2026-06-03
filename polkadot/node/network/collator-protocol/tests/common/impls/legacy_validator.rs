@@ -17,10 +17,10 @@
 //! Legacy validator-side adapter: drives the production `ProtocolSide::Validator` variant of
 //! [`polkadot_collator_protocol::CollatorProtocolSubsystem`].
 
-use crate::{
-	common::clock_adapter::ClockAdapter,
-	common::harness::SubsystemUnderTest,
-	common::runtime::{LocalPoolSpawner, MockClock},
+use crate::common::{
+	clock_adapter::ClockAdapter,
+	harness::SubsystemUnderTest,
+	runtime::{LocalPoolSpawner, MockClock},
 };
 use futures::{future::BoxFuture, FutureExt};
 use polkadot_collator_protocol::{CollatorProtocolSubsystem, ProtocolSide};
@@ -104,9 +104,7 @@ impl SubsystemUnderTest for LegacyValidator {
 		}
 	}
 
-	fn our_view_change(
-		view: polkadot_node_network_protocol::OurView,
-	) -> Option<Self::Message> {
+	fn our_view_change(view: polkadot_node_network_protocol::OurView) -> Option<Self::Message> {
 		Some(CollatorProtocolMessage::NetworkBridgeUpdate(
 			polkadot_node_subsystem::messages::NetworkBridgeEvent::OurViewChange(view),
 		))
