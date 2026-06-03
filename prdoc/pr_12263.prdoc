@@ -18,7 +18,8 @@ doc:
       read sites already handle `None`, no storage migration and no `Config` change are required.
 
       A new `RegistrarRemoved { registrar_index }` event is emitted on success. The call returns
-      `InvalidIndex` for an out-of-range index or an already-empty slot.
+      `InvalidIndex` for an out-of-range index and `EmptyIndex` for an already-empty (tombstoned)
+      slot, consistent with `request_judgement`.
 
   - audience: Runtime User
     description: |

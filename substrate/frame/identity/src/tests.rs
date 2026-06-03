@@ -420,11 +420,12 @@ fn removing_registrar_invalid_index() {
 			Error::<Test>::InvalidIndex
 		);
 
-		// Removing an already-tombstoned slot fails too.
+		// Removing an already-tombstoned slot fails with `EmptyIndex` (the index is in range but
+		// the slot is empty), matching `request_judgement`'s use of `EmptyIndex` for a `None` slot.
 		assert_ok!(Identity::remove_registrar(RuntimeOrigin::root(), 0));
 		assert_noop!(
 			Identity::remove_registrar(RuntimeOrigin::root(), 0),
-			Error::<Test>::InvalidIndex
+			Error::<Test>::EmptyIndex
 		);
 	});
 }
