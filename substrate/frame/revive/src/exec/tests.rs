@@ -29,7 +29,7 @@ use crate::{
 	test_utils::*,
 	tests::{
 		ExtBuilder, RuntimeEvent as MetaEvent, Test,
-		test_utils::{get_balance, place_contract, set_balance},
+		test_utils::{get_balance, get_contract, place_contract, set_balance},
 	},
 };
 use assert_matches::assert_matches;
@@ -1409,6 +1409,175 @@ fn in_memory_changes_not_discarded() {
 		);
 		assert_matches!(result, Ok(_));
 	});
+}
+
+#[test]
+fn same_contract_reentry_does_not_double_count_storage() {
+	// Without the bank-pending-changes fix the pre-call write is applied to the
+	// persisted `ContractInfo` twice (child's preview-persist + parent's finalize),
+	// inflating `storage_items` from 2 to 3. See contract-issues#213.
+	let code_bob = MockLoader::insert(Call, |ctx, _| {
+		if ctx.input_data[0] == 0 {
+			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false).unwrap();
+			assert_ok!(ctx.ext.call(
+				&Default::default(),
+				&BOB_ADDR,
+				U256::zero(),
+				vec![1],
+				ReentrancyProtection::AllowReentry,
+				false,
+			));
+			ctx.ext.set_storage(&Key::Fix([2; 32]), Some(vec![4, 5, 6]), false).unwrap();
+		}
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		let min_balance = <Test as Config>::Currency::minimum_balance();
+		set_balance(&ALICE, min_balance * 1000);
+		place_contract(&BOB, code_bob);
+		let origin = Origin::from_account_id(ALICE);
+		let mut meter =
+			TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
+				.unwrap();
+
+		assert_ok!(MockStack::run_call(
+			origin,
+			BOB_ADDR,
+			&mut meter,
+			U256::zero(),
+			vec![0],
+			&ExecConfig::new_substrate_tx(),
+		));
+
+		assert_eq!(
+			get_contract(&BOB_ADDR).storage_items,
+			2,
+			"storage_items inflated by double-applied pending diff under same-contract reentry",
+		);
+	});
+}
+
+#[test]
+fn transitive_reentry_does_not_double_count_storage() {
+	// Same bug reached transitively: BOB -> CHARLIE -> BOB'. The invalidation matcher
+	// keys on `account_id`, so any ancestor reentered through an intermediary is also
+	// affected.
+	let code_charlie = MockLoader::insert(Call, |ctx, _| {
+		assert_ok!(ctx.ext.call(
+			&Default::default(),
+			&BOB_ADDR,
+			U256::zero(),
+			vec![1],
+			ReentrancyProtection::AllowReentry,
+			false,
+		));
+		exec_success()
+	});
+	let code_bob = MockLoader::insert(Call, |ctx, _| {
+		if ctx.input_data[0] == 0 {
+			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false).unwrap();
+			assert_ok!(ctx.ext.call(
+				&Default::default(),
+				&CHARLIE_ADDR,
+				U256::zero(),
+				vec![],
+				ReentrancyProtection::AllowReentry,
+				false,
+			));
+			ctx.ext.set_storage(&Key::Fix([2; 32]), Some(vec![4, 5, 6]), false).unwrap();
+		}
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		let min_balance = <Test as Config>::Currency::minimum_balance();
+		set_balance(&ALICE, min_balance * 1000);
+		place_contract(&BOB, code_bob);
+		place_contract(&CHARLIE, code_charlie);
+		let mut meter =
+			TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
+				.unwrap();
+		assert_ok!(MockStack::run_call(
+			Origin::from_account_id(ALICE),
+			BOB_ADDR,
+			&mut meter,
+			U256::zero(),
+			vec![0],
+			&ExecConfig::new_substrate_tx(),
+		));
+		assert_eq!(
+			get_contract(&BOB_ADDR).storage_items,
+			2,
+			"storage_items inflated by double-applied diff under transitive reentry",
+		);
+	});
+}
+
+#[test]
+fn nested_clear_refund_matches_direct_clear() {
+	// Mock equivalent of `metering::tests::nested_call_storage_refund` (#213) — a fast
+	// regression guard. Direct (set, set, clear) and nested (set, set, call-self-clear)
+	// executions must produce identical `ContractInfo` accounting.
+	let code = MockLoader::insert(Call, |ctx, _| {
+		match ctx.input_data[0] {
+			0 => {
+				ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false).unwrap();
+				ctx.ext.set_storage(&Key::Fix([2; 32]), Some(vec![4, 5, 6]), false).unwrap();
+				ctx.ext.set_storage(&Key::Fix([2; 32]), None, false).unwrap();
+			},
+			1 => {
+				ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false).unwrap();
+				ctx.ext.set_storage(&Key::Fix([2; 32]), Some(vec![4, 5, 6]), false).unwrap();
+				assert_ok!(ctx.ext.call(
+					&Default::default(),
+					&BOB_ADDR,
+					U256::zero(),
+					vec![2],
+					ReentrancyProtection::AllowReentry,
+					false,
+				));
+			},
+			_ => {
+				ctx.ext.set_storage(&Key::Fix([2; 32]), None, false).unwrap();
+			},
+		}
+		exec_success()
+	});
+
+	let run = |input: u8| {
+		ExtBuilder::default().build().execute_with(|| {
+			let min_balance = <Test as Config>::Currency::minimum_balance();
+			set_balance(&ALICE, min_balance * 1000);
+			place_contract(&BOB, code);
+			let mut meter =
+				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
+					.unwrap();
+			assert_ok!(MockStack::run_call(
+				Origin::from_account_id(ALICE),
+				BOB_ADDR,
+				&mut meter,
+				U256::zero(),
+				vec![input],
+				&ExecConfig::new_substrate_tx(),
+			));
+			get_contract(&BOB_ADDR)
+		})
+	};
+
+	let direct = run(0);
+	let nested = run(1);
+
+	assert_eq!(direct.storage_items, nested.storage_items, "storage_items mismatch");
+	assert_eq!(direct.storage_bytes, nested.storage_bytes, "storage_bytes mismatch");
+	assert_eq!(
+		direct.storage_item_deposit, nested.storage_item_deposit,
+		"storage_item_deposit mismatch",
+	);
+	assert_eq!(
+		direct.storage_byte_deposit, nested.storage_byte_deposit,
+		"storage_byte_deposit mismatch",
+	);
 }
 
 #[test]
