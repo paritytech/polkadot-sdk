@@ -20,27 +20,29 @@ use crate::{
 	contract::Effect,
 	harness::observation::{Observation, Stamped},
 };
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 /// An append-only observation log. Used by the dispatcher to record effects and by tests to
 /// query / assert against the resulting log.
 #[derive(Debug, Clone, Default)]
 pub struct Recorder {
 	entries: Vec<Observation>,
-	epoch: Option<Instant>,
 }
 
 impl Recorder {
-	/// Create a fresh recorder. Sets the epoch to "now" on first observation.
+	/// Create a fresh recorder.
 	pub fn new() -> Self {
 		Self::default()
 	}
 
-	/// Record an effect at the given simulated `Instant`. The first call establishes the epoch
-	/// against which subsequent `sim_t` deltas are computed.
-	pub fn record_effect(&mut self, now: Instant, effect: Effect) {
-		let epoch = *self.epoch.get_or_insert(now);
-		let sim_t = now.saturating_duration_since(epoch);
+	/// Record an effect stamped with the simulated time elapsed since the start of the
+	/// scenario.
+	///
+	/// The caller supplies `sim_t` directly (from the clock's `duration_since_epoch`) rather
+	/// than the recorder deriving it from a first-observation epoch. This keeps a recorded
+	/// effect's `sim_t` on the same time origin (sim construction) as everything else the
+	/// harness measures with `Sim::now_sim_t`, so windowed assertions compare like with like.
+	pub fn record_effect(&mut self, sim_t: Duration, effect: Effect) {
 		self.entries.push(Observation::Effect(Stamped { sim_t, value: effect }));
 	}
 
@@ -88,6 +90,29 @@ impl Recorder {
 			Observation::Effect(s) => predicate(&s.value),
 		})
 	}
+
+	/// Find the first effect at index `>= from` matching `predicate`.
+	///
+	/// Callers snapshot [`Recorder::len`] before a stimulus and pass it here to match only
+	/// effects recorded *after* that point. This is sharper than filtering on `sim_t`: two
+	/// effects emitted in the same simulated instant are distinguished by their position in
+	/// the log, so a fresh effect is never confused with an unrelated earlier one recorded at
+	/// the same `sim_t`.
+	pub fn find_effect_from<F: Fn(&Effect) -> bool>(
+		&self,
+		from: usize,
+		predicate: F,
+	) -> Option<&Effect> {
+		self.entries.get(from..)?.iter().find_map(|o| match o {
+			Observation::Effect(s) => {
+				if predicate(&s.value) {
+					Some(&s.value)
+				} else {
+					None
+				}
+			},
+		})
+	}
 }
 
 #[cfg(test)]
@@ -97,13 +122,15 @@ mod tests {
 	use sc_network_types::PeerId;
 
 	#[test]
-	fn records_effects_with_relative_timestamps() {
+	fn records_effects_with_supplied_timestamps() {
 		let mut rec = Recorder::new();
-		let epoch = Instant::now();
 		let p1 = PeerId::random();
-		rec.record_effect(epoch, Effect::Reputation { peer: p1, bucket: RepBucket::Performance });
 		rec.record_effect(
-			epoch + Duration::from_millis(50),
+			Duration::ZERO,
+			Effect::Reputation { peer: p1, bucket: RepBucket::Performance },
+		);
+		rec.record_effect(
+			Duration::from_millis(50),
 			Effect::Reputation { peer: p1, bucket: RepBucket::Malicious },
 		);
 
@@ -119,11 +146,19 @@ mod tests {
 	#[test]
 	fn find_returns_first_match_index() {
 		let mut rec = Recorder::new();
-		let epoch = Instant::now();
 		let p1 = PeerId::random();
-		rec.record_effect(epoch, Effect::Reputation { peer: p1, bucket: RepBucket::Performance });
-		rec.record_effect(epoch, Effect::Reputation { peer: p1, bucket: RepBucket::Malicious });
-		rec.record_effect(epoch, Effect::Reputation { peer: p1, bucket: RepBucket::Performance });
+		rec.record_effect(
+			Duration::ZERO,
+			Effect::Reputation { peer: p1, bucket: RepBucket::Performance },
+		);
+		rec.record_effect(
+			Duration::ZERO,
+			Effect::Reputation { peer: p1, bucket: RepBucket::Malicious },
+		);
+		rec.record_effect(
+			Duration::ZERO,
+			Effect::Reputation { peer: p1, bucket: RepBucket::Performance },
+		);
 
 		let idx = rec
 			.find(|e| matches!(e, Effect::Reputation { bucket: RepBucket::Malicious, .. }))

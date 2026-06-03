@@ -38,7 +38,7 @@ use crate::{
 };
 use futures::{channel::mpsc, future::BoxFuture, FutureExt, SinkExt};
 use polkadot_node_subsystem::{messages::AllMessages, FromOrchestra, OverseerSignal};
-use std::time::Instant;
+use std::time::Duration;
 
 /// Common surface for any subsystem the harness has spawned.
 ///
@@ -117,7 +117,7 @@ impl<M: 'static + Send + std::fmt::Debug> UutSlot<M> {
 /// 4. If neither UUT nor aux accepts, **classify** the message: effects go to the recorder, queries
 ///    to the responder.
 pub async fn route<R: AnswerQuery + ?Sized>(
-	now: Instant,
+	sim_t: Duration,
 	msg: AllMessages,
 	uut_route: Option<&dyn UutRoute>,
 	aux: &[Box<dyn SubsystemSlot>],
@@ -165,7 +165,7 @@ pub async fn route<R: AnswerQuery + ?Sized>(
 		// UUT or aux consumed the message. Record dual-delivery effects manually so the
 		// test still observes them in the recorder.
 		for e in dual_effects {
-			recorder.record_effect(now, e);
+			recorder.record_effect(sim_t, e);
 		}
 		return;
 	}
@@ -174,7 +174,7 @@ pub async fn route<R: AnswerQuery + ?Sized>(
 	let msg = current.expect("loop preserves current when nobody accepts");
 	for c in classify(msg, pending) {
 		match c {
-			Classified::Effect(e) => recorder.record_effect(now, e),
+			Classified::Effect(e) => recorder.record_effect(sim_t, e),
 			Classified::Query(q) => responder.answer(q),
 		}
 	}

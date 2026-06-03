@@ -92,9 +92,9 @@ pub struct CoreSchedule {
 	/// The repeating sequence of paras for this core. `cycle[i]` is the para scheduled at
 	/// block-index `start + i` modulo `cycle.len()`.
 	pub cycle: Vec<ParaId>,
-	/// Block index at which the cycle is anchored. Convention: start = 0 means
-	/// `cycle[0]` is the para at the parent of genesis (so cycle[1] is at genesis itself).
-	/// Most tests leave this at 0.
+	/// Block index at which the cycle is anchored. The para at block `n` is
+	/// `cycle[(n - start) % cycle.len()]`, so with the default `start = 0`, `cycle[0]` is the
+	/// para at genesis (block 0), `cycle[1]` at block 1, and so on. Most tests leave this at 0.
 	pub start: u32,
 }
 
@@ -234,9 +234,14 @@ impl ChainModel {
 
 	/// Register a block with a caller-chosen hash, parent, and number. Use this when the
 	/// test wants specific hash literals (e.g. `Hash::from_low_u64_be(130)`) instead of the
-	/// synthetic hashes [`Self::extend`] generates. Session is inherited from the parent if
-	/// known; otherwise defaults to the most recently registered session (or 0). Slot is
-	/// `parent_slot + 1` when the parent is known, otherwise `Slot::from(number as u64)`.
+	/// synthetic hashes [`Self::extend`] generates.
+	///
+	/// Slot and session are derived from the parent: slot is `parent_slot + 1` and session is
+	/// inherited, **but only if the parent is already registered**. There is no later fixup —
+	/// register parents before children. If the parent is absent at call time (including a
+	/// deliberately detached block with `parent_hash == Hash::zero()`), slot falls back to
+	/// `Slot::from(number)` and session to `0`; pass [`Self::register_block_with_session`] to
+	/// pin the session explicitly in that case.
 	///
 	/// If `hash` is already registered this is a no-op (the test may call `register_block`
 	/// idempotently when walking ancestor chains).
@@ -477,6 +482,26 @@ impl ChainModel {
 		out
 	}
 
+	/// Hash of the finalized block at `number`, found by walking back from the finalized tip
+	/// along parent links. Returns `None` when `number` is above the finalized tip (nothing
+	/// is finalized that high yet) or the chain is malformed. Resolving along the finalized
+	/// chain — rather than scanning all blocks for one at that height — is what keeps forks
+	/// from yielding a non-canonical block.
+	fn finalized_ancestor_at(&self, number: BlockNumber) -> Option<Hash> {
+		let mut cursor = self.finalized;
+		loop {
+			let info = self.blocks.get(&cursor)?;
+			match info.number.cmp(&number) {
+				std::cmp::Ordering::Equal => return Some(info.hash),
+				// Walked below the target without hitting it (gap in the chain) — no match.
+				std::cmp::Ordering::Less => return None,
+				// Still above the target: step to the parent. The genesis pre-image
+				// (`Hash::zero()`) is not a real block, so the `?` above ends the walk.
+				std::cmp::Ordering::Greater => cursor = info.parent_hash,
+			}
+		}
+	}
+
 	fn session_info(&self, session_index: SessionIndex) -> &SessionInfo {
 		self.sessions.get(&session_index).unwrap_or_else(|| {
 			panic!("ChainModel: no SessionInfo registered for {}", session_index)
@@ -666,13 +691,12 @@ impl ChainModel {
 				let _ = tx.send(Ok(n));
 			},
 			ChainApiMessage::FinalizedBlockHash(number, tx) => {
-				// Linear scan — chain models are small in tests; rebuilding a number→hash
-				// index for one lookup isn't worth it.
-				let hash = self
-					.blocks
-					.values()
-					.find(|info| info.number == number)
-					.map(|info| info.hash);
+				// Resolve along the finalized chain, not by a global scan: with forks,
+				// several blocks share a height, and only the one on the path to
+				// `self.finalized` is actually finalized. Walk back from the finalized tip to
+				// the requested height. A height above the finalized tip has no finalized
+				// block yet → `None`, matching the real ChainApi.
+				let hash = self.finalized_ancestor_at(number);
 				let _ = tx.send(Ok(hash));
 			},
 			other => panic!(

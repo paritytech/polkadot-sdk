@@ -228,6 +228,11 @@ fn parse_opts(attr: TokenStream) -> syn::Result<Opts> {
 		let pairs: Punctuated<KeyValue, Token![,]> = Punctuated::parse_terminated(input)?;
 		let mut opts = Opts::default();
 		let mut filter_seen = false;
+		// Remember where each `bug_on` was written so a later consistency error can point at
+		// the offending key rather than the attribute as a whole.
+		let mut bug_on_legacy_span = None;
+		let mut bug_on_experimental_span = None;
+		let mut bug_url_span = None;
 		for kv in pairs {
 			let key = kv.key.to_string();
 			let val = kv.value.value();
@@ -252,9 +257,30 @@ fn parse_opts(attr: TokenStream) -> syn::Result<Opts> {
 					opts.filter = FilterOpt::Only(Impl::Experimental);
 					filter_seen = true;
 				},
-				("bug_on", "legacy") => opts.bug_on_legacy = true,
-				("bug_on", "experimental") => opts.bug_on_experimental = true,
-				("bug_url", _) => opts.bug_url = Some(val),
+				("bug_on", "legacy") => {
+					if bug_on_legacy_span.replace(kv.key.span()).is_some() {
+						return Err(syn::Error::new(
+							kv.key.span(),
+							"duplicate `bug_on = \"legacy\"`",
+						));
+					}
+					opts.bug_on_legacy = true;
+				},
+				("bug_on", "experimental") => {
+					if bug_on_experimental_span.replace(kv.key.span()).is_some() {
+						return Err(syn::Error::new(
+							kv.key.span(),
+							"duplicate `bug_on = \"experimental\"`",
+						));
+					}
+					opts.bug_on_experimental = true;
+				},
+				("bug_url", _) => {
+					if bug_url_span.replace(kv.key.span()).is_some() {
+						return Err(syn::Error::new(kv.key.span(), "duplicate `bug_url`"));
+					}
+					opts.bug_url = Some(val);
+				},
 				_ => {
 					return Err(syn::Error::new(
 						kv.key.span(),
@@ -264,6 +290,28 @@ fn parse_opts(attr: TokenStream) -> syn::Result<Opts> {
 				},
 			}
 		}
+
+		// A `bug_on` for an impl the filter excludes would be silently dropped: no wrapper is
+		// generated for that impl, so the known-bug marker never runs and a fixed bug would
+		// never flip the test loud. Reject the combination instead of swallowing it. (The
+		// docs promise these are mutually exclusive at the same impl.)
+		if opts.bug_on_legacy && !opts.filter.includes_legacy() {
+			return Err(syn::Error::new(
+				bug_on_legacy_span.expect("set when bug_on_legacy is true"),
+				"`bug_on = \"legacy\"` conflicts with the filter, which excludes the legacy \
+				 wrapper — the known-bug marker would never run. Drop the `only`/`skip` that \
+				 excludes legacy, or drop this `bug_on`.",
+			));
+		}
+		if opts.bug_on_experimental && !opts.filter.includes_experimental() {
+			return Err(syn::Error::new(
+				bug_on_experimental_span.expect("set when bug_on_experimental is true"),
+				"`bug_on = \"experimental\"` conflicts with the filter, which excludes the \
+				 experimental wrapper — the known-bug marker would never run. Drop the \
+				 `only`/`skip` that excludes experimental, or drop this `bug_on`.",
+			));
+		}
+
 		Ok(opts)
 	};
 	parser.parse(attr)

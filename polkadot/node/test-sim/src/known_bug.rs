@@ -31,7 +31,52 @@
 //! fan-out macros (e.g. collator-protocol's `sim_test`) that generate the test functions
 //! themselves.
 
-use std::panic::{self, AssertUnwindSafe};
+use std::{
+	cell::Cell,
+	panic::{self, AssertUnwindSafe},
+	sync::Once,
+};
+
+thread_local! {
+	/// Set for the duration of a [`run_known_bug`] body. While set, the installed panic
+	/// hook suppresses output *on this thread only*. Read by the hook in [`install_hook`].
+	static SUPPRESS_PANIC_OUTPUT: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Install — exactly once for the whole process — a panic hook that delegates to the hook
+/// present at install time, except on threads that have opted into suppression via
+/// [`SUPPRESS_PANIC_OUTPUT`].
+///
+/// Doing this once and gating per-thread is what makes [`run_known_bug`] safe under cargo's
+/// default parallel test execution. The naive alternative — `set_hook(empty)` around the
+/// body and `set_hook(prev)` after — mutates a *process-global* slot, so two known-bug tests
+/// (or a known-bug test and an unrelated failing test) running concurrently race: one can
+/// restore the other's temporary empty hook permanently, silently swallowing later genuine
+/// failures. A per-thread flag keeps each `run_known_bug` isolated and never hides panics
+/// raised on any other thread.
+fn install_hook() {
+	static INSTALL: Once = Once::new();
+	INSTALL.call_once(|| {
+		let previous = panic::take_hook();
+		panic::set_hook(Box::new(move |info| {
+			let suppress = SUPPRESS_PANIC_OUTPUT.with(|s| s.get());
+			if !suppress {
+				previous(info);
+			}
+		}));
+	});
+}
+
+/// Run `body` with this thread's panic output suppressed, restoring the previous value
+/// afterwards (so nested or sequential calls compose). Returns whether `body` ran to
+/// completion without panicking.
+fn run_suppressed<F: FnOnce()>(body: F) -> bool {
+	install_hook();
+	let was_suppressed = SUPPRESS_PANIC_OUTPUT.with(|s| s.replace(true));
+	let result = panic::catch_unwind(AssertUnwindSafe(body));
+	SUPPRESS_PANIC_OUTPUT.with(|s| s.set(was_suppressed));
+	result.is_ok()
+}
 
 /// Run a test body that is expected to fail because of a known, tracked bug.
 ///
@@ -40,18 +85,17 @@ use std::panic::{self, AssertUnwindSafe};
 /// tracking URL (if any), instructing the author to remove the known-bug marker so the test
 /// asserts the fixed behavior going forward.
 ///
-/// The body's own panic output (backtrace, the failed assertion) is suppressed while the bug is
-/// open, so CI is not littered with the expected failure on the normal still-buggy path.
+/// The body's own panic output (backtrace, the failed assertion) is suppressed *on the running
+/// thread only* while the bug is open, so CI is not littered with the expected failure on the
+/// normal still-buggy path. Panics raised on other threads — including unrelated tests running
+/// concurrently — are unaffected.
 pub fn run_known_bug<F>(test_name: &str, tracking_url: Option<&str>, body: F)
 where
 	F: FnOnce(),
 {
-	let prev_hook = panic::take_hook();
-	panic::set_hook(Box::new(|_| {}));
-	let result = panic::catch_unwind(AssertUnwindSafe(body));
-	panic::set_hook(prev_hook);
+	let completed_without_panic = run_suppressed(body);
 
-	if result.is_ok() {
+	if completed_without_panic {
 		let tracking = match tracking_url {
 			Some(url) => format!(" Tracking: {url}"),
 			None => String::new(),

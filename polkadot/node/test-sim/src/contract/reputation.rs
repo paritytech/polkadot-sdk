@@ -50,17 +50,30 @@ impl RepBucket {
 		}
 	}
 
-	/// Map a raw [`ReputationChange`] (i32 magnitude) into a bucket. Mirrors the magnitudes
-	/// produced by `UnifiedReputationChange::cost_or_benefit`.
-	pub fn from_raw(rep: &ReputationChange) -> Self {
-		let v = rep.value;
-		if v == i32::MIN {
-			RepBucket::Malicious
-		} else if v < 0 {
-			RepBucket::Performance
+	/// Bucket a raw reputation magnitude. `i32::MIN` is the malicious sentinel; negative is a
+	/// cost; positive is a benefit; **zero is a no-op** and returns `None` so callers don't
+	/// record a spurious change. (A net-zero magnitude only arises from
+	/// [`ReportPeerMessage::Batch`](polkadot_node_subsystem::messages::ReportPeerMessage)
+	/// accumulation, where offsetting cost and benefit cancel.)
+	pub const fn from_magnitude(magnitude: i32) -> Option<Self> {
+		if magnitude == i32::MIN {
+			Some(RepBucket::Malicious)
+		} else if magnitude < 0 {
+			Some(RepBucket::Performance)
+		} else if magnitude > 0 {
+			Some(RepBucket::Benefit)
 		} else {
-			RepBucket::Benefit
+			None
 		}
+	}
+
+	/// Map a raw [`ReputationChange`] (i32 magnitude) into a bucket. The single-report path
+	/// only ever carries non-zero magnitudes produced by
+	/// `UnifiedReputationChange::cost_or_benefit`, so a zero (no-op) is not expected here; it
+	/// degenerately buckets as `Benefit`. The shared classification lives in
+	/// [`RepBucket::from_magnitude`].
+	pub fn from_raw(rep: &ReputationChange) -> Self {
+		Self::from_magnitude(rep.value).unwrap_or(RepBucket::Benefit)
 	}
 }
 

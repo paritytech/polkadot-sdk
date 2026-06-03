@@ -39,10 +39,7 @@ use polkadot_node_subsystem_test_helpers::{
 	make_subsystem_context, TestSubsystemContext, TestSubsystemContextHandle,
 };
 use polkadot_overseer::AssociateOutgoing;
-use std::{
-	sync::Arc,
-	time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 /// Configuration for a single simulation run.
 #[derive(Default)]
@@ -273,7 +270,7 @@ where
 		let start_sim_t = self.now_sim_t();
 
 		self.drain();
-		if let Some(eff) = self.find_match_after(&predicate, start_sim_t) {
+		if let Some(eff) = self.find_match(&predicate) {
 			return eff;
 		}
 
@@ -300,12 +297,6 @@ where
 				},
 				Some(_) | None => {
 					self.clock.advance(remaining);
-					self.executor.poll_until_pending();
-					self.drain();
-					if let Some(eff) = self.find_match(&predicate) {
-						return eff;
-					}
-					continue;
 				},
 			};
 			self.executor.poll_until_pending();
@@ -387,8 +378,14 @@ where
 		self.drain();
 	}
 
-	/// Assert that NO effect matching `predicate` is observed within `window`. Panics with
-	/// a [`TimelineReport`] showing the offending effect if one is found.
+	/// Assert that NO effect matching `predicate` is observed within `within` from this call.
+	/// Panics with a [`TimelineReport`] showing the offending effect if one is found.
+	///
+	/// "From this call" is enforced by an entry-index barrier, not a `sim_t` cutoff: only
+	/// effects recorded after `expect_no` is entered count. Effects already in the log —
+	/// including ones recorded earlier in the very same simulated instant — are ignored, so
+	/// `expect_no` never false-fails on a prior step's effect that happens to share the
+	/// current `sim_t`.
 	#[track_caller]
 	pub fn expect_no<F>(&mut self, predicate: F, within: Duration, expected_absence: &str)
 	where
@@ -398,23 +395,34 @@ where
 		let at_str = format!("{}:{}", location.file(), location.line());
 		let start_sim_t = self.now_sim_t();
 
-		// Drain anything pending before checking.
+		// Drain anything already pending, then snapshot the log length. Everything recorded
+		// from here on is what this assertion is about.
 		self.drain();
-		if let Some(eff) = self.find_match_after(&predicate, start_sim_t) {
+		let barrier = self.recorder.len();
+
+		let panic_on_match = |this: &Self, eff: &Effect| -> ! {
 			let report = TimelineReport {
 				expected: format!("absence of: {}", expected_absence),
-				actual: format!("found a matching effect: {}", crate::report::format_effect(&eff)),
+				actual: format!(
+					"found a matching effect at sim_t = {}ms: {}",
+					this.now_sim_t().as_millis(),
+					crate::report::format_effect(eff),
+				),
 				window_start: start_sim_t,
 				window: within,
-				recorder: &self.recorder,
+				recorder: &this.recorder,
 				replay_seed: None,
 				at: Some(&at_str),
 				hint: None,
 			};
 			panic!("expect_no failed:\n{}", report);
+		};
+
+		if let Some(eff) = self.recorder.find_effect_from(barrier, &predicate).cloned() {
+			panic_on_match(self, &eff);
 		}
 
-		// Advance through the window; bail at first match found.
+		// Advance through the window; bail at the first newly-recorded match.
 		loop {
 			let elapsed = self.now_sim_t().saturating_sub(start_sim_t);
 			if elapsed >= within {
@@ -431,22 +439,8 @@ where
 			}
 			self.executor.poll_until_pending();
 			self.drain();
-			if let Some(eff) = self.find_match_after(&predicate, start_sim_t) {
-				let report = TimelineReport {
-					expected: format!("absence of: {}", expected_absence),
-					actual: format!(
-						"found a matching effect at sim_t = {}ms: {}",
-						self.now_sim_t().as_millis(),
-						crate::report::format_effect(&eff),
-					),
-					window_start: start_sim_t,
-					window: within,
-					recorder: &self.recorder,
-					replay_seed: None,
-					at: Some(&at_str),
-					hint: None,
-				};
-				panic!("expect_no failed:\n{}", report);
+			if let Some(eff) = self.recorder.find_effect_from(barrier, &predicate).cloned() {
+				panic_on_match(self, &eff);
 			}
 		}
 	}
@@ -569,32 +563,18 @@ where
 		Duration::from_millis(self.clock.duration_since_epoch().as_millis() as u64)
 	}
 
+	/// Find the first effect anywhere in the log matching `predicate`. Used by `expect`,
+	/// which matches the whole log so an effect a stimulus produced synchronously (before
+	/// `expect` was called) still counts.
 	fn find_match<F: Fn(&Effect) -> bool>(&self, predicate: &F) -> Option<Effect> {
-		self.find_match_after(predicate, Duration::ZERO)
-	}
-
-	/// Find the first effect in the recorder matching `predicate` whose `sim_t` is
-	/// `>= since`. Used by `expect_no` so it doesn't false-positive on effects recorded
-	/// before the call (e.g. earlier `SendRequest`s in a multi-step scenario).
-	fn find_match_after<F: Fn(&Effect) -> bool>(
-		&self,
-		predicate: &F,
-		since: Duration,
-	) -> Option<Effect> {
-		self.recorder.entries().iter().find_map(|o| match o {
-			crate::harness::observation::Observation::Effect(s) => {
-				if s.sim_t >= since && predicate(&s.value) {
-					Some(s.value.clone())
-				} else {
-					None
-				}
-			},
-		})
+		self.recorder.find_effect_from(0, predicate).cloned()
 	}
 
 	fn drain(&mut self) {
 		loop {
-			let now = self.clock.now();
+			// Stamp effects with simulated time elapsed since sim start — the same origin
+			// `now_sim_t` reports — so windowed assertions and recorded `sim_t` agree.
+			let sim_t = self.now_sim_t();
 			let mut progressed = false;
 			for idx in 0..self.outbound_rxs.len() {
 				match self.outbound_rxs[idx].try_next() {
@@ -606,7 +586,7 @@ where
 						let responder = &mut *self.responder;
 						let pending = &mut self.pending_fetches;
 						self.executor.run_until(router::route(
-							now,
+							sim_t,
 							msg,
 							Some(&uut_route),
 							aux,

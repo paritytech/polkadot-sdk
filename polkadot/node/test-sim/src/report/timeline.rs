@@ -184,16 +184,17 @@ mod tests {
 	use super::*;
 	use crate::contract::{Effect, RepBucket};
 	use sc_network_types::PeerId;
-	use std::time::Instant;
 
 	#[test]
 	fn report_renders_observed_window() {
 		let mut rec = Recorder::new();
-		let epoch = Instant::now();
 		let p1 = PeerId::random();
-		rec.record_effect(epoch, Effect::Reputation { peer: p1, bucket: RepBucket::Performance });
 		rec.record_effect(
-			epoch + Duration::from_millis(2),
+			Duration::ZERO,
+			Effect::Reputation { peer: p1, bucket: RepBucket::Performance },
+		);
+		rec.record_effect(
+			Duration::from_millis(2),
 			Effect::Reputation { peer: p1, bucket: RepBucket::Malicious },
 		);
 

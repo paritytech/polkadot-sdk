@@ -25,7 +25,7 @@ use crate::{
 	harness::{pending_fetches::PendingFetches, Recorder},
 };
 use polkadot_node_subsystem::messages::AllMessages;
-use std::time::Instant;
+use std::time::Duration;
 
 /// Trait implemented by anything that can answer subsystem queries.
 ///
@@ -129,8 +129,8 @@ impl AnswerQuery for LayeredResponder {
 /// - Effects → recorded into `recorder`.
 /// - Queries → forwarded to `responder`.
 ///
-/// `now` is the simulated wall-clock instant at which the dispatch happens (the recorder uses
-/// it to derive the entry's `sim_t`).
+/// Effects are stamped with `sim_t`, the simulated time elapsed since the start of the
+/// scenario, supplied per `dispatch` call.
 pub struct Dispatcher<'a, R: AnswerQuery + ?Sized> {
 	/// Where effects accumulate.
 	pub recorder: &'a mut Recorder,
@@ -153,10 +153,10 @@ impl<'a, R: AnswerQuery + ?Sized> Dispatcher<'a, R> {
 	/// Process a single outbound message. One inbound message can yield multiple classified
 	/// entries (e.g. a batched `SendRequests` or `SendCollationMessages`); the dispatcher
 	/// records / forwards them in order.
-	pub fn dispatch(&mut self, now: Instant, msg: AllMessages) {
+	pub fn dispatch(&mut self, sim_t: Duration, msg: AllMessages) {
 		for c in classify(msg, self.pending) {
 			match c {
-				Classified::Effect(effect) => self.recorder.record_effect(now, effect),
+				Classified::Effect(effect) => self.recorder.record_effect(sim_t, effect),
 				Classified::Query(query) => self.responder.answer(query),
 			}
 		}
@@ -247,7 +247,7 @@ mod tests {
 			vec![peer],
 			PeerSet::Collation,
 		));
-		disp.dispatch(Instant::now(), msg);
+		disp.dispatch(Duration::ZERO, msg);
 		assert_eq!(rec.len(), 1);
 		assert!(matches!(
 			rec.effects().next().unwrap(),
@@ -273,7 +273,7 @@ mod tests {
 		let mut disp = Dispatcher::new(&mut rec, &mut resp, &mut pending);
 		let (tx, _rx) = futures::channel::oneshot::channel();
 		let msg = AllMessages::ChainApi(ChainApiMessage::FinalizedBlockNumber(tx));
-		disp.dispatch(Instant::now(), msg);
+		disp.dispatch(Duration::ZERO, msg);
 		assert_eq!(rec.len(), 0, "query is not recorded as effect");
 		assert_eq!(resp.count, 1, "query is forwarded to responder");
 	}

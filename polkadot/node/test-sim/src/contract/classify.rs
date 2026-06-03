@@ -102,6 +102,14 @@ pub fn classify(msg: AllMessages, pending: &mut PendingFetches) -> Vec<Classifie
 		AllMessages::NetworkBridgeTx(inner) => from_network_bridge_tx(inner, pending),
 		AllMessages::RuntimeApi(inner) => vec![Classified::Query(Query::Runtime(inner))],
 		AllMessages::ChainApi(inner) => vec![Classified::Query(Query::ChainApi(inner))],
+		// A prospective-parachains message is a query family some configs answer (e.g. a
+		// `QueryScript` with a `.prospective(..)` handler, or prospective-parachains itself
+		// under test). In the collator config it is instead consumed by a real
+		// prospective-parachains aux slot, so it should never reach `classify` — the router
+		// only falls through to here when no slot claimed the message. If it does reach here
+		// in a collator scenario, the responder chain has no prospective handler and the tail
+		// `PanicResponder` will surface it by name: the fix is to register the prospective aux
+		// slot, not to script the query.
 		AllMessages::ProspectiveParachains(inner) => {
 			vec![Classified::Query(Query::Prospective(inner))]
 		},
@@ -187,15 +195,12 @@ fn from_report_peer(msg: ReportPeerMessage) -> Vec<Classified> {
 		})],
 		ReportPeerMessage::Batch(map) => map
 			.into_iter()
-			.map(|(peer, magnitude)| {
-				let bucket = if magnitude == i32::MIN {
-					RepBucket::Malicious
-				} else if magnitude < 0 {
-					RepBucket::Performance
-				} else {
-					RepBucket::Benefit
-				};
-				Classified::Effect(Effect::Reputation { peer, bucket })
+			// A net-zero accumulated magnitude is a no-op (offsetting cost + benefit) — drop
+			// it rather than emit a spurious `Reputation` effect. Non-zero magnitudes bucket
+			// via the same logic as the single-report path.
+			.filter_map(|(peer, magnitude)| {
+				RepBucket::from_magnitude(magnitude)
+					.map(|bucket| Classified::Effect(Effect::Reputation { peer, bucket }))
 			})
 			.collect(),
 	}

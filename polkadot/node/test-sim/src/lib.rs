@@ -61,6 +61,6 @@ pub mod responder;
 pub mod runtime;
 pub mod world_base;
 
-pub use polkadot_node_clock::{BoxedDelay, Clock, MockClock};
 pub use known_bug::run_known_bug;
+pub use polkadot_node_clock::{BoxedDelay, Clock, MockClock};
 pub use world_base::{build_chain_model, BlockBuilder, HasBase, LeafRef, WorldBase, WorldConfig};
