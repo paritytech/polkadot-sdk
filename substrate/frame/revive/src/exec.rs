@@ -1601,8 +1601,9 @@ where
 					contract,
 				);
 				if let Some(f) = self.frames_mut().find(|f| f.account_id == *account_id) {
-					// Child persisted this frame's preview-applied `ContractInfo`; bank the diff
-					// before invalidating so finalize doesn't apply it twice.
+					// Same-contract reentry (direct or transitive): the popped child persisted
+					// this frame's preview-applied `ContractInfo`. Bank the diff before
+					// invalidating so finalize doesn't apply it twice.
 					// See: <https://github.com/paritytech/contract-issues/issues/213>
 					let contract = f.account_id.clone();
 					f.frame_meter
