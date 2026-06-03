@@ -31,8 +31,10 @@ const HISTOGRAM_FETCH_BUCKETS: &[f64] =
 	&[0.010, 0.025, 0.050, 0.100, 0.150, 0.250, 0.500, 0.750, 1.000, 1.500, 2.000, 2.500, 5.000];
 
 /// Buckets for end-to-end "first knew about candidate -> have candidate" latency.
-const HISTOGRAM_LEARN_TO_FETCH_BUCKETS: &[f64] =
-	&[0.025, 0.050, 0.100, 0.200, 0.300, 0.400, 0.500, 0.600, 0.700, 1.0, 1.5, 2.0, 2.5, 3.0, 5.0, 7.5, 10.0, 15.0, 30.0];
+const HISTOGRAM_LEARN_TO_FETCH_BUCKETS: &[f64] = &[
+	0.025, 0.050, 0.100, 0.200, 0.300, 0.400, 0.500, 0.600, 0.700, 1.0, 1.5, 2.0, 2.5, 3.0, 5.0,
+	7.5, 10.0, 15.0, 30.0,
+];
 
 #[derive(Clone)]
 struct MetricsInner {
@@ -196,7 +198,7 @@ impl Metrics {
 		}
 	}
 
-	/// Observe how much it took us to fetch a candidate from when we first learned about it 
+	/// Observe how much it took us to fetch a candidate from when we first learned about it
 	/// to when we got a complete response.
 	pub fn on_learn_to_fetch(&self, duration: Duration) {
 		if let Some(metrics) = &self.0 {
