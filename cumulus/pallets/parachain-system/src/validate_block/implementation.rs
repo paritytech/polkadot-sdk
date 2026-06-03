@@ -148,26 +148,23 @@ where
 		crate::Pallet::<PSC>::max_claim_queue_offset(),
 	);
 
-	// Extract the resubmission inputs (signed payload + the ISP header the signer
-	// committed to) from the proof. The actual signature verification needs to read
+	// Extract the override inputs (signed payload + the ISP header the signer
+	// committed to) from the proof. Override engages whenever `signed_scheduling_info`
+	// is present — on resubmissions it's required by `check_scheduling`, and on
+	// initial submissions a collator may still attach one to assert authoritative
+	// scheduling. The actual signature verification needs to read
 	// `Authorities::<T>` from parachain state, so it runs inside the first block's
 	// seal-verification externalities scope below — externalities aren't installed
 	// at this point.
-	let resubmission_inputs: Option<(SignedSchedulingInfo, RelayChainHeader)> =
-		validated_scheduling.filter(|r| r.is_resubmission).map(|_result| {
+	let scheduling_override_inputs: Option<(SignedSchedulingInfo, RelayChainHeader)> =
+		validated_scheduling.and_then(|_| {
 			let proof = block_data.scheduling_proof().expect(
-				"`is_resubmission` implies a V3 scheduling proof; \
+				"V3 scheduling validation succeeded → scheduling proof present; \
 				 enforced by `validate_v3_scheduling`; qed",
 			);
-			let signed_info = proof
-				.signed_scheduling_info
-				.as_ref()
-				.expect(
-					"`is_resubmission` implies a `signed_scheduling_info`; \
-					 enforced by `check_scheduling`; qed",
-				)
-				.clone();
-			(signed_info, proof.internal_scheduling_parent_header.clone())
+			proof.signed_scheduling_info.as_ref().map(|signed_info| {
+				(signed_info.clone(), proof.internal_scheduling_parent_header.clone())
+			})
 		});
 
 	// Initialize hashmaps randomness.
@@ -237,7 +234,7 @@ where
 				// inside this scope. Run it once per PoV (on the first block) using
 				// the same authority set the seal was verified against.
 				if block_index == 0 {
-					if let Some((signed_info, isp_header)) = resubmission_inputs.as_ref() {
+					if let Some((signed_info, isp_header)) = scheduling_override_inputs.as_ref() {
 						if !PSC::SchedulingSignatureVerifier::verify(signed_info, isp_header) {
 							panic!(
 								"V3 scheduling validation failed: invalid \
@@ -355,9 +352,10 @@ where
 		}
 	}
 
-	// Resubmission overrides the block's emitted signals wholesale — they are ignored, not merged.
-	let scheduling_signals = match resubmission_inputs.as_ref() {
-		Some((signed_info, _)) => scheduling::SchedulingSignals::from_resubmission(signed_info),
+	// A `signed_scheduling_info` overrides the block's emitted signals wholesale — they
+	// are ignored, not merged.
+	let scheduling_signals = match scheduling_override_inputs.as_ref() {
+		Some((signed_info, _)) => scheduling::SchedulingSignals::from_scheduling_info(signed_info),
 		None => scheduling::SchedulingSignals::from_block_signals(&upward_message_signals),
 	};
 	scheduling_signals.emit(&mut upward_messages);

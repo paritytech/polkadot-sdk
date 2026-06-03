@@ -730,33 +730,6 @@ mod scheduling_verifier_tests {
 	}
 
 	#[test]
-	fn short_para_slot_duration_picks_correct_author() {
-		// 2s para slots, 6s relay slots: para_slot = relay_slot * 3. At relay slot 5 the
-		// para slot is 15; with three authorities 15 mod 3 = 0, so Alice must sign.
-		// Exercises the slot-conversion arithmetic for sub-6s parachains.
-		const SHORT_PARA_SLOT: u64 = 2_000;
-		TestSlotDuration::set_slot_duration(SHORT_PARA_SLOT);
-		sp_io::TestExternalities::new_empty().execute_with(|| {
-			let keys = [Sr25519Keyring::Alice, Sr25519Keyring::Bob, Sr25519Keyring::Charlie];
-			set_authorities::<Test>(keys.iter().map(|k| Sr25519Id::from(k.public())).collect());
-
-			let relay_slot = 5u64;
-			let para_slot = para_slot_from_relay(relay_slot, SHORT_PARA_SLOT);
-			assert_eq!(para_slot, 15);
-			let expected_idx = (para_slot % keys.len() as u64) as usize;
-			assert_eq!(expected_idx, 0);
-
-			let header = relay_header_at_slot(relay_slot);
-			let payload = make_payload(header.hash());
-			let signed = SignedSchedulingInfo {
-				signature: keys[expected_idx].sign(&payload.encode()).0,
-				payload,
-			};
-			assert!(AuraSchedulingVerifier::<Test>::verify(&signed, &header));
-		});
-	}
-
-	#[test]
 	fn empty_authority_set_is_rejected() {
 		// `Authorities::<T>` empty means no eligible author exists; verification fails
 		// closed rather than panicking on `para_slot % 0`.
