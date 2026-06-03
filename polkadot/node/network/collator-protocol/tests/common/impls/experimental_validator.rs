@@ -19,7 +19,6 @@
 //! [`polkadot_collator_protocol::CollatorProtocolSubsystem`].
 
 use crate::common::{
-	clock_adapter::ClockAdapter,
 	harness::SubsystemUnderTest,
 	runtime::{LocalPoolSpawner, MockClock},
 };
@@ -66,7 +65,7 @@ impl SubsystemUnderTest for ExperimentalValidator {
 			metrics: Default::default(),
 			db,
 			reputation_config,
-			clock: ClockAdapter::new(clock),
+			clock,
 		};
 		let subsystem = CollatorProtocolSubsystem::new(side);
 		let spawned = subsystem.start(ctx);

@@ -16,8 +16,8 @@
 
 //! The harness layer: Sim struct, observation recorder, query dispatcher.
 //!
-//! Subsystem-agnostic. Per-subsystem consumers wrap their `SubsystemUnderTest` adapter +
-//! `ClockAdapter` to bridge their production `Clock` trait (see the consumer crate docs).
+//! Subsystem-agnostic. Per-subsystem consumers provide a `SubsystemUnderTest` adapter; the
+//! harness's `Arc<MockClock>` is passed to the subsystem directly (it impls `Clock`).
 
 pub mod dispatcher;
 pub mod observation;

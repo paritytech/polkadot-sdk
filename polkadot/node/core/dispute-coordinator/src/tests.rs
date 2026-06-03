@@ -73,7 +73,7 @@ use crate::{
 	participation::{participation_full_happy_path, participation_missing_availability},
 	Config, DisputeCoordinatorSubsystem,
 };
-use polkadot_node_clock::{Clock, MockClock};
+use polkadot_node_clock::MockClock;
 
 use super::db::v1::DbBackend;
 
@@ -2067,7 +2067,7 @@ fn concluded_supermajority_for_non_active_after_time() {
 			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash, HashMap::new())
 				.await;
 
-			test_state.clock.set_secs(ACTIVE_DURATION_SECS + 1);
+			test_state.clock.advance_secs(ACTIVE_DURATION_SECS + 1);
 
 			{
 				let (tx, rx) = oneshot::channel();
@@ -2189,7 +2189,7 @@ fn concluded_supermajority_against_non_active_after_time() {
 			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash, HashMap::new())
 				.await;
 
-			test_state.clock.set_secs(ACTIVE_DURATION_SECS + 1);
+			test_state.clock.advance_secs(ACTIVE_DURATION_SECS + 1);
 
 			{
 				let (tx, rx) = oneshot::channel();
@@ -2353,9 +2353,7 @@ fn resume_dispute_without_local_statement() {
 
 			// Advance the clock far enough so that the concluded dispute will be omitted from an
 			// ActiveDisputes query.
-			test_state.clock.set_secs(
-				test_state.clock.duration_since_epoch().as_secs() + ACTIVE_DURATION_SECS + 1,
-			);
+			test_state.clock.advance_secs(ACTIVE_DURATION_SECS + 1);
 
 			{
 				let (tx, rx) = oneshot::channel();

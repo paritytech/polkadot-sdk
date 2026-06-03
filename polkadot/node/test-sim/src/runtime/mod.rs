@@ -21,8 +21,7 @@
 
 pub mod executor;
 pub mod local_spawner;
-pub mod mock_clock;
 
 pub use executor::Executor;
 pub use local_spawner::{LocalPoolSpawnDrain, LocalPoolSpawner};
-pub use mock_clock::MockClock;
+pub use polkadot_node_clock::MockClock;

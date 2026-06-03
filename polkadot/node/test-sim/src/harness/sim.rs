@@ -22,7 +22,6 @@
 //! infrastructure in later phases (H.3 / H.4) without changing the public `Sim` API.
 
 use crate::{
-	clock::Clock,
 	contract::{Effect, RequestId},
 	harness::{
 		dispatcher::AnswerQuery,
@@ -34,6 +33,7 @@ use crate::{
 	runtime::{Executor, LocalPoolSpawner, MockClock},
 };
 use futures::future::BoxFuture;
+use polkadot_node_clock::Clock;
 use polkadot_node_subsystem::{messages::AllMessages, FromOrchestra, OverseerSignal, SpawnGlue};
 use polkadot_node_subsystem_test_helpers::{
 	make_subsystem_context, TestSubsystemContext, TestSubsystemContextHandle,
@@ -41,20 +41,12 @@ use polkadot_node_subsystem_test_helpers::{
 use polkadot_overseer::AssociateOutgoing;
 use std::{
 	sync::Arc,
-	time::{Duration, Instant},
+	time::Duration,
 };
 
 /// Configuration for a single simulation run.
-pub struct SimConfig {
-	/// Wall-clock instant the simulation starts at. Defaults to a fresh `Instant::now()`.
-	pub epoch: Instant,
-}
-
-impl Default for SimConfig {
-	fn default() -> Self {
-		Self { epoch: Instant::now() }
-	}
-}
+#[derive(Default)]
+pub struct SimConfig {}
 
 /// A subsystem that can be driven by the test framework.
 ///
@@ -158,12 +150,12 @@ where
 	/// Spin up the simulation. Constructs a `MockClock`, a single-threaded executor, a
 	/// `TestSubsystemContext`, and spawns the subsystem's main loop. Returns a handle the test
 	/// uses to drive stimuli and observe effects.
-	pub fn start<R>(cfg: SimConfig, responder: R) -> Self
+	pub fn start<R>(_cfg: SimConfig, responder: R) -> Self
 	where
 		R: AnswerQuery + 'static,
 	{
 		install_tracing_subscriber();
-		let clock = Arc::new(MockClock::new(cfg.epoch));
+		let clock = Arc::new(MockClock::default());
 		let mut executor = Executor::new();
 
 		let spawner = LocalPoolSpawner::new();
@@ -574,7 +566,7 @@ where
 	/// Current simulation time as a `Duration` since the sim started. Tests use this as a
 	/// barrier to filter the recorder for effects that fire after a known point.
 	pub fn now_sim_t(&self) -> Duration {
-		Duration::from_millis(self.clock.wall_clock_ms() as u64)
+		Duration::from_millis(self.clock.duration_since_epoch().as_millis() as u64)
 	}
 
 	fn find_match<F: Fn(&Effect) -> bool>(&self, predicate: &F) -> Option<Effect> {

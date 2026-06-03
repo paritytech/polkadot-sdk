@@ -19,7 +19,6 @@
 //! - `builders/` — wire-frame builder (`peer.rs`).
 //! - `harness/` — `CollatorSut` convenience trait alias.
 //! - `impls/` — `LegacyValidator` + `ExperimentalValidator` SUT adapters.
-//! - `clock_adapter.rs` — bridge from `MockClock` → production `Clock`.
 //! - `world.rs` — shared `World<S>` + builders (`build_*`) + `ChainConfig`.
 //! - `world_helpers.rs` — fluent verbs (advertise, fetch_request, etc.) on `World<S>`.
 //!
@@ -30,7 +29,6 @@
 
 pub mod aux_real;
 pub mod builders;
-pub mod clock_adapter;
 pub mod harness;
 pub mod impls;
 pub mod world;

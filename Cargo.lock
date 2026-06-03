@@ -16420,7 +16420,9 @@ dependencies = [
 name = "polkadot-node-clock"
 version = "7.0.0"
 dependencies = [
+ "futures",
  "futures-timer",
+ "tokio",
 ]
 
 [[package]]
@@ -18229,6 +18231,7 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "parity-scale-codec",
+ "polkadot-node-clock",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
@@ -18243,7 +18246,6 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-keyring",
  "sp-runtime 31.0.1",
- "tokio",
  "tracing-subscriber 0.3.19",
 ]
 
