@@ -62,7 +62,7 @@ pub type HostFunctions = (
 	sp_statement_store::runtime_api::HostFunctions,
 	// Unstable: Only needed here for benchmarking. Do not use in production runtimes.
 	// These host functions are not available on Polkadot and subject to breaking changes.
-	sp_virtualization::host_fn::HostFunctions,
+	sp_virtualization::HostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 

@@ -104,8 +104,6 @@ pub use storage::{
 };
 
 mod dispatch;
-#[allow(deprecated)]
-pub use dispatch::EnsureOneOf;
 pub use dispatch::{
 	AsEnsureOriginWithArg, Authorize, CallerTrait, EitherOf, EitherOfDiverse, EnsureOrigin,
 	EnsureOriginEqualOrHigherPrivilege, EnsureOriginWithArg, MapSuccess, NeverEnsureOrigin,
