@@ -5,7 +5,7 @@ use crate::{
 };
 use frame_support::{
 	parameter_types,
-	traits::{Equals, Everything, EverythingBut},
+	traits::{Equals, EverythingBut},
 	BoundedVec,
 };
 use hex_literal::hex;
