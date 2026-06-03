@@ -623,8 +623,14 @@ pub struct BridgeTestEnv {
 
 fn rococo_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
-	let bh_args: Vec<Arg> =
-		vec!["-lparachain=info,runtime::bridge=trace,xcm=debug,txpool=debug".into()];
+	// Use the single-state transaction pool on the bridge hubs: under slow CI I/O the fork-aware
+	// pool can fail to build its per-block view within the authorship budget, causing the collator
+	// to author blocks without the relayer's finality/parachain-head/message extrinsics.
+	let bh_args: Vec<Arg> = vec![
+		"-lparachain=info,runtime::bridge=trace,xcm=debug,txpool=debug".into(),
+		"--pool-type".into(),
+		"single-state".into(),
+	];
 	let ah_args: Vec<Arg> =
 		vec!["-lparachain=info,xcm=debug,runtime::bridge=trace,txpool=debug".into()];
 	NetworkConfigBuilder::new()
@@ -656,6 +662,10 @@ fn rococo_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					n.with_name("bridge-hub-rococo-collator1")
 						.with_args(bh_args.clone())
 				})
+				.with_collator(|n| {
+					n.with_name("bridge-hub-rococo-collator2")
+						.with_args(bh_args.clone())
+				})
 		})
 		.with_parachain(|p| {
 			p.with_id(ASSET_HUB_PARA_ID)
@@ -675,8 +685,12 @@ fn rococo_network_config() -> Result<NetworkConfig, anyhow::Error> {
 
 fn westend_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
-	let bh_args: Vec<Arg> =
-		vec!["-lparachain=info,runtime::bridge=trace,xcm=debug,txpool=debug".into()];
+	// See `rococo_network_config`: single-state pool avoids fork-aware view-build timeouts on slow CI.
+	let bh_args: Vec<Arg> = vec![
+		"-lparachain=info,runtime::bridge=trace,xcm=debug,txpool=debug".into(),
+		"--pool-type".into(),
+		"single-state".into(),
+	];
 	let ah_args: Vec<Arg> = vec![
 		"-lparachain=info,xcm=debug,runtime::bridge=trace,txpool=debug".into(),
 		"--authoring".into(),
@@ -709,6 +723,10 @@ fn westend_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_image(images.cumulus.as_str())
 				.with_collator(|n| {
 					n.with_name("bridge-hub-westend-collator1")
+						.with_args(bh_args.clone())
+				})
+				.with_collator(|n| {
+					n.with_name("bridge-hub-westend-collator2")
 						.with_args(bh_args.clone())
 				})
 		})
@@ -1054,7 +1072,7 @@ impl BridgeTestEnv {
 			"--target-signer",
 			"//Charlie",
 			"--target-transactions-mortality",
-			"4",
+			"64",
 		])?);
 		self._relayers.push(spawn_relayer(&[
 			"relay-headers",
@@ -1071,7 +1089,7 @@ impl BridgeTestEnv {
 			"--target-signer",
 			"//Charlie",
 			"--target-transactions-mortality",
-			"4",
+			"64",
 		])?);
 
 		// Parachains relayers (free parachain headers, signed by //Dave). The `relay-parachains`
@@ -1091,7 +1109,7 @@ impl BridgeTestEnv {
 			"--target-signer",
 			"//Dave",
 			"--target-transactions-mortality",
-			"4",
+			"64",
 		])?);
 		self._relayers.push(spawn_relayer(&[
 			"relay-parachains",
@@ -1108,7 +1126,7 @@ impl BridgeTestEnv {
 			"--target-signer",
 			"//Dave",
 			"--target-transactions-mortality",
-			"4",
+			"64",
 		])?);
 
 		// Messages relayers (lane 0x00000002; //Eve for ro->wnd, //Ferdie for wnd->ro).
@@ -1122,7 +1140,7 @@ impl BridgeTestEnv {
 			"--source-signer",
 			"//Eve",
 			"--source-transactions-mortality",
-			"4",
+			"64",
 			"--target-uri",
 			bh_westend.as_str(),
 			"--target-version-mode",
@@ -1130,7 +1148,7 @@ impl BridgeTestEnv {
 			"--target-signer",
 			"//Eve",
 			"--target-transactions-mortality",
-			"4",
+			"64",
 			"--lane",
 			"00000002",
 		])?);
@@ -1144,7 +1162,7 @@ impl BridgeTestEnv {
 			"--source-signer",
 			"//Ferdie",
 			"--source-transactions-mortality",
-			"4",
+			"64",
 			"--target-uri",
 			bh_rococo.as_str(),
 			"--target-version-mode",
@@ -1152,7 +1170,7 @@ impl BridgeTestEnv {
 			"--target-signer",
 			"//Ferdie",
 			"--target-transactions-mortality",
-			"4",
+			"64",
 			"--lane",
 			"00000002",
 		])?);
