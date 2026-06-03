@@ -254,13 +254,18 @@ where
 
 	/// Drop any RPC provider that does not have block `at`.
 	async fn retain_providers_with_block(&mut self, at: B::Hash) -> Result<()> {
-		let conn_manager =
-			self.conn_manager.as_mut().ok_or("connection manager must be initialized; qed")?;
+		let conn_manager = self
+			.conn_manager
+			.as_mut()
+			.ok_or("connection manager must be initialized; qed")?;
 		let removed = conn_manager
 			.retain_available(move |client| async move {
 				matches!(
 					with_timeout(
-						ChainApi::<(), _, B::Header, ()>::header(client.ws_client.as_ref(), Some(at)),
+						ChainApi::<(), _, B::Header, ()>::header(
+							client.ws_client.as_ref(),
+							Some(at)
+						),
 						RPC_TIMEOUT,
 					)
 					.await,
