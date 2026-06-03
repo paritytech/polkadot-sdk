@@ -232,6 +232,7 @@ fn test_harness<T: Future<Output = TestHarness>>(
 			Default::default(),
 			reputation,
 			REPUTATION_CHANGE_TEST_INTERVAL,
+			polkadot_node_clock::system_clock(),
 		)
 		.await
 		.unwrap();

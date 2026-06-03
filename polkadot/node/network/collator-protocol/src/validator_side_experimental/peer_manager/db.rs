@@ -22,10 +22,7 @@ use async_trait::async_trait;
 use polkadot_node_network_protocol::PeerId;
 use polkadot_primitives::{BlockNumber, Id as ParaId};
 use sp_runtime::{traits::Bounded, FixedPointNumber, FixedU128};
-use std::{
-	collections::{btree_map, hash_map, BTreeMap, BTreeSet, HashMap},
-	time::{SystemTime, UNIX_EPOCH},
-};
+use std::collections::{btree_map, hash_map, BTreeMap, BTreeSet, HashMap};
 
 /// This is an in-memory temporary implementation for the DB, to be used only for prototyping and
 /// testing purposes.
@@ -90,13 +87,14 @@ impl Backend for Db {
 		leaf_number: BlockNumber,
 		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
 		decay_value: Option<Score>,
+		now: std::time::Duration,
 	) -> Vec<ReputationUpdate> {
 		if self.last_finalized.unwrap_or(0) >= leaf_number {
 			return vec![];
 		}
 
 		self.last_finalized = Some(leaf_number);
-		self.bump_reputations(bumps, decay_value)
+		self.bump_reputations(bumps, decay_value, now.as_millis())
 	}
 
 	async fn max_scores_for_paras(&self, paras: BTreeSet<ParaId>) -> HashMap<ParaId, Score> {
@@ -116,9 +114,9 @@ impl Db {
 		&mut self,
 		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
 		maybe_decay_value: Option<Score>,
+		now: u128,
 	) -> Vec<ReputationUpdate> {
 		let mut reported_updates = vec![];
-		let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
 
 		for (para, bumps_per_para) in bumps {
 			reported_updates.reserve(bumps_per_para.len());
@@ -290,7 +288,10 @@ mod tests {
 		assert_eq!(db.len(), 0);
 
 		// Test empty update with no decay.
-		assert!(db.process_bumps(10, Default::default(), None).await.is_empty());
+		assert!(db
+			.process_bumps(10, Default::default(), None, std::time::Duration::ZERO)
+			.await
+			.is_empty());
 		assert_eq!(db.processed_finalized_block_number().await, Some(10));
 		assert_eq!(db.len(), 0);
 
@@ -298,12 +299,18 @@ mod tests {
 		assert_eq!(db.query(&PeerId::random(), &ParaId::from(1000)).await, None);
 
 		// Test empty update with decay.
-		assert!(db.process_bumps(11, Default::default(), Some(Score::new(1))).await.is_empty());
+		assert!(db
+			.process_bumps(11, Default::default(), Some(Score::new(1)), std::time::Duration::ZERO)
+			.await
+			.is_empty());
 		assert_eq!(db.processed_finalized_block_number().await, Some(11));
 		assert_eq!(db.len(), 0);
 
 		// Test empty update with a leaf number smaller than the latest one.
-		assert!(db.process_bumps(5, Default::default(), Some(Score::new(1))).await.is_empty());
+		assert!(db
+			.process_bumps(5, Default::default(), Some(Score::new(1)), std::time::Duration::ZERO)
+			.await
+			.is_empty());
 		assert_eq!(db.processed_finalized_block_number().await, Some(11));
 		assert_eq!(db.len(), 0);
 
@@ -314,7 +321,8 @@ mod tests {
 				[(ParaId::from(100), [(PeerId::random(), Score::new(0))].into_iter().collect())]
 					.into_iter()
 					.collect(),
-				Some(Score::new(1))
+				Some(Score::new(1)),
+				std::time::Duration::ZERO
 			)
 			.await
 			.is_empty());
@@ -330,7 +338,8 @@ mod tests {
 				[(first_para_id, [(first_peer_id, Score::new(10))].into_iter().collect())]
 					.into_iter()
 					.collect(),
-				Some(Score::new(1))
+				Some(Score::new(1)),
+				std::time::Duration::ZERO
 			)
 			.await
 			.is_empty());
@@ -345,7 +354,8 @@ mod tests {
 				[(first_para_id, [(first_peer_id, Score::new(10))].into_iter().collect())]
 					.into_iter()
 					.collect(),
-				Some(Score::new(1))
+				Some(Score::new(1)),
+				std::time::Duration::ZERO
 			)
 			.await,
 			vec![ReputationUpdate {
@@ -370,7 +380,8 @@ mod tests {
 				[(first_para_id, [(first_peer_id, Score::new(10))].into_iter().collect())]
 					.into_iter()
 					.collect(),
-				Some(Score::new(1))
+				Some(Score::new(1)),
+				std::time::Duration::ZERO
 			)
 			.await
 			.is_empty());
@@ -390,7 +401,8 @@ mod tests {
 				]
 				.into_iter()
 				.collect(),
-				None
+				None,
+				std::time::Duration::ZERO
 			)
 			.await,
 			vec![
@@ -415,7 +427,10 @@ mod tests {
 		assert_eq!(db.query(&first_peer_id, &second_para_id).await.unwrap(), Score::new(5));
 
 		// Empty update with decay has no effect.
-		assert!(db.process_bumps(15, Default::default(), Some(Score::new(1))).await.is_empty());
+		assert!(db
+			.process_bumps(15, Default::default(), Some(Score::new(1)), std::time::Duration::ZERO)
+			.await
+			.is_empty());
 		assert_eq!(db.processed_finalized_block_number().await, Some(15));
 		assert_eq!(db.len(), 2);
 		assert_eq!(db.query(&first_peer_id, &first_para_id).await.unwrap(), Score::new(10));
@@ -432,7 +447,8 @@ mod tests {
 				]
 				.into_iter()
 				.collect(),
-				Some(Score::new(1))
+				Some(Score::new(1)),
+				std::time::Duration::ZERO
 			)
 			.await,
 			vec![
@@ -476,7 +492,8 @@ mod tests {
 				[(second_para_id, [(second_peer_id, Score::new(10))].into_iter().collect()),]
 					.into_iter()
 					.collect(),
-				Some(Score::new(5))
+				Some(Score::new(5)),
+				std::time::Duration::ZERO
 			)
 			.await,
 			vec![
@@ -517,6 +534,7 @@ mod tests {
 				.into_iter()
 				.collect(),
 				None,
+				std::time::Duration::ZERO
 			)
 			.await
 			.len(),
@@ -546,6 +564,7 @@ mod tests {
 				.into_iter()
 				.collect(),
 				Some(Score::new(5)),
+				std::time::Duration::ZERO
 			)
 			.await
 			.len(),
@@ -570,6 +589,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				Some(Score::new(5)),
+				std::time::Duration::ZERO
 			)
 			.await
 			.len(),
@@ -594,6 +614,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				Some(Score::new(10)),
+				std::time::Duration::ZERO
 			)
 			.await
 			.len(),
@@ -633,6 +654,7 @@ mod tests {
 				.into_iter()
 				.collect(),
 				Some(Score::new(10)),
+				std::time::Duration::ZERO
 			)
 			.await
 			.len(),
@@ -683,6 +705,7 @@ mod tests {
 				.into_iter()
 				.collect(),
 				Some(Score::new(10)),
+				std::time::Duration::ZERO
 			)
 			.await
 			.len(),
@@ -758,6 +781,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				None,
+				std::time::Duration::from_millis(now as u64),
 			)
 			.await;
 
@@ -803,6 +827,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				None,
+				std::time::Duration::from_millis(now as u64),
 			)
 			.await;
 
@@ -859,6 +884,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				None,
+				std::time::Duration::from_millis(now as u64),
 			)
 			.await;
 
@@ -916,6 +942,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				None,
+				std::time::Duration::from_millis(now as u64),
 			)
 			.await;
 
@@ -957,6 +984,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				None,
+				std::time::Duration::from_millis(now as u64),
 			)
 			.await;
 
@@ -998,6 +1026,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				None,
+				std::time::Duration::from_millis(now as u64),
 			)
 			.await;
 

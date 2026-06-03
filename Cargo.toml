@@ -160,6 +160,7 @@ members = [
 	"polkadot/erasure-coding",
 	"polkadot/erasure-coding/fuzzer",
 	"polkadot/jemalloc-shim",
+	"polkadot/node/clock",
 	"polkadot/node/collation-generation",
 	"polkadot/node/core/approval-voting",
 	"polkadot/node/core/approval-voting-parallel",
@@ -1122,6 +1123,7 @@ polkadot-erasure-coding = { path = "polkadot/erasure-coding", default-features =
 polkadot-gossip-support = { path = "polkadot/node/network/gossip-support", default-features = false }
 polkadot-jemalloc-shim = { path = "polkadot/jemalloc-shim" }
 polkadot-network-bridge = { path = "polkadot/node/network/bridge", default-features = false }
+polkadot-node-clock = { path = "polkadot/node/clock", default-features = false }
 polkadot-node-collation-generation = { path = "polkadot/node/collation-generation", default-features = false }
 polkadot-node-core-approval-voting = { path = "polkadot/node/core/approval-voting", default-features = false }
 polkadot-node-core-approval-voting-parallel = { path = "polkadot/node/core/approval-voting-parallel", default-features = false }
