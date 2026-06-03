@@ -547,8 +547,7 @@ pub mod pallet {
 				Registrars::<T>::try_mutate(|registrars| -> Result<usize, DispatchError> {
 					let slot =
 						registrars.get_mut(index as usize).ok_or(Error::<T>::InvalidIndex)?;
-					ensure!(slot.is_some(), Error::<T>::EmptyIndex);
-					*slot = None;
+					ensure!(slot.take().is_some(), Error::<T>::EmptyIndex);
 					Ok(registrars.len())
 				})?;
 
