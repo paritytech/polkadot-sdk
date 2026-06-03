@@ -128,5 +128,5 @@ velocity-12 = []
 # Change the relay parent offset to 2
 relay-parent-offset-2 = []
 
-# Configure the runtiem to use scheduling V3
+# Configure the runtime to use scheduling V3
 v3-descriptor = []
