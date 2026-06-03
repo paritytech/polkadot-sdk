@@ -40,7 +40,7 @@ jobs:
       - name: Fetch substrate-relay binary
         run: |
           set -eux
-          docker create --name relay docker.io/paritytech/substrate-relay:v1.8.0
+          docker create --name relay docker.io/paritytech/substrate-relay:v1.8.22
           docker cp relay:/home/user/substrate-relay ./substrate-relay
           docker rm relay
           chmod +x ./substrate-relay

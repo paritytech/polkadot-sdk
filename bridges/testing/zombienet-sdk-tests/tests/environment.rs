@@ -16,7 +16,7 @@
 use anyhow::anyhow;
 use codec::Decode;
 use std::{future::Future, path::PathBuf, time::Duration};
-use subxt::{tx::Payload, OnlineClient, PolkadotConfig};
+use subxt::{config::DefaultExtrinsicParamsBuilder, tx::Payload, OnlineClient, PolkadotConfig};
 use subxt_signer::sr25519::{dev, Keypair};
 use tokio::{
 	process::{Child, Command},
@@ -418,15 +418,17 @@ pub async fn bridge_hub_westend_relayer_reward(
 // Generic subxt helpers (runtime-agnostic).
 // ---------------------------------------------------------------------------------------------
 
-/// Signs `call` with `signer` (default params), submits it and waits for finalized success.
+/// Signs `call` with `signer`, submits it and waits for finalized success.
+///
 pub async fn sign_submit_wait<C: Payload>(
 	client: &OnlineClient<PolkadotConfig>,
 	call: &C,
 	signer: &Keypair,
 ) -> Result<(), anyhow::Error> {
+	let params = DefaultExtrinsicParamsBuilder::new().immortal().build();
 	client
 		.tx()
-		.sign_and_submit_then_watch_default(call, signer)
+		.sign_and_submit_then_watch(call, signer, params)
 		.await?
 		.wait_for_finalized_success()
 		.await?;
@@ -1040,7 +1042,8 @@ impl BridgeTestEnv {
 			"4",
 		])?);
 
-		// Parachains relayers (free parachain headers, signed by //Dave).
+		// Parachains relayers (free parachain headers, signed by //Dave). The `relay-parachains`
+		// subcommand identifies the bridge by its Bridge Hub pair (`substrate-relay` >= v1.8.10).
 		self._relayers.push(spawn_relayer(&[
 			"relay-parachains",
 			"bridge-hub-rococo-to-bridge-hub-westend",
