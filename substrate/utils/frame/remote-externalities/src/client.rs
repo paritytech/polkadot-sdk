@@ -127,6 +127,32 @@ impl ConnectionManager {
 		self.clients.len()
 	}
 
+	/// Drop the clients for which `is_available` returns `false`.
+	///
+	/// Used to exclude providers that lack the target block. Returns the number of clients removed,
+	/// or an error if no client would remain.
+	pub(crate) async fn retain_available<F, Fut>(&mut self, mut is_available: F) -> Result<usize>
+	where
+		F: FnMut(Client) -> Fut,
+		Fut: Future<Output = bool>,
+	{
+		let mut kept = Vec::with_capacity(self.clients.len());
+		for client_arc in self.clients.iter() {
+			let client = client_arc.lock().await.clone();
+			if is_available(client).await {
+				kept.push(client_arc.clone());
+			}
+		}
+
+		if kept.is_empty() {
+			return Err("No RPC provider has the target block");
+		}
+
+		let removed = self.clients.len() - kept.len();
+		self.clients = kept;
+		Ok(removed)
+	}
+
 	/// Get a usable client for a specific worker.
 	/// Distributes workers across available clients.
 	pub(crate) async fn get(&self, worker_index: usize) -> Client {

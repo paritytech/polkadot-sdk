@@ -46,7 +46,7 @@ use sp_core::{
 	},
 };
 use sp_runtime::{
-	traits::{Block as BlockT, HashingFor},
+	traits::{Block as BlockT, HashingFor, Header as HeaderT},
 	StateVersion,
 };
 use sp_state_machine::TestExternalities;
@@ -146,6 +146,15 @@ impl<B: BlockT> Builder<B> {
 	fn conn_manager(&self) -> Result<&ConnectionManager> {
 		self.conn_manager.as_ref().ok_or("connection manager must be initialized; qed")
 	}
+
+	/// Whether the configured scrape covers the entire top trie.
+	///
+	/// Only a complete scrape yields a storage root that matches the block header's state root.
+	/// This is signalled by the empty prefix being queued for download (see
+	/// `init_remote_client`); partial scrapes (specific pallets/keys) never match.
+	fn is_complete_scrape(&self) -> bool {
+		self.as_online().hashed_prefixes.iter().any(|p| p.is_empty())
+	}
 }
 
 // RPC methods
@@ -241,6 +250,31 @@ where
 		})
 		.await
 		.map_err(|_| "rpc finalized_head failed on all clients")
+	}
+
+	/// Drop any RPC provider that does not have block `at`.
+	async fn retain_providers_with_block(&mut self, at: B::Hash) -> Result<()> {
+		let conn_manager =
+			self.conn_manager.as_mut().ok_or("connection manager must be initialized; qed")?;
+		let removed = conn_manager
+			.retain_available(move |client| async move {
+				matches!(
+					with_timeout(
+						ChainApi::<(), _, B::Header, ()>::header(client.ws_client.as_ref(), Some(at)),
+						RPC_TIMEOUT,
+					)
+					.await,
+					Ok(Ok(Some(_)))
+				)
+			})
+			.await?;
+		if removed > 0 {
+			warn!(
+				target: LOG_TARGET,
+				"⚠️ excluded {removed} RPC provider(s) that do not have the target block {at:?}",
+			);
+		}
+		Ok(())
 	}
 
 	/// Get keys with `prefix` at `block` using parallel workers.
@@ -453,10 +487,7 @@ where
 			for item in batch_response.into_iter() {
 				match item {
 					Ok(x) => all_data.push(x),
-					Err(e) => {
-						warn!(target: LOG_TARGET, "Value worker {worker_index}: batch item error: {}", e.message());
-						all_data.push(None);
-					},
+					Err(e) => return Err(format!("batch item error: {}", e.message())),
 				}
 			}
 			bar.inc(batch_response_len as u64);
@@ -893,6 +924,11 @@ where
 			self.as_online_mut().at = Some(at);
 		}
 
+		// Drop any provider that does not have the target block. A lagging provider would otherwise
+		// return `UnknownBlock` for every request, dropping keys or causing endless retries.
+		let at = self.as_online().at_expected();
+		self.retain_providers_with_block(at).await?;
+
 		// Then, a few transformation that we want to perform in the online config:
 		let online_config = self.as_online_mut();
 		online_config.pallets.iter().for_each(|p| {
@@ -971,6 +1007,25 @@ where
 
 		let header = self.load_header().await?;
 		let (raw_storage, computed_root) = pending_ext.into_raw_snapshot();
+
+		// Verify the downloaded state against the header's state root.
+		if self.is_complete_scrape() {
+			let expected_root = *header.state_root();
+			if computed_root != expected_root {
+				error!(
+					target: LOG_TARGET,
+					"❌ storage root mismatch: computed {computed_root:?}, expected {expected_root:?} \
+					(from header). The downloaded state is incomplete or corrupted.",
+				);
+				return Err("storage root mismatch: downloaded state is incomplete or corrupted");
+			}
+			info!(target: LOG_TARGET, "✅ storage root verified against header: {computed_root:?}");
+		} else {
+			debug!(
+				target: LOG_TARGET,
+				"skipping storage root verification for partial scrape (no full-state prefix)",
+			);
+		}
 
 		// If we need to save a snapshot, save the raw storage and root hash to the snapshot.
 		if let Some(path) = self.as_online().state_snapshot.clone().map(|c| c.path) {
