@@ -17,6 +17,6 @@ crates:
 - name: snowbridge-runtime-common
   bump: minor
 - name: bridge-hub-westend-runtime
-  bump: patch
+  bump: minor
 - name: bridge-hub-westend-integration-tests
   bump: none
