@@ -20,6 +20,14 @@ doc:
       A new `RegistrarRemoved { registrar_index }` event is emitted on success. The call returns
       `InvalidIndex` for an out-of-range index or an already-empty slot.
 
+  - audience: Runtime User
+    description: |
+      `pallet-identity` exposes a new `removeRegistrar(index)` call and a new
+      `RegistrarRemoved { registrar_index }` event. Wallets, explorers, and indexers should index
+      the new call and event. Note that removing a registrar does not refund deposits reserved by
+      pending `requestJudgement` calls against that registrar; affected users must reclaim them
+      manually with `cancelRequest`.
+
 crates:
   - name: pallet-identity
     bump: minor
