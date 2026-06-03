@@ -62,6 +62,15 @@ where
 			 forward.{tracking}"
 		);
 	}
+
+	// Bug still open: the body failed as expected and we swallowed it so the suite stays
+	// green. Emit a single machine-greppable marker line on stdout so known bugs are
+	// visible in (and countable from) the test output rather than masquerading as plain
+	// passes. Captured by libtest unless `--nocapture` is passed; grep for `KNOWN-BUG` to
+	// list them, or `grep -c` for the count, e.g.
+	//   cargo test ... -- --nocapture 2>&1 | grep -c 'KNOWN-BUG (open)'
+	let url = tracking_url.unwrap_or("(no tracking url)");
+	println!("KNOWN-BUG (open) {test_name} — {url}");
 }
 
 #[cfg(test)]
