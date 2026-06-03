@@ -1,4 +1,4 @@
-# polkadot-subsystem-test-sim
+# `polkadot-subsystem-test-sim`
 
 A subsystem-agnostic, **deterministic** simulator for testing Polkadot node subsystems.
 
