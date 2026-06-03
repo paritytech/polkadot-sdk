@@ -46,13 +46,15 @@ async fn asset_transfer_works() -> Result<(), anyhow::Error> {
 	assert_relayer_balances_unchanged(&bhr, &bhw, charlie, dave).await?;
 
 	// --- roc-reaches-westend: send 5 ROC from Rococo AH to Westend AH. ---
-	asset_hub_rococo::limited_reserve_transfer(
+	// ROC is native to Rococo AH, so Rococo AH is the reserve.
+	asset_hub_rococo::transfer_assets(
 		&ahr,
 		&alice,
 		WESTEND_GENESIS_HASH,
 		alice_pub,
-		asset_hub_rococo::native_asset(),
+		asset_hub_rococo::native_asset,
 		FIVE_UNITS,
+		asset_hub_rococo::TransferType::LocalReserve,
 	)
 	.await?;
 	// //Alice receives at least 4.8 wrapped ROC on Westend AH.
@@ -79,13 +81,15 @@ async fn asset_transfer_works() -> Result<(), anyhow::Error> {
 	.await?;
 
 	// --- wnd-reaches-rococo: send 5 WND from Westend AH to Rococo AH. ---
-	asset_hub_westend::limited_reserve_transfer(
+	// WND is native to Westend AH, so Westend AH is the reserve.
+	asset_hub_westend::transfer_assets(
 		&ahw,
 		&alice,
 		ROCOCO_GENESIS_HASH,
 		alice_pub,
-		asset_hub_westend::native_asset(),
+		asset_hub_westend::native_asset,
 		FIVE_UNITS,
+		asset_hub_westend::TransferType::LocalReserve,
 	)
 	.await?;
 	retry_until(Duration::from_secs(600), || {
@@ -111,27 +115,31 @@ async fn asset_transfer_works() -> Result<(), anyhow::Error> {
 	.await?;
 
 	// --- wroc-reaches-rococo: send 3 wrapped ROC back from Westend AH to Rococo AH. ---
+	// Wrapped ROC's reserve is Rococo AH (the destination), so use a destination reserve.
 	let initial_roc = asset_hub_rococo::free_balance(&ahr, alice_pub).await?;
-	asset_hub_westend::limited_reserve_transfer(
+	asset_hub_westend::transfer_assets(
 		&ahw,
 		&alice,
 		ROCOCO_GENESIS_HASH,
 		alice_pub,
-		asset_hub_westend::bridged_asset(ROCOCO_GENESIS_HASH),
+		|| asset_hub_westend::bridged_asset(ROCOCO_GENESIS_HASH),
 		THREE_UNITS,
+		asset_hub_westend::TransferType::DestinationReserve,
 	)
 	.await?;
 	wait_for_native_increase(&ahr, alice_pub, initial_roc, MIN_NATIVE_RECEIVED).await?;
 
 	// --- wwnd-reaches-westend: send 3 wrapped WND back from Rococo AH to Westend AH. ---
+	// Wrapped WND's reserve is Westend AH (the destination), so use a destination reserve.
 	let initial_wnd = asset_hub_westend::free_balance(&ahw, alice_pub).await?;
-	asset_hub_rococo::limited_reserve_transfer(
+	asset_hub_rococo::transfer_assets(
 		&ahr,
 		&alice,
 		WESTEND_GENESIS_HASH,
 		alice_pub,
-		asset_hub_rococo::bridged_asset(WESTEND_GENESIS_HASH),
+		|| asset_hub_rococo::bridged_asset(WESTEND_GENESIS_HASH),
 		THREE_UNITS,
+		asset_hub_rococo::TransferType::DestinationReserve,
 	)
 	.await?;
 	wait_for_native_increase(&ahw, alice_pub, initial_wnd, MIN_NATIVE_RECEIVED).await?;

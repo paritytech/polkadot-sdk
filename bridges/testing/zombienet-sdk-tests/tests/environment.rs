@@ -160,13 +160,19 @@ macro_rules! asset_hub_ops {
 			use super::{free_balance_at, sign_submit_wait};
 			use crate::$ah::runtime_types::{
 				staging_xcm::v5::{
-					asset::{Asset, AssetId, Assets, Fungibility},
+					asset::{Asset, AssetFilter, AssetId, Assets, Fungibility, WildAsset},
 					junction::{Junction, NetworkId},
 					junctions::Junctions,
 					location::Location,
+					Instruction, Xcm,
 				},
-				xcm::{v3::WeightLimit, VersionedAssets, VersionedLocation},
+				xcm::{
+					v3::WeightLimit, VersionedAssetId, VersionedAssets, VersionedLocation,
+					VersionedXcm,
+				},
 			};
+			// Re-exported so call sites can name the (per-runtime) transfer type.
+			pub use crate::$ah::runtime_types::staging_xcm_executor::traits::asset_transfer::TransferType;
 			use subxt::{tx::Payload, OnlineClient, PolkadotConfig};
 			use subxt_signer::sr25519::Keypair;
 
@@ -230,33 +236,59 @@ macro_rules! asset_hub_ops {
 				sign_submit_wait(client, &tx, signer).await
 			}
 
-			/// `tx.polkadotXcm.limitedReserveTransferAssets(..)` from this Asset Hub to the remote
-			/// one, sending `amount` of `asset` to `beneficiary` (an `AccountId32`).
-			pub async fn limited_reserve_transfer(
+			/// `tx.polkadotXcm.transferAssetsUsingTypeAndThen(..)` from this Asset Hub to the
+			/// remote one, sending `amount` of `asset` to `beneficiary` (an `AccountId32`) and
+			/// paying the remote fees out of `asset` itself.
+			///
+			/// The reserve cannot be auto-detected across a consensus boundary — the auto-detecting
+			/// `limitedReserveTransferAssets` fails with `InvalidAssetUnknownReserve` — so the
+			/// caller passes `transfer_type` explicitly: `LocalReserve` when sending this Asset
+			/// Hub's native token out, `DestinationReserve` when sending a bridged token back to
+			/// its origin Asset Hub.
+			pub async fn transfer_assets(
 				client: &OnlineClient<PolkadotConfig>,
 				signer: &Keypair,
 				remote_by_genesis: [u8; 32],
 				beneficiary: [u8; 32],
-				asset: Location,
+				asset: impl Fn() -> Location,
 				amount: u128,
+				transfer_type: TransferType,
 			) -> Result<(), anyhow::Error> {
 				let dest = VersionedLocation::V5(remote_asset_hub(remote_by_genesis));
-				let beneficiary = VersionedLocation::V5(Location {
-					parents: 0,
-					interior: Junctions::X1([Junction::AccountId32 {
-						network: None,
-						id: beneficiary,
-					}]),
-				});
 				let assets = VersionedAssets::V5(Assets(vec![Asset {
-					id: AssetId(asset),
+					id: AssetId(asset()),
 					fun: Fungibility::Fungible(amount),
 				}]));
-				let tx = crate::$ah::tx().polkadot_xcm().limited_reserve_transfer_assets(
+				// `asset` is rebuilt (the subxt-generated `Location` isn't `Clone`) to also name
+				// the asset used to pay the remote fees.
+				let remote_fees_id = VersionedAssetId::V5(AssetId(asset()));
+				// On the destination: deposit everything that arrives into `beneficiary`.
+				let custom_xcm_on_dest = VersionedXcm::V5(Xcm(vec![Instruction::DepositAsset {
+					assets: AssetFilter::Wild(WildAsset::AllCounted(1)),
+					beneficiary: Location {
+						parents: 0,
+						interior: Junctions::X1([Junction::AccountId32 {
+							network: None,
+							id: beneficiary,
+						}]),
+					},
+				}]));
+				// Assets and fees use the same transfer type. The subxt-generated `TransferType`
+				// isn't `Clone`, so rebuild the second copy (we only use the data-less variants).
+				let fees_transfer_type = match &transfer_type {
+					TransferType::Teleport => TransferType::Teleport,
+					TransferType::LocalReserve => TransferType::LocalReserve,
+					TransferType::DestinationReserve => TransferType::DestinationReserve,
+					TransferType::RemoteReserve(_) =>
+						return Err(anyhow::anyhow!("RemoteReserve transfer type is not supported")),
+				};
+				let tx = crate::$ah::tx().polkadot_xcm().transfer_assets_using_type_and_then(
 					dest,
-					beneficiary,
 					assets,
-					0,
+					transfer_type,
+					remote_fees_id,
+					fees_transfer_type,
+					custom_xcm_on_dest,
 					WeightLimit::Unlimited,
 				);
 				sign_submit_wait(client, &tx, signer).await
@@ -592,15 +624,15 @@ pub struct BridgeTestEnv {
 fn rococo_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let bh_args: Vec<Arg> =
-		vec!["-lparachain=debug,runtime::bridge=trace,xcm=trace,txpool=trace".into()];
+		vec!["-lparachain=info,runtime::bridge=trace,xcm=debug,txpool=debug".into()];
 	let ah_args: Vec<Arg> =
-		vec!["-lparachain=debug,xcm=trace,runtime::bridge=trace,txpool=trace".into()];
+		vec!["-lparachain=info,xcm=debug,runtime::bridge=trace,txpool=debug".into()];
 	NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec!["-lparachain=debug,xcm=trace".into()])
+				.with_default_args(vec!["-lparachain=info,xcm=debug".into()])
 				.with_validator(|n| {
 					n.with_name("alice-rococo-validator")
 						.with_initial_balance(2_000_000_000_000)
@@ -644,9 +676,9 @@ fn rococo_network_config() -> Result<NetworkConfig, anyhow::Error> {
 fn westend_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let bh_args: Vec<Arg> =
-		vec!["-lparachain=debug,runtime::bridge=trace,xcm=trace,txpool=trace".into()];
+		vec!["-lparachain=info,runtime::bridge=trace,xcm=debug,txpool=debug".into()];
 	let ah_args: Vec<Arg> = vec![
-		"-lparachain=debug,xcm=trace,runtime::bridge=trace,txpool=trace".into(),
+		"-lparachain=info,xcm=debug,runtime::bridge=trace,txpool=debug".into(),
 		"--authoring".into(),
 		"slot-based".into(),
 	];
@@ -655,7 +687,7 @@ fn westend_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			r.with_chain("westend-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec!["-lparachain=debug,xcm=trace".into()])
+				.with_default_args(vec!["-lparachain=info,xcm=debug".into()])
 				.with_validator(|n| {
 					n.with_name("alice-westend-validator")
 						.with_initial_balance(2_000_000_000_000)
