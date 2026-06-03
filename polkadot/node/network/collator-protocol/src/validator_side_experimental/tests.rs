@@ -1021,13 +1021,19 @@ async fn make_state<B: Backend>(
 			&mut sender,
 			keystore,
 			new_leaf(initial_leaf_hash, initial_leaf_number),
+			polkadot_node_clock::system_clock(),
 		)
 		.await
 		.unwrap();
 
-		let peer_manager = PeerManager::startup(db, &mut sender, collation_manager.assignments())
-			.await
-			.unwrap();
+		let peer_manager = PeerManager::startup(
+			db,
+			&mut sender,
+			collation_manager.assignments(),
+			polkadot_node_clock::system_clock(),
+		)
+		.await
+		.unwrap();
 
 		State::new(peer_manager, collation_manager, Metrics::default())
 	};
@@ -1101,6 +1107,7 @@ impl Backend for MockDb {
 		leaf_number: BlockNumber,
 		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
 		_decay_value: Option<Score>,
+		_now: std::time::Duration,
 	) -> Vec<ReputationUpdate> {
 		let old_bumps = std::mem::replace(
 			self.witnessed_bumps.lock().unwrap().deref_mut(),
