@@ -543,7 +543,7 @@ impl ChainModel {
 				let _ = tx.send(Ok(self.scheduling_lookahead));
 			},
 			RuntimeApiRequest::AsyncBackingParams(tx) => {
-				let _ = tx.send(Ok(self.async_backing_params.clone()));
+				let _ = tx.send(Ok(self.async_backing_params));
 			},
 			RuntimeApiRequest::NodeFeatures(_session, tx) => {
 				let _ = tx.send(Ok(self.node_features.clone()));
