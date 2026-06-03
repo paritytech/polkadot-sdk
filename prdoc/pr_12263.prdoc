@@ -11,7 +11,7 @@ doc:
       compromised or malicious registrar; the only remedy was a runtime upgrade with a bespoke
       storage migration.
 
-      The registrar's slot is tombstoned (`*slot = None`) rather than removed from the vector, so
+      The registrar's slot is tombstoned (set to `None`) rather than removed from the vector, so
       every existing `RegistrarIndex` — and any judgements already recorded against other
       registrars — stays stable. The freed index is not reused by `add_registrar`. Because the
       `Registrars` storage is already `BoundedVec<Option<RegistrarInfo>, MaxRegistrars>` and all
@@ -31,4 +31,4 @@ doc:
 
 crates:
   - name: pallet-identity
-    bump: minor
+    bump: major
