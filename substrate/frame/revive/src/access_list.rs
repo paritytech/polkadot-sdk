@@ -90,24 +90,28 @@ pub enum Slot {
 #[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Clone, Copy, Debug)]
 pub enum StorageAccessKind {
-	/// Persistent storage, first access for a slot in this transaction.
-	PersistentCold,
-	/// Persistent storage, slot already in the access list.
-	PersistentHot,
+	/// Persistent storage, tracked by the access list.
+	Persistent(Warmth),
 	/// Transient storage, not tracked by the access list.
 	Transient,
 }
 
-impl StorageAccessKind {
-	/// Classify a storage access for pricing.
-	pub fn for_access(transient: bool, peek_or_touch: impl FnOnce() -> bool) -> Self {
-		if transient {
-			Self::Transient
-		} else if peek_or_touch() {
-			Self::PersistentCold
-		} else {
-			Self::PersistentHot
-		}
+/// Warmth of a persistent storage access.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Warmth {
+	/// Slot already in the access list.
+	Hot,
+	/// First access for the slot this transaction. `revertible` is true only
+	/// when the entry was journaled under an open frame, so a `rollback_frame`
+	/// can drop it.
+	Cold { revertible: bool },
+}
+
+impl Warmth {
+	/// Whether this was the first access to the slot this transaction.
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	pub(crate) fn is_cold(&self) -> bool {
+		matches!(self, Self::Cold { .. })
 	}
 }
 
@@ -138,6 +142,7 @@ pub struct AccessEntry {
 /// Per-transaction access list with per-frame rollback support. Layout
 /// follows [`crate::transient_storage::TransientStorage`]: a current-state
 /// set, a flat journal of insertions, and journal-index checkpoints.
+#[derive(Default)]
 pub struct AccessList {
 	/// All currently-hot entries.
 	accessed: BTreeSet<AccessEntry>,
@@ -159,13 +164,7 @@ pub struct AccessList {
 impl AccessList {
 	/// Create an empty access list for a new transaction.
 	pub fn new() -> Self {
-		Self {
-			accessed: BTreeSet::new(),
-			journal: Vec::new(),
-			checkpoints: Vec::new(),
-			cold_count: 0,
-			hot_count: 0,
-		}
+		Self::default()
 	}
 
 	/// Open a new nested frame.
@@ -203,33 +202,44 @@ impl AccessList {
 		}
 	}
 
-	/// Non-mutating sibling of `touch`. Returns `true` if `entry` is cold.
-	pub fn is_cold(&self, entry: &AccessEntry) -> bool {
-		!self.accessed.contains(entry)
+	/// Non-mutating sibling of [`touch`](Self::touch). A peek never journals, so
+	/// a cold result is always non-revertible.
+	pub fn peek(&self, entry: &AccessEntry) -> Warmth {
+		if self.accessed.contains(entry) { Warmth::Hot } else { Warmth::Cold { revertible: false } }
 	}
 
-	/// Register the entry and return `true` if this access is cold (newly
-	/// inserted), `false` if it was already hot.
+	/// Whether the set is at the entry cap.
+	fn is_full(&self) -> bool {
+		self.accessed.len() >= MAX_ACCESS_LIST_ENTRIES
+	}
+
+	/// Whether a nested-frame checkpoint is open.
+	fn in_nested_frame(&self) -> bool {
+		!self.checkpoints.is_empty()
+	}
+
+	/// Register the entry, returning whether it was cold or hot
+	/// ([`Warmth`]).
 	///
 	/// Past [`MAX_ACCESS_LIST_ENTRIES`], new entries are billed cold without
-	/// being inserted; previously-hot slots continue to bill hot.
-	pub fn touch(&mut self, entry: AccessEntry) -> bool {
-		let is_cold = if self.accessed.len() >= MAX_ACCESS_LIST_ENTRIES {
-			!self.accessed.contains(&entry)
+	/// being journaled; previously-hot slots continue to bill hot.
+	pub fn touch(&mut self, entry: AccessEntry) -> Warmth {
+		let kind = if self.is_full() {
+			// Past the cap: bill by membership, but never journal.
+			self.peek(&entry)
+		} else if self.accessed.insert(entry.clone()) {
+			// Newly inserted: journal it so the owning frame's rollback can drop it.
+			self.journal.push(entry);
+			Warmth::Cold { revertible: self.in_nested_frame() }
 		} else {
-			let inserted = self.accessed.insert(entry.clone());
-			if inserted {
-				self.journal.push(entry);
-			}
-			inserted
+			Warmth::Hot
 		};
 
-		if is_cold {
-			self.cold_count = self.cold_count.saturating_add(1);
-		} else {
-			self.hot_count = self.hot_count.saturating_add(1);
+		match kind {
+			Warmth::Cold { .. } => self.cold_count = self.cold_count.saturating_add(1),
+			Warmth::Hot => self.hot_count = self.hot_count.saturating_add(1),
 		}
-		is_cold
+		kind
 	}
 
 	/// Per-transaction metrics snapshot.
@@ -258,31 +268,33 @@ mod tests {
 			AccessEntry { address: H160::zero(), slot: Slot::Fix([0xD; 32]) },
 		);
 
-		assert!(al.touch(a.clone()), "A: first touch cold");
-		assert!(!al.touch(a.clone()), "A: second touch hot");
+		// Root frame: cold, but no checkpoint covers it, so it is not revertible.
+		assert_eq!(al.touch(a.clone()), Warmth::Cold { revertible: false }, "A: first touch cold");
+		assert!(!al.touch(a.clone()).is_cold(), "A: second touch hot");
 
 		al.enter_frame();
 		assert_eq!(al.frame_depth(), 1);
 
-		assert!(al.touch(b.clone()), "B in F1: cold");
-		assert!(!al.touch(a.clone()), "A in F1: hot via parent");
+		// Inside F1: journaled under the open checkpoint, so it is revertible.
+		assert_eq!(al.touch(b.clone()), Warmth::Cold { revertible: true }, "B in F1: cold");
+		assert!(!al.touch(a.clone()).is_cold(), "A in F1: hot via parent");
 
 		al.enter_frame();
-		assert!(al.touch(c.clone()), "C in F2: cold");
+		assert!(al.touch(c.clone()).is_cold(), "C in F2: cold");
 
 		al.commit_frame();
 		assert_eq!(al.frame_depth(), 1);
-		assert!(!al.is_cold(&c), "C: survives F2 commit");
+		assert!(!al.peek(&c).is_cold(), "C: survives F2 commit");
 
-		assert!(al.touch(d.clone()), "D in F1: cold");
+		assert!(al.touch(d.clone()).is_cold(), "D in F1: cold");
 		assert_eq!(al.metrics().size, 4);
 
 		al.rollback_frame();
 		assert_eq!(al.frame_depth(), 0);
-		assert!(!al.is_cold(&a), "A: first frame, survives F1 revert");
-		assert!(al.is_cold(&b), "B: inserted by F1, rolled back");
-		assert!(al.is_cold(&c), "C: F2-committed-into-F1, gone when F1 reverts");
-		assert!(al.is_cold(&d), "D: inserted by F1, rolled back");
+		assert!(!al.peek(&a).is_cold(), "A: first frame, survives F1 revert");
+		assert!(al.peek(&b).is_cold(), "B: inserted by F1, rolled back");
+		assert!(al.peek(&c).is_cold(), "C: F2-committed-into-F1, gone when F1 reverts");
+		assert!(al.peek(&d).is_cold(), "D: inserted by F1, rolled back");
 
 		// Counters never decrement, even for entries that later roll back:
 		// A (cold) + B,C,D (cold) -> 4 cold; A,A (hot) -> 2 hot. Only A still hot,
@@ -300,7 +312,7 @@ mod tests {
 		// Fill to the cap with distinct addresses.
 		for i in 0..MAX_ACCESS_LIST_ENTRIES {
 			let address = H160::from_low_u64_be(i as u64);
-			assert!(al.touch(AccessEntry { address, slot: Slot::Fix([0; 32]) }));
+			assert!(al.touch(AccessEntry { address, slot: Slot::Fix([0; 32]) }).is_cold());
 		}
 		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES);
 
@@ -308,37 +320,45 @@ mod tests {
 			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64),
 			slot: Slot::Fix([0; 32]),
 		};
-		assert!(al.touch(new_entry.clone()), "past cap: bills cold");
+		// Past the cap a new entry is billed cold but never journaled, so even
+		// inside an open frame it can't be rolled back.
+		al.enter_frame();
+		assert_eq!(
+			al.touch(new_entry.clone()),
+			Warmth::Cold { revertible: false },
+			"past cap: bills cold, not revertible",
+		);
+		al.commit_frame();
 		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES, "set size stays at cap");
-		assert!(al.is_cold(&new_entry), "past-cap entry is not tracked");
+		assert!(al.peek(&new_entry).is_cold(), "past-cap entry is not tracked");
 
-		assert!(al.touch(new_entry), "past cap re-touch: still cold (not tracked)");
+		assert!(al.touch(new_entry).is_cold(), "past cap re-touch: still cold (not tracked)");
 
 		let existing = AccessEntry { address: H160::zero(), slot: Slot::Fix([0; 32]) };
-		assert!(!al.touch(existing), "existing entry still hot at cap");
+		assert!(!al.touch(existing).is_cold(), "existing entry still hot at cap");
 	}
 
 	#[test]
-	fn is_cold_does_not_mutate() {
+	fn peek_does_not_mutate() {
 		let mut al = AccessList::new();
 		let entry = AccessEntry { address: H160::zero(), slot: Slot::Fix([1; 32]) };
 
-		assert!(al.is_cold(&entry), "untouched entry: cold");
-		assert!(al.is_cold(&entry), "repeated query: still cold");
+		assert!(al.peek(&entry).is_cold(), "untouched entry: cold");
+		assert!(al.peek(&entry).is_cold(), "repeated query: still cold");
 		assert_eq!(
 			al.metrics(),
 			AccessListMetrics { size: 0, cold: 0, hot: 0 },
-			"is_cold must not bump counters",
+			"peek must not bump counters",
 		);
 
 		al.touch(entry.clone());
 
-		assert!(!al.is_cold(&entry), "after touch: hot");
-		assert!(!al.is_cold(&entry), "repeated query: still hot");
+		assert!(!al.peek(&entry).is_cold(), "after touch: hot");
+		assert!(!al.peek(&entry).is_cold(), "repeated query: still hot");
 		assert_eq!(
 			al.metrics(),
 			AccessListMetrics { size: 1, cold: 1, hot: 0 },
-			"is_cold must not bump the hot counter",
+			"peek must not bump the hot counter",
 		);
 	}
 }

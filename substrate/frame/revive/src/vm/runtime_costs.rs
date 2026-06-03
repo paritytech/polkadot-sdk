@@ -16,8 +16,12 @@
 // limitations under the License.
 
 use crate::{
-	Config, access_list::StorageAccessKind, limits, metering::Token,
-	weightinfo_extension::OnFinalizeBlockParts, weights::WeightInfo,
+	Config,
+	access_list::{StorageAccessKind, Warmth},
+	limits,
+	metering::Token,
+	weightinfo_extension::OnFinalizeBlockParts,
+	weights::WeightInfo,
 };
 use frame_support::weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND};
 
@@ -201,7 +205,6 @@ macro_rules! cost_storage {
             .saturating_sub(T::WeightInfo::get_storage_empty_hot()))
     };
 
-    // Transient write: include rollback weight on top of the full-storage overhead.
     (write_transient, $name:ident $(, $arg:expr )*) => {
         T::WeightInfo::$name($( $arg ),*)
             .saturating_add(T::WeightInfo::rollback_transient_storage())
@@ -209,7 +212,6 @@ macro_rules! cost_storage {
             .saturating_sub(T::WeightInfo::set_transient_storage_empty()))
     };
 
-    // Transient read.
     (read_transient, $name:ident $(, $arg:expr )*) => {
         T::WeightInfo::$name($( $arg ),*)
             .saturating_add(T::WeightInfo::get_transient_storage_full()
@@ -231,7 +233,7 @@ macro_rules! cost_args {
 }
 
 impl RuntimeCosts {
-	/// Pick the matching storage bench for `kind`.
+	/// Pick the matching storage bench for the access `kind`.
 	fn weight_for_storage_access<T: Config>(
 		kind: StorageAccessKind,
 		cold: impl FnOnce() -> Weight,
@@ -239,11 +241,17 @@ impl RuntimeCosts {
 		transient: impl FnOnce() -> Weight,
 	) -> Weight {
 		match kind {
-			StorageAccessKind::PersistentCold => cold()
-				.saturating_add(T::WeightInfo::access_list_touch_cold_full())
-				.saturating_sub(T::WeightInfo::access_list_touch_cold_empty())
-				.saturating_add(T::WeightInfo::access_list_rollback_amortization()),
-			StorageAccessKind::PersistentHot => hot()
+			StorageAccessKind::Persistent(Warmth::Cold { revertible }) => {
+				let cost = cold()
+					.saturating_add(T::WeightInfo::access_list_touch_cold_full())
+					.saturating_sub(T::WeightInfo::access_list_touch_cold_empty());
+				if revertible {
+					cost.saturating_add(T::WeightInfo::access_list_rollback_amortization())
+				} else {
+					cost
+				}
+			},
+			StorageAccessKind::Persistent(Warmth::Hot) => hot()
 				.saturating_add(T::WeightInfo::access_list_touch_hot_full())
 				.saturating_sub(T::WeightInfo::access_list_touch_hot_single_element()),
 			StorageAccessKind::Transient => transient(),

@@ -1963,12 +1963,12 @@ mod benchmarks {
 		// Insert a new entry (u64::MAX is past the fill range, so the touch is cold).
 		let entry =
 			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
-		let was_cold;
+		let outcome;
 		#[block]
 		{
-			was_cold = al.touch(entry);
+			outcome = al.touch(entry);
 		}
-		assert!(was_cold);
+		assert!(outcome.is_cold());
 		Ok(())
 	}
 
@@ -1977,12 +1977,12 @@ mod benchmarks {
 		let mut al = near_full_access_list();
 		// Re-touch an entry that is already present (address zero is in the fill range).
 		let entry = AccessEntry { slot: worst_case_slot(), address: H160::zero() };
-		let was_cold;
+		let outcome;
 		#[block]
 		{
-			was_cold = al.touch(entry);
+			outcome = al.touch(entry);
 		}
-		assert!(!was_cold);
+		assert!(!outcome.is_cold());
 		Ok(())
 	}
 
@@ -1991,12 +1991,12 @@ mod benchmarks {
 		let mut al = AccessList::new();
 		let entry =
 			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
-		let was_cold;
+		let outcome;
 		#[block]
 		{
-			was_cold = al.touch(entry);
+			outcome = al.touch(entry);
 		}
-		assert!(was_cold);
+		assert!(outcome.is_cold());
 		Ok(())
 	}
 
@@ -2006,12 +2006,12 @@ mod benchmarks {
 		let entry =
 			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
 		al.touch(entry.clone());
-		let was_cold;
+		let outcome;
 		#[block]
 		{
-			was_cold = al.touch(entry);
+			outcome = al.touch(entry);
 		}
-		assert!(!was_cold);
+		assert!(!outcome.is_cold());
 		Ok(())
 	}
 

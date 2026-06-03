@@ -2598,17 +2598,23 @@ where
 	}
 
 	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> StorageAccessKind {
-		StorageAccessKind::for_access(transient, || {
-			let address = self.address();
-			self.access_list.touch(AccessEntry { address, slot: key.to_slot() })
-		})
+		if transient {
+			return StorageAccessKind::Transient;
+		}
+		let address = self.address();
+		StorageAccessKind::Persistent(
+			self.access_list.touch(AccessEntry { address, slot: key.to_slot() }),
+		)
 	}
 
 	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind {
-		StorageAccessKind::for_access(transient, || {
-			let address = self.address();
-			self.access_list.is_cold(&AccessEntry { address, slot: key.to_slot() })
-		})
+		if transient {
+			return StorageAccessKind::Transient;
+		}
+		let address = self.address();
+		StorageAccessKind::Persistent(
+			self.access_list.peek(&AccessEntry { address, slot: key.to_slot() }),
+		)
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {

@@ -52,7 +52,7 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	access_list::StorageAccessKind,
+	access_list::{StorageAccessKind, Warmth},
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
 		TYPE_EIP1559, Trace, Tracer, TracerType, block_hash::EthereumBlockBuilderIR, block_storage,
@@ -1109,13 +1109,13 @@ pub mod pallet {
 			);
 
 			// We can use storage to store items using the available block ref_time with the
-			// `set_storage` host function. `PersistentCold` is the worst case.
+			// `set_storage` host function. A revertible cold access is the worst case.
 			let max_storage_size = max_block_weight
 				.checked_div_per_component(
 					&<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::SetStorage {
 						new_bytes: limits::STORAGE_BYTES,
 						old_bytes: 0,
-						kind: StorageAccessKind::PersistentCold,
+						kind: StorageAccessKind::Persistent(Warmth::Cold { revertible: true }),
 					})
 					.saturating_mul(u64::from(limits::STORAGE_BYTES).saturating_add(max_key_size)),
 				)

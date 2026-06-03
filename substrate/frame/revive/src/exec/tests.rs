@@ -23,6 +23,7 @@
 use super::*;
 use crate::{
 	AddressMapper, Error, Pallet, ReentrancyProtection,
+	access_list::{MAX_ACCESS_LIST_ENTRIES, Warmth},
 	exec::ExportedFunction::*,
 	metering::TransactionMeter,
 	test_utils::*,
@@ -2966,7 +2967,10 @@ fn delegatecall_tracer_reports_correct_addresses() {
 }
 
 fn is_cold_touch<E: Ext>(ext: &mut E, key: &Key) -> bool {
-	matches!(ext.touch_storage_access(false, key), StorageAccessKind::PersistentCold)
+	matches!(
+		ext.touch_storage_access(false, key),
+		StorageAccessKind::Persistent(Warmth::Cold { .. })
+	)
 }
 
 fn run_root_call(contract_addr: H160, input: Vec<u8>) {
@@ -3108,6 +3112,70 @@ fn cold_hot_delegate_call_marks_parent_slot_hot() {
 }
 
 #[test]
+fn cold_hot_revertible_only_inside_nested_frame() {
+	const SLOT: [u8; 32] = [13; 32];
+
+	let child_code_hash = MockLoader::insert(Call, |ctx, _| {
+		assert_matches!(
+			ctx.ext.touch_storage_access(false, &Key::Fix(SLOT)),
+			StorageAccessKind::Persistent(Warmth::Cold { revertible: true }),
+			"a cold touch in a nested frame is revertible",
+		);
+		exec_success()
+	});
+
+	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
+		assert_matches!(
+			ctx.ext.touch_storage_access(false, &Key::Fix(SLOT)),
+			StorageAccessKind::Persistent(Warmth::Cold { revertible: false }),
+			"a cold touch in the root frame is not revertible",
+		);
+		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&BOB, child_code_hash);
+		place_contract(&CHARLIE, root_code_hash);
+		run_root_call(CHARLIE_ADDR, vec![]);
+	});
+}
+
+#[test]
+fn cold_hot_past_cap_touch_is_not_revertible() {
+	let child_code_hash = MockLoader::insert(Call, |ctx, _| {
+		// Fill the access list to its cap with distinct slots. Each is below the
+		// cap when touched, so it journals and is revertible.
+		for i in 0..MAX_ACCESS_LIST_ENTRIES as u32 {
+			let mut slot = [0u8; 32];
+			slot[..4].copy_from_slice(&i.to_le_bytes());
+			assert_matches!(
+				ctx.ext.touch_storage_access(false, &Key::Fix(slot)),
+				StorageAccessKind::Persistent(Warmth::Cold { revertible: true })
+			);
+		}
+		// A further distinct slot is past the cap: cold but not revertible.
+		assert_matches!(
+			ctx.ext.touch_storage_access(false, &Key::Fix([0xFF; 32])),
+			StorageAccessKind::Persistent(Warmth::Cold { revertible: false }),
+			"past-cap touch is cold but not revertible",
+		);
+		exec_success()
+	});
+
+	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
+		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&BOB, child_code_hash);
+		place_contract(&CHARLIE, root_code_hash);
+		run_root_call(CHARLIE_ADDR, vec![]);
+	});
+}
+
+#[test]
 fn cold_hot_transient_skips_access_list() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		let key = Key::Fix([42; 32]);
@@ -3119,7 +3187,7 @@ fn cold_hot_transient_skips_access_list() {
 		// The same key is still cold in the persistent access list.
 		let persistent_kind = ctx.ext.peek_storage_access(false, &key);
 		assert!(
-			matches!(persistent_kind, StorageAccessKind::PersistentCold),
+			matches!(persistent_kind, StorageAccessKind::Persistent(Warmth::Cold { .. })),
 			"transient access must not warm the persistent access list",
 		);
 
@@ -3134,10 +3202,8 @@ fn cold_hot_transient_skips_access_list() {
 
 #[test]
 fn cold_hot_3level_commit_then_revert_drops_committed() {
-	// 3-level nesting: root → A → grandchild. Grandchild commits a touch into A's
-	// frame; A then reverts. On the next call into grandchild, the previously-
-	// committed entry must be gone — A's revert drops both its own touches and
-	// the ones grandchild committed into it.
+	// root → A → grandchild. Grandchild commits a touch into A; A then reverts,
+	// dropping it. The next grandchild call must see the slot cold again.
 	let grandchild_code_hash = MockLoader::insert(Call, |ctx, _| {
 		let key = Key::Fix([99; 32]);
 		assert!(
@@ -3147,13 +3213,11 @@ fn cold_hot_3level_commit_then_revert_drops_committed() {
 		exec_success()
 	});
 
-	// A calls grandchild (which commits a touch), then reverts.
 	let a_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
 		Err("rollback A".into())
 	});
 
-	// Root calls A twice. Each grandchild invocation must see the slot as cold.
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		let _ = run_child_call(ctx.ext, &BOB_ADDR, vec![]);
 		let _ = run_child_call(ctx.ext, &BOB_ADDR, vec![]);
