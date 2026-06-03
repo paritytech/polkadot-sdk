@@ -25,10 +25,15 @@ mod bad_signature {
 
 	const PARA: ParaId = ParaId::new(2000);
 
-	#[crate::sim_test(
-		bug_on = "experimental",
-		bug_url = "memory:project_collator_experimental_skips_declare_sig"
-	)]
+	/// Legacy-only, and intentionally so. The `Declare` signature is self-signed: the peer
+	/// supplies both the collator public key and a signature over its own peer id by that
+	/// key. The validator has no allowlist of known collator keys to check the public key
+	/// against (the invulnerables set is keyed by `PeerId`, not collator key), so a valid
+	/// signature proves only "I hold the private key for a key I just generated" — it
+	/// authenticates nothing. Legacy nonetheless verifies it and slashes a bad signature as
+	/// `Malicious`; experimental correctly skips the pointless check. Intended divergence,
+	/// not a bug — the signature should be dropped from the message entirely (v4 protocol).
+	#[crate::sim_test(only = "legacy")]
 	fn declare_with_bad_signature_yields_malicious_reputation<S: CollatorSut>() {
 		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
 		let peer = w.connected_peer(PARA, V1);
@@ -36,13 +41,14 @@ mod bad_signature {
 		w.expect_rep(&peer, RepBucket::Malicious);
 	}
 
-	#[crate::sim_test]
+	/// Legacy sanity counterpart: a *valid* declare must NOT trip the malicious bucket,
+	/// ruling out "any declare in this setup yields `Reputation::Malicious`" as a false
+	/// positive for the bad-signature test above. Legacy-only for the same reason — only
+	/// legacy verifies the (meaningless) `Declare` signature at all.
+	#[crate::sim_test(only = "legacy")]
 	fn declare_with_valid_signature_does_not_get_malicious_reputation<S: CollatorSut>() {
 		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
 		let _peer = w.declared_peer(PARA, V1);
-		// Sanity counterpart: a *valid* declare must NOT trip the malicious bucket. Pairs with
-		// the bad-signature scenario above to rule out "any declare in this setup yields a
-		// Reputation::Malicious" as a false positive.
 		w.expect_no_rep(&_peer, RepBucket::Malicious);
 	}
 }
