@@ -100,7 +100,11 @@ mod claim_queue_window {
 	/// lookahead near genesis — legacy by the claim-queue length, experimental by the
 	/// allowed-ancestry path length — and so reject the advertisement. #12255 sources the
 	/// lookahead from the runtime and fixes both.
-	#[crate::sim_test(bug_on = "legacy", bug_on = "experimental", bug_url = "github:paritytech/polkadot-sdk#12255")]
+	#[crate::sim_test(
+		bug_on = "legacy",
+		bug_on = "experimental",
+		bug_url = "github:paritytech/polkadot-sdk#12255"
+	)]
 	fn ancestor_can_fetch_last_claim_queue_position<S: CollatorSut>() {
 		let config =
 			collator_world_config().with_schedule(CoreIndex(0), CoreSchedule::always(PARA_B));

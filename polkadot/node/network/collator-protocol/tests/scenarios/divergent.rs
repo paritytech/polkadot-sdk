@@ -753,7 +753,11 @@ mod claim_queue_capacity {
 	///
 	/// Experimental needs the runtime scheduling lookahead (#12255) to size `common`'s
 	/// window to 2 rather than the truncated ancestry-path length.
-	#[crate::sim_test(only = "experimental", bug_on = "experimental", bug_url = "github:paritytech/polkadot-sdk#12255")]
+	#[crate::sim_test(
+		only = "experimental",
+		bug_on = "experimental",
+		bug_url = "github:paritytech/polkadot-sdk#12255"
+	)]
 	fn fork_capacity_uses_longest_window_across_paths<S: CollatorSut>() {
 		let config =
 			collator_world_config().with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
@@ -799,7 +803,11 @@ mod claim_queue_capacity {
 	/// to one in-flight fetch per relay parent by design, so it never reaches 2.
 	///
 	/// Experimental needs the runtime scheduling lookahead (#12255) to size the window.
-	#[crate::sim_test(only = "experimental", bug_on = "experimental", bug_url = "github:paritytech/polkadot-sdk#12255")]
+	#[crate::sim_test(
+		only = "experimental",
+		bug_on = "experimental",
+		bug_url = "github:paritytech/polkadot-sdk#12255"
+	)]
 	fn fork_shared_sp_capacity_not_double_counted<S: CollatorSut>() {
 		let config =
 			collator_world_config().with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
