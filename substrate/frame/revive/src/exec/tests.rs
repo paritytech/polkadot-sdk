@@ -1581,6 +1581,54 @@ fn nested_clear_refund_matches_direct_clear() {
 }
 
 #[test]
+fn bank_after_invalidate_loads_cache_for_refund_pro_rating() {
+	// Self-reentry, then a removal-bearing `charge_storage` (which does not reload the
+	// cache), then self-reentry again: the second bank fires on a still-invalidated frame.
+	// Without the `load()` before bank, `update_contract(None)` drops the refund pro-rata
+	// and trips the `debug_assert!` in `bank_pending_changes`.
+	let code_bob = MockLoader::insert(Call, |ctx, _| {
+		if ctx.input_data[0] == 0 {
+			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false).unwrap();
+			assert_ok!(ctx.ext.call(
+				&Default::default(),
+				&BOB_ADDR,
+				U256::zero(),
+				vec![1],
+				ReentrancyProtection::AllowReentry,
+				false,
+			));
+			ctx.ext.charge_storage(&Diff { bytes_removed: 1, ..Default::default() }).unwrap();
+			assert_ok!(ctx.ext.call(
+				&Default::default(),
+				&BOB_ADDR,
+				U256::zero(),
+				vec![1],
+				ReentrancyProtection::AllowReentry,
+				false,
+			));
+		}
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		let min_balance = <Test as Config>::Currency::minimum_balance();
+		set_balance(&ALICE, min_balance * 1000);
+		place_contract(&BOB, code_bob);
+		let mut meter =
+			TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
+				.unwrap();
+		assert_ok!(MockStack::run_call(
+			Origin::from_account_id(ALICE),
+			BOB_ADDR,
+			&mut meter,
+			U256::zero(),
+			vec![0],
+			&ExecConfig::new_substrate_tx(),
+		));
+	});
+}
+
+#[test]
 fn recursive_call_during_constructor_is_balance_transfer() {
 	let code = MockLoader::insert(Constructor, |ctx, _| {
 		let account_id = ctx.ext.account_id().clone();

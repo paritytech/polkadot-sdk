@@ -757,15 +757,14 @@ impl<T: Config> Frame<T> {
 		self.contract_info.get(&self.account_id)
 	}
 
-	/// Bank the meter's pending storage diff against the still-cached `ContractInfo`, then
-	/// invalidate the cache. Called when a same-contract descendant has just persisted this
-	/// frame's preview-applied state so the diff is not applied a second time on finalize.
-	///
-	/// Bundling the two steps enforces the precondition that banking sees the pre-reload
-	/// `ContractInfo` — see [`storage::RawMeter::bank_pending_changes`].
+	/// Bank the meter's pending storage diff against the cached `ContractInfo`, then invalidate
+	/// the cache. The `load` covers the case where an earlier same-contract reentry already
+	/// invalidated this frame; without it a removal-bearing diff would be banked with no info
+	/// and silently drop the refund pro-rata.
 	/// See: <https://github.com/paritytech/contract-issues/issues/213>
 	fn bank_pending_changes_and_invalidate(&mut self) {
 		let contract = self.account_id.clone();
+		self.contract_info.load(&self.account_id);
 		self.frame_meter
 			.bank_pending_storage_changes(contract, self.contract_info.as_contract());
 		self.contract_info.invalidate();
