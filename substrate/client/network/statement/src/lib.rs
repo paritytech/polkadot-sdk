@@ -1287,7 +1287,7 @@ where
 
 	fn on_handle_statement_import(&mut self, who: PeerId, import: &SubmitResult) {
 		if v2dht_enabled() {
-			self.v2dht.on_statement_imported(who, result);
+			self.v2dht.on_statement_imported(who, import);
 		}
 		match import {
 			SubmitResult::New => self.network.report_peer(who, rep::GOOD_STATEMENT),
