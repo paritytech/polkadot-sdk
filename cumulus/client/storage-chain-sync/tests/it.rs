@@ -120,10 +120,7 @@ async fn import_case_a_attaches_prefetched(
 	assert_eq!(prefetched.renew_payloads.len(), 1);
 	let key = sp_core::H256::from(content_hash);
 	assert_eq!(prefetched.renew_payloads.get(&key).map(|v| v.as_slice()), Some(bytes));
-	assert!(
-		h.api.overlay_marker_seen(),
-		"overlay marker should have been observed by call_api_at",
-	);
+	assert!(h.api.overlay_marker_seen(), "overlay marker should have been observed by call_api_at",);
 }
 
 #[tokio::test]
