@@ -25,7 +25,7 @@ use emulated_integration_tests_common::snowbridge::{SEPOLIA_ID, WETH};
 use frame_support::assert_noop;
 use hex_literal::hex;
 use snowbridge_core::{AgentIdOf, AssetMetadata};
-use snowbridge_outbound_queue_primitives::v2::{Command, ContractCall};
+use snowbridge_outbound_queue_primitives::v2::ContractCall;
 use sp_runtime::DispatchError::BadOrigin;
 use xcm::v5::AssetTransferFilter;
 use xcm_executor::traits::ConvertLocation;
