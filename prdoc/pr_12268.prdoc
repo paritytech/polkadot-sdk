@@ -1,0 +1,10 @@
+title: 'remote-ext: fix silent state corruption from lagging RPC providers'
+doc:
+- audience: Node Dev
+  description: "Fixes #12264 by treating per-item RPC errors as batch failures instead\
+    \ of empty values, verifying the computed storage root against the block header\
+    \ before caching a snapshot, and excluding RPC providers that lack the target\
+    \ block up front.\r\n"
+crates:
+- name: frame-remote-externalities
+  bump: patch
