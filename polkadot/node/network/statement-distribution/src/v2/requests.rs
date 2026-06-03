@@ -75,7 +75,7 @@ use std::{
 /// Must be strictly less than the network-level `ATTESTED_CANDIDATE_TIMEOUT` (2500ms in
 /// `polkadot-node-network-protocol::request_response`) so the parallel fetch is dispatched
 /// while the original request is still alive.
-pub(crate) const PARALLEL_FETCH_THRESHOLD: Duration = Duration::from_millis(500);
+pub(crate) const PARALLEL_FETCH_THRESHOLD: Duration = Duration::from_millis(600);
 
 /// Maximum number of `AttestedCandidateRequest`s that can be in flight simultaneously for a
 /// single candidate.
