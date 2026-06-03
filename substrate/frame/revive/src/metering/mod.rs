@@ -673,6 +673,11 @@ impl<T: Config> FrameMeter<T> {
 	pub fn apply_pending_storage_changes(&self, info: &mut ContractInfo<T>) {
 		self.deposit.apply_pending_changes_to_contract(info);
 	}
+
+	/// See [`storage::RawMeter::bank_pending_changes`].
+	pub fn bank_pending_storage_changes(&mut self, info: Option<&mut ContractInfo<T>>) {
+		self.deposit.bank_pending_changes(info);
+	}
 }
 
 /// Ethereum transaction context for gas conversions.

@@ -80,6 +80,10 @@ pub struct RawMeter<T: Config, E, S: State> {
 	/// The amount of storage changes that were recorded in this meter alone.
 	/// This has no meaning for Root meters and will always be Contribution::Checked(0)
 	own_contribution: Contribution<T>,
+	/// Deposit for a diff already applied to the persisted `ContractInfo` out of band
+	/// (see [`Self::bank_pending_changes`]). Counted toward the charge but not
+	/// re-applied to `info` on finalize.
+	applied_deposit: DepositOf<T>,
 	/// List of charges that should be applied at the end of a contract stack execution.
 	///
 	/// We only have one charge per contract hence the size of this vector is
@@ -292,7 +296,10 @@ where
 			.max_charged
 			.max(self.consumed().saturating_add(&absorbed.max_charged()).charge_or_zero());
 
-		let own_deposit = absorbed.own_contribution.update_contract(info);
+		let own_deposit = absorbed
+			.own_contribution
+			.update_contract(info)
+			.saturating_add(&absorbed.applied_deposit);
 		self.total_deposit = self
 			.total_deposit
 			.saturating_add(&absorbed.total_deposit)
@@ -336,7 +343,9 @@ where
 	/// This disregards any refunds pending in the current frame. This
 	/// is because we can calculate refunds only at the end of each frame.
 	pub fn consumed(&self) -> DepositOf<T> {
-		self.total_deposit.saturating_add(&self.own_contribution.update_contract(None))
+		self.total_deposit
+			.saturating_add(&self.own_contribution.update_contract(None))
+			.saturating_add(&self.applied_deposit)
 	}
 
 	/// Return the maximum consumed deposit at any point in the previous execution
@@ -506,6 +515,20 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 			// We don't care about the return value (the deposit amount) here,
 			// we just want to update the ContractInfo so child frames can see it.
 			let _ = diff.update_contract::<T>(Some(info));
+		}
+	}
+
+	/// Apply the pending diff to `info` and record its deposit in
+	/// [`Self::applied_deposit`], then reset `own_contribution` so finalize does not
+	/// apply it a second time.
+	///
+	/// `info` must be the frame's pre-reload `ContractInfo` so refunds are pro-rated
+	/// against the storage state the diff was recorded against.
+	pub fn bank_pending_changes(&mut self, info: Option<&mut ContractInfo<T>>) {
+		if matches!(self.own_contribution, Contribution::Alive(_)) {
+			let deposit = self.own_contribution.update_contract(info);
+			self.applied_deposit = self.applied_deposit.saturating_add(&deposit);
+			self.own_contribution = Contribution::Alive(Default::default());
 		}
 	}
 }

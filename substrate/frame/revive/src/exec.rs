@@ -1601,6 +1601,10 @@ where
 					contract,
 				);
 				if let Some(f) = self.frames_mut().find(|f| f.account_id == *account_id) {
+					// Child persisted this frame's preview-applied `ContractInfo`; bank the diff
+					// before invalidating so finalize doesn't apply it twice.
+					// See: <https://github.com/paritytech/contract-issues/issues/213>
+					f.frame_meter.bank_pending_storage_changes(f.contract_info.as_contract());
 					f.contract_info.invalidate();
 				}
 			}
