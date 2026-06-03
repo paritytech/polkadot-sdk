@@ -3110,6 +3110,29 @@ mod admin {
 	}
 
 	#[test]
+	fn create_psm_fails_if_deposit_cannot_be_reserved() {
+		new_test_ext().execute_with(|| {
+			// An account that owns the internal asset but has no native balance to cover the
+			// creation deposit. The deposit gate must reject it.
+			const POOR: u64 = 7;
+			assert_ok!(Assets::force_create(RuntimeOrigin::root(), NEW_INTERNAL, POOR, true, 1));
+			assert_eq!(Balances::free_balance(POOR), 0);
+
+			assert_noop!(
+				Psm::create_psm(
+					RuntimeOrigin::signed(POOR),
+					NEW_INTERNAL,
+					INSURANCE_FUND,
+					DEFAULT_MAX_DEBT,
+				),
+				pallet_balances::Error::<Test>::InsufficientBalance
+			);
+			// Nothing was created.
+			assert!(!crate::Psm::<Test>::contains_key(NEW_INTERNAL));
+		});
+	}
+
+	#[test]
 	fn remove_psm_works_and_refunds_creator() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
@@ -3131,6 +3154,35 @@ mod admin {
 			System::assert_has_event(
 				Event::<Test>::PsmRemoved { internal_asset: NEW_INTERNAL }.into(),
 			);
+		});
+	}
+
+	#[test]
+	fn create_psm_then_remove_releases_provider_refs() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
+			let psm = crate::Pallet::<Test>::psm_account(&NEW_INTERNAL);
+			let psm_before = frame_system::Account::<Test>::get(&psm).providers;
+			let fee_before = frame_system::Account::<Test>::get(&INSURANCE_FUND).providers;
+
+			assert_ok!(Psm::create_psm(
+				RuntimeOrigin::signed(ALICE),
+				NEW_INTERNAL,
+				INSURANCE_FUND,
+				DEFAULT_MAX_DEBT,
+			));
+			// create_psm acquired one provider reference on each of the reserve account and the
+			// fee destination.
+			assert_eq!(frame_system::Account::<Test>::get(&psm).providers, psm_before + 1);
+			assert_eq!(
+				frame_system::Account::<Test>::get(&INSURANCE_FUND).providers,
+				fee_before + 1
+			);
+
+			assert_ok!(Psm::remove_psm(RuntimeOrigin::signed(ALICE), NEW_INTERNAL));
+			// remove_psm released both — net zero, no provider leak across the lifecycle.
+			assert_eq!(frame_system::Account::<Test>::get(&psm).providers, psm_before);
+			assert_eq!(frame_system::Account::<Test>::get(&INSURANCE_FUND).providers, fee_before);
 		});
 	}
 

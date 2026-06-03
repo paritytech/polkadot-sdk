@@ -208,9 +208,8 @@ pub fn new_test_ext() -> TestState {
 }
 
 /// Direct storage install of the test PSM with `Root` as full_admin and
-/// `Signed(EMERGENCY_ACCOUNT)` as emergency_admin, mirroring what the old genesis
-/// builder used to do. We bypass `create_psm` here so tests don't depend on
-/// balance funding plumbing.
+/// `Signed(EMERGENCY_ACCOUNT)` as emergency_admin. We bypass `create_psm` here so tests don't
+/// depend on balance funding plumbing.
 fn install_test_psm() {
 	let internal_decimals =
 		<Assets as frame_support::traits::fungibles::metadata::Inspect<u64>>::decimals(
@@ -232,10 +231,11 @@ fn install_test_psm() {
 		INTERNAL_ASSET_ID,
 		crate::PsmAdminInfo::<Test> { full_admin, emergency_admin, depositor: ALICE, deposit: 0 },
 	);
-	crate::Pallet::<Test>::ensure_account_exists(&crate::Pallet::<Test>::psm_account(
+	// Acquire provider refs like `create_psm` does, so the test PSM mirrors a real one.
+	frame_system::Pallet::<Test>::inc_providers(&crate::Pallet::<Test>::psm_account(
 		&INTERNAL_ASSET_ID,
 	));
-	crate::Pallet::<Test>::ensure_account_exists(&INSURANCE_FUND);
+	frame_system::Pallet::<Test>::inc_providers(&INSURANCE_FUND);
 
 	for (asset, weight, decimals) in [
 		(USDC_ASSET_ID, Permill::from_percent(60), 6u8),

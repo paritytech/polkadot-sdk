@@ -1099,12 +1099,12 @@ pub mod pallet {
 			Psm::<T>::try_mutate(&internal_asset, |maybe| -> DispatchResult {
 				let info = maybe.as_mut().ok_or(Error::<T>::PsmNotFound)?;
 				ensure!(
-					info.external_count < T::MaxExternalAssetsPerPsm::get(),
-					Error::<T>::TooManyAssets
-				);
-				ensure!(
 					!ExternalAssets::<T>::contains_key(&internal_asset, &asset_id),
 					Error::<T>::AssetAlreadyApproved
+				);
+				ensure!(
+					info.external_count < T::MaxExternalAssetsPerPsm::get(),
+					Error::<T>::TooManyAssets
 				);
 				ensure!(
 					T::Fungibles::asset_exists(asset_id.clone()),
@@ -1275,8 +1275,13 @@ pub mod pallet {
 					deposit,
 				},
 			);
-			Self::ensure_account_exists(&Self::psm_account(&internal_asset));
-			Self::ensure_account_exists(&fee_destination);
+			// Acquire a provider reference on the reserve account and the fee destination for the
+			// lifetime of this PSM, so they can hold non-sufficient assets (external collateral /
+			// minted fees). Released in `remove_psm`. Unconditional (rather than
+			// `ensure_account_exists`) so the inc/dec is symmetric even when an account already
+			// exists or is shared across PSMs.
+			frame_system::Pallet::<T>::inc_providers(&Self::psm_account(&internal_asset));
+			frame_system::Pallet::<T>::inc_providers(&fee_destination);
 
 			Self::deposit_event(Event::PsmCreated {
 				internal_asset,
@@ -1326,6 +1331,13 @@ pub mod pallet {
 
 			Psm::<T>::remove(&internal_asset);
 			PsmAdmin::<T>::remove(&internal_asset);
+
+			// Release the provider references acquired in `create_psm`. Reaps each account when
+			// empty; a `ConsumerRemaining` error just means it still holds funds and must stay
+			// alive, so the result is intentionally discarded.
+			frame_system::Pallet::<T>::dec_providers(&Self::psm_account(&internal_asset)).ok();
+			frame_system::Pallet::<T>::dec_providers(&info.fee_destination).ok();
+
 			Self::deposit_event(Event::PsmRemoved { internal_asset });
 			Ok(())
 		}
@@ -1608,13 +1620,6 @@ pub mod pallet {
 			Ok((external.decimals, info.internal_decimals))
 		}
 
-		/// Ensure an account exists by incrementing its provider count if needed.
-		pub(crate) fn ensure_account_exists(account: &T::AccountId) {
-			if !frame_system::Pallet::<T>::account_exists(account) {
-				frame_system::Pallet::<T>::inc_providers(account);
-			}
-		}
-
 		/// Authorise an operation on the PSM keyed by `internal_asset`.
 		///
 		/// Matches the incoming origin's caller against the PSM's stored
@@ -1696,15 +1701,14 @@ pub mod pallet {
 				// ceiling below outstanding debt, so this holds as a true state invariant.
 				ensure!(sum <= info.max_debt, "Aggregate PSM debt exceeds the instance's max_debt");
 
-				// 6. Per-asset debt within its normalised ceiling when minting is enabled.
-				// `set_max_debt` and `set_asset_ceiling_weight` both re-validate every external,
-				// rejecting any change that would push a ceiling below its debt, so this holds.
-				for (asset_id, external) in ExternalAssets::<T>::iter_prefix(&internal_asset) {
-					if external.status.allows_minting() {
-						let debt = PsmDebt::<T>::get(&internal_asset, &asset_id);
-						let ceiling = Self::max_asset_debt(&internal_asset, &asset_id, &info);
-						ensure!(debt <= ceiling, "Per-asset PSM debt exceeds its ceiling");
-					}
+				// 6. Per-asset debt within its normalised ceiling for every approved external,
+				// `mint` enforces it on the way up, and `set_max_debt`/`set_asset_ceiling_weight`
+				// reject any change that would push any external's ceiling below its debt, so
+				// it holds universally.
+				for (asset_id, _) in ExternalAssets::<T>::iter_prefix(&internal_asset) {
+					let debt = PsmDebt::<T>::get(&internal_asset, &asset_id);
+					let ceiling = Self::max_asset_debt(&internal_asset, &asset_id, &info);
+					ensure!(debt <= ceiling, "Per-asset PSM debt exceeds its ceiling");
 				}
 			}
 
