@@ -152,7 +152,7 @@ mod benchmarks {
 		ensure!(Registrars::<T>::get().len() as u32 == r, "Registrars not set up correctly.");
 		let origin =
 			T::RegistrarOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		// Remove the last registrar so the worst case still walks the full list.
+		// Remove the last registrar
 		let index = r - 1;
 
 		#[extrinsic_call]
