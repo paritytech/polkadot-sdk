@@ -29,6 +29,7 @@ use crate::{
 		},
 		BitswapProtoMessage, Cid, Prefix, LOG_TARGET, MAX_WANTED_BLOCKS, PROTOCOL_NAME,
 	},
+	litep2p::bitswap_metrics::{errors, outcomes, BitswapMetrics},
 	request_responses::RequestFailure,
 	OutboundFailure, ProtocolName, MAX_RESPONSE_SIZE,
 };
@@ -36,6 +37,7 @@ use futures::{channel::oneshot, StreamExt};
 use litep2p::protocol::libp2p::bitswap::{
 	BitswapEvent, BitswapHandle, BlockPresenceType, Config, ResponseType, WantType,
 };
+use prometheus_endpoint::Registry;
 use prost::Message as ProstMessage;
 use sc_client_api::BlockBackend;
 use sp_core::H256;
@@ -232,6 +234,7 @@ pub(crate) struct BitswapService<Block: BlockT> {
 	client: Arc<dyn BlockBackend<Block> + Send + Sync>,
 	cmd_rx: mpsc::Receiver<BitswapOutboundCmd>,
 	pending: PendingBatches,
+	metrics: BitswapMetrics,
 }
 
 impl<Block: BlockT> BitswapService<Block> {
@@ -239,12 +242,21 @@ impl<Block: BlockT> BitswapService<Block> {
 	///
 	/// Returns the boxed task future (to be spawned on the executor) and the
 	/// [`BitswapConfig`] to be passed into the litep2p config builder.
+	///
+	/// If `metrics_registry` is `Some`, Prometheus metrics are registered with
+	/// it. A registration failure is logged and falls back to disabled metrics
+	/// (the service still runs).
 	pub(crate) fn new(
 		client: Arc<dyn BlockBackend<Block> + Send + Sync>,
+		metrics_registry: Option<&Registry>,
 	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, BitswapConfig) {
+		let metrics = BitswapMetrics::new(metrics_registry).unwrap_or_else(|err| {
+			log::debug!(target: LOG_TARGET, "failed to register bitswap metrics: {err}");
+			BitswapMetrics::new(None).expect("registering with None registry never fails; qed")
+		});
 		let (litep2p_config, handle) = Config::new();
 		let (cmd_tx, cmd_rx) = mpsc::channel(CMD_CHANNEL_CAPACITY);
-		let service = Self { handle, client, cmd_rx, pending: PendingBatches::default() };
+		let service = Self { handle, client, cmd_rx, pending: PendingBatches::default(), metrics };
 		let future = Box::pin(async move { service.run().await });
 		let config = BitswapConfig { litep2p_config, cmd_tx };
 		(future, config)
@@ -286,37 +298,55 @@ impl<Block: BlockT> BitswapService<Block> {
 
 	/// Handle an inbound bitswap WANT request from `peer`.
 	async fn handle_inbound_request(&mut self, peer: litep2p::PeerId, cids: Vec<(Cid, WantType)>) {
+		let started = Instant::now();
 		let want_count = cids.len();
 		if inbound_wantlist_exceeds_limit(want_count) {
+			self.metrics.record_error(errors::TOO_MANY_ENTRIES);
 			log::trace!(target: LOG_TARGET, "bitswap: ignored inbound request with {want_count} entries");
 			return;
 		}
 
 		log::debug!(target: LOG_TARGET, "bitswap: handle inbound request from {peer:?} for {cids:?}");
 
+		let metrics = &self.metrics;
 		let response: Vec<ResponseType> = cids
 			.into_iter()
-			.filter(|(cid, _)| is_cid_supported(&cid))
+			.filter(|(cid, _)| {
+				let supported = is_cid_supported(cid);
+				if !supported {
+					metrics.record_entry(outcomes::UNSUPPORTED_CID);
+				}
+				supported
+			})
 			.map(|(cid, want_type)| {
 				let hash = H256::from_slice(&cid.hash().digest()[0..32]);
 				let transaction = match self.client.indexed_transaction(hash) {
 					Ok(ex) => ex,
 					Err(error) => {
+						metrics.record_error(errors::CLIENT);
 						log::error!(target: LOG_TARGET, "error retrieving transaction {hash}: {error}");
 						None
 					},
 				};
-				match transaction {
+				let response = match transaction {
 					Some(transaction) => match want_type {
 						WantType::Block => ResponseType::Block { cid, block: transaction },
 						_ => ResponseType::Presence { cid, presence: BlockPresenceType::Have },
 					},
 					None => ResponseType::Presence { cid, presence: BlockPresenceType::DontHave },
-				}
+				};
+				metrics.record_response(&response);
+				response
 			})
 			.collect();
 
+		// note: we assume the duplicate encode (litep2p re-serialises internally inside
+		// `send_response`) is cheap.
+		let response_bytes = encode_responses_as_bitswap_message(&response).len();
+		self.metrics.add_response_bytes(response_bytes as u64);
+
 		self.handle.send_response(peer, response).await;
+		self.metrics.record_duration(started.elapsed());
 	}
 
 	/// Handle an outbound bitswap command from the network service.
@@ -404,6 +434,8 @@ fn encode_responses_as_bitswap_message(responses: &[ResponseType]) -> Vec<u8> {
 mod tests {
 	use super::*;
 	use cid::multihash::Multihash as CidMultihash;
+	use prometheus_endpoint::Registry;
+	use substrate_test_runtime_client;
 
 	fn make_peer() -> litep2p::PeerId {
 		litep2p::PeerId::random()
@@ -419,6 +451,24 @@ mod tests {
 	fn inbound_wantlist_limit_rejects_only_over_cap_requests() {
 		assert!(!inbound_wantlist_exceeds_limit(MAX_WANTED_BLOCKS));
 		assert!(inbound_wantlist_exceeds_limit(MAX_WANTED_BLOCKS + 1));
+	}
+
+	#[test]
+	fn bitswap_service_constructs_without_registry() {
+		let client = Arc::new(substrate_test_runtime_client::new());
+		let (_future, _config) = BitswapService::new(client, None);
+	}
+
+	#[test]
+	fn bitswap_service_constructs_with_registry() {
+		let registry = Registry::new();
+		let client = Arc::new(substrate_test_runtime_client::new());
+		let (_future, _config) = BitswapService::new(client, Some(&registry));
+
+		// Sanity check: registering the same metric names a second time on the same
+		// registry must fail — proves the first registration actually went through.
+		let second = crate::litep2p::bitswap_metrics::BitswapMetrics::new(Some(&registry));
+		assert!(second.is_err(), "double registration should fail");
 	}
 
 	fn pending_batch(
