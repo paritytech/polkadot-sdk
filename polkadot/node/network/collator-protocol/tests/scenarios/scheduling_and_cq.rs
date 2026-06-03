@@ -470,20 +470,17 @@ mod group_rotation_uses_correct_core_per_relay_parent {
 	const PARA_A: ParaId = ParaId::new(2000);
 	const PARA_B: ParaId = ParaId::new(2001);
 
-	/// KNOWN BUG (experimental): does not honor per-block group rotation when computing
-	/// "is this core mine at this RP" — neither candidate gets fetched. See
-	/// `memory:project_collator_experimental_group_rotation_per_rp`.
-	#[crate::sim_test(
-		bug_on = "experimental",
-		bug_url = "memory:project_collator_experimental_group_rotation_per_rp"
-	)]
+	/// Per-relay-parent group rotation: the validator must check core ownership against each
+	/// RP's own rotation, not the active leaf's. An advertisement only fetches at the RP where
+	/// we own that para's core.
+	#[crate::sim_test]
 	fn group_rotation_uses_correct_core_per_relay_parent<S: CollatorSut>() {
-		// 3 validator groups; validator (Alice = idx 0) is in group 0.
-		// `GroupRotationInfo::group_for_core(c, 3)` at `now=N` returns `(c + N) mod 3`.
-		// We (group 0) own core c iff `(c + N) mod 3 == 0`, i.e. `c == (3 - N mod 3) mod 3`.
-		// - block 1 (leaves[0]): we own core 2 (para B is here)
-		// - block 2 (leaves[1]): we own core 1 (no para scheduled — gap)
-		// - block 3 (leaves[2]): we own core 0 (para A is here)
+		// 3 validator groups; validator (Alice = idx 0) is in group 0. The runtime reports
+		// `now = block_number + 1`; `core_for_group(0, 3)` at `now = N` returns `(3 - N % 3) % 3`:
+		// - block 2 (bn 2, now 3): own core 0 → PARA_A
+		// - block 3 (bn 3, now 4): own core 2 → PARA_B (the active leaf)
+		// block 1 (own core 1) is an unscheduled gap. The active leaf (block 3) holds
+		// block 2 + block 1 in its implicit view (`allowed_ancestry_len = 2`).
 		let validator_groups =
 			vec![vec![ValidatorIndex(0)], vec![ValidatorIndex(1)], vec![ValidatorIndex(2)]];
 		let config = collator_world_config()
@@ -496,29 +493,26 @@ mod group_rotation_uses_correct_core_per_relay_parent {
 			w.new_block().activate();
 		}
 
-		// Linear chain: under production `block_imported` semantics each `.activate()`
-		// auto-deactivates its parent, so only block 3 is an active leaf in
-		// `world.base.leaves`. Blocks 1 and 2 stay in chain ancestry — block 1 is reachable
-		// via `ancestors()[1]`, in the active leaf's implicit view, and the legacy subsystem
-		// accepts advertisements at ancestor RPs there.
-		let block3 = w.leaf(); // group 0 → core 0 → PARA_A
-		let block1 = w.ancestors()[1]; // group 0 → core 2 → PARA_B
+		// Linear chain: each `.activate()` auto-deactivates its parent, so only block 3 is the
+		// active leaf. block 2 + block 1 remain in its implicit view, reached via ancestry.
+		let block_para_b = w.leaf(); // block 3 — own core 2 → PARA_B
+		let block_para_a = w.ancestors()[0]; // block 2 — own core 0 → PARA_A
 
 		let peer_a = w.declared_peer(PARA_A, V2);
 		let peer_b = w.declared_peer(PARA_B, V2);
 
-		// Correct pairing: A@block3, B@block1. Both should fetch.
-		let cand_a = w.advertise(&peer_a, block3, PARA_A);
-		let cand_b = w.advertise(&peer_b, block1, PARA_B);
+		// Correct pairing: each para advertised at the RP where we own its core. Both fetch.
+		let cand_a = w.advertise(&peer_a, block_para_a, PARA_A);
+		let cand_b = w.advertise(&peer_b, block_para_b, PARA_B);
 
 		let _ = w.fetch_request(&cand_a);
 		let _ = w.fetch_request(&cand_b);
 
-		// Incorrect pairing: A@block1, B@block3. Neither core is ours at the wrong leaf.
-		let cand_a_at_b1 = w.advertise(&peer_a, block1, PARA_A);
-		let cand_b_at_b3 = w.advertise(&peer_b, block3, PARA_B);
-		w.no_fetch_for(&cand_a_at_b1, std::time::Duration::from_millis(150));
-		w.no_fetch_for(&cand_b_at_b3, std::time::Duration::from_millis(50));
+		// Incorrect pairing: each para at the *other* RP, where we don't own its core. No fetch.
+		let cand_a_wrong = w.advertise(&peer_a, block_para_b, PARA_A);
+		let cand_b_wrong = w.advertise(&peer_b, block_para_a, PARA_B);
+		w.no_fetch_for(&cand_a_wrong, std::time::Duration::from_millis(150));
+		w.no_fetch_for(&cand_b_wrong, std::time::Duration::from_millis(50));
 	}
 }
 

@@ -507,7 +507,11 @@ impl ChainModel {
 			RuntimeApiRequest::ValidatorGroups(tx) => {
 				let session = self.session_info(info.session_index);
 				let mut rotation = session.group_rotation_info.clone();
-				rotation.now = info.number;
+				// Mirror the real runtime: `validator_groups` reports `now = block_number + 1`
+				// (see `runtime_api_impl::v13::validator_groups`). The legacy validator side
+				// trusts this `now` directly; the experimental side recomputes it. Off-by-one
+				// here silently shifts every legacy core-ownership calculation by one block.
+				rotation.now = info.number + 1;
 				let _ = tx.send(Ok((session.validator_groups.clone(), rotation)));
 			},
 			RuntimeApiRequest::SchedulingLookahead(_session, tx) => {
@@ -844,7 +848,7 @@ mod tests {
 		)));
 		let (groups, rotation) = futures::executor::block_on(rx).unwrap().unwrap();
 		assert_eq!(groups, vec![vec![ValidatorIndex(0)]]);
-		assert_eq!(rotation.now, 1); // leaf number.
+		assert_eq!(rotation.now, 2); // leaf number (1) + 1, mirroring the real runtime.
 	}
 
 	#[test]

@@ -484,19 +484,17 @@ mod upcoming_pr_11967 {
 	const PARA_A: ParaId = ParaId::new(100);
 	const PARA_B: ParaId = ParaId::new(600);
 
-	/// Group rotation: at leaf 1 (block 1) we own core 2 (PARA_A); at leaf 2 (block 2) we
-	/// own core 1 (PARA_B). After rotating to leaf 2 a new advertisement for PARA_A at the
-	/// (now-ancestor) leaf 1 must still fetch — the leaf 1 core's CQ slots are not
-	/// cancelled by the rotation.
+	/// Group rotation: our group's owned core rotates per block. With 3 cores,
+	/// `group_rotation_frequency = 1`, group 0, and `core_for_group(0, 3)` at `now = N`
+	/// (= block_number + 1) returning `(3 - N % 3) % 3`:
+	/// - genesis (block 0, now 1): own core 2 → PARA_A
+	/// - block 1 (now 2):          own core 1 → PARA_B (the active leaf)
 	///
-	/// Pre-#11967: advertisement at the old core silently dropped. Post-#11967: accepted.
+	/// The active leaf (block 1) holds genesis in its implicit view. PARA_B is advertised at
+	/// the leaf (core 1) and PARA_A at the genesis ancestor (core 2) — the rotation must not
+	/// orphan the ancestor's CQ slot, and a re-advertisement there must still fetch.
 	#[crate::sim_test]
 	fn core_rotation_accepts_candidates_for_both_cores<S: CollatorSut>() {
-		// 3 validator groups. With `group_rotation_frequency=1` and
-		// `group_for_core(c, 3)` at `now=N` returning `(c + N) mod 3`, group 0 owns core
-		// `c` iff `(c + N) mod 3 == 0`, i.e. `c == (3 - N mod 3) mod 3`.
-		// - block 1: own core 2 (PARA_A)
-		// - block 2: own core 1 (PARA_B)
 		let validator_groups =
 			vec![vec![ValidatorIndex(0)], vec![ValidatorIndex(1)], vec![ValidatorIndex(2)]];
 		let config = collator_world_config()
@@ -505,31 +503,25 @@ mod upcoming_pr_11967 {
 			.with_validator_groups(validator_groups)
 			.with_group_rotation_frequency(1);
 		let mut w: World<S> = bootstrap_world::<S>(config, None);
-		for _ in 0..2 {
-			w.new_block().activate();
-		}
+		w.new_block().activate();
 
-		// Linear chain via repeated `.activate()`: under production `block_imported`
-		// semantics, each child activation auto-deactivates its parent — so only the
-		// latest block is an active leaf. Block 1 stays in the chain (and in the leaf's
-		// implicit view), but it's no longer in `world.base.leaves`. We pull it from
-		// the chain ancestry instead.
-		let leaf_2 = w.leaf(); // active leaf, block 2 — we own core 1 → PARA_B
-		let leaf_1 = w.ancestors()[0]; // chain ancestor, block 1 — we own core 2 → PARA_A
+		// Block 1 is the active leaf (own core 1 → PARA_B); genesis (own core 2 → PARA_A)
+		// stays in its implicit view.
+		let block_para_b = w.leaf(); // block 1 — own core 1 → PARA_B (the active leaf)
+		let block_para_a = w.ancestors()[0]; // genesis — own core 2 → PARA_A
 
 		let peer_a = w.declared_peer(PARA_A, V2);
-		let cand_a = w.advertise(&peer_a, leaf_1, PARA_A);
+		let cand_a = w.advertise(&peer_a, block_para_a, PARA_A);
 		let _ = w.fetch_request(&cand_a);
 
 		let peer_b = w.declared_peer(PARA_B, V2);
-		let cand_b = w.advertise(&peer_b, leaf_2, PARA_B);
+		let cand_b = w.advertise(&peer_b, block_para_b, PARA_B);
 		let _ = w.fetch_request(&cand_b);
 
-		// New PARA_A advertisement at the now-ancestor leaf 1: the rotation's owned-core
-		// shift must not have orphaned leaf 1's CQ slot. Pre-#11967 silently drops; post-
-		// #11967 fetches.
+		// A second PARA_A advertisement at the genesis ancestor must still fetch — the
+		// rotation's owned-core shift across blocks must not have orphaned that CQ slot.
 		let peer_a2 = w.declared_peer(PARA_A, V2);
-		let cand_a2 = w.advertise(&peer_a2, leaf_1, PARA_A);
+		let cand_a2 = w.advertise(&peer_a2, block_para_a, PARA_A);
 		let _ = w.fetch_request(&cand_a2);
 	}
 
@@ -538,9 +530,11 @@ mod upcoming_pr_11967 {
 	/// advertises PARA_X at leaf_2 (core 1). Both cores carry exactly one PARA_X slot —
 	/// per-core capacity must not be shared, so both fetch.
 	///
-	/// Hits the ancestor-RP drop bug on experimental: peer_old's ad at the (now-ancestor)
-	/// leaf_1 gets dropped pre-#11967. Mark bug_on.
-	#[crate::sim_test(bug_on = "experimental", bug_url = "github:paritytech/polkadot-sdk#11980")]
+	/// PARA_X is scheduled on cores 1 and 2; our group owns core 2 at genesis and core 1 at
+	/// block 1 (per-RP rotation, `now = block_number + 1`). Both RPs sit in the active leaf's
+	/// implicit view. An advertisement at each must fetch — the two cores carry independent
+	/// PARA_X slots.
+	#[crate::sim_test]
 	fn cross_core_reservation_does_not_consume_other_cores_slots<S: CollatorSut>() {
 		const PARA_X_LOCAL: ParaId = ParaId::new(100);
 		const PARA_FILLER: ParaId = ParaId::new(600);
@@ -553,18 +547,17 @@ mod upcoming_pr_11967 {
 			.with_validator_groups(validator_groups)
 			.with_group_rotation_frequency(1);
 		let mut w: World<S> = bootstrap_world::<S>(config, None);
-		for _ in 0..2 {
-			w.new_block().activate();
-		}
-		// Linear chain: only the latest block is an active leaf under production semantics.
-		// Block 1 lives in the leaf's implicit view via chain ancestry.
-		let leaf_2 = w.leaf(); // active leaf, block 2 — we own core 1
-		let leaf_1 = w.ancestors()[0]; // chain ancestor, block 1 — we own core 2
+		w.new_block().activate();
+		// Block 1 is the active leaf (own core 1 → PARA_X); genesis (own core 2 → PARA_X)
+		// stays in its implicit view. Both RPs carry PARA_X on a core we own, on different
+		// cores — so the two slots are independent and both advertisements must fetch.
+		let block_core1 = w.leaf(); // block 1 — own core 1 → PARA_X (the active leaf)
+		let block_core2 = w.ancestors()[0]; // genesis — own core 2 → PARA_X
 
 		let peer_old = w.declared_peer(PARA_X_LOCAL, V2);
-		let cand_old = w.advertise(&peer_old, leaf_1, PARA_X_LOCAL);
+		let cand_old = w.advertise(&peer_old, block_core2, PARA_X_LOCAL);
 		let peer_new = w.declared_peer(PARA_X_LOCAL, V2);
-		let cand_new = w.advertise(&peer_new, leaf_2, PARA_X_LOCAL);
+		let cand_new = w.advertise(&peer_new, block_core1, PARA_X_LOCAL);
 
 		let _ = w.fetch_request(&cand_old);
 		let _ = w.fetch_request(&cand_new);
@@ -658,10 +651,11 @@ mod upcoming_pr_11967 {
 	/// Setup: lookahead=3 (default), override leaf CQ to `[A]` (length 1). Advertise at
 	/// grandparent (depth 2): position 0 maps to leaf+2 = within sp's lookahead window.
 	///
-	/// Both impls fail this today — both use a cq-length-based reachability check
-	/// rather than the lookahead-based one. #11967 fixes it on experimental;
-	/// legacy carries the same bug.
-	#[crate::sim_test]
+	/// Legacy bounds the reachability window by the claim-queue length (1) instead of the
+	/// runtime scheduling lookahead (3), so it rejects the depth-2 ancestor advertisement.
+	/// #12255 sources the lookahead from the runtime and fixes it. Experimental already
+	/// derives the window from the ancestry path length and accepts.
+	#[crate::sim_test(bug_on = "legacy", bug_url = "github:paritytech/polkadot-sdk#12255")]
 	fn short_claim_queue_does_not_reject_ancestor_advertisements<S: CollatorSut>() {
 		let config =
 			collator_world_config().with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
@@ -730,14 +724,17 @@ mod upcoming_pr_11967 {
 		w.expect_no_disconnect(&peer_x, Duration::from_millis(200));
 	}
 
-	/// Capacity at a shared ancestor uses the longest-reachable window across forks.
-	/// fork_a is 1 deep from common (window 2 to common); fork_b is 2 deep (window 1 to
-	/// common). Two PARA_X ads at the common ancestor: both fetched (window 2 wins).
+	/// Capacity at a shared ancestor uses the longest-reachable window across forks: two
+	/// PARA_X ads at the common ancestor must both fetch (the deeper fork gives `common` a
+	/// 2-slot window). Both fetches are launched concurrently from the same scheduling
+	/// parent — experimental-only behaviour: legacy serialises to one in-flight fetch per
+	/// relay parent by design (`validator_side`: "there's always a single collation being
+	/// fetched at any moment of time"), so it can never satisfy this. See the inverse
+	/// `collation_fetching_prefer_entries_earlier_in_claim_queue` (only = "legacy").
 	///
-	/// Both impls fail this today: legacy uses the *shorter* window (1) and only
-	/// fetches one ad; experimental fails for the same root cause that #11967
-	/// addresses. Test prompts a fix on both sides.
-	#[crate::sim_test]
+	/// Experimental needs the runtime scheduling lookahead (#12255) to size `common`'s
+	/// window to 2 rather than the truncated ancestry-path length.
+	#[crate::sim_test(only = "experimental", bug_on = "experimental", bug_url = "github:paritytech/polkadot-sdk#12255")]
 	fn fork_capacity_uses_longest_window_across_paths<S: CollatorSut>() {
 		let config =
 			collator_world_config().with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
@@ -776,13 +773,14 @@ mod upcoming_pr_11967 {
 		);
 	}
 
-	/// Shared ancestor's capacity is one bucket across both forks, not doubled. Two
-	/// sibling forks each with CQ `[X, X, X]`. 4 distinct PARA_X ads at the common
-	/// ancestor must produce exactly 2 fetches.
+	/// Shared ancestor's capacity is one bucket across both forks, not doubled. Two sibling
+	/// forks each with CQ `[X, X, X]`. 4 distinct PARA_X ads at the common ancestor must
+	/// produce exactly 2 fetches (the shared `common` slot is not double-counted per fork).
+	/// Both fetches fire concurrently from `common` — experimental-only: legacy serialises
+	/// to one in-flight fetch per relay parent by design, so it never reaches 2.
 	///
-	/// Both impls fail this today: legacy under-fetches (1 instead of 2);
-	/// experimental fails for #11967's root cause.
-	#[crate::sim_test]
+	/// Experimental needs the runtime scheduling lookahead (#12255) to size the window.
+	#[crate::sim_test(only = "experimental", bug_on = "experimental", bug_url = "github:paritytech/polkadot-sdk#12255")]
 	fn fork_shared_sp_capacity_not_double_counted<S: CollatorSut>() {
 		let config =
 			collator_world_config().with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
