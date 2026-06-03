@@ -21,7 +21,6 @@ use futures::{channel::oneshot, executor, future, Future};
 use util::availability_chunks::availability_chunk_index;
 
 use self::test_helpers::mock::new_leaf;
-use parking_lot::Mutex;
 use polkadot_node_primitives::{AvailableData, BlockData, PoV, Proof};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
@@ -49,32 +48,13 @@ const TEST_CONFIG: Config =
 type VirtualOverseer =
 	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<AvailabilityStoreMessage>;
 
-#[derive(Clone)]
-struct TestClock {
-	inner: Arc<Mutex<Duration>>,
-}
-
-impl TestClock {
-	fn now(&self) -> Duration {
-		*self.inner.lock()
-	}
-
-	fn inc(&self, by: Duration) {
-		*self.inner.lock() += by;
-	}
-}
-
-impl Clock for TestClock {
-	fn now(&self) -> Result<Duration, Error> {
-		Ok(TestClock::now(self))
-	}
-}
+use polkadot_node_clock::MockClock;
 
 #[derive(Clone)]
 struct TestState {
 	persisted_validation_data: PersistedValidationData,
 	pruning_config: PruningConfig,
-	clock: TestClock,
+	clock: MockClock,
 }
 
 impl TestState {
@@ -100,7 +80,7 @@ impl Default for TestState {
 			pruning_interval: Duration::from_millis(250),
 		};
 
-		let clock = TestClock { inner: Arc::new(Mutex::new(Duration::from_secs(0))) };
+		let clock = MockClock::default();
 
 		Self { persisted_validation_data, pruning_config, clock }
 	}
@@ -133,7 +113,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		store,
 		TEST_CONFIG,
 		state.pruning_config.clone(),
-		Box::new(state.clock),
+		Arc::new(state.clock),
 		Box::new(NoSyncOracle),
 		Metrics::default(),
 	);
