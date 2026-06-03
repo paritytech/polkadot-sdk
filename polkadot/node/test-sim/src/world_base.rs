@@ -56,7 +56,7 @@ use sp_consensus_slots::Slot;
 use std::collections::{BTreeMap, VecDeque};
 
 /// Identity of a leaf the harness has signalled `ActiveLeaves::start_work` for. Returned
-/// from [`LeafBuilder::activate`] / [`LeafBuilder::register_only`] and held by tests.
+/// from [`BlockBuilder::activate`] / [`BlockBuilder::register`] and held by tests.
 #[derive(Clone, Copy, Debug)]
 pub struct LeafRef {
 	/// Leaf hash.
@@ -206,7 +206,7 @@ where
 	/// The driving simulation.
 	pub sim: Sim<S>,
 	/// The chain model — answers Runtime/ChainApi queries. Mutated via
-	/// [`LeafBuilder`] (per-leaf head data + pending availability) and direct
+	/// [`BlockBuilder`] (per-leaf head data + pending availability) and direct
 	/// `chain.lock()` (mid-test session changes, claim-queue overrides, etc.).
 	pub chain: SharedChain,
 	/// All leaves the harness has signalled `ActiveLeaves::start_work` for, in
@@ -463,7 +463,7 @@ where
 		self.base().config.validation_code_hash
 	}
 
-	/// Session index applied to every block registered by [`LeafBuilder`].
+	/// Session index applied to every block registered by [`BlockBuilder`].
 	fn session_index(&self) -> SessionIndex {
 		self.base().config.session_index
 	}

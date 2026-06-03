@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Dispatcher: drains outgoing subsystem messages, routes them to either the [`Recorder`]
-//! (effects) or the responder (queries) per the [`crate::contract::classify`] rule.
+//! (effects) or the responder (queries) per the [`crate::contract::classify()`] rule.
 //!
 //! The full responder DSL lands in `crate::responder`. This file defines the dispatch loop and
 //! the [`AnswerQuery`] trait that the responder will implement.
