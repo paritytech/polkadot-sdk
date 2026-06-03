@@ -30,5 +30,15 @@ doc:
       manually with `cancelRequest`.
 
 crates:
+    # `pallet-identity`'s `WeightInfo` trait gains a required `remove_registrar` method. Adding a
+    # required trait method is a breaking change for any downstream impl, so this is a major bump.
   - name: pallet-identity
     bump: major
+    # The relay/parachain runtimes that carry their own `pallet_identity` weights only gain the new
+    # `remove_registrar` weight function (an internal, additive change) — hence a patch bump.
+  - name: rococo-runtime
+    bump: patch
+  - name: westend-runtime
+    bump: patch
+  - name: people-westend-runtime
+    bump: patch
