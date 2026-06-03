@@ -470,16 +470,17 @@ mod reputation_emission {
 	}
 }
 
-mod upcoming_pr_11967 {
+/// Per-relay-parent group rotation: the validator's owned core rotates per block, so core
+/// ownership (and thus which para is fetchable) must be evaluated against each relay
+/// parent's own rotation, not the active leaf's.
+mod group_rotation {
 	use crate::common::{
 		builders::ProtocolVersion::V2,
 		chain::CoreSchedule,
-		contract::Effect,
 		harness::CollatorSut,
 		world::{bootstrap_world, collator_world_config, World, WorldExt as _},
 	};
-	use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId, ValidatorIndex};
-	use std::time::Duration;
+	use polkadot_primitives::{CoreIndex, Id as ParaId, ValidatorIndex};
 
 	const PARA_A: ParaId = ParaId::new(100);
 	const PARA_B: ParaId = ParaId::new(600);
@@ -562,6 +563,24 @@ mod upcoming_pr_11967 {
 		let _ = w.fetch_request(&cand_old);
 		let _ = w.fetch_request(&cand_new);
 	}
+}
+
+/// Claim-queue capacity accounting: how many fetches a (scheduling-parent, para) is allowed
+/// across the active leaves' implicit views — including ancestor relay parents, short claim
+/// queues, and shared ancestors of sibling forks. The window length is bounded by the runtime
+/// scheduling lookahead, and a shared ancestor's capacity is one bucket, not one-per-fork.
+mod claim_queue_capacity {
+	use crate::common::{
+		builders::ProtocolVersion::V2,
+		chain::CoreSchedule,
+		contract::Effect,
+		harness::CollatorSut,
+		world::{bootstrap_world, collator_world_config, World, WorldExt as _},
+	};
+	use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
+	use std::time::Duration;
+
+	const PARA_A: ParaId = ParaId::new(100);
 
 	/// 3 peers advertise PARA_A at 3 different SPs on a linear path. Leaf CQ has 2 slots
 	/// for PARA_A → exactly 2 fetches. >2 = over-fetch (third candidate has nowhere to
@@ -860,7 +879,9 @@ mod upcoming_pr_11967 {
 	}
 }
 
-mod upcoming_pr_11980 {
+/// Reputation-based arbitration when a claim-queue slot is contended: the higher-reputation
+/// collator wins the slot, regardless of where on the implicit view it advertised.
+mod reputation_arbitration {
 	use crate::common::{
 		builders::ProtocolVersion::V2,
 		contract::Effect,
@@ -989,7 +1010,10 @@ mod upcoming_pr_11980 {
 	// multi-position arbitration is incremental.
 }
 
-mod upcoming_pr_12004 {
+/// Duplicate-fetch avoidance: the same advertised collation reaching the validator from
+/// multiple peers (or across protocol versions) must be fetched once, with the other
+/// carriers kept as fallbacks rather than triggering redundant concurrent fetches.
+mod duplicate_fetch {
 	use crate::common::{
 		builders::ProtocolVersion::{V2, V3},
 		contract::Effect,
