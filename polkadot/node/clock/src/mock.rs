@@ -25,10 +25,7 @@
 //! let clock = Arc::new(MockClock::default());
 //! let mut delay = clock.delay(Duration::from_millis(500));
 //! clock.advance(Duration::from_millis(500)); // `delay` now resolves
-//! `` initial monotonic instant. The wall-clock
-	/// timestamp (millis since the UNIX epoch) starts at zero and advances in lockstep with
-	/// the monotonic clock.
-`
+//! ```
 
 use crate::{BoxedDelay, Clock};
 use futures::channel::oneshot;
