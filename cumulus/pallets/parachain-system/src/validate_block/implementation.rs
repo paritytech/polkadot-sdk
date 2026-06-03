@@ -18,7 +18,7 @@
 
 use super::{scheduling, trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::Encode;
 use cumulus_primitives_core::{
 	relay_chain::{
 		BlockNumber as RNumber, Hash as RHash, Header as RelayChainHeader, MAX_HEAD_DATA_SIZE,

@@ -7,7 +7,7 @@
 //! Validates the header chain from scheduling_parent to internal_scheduling_parent,
 //! and verifies relay_parent is at or before internal_scheduling_parent.
 
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{ApprovedPeerId, UMPSignal, UMP_SEPARATOR},
