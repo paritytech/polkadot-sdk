@@ -528,6 +528,7 @@ mod mock {
 
 	pub(super) type TestBlock = generic::Block<generic::Header<u32, BlakeTwo256>, OpaqueExtrinsic>;
 	type TestHeader = generic::Header<u32, BlakeTwo256>;
+	#[allow(dead_code)]
 	type Block = TestBlock;
 
 	pub(super) const OVERLAY_MARKER_KEY: &[u8] = b"storage-chain-sync-overlay-marker";
