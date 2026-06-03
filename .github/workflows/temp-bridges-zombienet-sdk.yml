@@ -77,6 +77,11 @@ jobs:
           rustup target add wasm32v1-none || true
           rustup component add rust-src || true
           apt-get update && apt-get install -y --no-install-recommends procps || true
+          if command -v forklift >/dev/null 2>&1; then
+            echo "CARGO=forklift cargo" >> "$GITHUB_ENV"
+          else
+            echo "CARGO=cargo" >> "$GITHUB_ENV"
+          fi
 
       - name: Download substrate-relay
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -85,10 +90,10 @@ jobs:
           path: ./relay-bin
 
       - name: Build polkadot (fast-runtime)
-        run: cargo build --release -p polkadot --features fast-runtime
+        run: $CARGO build --release -p polkadot --features fast-runtime
 
       - name: Build polkadot-parachain
-        run: cargo build --release -p polkadot-parachain-bin
+        run: $CARGO build --release -p polkadot-parachain-bin
 
       - name: Run bridge zombienet-sdk tests
         run: |
@@ -101,7 +106,7 @@ jobs:
           "$SUBSTRATE_RELAY_BINARY" --version
           # The two tests bind fixed RPC ports (9942/8943/...), so they must run
           # serially (`--test-threads=1`) rather than in parallel.
-          cargo test -p bridges-zombienet-sdk-tests \
+          $CARGO test -p bridges-zombienet-sdk-tests \
             --features zombie-ci,zombie-metadata \
             -- --nocapture --test-threads=1
 

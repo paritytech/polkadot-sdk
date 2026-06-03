@@ -598,11 +598,7 @@ fn rococo_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![
-					"-lparachain=debug,xcm=trace".into(),
-					// Validators run in a container without full secure-mode support; allow them.
-					"--insecure-validator-i-know-what-i-do".into(),
-				])
+				.with_default_args(vec!["-lparachain=debug,xcm=trace".into()])
 				.with_validator(|n| {
 					n.with_name("alice-rococo-validator")
 						.with_initial_balance(2_000_000_000_000)
@@ -657,11 +653,7 @@ fn westend_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			r.with_chain("westend-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![
-					"-lparachain=debug,xcm=trace".into(),
-					// Validators run in a container without full secure-mode support; allow them.
-					"--insecure-validator-i-know-what-i-do".into(),
-				])
+				.with_default_args(vec!["-lparachain=debug,xcm=trace".into()])
 				.with_validator(|n| {
 					n.with_name("alice-westend-validator")
 						.with_initial_balance(2_000_000_000_000)
