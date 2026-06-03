@@ -512,8 +512,10 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	/// Apply the pending diff to `info` and push its deposit as a final charge, then reset
 	/// `own_contribution` so finalize does not apply it a second time.
 	///
-	/// `info` must be the frame's pre-reload `ContractInfo` so refunds are pro-rated
-	/// against the storage state the diff was recorded against.
+	/// `info` must be the frame's pre-reload `ContractInfo` so removals in the diff are
+	/// pro-rated against the storage state they were recorded against. Callers should go
+	/// through a wrapper (e.g. `Frame::bank_pending_changes_and_invalidate`) that pairs
+	/// banking with the cache invalidation atomically.
 	pub fn bank_pending_changes(
 		&mut self,
 		contract: T::AccountId,
