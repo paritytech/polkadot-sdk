@@ -605,17 +605,14 @@ fn rococo_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				])
 				.with_validator(|n| {
 					n.with_name("alice-rococo-validator")
-						.with_rpc_port(9942)
 						.with_initial_balance(2_000_000_000_000)
 				})
 				.with_validator(|n| {
 					n.with_name("bob-rococo-validator")
-						.with_rpc_port(9943)
 						.with_initial_balance(2_000_000_000_000)
 				})
 				.with_validator(|n| {
 					n.with_name("charlie-rococo-validator")
-						.with_rpc_port(9944)
 						.with_initial_balance(2_000_000_000_000)
 				})
 		})
@@ -627,7 +624,6 @@ fn rococo_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_image(images.cumulus.as_str())
 				.with_collator(|n| {
 					n.with_name("bridge-hub-rococo-collator1")
-						.with_rpc_port(8943)
 						.with_args(bh_args.clone())
 				})
 		})
@@ -639,7 +635,6 @@ fn rococo_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_image(images.cumulus.as_str())
 				.with_collator(|n| {
 					n.with_name("asset-hub-rococo-collator1")
-						.with_rpc_port(9910)
 						.with_args(ah_args.clone())
 				})
 		})
@@ -669,17 +664,14 @@ fn westend_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				])
 				.with_validator(|n| {
 					n.with_name("alice-westend-validator")
-						.with_rpc_port(9945)
 						.with_initial_balance(2_000_000_000_000)
 				})
 				.with_validator(|n| {
 					n.with_name("bob-westend-validator")
-						.with_rpc_port(9946)
 						.with_initial_balance(2_000_000_000_000)
 				})
 				.with_validator(|n| {
 					n.with_name("charlie-westend-validator")
-						.with_rpc_port(9947)
 						.with_initial_balance(2_000_000_000_000)
 				})
 		})
@@ -691,7 +683,6 @@ fn westend_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_image(images.cumulus.as_str())
 				.with_collator(|n| {
 					n.with_name("bridge-hub-westend-collator1")
-						.with_rpc_port(8945)
 						.with_args(bh_args.clone())
 				})
 		})
@@ -703,7 +694,6 @@ fn westend_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_image(images.cumulus.as_str())
 				.with_collator(|n| {
 					n.with_name("asset-hub-westend-collator1")
-						.with_rpc_port(9010)
 						.with_args(ah_args.clone())
 				})
 		})
@@ -983,16 +973,23 @@ impl BridgeTestEnv {
 	/// Initializes the GRANDPA bridge pallets and starts the finality, parachains and messages
 	/// relayers. Mirrors `start_relayer.sh` + the relayer commands in `bridges_rococo_westend.sh`.
 	pub async fn start_relayer(&mut self) -> Result<(), anyhow::Error> {
+		// Resolve the actual node WS endpoints. Ports are assigned dynamically by zombienet (we no
+		// longer pin them), so we read each node's real URI and pass it to `substrate-relay`.
+		let rococo_relay = self.rococo.get_node("alice-rococo-validator")?.ws_uri().to_string();
+		let westend_relay = self.westend.get_node("alice-westend-validator")?.ws_uri().to_string();
+		let bh_rococo = self.rococo.get_node("bridge-hub-rococo-collator1")?.ws_uri().to_string();
+		let bh_westend = self.westend.get_node("bridge-hub-westend-collator1")?.ws_uri().to_string();
+
 		// init-bridge (one-off, blocking).
 		run_relayer_to_completion(&[
 			"init-bridge",
 			"westend-to-bridge-hub-rococo",
 			"--source-uri",
-			"ws://localhost:9945",
+			westend_relay.as_str(),
 			"--source-version-mode",
 			"Auto",
 			"--target-uri",
-			"ws://localhost:8943",
+			bh_rococo.as_str(),
 			"--target-version-mode",
 			"Auto",
 			"--target-signer",
@@ -1003,11 +1000,11 @@ impl BridgeTestEnv {
 			"init-bridge",
 			"rococo-to-bridge-hub-westend",
 			"--source-uri",
-			"ws://localhost:9942",
+			rococo_relay.as_str(),
 			"--source-version-mode",
 			"Auto",
 			"--target-uri",
-			"ws://localhost:8945",
+			bh_westend.as_str(),
 			"--target-version-mode",
 			"Auto",
 			"--target-signer",
@@ -1021,11 +1018,11 @@ impl BridgeTestEnv {
 			"rococo-to-bridge-hub-westend",
 			"--only-free-headers",
 			"--source-uri",
-			"ws://localhost:9942",
+			rococo_relay.as_str(),
 			"--source-version-mode",
 			"Auto",
 			"--target-uri",
-			"ws://localhost:8945",
+			bh_westend.as_str(),
 			"--target-version-mode",
 			"Auto",
 			"--target-signer",
@@ -1038,11 +1035,11 @@ impl BridgeTestEnv {
 			"westend-to-bridge-hub-rococo",
 			"--only-free-headers",
 			"--source-uri",
-			"ws://localhost:9945",
+			westend_relay.as_str(),
 			"--source-version-mode",
 			"Auto",
 			"--target-uri",
-			"ws://localhost:8943",
+			bh_rococo.as_str(),
 			"--target-version-mode",
 			"Auto",
 			"--target-signer",
@@ -1057,11 +1054,11 @@ impl BridgeTestEnv {
 			"bridge-hub-rococo-to-bridge-hub-westend",
 			"--only-free-headers",
 			"--source-uri",
-			"ws://localhost:9942",
+			rococo_relay.as_str(),
 			"--source-version-mode",
 			"Auto",
 			"--target-uri",
-			"ws://localhost:8945",
+			bh_westend.as_str(),
 			"--target-version-mode",
 			"Auto",
 			"--target-signer",
@@ -1074,11 +1071,11 @@ impl BridgeTestEnv {
 			"bridge-hub-westend-to-bridge-hub-rococo",
 			"--only-free-headers",
 			"--source-uri",
-			"ws://localhost:9945",
+			westend_relay.as_str(),
 			"--source-version-mode",
 			"Auto",
 			"--target-uri",
-			"ws://localhost:8943",
+			bh_rococo.as_str(),
 			"--target-version-mode",
 			"Auto",
 			"--target-signer",
@@ -1092,7 +1089,7 @@ impl BridgeTestEnv {
 			"relay-messages",
 			"bridge-hub-rococo-to-bridge-hub-westend",
 			"--source-uri",
-			"ws://localhost:8943",
+			bh_rococo.as_str(),
 			"--source-version-mode",
 			"Auto",
 			"--source-signer",
@@ -1100,7 +1097,7 @@ impl BridgeTestEnv {
 			"--source-transactions-mortality",
 			"4",
 			"--target-uri",
-			"ws://localhost:8945",
+			bh_westend.as_str(),
 			"--target-version-mode",
 			"Auto",
 			"--target-signer",
@@ -1114,7 +1111,7 @@ impl BridgeTestEnv {
 			"relay-messages",
 			"bridge-hub-westend-to-bridge-hub-rococo",
 			"--source-uri",
-			"ws://localhost:8945",
+			bh_westend.as_str(),
 			"--source-version-mode",
 			"Auto",
 			"--source-signer",
@@ -1122,7 +1119,7 @@ impl BridgeTestEnv {
 			"--source-transactions-mortality",
 			"4",
 			"--target-uri",
-			"ws://localhost:8943",
+			bh_rococo.as_str(),
 			"--target-version-mode",
 			"Auto",
 			"--target-signer",
