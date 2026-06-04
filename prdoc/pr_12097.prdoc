@@ -19,11 +19,13 @@ doc:
       from `validate_block` whenever a `signed_scheduling_info` is present, and overrides
       the block's emitted UMP signals (`SelectCore`, `ApprovedPeer`) with the values from
       the verified payload.
-    - Two new variants are added to `SchedulingValidationError`:
-      `InternalSchedulingParentHeaderMismatch` and `SignedSchedulingInfoIspMismatch`.
-      The first ensures the proof's `internal_scheduling_parent_header` actually hashes to
-      the derived ISP (so a collator cannot point the slot oracle at an arbitrary header);
-      the second ensures the signed payload commits to the same ISP the proof points to.
+    - Three new variants are added to `SchedulingValidationError`:
+      `InternalSchedulingParentHeaderMismatch`, `SignedSchedulingInfoIspMismatch`, and
+      `ClaimQueueOffsetTooLarge`. The first ensures the proof's
+      `internal_scheduling_parent_header` actually hashes to the derived ISP (so a collator
+      cannot point the slot oracle at an arbitrary header); the second ensures the signed
+      payload commits to the same ISP the proof points to; the third bounds the signed
+      `claim_queue_offset` by the runtime-enforced maximum.
 
     Integration:
     - Parachains that want to enable resubmissions must set
@@ -41,4 +43,6 @@ crates:
 - name: cumulus-pallet-aura-ext
   bump: minor
 - name: cumulus-pallet-parachain-system
-  bump: major
+  bump: patch
+- name: pallet-aura
+  bump: minor

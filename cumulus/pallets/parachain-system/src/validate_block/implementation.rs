@@ -200,7 +200,12 @@ where
 	let cache_provider = trie_cache::CacheProvider::new();
 	let seen_nodes = SeenNodes::<HashingFor<B>>::default();
 
-	let parent_backend = sp_state_machine::TrieBackendBuilder::new_with_cache(
+	let parent_backend: sp_state_machine::TrieBackend<
+		_,
+		HashingFor<B>,
+		_,
+		SizeOnlyRecorderProvider<HashingFor<B>>,
+	> = sp_state_machine::TrieBackendBuilder::new_with_cache(
 		&db,
 		*parent_header.state_root(),
 		&cache_provider,
