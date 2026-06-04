@@ -3,7 +3,7 @@ doc:
 - audience: Runtime Dev
   description: |-
     ### Summary
-    EIP-2929-style cold/hot(warm) pricing for persistent storage access in pallet-revive. The first access to a (contract, slot)` pair within a transaction is billed "cold" (higher weight); any later access to the same slot is "hot" (cheaper).
+    EIP-2929-style cold/hot(warm) pricing for persistent storage access in pallet-revive. The first access to a `(contract, slot)` pair within a transaction is billed "cold" (higher weight); any later access to the same slot is "hot" (cheaper).
 
     ### Description
     #### Covered operations
@@ -25,10 +25,8 @@ doc:
     New benchmarks cover the hot storage ops (`seal_set_storage_hot`, `clear_storage_hot`, `contains_storage_hot`, `seal_get_storage_hot`, `take_storage_hot`) and the access-list overhead (`access_list_touch_cold_*`, `access_list_touch_hot_*`, `access_list_rollback_amortization`)
 crates:
 - name: asset-hub-westend-runtime
-  bump: major
-- name: penpal-runtime
-  bump: major
+  bump: patch
 - name: pallet-revive
   bump: major
 - name: pallet-revive-fixtures
-  bump: major
+  bump: patch
