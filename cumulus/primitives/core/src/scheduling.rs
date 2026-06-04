@@ -23,7 +23,8 @@ use codec::{Decode, Encode};
 use polkadot_primitives::{ApprovedPeerId, CoreSelector, Header as RelayChainHeader, Slot};
 use sp_runtime::traits::{BlakeTwo256, Hash as HashT};
 
-/// Payload signed by a collator for resubmission.
+/// Payload signed by a collator to authorize core selection — required on resubmission,
+/// optional on initial submission.
 ///
 /// This binds the core selection and reputation-credit peer to a specific internal
 /// scheduling parent, preventing replay attacks across different scheduling contexts.
@@ -78,22 +79,21 @@ impl SchedulingInfoPayload {
 
 /// V3 scheduling proof included in the POV.
 ///
-/// Provides the ancestry from scheduling_parent back to the internal scheduling
-/// parent. The PVF validates this against the relay_parent and scheduling_parent
-/// from the candidate descriptor extension.
+/// Carries the relay-chain ancestry starting at `scheduling_parent` and ending one step
+/// before `internal_scheduling_parent` (whose header is supplied separately). The PVF
+/// validates this against the `relay_parent` and `scheduling_parent` from the candidate
+/// descriptor extension.
 #[derive(Clone, Encode, Decode, Debug, PartialEq, Eq)]
 pub struct SchedulingProof {
-	/// Relay chain headers proving ancestry from scheduling_parent backward.
-	///
 	/// Forms a chain where each header's parent_hash equals the next header's hash.
 	/// The first header's hash must equal the candidate's scheduling_parent.
 	/// The last header's parent_hash is the internal scheduling parent.
 	/// Length is defined by the parachain runtime config (`RelayParentOffset`); when that is
 	/// `0` the chain is empty and `scheduling_parent == internal_scheduling_parent`.
 	pub header_chain: Vec<RelayChainHeader>,
-	/// The relay chain header at `internal_scheduling_parent`. Its hash must equal the
-	/// `internal_scheduling_parent` derived from `header_chain` (the parent of the chain's
-	/// last header, or `scheduling_parent` if the chain is empty).
+	/// The relay chain header at `internal_scheduling_parent` (the parent of the chain's last
+	/// header, or `scheduling_parent` if the chain is empty). Carries the BABE pre-digest used
+	/// to look up the eligible block author when verifying `signed_scheduling_info`.
 	pub internal_scheduling_parent_header: RelayChainHeader,
 	/// Signed scheduling info. Required on resubmission, optional on initial submission.
 	///
@@ -101,14 +101,10 @@ pub struct SchedulingProof {
 	///   selection comes from the parachain block's UMP signals.
 	///
 	/// - `Some` with `relay_parent == internal_scheduling_parent`: Initial submission with
-	///   explicit signed core selection. Legal but not required; collators should refuse to
-	///   acknowledge blocks with invalid scheduling info, so the signature isn't load-bearing on
-	///   initial submission.
+	///   explicit signed core selection. Legal but not required.
 	///
 	/// - `Some` with `relay_parent != internal_scheduling_parent`: Resubmission (required). The
 	///   resubmitting collator signs the core selection, overriding the block's UMP signals.
-	///   Signature is verified against the eligible author for the slot at
-	///   `internal_scheduling_parent`.
 	///
 	/// - `None` with `relay_parent != internal_scheduling_parent`: invalid; rejected by the
 	///   verifier.
