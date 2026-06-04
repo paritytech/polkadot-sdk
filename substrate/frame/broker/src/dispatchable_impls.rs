@@ -201,7 +201,7 @@ impl<T: Config> Pallet<T> {
 				Workplan::<T>::insert((region_id.begin, region_id.core), &workload);
 
 				Self::deposit_event(Event::Renewed {
-					who,
+					who: who.clone(),
 					old_core: core,
 					core: region_id.core,
 					price,
@@ -217,6 +217,13 @@ impl<T: Config> Pallet<T> {
 					&new_record,
 				);
 				if let Some(workload) = new_record.completion.drain_complete() {
+					RenewalRights::<T>::mutate(
+						RenewalRightsId { owner: who, when: effective_to },
+						|rights| {
+							*rights = Some(rights.unwrap_or_default().saturating_add(1));
+						},
+					);
+
 					log::debug!("Recording renewable price for next run: {:?}", price);
 					Self::deposit_event(Event::Renewable {
 						core: region_id.core,
