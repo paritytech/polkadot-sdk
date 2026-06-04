@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780574870414,
+  "lastUpdate": 1780578493864,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "de740e1892f47e91c356858324f6e3e4b0f1be60",
-          "message": "Limit the size of the statement for further gossiping (#9965)\n\n# Description\n\nLimits the size of statements that are further gossiped over the network\nto prevent skipping oversized messages. The limit is set to match the\nnetwork protocol's max statement notification size (1 MB), accounting\nfor 1-byte vector length overhead because statements are sent as\n`Vec<Statement>`.\n\n## Integration\n\nAffected crates:\n- `sc-statement-store`: Now depends on `sc-network-statement` for size\nconstants\n- `sc-network-statement`: `MAX_STATEMENT_NOTIFICATION_SIZE` is now\npublic\n\nFor downstream users:\n- Statements larger than 1 MB will now be rejected earlier before the\nvalidation pipeline\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-10-22T01:22:47Z",
-          "tree_id": "8c442e565d63b39426975189a56840d1fdf73792",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/de740e1892f47e91c356858324f6e3e4b0f1be60"
-        },
-        "date": 1761100609480,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52939.59999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63624.38999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.472444999159995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000017347420000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001643525,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001643525,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.479009307009999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.49790412673,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.554357724000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.5072885436800005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006179221030000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9775801583299952,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.45012591837999444,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.791839810430868,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000017347420000000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
             "value": 0.7924347135599566,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4c3f27eabec8cad635195d61ebf9fa00f347e2ac",
+          "message": "Remove deprecated AllowAll, DenyAll, and Filter from frame-support (#12250)\n\n# Description\n\nRemoves deprecated `frame_support::AllowAll`, `DenyAll`, and `Filter` as\npart of #11561.\n\nThese were legacy aliases for `Everything`, `Nothing`, and `Contains`.\nThey have no remaining usage in this repository.\n\n## Integration\n\n```diff\n- use frame_support::traits::AllowAll;\n+ use frame_support::traits::Everything;\n\n- use frame_support::traits::DenyAll;\n+ use frame_support::traits::Nothing;\n\n- impl frame_support::traits::Filter<MyType> for MyFilter { ... }\n+ impl frame_support::traits::Contains<MyType> for MyFilter { ... }\n```\nReview Notes\n`2 files: substrate/frame/support/src/traits/members.rs, traits.rs\n`\nVerified no in-repo references before removal\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-06-04T10:45:01Z",
+          "tree_id": "429c7f01390b308f47aff269e604ccf5038bcfc8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4c3f27eabec8cad635195d61ebf9fa00f347e2ac"
+        },
+        "date": 1780578462579,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63641.869999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002074205,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.304793972302706,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.814188504320002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7509667009099565,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4727218458700153,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002074205,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8099866259700006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.353076886079975,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002014579,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.763869860490002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002014579,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0050961100600000015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.73624723846,
             "unit": "seconds"
           }
         ]
