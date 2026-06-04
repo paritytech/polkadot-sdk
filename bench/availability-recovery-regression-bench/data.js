@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780389858434,
+  "lastUpdate": 1780561581240,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "de740e1892f47e91c356858324f6e3e4b0f1be60",
-          "message": "Limit the size of the statement for further gossiping (#9965)\n\n# Description\n\nLimits the size of statements that are further gossiped over the network\nto prevent skipping oversized messages. The limit is set to match the\nnetwork protocol's max statement notification size (1 MB), accounting\nfor 1-byte vector length overhead because statements are sent as\n`Vec<Statement>`.\n\n## Integration\n\nAffected crates:\n- `sc-statement-store`: Now depends on `sc-network-statement` for size\nconstants\n- `sc-network-statement`: `MAX_STATEMENT_NOTIFICATION_SIZE` is now\npublic\n\nFor downstream users:\n- Statements larger than 1 MB will now be rejected earlier before the\nvalidation pipeline\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-10-22T01:22:47Z",
-          "tree_id": "8c442e565d63b39426975189a56840d1fdf73792",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/de740e1892f47e91c356858324f6e3e4b0f1be60"
-        },
-        "date": 1761100539976,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20389774780000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.324731074133336,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13654820230000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "75fa398d27fd995f1cffcf8eab9de0d6a4d6583a",
+          "message": "Cumulus test runtime: fix + cleanup (#12231)\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/11991\nRelated to https://github.com/paritytech/polkadot-sdk/issues/11624 \n\nThis PR:\n\n- fixes the unincluded_segment_capacity for async backing flavors of the\ncumulus test runtime\n- cleans up the cumulus test runtime configs\n\n---------\n\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2026-06-04T06:10:25Z",
+          "tree_id": "dbcab6224cdc8cb65d6ce26280e2275bb98693dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/75fa398d27fd995f1cffcf8eab9de0d6a4d6583a"
+        },
+        "date": 1780561548041,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1324440526333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.154287267933336,
             "unit": "seconds"
           }
         ]
