@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780578413312,
+  "lastUpdate": 1780611712476,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "31001cd5379c191aba605ac075419be9979d5742",
-          "message": "Add instant seal to omni-node (#10008)\n\nAdds a new `--instant-seal` CLI flag to enable instant seal mode in\nomni-node.\n\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/9996\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
-          "timestamp": "2025-10-23T15:02:21Z",
-          "tree_id": "1e746b6f12513b9ddc2e97ffc4619744c50030a4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/31001cd5379c191aba605ac075419be9979d5742"
-        },
-        "date": 1761236862314,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20761442316666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.705981647133333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.201119598399998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e280d34752097ec61112bef06d10ba24306e8aa4",
+          "message": "Remove deprecated match_type macro from frame-support (#12249)\n\n# Description\n\nRemoves deprecated `frame_support::match_type!` as part of #11561.\n\n`match_type!` was a thin alias for `match_types!` with no remaining\nusage in this repository.\n\n## Integration\n\n```diff\n- frame_support::match_type! { ... }\n+ frame_support::match_types! { ... }\n```\n\nReview Notes\nSingle-file change: substrate/frame/support/src/traits/members.rs\nVerified no in-repo references before removal\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-06-04T20:20:23Z",
+          "tree_id": "c07e11b74bb3205b6ea8f3a895a8a88f0ded2f20",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e280d34752097ec61112bef06d10ba24306e8aa4"
+        },
+        "date": 1780611679986,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.230508590466666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1259953599333333,
             "unit": "seconds"
           }
         ]
