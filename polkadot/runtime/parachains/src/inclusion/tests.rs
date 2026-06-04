@@ -2082,7 +2082,7 @@ fn backing_works() {
 }
 
 #[test]
-fn backing_works_with_elastic_scaling_mvp() {
+fn backing_works_with_elastic_scaling() {
 	let chain_a = ParaId::from(1_u32);
 	let chain_b = ParaId::from(2_u32);
 	let thread_a = ParaId::from(3_u32);
