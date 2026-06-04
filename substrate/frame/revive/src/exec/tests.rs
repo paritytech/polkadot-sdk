@@ -1550,34 +1550,38 @@ fn nested_clear_refund_matches_direct_clear() {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
 			set_balance(&ALICE, min_balance * 1000);
 			place_contract(&BOB, code);
+			let origin = Origin::from_account_id(ALICE);
+			let exec_config = ExecConfig::new_substrate_tx();
 			let mut meter =
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
 					.unwrap();
 			assert_ok!(MockStack::run_call(
-				Origin::from_account_id(ALICE),
+				origin.clone(),
 				BOB_ADDR,
 				&mut meter,
 				U256::zero(),
 				vec![input],
-				&ExecConfig::new_substrate_tx(),
+				&exec_config,
 			));
-			get_contract(&BOB_ADDR)
+			meter.execute_postponed_deposits(&origin, &exec_config).unwrap();
+			(get_contract(&BOB_ADDR), get_balance(&ALICE))
 		})
 	};
 
-	let direct = run(0);
-	let nested = run(1);
+	let (direct_info, direct_balance) = run(0);
+	let (nested_info, nested_balance) = run(1);
 
-	assert_eq!(direct.storage_items, nested.storage_items, "storage_items mismatch");
-	assert_eq!(direct.storage_bytes, nested.storage_bytes, "storage_bytes mismatch");
+	assert_eq!(direct_info.storage_items, nested_info.storage_items, "storage_items mismatch");
+	assert_eq!(direct_info.storage_bytes, nested_info.storage_bytes, "storage_bytes mismatch");
 	assert_eq!(
-		direct.storage_item_deposit, nested.storage_item_deposit,
+		direct_info.storage_item_deposit, nested_info.storage_item_deposit,
 		"storage_item_deposit mismatch",
 	);
 	assert_eq!(
-		direct.storage_byte_deposit, nested.storage_byte_deposit,
+		direct_info.storage_byte_deposit, nested_info.storage_byte_deposit,
 		"storage_byte_deposit mismatch",
 	);
+	assert_eq!(direct_balance, nested_balance, "origin balance mismatch after deposit charges");
 }
 
 #[test]
@@ -1597,7 +1601,9 @@ fn bank_after_invalidate_loads_cache_for_refund_pro_rating() {
 				ReentrancyProtection::AllowReentry,
 				false,
 			));
-			ctx.ext.charge_storage(&Diff { bytes_removed: 1, ..Default::default() }).unwrap();
+			ctx.ext
+				.charge_storage(&Diff { bytes_removed: 1, ..Default::default() })
+				.unwrap();
 			assert_ok!(ctx.ext.call(
 				&Default::default(),
 				&BOB_ADDR,
