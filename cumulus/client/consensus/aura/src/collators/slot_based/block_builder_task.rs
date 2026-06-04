@@ -590,6 +590,12 @@ where
 					Ok(None) => {
 						// First-core failed to build a fresh bundle: still ship the held prior
 						// unincluded segment via `ResubmitOnly`.
+						//
+						// TODO: seding to a certain core can apply in a custom way too, and
+						// other strategies for resubmitting a segment should be available - e.g.
+						// split segment between cores equally, or attempt grouping unincluded
+						// blocks based on the core index resulting from their `core_selector`
+						// and `claim_queue_offset` combination, at the `scheduling_parent`).
 						if is_first_core {
 							if let Some(proof) = scheduling_proof.clone() {
 								let _ = resubmit_sender.unbounded_send(CollatorResubmitSegment {
