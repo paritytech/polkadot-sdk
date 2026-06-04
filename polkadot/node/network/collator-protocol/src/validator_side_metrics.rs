@@ -50,6 +50,34 @@ impl Metrics {
 			.map(|metrics| metrics.collator_peer_count.set(collator_peers as u64));
 	}
 
+	/// Note an advertisement that passed triage and was accepted.
+	pub fn on_advertisement_accepted(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.advertisements.with_label_values(&["accepted"]).inc();
+		}
+	}
+
+	/// Note an advertisement that was rejected during triage.
+	pub fn on_advertisement_rejected(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.advertisements.with_label_values(&["rejected"]).inc();
+		}
+	}
+
+	/// Note that a collation was sent to the backing subsystem to be seconded.
+	pub fn on_collation_seconded(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.collations_seconded.inc();
+		}
+	}
+
+	/// Note the number of paras this validator is currently assigned to back.
+	pub fn note_assigned_paras(&self, assigned: usize) {
+		if let Some(metrics) = &self.0 {
+			metrics.assigned_paras.set(assigned as u64);
+		}
+	}
+
 	/// Provide a timer for `CollationFetchRequest` structure which observes on drop.
 	pub fn time_collation_request_duration(
 		&self,
@@ -73,6 +101,9 @@ struct MetricsInner {
 	process_msg: prometheus::Histogram,
 	handle_collation_request_result: prometheus::Histogram,
 	collator_peer_count: prometheus::Gauge<prometheus::U64>,
+	advertisements: prometheus::CounterVec<prometheus::U64>,
+	collations_seconded: prometheus::Counter<prometheus::U64>,
+	assigned_paras: prometheus::Gauge<prometheus::U64>,
 	collation_request_duration: prometheus::Histogram,
 	// TODO: Not available for the new implementation. Remove with the old implementation.
 	request_unblocked_collations: prometheus::Histogram,
@@ -115,6 +146,30 @@ impl metrics::Metrics for Metrics {
 				prometheus::Gauge::new(
 					"polkadot_parachain_collator_peer_count",
 					"Amount of collator peers connected",
+				)?,
+				registry,
+			)?,
+			advertisements: prometheus::register(
+				prometheus::CounterVec::new(
+					prometheus::Opts::new(
+						"polkadot_parachain_collator_protocol_validator_advertisements_total",
+						"Number of triaged collation advertisements, by outcome (accepted/rejected).",
+					),
+					&["outcome"],
+				)?,
+				registry,
+			)?,
+			collations_seconded: prometheus::register(
+				prometheus::Counter::new(
+					"polkadot_parachain_collator_protocol_validator_collations_seconded_total",
+					"Number of collations sent to the backing subsystem to be seconded.",
+				)?,
+				registry,
+			)?,
+			assigned_paras: prometheus::register(
+				prometheus::Gauge::new(
+					"polkadot_parachain_collator_protocol_validator_assigned_paras",
+					"Number of paras this validator is currently assigned to back (0 = idle).",
 				)?,
 				registry,
 			)?,
