@@ -538,6 +538,12 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 			if !deposit.is_zero() {
 				self.charge_deposit(contract, deposit);
 			}
+		} else {
+			debug_assert!(
+				false,
+				"on-stack ancestor frames have not finalized yet, so own_contribution \
+				 should be Alive when banked; qed",
+			);
 		}
 	}
 }
