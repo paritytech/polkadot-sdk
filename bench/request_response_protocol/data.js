@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780558610034,
+  "lastUpdate": 1780560571113,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -97199,6 +97199,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2630397679,
             "range": "± 20782279",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "75fa398d27fd995f1cffcf8eab9de0d6a4d6583a",
+          "message": "Cumulus test runtime: fix + cleanup (#12231)\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/11991\nRelated to https://github.com/paritytech/polkadot-sdk/issues/11624 \n\nThis PR:\n\n- fixes the unincluded_segment_capacity for async backing flavors of the\ncumulus test runtime\n- cleans up the cumulus test runtime configs\n\n---------\n\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2026-06-04T06:10:25Z",
+          "tree_id": "dbcab6224cdc8cb65d6ce26280e2275bb98693dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/75fa398d27fd995f1cffcf8eab9de0d6a4d6583a"
+        },
+        "date": 1780560539128,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 18653132,
+            "range": "± 96489",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19085878,
+            "range": "± 122358",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21519503,
+            "range": "± 586591",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25674333,
+            "range": "± 178257",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57454617,
+            "range": "± 837023",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 329423619,
+            "range": "± 3012457",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2641009210,
+            "range": "± 84124189",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16454914,
+            "range": "± 154242",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16997923,
+            "range": "± 249049",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17283187,
+            "range": "± 156374",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21729524,
+            "range": "± 222785",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59057854,
+            "range": "± 926422",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 336988682,
+            "range": "± 4703086",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2588316603,
+            "range": "± 28729216",
             "unit": "ns/iter"
           }
         ]
