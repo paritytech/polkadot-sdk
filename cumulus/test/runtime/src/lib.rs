@@ -18,61 +18,13 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
-// Make the WASM binary available.
+// Make the WASM binaries available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-pub mod wasm_spec_version_incremented {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_spec_version_incremented.rs"));
-}
-
-pub mod relay_parent_offset {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_relay_parent_offset.rs"));
-}
-
-pub mod elastic_scaling_500ms {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_500ms.rs"));
-}
-pub mod elastic_scaling_mvp {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_mvp.rs"));
-}
-
-pub mod elastic_scaling {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling.rs"));
-}
-
-pub mod elastic_scaling_multi_block_slot {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_multi_block_slot.rs"));
-}
-
-pub mod elastic_scaling_12s_slot {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_12s_slot.rs"));
-}
-
-pub mod sync_backing {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_sync_backing.rs"));
-}
-
-pub mod async_backing {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
-}
-
-pub mod slot_duration_18s {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_slot_duration_18s.rs"));
-}
-
+pub mod flavors;
 mod genesis_config_presets;
-mod test_pallet;
+pub mod test_pallet;
 
 extern crate alloc;
 
@@ -80,7 +32,7 @@ use alloc::{vec, vec::Vec};
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{ConstBool, ConstU32, ConstU64, OpaqueMetadata};
+use sp_core::{ConstBool, ConstU32, ConstU64, Get, OpaqueMetadata};
 
 use sp_runtime::{
 	generic, impl_opaque_keys,
@@ -92,9 +44,10 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use cumulus_primitives_core::{ParaId, RelayProofRequest};
+use cumulus_primitives_core::{ParaId, RelayProofRequest, VerifySchedulingSignature};
 
 // A few exports that help ease life for downstream crates.
+pub use flavors::*;
 pub use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
@@ -121,7 +74,7 @@ pub use pallet_timestamp::{Call as TimestampCall, Now};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
-pub use test_pallet::Call as TestPalletCall;
+pub use test_pallet::{Call as TestPalletCall, TestTransactionExtension};
 
 pub type SessionHandlers = ();
 
@@ -133,51 +86,6 @@ impl_opaque_keys! {
 
 /// The para-id used in this runtime.
 pub const PARACHAIN_ID: u32 = 100;
-
-#[cfg(feature = "elastic-scaling-500ms")]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 12;
-
-#[cfg(all(feature = "elastic-scaling-multi-block-slot", not(feature = "elastic-scaling-500ms")))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 6;
-
-#[cfg(all(
-	any(feature = "elastic-scaling", feature = "relay-parent-offset"),
-	not(feature = "elastic-scaling-500ms"),
-	not(feature = "elastic-scaling-multi-block-slot")
-))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
-
-#[cfg(not(any(
-	feature = "elastic-scaling",
-	feature = "elastic-scaling-500ms",
-	feature = "elastic-scaling-multi-block-slot",
-	feature = "relay-parent-offset",
-)))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
-
-#[cfg(feature = "async-backing")]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
-
-#[cfg(all(feature = "sync-backing", not(feature = "async-backing")))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
-
-// The `+2` shouldn't be needed, https://github.com/paritytech/polkadot-sdk/issues/5260
-#[cfg(all(not(feature = "sync-backing"), not(feature = "async-backing")))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (2 + RELAY_PARENT_OFFSET) + 2;
-
-#[cfg(feature = "slot-duration-18s")]
-pub const SLOT_DURATION: u64 = 18000;
-#[cfg(all(
-	any(feature = "sync-backing", feature = "elastic-scaling-12s-slot"),
-	not(feature = "slot-duration-18s")
-))]
-pub const SLOT_DURATION: u64 = 12000;
-#[cfg(not(any(
-	feature = "sync-backing",
-	feature = "elastic-scaling-12s-slot",
-	feature = "slot-duration-18s"
-)))]
-pub const SLOT_DURATION: u64 = 6000;
 
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
@@ -192,7 +100,7 @@ const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 // details. Since macro kicks in early, it operates on AST. Thus you cannot use constants.
 // Macros are expanded top to bottom, meaning we also cannot use `cfg` here.
 
-#[cfg(all(not(feature = "increment-spec-version"), not(feature = "elastic-scaling")))]
+#[cfg(not(feature = "increment-spec-version"))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
@@ -206,7 +114,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	system_version: 3,
 };
 
-#[cfg(any(feature = "increment-spec-version", feature = "elastic-scaling"))]
+#[cfg(feature = "increment-spec-version")]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
@@ -223,7 +131,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 pub const EPOCH_DURATION_IN_BLOCKS: u32 = 10 * MINUTES;
 
 // These time units are defined in number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (SLOT_DURATION as BlockNumber);
+pub const MINUTES: BlockNumber = 60_000 / (slot_duration() as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
@@ -242,17 +150,18 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-/// We allow for 1 second of compute with a 6 second average block time.
-const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
-	WEIGHT_REF_TIME_PER_SECOND,
-	cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
-);
+
+type MaximumBlockWeight = cumulus_pallet_parachain_system::block_weight::MaxParachainBlockWeight<
+	Runtime,
+	ConstU32<{ block_processing_velocity() }>,
+>;
 
 parameter_types! {
 	/// Target number of blocks per relay chain slot.
 	pub const NumberOfBlocksPerRelaySlot: u32 = 12;
 	pub const BlockHashCount: BlockNumber = 250;
 	pub const Version: RuntimeVersion = VERSION;
+	/// We allow for 1 second of compute with a 6 second average block time.
 	pub RuntimeBlockLength: BlockLength =
 		BlockLength::builder().max_length(10 * 1024 * 1024).max_header_size(5 * 1024 * 1024).build();
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
@@ -261,14 +170,14 @@ parameter_types! {
 			weights.base_extrinsic = ExtrinsicBaseWeight::get();
 		})
 		.for_class(DispatchClass::Normal, |weights| {
-			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
+			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MaximumBlockWeight::get());
 		})
 		.for_class(DispatchClass::Operational, |weights| {
-			weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT);
+			weights.max_total = Some(MaximumBlockWeight::get());
 			// Operational transactions have some extra reserved space, so that they
-			// are included even if block reached `MAXIMUM_BLOCK_WEIGHT`.
+			// are included even if block reached `MaximumBlockWeight`.
 			weights.reserved = Some(
-				MAXIMUM_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT
+				MaximumBlockWeight::get() - NORMAL_DISPATCH_RATIO * MaximumBlockWeight::get()
 			);
 		})
 		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
@@ -296,6 +205,10 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type PreInherents = cumulus_pallet_parachain_system::block_weight::DynamicMaxBlockWeightHooks<
+		Runtime,
+		ConstU32<{ block_processing_velocity() }>,
+	>;
 	type SingleBlockMigrations = SingleBlockMigrations;
 }
 
@@ -366,23 +279,42 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_utility::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
+}
+
 impl pallet_glutton::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = pallet_glutton::weights::SubstrateWeight<Runtime>;
 }
 
-#[cfg(feature = "relay-parent-offset")]
-const RELAY_PARENT_OFFSET: u32 = 2;
+/// Scheduling-info verifier used by `cumulus-test-runtime`.
+///
+/// Accepts any signature; `V3_SCHEDULING_ENABLED` is gated on the `v3-descriptor` cargo
+/// feature so the test runtime can flip V3 scheduling on without needing a runtime upgrade
+/// per build.
+pub struct NoVerification;
 
-#[cfg(not(feature = "relay-parent-offset"))]
-const RELAY_PARENT_OFFSET: u32 = 0;
+impl VerifySchedulingSignature for NoVerification {
+	const V3_SCHEDULING_ENABLED: bool = SCHEDULING_V3_ENABLED;
+
+	fn verify(
+		_signed_info: &cumulus_primitives_core::SignedSchedulingInfo,
+		_internal_scheduling_parent_header: &cumulus_primitives_core::relay_chain::Header,
+	) -> bool {
+		true
+	}
+}
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
-	BLOCK_PROCESSING_VELOCITY,
-	UNINCLUDED_SEGMENT_CAPACITY,
+	{ block_processing_velocity() },
+	{ unincluded_segment_capacity() },
 >;
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = ();
@@ -398,7 +330,8 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber =
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
-	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type RelayParentOffset = ConstU32<{ relay_parent_offset() }>;
+	type SchedulingSignatureVerifier = NoVerification;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -407,11 +340,8 @@ impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<32>;
-	#[cfg(feature = "sync-backing")]
-	type AllowMultipleBlocksPerSlot = ConstBool<false>;
-	#[cfg(not(feature = "sync-backing"))]
-	type AllowMultipleBlocksPerSlot = ConstBool<true>;
-	type SlotDuration = ConstU64<SLOT_DURATION>;
+	type AllowMultipleBlocksPerSlot = ConstBool<{ !cfg!(feature = "sync-backing") }>;
+	type SlotDuration = ConstU64<{ slot_duration() }>;
 }
 
 impl test_pallet::Config for Runtime {}
@@ -425,6 +355,7 @@ construct_runtime! {
 		ParachainInfo: parachain_info,
 		Balances: pallet_balances,
 		Sudo: pallet_sudo,
+		Utility: pallet_utility,
 		TransactionPayment: pallet_transaction_payment,
 		TestPallet: test_pallet,
 		Glutton: pallet_glutton,
@@ -461,19 +392,25 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// The extension to the basic transaction logic.
-pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+pub type TxExtension = cumulus_pallet_parachain_system::block_weight::DynamicMaxBlockWeight<
 	Runtime,
-	(
-		frame_system::AuthorizeCall<Runtime>,
-		frame_system::CheckNonZeroSender<Runtime>,
-		frame_system::CheckSpecVersion<Runtime>,
-		frame_system::CheckGenesis<Runtime>,
-		frame_system::CheckEra<Runtime>,
-		frame_system::CheckNonce<Runtime>,
-		frame_system::CheckWeight<Runtime>,
-		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	),
+	cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+		Runtime,
+		(
+			frame_system::AuthorizeCall<Runtime>,
+			frame_system::CheckNonZeroSender<Runtime>,
+			frame_system::CheckSpecVersion<Runtime>,
+			frame_system::CheckGenesis<Runtime>,
+			frame_system::CheckEra<Runtime>,
+			frame_system::CheckNonce<Runtime>,
+			frame_system::CheckWeight<Runtime>,
+			pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+			test_pallet::TestTransactionExtension<Runtime>,
+		),
+	>,
+	ConstU32<{ block_processing_velocity() }>,
 >;
+
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
@@ -547,13 +484,23 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
-			RELAY_PARENT_OFFSET
+			relay_parent_offset()
+		}
+
+		fn max_claim_queue_offset() -> u8 {
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
+		}
+	}
+
+	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
+		fn scheduling_v3_enabled() -> bool {
+			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED
 		}
 	}
 
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
+			sp_consensus_aura::SlotDuration::from_millis(slot_duration())
 		}
 
 		fn authorities() -> Vec<AuraId> {
@@ -599,6 +546,7 @@ impl_runtime_apis! {
 		fn check_inherents(block: <Block as BlockT>::LazyBlock, data: sp_inherents::InherentData) -> sp_inherents::CheckInherentsResult {
 			data.check_extrinsics(&block)
 		}
+
 	}
 
 	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
@@ -659,19 +607,17 @@ impl_runtime_apis! {
 		fn parachain_id() -> ParaId {
 			ParachainInfo::parachain_id()
 		}
-
 	}
 
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
-			1
+			block_processing_velocity()
 		}
 	}
 
 	impl cumulus_primitives_core::KeyToIncludeInRelayProof<Block> for Runtime {
 		fn keys_to_prove() -> cumulus_primitives_core::RelayProofRequest {
 			use cumulus_primitives_core::RelayStorageKey;
-
 			RelayProofRequest {
 				keys: vec![
 					// Request a key to verify its inclusion in the proof.

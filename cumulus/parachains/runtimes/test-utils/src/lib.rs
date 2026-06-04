@@ -763,7 +763,7 @@ impl<HrmpChannelSource: cumulus_primitives_core::XcmpMessageSource, AllPalletsWi
 	RuntimeHelper<HrmpChannelSource, AllPalletsWithoutSystem>
 {
 	pub fn take_xcm(sent_to_para_id: ParaId) -> Option<VersionedXcm<()>> {
-		match HrmpChannelSource::take_outbound_messages(10)[..] {
+		match HrmpChannelSource::take_outbound_messages(10, &[])[..] {
 			[(para_id, ref mut xcm_message_data)] if para_id.eq(&sent_to_para_id.into()) => {
 				let mut xcm_message_data = &xcm_message_data[..];
 				// decode

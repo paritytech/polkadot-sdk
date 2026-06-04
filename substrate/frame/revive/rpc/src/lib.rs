@@ -25,7 +25,8 @@ use jsonrpsee::{
 	types::{ErrorCode, ErrorObjectOwned},
 };
 use pallet_revive::evm::*;
-use sp_core::{H160, H256, U256, keccak_256};
+use sp_core::{H160, H256, U256};
+use sp_crypto_hashing::keccak_256;
 use subxt::backend::legacy::rpc_methods::TransactionStatus;
 use subxt_signer::bip39::core::pin::Pin;
 use thiserror::Error;
@@ -201,11 +202,12 @@ impl EthRpcServer for EthRpcServerImpl {
 		&self,
 		transaction: GenericTransaction,
 		block: Option<BlockNumberOrTagOrHash>,
+		state_overrides: Option<StateOverrideSet>,
 	) -> RpcResult<Bytes> {
 		let block = block.unwrap_or_default();
 		let hash = self.client.block_hash_for_tag(block.clone()).await?;
 		let runtime_api = self.client.runtime_api(hash);
-		let dry_run = runtime_api.dry_run(transaction, block).await?;
+		let dry_run = runtime_api.dry_run(transaction, block, state_overrides).await?;
 		Ok(dry_run.data.into())
 	}
 
