@@ -126,6 +126,8 @@ async fn initialize<Context>(
 			"Collator protocol initial assignments",
 		);
 
+		metrics.note_assigned_paras(scheduled_paras.len());
+
 		// Create PersistentDb with disk persistence
 		let (backend, task) = match PersistentDb::new(
 			db.clone(),
