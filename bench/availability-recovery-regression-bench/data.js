@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780574792802,
+  "lastUpdate": 1780578413312,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "cyrill@parity.io",
-            "name": "xermicus",
-            "username": "xermicus"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f50ebf00486104d19d73ea591385fb188a70d3a2",
-          "message": "precompiles: Enforce state mutability (#10080)\n\n`pallet-assets-precompile`, `pallet-xcm-precompiles` and revive builtin\nprecompile implementations currently violate [Solidity state\nmutability](https://docs.soliditylang.org/en/latest/grammar.html#syntax-rule-SolidityParser.stateMutability),\npotentially introducing a new attack vector. This PR implements\ncorresponding checks at the function dispatch.\n\nCould be enforced in `pallet-revive`, however:\n1. Adding something like a `const MUTATES: bool` to the `Precompile`\ntrait won't help because whether the call is mutating or not depends on\nthe [Solidity function\nselector.](https://docs.soliditylang.org/en/latest/abi-spec.html#function-selector).\n2. Alloy, which we are using to parse the interface definitions prior to\ncalling precompile implementations, doesn't provide a mapping from\nfunction selector to its mutability\n[modifier](https://docs.soliditylang.org/en/latest/cheatsheet.html#modifiers).\n\n---------\n\nSigned-off-by: Cyrill Leutwiler <bigcyrill@hotmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-22T12:41:58Z",
-          "tree_id": "d64e62a7b2d1012aafdc822663235a77fa23b184",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f50ebf00486104d19d73ea591385fb188a70d3a2"
-        },
-        "date": 1761143493774,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20588106840000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.577979519033336,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14080243243333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4c3f27eabec8cad635195d61ebf9fa00f347e2ac",
+          "message": "Remove deprecated AllowAll, DenyAll, and Filter from frame-support (#12250)\n\n# Description\n\nRemoves deprecated `frame_support::AllowAll`, `DenyAll`, and `Filter` as\npart of #11561.\n\nThese were legacy aliases for `Everything`, `Nothing`, and `Contains`.\nThey have no remaining usage in this repository.\n\n## Integration\n\n```diff\n- use frame_support::traits::AllowAll;\n+ use frame_support::traits::Everything;\n\n- use frame_support::traits::DenyAll;\n+ use frame_support::traits::Nothing;\n\n- impl frame_support::traits::Filter<MyType> for MyFilter { ... }\n+ impl frame_support::traits::Contains<MyType> for MyFilter { ... }\n```\nReview Notes\n`2 files: substrate/frame/support/src/traits/members.rs, traits.rs\n`\nVerified no in-repo references before removal\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-06-04T10:45:01Z",
+          "tree_id": "429c7f01390b308f47aff269e604ccf5038bcfc8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4c3f27eabec8cad635195d61ebf9fa00f347e2ac"
+        },
+        "date": 1780578382103,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1399811345666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.201119598399998,
             "unit": "seconds"
           }
         ]
