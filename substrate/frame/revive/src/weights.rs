@@ -127,13 +127,9 @@ pub trait WeightInfo {
 	fn seal_terminate_logic() -> Weight;
 	fn seal_deposit_event(t: u32, n: u32, ) -> Weight;
 	fn get_storage_empty() -> Weight;
-	fn get_storage_empty_hot() -> Weight;
 	fn get_storage_full() -> Weight;
-	fn get_storage_full_hot() -> Weight;
 	fn set_storage_empty() -> Weight;
-	fn set_storage_empty_hot() -> Weight;
 	fn set_storage_full() -> Weight;
-	fn set_storage_full_hot() -> Weight;
 	fn seal_set_storage(n: u32, o: u32, ) -> Weight;
 	fn seal_set_storage_hot(n: u32, o: u32, ) -> Weight;
 	fn clear_storage(n: u32, ) -> Weight;
@@ -944,15 +940,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn get_storage_empty_hot() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 1_237_000 picoseconds.
-		Weight::from_parts(1_443_000, 0)
-	}
-	/// Storage: `Skipped::Metadata` (r:0 w:0)
-	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn get_storage_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `10658`
@@ -960,15 +947,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 38_368_000 picoseconds.
 		Weight::from_parts(40_194_000, 10658)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
-	}
-	/// Storage: `Skipped::Metadata` (r:0 w:0)
-	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn get_storage_full_hot() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 1_663_000 picoseconds.
-		Weight::from_parts(1_953_000, 0)
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -983,15 +961,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn set_storage_empty_hot() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 2_247_000 picoseconds.
-		Weight::from_parts(2_597_000, 0)
-	}
-	/// Storage: `Skipped::Metadata` (r:0 w:0)
-	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn set_storage_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `10658`
@@ -1000,15 +969,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(42_028_000, 10658)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Skipped::Metadata` (r:0 w:0)
-	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn set_storage_full_hot() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 3_338_000 picoseconds.
-		Weight::from_parts(3_774_000, 0)
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -2494,15 +2454,6 @@ impl WeightInfo for () {
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn get_storage_empty_hot() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 1_237_000 picoseconds.
-		Weight::from_parts(1_443_000, 0)
-	}
-	/// Storage: `Skipped::Metadata` (r:0 w:0)
-	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn get_storage_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `10658`
@@ -2510,15 +2461,6 @@ impl WeightInfo for () {
 		// Minimum execution time: 38_368_000 picoseconds.
 		Weight::from_parts(40_194_000, 10658)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
-	}
-	/// Storage: `Skipped::Metadata` (r:0 w:0)
-	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn get_storage_full_hot() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 1_663_000 picoseconds.
-		Weight::from_parts(1_953_000, 0)
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -2533,15 +2475,6 @@ impl WeightInfo for () {
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn set_storage_empty_hot() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 2_247_000 picoseconds.
-		Weight::from_parts(2_597_000, 0)
-	}
-	/// Storage: `Skipped::Metadata` (r:0 w:0)
-	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn set_storage_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `10658`
@@ -2550,15 +2483,6 @@ impl WeightInfo for () {
 		Weight::from_parts(42_028_000, 10658)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Skipped::Metadata` (r:0 w:0)
-	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn set_storage_full_hot() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 3_338_000 picoseconds.
-		Weight::from_parts(3_774_000, 0)
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)

@@ -36,6 +36,16 @@ const GAS_PER_SECOND: u64 = 40_000_000;
 /// gas.
 const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
 
+/// Extra ref_time for the in-memory lookup a hot persistent storage access performs.
+/// That lookup hits either the overlay (`O(log N)` in the keys written this block,
+/// bounded by the PoV cap) or the value cache (`O(1)`, on a read-after-read), and adds
+/// no PoV. The base `_hot` bench measures it only at a near-empty overlay, so this 2µs
+/// is added on top to cover the growth at scale: a safe round-up of the sub-µs
+/// transient-storage measurements (reference-machine scale).
+// TODO: replace with a faithful `OverlayProbe` bench once the `sp-state-machine` overlay
+// exposure lands.
+const HOT_STORAGE_OVERLAY_OVERHEAD: Weight = Weight::from_parts(2_000_000, 0);
+
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Copy, Clone)]
 pub enum RuntimeCosts {
@@ -174,37 +184,9 @@ pub enum RuntimeCosts {
 
 /// For functions that modify storage, benchmarks are performed with one item in the
 /// storage. To account for the worst-case scenario, the weight of the overhead of
-/// writing to or reading from full storage is included. There is one arm per
-/// (read/write) × (persistent cold / persistent hot / transient); the cold and hot arms
-/// draw the overhead from the matching benches. For transient storage writes, the
-/// rollback weight is added to reflect the worst-case scenario for this operation.
+/// writing to or reading from full storage is included. For transient storage writes,
+/// the rollback weight is added to reflect the worst-case scenario for this operation.
 macro_rules! cost_storage {
-    // Persistent cold write: full-storage overhead from the cold benches.
-    (write_cold, $name:ident $(, $arg:expr )*) => {
-        T::WeightInfo::$name($( $arg ),*)
-            .saturating_add(T::WeightInfo::set_storage_full()
-            .saturating_sub(T::WeightInfo::set_storage_empty()))
-    };
-
-    // Persistent cold read: full-storage overhead from the cold benches.
-    (read_cold, $name:ident $(, $arg:expr )*) => {
-        T::WeightInfo::$name($( $arg ),*)
-            .saturating_add(T::WeightInfo::get_storage_full()
-            .saturating_sub(T::WeightInfo::get_storage_empty()))
-    };
-
-    (write_hot, $name:ident $(, $arg:expr )*) => {
-        T::WeightInfo::$name($( $arg ),*)
-            .saturating_add(T::WeightInfo::set_storage_full_hot()
-            .saturating_sub(T::WeightInfo::set_storage_empty_hot()))
-    };
-
-    (read_hot, $name:ident $(, $arg:expr )*) => {
-        T::WeightInfo::$name($( $arg ),*)
-            .saturating_add(T::WeightInfo::get_storage_full_hot()
-            .saturating_sub(T::WeightInfo::get_storage_empty_hot()))
-    };
-
     (write_transient, $name:ident $(, $arg:expr )*) => {
         T::WeightInfo::$name($( $arg ),*)
             .saturating_add(T::WeightInfo::rollback_transient_storage())
@@ -216,6 +198,18 @@ macro_rules! cost_storage {
         T::WeightInfo::$name($( $arg ),*)
             .saturating_add(T::WeightInfo::get_transient_storage_full()
             .saturating_sub(T::WeightInfo::get_transient_storage_empty()))
+    };
+
+    (write_cold, $name:ident $(, $arg:expr )*) => {
+        T::WeightInfo::$name($( $arg ),*)
+            .saturating_add(T::WeightInfo::set_storage_full()
+            .saturating_sub(T::WeightInfo::set_storage_empty()))
+    };
+
+    (read_cold, $name:ident $(, $arg:expr )*) => {
+        T::WeightInfo::$name($( $arg ),*)
+            .saturating_add(T::WeightInfo::get_storage_full()
+            .saturating_sub(T::WeightInfo::get_storage_empty()))
     };
 }
 
@@ -252,6 +246,7 @@ impl RuntimeCosts {
 				}
 			},
 			StorageAccessKind::Persistent(Warmth::Hot) => hot()
+				.saturating_add(HOT_STORAGE_OVERLAY_OVERHEAD)
 				.saturating_add(T::WeightInfo::access_list_touch_hot_full())
 				.saturating_sub(T::WeightInfo::access_list_touch_hot_single_element()),
 			StorageAccessKind::Transient => transient(),
@@ -315,31 +310,31 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			SetStorage { new_bytes, old_bytes, kind } => Self::weight_for_storage_access::<T>(
 				kind,
 				|| cost_storage!(write_cold, seal_set_storage, new_bytes, old_bytes),
-				|| cost_storage!(write_hot, seal_set_storage_hot, new_bytes, old_bytes),
+				|| T::WeightInfo::seal_set_storage_hot(new_bytes, old_bytes),
 				|| cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes),
 			),
 			ClearStorage { len, kind } => Self::weight_for_storage_access::<T>(
 				kind,
 				|| cost_storage!(write_cold, clear_storage, len),
-				|| cost_storage!(write_hot, clear_storage_hot, len),
+				|| T::WeightInfo::clear_storage_hot(len),
 				|| cost_storage!(write_transient, seal_clear_transient_storage, len),
 			),
 			ContainsStorage { len, kind } => Self::weight_for_storage_access::<T>(
 				kind,
 				|| cost_storage!(read_cold, contains_storage, len),
-				|| cost_storage!(read_hot, contains_storage_hot, len),
+				|| T::WeightInfo::contains_storage_hot(len),
 				|| cost_storage!(read_transient, seal_contains_transient_storage, len),
 			),
 			GetStorage { len, kind } => Self::weight_for_storage_access::<T>(
 				kind,
 				|| cost_storage!(read_cold, seal_get_storage, len),
-				|| cost_storage!(read_hot, seal_get_storage_hot, len),
+				|| T::WeightInfo::seal_get_storage_hot(len),
 				|| cost_storage!(read_transient, seal_get_transient_storage, len),
 			),
 			TakeStorage { len, kind } => Self::weight_for_storage_access::<T>(
 				kind,
 				|| cost_storage!(write_cold, take_storage, len),
-				|| cost_storage!(write_hot, take_storage_hot, len),
+				|| T::WeightInfo::take_storage_hot(len),
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
 			CallBase => T::WeightInfo::seal_call(0, 0, 0),

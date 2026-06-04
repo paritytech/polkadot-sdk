@@ -1437,7 +1437,6 @@ mod benchmarks {
 	fn build_storage_contract<T: Config>(
 		op: StorageOp,
 		fill: TrieFill,
-		access: SlotAccess,
 	) -> Result<(ContractInfo<T>, Vec<u8>, Vec<u8>), BenchmarkError> {
 		let key = vec![0u8; limits::STORAGE_KEY_BYTES as usize];
 		let value = vec![1u8; limits::STORAGE_BYTES as usize];
@@ -1455,12 +1454,6 @@ mod benchmarks {
 		let info = instance.info()?;
 		info.bench_write_raw(&key, Some(initial_value), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
-		if matches!(access, SlotAccess::Hot) {
-			frame_benchmarking::add_to_whitelist_child(
-				info.child_trie_info().storage_key().to_vec(),
-				key.clone(),
-			);
-		}
 		Ok((info, key, value))
 	}
 
@@ -1515,24 +1508,7 @@ mod benchmarks {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn get_storage_empty() -> Result<(), BenchmarkError> {
-		let (info, key, value) =
-			build_storage_contract::<T>(StorageOp::Read, TrieFill::Empty, SlotAccess::Cold)?;
-		let child_trie_info = info.child_trie_info();
-
-		let result;
-		#[block]
-		{
-			result = child::get_raw(&child_trie_info, &key);
-		}
-
-		assert_eq!(result, Some(value));
-		Ok(())
-	}
-
-	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn get_storage_empty_hot() -> Result<(), BenchmarkError> {
-		let (info, key, value) =
-			build_storage_contract::<T>(StorageOp::Read, TrieFill::Empty, SlotAccess::Hot)?;
+		let (info, key, value) = build_storage_contract::<T>(StorageOp::Read, TrieFill::Empty)?;
 		let child_trie_info = info.child_trie_info();
 
 		let result;
@@ -1547,24 +1523,7 @@ mod benchmarks {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn get_storage_full() -> Result<(), BenchmarkError> {
-		let (info, key, value) =
-			build_storage_contract::<T>(StorageOp::Read, TrieFill::Full, SlotAccess::Cold)?;
-		let child_trie_info = info.child_trie_info();
-
-		let result;
-		#[block]
-		{
-			result = child::get_raw(&child_trie_info, &key);
-		}
-
-		assert_eq!(result, Some(value));
-		Ok(())
-	}
-
-	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn get_storage_full_hot() -> Result<(), BenchmarkError> {
-		let (info, key, value) =
-			build_storage_contract::<T>(StorageOp::Read, TrieFill::Full, SlotAccess::Hot)?;
+		let (info, key, value) = build_storage_contract::<T>(StorageOp::Read, TrieFill::Full)?;
 		let child_trie_info = info.child_trie_info();
 
 		let result;
@@ -1579,25 +1538,7 @@ mod benchmarks {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn set_storage_empty() -> Result<(), BenchmarkError> {
-		let (info, key, value) =
-			build_storage_contract::<T>(StorageOp::Write, TrieFill::Empty, SlotAccess::Cold)?;
-
-		let val = Some(value.clone());
-		let result;
-		#[block]
-		{
-			result = info.bench_write_raw(&key, val, true);
-		}
-
-		assert_ok!(result);
-		assert_eq!(child::get_raw(&info.child_trie_info(), &key).unwrap(), value);
-		Ok(())
-	}
-
-	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn set_storage_empty_hot() -> Result<(), BenchmarkError> {
-		let (info, key, value) =
-			build_storage_contract::<T>(StorageOp::Write, TrieFill::Empty, SlotAccess::Hot)?;
+		let (info, key, value) = build_storage_contract::<T>(StorageOp::Write, TrieFill::Empty)?;
 
 		let val = Some(value.clone());
 		let result;
@@ -1613,25 +1554,7 @@ mod benchmarks {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn set_storage_full() -> Result<(), BenchmarkError> {
-		let (info, key, value) =
-			build_storage_contract::<T>(StorageOp::Write, TrieFill::Full, SlotAccess::Cold)?;
-
-		let val = Some(value.clone());
-		let result;
-		#[block]
-		{
-			result = info.bench_write_raw(&key, val, true);
-		}
-
-		assert_ok!(result);
-		assert_eq!(child::get_raw(&info.child_trie_info(), &key).unwrap(), value);
-		Ok(())
-	}
-
-	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn set_storage_full_hot() -> Result<(), BenchmarkError> {
-		let (info, key, value) =
-			build_storage_contract::<T>(StorageOp::Write, TrieFill::Full, SlotAccess::Hot)?;
+		let (info, key, value) = build_storage_contract::<T>(StorageOp::Write, TrieFill::Full)?;
 
 		let val = Some(value.clone());
 		let result;

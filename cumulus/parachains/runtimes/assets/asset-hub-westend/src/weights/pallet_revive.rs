@@ -899,16 +899,6 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn get_storage_empty_hot() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 1_351_000 picoseconds.
-		Weight::from_parts(1_584_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-	}
-	/// Storage: `Skipped::Metadata` (r:0 w:0)
-	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn get_storage_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `10663`
@@ -917,16 +907,6 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(41_320_000, 0)
 			.saturating_add(Weight::from_parts(0, 10663))
 			.saturating_add(T::DbWeight::get().reads(1))
-	}
-	/// Storage: `Skipped::Metadata` (r:0 w:0)
-	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn get_storage_full_hot() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 1_728_000 picoseconds.
-		Weight::from_parts(2_020_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -942,16 +922,6 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn set_storage_empty_hot() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 2_595_000 picoseconds.
-		Weight::from_parts(3_094_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-	}
-	/// Storage: `Skipped::Metadata` (r:0 w:0)
-	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn set_storage_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `10663`
@@ -961,16 +931,6 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 10663))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
-	}
-	/// Storage: `Skipped::Metadata` (r:0 w:0)
-	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn set_storage_full_hot() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 3_578_000 picoseconds.
-		Weight::from_parts(4_048_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
