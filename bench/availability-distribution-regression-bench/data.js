@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780574831619,
+  "lastUpdate": 1780578453637,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "297fb73485df56ba24866c363c922a0f6263107a",
-          "message": "approval-distribution: improve test coverage (#10082)\n\nAdd few more test in approval-distribution to improve coverage.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-22T10:05:15Z",
-          "tree_id": "42ddbf744d7cb05186d29c863652db5bf721e1d5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/297fb73485df56ba24866c363c922a0f6263107a"
-        },
-        "date": 1761131494408,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013511236640000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022926488840000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16097625694666673,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007278729606666677,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.008127851820000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4c3f27eabec8cad635195d61ebf9fa00f347e2ac",
+          "message": "Remove deprecated AllowAll, DenyAll, and Filter from frame-support (#12250)\n\n# Description\n\nRemoves deprecated `frame_support::AllowAll`, `DenyAll`, and `Filter` as\npart of #11561.\n\nThese were legacy aliases for `Everything`, `Nothing`, and `Contains`.\nThey have no remaining usage in this repository.\n\n## Integration\n\n```diff\n- use frame_support::traits::AllowAll;\n+ use frame_support::traits::Everything;\n\n- use frame_support::traits::DenyAll;\n+ use frame_support::traits::Nothing;\n\n- impl frame_support::traits::Filter<MyType> for MyFilter { ... }\n+ impl frame_support::traits::Contains<MyType> for MyFilter { ... }\n```\nReview Notes\n`2 files: substrate/frame/support/src/traits/members.rs, traits.rs\n`\nVerified no in-repo references before removal\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-06-04T10:45:01Z",
+          "tree_id": "429c7f01390b308f47aff269e604ccf5038bcfc8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4c3f27eabec8cad635195d61ebf9fa00f347e2ac"
+        },
+        "date": 1780578422486,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14450152937333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023819395626666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0073100551333333316,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010040243173333303,
             "unit": "seconds"
           }
         ]
