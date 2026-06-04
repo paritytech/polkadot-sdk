@@ -63,6 +63,18 @@ pub type Timeslice = u32;
 pub type CoreMaskBitCount = u32;
 /// The same as `CoreMaskBitCount` but signed.
 pub type SignedCoreMaskBitCount = i32;
+/// Count of the renewal rights one has.
+pub type RenewalRightsCount = u32;
+
+/// Identifier of the renewal rights for some account at some timeslice.
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct RenewalRightsId<AccountId> {
+	/// Who holds the renewal rights.
+	pub owner: AccountId,
+	/// When the renewal rights are valid.
+	pub when: Timeslice,
+}
+pub type RenewalRightsIdOf<T> = RenewalRightsId<AccountIdFor<T>>;
 
 /// Whether a core assignment is revokable or not.
 #[derive(

@@ -91,6 +91,7 @@ pub trait WeightInfo {
 	fn drop_contribution() -> Weight;
 	fn drop_history() -> Weight;
 	fn drop_renewal() -> Weight;
+	fn drop_renewal_rights() -> Weight;
 	fn request_core_count(n: u32, ) -> Weight;
 	fn process_core_count(n: u32, ) -> Weight;
 	fn process_revenue() -> Weight;
@@ -390,6 +391,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(41_672_000, 4698)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn drop_renewal_rights() -> Weight {
+		Weight::zero()
 	}
 	/// The range of component `n` is `[0, 1000]`.
 	fn request_core_count(_n: u32, ) -> Weight {
@@ -874,6 +878,9 @@ impl WeightInfo for () {
 		Weight::from_parts(41_672_000, 4698)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn drop_renewal_rights() -> Weight {
+		Weight::zero()
 	}
 	/// The range of component `n` is `[0, 1000]`.
 	fn request_core_count(_n: u32, ) -> Weight {

@@ -784,6 +784,44 @@ mod benches {
 	}
 
 	#[benchmark]
+	fn drop_renewal_rights() -> Result<(), BenchmarkError> {
+		setup_and_start_sale::<T>()?;
+		let region_len = Configuration::<T>::get().unwrap().region_length;
+
+		advance_to::<T>(2);
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(
+			&caller.clone(),
+			T::Currency::minimum_balance()
+				.saturating_add(REGION_RENEWAL_PRICE.into())
+				.saturating_add(REGION_PRICE.into()),
+		);
+
+		let region = purchase_and_get_region_id::<T>(caller.clone())
+			.expect("Offer not high enough for configuration.");
+
+		Broker::<T>::do_assign(region, Some(caller.clone()), 1001, Final)
+			.expect("Failed to assign region");
+
+		advance_to::<T>(
+			(T::TimeslicePeriod::get() * (region.begin + region_len).into())
+				.try_into()
+				.ok()
+				.unwrap(),
+		);
+
+		let region_end = region.begin + region_len;
+		let who = caller.clone();
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), who.clone(), region_end);
+
+		assert_last_event::<T>(Event::<T>::RenewalRightsDropped { who, when: region_end }.into());
+
+		Ok(())
+	}
+
+	#[benchmark]
 	fn request_core_count(n: Linear<0, { MAX_CORE_COUNT.into() }>) -> Result<(), BenchmarkError> {
 		let admin_origin =
 			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
