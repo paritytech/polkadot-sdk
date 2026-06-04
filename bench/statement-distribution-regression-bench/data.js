@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780574908793,
+  "lastUpdate": 1780578533828,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "8bdc024d73d8522ba894af30954f19cca8fbff5c",
-          "message": "eth-rpc add trace logs (#10065)\n\nAdd extra tracing logs for estimate_gas and send_raw_transaction\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: xermicus <cyrill@parity.io>",
-          "timestamp": "2025-10-21T10:57:36Z",
-          "tree_id": "4d6e71a13d505c70bd6e48b84346df90c701daea",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8bdc024d73d8522ba894af30954f19cca8fbff5c"
-        },
-        "date": 1761048698140,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.93999999999993,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.045039097091999956,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034446572228,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.0383379129,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4c3f27eabec8cad635195d61ebf9fa00f347e2ac",
+          "message": "Remove deprecated AllowAll, DenyAll, and Filter from frame-support (#12250)\n\n# Description\n\nRemoves deprecated `frame_support::AllowAll`, `DenyAll`, and `Filter` as\npart of #11561.\n\nThese were legacy aliases for `Everything`, `Nothing`, and `Contains`.\nThey have no remaining usage in this repository.\n\n## Integration\n\n```diff\n- use frame_support::traits::AllowAll;\n+ use frame_support::traits::Everything;\n\n- use frame_support::traits::DenyAll;\n+ use frame_support::traits::Nothing;\n\n- impl frame_support::traits::Filter<MyType> for MyFilter { ... }\n+ impl frame_support::traits::Contains<MyType> for MyFilter { ... }\n```\nReview Notes\n`2 files: substrate/frame/support/src/traits/members.rs, traits.rs\n`\nVerified no in-repo references before removal\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-06-04T10:45:01Z",
+          "tree_id": "429c7f01390b308f47aff269e604ccf5038bcfc8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4c3f27eabec8cad635195d61ebf9fa00f347e2ac"
+        },
+        "date": 1780578502594,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.14599999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038523042598,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08645420280599989,
             "unit": "seconds"
           }
         ]
