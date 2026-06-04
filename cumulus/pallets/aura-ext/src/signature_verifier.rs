@@ -89,21 +89,16 @@ where
 			None => return false,
 		};
 
-		// 3. Look up the eligible Aura author. Use the cached authority set rather than
-		//    `pallet_aura::Authorities` because aura-ext's cache is captured at on_initialize for
-		//    verification of the current PoV. Delegate the slot → index mapping to
-		//    `pallet_aura::Pallet::slot_author_index` so the algorithm stays in sync with
-		//    pallet-aura itself — the dependency on Aura as the (current) sole supported consensus
-		//    is explicit, and any future change to author selection lands in one place.
+		// 3. Look up the eligible Aura author.
 		let authorities = Authorities::<T>::get();
-		let author_idx = match pallet_aura::Pallet::<T>::slot_author_index(
-			Slot::from(para_slot),
-			authorities.len(),
-		) {
+		let author_idx = match pallet_aura::Pallet::<T>::slot_author_index(Slot::from(para_slot)) {
 			Some(idx) => idx as usize,
 			None => return false,
 		};
-		let author = &authorities[author_idx];
+		let author = match authorities.get(author_idx) {
+			Some(author) => author,
+			None => return false,
+		};
 
 		// 4. Decode the 64-byte signature blob as the authority's expected signature type and
 		//    verify over the encoded SchedulingInfoPayload.

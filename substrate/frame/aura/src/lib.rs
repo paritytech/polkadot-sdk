@@ -267,9 +267,10 @@ impl<T: Config> Pallet<T> {
 		Authorities::<T>::decode_len().unwrap_or(0)
 	}
 
-	/// Map a slot to an author index in an authority set of size `authorities_count`,
-	/// or `None` if the set is empty.
-	pub fn slot_author_index(slot: Slot, authorities_count: usize) -> Option<u32> {
+	/// Map a slot to an author index in the current authority set, or `None` if the set is
+	/// empty. The set size is read from [`Authorities`].
+	pub fn slot_author_index(slot: Slot) -> Option<u32> {
+		let authorities_count = Self::authorities_len();
 		if authorities_count == 0 {
 			return None;
 		}
@@ -338,8 +339,8 @@ impl<T: Config> Pallet<T> {
 		frame_support::ensure!(!authorities_len.is_zero(), "Authorities must be non-empty.");
 
 		// Check that the current authority is not disabled.
-		let authority_index = Self::slot_author_index(current_slot, authorities_len)
-			.ok_or("Authorities must be non-empty.")?;
+		let authority_index =
+			Self::slot_author_index(current_slot).ok_or("Authorities must be non-empty.")?;
 		frame_support::ensure!(
 			!T::DisabledValidators::is_disabled(authority_index),
 			"Current validator is disabled and should not be attempting to author blocks.",
@@ -417,7 +418,7 @@ impl<T: Config> FindAuthor<u32> for Pallet<T> {
 		for (id, mut data) in digests.into_iter() {
 			if id == AURA_ENGINE_ID {
 				let slot = Slot::decode(&mut data).ok()?;
-				return Self::slot_author_index(slot, Self::authorities_len());
+				return Self::slot_author_index(slot);
 			}
 		}
 
