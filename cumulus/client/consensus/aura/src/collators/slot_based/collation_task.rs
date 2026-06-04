@@ -140,18 +140,14 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 		validation_data,
 	} = message;
 
-	let (collation, block_data) = match collator_service.build_multi_block_collation(
-		&parent_header,
-		blocks,
-		proof,
-		None,
-	) {
-		Some(collation) => collation,
-		None => {
-			tracing::warn!(target: LOG_TARGET, ?core_index, "Unable to build collation.");
-			return;
-		},
-	};
+	let (collation, block_data) =
+		match collator_service.build_multi_block_collation(&parent_header, blocks, proof, None) {
+			Some(collation) => collation,
+			None => {
+				tracing::warn!(target: LOG_TARGET, ?core_index, "Unable to build collation.");
+				return;
+			},
+		};
 
 	block_data.log_size_info();
 
@@ -326,13 +322,10 @@ async fn handle_segment_message<Block: BlockT, RClient: RelayChainInterface + Cl
 			});
 		},
 		SegmentKind::ResubmitOnly => {
-			// TODO: merge with held unincluded segment. For now this branch produces an empty
-			// submission and is a no-op downstream.
+			if collations.is_empty() {
+				return;
+			}
 		},
-	}
-
-	if collations.is_empty() {
-		return;
 	}
 
 	overseer_handle
