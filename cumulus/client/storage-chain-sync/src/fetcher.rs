@@ -110,7 +110,7 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 	}
 
 	/// Resolve a batch of indexed-transaction hashes via bitswap, rotating across up to
-	/// [`MAX_PEERS_PER_IMPORT`] peers. Returns only successfully fetched entries.
+	/// `MAX_PEERS_PER_IMPORT` peers. Returns only successfully fetched entries.
 	pub async fn fetch_many(
 		&self,
 		wants: &[(ContentHash, HashingAlgorithm)],
