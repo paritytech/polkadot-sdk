@@ -70,11 +70,11 @@ pub struct CollatorDiscoveryConfig {
 	pub protocol: ProtocolName,
 }
 
-/// Parameters for [`maybe_start_collator_discovery`].
+/// Parameters for [`start_collator_discovery`].
 pub struct StartCollatorDiscoveryParams<Block: BlockT, Client, AD, NetEventStream> {
-	/// True if this node is a collator. Only collators must run AD.
-	pub is_validator: bool,
-	/// `0` disables collator discovery.
+	/// Upper bound on the number of authority peers the node reserves slots for.
+	/// `start_collator_discovery` should not be called on non-collators or
+	/// when `max_reserved` is 0.
 	pub max_reserved: usize,
 	pub client: Arc<Client>,
 	/// Usually the same `Arc` as `client`.
@@ -96,8 +96,10 @@ pub struct StartCollatorDiscoveryParams<Block: BlockT, Client, AD, NetEventStrea
 	pub spawn_handle: SpawnTaskHandle,
 }
 
-/// Start parachain collator discovery; no-op unless `is_validator` and `max_reserved > 0`.
-pub fn maybe_start_collator_discovery<Block, Client, AD, NetEventStream>(
+/// Spawn the authority-discovery worker and the parachain reserved-peer refresh task.
+///
+/// Only call this on collators with `max_reserved > 0`.
+pub fn start_collator_discovery<Block, Client, AD, NetEventStream>(
 	params: StartCollatorDiscoveryParams<Block, Client, AD, NetEventStream>,
 ) -> Result<(), prometheus_endpoint::PrometheusError>
 where
@@ -108,7 +110,6 @@ where
 	NetEventStream: futures::Stream<Item = sc_network::Event> + Send + Unpin + 'static,
 {
 	let StartCollatorDiscoveryParams {
-		is_validator,
 		max_reserved,
 		client,
 		authority_discovery,
@@ -125,10 +126,6 @@ where
 		spawn_handle,
 	} = params;
 
-	if !is_validator || max_reserved == 0 {
-		return Ok(());
-	}
-
 	let protocol: ProtocolName =
 		block_announces_protocol_name(genesis_hash, fork_id.as_deref()).into();
 
@@ -140,7 +137,7 @@ where
 		}
 	});
 
-	start_collator_discovery::<Block, _, _, _>(
+	spawn_collator_discovery_tasks::<Block, _, _, _>(
 		CollatorDiscoveryConfig { max_reserved, protocol },
 		client,
 		authority_discovery,
@@ -157,7 +154,7 @@ where
 }
 
 /// Spawn the authority-discovery worker and refresh task; returns immediately.
-fn start_collator_discovery<Block, Client, AD, DhtStream>(
+fn spawn_collator_discovery_tasks<Block, Client, AD, DhtStream>(
 	config: CollatorDiscoveryConfig,
 	client: Arc<Client>,
 	authority_discovery: Arc<AD>,
@@ -205,13 +202,7 @@ where
 		worker.run(),
 	);
 
-	log::info!(
-		target: LOG_TARGET,
-		"Starting collator discovery: max_reserved={}, protocol={}, reresolve_interval={:?}",
-		config.max_reserved,
-		config.protocol,
-		TRY_RERESOLVE_AUTHORITIES,
-	);
+	log::info!(target: LOG_TARGET, "Starting collator discovery");
 
 	spawn_handle.spawn(
 		"collator-discovery",
@@ -251,51 +242,56 @@ async fn discovery_refresh_loop<Block, Client, AD>(
 
 	let local_peer_id = network.local_peer_id();
 	let mut state = LoopState::new();
-	let mut ad_enabled = false;
 
+	// Wait for the runtime to expose `AuthorityDiscoveryApi`.
 	loop {
-		// Read the authority set from the latest *finalized* parachain block so all
-		// collators converge on the same ring across short-lived forks.
 		let at = client.info().finalized_hash;
-		if !ad_enabled {
-			ad_enabled = client
-				.runtime_api()
-				.has_api::<dyn AuthorityDiscoveryApi<Block>>(at)
-				.unwrap_or(false);
-			log::debug!(
-				target: LOG_TARGET,
-				"AuthorityDiscoveryApi at {at:?}: {}",
-				if ad_enabled { "enabled" } else { "disabled" },
-			);
-		}
+		let ad_enabled = client
+			.runtime_api()
+			.has_api::<dyn AuthorityDiscoveryApi<Block>>(at)
+			.unwrap_or(false);
+		log::trace!(
+			target: LOG_TARGET,
+			"AuthorityDiscoveryApi at {at:?}: {}",
+			if ad_enabled { "enabled" } else { "disabled" },
+		);
 		if ad_enabled {
-			let local_pub_keys: HashSet<AuthorityId> = keystore
-				.sr25519_public_keys(key_types::AUTHORITY_DISCOVERY)
-				.into_iter()
-				.map(AuthorityId::from)
-				.collect();
-			update_parachain_authorities(
-				&*authority_discovery,
-				&*network,
-				&sync_service,
-				&mut authority_discovery_service,
-				&local_pub_keys,
-				local_peer_id,
-				max_reserved,
-				&protocol,
-				&mut state,
-				metrics.as_ref(),
-				at,
-			)
-			.await;
+			break;
 		}
+		Delay::new(TRY_RERESOLVE_AUTHORITIES).await;
+	}
+
+	// Refresh the reserved/no-slot peer sets every [`TRY_RERESOLVE_AUTHORITIES`].
+	loop {
+		// Get authority set at the latest *finalized* block so all collators converge
+		// on the same in the presences of forks.
+		let at = client.info().finalized_hash;
+		let local_pub_keys: HashSet<AuthorityId> = keystore
+			.sr25519_public_keys(key_types::AUTHORITY_DISCOVERY)
+			.into_iter()
+			.map(AuthorityId::from)
+			.collect();
+		update_parachain_authorities(
+			&*authority_discovery,
+			&*network,
+			&sync_service,
+			&mut authority_discovery_service,
+			&local_pub_keys,
+			local_peer_id,
+			max_reserved,
+			&protocol,
+			&mut state,
+			metrics.as_ref(),
+			at,
+		)
+		.await;
 		Delay::new(TRY_RERESOLVE_AUTHORITIES).await;
 	}
 }
 
 /// Loop-local state: last applied snapshot + low-connectivity bookkeeping.
 struct LoopState {
-	last_authorities: Option<Vec<AuthorityId>>,
+	last_authorities: Option<HashSet<AuthorityId>>,
 	last_addrs: Option<HashSet<Multiaddr>>,
 	/// When we first dropped below the connectivity warning threshold; `None` if above it.
 	low_connectivity_since: Option<Instant>,
@@ -322,36 +318,19 @@ fn select_ring_neighbors(
 	authorities: Vec<AuthorityId>,
 	local_pub_keys: &HashSet<AuthorityId>,
 	max_reserved: usize,
-) -> Vec<AuthorityId> {
+) -> HashSet<AuthorityId> {
 	let n = authorities.len();
 	if n == 0 || max_reserved == 0 {
-		return Vec::new();
+		return HashSet::new();
 	}
-
 	let Some(local_idx) = authorities.iter().position(|id| local_pub_keys.contains(id)) else {
-		return Vec::new();
+		return HashSet::new();
 	};
 
-	let mut selected = Vec::with_capacity(max_reserved.min(n.saturating_sub(1)));
-	for d in 1..=(n / 2) {
-		let right = (local_idx + d) % n;
-		let left = (local_idx + n - d) % n;
-
-		// At the antipode (even `n`, `d == n / 2`) both sides point at the same node.
-		let mut shell: Vec<usize> = if right == left { vec![right] } else { vec![right, left] };
-		// Never reserve our own keys (relevant only if this node holds several).
-		shell.retain(|&idx| !local_pub_keys.contains(&authorities[idx]));
-		if shell.is_empty() {
-			continue;
-		}
-		// Only take a shell if it fits whole, so we never keep one side and drop its mirror.
-		if selected.len() + shell.len() > max_reserved {
-			break;
-		}
-		selected.extend(shell.into_iter().map(|idx| authorities[idx].clone()));
-	}
-
-	selected
+	let half = max_reserved / 2;
+	let right = authorities.iter().cycle().skip(local_idx + 1).take(half);
+	let left = authorities.iter().cycle().skip(local_idx + n.saturating_sub(half)).take(half);
+	right.chain(left).filter(|id| !local_pub_keys.contains(id)).cloned().collect()
 }
 
 /// Resolve authority multiaddrs and push updated reserved/no-slot peer sets if anything
@@ -433,7 +412,7 @@ async fn update_parachain_authorities<Block, AD>(
 ///
 /// Drops multiaddrs that resolve to our own libp2p PeerId.
 async fn resolve_authority_addresses(
-	authorities: &[AuthorityId],
+	authorities: &HashSet<AuthorityId>,
 	service: &mut sc_authority_discovery::Service,
 	local_peer_id: PeerId,
 ) -> (HashSet<Multiaddr>, usize) {
@@ -557,40 +536,38 @@ mod tests {
 	fn ring_picks_immediate_neighbors_with_min_budget() {
 		// Local at index 2 in a ring of 5; budget 2 -> exactly N-1 (1) and N+1 (3).
 		let selected = select_ring_neighbors(ring(5), &local_set(2), 2);
-		assert_eq!(selected, vec![authority_id(3), authority_id(1)]);
+		assert_eq!(selected, HashSet::from([authority_id(3), authority_id(1)]));
 	}
 
 	#[test]
 	fn ring_wraps_around_at_the_ends() {
 		// Local at index 0; neighbors are index 1 (right) and index 4 (wrapped left).
 		let selected = select_ring_neighbors(ring(5), &local_set(0), 2);
-		assert_eq!(selected, vec![authority_id(1), authority_id(4)]);
+		assert_eq!(selected, HashSet::from([authority_id(1), authority_id(4)]));
 	}
 
 	#[test]
 	fn ring_grows_balanced_on_both_sides() {
-		// Budget 4 around index 2: shell d=1 {3,1}, shell d=2 {4,0}.
+		// Budget 4 around index 2: right {3,4}, left {0,1}.
 		let selected = select_ring_neighbors(ring(5), &local_set(2), 4);
 		assert_eq!(
 			selected,
-			vec![authority_id(3), authority_id(1), authority_id(4), authority_id(0)]
+			HashSet::from([authority_id(3), authority_id(1), authority_id(4), authority_id(0)]),
 		);
 	}
 
 	#[test]
 	fn ring_odd_budget_leaves_one_slot_unused_to_stay_symmetric() {
-		// Budget 3 around index 2: only the full d=1 shell {3,1} fits; the d=2 shell can't be
-		// added whole, so we stop at 2 rather than break symmetry.
+		// Budget 3 around index 2: half = 1 on each side -> {3} right, {1} left; one slot unused.
 		let selected = select_ring_neighbors(ring(5), &local_set(2), 3);
-		assert_eq!(selected, vec![authority_id(3), authority_id(1)]);
+		assert_eq!(selected, HashSet::from([authority_id(3), authority_id(1)]));
 	}
 
 	#[test]
 	fn ring_becomes_full_mesh_when_budget_covers_everyone() {
 		let selected = select_ring_neighbors(ring(5), &local_set(2), 100);
-		let got: HashSet<_> = selected.into_iter().collect();
 		let expected: HashSet<_> = [0u8, 1, 3, 4].into_iter().map(authority_id).collect();
-		assert_eq!(got, expected);
+		assert_eq!(selected, expected);
 	}
 
 	#[test]
@@ -601,9 +578,10 @@ mod tests {
 
 	#[test]
 	fn ring_handles_even_antipode_without_duplicates() {
-		// n = 4, local at 0: d=1 -> {1,3}, d=2 -> antipode {2} (single node, no dup).
+		// n = 4, local at 0: half = 2 on each side. Right covers {1,2}, left covers {2,3};
+		// the antipode (2) appears in both and is deduped by the HashSet.
 		let selected = select_ring_neighbors(ring(4), &local_set(0), 100);
-		assert_eq!(selected, vec![authority_id(1), authority_id(3), authority_id(2)]);
+		assert_eq!(selected, HashSet::from([authority_id(1), authority_id(2), authority_id(3)]),);
 	}
 
 	#[test]

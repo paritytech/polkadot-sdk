@@ -128,9 +128,22 @@ impl<B: BlockT> SyncingService<B> {
 		let _ = self.tx.unbounded_send(ToServiceCommand::OnBlockFinalized(hash, header));
 	}
 
-	/// Replace the dynamic no-slot peer set. Peers bypass `--in-peers` accounting;
-	/// call this alongside `NetworkService::set_reserved_peers` to keep reserved peers
-	/// off the inbound slot budget.
+	/// Replace the dynamic set of no-slot peer set.
+	///
+	/// The engine maintains a per-role inbound-peer counter on top of the underlying network's
+	/// reserved-peer handling (since https://github.com/paritytech/substrate/pull/14603) to ensure the
+	/// `--in-peers` budget is enforced specifically for full peers in default notification set.
+	/// A peer in either the static (config-time) or dynamic (this)
+	/// no-slot set bypasses that counter, exactly mirroring what reserved-peer handling does at
+	/// the network layer.
+	///
+	/// Each call replaces the dynamic set. The engine reconciles against its previous dynamic set.
+	/// Peers added are promoted (taken off the inbound budget). Peers removed are demoted
+	/// (counted again, or disconnected if doing so would now exceed `--in-peers`).
+	///
+	/// Callers that maintain a dynamic reserved-peer relationship (e.g. parachain
+	/// collator-discovery) must call this in lockstep with `set_reserved_peers` using the same
+	/// peer set, so the two layers stay in sync.
 	pub fn set_no_slot_peers(&self, peers: HashSet<PeerId>) {
 		let _ = self.tx.unbounded_send(ToServiceCommand::SetNoSlotPeers(peers));
 	}
