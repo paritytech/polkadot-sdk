@@ -25,7 +25,7 @@ use alloc::{collections::BTreeSet, vec::Vec};
 use frame_support::BoundedVec;
 use sp_core::{ConstU32, H160};
 
-use crate::limits;
+use crate::{exec::Key, limits};
 
 /// Inline-storage cap for `Slot::VarInline`. Covers word-sized keys (`H160`,
 /// `H256`, `AccountId32`). `Slot` stays 40 bytes for any cap up to ~38, at no
@@ -84,6 +84,24 @@ pub enum Slot {
 	/// Variable-length key longer than [`MAX_INLINE_KEY_LEN`], up to
 	/// `limits::STORAGE_KEY_BYTES`.
 	VarLong(BoundedVec<u8, ConstU32<{ limits::STORAGE_KEY_BYTES }>>),
+}
+
+impl From<&Key> for Slot {
+	fn from(key: &Key) -> Self {
+		match key {
+			Key::Fix(v) => Slot::Fix(*v),
+			Key::Var(v) => {
+				let raw: &[u8] = v.as_ref();
+				if raw.len() <= MAX_INLINE_KEY_LEN {
+					let mut bytes = [0u8; MAX_INLINE_KEY_LEN];
+					bytes[..raw.len()].copy_from_slice(raw);
+					Slot::VarInline { bytes, len: raw.len() as u8 }
+				} else {
+					Slot::VarLong(v.clone())
+				}
+			},
+		}
+	}
 }
 
 /// Classification of a storage access for pricing.

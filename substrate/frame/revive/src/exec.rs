@@ -19,7 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{AccessEntry, AccessList, MAX_INLINE_KEY_LEN, Slot, StorageAccessKind},
+	access_list::{AccessEntry, AccessList, StorageAccessKind},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -107,23 +107,6 @@ impl Key {
 		match self {
 			Key::Fix(v) => blake2_256(v.as_slice()).to_vec(),
 			Key::Var(v) => Blake2_128Concat::hash(v.as_slice()),
-		}
-	}
-
-	/// Project to a [`Slot`] for access-list keying.
-	pub(crate) fn to_slot(&self) -> Slot {
-		match self {
-			Key::Fix(v) => Slot::Fix(*v),
-			Key::Var(v) => {
-				let raw: &[u8] = v.as_ref();
-				if raw.len() <= MAX_INLINE_KEY_LEN {
-					let mut bytes = [0u8; MAX_INLINE_KEY_LEN];
-					bytes[..raw.len()].copy_from_slice(raw);
-					Slot::VarInline { bytes, len: raw.len() as u8 }
-				} else {
-					Slot::VarLong(v.clone())
-				}
-			},
 		}
 	}
 
@@ -2603,7 +2586,7 @@ where
 		}
 		let address = self.address();
 		StorageAccessKind::Persistent(
-			self.access_list.touch(AccessEntry { address, slot: key.to_slot() }),
+			self.access_list.touch(AccessEntry { address, slot: key.into() }),
 		)
 	}
 
@@ -2613,7 +2596,7 @@ where
 		}
 		let address = self.address();
 		StorageAccessKind::Persistent(
-			self.access_list.peek(&AccessEntry { address, slot: key.to_slot() }),
+			self.access_list.peek(&AccessEntry { address, slot: key.into() }),
 		)
 	}
 

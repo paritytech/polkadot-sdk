@@ -1864,9 +1864,9 @@ mod benchmarks {
 	}
 
 	fn worst_case_slot() -> crate::access_list::Slot {
-		Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
-			.expect("key fits STORAGE_KEY_BYTES bound; qed")
-			.to_slot()
+		let key = Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
+			.expect("key fits STORAGE_KEY_BYTES bound; qed");
+		crate::access_list::Slot::from(&key)
 	}
 
 	fn near_full_access_list() -> crate::access_list::AccessList {
