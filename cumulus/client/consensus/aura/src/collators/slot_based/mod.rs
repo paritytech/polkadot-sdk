@@ -222,7 +222,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	UnincludedSegmentStore::<Block, _>::new(para_client.clone()).register_cleanup();
 
 	let (collation_tx, collation_rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
-	let (segment_tx, segment_rx) = tracing_unbounded("mpsc_builder_to_collator_segment", 100);
+	let (resubmit_tx, resubmit_rx) = tracing_unbounded("mpsc_builder_to_collator_resubmit", 100);
 	let collator_task_params = collation_task::Params {
 		relay_client: relay_client.clone(),
 		collator_key,
@@ -230,7 +230,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		reinitialize,
 		collator_service: collator_service.clone(),
 		collator_receiver: collation_rx,
-		segment_receiver: segment_rx,
+		resubmit_receiver: resubmit_rx,
 		block_import_handle,
 		export_pov,
 	};
@@ -250,7 +250,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		proposer,
 		collator_service,
 		collator_sender: collation_tx,
-		segment_sender: segment_tx,
+		resubmit_sender: resubmit_tx,
 		relay_chain_slot_duration,
 		slot_offset,
 		max_pov_percentage,
@@ -290,25 +290,20 @@ struct CollatorMessage<Block: BlockT> {
 	pub validation_data: PersistedValidationData,
 }
 
-/// Segment message sent from the block builder for V3/V4 candidates. Routed to
-/// [`CollationGenerationMessage::SubmitSegment`] by the collation task. The collation task
-/// resubmits the held unincluded segment alongside the new bundle (if any) under the shared
-/// `scheduling_proof` and to the `core_index` specified here.
-struct CollatorSegmentMessage<Block: BlockT> {
-	/// Scheduling proof shared by every entry in the segment. `signed_scheduling_info` is
-	/// `Some` whenever any prior unincluded entry is being resubmitted.
+/// V3/V4 resubmit-segment message sent by the block builder. Routed to
+/// [`CollationGenerationMessage::SubmitSegment`] by the collation task.
+struct CollatorResubmitSegment<Block: BlockT> {
+	/// Scheduling proof shared by every entry in the submitted segment.
 	pub scheduling_proof: SchedulingProof,
-	/// Target core for the whole segment submission.
-	pub core_index: CoreIndex,
-	/// Whether this message carries a freshly-built bundle or signals "resubmit the held prior
-	/// alone, the builder produced nothing this slot".
+	/// Whether this message carries a freshly-built block or signals resubmit-only.
 	pub kind: SegmentKind<Block>,
 }
 
-/// Kind of segment message: with a fresh bundle to merge, or resubmit-only.
+/// Kind of resubmit-segment message. The target `CoreIndex` is read from `bundle.core_index` in
+/// the `WithBundle` case and carried explicitly in the `ResubmitOnly` case.
 enum SegmentKind<Block: BlockT> {
-	/// New bundle to merge with the held prior unincluded segment.
+	/// A freshly-built block to submit.
 	WithBundle { bundle: CollatorMessage<Block> },
-	/// No new bundle this slot — collation task should resubmit the held prior alone.
-	ResubmitOnly,
+	/// Resubmit only — no freshly-built block this slot.
+	ResubmitOnly { core_index: CoreIndex },
 }

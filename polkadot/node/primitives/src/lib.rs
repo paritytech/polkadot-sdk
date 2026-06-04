@@ -576,9 +576,13 @@ pub struct SegmentCollation {
 
 /// Parameters for `CollationGenerationMessage::SubmitSegment`.
 ///
-/// Submits multiple collations that share a common scheduling parent and target core. Each
+/// Submits a segment of collations that share a common scheduling parent and target core. Each
 /// [`SegmentCollation`] in `collations` carries the fields that may differ between blocks of the
 /// segment (relay parent, collation payload, validation data, etc.).
+///
+/// **Currently restricted to `collations.len() == 1`.** The collation-generation subsystem drops
+/// submissions with more than one entry (the V4 collator-protocol work will lift this and
+/// distribute the whole segment as a single unit).
 #[derive(Debug)]
 pub struct SubmitSegmentParams {
 	/// The scheduling parent shared by every collation in the segment. Segments are V3/V4-only,
@@ -588,7 +592,8 @@ pub struct SubmitSegmentParams {
 	pub scheduling_parent: Hash,
 	/// The core index on which the resulting candidates should be backed.
 	pub core_index: CoreIndex,
-	/// The collations in this segment, in the order they should be submitted.
+	/// The collations in this segment, in the order they should be submitted. Must currently
+	/// contain exactly one entry; see the type-level note above.
 	pub collations: Vec<SegmentCollation>,
 }
 
