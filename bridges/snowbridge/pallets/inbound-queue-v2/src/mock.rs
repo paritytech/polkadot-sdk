@@ -182,7 +182,7 @@ impl inbound_queue_v2::Config for Test {
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = MockRewardLedger;
 	#[cfg(feature = "runtime-benchmarks")]
-	type MaxProofNodes = frame_support::traits::ConstU32<32>;
+	type MaxProofNodes = frame_support::traits::ConstU32<16>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type MaxReceiptBytes = frame_support::traits::ConstU32<8192>;
 }
@@ -370,7 +370,7 @@ pub mod exploit {
 		type DefaultRewardKind = SnowbridgeReward;
 		type RewardPayment = MockRewardLedger;
 		#[cfg(feature = "runtime-benchmarks")]
-		type MaxProofNodes = ConstU32<32>;
+		type MaxProofNodes = ConstU32<16>;
 		#[cfg(feature = "runtime-benchmarks")]
 		type MaxReceiptBytes = ConstU32<8192>;
 	}

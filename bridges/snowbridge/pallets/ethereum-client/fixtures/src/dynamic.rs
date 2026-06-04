@@ -15,11 +15,11 @@
 //! Construction layers, bottom-up:
 //!
 //! 1. Build a real receipts trie via `alloy_trie::HashBuilder` whose inclusion proof for the
-//!    retained leaf has exactly `n` nodes. The retained leaf holds an Eip1559 receipt whose
-//!    primary log matches the verifier's expected event log; the log's `data` field is sized so
-//!    the encoded envelope is `s` bytes. To make the proof path cross `n` distinct nodes we add
-//!    `n - 1` cheap sibling leaves, each diverging from the retained key at a successive nibble
-//!    depth so a branch node is forced at every depth `0..n-1` (see [`build_receipts_trie`]).
+//!    retained leaf has exactly `n` nodes. The retained leaf holds an Eip1559 receipt whose primary
+//!    log matches the verifier's expected event log; the log's `data` field is sized so the encoded
+//!    envelope is `s` bytes. To make the proof path cross `n` distinct nodes we add `n - 1` cheap
+//!    sibling leaves, each diverging from the retained key at a successive nibble depth so a branch
+//!    node is forced at every depth `0..n-1` (see [`build_receipts_trie`]).
 //! 2. Construct an `ExecutionPayloadHeader` whose `receipts_root` is the trie root from (1).
 //!    Compute its SSZ `hash_tree_root` — call it `execution_header_root`.
 //! 3. Pick `execution_branch` as `EXECUTION_HEADER_DEPTH` zero hashes. Compute the `body_root` by
@@ -206,11 +206,11 @@ pub fn build_dynamic_fixture_with_log(n: u32, s: u32, log: LogTemplate) -> Dynam
 /// first nibble, leaving a shallow ~2-node path regardless of `n`. Instead we keep a single
 /// target key and force a branch node at every depth along its path:
 ///
-/// - The retained key is `rlp(BENCH_TARGET_TX_INDEX)`, chosen so the key has enough nibbles
-///   (16) to force proof paths above `MaxProofNodes`; see [`BENCH_TARGET_TX_INDEX`].
-/// - For each depth `i` in `0..n-1` we add one sibling leaf sharing the first `i` nibbles of
-///   the target key and diverging at nibble `i`. Each divergence forces a branch node at depth
-///   `i`, so the target path crosses `n - 1` branch nodes plus the terminal leaf = `n` nodes.
+/// - The retained key is `rlp(BENCH_TARGET_TX_INDEX)`, chosen so the key has enough nibbles (16) to
+///   force proof paths above `MaxProofNodes`; see [`BENCH_TARGET_TX_INDEX`].
+/// - For each depth `i` in `0..n-1` we add one sibling leaf sharing the first `i` nibbles of the
+///   target key and diverging at nibble `i`. Each divergence forces a branch node at depth `i`, so
+///   the target path crosses `n - 1` branch nodes plus the terminal leaf = `n` nodes.
 /// - Sibling values are a single byte: only their 32-byte hashes appear in the branch nodes, so
 ///   they add no meaningful synthesis cost.
 fn build_receipts_trie(n: u32, s: u32, log: &LogTemplate) -> (H256, Vec<Vec<u8>>, Log) {
