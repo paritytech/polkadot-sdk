@@ -1,7 +1,13 @@
 # CLAUDE.md — statement-store DHT feature (work in progress)
 
-**While this file exists, work in `substrate/client/network/statement/` is part of the
-statement-store DHT-affinity feature: https://github.com/paritytech/polkadot-sdk/issues/11932**
+**While this file exists, work across the statement-store crates is part of the statement-store
+DHT-affinity feature: https://github.com/paritytech/polkadot-sdk/issues/11932** The feature spans:
+
+- `substrate/client/network/statement/` — the gossip protocol (this crate).
+- `substrate/client/statement-store/` — the statement store itself.
+- `substrate/primitives/statement-store/` — the shared `no_std` types.
+
+Apply this file's conventions when touching any of them.
 
 **Before merging `feature/statement-store-dht` into `master`, remove this file and any other
 AI-only helper files added for this work** — they must not reach `master`.
@@ -27,7 +33,7 @@ design document and split across coordinated sub-issues:
 - #11938 — rollout plan for the protocol change
 - #11288 — light node support
 
-## Layout
+## Layout (this crate)
 
 - `lib.rs` — `StatementHandler` event loop and the v1 flood path (current production path).
 - `affinity.rs` — `AffinityFilter`, the bloom filter a node advertises to peers.
