@@ -18,18 +18,24 @@
 
 //! DHT-targeted gossip path for the statement protocol.
 
+mod explicit_affinity;
+
 use crate::{affinity::AffinityFilter, LOG_TARGET};
+use explicit_affinity::ExplicitAffinity;
 use sc_network_types::PeerId;
 use sp_statement_store::SubmitResult;
 
 /// Coordinates the v2 DHT-affinity statement gossip path.
 #[allow(dead_code)]
-pub(crate) struct V2DhtOrchestrator {}
+pub(crate) struct V2DhtOrchestrator {
+	/// Tracks the local node's topic affinity and the filters peers advertise.
+	explicit_affinity: ExplicitAffinity,
+}
 
 #[allow(dead_code)]
 impl V2DhtOrchestrator {
 	pub(crate) fn new() -> Self {
-		Self {}
+		Self { explicit_affinity: ExplicitAffinity::new() }
 	}
 
 	// === Peer-set events ===
