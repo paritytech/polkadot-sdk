@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780578573532,
+  "lastUpdate": 1780611879013,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "6d647465b3d3ab2ed8839c6a3fa3d456b545b011",
-          "message": "Lazy decode block extrinsics (#9480)\n\nRelated to https://github.com/paritytech/polkadot-sdk/issues/4255\n\nAddresses\nhttps://github.com/paritytech/polkadot-sdk/pull/7902#pullrequestreview-3079855302\n\nThis PR enables us to lazily decode the block extrinsics when needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-21T13:06:53Z",
-          "tree_id": "b8d830a3e42ab4d72a0637b4bae61c0c944103ad",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6d647465b3d3ab2ed8839c6a3fa3d456b545b011"
-        },
-        "date": 1761057101058,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005192782299999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008714926229999986,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026643278600000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00250782831,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e280d34752097ec61112bef06d10ba24306e8aa4",
+          "message": "Remove deprecated match_type macro from frame-support (#12249)\n\n# Description\n\nRemoves deprecated `frame_support::match_type!` as part of #11561.\n\n`match_type!` was a thin alias for `match_types!` with no remaining\nusage in this repository.\n\n## Integration\n\n```diff\n- frame_support::match_type! { ... }\n+ frame_support::match_types! { ... }\n```\n\nReview Notes\nSingle-file change: substrate/frame/support/src/traits/members.rs\nVerified no in-repo references before removal\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-06-04T20:20:23Z",
+          "tree_id": "c07e11b74bb3205b6ea8f3a895a8a88f0ded2f20",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e280d34752097ec61112bef06d10ba24306e8aa4"
+        },
+        "date": 1780611846828,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010290396949999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002613248190000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009207544159999977,
             "unit": "seconds"
           }
         ]
