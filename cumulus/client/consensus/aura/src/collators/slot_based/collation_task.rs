@@ -229,7 +229,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 /// lookup fails are skipped — they do not abort the whole segment.
 async fn handle_resubmit_segment<Block: BlockT, RClient: RelayChainInterface + Clone + 'static>(
 	message: CollatorResubmitSegment<Block>,
-	mut collations: Vec<SegmentCollation<Block>>,
+	mut collations: Vec<SegmentCollation>,
 	collator_service: &impl CollatorServiceInterface<Block>,
 	overseer_handle: &mut OverseerHandle,
 	relay_client: RClient,
