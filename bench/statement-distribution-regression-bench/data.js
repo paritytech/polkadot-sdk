@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780389973272,
+  "lastUpdate": 1780561696387,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b6ef912d74af2c43b90f542e09b74abe061ff859",
-          "message": "pallet_revive: when a dry run simulates contract deployment, return the execution result data. (#10032)\n\nFixes https://github.com/paritytech/contract-issues/issues/177\n\nExpose the deployed contract's runtime bytecode in eth_call responses\nduring simulated contract creation.\n\nThe test from issue\nhttps://github.com/paritytech/contract-issues/issues/177 sends an\neth_call request without a destination address, while providing contract\nbytecode in the data field. This simulates a contract creation\ntransaction. The test expects the RPC response to return the result of\nexecuting the init code, which is the deployed contract's runtime\nbytecode. While this result is not returned in actual deployments, it is\nexpected in dry-run simulations.\n\n---------\n\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-20T15:34:23Z",
-          "tree_id": "604d5347b0a64183e4502f179bae670c63f754a1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b6ef912d74af2c43b90f542e09b74abe061ff859"
-        },
-        "date": 1760980248697,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95199999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044823910625999934,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034412543400000016,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.086380686762,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "75fa398d27fd995f1cffcf8eab9de0d6a4d6583a",
+          "message": "Cumulus test runtime: fix + cleanup (#12231)\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/11991\nRelated to https://github.com/paritytech/polkadot-sdk/issues/11624 \n\nThis PR:\n\n- fixes the unincluded_segment_capacity for async backing flavors of the\ncumulus test runtime\n- cleans up the cumulus test runtime configs\n\n---------\n\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2026-06-04T06:10:25Z",
+          "tree_id": "dbcab6224cdc8cb65d6ce26280e2275bb98693dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/75fa398d27fd995f1cffcf8eab9de0d6a4d6583a"
+        },
+        "date": 1780561667906,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.10800000000003,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03818244286,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08245786032199995,
             "unit": "seconds"
           }
         ]
