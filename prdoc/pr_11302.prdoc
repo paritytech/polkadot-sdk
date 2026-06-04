@@ -12,8 +12,6 @@ doc:
     `worst_case_barrier_check()` config method) to measure that weight. Westend and the Westend
     system parachains (Asset Hub, Bridge Hub, Collectives, Coretime, People) wire their executor
     `Weigher` to report the benchmarked value.
-
-    Closes #7965.
 crates:
 - name: staging-xcm-executor
   bump: minor
