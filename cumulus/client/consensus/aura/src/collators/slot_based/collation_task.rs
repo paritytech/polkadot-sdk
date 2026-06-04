@@ -110,7 +110,11 @@ pub async fn run_collation_task<Block, RClient, CS>(
 					return;
 				};
 
-				handle_resubmit_segment(message, &collator_service, &mut overseer_handle, relay_client.clone(), export_pov.clone()).await;
+				// Seed the segment with the current unincluded-segment collations. Empty for now;
+				// future resubmission machinery — the layer that computes and keeps the unincluded
+				// segment up to date across parachain slots — will populate this before dispatch.
+				let collations = Vec::new();
+				handle_resubmit_segment(message, collations, &collator_service, &mut overseer_handle, relay_client.clone(), export_pov.clone()).await;
 			},
 			block_import_msg = block_import_handle.next().fuse() => {
 				// TODO: Implement me.
@@ -225,6 +229,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 /// lookup fails are skipped — they do not abort the whole segment.
 async fn handle_resubmit_segment<Block: BlockT, RClient: RelayChainInterface + Clone + 'static>(
 	message: CollatorResubmitSegment<Block>,
+	mut collations: Vec<SegmentCollation<Block>>,
 	collator_service: &impl CollatorServiceInterface<Block>,
 	overseer_handle: &mut OverseerHandle,
 	relay_client: RClient,
@@ -232,8 +237,6 @@ async fn handle_resubmit_segment<Block: BlockT, RClient: RelayChainInterface + C
 ) {
 	let CollatorResubmitSegment { scheduling_proof, kind } = message;
 	let scheduling_parent = scheduling_proof.scheduling_parent();
-
-	let mut collations = Vec::new();
 	let core_index = match kind {
 		SegmentKind::WithBundle { bundle } => {
 			let CollatorMessage {
