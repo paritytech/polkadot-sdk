@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780561622446,
+  "lastUpdate": 1780574831619,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "de740e1892f47e91c356858324f6e3e4b0f1be60",
-          "message": "Limit the size of the statement for further gossiping (#9965)\n\n# Description\n\nLimits the size of statements that are further gossiped over the network\nto prevent skipping oversized messages. The limit is set to match the\nnetwork protocol's max statement notification size (1 MB), accounting\nfor 1-byte vector length overhead because statements are sent as\n`Vec<Statement>`.\n\n## Integration\n\nAffected crates:\n- `sc-statement-store`: Now depends on `sc-network-statement` for size\nconstants\n- `sc-network-statement`: `MAX_STATEMENT_NOTIFICATION_SIZE` is now\npublic\n\nFor downstream users:\n- Statements larger than 1 MB will now be rejected earlier before the\nvalidation pipeline\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-10-22T01:22:47Z",
-          "tree_id": "8c442e565d63b39426975189a56840d1fdf73792",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/de740e1892f47e91c356858324f6e3e4b0f1be60"
-        },
-        "date": 1761100575385,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013320953013333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16065372408000012,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007470237273333354,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022977684393333322,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010464036539999978,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f31d358f6bfed627a5f11b2bccbcc63d5d3a19cc",
+          "message": "Make BEEFY aware of duplicated authorities (#8964)\n\nAs a follow-up to\nhttps://github.com/paritytech/polkadot-sdk/issues/8705, we would like to\npropose an adjustment to the BEEFY RoundTracker, allowing it to count\nduplicated authorities as non-equal weight votes, in a similar way as\nhandled by [GRANDPA's\nVoterSet](https://docs.rs/finality-grandpa/latest/finality_grandpa/voter_set/struct.VoterSet.html#method.new).\n\nWe choose this approach because adapting the interfaces related to\nOneSessionHandler would be significantly more invasive. Since GRANDPA\nalready supports handling duplicated authorities in this manner, we\ndecided to implement a similar solution here for consistency and\nsimplicity.\n\nThis change should not affect how equivocations (double voting) are\nhandled, nor does it alter the structure of commitments. It only impacts\nhow votes from duplicated authorities are accounted for when calculating\nthe threshold.\n\n---------\n\nSigned-off-by: Tomasz Bartos <tomasz.bartos@iohk.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>",
+          "timestamp": "2026-06-04T10:16:00Z",
+          "tree_id": "b9fdfe2faccca3d48edaaa86ba9b045cd2e8e2ae",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f31d358f6bfed627a5f11b2bccbcc63d5d3a19cc"
+        },
+        "date": 1780574801586,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023689147020000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1433822415533334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01031307762666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.008127851820000002,
             "unit": "seconds"
           }
         ]
