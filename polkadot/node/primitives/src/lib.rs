@@ -581,13 +581,11 @@ pub struct SegmentCollation {
 /// segment (relay parent, collation payload, validation data, etc.).
 #[derive(Debug)]
 pub struct SubmitSegmentParams {
-	/// The scheduling parent for V3 candidate descriptors, shared by all collations in the
-	/// segment. If set, every candidate descriptor will use this as the scheduling parent
-	/// (creating V3 descriptors). If `None`, each collation's `relay_parent` is used (V2
-	/// descriptors).
+	/// The scheduling parent shared by every collation in the segment. Segments are V3/V4-only,
+	/// so this is always present and produces V3 candidate descriptors.
 	///
-	/// WARNING: Should only be set if the `CandidateReceiptV3` node feature is set.
-	pub scheduling_parent: Option<Hash>,
+	/// WARNING: only valid when the `CandidateReceiptV3` node feature is set.
+	pub scheduling_parent: Hash,
 	/// The core index on which the resulting candidates should be backed.
 	pub core_index: CoreIndex,
 	/// The collations in this segment, in the order they should be submitted.

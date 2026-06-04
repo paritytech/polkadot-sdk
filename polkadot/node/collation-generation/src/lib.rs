@@ -324,7 +324,7 @@ impl CollationGenerationSubsystem {
 				validation_code_hash,
 				result_sender,
 				core_index,
-				scheduling_parent,
+				scheduling_parent: Some(scheduling_parent),
 				session_index,
 				validation_data,
 			},

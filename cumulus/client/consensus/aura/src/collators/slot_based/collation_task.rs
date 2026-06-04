@@ -34,7 +34,7 @@ use crate::export_pov_to_path;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_runtime::traits::{Block as BlockT, Header};
 
-use super::{CollatorMessage, CollatorSegmentMessage};
+use super::{CollatorMessage, CollatorSegmentMessage, SegmentKind};
 
 const LOG_TARGET: &str = "aura::cumulus::collation_task";
 
@@ -131,7 +131,6 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 	export_pov: Option<PathBuf>,
 ) {
 	let CollatorMessage {
-		scheduling_proof,
 		parent_header,
 		blocks,
 		proof,
@@ -141,12 +140,11 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 		validation_data,
 	} = message;
 
-	let scheduling_parent = scheduling_proof.as_ref().map(|p| p.scheduling_parent());
 	let (collation, block_data) = match collator_service.build_multi_block_collation(
 		&parent_header,
 		blocks,
 		proof,
-		scheduling_proof,
+		None,
 	) {
 		Some(collation) => collation,
 		None => {
@@ -215,7 +213,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 				validation_code_hash,
 				core_index,
 				result_sender: None,
-				scheduling_parent,
+				scheduling_parent: None,
 				session_index,
 				validation_data,
 			}),
@@ -236,93 +234,101 @@ async fn handle_segment_message<Block: BlockT, RClient: RelayChainInterface + Cl
 	relay_client: RClient,
 	export_pov: Option<PathBuf>,
 ) {
-	let CollatorSegmentMessage { scheduling_proof, core_index, entries } = message;
+	let CollatorSegmentMessage { scheduling_proof, core_index, kind } = message;
+	let scheduling_parent = scheduling_proof.scheduling_parent();
 
-	// Unlike the single-collation path, we cannot fall back to "the" relay_parent here — entries
-	// may have different relay parents. `None` means V2 descriptors for the whole segment.
-	let scheduling_parent = scheduling_proof.as_ref().map(|p| p.scheduling_parent());
+	let mut collations = Vec::new();
+	match kind {
+		SegmentKind::WithBundle { bundle } => {
+			let CollatorMessage {
+				relay_parent,
+				parent_header,
+				blocks,
+				proof,
+				validation_code_hash,
+				core_index: _bundle_core_index,
+				validation_data,
+			} = bundle;
 
-	let mut collations = Vec::with_capacity(entries.len());
-	for entry in entries {
-		let relay_parent = entry.relay_parent;
-		let validation_code_hash = entry.validation_code_hash;
-		let validation_data = entry.validation_data;
-		let parent_header = entry.parent_header;
+			let (collation, block_data) = match collator_service.build_multi_block_collation(
+				&parent_header,
+				blocks,
+				proof,
+				Some(scheduling_proof.clone()),
+			) {
+				Some(collation) => collation,
+				None => {
+					tracing::warn!(target: LOG_TARGET, ?core_index, ?relay_parent, "Unable to build collation for segment entry.");
+					return;
+				},
+			};
 
-		let (collation, block_data) = match collator_service.build_multi_block_collation(
-			&parent_header,
-			entry.blocks,
-			entry.proof,
-			scheduling_proof.clone(),
-		) {
-			Some(collation) => collation,
-			None => {
-				tracing::warn!(target: LOG_TARGET, ?core_index, ?relay_parent, "Unable to build collation for segment entry.");
-				continue;
-			},
-		};
+			block_data.log_size_info();
 
-		block_data.log_size_info();
-
-		if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
-			if let Some(pov_path) = export_pov.clone() {
-				if let Ok(Some(relay_parent_header)) =
-					relay_client.header(BlockId::Hash(relay_parent)).await
-				{
-					if let Some(header) = block_data.blocks().first().map(|b| b.header()) {
-						export_pov_to_path::<Block>(
-							pov_path,
-							pov.clone(),
-							header.hash(),
-							*header.number(),
-							parent_header.clone(),
-							relay_parent_header.state_root,
-							relay_parent_header.number,
-							validation_data.max_pov_size,
-						);
+			if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
+				if let Some(pov_path) = export_pov.clone() {
+					if let Ok(Some(relay_parent_header)) =
+						relay_client.header(BlockId::Hash(relay_parent)).await
+					{
+						if let Some(header) = block_data.blocks().first().map(|b| b.header()) {
+							export_pov_to_path::<Block>(
+								pov_path,
+								pov.clone(),
+								header.hash(),
+								*header.number(),
+								parent_header.clone(),
+								relay_parent_header.state_root,
+								relay_parent_header.number,
+								validation_data.max_pov_size,
+							);
+						}
+					} else {
+						tracing::error!(target: LOG_TARGET, "Failed to get relay parent header from hash: {relay_parent:?}");
 					}
-				} else {
-					tracing::error!(target: LOG_TARGET, "Failed to get relay parent header from hash: {relay_parent:?}");
 				}
+
+				tracing::info!(
+					target: LOG_TARGET,
+					block_numbers = ?block_data.blocks().iter().map(|b| *b.header().number()).collect::<Vec<_>>(),
+					"Compressed PoV size: {}kb",
+					pov.block_data.0.len() as f64 / 1024f64,
+				);
 			}
 
-			tracing::info!(
+			let session_index = match relay_client.session_index_for_child(relay_parent).await {
+				Ok(session_index) => session_index,
+				Err(err) => {
+					tracing::error!(
+						target: LOG_TARGET,
+						?err,
+						?relay_parent,
+						"Failed to fetch session index for segment entry.",
+					);
+					return;
+				},
+			};
+
+			tracing::debug!(
 				target: LOG_TARGET,
+				?core_index,
+				?relay_parent,
 				block_numbers = ?block_data.blocks().iter().map(|b| *b.header().number()).collect::<Vec<_>>(),
-				"Compressed PoV size: {}kb",
-				pov.block_data.0.len() as f64 / 1024f64,
+				"Adding entry to segment for core.",
 			);
-		}
 
-		let session_index = match relay_client.session_index_for_child(relay_parent).await {
-			Ok(session_index) => session_index,
-			Err(err) => {
-				tracing::error!(
-					target: LOG_TARGET,
-					?err,
-					?relay_parent,
-					"Failed to fetch session index for segment entry.",
-				);
-				continue;
-			},
-		};
-
-		tracing::debug!(
-			target: LOG_TARGET,
-			?core_index,
-			?relay_parent,
-			block_numbers = ?block_data.blocks().iter().map(|b| *b.header().number()).collect::<Vec<_>>(),
-			"Adding entry to segment for core.",
-		);
-
-		collations.push(SegmentCollation {
-			relay_parent,
-			collation,
-			validation_code_hash,
-			result_sender: None,
-			session_index,
-			validation_data,
-		});
+			collations.push(SegmentCollation {
+				relay_parent,
+				collation,
+				validation_code_hash,
+				result_sender: None,
+				session_index,
+				validation_data,
+			});
+		},
+		SegmentKind::ResubmitOnly => {
+			// TODO: merge with held unincluded segment. For now this branch produces an empty
+			// submission and is a no-op downstream.
+		},
 	}
 
 	if collations.is_empty() {
