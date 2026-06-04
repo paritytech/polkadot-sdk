@@ -67,7 +67,7 @@ pub const MAX_ACCESS_LIST_ENTRIES: usize = 16_384;
 /// Worst-case per-entry memory in the `BTreeSet` + journal, measured against
 /// sc-allocator (8-byte headers, power-of-2 buckets). `Slot::Fix` and
 /// `Slot::VarInline` measure ~366 B; `Slot::VarLong` ~502 B. Rounded up to 512
-/// for headroom. See the table on [`MAX_ACCESS_LIST_ENTRIES`] for the full breakdown.
+/// for headroom.
 pub const MAX_ACCESS_LIST_ENTRY_BYTES: usize = 512;
 
 /// Worst-case total memory the access list can hold per transaction.
@@ -126,7 +126,7 @@ pub struct AccessListMetrics {
 	pub hot: u32,
 }
 
-/// One entry per `(contract address, storage slot)` accessed in the current tx.
+/// One entry per `(storage slot, contract address)` accessed in the current tx.
 ///
 /// Field order is `slot, address` so the derived `Ord` decides on `slot`
 /// first, the most-discriminating field in the typical access pattern (one
@@ -218,8 +218,7 @@ impl AccessList {
 		!self.checkpoints.is_empty()
 	}
 
-	/// Register the entry, returning whether it was cold or hot
-	/// ([`Warmth`]).
+	/// Register the entry, returning whether it was cold or hot.
 	///
 	/// Past [`MAX_ACCESS_LIST_ENTRIES`], new entries are billed cold without
 	/// being journaled; previously-hot slots continue to bill hot.
