@@ -116,8 +116,9 @@ impl<'a> From<LiteP2pProtocol<'a>> for Protocol<'a> {
 			LiteP2pProtocol::P2pWebSocketStar => Protocol::P2pWebSocketStar,
 			LiteP2pProtocol::Memory(port) => Protocol::Memory(port),
 			LiteP2pProtocol::Onion(str, port) => Protocol::Onion(str, port),
-			LiteP2pProtocol::Onion3(addr) =>
-				Protocol::Onion3(Cow::Owned(*addr.hash()), addr.port()),
+			LiteP2pProtocol::Onion3(addr) => {
+				Protocol::Onion3(Cow::Owned(*addr.hash()), addr.port())
+			},
 			LiteP2pProtocol::P2p(multihash) => Protocol::P2p(multihash.into()),
 			LiteP2pProtocol::P2pCircuit => Protocol::P2pCircuit,
 			LiteP2pProtocol::Quic => Protocol::Quic,
@@ -245,7 +246,7 @@ impl<'a> From<Protocol<'a>> for LibP2pProtocol<'a> {
 			Protocol::Memory(port) => LibP2pProtocol::Memory(port),
 			Protocol::Onion(str, port) => LibP2pProtocol::Onion(str, port),
 			Protocol::Onion3(str, port) => LibP2pProtocol::Onion3((str.into_owned(), port).into()),
-			Protocol::P2p(multihash) =>
+			Protocol::P2p(multihash) => {
 				LibP2pProtocol::P2p(PeerId::from_multihash(multihash.into()).unwrap_or_else(|_| {
 					// This is better than making conversion fallible and complicating the
 					// client code.
@@ -255,7 +256,8 @@ impl<'a> From<Protocol<'a>> for LibP2pProtocol<'a> {
 						 peer_id. Replacing with random peer_id."
 					);
 					PeerId::random()
-				})),
+				}))
+			},
 			Protocol::P2pCircuit => LibP2pProtocol::P2pCircuit,
 			Protocol::Quic => LibP2pProtocol::Quic,
 			Protocol::QuicV1 => LibP2pProtocol::QuicV1,

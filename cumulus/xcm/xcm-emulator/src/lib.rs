@@ -68,7 +68,7 @@ pub use sp_tracing;
 // Cumulus
 pub use cumulus_pallet_parachain_system::{
 	parachain_inherent::{deconstruct_parachain_inherent_data, InboundMessagesData},
-	Call as ParachainSystemCall, Pallet as ParachainSystemPallet,
+	Call as ParachainSystemCall, Config as ParachainSystemConfig, Pallet as ParachainSystemPallet,
 };
 pub use cumulus_primitives_core::{
 	relay_chain::{BlockNumber as RelayBlockNumber, HeadData, HrmpChannelId},
@@ -86,13 +86,17 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use sp_core::{crypto::AccountId32, H256};
 pub use xcm::latest::prelude::{
-	AccountId32 as AccountId32Junction, Ancestor, AssetId, Assets, Here, Location,
+	AccountId32 as AccountId32Junction, Ancestor, Assets, Here, Location,
 	Parachain as ParachainJunction, Parent, WeightLimit, XcmHash,
 };
 pub use xcm_executor::traits::ConvertLocation;
 use xcm_simulator::helpers::TopicIdTracker;
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+
+/// Relay chain slot duration in milliseconds (6 seconds).
+/// This is used to calculate timestamps and derive parachain slots from relay chain slots.
+pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
 
 thread_local! {
 	/// Downward messages, each message is: `(to_para_id, [(relay_block_number, msg)])`
@@ -205,6 +209,7 @@ pub trait Network {
 		para_id: u32,
 		relay_parent_number: u32,
 		parent_head_data: HeadData,
+		relay_parent_offset: u64,
 	) -> ParachainInherentData;
 	fn send_horizontal_messages<I: Iterator<Item = (ParaId, RelayBlockNumber, Vec<u8>)>>(
 		to_para_id: u32,
@@ -256,6 +261,9 @@ pub trait Chain: TestExt {
 	fn account_data_of(account: AccountIdOf<Self::Runtime>) -> AccountData<Balance>;
 
 	fn events() -> Vec<<Self as Chain>::RuntimeEvent>;
+
+	/// Whether the local Total Issuance can be treated as authoritative.
+	fn native_total_issuance_source_of_truth() -> bool;
 }
 
 pub trait RelayChain: Chain {
@@ -283,10 +291,6 @@ pub trait Parachain: Chain {
 	type ParachainInfo: Get<ParaId>;
 	type ParachainSystem;
 	type MessageProcessor: ProcessMessage + ServiceQueues;
-	type DigestProvider: Convert<
-		(BlockNumberFor<Self::Runtime>, BlockNumberFor<Self::Runtime>),
-		Digest,
-	>;
 	type AdditionalInherentCode: AdditionalInherentCode;
 
 	fn init();
@@ -302,7 +306,7 @@ pub trait Parachain: Chain {
 	}
 
 	fn parent_location() -> Location {
-		Parent.into()
+		(Parent).into()
 	}
 
 	fn sibling_location_of(para_id: ParaId) -> Location {
@@ -417,6 +421,10 @@ macro_rules! decl_test_relay_chains {
 						.iter()
 						.map(|record| record.event.clone())
 						.collect()
+				}
+
+				fn native_total_issuance_source_of_truth() -> bool {
+					false
 				}
 			}
 
@@ -623,8 +631,8 @@ macro_rules! decl_test_parachains {
 					LocationToAccountId: $location_to_account:path,
 					ParachainInfo: $parachain_info:path,
 					MessageOrigin: $message_origin:path,
-					$( DigestProvider: $digest_provider:ty,)?
 					$( AdditionalInherentCode: $additional_inherent_code:ty,)?
+					$( native_total_supply_tracker: $total_supply_tracker:expr,)?
 				},
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
@@ -657,6 +665,10 @@ macro_rules! decl_test_parachains {
 						.map(|record| record.event.clone())
 						.collect()
 				}
+
+				fn native_total_issuance_source_of_truth() -> bool {
+					$crate::decl_test_parachains!(@inner_total_supply_tracker $($total_supply_tracker)?)
+				}
 			}
 
 			impl<N: $crate::Network> $crate::Parachain for $name<N> {
@@ -665,7 +677,6 @@ macro_rules! decl_test_parachains {
 				type ParachainSystem = $crate::ParachainSystemPallet<<Self as $crate::Chain>::Runtime>;
 				type ParachainInfo = $parachain_info;
 				type MessageProcessor = $crate::DefaultParaMessageProcessor<$name<N>, $message_origin>;
-				$crate::decl_test_parachains!(@inner_digest_provider $($digest_provider)?);
 				$crate::decl_test_parachains!(@inner_additional_inherent_code $($additional_inherent_code)?);
 
 				// We run an empty block during initialisation to open HRMP channels
@@ -687,15 +698,21 @@ macro_rules! decl_test_parachains {
 
 				fn new_block() {
 					use $crate::{
-						Dispatchable, Chain, Convert, TestExt, Zero, AdditionalInherentCode
+						Dispatchable, Chain, TestExt, Zero, AdditionalInherentCode,
+						RELAY_CHAIN_SLOT_DURATION_MILLIS
 					};
 
 					let para_id = Self::para_id().into();
 
 					Self::ext_wrapper(|| {
-						// Increase Relay Chain block number
+						let slot_duration = $crate::pallet_aura::Pallet::<$runtime::Runtime>::slot_duration();
+
+						let relay_blocks_per_para_block =
+							(slot_duration / RELAY_CHAIN_SLOT_DURATION_MILLIS).max(1) as u32;
+
+						// Increase Relay Chain block number by relay_blocks_per_para_block
 						let mut relay_block_number = N::relay_block_number();
-						relay_block_number += 1;
+						relay_block_number += relay_blocks_per_para_block;
 						N::set_relay_block_number(relay_block_number);
 
 						// Initialize a new Parachain block
@@ -709,9 +726,16 @@ macro_rules! decl_test_parachains {
 							.clone()
 						);
 
-						// Initialze `System`.
-						let digest = <Self as Parachain>::DigestProvider::convert((block_number, relay_block_number));
-						let slot_duration = $crate::pallet_aura::Pallet::<$runtime::Runtime>::slot_duration();
+						// Build aura digest: derive para slot from relay block number and slot durations.
+						let aura_slot: $crate::Slot = (relay_block_number as u64
+							* RELAY_CHAIN_SLOT_DURATION_MILLIS
+							/ slot_duration)
+							.into();
+						let mut digest = $crate::Digest::default();
+						digest.logs.push($crate::DigestItem::PreRuntime(
+							$crate::AURA_ENGINE_ID,
+							$crate::Encode::encode(&aura_slot),
+						));
 						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &digest);
 
 						// Process `on_initialize` for all pallets except `System`.
@@ -723,16 +747,17 @@ macro_rules! decl_test_parachains {
 
 					// 1. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
 					let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
-						// We need to satisfy `pallet_timestamp::on_finalize`.
-						// The timestamp must match the relay chain slot since Aura uses the relay chain slot from the digest.
-					now: relay_block_number as u64 * slot_duration,
+						now: relay_block_number as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS,
 					}.into();
 					$crate::assert_ok!(
 						timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
 					);
 
+					// Get RelayParentOffset from the runtime
+					let relay_parent_offset = <<<Self as $crate::Chain>::Runtime as $crate::ParachainSystemConfig>::RelayParentOffset as $crate::Get<u32>>::get();
+
 					// 2. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
-						let data = N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data);
+						let data = N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data, relay_parent_offset as u64);
 						let (data, mut downward_messages, mut horizontal_messages) =
 							$crate::deconstruct_parachain_inherent_data(data);
 						let inbound_messages_data = $crate::InboundMessagesData::new(
@@ -810,10 +835,10 @@ macro_rules! decl_test_parachains {
 			$crate::__impl_check_assertion!($name, N);
 		)+
 	};
-	( @inner_digest_provider $digest_provider:ty ) => { type DigestProvider = $digest_provider; };
-	( @inner_digest_provider /* none */ ) => { type DigestProvider = (); };
 	( @inner_additional_inherent_code $additional_inherent_code:ty ) => { type AdditionalInherentCode = $additional_inherent_code; };
 	( @inner_additional_inherent_code /* none */ ) => { type AdditionalInherentCode = (); };
+	( @inner_total_supply_tracker $total_supply_tracker:expr ) => { $total_supply_tracker };
+	( @inner_total_supply_tracker /* none */ ) => { false };
 }
 
 #[macro_export]
@@ -1195,11 +1220,13 @@ macro_rules! decl_test_networks {
 					para_id: u32,
 					relay_parent_number: u32,
 					parent_head_data: $crate::HeadData,
+					relay_parent_offset: u64,
 				) -> $crate::ParachainInherentData {
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
 					sproof.current_slot = $crate::polkadot_primitives::Slot::from(relay_parent_number as u64);
 					sproof.host_config.max_upward_message_size = 1024 * 1024;
+					sproof.num_authorities = relay_parent_offset + 1;
 
 					// egress channel
 					let e_index = sproof.hrmp_egress_channel_index.get_or_insert_with(Vec::new);
@@ -1227,7 +1254,8 @@ macro_rules! decl_test_networks {
 							});
 					}
 
-					let (relay_storage_root, proof) = sproof.into_state_root_and_proof();
+					let (relay_storage_root, proof, relay_parent_descendants) =
+						sproof.into_state_root_proof_and_descendants(relay_parent_offset);
 
 					$crate::ParachainInherentData {
 						validation_data: $crate::PersistedValidationData {
@@ -1239,7 +1267,7 @@ macro_rules! decl_test_networks {
 						relay_chain_state: proof,
 						downward_messages: Default::default(),
 						horizontal_messages: Default::default(),
-						relay_parent_descendants: Default::default(),
+						relay_parent_descendants,
 						collator_peer_id: None,
 					}
 				}
@@ -1436,6 +1464,7 @@ macro_rules! decl_test_sender_receiver_accounts_parameter_types {
 }
 
 pub struct DefaultParaMessageProcessor<T, M>(PhantomData<(T, M)>);
+
 // Process HRMP messages from sibling paraids
 impl<T, M> ProcessMessage for DefaultParaMessageProcessor<T, M>
 where
@@ -1468,6 +1497,7 @@ where
 		Ok(true)
 	}
 }
+
 impl<T, M> ServiceQueues for DefaultParaMessageProcessor<T, M>
 where
 	M: MaxEncodedLen,
@@ -1494,6 +1524,7 @@ pub type MessageOriginFor<T> =
 	<<<T as Chain>::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin;
 
 pub struct DefaultRelayMessageProcessor<T>(PhantomData<T>);
+
 // Process UMP messages on the relay
 impl<T> ProcessMessage for DefaultRelayMessageProcessor<T>
 where
@@ -1550,17 +1581,17 @@ pub struct TestAccount<R: Chain> {
 
 /// Default `Args` provided by xcm-emulator to be stored in a `Test` instance
 #[derive(Clone)]
-pub struct TestArgs {
+pub struct TestArgs<AssetId = u32> {
 	pub dest: Location,
 	pub beneficiary: Location,
 	pub amount: Balance,
 	pub assets: Assets,
-	pub asset_id: Option<u32>,
-	pub fee_asset_id: AssetId,
+	pub asset_id: Option<AssetId>,
+	pub fee_asset_item: u32,
 	pub weight_limit: WeightLimit,
 }
 
-impl TestArgs {
+impl<AssetId> TestArgs<AssetId> {
 	/// Returns a [`TestArgs`] instance to be used for the Relay Chain across integration tests.
 	pub fn new_relay(dest: Location, beneficiary_id: AccountId32, amount: Balance) -> Self {
 		Self {
@@ -1569,7 +1600,7 @@ impl TestArgs {
 			amount,
 			assets: (Here, amount).into(),
 			asset_id: None,
-			fee_asset_id: Here.into(),
+			fee_asset_item: 0,
 			weight_limit: WeightLimit::Unlimited,
 		}
 	}
@@ -1580,8 +1611,8 @@ impl TestArgs {
 		beneficiary_id: AccountId32,
 		amount: Balance,
 		assets: Assets,
-		asset_id: Option<u32>,
-		fee_asset_id: AssetId,
+		asset_id: Option<AssetId>,
+		fee_asset_item: u32,
 	) -> Self {
 		Self {
 			dest,
@@ -1589,7 +1620,7 @@ impl TestArgs {
 			amount,
 			assets,
 			asset_id,
-			fee_asset_id,
+			fee_asset_item,
 			weight_limit: WeightLimit::Unlimited,
 		}
 	}
@@ -1650,6 +1681,7 @@ where
 		self.topic_id_tracker.lock().unwrap().insert_and_assert_unique(chain, id);
 	}
 }
+
 impl<Origin, Destination, Hops, Args> Test<Origin, Destination, Hops, Args>
 where
 	Args: Clone,

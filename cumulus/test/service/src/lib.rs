@@ -144,7 +144,7 @@ impl RecoveryHandle for FailingRecoveryHandle {
 
 		// For every 3rd block we immediately signal unavailability to trigger
 		// a retry. The same candidate is never failed multiple times to ensure progress.
-		if self.counter % 3 == 0 && self.failed_hashes.insert(candidate_hash) {
+		if self.counter.is_multiple_of(3) && self.failed_hashes.insert(candidate_hash) {
 			tracing::info!(target: LOG_TARGET, ?candidate_hash, "Failing pov recovery.");
 
 			let AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, back_sender) =
@@ -196,6 +196,7 @@ pub fn new_partial(
 			None,
 			executor,
 			enable_import_proof_record,
+			Default::default(),
 		)?;
 	let client = Arc::new(client);
 
@@ -270,7 +271,7 @@ async fn build_relay_chain_interface(
 			Some("Relaychain"),
 		)
 		.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?,
-		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
+		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) => {
 			return build_minimal_relay_chain_node_with_rpc(
 				relay_chain_config,
 				parachain_prometheus_registry,
@@ -278,7 +279,8 @@ async fn build_relay_chain_interface(
 				rpc_target_urls,
 			)
 			.await
-			.map(|r| r.0),
+			.map(|r| r.0)
+		},
 	};
 
 	task_manager.add_child(relay_chain_node.task_manager);
@@ -362,6 +364,7 @@ where
 			transaction_pool: transaction_pool.clone(),
 			para_id,
 			spawn_handle: task_manager.spawn_handle(),
+			spawn_essential_handle: task_manager.spawn_essential_handle(),
 			relay_chain_interface: relay_chain_interface.clone(),
 			import_queue: params.import_queue,
 			metrics: Net::register_notification_metrics(
@@ -713,7 +716,7 @@ impl TestNodeBuilder {
 
 		let (task_manager, client, network, rpc_handlers, transaction_pool, backend) =
 			match relay_chain_config.network.network_backend {
-				sc_network::config::NetworkBackendType::Libp2p =>
+				sc_network::config::NetworkBackendType::Libp2p => {
 					start_node_impl::<_, sc_network::NetworkWorker<_, _>>(
 						parachain_config,
 						self.collator_key,
@@ -726,8 +729,9 @@ impl TestNodeBuilder {
 						false,
 					)
 					.await
-					.expect("could not create Cumulus test service"),
-				sc_network::config::NetworkBackendType::Litep2p =>
+					.expect("could not create Cumulus test service")
+				},
+				sc_network::config::NetworkBackendType::Litep2p => {
 					start_node_impl::<_, sc_network::Litep2pNetworkBackend>(
 						parachain_config,
 						self.collator_key,
@@ -740,7 +744,8 @@ impl TestNodeBuilder {
 						false,
 					)
 					.await
-					.expect("could not create Cumulus test service"),
+					.expect("could not create Cumulus test service")
+				},
 			};
 		let peer_id = network.local_peer_id();
 		let multiaddr = polkadot_test_service::get_listen_address(network.clone()).await;

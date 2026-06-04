@@ -6,8 +6,8 @@ use frame_support::traits::ProcessMessage;
 use scale_info::TypeInfo;
 use snowbridge_core::ChannelId;
 use sp_core::H256;
-use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
+use Debug;
 
 use super::Pallet;
 
@@ -16,7 +16,7 @@ pub type ProcessMessageOriginOf<T> = <Pallet<T> as ProcessMessage>::Origin;
 pub const LOG_TARGET: &str = "snowbridge-outbound-queue";
 
 /// Message which has been assigned a nonce and will be committed at the end of a block
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug, TypeInfo)]
 pub struct CommittedMessage {
 	/// Message channel
 	pub channel_id: ChannelId,

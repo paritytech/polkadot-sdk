@@ -367,7 +367,7 @@ case "$1" in
           "$(jq --null-input '{ "V5": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V5": { "parents": 0, "interior": { "X1": [{ "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } }] } } }')" \
           "$(jq --null-input '{ "V5": [ { "id": { "parents": 1, "interior": "Here" }, "fun": { "Fungible": '$amount' } } ] }')" \
-          "$(jq --null-input '{ "V5": { "parents": 1, "interior": "Here" } }')" \
+          0 \
           "Unlimited"
       ;;
   withdraw-reserve-assets-from-asset-hub-rococo-local)
@@ -380,7 +380,7 @@ case "$1" in
           "$(jq --null-input '{ "V5": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V5": { "parents": 0, "interior": { "X1": [{ "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } }] } } }')" \
           "$(jq --null-input '{ "V5": [ { "id": { "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }, "fun": { "Fungible": '$amount' } } ] }')" \
-          "$(jq --null-input '{ "V5": { "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } } }')" \
+          0 \
           "Unlimited"
       ;;
   reserve-transfer-assets-from-asset-hub-westend-local)
@@ -393,7 +393,7 @@ case "$1" in
           "$(jq --null-input '{ "V5": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V5": { "parents": 0, "interior": { "X1": [{ "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } }] } } }')" \
           "$(jq --null-input '{ "V5": [ { "id": { "parents": 1, "interior": "Here" }, "fun": { "Fungible": '$amount' } } ] }')" \
-          "$(jq --null-input '{ "V5": { "parents": 1, "interior": "Here" } }')" \
+          0 \
           "Unlimited"
       ;;
   withdraw-reserve-assets-from-asset-hub-westend-local)
@@ -406,7 +406,7 @@ case "$1" in
           "$(jq --null-input '{ "V5": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V5": { "parents": 0, "interior": { "X1": [{ "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } }] } } }')" \
           "$(jq --null-input '{ "V5": [ { "id": { "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }, "fun": { "Fungible": '$amount' } } ] }')" \
-          "$(jq --null-input '{ "V5": { "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } } }')" \
+          0 \
           "Unlimited"
       ;;
   claim-rewards-bridge-hub-rococo-local)

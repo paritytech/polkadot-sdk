@@ -42,13 +42,14 @@ where
 	) -> Result<(), ProcessMessageError> {
 		// This barrier only cares about messages with `origin` matching `FromOrigin`.
 		if !FromOrigin::contains(origin) {
-			return Ok(())
+			return Ok(());
 		}
 		message.matcher().match_next_inst_while(
 			|_| true,
 			|inst| match inst {
-				ExportMessage { network, .. } if ToGlobalConsensus::contains(network) =>
-					Err(ProcessMessageError::Unsupported),
+				ExportMessage { network, .. } if ToGlobalConsensus::contains(network) => {
+					Err(ProcessMessageError::Unsupported)
+				},
 				_ => Ok(ControlFlow::Continue(())),
 			},
 		)?;

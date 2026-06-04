@@ -523,6 +523,14 @@ not_found_count = 0
     next
   end
 
+  if fn_name == '__stdio_read'
+    # Hardcode SYS_readv and SYS_read: musl 1.2.5's __stdio_read uses readv when there is
+    # a buffer and read otherwise. The dual-syscall pattern confuses the register tracker.
+    syscalls_for_fn[fn_name] << 0
+    syscalls_for_fn[fn_name] << 19
+    next
+  end
+
   code = code_for_fn[fn_name]
 
   found = false
@@ -589,8 +597,13 @@ syscalls_for_fn.each do |fn_name, syscalls|
   end
 end
 
+
+# Unconditionally include gettid; it's safe to always enable and ensures compatibility
+# with both new and old Rust versions.
+ALWAYS_INCLUDED_SYSCALLS = [186]
+
 if only_used_syscalls
-  puts syscalls_for_fn.values.flatten.sort.uniq.map { |sc| SYSCALLS[sc] || sc }.join("\n")
+  puts (syscalls_for_fn.values.flatten + ALWAYS_INCLUDED_SYSCALLS).sort.uniq.map { |sc| SYSCALLS[sc] || sc }.join("\n")
 else
   puts 'Functions per syscall:'
   fns_for_syscall.sort_by { |sc, _| sc }.each do |syscall, fn_names|
@@ -604,5 +617,5 @@ else
 
   puts
   puts 'Used syscalls:'
-  puts '    ' + syscalls_for_fn.values.flatten.sort.uniq.map { |sc| SYSCALLS[sc] || sc }.join("\n    ")
+  puts '    ' + (syscalls_for_fn.values.flatten + ALWAYS_INCLUDED_SYSCALLS).sort.uniq.map { |sc| SYSCALLS[sc] || sc }.join("\n    ")
 end

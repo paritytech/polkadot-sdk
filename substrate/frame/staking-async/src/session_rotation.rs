@@ -202,6 +202,15 @@ impl<T: Config> Eras<T> {
 		all_claimable_pages.into_iter().find(|p| !claimed_pages.contains(p))
 	}
 
+	/// Returns whether nominators are slashable for a specific era.
+	///
+	/// This checks the per-era storage [`ErasNominatorsSlashable`] which captures
+	/// the value of [`AreNominatorsSlashable`] at the start of that era.
+	/// If no entry exists for the era, nominators are assumed to be slashable (default).
+	pub(crate) fn are_nominators_slashable(era: EraIndex) -> bool {
+		ErasNominatorsSlashable::<T>::get(era).unwrap_or(true)
+	}
+
 	/// Creates an entry to track validator reward has been claimed for a given era and page.
 	/// Noop if already claimed.
 	pub(crate) fn set_rewards_as_claimed(era: EraIndex, validator: &T::AccountId, page: Page) {
@@ -211,7 +220,7 @@ impl<T: Config> Eras<T> {
 		if claimed_pages.contains(&page) {
 			defensive!("Trying to set an already claimed reward");
 			// nevertheless don't do anything since the page already exist in claimed rewards.
-			return
+			return;
 		}
 
 		// add page to claimed entries
@@ -341,6 +350,9 @@ impl<T: Config> Eras<T> {
 
 			// insert metadata.
 			ErasStakersOverview::<T>::insert(era, &validator, exposure_metadata);
+
+			// Track that this validator was active in this era for slash liability tracking.
+			LastValidatorEra::<T>::insert(validator, era);
 
 			// insert validator's overview.
 			exposure_pages.into_iter().enumerate().for_each(|(idx, paged_exposure)| {
@@ -548,12 +560,27 @@ impl<T: Config> Rotator<T> {
 
 				// If we have an active era, bonded eras must always be the range
 				// [active - bonding_duration .. active_era]
+				let bonded_eras: Vec<_> = bonded.iter().map(|(era, _sess)| *era).collect();
 				ensure!(
-					bonded.into_iter().map(|(era, _sess)| era).collect::<Vec<_>>() ==
+					bonded_eras ==
 						(active.index.saturating_sub(T::BondingDuration::get())..=active.index)
 							.collect::<Vec<_>>(),
 					"BondedEras range incorrect"
 				);
+
+				// ErasNominatorsSlashable entries are cleaned up via lazy pruning at HistoryDepth +
+				// 1. Entries can exist from [active - HistoryDepth, active] inclusive.
+				// Entries older than HistoryDepth should have been pruned (or be in the process of
+				// pruning).
+				let oldest_allowed_era = active.index.saturating_sub(T::HistoryDepth::get()).max(1);
+				for (era, _) in ErasNominatorsSlashable::<T>::iter() {
+					// Allow entries being pruned (EraPruningState exists)
+					let being_pruned = EraPruningState::<T>::contains_key(era);
+					ensure!(
+						(era >= oldest_allowed_era && era <= active.index) || being_pruned,
+						"ErasNominatorsSlashable entry exists for era outside history depth range and not being pruned"
+					);
+				}
 			},
 			_ => {
 				ensure!(false, "ActiveEra and CurrentEra must both be None or both be Some");
@@ -709,6 +736,10 @@ impl<T: Config> Rotator<T> {
 		Self::start_era_inc_active_era(new_era_start_timestamp);
 		Self::start_era_update_bonded_eras(starting_era, starting_session);
 
+		// Snapshot the current nominators slashable setting for this era.
+		// Cleanup will happen via lazy pruning at HistoryDepth.
+		ErasNominatorsSlashable::<T>::insert(starting_era, AreNominatorsSlashable::<T>::get());
+
 		// cleanup election state
 		EraElectionPlanner::<T>::cleanup();
 
@@ -758,7 +789,6 @@ impl<T: Config> Rotator<T> {
 					era_removed <= (starting_era.saturating_sub(bonding_duration)),
 					"should not delete an era that is not older than bonding duration"
 				);
-				slashing::clear_era_metadata::<T>(era_removed);
 			}
 
 			// must work -- we were not full, or just removed the oldest era.
@@ -875,8 +905,9 @@ impl<T: Config> Rotator<T> {
 ///   backing after all calls to `maybe_fetch_election_results` are done. Note that older versions
 ///   of this pallet had a `MinimumValidatorCount` to double-check this, but we don't check it
 ///   anymore.
-/// * `maybe_fetch_election_results` returns no weight. Its weight should be taken account in the
-///   e2e benchmarking of the [`Config::ElectionProvider`].
+/// * `maybe_fetch_election_results` returns a tuple of `(weight, closure)`. The `weight` is the
+///   worst-case weight that `exec` might consume. The caller should check if `weight` fits within
+///   the boundaries of that context, and execute `closure` if so.
 ///
 /// TODOs:
 ///
@@ -908,8 +939,19 @@ impl<T: Config> EraElectionPlanner<T> {
 		let Ok(Some(mut required_weight)) = T::ElectionProvider::status() else {
 			// no election ongoing
 			let weight = T::DbWeight::get().reads(1);
-			return (weight, Box::new(move |meter: &mut WeightMeter| meter.consume(weight)))
+			return (weight, Box::new(move |meter: &mut WeightMeter| meter.consume(weight)));
 		};
+
+		// Add a few things to the required weights that are not captured in `do_elect_paged`, which
+		// is benchmarked via `fetch_page`.
+		// * 1 extra read and write for `NextElectionPage`
+		// * 1 extra write for `RcClientInterface::validator_set` (implementation leak -- we assume
+		//   that we know this writes one storage item under the hood)
+		// * 1 extra read for `CurrentEra`
+		// * 1 extra read for `BondedEras` in `get_prune_up_to`
+		// ElectableStashes already read in `do_elect_paged`
+		required_weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 2));
+
 		let exec = Box::new(move |meter: &mut WeightMeter| {
 			crate::log!(
 				debug,
@@ -949,16 +991,6 @@ impl<T: Config> EraElectionPlanner<T> {
 			// consume the reported worst case weight.
 			meter.consume(required_weight)
 		});
-
-		// Add a few things to the required weights that are not captured in `do_elect_paged`, which
-		// is benchmarked via `fetch_page`.
-		// * 1 extra read and write for `NextElectionPage`
-		// * 1 extra write for `RcClientInterface::validator_set` (implementation leak -- we assume
-		//   that we know this writes one storage item under the hood)
-		// * 1 extra read for `CurrentEra`
-		// * 1 extra read for `BondedEras` in `get_prune_up_to`
-		// ElectableStashes already read in `do_elect_paged`
-		required_weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 2));
 
 		(required_weight, exec)
 	}

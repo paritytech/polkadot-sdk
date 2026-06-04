@@ -566,6 +566,15 @@ impl RelayChainInterface for TestRelayClient {
 		unimplemented!("Not needed for test")
 	}
 
+	async fn prove_child_read(
+		&self,
+		_: RelayHash,
+		_: &cumulus_relay_chain_interface::ChildInfo,
+		_: &[Vec<u8>],
+	) -> RelayChainResult<sc_client_api::StorageProof> {
+		unimplemented!("Not needed for test")
+	}
+
 	async fn wait_for_block(&self, _: RelayHash) -> RelayChainResult<()> {
 		unimplemented!("Not needed for test")
 	}

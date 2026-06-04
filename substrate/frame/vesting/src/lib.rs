@@ -78,7 +78,7 @@ use sp_runtime::{
 		AtLeast32BitUnsigned, BlockNumberProvider, Bounded, Convert, MaybeSerializeDeserialize,
 		One, Saturating, StaticLookup, Zero,
 	},
-	DispatchError, RuntimeDebug,
+	DispatchError,
 };
 
 pub use pallet::*;
@@ -95,7 +95,7 @@ const VESTING_ID: LockIdentifier = *b"vesting ";
 
 // A value placed in storage that represents the current version of the Vesting storage.
 // This value is used by `on_runtime_upgrade` to determine whether we run storage migration logic.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, MaxEncodedLen, TypeInfo)]
 pub enum Releases {
 	V0,
 	V1,
@@ -442,7 +442,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			if schedule1_index == schedule2_index {
-				return Ok(())
+				return Ok(());
 			};
 			let schedule1_index = schedule1_index as usize;
 			let schedule2_index = schedule2_index as usize;
@@ -558,7 +558,7 @@ impl<T: Config> Pallet<T> {
 		// Validate user inputs.
 		ensure!(schedule.locked() >= T::MinVestedTransfer::get(), Error::<T>::AmountLow);
 		if !schedule.is_valid() {
-			return Err(Error::<T>::InvalidScheduleParams.into())
+			return Err(Error::<T>::InvalidScheduleParams.into());
 		};
 
 		// Check we can add to this account prior to any storage writes.
@@ -748,13 +748,13 @@ where
 		starting_block: BlockNumberFor<T>,
 	) -> DispatchResult {
 		if locked.is_zero() {
-			return Ok(())
+			return Ok(());
 		}
 
 		let vesting_schedule = VestingInfo::new(locked, per_block, starting_block);
 		// Check for `per_block` or `locked` of 0.
 		if !vesting_schedule.is_valid() {
-			return Err(Error::<T>::InvalidScheduleParams.into())
+			return Err(Error::<T>::InvalidScheduleParams.into());
 		};
 
 		let mut schedules = Vesting::<T>::get(who).unwrap_or_default();
@@ -789,7 +789,7 @@ where
 	) -> DispatchResult {
 		// Check for `per_block` or `locked` of 0.
 		if !VestingInfo::new(locked, per_block, starting_block).is_valid() {
-			return Err(Error::<T>::InvalidScheduleParams.into())
+			return Err(Error::<T>::InvalidScheduleParams.into());
 		}
 
 		ensure!(

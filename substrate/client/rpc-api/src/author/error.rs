@@ -48,6 +48,9 @@ pub enum Error {
 	/// Invalid session keys encoding.
 	#[error("Session keys are not encoded correctly")]
 	InvalidSessionKeys,
+	/// `SessionKeys` runtime api missing.
+	#[error("`SessionKeys` runtime api not present in the runtime")]
+	MissingSessionKeysApi,
 	/// Call to an unsafe RPC was denied.
 	#[error(transparent)]
 	UnsafeRpcCalled(#[from] crate::policy::UnsafeRpcError),

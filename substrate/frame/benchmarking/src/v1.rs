@@ -1858,7 +1858,7 @@ macro_rules! add_benchmark {
 						verify,
 						e,
 					);
-					return Err(e.into())
+					return Err(e.into());
 				},
 				Err($crate::BenchmarkError::Skip) => {
 					$crate::__private::log::error!(

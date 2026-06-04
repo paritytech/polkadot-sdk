@@ -237,7 +237,7 @@ parameter_types! {
 /// [`PayOverXcm`] setup to pay the Ambassador salary on the AssetHub in WND.
 pub type AmbassadorSalaryPaymaster = PayOverXcm<
 	AmbassadorSalaryLocation,
-	crate::xcm_config::XcmRouter,
+	crate::xcm_config::XcmConfig,
 	crate::PolkadotXcm,
 	ConstU32<{ 6 * HOURS }>,
 	AccountId,

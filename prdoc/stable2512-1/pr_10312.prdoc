@@ -1,0 +1,10 @@
+title: 'fatxpool: metrics for unfiltered timings of inblock events'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR adds a new experimental metric `substrate_sub_txpool_timing_event_in_block2` for the reliability dashboard. Unlike the existing `in_block` metric which records timing only for the first `InBlock` event per transaction, the new `in_block2` metric records every InBlock event without filtering. This allows tracking transactions that appear in multiple blocks during chain reorganizations, providing better visibility into fork-related transaction behavior. The implementation adds the new histogram to `EventsHistograms` and updates `handle_status()` to record unfiltered InBlock events before applying deduplication logic.
+
+    This approach should allow for experimenting with new _inblock confidence_ metric, without affecting the data currently shown on the Reliability Dashboard.
+crates:
+- name: sc-transaction-pool
+  bump: minor

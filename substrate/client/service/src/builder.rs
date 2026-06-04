@@ -22,8 +22,8 @@ use crate::{
 	config::{Configuration, ExecutorConfiguration, KeystoreConfig, Multiaddr, PrometheusConfig},
 	error::Error,
 	metrics::MetricsService,
-	start_rpc_servers, BuildGenesisBlock, GenesisBlockBuilder, RpcHandlers, SpawnTaskHandle,
-	TaskManager, TransactionPoolAdapter,
+	start_rpc_servers, BuildGenesisBlock, GenesisBlockBuilder, RpcHandlers,
+	SpawnEssentialTaskHandle, SpawnTaskHandle, TaskManager, TransactionPoolAdapter,
 };
 use futures::{select, FutureExt, StreamExt};
 use jsonrpsee::RpcModule;
@@ -43,13 +43,13 @@ use sc_executor::{
 };
 use sc_keystore::LocalKeystore;
 use sc_network::{
-	config::{FullNetworkConfiguration, ProtocolId, SyncMode},
+	config::{FullNetworkConfiguration, IpfsConfig, ProtocolId, SyncMode},
 	multiaddr::Protocol,
 	service::{
 		traits::{PeerStore, RequestResponseConfig},
 		NotificationMetrics,
 	},
-	NetworkBackend, NetworkStateInfo,
+	IpfsIndexedTransactions, NetworkBackend, NetworkStateInfo,
 };
 use sc_network_common::role::{Role, Roles};
 use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
@@ -99,6 +99,10 @@ use std::{
 	time::{Duration, SystemTime},
 };
 
+/// Cap the maximum number of blocks advertized to IPFS to two weeks at 6-second block time.
+/// Block pruning depth will be used if it is shorter.
+const IPFS_MAX_BLOCKS: u32 = 201600;
+
 /// Full client type.
 pub type TFullClient<TBl, TRtApi, TExec> =
 	Client<TFullBackend<TBl>, TFullCallExecutor<TBl, TExec>, TBl, TRtApi>;
@@ -119,8 +123,9 @@ impl KeystoreContainer {
 	/// Construct KeystoreContainer
 	pub fn new(config: &KeystoreConfig) -> Result<Self, Error> {
 		let keystore = Arc::new(match config {
-			KeystoreConfig::Path { path, password } =>
-				LocalKeystore::open(path.clone(), password.clone())?,
+			KeystoreConfig::Path { path, password } => {
+				LocalKeystore::open(path.clone(), password.clone())?
+			},
 			KeystoreConfig::InMemory => LocalKeystore::in_memory(),
 		});
 
@@ -143,26 +148,33 @@ pub fn new_full_client<TBl, TRtApi, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
+	pruning_filters: Vec<Arc<dyn sc_client_db::PruningFilter>>,
 ) -> Result<TFullClient<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
-	new_full_parts(config, telemetry, executor).map(|parts| parts.0)
+	new_full_parts(config, telemetry, executor, pruning_filters).map(|parts| parts.0)
 }
 
 /// Create the initial parts of a full node with the default genesis block builder.
+///
+/// The `pruning_filters` parameter allows configuring which blocks should be preserved
+/// during pruning.
 pub fn new_full_parts_record_import<TBl, TRtApi, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
 	enable_import_proof_recording: bool,
+	pruning_filters: Vec<Arc<dyn sc_client_db::PruningFilter>>,
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
-	let backend = new_db_backend(config.db_config())?;
+	let mut db_config = config.db_config();
+	db_config.pruning_filters = pruning_filters;
+	let backend = new_db_backend(db_config)?;
 
 	let genesis_block_builder = GenesisBlockBuilder::new(
 		config.chain_spec.as_storage_builder(),
@@ -180,17 +192,22 @@ where
 		enable_import_proof_recording,
 	)
 }
+
 /// Create the initial parts of a full node with the default genesis block builder.
+///
+/// The `pruning_filters` parameter allows configuring which blocks should be preserved
+/// during pruning.
 pub fn new_full_parts<TBl, TRtApi, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
+	pruning_filters: Vec<Arc<dyn sc_client_db::PruningFilter>>,
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
-	new_full_parts_record_import(config, telemetry, executor, false)
+	new_full_parts_record_import(config, telemetry, executor, false, pruning_filters)
 }
 
 /// Create the initial parts of a full node.
@@ -374,7 +391,10 @@ pub fn new_wasm_executor<H: HostFunctions>(config: &ExecutorConfiguration) -> Wa
 		.build()
 }
 
-/// Create an instance of default DB-backend backend.
+/// Create an instance of the default DB-backend.
+///
+/// Pruning filters can be configured via `settings.pruning_filters`.
+/// If any filter returns `true` for a block's justifications, the block will not be pruned.
 pub fn new_db_backend<Block>(
 	settings: DatabaseSettings,
 ) -> Result<Arc<Backend<Block>>, sp_blockchain::Error>
@@ -606,9 +626,19 @@ where
 		.map(|registry| sc_rpc_spec_v2::transaction::TransactionMetrics::new(registry))
 		.transpose()?;
 
+	// Create dedicated RPC runtime with limited blocking threads.
+	// This isolates RPC blocking operations from the rest of the node.
+	let rpc_runtime = sc_rpc_server::create_rpc_runtime(config.rpc.max_connections)
+		.map_err(|e| Error::Application(Box::new(e)))?;
+
+	// Create spawn handle for RPC tasks
+	let rpc_spawn_handle: Arc<dyn sp_core::traits::SpawnNamed> =
+		Arc::new(sc_rpc_server::RpcSpawnHandle::new(rpc_runtime.handle().clone()));
+
+	// Factory that creates RPC module
 	let gen_rpc_module = || {
 		gen_rpc_module(GenRpcModuleParams {
-			spawn_handle: task_manager.spawn_handle(),
+			spawn_handle: rpc_spawn_handle.clone(),
 			client: client.clone(),
 			transaction_pool: transaction_pool.clone(),
 			keystore: keystore.clone(),
@@ -625,11 +655,15 @@ where
 		})
 	};
 
+	// Generate the RPC module for the server
+	let rpc_api = gen_rpc_module()?;
+
 	let rpc_server_handle = start_rpc_servers(
 		&config.rpc,
 		config.prometheus_registry(),
 		&config.tokio_handle,
-		gen_rpc_module,
+		rpc_api,
+		rpc_runtime,
 		rpc_id_provider,
 	)?;
 
@@ -643,6 +677,7 @@ where
 		})
 		.collect();
 
+	// In-memory RPC uses the same dedicated RPC runtime
 	let in_memory_rpc = {
 		let mut module = gen_rpc_module()?;
 		module.extensions_mut().insert(DenyUnsafe::No);
@@ -757,8 +792,8 @@ where
 
 /// Parameters for [`gen_rpc_module`].
 pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TRpc, TExPool> {
-	/// The handle to spawn tasks.
-	pub spawn_handle: SpawnTaskHandle,
+	/// The handle to spawn tasks on the RPC runtime.
+	pub spawn_handle: Arc<dyn sp_core::traits::SpawnNamed>,
 	/// Access to the client.
 	pub client: Arc<TCl>,
 	/// The transaction pool.
@@ -837,7 +872,7 @@ where
 	};
 
 	let mut rpc_api = RpcModule::new(());
-	let task_executor = Arc::new(spawn_handle);
+	let task_executor = spawn_handle;
 
 	let (chain, state, child_state) = {
 		let chain = sc_rpc::chain::new_full(client.clone(), task_executor.clone()).into_rpc();
@@ -955,6 +990,8 @@ where
 	pub transaction_pool: Arc<TxPool>,
 	/// A handle for spawning tasks.
 	pub spawn_handle: SpawnTaskHandle,
+	/// A handle for spawning essential tasks.
+	pub spawn_essential_handle: SpawnEssentialTaskHandle,
 	/// An import queue.
 	pub import_queue: IQ,
 	/// A block announce validator builder.
@@ -1003,6 +1040,7 @@ where
 		client,
 		transaction_pool,
 		spawn_handle,
+		spawn_essential_handle,
 		import_queue,
 		block_announce_validator_builder,
 		warp_sync_config,
@@ -1054,6 +1092,7 @@ where
 		client.clone(),
 		&spawn_handle,
 		metrics_registry,
+		config.blocks_pruning.is_archive(),
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1077,18 +1116,19 @@ where
 		role: config.role,
 		protocol_id,
 		fork_id,
-		ipfs_server: config.network.ipfs_server,
 		announce_block: config.announce_block,
 		net_config,
 		client,
 		transaction_pool,
 		spawn_handle,
+		spawn_essential_handle,
 		import_queue,
 		sync_service,
 		block_announce_config,
 		network_service_provider,
 		metrics_registry,
 		metrics,
+		blocks_pruning: config.blocks_pruning,
 	})
 }
 
@@ -1104,8 +1144,6 @@ where
 	pub protocol_id: ProtocolId,
 	/// Fork ID.
 	pub fork_id: Option<&'a str>,
-	/// Enable serving block data over IPFS bitswap.
-	pub ipfs_server: bool,
 	/// Announce block automatically after they have been imported.
 	pub announce_block: bool,
 	/// Full network configuration.
@@ -1116,6 +1154,8 @@ where
 	pub transaction_pool: Arc<TxPool>,
 	/// A handle for spawning tasks.
 	pub spawn_handle: SpawnTaskHandle,
+	/// A handle for spawning essential tasks.
+	pub spawn_essential_handle: SpawnEssentialTaskHandle,
 	/// An import queue.
 	pub import_queue: IQ,
 	/// Syncing service to communicate with syncing engine.
@@ -1128,6 +1168,8 @@ where
 	pub metrics_registry: Option<&'a Registry>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
+	/// Block pruning configuration.
+	pub blocks_pruning: BlocksPruning,
 }
 
 /// Build the network service, the network status sinks and an RPC sender, this is a lower-level
@@ -1162,18 +1204,19 @@ where
 		role,
 		protocol_id,
 		fork_id,
-		ipfs_server,
 		announce_block,
 		mut net_config,
 		client,
 		transaction_pool,
 		spawn_handle,
+		spawn_essential_handle,
 		import_queue,
 		sync_service,
 		block_announce_config,
 		network_service_provider,
 		metrics_registry,
 		metrics,
+		blocks_pruning,
 	} = params;
 
 	let genesis_hash = client.info().genesis_hash;
@@ -1189,11 +1232,21 @@ where
 	// install request handlers to `FullNetworkConfiguration`
 	net_config.add_request_response_protocol(light_client_request_protocol_config);
 
-	let bitswap_config = ipfs_server.then(|| {
-		let (handler, config) = Net::bitswap_server(client.clone());
+	// Initialize IPFS server.
+	let ipfs_config = net_config.network_config.ipfs_server.then(|| {
+		let (handler, bitswap_config) = Net::bitswap_server(client.clone());
 		spawn_handle.spawn("bitswap-request-handler", Some("networking"), handler);
 
-		config
+		let ipfs_num_blocks = match blocks_pruning {
+			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => IPFS_MAX_BLOCKS,
+			BlocksPruning::Some(num) => std::cmp::min(num, IPFS_MAX_BLOCKS),
+		};
+
+		IpfsConfig {
+			bitswap_config,
+			block_provider: Box::new(IpfsIndexedTransactions::new(client.clone(), ipfs_num_blocks)),
+			bootnodes: net_config.network_config.ipfs_bootnodes.clone(),
+		}
 	});
 
 	// Create transactions protocol and add it to the list of supported protocols of
@@ -1227,7 +1280,7 @@ where
 		fork_id: fork_id.map(ToOwned::to_owned),
 		metrics_registry: metrics_registry.cloned(),
 		block_announce_config,
-		bitswap_config,
+		ipfs_config,
 		notification_metrics: metrics,
 	};
 
@@ -1286,7 +1339,10 @@ where
 	// issue, and ideally we would like to fix the network future to take as little time as
 	// possible, but we also take the extra harm-prevention measure to execute the networking
 	// future using `spawn_blocking`.
-	spawn_handle.spawn_blocking("network-worker", Some("networking"), future);
+	//
+	// The network worker is spawned as an essential task, meaning if it exits unexpectedly
+	// the service will shut down.
+	spawn_essential_handle.spawn_blocking("network-worker", Some("networking"), future);
 
 	Ok((network, system_rpc_tx, tx_handler_controller, sync_service.clone()))
 }
@@ -1323,6 +1379,9 @@ where
 	pub metrics_registry: Option<&'a Registry>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
+	/// Whether to archive blocks. When `true`, gap sync requests bodies to maintain complete
+	/// block history.
+	pub archive_blocks: bool,
 }
 
 /// Build default syncing engine using [`build_default_block_downloader`] and
@@ -1355,6 +1414,7 @@ where
 		spawn_handle,
 		metrics_registry,
 		metrics,
+		archive_blocks,
 	} = config;
 
 	let block_downloader = build_default_block_downloader(
@@ -1375,6 +1435,7 @@ where
 		client.clone(),
 		spawn_handle,
 		metrics_registry,
+		archive_blocks,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1442,6 +1503,7 @@ pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	client: Arc<Client>,
 	spawn_handle: &SpawnTaskHandle,
 	metrics_registry: Option<&Registry>,
+	archive_blocks: bool,
 ) -> Result<Box<dyn SyncingStrategy<Block>>, Error>
 where
 	Block: BlockT,
@@ -1455,13 +1517,14 @@ where
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
 	if warp_sync_config.is_none() && net_config.network_config.sync_mode.is_warp() {
-		return Err("Warp sync enabled, but no warp sync provider configured.".into())
+		return Err("Warp sync enabled, but no warp sync provider configured.".into());
 	}
 
 	if client.requires_full_sync() {
 		match net_config.network_config.sync_mode {
-			SyncMode::LightState { .. } =>
-				return Err("Fast sync doesn't work for archive nodes".into()),
+			SyncMode::LightState { .. } => {
+				return Err("Fast sync doesn't work for archive nodes".into())
+			},
 			SyncMode::Warp => return Err("Warp sync doesn't work for archive nodes".into()),
 			SyncMode::Full => {},
 		}
@@ -1510,6 +1573,7 @@ where
 		metrics_registry: metrics_registry.cloned(),
 		state_request_protocol_name,
 		block_downloader,
+		archive_blocks,
 	};
 	Ok(Box::new(PolkadotSyncingStrategy::new(
 		syncing_config,

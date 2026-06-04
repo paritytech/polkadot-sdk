@@ -22,15 +22,15 @@ mod tests;
 
 use super::{Nested, Root, State};
 use crate::{
-	storage::ContractInfo, BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
-	StorageDeposit as Deposit,
+	BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
+	StorageDeposit as Deposit, storage::ContractInfo,
 };
 use alloc::vec::Vec;
 use core::{marker::PhantomData, mem};
-use frame_support::{traits::Get, DefaultNoBound, RuntimeDebugNoBound};
+use frame_support::{DebugNoBound, DefaultNoBound, traits::Get};
 use sp_runtime::{
-	traits::{Saturating, Zero},
 	DispatchError, FixedPointNumber, FixedU128,
+	traits::{Saturating, Zero},
 };
 
 #[cfg(test)]
@@ -71,7 +71,7 @@ pub trait Ext<T: Config> {
 pub enum ReservingExt {}
 
 /// A type that allows the metering of consumed or freed storage of a single contract call stack.
-#[derive(DefaultNoBound, RuntimeDebugNoBound)]
+#[derive(DefaultNoBound, DebugNoBound)]
 pub struct RawMeter<T: Config, E, S: State> {
 	/// The limit of how much balance this meter is allowed to consume.
 	pub(crate) limit: Option<BalanceOf<T>>,
@@ -97,7 +97,7 @@ pub struct RawMeter<T: Config, E, S: State> {
 }
 
 /// This type is used to describe a storage change when charging from the meter.
-#[derive(Default, RuntimeDebugNoBound)]
+#[derive(Default, DebugNoBound)]
 pub struct Diff {
 	/// How many bytes were added to storage.
 	pub bytes_added: u32,
@@ -130,7 +130,7 @@ impl Diff {
 		let info = if let Some(info) = info {
 			info
 		} else {
-			return bytes_deposit.saturating_add(&items_deposit)
+			return bytes_deposit.saturating_add(&items_deposit);
 		};
 
 		// Refunds are calculated pro rata based on the accumulated storage within the contract
@@ -153,16 +153,20 @@ impl Diff {
 		info.storage_items =
 			info.storage_items.saturating_add(items_added).saturating_sub(items_removed);
 		match &bytes_deposit {
-			Deposit::Charge(amount) =>
-				info.storage_byte_deposit = info.storage_byte_deposit.saturating_add(*amount),
-			Deposit::Refund(amount) =>
-				info.storage_byte_deposit = info.storage_byte_deposit.saturating_sub(*amount),
+			Deposit::Charge(amount) => {
+				info.storage_byte_deposit = info.storage_byte_deposit.saturating_add(*amount)
+			},
+			Deposit::Refund(amount) => {
+				info.storage_byte_deposit = info.storage_byte_deposit.saturating_sub(*amount)
+			},
 		}
 		match &items_deposit {
-			Deposit::Charge(amount) =>
-				info.storage_item_deposit = info.storage_item_deposit.saturating_add(*amount),
-			Deposit::Refund(amount) =>
-				info.storage_item_deposit = info.storage_item_deposit.saturating_sub(*amount),
+			Deposit::Charge(amount) => {
+				info.storage_item_deposit = info.storage_item_deposit.saturating_add(*amount)
+			},
+			Deposit::Refund(amount) => {
+				info.storage_item_deposit = info.storage_item_deposit.saturating_sub(*amount)
+			},
 		}
 
 		bytes_deposit.saturating_add(&items_deposit)
@@ -181,7 +185,7 @@ impl Diff {
 }
 
 /// The state of a contract.
-#[derive(RuntimeDebugNoBound, Clone, PartialEq, Eq)]
+#[derive(DebugNoBound, Clone, PartialEq, Eq)]
 pub enum ContractState<T: Config> {
 	Alive { amount: DepositOf<T> },
 	Terminated,
@@ -196,14 +200,14 @@ pub enum ContractState<T: Config> {
 /// The only exception is when a special (tougher) deposit limit is specified for a cross-contract
 /// call. In that case the limit is enforced once the call is returned, rolling it back if
 /// exhausted.
-#[derive(RuntimeDebugNoBound, Clone)]
+#[derive(DebugNoBound, Clone)]
 struct Charge<T: Config> {
 	contract: T::AccountId,
 	state: ContractState<T>,
 }
 
 /// Records the storage changes of a storage meter.
-#[derive(RuntimeDebugNoBound)]
+#[derive(DebugNoBound)]
 enum Contribution<T: Config> {
 	/// The contract the meter belongs to is alive and accumulates changes using a [`Diff`].
 	Alive(Diff),
@@ -409,11 +413,12 @@ where
 								self.total_deposit = self.total_deposit.saturating_sub(&amount);
 								last.state = ContractState::Terminated;
 							},
-							(ContractState::Terminated, ContractState::Terminated) =>
+							(ContractState::Terminated, ContractState::Terminated) => {
 								debug_assert!(
 									false,
 									"We never emit two terminates for the same contract."
-								),
+								)
+							},
 						}
 						continue;
 					}
@@ -486,6 +491,22 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 
 		// no need to recalculate max_charged here as the consumed amount cannot increase
 		// when taking removed bytes/items into account
+	}
+
+	/// Apply pending storage changes to a ContractInfo without finalizing the meter.
+	///
+	/// This is used before creating a nested frame to ensure the child frame can see
+	/// the parent's pending storage changes when calculating refunds.
+	///
+	/// Unlike [`Self::finalize_own_contributions`], this does not consume the pending diff,
+	/// allowing the meter to continue tracking changes after the nested call returns.
+	pub fn apply_pending_changes_to_contract(&self, info: &mut ContractInfo<T>) {
+		if let Contribution::Alive(diff) = &self.own_contribution {
+			// Apply the diff to update the ContractInfo's storage deposit fields.
+			// We don't care about the return value (the deposit amount) here,
+			// we just want to update the ContractInfo so child frames can see it.
+			let _ = diff.update_contract::<T>(Some(info));
+		}
 	}
 }
 

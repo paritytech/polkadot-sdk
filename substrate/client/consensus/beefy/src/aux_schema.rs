@@ -70,11 +70,15 @@ where
 
 		Some(v) if 1 <= v && v <= 3 =>
 		// versions 1, 2 & 3 are obsolete and should be ignored
-			warn!(target: LOG_TARGET,  "🥩 backend contains a BEEFY state of an obsolete version {v}. ignoring..."),
-		Some(4) =>
-			return load_decode::<_, PersistedState<B, AuthorityId>>(backend, WORKER_STATE_KEY),
-		other =>
-			return Err(ClientError::Backend(format!("Unsupported BEEFY DB version: {:?}", other))),
+		{
+			warn!(target: LOG_TARGET,  "🥩 backend contains a BEEFY state of an obsolete version {v}. ignoring...")
+		},
+		Some(4) => {
+			return load_decode::<_, PersistedState<B, AuthorityId>>(backend, WORKER_STATE_KEY)
+		},
+		other => {
+			return Err(ClientError::Backend(format!("Unsupported BEEFY DB version: {:?}", other)))
+		},
 	}
 
 	// No persistent state found in DB.

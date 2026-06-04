@@ -205,10 +205,12 @@ impl From<EnumDeprecationInfoIR> for EnumDeprecationInfo {
 impl From<VariantDeprecationInfoIR> for VariantDeprecationInfo {
 	fn from(ir: VariantDeprecationInfoIR) -> Self {
 		match ir {
-			VariantDeprecationInfoIR::DeprecatedWithoutNote =>
-				VariantDeprecationInfo::DeprecatedWithoutNote,
-			VariantDeprecationInfoIR::Deprecated { note, since } =>
-				VariantDeprecationInfo::Deprecated { note, since },
+			VariantDeprecationInfoIR::DeprecatedWithoutNote => {
+				VariantDeprecationInfo::DeprecatedWithoutNote
+			},
+			VariantDeprecationInfoIR::Deprecated { note, since } => {
+				VariantDeprecationInfo::Deprecated { note, since }
+			},
 		}
 	}
 }
@@ -217,10 +219,12 @@ impl From<ItemDeprecationInfoIR> for ItemDeprecationInfo {
 	fn from(ir: ItemDeprecationInfoIR) -> Self {
 		match ir {
 			ItemDeprecationInfoIR::NotDeprecated => ItemDeprecationInfo::NotDeprecated,
-			ItemDeprecationInfoIR::DeprecatedWithoutNote =>
-				ItemDeprecationInfo::DeprecatedWithoutNote,
-			ItemDeprecationInfoIR::Deprecated { note, since } =>
-				ItemDeprecationInfo::Deprecated { note, since },
+			ItemDeprecationInfoIR::DeprecatedWithoutNote => {
+				ItemDeprecationInfo::DeprecatedWithoutNote
+			},
+			ItemDeprecationInfoIR::Deprecated { note, since } => {
+				ItemDeprecationInfo::Deprecated { note, since }
+			},
 		}
 	}
 }

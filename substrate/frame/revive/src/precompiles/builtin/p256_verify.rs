@@ -24,9 +24,9 @@
 //! P256 elliptic curve.
 
 use crate::{
+	Config, U256,
 	precompiles::{BuiltinAddressMatcher, Error, Ext, PrimitivePrecompile},
 	vm::RuntimeCosts,
-	Config, U256,
 };
 use alloc::vec::Vec;
 use core::{marker::PhantomData, num::NonZero};

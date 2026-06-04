@@ -33,6 +33,7 @@ xcm-executor = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -47,6 +48,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-tracing/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",

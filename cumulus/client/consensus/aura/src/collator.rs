@@ -33,6 +33,7 @@ use cumulus_client_consensus_common::{
 use cumulus_client_parachain_inherent::{ParachainInherentData, ParachainInherentDataProvider};
 use cumulus_primitives_core::{
 	relay_chain::Hash as PHash, DigestItem, ParachainBlockData, PersistedValidationData,
+	RelayProofRequest,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use sc_client_api::BackendTransaction;
@@ -48,7 +49,7 @@ use futures::prelude::*;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
 use sc_network_types::PeerId;
-use sp_api::{ProofRecorder, ProvideRuntimeApi, StorageProof};
+use sp_api::{ApiExt, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_consensus::BlockOrigin;
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
@@ -177,6 +178,7 @@ where
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
 		relay_parent_descendants: Option<RelayParentData>,
+		relay_proof_request: RelayProofRequest,
 		collator_peer_id: PeerId,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
 		let paras_inherent_data = ParachainInherentDataProvider::create_at(
@@ -187,17 +189,18 @@ where
 			relay_parent_descendants
 				.map(RelayParentData::into_inherent_descendant_list)
 				.unwrap_or_default(),
-			Vec::new(),
+			relay_proof_request,
 			collator_peer_id,
 		)
 		.await;
 
 		let paras_inherent_data = match paras_inherent_data {
 			Some(p) => p,
-			None =>
+			None => {
 				return Err(
 					format!("Could not create paras inherent data at {:?}", relay_parent).into()
-				),
+				)
+			},
 		};
 
 		let mut other_inherent_data = self
@@ -224,6 +227,7 @@ where
 		validation_data: &PersistedValidationData,
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
+		relay_proof_request: RelayProofRequest,
 		collator_peer_id: PeerId,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
 		self.create_inherent_data_with_rp_offset(
@@ -232,6 +236,7 @@ where
 			parent_hash,
 			timestamp,
 			None,
+			relay_proof_request,
 			collator_peer_id,
 		)
 		.await
@@ -273,7 +278,7 @@ where
 			return Err(
 				Box::from("`ProofSizeExt` registered, but no `storage_proof_recorder` provided. This is a bug.")
 					as Box<dyn Error + Send + Sync>
-			)
+			);
 		}
 
 		// Create proposal arguments
@@ -441,8 +446,9 @@ where
 	P::Public: Codec,
 	P::Signature: Codec,
 {
-	// load authorities
-	let authorities = client.runtime_api().authorities(parent_hash).map_err(Box::new)?;
+	let mut runtime_api = client.runtime_api();
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+	let authorities = runtime_api.authorities(parent_hash).map_err(Box::new)?;
 
 	// Determine the current slot and timestamp based on the relay-parent's.
 	let (slot_now, timestamp) = match consensus_common::relay_slot_and_timestamp(

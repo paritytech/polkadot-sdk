@@ -25,7 +25,7 @@ use log::trace;
 use codec::Codec;
 
 use sc_client_api::UsageProvider;
-use sp_api::{Core, ProvideRuntimeApi};
+use sp_api::{ApiExt, Core, ProvideRuntimeApi};
 use sp_application_crypto::{AppCrypto, AppPublic};
 use sp_blockchain::Result as CResult;
 use sp_consensus::Error as ConsensusError;
@@ -62,13 +62,15 @@ where
 	C: ProvideRuntimeApi<B>,
 	C::Api: AuraApi<B, A>,
 {
-	client.runtime_api().slot_duration(block_hash).map_err(|err| err.into())
+	let mut runtime_api = client.runtime_api();
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+	runtime_api.slot_duration(block_hash).map_err(|err| err.into())
 }
 
 /// Get the slot author for given block along with authorities.
 pub fn slot_author<P: Pair>(slot: Slot, authorities: &[AuthorityId<P>]) -> Option<&AuthorityId<P>> {
 	if authorities.is_empty() {
-		return None
+		return None;
 	}
 
 	let idx = *slot % (authorities.len() as u64);
@@ -171,7 +173,7 @@ pub fn find_pre_digest<B: BlockT, Signature: Codec>(
 	header: &B::Header,
 ) -> Result<Slot, PreDigestLookupError> {
 	if header.number().is_zero() {
-		return Ok(0.into())
+		return Ok(0.into());
 	}
 
 	let mut pre_digest: Option<Slot> = None;
@@ -203,12 +205,12 @@ where
 	C: ProvideRuntimeApi<B>,
 	C::Api: AuraApi<B, A>,
 {
-	let runtime_api = client.runtime_api();
+	let mut runtime_api = client.runtime_api();
 
 	match compatibility_mode {
 		CompatibilityMode::None => {},
 		// Use `initialize_block` until we hit the block that should disable the mode.
-		CompatibilityMode::UseInitializeBlock { until } =>
+		CompatibilityMode::UseInitializeBlock { until } => {
 			if *until > context_block_number {
 				runtime_api
 					.initialize_block(
@@ -222,9 +224,11 @@ where
 						),
 					)
 					.map_err(|_| ConsensusError::InvalidAuthoritiesSet)?;
-			},
+			}
+		},
 	}
 
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
 	runtime_api
 		.authorities(parent_hash)
 		.ok()
@@ -242,8 +246,9 @@ where
 	C: ProvideRuntimeApi<B>,
 	C::Api: AuraApi<B, A>,
 {
-	client
-		.runtime_api()
+	let mut runtime_api = client.runtime_api();
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+	runtime_api
 		.authorities(parent_hash)
 		.ok()
 		.ok_or(ConsensusError::InvalidAuthoritiesSet)
@@ -303,7 +308,7 @@ where
 
 	if slot > slot_now {
 		header.digest_mut().push(seal);
-		return Err(SealVerificationError::Deferred(header, slot))
+		return Err(SealVerificationError::Deferred(header, slot));
 	} else {
 		// check the signature is valid under the expected authority and
 		// chain state.

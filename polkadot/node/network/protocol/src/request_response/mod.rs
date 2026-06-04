@@ -203,7 +203,7 @@ impl Protocol {
 				CHUNK_REQUEST_TIMEOUT,
 				tx,
 			),
-			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 =>
+			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 => {
 				N::request_response_config(
 					name,
 					legacy_names,
@@ -212,7 +212,8 @@ impl Protocol {
 					// Taken from initial implementation in collator protocol:
 					POV_REQUEST_TIMEOUT_CONNECTED,
 					tx,
-				),
+				)
+			},
 			Protocol::PoVFetchingV1 => N::request_response_config(
 				name,
 				legacy_names,

@@ -871,10 +871,16 @@ fn garbage_collection_on_window_pruning() {
 
 		assert!(ValidatorSlashInEra::<T>::get(&now, &11).is_some());
 
-		// + 1 because we have to exit the bonding window.
-		for era in (0..(BondingDuration::get() + 1)).map(|offset| offset + now + 1) {
+		for era in (0..(HistoryDepth::get() + 1)).map(|offset| offset + now + 1) {
 			assert!(ValidatorSlashInEra::<T>::get(&now, &11).is_some());
 			Session::roll_until_active_era(era);
+		}
+
+		// After HistoryDepth + 1 eras, lazy pruning is triggered.
+		// We need to manually call prune_era_step to actually remove the data.
+		let prune_era = now;
+		while EraPruningState::<T>::get(prune_era).is_some() {
+			assert_ok!(Staking::prune_era_step(RuntimeOrigin::signed(10), prune_era));
 		}
 
 		assert!(ValidatorSlashInEra::<T>::get(&now, &11).is_none());

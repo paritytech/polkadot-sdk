@@ -85,6 +85,8 @@ std = [
 	"pallet-contracts?/std",
 	"pallet-conviction-voting?/std",
 	"pallet-core-fellowship?/std",
+	"pallet-dap-satellite?/std",
+	"pallet-dap?/std",
 	"pallet-delegated-staking?/std",
 	"pallet-democracy?/std",
 	"pallet-derivatives?/std",
@@ -145,7 +147,6 @@ std = [
 	"pallet-society?/std",
 	"pallet-staking-async-ah-client?/std",
 	"pallet-staking-async-rc-client?/std",
-	"pallet-staking-async-reward-fn?/std",
 	"pallet-staking-async-runtime-api?/std",
 	"pallet-staking-async?/std",
 	"pallet-staking-reward-fn?/std",
@@ -172,6 +173,7 @@ std = [
 	"pallet-xcm-bridge-hub?/std",
 	"pallet-xcm-precompiles?/std",
 	"pallet-xcm?/std",
+	"parachains-common-types?/std",
 	"parachains-common?/std",
 	"parachains-runtimes-test-utils?/std",
 	"polkadot-core-primitives?/std",
@@ -282,6 +284,8 @@ runtime-benchmarks = [
 	"pallet-contracts?/runtime-benchmarks",
 	"pallet-conviction-voting?/runtime-benchmarks",
 	"pallet-core-fellowship?/runtime-benchmarks",
+	"pallet-dap-satellite?/runtime-benchmarks",
+	"pallet-dap?/runtime-benchmarks",
 	"pallet-delegated-staking?/runtime-benchmarks",
 	"pallet-democracy?/runtime-benchmarks",
 	"pallet-derivatives?/runtime-benchmarks",
@@ -424,6 +428,8 @@ try-runtime = [
 	"pallet-contracts?/try-runtime",
 	"pallet-conviction-voting?/try-runtime",
 	"pallet-core-fellowship?/try-runtime",
+	"pallet-dap-satellite?/try-runtime",
+	"pallet-dap?/try-runtime",
 	"pallet-delegated-staking?/try-runtime",
 	"pallet-democracy?/try-runtime",
 	"pallet-derivatives?/try-runtime",
@@ -638,6 +644,8 @@ runtime-full = [
 	"pallet-contracts-uapi",
 	"pallet-conviction-voting",
 	"pallet-core-fellowship",
+	"pallet-dap",
+	"pallet-dap-satellite",
 	"pallet-delegated-staking",
 	"pallet-democracy",
 	"pallet-derivatives",
@@ -702,7 +710,6 @@ runtime-full = [
 	"pallet-staking-async",
 	"pallet-staking-async-ah-client",
 	"pallet-staking-async-rc-client",
-	"pallet-staking-async-reward-fn",
 	"pallet-staking-async-runtime-api",
 	"pallet-staking-reward-curve",
 	"pallet-staking-reward-fn",
@@ -729,6 +736,7 @@ runtime-full = [
 	"pallet-xcm-bridge-hub-router",
 	"pallet-xcm-precompiles",
 	"parachains-common",
+	"parachains-common-types",
 	"polkadot-core-primitives",
 	"polkadot-parachain-primitives",
 	"polkadot-primitives",
@@ -914,8 +922,6 @@ node = [
 	"polkadot-node-core-pvf",
 	"polkadot-node-core-pvf-checker",
 	"polkadot-node-core-pvf-common",
-	"polkadot-node-core-pvf-execute-worker",
-	"polkadot-node-core-pvf-prepare-worker",
 	"polkadot-node-core-runtime-api",
 	"polkadot-node-metrics",
 	"polkadot-node-network-protocol",
@@ -1419,6 +1425,16 @@ default-features = false
 optional = true
 path = "../substrate/frame/core-fellowship"
 
+[dependencies.pallet-dap]
+default-features = false
+optional = true
+path = "../substrate/frame/dap"
+
+[dependencies.pallet-dap-satellite]
+default-features = false
+optional = true
+path = "../substrate/frame/dap-satellite"
+
 [dependencies.pallet-delegated-staking]
 default-features = false
 optional = true
@@ -1739,11 +1755,6 @@ default-features = false
 optional = true
 path = "../substrate/frame/staking-async/rc-client"
 
-[dependencies.pallet-staking-async-reward-fn]
-default-features = false
-optional = true
-path = "../substrate/frame/staking-async/reward-fn"
-
 [dependencies.pallet-staking-async-runtime-api]
 default-features = false
 optional = true
@@ -1873,6 +1884,11 @@ path = "../polkadot/xcm/pallet-xcm/precompiles"
 default-features = false
 optional = true
 path = "../cumulus/parachains/common"
+
+[dependencies.parachains-common-types]
+default-features = false
+optional = true
+path = "../cumulus/parachains/common/types"
 
 [dependencies.polkadot-core-primitives]
 default-features = false
@@ -2473,16 +2489,6 @@ path = "../polkadot/node/core/pvf-checker"
 default-features = false
 optional = true
 path = "../polkadot/node/core/pvf/common"
-
-[dependencies.polkadot-node-core-pvf-execute-worker]
-default-features = false
-optional = true
-path = "../polkadot/node/core/pvf/execute-worker"
-
-[dependencies.polkadot-node-core-pvf-prepare-worker]
-default-features = false
-optional = true
-path = "../polkadot/node/core/pvf/prepare-worker"
 
 [dependencies.polkadot-node-core-runtime-api]
 default-features = false

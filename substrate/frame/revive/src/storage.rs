@@ -18,32 +18,32 @@
 //! This module contains routines for accessing and altering a contract related state.
 
 use crate::{
+	AccountInfoOf, BalanceOf, BalanceWithDust, Config, DeletionQueue, DeletionQueueCounter, Error,
+	SENTINEL, TrieId,
 	address::AddressMapper,
 	exec::{AccountIdOf, Key},
 	metering::FrameMeter,
 	tracing::if_tracing,
 	weights::WeightInfo,
-	AccountInfoOf, BalanceOf, BalanceWithDust, Config, DeletionQueue, DeletionQueueCounter, Error,
-	TrieId, SENTINEL,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
+	CloneNoBound, DebugNoBound, DefaultNoBound,
 	storage::child::{self, ChildInfo},
 	traits::{
 		fungible::Inspect,
 		tokens::{Fortitude, Preservation},
 	},
 	weights::{Weight, WeightMeter},
-	CloneNoBound, DebugNoBound, DefaultNoBound,
 };
 use scale_info::TypeInfo;
 use sp_core::{Get, H160};
 use sp_io::KillStorageResult;
 use sp_runtime::{
+	Debug, DispatchError,
 	traits::{Hash, Saturating, Zero},
-	DispatchError, RuntimeDebug,
 };
 
 use crate::metering::Diff;
@@ -57,15 +57,7 @@ pub enum AccountIdOrAddress<T: Config> {
 
 /// Represents the account information for a contract or an externally owned account (EOA).
 #[derive(
-	DefaultNoBound,
-	Encode,
-	Decode,
-	CloneNoBound,
-	PartialEq,
-	Eq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
+	DefaultNoBound, Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T))]
 pub struct AccountInfo<T: Config> {
@@ -79,15 +71,7 @@ pub struct AccountInfo<T: Config> {
 
 /// The account type is used to distinguish between contracts and externally owned accounts.
 #[derive(
-	DefaultNoBound,
-	Encode,
-	Decode,
-	CloneNoBound,
-	PartialEq,
-	Eq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
+	DefaultNoBound, Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T))]
 pub enum AccountType<T: Config> {
@@ -134,8 +118,9 @@ impl<T: Config> From<H160> for AccountIdOrAddress<T> {
 impl<T: Config> AccountIdOrAddress<T> {
 	pub fn address(&self) -> H160 {
 		match self {
-			AccountIdOrAddress::AccountId(id) =>
-				<T::AddressMapper as AddressMapper<T>>::to_address(id),
+			AccountIdOrAddress::AccountId(id) => {
+				<T::AddressMapper as AddressMapper<T>>::to_address(id)
+			},
 			AccountIdOrAddress::Address(address) => *address,
 		}
 	}
@@ -269,7 +254,7 @@ impl<T: Config> ContractInfo<T> {
 		if_tracing(|t| {
 			t.storage_read(key, value.as_deref());
 		});
-		return value
+		return value;
 	}
 
 	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
@@ -335,12 +320,13 @@ impl<T: Config> ContractInfo<T> {
 			let mut diff = Diff::default();
 			let key_len = key.len() as u32;
 			match (old_len, new_value.as_ref().map(|v| v.len() as u32)) {
-				(Some(old_len), Some(new_len)) =>
+				(Some(old_len), Some(new_len)) => {
 					if new_len > old_len {
 						diff.bytes_added = new_len - old_len;
 					} else {
 						diff.bytes_removed = old_len - new_len;
-					},
+					}
+				},
 				(None, Some(new_len)) => {
 					diff.bytes_added = new_len.saturating_add(key_len);
 					diff.items_added = 1;
@@ -420,7 +406,7 @@ impl<T: Config> ContractInfo<T> {
 	/// Delete as many items from the deletion queue possible within the supplied weight limit.
 	pub fn process_deletion_queue_batch(meter: &mut WeightMeter) {
 		if meter.try_consume(T::WeightInfo::on_process_deletion_queue_batch()).is_err() {
-			return
+			return;
 		};
 
 		let mut queue = <DeletionQueueManager<T>>::load();
@@ -443,7 +429,7 @@ impl<T: Config> ContractInfo<T> {
 				// This happens when our budget wasn't large enough to remove all keys.
 				KillStorageResult::SomeRemaining(keys_removed) => {
 					remaining_key_budget.saturating_reduce(keys_removed);
-					break
+					break;
 				},
 				KillStorageResult::AllRemoved(keys_removed) => {
 					entry.remove();
@@ -473,7 +459,7 @@ impl<T: Config> ContractInfo<T> {
 }
 
 /// Information about what happened to the pre-existing value when calling [`ContractInfo::write`].
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 pub enum WriteOutcome {
 	/// No value existed at the specified key.
 	New,
@@ -577,7 +563,7 @@ impl<T: Config> DeletionQueueManager<T> {
 	/// the cost of an extra call to `sp_io::storage::next_key` to lookup the next entry in the map
 	fn next(&mut self) -> Option<DeletionQueueEntry<'_, T>> {
 		if self.is_empty() {
-			return None
+			return None;
 		}
 
 		let entry = <DeletionQueue<T>>::get(self.delete_counter);

@@ -180,7 +180,7 @@ pub type FriendsOf<T> =
 	BoundedVec<<T as frame_system::Config>::AccountId, <T as Config>::MaxFriends>;
 
 /// An active recovery process.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Default, Debug, TypeInfo, MaxEncodedLen)]
 pub struct ActiveRecovery<BlockNumber, Balance, Friends> {
 	/// The block number when the recovery process started.
 	pub created: BlockNumber,
@@ -192,7 +192,7 @@ pub struct ActiveRecovery<BlockNumber, Balance, Friends> {
 }
 
 /// Configuration for recovering an account.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Default, Debug, TypeInfo, MaxEncodedLen)]
 pub struct RecoveryConfig<BlockNumber, Balance, Friends> {
 	/// The minimum number of blocks since the start of the recovery process before the account
 	/// can be recovered.

@@ -57,11 +57,11 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 					.with_default_resources(|resources| {
 						resources.with_request_cpu(4).with_request_memory("4G")
 					})
-					// Have to set a `with_node` outside of the loop below, so that `r` has the
+					// Have to set a `with_validator` outside of the loop below, so that `r` has the
 					// right type.
-					.with_node(|node| node.with_name(names[0]));
+					.with_validator(|node| node.with_name(names[0]));
 
-				(1..3).fold(r, |acc, i| acc.with_node(|node| node.with_name(names[i])))
+				(1..3).fold(r, |acc, i| acc.with_validator(|node| node.with_name(names[i])))
 			})
 			.with_parachain(|p| {
 				// Para 2200 uses the new RFC103-enabled collator which sends the UMP signal
@@ -113,7 +113,7 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 			.with_block_monitoring(shared_params.does_block_monitoring)
 			.with_chain_type(shared_params.chain_type)
 			.with_base_dir_path(spawner.base_dir_path().unwrap().to_string())
-			.with_timeout_in_secs(21600) //6 hours
+			.with_timeout_in_secs(21600) // 6 hours
 			.with_legacy_backend(true)
 	}
 	.with_rpc_uri(ws)

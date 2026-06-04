@@ -233,8 +233,8 @@ impl BenchmarkHelperTrait<u64, u32, u32> for Helper {
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),
 			asset_id.into(),
-			42,   /* owner */
-			true, /* is_sufficient */
+			42,   // owner
+			true, // is_sufficient
 			min_balance
 		));
 

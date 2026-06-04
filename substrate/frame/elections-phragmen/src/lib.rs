@@ -116,7 +116,7 @@ use scale_info::TypeInfo;
 use sp_npos_elections::{ElectionResult, ExtendedBalance};
 use sp_runtime::{
 	traits::{Saturating, StaticLookup, Zero},
-	DispatchError, Perbill, RuntimeDebug,
+	Debug, DispatchError, Perbill,
 };
 use sp_staking::currency_to_vote::CurrencyToVote;
 
@@ -139,7 +139,7 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 >>::NegativeImbalance;
 
 /// An indication that the renouncing account currently has which of the below roles.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Debug, TypeInfo)]
 pub enum Renouncing {
 	/// A member is renouncing.
 	Member,
@@ -150,7 +150,7 @@ pub enum Renouncing {
 }
 
 /// An active voter.
-#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, TypeInfo)]
 pub struct Voter<AccountId, Balance> {
 	/// The members being backed.
 	pub votes: Vec<AccountId>,
@@ -169,7 +169,7 @@ impl<AccountId, Balance: Default> Default for Voter<AccountId, Balance> {
 }
 
 /// A holder of a seat as either a member or a runner-up.
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Clone, Default, Debug, PartialEq, TypeInfo)]
 pub struct SeatHolder<AccountId, Balance> {
 	/// The holder.
 	pub who: AccountId,
@@ -956,7 +956,7 @@ impl<T: Config> Pallet<T> {
 
 		if candidates_and_deposit.len().is_zero() {
 			Self::deposit_event(Event::EmptyTerm);
-			return T::DbWeight::get().reads(3)
+			return T::DbWeight::get().reads(3);
 		}
 
 		// All of the new winners that come out of phragmen will thus have a deposit recorded.
@@ -988,7 +988,7 @@ impl<T: Config> Pallet<T> {
 					"Failed to run election. Number of voters exceeded",
 				);
 				Self::deposit_event(Event::ElectionError);
-				return T::DbWeight::get().reads(3 + max_voters as u64)
+				return T::DbWeight::get().reads(3 + max_voters as u64);
 			},
 		}
 
@@ -1267,8 +1267,9 @@ impl<T: Config> Pallet<T> {
 		match Self::intersects(&Pallet::<T>::members_ids(), &Self::candidates_ids()) &&
 			Self::intersects(&Pallet::<T>::members_ids(), &Self::runners_up_ids())
 		{
-			true =>
-				Err("Members set should be disjoint from candidates and runners-up sets".into()),
+			true => {
+				Err("Members set should be disjoint from candidates and runners-up sets".into())
+			},
 			false => Ok(()),
 		}
 	}

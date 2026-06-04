@@ -85,6 +85,7 @@ pub struct Metrics {
 	pub requests_in_success_total: HistogramVec,
 	pub requests_out_failure_total: CounterVec<U64>,
 	pub requests_out_success_total: HistogramVec,
+	pub requests_response_bytes_total: CounterVec<U64>,
 }
 
 impl Metrics {
@@ -210,6 +211,13 @@ impl Metrics {
 						.expect("parameters are always valid values; qed"),
 				},
 				&["protocol"]
+			)?, registry)?,
+			requests_response_bytes_total: prometheus::register(CounterVec::new(
+				Opts::new(
+					"substrate_sub_libp2p_requests_response_bytes_total",
+					"Total bytes sent and received by request-response protocols"
+				),
+				&["direction", "protocol"]
 			)?, registry)?,
 		})
 	}

@@ -1,0 +1,20 @@
+title: Tighten length estimation during dry running
+doc:
+- audience: Runtime Dev
+  description: |-
+    The length of the RLP-encoded Ethereum transaction will have an effect on the transaction cost (as pallet-transaction-payment charges a length fee) and therefore the required Ethereum gas.
+
+    During dry running we need to estimate the length of the actual RLP-encoded Ethereum transaction that will submitted later. Some of the parameters that determine the length will usually not be provided at the dry running stage yet: `gas`, `gas_price` and `max_priority_fee_per_gas`.
+
+    If we underestimate the actual lengths of these parameters, then the gas estimate might be too low and transaction execution will run out of gas. If we over estimate, then the pre-dispatch weight will be unreasonably large and we risk that a transaction that might still fit into a block, won't be put into the block anymore, which leads to lower block utilization.
+
+    ## Current Approach
+    The current approach is to just assume that maximal possible length for these fields, which results when they have the maximum possible value, `U256::MAX`, due to how RLP encoding works. This is a gross over estimation.
+
+    ## New Approach
+    In practice there won't be gas requirements and gas estimates that are more than `u64::MAX` and therefore we assume this as the maximal value for `gas`.
+
+    For `gas_price` and `max_priority_fee_per_gas` we assume that the caller will use the current base fee and will scale it be some small amount so that the RLP encoding is at most one byte longer than the RLP encoding of the base fee. We achieve that by determining the RLP encoding of the base fee multiplied by 256.
+crates:
+- name: pallet-revive
+  bump: patch

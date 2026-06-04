@@ -381,7 +381,7 @@ fn report_equivocation_current_set_works() {
 		// check that the balances of all other validators are left intact.
 		for validator in &validators {
 			if *validator == equivocation_validator_id {
-				continue
+				continue;
 			}
 
 			assert_eq!(Balances::total_balance(validator), 10_000_000);
@@ -460,7 +460,7 @@ fn report_equivocation_old_set_works() {
 		// check that the balances of all other validators are left intact.
 		for validator in &validators {
 			if *validator == equivocation_validator_id {
-				continue
+				continue;
 			}
 
 			assert_eq!(Balances::total_balance(validator), 10_000_000);
@@ -916,4 +916,25 @@ fn valid_equivocation_reports_dont_pay_fees() {
 		assert!(post_info.actual_weight.is_none());
 		assert_eq!(post_info.pays_fee, Pays::Yes);
 	})
+}
+
+#[test]
+fn stalled_state_is_kept_on_schedule_change_failure() {
+	new_test_ext(vec![(1, 1), (2, 1), (3, 1)]).execute_with(|| {
+		initialize_block(1, Default::default());
+
+		// Schedule a normal change so one is pending.
+		assert_ok!(Grandpa::schedule_change(to_authorities(vec![(4, 1), (5, 1), (6, 1)]), 2, None));
+		assert!(PendingChange::<Test>::exists(), "PendingChange should exist");
+
+		// Inject the Stalled state to simulate a network partition.
+		Stalled::<Test>::put((10, 1));
+		assert!(Stalled::<Test>::exists(), "Stalled state should exist");
+
+		// Simulate a new session during the stall.
+		Grandpa::on_new_session(true, std::iter::empty(), std::iter::empty());
+
+		// The Stalled state should still be present.
+		assert!(Stalled::<Test>::exists());
+	});
 }

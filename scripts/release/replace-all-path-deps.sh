@@ -14,8 +14,7 @@ find . -name "Cargo.toml" \
   # Find and replace path dependencies with "workspace = true"
   awk '
     BEGIN { in_section = 0 }
-    /^\[dependencies\]/     { in_section = 1; print; next }
-    /^\[dev-dependencies\]/ { in_section = 2; print; next }
+    /^\[.*dependencies\]/   { in_section = 1; print; next }
     /^\[.*\]/               { in_section = 0; print; next }
 
     {

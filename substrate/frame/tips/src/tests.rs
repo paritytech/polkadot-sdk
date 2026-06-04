@@ -438,7 +438,7 @@ fn tip_changing_works() {
 fn test_last_reward_migration() {
 	let mut s = Storage::default();
 
-	#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug)]
+	#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug)]
 	pub struct OldOpenTip<
 		AccountId: Parameter,
 		Balance: Parameter,

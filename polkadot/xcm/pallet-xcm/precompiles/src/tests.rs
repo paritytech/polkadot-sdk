@@ -80,7 +80,7 @@ fn test_xcm_send_precompile_works() {
 				deposit_limit: u128::MAX,
 			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		assert!(result.result.is_ok());
 		let sent_message = Xcm(Some(DescendOrigin(sender.clone().try_into().unwrap()))
@@ -131,7 +131,7 @@ fn test_xcm_send_precompile_to_parachain() {
 				deposit_limit: u128::MAX,
 			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		assert!(result.result.is_ok());
@@ -182,7 +182,7 @@ fn test_xcm_send_precompile_fails() {
 				deposit_limit: u128::MAX,
 			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		let return_value = match result.result {
 			Ok(value) => value,
@@ -234,7 +234,7 @@ fn send_fails_on_old_location_version() {
 				deposit_limit: u128::MAX,
 			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		let return_value = match result.result {
 			Ok(value) => value,
@@ -263,7 +263,7 @@ fn send_fails_on_old_location_version() {
 				deposit_limit: u128::MAX,
 			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		let return_value = match result.result {
 			Ok(value) => value,
@@ -315,7 +315,7 @@ fn send_fails_on_old_xcm_version() {
 				deposit_limit: u128::MAX,
 			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		let return_value = match result.result {
 			Ok(value) => value,
@@ -345,7 +345,7 @@ fn send_fails_on_old_xcm_version() {
 				deposit_limit: u128::MAX,
 			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		let return_value = match result.result {
 			Ok(value) => value,
@@ -390,7 +390,7 @@ fn test_xcm_execute_precompile_works() {
 				deposit_limit: u128::MAX,
 			},
 			encoded_weight_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let weight_result = match xcm_weight_results.result {
@@ -414,7 +414,7 @@ fn test_xcm_execute_precompile_works() {
 				deposit_limit: u128::MAX,
 			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		assert!(result.result.is_ok());
@@ -455,7 +455,7 @@ fn test_xcm_execute_precompile_different_beneficiary() {
 				deposit_limit: u128::MAX,
 			},
 			encoded_weight_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let weight_result = match xcm_weight_results.result {
@@ -479,7 +479,7 @@ fn test_xcm_execute_precompile_different_beneficiary() {
 				deposit_limit: u128::MAX,
 			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let return_value = match result.result {
@@ -528,7 +528,7 @@ fn test_xcm_execute_precompile_fails() {
 				deposit_limit: u128::MAX,
 			},
 			encoded_weight_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let weight_result = match xcm_weight_results.result {
@@ -552,7 +552,7 @@ fn test_xcm_execute_precompile_fails() {
 				deposit_limit: u128::MAX,
 			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		let return_value = match result.result {
 			Ok(value) => value,
@@ -600,7 +600,7 @@ fn execute_fails_on_old_version() {
 				deposit_limit: u128::MAX,
 			},
 			encoded_weight_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let weight_result = match xcm_weight_results.result {
@@ -631,7 +631,7 @@ fn execute_fails_on_old_version() {
 				deposit_limit: u128::MAX,
 			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let return_value = match result.result {
@@ -660,7 +660,7 @@ fn execute_fails_on_old_version() {
 				deposit_limit: u128::MAX,
 			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let return_value = match result.result {
@@ -711,7 +711,7 @@ fn weight_fails_on_old_version() {
 				deposit_limit: u128::MAX,
 			},
 			encoded_weight_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let result = match xcm_weight_results.result {
@@ -737,7 +737,7 @@ fn weight_fails_on_old_version() {
 				deposit_limit: u128::MAX,
 			},
 			encoded_weight_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let result = match xcm_weight_results.result {

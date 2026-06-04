@@ -2,11 +2,11 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned, Zero};
 use sp_core::U256;
-use sp_runtime::{FixedU128, RuntimeDebug};
+use sp_runtime::FixedU128;
 use sp_std::prelude::*;
 
 #[derive(
-	Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo,
+	Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Debug, MaxEncodedLen, TypeInfo,
 )]
 pub struct PricingParameters<Balance> {
 	/// ETH/DOT exchange rate
@@ -20,7 +20,7 @@ pub struct PricingParameters<Balance> {
 }
 
 #[derive(
-	Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo,
+	Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Debug, MaxEncodedLen, TypeInfo,
 )]
 pub struct Rewards<Balance> {
 	/// Local reward in DOT
@@ -29,7 +29,7 @@ pub struct Rewards<Balance> {
 	pub remote: U256,
 }
 
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct InvalidPricingParameters;
 
 impl<Balance> PricingParameters<Balance>
@@ -38,26 +38,26 @@ where
 {
 	pub fn validate(&self) -> Result<(), InvalidPricingParameters> {
 		if self.exchange_rate == FixedU128::zero() {
-			return Err(InvalidPricingParameters)
+			return Err(InvalidPricingParameters);
 		}
 		if self.fee_per_gas == U256::zero() {
-			return Err(InvalidPricingParameters)
+			return Err(InvalidPricingParameters);
 		}
 		if self.rewards.local.is_zero() {
-			return Err(InvalidPricingParameters)
+			return Err(InvalidPricingParameters);
 		}
 		if self.rewards.remote.is_zero() {
-			return Err(InvalidPricingParameters)
+			return Err(InvalidPricingParameters);
 		}
 		if self.multiplier == FixedU128::zero() {
-			return Err(InvalidPricingParameters)
+			return Err(InvalidPricingParameters);
 		}
 		Ok(())
 	}
 }
 
 /// Holder for fixed point number implemented in <https://github.com/PaulRBerg/prb-math>
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct UD60x18(U256);
 

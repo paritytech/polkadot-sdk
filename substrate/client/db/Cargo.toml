@@ -27,7 +27,7 @@ codec = { features = ["derive"], workspace = true, default-features = true }
 hash-db = { workspace = true, default-features = true }
 kvdb = { workspace = true }
 kvdb-memorydb = { workspace = true }
-kvdb-rocksdb = { optional = true, workspace = true, features = ["jemalloc"] }
+kvdb-rocksdb = { optional = true, workspace = true }
 linked-hash-map = { workspace = true }
 log = { workspace = true, default-features = true }
 parity-db = { workspace = true }
@@ -51,6 +51,7 @@ criterion = { workspace = true, default-features = true }
 kitchensink-runtime = { workspace = true }
 kvdb-rocksdb = { workspace = true }
 rand = { workspace = true, default-features = true }
+sp-database = { workspace = true, default-features = true, features = ["rocksdb"] }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
 tempfile = { workspace = true }
@@ -63,3 +64,4 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 ]
 rocksdb = ["kvdb-rocksdb", "sp-database/rocksdb"]
+jemalloc-allocator = ["kvdb-rocksdb?/jemalloc"]

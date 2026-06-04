@@ -34,7 +34,7 @@ use bp_runtime::{BlockNumberOf, Chain, HashOf, HeaderId};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature};
-use sp_runtime::{traits::Header as HeaderT, RuntimeDebug, SaturatedConversion};
+use sp_runtime::{traits::Header as HeaderT, SaturatedConversion};
 use sp_std::prelude::*;
 
 /// A GRANDPA Justification is a proof that a given header was finalized
@@ -119,7 +119,7 @@ impl<H: HeaderT> crate::FinalityProof<H::Hash, H::Number> for GrandpaJustificati
 }
 
 /// Justification verification error.
-#[derive(Eq, RuntimeDebug, PartialEq)]
+#[derive(Eq, Debug, PartialEq)]
 pub enum Error {
 	/// Failed to decode justification.
 	JustificationDecode,

@@ -27,10 +27,14 @@ use frame_support::{
 		tokens::{Preservation::Protect, Provenance},
 		Currency,
 	},
+	BoundedVec,
 };
 use pallet_balances::Error as BalancesError;
 use sp_io::storage;
-use sp_runtime::{traits::ConvertInto, TokenError};
+use sp_runtime::{
+	traits::{ConstU32, ConvertInto},
+	TokenError,
+};
 
 mod sets;
 
@@ -160,9 +164,35 @@ fn refunding_asset_deposit_with_burn_should_work() {
 		Balances::make_free_balance_be(&1, 100);
 		assert_ok!(Assets::touch(RuntimeOrigin::signed(1), 0));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_eq!(Assets::total_supply(0), 100);
 		assert_ok!(Assets::refund(RuntimeOrigin::signed(1), 0, true));
 		assert_eq!(Balances::reserved_balance(&1), 0);
 		assert_eq!(Assets::balance(1, 0), 0);
+		assert_eq!(Assets::total_supply(0), 0);
+		System::assert_last_event(RuntimeEvent::Assets(crate::Event::Burned {
+			asset_id: 0,
+			owner: 1,
+			balance: 100,
+		}));
+	});
+}
+
+#[test]
+fn refund_with_zero_balance_does_not_emit_burned() {
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::burn(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_eq!(Assets::total_supply(0), 0);
+
+		System::reset_events();
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(1), 0, false));
+		assert_eq!(Assets::total_supply(0), 0);
+		assert!(System::events()
+			.iter()
+			.all(|e| !matches!(e.event, RuntimeEvent::Assets(crate::Event::Burned { .. }))));
 	});
 }
 
@@ -355,11 +385,13 @@ fn transfer_approved_all_funds() {
 		Balances::make_free_balance_be(&1, 2);
 		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 50));
 		assert_eq!(Asset::<Test>::get(0).unwrap().approvals, 1);
+		assert!(Approvals::<Test>::contains_key((0, 1, 2)));
 		assert_eq!(Balances::reserved_balance(&1), 1);
 
 		// transfer the full amount, which should trigger auto-cleanup
 		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 50));
 		assert_eq!(Asset::<Test>::get(0).unwrap().approvals, 0);
+		assert!(!Approvals::<Test>::contains_key((0, 1, 2)));
 		assert_eq!(Assets::balance(0, 1), 50);
 		assert_eq!(Assets::balance(0, 3), 50);
 		assert_eq!(Balances::reserved_balance(&1), 0);
@@ -485,7 +517,11 @@ fn lifecycle_should_work() {
 		assert_eq!(Balances::reserved_balance(&1), 4);
 		assert!(Metadata::<Test>::contains_key(0));
 
-		assert_ok!(Assets::set_reserves(RuntimeOrigin::signed(1), 0, vec![1234]));
+		assert_ok!(Assets::set_reserves(
+			RuntimeOrigin::signed(1),
+			0,
+			vec![1234].try_into().unwrap()
+		));
 		assert_eq!(Reserves::<Test>::get(0), vec![1234]);
 
 		Balances::make_free_balance_be(&10, 100);
@@ -2207,5 +2243,25 @@ fn asset_id_cannot_be_reused() {
 
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 7, 1, false, 1));
 		assert!(Asset::<Test>::contains_key(7));
+	});
+}
+
+#[test]
+fn setting_too_many_reserves_fails() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1));
+		assert_eq!(Balances::reserved_balance(&1), 1);
+		assert!(Asset::<Test>::contains_key(0));
+
+		let mut reserves = vec![];
+		for i in 0..MAX_RESERVES + 1 {
+			reserves.push(1234u128 + i as u128);
+		}
+		// Attempting to create a BoundedVec with too many reserves should fail
+		let result: Result<BoundedVec<u128, ConstU32<MAX_RESERVES>>, _> =
+			reserves.clone().try_into();
+		assert!(result.is_err());
+		assert_eq!(Reserves::<Test>::get(0), vec![]);
 	});
 }

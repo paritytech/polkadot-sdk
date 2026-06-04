@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{foreign_balance_on, imports::*};
+use crate::{assets_balance_on, foreign_balance_on, foreign_issuance_on, imports::*};
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
@@ -22,7 +22,7 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 		Westend,
 		vec![
 			// Amount to teleport is withdrawn from Sender
-			RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
 				who: *who == t.sender.account_id,
 				amount: *amount == t.args.amount,
 			},
@@ -34,22 +34,23 @@ fn penpal_to_ah_foreign_assets_sender_assertions(t: ParaToSystemParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	let system_para_native_asset_location = RelayLocation::get();
 	let expected_asset_id = t.args.asset_id.unwrap();
-	let (_, expected_asset_amount) = non_fee_asset(&t.args.assets, &t.args.fee_asset_id).unwrap();
+	let (_, expected_asset_amount) =
+		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
 
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
 	assert_expected_events!(
 		PenpalA,
 		vec![
-			RuntimeEvent::ForeignAssets(
-				pallet_assets::Event::Burned { asset_id, owner, .. }
+			RuntimeEvent::Assets(
+				pallet_assets::Event::Withdrawn { asset_id, who, .. }
 			) => {
 				asset_id: *asset_id == system_para_native_asset_location,
-				owner: *owner == t.sender.account_id,
+				who: *who == t.sender.account_id,
 			},
-			RuntimeEvent::Assets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
+			RuntimeEvent::Assets(pallet_assets::Event::Withdrawn { asset_id, who, amount }) => {
 				asset_id: *asset_id == expected_asset_id,
-				owner: *owner == t.sender.account_id,
-				balance: *balance == expected_asset_amount,
+				who: *who == t.sender.account_id,
+				amount: *amount == expected_asset_amount,
 			},
 		]
 	);
@@ -61,8 +62,8 @@ fn penpal_to_ah_foreign_assets_receiver_assertions(t: ParaToSystemParaTest) {
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
 	);
 	let (_, expected_foreign_asset_amount) =
-		non_fee_asset(&t.args.assets, &t.args.fee_asset_id).unwrap();
-	let (_, fee_asset_amount) = fee_asset(&t.args.assets, &t.args.fee_asset_id).unwrap();
+		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
+	let (_, fee_asset_amount) = fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
 
 	AssetHubWestend::assert_xcmp_queue_success(None);
 
@@ -71,17 +72,17 @@ fn penpal_to_ah_foreign_assets_receiver_assertions(t: ParaToSystemParaTest) {
 		vec![
 			// native asset reserve transfer for paying fees, withdrawn from Penpal's sov account
 			RuntimeEvent::Balances(
-				pallet_balances::Event::Burned { who, amount }
+				pallet_balances::Event::Withdraw { who, amount }
 			) => {
 				who: *who == sov_penpal_on_ahr.clone().into(),
 				amount: *amount >= fee_asset_amount / 2,
 			},
-			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
 				who: *who == t.receiver.account_id,
 			},
-			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, amount }) => {
-				asset_id: *asset_id == PenpalATeleportableAssetLocation::get(),
-				owner: *owner == t.receiver.account_id,
+			RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who, amount }) => {
+				asset_id: *asset_id == PenpalAPen2TeleportableAssetLocation::get(),
+				who: *who == t.receiver.account_id,
 				amount: *amount == expected_foreign_asset_amount,
 			},
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
@@ -93,15 +94,15 @@ fn ah_to_penpal_foreign_assets_sender_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 	AssetHubWestend::assert_xcm_pallet_attempted_complete(None);
 	let (expected_foreign_asset_id, expected_foreign_asset_amount) =
-		non_fee_asset(&t.args.assets, &t.args.fee_asset_id).unwrap();
+		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
 	assert_expected_events!(
 		AssetHubWestend,
 		vec![
-			// foreign asset is burned locally as part of teleportation
-			RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
+			// foreign asset is withdrawn and burned locally as part of teleportation
+			RuntimeEvent::ForeignAssets(pallet_assets::Event::Withdrawn { asset_id, who, amount }) => {
 				asset_id: *asset_id == expected_foreign_asset_id,
-				owner: *owner == t.sender.account_id,
-				balance: *balance == expected_foreign_asset_amount,
+				who: *who == t.sender.account_id,
+				amount: *amount == expected_foreign_asset_amount,
 			},
 		]
 	);
@@ -110,7 +111,8 @@ fn ah_to_penpal_foreign_assets_sender_assertions(t: SystemParaToParaTest) {
 fn ah_to_penpal_foreign_assets_receiver_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	let expected_asset_id = t.args.asset_id.unwrap();
-	let (_, expected_asset_amount) = non_fee_asset(&t.args.assets, &t.args.fee_asset_id).unwrap();
+	let (_, expected_asset_amount) =
+		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
 	let checking_account = <PenpalA as PenpalAPallet>::PolkadotXcm::check_account();
 	let system_para_native_asset_location = RelayLocation::get();
 
@@ -126,15 +128,15 @@ fn ah_to_penpal_foreign_assets_receiver_assertions(t: SystemParaToParaTest) {
 				balance: *balance == expected_asset_amount,
 			},
 			// local asset is teleported into account of receiver
-			RuntimeEvent::Assets(pallet_assets::Event::Issued { asset_id, owner, amount }) => {
+			RuntimeEvent::Assets(pallet_assets::Event::Deposited { asset_id, who, amount }) => {
 				asset_id: *asset_id == expected_asset_id,
-				owner: *owner == t.receiver.account_id,
+				who: *who == t.receiver.account_id,
 				amount: *amount == expected_asset_amount,
 			},
 			// native asset for fee is deposited to receiver
-			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+			RuntimeEvent::Assets(pallet_assets::Event::Deposited { asset_id, who, .. }) => {
 				asset_id: *asset_id == system_para_native_asset_location,
-				owner: *owner == t.receiver.account_id,
+				who: *who == t.receiver.account_id,
 			},
 		]
 	);
@@ -148,18 +150,29 @@ fn relay_to_system_para_limited_teleport_assets(t: RelayToSystemParaTest) -> Dis
 		bx!(t.args.dest.into()),
 		bx!(t.args.beneficiary.into()),
 		bx!(t.args.assets.into()),
-		bx!(t.args.fee_asset_id.into()),
+		t.args.fee_asset_item,
 		t.args.weight_limit,
 	)
 }
 
 fn para_to_system_para_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
+	type Runtime = <PenpalA as Chain>::Runtime;
+	let remote_fee_id: AssetId = t
+		.args
+		.assets
+		.clone()
+		.into_inner()
+		.get(t.args.fee_asset_item as usize)
+		.ok_or(pallet_xcm::Error::<Runtime>::Empty)?
+		.clone()
+		.id;
+
 	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.assets.into()),
 		bx!(TransferType::Teleport),
-		bx!(t.args.fee_asset_id.into()),
+		bx!(remote_fee_id.into()),
 		bx!(TransferType::DestinationReserve),
 		bx!(VersionedXcm::from(
 			Xcm::<()>::builder_unsafe()
@@ -171,12 +184,23 @@ fn para_to_system_para_transfer_assets(t: ParaToSystemParaTest) -> DispatchResul
 }
 
 fn system_para_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
+	type Runtime = <AssetHubWestend as Chain>::Runtime;
+	let remote_fee_id: AssetId = t
+		.args
+		.assets
+		.clone()
+		.into_inner()
+		.get(t.args.fee_asset_item as usize)
+		.ok_or(pallet_xcm::Error::<Runtime>::Empty)?
+		.clone()
+		.id;
+
 	<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.assets.into()),
 		bx!(TransferType::Teleport),
-		bx!(t.args.fee_asset_id.into()),
+		bx!(remote_fee_id.into()),
 		bx!(TransferType::LocalReserve),
 		bx!(VersionedXcm::from(
 			Xcm::<()>::builder_unsafe()
@@ -191,13 +215,11 @@ fn system_para_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResul
 fn teleport_via_limited_teleport_assets_to_other_system_parachains_works() {
 	let amount = ASSET_HUB_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
-	let fee_asset_id: AssetId = Parent.into();
 
 	test_parachain_is_trusted_teleporter!(
 		AssetHubWestend,        // Origin
 		vec![BridgeHubWestend], // Destinations
 		(native_asset, amount),
-		fee_asset_id,
 		limited_teleport_assets
 	);
 }
@@ -206,13 +228,11 @@ fn teleport_via_limited_teleport_assets_to_other_system_parachains_works() {
 fn teleport_via_transfer_assets_to_other_system_parachains_works() {
 	let amount = ASSET_HUB_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
-	let fee_asset_id: AssetId = Parent.into();
 
 	test_parachain_is_trusted_teleporter!(
 		AssetHubWestend,        // Origin
 		vec![BridgeHubWestend], // Destinations
 		(native_asset, amount),
-		fee_asset_id,
 		transfer_assets
 	);
 }
@@ -220,11 +240,12 @@ fn teleport_via_transfer_assets_to_other_system_parachains_works() {
 #[test]
 fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 	let amount = WESTEND_ED * 100;
+	let native_asset: Assets = (Here, amount).into();
 
 	test_relay_is_trusted_teleporter!(
 		Westend,
 		vec![AssetHubWestend],
-		amount,
+		(native_asset, amount),
 		limited_teleport_assets
 	);
 
@@ -239,8 +260,14 @@ fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 #[test]
 fn teleport_via_transfer_assets_from_and_to_relay() {
 	let amount = WESTEND_ED * 100;
+	let native_asset: Assets = (Here, amount).into();
 
-	test_relay_is_trusted_teleporter!(Westend, vec![AssetHubWestend], amount, transfer_assets);
+	test_relay_is_trusted_teleporter!(
+		Westend,
+		vec![AssetHubWestend],
+		(native_asset, amount),
+		transfer_assets
+	);
 
 	test_parachain_is_trusted_teleporter_for_relay!(
 		AssetHubWestend,
@@ -262,7 +289,6 @@ fn limited_teleport_native_assets_from_relay_to_asset_hub_checking_acc_fails() {
 	let destination = Westend::child_location_of(AssetHubWestend::para_id());
 	let beneficiary_id = AssetHubWestendReceiver::get().into();
 	let assets = (Here, amount_to_send_larger_than_checking_acc).into();
-	let fee_asset_id: AssetId = Here.into();
 
 	let test_args = TestContext {
 		sender: WestendSender::get(),
@@ -273,7 +299,7 @@ fn limited_teleport_native_assets_from_relay_to_asset_hub_checking_acc_fails() {
 			amount_to_send_larger_than_checking_acc,
 			assets,
 			None,
-			fee_asset_id,
+			0,
 		),
 	};
 
@@ -306,11 +332,7 @@ fn limited_teleport_native_assets_from_relay_to_asset_hub_checking_acc_fails() {
 		xcm_helpers::teleport_assets_delivery_fees::<
 			<WestendXcmConfig as xcm_executor::Config>::XcmSender,
 		>(
-			test.args.assets.clone(),
-			test.args.fee_asset_id,
-			test.args.weight_limit,
-			test.args.beneficiary,
-			test.args.dest,
+			test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest
 		)
 	});
 
@@ -331,19 +353,11 @@ fn limited_teleport_native_assets_from_relay_to_asset_hub_checking_acc_burn_work
 	let destination = Westend::child_location_of(AssetHubWestend::para_id());
 	let beneficiary_id = AssetHubWestendReceiver::get().into();
 	let assets = (Here, amount_to_send).into();
-	let fee_asset_id: AssetId = Here.into();
 
 	let test_args = TestContext {
 		sender: WestendSender::get(),
 		receiver: AssetHubWestendReceiver::get(),
-		args: TestArgs::new_para(
-			destination,
-			beneficiary_id,
-			amount_to_send,
-			assets,
-			None,
-			fee_asset_id,
-		),
+		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = RelayToSystemParaTest::new(test_args);
@@ -361,7 +375,7 @@ fn limited_teleport_native_assets_from_relay_to_asset_hub_checking_acc_burn_work
 					who: *who == <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::check_account(),
 					amount:  *amount == t.args.amount,
 				},
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
+				RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
 					who: *who == t.receiver.account_id,
 				},
 				RuntimeEvent::MessageQueue(
@@ -383,11 +397,7 @@ fn limited_teleport_native_assets_from_relay_to_asset_hub_checking_acc_burn_work
 		xcm_helpers::teleport_assets_delivery_fees::<
 			<WestendXcmConfig as xcm_executor::Config>::XcmSender,
 		>(
-			test.args.assets.clone(),
-			test.args.fee_asset_id,
-			test.args.weight_limit,
-			test.args.beneficiary,
-			test.args.dest,
+			test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest
 		)
 	});
 
@@ -409,19 +419,11 @@ fn limited_teleport_native_assets_from_asset_hub_to_relay_checking_acc_mint_work
 	let destination = AssetHubWestend::parent_location().into();
 	let beneficiary_id = WestendReceiver::get().into();
 	let assets = (Parent, amount_to_send).into();
-	let fee_asset_id: AssetId = Parent.into();
 
 	let test_args = TestContext {
 		sender: AssetHubWestendSender::get(),
 		receiver: WestendReceiver::get(),
-		args: TestArgs::new_para(
-			destination,
-			beneficiary_id,
-			amount_to_send,
-			assets,
-			None,
-			fee_asset_id,
-		),
+		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = SystemParaToRelayTest::new(test_args);
@@ -439,12 +441,11 @@ fn limited_teleport_native_assets_from_asset_hub_to_relay_checking_acc_mint_work
 			AssetHubWestend,
 			vec![
 				RuntimeEvent::Balances(
-					pallet_balances::Event::Burned { who, amount }
+					pallet_balances::Event::Withdraw { who, amount }
 				) => {
 					who: *who == t.sender.account_id,
 					amount: *amount == t.args.amount,
 				},
-				// Amount to teleport is burned from Asset Hub's `CheckAccount`
 				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount }) => {
 					who: *who == <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::check_account(),
 					amount:  *amount == t.args.amount,
@@ -461,7 +462,7 @@ fn limited_teleport_native_assets_from_asset_hub_to_relay_checking_acc_mint_work
 				RuntimeEvent::MessageQueue(
 					pallet_message_queue::Event::Processed { success: true, .. }
 				) => {},
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
+				RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
 					who: *who == t.receiver.account_id,
 				},
 			]
@@ -474,7 +475,7 @@ fn limited_teleport_native_assets_from_asset_hub_to_relay_checking_acc_mint_work
 			bx!(t.args.dest.into()),
 			bx!(t.args.beneficiary.into()),
 			bx!(t.args.assets.into()),
-			bx!(t.args.fee_asset_id.into()),
+			t.args.fee_asset_item,
 			t.args.weight_limit,
 		)
 	}
@@ -491,11 +492,7 @@ fn limited_teleport_native_assets_from_asset_hub_to_relay_checking_acc_mint_work
 		xcm_helpers::teleport_assets_delivery_fees::<
 			<AssetHubWestendXcmConfig as xcm_executor::Config>::XcmSender,
 		>(
-			test.args.assets.clone(),
-			test.args.fee_asset_id,
-			test.args.weight_limit,
-			test.args.beneficiary,
-			test.args.dest,
+			test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest
 		)
 	});
 
@@ -517,12 +514,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 ) {
 	// Init values for Parachain
 	let fee_amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
-	let asset_location_on_penpal =
-		PenpalA::execute_with(|| PenpalLocalTeleportableToAssetHub::get());
-	let asset_id_on_penpal = match asset_location_on_penpal.last() {
-		Some(Junction::GeneralIndex(id)) => *id as u32,
-		_ => unreachable!(),
-	};
+	let asset_location_on_penpal = PenpalA::execute_with(|| PenpalLocalPen2Asset::get());
 	let asset_amount_to_send = ASSET_HUB_WESTEND_ED * 1000;
 	let asset_owner = PenpalAssetOwner::get();
 	let system_para_native_asset_location = RelayLocation::get();
@@ -534,7 +526,11 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		(asset_location_on_penpal.clone(), asset_amount_to_send).into(),
 	]
 	.into();
-	let fee_asset_id: AssetId = Parent.into();
+	let fee_asset_index = penpal_assets
+		.inner()
+		.iter()
+		.position(|r| r == &(Parent, fee_amount_to_send).into())
+		.unwrap() as u32;
 
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
@@ -543,10 +539,11 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		sender.clone(),
 		fee_amount_to_send * 2,
 	);
+
 	// No need to create the asset (only mint) as it exists in genesis.
-	PenpalA::mint_asset(
+	PenpalA::mint_foreign_asset(
 		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner.clone()),
-		asset_id_on_penpal,
+		asset_location_on_penpal.clone(),
 		sender.clone(),
 		asset_amount_to_send * 2,
 	);
@@ -567,7 +564,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	// Init values for System Parachain
 	let foreign_asset_at_asset_hub =
 		Location::new(1, [Junction::Parachain(PenpalA::para_id().into())])
-			.appended_with(asset_location_on_penpal)
+			.appended_with(asset_location_on_penpal.clone())
 			.unwrap();
 	let penpal_to_ah_beneficiary_id = AssetHubWestendReceiver::get();
 
@@ -580,12 +577,12 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 			penpal_to_ah_beneficiary_id,
 			asset_amount_to_send,
 			penpal_assets,
-			Some(asset_id_on_penpal),
-			fee_asset_id,
+			Some(asset_location_on_penpal.clone()),
+			fee_asset_index,
 		),
 	};
 	let mut penpal_to_ah = ParaToSystemParaTest::new(penpal_to_ah_test_args);
-	let penpal_sender_balance_before = foreign_balance_on!(
+	let penpal_sender_balance_before = assets_balance_on!(
 		PenpalA,
 		system_para_native_asset_location.clone(),
 		&PenpalASender::get()
@@ -593,22 +590,22 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 
 	let ah_receiver_balance_before = penpal_to_ah.receiver.balance;
 
-	let penpal_sender_assets_before = PenpalA::execute_with(|| {
-		type Assets = <PenpalA as PenpalAPallet>::Assets;
-		<Assets as Inspect<_>>::balance(asset_id_on_penpal, &PenpalASender::get())
-	});
+	let penpal_sender_assets_before =
+		assets_balance_on!(PenpalA, asset_location_on_penpal.clone(), &PenpalASender::get());
 	let ah_receiver_assets_before = foreign_balance_on!(
 		AssetHubWestend,
 		foreign_asset_at_asset_hub.clone(),
 		&AssetHubWestendReceiver::get()
 	);
+	let ah_issuance_before =
+		foreign_issuance_on!(AssetHubWestend, foreign_asset_at_asset_hub.clone());
 
 	penpal_to_ah.set_assertion::<PenpalA>(penpal_to_ah_foreign_assets_sender_assertions);
 	penpal_to_ah.set_assertion::<AssetHubWestend>(penpal_to_ah_foreign_assets_receiver_assertions);
 	penpal_to_ah.set_dispatchable::<PenpalA>(para_to_ah_dispatchable);
 	penpal_to_ah.assert();
 
-	let penpal_sender_balance_after = foreign_balance_on!(
+	let penpal_sender_balance_after = assets_balance_on!(
 		PenpalA,
 		system_para_native_asset_location.clone(),
 		&PenpalASender::get()
@@ -616,15 +613,15 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 
 	let ah_receiver_balance_after = penpal_to_ah.receiver.balance;
 
-	let penpal_sender_assets_after = PenpalA::execute_with(|| {
-		type Assets = <PenpalA as PenpalAPallet>::Assets;
-		<Assets as Inspect<_>>::balance(asset_id_on_penpal, &PenpalASender::get())
-	});
+	let penpal_sender_assets_after =
+		assets_balance_on!(PenpalA, asset_location_on_penpal.clone(), &PenpalASender::get());
 	let ah_receiver_assets_after = foreign_balance_on!(
 		AssetHubWestend,
 		foreign_asset_at_asset_hub.clone(),
 		&AssetHubWestendReceiver::get()
 	);
+	let ah_issuance_after =
+		foreign_issuance_on!(AssetHubWestend, foreign_asset_at_asset_hub.clone());
 
 	// Sender's balance is reduced
 	assert!(penpal_sender_balance_after < penpal_sender_balance_before);
@@ -639,6 +636,8 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	assert_eq!(penpal_sender_assets_before - asset_amount_to_send, penpal_sender_assets_after);
 	// Receiver's balance is increased by exact amount
 	assert_eq!(ah_receiver_assets_after, ah_receiver_assets_before + asset_amount_to_send);
+	// AH foreign asset total supply is increased by exact amount
+	assert_eq!(ah_issuance_after, ah_issuance_before + asset_amount_to_send);
 
 	///////////////////////////////////////////////////////////////////////
 	// Now test transferring foreign assets back from AssetHub to Penpal //
@@ -666,7 +665,11 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		(foreign_asset_at_asset_hub.clone(), asset_amount_to_send).into(),
 	]
 	.into();
-	let fee_asset_id: AssetId = Parent.into();
+	let fee_asset_index = ah_assets
+		.inner()
+		.iter()
+		.position(|r| r == &(Parent, fee_amount_to_send).into())
+		.unwrap() as u32;
 
 	// AH to Penpal test args
 	let ah_to_penpal_test_args = TestContext {
@@ -677,14 +680,14 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 			ah_to_penpal_beneficiary_id,
 			asset_amount_to_send,
 			ah_assets,
-			Some(asset_id_on_penpal),
-			fee_asset_id,
+			Some(asset_location_on_penpal.clone()),
+			fee_asset_index,
 		),
 	};
 	let mut ah_to_penpal = SystemParaToParaTest::new(ah_to_penpal_test_args);
 
 	let ah_sender_balance_before = ah_to_penpal.sender.balance;
-	let penpal_receiver_balance_before = foreign_balance_on!(
+	let penpal_receiver_balance_before = assets_balance_on!(
 		PenpalA,
 		system_para_native_asset_location.clone(),
 		&PenpalAReceiver::get()
@@ -695,10 +698,10 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		foreign_asset_at_asset_hub.clone(),
 		&AssetHubWestendSender::get()
 	);
-	let penpal_receiver_assets_before = PenpalA::execute_with(|| {
-		type Assets = <PenpalA as PenpalAPallet>::Assets;
-		<Assets as Inspect<_>>::balance(asset_id_on_penpal, &PenpalAReceiver::get())
-	});
+	let penpal_receiver_assets_before =
+		assets_balance_on!(PenpalA, asset_location_on_penpal.clone(), &PenpalAReceiver::get());
+	let ah_issuance_before =
+		foreign_issuance_on!(AssetHubWestend, foreign_asset_at_asset_hub.clone());
 
 	ah_to_penpal.set_assertion::<AssetHubWestend>(ah_to_penpal_foreign_assets_sender_assertions);
 	ah_to_penpal.set_assertion::<PenpalA>(ah_to_penpal_foreign_assets_receiver_assertions);
@@ -707,17 +710,16 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 
 	let ah_sender_balance_after = ah_to_penpal.sender.balance;
 	let penpal_receiver_balance_after =
-		foreign_balance_on!(PenpalA, system_para_native_asset_location, &PenpalAReceiver::get());
+		assets_balance_on!(PenpalA, system_para_native_asset_location, &PenpalAReceiver::get());
 
 	let ah_sender_assets_after = foreign_balance_on!(
 		AssetHubWestend,
 		foreign_asset_at_asset_hub.clone(),
 		&AssetHubWestendSender::get()
 	);
-	let penpal_receiver_assets_after = PenpalA::execute_with(|| {
-		type Assets = <PenpalA as PenpalAPallet>::Assets;
-		<Assets as Inspect<_>>::balance(asset_id_on_penpal, &PenpalAReceiver::get())
-	});
+	let penpal_receiver_assets_after =
+		assets_balance_on!(PenpalA, asset_location_on_penpal.clone(), &PenpalAReceiver::get());
+	let ah_issuance_after = foreign_issuance_on!(AssetHubWestend, foreign_asset_at_asset_hub);
 
 	// Sender's balance is reduced
 	assert!(ah_sender_balance_after < ah_sender_balance_before);
@@ -732,6 +734,8 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	assert_eq!(ah_sender_assets_before - asset_amount_to_send, ah_sender_assets_after);
 	// Receiver's balance is increased by exact amount
 	assert_eq!(penpal_receiver_assets_after, penpal_receiver_assets_before + asset_amount_to_send);
+	// AH foreign asset total supply is decreased by exact amount
+	assert_eq!(ah_issuance_after, ah_issuance_before - asset_amount_to_send);
 }
 
 /// Bidirectional teleports of local Penpal assets to Asset Hub as foreign assets should work

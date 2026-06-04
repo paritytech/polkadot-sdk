@@ -58,7 +58,7 @@ use xcm_builder::{
 };
 use xcm_executor::{
 	traits::{FeeManager, FeeReason, FeeReason::Export},
-	XcmExecutor,
+	AssetsInHolding, XcmExecutor,
 };
 
 parameter_types! {
@@ -218,7 +218,6 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTrap = PolkadotXcm;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type AssetClaims = PolkadotXcm;
 	type SubscriptionService = PolkadotXcm;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
@@ -318,13 +317,13 @@ impl<WaivedLocations: Contains<Location>, FeeHandler: HandleFee> FeeManager
 		let Some(loc) = origin else { return false };
 		if let Export { network, destination: Here } = fee_reason {
 			if network == EthereumNetwork::get().into() {
-				return false
+				return false;
 			}
 		}
 		WaivedLocations::contains(loc)
 	}
 
-	fn handle_fee(fee: Assets, context: Option<&XcmContext>, reason: FeeReason) {
+	fn handle_fee(fee: AssetsInHolding, context: Option<&XcmContext>, reason: FeeReason) {
 		FeeHandler::handle_fee(fee, context, reason);
 	}
 }

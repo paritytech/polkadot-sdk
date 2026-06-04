@@ -181,7 +181,7 @@ fn parse_field<Token: Parse + Default + ToTokens>(
 				value,
 				bounds,
 			),
-		))
+		));
 	}
 
 	Ok(value)
@@ -202,7 +202,7 @@ impl Parse for INposInput {
 		<syn::Token![;]>::parse(input)?;
 
 		if !input.is_empty() {
-			return Err(input.error("expected end of input stream, no token expected"))
+			return Err(input.error("expected end of input stream, no token expected"));
 		}
 
 		let min_inflation = parse_field::<keyword::min_inflation>(
@@ -237,7 +237,7 @@ impl Parse for INposInput {
 		<Option<syn::Token![,]>>::parse(&args_input)?;
 
 		if !args_input.is_empty() {
-			return Err(args_input.error("expected end of input stream, no token expected"))
+			return Err(args_input.error("expected end of input stream, no token expected"));
 		}
 
 		Ok(Self {
@@ -279,7 +279,7 @@ impl INPoS {
 	// See web3 docs for the details
 	fn compute_opposite_after_x_ideal(&self, y: u32) -> u32 {
 		if y == self.i_0 {
-			return u32::MAX
+			return u32::MAX;
 		}
 		// Note: the log term calculated here represents a per_million value
 		let log = log2(self.i_ideal_times_x_ideal - self.i_0, y - self.i_0);
@@ -310,14 +310,14 @@ fn compute_points(input: &INposInput) -> Vec<(u32, u32)> {
 
 		if next_y <= input.min_inflation {
 			delta_y = delta_y.saturating_sub(1);
-			continue
+			continue;
 		}
 
 		let next_x = inpos.compute_opposite_after_x_ideal(next_y);
 
 		if (next_x - points.last().unwrap().0) > max_length {
 			delta_y = delta_y.saturating_sub(1);
-			continue
+			continue;
 		}
 
 		if next_x >= 1_000_000 {
@@ -333,7 +333,7 @@ fn compute_points(input: &INposInput) -> Vec<(u32, u32)> {
 			let y = next_y + delta_y;
 
 			points.push((1_000_000, y));
-			return points
+			return points;
 		}
 		points.push((next_x, next_y));
 		y = next_y;

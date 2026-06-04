@@ -246,5 +246,5 @@ pub fn default_zn_scenario_builder(net_spawner: &NetworkSpawner) -> ScenarioBuil
 		.with_block_monitoring(shared_params.does_block_monitoring)
 		.with_chain_type(shared_params.chain_type)
 		.with_base_dir_path(net_spawner.base_dir_path().unwrap().to_string())
-		.with_timeout_in_secs(21600) //6 hours
+		.with_timeout_in_secs(21600) // 6 hours
 }

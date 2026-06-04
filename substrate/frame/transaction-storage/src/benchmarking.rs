@@ -169,7 +169,7 @@ mod benchmarks {
 				vec![0u8; T::MaxTransactionSize::get() as usize],
 			)?;
 		}
-		run_to_block::<T>(StoragePeriod::<T>::get() + BlockNumberFor::<T>::one());
+		run_to_block::<T>(crate::Pallet::<T>::retention_period() + BlockNumberFor::<T>::one());
 		let encoded_proof = proof();
 		let proof = TransactionStorageProof::decode(&mut &*encoded_proof).unwrap();
 

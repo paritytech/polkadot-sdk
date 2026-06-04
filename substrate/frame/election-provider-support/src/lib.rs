@@ -209,10 +209,7 @@ use alloc::{boxed::Box, vec::Vec};
 use core::fmt::Debug;
 use frame_support::traits::{Defensive, DefensiveResult};
 use sp_core::ConstU32;
-use sp_runtime::{
-	traits::{Bounded, Saturating, Zero},
-	RuntimeDebug,
-};
+use sp_runtime::traits::{Bounded, Saturating, Zero};
 
 pub use bounds::DataProviderBounds;
 pub use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -275,7 +272,7 @@ pub type PageIndex = u32;
 /// The voter and target identifiers have already been replaced with appropriate indices,
 /// making it fast to repeatedly encode into a `SolutionOf<T>`. This property turns out
 /// to be important when trimming for solution length.
-#[derive(RuntimeDebug, Clone, Default)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "std", derive(PartialEq, Eq, Encode, Decode))]
 pub struct IndexAssignment<VoterIndex, TargetIndex, P: PerThing> {
 	/// Index of the voter among the voters list.
@@ -376,7 +373,7 @@ pub trait ElectionDataProvider {
 	/// appropriate weight at the end of execution with the system pallet directly.
 	///
 	/// A sensible implementation should use the minimum between this value and
-	/// [`Self::targets().len()`], since desiring a winner set larger than candidates is not
+	/// `Self::targets().len()`, since desiring a winner set larger than candidates is not
 	/// feasible.
 	///
 	/// This is documented further in issue: <https://github.com/paritytech/substrate/issues/9478>
@@ -974,7 +971,7 @@ impl<AccountId: Clone, Bound: Get<u32>> BoundedSupport<AccountId, Bound> {
 	pub fn sorted_truncate_from(mut support: sp_npos_elections::Support<AccountId>) -> (Self, u32) {
 		// If bounds meet, then short circuit.
 		if let Ok(bounded) = support.clone().try_into() {
-			return (bounded, 0)
+			return (bounded, 0);
 		}
 
 		let pre_len = support.voters.len();
@@ -986,7 +983,7 @@ impl<AccountId: Clone, Bound: Get<u32>> BoundedSupport<AccountId, Bound> {
 		let mut bounded = Self { voters: Default::default(), total: 0 };
 		while let Some((voter, weight)) = support.voters.pop() {
 			if let Err(_) = bounded.voters.try_push((voter, weight)) {
-				break
+				break;
 			}
 			bounded.total += weight;
 		}
@@ -1060,7 +1057,7 @@ impl<AccountId: Clone, BOuter: Get<u32>, BInner: Get<u32>>
 	pub fn sorted_truncate_from(supports: Supports<AccountId>) -> (Self, u32, u32) {
 		// if bounds, meet, short circuit
 		if let Ok(bounded) = supports.clone().try_into() {
-			return (bounded, 0, 0)
+			return (bounded, 0, 0);
 		}
 
 		let pre_winners = supports.len();

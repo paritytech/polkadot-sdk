@@ -19,14 +19,14 @@
 
 use super::*;
 use crate::mock::{
-	authorities, before_session_end_called, force_new_session, new_test_ext,
+	authorities, before_session_end_called, create_set_keys_proof, force_new_session, new_test_ext,
 	reset_before_session_end_called, session_changed, session_events_since_last_call, session_hold,
 	set_next_validators, set_session_length, Balances, KeyDeposit, MockSessionKeys,
 	PreUpgradeMockSessionKeys, RuntimeOrigin, Session, SessionChanged, System, Test,
 	TestSessionChanged, TestValidatorIdOf, ValidatorAccounts,
 };
 
-use codec::Decode;
+use codec::Encode;
 use sp_core::crypto::key_types::DUMMY;
 use sp_runtime::{testing::UintAuthorityId, Perbill};
 
@@ -88,11 +88,11 @@ fn purge_keys_works_for_stash_id() {
 		let id = DUMMY;
 		assert_eq!(Session::key_owner(id, UintAuthorityId(1).get_raw(id)), Some(1));
 
-		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(10)));
+		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(1)));
 		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(2)));
 
-		assert_eq!(Session::load_keys(&10), None);
-		assert_eq!(Session::load_keys(&20), None);
+		assert_eq!(Session::load_keys(&1), None);
+		assert_eq!(Session::load_keys(&2), None);
 		assert_eq!(Session::key_owner(id, UintAuthorityId(10).get_raw(id)), None);
 		assert_eq!(Session::key_owner(id, UintAuthorityId(20).get_raw(id)), None);
 	})
@@ -129,7 +129,11 @@ fn authorities_should_track_validators() {
 		reset_before_session_end_called();
 
 		set_next_validators(vec![1, 2, 4]);
-		assert_ok!(Session::set_keys(RuntimeOrigin::signed(4), UintAuthorityId(4).into(), vec![]));
+		assert_ok!(Session::set_keys(
+			RuntimeOrigin::signed(4),
+			UintAuthorityId(4).into(),
+			create_set_keys_proof(4, &UintAuthorityId(4)),
+		));
 		force_new_session();
 		initialize_block(3);
 		assert_eq!(
@@ -200,7 +204,11 @@ fn session_change_should_work() {
 
 		// Block 3: Set new key for validator 2; no visible change.
 		initialize_block(3);
-		assert_ok!(Session::set_keys(RuntimeOrigin::signed(2), UintAuthorityId(5).into(), vec![]));
+		assert_ok!(Session::set_keys(
+			RuntimeOrigin::signed(2),
+			UintAuthorityId(5).into(),
+			create_set_keys_proof(2, &UintAuthorityId(5)),
+		));
 		assert_eq!(authorities(), vec![UintAuthorityId(1), UintAuthorityId(2), UintAuthorityId(3)]);
 		assert_eq!(session_events_since_last_call(), vec![]);
 
@@ -235,13 +243,25 @@ fn duplicates_are_not_allowed() {
 		System::set_block_number(1);
 		Session::on_initialize(1);
 		assert_noop!(
-			Session::set_keys(RuntimeOrigin::signed(4), UintAuthorityId(1).into(), vec![]),
+			Session::set_keys(
+				RuntimeOrigin::signed(4),
+				UintAuthorityId(1).into(),
+				create_set_keys_proof(4, &UintAuthorityId(1)),
+			),
 			Error::<Test>::DuplicatedKey,
 		);
-		assert_ok!(Session::set_keys(RuntimeOrigin::signed(1), UintAuthorityId(10).into(), vec![]));
+		assert_ok!(Session::set_keys(
+			RuntimeOrigin::signed(1),
+			UintAuthorityId(10).into(),
+			create_set_keys_proof(1, &UintAuthorityId(10)),
+		));
 
 		// is fine now that 1 has migrated off.
-		assert_ok!(Session::set_keys(RuntimeOrigin::signed(4), UintAuthorityId(1).into(), vec![]));
+		assert_ok!(Session::set_keys(
+			RuntimeOrigin::signed(4),
+			UintAuthorityId(1).into(),
+			create_set_keys_proof(4, &UintAuthorityId(1)),
+		));
 	});
 }
 
@@ -284,7 +304,11 @@ fn session_changed_flag_works() {
 		assert!(before_session_end_called());
 		reset_before_session_end_called();
 
-		assert_ok!(Session::set_keys(RuntimeOrigin::signed(2), UintAuthorityId(5).into(), vec![]));
+		assert_ok!(Session::set_keys(
+			RuntimeOrigin::signed(2),
+			UintAuthorityId(5).into(),
+			create_set_keys_proof(2, &UintAuthorityId(5)),
+		));
 		force_new_session();
 		initialize_block(6);
 		assert!(!session_changed());
@@ -295,7 +319,7 @@ fn session_changed_flag_works() {
 		assert_ok!(Session::set_keys(
 			RuntimeOrigin::signed(69),
 			UintAuthorityId(69).into(),
-			vec![]
+			create_set_keys_proof(69, &UintAuthorityId(69)),
 		));
 		force_new_session();
 		initialize_block(7);
@@ -373,11 +397,12 @@ fn periodic_session_works() {
 #[test]
 fn session_keys_generate_output_works_as_set_keys_input() {
 	new_test_ext().execute_with(|| {
-		let new_keys = mock::MockSessionKeys::generate(None);
+		let new_keys = mock::MockSessionKeys::generate(&2u64.encode(), None);
+
 		assert_ok!(Session::set_keys(
 			RuntimeOrigin::signed(2),
-			<mock::Test as Config>::Keys::decode(&mut &new_keys[..]).expect("Decode keys"),
-			vec![],
+			new_keys.keys,
+			new_keys.proof.encode(),
 		));
 	});
 }
@@ -498,7 +523,11 @@ fn set_keys_should_fail_with_insufficient_funds() {
 		// Attempt to set keys with an account that has insufficient funds
 		// Should fail with Err(Token(FundsUnavailable)) from `pallet-balances`
 		assert_err!(
-			Session::set_keys(RuntimeOrigin::signed(account_id), keys, vec![]),
+			Session::set_keys(
+				RuntimeOrigin::signed(account_id),
+				keys,
+				create_set_keys_proof(account_id, &UintAuthorityId(account_id)),
+			),
 			sp_runtime::TokenError::FundsUnavailable
 		);
 	});
@@ -518,7 +547,11 @@ fn set_keys_should_hold_funds() {
 		});
 
 		// Set keys and check the operation succeeds
-		let res = Session::set_keys(RuntimeOrigin::signed(account_id), keys, vec![]);
+		let res = Session::set_keys(
+			RuntimeOrigin::signed(account_id),
+			keys,
+			create_set_keys_proof(account_id, &UintAuthorityId(account_id)),
+		);
 		assert_ok!(res);
 
 		// Check that the funds are held
@@ -543,7 +576,11 @@ fn purge_keys_should_unhold_funds() {
 		frame_system::Pallet::<Test>::inc_providers(&account_id);
 
 		// First set the keys to reserve the deposit
-		let res = Session::set_keys(RuntimeOrigin::signed(account_id), keys, vec![]);
+		let res = Session::set_keys(
+			RuntimeOrigin::signed(account_id),
+			keys,
+			create_set_keys_proof(account_id, &UintAuthorityId(account_id)),
+		);
 		assert_ok!(res);
 
 		// Check the reserved balance after setting keys
@@ -580,7 +617,7 @@ fn existing_validators_without_hold_are_except() {
 		assert_ok!(Session::set_keys(
 			RuntimeOrigin::signed(1),
 			UintAuthorityId(7).into(),
-			Default::default()
+			create_set_keys_proof(1, &UintAuthorityId(7))
 		));
 		assert_eq!(session_hold(1), 0);
 
@@ -588,6 +625,143 @@ fn existing_validators_without_hold_are_except() {
 		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(1)));
 		assert_eq!(session_hold(1), 0);
 	});
+}
+
+#[cfg(feature = "historical")]
+mod externally_set_keys_tracking {
+	use super::*;
+
+	const ACCOUNT: u64 = 1000;
+
+	fn setup_account() {
+		frame_system::Pallet::<Test>::inc_providers(&ACCOUNT);
+		ValidatorAccounts::mutate(|m| {
+			m.insert(ACCOUNT, ACCOUNT);
+		});
+	}
+
+	fn set_local(key: u64) {
+		let keys = UintAuthorityId(key).into();
+		let proof = create_set_keys_proof(ACCOUNT, &UintAuthorityId(key));
+		assert_ok!(Session::set_keys(RuntimeOrigin::signed(ACCOUNT), keys, proof));
+	}
+
+	fn set_remote(key: u64) {
+		<Session as SessionInterface>::set_keys(&ACCOUNT, UintAuthorityId(key).into()).unwrap();
+	}
+
+	fn purge_local() {
+		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(ACCOUNT)));
+	}
+
+	fn purge_remote() {
+		<Session as SessionInterface>::purge_keys(&ACCOUNT).unwrap();
+	}
+
+	fn assert_local_state(consumers_before: u32) {
+		assert!(!ExternallySetKeys::<Test>::contains_key(&ACCOUNT));
+		// +1 from session's inc_consumers, +1 from pallet-balances hold.
+		assert_eq!(System::consumers(&ACCOUNT), consumers_before + 2);
+		assert_eq!(session_hold(ACCOUNT), KeyDeposit::get());
+	}
+
+	fn assert_remote_state(consumers_before: u32) {
+		assert!(ExternallySetKeys::<Test>::contains_key(&ACCOUNT));
+		assert_eq!(System::consumers(&ACCOUNT), consumers_before);
+		assert_eq!(session_hold(ACCOUNT), 0);
+	}
+
+	fn assert_clean_state(consumers_before: u32) {
+		assert!(!ExternallySetKeys::<Test>::contains_key(&ACCOUNT));
+		assert_eq!(System::consumers(&ACCOUNT), consumers_before);
+		assert_eq!(session_hold(ACCOUNT), 0);
+	}
+
+	#[test]
+	fn set_local_purge_local() {
+		new_test_ext().execute_with(|| {
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
+
+			set_local(ACCOUNT);
+			assert_local_state(consumers_before);
+
+			purge_local();
+			assert_clean_state(consumers_before);
+		});
+	}
+
+	#[test]
+	fn set_local_purge_remote() {
+		new_test_ext().execute_with(|| {
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
+
+			set_local(ACCOUNT);
+			assert_local_state(consumers_before);
+
+			purge_remote();
+			assert_clean_state(consumers_before);
+		});
+	}
+
+	#[test]
+	fn set_remote_purge_local() {
+		new_test_ext().execute_with(|| {
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
+
+			set_remote(ACCOUNT);
+			assert_remote_state(consumers_before);
+
+			purge_local();
+			assert_clean_state(consumers_before);
+		});
+	}
+
+	#[test]
+	fn set_remote_purge_remote() {
+		new_test_ext().execute_with(|| {
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
+
+			set_remote(ACCOUNT);
+			assert_remote_state(consumers_before);
+
+			purge_remote();
+			assert_clean_state(consumers_before);
+		});
+	}
+
+	#[test]
+	fn set_local_to_remote() {
+		new_test_ext().execute_with(|| {
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
+
+			set_local(ACCOUNT);
+			assert_local_state(consumers_before);
+
+			// Transition to remote: deposit released, consumer decremented.
+			set_remote(70);
+			assert_remote_state(consumers_before);
+		});
+	}
+
+	#[test]
+	fn set_remote_to_local() {
+		new_test_ext().execute_with(|| {
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
+
+			set_remote(ACCOUNT);
+			assert_remote_state(consumers_before);
+
+			// Transition to local: deposit placed, consumer incremented.
+			set_local(70);
+			assert_local_state(consumers_before);
+		});
+	}
 }
 
 mod disabling_byzantine_threshold {

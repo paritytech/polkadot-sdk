@@ -180,7 +180,7 @@ impl<Block: BlockT> ParachainBlockData<Block> {
 			Self::V0 { .. } => Some(self.clone()),
 			Self::V1 { blocks, proof } => {
 				if blocks.len() != 1 {
-					return None
+					return None;
 				}
 
 				blocks

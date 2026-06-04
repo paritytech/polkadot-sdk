@@ -21,35 +21,47 @@ pub(crate) mod runtime_api;
 pub(crate) mod storage_api;
 
 use crate::{
-	subxt_client::{self, revive::calls::types::EthTransact, SrcChainConfig},
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
-	TracerType, TransactionInfo,
+	SyncLabel, TracerType, TransactionInfo,
+	block_sync::SyncCheckpoint,
+	subxt_client::{self, SrcChainConfig, revive::calls::types::EthTransact},
 };
-use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
+use futures::TryStreamExt;
+use jsonrpsee::types::{ErrorObjectOwned, error::CALL_EXECUTION_FAILED_CODE};
 use pallet_revive::{
-	evm::{
-		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
-		Filter, GenericTransaction, HashesOrTransactionInfos, Log, ReceiptInfo, SyncingProgress,
-		SyncingStatus, Trace, TransactionSigned, TransactionTrace, H256,
-	},
 	EthTransactError,
+	evm::{
+		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult, Filter,
+		GenericTransaction, H256, HashesOrTransactionInfos, Log, ReceiptInfo, SyncingProgress,
+		SyncingStatus, Trace, TransactionSigned, TransactionTrace, U256, decode_revert_reason,
+	},
 };
 use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
-use std::{ops::Range, sync::Arc, time::Duration};
+use std::{
+	sync::{
+		Arc,
+		atomic::{AtomicBool, Ordering},
+	},
+	time::Duration,
+};
 use storage_api::StorageApi;
 use subxt::{
+	Config, OnlineClient,
 	backend::{
-		legacy::{rpc_methods::SystemHealth, LegacyRpcMethods},
+		StreamOf, StreamOfResults,
+		legacy::{
+			LegacyRpcMethods,
+			rpc_methods::{SystemHealth, TransactionStatus},
+		},
 		rpc::{
-			reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
 			RpcClient,
+			reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
 		},
 	},
 	config::{HashFor, Header},
 	ext::subxt_rpcs::rpc_params,
-	Config, OnlineClient,
 };
 use thiserror::Error;
 use tokio::sync::Mutex;
@@ -78,6 +90,37 @@ pub enum SubscriptionType {
 	FinalizedBlocks,
 }
 
+/// Submit Error reason.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+pub enum SubmitError {
+	/// Transaction was usurped by another with the same nonce.
+	#[error("Transaction was usurped by another with the same nonce")]
+	Usurped,
+	/// Transaction was dropped from the pool.
+	#[error("Transaction was dropped")]
+	Dropped,
+	/// Transaction is invalid (e.g. bad nonce, signature, etc).
+	#[error("Transaction is invalid (e.g. bad nonce, signature, etc)")]
+	Invalid,
+	/// Transaction stream ended without a terminal status.
+	#[error("Transaction stream ended without status")]
+	StreamEnded,
+	/// Unknown transaction status.
+	#[error("Unknown transaction status")]
+	Unknown,
+}
+
+impl From<TransactionStatus<SubstrateBlockHash>> for SubmitError {
+	fn from(status: TransactionStatus<SubstrateBlockHash>) -> Self {
+		match status {
+			TransactionStatus::Usurped(_) => SubmitError::Usurped,
+			TransactionStatus::Dropped => SubmitError::Dropped,
+			TransactionStatus::Invalid => SubmitError::Invalid,
+			_ => SubmitError::Unknown,
+		}
+	}
+}
+
 /// The error type for the client.
 #[derive(Error, Debug)]
 pub enum ClientError {
@@ -95,7 +138,10 @@ pub enum ClientError {
 	/// A [`codec::Error`] wrapper error.
 	#[error(transparent)]
 	CodecError(#[from] codec::Error),
-	/// Transcact call failed.
+	/// author_submitExtrinsic failed.
+	#[error("Invalid transaction: {0}")]
+	SubmitError(SubmitError),
+	/// Transact call failed.
 	#[error("contract reverted: {0:?}")]
 	TransactError(EthTransactError),
 	/// A decimal conversion failed.
@@ -130,8 +176,30 @@ pub enum ClientError {
 	/// Receipt data length mismatch.
 	#[error("Receipt data length mismatch")]
 	ReceiptDataLengthMismatch,
+	/// Transaction submission timeout.
+	#[error("Transaction submission timeout")]
+	Timeout,
+	/// All of the estimation methods `eth_estimate`, `eth_transact_with_config`, and
+	/// `eth_transact` were not found and therefore none of the estimation methods succeeded.
+	#[error("None of the estimation methods were found")]
+	NoEstimationMethodSucceeded,
+	/// Chain identity mismatch between stored genesis and connected node.
+	#[error("Genesis hash mismatch")]
+	ChainMismatch,
+	/// Stored sync boundary does not match the connected node.
+	#[error("Sync boundary mismatch")]
+	SyncBoundaryMismatch,
 }
+
+impl ClientError {
+	/// Errors that indicate a mismatch between the stored sync state and the connected node.
+	pub(crate) fn is_chain_validation_error(&self) -> bool {
+		matches!(self, Self::ChainMismatch | Self::SyncBoundaryMismatch)
+	}
+}
+
 const LOG_TARGET: &str = "eth-rpc::client";
+const LOG_TARGET_SUBSCRIPTION: &str = "eth-rpc::subscription";
 
 const REVERT_CODE: i32 = 3;
 
@@ -142,8 +210,9 @@ impl From<ClientError> for ErrorObjectOwned {
 			ClientError::SubxtError(subxt::Error::Rpc(subxt::error::RpcError::ClientError(
 				subxt::ext::subxt_rpcs::Error::User(err),
 			))) |
-			ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) =>
-				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None),
+			ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) => {
+				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None)
+			},
 			ClientError::TransactError(EthTransactError::Data(data)) => {
 				let msg = match decode_revert_reason(&data) {
 					Some(reason) => format!("execution reverted: {reason}"),
@@ -153,15 +222,17 @@ impl From<ClientError> for ErrorObjectOwned {
 				let data = format!("0x{}", hex::encode(data));
 				ErrorObjectOwned::owned::<String>(REVERT_CODE, msg, Some(data))
 			},
-			ClientError::TransactError(EthTransactError::Message(msg)) =>
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
-			_ =>
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None),
+			ClientError::TransactError(EthTransactError::Message(msg)) => {
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None)
+			},
+			_ => {
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None)
+			},
 		}
 	}
 }
 
-/// A client connect to a node and maintains a cache of the last `CACHE_SIZE` blocks.
+/// A client that connects to a substrate node and provides Ethereum-compatible RPC functionality.
 #[derive(Clone)]
 pub struct Client {
 	api: OnlineClient<SrcChainConfig>,
@@ -178,17 +249,37 @@ pub struct Client {
 	block_notifier: Option<tokio::sync::broadcast::Sender<H256>>,
 	/// A lock to ensure only one subscription can perform write operations at a time.
 	subscription_lock: Arc<Mutex<()>>,
+
+	/// Block subscription sender side.
+	block_subscription_tx: tokio::sync::broadcast::Sender<Block>,
+	/// Log subscription sender side.
+	log_subscription_tx: tokio::sync::broadcast::Sender<Log>,
+	/// Whether archive mode is enabled
+	is_archive: bool,
+	/// Whether historic backfill has completed. `false` if not started or in progress.
+	backfill_complete: Arc<AtomicBool>,
+}
+
+/// Returns the first EVM block number for main and test nets, `None` otherwise.
+fn known_first_evm_block_for_chain(chain_id: u64) -> Option<u32> {
+	match chain_id {
+		420420417 => Some(4_367_914),  // Paseo Asset Hub
+		420420418 => Some(12_234_156), // Kusama Asset Hub
+		420420419 => Some(11_405_259), // Polkadot Asset Hub
+		420420421 => Some(13_169_391), // Westend Asset Hub
+		_ => None,
+	}
 }
 
 /// Fetch the chain ID from the substrate chain.
 async fn chain_id(api: &OnlineClient<SrcChainConfig>) -> Result<u64, ClientError> {
-	let query = subxt_client::constants().revive().chain_id();
+	let query = subxt_client::constants().revive().chain_id().unvalidated();
 	api.constants().at(&query).map_err(|err| err.into())
 }
 
 /// Fetch the max block weight from the substrate chain.
 async fn max_block_weight(api: &OnlineClient<SrcChainConfig>) -> Result<Weight, ClientError> {
-	let query = subxt_client::constants().system().block_weights();
+	let query = subxt_client::constants().system().block_weights().unvalidated();
 	let weights = api.constants().at(&query)?;
 	let max_block = weights.per_class.normal.max_extrinsic.unwrap_or(weights.max_block);
 	Ok(max_block.0)
@@ -209,11 +300,15 @@ async fn get_automine(rpc_client: &RpcClient) -> bool {
 /// clients.
 pub async fn connect(
 	node_rpc_url: &str,
+	max_request_size: u32,
+	max_response_size: u32,
 ) -> Result<(OnlineClient<SrcChainConfig>, RpcClient, LegacyRpcMethods<SrcChainConfig>), ClientError>
 {
 	log::info!(target: LOG_TARGET, "🌐 Connecting to node at: {node_rpc_url} ...");
 	let rpc_client = ReconnectingRpcClient::builder()
 		.retry_policy(ExponentialBackoff::from_millis(100).max_delay(Duration::from_secs(10)))
+		.max_request_size(max_request_size)
+		.max_response_size(max_response_size)
 		.build(node_rpc_url.to_string())
 		.await?;
 	let rpc_client = RpcClient::new(rpc_client);
@@ -232,11 +327,28 @@ impl Client {
 		rpc: LegacyRpcMethods<SrcChainConfig>,
 		block_provider: SubxtBlockInfoProvider,
 		receipt_provider: ReceiptProvider,
+		is_archive: bool,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight, automine) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api), async {
 				Ok(get_automine(&rpc_client).await)
 			},)?;
+
+		// Fall back to 0 when the hardcoded value exceeds the current best block (e.g. zombienet
+		// reusing a known chain ID) and backward sync is disabled.
+		if !is_archive {
+			if let Some(known) = known_first_evm_block_for_chain(chain_id) {
+				let best = block_provider.latest_block_number().await;
+				if known > best {
+					log::debug!(
+						target: LOG_TARGET,
+						"Hardcoded first EVM block {known} exceeds best block {best} \
+						 for chain {chain_id}, defaulting to 0"
+					);
+					receipt_provider.set_first_evm_block(0).await?;
+				}
+			}
+		}
 
 		let client = Self {
 			api,
@@ -251,9 +363,23 @@ impl Client {
 			block_notifier: automine
 				.then(|| tokio::sync::broadcast::channel::<H256>(NOTIFIER_CAPACITY).0),
 			subscription_lock: Arc::new(Mutex::new(())),
+			block_subscription_tx: tokio::sync::broadcast::channel(256).0,
+			log_subscription_tx: tokio::sync::broadcast::channel(1000).0,
+			is_archive,
+			backfill_complete: Arc::new(AtomicBool::new(false)),
 		};
 
 		Ok(client)
+	}
+
+	/// Mark historic backfill as complete.
+	pub(crate) fn mark_backfill_complete(&self) {
+		self.backfill_complete.store(true, Ordering::Release);
+	}
+
+	/// Whether archive sync is active and backfill has completed.
+	fn should_advance_head(&self) -> bool {
+		self.is_archive && self.backfill_complete.load(Ordering::Acquire)
 	}
 
 	/// Creates a block notifier instance.
@@ -266,41 +392,25 @@ impl Client {
 		self.block_notifier = notifier;
 	}
 
-	/// Subscribe to past blocks executing the callback for each block in `range`.
-	async fn subscribe_past_blocks<F, Fut>(
-		&self,
-		range: Range<SubstrateBlockNumber>,
-		callback: F,
-	) -> Result<(), ClientError>
-	where
-		F: Fn(Arc<SubstrateBlock>) -> Fut + Send + Sync,
-		Fut: std::future::Future<Output = Result<(), ClientError>> + Send,
-	{
-		let mut block = self
-			.block_provider
-			.block_by_number(range.end)
-			.await?
-			.ok_or(ClientError::BlockNotFound)?;
+	pub(crate) fn api(&self) -> &OnlineClient<SrcChainConfig> {
+		&self.api
+	}
 
-		loop {
-			let block_number = block.number();
-			log::trace!(target: "eth-rpc::subscription", "Processing past block #{block_number}");
+	pub(crate) fn receipt_provider(&self) -> &ReceiptProvider {
+		&self.receipt_provider
+	}
 
-			let parent_hash = block.header().parent_hash;
-			callback(block.clone()).await.inspect_err(|err| {
-				log::error!(target: "eth-rpc::subscription", "Failed to process past block #{block_number}: {err:?}");
-			})?;
+	pub(crate) fn block_provider(&self) -> &SubxtBlockInfoProvider {
+		&self.block_provider
+	}
 
-			if range.start < block_number {
-				block = self
-					.block_provider
-					.block_by_hash(&parent_hash)
-					.await?
-					.ok_or(ClientError::BlockNotFound)?;
-			} else {
-				return Ok(());
-			}
-		}
+	/// The earliest block number where the ReviveApi is available.
+	/// Resolution order: in-memory value > known-networks table > 0.
+	fn earliest_block_number(&self) -> u32 {
+		self.receipt_provider
+			.first_evm_block()
+			.or_else(|| known_first_evm_block_for_chain(self.chain_id))
+			.unwrap_or(0)
 	}
 
 	/// Subscribe to new blocks, and execute the async closure for each block.
@@ -342,11 +452,11 @@ impl Client {
 			let _guard = self.subscription_lock.lock().await;
 
 			let block_number = block.number();
-			log::trace!(target: "eth-rpc::subscription", "⏳ Processing {subscription_type:?} block: {block_number}");
+			log::trace!(target: LOG_TARGET_SUBSCRIPTION, "⏳ Processing {subscription_type:?} block: {block_number}");
 			if let Err(err) = callback(block).await {
 				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
 			} else {
-				log::trace!(target: "eth-rpc::subscription", "✅ Processed {subscription_type:?} block: {block_number}");
+				log::trace!(target: LOG_TARGET_SUBSCRIPTION, "✅ Processed {subscription_type:?} block: {block_number}");
 			}
 		}
 
@@ -362,7 +472,9 @@ impl Client {
 		log::info!(target: LOG_TARGET, "🔌 Subscribing to new blocks ({subscription_type:?})");
 		self.subscribe_new_blocks(subscription_type, |block| async {
 			let hash = block.hash();
+			let block_number = block.number();
 			let evm_block = self.runtime_api(hash).eth_block().await?;
+
 			let (_, receipts): (Vec<_>, Vec<_>) = self
 				.receipt_provider
 				.insert_block_receipts(&block, &evm_block.hash)
@@ -373,40 +485,49 @@ impl Client {
 			self.block_provider.update_latest(Arc::new(block), subscription_type).await;
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 
-			// Only broadcast for best blocks to avoid duplicate notifications.
 			match (subscription_type, &self.block_notifier) {
+				(SubscriptionType::FinalizedBlocks, _) if self.should_advance_head() => {
+					// Track finalized block in sync_state
+					if let Err(err) = self
+						.receipt_provider
+						.advance_sync_label(
+							SyncLabel::Head,
+							SyncCheckpoint::new(block_number, hash),
+						)
+						.await
+					{
+						log::warn!(target: LOG_TARGET,
+							"Failed to update sync_label[{}]: {err:?}",
+						SyncLabel::Head);
+					}
+				},
+				// Only broadcast for best blocks to avoid duplicate notifications.
 				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 => {
 					let _ = sender.send(hash);
 				},
 				_ => {},
 			}
+
+			// Broadcast the best blocks
+			if let SubscriptionType::BestBlocks = subscription_type &&
+				self.block_subscription_tx.receiver_count() > 0
+			{
+				let _ = self.block_subscription_tx.send(evm_block);
+			}
+
+			// Broadcast the logs, we require a finalized subscription for this so that all of the
+			// events we broadcast are finalized and not prone to reorgs.
+			if let SubscriptionType::FinalizedBlocks = subscription_type &&
+				self.log_subscription_tx.receiver_count() > 0
+			{
+				receipts.iter().flat_map(|receipt| receipt.logs.iter()).for_each(|log| {
+					let _ = self.log_subscription_tx.send(log.clone());
+				});
+			}
+
 			Ok(())
 		})
 		.await
-	}
-
-	/// Cache old blocks up to the given block number.
-	pub async fn subscribe_and_cache_blocks(
-		&self,
-		index_last_n_blocks: SubstrateBlockNumber,
-	) -> Result<(), ClientError> {
-		let last = self.latest_block().await.number().saturating_sub(1);
-		let range = last.saturating_sub(index_last_n_blocks)..last;
-		log::info!(target: LOG_TARGET, "🗄️ Indexing past blocks in range {range:?}");
-
-		self.subscribe_past_blocks(range, |block| async move {
-			let ethereum_hash = self
-				.runtime_api(block.hash())
-				.eth_block_hash(pallet_revive::evm::U256::from(block.number()))
-				.await?
-				.ok_or(ClientError::EthereumBlockNotFound)?;
-			self.receipt_provider.insert_block_receipts(&block, &ethereum_hash).await?;
-			Ok(())
-		})
-		.await?;
-
-		log::info!(target: LOG_TARGET, "🗄️ Finished indexing past blocks");
-		Ok(())
 	}
 
 	/// Get the block hash for the given block number or tag.
@@ -428,6 +549,13 @@ impl Client {
 			BlockNumberOrTagOrHash::BlockTag(BlockTag::Finalized | BlockTag::Safe) => {
 				let block = self.latest_finalized_block().await;
 				Ok(block.hash())
+			},
+			BlockNumberOrTagOrHash::BlockTag(BlockTag::Earliest) => {
+				let hash = self
+					.get_block_hash(self.earliest_block_number())
+					.await?
+					.ok_or(ClientError::BlockNotFound)?;
+				Ok(hash)
 			},
 			BlockNumberOrTagOrHash::BlockTag(_) => {
 				let block = self.latest_block().await;
@@ -456,23 +584,84 @@ impl Client {
 		self.block_provider.latest_block().await
 	}
 
+	/// Submit an ethereum transaction and return a stream of transaction status updates.
+	async fn submit_transaction(
+		&self,
+		call: subxt::tx::DefaultPayload<EthTransact>,
+	) -> Result<StreamOfResults<TransactionStatus<SubstrateBlockHash>>, ClientError> {
+		let ext = self.api.tx().create_unsigned(&call.unvalidated()).map_err(ClientError::from)?;
+
+		let sub = self
+			.rpc_client
+			.subscribe(
+				"author_submitAndWatchExtrinsic",
+				rpc_params![to_hex(ext.encoded())],
+				"author_unwatchExtrinsic",
+			)
+			.await?;
+
+		let sub = sub.map_err(|e| e.into());
+		Ok(StreamOf::new(Box::pin(sub)))
+	}
+
 	/// Expose the transaction API.
 	pub async fn submit(
 		&self,
 		call: subxt::tx::DefaultPayload<EthTransact>,
-	) -> Result<(), ClientError> {
-		let ext = self.api.tx().create_unsigned(&call).map_err(ClientError::from)?;
-		let hash: H256 = self
-			.rpc_client
-			.request("author_submitExtrinsic", rpc_params![to_hex(ext.encoded())])
-			.await?;
-		log::debug!(target: LOG_TARGET, "Submitted transaction with substrate hash: {hash:?}");
-		Ok(())
+	) -> Result<TransactionStatus<SubstrateBlockHash>, ClientError> {
+		let mut progress = self.submit_transaction(call).await.inspect_err(|err| {
+			log::debug!(target: LOG_TARGET, "Failed to submit transaction: {err:?}");
+		})?;
+
+		tokio::time::timeout(Duration::from_secs(5), async {
+			if let Some(status) = progress.next().await {
+				match status {
+					Ok(
+						tx @ (TransactionStatus::Future |
+						TransactionStatus::Ready |
+						// Add other events that follow Ready here for completeness,
+						// but they can be ignored.
+						TransactionStatus::Broadcast(_) |
+						TransactionStatus::InBlock(_) |
+						TransactionStatus::FinalityTimeout(_) |
+						TransactionStatus::Retracted(_) |
+						TransactionStatus::Finalized(_)),
+					) => {
+						return Ok(tx);
+					},
+					Ok(
+						tx @ (TransactionStatus::Usurped(_) |
+						TransactionStatus::Dropped |
+						TransactionStatus::Invalid),
+					) => {
+						return Err(ClientError::SubmitError(tx.into()));
+					},
+					Err(err) => {
+						log::debug!(target: LOG_TARGET, "Transaction submission failed: {err:?}");
+						return Err(ClientError::from(err));
+					},
+				}
+			}
+			return Err(ClientError::SubmitError(SubmitError::StreamEnded));
+		})
+		.await
+		.map_err(|_| ClientError::Timeout)?
 	}
 
 	/// Get an EVM transaction receipt by hash.
 	pub async fn receipt(&self, tx_hash: &H256) -> Option<ReceiptInfo> {
 		self.receipt_provider.receipt_by_hash(tx_hash).await
+	}
+
+	/// Get The post dispatch weight associated with this Ethereum transaction hash.
+	pub async fn post_dispatch_weight(&self, tx_hash: &H256) -> Option<Weight> {
+		use crate::subxt_client::system::events::ExtrinsicSuccess;
+		let ReceiptInfo { block_hash, transaction_index, .. } = self.receipt(tx_hash).await?;
+		let block_hash = self.resolve_substrate_hash(&block_hash).await?;
+		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
+		let ext = block.extrinsics().await.ok()?.iter().nth(transaction_index.as_u32() as _)?;
+		let event = ext.events().await.ok()?.find_first::<ExtrinsicSuccess>().ok()??;
+		Some(event.dispatch_info.weight.0)
 	}
 
 	pub async fn sync_state(
@@ -570,6 +759,9 @@ impl Client {
 				let block = self.block_provider.latest_finalized_block().await;
 				Ok(Some(block))
 			},
+			BlockNumberOrTag::BlockTag(BlockTag::Earliest) => {
+				self.block_by_number(self.earliest_block_number()).await
+			},
 			BlockNumberOrTag::BlockTag(_) => {
 				let block = self.block_provider.latest_block().await;
 				Ok(Some(block))
@@ -630,18 +822,16 @@ impl Client {
 		>,
 		ClientError,
 	> {
-		let signed_block: sp_runtime::generic::SignedBlock<
-			sp_runtime::generic::Block<
-				sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
-				sp_runtime::OpaqueExtrinsic,
+		let signed_block: Option<
+			sp_runtime::generic::SignedBlock<
+				sp_runtime::generic::Block<
+					sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
+					sp_runtime::OpaqueExtrinsic,
+				>,
 			>,
-		> = self
-			.rpc_client
-			.request("chain_getBlock", rpc_params![block_hash])
-			.await
-			.unwrap();
+		> = self.rpc_client.request("chain_getBlock", rpc_params![block_hash]).await?;
 
-		Ok(signed_block.block)
+		Ok(signed_block.ok_or(ClientError::BlockNotFound)?.block)
 	}
 
 	/// Get the transaction traces for the given block.
@@ -657,6 +847,10 @@ impl Client {
 		let block_hash = self.block_hash_for_tag(at.into()).await?;
 		let block = self.tracing_block(block_hash).await?;
 		let parent_hash = block.header().parent_hash;
+		// Block 0 has no parent — there is nothing to trace.
+		if parent_hash == Default::default() {
+			return Ok(vec![]);
+		}
 		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(parent_hash));
 		let traces = runtime_api.trace_block(block, config.clone()).await?;
 
@@ -712,6 +906,15 @@ impl Client {
 	) -> Option<Block> {
 		log::trace!(target: LOG_TARGET, "Get Ethereum block for hash {:?}", block.hash());
 
+		if self
+			.receipt_provider
+			.is_before_earliest_block(&BlockNumberOrTag::U256(U256::from(block.number())))
+		{
+			log::trace!(target: LOG_TARGET,
+				"Block #{} is before receipt floor, skipping", block.number());
+			return None;
+		}
+
 		// This could potentially fail under below circumstances:
 		//  - state has been pruned
 		//  - the block author cannot be obtained from the digest logs (highly unlikely)
@@ -761,8 +964,21 @@ impl Client {
 
 	/// Get the logs matching the given filter.
 	pub async fn logs(&self, filter: Option<Filter>) -> Result<Vec<Log>, ClientError> {
-		let logs =
-			self.receipt_provider.logs(filter).await.map_err(ClientError::LogFilterFailed)?;
+		let earliest = U256::from(self.earliest_block_number());
+		let latest = U256::from(self.latest_block().await.number());
+		let resolve_block_number = |block: BlockNumberOrTag| match block {
+			BlockNumberOrTag::U256(v) => Ok(v),
+			BlockNumberOrTag::BlockTag(BlockTag::Earliest) => Ok(earliest),
+			BlockNumberOrTag::BlockTag(BlockTag::Latest) => Ok(latest),
+			BlockNumberOrTag::BlockTag(tag) => anyhow::bail!("Unsupported tag: {tag:?}"),
+		};
+
+		let logs = self
+			.receipt_provider
+			.logs(filter, &resolve_block_number)
+			.await
+			.map_err(ClientError::LogFilterFailed)?;
+
 		Ok(logs)
 	}
 
@@ -789,6 +1005,16 @@ impl Client {
 	/// Get the automine status from the node.
 	pub async fn get_automine(&self) -> bool {
 		get_automine(&self.rpc_client).await
+	}
+
+	/// Gets the block subscription rx side of the channel.
+	pub fn get_block_subscription_rx(&self) -> tokio::sync::broadcast::Receiver<Block> {
+		self.block_subscription_tx.subscribe()
+	}
+
+	/// Gets the log subscription rx side of the channel.
+	pub fn get_log_subscription_rx(&self) -> tokio::sync::broadcast::Receiver<Log> {
+		self.log_subscription_tx.subscribe()
 	}
 }
 

@@ -32,7 +32,7 @@ use sc_consensus::{
 use sc_consensus_aura::{standalone as aura_internal, AuthoritiesTracker};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
 use schnellru::{ByLength, LruMap};
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::{error::Error as ConsensusError, BlockOrigin};
@@ -137,7 +137,7 @@ where
 		// was checked/chosen properly, e.g. by warp syncing to this block using a finality proof.
 		if block_params.state_action.skip_execution_checks() || block_params.with_state() {
 			block_params.fork_choice = Some(ForkChoiceStrategy::Custom(block_params.with_state()));
-			return Ok(block_params)
+			return Ok(block_params);
 		}
 
 		let post_hash = block_params.header.hash();
@@ -150,11 +150,10 @@ where
 				format!("Could not fetch authorities at {:?}: {}", parent_hash, e)
 			})?;
 
-			let slot_duration = self
-				.client
-				.runtime_api()
-				.slot_duration(parent_hash)
-				.map_err(|e| e.to_string())?;
+			let mut runtime_api = self.client.runtime_api();
+			runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+			let slot_duration =
+				runtime_api.slot_duration(parent_hash).map_err(|e| e.to_string())?;
 
 			let slot_now = slot_now(slot_duration);
 			let res = aura_internal::check_header_slot_and_seal::<Block, P>(
@@ -201,7 +200,7 @@ where
 						return Err(format!(
 							"Rejecting block {:?} due to excessive equivocations at slot",
 							post_hash,
-						))
+						));
 					}
 				},
 				Err(aura_internal::SealVerificationError::Deferred(hdr, slot)) => {
@@ -217,13 +216,14 @@ where
 					return Err(format!(
 						"Rejecting block ({:?}) from future slot {:?}",
 						post_hash, slot
-					))
+					));
 				},
-				Err(e) =>
+				Err(e) => {
 					return Err(format!(
 						"Rejecting block ({:?}) with invalid seal ({:?})",
 						post_hash, e
-					)),
+					))
+				},
 			}
 		}
 

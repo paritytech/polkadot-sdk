@@ -223,7 +223,7 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
 			let validator = available_validators.remove(selected);
 			selected_validators.push(validator);
 			if available_validators.is_empty() {
-				break
+				break;
 			}
 		}
 		Staking::<T>::nominate(

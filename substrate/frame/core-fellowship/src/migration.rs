@@ -34,7 +34,7 @@ mod v0 {
 
 	use super::*;
 
-	#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+	#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, Debug)]
 	pub struct ParamsType<Balance, BlockNumber, const RANKS: usize> {
 		pub active_salary: [Balance; RANKS],
 		pub passive_salary: [Balance; RANKS],
