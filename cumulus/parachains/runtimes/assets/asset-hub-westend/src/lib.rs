@@ -2139,7 +2139,7 @@ mod benches {
 		[pallet_nfts, Nfts]
 		[pallet_proxy, Proxy]
 		[pallet_parameters, Parameters]
-    [pallet_psm, Psm]
+	[pallet_psm, Psm]
 		[pallet_recovery, Recovery]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking_async, Staking]
