@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780388983620,
+  "lastUpdate": 1780558610034,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -97091,6 +97091,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3033912550,
             "range": "± 100321513",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ludovic.domingues96@gmail.com",
+            "name": "Ludovic Domingues",
+            "username": "Krayt78"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a08481fea644ace088102768abea09930ee05ac3",
+          "message": "Add `remove_registrar` extrinsic to `pallet-identity` (#12263)\n\n# Description\n\nAdds a `remove_registrar` extrinsic to `pallet-identity` so that a\ncompromised, inactive, or\nmalicious registrar can be disabled on-chain via the existing\n`RegistrarOrigin` (governance).\n\nUntil now there was no way to remove a registrar: once added with\n`add_registrar`, a registrar\nexisted for the life of the chain. Disabling one required a full runtime\nupgrade carrying a bespoke\nstorage migration — a heavyweight, ~weeks-long process for what should\nbe a routine governance\naction. This PR closes that gap.\n\n## Integration\n\nThis is an **additive** change for `pallet-identity` (prdoc bump:\n`minor`). Nothing is removed or\nrenamed, and **no storage migration is required**.\n\n- **New extrinsic** `Identity::remove_registrar(index)` at\n`#[pallet::call_index(24)]` (a fresh\nindex; no existing call index is reused or renumbered). Gated by\n`T::RegistrarOrigin`, the same\n  origin as `add_registrar`.\n- **New event** `Event::RegistrarRemoved { registrar_index }`, emitted\non success. Wallets,\n  explorers, and indexers should index the new call and event.\n- **`WeightInfo` trait gains `remove_registrar`.** Runtimes using the\nin-tree\n`SubstrateWeight`/`()` impls get this for free. Any runtime with a\n*hand-written* `WeightInfo`\nimpl for `pallet-identity` must add a `remove_registrar` method —\notherwise it will not compile:\n\n  ```diff\n   impl pallet_identity::WeightInfo for MyWeights {\n       fn add_registrar(r: u32) -> Weight { /* ... */ }\n  +    fn remove_registrar(r: u32) -> Weight { /* ... */ }\n       // ...\n   }\n  ```\n\n- **No `Config` change**, no new storage item. `Registrars` is already\n`BoundedVec<Option<RegistrarInfo>, MaxRegistrars>` and every read site\nalready handles `None`.\n- **Error codes:** returns `InvalidIndex` for an out-of-range index and\n`EmptyIndex` for an\nalready-empty (tombstoned) slot — consistent with `request_judgement`'s\nhandling of an empty slot.\n\n## Review Notes\n\n**Design: tombstone, don't shift.** Removal sets the slot to `None`\n(`*slot = None`) rather than removing it from the vector. This is the\ncore decision and the reason\nno migration is needed:\n\n- `Registrars` is a `BoundedVec<Option<RegistrarInfo>, MaxRegistrars>`\nindexed positionally by\n`RegistrarIndex`. Judgements in `IdentityOf` store a `RegistrarIndex`.\nIf removal *shifted*\nelements (e.g. `Vec::remove`), every later registrar's index would\nchange and existing judgements\nwould silently point at the wrong registrar. Tombstoning keeps every\nother index stable.\n- All read sites (`request_judgement`, `provide_judgement`, `set_fee`,\n`set_account_id`,\n`set_fields`) already resolve a registrar via\n`.get(index).and_then(Option::as_ref)`, so a\ntombstoned slot reads back as `None` and those calls fail closed\nautomatically. A removed\n  registrar can no longer act.\n\n**Two intentional consequences, documented on the dispatchable:**\n\n1. **Pending judgement deposits are not auto-refunded.** A `FeePaid`\ndeposit reserved by\n`request_judgement` against a now-removed registrar can no longer be\nreleased via\n`provide_judgement`. Funds are **not lost** — the requester reclaims\nthem with `cancel_request`,\nwhich keys off their own identity entry, not the registrar. An on-chain\nsweep would be unbounded\nover all identities (a DoS vector), so the manual-cancel model is used,\nmatching the existing\n   `kill_identity` caveat.\n2. **The freed index is not reused.** `add_registrar` always appends, so\neach removal permanently\nconsumes one slot against `MaxRegistrars`. Reusing a freed slot would\nlet a new registrar inherit\nan index that historical judgements still reference, so monotonic\ncapacity is the safer choice.\n\n**Where to read:**\n- `substrate/frame/identity/src/lib.rs` — the `remove_registrar`\ndispatchable (call_index 24).\n- `substrate/frame/identity/src/tests.rs` — bad-origin, invalid vs empty\nindex, index-stability\nacross judgements, removed-registrar-cannot-act, and append-not-reuse\ntests.\n- `substrate/frame/identity/src/benchmarking.rs` — worst case removes\nthe last registrar at full\n  `MaxRegistrars` length so the bench walks the full list (codec cost).\n- `substrate/frame/identity/src/weights.rs` — large diff is a **full\nbench-bot regen** of the whole\npallet (uniform base-time drift); only `remove_registrar` is a genuinely\nnew entry.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements (at minimum one label for\n`T` required) — needs `T1-FRAME`.\n* [x] I have made corresponding changes to the documentation (if\napplicable).\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-06-03T19:10:11Z",
+          "tree_id": "29d48d8fbf3d83974c0587af8420ac3fb5091c33",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a08481fea644ace088102768abea09930ee05ac3"
+        },
+        "date": 1780558579680,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 18826236,
+            "range": "± 92361",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19345993,
+            "range": "± 828044",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20362672,
+            "range": "± 841464",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25437787,
+            "range": "± 221231",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59185123,
+            "range": "± 778164",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 358935327,
+            "range": "± 3016132",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2531086008,
+            "range": "± 163564900",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16268612,
+            "range": "± 107688",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16310847,
+            "range": "± 191459",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 16720626,
+            "range": "± 177920",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21532818,
+            "range": "± 241473",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60307165,
+            "range": "± 1546403",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 352388073,
+            "range": "± 5126679",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2630397679,
+            "range": "± 20782279",
             "unit": "ns/iter"
           }
         ]
