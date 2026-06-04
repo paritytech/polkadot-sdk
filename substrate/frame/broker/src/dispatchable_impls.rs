@@ -232,7 +232,7 @@ impl<T: Config> Pallet<T> {
 					});
 				}
 
-				Ok(RenewResult::Renewed { new_core: region_id.core })
+				Ok(RenewResult::Renewed { new_region_id: region_id, region_end: effective_to })
 			},
 		}
 	}
@@ -608,13 +608,13 @@ impl<T: Config> Pallet<T> {
 		if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale_info.region_begin })
 			.is_some()
 		{
-			let RenewResult::Renewed { new_core } =
+			let RenewResult::Renewed { new_region_id, .. } =
 				Self::do_renew(sovereign_account.clone(), core)?
 			else {
 				return Err(Error::<T>::NotAllowed.into());
 			};
 
-			core = new_core;
+			core = new_region_id.core;
 		} else if let Some(workload_end) = workload_end_hint {
 			ensure!(
 				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: workload_end })

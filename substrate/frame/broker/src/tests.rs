@@ -2778,15 +2778,75 @@ fn force_transfer_can_transfer_provisionally_assigned_region() {
 	});
 }
 
+#[test]
+fn renewal_rights_are_updated() {
+	TestExt::new().endow(1, 100_000).execute_with(move || {
+		assert_ok!(Broker::do_start_sales((), 2));
+		advance_to(2);
+
+		let region_1 = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
+		let region_2 = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
+		assert_eq!(region_1.begin, region_2.begin);
+		let regions_end = region_1.begin + REGION_LENGTH;
+
+		assert_eq!(Broker::renewal_rights_count(&1, regions_end), 0);
+		assert_ok!(Broker::do_assign(region_1, Some(1), 1001, Final));
+		assert_eq!(Broker::renewal_rights_count(&1, regions_end), 1);
+		assert_ok!(Broker::do_assign(region_2, Some(1), 1001, Final));
+		assert_eq!(Broker::renewal_rights_count(&1, regions_end), 2);
+
+		advance_sale_period();
+
+		let new_region_end = do_renew_and_get_region_end(1, region_1.core).unwrap();
+		assert_eq!(Broker::renewal_rights_count(&1, regions_end), 2);
+		assert_eq!(Broker::renewal_rights_count(&1, new_region_end), 1);
+	});
+}
+
+#[test]
+fn cant_drop_renewal_rights_too_early() {
+	TestExt::new().endow(1, 100_000).execute_with(move || {
+		assert_ok!(Broker::do_start_sales((), 2));
+		advance_to(2);
+
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
+		let region_end = region.begin + REGION_LENGTH;
+
+		assert_ok!(Broker::do_assign(region, Some(1), 1001, Final));
+		assert_eq!(Broker::renewal_rights_count(&1, region_end), 1);
+
+		assert_noop!(Broker::do_drop_renewal_rights(1, region_end), Error::<Test>::StillValid);
+
+		advance_sale_period();
+
+		assert_noop!(Broker::do_drop_renewal_rights(1, region_end), Error::<Test>::StillValid);
+
+		advance_sale_period();
+
+		assert_ok!(Broker::do_drop_renewal_rights(1, region_end));
+	});
+}
+
 fn do_renew_and_get_the_new_core(
 	who: <Test as frame_system::Config>::AccountId,
 	core: CoreIndex,
 ) -> Result<CoreIndex, DispatchError> {
-	let RenewResult::Renewed { new_core } = Broker::do_renew(who, core)? else {
+	let RenewResult::Renewed { new_region_id, .. } = Broker::do_renew(who, core)? else {
 		panic!("It's expected that do_renew will immediately resolve")
 	};
 
-	Ok(new_core)
+	Ok(new_region_id.core)
+}
+
+fn do_renew_and_get_region_end(
+	who: <Test as frame_system::Config>::AccountId,
+	core: CoreIndex,
+) -> Result<Timeslice, DispatchError> {
+	let RenewResult::Renewed { new_region_id, region_end } = Broker::do_renew(who, core)? else {
+		panic!("It's expected that do_renew will immediately resolve")
+	};
+
+	Ok(region_end)
 }
 
 fn do_purchase_and_get_region_id(

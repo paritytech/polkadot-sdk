@@ -348,8 +348,10 @@ pub(crate) type PurchaseResultOf<T> = PurchaseResult<BalanceOf<T>, MarketBidIdOf
 pub(crate) enum RenewResult<BidId> {
 	/// The core was renewed right away.
 	Renewed {
-		/// Index of the core that the renewer received.
-		new_core: CoreIndex,
+		/// Id of the region that the renewer received.
+		new_region_id: RegionId,
+		/// End of the new region.
+		region_end: Timeslice,
 	},
 	/// A bid for core renewal was placed.
 	BidPlaced {
