@@ -926,7 +926,8 @@ fn dynamic_inbound_fixture_verifies_through_real_verifier() {
 	use snowbridge_inbound_queue_primitives::Verifier;
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
 
-	let cases: &[(u32, u32)] = &[(1, 320), (4, 1024), (32, 8192)];
+	// `n` (proof node count) is capped by `MaxProofNodes` (16); the top case exercises it.
+	let cases: &[(u32, u32)] = &[(1, 320), (4, 1024), (16, 8192)];
 
 	for &(n, s) in cases {
 		ExtBuilder::<Runtime>::default()
@@ -936,6 +937,14 @@ fn dynamic_inbound_fixture_verifies_through_real_verifier() {
 			.build()
 			.execute_with(|| {
 				let event_fixture = <Runtime as BenchmarkHelper<Runtime>>::initialize_storage(n, s);
+
+				// The synthesized proof must contain exactly `n` nodes — the value the
+				// `submit` weight is charged against.
+				assert_eq!(
+					event_fixture.event.proof.receipt_proof.len() as u32,
+					n,
+					"(n={n}, s={s}) proof node count must equal n",
+				);
 
 				// Step 1: Verifier alone
 				let verifier_result =
@@ -975,7 +984,8 @@ fn dynamic_outbound_v2_fixture_verifies_through_real_verifier() {
 		PendingOrders,
 	};
 
-	let cases: &[(u32, u32)] = &[(1, 320), (4, 1024), (32, 8192)];
+	// `n` (proof node count) is capped by `MaxProofNodes` (16); the top case exercises it.
+	let cases: &[(u32, u32)] = &[(1, 320), (4, 1024), (16, 8192)];
 
 	for &(n, s) in cases {
 		ExtBuilder::<Runtime>::default()
@@ -986,6 +996,14 @@ fn dynamic_outbound_v2_fixture_verifies_through_real_verifier() {
 			.execute_with(|| {
 				let event_fixture =
 					<Runtime as OutboundBenchmarkHelperV2<Runtime>>::initialize_storage(n, s);
+
+				// The synthesized proof must contain exactly `n` nodes — the value the
+				// `submit_delivery_receipt` weight is charged against.
+				assert_eq!(
+					event_fixture.event.proof.receipt_proof.len() as u32,
+					n,
+					"outbound v2 (n={n}, s={s}) proof node count must equal n",
+				);
 
 				// Step 1: Verifier alone
 				let verifier_result =
@@ -1030,7 +1048,8 @@ fn dynamic_inbound_v2_fixture_verifies_through_real_verifier() {
 	use snowbridge_inbound_queue_primitives::Verifier;
 	use snowbridge_pallet_inbound_queue_v2::BenchmarkHelper as BenchmarkHelperV2;
 
-	let cases: &[(u32, u32)] = &[(1, 320), (4, 1024), (32, 8192)];
+	// `n` (proof node count) is capped by `MaxProofNodes` (16); the top case exercises it.
+	let cases: &[(u32, u32)] = &[(1, 320), (4, 1024), (16, 8192)];
 
 	for &(n, s) in cases {
 		ExtBuilder::<Runtime>::default()
@@ -1041,6 +1060,14 @@ fn dynamic_inbound_v2_fixture_verifies_through_real_verifier() {
 			.execute_with(|| {
 				let event_fixture =
 					<Runtime as BenchmarkHelperV2<Runtime>>::initialize_storage(n, s);
+
+				// The synthesized proof must contain exactly `n` nodes — the value the
+				// `submit` weight is charged against.
+				assert_eq!(
+					event_fixture.event.proof.receipt_proof.len() as u32,
+					n,
+					"v2 (n={n}, s={s}) proof node count must equal n",
+				);
 
 				// Step 1: Verifier alone
 				let verifier_result =

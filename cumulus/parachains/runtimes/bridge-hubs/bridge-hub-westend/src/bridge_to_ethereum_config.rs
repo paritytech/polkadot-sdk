@@ -132,7 +132,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type PricingParameters = EthereumSystem;
 	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
 	#[cfg(feature = "runtime-benchmarks")]
-	type MaxProofNodes = ConstU32<32>;
+	type MaxProofNodes = ConstU32<16>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type MaxReceiptBytes = ConstU32<8192>;
 }
@@ -173,7 +173,7 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
 	#[cfg(feature = "runtime-benchmarks")]
-	type MaxProofNodes = ConstU32<32>;
+	type MaxProofNodes = ConstU32<16>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type MaxReceiptBytes = ConstU32<8192>;
 }
@@ -220,7 +220,7 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
 	#[cfg(feature = "runtime-benchmarks")]
-	type MaxProofNodes = ConstU32<32>;
+	type MaxProofNodes = ConstU32<16>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type MaxReceiptBytes = ConstU32<8192>;
 }

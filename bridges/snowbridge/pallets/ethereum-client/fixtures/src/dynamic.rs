@@ -14,10 +14,12 @@
 //!
 //! Construction layers, bottom-up:
 //!
-//! 1. Build a real receipts trie with `n` leaves via `alloy_trie::HashBuilder`. The leaf we retain
-//!    a proof for holds an Eip1559 receipt whose primary log matches the verifier's expected event
-//!    log; the log's `data` field is sized so the encoded envelope is `s` bytes. Other leaves hold
-//!    the same envelope so the trie's path to the retained leaf crosses `n` distinct nodes.
+//! 1. Build a real receipts trie via `alloy_trie::HashBuilder` whose inclusion proof for the
+//!    retained leaf has exactly `n` nodes. The retained leaf holds an Eip1559 receipt whose
+//!    primary log matches the verifier's expected event log; the log's `data` field is sized so
+//!    the encoded envelope is `s` bytes. To make the proof path cross `n` distinct nodes we add
+//!    `n - 1` cheap sibling leaves, each diverging from the retained key at a successive nibble
+//!    depth so a branch node is forced at every depth `0..n-1` (see [`build_receipts_trie`]).
 //! 2. Construct an `ExecutionPayloadHeader` whose `receipts_root` is the trie root from (1).
 //!    Compute its SSZ `hash_tree_root` — call it `execution_header_root`.
 //! 3. Pick `execution_branch` as `EXECUTION_HEADER_DEPTH` zero hashes. Compute the `body_root` by
@@ -65,6 +67,19 @@ pub const BENCH_SLOT: u64 = 8_000_000;
 /// Lower bound on the receipt size — the encoded Eip1559 envelope around an empty-data log
 /// is already this large because of the 256-byte bloom and topic overhead.
 pub const MIN_RECEIPT_SIZE: u32 = 320;
+
+/// Transaction index of the retained receipt. A receipt-trie proof can have at most
+/// `key_nibbles + 1` nodes, so the key — `rlp(BENCH_TARGET_TX_INDEX)` — must carry at least
+/// `MaxProofNodes - 1` nibbles for the sibling-divergence construction in
+/// [`build_receipts_trie`] to reach the benchmarked worst case. This necessarily makes the
+/// index synthetic: a realistic block tops out around a few thousand receipts (a ~2-byte
+/// index, 4-6 nibbles), far too short.
+///
+/// `0x00FF_FFFF_FFFF_FFFF` is a 7-byte value, so its RLP key is `0x87` followed by seven
+/// `0xff` bytes = 8 bytes = 16 nibbles, supporting proof paths of up to 17 nodes — one above
+/// the current `MaxProofNodes` of 16. (The `target_nibbles.len() >= n - 1` debug-assert in
+/// `build_receipts_trie` guards against this being set too small.)
+const BENCH_TARGET_TX_INDEX: u64 = 0x00FF_FFFF_FFFF_FFFF;
 
 /// Output of [`build_dynamic_fixture_with_log`].
 pub struct DynamicFixture {
@@ -180,30 +195,61 @@ pub fn build_dynamic_fixture_with_log(n: u32, s: u32, log: LogTemplate) -> Dynam
 	}
 }
 
-/// Build a real receipts trie with `n` leaves, each holding the same `s`-byte receipt
-/// envelope. Returns `(receipts_root, proof_for_tx_index_0, event_log)`.
+/// Build a real receipts trie whose inclusion proof for the retained leaf has exactly `n`
+/// nodes and whose retained receipt envelope is `s` bytes. Returns
+/// `(receipts_root, proof_for_target_tx_index, event_log)`.
+///
+/// The runtime charges `submit` weight against `event.proof.receipt_proof.len()` (the proof
+/// node count, the verifier's per-node RLP-decode + branch-traversal cost driver), so the
+/// benchmark's `n` component must equal the produced proof length. A naive trie of `n`
+/// sequential `rlp(0..n)` leaves does NOT achieve this: sequential RLP indices diverge at the
+/// first nibble, leaving a shallow ~2-node path regardless of `n`. Instead we keep a single
+/// target key and force a branch node at every depth along its path:
+///
+/// - The retained key is `rlp(BENCH_TARGET_TX_INDEX)`, chosen so the key has enough nibbles
+///   (16) to force proof paths above `MaxProofNodes`; see [`BENCH_TARGET_TX_INDEX`].
+/// - For each depth `i` in `0..n-1` we add one sibling leaf sharing the first `i` nibbles of
+///   the target key and diverging at nibble `i`. Each divergence forces a branch node at depth
+///   `i`, so the target path crosses `n - 1` branch nodes plus the terminal leaf = `n` nodes.
+/// - Sibling values are a single byte: only their 32-byte hashes appear in the branch nodes, so
+///   they add no meaningful synthesis cost.
 fn build_receipts_trie(n: u32, s: u32, log: &LogTemplate) -> (H256, Vec<Vec<u8>>, Log) {
-	let n = n as usize;
+	let n = (n as usize).max(1);
 
 	// Pad the log's `data` field so the encoded receipt envelope is exactly `s` bytes
 	// (within +/- a few bytes of overhead — the verifier does not enforce a size).
 	let receipt_envelope = encode_sized_receipt_envelope(s as usize, log);
 	// The `Log` we pass into `submit` reproduces what the verifier sees on Ethereum: the
-	// gateway address, the same topics, and the same `data` we baked into the receipt.
+	// gateway address, the same topics, and the same `data` we baked into the receipt. Its
+	// `tx_index` is what the verifier feeds into `receipt_trie_key`, so it must match the
+	// retained leaf's key.
 	let receipt_log = Log {
 		address: H160(log.gateway),
 		topics: log.topics.clone(),
 		data: receipt_data_from_envelope_log(&receipt_envelope),
-		tx_index: 0,
+		tx_index: BENCH_TARGET_TX_INDEX,
 	};
 
-	// Receipt-trie keys are `rlp(tx_index)`. Build a vec of (key, value) pairs; alloy_trie
-	// requires sorted key insertion.
-	let mut keyed: Vec<(Nibbles, Vec<u8>)> =
-		(0..n).map(|i| (rlp_index_nibbles(i), receipt_envelope.clone())).collect();
+	// Receipt-trie keys are `rlp(tx_index)`. The target key holds the sized receipt; sibling
+	// keys diverge at successive nibbles to force a branch node at each depth on its path.
+	let target_key = rlp_index_nibbles(BENCH_TARGET_TX_INDEX);
+	let target_nibbles: Vec<u8> = target_key.to_vec();
+	debug_assert!(
+		target_nibbles.len() >= n - 1,
+		"target key has too few nibbles to force an {n}-node proof path",
+	);
+
+	let mut keyed: Vec<(Nibbles, Vec<u8>)> = Vec::with_capacity(n);
+	keyed.push((target_key, receipt_envelope));
+	for i in 0..n - 1 {
+		let mut sibling = target_nibbles[..i].to_vec();
+		// Any nibble other than the target's forces a branch (divergence) at depth `i`.
+		sibling.push((target_nibbles[i] + 1) % 16);
+		keyed.push((Nibbles::from_nibbles(&sibling), vec![0u8]));
+	}
+	// alloy_trie requires sorted key insertion.
 	keyed.sort_by(|a, b| a.0.cmp(&b.0));
 
-	let target_key = rlp_index_nibbles(0);
 	let retainer = ProofRetainer::new(vec![target_key]);
 	let mut hb = HashBuilder::default().with_proof_retainer(retainer);
 	for (key, value) in &keyed {
@@ -216,11 +262,12 @@ fn build_receipts_trie(n: u32, s: u32, log: &LogTemplate) -> (H256, Vec<Vec<u8>>
 		.into_iter()
 		.map(|(_, bytes)| bytes.to_vec())
 		.collect();
+	debug_assert_eq!(proof.len(), n, "receipt proof should have exactly n nodes");
 
 	(root.0.into(), proof, receipt_log)
 }
 
-fn rlp_index_nibbles(index: usize) -> Nibbles {
+fn rlp_index_nibbles(index: u64) -> Nibbles {
 	let mut buf = Vec::new();
 	index.encode(&mut buf);
 	Nibbles::unpack(buf.as_slice())
