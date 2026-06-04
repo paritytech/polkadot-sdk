@@ -102,15 +102,16 @@ pub mod pallet {
 		type RewardPayment: RewardLedger<Self::AccountId, Self::RewardKind, u128>;
 		type WeightInfo: WeightInfo;
 
-		/// Upper bound (used only for benchmarking) on the number of trie nodes in a receipt
-		/// proof. Does NOT bound proof size at runtime — the inbound message verifier rejects
-		/// proofs that exceed plausible sizes through its own gas-style cost accounting.
-		#[cfg(feature = "runtime-benchmarks")]
+		/// Maximum number of trie nodes in a receipt proof. Used as the benchmark upper bound
+		/// for the `n` component of `WeightInfo::submit` and as the worst-case `n` argument
+		/// in delivery-cost estimation. Does NOT enforce a proof-size limit at runtime — the
+		/// verifier rejects oversized proofs through its own cost accounting.
 		type MaxProofNodes: Get<u32>;
 
-		/// Upper bound (used only for benchmarking) on the size in bytes of an Ethereum
-		/// receipt referenced by a proof. Does NOT bound receipt size at runtime.
-		#[cfg(feature = "runtime-benchmarks")]
+		/// Maximum size in bytes of an Ethereum receipt referenced by a proof. Used as the
+		/// benchmark upper bound for the `s` component of `WeightInfo::submit` and as the
+		/// worst-case `s` argument in delivery-cost estimation. Does NOT enforce a receipt-size
+		/// limit at runtime.
 		type MaxReceiptBytes: Get<u32>;
 	}
 

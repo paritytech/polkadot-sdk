@@ -101,9 +101,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue::WeightInfo<Runtime>;
 	type PricingParameters = EthereumSystem;
 	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
-	#[cfg(feature = "runtime-benchmarks")]
 	type MaxProofNodes = ConstU32<16>;
-	#[cfg(feature = "runtime-benchmarks")]
 	type MaxReceiptBytes = ConstU32<8192>;
 }
 

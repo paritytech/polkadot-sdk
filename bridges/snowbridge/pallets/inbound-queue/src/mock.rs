@@ -267,9 +267,7 @@ impl inbound_queue::Config for Test {
 	type LengthToFee = IdentityFee<u128>;
 	type MaxMessageSize = ConstU32<1024>;
 	type AssetTransactor = SuccessfulTransactor;
-	#[cfg(feature = "runtime-benchmarks")]
 	type MaxProofNodes = ConstU32<16>;
-	#[cfg(feature = "runtime-benchmarks")]
 	type MaxReceiptBytes = ConstU32<8192>;
 }
 
