@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780561581240,
+  "lastUpdate": 1780574792802,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "297fb73485df56ba24866c363c922a0f6263107a",
-          "message": "approval-distribution: improve test coverage (#10082)\n\nAdd few more test in approval-distribution to improve coverage.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-22T10:05:15Z",
-          "tree_id": "42ddbf744d7cb05186d29c863652db5bf721e1d5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/297fb73485df56ba24866c363c922a0f6263107a"
-        },
-        "date": 1761131459798,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.281004821633335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2022749552,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.154287267933336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f31d358f6bfed627a5f11b2bccbcc63d5d3a19cc",
+          "message": "Make BEEFY aware of duplicated authorities (#8964)\n\nAs a follow-up to\nhttps://github.com/paritytech/polkadot-sdk/issues/8705, we would like to\npropose an adjustment to the BEEFY RoundTracker, allowing it to count\nduplicated authorities as non-equal weight votes, in a similar way as\nhandled by [GRANDPA's\nVoterSet](https://docs.rs/finality-grandpa/latest/finality_grandpa/voter_set/struct.VoterSet.html#method.new).\n\nWe choose this approach because adapting the interfaces related to\nOneSessionHandler would be significantly more invasive. Since GRANDPA\nalready supports handling duplicated authorities in this manner, we\ndecided to implement a similar solution here for consistency and\nsimplicity.\n\nThis change should not affect how equivocations (double voting) are\nhandled, nor does it alter the structure of commitments. It only impacts\nhow votes from duplicated authorities are accounted for when calculating\nthe threshold.\n\n---------\n\nSigned-off-by: Tomasz Bartos <tomasz.bartos@iohk.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>",
+          "timestamp": "2026-06-04T10:16:00Z",
+          "tree_id": "b9fdfe2faccca3d48edaaa86ba9b045cd2e8e2ae",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f31d358f6bfed627a5f11b2bccbcc63d5d3a19cc"
+        },
+        "date": 1780574762678,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.076786545166668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14080243243333332,
             "unit": "seconds"
           }
         ]
