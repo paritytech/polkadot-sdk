@@ -888,6 +888,22 @@ where
 					warn!(target: LOG_TARGET, "💔 Error importing block {hash:?}: {}", e.unwrap_err());
 					self.state_sync = None;
 					self.restart();
+					// A block failed to import because we do not have its parent. This means our
+					// best chain has diverged from the peers' canonical chain somewhere above the
+					// last finalized block (e.g. we imported a short fork that was later reverted,
+					// which is easy to hit right after warp sync). `restart()` re-adds peers
+					// assuming the common block is our (forked) best whenever the import queue is
+					// non-trivial, so without re-anchoring we would keep requesting the canonical
+					// successor whose parent we never download, and never recover. Re-anchor every
+					// peer's common number down to the finalized block — the highest block we are
+					// certain is shared with honest peers — so the next round of requests
+					// re-downloads the canonical chain from the actual fork point.
+					let finalized_number = self.client.info().finalized_number;
+					for peer in self.peers.values_mut() {
+						if peer.common_number > finalized_number {
+							peer.common_number = finalized_number;
+						}
+					}
 				},
 				Err(BlockImportError::Cancelled) => {},
 			};

@@ -1598,3 +1598,93 @@ fn no_ancestry_search_during_major_sync() {
 		}
 	}
 }
+
+/// Regression test for <https://github.com/paritytech/polkadot-sdk/issues/10398>.
+///
+/// Right after warp sync a node can import a few blocks that turn out to belong to a fork that
+/// gets reverted, leaving its best chain a handful of blocks above the finalized block but on a
+/// dead fork. When it then tries to import the canonical successor the import fails with
+/// `UnknownParent`. Before the fix the node could get stuck forever: `restart()` re-adds peers
+/// assuming the common block is our (forked) best whenever the import queue is non-trivial — which
+/// is the norm during major sync — so it keeps requesting the canonical successor whose parent it
+/// never downloads.
+///
+/// This test asserts that after such an `UnknownParent` failure every peer's common number is
+/// re-anchored to the finalized block, so the node will re-download the canonical chain from the
+/// actual fork point and recover.
+#[test]
+fn unknown_parent_reanchors_common_number_to_finalized() {
+	sp_tracing::try_init_simple();
+
+	// Node's client: canonical blocks 1..=10, finalize #10, then import a short fork 11..=14 on
+	// top of the finalized block. The fork is what (conceptually) gets reverted on the network,
+	// leaving our best at the fork tip (#14), four blocks above the finalized #10.
+	let client = Arc::new(TestClientBuilder::new().build());
+	let mut canonical = Vec::new();
+	for _ in 0..10 {
+		canonical.push(build_block(&client, None, false));
+	}
+	let finalized_block = canonical.last().unwrap().clone();
+	let finalized_number = *finalized_block.header().number();
+	let just = (*b"TEST", Vec::new());
+	client.finalize_block(finalized_block.hash(), Some(just)).unwrap();
+
+	let mut fork_parent = finalized_block.hash();
+	for _ in 0..4 {
+		fork_parent = build_block(&client, Some(fork_parent), true).hash();
+	}
+
+	let info = client.info();
+	let best_number = info.best_number;
+	assert!(best_number > finalized_number, "our best must sit above the finalized block");
+
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		5,
+		64,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		false,
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	// A peer on the (unknown to us) canonical chain, ahead of us. Reproduce the state we reach
+	// after importing the now-reverted fork blocks from it: its common number is inflated up to
+	// our forked best, above the finalized block.
+	let peer_id = PeerId::random();
+	sync.peers.insert(
+		peer_id,
+		PeerSync {
+			peer_id,
+			common_number: best_number,
+			best_hash: Hash::random(),
+			best_number: best_number + 20,
+			state: PeerSyncState::Available,
+		},
+	);
+
+	// Emulate a non-trivial import queue, as is normal during major sync. This is what makes
+	// `restart()` -> `add_peer_inner` assume `common == best_queued` instead of kicking off an
+	// ancestor search, and is the crux of why the node never recovered on its own.
+	for _ in 0..(MAJOR_SYNC_BLOCKS as usize + 1) {
+		sync.queue_blocks.insert(Hash::random());
+	}
+
+	// The canonical successor of our forked best fails to import: we don't have its parent.
+	sync.on_blocks_processed(0, 1, vec![(Err(BlockImportError::UnknownParent), Hash::random())]);
+
+	// The peer's common number must be re-anchored to (at most) the finalized block so the next
+	// round of requests re-downloads the canonical chain from the fork point. Without the fix it
+	// stays at the forked best (`best_number`) and the node never recovers.
+	let peer = sync.peers.get(&peer_id).expect("peer is kept across restart");
+	assert!(
+		peer.common_number <= finalized_number,
+		"common number {} should be re-anchored to finalized {} after UnknownParent, \
+		 otherwise sync stalls on the reverted fork",
+		peer.common_number,
+		finalized_number,
+	);
+}
