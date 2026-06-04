@@ -171,6 +171,8 @@ impl<B: Backend> State<B> {
 			);
 		}
 
+		self.metrics.note_assigned_paras(new_assignments.len());
+
 		let maybe_disconnected_peers =
 			self.peer_manager.scheduled_paras_update(sender, new_assignments).await;
 
@@ -245,6 +247,7 @@ impl<B: Backend> State<B> {
 		);
 
 		let Some(PeerInfo { state, .. }) = self.peer_manager.peer_info(&peer_id) else {
+			self.metrics.on_advertisement_rejected();
 			gum::warn!(
 				target: LOG_TARGET,
 				?scheduling_parent,
@@ -257,6 +260,7 @@ impl<B: Backend> State<B> {
 
 		// Advertised without being declared. Not a big waste of our time, so ignore it.
 		let PeerState::Collating(para_id) = state else {
+			self.metrics.on_advertisement_rejected();
 			gum::debug!(
 				target: LOG_TARGET,
 				?scheduling_parent,
@@ -281,6 +285,7 @@ impl<B: Backend> State<B> {
 		// actually, but cheap enough.
 		match self.collation_manager.try_accept_advertisement(sender, advertisement).await {
 			Err(err) => {
+				self.metrics.on_advertisement_rejected();
 				gum::debug!(
 					target: LOG_TARGET,
 					?scheduling_parent,
@@ -292,6 +297,7 @@ impl<B: Backend> State<B> {
 				);
 			},
 			Ok(()) => {
+				self.metrics.on_advertisement_accepted();
 				gum::debug!(
 					target: LOG_TARGET,
 					?scheduling_parent,
@@ -350,6 +356,8 @@ impl<B: Backend> State<B> {
 						pov,
 					})
 					.await;
+
+				self.metrics.on_collation_seconded();
 
 				gum::debug!(
 					target: LOG_TARGET,
@@ -596,6 +604,8 @@ impl<B: Backend> State<B> {
 							pov,
 						})
 						.await;
+
+					self.metrics.on_collation_seconded();
 
 					gum::debug!(
 						target: LOG_TARGET,
