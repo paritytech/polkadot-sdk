@@ -121,15 +121,15 @@ with three levels:
 All governance extrinsics take `internal_asset` as the first parameter to
 identify the PSM instance being configured.
 
-| Extrinsic                                                          | Required Level    | Description                                |
-| ------------------------------------------------------------------ | ----------------- | ------------------------------------------ |
-| `set_minting_fee(internal_asset, asset_id, fee)`                   | Full              | Update minting fee for the pair            |
-| `set_redemption_fee(internal_asset, asset_id, fee)`                | Full              | Update redemption fee for the pair         |
-| `set_max_debt(internal_asset, value)`                              | Full or Emergency | Update absolute debt ceiling for the PSM   |
-| `set_asset_ceiling_weight(internal_asset, asset_id, weight)`       | Full or Emergency | Update per-external ceiling weight         |
-| `set_asset_status(internal_asset, asset_id, status)`               | Full or Emergency | Set per-external circuit breaker level     |
-| `add_external_asset(internal_asset, asset_id)`                     | Full              | Approve external on a PSM                  |
-| `remove_external_asset(internal_asset, asset_id)`                  | Full              | Remove external from a PSM (zero debt)     |
+| Extrinsic | Required Level | Description |
+| --- | --- | --- |
+| `set_minting_fee(internal_asset, asset_id, fee)` | Full | Update minting fee for the pair |
+| `set_redemption_fee(internal_asset, asset_id, fee)` | Full | Update redemption fee for the pair |
+| `set_max_debt(internal_asset, value)` | Full or Emergency | Update absolute debt ceiling for the PSM |
+| `set_asset_ceiling_weight(internal_asset, asset_id, weight)` | Full or Emergency | Update external ceiling weight |
+| `set_asset_status(internal_asset, asset_id, status)` | Full or Emergency | Set per-external circuit breaker level |
+| `add_external_asset(internal_asset, asset_id)` | Full | Approve external on a PSM |
+| `remove_external_asset(internal_asset, asset_id)` | Full | Remove external from a PSM (zero debt) |
 
 ### Privilege Levels
 

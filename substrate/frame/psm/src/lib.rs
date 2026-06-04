@@ -116,6 +116,7 @@ pub trait BenchmarkHelper<AssetId, AccountId> {
 pub mod pallet {
 	pub use frame_support::traits::tokens::stable::PsmInterface;
 
+	use alloc::boxed::Box;
 	use codec::DecodeWithMemTracking;
 	use frame_support::{
 		pallet_prelude::*,
