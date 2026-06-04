@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780578453637,
+  "lastUpdate": 1780611754616,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "cyrill@parity.io",
-            "name": "xermicus",
-            "username": "xermicus"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f50ebf00486104d19d73ea591385fb188a70d3a2",
-          "message": "precompiles: Enforce state mutability (#10080)\n\n`pallet-assets-precompile`, `pallet-xcm-precompiles` and revive builtin\nprecompile implementations currently violate [Solidity state\nmutability](https://docs.soliditylang.org/en/latest/grammar.html#syntax-rule-SolidityParser.stateMutability),\npotentially introducing a new attack vector. This PR implements\ncorresponding checks at the function dispatch.\n\nCould be enforced in `pallet-revive`, however:\n1. Adding something like a `const MUTATES: bool` to the `Precompile`\ntrait won't help because whether the call is mutating or not depends on\nthe [Solidity function\nselector.](https://docs.soliditylang.org/en/latest/abi-spec.html#function-selector).\n2. Alloy, which we are using to parse the interface definitions prior to\ncalling precompile implementations, doesn't provide a mapping from\nfunction selector to its mutability\n[modifier](https://docs.soliditylang.org/en/latest/cheatsheet.html#modifiers).\n\n---------\n\nSigned-off-by: Cyrill Leutwiler <bigcyrill@hotmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-22T12:41:58Z",
-          "tree_id": "d64e62a7b2d1012aafdc822663235a77fa23b184",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f50ebf00486104d19d73ea591385fb188a70d3a2"
-        },
-        "date": 1761143527976,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0071821462800000044,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15815093360666674,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02251857922666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013203029773333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010040243173333303,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e280d34752097ec61112bef06d10ba24306e8aa4",
+          "message": "Remove deprecated match_type macro from frame-support (#12249)\n\n# Description\n\nRemoves deprecated `frame_support::match_type!` as part of #11561.\n\n`match_type!` was a thin alias for `match_types!` with no remaining\nusage in this repository.\n\n## Integration\n\n```diff\n- frame_support::match_type! { ... }\n+ frame_support::match_types! { ... }\n```\n\nReview Notes\nSingle-file change: substrate/frame/support/src/traits/members.rs\nVerified no in-repo references before removal\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-06-04T20:20:23Z",
+          "tree_id": "c07e11b74bb3205b6ea8f3a895a8a88f0ded2f20",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e280d34752097ec61112bef06d10ba24306e8aa4"
+        },
+        "date": 1780611721995,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007992908613333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14572157430000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010234837199999973,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023859270300000002,
             "unit": "seconds"
           }
         ]
