@@ -62,6 +62,18 @@ pub type MarketWeightsOf<T> = <<T as Config>::CoretimeMarket as Market<
 pub type CoreMaskBitCount = u32;
 /// The same as `CoreMaskBitCount` but signed.
 pub type SignedCoreMaskBitCount = i32;
+/// Count of the renewal rights one has.
+pub type RenewalRightsCount = u32;
+
+/// Identifier of the renewal rights for some account at some timeslice.
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct RenewalRightsId<AccountId> {
+	/// Who holds the renewal rights.
+	pub owner: AccountId,
+	/// When the renewal rights are valid.
+	pub when: Timeslice,
+}
+pub type RenewalRightsIdOf<T> = RenewalRightsId<AccountIdFor<T>>;
 
 /// Whether a core assignment is revokable or not.
 #[derive(
@@ -287,8 +299,10 @@ pub(crate) type PurchaseResultOf<T> = PurchaseResult<BalanceOf<T>, MarketBidIdOf
 pub(crate) enum RenewResult<BidId> {
 	/// The core was renewed right away.
 	Renewed {
-		/// Index of the core that the renewer received.
-		new_core: CoreIndex,
+		/// Id of the region that the renewer received.
+		new_region_id: RegionId,
+		/// End of the new region.
+		region_end: Timeslice,
 	},
 	/// A bid for core renewal was placed.
 	BidPlaced {

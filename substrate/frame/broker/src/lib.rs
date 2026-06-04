@@ -227,6 +227,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type RevenueInbox<T> = StorageValue<_, OnDemandRevenueRecordOf<T>, OptionQuery>;
 
+	/// Renewal rights information per account and timeslice.
+	#[pallet::storage]
+	pub type RenewalRights<T: Config> =
+		StorageMap<_, Blake2_128Concat, RenewalRightsIdOf<T>, RenewalRightsCount>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -529,6 +534,13 @@ pub mod pallet {
 			who: T::AccountId,
 			/// Refunded amount.
 			amount: BalanceOf<T>,
+		}
+		/// Renewal rights entry was dropped.
+		RenewalRightsDropped {
+			/// Who held the renewal rights that were dropped.
+			who: T::AccountId,
+			/// A timeslice when the dropped renewal rights were valid.
+			when: Timeslice,
 		},
 	}
 
@@ -613,6 +625,8 @@ pub mod pallet {
 		/// Needed to prevent spam attacks.The amount of credits the user attempted to purchase is
 		/// below `T::MinimumCreditPurchase`.
 		CreditPurchaseTooSmall,
+		/// No renewal rights for the given account and timeslice exist.
+		UnknownRenewalRights,
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -1099,6 +1113,21 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_transfer(region_id, None, new_owner)?;
 			Ok(())
+		}
+
+		/// Drop an expired renewal rights record from the chain.
+		///
+		/// - `origin`: Can be any kind of origin.
+		/// - `who`: Who owns the renewal rights to be dropped.
+		/// - `when` Timeslice which the renewal rights are valid for.
+		#[pallet::call_index(29)]
+		pub fn drop_renewal_rights(
+			_origin: OriginFor<T>,
+			who: T::AccountId,
+			when: Timeslice,
+		) -> DispatchResultWithPostInfo {
+			Self::do_drop_renewal_rights(who, when)?;
+			Ok(Pays::No.into())
 		}
 
 		#[pallet::call_index(99)]

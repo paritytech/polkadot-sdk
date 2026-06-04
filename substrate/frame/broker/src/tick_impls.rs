@@ -350,9 +350,11 @@ impl<T: Config> Pallet<T> {
 				weight_meter.consume(MarketWeightsOf::<T>::place_renewal_order());
 				let renew_result = Self::do_renew(payer.clone(), record.core);
 				match renew_result {
-					Ok(RenewResult::Renewed { new_core }) => {
-						Some(AutoRenewalRecord { core: new_core, task: record.task, next_renewal })
-					},
+					Ok(RenewResult::Renewed { new_region_id, .. }) => Some(AutoRenewalRecord {
+						core: new_region_id.core,
+						task: record.task,
+						next_renewal,
+					}),
 					Ok(RenewResult::BidPlaced { .. }) => {
 						// We don't support auto-renewals when market doesn't allow purchasing
 						// regions right away.

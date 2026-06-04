@@ -184,3 +184,14 @@ impl<T: Config> TimesliceProvider for TimesliceProviderImpl<T> {
 		Some((advanced / timeslice_period).saturated_into())
 	}
 }
+
+impl<T: Config> RenewalRightsProvider<T::AccountId> for Pallet<T> {
+	fn renewal_rights_count(who: &T::AccountId, when: Timeslice) -> RenewalRightsCount {
+		RenewalRights::<T>::get(RenewalRightsId { owner: who.clone(), when }).unwrap_or_default()
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_rights_count(who: &T::AccountId, when: Timeslice, count: RenewalRightsCount) {
+		RenewalRights::<T>::insert(RenewalRightsId { owner: who.clone(), when }, count);
+	}
+}

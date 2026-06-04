@@ -202,7 +202,7 @@ impl<T: Config> Pallet<T> {
 				Workplan::<T>::insert((region_id.begin, region_id.core), &workload);
 
 				Self::deposit_event(Event::Renewed {
-					who,
+					who: who.clone(),
 					old_core: core,
 					core: region_id.core,
 					price,
@@ -218,6 +218,13 @@ impl<T: Config> Pallet<T> {
 					&new_record,
 				);
 				if let Some(workload) = new_record.completion.drain_complete() {
+					RenewalRights::<T>::mutate(
+						RenewalRightsId { owner: who, when: effective_to },
+						|rights| {
+							*rights = Some(rights.unwrap_or_default().saturating_add(1));
+						},
+					);
+
 					log::debug!("Recording renewable price for next run: {:?}", price);
 					Self::deposit_event(Event::Renewable {
 						core: region_id.core,
@@ -226,7 +233,7 @@ impl<T: Config> Pallet<T> {
 					});
 				}
 
-				Ok(RenewResult::Renewed { new_core: region_id.core })
+				Ok(RenewResult::Renewed { new_region_id: region_id, region_end: effective_to })
 			},
 		}
 	}
@@ -331,7 +338,8 @@ impl<T: Config> Pallet<T> {
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 
-		let Some((region_id, region)) = Self::utilize(region_id, maybe_check_owner, finality)?
+		let Some((region_id, region)) =
+			Self::utilize(region_id, maybe_check_owner.clone(), finality)?
 		else {
 			return Ok(());
 		};
@@ -372,6 +380,15 @@ impl<T: Config> Pallet<T> {
 			PotentialRenewals::<T>::insert(&renewal_id, &record);
 
 			if let Some(workload) = record.completion.drain_complete() {
+				if let Some(owner) = maybe_check_owner {
+					RenewalRights::<T>::mutate(
+						RenewalRightsId { owner, when: region.end },
+						|rights| {
+							*rights = Some(rights.unwrap_or_default().saturating_add(1));
+						},
+					);
+				}
+
 				Self::deposit_event(Event::Renewable {
 					core: region_id.core,
 					begin: region.end,
@@ -538,6 +555,21 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_drop_renewal_rights(who: T::AccountId, when: Timeslice) -> DispatchResult {
+		let region_begin = T::CoretimeMarket::get_sale_info()
+			.map_err(|_| Error::<T>::Uninitialized)?
+			.region_begin;
+		ensure!(region_begin > when, Error::<T>::StillValid);
+
+		let key = RenewalRightsId { owner: who.clone(), when };
+		ensure!(RenewalRights::<T>::contains_key(&key), Error::<T>::UnknownRenewalRights);
+		RenewalRights::<T>::remove(key);
+
+		Self::deposit_event(Event::RenewalRightsDropped { who, when });
+
+		Ok(())
+	}
+
 	pub(crate) fn do_notify_revenue(revenue: OnDemandRevenueRecordOf<T>) -> DispatchResult {
 		RevenueInbox::<T>::put(revenue);
 		Ok(())
@@ -577,13 +609,13 @@ impl<T: Config> Pallet<T> {
 		if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale_info.region_begin })
 			.is_some()
 		{
-			let RenewResult::Renewed { new_core } =
+			let RenewResult::Renewed { new_region_id, .. } =
 				Self::do_renew(sovereign_account.clone(), core)?
 			else {
 				return Err(Error::<T>::NotAllowed.into());
 			};
 
-			core = new_core;
+			core = new_region_id.core;
 		} else if let Some(workload_end) = workload_end_hint {
 			ensure!(
 				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: workload_end })

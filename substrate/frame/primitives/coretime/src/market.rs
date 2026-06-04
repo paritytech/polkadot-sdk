@@ -328,3 +328,13 @@ pub enum TickAction<AccountId, Balance, RelayBlockNumber> {
 		new_sale: MarketSaleInfo<RelayBlockNumber>,
 	},
 }
+
+/// Provider of renewal rights information.
+pub trait RenewalRightsProvider<AccountId> {
+	/// Returns the number of renewal rights held by `who` at timeslice `when`.
+	fn renewal_rights_count(who: &AccountId, when: Timeslice) -> u32;
+
+	/// Set renewal rights for benchmarking purposes.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_rights_count(who: &AccountId, when: Timeslice, count: u32);
+}
