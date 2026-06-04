@@ -34,7 +34,7 @@ use crate::export_pov_to_path;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_runtime::traits::{Block as BlockT, Header};
 
-use super::{CollatorMessage, CollatorSegmentMessage, SegmentKind};
+use super::{CollatorMessage, CollatorResubmitSegment, SegmentKind};
 
 const LOG_TARGET: &str = "aura::cumulus::collation_task";
 
@@ -53,7 +53,7 @@ pub struct Params<Block: BlockT, RClient, CS> {
 	/// Receiver channel for V2 single-bundle collations from the block builder task.
 	pub collator_receiver: TracingUnboundedReceiver<CollatorMessage<Block>>,
 	/// Receiver channel for V3 segment collations from the block builder task.
-	pub segment_receiver: TracingUnboundedReceiver<CollatorSegmentMessage<Block>>,
+	pub resubmit_receiver: TracingUnboundedReceiver<CollatorResubmitSegment<Block>>,
 	/// The handle from the special slot based block import.
 	pub block_import_handle: super::SlotBasedBlockImportHandle<Block>,
 	/// When set, the collator will export every produced `POV` to this folder.
@@ -74,7 +74,7 @@ pub async fn run_collation_task<Block, RClient, CS>(
 		reinitialize,
 		collator_service,
 		mut collator_receiver,
-		mut segment_receiver,
+		mut resubmit_receiver,
 		mut block_import_handle,
 		export_pov,
 	}: Params<Block, RClient, CS>,
@@ -105,12 +105,12 @@ pub async fn run_collation_task<Block, RClient, CS>(
 
 				handle_collation_message(message, &collator_service, &mut overseer_handle, relay_client.clone(), export_pov.clone()).await;
 			},
-			segment_message = segment_receiver.next() => {
-				let Some(message) = segment_message else {
+			resubmit_message = resubmit_receiver.next() => {
+				let Some(message) = resubmit_message else {
 					return;
 				};
 
-				handle_segment_message(message, &collator_service, &mut overseer_handle, relay_client.clone(), export_pov.clone()).await;
+				handle_resubmit_segment(message, &collator_service, &mut overseer_handle, relay_client.clone(), export_pov.clone()).await;
 			},
 			block_import_msg = block_import_handle.next().fuse() => {
 				// TODO: Implement me.
@@ -223,18 +223,18 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 /// forwarded to the collation-generation subsystem as a single
 /// [`CollationGenerationMessage::SubmitSegment`]. Entries that fail to build or whose session
 /// lookup fails are skipped — they do not abort the whole segment.
-async fn handle_segment_message<Block: BlockT, RClient: RelayChainInterface + Clone + 'static>(
-	message: CollatorSegmentMessage<Block>,
+async fn handle_resubmit_segment<Block: BlockT, RClient: RelayChainInterface + Clone + 'static>(
+	message: CollatorResubmitSegment<Block>,
 	collator_service: &impl CollatorServiceInterface<Block>,
 	overseer_handle: &mut OverseerHandle,
 	relay_client: RClient,
 	export_pov: Option<PathBuf>,
 ) {
-	let CollatorSegmentMessage { scheduling_proof, core_index, kind } = message;
+	let CollatorResubmitSegment { scheduling_proof, kind } = message;
 	let scheduling_parent = scheduling_proof.scheduling_parent();
 
 	let mut collations = Vec::new();
-	match kind {
+	let core_index = match kind {
 		SegmentKind::WithBundle { bundle } => {
 			let CollatorMessage {
 				relay_parent,
@@ -242,7 +242,7 @@ async fn handle_segment_message<Block: BlockT, RClient: RelayChainInterface + Cl
 				blocks,
 				proof,
 				validation_code_hash,
-				core_index: _bundle_core_index,
+				core_index,
 				validation_data,
 			} = bundle;
 
@@ -320,13 +320,16 @@ async fn handle_segment_message<Block: BlockT, RClient: RelayChainInterface + Cl
 				session_index,
 				validation_data,
 			});
+
+			core_index
 		},
-		SegmentKind::ResubmitOnly => {
+		SegmentKind::ResubmitOnly { core_index } => {
 			if collations.is_empty() {
 				return;
 			}
+			core_index
 		},
-	}
+	};
 
 	overseer_handle
 		.send_msg(
