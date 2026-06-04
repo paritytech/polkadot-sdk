@@ -303,7 +303,7 @@ impl LoopState {
 	}
 }
 
-/// Select up to `max_reserved` AURA neighbors of the node.
+/// Select up to `max_reserved` authority neighbors of the node.
 ///
 /// `authorities` is taken in authoring order, the order Aura uses to assign slots. We locate
 /// the local authority on this ring and take its nearest neighbors on both sides, wrapping
