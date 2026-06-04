@@ -199,20 +199,25 @@ pub fn build_dynamic_fixture_with_log(n: u32, s: u32, log: LogTemplate) -> Dynam
 /// nodes and whose retained receipt envelope is `s` bytes. Returns
 /// `(receipts_root, proof_for_target_tx_index, event_log)`.
 ///
-/// The runtime charges `submit` weight against `event.proof.receipt_proof.len()` (the proof
-/// node count, the verifier's per-node RLP-decode + branch-traversal cost driver), so the
-/// benchmark's `n` component must equal the produced proof length. A naive trie of `n`
-/// sequential `rlp(0..n)` leaves does NOT achieve this: sequential RLP indices diverge at the
-/// first nibble, leaving a shallow ~2-node path regardless of `n`. Instead we keep a single
-/// target key and force a branch node at every depth along its path:
+/// The runtime charges `submit` weight against `(event.proof.receipt_proof.len(), <leaf
+/// size>)`, where the `n` axis prices the verifier's per-node RLP-decode + keccak work. So the
+/// benchmark's `n` component must equal the produced proof length AND each proof node must be
+/// the realistic worst case, otherwise the fitted per-node slope undercharges real proofs.
+///
+/// A naive trie of `n` sequential `rlp(0..n)` leaves achieves neither: sequential RLP indices
+/// diverge at the first nibble, leaving a shallow ~2-node path regardless of `n`. Instead we
+/// keep a single target key and force a *full-width* branch node at every depth along its path:
 ///
 /// - The retained key is `rlp(BENCH_TARGET_TX_INDEX)`, chosen so the key has enough nibbles (16) to
 ///   force proof paths above `MaxProofNodes`; see [`BENCH_TARGET_TX_INDEX`].
-/// - For each depth `i` in `0..n-1` we add one sibling leaf sharing the first `i` nibbles of the
-///   target key and diverging at nibble `i`. Each divergence forces a branch node at depth `i`, so
-///   the target path crosses `n - 1` branch nodes plus the terminal leaf = `n` nodes.
-/// - Sibling values are a single byte: only their 32-byte hashes appear in the branch nodes, so
-///   they add no meaningful synthesis cost.
+/// - For each depth `i` in `0..n-1` we add a sibling leaf for every nibble value other than the
+///   target's at position `i` (15 siblings). This makes the branch node at depth `i` full (16
+///   children), so the target path crosses `n - 1` ~530-byte branch nodes plus the terminal leaf =
+///   `n` nodes. A full branch is the worst case the verifier can encounter, so the per-node slope
+///   is a safe upper bound: a caller cannot make any proof node more expensive to hash.
+/// - Sibling values are 32 zero bytes, large enough that each sibling leaf is referenced by hash in
+///   its parent branch (as in a real receipts trie) rather than inlined, which is what makes the
+///   branch full-width. The sibling leaves never appear in the retained proof themselves.
 fn build_receipts_trie(n: u32, s: u32, log: &LogTemplate) -> (H256, Vec<Vec<u8>>, Log) {
 	let n = (n as usize).max(1);
 
@@ -230,8 +235,9 @@ fn build_receipts_trie(n: u32, s: u32, log: &LogTemplate) -> (H256, Vec<Vec<u8>>
 		tx_index: BENCH_TARGET_TX_INDEX,
 	};
 
-	// Receipt-trie keys are `rlp(tx_index)`. The target key holds the sized receipt; sibling
-	// keys diverge at successive nibbles to force a branch node at each depth on its path.
+	// Receipt-trie keys are `rlp(tx_index)`. The target key holds the sized receipt; at each
+	// depth on its path we add a sibling for every other nibble value so the branch node there
+	// is full-width (16 children) — the verifier's per-node worst case.
 	let target_key = rlp_index_nibbles(BENCH_TARGET_TX_INDEX);
 	let target_nibbles: Vec<u8> = target_key.to_vec();
 	debug_assert!(
@@ -239,13 +245,20 @@ fn build_receipts_trie(n: u32, s: u32, log: &LogTemplate) -> (H256, Vec<Vec<u8>>
 		"target key has too few nibbles to force an {n}-node proof path",
 	);
 
-	let mut keyed: Vec<(Nibbles, Vec<u8>)> = Vec::with_capacity(n);
+	// 32 bytes is large enough that a sibling leaf's RLP exceeds 32 bytes and is therefore
+	// referenced by hash in its parent branch (not inlined), making the branch full-width.
+	let sibling_value = vec![0u8; 32];
+	let mut keyed: Vec<(Nibbles, Vec<u8>)> = Vec::with_capacity(n + 15 * (n - 1));
 	keyed.push((target_key, receipt_envelope));
 	for i in 0..n - 1 {
-		let mut sibling = target_nibbles[..i].to_vec();
-		// Any nibble other than the target's forces a branch (divergence) at depth `i`.
-		sibling.push((target_nibbles[i] + 1) % 16);
-		keyed.push((Nibbles::from_nibbles(&sibling), vec![0u8]));
+		for nibble in 0u8..16 {
+			if nibble == target_nibbles[i] {
+				continue; // the target itself occupies this child slot
+			}
+			let mut sibling = target_nibbles[..i].to_vec();
+			sibling.push(nibble);
+			keyed.push((Nibbles::from_nibbles(&sibling), sibling_value.clone()));
+		}
 	}
 	// alloy_trie requires sorted key insertion.
 	keyed.sort_by(|a, b| a.0.cmp(&b.0));
