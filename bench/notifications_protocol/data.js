@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780388942484,
+  "lastUpdate": 1780558570300,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -173759,6 +173759,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2632268222,
             "range": "± 33844225",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ludovic.domingues96@gmail.com",
+            "name": "Ludovic Domingues",
+            "username": "Krayt78"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a08481fea644ace088102768abea09930ee05ac3",
+          "message": "Add `remove_registrar` extrinsic to `pallet-identity` (#12263)\n\n# Description\n\nAdds a `remove_registrar` extrinsic to `pallet-identity` so that a\ncompromised, inactive, or\nmalicious registrar can be disabled on-chain via the existing\n`RegistrarOrigin` (governance).\n\nUntil now there was no way to remove a registrar: once added with\n`add_registrar`, a registrar\nexisted for the life of the chain. Disabling one required a full runtime\nupgrade carrying a bespoke\nstorage migration — a heavyweight, ~weeks-long process for what should\nbe a routine governance\naction. This PR closes that gap.\n\n## Integration\n\nThis is an **additive** change for `pallet-identity` (prdoc bump:\n`minor`). Nothing is removed or\nrenamed, and **no storage migration is required**.\n\n- **New extrinsic** `Identity::remove_registrar(index)` at\n`#[pallet::call_index(24)]` (a fresh\nindex; no existing call index is reused or renumbered). Gated by\n`T::RegistrarOrigin`, the same\n  origin as `add_registrar`.\n- **New event** `Event::RegistrarRemoved { registrar_index }`, emitted\non success. Wallets,\n  explorers, and indexers should index the new call and event.\n- **`WeightInfo` trait gains `remove_registrar`.** Runtimes using the\nin-tree\n`SubstrateWeight`/`()` impls get this for free. Any runtime with a\n*hand-written* `WeightInfo`\nimpl for `pallet-identity` must add a `remove_registrar` method —\notherwise it will not compile:\n\n  ```diff\n   impl pallet_identity::WeightInfo for MyWeights {\n       fn add_registrar(r: u32) -> Weight { /* ... */ }\n  +    fn remove_registrar(r: u32) -> Weight { /* ... */ }\n       // ...\n   }\n  ```\n\n- **No `Config` change**, no new storage item. `Registrars` is already\n`BoundedVec<Option<RegistrarInfo>, MaxRegistrars>` and every read site\nalready handles `None`.\n- **Error codes:** returns `InvalidIndex` for an out-of-range index and\n`EmptyIndex` for an\nalready-empty (tombstoned) slot — consistent with `request_judgement`'s\nhandling of an empty slot.\n\n## Review Notes\n\n**Design: tombstone, don't shift.** Removal sets the slot to `None`\n(`*slot = None`) rather than removing it from the vector. This is the\ncore decision and the reason\nno migration is needed:\n\n- `Registrars` is a `BoundedVec<Option<RegistrarInfo>, MaxRegistrars>`\nindexed positionally by\n`RegistrarIndex`. Judgements in `IdentityOf` store a `RegistrarIndex`.\nIf removal *shifted*\nelements (e.g. `Vec::remove`), every later registrar's index would\nchange and existing judgements\nwould silently point at the wrong registrar. Tombstoning keeps every\nother index stable.\n- All read sites (`request_judgement`, `provide_judgement`, `set_fee`,\n`set_account_id`,\n`set_fields`) already resolve a registrar via\n`.get(index).and_then(Option::as_ref)`, so a\ntombstoned slot reads back as `None` and those calls fail closed\nautomatically. A removed\n  registrar can no longer act.\n\n**Two intentional consequences, documented on the dispatchable:**\n\n1. **Pending judgement deposits are not auto-refunded.** A `FeePaid`\ndeposit reserved by\n`request_judgement` against a now-removed registrar can no longer be\nreleased via\n`provide_judgement`. Funds are **not lost** — the requester reclaims\nthem with `cancel_request`,\nwhich keys off their own identity entry, not the registrar. An on-chain\nsweep would be unbounded\nover all identities (a DoS vector), so the manual-cancel model is used,\nmatching the existing\n   `kill_identity` caveat.\n2. **The freed index is not reused.** `add_registrar` always appends, so\neach removal permanently\nconsumes one slot against `MaxRegistrars`. Reusing a freed slot would\nlet a new registrar inherit\nan index that historical judgements still reference, so monotonic\ncapacity is the safer choice.\n\n**Where to read:**\n- `substrate/frame/identity/src/lib.rs` — the `remove_registrar`\ndispatchable (call_index 24).\n- `substrate/frame/identity/src/tests.rs` — bad-origin, invalid vs empty\nindex, index-stability\nacross judgements, removed-registrar-cannot-act, and append-not-reuse\ntests.\n- `substrate/frame/identity/src/benchmarking.rs` — worst case removes\nthe last registrar at full\n  `MaxRegistrars` length so the bench walks the full list (codec cost).\n- `substrate/frame/identity/src/weights.rs` — large diff is a **full\nbench-bot regen** of the whole\npallet (uniform base-time drift); only `remove_registrar` is a genuinely\nnew entry.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements (at minimum one label for\n`T` required) — needs `T1-FRAME`.\n* [x] I have made corresponding changes to the documentation (if\napplicable).\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-06-03T19:10:11Z",
+          "tree_id": "29d48d8fbf3d83974c0587af8420ac3fb5091c33",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a08481fea644ace088102768abea09930ee05ac3"
+        },
+        "date": 1780558539895,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4601786,
+            "range": "± 24393",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 302201,
+            "range": "± 6515",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4683271,
+            "range": "± 45479",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 370118,
+            "range": "± 4108",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5408183,
+            "range": "± 26786",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 916949,
+            "range": "± 6256",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11004047,
+            "range": "± 90371",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4960130,
+            "range": "± 417672",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 44086185,
+            "range": "± 5465092",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 39456659,
+            "range": "± 816785",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 407381226,
+            "range": "± 6445918",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 323350922,
+            "range": "± 3722368",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2716282677,
+            "range": "± 32128569",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2824311774,
+            "range": "± 137606394",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3400473,
+            "range": "± 53670",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1817802,
+            "range": "± 9514",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3542582,
+            "range": "± 12745",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1888967,
+            "range": "± 9092",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3976405,
+            "range": "± 32212",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2254382,
+            "range": "± 14451",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8039681,
+            "range": "± 81671",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5372231,
+            "range": "± 52014",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37684535,
+            "range": "± 400273",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 38059891,
+            "range": "± 266742",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 341148706,
+            "range": "± 3100332",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 289871260,
+            "range": "± 4293148",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2549559190,
+            "range": "± 27191639",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2569105218,
+            "range": "± 121064789",
             "unit": "ns/iter"
           }
         ]
