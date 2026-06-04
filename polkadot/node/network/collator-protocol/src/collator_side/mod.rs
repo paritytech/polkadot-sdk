@@ -16,6 +16,7 @@
 
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
+	sync::Arc,
 	time::Duration,
 };
 
@@ -61,6 +62,7 @@ use polkadot_primitives::{
 use sp_runtime::BoundedVec;
 
 use crate::{modify_reputation, LOG_TARGET, LOG_TARGET_STATS};
+use polkadot_node_clock::{BoxedDelay, Clock};
 
 mod collation;
 mod error;
@@ -110,7 +112,7 @@ const MAX_PARALLEL_CHAIN_API_REQUESTS: usize = 10;
 ///
 /// `Pending` variant never finishes and should be used when there're no peers
 /// connected.
-type ReconnectTimeout = Fuse<futures_timer::Delay>;
+type ReconnectTimeout = Fuse<BoxedDelay>;
 
 #[derive(Debug)]
 enum ShouldAdvertiseTo {
@@ -300,6 +302,10 @@ impl PerSchedulingParent {
 }
 
 struct State {
+	/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`];
+	/// tests inject a mock.
+	clock: Arc<dyn Clock>,
+
 	/// Our network peer id.
 	local_peer_id: PeerId,
 
@@ -366,8 +372,10 @@ impl State {
 		collator_pair: CollatorPair,
 		metrics: Metrics,
 		reputation: ReputationAggregator,
+		clock: Arc<dyn Clock>,
 	) -> State {
 		State {
+			clock,
 			local_peer_id,
 			collator_pair,
 			metrics,
@@ -566,6 +574,7 @@ async fn distribute_segment<Context>(
 				core_index,
 				stats: per_scheduling_parent.block_number.map(|n| {
 					CollationStats::new(
+						&*state.clock,
 						para_head,
 						n,
 						scheduling_parent,
@@ -2005,6 +2014,7 @@ pub(crate) async fn run<Context>(
 	collator_pair: CollatorPair,
 	req_v2_receiver: IncomingRequestReceiver<request_v2::CollationFetchingRequest>,
 	metrics: Metrics,
+	clock: Arc<dyn Clock>,
 ) -> std::result::Result<(), FatalError> {
 	run_inner(
 		ctx,
@@ -2014,6 +2024,7 @@ pub(crate) async fn run<Context>(
 		metrics,
 		ReputationAggregator::default(),
 		REPUTATION_CHANGE_INTERVAL,
+		clock,
 	)
 	.await
 }
@@ -2027,13 +2038,15 @@ async fn run_inner<Context>(
 	metrics: Metrics,
 	reputation: ReputationAggregator,
 	reputation_interval: Duration,
+	clock: Arc<dyn Clock>,
 ) -> std::result::Result<(), FatalError> {
 	use OverseerSignal::*;
 
-	let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
+	let new_reputation_delay = || clock.delay(reputation_interval).fuse();
 	let mut reputation_delay = new_reputation_delay();
 
-	let mut state = State::new(local_peer_id, collator_pair, metrics.clone(), reputation);
+	let mut state =
+		State::new(local_peer_id, collator_pair, metrics.clone(), reputation, clock.clone());
 	let mut runtime = RuntimeInfo::new(None);
 
 	loop {
@@ -2056,7 +2069,7 @@ async fn run_inner<Context>(
 				},
 				FromOrchestra::Signal(ActiveLeaves(update)) => {
 					if update.activated.is_some() {
-						*reconnect_timeout = futures_timer::Delay::new(RECONNECT_AFTER_LEAF_TIMEOUT).fuse();
+						*reconnect_timeout = clock.delay(RECONNECT_AFTER_LEAF_TIMEOUT).fuse();
 					}
 				}
 				FromOrchestra::Signal(BlockFinalized(hash, number)) => {
@@ -2092,7 +2105,7 @@ async fn run_inner<Context>(
 
 								if let Some(mut stats) = maybe_stats {
 									// Update the timestamp when collation has been sent (from subsystem perspective)
-									stats.set_fetched_at(std::time::Instant::now());
+									stats.set_fetched_at(clock.now());
 									gum::debug!(
 										target: LOG_TARGET_STATS,
 										para_head = ?stats.head(),
