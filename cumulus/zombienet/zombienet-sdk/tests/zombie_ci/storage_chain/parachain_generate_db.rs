@@ -186,7 +186,7 @@ async fn parachain_generate_databases() -> Result<()> {
 
 	let collator = network.get_node("collator-1")?;
 	let client: OnlineClient<SubstrateConfig> = collator.wait_client().await?;
-	let authorize_transactions = (N_STORES + 10) as u32;
+	let authorize_transactions = N_STORES + 10;
 	let authorize_bytes = total_payload_bytes.saturating_mul(2).saturating_add(1024 * 1024);
 
 	let mut nonce = get_alice_nonce(collator).await?;
