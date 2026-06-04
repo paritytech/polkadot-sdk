@@ -534,7 +534,7 @@ pub mod pallet {
 			who: T::AccountId,
 			/// Refunded amount.
 			amount: BalanceOf<T>,
-		}
+		},
 		/// Renewal rights entry was dropped.
 		RenewalRightsDropped {
 			/// Who held the renewal rights that were dropped.

@@ -34,7 +34,6 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use pallet_coretime_market::RenewalRightsProvider;
 use sp_core::{ConstU32, ConstU64};
 use sp_runtime::{
 	traits::{BlockNumberProvider, Identity, MaybeConvert},
@@ -232,17 +231,6 @@ impl crate::Config for Test {
 	type MinimumCreditPurchase = MinimumCreditPurchase;
 }
 
-pub struct TestRenewalRights;
-
-impl pallet_coretime_market::RenewalRightsProvider<u64> for TestRenewalRights {
-	fn renewal_rights_count(_who: &u64, _when: Timeslice) -> u32 {
-		1000
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn set_rights_count(_who: &u64, _when: Timeslice, _count: u32) {}
-}
-
 /// Test randomness derived from parent hash and subject.
 pub struct TestRandomness;
 impl Randomness<sp_core::H256, u64> for TestRandomness {
@@ -260,7 +248,7 @@ impl pallet_coretime_market::Config for Test {
 	type WeightInfo = ();
 	type CoreRangeProvider = CoreRangeProviderImpl<Test>;
 	type TimesliceProvider = TimesliceProviderImpl<Test>;
-	type RenewalRights = TestRenewalRights;
+	type RenewalRights = Broker;
 	type MaxBids = ConstU32<100>;
 	type Randomness = TestRandomness;
 }

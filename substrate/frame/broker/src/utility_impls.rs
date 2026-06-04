@@ -16,7 +16,9 @@
 // limitations under the License.
 
 use super::*;
-use fp_coretime::market::{CoreRangeProvider, SoldCoresRange, TimesliceProvider};
+use fp_coretime::market::{
+	CoreRangeProvider, RenewalRightsProvider, SoldCoresRange, TimesliceProvider,
+};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -154,8 +156,8 @@ pub struct CoreRangeProviderImpl<T: Config>(PhantomData<T>);
 
 impl<T: Config> CoreRangeProvider for CoreRangeProviderImpl<T> {
 	fn core_range() -> Option<SoldCoresRange> {
-		let reserved = Reservations::<T>::decode_len().unwrap_or_default() as CoreIndex
-			+ Leases::<T>::decode_len().unwrap_or_default() as CoreIndex;
+		let reserved = Reservations::<T>::decode_len().unwrap_or_default() as CoreIndex +
+			Leases::<T>::decode_len().unwrap_or_default() as CoreIndex;
 		let core_count = Status::<T>::get()?.core_count;
 
 		Some(SoldCoresRange { from: reserved, to: core_count })

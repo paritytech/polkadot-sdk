@@ -75,7 +75,7 @@ use alloc::{vec, vec::Vec};
 use fp_coretime::{
 	market::{
 		AdjustBidResult, CoreRangeProvider, Market, MarketSaleInfo, OrderResult,
-		RenewalOrderResult, SalesStarted, TickAction, TimesliceProvider,
+		RenewalOrderResult, RenewalRightsProvider, SalesStarted, TickAction, TimesliceProvider,
 	},
 	CoreIndex, CoreMask, PotentialRenewalId, RegionId, Timeslice,
 };
@@ -96,6 +96,7 @@ pub mod pallet {
 	use crate::weights::WeightInfo;
 
 	use super::*;
+	use fp_coretime::market::RenewalRightsProvider;
 	use frame_support::pallet_prelude::*;
 
 	#[pallet::pallet]

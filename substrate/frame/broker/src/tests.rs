@@ -18,7 +18,7 @@
 #![cfg(test)]
 
 use crate::{mock::*, *};
-use fp_coretime::market::Market;
+use fp_coretime::market::{Market, RenewalRightsProvider};
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
 	traits::nonfungible::{Inspect as NftInspect, Mutate, Transfer},
