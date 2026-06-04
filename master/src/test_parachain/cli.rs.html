@@ -440,9 +440,9 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#290 id=290 data-nosnippet>290</a>			},
 <a href=#291 id=291 data-nosnippet>291</a>			<span class="string">"elastic-scaling-mvp" </span>=&gt; {
 <a href=#292 id=292 data-nosnippet>292</a>				<span class="macro">tracing::info!</span>(<span class="string">"Using elastic-scaling mvp chain spec."</span>);
-<a href=#293 id=293 data-nosnippet>293</a>				Box::new(cumulus_test_service::get_elastic_scaling_mvp_chain_spec(<span class="prelude-val">Some</span>(
-<a href=#294 id=294 data-nosnippet>294</a>					ParaId::from(<span class="number">2100</span>),
-<a href=#295 id=295 data-nosnippet>295</a>				))) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;
+<a href=#293 id=293 data-nosnippet>293</a>				Box::new(cumulus_test_service::get_elastic_scaling_chain_spec(<span class="prelude-val">Some</span>(ParaId::from(
+<a href=#294 id=294 data-nosnippet>294</a>					<span class="number">2100</span>,
+<a href=#295 id=295 data-nosnippet>295</a>				)))) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;
 <a href=#296 id=296 data-nosnippet>296</a>			},
 <a href=#297 id=297 data-nosnippet>297</a>			<span class="string">"elastic-scaling" </span>=&gt; {
 <a href=#298 id=298 data-nosnippet>298</a>				<span class="macro">tracing::info!</span>(<span class="string">"Using elastic-scaling chain spec."</span>);

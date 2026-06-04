@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["async_backing","async_backing_v3","async_backing_v3_rpo","block_bundling","elastic_scaling","elastic_scaling_12s_slot","elastic_scaling_500ms","elastic_scaling_v3","relay_parent_offset","slot_duration_18s","spec_version_incremented","sync_backing"]};
