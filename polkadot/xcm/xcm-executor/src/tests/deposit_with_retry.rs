@@ -31,25 +31,6 @@ use super::mock::*;
 const SENDER: [u8; 32] = [0; 32];
 const RECIPIENT: [u8; 32] = [1; 32];
 
-/// Helper: amount of fungible at `asset_id` held by `who`, or `0` if none.
-fn fungible_balance(who: impl Into<Location>, asset_id: AssetId) -> u128 {
-	let holding = assets(who);
-	let mut total = 0u128;
-	for a in holding.fungible_assets_iter() {
-		if a.id == asset_id {
-			if let Fungibility::Fungible(n) = a.fun {
-				total = total.saturating_add(n);
-			}
-		}
-	}
-	total
-}
-
-/// Helper: amount of `(Here, _)` held by `who`.
-fn here_balance(who: impl Into<Location>) -> u128 {
-	fungible_balance(who, AssetId(Location::here()))
-}
-
 /// A single sub-ED deposit fails, the instruction is aborted, and the leftover holding is
 /// trapped by `post_process` — funds are not lost.
 #[test]
@@ -78,14 +59,14 @@ fn failed_deposit_aborts_instruction_and_post_process_traps_holding() {
 	);
 
 	// Recipient never received anything.
-	assert_eq!(here_balance(RECIPIENT), 0);
+	assert!(asset_list(RECIPIENT).is_empty());
 
 	// `post_process` trapped the holding (which `transactional_process` had restored after
 	// the failed `DepositAsset`). The mock `TestAssetTrap` accumulates everything under
 	// `TRAPPED_ASSETS`.
 	assert_eq!(
-		here_balance(TRAPPED_ASSETS),
-		1,
+		asset_list(TRAPPED_ASSETS),
+		vec![(Here, 1u128).into()],
 		"undeposited assets must be trapped, not silently lost"
 	);
 }
@@ -105,7 +86,7 @@ fn successful_deposit_does_not_trigger_trap() {
 	let outcome = vm.bench_post_process(weight);
 	assert!(matches!(outcome, Outcome::Complete { .. }));
 
-	assert_eq!(here_balance(RECIPIENT), 5);
+	assert_eq!(asset_list(RECIPIENT), vec![(Here, 5u128).into()]);
 	assert!(
 		assets(TRAPPED_ASSETS).is_empty(),
 		"successful deposits must not generate trap entries"
@@ -150,6 +131,5 @@ fn partial_deposit_failure_aborts_instruction_and_traps_full_holding() {
 
 	// `post_process` trapped the holding that `transactional_process` restored from the
 	// pre-instruction backup — both assets are present.
-	assert_eq!(here_balance(TRAPPED_ASSETS), 5);
-	assert_eq!(fungible_balance(TRAPPED_ASSETS, AssetId(Location::parent())), 1);
+	assert_eq!(asset_list(TRAPPED_ASSETS), vec![(Here, 5u128).into(), (Parent, 1u128).into()]);
 }
