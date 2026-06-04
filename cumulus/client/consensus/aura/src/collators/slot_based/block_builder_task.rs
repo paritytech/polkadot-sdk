@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use super::{CollatorMessage, CollatorSegmentEntry, CollatorSegmentMessage};
+use super::{CollatorMessage, CollatorSegmentMessage, SegmentKind};
 use crate::{
 	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
 	collators::{
@@ -940,25 +940,29 @@ where
 		"Sending out PoV"
 	);
 
-	let send_ok = if v3_enabled {
+	// `scheduling_proof` is `Some` iff `v3_enabled`; routes V3 bundles to `segment_sender`,
+	// V2 bundles (no proof) to `collator_sender`.
+	let send_ok = if let Some(scheduling_proof) = scheduling_proof {
 		segment_sender
 			.unbounded_send(CollatorSegmentMessage {
 				scheduling_proof,
 				core_index,
-				entries: vec![CollatorSegmentEntry {
-					relay_parent: relay_parent_hash,
-					parent_header: pov_parent_header.clone(),
-					blocks,
-					proof,
-					validation_code_hash,
-					validation_data,
-				}],
+				kind: SegmentKind::WithBundle {
+					bundle: CollatorMessage {
+						relay_parent: relay_parent_hash,
+						parent_header: pov_parent_header.clone(),
+						blocks,
+						proof,
+						validation_code_hash,
+						validation_data,
+						core_index,
+					},
+				},
 			})
 			.is_ok()
 	} else {
 		collator_sender
 			.unbounded_send(CollatorMessage {
-				scheduling_proof,
 				core_index,
 				relay_parent: relay_parent_hash,
 				parent_header: pov_parent_header.clone(),

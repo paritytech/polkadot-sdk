@@ -276,8 +276,6 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 struct CollatorMessage<Block: BlockT> {
 	/// The hash of the relay chain block that provides the context for the parachain block.
 	pub relay_parent: RelayHash,
-	/// V3 scheduling proof. `None` for V2 candidates emitted on this channel.
-	pub scheduling_proof: Option<SchedulingProof>,
 	/// The header of the parent block.
 	pub parent_header: Block::Header,
 	/// The built blocks.
@@ -292,34 +290,25 @@ struct CollatorMessage<Block: BlockT> {
 	pub validation_data: PersistedValidationData,
 }
 
-/// Segment message sent from the block builder for V3 candidates. Routed to
-/// [`CollationGenerationMessage::SubmitSegment`] by the collation task. The builder always
-/// emits length-1 segments.
-// TODO: support multi-entry segments to enable unincluded-segment resubmission.
+/// Segment message sent from the block builder for V3/V4 candidates. Routed to
+/// [`CollationGenerationMessage::SubmitSegment`] by the collation task. The collation task
+/// resubmits the held unincluded segment alongside the new bundle (if any) under the shared
+/// `scheduling_proof` and to the `core_index` specified here.
 struct CollatorSegmentMessage<Block: BlockT> {
-	/// Shared V3 scheduling proof. `scheduling_parent` for the whole segment is derived from
-	/// `scheduling_proof.scheduling_parent()`. `None` → V2 descriptors for every entry.
-	pub scheduling_proof: Option<SchedulingProof>,
-	/// Target core for every entry in the segment.
+	/// Scheduling proof shared by every entry in the segment. `signed_scheduling_info` is
+	/// `Some` whenever any prior unincluded entry is being resubmitted.
+	pub scheduling_proof: SchedulingProof,
+	/// Target core for the whole segment submission.
 	pub core_index: CoreIndex,
-	/// Per-entry payloads, in submission order.
-	pub entries: Vec<CollatorSegmentEntry<Block>>,
+	/// Whether this message carries a freshly-built bundle or signals "resubmit the held prior
+	/// alone, the builder produced nothing this slot".
+	pub kind: SegmentKind<Block>,
 }
 
-/// One entry of a [`CollatorSegmentMessage`]. Each entry produces one `SegmentCollation`
-/// (one PoV / one candidate on the relay chain), and may still bundle multiple parablocks
-/// inside its PoV via `build_multi_block_collation`.
-struct CollatorSegmentEntry<Block: BlockT> {
-	/// The hash of the relay chain block that provides the context for the parachain block(s).
-	pub relay_parent: RelayHash,
-	/// The header of the parent of the first block in this entry.
-	pub parent_header: Block::Header,
-	/// The built blocks bundled into this entry.
-	pub blocks: Vec<Block>,
-	/// The storage proof collected while building all of `blocks`.
-	pub proof: StorageProof,
-	/// The validation code hash at the parent block.
-	pub validation_code_hash: ValidationCodeHash,
-	/// The persisted validation data for this entry.
-	pub validation_data: PersistedValidationData,
+/// Kind of segment message: with a fresh bundle to merge, or resubmit-only.
+enum SegmentKind<Block: BlockT> {
+	/// New bundle to merge with the held prior unincluded segment.
+	WithBundle { bundle: CollatorMessage<Block> },
+	/// No new bundle this slot — collation task should resubmit the held prior alone.
+	ResubmitOnly,
 }
