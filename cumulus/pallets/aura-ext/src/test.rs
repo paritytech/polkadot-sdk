@@ -729,6 +729,45 @@ mod scheduling_verifier_tests {
 		});
 	}
 
+	/// Exercises the relay→para slot conversion with a 4:1 ratio (24 s para slots, 6 s relay
+	/// slots). relay_slot 28 → para_slot = 28 * 6000 / 24000 = 7 → 7 mod 4 = 3 → Dave
+	/// (index 3) is the only eligible author.
+	#[rstest]
+	#[case::eligible_index_signs(3, true)]
+	#[case::non_eligible_index_signs(0, false)]
+	fn multi_authority_verifier_24s_para_slots(#[case] signer_idx: usize, #[case] expected: bool) {
+		// Para slot duration is 4× the relay slot duration, so the conversion ratio is
+		// non-identity. This catches any accidental identity short-circuit in the verifier.
+		const PARA_24S: u64 = 24_000;
+		TestSlotDuration::set_slot_duration(PARA_24S);
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			let keys = [
+				Sr25519Keyring::Alice,
+				Sr25519Keyring::Bob,
+				Sr25519Keyring::Charlie,
+				Sr25519Keyring::Dave,
+			];
+			set_authorities::<Test>(keys.iter().map(|k| Sr25519Id::from(k.public())).collect());
+
+			let relay_slot = 28u64;
+			let para_slot = para_slot_from_relay(relay_slot, PARA_24S);
+			assert_eq!(para_slot, 7, "28 * 6000 / 24000 == 7");
+			assert_eq!(
+				(para_slot % keys.len() as u64) as usize,
+				3,
+				"test fixture: para_slot=7 mod 4 == 3 (Dave)"
+			);
+
+			let header = relay_header_at_slot(relay_slot);
+			let payload = make_payload(header.hash());
+			let signed = SignedSchedulingInfo {
+				signature: keys[signer_idx].sign(&payload.encode()).0,
+				payload,
+			};
+			assert_eq!(AuraSchedulingVerifier::<Test>::verify(&signed, &header), expected);
+		});
+	}
+
 	#[test]
 	fn empty_authority_set_is_rejected() {
 		// `Authorities::<T>` empty means no eligible author exists; verification fails

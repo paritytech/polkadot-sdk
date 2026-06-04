@@ -331,8 +331,7 @@ impl<T: Config> Pallet<T> {
 			);
 		}
 
-		let authorities_len =
-			<Authorities<T>>::decode_len().ok_or("Failed to decode authorities length")?;
+		let authorities_len = Self::authorities_len();
 
 		// Check that the authorities are non-empty.
 		frame_support::ensure!(!authorities_len.is_zero(), "Authorities must be non-empty.");

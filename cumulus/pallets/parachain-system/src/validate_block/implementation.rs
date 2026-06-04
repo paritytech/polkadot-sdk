@@ -200,6 +200,29 @@ where
 	let cache_provider = trie_cache::CacheProvider::new();
 	let seen_nodes = SeenNodes::<HashingFor<B>>::default();
 
+	let parent_backend = sp_state_machine::TrieBackendBuilder::new_with_cache(
+		&db,
+		*parent_header.state_root(),
+		&cache_provider,
+	)
+	.build();
+	run_with_externalities_and_recorder::<B, _, _>(
+		&parent_backend,
+		&mut Default::default(),
+		&mut Default::default(),
+		|| {
+			if let Some((signed_info, isp_header)) = scheduling_override_inputs.as_ref() {
+				if !PSC::SchedulingSignatureVerifier::verify(signed_info, isp_header) {
+					panic!(
+						"V3 scheduling validation failed: invalid \
+						 signed_scheduling_info (ISP: {:?})",
+						isp_header.hash(),
+					);
+				}
+			}
+		},
+	);
+
 	for (block_index, mut block) in blocks.into_iter().enumerate() {
 		// We use the storage root of the `parent_head` to ensure that it is the correct root.
 		// This is already being done above while creating the in-memory db, but let's be paranoid!!
@@ -229,21 +252,6 @@ where
 			&mut Default::default(),
 			|| {
 				E::verify_and_remove_seal(&mut block);
-				// The scheduling-signature verifier reads `Authorities::<T>` from
-				// parachain state, which requires externalities — only available
-				// inside this scope. Run it once per PoV (on the first block) using
-				// the same authority set the seal was verified against.
-				if block_index == 0 {
-					if let Some((signed_info, isp_header)) = scheduling_override_inputs.as_ref() {
-						if !PSC::SchedulingSignatureVerifier::verify(signed_info, isp_header) {
-							panic!(
-								"V3 scheduling validation failed: invalid \
-								 signed_scheduling_info (ISP: {:?})",
-								isp_header.hash(),
-							);
-						}
-					}
-				}
 			},
 		);
 

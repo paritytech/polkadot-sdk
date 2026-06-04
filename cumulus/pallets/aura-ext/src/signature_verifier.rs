@@ -48,17 +48,10 @@ where
 	/// Returns `true` only when every step succeeds; all error paths return `false` (fail-closed)
 	/// so the PVF rejects the candidate without panicking on adversarial input.
 	///
-	/// Steps:
-	/// 1. `signed_info.payload.internal_scheduling_parent` must equal the hash of the supplied
-	///    header. The caller (`check_scheduling`) has already verified the header hashes to the
-	///    derived internal scheduling parent, so this binds the signature to that same anchor.
-	/// 2. Read the relay slot from the BABE pre-digest of the header.
-	/// 3. Convert it to a parachain slot via `relay_slot * RELAY_CHAIN_SLOT_DURATION_MILLIS /
-	///    para_slot_duration`, using checked arithmetic.
-	/// 4. Pick the eligible author as `authorities[para_slot % authorities.len()]` from the cached
-	///    Aura authority set in this pallet.
-	/// 5. Decode the 64-byte signature blob as `<T::AuthorityId as RuntimeAppPublic>::Signature`
-	///    and verify it against the SCALE-encoded `SchedulingInfoPayload`.
+	/// Binds the signature to `internal_scheduling_parent_header` by asserting the payload's
+	/// `internal_scheduling_parent` field matches its hash. Derives the para slot from the
+	/// header's BABE pre-digest, then looks up the eligible Aura author in the cached authority
+	/// set and verifies the signature over the encoded `SchedulingInfoPayload`.
 	fn verify(
 		signed_info: &SignedSchedulingInfo,
 		internal_scheduling_parent_header: &RelayChainHeader,
@@ -69,11 +62,8 @@ where
 			return false;
 		}
 
-		// 1. Decode relay slot from the BABE pre-digest of the internal_scheduling_parent header.
-		//    The eligible parachain author is determined by *this* slot, anchoring the signature to
-		//    a specific block (the one being submitted/resubmitted) rather than to a moving relay
-		//    tip. `check_scheduling` proves this header is the actual relay block at
-		//    internal_scheduling_parent — it can't be substituted.
+		// 1. Relay slot at internal scheduling parent gives the para slot that determines the valid
+		//    author.
 		let relay_slot: Slot = match internal_scheduling_parent_header
 			.digest
 			.logs()
@@ -84,11 +74,7 @@ where
 			None => return false,
 		};
 
-		// 2. Convert relay slot to parachain slot. Both slot durations are in milliseconds; the
-		//    relay slot duration is the global Polkadot/Kusama/Westend/Rococo value re-exported by
-		//    polkadot-primitives, and the para slot duration is read from pallet-aura. Fail closed
-		//    on overflow rather than saturating, so an out-of-range relay slot can't quietly
-		//    produce a wrong author index.
+		// 2. Determine the para slot.
 		let para_slot_duration: u64 =
 			match TryInto::<u64>::try_into(pallet_aura::Pallet::<T>::slot_duration()) {
 				Ok(d) if d > 0 => d,
