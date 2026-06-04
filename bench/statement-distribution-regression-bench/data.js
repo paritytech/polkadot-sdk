@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780578533828,
+  "lastUpdate": 1780611837030,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "6d647465b3d3ab2ed8839c6a3fa3d456b545b011",
-          "message": "Lazy decode block extrinsics (#9480)\n\nRelated to https://github.com/paritytech/polkadot-sdk/issues/4255\n\nAddresses\nhttps://github.com/paritytech/polkadot-sdk/pull/7902#pullrequestreview-3079855302\n\nThis PR enables us to lazily decode the block extrinsics when needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-21T13:06:53Z",
-          "tree_id": "b8d830a3e42ab4d72a0637b4bae61c0c944103ad",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6d647465b3d3ab2ed8839c6a3fa3d456b545b011"
-        },
-        "date": 1761057068084,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.95199999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04500782722399993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034624062950000006,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08645420280599989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e280d34752097ec61112bef06d10ba24306e8aa4",
+          "message": "Remove deprecated match_type macro from frame-support (#12249)\n\n# Description\n\nRemoves deprecated `frame_support::match_type!` as part of #11561.\n\n`match_type!` was a thin alias for `match_types!` with no remaining\nusage in this repository.\n\n## Integration\n\n```diff\n- frame_support::match_type! { ... }\n+ frame_support::match_types! { ... }\n```\n\nReview Notes\nSingle-file change: substrate/frame/support/src/traits/members.rs\nVerified no in-repo references before removal\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-06-04T20:20:23Z",
+          "tree_id": "c07e11b74bb3205b6ea8f3a895a8a88f0ded2f20",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e280d34752097ec61112bef06d10ba24306e8aa4"
+        },
+        "date": 1780611804726,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.086,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038693766182,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08339719158199996,
             "unit": "seconds"
           }
         ]
