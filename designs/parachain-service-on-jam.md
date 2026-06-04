@@ -1,8 +1,5 @@
 # Parachain Service on JAM
 
-> **Status**: Draft  
-> **Last Updated**: 2026-04-22
-
 ---
 
 ## Table of Contents
@@ -20,6 +17,7 @@
 5. [Accumulate: On-Chain Integration](#5-accumulate-on-chain-integration)
    - 5.1 [What Accumulate Does](#51-what-accumulate-does)
    - 5.2 [Code Upgrade Lifecycle](#52-code-upgrade-lifecycle)
+   - 5.3 [Validator-Key Updates](#53-validator-key-updates)
 6. [Parachain Management](#6-parachain-management)
    - 6.1 [State-Balance Accounting](#61-state-balance-accounting)
    - 6.2 [Registration](#62-registration)
@@ -184,6 +182,10 @@ struct ParachainServiceState {
 
     /// Cross-parachain preimage registry. See §6.1.
     preimage_registry: Map<Hash, PreimageEntry>,
+
+    /// Validator-key set being assembled chunk by chunk by
+    /// `set_validator_keys`. See §5.3.
+    staged_validator_keys: Vec<ValidatorKey>,
 }
 
 enum LogEntry {
@@ -355,9 +357,8 @@ enum UpwardMessage {
         immediate: bool,
         new_assigner: Option<ServiceId>,
     },
-    /// From `set_validator_keys` — write the upcoming validator keys to
-    /// JAM's `stagingset` via `designate`.
-    SetValidatorKeys(Vec<ValidatorKey>),
+    /// From `set_validator_keys`. See §5.3.
+    SetValidatorKeys { keys: Vec<ValidatorKey>, is_last: bool },
     /// From `consume_transfers_up_to` — prune the consumed prefix of
     /// `incoming_transfers`.
     ConsumeTransfersUpTo(u32),
@@ -467,7 +468,7 @@ These produce effects carried in the work result and applied by Accumulate:
 | `forget(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent — no-op if the parachain is not in `preimage_registry[hash].referencers`. |
 | `transfer_out(dest: ServiceId, amount: Balance, memo: Vec<u8>)` | `()` | Transfer balance to another JAM service (Asset Hub only) |
 | `set_authorizer_queue(core: CoreIndex, queue: Vec<AuthorizerHash>, mode: QueueUpdateMode, new_assigner: Option<ServiceId>)` | `()` | Update the authorizer queue for a core (Coretime chain only). `mode` determines whether the queue is applied immediately or cached in service state until the current 80-slot queue is exhausted. `new_assigner`, when `Some`, hands off `assigners[core]` to another service so that service can manage its own core queue going forward; when `None`, the current assigner (Parachain Service) is retained. |
-| `set_validator_keys(keys: Vec<ValidatorKey>)` | `()` | Write the upcoming validator keys to JAM's `stagingset` (Asset Hub only). Keys take effect two epoch transitions later, after flowing through `pendingset → activeset`. |
+| `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Panics if `keys` encodes to more than **10 KiB** or if called more than once per Refine invocation. |
 | `consume_transfers_up_to(index: u32)` | `()` | Mark all incoming transfers up to `index` as consumed. Accumulate prunes processed entries. When the queue is empty, index resets to 0. (Asset Hub only) |
 | `report_error(data: BoundedVec<u8, 1024>)` | `()` | Provide an opaque error payload (max 1024 bytes) before aborting the execution of the PVF. Stored per-parachain by Accumulate (see §3.3). |
 | `parachain_set_head(para_id: ParaId, new_head: HeadData)` | `()` | Upsert a parachain's head data (Coretime chain only). Used for both initial registration and recovery from a stuck chain. See §6. |
@@ -600,6 +601,38 @@ Phase 5: Activation or Rejection
 - **Timeout protection**: The deadline prevents parachains from indefinitely occupying
   preimage store space with unused code. `UPGRADE_TIMEOUT` is set to **24 hours**, which
   should be sufficient for the preimage to be submitted to JAM after solicitation.
+
+### 5.3 Validator-Key Updates
+
+A full `stagingset` (gray paper Safrole, eq. 108–112) is up to `1023 × 336 B ≈
+336 KiB` — too large for a single work-report's `C_maxreportvarsize = 48 KiB`
+result-blob budget, and JAM's `designate` accepts only the complete vector.
+The Parachain Service therefore buffers chunks in `staged_validator_keys`
+across multiple Asset Hub blocks (one chunk per block, since
+`set_validator_keys` may be called at most once per Refine; see §4.3) until
+Asset Hub signals completion via `is_last`.
+
+When Accumulate replays a `SetValidatorKeys { keys, is_last }` upward message
+it:
+
+1. Appends `keys` to `staged_validator_keys`, increasing Asset Hub's
+   `used_state_balance` by `336 * keys.len()`. If this would exceed Asset
+   Hub's `total_state_balance`, the append is rejected with
+   `AccumulateLog::InsufficientStateBalance` and the buffer is unchanged
+   (see §6.1).
+2. If `is_last == true`, calls JAM `designate` with the assembled vector and
+   clears the buffer. If `designate` rejects the call (e.g. length not in
+   `valcount`), the buffer is still cleared and an `AccumulateLog` entry is
+   recorded against the Asset Hub `ParaId`. This also gives Asset Hub the abort
+   path: `set_validator_keys(vec![], true)` flushes a length-zero buffer,
+   which `designate` rejects, clearing the staging area.
+
+Asset Hub's `total_state_balance` must include enough headroom for the
+worst-case staging footprint (up to `1023 * 336 B ≈ 336 KiB`), provisioned
+at genesis. The exact mechanism is TBD.
+
+A worst-case 1023-key rotation takes ~35 Asset Hub work packages (≈ 3.5
+minutes at 6 s timeslots).
 
 ---
 
@@ -1043,5 +1076,4 @@ Parachain Service protocol:
 
 ## TODOS
 
-- We can not set all validators in one go, we need to cache them in accumulate
 - 
