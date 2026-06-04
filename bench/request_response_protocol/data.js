@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780573681680,
+  "lastUpdate": 1780576049489,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -97415,6 +97415,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2566817030,
             "range": "± 44902255",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4c3f27eabec8cad635195d61ebf9fa00f347e2ac",
+          "message": "Remove deprecated AllowAll, DenyAll, and Filter from frame-support (#12250)\n\n# Description\n\nRemoves deprecated `frame_support::AllowAll`, `DenyAll`, and `Filter` as\npart of #11561.\n\nThese were legacy aliases for `Everything`, `Nothing`, and `Contains`.\nThey have no remaining usage in this repository.\n\n## Integration\n\n```diff\n- use frame_support::traits::AllowAll;\n+ use frame_support::traits::Everything;\n\n- use frame_support::traits::DenyAll;\n+ use frame_support::traits::Nothing;\n\n- impl frame_support::traits::Filter<MyType> for MyFilter { ... }\n+ impl frame_support::traits::Contains<MyType> for MyFilter { ... }\n```\nReview Notes\n`2 files: substrate/frame/support/src/traits/members.rs, traits.rs\n`\nVerified no in-repo references before removal\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-06-04T10:45:01Z",
+          "tree_id": "429c7f01390b308f47aff269e604ccf5038bcfc8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4c3f27eabec8cad635195d61ebf9fa00f347e2ac"
+        },
+        "date": 1780576019545,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19021174,
+            "range": "± 127795",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19243322,
+            "range": "± 54032",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20813706,
+            "range": "± 178746",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26036759,
+            "range": "± 193172",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60419744,
+            "range": "± 649718",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 350751191,
+            "range": "± 4797457",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2873742909,
+            "range": "± 128261700",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17146962,
+            "range": "± 232216",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17326741,
+            "range": "± 105072",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17828546,
+            "range": "± 230144",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22679643,
+            "range": "± 170685",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63940889,
+            "range": "± 1250175",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 375909726,
+            "range": "± 5624095",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2703975423,
+            "range": "± 13538897",
             "unit": "ns/iter"
           }
         ]
