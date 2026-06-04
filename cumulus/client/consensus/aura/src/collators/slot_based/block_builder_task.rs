@@ -32,7 +32,8 @@ use crate::{
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
-	self as consensus_common, get_relay_slot, ParachainBlockImportMarker,
+	self as consensus_common, fetch_included_from_relay_chain, get_relay_slot,
+	ParachainBlockImportMarker, ParentSearchParams,
 };
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
@@ -287,11 +288,18 @@ where
 			let relay_parent_header = relay_parent_data.relay_parent().clone();
 			let relay_parent_hash = relay_parent_header.hash();
 
+			let parent_search_params = match v3_enabled {
+				false => ParentSearchParams::V2 { scheduling_parent: relay_parent_hash },
+				true => ParentSearchParams::V3 {
+					scheduling_parent: scheduling_parent_hash,
+					para_best_hash,
+				},
+			};
 			let Some(parent_search_result) = crate::collators::find_parent(
 				&relay_client,
 				&*para_backend,
 				para_id,
-				relay_parent_hash,
+				parent_search_params,
 				|parent| {
 					// We never want to build on any "middle block" that isn't the last block in a
 					// core.
@@ -305,7 +313,22 @@ where
 				continue;
 			};
 
-			let included_header = parent_search_result.included_header;
+			let included_header = match v3_enabled {
+				false => parent_search_result.included_header,
+				true => {
+					let Ok(Some((_, included_header))) = fetch_included_from_relay_chain(
+						&relay_client,
+						&*para_backend,
+						para_id,
+						relay_parent_hash,
+					)
+					.await
+					else {
+						continue;
+					};
+					included_header
+				},
+			};
 			let initial_parent_hash = parent_search_result.best_parent_header.hash();
 			let initial_parent_header = parent_search_result.best_parent_header;
 			let unincluded_segment_len =

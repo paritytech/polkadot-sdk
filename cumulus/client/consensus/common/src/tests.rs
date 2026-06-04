@@ -1033,7 +1033,7 @@ fn find_best_parent_in_allowed_ancestry() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		relay_parent,
+		ParentSearchParams::V2 { scheduling_parent: relay_parent },
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1065,7 +1065,7 @@ fn find_best_parent_in_allowed_ancestry() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		search_relay_parent,
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1080,7 +1080,7 @@ fn find_best_parent_in_allowed_ancestry() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		search_relay_parent,
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1135,7 +1135,7 @@ fn find_best_parent_with_pending() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		search_relay_parent,
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1172,7 +1172,7 @@ fn find_best_parent_unknown_included_returns_none() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		search_relay_parent,
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
 	))
 	.unwrap();
 
@@ -1225,7 +1225,7 @@ fn find_best_parent_unknown_pending_returns_none() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		search_relay_parent,
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
 	))
 	.unwrap();
 
@@ -1345,7 +1345,7 @@ fn find_best_parent_with_forks_returns_deepest() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		search_relay_parent,
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1420,7 +1420,7 @@ fn find_best_parent_returns_deepest_block() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		search_relay_parent,
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
 	))
 	.unwrap()
 	.expect("Should find a parent");
