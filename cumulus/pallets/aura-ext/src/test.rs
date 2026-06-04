@@ -631,6 +631,7 @@ mod scheduling_verifier_tests {
 	{
 		let bounded: BoundedVec<_, <T as pallet_aura::Config>::MaxAuthorities> =
 			authorities.try_into().expect("test fixture stays under MaxAuthorities; qed");
+		pallet_aura::Authorities::<T>::put(bounded.clone());
 		Authorities::<T>::put(bounded);
 	}
 
