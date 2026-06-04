@@ -508,7 +508,7 @@ impl Discovery {
 			Some(Protocol::Ip4(ip)) => IpNetwork::from(ip),
 			Some(Protocol::Ip6(ip)) => IpNetwork::from(ip),
 			Some(Protocol::Dns(_)) | Some(Protocol::Dns4(_)) | Some(Protocol::Dns6(_)) => {
-				return true
+				return true;
 			},
 			_ => return false,
 		};
@@ -670,7 +670,7 @@ impl Stream for Discovery {
 				}));
 			},
 			Poll::Ready(Some(KademliaEvent::PutRecordSuccess { query_id, key: _ })) => {
-				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id }))
+				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id }));
 			},
 			Poll::Ready(Some(KademliaEvent::QueryFailed { query_id })) => {
 				match this.random_walk_query_id == Some(query_id) {
@@ -784,7 +784,7 @@ impl Stream for Discovery {
 			Poll::Pending => {},
 			Poll::Ready(None) => return Poll::Ready(None),
 			Poll::Ready(Some(PingEvent::Ping { peer, ping })) => {
-				return Poll::Ready(Some(DiscoveryEvent::Ping { peer, rtt: ping }))
+				return Poll::Ready(Some(DiscoveryEvent::Ping { peer, rtt: ping }));
 			},
 		}
 
@@ -793,7 +793,7 @@ impl Stream for Discovery {
 				Poll::Pending => {},
 				Poll::Ready(None) => return Poll::Ready(None),
 				Poll::Ready(Some(MdnsEvent::Discovered(addresses))) => {
-					return Poll::Ready(Some(DiscoveryEvent::Discovered { addresses }))
+					return Poll::Ready(Some(DiscoveryEvent::Discovered { addresses }));
 				},
 			}
 		}
@@ -806,7 +806,7 @@ impl Stream for Discovery {
 mod tests {
 	use super::*;
 
-	use std::sync::atomic::AtomicU32;
+	use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 	use crate::{
 		config::ProtocolId,
@@ -962,5 +962,515 @@ mod tests {
 		tokio::time::timeout(Duration::from_secs(60), futures.next())
 			.await
 			.expect("All peers should finish within 60 seconds");
+	}
+
+	/// Coverage experiment for the claim: "running `next_kad_random_query` for enough random keys
+	/// causes `RoutingTableUpdate` to be called for almost all nodes in the network".
+	///
+	/// Each node accumulates the *uncapped union* of peers ever surfaced via
+	/// `DiscoveryEvent::RoutingTableUpdate` (NOT the 20/bucket-capped retained table) and counts
+	/// the random Kademlia queries it issues (`DiscoveryEvent::RandomKademliaStarted`). We then
+	/// report coverage as a function of issued queries (machine-independent) and wall-clock, plus
+	/// the real-distributed-network time estimate `queries * KADEMLIA_QUERY_INTERVAL`.
+	///
+	/// Connections self-bound via litep2p's idle-reaping (~10s), so the steady-state CONNECTED
+	/// count stays ~tens even as the surfaced union approaches all N — we do NOT hard-cap dials
+	/// (litep2p rejects, rather than evicts, at the cap, which would make Kademlia permanently
+	/// skip un-dialable peers and corrupt the metric).
+	///
+	/// Parametrized via env vars so the feasibility ramp (10 -> 1000) needs no recompile:
+	///   `KAD_COV_N`      number of nodes               (default 10)
+	///   `KAD_COV_SECS`   run duration in seconds; the MAX (safety) cap when a target is set (def
+	/// 30) `KAD_COV_TARGET` stop once the network MEAN coverage reaches this fraction (default
+	/// 1.0 =                    run to the cap). A coordinator polls live coverage and reports the
+	/// time the                    target is reached, plus the worst node and the count of nodes
+	/// >= target.   `KAD_COV_FNAT`   fraction of NAT-unreachable nodes in [0,1) (default 0.0).
+	/// These nodes dial                    out and discover peers but have no dialable address, so
+	/// they are never                    surfaced; absolute coverage of all N then plateaus near
+	/// `1 - f_nat`.
+	///
+	/// Ignored by default (spawns N full litep2p stacks). Example (run until mean reaches 99%):
+	///   `ulimit -n 1048576; KAD_COV_N=1000 KAD_COV_TARGET=0.99 KAD_COV_SECS=1800 cargo test \`
+	///   `  -p sc-network --lib -- --ignored --nocapture \`
+	///   `  --exact 'litep2p::discovery::tests::litep2p_discovery_coverage'`
+	#[tokio::test(flavor = "multi_thread")]
+	#[ignore]
+	async fn litep2p_discovery_coverage() {
+		let _ = tracing_subscriber::fmt()
+			.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+			.try_init();
+
+		// Per-node results. All coverage/connection figures are fractions of the relevant node
+		// count.
+		struct NodeStat {
+			idx: usize,      // node index (0 = bootstrap seed)
+			peer_id: PeerId, // random ed25519/OsRng peer id
+			queries: u64,    // random Kademlia queries issued over the run
+			cov: f64,        // RoutingTableUpdate-union coverage of the reachable set
+			idcov: f64,      // Identified coverage of the reachable set
+			abs: f64,        // surfaced fraction of ALL N-1 others (incl. NAT'd)
+			rtu_events: u64,
+			conn_peak: usize,     // max simultaneous connections
+			conn_distinct: usize, // distinct peers EVER connected to (in or out)
+			dialed_out: usize,    // distinct peers WE dialed (outbound, our queries)
+			dialed_in: usize,     /* distinct peers that dialed US (inbound, their
+			                       * queries) */
+			timeline: Vec<(u64, u64, f64)>, // (elapsed_secs, queries, coverage_fraction)
+		}
+
+		let n: usize = std::env::var("KAD_COV_N").ok().and_then(|s| s.parse().ok()).unwrap_or(10);
+		// `KAD_COV_SECS` is the MAX (safety) cap; the run stops earlier once the coverage target is
+		// reached.
+		let run_for = Duration::from_secs(
+			std::env::var("KAD_COV_SECS").ok().and_then(|s| s.parse().ok()).unwrap_or(30),
+		);
+		// Stop as soon as the network MEAN coverage reaches this fraction (default 1.0 = run to the
+		// cap). The worst node and the count of nodes >= target are reported at the stop point.
+		let target: f64 =
+			std::env::var("KAD_COV_TARGET").ok().and_then(|s| s.parse().ok()).unwrap_or(1.0);
+		// Fraction of nodes that are NAT-unreachable: they dial out and discover peers, but have no
+		// dialable listen address to advertise, so peers never retain/return them via the DHT (they
+		// can never appear in any `RoutingTableUpdate`). This is the production discoverability
+		// ceiling: absolute coverage of all N plateaus near `1 - f_nat`.
+		let f_nat: f64 =
+			std::env::var("KAD_COV_FNAT").ok().and_then(|s| s.parse().ok()).unwrap_or(0.0);
+		assert!(n >= 2, "need at least 2 nodes");
+		assert!((0.0..1.0).contains(&f_nat), "KAD_COV_FNAT must be in [0, 1)");
+		// NAT'd nodes are indices `1..=n_nat`; the seed (index 0) always stays reachable so it can
+		// serve as the bootstrap hub.
+		let n_nat = ((n - 1) as f64 * f_nat).round() as usize;
+
+		let mut known_peers = HashMap::new();
+		let genesis_hash = H256::from_low_u64_be(1);
+		let fork_id = Some("test-fork-id");
+		let protocol_id = ProtocolId::from("dot");
+
+		// Single-seed bootstrap: peer 0 is known to all other peers.
+		let backends = (0..n)
+			.map(|i| {
+				let keypair = litep2p::crypto::ed25519::Keypair::generate();
+				let peer_id: PeerId = keypair.public().to_peer_id().into();
+				let listen_addresses = Arc::new(RwLock::new(HashSet::new()));
+				let peer_store = PeerStore::new(vec![], None);
+				let peer_store_handle: Arc<dyn PeerStoreProvider> = Arc::new(peer_store.handle());
+
+				let (discovery, ping_config, identify_config, kademlia_config, _mdns) =
+					Discovery::new(
+						peer_id,
+						&NetworkConfiguration::new_local(),
+						genesis_hash,
+						fork_id,
+						&protocol_id,
+						known_peers.clone(),
+						listen_addresses.clone(),
+						peer_store_handle,
+					);
+
+				// NAT'd nodes (indices `1..=n_nat`) listen on nothing: outbound-only, no dialable
+				// address to advertise.
+				let is_nat = i >= 1 && i <= n_nat;
+				let tcp_listen =
+					if is_nat { vec![] } else { vec!["/ip6/::1/tcp/0".parse().unwrap()] };
+
+				let config = Litep2pConfigBuilder::new()
+					.with_keypair(keypair)
+					.with_tcp(TcpConfig { listen_addresses: tcp_listen, ..Default::default() })
+					.with_libp2p_ping(ping_config)
+					.with_libp2p_identify(identify_config)
+					.with_libp2p_kademlia(kademlia_config)
+					.build();
+
+				let mut litep2p = Litep2p::new(config).unwrap();
+				let addresses = litep2p.listen_addresses().cloned().collect::<Vec<_>>();
+				addresses.iter().for_each(|address| {
+					listen_addresses.write().insert(address.clone());
+				});
+
+				if i == 0 {
+					known_peers.insert(peer_id, addresses.clone());
+				} else {
+					let (peer, addresses) = known_peers.iter().next().unwrap();
+					let _ = litep2p.add_known_address(*peer, addresses.iter().cloned());
+				}
+
+				(peer_id, litep2p, discovery, is_nat)
+			})
+			.collect::<Vec<_>>();
+
+		// Reachable target set = every node that is NOT NAT'd (these are the peers that can ever be
+		// surfaced via the DHT). Coverage is measured against this set.
+		let reachable_peers: HashSet<PeerId> = backends
+			.iter()
+			.filter(|(.., is_nat)| !*is_nat)
+			.map(|(peer_id, ..)| *peer_id)
+			.collect();
+		let first_peer = *known_peers.iter().next().unwrap().0;
+		println!(
+			"nodes={n}  NAT-unreachable={n_nat} (f_nat={f_nat})  reachable={}",
+			reachable_peers.len(),
+		);
+
+		// Spawn each node's event loop as a separate task on the multi-threaded runtime so the
+		// loops (and litep2p's internal transport tasks) run across real cores rather than
+		// serializing on one thread — important at large N, where a single-thread driver
+		// collapses the effective per-node query cadence. Each task runs until the deadline, then
+		// returns its coverage stats.
+		// Shared live-coverage state for the coordinator: each node publishes its coverage in basis
+		// points (×10000); the coordinator stops the whole run once the network MEAN reaches the
+		// target, so we measure exactly when 99% (etc.) is reached rather than cutting off at a
+		// fixed time. `run_for` is the safety cap.
+		let stop = Arc::new(AtomicBool::new(false));
+		let cov_bp: Arc<Vec<AtomicU32>> = Arc::new((0..n).map(|_| AtomicU32::new(0)).collect());
+
+		let mut handles = Vec::new();
+		for (idx, (peer_id, mut litep2p, mut discovery, _is_nat)) in
+			backends.into_iter().enumerate()
+		{
+			let target_set = reachable_peers.clone();
+			// Reachable peers other than self.
+			let denom =
+				(target_set.len() - usize::from(target_set.contains(&peer_id))).max(1) as f64;
+			let stop = stop.clone();
+			let cov_bp = cov_bp.clone();
+			handles.push(tokio::spawn(async move {
+				if peer_id != first_peer {
+					litep2p.dial(&first_peer).await.expect("bootstrap dial to first peer");
+				}
+
+				let mut surfaced: HashSet<PeerId> = HashSet::new();
+				let mut identified: HashSet<PeerId> = HashSet::new();
+				let mut rtu_events: u64 = 0;
+				let mut queries: u64 = 0;
+				// Live connection count and its peak (steady-state CONNECTED quantity), plus the
+				// cumulative set of DISTINCT peers ever connected to (the connection footprint over
+				// the whole run — distinct from the simultaneous peak and from the surfaced union).
+				let mut conns: usize = 0;
+				let mut conn_peak: usize = 0;
+				let mut connected_ever: HashSet<PeerId> = HashSet::new();
+				// Split the footprint by who initiated: `dialed_out` = we dialed them (caused by
+				// our own Kademlia queries), `dialed_in` = they dialed us (their queries
+				// reaching us).
+				let mut dialed_out: HashSet<PeerId> = HashSet::new();
+				let mut dialed_in: HashSet<PeerId> = HashSet::new();
+				// Timeline samples: (elapsed_secs, queries_issued, coverage_fraction_of_reachable).
+				let mut timeline: Vec<(u64, u64, f64)> = Vec::new();
+
+				let start = tokio::time::Instant::now();
+				let mut last_sample = 0u64;
+
+				loop {
+					// Stop on the safety cap or when the coordinator signals the target was
+					// reached.
+					if start.elapsed() >= run_for || stop.load(Ordering::Relaxed) {
+						break;
+					}
+					let elapsed = start.elapsed().as_secs();
+					if elapsed > last_sample {
+						last_sample = elapsed;
+						let frac = surfaced.iter().filter(|p| target_set.contains(*p)).count()
+							as f64 / denom;
+						cov_bp[idx].store((frac * 10_000.0) as u32, Ordering::Relaxed);
+						timeline.push((elapsed, queries, frac));
+					}
+
+					// Identify info to feed into the Kademlia routing table after the borrow of
+					// `discovery` from `discovery.next()` is released (mirrors the real network
+					// worker at `litep2p/mod.rs:1124`).
+					let mut to_add: Option<(PeerId, HashSet<ProtocolName>, Vec<Multiaddr>)> = None;
+
+					tokio::select! {
+						// Periodic wake (≈1s) so the loop promptly re-checks the stop flag / cap even
+						// when no protocol events are flowing; one branch among many, so it does not
+						// starve the event branches.
+						_ = tokio::time::sleep(Duration::from_secs(1)) => {},
+						event = litep2p.next_event() => {
+							match event {
+								Some(litep2p::Litep2pEvent::ConnectionEstablished {
+									peer,
+									endpoint,
+								}) => {
+									conns += 1;
+									conn_peak = conn_peak.max(conns);
+									connected_ever.insert(peer);
+									// `Listener` = inbound (they dialed us); otherwise outbound.
+									if endpoint.is_listener() {
+										dialed_in.insert(peer);
+									} else {
+										dialed_out.insert(peer);
+									}
+								},
+								Some(litep2p::Litep2pEvent::ConnectionClosed { .. }) => {
+									conns = conns.saturating_sub(1);
+								},
+								_ => {},
+							}
+						},
+						event = discovery.next() => {
+							match event {
+								Some(DiscoveryEvent::RoutingTableUpdate { peers }) => {
+									rtu_events += 1;
+									surfaced.extend(peers);
+								},
+								Some(DiscoveryEvent::Identified {
+									peer,
+									listen_addresses,
+									supported_protocols,
+								}) => {
+									identified.insert(peer);
+									to_add = Some((peer, supported_protocols, listen_addresses));
+								},
+								Some(DiscoveryEvent::RandomKademliaStarted) => {
+									queries += 1;
+								},
+								Some(_) => {},
+								None => break,
+							}
+						},
+					}
+
+					// Feed self-reported (identify) addresses into the Kademlia routing table, as
+					// the real network worker does. Without this the routing tables never gain
+					// dialable addresses and discovery cannot cascade past the bootstrap peer.
+					if let Some((peer, protos, addrs)) = to_add {
+						discovery.add_self_reported_address(peer, protos, addrs).await;
+					}
+				}
+
+				let others = (n - 1) as f64;
+				NodeStat {
+					idx,
+					peer_id,
+					queries,
+					cov: surfaced.iter().filter(|p| target_set.contains(*p)).count() as f64 / denom,
+					idcov: identified.iter().filter(|p| target_set.contains(*p)).count() as f64 /
+						denom,
+					abs: surfaced.len() as f64 / others,
+					rtu_events,
+					conn_peak,
+					conn_distinct: connected_ever.len(),
+					dialed_out: dialed_out.len(),
+					dialed_in: dialed_in.len(),
+					timeline,
+				}
+			}));
+		}
+
+		// Coordinator: poll live coverage every few seconds; stop the run as soon as the network
+		// mean reaches the target (or the safety cap fires).
+		let coord_start = tokio::time::Instant::now();
+		let mut reached_at: Option<u64> = None;
+		while coord_start.elapsed() < run_for {
+			tokio::time::sleep(Duration::from_secs(5)).await;
+			let vals: Vec<f64> =
+				cov_bp.iter().map(|a| a.load(Ordering::Relaxed) as f64 / 10_000.0).collect();
+			let mean = vals.iter().sum::<f64>() / n as f64;
+			let worst = vals.iter().copied().fold(f64::INFINITY, f64::min);
+			let at_target = vals.iter().filter(|&&c| c >= target).count();
+			let secs = coord_start.elapsed().as_secs();
+			println!(
+				"  [coord t={secs:>4}s] mean={:>5.1}%  worst={:>5.1}%  nodes>={:.0}%: {at_target}/{n}",
+				mean * 100.0,
+				worst * 100.0,
+				target * 100.0,
+			);
+			if mean >= target {
+				reached_at = Some(secs);
+				stop.store(true, Ordering::Relaxed);
+				break;
+			}
+		}
+		match reached_at {
+			Some(s) => {
+				println!("*** target mean coverage {:.0}% reached at t={s}s ***", target * 100.0)
+			},
+			None => println!(
+				"*** target mean {:.0}% NOT reached within cap {}s ***",
+				target * 100.0,
+				run_for.as_secs()
+			),
+		}
+
+		let mut results = Vec::new();
+		for h in handles {
+			results.push(h.await.unwrap());
+		}
+
+		// ---- analysis ----
+		let cadence = KADEMLIA_QUERY_INTERVAL.as_secs();
+		println!(
+			"\n=== Kademlia RoutingTableUpdate coverage: N={n}, run={}s ===",
+			run_for.as_secs()
+		);
+		let mut finals: Vec<f64> = results.iter().map(|r| r.cov).collect();
+		finals.sort_by(|a, b| a.partial_cmp(b).unwrap());
+		let mean_final = finals.iter().sum::<f64>() / finals.len() as f64;
+		let worst_final = finals.first().copied().unwrap_or(0.0);
+		let total_queries: u64 = results.iter().map(|r| r.queries).sum();
+		let total_rtu: u64 = results.iter().map(|r| r.rtu_events).sum();
+		let mut id_finals: Vec<f64> = results.iter().map(|r| r.idcov).collect();
+		id_finals.sort_by(|a, b| a.partial_cmp(b).unwrap());
+		let mean_id = id_finals.iter().sum::<f64>() / id_finals.len() as f64;
+		println!(
+			"final RoutingTableUpdate-union coverage: mean={:.1}%  worst={:.1}%  median={:.1}%",
+			mean_final * 100.0,
+			worst_final * 100.0,
+			finals[finals.len() / 2] * 100.0,
+		);
+		println!(
+			"final Identified coverage:               mean={:.1}%  worst={:.1}%",
+			mean_id * 100.0,
+			id_finals.first().copied().unwrap_or(0.0) * 100.0,
+		);
+		let mut abs_finals: Vec<f64> = results.iter().map(|r| r.abs).collect();
+		abs_finals.sort_by(|a, b| a.partial_cmp(b).unwrap());
+		let mean_abs = abs_finals.iter().sum::<f64>() / abs_finals.len() as f64;
+		println!(
+			"absolute coverage (all N, incl. NAT'd):  mean={:.1}%  worst={:.1}%  (ceiling ~{:.1}%)",
+			mean_abs * 100.0,
+			abs_finals.first().copied().unwrap_or(0.0) * 100.0,
+			(reachable_peers.len() as f64 - 1.0).max(0.0) / (n - 1) as f64 * 100.0,
+		);
+		println!(
+			"total random queries={total_queries}  total RoutingTableUpdate events={total_rtu}  \
+			 (avg {:.1} events/node)",
+			total_rtu as f64 / n as f64,
+		);
+
+		// CONNECTED vs RETAINED vs CALLED: peak simultaneous connections should stay ~tens even
+		// though the surfaced union -> ~all N (the retained k-bucket table caps at ~k*log2(N)).
+		let mut conn_peaks: Vec<usize> = results.iter().map(|r| r.conn_peak).collect();
+		conn_peaks.sort_unstable();
+		println!(
+			"peak simultaneous connections per node (CONNECTED): mean={:.1}  median={}  max={}",
+			conn_peaks.iter().sum::<usize>() as f64 / conn_peaks.len() as f64,
+			conn_peaks[conn_peaks.len() / 2],
+			conn_peaks.last().copied().unwrap_or(0),
+		);
+
+		// Distinct peers EVER connected to over the whole run (the connection footprint), as a
+		// fraction of all other nodes. Bigger than the simultaneous peak (connections are reaped
+		// and re-dialed) but typically smaller than the surfaced union (you surface peers from
+		// responses without ever connecting to them).
+		let others_f = (n - 1) as f64;
+		let mut conn_distincts: Vec<f64> =
+			results.iter().map(|r| r.conn_distinct as f64 / others_f).collect();
+		conn_distincts.sort_by(|a, b| a.partial_cmp(b).unwrap());
+		let mean_pct = |sel: fn(&NodeStat) -> usize| {
+			results.iter().map(|r| sel(r) as f64).sum::<f64>() / results.len() as f64 / others_f *
+				100.0
+		};
+		println!(
+			"distinct peers ever connected to: mean={:.1}%  median={:.1}%  worst={:.1}%  best={:.1}% (of {} others)",
+			conn_distincts.iter().sum::<f64>() / conn_distincts.len() as f64 * 100.0,
+			conn_distincts[conn_distincts.len() / 2] * 100.0,
+			conn_distincts.first().copied().unwrap_or(0.0) * 100.0,
+			conn_distincts.last().copied().unwrap_or(0.0) * 100.0,
+			n - 1,
+		);
+		// The footprint splits into peers WE dialed (caused by our own Kademlia FIND_NODE queries
+		// reaching out to candidates) and peers that dialed US (their queries reaching us). A peer
+		// can be in both sets, so these can sum to more than the distinct total.
+		println!(
+			"  split (distinct, mean): dialed-OUT (our queries)={:.1}%  dialed-IN (their queries)={:.1}%",
+			mean_pct(|r| r.dialed_out),
+			mean_pct(|r| r.dialed_in),
+		);
+
+		for thr in [0.90_f64, 0.95, 0.99] {
+			let mut secs_to: Vec<u64> = Vec::new();
+			let mut queries_to: Vec<u64> = Vec::new();
+			for r in &results {
+				if let Some((s, q, _)) = r.timeline.iter().find(|(_, _, cov)| *cov >= thr) {
+					secs_to.push(*s);
+					queries_to.push(*q);
+				}
+			}
+			let reached = queries_to.len();
+			let avg =
+				|v: &[u64]| if v.is_empty() { 0 } else { v.iter().sum::<u64>() / v.len() as u64 };
+			let mean_q = avg(&queries_to);
+			let worst_q = queries_to.iter().copied().max().unwrap_or(0);
+			println!(
+				"coverage>={:.0}%: {reached}/{n} nodes | queries-to mean={mean_q} worst={worst_q} | \
+				 wall-clock-s mean={} worst={} | est real-net time (queries*{cadence}s) mean={}s worst={}s",
+				thr * 100.0,
+				avg(&secs_to),
+				secs_to.iter().copied().max().unwrap_or(0),
+				mean_q * cadence,
+				worst_q * cadence,
+			);
+		}
+
+		// Aggregate coverage-vs-time curve (mean and worst node), ~12 points across the run.
+		let max_t = run_for.as_secs();
+		let step = (max_t / 12).max(1);
+		println!("coverage curve (RoutingTableUpdate union, fraction of reachable):");
+		let mut t = 0;
+		while t <= max_t {
+			let mut covs: Vec<f64> = Vec::with_capacity(results.len());
+			for r in &results {
+				let cov = r
+					.timeline
+					.iter()
+					.take_while(|(s, _, _)| *s <= t)
+					.last()
+					.map(|(_, _, c)| *c)
+					.unwrap_or(0.0);
+				covs.push(cov);
+			}
+			let mean = covs.iter().sum::<f64>() / covs.len() as f64;
+			let worst = covs.iter().copied().fold(f64::INFINITY, f64::min);
+			println!("  t={t:>4}s  mean={:>5.1}%  worst={:>5.1}%", mean * 100.0, worst * 100.0);
+			t += step;
+		}
+
+		// ---- per-node statistics ----
+		// One line per node. `to-X%` = (queries issued / wall-clock secs) when that node first
+		// surfaced X% of the reachable set; `-` if it never reached X within the run. The peer ids
+		// are random ed25519 keys (OsRng), so the Kademlia keyspace positions are uniform.
+		// `dial_out`/`dial_in` = distinct peers this node dialed / was dialed by; `peak` = max
+		// simultaneous connections; `distinct` = distinct peers ever connected to (either
+		// direction).
+		let mut sorted: Vec<&NodeStat> = results.iter().collect();
+		sorted.sort_by_key(|r| r.idx);
+		println!(
+			"\n--- per-node statistics (N={n}, {} reachable others) ---",
+			reachable_peers.len()
+		);
+		println!(
+			"{:>4}  {:<52} {:>12} {:>12} {:>12} | {:>8} {:>7} {:>4} {:>8} {:>6}",
+			"node",
+			"peer_id",
+			"to-90%",
+			"to-95%",
+			"to-99%",
+			"dial_out",
+			"dial_in",
+			"peak",
+			"distinct",
+			"final",
+		);
+		for r in &sorted {
+			let cross = |thr: f64| {
+				r.timeline
+					.iter()
+					.find(|(_, _, c)| *c >= thr)
+					.map(|(s, q, _)| format!("{q}q/{s}s"))
+					.unwrap_or_else(|| "-".to_string())
+			};
+			println!(
+				"{:>4}  {:<52} {:>12} {:>12} {:>12} | {:>8} {:>7} {:>4} {:>8} {:>5.1}%",
+				r.idx,
+				r.peer_id.to_string(),
+				cross(0.90),
+				cross(0.95),
+				cross(0.99),
+				r.dialed_out,
+				r.dialed_in,
+				r.conn_peak,
+				r.conn_distinct,
+				r.cov * 100.0,
+			);
+		}
 	}
 }
