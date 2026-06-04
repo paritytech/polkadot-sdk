@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780561731530,
+  "lastUpdate": 1780574947393,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "5588131+kianenigma@users.noreply.github.com",
-            "name": "Kian Paimani",
-            "username": "kianenigma"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "56e4b10bbbbcefcf9e4fe879c88c68902181fc4a",
-          "message": "[AHM/Staking] Allow own stake to be collected in all pages (#10051)\n\nTLDR: Thanks to a number of reports from Kusama validator, we have been\ninvestigating an issue where the self stake of some validators is not\npresent in `ErasStakersPaged` and `ErasStakersOverview`, and\nconsequently not earning staking rewards.\n\nAfter investigation, it was clear that the `polkadot-staking-miner` is\ndoing the right thing, and the self-stake is indeed submitted to the\nchain as a part of the staking election result.\n\nThe root cause in how `pallet-staking-async` ingests the staking\nelection result. This code **made a (wrong) assumption that self-stake\nis only present in the first page of a multi-page election. This PR\nfixes this issue.**\n\n---\n\n- [x] (nice to have) revisit try-state checks of the pallet,\n`ErasStakersPaged`, `ErasStakersOverview` and `ErasTotalStake` are\ntriple checked for correctness\n- [ ] (nice to have) fix related displays in PJS:\nhttps://github.com/polkadot-js/apps/pull/11930\n- [ ] backport to 2507 and 2509\n- Westend \n- [ ] Find a similar issue in westend for monitoring\n(https://github.com/paritytech/devops/issues/4402)\n  - [ ] Upgrade westend to a branch/release containing this fix \n- [ ] Upgrade westend with this fix, observe test examples are resolved\n- [ ] Bump backported version in `fellowship/runtimes`\n- [ ] Release 1.9.3 for Kusama with this fix\n- [ ] Ensure known test cases are fixed\n- One example: `F2WyUUFXLYnBg6acv7t2KFzH6D7CyNcvC4mRCwUdsHTUB4t` (in\nelection round 46, likely repeating in subsequent ones too)\n- This PR will be part of Polkadot release 2.0.0, the Polkadot AHM.\n- [ ] Forum post with further explanation once PR is merged.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-20T19:13:45Z",
-          "tree_id": "d2786f7afae7fac3c39e274963ad57630f271778",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/56e4b10bbbbcefcf9e4fe879c88c68902181fc4a"
-        },
-        "date": 1760991886752,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026479510700000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00854913869999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.004987265409999992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011232567049999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f31d358f6bfed627a5f11b2bccbcc63d5d3a19cc",
+          "message": "Make BEEFY aware of duplicated authorities (#8964)\n\nAs a follow-up to\nhttps://github.com/paritytech/polkadot-sdk/issues/8705, we would like to\npropose an adjustment to the BEEFY RoundTracker, allowing it to count\nduplicated authorities as non-equal weight votes, in a similar way as\nhandled by [GRANDPA's\nVoterSet](https://docs.rs/finality-grandpa/latest/finality_grandpa/voter_set/struct.VoterSet.html#method.new).\n\nWe choose this approach because adapting the interfaces related to\nOneSessionHandler would be significantly more invasive. Since GRANDPA\nalready supports handling duplicated authorities in this manner, we\ndecided to implement a similar solution here for consistency and\nsimplicity.\n\nThis change should not affect how equivocations (double voting) are\nhandled, nor does it alter the structure of commitments. It only impacts\nhow votes from duplicated authorities are accounted for when calculating\nthe threshold.\n\n---------\n\nSigned-off-by: Tomasz Bartos <tomasz.bartos@iohk.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>",
+          "timestamp": "2026-06-04T10:16:00Z",
+          "tree_id": "b9fdfe2faccca3d48edaaa86ba9b045cd2e8e2ae",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f31d358f6bfed627a5f11b2bccbcc63d5d3a19cc"
+        },
+        "date": 1780574917414,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00255024634,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011404380119999984,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009460420669999988,
             "unit": "seconds"
           }
         ]
