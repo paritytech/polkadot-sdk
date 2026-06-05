@@ -15,6 +15,46 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use polkadot_node_subsystem_util::metrics::{self, prometheus};
+use polkadot_primitives::Id as ParaId;
+use std::collections::BTreeMap;
+
+/// A reputation score band — the `score_range` label of the `connected_collators` gauge.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ScoreBand {
+	/// Score 0 — below the instant-fetch threshold.
+	Zero,
+	/// New collator, which is above the threshold (score 0) but still has relatively low score.
+	Fresh,
+	/// Established collator.
+	Established,
+	/// Max score collator.
+	Max,
+}
+
+impl ScoreBand {
+	/// All bands, so callers can emit an explicit value (including `0`) for every band.
+	const ALL: [ScoreBand; 4] = [Self::Zero, Self::Fresh, Self::Established, Self::Max];
+
+	/// Classify a reputation score to a band.
+	pub fn classify(score: u16) -> Self {
+		match score {
+			0 => Self::Zero,
+			1..=99 => Self::Fresh,
+			100..=999 => Self::Established,
+			_ => Self::Max,
+		}
+	}
+
+	/// The `score_range` metric label for this band.
+	fn label(&self) -> &'static str {
+		match self {
+			Self::Zero => "zero",
+			Self::Fresh => "fresh",
+			Self::Established => "established",
+			Self::Max => "max-score",
+		}
+	}
+}
 
 #[derive(Clone, Default)]
 pub struct Metrics(Option<MetricsInner>);
@@ -78,6 +118,25 @@ impl Metrics {
 		}
 	}
 
+	pub fn note_score_distribution(
+		&self,
+		distribution: &BTreeMap<ParaId, BTreeMap<ScoreBand, u64>>,
+	) {
+		let Some(metrics) = &self.0 else { return };
+
+		metrics.connected_collators.reset();
+		for (para_id, counts) in distribution {
+			let para_id = u32::from(*para_id).to_string();
+			for band in ScoreBand::ALL {
+				let count = counts.get(&band).copied().unwrap_or(0);
+				metrics
+					.connected_collators
+					.with_label_values(&[para_id.as_str(), band.label()])
+					.set(count);
+			}
+		}
+	}
+
 	/// Provide a timer for `CollationFetchRequest` structure which observes on drop.
 	pub fn time_collation_request_duration(
 		&self,
@@ -104,6 +163,7 @@ struct MetricsInner {
 	advertisements: prometheus::CounterVec<prometheus::U64>,
 	collations_seconded: prometheus::Counter<prometheus::U64>,
 	assigned_paras: prometheus::Gauge<prometheus::U64>,
+	connected_collators: prometheus::GaugeVec<prometheus::U64>,
 	collation_request_duration: prometheus::Histogram,
 	// TODO: Not available for the new implementation. Remove with the old implementation.
 	request_unblocked_collations: prometheus::Histogram,
@@ -170,6 +230,16 @@ impl metrics::Metrics for Metrics {
 				prometheus::Gauge::new(
 					"polkadot_parachain_collator_protocol_validator_assigned_paras",
 					"Number of paras this validator is currently assigned to back (0 = idle).",
+				)?,
+				registry,
+			)?,
+			connected_collators: prometheus::register(
+				prometheus::GaugeVec::new(
+					prometheus::Opts::new(
+						"polkadot_parachain_collator_protocol_validator_connected_collators",
+						"Number of connected collators per para, by reputation score band.",
+					),
+					&["para_id", "score_range"],
 				)?,
 				registry,
 			)?,

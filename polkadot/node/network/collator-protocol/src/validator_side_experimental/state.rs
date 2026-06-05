@@ -26,6 +26,7 @@ use crate::{
 		peer_manager::{Backend, PersistentDb},
 		Metrics, PeerManager,
 	},
+	validator_side_metrics::ScoreBand,
 	LOG_TARGET,
 };
 use fatality::Split;
@@ -41,7 +42,7 @@ use polkadot_primitives::{
 	BlockNumber, CandidateDescriptorVersion, CandidateReceiptV2 as CandidateReceipt, Hash,
 	Id as ParaId,
 };
-use std::time::Duration;
+use std::{collections::BTreeMap, time::Duration};
 
 /// All state relevant for the validator side of the protocol lives here.
 pub struct State<B> {
@@ -211,6 +212,17 @@ impl<B: Backend> State<B> {
 		{
 			err.split()?.log();
 		}
+
+		// Refresh the per-para reputation score distribution metric
+		let mut score_distribution: BTreeMap<ParaId, BTreeMap<ScoreBand, u64>> = BTreeMap::new();
+		self.peer_manager.for_each_score(|para_id, score| {
+			*score_distribution
+				.entry(para_id)
+				.or_default()
+				.entry(ScoreBand::classify(u16::from(score)))
+				.or_default() += 1;
+		});
+		self.metrics.note_score_distribution(&score_distribution);
 
 		// Process potential changes in the registered paras set.
 		let session_index = match recv_runtime(request_session_index_for_child(hash, sender).await)
