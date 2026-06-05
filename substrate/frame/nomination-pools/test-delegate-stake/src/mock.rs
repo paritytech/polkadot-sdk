@@ -137,8 +137,7 @@ impl pallet_staking_async::Config for Runtime {
 	type RcClientInterface = MockRcClient;
 	type VestingDuration = ConstU64<0>;
 	type VestingBlockNumberProvider = frame_system::Pallet<Runtime>;
-	type ValidatorIncentivePayout =
-		pallet_staking_async::LiquidIncentivePayout<Balances>;
+	type ValidatorIncentivePayout = pallet_staking_async::LiquidIncentivePayout<Balances>;
 }
 
 parameter_types! {

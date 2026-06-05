@@ -468,10 +468,8 @@ impl pallet_staking_async::Config for Runtime {
 	type RcClientInterface = StakingRcClient;
 	type VestingDuration = ValidatorIncentiveVestingDuration;
 	type VestingBlockNumberProvider = RelayChainBlockNumberProvider;
-	type ValidatorIncentivePayout = pallet_staking_async::VestedIncentivePayout<
-		Balances,
-		pallet_vesting::Pallet<Runtime>,
-	>;
+	type ValidatorIncentivePayout =
+		pallet_staking_async::VestedIncentivePayout<Balances, pallet_vesting::Pallet<Runtime>>;
 }
 
 // Relay chain session keys matching Westend configuration.

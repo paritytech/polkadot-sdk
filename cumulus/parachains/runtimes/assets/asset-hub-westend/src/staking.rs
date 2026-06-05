@@ -315,10 +315,8 @@ impl pallet_staking_async::Config for Runtime {
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 	type VestingDuration = ValidatorIncentiveVestingDuration;
 	type VestingBlockNumberProvider = RelaychainDataProvider<Runtime>;
-	type ValidatorIncentivePayout = pallet_staking_async::VestedIncentivePayout<
-		Balances,
-		pallet_vesting::Pallet<Runtime>,
-	>;
+	type ValidatorIncentivePayout =
+		pallet_staking_async::VestedIncentivePayout<Balances, pallet_vesting::Pallet<Runtime>>;
 }
 
 // Relay Chain session keys type for validating session keys on AssetHub.
