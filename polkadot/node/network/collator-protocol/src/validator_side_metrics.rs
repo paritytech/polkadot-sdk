@@ -127,6 +127,34 @@ impl Metrics {
 		}
 	}
 
+	fn note_approved_peer_signal(&self, para_id: &ParaId, outcome: &'static str) {
+		if let Some(metrics) = &self.0 {
+			let para_id = u32::from(*para_id).to_string();
+			metrics.approved_peer_signals.with_label_values(&[para_id.as_str(), outcome]).inc();
+		}
+	}
+
+	/// Included candidate carried a valid `ApprovedPeer` signal — the collator earned a bump.
+	pub fn on_approved_peer_present(&self, para_id: &ParaId) {
+		self.note_approved_peer_signal(para_id, "present");
+	}
+
+	/// Included v2+ candidate carried no `ApprovedPeer` signal.
+	pub fn on_approved_peer_absent(&self, para_id: &ParaId) {
+		self.note_approved_peer_signal(para_id, "absent");
+	}
+
+	/// Included candidate carried an `ApprovedPeer` signal with an unparseable peer id.
+	pub fn on_approved_peer_invalid(&self, para_id: &ParaId) {
+		self.note_approved_peer_signal(para_id, "invalid_peer_id");
+	}
+
+	/// Failed to parse the UMP signals of an included candidate (should not happen — they are
+	/// checked during on-chain backing).
+	pub fn on_approved_peer_parse_error(&self, para_id: &ParaId) {
+		self.note_approved_peer_signal(para_id, "parse_error");
+	}
+
 	/// Note the number of paras this validator is currently assigned to back.
 	pub fn note_assigned_paras(&self, assigned: usize) {
 		if let Some(metrics) = &self.0 {
@@ -179,6 +207,7 @@ struct MetricsInner {
 	advertisements: prometheus::CounterVec<prometheus::U64>,
 	collations_seconded: prometheus::Counter<prometheus::U64>,
 	slashes: prometheus::CounterVec<prometheus::U64>,
+	approved_peer_signals: prometheus::CounterVec<prometheus::U64>,
 	assigned_paras: prometheus::Gauge<prometheus::U64>,
 	connected_collators: prometheus::GaugeVec<prometheus::U64>,
 	collation_request_duration: prometheus::Histogram,
@@ -250,6 +279,16 @@ impl metrics::Metrics for Metrics {
 						"Number of collator reputation slashes, by para and reason.",
 					),
 					&["para_id", "reason"],
+				)?,
+				registry,
+			)?,
+			approved_peer_signals: prometheus::register(
+				prometheus::CounterVec::new(
+					prometheus::Opts::new(
+						"polkadot_parachain_collator_protocol_validator_approved_peer_signals_total",
+						"Outcome of the `ApprovedPeer` UMP signal on included v2+ candidates, by para.",
+					),
+					&["para_id", "outcome"],
 				)?,
 				registry,
 			)?,

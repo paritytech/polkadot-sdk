@@ -1031,6 +1031,7 @@ async fn make_state<B: Backend>(
 			&mut sender,
 			collation_manager.assignments(),
 			polkadot_node_clock::system_clock(),
+			Metrics::default(),
 		)
 		.await
 		.unwrap();
