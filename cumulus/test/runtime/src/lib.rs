@@ -120,10 +120,7 @@ const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 //   `with-authority-discovery`
 //     → spec_version 4  (must be > 2 so a set_code upgrade from default triggers migrations)
 
-#[cfg(all(
-	not(feature = "increment-spec-version"),
-	not(feature = "with-authority-discovery"),
-))]
+#[cfg(all(not(feature = "increment-spec-version"), not(feature = "with-authority-discovery"),))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
@@ -137,10 +134,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	system_version: 3,
 };
 
-#[cfg(all(
-	feature = "increment-spec-version",
-	not(feature = "with-authority-discovery"),
-))]
+#[cfg(all(feature = "increment-spec-version", not(feature = "with-authority-discovery"),))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
