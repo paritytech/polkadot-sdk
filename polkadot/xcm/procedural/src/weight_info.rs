@@ -65,3 +65,76 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 		},
 	}
 }
+
+pub fn derive_impl(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+	let input: syn::DeriveInput = match syn::parse(item) {
+		Ok(input) => input,
+		Err(e) => return e.into_compile_error().into(),
+	};
+
+	let syn::DeriveInput { mut generics, data, ident, .. } = input;
+	let enum_ty_generics = {
+		let (_, ty_generics, _) = generics.split_for_impl();
+		quote::quote!(#ty_generics)
+	};
+	generics.params.push(syn::parse_quote!(W));
+	generics
+		.make_where_clause()
+		.predicates
+		.push(syn::parse_quote!(W: XcmWeightInfo #enum_ty_generics));
+	let (impl_generics, _, where_clause) = generics.split_for_impl();
+
+	match data {
+		syn::Data::Enum(syn::DataEnum { variants, .. }) => {
+			let match_arms = variants.into_iter().map(|syn::Variant { ident: variant_ident, fields, .. }| {
+				let snake_cased_ident =
+					format_ident!("{}", variant_ident.to_string().to_snake_case());
+				match fields {
+					syn::Fields::Unit => {
+						quote::quote!(#ident::#variant_ident => W::#snake_cased_ident(),)
+					},
+					syn::Fields::Unnamed(fields_unnamed) => {
+						let field_names = (0..fields_unnamed.unnamed.len())
+							.map(|idx| format_ident!("_{}", idx))
+							.collect::<Vec<_>>();
+						quote::quote!(
+							#ident::#variant_ident( #(#field_names),* ) =>
+								W::#snake_cased_ident( #(#field_names),* ),
+						)
+					},
+					syn::Fields::Named(fields_named) => {
+						let field_names = fields_named
+							.named
+							.into_iter()
+							.map(|field| field.ident.expect("named fields always have idents"))
+							.collect::<Vec<_>>();
+						quote::quote!(
+							#ident::#variant_ident { #(#field_names),* } =>
+								W::#snake_cased_ident( #(#field_names),* ),
+						)
+					},
+				}
+			});
+
+			let res = quote::quote! {
+				impl #impl_generics GetWeight<W> for #ident #enum_ty_generics
+				#where_clause {
+					fn weight(&self) -> Weight {
+						match self {
+							#(#match_arms)*
+						}
+					}
+				}
+			};
+			res.into()
+		},
+		syn::Data::Struct(syn::DataStruct { struct_token, .. }) => {
+			let msg = "structs are not supported by 'derive(XcmWeightInfo)'";
+			syn::Error::new(struct_token.span, msg).into_compile_error().into()
+		},
+		syn::Data::Union(syn::DataUnion { union_token, .. }) => {
+			let msg = "unions are not supported by 'derive(XcmWeightInfo)'";
+			syn::Error::new(union_token.span, msg).into_compile_error().into()
+		},
+	}
+}
