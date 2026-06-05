@@ -27,7 +27,7 @@
 //! `Future` that processes statements.
 
 mod affinity;
-pub mod v2dht;
+mod v2dht;
 
 use crate::{
 	config::*,
@@ -79,6 +79,7 @@ use std::{
 	time::Instant,
 };
 use tokio::time::timeout;
+use v2dht::V2DhtOrchestrator;
 pub mod config;
 
 /// A set of statements.
@@ -164,6 +165,13 @@ const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::fr
 const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
 /// Delay before re-adding a peer to the reserved set after a forced disconnect for sync recovery.
 const SYNC_RECOVERY_READD_DELAY: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// Feature-flag to switch between the legacy flood path and the new DHT-targeted path.
+///
+/// Hard-coded for now.
+const fn v2dht_enabled() -> bool {
+	false
+}
 
 struct Metrics {
 	propagated_statements: Counter<U64>,
@@ -439,6 +447,7 @@ impl StatementHandlerPrototype {
 		let network_event_stream = network.event_stream("statement-handler-network");
 		let peers_topology =
 			PeersTopology::new(network.local_peer_id(), PeersTopologyConfig::default());
+		let v2dht = V2DhtOrchestrator::new();
 
 		let handler = StatementHandler {
 			protocol_name: self.protocol_name,
@@ -468,6 +477,7 @@ impl StatementHandlerPrototype {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
+			v2dht,
 		};
 
 		Ok(handler)
@@ -527,6 +537,8 @@ pub struct StatementHandler<
 	sync_recovery_peer: Option<PeerId>,
 	/// Fires when the `sync_recovery_peer` re-add delay has elapsed
 	sync_recovery_readd_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
+	/// Only invoked when [`v2dht_enabled`] returns `true`.
+	v2dht: V2DhtOrchestrator,
 }
 
 /// Per-peer rate limiter using a token bucket algorithm.
@@ -719,6 +731,7 @@ where
 	) -> Self {
 		let local_peer = network.local_peer_id();
 
+		let v2dht = V2DhtOrchestrator::new();
 		Self {
 			protocol_name,
 			notification_service,
@@ -745,6 +758,7 @@ where
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
+			v2dht,
 		}
 	}
 
@@ -802,11 +816,17 @@ where
 					}
 				}
 				_ = &mut self.initial_sync_timeout => {
+					if v2dht_enabled() {
+						self.v2dht.on_initial_sync().await;
+					}
 					self.process_initial_sync_burst().await;
 					self.initial_sync_timeout =
 						Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse());
 				},
 				_ = &mut self.pending_affinities_timeout => {
+					if v2dht_enabled() {
+						self.v2dht.on_pending_affinities();
+					}
 					self.process_pending_affinities();
 					self.pending_affinities_timeout =
 						Box::pin(tokio::time::sleep(PENDING_AFFINITIES_INTERVAL).fuse());
@@ -818,8 +838,12 @@ where
 			}
 
 			if !self.sync.is_major_syncing() {
-				self.drain_deferred_peers();
-				self.start_sync_recovery();
+				if v2dht_enabled() {
+					self.v2dht.on_major_sync_end();
+				} else {
+					self.drain_deferred_peers();
+					self.start_sync_recovery();
+				}
 			}
 		}
 	}
@@ -978,6 +1002,9 @@ where
 	fn handle_sync_event(&mut self, event: SyncEvent) {
 		match event {
 			SyncEvent::PeerConnected(remote) => {
+				if v2dht_enabled() {
+					self.v2dht.on_peer_connected(remote);
+				}
 				if self.sync.is_major_syncing() {
 					log::trace!(
 						target: LOG_TARGET,
@@ -997,6 +1024,9 @@ where
 				}
 			},
 			SyncEvent::PeerDisconnected(remote) => {
+				if v2dht_enabled() {
+					self.v2dht.on_peer_disconnected(remote);
+				}
 				if self.deferred_peers.remove(&remote) {
 					return;
 				}
@@ -1014,6 +1044,9 @@ where
 	async fn handle_notification_event(&mut self, event: NotificationEvent) {
 		match event {
 			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } => {
+				if v2dht_enabled() {
+					self.v2dht.on_validate_inbound_substream(peer)
+				}
 				// Only accept peers whose role can be determined
 				let result = self
 					.network
@@ -1027,6 +1060,9 @@ where
 				handshake,
 				..
 			} => {
+				if v2dht_enabled() {
+					self.v2dht.on_substream_opened(peer);
+				}
 				// If negotiated_fallback is Some, the peer connected on a fallback protocol
 				// (v1). If None, the peer connected on the main protocol (v2).
 				let protocol_version = if negotiated_fallback.is_some() {
@@ -1084,6 +1120,9 @@ where
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
 				self.peers_topology.on_peer_disconnected(peer);
+				if v2dht_enabled() {
+					self.v2dht.on_substream_closed(peer);
+				}
 				let removed_peer = self.peers.remove(&peer);
 				debug_assert!(removed_peer.is_some());
 
@@ -1144,10 +1183,12 @@ where
 						if let Ok(message) = StatementMessage::decode(&mut notification.as_ref()) {
 							match message {
 								StatementMessage::Statements(statements) => {
-									self.on_statements(peer, statements)
+									self.on_statements(peer, statements);
 								},
 								StatementMessage::ExplicitTopicAffinity(filter) => {
-									if let Some(peer_data) = self.peers.get_mut(&peer) {
+									if v2dht_enabled() {
+										self.v2dht.on_peer_filter_update(peer, filter);
+									} else if let Some(peer_data) = self.peers.get_mut(&peer) {
 										if peer_data.rate_limiter.is_flooding(1) {
 											log::debug!(
 												target: LOG_TARGET,
@@ -1288,6 +1329,9 @@ where
 	}
 
 	fn on_handle_statement_import(&mut self, who: PeerId, import: &SubmitResult) {
+		if v2dht_enabled() {
+			self.v2dht.on_statement_imported(who, import);
+		}
 		match import {
 			SubmitResult::New => self.network.report_peer(who, rep::GOOD_STATEMENT),
 			SubmitResult::Known => self.network.report_peer(who, rep::ANY_STATEMENT_REFUND),
@@ -1385,6 +1429,9 @@ where
 
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
 		if !statements.is_empty() {
+			if v2dht_enabled() {
+				self.v2dht.propagate_statements().await;
+			}
 			self.do_propagate_statements(&statements).await;
 		}
 	}
@@ -2049,6 +2096,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
+			v2dht: V2DhtOrchestrator::new(),
 		};
 		(handler, statement_store, network, notification_service, queue_receiver, peer_ids)
 	}
@@ -2327,6 +2375,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
+			v2dht: V2DhtOrchestrator::new(),
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -2377,6 +2426,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
+			v2dht: V2DhtOrchestrator::new(),
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -3801,6 +3851,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
+			v2dht: V2DhtOrchestrator::new(),
 		};
 
 		// Add a statement so there's something to sync.
@@ -4163,6 +4214,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
+			v2dht: V2DhtOrchestrator::new(),
 		};
 
 		let peer1 = PeerId::random();
@@ -4235,6 +4287,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
+			v2dht: V2DhtOrchestrator::new(),
 		};
 
 		flag.store(false, std::sync::atomic::Ordering::Relaxed);
@@ -4319,6 +4372,7 @@ mod tests {
 			dropped_statements_during_sync: true,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
+			v2dht: V2DhtOrchestrator::new(),
 		};
 
 		handler.start_sync_recovery();
@@ -4424,6 +4478,7 @@ mod tests {
 					dropped_statements_during_sync: dropped,
 					sync_recovery_peer: None,
 					sync_recovery_readd_timeout: Box::pin(pending().fuse()),
+					v2dht: V2DhtOrchestrator::new(),
 				}
 			};
 
