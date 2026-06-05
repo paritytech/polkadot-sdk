@@ -6,9 +6,8 @@
 //! Produces a single self-contained `bundle.tar.gz` that holds:
 //!   * `parachain-db.tgz` — collator DB (`data/` + embedded `relay-data/`)
 //!   * `relaychain-db.tgz` — relay validator DB (`data/`)
-//!   * `manifest.json` — schema + `user_data` carrying [`BundleUserData`]
-//!     (test metadata plus the two raw chain specs the consumer needs to
-//!     restart against the same chains).
+//!   * `manifest.json` — schema + `user_data` carrying [`BundleUserData`] (test metadata plus the
+//!     two raw chain specs the consumer needs to restart against the same chains).
 //!
 //! Uses the zombienet-sdk 0.4.13 snapshot API
 //! ([`Network::pause`] / [`NetworkNode::snapshot_db`] / [`BundleBuilder`])
@@ -175,7 +174,11 @@ fn payload_stats() -> Result<u64> {
 	Ok(total_payload_bytes)
 }
 
-fn read_chain_spec(base_dir: &std::path::Path, node: &str, file: &str) -> Result<serde_json::Value> {
+fn read_chain_spec(
+	base_dir: &std::path::Path,
+	node: &str,
+	file: &str,
+) -> Result<serde_json::Value> {
 	let path = base_dir.join(node).join("cfg").join(file);
 	let bytes = std::fs::read(&path)
 		.with_context(|| format!("Failed to read chain spec {}", path.display()))?;
@@ -251,8 +254,7 @@ async fn parachain_generate_databases() -> Result<()> {
 		.base_dir()
 		.ok_or_else(|| anyhow!("Failed to get network base directory"))?
 		.into();
-	let para_chain_spec =
-		read_chain_spec(&base_dir, "collator-1", &format!("{}.json", PARA_ID))?;
+	let para_chain_spec = read_chain_spec(&base_dir, "collator-1", &format!("{}.json", PARA_ID))?;
 	let relay_chain_spec = read_chain_spec(&base_dir, "alice", "westend-local.json")?;
 
 	let metadata = SnapshotMetadata {

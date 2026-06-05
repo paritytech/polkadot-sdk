@@ -28,7 +28,8 @@
 // limitations under the License.
 
 //! BlockImport wrapper that bitswap-fetches missing TRANSACTION-column entries before
-//! delegating to the inner block import. Tip-sync only; gap-sync and warp-sync pass through.
+//! delegating to the inner block import. Tip-sync and body-carrying gap-sync only; warp-sync and
+//! header-only gap-sync pass through.
 //!
 //! See `StorageChainBlockImport::classify_renew_hashes` for the Case A / B / C discovery
 //! dispatch.
@@ -69,11 +70,6 @@ pub struct StorageChainBlockImport<Block: BlockT, Inner, Client> {
 	inner: Inner,
 	client: Arc<Client>,
 	fetcher: IndexedTransactionFetcher<Block>,
-	/// Test-only flag: when `true`, `should_intercept` admits `BlockOrigin::GapSync`
-	/// blocks and the wrapper exercises its gap-sync dispatch path. In production
-	/// builds this field exists but is always read as `false` (see
-	/// `intercept_gap_sync_enabled`).
-	intercept_gap_sync: bool,
 	_phantom: PhantomData<Block>,
 }
 
@@ -83,7 +79,6 @@ impl<Block: BlockT, Inner: Clone, Client> Clone for StorageChainBlockImport<Bloc
 			inner: self.inner.clone(),
 			client: self.client.clone(),
 			fetcher: self.fetcher.clone(),
-			intercept_gap_sync: self.intercept_gap_sync,
 			_phantom: PhantomData,
 		}
 	}
@@ -95,16 +90,7 @@ impl<Block: BlockT, Inner, Client> StorageChainBlockImport<Block, Inner, Client>
 		client: Arc<Client>,
 		fetcher: IndexedTransactionFetcher<Block>,
 	) -> Self {
-		Self { inner, client, fetcher, intercept_gap_sync: false, _phantom: PhantomData }
-	}
-
-	/// Test-only: bypass the production origin filter so the wrapper intercepts
-	/// `BlockOrigin::GapSync` blocks. Used by gap-sync test cases while sync-layer
-	/// body fetching inside the pruning window is still pending. Has no effect on
-	/// production builds (which never reach this method).
-	#[cfg(any(test, feature = "test-helpers"))]
-	pub fn intercept_gap_sync_for_test(&mut self) {
-		self.intercept_gap_sync = true;
+		Self { inner, client, fetcher, _phantom: PhantomData }
 	}
 }
 
@@ -165,9 +151,8 @@ where
 		+ Sync,
 	Client::Api: TransactionStorageApi<Block> + Core<Block> + ApiExt<Block>,
 {
-	/// True iff the block needs bitswap prefetch (tip-only by default; gap-sync only
-	/// under the test-helpers override). Body must be present and the runtime must
-	/// expose `TransactionStorageApi v2+`.
+	/// True iff the block needs bitswap prefetch. Body must be present and the runtime
+	/// must expose `TransactionStorageApi v2+`.
 	fn should_intercept(&self, params: &BlockImportParams<Block>) -> bool {
 		if params.body.is_none() {
 			return false;
@@ -176,32 +161,15 @@ where
 			BlockOrigin::NetworkInitialSync |
 			BlockOrigin::NetworkBroadcast |
 			BlockOrigin::ConsensusBroadcast |
-			BlockOrigin::Own => {},
+			BlockOrigin::Own |
+			BlockOrigin::GapSync => {},
 			BlockOrigin::Genesis | BlockOrigin::File | BlockOrigin::WarpSync => return false,
-			BlockOrigin::GapSync => {
-				if !self.intercept_gap_sync_enabled() {
-					return false;
-				}
-			},
 		}
 		let parent_hash = *params.header.parent_hash();
 		self.client
 			.runtime_api()
 			.has_api_with::<dyn TransactionStorageApi<Block>, _>(parent_hash, |v| v >= 2)
 			.unwrap_or(false)
-	}
-
-	/// Reads the test-only `intercept_gap_sync` flag. In production builds this is
-	/// hard-wired to `false`; the field itself only carries meaning under
-	/// `cfg(any(test, feature = "test-helpers"))`.
-	#[cfg(any(test, feature = "test-helpers"))]
-	fn intercept_gap_sync_enabled(&self) -> bool {
-		self.intercept_gap_sync
-	}
-
-	#[cfg(not(any(test, feature = "test-helpers")))]
-	fn intercept_gap_sync_enabled(&self) -> bool {
-		false
 	}
 
 	/// Discovers renew hashes via Case A (incoming changes) or Case B (execute once).
@@ -268,8 +236,8 @@ where
 	/// `PrefetchedIndexedTransactions` carrier so the backend can populate the
 	/// `TRANSACTION` column without runtime execution.
 	///
-	/// Production gating: this is reachable only via `intercept_gap_sync_for_test`
-	/// (see `should_intercept`); `BlockOrigin::GapSync` is otherwise filtered out.
+	/// Non-archive nodes normally receive header-only gap-sync blocks; those pass through
+	/// because `should_intercept` requires a body.
 	async fn import_gap_sync_block(
 		&self,
 		mut params: BlockImportParams<Block>,

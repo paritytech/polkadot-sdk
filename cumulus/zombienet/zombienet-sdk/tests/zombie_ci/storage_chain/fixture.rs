@@ -77,8 +77,8 @@ pub struct ResolvedSnapshots {
 
 impl ResolvedSnapshots {
 	pub fn load() -> Result<Self> {
-		let bundle_location = std::env::var(BUNDLE_ENV)
-			.unwrap_or_else(|_| DEFAULT_BUNDLE_URL.to_string());
+		let bundle_location =
+			std::env::var(BUNDLE_ENV).unwrap_or_else(|_| DEFAULT_BUNDLE_URL.to_string());
 
 		let workdir = tempfile::Builder::new()
 			.prefix("storage-chain-bundle-")
@@ -108,11 +108,7 @@ impl ResolvedSnapshots {
 		let collator = extract_dir.join(PARA_DB_ARCHIVE);
 		let relay = extract_dir.join(RELAY_DB_ARCHIVE);
 		for (label, path) in [("collator", &collator), ("relay", &relay)] {
-			anyhow::ensure!(
-				path.is_file(),
-				"bundle missing {label} archive at {}",
-				path.display()
-			);
+			anyhow::ensure!(path.is_file(), "bundle missing {label} archive at {}", path.display());
 		}
 
 		let chain_spec = workdir.path().join("para-chain-spec.json");
@@ -159,8 +155,7 @@ fn download(url: &str, dst: &Path) -> Result<()> {
 fn write_json(path: &Path, value: &serde_json::Value) -> Result<()> {
 	let bytes = serde_json::to_vec(value)
 		.with_context(|| format!("Failed to serialise {}", path.display()))?;
-	std::fs::write(path, bytes)
-		.with_context(|| format!("Failed to write {}", path.display()))?;
+	std::fs::write(path, bytes).with_context(|| format!("Failed to write {}", path.display()))?;
 	Ok(())
 }
 

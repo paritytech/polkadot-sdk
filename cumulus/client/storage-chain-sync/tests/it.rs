@@ -25,25 +25,21 @@
 //! Case B requires a runtime API instance with executable overlay support and is covered by
 //! crate-level checks rather than this mock-only harness.
 
-use mock::{case_a_params, make_harness, params_with_origin, prefetched_attached, renew_op};
+use mock::{
+	case_a_params, gap_sync_params, make_gap_sync_harness, make_harness, params_with_origin,
+	prefetched_attached, renew_op,
+};
 use rstest::rstest;
-use sc_consensus::{BlockImport, ImportResult};
+use sc_consensus::{BlockImport, ImportResult, StateAction};
 use sp_consensus::BlockOrigin;
-use sp_runtime::OpaqueExtrinsic;
-use sp_transaction_storage_proof::{ContentHash, HashingAlgorithm, IndexedTransactionInfo};
-
-#[cfg(feature = "test-helpers")]
-use mock::{gap_sync_params, make_gap_sync_harness};
-#[cfg(feature = "test-helpers")]
-use sc_consensus::StateAction;
-#[cfg(feature = "test-helpers")]
 use sp_core::H256;
-#[cfg(feature = "test-helpers")]
+use sp_runtime::OpaqueExtrinsic;
 use sp_state_machine::IndexOperation;
+use sp_transaction_storage_proof::{ContentHash, HashingAlgorithm, IndexedTransactionInfo};
 
 #[rstest]
 #[case::warp_sync(BlockOrigin::WarpSync, None)]
-#[case::gap_sync(BlockOrigin::GapSync, Some(Vec::new()))]
+#[case::gap_sync_without_body(BlockOrigin::GapSync, None)]
 #[case::body_none(BlockOrigin::NetworkBroadcast, None)]
 #[tokio::test]
 async fn import_passes_through(
@@ -208,13 +204,9 @@ async fn import_case_b_executes_once_and_indexes_on_same_overlay() {
 	assert_eq!(prefetched.renew_payloads, expected);
 }
 
-// W13: gap-sync integration tests. The wrapper is opted into intercepting
-// `BlockOrigin::GapSync` only via the `test-helpers`-gated
-// `intercept_gap_sync_for_test()`; the regression test
-// `import_gap_sync_disabled_by_default_passes_through` guards the production gate.
-// Entire group requires `--features test-helpers`.
+// W13: gap-sync integration tests. Non-archive gap-sync blocks are header-only and pass through
+// via the body gate; archive/body-carrying gap-sync blocks exercise the synthetic-ops path.
 
-#[cfg(feature = "test-helpers")]
 #[tokio::test]
 async fn import_gap_sync_pure_renews_attaches_synthetic_renew_ops_and_payloads() {
 	let h = make_gap_sync_harness();
@@ -254,7 +246,6 @@ async fn import_gap_sync_pure_renews_attaches_synthetic_renew_ops_and_payloads()
 	assert_eq!(prefetched.renew_payloads.len(), 2);
 }
 
-#[cfg(feature = "test-helpers")]
 #[tokio::test]
 async fn import_gap_sync_pure_stores_attaches_synthetic_insert_ops_no_fetch() {
 	let h = make_gap_sync_harness();
@@ -292,7 +283,6 @@ async fn import_gap_sync_pure_stores_attaches_synthetic_insert_ops_no_fetch() {
 	assert_eq!(h.network.call_count(), 0, "fetcher must not be invoked for pure stores");
 }
 
-#[cfg(feature = "test-helpers")]
 #[tokio::test]
 async fn import_gap_sync_mixed_body_attaches_both_with_correct_split() {
 	let h = make_gap_sync_harness();
@@ -328,7 +318,6 @@ async fn import_gap_sync_mixed_body_attaches_both_with_correct_split() {
 	assert_eq!(prefetched.renew_payloads, expected);
 }
 
-#[cfg(feature = "test-helpers")]
 #[tokio::test]
 async fn import_gap_sync_state_action_remains_skip() {
 	let h = make_gap_sync_harness();
@@ -353,7 +342,6 @@ async fn import_gap_sync_state_action_remains_skip() {
 	);
 }
 
-#[cfg(feature = "test-helpers")]
 #[tokio::test]
 async fn import_gap_sync_below_retention_finalized_returns_empty_passes_through() {
 	let h = make_gap_sync_harness();
@@ -372,7 +360,6 @@ async fn import_gap_sync_below_retention_finalized_returns_empty_passes_through(
 	assert_eq!(h.network.call_count(), 0, "fetcher must not be invoked when API returns empty");
 }
 
-#[cfg(feature = "test-helpers")]
 #[tokio::test]
 async fn import_gap_sync_uses_finalized_hash_not_parent_hash() {
 	let h = make_gap_sync_harness();
@@ -404,7 +391,6 @@ async fn import_gap_sync_uses_finalized_hash_not_parent_hash() {
 	assert_ne!(observed_state, H256::zero(), "parent_hash sanity guard: must differ from probe");
 }
 
-#[cfg(feature = "test-helpers")]
 #[tokio::test]
 async fn import_gap_sync_filters_already_present_hashes() {
 	let h = make_gap_sync_harness();
@@ -440,7 +426,6 @@ async fn import_gap_sync_filters_already_present_hashes() {
 	assert_eq!(prefetched.renew_payloads, expected, "only the missing hash is in renew_payloads",);
 }
 
-#[cfg(feature = "test-helpers")]
 #[tokio::test]
 async fn import_gap_sync_fetcher_partial_failure_propagates_error() {
 	let h = make_gap_sync_harness();
@@ -463,17 +448,14 @@ async fn import_gap_sync_fetcher_partial_failure_propagates_error() {
 	assert!(h.captured.lock().unwrap().is_empty(), "no inner import on fetcher error");
 }
 
-#[cfg(feature = "test-helpers")]
 #[tokio::test]
-async fn import_gap_sync_disabled_by_default_passes_through() {
-	// Regression guard: without `intercept_gap_sync_for_test`, gap-sync blocks must
-	// short-circuit at `should_intercept`. The wrapper must NOT call the runtime API or
-	// the fetcher; the block must be forwarded unchanged.
+async fn import_gap_sync_without_body_passes_through() {
+	// Non-archive gap sync imports headers without bodies; those must short-circuit at
+	// `should_intercept` and be forwarded unchanged.
 	let h = make_harness();
 	h.api.set_finalized_hash(H256::from([0xFA; 32]));
 
-	let body = vec![OpaqueExtrinsic::from_blob(b"renew-call".to_vec())];
-	let params = params_with_origin(BlockOrigin::GapSync, 1, Some(body));
+	let params = params_with_origin(BlockOrigin::GapSync, 1, None);
 	let result = h.wrapper.import_block(params).await.expect("pass-through import");
 	assert!(matches!(result, ImportResult::Imported(_)));
 
@@ -481,7 +463,7 @@ async fn import_gap_sync_disabled_by_default_passes_through() {
 	assert_eq!(captured.len(), 1);
 	assert!(
 		!prefetched_attached(&captured[0]),
-		"production GapSync must short-circuit before any prefetch attach",
+		"header-only GapSync must short-circuit before any prefetch attach",
 	);
 	assert_eq!(h.api.call_api_at_count(), 0, "runtime API must not be invoked");
 	assert_eq!(h.network.call_count(), 0, "fetcher must not be invoked");
@@ -567,17 +549,14 @@ mod mock {
 			self.inner.lock().unwrap().overlay_marker_seen
 		}
 
-		#[cfg(feature = "test-helpers")]
 		pub(super) fn set_finalized_hash(&self, hash: H256) {
 			self.inner.lock().unwrap().finalized_hash = hash;
 		}
 
-		#[cfg(feature = "test-helpers")]
 		pub(super) fn last_indexed_transactions_state(&self) -> Option<H256> {
 			self.inner.lock().unwrap().last_indexed_transactions_state
 		}
 
-		#[cfg(feature = "test-helpers")]
 		pub(super) fn call_api_at_count(&self) -> usize {
 			self.inner.lock().unwrap().call_api_at_count
 		}
@@ -793,7 +772,6 @@ mod mock {
 			self.responses.lock().unwrap().insert(hash, data);
 		}
 
-		#[cfg(feature = "test-helpers")]
 		pub(super) fn call_count(&self) -> usize {
 			*self.call_count.lock().unwrap()
 		}
@@ -1255,7 +1233,6 @@ mod mock {
 	// State action defaults to `StateAction::Execute` per `BlockImportParams::new`, but
 	// the wrapper's gap-sync dispatch ignores it; the production sync layer translates
 	// `skip_execution=true` into `StateAction::Skip`, the wrapper preserves that.
-	#[cfg(feature = "test-helpers")]
 	pub(super) fn gap_sync_params(
 		number: u32,
 		body: Option<Vec<OpaqueExtrinsic>>,
@@ -1265,13 +1242,7 @@ mod mock {
 		params
 	}
 
-	// Builds a harness with `intercept_gap_sync_for_test` enabled, opting the wrapper
-	// into intercepting `BlockOrigin::GapSync` blocks. Only available because the crate
-	// is built with the `test-helpers` feature in dev-deps.
-	#[cfg(feature = "test-helpers")]
 	pub(super) fn make_gap_sync_harness() -> Harness {
-		let mut h = make_harness();
-		h.wrapper.intercept_gap_sync_for_test();
-		h
+		make_harness()
 	}
 }
