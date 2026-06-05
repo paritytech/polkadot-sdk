@@ -111,6 +111,22 @@ impl Metrics {
 		}
 	}
 
+	/// Note a reputation slash for an invalid collation reported by the backing subsystem.
+	pub fn on_slash_invalid_collation(&self, para_id: &ParaId) {
+		if let Some(metrics) = &self.0 {
+			let para_id = u32::from(*para_id).to_string();
+			metrics.slashes.with_label_values(&[para_id.as_str(), "invalid_collation"]).inc();
+		}
+	}
+
+	/// Note a reputation slash for a fetched collation that failed its sanity / validation checks.
+	pub fn on_slash_failed_fetch(&self, para_id: &ParaId) {
+		if let Some(metrics) = &self.0 {
+			let para_id = u32::from(*para_id).to_string();
+			metrics.slashes.with_label_values(&[para_id.as_str(), "failed_fetch"]).inc();
+		}
+	}
+
 	/// Note the number of paras this validator is currently assigned to back.
 	pub fn note_assigned_paras(&self, assigned: usize) {
 		if let Some(metrics) = &self.0 {
@@ -162,6 +178,7 @@ struct MetricsInner {
 	collator_peer_count: prometheus::Gauge<prometheus::U64>,
 	advertisements: prometheus::CounterVec<prometheus::U64>,
 	collations_seconded: prometheus::Counter<prometheus::U64>,
+	slashes: prometheus::CounterVec<prometheus::U64>,
 	assigned_paras: prometheus::Gauge<prometheus::U64>,
 	connected_collators: prometheus::GaugeVec<prometheus::U64>,
 	collation_request_duration: prometheus::Histogram,
@@ -223,6 +240,16 @@ impl metrics::Metrics for Metrics {
 				prometheus::Counter::new(
 					"polkadot_parachain_collator_protocol_validator_collations_seconded_total",
 					"Number of collations sent to the backing subsystem to be seconded.",
+				)?,
+				registry,
+			)?,
+			slashes: prometheus::register(
+				prometheus::CounterVec::new(
+					prometheus::Opts::new(
+						"polkadot_parachain_collator_protocol_validator_slashes_total",
+						"Number of collator reputation slashes, by para and reason.",
+					),
+					&["para_id", "reason"],
 				)?,
 				registry,
 			)?,
