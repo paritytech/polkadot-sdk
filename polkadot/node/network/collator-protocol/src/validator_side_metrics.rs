@@ -21,37 +21,37 @@ use std::collections::BTreeMap;
 /// A reputation score band — the `score_range` label of the `connected_collators` gauge.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ScoreBand {
-	/// Score 0 — below the instant-fetch threshold.
+	/// Score 0 — below `INSTANT_FETCH_REP_THRESHOLD`, so this collator cannot instant-fetch.
 	Zero,
-	/// New collator, which is above the threshold (score 0) but still has relatively low score.
-	Fresh,
-	/// Established collator.
-	Established,
-	/// Max score collator.
-	Max,
+	/// Above the instant-fetch threshold but still low score (1-99).
+	Low,
+	/// Medium score (100-999).
+	Medium,
+	/// High score (1000+, up to `MAX_SCORE`).
+	High,
 }
 
 impl ScoreBand {
 	/// All bands, so callers can emit an explicit value (including `0`) for every band.
-	const ALL: [ScoreBand; 4] = [Self::Zero, Self::Fresh, Self::Established, Self::Max];
+	const ALL: [ScoreBand; 4] = [Self::Zero, Self::Low, Self::Medium, Self::High];
 
-	/// Classify a reputation score to a band.
+	/// Classify a reputation score into a band.
 	pub fn classify(score: u16) -> Self {
 		match score {
 			0 => Self::Zero,
-			1..=99 => Self::Fresh,
-			100..=999 => Self::Established,
-			_ => Self::Max,
+			1..=99 => Self::Low,
+			100..=999 => Self::Medium,
+			_ => Self::High,
 		}
 	}
 
 	/// The `score_range` metric label for this band.
 	fn label(&self) -> &'static str {
 		match self {
-			Self::Zero => "zero",
-			Self::Fresh => "fresh",
-			Self::Established => "established",
-			Self::Max => "max-score",
+			Self::Zero => "0",
+			Self::Low => "1-99",
+			Self::Medium => "100-999",
+			Self::High => "1000+",
 		}
 	}
 }
@@ -303,7 +303,8 @@ impl metrics::Metrics for Metrics {
 				prometheus::GaugeVec::new(
 					prometheus::Opts::new(
 						"polkadot_parachain_collator_protocol_validator_connected_collators",
-						"Number of connected collators per para, by reputation score band.",
+						"Number of connected declared collators per para, by reputation score band \
+					 (`score_range` label). The `0` band is below the instant-fetch threshold.",
 					),
 					&["para_id", "score_range"],
 				)?,
