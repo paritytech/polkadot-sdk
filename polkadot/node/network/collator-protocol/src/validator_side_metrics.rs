@@ -90,18 +90,55 @@ impl Metrics {
 			.map(|metrics| metrics.collator_peer_count.set(collator_peers as u64));
 	}
 
-	/// Note an advertisement that passed triage and was accepted.
-	pub fn on_advertisement_accepted(&self) {
+	fn note_advertisement(&self, outcome: &'static str) {
 		if let Some(metrics) = &self.0 {
-			metrics.advertisements.with_label_values(&["accepted"]).inc();
+			metrics.advertisements.with_label_values(&[outcome]).inc();
 		}
 	}
 
-	/// Note an advertisement that was rejected during triage.
-	pub fn on_advertisement_rejected(&self) {
-		if let Some(metrics) = &self.0 {
-			metrics.advertisements.with_label_values(&["rejected"]).inc();
-		}
+	/// Note an advertisement that passed triage and was accepted.
+	pub fn on_advertisement_accepted(&self) {
+		self.note_advertisement("accepted");
+	}
+
+	/// Rejected: advertisement from a peer we are not connected to.
+	pub fn on_advertisement_rejected_unconnected_peer(&self) {
+		self.note_advertisement("unconnected_peer");
+	}
+
+	/// Rejected: peer advertised before declaring which para it collates for.
+	pub fn on_advertisement_rejected_undeclared_peer(&self) {
+		self.note_advertisement("undeclared_peer");
+	}
+
+	/// Rejected: duplicate advertisement.
+	pub fn on_advertisement_rejected_duplicate(&self) {
+		self.note_advertisement("duplicate");
+	}
+
+	/// Rejected: advertised scheduling parent is out of our view.
+	pub fn on_advertisement_rejected_out_of_view(&self) {
+		self.note_advertisement("out_of_view");
+	}
+
+	/// Rejected: peer reached its candidate limit (or para not schedulable from this SP).
+	pub fn on_advertisement_rejected_peer_limit_reached(&self) {
+		self.note_advertisement("peer_limit_reached");
+	}
+
+	/// Rejected: seconding not allowed by the backing subsystem.
+	pub fn on_advertisement_rejected_blocked_by_backing(&self) {
+		self.note_advertisement("blocked_by_backing");
+	}
+
+	/// Rejected: V1 advertisement for an implicit (non-leaf) relay parent.
+	pub fn on_advertisement_rejected_v1_for_implicit_parent(&self) {
+		self.note_advertisement("v1_for_implicit_parent");
+	}
+
+	/// Rejected: V3 descriptor's scheduling parent matches no expected scheduling parent.
+	pub fn on_advertisement_rejected_scheduling_parent_invalid(&self) {
+		self.note_advertisement("scheduling_parent_invalid");
 	}
 
 	/// Note that a collation was sent to the backing subsystem to be seconded.
@@ -259,7 +296,8 @@ impl metrics::Metrics for Metrics {
 				prometheus::CounterVec::new(
 					prometheus::Opts::new(
 						"polkadot_parachain_collator_protocol_validator_advertisements_total",
-						"Number of triaged collation advertisements, by outcome (accepted/rejected).",
+						"Number of triaged collation advertisements, by outcome: \"accepted\" or the \
+						 rejection reason.",
 					),
 					&["outcome"],
 				)?,
