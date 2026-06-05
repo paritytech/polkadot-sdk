@@ -383,7 +383,6 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>>
 	where
 		Net: NetworkBackend<Self::Block, Hash>,
-		sp_runtime::traits::NumberFor<Self::Block>: sp_runtime::traits::UniqueSaturatedInto<u64>,
 	{
 		let fut = async move {
 			let mut parachain_config = prepare_node_config(parachain_config);
@@ -718,7 +717,6 @@ pub(crate) trait DynNodeSpec: NodeCommandRunner {
 impl<T> DynNodeSpec for T
 where
 	T: NodeSpec + NodeCommandRunner,
-	sp_runtime::traits::NumberFor<T::Block>: sp_runtime::traits::UniqueSaturatedInto<u64>,
 {
 	fn start_dev_node(
 		self: Box<Self>,
