@@ -84,7 +84,7 @@ fn get_ledger_works() {
 
 #[test]
 fn get_ledger_bad_state_fails() {
-	ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
+	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
 		setup_double_bonded_ledgers();
 
 		// Case 1: double bonded but not corrupted:
@@ -122,6 +122,9 @@ fn get_ledger_bad_state_fails() {
 		// now, we are prevented from fetching the ledger by stash from 1. It's associated
 		// controller (2) is now bonding a ledger with a different stash (2, not 1).
 		assert!(StakingLedger::<Test>::get(StakingAccount::Stash(333)).is_err());
+
+		// Restore valid state so build_and_execute post-check passes.
+		cleanup_double_bonded_ledgers();
 	})
 }
 
@@ -238,7 +241,7 @@ fn set_controller_with_bad_state_ok() {
 
 #[test]
 fn set_controller_with_bad_state_fails() {
-	ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
+	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
 		setup_double_bonded_ledgers();
 
 		// setting the controller of ledger associated with stash 555 fails since its stash is a
@@ -246,6 +249,9 @@ fn set_controller_with_bad_state_fails() {
 		assert_noop!(Staking::set_controller(RuntimeOrigin::signed(555)), Error::<Test>::BadState);
 		assert_noop!(Staking::set_controller(RuntimeOrigin::signed(444)), Error::<Test>::BadState);
 		assert_ok!(Staking::set_controller(RuntimeOrigin::signed(333)));
+
+		// Restore valid state so build_and_execute post-check passes.
+		cleanup_double_bonded_ledgers();
 	})
 }
 
