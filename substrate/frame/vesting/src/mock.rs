@@ -48,7 +48,6 @@ parameter_types! {
 	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
 		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
 	pub static ExistentialDeposit: u64 = 1;
-	pub const VestingLockId: LockIdentifier = DEFAULT_VESTING_LOCK_ID;
 }
 impl Config for Test {
 	type BlockNumberToBalance = Identity;
@@ -59,7 +58,6 @@ impl Config for Test {
 	type WeightInfo = ();
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 	type BlockNumberProvider = System;
-	type LockId = VestingLockId;
 }
 
 pub struct ExtBuilder {

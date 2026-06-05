@@ -16,14 +16,6 @@ doc:
     - If a schedule with the same `starting_block` already exists it is merged rather than
       occupying an additional slot, preventing slot exhaustion within a bonding window.
     - Two new `WeightInfo` methods: `add_to_vesting_create` and `add_to_vesting_merge`.
-    - **FRAME instance support** (SRLabs finding #674): `pallet-vesting` now supports multiple
-      instances via the standard `I: 'static = ()` generic parameter. This is a **breaking
-      change**: every `impl pallet_vesting::Config` must now add `type LockId: Get<LockIdentifier>`
-      to select the currency lock key for that instance. Use
-      `pallet_vesting::DEFAULT_VESTING_LOCK_ID` (`*b"vesting "`) for the default instance.
-      The validator incentive vesting uses `Instance1` with lock id `*b"stkinctv"`, keeping
-      user vesting schedules and validator incentive schedules in fully separate storage
-      namespaces and under separate currency locks.
 
     ## Changes to `pallet-staking-async`
 
@@ -70,20 +62,6 @@ doc:
     No storage migration required. `VestingEpochStart` starts as `None`; incentive payouts
     are delivered as liquid transfers until the first bonding-duration boundary is crossed.
 
-    ## Upgrading existing `pallet-vesting` configs
-
-    One new associated type must be added to every `impl pallet_vesting::Config`:
-
-    ```rust
-    parameter_types! {
-        pub const VestingLockId: LockIdentifier = pallet_vesting::DEFAULT_VESTING_LOCK_ID;
-    }
-    impl pallet_vesting::Config for Runtime {
-        // ... existing items ...
-        type LockId = VestingLockId;
-    }
-    ```
-
     ## Upgrading existing `pallet-staking-async` configs
 
     Three new associated types must be added to every `impl pallet_staking_async::Config`:
@@ -94,12 +72,12 @@ doc:
     type VestingBlockNumberProvider = frame_system::Pallet<Runtime>;
     type ValidatorIncentivePayout = pallet_staking_async::LiquidIncentivePayout<Balances>;
 
-    // Enable vesting (using a dedicated Instance1 to prevent lock collision):
+    // Enable vesting:
     type VestingDuration = ValidatorIncentiveVestingDuration; // e.g. 365 * DAYS
     type VestingBlockNumberProvider = RelaychainDataProvider<Runtime>; // match pallet-vesting's clock
     type ValidatorIncentivePayout = pallet_staking_async::VestedIncentivePayout<
         Balances,
-        pallet_vesting::Pallet<Runtime, pallet_vesting::Instance1>,
+        pallet_vesting::Pallet<Runtime>,
     >;
     ```
 
@@ -107,7 +85,7 @@ crates:
 - name: pallet-staking-async
   bump: major
 - name: pallet-vesting
-  bump: major
+  bump: minor
 - name: frame-support
   bump: minor
 - name: pallet-staking-async-parachain-runtime

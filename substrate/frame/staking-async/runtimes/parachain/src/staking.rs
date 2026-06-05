@@ -23,12 +23,12 @@ use frame_support::traits::{ConstU128, EitherOf};
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking_async::UseValidatorsMap;
 use pallet_staking_async_rc_client as rc_client;
-use polkadot_runtime_common::{BalanceToU256, U256ToBalance, prod_or_fast};
+use polkadot_runtime_common::{prod_or_fast, BalanceToU256, U256ToBalance};
 use sp_core::Get;
 use sp_npos_elections::BalancingConfig;
 use sp_runtime::{
-	FixedPointNumber, FixedU128, SaturatedConversion, traits::Convert,
-	transaction_validity::TransactionPriority,
+	traits::Convert, transaction_validity::TransactionPriority, FixedPointNumber, FixedU128,
+	SaturatedConversion,
 };
 use xcm::latest::prelude::*;
 use xcm_executor::XcmExecutor as XcmExec;
@@ -470,7 +470,7 @@ impl pallet_staking_async::Config for Runtime {
 	type VestingBlockNumberProvider = RelayChainBlockNumberProvider;
 	type ValidatorIncentivePayout = pallet_staking_async::VestedIncentivePayout<
 		Balances,
-		pallet_vesting::Pallet<Runtime, pallet_vesting::Instance1>,
+		pallet_vesting::Pallet<Runtime>,
 	>;
 }
 
@@ -770,10 +770,7 @@ where
 mod tests {
 	use super::*;
 	use frame_election_provider_support::ElectionProvider;
-	use frame_support::{
-		traits::Contains,
-		weights::constants::{WEIGHT_PROOF_SIZE_PER_KB, WEIGHT_REF_TIME_PER_MILLIS},
-	};
+	use frame_support::weights::constants::{WEIGHT_PROOF_SIZE_PER_KB, WEIGHT_REF_TIME_PER_MILLIS};
 	use pallet_election_provider_multi_block::{
 		self as mb, signed::WeightInfo as _, unsigned::WeightInfo as _,
 	};
@@ -792,89 +789,6 @@ mod tests {
 			"proof_size: {:?}kb {:.4} of total",
 			op.proof_size() / WEIGHT_PROOF_SIZE_PER_KB,
 			op.proof_size() as f64 / block.proof_size() as f64
-		);
-	}
-
-	#[test]
-	fn validator_vesting_call_filter_blocks_vested_transfer() {
-		// Permisionless `vested_transfer` is not allowed on the ValidatorVesting instance.
-		let call = RuntimeCall::ValidatorVesting(pallet_vesting::Call::vested_transfer {
-			target: AccountId::from([42u8; 32]).into(),
-			schedule: pallet_vesting::VestingInfo::new(MinVestedTransfer::get(), 1, 0),
-		});
-		assert!(!ValidatorVestingCallFilter::contains(&call));
-	}
-
-	#[test]
-	fn validator_vesting_call_filter_allows_force_vested_transfer() {
-		// Since `force_vested_transfer` is root-only, it should always be accessible since
-		// it bypasses all filters.
-		let call = RuntimeCall::ValidatorVesting(pallet_vesting::Call::force_vested_transfer {
-			source: AccountId::from([1u8; 32]).into(),
-			target: AccountId::from([2u8; 32]).into(),
-			schedule: pallet_vesting::VestingInfo::new(MinVestedTransfer::get(), 1, 0),
-		});
-		assert!(ValidatorVestingCallFilter::contains(&call));
-	}
-
-	#[test]
-	fn validator_vesting_call_filter_allows_user_facing_calls() {
-		// We must keep `vest` and `vest_other` open so holders can unlock their funds.
-		assert!(ValidatorVestingCallFilter::contains(&RuntimeCall::ValidatorVesting(
-			pallet_vesting::Call::vest {}
-		)));
-		assert!(ValidatorVestingCallFilter::contains(&RuntimeCall::ValidatorVesting(
-			pallet_vesting::Call::vest_other { target: AccountId::from([1u8; 32]).into() }
-		)));
-		assert!(ValidatorVestingCallFilter::contains(&RuntimeCall::ValidatorVesting(
-			pallet_vesting::Call::merge_schedules { schedule1_index: 0, schedule2_index: 1 }
-		)));
-		// An unrelated pallet must also pass through.
-		assert!(ValidatorVestingCallFilter::contains(&RuntimeCall::Timestamp(
-			pallet_timestamp::Call::set { now: 0 }
-		)));
-	}
-
-	#[test]
-	fn add_to_vesting_works_bypassing_call_filter() {
-		// Since `add_to_vesting` is a plain internal Rust call (and not a dispatchable) it is
-		// always allowed as it does not go through filtering.
-		use frame_support::traits::tokens::VestedPayout;
-		sp_io::TestExternalities::default().execute_with(|| {
-			let source = AccountId::from([1u8; 32]);
-			let dest = AccountId::from([2u8; 32]);
-			let amount = MinVestedTransfer::get();
-
-			frame_support::assert_ok!(Balances::force_set_balance(
-				RuntimeOrigin::root(),
-				source.clone().into(),
-				amount + ExistentialDeposit::get(),
-			));
-
-			frame_support::assert_ok!(
-				<pallet_vesting::Pallet<Runtime, pallet_vesting::Instance1> as VestedPayout<
-					AccountId,
-					Balance,
-				>>::add_to_vesting(&source, &dest, amount, 20u32, 1u32,)
-			);
-
-			assert!(
-				pallet_vesting::Vesting::<Runtime, pallet_vesting::Instance1>::get(&dest).is_some()
-			);
-		});
-	}
-
-	#[test]
-	fn validator_vesting_call_filter_is_the_base_call_filter() {
-		// Verify that the runtime's BaseCallFilter is our filter, not `Everything`. This
-		// ensures the dispatchable-blocking is actually wired into the extrinsic pipeline.
-		let blocked = RuntimeCall::ValidatorVesting(pallet_vesting::Call::vested_transfer {
-			target: AccountId::from([0u8; 32]).into(),
-			schedule: pallet_vesting::VestingInfo::new(MinVestedTransfer::get(), 1, 0),
-		});
-		assert!(
-			!<Runtime as frame_system::Config>::BaseCallFilter::contains(&blocked),
-			"BaseCallFilter must block ValidatorVesting::vested_transfer"
 		);
 	}
 
