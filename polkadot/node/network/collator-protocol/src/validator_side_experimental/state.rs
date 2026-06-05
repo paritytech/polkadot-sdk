@@ -215,7 +215,7 @@ impl<B: Backend> State<B> {
 
 		// Refresh the per-para reputation score distribution metric
 		let mut score_distribution: BTreeMap<ParaId, BTreeMap<ScoreBand, u64>> = BTreeMap::new();
-		self.peer_manager.for_each_score(|para_id, score| {
+		self.peer_manager.for_each_declared_collator_score(|para_id, score| {
 			*score_distribution
 				.entry(para_id)
 				.or_default()
