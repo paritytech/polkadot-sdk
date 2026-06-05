@@ -438,7 +438,7 @@ impl StatementHandlerPrototype {
 
 		let network_event_stream = network.event_stream("statement-handler-network");
 		let peers_topology =
-			PeersTopology::new(network.local_peer_id(), true, PeersTopologyConfig::default());
+			PeersTopology::new(network.local_peer_id(), PeersTopologyConfig::default());
 
 		let handler = StatementHandler {
 			protocol_name: self.protocol_name,
@@ -731,7 +731,7 @@ where
 			network_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = Event> + Send>>)
 				.fuse(),
-			peers_topology: PeersTopology::new(local_peer, true, PeersTopologyConfig::default()),
+			peers_topology: PeersTopology::new(local_peer, PeersTopologyConfig::default()),
 			peers,
 			statement_store,
 			queue_sender,
@@ -826,7 +826,11 @@ where
 
 	fn handle_network_event(&mut self, event: Event) {
 		match event {
-			Event::PeerDiscovered(peer) => self.peers_topology.note_seen(peer),
+			Event::PeersDiscovered(peers) => {
+				for peer in peers {
+					self.peers_topology.note_seen(peer);
+				}
+			},
 			Event::PeerIdentified { peer, supported_protocols } => self
 				.peers_topology
 				.note_identified(peer, supported_protocols.contains(&self.protocol_name)),
@@ -1038,7 +1042,6 @@ where
 					return;
 				};
 				let is_light = peer_role.is_light();
-				let dht_eligible = protocol_version == PeerProtocolVersion::V2 && !is_light;
 				log::debug!(
 					target: LOG_TARGET,
 					"Peer {peer} connected with statement protocol {protocol_version:?}, role={peer_role:?}"
@@ -1064,7 +1067,8 @@ where
 					},
 				);
 				debug_assert!(_was_in.is_none());
-				self.peers_topology.on_peer_connected(peer, dht_eligible);
+				self.peers_topology
+					.on_peer_connected(peer, protocol_version == PeerProtocolVersion::V2);
 
 				self.metrics.as_ref().map(|metrics| {
 					if let Some(peer) = self.peers.get(&peer) {
@@ -2029,7 +2033,6 @@ mod tests {
 				.fuse(),
 			peers_topology: PeersTopology::new(
 				network.local_peer_id(),
-				true,
 				PeersTopologyConfig::default(),
 			),
 			peers,
@@ -2067,14 +2070,15 @@ mod tests {
 		let peer = PeerId::random();
 		let topic = [1; 32];
 
-		handler.handle_network_event(Event::PeerDiscovered(peer));
+		handler.handle_network_event(Event::PeersDiscovered(vec![peer]));
 		handler.handle_network_event(Event::PeerIdentified {
 			peer,
 			supported_protocols: std::iter::once(handler.protocol_name.clone()).collect(),
 		});
 
 		assert_eq!(handler.peers_topology.known_peers_count(), 1);
-		assert!(handler.peers_topology.closest_known(topic, 1).is_empty());
+		assert_eq!(handler.peers_topology.closest_known(topic, 1), vec![peer]);
+		assert!(handler.peers_topology.routing_targets(topic).is_empty());
 
 		handler
 			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
@@ -2085,14 +2089,14 @@ mod tests {
 			})
 			.await;
 
-		assert!(handler.peers_topology.is_connected(&peer));
+		assert_eq!(handler.peers_topology.routing_targets(topic), vec![peer]);
 		assert_eq!(handler.peers_topology.closest_known(topic, 1), vec![peer]);
 
 		handler
 			.handle_notification_event(NotificationEvent::NotificationStreamClosed { peer })
 			.await;
 
-		assert!(!handler.peers_topology.is_connected(&peer));
+		assert!(handler.peers_topology.routing_targets(topic).is_empty());
 	}
 
 	/// Simulate the network closing the substream for every disconnected
@@ -2307,7 +2311,6 @@ mod tests {
 				.fuse(),
 			peers_topology: PeersTopology::new(
 				network.local_peer_id(),
-				true,
 				PeersTopologyConfig::default(),
 			),
 			peers: HashMap::new(),
@@ -2358,7 +2361,6 @@ mod tests {
 				.fuse(),
 			peers_topology: PeersTopology::new(
 				network.local_peer_id(),
-				true,
 				PeersTopologyConfig::default(),
 			),
 			peers: HashMap::new(),
@@ -3783,7 +3785,6 @@ mod tests {
 				.fuse(),
 			peers_topology: PeersTopology::new(
 				network.local_peer_id(),
-				true,
 				PeersTopologyConfig::default(),
 			),
 			peers: HashMap::new(),
@@ -4146,7 +4147,6 @@ mod tests {
 				.fuse(),
 			peers_topology: PeersTopology::new(
 				network.local_peer_id(),
-				true,
 				PeersTopologyConfig::default(),
 			),
 			peers: HashMap::new(),
@@ -4219,7 +4219,6 @@ mod tests {
 				.fuse(),
 			peers_topology: PeersTopology::new(
 				network.local_peer_id(),
-				true,
 				PeersTopologyConfig::default(),
 			),
 			peers: HashMap::new(),
@@ -4304,7 +4303,6 @@ mod tests {
 				.fuse(),
 			peers_topology: PeersTopology::new(
 				network.local_peer_id(),
-				true,
 				PeersTopologyConfig::default(),
 			),
 			peers,
@@ -4411,11 +4409,7 @@ mod tests {
 					network_event_stream: (Box::pin(futures::stream::pending())
 						as Pin<Box<dyn Stream<Item = Event> + Send>>)
 						.fuse(),
-					peers_topology: PeersTopology::new(
-						local_peer,
-						true,
-						PeersTopologyConfig::default(),
-					),
+					peers_topology: PeersTopology::new(local_peer, PeersTopologyConfig::default()),
 					peers,
 					statement_store: Arc::new(TestStatementStore::new()),
 					queue_sender,

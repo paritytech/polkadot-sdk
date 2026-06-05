@@ -294,7 +294,7 @@ impl Metrics {
 			Event::Dht(_) => {
 				self.events_total.with_label_values(&["dht", "sent", name]).inc();
 			},
-			Event::PeerDiscovered(_) => {
+			Event::PeersDiscovered(_) => {
 				self.events_total.with_label_values(&["peer-discovered", "sent", name]).inc();
 			},
 			Event::PeerIdentified { .. } => {
@@ -328,7 +328,7 @@ impl Metrics {
 			Event::Dht(_) => {
 				self.events_total.with_label_values(&["dht", "received", name]).inc();
 			},
-			Event::PeerDiscovered(_) => {
+			Event::PeersDiscovered(_) => {
 				self.events_total
 					.with_label_values(&["peer-discovered", "received", name])
 					.inc();

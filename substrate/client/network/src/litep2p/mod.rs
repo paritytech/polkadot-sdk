@@ -815,10 +815,14 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 					}
 					Some(DiscoveryEvent::RoutingTableUpdate { peers }) => {
-						for peer in peers {
-							let peer = peer.into();
-							self.peerstore_handle.add_known_peer(peer);
-							self.event_streams.send(Event::PeerDiscovered(peer));
+						let peers = peers.into_iter().map(Into::into).collect::<Vec<_>>();
+
+						for peer in &peers {
+							self.peerstore_handle.add_known_peer(*peer);
+						}
+
+						if !peers.is_empty() {
+							self.event_streams.send(Event::PeersDiscovered(peers));
 						}
 					}
 					Some(DiscoveryEvent::FindNodeSuccess { query_id, target, peers }) => {

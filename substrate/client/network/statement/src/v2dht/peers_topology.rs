@@ -26,7 +26,7 @@ use std::{
 
 #[derive(Debug, Clone)]
 pub struct PeersTopologyConfig {
-	/// Number of DHT-eligible statement peers responsible for storing a topic.
+	/// Number of statement-protocol peers responsible for storing a topic.
 	pub replication_factor: NonZeroUsize,
 	/// Maximum number of DHT forwarding targets returned for one topic.
 	pub gossip_target: NonZeroUsize,
@@ -44,30 +44,15 @@ impl Default for PeersTopologyConfig {
 	}
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-enum ProtocolSupport {
-	#[default]
-	Unknown,
-	Supported,
-	Unsupported,
-}
-
-impl ProtocolSupport {
-	fn from_supported(supported: bool) -> Self {
-		if supported { Self::Supported } else { Self::Unsupported }
-	}
-}
-
 #[derive(Debug, Clone, Default)]
 struct PeerInfo {
-	statement_protocol: ProtocolSupport,
-	dht_eligible: bool,
+	supports_statement_protocol: bool,
 	connected: bool,
 }
 
 impl PeerInfo {
 	fn is_dht_candidate(&self) -> bool {
-		self.statement_protocol == ProtocolSupport::Supported && self.dht_eligible
+		self.supports_statement_protocol
 	}
 
 	fn is_connected_dht_candidate(&self) -> bool {
@@ -83,14 +68,13 @@ impl PeerInfo {
 #[derive(Debug, Clone)]
 pub struct PeersTopology {
 	local_peer: PeerId,
-	local_dht_eligible: bool,
 	config: PeersTopologyConfig,
 	peers: HashMap<PeerId, PeerInfo>,
 }
 
 impl PeersTopology {
-	pub fn new(local_peer: PeerId, local_dht_eligible: bool, config: PeersTopologyConfig) -> Self {
-		Self { local_peer, local_dht_eligible, config, peers: HashMap::new() }
+	pub fn new(local_peer: PeerId, config: PeersTopologyConfig) -> Self {
+		Self { local_peer, config, peers: HashMap::new() }
 	}
 
 	/// Record that discovery or a routing-table source saw `peer`.
@@ -107,30 +91,17 @@ impl PeersTopology {
 		}
 
 		let peer_info = self.peer_info(peer);
-		peer_info.statement_protocol = ProtocolSupport::from_supported(supports_statement_protocol);
-		if !supports_statement_protocol {
-			peer_info.dht_eligible = false;
-		}
-	}
-
-	/// Record whether `peer` may store and route statement DHT data.
-	pub fn note_dht_eligibility(&mut self, peer: PeerId, dht_eligible: bool) {
-		if peer == self.local_peer {
-			return;
-		}
-
-		self.peer_info(peer).dht_eligible = dht_eligible;
+		peer_info.supports_statement_protocol = supports_statement_protocol;
 	}
 
 	/// Record that the statement notification substream opened.
-	pub fn on_peer_connected(&mut self, peer: PeerId, dht_eligible: bool) {
+	pub fn on_peer_connected(&mut self, peer: PeerId, supports_statement_protocol: bool) {
 		if peer == self.local_peer {
 			return;
 		}
 
 		let peer_info = self.peer_info(peer);
-		peer_info.statement_protocol = ProtocolSupport::Supported;
-		peer_info.dht_eligible = dht_eligible;
+		peer_info.supports_statement_protocol = supports_statement_protocol;
 		peer_info.connected = true;
 	}
 
@@ -141,36 +112,18 @@ impl PeersTopology {
 		}
 	}
 
-	/// Remove all topology state for `peer`.
-	pub fn note_peer_removed(&mut self, peer: PeerId) {
-		self.peers.remove(&peer);
-	}
-
-	/// Connected statement-protocol peers, returned in deterministic order.
-	pub fn connected_peers(&self) -> impl Iterator<Item = PeerId> + '_ {
-		let mut peers = self
-			.peers
-			.iter()
-			.filter(|(_, peer_info)| peer_info.connected)
-			.map(|(peer, _)| *peer)
-			.collect::<Vec<_>>();
-		peers.sort();
-		peers.into_iter()
-	}
-
-	/// Returns whether `peer` currently has an open statement-protocol substream.
-	pub fn is_connected(&self, peer: &PeerId) -> bool {
+	fn is_connected(&self, peer: &PeerId) -> bool {
 		self.peers.get(peer).is_some_and(|peer_info| peer_info.connected)
 	}
 
-	/// Number of known remote peers, including non-DHT-eligible statement peers.
+	/// Number of known remote peers, including peers without confirmed statement-protocol support.
 	pub fn known_peers_count(&self) -> usize {
 		self.peers.len()
 	}
 
-	/// Closest known DHT-eligible statement peers for `topic`.
+	/// Closest known statement-protocol peers for `topic`.
 	///
-	/// "Closest" is computed over the locally learned DHT-eligible statement peers, not by querying
+	/// "Closest" is computed over the locally learned statement-protocol peers, not by querying
 	/// the network for the true global closest peers.
 	pub fn closest_known(&self, topic: TopicHash, n: usize) -> Vec<PeerId> {
 		let mut peers = self.dht_candidates().collect::<Vec<_>>();
@@ -181,10 +134,6 @@ impl PeersTopology {
 
 	/// Returns whether the local node is one of the closest DHT storage replicas for `topic`.
 	pub fn is_dht_affine(&self, topic: TopicHash) -> bool {
-		if !self.local_dht_eligible {
-			return false;
-		}
-
 		let mut candidates = self.dht_candidates().collect::<Vec<_>>();
 		candidates.push(self.local_peer);
 		candidates.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
@@ -194,12 +143,8 @@ impl PeersTopology {
 			.any(|peer| peer == self.local_peer)
 	}
 
-	/// Closest connected DHT-eligible statement peers for `topic`.
+	/// Closest connected statement-protocol peers for `topic`.
 	pub fn routing_targets(&self, topic: TopicHash) -> Vec<PeerId> {
-		if !self.local_dht_eligible {
-			return Vec::new();
-		}
-
 		let mut peers = self
 			.peers
 			.iter()
@@ -220,12 +165,12 @@ impl PeersTopology {
 
 		let pool_size =
 			self.config.replication_factor.get() * self.config.candidate_multiplier.get();
-		
+
 		let closest_pools = topics
 			.iter()
 			.map(|topic| self.closest_known(*topic, pool_size))
 			.collect::<Vec<_>>();
-		
+
 		let mut uncovered = closest_pools
 			.iter()
 			.enumerate()
@@ -233,7 +178,7 @@ impl PeersTopology {
 				(!pool.iter().any(|peer| self.is_connected(peer))).then_some(topic_idx)
 			})
 			.collect::<HashSet<_>>();
-		
+
 		let pools = closest_pools
 			.into_iter()
 			.map(|pool| {
@@ -242,7 +187,7 @@ impl PeersTopology {
 					.collect::<Vec<_>>()
 			})
 			.collect::<Vec<_>>();
-		
+
 		let mut selected = Vec::new();
 		let limit = topics.len() * self.config.candidate_multiplier.get();
 
@@ -351,7 +296,7 @@ mod tests {
 	}
 
 	fn topology(local_seed: u8) -> PeersTopology {
-		PeersTopology::new(peer(local_seed), true, config(2, 2))
+		PeersTopology::new(peer(local_seed), config(2, 2))
 	}
 
 	fn topic(seed: u8) -> TopicHash {
@@ -361,7 +306,6 @@ mod tests {
 	fn dht_peer(topology: &mut PeersTopology, peer: PeerId) {
 		topology.note_seen(peer);
 		topology.note_identified(peer, true);
-		topology.note_dht_eligibility(peer, true);
 	}
 
 	fn known_dht_peers(topology: &PeersTopology, topic: TopicHash) -> Vec<PeerId> {
@@ -373,39 +317,34 @@ mod tests {
 		let topology = topology(1);
 
 		assert_eq!(topology.known_peers_count(), 0);
-		assert_eq!(topology.connected_peers().count(), 0);
+		assert!(topology.routing_targets(topic(1)).is_empty());
 		assert!(!topology.is_connected(&peer(2)));
 	}
 
 	#[test]
-	fn lifecycle_mutators_are_idempotent_and_filter_dht_eligibility() {
+	fn lifecycle_mutators_are_idempotent_and_filter_protocol_support() {
 		let mut topology = topology(1);
-		let full = peer(2);
-		let light = peer(3);
+		let supported = peer(2);
+		let unsupported = peer(3);
 
-		dht_peer(&mut topology, full);
-		dht_peer(&mut topology, full);
-		topology.note_seen(light);
-		topology.note_identified(light, true);
-		topology.note_dht_eligibility(light, false);
-		topology.on_peer_connected(full, true);
-		topology.on_peer_connected(light, false);
+		dht_peer(&mut topology, supported);
+		dht_peer(&mut topology, supported);
+		topology.note_seen(unsupported);
+		topology.note_identified(unsupported, false);
+		topology.on_peer_connected(supported, true);
+		topology.on_peer_connected(unsupported, false);
 
 		assert_eq!(topology.known_peers_count(), 2);
-		assert!(topology.is_connected(&full));
-		assert!(topology.is_connected(&light));
-		assert_eq!(known_dht_peers(&topology, topic(9)), vec![full]);
+		assert!(topology.is_connected(&supported));
+		assert!(topology.is_connected(&unsupported));
+		assert_eq!(known_dht_peers(&topology, topic(9)), vec![supported]);
 
-		topology.note_identified(full, false);
+		topology.note_identified(supported, false);
 		assert!(known_dht_peers(&topology, topic(9)).is_empty());
 
-		topology.on_peer_disconnected(full);
-		assert!(!topology.is_connected(&full));
+		topology.on_peer_disconnected(supported);
+		assert!(!topology.is_connected(&supported));
 		assert_eq!(topology.known_peers_count(), 2);
-
-		topology.note_peer_removed(light);
-		assert_eq!(topology.known_peers_count(), 1);
-		assert!(!topology.is_connected(&light));
 	}
 
 	#[test]
@@ -427,15 +366,20 @@ mod tests {
 	}
 
 	#[test]
-	fn non_dht_local_node_is_never_affine_and_does_not_route() {
-		let mut topology = PeersTopology::new(peer(1), false, config(2, 2));
-		let remote = peer(2);
+	fn closest_known_returns_k_closest_peers_for_topic() {
+		let mut topology = topology(1);
+		let peers = (2..=20).map(peer).collect::<Vec<_>>();
+		let topic = topic(42);
 
-		dht_peer(&mut topology, remote);
-		topology.on_peer_connected(remote, true);
+		for peer in &peers {
+			dht_peer(&mut topology, *peer);
+		}
 
-		assert!(!topology.is_dht_affine(topic(1)));
-		assert!(topology.routing_targets(topic(1)).is_empty());
+		let mut expected = peers.clone();
+		expected.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
+		expected.truncate(5);
+
+		assert_eq!(topology.closest_known(topic, 5), expected);
 	}
 
 	#[test]

@@ -1630,7 +1630,7 @@ where
 			SwarmEvent::Behaviour(BehaviourOut::Discovered(peer_id)) => {
 				let peer = peer_id.into();
 				self.peer_store_handle.add_known_peer(peer);
-				self.event_streams.send(Event::PeerDiscovered(peer));
+				self.event_streams.send(Event::PeersDiscovered(vec![peer]));
 			},
 			SwarmEvent::Behaviour(BehaviourOut::RandomKademliaStarted) => {
 				if let Some(metrics) = self.metrics.as_ref() {
