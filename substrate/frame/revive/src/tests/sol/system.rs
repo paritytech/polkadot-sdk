@@ -392,8 +392,8 @@ fn origin_is_root_through_regular_call(fixture_type: FixtureType) {
 			.salt(Some([2u8; 32]))
 			.build_and_unwrap_contract();
 
-		let call_data = OriginIsRootFixture::callOriginIsRootCall { target: callee.0.into() }
-			.abi_encode();
+		let call_data =
+			OriginIsRootFixture::callOriginIsRootCall { target: callee.0.into() }.abi_encode();
 
 		let root_result = builder::bare_call(caller)
 			.origin(RuntimeOrigin::root())
@@ -483,8 +483,7 @@ fn caller_is_root_does_not_cross_regular_call(fixture_type: FixtureType) {
 			)
 			.build_and_unwrap_result();
 		assert!(
-			!OriginIsRootFixture::callCallerIsRootCall::abi_decode_returns(&indirect.data)
-				.unwrap(),
+			!OriginIsRootFixture::callCallerIsRootCall::abi_decode_returns(&indirect.data).unwrap(),
 		);
 	});
 }
