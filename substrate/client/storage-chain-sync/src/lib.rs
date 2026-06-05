@@ -46,7 +46,6 @@ use sc_consensus::{
 	BlockCheckParams, BlockImport, BlockImportParams, ImportResult, StateAction,
 	StorageChanges as ConsensusStorageChanges,
 };
-use sc_network::bitswap::RAW_CODEC;
 use sp_api::{
 	ApiExt, CallApiAt, CallContext, Core, ProofRecorder, ProvideRuntimeApi, TransactionOutcome,
 };
@@ -440,9 +439,7 @@ fn verified_renews_from_index_ops(
 				format!("{context}: runtime API missing metadata for renew hash {hash:?}").into(),
 			)
 		})?;
-		if info.cid_codec == RAW_CODEC {
-			renews.insert((hash, info.hashing));
-		}
+		renews.insert((hash, info.hashing));
 	}
 	Ok(renews)
 }
@@ -514,11 +511,10 @@ fn body_classify_to_ops<Block: BlockT>(
 /// Returns runtime-declared renew (hash, hashing) pairs whose bytes are not in the body.
 /// These entries must be fetched from elsewhere.
 ///
-/// Filters out non-RAW codec entries (not bitswap-fetchable). Pure; no side effects.
-/// Thin wrapper around `body_classify_to_ops` that discards the ops vec. Currently used
-/// only by the regression test that verifies the delegate; kept available behind
-/// `#[cfg(test)]` so that delegation remains a tested invariant if a future caller
-/// needs the renew-only shape again.
+/// Pure; no side effects. Thin wrapper around `body_classify_to_ops` that discards the
+/// ops vec. Currently used only by the regression test that verifies the delegate; kept
+/// available behind `#[cfg(test)]` so that delegation remains a tested invariant if a
+/// future caller needs the renew-only shape again.
 #[cfg(test)]
 fn body_classify_renews<Block: BlockT>(
 	infos: &[IndexedTransactionInfo],
@@ -537,6 +533,7 @@ impl From<FetchError> for ConsensusError {
 mod tests {
 	use super::*;
 	use codec::Encode;
+	use sc_network::bitswap::RAW_CODEC;
 	use sp_runtime::{generic, traits::BlakeTwo256, OpaqueExtrinsic};
 	use std::collections::HashSet;
 
@@ -581,7 +578,7 @@ mod tests {
 	}
 
 	#[test]
-	fn body_classify_renews_filters_unsupported_non_raw_codec() {
+	fn body_classify_renews_accepts_non_raw_codec() {
 		let body = vec![extrinsic(&[4, 5, 6])];
 		let infos = vec![info(
 			[9; 32],
@@ -591,7 +588,10 @@ mod tests {
 			0,
 		)];
 
-		assert!(body_classify_renews::<Block>(&infos, &body).is_empty());
+		assert_eq!(
+			body_classify_renews::<Block>(&infos, &body),
+			HashSet::from([([9; 32], HashingAlgorithm::Blake2b256)]),
+		);
 	}
 
 	#[test]
@@ -841,15 +841,16 @@ mod tests {
 	}
 
 	#[test]
-	fn body_classify_to_ops_skips_non_raw_codec() {
+	fn body_classify_to_ops_accepts_non_raw_codec() {
 		let body = vec![extrinsic(&[0xCC])];
 		let encoded_len = body[0].encode().len() as u32;
 		let infos = vec![info([0x33; 32], encoded_len, HashingAlgorithm::Blake2b256, 0x70, 0)];
 
 		let (ops, renew_wants) = body_classify_to_ops::<Block>(&infos, &body);
 
-		assert!(ops.is_empty(), "non-RAW codec must be skipped");
-		assert!(renew_wants.is_empty(), "non-RAW codec must not request a fetch");
+		assert_eq!(ops.len(), 1, "non-RAW codec must still be classified");
+		assert!(matches!(ops[0], IndexOperation::Renew { .. }));
+		assert_eq!(renew_wants, HashSet::from([([0x33; 32], HashingAlgorithm::Blake2b256)]));
 	}
 
 	#[test]
