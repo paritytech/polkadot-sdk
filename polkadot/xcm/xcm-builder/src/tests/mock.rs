@@ -40,6 +40,7 @@ pub use frame_support::{
 	sp_runtime::{traits::Dispatchable, DispatchError, DispatchErrorWithPostInfo},
 	traits::{Contains, Get, IsInVec},
 };
+use sp_weights::constants::{WEIGHT_PROOF_SIZE_PER_MB, WEIGHT_REF_TIME_PER_SECOND};
 pub use xcm::latest::{prelude::*, QueryId, Weight};
 pub use xcm_executor::{
 	traits::{
@@ -103,19 +104,19 @@ impl Dispatchable for TestCall {
 	fn dispatch(self, origin: Self::RuntimeOrigin) -> DispatchResultWithPostInfo {
 		let mut post_info = PostDispatchInfo::default();
 		let maybe_actual = match self {
-			TestCall::OnlyRoot(_, maybe_actual) |
-			TestCall::OnlySigned(_, maybe_actual, _) |
-			TestCall::OnlyParachain(_, maybe_actual, _) |
-			TestCall::Any(_, maybe_actual) => maybe_actual,
+			TestCall::OnlyRoot(_, maybe_actual)
+			| TestCall::OnlySigned(_, maybe_actual, _)
+			| TestCall::OnlyParachain(_, maybe_actual, _)
+			| TestCall::Any(_, maybe_actual) => maybe_actual,
 		};
 		post_info.actual_weight = maybe_actual;
 		if match (&origin, &self) {
 			(TestOrigin::Parachain(i), TestCall::OnlyParachain(_, _, Some(j))) => i == j,
 			(TestOrigin::Signed(i), TestCall::OnlySigned(_, _, Some(j))) => i == j,
-			(TestOrigin::Root, TestCall::OnlyRoot(..)) |
-			(TestOrigin::Parachain(_), TestCall::OnlyParachain(_, _, None)) |
-			(TestOrigin::Signed(_), TestCall::OnlySigned(_, _, None)) |
-			(_, TestCall::Any(..)) => true,
+			(TestOrigin::Root, TestCall::OnlyRoot(..))
+			| (TestOrigin::Parachain(_), TestCall::OnlyParachain(_, _, None))
+			| (TestOrigin::Signed(_), TestCall::OnlySigned(_, _, None))
+			| (_, TestCall::Any(..)) => true,
 			_ => false,
 		} {
 			Ok(post_info)
@@ -128,10 +129,10 @@ impl Dispatchable for TestCall {
 impl GetDispatchInfo for TestCall {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		let call_weight = *match self {
-			TestCall::OnlyRoot(estimate, ..) |
-			TestCall::OnlyParachain(estimate, ..) |
-			TestCall::OnlySigned(estimate, ..) |
-			TestCall::Any(estimate, ..) => estimate,
+			TestCall::OnlyRoot(estimate, ..)
+			| TestCall::OnlyParachain(estimate, ..)
+			| TestCall::OnlySigned(estimate, ..)
+			| TestCall::Any(estimate, ..) => estimate,
 		};
 		DispatchInfo { call_weight, ..Default::default() }
 	}
@@ -612,7 +613,7 @@ parameter_types! {
 	// 1_000_000_000_000 => 1 unit of asset for 1 unit of ref time weight.
 	// 1024 * 1024 => 1 unit of asset for 1 unit of proof size weight.
 	pub static WeightPrice: (AssetId, u128, u128) =
-		(From::from(Here), 1_000_000_000_000, 1024 * 1024);
+		(From::from(Here), WEIGHT_REF_TIME_PER_SECOND.into(), WEIGHT_PROOF_SIZE_PER_MB.into());
 	pub static MaxInstructions: u32 = 100;
 }
 
@@ -777,15 +778,15 @@ impl AssetLock for TestAssetLock {
 		let owner_assets = assets(owner.clone());
 		let has_asset = match &asset.fun {
 			Fungibility::Fungible(amount) => owner_assets.iter().any(|a| {
-				a.id == asset.id &&
-					match a.fun {
+				a.id == asset.id
+					&& match a.fun {
 						Fungibility::Fungible(have) => have >= *amount,
 						_ => false,
 					}
 			}),
 			Fungibility::NonFungible(instance) => owner_assets.iter().any(|a| {
-				a.id == asset.id &&
-					match &a.fun {
+				a.id == asset.id
+					&& match &a.fun {
 						Fungibility::NonFungible(have_instance) => have_instance == instance,
 						_ => false,
 					}
@@ -854,8 +855,8 @@ impl AssetExchange for TestAssetExchange {
 		let want_vec: Vec<Asset> = want.clone().into_inner();
 		for want_asset in &want_vec {
 			let found = have_vec.iter().any(|a| {
-				a.id == want_asset.id &&
-					match (&a.fun, &want_asset.fun) {
+				a.id == want_asset.id
+					&& match (&a.fun, &want_asset.fun) {
 						(Fungibility::Fungible(have_amt), Fungibility::Fungible(want_amt)) => {
 							have_amt >= want_amt
 						},
@@ -908,8 +909,8 @@ impl AssetExchange for TestAssetExchange {
 					Fungibility::NonFungible(instance) => {
 						// Remove the exact non-fungible
 						have_vec.retain(|a| {
-							!(a.id == get_asset.id &&
-								matches!(&a.fun, Fungibility::NonFungible(inst) if inst == instance))
+							!(a.id == get_asset.id
+								&& matches!(&a.fun, Fungibility::NonFungible(inst) if inst == instance))
 						});
 					},
 				}
@@ -953,8 +954,8 @@ impl AssetExchange for TestAssetExchange {
 		// Check if we have what they want
 		for want_asset in &want_vec {
 			let found = have_vec.iter().any(|a| {
-				a.id == want_asset.id &&
-					match (&a.fun, &want_asset.fun) {
+				a.id == want_asset.id
+					&& match (&a.fun, &want_asset.fun) {
 						(Fungibility::Fungible(have_amt), Fungibility::Fungible(want_amt)) => {
 							have_amt >= want_amt
 						},
