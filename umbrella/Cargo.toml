@@ -923,6 +923,7 @@ node = [
 	"polkadot-erasure-coding",
 	"polkadot-gossip-support",
 	"polkadot-network-bridge",
+	"polkadot-node-clock",
 	"polkadot-node-collation-generation",
 	"polkadot-node-core-approval-voting",
 	"polkadot-node-core-approval-voting-parallel",
@@ -2459,6 +2460,11 @@ path = "../polkadot/node/network/gossip-support"
 default-features = false
 optional = true
 path = "../polkadot/node/network/bridge"
+
+[dependencies.polkadot-node-clock]
+default-features = false
+optional = true
+path = "../polkadot/node/clock"
 
 [dependencies.polkadot-node-collation-generation]
 default-features = false

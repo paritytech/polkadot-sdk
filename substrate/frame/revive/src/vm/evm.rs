@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	AccountIdOf, CodeInfo, Config, ContractBlob, DispatchError, Error, H256, LOG_TARGET, Weight,
+	AccountIdOf, BalanceOf, CodeInfo, Config, ContractBlob, DispatchError, Error, H256, LOG_TARGET,
+	Weight,
 	debug::DebugSettings,
 	precompiles::Token,
 	tracing,
@@ -99,6 +100,24 @@ impl<T: Config> ContractBlob<T> {
 		code: Vec<u8>,
 		owner: AccountIdOf<T>,
 	) -> Result<Self, DispatchError> {
+		let code_len = code.len() as u32;
+		let deposit = super::calculate_code_deposit::<T>(code_len);
+		Self::from_evm_runtime_code_with_deposit(code, owner, deposit)
+	}
+
+	/// Create a new contract from EVM runtime code with an explicit owner and
+	/// deposit amount.
+	///
+	/// Used for `Origin::Root` uploads: there is no origin account to attribute
+	/// the deposit to, so the caller passes the pallet's own account as a
+	/// sentinel owner (no user can sign as it, so the code can't be removed via
+	/// the owner-gated path) and a zero deposit (both `charge_deposit` and
+	/// `refund_deposit` short-circuit at amount 0).
+	pub fn from_evm_runtime_code_with_deposit(
+		code: Vec<u8>,
+		owner: AccountIdOf<T>,
+		deposit: BalanceOf<T>,
+	) -> Result<Self, DispatchError> {
 		if code.len() > revm::primitives::eip170::MAX_CODE_SIZE &&
 			!DebugSettings::is_unlimited_contract_size_allowed::<T>()
 		{
@@ -106,7 +125,6 @@ impl<T: Config> ContractBlob<T> {
 		}
 
 		let code_len = code.len() as u32;
-		let deposit = super::calculate_code_deposit::<T>(code_len);
 
 		let code_info = CodeInfo {
 			owner,
