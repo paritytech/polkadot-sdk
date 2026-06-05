@@ -130,7 +130,7 @@ where
 
 		let renews = self.classify_renew_hashes(&mut params)?;
 		let missing = self.filter_missing(renews);
-		let FetchedRenews { payload } = self.fetch_all(missing).await?;
+		let payload = self.fetch_all(missing).await?;
 		Self::attach_prefetched(&mut params, payload);
 
 		let result = self.inner.import_block(params).await?;
@@ -246,28 +246,32 @@ where
 		let block_number = *params.header.number();
 		let finalized_hash = self.client.info().finalized_hash;
 
-		let infos = self.indexed_transactions_at_finalized(block_number)?;
+		let infos = self
+			.client
+			.runtime_api()
+			.indexed_transactions(finalized_hash, block_number)
+			.map_err(|e| ConsensusError::Other(format!("indexed_transactions: {e}").into()))?;
 		let infos_len = infos.len();
 		let body = params.body.as_ref().ok_or_else(|| {
 			ConsensusError::Other("StorageChainBlockImport: gap-sync body absent after gate".into())
 		})?;
-		let (synthetic_ops, renew_wants) = body_classify_to_ops::<Block>(&infos, body);
+		let (index_operations, renew_wants) = body_classify_to_ops::<Block>(&infos, body);
 
 		let missing = self.filter_missing(renew_wants);
-		let FetchedRenews { payload } = self.fetch_all(missing).await?;
+		let payload = self.fetch_all(missing).await?;
 
-		if !synthetic_ops.is_empty() || !payload.is_empty() {
+		if !index_operations.is_empty() || !payload.is_empty() {
 			log::info!(
 				target: LOG_TARGET,
 				"gap-sync block #{block_number:?} ({parent_hash:?}, finalized={finalized_hash:?}): \
 				 {infos_len} indexed entries, {} synthetic ops, {} renew payloads",
-				synthetic_ops.len(),
+				index_operations.len(),
 				payload.len(),
 			);
 		}
 
 		params.prefetched_indexed_transactions = PrefetchedIndexedTransactions {
-			ops: synthetic_ops,
+			ops: index_operations,
 			renew_payloads: payload.into_iter().map(|(h, b)| (sp_core::H256::from(h), b)).collect(),
 		};
 
@@ -291,9 +295,9 @@ where
 	async fn fetch_all(
 		&self,
 		missing: HashSet<(ContentHash, HashingAlgorithm)>,
-	) -> Result<FetchedRenews, ConsensusError> {
+	) -> Result<Vec<(ContentHash, Vec<u8>)>, ConsensusError> {
 		if missing.is_empty() {
-			return Ok(FetchedRenews::default());
+			return Ok(Vec::new());
 		}
 
 		let wants: Vec<(ContentHash, HashingAlgorithm)> = missing.into_iter().collect();
@@ -318,7 +322,7 @@ where
 			})
 			.collect();
 
-		Ok(FetchedRenews { payload })
+		Ok(payload)
 	}
 
 	/// Attach prefetched `(content_hash, bytes)` pairs to
@@ -344,22 +348,6 @@ where
 			ops: Vec::new(),
 			renew_payloads: fetched.into_iter().map(|(h, b)| (sp_core::H256::from(h), b)).collect(),
 		};
-	}
-
-	/// Query `TransactionStorageApi::indexed_transactions` at the latest finalized
-	/// state (post-warp). Used by the gap-sync dispatch to discover indexed metadata
-	/// for a historical block whose `Transactions::<T>::insert(block_number, _)`
-	/// was committed during that block's own `on_finalize` and is now visible at any
-	/// finalized descendant's state (within the retention window).
-	fn indexed_transactions_at_finalized(
-		&self,
-		block_number: sp_runtime::traits::NumberFor<Block>,
-	) -> Result<Vec<IndexedTransactionInfo>, ConsensusError> {
-		let finalized_hash = self.client.info().finalized_hash;
-		self.client
-			.runtime_api()
-			.indexed_transactions(finalized_hash, block_number)
-			.map_err(|e| ConsensusError::Other(format!("indexed_transactions: {e}").into()))
 	}
 
 	/// Query `TransactionStorageApi::indexed_transactions(block_number)` against the
@@ -474,12 +462,6 @@ fn overlay_from_storage_changes<Block: BlockT>(
 	overlay
 }
 
-/// Result of [`StorageChainBlockImport::fetch_all`]: the fetched payload bytes.
-#[derive(Default)]
-struct FetchedRenews {
-	payload: Vec<(ContentHash, Vec<u8>)>,
-}
-
 /// Classifies every fetchable `IndexedTransactionInfo` entry against the block body.
 ///
 /// For each `info` whose tail bytes (`body[info.extrinsic_index][len - info.size..]`)
@@ -487,10 +469,6 @@ struct FetchedRenews {
 /// `IndexOperation::Insert` (data is local to the body, no fetch needed). For each
 /// remaining fetchable entry, emits an `IndexOperation::Renew` and adds the
 /// `(content_hash, hashing)` pair to the renew-fetch set.
-///
-/// Entries with `info.cid_codec != RAW_CODEC` or `info.extrinsic_index == u32::MAX`
-/// are skipped entirely (not bitswap-fetchable; upstream `pallet-transaction-storage`
-/// returns `u32::MAX`, only bulletin-chain-style pallets populate a real index).
 ///
 /// Pure; no side effects. The fetch set is what the wrapper bitswap-fetches; the ops
 /// vec is what the wrapper hands to the backend via
@@ -501,13 +479,13 @@ fn body_classify_to_ops<Block: BlockT>(
 ) -> (Vec<IndexOperation>, HashSet<(ContentHash, HashingAlgorithm)>) {
 	let mut ops = Vec::new();
 	let mut renew_wants = HashSet::new();
-	let is_fetchable = |info: &IndexedTransactionInfo| {
-		info.cid_codec == RAW_CODEC && info.extrinsic_index != u32::MAX
-	};
 
-	for info in infos.iter().filter(|info| is_fetchable(info)) {
+	for info in infos {
 		let extrinsic_index = info.extrinsic_index;
-		let Some(ext) = body.get(extrinsic_index as usize) else { continue };
+		let Some(ext) = body.get(extrinsic_index as usize) else {
+			log::error!(target: LOG_TARGET, "Unable to fetch extrinsic.");
+			continue;
+		};
 		let encoded = ext.encode();
 		let size = info.size as usize;
 		let matches_tail = encoded.len() >= size && {
