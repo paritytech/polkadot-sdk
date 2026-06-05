@@ -34,8 +34,6 @@ pub use tokens::{
 };
 
 mod members;
-#[allow(deprecated)]
-pub use members::{AllowAll, DenyAll, Filter};
 pub use members::{
 	AsContains, ChangeMembers, Contains, ContainsLengthBound, ContainsPair, Equals, Everything,
 	EverythingBut, FromContains, FromContainsPair, InitializeMembers, InsideBoth, IsInVec, Nothing,
