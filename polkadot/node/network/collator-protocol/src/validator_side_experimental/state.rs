@@ -386,6 +386,7 @@ impl<B: Backend> State<B> {
 				);
 
 				if let Some(slash) = maybe_slash {
+					self.metrics.on_slash_failed_fetch(&reject_info.para_id);
 					self.peer_manager
 						.slash_reputation(&reject_info.peer_id, &reject_info.para_id, slash)
 						.await;
@@ -452,6 +453,7 @@ impl<B: Backend> State<B> {
 			"Invalid collation reported, slashing peer reputation",
 		);
 
+		self.metrics.on_slash_invalid_collation(&receipt.descriptor.para_id());
 		self.peer_manager
 			.slash_reputation(&peer_id, &receipt.descriptor.para_id(), INVALID_COLLATION_SLASH)
 			.await;
@@ -637,6 +639,7 @@ impl<B: Backend> State<B> {
 					);
 
 					if let Some(slash) = maybe_slash {
+						self.metrics.on_slash_failed_fetch(&reject_info.para_id);
 						self.peer_manager
 							.slash_reputation(&reject_info.peer_id, &reject_info.para_id, slash)
 							.await;
