@@ -185,11 +185,19 @@ impl ConnectedPeers {
 		self.peer_info.get(&peer_id)
 	}
 
-	/// Visit the score of every connected peer, grouped by the para they're tracked under.
-	pub fn for_each_score(&self, mut f: impl FnMut(ParaId, Score)) {
+	/// Visit the score of every *declared* collator, grouped by the para it collates for.
+	///
+	/// Undeclared (`PeerState::Connected`) peers reserve a slot in every assigned para until they
+	/// declare, so skip them here to avoid multi-counting one peer across paras.
+	pub fn for_each_declared_collator_score(&self, mut f: impl FnMut(ParaId, Score)) {
 		for (para_id, per_para) in &self.per_para {
-			for score in per_para.per_peer_score.values() {
-				f(*para_id, *score);
+			for (peer_id, score) in &per_para.per_peer_score {
+				if matches!(
+					self.peer_info.get(peer_id).map(|info| &info.state),
+					Some(PeerState::Collating(declared)) if declared == para_id
+				) {
+					f(*para_id, *score);
+				}
 			}
 		}
 	}
