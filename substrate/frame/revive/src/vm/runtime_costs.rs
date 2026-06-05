@@ -381,3 +381,54 @@ impl<T: Config> Token<T> for RuntimeCosts {
 		}
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::tests::Test;
+
+	#[test]
+	fn cold_hot_pricing_cold_is_strictly_more_expensive_than_hot() {
+		let len = 64u32;
+		let cold = StorageAccessKind::Persistent(Warmth::Cold { revertible: false });
+		let cold_revertible = StorageAccessKind::Persistent(Warmth::Cold { revertible: true });
+		let hot = StorageAccessKind::Persistent(Warmth::Hot);
+
+		let with_kind = |kind: StorageAccessKind| -> Vec<RuntimeCosts> {
+			vec![
+				RuntimeCosts::GetStorage { len, kind },
+				RuntimeCosts::SetStorage { new_bytes: len, old_bytes: len, kind },
+				RuntimeCosts::ClearStorage { len, kind },
+				RuntimeCosts::ContainsStorage { len, kind },
+				RuntimeCosts::TakeStorage { len, kind },
+			]
+		};
+
+		for (cold_cost, hot_cost) in with_kind(cold).into_iter().zip(with_kind(hot)) {
+			let cold_weight = <RuntimeCosts as Token<Test>>::weight(&cold_cost);
+			let hot_weight = <RuntimeCosts as Token<Test>>::weight(&hot_cost);
+			assert!(
+				cold_weight.ref_time() > hot_weight.ref_time(),
+				"expected cold > hot ref_time for {cold_cost:?}: cold={cold_weight:?} hot={hot_weight:?}",
+			);
+			assert_eq!(hot_weight.proof_size(), 0, "hot proof_size {hot_cost:?}: {hot_weight:?}");
+			assert!(cold_weight.proof_size() > 0, "cold proof_size {cold_cost:?}: {cold_weight:?}",);
+		}
+
+		for (rev_cost, non_rev_cost) in with_kind(cold_revertible).into_iter().zip(with_kind(cold))
+		{
+			let rev_weight = <RuntimeCosts as Token<Test>>::weight(&rev_cost);
+			let non_rev_weight = <RuntimeCosts as Token<Test>>::weight(&non_rev_cost);
+			assert!(
+				rev_weight.ref_time() > non_rev_weight.ref_time(),
+				"expected revertible > non-revertible ref_time for {rev_cost:?}: \
+				 rev={rev_weight:?} non={non_rev_weight:?}",
+			);
+			assert_eq!(
+				rev_weight.proof_size(),
+				non_rev_weight.proof_size(),
+				"proof_size differs {rev_cost:?}: rev={rev_weight:?} non={non_rev_weight:?}",
+			);
+		}
+	}
+}
