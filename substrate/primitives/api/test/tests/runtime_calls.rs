@@ -281,9 +281,9 @@ fn ensure_transactional_works() {
 
 #[test]
 fn set_overlayed_changes_is_observed_by_typed_call() {
-	let system_number_key: Vec<u8> = sp_core::hashing::twox_128(b"System")
+	let system_number_key: Vec<u8> = sp_crypto_hashing::twox_128(b"System")
 		.iter()
-		.chain(sp_core::hashing::twox_128(b"Number").iter())
+		.chain(sp_crypto_hashing::twox_128(b"Number").iter())
 		.copied()
 		.collect();
 
