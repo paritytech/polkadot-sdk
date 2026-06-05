@@ -49,6 +49,7 @@ statement-store-subxt-signer = { package = "subxt-signer", version = "0.50", fea
 cid = { workspace = true }
 hex = { workspace = true, default-features = true }
 multihash = { workspace = true, default-features = true }
+tempfile = { workspace = true }
 thiserror = { workspace = true }
 
 [features]

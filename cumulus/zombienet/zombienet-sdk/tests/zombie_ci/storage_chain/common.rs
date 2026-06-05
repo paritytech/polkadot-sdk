@@ -64,70 +64,53 @@ pub fn build_parachain_network_config(
 	para_node_args: Vec<String>,
 	snapshots: Option<ParachainSnapshots>,
 ) -> Result<NetworkConfig> {
-	let relay_snapshot =
-		snapshots.as_ref().filter(|s| !s.relay.is_empty()).map(|s| s.relay.to_string());
-	let relay_snapshot2 = relay_snapshot.clone();
-	let relay_snapshot3 = relay_snapshot.clone();
-	let collator_snapshot = snapshots.as_ref().map(|s| s.collator.to_string());
+	let relay_snapshot = snapshots.as_ref().filter(|s| !s.relay.is_empty()).map(|s| s.relay);
+	let collator_snapshot = snapshots.as_ref().map(|s| s.collator);
 	let relay_chain_spec = snapshots
 		.as_ref()
 		.filter(|s| !s.relay_chain_spec.is_empty())
-		.map(|s| s.relay_chain_spec.to_string());
+		.map(|s| s.relay_chain_spec);
 	let para_chain_spec = snapshots
 		.as_ref()
 		.filter(|s| !s.chain_spec.is_empty())
-		.map(|s| s.chain_spec.to_string())
-		.unwrap_or_else(|| PARACHAIN_CHAIN_SPEC.to_string());
+		.map(|s| s.chain_spec)
+		.unwrap_or(PARACHAIN_CHAIN_SPEC);
 
 	let relay_args: Vec<_> = vec!["-lruntime=debug"].into_iter().map(Into::into).collect();
 	let para_args: Vec<_> = para_node_args.iter().map(|s| s.as_str().into()).collect();
 
 	NetworkConfigBuilder::new()
 		.with_relaychain(|relaychain| {
-			let relaychain = relaychain.with_chain(RELAY_CHAIN).with_default_command(RELAY_BINARY);
-			let relaychain = match &relay_chain_spec {
-				Some(spec) => relaychain.with_chain_spec_path(spec.as_str()),
+			let relaychain = relaychain
+				.with_chain(RELAY_CHAIN)
+				.with_default_command(RELAY_BINARY)
+				.with_optional_default_db_snapshot(relay_snapshot);
+			let relaychain = match relay_chain_spec {
+				Some(spec) => relaychain.with_chain_spec_path(spec),
 				None => relaychain,
 			};
 			relaychain
 				.with_validator(|node| {
-					let node =
-						node.with_name("alice").validator(true).with_args(relay_args.clone());
-					match &relay_snapshot {
-						Some(snapshot) => node.with_db_snapshot(snapshot.as_str()),
-						None => node,
-					}
+					node.with_name("alice").validator(true).with_args(relay_args.clone())
 				})
 				.with_validator(|node| {
-					let node = node.with_name("bob").validator(true).with_args(relay_args.clone());
-					match &relay_snapshot2 {
-						Some(snapshot) => node.with_db_snapshot(snapshot.as_str()),
-						None => node,
-					}
+					node.with_name("bob").validator(true).with_args(relay_args.clone())
 				})
 				.with_validator(|node| {
-					let node = node.with_name("charlie").validator(true).with_args(relay_args);
-					match &relay_snapshot3 {
-						Some(snapshot) => node.with_db_snapshot(snapshot.as_str()),
-						None => node,
-					}
+					node.with_name("charlie").validator(true).with_args(relay_args)
 				})
 		})
 		.with_parachain(|parachain| {
 			parachain
 				.with_id(PARA_ID)
-				.with_chain_spec_path(para_chain_spec.as_str())
+				.with_chain_spec_path(para_chain_spec)
 				.cumulus_based(true)
 				.with_collator(|node| {
-					let node = node
-						.with_name("collator-1")
+					node.with_name("collator-1")
 						.validator(true)
 						.with_command(PARACHAIN_BINARY)
-						.with_args(para_args);
-					match &collator_snapshot {
-						Some(snapshot) => node.with_db_snapshot(snapshot.as_str()),
-						None => node,
-					}
+						.with_args(para_args)
+						.with_optional_db_snapshot(collator_snapshot)
 				})
 		})
 		.with_global_settings(|settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {

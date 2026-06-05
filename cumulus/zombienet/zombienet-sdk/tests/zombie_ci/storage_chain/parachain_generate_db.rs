@@ -3,8 +3,16 @@
 
 //! Snapshot builder for the storage-chain tip-sync test.
 //!
-//! Produces node databases plus metadata/chainspec sidecars. The companion
-//! `generate-snapshots.sh` script archives the databases into tarballs.
+//! Produces a single self-contained `bundle.tar.gz` that holds:
+//!   * `parachain-db.tgz` — collator DB (`data/` + embedded `relay-data/`)
+//!   * `relaychain-db.tgz` — relay validator DB (`data/`)
+//!   * `manifest.json` — schema + `user_data` carrying [`BundleUserData`]
+//!     (test metadata plus the two raw chain specs the consumer needs to
+//!     restart against the same chains).
+//!
+//! Uses the zombienet-sdk 0.4.13 snapshot API
+//! ([`Network::pause`] / [`NetworkNode::snapshot_db`] / [`BundleBuilder`])
+//! so we don't hand-roll `tar` invocations or sidecar JSON files.
 
 use super::{
 	common::{
@@ -14,8 +22,8 @@ use super::{
 		PARA_ID, RELAY_BINARY, RELAY_CHAIN, SYNC_TIMEOUT_SECS,
 	},
 	fixture::{
-		algorithm, content_hash, payload, snapshot_metadata_path, HashingAlgorithm,
-		SnapshotMetadata, FIXTURE_RETENTION_PERIOD, N_STORES, PAYLOAD_SIZE_MAX, PAYLOAD_SIZE_MIN,
+		algorithm, content_hash, payload, BundleUserData, HashingAlgorithm, SnapshotMetadata,
+		FIXTURE_RETENTION_PERIOD, N_STORES, PAYLOAD_SIZE_MAX, PAYLOAD_SIZE_MIN,
 		TIP_SYNC_TARGET_BLOCKS,
 	},
 };
@@ -30,14 +38,17 @@ use zombienet_sdk::{
 		OnlineClient,
 	},
 	subxt_signer::sr25519::dev,
-	NetworkConfig, NetworkConfigBuilder,
+	BundleBuilder, NetworkConfig, NetworkConfigBuilder,
 };
 
 const SESSION_CHANGE_TIMEOUT_SECS: u64 = 300;
-const DB_OUTPUT_DIR_ENV: &str = "DB_OUTPUT_DIR";
-const DEFAULT_DB_OUTPUT_DIR: &str = "./zombienet/test-databases";
+const BUNDLE_OUTPUT_DIR_ENV: &str = "BUNDLE_OUTPUT_DIR";
+const DEFAULT_BUNDLE_OUTPUT_DIR: &str = "./zombienet/test-databases";
 const STORE_START_BLOCK: u64 = 50;
 const GEN_TIMEOUT_SECS: u64 = 1800;
+
+/// Filename of the produced bundle inside the output dir.
+pub const BUNDLE_FILENAME: &str = "tip-sync-100-bundle.tar.gz";
 
 fn build_gendb_network_config(pruning_blocks: u32) -> Result<NetworkConfig> {
 	let relay_args: Vec<_> = vec!["-lruntime=debug"].into_iter().map(Into::into).collect();
@@ -164,18 +175,26 @@ fn payload_stats() -> Result<u64> {
 	Ok(total_payload_bytes)
 }
 
+fn read_chain_spec(base_dir: &std::path::Path, node: &str, file: &str) -> Result<serde_json::Value> {
+	let path = base_dir.join(node).join("cfg").join(file);
+	let bytes = std::fs::read(&path)
+		.with_context(|| format!("Failed to read chain spec {}", path.display()))?;
+	serde_json::from_slice(&bytes)
+		.with_context(|| format!("Failed to parse chain spec {}", path.display()))
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn parachain_generate_databases() -> Result<()> {
 	let _ = env_logger::Builder::from_env(Env::default().default_filter_or("info")).try_init();
 	verify_parachain_binaries()?;
 
 	let total_payload_bytes = payload_stats()?;
-	let output_dir = std::env::var(DB_OUTPUT_DIR_ENV)
+	let output_dir = std::env::var(BUNDLE_OUTPUT_DIR_ENV)
 		.map(PathBuf::from)
-		.unwrap_or_else(|_| DEFAULT_DB_OUTPUT_DIR.into());
+		.unwrap_or_else(|_| DEFAULT_BUNDLE_OUTPUT_DIR.into());
 	std::fs::create_dir_all(&output_dir)
 		.with_context(|| format!("Failed to create output dir {}", output_dir.display()))?;
-	log::info!("Generating storage-chain fixture data into {}", output_dir.display());
+	log::info!("Generating storage-chain bundle into {}", output_dir.display());
 
 	let config = build_gendb_network_config(FIXTURE_RETENTION_PERIOD)?;
 	let network = initialize_network(config).await?;
@@ -228,23 +247,13 @@ async fn parachain_generate_databases() -> Result<()> {
 	wait_for_block_height(pruned_node, finalize_target, SYNC_TIMEOUT_SECS).await?;
 	wait_for_finalized_height(pruned_node, finalize_target, GEN_TIMEOUT_SECS).await?;
 
-	let base_dir = network
+	let base_dir: PathBuf = network
 		.base_dir()
 		.ok_or_else(|| anyhow!("Failed to get network base directory"))?
-		.to_string();
-	let collator_base = PathBuf::from(&base_dir).join("collator-1");
-	let relay_alice_base = PathBuf::from(&base_dir).join("alice");
-
-	std::fs::copy(
-		collator_base.join("cfg").join(format!("{}.json", PARA_ID)),
-		output_dir.join("raw-chain-spec.json"),
-	)
-	.context("Failed to copy raw parachain chain spec")?;
-	std::fs::copy(
-		relay_alice_base.join("cfg").join("westend-local.json"),
-		output_dir.join("raw-relay-chain-spec.json"),
-	)
-	.context("Failed to copy raw relay chain spec")?;
+		.into();
+	let para_chain_spec =
+		read_chain_spec(&base_dir, "collator-1", &format!("{}.json", PARA_ID))?;
+	let relay_chain_spec = read_chain_spec(&base_dir, "alice", "westend-local.json")?;
 
 	let metadata = SnapshotMetadata {
 		total_blocks: TIP_SYNC_TARGET_BLOCKS,
@@ -256,12 +265,38 @@ async fn parachain_generate_databases() -> Result<()> {
 		first_store_block,
 		last_store_block,
 	};
-	let metadata_path = snapshot_metadata_path(&output_dir);
-	let metadata_file = std::fs::File::create(&metadata_path)
-		.with_context(|| format!("Failed to create {}", metadata_path.display()))?;
-	serde_json::to_writer_pretty(metadata_file, &metadata)
-		.with_context(|| format!("Failed to write {}", metadata_path.display()))?;
 
-	log::info!("Database generation complete. Base dir: {base_dir}. Archive with generate-snapshots.sh snapshots-archive.");
+	// Pause the network so RocksDB on disk is consistent while we tar.
+	log::info!("Pausing network for snapshot");
+	network.pause().await.context("Failed to pause network")?;
+
+	let para_snapshot = pruned_node
+		.snapshot_db(output_dir.join("parachain-db.tgz"))
+		.await
+		.context("Failed to snapshot parachain DB")?;
+	let relay_snapshot = relay_alice
+		.snapshot_db(output_dir.join("relaychain-db.tgz"))
+		.await
+		.context("Failed to snapshot relaychain DB")?;
+
+	log::info!("Resuming network");
+	network.resume().await.context("Failed to resume network")?;
+
+	let user_data = BundleUserData { metadata, para_chain_spec, relay_chain_spec };
+
+	let bundle_path = output_dir.join(BUNDLE_FILENAME);
+	let bundle = BundleBuilder::new()
+		.add(para_snapshot)
+		.add(relay_snapshot)
+		.user_data(&user_data)
+		.build(&bundle_path)
+		.context("Failed to assemble snapshot bundle")?;
+
+	log::info!(
+		"Bundle written: {} ({} bytes, sha256={})",
+		bundle.path.display(),
+		bundle.size,
+		bundle.sha256,
+	);
 	Ok(())
 }

@@ -175,15 +175,14 @@ async fn parachain_tip_sync_with_renewals_test() -> Result<()> {
 	verify_parachain_binaries()?;
 
 	let snapshots = ResolvedSnapshots::load()?;
-	let metadata = snapshots.load_metadata()?;
-	verify_metadata(&metadata)?;
+	verify_metadata(&snapshots.metadata)?;
 	log::info!(
 		"Loaded snapshot metadata: target={}, snapshot={}, stores={} ({}..{})",
-		metadata.total_blocks,
-		metadata.snapshot_height,
-		metadata.n_stores,
-		metadata.first_store_block,
-		metadata.last_store_block,
+		snapshots.metadata.total_blocks,
+		snapshots.metadata.snapshot_height,
+		snapshots.metadata.n_stores,
+		snapshots.metadata.first_store_block,
+		snapshots.metadata.last_store_block,
 	);
 
 	let config = build_parachain_network_config(

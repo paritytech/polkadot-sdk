@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use super::common::ParachainSnapshots;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "generate-snapshots")]
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use zombienet_sdk::{snapshot::untar_bundle, SnapshotManifest};
+
+use super::common::ParachainSnapshots;
 
 pub const FIXTURE_RETENTION_PERIOD: u32 = 200;
 pub const TIP_SYNC_TARGET_BLOCKS: u64 = 100;
@@ -15,19 +15,12 @@ pub const N_STORES: u32 = 30;
 pub const PAYLOAD_SIZE_MIN: usize = 512 * 1024;
 pub const PAYLOAD_SIZE_MAX: usize = 1536 * 1024;
 
-pub const SNAPSHOT_METADATA_FILE: &str = "tip-sync-100-metadata.json";
+pub const BUNDLE_ENV: &str = "STORAGE_CHAIN_BUNDLE";
 
-pub const TIP_SYNC_SNAPSHOT_ENV: &str = "STORAGE_CHAIN_TIP_SYNC_SNAPSHOT";
-pub const RELAY_SNAPSHOT_ENV: &str = "STORAGE_CHAIN_RELAY_SNAPSHOT";
-pub const RAW_CHAIN_SPEC_ENV: &str = "STORAGE_CHAIN_RAW_CHAIN_SPEC";
-pub const RAW_RELAY_CHAIN_SPEC_ENV: &str = "STORAGE_CHAIN_RAW_RELAY_CHAIN_SPEC";
-pub const TIP_SYNC_METADATA_ENV: &str = "STORAGE_CHAIN_TIP_SYNC_METADATA";
+const DEFAULT_BUNDLE_URL: &str = "https://storage.googleapis.com/zombienet-db-snaps/zombienet/storage_chain_sync/tip-sync-100-bundle.tar.gz";
 
-const DEFAULT_TIP_SYNC_SNAPSHOT: &str =
-	"https://storage.googleapis.com/zombienet-db-snaps/zombienet/storage_chain_sync/pruned.tgz";
-const DEFAULT_RELAY_SNAPSHOT: &str =
-	"https://storage.googleapis.com/zombienet-db-snaps/zombienet/storage_chain_sync/relay.tgz";
-const SNAPSHOT_DIR: &str = "tests/zombie_ci/storage_chain/fixtures/test-databases";
+const PARA_DB_ARCHIVE: &str = "parachain-db.tgz";
+const RELAY_DB_ARCHIVE: &str = "relaychain-db.tgz";
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HashingAlgorithm {
@@ -66,25 +59,75 @@ pub struct SnapshotMetadata {
 	pub last_store_block: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BundleUserData {
+	pub metadata: SnapshotMetadata,
+	pub para_chain_spec: serde_json::Value,
+	pub relay_chain_spec: serde_json::Value,
+}
+
 pub struct ResolvedSnapshots {
 	pub collator: PathBuf,
 	pub relay: PathBuf,
 	pub chain_spec: PathBuf,
 	pub relay_chain_spec: PathBuf,
-	pub metadata: PathBuf,
+	pub metadata: SnapshotMetadata,
+	_workdir: tempfile::TempDir,
 }
 
 impl ResolvedSnapshots {
 	pub fn load() -> Result<Self> {
-		let collator =
-			fixture_from_env_or_default(TIP_SYNC_SNAPSHOT_ENV, DEFAULT_TIP_SYNC_SNAPSHOT);
-		let relay = fixture_from_env_or_default(RELAY_SNAPSHOT_ENV, DEFAULT_RELAY_SNAPSHOT);
-		let chain_spec = fixture_from_env_or_local(RAW_CHAIN_SPEC_ENV, raw_chain_spec_path())?;
-		let relay_chain_spec =
-			fixture_from_env_or_local(RAW_RELAY_CHAIN_SPEC_ENV, raw_relay_chain_spec_path())?;
-		let metadata = fixture_from_env_or_local(TIP_SYNC_METADATA_ENV, metadata_path())?;
+		let bundle_location = std::env::var(BUNDLE_ENV)
+			.unwrap_or_else(|_| DEFAULT_BUNDLE_URL.to_string());
 
-		Ok(Self { collator, relay, chain_spec, relay_chain_spec, metadata })
+		let workdir = tempfile::Builder::new()
+			.prefix("storage-chain-bundle-")
+			.tempdir()
+			.context("Failed to create temp dir for bundle")?;
+
+		let bundle_path = if is_url(&bundle_location) {
+			let dst = workdir.path().join("bundle.tar.gz");
+			download(&bundle_location, &dst)?;
+			dst
+		} else {
+			PathBuf::from(&bundle_location)
+		};
+
+		let extract_dir = workdir.path().join("extracted");
+		untar_bundle(&bundle_path, &extract_dir)
+			.with_context(|| format!("Failed to untar bundle {}", bundle_path.display()))?;
+
+		let manifest_path = extract_dir.join("manifest.json");
+		let manifest_bytes = std::fs::read(&manifest_path)
+			.with_context(|| format!("Failed to read {}", manifest_path.display()))?;
+		let manifest: SnapshotManifest = serde_json::from_slice(&manifest_bytes)
+			.with_context(|| format!("Failed to decode {}", manifest_path.display()))?;
+		let user_data: BundleUserData = serde_json::from_value(manifest.user_data)
+			.context("Failed to decode BundleUserData from manifest.user_data")?;
+
+		let collator = extract_dir.join(PARA_DB_ARCHIVE);
+		let relay = extract_dir.join(RELAY_DB_ARCHIVE);
+		for (label, path) in [("collator", &collator), ("relay", &relay)] {
+			anyhow::ensure!(
+				path.is_file(),
+				"bundle missing {label} archive at {}",
+				path.display()
+			);
+		}
+
+		let chain_spec = workdir.path().join("para-chain-spec.json");
+		let relay_chain_spec = workdir.path().join("relay-chain-spec.json");
+		write_json(&chain_spec, &user_data.para_chain_spec)?;
+		write_json(&relay_chain_spec, &user_data.relay_chain_spec)?;
+
+		Ok(Self {
+			collator,
+			relay,
+			chain_spec,
+			relay_chain_spec,
+			metadata: user_data.metadata,
+			_workdir: workdir,
+		})
 	}
 
 	pub fn as_parachain_snapshots(&self) -> ParachainSnapshots<'_> {
@@ -95,48 +138,30 @@ impl ResolvedSnapshots {
 			relay_chain_spec: self.relay_chain_spec.to_str().expect("non-utf8 path"),
 		}
 	}
-
-	pub fn load_metadata(&self) -> Result<SnapshotMetadata> {
-		let file = std::fs::File::open(&self.metadata)
-			.with_context(|| format!("Failed to open {}", self.metadata.display()))?;
-		serde_json::from_reader(file)
-			.with_context(|| format!("Failed to decode {}", self.metadata.display()))
-	}
 }
 
-#[cfg(feature = "generate-snapshots")]
-pub fn snapshot_metadata_path(output_dir: &Path) -> PathBuf {
-	output_dir.join(SNAPSHOT_METADATA_FILE)
+fn is_url(s: &str) -> bool {
+	s.starts_with("http://") || s.starts_with("https://")
 }
 
-pub fn fixture_snapshot_dir() -> PathBuf {
-	PathBuf::from(SNAPSHOT_DIR)
+fn download(url: &str, dst: &Path) -> Result<()> {
+	log::info!("Downloading bundle from {} -> {}", url, dst.display());
+	let status = std::process::Command::new("curl")
+		.args(["-fsSL", "-o"])
+		.arg(dst)
+		.arg(url)
+		.status()
+		.with_context(|| format!("Failed to spawn curl for {url}"))?;
+	anyhow::ensure!(status.success(), "curl failed downloading {url}");
+	Ok(())
 }
 
-pub fn raw_chain_spec_path() -> PathBuf {
-	fixture_snapshot_dir().join("raw-chain-spec.json")
-}
-
-pub fn raw_relay_chain_spec_path() -> PathBuf {
-	fixture_snapshot_dir().join("raw-relay-chain-spec.json")
-}
-
-pub fn metadata_path() -> PathBuf {
-	fixture_snapshot_dir().join(SNAPSHOT_METADATA_FILE)
-}
-
-fn fixture_from_env_or_default(env_var: &str, default_url: &str) -> PathBuf {
-	std::env::var(env_var)
-		.map(PathBuf::from)
-		.unwrap_or_else(|_| PathBuf::from(default_url))
-}
-
-fn fixture_from_env_or_local(env_var: &str, local_path: PathBuf) -> Result<PathBuf> {
-	match std::env::var(env_var) {
-		Ok(path) => Ok(PathBuf::from(path)),
-		Err(_) => std::fs::canonicalize(&local_path)
-			.with_context(|| format!("checked-in fixture not found: {}", local_path.display())),
-	}
+fn write_json(path: &Path, value: &serde_json::Value) -> Result<()> {
+	let bytes = serde_json::to_vec(value)
+		.with_context(|| format!("Failed to serialise {}", path.display()))?;
+	std::fs::write(path, bytes)
+		.with_context(|| format!("Failed to write {}", path.display()))?;
+	Ok(())
 }
 
 pub fn algorithm(i: u32) -> HashingAlgorithm {
