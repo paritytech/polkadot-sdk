@@ -17,7 +17,7 @@
 use crate::{
 	validator_side::notify_collation_seconded,
 	validator_side_experimental::{
-		collation_manager::CollationManager,
+		collation_manager::{AdvertisementError, CollationManager},
 		common::{
 			Advertisement, CanSecond, CollationFetchResponse, PeerInfo, PeerState,
 			ProspectiveCandidate, TryAcceptOutcome, INVALID_COLLATION_SLASH,
@@ -259,7 +259,7 @@ impl<B: Backend> State<B> {
 		);
 
 		let Some(PeerInfo { state, .. }) = self.peer_manager.peer_info(&peer_id) else {
-			self.metrics.on_advertisement_rejected();
+			self.metrics.on_advertisement_rejected_unconnected_peer();
 			gum::warn!(
 				target: LOG_TARGET,
 				?scheduling_parent,
@@ -272,7 +272,7 @@ impl<B: Backend> State<B> {
 
 		// Advertised without being declared. Not a big waste of our time, so ignore it.
 		let PeerState::Collating(para_id) = state else {
-			self.metrics.on_advertisement_rejected();
+			self.metrics.on_advertisement_rejected_undeclared_peer();
 			gum::debug!(
 				target: LOG_TARGET,
 				?scheduling_parent,
@@ -297,7 +297,20 @@ impl<B: Backend> State<B> {
 		// actually, but cheap enough.
 		match self.collation_manager.try_accept_advertisement(sender, advertisement).await {
 			Err(err) => {
-				self.metrics.on_advertisement_rejected();
+				match err {
+					AdvertisementError::Duplicate =>
+						self.metrics.on_advertisement_rejected_duplicate(),
+					AdvertisementError::OutOfOurView =>
+						self.metrics.on_advertisement_rejected_out_of_view(),
+					AdvertisementError::PeerLimitReached =>
+						self.metrics.on_advertisement_rejected_peer_limit_reached(),
+					AdvertisementError::BlockedByBacking =>
+						self.metrics.on_advertisement_rejected_blocked_by_backing(),
+					AdvertisementError::V1AdvertisementForImplicitParent =>
+						self.metrics.on_advertisement_rejected_v1_for_implicit_parent(),
+					AdvertisementError::SchedulingParentNotValid =>
+						self.metrics.on_advertisement_rejected_scheduling_parent_invalid(),
+				}
 				gum::debug!(
 					target: LOG_TARGET,
 					?scheduling_parent,
