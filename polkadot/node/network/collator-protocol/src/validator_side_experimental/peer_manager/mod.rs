@@ -407,6 +407,11 @@ impl<B: Backend> PeerManager<B> {
 		self.connected.peer_score(peer_id, para_id)
 	}
 
+	/// Visit every connected peer's score, grouped by para. See [`ConnectedPeers::for_each_score`].
+	pub fn for_each_score(&self, f: impl FnMut(ParaId, Score)) {
+		self.connected.for_each_score(f)
+	}
+
 	/// Retrieve the peer info associated to this PeerId, if any.
 	pub fn peer_info(&self, peer_id: &PeerId) -> Option<&PeerInfo> {
 		self.connected.peer_info(peer_id)

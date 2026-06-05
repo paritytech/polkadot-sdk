@@ -185,6 +185,15 @@ impl ConnectedPeers {
 		self.peer_info.get(&peer_id)
 	}
 
+	/// Visit the score of every connected peer, grouped by the para they're tracked under.
+	pub fn for_each_score(&self, mut f: impl FnMut(ParaId, Score)) {
+		for (para_id, per_para) in &self.per_para {
+			for score in per_para.per_peer_score.values() {
+				f(*para_id, *score);
+			}
+		}
+	}
+
 	pub fn peer_score(&self, peer_id: &PeerId, para_id: &ParaId) -> Option<Score> {
 		self.per_para.get(para_id).and_then(|per_para| per_para.get_score(peer_id))
 	}
