@@ -36,7 +36,7 @@ use cumulus_client_service::{
 	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, ParachainTracingExecuteBlock,
 	StartRelayChainTasksParams,
 };
-use cumulus_client_storage_chain_sync::{
+use sc_storage_chain_sync::{
 	IndexedTransactionFetcher, NetworkHandle, StorageChainBlockImport, SyncingHandle,
 };
 use cumulus_primitives_core::{BlockT, GetParachainInfo, ParaId};
@@ -473,7 +473,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let _ = network_handle
 				.set(network.clone() as Arc<dyn sc_network::NetworkRequest + Send + Sync>);
 			let _ = syncing_handle.set(sync_service.clone()
-				as Arc<dyn cumulus_client_storage_chain_sync::BitswapPeerSource + Send + Sync>);
+				as Arc<dyn sc_storage_chain_sync::BitswapPeerSource + Send + Sync>);
 
 			let peer_id = network.local_peer_id();
 

@@ -1,21 +1,22 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Cumulus.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
+// This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Cumulus is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Integration tests for [`cumulus_client_storage_chain_sync::StorageChainBlockImport`].
+//! Integration tests for [`sc_storage_chain_sync::StorageChainBlockImport`].
 //!
 //! These tests drive the wrapper through its public [`BlockImport::import_block`] surface
 //! against a hand-rolled mock client/runtime API and a recording inner `BlockImport` that
@@ -477,7 +478,7 @@ mod mock {
 	use async_trait::async_trait;
 	use cid::{Cid, Version as CidVersion};
 	use codec::{Decode, Encode};
-	use cumulus_client_storage_chain_sync::{
+	use sc_storage_chain_sync::{
 		BitswapPeerSource, IndexedTransactionFetcher, NetworkHandle, StorageChainBlockImport,
 		SyncingHandle,
 	};

@@ -15,7 +15,7 @@ doc:
     \ in place behind the existing origin filter, so flipping the gate is a one-line\
     \ change once the sync-layer work lands."
 crates:
-- name: cumulus-client-storage-chain-sync
+- name: sc-storage-chain-sync
   bump: major
 - name: polkadot-omni-node-lib
   bump: patch

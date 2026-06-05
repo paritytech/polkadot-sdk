@@ -896,7 +896,6 @@ node = [
 	"cumulus-client-pov-recovery",
 	"cumulus-client-proof-size-recording",
 	"cumulus-client-service",
-	"cumulus-client-storage-chain-sync",
 	"cumulus-relay-chain-inprocess-interface",
 	"cumulus-relay-chain-interface",
 	"cumulus-relay-chain-minimal-node",
@@ -1000,6 +999,7 @@ node = [
 	"sc-service",
 	"sc-state-db",
 	"sc-statement-store",
+	"sc-storage-chain-sync",
 	"sc-storage-monitor",
 	"sc-sync-state-rpc",
 	"sc-sysinfo",
@@ -2326,11 +2326,6 @@ default-features = false
 optional = true
 path = "../cumulus/client/service"
 
-[dependencies.cumulus-client-storage-chain-sync]
-default-features = false
-optional = true
-path = "../cumulus/client/storage-chain-sync"
-
 [dependencies.cumulus-relay-chain-inprocess-interface]
 default-features = false
 optional = true
@@ -2845,6 +2840,11 @@ path = "../substrate/client/state-db"
 default-features = false
 optional = true
 path = "../substrate/client/statement-store"
+
+[dependencies.sc-storage-chain-sync]
+default-features = false
+optional = true
+path = "../substrate/client/storage-chain-sync"
 
 [dependencies.sc-storage-monitor]
 default-features = false

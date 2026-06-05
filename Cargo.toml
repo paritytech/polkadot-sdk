@@ -77,7 +77,7 @@ members = [
 	"cumulus/client/relay-chain-rpc-interface",
 	"cumulus/client/relay-chain-streams",
 	"cumulus/client/service",
-	"cumulus/client/storage-chain-sync",
+
 	"cumulus/pallets/ah-ops",
 	"cumulus/pallets/aura-ext",
 	"cumulus/pallets/collator-selection",
@@ -306,6 +306,7 @@ members = [
 	"substrate/client/service/test",
 	"substrate/client/state-db",
 	"substrate/client/statement-store",
+	"substrate/client/storage-chain-sync",
 	"substrate/client/storage-monitor",
 	"substrate/client/sync-state-rpc",
 	"substrate/client/sysinfo",
@@ -772,7 +773,6 @@ cumulus-client-parachain-inherent = { path = "cumulus/client/parachain-inherent"
 cumulus-client-pov-recovery = { path = "cumulus/client/pov-recovery", default-features = false }
 cumulus-client-proof-size-recording = { path = "cumulus/client/proof-size-recording", default-features = false }
 cumulus-client-service = { path = "cumulus/client/service", default-features = false }
-cumulus-client-storage-chain-sync = { path = "cumulus/client/storage-chain-sync", default-features = false }
 cumulus-pallet-aura-ext = { path = "cumulus/pallets/aura-ext", default-features = false }
 cumulus-pallet-parachain-system = { path = "cumulus/pallets/parachain-system", default-features = false }
 cumulus-pallet-parachain-system-proc-macro = { path = "cumulus/pallets/parachain-system/proc-macro", default-features = false }
@@ -1275,6 +1275,7 @@ sc-service = { path = "substrate/client/service", default-features = false }
 sc-service-test = { path = "substrate/client/service/test" }
 sc-state-db = { path = "substrate/client/state-db", default-features = false }
 sc-statement-store = { default-features = false, path = "substrate/client/statement-store" }
+sc-storage-chain-sync = { default-features = false, path = "substrate/client/storage-chain-sync" }
 sc-storage-monitor = { path = "substrate/client/storage-monitor", default-features = false }
 sc-sync-state-rpc = { path = "substrate/client/sync-state-rpc", default-features = false }
 sc-sysinfo = { path = "substrate/client/sysinfo", default-features = false }

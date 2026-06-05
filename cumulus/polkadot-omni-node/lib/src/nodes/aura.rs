@@ -48,7 +48,7 @@ use cumulus_client_consensus_aura::{
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_client_service::CollatorSybilResistance;
-use cumulus_client_storage_chain_sync::StorageChainBlockImport;
+use sc_storage_chain_sync::StorageChainBlockImport;
 use cumulus_primitives_core::{
 	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
 	RelayParentOffsetApi, TargetBlockRate,

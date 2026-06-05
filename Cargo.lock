@@ -4971,42 +4971,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-client-storage-chain-sync"
-version = "0.7.0"
-dependencies = [
- "async-trait",
- "cid",
- "futures",
- "futures-timer",
- "log",
- "parity-scale-codec",
- "prost 0.12.6",
- "rstest",
- "sc-client-api 28.0.0",
- "sc-client-db",
- "sc-consensus",
- "sc-network 0.34.0",
- "sc-network-sync",
- "sp-api 26.0.0",
- "sp-blockchain 28.0.0",
- "sp-consensus 0.32.0",
- "sp-core 28.0.0",
- "sp-crypto-hashing 0.1.0",
- "sp-externalities 0.25.0",
- "sp-runtime 31.0.1",
- "sp-state-machine 0.35.0",
- "sp-tracing 16.0.0",
- "sp-transaction-storage-proof",
- "sp-trie 29.0.0",
- "sp-version 29.0.0",
- "thiserror 1.0.65",
- "tokio",
- "tracing",
- "tracing-log",
- "tracing-subscriber 0.3.19",
-]
-
-[[package]]
 name = "cumulus-pallet-aura-ext"
 version = "0.7.0"
 dependencies = [
@@ -16913,7 +16877,6 @@ dependencies = [
  "cumulus-client-consensus-relay-chain",
  "cumulus-client-parachain-inherent",
  "cumulus-client-service",
- "cumulus-client-storage-chain-sync",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
@@ -16956,6 +16919,7 @@ dependencies = [
  "sc-runtime-utilities",
  "sc-service",
  "sc-statement-store",
+ "sc-storage-chain-sync",
  "sc-storage-monitor",
  "sc-sysinfo",
  "sc-telemetry 15.0.0",
@@ -17298,7 +17262,6 @@ dependencies = [
  "cumulus-client-pov-recovery",
  "cumulus-client-proof-size-recording",
  "cumulus-client-service",
- "cumulus-client-storage-chain-sync",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
@@ -17571,6 +17534,7 @@ dependencies = [
  "sc-service",
  "sc-state-db",
  "sc-statement-store",
+ "sc-storage-chain-sync",
  "sc-storage-monitor",
  "sc-sync-state-rpc",
  "sc-sysinfo",
@@ -22192,6 +22156,42 @@ dependencies = [
  "subxt-signer 0.50.0",
  "tempfile",
  "tokio",
+]
+
+[[package]]
+name = "sc-storage-chain-sync"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "cid",
+ "futures",
+ "futures-timer",
+ "log",
+ "parity-scale-codec",
+ "prost 0.12.6",
+ "rstest",
+ "sc-client-api 28.0.0",
+ "sc-client-db",
+ "sc-consensus",
+ "sc-network 0.34.0",
+ "sc-network-sync",
+ "sp-api 26.0.0",
+ "sp-blockchain 28.0.0",
+ "sp-consensus 0.32.0",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
+ "sp-externalities 0.25.0",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
+ "sp-tracing 16.0.0",
+ "sp-transaction-storage-proof",
+ "sp-trie 29.0.0",
+ "sp-version 29.0.0",
+ "thiserror 1.0.65",
+ "tokio",
+ "tracing",
+ "tracing-log",
+ "tracing-subscriber 0.3.19",
 ]
 
 [[package]]
