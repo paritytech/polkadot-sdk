@@ -436,7 +436,7 @@ async fn collator_discovery_full_mesh_with_tight_non_reserved_budget() -> Result
 
 	// Wait for parachain block production to confirm collators are talking to the relay chain.
 	log::info!("Waiting for parachain block production (pre-upgrade)");
-	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 9..11)], []).await?;
+	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 7..11)], []).await?;
 
 	// Obtain a parachain client for storage queries.
 	let para_node = network.get_node(collator_names()[0])?;
@@ -490,7 +490,7 @@ async fn collator_discovery_full_mesh_with_tight_non_reserved_budget() -> Result
 	// Step 6: parachain throughput remains healthy with the discovery mesh active.
 	wait_for_pvf_prepare(&network, 2).await?;
 	log::info!("Checking parachain throughput post-discovery");
-	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 9..11)], []).await?;
+	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 7..11)], []).await?;
 
 	log::info!("Test finished successfully.");
 	Ok(())

@@ -131,7 +131,7 @@ impl<B: BlockT> SyncingService<B> {
 	/// Replace the dynamic set of no-slot peer set.
 	///
 	/// The engine maintains a per-role inbound-peer counter on top of the underlying network's
-	/// reserved-peer handling (since https://github.com/paritytech/substrate/pull/14603) to ensure the
+	/// reserved-peer handling (since <https://github.com/paritytech/substrate/pull/14603>) to ensure the
 	/// `--in-peers` budget is enforced specifically for full peers in default notification set.
 	/// A peer in either the static (config-time) or dynamic (this)
 	/// no-slot set bypasses that counter, exactly mirroring what reserved-peer handling does at
