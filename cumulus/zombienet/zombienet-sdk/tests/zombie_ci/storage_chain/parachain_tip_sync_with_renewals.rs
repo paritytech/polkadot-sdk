@@ -4,25 +4,25 @@
 use super::{
 	common::{
 		bitswap_v1_get, build_parachain_network_config, expect_dont_have, expect_no_log_line,
-		get_best_block_height, initialize_network, renew_data_with_content_hash,
-		verify_parachain_binaries, verify_warp_sync_completed, wait_for_block_height,
-		wait_for_finalized_height, wait_for_fullnode, wait_for_new_block_beyond,
+		initialize_network, renew_data_with_content_hash, verify_warp_sync_completed,
 		wait_for_relay_chain_to_sync, wait_for_session_change_on_node,
-		BLOCK_PRODUCTION_TIMEOUT_SECS, NETWORK_READY_TIMEOUT_SECS, NODE_LOG_CONFIG,
-		PARACHAIN_BINARY, PARA_ID, SYNC_TIMEOUT_SECS,
+		BLOCK_PRODUCTION_TIMEOUT_SECS, FULLNODE_ROLE_VALUE, METRIC_TIMEOUT_SECS,
+		NETWORK_READY_TIMEOUT_SECS, NODE_LOG_CONFIG, NODE_ROLE_METRIC, PARACHAIN_BINARY, PARA_ID,
+		SYNC_TIMEOUT_SECS,
 	},
 	fixture::{
 		algorithm, content_hash, hash_to_cid, payload, HashingAlgorithm, ResolvedSnapshots,
 		FIXTURE_RETENTION_PERIOD, N_STORES, TIP_SYNC_TARGET_BLOCKS,
 	},
 };
+use crate::utils::{BEST_BLOCK_METRIC, FINALIZED_BLOCK_METRIC};
 use anyhow::{anyhow, Context, Result};
 use env_logger::Env;
 use futures::future::try_join_all;
 use std::time::Duration;
 use zombienet_orchestrator::AddCollatorOptions;
 use zombienet_sdk::{
-	subxt::{config::substrate::SubstrateConfig, OnlineClient},
+	subxt::{config::polkadot::PolkadotConfig, OnlineClient},
 	NetworkNode,
 };
 
@@ -77,7 +77,7 @@ async fn assert_missing_before_renewal(sync_node: &NetworkNode, entries: &[Entry
 }
 
 async fn renew_entries(
-	collator_client: &OnlineClient<SubstrateConfig>,
+	collator_client: &OnlineClient<PolkadotConfig>,
 	collator: &NetworkNode,
 	sync_node: &NetworkNode,
 	entries: &[Entry],
@@ -126,9 +126,22 @@ async fn renew_entries(
 			renewed.push((hash, algo));
 		}
 
-		wait_for_finalized_height(collator, max_renewed_block, BLOCK_PRODUCTION_TIMEOUT_SECS)
-			.await?;
-		wait_for_block_height(sync_node, max_renewed_block, RENEW_BLOCK_SYNC_TIMEOUT_SECS).await?;
+		collator
+			.wait_metric_with_timeout(
+				FINALIZED_BLOCK_METRIC,
+				|height| height >= max_renewed_block as f64,
+				BLOCK_PRODUCTION_TIMEOUT_SECS,
+			)
+			.await
+			.context(format!("Node did not finalize block height {max_renewed_block}"))?;
+		sync_node
+			.wait_metric_with_timeout(
+				BEST_BLOCK_METRIC,
+				|height| height >= max_renewed_block as f64,
+				RENEW_BLOCK_SYNC_TIMEOUT_SECS,
+			)
+			.await
+			.context(format!("Node did not reach block height {max_renewed_block}"))?;
 	}
 
 	Ok(renewed)
@@ -172,7 +185,6 @@ async fn assert_served_after_renewal(sync_node: &NetworkNode, renewed: &[Entry])
 #[tokio::test(flavor = "multi_thread")]
 async fn parachain_tip_sync_with_renewals_test() -> Result<()> {
 	let _ = env_logger::Builder::from_env(Env::default().default_filter_or("info")).try_init();
-	verify_parachain_binaries()?;
 
 	let snapshots = ResolvedSnapshots::load()?;
 	verify_metadata(&snapshots.metadata)?;
@@ -197,25 +209,53 @@ async fn parachain_tip_sync_with_renewals_test() -> Result<()> {
 
 	{
 		let collator = network.get_node("collator-1")?;
-		let snapshot_height = get_best_block_height(collator).await?;
-		wait_for_new_block_beyond(collator, snapshot_height, BLOCK_PRODUCTION_TIMEOUT_SECS).await?;
+		let snapshot_height = collator
+			.reports(BEST_BLOCK_METRIC)
+			.await
+			.context("Failed to read best block metric")? as u64;
+		let target_height = snapshot_height + 1;
+		collator
+			.wait_metric_with_timeout(
+				BEST_BLOCK_METRIC,
+				|height| height >= target_height as f64,
+				BLOCK_PRODUCTION_TIMEOUT_SECS,
+			)
+			.await
+			.context(format!("Node did not reach block height {target_height}"))?;
 	}
 
 	add_sync_node(&mut network).await?;
 	let collator = network.get_node("collator-1")?;
 	let sync_node = network.get_node("sync-node")?;
-	wait_for_fullnode(sync_node).await?;
+	sync_node
+		.wait_metric_with_timeout(
+			NODE_ROLE_METRIC,
+			|role| role == FULLNODE_ROLE_VALUE,
+			METRIC_TIMEOUT_SECS,
+		)
+		.await
+		.context("Node did not become full node")?;
 	wait_for_relay_chain_to_sync(sync_node, SYNC_TIMEOUT_SECS).await?;
 
-	let warp_target = get_best_block_height(collator).await?;
-	wait_for_block_height(sync_node, warp_target, SYNC_TIMEOUT_SECS).await?;
+	let warp_target = collator
+		.reports(BEST_BLOCK_METRIC)
+		.await
+		.context("Failed to read best block metric")? as u64;
+	sync_node
+		.wait_metric_with_timeout(
+			BEST_BLOCK_METRIC,
+			|height| height >= warp_target as f64,
+			SYNC_TIMEOUT_SECS,
+		)
+		.await
+		.context(format!("Node did not reach block height {warp_target}"))?;
 	verify_warp_sync_completed(sync_node).await?;
 
 	let entries: Vec<Entry> =
 		(0..N_RENEW_EXERCISES).map(|i| (content_hash(i), algorithm(i))).collect();
 	assert_missing_before_renewal(sync_node, &entries).await?;
 
-	let collator_client: OnlineClient<SubstrateConfig> = collator.wait_client().await?;
+	let collator_client: OnlineClient<PolkadotConfig> = collator.wait_client().await?;
 	let renewed = renew_entries(&collator_client, collator, sync_node, &entries).await?;
 	assert_served_after_renewal(sync_node, &renewed).await?;
 

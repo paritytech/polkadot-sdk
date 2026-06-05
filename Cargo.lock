@@ -5688,6 +5688,7 @@ dependencies = [
  "sp-rpc",
  "sp-runtime 31.0.1",
  "sp-statement-store",
+ "sp-transaction-storage-proof",
  "sp-version 29.0.0",
  "subxt 0.44.2",
  "subxt 0.50.0",

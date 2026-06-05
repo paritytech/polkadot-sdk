@@ -3,12 +3,13 @@
 
 use anyhow::{anyhow, Context, Result};
 use codec::Decode;
-use std::{path::PathBuf, time::Duration};
+use cumulus_zombienet_sdk_helpers::wait_for_first_session_change;
+use std::time::Duration;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{
 		backend::rpc::RpcClient,
-		config::substrate::{SubstrateConfig, SubstrateExtrinsicParamsBuilder},
+		config::polkadot::{PolkadotConfig, PolkadotExtrinsicParamsBuilder},
 		dynamic::{tx, Value},
 		ext::subxt_rpcs::rpc_params,
 		OnlineClient,
@@ -18,7 +19,6 @@ use zombienet_sdk::{
 };
 
 pub use crate::utils::initialize_network;
-use crate::utils::{BEST_BLOCK_METRIC, FINALIZED_BLOCK_METRIC};
 
 pub const NODE_ROLE_METRIC: &str = "node_roles";
 pub const IS_MAJOR_SYNCING_METRIC: &str = "substrate_sub_libp2p_is_major_syncing";
@@ -42,16 +42,6 @@ pub const RELAY_BINARY: &str = "polkadot";
 pub const PARACHAIN_BINARY: &str = "polkadot-omni-node";
 pub const PARACHAIN_CHAIN_SPEC: &str =
 	"tests/zombie_ci/storage_chain/fixtures/bulletin-westend-spec.json";
-
-pub fn verify_parachain_binaries() -> Result<()> {
-	log::info!("Relay binary: {}", RELAY_BINARY);
-	log::info!("Parachain binary: {}", PARACHAIN_BINARY);
-	log::info!("Chain spec: {}", PARACHAIN_CHAIN_SPEC);
-	if !PathBuf::from(PARACHAIN_CHAIN_SPEC).exists() {
-		anyhow::bail!("Chain spec fixture not found at '{}'", PARACHAIN_CHAIN_SPEC);
-	}
-	Ok(())
-}
 
 pub struct ParachainSnapshots<'a> {
 	pub collator: &'a str,
@@ -172,9 +162,13 @@ pub async fn verify_warp_sync_completed(node: &NetworkNode) -> Result<()> {
 		"Node did not complete warp sync",
 	)
 	.await?;
-	wait_for_node_idle(node, SYNC_TIMEOUT_SECS)
-		.await
-		.context("Node did not reach idle state after warp sync")?;
+	node.wait_metric_with_timeout(
+		IS_MAJOR_SYNCING_METRIC,
+		|value| value == IDLE_VALUE,
+		SYNC_TIMEOUT_SECS,
+	)
+	.await
+	.context("Node did not reach idle state after warp sync")?;
 	expect_no_log_line(
 		node,
 		"verification failed",
@@ -182,70 +176,6 @@ pub async fn verify_warp_sync_completed(node: &NetworkNode) -> Result<()> {
 		"Node logged verification errors",
 	)
 	.await
-}
-
-pub async fn wait_for_fullnode(node: &NetworkNode) -> Result<()> {
-	node.wait_metric_with_timeout(
-		NODE_ROLE_METRIC,
-		|role| role == FULLNODE_ROLE_VALUE,
-		METRIC_TIMEOUT_SECS,
-	)
-	.await
-	.context("Node did not become full node")
-}
-
-pub async fn wait_for_block_height(
-	node: &NetworkNode,
-	min_height: u64,
-	timeout_secs: u64,
-) -> Result<()> {
-	node.wait_metric_with_timeout(
-		BEST_BLOCK_METRIC,
-		|height| height >= min_height as f64,
-		timeout_secs,
-	)
-	.await
-	.context(format!("Node did not reach block height {}", min_height))
-}
-
-pub async fn get_best_block_height(node: &NetworkNode) -> Result<u64> {
-	let height = node
-		.reports(BEST_BLOCK_METRIC)
-		.await
-		.context("Failed to read best block metric")?;
-	Ok(height as u64)
-}
-
-pub async fn wait_for_new_block_beyond(
-	node: &NetworkNode,
-	baseline_height: u64,
-	timeout_secs: u64,
-) -> Result<()> {
-	wait_for_block_height(node, baseline_height + 1, timeout_secs).await
-}
-
-pub async fn wait_for_finalized_height(
-	node: &NetworkNode,
-	min_height: u64,
-	timeout_secs: u64,
-) -> Result<()> {
-	node.wait_metric_with_timeout(
-		FINALIZED_BLOCK_METRIC,
-		|height| height >= min_height as f64,
-		timeout_secs,
-	)
-	.await
-	.context(format!("Node did not finalize block height {}", min_height))
-}
-
-pub async fn wait_for_node_idle(node: &NetworkNode, timeout_secs: u64) -> Result<()> {
-	node.wait_metric_with_timeout(
-		IS_MAJOR_SYNCING_METRIC,
-		|value| value == IDLE_VALUE,
-		timeout_secs,
-	)
-	.await
-	.context("Node did not reach idle state")
 }
 
 pub async fn wait_for_relay_chain_to_sync(node: &NetworkNode, timeout_secs: u64) -> Result<()> {
@@ -263,35 +193,11 @@ pub async fn wait_for_relay_chain_to_sync(node: &NetworkNode, timeout_secs: u64)
 	Ok(())
 }
 
-const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
-
-async fn is_session_change_block(
-	block: &zombienet_sdk::subxt::blocks::Block<SubstrateConfig, OnlineClient<SubstrateConfig>>,
-) -> Result<bool> {
-	let events = block.events().await.context("Failed to fetch block events")?;
-	Ok(events.iter().any(|event| {
-		event
-			.as_ref()
-			.is_ok_and(|e| e.pallet_name() == "Session" && e.variant_name() == "NewSession")
-	}))
-}
-
 pub async fn wait_for_session_change_on_node(node: &NetworkNode, timeout_secs: u64) -> Result<()> {
-	let client: OnlineClient<SubstrateConfig> = node.wait_client().await?;
+	let client: OnlineClient<PolkadotConfig> = node.wait_client().await?;
 	let wait = async {
 		let mut blocks = client.blocks().subscribe_finalized().await?;
-		let mut waited_blocks = 0u32;
-		while let Some(block) = blocks.next().await {
-			let block = block?;
-			if is_session_change_block(&block).await? {
-				return Ok(());
-			}
-			waited_blocks += 1;
-			if waited_blocks >= WAIT_MAX_BLOCKS_FOR_SESSION {
-				anyhow::bail!("Waited {WAIT_MAX_BLOCKS_FOR_SESSION} blocks without session change");
-			}
-		}
-		anyhow::bail!("Block subscription ended unexpectedly")
+		wait_for_first_session_change(&mut blocks).await
 	};
 	tokio::time::timeout(Duration::from_secs(timeout_secs), wait)
 		.await
@@ -304,7 +210,7 @@ pub struct RenewOutcome {
 }
 
 fn renewed_content_hash(
-	events: &zombienet_sdk::subxt::blocks::ExtrinsicEvents<SubstrateConfig>,
+	events: &zombienet_sdk::subxt::blocks::ExtrinsicEvents<PolkadotConfig>,
 ) -> Result<(u32, [u8; 32])> {
 	for event in events.iter() {
 		let event = event?;
@@ -320,12 +226,12 @@ fn renewed_content_hash(
 #[cfg(feature = "generate-snapshots")]
 pub async fn wait_for_in_best_block(
 	mut progress: zombienet_sdk::subxt::tx::TxProgress<
-		SubstrateConfig,
-		OnlineClient<SubstrateConfig>,
+		PolkadotConfig,
+		OnlineClient<PolkadotConfig>,
 	>,
 ) -> Result<(
 	zombienet_sdk::subxt::utils::H256,
-	zombienet_sdk::subxt::blocks::ExtrinsicEvents<SubstrateConfig>,
+	zombienet_sdk::subxt::blocks::ExtrinsicEvents<PolkadotConfig>,
 )> {
 	use zombienet_sdk::subxt::tx::TxStatus;
 
@@ -347,12 +253,12 @@ pub async fn wait_for_in_best_block(
 
 pub async fn wait_for_finalized(
 	mut progress: zombienet_sdk::subxt::tx::TxProgress<
-		SubstrateConfig,
-		OnlineClient<SubstrateConfig>,
+		PolkadotConfig,
+		OnlineClient<PolkadotConfig>,
 	>,
 ) -> Result<(
 	zombienet_sdk::subxt::utils::H256,
-	zombienet_sdk::subxt::blocks::ExtrinsicEvents<SubstrateConfig>,
+	zombienet_sdk::subxt::blocks::ExtrinsicEvents<PolkadotConfig>,
 )> {
 	use zombienet_sdk::subxt::tx::TxStatus;
 
@@ -374,20 +280,20 @@ pub async fn wait_for_finalized(
 
 #[cfg(feature = "generate-snapshots")]
 pub async fn get_alice_nonce(node: &NetworkNode) -> Result<u64> {
-	let client: OnlineClient<SubstrateConfig> = node.wait_client().await?;
+	let client: OnlineClient<PolkadotConfig> = node.wait_client().await?;
 	let alice = dev::alice().public_key().to_account_id();
 	client.tx().account_nonce(&alice).await.map_err(Into::into)
 }
 
 pub async fn renew_data_with_content_hash(
-	client: &OnlineClient<SubstrateConfig>,
+	client: &OnlineClient<PolkadotConfig>,
 	expected_hash: [u8; 32],
 	nonce: u64,
 ) -> Result<RenewOutcome> {
 	let signer = dev::bob();
 	let renew_call =
 		tx("TransactionStorage", "renew_content_hash", vec![Value::from_bytes(expected_hash)]);
-	let params = SubstrateExtrinsicParamsBuilder::new().nonce(nonce).immortal().build();
+	let params = PolkadotExtrinsicParamsBuilder::new().nonce(nonce).immortal().build();
 
 	let (block_hash, events) = tokio::time::timeout(Duration::from_secs(120), async {
 		let progress = client.tx().sign_and_submit_then_watch(&renew_call, &signer, params).await?;

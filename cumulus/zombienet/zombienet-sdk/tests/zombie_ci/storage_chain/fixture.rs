@@ -3,6 +3,7 @@
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+pub use sp_transaction_storage_proof::HashingAlgorithm;
 use std::path::{Path, PathBuf};
 use zombienet_sdk::{snapshot::untar_bundle, SnapshotManifest};
 
@@ -21,31 +22,6 @@ const DEFAULT_BUNDLE_URL: &str = "https://storage.googleapis.com/zombienet-db-sn
 
 const PARA_DB_ARCHIVE: &str = "parachain-db.tgz";
 const RELAY_DB_ARCHIVE: &str = "relaychain-db.tgz";
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum HashingAlgorithm {
-	Blake2b256,
-	Sha2_256,
-	Keccak256,
-}
-
-impl HashingAlgorithm {
-	pub fn hash(&self, data: &[u8]) -> [u8; 32] {
-		match self {
-			Self::Blake2b256 => sp_crypto_hashing::blake2_256(data),
-			Self::Sha2_256 => sp_crypto_hashing::sha2_256(data),
-			Self::Keccak256 => sp_crypto_hashing::keccak_256(data),
-		}
-	}
-
-	pub const fn multihash_code(&self) -> u64 {
-		match self {
-			Self::Blake2b256 => 0xb220,
-			Self::Sha2_256 => 0x12,
-			Self::Keccak256 => 0x1b,
-		}
-	}
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SnapshotMetadata {

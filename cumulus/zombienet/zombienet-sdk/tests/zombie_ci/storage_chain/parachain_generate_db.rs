@@ -15,10 +15,10 @@
 
 use super::{
 	common::{
-		get_alice_nonce, initialize_network, verify_parachain_binaries, wait_for_block_height,
-		wait_for_finalized_height, wait_for_in_best_block, wait_for_session_change_on_node,
-		NETWORK_READY_TIMEOUT_SECS, NODE_LOG_CONFIG, PARACHAIN_BINARY, PARACHAIN_CHAIN_SPEC,
-		PARA_ID, RELAY_BINARY, RELAY_CHAIN, SYNC_TIMEOUT_SECS,
+		get_alice_nonce, initialize_network, wait_for_in_best_block,
+		wait_for_session_change_on_node, NETWORK_READY_TIMEOUT_SECS, NODE_LOG_CONFIG,
+		PARACHAIN_BINARY, PARACHAIN_CHAIN_SPEC, PARA_ID, RELAY_BINARY, RELAY_CHAIN,
+		SYNC_TIMEOUT_SECS,
 	},
 	fixture::{
 		algorithm, content_hash, payload, BundleUserData, HashingAlgorithm, SnapshotMetadata,
@@ -26,12 +26,13 @@ use super::{
 		TIP_SYNC_TARGET_BLOCKS,
 	},
 };
+use crate::utils::{BEST_BLOCK_METRIC, FINALIZED_BLOCK_METRIC};
 use anyhow::{anyhow, Context, Result};
 use env_logger::Env;
 use std::{collections::HashSet, path::PathBuf};
 use zombienet_sdk::{
 	subxt::{
-		config::substrate::{SubstrateConfig, SubstrateExtrinsicParamsBuilder},
+		config::polkadot::{PolkadotConfig, PolkadotExtrinsicParamsBuilder},
 		dynamic::Value,
 		ext::scale_value::value,
 		OnlineClient,
@@ -100,7 +101,7 @@ fn build_gendb_network_config(pruning_blocks: u32) -> Result<NetworkConfig> {
 }
 
 async fn authorize_account(
-	client: &OnlineClient<SubstrateConfig>,
+	client: &OnlineClient<PolkadotConfig>,
 	who: &zombienet_sdk::subxt_signer::sr25519::Keypair,
 	transactions: u32,
 	bytes: u64,
@@ -119,7 +120,7 @@ async fn authorize_account(
 			})
 		}],
 	);
-	let params = SubstrateExtrinsicParamsBuilder::new().nonce(nonce).build();
+	let params = PolkadotExtrinsicParamsBuilder::new().nonce(nonce).build();
 	tokio::time::timeout(std::time::Duration::from_secs(60), async {
 		let progress = client.tx().sign_and_submit_then_watch(&call, &signer, params).await?;
 		wait_for_in_best_block(progress).await?;
@@ -131,7 +132,7 @@ async fn authorize_account(
 }
 
 async fn store_data(
-	client: &OnlineClient<SubstrateConfig>,
+	client: &OnlineClient<PolkadotConfig>,
 	data: &[u8],
 	nonce: u64,
 	algo: HashingAlgorithm,
@@ -150,7 +151,7 @@ async fn store_data(
 		"store_with_cid_config",
 		vec![cid_config, Value::from_bytes(data)],
 	);
-	let params = SubstrateExtrinsicParamsBuilder::new().nonce(nonce).build();
+	let params = PolkadotExtrinsicParamsBuilder::new().nonce(nonce).build();
 	let (block_hash, _) = tokio::time::timeout(std::time::Duration::from_secs(120), async {
 		let progress = client.tx().sign_and_submit_then_watch(&call, &dev::alice(), params).await?;
 		wait_for_in_best_block(progress).await
@@ -189,7 +190,6 @@ fn read_chain_spec(
 #[tokio::test(flavor = "multi_thread")]
 async fn parachain_generate_databases() -> Result<()> {
 	let _ = env_logger::Builder::from_env(Env::default().default_filter_or("info")).try_init();
-	verify_parachain_binaries()?;
 
 	let total_payload_bytes = payload_stats()?;
 	let output_dir = std::env::var(BUNDLE_OUTPUT_DIR_ENV)
@@ -207,7 +207,7 @@ async fn parachain_generate_databases() -> Result<()> {
 	wait_for_session_change_on_node(relay_alice, SESSION_CHANGE_TIMEOUT_SECS).await?;
 
 	let collator = network.get_node("collator-1")?;
-	let client: OnlineClient<SubstrateConfig> = collator.wait_client().await?;
+	let client: OnlineClient<PolkadotConfig> = collator.wait_client().await?;
 	let authorize_transactions = N_STORES + 10;
 	let authorize_bytes = total_payload_bytes.saturating_mul(2).saturating_add(1024 * 1024);
 
@@ -226,7 +226,14 @@ async fn parachain_generate_databases() -> Result<()> {
 		.await?;
 	nonce += 1;
 
-	wait_for_block_height(collator, STORE_START_BLOCK, GEN_TIMEOUT_SECS).await?;
+	collator
+		.wait_metric_with_timeout(
+			BEST_BLOCK_METRIC,
+			|height| height >= STORE_START_BLOCK as f64,
+			GEN_TIMEOUT_SECS,
+		)
+		.await
+		.context(format!("Node did not reach block height {STORE_START_BLOCK}"))?;
 
 	let mut first_store_block = u64::MAX;
 	let mut last_store_block = 0;
@@ -245,10 +252,31 @@ async fn parachain_generate_databases() -> Result<()> {
 	);
 
 	let finalize_target = TIP_SYNC_TARGET_BLOCKS.max(last_store_block);
-	wait_for_finalized_height(collator, finalize_target, GEN_TIMEOUT_SECS).await?;
+	collator
+		.wait_metric_with_timeout(
+			FINALIZED_BLOCK_METRIC,
+			|height| height >= finalize_target as f64,
+			GEN_TIMEOUT_SECS,
+		)
+		.await
+		.context(format!("Node did not finalize block height {finalize_target}"))?;
 	let pruned_node = network.get_node("pruned-node")?;
-	wait_for_block_height(pruned_node, finalize_target, SYNC_TIMEOUT_SECS).await?;
-	wait_for_finalized_height(pruned_node, finalize_target, GEN_TIMEOUT_SECS).await?;
+	pruned_node
+		.wait_metric_with_timeout(
+			BEST_BLOCK_METRIC,
+			|height| height >= finalize_target as f64,
+			SYNC_TIMEOUT_SECS,
+		)
+		.await
+		.context(format!("Node did not reach block height {finalize_target}"))?;
+	pruned_node
+		.wait_metric_with_timeout(
+			FINALIZED_BLOCK_METRIC,
+			|height| height >= finalize_target as f64,
+			GEN_TIMEOUT_SECS,
+		)
+		.await
+		.context(format!("Node did not finalize block height {finalize_target}"))?;
 
 	let base_dir: PathBuf = network
 		.base_dir()
