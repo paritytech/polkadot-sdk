@@ -1025,9 +1025,15 @@ async fn make_state<B: Backend>(
 		.await
 		.unwrap();
 
-		let peer_manager = PeerManager::startup(db, &mut sender, collation_manager.assignments())
-			.await
-			.unwrap();
+		let peer_manager = PeerManager::startup(
+			db,
+			&mut sender,
+			collation_manager.assignments(),
+			polkadot_node_clock::system_clock(),
+			Metrics::default(),
+		)
+		.await
+		.unwrap();
 
 		State::new(peer_manager, collation_manager, Metrics::default())
 	};
