@@ -1,0 +1,51 @@
+title: Additional collator revamp metrics
+doc:
+- audience: Node Dev
+  description: |-
+    On top of https://github.com/paritytech/polkadot-sdk/pull/12282
+
+    Additinal metrics for the collator protocol revamp:
+    - _validator_advertisements_total - number of received advertisements, by outcome (accepted, rejected + the exact reason as a label)
+    - _validator_collations_seconded_total - collations sent to backing for secondig
+    - _validator_slashes_total - collator slashes
+    - _validator_approved_peer_signals_total - number of ApprovedPeer UMP signals received, grouped by processing outcome (approved, rejected + reason)
+    - _validator_assigned_paras - how many paras are currently assigned
+    - _validator_connected_collators - number of currently connected collators, grouped by score
+
+    ### Regarding `_validator_advertisements_total`
+    All different outcomes are tracked so that we can deduce from the metric why advertisements are getting rejected. Concretely the labels are based on the variants of `AdvertisementError`:
+    - "accepted"
+    - "unconnected_peer"
+    - "undeclared_peer"
+    - "duplicate"
+    - "out_of_view"
+    - "peer_limit_reached"
+    - "blocked_by_backing"
+    - "v1_for_implicit_parent"
+    - "scheduling_parent_invalid"
+
+    ### Regarding `_validator_connected_collators`
+    Collators are grouped in three different bands:
+    - "0" - zero score, severely slashed or brand new collator.
+    - "1-99" - low score, These are relatively new collators building up reputation.
+    - "100-999" - medium score, established collators.
+    - "1000+" - high score, highly trusted collators.
+
+    ### Regarding `_validator_approved_peer_signals_total`
+    Three different outcomes here:
+    - "present" - happy case, parachains sends the UMP signal and a collator earned a bump.
+    - "absent" - UMP signal was there, but the peer was unknown.
+    - "invalid_peer_id" - UMP signal was there but error occurred during parsing.
+
+    Reviewers, please pay attention to the following questions:
+    - Is advertisement tracking an overkill? I was torn between simple accepted/rejected and the variant currently in the PR. I think having separate error cases is a bit better but I'm not sure we'll actually use them for monitoring.
+    - Validator score - similar question. I was considering counting 0 reputation peers and 1+ reputation peers but went for the 4 bands.
+
+    TODOs:
+    - [ ] DB related metrics
+    - [ ] Simplify bands code
+
+    Partially addresses https://github.com/paritytech/polkadot-sdk/issues/10402
+crates:
+- name: polkadot-collator-protocol
+  bump: patch
