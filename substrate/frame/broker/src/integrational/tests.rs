@@ -15,17 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use fp_coretime::RegionId;
+use fp_coretime::{RegionId, TaskId, market::RenewalRightsProvider};
 use frame_support::{assert_err, assert_noop, assert_ok};
-use pallet_coretime_market::{Event as MarketEvent, Error as MarketError, InitData, SalePhase};
+use pallet_coretime_market::{AccountQuota, Error as MarketError, Event as MarketEvent, InitData, Quotas, SalePhase};
 use sp_runtime::TokenError;
 
 use crate::{
-	integrational::{
-		advance_one_block, advance_to, balance, Broker, MarketPallet, RuntimeOrigin,
-		System, Test, TestExt,
-	},
-	Error as BrokerError, Event as BrokerEvent, Finality, PotentialRenewals,
+	Error as BrokerError, Event as BrokerEvent, Finality, PotentialRenewals, integrational::{
+		Broker, MarketPallet, RuntimeOrigin, System, Test, TestExt, advance_one_block, advance_to, balance
+	}, mock::REGION_LENGTH
 };
 
 #[test]
@@ -78,7 +76,7 @@ fn can_place_renewal_order() {
 			panic!("Expected the bid to be executed at market settlement phase");
 		};
 
-		assert_ok!(Broker::do_assign(region_id, None, 1001, Finality::Final));
+		assert_ok!(Broker::do_assign(region_id, Some(PURCHASER), 1001, Finality::Final));
 
 		advance_to_market_phase(SalePhase::Renewal);
 
@@ -104,10 +102,10 @@ fn auto_renewals_at_settlement_phase_work() {
 }
 
 fn test_auto_renewal_at_sale_phase(test_at_phase: SalePhase) {
-	const PURCHASER: u64 = 1;
-	const SOVEREIGN_ACCOUNT: u64 = 1001;
+	const PURCHASER: u64 = 1001;
+	const TASK_ID: TaskId = 1001;
 
-	TestExt::new().endow(PURCHASER, 1000).endow(SOVEREIGN_ACCOUNT, 1000).execute_with(|| {
+	TestExt::new().endow(PURCHASER, 1000).execute_with(|| {
 		advance_to(2);
 		assert_ok!(Broker::do_start_sales(InitData { reserve_price: 10 }, 1));
 
@@ -120,7 +118,7 @@ fn test_auto_renewal_at_sale_phase(test_at_phase: SalePhase) {
 			panic!("Expected the bid to be executed at market settlement phase");
 		};
 
-		assert_ok!(Broker::do_assign(region_id, None, 1001, Finality::Final));
+		assert_ok!(Broker::do_assign(region_id, Some(PURCHASER), TASK_ID, Finality::Final));
 		
 		let (potential_renewal_id, _) = PotentialRenewals::<Test>::iter()
 			.next()
@@ -128,25 +126,28 @@ fn test_auto_renewal_at_sale_phase(test_at_phase: SalePhase) {
  
 		advance_to_market_phase(test_at_phase);
 
-		assert_ok!(Broker::do_enable_auto_renew(SOVEREIGN_ACCOUNT, region_id.core, 1001, Some(potential_renewal_id.when)));
+		assert_ok!(Broker::do_enable_auto_renew(PURCHASER, region_id.core, TASK_ID, Some(potential_renewal_id.when)));
 
 		advance_to_market_phase(SalePhase::Renewal);
 
+		println!("Market events: {:?}", market_events().into_iter().collect::<Vec<_>>());
+		println!("Broker events: {:?}", broker_events().into_iter().collect::<Vec<_>>());
+
 		assert!(market_events().into_iter().any(
-			|event| matches!(event, MarketEvent::RenewalExercised { who, ..} if who == SOVEREIGN_ACCOUNT)
+			|event| matches!(event, MarketEvent::RenewalExercised { who, ..} if who == PURCHASER)
 		));
 		assert!(broker_events().into_iter().any(
-			|event| matches!(event, BrokerEvent::Renewed { who, old_core, ..} if who == SOVEREIGN_ACCOUNT && old_core == region_id.core)
+			|event| matches!(event, BrokerEvent::Renewed { who, old_core, ..} if who == PURCHASER && old_core == region_id.core)
 		));
 
 		advance_to_market_phase(SalePhase::Settlement);
 		advance_to_market_phase(SalePhase::Renewal);
 
 		assert!(market_events().into_iter().any(
-			|event| matches!(event, MarketEvent::RenewalExercised { who, ..} if who == SOVEREIGN_ACCOUNT)
+			|event| matches!(event, MarketEvent::RenewalExercised { who, ..} if who == PURCHASER)
 		));
 		assert!(broker_events().into_iter().any(
-			|event| matches!(event, BrokerEvent::Renewed { who, old_core, ..} if who == SOVEREIGN_ACCOUNT && old_core == region_id.core)
+			|event| matches!(event, BrokerEvent::Renewed { who, old_core, ..} if who == PURCHASER && old_core == region_id.core)
 		));
 	});
 }
@@ -233,7 +234,7 @@ fn do_renew_with_not_enough_funds_reverts_state_of_both_pallets() {
 			panic!("Expected the bid to be executed at market settlement phase");
 		};
 
-		assert_ok!(Broker::do_assign(region_id, None, 1001, Finality::Final));
+		assert_ok!(Broker::do_assign(region_id, Some(PURCHASER), 1001, Finality::Final));
 
 		advance_to_market_phase(SalePhase::Renewal);
 
@@ -250,6 +251,52 @@ fn start_sales_without_config_reverts_state_of_both_pallets() {
 
 		let init_data = InitData { reserve_price: 10 };
 		assert_err!(Broker::start_sales(RuntimeOrigin::root(), init_data, 0), MarketError::<Test>::Uninitialized);
+	});
+}
+
+#[test]
+fn renewal_rights_work() {
+	const PURCHASER: u64 = 1;
+
+	TestExt::new().endow(PURCHASER, 1000).execute_with(|| {
+		advance_to(2);
+		assert_ok!(Broker::do_start_sales(InitData { reserve_price: 10 }, 3));
+
+		assert_ok!(Broker::do_purchase(PURCHASER, 100));
+		assert_ok!(Broker::do_purchase(PURCHASER, 100));
+		assert_ok!(Broker::do_purchase(PURCHASER, 100));
+
+		advance_to_market_phase(SalePhase::Settlement);
+
+		let regions: Vec<_> = broker_events()
+		.into_iter()
+		.filter_map(|event| {
+			if let BrokerEvent::Purchased { region_id, .. } = event {
+				Some(region_id)
+			} else {
+				None
+			}
+		}).collect();
+
+		assert_ok!(Broker::do_assign(regions[0], Some(PURCHASER), 1001, Finality::Provisional));
+		assert_ok!(Broker::do_assign(regions[1], Some(PURCHASER), 1001, Finality::Final));
+		assert_ok!(Broker::do_assign(regions[2], Some(PURCHASER), 1001, Finality::Final));
+
+		let regions_end = regions[0].begin + REGION_LENGTH;
+		assert_eq!(Broker::renewal_rights_count(&PURCHASER, regions_end), 2);
+
+		advance_to_market_phase(SalePhase::Market);
+
+		assert_ok!(Broker::do_purchase(PURCHASER, 200));
+
+		advance_to_market_phase(SalePhase::Renewal);
+
+		assert_eq!(Quotas::<Test>::get(&PURCHASER), AccountQuota { auction_wins: 1, renewals_used: 0 });
+
+		assert_ok!(Broker::do_renew(PURCHASER, regions[1].core));
+		assert_eq!(Quotas::<Test>::get(&PURCHASER), AccountQuota { auction_wins: 1, renewals_used: 1 });
+
+		assert_noop!(Broker::do_renew(PURCHASER, regions[2].core), MarketError::<Test>::Unavailable);
 	});
 }
 
