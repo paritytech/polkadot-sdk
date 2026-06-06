@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780610676565,
+  "lastUpdate": 1780748483373,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -97631,6 +97631,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2452754984,
             "range": "± 10902897",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2599d4889c34608bb17069f8a3c2eaaf1b38aa75",
+          "message": "In `glutton_westend_config` patch the genesis config with the passed para_id (#12275)\n\nWhile running tests on Versi I noticed that while generating chainspec\nfor e.g. `glutton-westend-local-1301` I noticed that the para id in the\nspec id is ignored and always set to 1300.\n\nNot sure if there is a good reason for this behaviour but it's\nmisleading.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-06T11:03:47Z",
+          "tree_id": "2e446b00dce72385860f3b82a36851caad5f27e4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2599d4889c34608bb17069f8a3c2eaaf1b38aa75"
+        },
+        "date": 1780748451764,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20139020,
+            "range": "± 165930",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20475024,
+            "range": "± 159562",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21838233,
+            "range": "± 172434",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27207901,
+            "range": "± 222182",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 65805797,
+            "range": "± 916592",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 429380746,
+            "range": "± 4012006",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2969317615,
+            "range": "± 242838966",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17718595,
+            "range": "± 146758",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18212198,
+            "range": "± 334415",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18485044,
+            "range": "± 199717",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23448757,
+            "range": "± 216588",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 65682789,
+            "range": "± 860426",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 385580430,
+            "range": "± 5030851",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2803996869,
+            "range": "± 22951283",
             "unit": "ns/iter"
           }
         ]
