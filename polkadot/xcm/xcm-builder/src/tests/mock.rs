@@ -41,6 +41,7 @@ pub use frame_support::{
 	traits::{Contains, Get, IsInVec},
 };
 use sp_weights::constants::{WEIGHT_PROOF_SIZE_PER_MB, WEIGHT_REF_TIME_PER_SECOND};
+use xcm::latest::GetWeight;
 pub use xcm::latest::{prelude::*, QueryId, Weight};
 pub use xcm_executor::{
 	traits::{
@@ -1037,6 +1038,39 @@ impl Config for TestConfig {
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
 	type XcmRecorder = ();
+}
+
+#[derive(xcm_procedural::XcmWeightInfoTrait, xcm_procedural::XcmWeightInfoImpl)]
+pub enum MacroTestInstruction<Call> {
+	ClearOrigin,
+	WithdrawAsset(Assets),
+	TransferAsset { assets: Assets, beneficiary: Location },
+	SetAppendix(Xcm<Call>),
+}
+
+pub struct MacroTestWeightInfo;
+
+impl<Call> XcmWeightInfo<Call> for MacroTestWeightInfo {
+	fn clear_origin() -> Weight {
+		Weight::from_parts(11, 11)
+	}
+
+	fn withdraw_asset(assets: &Assets) -> Weight {
+		let id = if assets.len() == 0 { 101 } else { 102 };
+		Weight::from_parts(id, id)
+	}
+
+	fn transfer_asset(assets: &Assets, beneficiary: &Location) -> Weight {
+		let assets_tag = if assets.len() == 0 { 0 } else { 10 };
+		let beneficiary_tag = if beneficiary == &Here.into() { 1 } else { 2 };
+		let id = 200 + assets_tag + beneficiary_tag;
+		Weight::from_parts(id, id)
+	}
+
+	fn set_appendix(xcm: &Xcm<Call>) -> Weight {
+		let id = 300 + xcm.0.len() as u64;
+		Weight::from_parts(id, id)
+	}
 }
 
 pub fn fungible_multi_asset(location: Location, amount: u128) -> Asset {

@@ -432,6 +432,7 @@ impl XcmContext {
 	DecodeWithMemTracking,
 	TypeInfo,
 	xcm_procedural::XcmWeightInfoTrait,
+	xcm_procedural::XcmWeightInfoImpl,
 	xcm_procedural::Builder,
 )]
 #[derive_where(Clone, Eq, PartialEq, Debug)]
@@ -1184,87 +1185,6 @@ impl<Call> Instruction<Call> {
 	}
 }
 
-// TODO: Automate Generation
-impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
-	fn weight(&self) -> Weight {
-		use Instruction::*;
-		match self {
-			WithdrawAsset(assets) => W::withdraw_asset(assets),
-			ReserveAssetDeposited(assets) => W::reserve_asset_deposited(assets),
-			ReceiveTeleportedAsset(assets) => W::receive_teleported_asset(assets),
-			QueryResponse { query_id, response, max_weight, querier } => {
-				W::query_response(query_id, response, max_weight, querier)
-			},
-			TransferAsset { assets, beneficiary } => W::transfer_asset(assets, beneficiary),
-			TransferReserveAsset { assets, dest, xcm } => {
-				W::transfer_reserve_asset(&assets, dest, xcm)
-			},
-			Transact { origin_kind, require_weight_at_most, call } => {
-				W::transact(origin_kind, require_weight_at_most, call)
-			},
-			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } => {
-				W::hrmp_new_channel_open_request(sender, max_message_size, max_capacity)
-			},
-			HrmpChannelAccepted { recipient } => W::hrmp_channel_accepted(recipient),
-			HrmpChannelClosing { initiator, sender, recipient } => {
-				W::hrmp_channel_closing(initiator, sender, recipient)
-			},
-			ClearOrigin => W::clear_origin(),
-			DescendOrigin(who) => W::descend_origin(who),
-			ReportError(response_info) => W::report_error(&response_info),
-			DepositAsset { assets, beneficiary } => W::deposit_asset(assets, beneficiary),
-			DepositReserveAsset { assets, dest, xcm } => {
-				W::deposit_reserve_asset(assets, dest, xcm)
-			},
-			ExchangeAsset { give, want, maximal } => W::exchange_asset(give, want, maximal),
-			InitiateReserveWithdraw { assets, reserve, xcm } => {
-				W::initiate_reserve_withdraw(assets, reserve, xcm)
-			},
-			InitiateTeleport { assets, dest, xcm } => W::initiate_teleport(assets, dest, xcm),
-			ReportHolding { response_info, assets } => W::report_holding(&response_info, &assets),
-			BuyExecution { fees, weight_limit } => W::buy_execution(fees, weight_limit),
-			RefundSurplus => W::refund_surplus(),
-			SetErrorHandler(xcm) => W::set_error_handler(xcm),
-			SetAppendix(xcm) => W::set_appendix(xcm),
-			ClearError => W::clear_error(),
-			ClaimAsset { assets, ticket } => W::claim_asset(assets, ticket),
-			Trap(code) => W::trap(code),
-			SubscribeVersion { query_id, max_response_weight } => {
-				W::subscribe_version(query_id, max_response_weight)
-			},
-			UnsubscribeVersion => W::unsubscribe_version(),
-			BurnAsset(assets) => W::burn_asset(assets),
-			ExpectAsset(assets) => W::expect_asset(assets),
-			ExpectOrigin(origin) => W::expect_origin(origin),
-			ExpectError(error) => W::expect_error(error),
-			ExpectTransactStatus(transact_status) => W::expect_transact_status(transact_status),
-			QueryPallet { module_name, response_info } => {
-				W::query_pallet(module_name, response_info)
-			},
-			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } => {
-				W::expect_pallet(index, name, module_name, crate_major, min_crate_minor)
-			},
-			ReportTransactStatus(response_info) => W::report_transact_status(response_info),
-			ClearTransactStatus => W::clear_transact_status(),
-			UniversalOrigin(j) => W::universal_origin(j),
-			ExportMessage { network, destination, xcm } => {
-				W::export_message(network, destination, xcm)
-			},
-			LockAsset { asset, unlocker } => W::lock_asset(asset, unlocker),
-			UnlockAsset { asset, target } => W::unlock_asset(asset, target),
-			NoteUnlockable { asset, owner } => W::note_unlockable(asset, owner),
-			RequestUnlock { asset, locker } => W::request_unlock(asset, locker),
-			SetFeesMode { jit_withdraw } => W::set_fees_mode(jit_withdraw),
-			SetTopic(topic) => W::set_topic(topic),
-			ClearTopic => W::clear_topic(),
-			AliasOrigin(location) => W::alias_origin(location),
-			UnpaidExecution { weight_limit, check_origin } => {
-				W::unpaid_execution(weight_limit, check_origin)
-			},
-		}
-	}
-}
-
 pub mod opaque {
 	/// The basic concrete type of `Xcm`, which doesn't make any assumptions about the
 	/// format of a call other than it is pre-encoded.
@@ -1462,10 +1382,10 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 				weight_limit,
 				check_origin: check_origin.map(|origin| origin.try_into()).transpose()?,
 			},
-			InitiateTransfer { .. } |
-			PayFees { .. } |
-			SetHints { .. } |
-			ExecuteWithOrigin { .. } => {
+			InitiateTransfer { .. }
+			| PayFees { .. }
+			| SetHints { .. }
+			| ExecuteWithOrigin { .. } => {
 				tracing::debug!(target: "xcm::versions::v5tov4", ?new_instruction, "not supported by v4");
 				return Err(());
 			},
