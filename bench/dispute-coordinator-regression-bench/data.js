@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780611879013,
+  "lastUpdate": 1780749645604,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gui.thiolliere@gmail.com",
-            "name": "Guillaume Thiolliere",
-            "username": "gui1117"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "268973379fe74d6b071ac247a0057fc7cd01afee",
-          "message": "pallet-assets: make touch other permissionless (#7456)\n\nFix https://github.com/paritytech/polkadot-sdk/issues/7450\n\nPallet assets don't have the assumption that Admin and Freezer are\ntrusted by the chain, so I don't see any security concern from this\nchange.\n\nThe only difference I see is that people can create more account with 0\nbalance for a given asset, whereas in the past only privileged role\ncould do it (privileged from the point of view of the asset, not the\nchain).\n\nThat said maybe this is not the actual fix we want, maybe it would be\nbetter to have accounts being able to increase their `MaxConsumers`\nvalue by adding some deposit.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
-          "timestamp": "2025-10-21T13:31:36Z",
-          "tree_id": "95a8a05e2bb7b08c5c9264705c5f54da9c54626b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/268973379fe74d6b071ac247a0057fc7cd01afee"
-        },
-        "date": 1761059543189,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00263093915,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00526248898,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00875917623999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009207544159999977,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2599d4889c34608bb17069f8a3c2eaaf1b38aa75",
+          "message": "In `glutton_westend_config` patch the genesis config with the passed para_id (#12275)\n\nWhile running tests on Versi I noticed that while generating chainspec\nfor e.g. `glutton-westend-local-1301` I noticed that the para id in the\nspec id is ignored and always set to 1300.\n\nNot sure if there is a good reason for this behaviour but it's\nmisleading.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-06T11:03:47Z",
+          "tree_id": "2e446b00dce72385860f3b82a36851caad5f27e4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2599d4889c34608bb17069f8a3c2eaaf1b38aa75"
+        },
+        "date": 1780749613854,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009527118969999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01132489763999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00264642976,
             "unit": "seconds"
           }
         ]
