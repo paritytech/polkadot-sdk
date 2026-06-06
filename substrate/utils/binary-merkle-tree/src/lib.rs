@@ -155,8 +155,13 @@ struct ProofCollection<T> {
 }
 
 impl<T> ProofCollection<T> {
-	fn new(position: u32) -> Self {
-		ProofCollection { proof: Default::default(), position }
+	fn new(position: u32, number_of_leaves: u32) -> Self {
+		// The proof for a single leaf contains at most one node per tree level above the
+		// leaves, i.e. `ceil(log2(number_of_leaves))` elements. Preallocate accordingly to
+		// avoid intermediate reallocations while collecting the proof.
+		let capacity =
+			if number_of_leaves <= 1 { 0 } else { (number_of_leaves - 1).ilog2() as usize + 1 };
+		ProofCollection { proof: Vec::with_capacity(capacity), position }
 	}
 }
 
@@ -209,7 +214,7 @@ where
 	});
 
 	let number_of_leaves = iter.len() as u32;
-	let mut collect_proof = ProofCollection::new(leaf_index);
+	let mut collect_proof = ProofCollection::new(leaf_index, number_of_leaves);
 
 	let root = merkelize::<H, _, _>(iter, &mut collect_proof);
 	let leaf = leaf.expect("Requested `leaf_index` is greater than number of leaves.");
@@ -257,7 +262,7 @@ where
 	});
 
 	let number_of_leaves = iter.len() as u32;
-	let mut collect_proof = ProofCollection::new(leaf_index);
+	let mut collect_proof = ProofCollection::new(leaf_index, number_of_leaves);
 
 	let root = merkelize::<H, _, _>(iter, &mut collect_proof);
 	let leaf = leaf.expect("Requested `leaf_index` is greater than number of leaves.");
