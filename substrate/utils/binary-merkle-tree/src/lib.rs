@@ -148,6 +148,20 @@ impl<T> Visitor<T> for () {
 	fn visit(&mut self, _index: u32, _left: &Option<T>, _right: &Option<T>) {}
 }
 
+/// Maximum number of nodes a single-leaf proof can contain for a tree of `number_of_leaves`
+/// leaves, i.e. `ceil(log2(number_of_leaves))` (the height of the tree above the leaves).
+///
+/// `number_of_leaves <= 1` is guarded explicitly to avoid `0u32.ilog2()` panicking, and the
+/// `(n - 1).ilog2() + 1` form computes the ceiling without the overflow risk of
+/// `n.next_power_of_two().ilog2()`.
+fn proof_capacity(number_of_leaves: u32) -> usize {
+	if number_of_leaves <= 1 {
+		0
+	} else {
+		(number_of_leaves - 1).ilog2() as usize + 1
+	}
+}
+
 /// The struct collects a proof for single leaf.
 struct ProofCollection<T> {
 	proof: Vec<T>,
@@ -156,12 +170,9 @@ struct ProofCollection<T> {
 
 impl<T> ProofCollection<T> {
 	fn new(position: u32, number_of_leaves: u32) -> Self {
-		// The proof for a single leaf contains at most one node per tree level above the
-		// leaves, i.e. `ceil(log2(number_of_leaves))` elements. Preallocate accordingly to
-		// avoid intermediate reallocations while collecting the proof.
-		let capacity =
-			if number_of_leaves <= 1 { 0 } else { (number_of_leaves - 1).ilog2() as usize + 1 };
-		ProofCollection { proof: Vec::with_capacity(capacity), position }
+		// Preallocate the proof to its maximum possible size to avoid intermediate
+		// reallocations while collecting it.
+		ProofCollection { proof: Vec::with_capacity(proof_capacity(number_of_leaves)), position }
 	}
 }
 
@@ -867,5 +878,45 @@ mod tests {
 				.to_vec(),
 			}
 		);
+	}
+
+	#[test]
+	fn proof_capacity_matches_ceil_log2() {
+		// (number_of_leaves, expected `ceil(log2(n))`).
+		let cases = [
+			(0, 0),
+			(1, 0), // both guarded to avoid `0u32.ilog2()` panicking
+			(2, 1),
+			(3, 2),
+			(4, 2),
+			(5, 3),
+			(7, 3),
+			(8, 3),
+			(9, 4),
+			(1 << 20, 20),
+			(u32::MAX, 32), // no overflow at the extreme
+		];
+		for (n, expected) in cases {
+			assert_eq!(proof_capacity(n), expected, "n={n}");
+		}
+	}
+
+	#[test]
+	fn proof_length_never_exceeds_tree_height() {
+		// The preallocation relies on a single-leaf proof never holding more than
+		// `ceil(log2(number_of_leaves))` nodes. The range straddles the power-of-two
+		// boundary (128) where last-odd-node promotion is most likely to surprise.
+		for n in 1u32..=130 {
+			let data: Vec<H256> = (0..n).map(|i| H256::repeat_byte(i as u8)).collect();
+			let max = proof_capacity(n);
+			for leaf_index in 0..n {
+				let proof = merkle_proof::<Keccak256, _, _>(data.clone(), leaf_index);
+				assert!(
+					proof.proof.len() <= max,
+					"n={n}, leaf={leaf_index}: proof len {} exceeds height {max}",
+					proof.proof.len(),
+				);
+			}
+		}
 	}
 }
