@@ -151,15 +151,15 @@ impl<T> Visitor<T> for () {
 /// Maximum number of nodes a single-leaf proof can contain for a tree of `number_of_leaves`
 /// leaves, i.e. `ceil(log2(number_of_leaves))` (the height of the tree above the leaves).
 ///
-/// `number_of_leaves <= 1` is guarded explicitly to avoid `0u32.ilog2()` panicking, and the
-/// `(n - 1).ilog2() + 1` form computes the ceiling without the overflow risk of
-/// `n.next_power_of_two().ilog2()`.
+/// `checked_ilog2` returns `None` for `0` instead of panicking like `ilog2`, so combined with
+/// `saturating_sub(1)` (which keeps `0` and `1` leaves at `0` without underflowing) this is
+/// panic-free and avoids pulling the panic path into the binary. The `(n - 1)` form also
+/// computes the ceiling without the overflow risk of `n.next_power_of_two().ilog2()`.
 fn proof_capacity(number_of_leaves: u32) -> usize {
-	if number_of_leaves <= 1 {
-		0
-	} else {
-		(number_of_leaves - 1).ilog2() as usize + 1
-	}
+	number_of_leaves
+		.saturating_sub(1)
+		.checked_ilog2()
+		.map_or(0, |log| log as usize + 1)
 }
 
 /// The struct collects a proof for single leaf.
