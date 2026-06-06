@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780611754616,
+  "lastUpdate": 1780749524329,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "31001cd5379c191aba605ac075419be9979d5742",
-          "message": "Add instant seal to omni-node (#10008)\n\nAdds a new `--instant-seal` CLI flag to enable instant seal mode in\nomni-node.\n\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/9996\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
-          "timestamp": "2025-10-23T15:02:21Z",
-          "tree_id": "1e746b6f12513b9ddc2e97ffc4619744c50030a4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/31001cd5379c191aba605ac075419be9979d5742"
-        },
-        "date": 1761236896233,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013066579500000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02270253301333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007255206306666648,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15960656012000007,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.023859270300000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2599d4889c34608bb17069f8a3c2eaaf1b38aa75",
+          "message": "In `glutton_westend_config` patch the genesis config with the passed para_id (#12275)\n\nWhile running tests on Versi I noticed that while generating chainspec\nfor e.g. `glutton-westend-local-1301` I noticed that the para id in the\nspec id is ignored and always set to 1300.\n\nNot sure if there is a good reason for this behaviour but it's\nmisleading.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-06T11:03:47Z",
+          "tree_id": "2e446b00dce72385860f3b82a36851caad5f27e4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2599d4889c34608bb17069f8a3c2eaaf1b38aa75"
+        },
+        "date": 1780749492014,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023835515366666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14428456042000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009933904066666648,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007578385246666668,
             "unit": "seconds"
           }
         ]
