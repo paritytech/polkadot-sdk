@@ -317,3 +317,40 @@ fn weight_trader_tuple_should_work() {
 	// and no refund
 	assert_eq!(traders.refund_weight(Weight::from_parts(2, 2), &ctx), None);
 }
+
+#[test]
+fn generated_dispatch_covers_representative_variant_shapes() {
+	use xcm::latest::GetWeight;
+
+	fn assert_get_weight_impl<T: GetWeight<MacroTestWeightInfo>>() {}
+	assert_get_weight_impl::<MacroTestInstruction<TestCall>>();
+
+	assert_eq!(
+		GetWeight::<MacroTestWeightInfo>::weight(&MacroTestInstruction::<TestCall>::ClearOrigin),
+		Weight::from_parts(11, 11)
+	);
+
+	let tuple_assets: Assets = (Here, 1u128).into();
+	assert_eq!(
+		GetWeight::<MacroTestWeightInfo>::weight(&MacroTestInstruction::<TestCall>::WithdrawAsset(
+			tuple_assets,
+		)),
+		Weight::from_parts(102, 102)
+	);
+
+	let named_assets: Assets = (Here, 1u128).into();
+	assert_eq!(
+		GetWeight::<MacroTestWeightInfo>::weight(&MacroTestInstruction::<TestCall>::TransferAsset {
+			assets: named_assets,
+			beneficiary: Here.into(),
+		}),
+		Weight::from_parts(211, 211)
+	);
+
+	assert_eq!(
+		GetWeight::<MacroTestWeightInfo>::weight(&MacroTestInstruction::<TestCall>::SetAppendix(
+			Xcm(vec![ClearOrigin]),
+		)),
+		Weight::from_parts(301, 301)
+	);
+}
