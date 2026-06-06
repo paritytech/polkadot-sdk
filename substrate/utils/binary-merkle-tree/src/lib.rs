@@ -148,14 +148,9 @@ impl<T> Visitor<T> for () {
 	fn visit(&mut self, _index: u32, _left: &Option<T>, _right: &Option<T>) {}
 }
 
-/// Maximum number of nodes a single-leaf proof can contain for a tree of `number_of_leaves`
-/// leaves, i.e. `ceil(log2(number_of_leaves))` (the height of the tree above the leaves).
-///
-/// `checked_ilog2` returns `None` for `0` instead of panicking like `ilog2`, so combined with
-/// `saturating_sub(1)` (which keeps `0` and `1` leaves at `0` without underflowing) this is
-/// panic-free and avoids pulling the panic path into the binary. The `(n - 1)` form also
-/// computes the ceiling without the overflow risk of `n.next_power_of_two().ilog2()`.
+/// Maximum number of nodes in a single-leaf proof, i.e. `ceil(log2(number_of_leaves))`.
 fn proof_capacity(number_of_leaves: u32) -> usize {
+	// `checked_ilog2` is `None` for 0, so empty and single-leaf trees map to a capacity of 0.
 	number_of_leaves
 		.saturating_sub(1)
 		.checked_ilog2()
@@ -170,8 +165,7 @@ struct ProofCollection<T> {
 
 impl<T> ProofCollection<T> {
 	fn new(position: u32, number_of_leaves: u32) -> Self {
-		// Preallocate the proof to its maximum possible size to avoid intermediate
-		// reallocations while collecting it.
+		// Size the proof up front so collecting it does not reallocate.
 		ProofCollection { proof: Vec::with_capacity(proof_capacity(number_of_leaves)), position }
 	}
 }
@@ -885,7 +879,7 @@ mod tests {
 		// (number_of_leaves, expected `ceil(log2(n))`).
 		let cases = [
 			(0, 0),
-			(1, 0), // both guarded to avoid `0u32.ilog2()` panicking
+			(1, 0),
 			(2, 1),
 			(3, 2),
 			(4, 2),
@@ -894,7 +888,7 @@ mod tests {
 			(8, 3),
 			(9, 4),
 			(1 << 20, 20),
-			(u32::MAX, 32), // no overflow at the extreme
+			(u32::MAX, 32),
 		];
 		for (n, expected) in cases {
 			assert_eq!(proof_capacity(n), expected, "n={n}");
@@ -903,9 +897,8 @@ mod tests {
 
 	#[test]
 	fn proof_length_never_exceeds_tree_height() {
-		// The preallocation relies on a single-leaf proof never holding more than
-		// `ceil(log2(number_of_leaves))` nodes. The range straddles the power-of-two
-		// boundary (128) where last-odd-node promotion is most likely to surprise.
+		// A proof must never exceed `proof_capacity`. Cover sizes either side of a power of
+		// two (128), where an odd node gets promoted instead of adding a proof element.
 		for n in 1u32..=130 {
 			let data: Vec<H256> = (0..n).map(|i| H256::repeat_byte(i as u8)).collect();
 			let max = proof_capacity(n);
