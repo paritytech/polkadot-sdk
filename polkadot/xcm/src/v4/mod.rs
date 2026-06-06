@@ -435,7 +435,6 @@ impl XcmContext {
 	DecodeWithMemTracking,
 	TypeInfo,
 	xcm_procedural::XcmWeightInfoTrait,
-	xcm_procedural::XcmWeightInfoImpl,
 	xcm_procedural::Builder,
 )]
 #[derive_where(Clone, Eq, PartialEq, Debug)]

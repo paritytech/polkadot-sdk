@@ -1040,7 +1040,7 @@ impl Config for TestConfig {
 	type XcmRecorder = ();
 }
 
-#[derive(xcm_procedural::XcmWeightInfoTrait, xcm_procedural::XcmWeightInfoImpl)]
+#[derive(xcm_procedural::XcmWeightInfoTrait)]
 pub enum MacroTestInstruction<Call> {
 	ClearOrigin,
 	WithdrawAsset(Assets),
