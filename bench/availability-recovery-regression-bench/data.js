@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780611712476,
+  "lastUpdate": 1780749483111,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "Denzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2ed43f3fa3e0a04760802012e74055be05091474",
-          "message": "ci: trigger zombienet tests automatically (#9960)\n\n# Description\n#9877\n\n---------\n\nCo-authored-by: Javier Viola <javier@parity.io>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2025-10-23T21:22:00Z",
-          "tree_id": "fb7658dc4b04fa474aedb99d0af4b085a197a021",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ed43f3fa3e0a04760802012e74055be05091474"
-        },
-        "date": 1761259915241,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20398190923333331,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.641500368900003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1259953599333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2599d4889c34608bb17069f8a3c2eaaf1b38aa75",
+          "message": "In `glutton_westend_config` patch the genesis config with the passed para_id (#12275)\n\nWhile running tests on Versi I noticed that while generating chainspec\nfor e.g. `glutton-westend-local-1301` I noticed that the para id in the\nspec id is ignored and always set to 1300.\n\nNot sure if there is a good reason for this behaviour but it's\nmisleading.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-06T11:03:47Z",
+          "tree_id": "2e446b00dce72385860f3b82a36851caad5f27e4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2599d4889c34608bb17069f8a3c2eaaf1b38aa75"
+        },
+        "date": 1780749451511,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13825567946666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.357600401799997,
             "unit": "seconds"
           }
         ]
