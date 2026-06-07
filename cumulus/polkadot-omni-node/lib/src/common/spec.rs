@@ -36,9 +36,6 @@ use cumulus_client_service::{
 	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, ParachainTracingExecuteBlock,
 	StartRelayChainTasksParams,
 };
-use sc_storage_chain_sync::{
-	IndexedTransactionFetcher, NetworkHandle, StorageChainBlockImport, SyncingHandle,
-};
 use cumulus_primitives_core::{BlockT, GetParachainInfo, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::FutureExt;
@@ -54,6 +51,9 @@ use sc_network::{
 };
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
 use sc_statement_store::Store;
+use sc_storage_chain_sync::{
+	IndexedTransactionFetcher, NetworkHandle, StorageChainBlockImport, SyncingHandle,
+};
 use sc_sysinfo::HwBench;
 use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;

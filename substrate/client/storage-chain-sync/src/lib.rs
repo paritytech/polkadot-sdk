@@ -183,7 +183,7 @@ where
 	fn classify_renew_hashes(
 		&self,
 		params: &mut BlockImportParams<Block>,
-	) -> Result<HashSet<(ContentHash, HashingAlgorithm)>, ConsensusError> {
+	) -> Result<HashSet<(ContentHash, HashingAlgorithm, u64)>, ConsensusError> {
 		let parent_hash = *params.header.parent_hash();
 		let block_number = *params.header.number();
 
@@ -281,11 +281,11 @@ where
 	/// Drops every entry whose data is already in the local TRANSACTION column.
 	fn filter_missing(
 		&self,
-		renews: HashSet<(ContentHash, HashingAlgorithm)>,
-	) -> HashSet<(ContentHash, HashingAlgorithm)> {
+		renews: HashSet<(ContentHash, HashingAlgorithm, u64)>,
+	) -> HashSet<(ContentHash, HashingAlgorithm, u64)> {
 		renews
 			.into_iter()
-			.filter(|(hash, _)| {
+			.filter(|(hash, _, _)| {
 				!self.client.has_indexed_transaction((*hash).into()).unwrap_or(false)
 			})
 			.collect()
@@ -294,13 +294,13 @@ where
 	/// Bitswap-fetch every missing entry. Errors if any entry was not served.
 	async fn fetch_all(
 		&self,
-		missing: HashSet<(ContentHash, HashingAlgorithm)>,
+		missing: HashSet<(ContentHash, HashingAlgorithm, u64)>,
 	) -> Result<Vec<(ContentHash, Vec<u8>)>, ConsensusError> {
 		if missing.is_empty() {
 			return Ok(Vec::new());
 		}
 
-		let wants: Vec<(ContentHash, HashingAlgorithm)> = missing.into_iter().collect();
+		let wants: Vec<(ContentHash, HashingAlgorithm, u64)> = missing.into_iter().collect();
 		let acquired = self.fetcher.fetch_many(&wants).await?;
 
 		if acquired.len() != wants.len() {
@@ -313,7 +313,7 @@ where
 
 		let payload: Vec<(ContentHash, Vec<u8>)> = wants
 			.iter()
-			.map(|(hash, _)| {
+			.map(|(hash, _, _)| {
 				let data = acquired
 					.get(hash)
 					.expect("all hashes present; len equality verified above; qed")
@@ -422,12 +422,12 @@ where
 	}
 }
 
-/// Returns runtime-verified renew pairs for host-call renew operations.
+/// Returns runtime-verified renew triples for host-call renew operations.
 fn verified_renews_from_index_ops(
 	ops: &[IndexOperation],
 	infos: &[IndexedTransactionInfo],
 	context: &'static str,
-) -> Result<HashSet<(ContentHash, HashingAlgorithm)>, ConsensusError> {
+) -> Result<HashSet<(ContentHash, HashingAlgorithm, u64)>, ConsensusError> {
 	let mut renews = HashSet::new();
 	for op in ops {
 		let IndexOperation::Renew { hash, .. } = op else { continue };
@@ -439,7 +439,7 @@ fn verified_renews_from_index_ops(
 				format!("{context}: runtime API missing metadata for renew hash {hash:?}").into(),
 			)
 		})?;
-		renews.insert((hash, info.hashing));
+		renews.insert((hash, info.hashing, info.cid_codec));
 	}
 	Ok(renews)
 }
@@ -474,7 +474,7 @@ fn overlay_from_storage_changes<Block: BlockT>(
 fn body_classify_to_ops<Block: BlockT>(
 	infos: &[IndexedTransactionInfo],
 	body: &[Block::Extrinsic],
-) -> (Vec<IndexOperation>, HashSet<(ContentHash, HashingAlgorithm)>) {
+) -> (Vec<IndexOperation>, HashSet<(ContentHash, HashingAlgorithm, u64)>) {
 	let mut ops = Vec::new();
 	let mut renew_wants = HashSet::new();
 
@@ -501,7 +501,7 @@ fn body_classify_to_ops<Block: BlockT>(
 				extrinsic: extrinsic_index,
 				hash: info.content_hash.to_vec(),
 			});
-			renew_wants.insert((info.content_hash, info.hashing));
+			renew_wants.insert((info.content_hash, info.hashing, info.cid_codec));
 		}
 	}
 
@@ -519,7 +519,7 @@ fn body_classify_to_ops<Block: BlockT>(
 fn body_classify_renews<Block: BlockT>(
 	infos: &[IndexedTransactionInfo],
 	body: &[Block::Extrinsic],
-) -> HashSet<(ContentHash, HashingAlgorithm)> {
+) -> HashSet<(ContentHash, HashingAlgorithm, u64)> {
 	body_classify_to_ops::<Block>(infos, body).1
 }
 
@@ -590,7 +590,7 @@ mod tests {
 
 		assert_eq!(
 			body_classify_renews::<Block>(&infos, &body),
-			HashSet::from([([9; 32], HashingAlgorithm::Blake2b256)]),
+			HashSet::from([([9; 32], HashingAlgorithm::Blake2b256, 0x70)]),
 		);
 	}
 
@@ -606,7 +606,7 @@ mod tests {
 		)];
 
 		let renews = body_classify_renews::<Block>(&infos, &body);
-		assert_eq!(renews, HashSet::from([([1; 32], HashingAlgorithm::Sha2_256)]));
+		assert_eq!(renews, HashSet::from([([1; 32], HashingAlgorithm::Sha2_256, RAW_CODEC)]));
 	}
 
 	#[test]
@@ -622,8 +622,8 @@ mod tests {
 		assert_eq!(
 			renews,
 			HashSet::from([
-				([2; 32], HashingAlgorithm::Blake2b256),
-				([3; 32], HashingAlgorithm::Keccak256),
+				([2; 32], HashingAlgorithm::Blake2b256, RAW_CODEC),
+				([3; 32], HashingAlgorithm::Keccak256, RAW_CODEC),
 			]),
 		);
 	}
@@ -656,7 +656,7 @@ mod tests {
 
 		let renews = body_classify_renews::<Block>(&infos, &body);
 
-		assert_eq!(renews, HashSet::from([([4; 32], HashingAlgorithm::Blake2b256)]));
+		assert_eq!(renews, HashSet::from([([4; 32], HashingAlgorithm::Blake2b256, RAW_CODEC)]));
 	}
 
 	#[test]
@@ -679,7 +679,7 @@ mod tests {
 
 		let renews = verified_renews_from_index_ops(&ops, &infos, "test").unwrap();
 
-		assert_eq!(renews, HashSet::from([(hash, HashingAlgorithm::Keccak256)]));
+		assert_eq!(renews, HashSet::from([(hash, HashingAlgorithm::Keccak256, RAW_CODEC)]));
 	}
 
 	#[test]
@@ -749,9 +749,9 @@ mod tests {
 		assert_eq!(
 			renew_wants,
 			HashSet::from([
-				([0xA1; 32], HashingAlgorithm::Blake2b256),
-				([0xB2; 32], HashingAlgorithm::Sha2_256),
-				([0xC3; 32], HashingAlgorithm::Keccak256),
+				([0xA1; 32], HashingAlgorithm::Blake2b256, RAW_CODEC),
+				([0xB2; 32], HashingAlgorithm::Sha2_256, RAW_CODEC),
+				([0xC3; 32], HashingAlgorithm::Keccak256, RAW_CODEC),
 			]),
 		);
 	}
@@ -789,8 +789,8 @@ mod tests {
 		assert_eq!(
 			renew_wants,
 			HashSet::from([
-				([0xAB; 32], HashingAlgorithm::Sha2_256),
-				([0xCD; 32], HashingAlgorithm::Blake2b256),
+				([0xAB; 32], HashingAlgorithm::Sha2_256, RAW_CODEC),
+				([0xCD; 32], HashingAlgorithm::Blake2b256, RAW_CODEC),
 			]),
 		);
 	}
@@ -824,7 +824,10 @@ mod tests {
 
 		assert_eq!(ops.len(), 1);
 		assert!(matches!(ops[0], IndexOperation::Renew { .. }));
-		assert_eq!(renew_wants, HashSet::from([([0x77; 32], HashingAlgorithm::Blake2b256)]));
+		assert_eq!(
+			renew_wants,
+			HashSet::from([([0x77; 32], HashingAlgorithm::Blake2b256, RAW_CODEC)]),
+		);
 	}
 
 	#[test]
@@ -850,7 +853,11 @@ mod tests {
 
 		assert_eq!(ops.len(), 1, "non-RAW codec must still be classified");
 		assert!(matches!(ops[0], IndexOperation::Renew { .. }));
-		assert_eq!(renew_wants, HashSet::from([([0x33; 32], HashingAlgorithm::Blake2b256)]));
+		assert_eq!(
+			renew_wants,
+			HashSet::from([([0x33; 32], HashingAlgorithm::Blake2b256, 0x70)]),
+			"runtime-declared codec must be preserved in the renew-want set",
+		);
 	}
 
 	#[test]
@@ -886,6 +893,6 @@ mod tests {
 		let (_, expected_renews) = body_classify_to_ops::<Block>(&infos, &body);
 
 		assert_eq!(renews, expected_renews);
-		assert_eq!(renews, HashSet::from([([0xEE; 32], HashingAlgorithm::Sha2_256)]));
+		assert_eq!(renews, HashSet::from([([0xEE; 32], HashingAlgorithm::Sha2_256, RAW_CODEC)]));
 	}
 }

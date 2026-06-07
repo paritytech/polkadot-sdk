@@ -121,6 +121,53 @@ async fn import_case_a_attaches_prefetched(
 }
 
 #[tokio::test]
+async fn import_case_a_propagates_runtime_declared_codec_to_bitswap_cid() {
+	const DAG_PB_CODEC: u64 = 0x70;
+
+	let h = make_harness();
+	let bytes = b"non-raw-codec-payload".to_vec();
+	let algorithm = HashingAlgorithm::Blake2b256;
+	let content_hash: ContentHash = algorithm.hash(&bytes);
+
+	h.api.set_indexed(
+		1,
+		vec![IndexedTransactionInfo {
+			content_hash,
+			size: bytes.len() as u32,
+			hashing: algorithm,
+			cid_codec: DAG_PB_CODEC,
+			extrinsic_index: u32::MAX,
+		}],
+	);
+	h.network.insert(content_hash, bytes.clone());
+
+	let params = case_a_params(1, vec![renew_op(content_hash, 0)]);
+	let result = h.wrapper.import_block(params).await.expect("import_block");
+	assert!(matches!(result, ImportResult::Imported(_)));
+
+	let observed = h.network.observed_cids();
+	assert!(
+		observed.iter().any(|cid| cid.codec() == DAG_PB_CODEC &&
+			cid.hash().digest() == content_hash),
+		"bitswap request must carry the runtime-declared codec ({DAG_PB_CODEC:#x}); observed: {observed:?}",
+	);
+	assert!(
+		observed.iter().all(|cid| cid.codec() != sc_network::bitswap::RAW_CODEC),
+		"no request should fall back to hard-coded RAW_CODEC; observed: {observed:?}",
+	);
+
+	let captured = h.captured.lock().unwrap();
+	assert_eq!(captured.len(), 1);
+	let prefetched = &captured[0].prefetched_indexed_transactions;
+	let key = sp_core::H256::from(content_hash);
+	assert_eq!(
+		prefetched.renew_payloads.get(&key).map(|v| v.as_slice()),
+		Some(bytes.as_slice()),
+		"non-RAW codec entries must still be successfully fetched and attached",
+	);
+}
+
+#[tokio::test]
 async fn import_case_a_skips_already_present_hash() {
 	let h = make_harness();
 	let bytes = b"already-on-disk".to_vec();
@@ -478,11 +525,11 @@ mod mock {
 	use async_trait::async_trait;
 	use cid::{Cid, Version as CidVersion};
 	use codec::{Decode, Encode};
+	use futures::channel::oneshot;
 	use sc_storage_chain_sync::{
 		BitswapPeerSource, IndexedTransactionFetcher, NetworkHandle, StorageChainBlockImport,
 		SyncingHandle,
 	};
-	use futures::channel::oneshot;
 
 	use sc_consensus::{
 		BlockCheckParams, BlockImport, BlockImportParams, ImportResult, ImportedAux, StateAction,
@@ -766,6 +813,7 @@ mod mock {
 	pub(super) struct MockNetworkRequest {
 		responses: Mutex<HashMap<ContentHash, Vec<u8>>>,
 		call_count: Mutex<usize>,
+		observed_cids: Mutex<Vec<Cid>>,
 	}
 
 	impl MockNetworkRequest {
@@ -775,6 +823,10 @@ mod mock {
 
 		pub(super) fn call_count(&self) -> usize {
 			*self.call_count.lock().unwrap()
+		}
+
+		pub(super) fn observed_cids(&self) -> Vec<Cid> {
+			self.observed_cids.lock().unwrap().clone()
 		}
 	}
 
@@ -797,10 +849,11 @@ mod mock {
 			let mut block_presences = Vec::new();
 			for entry in message.wantlist.unwrap_or_default().entries {
 				let Ok(cid) = Cid::read_bytes(entry.block.as_slice()) else { continue };
+				self.observed_cids.lock().unwrap().push(cid);
 				let digest: Option<ContentHash> = cid.hash().digest().try_into().ok();
 				match digest.and_then(|d| responses.get(&d).cloned()) {
 					Some(data) => payload.push(bitswap_schema::message::Block {
-						prefix: raw_prefix_for(&cid),
+						prefix: prefix_mirroring_request(&cid),
 						data,
 					}),
 					None => block_presences.push(bitswap_schema::message::BlockPresence {
@@ -827,10 +880,10 @@ mod mock {
 		}
 	}
 
-	fn raw_prefix_for(cid: &Cid) -> Vec<u8> {
+	fn prefix_mirroring_request(cid: &Cid) -> Vec<u8> {
 		sc_network::bitswap::test_helpers::Prefix {
 			version: CidVersion::V1,
-			codec: RAW_CODEC,
+			codec: cid.codec(),
 			mh_type: cid.hash().code(),
 			mh_len: 32,
 		}

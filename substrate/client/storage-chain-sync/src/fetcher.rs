@@ -35,7 +35,7 @@ use async_trait::async_trait;
 use cid::{multihash::Multihash, Cid};
 use futures::channel::oneshot;
 use sc_network::{
-	bitswap::{request_bitswap_blocks, FetchOutcome, MAX_WANTED_BLOCKS, RAW_CODEC},
+	bitswap::{request_bitswap_blocks, FetchOutcome, MAX_WANTED_BLOCKS},
 	NetworkRequest, PeerId,
 };
 use sc_network_sync::SyncingService;
@@ -112,9 +112,14 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 
 	/// Resolve a batch of indexed-transaction hashes via bitswap, rotating across up to
 	/// `MAX_PEERS_PER_IMPORT` peers. Returns only successfully fetched entries.
+	///
+	/// Each want carries the runtime-declared `cid_codec` so the request CID's codec
+	/// matches what the producing runtime announced. The substrate bitswap server keys
+	/// content by multihash digest alone (codec is mirrored back unchanged), so this
+	/// stays correct for any codec value the runtime emits.
 	pub async fn fetch_many(
 		&self,
-		wants: &[(ContentHash, HashingAlgorithm)],
+		wants: &[(ContentHash, HashingAlgorithm, u64)],
 	) -> Result<HashMap<ContentHash, Vec<u8>>, FetchError> {
 		if wants.is_empty() {
 			return Ok(HashMap::new());
@@ -140,10 +145,10 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 		// Build per-want CIDs once; reuse across peers and chunks.
 		let cids: Vec<(ContentHash, Cid)> = wants
 			.iter()
-			.map(|(hash, algo)| {
+			.map(|(hash, algo, codec)| {
 				let mh = Multihash::<64>::wrap(algo.multihash_code(), hash)
 					.map_err(|e| FetchError::Multihash(e.to_string()))?;
-				Ok::<_, FetchError>((*hash, Cid::new_v1(RAW_CODEC, mh)))
+				Ok::<_, FetchError>((*hash, Cid::new_v1(*codec, mh)))
 			})
 			.collect::<Result<_, _>>()?;
 		let mut remaining = cids;
