@@ -190,6 +190,7 @@ pub fn node_config(
 		warm_up_trie_cache: None,
 		state_pruning: Default::default(),
 		blocks_pruning: BlocksPruning::KeepFinalized,
+		header_pruning: false,
 		chain_spec: Box::new(spec),
 		executor: ExecutorConfiguration {
 			wasm_method: WasmExecutionMethod::Compiled {

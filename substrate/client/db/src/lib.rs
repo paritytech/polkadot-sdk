@@ -347,9 +347,22 @@ pub struct DatabaseSettings {
 	/// Filters to exclude blocks from pruning.
 	///
 	/// If any filter returns `true` for a block's justifications, the block body
-	/// (and in the future, the header) will be preserved even when it falls
-	/// outside the pruning window. Does not affect state pruning.
+	/// and header will be preserved even when it falls outside the pruning window.
+	/// Does not affect state pruning.
 	pub pruning_filters: Vec<Arc<dyn PruningFilter>>,
+	/// Also prune block headers (and their key lookup entries) together with the
+	/// block bodies.
+	///
+	/// Only has an effect when `blocks_pruning` is [`BlocksPruning::Some`]. When
+	/// enabled, the headers of pruned finalized blocks are removed from the database,
+	/// bounding the otherwise unbounded growth of the header chain. Headers retained
+	/// by a [`PruningFilter`] (e.g. GRANDPA authority set changes needed for warp
+	/// sync) and pinned blocks are never pruned.
+	///
+	/// NOTE: a node with header pruning enabled can no longer answer queries for
+	/// pruned historical headers and must not be used as an archive or full-sync
+	/// source.
+	pub header_pruning: bool,
 	/// Prometheus metrics registry.
 	pub metrics_registry: Option<Registry>,
 }
@@ -1202,6 +1215,7 @@ pub struct Backend<Block: BlockT> {
 	import_lock: Arc<RwLock<()>>,
 	is_archive: bool,
 	blocks_pruning: BlocksPruning,
+	header_pruning: bool,
 	io_stats: FrozenForDuration<(kvdb::IoStats, StateUsageInfo)>,
 	state_usage: Arc<StateUsageStats>,
 	genesis_state: RwLock<Option<Arc<DbGenesisStorage<Block>>>>,
@@ -1279,6 +1293,23 @@ impl<Block: BlockT> Backend<Block> {
 		canonicalization_delay: u64,
 		pruning_filters: Vec<Arc<dyn PruningFilter>>,
 	) -> Self {
+		Self::new_test_with_tx_storage_filters_and_header_pruning(
+			blocks_pruning,
+			canonicalization_delay,
+			pruning_filters,
+			false,
+		)
+	}
+
+	/// Create new memory-backed client backend for tests, additionally selecting
+	/// whether block headers should be pruned.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn new_test_with_tx_storage_filters_and_header_pruning(
+		blocks_pruning: BlocksPruning,
+		canonicalization_delay: u64,
+		pruning_filters: Vec<Arc<dyn PruningFilter>>,
+		header_pruning: bool,
+	) -> Self {
 		let db = kvdb_memorydb::create(crate::utils::NUM_COLUMNS);
 		let db = sp_database::as_database(db);
 		Self::new_test_with_tx_storage_source(
@@ -1286,6 +1317,7 @@ impl<Block: BlockT> Backend<Block> {
 			canonicalization_delay,
 			DatabaseSource::Custom { db, require_create_flag: true },
 			pruning_filters,
+			header_pruning,
 		)
 	}
 
@@ -1296,6 +1328,7 @@ impl<Block: BlockT> Backend<Block> {
 		canonicalization_delay: u64,
 		source: DatabaseSource,
 		pruning_filters: Vec<Arc<dyn PruningFilter>>,
+		header_pruning: bool,
 	) -> Self {
 		let state_pruning = match blocks_pruning {
 			BlocksPruning::KeepAll => PruningMode::ArchiveAll,
@@ -1308,6 +1341,7 @@ impl<Block: BlockT> Backend<Block> {
 			source,
 			blocks_pruning,
 			pruning_filters,
+			header_pruning,
 			metrics_registry: None,
 		};
 
@@ -1398,6 +1432,7 @@ impl<Block: BlockT> Backend<Block> {
 			io_stats: FrozenForDuration::new(std::time::Duration::from_secs(1)),
 			state_usage: Arc::new(StateUsageStats::new()),
 			blocks_pruning: config.blocks_pruning,
+			header_pruning: config.header_pruning,
 			genesis_state: RwLock::new(None),
 			shared_trie_cache,
 			pruning_filters: config.pruning_filters.clone(),
@@ -2225,6 +2260,70 @@ impl<Block: BlockT> Backend<Block> {
 				},
 			}
 		}
+		// Header pruning happens last so that all body/justification lookups above
+		// can still resolve this block's lookup key from the database.
+		if self.header_pruning {
+			self.prune_header(transaction, id)?;
+		}
+		Ok(())
+	}
+
+	/// Remove a block header and its key lookup entries from the database.
+	///
+	/// Called from [`Self::prune_block`] when header pruning is enabled. The header
+	/// of a pinned block is kept so that pinned blocks remain fully retrievable; in
+	/// practice the pruning window is far below the tip so pinned blocks are never
+	/// reached, but we guard against it for safety.
+	fn prune_header(
+		&self,
+		transaction: &mut Transaction<DbHash>,
+		id: BlockId<Block>,
+	) -> ClientResult<()> {
+		let Some(header) = utils::read_header::<Block>(
+			&*self.storage.db,
+			columns::KEY_LOOKUP,
+			columns::HEADER,
+			id,
+		)?
+		else {
+			// Already pruned (or never existed): nothing to do.
+			return Ok(());
+		};
+
+		let hash = header.hash();
+		if self.blockchain.pinned_blocks_cache.read().contains(hash) {
+			return Ok(());
+		}
+		let number = *header.number();
+
+		// Remove the header itself.
+		utils::remove_from_db(
+			transaction,
+			&*self.storage.db,
+			columns::KEY_LOOKUP,
+			columns::HEADER,
+			id,
+		)?;
+
+		// Remove the hash -> lookup key mapping (unique to this block).
+		transaction.remove(columns::KEY_LOOKUP, hash.as_ref());
+
+		// Remove the number -> lookup key mapping only if it still points to this
+		// block, so that pruning a stale fork does not drop the canonical mapping.
+		let this_lookup_key = utils::number_and_hash_to_lookup_key(number, hash)?;
+		let canonical_lookup_key = utils::block_id_to_lookup_key::<Block>(
+			&*self.storage.db,
+			columns::KEY_LOOKUP,
+			BlockId::Number(number),
+		)?;
+		if canonical_lookup_key.as_deref() == Some(this_lookup_key.as_slice()) {
+			utils::remove_number_to_key_mapping(transaction, columns::KEY_LOOKUP, number)?;
+		}
+
+		// Invalidate the in-memory caches for this block.
+		self.blockchain.header_cache.lock().remove(&hash);
+		self.blockchain.remove_header_metadata(hash);
+
 		Ok(())
 	}
 
@@ -3165,6 +3264,7 @@ pub(crate) mod tests {
 				source: DatabaseSource::Custom { db: backing, require_create_flag: false },
 				blocks_pruning: BlocksPruning::KeepFinalized,
 				pruning_filters: Default::default(),
+				header_pruning: false,
 				metrics_registry: None,
 			},
 			0,
@@ -6385,6 +6485,112 @@ pub(crate) mod tests {
 		assert!(bc.body(blocks[4]).unwrap().is_some());
 	}
 
+	#[test]
+	fn header_pruning_on_finalize() {
+		// With header pruning enabled, headers of pruned finalized blocks are removed
+		// from the database, except for blocks retained by a pruning filter (needed for
+		// warp sync) and blocks still inside the pruning window.
+		let backend = Backend::<Block>::new_test_with_tx_storage_filters_and_header_pruning(
+			BlocksPruning::Some(2),
+			0,
+			vec![Arc::new(|j: &Justifications| j.get(CONS0_ENGINE_ID).is_some())],
+			true,
+		);
+
+		let mut blocks = Vec::new();
+		let mut prev_hash = Default::default();
+		for i in 0..6 {
+			let hash = insert_block(
+				&backend,
+				i,
+				prev_hash,
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(i.into(), ())],
+				None,
+			)
+			.unwrap();
+			blocks.push(hash);
+			prev_hash = hash;
+		}
+
+		// Block 1 carries a justification matching the filter and must be retained.
+		let justification = (CONS0_ENGINE_ID, vec![1, 2, 3]);
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[5]).unwrap();
+			op.mark_finalized(blocks[1], Some(justification.clone())).unwrap();
+			op.mark_finalized(blocks[2], None).unwrap();
+			op.mark_finalized(blocks[3], None).unwrap();
+			op.mark_finalized(blocks[4], None).unwrap();
+			op.mark_finalized(blocks[5], None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+
+		// Block 0: outside the window, no justification -> header (and lookups) pruned.
+		assert_eq!(None, bc.header(blocks[0]).unwrap());
+		assert_eq!(None, bc.body(blocks[0]).unwrap());
+		assert_eq!(None, bc.hash(0).unwrap());
+		assert_eq!(None, bc.number(blocks[0]).unwrap());
+
+		// Block 1: retained by the filter -> header and body kept, lookups intact.
+		assert!(bc.header(blocks[1]).unwrap().is_some());
+		assert!(bc.body(blocks[1]).unwrap().is_some());
+		assert_eq!(Some(blocks[1]), bc.hash(1).unwrap());
+		assert_eq!(Some(1), bc.number(blocks[1]).unwrap());
+
+		// Blocks 2 and 3: outside the window, no justification -> header pruned.
+		assert_eq!(None, bc.header(blocks[2]).unwrap());
+		assert_eq!(None, bc.hash(2).unwrap());
+		assert_eq!(None, bc.header(blocks[3]).unwrap());
+		assert_eq!(None, bc.hash(3).unwrap());
+
+		// Blocks 4 and 5: inside the pruning window -> header kept.
+		assert!(bc.header(blocks[4]).unwrap().is_some());
+		assert!(bc.header(blocks[5]).unwrap().is_some());
+	}
+
+	#[test]
+	fn header_pruning_disabled_keeps_headers() {
+		// Without header pruning, bodies are pruned but headers are kept (default behavior).
+		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(2), 0);
+
+		let mut blocks = Vec::new();
+		let mut prev_hash = Default::default();
+		for i in 0..5 {
+			let hash = insert_block(
+				&backend,
+				i,
+				prev_hash,
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(i.into(), ())],
+				None,
+			)
+			.unwrap();
+			blocks.push(hash);
+			prev_hash = hash;
+		}
+
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[4]).unwrap();
+			for i in 1..5 {
+				op.mark_finalized(blocks[i], None).unwrap();
+			}
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+
+		// Body of block 0 is pruned, but its header and lookups remain available.
+		assert_eq!(None, bc.body(blocks[0]).unwrap());
+		assert!(bc.header(blocks[0]).unwrap().is_some());
+		assert_eq!(Some(blocks[0]), bc.hash(0).unwrap());
+	}
+
 	/// Insert a header without body as best block. This triggers `MissingBody` gap creation
 	/// when the parent header exists and `create_gap` is true.
 	fn insert_header_no_body_as_best(
@@ -6429,6 +6635,7 @@ pub(crate) mod tests {
 				source: DatabaseSource::Custom { db, require_create_flag: false },
 				blocks_pruning,
 				pruning_filters: Default::default(),
+				header_pruning: false,
 				metrics_registry: None,
 			},
 			0,
@@ -6770,6 +6977,7 @@ pub(crate) mod tests {
 							10,
 							DatabaseSource::ParityDb { path: tmp_path.clone() },
 							Default::default(),
+							false,
 						);
 						Self {
 							backend: Some(backend),
@@ -6792,6 +7000,7 @@ pub(crate) mod tests {
 							10,
 							DatabaseSource::Custom { db, require_create_flag: true },
 							Default::default(),
+							false,
 						);
 						Self {
 							backend: Some(backend),
@@ -6821,6 +7030,7 @@ pub(crate) mod tests {
 					10,
 					DatabaseSource::ParityDb { path },
 					Default::default(),
+					false,
 				));
 			}
 		}
