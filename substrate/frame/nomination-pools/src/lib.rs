@@ -1273,8 +1273,12 @@ impl<T: Config> BondedPool<T> {
 				)
 			},
 			(false, true) => {
-				// the depositor can simply not be unbonded permissionlessly, period.
-				return Err(Error::<T>::DoesNotHavePermission.into());
+				// Permissionless depositor unbond is only allowed when destroying and the
+				// depositor is the sole remaining member.
+				ensure!(
+					self.is_destroying_and_only_depositor(target_member.active_points()),
+					Error::<T>::DoesNotHavePermission
+				);
 			},
 		};
 

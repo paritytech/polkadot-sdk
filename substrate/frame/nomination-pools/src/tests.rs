@@ -2785,7 +2785,7 @@ mod unbond {
 
 	#[test]
 	fn depositor_unbond_destroying_permissionless() {
-		// depositor can never be permissionlessly unbonded.
+		// depositor can be permissionlessly fully unbonded in destroying state when sole member.
 		ExtBuilder::default().min_join_bond(10).build_and_execute(|| {
 			// give the depositor some extra funds.
 			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(10), BondExtra::FreeBalance(10)));
@@ -2807,14 +2807,14 @@ mod unbond {
 				Error::<T>::PartialUnbondNotAllowedPermissionlessly
 			);
 
-			// or 0.
-			assert_noop!(
-				Pools::unbond(RuntimeOrigin::signed(random), 10, 20),
-				Error::<T>::DoesNotHavePermission
-			);
+			// full permissionless unbond of the sole depositor is allowed.
+			assert_ok!(Pools::unbond(RuntimeOrigin::signed(random), 10, 20));
 
-			// they themselves can do it in this case though.
-			assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 20));
+			// repeated full unbond attempts now fail because active points are already zero.
+			assert_noop!(
+				Pools::unbond(RuntimeOrigin::signed(10), 10, 20),
+				Error::<T>::MinimumBondNotMet
+			);
 		})
 	}
 
@@ -3268,13 +3268,13 @@ mod unbond {
 				Error::<Runtime>::PartialUnbondNotAllowedPermissionlessly,
 			);
 
-			// depositor can never be unbonded permissionlessly .
+			// when destroying and sole member, depositor can be unbonded permissionlessly.
+			assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(420), 10));
+			// repeated full unbond attempts now fail because active points are already zero.
 			assert_noop!(
-				Pools::fully_unbond(RuntimeOrigin::signed(420), 10),
-				Error::<T>::DoesNotHavePermission
+				Pools::fully_unbond(RuntimeOrigin::signed(10), 10),
+				Error::<T>::MinimumBondNotMet
 			);
-			// but depositor itself can do it.
-			assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(10), 10));
 
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 0);
 			assert_eq!(
