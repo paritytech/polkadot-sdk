@@ -96,7 +96,7 @@ pub fn deposit_collateral_for<T: Config>(
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(&collateral_id, now)?;
 	let mut vault =
-		touch_vault::<T>(&collateral_id, &owner, now, None)?.ok_or(Error::<T>::VaultNotFound)?;
+		touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 	ensure!(!vault.status::<T>(&collateral_id, &owner).is_dormant(), Error::<T>::DebtBelowMinimum);
 
 	T::CollateralAssets::transfer_and_hold(
@@ -140,7 +140,7 @@ pub fn withdraw_collateral<T: Config>(
 	let price = T::Oracle::provide_price(&collateral_id)?.price;
 	update_aggregate_interest::<T>(&collateral_id, now)?;
 	let mut vault =
-		touch_vault::<T>(&collateral_id, &owner, now, None)?.ok_or(Error::<T>::VaultNotFound)?;
+		touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 	ensure!(
 		!vault.status::<T>(&collateral_id, &owner).is_final_recovery(),
 		Error::<T>::VaultInFinalRecovery
@@ -211,13 +211,7 @@ pub fn borrow<T: Config>(
 	let now = T::TimeProvider::now();
 	let price = T::Oracle::provide_price(&collateral_id)?.price;
 	update_aggregate_interest::<T>(&collateral_id, now)?;
-	// If the caller isn't changing the rate, hand the hint to touch_vault so
-	// a Dormant→Active revival inside the touch uses the user-supplied O(1)
-	// position instead of an O(N) `find_position` walk. With a rate change,
-	// the hint is for the new rate; touch would insert at the old rate, so
-	// pass None and let the subsequent `re_insert` consume the hint.
-	let touch_hint = if maybe_new_rate.is_none() { Some(hint.clone()) } else { None };
-	let mut vault = touch_vault::<T>(&collateral_id, &owner, now, touch_hint)?
+	let mut vault = touch_vault::<T>(&collateral_id, &owner, now)?
 		.ok_or(Error::<T>::VaultNotFound)?;
 	let pre_status = vault.status::<T>(&collateral_id, &owner);
 	ensure!(!pre_status.is_final_recovery(), Error::<T>::VaultInFinalRecovery);
@@ -315,7 +309,7 @@ pub fn repay_for<T: Config>(
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(&collateral_id, now)?;
 	let mut vault =
-		touch_vault::<T>(&collateral_id, &owner, now, None)?.ok_or(Error::<T>::VaultNotFound)?;
+		touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 	let pre_status = vault.status::<T>(&collateral_id, &owner);
 	ensure!(!pre_status.is_final_recovery(), Error::<T>::VaultInFinalRecovery);
 
@@ -378,7 +372,7 @@ pub fn change_rate<T: Config>(
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(&collateral_id, now)?;
 	let mut vault =
-		touch_vault::<T>(&collateral_id, &owner, now, None)?.ok_or(Error::<T>::VaultNotFound)?;
+		touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 	ensure!(vault.status::<T>(&collateral_id, &owner).is_active(), Error::<T>::InvalidVaultStatus);
 	let old_rate = vault.annual_rate;
 	if old_rate == new_rate {
@@ -437,7 +431,7 @@ pub fn close_vault<T: Config>(
 	let price = T::Oracle::provide_price(&collateral_id)?.price;
 	update_aggregate_interest::<T>(&collateral_id, now)?;
 	let vault =
-		touch_vault::<T>(&collateral_id, &owner, now, None)?.ok_or(Error::<T>::VaultNotFound)?;
+		touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 	let status = vault.status::<T>(&collateral_id, &owner);
 	ensure!(vault.debt.total().is_zero(), Error::<T>::InsufficientRepayment);
 
@@ -525,7 +519,7 @@ pub fn poke<T: Config>(
 ) -> Result<(), DispatchError> {
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(&collateral_id, now)?;
-	touch_vault::<T>(&collateral_id, &owner, now, None).map(|_| ())
+	touch_vault::<T>(&collateral_id, &owner, now).map(|_| ())
 }
 
 #[require_transactional]
@@ -538,7 +532,7 @@ pub fn enter_final_recovery<T: Config>(
 	let price = T::Oracle::provide_price(&collateral_id)?.price;
 	update_aggregate_interest::<T>(&collateral_id, now)?;
 	let mut vault =
-		touch_vault::<T>(&collateral_id, &owner, now, None)?.ok_or(Error::<T>::VaultNotFound)?;
+		touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 	ensure!(vault.status::<T>(&collateral_id, &owner).is_active(), Error::<T>::InvalidVaultStatus);
 
 	let cfg = branch_cfg_of::<T>(&collateral_id)?;
@@ -599,7 +593,7 @@ pub fn exit_final_recovery<T: Config>(
 	let price = T::Oracle::provide_price(&collateral_id)?.price;
 	update_aggregate_interest::<T>(&collateral_id, now)?;
 	let mut vault =
-		touch_vault::<T>(&collateral_id, &owner, now, None)?.ok_or(Error::<T>::VaultNotFound)?;
+		touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 	ensure!(
 		vault.status::<T>(&collateral_id, &owner).is_final_recovery(),
 		Error::<T>::InvalidVaultStatus
@@ -662,7 +656,7 @@ pub fn on_idle_walk<T: Config>(remaining: Weight) -> Weight {
 		if !Vaults::<T>::contains_key(collateral_id, owner) {
 			return true;
 		}
-		let _ = with_storage_layer(|| touch_vault::<T>(collateral_id, owner, now, None));
+		let _ = with_storage_layer(|| touch_vault::<T>(collateral_id, owner, now));
 		true
 	};
 	for collateral_id in Branches::<T>::get().iter() {

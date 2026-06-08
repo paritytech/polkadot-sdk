@@ -50,7 +50,7 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 		let now = T::TimeProvider::now();
 		let price = <T::Oracle as ProvidePrice>::provide_price(&collateral_id)?.price;
 		helpers::update_aggregate_interest::<T>(&collateral_id, now)?;
-		let vault = helpers::touch_vault::<T>(&collateral_id, &owner, now, None)?
+		let vault = helpers::touch_vault::<T>(&collateral_id, &owner, now)?
 			.ok_or(Error::<T>::VaultNotFound)?;
 		ensure!(
 			!vault.status::<T>(&collateral_id, &owner).is_final_recovery(),
@@ -250,7 +250,7 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 		helpers::ensure_not_frozen::<T>(&collateral_id)?;
 		let now = T::TimeProvider::now();
 		helpers::update_aggregate_interest::<T>(&collateral_id, now)?;
-		let vault = helpers::touch_vault::<T>(&collateral_id, &owner, now, None)?
+		let vault = helpers::touch_vault::<T>(&collateral_id, &owner, now)?
 			.ok_or(Error::<T>::VaultNotFound)?;
 		Ok(vault.debt.total())
 	}

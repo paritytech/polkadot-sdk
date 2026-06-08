@@ -181,16 +181,11 @@ pub(crate) fn pending_touch_for<T: Config>(
 ///
 /// The caller MUST have already called `update_aggregate_interest` for this
 /// branch in the same dispatch.
-///
-/// `hint` is consulted only when a Dormant vault's freshly accrued debt has
-/// risen above `MinimumDebt` and needs to rejoin the rate index. `None`
-/// triggers an unhinted `find_position` walk.
 #[require_transactional]
 pub fn touch_vault<T: Config>(
 	collateral_id: &T::AssetId,
 	owner: &T::AccountId,
 	now: MomentOf<T>,
-	hint: Option<Position<T::AccountId>>,
 ) -> Result<Option<Vault<BalanceOf<T>, MomentOf<T>>>, DispatchError> {
 	let mut vault = match Vaults::<T>::get(collateral_id, owner) {
 		Some(v) => v,
@@ -263,42 +258,8 @@ pub fn touch_vault<T: Config>(
 			vault.redistribution_stake = new_held;
 		}
 	}
-
-	let revived_dormant = if pre_status.is_dormant() {
-		let cfg = branch_cfg_of::<T>(collateral_id)?;
-		if vault.debt.total() >= cfg.minimum_debt {
-			let position = hint.unwrap_or_else(|| {
-				T::VaultLists::find_position(&rate_list_id(collateral_id), vault.annual_rate)
-			});
-			T::VaultLists::insert(
-				rate_list_id(collateral_id),
-				owner.clone(),
-				vault.annual_rate,
-				position,
-			)
-			.map_err(|_| Error::<T>::InvalidPositionHints)?;
-			if bs.last_dormant_vault_owner.as_ref() == Some(owner) {
-				bs.last_dormant_vault_owner = None;
-			}
-			true
-		} else {
-			false
-		}
-	} else {
-		false
-	};
-
 	Vaults::<T>::insert(collateral_id, owner, &vault);
 	BranchStates::<T>::insert(collateral_id, &bs);
-
-	if revived_dormant {
-		Pallet::<T>::deposit_event(Event::VaultStatusChanged {
-			collateral_id: collateral_id.clone(),
-			owner: owner.clone(),
-			old_status: VaultStatus::Dormant,
-			new_status: VaultStatus::Active,
-		});
-	}
 
 	Ok(Some(vault))
 }

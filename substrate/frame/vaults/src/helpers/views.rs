@@ -5,27 +5,7 @@ pub fn view_vault_status<T: Config>(
 	owner: &T::AccountId,
 ) -> Option<VaultStatus> {
 	let vault = Vaults::<T>::get(collateral_id, owner)?;
-	let status = vault.status::<T>(collateral_id, owner);
-	// Project the post-touch outcome so observers see the same status the
-	// next state-changing call will: a Dormant vault whose accrued debt
-	// would cross MinimumDebt is reported as Active.
-	if status.is_dormant() {
-		if let (Some(bs), Some(cfg)) =
-			(BranchStates::<T>::get(collateral_id), BranchConfigs::<T>::get(collateral_id))
-		{
-			let now = T::TimeProvider::now();
-			let pending = pending_touch_for::<T>(&vault, &bs, now);
-			let projected = vault
-				.debt
-				.total()
-				.saturating_add(pending.principal)
-				.saturating_add(pending.interest);
-			if projected >= cfg.minimum_debt {
-				return Some(VaultStatus::Active);
-			}
-		}
-	}
-	Some(status)
+	Some(vault.status::<T>(collateral_id, owner))
 }
 pub fn view_vault_cr<T: Config>(
 	collateral_id: &T::AssetId,

@@ -382,7 +382,7 @@ fn assert_accounting_identity_holds() {
 }
 
 #[test]
-fn touch_revives_dormant_when_interest_lifts_above_min_debt() {
+fn touch_does_not_revive_dormant_when_interest_lifts_above_min_debt() {
 	build_and_execute(|| {
 		register_default_branch();
 		assert_ok!(open(1, DOT, 100_000, 500, rate_pct(50, 100))); // co-recipient
@@ -405,18 +405,27 @@ fn touch_revives_dormant_when_interest_lifts_above_min_debt() {
 		assert!(crate::Pallet::<Test>::vault_status(DOT, 2).unwrap().is_dormant());
 
 		// Advance time so that simple interest at 50% APR pushes the residual
-		// 50-unit principal back over MinimumDebt=200.
+		// principal back over MinimumDebt=200.
 		advance_time(ONE_YEAR_MS * 10);
 		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(99), 2, DOT));
 
+		// Dormant status is sticky: passive accrual never re-indexes a vault.
+		// Even though the debt has crossed MinimumDebt again, the vault stays
+		// Dormant until an explicit, hint-bearing activation (`borrow` /
+		// `activate_dormant`). See FINDINGS.md §7.
 		assert!(
-			crate::Pallet::<Test>::vault_status(DOT, 2).unwrap().is_active(),
-			"poke should auto-revive a Dormant vault whose accrued debt has crossed MinimumDebt",
+			Vaults::<Test>::get(DOT, 2).unwrap().debt.total() >= 200,
+			"sanity: accrual should have lifted residual debt back over MinimumDebt",
+		);
+		assert!(
+			crate::Pallet::<Test>::vault_status(DOT, 2).unwrap().is_dormant(),
+			"poke must NOT auto-revive a Dormant vault; re-entry requires an explicit hint",
 		);
 		let bs = BranchStates::<Test>::get(DOT).unwrap();
-		assert!(
-			bs.last_dormant_vault_owner != Some(2),
-			"last_dormant_vault_owner must be cleared after revival",
+		assert_eq!(
+			bs.last_dormant_vault_owner,
+			Some(2),
+			"the dormant slot is retained; nothing revived the vault",
 		);
 	});
 }

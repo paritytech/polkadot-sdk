@@ -176,11 +176,12 @@ fn dormant_pointer_clears_when_owner_revives_via_borrow() {
 
 // row 19: testZombieTrovePointerGetsResetIfTroveIsResuscitatedViaInterest.
 //
-// `touch_vault` auto-revives a Dormant vault once its
-// fully-accrued debt has crossed `MinimumDebt`. Long-horizon interest accrual
-// followed by `poke` should flip status from Dormant back to Active.
+// Divergence from passive Liquity behavior (see FINDINGS.md §7): under the
+// sticky-Dormant model a zombie is NOT resuscitated by interest accrual. `poke`
+// accrues but never re-indexes, so the vault stays Dormant; resuscitation
+// requires an explicit `activate_dormant` / `borrow` with a position hint.
 #[test]
-fn dormant_auto_revives_when_interest_lifts_above_min_debt() {
+fn dormant_does_not_auto_revive_via_interest_accrual() {
 	build_and_execute(|| {
 		register_default_branch();
 		// Acct 1 at lower rate so it's the deterministic redemption target.
@@ -190,7 +191,10 @@ fn dormant_auto_revives_when_interest_lifts_above_min_debt() {
 
 		advance_time(3650 * ONE_DAY_MS);
 		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(2), 1, DOT));
-		assert!(vault_status(DOT, 1).is_active());
+		assert!(
+			vault_status(DOT, 1).is_dormant(),
+			"interest accrual must not auto-revive a zombie; activation requires an explicit hint",
+		);
 	});
 }
 

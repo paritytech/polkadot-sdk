@@ -575,7 +575,7 @@ mod benchmarks {
 		{
 			if Vaults::<T>::contains_key(&asset, &owner) {
 				let _ = crate::helpers::update_aggregate_interest::<T>(&asset, now);
-				let _ = crate::helpers::touch_vault::<T>(&asset, &owner, now, None);
+				let _ = crate::helpers::touch_vault::<T>(&asset, &owner, now);
 				let _ = T::VaultLists::neighbors(&rate_list_id(&asset), &owner);
 			}
 		}
