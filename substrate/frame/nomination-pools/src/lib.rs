@@ -1273,8 +1273,12 @@ impl<T: Config> BondedPool<T> {
 				)
 			},
 			(false, true) => {
-				// Permissionless depositor unbond is only allowed when destroying and the
-				// depositor is the sole remaining member.
+				// Permissionless depositor unbond is only allowed for a full unbond, and only when
+				// destroying with the depositor as sole remaining member.
+				ensure!(
+					is_full_unbond,
+					Error::<T>::PartialUnbondNotAllowedPermissionlessly
+				);
 				ensure!(
 					self.is_destroying_and_only_depositor(target_member.active_points()),
 					Error::<T>::DoesNotHavePermission
