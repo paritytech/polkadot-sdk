@@ -1014,7 +1014,9 @@ where
 		let (raw_storage, computed_root) = pending_ext.into_raw_snapshot();
 
 		// Verify the downloaded state against the header's state root.
-		if self.is_complete_scrape() {
+		let version_matches_chain =
+			self.overwrite_state_version.map_or(true, |v| v == state_version);
+		if self.is_complete_scrape() && version_matches_chain {
 			let expected_root = *header.state_root();
 			if computed_root != expected_root {
 				error!(
@@ -1025,10 +1027,17 @@ where
 				return Err("storage root mismatch: downloaded state is incomplete or corrupted");
 			}
 			info!(target: LOG_TARGET, "✅ storage root verified against header: {computed_root:?}");
-		} else {
+		} else if !self.is_complete_scrape() {
 			debug!(
 				target: LOG_TARGET,
 				"skipping storage root verification for partial scrape (no full-state prefix)",
+			);
+		} else {
+			debug!(
+				target: LOG_TARGET,
+				"skipping storage root verification: state version overwritten to {:?} \
+				(chain uses {state_version:?})",
+				self.overwrite_state_version,
 			);
 		}
 
@@ -1619,6 +1628,68 @@ mod remote_tests {
 		);
 
 		// Verify we actually got some keys
+		ext.execute_with(|| {
+			let key_count = KeyPrefixIterator::<()>::new(vec![], vec![], |_| Ok(())).count();
+
+			info!(target: LOG_TARGET, "Total keys in state: {}", key_count);
+			assert!(key_count > 0, "Should have fetched some keys");
+		});
+
+		info!(
+			target: LOG_TARGET,
+			"✅ Storage root verification successful! All keys were fetched correctly."
+		);
+	}
+
+	#[tokio::test]
+	#[ignore]
+	async fn asset_hub_polkadot_storage_root_matches() {
+		init_logger();
+
+		// Asset Hub carries the largest state of the system parachains (accounts, assets, NFTs and
+		// their child tries), so a full scrape here is the strongest end-to-end check that the
+		// downloaded state is complete and matches the on-chain storage root.
+		let endpoints = vec![
+			"wss://asset-hub-polkadot-rpc.dwellir.com",
+			"wss://sys.ibp.network/asset-hub-polkadot",
+			"wss://asset-hub-polkadot.api.onfinality.io/public",
+			"wss://dot-rpc.stakeworld.io/assethub",
+		];
+
+		info!(target: LOG_TARGET, "Connecting to Asset Hub Polkadot using {} RPC providers", endpoints.len());
+
+		// `build()` performs the storage-root verification internally for a complete scrape, so a
+		// successful build already proves the downloaded state matches the header. We additionally
+		// assert it explicitly below.
+		let mut ext = Builder::<Block>::new()
+			.mode(Mode::Online(OnlineConfig {
+				transport_uris: endpoints.into_iter().map(|e| e.to_owned()).collect(),
+				child_trie: true,
+				..Default::default()
+			}))
+			.build()
+			.await
+			.expect("Failed to build remote externalities");
+
+		// Get the computed storage root from our downloaded state.
+		let backend = ext.as_backend();
+		let computed_root = *backend.root();
+		// Get the expected storage root from the block header.
+		let expected_root = ext.header.state_root;
+
+		info!(target: LOG_TARGET, "Computed storage root: {:?}", computed_root);
+		info!(target: LOG_TARGET, "Expected storage root (from header): {:?}", expected_root);
+
+		// The storage roots must match exactly - this proves we downloaded all keys (including
+		// every child trie) correctly.
+		assert_eq!(
+			computed_root, expected_root,
+			"Storage root mismatch! Computed: {:?}, Expected: {:?}. \
+			This indicates that not all keys were fetched or there were duplicates.",
+			computed_root, expected_root
+		);
+
+		// Verify we actually got some keys.
 		ext.execute_with(|| {
 			let key_count = KeyPrefixIterator::<()>::new(vec![], vec![], |_| Ok(())).count();
 
