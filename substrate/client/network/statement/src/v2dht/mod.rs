@@ -23,31 +23,65 @@ pub mod peers_topology;
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
 use explicit_affinity::ExplicitAffinity;
+use peers_topology::{PeersTopology, PeersTopologyConfig};
 use sc_network_types::PeerId;
 use sp_statement_store::SubmitResult;
 
 /// Coordinates the v2 DHT-affinity statement gossip path.
 #[allow(dead_code)]
 pub(crate) struct V2DhtOrchestrator {
+	/// Whether the experimental v2 DHT path is enabled.
+	enabled: bool,
+	/// Local view of statement-store peers known through network topology events.
+	peers_topology: PeersTopology,
 	/// Tracks the local node's topic affinity and the filters peers advertise.
 	explicit_affinity: ExplicitAffinity,
 }
 
 #[allow(dead_code)]
 impl V2DhtOrchestrator {
-	pub(crate) fn new() -> Self {
-		Self { explicit_affinity: ExplicitAffinity::new() }
+	pub(crate) fn new(
+		local_peer: PeerId,
+		peers_topology_config: PeersTopologyConfig,
+		enabled: bool,
+	) -> Self {
+		Self {
+			enabled,
+			peers_topology: PeersTopology::new(local_peer, peers_topology_config),
+			explicit_affinity: ExplicitAffinity::new(),
+		}
+	}
+
+	#[cfg(test)]
+	pub(crate) fn peers_topology(&self) -> &PeersTopology {
+		&self.peers_topology
+	}
+
+	pub(crate) fn on_peers_discovered(&mut self, peers: impl IntoIterator<Item = PeerId>) {
+		if !self.enabled {
+			return;
+		}
+
+		for peer in peers {
+			self.peers_topology.note_seen(peer);
+		}
+	}
+
+	pub(crate) fn on_peer_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
+		if !self.enabled {
+			return;
+		}
+
+		self.peers_topology.note_identified(peer, supports_statement_protocol);
 	}
 
 	// === Peer-set events ===
 
 	pub(crate) fn on_peer_connected(&mut self, peer: PeerId) {
-		// TODO: we may need it for the topology, remove if not
 		log::trace!(target: LOG_TARGET, "v2dht: on_peer_connected {peer} (stub)");
 	}
 
 	pub(crate) fn on_peer_disconnected(&mut self, peer: PeerId) {
-		// TODO: we may need it for the topology, remove if not
 		log::trace!(target: LOG_TARGET, "v2dht: on_peer_disconnected {peer} (stub)");
 	}
 
@@ -59,12 +93,20 @@ impl V2DhtOrchestrator {
 	}
 
 	pub(crate) fn on_substream_opened(&mut self, peer: PeerId) {
-		// TODO: we may need it for the topology or explicit affinity, remove if not
+		if !self.enabled {
+			return;
+		}
+
+		self.peers_topology.on_peer_connected(peer, true);
 		log::trace!(target: LOG_TARGET, "v2dht: on_substream_opened {peer} (stub)");
 	}
 
 	pub(crate) fn on_substream_closed(&mut self, peer: PeerId) {
-		// TODO: we may need it for the topology or explicit affinity, remove if not
+		if !self.enabled {
+			return;
+		}
+
+		self.peers_topology.on_peer_disconnected(peer);
 		log::trace!(target: LOG_TARGET, "v2dht: on_substream_closed {peer} (stub)");
 	}
 

@@ -29,10 +29,7 @@
 mod affinity;
 mod v2dht;
 
-use crate::{
-	config::*,
-	v2dht::peers_topology::{PeersTopology, PeersTopologyConfig},
-};
+use crate::{config::*, v2dht::peers_topology::PeersTopologyConfig};
 
 use affinity::AffinityFilter;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
@@ -445,9 +442,7 @@ impl StatementHandlerPrototype {
 		}
 
 		let network_event_stream = network.event_stream("statement-handler-network");
-		let peers_topology =
-			PeersTopology::new(network.local_peer_id(), PeersTopologyConfig::default());
-		let v2dht = V2DhtOrchestrator::new();
+		let v2dht = V2DhtOrchestrator::new(network.local_peer_id(), PeersTopologyConfig::default(), v2dht_enabled());
 
 		let handler = StatementHandler {
 			protocol_name: self.protocol_name,
@@ -461,7 +456,6 @@ impl StatementHandlerPrototype {
 			sync,
 			sync_event_stream: sync_event_stream.fuse(),
 			network_event_stream: network_event_stream.fuse(),
-			peers_topology,
 			peers: HashMap::new(),
 			statement_store,
 			queue_sender,
@@ -508,8 +502,6 @@ pub struct StatementHandler<
 	sync_event_stream: stream::Fuse<Pin<Box<dyn Stream<Item = SyncEvent> + Send>>>,
 	/// Receiver for network topology events.
 	network_event_stream: stream::Fuse<Pin<Box<dyn Stream<Item = Event> + Send>>>,
-	/// Local view of statement-store peers known through network topology events.
-	peers_topology: PeersTopology,
 	/// Notification service.
 	notification_service: Box<dyn NotificationService>,
 	// All connected peers
@@ -731,7 +723,7 @@ where
 	) -> Self {
 		let local_peer = network.local_peer_id();
 
-		let v2dht = V2DhtOrchestrator::new();
+		let v2dht = V2DhtOrchestrator::new(local_peer, PeersTopologyConfig::default(), v2dht_enabled());
 		Self {
 			protocol_name,
 			notification_service,
@@ -744,7 +736,6 @@ where
 			network_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = Event> + Send>>)
 				.fuse(),
-			peers_topology: PeersTopology::new(local_peer, PeersTopologyConfig::default()),
 			peers,
 			statement_store,
 			queue_sender,
@@ -850,14 +841,10 @@ where
 
 	fn handle_network_event(&mut self, event: Event) {
 		match event {
-			Event::PeersDiscovered(peers) => {
-				for peer in peers {
-					self.peers_topology.note_seen(peer);
-				}
-			},
+			Event::PeersDiscovered(peers) => self.v2dht.on_peers_discovered(peers),
 			Event::PeerIdentified { peer, supported_protocols } => self
-				.peers_topology
-				.note_identified(peer, supported_protocols.contains(&self.protocol_name)),
+				.v2dht
+				.on_peer_identified(peer, supported_protocols.contains(&self.protocol_name)),
 			_ => {},
 		}
 	}
@@ -1060,9 +1047,7 @@ where
 				handshake,
 				..
 			} => {
-				if v2dht_enabled() {
-					self.v2dht.on_substream_opened(peer);
-				}
+				self.v2dht.on_substream_opened(peer);
 				// If negotiated_fallback is Some, the peer connected on a fallback protocol
 				// (v1). If None, the peer connected on the main protocol (v2).
 				let protocol_version = if negotiated_fallback.is_some() {
@@ -1103,8 +1088,6 @@ where
 					},
 				);
 				debug_assert!(_was_in.is_none());
-				self.peers_topology
-					.on_peer_connected(peer, protocol_version == PeerProtocolVersion::V2);
 
 				self.metrics.as_ref().map(|metrics| {
 					if let Some(peer) = self.peers.get(&peer) {
@@ -1119,10 +1102,7 @@ where
 				}
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
-				self.peers_topology.on_peer_disconnected(peer);
-				if v2dht_enabled() {
-					self.v2dht.on_substream_closed(peer);
-				}
+				self.v2dht.on_substream_closed(peer);
 				let removed_peer = self.peers.remove(&peer);
 				debug_assert!(removed_peer.is_some());
 
@@ -2078,10 +2058,6 @@ mod tests {
 			network_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = Event> + Send>>)
 				.fuse(),
-			peers_topology: PeersTopology::new(
-				network.local_peer_id(),
-				PeersTopologyConfig::default(),
-			),
 			peers,
 			statement_store: Arc::new(statement_store.clone()),
 			queue_sender,
@@ -2096,7 +2072,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
-			v2dht: V2DhtOrchestrator::new(),
+			v2dht: V2DhtOrchestrator::new(network.local_peer_id(), PeersTopologyConfig::default(), v2dht_enabled()),
 		};
 		(handler, statement_store, network, notification_service, queue_receiver, peer_ids)
 	}
@@ -2113,8 +2089,13 @@ mod tests {
 
 	#[tokio::test]
 	async fn network_events_update_statement_peer_topology() {
-		let (mut handler, _statement_store, _network, _notification_service, _, _) =
+		let (mut handler, _statement_store, network, _notification_service, _, _) =
 			build_handler(0);
+		handler.v2dht = V2DhtOrchestrator::new(
+			network.local_peer_id(),
+			PeersTopologyConfig::default(),
+			true,
+		);
 		let peer = PeerId::random();
 		let topic = [1; 32];
 
@@ -2124,27 +2105,18 @@ mod tests {
 			supported_protocols: std::iter::once(handler.protocol_name.clone()).collect(),
 		});
 
-		assert_eq!(handler.peers_topology.known_peers_count(), 1);
-		assert_eq!(handler.peers_topology.closest_known(topic, 1), vec![peer]);
-		assert!(handler.peers_topology.routing_targets(topic).is_empty());
+		assert_eq!(handler.v2dht.peers_topology().known_peers_count(), 1);
+		assert_eq!(handler.v2dht.peers_topology().closest_known(topic, 1), vec![peer]);
+		assert!(handler.v2dht.peers_topology().routing_targets(topic).is_empty());
 
-		handler
-			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
-				peer,
-				direction: sc_network::service::traits::Direction::Inbound,
-				handshake: vec![],
-				negotiated_fallback: None,
-			})
-			.await;
+		handler.v2dht.on_substream_opened(peer);
 
-		assert_eq!(handler.peers_topology.routing_targets(topic), vec![peer]);
-		assert_eq!(handler.peers_topology.closest_known(topic, 1), vec![peer]);
+		assert_eq!(handler.v2dht.peers_topology().routing_targets(topic), vec![peer]);
+		assert_eq!(handler.v2dht.peers_topology().closest_known(topic, 1), vec![peer]);
 
-		handler
-			.handle_notification_event(NotificationEvent::NotificationStreamClosed { peer })
-			.await;
+		handler.v2dht.on_substream_closed(peer);
 
-		assert!(handler.peers_topology.routing_targets(topic).is_empty());
+		assert!(handler.v2dht.peers_topology().routing_targets(topic).is_empty());
 	}
 
 	/// Simulate the network closing the substream for every disconnected
@@ -2357,10 +2329,6 @@ mod tests {
 			network_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = Event> + Send>>)
 				.fuse(),
-			peers_topology: PeersTopology::new(
-				network.local_peer_id(),
-				PeersTopologyConfig::default(),
-			),
 			peers: HashMap::new(),
 			statement_store: Arc::new(statement_store.clone()),
 			queue_sender,
@@ -2375,7 +2343,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
-			v2dht: V2DhtOrchestrator::new(),
+			v2dht: V2DhtOrchestrator::new(network.local_peer_id(), PeersTopologyConfig::default(), v2dht_enabled()),
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -2408,10 +2376,6 @@ mod tests {
 			network_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = Event> + Send>>)
 				.fuse(),
-			peers_topology: PeersTopology::new(
-				network.local_peer_id(),
-				PeersTopologyConfig::default(),
-			),
 			peers: HashMap::new(),
 			statement_store: Arc::new(statement_store.clone()),
 			queue_sender,
@@ -2426,7 +2390,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
-			v2dht: V2DhtOrchestrator::new(),
+			v2dht: V2DhtOrchestrator::new(network.local_peer_id(), PeersTopologyConfig::default(), v2dht_enabled()),
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -3833,10 +3797,6 @@ mod tests {
 			network_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = Event> + Send>>)
 				.fuse(),
-			peers_topology: PeersTopology::new(
-				network.local_peer_id(),
-				PeersTopologyConfig::default(),
-			),
 			peers: HashMap::new(),
 			statement_store: Arc::new(statement_store.clone()),
 			queue_sender,
@@ -3851,7 +3811,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
-			v2dht: V2DhtOrchestrator::new(),
+			v2dht: V2DhtOrchestrator::new(network.local_peer_id(), PeersTopologyConfig::default(), v2dht_enabled()),
 		};
 
 		// Add a statement so there's something to sync.
@@ -4196,10 +4156,6 @@ mod tests {
 			network_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = Event> + Send>>)
 				.fuse(),
-			peers_topology: PeersTopology::new(
-				network.local_peer_id(),
-				PeersTopologyConfig::default(),
-			),
 			peers: HashMap::new(),
 			statement_store: Arc::new(statement_store),
 			queue_sender,
@@ -4214,7 +4170,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
-			v2dht: V2DhtOrchestrator::new(),
+			v2dht: V2DhtOrchestrator::new(network.local_peer_id(), PeersTopologyConfig::default(), v2dht_enabled()),
 		};
 
 		let peer1 = PeerId::random();
@@ -4269,10 +4225,6 @@ mod tests {
 			network_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = Event> + Send>>)
 				.fuse(),
-			peers_topology: PeersTopology::new(
-				network.local_peer_id(),
-				PeersTopologyConfig::default(),
-			),
 			peers: HashMap::new(),
 			statement_store: Arc::new(statement_store),
 			queue_sender,
@@ -4287,7 +4239,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
-			v2dht: V2DhtOrchestrator::new(),
+			v2dht: V2DhtOrchestrator::new(network.local_peer_id(), PeersTopologyConfig::default(), v2dht_enabled()),
 		};
 
 		flag.store(false, std::sync::atomic::Ordering::Relaxed);
@@ -4354,10 +4306,6 @@ mod tests {
 			network_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = Event> + Send>>)
 				.fuse(),
-			peers_topology: PeersTopology::new(
-				network.local_peer_id(),
-				PeersTopologyConfig::default(),
-			),
 			peers,
 			statement_store: Arc::new(statement_store),
 			queue_sender,
@@ -4372,7 +4320,7 @@ mod tests {
 			dropped_statements_during_sync: true,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
-			v2dht: V2DhtOrchestrator::new(),
+			v2dht: V2DhtOrchestrator::new(network.local_peer_id(), PeersTopologyConfig::default(), v2dht_enabled()),
 		};
 
 		handler.start_sync_recovery();
@@ -4463,7 +4411,6 @@ mod tests {
 					network_event_stream: (Box::pin(futures::stream::pending())
 						as Pin<Box<dyn Stream<Item = Event> + Send>>)
 						.fuse(),
-					peers_topology: PeersTopology::new(local_peer, PeersTopologyConfig::default()),
 					peers,
 					statement_store: Arc::new(TestStatementStore::new()),
 					queue_sender,
@@ -4478,7 +4425,7 @@ mod tests {
 					dropped_statements_during_sync: dropped,
 					sync_recovery_peer: None,
 					sync_recovery_readd_timeout: Box::pin(pending().fuse()),
-					v2dht: V2DhtOrchestrator::new(),
+					v2dht: V2DhtOrchestrator::new(local_peer, PeersTopologyConfig::default(), v2dht_enabled()),
 				}
 			};
 
