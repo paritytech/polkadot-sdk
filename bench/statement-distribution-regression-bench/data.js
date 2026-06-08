@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780749604986,
+  "lastUpdate": 1780940332694,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "de740e1892f47e91c356858324f6e3e4b0f1be60",
-          "message": "Limit the size of the statement for further gossiping (#9965)\n\n# Description\n\nLimits the size of statements that are further gossiped over the network\nto prevent skipping oversized messages. The limit is set to match the\nnetwork protocol's max statement notification size (1 MB), accounting\nfor 1-byte vector length overhead because statements are sent as\n`Vec<Statement>`.\n\n## Integration\n\nAffected crates:\n- `sc-statement-store`: Now depends on `sc-network-statement` for size\nconstants\n- `sc-network-statement`: `MAX_STATEMENT_NOTIFICATION_SIZE` is now\npublic\n\nFor downstream users:\n- Statements larger than 1 MB will now be rejected earlier before the\nvalidation pipeline\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-10-22T01:22:47Z",
-          "tree_id": "8c442e565d63b39426975189a56840d1fdf73792",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/de740e1892f47e91c356858324f6e3e4b0f1be60"
-        },
-        "date": 1761100643845,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.97999999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.045026635079999926,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03469127377200001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08156365885799989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "82968568+miloskriz@users.noreply.github.com",
+            "name": "Milos Kriz",
+            "username": "miloskriz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b95ef390bb5b4c3025e244234373195e4d1c12ed",
+          "message": "Removal of IBP bootnodes (#12284)\n\nDear team, hello!\n\nPlease consider this Pull Request to remove all bootnodes from the\nInfrastructure Builders Programme (IBP) due to the shutdown of its\noperations (signaled in [referendum\n1891](https://polkadot.subsquare.io/referenda/1891))\n\nThese changes affect `polkadot`, `kusama` and `westend` relay and system\nchain chainspecs, as the `paseo` ones will be modified in their own\nrepository.\n\nMany thanks for the long standing partnership!\n\nBest regards!!\n\n**_Milos_**",
+          "timestamp": "2026-06-08T14:19:56Z",
+          "tree_id": "72a132169bca5618c8137ce26347a803dd5ef347",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b95ef390bb5b4c3025e244234373195e4d1c12ed"
+        },
+        "date": 1780940300328,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.144,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08709760007999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038400163714000006,
             "unit": "seconds"
           }
         ]
