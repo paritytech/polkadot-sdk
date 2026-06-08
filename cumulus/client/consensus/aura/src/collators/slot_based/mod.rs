@@ -111,6 +111,7 @@ mod relay_chain_data_cache;
 mod resubmission;
 mod scheduling;
 mod slot_timer;
+mod unincluded_segment;
 
 #[cfg(test)]
 mod tests;
@@ -190,7 +191,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
 	Proposer: Environment<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
-	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + Sync + 'static,
+	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Clone + Send + Sync + 'static,
 	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
@@ -227,6 +228,8 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	// `SlotBasedBlockImport`.
 	block_import_handle.install_relay_data_source(Arc::new(relay_client.clone()), para_id);
 
+	let unincluded_segment_store = UnincludedSegmentStore::<Block, _>::new(para_client.clone());
+
 	let (collation_tx, collation_rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
 	let (resubmit_tx, resubmit_rx) = tracing_unbounded("mpsc_builder_to_collator_resubmit", 100);
 	let collator_task_params = collation_task::Params {
@@ -239,9 +242,12 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		resubmit_receiver: resubmit_rx,
 		block_import_handle,
 		export_pov,
+		para_backend: para_backend.clone(),
+		store: unincluded_segment_store,
+		code_hash_provider: code_hash_provider.clone(),
 	};
 
-	let collation_task_fut = run_collation_task::<Block, _, _>(collator_task_params);
+	let collation_task_fut = run_collation_task::<Block, _, _, _, _, _>(collator_task_params);
 
 	let block_builder_params = block_builder_task::BuilderTaskParams {
 		create_inherent_data_providers,

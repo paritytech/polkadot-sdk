@@ -352,11 +352,20 @@ where
 					included_header
 				},
 			};
-			let initial_parent_hash = parent_search_result.best_parent_header.hash();
-			let initial_parent_header = parent_search_result.best_parent_header;
+			let initial_parent_header = parent_search_result.best_parent_header().clone();
+			let initial_parent_hash = initial_parent_header.hash();
 			let unincluded_segment_len = initial_parent_header
 				.number()
 				.saturating_sub(*included_header_at_execution.number());
+			let unincluded_segment_len =
+				initial_parent_header.number().saturating_sub(*included_header.number());
+			// V3 carries the locally-walked unincluded segment to the collation task; V2 sends
+			// don't go through `CollatorResubmitSegment` so the default-empty `unwrap` is just
+			// defensive.
+			let unincluded_segment: Vec<Block::Header> = parent_search_result
+				.unincluded_segment()
+				.map(|s| s.to_vec())
+				.unwrap_or_default();
 
 			let Ok(para_slot_duration) =
 				crate::slot_duration_at(&*para_client, initial_parent_hash)
@@ -626,6 +635,7 @@ where
 					para_slot: para_slot.slot,
 					para_client: &*para_client,
 					scheduling_proof: scheduling_proof.clone(),
+					unincluded_segment: unincluded_segment.clone(),
 				})
 				.await
 				{
@@ -648,7 +658,7 @@ where
 								let _ = resubmit_sender.unbounded_send(CollatorResubmitSegment {
 									scheduling_proof: proof,
 									kind: SegmentKind::ResubmitOnly { core_index: this_core_index },
-									unincluded_segment: Vec::new(),
+									unincluded_segment: unincluded_segment.clone(),
 								});
 							}
 						}
@@ -706,6 +716,7 @@ struct BuildCollationParams<
 	para_slot: cumulus_primitives_aura::Slot,
 	para_client: &'a Client,
 	scheduling_proof: Option<SchedulingProof>,
+	unincluded_segment: Vec<Block::Header>,
 }
 
 /// Build a collation for one core.
@@ -750,6 +761,7 @@ async fn build_collation_for_core<
 		para_slot,
 		para_client,
 		scheduling_proof,
+		unincluded_segment,
 	}: BuildCollationParams<'_, Block, P, RelayClient, BI, CIDP, Proposer, CS, CHP, Client>,
 ) -> Result<Option<Block::Header>, ()>
 where
@@ -1039,7 +1051,7 @@ where
 						core_index,
 					},
 				},
-				unincluded_segment: Vec::new(),
+				unincluded_segment,
 			})
 			.is_ok()
 	} else {
