@@ -35,6 +35,8 @@ use sp_runtime::{traits::Zero, Permill, Saturating};
 /// collision with typical genesis assets.
 const INTERNAL_ASSET_INDEX: u32 = 50;
 const EXTERNAL_ASSET_OFFSET: u32 = 100;
+/// Minimum swap amount seeded for the benchmarked PSM, in internal-asset units.
+const BENCH_MIN_SWAP: u32 = 1_000;
 
 /// Ensure the benchmarked internal asset exists and a PSM record is installed for
 /// it. Returns `(internal_asset_id, internal_decimals)`.
@@ -55,6 +57,7 @@ where
 			crate::PsmInfo::<T> {
 				fee_destination: admin.clone(),
 				max_debt: BalanceOf::<T>::from(u32::MAX).saturating_mul(1_000_000u32.into()),
+				min_swap_amount: BalanceOf::<T>::from(BENCH_MIN_SWAP),
 				internal_decimals,
 				external_count: 0,
 			},
@@ -146,7 +149,7 @@ mod benchmarks {
 	fn mint(n: Linear<1, { T::MaxExternalAssetsPerPsm::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let (internal_id, asset_id) = setup_assets::<T>(n);
-		let mint_amount = T::MinSwapAmount::get().saturating_mul(10u32.into());
+		let mint_amount = BalanceOf::<T>::from(BENCH_MIN_SWAP).saturating_mul(10u32.into());
 
 		T::Fungibles::mint_into(asset_id.clone(), &caller, mint_amount.saturating_mul(2u32.into()))
 			.map_err(|_| BenchmarkError::Stop("Failed to fund caller"))?;
@@ -165,8 +168,8 @@ mod benchmarks {
 	fn redeem() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let (internal_id, asset_id) = setup_assets::<T>(1);
-		let setup_amount = T::MinSwapAmount::get().saturating_mul(10u32.into());
-		let redeem_amount = T::MinSwapAmount::get();
+		let setup_amount = BalanceOf::<T>::from(BENCH_MIN_SWAP).saturating_mul(10u32.into());
+		let redeem_amount = BalanceOf::<T>::from(BENCH_MIN_SWAP);
 
 		T::Fungibles::mint_into(
 			asset_id.clone(),

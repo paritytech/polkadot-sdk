@@ -29,11 +29,11 @@
 //!
 //! Throughout this pallet two distinct token roles are referenced:
 //!
-//! * **Internal** — the stablecoin a PSM issues and burns (e.g. a runtime's pUSD). Each PSM
-//!   instance is keyed by its internal asset id; multiple instances can coexist, each with its own
-//!   reserve, debt ceiling, fee destination and approved externals. Mint operations credit the user
-//!   with the internal asset; redeem operations burn it. Fees are collected in the internal asset
-//!   and forwarded to that instance's [`PsmInfo::fee_destination`].
+//! * **Internal** — the stablecoin a PSM issues and burns (e.g. a runtime's own USD-pegged
+//!   stablecoin). Each PSM instance is keyed by its internal asset id; multiple instances can
+//!   coexist, each with its own reserve, debt ceiling, fee destination and approved externals. Mint
+//!   operations credit the user with the internal asset; redeem operations burn it. Fees are
+//!   collected in the internal asset and forwarded to that instance's [`PsmInfo::fee_destination`].
 //! * **External** — third-party stablecoins (e.g. USDC, USDT) approved on a specific PSM via
 //!   [`Pallet::add_external_asset`] and held in that PSM's reserve. Users deposit external to mint
 //!   internal, and burn internal to redeem external. A PSM may approve multiple externals, each
@@ -76,11 +76,11 @@
 //! ### Example
 //!
 //! ```ignore
-//! // Mint internal asset by depositing USDC on the pUSD PSM
-//! Psm::mint(RuntimeOrigin::signed(user), PUSD_ASSET_ID, USDC_ASSET_ID, 1000 * UNIT)?;
+//! // Mint internal asset by depositing USDC on the PSM
+//! Psm::mint(RuntimeOrigin::signed(user), INTERNAL_ASSET_ID, USDC_ASSET_ID, 1000 * UNIT)?;
 //!
-//! // Redeem USDC by burning pUSD
-//! Psm::redeem(RuntimeOrigin::signed(user), PUSD_ASSET_ID, USDC_ASSET_ID, 1000 * UNIT)?;
+//! // Redeem USDC by burning the internal asset
+//! Psm::redeem(RuntimeOrigin::signed(user), INTERNAL_ASSET_ID, USDC_ASSET_ID, 1000 * UNIT)?;
 //! ```
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -267,6 +267,9 @@ pub mod pallet {
 		pub fee_destination: T::AccountId,
 		/// Absolute internal-asset debt ceiling.
 		pub max_debt: BalanceOf<T>,
+		/// Minimum swap amount for this instance, in internal-asset units. Swaps whose
+		/// internal-equivalent falls below this are rejected with [`Error::BelowMinimumSwap`].
+		pub min_swap_amount: BalanceOf<T>,
 		/// Snapshot of the internal asset's decimals at install time.
 		pub internal_decimals: u8,
 		/// Number of approved external assets attached to this instance.
@@ -350,10 +353,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
 
-		/// Minimum swap amount, in internal-asset units.
-		#[pallet::constant]
-		type MinSwapAmount: Get<BalanceOf<Self>>;
-
 		/// Maximum number of approved external assets per PSM instance.
 		#[pallet::constant]
 		type MaxExternalAssetsPerPsm: Get<u32>;
@@ -376,10 +375,6 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn integrity_test() {
-			assert!(!T::MinSwapAmount::get().is_zero(), "MinSwapAmount must be greater than zero");
-		}
-
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
@@ -554,8 +549,10 @@ pub mod pallet {
 		/// above its normalised ceiling. Ceilings are hard caps and may not be set beneath
 		/// outstanding debt.
 		CeilingBelowOutstandingDebt,
-		/// Swap amount below minimum threshold.
+		/// Swap amount below the instance's minimum threshold.
 		BelowMinimumSwap,
+		/// `create_psm` was called with a zero `min_swap_amount`.
+		ZeroMinSwapAmount,
 		/// Minting operations are disabled (circuit breaker level >= 1).
 		MintingStopped,
 		/// All swap operations are disabled (circuit breaker level = 2).
@@ -625,7 +622,8 @@ pub mod pallet {
 		/// - [`Error::UnsupportedAsset`]: If `asset_id` is not approved on this PSM.
 		/// - [`Error::MintingStopped`]: If the per-external circuit breaker is at `MintingDisabled`
 		///   or higher.
-		/// - [`Error::BelowMinimumSwap`]: If `external_amount` is below [`Config::MinSwapAmount`].
+		/// - [`Error::BelowMinimumSwap`]: If the internal-equivalent of `external_amount` is below
+		///   the instance's `min_swap_amount`.
 		/// - [`Error::ExceedsMaxPsmDebt`]: If minting would exceed this PSM's debt ceiling
 		///   (aggregate or per-asset).
 		/// - [`Error::DecimalsMismatch`]: If live decimals diverged from the snapshot taken at
@@ -657,7 +655,7 @@ pub mod pallet {
 			let internal_equivalent =
 				Self::external_to_internal(external_amount, ext_decimals, internal_decimals)?;
 			ensure!(!internal_equivalent.is_zero(), Error::<T>::AmountTooSmallAfterConversion);
-			ensure!(internal_equivalent >= T::MinSwapAmount::get(), Error::<T>::BelowMinimumSwap);
+			ensure!(internal_equivalent >= info.min_swap_amount, Error::<T>::BelowMinimumSwap);
 
 			let effective_external =
 				Self::internal_to_external(internal_equivalent, ext_decimals, internal_decimals)?;
@@ -728,7 +726,7 @@ pub mod pallet {
 		/// - [`Error::PsmNotFound`]: If no PSM is registered for `internal_asset`.
 		/// - [`Error::UnsupportedAsset`]: If `asset_id` is not approved on this PSM.
 		/// - [`Error::AllSwapsStopped`]: If the per-external circuit breaker is at `AllDisabled`.
-		/// - [`Error::BelowMinimumSwap`]: If `amount` is below [`Config::MinSwapAmount`].
+		/// - [`Error::BelowMinimumSwap`]: If `amount` is below the instance's `min_swap_amount`.
 		/// - [`Error::InsufficientReserve`]: If the PSM holds less of `asset_id` than the
 		///   redemption requires.
 		/// - [`Error::DecimalsMismatch`]: If live decimals diverged from the snapshot taken at
@@ -757,7 +755,7 @@ pub mod pallet {
 			let (ext_decimals, internal_decimals) =
 				Self::ensure_decimals_match(&info, &internal_asset, &asset_id, &external)?;
 
-			ensure!(amount >= T::MinSwapAmount::get(), Error::<T>::BelowMinimumSwap);
+			ensure!(amount >= info.min_swap_amount, Error::<T>::BelowMinimumSwap);
 
 			let fee = RedemptionFee::<T>::get(&internal_asset, &asset_id).mul_ceil(amount);
 			let internal_net = amount.saturating_sub(fee);
@@ -1219,10 +1217,13 @@ pub mod pallet {
 		///   fungibles backend and be owned by the caller; must not already have a PSM registered.
 		/// - `fee_destination`: Account that will receive mint/redeem fees.
 		/// - `max_debt`: Initial absolute internal-asset debt ceiling.
+		/// - `min_swap_amount`: Minimum swap amount for this instance, in internal-asset units.
+		///   Must be non-zero.
 		///
 		/// ## Errors
 		///
 		/// - [`Error::PsmAlreadyExists`]: A PSM is already registered for `internal_asset`.
+		/// - [`Error::ZeroMinSwapAmount`]: `min_swap_amount` is zero.
 		/// - [`Error::AssetDoesNotExist`]: The internal asset does not exist.
 		/// - [`Error::NotAssetOwner`]: The caller is not the owner of `internal_asset`.
 		///
@@ -1236,9 +1237,11 @@ pub mod pallet {
 			internal_asset: T::AssetId,
 			fee_destination: T::AccountId,
 			max_debt: BalanceOf<T>,
+			min_swap_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(!Psm::<T>::contains_key(&internal_asset), Error::<T>::PsmAlreadyExists);
+			ensure!(!min_swap_amount.is_zero(), Error::<T>::ZeroMinSwapAmount);
 			ensure!(
 				T::Fungibles::asset_exists(internal_asset.clone()),
 				Error::<T>::AssetDoesNotExist
@@ -1263,6 +1266,7 @@ pub mod pallet {
 				PsmInfo::<T> {
 					fee_destination: fee_destination.clone(),
 					max_debt,
+					min_swap_amount,
 					internal_decimals,
 					external_count: 0,
 				},

@@ -1576,8 +1576,6 @@ impl pallet_verify_signature::Config for Runtime {
 
 // PSM configuration.
 parameter_types! {
-	/// Minimum swap amount for PSM operations (1 unit at 6-decimal precision).
-	pub const PsmMinSwapAmount: Balance = 1_000_000;
 	/// Native-currency deposit reserved when permissionlessly creating a PSM.
 	pub const PsmCreationDeposit: Balance = deposit(1, 68);
 	/// PalletId for deriving the PSM system account.
@@ -1626,7 +1624,6 @@ impl pallet_psm::Config for Runtime {
 	type AssetId = xcm::v5::Location;
 	type WeightInfo = weights::pallet_psm::WeightInfo<Runtime>;
 	type PalletId = PsmPalletId;
-	type MinSwapAmount = PsmMinSwapAmount;
 	type MaxExternalAssetsPerPsm = ConstU32<3>;
 	type CreationDeposit = PsmCreationDeposit;
 	#[cfg(feature = "runtime-benchmarks")]

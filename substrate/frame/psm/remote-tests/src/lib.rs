@@ -188,6 +188,9 @@ where
 		pallet_psm::PsmInfo::<Runtime> {
 			fee_destination: config.fee_destination.clone(),
 			max_debt: config.max_debt,
+			min_swap_amount: 1u128
+				.try_into()
+				.unwrap_or_else(|_| panic!("balance conversion failed")),
 			internal_decimals: internal_decimals_u8,
 			external_count: 0,
 		},

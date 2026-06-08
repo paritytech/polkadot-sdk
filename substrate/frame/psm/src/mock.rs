@@ -145,7 +145,6 @@ impl crate::Config for Test {
 	type AssetId = u32;
 	type WeightInfo = ();
 	type PalletId = PsmPalletId;
-	type MinSwapAmount = MinSwapAmount;
 	type MaxExternalAssetsPerPsm = ConstU32<10>;
 	type CreationDeposit = PsmCreationDeposit;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -223,6 +222,7 @@ fn install_test_psm() {
 		crate::PsmInfo::<Test> {
 			fee_destination: INSURANCE_FUND,
 			max_debt: DEFAULT_MAX_DEBT,
+			min_swap_amount: 100 * INTERNAL_UNIT,
 			internal_decimals,
 			external_count: 2,
 		},

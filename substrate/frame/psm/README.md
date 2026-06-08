@@ -8,7 +8,7 @@ stablecoins on Substrate-based blockchains.
 
 Throughout this pallet two distinct token roles are referenced:
 
-- **Internal** — the stablecoin a PSM issues and burns (e.g. a runtime's pUSD).
+- **Internal** — the stablecoin a PSM issues and burns (e.g. runtime's own USD-pegged stablecoin).
   Each PSM instance is keyed by its internal asset id; multiple instances can
   coexist, each with its own reserve, debt ceiling, fee destination and
   approved externals. Mint operations credit the user with the internal asset;
@@ -48,7 +48,7 @@ mint(origin, internal_asset, asset_id, external_amount)
 - Mints `internal_asset` to the user (minus minting fee)
 - Fee is minted as `internal_asset` and transferred to the instance's `fee_destination`
 - Enforces the per-instance aggregate `max_debt` and the per-external normalised ceiling
-- Requires the swap (in internal units) to be `>= MinSwapAmount`
+- Requires the swap (in internal units) to be `>= PsmInfo::min_swap_amount`
 
 ### 2. Redeem (Internal → External)
 
@@ -60,7 +60,7 @@ redeem(origin, internal_asset, asset_id, amount)
 - Transfers external stablecoin from the instance's reserve to the user
 - Redemption fee is transferred from the user as `internal_asset` to `fee_destination`
 - Limited by the per-external tracked debt (`PsmDebt`), not raw reserve balance
-- Requires `amount >= MinSwapAmount`
+- Requires `amount >= PsmInfo::min_swap_amount`
 
 ## Debt Ceiling
 
@@ -177,7 +177,6 @@ impl pallet_psm::Config for Runtime {
     type AssetId = u32;
     type WeightInfo = weights::SubstrateWeight<Runtime>;
     type PalletId = PsmPalletId;
-    type MinSwapAmount = MinSwapAmount;
     type MaxExternalAssetsPerPsm = ConstU32<10>;
     type CreationDeposit = PsmCreationDeposit;
 }
@@ -192,6 +191,7 @@ on every swap that live decimals still match.
 | Parameter            | Description                                  | Suggested Value         |
 | -------------------- | -------------------------------------------- | ----------------------- |
 | `PsmInfo::max_debt`  | Absolute internal-asset debt ceiling         | Per-instance, governance-set |
+| `PsmInfo::min_swap_amount` | Minimum swap amount in internal-asset units | Per-instance, set on `create_psm` |
 | `MintingFee`         | Fee for external → internal (per pair)       | 0.5%                    |
 | `RedemptionFee`      | Fee for internal → external (per pair)       | 0.5%                    |
 | `AssetCeilingWeight` | Per-external share of the PSM's `max_debt`   | e.g. 50%/50% (USDC/USDT) |
@@ -199,8 +199,10 @@ on every swap that live decimals still match.
 ### Required Config Constants
 
 - `PalletId`: Unique identifier; sub-accounts are derived per instance.
-- `MinSwapAmount`: Minimum swap amount in internal-asset units (default suggested: 100 units).
 - `MaxExternalAssetsPerPsm`: Maximum number of approved externals per PSM instance.
+
+The per-instance minimum swap amount is not a config constant — it is set on `create_psm`
+and stored in `PsmInfo::min_swap_amount`.
 
 ## Events
 
@@ -220,7 +222,7 @@ All events carry `internal_asset` so consumers can attribute them to the correct
 
 - `InsufficientReserve`: PSM doesn't have enough external stablecoin for redemption
 - `ExceedsMaxPsmDebt`: Mint would exceed the instance's aggregate or per-external ceiling
-- `BelowMinimumSwap`: Swap amount below `MinSwapAmount`
+- `BelowMinimumSwap`: Swap amount below the instance's `min_swap_amount`
 - `MintingStopped`: Minting disabled by the per-external circuit breaker
 - `AllSwapsStopped`: All swaps disabled by the per-external circuit breaker
 - `UnsupportedAsset`: External not approved on this PSM

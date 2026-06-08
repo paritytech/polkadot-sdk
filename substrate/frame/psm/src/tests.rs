@@ -3007,6 +3007,8 @@ mod admin {
 
 	/// A fresh internal asset id with no PSM installed by the mock.
 	const NEW_INTERNAL: u32 = 50;
+	/// Minimum swap amount used when creating PSMs in these tests.
+	const DEFAULT_MIN_SWAP: u128 = 100 * INTERNAL_UNIT;
 
 	fn root_origin() -> OriginCaller {
 		frame_system::RawOrigin::<u64>::Root.into()
@@ -3027,12 +3029,14 @@ mod admin {
 				NEW_INTERNAL,
 				INSURANCE_FUND,
 				DEFAULT_MAX_DEBT,
+				DEFAULT_MIN_SWAP,
 			));
 
 			// Hot record.
 			let info = crate::Psm::<Test>::get(NEW_INTERNAL).expect("PSM created");
 			assert_eq!(info.fee_destination, INSURANCE_FUND);
 			assert_eq!(info.max_debt, DEFAULT_MAX_DEBT);
+			assert_eq!(info.min_swap_amount, DEFAULT_MIN_SWAP);
 			assert_eq!(info.external_count, 0);
 
 			// Admin record: the signer is both admins and the depositor; the deposit is
@@ -3069,6 +3073,7 @@ mod admin {
 					INTERNAL_ASSET_ID,
 					INSURANCE_FUND,
 					DEFAULT_MAX_DEBT,
+					DEFAULT_MIN_SWAP,
 				),
 				Error::<Test>::PsmAlreadyExists
 			);
@@ -3084,8 +3089,26 @@ mod admin {
 					4242u32,
 					INSURANCE_FUND,
 					DEFAULT_MAX_DEBT,
+					DEFAULT_MIN_SWAP,
 				),
 				Error::<Test>::AssetDoesNotExist
+			);
+		});
+	}
+
+	#[test]
+	fn create_psm_fails_zero_min_swap() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
+			assert_noop!(
+				Psm::create_psm(
+					RuntimeOrigin::signed(ALICE),
+					NEW_INTERNAL,
+					INSURANCE_FUND,
+					DEFAULT_MAX_DEBT,
+					0,
+				),
+				Error::<Test>::ZeroMinSwapAmount
 			);
 		});
 	}
@@ -3103,6 +3126,7 @@ mod admin {
 					NEW_INTERNAL,
 					INSURANCE_FUND,
 					DEFAULT_MAX_DEBT,
+					DEFAULT_MIN_SWAP,
 				),
 				Error::<Test>::NotAssetOwner
 			);
@@ -3124,6 +3148,7 @@ mod admin {
 					NEW_INTERNAL,
 					INSURANCE_FUND,
 					DEFAULT_MAX_DEBT,
+					DEFAULT_MIN_SWAP,
 				),
 				pallet_balances::Error::<Test>::InsufficientBalance
 			);
@@ -3142,6 +3167,7 @@ mod admin {
 				NEW_INTERNAL,
 				INSURANCE_FUND,
 				DEFAULT_MAX_DEBT,
+				DEFAULT_MIN_SWAP,
 			));
 			assert!(Balances::reserved_balance(&ALICE) > reserved_before);
 
@@ -3170,6 +3196,7 @@ mod admin {
 				NEW_INTERNAL,
 				INSURANCE_FUND,
 				DEFAULT_MAX_DEBT,
+				DEFAULT_MIN_SWAP,
 			));
 			// create_psm acquired one provider reference on each of the reserve account and the
 			// fee destination.
@@ -3196,6 +3223,7 @@ mod admin {
 				NEW_INTERNAL,
 				INSURANCE_FUND,
 				DEFAULT_MAX_DEBT,
+				DEFAULT_MIN_SWAP,
 			));
 
 			// Hand off full control to Root, then let Root remove the PSM.
@@ -3231,6 +3259,7 @@ mod admin {
 				NEW_INTERNAL,
 				INSURANCE_FUND,
 				DEFAULT_MAX_DEBT,
+				DEFAULT_MIN_SWAP,
 			));
 			// Inject debt while there are no approved externals so the debt check is reached.
 			PsmDebt::<Test>::insert(NEW_INTERNAL, USDC_ASSET_ID, 1u128);

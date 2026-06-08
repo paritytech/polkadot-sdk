@@ -3099,8 +3099,6 @@ impl pallet_oracle::Config for Runtime {
 }
 
 parameter_types! {
-	/// Minimum swap amount for PSM operations (100 pUSD = 100 * 10^6).
-	pub const PsmMinSwapAmount: Balance = 100_000_000;
 	/// PalletId for deriving the PSM system account.
 	pub const PsmPalletId: PalletId = PalletId(*b"py/pegsm");
 	/// Native-currency deposit reserved when permissionlessly creating a PSM.
@@ -3144,7 +3142,6 @@ impl pallet_psm::Config for Runtime {
 	type AssetId = u32;
 	type WeightInfo = pallet_psm::weights::SubstrateWeight<Runtime>;
 	type PalletId = PsmPalletId;
-	type MinSwapAmount = PsmMinSwapAmount;
 	type MaxExternalAssetsPerPsm = ConstU32<10>;
 	type CreationDeposit = PsmCreationDeposit;
 	#[cfg(feature = "runtime-benchmarks")]
