@@ -20,10 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use frame_benchmarking::v2::*;
-use frame_support::{
-	traits::{Authorize, UnfilteredDispatchable},
-	WeakBoundedVec,
-};
+use frame_support::{traits::Authorize, WeakBoundedVec};
 use frame_system::RawOrigin;
 use sp_runtime::{traits::Zero, transaction_validity::TransactionSource};
 
@@ -87,29 +84,6 @@ mod benchmarks {
 			call.authorize(TransactionSource::InBlock)
 				.expect("heartbeat call should have authorize logic")
 				.map_err(|_| "authorize failed")?;
-		}
-
-		Ok(())
-	}
-
-	#[benchmark(extra)]
-	fn authorize_and_then_heartbeat(
-		k: Linear<1, { <T as Config>::MaxKeys::get() }>,
-	) -> Result<(), BenchmarkError> {
-		let (input_heartbeat, signature) = create_heartbeat::<T>(k)?;
-		let call = Call::heartbeat { heartbeat: input_heartbeat, signature };
-		let runtime_call: <T as frame_system::Config>::RuntimeCall = call.clone().into();
-		let call_enc = call.encode();
-
-		#[block]
-		{
-			runtime_call
-				.authorize(TransactionSource::InBlock)
-				.expect("heartbeat call should have authorize logic")
-				.map_err(|_| "authorize failed")?;
-			<Call<T> as Decode>::decode(&mut &*call_enc)
-				.expect("call is encoded above, encoding must be correct")
-				.dispatch_bypass_filter(RawOrigin::Authorized.into())?;
 		}
 
 		Ok(())
