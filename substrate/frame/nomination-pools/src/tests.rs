@@ -2820,6 +2820,12 @@ mod unbond {
 				CurrentEra::set(3);
 				assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(random), 20, 0));
 
+				// even as sole member, partial permissionless unbond of the depositor is still rejected.
+				assert_noop!(
+					Pools::unbond(RuntimeOrigin::signed(random), 10, 5),
+					Error::<T>::PartialUnbondNotAllowedPermissionlessly
+				);
+
 				// now the depositor is the sole member: full permissionless unbond is allowed.
 				assert_ok!(Pools::unbond(RuntimeOrigin::signed(random), 10, 20));
 
