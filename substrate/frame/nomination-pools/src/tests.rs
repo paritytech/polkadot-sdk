@@ -30,7 +30,7 @@ macro_rules! unbonding_pools_with_era {
 	($($k:expr => $v:expr),* $(,)?) => {{
 		use ::core::iter::{Iterator, IntoIterator};
 		let not_bounded: BTreeMap<_, _> = Iterator::collect(IntoIterator::into_iter([$(($k, $v),)*]));
-		BoundedBTreeMap::<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>::try_from(not_bounded).unwrap()
+		WeakBoundedBTreeMap::<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>::try_from(not_bounded).unwrap()
 	}};
 }
 
@@ -730,6 +730,232 @@ mod sub_pools {
 				sub_pool_0.no_era.balance += to_merge.balance;
 			}
 			assert_eq!(sub_pool_3, sub_pool_0);
+		});
+	}
+
+	// Builds a `SubPools` with `with_era` entries for eras `0..n` (each with points/balance 1) and a `no_era` pool, ensuring the bound fits them.
+	fn sub_pools_with(n: u32, no_era: Balance) -> SubPools<Runtime> {
+		BondingDuration::set(28);
+		assert!(TotalUnbondingPools::<Runtime>::get() >= n, "bound must fit the constructed map");
+
+		let mut with_era = WeakBoundedBTreeMap::<
+			EraIndex,
+			UnbondPool<Runtime>,
+			TotalUnbondingPools<Runtime>,
+		>::new();
+		for era in 0..n {
+			with_era
+				.try_insert(era, UnbondPool::<Runtime> { points: 1, balance: 1 })
+				.unwrap();
+		}
+		SubPools { no_era: UnbondPool::<Runtime> { points: no_era, balance: no_era }, with_era }
+	}
+
+	#[test]
+	fn oversized_with_era_survives_bound_shrink() {
+		use codec::{Decode, Encode};
+		ExtBuilder::default().build_and_execute(|| {
+			// Pre-flip: 10 era-pools (+ a `no_era` pool of 5), well within the wide bound.
+			let sub_pools = sub_pools_with(10, 5);
+			let total_balance = sub_pools.sum_unbonding_balance();
+			assert_eq!(total_balance, 10 + 5);
+			let encoded = sub_pools.encode();
+
+			// The flip: nominator fast unbonding is enabled, the effective bonding duration drops,
+			// and the `TotalUnbondingPools` bound shrinks below the number of stored era-pools.
+			BondingDuration::set(2);
+			let new_bound = TotalUnbondingPools::<Runtime>::get();
+			assert_eq!(new_bound, 2 + PostUnbondingPoolsWindow::get());
+			assert!(new_bound < 10);
+
+			// Regression: before the fix `with_era` was a strict `BoundedBTreeMap`, whose `Decode`
+			// rejected this ("BoundedBTreeMap exceeds its limit"), so the whole `SubPools` failed
+			// to decode. As a `WeakBoundedBTreeMap` it now decodes successfully...
+			let recovered = SubPools::<Runtime>::decode(&mut &encoded[..]).expect(
+				"oversized historical `SubPools` must still decode after the bound shrinks",
+			);
+
+			// ...keeping *every* era-pool (no funds are silently dropped on decode)...
+			assert_eq!(recovered.with_era.len(), 10);
+			assert!(recovered.with_era.contains_key(&0));
+			assert!(recovered.with_era.contains_key(&9));
+			assert_eq!(recovered.sum_unbonding_balance(), total_balance);
+
+			// ...and the existing `maybe_merge_pools` invariant compacts the map back to within the
+			// (now smaller) bound, folding the matured eras into the era-agnostic `no_era` pool
+			// without losing any funds.
+			let compacted = recovered.maybe_merge_pools(11);
+			assert!(compacted.with_era.len() as u32 <= new_bound);
+			assert_eq!(compacted.sum_unbonding_balance(), total_balance);
+		});
+	}
+
+	#[test]
+	fn shrinking_bound_does_not_destroy_subpools_in_storage() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Pool 1 exists (created by the `ExtBuilder`); give it an oversized historical
+			// `SubPools` while the bound is still wide.
+			let sub_pools = sub_pools_with(10, 0);
+			SubPoolsStorage::<Runtime>::insert(1, sub_pools);
+
+			// The flip shrinks the bound well below the stored 10 era-pools.
+			BondingDuration::set(2);
+			assert!(TotalUnbondingPools::<Runtime>::get() < 10);
+
+			// Regression: previously `get` decoded to `None` ("Corrupted state"), and the next
+			// `unbond` would `unwrap_or_default()` then overwrite the entry, wiping the accounting.
+			// Now the historical sub-pools are read back intact, with all funds preserved.
+			let recovered = SubPoolsStorage::<Runtime>::get(1)
+				.expect("historical sub pools must survive a bonding-duration shrink");
+			assert_eq!(recovered.with_era.len(), 10);
+			assert_eq!(recovered.sum_unbonding_balance(), 10);
+		});
+	}
+
+	#[test]
+	fn first_unbond_after_bound_shrink_makes_room() {
+		ExtBuilder::default().add_members(vec![(20, 20)]).build_and_execute(|| {
+			// Pre-flip: a large bonding duration gives a wide bound, and the pool has accumulated
+			// an oversized `with_era` map full of *future-dated* eras (so that
+			// `maybe_merge_pools` will not be able to free any of them at the current era).
+			BondingDuration::set(28);
+			CurrentEra::set(50);
+			assert!(TotalUnbondingPools::<Runtime>::get() >= 10);
+
+			let mut with_era = WeakBoundedBTreeMap::<
+				EraIndex,
+				UnbondPool<Runtime>,
+				TotalUnbondingPools<Runtime>,
+			>::new();
+			for era in 100..110 {
+				with_era
+					.try_insert(era, UnbondPool::<Runtime> { points: 1, balance: 1 })
+					.unwrap();
+			}
+			SubPoolsStorage::<Runtime>::insert(
+				1,
+				SubPools { no_era: UnbondPool::<Runtime>::default(), with_era },
+			);
+			let historical_unbonding = 10; // 10 eras * 1 balance each.
+
+			// The flip: bonding duration shrinks, so the bound drops below the stored entries.
+			BondingDuration::set(2);
+			let bound = TotalUnbondingPools::<Runtime>::get();
+			assert_eq!(bound, 2 + PostUnbondingPoolsWindow::get());
+
+			// The stored map is over the new bound, and — crucially — does *not* contain the era
+			// the upcoming `unbond` will use, so `unbond` must insert a brand new entry.
+			let unbond_era = CurrentEra::get() + BondingDuration::get();
+			let stored = SubPoolsStorage::<Runtime>::get(1).unwrap();
+			assert!(stored.with_era.len() as u32 > bound);
+			assert!(!stored.with_era.contains_key(&unbond_era));
+
+			// The first post-shrink `unbond`. Before the room-making fix this hit the defensive
+			// `NotEnoughSpaceInUnbondPool` path (a panic under `debug_assertions`); it must now
+			// succeed instead.
+			assert_ok!(fully_unbond_permissioned(20));
+
+			let subs = SubPoolsStorage::<Runtime>::get(1).unwrap();
+			// The map was compacted back to within the (shrunk) bound...
+			assert!(subs.with_era.len() as u32 <= bound);
+			// ...the new unbonding era was recorded...
+			assert!(subs.with_era.contains_key(&unbond_era));
+			// ...the member's unbonding chunk points at it...
+			assert_eq!(
+				PoolMembers::<Runtime>::get(20)
+					.unwrap()
+					.unbonding_eras
+					.get(&unbond_era)
+					.copied(),
+				Some(20)
+			);
+			// ...and no accounting was lost: the historical balance was merged into `no_era`, and
+			// the freshly unbonded 20 was added on top.
+			assert_eq!(subs.sum_unbonding_balance(), historical_unbonding + 20);
+		});
+	}
+
+	#[test]
+	fn withdraw_after_bound_shrink_round_trips() {
+		ExtBuilder::default().add_members(vec![(20, 20)]).build_and_execute(|| {
+			// Setup: insert oversized future-dated map.
+			BondingDuration::set(28);
+			CurrentEra::set(50);
+			let mut with_era = WeakBoundedBTreeMap::<
+				EraIndex,
+				UnbondPool<Runtime>,
+				TotalUnbondingPools<Runtime>,
+			>::new();
+			for era in 100..110 {
+				with_era
+					.try_insert(era, UnbondPool::<Runtime> { points: 1, balance: 1 })
+					.unwrap();
+			}
+			SubPoolsStorage::<Runtime>::insert(
+				1,
+				SubPools { no_era: UnbondPool::<Runtime>::default(), with_era },
+			);
+
+			// Shrink bound and unbond (should succeed).
+			BondingDuration::set(2);
+			let unbond_era = CurrentEra::get() + BondingDuration::get();
+			assert_ok!(fully_unbond_permissioned(20));
+
+			// total_balance sees the new unbonded amount.
+			assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().total_balance(), 20);
+
+			// Advance to unlock era, withdraw, and member is cleaned up.
+			CurrentEra::set(unbond_era);
+			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 0));
+			assert!(PoolMembers::<Runtime>::get(20).is_none());
+
+			// Withdrawn era is consumed; old balance remains.
+			let subs = SubPoolsStorage::<Runtime>::get(1).unwrap();
+			assert!(!subs.with_era.contains_key(&unbond_era));
+			assert_eq!(subs.sum_unbonding_balance(), 10);
+		});
+	}
+
+	#[test]
+	fn on_slash_applies_to_oversized_subpools() {
+		use sp_staking::OnStakingUpdate;
+		ExtBuilder::default().build_and_execute(|| {
+			// Setup: insert oversized map with known balances.
+			BondingDuration::set(28);
+			CurrentEra::set(50);
+			let mut with_era = WeakBoundedBTreeMap::<
+				EraIndex,
+				UnbondPool<Runtime>,
+				TotalUnbondingPools<Runtime>,
+			>::new();
+			for era in 100..110 {
+				with_era
+					.try_insert(era, UnbondPool::<Runtime> { points: 10, balance: 10 })
+					.unwrap();
+			}
+			SubPoolsStorage::<Runtime>::insert(
+				1,
+				SubPools { no_era: UnbondPool::<Runtime>::default(), with_era },
+			);
+
+			// Shrink bound below stored entries.
+			BondingDuration::set(2);
+			assert!(
+				SubPoolsStorage::<Runtime>::get(1).unwrap().with_era.len() as u32 >
+					TotalUnbondingPools::<Runtime>::get()
+			);
+
+			// Slash two eras on oversized map; balances are reduced.
+			let pool_account = Pools::generate_bonded_account(1);
+			let slashed: BTreeMap<EraIndex, Balance> = [(100, 4), (101, 6)].into_iter().collect();
+			Pools::on_slash(&pool_account, 0, &slashed, 0);
+
+			let subs = SubPoolsStorage::<Runtime>::get(1).unwrap();
+			assert_eq!(subs.with_era.get(&100).unwrap().balance, 4);
+			assert_eq!(subs.with_era.get(&101).unwrap().balance, 6);
+			// Unaffected eras are unchanged; map remains oversized.
+			assert_eq!(subs.with_era.get(&109).unwrap().balance, 10);
+			assert_eq!(subs.with_era.len(), 10);
 		});
 	}
 }

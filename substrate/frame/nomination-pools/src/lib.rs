@@ -360,7 +360,7 @@ use core::{fmt::Debug, ops::Div};
 use frame_support::{
 	defensive, defensive_assert, ensure,
 	pallet_prelude::{MaxEncodedLen, *},
-	storage::bounded_btree_map::BoundedBTreeMap,
+	storage::{bounded_btree_map::BoundedBTreeMap, weak_bounded_btree_map::WeakBoundedBTreeMap},
 	traits::{
 		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze},
 		tokens::{Fortitude, Preservation},
@@ -1596,7 +1596,8 @@ pub struct SubPools<T: Config> {
 	/// older then `current_era - TotalUnbondingPools`.
 	pub no_era: UnbondPool<T>,
 	/// Map of era in which a pool becomes unbonded in => unbond pools.
-	pub with_era: BoundedBTreeMap<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>,
+	/// [`WeakBoundedBTreeMap`] allows decoding if `TotalUnbondingPools` shrinks, preventing loss of unbonding data.
+	pub with_era: WeakBoundedBTreeMap<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>,
 }
 
 impl<T: Config> SubPools<T> {
@@ -1625,6 +1626,22 @@ impl<T: Config> SubPools<T> {
 		}
 
 		self
+	}
+
+	/// Ensures `with_era` has room for a new entry by merging oldest pools into `no_era` if needed.
+	fn merge_oldest_until_fits(&mut self) {
+		let bound = TotalUnbondingPools::<T>::get() as usize;
+		while self.with_era.len() >= bound {
+			// Merge earliest-maturing pools first (oldest keys first)
+			let Some(oldest) = self.with_era.keys().next().copied() else { break };
+			match self.with_era.remove(&oldest) {
+				Some(pool) => {
+					self.no_era.points = self.no_era.points.saturating_add(pool.points);
+					self.no_era.balance = self.no_era.balance.saturating_add(pool.balance);
+				},
+				None => break,
+			}
+		}
 	}
 
 	/// The sum of all unbonding balance, regardless of whether they are actually unlocked or not.
@@ -2313,11 +2330,12 @@ pub mod pallet {
 			// Update the unbond pool associated with the current era with the unbonded funds. Note
 			// that we lazily create the unbond pool if it does not yet exist.
 			if !sub_pools.with_era.contains_key(&unbond_era) {
+				// Free a slot by merging oldest pools if the map is still full.
+				sub_pools.merge_oldest_until_fits();
 				sub_pools
 					.with_era
 					.try_insert(unbond_era, UnbondPool::default())
-					// The above call to `maybe_merge_pools` should ensure there is
-					// always enough space to insert.
+					// The calls above ensure there is always enough space to insert.
 					.defensive_map_err::<Error<T>, _>(|_| {
 						DefensiveError::NotEnoughSpaceInUnbondPool.into()
 					})?;

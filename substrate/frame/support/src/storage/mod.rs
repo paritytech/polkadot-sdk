@@ -53,6 +53,7 @@ mod stream_iter;
 pub mod transactional;
 pub mod types;
 pub mod unhashed;
+pub mod weak_bounded_btree_map;
 pub mod weak_bounded_vec;
 
 /// Utility type for converting a storage map into a `Get<u32>` impl which returns the maximum
@@ -1527,6 +1528,7 @@ mod private {
 	impl<T, S> Sealed for BoundedVec<T, S> {}
 	impl<T, S> Sealed for WeakBoundedVec<T, S> {}
 	impl<K, V, S> Sealed for bounded_btree_map::BoundedBTreeMap<K, V, S> {}
+	impl<K, V, S> Sealed for weak_bounded_btree_map::WeakBoundedBTreeMap<K, V, S> {}
 	impl<T, S> Sealed for bounded_btree_set::BoundedBTreeSet<T, S> {}
 	impl<T: Encode> Sealed for BTreeSet<T> {}
 	impl<'a, T: EncodeLike<U>, U: Encode> Sealed for codec::Ref<'a, T, U> {}
