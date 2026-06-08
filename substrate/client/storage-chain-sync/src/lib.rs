@@ -38,7 +38,7 @@
 mod fetcher;
 
 pub(crate) use fetcher::FetchError;
-pub use fetcher::{BitswapPeerSource, IndexedTransactionFetcher, NetworkHandle, SyncingHandle};
+pub use fetcher::{BitswapHandleSlot, IndexedTransactionFetcher};
 
 use codec::Encode;
 use sc_client_api::{BlockBackend, PrefetchedIndexedTransactions};
