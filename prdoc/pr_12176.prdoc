@@ -5,16 +5,16 @@ doc:
     This improves the performance of xcmp-queue by not requiring to check all pages individually.
 crates:
 - name: cumulus-pallet-xcmp-queue
-  bump: major
+  bump: minor
 - name: asset-hub-rococo-runtime
-  bump: major
+  bump: patch
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: patch
 - name: bridge-hub-rococo-runtime
-  bump: major
+  bump: patch
 - name: bridge-hub-westend-runtime
-  bump: major
+  bump: patch
 - name: collectives-westend-runtime
-  bump: major
+  bump: patch
 - name: coretime-westend-runtime
-  bump: major
+  bump: patch
