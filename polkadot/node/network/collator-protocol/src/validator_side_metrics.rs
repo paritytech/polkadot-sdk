@@ -152,7 +152,10 @@ impl Metrics {
 	pub fn on_slash_invalid_collation(&self, para_id: &ParaId) {
 		if let Some(metrics) = &self.0 {
 			let para_id = u32::from(*para_id).to_string();
-			metrics.slashes.with_label_values(&[para_id.as_str(), "invalid_collation"]).inc();
+			metrics
+				.slashes
+				.with_label_values(&[para_id.as_str(), "invalid_collation"])
+				.inc();
 		}
 	}
 
@@ -167,7 +170,10 @@ impl Metrics {
 	fn note_approved_peer_signal(&self, para_id: &ParaId, outcome: &'static str) {
 		if let Some(metrics) = &self.0 {
 			let para_id = u32::from(*para_id).to_string();
-			metrics.approved_peer_signals.with_label_values(&[para_id.as_str(), outcome]).inc();
+			metrics
+				.approved_peer_signals
+				.with_label_values(&[para_id.as_str(), outcome])
+				.inc();
 		}
 	}
 
