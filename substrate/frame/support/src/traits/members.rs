@@ -190,14 +190,6 @@ macro_rules! match_types {
 	() => {}
 }
 
-/// Create a type which implements the `Contains` trait for a particular type with syntax similar
-/// to `matches!`.
-#[macro_export]
-#[deprecated = "Use `match_types!` instead"]
-macro_rules! match_type {
-	($( $x:tt )*) => { $crate::match_types!( $( $x )* ); }
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
