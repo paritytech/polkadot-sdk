@@ -233,6 +233,15 @@ pub async fn assert_candidates_version(
 			}
 		}
 
+		if expected_version == CandidateDescriptorVersion::V3 {
+			if receipt.descriptor.session_index().is_none() {
+				return Err(anyhow!("Para {para_id} V3 candidate has session_index=None"));
+			}
+			if receipt.descriptor.scheduling_session().is_none() {
+				return Err(anyhow!("Para {para_id} V3 candidate hash scheduling_session=None"));
+			}
+		}
+
 		Ok(true)
 	})
 	.await
