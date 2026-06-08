@@ -2786,36 +2786,49 @@ mod unbond {
 	#[test]
 	fn depositor_unbond_destroying_permissionless() {
 		// depositor can be permissionlessly fully unbonded in destroying state when sole member.
-		ExtBuilder::default().min_join_bond(10).build_and_execute(|| {
-			// give the depositor some extra funds.
-			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(10), BondExtra::FreeBalance(10)));
-			assert_eq!(PoolMembers::<T>::get(10).unwrap().points, 20);
+		ExtBuilder::default()
+			.min_join_bond(10)
+			.add_members(vec![(20, 20)])
+			.build_and_execute(|| {
+				// give the depositor some extra funds.
+				assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(10), BondExtra::FreeBalance(10)));
+				assert_eq!(PoolMembers::<T>::get(10).unwrap().points, 20);
 
-			// set the stage
-			unsafe_set_state(1, PoolState::Destroying);
-			let random = 123;
+				// set the stage
+				unsafe_set_state(1, PoolState::Destroying);
+				let random = 123;
 
-			// cannot be kicked to above limit.
-			assert_noop!(
-				Pools::unbond(RuntimeOrigin::signed(random), 10, 5),
-				Error::<T>::PartialUnbondNotAllowedPermissionlessly
-			);
+				// partial permissionless unbonds are always rejected.
+				assert_noop!(
+					Pools::unbond(RuntimeOrigin::signed(random), 10, 5),
+					Error::<T>::PartialUnbondNotAllowedPermissionlessly
+				);
+				assert_noop!(
+					Pools::unbond(RuntimeOrigin::signed(random), 10, 15),
+					Error::<T>::PartialUnbondNotAllowedPermissionlessly
+				);
 
-			// or below the limit
-			assert_noop!(
-				Pools::unbond(RuntimeOrigin::signed(random), 10, 15),
-				Error::<T>::PartialUnbondNotAllowedPermissionlessly
-			);
+				// full permissionless unbond is rejected while member 20 is still in the pool
+				// (depositor is not the sole member).
+				assert_noop!(
+					Pools::unbond(RuntimeOrigin::signed(random), 10, 20),
+					Error::<T>::DoesNotHavePermission
+				);
 
-			// full permissionless unbond of the sole depositor is allowed.
-			assert_ok!(Pools::unbond(RuntimeOrigin::signed(random), 10, 20));
+				// remove member 20 so the depositor becomes the sole remaining member.
+				assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(random), 20));
+				CurrentEra::set(3);
+				assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(random), 20, 0));
 
-			// repeated full unbond attempts now fail because balance_after_unbond < depositor_min_bond.
-			assert_noop!(
-				Pools::unbond(RuntimeOrigin::signed(10), 10, 20),
-				Error::<T>::MinimumBondNotMet
-			);
-		})
+				// now the depositor is the sole member: full permissionless unbond is allowed.
+				assert_ok!(Pools::unbond(RuntimeOrigin::signed(random), 10, 20));
+
+				// repeated full unbond attempts now fail because balance_after_unbond < depositor_min_bond.
+				assert_noop!(
+					Pools::unbond(RuntimeOrigin::signed(10), 10, 20),
+					Error::<T>::MinimumBondNotMet
+				);
+			})
 	}
 
 	#[test]
