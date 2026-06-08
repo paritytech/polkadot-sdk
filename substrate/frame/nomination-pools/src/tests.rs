@@ -3294,8 +3294,8 @@ mod unbond {
 
 			// when destroying and sole member, depositor can be unbonded permissionlessly.
 			assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(420), 10));
-			// repeated full unbond attempts now fail because active_points() == 0, so unbonding_points ==
-			// 0 which is rejected before any arithmetic is attempted.
+			// repeated unbond attempts now fail because active_points() == 0, so unbonding_points == 0
+			// which is rejected before any arithmetic is attempted.
 			assert_noop!(
 				Pools::fully_unbond(RuntimeOrigin::signed(10), 10),
 				Error::<T>::OverflowRisk
