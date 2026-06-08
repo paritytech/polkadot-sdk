@@ -120,7 +120,7 @@ async fn initialize<Context>(
 
 		let scheduled_paras = collation_manager.assignments();
 
-		gum::info!(
+		gum::debug!(
 			target: LOG_TARGET,
 			?scheduled_paras,
 			"Collator protocol initial assignments",

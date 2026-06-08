@@ -163,7 +163,7 @@ impl<B: Backend> State<B> {
 		);
 
 		if old_assignments != new_assignments {
-			gum::info!(
+			gum::debug!(
 				target: LOG_TARGET,
 				?old_assignments,
 				?new_assignments,
