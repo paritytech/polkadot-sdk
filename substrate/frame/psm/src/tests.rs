@@ -29,7 +29,7 @@ mod mint {
 
 	#[test]
 	fn success_basic() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let mint_amount = 1000 * INTERNAL_UNIT;
 			let alice_usdc_before = get_asset_balance(USDC_ASSET_ID, ALICE);
 
@@ -59,7 +59,7 @@ mod mint {
 
 	#[test]
 	fn fee_zero() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			set_minting_fee(USDC_ASSET_ID, Permill::zero());
 
 			let mint_amount = 1000 * INTERNAL_UNIT;
@@ -73,7 +73,7 @@ mod mint {
 
 	#[test]
 	fn fee_nonzero() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			set_minting_fee(USDC_ASSET_ID, Permill::from_percent(5));
 
 			let mint_amount = 1000 * INTERNAL_UNIT;
@@ -89,7 +89,7 @@ mod mint {
 
 	#[test]
 	fn fee_100_percent() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			set_minting_fee(USDC_ASSET_ID, Permill::from_percent(100));
 
 			let mint_amount = 1000 * INTERNAL_UNIT;
@@ -103,7 +103,7 @@ mod mint {
 
 	#[test]
 	fn fails_unsupported_asset() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			assert_noop!(
 				Psm::mint(RuntimeOrigin::signed(ALICE), UNSUPPORTED_ASSET_ID, 1000 * INTERNAL_UNIT),
 				Error::<Test>::UnsupportedAsset
@@ -113,7 +113,7 @@ mod mint {
 
 	#[test]
 	fn fails_asset_minting_disabled() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			set_asset_status(USDC_ASSET_ID, CircuitBreakerLevel::MintingDisabled);
 
 			assert_noop!(
@@ -132,7 +132,7 @@ mod mint {
 
 	#[test]
 	fn fails_asset_all_disabled() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			set_asset_status(USDC_ASSET_ID, CircuitBreakerLevel::AllDisabled);
 
 			assert_noop!(
@@ -151,7 +151,7 @@ mod mint {
 
 	#[test]
 	fn fails_below_minimum() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let below_min = MinSwapAmount::get() - 1;
 
 			assert_noop!(
@@ -163,7 +163,7 @@ mod mint {
 
 	#[test]
 	fn fails_exceeds_max_debt() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// Set global ceiling to 1% and asset ratio to 100%
 			set_max_psm_debt_ratio(Permill::from_percent(1));
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(100));
@@ -200,7 +200,7 @@ mod mint {
 
 	#[test]
 	fn boundary_new_debt_equals_max() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// Set USDC to 100% and USDT to 0% so USDC gets full ceiling
 			set_max_psm_debt_ratio(Permill::from_percent(1));
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(100));
@@ -218,7 +218,7 @@ mod mint {
 
 	#[test]
 	fn fails_insufficient_external_balance() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let alice_usdc_before = get_asset_balance(USDC_ASSET_ID, ALICE);
 			let alice_internal_before = get_asset_balance(INTERNAL_ASSET_ID, ALICE);
 			let psm_usdc_before = get_asset_balance(USDC_ASSET_ID, psm_account());
@@ -239,7 +239,7 @@ mod mint {
 
 	#[test]
 	fn fails_mint_exceeds_system_wide_issuance() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let maximum_issuance = MockMaximumIssuance::get();
 
 			// Simulate Vaults having minted most of the cap (leave only 100 internal room)
@@ -262,7 +262,7 @@ mod mint {
 	// ceiling (global ceiling allows the mint). Both error ExceedsMaxPsmDebt from different ensure! gates.
 	#[test]
 	fn fails_mint_exceeds_aggregate_psm_ceiling() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// Set both assets to 50% ratio each (100% total)
 			// This tests that aggregate PSM ceiling is enforced even when per-asset ceilings allow
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(50));
@@ -437,7 +437,7 @@ mod redeem {
 
 	#[test]
 	fn fails_insufficient_reserve() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			fund_internal(BOB, 10_000 * INTERNAL_UNIT);
 
 			let reserve = get_asset_balance(USDC_ASSET_ID, psm_account());
@@ -468,7 +468,7 @@ mod redeem {
 
 	#[test]
 	fn boundary_reserve_equals_output() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			set_minting_fee(USDC_ASSET_ID, Permill::zero());
 			set_redemption_fee(USDC_ASSET_ID, Permill::zero());
 
@@ -520,7 +520,7 @@ mod redeem {
 
 	#[test]
 	fn redeem_with_nonzero_fee_charges_fee_destination() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			set_minting_fee(USDC_ASSET_ID, Permill::zero());
 			set_redemption_fee(USDC_ASSET_ID, Permill::from_percent(1));
 
@@ -580,7 +580,7 @@ mod redeem {
 	#[test]
 	#[should_panic(expected = "PSM reserve is less than expected output amount")]
 	fn redeem_with_drained_reserve_hits_defensive() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			use frame_support::traits::{
 				fungibles::Mutate,
 				tokens::{Fortitude, Precision, Preservation},
@@ -595,14 +595,14 @@ mod redeem {
 			));
 
 			let reserve = get_asset_balance(USDC_ASSET_ID, psm_account());
-			let _ = Assets::burn_from(
+			assert_ok!(Assets::burn_from(
 				USDC_ASSET_ID,
 				&psm_account(),
 				reserve,
 				Preservation::Expendable,
 				Precision::BestEffort,
 				Fortitude::Force,
-			);
+			));
 
 			let _ = Psm::redeem(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 1_000 * INTERNAL_UNIT);
 		});
@@ -614,7 +614,7 @@ mod governance {
 
 	#[test]
 	fn set_minting_fee_works() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let old_fee = MintingFee::<Test>::get(USDC_ASSET_ID);
 			let new_fee = Permill::from_percent(5);
 
@@ -635,7 +635,7 @@ mod governance {
 
 	#[test]
 	fn set_minting_fee_unauthorized() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let old_fee = MintingFee::<Test>::get(USDC_ASSET_ID);
 
 			assert_noop!(
@@ -653,7 +653,7 @@ mod governance {
 
 	#[test]
 	fn set_redemption_fee_works() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let old_fee = RedemptionFee::<Test>::get(USDC_ASSET_ID);
 			let new_fee = Permill::from_percent(5);
 
@@ -674,7 +674,7 @@ mod governance {
 
 	#[test]
 	fn set_redemption_fee_unauthorized() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let old_fee = RedemptionFee::<Test>::get(USDC_ASSET_ID);
 
 			assert_noop!(
@@ -692,7 +692,7 @@ mod governance {
 
 	#[test]
 	fn set_max_psm_debt_works() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let old_ratio = MaxPsmDebtOfTotal::<Test>::get();
 			let new_ratio = Permill::from_percent(20);
 
@@ -712,7 +712,7 @@ mod governance {
 
 	#[test]
 	fn set_max_psm_debt_unauthorized() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let old_ratio = MaxPsmDebtOfTotal::<Test>::get();
 
 			assert_noop!(
@@ -726,7 +726,7 @@ mod governance {
 
 	#[test]
 	fn set_asset_status_works() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let new_status = CircuitBreakerLevel::MintingDisabled;
 
 			assert_ok!(Psm::set_asset_status(RuntimeOrigin::root(), USDC_ASSET_ID, new_status));
@@ -742,7 +742,7 @@ mod governance {
 
 	#[test]
 	fn set_asset_status_unauthorized() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let old_status = ExternalAssets::<Test>::get(USDC_ASSET_ID);
 
 			assert_noop!(
@@ -760,7 +760,7 @@ mod governance {
 
 	#[test]
 	fn set_asset_status_fails_unapproved_asset() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			assert_noop!(
 				Psm::set_asset_status(
 					RuntimeOrigin::root(),
@@ -774,7 +774,7 @@ mod governance {
 
 	#[test]
 	fn set_asset_ceiling_weight_works() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let old_ratio = AssetCeilingWeight::<Test>::get(USDC_ASSET_ID);
 			let new_ratio = Permill::from_percent(80);
 
@@ -799,7 +799,7 @@ mod governance {
 
 	#[test]
 	fn set_asset_ceiling_weight_unauthorized() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let old_ratio = AssetCeilingWeight::<Test>::get(USDC_ASSET_ID);
 
 			assert_noop!(
@@ -817,7 +817,7 @@ mod governance {
 
 	#[test]
 	fn add_external_asset_works() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let new_asset = 99u32;
 			create_asset_with_metadata(new_asset);
 			assert!(!Psm::is_approved_asset(&new_asset));
@@ -834,7 +834,7 @@ mod governance {
 
 	#[test]
 	fn add_external_asset_accepts_differing_decimals_within_range() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let new_asset = 99u32;
 			// Asset with 8 decimals vs internal's 6 — within MAX_DECIMALS_DIFF.
 			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), new_asset, ALICE, 1));
@@ -853,7 +853,7 @@ mod governance {
 
 	#[test]
 	fn add_external_asset_fails_decimals_out_of_range() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let new_asset = 99u32;
 			// Decimals 6 + 25 = 31 exceeds MAX_DECIMALS_DIFF (24).
 			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), new_asset, ALICE, 1));
@@ -874,7 +874,7 @@ mod governance {
 
 	#[test]
 	fn add_external_asset_unauthorized() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			assert_noop!(
 				Psm::add_external_asset(RuntimeOrigin::signed(ALICE), 99u32),
 				DispatchError::BadOrigin
@@ -884,7 +884,7 @@ mod governance {
 
 	#[test]
 	fn add_external_asset_fails_already_approved() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			assert_noop!(
 				Psm::add_external_asset(RuntimeOrigin::root(), USDC_ASSET_ID),
 				Error::<Test>::AssetAlreadyApproved
@@ -894,7 +894,7 @@ mod governance {
 
 	#[test]
 	fn add_external_asset_fails_when_asset_does_not_exist() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// 12345 is not created in the fungibles pallet and not approved in PSM.
 			let ghost: u32 = 12345;
 			assert!(!<Assets as frame_support::traits::fungibles::Inspect<u64>>::asset_exists(
@@ -911,7 +911,7 @@ mod governance {
 
 	#[test]
 	fn add_external_asset_fails_too_many() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			use frame_support::traits::Get;
 			let max: u32 = <Test as crate::Config>::MaxExternalAssets::get();
 			let existing = crate::ExternalAssets::<Test>::count();
@@ -932,7 +932,7 @@ mod governance {
 
 	#[test]
 	fn remove_external_asset_works() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			assert!(Psm::is_approved_asset(&USDC_ASSET_ID));
 
 			assert_ok!(Psm::remove_external_asset(RuntimeOrigin::root(), USDC_ASSET_ID));
@@ -947,7 +947,7 @@ mod governance {
 
 	#[test]
 	fn remove_external_asset_cleans_up_configuration() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// Verify configuration exists before removal (explicitly set in genesis)
 			assert!(MintingFee::<Test>::contains_key(USDC_ASSET_ID));
 			assert!(RedemptionFee::<Test>::contains_key(USDC_ASSET_ID));
@@ -964,7 +964,7 @@ mod governance {
 
 	#[test]
 	fn remove_external_asset_unauthorized() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			assert_noop!(
 				Psm::remove_external_asset(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID),
 				DispatchError::BadOrigin
@@ -974,7 +974,7 @@ mod governance {
 
 	#[test]
 	fn remove_external_asset_fails_not_approved() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			assert_noop!(
 				Psm::remove_external_asset(RuntimeOrigin::root(), 99u32),
 				Error::<Test>::AssetNotApproved
@@ -994,7 +994,7 @@ mod governance {
 
 	#[test]
 	fn remove_external_asset_succeeds_after_debt_drained() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// Zero fees so a single mint/redeem pair brings debt exactly to 0.
 			set_minting_fee(USDC_ASSET_ID, Permill::zero());
 			set_redemption_fee(USDC_ASSET_ID, Permill::zero());
@@ -1024,7 +1024,7 @@ mod governance {
 
 	#[test]
 	fn emergency_origin_can_set_asset_status() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let new_status = CircuitBreakerLevel::MintingDisabled;
 
 			assert_ok!(Psm::set_asset_status(
@@ -1039,7 +1039,7 @@ mod governance {
 
 	#[test]
 	fn emergency_origin_cannot_set_minting_fee() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let old_fee = MintingFee::<Test>::get(USDC_ASSET_ID);
 
 			assert_noop!(
@@ -1057,7 +1057,7 @@ mod governance {
 
 	#[test]
 	fn emergency_origin_cannot_set_redemption_fee() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let old_fee = RedemptionFee::<Test>::get(USDC_ASSET_ID);
 
 			assert_noop!(
@@ -1075,7 +1075,7 @@ mod governance {
 
 	#[test]
 	fn emergency_origin_cannot_set_max_psm_debt() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let old_ratio = MaxPsmDebtOfTotal::<Test>::get();
 
 			assert_noop!(
@@ -1092,7 +1092,7 @@ mod governance {
 
 	#[test]
 	fn emergency_origin_can_set_asset_ceiling_weight() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let new_ratio = Permill::from_percent(80);
 
 			assert_ok!(Psm::set_asset_ceiling_weight(
@@ -1107,7 +1107,7 @@ mod governance {
 
 	#[test]
 	fn emergency_origin_cannot_add_external_asset() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let new_asset = 99u32;
 
 			assert_noop!(
@@ -1121,7 +1121,7 @@ mod governance {
 
 	#[test]
 	fn emergency_origin_cannot_remove_external_asset() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			assert_noop!(
 				Psm::remove_external_asset(RuntimeOrigin::signed(EMERGENCY_ACCOUNT), USDC_ASSET_ID),
 				Error::<Test>::InsufficientPrivilege
@@ -1133,7 +1133,7 @@ mod governance {
 
 	#[test]
 	fn set_minting_fee_fails_unapproved_asset() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			assert_noop!(
 				Psm::set_minting_fee(
 					RuntimeOrigin::root(),
@@ -1147,7 +1147,7 @@ mod governance {
 
 	#[test]
 	fn set_redemption_fee_fails_unapproved_asset() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			assert_noop!(
 				Psm::set_redemption_fee(
 					RuntimeOrigin::root(),
@@ -1161,7 +1161,7 @@ mod governance {
 
 	#[test]
 	fn set_asset_ceiling_weight_fails_unapproved_asset() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			assert_noop!(
 				Psm::set_asset_ceiling_weight(
 					RuntimeOrigin::root(),
@@ -1179,7 +1179,7 @@ mod helpers {
 
 	#[test]
 	fn max_psm_debt_calculation() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			set_mock_maximum_issuance(10_000_000 * INTERNAL_UNIT);
 			set_max_psm_debt_ratio(Permill::from_percent(10));
 
@@ -1192,7 +1192,7 @@ mod helpers {
 
 	#[test]
 	fn max_asset_debt_calculation() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			set_mock_maximum_issuance(10_000_000 * INTERNAL_UNIT);
 			set_max_psm_debt_ratio(Permill::from_percent(10));
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
@@ -1208,7 +1208,7 @@ mod helpers {
 
 	#[test]
 	fn is_approved_asset_true() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			assert!(crate::Pallet::<Test>::is_approved_asset(&USDC_ASSET_ID));
 			assert!(crate::Pallet::<Test>::is_approved_asset(&USDT_ASSET_ID));
 		});
@@ -1216,7 +1216,7 @@ mod helpers {
 
 	#[test]
 	fn is_approved_asset_false() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			assert!(!crate::Pallet::<Test>::is_approved_asset(&UNSUPPORTED_ASSET_ID));
 			assert!(!crate::Pallet::<Test>::is_approved_asset(&INTERNAL_ASSET_ID));
 		});
@@ -1224,7 +1224,7 @@ mod helpers {
 
 	#[test]
 	fn is_approved_asset_false_after_removal() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// USDC is approved at genesis.
 			assert!(crate::Pallet::<Test>::is_approved_asset(&USDC_ASSET_ID));
 
@@ -1236,7 +1236,7 @@ mod helpers {
 
 	#[test]
 	fn get_reserve_returns_balance() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			assert_eq!(crate::Pallet::<Test>::get_reserve(USDC_ASSET_ID), 0);
 
 			let mint_amount = 1000 * INTERNAL_UNIT;
@@ -1248,7 +1248,7 @@ mod helpers {
 
 	#[test]
 	fn account_id_is_derived() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let account = crate::Pallet::<Test>::account_id();
 			assert_ne!(account, ALICE);
 			assert_ne!(account, BOB);
@@ -1262,7 +1262,7 @@ mod circuit_breaker {
 
 	#[test]
 	fn circuit_breaker_full_transition_flow() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// Zero fees so every mint/redeem amount maps 1:1 onto debt.
 			set_minting_fee(USDC_ASSET_ID, Permill::zero());
 			set_redemption_fee(USDC_ASSET_ID, Permill::zero());
@@ -1321,10 +1321,21 @@ mod circuit_breaker {
 	}
 
 	#[test]
-	fn can_set_circuit_breaker_always_true() {
+	fn can_set_circuit_breaker_covers_full_and_emergency() {
 		use crate::PsmManagerLevel;
-		assert!(PsmManagerLevel::Full.can_set_circuit_breaker());
-		assert!(PsmManagerLevel::Emergency.can_set_circuit_breaker());
+		fn expected(level: PsmManagerLevel) -> bool {
+			match level {
+				PsmManagerLevel::Full | PsmManagerLevel::Emergency => true,
+			}
+		}
+		assert_eq!(
+			PsmManagerLevel::Full.can_set_circuit_breaker(),
+			expected(PsmManagerLevel::Full)
+		);
+		assert_eq!(
+			PsmManagerLevel::Emergency.can_set_circuit_breaker(),
+			expected(PsmManagerLevel::Emergency)
+		);
 	}
 }
 
@@ -1333,7 +1344,7 @@ mod ceiling_redistribution {
 
 	#[test]
 	fn zero_weight_redistributes_ceiling_to_others() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// Setup: USDC 60%, USDT 40% of PSM ceiling
 			// PSM ceiling = 50% of 20M = 10M
 			// USDC ceiling = 60% of 10M = 6M
@@ -1386,7 +1397,7 @@ mod ceiling_redistribution {
 
 	#[test]
 	fn multiple_assets_share_redistributed_ceiling() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// Add a third asset
 			let bridged_usdc_asset_id = 7u32;
 			create_asset_with_metadata(bridged_usdc_asset_id);
@@ -1436,7 +1447,7 @@ mod ceiling_redistribution {
 
 	#[test]
 	fn normal_weights_use_proportional_ceilings() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// Setup: USDC 60%, USDT 40%
 			set_max_psm_debt_ratio(Permill::from_percent(50));
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
@@ -1464,7 +1475,7 @@ mod ceiling_redistribution {
 
 	#[test]
 	fn single_asset_weight_always_normalizes_to_full_ceiling() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// Remove USDT so only USDC remains
 			assert_ok!(Psm::remove_external_asset(RuntimeOrigin::root(), USDT_ASSET_ID));
 
@@ -1496,7 +1507,7 @@ mod ceiling_redistribution {
 
 	#[test]
 	fn restoring_weight_restores_normal_ceilings() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// Setup: USDC 60%, USDT 40%
 			set_max_psm_debt_ratio(Permill::from_percent(50));
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
@@ -1534,7 +1545,7 @@ mod multi_asset_ceiling {
 
 	#[test]
 	fn usdc_at_ceiling_does_not_consume_usdt_ceiling() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// 1. Set global ceiling to 50% of MaximumIssuance, split 60/40 between USDC and USDT
 			set_max_psm_debt_ratio(Permill::from_percent(50));
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
@@ -1559,7 +1570,7 @@ mod multi_asset_ceiling {
 	// (per-asset allows), this one hits the per-asset ceiling (global allows). Same error, different gate.
 	#[test]
 	fn minting_past_per_asset_ceiling_blocked_regardless_of_global_headroom() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// 1. 50% global ceiling, 60/40 split: USDC ceiling is 3M, global is 5M
 			set_max_psm_debt_ratio(Permill::from_percent(50));
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
@@ -1587,7 +1598,7 @@ mod multi_asset_ceiling {
 
 	#[test]
 	fn boundary_both_assets_min_swap_below_ceiling() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// 1. 50% global ceiling, 60/40 split
 			set_max_psm_debt_ratio(Permill::from_percent(50));
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
@@ -1637,7 +1648,7 @@ mod cycles {
 
 	#[test]
 	fn mint_redeem_cycles_accounting() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let cycles = 10u128;
 			let amount = 1000 * INTERNAL_UNIT;
 
@@ -1779,7 +1790,7 @@ mod cycles {
 
 	#[test]
 	fn infinite_until_debt_ceiling() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			let amount = 100_000 * INTERNAL_UNIT;
 
 			// Set ceiling for ~1000 cycles
@@ -2077,14 +2088,14 @@ mod try_state {
 
 			let psm = psm_account();
 			let reserve = Assets::balance(USDC_ASSET_ID, psm);
-			let _ = Assets::burn_from(
+			assert_ok!(Assets::burn_from(
 				USDC_ASSET_ID,
 				&psm,
 				reserve,
 				Preservation::Expendable,
 				Precision::BestEffort,
 				Fortitude::Force,
-			);
+			));
 
 			assert_eq!(
 				crate::Pallet::<Test>::do_try_state().unwrap_err(),
@@ -2111,7 +2122,7 @@ mod try_state {
 			let debt = 1_000 * INTERNAL_UNIT;
 			PsmDebt::<Test>::insert(UNSUPPORTED_ASSET_ID, debt);
 			fund_external_asset(UNSUPPORTED_ASSET_ID, psm_account(), debt);
-			// Mint pUSD so Check 4 (issuance >= debt) is satisfied.
+			// Mint internal asset so Check 4 (issuance >= debt) is satisfied.
 			let _ = Assets::mint_into(INTERNAL_ASSET_ID, &ALICE, debt);
 			assert_ok!(crate::Pallet::<Test>::do_try_state());
 			ExternalAssets::<Test>::remove(UNSUPPORTED_ASSET_ID);
@@ -2123,7 +2134,7 @@ mod try_state {
 		});
 	}
 
-	// Check 4: total pUSD issuance must cover total PSM debt.
+	// Check 4: total internal asset issuance must cover total PSM debt.
 	#[test]
 	fn detects_issuance_below_psm_debt() {
 		new_test_ext().execute_with(|| {
@@ -2140,21 +2151,21 @@ mod try_state {
 			// 2. After minting, issuance covers debt.
 			assert_ok!(crate::Pallet::<Test>::do_try_state());
 
-			// 3. Burn pUSD from Alice to make total_issuance < total_psm_debt.
-			let _ = Assets::burn_from(
+			// 3. Burn internal asset from Alice to make total_issuance < total_psm_debt.
+			assert_ok!(Assets::burn_from(
 				INTERNAL_ASSET_ID,
 				&ALICE,
 				1,
 				Preservation::Expendable,
 				Precision::BestEffort,
 				Fortitude::Force,
-			);
+			));
 
 			// 4. do_try_state must detect the imbalance.
 			assert_eq!(
 				crate::Pallet::<Test>::do_try_state().unwrap_err(),
 				DispatchError::Other(
-					"Total pUSD issuance is less than total PSM debt — balance sheet does not close"
+					"Total internal asset issuance is less than total PSM debt — balance sheet does not close"
 				)
 			);
 		});
@@ -2298,7 +2309,7 @@ mod decimal_scaling {
 
 	#[test]
 	fn external_to_internal_scale_up_is_exact() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// USDX (2) -> internal (6): multiply by 10^4.
 			assert_eq!(Psm::external_to_internal(100, 2, 6).unwrap(), 1_000_000);
 		});
@@ -2306,7 +2317,7 @@ mod decimal_scaling {
 
 	#[test]
 	fn external_to_internal_scale_down_truncates() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// DAI (18) -> internal (6): divide by 10^12, floor.
 			assert_eq!(
 				Psm::external_to_internal(1_500_000_000_000_000_123, 18, 6).unwrap(),
@@ -2317,7 +2328,7 @@ mod decimal_scaling {
 
 	#[test]
 	fn internal_to_external_round_trip_bounds() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// For any amount, round-trip should shrink or preserve.
 			for (ext_decimals, internal_decimals) in [(2u8, 6u8), (6, 6), (18, 6), (6, 18), (6, 2)]
 			{
@@ -2334,7 +2345,7 @@ mod decimal_scaling {
 
 	#[test]
 	fn conversion_overflow_surfaces_error() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			// 10^40 overflows u128 (max ~3.4e38).
 			assert!(Psm::external_to_internal(1, 0, 40).is_err());
 		});
@@ -2344,7 +2355,7 @@ mod decimal_scaling {
 
 	#[test]
 	fn mint_scale_up_usdx_exact_no_dust() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
 			set_zero_fees(USDX_ASSET_ID);
 
@@ -2369,7 +2380,7 @@ mod decimal_scaling {
 
 	#[test]
 	fn mint_scale_down_dai_leaves_dust_with_user() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			register_external_asset_with_weight(DAI_MOCK_ASSET_ID, Permill::from_percent(100));
 			set_zero_fees(DAI_MOCK_ASSET_ID);
 
@@ -2391,7 +2402,7 @@ mod decimal_scaling {
 
 	#[test]
 	fn mint_scale_down_dai_with_fee_keeps_dust_charges_only_fee() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			register_external_asset_with_weight(DAI_MOCK_ASSET_ID, Permill::from_percent(100));
 			set_minting_fee(DAI_MOCK_ASSET_ID, Permill::from_percent(1));
 
@@ -2454,7 +2465,7 @@ mod decimal_scaling {
 
 	#[test]
 	fn mint_rejects_when_internal_equivalent_is_zero() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			register_external_asset_with_weight(DAI_MOCK_ASSET_ID, Permill::from_percent(100));
 
 			// 999 wei DAI -> internal = 999 / 10^12 = 0.
@@ -2467,7 +2478,7 @@ mod decimal_scaling {
 
 	#[test]
 	fn mint_min_swap_is_enforced_on_internal_side() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			register_external_asset_with_weight(DAI_MOCK_ASSET_ID, Permill::from_percent(100));
 
 			// 50 DAI = 50 internal equivalent, below MinSwapAmount (100 internal).
@@ -2483,7 +2494,7 @@ mod decimal_scaling {
 
 	#[test]
 	fn redeem_scale_up_dai_exact_no_dust() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			register_external_asset_with_weight(DAI_MOCK_ASSET_ID, Permill::from_percent(100));
 			set_zero_fees(DAI_MOCK_ASSET_ID);
 
@@ -2513,7 +2524,7 @@ mod decimal_scaling {
 
 	#[test]
 	fn redeem_scale_down_usdx_with_fee_keeps_dust_charges_only_fee() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
 			set_minting_fee(USDX_ASSET_ID, Permill::zero());
 
@@ -2578,7 +2589,7 @@ mod decimal_scaling {
 
 	#[test]
 	fn redeem_scale_down_usdx_dust_stays_with_user() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
 			set_zero_fees(USDX_ASSET_ID);
 
@@ -2618,7 +2629,7 @@ mod decimal_scaling {
 
 	#[test]
 	fn redeem_succeeds_with_100_percent_fee() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
 			set_zero_fees(USDX_ASSET_ID);
 
@@ -2647,7 +2658,7 @@ mod decimal_scaling {
 
 	#[test]
 	fn redeem_rejects_when_external_out_truncates_to_zero() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
 			set_zero_fees(USDX_ASSET_ID);
 
@@ -2818,7 +2829,7 @@ mod decimal_scaling {
 
 	#[test]
 	fn asset_decimals_snapshot_recorded_on_add_and_cleaned_on_remove() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
 			assert_eq!(ExternalDecimals::<Test>::get(USDX_ASSET_ID), Some(2));
 
@@ -2840,7 +2851,7 @@ mod decimal_scaling {
 
 	#[test]
 	fn aggregate_debt_accrues_in_internal_units_across_mixed_decimal_assets() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(50));
 			register_external_asset_with_weight(DAI_MOCK_ASSET_ID, Permill::from_percent(50));
 			set_zero_fees(USDX_ASSET_ID);
@@ -2861,7 +2872,7 @@ mod decimal_scaling {
 
 	#[test]
 	fn mixed_decimal_mint_redeem_cycles_round_trip_to_zero_debt() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(50));
 			register_external_asset_with_weight(DAI_MOCK_ASSET_ID, Permill::from_percent(50));
 			set_zero_fees(USDX_ASSET_ID);
@@ -2904,7 +2915,7 @@ mod decimal_scaling {
 
 	#[test]
 	fn try_state_holds_with_donated_mixed_decimal_reserve() {
-		new_test_ext().execute_with(|| {
+		execute_with_try_state(|| {
 			register_external_asset_with_weight(DAI_MOCK_ASSET_ID, Permill::from_percent(100));
 			set_zero_fees(DAI_MOCK_ASSET_ID);
 

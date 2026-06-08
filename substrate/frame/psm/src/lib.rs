@@ -210,7 +210,7 @@ pub mod pallet {
 		/// Whether this level allows modifying the circuit breaker status.
 		/// Both Full and Emergency levels can set circuit breaker.
 		pub const fn can_set_circuit_breaker(&self) -> bool {
-			true
+			matches!(self, PsmManagerLevel::Full | PsmManagerLevel::Emergency)
 		}
 
 		/// Whether this level allows modifying the global PSM debt ratio.
@@ -221,7 +221,7 @@ pub mod pallet {
 		/// Whether this level allows modifying per-asset ceiling weights.
 		/// Both Full and Emergency levels can set asset ceilings.
 		pub const fn can_set_asset_ceiling(&self) -> bool {
-			true
+			matches!(self, PsmManagerLevel::Full | PsmManagerLevel::Emergency)
 		}
 
 		/// Whether this level allows adding or removing external assets.
@@ -1177,10 +1177,10 @@ pub mod pallet {
 				"total_psm_debt() does not match sum of per-asset debts"
 			);
 
-			// Check 4: Total pUSD issuance must cover total PSM debt.
-			// PSM mints new pUSD on every successful mint and burns on every redeem.
-			// If total pUSD in circulation is less than what the debt ledger claims,
-			// either pUSD was destroyed outside PSM or the debt accounting is corrupted.
+			// Check 4: Total internal asset issuance must cover total PSM debt.
+			// PSM mints internal asset units on every successful mint and burns on every redeem.
+			// If total internal asset in circulation is less than what the debt ledger claims,
+			// either internal asset was destroyed outside PSM or the debt accounting is corrupted.
 			// Note: Liquity-style vault bad debt can legitimately violate this during bank
 			// runs. The check is kept as a hard error because that scenario is high-value
 			// signal — the fuzzer triggering it indicates a real accounting bug, not an
@@ -1189,7 +1189,7 @@ pub mod pallet {
 			let total_debt = Self::total_psm_debt();
 			ensure!(
 				total_issuance >= total_debt,
-				"Total pUSD issuance is less than total PSM debt — balance sheet does not close"
+				"Total internal asset issuance is less than total PSM debt — balance sheet does not close"
 			);
 
 			// Check 5: Total PSM debt must not exceed the global ceiling.
@@ -1273,7 +1273,7 @@ pub mod pallet {
 			);
 
 			// Check 10: ExternalAssets count within bound.
-			let count = ExternalAssets::<T>::iter_keys().count() as u32;
+			let count = ExternalAssets::<T>::count();
 			ensure!(
 				count <= T::MaxExternalAssets::get(),
 				"ExternalAssets count exceeds MaxExternalAssets"

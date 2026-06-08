@@ -182,6 +182,17 @@ impl crate::Config for Test {
 	type BenchmarkHelper = PsmBenchmarkHelper;
 }
 
+/// Run `test` inside a fresh externalities, and assert `do_try_state` passes
+/// after the test body. Use this for any test whose final state should be a
+/// valid PSM STF; use [`new_test_ext`] directly for tests that intentionally
+/// produce invalid state to exercise the invariant checks themselves.
+pub fn execute_with_try_state(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		crate::Pallet::<Test>::do_try_state().expect("post-test try_state failed");
+	});
+}
+
 pub fn new_test_ext() -> TestState {
 	let mut storage = GenesisConfig::<Test>::default().build_storage().unwrap();
 
