@@ -93,6 +93,7 @@ use std::{
 };
 
 mod bitswap;
+mod bitswap_metrics;
 mod discovery;
 mod ipfs_dht;
 mod peerstore;
@@ -213,13 +214,10 @@ impl Litep2pNetworkBackend {
 					Protocol::Ip4(_),
 				) => match address.iter().find(|protocol| std::matches!(protocol, Protocol::P2p(_)))
 				{
-					Some(Protocol::P2p(multihash)) => PeerId::from_multihash(multihash.into())
-						.map_or(None, |peer| Some((peer, Some(address)))),
+					Some(Protocol::P2p(peer_id)) => Some((peer_id.into(), Some(address))),
 					_ => None,
 				},
-				Some(Protocol::P2p(multihash)) => {
-					PeerId::from_multihash(multihash.into()).map_or(None, |peer| Some((peer, None)))
-				},
+				Some(Protocol::P2p(peer_id)) => Some((peer_id.into(), None)),
 				_ => None,
 			})
 			.fold(HashMap::new(), |mut acc, (peer, maybe_address)| {
@@ -626,8 +624,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 	/// Create Bitswap server.
 	fn bitswap_server(
 		client: Arc<dyn BlockBackend<B> + Send + Sync>,
+		metrics_registry: Option<Registry>,
 	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Self::BitswapConfig) {
-		BitswapService::new(client)
+		BitswapService::new(client, metrics_registry.as_ref())
 	}
 
 	/// Create notification protocol configuration for `protocol`.
@@ -1142,7 +1141,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 						// Litep2p requires the peer ID to be present in the address.
 						let address = if !std::matches!(address.iter().last(), Some(Protocol::P2p(_))) {
-							address.with(Protocol::P2p(*local_peer_id.as_ref()))
+							address.with(Protocol::P2p((*local_peer_id).into()))
 						} else {
 							address
 						};
