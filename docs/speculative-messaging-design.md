@@ -211,109 +211,34 @@ Instead of routing messages through relay chain state, we:
 
 ## Detailed Design
 
-## Parachain Communication
+## Parachain Discoverability
 
-Parachain collators operating on different peer-to-peer (P2P) networks need a way to exchange messages off-chain.
-The relay chain only processes message commitments, not the messages themselves. Direct communication between
-collators of different parachains is not possible due to different genesis hashes and sync protocols.
+Parachain nodes operating on different peer-to-peer (P2P) networks need a mechanism to exchange messages off-chain.
+The relay chain only processes message commitments, not the messages themselves. Parachains must rely on an
+alternative discovery method, since different geensis hashes and sync protocols prevent direct communication.
 
-To enable off-chain communicaiton between collators, a dedicated P2P network is created.
-This **Speculative Messaging Network** includes collators from al parachains that opt into
-speculative messaging.
+The discoverability of parachains leverages the existing bootnodes on DHT mechanism on the relay chain side,
+as specified at: [RFC 08](https://github.com/polkadot-fellows/RFCs/blob/main/text/0008-parachain-bootnodes-dht.md).
+The relay chain peers of parachains advertise themselves as providers in the relay chain DHT using the key `para ID || epoch randomness`.
+Only the 20 closest peer IDs to this key are kept as providers, and the provider set is updated on every epoch change.
 
-Alternative architectures were considered:
-- Routing through relay chain peers: Adds unnecessary laod and stress on the relay chain,
-  as well as new protocols for message exchange between collators.
-- Spawning a dedicated network backend for each parachain: Highly resource-intensive and doesn't scale
-  well with the number of parachains.
+To translate these peer IDs into actual bootnode addresses, the `/paranode` request-response protocol is used.
+This protocol accepts a SCALE-compact-encoded `para ID` as input and returns a list of bootnode multiaddresses for that parachain.
 
-By deploying a single network backend for the entire speculative messaging work, we keep the relay chain side
-changes to a minimum (needed for JAM compatibility) and we can leverage the existing bootnodes on DHT
-mechanism for collator discovery.
+## Parachain Communcation
 
-The **Speculative Messaging Network** exposes the following protocols:
-- Kademlia DHT: `/spec-msg/kad` for peer discovery.
-- Identify and Ping: `/spec-msg/identify` and `/spec-msg/ping` for obtaining peer addresses and keeping connections alive.
-- Speculative Messaging Protocol: `/spec-msg/exchange` for exchanging messages between collators.
-- Light Client Request-Response: `/spec-msg/light/2` for fetching authority discovery keys of other collators.
+Instead of spawning a dedicated global network for speculative messaging, a parachain node reutilizes its existing
+parachain-side litep2p network backend. After obtaining the bootnode list of the destination parachain from the relay chain,
+the genesis hash and fork ID are extracted directly from the bootnode list.
 
-Parachains outside a trust domain, or those that don't wish to participate can simply ignore the Speculative Messaging
-Network and not register themselves in the DHT.
+Using this information, the node registers dynamically and spawns a new Kademlia instance specifically for the destination parachain.
+The Kademlia instance is configured with the same genesis hash and fork ID, ensuring it only discovers and connects to nodes of the
+destination parachain. To conserve resources, this initialization happens lazily, meaning the Kademlia isntance is created at the very
+first time a parachain needs to establish communication with a given destination.
 
-### Bootnodes for the Speculative Messaging Network
-
-The architecture leverages the existing bootnodes on DHT mechanism on the relay chain side. 
-For more info, see [RFC 08](https://github.com/polkadot-fellows/RFCs/blob/main/text/0008-parachain-bootnodes-dht.md).
-
-Typically, relay chain peers of parachains advertise themselves as providers under the key `para ID || epoch randomness`
-in the relay chain DHT. Only the 20 closest peer IDs to this key are kept as providers, and the provider set is updated on every epoch change.
-
-Similarly, relay chain peers of collators advertise themselves as providers in the relay chain DHT.
-This utilizes the `ADD_PROVIDER` mechanism of the Kademlia DHT.
-The routing key is defined as `sha256(concat("spec-msg", epoch randomness))`, where the epoch randomness has the
-same semantics of the RFC 08, and can be obtained by calling `BabeApi_currentEpoch`.
-
-This extracts the relay chain side peer IDs of the 20 closest peers to the speculative messaging key.
-To obtain the actual bootnode addresses, the `/paranode` request-response is extended in a backwards compatible way.
-Originally, this request accepted a SCALE-compact-encoded `para ID` and returned a list of bootnode multiaddresses
-for that parchain. The protocol is extended to support the SCALE-compact-encoded `spec-msg` key as input,
-and the response is a list of multiaddresses of the collators that are bootnodes for the Speculative Messaging Network.
-
-To obtain the bootnodes of the Speculative Messaging Network, a relay chain side peer:
-- Queries the DHT for providers under the key `sha256(concat("spec-msg", epoch randomness))`, obtaining 20 peer IDs
-- For each peerID, it sends a request-response over `/paranode` with the `spec-msg` key, and obtains a list of multiaddresses
-for the collators that are bootnodes for the Speculative Messaging Network.
-
-### Speculative Messaging Network
-
-Once a collator obtains the bootnode list from the relay chain, it spawns a dedicated network backend for the 
-Speculative Messaging Network and connects to the bootnodes. Because the network connects collators from
-*all* parachains, collators from Parachain A must establish communication with collators from Parachain B.
-
-Peers register themself in the Speculative Messaging DHT as providers under the key `para ID || randomness`,
-exactly as bootnodes on the relay chain DHT do using the `ADD_PROVIDER` mechanism.
-This allows collators to quickly discover 20 closest peers. These peers serve as explicit entry points to
-validate collators and fetch their authority discovery keys.
-
-Separately to the `ADD_PROVIDER` mechanism, collators publish their `SignedCollatorAuthorityRecord` records into the DHT,
-using the `PUT_VALUE` kademlia mechanism. This ensures collators can discover the addresses of other collators and verify their integrity, strengthening the trust model for collators.
-This mechanism mirrors the authority discovery on the relay chain for validators.
-
-The `SignedCollatorAuthorityRecord` record has the following format:
-
-```rust
-/// Collator record to provide public reachable addresses for the collator,
-/// and the time of creation of the record.
-pub struct CollatorAuthority {
-    /// Parachain ID scale encoded.
-    pub parachain_id: Vec<u8>,
-    /// A vector of multiaddresses scale encoded.
-    pub addresses: Vec<Vec<u8>>,
-    /// The time since UNIX_EPOCH in nanoseconds, scale encoded.
-    /// Similar to authority-discovery this is used to update peers that have
-    /// stale records with newly discovered ones.
-    pub creation_time: Vec<u8>,
-}
-
-/// The speculative messaging peer signs the `CollatorAuthority` record with their private key,
-/// and includes the public key in the signature.
-pub struct PeerSignature {
-    /// The signature of the peer, scale encoded.
-    pub signature: Vec<u8>,
-    /// The public key of the peer, scale encoded.
-    pub public_key: Vec<u8>,
-}
-
-/// Record published in the DHT.
-pub struct SignedCollatorAuthorityRecord {
-    /// The actual record containing the multiaddresses and creation time.
-    pub record: CollatorAuthority,
-    /// The signature of the peer over the record.
-    pub peer_signature: PeerSignature,
-    /// The record signed by the authority discovery key of the collator, scale encoded.
-    pub auth_signature: Vec<u8>,
-}
-```
+Finally, the Kademlia protocol for the desitnation parachain is defined as `/{genesis_B}/{fork_B}/kad`.
+To prevent any potential intertwining of DHTs between different parachains, the dedicated Kademlia instance operates strictly in
+client-only mode, ensuring it only participates in the DHT of the destination parachain without contributing to its routing table.
 
 ### Trust Model for Collators
 
