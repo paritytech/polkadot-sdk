@@ -34,7 +34,8 @@ use codec::{Decode, Encode};
 use frame_support::traits::Time;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Saturating;
-use sp_core::{H160, H256, U256, keccak_256};
+use sp_core::{H160, H256, U256};
+use sp_crypto_hashing::keccak_256;
 use sp_runtime::traits::{One, Zero};
 
 const LOG_TARGET: &str = "runtime::revive::block_builder";

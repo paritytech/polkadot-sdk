@@ -94,7 +94,7 @@ use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
-use sp_core::{ConstBool, ConstUint, OpaqueMetadata, H256};
+use sp_core::{ConstBool, ConstU128, ConstUint, OpaqueMetadata, H256};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 use sp_runtime::{
@@ -128,7 +128,9 @@ pub use pallet_timestamp::Call as TimestampCall;
 use westend_runtime_constants::{
 	currency::*,
 	fee::*,
-	system_parachain::{coretime::TIMESLICE_PERIOD, dap::*, ASSET_HUB_ID, BROKER_ID},
+	system_parachain::{
+		accumulate_forward::*, coretime::TIMESLICE_PERIOD, dap::*, ASSET_HUB_ID, BROKER_ID,
+	},
 	time::*,
 };
 
@@ -164,7 +166,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("parity-westend"),
 	authoring_version: 2,
-	spec_version: 1_022_003,
+	spec_version: 1_022_004,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 27,
@@ -393,7 +395,7 @@ parameter_types! {
 
 impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
-	type DustRemoval = DapSatellite;
+	type DustRemoval = AccumulateForward;
 	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
@@ -477,18 +479,21 @@ parameter_types! {
 	/// This value increases the priority of `Operational` transactions by adding
 	/// a "virtual tip" that's equal to the `OperationalFeeMultiplier * final_fee`.
 	pub const OperationalFeeMultiplier: u8 = 5;
-	/// Percentage of fees that go to DAP satellite.
+	/// Percentage of fees that go to the accumulation account.
 	/// The remainder goes to block author. Tips always go 100% to author.
-	pub const DapSatelliteFeePercent: Percent = Percent::from_percent(100);
+	pub const AccumulateForwardFeePercent: Percent = Percent::from_percent(100);
 }
 
-/// Fee handler that splits fees between DAP satellite and block author.
-type DealWithFeesSatellite =
-	pallet_dap_satellite::DealWithFeesSplit<Runtime, DapSatelliteFeePercent, ToAuthor<Runtime>>;
+/// Fee handler that splits fees between the accumulation account and block author.
+type DealWithFeesAccumulate = pallet_accumulate_and_forward::DealWithFeesSplit<
+	Runtime,
+	AccumulateForwardFeePercent,
+	ToAuthor<Runtime>,
+>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFeesSatellite>;
+	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFeesAccumulate>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -925,8 +930,8 @@ impl ah_client::Config for Runtime {
 impl pallet_fast_unstake::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type BatchSize = frame_support::traits::ConstU32<64>;
-	type Deposit = frame_support::traits::ConstU128<{ UNITS }>;
+	type BatchSize = ConstU32<64>;
+	type Deposit = ConstU128<{ UNITS }>;
 	// TODO: drop once pallet is removed from Westend RC (post-AHM cleanup).
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type ControlOrigin = EnsureNever<AccountId>;
@@ -1145,25 +1150,6 @@ impl pallet_multisig::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ConfigDepositBase: Balance = 500 * CENTS;
-	pub const FriendDepositFactor: Balance = 50 * CENTS;
-	pub const MaxFriends: u16 = 9;
-	pub const RecoveryDeposit: Balance = 500 * CENTS;
-}
-
-impl pallet_recovery::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
-	type RuntimeCall = RuntimeCall;
-	type BlockNumberProvider = System;
-	type Currency = Balances;
-	type ConfigDepositBase = ConfigDepositBase;
-	type FriendDepositFactor = FriendDepositFactor;
-	type MaxFriends = MaxFriends;
-	type RecoveryDeposit = RecoveryDeposit;
-}
-
-parameter_types! {
 	pub const MinVestedTransfer: Balance = 100 * CENTS;
 	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
 		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
@@ -1248,13 +1234,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::Grandpa(..) |
 				RuntimeCall::Utility(..) |
 				RuntimeCall::Identity(..) |
-				RuntimeCall::Recovery(pallet_recovery::Call::as_recovered{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::vouch_recovery{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::claim_recovery{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::close_recovery{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::remove_recovery{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::cancel_recovered{..}) |
-				// Specifically omitting Recovery `create_recovery`, `initiate_recovery`
 				RuntimeCall::Vesting(pallet_vesting::Call::vest{..}) |
 				RuntimeCall::Vesting(pallet_vesting::Call::vest_other{..}) |
 				// Specifically omitting Vesting `vested_transfer`, and `force_vested_transfer`
@@ -1691,19 +1670,19 @@ impl pallet_root_offences::Config for Runtime {
 	type ReportOffence = Offences;
 }
 
-impl pallet_dap_satellite::Config for Runtime {
+impl pallet_accumulate_and_forward::Config for Runtime {
 	type Currency = Balances;
-	type PalletId = DapSatellitePalletId;
-	type SendToDap = xcm_builder::SendToDapViaTeleport<
+	type PalletId = AccumulateForwardPalletId;
+	type Forwarder = xcm_builder::TeleportForwarderForAccountId32<
 		xcm_config::XcmConfig,
 		xcm_config::AssetHub,
 		xcm_config::TokenLocation,
 		DapStagingLocation,
 	>;
-	type TransferPeriod = DapSatelliteTransferPeriod;
-	type MinTransferAmount = DapSatelliteMinTransferAmount;
+	type TransferPeriod = ForwardPeriod;
+	type MinTransferAmount = MinForwardAmount;
 	type BlockNumberProvider = frame_system::Pallet<Runtime>;
-	type WeightInfo = weights::pallet_dap_satellite::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_accumulate_and_forward::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1785,9 +1764,9 @@ mod runtime {
 	pub type Balances = pallet_balances;
 	#[runtime::pallet_index(26)]
 	pub type TransactionPayment = pallet_transaction_payment;
-	// DAP Satellite - collects funds for transfer to DAP on AssetHub
+	// AccumulateForward - collects funds for periodic forwarding to DAP on AssetHub
 	#[runtime::pallet_index(106)]
-	pub type DapSatellite = pallet_dap_satellite;
+	pub type AccumulateForward = pallet_accumulate_and_forward;
 
 	// Consensus support.
 	// Authorship must be before session in order to note author in the correct session and era.
@@ -1816,10 +1795,6 @@ mod runtime {
 	// Less simple identity module.
 	#[runtime::pallet_index(17)]
 	pub type Identity = pallet_identity;
-
-	// Social recovery module.
-	#[runtime::pallet_index(18)]
-	pub type Recovery = pallet_recovery;
 
 	// Vesting. Usable initially, but removed once all vesting is finished.
 	#[runtime::pallet_index(19)]
@@ -1985,6 +1960,7 @@ pub type TxExtension = (
 parameter_types! {
 	/// Bounding number of agent pot accounts to be migrated in a single block.
 	pub const MaxAgentsToMigrate: u32 = 300;
+	pub const RecoveryPalletName: &'static str = "Recovery";
 }
 
 /// All migrations that will run on the next runtime upgrade.
@@ -1997,6 +1973,22 @@ pub type Migrations = migrations::Unreleased;
 #[allow(deprecated, missing_docs)]
 pub mod migrations {
 	use super::*;
+	use frame_support::{
+		traits::{
+			fungible::{Balanced, Inspect},
+			tokens::{Fortitude, Precision, Preservation},
+			OnRuntimeUpgrade, OnUnbalanced,
+		},
+		weights::Weight,
+	};
+	use polkadot_primitives::AccountId;
+	use sp_runtime::traits::Zero;
+	#[cfg(feature = "try-runtime")]
+	use {
+		alloc::vec::Vec,
+		codec::{Decode, Encode},
+		polkadot_primitives::Balance,
+	};
 
 	parameter_types! {
 		pub const TreasuryPalletStr: &'static str = "Treasury";
@@ -2004,6 +1996,118 @@ pub mod migrations {
 		pub const ReferendaPalletStr: &'static str = "Referenda";
 		pub const OriginsPalletStr: &'static str = "Origins";
 		pub const WhitelistPalletStr: &'static str = "Whitelist";
+	}
+
+	/// Legacy treasury `PalletId` (`py/trsry`).
+	const LEGACY_TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
+	const DRAIN_LOG_TARGET: &str = "runtime::westend::drain-legacy-treasury";
+
+	/// One-shot migration that drains the reducible balance of the legacy
+	/// `py/trsry`-derived account into the [`pallet_accumulate_and_forward`] accumulation
+	/// account. The runtime's `Forwarder` then teleports the funds to AssetHub's central DAP
+	/// on the next forwarding interval.
+	///
+	/// Runtime-local (not part of the generic ACF pallet).
+	/// Idempotent: a zero reducible balance is a no-op.
+	pub struct DrainLegacyTreasuryToAccumulationAccount;
+
+	impl OnRuntimeUpgrade for DrainLegacyTreasuryToAccumulationAccount {
+		fn on_runtime_upgrade() -> Weight {
+			let source: AccountId = LEGACY_TREASURY_PALLET_ID.into_account_truncating();
+			// No further inflows expected, but `Preserve` is used as a safeguard since this
+			// migration runs on every runtime upgrade until removed. Worst case: ED stays
+			// behind on a dead account.
+			let amount = <Balances as Inspect<AccountId>>::reducible_balance(
+				&source,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
+			if amount.is_zero() {
+				log::info!(
+					target: DRAIN_LOG_TARGET,
+					"nothing to withdraw (reducible balance is zero)."
+				);
+				return <Runtime as frame_system::Config>::DbWeight::get().reads(1);
+			}
+
+			match <Balances as Balanced<AccountId>>::withdraw(
+				&source,
+				amount,
+				Precision::Exact,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			) {
+				Ok(credit) => {
+					<AccumulateForward as OnUnbalanced<_>>::on_unbalanced(credit);
+					log::info!(
+						target: DRAIN_LOG_TARGET,
+						"swept {amount:?} to accumulation account."
+					);
+				},
+				Err(_) => {
+					frame_support::defensive!(
+						"DrainLegacyTreasuryToAccumulationAccount: failed to withdraw from legacy treasury account"
+					);
+				},
+			}
+
+			// Distinct storage keys touched: source Account (balances + system),
+			// accumulation Account (balances + system) = 4 reads and 4 writes.
+			<Runtime as frame_system::Config>::DbWeight::get().reads_writes(4, 4)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			let source: AccountId = LEGACY_TREASURY_PALLET_ID.into_account_truncating();
+			let legacy_pre = <Balances as Inspect<AccountId>>::reducible_balance(
+				&source,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
+			let accum_pre = <Balances as Inspect<AccountId>>::reducible_balance(
+				&pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account(),
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
+			log::info!(
+				target: DRAIN_LOG_TARGET,
+				"pre-upgrade legacy reducible = {legacy_pre:?}, accumulation reducible = {accum_pre:?}"
+			);
+			Ok((legacy_pre, accum_pre).encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let (legacy_pre, accum_pre): (Balance, Balance) = Decode::decode(&mut &state[..])
+				.expect("pre_upgrade encoded (legacy_pre, accum_pre)");
+
+			let source: AccountId = LEGACY_TREASURY_PALLET_ID.into_account_truncating();
+			let legacy_post = <Balances as Inspect<AccountId>>::reducible_balance(
+				&source,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
+			frame_support::ensure!(
+				legacy_post.is_zero(),
+				"Legacy treasury reducible balance should be zero after migration"
+			);
+
+			let accum_post = <Balances as Inspect<AccountId>>::reducible_balance(
+				&pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account(),
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
+			frame_support::ensure!(
+				Some(accum_post) == accum_pre.checked_add(legacy_pre),
+				"Accumulation account balance should have increased by exactly the drained amount"
+			);
+
+			log::info!(
+				target: DRAIN_LOG_TARGET,
+				"post-upgrade OK. Legacy reducible: {legacy_post:?}, accumulation reducible: {accum_post:?}"
+			);
+			Ok(())
+		}
 	}
 
 	/// Unreleased migrations. Add new ones here:
@@ -2023,10 +2127,11 @@ pub mod migrations {
 		parachains_scheduler::migration::MigrateV3ToV4<Runtime>,
 		parachains_configuration::migration::v13::MigrateToV13<Runtime>,
 		parachains_shared::migration::MigrateToV2<Runtime>,
-		// #11705: drain residual relay-treasury balance into DAP satellite, then clear orphaned
-		// storage. Idempotent. No further activity on the legacy `py/trsry` account is expected.
-		// Safe to remove once confirmed.
-		pallet_dap_satellite::migrations::DrainLegacyTreasuryToDapSatellite<Runtime>,
+		// #11705: drain residual legacy `py/trsry` balance into the ACF accumulation
+		// account.
+		// Idempotent. No further activity on the legacy `py/trsry`
+		// account is expected. Safe to remove after the next runtime upgrade once confirmed.
+		DrainLegacyTreasuryToAccumulationAccount,
 		frame_support::migrations::RemovePallet<
 			TreasuryPalletStr,
 			<Runtime as frame_system::Config>::DbWeight,
@@ -2046,6 +2151,11 @@ pub mod migrations {
 		>,
 		frame_support::migrations::RemovePallet<
 			WhitelistPalletStr,
+			<Runtime as frame_system::Config>::DbWeight,
+		>,
+		// Remove the Recovery pallet.
+		frame_support::migrations::RemovePallet<
+			RecoveryPalletName,
 			<Runtime as frame_system::Config>::DbWeight,
 		>,
 		// permanent
@@ -2111,7 +2221,6 @@ mod benches {
 		[pallet_parameters, Parameters]
 		[pallet_preimage, Preimage]
 		[pallet_proxy, Proxy]
-		[pallet_recovery, Recovery]
 		[pallet_scheduler, Scheduler]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking, Staking]
@@ -2123,7 +2232,7 @@ mod benches {
 		[pallet_utility, Utility]
 		[pallet_vesting, Vesting]
 		[pallet_asset_rate, AssetRate]
-		[pallet_dap_satellite, DapSatellite]
+		[pallet_accumulate_and_forward, AccumulateForward]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.
