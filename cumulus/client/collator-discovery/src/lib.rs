@@ -303,6 +303,26 @@ impl LoopState {
 	}
 }
 
+/// Compute the additive diff between the multiaddrs we want reserved now and the multiaddrs
+/// we asked for on the previous tick.
+///
+/// `to_remove` is restricted to peers we previously added, externally-managed reserved peers
+/// (e.g. operator-supplied `--reserved-nodes`) never appear here and are never removed.
+fn compute_reserved_diff(
+	current: &HashSet<Multiaddr>,
+	previous: Option<&HashSet<Multiaddr>>,
+) -> (HashSet<Multiaddr>, Vec<PeerId>) {
+	let to_add = match previous {
+		Some(prev) => current.difference(prev).cloned().collect(),
+		None => current.clone(),
+	};
+	let to_remove = match previous {
+		Some(prev) => prev.difference(current).filter_map(PeerId::try_from_multiaddr).collect(),
+		None => Vec::new(),
+	};
+	(to_add, to_remove)
+}
+
 /// Select up to `max_reserved` authority neighbors of the node.
 ///
 /// `authorities` is taken in authoring order, the order Aura uses to assign slots. We locate
@@ -381,30 +401,43 @@ async fn update_parachain_authorities<Block, AD>(
 		return;
 	}
 
+	// Diff against the last known state and apply additively.
+	let (to_add, to_remove) = compute_reserved_diff(&addrs, state.last_addrs.as_ref());
+
 	let peer_ids: HashSet<PeerId> = addrs.iter().filter_map(PeerId::try_from_multiaddr).collect();
 	log::debug!(
 		target: LOG_TARGET,
-		"Refreshing reserved peers at {at:?}: target={target_count} unresolved={unresolved} multiaddrs={} peer_ids={}",
+		"Refreshing reserved peers at {at:?}: target={target_count} unresolved={unresolved} multiaddrs={} peer_ids={} (+{} -{})",
 		addrs.len(),
 		peer_ids.len(),
+		to_add.len(),
+		to_remove.len(),
 	);
 
-	match network.set_reserved_peers(protocol.clone(), addrs.clone()) {
-		Ok(()) => {
-			// Update the no-slot set only after the reserved set is updated,
-			// so the two stay in sync.
-			// If an error happens we retry the whole refresh on the next tick.
-			sync_service.set_no_slot_peers(peer_ids);
-			state.last_authorities = Some(selected);
-			state.last_addrs = Some(addrs);
-		},
-		Err(e) => {
+	if !to_add.is_empty() {
+		if let Err(e) = network.add_peers_to_reserved_set(protocol.clone(), to_add) {
 			log::warn!(
 				target: LOG_TARGET,
-				"set_reserved_peers failed at {at:?}: {e}; will retry on next tick",
+				"add_peers_to_reserved_set failed at {at:?}: {e}; will retry on next tick",
 			);
-		},
+			return;
+		}
 	}
+
+	if !to_remove.is_empty() {
+		if let Err(e) = network.remove_peers_from_reserved_set(protocol.clone(), to_remove) {
+			log::warn!(
+				target: LOG_TARGET,
+				"remove_peers_from_reserved_set failed at {at:?}: {e}; will retry on next tick",
+			);
+			return;
+		}
+	}
+
+	// Update the no-slot set only after the reserved set is updated, so the two stay in sync.
+	sync_service.set_no_slot_peers(peer_ids);
+	state.last_authorities = Some(selected);
+	state.last_addrs = Some(addrs);
 }
 
 /// Resolve multiaddrs for each authority. Returns the deduplicated set of multiaddrs and the
@@ -646,5 +679,86 @@ mod tests {
 		let mut since = Some(Instant::now());
 		log_low_connectivity_if_stuck(0, 0, &mut since);
 		assert!(since.is_none());
+	}
+
+	/// Build a deterministic multiaddr `/memory/<seed>/p2p/<peer-id-derived-from-seed>`.
+	fn ma(seed: u8) -> Multiaddr {
+		use sc_network::{multiaddr::Protocol, Keypair};
+		let kp = Keypair::ed25519_from_bytes([seed; 32]).expect("32-byte seed; qed");
+		let pid: PeerId = kp.public().to_peer_id().into();
+		Multiaddr::empty()
+			.with(Protocol::Memory(seed as u64))
+			.with(Protocol::P2p(pid.into()))
+	}
+
+	fn set_of(ms: impl IntoIterator<Item = Multiaddr>) -> HashSet<Multiaddr> {
+		ms.into_iter().collect()
+	}
+
+	fn pid_of(m: &Multiaddr) -> PeerId {
+		PeerId::try_from_multiaddr(m).expect("multiaddr from ma() has /p2p/")
+	}
+
+	#[test]
+	fn diff_initial_tick_adds_everything_no_removals() {
+		let current = set_of([ma(1), ma(2)]);
+		let (to_add, to_remove) = compute_reserved_diff(&current, None);
+		assert_eq!(to_add, current);
+		assert!(to_remove.is_empty(), "no previous state => nothing to remove");
+	}
+
+	#[test]
+	fn diff_steady_state_is_noop() {
+		let current = set_of([ma(1), ma(2)]);
+		let previous = current.clone();
+		let (to_add, to_remove) = compute_reserved_diff(&current, Some(&previous));
+		assert!(to_add.is_empty());
+		assert!(to_remove.is_empty());
+	}
+
+	#[test]
+	fn diff_addition_only() {
+		let previous = set_of([ma(1)]);
+		let current = set_of([ma(1), ma(2)]);
+		let (to_add, to_remove) = compute_reserved_diff(&current, Some(&previous));
+		assert_eq!(to_add, set_of([ma(2)]));
+		assert!(to_remove.is_empty());
+	}
+
+	#[test]
+	fn diff_removal_only() {
+		let previous = set_of([ma(1), ma(2)]);
+		let current = set_of([ma(1)]);
+		let (to_add, to_remove) = compute_reserved_diff(&current, Some(&previous));
+		assert!(to_add.is_empty());
+		assert_eq!(to_remove, vec![pid_of(&ma(2))]);
+	}
+
+	#[test]
+	fn diff_mixed_add_and_remove() {
+		let previous = set_of([ma(1), ma(2)]);
+		let current = set_of([ma(1), ma(3)]);
+		let (to_add, to_remove) = compute_reserved_diff(&current, Some(&previous));
+		assert_eq!(to_add, set_of([ma(3)]));
+		assert_eq!(to_remove, vec![pid_of(&ma(2))]);
+	}
+
+	#[test]
+	fn diff_back_to_empty_removes_everything_previously_added() {
+		let previous = set_of([ma(1), ma(2)]);
+		let current = HashSet::new();
+		let (to_add, to_remove) = compute_reserved_diff(&current, Some(&previous));
+		assert!(to_add.is_empty());
+		let removed: HashSet<_> = to_remove.into_iter().collect();
+		assert_eq!(removed, set_of([ma(1), ma(2)]).iter().map(pid_of).collect::<HashSet<_>>());
+	}
+
+	#[test]
+	fn diff_empty_to_empty_is_total_noop() {
+		// First tick with an AD that returns no authorities: no network calls at all.
+		let current = HashSet::new();
+		let (to_add, to_remove) = compute_reserved_diff(&current, None);
+		assert!(to_add.is_empty());
+		assert!(to_remove.is_empty());
 	}
 }
