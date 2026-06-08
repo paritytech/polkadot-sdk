@@ -299,22 +299,22 @@ impl<B: Backend> State<B> {
 			Err(err) => {
 				match err {
 					AdvertisementError::Duplicate => {
-						self.metrics.on_advertisement_rejected_duplicate()
+						self.metrics.on_advertisement_rejected_duplicate(para_id)
 					},
 					AdvertisementError::OutOfOurView => {
-						self.metrics.on_advertisement_rejected_out_of_view()
+						self.metrics.on_advertisement_rejected_out_of_view(para_id)
 					},
 					AdvertisementError::PeerLimitReached => {
-						self.metrics.on_advertisement_rejected_peer_limit_reached()
+						self.metrics.on_advertisement_rejected_peer_limit_reached(para_id)
 					},
 					AdvertisementError::BlockedByBacking => {
-						self.metrics.on_advertisement_rejected_blocked_by_backing()
+						self.metrics.on_advertisement_rejected_blocked_by_backing(para_id)
 					},
 					AdvertisementError::V1AdvertisementForImplicitParent => {
-						self.metrics.on_advertisement_rejected_v1_for_implicit_parent()
+						self.metrics.on_advertisement_rejected_v1_for_implicit_parent(para_id)
 					},
 					AdvertisementError::SchedulingParentNotValid => {
-						self.metrics.on_advertisement_rejected_scheduling_parent_invalid()
+						self.metrics.on_advertisement_rejected_scheduling_parent_invalid(para_id)
 					},
 				}
 				gum::debug!(
@@ -328,7 +328,7 @@ impl<B: Backend> State<B> {
 				);
 			},
 			Ok(()) => {
-				self.metrics.on_advertisement_accepted();
+				self.metrics.on_advertisement_accepted(para_id);
 				gum::debug!(
 					target: LOG_TARGET,
 					?scheduling_parent,

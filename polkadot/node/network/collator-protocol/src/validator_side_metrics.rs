@@ -90,55 +90,61 @@ impl Metrics {
 			.map(|metrics| metrics.collator_peer_count.set(collator_peers as u64));
 	}
 
-	fn note_advertisement(&self, outcome: &'static str) {
+	fn note_advertisement(&self, para_id: Option<&ParaId>, outcome: &'static str) {
 		if let Some(metrics) = &self.0 {
-			metrics.advertisements.with_label_values(&[outcome]).inc();
+			let para_id: String = match para_id {
+				Some(id) => u32::from(*id).to_string(),
+				None => "unknown".into(),
+			};
+			metrics.advertisements.with_label_values(&[para_id.as_str(), outcome]).inc();
 		}
 	}
 
 	/// Note an advertisement that passed triage and was accepted.
-	pub fn on_advertisement_accepted(&self) {
-		self.note_advertisement("accepted");
+	pub fn on_advertisement_accepted(&self, para_id: &ParaId) {
+		self.note_advertisement(Some(para_id), "accepted");
 	}
 
-	/// Rejected: advertisement from a peer we are not connected to.
+	/// Rejected: advertisement from a peer we are not connected to. The peer is unknown so the
+	/// `para_id` label is set to `"unknown"`.
 	pub fn on_advertisement_rejected_unconnected_peer(&self) {
-		self.note_advertisement("unconnected_peer");
+		self.note_advertisement(None, "unconnected_peer");
 	}
 
-	/// Rejected: peer advertised before declaring which para it collates for.
+	/// Rejected: peer advertised before declaring which para it collates for. No `para_id` is
+	/// known at this point, so the label is set to `"unknown"`.
 	pub fn on_advertisement_rejected_undeclared_peer(&self) {
-		self.note_advertisement("undeclared_peer");
+		self.note_advertisement(None, "undeclared_peer");
 	}
 
 	/// Rejected: duplicate advertisement.
-	pub fn on_advertisement_rejected_duplicate(&self) {
-		self.note_advertisement("duplicate");
+	pub fn on_advertisement_rejected_duplicate(&self, para_id: &ParaId) {
+		self.note_advertisement(Some(para_id), "duplicate");
 	}
 
 	/// Rejected: advertised scheduling parent is out of our view.
-	pub fn on_advertisement_rejected_out_of_view(&self) {
-		self.note_advertisement("out_of_view");
+	pub fn on_advertisement_rejected_out_of_view(&self, para_id: &ParaId) {
+		self.note_advertisement(Some(para_id), "out_of_view");
 	}
 
 	/// Rejected: peer reached its candidate limit (or para not schedulable from this SP).
-	pub fn on_advertisement_rejected_peer_limit_reached(&self) {
-		self.note_advertisement("peer_limit_reached");
+	pub fn on_advertisement_rejected_peer_limit_reached(&self, para_id: &ParaId) {
+		self.note_advertisement(Some(para_id), "peer_limit_reached");
 	}
 
 	/// Rejected: seconding not allowed by the backing subsystem.
-	pub fn on_advertisement_rejected_blocked_by_backing(&self) {
-		self.note_advertisement("blocked_by_backing");
+	pub fn on_advertisement_rejected_blocked_by_backing(&self, para_id: &ParaId) {
+		self.note_advertisement(Some(para_id), "blocked_by_backing");
 	}
 
 	/// Rejected: V1 advertisement for an implicit (non-leaf) relay parent.
-	pub fn on_advertisement_rejected_v1_for_implicit_parent(&self) {
-		self.note_advertisement("v1_for_implicit_parent");
+	pub fn on_advertisement_rejected_v1_for_implicit_parent(&self, para_id: &ParaId) {
+		self.note_advertisement(Some(para_id), "v1_for_implicit_parent");
 	}
 
 	/// Rejected: V3 descriptor's scheduling parent matches no expected scheduling parent.
-	pub fn on_advertisement_rejected_scheduling_parent_invalid(&self) {
-		self.note_advertisement("scheduling_parent_invalid");
+	pub fn on_advertisement_rejected_scheduling_parent_invalid(&self, para_id: &ParaId) {
+		self.note_advertisement(Some(para_id), "scheduling_parent_invalid");
 	}
 
 	/// Note that a collation was sent to the backing subsystem to be seconded.
@@ -302,10 +308,12 @@ impl metrics::Metrics for Metrics {
 				prometheus::CounterVec::new(
 					prometheus::Opts::new(
 						"polkadot_parachain_collator_protocol_validator_advertisements_total",
-						"Number of triaged collation advertisements, by outcome: \"accepted\" or the \
-						 rejection reason.",
+						"Number of triaged collation advertisements, by para and outcome \
+						 (\"accepted\" or the rejection reason). \"unconnected_peer\" and \
+						 \"undeclared_peer\" rejections occur before the para is known, so they \
+						 carry the sentinel `para_id=\"unknown\"`.",
 					),
-					&["outcome"],
+					&["para_id", "outcome"],
 				)?,
 				registry,
 			)?,
