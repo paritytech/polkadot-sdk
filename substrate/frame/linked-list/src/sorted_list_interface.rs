@@ -172,14 +172,20 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 			return Err(Error::<T>::ItemAlreadyExists);
 		}
 		let (position, steps) = list::walk_repair::<T>(&list_id, &priority, hint)?;
-		list::insert_at::<T>(&list_id, &item, priority, position)?;
+		let list_created = list::insert_at::<T>(&list_id, &item, priority, position)?;
+		if list_created {
+			Self::deposit_event(Event::ListCreated { list_id: list_id.clone() });
+		}
 		Self::deposit_event(Event::ItemInserted { list_id, item, priority });
 		Ok(steps)
 	}
 
 	fn remove(list_id: &T::ListId, item: &T::ItemId) -> Result<(), Error<T>> {
-		list::remove_at::<T>(list_id, item)?;
+		let list_removed = list::remove_at::<T>(list_id, item)?;
 		Self::deposit_event(Event::ItemRemoved { list_id: list_id.clone(), item: item.clone() });
+		if list_removed {
+			Self::deposit_event(Event::ListRemoved { list_id: list_id.clone() });
+		}
 		Ok(())
 	}
 
@@ -188,8 +194,11 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 		let priority = ListNodes::<T>::get(list_id, &item)
 			.defensive_ok_or(Error::<T>::CorruptList)?
 			.priority;
-		list::remove_at::<T>(list_id, &item)?;
+		let list_removed = list::remove_at::<T>(list_id, &item)?;
 		Self::deposit_event(Event::ItemRemoved { list_id: list_id.clone(), item: item.clone() });
+		if list_removed {
+			Self::deposit_event(Event::ListRemoved { list_id: list_id.clone() });
+		}
 		Ok(Some((item, priority)))
 	}
 
@@ -228,6 +237,9 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 		// that an `InvalidPositionHints` after `remove_at` rolls back cleanly.
 		let outer = with_transaction_opaque_err::<u32, Error<T>, _>(|| {
 			let inner = (|| -> Result<u32, Error<T>> {
+				// The item never leaves the list, so the lifecycle flags from
+				// `remove_at`/`insert_at` are intentionally dropped — emitting
+				// `ListRemoved`/`ListCreated` here would churn a single-item relocate.
 				list::remove_at::<T>(&list_id, &item)?;
 				let (position, steps) = list::walk_repair::<T>(&list_id, &new_priority, hint)?;
 				list::insert_at::<T>(&list_id, &item, new_priority, position)?;

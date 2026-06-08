@@ -31,6 +31,27 @@ fn re_insert_unchanged_priority_no_op() {
 }
 
 #[test]
+fn re_insert_emits_no_lifecycle_events() {
+	build_and_execute(|| {
+		insert(1, 10, 90);
+		insert(1, 20, 50);
+		insert(1, 30, 10);
+		System::reset_events();
+		// Relocate the tail (30) above the head — forces the splice + re-insert path.
+		assert!(matches!(
+			LinkedList::re_insert(1, 30, 100, Position::at_head(10)),
+			Ok(Outcome::Relocated { .. }),
+		));
+		// The item stays in the list: only `ItemReinserted`, never `ListCreated`/`ListRemoved`.
+		assert_eq!(System::events().len(), 1);
+		System::assert_last_event(
+			Event::ItemReinserted { list_id: 1, item: 30, old_priority: 10, new_priority: 100 }
+				.into(),
+		);
+	});
+}
+
+#[test]
 fn re_insert_in_place_when_position_still_valid() {
 	build_and_execute(|| {
 		insert(1, 100, 90);

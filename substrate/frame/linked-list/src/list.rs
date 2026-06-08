@@ -25,15 +25,18 @@
 use crate::{pallet::*, ListMeta, Position};
 use frame::{deps::frame_support::traits::DefensiveOption, prelude::*};
 
-/// Fetch a neighbor's stored node, returning `CorruptList` if `id` is `Some` but
-/// no row exists. Used by [`insert_at`] and [`remove_at`] to surface dangling
-/// links rather than silently no-op-mutating.
+/// Fetch a neighbor's stored node. A `Some(id)` that resolves to no row is
+/// internal corruption — a healthy node never links to an absent neighbor.
 fn fetch_neighbor<T: Config>(
 	list_id: &T::ListId,
 	id: Option<T::ItemId>,
 ) -> Result<Option<(T::ItemId, Node<T::ItemId, T::Priority>)>, Error<T>> {
-	id.map(|i| ListNodes::<T>::get(list_id, &i).ok_or(Error::<T>::CorruptList).map(|n| (i, n)))
-		.transpose()
+	id.map(|i| {
+		ListNodes::<T>::get(list_id, &i)
+			.defensive_ok_or(Error::<T>::CorruptList)
+			.map(|n| (i, n))
+	})
+	.transpose()
 }
 
 /// One node of a per-list sorted list.
@@ -237,47 +240,56 @@ pub fn walk_repair<T: Config>(
 	Err(Error::<T>::InvalidPositionHints)
 }
 
-/// Insert `item` at `position` in `list_id`. The caller is responsible for
-/// ensuring the position is valid; errors if `item` is already in the list.
-pub fn insert_at<T: Config>(
+/// Post-validate the resolved insert position: each present neighbor's cached
+/// link must point across the gap and its priority must satisfy
+/// `prev.priority >= p > next.priority`.
+fn assert_position_admits<T: Config>(
+	priority: &T::Priority,
+	position: &Position<T::ItemId>,
+	prev_node: Option<&Node<T::ItemId, T::Priority>>,
+	next_node: Option<&Node<T::ItemId, T::Priority>>,
+) -> Result<(), Error<T>> {
+	if let Some(prev) = prev_node {
+		if prev.next != position.next || prev.priority < *priority {
+			defensive!("insert_at: prev neighbor rejects the resolved position");
+			return Err(Error::<T>::CorruptList);
+		}
+	}
+	if let Some(next) = next_node {
+		if next.prev != position.prev || *priority <= next.priority {
+			defensive!("insert_at: next neighbor rejects the resolved position");
+			return Err(Error::<T>::CorruptList);
+		}
+	}
+	Ok(())
+}
+
+/// Apply the head/tail/len bookkeeping for inserting `item` at `position`,
+/// folding the endpoint cross-check and overflow guard into one `ListMetas` row
+/// write. On any error the row is left untouched. A `None`-side hint inserts at
+/// the head/tail, so the existing head/tail pointer must agree with the other
+/// side.
+///
+/// Returns `true` if this insert created the list (the `ListMetas` row was absent).
+fn update_meta_for_insert<T: Config>(
 	list_id: &T::ListId,
 	item: &T::ItemId,
-	priority: T::Priority,
-	position: Position<T::ItemId>,
-) -> Result<(), Error<T>> {
-	if ListNodes::<T>::contains_key(list_id, item) {
-		return Err(Error::<T>::ItemAlreadyExists);
-	}
-
-	let prev_node = fetch_neighbor::<T>(list_id, position.prev.clone())?;
-	let next_node = fetch_neighbor::<T>(list_id, position.next.clone())?;
-
-	// Adjacency + priority ordering on the `Some` side. `walk_repair` guarantees
-	// both on success; enforce them again so an invalid internal call surfaces
-	// as `CorruptList` rather than silently corrupting the list.
-	if prev_node
-		.as_ref()
-		.is_some_and(|(_, n)| n.next != position.next || n.priority < priority) ||
-		next_node
-			.as_ref()
-			.is_some_and(|(_, n)| n.prev != position.prev || priority <= n.priority)
-	{
-		return Err(Error::<T>::CorruptList);
-	}
-
-	// Fold the endpoint cross-check, overflow guard, and head/tail/len updates
-	// into one `ListMetas` row write. On any error inside the closure no row is
-	// written and the prior meta is preserved.
-	ListMetas::<T>::try_mutate_exists(list_id, |slot| -> Result<(), Error<T>> {
+	position: &Position<T::ItemId>,
+) -> Result<bool, Error<T>> {
+	ListMetas::<T>::try_mutate_exists(list_id, |slot| -> Result<bool, Error<T>> {
+		let list_created = slot.is_none();
 		let mut meta = slot.take().unwrap_or_default();
-		// Endpoint cross-check: a `None`-side hint inserts at the head/tail, so
-		// the existing head/tail pointer must agree with the other side.
 		if position.prev.is_none() && meta.head != position.next {
+			defensive!("insert_at: head pointer disagrees with head-side insert");
 			return Err(Error::<T>::CorruptList);
 		}
 		if position.next.is_none() && meta.tail != position.prev {
+			defensive!("insert_at: tail pointer disagrees with tail-side insert");
 			return Err(Error::<T>::CorruptList);
 		}
+		// Caller-reachable capacity limit, not corruption: a list can legitimately
+		// hold `u32::MAX` items, so overflow stays a graceful `ListTooLong` rather
+		// than the `defensive!` posture of the surrounding consistency checks.
 		meta.len = meta.len.checked_add(1).ok_or(Error::<T>::ListTooLong)?;
 		if position.prev.is_none() {
 			meta.head = Some(item.clone());
@@ -286,8 +298,42 @@ pub fn insert_at<T: Config>(
 			meta.tail = Some(item.clone());
 		}
 		*slot = Some(meta);
-		Ok(())
-	})?;
+		Ok(list_created)
+	})
+}
+
+/// Insert `item` at `position` in `list_id`. The caller is responsible for
+/// ensuring the position is valid; errors if `item` is already in the list.
+///
+/// Returns `true` if this insert created the list (it was previously empty).
+pub fn insert_at<T: Config>(
+	list_id: &T::ListId,
+	item: &T::ItemId,
+	priority: T::Priority,
+	position: Position<T::ItemId>,
+) -> Result<bool, Error<T>> {
+	if ListNodes::<T>::contains_key(list_id, item) {
+		return Err(Error::<T>::ItemAlreadyExists);
+	}
+
+	// Anti-cycle guard: a node must never be linked against itself. `walk_repair`
+	// never yields such a position, so reaching it is internal corruption.
+	if position.prev.as_ref() == Some(item) || position.next.as_ref() == Some(item) {
+		defensive!("insert_at: item linked against itself");
+		return Err(Error::<T>::CorruptList);
+	}
+
+	let prev_node = fetch_neighbor::<T>(list_id, position.prev.clone())?;
+	let next_node = fetch_neighbor::<T>(list_id, position.next.clone())?;
+
+	assert_position_admits::<T>(
+		&priority,
+		&position,
+		prev_node.as_ref().map(|(_, n)| n),
+		next_node.as_ref().map(|(_, n)| n),
+	)?;
+
+	let list_created = update_meta_for_insert::<T>(list_id, item, &position)?;
 
 	// Splice in on the head side: rewrite prev's `.next` to point at `item`.
 	if let Some((p, mut n)) = prev_node {
@@ -305,57 +351,114 @@ pub fn insert_at<T: Config>(
 		item,
 		Node { prev: position.prev, next: position.next, priority },
 	);
-	Ok(())
+
+	// Pair the pre-splice `assert_position_admits` check with an after-write read.
+	#[cfg(debug_assertions)]
+	debug_assert_insert_post_condition::<T>(list_id, item);
+
+	Ok(list_created)
+}
+
+/// Debug-only post-condition for [`insert_at`]: re-read `item` and confirm the
+/// splice landed — the cached priorities still admit `item`, each present
+/// neighbor points back at it, and a `None` side owns the matching endpoint.
+#[cfg(debug_assertions)]
+fn debug_assert_insert_post_condition<T: Config>(list_id: &T::ListId, item: &T::ItemId) {
+	let node = ListNodes::<T>::get(list_id, item).expect("insert_at just wrote item; qed");
+	let position = Position { prev: node.prev, next: node.next };
+
+	// Priority ordering: reuse the production priority-only predicate rather than
+	// re-spelling the `>=`/`>` asymmetry.
+	debug_assert!(
+		neighbor_priorities_admit::<T>(list_id, &node.priority, &position),
+		"neighbor priorities reject item",
+	);
+
+	match position.prev {
+		Some(ref prev_id) => debug_assert_eq!(
+			ListNodes::<T>::get(list_id, prev_id).and_then(|n| n.next).as_ref(),
+			Some(item),
+			"prev.next must point to item",
+		),
+		None => debug_assert_eq!(
+			ListMetas::<T>::get(list_id).and_then(|m| m.head).as_ref(),
+			Some(item),
+			"head-side insert must own the head pointer",
+		),
+	}
+	match position.next {
+		Some(ref next_id) => debug_assert_eq!(
+			ListNodes::<T>::get(list_id, next_id).and_then(|n| n.prev).as_ref(),
+			Some(item),
+			"next.prev must point to item",
+		),
+		None => debug_assert_eq!(
+			ListMetas::<T>::get(list_id).and_then(|m| m.tail).as_ref(),
+			Some(item),
+			"tail-side insert must own the tail pointer",
+		),
+	}
 }
 
 /// Remove `item` from `list_id`. Drops the [`ListMetas`] row when the list
 /// becomes empty. Errors if `item` is not in the list.
-pub fn remove_at<T: Config>(list_id: &T::ListId, item: &T::ItemId) -> Result<(), Error<T>> {
+///
+/// Returns `true` if this remove emptied the list (the `ListMetas` row was dropped).
+pub fn remove_at<T: Config>(list_id: &T::ListId, item: &T::ItemId) -> Result<bool, Error<T>> {
 	let Node { prev: removed_prev, next: removed_next, .. } =
 		ListNodes::<T>::get(list_id, item).ok_or(Error::<T>::ItemNotFound)?;
+	// Anti-cycle guard: a node's own links must never name itself.
 	if removed_prev.as_ref() == Some(item) || removed_next.as_ref() == Some(item) {
+		defensive!("remove_at: node linked against itself");
 		return Err(Error::<T>::CorruptList);
 	}
 
 	let prev_node = fetch_neighbor::<T>(list_id, removed_prev.clone())?;
 	let next_node = fetch_neighbor::<T>(list_id, removed_next.clone())?;
 
-	if prev_node.as_ref().is_some_and(|(_, node)| node.next.as_ref() != Some(item)) ||
-		next_node.as_ref().is_some_and(|(_, node)| node.prev.as_ref() != Some(item))
-	{
+	if prev_node.as_ref().is_some_and(|(_, node)| node.next.as_ref() != Some(item)) {
+		defensive!("remove_at: prev neighbor does not link back to item");
+		return Err(Error::<T>::CorruptList);
+	}
+	if next_node.as_ref().is_some_and(|(_, node)| node.prev.as_ref() != Some(item)) {
+		defensive!("remove_at: next neighbor does not link back to item");
 		return Err(Error::<T>::CorruptList);
 	}
 
 	// Validate endpoints and update the meta row first so that any cross-check
 	// failure surfaces as `CorruptList` before any node-row mutation happens.
 	// The row vanishes once the list empties.
-	ListMetas::<T>::try_mutate_exists(list_id, |slot| -> Result<(), Error<T>> {
-		// Defensive: by the all-or-nothing invariant a present node implies a
-		// present meta row with `len >= 1`.
-		let mut meta = slot.take().defensive_ok_or(Error::<T>::CorruptList)?;
-		// Endpoint cross-check: a `None`-side neighbor link means `item` must
-		// be the stored head/tail; otherwise storage is internally inconsistent.
-		if removed_prev.is_none() && meta.head.as_ref() != Some(item) {
-			return Err(Error::<T>::CorruptList);
-		}
-		if removed_next.is_none() && meta.tail.as_ref() != Some(item) {
-			return Err(Error::<T>::CorruptList);
-		}
-		meta.len = meta.len.checked_sub(1).defensive_ok_or(Error::<T>::CorruptList)?;
-		// We removed the head iff the removed node had no `prev`; the new head is
-		// then the removed item's `next` (`None` once the list empties).
-		if removed_prev.is_none() {
-			meta.head = removed_next.clone();
-		}
-		// Symmetric for the tail.
-		if removed_next.is_none() {
-			meta.tail = removed_prev.clone();
-		}
-		if meta.len > 0 {
-			*slot = Some(meta);
-		}
-		Ok(())
-	})?;
+	let list_removed =
+		ListMetas::<T>::try_mutate_exists(list_id, |slot| -> Result<bool, Error<T>> {
+			// Defensive: by the all-or-nothing invariant a present node implies a
+			// present meta row with `len >= 1`.
+			let mut meta = slot.take().defensive_ok_or(Error::<T>::CorruptList)?;
+			// Endpoint cross-check: a `None`-side neighbor link means `item` must
+			// be the stored head/tail; otherwise storage is internally inconsistent.
+			if removed_prev.is_none() && meta.head.as_ref() != Some(item) {
+				defensive!("remove_at: head pointer disagrees with removed head node");
+				return Err(Error::<T>::CorruptList);
+			}
+			if removed_next.is_none() && meta.tail.as_ref() != Some(item) {
+				defensive!("remove_at: tail pointer disagrees with removed tail node");
+				return Err(Error::<T>::CorruptList);
+			}
+			meta.len = meta.len.checked_sub(1).defensive_ok_or(Error::<T>::CorruptList)?;
+			// We removed the head iff the removed node had no `prev`; the new head is
+			// then the removed item's `next` (`None` once the list empties).
+			if removed_prev.is_none() {
+				meta.head = removed_next.clone();
+			}
+			// Symmetric for the tail.
+			if removed_next.is_none() {
+				meta.tail = removed_prev.clone();
+			}
+			let list_emptied = meta.len == 0;
+			if !list_emptied {
+				*slot = Some(meta);
+			}
+			Ok(list_emptied)
+		})?;
 
 	ListNodes::<T>::remove(list_id, item);
 
@@ -369,5 +472,5 @@ pub fn remove_at<T: Config>(list_id: &T::ListId, item: &T::ItemId) -> Result<(),
 		ListNodes::<T>::insert(list_id, n, right);
 	}
 
-	Ok(())
+	Ok(list_removed)
 }

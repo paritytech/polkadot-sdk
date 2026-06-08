@@ -180,6 +180,10 @@ pub mod pallet {
 		},
 		/// An item was reprioritized after its authoritative priority drifted.
 		Reprioritized { list_id: T::ListId, item: T::ItemId, new_priority: T::Priority },
+		/// A list was created by inserting its first item.
+		ListCreated { list_id: T::ListId },
+		/// A list was removed after its last item was removed.
+		ListRemoved { list_id: T::ListId },
 	}
 
 	#[pallet::error]

@@ -44,6 +44,26 @@ fn insert_into_empty_list_sets_head_tail_size() {
 }
 
 #[test]
+fn insert_creating_list_emits_list_created() {
+	build_and_execute(|| {
+		// The first item creates the list: `ListCreated` then `ItemInserted`.
+		insert(1, 100, 50);
+		System::assert_has_event(Event::ListCreated { list_id: 1 }.into());
+		System::assert_last_event(
+			Event::ItemInserted { list_id: 1, item: 100, priority: 50 }.into(),
+		);
+
+		// A second item into the same list must not re-emit `ListCreated`.
+		System::reset_events();
+		insert(1, 200, 40);
+		assert_eq!(System::events().len(), 1);
+		System::assert_last_event(
+			Event::ItemInserted { list_id: 1, item: 200, priority: 40 }.into(),
+		);
+	});
+}
+
+#[test]
 fn insert_with_valid_hints_o1() {
 	build_and_execute(|| {
 		insert(1, 100, 90); // head
@@ -130,60 +150,74 @@ fn insert_does_not_saturate_size_counter() {
 }
 
 #[test]
-fn insert_at_missing_neighbor_returns_corrupt_list() {
+#[should_panic = "Defensive failure has been triggered"]
+fn insert_at_missing_neighbor_is_defensive() {
 	build_and_execute_no_post_check(|| {
-		assert_storage_noop!(assert!(matches!(
-			list::insert_at::<Test>(&1, &200, 50, Position::at_tail(100)),
-			Err(Error::<Test>::CorruptList)
-		)));
-		assert!(!ListNodes::<Test>::contains_key(1, 200));
+		// The hint names a prev neighbor (100) that does not exist.
+		let _ = list::insert_at::<Test>(&1, &200, 50, Position::at_tail(100));
 	});
 }
 
 #[test]
-fn insert_at_endpoint_mismatch_returns_corrupt_list() {
-	build_and_execute(|| {
+#[should_panic = "head pointer disagrees with head-side insert"]
+fn insert_at_endpoint_mismatch_is_defensive() {
+	build_and_execute_no_post_check(|| {
 		insert(1, 100, 90);
 		insert(1, 200, 50);
 		// `Position::endpoints_only()` on a non-empty list: `prev = next = None`
-		// would rewrite both head and tail. Endpoint cross-check must reject it.
-		assert_storage_noop!(assert!(matches!(
-			list::insert_at::<Test>(&1, &300, 70, Position::endpoints_only()),
-			Err(Error::<Test>::CorruptList)
-		)));
-		assert_eq!(dump(1), vec![(100, 90), (200, 50)]);
-		assert!(!ListNodes::<Test>::contains_key(1, 300));
+		// would rewrite both head and tail. The endpoint cross-check trips
+		// defensively. In production it logs and returns `CorruptList` instead.
+		let _ = list::insert_at::<Test>(&1, &300, 70, Position::endpoints_only());
 	});
 }
 
 #[test]
-fn insert_at_priority_above_prev_returns_corrupt_list() {
-	build_and_execute(|| {
+#[should_panic = "prev neighbor rejects the resolved position"]
+fn insert_at_priority_above_prev_is_defensive() {
+	build_and_execute_no_post_check(|| {
 		insert(1, 100, 90);
 		insert(1, 200, 50);
 		// Priority 100 violates `prev.priority (90) >= priority (100)`; the
-		// extended adjacency check should reject it.
-		assert_storage_noop!(assert!(matches!(
-			list::insert_at::<Test>(&1, &300, 100, Position::between(100, 200)),
-			Err(Error::<Test>::CorruptList)
-		)));
-		assert_eq!(dump(1), vec![(100, 90), (200, 50)]);
-		assert!(!ListNodes::<Test>::contains_key(1, 300));
+		// adjacency check trips defensively.
+		let _ = list::insert_at::<Test>(&1, &300, 100, Position::between(100, 200));
 	});
 }
 
 #[test]
-fn insert_at_priority_not_above_next_returns_corrupt_list() {
-	build_and_execute(|| {
+#[should_panic = "next neighbor rejects the resolved position"]
+fn insert_at_priority_not_above_next_is_defensive() {
+	build_and_execute_no_post_check(|| {
 		insert(1, 100, 90);
 		insert(1, 200, 50);
 		// Priority 50 violates `priority (50) > next.priority (50)`; the
-		// extended adjacency check should reject it.
-		assert_storage_noop!(assert!(matches!(
-			list::insert_at::<Test>(&1, &300, 50, Position::between(100, 200)),
-			Err(Error::<Test>::CorruptList)
-		)));
-		assert_eq!(dump(1), vec![(100, 90), (200, 50)]);
-		assert!(!ListNodes::<Test>::contains_key(1, 300));
+		// adjacency check trips defensively.
+		let _ = list::insert_at::<Test>(&1, &300, 50, Position::between(100, 200));
+	});
+}
+
+#[test]
+#[should_panic = "item linked against itself"]
+fn insert_at_self_link_is_defensive() {
+	build_and_execute_no_post_check(|| {
+		// The hint claims the new item 200 is its own predecessor.
+		let _ = list::insert_at::<Test>(&1, &200, 40, Position::at_tail(200));
+	});
+}
+
+#[test]
+#[should_panic = "tail pointer disagrees with tail-side insert"]
+fn insert_at_tail_endpoint_mismatch_is_defensive() {
+	build_and_execute_no_post_check(|| {
+		insert(1, 100, 90);
+		insert(1, 200, 50);
+		// Corrupt the tail pointer so a tail-side insert (`next = None`) past the
+		// real tail (200) disagrees with `ListMetas.tail`. Twin of the head-side
+		// `insert_at_endpoint_mismatch_is_defensive` case.
+		ListMetas::<Test>::mutate(1, |maybe| {
+			if let Some(meta) = maybe {
+				meta.tail = Some(100);
+			}
+		});
+		let _ = list::insert_at::<Test>(&1, &300, 40, Position::at_tail(200));
 	});
 }
