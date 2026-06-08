@@ -582,11 +582,6 @@ where
 	}
 }
 
-parameter_types! {
-	// if true, skips the try-state for the test running.
-	pub static SkipTryStateCheck: bool = false;
-}
-
 pub struct ExtBuilder {
 	nominate: bool,
 	validator_count: u32,
@@ -735,10 +730,6 @@ impl ExtBuilder {
 		MaxWinnersPerPage::set(max);
 		self
 	}
-	pub(crate) fn try_state(self, enable: bool) -> Self {
-		SkipTryStateCheck::set(!enable);
-		self
-	}
 	fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
@@ -836,9 +827,7 @@ impl ExtBuilder {
 		let mut ext = self.build();
 		ext.execute_with(test);
 		ext.execute_with(|| {
-			if !SkipTryStateCheck::get() {
-				Staking::do_try_state(System::block_number()).unwrap();
-			}
+			Staking::do_try_state(System::block_number()).unwrap();
 		});
 	}
 }
