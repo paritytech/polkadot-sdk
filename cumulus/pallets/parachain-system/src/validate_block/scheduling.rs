@@ -228,11 +228,17 @@ pub struct SchedulingSignals {
 }
 
 impl SchedulingSignals {
-	/// Parse the encoded `UMPSignal`s a PoV's blocks emitted after the in-block `UMP_SEPARATOR`.
+	/// Parse the encoded `UMPSignal`s a PoV's blocks emitted after the in-block `UMP_SEPARATOR`
+	/// and push the canonical scheduling tail into `upward_messages` via [`Self::emit`].
 	///
 	/// Panics on a repeated variant *even when values match*: the relay decoder counts
-	/// occurrences, not distinct values, so a duplicate is a bug regardless.
-	pub fn from_block_signals(raw: &[Vec<u8>]) -> Self {
+	/// occurrences, not distinct values, so a duplicate is a bug regardless. All parsing and
+	/// duplicate-detection panics fire before [`Self::emit`] pushes anything, so a panic never
+	/// leaves `upward_messages` half-written.
+	pub fn from_block_signals<S: Get<u32>>(
+		raw: &[Vec<u8>],
+		upward_messages: &mut BoundedVec<Vec<u8>, S>,
+	) {
 		let mut signals = Self::default();
 		for bytes in raw {
 			// NOTE: this match is intentionally exhaustive (no `_` arm). Adding a new
@@ -255,30 +261,35 @@ impl SchedulingSignals {
 				},
 			}
 		}
-		signals
+		signals.emit(upward_messages);
 	}
 
 	/// Build the tail from a verified `SignedSchedulingInfo`, which wholesale replaces the
-	/// block's emitted signals (the signer signed all three fields).
-	pub fn from_scheduling_info(signed_info: &SignedSchedulingInfo) -> Self {
+	/// block's emitted signals (the signer signed all three fields), and push it into
+	/// `upward_messages` via [`Self::emit`].
+	pub fn from_scheduling_info<S: Get<u32>>(
+		signed_info: &SignedSchedulingInfo,
+		upward_messages: &mut BoundedVec<Vec<u8>, S>,
+	) {
 		let payload = &signed_info.payload;
-		Self {
+		let signals = Self {
 			select_core: Some((
 				payload.core_selector,
 				ClaimQueueOffset(payload.claim_queue_offset),
 			)),
 			approved_peer: Some(payload.peer_id.clone()),
-		}
+		};
+		signals.emit(upward_messages);
 	}
 
-	pub fn is_empty(&self) -> bool {
+	fn is_empty(&self) -> bool {
 		self.select_core.is_none() && self.approved_peer.is_none()
 	}
 
 	/// Order is `SelectCore` then `ApprovedPeer`, matching
 	/// `pallet_parachain_system::send_ump_signals`. Emits nothing — not even a separator — when
 	/// empty, since the relay decoder keys off the first `UMP_SEPARATOR`.
-	pub fn emit<S: Get<u32>>(self, upward_messages: &mut BoundedVec<Vec<u8>, S>) {
+	fn emit<S: Get<u32>>(self, upward_messages: &mut BoundedVec<Vec<u8>, S>) {
 		if self.is_empty() {
 			return;
 		}
@@ -916,10 +927,8 @@ mod tests {
 			UMPSignal::SelectCore(CoreSelector(7), ClaimQueueOffset(1)).encode(),
 			UMPSignal::ApprovedPeer(peer(0xAA)).encode(),
 		];
-		let signals = SchedulingSignals::from_block_signals(&raw);
-
 		let mut out = TestUpwardMessages::default();
-		signals.emit(&mut out);
+		SchedulingSignals::from_block_signals(&raw, &mut out);
 		assert_eq!(
 			out.into_inner(),
 			vec![
@@ -934,10 +943,8 @@ mod tests {
 	fn from_block_signals_select_core_only() {
 		// Block emitted only a `SelectCore`: no `ApprovedPeer` field, one signal emitted.
 		let raw = vec![UMPSignal::SelectCore(CoreSelector(3), ClaimQueueOffset(0)).encode()];
-		let signals = SchedulingSignals::from_block_signals(&raw);
-
 		let mut out = TestUpwardMessages::default();
-		signals.emit(&mut out);
+		SchedulingSignals::from_block_signals(&raw, &mut out);
 		assert_eq!(
 			out.into_inner(),
 			vec![
@@ -956,7 +963,7 @@ mod tests {
 			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode(),
 			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode(),
 		];
-		let _ = SchedulingSignals::from_block_signals(&raw);
+		SchedulingSignals::from_block_signals(&raw, &mut TestUpwardMessages::default());
 	}
 
 	#[test]
@@ -966,7 +973,7 @@ mod tests {
 			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode(),
 			UMPSignal::SelectCore(CoreSelector(2), ClaimQueueOffset(0)).encode(),
 		];
-		let _ = SchedulingSignals::from_block_signals(&raw);
+		SchedulingSignals::from_block_signals(&raw, &mut TestUpwardMessages::default());
 	}
 
 	#[test]
@@ -976,17 +983,14 @@ mod tests {
 			UMPSignal::ApprovedPeer(peer(0xAA)).encode(),
 			UMPSignal::ApprovedPeer(peer(0xBB)).encode(),
 		];
-		let _ = SchedulingSignals::from_block_signals(&raw);
+		SchedulingSignals::from_block_signals(&raw, &mut TestUpwardMessages::default());
 	}
 
 	#[test]
 	fn from_block_signals_empty_emits_nothing() {
 		// No signals in, nothing out — not even a separator.
-		let signals = SchedulingSignals::from_block_signals(&[]);
-		assert!(signals.is_empty());
-
 		let mut out = TestUpwardMessages::default();
-		signals.emit(&mut out);
+		SchedulingSignals::from_block_signals(&[], &mut out);
 		assert!(out.is_empty());
 	}
 
@@ -996,10 +1000,8 @@ mod tests {
 		// by the resubmitting collator, so the override sources every field from the signed
 		// payload. Distinct values ensure no field is sourced from the wrong place.
 		let signed = signed_with(CoreSelector(7), 3, peer(0xAA));
-		let signals = SchedulingSignals::from_scheduling_info(&signed);
-
 		let mut out = TestUpwardMessages::default();
-		signals.emit(&mut out);
+		SchedulingSignals::from_scheduling_info(&signed, &mut out);
 		assert_eq!(
 			out.into_inner(),
 			vec![
@@ -1017,10 +1019,8 @@ mod tests {
 		// block's peer. Empty/invalid peers are the resubmitter's own reputation loss and are
 		// handled gracefully downstream; the PVF forwards exactly what was signed.
 		let signed = signed_with(CoreSelector(5), 1, ApprovedPeerId::default());
-		let signals = SchedulingSignals::from_scheduling_info(&signed);
-
 		let mut out = TestUpwardMessages::default();
-		signals.emit(&mut out);
+		SchedulingSignals::from_scheduling_info(&signed, &mut out);
 		assert_eq!(
 			out.into_inner(),
 			vec![
@@ -1037,7 +1037,8 @@ mod tests {
 		// resubmission always produces its tail. (At the call site this is what decouples
 		// the override from the old `!upward_message_signals.is_empty()` guard.)
 		let signed = signed_with(CoreSelector(0), 0, peer(0xCC));
-		let signals = SchedulingSignals::from_scheduling_info(&signed);
-		assert!(!signals.is_empty());
+		let mut out = TestUpwardMessages::default();
+		SchedulingSignals::from_scheduling_info(&signed, &mut out);
+		assert!(!out.is_empty());
 	}
 }

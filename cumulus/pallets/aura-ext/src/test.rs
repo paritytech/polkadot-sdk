@@ -605,8 +605,7 @@ mod scheduling_verifier_tests {
 		}
 	}
 
-	/// Build a payload whose `internal_scheduling_parent` matches `isp`. Tests that want
-	/// a mismatch (replay-detection check) pass a different hash explicitly.
+	/// Build a payload whose `internal_scheduling_parent` is set to `isp`.
 	fn make_payload(isp: RelayHash) -> SchedulingInfoPayload {
 		SchedulingInfoPayload::new(
 			cumulus_primitives_core::CoreSelector(0),
@@ -673,25 +672,6 @@ mod scheduling_verifier_tests {
 				header.hash(),
 			);
 			let signed = SignedSchedulingInfo { signature, payload: tampered };
-			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header));
-		});
-	}
-
-	#[test]
-	fn payload_isp_mismatching_header_is_rejected() {
-		// Replay-detection: an attacker takes a signature created at ISP X and tries to
-		// use it at ISP Y (different relay block). The verifier must reject because the
-		// payload's claimed `internal_scheduling_parent` no longer matches the header's
-		// hash, even though the signer is otherwise eligible.
-		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
-		sp_io::TestExternalities::new_empty().execute_with(|| {
-			set_authorities::<Test>(vec![Sr25519Id::from(Sr25519Keyring::Alice.public())]);
-			let header = relay_header_at_slot(7);
-			let payload = make_payload(RelayHash::repeat_byte(0xAA)); // different ISP
-			let signed = SignedSchedulingInfo {
-				signature: Sr25519Keyring::Alice.sign(&payload.encode()).0,
-				payload,
-			};
 			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header));
 		});
 	}

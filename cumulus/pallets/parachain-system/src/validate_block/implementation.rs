@@ -151,11 +151,11 @@ where
 	// Extract the override inputs (signed payload + the ISP header the signer
 	// committed to) from the proof. Override engages whenever `signed_scheduling_info`
 	// is present — on resubmissions it's required by `check_scheduling`, and on
-	// initial submissions a collator may still attach one to assert authoritative
-	// scheduling. The actual signature verification needs to read
-	// `Authorities::<T>` from parachain state, so it runs inside the first block's
-	// seal-verification externalities scope below — externalities aren't installed
-	// at this point.
+	// initial submissions honest collators don't attach one (core selection comes from
+	// the block's own UMP signals), while a forged one is harmless since the relay chain
+	// re-validates core selection. The actual signature verification needs to read
+	// `Authorities::<T>` from parachain state, so it runs inside the externalities
+	// scope below — externalities aren't installed at this point.
 	let scheduling_override_inputs: Option<(SignedSchedulingInfo, RelayChainHeader)> =
 		validated_scheduling.and_then(|_| {
 			let proof = block_data.scheduling_proof().expect(
@@ -200,23 +200,25 @@ where
 	let cache_provider = trie_cache::CacheProvider::new();
 	let seen_nodes = SeenNodes::<HashingFor<B>>::default();
 
-	let parent_backend: sp_state_machine::TrieBackend<
-		_,
-		HashingFor<B>,
-		_,
-		SizeOnlyRecorderProvider<HashingFor<B>>,
-	> = sp_state_machine::TrieBackendBuilder::new_with_cache(
-		&db,
-		*parent_header.state_root(),
-		&cache_provider,
-	)
-	.build();
-	run_with_externalities_and_recorder::<B, _, _>(
-		&parent_backend,
-		&mut Default::default(),
-		&mut Default::default(),
-		|| {
-			if let Some((signed_info, isp_header)) = scheduling_override_inputs.as_ref() {
+	// Verify the V3 scheduling signature override. Only set up the backend and externalities
+	// when there's actually an override to check.
+	if let Some((signed_info, isp_header)) = scheduling_override_inputs.as_ref() {
+		let parent_backend: sp_state_machine::TrieBackend<
+			_,
+			HashingFor<B>,
+			_,
+			SizeOnlyRecorderProvider<HashingFor<B>>,
+		> = sp_state_machine::TrieBackendBuilder::new_with_cache(
+			&db,
+			*parent_header.state_root(),
+			&cache_provider,
+		)
+		.build();
+		run_with_externalities_and_recorder::<B, _, _>(
+			&parent_backend,
+			&mut Default::default(),
+			&mut Default::default(),
+			|| {
 				if !PSC::SchedulingSignatureVerifier::verify(signed_info, isp_header) {
 					panic!(
 						"V3 scheduling validation failed: invalid \
@@ -224,9 +226,9 @@ where
 						isp_header.hash(),
 					);
 				}
-			}
-		},
-	);
+			},
+		);
+	}
 
 	for (block_index, mut block) in blocks.into_iter().enumerate() {
 		// We use the storage root of the `parent_head` to ensure that it is the correct root.
@@ -367,11 +369,15 @@ where
 
 	// A `signed_scheduling_info` overrides the block's emitted signals wholesale — they
 	// are ignored, not merged.
-	let scheduling_signals = match scheduling_override_inputs.as_ref() {
-		Some((signed_info, _)) => scheduling::SchedulingSignals::from_scheduling_info(signed_info),
-		None => scheduling::SchedulingSignals::from_block_signals(&upward_message_signals),
-	};
-	scheduling_signals.emit(&mut upward_messages);
+	match scheduling_override_inputs.as_ref() {
+		Some((signed_info, _)) => {
+			scheduling::SchedulingSignals::from_scheduling_info(signed_info, &mut upward_messages)
+		},
+		None => scheduling::SchedulingSignals::from_block_signals(
+			&upward_message_signals,
+			&mut upward_messages,
+		),
+	}
 
 	horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));
 

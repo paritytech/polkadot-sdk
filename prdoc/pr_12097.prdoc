@@ -9,34 +9,14 @@ doc:
     derived from the relay header at `internal_scheduling_parent`, proving the submitting
     collator owns the para slot at that anchor.
 
-    Changes:
-    - `cumulus-pallet-aura-ext` exposes a new `AuraSchedulingVerifier<T>` implementing
-      `cumulus_primitives_core::VerifySchedulingSignature`. It derives the para slot from
-      the BABE pre-digest of the supplied relay header, looks up the eligible Aura author
-      from the cached authority set, and verifies the signature over the encoded
-      `SchedulingInfoPayload`.
-    - `cumulus-pallet-parachain-system` invokes the configured `SchedulingSignatureVerifier`
-      from `validate_block` whenever a `signed_scheduling_info` is present, and overrides
-      the block's emitted UMP signals (`SelectCore`, `ApprovedPeer`) with the values from
-      the verified payload.
-    - Three new variants are added to `SchedulingValidationError`:
-      `InternalSchedulingParentHeaderMismatch`, `SignedSchedulingInfoIspMismatch`, and
-      `ClaimQueueOffsetTooLarge`. The first ensures the proof's
-      `internal_scheduling_parent_header` actually hashes to the derived ISP (so a collator
-      cannot point the slot oracle at an arbitrary header); the second ensures the signed
-      payload commits to the same ISP the proof points to; the third bounds the signed
-      `claim_queue_offset` by the runtime-enforced maximum.
+    To enable V3 scheduling, set
+    `type SchedulingSignatureVerifier = AuraSchedulingVerifier<Runtime>` on
+    `cumulus_pallet_parachain_system::Config`. Runtimes leaving the default `()` keep V3
+    scheduling disabled and are unaffected.
 
-    Integration:
-    - Parachains that want to enable resubmissions must set
-      `type SchedulingSignatureVerifier = AuraSchedulingVerifier<Runtime>` on
-      `cumulus_pallet_parachain_system::Config`. Runtimes that leave the default `()`
-      keep V3 scheduling disabled and are unaffected.
-    - Resubmissions should only be enabled once the relay chain supports them: the
-      `CandidateReceiptV3` node feature must be set on-chain, and the V4 collator
-      protocol must be in use between collators and validators (which requires both
-      validators and collators to have upgraded their node binaries to versions that
-      support the V4 collator protocol).
+    Resubmissions require relay-chain support: the `CandidateReceiptV3` node feature must
+    be set on-chain and the V4 collator protocol must be in use (validators and collators
+    both upgraded).
 
     Closes paritytech/polkadot-sdk#12152.
 crates:

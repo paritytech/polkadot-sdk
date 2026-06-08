@@ -48,20 +48,13 @@ where
 	/// Returns `true` only when every step succeeds; all error paths return `false` (fail-closed)
 	/// so the PVF rejects the candidate without panicking on adversarial input.
 	///
-	/// Binds the signature to `internal_scheduling_parent_header` by asserting the payload's
-	/// `internal_scheduling_parent` field matches its hash. Derives the para slot from the
-	/// header's BABE pre-digest, then looks up the eligible Aura author in the cached authority
-	/// set and verifies the signature over the encoded `SchedulingInfoPayload`.
+	/// Derives the para slot from `internal_scheduling_parent_header`'s BABE pre-digest, then
+	/// looks up the eligible Aura author in the cached authority set and verifies the signature
+	/// over the encoded `SchedulingInfoPayload`.
 	fn verify(
 		signed_info: &SignedSchedulingInfo,
 		internal_scheduling_parent_header: &RelayChainHeader,
 	) -> bool {
-		if signed_info.payload.internal_scheduling_parent !=
-			internal_scheduling_parent_header.hash()
-		{
-			return false;
-		}
-
 		// 1. Relay slot at internal scheduling parent gives the para slot that determines the valid
 		//    author.
 		let relay_slot: Slot = match internal_scheduling_parent_header
@@ -106,7 +99,13 @@ where
 			&mut &signed_info.signature[..],
 		) {
 			Ok(sig) => sig,
-			Err(_) => return false,
+			Err(e) => {
+				log::error!(
+					target: "aura-ext::scheduling-verifier",
+					"failed to decode scheduling signature: {e}",
+				);
+				return false;
+			},
 		};
 
 		author.verify(&signed_info.payload.encode(), &signature)
