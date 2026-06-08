@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780938127569,
+  "lastUpdate": 1780940208439,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "47c4bbc803d6f884ce6cd20e995c0c9a9d2353a4",
-          "message": "revive/rpc: Adjust the RPC to utilize the ETH block from storage (#9512)\n\nThis PR adjusts the RPC layer of pallet-revive to use Ethereum blocks\nfrom storage via runtime APIs and establishes proper Ethereum ↔\nSubstrate block hash mappings.\n\n## Key Changes\n\n### Block Hash Mapping Infrastructure\n- **New database table**: `eth_to_substrate_blocks` maps Ethereum block\nhashes to Substrate block hashes and block numbers\n- **Bidirectional lookups**: Support for both ETH→Substrate and\nSubstrate→ETH hash resolution with backward compatibility fallbacks\n- **Block pruning**: Updated to remove stale mappings alongside\ntransaction and log data\n\n### Pallet Changes\n\n- **Genesis block initialization**: Added\n`block_storage::on_finalize_build_eth_block()` call in\n`BuildGenesisConfig` to properly build and store block 0\n\n## Testing\n\n- Added comprehensive tests for block hash mapping operations\n- Ethereum vs Substrate hash resolution tests\n- Fork handling in block pruning tests\n- Log filtering with Ethereum block hash tests\n- TransactionInfo deserialization from JSON Value tests\n\n## Implementation Details\n\nThe implementation uses a **runtime API approach** where the RPC layer\nqueries the runtime for Ethereum blocks and hashes, which are then\nmapped to Substrate block hashes in the local SQLite database. This\nprovides:\n\n1. **Backward compatibility**: Falls back to treating hashes as\nSubstrate hashes when no mapping exists\n2. **Efficient lookups**: Database indices on both Ethereum and\nSubstrate block hashes\n3. **Automatic cleanup**: Block mappings are pruned alongside\ntransaction and log data\n4. **Genesis block handling**: Block 0 is built during genesis using the\nblock storage infrastructure\n\nBuilds upon: https://github.com/paritytech/polkadot-sdk/pull/9418  \nPart of: https://github.com/paritytech/contract-issues/issues/139\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Lukasz Rubaszewski <117115317+lrubasze@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>",
-          "timestamp": "2025-10-24T07:26:16Z",
-          "tree_id": "2e1ee95f1bd75bb69b1bc401cfafa08871483e5f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/47c4bbc803d6f884ce6cd20e995c0c9a9d2353a4"
-        },
-        "date": 1761294892747,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.596201486166667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20082589683333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.415178410333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "82968568+miloskriz@users.noreply.github.com",
+            "name": "Milos Kriz",
+            "username": "miloskriz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b95ef390bb5b4c3025e244234373195e4d1c12ed",
+          "message": "Removal of IBP bootnodes (#12284)\n\nDear team, hello!\n\nPlease consider this Pull Request to remove all bootnodes from the\nInfrastructure Builders Programme (IBP) due to the shutdown of its\noperations (signaled in [referendum\n1891](https://polkadot.subsquare.io/referenda/1891))\n\nThese changes affect `polkadot`, `kusama` and `westend` relay and system\nchain chainspecs, as the `paseo` ones will be modified in their own\nrepository.\n\nMany thanks for the long standing partnership!\n\nBest regards!!\n\n**_Milos_**",
+          "timestamp": "2026-06-08T14:19:56Z",
+          "tree_id": "72a132169bca5618c8137ce26347a803dd5ef347",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b95ef390bb5b4c3025e244234373195e4d1c12ed"
+        },
+        "date": 1780940176064,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.129182701333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13303728470000004,
             "unit": "seconds"
           }
         ]
