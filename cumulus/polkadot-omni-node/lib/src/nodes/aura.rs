@@ -649,6 +649,7 @@ where
 		CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 		CIDP::InherentDataProviders: Send,
 		CHP: cumulus_client_consensus_common::ValidationCodeHashProvider<Hash>
+			+ Clone
 			+ Send
 			+ Sync
 			+ 'static,

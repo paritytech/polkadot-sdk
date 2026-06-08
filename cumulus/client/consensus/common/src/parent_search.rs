@@ -237,10 +237,10 @@ async fn find_deepest_valid_parent_v3<Block: BlockT>(
 	start_header: Block::Header,
 	start_hash: Block::Hash,
 	best_hash: Block::Hash,
-) -> RelayChainResult<Block::Header> {
+) -> RelayChainResult<(Block::Header, Vec<Block::Header>)> {
 	let start_number = *start_header.number();
 	let mut best_parent = start_header;
-
+	let mut unincluded_segment_newest_first = Vec::new();
 	let mut route = vec![];
 	let mut current_hash = best_hash;
 	loop {
@@ -251,6 +251,8 @@ async fn find_deepest_valid_parent_v3<Block: BlockT>(
 		if current_hash == start_hash {
 			break;
 		}
+
+		unincluded_segment_newest_first.push(current_header.clone());
 
 		if *current_header.number() <= start_number {
 			return Ok(best_parent);
@@ -269,8 +271,8 @@ async fn find_deepest_valid_parent_v3<Block: BlockT>(
 			break;
 		}
 	}
-
-	Ok(best_parent)
+	let unincluded_segment = unincluded_segment_newest_first.reverse();
+	Ok((best_parent, unincluded_segment))
 }
 
 #[derive(Clone, Debug)]
@@ -296,21 +298,87 @@ impl<Block: BlockT> ParentSearchParams<Block> {
 	}
 }
 
-/// A potential parent block returned from [`find_parent_for_building`]
+/// A potential parent block returned from [`find_parent_for_building`].
+///
+/// V3 additionally carries the local view of the unincluded segment between included and
+/// best (oldest first, exclusive of included); V2 only exposes the segment endpoints.
 #[derive(PartialEq, Clone)]
-pub struct ParentSearchResult<Block: BlockT> {
-	/// The header of the included block (confirmed on relay chain) at the scheduling parent.
-	pub included_at_scheduling: Block::Header,
-	/// The header of the best parent block to build on.
-	pub best_parent_header: Block::Header,
+pub enum ParentSearchResult<Block: BlockT> {
+	V2 {
+		/// The header of the included block (confirmed on relay chain).
+		included_header: Block::Header,
+		/// The header of the best parent block to build on.
+		best_parent_header: Block::Header,
+	},
+	V3 {
+		/// The header of the included block (confirmed on relay chain).
+		included_header: Block::Header,
+		/// The header of the best parent block to build on.
+		best_parent_header: Block::Header,
+		/// Unincluded parablocks ordered oldest first (just after the included block) to
+		/// newest (best parent). Empty when best parent equals the included block.
+		unincluded_segment: Vec<Block::Header>,
+	},
+}
+
+impl<Block: BlockT> ParentSearchResult<Block> {
+	/// The included block (relay-chain-confirmed head of the parachain).
+	pub fn included_header(&self) -> &Block::Header {
+		match self {
+			Self::V2 { included_header, .. } | Self::V3 { included_header, .. } => included_header,
+		}
+	}
+
+	/// The block to build the next parablock on top of.
+	pub fn best_parent_header(&self) -> &Block::Header {
+		match self {
+			Self::V2 { best_parent_header, .. } | Self::V3 { best_parent_header, .. } => {
+				best_parent_header
+			},
+		}
+	}
+
+	/// The unincluded segment for V3 (oldest first, exclusive of included). `None` for V2.
+	pub fn unincluded_segment(&self) -> Option<&[Block::Header]> {
+		match self {
+			Self::V2 { .. } => None,
+			Self::V3 { unincluded_segment, .. } => Some(unincluded_segment),
+		}
+	}
+
+	/// Replace the best parent with its parent (one step back). For V3, also pops the matching
+	/// tail entry of the unincluded segment to keep it in sync with the new best.
+	pub fn walk_best_parent_back(&mut self, new_best: Block::Header) {
+		match self {
+			Self::V2 { best_parent_header, .. } => *best_parent_header = new_best,
+			Self::V3 { best_parent_header, unincluded_segment, .. } => {
+				*best_parent_header = new_best;
+				unincluded_segment.pop();
+			},
+		}
+	}
+
+	/// Fall the best parent back to the included block (the segment becomes empty for V3).
+	pub fn fall_back_to_included(&mut self) {
+		match self {
+			Self::V2 { best_parent_header, included_header } => {
+				*best_parent_header = included_header.clone()
+			},
+			Self::V3 { best_parent_header, included_header, unincluded_segment } => {
+				*best_parent_header = included_header.clone();
+				unincluded_segment.clear();
+			},
+		}
+	}
 }
 
 impl<B: BlockT> std::fmt::Debug for ParentSearchResult<B> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("ParentSearchResult")
-			.field("included_at_scheduling_number", &self.included_at_scheduling.number())
-			.field("best_parent_hash", &self.best_parent_header.hash())
-			.field("best_parent_number", &self.best_parent_header.number())
+			.field("included_number", &self.included_header().number())
+			.field("best_parent_hash", &self.best_parent_header().hash())
+			.field("best_parent_number", &self.best_parent_header().number())
+			.field("unincluded_segment_len", &self.unincluded_segment().map(|s| s.len()))
 			.finish()
 	}
 }
@@ -367,7 +435,7 @@ pub async fn find_parent_for_building<Block: BlockT>(
 	let (start_hash, start_header) =
 		maybe_pending.unwrap_or((included_hash, included_header.clone()));
 
-	let best_parent_header = match params {
+	match params {
 		ParentSearchParams::V2 { scheduling_parent: relay_parent } => {
 			let ancestry_lookback = relay_client
 				.scheduling_lookahead(relay_parent)
@@ -379,10 +447,13 @@ pub async fn find_parent_for_building<Block: BlockT>(
 				build_relay_parent_ancestry(relay_client, relay_parent, ancestry_lookback).await?;
 
 			// Search for the deepest valid parent starting from the pending/included block.
-			find_deepest_valid_parent_v2(backend, start_header, start_hash, &rp_ancestry)
+			let best_parent_header =
+				find_deepest_valid_parent_v2(backend, start_header, start_hash, &rp_ancestry);
+
+			Ok(Some(ParentSearchResult::V2 { included_header, best_parent_header }))
 		},
 		ParentSearchParams::V3 { scheduling_parent, para_best_hash } => {
-			find_deepest_valid_parent_v3(
+			let (best_parent, mut unincluded_segment) = find_deepest_valid_parent_v3(
 				relay_client,
 				backend,
 				scheduling_parent,
@@ -390,9 +461,13 @@ pub async fn find_parent_for_building<Block: BlockT>(
 				start_hash,
 				para_best_hash,
 			)
-			.await?
-		},
-	};
+			.await?;
 
-	Ok(Some(ParentSearchResult { included_at_scheduling: included_header, best_parent_header }))
+			Ok(Some(ParentSearchResult::V3 {
+				included_header,
+				best_parent_header: best_parent_header.unwrap_or(start_header),
+				unincluded_segment,
+			}))
+		},
+	}
 }

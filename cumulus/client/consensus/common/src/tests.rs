@@ -1038,9 +1038,9 @@ fn find_best_parent_in_allowed_ancestry() {
 	.unwrap()
 	.expect("Should find a parent");
 
-	assert_eq!(result.best_parent_header.hash(), included_block.hash());
-	assert_eq!(&result.best_parent_header, included_block.header());
-	assert_eq!(&result.included_at_scheduling, included_block.header());
+	assert_eq!(result.best_parent_header().hash(), included_block.hash());
+	assert_eq!(result.best_parent_header(), included_block.header());
+	assert_eq!(result.included_header(), included_block.header());
 
 	// Add a child block with a different relay parent.
 	let block_relay_parent = relay_hash_from_block_num(11);
@@ -1070,8 +1070,8 @@ fn find_best_parent_in_allowed_ancestry() {
 	.unwrap()
 	.expect("Should find a parent");
 
-	assert_eq!(result.best_parent_header.hash(), child_block.hash());
-	assert_eq!(&result.best_parent_header, child_block.header());
+	assert_eq!(result.best_parent_header().hash(), child_block.hash());
+	assert_eq!(result.best_parent_header(), child_block.header());
 
 	// With ancestry_lookback: 0, child block's relay parent is too old,
 	// so included block should be the best parent.
@@ -1085,7 +1085,7 @@ fn find_best_parent_in_allowed_ancestry() {
 	.unwrap()
 	.expect("Should find a parent");
 
-	assert_eq!(result.best_parent_header.hash(), included_block.hash());
+	assert_eq!(result.best_parent_header().hash(), included_block.hash());
 }
 
 /// Tests that pending availability block is used as starting point for search.
@@ -1141,10 +1141,10 @@ fn find_best_parent_with_pending() {
 	.expect("Should find a parent");
 
 	// Best parent should be the pending block.
-	assert_eq!(result.best_parent_header.hash(), pending_block.hash());
-	assert_eq!(&result.best_parent_header, pending_block.header());
+	assert_eq!(result.best_parent_header().hash(), pending_block.hash());
+	assert_eq!(result.best_parent_header(), pending_block.header());
 	// Included header should be the included block.
-	assert_eq!(&result.included_at_scheduling, included_block.header());
+	assert_eq!(result.included_header(), included_block.header());
 }
 
 #[test]
@@ -1351,9 +1351,9 @@ fn find_best_parent_with_forks_returns_deepest() {
 	.expect("Should find a parent");
 
 	// The deepest block (fork2_block3) should be the best parent.
-	assert_eq!(result.best_parent_header.hash(), fork2_block3.hash());
-	assert_eq!(&result.best_parent_header, fork2_block3.header());
-	assert_eq!(&result.included_at_scheduling, included_block.header());
+	assert_eq!(result.best_parent_header().hash(), fork2_block3.hash());
+	assert_eq!(result.best_parent_header(), fork2_block3.header());
+	assert_eq!(result.included_header(), included_block.header());
 }
 
 /// Tests that the deepest block in a chain is returned as best parent.
@@ -1426,7 +1426,7 @@ fn find_best_parent_returns_deepest_block() {
 	.expect("Should find a parent");
 
 	// The deepest block should be the best parent.
-	assert_eq!(result.best_parent_header.hash(), last_block.hash());
-	assert_eq!(&result.best_parent_header, last_block.header());
-	assert_eq!(&result.included_at_scheduling, included_block.header());
+	assert_eq!(result.best_parent_header().hash(), last_block.hash());
+	assert_eq!(result.best_parent_header(), last_block.header());
+	assert_eq!(result.included_header(), included_block.header());
 }
