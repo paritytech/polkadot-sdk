@@ -60,8 +60,10 @@ use polkadot_node_subsystem_util::{
 use polkadot_primitives::{
 	BlockNumber, CandidateHash, CandidateIndex, CoreIndex, DisputeStatement, GroupIndex, Hash,
 	SessionIndex, Slot, ValidDisputeStatementKind, ValidatorIndex, ValidatorSignature,
+	MAX_COALESCE_APPROVALS,
 };
 use rand::{CryptoRng, Rng, SeedableRng};
+use sp_core::{bounded::BoundedVec, ConstU32};
 use std::{
 	collections::{hash_map, BTreeMap, HashMap, HashSet, VecDeque},
 	sync::Arc,
@@ -690,6 +692,8 @@ enum InvalidVoteError {
 	ValidatorIndexOutOfBounds,
 	// The signature of the vote was invalid.
 	InvalidSignature,
+	// The approval coalesces more candidates than the allowed maximum.
+	TooManyCandidates,
 	// `SessionInfo` was not found for the block hash in the approval.
 	#[allow(dead_code)]
 	SessionInfoNotFound(polkadot_node_subsystem_util::runtime::Error),
@@ -2020,24 +2024,29 @@ impl State {
 			})
 			.collect::<Vec<_>>();
 
-		let ExtendedSessionInfo { ref session_info, .. } = runtime_info
+		let ExtendedSessionInfo { ref session_info, ref approval_voting_params, .. } = runtime_info
 			.get_session_info_by_index(runtime_api_sender, vote.block_hash, entry.session)
 			.await
 			.map_err(|err| InvalidVoteError::SessionInfoNotFound(err))?;
+
+		// Enforce the runtime's coalescing limit: reject votes coalescing more candidates than
+		// `max_approval_coalesce_count`.
+		if candidate_hashes.len() > approval_voting_params.max_approval_coalesce_count as usize {
+			return Err(InvalidVoteError::TooManyCandidates);
+		}
 
 		let pubkey = session_info
 			.validators
 			.get(vote.validator)
 			.ok_or(InvalidVoteError::ValidatorIndexOutOfBounds)?;
+		let candidate_hashes: BoundedVec<CandidateHash, ConstU32<{ MAX_COALESCE_APPROVALS }>> =
+			candidate_hashes.try_into().map_err(|_| InvalidVoteError::TooManyCandidates)?;
+		let first_candidate =
+			*candidate_hashes.first().ok_or(InvalidVoteError::CandidateHashNotFound)?;
 		DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
-			candidate_hashes.clone(),
+			candidate_hashes,
 		))
-		.check_signature(
-			&pubkey,
-			*candidate_hashes.first().ok_or(InvalidVoteError::CandidateHashNotFound)?,
-			entry.session,
-			&vote.signature,
-		)
+		.check_signature(&pubkey, first_candidate, entry.session, &vote.signature)
 		.map_err(|_| InvalidVoteError::InvalidSignature)
 		.map(|_| CheckedIndirectSignedApprovalVote::from_checked(vote.clone()))
 	}

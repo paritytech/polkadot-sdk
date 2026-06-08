@@ -57,9 +57,9 @@ use polkadot_node_subsystem_test_helpers::{
 	make_buffered_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CandidateReceiptV2 as CandidateReceipt, CoreIndex, DisputeStatement, GroupIndex, Hash,
-	HeadData, Header, IndexedVec, MultiDisputeStatementSet, MutateDescriptorV2, NodeFeatures,
+	ApprovalVote, ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateEvent,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex, DisputeStatement, GroupIndex,
+	Hash, HeadData, Header, IndexedVec, MultiDisputeStatementSet, MutateDescriptorV2, NodeFeatures,
 	ScrapedOnChainVotes, SessionIndex, SessionInfo, SigningContext, ValidDisputeStatementKind,
 	ValidatorId, ValidatorIndex, ValidatorSignature, ValidityAttestation,
 };
@@ -343,6 +343,14 @@ impl TestState {
 										NodeFeatures::EMPTY
 									};
 									si_tx.send(Ok(features)).unwrap();
+								}
+							);
+							assert_matches!(
+								overseer_recv(virtual_overseer).await,
+								AllMessages::RuntimeApi(
+									RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, tx), )
+								) => {
+									tx.send(Ok(ApprovalVotingParams::default())).unwrap();
 								}
 							);
 						}
@@ -4289,6 +4297,14 @@ fn session_info_is_requested_only_once() {
 					si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 				}
 			);
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, tx), )
+				) => {
+					tx.send(Ok(ApprovalVotingParams::default())).unwrap();
+				}
+			);
 			test_state
 		})
 	});
@@ -4347,6 +4363,14 @@ fn session_info_big_jump_works() {
 						si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 					}
 				);
+				assert_matches!(
+					virtual_overseer.recv().await,
+					AllMessages::RuntimeApi(
+						RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, tx), )
+					) => {
+						tx.send(Ok(ApprovalVotingParams::default())).unwrap();
+					}
+				);
 			}
 			test_state
 		})
@@ -4403,6 +4427,14 @@ fn session_info_small_jump_works() {
 						RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
 					) => {
 						si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+					}
+				);
+				assert_matches!(
+					virtual_overseer.recv().await,
+					AllMessages::RuntimeApi(
+						RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, tx), )
+					) => {
+						tx.send(Ok(ApprovalVotingParams::default())).unwrap();
 					}
 				);
 			}
@@ -4888,6 +4920,14 @@ fn v3_candidate_on_subsequent_leaf_is_detected_correctly() {
 					f.resize(FeatureIndex::CandidateReceiptV3 as usize + 1, false);
 					f.set(FeatureIndex::CandidateReceiptV3 as usize, true);
 					si_tx.send(Ok(f)).unwrap();
+				}
+			);
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, tx), )
+				) => {
+					tx.send(Ok(ApprovalVotingParams::default())).unwrap();
 				}
 			);
 

@@ -42,9 +42,9 @@ use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_overseer::SpawnGlue;
 use polkadot_primitives::{
-	ApprovalVote, CandidateCommitments, CandidateEvent, CoreIndex, DisputeStatement, GroupIndex,
-	Header, Id as ParaId, IndexedVec, MutateDescriptorV2, NodeFeatures, ValidDisputeStatementKind,
-	ValidationCode, ValidatorSignature,
+	ApprovalVote, ApprovalVotingParams, CandidateCommitments, CandidateEvent, CoreIndex,
+	DisputeStatement, GroupIndex, Header, Id as ParaId, IndexedVec, MutateDescriptorV2,
+	NodeFeatures, ValidDisputeStatementKind, ValidationCode, ValidatorSignature,
 };
 use std::{cmp::max, time::Duration};
 
@@ -766,6 +766,22 @@ struct BlockConfig {
 	candidates: Option<Vec<(CandidateReceipt, CoreIndex, GroupIndex)>>,
 	session_info: Option<SessionInfo>,
 	end_syncing: bool,
+	// The approval voting params returned by the runtime when the session info is fetched at
+	// import time. These get cached in the `ExtendedSessionInfo` and are later read by
+	// `maybe_create_signature` to decide how many approvals to coalesce.
+	approval_voting_params: ApprovalVotingParams,
+}
+
+impl Default for BlockConfig {
+	fn default() -> Self {
+		BlockConfig {
+			slot: Slot::from(0),
+			candidates: None,
+			session_info: None,
+			end_syncing: false,
+			approval_voting_params: ApprovalVotingParams::default(),
+		}
+	}
 }
 
 struct ChainBuilder {
@@ -788,12 +804,7 @@ impl ChainBuilder {
 			Self::GENESIS_HASH,
 			Self::GENESIS_PARENT_HASH,
 			0,
-			BlockConfig {
-				slot: Slot::from(0),
-				candidates: None,
-				session_info: None,
-				end_syncing: false,
-			},
+			BlockConfig { slot: Slot::from(0), ..Default::default() },
 		);
 		builder
 	}
@@ -1071,6 +1082,14 @@ async fn import_block(
 					si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 				}
 			);
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, si_tx), )
+				) => {
+					si_tx.send(Ok(config.approval_voting_params)).unwrap();
+				}
+			);
 		}
 
 		if !is_major_syncing {
@@ -1130,12 +1149,7 @@ fn subsystem_rejects_bad_assignment_ok_criteria() {
 		let head: Hash = ChainBuilder::GENESIS_HASH;
 		let mut builder = ChainBuilder::new();
 		let slot = Slot::from(1 as u64);
-		builder.add_block(
-			block_hash,
-			head,
-			1,
-			BlockConfig { slot, candidates: None, session_info: None, end_syncing: false },
-		);
+		builder.add_block(block_hash, head, 1, BlockConfig { slot, ..Default::default() });
 		builder.build(&mut virtual_overseer).await;
 
 		let rx =
@@ -1245,6 +1259,7 @@ fn subsystem_rejects_approval_if_no_candidate_entry() {
 				candidates: Some(vec![(candidate_descriptor, CoreIndex(1), GroupIndex(1))]),
 				session_info: None,
 				end_syncing: false,
+				approval_voting_params: ApprovalVotingParams::default(),
 			},
 		);
 		builder.build(&mut virtual_overseer).await;
@@ -1355,6 +1370,7 @@ fn subsystem_rejects_approval_before_assignment() {
 					candidates: None,
 					session_info: None,
 					end_syncing: false,
+					approval_voting_params: ApprovalVotingParams::default(),
 				},
 			)
 			.build(&mut virtual_overseer)
@@ -1428,6 +1444,7 @@ fn subsystem_accepts_duplicate_assignment() {
 					]),
 					session_info: None,
 					end_syncing: false,
+					approval_voting_params: ApprovalVotingParams::default(),
 				},
 			)
 			.build(&mut virtual_overseer)
@@ -1494,6 +1511,7 @@ fn subsystem_rejects_assignment_with_unknown_candidate() {
 					candidates: None,
 					session_info: None,
 					end_syncing: false,
+					approval_voting_params: ApprovalVotingParams::default(),
 				},
 			)
 			.build(&mut virtual_overseer)
@@ -1540,6 +1558,7 @@ fn subsystem_rejects_oversized_bitfields() {
 					candidates: None,
 					session_info: None,
 					end_syncing: false,
+					approval_voting_params: ApprovalVotingParams::default(),
 				},
 			)
 			.build(&mut virtual_overseer)
@@ -1605,6 +1624,7 @@ fn subsystem_accepts_and_imports_approval_after_assignment() {
 					candidates: None,
 					session_info: None,
 					end_syncing: false,
+					approval_voting_params: ApprovalVotingParams::default(),
 				},
 			)
 			.build(&mut virtual_overseer)
@@ -1693,6 +1713,7 @@ fn subsystem_second_approval_import_only_schedules_wakeups() {
 					candidates: None,
 					session_info: Some(session_info),
 					end_syncing: false,
+					approval_voting_params: ApprovalVotingParams::default(),
 				},
 			)
 			.build(&mut virtual_overseer)
@@ -1777,6 +1798,7 @@ fn subsystem_assignment_import_updates_candidate_entry_and_schedules_wakeup() {
 					candidates: None,
 					session_info: None,
 					end_syncing: false,
+					approval_voting_params: ApprovalVotingParams::default(),
 				},
 			)
 			.build(&mut virtual_overseer)
@@ -1873,6 +1895,7 @@ fn test_approvals_on_fork_are_always_considered_after_no_show(
 						..session_info(&validators)
 					}),
 					end_syncing: false,
+					approval_voting_params: ApprovalVotingParams::default(),
 				},
 			)
 			.add_block(
@@ -1894,6 +1917,7 @@ fn test_approvals_on_fork_are_always_considered_after_no_show(
 						..session_info(&validators)
 					}),
 					end_syncing: false,
+					approval_voting_params: ApprovalVotingParams::default(),
 				},
 			)
 			.build(&mut virtual_overseer)
@@ -2005,6 +2029,7 @@ fn subsystem_process_wakeup_schedules_wakeup() {
 					candidates: None,
 					session_info: None,
 					end_syncing: false,
+					approval_voting_params: ApprovalVotingParams::default(),
 				},
 			)
 			.build(&mut virtual_overseer)
@@ -2049,12 +2074,7 @@ fn linear_import_act_on_leaf() {
 			let slot = Slot::from(i as u64);
 
 			let hash = Hash::repeat_byte(i as u8);
-			builder.add_block(
-				hash,
-				head,
-				i,
-				BlockConfig { slot, candidates: None, session_info: None, end_syncing: false },
-			);
+			builder.add_block(hash, head, i, BlockConfig { slot, ..Default::default() });
 			head = hash;
 		}
 
@@ -2110,12 +2130,7 @@ fn forkful_import_at_same_height_act_on_leaf() {
 		for i in 1..session {
 			let slot = Slot::from(i as u64);
 			let hash = Hash::repeat_byte(i as u8);
-			builder.add_block(
-				hash,
-				head,
-				i,
-				BlockConfig { slot, candidates: None, session_info: None, end_syncing: false },
-			);
+			builder.add_block(hash, head, i, BlockConfig { slot, ..Default::default() });
 			head = hash;
 		}
 		let num_forks = 3;
@@ -2124,12 +2139,7 @@ fn forkful_import_at_same_height_act_on_leaf() {
 		for i in 0..num_forks {
 			let slot = Slot::from(session as u64);
 			let hash = Hash::repeat_byte(session as u8 + i);
-			builder.add_block(
-				hash,
-				head,
-				session,
-				BlockConfig { slot, candidates: None, session_info: None, end_syncing: false },
-			);
+			builder.add_block(hash, head, session, BlockConfig { slot, ..Default::default() });
 		}
 		builder.build(&mut virtual_overseer).await;
 
@@ -2211,7 +2221,9 @@ fn test_signing_a_single_candidate_is_backwards_compatible() {
 	);
 
 	assert!(DisputeStatement::Valid(
-		ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(vec![candidate_hash])
+		ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
+			vec![candidate_hash].try_into().expect("within the coalesce bound")
+		)
 	)
 	.check_signature(&Sr25519Keyring::Alice.public().into(), candidate_hash, session_index, &sig_c,)
 	.is_ok());
@@ -2226,7 +2238,9 @@ fn test_signing_a_single_candidate_is_backwards_compatible() {
 		.is_ok());
 
 	assert!(DisputeStatement::Valid(
-		ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(vec![candidate_hash])
+		ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
+			vec![candidate_hash].try_into().expect("within the coalesce bound")
+		)
 	)
 	.check_signature(&Sr25519Keyring::Alice.public().into(), candidate_hash, session_index, &sig_a,)
 	.is_ok());
@@ -2238,7 +2252,9 @@ fn test_signing_a_single_candidate_is_backwards_compatible() {
 	);
 
 	assert!(DisputeStatement::Valid(
-		ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes.clone())
+		ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
+			candidate_hashes.clone().try_into().expect("within the coalesce bound")
+		)
 	)
 	.check_signature(
 		&Sr25519Keyring::Alice.public().into(),
@@ -2303,6 +2319,7 @@ fn import_checked_approval_updates_entries_and_schedules() {
 				candidates: Some(vec![(candidate_descriptor, CoreIndex(0), GroupIndex(0))]),
 				session_info: Some(session_info),
 				end_syncing: false,
+				approval_voting_params: ApprovalVotingParams::default(),
 			},
 		);
 		builder.build(&mut virtual_overseer).await;
@@ -2461,6 +2478,7 @@ fn subsystem_import_checked_approval_sets_one_block_bit_at_a_time() {
 					]),
 					session_info: Some(session_info),
 					end_syncing: false,
+					approval_voting_params: ApprovalVotingParams::default(),
 				},
 			)
 			.build(&mut virtual_overseer)
@@ -2636,6 +2654,7 @@ fn inclusion_events_can_be_unordered_by_core_index() {
 					]),
 					session_info: Some(session_info),
 					end_syncing: true,
+					approval_voting_params: ApprovalVotingParams::default(),
 				},
 			)
 			.build(&mut virtual_overseer)
@@ -2747,6 +2766,7 @@ fn approved_ancestor_test(
 					candidates: Some(vec![(candidate_receipt, CoreIndex(0), GroupIndex(0))]),
 					session_info: None,
 					end_syncing: false,
+					approval_voting_params: ApprovalVotingParams::default(),
 				},
 			);
 		}
@@ -2927,6 +2947,7 @@ fn subsystem_validate_approvals_cache() {
 					candidates: candidates.clone(),
 					session_info: Some(session_info.clone()),
 					end_syncing: false,
+					approval_voting_params: ApprovalVotingParams::default(),
 				},
 			)
 			.add_block(
@@ -2938,6 +2959,7 @@ fn subsystem_validate_approvals_cache() {
 					candidates,
 					session_info: Some(session_info),
 					end_syncing: false,
+					approval_voting_params: ApprovalVotingParams::default(),
 				},
 			)
 			.build(&mut virtual_overseer)
@@ -3050,6 +3072,7 @@ fn subsystem_doesnt_distribute_duplicate_compact_assignments() {
 					]),
 					session_info: None,
 					end_syncing: false,
+					approval_voting_params: ApprovalVotingParams::default(),
 				},
 			)
 			.build(&mut virtual_overseer)
@@ -3143,25 +3166,7 @@ async fn handle_double_assignment_import(
 
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
-			let _ = sender.send(Ok(ApprovalVotingParams {
-				max_approval_coalesce_count: 1,
-			}));
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
 		AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeApproval(_))
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
-			let _ = sender.send(Ok(ApprovalVotingParams {
-				max_approval_coalesce_count: 1,
-			}));
-		}
 	);
 
 	assert_matches!(
@@ -3323,6 +3328,7 @@ where
 					candidates: Some(vec![(candidate_receipt, CoreIndex(0), GroupIndex(2))]),
 					session_info: Some(session_info),
 					end_syncing: false,
+					approval_voting_params: ApprovalVotingParams::default(),
 				},
 			)
 			.build(&mut virtual_overseer)
@@ -3660,6 +3666,7 @@ fn pre_covers_dont_stall_approval() {
 				candidates: Some(vec![(candidate_descriptor, CoreIndex(0), GroupIndex(0))]),
 				session_info: Some(session_info),
 				end_syncing: false,
+				approval_voting_params: ApprovalVotingParams::default(),
 			},
 		);
 		builder.build(&mut virtual_overseer).await;
@@ -3841,6 +3848,7 @@ fn waits_until_approving_assignments_are_old_enough() {
 				candidates: Some(vec![(candidate_descriptor, CoreIndex(0), GroupIndex(0))]),
 				session_info: Some(session_info),
 				end_syncing: false,
+				approval_voting_params: ApprovalVotingParams::default(),
 			},
 		);
 		builder.build(&mut virtual_overseer).await;
@@ -4058,6 +4066,10 @@ fn test_approval_is_sent_on_max_approval_coalesce_count() {
 					candidates: candidates.clone(),
 					session_info: Some(session_info.clone()),
 					end_syncing: false,
+					// Configure a coalesce count of 2 so that both candidates are coalesced into a
+					// single approval. This value is cached at import and read back by
+					// `maybe_create_signature`.
+					approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 2 },
 				},
 			)
 			.build(&mut virtual_overseer)
@@ -4123,24 +4135,6 @@ async fn handle_approval_on_max_coalesce_count(
 
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
-			let _ = sender.send(Ok(ApprovalVotingParams {
-				max_approval_coalesce_count: 2,
-			}));
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
-			let _ = sender.send(Ok(ApprovalVotingParams {
-				max_approval_coalesce_count: 2,
-			}));
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
 		AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeApproval(vote)) => {
 			assert_eq!(TryInto::<CandidateBitfield>::try_into(candidate_indices).unwrap(), vote.candidate_indices);
 		}
@@ -4156,7 +4150,6 @@ async fn handle_approval_on_max_wait_time(
 	clock: Arc<MockClock>,
 ) {
 	const TICK_NOW_BEGIN: u64 = 1;
-	const MAX_COALESCE_COUNT: u32 = 3;
 
 	clock.inner.lock().set_tick(TICK_NOW_BEGIN);
 
@@ -4185,26 +4178,6 @@ async fn handle_approval_on_max_wait_time(
 		);
 	}
 
-	// First time we fetch the configuration when we are ready to approve the first candidate
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
-			let _ = sender.send(Ok(ApprovalVotingParams {
-				max_approval_coalesce_count: MAX_COALESCE_COUNT,
-			}));
-		}
-	);
-
-	// Second time we fetch the configuration when we are ready to approve the second candidate
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
-			let _ = sender.send(Ok(ApprovalVotingParams {
-				max_approval_coalesce_count: MAX_COALESCE_COUNT,
-			}));
-		}
-	);
-
 	assert!(overseer_recv(virtual_overseer).timeout(TIMEOUT / 2).await.is_none());
 
 	// Move the clock just before we should send the approval
@@ -4220,17 +4193,6 @@ async fn handle_approval_on_max_wait_time(
 		.inner
 		.lock()
 		.set_tick(MAX_APPROVAL_COALESCE_WAIT_TICKS as Tick + TICK_NOW_BEGIN);
-
-	// Third time we fetch the configuration when timer expires and we are ready to sent the
-	// approval
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
-			let _ = sender.send(Ok(ApprovalVotingParams {
-				max_approval_coalesce_count: 3,
-			}));
-		}
-	);
 
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
@@ -4359,6 +4321,10 @@ fn test_approval_is_sent_on_max_approval_coalesce_wait() {
 					candidates: candidates.clone(),
 					session_info: Some(session_info.clone()),
 					end_syncing: false,
+					// Configure a coalesce count of 3 so the approvals are cached until the
+					// coalesce wait timer expires. This value is cached at import and read back by
+					// `maybe_create_signature`.
+					approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 3 },
 				},
 			)
 			.build(&mut virtual_overseer)
@@ -4401,6 +4367,7 @@ async fn build_chain_with_two_blocks_with_one_candidate_each(
 	slot: Slot,
 	sync_oracle_handle: TestSyncOracleHandle,
 	candidate_receipt: CandidateReceipt,
+	approval_voting_params: ApprovalVotingParams,
 ) -> (ChainBuilder, SessionInfo) {
 	let validators = vec![
 		Sr25519Keyring::Alice,
@@ -4432,6 +4399,7 @@ async fn build_chain_with_two_blocks_with_one_candidate_each(
 				candidates: candidates.clone(),
 				session_info: Some(session_info.clone()),
 				end_syncing: false,
+				approval_voting_params,
 			},
 		)
 		.add_block(
@@ -4443,6 +4411,7 @@ async fn build_chain_with_two_blocks_with_one_candidate_each(
 				candidates,
 				session_info: Some(session_info.clone()),
 				end_syncing: true,
+				approval_voting_params,
 			},
 		);
 	(chain_builder, session_info)
@@ -4453,6 +4422,7 @@ async fn setup_overseer_with_two_blocks_each_with_one_assignment_triggered(
 	store: TestStore,
 	clock: &Arc<MockClock>,
 	sync_oracle_handle: TestSyncOracleHandle,
+	approval_voting_params: ApprovalVotingParams,
 ) {
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
@@ -4474,6 +4444,7 @@ async fn setup_overseer_with_two_blocks_each_with_one_assignment_triggered(
 		slot,
 		sync_oracle_handle,
 		candidate_receipt,
+		approval_voting_params,
 	)
 	.await;
 	chain_builder.build(virtual_overseer).await;
@@ -4504,6 +4475,7 @@ async fn build_chain_with_block_with_two_candidates(
 	slot: Slot,
 	sync_oracle_handle: TestSyncOracleHandle,
 	candidate_receipt: Vec<CandidateReceipt>,
+	approval_voting_params: ApprovalVotingParams,
 ) -> (ChainBuilder, SessionInfo) {
 	let validators = vec![
 		Sr25519Keyring::Alice,
@@ -4541,6 +4513,7 @@ async fn build_chain_with_block_with_two_candidates(
 				candidates: candidates.clone(),
 				session_info: Some(session_info.clone()),
 				end_syncing: true,
+				approval_voting_params,
 			},
 		);
 	(chain_builder, session_info)
@@ -4551,6 +4524,7 @@ async fn setup_overseer_with_blocks_with_two_assignments_triggered(
 	store: TestStore,
 	clock: &Arc<MockClock>,
 	sync_oracle_handle: TestSyncOracleHandle,
+	approval_voting_params: ApprovalVotingParams,
 ) {
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
@@ -4577,6 +4551,7 @@ async fn setup_overseer_with_blocks_with_two_assignments_triggered(
 		slot,
 		sync_oracle_handle,
 		vec![candidate_receipt, candidate_receipt2],
+		approval_voting_params,
 	)
 	.await;
 	chain_builder.build(virtual_overseer).await;
@@ -4655,6 +4630,7 @@ fn subsystem_relaunches_approval_work_on_restart() {
 			store,
 			&clock,
 			sync_oracle_handle,
+			ApprovalVotingParams::default(),
 		)
 		.await;
 
@@ -4711,6 +4687,7 @@ fn subsystem_relaunches_approval_work_on_restart() {
 			slot,
 			sync_oracle_handle,
 			candidate_receipt,
+			ApprovalVotingParams::default(),
 		)
 		.await;
 
@@ -4787,24 +4764,13 @@ fn subsystem_relaunches_approval_work_on_restart() {
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
-				let _ = sender.send(Ok(ApprovalVotingParams {
-					max_approval_coalesce_count: 1,
-				}));
+				let _ = sender.send(Ok(ApprovalVotingParams::default()));
 			}
 		);
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeApproval(_))
-		);
-
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
-				let _ = sender.send(Ok(ApprovalVotingParams {
-					max_approval_coalesce_count: 1,
-				}));
-			}
 		);
 
 		assert_matches!(
@@ -4866,6 +4832,7 @@ fn subsystem_relaunches_approval_work_on_availability_failure() {
 			store,
 			&clock,
 			sync_oracle_handle,
+			ApprovalVotingParams::default(),
 		)
 		.await;
 
@@ -4923,14 +4890,6 @@ fn subsystem_relaunches_approval_work_on_availability_failure() {
 			}) if exec_kind == PvfExecKind::Approval => {
 				response_sender.send(Ok(ValidationResult::Valid(Default::default(), Default::default())))
 					.unwrap();
-			}
-		);
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
-				let _ = sender.send(Ok(ApprovalVotingParams {
-					max_approval_coalesce_count: 1,
-				}));
 			}
 		);
 
@@ -4995,6 +4954,7 @@ fn subsystem_sends_pending_approvals_on_approval_restart() {
 			store,
 			&clock,
 			sync_oracle_handle,
+			ApprovalVotingParams { max_approval_coalesce_count: 6 },
 		)
 		.await;
 
@@ -5031,26 +4991,6 @@ fn subsystem_sends_pending_approvals_on_approval_restart() {
 			}
 		);
 
-		// Configure a big coalesce number, so that the signature is cached instead of being sent to
-		// approval-distribution.
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
-				let _ = sender.send(Ok(ApprovalVotingParams {
-					max_approval_coalesce_count: 6,
-				}));
-			}
-		);
-
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
-				let _ = sender.send(Ok(ApprovalVotingParams {
-					max_approval_coalesce_count: 6,
-				}));
-			}
-		);
-
 		// Assert that there are no more messages being sent by the subsystem
 		assert!(overseer_recv(&mut virtual_overseer).timeout(TIMEOUT / 2).await.is_none());
 
@@ -5084,6 +5024,7 @@ fn subsystem_sends_pending_approvals_on_approval_restart() {
 			slot,
 			sync_oracle_handle,
 			candidate_receipt.into(),
+			ApprovalVotingParams::default(),
 		)
 		.await;
 		chain_builder.build(&mut virtual_overseer).await;
@@ -5118,14 +5059,6 @@ fn subsystem_sends_pending_approvals_on_approval_restart() {
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
-				let _ = sender.send(Ok(ApprovalVotingParams {
-					max_approval_coalesce_count: 1,
-				}));
-			}
-		);
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::RuntimeApi(
 				RuntimeApiMessage::Request(
 					_,
@@ -5146,16 +5079,14 @@ fn subsystem_sends_pending_approvals_on_approval_restart() {
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeApproval(_))
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
+				let _ = sender.send(Ok(ApprovalVotingParams::default()));
+			}
 		);
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
-				let _ = sender.send(Ok(ApprovalVotingParams {
-					max_approval_coalesce_count: 1,
-				}));
-			}
+			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeApproval(_))
 		);
 
 		assert_matches!(
@@ -5218,6 +5149,7 @@ fn subsystem_sends_assignment_approval_in_correct_order_on_approval_restart() {
 			store,
 			&clock,
 			sync_oracle_handle,
+			ApprovalVotingParams { max_approval_coalesce_count: 2 },
 		)
 		.await;
 
@@ -5269,26 +5201,6 @@ fn subsystem_sends_assignment_approval_in_correct_order_on_approval_restart() {
 			}
 		);
 
-		// Configure a big coalesce number, so that the signature is cached instead of being sent to
-		// approval-distribution.
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
-				let _ = sender.send(Ok(ApprovalVotingParams {
-					max_approval_coalesce_count: 2,
-				}));
-			}
-		);
-
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
-				let _ = sender.send(Ok(ApprovalVotingParams {
-					max_approval_coalesce_count: 2,
-				}));
-			}
-		);
-
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeApproval(_))
@@ -5330,6 +5242,7 @@ fn subsystem_sends_assignment_approval_in_correct_order_on_approval_restart() {
 			slot,
 			sync_oracle_handle,
 			vec![candidate_receipt.into(), candidate_receipt2.into()],
+			ApprovalVotingParams { max_approval_coalesce_count: 2 },
 		)
 		.await;
 		chain_builder.build(&mut virtual_overseer).await;
@@ -5428,6 +5341,7 @@ fn subsystem_launches_missed_assignments_on_restart() {
 			slot,
 			sync_oracle_handle,
 			candidate_receipt,
+			ApprovalVotingParams::default(),
 		)
 		.await;
 		chain_builder.build(&mut virtual_overseer).await;
@@ -5483,6 +5397,7 @@ fn subsystem_launches_missed_assignments_on_restart() {
 			slot,
 			sync_oracle_handle,
 			candidate_receipt,
+			ApprovalVotingParams::default(),
 		)
 		.await;
 
@@ -5537,6 +5452,13 @@ fn subsystem_launches_missed_assignments_on_restart() {
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
+				let _ = sender.send(Ok(ApprovalVotingParams::default()));
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeAssignment(
 				_,
 				_,
@@ -5562,15 +5484,6 @@ fn subsystem_launches_missed_assignments_on_restart() {
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
-				let _ = sender.send(Ok(ApprovalVotingParams {
-					max_approval_coalesce_count: 1,
-				}));
-			}
-		);
-
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeApproval(_))
 		);
 
@@ -5585,15 +5498,6 @@ fn subsystem_launches_missed_assignments_on_restart() {
 				_,
 				_,
 			)) => {
-			}
-		);
-
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
-				let _ = sender.send(Ok(ApprovalVotingParams {
-					max_approval_coalesce_count: 1,
-				}));
 			}
 		);
 

@@ -36,8 +36,8 @@ use polkadot_node_subsystem::messages::{
 };
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt as _};
 use polkadot_primitives::{
-	ApprovalVoteMultipleCandidates, AuthorityDiscoveryId, BlakeTwo256, CoreIndex, HashT,
-	NodeFeatures, SessionInfo, ValidatorId,
+	ApprovalVoteMultipleCandidates, ApprovalVotingParams, AuthorityDiscoveryId, BlakeTwo256,
+	CoreIndex, HashT, NodeFeatures, SessionInfo, ValidatorId, MAX_COALESCE_APPROVALS,
 };
 use polkadot_primitives_test_helpers::dummy_signature;
 use rand::SeedableRng;
@@ -160,6 +160,18 @@ async fn provide_session(virtual_overseer: &mut VirtualOverseer, session_info: S
 			RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
 		) => {
 			si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+		}
+	);
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, si_tx))
+		) => {
+			si_tx
+				.send(Ok(ApprovalVotingParams {
+					max_approval_coalesce_count: MAX_COALESCE_APPROVALS,
+				}))
+				.unwrap();
 		}
 	);
 }
