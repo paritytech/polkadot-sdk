@@ -19,7 +19,6 @@
 use crate::traits::Registrar;
 use codec::{Decode, Encode};
 use frame_support::{dispatch::DispatchResult, weights::Weight};
-use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::{
 	HeadData, Id as ParaId, PvfCheckStatement, SessionIndex, ValidationCode,
 };
@@ -29,7 +28,6 @@ use sp_runtime::{DispatchError, Permill};
 use std::{cell::RefCell, collections::HashMap};
 
 thread_local! {
-	static OPERATIONS: RefCell<Vec<(ParaId, u32, bool)>> = RefCell::new(Vec::new());
 	static PARACHAINS: RefCell<Vec<ParaId>> = RefCell::new(Vec::new());
 	static LOCKS: RefCell<HashMap<ParaId, bool>> = RefCell::new(HashMap::new());
 	static MANAGERS: RefCell<HashMap<ParaId, Vec<u8>>> = RefCell::new(HashMap::new());
@@ -92,14 +90,16 @@ impl<T: frame_system::Config> Registrar for TestRegistrar<T> {
 		Ok(())
 	}
 
-	/// All registered paras are already parachains — no-op.
+	/// All registered paras are already parachains, so this is a no-op that mirrors the production
+	/// registrar.
 	fn make_parachain(_id: ParaId) -> DispatchResult {
 		Ok(())
 	}
 
-	/// Downgrading to parathread is no longer supported.
+	/// Downgrading to a parathread no longer changes any lifecycle (all paras stay parachains), so
+	/// this is a no-op that mirrors the production registrar.
 	fn make_parathread(_id: ParaId) -> DispatchResult {
-		Err(DispatchError::Other("parathread lifecycle has been removed"))
+		Ok(())
 	}
 
 	#[cfg(test)]
@@ -118,11 +118,6 @@ impl<T: frame_system::Config> Registrar for TestRegistrar<T> {
 }
 
 impl<T: frame_system::Config> TestRegistrar<T> {
-	pub fn operations() -> Vec<(ParaId, BlockNumberFor<T>, bool)> {
-		OPERATIONS
-			.with(|x| x.borrow().iter().map(|(p, b, c)| (*p, (*b).into(), *c)).collect::<Vec<_>>())
-	}
-
 	#[allow(dead_code)]
 	pub fn parachains() -> Vec<ParaId> {
 		PARACHAINS.with(|x| x.borrow().clone())
@@ -130,7 +125,6 @@ impl<T: frame_system::Config> TestRegistrar<T> {
 
 	#[allow(dead_code)]
 	pub fn clear_storage() {
-		OPERATIONS.with(|x| x.borrow_mut().clear());
 		PARACHAINS.with(|x| x.borrow_mut().clear());
 		MANAGERS.with(|x| x.borrow_mut().clear());
 	}

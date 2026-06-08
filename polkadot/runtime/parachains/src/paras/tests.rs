@@ -1128,7 +1128,8 @@ fn para_incoming_at_session() {
 		// Two sessions pass, so action queue is triggered
 		run_to_block(4, Some(vec![3, 4]));
 
-		assert_eq!(paras::Parachains::<Test>::get(), vec![c, b]);
+		// `a` now also onboards as a parachain, so all three appear in the parachains list.
+		assert_eq!(paras::Parachains::<Test>::get(), vec![c, b, a]);
 		assert_eq!(ActionsQueue::<Test>::get(Paras::scheduled_session()), Vec::new());
 
 		// Lifecycle is tracked correctly

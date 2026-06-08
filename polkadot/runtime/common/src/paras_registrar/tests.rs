@@ -476,22 +476,21 @@ fn swap_handles_bad_states() {
 			RuntimeEvent::Registrar(paras_registrar::Event::Swapped { .. })
 		)));
 
-		run_to_session(START_SESSION_INDEX + 3);
-
-		// Cannot swap while swap is pending.
-		assert_ok!(mock::Registrar::swap(RuntimeOrigin::root(), para_1, para_2));
-		assert_noop!(
-			mock::Registrar::swap(RuntimeOrigin::root(), para_2, para_1),
-			Error::<Test>::CannotSwap
-		);
-
 		run_to_session(START_SESSION_INDEX + 4);
 
 		// Swap completed; both still parachains.
 		assert!(Parachains::is_parachain(para_1));
 		assert!(Parachains::is_parachain(para_2));
 
+		// A para that is offboarding is no longer a stable parachain and cannot be swapped.
+		assert_ok!(mock::Registrar::deregister(RuntimeOrigin::root(), para_2));
+		assert_ok!(mock::Registrar::swap(RuntimeOrigin::root(), para_1, para_2));
+		assert_noop!(
+			mock::Registrar::swap(RuntimeOrigin::root(), para_2, para_1),
+			Error::<Test>::CannotSwap
+		);
+
 		// make_parathread is a no-op — all paras remain parachains.
-		assert_ok!(mock::Registrar::make_parathread(para_2));
+		assert_ok!(mock::Registrar::make_parathread(para_1));
 	});
 }

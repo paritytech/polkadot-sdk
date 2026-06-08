@@ -626,11 +626,6 @@ mod tests {
 			System::run_to_block::<AllPalletsWithSystem>(20);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
-
-			assert_eq!(
-				TestRegistrar::<Test>::operations(),
-				vec![(1.into(), 10, true), (1.into(), 20, false),]
-			);
 		});
 	}
 
@@ -664,16 +659,6 @@ mod tests {
 			System::run_to_block::<AllPalletsWithSystem>(40);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
-
-			assert_eq!(
-				TestRegistrar::<Test>::operations(),
-				vec![
-					(1.into(), 10, true),
-					(1.into(), 20, false),
-					(1.into(), 30, true),
-					(1.into(), 40, false),
-				]
-			);
 		});
 	}
 
@@ -720,10 +705,6 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &2), 0);
 			assert_eq!(Balances::reserved_balance(2), 0);
 
-			assert_eq!(
-				TestRegistrar::<Test>::operations(),
-				vec![(1.into(), 10, true), (1.into(), 30, false),]
-			);
 		});
 	}
 
@@ -755,10 +736,6 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 
-			assert_eq!(
-				TestRegistrar::<Test>::operations(),
-				vec![(1.into(), 10, true), (1.into(), 30, false),]
-			);
 		});
 	}
 
@@ -798,10 +775,6 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 
-			assert_eq!(
-				TestRegistrar::<Test>::operations(),
-				vec![(1.into(), 10, true), (1.into(), 30, false),]
-			);
 		});
 	}
 
@@ -868,8 +841,6 @@ mod tests {
 			assert_ok!(Slots::lease_out(1.into(), &1, 1, 2, 1));
 			// Lease in the future doesn't
 			assert_ok!(Slots::lease_out(2.into(), &1, 1, 3, 1));
-
-			assert_eq!(TestRegistrar::<Test>::operations(), vec![(1.into(), 20, true),]);
 		});
 	}
 
@@ -918,10 +889,9 @@ mod tests {
 				Error::<Test>::ParaNotOnboarding
 			);
 
-			// Trying Para 2 again should fail cause they are not currently an on-demand parachain
-			assert!(Slots::trigger_onboard(RuntimeOrigin::signed(1), 2.into()).is_err());
-
-			assert_eq!(TestRegistrar::<Test>::operations(), vec![(2.into(), 1, true),]);
+			// Para 2 still has a current lease, so onboarding it again is a successful no-op
+			// (all registered paras are already parachains).
+			assert_ok!(Slots::trigger_onboard(RuntimeOrigin::signed(1), 2.into()));
 		});
 	}
 
