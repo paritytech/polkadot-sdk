@@ -235,7 +235,9 @@ async fn handle_resubmit_segment<Block: BlockT, RClient: RelayChainInterface + C
 	relay_client: RClient,
 	export_pov: Option<PathBuf>,
 ) {
-	let CollatorResubmitSegment { scheduling_proof, kind } = message;
+	// TODO: thread `unincluded_segment` into `SubmitSegmentParams::collations` once the
+	// hydration infrastructure (storage-proof store, code-hash provider) is wired in.
+	let CollatorResubmitSegment { scheduling_proof, kind, unincluded_segment: _ } = message;
 	let scheduling_parent = scheduling_proof.scheduling_parent();
 	let core_index = match kind {
 		SegmentKind::WithBundle { bundle } => {
