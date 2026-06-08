@@ -386,6 +386,10 @@ pub struct OutboundChannelDetails {
 	first_index: u16,
 	/// The index of the last outbound message.
 	last_index: u16,
+	/// Flags. Reserved for storage compatibility; not used by this runtime.
+	flags: u32,
+	/// Cached total byte size of the pages currently queued in this channel.
+	queued_bytes: u32,
 }
 
 impl OutboundChannelDetails {
@@ -396,6 +400,8 @@ impl OutboundChannelDetails {
 			signals_exist: false,
 			first_index: 0,
 			last_index: 0,
+			flags: 0,
+			queued_bytes: 0,
 		}
 	}
 
@@ -547,16 +553,18 @@ impl<T: Config> Pallet<T> {
 			})
 			.flatten();
 
-		let (number_of_pages, last_page_size) = if let Some(size) = appended_to_last_page {
-			let number_of_pages = (channel_details.last_index - channel_details.first_index) as u32;
-			(number_of_pages, size)
+		let number_of_pages = if appended_to_last_page.is_some() {
+			channel_details.queued_bytes =
+				channel_details.queued_bytes.saturating_add(encoded_fragment.len() as u32);
+			(channel_details.last_index - channel_details.first_index) as u32
 		} else {
 			// Need to add a new page.
 			let page_index = channel_details.last_index;
 			channel_details.last_index += 1;
 			let mut new_page = format.encode();
 			new_page.extend_from_slice(&encoded_fragment[..]);
-			let last_page_size = new_page.len();
+			channel_details.queued_bytes =
+				channel_details.queued_bytes.saturating_add(new_page.len() as u32);
 			let number_of_pages = (channel_details.last_index - channel_details.first_index) as u32;
 			let bounded_page =
 				BoundedVec::<u8, T::MaxPageSize>::try_from(new_page).map_err(|error| {
@@ -565,19 +573,15 @@ impl<T: Config> Pallet<T> {
 				})?;
 			let bounded_page = WeakBoundedVec::force_from(bounded_page.into_inner(), None);
 			<OutboundXcmpMessages<T>>::insert(recipient, page_index, bounded_page);
-			<OutboundXcmpStatus<T>>::put(all_channels);
-			(number_of_pages, last_page_size)
+			number_of_pages
 		};
 
-		// We have to count the total size here since `channel_info.total_size` is not updated at
-		// this point in time. We assume all previous pages are filled, which, in practice, is not
-		// always the case.
-		let total_size =
-			number_of_pages.saturating_sub(1) * max_message_size as u32 + last_page_size as u32;
 		let threshold = channel_info.max_total_size / delivery_fee_constants::THRESHOLD_FACTOR;
-		if total_size > threshold {
+		if channel_details.queued_bytes > threshold {
 			Self::increase_fee_factor(recipient, encoded_fragment.len() as u128);
 		}
+
+		<OutboundXcmpStatus<T>>::put(all_channels);
 
 		Ok(number_of_pages)
 	}
@@ -958,6 +962,8 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				mut signals_exist,
 				mut first_index,
 				mut last_index,
+				flags,
+				mut queued_bytes,
 			} = *status;
 
 			let (max_size_now, max_size_ever) = match T::ChannelInfo::get_channel_status(para_id) {
@@ -1004,6 +1010,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				if page.len() < max_size_now {
 					<OutboundXcmpMessages<T>>::remove(para_id, first_index);
 					first_index += 1;
+					queued_bytes = queued_bytes.saturating_sub(page.len() as u32);
 					page
 				} else {
 					continue
@@ -1014,6 +1021,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 			if first_index == last_index {
 				first_index = 0;
 				last_index = 0;
+				queued_bytes = 0;
 			}
 
 			if page.len() > max_size_ever {
@@ -1033,10 +1041,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				},
 			};
 			let threshold = max_total_size.saturating_div(delivery_fee_constants::THRESHOLD_FACTOR);
-			let remaining_total_size: usize = (first_index..last_index)
-				.map(|index| OutboundXcmpMessages::<T>::decode_len(para_id, index).unwrap())
-				.sum();
-			if remaining_total_size <= threshold as usize {
+			if queued_bytes <= threshold {
 				Self::decrease_fee_factor(para_id);
 			}
 
@@ -1046,6 +1051,8 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				signals_exist,
 				first_index,
 				last_index,
+				flags,
+				queued_bytes,
 			};
 		}
 		debug_assert!(!statuses.iter().any(|s| s.signals_exist), "Signals should be handled");
@@ -1137,6 +1144,7 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 			for details in details_vec {
 				details.first_index = 0;
 				details.last_index = 0;
+				details.queued_bytes = 0;
 			}
 		});
 	}
