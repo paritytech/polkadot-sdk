@@ -1,0 +1,20 @@
+title: Remove try_state(false) escape hatch from pallet-staking-async tests
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Removes the `ExtBuilder::try_state(false)` builder method and the
+      `SkipTryStateCheck` parameter from the `pallet-staking-async` mock runtime.
+      `Staking::do_try_state` now runs unconditionally after every test in
+      `build_and_execute`, so tests can no longer silently leave broken staking
+      state behind.
+
+      Tests that intentionally corrupt storage to assert `do_try_state` returns
+      an error must now restore the state before the closure exits. A shared
+      `cleanup_double_bonded_ledgers` helper handles teardown for tests that use
+      the `setup_double_bonded_ledgers` fixture. This is a test-only change with
+      no runtime impact.
+
+crates:
+  - name: pallet-staking-async
+    bump: patch
