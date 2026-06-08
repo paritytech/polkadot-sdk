@@ -2810,7 +2810,7 @@ mod unbond {
 			// full permissionless unbond of the sole depositor is allowed.
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(random), 10, 20));
 
-			// repeated full unbond attempts now fail because active points are already zero.
+			// repeated full unbond attempts now fail because balance_after_unbond < depositor_min_bond.
 			assert_noop!(
 				Pools::unbond(RuntimeOrigin::signed(10), 10, 20),
 				Error::<T>::MinimumBondNotMet
@@ -3270,7 +3270,7 @@ mod unbond {
 
 			// when destroying and sole member, depositor can be unbonded permissionlessly.
 			assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(420), 10));
-			// repeated full unbond attempts now fail because active points are already zero.
+			// repeated full unbond attempts now fail because balance_after_unbond < depositor_min_bond.
 			assert_noop!(
 				Pools::fully_unbond(RuntimeOrigin::signed(10), 10),
 				Error::<T>::MinimumBondNotMet
