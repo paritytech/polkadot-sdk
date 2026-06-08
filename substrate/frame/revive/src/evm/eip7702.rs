@@ -123,16 +123,15 @@ pub fn process_authorizations<T: Config>(
 			result.existing_accounts += 1;
 		}
 
-		// Apply delegation
+		// Apply delegation. `set_delegation` / `clear_delegation` are atomic
+		// (each wraps its state changes in `with_transaction`), and any error
+		// returned here is a post-validation invariant violation — propagate it
+		// so the framework rolls back the whole extrinsic rather than silently
+		// committing a partial authorization.
 		let deposit = if auth.address.is_zero() {
-			AccountInfo::<T>::clear_delegation(&authority)
+			AccountInfo::<T>::clear_delegation(&authority)?
 		} else {
-			AccountInfo::<T>::set_delegation(&authority, auth.address)
-		};
-
-		let Ok(deposit) = deposit else {
-			log::debug!(target: LOG_TARGET, "Delegation failed for {authority:?}, skipping");
-			continue;
+			AccountInfo::<T>::set_delegation(&authority, auth.address)?
 		};
 
 		match deposit {

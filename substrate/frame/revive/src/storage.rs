@@ -33,7 +33,11 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
 	CloneNoBound, DebugNoBound, DefaultNoBound,
-	storage::child::{self, ChildInfo},
+	storage::{
+		TransactionOutcome,
+		child::{self, ChildInfo},
+		with_transaction,
+	},
 	traits::{
 		fungible::Inspect,
 		tokens::{Fortitude, Preservation},
@@ -273,103 +277,118 @@ impl<T: Config> AccountInfo<T> {
 		address: &H160,
 		target: H160,
 	) -> Result<StorageDeposit<BalanceOf<T>>, DispatchError> {
-		let target_code_hash =
-			<AccountInfoOf<T>>::get(&target).and_then(|info| match info.account_type {
-				AccountType::Contract(c) => Some(c.code_hash),
-				_ => None,
-			});
+		// All-or-nothing: the account mutation and the code refcount updates must commit
+		// together or not at all. `with_transaction` rolls back the `AccountInfoOf::mutate`
+		// below if any `increment_refcount` / `decrement_refcount` call fails.
+		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+			let result = (|| -> Result<StorageDeposit<BalanceOf<T>>, DispatchError> {
+				let target_code_hash =
+					<AccountInfoOf<T>>::get(&target).and_then(|info| match info.account_type {
+						AccountType::Contract(c) => Some(c.code_hash),
+						_ => None,
+					});
 
-		let code_deposit = target_code_hash
-			.and_then(|ch| CodeInfoOf::<T>::get(ch))
-			.map(|info| info.deposit());
+				let code_deposit = target_code_hash
+					.and_then(|ch| CodeInfoOf::<T>::get(ch))
+					.map(|info| info.deposit());
 
-		let mut new_deposit: BalanceOf<T> = Zero::zero();
-		let mut old_deposit: BalanceOf<T> = Zero::zero();
+				let mut new_deposit: BalanceOf<T> = Zero::zero();
+				let mut old_deposit: BalanceOf<T> = Zero::zero();
 
-		// Update an existing ContractInfo, adjusting code_hash and deposit.
-		let update_contract_info = |contract_info: &mut ContractInfo<T>,
-		                            new_deposit: &mut BalanceOf<T>| {
-			if let Some(code_hash) = target_code_hash {
-				contract_info.code_hash = code_hash;
-				if let Some(cd) = code_deposit {
-					*new_deposit = contract_info.update_base_deposit(cd);
-				}
-			} else {
-				// Target is not a contract: clear stale code_hash and deposit so that
-				// a subsequent re-delegation doesn't double-decrement the refcount
-				// or double-refund the deposit.
-				contract_info.code_hash = Default::default();
-				contract_info.storage_base_deposit = Default::default();
-			}
-		};
+				// Update an existing ContractInfo, adjusting code_hash and deposit.
+				let update_contract_info =
+					|contract_info: &mut ContractInfo<T>, new_deposit: &mut BalanceOf<T>| {
+						if let Some(code_hash) = target_code_hash {
+							contract_info.code_hash = code_hash;
+							if let Some(cd) = code_deposit {
+								*new_deposit = contract_info.update_base_deposit(cd);
+							}
+						} else {
+							// Target is not a contract: clear stale code_hash and deposit so that
+							// a subsequent re-delegation doesn't double-decrement the refcount
+							// or double-refund the deposit.
+							contract_info.code_hash = Default::default();
+							contract_info.storage_base_deposit = Default::default();
+						}
+					};
 
-		let old_code_hash = AccountInfoOf::<T>::mutate(address, |account| {
-			let mut old_code_hash = None;
+				let old_code_hash = AccountInfoOf::<T>::mutate(address, |account| {
+					let mut old_code_hash = None;
 
-			if let Some(account) = account {
-				match &mut account.account_type {
-					AccountType::DelegatedEOA { delegate_target, contract_info } => {
-						// Filter out zeroed hashes: after delegating to a non-contract,
-						// code_hash is cleared to default but contract_info is preserved.
-						old_code_hash = Some(contract_info.code_hash).filter(|h| !h.is_zero());
-						old_deposit = contract_info.storage_base_deposit;
-						*delegate_target = Some(target);
-						update_contract_info(contract_info, &mut new_deposit);
-					},
-					ty => {
-						debug_assert!(
-							!matches!(ty, AccountType::Contract(_)),
-							"set_delegation must not be called on contract accounts"
-						);
+					if let Some(account) = account {
+						match &mut account.account_type {
+							AccountType::DelegatedEOA { delegate_target, contract_info } => {
+								// Filter out zeroed hashes: after delegating to a non-contract,
+								// code_hash is cleared to default but contract_info is preserved.
+								old_code_hash =
+									Some(contract_info.code_hash).filter(|h| !h.is_zero());
+								old_deposit = contract_info.storage_base_deposit;
+								*delegate_target = Some(target);
+								update_contract_info(contract_info, &mut new_deposit);
+							},
+							ty => {
+								debug_assert!(
+									!matches!(ty, AccountType::Contract(_)),
+									"set_delegation must not be called on contract accounts"
+								);
+								let mut contract_info = ContractInfo::<T>::new_for_delegation(
+									address,
+									target_code_hash.unwrap_or_default(),
+								);
+								update_contract_info(&mut contract_info, &mut new_deposit);
+								account.account_type = AccountType::DelegatedEOA {
+									delegate_target: Some(target),
+									contract_info,
+								};
+							},
+						}
+					} else {
 						let mut contract_info = ContractInfo::<T>::new_for_delegation(
 							address,
 							target_code_hash.unwrap_or_default(),
 						);
 						update_contract_info(&mut contract_info, &mut new_deposit);
-						account.account_type = AccountType::DelegatedEOA {
-							delegate_target: Some(target),
-							contract_info,
-						};
-					},
-				}
-			} else {
-				let mut contract_info = ContractInfo::<T>::new_for_delegation(
-					address,
-					target_code_hash.unwrap_or_default(),
-				);
-				update_contract_info(&mut contract_info, &mut new_deposit);
-				*account = Some(AccountInfo {
-					account_type: AccountType::DelegatedEOA {
-						delegate_target: Some(target),
-						contract_info,
-					},
-					dust: 0,
+						*account = Some(AccountInfo {
+							account_type: AccountType::DelegatedEOA {
+								delegate_target: Some(target),
+								contract_info,
+							},
+							dust: 0,
+						});
+					}
+
+					old_code_hash
 				});
+
+				// Manage code refcounts, skipping when the hash is unchanged.
+				// A failure here rolls back the `mutate` above via the surrounding
+				// `with_transaction`.
+				if let Some(new_hash) = target_code_hash &&
+					Some(new_hash) != old_code_hash
+				{
+					CodeInfo::<T>::increment_refcount(new_hash).inspect_err(|e| {
+						log::warn!(target: LOG_TARGET, "increment_refcount({new_hash:?}) failed: {e:?}");
+					})?;
+				}
+				if let Some(old_hash) = old_code_hash &&
+					Some(old_hash) != target_code_hash
+				{
+					let _ = CodeInfo::<T>::decrement_refcount(old_hash).inspect_err(|e| {
+						log::warn!(target: LOG_TARGET, "decrement_refcount({old_hash:?}) failed: {e:?}");
+					})?;
+				}
+
+				Ok(if new_deposit >= old_deposit {
+					StorageDeposit::Charge(new_deposit.saturating_sub(old_deposit))
+				} else {
+					StorageDeposit::Refund(old_deposit.saturating_sub(new_deposit))
+				})
+			})();
+
+			match result {
+				Ok(deposit) => TransactionOutcome::Commit(Ok(deposit)),
+				Err(err) => TransactionOutcome::Rollback(Err(err)),
 			}
-
-			old_code_hash
-		});
-
-		// Manage code refcounts, skipping when the hash is unchanged
-		if let Some(new_hash) = target_code_hash &&
-			Some(new_hash) != old_code_hash
-		{
-			CodeInfo::<T>::increment_refcount(new_hash).inspect_err(|e| {
-				log::warn!(target: LOG_TARGET, "increment_refcount({new_hash:?}) failed: {e:?}");
-			})?;
-		}
-		if let Some(old_hash) = old_code_hash &&
-			Some(old_hash) != target_code_hash
-		{
-			let _ = CodeInfo::<T>::decrement_refcount(old_hash).inspect_err(|e| {
-				log::warn!(target: LOG_TARGET, "decrement_refcount({old_hash:?}) failed: {e:?}");
-			})?;
-		}
-
-		Ok(if new_deposit >= old_deposit {
-			StorageDeposit::Charge(new_deposit.saturating_sub(old_deposit))
-		} else {
-			StorageDeposit::Refund(old_deposit.saturating_sub(new_deposit))
 		})
 	}
 
@@ -382,22 +401,35 @@ impl<T: Config> AccountInfo<T> {
 	pub(crate) fn clear_delegation(
 		address: &H160,
 	) -> Result<StorageDeposit<BalanceOf<T>>, DispatchError> {
-		AccountInfoOf::<T>::mutate(address, |account| {
-			let mut refund: BalanceOf<T> = Zero::zero();
-			if let Some(account) = account &&
-				let AccountType::DelegatedEOA { delegate_target, contract_info } =
-					&mut account.account_type
-			{
-				*delegate_target = None;
-				if !contract_info.code_hash.is_zero() {
-					let _ = CodeInfo::<T>::decrement_refcount(contract_info.code_hash).inspect_err(|e| {
-						log::warn!(target: LOG_TARGET, "decrement_refcount({:?}) failed: {e:?}", contract_info.code_hash);
-					})?;
-					refund = core::mem::take(&mut contract_info.storage_base_deposit);
-					contract_info.code_hash = Default::default();
-				}
+		// All-or-nothing: zeroing `delegate_target` / `code_hash` and decrementing the
+		// refcount must commit together. Without this, a failed `decrement_refcount`
+		// would leave `delegate_target = None` written but the refcount intact.
+		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+			let result = AccountInfoOf::<T>::mutate(
+				address,
+				|account| -> Result<StorageDeposit<BalanceOf<T>>, DispatchError> {
+					let mut refund: BalanceOf<T> = Zero::zero();
+					if let Some(account) = account &&
+						let AccountType::DelegatedEOA { delegate_target, contract_info } =
+							&mut account.account_type
+					{
+						*delegate_target = None;
+						if !contract_info.code_hash.is_zero() {
+							let _ = CodeInfo::<T>::decrement_refcount(contract_info.code_hash).inspect_err(|e| {
+							log::warn!(target: LOG_TARGET, "decrement_refcount({:?}) failed: {e:?}", contract_info.code_hash);
+						})?;
+							refund = core::mem::take(&mut contract_info.storage_base_deposit);
+							contract_info.code_hash = Default::default();
+						}
+					}
+					Ok(StorageDeposit::Refund(refund))
+				},
+			);
+
+			match result {
+				Ok(deposit) => TransactionOutcome::Commit(Ok(deposit)),
+				Err(err) => TransactionOutcome::Rollback(Err(err)),
 			}
-			Ok(StorageDeposit::Refund(refund))
 		})
 	}
 }
