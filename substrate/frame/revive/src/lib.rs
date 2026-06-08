@@ -2622,6 +2622,7 @@ impl<T: Config> Pallet<T> {
 	/// # Warning
 	///
 	/// Does not collect any storage deposit. Not safe to be called by user controlled code.
+	/// Immutables belong to deployed contracts only — do not target delegated EOAs.
 	pub fn set_immutables(address: H160, data: ImmutableData) -> Result<(), ContractAccessError> {
 		AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
 		<ImmutableDataOf<T>>::insert(address, data);

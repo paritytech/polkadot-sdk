@@ -202,7 +202,11 @@ impl<T: Config> AccountInfo<T> {
 		BalanceWithDust::new_unchecked::<T>(value, dust)
 	}
 
-	/// Loads the ContractInfo for a given address.
+	/// Loads the `ContractInfo` backing the address's storage namespace.
+	///
+	/// Returns `Some` for deployed contracts *and* for EIP-7702 delegated EOAs with an
+	/// active delegation; in the latter case the returned info is the authority's own.
+	/// Use [`Self::is_contract`] for a strict "deployed contract" check.
 	pub fn load_contract(address: &H160) -> Option<ContractInfo<T>> {
 		<AccountInfoOf<T>>::get(address)?.account_type.contract_info()
 	}
@@ -277,9 +281,7 @@ impl<T: Config> AccountInfo<T> {
 		address: &H160,
 		target: H160,
 	) -> Result<StorageDeposit<BalanceOf<T>>, DispatchError> {
-		// All-or-nothing: the account mutation and the code refcount updates must commit
-		// together or not at all. `with_transaction` rolls back the `AccountInfoOf::mutate`
-		// below if any `increment_refcount` / `decrement_refcount` call fails.
+		// Atomic: a failed refcount update below must roll back the account mutation.
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 			let result = (|| -> Result<StorageDeposit<BalanceOf<T>>, DispatchError> {
 				let target_code_hash =
@@ -361,8 +363,6 @@ impl<T: Config> AccountInfo<T> {
 				});
 
 				// Manage code refcounts, skipping when the hash is unchanged.
-				// A failure here rolls back the `mutate` above via the surrounding
-				// `with_transaction`.
 				if let Some(new_hash) = target_code_hash &&
 					Some(new_hash) != old_code_hash
 				{
@@ -401,9 +401,7 @@ impl<T: Config> AccountInfo<T> {
 	pub(crate) fn clear_delegation(
 		address: &H160,
 	) -> Result<StorageDeposit<BalanceOf<T>>, DispatchError> {
-		// All-or-nothing: zeroing `delegate_target` / `code_hash` and decrementing the
-		// refcount must commit together. Without this, a failed `decrement_refcount`
-		// would leave `delegate_target = None` written but the refcount intact.
+		// Atomic: a failed `decrement_refcount` must roll back `delegate_target = None`.
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 			let result = AccountInfoOf::<T>::mutate(
 				address,

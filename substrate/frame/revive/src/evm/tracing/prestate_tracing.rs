@@ -182,6 +182,10 @@ where
 {
 	/// Get the code of the contract.
 	fn bytecode(address: &H160) -> Option<Bytes> {
+		// EIP-7702: report the delegation indicator, matching eth_getCode / EXTCODEHASH.
+		if let Some(target) = AccountInfo::<T>::get_delegation_target(address) {
+			return Some(AccountInfo::<T>::delegation_indicator(&target).to_vec().into());
+		}
 		let code_hash = AccountInfo::<T>::load_contract(address)?.code_hash;
 		let code: Vec<u8> = PristineCode::<T>::get(&code_hash)?.into();
 		return Some(code.into());

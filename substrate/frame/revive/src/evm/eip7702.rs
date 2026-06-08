@@ -109,10 +109,7 @@ pub fn process_authorizations<T: Config>(
 		}
 
 		if !account_exists {
-			// Transfer ED to the new authority account without placing a hold:
-			// the ED must remain as transferable balance so the account exists.
-			// Funded from the tx fee pool (process_authorizations only runs from
-			// eth-tx contexts).
+			// ED must stay as free balance, not be held — credit from the tx fee pool.
 			let credit = <T as Config>::FeeInfo::withdraw_txfee(ed)
 				.ok_or(Error::<T>::StorageDepositNotEnoughFunds)?;
 			<T as Config>::Currency::resolve(&account_id, credit)
@@ -123,11 +120,8 @@ pub fn process_authorizations<T: Config>(
 			result.existing_accounts += 1;
 		}
 
-		// Apply delegation. `set_delegation` / `clear_delegation` are atomic
-		// (each wraps its state changes in `with_transaction`), and any error
-		// returned here is a post-validation invariant violation — propagate it
-		// so the framework rolls back the whole extrinsic rather than silently
-		// committing a partial authorization.
+		// Errors here are post-validation invariant violations — propagate (and let the
+		// extrinsic revert) rather than silently committing a partial authorization.
 		let deposit = if auth.address.is_zero() {
 			AccountInfo::<T>::clear_delegation(&authority)?
 		} else {

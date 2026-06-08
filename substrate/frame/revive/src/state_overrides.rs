@@ -215,7 +215,7 @@ fn apply_storage_override<T: Config>(
 ) -> Result<(), EthTransactError> {
 	let contract = AccountInfo::<T>::load_contract(address).ok_or_else(|| {
 		EthTransactError::Message(format!(
-			"storage override for {address:?} failed: account is not a contract"
+			"storage override for {address:?} failed: account has no contract storage"
 		))
 	})?;
 
