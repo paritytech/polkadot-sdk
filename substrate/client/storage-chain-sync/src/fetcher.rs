@@ -17,88 +17,86 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! Bitswap-based fetcher for indexed-transaction blobs.
+//!
+//! Thin adapter over [`sc_network::bitswap::BitswapHandle`]. Peer selection,
+//! per-peer timeouts, retries and hash verification all live in the bitswap actor
+//! itself. This fetcher's only jobs are:
+//!
+//! 1. building the per-want CIDs from the runtime-declared [`RenewWant`]s,
+//! 2. chunking by [`sc_network::bitswap::MAX_CIDS_PER_REQUEST`] and submitting all
+//!    chunks concurrently,
+//! 3. draining the per-chunk streams into a `HashMap<ContentHash, Vec<u8>>`.
 
 use crate::RenewWant;
-use async_trait::async_trait;
 use cid::{multihash::Multihash, Cid};
-use futures::channel::oneshot;
-use rand::seq::SliceRandom;
-use sc_network::{
-	bitswap::{request_bitswap_blocks, FetchOutcome, MAX_WANTED_BLOCKS},
-	NetworkRequest, PeerId,
+use futures::{future, stream::FuturesUnordered, StreamExt};
+use sc_network::bitswap::{
+	BitswapError, BitswapRequest, FetchOutcome, MAX_CIDS_PER_REQUEST,
 };
-use sc_network_sync::SyncingService;
 use sp_runtime::traits::Block as BlockT;
 use sp_transaction_storage_proof::ContentHash;
 use std::{
 	collections::HashMap,
 	sync::{Arc, OnceLock},
-	time::Duration,
 };
 
 const LOG_TARGET: &str = "storage-chain-fetcher";
-const BITSWAP_PER_PEER_TIMEOUT: Duration = Duration::from_secs(5);
-const MAX_PEERS_PER_IMPORT: usize = 8;
 
-/// Source of currently-connected sync peer IDs.
-#[async_trait]
-pub trait BitswapPeerSource: Send + Sync {
-	async fn current_peers(&self) -> Result<Vec<PeerId>, oneshot::Canceled>;
-}
+/// Late-bound bitswap handle slot, populated by the omni-node after `build_network`.
+///
+/// The slot exists because [`crate::StorageChainBlockImport`] is constructed before
+/// `build_network` runs (the block import is consumed when building the import queue,
+/// which is in turn consumed by `build_network`). The handle becomes available only
+/// once the network service has been built; the `OnceLock` carries it across that
+/// boundary without changing the block-import's public API.
+pub type BitswapHandleSlot = Arc<OnceLock<Arc<dyn BitswapRequest>>>;
 
-#[async_trait]
-impl<B: BlockT> BitswapPeerSource for SyncingService<B> {
-	async fn current_peers(&self) -> Result<Vec<PeerId>, oneshot::Canceled> {
-		Ok(self
-			.peers_info()
-			.await?
-			.into_iter()
-			.filter_map(|(peer, info)| info.roles.is_full().then_some(peer))
-			.collect())
-	}
-}
-
-/// Late-bound network request handle, populated once the network is built.
-pub type NetworkHandle = Arc<OnceLock<Arc<dyn NetworkRequest + Send + Sync>>>;
-/// Late-bound peer-source handle, populated once the network is built.
-pub type SyncingHandle = Arc<OnceLock<Arc<dyn BitswapPeerSource + Send + Sync>>>;
-
-/// Infrastructure-level fetch failure.
+/// Infrastructure-level fetch failure surfaced to [`crate::StorageChainBlockImport`].
 #[derive(Debug, thiserror::Error)]
 pub enum FetchError {
-	#[error("network handle not yet set; storage-chain blocks cannot be fetched before build_network completes")]
-	NetworkHandleUnset,
-	#[error("sync handle not yet set; storage-chain blocks cannot be fetched before build_network completes")]
-	SyncingHandleUnset,
+	/// The bitswap handle has not been set yet (called before `build_network` finished)
+	/// or bitswap is not configured (`--ipfs-server` not enabled, or libp2p backend in use).
+	#[error("bitswap handle not yet set; storage-chain blocks cannot be fetched before build_network completes")]
+	BitswapHandleUnset,
+	/// CID construction failed for the given (hashing, hash) pair. Bug indicator.
 	#[error("failed to construct multihash for CID: {0}")]
 	Multihash(String),
+	/// The bitswap service rejected the request at admission, or shut down mid-stream.
+	#[error("bitswap service error: {0}")]
+	Bitswap(#[from] BitswapError),
 }
 
 /// Fetcher that resolves indexed-transaction hashes via bitswap.
+///
+/// Holds the late-bound [`BitswapRequest`] slot. The block-import path holds one
+/// of these and calls [`Self::fetch_many`] for each batch of missing renew hashes.
+///
+/// Cloning is cheap: the only field is an `Arc`.
 pub struct IndexedTransactionFetcher<Block: BlockT> {
-	network: NetworkHandle,
-	peer_source: SyncingHandle,
+	bitswap: BitswapHandleSlot,
 	_phantom: std::marker::PhantomData<Block>,
 }
 
 impl<Block: BlockT> Clone for IndexedTransactionFetcher<Block> {
 	fn clone(&self) -> Self {
-		Self {
-			network: self.network.clone(),
-			peer_source: self.peer_source.clone(),
-			_phantom: std::marker::PhantomData,
-		}
+		Self { bitswap: self.bitswap.clone(), _phantom: std::marker::PhantomData }
 	}
 }
 
 impl<Block: BlockT> IndexedTransactionFetcher<Block> {
-	/// Build a new fetcher backed by the given late-bound handles.
-	pub fn new(network: NetworkHandle, peer_source: SyncingHandle) -> Self {
-		Self { network, peer_source, _phantom: std::marker::PhantomData }
+	/// Build a new fetcher backed by the given late-bound bitswap handle slot.
+	pub fn new(bitswap: BitswapHandleSlot) -> Self {
+		Self { bitswap, _phantom: std::marker::PhantomData }
 	}
 
-	/// Resolve a batch of indexed-transaction renew wants via bitswap, rotating across up to
-	/// `MAX_PEERS_PER_IMPORT` peers. Returns only successfully fetched entries.
+	/// Resolve a batch of indexed-transaction hashes via bitswap.
+	///
+	/// Each want carries the runtime-declared `cid_codec` so the request CID's
+	/// codec matches what the producing runtime announced.
+	///
+	/// Returns only successfully fetched entries. A short result means the caller
+	/// (the block import) will surface a `ConsensusError` and the import will be
+	/// retried later.
 	pub(crate) async fn fetch_many(
 		&self,
 		wants: &[RenewWant],
@@ -106,99 +104,71 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 		if wants.is_empty() {
 			return Ok(HashMap::new());
 		}
-		let network = self.network.get().ok_or(FetchError::NetworkHandleUnset)?;
-		let peer_source = self.peer_source.get().ok_or(FetchError::SyncingHandleUnset)?;
+		let handle = self.bitswap.get().ok_or(FetchError::BitswapHandleUnset)?;
 
-		let Ok(mut peers) = peer_source.current_peers().await else {
-			log::warn!(target: LOG_TARGET, "current_peers() channel cancelled");
-			return Ok(HashMap::new());
-		};
-		if peers.is_empty() {
-			log::debug!(
-				target: LOG_TARGET,
-				"no connected sync peers, cannot fetch via bitswap yet",
-			);
-			return Ok(HashMap::new());
+		let mut by_cid: HashMap<Cid, ContentHash> = HashMap::with_capacity(wants.len());
+		let mut cids: Vec<Cid> = Vec::with_capacity(wants.len());
+		for want in wants {
+			let mh = Multihash::<64>::wrap(want.hashing.multihash_code(), &want.hash)
+				.map_err(|e| FetchError::Multihash(e.to_string()))?;
+			let cid = Cid::new_v1(want.cid_codec, mh);
+			by_cid.insert(cid, want.hash);
+			cids.push(cid);
 		}
-		// Shuffle peers to not end up with always the same peers.
-		peers.shuffle(&mut rand::thread_rng());
 
-		// Build per-want CIDs once; reuse across peers and chunks.
-		let cids: Vec<(ContentHash, Cid)> = wants
-			.iter()
-			.map(|w| {
-				let mh = Multihash::<64>::wrap(w.hashing.multihash_code(), &w.hash)
-					.map_err(|e| FetchError::Multihash(e.to_string()))?;
-				Ok::<_, FetchError>((w.hash, Cid::new_v1(w.cid_codec, mh)))
+		let chunks: Vec<Vec<Cid>> = cids
+			.chunks(MAX_CIDS_PER_REQUEST)
+			.map(<[Cid]>::to_vec)
+			.collect();
+
+		let receivers = future::try_join_all(
+			chunks.into_iter().map(|chunk| handle.request_stream(chunk)),
+		)
+		.await?;
+
+		let mut acquired: HashMap<ContentHash, Vec<u8>> = HashMap::with_capacity(wants.len());
+		let mut streams: FuturesUnordered<_> = receivers
+			.into_iter()
+			.map(|mut rx| async move {
+				let mut out = Vec::new();
+				while let Some(item) = rx.recv().await {
+					out.push(item);
+				}
+				out
 			})
-			.collect::<Result<_, _>>()?;
-		let mut remaining = cids;
-		let mut acquired: HashMap<ContentHash, Vec<u8>> = HashMap::new();
+			.collect();
 
-		for peer in peers.into_iter().take(MAX_PEERS_PER_IMPORT) {
-			if remaining.is_empty() {
-				break;
+		while let Some(items) = streams.next().await {
+			for item in items {
+				match item {
+					Ok((cid, FetchOutcome::Block(bytes))) => {
+						if let Some(hash) = by_cid.get(&cid) {
+							log::debug!(
+								target: LOG_TARGET,
+								"bitswap fetched {} bytes for {hash:?}",
+								bytes.len(),
+							);
+							acquired.insert(*hash, bytes);
+						}
+					},
+					Ok((cid, FetchOutcome::Missing)) => {
+						log::debug!(
+							target: LOG_TARGET,
+							"bitswap returned Missing for {cid}",
+						);
+					},
+					Err(BitswapError::ServiceClosed) => {
+						log::warn!(
+							target: LOG_TARGET,
+							"bitswap service closed mid-stream; returning partial result",
+						);
+						return Ok(acquired);
+					},
+					Err(other) => return Err(FetchError::Bitswap(other)),
+				}
 			}
-			let from_peer = try_fetch_from_peer(network.as_ref(), peer, &remaining).await;
-			acquired.extend(from_peer);
-			remaining.retain(|(hash, _)| !acquired.contains_key(hash));
 		}
 
 		Ok(acquired)
-	}
-}
-
-/// Try every chunk of `wants` against a single peer in sequence. Returns whatever blocks the
-/// peer actually served. A timeout or per-chunk error aborts the remaining chunks for this peer
-/// and lets the caller move on to the next one.
-async fn try_fetch_from_peer<N: NetworkRequest + ?Sized>(
-	network: &N,
-	peer: PeerId,
-	wants: &[(ContentHash, Cid)],
-) -> HashMap<ContentHash, Vec<u8>> {
-	let mut acquired: HashMap<ContentHash, Vec<u8>> = HashMap::new();
-	for chunk in wants.chunks(MAX_WANTED_BLOCKS) {
-		let cids: Vec<Cid> = chunk.iter().map(|(_, cid)| *cid).collect();
-		match with_timeout(request_bitswap_blocks(network, peer, &cids), BITSWAP_PER_PEER_TIMEOUT)
-			.await
-		{
-			None => {
-				log::debug!(
-					target: LOG_TARGET,
-					"request_bitswap_blocks to {peer:?}: timeout (chunk size {})",
-					chunk.len(),
-				);
-				return acquired;
-			},
-			Some(Err(e)) => {
-				log::debug!(target: LOG_TARGET, "request_bitswap_blocks to {peer:?}: {e:?}");
-				return acquired;
-			},
-			Some(Ok(per_cid)) => {
-				for (hash, cid) in chunk {
-					if let Some(FetchOutcome::Block(data)) = per_cid.get(cid) {
-						log::debug!(
-							target: LOG_TARGET,
-							"fetched {} bytes for {:?} from {peer:?}",
-							data.len(),
-							hash,
-						);
-						acquired.insert(*hash, data.clone());
-					}
-				}
-			},
-		}
-	}
-	acquired
-}
-
-async fn with_timeout<F, T>(fut: F, timeout: Duration) -> Option<T>
-where
-	F: std::future::Future<Output = T>,
-{
-	use futures::FutureExt;
-	futures::select! {
-		v = fut.fuse() => Some(v),
-		_ = futures_timer::Delay::new(timeout).fuse() => None,
 	}
 }

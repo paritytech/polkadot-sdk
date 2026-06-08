@@ -1,0 +1,30 @@
+title: "Storage-chain sync: migrate to the new bitswap `BitswapHandle` API"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Adapts `sc-storage-chain-sync` and the omni-node wiring to the redesigned
+      bitswap client API introduced in PR #12052.
+
+      The `IndexedTransactionFetcher` no longer rotates across peers, applies its
+      own per-peer timeouts, or queries `SyncingService::peers_info()`. All of
+      that has moved into the bitswap service actor. The fetcher is now a thin
+      adapter that builds CIDs, chunks the wantlist by `MAX_CIDS_PER_REQUEST`,
+      submits all chunks concurrently via `BitswapHandle::request_stream`, and
+      drains the resulting per-chunk streams.
+
+      `BitswapPeerSource`, `NetworkHandle` and `SyncingHandle` are removed.
+      They are replaced by a single `BitswapHandleSlot` and a crate-internal
+      `BitswapClient` trait so the integration tests can mock at the bitswap
+      handle boundary without depending on the bitswap protobuf schema.
+
+      The omni-node wiring in `polkadot-omni-node-lib` is updated accordingly:
+      the partial-components tuple carries one bitswap-handle slot instead of
+      two handles, and `start_node` populates the slot via
+      `NetworkService::bitswap_handle()`.
+
+crates:
+  - name: sc-storage-chain-sync
+    bump: major
+  - name: polkadot-omni-node-lib
+    bump: patch
