@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780937110520,
+  "lastUpdate": 1780939183511,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -97847,6 +97847,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2757099328,
             "range": "± 39106774",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "82968568+miloskriz@users.noreply.github.com",
+            "name": "Milos Kriz",
+            "username": "miloskriz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b95ef390bb5b4c3025e244234373195e4d1c12ed",
+          "message": "Removal of IBP bootnodes (#12284)\n\nDear team, hello!\n\nPlease consider this Pull Request to remove all bootnodes from the\nInfrastructure Builders Programme (IBP) due to the shutdown of its\noperations (signaled in [referendum\n1891](https://polkadot.subsquare.io/referenda/1891))\n\nThese changes affect `polkadot`, `kusama` and `westend` relay and system\nchain chainspecs, as the `paseo` ones will be modified in their own\nrepository.\n\nMany thanks for the long standing partnership!\n\nBest regards!!\n\n**_Milos_**",
+          "timestamp": "2026-06-08T14:19:56Z",
+          "tree_id": "72a132169bca5618c8137ce26347a803dd5ef347",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b95ef390bb5b4c3025e244234373195e4d1c12ed"
+        },
+        "date": 1780939152438,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 18864095,
+            "range": "± 154704",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19245934,
+            "range": "± 166227",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20695227,
+            "range": "± 208578",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25810946,
+            "range": "± 188171",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60490213,
+            "range": "± 733388",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 353486644,
+            "range": "± 3716067",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2769984013,
+            "range": "± 187123824",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16835979,
+            "range": "± 193382",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16951126,
+            "range": "± 96637",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17571996,
+            "range": "± 236291",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21888264,
+            "range": "± 125192",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61880549,
+            "range": "± 1096267",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 349431068,
+            "range": "± 4359903",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2619388647,
+            "range": "± 18442429",
             "unit": "ns/iter"
           }
         ]
