@@ -180,7 +180,10 @@ struct ParachainServiceState {
     /// `pending_authorizer_queues` should be applied.
     last_authorizer_assignment: Map<CoreIndex, Timeslot>,
 
-    /// Cross-parachain preimage registry. See §6.1.
+    /// Cross-parachain preimage registry. Holds every preimage the service
+    /// has solicited from JAM — including each parachain's active validation
+    /// code, any pending-upgrade code, and PVF-initiated `solicit` requests —
+    /// under the same referencer-multiplexing scheme. See §6.1.
     preimage_registry: Map<Hash, PreimageEntry>,
 
     /// Validator-key set being assembled chunk by chunk by
@@ -497,20 +500,28 @@ by JAM natively (see §2). The work splits into two categories:
 
 Performed once for each work package that is being accumulated in this block, in order:
 
-1. **Parent head check**: Verify the work result's `parent_head_hash` equals
+1. **Registration check**: If `para_id` is not in `parachains`, reject the work-package
+   immediately and stop processing. In practice the work-report should already have
+   failed Refine — the unregistered para's validation code is no longer solicited and
+   thus not retrievable via `historical_lookup`, so the result would have come in as
+   `Err(InvalidCodeHash)` (see §4.1). But a successful Refine result can still arrive
+   at Accumulate for a parachain the Coretime chain cleaned up between guarantee and
+   accumulation; this check is the earliest possible reject. No `parachain_log` entry
+   is recorded — there is no `parachain_log[para_id]` to append to.
+2. **Parent head check**: Verify the work result's `parent_head_hash` equals
    `hash(ParaInfo[para_id].head_data)`. If not, the candidate is rejected. This prevents
    a collator from including a candidate that was built on top of a stale, skipped, or
    non-canonical parent head.
-2. **Reap timed-out pending upgrade (lazy)**: If `ParaInfo.pending_upgrade` is set
+3. **Reap timed-out pending upgrade (lazy)**: If `ParaInfo.pending_upgrade` is set
    and its deadline timeslot is `<=` the current timeslot, the upgrade is expired
    before this candidate is considered: release the new code (see §6.1) and clear
    `pending_upgrade`.
-3. **Validation code check**: This is the authoritative check. Verify the work
+4. **Validation code check**: This is the authoritative check. Verify the work
    result's `validation_code_hash` matches either `ParaInfo.validation_code_hash` or
    the pending upgrade's code hash. If it matches
    neither, the candidate is rejected and `AccumulateLog::InvalidCodeHash { hash }`
    is recorded in the parachain's `LogEntry::Accumulate` for this timeslot.
-4. **Head data update + code upgrade check**: Writes the new `head_data` from the
+5. **Head data update + code upgrade check**: Writes the new `head_data` from the
    work result into `ParaInfo` for the parachain and immediately checks whether the
    candidate was validated with the pending new PVF code. If so, activate the new
    code, release the old code (see §6.1), and clear `pending_upgrade`. This must
@@ -518,7 +529,7 @@ Performed once for each work package that is being accumulated in this block, in
    may already use the new code. Any entries in `parachain_log[para_id]` whose key
    (timeslot) is strictly less than the current candidate's lookup-anchor timeslot
    are also pruned here.
-5. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
+6. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
    the work result, applying the effects of each side-effect host function the PVF
    invoked during Refine (code upgrades, transfers, authorizer queue updates, validator
    key updates, etc.). See the side-effect host function table in §4.3 for the full list.
@@ -547,6 +558,9 @@ the same accumulation invocation.
 
 Runtime (PVF) code upgrades follow a well-defined lifecycle using JAM's preimage
 store (`solicit`/`provide`/`forget`) and the `xtpreimages` block extrinsic.
+
+Validation code — both the active code and any pending upgrade code — lives in
+`preimage_registry` (§3.1) like any other PVF-solicited preimage.
 
 ```
 Phase 1: Request
