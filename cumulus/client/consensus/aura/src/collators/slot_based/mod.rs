@@ -297,6 +297,10 @@ struct CollatorResubmitSegment<Block: BlockT> {
 	pub scheduling_proof: SchedulingProof,
 	/// Whether this message carries a freshly-built block or signals resubmit-only.
 	pub kind: SegmentKind<Block>,
+	/// Local view of the unincluded segment at the time the bundle was built. Empty when the
+	/// producer has not computed it yet (no consumer in this branch — the collation task
+	/// destructures and ignores it).
+	pub unincluded_segment: Vec<Block::Header>,
 }
 
 /// Kind of resubmit-segment message. The target `CoreIndex` is read from `bundle.core_index` in
