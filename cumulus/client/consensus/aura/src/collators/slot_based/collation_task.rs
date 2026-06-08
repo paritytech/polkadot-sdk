@@ -120,24 +120,31 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 	export_pov: Option<PathBuf>,
 ) {
 	let CollatorMessage {
+		scheduling_proof,
 		parent_header,
-		parachain_candidate,
+		blocks,
+		proof,
 		validation_code_hash,
 		relay_parent,
 		core_index,
 		validation_data,
 	} = message;
 
-	let hash = parachain_candidate.block.header().hash();
-	let number = *parachain_candidate.block.header().number();
-	let (collation, block_data) =
-		match collator_service.build_collation(&parent_header, hash, parachain_candidate) {
-			Some(collation) => collation,
-			None => {
-				tracing::warn!(target: LOG_TARGET, %hash, ?number, ?core_index, "Unable to build collation.");
-				return;
-			},
-		};
+	// Derive scheduling_parent from the proof (the ISP header's hash is used when the
+	// header chain is empty — that's the case with `relay_parent_offset = 0`).
+	let scheduling_parent = scheduling_proof.as_ref().map(|p| p.scheduling_parent());
+	let (collation, block_data) = match collator_service.build_multi_block_collation(
+		&parent_header,
+		blocks,
+		proof,
+		scheduling_proof,
+	) {
+		Some(collation) => collation,
+		None => {
+			tracing::warn!(target: LOG_TARGET, ?core_index, "Unable to build collation.");
+			return;
+		},
+	};
 
 	block_data.log_size_info();
 
@@ -165,6 +172,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 
 		tracing::info!(
 			target: LOG_TARGET,
+			block_numbers = ?block_data.blocks().iter().map(|b| *b.header().number()).collect::<Vec<_>>(),
 			"Compressed PoV size: {}kb",
 			pov.block_data.0.len() as f64 / 1024f64,
 		);
@@ -183,7 +191,12 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 		},
 	};
 
-	tracing::debug!(target: LOG_TARGET, ?core_index, ?hash, %number, "Submitting collation for core.");
+	tracing::debug!(
+		target: LOG_TARGET,
+		?core_index,
+		block_numbers = ?block_data.blocks().iter().map(|b| *b.header().number()).collect::<Vec<_>>(),
+		"Submitting collation for core.",
+	);
 
 	overseer_handle
 		.send_msg(
@@ -193,7 +206,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 				validation_code_hash,
 				core_index,
 				result_sender: None,
-				scheduling_parent: None,
+				scheduling_parent,
 				session_index,
 				validation_data,
 			}),

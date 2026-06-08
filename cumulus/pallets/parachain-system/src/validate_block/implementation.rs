@@ -16,14 +16,15 @@
 
 //! The actual implementation of the validate block functionality.
 
-use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
+use super::{scheduling, trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{
 		BlockNumber as RNumber, Hash as RHash, UMPSignal, MAX_HEAD_DATA_SIZE, UMP_SEPARATOR,
 	},
-	ClaimQueueOffset, CoreSelector, ParachainBlockData, PersistedValidationData,
+	ClaimQueueOffset, CoreSelector, CumulusDigestItem, ParachainBlockData, PersistedValidationData,
+	VerifySchedulingSignature,
 };
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
@@ -79,12 +80,17 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 		parent_head: parachain_head,
 		relay_parent_number,
 		relay_parent_storage_root,
+		extension,
 	}: MemoryOptimizedValidationParams,
 ) -> ValidationResult
 where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
 {
+	// Decode block data first - we need it for both scheduling validation and block execution
+	let block_data = codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(block_data)
+		.expect("Invalid parachain block data");
+
 	let _guard = (
 		// Replace storage calls with our own implementations
 		sp_io::storage::host_read.replace_implementation(host_storage_read),
@@ -130,8 +136,18 @@ where
 		sp_io::transaction_index::host_renew.replace_implementation(host_transaction_index_renew),
 	);
 
-	let block_data = codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(block_data)
-		.expect("Invalid parachain block data");
+	// V3 scheduling validation.
+	let validated_scheduling = scheduling::validate_v3_scheduling(
+		PSC::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED,
+		&extension.0,
+		block_data.scheduling_proof(),
+		PSC::RelayParentOffset::get(),
+	);
+	if let Some(result) = validated_scheduling {
+		if result.is_resubmission {
+			panic!("Resubmission not yet supported; reject candidate.");
+		}
+	}
 
 	// Initialize hashmaps randomness.
 	sp_trie::add_extra_randomness(build_seed_from_head_data::<B>(
@@ -144,33 +160,7 @@ where
 
 	let (blocks, proof) = block_data.into_inner();
 
-	assert_eq!(
-		*blocks
-			.first()
-			.expect("BlockData should have at least one block")
-			.header()
-			.parent_hash(),
-		parent_header.hash(),
-		"Parachain head needs to be the parent of the first block"
-	);
-
-	blocks.iter().fold(parent_header.hash(), |p, b| {
-		assert_eq!(
-			p,
-			*b.header().parent_hash(),
-			"Not a valid chain of blocks :(; {:?} not a parent of {:?}?",
-			array_bytes::bytes2hex("0x", p.as_ref()),
-			array_bytes::bytes2hex("0x", b.header().parent_hash().as_ref()),
-		);
-		let encoded_header_size = b.header().encoded_size();
-		assert!(
-			encoded_header_size <= MAX_HEAD_DATA_SIZE as usize,
-			"Header size {} exceeds MAX_HEAD_DATA_SIZE {}",
-			encoded_header_size,
-			MAX_HEAD_DATA_SIZE
-		);
-		b.header().hash()
-	});
+	verify_blocks_form_chain::<B>(&blocks, &parent_header);
 
 	let mut processed_downward_messages = 0;
 	let mut upward_messages = BoundedVec::default();
@@ -202,9 +192,8 @@ where
 		)
 		.build();
 
-		// We use the same recorder when executing all blocks. So, each node only contributes once
-		// to the total size of the storage proof. This recorder should only be used for
-		// `execute_block`.
+		// Each node only contributes once to the total size of the storage proof. So, we keep track
+		// of them inside `seen_nodes` to always return the correct proof size.
 		let mut execute_recorder = SizeOnlyRecorderProvider::with_seen_nodes(seen_nodes.clone());
 		// `backend` with the `execute_recorder`. As the `execute_recorder`, this should only be
 		// used for `execute_block`.
@@ -212,8 +201,6 @@ where
 			.with_recorder(execute_recorder.clone())
 			.build();
 
-		// We let all blocks contribute to the same overlay. Data written by a previous block will
-		// be directly accessible without going to the db.
 		let mut overlay = OverlayedChanges::default();
 
 		parent_header = block.header().clone();
@@ -279,9 +266,7 @@ where
 							found_separator = true;
 							None
 						} else if found_separator {
-							if upward_message_signals.iter().all(|s| *s != m) {
-								upward_message_signals.push(m);
-							}
+							upward_message_signals.push(m);
 							None
 						} else {
 							// No signal or separator
@@ -375,6 +360,8 @@ where
 			.expect("UMPSignals does not fit in UMPMessages");
 	}
 
+	horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));
+
 	ValidationResult {
 		head_data: head_data.expect("HeadData not set"),
 		new_validation_code: new_validation_code.map(Into::into),
@@ -400,6 +387,82 @@ fn validate_validation_data(
 	assert_eq!(
 		relay_parent_storage_root, validation_data.relay_parent_storage_root,
 		"Relay parent storage root doesn't match",
+	);
+}
+
+fn verify_blocks_form_chain<B: BlockT>(blocks: &[B::LazyBlock], parent_header: &B::Header) {
+	let num_blocks = blocks.len();
+
+	// Check first block's parent matches the given parent_header
+	assert_eq!(
+		*blocks
+			.first()
+			.expect("BlockData should have at least one block")
+			.header()
+			.parent_hash(),
+		parent_header.hash(),
+		"Parachain head needs to be the parent of the first block"
+	);
+
+	let mut first_block_has_bundle_info: Option<bool> = None;
+
+	blocks.iter().enumerate().fold(
+		parent_header.hash(),
+		|expected_parent, (block_index, block)| {
+			// Check chain validity
+			assert_eq!(
+				expected_parent,
+				*block.header().parent_hash(),
+				"Not a valid chain of blocks :(; {:?} not a parent of {:?}?",
+				array_bytes::bytes2hex("0x", expected_parent.as_ref()),
+				array_bytes::bytes2hex("0x", block.header().parent_hash().as_ref()),
+			);
+
+			let encoded_header_size = block.header().encoded_size();
+			assert!(
+				encoded_header_size <= MAX_HEAD_DATA_SIZE as usize,
+				"Header size {encoded_header_size} exceeds MAX_HEAD_DATA_SIZE {MAX_HEAD_DATA_SIZE}",
+			);
+
+			// Validate BlockBundleInfo consistency
+			let bundle_info = CumulusDigestItem::find_block_bundle_info(block.header().digest());
+			match (first_block_has_bundle_info, &bundle_info) {
+				(None, info) => {
+					first_block_has_bundle_info = Some(info.is_some());
+				},
+				(Some(true), None) => {
+					panic!("All blocks in a bundled PoV must include `BlockBundleInfo`");
+				},
+				(Some(false), _) => {
+					panic!("A PoV without `BlockBundleInfo` may only contain a single block");
+				},
+				_ => {},
+			}
+
+			if let Some(ref info) = bundle_info {
+				assert_eq!(
+					info.index as usize, block_index,
+					"BlockBundleInfo index mismatch: expected {block_index}, got {}",
+					info.index
+				);
+
+				if block_index + 1 < num_blocks {
+					assert!(
+						!CumulusDigestItem::is_last_block_in_core(block.header().digest()).unwrap_or(false),
+						"Intermediate block at index {block_index} is marked as last block in core, \
+						but more blocks follow in the PoV",
+					);
+				} else if !CumulusDigestItem::is_last_block_in_core(block.header().digest())
+					.unwrap_or(true)
+				{
+					panic!(
+						"Last block in PoV must include the digest that marks it as the last block in the core"
+					);
+				}
+			}
+
+			block.header().hash()
+		},
 	);
 }
 

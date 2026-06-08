@@ -50,7 +50,7 @@ use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::{
 	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
-	RelayParentOffsetApi,
+	RelayParentOffsetApi, TargetBlockRate,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::{prelude::*, FutureExt};
@@ -221,10 +221,11 @@ where
 		// Destructure all fields so the compiler enforces handling new args.
 		let NodeExtraArgs {
 			authoring_policy,
-			export_pov,
+			ref export_pov,
 			max_pov_percentage,
-			statement_store_config,
-			storage_monitor,
+			ref statement_store_config,
+			ref storage_monitor,
+			ref hop,
 		} = node_extra_args;
 
 		// Warn about args that have no effect in dev mode (collation-specific).
@@ -263,14 +264,14 @@ where
 
 		let metrics = NotificationMetrics::new(None);
 
-		let statement_handler_proto = statement_store_config.map(|ss_config| {
+		let statement_handler_proto = statement_store_config.as_ref().map(|ss_config| {
 			let proto = crate::common::statement_store::new_statement_handler_proto(
 				&*client,
 				&config,
 				&metrics,
 				&mut net_config,
 			);
-			(proto, ss_config)
+			(proto, *ss_config)
 		});
 
 		let (network, system_rpc_tx, tx_handler_controller, sync_service) =
@@ -415,12 +416,29 @@ where
 				);
 			},
 		}
+		let hop_pool = hop
+			.as_ref()
+			.map(|params| params.build_pool(config.database.path().map(|p| p.to_path_buf())))
+			.transpose()
+			.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+		if let (Some(pool), Some(hop)) = (hop_pool.as_ref(), hop.as_ref()) {
+			let task = sc_hop::build_maintenance_task::<Block, _, _>(
+				&client,
+				&transaction_pool,
+				pool.clone(),
+				hop.promotion_buffer_secs,
+				hop.check_interval,
+			);
+			task_manager.spawn_handle().spawn("hop-maintenance", None, task.run());
+		}
+
 		let spawn_handle = Arc::new(task_manager.spawn_handle());
 		let rpc_extensions_builder = {
 			let client = client.clone();
 			let transaction_pool = transaction_pool.clone();
 			let backend_for_rpc = backend.clone();
 			let statement_store = statement_store.clone();
+			let hop_pool = hop_pool.clone();
 
 			Box::new(move |_| {
 				let module = Self::BuildRpcExtensions::build_rpc_extensions(
@@ -428,6 +446,7 @@ where
 					backend_for_rpc.clone(),
 					transaction_pool.clone(),
 					statement_store.clone(),
+					hop_pool.clone(),
 					spawn_handle.clone(),
 				)?;
 				Ok(module)
@@ -455,7 +474,7 @@ where
 		// Spawn the storage monitor.
 		if let Some(database_path) = database_path {
 			sc_storage_monitor::StorageMonitorService::try_spawn(
-				storage_monitor,
+				storage_monitor.clone(),
 				database_path,
 				&task_manager.spawn_essential_handle(),
 			)
@@ -567,6 +586,7 @@ where
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
+		+ TargetBlockRate<Block>
 		+ GetParachainInfo<Block>,
 	AuraId: AuraIdT + Sync + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
@@ -599,7 +619,7 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 	StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + TargetBlockRate<Block>,
 	AuraId: AuraIdT + Sync + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
@@ -627,7 +647,10 @@ where
 	) where
 		CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 		CIDP::InherentDataProviders: Send,
-		CHP: cumulus_client_consensus_common::ValidationCodeHashProvider<Hash> + Send + 'static,
+		CHP: cumulus_client_consensus_common::ValidationCodeHashProvider<Hash>
+			+ Send
+			+ Sync
+			+ 'static,
 		Proposer: Environment<Block> + Send + Sync + 'static,
 		CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
 		Spawner: SpawnEssentialNamed + Clone + 'static,
@@ -651,7 +674,7 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 	> for StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + TargetBlockRate<Block>,
 	AuraId: AuraIdT + Sync + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
@@ -704,7 +727,7 @@ where
 				async move {
 					let has_tx_storage_api = client_clone
 						.runtime_api()
-						.has_api::<dyn TransactionStorageApi<Block>>(parent)
+						.has_api_with::<dyn TransactionStorageApi<Block>, _>(parent, |v| v >= 1)
 						.unwrap_or(false);
 					if has_tx_storage_api {
 						let storage_proof =
@@ -733,7 +756,6 @@ where
 			para_id,
 			proposer,
 			collator_service,
-			authoring_duration: Duration::from_millis(2000),
 			reinitialize: false,
 			slot_offset: Duration::from_secs(1),
 			block_import_handle,
@@ -855,7 +877,7 @@ where
 					async move {
 						let has_tx_storage_api = client_clone
 							.runtime_api()
-							.has_api::<dyn TransactionStorageApi<Block>>(parent)
+							.has_api_with::<dyn TransactionStorageApi<Block>, _>(parent, |v| v >= 1)
 							.unwrap_or(false);
 						if has_tx_storage_api {
 							let storage_proof =

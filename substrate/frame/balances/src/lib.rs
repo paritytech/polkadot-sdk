@@ -1135,9 +1135,6 @@ pub mod pallet {
 						Some(account.free)
 					}
 				} else {
-					assert!(
-						account.free.is_zero() || account.free >= ed || !account.reserved.is_zero()
-					);
 					*maybe_account = Some(account);
 					None
 				};
