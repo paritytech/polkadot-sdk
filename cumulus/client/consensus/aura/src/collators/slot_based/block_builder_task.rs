@@ -606,6 +606,7 @@ where
 								let _ = resubmit_sender.unbounded_send(CollatorResubmitSegment {
 									scheduling_proof: proof,
 									kind: SegmentKind::ResubmitOnly { core_index: this_core_index },
+									unincluded_segment: Vec::new(),
 								});
 							}
 						}
@@ -983,6 +984,7 @@ where
 						core_index,
 					},
 				},
+				unincluded_segment: Vec::new(),
 			})
 			.is_ok()
 	} else {
