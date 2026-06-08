@@ -1596,7 +1596,8 @@ pub struct SubPools<T: Config> {
 	/// older then `current_era - TotalUnbondingPools`.
 	pub no_era: UnbondPool<T>,
 	/// Map of era in which a pool becomes unbonded in => unbond pools.
-	/// [`WeakBoundedBTreeMap`] allows decoding if `TotalUnbondingPools` shrinks, preventing loss of unbonding data.
+	/// [`WeakBoundedBTreeMap`] allows decoding if `TotalUnbondingPools` shrinks, preventing loss
+	/// of unbonding data.
 	pub with_era: WeakBoundedBTreeMap<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>,
 }
 

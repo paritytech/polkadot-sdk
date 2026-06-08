@@ -733,7 +733,8 @@ mod sub_pools {
 		});
 	}
 
-	// Builds a `SubPools` with `with_era` entries for eras `0..n` (each with points/balance 1) and a `no_era` pool, ensuring the bound fits them.
+	// Builds a `SubPools` with `with_era` entries for eras `0..n` (each with points/balance 1) and
+	// a `no_era` pool, ensuring the bound fits them.
 	fn sub_pools_with(n: u32, no_era: Balance) -> SubPools<Runtime> {
 		BondingDuration::set(28);
 		assert!(TotalUnbondingPools::<Runtime>::get() >= n, "bound must fit the constructed map");
