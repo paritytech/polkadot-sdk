@@ -54,8 +54,6 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 			})
 		})
 		.with_parachain(|p| {
-			// Para 2100 uses the old elastic scaling mvp, which doesn't send the new UMP signal
-			// commitment for selecting the core index.
 			p.with_id(2100)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
@@ -67,8 +65,6 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 				.with_collator(|n| n.with_name("collator-elastic-mvp"))
 		})
 		.with_parachain(|p| {
-			// Para 2200 uses the new RFC103-enabled collator which sends the UMP signal commitment
-			// for selecting the core index
 			p.with_id(2200)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())

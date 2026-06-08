@@ -16,10 +16,7 @@
 
 use std::{
 	collections::{BTreeMap, HashMap},
-	sync::{
-		atomic::{AtomicU64, Ordering as AtomicOrdering},
-		Arc,
-	},
+	sync::Arc,
 	time::Duration,
 };
 
@@ -51,7 +48,7 @@ use sp_core::{sr25519::Pair, testing::TaskExecutor, Pair as PairT};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{Keystore, KeystorePtr};
 
-use polkadot_node_primitives::{Timestamp, ACTIVE_DURATION_SECS};
+use polkadot_node_primitives::ACTIVE_DURATION_SECS;
 use polkadot_node_subsystem::{
 	messages::{AllMessages, BlockDescription, RuntimeApiMessage, RuntimeApiRequest},
 	ActiveLeavesUpdate,
@@ -74,9 +71,9 @@ use crate::{
 	backend::Backend,
 	metrics::Metrics,
 	participation::{participation_full_happy_path, participation_missing_availability},
-	status::Clock,
 	Config, DisputeCoordinatorSubsystem,
 };
+use polkadot_node_clock::{Clock, MockClock};
 
 use super::db::v1::DbBackend;
 
@@ -141,29 +138,6 @@ async fn generate_opposing_votes_pair(
 	);
 
 	(valid_vote, invalid_vote)
-}
-
-#[derive(Clone)]
-struct MockClock {
-	time: Arc<AtomicU64>,
-}
-
-impl Default for MockClock {
-	fn default() -> Self {
-		MockClock { time: Arc::new(AtomicU64::default()) }
-	}
-}
-
-impl Clock for MockClock {
-	fn now(&self) -> Timestamp {
-		self.time.load(AtomicOrdering::SeqCst)
-	}
-}
-
-impl MockClock {
-	fn set(&self, to: Timestamp) {
-		self.time.store(to, AtomicOrdering::SeqCst)
-	}
 }
 
 struct TestState {
@@ -582,7 +556,7 @@ impl TestState {
 		);
 		let backend =
 			DbBackend::new(self.db.clone(), self.config.column_config(), Metrics::default());
-		let subsystem_task = subsystem.run(ctx, backend, Box::new(self.clock.clone()));
+		let subsystem_task = subsystem.run(ctx, backend, Arc::new(self.clock.clone()));
 		let test_task = test(self, ctx_handle);
 
 		let (_, state) = futures::executor::block_on(future::join(subsystem_task, test_task));
@@ -2093,7 +2067,7 @@ fn concluded_supermajority_for_non_active_after_time() {
 			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash, HashMap::new())
 				.await;
 
-			test_state.clock.set(ACTIVE_DURATION_SECS + 1);
+			test_state.clock.set_secs(ACTIVE_DURATION_SECS + 1);
 
 			{
 				let (tx, rx) = oneshot::channel();
@@ -2215,7 +2189,7 @@ fn concluded_supermajority_against_non_active_after_time() {
 			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash, HashMap::new())
 				.await;
 
-			test_state.clock.set(ACTIVE_DURATION_SECS + 1);
+			test_state.clock.set_secs(ACTIVE_DURATION_SECS + 1);
 
 			{
 				let (tx, rx) = oneshot::channel();
@@ -2379,7 +2353,9 @@ fn resume_dispute_without_local_statement() {
 
 			// Advance the clock far enough so that the concluded dispute will be omitted from an
 			// ActiveDisputes query.
-			test_state.clock.set(test_state.clock.now() + ACTIVE_DURATION_SECS + 1);
+			test_state.clock.set_secs(
+				test_state.clock.duration_since_epoch().as_secs() + ACTIVE_DURATION_SECS + 1,
+			);
 
 			{
 				let (tx, rx) = oneshot::channel();
