@@ -152,7 +152,6 @@ async fn initialize<Context>(
 			backend,
 			ctx.sender(),
 			scheduled_paras.into_iter().collect(),
-			clock.clone(),
 			metrics.clone(),
 		)
 		.await
