@@ -38,31 +38,31 @@ use affinity::AffinityFilter;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
 use futures::{
 	channel::oneshot,
-	future::{FusedFuture, pending},
+	future::{pending, FusedFuture},
 	prelude::*,
 	stream::FuturesUnordered,
 };
 use governor::{
-	Quota, RateLimiter,
 	clock::DefaultClock,
 	state::{InMemoryState, NotKeyed},
+	Quota, RateLimiter,
 };
 use prometheus_endpoint::{
-	Counter, Gauge, GaugeVec, Histogram, HistogramOpts, Opts, PrometheusError, Registry, U64,
-	exponential_buckets, register,
+	exponential_buckets, register, Counter, Gauge, GaugeVec, Histogram, HistogramOpts, Opts,
+	PrometheusError, Registry, U64,
 };
 use rand::seq::IteratorRandom;
 use sc_network::{
-	Event, NetworkBackend, NetworkEventStream, NetworkPeers, NetworkStateInfo,
 	config::{NonReservedPeerMode, SetConfig},
 	error, multiaddr,
 	peer_store::PeerStoreProvider,
 	service::{
-		NotificationMetrics,
 		traits::{NotificationEvent, NotificationService, ValidationResult},
+		NotificationMetrics,
 	},
 	types::ProtocolName,
-	utils::{LruHashSet, interval},
+	utils::{interval, LruHashSet},
+	Event, NetworkBackend, NetworkEventStream, NetworkPeers, NetworkStateInfo,
 };
 use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
@@ -71,7 +71,7 @@ use sp_statement_store::{
 	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
 };
 use std::{
-	collections::{HashMap, HashSet, VecDeque, hash_map::Entry},
+	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	iter,
 	num::{NonZeroU32, NonZeroUsize},
 	pin::Pin,
@@ -1609,8 +1609,8 @@ mod tests {
 
 	use super::*;
 	use std::sync::{
-		Mutex,
 		atomic::{AtomicBool, Ordering},
+		Mutex,
 	};
 
 	/// Default seed used for bloom filters in tests.
