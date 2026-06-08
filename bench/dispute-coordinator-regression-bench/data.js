@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780749645604,
+  "lastUpdate": 1780940373935,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "de740e1892f47e91c356858324f6e3e4b0f1be60",
-          "message": "Limit the size of the statement for further gossiping (#9965)\n\n# Description\n\nLimits the size of statements that are further gossiped over the network\nto prevent skipping oversized messages. The limit is set to match the\nnetwork protocol's max statement notification size (1 MB), accounting\nfor 1-byte vector length overhead because statements are sent as\n`Vec<Statement>`.\n\n## Integration\n\nAffected crates:\n- `sc-statement-store`: Now depends on `sc-network-statement` for size\nconstants\n- `sc-network-statement`: `MAX_STATEMENT_NOTIFICATION_SIZE` is now\npublic\n\nFor downstream users:\n- Statements larger than 1 MB will now be rejected earlier before the\nvalidation pipeline\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-10-22T01:22:47Z",
-          "tree_id": "8c442e565d63b39426975189a56840d1fdf73792",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/de740e1892f47e91c356858324f6e3e4b0f1be60"
-        },
-        "date": 1761100678822,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0025988462799999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008633271109999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0050134393799999965,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00264642976,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "82968568+miloskriz@users.noreply.github.com",
+            "name": "Milos Kriz",
+            "username": "miloskriz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b95ef390bb5b4c3025e244234373195e4d1c12ed",
+          "message": "Removal of IBP bootnodes (#12284)\n\nDear team, hello!\n\nPlease consider this Pull Request to remove all bootnodes from the\nInfrastructure Builders Programme (IBP) due to the shutdown of its\noperations (signaled in [referendum\n1891](https://polkadot.subsquare.io/referenda/1891))\n\nThese changes affect `polkadot`, `kusama` and `westend` relay and system\nchain chainspecs, as the `paseo` ones will be modified in their own\nrepository.\n\nMany thanks for the long standing partnership!\n\nBest regards!!\n\n**_Milos_**",
+          "timestamp": "2026-06-08T14:19:56Z",
+          "tree_id": "72a132169bca5618c8137ce26347a803dd5ef347",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b95ef390bb5b4c3025e244234373195e4d1c12ed"
+        },
+        "date": 1780940341489,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010468351649999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025783340399999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009451360399999989,
             "unit": "seconds"
           }
         ]
