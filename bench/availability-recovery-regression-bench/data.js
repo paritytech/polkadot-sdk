@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780749483111,
+  "lastUpdate": 1780938127569,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15174476+TorstenStueber@users.noreply.github.com",
-            "name": "Torsten Stüber",
-            "username": "TorstenStueber"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2d514fa3e40718db64734df26086a2971f6d730d",
-          "message": "pallet-revive: Add ExportChainSpec command to revive-dev-node (#10020)\n\nAdd the `export-chain-spec` command to the revive-dev-node.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-24T03:15:36Z",
-          "tree_id": "4704764fbd6a7e2a9e9d2ae9227e4e9da20a581d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2d514fa3e40718db64734df26086a2971f6d730d"
-        },
-        "date": 1761280469816,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.7581694771,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2051569441666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.357600401799997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ross@jkrb.io",
+            "name": "Ross Bulat",
+            "username": "rossbulat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a0ef3da4f1d9173dd44f8d8dbb181e69ff5c001a",
+          "message": "fix(nomination-pools): allow permissionless full unbond of depositor in destroying state (#12297)\n\nAddresses  https://github.com/paritytech/polkadot-sdk/issues/12290\n\nPreviously, any attempt to permissionlessly unbond the depositor was\nunconditionally rejected with `DoesNotHavePermission`. This was not in\naccordance with the `unbond` documentation, blocking the case where a\npool is being destroyed and the depositor is the sole remaining member.\n\n**What it fixes:**\n- Permissionless unbonding of the depositor is now allowed **only** when\nit's a full unbond (`is_full_unbond`) **and** the pool is in the\ndestroying state with the depositor as the sole remaining member\n(`is_destroying_and_only_depositor`).\n- Partial permissionless unbonds of the depositor still correctly return\n`PartialUnbondNotAllowedPermissionlessly`.\n- Tests are updated to assert both the newly-allowed success path and\nthat repeated unbond attempts (after points are already zero) correctly\nfail with `MinimumBondNotMet`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-08T13:01:52Z",
+          "tree_id": "aaef0db7cdab05d4440dd1b2538cef2646bc7f61",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a0ef3da4f1d9173dd44f8d8dbb181e69ff5c001a"
+        },
+        "date": 1780938096565,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1505300168,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.415178410333333,
             "unit": "seconds"
           }
         ]
