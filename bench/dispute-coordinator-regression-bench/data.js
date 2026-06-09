@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780940373935,
+  "lastUpdate": 1781001124178,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "297fb73485df56ba24866c363c922a0f6263107a",
-          "message": "approval-distribution: improve test coverage (#10082)\n\nAdd few more test in approval-distribution to improve coverage.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-22T10:05:15Z",
-          "tree_id": "42ddbf744d7cb05186d29c863652db5bf721e1d5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/297fb73485df56ba24866c363c922a0f6263107a"
-        },
-        "date": 1761131597150,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026343842599999986,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008755079619999991,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0051801053899999915,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009451360399999989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bde47ea0e9076ed45cb1441acb40f14e05cbca79",
+          "message": "cumulus: add SignedSchedulingInfo PVF verification (#12097)\n\n# Description\n\nVerifies the scheduling info payload in PVF, if formed by an author that\nclaims its para slot at internal scheduling parent.\n\nCloses #12152 \n\n## Integration\n\nRuntime developers that want to enable resubmissions for their\nparachains must configure the newly added associated type on\nparachain-system's `Config`: `VerifySchedulingSignature`.\n\n## Review Notes\n\nConcerns like parachain session or para slot duration changes must be\nhandled by the resubmission engine, as described here:\nhttps://github.com/paritytech/polkadot-sdk/issues/12036#issuecomment-4479412418.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: eskimor <eskimor@noreply.com>\nCo-authored-by: eskimor <jfanatiker@gmx.at>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Marios <marios@parity.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Alin Dima <alin@parity.io>",
+          "timestamp": "2026-06-09T08:54:25Z",
+          "tree_id": "6802bc22c97c7b695e02d0d062be82b24878657e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bde47ea0e9076ed45cb1441acb40f14e05cbca79"
+        },
+        "date": 1781001092853,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009865131590000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026556972699999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009424096229999988,
             "unit": "seconds"
           }
         ]
