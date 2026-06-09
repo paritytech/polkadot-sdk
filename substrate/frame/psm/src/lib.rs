@@ -1282,8 +1282,8 @@ pub mod pallet {
 			// Check 11: Zero ceiling weight + zero debt implies zero reserve.
 			// Non-zero reserve under these conditions is likely a donation or bug.
 			for (asset_id, _) in ExternalAssets::<T>::iter() {
-				if AssetCeilingWeight::<T>::get(&asset_id).is_zero()
-					&& PsmDebt::<T>::get(&asset_id).is_zero()
+				if AssetCeilingWeight::<T>::get(&asset_id).is_zero() &&
+					PsmDebt::<T>::get(&asset_id).is_zero()
 				{
 					let reserve = Self::get_reserve(asset_id.clone());
 					if !reserve.is_zero() {

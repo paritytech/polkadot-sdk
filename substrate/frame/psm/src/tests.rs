@@ -16,10 +16,9 @@
 // limitations under the License.
 
 use super::mock::*;
-use crate::ExternalDecimals;
 use crate::{
-	AssetCeilingWeight, CircuitBreakerLevel, Error, Event, ExternalAssets, MaxPsmDebtOfTotal,
-	MintingFee, PsmDebt, RedemptionFee,
+	AssetCeilingWeight, CircuitBreakerLevel, Error, Event, ExternalAssets, ExternalDecimals,
+	MaxPsmDebtOfTotal, MintingFee, PsmDebt, RedemptionFee,
 };
 use frame_support::{assert_noop, assert_ok, hypothetically};
 use sp_runtime::{DispatchError, Permill, TokenError};
@@ -257,9 +256,11 @@ mod mint {
 		});
 	}
 
-	// Companion to multi_asset_ceiling::minting_past_per_asset_ceiling_blocked_regardless_of_global_headroom:
-	// this test hits the global ceiling (per-asset ceiling allows the mint), that one hits the per-asset
-	// ceiling (global ceiling allows the mint). Both error ExceedsMaxPsmDebt from different ensure! gates.
+	// Companion to
+	// multi_asset_ceiling::minting_past_per_asset_ceiling_blocked_regardless_of_global_headroom:
+	// this test hits the global ceiling (per-asset ceiling allows the mint), that one hits the
+	// per-asset ceiling (global ceiling allows the mint). Both error ExceedsMaxPsmDebt from
+	// different ensure! gates.
 	#[test]
 	fn fails_mint_exceeds_aggregate_psm_ceiling() {
 		execute_with_try_state(|| {
@@ -1566,8 +1567,9 @@ mod multi_asset_ceiling {
 		});
 	}
 
-	// Companion to mint::fails_mint_exceeds_aggregate_psm_ceiling: that test hits the global ceiling
-	// (per-asset allows), this one hits the per-asset ceiling (global allows). Same error, different gate.
+	// Companion to mint::fails_mint_exceeds_aggregate_psm_ceiling: that test hits the global
+	// ceiling (per-asset allows), this one hits the per-asset ceiling (global allows). Same error,
+	// different gate.
 	#[test]
 	fn minting_past_per_asset_ceiling_blocked_regardless_of_global_headroom() {
 		execute_with_try_state(|| {
@@ -1583,8 +1585,8 @@ mod multi_asset_ceiling {
 
 			// 3. Global ceiling still has 2M headroom
 			assert!(
-				crate::Pallet::<Test>::total_psm_debt().saturating_add(OVER)
-					<= crate::Pallet::<Test>::max_psm_debt(),
+				crate::Pallet::<Test>::total_psm_debt().saturating_add(OVER) <=
+					crate::Pallet::<Test>::max_psm_debt(),
 				"global headroom must exist for this test to be meaningful",
 			);
 
@@ -1761,8 +1763,8 @@ mod cycles {
 
 			let total_fees = total_mint_fees + total_redeem_fees;
 			let if_increase = if_internal_after - if_internal_before;
-			let user_decrease = user_external_before - user_external_after + user_internal_before
-				- user_internal_after;
+			let user_decrease = user_external_before - user_external_after + user_internal_before -
+				user_internal_after;
 
 			println!("\n=== Verification ===");
 			println!("Total fees collected: {:.2}", total_fees as f64 / unit);
@@ -1928,8 +1930,8 @@ mod cycles {
 
 			let total_fees = total_mint_fees + total_redeem_fees;
 			let if_increase = if_internal_after - if_internal_before;
-			let user_decrease = user_external_before - user_external_after + user_internal_before
-				- user_internal_after;
+			let user_decrease = user_external_before - user_external_after + user_internal_before -
+				user_internal_after;
 
 			println!("\n=== Verification ===");
 			println!("Total fees collected: {:.2}", total_fees as f64 / unit);
@@ -1970,8 +1972,8 @@ mod cycles {
 
 			let total_fees = total_mint_fees + total_redeem_fees;
 			let if_increase = if_internal_after - if_internal_before;
-			let user_decrease = user_external_before - user_external_after + user_internal_before
-				- user_internal_after;
+			let user_decrease = user_external_before - user_external_after + user_internal_before -
+				user_internal_after;
 
 			println!("\n=== Final State ===");
 			println!("Total cycles: {}", cycle);
@@ -2041,8 +2043,8 @@ mod try_state {
 		});
 	}
 
-	// Check 1 (internal variant): internal asset live decimals diverge from InternalDecimals snapshot.
-	// Also covers the same guard inside add_external_asset (line 927 in lib.rs).
+	// Check 1 (internal variant): internal asset live decimals diverge from InternalDecimals
+	// snapshot. Also covers the same guard inside add_external_asset (line 927 in lib.rs).
 	#[test]
 	fn detects_internal_decimal_mismatch() {
 		new_test_ext().execute_with(|| {
