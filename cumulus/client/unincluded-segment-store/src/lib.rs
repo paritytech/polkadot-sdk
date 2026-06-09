@@ -19,7 +19,7 @@
 //!
 //! Persists a [`StoredEntry`] (capture time, relay-parent session and storage proof) per
 //! imported parablock, keyed by parablock hash. Data is pruned on parachain finality (via
-//! [`ResubmissionStore::register_cleanup`]) and, once a relay-chain session ages out, by
+//! [`register_resubmission_cleanup`]) and, once a relay-chain session ages out, by
 //! relay-parent session (via [`ResubmissionStore::prune_old_sessions`]).
 
 use codec::{Decode, Encode};
@@ -59,8 +59,8 @@ pub struct StoredEntry {
 	/// The storage proof captured at block import.
 	pub proof: StorageProof,
 	/// Relay-chain session a block on this relay parent is expected to be included in (the relay
-	/// parent's `session_index_for_child`); `Some` for locally-built blocks, `None` for imported
-	/// ones whose session isn't resolvable at import. Drives
+	/// parent's `session_index_for_child`). `Some` when the session was resolvable at the time the
+	/// entry was recorded, otherwise `None`. Drives
 	/// [`ResubmissionStore::prune_old_sessions`].
 	pub relay_parent_session: Option<SessionIndex>,
 }
@@ -103,7 +103,7 @@ impl<Block: BlockT, B> ResubmissionStore<Block, B> {
 ///
 /// The caller should push these into `BlockImportParams::auxiliary` so they commit in the
 /// same DB transaction as the block. Stateless — no backend access required.
-pub fn prepare_aux_data<Block: BlockT>(
+pub fn prepare_resubmission_aux_data<Block: BlockT>(
 	block_hash: Block::Hash,
 	time_ms: u64,
 	relay_parent_session: Option<SessionIndex>,
@@ -146,9 +146,22 @@ impl<Block: BlockT, B: AuxStore> ResubmissionStore<Block, B> {
 		current_session: SessionIndex,
 		max_session_age: SessionIndex,
 	) -> ClientResult<()> {
+		match self.decode_aux::<u32>(STORE_VERSION_KEY)? {
+			None => return Ok(()),
+			Some(STORE_CURRENT_VERSION) => {},
+			Some(other) => {
+				return Err(ClientError::Backend(format!(
+					"Unsupported unincluded segment store DB version: {:?}",
+					other
+				)))
+			},
+		}
+
 		let mut delete_keys = Vec::new();
 		for hash in hashes {
-			let Some(session) = self.load(hash)?.and_then(|entry| entry.relay_parent_session)
+			let Some(session) = self
+				.decode_aux::<StoredEntry>(entry_key(hash).as_slice())?
+				.and_then(|entry| entry.relay_parent_session)
 			else {
 				continue;
 			};
@@ -179,35 +192,33 @@ impl<Block: BlockT, B: AuxStore> ResubmissionStore<Block, B> {
 	}
 }
 
-impl<Block, B> ResubmissionStore<Block, B>
+/// Register a finality hook that prunes entries for the just-finalized chain, the
+/// intermediate tree route, the prior finalized head, and any stale forks.
+///
+/// Should be called during consensus initialization. Once a block is finalized it is no
+/// longer in any unincluded segment, so its proof entry can be dropped.
+pub fn register_resubmission_cleanup<Block, B>(backend: Arc<B>)
 where
 	Block: BlockT,
 	B: PreCommitActions<Block> + HeaderBackend<Block> + 'static,
 {
-	/// Register a finality hook that prunes entries for the just-finalized chain, the
-	/// intermediate tree route, the prior finalized head, and any stale forks.
-	///
-	/// Pruning of entries whose relay-parent session is older than `max_relay_parent_session_age`
-	/// relative to the current session.
-	pub fn register_cleanup(&self) {
-		let client = self.backend.clone();
-		let on_finality = move |notification: &FinalityNotification<Block>| -> AuxDataOperations {
-			let old_finalized = old_finalized_hash::<_, Block>(
-				&*client,
-				&notification.tree_route,
-				*notification.header.parent_hash(),
-			);
+	let client = backend.clone();
+	let on_finality = move |notification: &FinalityNotification<Block>| -> AuxDataOperations {
+		let old_finalized = old_finalized_hash::<_, Block>(
+			&*client,
+			&notification.tree_route,
+			*notification.header.parent_hash(),
+		);
 
-			finality_cleanup_ops::<Block>(
-				notification.hash,
-				old_finalized,
-				&notification.tree_route,
-				notification.stale_blocks.iter().map(|b| b.hash),
-			)
-		};
+		finality_cleanup_ops::<Block>(
+			notification.hash,
+			old_finalized,
+			&notification.tree_route,
+			notification.stale_blocks.iter().map(|b| b.hash),
+		)
+	};
 
-		self.backend.register_finality_action(Box::new(on_finality));
-	}
+	backend.register_finality_action(Box::new(on_finality));
 }
 
 /// Compute aux storage cleanup operations.
@@ -257,7 +268,7 @@ mod tests {
 	}
 
 	fn write_via_store(backend: &Arc<TestBackend>, hash: Hash, entry: &StoredEntry) {
-		let pairs: Vec<_> = prepare_aux_data::<Block>(
+		let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
 			hash,
 			entry.time_ms,
 			entry.relay_parent_session,
@@ -277,7 +288,8 @@ mod tests {
 		let relay_parent_session = Some(42);
 
 		let pairs: Vec<_> =
-			prepare_aux_data::<Block>(hash, time_ms, relay_parent_session, &proof).collect();
+			prepare_resubmission_aux_data::<Block>(hash, time_ms, relay_parent_session, &proof)
+				.collect();
 
 		assert_eq!(pairs.len(), 2);
 
@@ -359,7 +371,8 @@ mod tests {
 
 		let write = |hash: Hash, session: Option<SessionIndex>| {
 			let proof = StorageProof::new(vec![vec![1, 2, 3]]);
-			let pairs: Vec<_> = prepare_aux_data::<Block>(hash, 1_000, session, &proof).collect();
+			let pairs: Vec<_> =
+				prepare_resubmission_aux_data::<Block>(hash, 1_000, session, &proof).collect();
 			let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
 			AuxStore::insert_aux(&*backend, &refs, &[]).expect("insert");
 		};
@@ -392,7 +405,8 @@ mod tests {
 
 		let recent = Hash::repeat_byte(0x09);
 		let proof = StorageProof::new(vec![vec![1, 2, 3]]);
-		let pairs: Vec<_> = prepare_aux_data::<Block>(recent, 1_000, Some(10), &proof).collect();
+		let pairs: Vec<_> =
+			prepare_resubmission_aux_data::<Block>(recent, 1_000, Some(10), &proof).collect();
 		let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
 		AuxStore::insert_aux(&*backend, &refs, &[]).expect("insert");
 
@@ -536,13 +550,13 @@ mod tests {
 
 		// Write `a` and `b` via the same path block-import uses, then close.
 		with_backend(path, |backend| {
-			let pairs: Vec<_> = prepare_aux_data::<Block>(
+			let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
 				hash_a,
 				entry_a.time_ms,
 				entry_a.relay_parent_session,
 				&entry_a.proof,
 			)
-			.chain(prepare_aux_data::<Block>(
+			.chain(prepare_resubmission_aux_data::<Block>(
 				hash_b,
 				entry_b.time_ms,
 				entry_b.relay_parent_session,
