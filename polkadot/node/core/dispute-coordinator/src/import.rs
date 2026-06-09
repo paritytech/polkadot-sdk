@@ -34,11 +34,10 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem::overseer;
 use polkadot_node_subsystem_util::{runtime::RuntimeInfo, ControlledValidatorIndices};
 use polkadot_primitives::{
-	CandidateHash, CandidateReceiptV2 as CandidateReceipt, DisputeStatement, Hash, IndexedVec,
-	SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
-	ValidatorSignature, MAX_COALESCE_APPROVALS,
+	CandidateReceiptV2 as CandidateReceipt, CoalescedApprovalCandidateHashes, DisputeStatement,
+	Hash, IndexedVec, SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId,
+	ValidatorIndex, ValidatorSignature,
 };
-use sp_core::{bounded::BoundedVec, ConstU32};
 
 use crate::LOG_TARGET;
 
@@ -563,7 +562,10 @@ impl ImportResult {
 	pub fn import_approval_votes(
 		self,
 		env: &CandidateEnvironment,
-		approval_votes: HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>,
+		approval_votes: HashMap<
+			ValidatorIndex,
+			(CoalescedApprovalCandidateHashes, ValidatorSignature),
+		>,
 		now: Timestamp,
 	) -> Self {
 		let Self {
@@ -578,19 +580,6 @@ impl ImportResult {
 		let (mut votes, _) = new_state.into_old_state();
 
 		for (index, (candidate_hashes, sig)) in approval_votes.into_iter() {
-			let candidate_hashes: BoundedVec<CandidateHash, ConstU32<{ MAX_COALESCE_APPROVALS }>> =
-				match candidate_hashes.try_into() {
-					Ok(candidate_hashes) => candidate_hashes,
-					Err(candidate_hashes) => {
-						gum::debug!(
-							target: LOG_TARGET,
-							?index,
-							num_candidates = candidate_hashes.len(),
-							"Skipping invalid imported approval vote",
-						);
-						continue;
-					},
-				};
 			debug_assert!(
 				{
 					let pub_key = &env

@@ -54,8 +54,9 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	ApprovalVoteMultipleCandidates, BlockNumber, CandidateHash, CandidateIndex,
-	CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex, Hash, SessionIndex, SessionInfo,
-	ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
+	CandidateReceiptV2 as CandidateReceipt, CoalescedApprovalCandidateHashes, CoreIndex,
+	GroupIndex, Hash, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair,
+	ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair;
@@ -2111,7 +2112,9 @@ async fn get_approval_signatures_for_candidate<
 	spawn_handle: &Arc<dyn overseer::gen::Spawner + 'static>,
 	db: &OverlayedBackend<'_, impl Backend>,
 	candidate_hash: CandidateHash,
-	tx: oneshot::Sender<HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>>,
+	tx: oneshot::Sender<
+		HashMap<ValidatorIndex, (CoalescedApprovalCandidateHashes, ValidatorSignature)>,
+	>,
 ) -> SubsystemResult<()> {
 	let send_votes = |votes| {
 		if let Err(_) = tx.send(votes) {
@@ -2224,7 +2227,17 @@ async fn get_approval_signatures_for_candidate<
 								})
 								.collect();
 						if num_signed_candidates == signed_candidates_hashes.len() {
-							Some((validator_index, (signed_candidates_hashes, signature)))
+							match signed_candidates_hashes.try_into() {
+								Ok(signed_candidates_hashes) =>
+									Some((validator_index, (signed_candidates_hashes, signature))),
+								Err(_) => {
+									gum::warn!(
+										target: LOG_TARGET,
+										"Skipping approval signature coalescing more than MAX_COALESCE_APPROVALS candidates"
+									);
+									None
+								},
+							}
 						} else {
 							gum::warn!(
 								target: LOG_TARGET,

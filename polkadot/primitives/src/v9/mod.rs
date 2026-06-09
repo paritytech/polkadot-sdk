@@ -1192,6 +1192,12 @@ impl DisputeStatement {
 /// maximum value the runtime accepts for `max_approval_coalesce_count`.
 pub const MAX_COALESCE_APPROVALS: u32 = 16;
 
+/// The candidate hashes coalesced into a single approval vote, bounded at the type level to at most
+/// [`MAX_COALESCE_APPROVALS`]. Used to carry coalesced approval signatures between subsystems while
+/// preserving that bound.
+pub type CoalescedApprovalCandidateHashes =
+	BoundedVec<CandidateHash, ConstU32<{ MAX_COALESCE_APPROVALS }>>;
+
 /// Different kinds of statements of validity on  a candidate.
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Debug, TypeInfo)]
 pub enum ValidDisputeStatementKind {

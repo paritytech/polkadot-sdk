@@ -58,10 +58,11 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_primitives::{
 	ApprovalVote, ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateEvent,
-	CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex, DisputeStatement, GroupIndex,
-	Hash, HeadData, Header, IndexedVec, MultiDisputeStatementSet, MutateDescriptorV2, NodeFeatures,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, SigningContext, ValidDisputeStatementKind,
-	ValidatorId, ValidatorIndex, ValidatorSignature, ValidityAttestation,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoalescedApprovalCandidateHashes,
+	CoreIndex, DisputeStatement, GroupIndex, Hash, HeadData, Header, IndexedVec,
+	MultiDisputeStatementSet, MutateDescriptorV2, NodeFeatures, ScrapedOnChainVotes, SessionIndex,
+	SessionInfo, SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	ValidatorSignature, ValidityAttestation,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_v2_bad_sig, dummy_digest, dummy_hash,
@@ -752,7 +753,7 @@ fn make_candidate_included_event(candidate_receipt: CandidateReceipt) -> Candida
 pub async fn handle_approval_vote_request(
 	ctx_handle: &mut VirtualOverseer,
 	expected_hash: &CandidateHash,
-	votes_to_send: HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>,
+	votes_to_send: HashMap<ValidatorIndex, (CoalescedApprovalCandidateHashes, ValidatorSignature)>,
 ) {
 	assert_matches!(
 		ctx_handle.recv().await,
@@ -961,7 +962,10 @@ fn approval_vote_import_works() {
 
 			let approval_votes = [(
 				ValidatorIndex(4),
-				(vec![candidate_receipt1.hash()], approval_vote.into_validator_signature()),
+				(
+					vec![candidate_receipt1.hash()].try_into().unwrap(),
+					approval_vote.into_validator_signature(),
+				),
 			)]
 			.into_iter()
 			.collect();
