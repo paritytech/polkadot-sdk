@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780999913158,
+  "lastUpdate": 1781020200636,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -98063,6 +98063,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2845523912,
             "range": "± 41761768",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jfanatiker@gmx.at",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "104e66f7114ea3322187b4b93255bb9f3f4d5005",
+          "message": "Deterministic simulation based testing for subsystems (#12007)\n\nIdeally tests should not describe implementation details, but only\nexpected actual output, vs input. This is an attempt for achieving this\nfor our subsystem tests, starting with the collator protocol - where we\nhave 2 implementations. For behavior that has not changed, the tests for\nboth legacy and experimental should be the same.\n\nThis is useful in general, but also becomes more and more important to\nbetter verify AI code.",
+          "timestamp": "2026-06-09T11:50:53Z",
+          "tree_id": "fa80c7e6ebe6dcf8b9fdbbf0815b195ff780099b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/104e66f7114ea3322187b4b93255bb9f3f4d5005"
+        },
+        "date": 1781020169259,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19218407,
+            "range": "± 106223",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19442126,
+            "range": "± 186581",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21038306,
+            "range": "± 125317",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25884300,
+            "range": "± 309146",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60220998,
+            "range": "± 982112",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 372967886,
+            "range": "± 3968562",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2521995184,
+            "range": "± 133419440",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16813794,
+            "range": "± 253787",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17150256,
+            "range": "± 112085",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17871113,
+            "range": "± 357739",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22071222,
+            "range": "± 195116",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62930668,
+            "range": "± 570077",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 374075327,
+            "range": "± 4623054",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2666072457,
+            "range": "± 35816200",
             "unit": "ns/iter"
           }
         ]
