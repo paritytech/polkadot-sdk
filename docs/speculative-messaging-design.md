@@ -209,36 +209,245 @@ Instead of routing messages through relay chain state, we:
 
 ---
 
-## Detailed Design
-
-## Parachain Discoverability
+# Detailed Design - MVP focus
 
 Parachain nodes operating on different peer-to-peer (P2P) networks need a mechanism to exchange messages off-chain.
 The relay chain only processes message commitments, not the messages themselves. Parachains must rely on an
 alternative discovery method, since different geensis hashes and sync protocols prevent direct communication.
 
+The design solves the following parts:
+
+1. **Discoverability**: Parachain A finds the nodes of parachain B.
+2. **Communication**: Nodes from A connect to B in a resource efficient manner.
+3. **P2P messaging protocol**: Announcement and exchange of messages offchain.
+
+## 1. Parachain Discoverability
+
 The discoverability of parachains leverages the existing bootnodes on DHT mechanism on the relay chain side,
-as specified at: [RFC 08](https://github.com/polkadot-fellows/RFCs/blob/main/text/0008-parachain-bootnodes-dht.md).
-The relay chain peers of parachains advertise themselves as providers in the relay chain DHT using the key `para ID || epoch randomness`.
+as specified in [RFC-0008](https://github.com/polkadot-fellows/RFCs/blob/main/text/0008-parachain-bootnodes-dht.md).
+The relay chain peers of parachains advertise themselves as providers in the relay chain DHT under the key `para ID || epoch randomness`.
 Only the 20 closest peer IDs to this key are kept as providers, and the provider set is updated on every epoch change.
 
 To translate these peer IDs into actual bootnode addresses, the `/paranode` request-response protocol is used.
 This protocol accepts a SCALE-compact-encoded `para ID` as input and returns a list of bootnode multiaddresses for that parachain.
 
-## Parachain Communcation
+## 2. Parachain Communcation
 
 Instead of spawning a dedicated global network for speculative messaging, a parachain node reutilizes its existing
-parachain-side litep2p network backend. After obtaining the bootnode list of the destination parachain from the relay chain,
-the genesis hash and fork ID are extracted directly from the bootnode list.
+parachain-side litep2p network backend.
 
-Using this information, the node registers dynamically and spawns a new Kademlia instance specifically for the destination parachain.
-The Kademlia instance is configured with the same genesis hash and fork ID, ensuring it only discovers and connects to nodes of the
-destination parachain. To conserve resources, this initialization happens lazily, meaning the Kademlia isntance is created at the very
-first time a parachain needs to establish communication with a given destination.
+Using the genesis hash and fork ID from the `/paranode` response, the node registers dynamically and spawns a new Kademlia
+instance dedicated to the destination parachain, named `/{genesis_B}/{fork_B}/kad`.
 
-Finally, the Kademlia protocol for the desitnation parachain is defined as `/{genesis_B}/{fork_B}/kad`.
+The instance is initialized lazily at the first time when parachain A needs to communicate with parachain B.
+
 To prevent any potential intertwining of DHTs between different parachains, the dedicated Kademlia instance operates strictly in
 client-only mode, ensuring it only participates in the DHT of the destination parachain without contributing to its routing table.
+
+The dedicated Kademlia instance performs a low intensity DHT scrawling by submitting periodically `FIND_NODE` queries to the destination
+parachain. The discovered peers are kept in memory keyed by the parachain id. This information is used to send speculative messages only
+to the peers of the destination parachain.
+
+## 3. Speculative Messaging P2P Protocol
+
+The messages are exchanged over two new dedicated protocols:
+ - `/spec-msg/announce/1`: notification protocol required for speculating below backed-block tier.
+ - `/spec-msg/exchange/1`: request response protocol for fetching messages off-chain.
+
+The protocols intentionally omit the genesis hash and fork ID, so nodes can communicate regardless of
+genesis. Isolation is already provided by the dedicated Kademlia instance, which maps each parachain's peers.
+
+Without a block-announcement protocol to keep connections alive, an idle connection is subject to termination.
+To avoid re-dialing the peers for every message, the `/spec-msg/exchange/1` keeps a long lived substream active
+for the entire duration of the exchange and reutilizes it for subsequent requests.
+This reduces latency and removes repeated connection setup, and diverges slightly from
+Substrate's usual request-response protocols, where the substream is short-lived.
+
+All messages are SCALE-encoded.
+
+### Payload Limits
+
+- `/spec-msg/announce/1` — maximum over-the-wire payload of **2 MiB**.
+- `/spec-msg/exchange/1` — maximum over-the-wire payload of **16 MiB**.
+
+Payloads exceeding these limits are fragmented into multiple speculative messages and
+chunking is implementation-specific. Implementers must account for the
+messaging-format overhead when sizing chunks.
+
+The trust does not come from the connection. Every message is verified against a root the
+sender signed. Therefore, any peer may deliver a batch message. Malformed messages, either
+forged or substituted simply fail the verification against the MMR root.
+
+### Handshake
+
+The handhsake only identifies the peer, it does not make the data trustworthy.
+The first message exchanged over the wire by both peers, on either protocol:
+
+```rust
+pub struct Handshake {
+    /// The role of the node (light / full / authority).
+    pub node_role: NodeRole,
+    /// The parachain ID of the peer.
+    pub para_id: ParaId,
+}
+```
+
+The examples below assume parachain A sends to destination parachain B.
+
+### Notification: Message Announcement `/spec-msg/announce/1`
+
+This notification protocol informs the parachain B that A has included new messages for it in a block.
+
+Speculation happens under different modes:
+- HRMP replacement (phase 1): Parachain B builds blocks after A's block is backed on the relay chain.
+  B discoveres that A has propagated messages by reading the `provides` root from the relay chain state.
+  In this mode, the notification protocol is entirely optional.
+- Best block: B aims to back its block roughtly at the same time as A, before A's block is on the relay chain.
+  In this mode, B has no on-chain anchor and the notification protoocl is mandatory.
+  The signature of the provided message anchors the trust author of the block.
+
+
+```rust
+/// Per destination message.
+///
+/// When A communicates with multiple parachains in a single block,
+/// each destination receives its own individually signed announcement.
+/// In this model, B never learns A's other counterparties.
+pub struct ProvidesMessages {
+    /// The parachain A that authored the block.
+    pub source: ParaId,
+    /// The relay parent block the parachain block is built on (pins production slot).
+    pub relay_parent: Hash,
+    /// A's parachain block number.
+    pub source_number: BlockNumber,
+
+    /// Destination parachain B that receives the messages.
+    pub destination: ParaId,
+    /// A's parachain block that includes the messages.
+    pub source_block: Hash,
+
+    /// Root of A's cumulative per-destination MMR for B (the "provides" root).
+    pub provides: Hash,
+    /// Cumulative number of messages A has sent B through this block.
+    /// Doubles as the pagination target.
+    pub message_count: u64,
+
+    /// Session in which the collator key is valid (anti cross-session replay).
+    pub session_index: u32,
+}
+
+pub struct SignedProvidesMessages {
+    /// The signed payload.
+    pub payload: ProvidesMessages,
+    /// Signature by `collator` over the SCALE-encoded payload.
+    pub signature: Vec<u8>,
+}
+```
+
+The purpose of the message is to announce to B that A has included new messages
+for it in a block.
+
+**Equivocation**: A collator's block production slot is pinned by `(source, relay_parent, source_number)`
+as one checkpoint. If A signs this announcement for a slot, but the relay chain later includes a different
+`provides` root for the same `(source, relay_parent, source_number)`, the two conflicting signed
+messages are proof that A double produced. This is submittable on-chain to slash A's bond and makes
+the pre-backing speculation safe. Any node observing the double produced behavior can submit the proof on chain.
+
+Relay chain forks use a different `relay_parent` and parachain segment heights use different `source_number`.
+Therefore, neither is a slashable fault.
+
+In cases where A's block may fail to get backed, B's `requires` won't match at inclusion. Therefore, B
+drops the blocks and the rollback is the cost of speculation, without causing a penalty to A.
+
+### Request-Response: Batch Request `/spec-msg/exchange/1`
+
+The destination parachain pulls the messages from any peer that announced `SignedProvidesMessages`.
+The data is addressed by the `provides` field.
+
+```rust
+pub struct BatchRequest {
+    /// The para ID of A.
+    pub source: ParaId,
+    /// The provides from the `SignedProvidesMessages` per destination B only.
+    pub provides: Hash,
+    /// B's resume cursor: the first MMR leaf index B still needs.
+    pub from_index: u64,
+}
+```
+
+A message as it sits in the cumulative MMR:
+
+```rust
+pub struct OutgoingMessage {
+    /// Destination parachain
+    pub destination: ParaId,
+    /// Leaf position in the edge's cumulative MMR (assigned monotonically).
+    pub position: u64,
+    /// Opaque payload (ie XCM blob)
+    pub payload: Vec<u8>,
+
+}
+```
+
+The response carries the signed commitment plus the raw messages and no
+inclusion proof. B reconstructs and checks the root itself:
+
+```rust
+pub struct MessageBatch {
+    /// A's signed commitment (carries `provides` and `message_count`).
+    /// Lets B authenticate the batch even when a third-party peer served it.
+    pub signed_provides: SignedProvidesMessages,
+    /// The raw messages for this chunk, contiguous from `BatchRequest::from_index`.
+    pub messages: Vec<OutgoingMessage>,
+}
+```
+
+**Verification**: Because the batch carries no inclusion proof, verification relies on:
+1. Append: Each message received is checked against `position == cursor`
+  ensuring FIFO ordering, it is appended as a leaf and the cursor is advanced.
+2. Bag: Once all messages have been received, the peeks are transformed into a single root.
+3. Compare: The  SignedProvidesMessages::payload::provides` must each with the root. In case of
+  a mismatch, the peer is banned and disconnected, data is discarded and repulled from a different source.
+
+The final check ensures: data has arrived in the appropriate order, messages are not altered or skipped, 
+all messages have been delivered.
+
+**Chuncking**: Since the communication happens off-chain, parachains can choose to communicate large messages.
+In these situations, a single p2p message is limited to 16 MiB. Parachain B chunks the requests as follows:
+- B reads the `SignedProvidesMessages::payload::message_count` from the signed announcement.
+- B sends `BatchRequest { source, provides, from_index }` using its own cursor
+- A responds with as many `OutgoingMessage` that fit the message limit
+- B appends them and advances `from_index = last_received_position + 1`.
+- B repeats `BatchRequest` until all messages are delivered.
+
+### Request-Response: Late Block Proof `/spec-msg/exchange/1`
+
+When B bound its `requires` to an older `provides` root that has since aged out of
+the relay chain's bounded provides window (A advanced to a newer root), B must prove
+that the new root extends the old one. This is out of the scope of the MVP.
+
+```rust
+/// Request
+pub struct LateBlockRequest {
+    /// The para ID of A.
+    pub source: ParaId,
+    /// B's old root (its committed `requires`).
+    pub old_root: Hash,
+    /// The latest root, from observed announcements or backed on-chain.
+    pub new_root: Hash,
+}
+
+/// Response
+pub struct LateBlockProof {
+    pub old_root: Hash,
+    pub old_leaf_count: u64,
+    pub new_root: Hash,
+    pub new_leaf_count: u64,
+    /// Minimal MMR nodes that bag to `old_root` under `old_leaf_count`, and
+    /// combine with the extension nodes to bag to `new_root`. O(log n).
+    pub nodes: Vec<Hash>,
+}
+```
 
 ### Trust Model for Collators
 
