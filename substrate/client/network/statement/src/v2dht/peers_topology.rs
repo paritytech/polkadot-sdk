@@ -73,17 +73,11 @@ impl PeersTopology {
 
 	/// Record that a routing-table update saw `peer`.
 	pub fn note_seen(&mut self, peer: PeerId) {
-		if peer != self.local_peer {
-			self.peer_info_mut(peer);
-		}
+		self.peer_info_mut(peer);
 	}
 
 	/// Record statement-protocol support from identify protocol metadata.
 	pub fn note_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
-		if peer == self.local_peer {
-			return;
-		}
-
 		self.peer_info_mut(peer).supports = supports_statement_protocol;
 	}
 
@@ -91,10 +85,6 @@ impl PeersTopology {
 	///
 	/// An open substream implies statement-protocol support.
 	pub fn on_substream_opened(&mut self, peer: PeerId) {
-		if peer == self.local_peer {
-			return;
-		}
-
 		self.peer_info_mut(peer).supports = true;
 		self.connected.insert(peer);
 	}

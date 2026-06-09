@@ -442,9 +442,17 @@ impl StatementHandlerPrototype {
 		}
 
 		let network_event_stream = if v2dht_enabled() {
-			network.event_stream("statement-handler-network")
+			network
+				.event_stream("statement-handler-network")
+				.filter(|event| {
+					std::future::ready(matches!(
+						event,
+						Event::PeerRoutingTableUpdate(_) | Event::PeerIdentified { .. }
+					))
+				})
+				.boxed()
 		} else {
-			Box::pin(futures::stream::pending()) as Pin<Box<dyn Stream<Item = Event> + Send>>
+			futures::stream::pending::<Event>().boxed()
 		};
 		let v2dht = V2DhtOrchestrator::new(network.local_peer_id(), PeersTopologyConfig::default());
 
