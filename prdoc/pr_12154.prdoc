@@ -1,0 +1,12 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Expand try_state checks in PSM pallet
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Expansion of `do_try_state` checks for `pallet-psm`, and introduction of more unit tests.
+
+crates:
+  - pallet-psm
