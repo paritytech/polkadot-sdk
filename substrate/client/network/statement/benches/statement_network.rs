@@ -46,11 +46,13 @@ use substrate_test_runtime_client::{sc_executor::WasmExecutor, DefaultTestClient
 const STATEMENT_DATA_SIZE: usize = 256;
 
 #[derive(Clone)]
-struct TestNetwork;
+struct TestNetwork {
+	local_peer: PeerId,
+}
 
 impl TestNetwork {
 	fn new() -> Self {
-		Self
+		Self { local_peer: PeerId::random() }
 	}
 }
 
@@ -144,7 +146,7 @@ impl sc_network::NetworkStateInfo for TestNetwork {
 	}
 
 	fn local_peer_id(&self) -> PeerId {
-		PeerId::random()
+		self.local_peer
 	}
 }
 

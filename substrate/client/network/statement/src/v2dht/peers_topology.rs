@@ -19,13 +19,12 @@
 use sc_network_types::PeerId;
 pub use sp_statement_store::Topic;
 use std::{
-	cmp::Ordering,
+	cmp::Reverse,
 	collections::{HashMap, HashSet},
 	num::NonZeroUsize,
 };
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct PeersTopologyConfig {
 	/// Number of statement-protocol peers responsible for storing a topic.
 	///
@@ -48,9 +47,11 @@ impl Default for PeersTopologyConfig {
 	}
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 struct PeerInfo {
 	supports: bool,
+	/// Cached `peer_key`; the peer id never changes and hashing is costly.
+	key: [u8; 32],
 }
 
 /// Pure, event-fed local view of statement-store peers.
@@ -59,9 +60,9 @@ struct PeerInfo {
 /// statement notification connections. It computes XOR distances locally over that learned peer
 /// set; it does not issue topic-specific Kademlia lookups.
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct PeersTopology {
 	local_peer: PeerId,
+	local_key: [u8; 32],
 	config: PeersTopologyConfig,
 	// TODO: add an eviction mechanism; this map grows unbounded as peers are discovered.
 	// This scaffold only records the event-fed view. A follow-up should evict peers that
@@ -73,7 +74,13 @@ pub struct PeersTopology {
 #[allow(dead_code)]
 impl PeersTopology {
 	pub fn new(local_peer: PeerId, config: PeersTopologyConfig) -> Self {
-		Self { local_peer, config, discovered: HashMap::new(), connected: HashSet::new() }
+		Self {
+			local_peer,
+			local_key: peer_key(&local_peer),
+			config,
+			discovered: HashMap::new(),
+			connected: HashSet::new(),
+		}
 	}
 
 	/// Record that a litep2p routing-table update saw `peer`.
@@ -119,10 +126,7 @@ impl PeersTopology {
 	/// "Closest" is computed over the locally learned statement-protocol peers, not by querying
 	/// the network for the true global closest peers.
 	pub fn closest_known(&self, topic: Topic, n: usize) -> Vec<PeerId> {
-		let mut peers = self.dht_candidates().collect::<Vec<_>>();
-		peers.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
-		peers.truncate(n);
-		peers
+		self.closest_known_keyed(topic, n).into_iter().map(|(peer, _)| peer).collect()
 	}
 
 	/// Returns whether the local node is one of the closest DHT storage replicas for `topic`.
@@ -131,12 +135,12 @@ impl PeersTopology {
 	/// affinity over the locally learned statement-store peers.
 	pub fn is_dht_affine(&self, topic: Topic) -> bool {
 		let mut candidates = self.dht_candidates().collect::<Vec<_>>();
-		candidates.push(self.local_peer);
-		candidates.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
+		candidates.push((self.local_peer, self.local_key));
+		candidates.sort_by_cached_key(|(peer, key)| (xor_distance(*topic, *key), *peer));
 		candidates
 			.into_iter()
 			.take(self.config.replication_factor.get())
-			.any(|peer| peer == self.local_peer)
+			.any(|(peer, _)| peer == self.local_peer)
 	}
 
 	/// Closest connected statement-protocol peers for `topic`.
@@ -147,13 +151,15 @@ impl PeersTopology {
 		let mut peers = self
 			.connected
 			.iter()
-			.copied()
-			.filter(|peer| self.is_dht_candidate(peer))
+			.filter_map(|peer| {
+				let info = self.discovered.get(peer)?;
+				info.supports.then_some((*peer, info.key))
+			})
 			.collect::<Vec<_>>();
 
-		peers.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
+		peers.sort_by_cached_key(|(peer, key)| (xor_distance(*topic, *key), *peer));
 		peers.truncate(self.config.gossip_target.get());
-		peers
+		peers.into_iter().map(|(peer, _)| peer).collect()
 	}
 
 	/// Local-only explicit-affinity connection candidates for `topics`.
@@ -170,14 +176,14 @@ impl PeersTopology {
 
 		let closest_pools = topics
 			.iter()
-			.map(|topic| self.closest_known(*topic, pool_size))
+			.map(|topic| self.closest_known_keyed(*topic, pool_size))
 			.collect::<Vec<_>>();
 
 		let mut uncovered = closest_pools
 			.iter()
 			.enumerate()
 			.filter_map(|(topic_idx, pool)| {
-				(!pool.iter().any(|peer| self.is_connected(peer))).then_some(topic_idx)
+				(!pool.iter().any(|(peer, _)| self.is_connected(peer))).then_some(topic_idx)
 			})
 			.collect::<HashSet<_>>();
 
@@ -185,7 +191,7 @@ impl PeersTopology {
 			.into_iter()
 			.map(|pool| {
 				pool.into_iter()
-					.filter(|peer| *peer != self.local_peer && !self.is_connected(peer))
+					.filter(|(peer, _)| *peer != self.local_peer && !self.is_connected(peer))
 					.collect::<Vec<_>>()
 			})
 			.collect::<Vec<_>>();
@@ -194,89 +200,83 @@ impl PeersTopology {
 		let limit = topics.len();
 
 		while !uncovered.is_empty() && selected.len() < limit {
-			let Some(best_peer) = self.best_candidate(topics, &pools, &uncovered, &selected) else {
+			let Some(best_peer) = best_candidate(topics, &pools, &uncovered, &selected) else {
 				break;
 			};
 
 			selected.push(best_peer);
-			uncovered.retain(|topic_idx| !pools[*topic_idx].contains(&best_peer));
+			uncovered.retain(|topic_idx| !pool_contains(&pools[*topic_idx], &best_peer));
 		}
 
 		selected
 	}
 
 	fn peer_info_mut(&mut self, peer: PeerId) -> &mut PeerInfo {
-		self.discovered.entry(peer).or_default()
+		self.discovered
+			.entry(peer)
+			.or_insert_with(|| PeerInfo { supports: false, key: peer_key(&peer) })
 	}
 
-	fn is_dht_candidate(&self, peer: &PeerId) -> bool {
-		self.discovered.get(peer).is_some_and(|peer_info| peer_info.supports)
+	/// `closest_known` paired with each peer's cached key, so callers that compute further
+	/// distances reuse the key instead of looking it up again.
+	fn closest_known_keyed(&self, topic: Topic, n: usize) -> Vec<(PeerId, [u8; 32])> {
+		let mut peers = self.dht_candidates().collect::<Vec<_>>();
+		peers.sort_by_cached_key(|(peer, key)| (xor_distance(*topic, *key), *peer));
+		peers.truncate(n);
+		peers
 	}
 
-	fn dht_candidates(&self) -> impl Iterator<Item = PeerId> + '_ {
+	fn dht_candidates(&self) -> impl Iterator<Item = (PeerId, [u8; 32])> + '_ {
 		self.discovered
 			.iter()
 			.filter(|(_, peer_info)| peer_info.supports)
-			.map(|(peer, _)| *peer)
+			.map(|(peer, peer_info)| (*peer, peer_info.key))
 	}
+}
 
-	fn best_candidate(
-		&self,
-		topics: &[Topic],
-		pools: &[Vec<PeerId>],
-		uncovered: &HashSet<usize>,
-		selected: &[PeerId],
-	) -> Option<PeerId> {
-		let mut candidates = pools
-			.iter()
-			.flat_map(|pool| pool.iter().copied())
-			.filter(|peer| !selected.contains(peer))
-			.collect::<HashSet<_>>()
-			.into_iter()
-			.filter_map(|peer| {
-				let mut covering_topics = uncovered
-					.iter()
-					.copied()
-					.filter(|topic_idx| pools[*topic_idx].contains(&peer))
-					.collect::<Vec<_>>();
-				if covering_topics.is_empty() {
-					return None;
-				}
-
-				covering_topics.sort_by(|a, b| {
-					distance_to(topics[*a], &peer).cmp(&distance_to(topics[*b], &peer))
+/// The peer covering the most uncovered topics, breaking ties by the smallest distance to a
+/// covered topic, then by the smallest peer id.
+fn best_candidate(
+	topics: &[Topic],
+	pools: &[Vec<(PeerId, [u8; 32])>],
+	uncovered: &HashSet<usize>,
+	selected: &[PeerId],
+) -> Option<PeerId> {
+	uncovered
+		.iter()
+		.flat_map(|topic_idx| pools[*topic_idx].iter().copied())
+		.filter(|(peer, _)| !selected.contains(peer))
+		.collect::<HashSet<_>>()
+		.into_iter()
+		.map(|(peer, key)| {
+			let (covered_count, best_distance) = uncovered
+				.iter()
+				.filter(|topic_idx| pool_contains(&pools[**topic_idx], &peer))
+				.map(|topic_idx| xor_distance(*topics[*topic_idx], key))
+				.fold((0usize, [u8::MAX; 32]), |(count, best), distance| {
+					(count + 1, best.min(distance))
 				});
-				let best_distance = distance_to(topics[covering_topics[0]], &peer);
-				Some((peer, covering_topics.len(), best_distance))
-			})
-			.collect::<Vec<_>>();
-
-		candidates.sort_by(|(peer_a, score_a, distance_a), (peer_b, score_b, distance_b)| {
-			score_b
-				.cmp(score_a)
-				.then_with(|| distance_a.cmp(distance_b))
-				.then_with(|| peer_a.cmp(peer_b))
-		});
-		candidates.first().map(|(peer, _, _)| *peer)
-	}
+			(peer, covered_count, best_distance)
+		})
+		.min_by_key(|&(peer, covered_count, best_distance)| {
+			(Reverse(covered_count), best_distance, peer)
+		})
+		.map(|(peer, ..)| peer)
 }
 
-#[allow(dead_code)]
-fn cmp_distance_then_peer(topic: Topic, a: &PeerId, b: &PeerId) -> Ordering {
-	distance_to(topic, a).cmp(&distance_to(topic, b)).then_with(|| a.cmp(b))
+fn pool_contains(pool: &[(PeerId, [u8; 32])], peer: &PeerId) -> bool {
+	pool.iter().any(|(candidate, _)| candidate == peer)
 }
 
-#[allow(dead_code)]
-fn distance_to(topic: Topic, peer: &PeerId) -> [u8; 32] {
-	xor_distance(*topic, peer_key(peer))
-}
-
-#[allow(dead_code)]
+/// Map a peer id into the 32-byte topic key space.
+///
+/// Blake2b-256 spreads peer ids uniformly over the key space. The keys only need to be
+/// consistent across statement-store nodes, which all derive them here; they need not match
+/// litep2p's SHA-256 Kademlia keys because the topology never queries Kademlia by topic.
 fn peer_key(peer: &PeerId) -> [u8; 32] {
 	sp_crypto_hashing::blake2_256(&peer.to_bytes())
 }
 
-#[allow(dead_code)]
 fn xor_distance(a: [u8; 32], b: [u8; 32]) -> [u8; 32] {
 	let mut distance = [0; 32];
 	for ((distance, a), b) in distance.iter_mut().zip(a).zip(b) {
@@ -288,7 +288,15 @@ fn xor_distance(a: [u8; 32], b: [u8; 32]) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use std::num::NonZeroUsize;
+	use std::{cmp::Ordering, num::NonZeroUsize};
+
+	fn distance_to(topic: Topic, peer: &PeerId) -> [u8; 32] {
+		xor_distance(*topic, peer_key(peer))
+	}
+
+	fn cmp_distance_then_peer(topic: Topic, a: &PeerId, b: &PeerId) -> Ordering {
+		distance_to(topic, a).cmp(&distance_to(topic, b)).then_with(|| a.cmp(b))
+	}
 
 	fn config(replication_factor: usize, gossip_target: usize) -> PeersTopologyConfig {
 		PeersTopologyConfig {
@@ -460,21 +468,41 @@ mod tests {
 	}
 
 	#[test]
-	fn peers_for_topics_is_deterministic_local_set_cover() {
-		let mut topology = topology(1);
+	fn peers_for_topics_is_independent_of_discovery_order() {
 		let peers = (2..=30).map(peer).collect::<Vec<_>>();
 		let topics = [topic(1), topic(9), topic(17)];
 
+		let mut forward = topology(1);
 		for peer in &peers {
-			dht_peer(&mut topology, *peer);
+			dht_peer(&mut forward, *peer);
+		}
+		let mut reverse = topology(1);
+		for peer in peers.iter().rev() {
+			dht_peer(&mut reverse, *peer);
 		}
 
-		let first = topology.peers_for_topics(&topics);
-		let second = topology.peers_for_topics(&topics);
+		let selected = forward.peers_for_topics(&topics);
+		assert_eq!(selected, reverse.peers_for_topics(&topics));
+		assert!(!selected.is_empty());
+		assert!(selected.len() <= topics.len());
 
-		assert_eq!(first, second);
-		assert!(!first.is_empty());
-		assert!(first.len() <= topics.len());
-		assert!(first.iter().all(|peer| peers.contains(peer)));
+		// The cover is complete: every topic's candidate pool contains a selected peer.
+		let pool_size = forward.config.replication_factor.get();
+		for topic in topics {
+			let pool = forward.closest_known(topic, pool_size);
+			assert!(pool.iter().any(|peer| selected.contains(peer)));
+		}
+
+		// Peer ids and their blake2 keys are fixed, so the greedy cover must pick the same
+		// peers in every process.
+		let selected_seeds = selected
+			.iter()
+			.map(|selected| {
+				(2..=30)
+					.find(|seed| peer(*seed) == *selected)
+					.expect("selected peer is a fixture peer")
+			})
+			.collect::<Vec<u8>>();
+		assert_eq!(selected_seeds, vec![13]);
 	}
 }
