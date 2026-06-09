@@ -554,13 +554,18 @@ impl KeystoreInner {
 	///   blake2_256(public_key))`, and the file contents are a JSON object `{"public_key": <hex>,
 	///   "phrase": <string>}` so the original public key is recoverable from disk.
 	fn write_key_file(path: PathBuf, public: &[u8], phrase: &str) -> Result<()> {
-		let mut file = File::create(path)?;
-
 		#[cfg(target_family = "unix")]
-		{
-			use std::os::unix::fs::PermissionsExt;
-			file.set_permissions(fs::Permissions::from_mode(0o600))?;
-		}
+		let mut file = {
+			use std::os::unix::fs::OpenOptionsExt;
+			fs::OpenOptions::new()
+				.write(true)
+				.create(true)
+				.truncate(true)
+				.mode(0o600)
+				.open(path)?
+		};
+		#[cfg(not(target_family = "unix"))]
+		let mut file = File::create(path)?;
 
 		if Self::requires_hashed_filename(public) {
 			let public_hex = array_bytes::bytes2hex("", public);
