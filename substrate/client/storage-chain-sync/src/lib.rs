@@ -35,12 +35,12 @@
 //! [`StorageChainBlockImport::import_block`] dispatches a tip-sync block to one of three paths
 //! based on what the consensus engine has already done:
 //!
-//! * [`import_with_attached_changes`]: the import params already carry executed
-//!   `StorageChanges`. The wrapper queries the runtime API against the post-execution overlay
-//!   to discover the renew set.
-//! * [`import_by_executing_block`]: no attached changes. The wrapper executes the block via
-//!   the runtime API once, then installs the resulting `StorageChanges` into the import params
-//!   so the inner block-import does not re-execute.
+//! * [`import_with_attached_changes`]: the import params already carry executed `StorageChanges`.
+//!   The wrapper queries the runtime API against the post-execution overlay to discover the renew
+//!   set.
+//! * [`import_by_executing_block`]: no attached changes. The wrapper executes the block via the
+//!   runtime API once, then installs the resulting `StorageChanges` into the import params so the
+//!   inner block-import does not re-execute.
 //! * [`import_gap_sync_block`]: body-carrying gap-sync. The renew set is derived from the body
 //!   itself by tail-hashing against runtime-declared metadata, not via runtime execution.
 //!
@@ -775,10 +775,7 @@ mod tests {
 		let err = verified_renews_from_index_ops(&ops, &[], "block execution").unwrap_err();
 		let msg = format!("{err}");
 
-		assert!(
-			msg.contains("block execution: runtime API missing metadata"),
-			"unexpected: {msg}",
-		);
+		assert!(msg.contains("block execution: runtime API missing metadata"), "unexpected: {msg}",);
 	}
 
 	// Tests for `classify_body` covering both halves of the split (synthetic ops +

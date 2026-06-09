@@ -27,8 +27,8 @@
 //! harness with an executable overlay-supporting runtime API mock).
 
 use mock::{
-	attached_changes_params, gap_sync_params, make_gap_sync_harness, make_harness, params_with_origin,
-	prefetched_attached, renew_op,
+	attached_changes_params, gap_sync_params, make_gap_sync_harness, make_harness,
+	params_with_origin, prefetched_attached, renew_op,
 };
 use rstest::rstest;
 use sc_consensus::{BlockImport, ImportResult, StateAction};
@@ -660,7 +660,9 @@ mod mock {
 			&self,
 			_at: <TestBlock as sp_runtime::traits::Block>::Hash,
 		) -> Result<Self::StateBackend, ApiError> {
-			unreachable!("only the block-execution path queries this; out of scope for this harness")
+			unreachable!(
+				"only the block-execution path queries this; out of scope for this harness"
+			)
 		}
 
 		fn initialize_extensions(
@@ -1233,7 +1235,9 @@ mod mock {
 		let backend = InMemoryBackend::<sp_runtime::traits::HashingFor<TestBlock>>::default();
 		let mut overlay = OverlayedChanges::<sp_runtime::traits::HashingFor<TestBlock>>::default();
 		overlay.set_storage(CASE_B_MARKER_KEY.to_vec(), Some(CASE_B_MARKER_VALUE.to_vec()));
-		overlay.storage_root(&backend, block_execution_runtime_version().state_version()).0
+		overlay
+			.storage_root(&backend, block_execution_runtime_version().state_version())
+			.0
 	}
 
 	fn test_header(number: u32, parent: H256) -> TestHeader {

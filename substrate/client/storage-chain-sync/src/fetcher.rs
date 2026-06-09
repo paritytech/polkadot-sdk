@@ -31,6 +31,7 @@
 //! Bitswap-based fetcher for indexed-transaction blobs. Owns the late-bound network and
 //! peer-source handles; rotates across connected peers per batch.
 
+use crate::RenewWant;
 use async_trait::async_trait;
 use cid::{multihash::Multihash, Cid};
 use futures::channel::oneshot;
@@ -39,7 +40,6 @@ use sc_network::{
 	NetworkRequest, PeerId,
 };
 use sc_network_sync::SyncingService;
-use crate::RenewWant;
 use sp_runtime::traits::Block as BlockT;
 use sp_transaction_storage_proof::ContentHash;
 use std::{
