@@ -45,14 +45,9 @@ impl V2DhtOrchestrator {
 		}
 	}
 
-	#[cfg(test)]
-	pub(crate) fn peers_topology(&self) -> &PeersTopology {
-		&self.peers_topology
-	}
-
 	pub(crate) fn on_peers_discovered(&mut self, peers: impl IntoIterator<Item = PeerId>) {
 		for peer in peers {
-			self.peers_topology.note_seen(peer);
+			self.peers_topology.note_discovered(peer);
 		}
 	}
 
@@ -68,6 +63,7 @@ impl V2DhtOrchestrator {
 	}
 
 	pub(crate) fn on_peer_disconnected(&mut self, peer: PeerId) {
+		// TODO: we may need it for the topology, remove if not
 		log::trace!(target: LOG_TARGET, "v2dht: on_peer_disconnected {peer} (stub)");
 	}
 

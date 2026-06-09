@@ -851,12 +851,18 @@ where
 		}
 	}
 
+	/// Handle a network topology event.
+	///
+	/// The network event stream is `pending()` unless `v2dht_enabled()`, so this runs only on the
+	/// v2 DHT path.
 	fn handle_network_event(&mut self, event: Event) {
 		match event {
 			Event::PeerRoutingTableUpdate(peers) => self.v2dht.on_peers_discovered(peers),
 			Event::PeerIdentified { peer, supported_protocols } => self
 				.v2dht
 				.on_peer_identified(peer, supported_protocols.contains(&self.protocol_name)),
+			// The stream is filtered to `PeerRoutingTableUpdate` and `PeerIdentified`, so no other
+			// variant reaches here.
 			_ => {},
 		}
 	}

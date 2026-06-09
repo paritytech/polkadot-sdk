@@ -31,9 +31,6 @@ pub struct PeersTopologyConfig {
 	pub replication_factor: NonZeroUsize,
 	/// Maximum number of connected nodes that we gossip to.
 	pub gossip_target: NonZeroUsize,
-	/// Widens each per-topic candidate pool in `peers_for_topics` by this factor, so the selector
-	/// keeps spare peers when the closest are already connected, stale, or unreachable.
-	pub candidate_multiplier: NonZeroUsize,
 }
 
 impl Default for PeersTopologyConfig {
@@ -41,7 +38,6 @@ impl Default for PeersTopologyConfig {
 		Self {
 			replication_factor: NonZeroUsize::new(20).expect("20 is non-zero"),
 			gossip_target: NonZeroUsize::new(3).expect("3 is non-zero"),
-			candidate_multiplier: NonZeroUsize::new(3).expect("3 is non-zero"),
 		}
 	}
 }
@@ -61,6 +57,7 @@ struct PeerInfo {
 pub struct PeersTopology {
 	local_peer: PeerId,
 	config: PeersTopologyConfig,
+	// TODO: add an eviction mechanism; this map grows unbounded as peers are discovered.
 	discovered: HashMap<PeerId, PeerInfo>,
 	connected: HashSet<PeerId>,
 }
@@ -72,7 +69,7 @@ impl PeersTopology {
 	}
 
 	/// Record that a routing-table update saw `peer`.
-	pub fn note_seen(&mut self, peer: PeerId) {
+	pub fn note_discovered(&mut self, peer: PeerId) {
 		self.peer_info_mut(peer);
 	}
 
@@ -145,8 +142,7 @@ impl PeersTopology {
 			return Vec::new();
 		}
 
-		let pool_size =
-			self.config.replication_factor.get() * self.config.candidate_multiplier.get();
+		let pool_size = self.config.replication_factor.get();
 
 		let closest_pools = topics
 			.iter()
@@ -171,7 +167,7 @@ impl PeersTopology {
 			.collect::<Vec<_>>();
 
 		let mut selected = Vec::new();
-		let limit = topics.len() * self.config.candidate_multiplier.get();
+		let limit = topics.len();
 
 		while !uncovered.is_empty() && selected.len() < limit {
 			let Some(best_peer) = self.best_candidate(topics, &pools, &uncovered, &selected) else {
@@ -274,7 +270,6 @@ mod tests {
 		PeersTopologyConfig {
 			replication_factor: NonZeroUsize::new(replication_factor).expect("non-zero"),
 			gossip_target: NonZeroUsize::new(gossip_target).expect("non-zero"),
-			candidate_multiplier: NonZeroUsize::new(3).expect("non-zero"),
 		}
 	}
 
@@ -294,7 +289,7 @@ mod tests {
 	}
 
 	fn dht_peer(topology: &mut PeersTopology, peer: PeerId) {
-		topology.note_seen(peer);
+		topology.note_discovered(peer);
 		topology.note_identified(peer, true);
 	}
 
@@ -319,7 +314,7 @@ mod tests {
 
 		dht_peer(&mut topology, supported);
 		dht_peer(&mut topology, supported);
-		topology.note_seen(unsupported);
+		topology.note_discovered(unsupported);
 		topology.note_identified(unsupported, false);
 
 		assert_eq!(topology.known_peers_count(), 2);
@@ -342,7 +337,7 @@ mod tests {
 		let peer = peer(2);
 		let topic = topic(1);
 
-		topology.note_seen(peer);
+		topology.note_discovered(peer);
 		topology.note_identified(peer, true);
 
 		assert_eq!(topology.known_peers_count(), 1);
@@ -455,7 +450,7 @@ mod tests {
 
 		assert_eq!(first, second);
 		assert!(!first.is_empty());
-		assert!(first.len() <= topics.len() * 3);
+		assert!(first.len() <= topics.len());
 		assert!(first.iter().all(|peer| peers.contains(peer)));
 	}
 }
