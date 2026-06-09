@@ -34,8 +34,11 @@ use sp_core::{H160, crypto::AccountId32};
 use sp_crypto_hashing::{blake2_128, keccak_256, twox_128};
 
 /// `keccak256("Transfer(address,address,uint256)")` — topic0 of an ERC-20 Transfer.
-pub const ERC20_TRANSFER_TOPIC: H256 =
-	H256(hex_literal::hex!("ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"));
+/// (Asserted against the runtime hash in `transfer_topic0_is_canonical`.)
+pub const ERC20_TRANSFER_TOPIC: H256 = H256([
+	0xdd, 0xf2, 0x52, 0xad, 0x1b, 0xe2, 0xc8, 0x9b, 0x69, 0xc2, 0xb0, 0x68, 0xfc, 0x37, 0x8d, 0xaa,
+	0x95, 0x2b, 0xa7, 0xf1, 0x63, 0xc4, 0xa1, 0x16, 0x28, 0xf5, 0x5a, 0x4d, 0xf5, 0x23, 0xb3, 0xef,
+]);
 
 /// `bytes4(keccak256("transfer(address,uint256)"))` — the ERC-20 transfer selector.
 const ERC20_TRANSFER_SELECTOR: [u8; 4] = [0xa9, 0x05, 0x9c, 0xbb];
@@ -362,12 +365,18 @@ mod tests {
 
 	#[test]
 	fn asset_address_matches_precompile_scheme() {
-		// Vector from pallet_assets_precompiles tests: asset 1337, prefix 0x0120.
+		// Vector from pallet_assets_precompiles tests: asset 1337 (0x539), prefix 0x0120.
 		let addr = asset_token_address(1337, 0x0120);
-		assert_eq!(addr, H160(hex_literal::hex!("0000053900000000000000000000000001200000")));
+		assert_eq!(
+			addr,
+			H160([0, 0, 0x05, 0x39, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01, 0x20, 0, 0]),
+		);
 		// Pool assets prefix.
 		let pool = asset_token_address(1, 0x0320);
-		assert_eq!(pool, H160(hex_literal::hex!("0000000100000000000000000000000003200000")));
+		assert_eq!(
+			pool,
+			H160([0, 0, 0, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x03, 0x20, 0, 0]),
+		);
 	}
 
 	#[test]

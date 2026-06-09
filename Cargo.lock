@@ -14303,7 +14303,6 @@ dependencies = [
  "futures",
  "git2",
  "hex",
- "hex-literal",
  "jsonrpsee",
  "libsqlite3-sys",
  "log",
