@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780940249628,
+  "lastUpdate": 1781001002739,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15174476+TorstenStueber@users.noreply.github.com",
-            "name": "Torsten Stüber",
-            "username": "TorstenStueber"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2d514fa3e40718db64734df26086a2971f6d730d",
-          "message": "pallet-revive: Add ExportChainSpec command to revive-dev-node (#10020)\n\nAdd the `export-chain-spec` command to the revive-dev-node.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-24T03:15:36Z",
-          "tree_id": "4704764fbd6a7e2a9e9d2ae9227e4e9da20a581d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2d514fa3e40718db64734df26086a2971f6d730d"
-        },
-        "date": 1761280504826,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013222989166666673,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16211499678666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023043822586666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007723392199999962,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1441282691466667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bde47ea0e9076ed45cb1441acb40f14e05cbca79",
+          "message": "cumulus: add SignedSchedulingInfo PVF verification (#12097)\n\n# Description\n\nVerifies the scheduling info payload in PVF, if formed by an author that\nclaims its para slot at internal scheduling parent.\n\nCloses #12152 \n\n## Integration\n\nRuntime developers that want to enable resubmissions for their\nparachains must configure the newly added associated type on\nparachain-system's `Config`: `VerifySchedulingSignature`.\n\n## Review Notes\n\nConcerns like parachain session or para slot duration changes must be\nhandled by the resubmission engine, as described here:\nhttps://github.com/paritytech/polkadot-sdk/issues/12036#issuecomment-4479412418.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: eskimor <eskimor@noreply.com>\nCo-authored-by: eskimor <jfanatiker@gmx.at>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Marios <marios@parity.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Alin Dima <alin@parity.io>",
+          "timestamp": "2026-06-09T08:54:25Z",
+          "tree_id": "6802bc22c97c7b695e02d0d062be82b24878657e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bde47ea0e9076ed45cb1441acb40f14e05cbca79"
+        },
+        "date": 1781000971487,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009931978353333305,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14385440120666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023773459953333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007584061933333335,
             "unit": "seconds"
           }
         ]
