@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781000962866,
+  "lastUpdate": 1781021501990,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "93065bfb1e54ac7a841142d5f457c50ebac95e1c",
-          "message": "revive-dev-node enforce --dev (#10109)\n\nenforce --dev and default --log in revive-dev-node\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-24T10:09:01Z",
-          "tree_id": "10a06f6303f8b1aca8bdc6ea64e329ba10441ddc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/93065bfb1e54ac7a841142d5f457c50ebac95e1c"
-        },
-        "date": 1761305064361,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.764833624233333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20565531403333331,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14541799086666662,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jfanatiker@gmx.at",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "104e66f7114ea3322187b4b93255bb9f3f4d5005",
+          "message": "Deterministic simulation based testing for subsystems (#12007)\n\nIdeally tests should not describe implementation details, but only\nexpected actual output, vs input. This is an attempt for achieving this\nfor our subsystem tests, starting with the collator protocol - where we\nhave 2 implementations. For behavior that has not changed, the tests for\nboth legacy and experimental should be the same.\n\nThis is useful in general, but also becomes more and more important to\nbetter verify AI code.",
+          "timestamp": "2026-06-09T11:50:53Z",
+          "tree_id": "fa80c7e6ebe6dcf8b9fdbbf0815b195ff780099b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/104e66f7114ea3322187b4b93255bb9f3f4d5005"
+        },
+        "date": 1781021470926,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.304343200600002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14182760196666666,
             "unit": "seconds"
           }
         ]
