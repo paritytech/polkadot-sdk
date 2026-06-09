@@ -39,7 +39,7 @@
 //!    drops. Expose `topics()` to read the current set. Source-keying can't be retrofitted cheaply,
 //!    so it comes first; the enum is the extension point for future sources; `topics()` also feeds
 //!    the peers-topology module (#11933).
-//! 4. [x] **Configured source.** Read topics from CLI at construction and `add_topics(Configured,
+//! 4. [ ] **Configured source.** Read topics from CLI at construction and `add_topics(Configured,
 //!    …)`. A static, one-time input; validated through `topics()` now, with advertising following
 //!    at step 6. First cross-crate step; needs step 3. Closes "CLI and configuration inputs."
 //!    (Optional: take the advertised-filter seed from config to match the light client —
