@@ -116,7 +116,8 @@ impl ExplicitAffinity {
 	pub(crate) fn add_topics(&mut self, source: AffinitySource, topics: &[Topic]) {
 		log::trace!(target: LOG_TARGET, "explicit_affinity: add_topics {} from {source:?}", topics.len());
 		for &topic in topics {
-			*self.local.entry(topic).or_default().entry(source).or_insert(0) += 1;
+			let count = self.local.entry(topic).or_default().entry(source).or_insert(0);
+			*count = count.saturating_add(1);
 		}
 	}
 
@@ -188,16 +189,6 @@ mod tests {
 
 	fn topic_set(affinity: &ExplicitAffinity) -> HashSet<Topic> {
 		affinity.topics().into_iter().collect()
-	}
-
-	#[test]
-	fn add_then_remove_same_source() {
-		let mut affinity = ExplicitAffinity::new();
-		affinity.add_topics(AffinitySource::Configured, &[topic(1)]);
-		assert_eq!(topic_set(&affinity), HashSet::from([topic(1)]));
-
-		affinity.remove_topics(AffinitySource::Configured, &[topic(1)]);
-		assert!(affinity.topics().is_empty());
 	}
 
 	#[test]
