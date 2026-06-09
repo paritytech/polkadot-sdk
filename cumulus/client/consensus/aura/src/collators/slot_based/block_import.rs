@@ -317,11 +317,10 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 			});
 		}
 
-		prepare_unincluded_segment_aux_data::<Block>(block_hash, time_ms, &storage_proof).for_each(
-			|(k, v)| {
+		prepare_unincluded_segment_aux_data::<Block>(block_hash, time_ms, None, &storage_proof)
+			.for_each(|(k, v)| {
 				params.auxiliary.push((k, Some(v)));
-			},
-		);
+			});
 
 		params.state_action =
 			StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(gen_storage_changes));
