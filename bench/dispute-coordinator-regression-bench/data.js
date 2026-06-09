@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781001124178,
+  "lastUpdate": 1781021663225,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "cyrill@parity.io",
-            "name": "xermicus",
-            "username": "xermicus"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f50ebf00486104d19d73ea591385fb188a70d3a2",
-          "message": "precompiles: Enforce state mutability (#10080)\n\n`pallet-assets-precompile`, `pallet-xcm-precompiles` and revive builtin\nprecompile implementations currently violate [Solidity state\nmutability](https://docs.soliditylang.org/en/latest/grammar.html#syntax-rule-SolidityParser.stateMutability),\npotentially introducing a new attack vector. This PR implements\ncorresponding checks at the function dispatch.\n\nCould be enforced in `pallet-revive`, however:\n1. Adding something like a `const MUTATES: bool` to the `Precompile`\ntrait won't help because whether the call is mutating or not depends on\nthe [Solidity function\nselector.](https://docs.soliditylang.org/en/latest/abi-spec.html#function-selector).\n2. Alloy, which we are using to parse the interface definitions prior to\ncalling precompile implementations, doesn't provide a mapping from\nfunction selector to its mutability\n[modifier](https://docs.soliditylang.org/en/latest/cheatsheet.html#modifiers).\n\n---------\n\nSigned-off-by: Cyrill Leutwiler <bigcyrill@hotmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-22T12:41:58Z",
-          "tree_id": "d64e62a7b2d1012aafdc822663235a77fa23b184",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f50ebf00486104d19d73ea591385fb188a70d3a2"
-        },
-        "date": 1761143630716,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026602055799999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008756801859999986,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005095194039999992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009424096229999988,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jfanatiker@gmx.at",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "104e66f7114ea3322187b4b93255bb9f3f4d5005",
+          "message": "Deterministic simulation based testing for subsystems (#12007)\n\nIdeally tests should not describe implementation details, but only\nexpected actual output, vs input. This is an attempt for achieving this\nfor our subsystem tests, starting with the collator protocol - where we\nhave 2 implementations. For behavior that has not changed, the tests for\nboth legacy and experimental should be the same.\n\nThis is useful in general, but also becomes more and more important to\nbetter verify AI code.",
+          "timestamp": "2026-06-09T11:50:53Z",
+          "tree_id": "fa80c7e6ebe6dcf8b9fdbbf0815b195ff780099b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/104e66f7114ea3322187b4b93255bb9f3f4d5005"
+        },
+        "date": 1781021632167,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0024997277400000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009292175479999987,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01030116960999999,
             "unit": "seconds"
           }
         ]
