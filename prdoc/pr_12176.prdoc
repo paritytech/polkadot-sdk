@@ -6,6 +6,7 @@ doc:
 crates:
 - name: cumulus-pallet-xcmp-queue
   bump: patch
+  validate: false
 - name: asset-hub-rococo-runtime
   bump: patch
 - name: asset-hub-westend-runtime
