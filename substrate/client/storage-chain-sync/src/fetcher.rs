@@ -39,8 +39,9 @@ use sc_network::{
 	NetworkRequest, PeerId,
 };
 use sc_network_sync::SyncingService;
+use crate::RenewWant;
 use sp_runtime::traits::Block as BlockT;
-use sp_transaction_storage_proof::{ContentHash, HashingAlgorithm};
+use sp_transaction_storage_proof::ContentHash;
 use std::{
 	collections::HashMap,
 	sync::{Arc, OnceLock},
@@ -110,16 +111,16 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 		Self { network, peer_source, _phantom: std::marker::PhantomData }
 	}
 
-	/// Resolve a batch of indexed-transaction hashes via bitswap, rotating across up to
+	/// Resolve a batch of indexed-transaction renew wants via bitswap, rotating across up to
 	/// `MAX_PEERS_PER_IMPORT` peers. Returns only successfully fetched entries.
 	///
-	/// Each want carries the runtime-declared `cid_codec` so the request CID's codec
+	/// Each [`RenewWant`] carries the runtime-declared `cid_codec` so the request CID's codec
 	/// matches what the producing runtime announced. The substrate bitswap server keys
 	/// content by multihash digest alone (codec is mirrored back unchanged), so this
 	/// stays correct for any codec value the runtime emits.
-	pub async fn fetch_many(
+	pub(crate) async fn fetch_many(
 		&self,
-		wants: &[(ContentHash, HashingAlgorithm, u64)],
+		wants: &[RenewWant],
 	) -> Result<HashMap<ContentHash, Vec<u8>>, FetchError> {
 		if wants.is_empty() {
 			return Ok(HashMap::new());
@@ -145,10 +146,10 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 		// Build per-want CIDs once; reuse across peers and chunks.
 		let cids: Vec<(ContentHash, Cid)> = wants
 			.iter()
-			.map(|(hash, algo, codec)| {
-				let mh = Multihash::<64>::wrap(algo.multihash_code(), hash)
+			.map(|w| {
+				let mh = Multihash::<64>::wrap(w.hashing.multihash_code(), &w.hash)
 					.map_err(|e| FetchError::Multihash(e.to_string()))?;
-				Ok::<_, FetchError>((*hash, Cid::new_v1(*codec, mh)))
+				Ok::<_, FetchError>((w.hash, Cid::new_v1(w.cid_codec, mh)))
 			})
 			.collect::<Result<_, _>>()?;
 		let mut remaining = cids;

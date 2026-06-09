@@ -22,12 +22,12 @@
 //! against a hand-rolled mock client/runtime API and a recording inner `BlockImport` that
 //! captures the `BlockImportParams` it receives.
 //!
-//! Scope: case A (incoming `StorageChanges`) and the `should_intercept` short-circuits.
-//! Case B requires a runtime API instance with executable overlay support and is covered by
-//! crate-level checks rather than this mock-only harness.
+//! Scope: the attached-changes path (incoming `StorageChanges`), gap-sync, the
+//! `should_intercept` short-circuits, and the block-execution path (via a dedicated
+//! harness with an executable overlay-supporting runtime API mock).
 
 use mock::{
-	case_a_params, gap_sync_params, make_gap_sync_harness, make_harness, params_with_origin,
+	attached_changes_params, gap_sync_params, make_gap_sync_harness, make_harness, params_with_origin,
 	prefetched_attached, renew_op,
 };
 use rstest::rstest;
@@ -72,9 +72,9 @@ fn info(
 }
 
 #[tokio::test]
-async fn import_case_a_no_renews_attaches_nothing() {
+async fn import_attached_changes_no_renews_attaches_nothing() {
 	let h = make_harness();
-	let params = case_a_params(1, Vec::new());
+	let params = attached_changes_params(1, Vec::new());
 	let result = h.wrapper.import_block(params).await.expect("import_block");
 	assert!(matches!(result, ImportResult::Imported(_)));
 	let captured = h.captured.lock().unwrap();
@@ -96,7 +96,7 @@ async fn import_case_a_no_renews_attaches_nothing() {
 	sp_transaction_storage_proof::HashingAlgorithm::Keccak256,
 )]
 #[tokio::test]
-async fn import_case_a_attaches_prefetched(
+async fn import_attached_changes_attaches_prefetched(
 	#[case] bytes: &[u8],
 	#[case] algorithm: sp_transaction_storage_proof::HashingAlgorithm,
 ) {
@@ -106,7 +106,7 @@ async fn import_case_a_attaches_prefetched(
 		.set_indexed(1, vec![info(content_hash, bytes.len() as u32, algorithm, u32::MAX)]);
 	h.network.insert(content_hash, bytes.to_vec());
 
-	let params = case_a_params(1, vec![renew_op(content_hash, 0)]);
+	let params = attached_changes_params(1, vec![renew_op(content_hash, 0)]);
 	let result = h.wrapper.import_block(params).await.expect("import_block");
 	assert!(matches!(result, ImportResult::Imported(_)));
 
@@ -121,7 +121,7 @@ async fn import_case_a_attaches_prefetched(
 }
 
 #[tokio::test]
-async fn import_case_a_propagates_runtime_declared_codec_to_bitswap_cid() {
+async fn import_attached_changes_propagates_runtime_declared_codec_to_bitswap_cid() {
 	const DAG_PB_CODEC: u64 = 0x70;
 
 	let h = make_harness();
@@ -141,7 +141,7 @@ async fn import_case_a_propagates_runtime_declared_codec_to_bitswap_cid() {
 	);
 	h.network.insert(content_hash, bytes.clone());
 
-	let params = case_a_params(1, vec![renew_op(content_hash, 0)]);
+	let params = attached_changes_params(1, vec![renew_op(content_hash, 0)]);
 	let result = h.wrapper.import_block(params).await.expect("import_block");
 	assert!(matches!(result, ImportResult::Imported(_)));
 
@@ -168,7 +168,7 @@ async fn import_case_a_propagates_runtime_declared_codec_to_bitswap_cid() {
 }
 
 #[tokio::test]
-async fn import_case_a_skips_already_present_hash() {
+async fn import_attached_changes_skips_already_present_hash() {
 	let h = make_harness();
 	let bytes = b"already-on-disk".to_vec();
 	let content_hash: ContentHash = HashingAlgorithm::Blake2b256.hash(&bytes);
@@ -178,7 +178,7 @@ async fn import_case_a_skips_already_present_hash() {
 	);
 	h.api.insert_indexed_transaction(content_hash, bytes);
 
-	let params = case_a_params(1, vec![renew_op(content_hash, 0)]);
+	let params = attached_changes_params(1, vec![renew_op(content_hash, 0)]);
 	let result = h.wrapper.import_block(params).await.expect("import_block");
 	assert!(matches!(result, ImportResult::Imported(_)));
 
@@ -188,12 +188,12 @@ async fn import_case_a_skips_already_present_hash() {
 }
 
 #[tokio::test]
-async fn import_case_a_errors_when_fetcher_partial() {
+async fn import_attached_changes_errors_when_fetcher_partial() {
 	let h = make_harness();
 	let content_hash: ContentHash = [0x33u8; 32];
 	h.api
 		.set_indexed(1, vec![info(content_hash, 32, HashingAlgorithm::Blake2b256, u32::MAX)]);
-	let params = case_a_params(1, vec![renew_op(content_hash, 0)]);
+	let params = attached_changes_params(1, vec![renew_op(content_hash, 0)]);
 	let err = h
 		.wrapper
 		.import_block(params)
@@ -205,10 +205,10 @@ async fn import_case_a_errors_when_fetcher_partial() {
 }
 
 #[tokio::test]
-async fn import_case_b_executes_once_and_indexes_on_same_overlay() {
+async fn import_block_execution_executes_once_and_indexes_on_same_overlay() {
 	let bytes = b"case-b-renew-blob".to_vec();
-	let h = mock::make_case_b_harness(bytes.clone());
-	let params = mock::case_b_params(1);
+	let h = mock::make_block_execution_harness(bytes.clone());
+	let params = mock::block_execution_params(1);
 	let result = h.wrapper.import_block(params).await.expect("import_block");
 	assert!(matches!(result, ImportResult::Imported(_)));
 
@@ -221,12 +221,12 @@ async fn import_case_b_executes_once_and_indexes_on_same_overlay() {
 	let changes = captured[0]
 		.state_action
 		.as_storage_changes()
-		.expect("Case B forwards generated storage changes");
+		.expect("block-execution path forwards generated storage changes");
 	assert_eq!(changes.transaction_index_changes.len(), 1);
 	let sp_state_machine::IndexOperation::Renew { extrinsic, hash } =
 		&changes.transaction_index_changes[0]
 	else {
-		panic!("expected Case B renew operation");
+		panic!("expected a renew operation from the block-execution path");
 	};
 	assert_eq!((*extrinsic, hash.as_slice()), (0, h.content_hash.as_slice()));
 	assert!(
@@ -653,14 +653,14 @@ mod mock {
 			_at: <TestBlock as sp_runtime::traits::Block>::Hash,
 			_call_context: sp_core::traits::CallContext,
 		) -> Result<sp_version::RuntimeVersion, ApiError> {
-			Ok(case_b_runtime_version())
+			Ok(block_execution_runtime_version())
 		}
 
 		fn state_at(
 			&self,
 			_at: <TestBlock as sp_runtime::traits::Block>::Hash,
 		) -> Result<Self::StateBackend, ApiError> {
-			unreachable!("only the case B execute path queries this; case B is out of scope")
+			unreachable!("only the block-execution path queries this; out of scope for this harness")
 		}
 
 		fn initialize_extensions(
@@ -907,7 +907,7 @@ mod mock {
 	sp_api::impl_runtime_apis! {
 		impl sp_api::Core<Block> for Runtime {
 			fn version() -> sp_version::RuntimeVersion {
-				case_b_runtime_version()
+				block_execution_runtime_version()
 			}
 
 			fn execute_block(_block: <Block as BlockT>::LazyBlock) {}
@@ -928,7 +928,7 @@ mod mock {
 		}
 	}
 
-	fn case_b_runtime_version() -> sp_version::RuntimeVersion {
+	fn block_execution_runtime_version() -> sp_version::RuntimeVersion {
 		sp_version::RuntimeVersion {
 			spec_name: "storage-chain-sync-test".into(),
 			impl_name: "storage-chain-sync-test".into(),
@@ -942,20 +942,20 @@ mod mock {
 	}
 
 	#[derive(Default)]
-	struct CaseBInner {
+	struct BlockExecutionInner {
 		indexed_transactions: HashMap<H256, Vec<u8>>,
 		execute_block_count: usize,
 		indexed_transactions_count: usize,
 		overlay_marker_seen_by_indexed_transactions: bool,
 	}
 
-	pub(super) struct CaseBClient {
-		inner: Arc<Mutex<CaseBInner>>,
+	pub(super) struct BlockExecutionClient {
+		inner: Arc<Mutex<BlockExecutionInner>>,
 		content_hash: ContentHash,
 		info: IndexedTransactionInfo,
 	}
 
-	impl CaseBClient {
+	impl BlockExecutionClient {
 		fn new(content_hash: ContentHash, data: Vec<u8>) -> Self {
 			let info = IndexedTransactionInfo {
 				content_hash,
@@ -964,7 +964,7 @@ mod mock {
 				cid_codec: RAW_CODEC,
 				extrinsic_index: u32::MAX,
 			};
-			Self { inner: Arc::new(Mutex::new(CaseBInner::default())), content_hash, info }
+			Self { inner: Arc::new(Mutex::new(BlockExecutionInner::default())), content_hash, info }
 		}
 
 		pub(super) fn execute_block_count(&self) -> usize {
@@ -980,15 +980,15 @@ mod mock {
 		}
 	}
 
-	impl sp_api::ProvideRuntimeApi<TestBlock> for CaseBClient {
-		type Api = RuntimeApiImpl<TestBlock, CaseBClient>;
+	impl sp_api::ProvideRuntimeApi<TestBlock> for BlockExecutionClient {
+		type Api = RuntimeApiImpl<TestBlock, BlockExecutionClient>;
 
 		fn runtime_api(&self) -> sp_api::ApiRef<'_, Self::Api> {
 			RuntimeApi::construct_runtime_api(self)
 		}
 	}
 
-	impl sp_api::CallApiAt<TestBlock> for CaseBClient {
+	impl sp_api::CallApiAt<TestBlock> for BlockExecutionClient {
 		type StateBackend = InMemoryBackend<sp_runtime::traits::HashingFor<TestBlock>>;
 
 		fn call_api_at(
@@ -1036,7 +1036,7 @@ mod mock {
 			_at: <TestBlock as sp_runtime::traits::Block>::Hash,
 			_call_context: sp_core::traits::CallContext,
 		) -> Result<sp_version::RuntimeVersion, ApiError> {
-			Ok(case_b_runtime_version())
+			Ok(block_execution_runtime_version())
 		}
 
 		fn state_at(
@@ -1055,7 +1055,7 @@ mod mock {
 		}
 	}
 
-	impl sc_client_api::BlockBackend<TestBlock> for CaseBClient {
+	impl sc_client_api::BlockBackend<TestBlock> for BlockExecutionClient {
 		fn block_body(
 			&self,
 			_hash: <TestBlock as BlockT>::Hash,
@@ -1118,12 +1118,12 @@ mod mock {
 		}
 	}
 
-	impl sp_blockchain::HeaderBackend<TestBlock> for CaseBClient {
+	impl sp_blockchain::HeaderBackend<TestBlock> for BlockExecutionClient {
 		fn header(
 			&self,
 			_hash: <TestBlock as BlockT>::Hash,
 		) -> sp_blockchain::Result<Option<<TestBlock as BlockT>::Header>> {
-			unreachable!("case B wrapper does not call info().finalized_hash on this path")
+			unreachable!("block-execution wrapper does not call info().finalized_hash on this path")
 		}
 
 		fn info(&self) -> sp_blockchain::Info<TestBlock> {
@@ -1143,21 +1143,21 @@ mod mock {
 			&self,
 			_hash: <TestBlock as BlockT>::Hash,
 		) -> sp_blockchain::Result<sp_blockchain::BlockStatus> {
-			unreachable!("case B wrapper does not call status()")
+			unreachable!("block-execution wrapper does not call status()")
 		}
 
 		fn number(
 			&self,
 			_hash: <TestBlock as BlockT>::Hash,
 		) -> sp_blockchain::Result<Option<sp_runtime::traits::NumberFor<TestBlock>>> {
-			unreachable!("case B wrapper does not call number()")
+			unreachable!("block-execution wrapper does not call number()")
 		}
 
 		fn hash(
 			&self,
 			_number: sp_runtime::traits::NumberFor<TestBlock>,
 		) -> sp_blockchain::Result<Option<<TestBlock as BlockT>::Hash>> {
-			unreachable!("case B wrapper does not call hash()")
+			unreachable!("block-execution wrapper does not call hash()")
 		}
 	}
 
@@ -1187,16 +1187,16 @@ mod mock {
 		Harness { wrapper, api, captured, network }
 	}
 
-	pub(super) struct CaseBHarness {
-		pub(super) wrapper: StorageChainBlockImport<TestBlock, TestInner, CaseBClient>,
-		pub(super) api: Arc<CaseBClient>,
+	pub(super) struct BlockExecutionHarness {
+		pub(super) wrapper: StorageChainBlockImport<TestBlock, TestInner, BlockExecutionClient>,
+		pub(super) api: Arc<BlockExecutionClient>,
 		pub(super) captured: Arc<Mutex<Vec<BlockImportParams<TestBlock>>>>,
 		pub(super) content_hash: ContentHash,
 	}
 
-	pub(super) fn make_case_b_harness(data: Vec<u8>) -> CaseBHarness {
+	pub(super) fn make_block_execution_harness(data: Vec<u8>) -> BlockExecutionHarness {
 		let content_hash = sp_transaction_storage_proof::HashingAlgorithm::Blake2b256.hash(&data);
-		let api = Arc::new(CaseBClient::new(content_hash, data.clone()));
+		let api = Arc::new(BlockExecutionClient::new(content_hash, data.clone()));
 		let network: Arc<MockNetworkRequest> = Arc::new(MockNetworkRequest::default());
 		network.insert(content_hash, data);
 		let inner = TestInner::recording();
@@ -1212,14 +1212,14 @@ mod mock {
 		let fetcher = IndexedTransactionFetcher::<TestBlock>::new(network_handle, syncing_handle);
 		let wrapper = StorageChainBlockImport::new(inner, api.clone(), fetcher);
 
-		CaseBHarness { wrapper, api, captured, content_hash }
+		BlockExecutionHarness { wrapper, api, captured, content_hash }
 	}
 
-	pub(super) fn case_b_params(number: u32) -> BlockImportParams<TestBlock> {
+	pub(super) fn block_execution_params(number: u32) -> BlockImportParams<TestBlock> {
 		let header = TestHeader::new(
 			number,
 			H256::zero(),
-			case_b_state_root(),
+			block_execution_state_root(),
 			H256::zero(),
 			Digest::default(),
 		);
@@ -1229,11 +1229,11 @@ mod mock {
 		params
 	}
 
-	fn case_b_state_root() -> H256 {
+	fn block_execution_state_root() -> H256 {
 		let backend = InMemoryBackend::<sp_runtime::traits::HashingFor<TestBlock>>::default();
 		let mut overlay = OverlayedChanges::<sp_runtime::traits::HashingFor<TestBlock>>::default();
 		overlay.set_storage(CASE_B_MARKER_KEY.to_vec(), Some(CASE_B_MARKER_VALUE.to_vec()));
-		overlay.storage_root(&backend, case_b_runtime_version().state_version()).0
+		overlay.storage_root(&backend, block_execution_runtime_version().state_version()).0
 	}
 
 	fn test_header(number: u32, parent: H256) -> TestHeader {
@@ -1260,7 +1260,7 @@ mod mock {
 		IndexOperation::Renew { extrinsic: extrinsic_index, hash: hash.to_vec() }
 	}
 
-	pub(super) fn case_a_params(
+	pub(super) fn attached_changes_params(
 		number: u32,
 		renews: Vec<IndexOperation>,
 	) -> BlockImportParams<TestBlock> {
