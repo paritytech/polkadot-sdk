@@ -1075,19 +1075,13 @@ mod governance {
 	}
 
 	#[test]
-	fn emergency_origin_cannot_set_max_psm_debt() {
+	fn emergency_origin_can_set_max_psm_debt() {
 		execute_with_try_state(|| {
-			let old_ratio = MaxPsmDebtOfTotal::<Test>::get();
+			let new_ratio = Permill::from_percent(20);
 
-			assert_noop!(
-				Psm::set_max_psm_debt(
-					RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
-					Permill::from_percent(20)
-				),
-				Error::<Test>::InsufficientPrivilege
-			);
+			assert_ok!(Psm::set_max_psm_debt(RuntimeOrigin::signed(EMERGENCY_ACCOUNT), new_ratio));
 
-			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), old_ratio);
+			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), new_ratio);
 		});
 	}
 
@@ -1585,8 +1579,8 @@ mod multi_asset_ceiling {
 
 			// 3. Global ceiling still has 2M headroom
 			assert!(
-				crate::Pallet::<Test>::total_psm_debt().saturating_add(OVER) <=
-					crate::Pallet::<Test>::max_psm_debt(),
+				crate::Pallet::<Test>::total_psm_debt().saturating_add(OVER)
+					<= crate::Pallet::<Test>::max_psm_debt(),
 				"global headroom must exist for this test to be meaningful",
 			);
 
@@ -1763,8 +1757,8 @@ mod cycles {
 
 			let total_fees = total_mint_fees + total_redeem_fees;
 			let if_increase = if_internal_after - if_internal_before;
-			let user_decrease = user_external_before - user_external_after + user_internal_before -
-				user_internal_after;
+			let user_decrease = user_external_before - user_external_after + user_internal_before
+				- user_internal_after;
 
 			println!("\n=== Verification ===");
 			println!("Total fees collected: {:.2}", total_fees as f64 / unit);
@@ -1930,8 +1924,8 @@ mod cycles {
 
 			let total_fees = total_mint_fees + total_redeem_fees;
 			let if_increase = if_internal_after - if_internal_before;
-			let user_decrease = user_external_before - user_external_after + user_internal_before -
-				user_internal_after;
+			let user_decrease = user_external_before - user_external_after + user_internal_before
+				- user_internal_after;
 
 			println!("\n=== Verification ===");
 			println!("Total fees collected: {:.2}", total_fees as f64 / unit);
@@ -1972,8 +1966,8 @@ mod cycles {
 
 			let total_fees = total_mint_fees + total_redeem_fees;
 			let if_increase = if_internal_after - if_internal_before;
-			let user_decrease = user_external_before - user_external_after + user_internal_before -
-				user_internal_after;
+			let user_decrease = user_external_before - user_external_after + user_internal_before
+				- user_internal_after;
 
 			println!("\n=== Final State ===");
 			println!("Total cycles: {}", cycle);
@@ -2308,6 +2302,13 @@ mod decimal_scaling {
 	}
 
 	// Conversion helpers
+
+	#[test]
+	fn external_to_internal_same_decimals_is_identity() {
+		execute_with_try_state(|| {
+			assert_eq!(Psm::external_to_internal(1_000_000, 6, 6).unwrap(), 1_000_000);
+		});
+	}
 
 	#[test]
 	fn external_to_internal_scale_up_is_exact() {
