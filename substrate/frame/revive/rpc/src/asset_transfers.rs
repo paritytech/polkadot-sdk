@@ -26,21 +26,21 @@
 //! contract to attribute its transfers to. It is a fast-follow blocked on a
 //! native-balances precompile.
 
+use alloy_core::sol_types::{SolCall, SolEvent};
 use codec::Decode;
+use ethereum_standards::IERC20;
 use pallet_revive::evm::{
 	Bytes, H256, Log, TransactionLegacySigned, TransactionLegacyUnsigned, TransactionSigned, U256,
 };
 use sp_core::{H160, crypto::AccountId32};
 use sp_crypto_hashing::{blake2_128, keccak_256, twox_128};
 
-/// `keccak256("Transfer(address,address,uint256)")` — topic0 of an ERC-20 Transfer.
-pub const ERC20_TRANSFER_TOPIC: H256 = H256([
-	0xdd, 0xf2, 0x52, 0xad, 0x1b, 0xe2, 0xc8, 0x9b, 0x69, 0xc2, 0xb0, 0x68, 0xfc, 0x37, 0x8d, 0xaa,
-	0x95, 0x2b, 0xa7, 0xf1, 0x63, 0xc4, 0xa1, 0x16, 0x28, 0xf5, 0x5a, 0x4d, 0xf5, 0x23, 0xb3, 0xef,
-]);
+/// topic0 of an ERC-20 `Transfer` — sourced from the same `IERC20` ABI the assets precompile
+/// uses to emit the event, so the two cannot drift.
+pub const ERC20_TRANSFER_TOPIC: H256 = H256(IERC20::Transfer::SIGNATURE_HASH.0);
 
-/// `bytes4(keccak256("transfer(address,uint256)"))` — the ERC-20 transfer selector.
-const ERC20_TRANSFER_SELECTOR: [u8; 4] = [0xa9, 0x05, 0x9c, 0xbb];
+/// The ERC-20 `transfer(address,uint256)` selector, from the same `IERC20` ABI.
+const ERC20_TRANSFER_SELECTOR: [u8; 4] = IERC20::transferCall::SELECTOR;
 
 /// Storage location of the foreign-asset `Location -> u32 index` map, in the
 /// `pallet-assets-precompiles` index pallet. Fixed across runtimes that wire that pallet.
@@ -371,16 +371,6 @@ mod tests {
 			pool,
 			H160([0, 0, 0, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x03, 0x20, 0, 0]),
 		);
-	}
-
-	#[test]
-	fn transfer_topic0_is_canonical() {
-		assert_eq!(ERC20_TRANSFER_TOPIC, H256(keccak_256(b"Transfer(address,address,uint256)")));
-	}
-
-	#[test]
-	fn transfer_selector_is_canonical() {
-		assert_eq!(ERC20_TRANSFER_SELECTOR, keccak_256(b"transfer(address,uint256)")[..4]);
 	}
 
 	#[test]

@@ -20,10 +20,12 @@ name = "eth-rpc"
 path = "src/main.rs"
 
 [dependencies]
+alloy-core = { workspace = true, features = ["sol-types"] }
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
 codec = { workspace = true, features = ["derive"] }
 derive_more = { workspace = true }
+ethereum-standards = { workspace = true }
 futures = { workspace = true, features = ["thread-pool"] }
 hex = { workspace = true }
 jsonrpsee = { workspace = true, features = ["full"] }
