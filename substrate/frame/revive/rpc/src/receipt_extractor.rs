@@ -156,6 +156,28 @@ fn extract_revive_events(
 	(reverted_extrinsics, logs_by_extrinsic)
 }
 
+/// Append the ERC-20 `Transfer` logs for `transfers` to an extrinsic's `logs`, keeping the
+/// merged set ordered by `log_index`. Asset and revive logs share the block-wide event index,
+/// but an asset event can precede a contract-emitted log in the same extrinsic, so the naive
+/// "revive logs then asset logs" order would otherwise be non-monotonic.
+fn merge_asset_logs(
+	logs: &mut Vec<Log>,
+	transfers: &[(AssetTransfer, u32)],
+	eth_block_number: U256,
+	eth_block_hash: H256,
+	transaction_hash: H256,
+	transaction_index: usize,
+) {
+	logs.extend(asset_transfer_logs(
+		transfers,
+		eth_block_number,
+		eth_block_hash,
+		transaction_hash,
+		transaction_index,
+	));
+	logs.sort_by_key(|log| log.log_index);
+}
+
 type FetchReceiptDataFn = Arc<
 	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Option<Vec<ReceiptGasInfo>>> + Send>> + Send + Sync,
 >;
@@ -477,12 +499,16 @@ impl ReceiptExtractor {
 			transaction_index,
 		);
 
+		// Callers only ever pass a non-empty transfer list (map entries are created via
+		// `or_default().push(..)`), so a missing first element is a caller bug.
+		let first = &transfers.first().expect("transfer list is non-empty; qed").0;
+
 		// `to` is the token contract for a single-token extrinsic; ambiguous for a batch
 		// touching several tokens, where the logs carry the full detail.
 		let distinct_tokens: HashSet<H160> = transfers.iter().map(|(t, _)| t.token).collect();
-		let to = (distinct_tokens.len() == 1).then(|| transfers[0].0.token);
+		let to = (distinct_tokens.len() == 1).then(|| first.token);
 
-		let signed_tx = synthetic_transaction(&transfers[0].0);
+		let signed_tx = synthetic_transaction(first);
 		let receipt = ReceiptInfo::new(
 			eth_block_hash,
 			eth_block_number,
@@ -523,18 +549,34 @@ impl ReceiptExtractor {
 			return Ok(vec![]);
 		}
 
+		self.build_receipts(block, eth_block_hash, None).await
+	}
+
+	/// Build the `(transaction, receipt)` pairs for a block — the shared core behind both
+	/// [`Self::extract_from_block_with_eth_hash`] and [`Self::extract_from_transaction`].
+	///
+	/// `eth_transact` extrinsics yield real receipts (with any same-extrinsic asset-transfer
+	/// logs merged in); plain `assets.transfer` extrinsics yield synthesized stand-in receipts.
+	/// When `only_index` is `Some`, the result is restricted to that single extrinsic.
+	///
+	/// Asset transfers are extracted independently of `get_block_extrinsics`: a plain
+	/// `assets.transfer` carries no `eth_transact` receipt data, so a `get_block_extrinsics`
+	/// error is propagated only when there are no asset transfers to surface.
+	async fn build_receipts(
+		&self,
+		block: &SubstrateBlock,
+		eth_block_hash: H256,
+		only_index: Option<usize>,
+	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
 		let substrate_block_number = block.number();
 		let eth_block_number: U256 = substrate_block_number.into();
 		let block_events = block.events().await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "Error fetching events for block #{substrate_block_number}: {err:?}");
 		})?;
 
-		// Asset transfers are extracted independently of the EVM-transaction path: a plain
-		// `assets.transfer` carries no `eth_transact` receipt data, so it must not be gated on
-		// `get_block_extrinsics` succeeding.
 		let mut asset_transfers = self.extract_asset_transfers(&block_events).await;
 
-		let eth_tx_by_index: BTreeMap<usize, (EthTransact, H256, ReceiptGasInfo)> = match self
+		let mut eth_tx_by_index: BTreeMap<usize, (EthTransact, H256, ReceiptGasInfo)> = match self
 			.get_block_extrinsics(block)
 			.await
 		{
@@ -544,8 +586,6 @@ impl ReceiptExtractor {
 					(extrinsic_index, (call, hash, receipt_gas_info))
 				})
 				.collect(),
-			// Preserve prior behaviour (propagate) when there is nothing else to surface;
-			// otherwise still index the asset transfers we found.
 			Err(err) if asset_transfers.is_empty() => return Err(err),
 			Err(err) => {
 				log::debug!(
@@ -555,6 +595,12 @@ impl ReceiptExtractor {
 				BTreeMap::new()
 			},
 		};
+
+		// Single-transaction queries only build the one extrinsic they asked for.
+		if let Some(index) = only_index {
+			eth_tx_by_index.retain(|idx, _| *idx == index);
+			asset_transfers.retain(|idx, _| *idx == index);
+		}
 
 		if eth_tx_by_index.is_empty() && asset_transfers.is_empty() {
 			return Ok(vec![]);
@@ -576,13 +622,14 @@ impl ReceiptExtractor {
 				let reverted = reverted_extrinsics.contains(&transaction_index);
 				let mut logs = logs_by_extrinsic.remove(&transaction_index).unwrap_or_default();
 				if let Some(transfers) = asset_transfers.remove(&transaction_index) {
-					logs.extend(asset_transfer_logs(
+					merge_asset_logs(
+						&mut logs,
 						&transfers,
 						eth_block_number,
 						eth_block_hash,
 						transaction_hash,
 						transaction_index,
-					));
+					);
 				}
 				self.decode_transaction_and_build_receipt(
 					eth_block_hash,
@@ -672,78 +719,17 @@ impl ReceiptExtractor {
 		block: &SubstrateBlock,
 		transaction_index: usize,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
-		let eth_hit = self.get_block_extrinsics(block).await?.find_map(
-			|(call, receipt_gas_info, extrinsic_index)| {
-				(extrinsic_index == transaction_index).then(|| {
-					let hash = H256(keccak_256(&call.payload));
-					(call, receipt_gas_info, hash)
-				})
-			},
-		);
-
-		let substrate_block_number = block.number();
-		let eth_block_number: U256 = substrate_block_number.into();
-		let eth_block_hash =
-			self.resolve_eth_block_hash(block.hash(), substrate_block_number as u64).await;
-		let block_events = block.events().await.inspect_err(|err| {
-			log::debug!(target: LOG_TARGET, "Error fetching events for block #{substrate_block_number}: {err:?}");
-		})?;
-		let mut asset_transfers = self.extract_asset_transfers(&block_events).await;
-
-		match eth_hit {
-			Some((eth_call, receipt_gas_info, transaction_hash)) => {
-				let (reverted_extrinsics, mut logs_by_extrinsic) = extract_revive_events(
-					&block_events,
-					substrate_block_number,
-					eth_block_number,
-					eth_block_hash,
-					|idx| (idx == transaction_index).then_some(transaction_hash),
-				);
-
-				let reverted = reverted_extrinsics.contains(&transaction_index);
-				let mut logs = logs_by_extrinsic.remove(&transaction_index).unwrap_or_default();
-				if let Some(transfers) = asset_transfers.remove(&transaction_index) {
-					logs.extend(asset_transfer_logs(
-						&transfers,
-						eth_block_number,
-						eth_block_hash,
-						transaction_hash,
-						transaction_index,
-					));
-				}
-				self.decode_transaction_and_build_receipt(
-					eth_block_hash,
-					eth_block_number,
-					eth_call,
-					transaction_hash,
-					transaction_index,
-					receipt_gas_info,
-					reverted,
-					logs,
-				)
-			},
-			None => {
-				let transfers = asset_transfers.remove(&transaction_index).ok_or_else(|| {
-					log::trace!(target: LOG_TARGET,
-							"extract_from_transaction: no EVM extrinsic at tx_index {transaction_index} \
-							 in block #{} ({:?})", block.number(), block.hash());
-					ClientError::EthExtrinsicNotFound
-				})?;
-				let from = Self::extract_signers(block)
-					.await
-					.get(&transaction_index)
-					.copied()
-					.unwrap_or_default();
-				Ok(Self::build_synthetic_asset_receipt(
-					eth_block_hash,
-					eth_block_number,
-					block.hash(),
-					transaction_index,
-					from,
-					&transfers,
-				))
-			},
-		}
+		let eth_block_hash = self.resolve_eth_block_hash(block.hash(), block.number() as u64).await;
+		self.build_receipts(block, eth_block_hash, Some(transaction_index))
+			.await?
+			.into_iter()
+			.next()
+			.ok_or_else(|| {
+				log::trace!(target: LOG_TARGET,
+					"extract_from_transaction: no EVM extrinsic at tx_index {transaction_index} \
+					 in block #{} ({:?})", block.number(), block.hash());
+				ClientError::EthExtrinsicNotFound
+			})
 	}
 
 	/// Get the Ethereum block hash for the Substrate block with specific hash.
