@@ -148,9 +148,10 @@ impl Metrics {
 	}
 
 	/// Note that a collation was sent to the backing subsystem to be seconded.
-	pub fn on_collation_seconded(&self) {
+	pub fn on_collation_seconded(&self, para_id: &ParaId) {
 		if let Some(metrics) = &self.0 {
-			metrics.collations_seconded.inc();
+			let para_id = u32::from(*para_id).to_string();
+			metrics.collations_seconded.with_label_values(&[para_id.as_str()]).inc();
 		}
 	}
 
@@ -254,7 +255,7 @@ struct MetricsInner {
 	handle_collation_request_result: prometheus::Histogram,
 	collator_peer_count: prometheus::Gauge<prometheus::U64>,
 	advertisements: prometheus::CounterVec<prometheus::U64>,
-	collations_seconded: prometheus::Counter<prometheus::U64>,
+	collations_seconded: prometheus::CounterVec<prometheus::U64>,
 	slashes: prometheus::CounterVec<prometheus::U64>,
 	approved_peer_signals: prometheus::CounterVec<prometheus::U64>,
 	assigned_paras: prometheus::Gauge<prometheus::U64>,
@@ -318,9 +319,12 @@ impl metrics::Metrics for Metrics {
 				registry,
 			)?,
 			collations_seconded: prometheus::register(
-				prometheus::Counter::new(
-					"polkadot_parachain_collator_protocol_validator_collations_seconded_total",
-					"Number of collations sent to the backing subsystem to be seconded.",
+				prometheus::CounterVec::new(
+					prometheus::Opts::new(
+						"polkadot_parachain_collator_protocol_validator_collations_seconded_total",
+						"Number of collations sent to the backing subsystem to be seconded, by para.",
+					),
+					&["para_id"],
 				)?,
 				registry,
 			)?,

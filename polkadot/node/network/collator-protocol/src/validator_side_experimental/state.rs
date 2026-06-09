@@ -379,6 +379,7 @@ impl<B: Backend> State<B> {
 		let collation_request_metrics_result = if fetch_result { Ok(()) } else { Err(()) };
 		match can_second {
 			CanSecond::Yes(candidate_receipt, pov, pvd) => {
+				let para_id = candidate_receipt.descriptor.para_id();
 				sender
 					.send_message(CandidateBackingMessage::Second {
 						scheduling_parent: candidate_receipt.descriptor().scheduling_parent(),
@@ -388,7 +389,7 @@ impl<B: Backend> State<B> {
 					})
 					.await;
 
-				self.metrics.on_collation_seconded();
+				self.metrics.on_collation_seconded(&para_id);
 
 				gum::debug!(
 					target: LOG_TARGET,
@@ -638,7 +639,7 @@ impl<B: Backend> State<B> {
 						})
 						.await;
 
-					self.metrics.on_collation_seconded();
+					self.metrics.on_collation_seconded(&para_id);
 
 					gum::debug!(
 						target: LOG_TARGET,
