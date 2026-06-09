@@ -262,6 +262,18 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, default_value_t = sc_statement_store::DEFAULT_PURGE_AFTER_SEC)]
 	pub statement_store_purge_after_sec: u64,
 
+	/// Affinity topic this node advertises interest in. Repeatable; each value is a 32-byte hex
+	/// hash.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(
+		long = "statement-affinity-topic",
+		value_name = "TOPIC",
+		num_args = 1..,
+		value_parser = sc_statement_store::parse_topic_hex,
+	)]
+	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
+
 	/// HOP (Hand-Off Protocol) configuration parameters.
 	#[command(flatten)]
 	pub hop: sc_hop::HopParams,
@@ -317,6 +329,7 @@ impl<Config: CliConfig> Cli<Config> {
 					purge_after_sec: self.statement_store_purge_after_sec,
 					network_workers: self.statement_network_workers,
 					rate_limit: self.statement_rate_limit,
+					affinity_topics: self.statement_affinity_topics.clone(),
 				},
 			),
 			storage_monitor: self.storage_monitor.clone(),

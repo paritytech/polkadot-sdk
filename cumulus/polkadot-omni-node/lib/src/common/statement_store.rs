@@ -65,6 +65,11 @@ pub(crate) fn build_statement_store<
 	statement_handler_proto: sc_network_statement::StatementHandlerPrototype,
 	config: sc_statement_store::Config,
 ) -> sc_service::error::Result<Arc<Store>> {
+	// Capture the statement-handler settings before `new_shared` consumes the config.
+	let network_workers = config.network_workers;
+	let rate_limit = config.rate_limit;
+	let affinity_topics = config.affinity_topics.clone();
+
 	let statement_store = sc_statement_store::Store::new_shared(
 		&parachain_config.data_path,
 		config,
@@ -86,8 +91,9 @@ pub(crate) fn build_statement_store<
 		statement_store.clone(),
 		parachain_config.prometheus_registry(),
 		statement_protocol_executor,
-		config.network_workers,
-		config.rate_limit,
+		network_workers,
+		rate_limit,
+		&affinity_topics,
 	)?;
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",

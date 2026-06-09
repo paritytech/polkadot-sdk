@@ -107,8 +107,10 @@ pub(crate) struct ExplicitAffinity {
 
 #[allow(dead_code)]
 impl ExplicitAffinity {
-	pub(crate) fn new() -> Self {
-		Self { seed: rand::random(), local: HashMap::new() }
+	pub(crate) fn new(configured_topics: &[Topic]) -> Self {
+		let mut this = Self { seed: rand::random(), local: HashMap::new() };
+		this.add_topics(AffinitySource::Configured, configured_topics);
+		this
 	}
 
 	// === Local topics ===
@@ -193,8 +195,23 @@ mod tests {
 	}
 
 	#[test]
+	fn configured_topics_enter_the_set_at_construction() {
+		let affinity = ExplicitAffinity::new(&[topic(1), topic(2)]);
+		assert_eq!(topic_set(&affinity), HashSet::from([topic(1), topic(2)]));
+
+		assert!(ExplicitAffinity::new(&[]).topics().is_empty());
+	}
+
+	#[test]
+	fn configured_topics_are_held_by_the_configured_source() {
+		let mut affinity = ExplicitAffinity::new(&[topic(1)]);
+		affinity.remove_topics(AffinitySource::Configured, &[topic(1)]);
+		assert!(affinity.topics().is_empty(), "the construction topic was tagged Configured");
+	}
+
+	#[test]
 	fn add_then_remove_same_source() {
-		let mut affinity = ExplicitAffinity::new();
+		let mut affinity = ExplicitAffinity::new(&[]);
 		affinity.add_topics(AffinitySource::Configured, &[topic(1)]);
 		assert_eq!(topic_set(&affinity), HashSet::from([topic(1)]));
 
@@ -204,7 +221,7 @@ mod tests {
 
 	#[test]
 	fn topic_survives_until_last_source_drops() {
-		let mut affinity = ExplicitAffinity::new();
+		let mut affinity = ExplicitAffinity::new(&[]);
 		affinity.add_topics(AffinitySource::Configured, &[topic(1)]);
 		affinity.add_topics(AffinitySource::RpcSubscription, &[topic(1)]);
 
@@ -221,7 +238,7 @@ mod tests {
 
 	#[test]
 	fn topic_survives_until_last_holder_of_one_source_drops() {
-		let mut affinity = ExplicitAffinity::new();
+		let mut affinity = ExplicitAffinity::new(&[]);
 		// Two subscriptions on the same topic each hold a reference.
 		affinity.add_topics(AffinitySource::RpcSubscription, &[topic(1)]);
 		affinity.add_topics(AffinitySource::RpcSubscription, &[topic(1)]);
@@ -235,7 +252,7 @@ mod tests {
 
 	#[test]
 	fn remove_absent_is_noop() {
-		let mut affinity = ExplicitAffinity::new();
+		let mut affinity = ExplicitAffinity::new(&[]);
 		affinity.add_topics(AffinitySource::Configured, &[topic(1)]);
 
 		// Unheld topic and unheld source both leave the set untouched, without underflow.
@@ -246,7 +263,7 @@ mod tests {
 
 	#[test]
 	fn topics_lists_each_live_topic_once() {
-		let mut affinity = ExplicitAffinity::new();
+		let mut affinity = ExplicitAffinity::new(&[]);
 		affinity.add_topics(AffinitySource::Configured, &[topic(1), topic(2)]);
 		affinity.add_topics(AffinitySource::RpcSubscription, &[topic(2), topic(3)]);
 

@@ -448,6 +448,11 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		})
 		.flatten();
 
+	// Capture the statement-handler settings before `new_partial` consumes the config.
+	let statement_network_workers = statement_store_config.network_workers;
+	let statement_rate_limit = statement_store_config.rate_limit;
+	let statement_affinity_topics = statement_store_config.affinity_topics.clone();
+
 	let sc_service::PartialComponents {
 		client,
 		backend,
@@ -800,8 +805,9 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		statement_store.clone(),
 		prometheus_registry.as_ref(),
 		statement_protocol_executor,
-		statement_store_config.network_workers,
-		statement_store_config.rate_limit,
+		statement_network_workers,
+		statement_rate_limit,
+		&statement_affinity_topics,
 	)?;
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",
@@ -853,6 +859,7 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 		purge_after_sec: cli.statement_store_purge_after_sec,
 		network_workers: cli.statement_network_workers,
 		rate_limit: cli.statement_rate_limit,
+		affinity_topics: cli.statement_affinity_topics.clone(),
 	};
 
 	let task_manager = match config.network.network_backend {
