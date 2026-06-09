@@ -114,26 +114,200 @@ impl CidState {
 	}
 }
 
+struct WantSet {
+	inner: HashMap<Cid, CidState>,
+}
+
+impl WantSet {
+	fn new() -> Self {
+		Self { inner: HashMap::new() }
+	}
+
+	fn len(&self) -> usize {
+		self.inner.len()
+	}
+
+	fn contains(&self, cid: &Cid) -> bool {
+		self.inner.contains_key(cid)
+	}
+
+	fn new_cid_count(&self, cids: &[Cid]) -> usize {
+		cids.iter().filter(|cid| !self.inner.contains_key(cid)).count()
+	}
+
+	fn waiter_count(&self, cid: &Cid) -> usize {
+		self.inner.get(cid).map_or(0, |state| state.waiters.len())
+	}
+
+	fn add_waiter(&mut self, cid: Cid, waiter: WaiterId) {
+		self.inner.entry(cid).or_insert_with(CidState::new).waiters.push(waiter);
+	}
+
+	fn remove_waiter(&mut self, cid: Cid, waiter: WaiterId) {
+		if let Some(state) = self.inner.get_mut(&cid) {
+			state.waiters.retain(|w| *w != waiter);
+		}
+		self.remove_if_idle(cid);
+	}
+
+	fn all_cids(&self) -> Vec<Cid> {
+		self.inner.keys().copied().collect()
+	}
+
+	fn take_waiters_for_delivered_cid(&mut self, cid: Cid) -> Option<SmallVec<[WaiterId; 2]>> {
+		self.inner.remove(&cid).map(|state| state.waiters)
+	}
+
+	fn next_peer_to_request(
+		&mut self,
+		cid: Cid,
+		connected_peers: &HashSet<litep2p::PeerId>,
+		now: Instant,
+	) -> Option<litep2p::PeerId> {
+		let state = self.inner.get(&cid)?;
+		if !state.has_waiters() || state.in_flight_peers.len() >= PEER_FANOUT_CAP {
+			return None;
+		}
+
+		let peer = connected_peers
+			.iter()
+			.find(|peer| {
+				!state.tried_peers.contains(peer) && !state.in_flight_peers.contains_key(peer)
+			})
+			.copied()?;
+
+		let state = self.inner.get_mut(&cid).expect("checked above; qed");
+		state.in_flight_peers.insert(peer, now + PER_PEER_TIMEOUT);
+
+		Some(peer)
+	}
+
+	fn mark_peer_done_for_cid(&mut self, peer: litep2p::PeerId, cid: Cid) {
+		if let Some(state) = self.inner.get_mut(&cid) {
+			state.in_flight_peers.remove(&peer);
+			state.tried_peers.insert(peer);
+		}
+		self.remove_if_idle(cid);
+	}
+
+	fn remove_in_flight_peer(&mut self, peer: litep2p::PeerId) -> Vec<Cid> {
+		let affected: Vec<Cid> = self
+			.inner
+			.iter_mut()
+			.filter_map(|(cid, state)| state.in_flight_peers.remove(&peer).map(|_| *cid))
+			.collect();
+
+		self.remove_idle_and_filter_existing(affected)
+	}
+
+	fn expire_peer_timeouts(&mut self, now: Instant) -> Vec<Cid> {
+		let mut timed_out: Vec<(Cid, litep2p::PeerId)> = Vec::new();
+		for (cid, state) in self.inner.iter_mut() {
+			state.in_flight_peers.retain(|peer, deadline| {
+				if *deadline <= now {
+					timed_out.push((*cid, *peer));
+					false
+				} else {
+					true
+				}
+			});
+		}
+
+		let mut cids = Vec::with_capacity(timed_out.len());
+		for (cid, peer) in timed_out {
+			if let Some(state) = self.inner.get_mut(&cid) {
+				state.tried_peers.insert(peer);
+				cids.push(cid);
+			}
+		}
+
+		self.remove_idle_and_filter_existing(cids)
+	}
+
+	fn clear(&mut self) {
+		self.inner.clear();
+	}
+
+	fn remove_idle_and_filter_existing(&mut self, cids: Vec<Cid>) -> Vec<Cid> {
+		for cid in &cids {
+			self.remove_if_idle(*cid);
+		}
+		cids.into_iter().filter(|cid| self.inner.contains_key(cid)).collect()
+	}
+
+	fn remove_if_idle(&mut self, cid: Cid) {
+		if self.inner.get(&cid).is_some_and(CidState::is_idle) {
+			self.inner.remove(&cid);
+		}
+	}
+}
+
 struct Waiter {
 	cids_remaining: HashSet<Cid>,
 	sink: mpsc::Sender<FetchItem>,
 	delay_key: delay_queue::Key,
 }
 
+struct InboundLookupResult {
+	peer: litep2p::PeerId,
+	responses: Vec<ResponseType>,
+}
+
+enum LookupAdmission {
+	Submitted,
+	Overloaded,
+}
+
+struct InboundLookupPool<B: BlockT> {
+	client: Arc<dyn BlockBackend<B> + Send + Sync>,
+	result_tx: mpsc::Sender<InboundLookupResult>,
+	semaphore: Arc<Semaphore>,
+}
+
+impl<B: BlockT> InboundLookupPool<B> {
+	fn new(
+		client: Arc<dyn BlockBackend<B> + Send + Sync>,
+	) -> (Self, mpsc::Receiver<InboundLookupResult>) {
+		let (result_tx, result_rx) = mpsc::channel(LOOKUP_CHANNEL_CAPACITY);
+		(
+			Self {
+				client,
+				result_tx,
+				semaphore: Arc::new(Semaphore::new(MAX_CONCURRENT_INBOUND_LOOKUPS)),
+			},
+			result_rx,
+		)
+	}
+
+	fn submit(&self, peer: litep2p::PeerId, cids: Vec<(Cid, WantType)>) -> LookupAdmission {
+		let Ok(permit) = self.semaphore.clone().try_acquire_owned() else {
+			return LookupAdmission::Overloaded;
+		};
+
+		let client = self.client.clone();
+		let result_tx = self.result_tx.clone();
+		tokio::task::spawn_blocking(move || {
+			let _permit = permit;
+			let responses = serve_inbound(&*client, cids);
+			let _ = result_tx.try_send(InboundLookupResult { peer, responses });
+		});
+
+		LookupAdmission::Submitted
+	}
+}
+
 pub(crate) struct BitswapService<B: BlockT> {
 	handle: Box<dyn BitswapTransport>,
-	client: Arc<dyn BlockBackend<B> + Send + Sync>,
 	config: BitswapServiceConfig,
 
 	cmd_rx: mpsc::Receiver<BitswapCommand>,
 	peer_event_rx: mpsc::Receiver<PeerEvent>,
-	lookup_tx: mpsc::Sender<(litep2p::PeerId, Vec<ResponseType>)>,
-	lookup_rx: mpsc::Receiver<(litep2p::PeerId, Vec<ResponseType>)>,
-	lookup_semaphore: Arc<Semaphore>,
+	inbound_lookup_pool: InboundLookupPool<B>,
+	inbound_lookup_rx: mpsc::Receiver<InboundLookupResult>,
 
 	waiter_deadlines: DelayQueue<WaiterId>,
 	connected_peers: HashSet<litep2p::PeerId>,
-	wants: HashMap<Cid, CidState>,
+	wants: WantSet,
 	waiters: SlotMap<WaiterId, Waiter>,
 }
 
@@ -149,22 +323,20 @@ pub fn start<B: BlockT>(
 	let (litep2p_config, litep2p_handle) = LitepConfig::new();
 	let (cmd_tx, cmd_rx) = mpsc::channel(CMD_CHANNEL_CAPACITY);
 	let (peer_event_tx, peer_event_rx) = mpsc::channel(PEER_EVENT_CHANNEL_CAPACITY);
-	let (lookup_tx, lookup_rx) = mpsc::channel(LOOKUP_CHANNEL_CAPACITY);
+	let (inbound_lookup_pool, inbound_lookup_rx) = InboundLookupPool::new(client);
 
 	let user_handle = BitswapHandle::new(cmd_tx);
 
 	let service = BitswapService {
 		handle: Box::new(litep2p_handle),
-		client,
 		config,
 		cmd_rx,
 		peer_event_rx,
-		lookup_tx,
-		lookup_rx,
-		lookup_semaphore: Arc::new(Semaphore::new(MAX_CONCURRENT_INBOUND_LOOKUPS)),
+		inbound_lookup_pool,
+		inbound_lookup_rx,
 		waiter_deadlines: DelayQueue::new(),
 		connected_peers: HashSet::new(),
-		wants: HashMap::new(),
+		wants: WantSet::new(),
 		waiters: SlotMap::with_key(),
 	};
 
@@ -222,8 +394,8 @@ impl<B: BlockT> BitswapService<B> {
 					}
 				},
 
-				Some((peer, responses)) = self.lookup_rx.recv() => {
-					self.handle.send_response(peer, responses).await;
+				Some(result) = self.inbound_lookup_rx.recv() => {
+					self.handle.send_response(result.peer, result.responses).await;
 				},
 
 				_ = peer_timeout_ticker.tick() => {
@@ -237,15 +409,14 @@ impl<B: BlockT> BitswapService<B> {
 		// New CIDs are CIDs not already in `wants`. We re-check the overall outstanding-CIDs
 		// budget against the *new* additions, otherwise overlapping waiters would be charged
 		// twice for the same CID.
-		let new_cid_count = cids.iter().filter(|cid| !self.wants.contains_key(cid)).count();
+		let new_cid_count = self.wants.new_cid_count(&cids);
 		if self.wants.len() + new_cid_count > MAX_OUTSTANDING_CIDS {
 			let _ = sink.try_send(Err(BitswapError::Overloaded));
 			return;
 		}
 
 		for cid in &cids {
-			let waiters_for_cid = self.wants.get(cid).map_or(0, |cs| cs.waiters.len());
-			if waiters_for_cid >= MAX_WAITERS_PER_CID {
+			if self.wants.waiter_count(cid) >= MAX_WAITERS_PER_CID {
 				let _ = sink.try_send(Err(BitswapError::Overloaded));
 				return;
 			}
@@ -261,8 +432,7 @@ impl<B: BlockT> BitswapService<B> {
 		});
 
 		for cid in &cids {
-			let cid_state = self.wants.entry(*cid).or_insert_with(CidState::new);
-			cid_state.waiters.push(waiter_id);
+			self.wants.add_waiter(*cid, waiter_id);
 		}
 
 		for cid in cids {
@@ -271,29 +441,12 @@ impl<B: BlockT> BitswapService<B> {
 	}
 
 	async fn top_up_in_flight(&mut self, cid: Cid) {
-		let Some(cid_state) = self.wants.get_mut(&cid) else { return };
-		if !cid_state.has_waiters() {
-			return;
+		if let Some(peer) =
+			self.wants.next_peer_to_request(cid, &self.connected_peers, Instant::now())
+		{
+			log::trace!(target: LOG_TARGET, "WANT-BLOCK {cid} -> {peer:?}");
+			self.handle.send_request(peer, vec![(cid, WantType::Block)]).await;
 		}
-		if cid_state.in_flight_peers.len() >= PEER_FANOUT_CAP {
-			return;
-		}
-
-		let Some(peer) = self
-			.connected_peers
-			.iter()
-			.find(|p| {
-				!cid_state.tried_peers.contains(p) && !cid_state.in_flight_peers.contains_key(p)
-			})
-			.copied()
-		else {
-			return;
-		};
-
-		cid_state.in_flight_peers.insert(peer, Instant::now() + PER_PEER_TIMEOUT);
-
-		log::trace!(target: LOG_TARGET, "WANT-BLOCK {cid} -> {peer:?}");
-		self.handle.send_request(peer, vec![(cid, WantType::Block)]).await;
 	}
 
 	async fn on_inbound_response(&mut self, peer: litep2p::PeerId, responses: Vec<ResponseType>) {
@@ -316,7 +469,7 @@ impl<B: BlockT> BitswapService<B> {
 						},
 					};
 
-					if !self.wants.contains_key(&recomputed) {
+					if !self.wants.contains(&recomputed) {
 						log::debug!(
 							target: LOG_TARGET,
 							"{peer:?} sent unsolicited or unwanted block for {recomputed}",
@@ -343,24 +496,21 @@ impl<B: BlockT> BitswapService<B> {
 		}
 
 		for cid in cids_to_top_up {
-			if self.wants.contains_key(&cid) {
+			if self.wants.contains(&cid) {
 				self.top_up_in_flight(cid).await;
 			}
 		}
 	}
 
 	fn mark_peer_done_for_cid(&mut self, peer: litep2p::PeerId, cid: Cid) {
-		if let Some(cid_state) = self.wants.get_mut(&cid) {
-			cid_state.in_flight_peers.remove(&peer);
-			cid_state.tried_peers.insert(peer);
-		}
+		self.wants.mark_peer_done_for_cid(peer, cid);
 	}
 
 	fn deliver_block(&mut self, cid: Cid, bytes: Vec<u8>) {
-		let Some(cid_state) = self.wants.remove(&cid) else { return };
+		let Some(waiter_ids) = self.wants.take_waiters_for_delivered_cid(cid) else { return };
 		let bytes = Arc::new(bytes);
 
-		for waiter_id in cid_state.waiters {
+		for waiter_id in waiter_ids {
 			let Some(waiter) = self.waiters.get_mut(waiter_id) else { continue };
 			if !waiter.cids_remaining.remove(&cid) {
 				continue;
@@ -382,12 +532,7 @@ impl<B: BlockT> BitswapService<B> {
 		self.waiter_deadlines.remove(&waiter.delay_key);
 
 		for cid in &waiter.cids_remaining {
-			if let Some(cid_state) = self.wants.get_mut(cid) {
-				cid_state.waiters.retain(|w| *w != id);
-				if cid_state.is_idle() {
-					self.wants.remove(cid);
-				}
-			}
+			self.wants.remove_waiter(*cid, id);
 		}
 	}
 
@@ -396,12 +541,7 @@ impl<B: BlockT> BitswapService<B> {
 		let remaining: Vec<Cid> = waiter.cids_remaining.drain().collect();
 		for cid in &remaining {
 			let _ = waiter.sink.try_send(Ok((*cid, FetchOutcome::Missing)));
-			if let Some(cid_state) = self.wants.get_mut(cid) {
-				cid_state.waiters.retain(|w| *w != id);
-				if cid_state.is_idle() {
-					self.wants.remove(cid);
-				}
-			}
+			self.wants.remove_waiter(*cid, id);
 		}
 		log::trace!(
 			target: LOG_TARGET,
@@ -417,7 +557,7 @@ impl<B: BlockT> BitswapService<B> {
 			"snapshot: {} connected peers at startup",
 			self.connected_peers.len(),
 		);
-		let cids: Vec<Cid> = self.wants.keys().copied().collect();
+		let cids = self.wants.all_cids();
 		for cid in cids {
 			self.top_up_in_flight(cid).await;
 		}
@@ -425,7 +565,7 @@ impl<B: BlockT> BitswapService<B> {
 
 	async fn on_peer_connected(&mut self, peer: litep2p::PeerId) {
 		self.connected_peers.insert(peer);
-		let cids: Vec<Cid> = self.wants.keys().copied().collect();
+		let cids = self.wants.all_cids();
 		for cid in cids {
 			self.top_up_in_flight(cid).await;
 		}
@@ -433,38 +573,15 @@ impl<B: BlockT> BitswapService<B> {
 
 	async fn on_peer_disconnected(&mut self, peer: litep2p::PeerId) {
 		self.connected_peers.remove(&peer);
-		let cids_to_top_up: Vec<Cid> = self
-			.wants
-			.iter_mut()
-			.filter_map(|(cid, cs)| cs.in_flight_peers.remove(&peer).map(|_| *cid))
-			.collect();
+		let cids_to_top_up = self.wants.remove_in_flight_peer(peer);
 		for cid in cids_to_top_up {
 			self.top_up_in_flight(cid).await;
 		}
 	}
 
 	async fn sweep_per_peer_timeouts(&mut self) {
-		let now = Instant::now();
-		let mut timed_out: Vec<(Cid, litep2p::PeerId)> = Vec::new();
-		for (cid, cid_state) in self.wants.iter_mut() {
-			cid_state.in_flight_peers.retain(|peer, deadline| {
-				if *deadline <= now {
-					timed_out.push((*cid, *peer));
-					false
-				} else {
-					true
-				}
-			});
-		}
-		for (cid, peer) in &timed_out {
-			if let Some(cid_state) = self.wants.get_mut(cid) {
-				cid_state.tried_peers.insert(*peer);
-			}
-		}
-		for (cid, _) in timed_out {
-			if self.wants.contains_key(&cid) {
-				self.top_up_in_flight(cid).await;
-			}
+		for cid in self.wants.expire_peer_timeouts(Instant::now()) {
+			self.top_up_in_flight(cid).await;
 		}
 	}
 
@@ -477,20 +594,12 @@ impl<B: BlockT> BitswapService<B> {
 			);
 			return;
 		}
-		let Ok(permit) = self.lookup_semaphore.clone().try_acquire_owned() else {
+		if let LookupAdmission::Overloaded = self.inbound_lookup_pool.submit(peer, cids) {
 			log::trace!(
 				target: LOG_TARGET,
 				"inbound serving pool saturated; dropping wantlist from {peer:?}",
 			);
-			return;
-		};
-		let client = self.client.clone();
-		let lookup_tx = self.lookup_tx.clone();
-		tokio::task::spawn_blocking(move || {
-			let _permit = permit;
-			let responses = serve_inbound(&*client, cids);
-			let _ = lookup_tx.try_send((peer, responses));
-		});
+		}
 	}
 
 	fn shutdown_waiters(&mut self) {
@@ -602,7 +711,7 @@ mod tests {
 		let (outbound_resp_tx, outbound_resp_rx) = mpsc::channel(64);
 		let (cmd_tx, cmd_rx) = mpsc::channel(CMD_CHANNEL_CAPACITY);
 		let (peer_event_tx, peer_event_rx) = mpsc::channel(PEER_EVENT_CHANNEL_CAPACITY);
-		let (lookup_tx, lookup_rx) = mpsc::channel(LOOKUP_CHANNEL_CAPACITY);
+		let (inbound_lookup_pool, inbound_lookup_rx) = InboundLookupPool::new(client);
 
 		let transport = MockTransport {
 			inbound: AsyncMutex::new(inbound_rx),
@@ -612,16 +721,14 @@ mod tests {
 
 		let service: BitswapService<substrate_test_runtime::Block> = BitswapService {
 			handle: Box::new(transport),
-			client,
 			config,
 			cmd_rx,
 			peer_event_rx,
-			lookup_tx,
-			lookup_rx,
-			lookup_semaphore: Arc::new(Semaphore::new(MAX_CONCURRENT_INBOUND_LOOKUPS)),
+			inbound_lookup_pool,
+			inbound_lookup_rx,
 			waiter_deadlines: DelayQueue::new(),
 			connected_peers: HashSet::new(),
-			wants: HashMap::new(),
+			wants: WantSet::new(),
 			waiters: SlotMap::with_key(),
 		};
 
@@ -661,6 +768,26 @@ mod tests {
 
 	async fn drain_next<T>(rx: &mut mpsc::Receiver<T>) -> Option<T> {
 		timeout(Duration::from_secs(2), rx.recv()).await.ok().flatten()
+	}
+
+	#[test]
+	fn want_set_removes_cid_after_last_waiter_and_peer_complete() {
+		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0xaa; 32]);
+		let peer = litep2p::PeerId::random();
+		let mut waiter_ids = SlotMap::with_key();
+		let waiter_id = waiter_ids.insert(());
+		let mut wants = WantSet::new();
+
+		wants.add_waiter(cid, waiter_id);
+		let selected =
+			wants.next_peer_to_request(cid, &HashSet::from([peer]), Instant::now()).unwrap();
+		assert_eq!(selected, peer);
+
+		wants.remove_waiter(cid, waiter_id);
+		assert!(wants.contains(&cid));
+
+		wants.mark_peer_done_for_cid(peer, cid);
+		assert!(!wants.contains(&cid));
 	}
 
 	#[tokio::test(start_paused = true)]
