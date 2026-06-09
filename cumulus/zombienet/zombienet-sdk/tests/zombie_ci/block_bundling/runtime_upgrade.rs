@@ -24,7 +24,7 @@ use cumulus_zombienet_sdk_helpers::{
 	BlockToCheck,
 };
 use serde_json::json;
-use sp_core::blake2_256;
+use sp_crypto_hashing::blake2_256;
 use zombienet_sdk::{
 	subxt::{
 		ext::scale_value::{value, Value},
