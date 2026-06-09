@@ -18,12 +18,13 @@
 
 use super::{scheduling, trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::Encode;
 use cumulus_primitives_core::{
 	relay_chain::{
-		BlockNumber as RNumber, Hash as RHash, UMPSignal, MAX_HEAD_DATA_SIZE, UMP_SEPARATOR,
+		BlockNumber as RNumber, Hash as RHash, Header as RelayChainHeader, MAX_HEAD_DATA_SIZE,
+		UMP_SEPARATOR,
 	},
-	ClaimQueueOffset, CoreSelector, CumulusDigestItem, ParachainBlockData, PersistedValidationData,
+	CumulusDigestItem, ParachainBlockData, PersistedValidationData, SignedSchedulingInfo,
 	VerifySchedulingSignature,
 };
 use frame_support::{
@@ -136,18 +137,26 @@ where
 		sp_io::transaction_index::host_renew.replace_implementation(host_transaction_index_renew),
 	);
 
-	// V3 scheduling validation.
+	// V3 scheduling validation (chain-shape only). Signature verification of
+	// `signed_scheduling_info` happens here at the call site so the verifier wiring
+	// stays out of the pure shape check.
 	let validated_scheduling = scheduling::validate_v3_scheduling(
 		PSC::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED,
 		&extension.0,
 		block_data.scheduling_proof(),
 		PSC::RelayParentOffset::get(),
+		crate::Pallet::<PSC>::max_claim_queue_offset(),
 	);
-	if let Some(result) = validated_scheduling {
-		if result.is_resubmission {
-			panic!("Resubmission not yet supported; reject candidate.");
-		}
-	}
+
+	// The override inputs (signed payload + the ISP header), present whenever the proof carried a
+	// `signed_scheduling_info`. The signature is verified later, inside the externalities scope
+	// below, since it needs to read `Authorities::<T>` from parachain state.
+	let scheduling_override_inputs: Option<(SignedSchedulingInfo, RelayChainHeader)> =
+		validated_scheduling.and_then(|validated| {
+			validated
+				.signed_scheduling_info
+				.map(|signed_info| (signed_info, validated.internal_scheduling_parent_header))
+		});
 
 	// Initialize hashmaps randomness.
 	sp_trie::add_extra_randomness(build_seed_from_head_data::<B>(
@@ -181,6 +190,41 @@ where
 
 	let cache_provider = trie_cache::CacheProvider::new();
 	let seen_nodes = SeenNodes::<HashingFor<B>>::default();
+
+	// Verify the V3 scheduling signature override. Only set up the backend and externalities
+	// when there's actually an override to check.
+	if let Some((signed_info, isp_header)) = scheduling_override_inputs.as_ref() {
+		let relay_slot = scheduling::relay_slot_from_header(isp_header).expect(
+			"internal_scheduling_parent header must carry a BABE pre-digest; \
+			 the relay chain runs BABE; qed",
+		);
+
+		let parent_backend: sp_state_machine::TrieBackend<
+			_,
+			HashingFor<B>,
+			_,
+			SizeOnlyRecorderProvider<HashingFor<B>>,
+		> = sp_state_machine::TrieBackendBuilder::new_with_cache(
+			&db,
+			*parent_header.state_root(),
+			&cache_provider,
+		)
+		.build();
+		run_with_externalities_and_recorder::<B, _, _>(
+			&parent_backend,
+			&mut Default::default(),
+			&mut Default::default(),
+			|| {
+				if !PSC::SchedulingSignatureVerifier::verify(signed_info, relay_slot) {
+					panic!(
+						"V3 scheduling validation failed: invalid \
+						 signed_scheduling_info (ISP: {:?})",
+						isp_header.hash(),
+					);
+				}
+			},
+		);
+	}
 
 	for (block_index, mut block) in blocks.into_iter().enumerate() {
 		// We use the storage root of the `parent_head` to ensure that it is the correct root.
@@ -319,45 +363,16 @@ where
 		}
 	}
 
-	if !upward_message_signals.is_empty() {
-		let mut selected_core: Option<(CoreSelector, ClaimQueueOffset)> = None;
-		let mut approved_peer = None;
-
-		upward_message_signals.iter().for_each(|s| {
-			match UMPSignal::decode(&mut &s[..]).expect("Failed to decode `UMPSignal`") {
-				UMPSignal::SelectCore(selector, offset) => match &selected_core {
-					Some(selected_core) if *selected_core != (selector, offset) => {
-						panic!(
-							"All `SelectCore` signals need to select the same core: {selected_core:?} vs {:?}",
-							(selector, offset),
-						)
-					},
-					Some(_) => {},
-					None => {
-						selected_core = Some((selector, offset));
-					},
-				},
-				UMPSignal::ApprovedPeer(new_approved_peer) => match &approved_peer {
-					Some(approved_peer) if *approved_peer != new_approved_peer => {
-						panic!(
-							"All `ApprovedPeer` signals need to select the same peer_id: {new_approved_peer:?} vs {approved_peer:?}",
-						)
-					},
-					Some(_) => {},
-					None => {
-						approved_peer = Some(new_approved_peer);
-					},
-				},
-			}
-		});
-
-		upward_messages
-			.try_push(UMP_SEPARATOR)
-			.expect("UMPSignals does not fit in UMPMessages");
-
-		upward_messages
-			.try_extend(upward_message_signals.into_iter())
-			.expect("UMPSignals does not fit in UMPMessages");
+	// A `signed_scheduling_info` overrides the block's emitted signals wholesale — they
+	// are ignored, not merged.
+	match scheduling_override_inputs.as_ref() {
+		Some((signed_info, _)) => {
+			scheduling::SchedulingSignals::from_scheduling_info(signed_info, &mut upward_messages)
+		},
+		None => scheduling::SchedulingSignals::from_block_signals(
+			&upward_message_signals,
+			&mut upward_messages,
+		),
 	}
 
 	horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));
