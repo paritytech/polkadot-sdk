@@ -25,6 +25,7 @@ use std::{
 };
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct PeersTopologyConfig {
 	/// Number of statement-protocol peers responsible for storing a topic.
 	pub replication_factor: NonZeroUsize,
@@ -50,6 +51,7 @@ struct PeerInfo {
 	connected: bool,
 }
 
+#[allow(dead_code)]
 impl PeerInfo {
 	fn is_dht_candidate(&self) -> bool {
 		self.supports_statement_protocol
@@ -66,12 +68,14 @@ impl PeerInfo {
 /// statement notification connections. It computes XOR distances locally over that learned peer
 /// set; it does not issue topic-specific Kademlia lookups.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct PeersTopology {
 	local_peer: PeerId,
 	config: PeersTopologyConfig,
 	peers: HashMap<PeerId, PeerInfo>,
 }
 
+#[allow(dead_code)]
 impl PeersTopology {
 	pub fn new(local_peer: PeerId, config: PeersTopologyConfig) -> Self {
 		Self { local_peer, config, peers: HashMap::new() }
@@ -255,18 +259,22 @@ impl PeersTopology {
 	}
 }
 
+#[allow(dead_code)]
 fn cmp_distance_then_peer(topic: TopicHash, a: &PeerId, b: &PeerId) -> Ordering {
 	distance_to(topic, a).cmp(&distance_to(topic, b)).then_with(|| a.cmp(b))
 }
 
+#[allow(dead_code)]
 fn distance_to(topic: TopicHash, peer: &PeerId) -> [u8; 32] {
 	xor_distance(topic, peer_key(peer))
 }
 
+#[allow(dead_code)]
 fn peer_key(peer: &PeerId) -> [u8; 32] {
 	sp_crypto_hashing::blake2_256(&peer.to_bytes())
 }
 
+#[allow(dead_code)]
 fn xor_distance(a: [u8; 32], b: [u8; 32]) -> [u8; 32] {
 	let mut distance = [0; 32];
 	for ((distance, a), b) in distance.iter_mut().zip(a).zip(b) {
