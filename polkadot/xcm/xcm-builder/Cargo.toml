@@ -27,8 +27,8 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 sp-weights.workspace = true
 tracing = { workspace = true }
-xcm.workspace = true
 xcm-executor.workspace = true
+xcm.workspace = true
 
 [dev-dependencies]
 pallet-assets = { default-features = true, workspace = true }

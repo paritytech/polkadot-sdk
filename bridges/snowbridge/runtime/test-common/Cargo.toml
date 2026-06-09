@@ -30,8 +30,8 @@ pallet-xcm.workspace = true
 parachain-info.workspace = true
 parachains-runtimes-test-utils.workspace = true
 snowbridge-core.workspace = true
-snowbridge-pallet-ethereum-client.workspace = true
 snowbridge-pallet-ethereum-client-fixtures.workspace = true
+snowbridge-pallet-ethereum-client.workspace = true
 snowbridge-pallet-outbound-queue.workspace = true
 snowbridge-pallet-system.workspace = true
 sp-core.workspace = true
@@ -39,8 +39,8 @@ sp-io.workspace = true
 sp-keyring.default-features = true
 sp-keyring.workspace = true
 sp-runtime.workspace = true
-xcm.workspace = true
 xcm-executor.workspace = true
+xcm.workspace = true
 
 [features]
 default = ["std"]
