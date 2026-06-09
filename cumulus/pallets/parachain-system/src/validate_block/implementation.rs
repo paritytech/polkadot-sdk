@@ -148,23 +148,14 @@ where
 		crate::Pallet::<PSC>::max_claim_queue_offset(),
 	);
 
-	// Extract the override inputs (signed payload + the ISP header the signer
-	// committed to) from the proof. Override engages whenever `signed_scheduling_info`
-	// is present — on resubmissions it's required by `check_scheduling`, and on
-	// initial submissions honest collators don't attach one (core selection comes from
-	// the block's own UMP signals), while a forged one is harmless since the relay chain
-	// re-validates core selection. The actual signature verification needs to read
-	// `Authorities::<T>` from parachain state, so it runs inside the externalities
-	// scope below — externalities aren't installed at this point.
+	// The override inputs (signed payload + the ISP header), present whenever the proof carried a
+	// `signed_scheduling_info`. The signature is verified later, inside the externalities scope
+	// below, since it needs to read `Authorities::<T>` from parachain state.
 	let scheduling_override_inputs: Option<(SignedSchedulingInfo, RelayChainHeader)> =
-		validated_scheduling.and_then(|_| {
-			let proof = block_data.scheduling_proof().expect(
-				"V3 scheduling validation succeeded → scheduling proof present; \
-				 enforced by `validate_v3_scheduling`; qed",
-			);
-			proof.signed_scheduling_info.as_ref().map(|signed_info| {
-				(signed_info.clone(), proof.internal_scheduling_parent_header.clone())
-			})
+		validated_scheduling.and_then(|validated| {
+			validated
+				.signed_scheduling_info
+				.map(|signed_info| (signed_info, validated.internal_scheduling_parent_header))
 		});
 
 	// Initialize hashmaps randomness.
@@ -203,6 +194,11 @@ where
 	// Verify the V3 scheduling signature override. Only set up the backend and externalities
 	// when there's actually an override to check.
 	if let Some((signed_info, isp_header)) = scheduling_override_inputs.as_ref() {
+		let relay_slot = scheduling::relay_slot_from_header(isp_header).expect(
+			"internal_scheduling_parent header must carry a BABE pre-digest; \
+			 the relay chain runs BABE; qed",
+		);
+
 		let parent_backend: sp_state_machine::TrieBackend<
 			_,
 			HashingFor<B>,
@@ -219,7 +215,7 @@ where
 			&mut Default::default(),
 			&mut Default::default(),
 			|| {
-				if !PSC::SchedulingSignatureVerifier::verify(signed_info, isp_header) {
+				if !PSC::SchedulingSignatureVerifier::verify(signed_info, relay_slot) {
 					panic!(
 						"V3 scheduling validation failed: invalid \
 						 signed_scheduling_info (ISP: {:?})",

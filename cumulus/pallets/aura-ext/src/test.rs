@@ -532,14 +532,10 @@ mod scheduling_verifier_tests {
 	use crate::signature_verifier::AuraSchedulingVerifier;
 	use codec::Encode;
 	use cumulus_primitives_core::{
-		relay_chain::{ApprovedPeerId, Hash as RelayHash, Header as RelayChainHeader},
+		relay_chain::{ApprovedPeerId, Hash as RelayHash, Slot},
 		SchedulingInfoPayload, SignedSchedulingInfo, VerifySchedulingSignature,
 	};
-	use sp_consensus_babe::digests::{
-		CompatibleDigestItem as BabeDigestItem, PreDigest, SecondaryPlainPreDigest,
-	};
 	use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
-	use sp_runtime::generic::Digest;
 
 	const PARA_SLOT_DURATION_MS: u64 = 6_000;
 	const RELAY_SLOT_DURATION_MS: u64 = 6_000;
@@ -585,33 +581,14 @@ mod scheduling_verifier_tests {
 	// Shared test helpers (crypto-agnostic).
 	// -------------------------------------------------------------------------
 
-	/// Build a relay chain header whose digest carries a BABE secondary-plain pre-digest
-	/// at the given slot. The verifier only reads the slot off the pre-digest, so the
-	/// exact pre-digest variant doesn't matter.
-	fn relay_header_at_slot(relay_slot: u64) -> RelayChainHeader {
-		let mut digest = Digest::default();
-		digest.push(<sp_runtime::generic::DigestItem as BabeDigestItem>::babe_pre_digest(
-			PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
-				authority_index: 0,
-				slot: relay_slot.into(),
-			}),
-		));
-		RelayChainHeader {
-			parent_hash: Default::default(),
-			number: 0,
-			state_root: Default::default(),
-			extrinsics_root: Default::default(),
-			digest,
-		}
-	}
-
-	/// Build a payload whose `internal_scheduling_parent` is set to `isp`.
-	fn make_payload(isp: RelayHash) -> SchedulingInfoPayload {
+	/// Build a payload for verifier tests. The verifier signs/checks over the whole encoded
+	/// payload but does not inspect `internal_scheduling_parent`, so a default ISP is fine.
+	fn make_payload() -> SchedulingInfoPayload {
 		SchedulingInfoPayload::new(
 			cumulus_primitives_core::CoreSelector(0),
 			0,
 			ApprovedPeerId::default(),
-			isp,
+			RelayHash::default(),
 		)
 	}
 
@@ -647,12 +624,14 @@ mod scheduling_verifier_tests {
 		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
 		sp_io::TestExternalities::new_empty().execute_with(|| {
 			set_authorities::<Test>(vec![Sr25519Id::from(Sr25519Keyring::Alice.public())]);
-			let header = relay_header_at_slot(7);
-			let payload = make_payload(header.hash());
+			let payload = make_payload();
 			let signer = if eligible_signer { Sr25519Keyring::Alice } else { Sr25519Keyring::Bob };
 			let signed =
 				SignedSchedulingInfo { signature: signer.sign(&payload.encode()).0, payload };
-			assert_eq!(AuraSchedulingVerifier::<Test>::verify(&signed, &header), eligible_signer);
+			assert_eq!(
+				AuraSchedulingVerifier::<Test>::verify(&signed, Slot::from(7)),
+				eligible_signer
+			);
 		});
 	}
 
@@ -662,17 +641,16 @@ mod scheduling_verifier_tests {
 		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
 		sp_io::TestExternalities::new_empty().execute_with(|| {
 			set_authorities::<Test>(vec![Sr25519Id::from(Sr25519Keyring::Alice.public())]);
-			let header = relay_header_at_slot(7);
-			let original = make_payload(header.hash());
+			let original = make_payload();
 			let signature = Sr25519Keyring::Alice.sign(&original.encode()).0;
 			let tampered = SchedulingInfoPayload::new(
 				cumulus_primitives_core::CoreSelector(99),
 				0,
 				ApprovedPeerId::default(),
-				header.hash(),
+				RelayHash::default(),
 			);
 			let signed = SignedSchedulingInfo { signature, payload: tampered };
-			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header));
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, Slot::from(7)));
 		});
 	}
 
@@ -700,13 +678,15 @@ mod scheduling_verifier_tests {
 				"test fixture: para_slot=7 mod 4 == 3"
 			);
 
-			let header = relay_header_at_slot(relay_slot);
-			let payload = make_payload(header.hash());
+			let payload = make_payload();
 			let signed = SignedSchedulingInfo {
 				signature: keys[signer_idx].sign(&payload.encode()).0,
 				payload,
 			};
-			assert_eq!(AuraSchedulingVerifier::<Test>::verify(&signed, &header), expected);
+			assert_eq!(
+				AuraSchedulingVerifier::<Test>::verify(&signed, Slot::from(relay_slot)),
+				expected
+			);
 		});
 	}
 
@@ -739,13 +719,15 @@ mod scheduling_verifier_tests {
 				"test fixture: para_slot=7 mod 4 == 3 (Dave)"
 			);
 
-			let header = relay_header_at_slot(relay_slot);
-			let payload = make_payload(header.hash());
+			let payload = make_payload();
 			let signed = SignedSchedulingInfo {
 				signature: keys[signer_idx].sign(&payload.encode()).0,
 				payload,
 			};
-			assert_eq!(AuraSchedulingVerifier::<Test>::verify(&signed, &header), expected);
+			assert_eq!(
+				AuraSchedulingVerifier::<Test>::verify(&signed, Slot::from(relay_slot)),
+				expected
+			);
 		});
 	}
 
@@ -756,13 +738,12 @@ mod scheduling_verifier_tests {
 		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
 		sp_io::TestExternalities::new_empty().execute_with(|| {
 			set_authorities::<Test>(Vec::<Sr25519Id>::new());
-			let header = relay_header_at_slot(7);
-			let payload = make_payload(header.hash());
+			let payload = make_payload();
 			let signed = SignedSchedulingInfo {
 				signature: Sr25519Keyring::Alice.sign(&payload.encode()).0,
 				payload,
 			};
-			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header));
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, Slot::from(7)));
 		});
 	}
 
@@ -773,36 +754,12 @@ mod scheduling_verifier_tests {
 		TestSlotDuration::set_slot_duration(0);
 		sp_io::TestExternalities::new_empty().execute_with(|| {
 			set_authorities::<Test>(vec![Sr25519Id::from(Sr25519Keyring::Alice.public())]);
-			let header = relay_header_at_slot(7);
-			let payload = make_payload(header.hash());
+			let payload = make_payload();
 			let signed = SignedSchedulingInfo {
 				signature: Sr25519Keyring::Alice.sign(&payload.encode()).0,
 				payload,
 			};
-			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header));
-		});
-	}
-
-	#[test]
-	fn missing_babe_pre_digest_is_rejected() {
-		// Without a BABE pre-digest the verifier can't derive the relay slot and must
-		// reject — there is no fallback that could pick an author.
-		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
-		sp_io::TestExternalities::new_empty().execute_with(|| {
-			set_authorities::<Test>(vec![Sr25519Id::from(Sr25519Keyring::Alice.public())]);
-			let header_no_digest = RelayChainHeader {
-				parent_hash: Default::default(),
-				number: 0,
-				state_root: Default::default(),
-				extrinsics_root: Default::default(),
-				digest: Digest::default(),
-			};
-			let payload = make_payload(header_no_digest.hash());
-			let signed = SignedSchedulingInfo {
-				signature: Sr25519Keyring::Alice.sign(&payload.encode()).0,
-				payload,
-			};
-			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header_no_digest));
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, Slot::from(7)));
 		});
 	}
 
@@ -814,13 +771,12 @@ mod scheduling_verifier_tests {
 		TestSlotDuration::set_slot_duration(PARA_SLOT_DURATION_MS);
 		sp_io::TestExternalities::new_empty().execute_with(|| {
 			set_authorities::<Test>(vec![Sr25519Id::from(Sr25519Keyring::Alice.public())]);
-			let header = relay_header_at_slot(u64::MAX);
-			let payload = make_payload(header.hash());
+			let payload = make_payload();
 			let signed = SignedSchedulingInfo {
 				signature: Sr25519Keyring::Alice.sign(&payload.encode()).0,
 				payload,
 			};
-			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, &header));
+			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, Slot::from(u64::MAX)));
 		});
 	}
 
@@ -837,13 +793,12 @@ mod scheduling_verifier_tests {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
 			set_authorities::<Ed25519Test>(vec![Ed25519Id::from(Ed25519Keyring::Alice.public())]);
 
-			let header = relay_header_at_slot(7);
-			let payload = make_payload(header.hash());
+			let payload = make_payload();
 			let signed = SignedSchedulingInfo {
 				signature: Ed25519Keyring::Alice.sign(&payload.encode()).0,
 				payload,
 			};
-			assert!(AuraSchedulingVerifier::<Ed25519Test>::verify(&signed, &header));
+			assert!(AuraSchedulingVerifier::<Ed25519Test>::verify(&signed, Slot::from(7)));
 		});
 	}
 }

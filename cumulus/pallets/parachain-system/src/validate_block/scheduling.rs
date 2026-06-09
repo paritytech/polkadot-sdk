@@ -10,15 +10,29 @@
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain::{ApprovedPeerId, UMPSignal, UMP_SEPARATOR},
+	relay_chain::{ApprovedPeerId, Header as RelayChainHeader, Slot, UMPSignal, UMP_SEPARATOR},
 	ClaimQueueOffset, CoreSelector, SchedulingProof, SignedSchedulingInfo,
 };
 use frame_support::{traits::Get, BoundedVec};
 use polkadot_parachain_primitives::primitives::ValidationParamsExtension;
+use sp_consensus_babe::digests::CompatibleDigestItem as BabeDigestItem;
 use sp_runtime::traits::Header as HeaderT;
 
 /// Hash type for relay chain.
 pub type RelayHash = sp_core::H256;
+
+/// Extract the relay slot from `header`'s BABE pre-digest.
+///
+/// The relay chain runs BABE, so the slot of a relay header lives in its BABE pre-digest.
+/// Returns `None` when the header carries no BABE pre-digest.
+pub(crate) fn relay_slot_from_header(header: &RelayChainHeader) -> Option<Slot> {
+	header
+		.digest
+		.logs()
+		.iter()
+		.find_map(|log| BabeDigestItem::as_babe_pre_digest(log))
+		.map(|pre_digest| pre_digest.slot())
+}
 
 /// Errors that can occur during scheduling validation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,9 +65,22 @@ pub enum SchedulingValidationError {
 	ClaimQueueOffsetTooLarge { offset: u8, max: u8 },
 }
 
+/// The validated result of a V3 candidate's scheduling proof.
+///
+/// Returned by [`validate_v3_scheduling`] for V3 candidates, carrying the already-validated data.
+pub struct ValidatedScheduling {
+	/// The relay header at the internal scheduling parent. Its hash is already verified to
+	/// equal the derived internal scheduling parent (linkage check in [`check_scheduling`]).
+	pub internal_scheduling_parent_header: RelayChainHeader,
+	/// The signed scheduling info carried by the proof, if any. Its shape (ISP commitment,
+	/// claim-queue-offset bound) is already validated; only the signature still needs
+	/// verifying by the caller.
+	pub signed_scheduling_info: Option<SignedSchedulingInfo>,
+}
+
 /// Validate V3 scheduling based on runtime config and candidate extension.
 ///
-/// Returns `None` for V1/V2 candidates, `Some(internal_scheduling_parent)` for valid V3.
+/// Returns `None` for V1/V2 candidates, `Some(ValidatedScheduling)` for valid V3.
 /// Panics on config/extension mismatches or chain-shape validation failures.
 ///
 /// This function only validates the *shape* of the scheduling proof (header chain
@@ -61,15 +88,14 @@ pub enum SchedulingValidationError {
 /// required, and that `internal_scheduling_parent_header` hashes to the derived
 /// internal scheduling parent). Signature verification on `signed_scheduling_info`
 /// is the caller's responsibility — see `validate_block` for the call site that
-/// invokes `PSC::SchedulingSignatureVerifier` using the returned
-/// `internal_scheduling_parent`.
+/// invokes `PSC::SchedulingSignatureVerifier`.
 pub fn validate_v3_scheduling(
 	v3_enabled: bool,
 	extension: &Option<ValidationParamsExtension>,
 	scheduling_proof: Option<&SchedulingProof>,
 	expected_header_chain_length: u32,
 	max_claim_queue_offset: u8,
-) -> Option<RelayHash> {
+) -> Option<ValidatedScheduling> {
 	match (v3_enabled, extension) {
 		(false, None) => {
 			// V3 disabled and no extension: normal V1/V2 path
@@ -102,7 +128,12 @@ pub fn validate_v3_scheduling(
 				expected_header_chain_length,
 				max_claim_queue_offset,
 			) {
-				Ok(isp) => Some(isp),
+				Ok(_isp) => Some(ValidatedScheduling {
+					internal_scheduling_parent_header: scheduling_proof
+						.internal_scheduling_parent_header
+						.clone(),
+					signed_scheduling_info: scheduling_proof.signed_scheduling_info.clone(),
+				}),
 				Err(e) => panic!("V3 scheduling validation failed: {:?}", e),
 			}
 		},
@@ -383,6 +414,46 @@ mod tests {
 		// Reverse so newest is first (matches expected ordering).
 		headers.reverse();
 		(headers, isp_header)
+	}
+
+	/// Build a relay header carrying a BABE secondary-plain pre-digest at `slot`.
+	fn header_with_babe_slot(slot: u64) -> RelayHeader {
+		use sp_consensus_babe::digests::{
+			CompatibleDigestItem, PreDigest, SecondaryPlainPreDigest,
+		};
+		let mut digest = sp_runtime::generic::Digest::default();
+		digest.push(<sp_runtime::generic::DigestItem as CompatibleDigestItem>::babe_pre_digest(
+			PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
+				authority_index: 0,
+				slot: slot.into(),
+			}),
+		));
+		RelayHeader::new(0, Default::default(), Default::default(), Default::default(), digest)
+	}
+
+	// =========================================================================
+	// relay_slot_from_header tests
+	// =========================================================================
+
+	#[test]
+	fn relay_slot_from_header_reads_babe_pre_digest() {
+		// The relay slot is read off the header's BABE pre-digest.
+		let header = header_with_babe_slot(7);
+		assert_eq!(relay_slot_from_header(&header), Some(Slot::from(7)));
+	}
+
+	#[test]
+	fn relay_slot_from_header_none_without_pre_digest() {
+		// A header with no BABE pre-digest yields `None`; `validate_block` turns this into a
+		// candidate rejection (the relay chain always produces BABE pre-digests).
+		let header = RelayHeader::new(
+			0,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		);
+		assert_eq!(relay_slot_from_header(&header), None);
 	}
 
 	// =========================================================================
@@ -669,8 +740,9 @@ mod tests {
 	fn v3_enabled_valid_initial_submission(#[case] chain_len: u32) {
 		let (ext, proof, expected) = make_v3_initial_submission(chain_len);
 		let result =
-			validate_v3_scheduling(true, &Some(ext), Some(&proof), chain_len, TEST_MAX_CQ_OFFSET);
-		assert_eq!(result, Some(expected));
+			validate_v3_scheduling(true, &Some(ext), Some(&proof), chain_len, TEST_MAX_CQ_OFFSET)
+				.expect("valid initial submission");
+		assert_eq!(result.internal_scheduling_parent_header.hash(), expected);
 	}
 
 	#[test]
@@ -707,7 +779,8 @@ mod tests {
 
 		let result = validate_v3_scheduling(true, &Some(ext), Some(&proof), 3, TEST_MAX_CQ_OFFSET);
 		let result = result.expect("should succeed");
-		assert_eq!(result, internal_scheduling_parent);
+		assert_eq!(result.internal_scheduling_parent_header.hash(), internal_scheduling_parent);
+		assert!(result.signed_scheduling_info.is_some());
 	}
 
 	#[test]
