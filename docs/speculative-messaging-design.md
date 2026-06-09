@@ -213,9 +213,9 @@ Instead of routing messages through relay chain state, we:
 
 Parachain nodes operating on different peer-to-peer (P2P) networks need a mechanism to exchange messages off-chain.
 The relay chain only processes message commitments, not the messages themselves. Parachains must rely on an
-alternative discovery method, since different geensis hashes and sync protocols prevent direct communication.
+alternative discovery method: differing genesis hashes and sync protocols prevent direct communication.
 
-The design solves the following parts:
+The design covers the following parts:
 
 1. **Discoverability**: Parachain A finds the nodes of parachain B.
 2. **Communication**: Nodes from A connect to B in a resource efficient manner.
@@ -228,25 +228,25 @@ as specified in [RFC-0008](https://github.com/polkadot-fellows/RFCs/blob/main/te
 The relay chain peers of parachains advertise themselves as providers in the relay chain DHT under the key `para ID || epoch randomness`.
 Only the 20 closest peer IDs to this key are kept as providers, and the provider set is updated on every epoch change.
 
-To translate these peer IDs into actual bootnode addresses, the `/paranode` request-response protocol is used.
-This protocol accepts a SCALE-compact-encoded `para ID` as input and returns a list of bootnode multiaddresses for that parachain.
+To resolve these peer IDs into actual bootnode addresses, the node uses the /paranode request-response protocol.
+It accepts a SCALE-compact-encoded para ID and returns a list of bootnode multiaddresses for that parachain.
 
-## 2. Parachain Communcation
+## 2. Parachain Communication
 
-Instead of spawning a dedicated global network for speculative messaging, a parachain node reutilizes its existing
+Rather than spawning a dedicated global network for speculative messaging, a parachain node reuses its existing
 parachain-side litep2p network backend.
 
-Using the genesis hash and fork ID from the `/paranode` response, the node registers dynamically and spawns a new Kademlia
-instance dedicated to the destination parachain, named `/{genesis_B}/{fork_B}/kad`.
+Using the genesis hash and fork ID from the /paranode response, the node dynamically registers and spawns a new
+Kademlia instance dedicated to the destination parachain, named `/{genesis_B}/{fork_B}/kad`.
 
-The instance is initialized lazily at the first time when parachain A needs to communicate with parachain B.
+The instance is initialized lazily, the first time when parachain A needs to communicate with parachain B.
 
-To prevent any potential intertwining of DHTs between different parachains, the dedicated Kademlia instance operates strictly in
+To prevent intertwining of DHTs between different parachains, the dedicated Kademlia instance operates strictly in
 client-only mode, ensuring it only participates in the DHT of the destination parachain without contributing to its routing table.
 
-The dedicated Kademlia instance performs a low intensity DHT scrawling by submitting periodically `FIND_NODE` queries to the destination
-parachain. The discovered peers are kept in memory keyed by the parachain id. This information is used to send speculative messages only
-to the peers of the destination parachain.
+The instance performs a low intensity DHT crawling by periodically submitting `FIND_NODE` queries to the destination
+parachain. The discovered peers are kept in memory keyed by the parachain id. This information is used to send
+speculative messages only to the peers of the destination parachain.
 
 ## 3. Speculative Messaging P2P Protocol
 
@@ -260,8 +260,8 @@ genesis. Isolation is already provided by the dedicated Kademlia instance, which
 Without a block-announcement protocol to keep connections alive, an idle connection is subject to termination.
 To avoid re-dialing the peers for every message, the `/spec-msg/exchange/1` keeps a long lived substream active
 for the entire duration of the exchange and reutilizes it for subsequent requests.
-This reduces latency and removes repeated connection setup, and diverges slightly from
-Substrate's usual request-response protocols, where the substream is short-lived.
+This reduces latency and removes repeated connection setup. The protocol diverges slightly from
+Substrate's request-response protocols, where the substream is short-lived per request.
 
 All messages are SCALE-encoded.
 
@@ -271,8 +271,7 @@ All messages are SCALE-encoded.
 - `/spec-msg/exchange/1` — maximum over-the-wire payload of **16 MiB**.
 
 Payloads exceeding these limits are fragmented into multiple speculative messages and
-chunking is implementation-specific. Implementers must account for the
-messaging-format overhead when sizing chunks.
+chunking is implementation-specific. Implementers must account for the messaging-format overhead when sizing chunks.
 
 The trust does not come from the connection. Every message is verified against a root the
 sender signed. Therefore, any peer may deliver a batch message. Malformed messages, either
@@ -280,8 +279,8 @@ forged or substituted simply fail the verification against the MMR root.
 
 ### Handshake
 
-The handhsake only identifies the peer, it does not make the data trustworthy.
-The first message exchanged over the wire by both peers, on either protocol:
+The handshake only identifies the peer, it does not make the data trustworthy.
+It is the first message exchanged over the wire by both peers, on either protocol:
 
 ```rust
 pub struct Handshake {
@@ -300,10 +299,10 @@ This notification protocol informs the parachain B that A has included new messa
 
 Speculation happens under different modes:
 - HRMP replacement (phase 1): Parachain B builds blocks after A's block is backed on the relay chain.
-  B discoveres that A has propagated messages by reading the `provides` root from the relay chain state.
+  B discovers that A has propagated messages by reading the `provides` root from the relay chain state.
   In this mode, the notification protocol is entirely optional.
-- Best block: B aims to back its block roughtly at the same time as A, before A's block is on the relay chain.
-  In this mode, B has no on-chain anchor and the notification protoocl is mandatory.
+- Best block: B aims to back its block roughly at the same time as A, before A's block is on the relay chain.
+  In this mode, B has no on-chain anchor and the notification protocol is mandatory.
   The signature of the provided message anchors the trust author of the block.
 
 
@@ -406,13 +405,12 @@ pub struct MessageBatch {
 1. Append: Each message received is checked against `position == cursor`
   ensuring FIFO ordering, it is appended as a leaf and the cursor is advanced.
 2. Bag: Once all messages have been received, the peeks are transformed into a single root.
-3. Compare: The  SignedProvidesMessages::payload::provides` must each with the root. In case of
+3. Compare: The `SignedProvidesMessages::payload::provides` must each with the root. In case of
   a mismatch, the peer is banned and disconnected, data is discarded and repulled from a different source.
 
-The final check ensures: data has arrived in the appropriate order, messages are not altered or skipped, 
-all messages have been delivered.
+Together these checks ensure that data arrived in order, that messages were neither altered nor skipped, and that every message was delivered.
 
-**Chuncking**: Since the communication happens off-chain, parachains can choose to communicate large messages.
+**Chunking**: Since the communication happens off-chain, parachains can choose to communicate large messages.
 In these situations, a single p2p message is limited to 16 MiB. Parachain B chunks the requests as follows:
 - B reads the `SignedProvidesMessages::payload::message_count` from the signed announcement.
 - B sends `BatchRequest { source, provides, from_index }` using its own cursor
@@ -422,8 +420,8 @@ In these situations, a single p2p message is limited to 16 MiB. Parachain B chun
 
 ### Request-Response: Late Block Proof `/spec-msg/exchange/1`
 
-When B bound its `requires` to an older `provides` root that has since aged out of
-the relay chain's bounded provides window (A advanced to a newer root), B must prove
+When B binds its `requires` to an older `provides` root that has since aged out of
+the relay chain's provides window (A advanced to a newer root), B must prove
 that the new root extends the old one. This is out of the scope of the MVP.
 
 ```rust
