@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780940208439,
+  "lastUpdate": 1781000962866,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "22591718+RomarQ@users.noreply.github.com",
-            "name": "Rodrigo Quelhas",
-            "username": "RomarQ"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5b790baaaa05629e10ab05185fefe33e9f5bfb34",
-          "message": "Use `Config::XcmExecutor` inside `dry_run_xcm` instead of creating a new instance of xcm_executor::XcmExecutor (#10102)\n\nCloses #9822\n\nRefactors `pallet-xcm` `dry_run_xcm` implementation to use the runtime\nconfigured `Config::XcmExecutor` type instead of a new instance of\n`xcm_executor::XcmExecutor`. This ensures consistent behavior across\nruntimes that use custom XCM executors.\n\n## Context\n\nThe current `dry_run_xcm` implementation creates a new instance of\n`xcm_executor::XcmExecutor`, which breaks compatibility with runtimes\nusing custom executors. For example, Moonbeam uses a custom\n`XcmExecutor` for handling foreign assets, causing `dry_run_xcm` calls\nto fail.\n\n---------\n\nCo-authored-by: Tarek Mohamed Abdalla <tarekkma@gmail.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2025-10-24T09:36:59Z",
-          "tree_id": "a999a2b74be36aa9f07bbeafcabc7779e0fa5765",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5b790baaaa05629e10ab05185fefe33e9f5bfb34"
-        },
-        "date": 1761302718555,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20141376920000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.616238197400001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13303728470000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bde47ea0e9076ed45cb1441acb40f14e05cbca79",
+          "message": "cumulus: add SignedSchedulingInfo PVF verification (#12097)\n\n# Description\n\nVerifies the scheduling info payload in PVF, if formed by an author that\nclaims its para slot at internal scheduling parent.\n\nCloses #12152 \n\n## Integration\n\nRuntime developers that want to enable resubmissions for their\nparachains must configure the newly added associated type on\nparachain-system's `Config`: `VerifySchedulingSignature`.\n\n## Review Notes\n\nConcerns like parachain session or para slot duration changes must be\nhandled by the resubmission engine, as described here:\nhttps://github.com/paritytech/polkadot-sdk/issues/12036#issuecomment-4479412418.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: eskimor <eskimor@noreply.com>\nCo-authored-by: eskimor <jfanatiker@gmx.at>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Marios <marios@parity.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Alin Dima <alin@parity.io>",
+          "timestamp": "2026-06-09T08:54:25Z",
+          "tree_id": "6802bc22c97c7b695e02d0d062be82b24878657e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bde47ea0e9076ed45cb1441acb40f14e05cbca79"
+        },
+        "date": 1781000932031,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.283946533066668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14541799086666662,
             "unit": "seconds"
           }
         ]
