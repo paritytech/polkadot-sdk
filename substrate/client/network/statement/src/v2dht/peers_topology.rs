@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use sc_network_types::PeerId;
-pub use sp_statement_store::Hash as TopicHash;
+pub use sp_statement_store::Topic;
 use std::{
 	cmp::Ordering,
 	collections::{HashMap, HashSet},
@@ -29,9 +29,10 @@ use std::{
 pub struct PeersTopologyConfig {
 	/// Number of statement-protocol peers responsible for storing a topic.
 	pub replication_factor: NonZeroUsize,
-	/// Maximum number of DHT forwarding targets returned for one topic.
+	/// Maximum number of connected nodes that we gossip to.
 	pub gossip_target: NonZeroUsize,
-	/// Multiplier for per-topic candidate pools in `peers_for_topics`.
+	/// Widens each per-topic candidate pool in `peers_for_topics` by this factor, so the selector
+	/// keeps spare peers when the closest are already connected, stale, or unreachable.
 	pub candidate_multiplier: NonZeroUsize,
 }
 
@@ -47,24 +48,12 @@ impl Default for PeersTopologyConfig {
 
 #[derive(Debug, Clone, Default)]
 struct PeerInfo {
-	supports_statement_protocol: bool,
-	connected: bool,
-}
-
-#[allow(dead_code)]
-impl PeerInfo {
-	fn is_dht_candidate(&self) -> bool {
-		self.supports_statement_protocol
-	}
-
-	fn is_connected_dht_candidate(&self) -> bool {
-		self.connected && self.is_dht_candidate()
-	}
+	supports: bool,
 }
 
 /// Pure, event-fed local view of statement-store peers.
 ///
-/// The topology is built from peers learned through network discovery, identify metadata and
+/// The topology is built from peers learned through routing-table updates, identify metadata and
 /// statement notification connections. It computes XOR distances locally over that learned peer
 /// set; it does not issue topic-specific Kademlia lookups.
 #[derive(Debug, Clone)]
@@ -72,64 +61,63 @@ impl PeerInfo {
 pub struct PeersTopology {
 	local_peer: PeerId,
 	config: PeersTopologyConfig,
-	peers: HashMap<PeerId, PeerInfo>,
+	discovered: HashMap<PeerId, PeerInfo>,
+	connected: HashSet<PeerId>,
 }
 
 #[allow(dead_code)]
 impl PeersTopology {
 	pub fn new(local_peer: PeerId, config: PeersTopologyConfig) -> Self {
-		Self { local_peer, config, peers: HashMap::new() }
+		Self { local_peer, config, discovered: HashMap::new(), connected: HashSet::new() }
 	}
 
-	/// Record that discovery or a routing-table source saw `peer`.
+	/// Record that a routing-table update saw `peer`.
 	pub fn note_seen(&mut self, peer: PeerId) {
 		if peer != self.local_peer {
-			self.peer_info(peer);
+			self.peer_info_mut(peer);
 		}
 	}
 
-	/// Record statement-protocol support from identify/protocol metadata.
+	/// Record statement-protocol support from identify protocol metadata.
 	pub fn note_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
 		if peer == self.local_peer {
 			return;
 		}
 
-		let peer_info = self.peer_info(peer);
-		peer_info.supports_statement_protocol = supports_statement_protocol;
+		self.peer_info_mut(peer).supports = supports_statement_protocol;
 	}
 
 	/// Record that the statement notification substream opened.
-	pub fn on_peer_connected(&mut self, peer: PeerId, supports_statement_protocol: bool) {
+	///
+	/// An open substream implies statement-protocol support.
+	pub fn on_substream_opened(&mut self, peer: PeerId) {
 		if peer == self.local_peer {
 			return;
 		}
 
-		let peer_info = self.peer_info(peer);
-		peer_info.supports_statement_protocol = supports_statement_protocol;
-		peer_info.connected = true;
+		self.peer_info_mut(peer).supports = true;
+		self.connected.insert(peer);
 	}
 
 	/// Record that the statement notification substream closed.
-	pub fn on_peer_disconnected(&mut self, peer: PeerId) {
-		if let Some(peer_info) = self.peers.get_mut(&peer) {
-			peer_info.connected = false;
-		}
+	pub fn on_substream_closed(&mut self, peer: PeerId) {
+		self.connected.remove(&peer);
 	}
 
 	fn is_connected(&self, peer: &PeerId) -> bool {
-		self.peers.get(peer).is_some_and(|peer_info| peer_info.connected)
+		self.connected.contains(peer)
 	}
 
 	/// Number of known remote peers, including peers without confirmed statement-protocol support.
 	pub fn known_peers_count(&self) -> usize {
-		self.peers.len()
+		self.discovered.len()
 	}
 
 	/// Closest known statement-protocol peers for `topic`.
 	///
 	/// "Closest" is computed over the locally learned statement-protocol peers, not by querying
 	/// the network for the true global closest peers.
-	pub fn closest_known(&self, topic: TopicHash, n: usize) -> Vec<PeerId> {
+	pub fn closest_known(&self, topic: Topic, n: usize) -> Vec<PeerId> {
 		let mut peers = self.dht_candidates().collect::<Vec<_>>();
 		peers.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
 		peers.truncate(n);
@@ -137,7 +125,7 @@ impl PeersTopology {
 	}
 
 	/// Returns whether the local node is one of the closest DHT storage replicas for `topic`.
-	pub fn is_dht_affine(&self, topic: TopicHash) -> bool {
+	pub fn is_dht_affine(&self, topic: Topic) -> bool {
 		let mut candidates = self.dht_candidates().collect::<Vec<_>>();
 		candidates.push(self.local_peer);
 		candidates.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
@@ -148,12 +136,12 @@ impl PeersTopology {
 	}
 
 	/// Closest connected statement-protocol peers for `topic`.
-	pub fn routing_targets(&self, topic: TopicHash) -> Vec<PeerId> {
+	pub fn routing_targets(&self, topic: Topic) -> Vec<PeerId> {
 		let mut peers = self
-			.peers
+			.connected
 			.iter()
-			.filter(|(_, peer_info)| peer_info.is_connected_dht_candidate())
-			.map(|(peer, _)| *peer)
+			.copied()
+			.filter(|peer| self.is_dht_candidate(peer))
 			.collect::<Vec<_>>();
 
 		peers.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
@@ -162,7 +150,7 @@ impl PeersTopology {
 	}
 
 	/// Local-only explicit-affinity connection candidates for `topics`.
-	pub fn peers_for_topics(&self, topics: &[TopicHash]) -> Vec<PeerId> {
+	pub fn peers_for_topics(&self, topics: &[Topic]) -> Vec<PeerId> {
 		if topics.is_empty() {
 			return Vec::new();
 		}
@@ -207,20 +195,24 @@ impl PeersTopology {
 		selected
 	}
 
-	fn peer_info(&mut self, peer: PeerId) -> &mut PeerInfo {
-		self.peers.entry(peer).or_default()
+	fn peer_info_mut(&mut self, peer: PeerId) -> &mut PeerInfo {
+		self.discovered.entry(peer).or_default()
+	}
+
+	fn is_dht_candidate(&self, peer: &PeerId) -> bool {
+		self.discovered.get(peer).is_some_and(|peer_info| peer_info.supports)
 	}
 
 	fn dht_candidates(&self) -> impl Iterator<Item = PeerId> + '_ {
-		self.peers
+		self.discovered
 			.iter()
-			.filter(|(_, peer_info)| peer_info.is_dht_candidate())
+			.filter(|(_, peer_info)| peer_info.supports)
 			.map(|(peer, _)| *peer)
 	}
 
 	fn best_candidate(
 		&self,
-		topics: &[TopicHash],
+		topics: &[Topic],
 		pools: &[Vec<PeerId>],
 		uncovered: &HashSet<usize>,
 		selected: &[PeerId],
@@ -260,13 +252,13 @@ impl PeersTopology {
 }
 
 #[allow(dead_code)]
-fn cmp_distance_then_peer(topic: TopicHash, a: &PeerId, b: &PeerId) -> Ordering {
+fn cmp_distance_then_peer(topic: Topic, a: &PeerId, b: &PeerId) -> Ordering {
 	distance_to(topic, a).cmp(&distance_to(topic, b)).then_with(|| a.cmp(b))
 }
 
 #[allow(dead_code)]
-fn distance_to(topic: TopicHash, peer: &PeerId) -> [u8; 32] {
-	xor_distance(topic, peer_key(peer))
+fn distance_to(topic: Topic, peer: &PeerId) -> [u8; 32] {
+	xor_distance(*topic, peer_key(peer))
 }
 
 #[allow(dead_code)]
@@ -307,8 +299,8 @@ mod tests {
 		PeersTopology::new(peer(local_seed), config(2, 2))
 	}
 
-	fn topic(seed: u8) -> TopicHash {
-		[seed; 32]
+	fn topic(seed: u8) -> Topic {
+		Topic([seed; 32])
 	}
 
 	fn dht_peer(topology: &mut PeersTopology, peer: PeerId) {
@@ -316,7 +308,7 @@ mod tests {
 		topology.note_identified(peer, true);
 	}
 
-	fn known_dht_peers(topology: &PeersTopology, topic: TopicHash) -> Vec<PeerId> {
+	fn known_dht_peers(topology: &PeersTopology, topic: Topic) -> Vec<PeerId> {
 		topology.closest_known(topic, topology.known_peers_count())
 	}
 
@@ -339,20 +331,40 @@ mod tests {
 		dht_peer(&mut topology, supported);
 		topology.note_seen(unsupported);
 		topology.note_identified(unsupported, false);
-		topology.on_peer_connected(supported, true);
-		topology.on_peer_connected(unsupported, false);
 
 		assert_eq!(topology.known_peers_count(), 2);
-		assert!(topology.is_connected(&supported));
-		assert!(topology.is_connected(&unsupported));
 		assert_eq!(known_dht_peers(&topology, topic(9)), vec![supported]);
+
+		topology.on_substream_opened(supported);
+		assert!(topology.is_connected(&supported));
 
 		topology.note_identified(supported, false);
 		assert!(known_dht_peers(&topology, topic(9)).is_empty());
 
-		topology.on_peer_disconnected(supported);
+		topology.on_substream_closed(supported);
 		assert!(!topology.is_connected(&supported));
 		assert_eq!(topology.known_peers_count(), 2);
+	}
+
+	#[test]
+	fn substream_lifecycle_drives_routing_targets() {
+		let mut topology = topology(1);
+		let peer = peer(2);
+		let topic = topic(1);
+
+		topology.note_seen(peer);
+		topology.note_identified(peer, true);
+
+		assert_eq!(topology.known_peers_count(), 1);
+		assert_eq!(topology.closest_known(topic, 1), vec![peer]);
+		assert!(topology.routing_targets(topic).is_empty());
+
+		topology.on_substream_opened(peer);
+		assert_eq!(topology.routing_targets(topic), vec![peer]);
+		assert_eq!(topology.closest_known(topic, 1), vec![peer]);
+
+		topology.on_substream_closed(peer);
+		assert!(topology.routing_targets(topic).is_empty());
 	}
 
 	#[test]
@@ -410,7 +422,7 @@ mod tests {
 
 		for peer in &farther {
 			dht_peer(&mut topology, *peer);
-			topology.on_peer_connected(*peer, true);
+			topology.on_substream_opened(*peer);
 		}
 
 		let expected = {
@@ -433,7 +445,7 @@ mod tests {
 		}
 
 		let connected = topology.closest_known(topic, 1)[0];
-		topology.on_peer_connected(connected, true);
+		topology.on_substream_opened(connected);
 
 		assert!(topology.peers_for_topics(&[topic]).is_empty());
 	}

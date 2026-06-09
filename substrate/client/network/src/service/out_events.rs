@@ -294,8 +294,10 @@ impl Metrics {
 			Event::Dht(_) => {
 				self.events_total.with_label_values(&["dht", "sent", name]).inc();
 			},
-			Event::PeersDiscovered(_) => {
-				self.events_total.with_label_values(&["peer-discovered", "sent", name]).inc();
+			Event::PeerRoutingTableUpdate(_) => {
+				self.events_total
+					.with_label_values(&["peer-routing-table-update", "sent", name])
+					.inc();
 			},
 			Event::PeerIdentified { .. } => {
 				self.events_total.with_label_values(&["peer-identified", "sent", name]).inc();
@@ -328,9 +330,9 @@ impl Metrics {
 			Event::Dht(_) => {
 				self.events_total.with_label_values(&["dht", "received", name]).inc();
 			},
-			Event::PeersDiscovered(_) => {
+			Event::PeerRoutingTableUpdate(_) => {
 				self.events_total
-					.with_label_values(&["peer-discovered", "received", name])
+					.with_label_values(&["peer-routing-table-update", "received", name])
 					.inc();
 			},
 			Event::PeerIdentified { .. } => {

@@ -822,7 +822,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 
 						if !peers.is_empty() {
-							self.event_streams.send(Event::PeersDiscovered(peers));
+							self.event_streams.send(Event::PeerRoutingTableUpdate(peers));
 						}
 					}
 					Some(DiscoveryEvent::FindNodeSuccess { query_id, target, peers }) => {
