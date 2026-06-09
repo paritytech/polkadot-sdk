@@ -156,10 +156,8 @@ fn extract_revive_events(
 	(reverted_extrinsics, logs_by_extrinsic)
 }
 
-/// Append the ERC-20 `Transfer` logs for `transfers` to an extrinsic's `logs`, keeping the
-/// merged set ordered by `log_index`. Asset and revive logs share the block-wide event index,
-/// but an asset event can precede a contract-emitted log in the same extrinsic, so the naive
-/// "revive logs then asset logs" order would otherwise be non-monotonic.
+/// Append `transfers`' ERC-20 logs to `logs`, re-sorting by `log_index`: an asset event can
+/// precede a contract log in the same extrinsic, so appending alone would be non-monotonic.
 fn merge_asset_logs(
 	logs: &mut Vec<Log>,
 	transfers: &[(AssetTransfer, u32)],
@@ -187,12 +185,17 @@ type FetchEthBlockHashFn =
 
 type RecoverEthAddressFn = Arc<dyn Fn(&TransactionSigned) -> Result<H160, ()> + Send + Sync>;
 
-/// Fetch a raw storage value (at the latest block) by full storage key. Used to resolve a
-/// foreign asset's `Location -> u32 index` mapping. The mapping is stable (assigned at asset
-/// registration), so reading it at the latest block — rather than a possibly-pruned historical
-/// block — is both correct and avoids missing-state errors.
-type FetchStorageRawFn =
-	Arc<dyn Fn(Vec<u8>) -> Pin<Box<dyn Future<Output = Option<Vec<u8>>> + Send>> + Send + Sync>;
+/// Fetch a raw storage value at the latest block, used to resolve a foreign asset's
+/// `Location -> u32 index` mapping. Read at latest (not the indexed block) to dodge pruning;
+/// the trade-off is that an asset destroyed since the transfer no longer resolves.
+///
+/// `Err(())` is a transient fetch failure, distinct from `Ok(None)` (no such key) — the caller
+/// must not cache it. See [`ReceiptExtractor::resolve_foreign_index`].
+type FetchStorageRawFn = Arc<
+	dyn Fn(Vec<u8>) -> Pin<Box<dyn Future<Output = Result<Option<Vec<u8>>, ()>> + Send>>
+		+ Send
+		+ Sync,
+>;
 
 /// Utility to extract receipts from extrinsics.
 #[derive(Clone)]
@@ -218,8 +221,8 @@ pub struct ReceiptExtractor {
 	/// Fetch raw storage (for resolving foreign-asset indices).
 	fetch_storage_raw: FetchStorageRawFn,
 
-	/// Cache of `foreign asset Location (SCALE bytes) -> resolved u32 index`. The mapping is
-	/// stable, so a hit avoids a storage round-trip. `None` caches a negative lookup.
+	/// Cache of `foreign asset Location (SCALE bytes) -> resolved u32 index`. Caches definitive
+	/// outcomes only (a resolved index or a confirmed absence); never a transient fetch error.
 	foreign_index_cache: Arc<tokio::sync::Mutex<HashMap<Vec<u8>, Option<u32>>>>,
 }
 
@@ -269,8 +272,8 @@ impl ReceiptExtractor {
 		let fetch_storage_raw = Arc::new(move |key: Vec<u8>| {
 			let api_inner = api_inner.clone();
 			let fut = async move {
-				let storage = api_inner.storage().at_latest().await.ok()?;
-				storage.fetch_raw(key).await.ok().flatten()
+				let storage = api_inner.storage().at_latest().await.map_err(|_| ())?;
+				storage.fetch_raw(key).await.map_err(|_| ())
 			};
 			Box::pin(fut) as Pin<Box<_>>
 		});
@@ -305,8 +308,8 @@ impl ReceiptExtractor {
 				signed_tx.recover_eth_address()
 			}),
 			asset_config: AssetTransferConfig::default(),
-			// Mock resolver: never resolves a foreign index (tests don't exercise foreign).
-			fetch_storage_raw: Arc::new(|_| Box::pin(std::future::ready(None)) as Pin<Box<_>>),
+			// Mock resolver: no foreign index.
+			fetch_storage_raw: Arc::new(|_| Box::pin(std::future::ready(Ok(None))) as Pin<Box<_>>),
 			foreign_index_cache: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
 		}
 	}
@@ -470,12 +473,22 @@ impl ReceiptExtractor {
 	}
 
 	/// Resolve (and cache) a foreign asset's `u32` index from its SCALE-encoded `Location`.
+	/// A transient fetch error returns `None` uncached so the next block retries.
 	async fn resolve_foreign_index(&self, asset_id_key: &[u8]) -> Option<u32> {
 		if let Some(cached) = self.foreign_index_cache.lock().await.get(asset_id_key) {
 			return *cached;
 		}
 		let key = foreign_index_storage_key(asset_id_key);
-		let index = (self.fetch_storage_raw)(key).await.and_then(|raw| decode_foreign_index(&raw));
+		let index = match (self.fetch_storage_raw)(key).await {
+			Ok(raw) => raw.and_then(|raw| decode_foreign_index(&raw)),
+			Err(()) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Foreign asset index storage read failed; not caching, will retry"
+				);
+				return None;
+			},
+		};
 		self.foreign_index_cache.lock().await.insert(asset_id_key.to_vec(), index);
 		index
 	}
@@ -499,8 +512,7 @@ impl ReceiptExtractor {
 			transaction_index,
 		);
 
-		// Callers only ever pass a non-empty transfer list (map entries are created via
-		// `or_default().push(..)`), so a missing first element is a caller bug.
+		// Callers only pass non-empty lists.
 		let first = &transfers.first().expect("transfer list is non-empty; qed").0;
 
 		// `to` is the token contract for a single-token extrinsic; ambiguous for a batch
@@ -552,16 +564,12 @@ impl ReceiptExtractor {
 		self.build_receipts(block, eth_block_hash, None).await
 	}
 
-	/// Build the `(transaction, receipt)` pairs for a block — the shared core behind both
+	/// Build the `(transaction, receipt)` pairs for a block — shared core of
 	/// [`Self::extract_from_block_with_eth_hash`] and [`Self::extract_from_transaction`].
-	///
-	/// `eth_transact` extrinsics yield real receipts (with any same-extrinsic asset-transfer
-	/// logs merged in); plain `assets.transfer` extrinsics yield synthesized stand-in receipts.
-	/// When `only_index` is `Some`, the result is restricted to that single extrinsic.
-	///
-	/// Asset transfers are extracted independently of `get_block_extrinsics`: a plain
-	/// `assets.transfer` carries no `eth_transact` receipt data, so a `get_block_extrinsics`
-	/// error is propagated only when there are no asset transfers to surface.
+	/// `eth_transact` extrinsics get real receipts (merging same-extrinsic asset logs);
+	/// plain `assets.transfer` extrinsics get synthesized stand-ins. `only_index` restricts
+	/// to one extrinsic. A `get_block_extrinsics` error propagates only when there are no
+	/// asset transfers to surface, so asset-only blocks survive missing EVM data.
 	async fn build_receipts(
 		&self,
 		block: &SubstrateBlock,
@@ -596,7 +604,7 @@ impl ReceiptExtractor {
 			},
 		};
 
-		// Single-transaction queries only build the one extrinsic they asked for.
+		// Single-transaction queries keep only their extrinsic.
 		if let Some(index) = only_index {
 			eth_tx_by_index.retain(|idx, _| *idx == index);
 			asset_transfers.retain(|idx, _| *idx == index);
@@ -953,6 +961,34 @@ mod tests {
 			)
 			.unwrap_err();
 		assert!(matches!(err, ClientError::RecoverEthAddressFailed));
+	}
+
+	#[test]
+	fn foreign_index_cache_not_poisoned_by_transient_error() {
+		use std::sync::atomic::{AtomicU32, Ordering};
+
+		// Fails once, then resolves to index 7 (SCALE u32, little-endian).
+		let calls = Arc::new(AtomicU32::new(0));
+		let calls_in = calls.clone();
+		let resolver: FetchStorageRawFn = Arc::new(move |_key: Vec<u8>| {
+			let out: Result<Option<Vec<u8>>, ()> = if calls_in.fetch_add(1, Ordering::SeqCst) == 0 {
+				Err(())
+			} else {
+				Ok(Some(vec![7, 0, 0, 0]))
+			};
+			Box::pin(std::future::ready(out)) as Pin<Box<_>>
+		});
+		let extractor =
+			ReceiptExtractor { fetch_storage_raw: resolver, ..ReceiptExtractor::new_mock() };
+
+		let key = vec![1u8, 2, 3];
+		futures::executor::block_on(async {
+			// Error -> None, uncached; retry resolves; third call is a cache hit.
+			assert_eq!(extractor.resolve_foreign_index(&key).await, None);
+			assert_eq!(extractor.resolve_foreign_index(&key).await, Some(7));
+			assert_eq!(extractor.resolve_foreign_index(&key).await, Some(7));
+		});
+		assert_eq!(calls.load(Ordering::SeqCst), 2);
 	}
 
 	#[test]
