@@ -28,8 +28,14 @@ use std::{
 #[allow(dead_code)]
 pub struct PeersTopologyConfig {
 	/// Number of statement-protocol peers responsible for storing a topic.
+	///
+	/// `is_dht_affine` uses this to decide whether the local node belongs to the
+	/// K-closest peers for a topic according to the locally learned topology.
 	pub replication_factor: NonZeroUsize,
 	/// Maximum number of connected nodes that we gossip to.
+	///
+	/// This caps `routing_targets`, i.e. the forwarding candidates selected from
+	/// currently connected peers for a topic.
 	pub gossip_target: NonZeroUsize,
 }
 
@@ -58,6 +64,8 @@ pub struct PeersTopology {
 	local_peer: PeerId,
 	config: PeersTopologyConfig,
 	// TODO: add an eviction mechanism; this map grows unbounded as peers are discovered.
+	// This scaffold only records the event-fed view. A follow-up should evict peers that
+	// leave the network entirely or become unresponsive + optimize time complexity(Binary Trie).
 	discovered: HashMap<PeerId, PeerInfo>,
 	connected: HashSet<PeerId>,
 }
@@ -68,12 +76,18 @@ impl PeersTopology {
 		Self { local_peer, config, discovered: HashMap::new(), connected: HashSet::new() }
 	}
 
-	/// Record that a routing-table update saw `peer`.
+	/// Record that a litep2p routing-table update saw `peer`.
+	///
+	/// `RoutingTableUpdate` is used as the discovery source because litep2p's internal
+	/// Kademlia table is bucket-limited and may discard many discovered peers.
 	pub fn note_discovered(&mut self, peer: PeerId) {
 		self.peer_info_mut(peer);
 	}
 
 	/// Record statement-protocol support from identify protocol metadata.
+	///
+	/// Peers that do not support the statement protocol remain known but are excluded from DHT
+	/// storage and forwarding decisions.
 	pub fn note_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
 		self.peer_info_mut(peer).supports = supports_statement_protocol;
 	}
@@ -112,6 +126,9 @@ impl PeersTopology {
 	}
 
 	/// Returns whether the local node is one of the closest DHT storage replicas for `topic`.
+	///
+	/// This answers whether this node should store statements for `topic` according to DHT
+	/// affinity over the locally learned statement-store peers.
 	pub fn is_dht_affine(&self, topic: Topic) -> bool {
 		let mut candidates = self.dht_candidates().collect::<Vec<_>>();
 		candidates.push(self.local_peer);
@@ -123,6 +140,9 @@ impl PeersTopology {
 	}
 
 	/// Closest connected statement-protocol peers for `topic`.
+	///
+	/// This chooses connected statement-store peers by topic distance and caps the result at
+	/// `gossip_target`.
 	pub fn routing_targets(&self, topic: Topic) -> Vec<PeerId> {
 		let mut peers = self
 			.connected
@@ -137,6 +157,10 @@ impl PeersTopology {
 	}
 
 	/// Local-only explicit-affinity connection candidates for `topics`.
+	///
+	/// This uses only the locally learned topology, avoiding network lookups that would reveal
+	/// explicit-affinity topics, and tries to minimize new connections by choosing peers that
+	/// cover currently uncovered topics.
 	pub fn peers_for_topics(&self, topics: &[Topic]) -> Vec<PeerId> {
 		if topics.is_empty() {
 			return Vec::new();
