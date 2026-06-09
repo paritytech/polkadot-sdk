@@ -160,8 +160,9 @@ parameter_types! {
 	/// Number of nominators per page of the snapshot, and consequently number of backers in the
 	/// solution.
 	///
-	/// 703 in both Polkadot and Kusama.
-	pub VoterSnapshotPerBlock: u32 = MaxElectingVoters::get() / Pages::get();
+	/// 704 in Polkadot (32 pages), 782 in Kusama (16 pages). Uses ceiling division so that
+	/// `VoterSnapshotPerBlock * Pages >= MaxElectingVoters` holds for any configured values.
+	pub VoterSnapshotPerBlock: u32 = MaxElectingVoters::get().div_ceil(Pages::get());
 
 	/// In each page, we may observe up to all of the validators.
 	pub const MaxWinnersPerPage: u32 = MaxValidatorSet::get();
@@ -781,6 +782,32 @@ mod tests {
 			op.proof_size() / WEIGHT_PROOF_SIZE_PER_KB,
 			op.proof_size() as f64 / block.proof_size() as f64
 		);
+	}
+
+	#[test]
+	fn fake_dot_preset_snapshot_capacity_covers_max_electing_voters() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			super::enable_dot_preset(false);
+			assert!(
+				VoterSnapshotPerBlock::get() * Pages::get() >= MaxElectingVoters::get(),
+				"paged snapshot capacity {} < MaxElectingVoters {}",
+				VoterSnapshotPerBlock::get() * Pages::get(),
+				MaxElectingVoters::get(),
+			);
+		});
+	}
+
+	#[test]
+	fn fake_ksm_preset_snapshot_capacity_covers_max_electing_voters() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			super::enable_ksm_preset(false);
+			assert!(
+				VoterSnapshotPerBlock::get() * Pages::get() >= MaxElectingVoters::get(),
+				"paged snapshot capacity {} < MaxElectingVoters {}",
+				VoterSnapshotPerBlock::get() * Pages::get(),
+				MaxElectingVoters::get(),
+			);
+		});
 	}
 
 	#[test]

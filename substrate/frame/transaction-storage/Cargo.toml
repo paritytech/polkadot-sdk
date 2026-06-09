@@ -8,6 +8,7 @@ homepage.workspace = true
 repository.workspace = true
 description = "Storage chain pallet"
 readme = "README.md"
+publish = false
 
 [lints]
 workspace = true

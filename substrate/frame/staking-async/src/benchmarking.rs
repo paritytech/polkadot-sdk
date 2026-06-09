@@ -925,8 +925,9 @@ mod benchmarks {
 		// Clean up any existing state
 		clear_validators_and_nominators::<T>();
 
-		// Create a validator with a commission of 50%
-		let (stash, controller) = create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
+		// Create a validator with a commission of 50%. `balance_factor = 100` gives a bonded
+		// amount of `ED * 10`, above `min_chilled_bond` under the mock defaults.
+		let (stash, controller) = create_stash_controller::<T>(1, 100, RewardDestination::Staked)?;
 		let validator_prefs =
 			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
 		Staking::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
