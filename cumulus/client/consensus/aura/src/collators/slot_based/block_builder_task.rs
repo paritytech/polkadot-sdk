@@ -35,9 +35,7 @@ use cumulus_client_consensus_common::{
 	self as consensus_common, get_relay_slot, ParachainBlockImportMarker,
 };
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
-use cumulus_client_unincluded_segment_store::{
-	now_unix_ms, prepare_aux_data as prepare_unincluded_segment_aux_data,
-};
+use cumulus_client_unincluded_segment_store::{now_unix_ms, prepare_resubmission_aux_data};
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
@@ -856,7 +854,7 @@ where
 		}
 
 		let time_ms = now_unix_ms();
-		prepare_unincluded_segment_aux_data::<Block>(
+		prepare_resubmission_aux_data::<Block>(
 			parent_hash,
 			time_ms,
 			relay_parent_session,
