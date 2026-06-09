@@ -77,7 +77,6 @@ members = [
 	"cumulus/client/relay-chain-rpc-interface",
 	"cumulus/client/relay-chain-streams",
 	"cumulus/client/service",
-
 	"cumulus/pallets/ah-ops",
 	"cumulus/pallets/aura-ext",
 	"cumulus/pallets/collator-selection",

@@ -156,3 +156,7 @@
   test-filter: "zombie_ci::statement_store::integration::statement_store_lite_person_submit_and_propagate"
   runner-type: "default"
   cumulus-image: "test-parachain"
+
+- job-name: "zombienet-cumulus-0035-storage_chain_tip_sync_with_renewals"
+  test-filter: "zombie_ci::storage_chain::parachain_tip_sync_with_renewals::parachain_tip_sync_with_renewals_test"
+  cumulus-image: "polkadot-parachain-debug"

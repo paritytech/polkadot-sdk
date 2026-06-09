@@ -26,7 +26,7 @@ EOF
 
 build_binaries() {
 	cargo build --release -p polkadot --bin polkadot
-	cargo build --release -p polkadot-omni-node --bin polkadot-omni-node
+	cargo build --release -p polkadot-parachain-bin --bin polkadot-parachain
 }
 
 snapshots_run() {

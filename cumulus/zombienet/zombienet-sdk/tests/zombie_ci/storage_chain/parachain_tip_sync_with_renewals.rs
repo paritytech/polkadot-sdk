@@ -3,9 +3,9 @@
 
 use super::{
 	common::{
-		bitswap_v1_get, build_parachain_network_config, expect_dont_have, expect_no_log_line,
-		initialize_network, renew_data_with_content_hash, verify_warp_sync_completed,
-		wait_for_relay_chain_to_sync, wait_for_session_change_on_node,
+		bitswap_v1_get, build_parachain_network_config, expect_dont_have, expect_log_line,
+		expect_no_log_line, initialize_network, renew_data_with_content_hash,
+		verify_warp_sync_completed, wait_for_relay_chain_to_sync, wait_for_session_change_on_node,
 		BLOCK_PRODUCTION_TIMEOUT_SECS, FULLNODE_ROLE_VALUE, METRIC_TIMEOUT_SECS,
 		NETWORK_READY_TIMEOUT_SECS, NODE_LOG_CONFIG, NODE_ROLE_METRIC, PARACHAIN_BINARY, PARA_ID,
 		SYNC_TIMEOUT_SECS,
@@ -258,6 +258,15 @@ async fn parachain_tip_sync_with_renewals_test() -> Result<()> {
 	let collator_client: OnlineClient<PolkadotConfig> = collator.wait_client().await?;
 	let renewed = renew_entries(&collator_client, collator, sync_node, &entries).await?;
 	assert_served_after_renewal(sync_node, &renewed).await?;
+
+	expect_log_line(
+		sync_node,
+		"storage-chain-fetcher.*fetched .* bytes for",
+		10,
+		"sync-node did not log a successful bitswap fetch via storage-chain-fetcher; \
+		 renewals appeared to succeed but the data may have arrived through another path",
+	)
+	.await?;
 
 	expect_no_log_line(collator, "(?i)bitswap.*hash.mismatch", 10, "collator hash mismatch")
 		.await?;

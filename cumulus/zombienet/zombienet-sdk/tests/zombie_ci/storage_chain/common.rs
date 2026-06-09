@@ -39,7 +39,7 @@ pub const RELAY_CHAIN: &str = "westend-local";
 pub const PARA_ID: u32 = 2487;
 
 pub const RELAY_BINARY: &str = "polkadot";
-pub const PARACHAIN_BINARY: &str = "polkadot-omni-node";
+pub const PARACHAIN_BINARY: &str = "polkadot-parachain";
 pub const PARACHAIN_CHAIN_SPEC: &str =
 	"tests/zombie_ci/storage_chain/fixtures/bulletin-westend-spec.json";
 
