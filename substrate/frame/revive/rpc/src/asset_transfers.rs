@@ -42,45 +42,31 @@ pub const ERC20_TRANSFER_TOPIC: H256 = H256([
 /// `bytes4(keccak256("transfer(address,uint256)"))` — the ERC-20 transfer selector.
 const ERC20_TRANSFER_SELECTOR: [u8; 4] = [0xa9, 0x05, 0x9c, 0xbb];
 
-/// Per-instance config for mapping `pallet-assets` `Transferred` events to ERC-20 logs,
-/// keyed by the instance's metadata pallet name. Defaults match Asset Hub Westend.
+/// Storage location of the foreign-asset `Location -> u32 index` map, in the
+/// `pallet-assets-precompiles` index pallet. Fixed across runtimes that wire that pallet.
+const FOREIGN_INDEX_PALLET: &str = "AssetsPrecompiles";
+const FOREIGN_INDEX_ENTRY: &str = "ForeignAssetIdToAssetIndex";
+
+/// Maps `pallet-assets` instances (by metadata pallet name) to their precompile address prefix.
+/// Defaults match Asset Hub Westend.
 ///
 /// `u32_instances`: `AssetId` is a `u32`, so the address is computed statelessly.
 /// `foreign_instances`: `AssetId` is an XCM `Location`; the event carries the `Location`, not
-/// the `u32` index the address needs, so the index is looked up from `ForeignAssetIdToAssetIndex`
+/// the `u32` index the address needs, so the index is looked up from `FOREIGN_INDEX_ENTRY`
 /// (see [`foreign_index_storage_key`]).
 #[derive(Clone)]
 pub struct AssetTransferConfig {
-	/// `(subxt pallet name, address prefix)` for instances whose `AssetId` is a `u32`.
+	/// `(pallet name, address prefix)` for instances whose `AssetId` is a `u32`.
 	pub u32_instances: Vec<(&'static str, u16)>,
-	/// Instances whose `AssetId` is a `Location` and need an index lookup.
-	pub foreign_instances: Vec<ForeignInstance>,
-}
-
-/// A `pallet-assets` instance whose precompile address is keyed by a `u32` index that the
-/// runtime stores against the asset's `Location` (in the assets-precompiles pallet).
-#[derive(Clone)]
-pub struct ForeignInstance {
-	/// The instance's pallet name in chain metadata (e.g. `"ForeignAssets"`).
-	pub pallet_name: &'static str,
-	/// The precompile address prefix (`addr[16..18]`).
-	pub prefix: u16,
-	/// The pallet holding the `Location -> u32 index` map (e.g. `"AssetsPrecompiles"`).
-	pub storage_pallet: &'static str,
-	/// The storage entry name (e.g. `"ForeignAssetIdToAssetIndex"`).
-	pub storage_entry: &'static str,
+	/// `(pallet name, address prefix)` for instances whose `AssetId` is a `Location`.
+	pub foreign_instances: Vec<(&'static str, u16)>,
 }
 
 impl Default for AssetTransferConfig {
 	fn default() -> Self {
 		Self {
 			u32_instances: vec![("Assets", 0x0120), ("PoolAssets", 0x0320)],
-			foreign_instances: vec![ForeignInstance {
-				pallet_name: "ForeignAssets",
-				prefix: 0x0220,
-				storage_pallet: "AssetsPrecompiles",
-				storage_entry: "ForeignAssetIdToAssetIndex",
-			}],
+			foreign_instances: vec![("ForeignAssets", 0x0220)],
 		}
 	}
 }
@@ -94,9 +80,12 @@ impl AssetTransferConfig {
 			.map(|(_, prefix)| *prefix)
 	}
 
-	/// The foreign-instance config for a pallet, if configured.
-	pub fn foreign_for(&self, pallet_name: &str) -> Option<&ForeignInstance> {
-		self.foreign_instances.iter().find(|f| f.pallet_name == pallet_name)
+	/// The address prefix for a pallet, if it is a configured foreign-assets instance.
+	fn foreign_prefix_for(&self, pallet_name: &str) -> Option<u16> {
+		self.foreign_instances
+			.iter()
+			.find(|(p, _)| *p == pallet_name)
+			.map(|(_, prefix)| *prefix)
 	}
 }
 
@@ -175,6 +164,29 @@ impl AssetTransfer {
 	}
 }
 
+/// Build the ERC-20 `Transfer` logs for every transfer in one extrinsic, each paired with its
+/// block-wide event index (used as the log's `log_index`).
+pub fn asset_transfer_logs(
+	transfers: &[(AssetTransfer, u32)],
+	block_number: U256,
+	block_hash: H256,
+	transaction_hash: H256,
+	transaction_index: usize,
+) -> Vec<Log> {
+	transfers
+		.iter()
+		.map(|(transfer, log_index)| {
+			transfer.to_log(
+				block_number,
+				block_hash,
+				transaction_hash,
+				transaction_index,
+				*log_index,
+			)
+		})
+		.collect()
+}
+
 /// Try to decode an asset-transfer from a raw event (pallet name, variant name, SCALE
 /// field bytes). Returns `None` for anything that is not a configured assets `Transferred`.
 ///
@@ -215,52 +227,41 @@ pub struct ForeignTransferParts {
 /// The event's SCALE fields are `[asset_id: Location][from: [u8;32]][to: [u8;32]][amount: u128]`.
 /// `from`/`to`/`amount` are fixed-size (32 + 32 + 16 = 80 trailing bytes), so we split those
 /// off the end; the remaining prefix is the encoded `Location`, used verbatim as the
-/// `ForeignAssetIdToAssetIndex` map key. Returns `None` if the pallet is not a configured
-/// foreign instance, the variant is not `Transferred`, or the bytes are too short.
-pub fn decode_foreign_transfer_parts<'a>(
-	config: &'a AssetTransferConfig,
+/// `ForeignAssetIdToAssetIndex` map key. Returns the instance's address prefix and the parts,
+/// or `None` if the pallet is not a configured foreign instance, the variant is not
+/// `Transferred`, or the bytes are too short.
+pub fn decode_foreign_transfer_parts(
+	config: &AssetTransferConfig,
 	pallet_name: &str,
 	variant_name: &str,
 	field_bytes: &[u8],
-) -> Option<(&'a ForeignInstance, ForeignTransferParts)> {
+) -> Option<(u16, ForeignTransferParts)> {
 	if variant_name != "Transferred" {
 		return None;
 	}
-	let instance = config.foreign_for(pallet_name)?;
+	let prefix = config.foreign_prefix_for(pallet_name)?;
 	if field_bytes.len() < 80 {
 		return None;
 	}
 	let split = field_bytes.len() - 80;
 	let asset_id_key = field_bytes[..split].to_vec();
-	let from = {
-		let mut id = [0u8; 32];
-		id.copy_from_slice(&field_bytes[split..split + 32]);
-		account_to_h160(&AccountId32::new(id))
-	};
-	let to = {
-		let mut id = [0u8; 32];
-		id.copy_from_slice(&field_bytes[split + 32..split + 64]);
-		account_to_h160(&AccountId32::new(id))
-	};
+	let from = account_h160_from_slice(&field_bytes[split..split + 32]);
+	let to = account_h160_from_slice(&field_bytes[split + 32..split + 64]);
 	let amount = {
 		let mut a = [0u8; 16];
 		a.copy_from_slice(&field_bytes[split + 64..]);
 		u128::from_le_bytes(a)
 	};
-	Some((instance, ForeignTransferParts { asset_id_key, from, to, amount }))
+	Some((prefix, ForeignTransferParts { asset_id_key, from, to, amount }))
 }
 
-/// Build the full storage key for `<storage_pallet>::<storage_entry>` (a `Blake2_128Concat`
-/// map keyed by the SCALE-encoded asset `Location`). The eth-rpc reads this raw key via
-/// `fetch_raw` to resolve a foreign asset's `u32` index.
-pub fn foreign_index_storage_key(
-	storage_pallet: &str,
-	storage_entry: &str,
-	asset_id_key: &[u8],
-) -> Vec<u8> {
+/// Build the full storage key for the `Blake2_128Concat`
+/// `FOREIGN_INDEX_PALLET::FOREIGN_INDEX_ENTRY` map, keyed by the SCALE-encoded asset `Location`.
+/// The eth-rpc reads this raw key via `fetch_raw` to resolve a foreign asset's `u32` index.
+pub fn foreign_index_storage_key(asset_id_key: &[u8]) -> Vec<u8> {
 	let mut key = Vec::with_capacity(16 + 16 + 16 + asset_id_key.len());
-	key.extend_from_slice(&twox_128(storage_pallet.as_bytes()));
-	key.extend_from_slice(&twox_128(storage_entry.as_bytes()));
+	key.extend_from_slice(&twox_128(FOREIGN_INDEX_PALLET.as_bytes()));
+	key.extend_from_slice(&twox_128(FOREIGN_INDEX_ENTRY.as_bytes()));
 	key.extend_from_slice(&blake2_128(asset_id_key));
 	key.extend_from_slice(asset_id_key);
 	key
@@ -271,14 +272,14 @@ pub fn decode_foreign_index(mut raw: &[u8]) -> Option<u32> {
 	u32::decode(&mut raw).ok()
 }
 
-/// Build an [`AssetTransfer`] for a foreign asset, given its resolved `u32` index.
+/// Build an [`AssetTransfer`] for a foreign asset, given its address prefix and resolved index.
 pub fn foreign_asset_transfer(
-	instance: &ForeignInstance,
+	prefix: u16,
 	parts: ForeignTransferParts,
 	asset_index: u32,
 ) -> AssetTransfer {
 	AssetTransfer {
-		token: asset_token_address(asset_index, instance.prefix),
+		token: asset_token_address(asset_index, prefix),
 		from: parts.from,
 		to: parts.to,
 		amount: parts.amount,
@@ -298,6 +299,13 @@ fn account_to_h160(account: &AccountId32) -> H160 {
 		let hash = keccak_256(bytes);
 		H160::from_slice(&hash[12..])
 	}
+}
+
+/// [`account_to_h160`] for a 32-byte account slice. Panics if `bytes.len() != 32`.
+fn account_h160_from_slice(bytes: &[u8]) -> H160 {
+	let mut id = [0u8; 32];
+	id.copy_from_slice(bytes);
+	account_to_h160(&AccountId32::new(id))
 }
 
 /// Build a stand-in legacy transaction for an asset-transfer extrinsic, so the transaction RPC
@@ -335,14 +343,10 @@ pub fn signer_h160_from_address_bytes(address_bytes: Option<&[u8]>) -> Option<H1
 	let bytes = address_bytes?;
 	// MultiAddress::Id == variant 0, followed by 32 account bytes.
 	if bytes.len() == 33 && bytes[0] == 0x00 {
-		let mut id = [0u8; 32];
-		id.copy_from_slice(&bytes[1..]);
-		Some(account_to_h160(&AccountId32::new(id)))
+		Some(account_h160_from_slice(&bytes[1..]))
 	} else if bytes.len() == 32 {
 		// Some configs encode the bare AccountId32.
-		let mut id = [0u8; 32];
-		id.copy_from_slice(bytes);
-		Some(account_to_h160(&AccountId32::new(id)))
+		Some(account_h160_from_slice(bytes))
 	} else {
 		None
 	}
@@ -435,17 +439,17 @@ mod tests {
 		7u128.encode_to(&mut bytes);
 
 		let cfg = AssetTransferConfig::default();
-		let (instance, parts) =
+		let (prefix, parts) =
 			decode_foreign_transfer_parts(&cfg, "ForeignAssets", "Transferred", &bytes)
 				.expect("decodes");
-		assert_eq!(instance.prefix, 0x0220);
+		assert_eq!(prefix, 0x0220);
 		assert_eq!(parts.asset_id_key, location);
 		assert_eq!(parts.amount, 7u128);
 		assert_eq!(parts.from, account_to_h160(&from));
 		assert_eq!(parts.to, account_to_h160(&to));
 
 		// Resolved index → address uses the foreign prefix.
-		let t = foreign_asset_transfer(instance, parts, 9);
+		let t = foreign_asset_transfer(prefix, parts, 9);
 		assert_eq!(t.token, asset_token_address(9, 0x0220));
 
 		// Non-foreign pallet / wrong variant / too-short → None.
@@ -460,8 +464,7 @@ mod tests {
 	#[test]
 	fn foreign_index_storage_key_layout() {
 		let loc = vec![0xDE, 0xAD, 0xBE, 0xEF];
-		let key =
-			foreign_index_storage_key("AssetsPrecompiles", "ForeignAssetIdToAssetIndex", &loc);
+		let key = foreign_index_storage_key(&loc);
 		// twox128(pallet) ++ twox128(entry) ++ blake2_128(loc) ++ loc
 		assert_eq!(key.len(), 16 + 16 + 16 + loc.len());
 		assert_eq!(&key[..16], &twox_128(b"AssetsPrecompiles"));

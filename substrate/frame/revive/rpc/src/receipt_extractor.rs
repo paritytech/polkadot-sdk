@@ -17,7 +17,7 @@
 use crate::{
 	AssetTransfer, AssetTransferConfig, ClientError, H160, LOG_TARGET,
 	asset_transfers::{
-		ForeignInstance, decode_asset_transfer, decode_foreign_index,
+		asset_transfer_logs, decode_asset_transfer, decode_foreign_index,
 		decode_foreign_transfer_parts, foreign_asset_transfer, foreign_index_storage_key,
 		signer_h160_from_address_bytes, synthetic_transaction, synthetic_tx_hash,
 	},
@@ -425,18 +425,17 @@ impl ReceiptExtractor {
 			}
 
 			// Foreign instances: resolve the u32 index from chain storage (cached).
-			if let Some((instance, parts)) = decode_foreign_transfer_parts(
+			if let Some((prefix, parts)) = decode_foreign_transfer_parts(
 				&self.asset_config,
 				pallet,
 				variant,
 				event.field_bytes(),
 			) {
-				if let Some(index) = self.resolve_foreign_index(instance, &parts.asset_id_key).await
-				{
+				if let Some(index) = self.resolve_foreign_index(&parts.asset_id_key).await {
 					let event_index = event.index();
 					out.entry(extrinsic_index)
 						.or_default()
-						.push((foreign_asset_transfer(instance, parts, index), event_index));
+						.push((foreign_asset_transfer(prefix, parts, index), event_index));
 				} else {
 					log::debug!(
 						target: LOG_TARGET,
@@ -449,19 +448,11 @@ impl ReceiptExtractor {
 	}
 
 	/// Resolve (and cache) a foreign asset's `u32` index from its SCALE-encoded `Location`.
-	async fn resolve_foreign_index(
-		&self,
-		instance: &ForeignInstance,
-		asset_id_key: &[u8],
-	) -> Option<u32> {
+	async fn resolve_foreign_index(&self, asset_id_key: &[u8]) -> Option<u32> {
 		if let Some(cached) = self.foreign_index_cache.lock().await.get(asset_id_key) {
 			return *cached;
 		}
-		let key = foreign_index_storage_key(
-			instance.storage_pallet,
-			instance.storage_entry,
-			asset_id_key,
-		);
+		let key = foreign_index_storage_key(asset_id_key);
 		let index = (self.fetch_storage_raw)(key).await.and_then(|raw| decode_foreign_index(&raw));
 		self.foreign_index_cache.lock().await.insert(asset_id_key.to_vec(), index);
 		index
@@ -478,18 +469,13 @@ impl ReceiptExtractor {
 		transfers: &[(AssetTransfer, u32)],
 	) -> (TransactionSigned, ReceiptInfo) {
 		let transaction_hash = synthetic_tx_hash(substrate_block_hash, transaction_index);
-		let logs = transfers
-			.iter()
-			.map(|(t, ev_idx)| {
-				t.to_log(
-					eth_block_number,
-					eth_block_hash,
-					transaction_hash,
-					transaction_index,
-					*ev_idx,
-				)
-			})
-			.collect();
+		let logs = asset_transfer_logs(
+			transfers,
+			eth_block_number,
+			eth_block_hash,
+			transaction_hash,
+			transaction_index,
+		);
 
 		// `to` is the token contract for a single-token extrinsic; ambiguous for a batch
 		// touching several tokens, where the logs carry the full detail.
@@ -590,15 +576,13 @@ impl ReceiptExtractor {
 				let reverted = reverted_extrinsics.contains(&transaction_index);
 				let mut logs = logs_by_extrinsic.remove(&transaction_index).unwrap_or_default();
 				if let Some(transfers) = asset_transfers.remove(&transaction_index) {
-					logs.extend(transfers.iter().map(|(t, ev_idx)| {
-						t.to_log(
-							eth_block_number,
-							eth_block_hash,
-							transaction_hash,
-							transaction_index,
-							*ev_idx,
-						)
-					}));
+					logs.extend(asset_transfer_logs(
+						&transfers,
+						eth_block_number,
+						eth_block_hash,
+						transaction_hash,
+						transaction_index,
+					));
 				}
 				self.decode_transaction_and_build_receipt(
 					eth_block_hash,
@@ -719,15 +703,13 @@ impl ReceiptExtractor {
 				let reverted = reverted_extrinsics.contains(&transaction_index);
 				let mut logs = logs_by_extrinsic.remove(&transaction_index).unwrap_or_default();
 				if let Some(transfers) = asset_transfers.remove(&transaction_index) {
-					logs.extend(transfers.iter().map(|(t, ev_idx)| {
-						t.to_log(
-							eth_block_number,
-							eth_block_hash,
-							transaction_hash,
-							transaction_index,
-							*ev_idx,
-						)
-					}));
+					logs.extend(asset_transfer_logs(
+						&transfers,
+						eth_block_number,
+						eth_block_hash,
+						transaction_hash,
+						transaction_index,
+					));
 				}
 				self.decode_transaction_and_build_receipt(
 					eth_block_hash,
