@@ -9,4 +9,5 @@ doc:
       Expansion of `do_try_state` checks for `pallet-psm`, and introduction of more unit tests.
 
 crates:
-  - pallet-psm
+  - name: pallet-psm
+    bump: minor
