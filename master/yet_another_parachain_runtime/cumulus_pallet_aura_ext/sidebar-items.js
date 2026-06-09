@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Call"],"mod":["consensus_hook","migration","pallet"],"struct":["BlockExecutor","FixedVelocityConsensusHook","GenesisConfig","Pallet"],"trait":["Config"],"type":["Module"]};
+window.SIDEBAR_ITEMS = {"enum":["Call"],"mod":["consensus_hook","migration","pallet","signature_verifier"],"struct":["AuraSchedulingVerifier","BlockExecutor","FixedVelocityConsensusHook","GenesisConfig","Pallet"],"trait":["Config"],"type":["Module"]};
