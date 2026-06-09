@@ -90,8 +90,10 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for unversioned::UncheckedMigrateV5ToV
 		// We use `Vec` instead of `BoundedVec` for `pre` in order to avoid any decoding error
 		// in case `T::MaxActiveOutboundChannels` is decreased in the same runtime upgrade where
 		// the migration is executed.
-		let translate = |pre: Vec<v5::OutboundChannelDetails>|
-		 -> BoundedVec<v6::OutboundChannelDetails, T::MaxActiveOutboundChannels> {
+		let translate = |pre: Vec<v5::OutboundChannelDetails>| -> BoundedVec<
+			v6::OutboundChannelDetails,
+			T::MaxActiveOutboundChannels,
+		> {
 			BoundedVec::defensive_truncate_from(
 				pre.iter()
 					.map(|pre_channel_details| v6::OutboundChannelDetails {

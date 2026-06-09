@@ -27,8 +27,8 @@ pallet-delegated-staking.workspace = true
 pallet-nomination-pools.workspace = true
 pallet-staking.workspace = true
 scale-info = { features = ["derive"], workspace = true }
-sp-runtime-interface.workspace = true
 sp-runtime.workspace = true
+sp-runtime-interface.workspace = true
 sp-staking.workspace = true
 
 [dev-dependencies]
