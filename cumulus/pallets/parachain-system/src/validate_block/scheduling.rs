@@ -50,31 +50,25 @@ pub enum SchedulingValidationError {
 	/// When relay_parent != internal_scheduling_parent, the resubmitting collator must
 	/// sign the core selection to prove slot eligibility.
 	MissingSignedSchedulingInfo,
-	/// `internal_scheduling_parent_header` does not hash to the internal scheduling
-	/// parent derived from the header chain (or `scheduling_parent` when the chain
-	/// is empty). The PVF reads the BABE pre-digest from this header to derive the
-	/// parachain slot used for author lookup; without the linkage check a collator
-	/// could attach an unrelated header pointing the verifier at an arbitrary slot.
+	/// `internal_scheduling_parent_header` does not hash to the derived internal
+	/// scheduling parent. Without this linkage a collator could attach an unrelated
+	/// header, pointing the slot-deriving author lookup at an arbitrary slot.
 	InternalSchedulingParentHeaderMismatch,
 	/// `signed_scheduling_info.payload.internal_scheduling_parent` does not match the
-	/// internal scheduling parent derived from the proof. The signer must have signed
-	/// over the same ISP the proof points to; rejecting the mismatch here prevents a
-	/// signature meant for a different scheduling context from being reused.
+	/// derived ISP, i.e. the signature was made for a different scheduling context.
 	SignedSchedulingInfoIspMismatch,
 	/// Signed `claim_queue_offset` exceeds the runtime-enforced maximum.
 	ClaimQueueOffsetTooLarge { offset: u8, max: u8 },
 }
 
-/// The validated result of a V3 candidate's scheduling proof.
-///
-/// Returned by [`validate_v3_scheduling`] for V3 candidates, carrying the already-validated data.
+/// The validated result of a V3 candidate's scheduling proof, as returned by
+/// [`validate_v3_scheduling`].
 pub struct ValidatedScheduling {
-	/// The relay header at the internal scheduling parent. Its hash is already verified to
-	/// equal the derived internal scheduling parent (linkage check in [`check_scheduling`]).
+	/// The relay header at the ISP; its hash is already verified against the derived
+	/// ISP (linkage check in [`check_scheduling`]).
 	pub internal_scheduling_parent_header: RelayChainHeader,
-	/// The signed scheduling info carried by the proof, if any. Its shape (ISP commitment,
-	/// claim-queue-offset bound) is already validated; only the signature still needs
-	/// verifying by the caller.
+	/// The signed scheduling info, if any. Its shape is already validated; only the
+	/// signature still needs verifying by the caller.
 	pub signed_scheduling_info: Option<SignedSchedulingInfo>,
 }
 
@@ -83,12 +77,9 @@ pub struct ValidatedScheduling {
 /// Returns `None` for V1/V2 candidates, `Some(ValidatedScheduling)` for valid V3.
 /// Panics on config/extension mismatches or chain-shape validation failures.
 ///
-/// This function only validates the *shape* of the scheduling proof (header chain
-/// linkage, relay-parent position, presence of `signed_scheduling_info` when
-/// required, and that `internal_scheduling_parent_header` hashes to the derived
-/// internal scheduling parent). Signature verification on `signed_scheduling_info`
-/// is the caller's responsibility — see `validate_block` for the call site that
-/// invokes `PSC::SchedulingSignatureVerifier`.
+/// Only validates the *shape* of the proof; signature verification on
+/// `signed_scheduling_info` is the caller's responsibility (see `validate_block`,
+/// which invokes `PSC::SchedulingSignatureVerifier`).
 pub fn validate_v3_scheduling(
 	v3_enabled: bool,
 	extension: &Option<ValidationParamsExtension>,
@@ -141,19 +132,14 @@ pub fn validate_v3_scheduling(
 }
 
 /// Check the scheduling proof against the relay parent, scheduling parent, and
-/// expected header chain length.
+/// expected header chain length. Returns the derived `internal_scheduling_parent`.
 ///
 /// Two submission shapes are valid:
-/// - **Initial submission** (`relay_parent == internal_scheduling_parent`):
-///   `signed_scheduling_info` is optional. When absent, core selection comes from the block's UMP
-///   signals; when present it is legal but unused here.
-/// - **Resubmission** (`relay_parent` is an ancestor of `internal_scheduling_parent`):
-///   `signed_scheduling_info` is required and its `payload.internal_scheduling_parent` must match
-///   the derived ISP.
+/// - **Initial** (`relay_parent == ISP`): `signed_scheduling_info` is optional.
+/// - **Resubmission** (`relay_parent` is an ancestor of ISP): `signed_scheduling_info` is required
+///   and its `payload.internal_scheduling_parent` must match the derived ISP.
 ///
-/// Returns the derived `internal_scheduling_parent`. Signature verification on
-/// `signed_scheduling_info` is the caller's responsibility — see `validate_block`
-/// for the call site that invokes `PSC::SchedulingSignatureVerifier`.
+/// Signature verification is the caller's responsibility (see `validate_block`).
 pub fn check_scheduling(
 	scheduling_proof: &SchedulingProof,
 	relay_parent: RelayHash,
@@ -189,28 +175,22 @@ pub fn check_scheduling(
 		}
 	}
 
-	// 3. Derive internal_scheduling_parent. It's the parent_hash of the last (oldest)
-	// header in the chain, or `scheduling_parent` itself when the chain is empty
-	// (`RelayParentOffset = 0`).
+	// 3. Derive internal_scheduling_parent: parent_hash of the oldest header, or
+	// `scheduling_parent` when the chain is empty (`RelayParentOffset = 0`).
 	let internal_scheduling_parent = if header_chain.is_empty() {
 		scheduling_parent
 	} else {
 		*header_chain.last().expect("checked non-empty; qed").parent_hash()
 	};
 
-	// 4. The internal_scheduling_parent_header carried in the proof must hash to the
-	// internal_scheduling_parent we just derived. The PVF reads the BABE pre-digest
-	// out of this header to derive the parachain slot used for author lookup; without
-	// the linkage check a collator could attach an unrelated header pointing the
-	// verifier at an arbitrary slot.
+	// 4. The ISP header in the proof must hash to the derived ISP — see
+	// `InternalSchedulingParentHeaderMismatch`.
 	if scheduling_proof.internal_scheduling_parent_header.hash() != internal_scheduling_parent {
 		return Err(SchedulingValidationError::InternalSchedulingParentHeaderMismatch);
 	}
 
-	// 5. Validate relay_parent position. relay_parent must NOT be inside the header
-	// chain — it either equals internal_scheduling_parent (initial submission) or is
-	// an ancestor of it (resubmission), but never between scheduling_parent and
-	// internal_scheduling_parent.
+	// 5. relay_parent must NOT be inside the header chain: it either equals the ISP
+	// (initial) or is an ancestor of it (resubmission), never in between.
 	for header in header_chain.iter() {
 		let header_hash = header.hash();
 		if relay_parent == header_hash {
@@ -218,17 +198,16 @@ pub fn check_scheduling(
 		}
 	}
 
-	// 6. Validate signed_scheduling_info based on relay_parent position.
-	// Resubmission (relay_parent != ISP) requires the resubmitter to sign the core
-	// selection; initial submission (relay_parent == ISP) may carry one optionally.
+	// 6. Resubmission (relay_parent != ISP) requires signed_scheduling_info; initial
+	// submission may carry one optionally.
 	if relay_parent != internal_scheduling_parent &&
 		scheduling_proof.signed_scheduling_info.is_none()
 	{
 		return Err(SchedulingValidationError::MissingSignedSchedulingInfo);
 	}
 
-	// 7. When signed_scheduling_info is present, its payload must commit to the ISP the proof
-	// points to, and its claim_queue_offset must be within the runtime cap.
+	// 7. When present, the signed payload must commit to the derived ISP and its
+	// claim_queue_offset must be within the runtime cap.
 	if let Some(signed_info) = &scheduling_proof.signed_scheduling_info {
 		if signed_info.payload.internal_scheduling_parent != internal_scheduling_parent {
 			return Err(SchedulingValidationError::SignedSchedulingInfoIspMismatch);
