@@ -16252,14 +16252,19 @@ dependencies = [
  "itertools 0.11.0",
  "kvdb-memorydb",
  "parity-scale-codec",
+ "polkadot-collator-protocol-test-sim-macros",
  "polkadot-node-clock",
+ "polkadot-node-core-backing",
+ "polkadot-node-core-prospective-parachains",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
  "polkadot-node-subsystem-util",
+ "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "polkadot-subsystem-test-sim",
  "rstest",
  "sc-keystore",
  "sc-network 0.34.0",
@@ -16277,6 +16282,15 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing-gum",
+]
+
+[[package]]
+name = "polkadot-collator-protocol-test-sim-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2 1.0.95",
+ "quote 1.0.40",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -16407,7 +16421,9 @@ dependencies = [
 name = "polkadot-node-clock"
 version = "7.0.0"
 dependencies = [
+ "futures",
  "futures-timer",
+ "tokio",
 ]
 
 [[package]]
@@ -16703,6 +16719,7 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "polkadot-subsystem-test-sim",
  "rand 0.8.5",
  "rstest",
  "schnellru",
@@ -18207,6 +18224,39 @@ dependencies = [
  "tikv-jemallocator",
  "tokio",
  "tracing-gum",
+]
+
+[[package]]
+name = "polkadot-subsystem-test-sim"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "parity-scale-codec",
+ "polkadot-node-clock",
+ "polkadot-node-network-protocol",
+ "polkadot-node-primitives",
+ "polkadot-node-subsystem",
+ "polkadot-node-subsystem-test-helpers",
+ "polkadot-overseer",
+ "polkadot-primitives",
+ "polkadot-primitives-test-helpers",
+ "sc-network 0.34.0",
+ "sc-network-types 0.10.0",
+ "sp-consensus-babe",
+ "sp-consensus-slots",
+ "sp-core 28.0.0",
+ "sp-keyring",
+ "sp-runtime 31.0.1",
+ "tracing-subscriber 0.3.19",
+]
+
+[[package]]
+name = "polkadot-subsystem-test-sim-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2 1.0.95",
+ "quote 1.0.40",
+ "syn 2.0.98",
 ]
 
 [[package]]
