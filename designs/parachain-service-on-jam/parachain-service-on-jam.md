@@ -335,7 +335,7 @@ enum ParachainWorkResult {
 
 enum UpwardMessage {
     /// From `request_code_upgrade` — start a PVF code upgrade (see §5.2).
-    RequestCodeUpgrade(ValidationCodeHash),
+    RequestCodeUpgrade { hash: ValidationCodeHash, len: u32 },
     /// From `solicit` — request a preimage be made available in the
     /// parachain's own preimage store. Accumulate forwards this to JAM
     /// and increments `ParaInfo.used_state_balance` (rejected if it
@@ -466,7 +466,7 @@ These produce effects carried in the work result and applied by Accumulate:
 |---|---|---|
 | `export(data: Vec<u8>)` | `u32` | Write a segment to the JAM Data Lake (e.g. outbound XCMP payloads). Returns segment index. |
 | `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate. |
-| `request_code_upgrade(hash: ValidationCodeHash)` | `()` | Signal a PVF code upgrade request (see §5.2). Internally this is a typed wrapper around `solicit` plus the code-upgrade bookkeeping; do not combine it with a separate `solicit` for the same hash. |
+| `request_code_upgrade(hash: ValidationCodeHash, len: u32)` | `()` | Signal a PVF code upgrade request. See §5.2. |
 | `solicit(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `solicit` (see §6.1). Idempotent — no-op if the parachain is already in `preimage_registry[hash].referencers`. May fail with `InsufficientStateBalance`. |
 | `forget(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent — no-op if the parachain is not in `preimage_registry[hash].referencers`. |
 | `transfer_out(dest: ServiceId, amount: Balance, memo: Vec<u8>)` | `()` | Transfer balance to another JAM service (Asset Hub only) |
@@ -564,7 +564,7 @@ Validation code — both the active code and any pending upgrade code — lives 
 
 ```
 Phase 1: Request
-    Parachain calls request_code_upgrade(new_code_hash) during Refine.
+    Parachain calls request_code_upgrade(new_code_hash, len) during Refine.
     │
     ▼
 Phase 2: Request Preimage
