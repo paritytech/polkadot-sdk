@@ -54,6 +54,9 @@ pub use fee_history_provider::*;
 mod receipt_extractor;
 pub use receipt_extractor::*;
 
+mod asset_transfers;
+pub use asset_transfers::*;
+
 mod apis;
 pub use apis::*;
 
