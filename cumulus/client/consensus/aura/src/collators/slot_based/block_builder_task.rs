@@ -42,23 +42,25 @@ use cumulus_client_resubmission_store::{now_unix_ms, prepare_resubmission_aux_da
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	PersistedValidationData, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
-	TargetBlockRate,
+	PersistedValidationData, RelayParentOffsetApi, SchedulingInfoPayload, SchedulingProof,
+	SchedulingV3EnabledApi, SignedSchedulingInfo, TargetBlockRate,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
-use polkadot_primitives::{Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId};
+use polkadot_primitives::{
+	ApprovedPeerId, Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId,
+};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
 use sc_network_types::PeerId;
 use sp_api::{ApiExt, ProofRecorder, ProvideRuntimeApi, StorageProof};
-use sp_application_crypto::AppPublic;
+use sp_application_crypto::{AppCrypto, AppPublic};
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::Environment;
 use sp_consensus_aura::AuraApi;
-use sp_core::crypto::Pair;
+use sp_core::{crypto::Pair, ByteArray};
 use sp_externalities::Extensions;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
@@ -215,6 +217,17 @@ where
 
 			Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
+
+		// V3 scheduling signatures commit to this peer id; precompute the truncated form once
+		// since the collator's peer id is fixed for the lifetime of the task.
+		let approved_peer_id = ApprovedPeerId::try_from(collator_peer_id.to_bytes())
+			.inspect_err(|_| {
+				tracing::warn!(
+					target: LOG_TARGET,
+					"collator_peer_id exceeds 64 bytes; V3 scheduling signatures will be skipped",
+				);
+			})
+			.ok();
 
 		let mut relay_chain_data_cache = RelayChainDataCache::new(relay_client.clone(), para_id);
 		let mut connection_helper = BackingGroupConnectionHelper::new(
@@ -518,10 +531,12 @@ where
 				"Core configuration",
 			);
 
-			// Build the V3 scheduling proof once per slot — it's shared by every candidate in the
-			// segment. Consumes `relay_parent_data.descendants`, so the inherent created later
-			// downstream sees an empty list (which V3 verification expects).
-			let scheduling_proof = if v3_enabled {
+			// Extract the inputs the V3 scheduling proof needs (header chain from
+			// `scheduling_parent` down to the ISP, and the ISP header itself). Consumes
+			// `relay_parent_data.descendants` so the inherent created later sees an empty list
+			// (which V3 verification expects). The full proof is assembled per-core inside the
+			// cores loop below, because the signed payload commits to a specific `core_selector`.
+			let v3_proof_inputs: Option<(Vec<RelayHeader>, RelayHeader)> = if v3_enabled {
 				let descendants = relay_parent_data.take_descendants();
 				let header_chain: Vec<_> = descendants.into_iter().rev().collect();
 				let scheduling_parent =
@@ -532,17 +547,10 @@ where
 					relay_parent = ?relay_parent_hash,
 					?scheduling_parent,
 					header_chain_len = header_chain.len(),
-					"Building V3 collation with scheduling proof",
+					"Preparing V3 scheduling proof inputs",
 				);
 
-				Some(SchedulingProof {
-					header_chain,
-					internal_scheduling_parent_header: relay_parent_header.clone(),
-					// TODO: sign and populate when resubmission lands. The relay-chain verifier
-					// rejects `ResubmitOnly` / mixed segments whose proof lacks
-					// `signed_scheduling_info`.
-					signed_scheduling_info: None,
-				})
+				Some((header_chain, relay_parent_header.clone()))
 			} else {
 				None
 			};
@@ -555,6 +563,39 @@ where
 				let time_for_core = slot_time.time_left() / cores.cores_left();
 				let is_first_core = core_iter_index == 0;
 				let this_core_index = cores.core_index();
+				let core_info = cores.core_info();
+
+				// Assemble this core's complete V3 scheduling proof up front. V2 mode keeps it
+				// `None`. In V3 mode we either obtain a fully signed proof or skip the core
+				// (a missing peer id or a keystore failure both collapse to the catch-all).
+				let scheduling_proof =
+					if let Some((header_chain, isp_header)) = v3_proof_inputs.as_ref() {
+						match approved_peer_id.as_ref().and_then(|peer_id| {
+							build_v3_scheduling_proof::<P>(
+								header_chain.clone(),
+								isp_header.clone(),
+								&core_info,
+								peer_id.clone(),
+								slot_claim.author_pub(),
+								&keystore,
+							)
+						}) {
+							Some(proof) => Some(proof),
+							_ => {
+								tracing::debug!(
+									target: LOG_TARGET,
+									?this_core_index,
+									"Skipping V3 core: cannot build signed scheduling proof.",
+								);
+								if !cores.advance() {
+									break;
+								}
+								continue;
+							},
+						}
+					} else {
+						None
+					};
 
 				match build_collation_for_core(BuildCollationParams {
 					pov_parent_header,
@@ -570,7 +611,7 @@ where
 					resubmit_sender: &resubmit_sender,
 					collator: &mut collator,
 					allowed_pov_size,
-					core_info: cores.core_info(),
+					core_info,
 					core_index: this_core_index,
 					block_time,
 					blocks_per_core,
@@ -594,7 +635,8 @@ where
 					},
 					Ok(None) => {
 						// First-core failed to build a fresh bundle: still ship the held prior
-						// unincluded segment via `ResubmitOnly`.
+						// unincluded segment via `ResubmitOnly`. Reuses the complete per-core
+						// proof we already assembled above.
 						//
 						// TODO: seding to a certain core can apply in a custom way too, and
 						// other strategies for resubmitting a segment should be available - e.g.
@@ -602,7 +644,7 @@ where
 						// blocks based on the core index resulting from their `core_selector`
 						// and `claim_queue_offset` combination, at the `scheduling_parent`).
 						if is_first_core {
-							if let Some(proof) = scheduling_proof.clone() {
+							if let Some(proof) = scheduling_proof {
 								let _ = resubmit_sender.unbounded_send(CollatorResubmitSegment {
 									scheduling_proof: proof,
 									kind: SegmentKind::ResubmitOnly { core_index: this_core_index },
@@ -663,7 +705,6 @@ struct BuildCollationParams<
 	relay_slot: cumulus_primitives_aura::Slot,
 	para_slot: cumulus_primitives_aura::Slot,
 	para_client: &'a Client,
-	/// V3 scheduling proof, built once per slot. `Some` iff V3 is enabled.
 	scheduling_proof: Option<SchedulingProof>,
 }
 
@@ -980,8 +1021,9 @@ where
 		"Sending out PoV"
 	);
 
-	// `scheduling_proof` is `Some` iff `v3_enabled`; routes V3 bundles to `resubmit_sender`,
-	// V2 bundles (no proof) to `collator_sender`.
+	// `scheduling_proof` is `Some` iff this is a V3 send (the caller assembled the complete
+	// signed proof for this core); routes V3 bundles to `resubmit_sender`, V2 bundles (no
+	// proof) to `collator_sender`.
 	let send_ok = if let Some(scheduling_proof) = scheduling_proof {
 		resubmit_sender
 			.unbounded_send(CollatorResubmitSegment {
@@ -1025,6 +1067,79 @@ where
 
 		Ok(Some(parent_header))
 	}
+}
+
+/// Assemble a complete V3 [`SchedulingProof`] (signed scheduling info populated) for one core.
+///
+/// Returns `None` when [`sign_scheduling_info`] fails. The caller is expected to skip the
+/// corresponding send when this returns `None` — shipping an unsigned proof would be rejected by
+/// the relay-chain verifier as soon as any candidate in the segment has `relay_parent != ISP`.
+fn build_v3_scheduling_proof<P>(
+	header_chain: Vec<RelayHeader>,
+	internal_scheduling_parent_header: RelayHeader,
+	core_info: &CoreInfo,
+	peer_id: ApprovedPeerId,
+	author_pub: &P::Public,
+	keystore: &KeystorePtr,
+) -> Option<SchedulingProof>
+where
+	P: Pair,
+	P::Public: AppPublic,
+{
+	let signed = sign_scheduling_info::<P>(
+		SchedulingInfoPayload {
+			core_selector: core_info.selector,
+			claim_queue_offset: core_info.claim_queue_offset.0,
+			peer_id,
+			internal_scheduling_parent: internal_scheduling_parent_header.hash(),
+		},
+		author_pub,
+		keystore,
+	)?;
+	Some(SchedulingProof {
+		header_chain,
+		internal_scheduling_parent_header,
+		signed_scheduling_info: Some(signed),
+	})
+}
+
+/// Sign a [`SchedulingInfoPayload`] with the Aura key that won the current slot claim.
+///
+/// On this branch the scheduling proof's `internal_scheduling_parent_header` is the current
+/// slot's relay parent, so the para slot derived from its BABE slot equals the slot the claim
+/// was obtained for — meaning `slot_claim.author_pub()` is the verifier-eligible signer.
+///
+/// Returns `None` when the keystore can't produce a signature for that key, or when the
+/// signature isn't the 64-byte size the verifier expects.
+fn sign_scheduling_info<P>(
+	payload: SchedulingInfoPayload,
+	author_pub: &P::Public,
+	keystore: &KeystorePtr,
+) -> Option<SignedSchedulingInfo>
+where
+	P: Pair,
+	P::Public: AppPublic,
+{
+	let signature = keystore
+		.sign_with(
+			<P::Public as AppCrypto>::ID,
+			<P::Public as AppCrypto>::CRYPTO_ID,
+			author_pub.as_slice(),
+			&payload.encode(),
+		)
+		.ok()
+		.flatten()?;
+	if signature.len() != 64 {
+		tracing::error!(
+			target: LOG_TARGET,
+			signature_len = signature.len(),
+			"Keystore returned non-64-byte signature for SchedulingInfoPayload.",
+		);
+		return None;
+	}
+	let mut signature_bytes = [0u8; 64];
+	signature_bytes.copy_from_slice(&signature);
+	Some(SignedSchedulingInfo { payload, signature: signature_bytes })
 }
 
 /// Translate the slot of the relay parent to the slot of the parachain.
