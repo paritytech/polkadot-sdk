@@ -18,9 +18,9 @@
 //! Per-block proof store for unincluded segment resubmission.
 //!
 //! Persists a [`StoredEntry`] (capture time, relay-parent session and storage proof) per
-//! imported parablock, keyed by parablock hash. Data is pruned on parachain finality
-//! ([`finality_cleanup_ops`]) and, once a relay-chain session ages out, by relay-parent session
-//! ([`session_cleanup_ops`]).
+//! imported parablock, keyed by parablock hash. Data is pruned on parachain finality (via
+//! [`ResubmissionStore::register_cleanup`]) and, once a relay-chain session ages out, by
+//! relay-parent session (via [`ResubmissionStore::prune_old_sessions`]).
 
 use codec::{Decode, Encode};
 use cumulus_client_consensus_common::old_finalized_hash;
@@ -60,7 +60,8 @@ pub struct StoredEntry {
 	pub proof: StorageProof,
 	/// Relay-chain session a block on this relay parent is expected to be included in (the relay
 	/// parent's `session_index_for_child`); `Some` for locally-built blocks, `None` for imported
-	/// ones whose session isn't resolvable at import. Drives [`session_cleanup_ops`].
+	/// ones whose session isn't resolvable at import. Drives
+	/// [`ResubmissionStore::prune_old_sessions`].
 	pub relay_parent_session: Option<SessionIndex>,
 }
 
@@ -138,25 +139,30 @@ impl<Block: BlockT, B: AuxStore> ResubmissionStore<Block, B> {
 	/// [`StoredEntry::relay_parent_session`] — so it is not passed in. `current_session` and
 	/// `max_session_age` are relay-chain values the store cannot derive and must be provided.
 	/// Entries with an unknown (or missing) session are left untouched and reclaimed by finality
-	/// cleanup instead. See [`session_cleanup_ops`].
+	/// cleanup instead.
 	pub fn prune_old_sessions(
 		&self,
 		hashes: impl IntoIterator<Item = Block::Hash>,
 		current_session: SessionIndex,
 		max_session_age: SessionIndex,
 	) -> ClientResult<()> {
-		let mut entries = Vec::new();
+		let mut delete_keys = Vec::new();
 		for hash in hashes {
-			let session = self.load(hash)?.and_then(|entry| entry.relay_parent_session);
-			entries.push((hash, session));
+			let Some(session) = self.load(hash)?.and_then(|entry| entry.relay_parent_session)
+			else {
+				continue;
+			};
+
+			if current_session.saturating_sub(session) > max_session_age {
+				delete_keys.push(entry_key(hash));
+			}
 		}
 
-		let ops = session_cleanup_ops::<Block>(entries, current_session, max_session_age);
-		if ops.is_empty() {
+		if delete_keys.is_empty() {
 			return Ok(());
 		}
 
-		let delete: Vec<&[u8]> = ops.iter().map(|(key, _)| key.as_slice()).collect();
+		let delete: Vec<&[u8]> = delete_keys.iter().map(|key| key.as_slice()).collect();
 		self.backend.insert_aux(&[], &delete)
 	}
 
@@ -224,24 +230,6 @@ fn finality_cleanup_ops<Block: BlockT>(
 	ops.push((entry_key(just_finalized_hash), None));
 
 	ops
-}
-
-/// Emits a delete for every entry whose `relay_parent_session` is more than `max_session_age`
-/// behind `current_session`. Entries with an unknown session (`None`) are left untouched — those
-/// are pruned at finality by [`finality_cleanup_ops`].
-pub fn session_cleanup_ops<Block: BlockT>(
-	entries: impl IntoIterator<Item = (Block::Hash, Option<SessionIndex>)>,
-	current_session: SessionIndex,
-	max_session_age: SessionIndex,
-) -> AuxDataOperations {
-	entries
-		.into_iter()
-		.filter_map(|(hash, session)| {
-			let session = session?;
-			(current_session.saturating_sub(session) > max_session_age)
-				.then(|| (entry_key(hash), None))
-		})
-		.collect()
 }
 
 #[cfg(test)]
@@ -361,37 +349,13 @@ mod tests {
 	}
 
 	#[test]
-	fn session_cleanup_prunes_only_sessions_older_than_max_age() {
-		let too_old = Hash::repeat_byte(0x01); // session 1, age 4 > 2 => pruned
-		let boundary = Hash::repeat_byte(0x02); // session 3, age 2 == max => kept
-		let recent = Hash::repeat_byte(0x04); // session 5, age 0 => kept
-		let unknown = Hash::repeat_byte(0x05); // no session => kept
-
-		let ops = session_cleanup_ops::<Block>(
-			[(too_old, Some(1)), (boundary, Some(3)), (recent, Some(5)), (unknown, None)],
-			5, // current session
-			2, // max session age
-		);
-
-		let keys: Vec<_> = ops.iter().map(|(k, _)| k.clone()).collect();
-		assert_eq!(keys, vec![entry_key(too_old)], "only the too-old entry should be pruned");
-		assert!(ops.iter().all(|(_, v)| v.is_none()));
-	}
-
-	#[test]
-	fn session_cleanup_handles_empty_input() {
-		let ops =
-			session_cleanup_ops::<Block>(std::iter::empty::<(Hash, Option<SessionIndex>)>(), 10, 2);
-		assert!(ops.is_empty());
-	}
-
-	#[test]
 	fn prune_old_sessions_deletes_and_commits() {
 		let (backend, store) = new_store();
 
-		let old = Hash::repeat_byte(0x01); // session 1, age 4 > 2 => pruned
-		let recent = Hash::repeat_byte(0x02); // session 5, age 0 => kept
-		let unknown = Hash::repeat_byte(0x03); // unknown session => kept
+		let too_old = Hash::repeat_byte(0x01); // session 1, age 4 > 2 => pruned
+		let boundary = Hash::repeat_byte(0x02); // session 3, age 2 == max => kept
+		let recent = Hash::repeat_byte(0x03); // session 5, age 0 => kept
+		let unknown = Hash::repeat_byte(0x04); // unknown session => kept
 
 		let write = |hash: Hash, session: Option<SessionIndex>| {
 			let proof = StorageProof::new(vec![vec![1, 2, 3]]);
@@ -399,26 +363,31 @@ mod tests {
 			let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
 			AuxStore::insert_aux(&*backend, &refs, &[]).expect("insert");
 		};
-		write(old, Some(1));
+		write(too_old, Some(1));
+		write(boundary, Some(3));
 		write(recent, Some(5));
 		write(unknown, None);
 
 		// Sessions are read back from the stored entries; the caller passes only hashes.
 		store
 			.prune_old_sessions(
-				[old, recent, unknown],
+				[too_old, boundary, recent, unknown],
 				5, // current session
 				2, // max session age
 			)
 			.expect("prune should commit");
 
-		assert_eq!(store.load(old).expect("load"), None, "old-session entry must be deleted");
+		assert_eq!(store.load(too_old).expect("load"), None, "too-old entry must be deleted");
+		assert!(
+			store.load(boundary).expect("load").is_some(),
+			"boundary (age == max) must survive"
+		);
 		assert!(store.load(recent).expect("load").is_some(), "recent entry must survive");
 		assert!(store.load(unknown).expect("load").is_some(), "unknown-session entry must survive");
 	}
 
 	#[test]
-	fn prune_old_sessions_keeps_recent_and_handles_missing() {
+	fn prune_old_sessions_keeps_recent_and_handles_missing_and_empty() {
 		let (backend, store) = new_store();
 
 		let recent = Hash::repeat_byte(0x09);
@@ -426,6 +395,11 @@ mod tests {
 		let pairs: Vec<_> = prepare_aux_data::<Block>(recent, 1_000, Some(10), &proof).collect();
 		let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
 		AuxStore::insert_aux(&*backend, &refs, &[]).expect("insert");
+
+		// Empty input is a no-op.
+		store
+			.prune_old_sessions(std::iter::empty::<Hash>(), 10, 2)
+			.expect("empty prune should succeed");
 
 		// `recent` is current; `missing` was never stored. Neither should be deleted, no error.
 		store
