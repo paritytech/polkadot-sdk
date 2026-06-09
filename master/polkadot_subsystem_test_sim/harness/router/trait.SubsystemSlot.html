@@ -1,0 +1,170 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Common surface for any subsystem the harness has spawned."><title>SubsystemSlot in polkadot_subsystem_test_sim::harness::router - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_subsystem_test_sim" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">SubsystemSlot</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../polkadot_subsystem_test_sim/index.html">polkadot_<wbr>subsystem_<wbr>test_<wbr>sim</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Subsystem<wbr>Slot</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.name" title="name">name</a></li><li><a href="#tymethod.send_signal" title="send_signal">send_signal</a></li><li><a href="#tymethod.try_route" title="try_route">try_route</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In polkadot_<wbr>subsystem_<wbr>test_<wbr>sim::<wbr>harness::<wbr>router</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">polkadot_subsystem_test_sim</a>::<wbr><a href="../index.html">harness</a>::<wbr><a href="index.html">router</a></div><h1>Trait <span class="trait">Subsystem<wbr>Slot</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/polkadot_subsystem_test_sim/harness/router.rs.html#52-65">Source</a> </span></div><pre class="rust item-decl"><code>pub trait SubsystemSlot: <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> {
+    // Required methods
+    fn <a href="#tymethod.name" class="fn">name</a>(&amp;self) -&gt; &amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.str.html">str</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.send_signal" class="fn">send_signal</a>(&amp;self, signal: OverseerSignal) -&gt; BoxFuture&lt;'static, <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.try_route" class="fn">try_route</a>(&amp;self, msg: AllMessages) -&gt; <a class="enum" href="enum.RouteAttempt.html" title="enum polkadot_subsystem_test_sim::harness::router::RouteAttempt">RouteAttempt</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Common surface for any subsystem the harness has spawned.</p>
+<p>Auxiliary subsystems implement this so the <a href="../sim/struct.Sim.html" title="struct polkadot_subsystem_test_sim::harness::sim::Sim"><code>Sim</code></a> can broadcast signals to them and offer
+them outbound messages from other subsystems for routing.</p>
+<p>All futures returned are <code>'static</code> — implementations clone the inbound channel sender so
+the future does not borrow <code>&amp;self</code>.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.name" class="method"><a class="src rightside" href="../../../src/polkadot_subsystem_test_sim/harness/router.rs.html#54">Source</a><h4 class="code-header">fn <a href="#tymethod.name" class="fn">name</a>(&amp;self) -&gt; &amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.str.html">str</a></h4></section></summary><div class="docblock"><p>Human-readable name. Used for cycle/diagnostic reports.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.send_signal" class="method"><a class="src rightside" href="../../../src/polkadot_subsystem_test_sim/harness/router.rs.html#57">Source</a><h4 class="code-header">fn <a href="#tymethod.send_signal" class="fn">send_signal</a>(&amp;self, signal: OverseerSignal) -&gt; BoxFuture&lt;'static, <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Future that delivers an <code>OverseerSignal</code> to this subsystem’s inbound channel.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.try_route" class="method"><a class="src rightside" href="../../../src/polkadot_subsystem_test_sim/harness/router.rs.html#64">Source</a><h4 class="code-header">fn <a href="#tymethod.try_route" class="fn">try_route</a>(&amp;self, msg: AllMessages) -&gt; <a class="enum" href="enum.RouteAttempt.html" title="enum polkadot_subsystem_test_sim::harness::router::RouteAttempt">RouteAttempt</a></h4></section></summary><div class="docblock"><p>If this subsystem owns <code>msg</code>, return a future that forwards it. Otherwise return
+<code>None</code> and the caller continues routing.</p>
+<p>Implementations must extract the typed inner message from <code>AllMessages</code>; doing so
+consumes the message (oneshot senders embedded in it move into the typed value).</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-SubsystemSlot-for-AvailabilityStoreStub" class="impl"><a class="src rightside" href="../../../src/polkadot_subsystem_test_sim/aux/availability_store.rs.html#68-94">Source</a><a href="#impl-SubsystemSlot-for-AvailabilityStoreStub" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.SubsystemSlot.html" title="trait polkadot_subsystem_test_sim::harness::router::SubsystemSlot">SubsystemSlot</a> for <a class="struct" href="../../aux/availability_store/struct.AvailabilityStoreStub.html" title="struct polkadot_subsystem_test_sim::aux::availability_store::AvailabilityStoreStub">AvailabilityStoreStub</a></h3></section><section id="impl-SubsystemSlot-for-CanSecondStub" class="impl"><a class="src rightside" href="../../../src/polkadot_subsystem_test_sim/aux/can_second_stub.rs.html#41-63">Source</a><a href="#impl-SubsystemSlot-for-CanSecondStub" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.SubsystemSlot.html" title="trait polkadot_subsystem_test_sim::harness::router::SubsystemSlot">SubsystemSlot</a> for <a class="struct" href="../../aux/can_second_stub/struct.CanSecondStub.html" title="struct polkadot_subsystem_test_sim::aux::can_second_stub::CanSecondStub">CanSecondStub</a></h3></section><section id="impl-SubsystemSlot-for-CandidateValidationStub" class="impl"><a class="src rightside" href="../../../src/polkadot_subsystem_test_sim/aux/candidate_validation.rs.html#170-196">Source</a><a href="#impl-SubsystemSlot-for-CandidateValidationStub" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.SubsystemSlot.html" title="trait polkadot_subsystem_test_sim::harness::router::SubsystemSlot">SubsystemSlot</a> for <a class="struct" href="../../aux/candidate_validation/struct.CandidateValidationStub.html" title="struct polkadot_subsystem_test_sim::aux::candidate_validation::CandidateValidationStub">CandidateValidationStub</a></h3></section><section id="impl-SubsystemSlot-for-AvailabilityDistributionNoop" class="impl"><a class="src rightside" href="../../../src/polkadot_subsystem_test_sim/aux/noop.rs.html#68-72">Source</a><a href="#impl-SubsystemSlot-for-AvailabilityDistributionNoop" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.SubsystemSlot.html" title="trait polkadot_subsystem_test_sim::harness::router::SubsystemSlot">SubsystemSlot</a> for <a class="struct" href="../../aux/noop/struct.AvailabilityDistributionNoop.html" title="struct polkadot_subsystem_test_sim::aux::noop::AvailabilityDistributionNoop">AvailabilityDistributionNoop</a></h3></section><section id="impl-SubsystemSlot-for-ProvisionerNoop" class="impl"><a class="src rightside" href="../../../src/polkadot_subsystem_test_sim/aux/noop.rs.html#67">Source</a><a href="#impl-SubsystemSlot-for-ProvisionerNoop" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.SubsystemSlot.html" title="trait polkadot_subsystem_test_sim::harness::router::SubsystemSlot">SubsystemSlot</a> for <a class="struct" href="../../aux/noop/struct.ProvisionerNoop.html" title="struct polkadot_subsystem_test_sim::aux::noop::ProvisionerNoop">ProvisionerNoop</a></h3></section><section id="impl-SubsystemSlot-for-StatementDistributionNoop" class="impl"><a class="src rightside" href="../../../src/polkadot_subsystem_test_sim/aux/noop.rs.html#66">Source</a><a href="#impl-SubsystemSlot-for-StatementDistributionNoop" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.SubsystemSlot.html" title="trait polkadot_subsystem_test_sim::harness::router::SubsystemSlot">SubsystemSlot</a> for <a class="struct" href="../../aux/noop/struct.StatementDistributionNoop.html" title="struct polkadot_subsystem_test_sim::aux::noop::StatementDistributionNoop">StatementDistributionNoop</a></h3></section><section id="impl-SubsystemSlot-for-AuxSlot%3CM%3E" class="impl"><a class="src rightside" href="../../../src/polkadot_subsystem_test_sim/aux/spawn.rs.html#62-94">Source</a><a href="#impl-SubsystemSlot-for-AuxSlot%3CM%3E" class="anchor">§</a><h3 class="code-header">impl&lt;M: 'static + <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a>&gt; <a class="trait" href="trait.SubsystemSlot.html" title="trait polkadot_subsystem_test_sim::harness::router::SubsystemSlot">SubsystemSlot</a> for <a class="struct" href="../../aux/spawn/struct.AuxSlot.html" title="struct polkadot_subsystem_test_sim::aux::spawn::AuxSlot">AuxSlot</a>&lt;M&gt;</h3></section></div><script src="../../../trait.impl/polkadot_subsystem_test_sim/harness/router/trait.SubsystemSlot.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

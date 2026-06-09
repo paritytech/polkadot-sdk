@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["classify","effect","query","reputation"]};

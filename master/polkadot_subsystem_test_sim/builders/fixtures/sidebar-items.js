@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["default_validator_groups","default_validators","dummy_pvd","fresh_collator"]};

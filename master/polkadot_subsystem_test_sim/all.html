@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="polkadot_subsystem_test_sim" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">All</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../polkadot_subsystem_test_sim/index.html">polkadot_<wbr>subsystem_<wbr>test_<wbr>sim</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h3><a href="#structs">Crate Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>List of all items</h1><rustdoc-toolbar></rustdoc-toolbar></div><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.MockClock.html">MockClock</a></li><li><a href="aux/availability_store/struct.AvailabilityStoreStub.html">aux::availability_store::AvailabilityStoreStub</a></li><li><a href="aux/can_second_stub/struct.CanSecondStub.html">aux::can_second_stub::CanSecondStub</a></li><li><a href="aux/candidate_validation/struct.CandidateOutputs.html">aux::candidate_validation::CandidateOutputs</a></li><li><a href="aux/candidate_validation/struct.CandidateValidationStub.html">aux::candidate_validation::CandidateValidationStub</a></li><li><a href="aux/noop/struct.AvailabilityDistributionNoop.html">aux::noop::AvailabilityDistributionNoop</a></li><li><a href="aux/noop/struct.ProvisionerNoop.html">aux::noop::ProvisionerNoop</a></li><li><a href="aux/noop/struct.StatementDistributionNoop.html">aux::noop::StatementDistributionNoop</a></li><li><a href="aux/spawn/struct.AuxSlot.html">aux::spawn::AuxSlot</a></li><li><a href="builders/candidate/struct.Candidate.html">builders::candidate::Candidate</a></li><li><a href="builders/candidate/struct.CandidateBuilder.html">builders::candidate::CandidateBuilder</a></li><li><a href="chain/model/struct.BlockInfo.html">chain::model::BlockInfo</a></li><li><a href="chain/model/struct.ChainModel.html">chain::model::ChainModel</a></li><li><a href="chain/model/struct.CoreSchedule.html">chain::model::CoreSchedule</a></li><li><a href="chain/model/struct.SessionInfo.html">chain::model::SessionInfo</a></li><li><a href="chain/model/struct.SharedChain.html">chain::model::SharedChain</a></li><li><a href="contract/effect/struct.AdvertisementSummary.html">contract::effect::AdvertisementSummary</a></li><li><a href="contract/effect/struct.RequestId.html">contract::effect::RequestId</a></li><li><a href="harness/dispatcher/struct.Dispatcher.html">harness::dispatcher::Dispatcher</a></li><li><a href="harness/dispatcher/struct.LayeredResponder.html">harness::dispatcher::LayeredResponder</a></li><li><a href="harness/observation/struct.Stamped.html">harness::observation::Stamped</a></li><li><a href="harness/pending_fetches/struct.PendingFetches.html">harness::pending_fetches::PendingFetches</a></li><li><a href="harness/recorder/struct.Recorder.html">harness::recorder::Recorder</a></li><li><a href="harness/router/struct.UutSlot.html">harness::router::UutSlot</a></li><li><a href="harness/sim/struct.Sim.html">harness::sim::Sim</a></li><li><a href="harness/sim/struct.SimConfig.html">harness::sim::SimConfig</a></li><li><a href="report/timeline/struct.TimelineReport.html">report::timeline::TimelineReport</a></li><li><a href="responder/struct.PanicResponder.html">responder::PanicResponder</a></li><li><a href="responder/script/struct.QueryScript.html">responder::script::QueryScript</a></li><li><a href="responder/script/struct.QueryScriptBuilder.html">responder::script::QueryScriptBuilder</a></li><li><a href="runtime/struct.MockClock.html">runtime::MockClock</a></li><li><a href="runtime/executor/struct.Executor.html">runtime::executor::Executor</a></li><li><a href="runtime/local_spawner/struct.LocalPoolSpawnDrain.html">runtime::local_spawner::LocalPoolSpawnDrain</a></li><li><a href="runtime/local_spawner/struct.LocalPoolSpawner.html">runtime::local_spawner::LocalPoolSpawner</a></li><li><a href="world_base/struct.BlockBuilder.html">world_base::BlockBuilder</a></li><li><a href="world_base/struct.LeafRef.html">world_base::LeafRef</a></li><li><a href="world_base/struct.WorldBase.html">world_base::WorldBase</a></li><li><a href="world_base/struct.WorldConfig.html">world_base::WorldConfig</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="aux/candidate_validation/enum.Verdict.html">aux::candidate_validation::Verdict</a></li><li><a href="contract/classify/enum.Classified.html">contract::classify::Classified</a></li><li><a href="contract/effect/enum.Effect.html">contract::effect::Effect</a></li><li><a href="contract/effect/enum.ReqKind.html">contract::effect::ReqKind</a></li><li><a href="contract/effect/enum.RespKind.html">contract::effect::RespKind</a></li><li><a href="contract/effect/enum.WireMsgKind.html">contract::effect::WireMsgKind</a></li><li><a href="contract/query/enum.Query.html">contract::query::Query</a></li><li><a href="contract/reputation/enum.RepBucket.html">contract::reputation::RepBucket</a></li><li><a href="harness/observation/enum.Observation.html">harness::observation::Observation</a></li><li><a href="harness/router/enum.RouteAttempt.html">harness::router::RouteAttempt</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="trait.Clock.html">Clock</a></li><li><a href="harness/dispatcher/trait.AnswerQuery.html">harness::dispatcher::AnswerQuery</a></li><li><a href="harness/router/trait.SubsystemSlot.html">harness::router::SubsystemSlot</a></li><li><a href="harness/router/trait.UutRoute.html">harness::router::UutRoute</a></li><li><a href="harness/sim/trait.SubsystemUnderTest.html">harness::sim::SubsystemUnderTest</a></li><li><a href="world_base/trait.HasBase.html">world_base::HasBase</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="aux/spawn/fn.spawn_aux.html">aux::spawn::spawn_aux</a></li><li><a href="builders/fixtures/fn.default_validator_groups.html">builders::fixtures::default_validator_groups</a></li><li><a href="builders/fixtures/fn.default_validators.html">builders::fixtures::default_validators</a></li><li><a href="builders/fixtures/fn.dummy_pvd.html">builders::fixtures::dummy_pvd</a></li><li><a href="builders/fixtures/fn.fresh_collator.html">builders::fixtures::fresh_collator</a></li><li><a href="contract/classify/fn.classify.html">contract::classify::classify</a></li><li><a href="contract/classify/fn.peek_effects.html">contract::classify::peek_effects</a></li><li><a href="harness/router/fn.route.html">harness::router::route</a></li><li><a href="known_bug/fn.run_known_bug.html">known_bug::run_known_bug</a></li><li><a href="report/timeline/fn.format_effect.html">report::timeline::format_effect</a></li><li><a href="report/timeline/fn.format_timeline.html">report::timeline::format_timeline</a></li><li><a href="world_base/fn.build_chain_model.html">world_base::build_chain_model</a></li><li><a href="world_base/fn.synthesise_constraints.html">world_base::synthesise_constraints</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="type.BoxedDelay.html">BoxedDelay</a></li><li><a href="harness/pending_fetches/type.RawResponse.html">harness::pending_fetches::RawResponse</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Effect","ReqKind","RespKind","WireMsgKind"],"struct":["AdvertisementSummary","RequestId"]};

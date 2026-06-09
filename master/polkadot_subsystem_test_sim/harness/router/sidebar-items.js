@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["RouteAttempt"],"fn":["route"],"struct":["UutSlot"],"trait":["SubsystemSlot","UutRoute"]};

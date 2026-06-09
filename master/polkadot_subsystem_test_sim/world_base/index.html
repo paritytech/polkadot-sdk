@@ -1,0 +1,185 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Subsystem-agnostic test world base + the `HasBase` trait that gives every per-tenant `World` the shared scaffolding (`Sim`, `SharedChain`, leaf bookkeeping) plus a fluent leaf builder."><title>polkadot_subsystem_test_sim::world_base - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_subsystem_test_sim" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module world_base</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../polkadot_subsystem_test_sim/index.html">polkadot_<wbr>subsystem_<wbr>test_<wbr>sim</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module world_<wbr>base</a></h2><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate polkadot_<wbr>subsystem_<wbr>test_<wbr>sim</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">polkadot_subsystem_test_sim</a></div><h1>Module <span>world_<wbr>base</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/polkadot_subsystem_test_sim/world_base.rs.html#17-702">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Subsystem-agnostic test world base + the <a href="trait.HasBase.html" title="trait polkadot_subsystem_test_sim::world_base::HasBase"><code>HasBase</code></a> trait that gives every
+per-tenant <code>World</code> the shared scaffolding (<code>Sim</code>, <code>SharedChain</code>, leaf bookkeeping)
+plus a fluent leaf builder.</p>
+<p>Per-tenant consumer crates compose <code>WorldBase</code> as a field of their own <code>World</code>,
+impl <a href="trait.HasBase.html" title="trait polkadot_subsystem_test_sim::world_base::HasBase"><code>HasBase</code></a> (two accessor functions), and gain every base method directly:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub struct </span>World {
+    <span class="kw">pub </span>base: WorldBase&lt;MySut&gt;,
+    <span class="kw">pub </span>tenant_specific_field: ...,
+}
+
+<span class="kw">impl </span>HasBase <span class="kw">for </span>World {
+    <span class="kw">type </span>Sut = MySut;
+    <span class="kw">fn </span>base(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>WorldBase&lt;<span class="self">Self</span>::Sut&gt; { <span class="kw-2">&amp;</span><span class="self">self</span>.base }
+    <span class="kw">fn </span>base_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>WorldBase&lt;<span class="self">Self</span>::Sut&gt; { <span class="kw-2">&amp;mut </span><span class="self">self</span>.base }
+}
+
+<span class="comment">// Tenant scenarios call `world.new_block().with_head_data(...).activate()` —
+// single fluent builder. Forks via `.from_parent(prev_leaf.hash)`.</span></code></pre></div></div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.BlockBuilder.html" title="struct polkadot_subsystem_test_sim::world_base::BlockBuilder">Block<wbr>Builder</a></dt><dd>Fluent builder for a new block. Accumulates per-para head data + pending
+availability, then on <code>.register()</code> / <code>.activate()</code>:</dd><dt><a class="struct" href="struct.LeafRef.html" title="struct polkadot_subsystem_test_sim::world_base::LeafRef">LeafRef</a></dt><dd>Identity of a leaf the harness has signalled <code>ActiveLeaves::start_work</code> for. Returned
+from <a href="struct.BlockBuilder.html#method.activate" title="method polkadot_subsystem_test_sim::world_base::BlockBuilder::activate"><code>BlockBuilder::activate</code></a> / <a href="struct.BlockBuilder.html#method.register" title="method polkadot_subsystem_test_sim::world_base::BlockBuilder::register"><code>BlockBuilder::register</code></a> and held by tests.</dd><dt><a class="struct" href="struct.WorldBase.html" title="struct polkadot_subsystem_test_sim::world_base::WorldBase">World<wbr>Base</a></dt><dd>Subsystem-agnostic shared test-world state: the running <code>Sim</code>, the chain model,
+the activated leaves, and the suite-wide <a href="struct.WorldConfig.html" title="struct polkadot_subsystem_test_sim::world_base::WorldConfig"><code>WorldConfig</code></a>.</dd><dt><a class="struct" href="struct.WorldConfig.html" title="struct polkadot_subsystem_test_sim::world_base::WorldConfig">World<wbr>Config</a></dt><dd>Suite-wide world configuration consumed once at <a href="struct.WorldBase.html#method.start" title="associated function polkadot_subsystem_test_sim::world_base::WorldBase::start"><code>WorldBase::start</code></a>. Mid-test
+changes flow directly through <a href="../chain/model/struct.ChainModel.html" title="struct polkadot_subsystem_test_sim::chain::model::ChainModel"><code>crate::chain::ChainModel</code></a> (<code>add_session</code>,
+<code>set_claim_queue_at</code>, <code>set_runtime_api_version</code>, etc.) — single source of truth for
+chain/runtime state.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.HasBase.html" title="trait polkadot_subsystem_test_sim::world_base::HasBase">HasBase</a></dt><dd>Trait every per-tenant <code>World</code> impls. Two accessor methods (<code>base</code> + <code>base_mut</code>)
+plus default-impl convenience methods: leaf builder, leaf deactivation, raw
+active-leaves signal, suite-wide config accessors.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.build_chain_model.html" title="fn polkadot_subsystem_test_sim::world_base::build_chain_model">build_<wbr>chain_<wbr>model</a></dt><dd>Build a <code>SharedChain</code> from a <a href="struct.WorldConfig.html" title="struct polkadot_subsystem_test_sim::world_base::WorldConfig"><code>WorldConfig</code></a>. Tenants whose responder graph needs
+extra layers in front of the chain (e.g. a <code>CanSecond</code> query stub) build their
+own <a href="../harness/dispatcher/struct.LayeredResponder.html" title="struct polkadot_subsystem_test_sim::harness::dispatcher::LayeredResponder"><code>LayeredResponder</code></a> and pass <code>chain.clone()</code> into <a href="struct.WorldBase.html#method.start_with_responder" title="associated function polkadot_subsystem_test_sim::world_base::WorldBase::start_with_responder"><code>WorldBase::start_with_responder</code></a>.
+Most tenants use <a href="struct.WorldBase.html#method.start" title="associated function polkadot_subsystem_test_sim::world_base::WorldBase::start"><code>WorldBase::start</code></a> and don’t touch this directly.</dd><dt><a class="fn" href="fn.synthesise_constraints.html" title="fn polkadot_subsystem_test_sim::world_base::synthesise_constraints">synthesise_<wbr>constraints</a></dt><dd>Synthesise a permissive backing-constraints record. <code>valid_watermarks = vec![leaf.number]</code> matches <code>hrmp_watermark = relay_parent_number</code> in default
+<code>make_candidate(...)</code> output; <code>required_parent = head_data</code> ties acceptance to the
+leaf-flavoured head data the test declares.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

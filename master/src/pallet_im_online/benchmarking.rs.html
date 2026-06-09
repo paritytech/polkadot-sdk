@@ -148,7 +148,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 	}
 </style>
 
-<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">pallet_im_online/</div>benchmarking.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file is part of Substrate.
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">pallet_im_online/</div>benchmarking.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file is part of Substrate.
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a>// Copyright (C) Parity Technologies (UK) Ltd.
 <a href=#4 id=4 data-nosnippet>4</a>// SPDX-License-Identifier: Apache-2.0
@@ -170,7 +170,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#20 id=20 data-nosnippet>20</a></span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 <a href=#21 id=21 data-nosnippet>21</a>
 <a href=#22 id=22 data-nosnippet>22</a></span><span class="kw">use </span>frame_benchmarking::v2::<span class="kw-2">*</span>;
-<a href=#23 id=23 data-nosnippet>23</a><span class="kw">use </span>frame_support::{traits::UnfilteredDispatchable, WeakBoundedVec};
+<a href=#23 id=23 data-nosnippet>23</a><span class="kw">use </span>frame_support::{traits::Authorize, WeakBoundedVec};
 <a href=#24 id=24 data-nosnippet>24</a><span class="kw">use </span>frame_system::RawOrigin;
 <a href=#25 id=25 data-nosnippet>25</a><span class="kw">use </span>sp_runtime::{traits::Zero, transaction_validity::TransactionSource};
 <a href=#26 id=26 data-nosnippet>26</a>
@@ -207,64 +207,44 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#57 id=57 data-nosnippet>57</a>	<span class="prelude-val">Ok</span>((input_heartbeat, signature))
 <a href=#58 id=58 data-nosnippet>58</a>}
 <a href=#59 id=59 data-nosnippet>59</a>
-<a href=#60 id=60 data-nosnippet>60</a><span class="attr">#[benchmarks]
+<a href=#60 id=60 data-nosnippet>60</a><span class="attr">#[benchmarks(<span class="kw">where </span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall: From&lt;Call&lt;T&gt;&gt;)]
 <a href=#61 id=61 data-nosnippet>61</a></span><span class="kw">mod </span>benchmarks {
 <a href=#62 id=62 data-nosnippet>62</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 <a href=#63 id=63 data-nosnippet>63</a>
-<a href=#64 id=64 data-nosnippet>64</a>	<span class="attr">#[benchmark(extra)]
+<a href=#64 id=64 data-nosnippet>64</a>	<span class="attr">#[benchmark]
 <a href=#65 id=65 data-nosnippet>65</a>	</span><span class="kw">fn </span>heartbeat(k: Linear&lt;<span class="number">1</span>, { &lt;T <span class="kw">as </span>Config&gt;::MaxKeys::get() }&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 <a href=#66 id=66 data-nosnippet>66</a>		<span class="kw">let </span>(input_heartbeat, signature) = create_heartbeat::&lt;T&gt;(k)<span class="question-mark">?</span>;
 <a href=#67 id=67 data-nosnippet>67</a>
 <a href=#68 id=68 data-nosnippet>68</a>		<span class="attr">#[extrinsic_call]
-<a href=#69 id=69 data-nosnippet>69</a>		</span><span class="kw">_</span>(RawOrigin::None, input_heartbeat, signature);
+<a href=#69 id=69 data-nosnippet>69</a>		</span><span class="kw">_</span>(RawOrigin::Authorized, input_heartbeat, signature);
 <a href=#70 id=70 data-nosnippet>70</a>
 <a href=#71 id=71 data-nosnippet>71</a>		<span class="prelude-val">Ok</span>(())
 <a href=#72 id=72 data-nosnippet>72</a>	}
 <a href=#73 id=73 data-nosnippet>73</a>
-<a href=#74 id=74 data-nosnippet>74</a>	<span class="attr">#[benchmark(extra)]
-<a href=#75 id=75 data-nosnippet>75</a>	</span><span class="kw">fn </span>validate_unsigned(
+<a href=#74 id=74 data-nosnippet>74</a>	<span class="attr">#[benchmark]
+<a href=#75 id=75 data-nosnippet>75</a>	</span><span class="kw">fn </span>authorize_heartbeat(
 <a href=#76 id=76 data-nosnippet>76</a>		k: Linear&lt;<span class="number">1</span>, { &lt;T <span class="kw">as </span>Config&gt;::MaxKeys::get() }&gt;,
 <a href=#77 id=77 data-nosnippet>77</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 <a href=#78 id=78 data-nosnippet>78</a>		<span class="kw">let </span>(input_heartbeat, signature) = create_heartbeat::&lt;T&gt;(k)<span class="question-mark">?</span>;
-<a href=#79 id=79 data-nosnippet>79</a>		<span class="kw">let </span>call = Call::heartbeat { heartbeat: input_heartbeat, signature };
-<a href=#80 id=80 data-nosnippet>80</a>
-<a href=#81 id=81 data-nosnippet>81</a>		<span class="attr">#[block]
-<a href=#82 id=82 data-nosnippet>82</a>		</span>{
-<a href=#83 id=83 data-nosnippet>83</a>			<span class="attr">#[allow(deprecated)]
-<a href=#84 id=84 data-nosnippet>84</a>			</span>Pallet::&lt;T&gt;::validate_unsigned(TransactionSource::InBlock, <span class="kw-2">&amp;</span>call)
-<a href=#85 id=85 data-nosnippet>85</a>				.map_err(&lt;<span class="kw-2">&amp;</span>str&gt;::from)<span class="question-mark">?</span>;
-<a href=#86 id=86 data-nosnippet>86</a>		}
-<a href=#87 id=87 data-nosnippet>87</a>
-<a href=#88 id=88 data-nosnippet>88</a>		<span class="prelude-val">Ok</span>(())
-<a href=#89 id=89 data-nosnippet>89</a>	}
-<a href=#90 id=90 data-nosnippet>90</a>
-<a href=#91 id=91 data-nosnippet>91</a>	<span class="attr">#[benchmark]
-<a href=#92 id=92 data-nosnippet>92</a>	</span><span class="kw">fn </span>validate_unsigned_and_then_heartbeat(
-<a href=#93 id=93 data-nosnippet>93</a>		k: Linear&lt;<span class="number">1</span>, { &lt;T <span class="kw">as </span>Config&gt;::MaxKeys::get() }&gt;,
-<a href=#94 id=94 data-nosnippet>94</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-<a href=#95 id=95 data-nosnippet>95</a>		<span class="kw">let </span>(input_heartbeat, signature) = create_heartbeat::&lt;T&gt;(k)<span class="question-mark">?</span>;
-<a href=#96 id=96 data-nosnippet>96</a>		<span class="kw">let </span>call = Call::heartbeat { heartbeat: input_heartbeat, signature };
-<a href=#97 id=97 data-nosnippet>97</a>		<span class="kw">let </span>call_enc = call.encode();
-<a href=#98 id=98 data-nosnippet>98</a>
-<a href=#99 id=99 data-nosnippet>99</a>		<span class="attr">#[block]
-<a href=#100 id=100 data-nosnippet>100</a>		</span>{
-<a href=#101 id=101 data-nosnippet>101</a>			<span class="attr">#[allow(deprecated)]
-<a href=#102 id=102 data-nosnippet>102</a>			</span>Pallet::&lt;T&gt;::validate_unsigned(TransactionSource::InBlock, <span class="kw-2">&amp;</span>call)
-<a href=#103 id=103 data-nosnippet>103</a>				.map_err(&lt;<span class="kw-2">&amp;</span>str&gt;::from)<span class="question-mark">?</span>;
-<a href=#104 id=104 data-nosnippet>104</a>			&lt;Call&lt;T&gt; <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;*</span>call_enc)
-<a href=#105 id=105 data-nosnippet>105</a>				.expect(<span class="string">"call is encoded above, encoding must be correct"</span>)
-<a href=#106 id=106 data-nosnippet>106</a>				.dispatch_bypass_filter(RawOrigin::None.into())<span class="question-mark">?</span>;
-<a href=#107 id=107 data-nosnippet>107</a>		}
-<a href=#108 id=108 data-nosnippet>108</a>
-<a href=#109 id=109 data-nosnippet>109</a>		<span class="prelude-val">Ok</span>(())
-<a href=#110 id=110 data-nosnippet>110</a>	}
-<a href=#111 id=111 data-nosnippet>111</a>
-<a href=#112 id=112 data-nosnippet>112</a>	<span class="macro">impl_benchmark_test_suite!</span> {
-<a href=#113 id=113 data-nosnippet>113</a>		Pallet,
-<a href=#114 id=114 data-nosnippet>114</a>		mock::new_test_ext(),
-<a href=#115 id=115 data-nosnippet>115</a>		mock::Runtime
-<a href=#116 id=116 data-nosnippet>116</a>	}
-<a href=#117 id=117 data-nosnippet>117</a>}
+<a href=#79 id=79 data-nosnippet>79</a>		<span class="kw">let </span>call: &lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall =
+<a href=#80 id=80 data-nosnippet>80</a>			Call::heartbeat { heartbeat: input_heartbeat, signature }.into();
+<a href=#81 id=81 data-nosnippet>81</a>
+<a href=#82 id=82 data-nosnippet>82</a>		<span class="attr">#[block]
+<a href=#83 id=83 data-nosnippet>83</a>		</span>{
+<a href=#84 id=84 data-nosnippet>84</a>			call.authorize(TransactionSource::InBlock)
+<a href=#85 id=85 data-nosnippet>85</a>				.expect(<span class="string">"heartbeat call should have authorize logic"</span>)
+<a href=#86 id=86 data-nosnippet>86</a>				.map_err(|<span class="kw">_</span>| <span class="string">"authorize failed"</span>)<span class="question-mark">?</span>;
+<a href=#87 id=87 data-nosnippet>87</a>		}
+<a href=#88 id=88 data-nosnippet>88</a>
+<a href=#89 id=89 data-nosnippet>89</a>		<span class="prelude-val">Ok</span>(())
+<a href=#90 id=90 data-nosnippet>90</a>	}
+<a href=#91 id=91 data-nosnippet>91</a>
+<a href=#92 id=92 data-nosnippet>92</a>	<span class="macro">impl_benchmark_test_suite!</span> {
+<a href=#93 id=93 data-nosnippet>93</a>		Pallet,
+<a href=#94 id=94 data-nosnippet>94</a>		mock::new_test_ext(),
+<a href=#95 id=95 data-nosnippet>95</a>		mock::Runtime
+<a href=#96 id=96 data-nosnippet>96</a>	}
+<a href=#97 id=97 data-nosnippet>97</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
