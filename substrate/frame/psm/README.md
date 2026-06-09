@@ -166,6 +166,12 @@ Before calling `add_external_asset(internal_asset, asset_id)`:
 - `|external_decimals − internal_decimals|` must be within `MAX_DECIMALS_DIFF`
 - The PSM must still be below `MaxExternalAssetsPerPsm`
 
+After `add_external_asset`, the external starts with an `AssetCeilingWeight` of `0%`, so its
+per-external ceiling is zero and **minting is disabled**. Before the first mint, call
+`set_asset_ceiling_weight(internal_asset, asset_id, weight)` with a non-zero weight (and
+optionally `set_minting_fee` / `set_redemption_fee`, which otherwise default to 0.5%).
+Skipping this step makes the first mint fail with `ExceedsMaxPsmDebt`.
+
 ## Configuration
 
 ```rust
