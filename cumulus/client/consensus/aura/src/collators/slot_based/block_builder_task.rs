@@ -693,6 +693,24 @@ where
 	check_validation_code_or_log(&validation_code_hash, para_id, relay_client, relay_parent_hash)
 		.await;
 
+	// Relay-parent session for every block built against this relay parent, recorded in the
+	// resubmission store so stale-session entries can be pruned later.
+	//
+	// TODO(#12057): route this through `RelayChainDataCache`
+	let relay_parent_session = match relay_client.session_index_for_child(relay_parent_hash).await {
+		Ok(session) => Some(session),
+		Err(err) => {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?relay_parent_hash,
+				?err,
+				"Failed to fetch relay-parent session; resubmission entries for this relay parent \
+				 won't be session-pruned",
+			);
+			None
+		},
+	};
+
 	let mut blocks = Vec::new();
 	let mut proofs = Vec::new();
 	let mut ignored_nodes = IgnoredNodes::default();
@@ -838,10 +856,15 @@ where
 		}
 
 		let time_ms = now_unix_ms();
-		prepare_unincluded_segment_aux_data::<Block>(parent_hash, time_ms, &built_block.proof)
-			.for_each(|(k, v)| {
-				import_block.auxiliary.push((k, Some(v)));
-			});
+		prepare_unincluded_segment_aux_data::<Block>(
+			parent_hash,
+			time_ms,
+			relay_parent_session,
+			&built_block.proof,
+		)
+		.for_each(|(k, v)| {
+			import_block.auxiliary.push((k, Some(v)));
+		});
 
 		if let Err(error) = collator.import_block(import_block).await {
 			tracing::error!(target: LOG_TARGET, ?error, "Failed to import built block.");

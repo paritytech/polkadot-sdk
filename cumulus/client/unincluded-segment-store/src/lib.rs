@@ -17,11 +17,14 @@
 
 //! Per-block proof store for unincluded segment resubmission.
 //!
-//! Persists `(time, StorageProof)` per imported parablock, keyed by parablock hash. Data is
-//! pruned on parachain finality.
+//! Persists a [`StoredEntry`] (capture time, relay-parent session and storage proof) per
+//! imported parablock, keyed by parablock hash. Data is pruned on parachain finality
+//! ([`finality_cleanup_ops`]) and, once a relay-chain session ages out, by relay-parent session
+//! ([`session_cleanup_ops`]).
 
 use codec::{Decode, Encode};
 use cumulus_client_consensus_common::old_finalized_hash;
+use cumulus_primitives_core::relay_chain::SessionIndex;
 use sc_client_api::{
 	backend::AuxStore,
 	client::{AuxDataOperations, FinalityNotification, PreCommitActions},
@@ -51,10 +54,25 @@ pub fn now_unix_ms() -> u64 {
 /// Entry stored in aux storage for each unincluded parablock.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct StoredEntry {
-	/// Unix millis at the moment block_import started.
+	/// Unix millis captured when this entry was recorded during block-import preparation.
 	pub time_ms: u64,
-	/// The storage proof captured at block_import.
+	/// The storage proof captured at block import.
 	pub proof: StorageProof,
+	/// Relay-chain session a block on this relay parent is expected to be included in (the relay
+	/// parent's `session_index_for_child`); `Some` for locally-built blocks, `None` for imported
+	/// ones whose session isn't resolvable at import. Drives [`session_cleanup_ops`].
+	pub relay_parent_session: Option<SessionIndex>,
+}
+
+/// Borrowed, encode-only twin of [`StoredEntry`] used on the write path to avoid cloning the proof.
+///
+/// Must keep the exact same fields, in the same order, as [`StoredEntry`] so the two encode
+/// byte-for-byte identically (pinned by the `stored_entry_encoding_hex_snapshot` test).
+#[derive(Encode)]
+struct StoredEntryRef<'a> {
+	time_ms: u64,
+	proof: &'a StorageProof,
+	relay_parent_session: Option<SessionIndex>,
 }
 
 fn entry_key<H: Encode>(block_hash: H) -> Vec<u8> {
@@ -62,18 +80,18 @@ fn entry_key<H: Encode>(block_hash: H) -> Vec<u8> {
 }
 
 /// Per-block proof store backed by `AuxStore`.
-pub struct UnincludedSegmentStore<Block: BlockT, B> {
+pub struct ResubmissionStore<Block: BlockT, B> {
 	backend: Arc<B>,
 	_marker: PhantomData<fn() -> Block>,
 }
 
-impl<Block: BlockT, B> Clone for UnincludedSegmentStore<Block, B> {
+impl<Block: BlockT, B> Clone for ResubmissionStore<Block, B> {
 	fn clone(&self) -> Self {
 		Self { backend: self.backend.clone(), _marker: PhantomData }
 	}
 }
 
-impl<Block: BlockT, B> UnincludedSegmentStore<Block, B> {
+impl<Block: BlockT, B> ResubmissionStore<Block, B> {
 	/// Create a new store over `backend`.
 	pub fn new(backend: Arc<B>) -> Self {
 		Self { backend, _marker: PhantomData }
@@ -87,16 +105,17 @@ impl<Block: BlockT, B> UnincludedSegmentStore<Block, B> {
 pub fn prepare_aux_data<Block: BlockT>(
 	block_hash: Block::Hash,
 	time_ms: u64,
+	relay_parent_session: Option<SessionIndex>,
 	proof: &StorageProof,
 ) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> {
-	let encoded_entry = (time_ms, proof).encode();
+	let encoded_entry = StoredEntryRef { time_ms, proof, relay_parent_session }.encode();
 	let encoded_version = STORE_CURRENT_VERSION.encode();
 
 	[(entry_key(block_hash), encoded_entry), (STORE_VERSION_KEY.to_vec(), encoded_version)]
 		.into_iter()
 }
 
-impl<Block: BlockT, B: AuxStore> UnincludedSegmentStore<Block, B> {
+impl<Block: BlockT, B: AuxStore> ResubmissionStore<Block, B> {
 	/// Load the entry stored for `block_hash`, if any.
 	pub fn load(&self, block_hash: Block::Hash) -> ClientResult<Option<StoredEntry>> {
 		let version = self.decode_aux::<u32>(STORE_VERSION_KEY)?;
@@ -109,6 +128,36 @@ impl<Block: BlockT, B: AuxStore> UnincludedSegmentStore<Block, B> {
 				other
 			))),
 		}
+	}
+
+	/// Delete entries whose relay-parent session is more than `max_session_age` behind
+	/// `current_session`, committing the deletes to aux storage.
+	///
+	/// `hashes` is the live unincluded-segment set supplied by the resubmission engine from its
+	/// segment walk; the relay-parent session for each is read back from the stored
+	/// [`StoredEntry::relay_parent_session`] — so it is not passed in. `current_session` and
+	/// `max_session_age` are relay-chain values the store cannot derive and must be provided.
+	/// Entries with an unknown (or missing) session are left untouched and reclaimed by finality
+	/// cleanup instead. See [`session_cleanup_ops`].
+	pub fn prune_old_sessions(
+		&self,
+		hashes: impl IntoIterator<Item = Block::Hash>,
+		current_session: SessionIndex,
+		max_session_age: SessionIndex,
+	) -> ClientResult<()> {
+		let mut entries = Vec::new();
+		for hash in hashes {
+			let session = self.load(hash)?.and_then(|entry| entry.relay_parent_session);
+			entries.push((hash, session));
+		}
+
+		let ops = session_cleanup_ops::<Block>(entries, current_session, max_session_age);
+		if ops.is_empty() {
+			return Ok(());
+		}
+
+		let delete: Vec<&[u8]> = ops.iter().map(|(key, _)| key.as_slice()).collect();
+		self.backend.insert_aux(&[], &delete)
 	}
 
 	fn decode_aux<T: Decode>(&self, key: &[u8]) -> ClientResult<Option<T>> {
@@ -124,7 +173,7 @@ impl<Block: BlockT, B: AuxStore> UnincludedSegmentStore<Block, B> {
 	}
 }
 
-impl<Block, B> UnincludedSegmentStore<Block, B>
+impl<Block, B> ResubmissionStore<Block, B>
 where
 	Block: BlockT,
 	B: PreCommitActions<Block> + HeaderBackend<Block> + 'static,
@@ -132,9 +181,8 @@ where
 	/// Register a finality hook that prunes entries for the just-finalized chain, the
 	/// intermediate tree route, the prior finalized head, and any stale forks.
 	///
-	/// TODO(#12034): also prune entries whose relay-parent session is older than
-	/// `max_relay_parent_session_age` relative to the current session. Session info will be
-	/// sourced from a separate session-data cache (see #11624), not from per-entry storage.
+	/// Pruning of entries whose relay-parent session is older than `max_relay_parent_session_age`
+	/// relative to the current session.
 	pub fn register_cleanup(&self) {
 		let client = self.backend.clone();
 		let on_finality = move |notification: &FinalityNotification<Block>| -> AuxDataOperations {
@@ -178,6 +226,24 @@ fn finality_cleanup_ops<Block: BlockT>(
 	ops
 }
 
+/// Emits a delete for every entry whose `relay_parent_session` is more than `max_session_age`
+/// behind `current_session`. Entries with an unknown session (`None`) are left untouched — those
+/// are pruned at finality by [`finality_cleanup_ops`].
+pub fn session_cleanup_ops<Block: BlockT>(
+	entries: impl IntoIterator<Item = (Block::Hash, Option<SessionIndex>)>,
+	current_session: SessionIndex,
+	max_session_age: SessionIndex,
+) -> AuxDataOperations {
+	entries
+		.into_iter()
+		.filter_map(|(hash, session)| {
+			let session = session?;
+			(current_session.saturating_sub(session) > max_session_age)
+				.then(|| (entry_key(hash), None))
+		})
+		.collect()
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -186,10 +252,14 @@ mod tests {
 	type Block = substrate_test_runtime::Block;
 	type Hash = <Block as BlockT>::Hash;
 	type TestBackend = sc_client_api::in_mem::Backend<Block>;
-	type Store = UnincludedSegmentStore<Block, TestBackend>;
+	type Store = ResubmissionStore<Block, TestBackend>;
 
 	fn create_test_entry(time_ms: u64) -> StoredEntry {
-		StoredEntry { time_ms, proof: StorageProof::new(vec![vec![1, 2, 3], vec![4, 5, 6]]) }
+		StoredEntry {
+			time_ms,
+			proof: StorageProof::new(vec![vec![1, 2, 3], vec![4, 5, 6]]),
+			relay_parent_session: Some(1),
+		}
 	}
 
 	fn new_store() -> (Arc<TestBackend>, Store) {
@@ -199,7 +269,13 @@ mod tests {
 	}
 
 	fn write_via_store(backend: &Arc<TestBackend>, hash: Hash, entry: &StoredEntry) {
-		let pairs: Vec<_> = prepare_aux_data::<Block>(hash, entry.time_ms, &entry.proof).collect();
+		let pairs: Vec<_> = prepare_aux_data::<Block>(
+			hash,
+			entry.time_ms,
+			entry.relay_parent_session,
+			&entry.proof,
+		)
+		.collect();
 		let insert_pairs: Vec<_> =
 			pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
 		AuxStore::insert_aux(&**backend, &insert_pairs, &[]).expect("aux insert should succeed");
@@ -210,8 +286,10 @@ mod tests {
 		let hash = Hash::repeat_byte(0xAB);
 		let time_ms = 1234567890u64;
 		let proof = StorageProof::new(vec![vec![10, 20, 30]]);
+		let relay_parent_session = Some(42);
 
-		let pairs: Vec<_> = prepare_aux_data::<Block>(hash, time_ms, &proof).collect();
+		let pairs: Vec<_> =
+			prepare_aux_data::<Block>(hash, time_ms, relay_parent_session, &proof).collect();
 
 		assert_eq!(pairs.len(), 2);
 
@@ -222,6 +300,7 @@ mod tests {
 			StoredEntry::decode(&mut pairs[0].1.as_slice()).expect("entry should decode");
 		assert_eq!(decoded_entry.time_ms, time_ms);
 		assert_eq!(decoded_entry.proof, proof);
+		assert_eq!(decoded_entry.relay_parent_session, relay_parent_session);
 
 		assert_eq!(pairs[1].0, STORE_VERSION_KEY.to_vec());
 		let decoded_version =
@@ -282,9 +361,87 @@ mod tests {
 	}
 
 	#[test]
+	fn session_cleanup_prunes_only_sessions_older_than_max_age() {
+		let too_old = Hash::repeat_byte(0x01); // session 1, age 4 > 2 => pruned
+		let boundary = Hash::repeat_byte(0x02); // session 3, age 2 == max => kept
+		let recent = Hash::repeat_byte(0x04); // session 5, age 0 => kept
+		let unknown = Hash::repeat_byte(0x05); // no session => kept
+
+		let ops = session_cleanup_ops::<Block>(
+			[(too_old, Some(1)), (boundary, Some(3)), (recent, Some(5)), (unknown, None)],
+			5, // current session
+			2, // max session age
+		);
+
+		let keys: Vec<_> = ops.iter().map(|(k, _)| k.clone()).collect();
+		assert_eq!(keys, vec![entry_key(too_old)], "only the too-old entry should be pruned");
+		assert!(ops.iter().all(|(_, v)| v.is_none()));
+	}
+
+	#[test]
+	fn session_cleanup_handles_empty_input() {
+		let ops =
+			session_cleanup_ops::<Block>(std::iter::empty::<(Hash, Option<SessionIndex>)>(), 10, 2);
+		assert!(ops.is_empty());
+	}
+
+	#[test]
+	fn prune_old_sessions_deletes_and_commits() {
+		let (backend, store) = new_store();
+
+		let old = Hash::repeat_byte(0x01); // session 1, age 4 > 2 => pruned
+		let recent = Hash::repeat_byte(0x02); // session 5, age 0 => kept
+		let unknown = Hash::repeat_byte(0x03); // unknown session => kept
+
+		let write = |hash: Hash, session: Option<SessionIndex>| {
+			let proof = StorageProof::new(vec![vec![1, 2, 3]]);
+			let pairs: Vec<_> = prepare_aux_data::<Block>(hash, 1_000, session, &proof).collect();
+			let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
+			AuxStore::insert_aux(&*backend, &refs, &[]).expect("insert");
+		};
+		write(old, Some(1));
+		write(recent, Some(5));
+		write(unknown, None);
+
+		// Sessions are read back from the stored entries; the caller passes only hashes.
+		store
+			.prune_old_sessions(
+				[old, recent, unknown],
+				5, // current session
+				2, // max session age
+			)
+			.expect("prune should commit");
+
+		assert_eq!(store.load(old).expect("load"), None, "old-session entry must be deleted");
+		assert!(store.load(recent).expect("load").is_some(), "recent entry must survive");
+		assert!(store.load(unknown).expect("load").is_some(), "unknown-session entry must survive");
+	}
+
+	#[test]
+	fn prune_old_sessions_keeps_recent_and_handles_missing() {
+		let (backend, store) = new_store();
+
+		let recent = Hash::repeat_byte(0x09);
+		let proof = StorageProof::new(vec![vec![1, 2, 3]]);
+		let pairs: Vec<_> = prepare_aux_data::<Block>(recent, 1_000, Some(10), &proof).collect();
+		let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
+		AuxStore::insert_aux(&*backend, &refs, &[]).expect("insert");
+
+		// `recent` is current; `missing` was never stored. Neither should be deleted, no error.
+		store
+			.prune_old_sessions([recent, Hash::repeat_byte(0xEE)], 10, 2)
+			.expect("no-op prune should succeed");
+
+		assert!(store.load(recent).expect("load").is_some(), "recent entry must survive");
+	}
+
+	#[test]
 	fn stored_entry_encoding_hex_snapshot() {
-		let entry =
-			StoredEntry { time_ms: 1234567890u64, proof: StorageProof::new(vec![vec![1, 2, 3]]) };
+		let entry = StoredEntry {
+			time_ms: 1234567890u64,
+			proof: StorageProof::new(vec![vec![1, 2, 3]]),
+			relay_parent_session: Some(7),
+		};
 
 		let encoded = entry.encode();
 		// Snapshot of the SCALE encoding. If this assertion fires, the on-disk format of
@@ -292,10 +449,11 @@ mod tests {
 		// to decode — bump `STORE_CURRENT_VERSION` and add a migration before updating this
 		// snapshot.
 		let encoded_hex = hex::encode(&encoded);
-		// time_ms = 1234567890 little-endian u64 = d2 02 96 49 00 00 00 00
-		// proof   = Vec<Vec<u8>> with one element [1,2,3]: outer len 1 (SCALE compact = 04),
-		//           inner len 3 (compact = 0c), bytes 01 02 03
-		let expected_hex = "d20296490000000004 0c 010203".replace(' ', "");
+		// time_ms              = 1234567890 little-endian u64 = d2 02 96 49 00 00 00 00
+		// proof                = Vec<Vec<u8>> with one element [1,2,3]: outer len 1 (SCALE
+		//                        compact = 04), inner len 3 (compact = 0c), bytes 01 02 03
+		// relay_parent_session = Some(7): Option tag 01, u32 little-endian 07 00 00 00
+		let expected_hex = "d20296490000000004 0c 010203 01 07000000".replace(' ', "");
 		assert_eq!(encoded_hex, expected_hex, "StoredEntry encoding changed!");
 
 		let decoded = StoredEntry::decode(&mut encoded.as_slice()).expect("decode should succeed");
@@ -404,16 +562,26 @@ mod tests {
 
 		// Write `a` and `b` via the same path block-import uses, then close.
 		with_backend(path, |backend| {
-			let pairs: Vec<_> = prepare_aux_data::<Block>(hash_a, entry_a.time_ms, &entry_a.proof)
-				.chain(prepare_aux_data::<Block>(hash_b, entry_b.time_ms, &entry_b.proof))
-				.collect();
+			let pairs: Vec<_> = prepare_aux_data::<Block>(
+				hash_a,
+				entry_a.time_ms,
+				entry_a.relay_parent_session,
+				&entry_a.proof,
+			)
+			.chain(prepare_aux_data::<Block>(
+				hash_b,
+				entry_b.time_ms,
+				entry_b.relay_parent_session,
+				&entry_b.proof,
+			))
+			.collect();
 			let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
 			AuxStore::insert_aux(&**backend, &refs, &[]).expect("aux insert");
 		});
 
 		// Restart: confirm both entries survived, then apply a finality-style delete of `a`.
 		with_backend(path, |backend| {
-			let store = UnincludedSegmentStore::<Block, _>::new(backend.clone());
+			let store = ResubmissionStore::<Block, _>::new(backend.clone());
 			assert_eq!(store.load(hash_a).expect("load a"), Some(entry_a.clone()));
 			assert_eq!(store.load(hash_b).expect("load b"), Some(entry_b.clone()));
 
@@ -430,7 +598,7 @@ mod tests {
 
 		// Restart: the delete must have persisted; `b` must still be there.
 		with_backend(path, |backend| {
-			let store = UnincludedSegmentStore::<Block, _>::new(backend.clone());
+			let store = ResubmissionStore::<Block, _>::new(backend.clone());
 			assert_eq!(store.load(hash_a).expect("load a"), None, "hash_a delete must persist");
 			assert_eq!(store.load(hash_b).expect("load b"), Some(entry_b));
 		});
