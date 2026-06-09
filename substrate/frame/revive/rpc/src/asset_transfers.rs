@@ -48,7 +48,9 @@ const FOREIGN_INDEX_PALLET: &str = "AssetsPrecompiles";
 const FOREIGN_INDEX_ENTRY: &str = "ForeignAssetIdToAssetIndex";
 
 /// Maps `pallet-assets` instances (by metadata pallet name) to their precompile address prefix.
-/// Defaults match Asset Hub Westend.
+///
+/// Prefixes are a per-runtime choice, not a protocol constant; defaults target Asset Hub and
+/// are overridable for chains that pick different ones.
 ///
 /// `u32_instances`: `AssetId` is a `u32`, so the address is computed statelessly.
 /// `foreign_instances`: `AssetId` is an XCM `Location`; the event carries the `Location`, not
