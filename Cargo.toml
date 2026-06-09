@@ -160,6 +160,7 @@ members = [
 	"polkadot/erasure-coding",
 	"polkadot/erasure-coding/fuzzer",
 	"polkadot/jemalloc-shim",
+	"polkadot/node/clock",
 	"polkadot/node/collation-generation",
 	"polkadot/node/core/approval-voting",
 	"polkadot/node/core/approval-voting-parallel",
@@ -279,6 +280,7 @@ members = [
 	"substrate/client/executor/polkavm",
 	"substrate/client/executor/runtime-test",
 	"substrate/client/executor/wasmtime",
+	"substrate/client/hop",
 	"substrate/client/informant",
 	"substrate/client/keystore",
 	"substrate/client/merkle-mountain-range",
@@ -897,8 +899,8 @@ isahc = { version = "1.2" }
 itertools = { version = "0.11" }
 jobserver = { version = "0.1.26" }
 jsonpath_lib = { version = "0.3" }
-jsonrpsee = { version = "0.24.10" }
-jsonrpsee-core = { version = "0.24.10" }
+jsonrpsee = { version = "0.24.11" }
+jsonrpsee-core = { version = "0.24.11" }
 k256 = { version = "0.13.4", default-features = false }
 kitchensink-runtime = { path = "substrate/bin/node/runtime" }
 kvdb = { version = "0.13.0" }
@@ -1121,6 +1123,7 @@ polkadot-erasure-coding = { path = "polkadot/erasure-coding", default-features =
 polkadot-gossip-support = { path = "polkadot/node/network/gossip-support", default-features = false }
 polkadot-jemalloc-shim = { path = "polkadot/jemalloc-shim" }
 polkadot-network-bridge = { path = "polkadot/node/network/bridge", default-features = false }
+polkadot-node-clock = { path = "polkadot/node/clock", default-features = false }
 polkadot-node-collation-generation = { path = "polkadot/node/collation-generation", default-features = false }
 polkadot-node-core-approval-voting = { path = "polkadot/node/core/approval-voting", default-features = false }
 polkadot-node-core-approval-voting-parallel = { path = "polkadot/node/core/approval-voting-parallel", default-features = false }
@@ -1247,6 +1250,7 @@ sc-executor = { path = "substrate/client/executor", default-features = false }
 sc-executor-common = { path = "substrate/client/executor/common", default-features = false }
 sc-executor-polkavm = { path = "substrate/client/executor/polkavm", default-features = false }
 sc-executor-wasmtime = { path = "substrate/client/executor/wasmtime", default-features = false }
+sc-hop = { path = "substrate/client/hop", default-features = false }
 sc-informant = { path = "substrate/client/informant", default-features = false }
 sc-keystore = { path = "substrate/client/keystore", default-features = false }
 sc-mixnet = { path = "substrate/client/mixnet", default-features = false }

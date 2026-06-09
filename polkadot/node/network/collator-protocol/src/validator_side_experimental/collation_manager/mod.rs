@@ -32,6 +32,7 @@ use crate::{
 };
 use fatality::Split;
 use futures::{channel::oneshot, stream::FusedStream};
+use polkadot_node_clock::Clock;
 use polkadot_node_network_protocol::{
 	peer_set::CollationVersion,
 	request_response::{outgoing::RequestError, v2 as request_v2, Requests},
@@ -58,6 +59,7 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::Either;
 use std::{
 	collections::{BTreeMap, BTreeSet, HashMap, VecDeque},
+	sync::Arc,
 	time::Instant,
 };
 
@@ -110,6 +112,8 @@ pub struct CollationManager {
 	// Key store.
 	keystore: KeystorePtr,
 	leaf_scheduling_info: HashMap<Hash, LeafSchedulingInfo>,
+	// Clock for time reads (V3 scheduling-parent slot validation, advertisement timestamps).
+	clock: Arc<dyn Clock>,
 }
 
 impl CollationManager {
@@ -117,6 +121,7 @@ impl CollationManager {
 		sender: &mut Sender,
 		keystore: KeystorePtr,
 		active_leaf: ActivatedLeaf,
+		clock: Arc<dyn Clock>,
 	) -> FatalResult<Self> {
 		let mut instance = Self {
 			implicit_view: ImplicitView::new(),
@@ -127,6 +132,7 @@ impl CollationManager {
 			fetching: PendingRequests::default(),
 			keystore,
 			leaf_scheduling_info: HashMap::default(),
+			clock,
 		};
 
 		instance.update_view(sender, OurView::new([active_leaf.hash], 0)).await?;
@@ -312,8 +318,11 @@ impl CollationManager {
 		// V3 candidate descriptors require scheduling_parent to be the block from the last
 		// finished relay chain slot.
 		if advertised_descriptor_version == Some(CandidateDescriptorVersion::V3) &&
-			!is_scheduling_parent_valid(&scheduling_parent, &self.leaf_scheduling_info)
-		{
+			!is_scheduling_parent_valid(
+				&*self.clock,
+				&scheduling_parent,
+				&self.leaf_scheduling_info,
+			) {
 			return Err(AdvertisementError::SchedulingParentNotValid);
 		}
 
@@ -333,7 +342,7 @@ impl CollationManager {
 			return Err(AdvertisementError::BlockedByBacking);
 		}
 
-		per_sp.add_advertisement(peer_adv, Instant::now());
+		per_sp.add_advertisement(peer_adv, self.clock.now());
 
 		Ok(())
 	}
@@ -1533,6 +1542,7 @@ mod tests {
 			fetching: PendingRequests::default(),
 			keystore: Arc::new(sc_keystore::LocalKeystore::in_memory()),
 			leaf_scheduling_info: HashMap::default(),
+			clock: polkadot_node_clock::system_clock(),
 		};
 
 		// No advertisements - returns None.

@@ -429,6 +429,7 @@ impl Backend for PersistentDb {
 		leaf_number: BlockNumber,
 		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
 		decay_value: Option<Score>,
+		now: std::time::Duration,
 	) -> Vec<ReputationUpdate> {
 		// Mark all paras in bumps as dirty.
 		for para_id in bumps.keys() {
@@ -437,7 +438,7 @@ impl Backend for PersistentDb {
 
 		// Delegate to inner DB - NO PERSISTENCE HERE
 		// Persistence happens via the periodic timer calling persist()
-		self.inner.process_bumps(leaf_number, bumps, decay_value).await
+		self.inner.process_bumps(leaf_number, bumps, decay_value, now).await
 	}
 }
 
@@ -509,7 +510,7 @@ mod tests {
 			.into_iter()
 			.collect();
 
-			db.process_bumps(10, bumps, None).await;
+			db.process_bumps(10, bumps, None, std::time::Duration::ZERO).await;
 
 			// Persist to disk
 			let _ = db.persist_and_wait().await;
@@ -546,7 +547,7 @@ mod tests {
 			let bumps = [(para_id, [(peer, Score::new(100))].into_iter().collect())]
 				.into_iter()
 				.collect();
-			db.process_bumps(10, bumps, None).await;
+			db.process_bumps(10, bumps, None, std::time::Duration::ZERO).await;
 
 			// Persist initial state
 			let _ = db.persist_and_wait().await;
@@ -583,7 +584,7 @@ mod tests {
 			let bumps = [(para_id, [(peer, Score::new(50))].into_iter().collect())]
 				.into_iter()
 				.collect();
-			db.process_bumps(10, bumps, None).await;
+			db.process_bumps(10, bumps, None, std::time::Duration::ZERO).await;
 			let _ = db.persist_and_wait().await;
 			handle.abort();
 		}
@@ -630,7 +631,7 @@ mod tests {
 			]
 			.into_iter()
 			.collect();
-			db.process_bumps(10, bumps, None).await;
+			db.process_bumps(10, bumps, None, std::time::Duration::ZERO).await;
 			let _ = db.persist_and_wait().await;
 			handle.abort();
 		}
@@ -678,7 +679,7 @@ mod tests {
 			]
 			.into_iter()
 			.collect();
-			db.process_bumps(15, bumps, None).await;
+			db.process_bumps(15, bumps, None, std::time::Duration::ZERO).await;
 
 			// Now call periodic persist
 			let _ = db.persist_and_wait().await;
@@ -720,7 +721,7 @@ mod tests {
 			]
 			.into_iter()
 			.collect();
-			db.process_bumps(20, bumps, None).await;
+			db.process_bumps(20, bumps, None, std::time::Duration::ZERO).await;
 
 			// Slash peer2 (also persists all dirty paras via background writer)
 			db.slash(&peer2, &para_id_100, Score::new(25)).await;
@@ -744,7 +745,7 @@ mod tests {
 			let bumps = [(para_id_100, [(peer1, Score::new(50))].into_iter().collect())]
 				.into_iter()
 				.collect();
-			db.process_bumps(25, bumps, None).await;
+			db.process_bumps(25, bumps, None, std::time::Duration::ZERO).await;
 			let _ = db.persist_and_wait().await;
 			handle.abort();
 		}
@@ -783,7 +784,7 @@ mod tests {
 				[(para_id, original_scores.iter().map(|(peer, score)| (*peer, *score)).collect())]
 					.into_iter()
 					.collect();
-			db.process_bumps(100, bumps, None).await;
+			db.process_bumps(100, bumps, None, std::time::Duration::ZERO).await;
 			let _ = db.persist_and_wait().await;
 			handle.abort();
 		}
@@ -821,7 +822,7 @@ mod tests {
 			let bumps = [(para_id, [(peer, Score::new(100))].into_iter().collect())]
 				.into_iter()
 				.collect();
-			db.process_bumps(10, bumps, None).await;
+			db.process_bumps(10, bumps, None, std::time::Duration::ZERO).await;
 
 			// Verify in-memory state
 			assert_eq!(db.query(&peer, &para_id).await, Some(Score::new(100)));
@@ -868,7 +869,7 @@ mod tests {
 				})
 				.collect();
 
-			db.process_bumps(50, bumps, None).await;
+			db.process_bumps(50, bumps, None, std::time::Duration::ZERO).await;
 			let _ = db.persist_and_wait().await;
 			handle.abort();
 		}
@@ -908,7 +909,7 @@ mod tests {
 		let bumps_para_100 = [(para_id_100, [(peer1, Score::new(50))].into_iter().collect())]
 			.into_iter()
 			.collect();
-		db.process_bumps(10, bumps_para_100, None).await;
+		db.process_bumps(10, bumps_para_100, None, std::time::Duration::ZERO).await;
 
 		assert!(db.dirty_paras.contains(&para_id_100), "Para 100 should be dirty after bump");
 		assert!(!db.dirty_paras.contains(&para_id_200), "Para 200 should NOT be dirty");
@@ -956,7 +957,7 @@ mod tests {
 		]
 		.into_iter()
 		.collect();
-		db.process_bumps(10, bumps, None).await;
+		db.process_bumps(10, bumps, None, std::time::Duration::ZERO).await;
 
 		assert_eq!(db.dirty_paras.len(), 2);
 		assert!(db.dirty_paras.contains(&para_id_100));
@@ -1001,7 +1002,7 @@ mod tests {
 		]
 		.into_iter()
 		.collect();
-		db.process_bumps(10, bumps, None).await;
+		db.process_bumps(10, bumps, None, std::time::Duration::ZERO).await;
 
 		assert!(db.dirty_paras.contains(&para_id_100));
 		assert!(db.dirty_paras.contains(&para_id_200));
@@ -1039,7 +1040,7 @@ mod tests {
 		let bumps1 = [(para_id_100, [(peer1, Score::new(50))].into_iter().collect())]
 			.into_iter()
 			.collect();
-		db.process_bumps(10, bumps1, None).await;
+		db.process_bumps(10, bumps1, None, std::time::Duration::ZERO).await;
 		db.persist_async(None);
 		sleep(Duration::from_millis(50)).await;
 
@@ -1051,7 +1052,7 @@ mod tests {
 		let bumps2 = [(para_id_100, [(peer1, Score::new(15))].into_iter().collect())]
 			.into_iter()
 			.collect();
-		db.process_bumps(20, bumps2, None).await;
+		db.process_bumps(20, bumps2, None, std::time::Duration::ZERO).await;
 
 		// "Crash" (Abort handle, drop DB)
 		handle.abort();
