@@ -20,7 +20,7 @@
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use polkadot_primitives::{ApprovedPeerId, CoreSelector, Header as RelayChainHeader};
+use polkadot_primitives::{ApprovedPeerId, CoreSelector, Header as RelayChainHeader, Slot};
 use sp_runtime::traits::{BlakeTwo256, Hash as HashT};
 
 /// Payload signed by a collator for resubmission.
@@ -131,11 +131,9 @@ pub trait VerifySchedulingSignature {
 	/// Whether V3 scheduling validation is enabled.
 	const V3_SCHEDULING_ENABLED: bool;
 
-	/// Verifies `signed_info` against `internal_scheduling_parent_header`.
-	fn verify(
-		signed_info: &SignedSchedulingInfo,
-		internal_scheduling_parent_header: &RelayChainHeader,
-	) -> bool;
+	/// Verifies `signed_info` against the author eligible at `relay_slot` (the slot of the
+	/// internal scheduling parent)
+	fn verify(signed_info: &SignedSchedulingInfo, relay_slot: Slot) -> bool;
 }
 
 /// Default no-op wiring: V3 scheduling disabled, scheduling info accepted unconditionally.
@@ -144,10 +142,7 @@ pub trait VerifySchedulingSignature {
 impl VerifySchedulingSignature for () {
 	const V3_SCHEDULING_ENABLED: bool = false;
 
-	fn verify(
-		_signed_info: &SignedSchedulingInfo,
-		_internal_scheduling_parent_header: &RelayChainHeader,
-	) -> bool {
+	fn verify(_signed_info: &SignedSchedulingInfo, _relay_slot: Slot) -> bool {
 		true
 	}
 }
