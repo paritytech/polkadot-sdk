@@ -397,14 +397,12 @@ impl ReceiptExtractor {
 		signers
 	}
 
-	/// Scan block events for `pallet-assets` transfers, bucketed per extrinsic index.
-	/// Each entry carries the decoded transfer and the block-wide event index (used as the
-	/// `log_index` of the synthesized ERC-20 log). Unlike [`extract_revive_events`], this is
-	/// not gated on a known eth-transaction at the index — asset transfers can originate from
-	/// plain Substrate extrinsics that are not `eth_transact` calls.
+	/// Scan block events for `pallet-assets` transfers, bucketed per extrinsic index (paired
+	/// with the block-wide event index, used as the log's `log_index`). Unlike
+	/// [`extract_revive_events`], this is not gated on a known eth-transaction at the index:
+	/// asset transfers can come from plain extrinsics that are not `eth_transact` calls.
 	///
-	/// Foreign-asset transfers additionally require a `Location -> index` storage lookup,
-	/// hence this is `async`.
+	/// `async` because foreign assets need a `Location -> index` storage lookup.
 	async fn extract_asset_transfers(
 		&self,
 		block_events: &subxt::events::Events<SrcChainConfig>,
@@ -572,7 +570,6 @@ impl ReceiptExtractor {
 			},
 		};
 
-		// Nothing to surface if the block has neither EVM transactions nor asset transfers.
 		if eth_tx_by_index.is_empty() && asset_transfers.is_empty() {
 			return Ok(vec![]);
 		}

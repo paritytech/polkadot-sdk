@@ -34,7 +34,6 @@ use sp_core::{H160, crypto::AccountId32};
 use sp_crypto_hashing::{blake2_128, keccak_256, twox_128};
 
 /// `keccak256("Transfer(address,address,uint256)")` — topic0 of an ERC-20 Transfer.
-/// (Asserted against the runtime hash in `transfer_topic0_is_canonical`.)
 pub const ERC20_TRANSFER_TOPIC: H256 = H256([
 	0xdd, 0xf2, 0x52, 0xad, 0x1b, 0xe2, 0xc8, 0x9b, 0x69, 0xc2, 0xb0, 0x68, 0xfc, 0x37, 0x8d, 0xaa,
 	0x95, 0x2b, 0xa7, 0xf1, 0x63, 0xc4, 0xa1, 0x16, 0x28, 0xf5, 0x5a, 0x4d, 0xf5, 0x23, 0xb3, 0xef,
@@ -43,19 +42,13 @@ pub const ERC20_TRANSFER_TOPIC: H256 = H256([
 /// `bytes4(keccak256("transfer(address,uint256)"))` — the ERC-20 transfer selector.
 const ERC20_TRANSFER_SELECTOR: [u8; 4] = [0xa9, 0x05, 0x9c, 0xbb];
 
-/// Maps a `pallet-assets` instance (identified by its metadata pallet name, as seen by
-/// subxt against the connected chain) to the precompile address prefix the runtime
-/// assigns to it. The address layout matches `pallet_assets_precompiles::InlineIdConfig`:
-/// `addr[0..4] = asset_id (BE u32)`, `addr[16..18] = prefix (BE u16)`, rest zero.
+/// Per-instance config for mapping `pallet-assets` `Transferred` events to ERC-20 logs,
+/// keyed by the instance's metadata pallet name. Defaults match Asset Hub Westend.
 ///
-/// Defaults match Asset Hub Westend (`TRUST_BACKED_ASSETS_PRECOMPILE = 0x0120`,
-/// `POOL_ASSETS_PRECOMPILE = 0x0320`, `FOREIGN_ASSETS_PRECOMPILE = 0x0220`).
-///
-/// `u32_instances` cover instances whose `AssetId` is a `u32` (the address is computed
-/// statelessly from the event). `foreign_instances` cover instances whose on-chain `AssetId`
-/// is an XCM `Location`: the event carries the `Location`, not the `u32` index the address
-/// encodes, so the index must be looked up from the runtime's `ForeignAssetIdToAssetIndex`
-/// map (see [`foreign_index_storage_key`]) — that storage read is done by the caller.
+/// `u32_instances`: `AssetId` is a `u32`, so the address is computed statelessly.
+/// `foreign_instances`: `AssetId` is an XCM `Location`; the event carries the `Location`, not
+/// the `u32` index the address needs, so the index is looked up from `ForeignAssetIdToAssetIndex`
+/// (see [`foreign_index_storage_key`]).
 #[derive(Clone)]
 pub struct AssetTransferConfig {
 	/// `(subxt pallet name, address prefix)` for instances whose `AssetId` is a `u32`.
@@ -307,10 +300,8 @@ fn account_to_h160(account: &AccountId32) -> H160 {
 	}
 }
 
-/// Build a stand-in legacy transaction for an asset-transfer extrinsic, so the whole
-/// transaction RPC surface (`eth_getTransactionByHash`, full-tx `eth_getBlock*`) returns a
-/// coherent object. The displayed `from` is taken from the receipt, not recovered from this
-/// signature, so the (dummy, non-recoverable) signature is acceptable.
+/// Build a stand-in legacy transaction for an asset-transfer extrinsic, so the transaction RPC
+/// surface (`eth_getTransactionByHash`, full-tx `eth_getBlock*`) returns a coherent object.
 pub fn synthetic_transaction(transfer: &AssetTransfer) -> TransactionSigned {
 	let unsigned = TransactionLegacyUnsigned {
 		to: Some(transfer.token),
@@ -318,8 +309,7 @@ pub fn synthetic_transaction(transfer: &AssetTransfer) -> TransactionSigned {
 		input: Bytes(transfer.erc20_calldata()),
 		..Default::default()
 	};
-	// Dummy signature: this transaction is synthetic and was never signed. `from` is served
-	// from the receipt, so recoverability is not required.
+	// Synthetic tx, never signed; `from` is served from the receipt, so the signature is unused.
 	TransactionSigned::TransactionLegacySigned(TransactionLegacySigned {
 		transaction_legacy_unsigned: unsigned,
 		r: U256::zero(),
