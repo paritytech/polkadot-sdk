@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780940291154,
+  "lastUpdate": 1781001043393,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "Denzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2ed43f3fa3e0a04760802012e74055be05091474",
-          "message": "ci: trigger zombienet tests automatically (#9960)\n\n# Description\n#9877\n\n---------\n\nCo-authored-by: Javier Viola <javier@parity.io>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2025-10-23T21:22:00Z",
-          "tree_id": "fb7658dc4b04fa474aedb99d0af4b085a197a021",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ed43f3fa3e0a04760802012e74055be05091474"
-        },
-        "date": 1761259980907,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63628.81999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002156037,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000020098080000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000020098080000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005952033250000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.40825525304,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4353226681099967,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.802348699381004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4275595893299995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4549973090400017,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9294343741999955,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002156037,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4366140733000017,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.098135300269997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.397018076692611,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bde47ea0e9076ed45cb1441acb40f14e05cbca79",
+          "message": "cumulus: add SignedSchedulingInfo PVF verification (#12097)\n\n# Description\n\nVerifies the scheduling info payload in PVF, if formed by an author that\nclaims its para slot at internal scheduling parent.\n\nCloses #12152 \n\n## Integration\n\nRuntime developers that want to enable resubmissions for their\nparachains must configure the newly added associated type on\nparachain-system's `Config`: `VerifySchedulingSignature`.\n\n## Review Notes\n\nConcerns like parachain session or para slot duration changes must be\nhandled by the resubmission engine, as described here:\nhttps://github.com/paritytech/polkadot-sdk/issues/12036#issuecomment-4479412418.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: eskimor <eskimor@noreply.com>\nCo-authored-by: eskimor <jfanatiker@gmx.at>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Marios <marios@parity.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Alin Dima <alin@parity.io>",
+          "timestamp": "2026-06-09T08:54:25Z",
+          "tree_id": "6802bc22c97c7b695e02d0d062be82b24878657e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bde47ea0e9076ed45cb1441acb40f14e05cbca79"
+        },
+        "date": 1781001011691,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52937.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63615.88999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.746595195230001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7917932873999651,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7655522370999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8077747433399973,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.306715653632688,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.38108389534996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000025088610000000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000027420120000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000025088610000000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7932681982799994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4705506064199976,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000027420120000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005549627580000002,
             "unit": "seconds"
           }
         ]
