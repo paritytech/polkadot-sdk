@@ -17,6 +17,8 @@
 //! A module that is responsible for migration of storage.
 
 pub mod v5;
+pub mod v6;
+pub mod v7;
 
 use crate::{Config, OverweightIndex, Pallet, QueueConfig, QueueConfigData, DEFAULT_POV_SIZE};
 use alloc::vec::Vec;
@@ -28,7 +30,7 @@ use frame_support::{
 };
 
 /// The in-code storage version.
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
 
 pub const LOG: &str = "runtime::xcmp-queue-migration";
 
