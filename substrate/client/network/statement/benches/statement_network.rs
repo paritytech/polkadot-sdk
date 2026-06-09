@@ -134,6 +134,20 @@ impl sc_network::NetworkEventStream for TestNetwork {
 	}
 }
 
+impl sc_network::NetworkStateInfo for TestNetwork {
+	fn external_addresses(&self) -> Vec<sc_network::Multiaddr> {
+		Vec::new()
+	}
+
+	fn listen_addresses(&self) -> Vec<sc_network::Multiaddr> {
+		Vec::new()
+	}
+
+	fn local_peer_id(&self) -> PeerId {
+		PeerId::random()
+	}
+}
+
 #[derive(Debug, Clone)]
 struct TestNotificationService;
 
