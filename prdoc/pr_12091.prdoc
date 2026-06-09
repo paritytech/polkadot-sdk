@@ -1,0 +1,14 @@
+title: Add unincluded segment store for parablock resubmission
+doc:
+- audience: Node Dev
+  description: |-
+    Introduces `cumulus-client-unincluded-segment-store`, a new crate that persists a
+    storage-proof entry per imported parablock to support unincluded-segment resubmission.
+    Entries are pruned on finality and by relay-parent session age.
+crates:
+- name: cumulus-client-unincluded-segment-store
+  bump: major
+- name: cumulus-client-consensus-aura
+  bump: minor
+- name: cumulus-client-consensus-common
+  bump: minor
