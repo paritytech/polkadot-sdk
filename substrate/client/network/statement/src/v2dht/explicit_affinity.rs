@@ -39,7 +39,7 @@
 //!    drops. Expose `topics()` to read the current set. Source-keying can't be retrofitted cheaply,
 //!    so it comes first; the enum is the extension point for future sources; `topics()` also feeds
 //!    the peers-topology module (#11933).
-//! 4. [x] **Configured source.** Read topics from CLI at construction and `add_topics(Configured,
+//! 4. [ ] **Configured source.** Read topics from CLI at construction and `add_topics(Configured,
 //!    …)`. A static, one-time input; validated through `topics()` now, with advertising following
 //!    at step 6. First cross-crate step; needs step 3. Closes "CLI and configuration inputs."
 //!    (Optional: take the advertised-filter seed from config to match the light client —
@@ -74,11 +74,10 @@ use sc_network_types::PeerId;
 use sp_statement_store::{Statement, Topic};
 use std::collections::HashMap;
 
-/// Why this node holds affinity for a topic.
+/// The source of this node's affinity for a topic.
 ///
-/// The variant set is the extension point for new sources, and storage obligations follow from
-/// which sources hold a topic. The kind stays coarse: a reference count tracks how many holders
-/// want a topic, so no variant carries an id or depends on the subscription types.
+/// Each variant names a category of holder, not a single holder: a per-source reference count
+/// tracks how many holders of that category want the topic.
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum AffinitySource {
@@ -100,8 +99,8 @@ pub(crate) struct ExplicitAffinity {
 	/// suffices.
 	// TODO: source it from the protocol config (as the light client does) once that is plumbed.
 	seed: u128,
-	/// Local topics, each with a per-source reference count. A topic key exists iff a source holds
-	/// it; pruning at zero keeps the key set equal to the topics this node has affinity for.
+	/// Local topics, each mapped to its per-source reference counts. A topic stays in the map only
+	/// while some source references it.
 	local: HashMap<Topic, HashMap<AffinitySource, u32>>,
 }
 
@@ -119,12 +118,12 @@ impl ExplicitAffinity {
 	pub(crate) fn add_topics(&mut self, source: AffinitySource, topics: &[Topic]) {
 		log::trace!(target: LOG_TARGET, "explicit_affinity: add_topics {} from {source:?}", topics.len());
 		for &topic in topics {
-			*self.local.entry(topic).or_default().entry(source).or_insert(0) += 1;
+			let count = self.local.entry(topic).or_default().entry(source).or_insert(0);
+			*count = count.saturating_add(1);
 		}
 	}
 
-	/// Drop one of `source`'s references to each topic. A topic stays until its last source drops;
-	/// removing a topic or source that is not held is a no-op.
+	/// Drop one of `source`'s references to each topic. A topic stays until its last source drops.
 	pub(crate) fn remove_topics(&mut self, source: AffinitySource, topics: &[Topic]) {
 		log::trace!(target: LOG_TARGET, "explicit_affinity: remove_topics {} from {source:?}", topics.len());
 		for topic in topics {
@@ -141,7 +140,7 @@ impl ExplicitAffinity {
 		}
 	}
 
-	/// The topics this node currently has affinity for. Order is unspecified.
+	/// The topics this node currently has affinity for
 	pub(crate) fn topics(&self) -> Vec<Topic> {
 		self.local.keys().copied().collect()
 	}
