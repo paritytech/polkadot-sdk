@@ -403,7 +403,7 @@ impl Keystore for LocalKeystore {
 		) -> std::result::Result<ecdsa_bls381::Public, TraitError> {
 			let pubkey = self.generate_new::<ecdsa_bls381::Pair>(key_type, seed)?;
 
-			let s = self
+			let seed = self
 				.0
 				.read()
 				.key_phrase_by_type(pubkey.as_ref(), key_type)
@@ -418,8 +418,8 @@ impl Keystore for LocalKeystore {
 			// This is done to give the keystore access to individual keys, this is necessary to avoid
 			// unnecessary host functions for paired keys and re-use host functions implemented for each
 			// element of the pair.
-			self.generate_new::<ecdsa::Pair>(key_type, Some(&*s))?;
-			self.generate_new::<bls381::Pair>(key_type, Some(&*s))?;
+			self.generate_new::<ecdsa::Pair>(key_type, Some(&*seed))?;
+			self.generate_new::<bls381::Pair>(key_type, Some(&*seed))?;
 
 			Ok(pubkey)
 		}
@@ -466,14 +466,14 @@ struct KeystoreInner {
 	password: Option<SecretString>,
 }
 
-/// An entry decoded from a keystore file on disk.
-struct KeyFileEntry {
+/// A key entry decoded from a keystore file on disk.
+struct StoredKeypair {
 	/// The seed/phrase the key was generated from (or the SURI for inserted keys).
 	phrase: String,
-	/// The original public key, present only for entries that use the hashed-filename
-	/// format (where the filename does not embed the public key). For flat entries the
-	/// caller recovers the public key from the filename instead.
-	public_key: Option<Vec<u8>>,
+	/// The public key, recovered from the filename (flat format) or the file body (hashed format).
+	public_key: Vec<u8>,
+	/// The key type, recovered from the filename prefix.
+	key_type: KeyTypeId,
 }
 
 impl KeystoreInner {
@@ -589,27 +589,43 @@ impl KeystoreInner {
 	/// Read a key file from disk, handling both the flat (legacy) and hashed-filename
 	/// formats written by [`Self::write_key_file`].
 	///
-	/// Returns the recovered phrase together with the public key embedded in the file
-	/// (only present for the hashed-filename format). If the public key is `None`, the
-	/// caller must recover it from the filename hex.
-	fn read_key_file(path: &Path) -> Result<KeyFileEntry> {
+	/// The key type and public key are recovered from the filename; for the hashed format
+	/// the public key stored in the file body is verified against the filename hash.
+	fn read_key_file(path: &Path) -> Result<StoredKeypair> {
+		let name = path.file_name().and_then(|n| n.to_str()).ok_or(Error::InvalidPhrase)?;
+		let name_bytes = array_bytes::hex2bytes(name).map_err(|_| Error::InvalidPhrase)?;
+		if name_bytes.len() <= KEY_TYPE_PREFIX_LEN {
+			return Err(Error::InvalidPhrase);
+		}
+		let key_type = KeyTypeId(
+			name_bytes[..KEY_TYPE_PREFIX_LEN]
+				.try_into()
+				.expect("name_bytes has more than KEY_TYPE_PREFIX_LEN elements; qed"),
+		);
+
 		let file = File::open(path)?;
 		let value: serde_json::Value = serde_json::from_reader(&file)?;
 		match value {
-			serde_json::Value::String(phrase) => Ok(KeyFileEntry { phrase, public_key: None }),
+			serde_json::Value::String(phrase) => {
+				let public_key = name_bytes[KEY_TYPE_PREFIX_LEN..].to_vec();
+				Ok(StoredKeypair { phrase, public_key, key_type })
+			},
 			serde_json::Value::Object(map) => {
 				let phrase = map
 					.get("phrase")
 					.and_then(|v| v.as_str())
 					.ok_or(Error::InvalidPhrase)?
 					.to_string();
-				let public_key = match map.get("public_key").and_then(|v| v.as_str()) {
-					Some(hex) => {
-						Some(array_bytes::hex2bytes(hex).map_err(|_| Error::InvalidPhrase)?)
-					},
-					None => None,
-				};
-				Ok(KeyFileEntry { phrase, public_key })
+				let public_hex =
+					map.get("public_key").and_then(|v| v.as_str()).ok_or(Error::InvalidPhrase)?;
+				let public_key =
+					array_bytes::hex2bytes(public_hex).map_err(|_| Error::InvalidPhrase)?;
+				if sp_core::hashing::blake2_256(&public_key).as_slice() !=
+					&name_bytes[KEY_TYPE_PREFIX_LEN..]
+				{
+					return Err(Error::InvalidPhrase);
+				}
+				Ok(StoredKeypair { phrase, public_key, key_type })
 			},
 			_ => Err(Error::InvalidPhrase),
 		}
@@ -696,33 +712,12 @@ impl KeystoreInner {
 
 		if let Some(path) = &self.path {
 			for entry in fs::read_dir(&path)? {
-				let entry = entry?;
-				let path = entry.path();
+				let path = entry?.path();
 
-				// skip directories and non-unicode file names (hex is unicode)
-				let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
-					continue;
-				};
-
-				let Ok(name_bytes) = array_bytes::hex2bytes(name) else { continue };
-				if name_bytes.len() <= KEY_TYPE_PREFIX_LEN ||
-					name_bytes[0..KEY_TYPE_PREFIX_LEN] != key_type.0
-				{
-					continue;
-				}
-
+				// Skip directories and any file that isn't a valid entry for this key type.
 				match Self::read_key_file(&path) {
-					Ok(KeyFileEntry { public_key: Some(public), .. }) => {
-						let filename_hash = &name_bytes[KEY_TYPE_PREFIX_LEN..];
-						if sp_core::hashing::blake2_256(&public).as_slice() != filename_hash {
-							continue;
-						}
-						public_keys.push(public);
-					},
-					Ok(KeyFileEntry { public_key: None, .. }) => {
-						public_keys.push(name_bytes[KEY_TYPE_PREFIX_LEN..].to_vec());
-					},
-					Err(_) => continue,
+					Ok(entry) if entry.key_type == key_type => public_keys.push(entry.public_key),
+					_ => continue,
 				}
 			}
 		}
@@ -1075,57 +1070,46 @@ mod tests {
 
 	#[test]
 	#[cfg(feature = "bls-experimental")]
-	fn bls381_filename_stays_within_filesystem_limit() {
-		use sp_core::testing::BLS381;
+	fn bls_filenames_stay_within_filesystem_limit() {
+		use sp_core::testing::{BLS381, ECDSA_BLS381};
 
 		let temp_dir = TempDir::new().unwrap();
 		let store = LocalKeystore::open(temp_dir.path(), None).unwrap();
-		let public = store.bls381_generate_new(BLS381, None).unwrap();
+		let bls381 = store.bls381_generate_new(BLS381, None).unwrap();
+		let ecdsa_bls381 = store.ecdsa_bls381_generate_new(ECDSA_BLS381, None).unwrap();
 
 		assert_filenames_within_filesystem_limit(temp_dir.path());
 
-		// The public key must still be enumerable.
-		let keys = store.bls381_public_keys(BLS381);
-		assert_eq!(keys.len(), 1);
-		assert_eq!(keys[0], public);
+		// The public keys must still be enumerable.
+		assert_eq!(store.bls381_public_keys(BLS381), vec![bls381]);
+		assert_eq!(store.ecdsa_bls381_public_keys(ECDSA_BLS381), vec![ecdsa_bls381]);
 	}
 
 	#[test]
 	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls381_filename_stays_within_filesystem_limit() {
-		use sp_core::testing::ECDSA_BLS381;
+	fn bls_keys_persist_across_reopens() {
+		use sp_core::testing::{BLS381, ECDSA_BLS381};
 
 		let temp_dir = TempDir::new().unwrap();
-		let store = LocalKeystore::open(temp_dir.path(), None).unwrap();
-		let public = store.ecdsa_bls381_generate_new(ECDSA_BLS381, None).unwrap();
-
-		assert_filenames_within_filesystem_limit(temp_dir.path());
-
-		let keys = store.ecdsa_bls381_public_keys(ECDSA_BLS381);
-		assert_eq!(keys.len(), 1);
-		assert_eq!(keys[0], public);
-	}
-
-	#[test]
-	#[cfg(feature = "bls-experimental")]
-	fn bls381_keys_persist_across_reopens() {
-		use sp_core::testing::BLS381;
-
-		let temp_dir = TempDir::new().unwrap();
-		let public = {
+		let (bls381, ecdsa_bls381) = {
 			let store = LocalKeystore::open(temp_dir.path(), None).unwrap();
-			store.bls381_generate_new(BLS381, None).unwrap()
+			(
+				store.bls381_generate_new(BLS381, None).unwrap(),
+				store.ecdsa_bls381_generate_new(ECDSA_BLS381, None).unwrap(),
+			)
 		};
 
 		let store = LocalKeystore::open(temp_dir.path(), None).unwrap();
-		let keys = store.bls381_public_keys(BLS381);
-		assert_eq!(keys.len(), 1);
-		assert_eq!(keys[0], public);
+		assert_eq!(store.bls381_public_keys(BLS381), vec![bls381]);
+		assert_eq!(store.ecdsa_bls381_public_keys(ECDSA_BLS381), vec![ecdsa_bls381]);
 
 		// The seed must be recoverable from the hashed-filename file format so that
 		// signing succeeds after a reopen.
-		let sig = store.bls381_sign(BLS381, &public, b"message").unwrap();
-		assert!(sig.is_some());
+		assert!(store.bls381_sign(BLS381, &bls381, b"message").unwrap().is_some());
+		assert!(store
+			.ecdsa_bls381_sign(ECDSA_BLS381, &ecdsa_bls381, b"message")
+			.unwrap()
+			.is_some());
 	}
 
 	#[test]
@@ -1144,7 +1128,6 @@ mod tests {
 
 		// Forge a hashed-format file whose filename hashes a different public key.
 		let real_hash = sp_core::hashing::blake2_256(&legit.to_raw_vec());
-		assert_ne!(real_hash, [0u8; 32], "blake2_256 must not produce zero");
 		let forged_pubkey = vec![0xAB; legit.to_raw_vec().len()];
 		// Sanity: forged pubkey must hash to something different.
 		assert_ne!(sp_core::hashing::blake2_256(&forged_pubkey), real_hash);
@@ -1162,25 +1145,5 @@ mod tests {
 		let keys = store.bls381_public_keys(BLS381);
 		assert_eq!(keys.len(), 1, "forged hashed entry must not appear in enumeration");
 		assert_eq!(keys[0], legit);
-	}
-
-	#[test]
-	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls381_keys_persist_across_reopens() {
-		use sp_core::testing::ECDSA_BLS381;
-
-		let temp_dir = TempDir::new().unwrap();
-		let public = {
-			let store = LocalKeystore::open(temp_dir.path(), None).unwrap();
-			store.ecdsa_bls381_generate_new(ECDSA_BLS381, None).unwrap()
-		};
-
-		let store = LocalKeystore::open(temp_dir.path(), None).unwrap();
-		let keys = store.ecdsa_bls381_public_keys(ECDSA_BLS381);
-		assert_eq!(keys.len(), 1);
-		assert_eq!(keys[0], public);
-
-		let sig = store.ecdsa_bls381_sign(ECDSA_BLS381, &public, b"message").unwrap();
-		assert!(sig.is_some());
 	}
 }
