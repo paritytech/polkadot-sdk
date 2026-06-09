@@ -16,14 +16,13 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use codec::Decode;
-use polkadot_primitives::{Block as RelayBlock, Hash as RelayHash, DEFAULT_SCHEDULING_LOOKAHEAD};
-use std::ops::Add;
-
 use cumulus_primitives_core::{
 	relay_chain::{BlockId as RelayBlockId, OccupiedCoreAssumption},
 	ParaId,
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
+use polkadot_primitives::{Block as RelayBlock, Hash as RelayHash, DEFAULT_SCHEDULING_LOOKAHEAD};
+use std::ops::Add;
 
 use sc_client_api::{Backend, HeaderBackend};
 use sc_consensus_babe::contains_epoch_change;
@@ -48,95 +47,52 @@ fn get_para_header<Block: BlockT>(
 	Some(header)
 }
 
+pub struct PvdHeader<Block: BlockT> {
+	header: Block::Header,
+}
+
+impl<Block: BlockT> PvdHeader<Block> {
+	async fn fetch(
+		relay_client: &impl RelayChainInterface,
+		at: RelayHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -> RelayChainResult<Option<Self>> {
+		let maybe_header = relay_client
+			.persisted_validation_data(at, para_id, occupied_core_assumption)
+			.await?
+			.and_then(|pvd| Block::Header::decode(&mut &pvd.parent_head.0[..]).ok());
+		let Some(header) = maybe_header else {
+			return Ok(None);
+		};
+
+		Ok(Some(PvdHeader { header }))
+	}
+
+	fn try_unwrap(self, backend: &impl Backend<Block>) -> Option<(Block::Hash, Block::Header)> {
+		let hash = self.header.hash();
+		// If the included block is not locally known, we can't do anything.
+		let _ = get_para_header(backend, hash)?;
+		Some((hash, self.header))
+	}
+}
+
 /// Fetch the included block from the relay chain.
-pub async fn fetch_included_from_relay_chain<B: BlockT>(
+pub async fn fetch_included_from_pvd<B: BlockT>(
 	relay_client: &impl RelayChainInterface,
 	backend: &impl Backend<B>,
+	at: RelayHash,
 	para_id: ParaId,
-	relay_parent: RelayHash,
 ) -> Result<Option<(B::Hash, B::Header)>, RelayChainError> {
+	use OccupiedCoreAssumption::TimedOut;
 	// Fetch the pending header from the relay chain. We use `OccupiedCoreAssumption::TimedOut`
 	// so that even if there is a pending candidate, we assume it is timed out, and we get the
 	// included head.
-	let maybe_included_header = relay_client
-		.persisted_validation_data(relay_parent, para_id, OccupiedCoreAssumption::TimedOut)
-		.await?
-		.and_then(|pvd| B::Header::decode(&mut &pvd.parent_head.0[..]).ok());
-	let Some(included_header) = maybe_included_header else {
+	let Some(included_header) = PvdHeader::fetch(relay_client, at, para_id, TimedOut).await? else {
 		return Ok(None);
 	};
 
-	let included_hash = included_header.hash();
-	// If the included block is not locally known, we can't do anything.
-	let Some(_) = get_para_header(backend, included_hash) else {
-		return Ok(None);
-	};
-
-	Ok(Some((included_hash, included_header)))
-}
-
-struct ParentSearchStart<Block: BlockT> {
-	/// The header of the included block (confirmed on relay chain) at the scheduling context.
-	included: Block::Header,
-	/// The hash and header of the block where the parent search can start.
-	start: (Block::Hash, Block::Header),
-}
-
-async fn get_parent_search_start<Block: BlockT>(
-	relay_client: &impl RelayChainInterface,
-	backend: &impl Backend<Block>,
-	para_id: ParaId,
-	scheduling_parent: RelayHash,
-) -> RelayChainResult<Option<ParentSearchStart<Block>>> {
-	let Some((included_hash, included_header)) =
-		fetch_included_from_relay_chain(relay_client, backend, para_id, scheduling_parent).await?
-	else {
-		return Ok(None);
-	};
-
-	// Fetch the pending block if one exists.
-	let maybe_pending = {
-		// Fetch the most recent pending header from the relay chain. We use
-		// `OccupiedCoreAssumption::Included` so the candidate pending availability gets enacted
-		// before being returned to us.
-		let pending_header = relay_client
-			.persisted_validation_data(scheduling_parent, para_id, OccupiedCoreAssumption::Included)
-			.await?
-			.and_then(|p| Block::Header::decode(&mut &p.parent_head.0[..]).ok())
-			.filter(|x| x.hash() != included_hash);
-
-		// If the pending block is not locally known, we can't proceed.
-		match pending_header {
-			Some(header) => {
-				let pending_hash = header.hash();
-				let Some(_) = get_para_header(backend, pending_hash) else {
-					return Ok(None);
-				};
-				Some((pending_hash, header))
-			},
-			None => None,
-		}
-	};
-
-	// Determine the starting point for the search.
-	let (start_hash, start_header) = match &maybe_pending {
-		Some((pending_hash, pending_header)) => {
-			// Verify pending is a descendant of included.
-			let route =
-				sp_blockchain::tree_route(backend.blockchain(), included_hash, *pending_hash)?;
-			if !route.retracted().is_empty() {
-				tracing::warn!(
-					target: LOG_TARGET,
-					"Included block not an ancestor of pending block. This should not happen."
-				);
-				return Ok(None);
-			}
-			(*pending_hash, pending_header.clone())
-		},
-		None => (included_hash, included_header.clone()),
-	};
-
-	Ok(Some(ParentSearchStart { included: included_header, start: (start_hash, start_header) }))
+	Ok(included_header.try_unwrap(backend))
 }
 
 /// Build an ancestry of relay parents that are acceptable.
@@ -270,14 +226,10 @@ async fn has_ancestor_relay_parent_info<Block: BlockT>(
 	}
 
 	let relay_parent_session = relay_client.session_index_for_child(relay_parent).await?;
-	let Some(_info) = relay_client
+	let maybe_info = relay_client
 		.ancestor_relay_parent_info(scheduling_parent, relay_parent_session, relay_parent)
-		.await?
-	else {
-		return Ok(false);
-	};
-
-	Ok(true)
+		.await?;
+	Ok(maybe_info.is_some())
 }
 
 #[derive(Clone, Debug)]
@@ -306,8 +258,8 @@ impl<Block: BlockT> ParentSearchParams<Block> {
 /// A potential parent block returned from [`find_parent_for_building`]
 #[derive(PartialEq, Clone)]
 pub struct ParentSearchResult<Block: BlockT> {
-	/// The header of the included block (confirmed on relay chain).
-	pub included_header: Block::Header,
+	/// The header of the included block (confirmed on relay chain) at the scheduling parent.
+	pub included_at_scheduling: Block::Header,
 	/// The header of the best parent block to build on.
 	pub best_parent_header: Block::Header,
 }
@@ -315,7 +267,7 @@ pub struct ParentSearchResult<Block: BlockT> {
 impl<B: BlockT> std::fmt::Debug for ParentSearchResult<B> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("ParentSearchResult")
-			.field("included_number", &self.included_header.number())
+			.field("included_at_scheduling_number", &self.included_at_scheduling.number())
 			.field("best_parent_hash", &self.best_parent_header.hash())
 			.field("best_parent_number", &self.best_parent_header.number())
 			.finish()
@@ -345,14 +297,36 @@ pub async fn find_parent_for_building<Block: BlockT>(
 	);
 
 	let scheduling_parent = *params.scheduling_parent();
-
-	let Some(ParentSearchStart { included: included_header, start: (start_hash, start_header) }) =
-		get_parent_search_start(relay_client, backend, para_id, scheduling_parent).await?
+	let Some((included_hash, included_header)) =
+		fetch_included_from_pvd(relay_client, backend, scheduling_parent, para_id).await?
 	else {
 		return Ok(None);
 	};
+	// Fetch the pending block if one exists.
+	let maybe_pending = 'fetch_pending: {
+		use OccupiedCoreAssumption::Included;
+		// Fetch the most recent pending header from the relay chain. We use
+		// `OccupiedCoreAssumption::Included` so the candidate pending availability gets enacted
+		// before being returned to us.
+		let maybe_pvd_header =
+			PvdHeader::<Block>::fetch(relay_client, scheduling_parent, para_id, Included)
+				.await?
+				.filter(|pvd_header| pvd_header.header.hash() != included_hash);
+		let Some(pvd_header) = maybe_pvd_header else {
+			break 'fetch_pending None;
+		};
+		match pvd_header.try_unwrap(backend) {
+			Some(pending) => Some(pending),
+			None => {
+				return Ok(None);
+			},
+		}
+	};
+	// Determine the starting point for the search.
+	let (start_hash, start_header) =
+		maybe_pending.unwrap_or((included_hash, included_header.clone()));
 
-	match params {
+	let best_parent_header = match params {
 		ParentSearchParams::V2 { scheduling_parent: relay_parent } => {
 			let ancestry_lookback = relay_client
 				.scheduling_lookahead(relay_parent)
@@ -364,22 +338,27 @@ pub async fn find_parent_for_building<Block: BlockT>(
 				build_relay_parent_ancestry(relay_client, relay_parent, ancestry_lookback).await?;
 
 			// Search for the deepest valid parent starting from the pending/included block.
-			let best_parent_header =
-				find_deepest_valid_parent(backend, start_header, start_hash, &rp_ancestry);
-
-			Ok(Some(ParentSearchResult { included_header, best_parent_header }))
+			find_deepest_valid_parent(backend, start_header, start_hash, &rp_ancestry)
 		},
-		ParentSearchParams::V3 { scheduling_parent, para_best_hash } => {
-			let mut para_best_header = None;
-			let mut current_hash = para_best_hash;
-			let best_parent_header = loop {
-				let Some(current_header) = get_para_header(backend, current_hash) else {
-					break None;
-				};
-				if current_hash == para_best_hash {
-					para_best_header = Some(current_header.clone());
-				}
+		ParentSearchParams::V3 { scheduling_parent, para_best_hash } => 'v3: {
+			let Some(para_best_header) = get_para_header(backend, para_best_hash) else {
+				break 'v3 start_header;
+			};
 
+			// Ideally we would like to build on top of the `para_best_header`, but we need to
+			// check if it's on the same fork as the `start_header`.
+			let mut current_header = para_best_header.clone();
+			loop {
+				let current_hash = current_header.hash();
+
+				// We know that the start header is part of the allowed ancestry because it
+				// was already checked by the relay chain (being retrieved from the PVD).
+				// We need to make sure that all the other headers on the path to the
+				// `para_best_header` are also part of the allowed ancestry.
+				// If the direct descendant of the start header and the `para_best_header` satisfy
+				// this condition, then all the headers in between will also be valid since their
+				// relay parents have to be monotonically increasing
+				// (this condition is checked by the runtime).
 				if current_hash == para_best_hash ||
 					*current_header.number() == start_header.number().add(One::one())
 				{
@@ -390,25 +369,31 @@ pub async fn find_parent_for_building<Block: BlockT>(
 					)
 					.await?
 					{
-						break None;
+						break start_header;
 					}
 				}
 
+				// The start header and the `para_best_header` are on the same fork.
+				// So we can build on top of the `para_best_header`.
 				if current_hash == start_hash {
 					break para_best_header;
 				}
 
+				// The start header and the `para_best_header` are on different forks.
+				// So we default to building on top of the start header.
 				if current_header.number() <= start_header.number() {
-					break None;
+					break start_header;
 				}
 
-				current_hash = *current_header.parent_hash();
-			};
-
-			Ok(Some(ParentSearchResult {
-				included_header,
-				best_parent_header: best_parent_header.unwrap_or(start_header),
-			}))
+				current_header = match get_para_header(backend, *current_header.parent_hash()) {
+					Some(header) => header,
+					None => {
+						break start_header;
+					},
+				}
+			}
 		},
-	}
+	};
+
+	Ok(Some(ParentSearchResult { included_at_scheduling: included_header, best_parent_header }))
 }

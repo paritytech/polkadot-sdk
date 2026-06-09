@@ -283,12 +283,12 @@ where
 		match para_backend.blockchain().header(parent_hash) {
 			Ok(Some(header)) => {
 				result.best_parent_header = header;
-				if parent_hash == result.included_header.hash() {
+				if parent_hash == result.included_at_scheduling.hash() {
 					break;
 				}
 			},
 			_ => {
-				result.best_parent_header = result.included_header.clone();
+				result.best_parent_header = result.included_at_scheduling.clone();
 				break;
 			},
 		}

@@ -348,7 +348,7 @@ where
 				None => continue,
 			};
 
-			let included_header = &parent_search_result.included_header;
+			let included_header = &parent_search_result.included_at_scheduling;
 			let para_client = &*params.para_client;
 			let keystore = &params.keystore;
 			let included_block_hash = included_header.hash();
