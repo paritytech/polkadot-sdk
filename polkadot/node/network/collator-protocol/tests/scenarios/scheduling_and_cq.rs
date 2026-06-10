@@ -459,7 +459,7 @@ mod cq_position_window {
 		// Exactly one V1 fetch this round.
 		let _ = w.expect_any_fetch();
 		let _ = Candidate::for_para_at(PARA_A, w.leaf()); // unused — keeps the explicit "V1 dedup" intent visible
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { .. }),
 			1,
 			"exactly one V1 fetch despite two V1 advertisements at the same (sp, para)",
@@ -588,7 +588,7 @@ mod v3_scheduling_parent {
 		// Settle long enough that any in-flight effects from the advertise step have
 		// drained, then assert no fetch was emitted for the rejected advertisement.
 		w.base.sim.advance(Duration::from_millis(200));
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { .. }),
 			0,
 			"SendRequest after V3 rejection (must be zero)",

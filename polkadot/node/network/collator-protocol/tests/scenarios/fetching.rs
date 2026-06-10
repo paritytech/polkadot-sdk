@@ -44,7 +44,7 @@ mod fetches_next_collation {
 		// the first peer never responds.
 		let (_first_peer, _, _) = w.expect_any_fetch();
 		let barrier = w.base.sim.now_sim_t();
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
 			1,
 			"a single V1 fetch in flight; the other carriers are parked",
@@ -53,11 +53,11 @@ mod fetches_next_collation {
 		// Advance past the request timeout: the stalled fetch is abandoned as a network-level
 		// timeout, and the subsystem must fall back to a parked carrier — a *new* fetch fired
 		// strictly after the first one. The +1ms excludes the first fetch itself, which was
-		// recorded at exactly `barrier` (`expect_at_least_after` is `>= since`).
+		// recorded at exactly `barrier` (`assert_at_least_after` is `>= since`).
 		w.base
 			.sim
 			.advance(Protocol::CollationFetchingV1.request_timeout() + Duration::from_millis(100));
-		w.base.sim.expect_at_least_after(
+		w.base.sim.assert_at_least_after(
 			barrier + Duration::from_millis(1),
 			|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
 			1,
@@ -100,7 +100,7 @@ mod fetch_next_on_invalid {
 		w.base
 			.sim
 			.send(CollatorProtocolMessage::Invalid(leaf, candidate.receipt.clone().into()));
-		let _ = w.expect_fetch_to(other_peer);
+		let _ = w.expect_fetch_from(other_peer);
 	}
 }
 
@@ -133,7 +133,7 @@ mod single_fetch_per_relay_parent {
 
 		let _ = w.expect_any_fetch();
 
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
 			1,
 			"SendRequest while one fetch is in flight (no second concurrent fetch allowed)",
@@ -823,7 +823,7 @@ mod collation_fetching_prefer_entries_earlier_in_claim_queue {
 		w.advertise_with_parent_head(&peer_a, leaf, a2.hash(), a2.parent_head_hash());
 		w.advertise_with_parent_head(&peer_b, leaf, b1.hash(), b1.parent_head_hash());
 		// One fetch in flight.
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV2, .. }),
 			1,
 			"exactly 1 fetch in flight while A1 is being fetched",

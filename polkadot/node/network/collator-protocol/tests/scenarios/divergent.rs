@@ -127,7 +127,7 @@ mod no_time_based_eviction {
 		}
 
 		// After ~2× the window of continuous activity, peer must still be connected.
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 		|e| matches!(
 			e,
 			Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&peer.peer_id),
@@ -149,10 +149,7 @@ mod reputation_priority {
 		world::{activated_world, World, WorldExt as _},
 	};
 	use polkadot_node_network_protocol::request_response::Protocol;
-	use polkadot_node_subsystem::OverseerSignal;
-	use polkadot_primitives::{
-		CandidateEvent, CoreIndex, GroupIndex, Hash, HeadData, Id as ParaId,
-	};
+	use polkadot_primitives::{CoreIndex, Hash, HeadData, Id as ParaId};
 	use std::time::Duration;
 
 	const PARA: ParaId = ParaId::new(2000);
@@ -182,14 +179,18 @@ mod reputation_priority {
 	fn busy_pipeline_arbitrates_by_reputation_then_slash_demotes<S: CollatorSut>() {
 		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
 
-		// A distinct throwaway first-carrier per round, so the per-round
-		// `expect_fetch_to(first_carrier)` can never match the previous round's (still-recorded)
-		// fetch.
+		// A distinct throwaway first-carrier per round: a round slashes its first carrier to 0
+		// (undecodable bytes), and a 0-rep carrier would no longer be fetched immediately when
+		// it advertises first in the next round.
 		let carrier1 = w.declared_peer(PARA, V2);
 		let carrier2 = w.declared_peer(PARA, V2);
 		let peer_a = w.declared_peer(PARA, V2);
 		let peer_b = w.declared_peer(PARA, V2);
-		let leaf = seed_reputations(&mut w, &peer_a, &peer_b, &carrier1, &carrier2);
+
+		// Reputations: A = 2, B = 1, each carrier = 1 (so a carrier also fetches immediately
+		// when it is the sole first advertiser). Rounds fork off the returned leaf.
+		let leaf =
+			w.seed_scores(PARA, &[(&peer_a, 2), (&peer_b, 1), (&carrier1, 1), (&carrier2, 1)]);
 
 		// Round 1: A (2) beats B (1) for the re-fetch.
 		let fetch_id = contended_round(&mut w, leaf, 1, &carrier1, &peer_b, &peer_a);
@@ -207,10 +208,10 @@ mod reputation_priority {
 	/// a peer's fetch times out and it is slashed (`FAILED_FETCH_SLASH`), a later contended pick
 	/// where that peer would otherwise win on reputation must go to the *other* peer instead.
 	///
-	/// Same harness as `busy_pipeline_arbitrates_by_reputation_then_slash_demotes` (shared
-	/// helpers above); the only difference is the slash mechanism between the rounds — a
-	/// **request timeout** instead of undecodable bytes. That is the path the harness's
-	/// req-response timeout model uniquely makes testable.
+	/// Same harness as `busy_pipeline_arbitrates_by_reputation_then_slash_demotes`
+	/// (`World::seed_scores` + `contended_round` below); the only difference is the slash
+	/// mechanism between the rounds — a **request timeout** instead of undecodable bytes.
+	/// That is the path the harness's req-response timeout model uniquely makes testable.
 	///
 	/// `only = "experimental"`: this exercises experimental's reputation-arbitrated fetch
 	/// selection and the *silent* slash store. Legacy selects differently (queue order) and
@@ -223,7 +224,10 @@ mod reputation_priority {
 		let carrier2 = w.declared_peer(PARA, V2);
 		let peer_a = w.declared_peer(PARA, V2);
 		let peer_b = w.declared_peer(PARA, V2);
-		let leaf = seed_reputations(&mut w, &peer_a, &peer_b, &carrier1, &carrier2);
+
+		// Same reputation layout as `busy_pipeline_arbitrates_by_reputation_then_slash_demotes`.
+		let leaf =
+			w.seed_scores(PARA, &[(&peer_a, 2), (&peer_b, 1), (&carrier1, 1), (&carrier2, 1)]);
 
 		// Round 1: A (2) beats B (1) for the re-fetch; leave that fetch unanswered.
 		let _in_flight = contended_round(&mut w, leaf, 1, &carrier1, &peer_b, &peer_a);
@@ -240,56 +244,6 @@ mod reputation_priority {
 		let _ = contended_round(&mut w, leaf, 2, &carrier2, &peer_a, &peer_b);
 	}
 
-	/// Bump `peer`'s reputation by one included candidate: finalize `leaf` carrying a
-	/// `CandidateIncluded` event for a candidate approved by `peer`.
-	fn earn_one_inclusion<S: CollatorSut>(w: &mut World<S>, peer: &Peer, leaf: Hash) {
-		let cand = w
-			.candidate_at(leaf)
-			.para(PARA)
-			.head_data(HeadData(vec![leaf.as_bytes()[0]]))
-			.approved_peer(peer.peer_id)
-			.build();
-		{
-			let mut chain = w.base.chain.lock();
-			chain.set_pending_availability(PARA, vec![cand.committed()]);
-			chain.set_candidate_events(
-				leaf,
-				vec![CandidateEvent::CandidateIncluded(
-					cand.receipt.clone(),
-					cand.commitments.head_data.clone(),
-					CoreIndex(0),
-					GroupIndex(0),
-				)],
-			);
-			chain.set_finalized(leaf);
-		}
-		w.base.sim.signal(OverseerSignal::BlockFinalized(leaf, w.leaf_number()));
-		w.base.sim.advance(Duration::from_millis(50));
-	}
-
-	/// Seed the reputation ladder shared by the contention-round tests: peer_a = 2, peer_b = 1,
-	/// each carrier = 1 (so a carrier also fetches immediately when it is the sole first
-	/// advertiser). Returns the leaf the contention rounds fork from.
-	fn seed_reputations<S: CollatorSut>(
-		w: &mut World<S>,
-		peer_a: &Peer,
-		peer_b: &Peer,
-		carrier1: &Peer,
-		carrier2: &Peer,
-	) -> Hash {
-		let leaf0 = w.leaf();
-		earn_one_inclusion(w, peer_a, leaf0);
-		let leaf1 = w.new_block().from_parent(leaf0).activate().hash;
-		earn_one_inclusion(w, peer_a, leaf1);
-		let leaf2 = w.new_block().from_parent(leaf1).activate().hash;
-		earn_one_inclusion(w, peer_b, leaf2);
-		let leaf3 = w.new_block().from_parent(leaf2).activate().hash;
-		earn_one_inclusion(w, carrier1, leaf3);
-		let leaf4 = w.new_block().from_parent(leaf3).activate().hash;
-		earn_one_inclusion(w, carrier2, leaf4);
-		leaf4
-	}
-
 	/// One contention round on a fresh, single-slot leaf forked off `parent`. All three peers
 	/// carry the *same* candidate:
 	///   1. `first_carrier` advertises first → fetched immediately, occupying the only slot;
@@ -299,9 +253,8 @@ mod reputation_priority {
 	///
 	/// Failing the first carrier (rather than letting its collation second) keeps the candidate
 	/// out of `fetched_collations`, so a round does not consume the next round's slot. The
-	/// decisive assertion is `first_fetch_after(barrier) == winner` — `expect_fetch_to` matches
-	/// the whole log and may be satisfied by a `winner` fetch recorded in an earlier round, the
-	/// barrier-scoped check cannot.
+	/// winner checks are barrier-scoped — a `winner` fetch recorded by an earlier round cannot
+	/// satisfy them.
 	///
 	/// Returns `winner`'s in-flight `RequestId`, so the caller can resolve it (e.g. fail or time
 	/// it out to drive a slash).
@@ -332,8 +285,9 @@ mod reputation_priority {
 
 		// First carrier advertises and is fetched immediately, occupying the slot; we don't
 		// answer it yet.
+		let round_barrier = w.recorder_barrier();
 		w.advertise_with_parent_head(first_carrier, leaf, cand.hash(), cand.parent_head_hash());
-		let first_id = w.expect_fetch_to(first_carrier.peer_id);
+		let first_id = w.expect_fetch_from_after(round_barrier, first_carrier.peer_id);
 
 		// With the slot busy, the other two carriers of the same candidate advertise and queue.
 		w.advertise_with_parent_head(held, leaf, cand.hash(), cand.parent_head_hash());
@@ -347,7 +301,7 @@ mod reputation_priority {
 		let barrier = w.recorder_barrier();
 		w.respond_fetch_invalid(first_id);
 
-		let req_id = w.expect_fetch_to(winner.peer_id);
+		let req_id = w.expect_fetch_from_after(barrier, winner.peer_id);
 		let (first, _) = w
 			.first_fetch_after(barrier)
 			.expect("the candidate must be re-fetched once the slot frees");
@@ -443,7 +397,7 @@ mod reputation_emission {
 		let (mut w, peer) = setup_declare_twice_unneeded::<S>();
 
 		// Buffered until the flush.
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| {
 				matches!(
 					e,
@@ -456,7 +410,7 @@ mod reputation_emission {
 
 		// Advance past the flush interval; aggregator dispatches one Batch.
 		w.base.sim.advance(REPUTATION_CHANGE_INTERVAL + Duration::from_secs(1));
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| {
 				matches!(
 					e,
@@ -476,7 +430,7 @@ mod reputation_emission {
 		// just disconnect-without-slash on this side. Advance well past any flush window
 		// the legacy side would have used and confirm silence.
 		w.base.sim.advance(REPUTATION_CHANGE_INTERVAL + Duration::from_secs(1));
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| {
 				matches!(
 					e,
@@ -677,7 +631,7 @@ mod claim_queue_capacity {
 			);
 		}
 		w.base.sim.advance(Duration::from_millis(300));
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { .. }),
 			2,
 			"exactly 2 fetches (leaf CQ has 2 slots for PARA_A)",
@@ -719,7 +673,7 @@ mod claim_queue_capacity {
 			cand_wide.parent_head_hash(),
 		);
 		w.base.sim.advance(Duration::from_millis(300));
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { .. }),
 			2,
 			"both narrow- and wide-window ads must fetch (no under-fetch)",
@@ -849,7 +803,7 @@ mod claim_queue_capacity {
 		w.advertise_with_parent_head(&peer_a, common, cand_a.hash(), cand_a.parent_head_hash());
 		w.advertise_with_parent_head(&peer_b, common, cand_b.hash(), cand_b.parent_head_hash());
 		w.base.sim.advance(Duration::from_millis(300));
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { .. }),
 			2,
 			"both ads at common ancestor fetch (longest-window across forks = 2)",
@@ -892,7 +846,7 @@ mod claim_queue_capacity {
 			w.advertise_with_parent_head(peer, common, cand.hash(), cand.parent_head_hash());
 		}
 		w.base.sim.advance(Duration::from_millis(300));
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { .. }),
 			2,
 			"shared ancestor capacity = 2 (not 4 — one bucket across both forks)",
@@ -1049,8 +1003,8 @@ mod reputation_arbitration {
 		);
 		w.base.sim.advance(Duration::from_millis(50));
 
-		let _ = w.expect_fetch_to(peer_high.peer_id);
-		w.base.sim.expect_count(
+		let _ = w.expect_fetch_from(peer_high.peer_id);
+		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { .. }),
 			1,
 			"single fetch goes to high-rep ancestor peer (slot count = 1)",
@@ -1070,11 +1024,9 @@ mod reputation_arbitration {
 	// reachable from grandparent — narrow-only positions don't get stolen by the rep-best
 	// wide candidate).
 	//
-	// Blocked on having a clean way to ramp 2 peers' scores (peer_high_x and peer_high_y)
-	// in a single test. The current ramp helper uses the leaf+finalize pattern; doing it
-	// twice for two different peers needs either a shared chain-extension dance or a
-	// `World::seed_score(peer, para, score)` shortcut. The existing single-ramp tests
-	// here demonstrate that the rep machinery works; adding the more elaborate
+	// Unblocked: `World::seed_scores` ramps any number of peers per para in one call
+	// (one call per para here, since peer_high_y earns on Y). The existing single-ramp
+	// tests here demonstrate that the rep machinery works; adding the more elaborate
 	// multi-position arbitration is incremental.
 }
 
@@ -1113,7 +1065,7 @@ mod duplicate_fetch {
 		// Settle long enough that any second concurrent fetch would have fired.
 		w.base.sim.advance(Duration::from_millis(300));
 
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { .. }),
 			1,
 			"exactly one fetch for the shared V2 candidate (must NOT fire one per carrier)",
@@ -1134,7 +1086,7 @@ mod duplicate_fetch {
 		w.advertise_with_parent_head(&peer_v2, leaf, cand.hash(), cand.parent_head_hash());
 		w.advertise_with_parent_head(&peer_v3, leaf, cand.hash(), cand.parent_head_hash());
 		w.base.sim.advance(Duration::from_millis(300));
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { .. }),
 			1,
 			"exactly one fetch across V2 + V3 carriers (offer-keyed dedup)",
@@ -1198,8 +1150,8 @@ mod duplicate_fetch {
 		w.base.sim.advance(Duration::from_millis(50));
 
 		// Exactly one fetch, targeted at peer_high.
-		let _ = w.expect_fetch_to(peer_high.peer_id);
-		w.base.sim.expect_count(
+		let _ = w.expect_fetch_from(peer_high.peer_id);
+		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { .. }),
 			1,
 			"exactly one fetch and it goes to the rep-best peer",
@@ -1237,12 +1189,12 @@ mod duplicate_fetch {
 		w.advertise_with_parent_head(&peer_b, leaf, cand.hash(), cand.parent_head_hash());
 
 		// Exactly one fetch fires immediately; the other carrier is parked (offer-keyed dedup).
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { .. }),
 			1,
 			"exactly one immediate fetch for the shared V2 candidate; the duplicate is parked",
 		);
-		let (first_peer, _) = w.first_fetch_after(0).expect("exactly one fetch fired");
+		let (first_peer, _) = w.first_fetch().expect("exactly one fetch fired");
 		let other_peer = if first_peer == peer_a.peer_id { peer_b.peer_id } else { peer_a.peer_id };
 		let barrier = w.recorder_barrier();
 
@@ -1252,14 +1204,14 @@ mod duplicate_fetch {
 		// validator must have launched a *parallel* fetch to the parked co-advertiser, and the
 		// first fetch must still be outstanding (not cancelled, not failed).
 		w.base.sim.advance(Duration::from_secs(1));
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { .. }),
 			2,
 			"a second, parallel fetch fired by 1 s",
 		);
 		let (second_peer, _) = w
 			.first_fetch_after(barrier)
-			.expect("expect_count == 2 guarantees a second fetch after the barrier");
+			.expect("assert_count == 2 guarantees a second fetch after the barrier");
 		assert_eq!(
 			second_peer, other_peer,
 			"the parallel fetch must target the parked co-advertiser"
@@ -1294,13 +1246,13 @@ mod duplicate_fetch {
 		w.advertise_with_parent_head(&peer_b, leaf, cand.hash(), cand.parent_head_hash());
 
 		// Exactly one fetch in flight; the other carrier is parked as a fallback.
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { .. }),
 			1,
 			"exactly one fetch for the shared V2 candidate; the duplicate must be parked",
 		);
 		let (first_peer, _) = w
-			.first_fetch_after(0)
+			.first_fetch()
 			.expect("exactly one fetch fired, so first_fetch_after must find it");
 		let other_peer = if first_peer == peer_a.peer_id { peer_b.peer_id } else { peer_a.peer_id };
 
@@ -1311,6 +1263,6 @@ mod duplicate_fetch {
 		w.base
 			.sim
 			.advance(Protocol::CollationFetchingV2.request_timeout() + Duration::from_millis(100));
-		let _ = w.expect_fetch_to(other_peer);
+		let _ = w.expect_fetch_from(other_peer);
 	}
 }

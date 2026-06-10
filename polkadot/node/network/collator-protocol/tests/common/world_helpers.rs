@@ -45,13 +45,17 @@
 use crate::common::{
 	builders::{Candidate, CandidateBuilder, Peer, ProtocolVersion},
 	contract::{Effect, RepBucket, ReqKind, RequestId},
-	harness::CollatorSut,
-	world::World,
+	harness::{Barrier, CollatorSut},
+	world::{World, WorldExt as _},
 };
 use codec::Encode;
 use polkadot_node_network_protocol::request_response::{v1 as protocol_v1, v2 as protocol_v2};
 use polkadot_node_primitives::PoV;
-use polkadot_primitives::{CandidateHash, CandidateReceiptV2, Hash, HeadData, Id as ParaId};
+use polkadot_node_subsystem::OverseerSignal;
+use polkadot_primitives::{
+	CandidateEvent, CandidateHash, CandidateReceiptV2, CoreIndex, GroupIndex, Hash, HeadData,
+	Id as ParaId,
+};
 use sc_network::ProtocolName;
 use std::time::Duration;
 
@@ -159,22 +163,22 @@ impl<S: CollatorSut> World<S> {
 		));
 	}
 
-	/// Snapshot the recorder's current entry count. Use as a barrier with
-	/// [`Self::first_fetch_after`] to find the first fetch fired *after* a particular
-	/// scenario step. Sim time alone doesn't separate events recorded inside a single
-	/// `drain` cycle (they all carry the same `sim_t`); the entry index does.
-	pub fn recorder_barrier(&self) -> usize {
-		self.base.sim.recorder().entries().len()
+	/// Find the first `Effect::SendRequest CollationFetchingV{1,2}` anywhere in the log.
+	/// Returns `None` if none has been recorded yet — it does not block.
+	pub fn first_fetch(
+		&self,
+	) -> Option<(sc_network_types::PeerId, Option<polkadot_primitives::CandidateHash>)> {
+		self.first_fetch_after(Barrier::START)
 	}
 
 	/// Find the first `Effect::SendRequest CollationFetchingV{1,2}` recorded at or after
-	/// `barrier` (a recorder-entry index from [`Self::recorder_barrier`]). Returns
-	/// `None` if none has been recorded yet — it does not block.
+	/// `barrier` (a `recorder_barrier()` snapshot). Returns `None` if none has been
+	/// recorded yet — it does not block.
 	pub fn first_fetch_after(
 		&self,
-		barrier: usize,
+		barrier: Barrier,
 	) -> Option<(sc_network_types::PeerId, Option<polkadot_primitives::CandidateHash>)> {
-		self.base.sim.recorder().entries().iter().skip(barrier).find_map(|o| {
+		self.base.sim.recorder().entries().iter().skip(barrier.index()).find_map(|o| {
 			let crate::common::harness::Observation::Effect(s) = o;
 			if let Effect::SendRequest {
 				kind: ReqKind::CollationFetchingV1 | ReqKind::CollationFetchingV2,
@@ -214,10 +218,26 @@ impl<S: CollatorSut> World<S> {
 		send_request.request_id().expect("SendRequest carries a RequestId")
 	}
 
-	/// Wait for `Effect::SendRequest CollationFetchingV{1,2}` targeting `peer`. Use when
-	/// the candidate hash is unknown (the test only cares about which peer was picked).
-	pub fn expect_fetch_to(&mut self, peer: sc_network_types::PeerId) -> RequestId {
-		let send_request = self.base.sim.expect(
+	/// Wait for `Effect::SendRequest CollationFetchingV{1,2}` requesting a collation from
+	/// `peer` (the request is *sent to* the peer; the collation is *fetched from* it). Use
+	/// when the candidate hash is unknown (the test only cares about which peer was picked).
+	///
+	/// Matches the whole observation log; in multi-round scenarios where the same peer is
+	/// legitimately fetched from more than once, use [`Self::expect_fetch_from_after`].
+	pub fn expect_fetch_from(&mut self, peer: sc_network_types::PeerId) -> RequestId {
+		self.expect_fetch_from_after(Barrier::START, peer)
+	}
+
+	/// Like [`Self::expect_fetch_from`], but only fetches recorded at or after `barrier`
+	/// (a `recorder_barrier()` snapshot) match — a fetch from the same peer recorded
+	/// by an earlier scenario step cannot satisfy the expectation.
+	pub fn expect_fetch_from_after(
+		&mut self,
+		barrier: Barrier,
+		peer: sc_network_types::PeerId,
+	) -> RequestId {
+		let send_request = self.base.sim.expect_from(
+			barrier,
 			|e| {
 				matches!(
 					e,
@@ -229,7 +249,7 @@ impl<S: CollatorSut> World<S> {
 				)
 			},
 			HAPPY_PATH_TIMEOUT,
-			"Effect::SendRequest CollationFetching to the specified peer",
+			"Effect::SendRequest CollationFetching from the specified peer",
 		);
 		send_request.request_id().expect("SendRequest carries a RequestId")
 	}
@@ -500,5 +520,61 @@ impl<S: CollatorSut> World<S> {
 			within,
 			"Effect::DisconnectPeers for peer (must NOT fire)",
 		);
+	}
+
+	/// Bump `peer`'s reputation by one included candidate: finalize `leaf` carrying a
+	/// `CandidateIncluded` event (core 0 / group 0) for a candidate approved by `peer`.
+	///
+	/// `leaf` must be known to the chain model — typically the current leaf. Prefer
+	/// [`Self::seed_scores`] for ramping whole reputation layouts.
+	pub fn earn_inclusion(&mut self, peer: &Peer, para: ParaId, leaf: Hash) {
+		let cand = self
+			.candidate_at(leaf)
+			.para(para)
+			.head_data(HeadData(vec![leaf.as_bytes()[0]]))
+			.approved_peer(peer.peer_id)
+			.build();
+		let number = {
+			let mut chain = self.base.chain.lock();
+			chain.set_pending_availability(para, vec![cand.committed()]);
+			chain.set_candidate_events(
+				leaf,
+				vec![CandidateEvent::CandidateIncluded(
+					cand.receipt.clone(),
+					cand.commitments.head_data.clone(),
+					CoreIndex(0),
+					GroupIndex(0),
+				)],
+			);
+			chain.set_finalized(leaf);
+			chain
+				.block(&leaf)
+				.expect("earn_inclusion: leaf must be known to the chain model")
+				.number
+		};
+		self.base.sim.signal(OverseerSignal::BlockFinalized(leaf, number));
+		self.base.sim.advance(Duration::from_millis(50));
+	}
+
+	/// Seed collator reputations by repeated inclusion: for each `(peer, score)` entry the
+	/// peer earns `score` included candidates, one per block, chaining new blocks off the
+	/// current leaf as needed. Returns the leaf the final inclusion landed on, which
+	/// subsequent scenario steps typically fork from.
+	///
+	/// Ramping any number of peers in one test is a single call:
+	/// `w.seed_scores(PARA, &[(&peer_a, 2), (&peer_b, 1)])`.
+	pub fn seed_scores(&mut self, para: ParaId, scores: &[(&Peer, u32)]) -> Hash {
+		let mut leaf = self.leaf();
+		let mut first = true;
+		for (peer, score) in scores {
+			for _ in 0..*score {
+				if !first {
+					leaf = self.new_block().from_parent(leaf).activate().hash;
+				}
+				first = false;
+				self.earn_inclusion(peer, para, leaf);
+			}
+		}
+		leaf
 	}
 }
