@@ -24,7 +24,7 @@
 
 use codec::{Decode, Encode};
 use cumulus_client_consensus_common::old_finalized_hash;
-use cumulus_primitives_core::relay_chain::SessionIndex;
+use cumulus_primitives_core::relay_chain::{CoreIndex, CoreSelector, SessionIndex};
 use sc_client_api::{
 	backend::AuxStore,
 	client::{AuxDataOperations, FinalityNotification, PreCommitActions},
@@ -60,6 +60,10 @@ pub struct StoredEntry {
 	pub proof: StorageProof,
 	/// Relay parent's `session_index_for_child`.
 	pub relay_parent_session: Option<SessionIndex>,
+	/// The core the block was originally submitted on.
+	pub core_index: Option<CoreIndex>,
+	/// The core selector used to pick the core on the relay chain.
+	pub core_selector: CoreSelector,
 }
 
 /// Borrowed, encode-only twin of [`StoredEntry`] used on the write path to avoid cloning the proof.
@@ -71,6 +75,8 @@ struct StoredEntryRef<'a> {
 	time_ms: u64,
 	proof: &'a StorageProof,
 	relay_parent_session: Option<SessionIndex>,
+	core_index: Option<CoreIndex>,
+	core_selector: CoreSelector,
 }
 
 fn entry_key<H: Encode>(block_hash: H) -> Vec<u8> {
@@ -104,9 +110,12 @@ pub fn prepare_resubmission_aux_data<Block: BlockT>(
 	block_hash: Block::Hash,
 	time_ms: u64,
 	relay_parent_session: Option<SessionIndex>,
+	core_index: Option<CoreIndex>,
+	core_selector: CoreSelector,
 	proof: &StorageProof,
 ) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> {
-	let encoded_entry = StoredEntryRef { time_ms, proof, relay_parent_session }.encode();
+	let encoded_entry =
+		StoredEntryRef { time_ms, proof, relay_parent_session, core_index, core_selector }.encode();
 	let encoded_version = STORE_CURRENT_VERSION.encode();
 
 	[(entry_key(block_hash), encoded_entry), (STORE_VERSION_KEY.to_vec(), encoded_version)]
@@ -252,6 +261,8 @@ mod tests {
 			time_ms,
 			proof: StorageProof::new(vec![vec![1, 2, 3], vec![4, 5, 6]]),
 			relay_parent_session: Some(1),
+			core_index: Some(CoreIndex(0)),
+			core_selector: CoreSelector(0),
 		}
 	}
 
@@ -266,6 +277,8 @@ mod tests {
 			hash,
 			entry.time_ms,
 			entry.relay_parent_session,
+			entry.core_index,
+			entry.core_selector,
 			&entry.proof,
 		)
 		.collect();
@@ -281,9 +294,17 @@ mod tests {
 		let proof = StorageProof::new(vec![vec![10, 20, 30]]);
 		let relay_parent_session = Some(42);
 
-		let pairs: Vec<_> =
-			prepare_resubmission_aux_data::<Block>(hash, time_ms, relay_parent_session, &proof)
-				.collect();
+		let core_index = Some(CoreIndex(3));
+		let core_selector = CoreSelector(5);
+		let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
+			hash,
+			time_ms,
+			relay_parent_session,
+			core_index,
+			core_selector,
+			&proof,
+		)
+		.collect();
 
 		assert_eq!(pairs.len(), 2);
 
@@ -295,6 +316,8 @@ mod tests {
 		assert_eq!(decoded_entry.time_ms, time_ms);
 		assert_eq!(decoded_entry.proof, proof);
 		assert_eq!(decoded_entry.relay_parent_session, relay_parent_session);
+		assert_eq!(decoded_entry.core_index, core_index);
+		assert_eq!(decoded_entry.core_selector, core_selector);
 
 		assert_eq!(pairs[1].0, STORE_VERSION_KEY.to_vec());
 		let decoded_version =
@@ -365,8 +388,15 @@ mod tests {
 
 		let write = |hash: Hash, session: Option<SessionIndex>| {
 			let proof = StorageProof::new(vec![vec![1, 2, 3]]);
-			let pairs: Vec<_> =
-				prepare_resubmission_aux_data::<Block>(hash, 1_000, session, &proof).collect();
+			let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
+				hash,
+				1_000,
+				session,
+				None,
+				CoreSelector(0),
+				&proof,
+			)
+			.collect();
 			let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
 			AuxStore::insert_aux(&*backend, &refs, &[]).expect("insert");
 		};
@@ -399,8 +429,15 @@ mod tests {
 
 		let recent = Hash::repeat_byte(0x09);
 		let proof = StorageProof::new(vec![vec![1, 2, 3]]);
-		let pairs: Vec<_> =
-			prepare_resubmission_aux_data::<Block>(recent, 1_000, Some(10), &proof).collect();
+		let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
+			recent,
+			1_000,
+			Some(10),
+			None,
+			CoreSelector(0),
+			&proof,
+		)
+		.collect();
 		let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
 		AuxStore::insert_aux(&*backend, &refs, &[]).expect("insert");
 
@@ -423,6 +460,8 @@ mod tests {
 			time_ms: 1234567890u64,
 			proof: StorageProof::new(vec![vec![1, 2, 3]]),
 			relay_parent_session: Some(7),
+			core_index: Some(CoreIndex(3)),
+			core_selector: CoreSelector(5),
 		};
 
 		let encoded = entry.encode();
@@ -435,7 +474,10 @@ mod tests {
 		// proof                = Vec<Vec<u8>> with one element [1,2,3]: outer len 1 (SCALE
 		//                        compact = 04), inner len 3 (compact = 0c), bytes 01 02 03
 		// relay_parent_session = Some(7): Option tag 01, u32 little-endian 07 00 00 00
-		let expected_hex = "d20296490000000004 0c 010203 01 07000000".replace(' ', "");
+		// core_index           = Some(CoreIndex(3)): Option tag 01, u32 little-endian 03 00 00 00
+		// core_selector        = CoreSelector(5): u8 05
+		let expected_hex =
+			"d20296490000000004 0c 010203 01 07000000 01 03000000 05".replace(' ', "");
 		assert_eq!(encoded_hex, expected_hex, "StoredEntry encoding changed!");
 
 		let decoded = StoredEntry::decode(&mut encoded.as_slice()).expect("decode should succeed");
@@ -548,12 +590,16 @@ mod tests {
 				hash_a,
 				entry_a.time_ms,
 				entry_a.relay_parent_session,
+				entry_a.core_index,
+				entry_a.core_selector,
 				&entry_a.proof,
 			)
 			.chain(prepare_resubmission_aux_data::<Block>(
 				hash_b,
 				entry_b.time_ms,
 				entry_b.relay_parent_session,
+				entry_b.core_index,
+				entry_b.core_selector,
 				&entry_b.proof,
 			))
 			.collect();
