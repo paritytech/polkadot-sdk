@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781089500530,
+  "lastUpdate": 1781105711660,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0bde5c88f6d5570610018e6d3b6ff3d74604b34f",
-          "message": "Version bumps and prdocs reordering from stable2509-1 (#10110)\n\nThis PR backports regular version bumps and prdoc reordering from the\nrelease branch back to master",
-          "timestamp": "2025-10-24T13:17:22Z",
-          "tree_id": "8afd14bf694b4b653f703345e148de94972b3283",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0bde5c88f6d5570610018e6d3b6ff3d74604b34f"
-        },
-        "date": 1761316218949,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15913594253999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007787965353333353,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01357698992,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02264990904,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007620644566666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1527017+eskimor@users.noreply.github.com",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2ac8569fdfeb483f4effa19c8bf806f179e43e8c",
+          "message": "Pragmatic scalable Web3 Storage Design (#10731)",
+          "timestamp": "2026-06-10T12:55:11Z",
+          "tree_id": "00444f66c41a0c41428592c3dcda56bfeb41ab5f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ac8569fdfeb483f4effa19c8bf806f179e43e8c"
+        },
+        "date": 1781105679038,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14425871096000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02389331092,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007403853446666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009952636859999964,
             "unit": "seconds"
           }
         ]
