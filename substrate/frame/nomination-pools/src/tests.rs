@@ -30,7 +30,7 @@ macro_rules! unbonding_pools_with_era {
 	($($k:expr => $v:expr),* $(,)?) => {{
 		use ::core::iter::{Iterator, IntoIterator};
 		let not_bounded: BTreeMap<_, _> = Iterator::collect(IntoIterator::into_iter([$(($k, $v),)*]));
-		BoundedBTreeMap::<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>::try_from(not_bounded).unwrap()
+		BoundedBTreeMap::<EraIndex, UnbondPool<T>, <T as Config>::PostUnbondingPoolsWindow>::try_from(not_bounded).unwrap()
 	}};
 }
 
@@ -666,9 +666,11 @@ mod sub_pools {
 	#[test]
 	fn maybe_merge_pools_works() {
 		ExtBuilder::default().build_and_execute(|| {
-			assert_eq!(TotalUnbondingPools::<Runtime>::get(), 5);
+			assert_eq!(<Runtime as Config>::PostUnbondingPoolsWindow::get(), 5);
 			assert_eq!(BondingDuration::get(), 3);
-			assert_eq!(PostUnbondingPoolsWindow::get(), 2);
+			// Effective post-unbonding window = PostUnbondingPoolsWindow - bonding_duration = 5 - 3
+			// = 2.
+			assert_eq!(PostUnbondingPoolsWindow::get() - BondingDuration::get(), 2);
 
 			// Given
 			let mut sub_pool_0 = SubPools::<Runtime> {
@@ -682,19 +684,22 @@ mod sub_pools {
 				},
 			};
 
-			// When `current_era < TotalUnbondingPools`,
+			// The effective post-unbonding window is `PostUnbondingPoolsWindow - bonding_duration =
+			// 2`, so pools are merged once they are older than `current_era - 2`.
+
+			// When `current_era < window`,
 			let sub_pool_1 = sub_pool_0.clone().maybe_merge_pools(0);
 
 			// Then it exits early without modifications
 			assert_eq!(sub_pool_1, sub_pool_0);
 
-			// When `current_era == TotalUnbondingPools`,
+			// When `current_era == window`,
 			let sub_pool_1 = sub_pool_1.maybe_merge_pools(1);
 
 			// Then it exits early without modifications
 			assert_eq!(sub_pool_1, sub_pool_0);
 
-			// When  `current_era - TotalUnbondingPools == 0`,
+			// When `current_era - window == 0`,
 			let mut sub_pool_1 = sub_pool_1.maybe_merge_pools(2);
 
 			// Then era 0 is merged into the `no_era` pool
@@ -711,7 +716,7 @@ mod sub_pools {
 				.try_insert(5, UnbondPool::<Runtime> { points: 50, balance: 50 })
 				.unwrap();
 
-			// When `current_era - TotalUnbondingPools == 1`
+			// When `current_era - window == 1`
 			let sub_pool_2 = sub_pool_1.maybe_merge_pools(3);
 			let era_1_pool = sub_pool_0.with_era.remove(&1).unwrap();
 
@@ -720,7 +725,7 @@ mod sub_pools {
 			sub_pool_0.no_era.balance += era_1_pool.balance;
 			assert_eq!(sub_pool_2, sub_pool_0);
 
-			// When `current_era - TotalUnbondingPools == 5`, so all pools with era <= 4 are removed
+			// When `current_era - window == 5`, so all pools with era <= 5 are removed
 			let sub_pool_3 = sub_pool_2.maybe_merge_pools(7);
 
 			// Then all eras <= 5 are merged into the `no_era` pool
@@ -730,6 +735,76 @@ mod sub_pools {
 				sub_pool_0.no_era.balance += to_merge.balance;
 			}
 			assert_eq!(sub_pool_3, sub_pool_0);
+		});
+	}
+
+	// `PostUnbondingPoolsWindow` is a fixed bound that does not depend on the (mutable) bonding
+	// duration. Lowering the bonding duration must NOT shrink the `with_era` bound, and must
+	// instead *widen* the effective post-unbonding window so per-era pools are retained on their
+	// correct ratio for ~`PostUnbondingPoolsWindow` eras regardless of the bonding duration.
+	#[test]
+	fn max_unbonding_pools_is_decoupled_from_bonding_duration() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_eq!(<Runtime as Config>::PostUnbondingPoolsWindow::get(), 5);
+
+			let sub_pool = || SubPools::<Runtime> {
+				no_era: UnbondPool::<Runtime>::default(),
+				with_era: unbonding_pools_with_era! {
+					0 => UnbondPool::<Runtime> { points: 10, balance: 10 },
+					1 => UnbondPool::<Runtime> { points: 10, balance: 10 },
+					2 => UnbondPool::<Runtime> { points: 10, balance: 10 },
+					3 => UnbondPool::<Runtime> { points: 10, balance: 10 },
+					4 => UnbondPool::<Runtime> { points: 10, balance: 10 },
+				},
+			};
+			let remaining_eras = |sub: SubPools<Runtime>| -> Vec<EraIndex> {
+				sub.with_era.keys().copied().collect()
+			};
+
+			// The bound is fixed at 5, regardless of the bonding duration.
+			BondingDuration::set(1);
+			assert_eq!(<Runtime as Config>::PostUnbondingPoolsWindow::get(), 5);
+			BondingDuration::set(3);
+			assert_eq!(<Runtime as Config>::PostUnbondingPoolsWindow::get(), 5);
+
+			// With bonding duration 3, the effective window is `5 - 3 = 2`: at era 4, pools with
+			// era <= 2 are merged into `no_era`, leaving eras 3 and 4.
+			assert_eq!(remaining_eras(sub_pool().maybe_merge_pools(4)), vec![3, 4]);
+
+			// Lowering the bonding duration to 1 (e.g. the post-flip scenario) widens the window to
+			// `5 - 1 = 4` *without* changing the bound: at era 4 only the pool with era <= 0 is
+			// merged, so eras 1..=4 stay separate on their own points-to-balance ratio.
+			BondingDuration::set(1);
+			assert_eq!(remaining_eras(sub_pool().maybe_merge_pools(4)), vec![1, 2, 3, 4]);
+		});
+	}
+
+	// A fixed `PostUnbondingPoolsWindow` keeps the `with_era` map decodable: it can always hold up
+	// to `PostUnbondingPoolsWindow` era-keyed pools even after the bonding duration is lowered.
+	#[test]
+	fn with_era_bound_does_not_shrink_when_bonding_duration_is_lowered() {
+		ExtBuilder::default().build_and_execute(|| {
+			BondingDuration::set(1);
+
+			let mut sub_pools = SubPools::<Runtime> {
+				no_era: UnbondPool::<Runtime>::default(),
+				with_era: Default::default(),
+			};
+
+			// Can insert up to `PostUnbondingPoolsWindow` (5) era pools regardless of bonding
+			// duration.
+			for era in 0..<Runtime as Config>::PostUnbondingPoolsWindow::get() {
+				assert_ok!(sub_pools
+					.with_era
+					.try_insert(era, UnbondPool::<Runtime> { points: 1, balance: 1 }));
+			}
+			assert_eq!(sub_pools.with_era.len() as u32, 5);
+
+			// The bound is full: a sixth distinct era pool cannot be inserted.
+			assert!(sub_pools
+				.with_era
+				.try_insert(5, UnbondPool::<Runtime> { points: 1, balance: 1 })
+				.is_err());
 		});
 	}
 }
@@ -3102,7 +3177,7 @@ mod unbond {
 			unsafe_set_state(1, PoolState::Destroying);
 
 			// When
-			let current_era = 1 + TotalUnbondingPools::<Runtime>::get();
+			let current_era = 1 + <Runtime as Config>::PostUnbondingPoolsWindow::get();
 			CurrentEra::set(current_era);
 
 			assert_ok!(fully_unbond_permissioned(10));
@@ -3770,7 +3845,7 @@ mod withdraw_unbonded {
 
 				// Advance the current_era to ensure all `with_era` pools will be merged into
 				// `no_era` pool
-				current_era += TotalUnbondingPools::<Runtime>::get();
+				current_era += <Runtime as Config>::PostUnbondingPoolsWindow::get();
 				CurrentEra::set(current_era);
 
 				// Simulate some other call to unbond that would merge `with_era` pools into

@@ -166,7 +166,7 @@ impl Convert<sp_core::U256, Balance> for U256ToBalance {
 }
 
 parameter_types! {
-	pub const PostUnbondingPoolsWindow: u32 = 10;
+	pub const PostUnbondingPoolsWindow: u32 = 13;
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
 	pub static LegacyAdapter: bool = false;
 }

@@ -471,7 +471,7 @@ impl Contains<AccountId> for RestrictMock {
 }
 
 parameter_types! {
-	pub static PostUnbondingPoolsWindow: u32 = 2;
+	pub static PostUnbondingPoolsWindow: u32 = 5;
 	pub static MaxMetadataLen: u32 = 2;
 	pub static CheckLevel: u8 = 255;
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
