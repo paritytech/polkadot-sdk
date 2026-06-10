@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781021663225,
+  "lastUpdate": 1781087070083,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "31001cd5379c191aba605ac075419be9979d5742",
-          "message": "Add instant seal to omni-node (#10008)\n\nAdds a new `--instant-seal` CLI flag to enable instant seal mode in\nomni-node.\n\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/9996\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
-          "timestamp": "2025-10-23T15:02:21Z",
-          "tree_id": "1e746b6f12513b9ddc2e97ffc4619744c50030a4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/31001cd5379c191aba605ac075419be9979d5742"
-        },
-        "date": 1761236994827,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008676159389999992,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005142018779999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026893991399999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.01030116960999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4d77582733fa946a4be6ceb7d635ee41ad040dd6",
+          "message": "ci: fix command-backport (#12321)\n\nUse env for variables",
+          "timestamp": "2026-06-10T08:36:11Z",
+          "tree_id": "832630a33c38bd834e897413eb9726b242c8f981",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4d77582733fa946a4be6ceb7d635ee41ad040dd6"
+        },
+        "date": 1781087038073,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009349946329999977,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011240257829999989,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00255087658,
             "unit": "seconds"
           }
         ]
