@@ -1,10 +1,12 @@
 The following crates were updated to the corresponding versions:
 
-<details>
-<summary>Crates list</summary>
-
-- staging-xcm@17.0.1
-- pallet-mmr@41.0.1
-- polkadot-collator-protocol@24.0.3
-
-</details>
+- sc-network-sync@0.50.1
+- cumulus-pallet-xcmp-queue@0.21.2
+- collectives-westend-runtime@20.0.2
+- coretime-rococo-runtime@0.16.1
+- coretime-westend-runtime@0.16.1
+- people-rococo-runtime@0.16.1
+- asset-hub-rococo-runtime@0.26.2
+- asset-hub-westend-runtime@0.32.2
+- bridge-hub-rococo-runtime@0.20.1
+- bridge-hub-westend-runtime@0.17.1

@@ -1796,9 +1796,9 @@ reason = "changed"
 [[crate]]
 # substrate/client/network/sync
 name = "sc-network-sync"
-from = "0.49.0"
-to = "0.50.0"
-bump = "major"
+from = "0.50.0"
+to = "0.50.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -2968,9 +2968,9 @@ reason = "changed"
 [[crate]]
 # cumulus/pallets/xcmp-queue
 name = "cumulus-pallet-xcmp-queue"
-from = "0.21.0"
-to = "0.21.1"
-bump = "minor"
+from = "0.21.1"
+to = "0.21.2"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -3294,25 +3294,25 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/runtimes/collectives/collectives-westend
 name = "collectives-westend-runtime"
-from = "20.0.0"
-to = "20.0.1"
+from = "20.0.1"
+to = "20.0.2"
 bump = "patch"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/coretime/coretime-rococo
 name = "coretime-rococo-runtime"
-from = "0.15.2"
-to = "0.16.0"
-bump = "major"
+from = "0.16.0"
+to = "0.16.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/coretime/coretime-westend
 name = "coretime-westend-runtime"
-from = "0.15.2"
-to = "0.16.0"
-bump = "major"
+from = "0.16.0"
+to = "0.16.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -3342,9 +3342,9 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/runtimes/people/people-rococo
 name = "people-rococo-runtime"
-from = "0.15.1"
-to = "0.16.0"
-bump = "major"
+from = "0.16.0"
+to = "0.16.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -3564,25 +3564,25 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/runtimes/assets/asset-hub-rococo
 name = "asset-hub-rococo-runtime"
-from = "0.26.0"
-to = "0.26.1"
+from = "0.26.1"
+to = "0.26.2"
 bump = "patch"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/assets/asset-hub-westend
 name = "asset-hub-westend-runtime"
-from = "0.32.0"
-to = "0.32.1"
+from = "0.32.1"
+to = "0.32.2"
 bump = "patch"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo
 name = "bridge-hub-rococo-runtime"
-from = "0.19.1"
-to = "0.20.0"
-bump = "major"
+from = "0.20.0"
+to = "0.20.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -3596,9 +3596,9 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend
 name = "bridge-hub-westend-runtime"
-from = "0.16.2"
-to = "0.17.0"
-bump = "major"
+from = "0.17.0"
+to = "0.17.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
