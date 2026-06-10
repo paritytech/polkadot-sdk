@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781089460137,
+  "lastUpdate": 1781105670399,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "326b298c22245db223be65b7ced66fbb92f1db5b",
-          "message": "Introduce `unapplied_slashes_v2` Runtime API (#9798)\n\nThis PR deprecates the `unapplied_slashes` Runtime API. It was broken in\nhttps://github.com/paritytech/polkadot-sdk/pull/9443#issuecomment-3326683056.\nWe need do fix it by using the legacy `PendingSlashes` primitive so we\ndon't break older nodes.\n\nAlso introduce the new `unapplied_slashes_v2` API that makes use of the\nnew primitive.\n\nStill TODO:\n- [x] switch `dispute-coordinator` to use `unapplied_slashes_v2`\n- [x] cumulus compatibility fix\n- [x] fix tests\n- [x] locally double check old nodes still work\n- [x] prdoc\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: Overkillus <maciej.zyszkiewicz@parity.io>",
-          "timestamp": "2025-10-24T15:18:37Z",
-          "tree_id": "2159351e1e493a1f18bf58c9cc307de458b3c1cd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/326b298c22245db223be65b7ced66fbb92f1db5b"
-        },
-        "date": 1761326326028,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.621644510233335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20270367683333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.280090591700002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1527017+eskimor@users.noreply.github.com",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2ac8569fdfeb483f4effa19c8bf806f179e43e8c",
+          "message": "Pragmatic scalable Web3 Storage Design (#10731)",
+          "timestamp": "2026-06-10T12:55:11Z",
+          "tree_id": "00444f66c41a0c41428592c3dcda56bfeb41ab5f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ac8569fdfeb483f4effa19c8bf806f179e43e8c"
+        },
+        "date": 1781105637867,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.405501510566666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14063490043333332,
             "unit": "seconds"
           }
         ]
