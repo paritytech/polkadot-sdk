@@ -23,7 +23,6 @@ pallet-aura = { workspace = true }
 pallet-timestamp = { workspace = true }
 sp-application-crypto = { workspace = true }
 sp-consensus-aura = { workspace = true }
-sp-consensus-babe = { workspace = true }
 sp-runtime = { workspace = true }
 
 # Cumulus
@@ -60,7 +59,6 @@ std = [
 	"scale-info/std",
 	"sp-application-crypto/std",
 	"sp-consensus-aura/std",
-	"sp-consensus-babe/std",
 	"sp-runtime/std",
 ]
 try-runtime = [
