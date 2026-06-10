@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781021582374,
+  "lastUpdate": 1781086989698,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "47c4bbc803d6f884ce6cd20e995c0c9a9d2353a4",
-          "message": "revive/rpc: Adjust the RPC to utilize the ETH block from storage (#9512)\n\nThis PR adjusts the RPC layer of pallet-revive to use Ethereum blocks\nfrom storage via runtime APIs and establishes proper Ethereum ↔\nSubstrate block hash mappings.\n\n## Key Changes\n\n### Block Hash Mapping Infrastructure\n- **New database table**: `eth_to_substrate_blocks` maps Ethereum block\nhashes to Substrate block hashes and block numbers\n- **Bidirectional lookups**: Support for both ETH→Substrate and\nSubstrate→ETH hash resolution with backward compatibility fallbacks\n- **Block pruning**: Updated to remove stale mappings alongside\ntransaction and log data\n\n### Pallet Changes\n\n- **Genesis block initialization**: Added\n`block_storage::on_finalize_build_eth_block()` call in\n`BuildGenesisConfig` to properly build and store block 0\n\n## Testing\n\n- Added comprehensive tests for block hash mapping operations\n- Ethereum vs Substrate hash resolution tests\n- Fork handling in block pruning tests\n- Log filtering with Ethereum block hash tests\n- TransactionInfo deserialization from JSON Value tests\n\n## Implementation Details\n\nThe implementation uses a **runtime API approach** where the RPC layer\nqueries the runtime for Ethereum blocks and hashes, which are then\nmapped to Substrate block hashes in the local SQLite database. This\nprovides:\n\n1. **Backward compatibility**: Falls back to treating hashes as\nSubstrate hashes when no mapping exists\n2. **Efficient lookups**: Database indices on both Ethereum and\nSubstrate block hashes\n3. **Automatic cleanup**: Block mappings are pruned alongside\ntransaction and log data\n4. **Genesis block handling**: Block 0 is built during genesis using the\nblock storage infrastructure\n\nBuilds upon: https://github.com/paritytech/polkadot-sdk/pull/9418  \nPart of: https://github.com/paritytech/contract-issues/issues/139\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Lukasz Rubaszewski <117115317+lrubasze@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>",
-          "timestamp": "2025-10-24T07:26:16Z",
-          "tree_id": "2e1ee95f1bd75bb69b1bc401cfafa08871483e5f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/47c4bbc803d6f884ce6cd20e995c0c9a9d2353a4"
-        },
-        "date": 1761294962301,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52938,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63629.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.424763445420001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9574270411100039,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7653659872211356,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001662281,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.405611091269999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00603126374,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.428539902109999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.408777426409999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.432371396559998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001662281,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000017572549999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000017572549999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.06352156662,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-gather-signatures",
             "value": 0.005933769370000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4d77582733fa946a4be6ceb7d635ee41ad040dd6",
+          "message": "ci: fix command-backport (#12321)\n\nUse env for variables",
+          "timestamp": "2026-06-10T08:36:11Z",
+          "tree_id": "832630a33c38bd834e897413eb9726b242c8f981",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4d77582733fa946a4be6ceb7d635ee41ad040dd6"
+        },
+        "date": 1781086958409,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63633.329999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002278799,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002278799,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002506483,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005575650950000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.38319785844995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.780697233839999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.775007372270002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4737666032399894,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7825135836499583,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.418388477842805,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002506483,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.83701108363,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7286263308699987,
             "unit": "seconds"
           }
         ]
