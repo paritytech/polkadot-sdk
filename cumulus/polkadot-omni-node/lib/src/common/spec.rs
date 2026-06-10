@@ -429,6 +429,29 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 				.transpose()?;
 
+			let hop_pool = node_extra_args.hop.as_ref().and_then(|params| {
+				match params.build_pool(parachain_config.database.path().map(|p| p.to_path_buf())) {
+					Ok(pool) => Some(pool),
+					Err(e) => {
+						log::warn!(
+							target: "hop",
+							"Failed to initialize HOP data pool, continuing without HOP: {e}",
+						);
+						None
+					},
+				}
+			});
+			if let (Some(pool), Some(hop)) = (hop_pool.as_ref(), node_extra_args.hop.as_ref()) {
+				let task = sc_hop::build_maintenance_task::<Self::Block, _, _>(
+					&client,
+					&transaction_pool,
+					pool.clone(),
+					hop.promotion_buffer_secs,
+					hop.check_interval,
+				);
+				task_manager.spawn_handle().spawn("hop-maintenance", None, task.run());
+			}
+
 			if parachain_config.offchain_worker.enabled {
 				let custom_extensions = {
 					let statement_store = statement_store.clone();
@@ -469,12 +492,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				let transaction_pool = transaction_pool.clone();
 				let backend_for_rpc = backend.clone();
 				let statement_store = statement_store.clone();
+				let hop_pool = hop_pool.clone();
 				Box::new(move |_| {
 					Self::BuildRpcExtensions::build_rpc_extensions(
 						client.clone(),
 						backend_for_rpc.clone(),
 						transaction_pool.clone(),
 						statement_store.clone(),
+						hop_pool.clone(),
 						spawn_handle.clone(),
 					)
 				})

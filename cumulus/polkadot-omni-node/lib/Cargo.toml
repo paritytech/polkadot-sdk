@@ -52,6 +52,7 @@ sc-client-db = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-consensus-manual-seal = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
+sc-hop = { workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sc-network-statement = { workspace = true, default-features = true }
@@ -73,6 +74,7 @@ sp-consensus = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-genesis-builder = { workspace = true }
+sp-hop = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-offchain = { workspace = true, default-features = true }

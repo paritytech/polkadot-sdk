@@ -923,6 +923,7 @@ node = [
 	"polkadot-erasure-coding",
 	"polkadot-gossip-support",
 	"polkadot-network-bridge",
+	"polkadot-node-clock",
 	"polkadot-node-collation-generation",
 	"polkadot-node-core-approval-voting",
 	"polkadot-node-core-approval-voting-parallel",
@@ -977,6 +978,7 @@ node = [
 	"sc-executor-common",
 	"sc-executor-polkavm",
 	"sc-executor-wasmtime",
+	"sc-hop",
 	"sc-informant",
 	"sc-keystore",
 	"sc-mixnet",
@@ -1006,6 +1008,7 @@ node = [
 	"sc-transaction-pool",
 	"sc-transaction-pool-api",
 	"sc-utils",
+	"sc-virtualization",
 	"sp-blockchain",
 	"sp-consensus",
 	"sp-core-hashing",
@@ -2458,6 +2461,11 @@ default-features = false
 optional = true
 path = "../polkadot/node/network/bridge"
 
+[dependencies.polkadot-node-clock]
+default-features = false
+optional = true
+path = "../polkadot/node/clock"
+
 [dependencies.polkadot-node-collation-generation]
 default-features = false
 optional = true
@@ -2728,6 +2736,11 @@ default-features = false
 optional = true
 path = "../substrate/client/executor/wasmtime"
 
+[dependencies.sc-hop]
+default-features = false
+optional = true
+path = "../substrate/client/hop"
+
 [dependencies.sc-informant]
 default-features = false
 optional = true
@@ -2872,6 +2885,11 @@ path = "../substrate/client/transaction-pool/api"
 default-features = false
 optional = true
 path = "../substrate/client/utils"
+
+[dependencies.sc-virtualization]
+default-features = false
+optional = true
+path = "../substrate/client/virtualization"
 
 [dependencies.sp-blockchain]
 default-features = false

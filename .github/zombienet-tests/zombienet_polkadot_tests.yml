@@ -11,7 +11,6 @@
 
 - job-name: "zombienet-polkadot-functional-0003-beefy-and-mmr"
   test-filter: "functional::beefy_and_mmr::beefy_and_mmr_test"
-  runner-type: "large"
 
 
 - job-name: "zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate"
@@ -62,11 +61,10 @@
 
 - job-name: "zombienet-polkadot-functional-0015-coretime-shared-core-4-paras"
   test-filter: "functional::coretime_shared_core::coretime_shared_core_test_4_paras"
-  runner-type: "large"
+
 
 - job-name: "zombienet-polkadot-functional-0016-coretime-shared-core-3-paras"
   test-filter: "functional::coretime_shared_core::coretime_shared_core_test_3_paras"
-  runner-type: "large"
 
 
 - job-name: "zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness"
@@ -99,7 +97,6 @@
 # TODO: Disabled, occasionally (1 on ~50-70 runs) fails
 - job-name: "zombienet-polkadot-misc-0001-parachains-paritydb"
   test-filter: "misc::paritydb::paritydb_test"
-  runner-type: "large"
 
 
 # TODO: needs to resolve how to pass the GH_TOKEN to pods
@@ -126,12 +123,10 @@
 
 - job-name: "zombienet-polkadot-elastic-scaling-slot-based-3cores"
   test-filter: "elastic_scaling::slot_based_3cores::slot_based_3cores_test"
-  runner-type: "large"
   cumulus-image: "test-parachain"
 
 - job-name: "zombienet-polkadot-elastic-scaling-slot-based-12cores"
   test-filter: "elastic_scaling::slot_based_12cores::slot_based_12cores_test"
-  runner-type: "large"
   cumulus-image: "test-parachain"
 
 - job-name: "zombienet-polkadot-elastic-scaling-doesnt-break-parachains"
@@ -141,7 +136,6 @@
 
 - job-name: "zombienet-polkadot-elastic-scaling-basic-3cores"
   test-filter: "elastic_scaling::basic_3cores::basic_3cores_test"
-  runner-type: "large"
   cumulus-image: "colander"
 
 - job-name: "zombienet-polkadot-functional-sync-backing"
@@ -151,7 +145,6 @@
 
 - job-name: "zombienet-polkadot-functional-async-backing-6-seconds-rate"
   test-filter: "functional::async_backing_6_seconds_rate::async_backing_6_seconds_rate_test"
-  runner-type: "large"
 
 
 # TODO: Disabled, occasionally (1 on ~50-100 runs) fails
@@ -169,8 +162,6 @@
 # TODO: Disabled, occasionally (1 on ~50-100 runs) fails
 - job-name: "zombienet-polkadot-functional-spam-statement-distribution-requests"
   test-filter: "functional::spam_statement_distribution_requests::spam_statement_distribution_requests_test"
-  runner-type: "large"
-
   cumulus-image: "colander"
 
 - job-name: "zombienet-polkadot-approval-voting-coalescing"
@@ -180,7 +171,6 @@
 
 - job-name: "zombienet-polkadot-approved-peer-mixed-validators"
   test-filter: "functional::approved_peer_mixed_validators::approved_peer_mixed_validators_test"
-  runner-type: "large"
   cumulus-image: "colander"
   additional-setup: |
     BIN_DIR="$(pwd)/bin_old"
@@ -206,7 +196,6 @@
 
 - job-name: "zombienet-polkadot-functional-validator-disabling"
   test-filter: "functional::validator_disabling::validator_disabling_test"
-  runner-type: "large"
 
 
 - job-name: "zombienet-polkadot-dispute-old-finalized"
@@ -228,6 +217,18 @@
   test-filter: "functional::coretime_partitioning::coretime_assignment_boundary_test"
   runner-type: "default"
   use-zombienet-sdk: true
+
+- job-name: "zombienet-polkadot-scheduling-v2-and-v3-collator-with-v3-validators"
+  test-filter: "functional::scheduling_v3::scheduling_v2_and_v3_collator_with_v3_validators"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+
+- job-name: "zombienet-polkadot-scheduling-v3-es-collator-with-v3-validators"
+  test-filter: "functional::scheduling_v3::scheduling_v3_es_collator_with_v3_validators"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
 
 - job-name: "zombienet-polkadot-scheduling-v3-dynamic-enablement"
   test-filter: "functional::v3_dynamic_enablement::v3_dynamic_enablement_test"
