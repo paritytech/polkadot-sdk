@@ -572,6 +572,16 @@ Phase 2: Request Preimage
     with a deadline (current timeslot + UPGRADE_TIMEOUT). If the new code's
     footprint doesn't fit in the available state balance, the upgrade is
     rejected with AccumulateLog::InsufficientStateBalance.
+
+    Overwriting an in-flight upgrade is allowed: if a different code is
+    already pending, it is superseded — the old pending code's preimage is
+    released (see §6.1) and replaced by the new request. Requesting the
+    already-active code is a no-op.
+
+    A candidate may both adopt its pending upgrade and request a new,
+    different upgrade in the same block: Accumulate processes the upgrade
+    activation (Phase 5a) first, then replays the upward messages, so the
+    new request is armed against the just-activated code.
     │
     ▼
 Phase 3: Preimage Submission
