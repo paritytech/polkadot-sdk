@@ -890,6 +890,10 @@ pub use polkadot_gossip_support;
 #[cfg(feature = "polkadot-network-bridge")]
 pub use polkadot_network_bridge;
 
+/// Clock abstraction shared by Polkadot node subsystems.
+#[cfg(feature = "polkadot-node-clock")]
+pub use polkadot_node_clock;
+
 /// Collator-side subsystem that handles incoming candidate submissions from the parachain.
 #[cfg(feature = "polkadot-node-collation-generation")]
 pub use polkadot_node_collation_generation;
