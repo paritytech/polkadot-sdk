@@ -10819,8 +10819,9 @@ dependencies = [
 
 [[package]]
 name = "litep2p"
-version = "0.14.0"
-source = "git+https://github.com/paritytech/litep2p#4c4e4b4b8479f3feee30452d12106103fc78859d"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "add002c19435d97370862aaacc5f11d9d7e0c4e396874647bed5e755a04ac647"
 dependencies = [
  "async-trait",
  "bs58",
@@ -21798,7 +21799,7 @@ dependencies = [
  "ip_network",
  "libp2p",
  "linked_hash_set",
- "litep2p 0.14.0",
+ "litep2p 0.14.1",
  "log",
  "mockall",
  "multihash-codetable",
@@ -22085,7 +22086,7 @@ dependencies = [
  "ed25519-dalek",
  "libp2p-identity",
  "libp2p-kad",
- "litep2p 0.14.0",
+ "litep2p 0.14.1",
  "log",
  "multiaddr 0.18.2",
  "multihash 0.19.5",
