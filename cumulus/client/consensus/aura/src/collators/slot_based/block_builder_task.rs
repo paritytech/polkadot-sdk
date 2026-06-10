@@ -44,7 +44,9 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
-use polkadot_primitives::{Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId};
+use polkadot_primitives::{
+	Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId, SessionIndex,
+};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
@@ -60,7 +62,7 @@ use sp_externalities::Extensions;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
-	traits::{Block as BlockT, HashingFor, Header as HeaderT, Member},
+	traits::{Block as BlockT, HashingFor, Header as HeaderT, Member, NumberFor},
 	Saturating,
 };
 use sp_trie::{
@@ -68,7 +70,7 @@ use sp_trie::{
 	recorder::IgnoredNodes,
 };
 use std::{
-	collections::VecDeque,
+	collections::{HashMap, VecDeque},
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -232,6 +234,15 @@ where
 		);
 		slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
 
+		// Maps a parachain block hash (for blocks we built) to the session of the scheduling
+		// parent it was built against, plus its block number (used for pruning). In V3 a
+		// candidate's scheduling session must match the current one to be backable, so after a
+		// session change this lets us drop the blocks that became un-backable instead of
+		// extending an unincluded segment that can never be included. Bounded to the current
+		// unincluded segment by pruning included (and older) entries each iteration.
+		let mut scheduling_parent_sessions: HashMap<Block::Hash, (SessionIndex, NumberFor<Block>)> =
+			HashMap::new();
+
 		loop {
 			let _ = scheduling_info
 				.ensure_initialized(&relay_client, &mut relay_chain_data_cache)
@@ -295,6 +306,16 @@ where
 					para_best_hash,
 				},
 			};
+
+			// The session of the scheduling parent we are building against. Only relevant for
+			// V3, where it is used to drop parents whose own scheduling parent is from an older
+			// session (see `scheduling_parent_sessions`).
+			let current_sp_session = if v3_enabled {
+				relay_client.session_index_for_child(scheduling_parent_hash).await.ok()
+			} else {
+				None
+			};
+
 			let Some(parent_search_result) = crate::collators::find_parent(
 				&relay_client,
 				&*para_backend,
@@ -305,7 +326,32 @@ where
 					// core.
 					// When the digest item doesn't exist, we are running in compatibility
 					// mode and all parents are valid.
-					CumulusDigestItem::is_last_block_in_core(parent.digest()).unwrap_or(true)
+					if !CumulusDigestItem::is_last_block_in_core(parent.digest()).unwrap_or(true) {
+						return false;
+					}
+
+					// In V3, a candidate carries the session of its scheduling parent, and
+					// backing requires it to match the current session exactly. A parent built
+					// against an older session can therefore never be backed, so drop it and let
+					// the parent search fall back towards the included block.
+					if let Some(current_sp_session) = current_sp_session {
+						if let Some((block_sp_session, _)) =
+							scheduling_parent_sessions.get(&parent.hash())
+						{
+							if *block_sp_session < current_sp_session {
+								tracing::debug!(
+									target: LOG_TARGET,
+									hash = ?parent.hash(),
+									block_sp_session = *block_sp_session,
+									current_sp_session,
+									"Skipping parent built on a stale scheduling parent session.",
+								);
+								return false;
+							}
+						}
+					}
+
+					true
 				},
 			)
 			.await
@@ -557,6 +603,24 @@ where
 				if !cores.advance() {
 					break;
 				}
+			}
+
+			// Record the scheduling parent session of every block we built this slot, so a later
+			// session change lets us drop them once they become un-backable. We walk the freshly
+			// built chain from its tip back to the parent we started from, which also captures the
+			// intermediate blocks produced inside `build_collation_for_core` (not just the tip).
+			if let Some(current_sp_session) = current_sp_session {
+				let mut hash = pov_parent_hash;
+				while hash != initial_parent_hash {
+					let Ok(Some(header)) = para_client.header(hash) else { break };
+					scheduling_parent_sessions.insert(hash, (current_sp_session, *header.number()));
+					hash = *header.parent_hash();
+				}
+
+				// Keep only the current unincluded segment; included (and older) blocks are
+				// already backed and no longer relevant.
+				let included_number = *included_header.number();
+				scheduling_parent_sessions.retain(|_, (_, number)| *number > included_number);
 			}
 		}
 	}
