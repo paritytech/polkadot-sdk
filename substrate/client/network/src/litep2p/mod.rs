@@ -334,7 +334,7 @@ impl Litep2pNetworkBackend {
 			};
 		}
 
-		config_builder
+		let mut config_builder = config_builder
 			.with_websocket(WebSocketTransportConfig {
 				listen_addresses: websocket_addresses.into_iter().map(Into::into).collect(),
 				yamux_config: litep2p::yamux::Config::default(),
@@ -346,27 +346,41 @@ impl Litep2pNetworkBackend {
 				yamux_config: litep2p::yamux::Config::default(),
 				nodelay: true,
 				..Default::default()
-			})
-			.with_webrtc({
-				// If WebRTC has been effectively specified within the listen address
-				// and there is an on-disk config dir, persist a DTLS certificate.
-				// Attempt to use an already existing one, or generate a fresh one.
+			});
+
+		if !webrtc_addresses.is_empty() {
+			config_builder = config_builder.with_webrtc({
+				// If WebRTC has been specified within the listen address and there
+				// is an on-disk config dir, attempt to use an already existing
+				// DTLS certificate, or generate a fresh one.
 				// Otherwise, fall back to an ephemeral certificate.
-				let net_config_path = config.network_config.net_config_path.as_ref();
-				let certificate = (!webrtc_addresses.is_empty()).then(|| match net_config_path {
-			        Some(dir) => read_or_generate_webrtc_certificate(&dir.join(NODE_KEY_WEBRTC_FILE)),
-			        None => {
-						log::warn!("WebRtc enabled but no networking path specified, using an ephemeral certificate");
-				        None
-			        }
-			    }).flatten();
+				let certificate = match &config.network_config.net_config_path {
+					Some(dir) => {
+						read_or_generate_webrtc_certificate(&dir.join(NODE_KEY_WEBRTC_FILE))
+					},
+					None => {
+						log::warn!(
+							target: LOG_TARGET,
+							"WebRtc enabled but no networking path specified, using an ephemeral certificate"
+						);
+						None
+					},
+				};
 
 				WebRtcTransportConfig {
 					listen_addresses: webrtc_addresses.into_iter().map(Into::into).collect(),
 					certificate,
 					..Default::default()
 				}
-			})
+			});
+		} else if config.network_config.experimental_webrtc {
+			log::warn!(
+				target: LOG_TARGET,
+				"WebRtc enabled but no listen address specified"
+			);
+		}
+
+		config_builder
 	}
 }
 
