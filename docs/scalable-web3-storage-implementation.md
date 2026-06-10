@@ -17,30 +17,42 @@ A **bucket** is the fundamental unit of storage organization. It defines:
 
 ### Key Properties
 
-**Per-bucket MMR**: The bucket has ONE canonical MMR state. Multiple providers may store the bucket, and they should all converge to this state. The MMR is not per-provider.
+**Per-bucket MMR**: The bucket has ONE canonical MMR state. Multiple providers may store the bucket, and they should all
+converge to this state. The MMR is not per-provider.
 
 **Roles**:
 - **Admin**: Can modify members, manage settings, delete data (if not frozen)
 - **Writer**: Can append data
 - **Reader**: Can read data (relevant for private/access-controlled buckets where providers only serve to authorized members)
 
-**Redundancy**: A bucket can have storage agreements with multiple providers. The `min_providers` setting controls how many providers must acknowledge a state before it can be checkpointed. This ensures minimum redundancy for critical data.
+**Redundancy**: A bucket can have storage agreements with multiple providers. The `min_providers` setting controls how
+many providers must acknowledge a state before it can be checkpointed. This ensures minimum redundancy for critical
+data.
 
-**Append-only mode**: When `frozen_start_seq` is set, the bucket becomes append-only from that point. The start_seq can never decrease below the frozen value, preventing deletion of historical data. This is irreversible and requires the current snapshot to meet `min_providers` threshold.
+**Append-only mode**: When `frozen_start_seq` is set, the bucket becomes append-only from that point. The start_seq can
+never decrease below the frozen value, preventing deletion of historical data. This is irreversible and requires the
+current snapshot to meet `min_providers` threshold.
 
 ### Storage Model
 
 **Upload and Commit are separate operations**:
 
-1. **Upload**: Clients upload content-addressed data (chunks and internal nodes) to providers. This is just storage — no MMR involvement yet. Providers accept all uploads as long as the bucket has quota. Multiple clients can upload different data concurrently without conflicts.
+1. **Upload**: Clients upload content-addressed data (chunks and internal nodes) to providers. This is just storage — no
+   MMR involvement yet. Providers accept all uploads as long as the bucket has quota. Multiple clients can upload
+   different data concurrently without conflicts.
 
-2. **Commit**: A client requests the provider to add data_root(s) to the bucket's MMR. The provider signs a commitment to the new MMR state. This is when data becomes "committed" and the provider becomes liable.
+2. **Commit**: A client requests the provider to add data_root(s) to the bucket's MMR. The provider signs a commitment
+   to the new MMR state. This is when data becomes "committed" and the provider becomes liable.
 
-3. **Checkpoint**: A client submits provider signatures to the chain, establishing canonical state. The chain records which providers acknowledged this state. Only providers in the snapshot are challengeable for this state.
+3. **Checkpoint**: A client submits provider signatures to the chain, establishing canonical state. The chain records
+   which providers acknowledged this state. Only providers in the snapshot are challengeable for this state.
 
-**No conflict rejection**: Providers accept all uploads within quota. "Conflicts" (different clients uploading different data) are fine — the checkpoint determines which state becomes canonical.
+**No conflict rejection**: Providers accept all uploads within quota. "Conflicts" (different clients uploading different
+data) are fine — the checkpoint determines which state becomes canonical.
 
-**Pruning rule**: Non-canonical branches can only be pruned once a canonical branch exists with greater depth. A branch with range `[A, A+N)` can be pruned once canonical has range `[B, B+M)` where `B + M > A + N`. This ensures providers remain liable for any data that could still be challenged.
+**Pruning rule**: Non-canonical branches can only be pruned once a canonical branch exists with greater depth. A branch
+with range `[A, A+N)` can be pruned once canonical has range `[B, B+M)` where `B + M > A + N`. This ensures providers
+remain liable for any data that could still be challenged.
 
 **Optional snapshots**: On-chain snapshots are optional. Without a snapshot:
 - `challenge_offchain` works (challenger provides provider signature)
@@ -51,7 +63,9 @@ A **bucket** is the fundamental unit of storage organization. It defines:
 
 Users who create conflicts without checkpointing waste their quota—providers must keep all signed data.
 
-**Content-addressed storage**: Everything (chunks and internal nodes) is addressed by hash. Internal nodes are data whose content is child hashes. Upload is bottom-up: children must exist before parent can be stored. If a root hash exists, the entire tree is guaranteed complete.
+**Content-addressed storage**: Everything (chunks and internal nodes) is addressed by hash. Internal nodes are data
+whose content is child hashes. Upload is bottom-up: children must exist before parent can be stored. If a root hash
+exists, the entire tree is guaranteed complete.
 
 ### Provider Lifecycle in Bucket
 
@@ -72,9 +86,12 @@ Users who create conflicts without checkpointing waste their quota—providers m
 
 Once accepted, agreements are binding for both parties until expiry:
 - **No early exit for providers**: Providers cannot voluntarily leave. They committed to store data for the agreed duration.
-- **No early cancellation for clients**: Clients cannot cancel and reclaim locked payment. They committed to pay for the agreed duration.
-- **Provider's protection**: Before accepting, providers can set `max_duration` and review the terms. They can also block future extensions via `set_extensions_blocked`.
-- **Client's protection**: Clients can challenge if provider loses data (slashing). At settlement, clients can burn payment to signal poor service (burns cost an additional premium, making them a credible but costly signal).
+- **No early cancellation for clients**: Clients cannot cancel and reclaim locked payment. They committed to pay for the
+  agreed duration.
+- **Provider's protection**: Before accepting, providers can set `max_duration` and review the terms. They can also
+  block future extensions via `set_extensions_blocked`.
+- **Client's protection**: Clients can challenge if provider loses data (slashing). At settlement, clients can burn
+  payment to signal poor service (burns cost an additional premium, making them a credible but costly signal).
 
 **Agreement expiry:**
 
@@ -84,11 +101,13 @@ When `expires_at` is reached:
 3. Provider is no longer bound to store data
 4. Provider won't be included in future checkpoints
 
-**Snapshot liability**: Providers remain liable for snapshots they signed until those snapshots are superseded by a new checkpoint that doesn't include them, or until the bucket's canonical depth grows past the data they signed for.
+**Snapshot liability**: Providers remain liable for snapshots they signed until those snapshots are superseded by a new
+checkpoint that doesn't include them, or until the bucket's canonical depth grows past the data they signed for.
 
 ### Multi-Provider Coordination (Primary Providers)
 
-Primary providers don't sync with each other. Clients are responsible for uploading to each primary provider they want to store their data.
+Primary providers don't sync with each other. Clients are responsible for uploading to each primary provider they want
+to store their data.
 
 **Flow**:
 1. Client uploads data to Primary A, B, C (separately)
@@ -97,9 +116,11 @@ Primary providers don't sync with each other. Clients are responsible for upload
 4. Primaries not in the snapshot should sync (client re-uploads)
 5. After checkpoint, providers can prune non-canonical roots
 
-**Liability**: A provider is only liable for MMR states they acknowledged (signed). Challenges against the canonical checkpoint only work for providers listed in the snapshot's provider bitfield.
+**Liability**: A provider is only liable for MMR states they acknowledged (signed). Challenges against the canonical
+checkpoint only work for providers listed in the snapshot's provider bitfield.
 
-**Replica providers** sync autonomously from primaries or other replicas. They confirm sync on-chain and are liable for the roots they've confirmed.
+**Replica providers** sync autonomously from primaries or other replicas. They confirm sync on-chain and are liable for
+the roots they've confirmed.
 
 ---
 
