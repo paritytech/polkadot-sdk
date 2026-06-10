@@ -23,7 +23,9 @@ mod fetches_next_collation {
 		harness::CollatorSut,
 		world::{activated_world, WorldExt as _},
 	};
+	use polkadot_node_network_protocol::request_response::Protocol;
 	use polkadot_primitives::{CoreIndex, Id as ParaId};
+	use std::time::Duration;
 
 	const PARA: ParaId = ParaId::new(2000);
 
@@ -38,14 +40,25 @@ mod fetches_next_collation {
 			w.base.sim.send(p.advertise(leaf, None, None));
 		}
 
-		// First fetch fires (which peer is unspecified).
+		// Exactly one V1 fetch is in flight (the other carriers for this (sp, para) are parked);
+		// the first peer never responds.
 		let (_first_peer, _, _) = w.expect_any_fetch();
-
-		// Don't respond. `expect_at_least_after` drives the clock to the subsystem's per-fetch
-		// abandon timer, after which ≥1 follow-up fetch must fire.
 		let barrier = w.base.sim.now_sim_t();
+		w.base.sim.expect_count(
+			|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
+			1,
+			"a single V1 fetch in flight; the other carriers are parked",
+		);
+
+		// Advance past the request timeout: the stalled fetch is abandoned as a network-level
+		// timeout, and the subsystem must fall back to a parked carrier — a *new* fetch fired
+		// strictly after the first one. The +1ms excludes the first fetch itself, which was
+		// recorded at exactly `barrier` (`expect_at_least_after` is `>= since`).
+		w.base
+			.sim
+			.advance(Protocol::CollationFetchingV1.request_timeout() + Duration::from_millis(100));
 		w.base.sim.expect_at_least_after(
-			barrier,
+			barrier + Duration::from_millis(1),
 			|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
 			1,
 			"a follow-up SendRequest fires after the first peer's deadline",
@@ -91,38 +104,11 @@ mod fetch_next_on_invalid {
 	}
 }
 
-mod fetch_timeout {
-	use crate::common::{
-		builders::{Candidate, ProtocolVersion::V2},
-		harness::CollatorSut,
-		world::{activated_world, WorldExt as _},
-	};
-	use polkadot_primitives::{CoreIndex, Id as ParaId};
-
-	const PARA: ParaId = ParaId::new(2000);
-
-	#[crate::sim_test]
-	fn fetch_timeout_advances_to_next_peer<S: CollatorSut>() {
-		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
-		let leaf = w.leaf();
-
-		let candidate = Candidate::for_para_at(PARA, leaf);
-		let head_hash = candidate.receipt.descriptor.para_head();
-
-		let peer_a = w.declared_peer(PARA, V2);
-		let peer_b = w.declared_peer(PARA, V2);
-		for peer in [&peer_a, &peer_b] {
-			w.base.sim.send(peer.advertise(leaf, Some(candidate.hash()), Some(head_hash)));
-		}
-
-		let (first_peer, _, _) = w.expect_any_fetch();
-		let other_peer = if first_peer == peer_a.peer_id { peer_b.peer_id } else { peer_a.peer_id };
-
-		// Don't respond. `expect_fetch_to` drives the clock to the subsystem's per-fetch abandon
-		// timer, after which the fetch falls back to the other peer.
-		let _ = w.expect_fetch_to(other_peer);
-	}
-}
+// NOTE: the V2 same-candidate timeout→fallback contract (one fetch, duplicate parked, fallback
+// to the parked carrier on timeout) is covered by
+// `divergent::duplicate_fetch::v2_co_carrier_fallback_fetches_from_second_peer_on_failure`,
+// which asserts both the dedup and the fallback. A weaker fallback-only duplicate previously
+// lived here; it was removed to keep a single source of truth for that contract.
 
 mod single_fetch_per_relay_parent {
 	use crate::common::{

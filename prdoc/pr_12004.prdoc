@@ -78,7 +78,15 @@ doc:
     * `cross_protocol_version_carriers_fetched_once` — V2-protocol carrier (`None`) and
       V3-protocol carrier (`Some(_)`) advertising the same candidate dedup to one fetch.
 
-    No public API changes; behavior change is contained to the experimental validator side.
+    Additionally, `polkadot-node-network-protocol` gains `Protocol::request_timeout()`,
+    exposing the per-protocol request timeout that was previously hardcoded inside
+    `Protocol::into_config`. The configured timeouts are unchanged; the accessor lets
+    components standing in for the network layer (the deterministic subsystem test-sim)
+    model the same timeout instead of duplicating the constants.
+
+    Collator-protocol behavior change is contained to the experimental validator side.
 crates:
 - name: polkadot-collator-protocol
   bump: patch
+- name: polkadot-node-network-protocol
+  bump: minor

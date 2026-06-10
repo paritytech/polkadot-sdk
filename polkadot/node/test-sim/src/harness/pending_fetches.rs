@@ -27,13 +27,26 @@
 use crate::contract::RequestId;
 use polkadot_node_network_protocol::request_response::ResponseSender;
 use sc_network::ProtocolName;
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Instant};
+
+/// A pending fetch: the response sender plus the simulated-time deadline at which the network
+/// layer would force-detect a timeout if no response has arrived.
+struct Entry {
+	sender: ResponseSender,
+	deadline: Instant,
+}
 
 /// Side table of pending request response senders keyed by [`RequestId`].
+///
+/// Each entry also carries the request's timeout deadline. The harness models the network
+/// layer, so it owns the request timeout too: [`Self::drain_timed_out`] drops the senders of
+/// fetches whose deadline has passed, which makes the subsystem's awaiting `oneshot` resolve
+/// with `Canceled` — exactly what a real network-level request timeout looks like to the
+/// subsystem.
 #[derive(Default)]
 pub struct PendingFetches {
 	next_id: u64,
-	by_id: HashMap<RequestId, ResponseSender>,
+	by_id: HashMap<RequestId, Entry>,
 }
 
 impl PendingFetches {
@@ -42,18 +55,36 @@ impl PendingFetches {
 		Self::default()
 	}
 
-	/// Allocate a fresh [`RequestId`] and store the response sender.
-	pub fn register(&mut self, sender: ResponseSender) -> RequestId {
+	/// Allocate a fresh [`RequestId`] and store the response sender together with the
+	/// simulated-time `deadline` after which it is considered timed out.
+	pub fn register(&mut self, sender: ResponseSender, deadline: Instant) -> RequestId {
 		let id = RequestId(self.next_id);
 		self.next_id += 1;
-		self.by_id.insert(id, sender);
+		self.by_id.insert(id, Entry { sender, deadline });
 		id
 	}
 
 	/// Take ownership of the response sender for `id`. Returns `None` if no such pending
-	/// fetch exists (already responded, or unknown id).
+	/// fetch exists (already responded, timed out, or unknown id).
 	pub fn take(&mut self, id: RequestId) -> Option<ResponseSender> {
-		self.by_id.remove(&id)
+		self.by_id.remove(&id).map(|e| e.sender)
+	}
+
+	/// Earliest deadline across all outstanding fetches, if any. The sim's clock-stepping
+	/// loops treat this as a scheduled event alongside executor timer wakeups, so they stop
+	/// *at* the timeout instant rather than stepping past it.
+	pub fn next_deadline(&self) -> Option<Instant> {
+		self.by_id.values().map(|e| e.deadline).min()
+	}
+
+	/// Drop every fetch whose `deadline <= now`, returning how many were dropped. Dropping the
+	/// sender resolves the subsystem's awaiting receiver with `Canceled`, modelling a
+	/// network-level request timeout.
+	pub fn drain_timed_out(&mut self, now: Instant) -> usize {
+		let before = self.by_id.len();
+		// Dropping each removed `Entry` (and its `sender`) cancels the subsystem's receiver.
+		self.by_id.retain(|_, e| e.deadline > now);
+		before - self.by_id.len()
 	}
 
 	/// Number of pending fetches currently outstanding.

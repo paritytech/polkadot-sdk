@@ -38,7 +38,7 @@ use crate::{
 };
 use futures::{channel::mpsc, future::BoxFuture, FutureExt, SinkExt};
 use polkadot_node_subsystem::{messages::AllMessages, FromOrchestra, OverseerSignal};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// Common surface for any subsystem the harness has spawned.
 ///
@@ -118,6 +118,7 @@ impl<M: 'static + Send + std::fmt::Debug> UutSlot<M> {
 ///    to the responder.
 pub async fn route<R: AnswerQuery + ?Sized>(
 	sim_t: Duration,
+	now: Instant,
 	msg: AllMessages,
 	uut_route: Option<&dyn UutRoute>,
 	aux: &[Box<dyn SubsystemSlot>],
@@ -172,7 +173,7 @@ pub async fn route<R: AnswerQuery + ?Sized>(
 
 	// Step 4: nobody accepted — fall through to classify.
 	let msg = current.expect("loop preserves current when nobody accepts");
-	for c in classify(msg, pending) {
+	for c in classify(msg, pending, now) {
 		match c {
 			Classified::Effect(e) => recorder.record_effect(sim_t, e),
 			Classified::Query(q) => responder.answer(q),

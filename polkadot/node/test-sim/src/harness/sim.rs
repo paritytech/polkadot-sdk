@@ -226,8 +226,9 @@ where
 		self.inject(FromOrchestra::Communication { msg });
 	}
 
-	/// Advance simulated time by `dur`. Iteratively resolves wakeups until either the time
-	/// budget is exhausted or no further wakeup falls inside the remaining window.
+	/// Advance simulated time by `dur`. Iteratively resolves scheduled events (executor timer
+	/// wakeups and pending-fetch timeouts) until either the time budget is exhausted or no
+	/// further event falls inside the remaining window.
 	///
 	/// Plain `MockClock::advance(d)` only fires wakeups whose deadline already exists at the
 	/// time of the call. Tick streams (e.g. `tick_stream`) re-register a new wakeup every
@@ -241,18 +242,35 @@ where
 				break;
 			}
 			let remaining = target - now;
-			match self.clock.next_wakeup_in() {
-				Some(d) if d <= remaining => {
-					self.clock.advance_to_next_wakeup();
-				},
-				Some(_) | None => {
-					// Either the next wakeup is past the target, or no wakeups are pending.
-					// Step the clock to the target in one go.
-					self.clock.advance(remaining);
-				},
-			}
+			self.step_clock(remaining);
 			self.executor.poll_until_pending();
 			self.drain();
+		}
+	}
+
+	/// Duration until the next scheduled event the sim must stop at: the earliest executor
+	/// timer wakeup or pending-fetch timeout deadline, whichever comes first. `None` when
+	/// neither exists.
+	fn next_event_in(&self) -> Option<Duration> {
+		let now = self.clock.now();
+		let fetch_timeout =
+			self.pending_fetches.next_deadline().map(|d| d.saturating_duration_since(now));
+		match (self.clock.next_wakeup_in(), fetch_timeout) {
+			(Some(a), Some(b)) => Some(a.min(b)),
+			(a, b) => a.or(b),
+		}
+	}
+
+	/// Step the clock to the next scheduled event ([`Self::next_event_in`]), capped at
+	/// `remaining`. Stopping *at* fetch-timeout deadlines (rather than overshooting to the
+	/// next executor wakeup or window end) keeps the subsystem's reaction to a timeout
+	/// correctly interleaved with its own timers, exactly as on a real network.
+	fn step_clock(&mut self, remaining: Duration) {
+		match self.next_event_in() {
+			Some(d) if d <= remaining => self.clock.advance(d),
+			// Either the next event is past the cap, or none is pending. Step the clock
+			// by the full cap in one go.
+			Some(_) | None => self.clock.advance(remaining),
 		}
 	}
 
@@ -291,14 +309,7 @@ where
 			}
 
 			let remaining = within - elapsed_in_window;
-			match self.clock.next_wakeup_in() {
-				Some(d) if d <= remaining => {
-					self.clock.advance_to_next_wakeup();
-				},
-				Some(_) | None => {
-					self.clock.advance(remaining);
-				},
-			};
+			self.step_clock(remaining);
 			self.executor.poll_until_pending();
 			self.drain();
 			if let Some(eff) = self.find_match(&predicate) {
@@ -429,14 +440,7 @@ where
 				return;
 			}
 			let remaining = within - elapsed;
-			match self.clock.next_wakeup_in() {
-				Some(d) if d <= remaining => {
-					self.clock.advance_to_next_wakeup();
-				},
-				Some(_) | None => {
-					self.clock.advance(remaining);
-				},
-			}
+			self.step_clock(remaining);
 			self.executor.poll_until_pending();
 			self.drain();
 			if let Some(eff) = self.recorder.find_effect_from(barrier, &predicate).cloned() {
@@ -575,7 +579,19 @@ where
 			// Stamp effects with simulated time elapsed since sim start — the same origin
 			// `now_sim_t` reports — so windowed assertions and recorded `sim_t` agree.
 			let sim_t = self.now_sim_t();
+			let now = self.clock.now();
 			let mut progressed = false;
+
+			// Time out any fetch whose deadline has passed. Dropping the response sender makes
+			// the subsystem's awaiting receiver resolve with `Canceled` — the same signal a
+			// real network-level request timeout produces — so the subsystem runs its
+			// timeout-fallback path. Count it as progress so the resulting effects settle in
+			// this same pass.
+			if self.pending_fetches.drain_timed_out(now) > 0 {
+				progressed = true;
+				self.executor.poll_until_pending();
+			}
+
 			for idx in 0..self.outbound_rxs.len() {
 				match self.outbound_rxs[idx].try_next() {
 					Ok(Some(msg)) => {
@@ -587,6 +603,7 @@ where
 						let pending = &mut self.pending_fetches;
 						self.executor.run_until(router::route(
 							sim_t,
+							now,
 							msg,
 							Some(&uut_route),
 							aux,
