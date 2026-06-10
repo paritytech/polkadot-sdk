@@ -39,9 +39,9 @@ use std::{
 	time::{SystemTime, UNIX_EPOCH},
 };
 
-const STORE_VERSION_KEY: &[u8] = b"cumulus_unincluded_segment_store_version";
+const STORE_VERSION_KEY: &[u8] = b"cumulus_resubmission_store_version";
 const STORE_CURRENT_VERSION: u32 = 1;
-const STORE_ENTRY_PREFIX: &[u8] = b"cumulus_unincluded_segment_store";
+const STORE_ENTRY_PREFIX: &[u8] = b"cumulus_resubmission_store";
 
 /// Return the current Unix milliseconds timestamp.
 pub fn now_unix_ms() -> u64 {
@@ -122,7 +122,7 @@ impl<Block: BlockT, B: AuxStore> ResubmissionStore<Block, B> {
 			None => Ok(None),
 			Some(STORE_CURRENT_VERSION) => self.decode_aux(entry_key(block_hash).as_slice()),
 			Some(other) => Err(ClientError::Backend(format!(
-				"Unsupported unincluded segment store DB version: {:?}",
+				"Unsupported resubmission store DB version: {:?}",
 				other
 			))),
 		}
@@ -145,7 +145,7 @@ impl<Block: BlockT, B: AuxStore> ResubmissionStore<Block, B> {
 			Some(STORE_CURRENT_VERSION) => {},
 			Some(other) => {
 				return Err(ClientError::Backend(format!(
-					"Unsupported unincluded segment store DB version: {:?}",
+					"Unsupported resubmission store DB version: {:?}",
 					other
 				)))
 			},
@@ -178,7 +178,7 @@ impl<Block: BlockT, B: AuxStore> ResubmissionStore<Block, B> {
 			None => Ok(None),
 			Some(t) => T::decode(&mut &t[..]).map(Some).map_err(|e| {
 				ClientError::Backend(format!(
-					"Unincluded segment store DB is corrupted. Decode error: {}",
+					"Resubmission store DB is corrupted. Decode error: {}",
 					e
 				))
 			}),

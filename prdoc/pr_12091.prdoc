@@ -1,14 +1,14 @@
-title: Add unincluded segment store for parablock resubmission
+title: Add resubmission store for parablock resubmission
 doc:
 - audience: Node Dev
   description: |-
-    Introduces `cumulus-client-unincluded-segment-store`, a new crate that persists a
+    Introduces `cumulus-client-resubmission-store`, a new crate that persists a
     storage-proof entry per imported parablock to support unincluded-segment resubmission.
     Entries are pruned on finality. Session-age based pruning
     (`ResubmissionStore::prune_old_sessions`) is implemented but not yet wired into the
     node.
 crates:
-- name: cumulus-client-unincluded-segment-store
+- name: cumulus-client-resubmission-store
   bump: minor
 - name: cumulus-client-consensus-aura
   bump: minor
