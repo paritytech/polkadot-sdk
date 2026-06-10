@@ -111,9 +111,10 @@ impl Deref for Topic {
 impl FromStr for Topic {
 	type Err = String;
 
-	/// Parse a topic from a hex string, with an optional `0x` prefix.
+	/// Parse a topic from exactly 64 hex digits (32 bytes), with an optional `0x`/`0X` prefix.
 	fn from_str(input: &str) -> core::result::Result<Self, Self::Err> {
-		let bytes = input.strip_prefix("0x").unwrap_or(input).as_bytes();
+		let body = input.strip_prefix("0x").or_else(|| input.strip_prefix("0X")).unwrap_or(input);
+		let bytes = body.as_bytes();
 		if bytes.len() != 64 {
 			return Err(format!("expected 64 hex digits (32 bytes), got {}", bytes.len()));
 		}
@@ -826,15 +827,19 @@ mod test {
 	use sp_core::sr25519;
 
 	#[test]
-	fn topic_from_str_accepts_hex_with_or_without_prefix() {
+	fn topic_from_str_accepts_either_case_with_optional_prefix() {
 		let expected = Topic([0xAB; 32]);
-		let hex = "ab".repeat(32);
-		assert_eq!(Topic::from_str(&hex), Ok(expected));
-		assert_eq!(Topic::from_str(&format!("0x{hex}")), Ok(expected));
+		let lower = "ab".repeat(32);
+		let upper = "AB".repeat(32);
+		assert_eq!(Topic::from_str(&lower), Ok(expected));
+		assert_eq!(Topic::from_str(&upper), Ok(expected));
+		assert_eq!(Topic::from_str(&format!("0x{lower}")), Ok(expected));
+		assert_eq!(Topic::from_str(&format!("0X{upper}")), Ok(expected));
 	}
 
 	#[test]
-	fn topic_from_str_rejects_wrong_length_and_bad_hex() {
+	fn topic_from_str_rejects_empty_wrong_length_and_bad_hex() {
+		assert!(Topic::from_str("").is_err());
 		assert!(Topic::from_str("0xdead").is_err());
 		assert!(Topic::from_str(&"zz".repeat(32)).is_err());
 	}

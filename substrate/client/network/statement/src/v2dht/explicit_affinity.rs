@@ -41,9 +41,9 @@
 //!    the peers-topology module (#11933).
 //! 4. [x] **Configured source.** Read topics from CLI at construction and `add_topics(Configured,
 //!    …)`. A static, one-time input; validated through `topics()` now, with advertising following
-//!    at step 6. First cross-crate step; needs step 3. Closes "CLI and configuration inputs."
-//!    (Optional: take the advertised-filter seed from config to match the light client —
-//!    correctness already holds, since the seed travels on the wire.)
+//!    at step 6. First cross-crate step; needs step 3. Closes "CLI and configuration inputs"
+//!    ([#12316]). (Optional: take the advertised-filter seed from config to match the light client
+//!    — correctness already holds, since the seed travels on the wire.)
 //! 5. [ ] **RPC-subscription source.** Plumb the statement RPC layer so opening a subscription
 //!    calls `add_topics(RpcSubscription, …)` and dropping it calls `remove_topics`. Dynamic
 //!    add/remove over the subscription lifecycle; the caller must balance each add with one remove
@@ -68,6 +68,7 @@
 //!
 //! [#12276]: https://github.com/paritytech/polkadot-sdk/pull/12276
 //! [#12278]: https://github.com/paritytech/polkadot-sdk/pull/12278
+//! [#12316]: https://github.com/paritytech/polkadot-sdk/pull/12316
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
 use sc_network_types::PeerId;
@@ -108,7 +109,12 @@ pub(crate) struct ExplicitAffinity {
 impl ExplicitAffinity {
 	pub(crate) fn new(configured_topics: &[Topic]) -> Self {
 		let mut this = Self { seed: rand::random(), local: HashMap::new() };
-		this.add_topics(AffinitySource::Configured, configured_topics);
+		// Configured adds are never balanced by removes, so collapse duplicate CLI values to one
+		// reference per topic.
+		let mut topics = configured_topics.to_vec();
+		topics.sort();
+		topics.dedup();
+		this.add_topics(AffinitySource::Configured, &topics);
 		this
 	}
 
@@ -199,6 +205,14 @@ mod tests {
 		assert_eq!(topic_set(&affinity), HashSet::from([topic(1), topic(2)]));
 
 		assert!(ExplicitAffinity::new(&[]).topics().is_empty());
+	}
+
+	#[test]
+	fn configured_duplicates_collapse_to_one_reference() {
+		let mut affinity = ExplicitAffinity::new(&[topic(1), topic(1)]);
+		// A repeated configured value holds a single reference: one remove clears the topic.
+		affinity.remove_topics(AffinitySource::Configured, &[topic(1)]);
+		assert!(affinity.topics().is_empty());
 	}
 
 	#[test]

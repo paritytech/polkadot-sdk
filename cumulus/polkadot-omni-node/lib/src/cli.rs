@@ -266,11 +266,7 @@ pub struct Cli<Config: CliConfig> {
 	/// hash.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
-	#[arg(
-		long = "statement-affinity-topic",
-		value_name = "TOPIC",
-		num_args = 1..,
-	)]
+	#[arg(long = "statement-affinity-topic", value_name = "TOPIC")]
 	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
 
 	/// HOP (Hand-Off Protocol) configuration parameters.
@@ -583,5 +579,47 @@ impl<Config: CliConfig> CliConfiguration<Self> for RelayChainCli<Config> {
 
 	fn node_name(&self) -> sc_cli::Result<String> {
 		self.base.base.node_name()
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use clap::{CommandFactory, FromArgMatches};
+
+	struct TestCliConfig;
+	impl CliConfig for TestCliConfig {
+		fn impl_version() -> String {
+			"0.0.0".into()
+		}
+		fn author() -> String {
+			"test".into()
+		}
+		fn support_url() -> String {
+			"https://example.invalid".into()
+		}
+		fn copyright_start_year() -> u16 {
+			2025
+		}
+	}
+
+	#[test]
+	fn statement_affinity_topics_accumulate_repeated_flags() {
+		let topic_a = "11".repeat(32);
+		let topic_b = "22".repeat(32);
+		// `propagate_version = true` on the command requires a version; the binary injects one via
+		// `SubstrateCli` at runtime, so set one here to drive clap directly.
+		let matches = Cli::<TestCliConfig>::command().version("0.0.0").get_matches_from([
+			"polkadot-omni-node",
+			"--statement-affinity-topic",
+			&format!("0x{topic_a}"),
+			"--statement-affinity-topic",
+			&format!("0x{topic_b}"),
+		]);
+		let cli = Cli::<TestCliConfig>::from_arg_matches(&matches).expect("args parse");
+		assert_eq!(
+			cli.statement_affinity_topics,
+			vec![sc_statement_store::Topic([0x11; 32]), sc_statement_store::Topic([0x22; 32])]
+		);
 	}
 }

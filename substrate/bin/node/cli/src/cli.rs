@@ -86,11 +86,7 @@ pub struct Cli {
 	/// hash.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
-	#[arg(
-		long = "statement-affinity-topic",
-		value_name = "TOPIC",
-		num_args = 1..,
-	)]
+	#[arg(long = "statement-affinity-topic", value_name = "TOPIC")]
 	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
 
 	#[allow(missing_docs)]
