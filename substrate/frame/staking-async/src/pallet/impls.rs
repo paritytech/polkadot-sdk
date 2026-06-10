@@ -725,9 +725,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Transfer validator incentive from era pot to the validator's payout account.
 	///
-	/// Delegates delivery to [`Config::ValidatorIncentivePayout`]. On failure, falls back to a
-	/// direct liquid transfer and emits [`Event::ValidatorIncentiveForcedLiquid`] so operators
-	/// can detect vesting schedule slot exhaustion.
+	/// Delegates delivery to [`Config::ValidatorIncentivePayout`]. If delivery fails (e.g.
+	/// `AtMaxVestingSchedules`) the incentive is silently dropped and we emit
+	/// [`Event::ValidatorIncentiveDropped`] (there is no liquid fallback).
 	fn transfer_validator_incentive(era: EraIndex, stash: &T::AccountId, amount: BalanceOf<T>) {
 		let Some(dest) = Self::payee(Stash(stash.clone())) else {
 			Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
@@ -746,12 +746,28 @@ impl<T: Config> Pallet<T> {
 			crate::RewardKind::ValidatorSelfStake,
 		));
 
-		// Use the current vesting window's start block as the merge key. If this is not yet set
-		// (i.e. before the first epoch boundary), the duration is forced to zero which will cause
-		// the adapter to deliver liquid.
-		let (start_at, duration) = match VestingEpochStart::<T>::get() {
-			Some(start) => (start, T::VestingDuration::get()),
-			None => (BlockNumberFor::<T>::zero(), BlockNumberFor::<T>::zero()),
+		// In liquid mode (VestingBondingPeriods = 0) the start and duration values are not used.
+		// In vesting mode, however, both epoch storage items must be set, otherwise the incentive
+		// is dropped as we do not want it defaulting to liquid mode.
+		let (start_at, duration) = if T::VestingBondingPeriods::get() == 0 {
+			(BlockNumberFor::<T>::zero(), BlockNumberFor::<T>::zero())
+		} else {
+			match (VestingEpochStart::<T>::get(), VestingEpochDuration::<T>::get()) {
+				(Some(start), Some(dur)) => (start, dur),
+				_ => {
+					log!(
+						warn,
+						"Incentive for era {:?} dropped: vesting epoch not yet established",
+						era
+					);
+					Self::deposit_event(Event::<T>::ValidatorIncentiveDropped {
+						era,
+						validator_stash: stash.clone(),
+						amount,
+					});
+					return;
+				},
+			}
 		};
 
 		match T::ValidatorIncentivePayout::pay(
@@ -770,36 +786,12 @@ impl<T: Config> Pallet<T> {
 				});
 			},
 			Err(e) => {
-				// Vested delivery failed (e.g. AtMaxVestingSchedules). We then attempt liquid
-				// fallback so that validators are never silently starved of their incentive.
-				log!(warn, "Incentive pay failed ({:?}), falling back to liquid", e);
-				Self::deposit_event(Event::<T>::ValidatorIncentiveForcedLiquid {
+				log!(warn, "Incentive for era {:?} dropped: {:?}", era, e);
+				Self::deposit_event(Event::<T>::ValidatorIncentiveDropped {
 					era,
 					validator_stash: stash.clone(),
 					amount,
 				});
-				match T::Currency::transfer(
-					&incentive_pot,
-					&payout_account,
-					amount,
-					Preservation::Expendable,
-				) {
-					Ok(_) => {
-						Self::deposit_event(Event::<T>::ValidatorIncentivePaid {
-							era,
-							validator_stash: stash.clone(),
-							dest,
-							amount,
-						});
-					},
-					Err(e2) => {
-						log!(warn, "Liquid fallback also failed: {:?}", e2);
-						Self::deposit_event(Event::<T>::Unexpected(
-							UnexpectedKind::ValidatorIncentiveTransferFailed { era },
-						));
-						defensive!("Validator incentive transfer failed");
-					},
-				}
 			},
 		}
 	}

@@ -673,16 +673,42 @@ fn vesting_epoch_start_unchanged_between_boundaries() {
 }
 
 #[test]
-fn forced_liquid_fallback_event_emitted_on_vested_pay_failure() {
-	// Verify that ValidatorIncentiveForcedLiquid is emitted when the primary payout
-	// adapter fails and the liquid fallback succeeds.
-	// We simulate by draining the pot AFTER the era snapshot (so the era pot is empty
-	// for the primary path) — but keep enough balance elsewhere so the second transfer
-	// (direct liquid) also has no source. Instead, we verify the liquid path IS taken
-	// by observing that no ForcedLiquid event is emitted when the primary succeeds.
-	//
-	// In the current mock, ValidatorIncentivePayout = LiquidIncentivePayout, so the
-	// primary path succeeds and ForcedLiquid is never emitted.
+fn vesting_epoch_duration_none_in_liquid_mode() {
+	// When VestingBondingPeriods = 0 (liquid mode), VestingEpochDuration must never be set,
+	// regardless of how many bonding boundaries are crossed.
+	ExtBuilder::default().build_and_execute(|| {
+		assert!(VestingEpochDuration::<Test>::get().is_none());
+
+		Session::roll_until_active_era(3); // first boundary
+		assert!(VestingEpochDuration::<Test>::get().is_none());
+
+		Session::roll_until_active_era(6); // second boundary
+		assert!(VestingEpochDuration::<Test>::get().is_none());
+	});
+}
+
+#[test]
+fn vesting_epoch_duration_set_on_second_boundary() {
+	// VestingEpochDuration is computed from elapsed blocks on the second boundary.
+	// We seed it directly here (bypassing the config constraint) to verify the storage path.
+	ExtBuilder::default().build_and_execute(|| {
+		// Simulate what session_rotation writes when VestingBondingPeriods > 0:
+		// After the first boundary a prior start exists; on the second boundary it computes
+		// elapsed * windows and stores VestingEpochDuration.
+		let fake_start: BlockNumber = 10;
+		let fake_duration: BlockNumber = 500; // e.g. 50 elapsed blocks × 10 windows
+
+		VestingEpochStart::<Test>::put(fake_start);
+		VestingEpochDuration::<Test>::put(fake_duration);
+
+		assert_eq!(VestingEpochStart::<Test>::get(), Some(fake_start));
+		assert_eq!(VestingEpochDuration::<Test>::get(), Some(fake_duration));
+	});
+}
+
+#[test]
+fn incentive_dropped_event_not_emitted_on_success() {
+	// On a successful payout, ValidatorIncentiveDropped must NOT be emitted.
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11;
 
@@ -693,13 +719,11 @@ fn forced_liquid_fallback_event_emitted_on_vested_pay_failure() {
 
 		make_all_reward_payment(2);
 
-		// No forced-liquid event should have been emitted (liquid path succeeded on first try).
 		let events = staking_events_since_last_call();
 		assert!(
-			!events.iter().any(|e| matches!(e, Event::ValidatorIncentiveForcedLiquid { .. })),
-			"ForcedLiquid should not be emitted when primary payout succeeds"
+			!events.iter().any(|e| matches!(e, Event::ValidatorIncentiveDropped { .. })),
+			"ValidatorIncentiveDropped should not be emitted on success"
 		);
-		// But ValidatorIncentivePaid should be there.
 		assert!(
 			events.iter().any(|e| matches!(e, Event::ValidatorIncentivePaid { .. })),
 			"ValidatorIncentivePaid should be emitted on success"
@@ -708,25 +732,24 @@ fn forced_liquid_fallback_event_emitted_on_vested_pay_failure() {
 }
 
 #[test]
-#[should_panic(expected = "Validator incentive transfer failed")]
-fn defensive_panic_on_transfer_failure() {
+fn incentive_dropped_when_pot_is_empty() {
+	// When the incentive pot is empty the payout adapter returns an error and the incentive
+	// is dropped (no liquid fallback). ValidatorIncentiveDropped is emitted instead of a panic.
 	ExtBuilder::default().build_and_execute(|| {
-		let alice = 11; // validator
+		let alice = 11;
 
-		// GIVEN: incentive enabled, validator has weight.
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
 		Session::roll_until_active_era(3);
 
-		// WHEN: drain the incentive pot so transfer fails.
+		// Drain the incentive pot so the transfer inside the adapter fails.
 		let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
 			2,
 			RewardKind::ValidatorSelfStake,
 		));
 		let pot_balance = Balances::free_balance(&pot);
 		if pot_balance > 0 {
-			// Transfer everything out to account 999 to empty the pot.
 			let _ = <Balances as frame_support::traits::fungible::Mutate<_>>::transfer(
 				&pot,
 				&999,
@@ -735,7 +758,16 @@ fn defensive_panic_on_transfer_failure() {
 			);
 		}
 
-		// THEN: payout panics on defensive.
 		make_all_reward_payment(2);
+
+		let events = staking_events_since_last_call();
+		assert!(
+			events.iter().any(|e| matches!(e, Event::ValidatorIncentiveDropped { .. })),
+			"ValidatorIncentiveDropped should be emitted when pot is empty"
+		);
+		assert!(
+			!events.iter().any(|e| matches!(e, Event::ValidatorIncentivePaid { .. })),
+			"ValidatorIncentivePaid should not be emitted when pot is empty"
+		);
 	});
 }

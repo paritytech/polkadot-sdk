@@ -34,7 +34,7 @@ use frame_support::{
 };
 use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot, EnsureSignedBy};
 use pallet_staking_async_rc_client as rc_client;
-use sp_core::{ConstBool, ConstU64};
+use sp_core::{ConstBool, ConstU32, ConstU64};
 use sp_io;
 use sp_npos_elections::BalancingConfig;
 use sp_runtime::{traits::Zero, BuildStorage, Weight};
@@ -560,7 +560,7 @@ impl Config for Test {
 	type CurrencyToVote = SaturatingCurrencyToVote;
 	type Slash = Dap;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type VestingDuration = ConstU64<0>;
+	type VestingBondingPeriods = ConstU32<0>;
 	type VestingBlockNumberProvider = frame_system::Pallet<Test>;
 	type ValidatorIncentivePayout = LiquidIncentivePayout<Balances>;
 	type WeightInfo = ();

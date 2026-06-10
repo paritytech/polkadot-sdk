@@ -743,7 +743,6 @@ where
 }
 
 /// Vested payout adapter — funds arrive under a linear vesting schedule.
-/// Falls back to a liquid transfer when `duration` is zero.
 pub struct VestedIncentivePayout<C, V>(core::marker::PhantomData<(C, V)>);
 
 impl<AccountId, Balance, BlockNumber, C, V>
@@ -763,11 +762,13 @@ where
 		duration: BlockNumber,
 	) -> sp_runtime::DispatchResult {
 		if duration.is_zero() {
-			// This happens for example when `VestingEpochStart` has not yet been set.
-			C::transfer(source, dest, amount, Preservation::Expendable).map(|_| ())
-		} else {
-			V::add_to_vesting(source, dest, amount, duration, start_at)
+			// Duration should never be 0. Liquid mode should use LiquidIncentivePayout instead.
+			return Err(sp_runtime::DispatchError::Other(
+				"VestedIncentivePayout: duration is zero",
+			));
 		}
+
+		V::add_to_vesting(source, dest, amount, duration, start_at)
 	}
 }
 

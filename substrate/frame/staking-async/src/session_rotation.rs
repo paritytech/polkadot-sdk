@@ -778,6 +778,18 @@ impl<T: Config> Rotator<T> {
 		let bonding_duration = T::BondingDuration::get();
 		if bonding_duration != 0 && starting_era % bonding_duration == 0 {
 			let now = T::VestingBlockNumberProvider::current_block_number();
+			let windows = T::VestingBondingPeriods::get();
+
+			// Allow `VestingEpochDuration` to self-calibrate.
+			if windows > 0 {
+				if let Some(prev) = VestingEpochStart::<T>::get() {
+					let bonding_window_duration = now.saturating_sub(prev);
+					let total_duration = bonding_window_duration.saturating_mul(windows.into());
+
+					VestingEpochDuration::<T>::put(total_duration);
+				}
+			}
+
 			VestingEpochStart::<T>::put(now);
 		}
 

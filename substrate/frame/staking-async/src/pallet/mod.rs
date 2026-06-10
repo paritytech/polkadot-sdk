@@ -422,12 +422,13 @@ pub mod pallet {
 		/// another way (such as pools).
 		type Filter: Contains<Self::AccountId>;
 
-		/// The number of blocks over which validator self-stake incentives vest.
+		/// Number of bonding-duration windows over which validator self-stake incentives vest.
 		///
-		/// Set to `0` to deliver incentives as a liquid transfer (useful for test environments or
-		/// runtimes without `pallet-vesting`).
+		/// To get the total vesting duration, multiply this by `BondingDuration`.
+		/// For example, set this to `13` for a runtime with a bonding duration of 28 days to get
+		/// a 1-year vesting period. Set to `0` to disable vesting and do liquid transfers instead.
 		#[pallet::no_default]
-		type VestingDuration: Get<BlockNumberFor<Self>>;
+		type VestingBondingPeriods: Get<u32>;
 
 		/// Block number provider used to snapshot [`VestingEpochStart`].
 		///
@@ -619,6 +620,14 @@ pub mod pallet {
 	/// to be delivered as a liquid transfer.
 	#[pallet::storage]
 	pub type VestingEpochStart<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
+
+	/// The total vesting window duration in blocks.
+	///
+	/// It is computed at the start of each bonding-duration boundary as:
+	/// `elapsed_blocks_since_last_epoch × Config::VestingBondingPeriods`.
+	/// It is `None` until the second epoch boundary is crossed. `None` forces liquid delivery.
+	#[pallet::storage]
+	pub type VestingEpochDuration<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
 
 	/// Whether nominators are slashable or not.
 	///
@@ -1449,9 +1458,8 @@ pub mod pallet {
 			hard_cap_self_stake: BalanceOf<T>,
 			slope_factor: Perbill,
 		},
-		/// The vested incentive delivery failed (e.g. `AtMaxVestingSchedules`) and the pallet
-		/// fell back to a direct liquid transfer.
-		ValidatorIncentiveForcedLiquid {
+		/// The vested incentive delivery failed and the payout was dropped.
+		ValidatorIncentiveDropped {
 			era: EraIndex,
 			validator_stash: T::AccountId,
 			amount: BalanceOf<T>,
@@ -1477,8 +1485,6 @@ pub mod pallet {
 		MissingPayee { era: EraIndex, stash: T::AccountId },
 		/// Total validator weight is zero but incentive allocation exists.
 		ValidatorIncentiveWeightMismatch { era: EraIndex },
-		/// Validator incentive transfer from era pot failed.
-		ValidatorIncentiveTransferFailed { era: EraIndex },
 	}
 
 	#[pallet::error]
