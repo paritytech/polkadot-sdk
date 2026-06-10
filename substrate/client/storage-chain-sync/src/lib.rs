@@ -35,18 +35,13 @@
 //! [`StorageChainBlockImport::import_block`] dispatches a tip-sync block to one of three paths
 //! based on what the consensus engine has already done:
 //!
-//! * [`import_with_attached_changes`]: the import params already carry executed `StorageChanges`.
-//!   The wrapper queries the runtime API against the post-execution overlay to discover the renew
-//!   set.
-//! * [`import_by_executing_block`]: no attached changes. The wrapper executes the block via the
-//!   runtime API once, then installs the resulting `StorageChanges` into the import params so the
-//!   inner block-import does not re-execute.
-//! * [`import_gap_sync_block`]: body-carrying gap-sync. The renew set is derived from the body
-//!   itself by tail-hashing against runtime-declared metadata, not via runtime execution.
-//!
-//! [`import_with_attached_changes`]: StorageChainBlockImport::import_with_attached_changes
-//! [`import_by_executing_block`]: StorageChainBlockImport::import_by_executing_block
-//! [`import_gap_sync_block`]: StorageChainBlockImport::import_gap_sync_block
+//! 1. The import params already carry executed `StorageChanges`. The wrapper queries the runtime
+//!    API against the post-execution overlay to discover the renew set.
+//! 2. No attached changes. The wrapper executes the block via the runtime API once, then installs
+//!    the resulting `StorageChanges` into the import params so the inner block-import does not
+//!    re-execute.
+//! 3. Body-carrying gap-sync. The renew set is derived from the body itself by tail-hashing against
+//!    runtime-declared metadata, not via runtime execution.
 
 mod fetcher;
 

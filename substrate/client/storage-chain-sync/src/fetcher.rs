@@ -86,7 +86,8 @@ pub enum FetchError {
 /// Fetcher that resolves indexed-transaction hashes via bitswap.
 ///
 /// Owns the late-bound network/sync handles plus the per-peer iteration policy. The block-import
-/// path holds one of these and calls [`Self::fetch_many`] for each batch of missing renew hashes.
+/// path holds one of these and calls `fetch_many` (crate-private) for each batch of missing renew
+/// hashes.
 ///
 /// Cloning is cheap: every field is an `Arc`-equivalent.
 pub struct IndexedTransactionFetcher<Block: BlockT> {
