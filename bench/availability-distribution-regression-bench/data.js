@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781021542668,
+  "lastUpdate": 1781086949872,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "22591718+RomarQ@users.noreply.github.com",
-            "name": "Rodrigo Quelhas",
-            "username": "RomarQ"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5b790baaaa05629e10ab05185fefe33e9f5bfb34",
-          "message": "Use `Config::XcmExecutor` inside `dry_run_xcm` instead of creating a new instance of xcm_executor::XcmExecutor (#10102)\n\nCloses #9822\n\nRefactors `pallet-xcm` `dry_run_xcm` implementation to use the runtime\nconfigured `Config::XcmExecutor` type instead of a new instance of\n`xcm_executor::XcmExecutor`. This ensures consistent behavior across\nruntimes that use custom XCM executors.\n\n## Context\n\nThe current `dry_run_xcm` implementation creates a new instance of\n`xcm_executor::XcmExecutor`, which breaks compatibility with runtimes\nusing custom executors. For example, Moonbeam uses a custom\n`XcmExecutor` for handling foreign assets, causing `dry_run_xcm` calls\nto fail.\n\n---------\n\nCo-authored-by: Tarek Mohamed Abdalla <tarekkma@gmail.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2025-10-24T09:36:59Z",
-          "tree_id": "a999a2b74be36aa9f07bbeafcabc7779e0fa5765",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5b790baaaa05629e10ab05185fefe33e9f5bfb34"
-        },
-        "date": 1761302751137,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013561409346666671,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02257461085333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006948132886666656,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15961150980666672,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14436683968000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4d77582733fa946a4be6ceb7d635ee41ad040dd6",
+          "message": "ci: fix command-backport (#12321)\n\nUse env for variables",
+          "timestamp": "2026-06-10T08:36:11Z",
+          "tree_id": "832630a33c38bd834e897413eb9726b242c8f981",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4d77582733fa946a4be6ceb7d635ee41ad040dd6"
+        },
+        "date": 1781086918049,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023677312920000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007404396540000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14411528716000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010158956439999972,
             "unit": "seconds"
           }
         ]
