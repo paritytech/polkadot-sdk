@@ -325,10 +325,10 @@ fn slashing_unaffected() {
 	// The slashing path is unchanged by the staleness mechanism: it operates on
 	// `exposure.own` and `IndividualExposure.value` directly, with no separate staleness
 	// adjustment. Concretely:
-	//   - The validator's own slash equals `slash_pct * exposure.own`, which is the
-	//     validator's self-stake and is independent of nominator staleness.
-	//   - A still-exposed stale nominator is slashed proportional to their (reduced)
-	//     exposure value — they are NOT made immune to slashing.
+	//   - The validator's own slash equals `slash_pct * exposure.own`, which is the validator's
+	//     self-stake and is independent of nominator staleness.
+	//   - A still-exposed stale nominator is slashed proportional to their (reduced) exposure value
+	//     — they are NOT made immune to slashing.
 	ExtBuilder::default().has_stakers(true).nominate(true).build_and_execute(|| {
 		Nominators::<Test>::mutate(101, |n| {
 			n.as_mut().unwrap().submitted_in = 0;
