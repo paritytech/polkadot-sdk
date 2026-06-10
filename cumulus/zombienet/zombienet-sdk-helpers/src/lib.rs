@@ -111,13 +111,13 @@ pub async fn assert_para_throughput(
 	let expected_number_of_blocks = expected_number_of_blocks.into();
 
 	let candidate_count =
-		collect_para_throughput(relay_client, stop_after, ranges, |_| Ok(true)).await?;
+		collect_para_throughput(relay_client, stop_after, true, ranges, |_| Ok(true)).await?;
 
 	assert_expected_number_of_blocks(candidate_count, expected_number_of_blocks).await
 }
 
 /// Like [`assert_para_throughput`], but accepts a closure to validate each backed candidate
-/// receipt.
+/// receipt and allow to _not wait_ the first session change.
 ///
 /// The closure receives each [`CandidateReceiptV2`] and should return:
 /// - `Ok(true)` to count the candidate,
@@ -128,15 +128,22 @@ pub async fn assert_para_throughput(
 pub async fn assert_para_throughput_with<F>(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	stop_after: u32,
+	wait_session_change: bool,
 	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
 	validate: F,
 ) -> Result<(), anyhow::Error>
 where
 	F: Fn(&CandidateReceiptV2<H256>) -> Result<bool, anyhow::Error>,
 {
-	collect_para_throughput(relay_client, stop_after, expected_candidate_ranges, validate)
-		.await
-		.map(|_| ())
+	collect_para_throughput(
+		relay_client,
+		stop_after,
+		wait_session_change,
+		expected_candidate_ranges,
+		validate,
+	)
+	.await
+	.map(|_| ())
 }
 
 /// Waits until every relaychain validator in `network` reports
@@ -187,6 +194,7 @@ pub async fn wait_for_pvf_prepare(
 async fn collect_para_throughput<F>(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	stop_after: u32,
+	wait_session_change: bool,
 	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
 	validate: F,
 ) -> Result<HashMap<ParaId, Vec<CandidateReceiptV2<H256>>>, anyhow::Error>
@@ -201,14 +209,17 @@ where
 	let valid_para_ids: Vec<ParaId> = expected_candidate_ranges.keys().cloned().collect();
 
 	log::info!(
-		"Asserting parachain throughput for para_ids: {:?}. Wait for the first session change",
-		valid_para_ids
+		"Asserting parachain throughput for para_ids: {:?}.{}",
+		valid_para_ids,
+		if wait_session_change { " Wait for the first session change" } else { "" }
 	);
-	// Wait for the first session, block production on the parachain will start after that.
-	wait_for_first_session_change(&mut blocks_sub).await?;
-	log::info!(
-		"First session change detected. Waiting for backed candidates from all tracked paras before counting."
-	);
+	if wait_session_change {
+		// Wait for the first session, block production on the parachain will start after that.
+		wait_for_first_session_change(&mut blocks_sub).await?;
+		log::info!(
+			"First session change detected. Waiting for backed candidates from all tracked paras before counting."
+		);
+	}
 
 	let mut paras_seen = std::collections::HashSet::new();
 	while let Some(block) = blocks_sub.next().await {

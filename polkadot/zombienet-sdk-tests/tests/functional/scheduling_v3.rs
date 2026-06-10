@@ -132,6 +132,7 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 	assert_para_throughput_with(
 		&relay_client,
 		20,
+		true,
 		HashMap::from([(para_v3, expected_v3_throughput), (para_v2, 18..21)]),
 		|receipt| {
 			let para_id = receipt.descriptor.para_id();
