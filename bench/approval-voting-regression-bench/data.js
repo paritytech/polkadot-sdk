@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781086989698,
+  "lastUpdate": 1781089540992,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "22591718+RomarQ@users.noreply.github.com",
-            "name": "Rodrigo Quelhas",
-            "username": "RomarQ"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5b790baaaa05629e10ab05185fefe33e9f5bfb34",
-          "message": "Use `Config::XcmExecutor` inside `dry_run_xcm` instead of creating a new instance of xcm_executor::XcmExecutor (#10102)\n\nCloses #9822\n\nRefactors `pallet-xcm` `dry_run_xcm` implementation to use the runtime\nconfigured `Config::XcmExecutor` type instead of a new instance of\n`xcm_executor::XcmExecutor`. This ensures consistent behavior across\nruntimes that use custom XCM executors.\n\n## Context\n\nThe current `dry_run_xcm` implementation creates a new instance of\n`xcm_executor::XcmExecutor`, which breaks compatibility with runtimes\nusing custom executors. For example, Moonbeam uses a custom\n`XcmExecutor` for handling foreign assets, causing `dry_run_xcm` calls\nto fail.\n\n---------\n\nCo-authored-by: Tarek Mohamed Abdalla <tarekkma@gmail.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2025-10-24T09:36:59Z",
-          "tree_id": "a999a2b74be36aa9f07bbeafcabc7779e0fa5765",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5b790baaaa05629e10ab05185fefe33e9f5bfb34"
-        },
-        "date": 1761302784028,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63621.23,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52937.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.3995863856999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4106008675299995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002083042,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4406620399200009,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.107858020419997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000020099279999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4581691791000027,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.946675114259995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000020099279999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002083042,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.44619936494,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005965068970000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.81097682753097,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-1",
             "value": 2.7286263308699987,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9e89790786eded9f699d273ca8fe29c6190e7cf8",
+          "message": "ci: fix path for cmd-bot (#12322)\n\nsubj",
+          "timestamp": "2026-06-10T08:52:49Z",
+          "tree_id": "f760a717b1acb41d736ba40c5365220eacc20ffc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9e89790786eded9f699d273ca8fe29c6190e7cf8"
+        },
+        "date": 1781089509205,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63623.29,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.605592293010005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7513956842399712,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002241905,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005941794369999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7642211129699983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8249925841999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7673430634999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.536164145159972,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.3080722711627475,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000021764100000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000021764100000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.8166776128699995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002241905,
             "unit": "seconds"
           }
         ]
