@@ -190,6 +190,7 @@ members = [
 	"polkadot/node/network/bitfield-distribution",
 	"polkadot/node/network/bridge",
 	"polkadot/node/network/collator-protocol",
+	"polkadot/node/network/collator-protocol/test-sim-macros",
 	"polkadot/node/network/dispute-distribution",
 	"polkadot/node/network/gossip-support",
 	"polkadot/node/network/protocol",
@@ -202,6 +203,8 @@ members = [
 	"polkadot/node/subsystem-test-helpers",
 	"polkadot/node/subsystem-types",
 	"polkadot/node/subsystem-util",
+	"polkadot/node/test-sim",
+	"polkadot/node/test-sim/macros",
 	"polkadot/node/test/client",
 	"polkadot/node/test/service",
 	"polkadot/node/tracking-allocator",
@@ -1117,6 +1120,7 @@ polkadot-availability-distribution = { path = "polkadot/node/network/availabilit
 polkadot-availability-recovery = { path = "polkadot/node/network/availability-recovery", default-features = false }
 polkadot-cli = { path = "polkadot/cli", default-features = false }
 polkadot-collator-protocol = { path = "polkadot/node/network/collator-protocol", default-features = false }
+polkadot-collator-protocol-test-sim-macros = { path = "polkadot/node/network/collator-protocol/test-sim-macros" }
 polkadot-core-primitives = { path = "polkadot/core-primitives", default-features = false }
 polkadot-dispute-distribution = { path = "polkadot/node/network/dispute-distribution", default-features = false }
 polkadot-erasure-coding = { path = "polkadot/erasure-coding", default-features = false }
@@ -1164,6 +1168,8 @@ polkadot-service = { path = "polkadot/node/service", default-features = false }
 polkadot-statement-distribution = { path = "polkadot/node/network/statement-distribution", default-features = false }
 polkadot-statement-table = { path = "polkadot/statement-table", default-features = false }
 polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
+polkadot-subsystem-test-sim = { path = "polkadot/node/test-sim" }
+polkadot-subsystem-test-sim-macros = { path = "polkadot/node/test-sim/macros" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
