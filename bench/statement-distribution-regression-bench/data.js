@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781087029600,
+  "lastUpdate": 1781089581328,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "Denzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2ed43f3fa3e0a04760802012e74055be05091474",
-          "message": "ci: trigger zombienet tests automatically (#9960)\n\n# Description\n#9877\n\n---------\n\nCo-authored-by: Javier Viola <javier@parity.io>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2025-10-23T21:22:00Z",
-          "tree_id": "fb7658dc4b04fa474aedb99d0af4b085a197a021",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ed43f3fa3e0a04760802012e74055be05091474"
-        },
-        "date": 1761260014140,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.95999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035279625028,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044305162899999966,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08946352017799991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9e89790786eded9f699d273ca8fe29c6190e7cf8",
+          "message": "ci: fix path for cmd-bot (#12322)\n\nsubj",
+          "timestamp": "2026-06-10T08:52:49Z",
+          "tree_id": "f760a717b1acb41d736ba40c5365220eacc20ffc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9e89790786eded9f699d273ca8fe29c6190e7cf8"
+        },
+        "date": 1781089549687,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.06799999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03869772721199999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08192344831799991,
             "unit": "seconds"
           }
         ]
