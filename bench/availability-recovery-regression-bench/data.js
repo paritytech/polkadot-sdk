@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781021501990,
+  "lastUpdate": 1781086909554,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0bde5c88f6d5570610018e6d3b6ff3d74604b34f",
-          "message": "Version bumps and prdocs reordering from stable2509-1 (#10110)\n\nThis PR backports regular version bumps and prdoc reordering from the\nrelease branch back to master",
-          "timestamp": "2025-10-24T13:17:22Z",
-          "tree_id": "8afd14bf694b4b653f703345e148de94972b3283",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0bde5c88f6d5570610018e6d3b6ff3d74604b34f"
-        },
-        "date": 1761316185529,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.6779298934,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2051831661,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14182760196666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4d77582733fa946a4be6ceb7d635ee41ad040dd6",
+          "message": "ci: fix command-backport (#12321)\n\nUse env for variables",
+          "timestamp": "2026-06-10T08:36:11Z",
+          "tree_id": "832630a33c38bd834e897413eb9726b242c8f981",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4d77582733fa946a4be6ceb7d635ee41ad040dd6"
+        },
+        "date": 1781086878394,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.262021796000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1409330437,
             "unit": "seconds"
           }
         ]
