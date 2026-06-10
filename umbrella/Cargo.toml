@@ -1310,7 +1310,7 @@ version = "41.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/assets"
-version = "43.0.0"
+version = "43.0.1"
 
 [dependencies.pallet-assets-freezer]
 default-features = false
