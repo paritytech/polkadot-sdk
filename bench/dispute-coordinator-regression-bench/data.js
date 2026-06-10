@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781089621650,
+  "lastUpdate": 1781105836492,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15174476+TorstenStueber@users.noreply.github.com",
-            "name": "Torsten Stüber",
-            "username": "TorstenStueber"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2d514fa3e40718db64734df26086a2971f6d730d",
-          "message": "pallet-revive: Add ExportChainSpec command to revive-dev-node (#10020)\n\nAdd the `export-chain-spec` command to the revive-dev-node.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-24T03:15:36Z",
-          "tree_id": "4704764fbd6a7e2a9e9d2ae9227e4e9da20a581d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2d514fa3e40718db64734df26086a2971f6d730d"
-        },
-        "date": 1761280608427,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00269266732,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008843992179999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005374086439999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009275509619999992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1527017+eskimor@users.noreply.github.com",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2ac8569fdfeb483f4effa19c8bf806f179e43e8c",
+          "message": "Pragmatic scalable Web3 Storage Design (#10731)",
+          "timestamp": "2026-06-10T12:55:11Z",
+          "tree_id": "00444f66c41a0c41428592c3dcda56bfeb41ab5f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ac8569fdfeb483f4effa19c8bf806f179e43e8c"
+        },
+        "date": 1781105804208,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00257817927,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009424853759999987,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010271720909999997,
             "unit": "seconds"
           }
         ]
