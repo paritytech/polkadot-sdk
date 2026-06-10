@@ -399,6 +399,10 @@ pub mod pallet {
 			let mut nodes = AdditionalConnections::<T>::get(&node);
 
 			for add_node in connections.iter() {
+				ensure!(
+					add_node.0.len() < T::MaxPeerIdLength::get() as usize,
+					Error::<T>::PeerIdTooLong
+				);
 				if *add_node == node {
 					continue;
 				}
@@ -434,6 +438,10 @@ pub mod pallet {
 			let mut nodes = AdditionalConnections::<T>::get(&node);
 
 			for remove_node in connections.iter() {
+				ensure!(
+					remove_node.0.len() < T::MaxPeerIdLength::get() as usize,
+					Error::<T>::PeerIdTooLong
+				);
 				nodes.remove(remove_node);
 			}
 
