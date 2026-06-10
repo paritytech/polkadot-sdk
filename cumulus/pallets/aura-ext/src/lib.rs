@@ -85,8 +85,8 @@ pub mod pallet {
 				.try_into()
 				.unwrap_or_else(|_| panic!("Aura slot duration does not fit into u64"));
 
-			// The relay chain <-> parachain slot conversion assumes the parachain slot duration is a positive
-			// multiple of the relay chain's slot duration.
+			// The relay chain <-> parachain slot conversion assumes the parachain slot duration is
+			// a positive multiple of the relay chain's slot duration.
 			assert!(
 				slot_duration != 0 && slot_duration % RELAY_CHAIN_SLOT_DURATION_MILLIS == 0,
 				"Aura slot duration ({slot_duration}ms) must be a positive multiple of the relay \
