@@ -855,6 +855,8 @@ where
 			parent_hash,
 			time_ms,
 			relay_parent_session,
+			Some(core_index),
+			core_info.selector,
 			&built_block.proof,
 		)
 		.for_each(|(k, v)| {

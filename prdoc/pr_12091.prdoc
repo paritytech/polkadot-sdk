@@ -2,11 +2,12 @@ title: Add resubmission store for parablock resubmission
 doc:
 - audience: Node Dev
   description: |-
-    Introduces `cumulus-client-resubmission-store`, a new crate that persists a
-    storage-proof entry per imported parablock to support unincluded-segment resubmission.
-    Entries are pruned on finality. Session-age based pruning
-    (`ResubmissionStore::prune_old_sessions`) is implemented but not yet wired into the
-    node.
+    Introduces `cumulus-client-resubmission-store`, a new crate that persists per imported
+    parablock the data needed to resubmit it without relying on the relay parent still being
+    available in the blockchain state: the storage proof, capture time, relay-parent session,
+    and the core (resolved index plus selector) it was submitted on. Entries are pruned on
+    finality. Session-age based pruning (`ResubmissionStore::prune_old_sessions`) is
+    implemented but not yet wired into the node.
 crates:
 - name: cumulus-client-resubmission-store
   bump: minor
