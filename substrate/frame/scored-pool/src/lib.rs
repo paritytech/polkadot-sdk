@@ -276,7 +276,7 @@ pub mod pallet {
 
 			// Sorts the `Pool` by score in a descending order. Entities which
 			// have a score of `None` are sorted to the end of the bounded vec.
-			pool.sort_by_key(|(_, maybe_score)| Reverse(maybe_score.unwrap_or_default()));
+			pool.sort_by_key(|(_, maybe_score)| Reverse(*maybe_score));
 			<Pallet<T, I>>::update_member_count(self.member_count)
 				.expect("Number of allowed members exceeded");
 			<Pool<T, I>>::put(&pool);
@@ -401,14 +401,17 @@ pub mod pallet {
 
 			pool.remove(index as usize);
 
-			// we binary search the pool (which is sorted descending by score).
+			// we binary search the pool (which is sorted descending by score, with `None`
+			// last). `Option`'s `Ord` impl places `None` after `Some(_)` regardless of the
+			// scored value, so wrapping in `Reverse` keeps `None` entries last while sorting
+			// `Some(_)` entries by descending score.
 			// if there is already an element with `score`, we insert
 			// right before that. if not, the search returns a location
 			// where we can insert while maintaining order.
 			let item = (who, Some(score));
 			let location = pool
-				.binary_search_by_key(&Reverse(score), |(_, maybe_score)| {
-					Reverse(maybe_score.unwrap_or_default())
+				.binary_search_by_key(&Reverse(Some(score)), |(_, maybe_score)| {
+					Reverse(*maybe_score)
 				})
 				.unwrap_or_else(|l| l);
 			pool.try_insert(location, item).map_err(|_| Error::<T, I>::TooManyMembers)?;

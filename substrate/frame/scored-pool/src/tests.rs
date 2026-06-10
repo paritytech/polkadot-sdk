@@ -105,6 +105,26 @@ fn scoring_same_element_with_same_score_works() {
 }
 
 #[test]
+fn scoring_to_zero_must_sort_before_none_entries() {
+	new_test_ext().execute_with(|| {
+		// given a pool with multiple unscored (`None`) candidates after `5`
+		assert_ok!(ScoredPool::submit_candidacy(RuntimeOrigin::signed(15)));
+		assert_ok!(ScoredPool::submit_candidacy(RuntimeOrigin::signed(16)));
+		let who = 5;
+		let index = find_in_pool(who).expect("entity must be in pool") as u32;
+
+		// when the unscored `who` is scored to `0`
+		assert_ok!(ScoredPool::score(RuntimeOrigin::signed(ScoreOrigin::get()), who, index, 0));
+
+		// then `(who, Some(0))` must be placed before all `None` entries, preserving the
+		// "ordered descending by score, `None` last" invariant.
+		assert_eq!(fetch_from_pool(who), Some((who, Some(0))));
+		assert!(find_in_pool(who).unwrap() < find_in_pool(15).unwrap());
+		assert!(find_in_pool(who).unwrap() < find_in_pool(16).unwrap());
+	});
+}
+
+#[test]
 fn kicking_works_only_for_authorized() {
 	new_test_ext().execute_with(|| {
 		let who = 40;
