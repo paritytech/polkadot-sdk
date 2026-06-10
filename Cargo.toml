@@ -161,6 +161,7 @@ members = [
 	"polkadot/erasure-coding",
 	"polkadot/erasure-coding/fuzzer",
 	"polkadot/jemalloc-shim",
+	"polkadot/node/clock",
 	"polkadot/node/collation-generation",
 	"polkadot/node/core/approval-voting",
 	"polkadot/node/core/approval-voting-parallel",
@@ -190,6 +191,7 @@ members = [
 	"polkadot/node/network/bitfield-distribution",
 	"polkadot/node/network/bridge",
 	"polkadot/node/network/collator-protocol",
+	"polkadot/node/network/collator-protocol/test-sim-macros",
 	"polkadot/node/network/dispute-distribution",
 	"polkadot/node/network/gossip-support",
 	"polkadot/node/network/protocol",
@@ -202,6 +204,8 @@ members = [
 	"polkadot/node/subsystem-test-helpers",
 	"polkadot/node/subsystem-types",
 	"polkadot/node/subsystem-util",
+	"polkadot/node/test-sim",
+	"polkadot/node/test-sim/macros",
 	"polkadot/node/test/client",
 	"polkadot/node/test/service",
 	"polkadot/node/tracking-allocator",
@@ -900,8 +904,8 @@ isahc = { version = "1.2" }
 itertools = { version = "0.11" }
 jobserver = { version = "0.1.26" }
 jsonpath_lib = { version = "0.3" }
-jsonrpsee = { version = "0.24.10" }
-jsonrpsee-core = { version = "0.24.10" }
+jsonrpsee = { version = "0.24.11" }
+jsonrpsee-core = { version = "0.24.11" }
 k256 = { version = "0.13.4", default-features = false }
 kitchensink-runtime = { path = "substrate/bin/node/runtime" }
 kvdb = { version = "0.13.0" }
@@ -1118,12 +1122,14 @@ polkadot-availability-distribution = { path = "polkadot/node/network/availabilit
 polkadot-availability-recovery = { path = "polkadot/node/network/availability-recovery", default-features = false }
 polkadot-cli = { path = "polkadot/cli", default-features = false }
 polkadot-collator-protocol = { path = "polkadot/node/network/collator-protocol", default-features = false }
+polkadot-collator-protocol-test-sim-macros = { path = "polkadot/node/network/collator-protocol/test-sim-macros" }
 polkadot-core-primitives = { path = "polkadot/core-primitives", default-features = false }
 polkadot-dispute-distribution = { path = "polkadot/node/network/dispute-distribution", default-features = false }
 polkadot-erasure-coding = { path = "polkadot/erasure-coding", default-features = false }
 polkadot-gossip-support = { path = "polkadot/node/network/gossip-support", default-features = false }
 polkadot-jemalloc-shim = { path = "polkadot/jemalloc-shim" }
 polkadot-network-bridge = { path = "polkadot/node/network/bridge", default-features = false }
+polkadot-node-clock = { path = "polkadot/node/clock", default-features = false }
 polkadot-node-collation-generation = { path = "polkadot/node/collation-generation", default-features = false }
 polkadot-node-core-approval-voting = { path = "polkadot/node/core/approval-voting", default-features = false }
 polkadot-node-core-approval-voting-parallel = { path = "polkadot/node/core/approval-voting-parallel", default-features = false }
@@ -1164,6 +1170,8 @@ polkadot-service = { path = "polkadot/node/service", default-features = false }
 polkadot-statement-distribution = { path = "polkadot/node/network/statement-distribution", default-features = false }
 polkadot-statement-table = { path = "polkadot/statement-table", default-features = false }
 polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
+polkadot-subsystem-test-sim = { path = "polkadot/node/test-sim" }
+polkadot-subsystem-test-sim-macros = { path = "polkadot/node/test-sim/macros" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }

@@ -68,7 +68,7 @@ use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
 	runtime_api::{StatementSource, StatementStoreExt},
 	AccountId, BlockHash, Channel, DecryptionKey, FilterDecision, Hash, InvalidReason,
-	OptimizedTopicFilter, Proof, RejectionReason, Result, SignatureVerificationResult, Statement,
+	OptimizedTopicFilter, RejectionReason, Result, SignatureVerificationResult, Statement,
 	StatementAllowance, StatementEvent, SubmitResult, Topic,
 };
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
@@ -110,8 +110,6 @@ const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(2
 
 /// Specifies which block hash to use when reading statement allowances.
 enum AllowanceBlock {
-	/// Use a specific block hash.
-	Block(BlockHash),
 	/// Use the best (latest) block hash.
 	Best,
 	/// Use the finalized block hash.
@@ -327,7 +325,6 @@ where
 		use sp_statement_store::{statement_allowance_key, StatementAllowance};
 
 		let block_hash = match allowance_block {
-			AllowanceBlock::Block(hash) => hash.into(),
 			AllowanceBlock::Best => self.client.info().best_hash,
 			AllowanceBlock::Finalized => self.client.info().finalized_hash,
 		};
@@ -1449,24 +1446,16 @@ impl StatementStore for Store {
 				return SubmitResult::Invalid(reason);
 			},
 			SignatureVerificationResult::NoSignature => {
-				if let Some(Proof::OnChain { .. }) = statement.proof() {
-					log::debug!(
-						target: LOG_TARGET,
-						"Statement with OnChain proof accepted: {:?}",
-						HexDisplay::from(&hash),
-					);
-				} else {
-					log::debug!(
-						target: LOG_TARGET,
-						"Statement validation failed: NoProof, {:?}",
-						HexDisplay::from(&hash),
-					);
-					let reason = InvalidReason::NoProof;
-					self.metrics.report(|metrics| {
-						metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
-					});
-					return SubmitResult::Invalid(reason);
-				}
+				log::debug!(
+					target: LOG_TARGET,
+					"Statement validation failed: NoProof, {:?}",
+					HexDisplay::from(&hash),
+				);
+				let reason = InvalidReason::NoProof;
+				self.metrics.report(|metrics| {
+					metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
+				});
+				return SubmitResult::Invalid(reason);
 			},
 		};
 
@@ -1476,13 +1465,7 @@ impl StatementStore for Store {
 		// then later evicted when we enforce limits based on the finalized block, if the best_hash
 		// does not make it into the finalized chain, but this is an acceptable tradeoff for
 		// better responsiveness to allowance changes.
-		let validation = match (self.read_allowance_fn)(
-			&account_id,
-			match statement.proof() {
-				Some(Proof::OnChain { block_hash, .. }) => AllowanceBlock::Block(*block_hash),
-				_ => AllowanceBlock::Best,
-			},
-		) {
+		let validation = match (self.read_allowance_fn)(&account_id, AllowanceBlock::Best) {
 			Ok(Some(allowance)) => allowance,
 			Ok(None) => {
 				log::debug!(
@@ -1681,7 +1664,29 @@ mod tests {
 	type Header = sp_runtime::generic::Header<BlockNumber, Hashing>;
 	type Block = sp_runtime::generic::Block<Header, Extrinsic>;
 
-	const CORRECT_BLOCK_HASH: [u8; 32] = [1u8; 32];
+	const TEST_BEST_BLOCK_HASH: [u8; 32] = [1u8; 32];
+
+	/// Maximum seed value used by `account(seed)`/`statement(seed, ...)` in this
+	/// test module. Increase if you add tests that pass larger seed values to
+	/// `statement(..)`. The reverse-lookup table in `TestClient::storage` is
+	/// populated lazily for seeds in `0..=MAX_TEST_ACCOUNT_SEED`.
+	const MAX_TEST_ACCOUNT_SEED: u64 = 64;
+
+	/// Reverse-lookup table from a real sr25519 public key back to the synthetic
+	/// `u64` seed it was derived from. Populated once with seeds in
+	/// `0..=MAX_TEST_ACCOUNT_SEED`, then consulted by `TestClient::storage` to
+	/// figure out which allowance bucket to return for a given account.
+	fn account_seed_table() -> &'static std::collections::BTreeMap<AccountId, u64> {
+		use std::sync::OnceLock;
+		static TABLE: OnceLock<std::collections::BTreeMap<AccountId, u64>> = OnceLock::new();
+		TABLE.get_or_init(|| {
+			let mut t = std::collections::BTreeMap::new();
+			for seed in 0..=MAX_TEST_ACCOUNT_SEED {
+				t.insert(account_keypair(seed).public().0, seed);
+			}
+			t
+		})
+	}
 
 	#[derive(Clone)]
 	pub(crate) struct TestClient;
@@ -1698,18 +1703,19 @@ mod tests {
 
 			assert_eq!(&key.0[0..21], b":statement_allowance:" as &[u8],);
 
-			// Extract account ID (32 bytes) from the storage key
-			let account_bytes = &key.0[21..53];
-			let account_id: u64 = u64::from_le_bytes(account_bytes[0..8].try_into().unwrap());
-			let allowance = match account_id {
+			// Recover the synthetic test seed from the account id. Unknown accounts
+			// (e.g. //Alice for `signed_statement`) fall through to a generic default.
+			let account_bytes: AccountId = key.0[21..53].try_into().unwrap();
+			let seed = account_seed_table().get(&account_bytes).copied();
+			let allowance = match seed {
 				// Account 0 has no allowance (used to test eviction of all statements)
-				0 => return Ok(None),
-				1 => StatementAllowance::new(1, 1000),
-				2 => StatementAllowance::new(2, 1000),
-				3 => StatementAllowance::new(3, 1000),
-				4 => StatementAllowance::new(4, 1000),
-				42 => StatementAllowance::new(42, (42 * crate::MAX_STATEMENT_SIZE) as u32),
-				_ => StatementAllowance::new(100, 1000),
+				Some(0) => return Ok(None),
+				Some(1) => StatementAllowance::new(1, 1000),
+				Some(2) => StatementAllowance::new(2, 1000),
+				Some(3) => StatementAllowance::new(3, 1000),
+				Some(4) => StatementAllowance::new(4, 1000),
+				Some(42) => StatementAllowance::new(42, (42 * crate::MAX_STATEMENT_SIZE) as u32),
+				Some(_) | None => StatementAllowance::new(100, 1000),
 			};
 			Ok(Some(sc_client_api::StorageData(allowance.encode())))
 		}
@@ -1807,10 +1813,10 @@ mod tests {
 		}
 		fn info(&self) -> sp_blockchain::Info<Block> {
 			sp_blockchain::Info {
-				best_hash: CORRECT_BLOCK_HASH.into(),
+				best_hash: TEST_BEST_BLOCK_HASH.into(),
 				best_number: 0,
 				genesis_hash: Default::default(),
-				finalized_hash: CORRECT_BLOCK_HASH.into(),
+				finalized_hash: TEST_BEST_BLOCK_HASH.into(),
 				finalized_number: 1,
 				finalized_state: None,
 				number_leaves: 0,
@@ -1884,10 +1890,26 @@ mod tests {
 		dec_key
 	}
 
+	/// Returns the deterministic ed25519 keypair used to author statements for the
+	/// synthetic test account `seed`.
+	///
+	/// Uses ed25519 rather than sr25519 because schnorrkel signing is non-deterministic
+	/// (the signature depends on RNG state), so calling `statement(id, prio, ch, len)`
+	/// twice would produce different hashes. Several tests compare statement hashes
+	/// against pre-computed values; ed25519 keeps those comparisons stable.
+	fn account_keypair(seed: u64) -> sp_core::ed25519::Pair {
+		sp_core::ed25519::Pair::from_string(&format!("//StatementAccount{seed}"), None)
+			.expect("Derivation path is valid; qed")
+	}
+
 	fn account(id: u64) -> AccountId {
-		let mut account: AccountId = Default::default();
-		account[0..8].copy_from_slice(&id.to_le_bytes());
-		account
+		account_keypair(id).public().0
+	}
+
+	/// Signs `stmt` with `account_id`'s test keypair. Tests that build a statement via
+	/// `unsigned_statement(..)` and then mutate it call this exactly once at the end.
+	fn sign_with(stmt: &mut Statement, account_id: u64) {
+		stmt.sign_ed25519_private(&account_keypair(account_id));
 	}
 
 	fn channel(id: u64) -> Channel {
@@ -1896,7 +1918,20 @@ mod tests {
 		channel
 	}
 
-	fn statement(account_id: u64, priority: u32, c: Option<u64>, data_len: usize) -> Statement {
+	/// Builds a test statement without signing it. Use this when a test needs to mutate
+	/// the statement (encryption, expiry change, topic update, etc.) before submission —
+	/// call `sign_with(&mut stmt, account_id)` once after all mutations.
+	fn unsigned_statement(
+		account_id: u64,
+		priority: u32,
+		c: Option<u64>,
+		data_len: usize,
+	) -> Statement {
+		assert!(
+			account_id <= MAX_TEST_ACCOUNT_SEED,
+			"account_id {account_id} exceeds MAX_TEST_ACCOUNT_SEED ({MAX_TEST_ACCOUNT_SEED}); \
+			 raise the constant if you need a wider range",
+		);
 		let mut statement = Statement::new();
 		let mut data = Vec::new();
 		data.resize(data_len, 0);
@@ -1905,11 +1940,12 @@ mod tests {
 		if let Some(c) = c {
 			statement.set_channel(channel(c));
 		}
-		statement.set_proof(Proof::OnChain {
-			block_hash: CORRECT_BLOCK_HASH,
-			who: account(account_id),
-			event_index: 0,
-		});
+		statement
+	}
+
+	fn statement(account_id: u64, priority: u32, c: Option<u64>, data_len: usize) -> Statement {
+		let mut statement = unsigned_statement(account_id, priority, c, data_len);
+		sign_with(&mut statement, account_id);
 		statement
 	}
 
@@ -1918,8 +1954,8 @@ mod tests {
 		let (store, _temp) = test_store();
 		let statement0 = signed_statement(0);
 		assert_eq!(store.submit(statement0, StatementSource::Network), SubmitResult::New);
-		let unsigned = statement(1, 1, None, 0);
-		assert_eq!(store.submit(unsigned, StatementSource::Network), SubmitResult::New);
+		let statement1 = statement(1, 1, None, 0);
+		assert_eq!(store.submit(statement1, StatementSource::Network), SubmitResult::New);
 	}
 
 	#[test]
@@ -2151,9 +2187,10 @@ mod tests {
 	fn expired_statements_are_purged() {
 		use super::DEFAULT_PURGE_AFTER_SEC;
 		let (mut store, temp) = test_store();
-		let mut statement = statement(1, 1, Some(3), 100);
+		let mut statement = unsigned_statement(1, 1, Some(3), 100);
 		store.set_time(0);
 		statement.set_topic(0, topic(4));
+		sign_with(&mut statement, 1);
 		store.submit(statement.clone(), StatementSource::Network);
 		assert_eq!(store.submit_index.read().entries.len(), 1);
 		store.remove(&statement.hash()).unwrap();
@@ -2189,9 +2226,10 @@ mod tests {
 			.ed25519_generate_new(sp_core::crypto::key_types::STATEMENT, None)
 			.unwrap();
 		let statement1 = statement(1, 1, None, 100);
-		let mut statement2 = statement(1, 2, None, 0);
+		let mut statement2 = unsigned_statement(1, 2, None, 0);
 		let plain = b"The most valuable secret".to_vec();
 		statement2.encrypt(&plain, &public).unwrap();
+		sign_with(&mut statement2, 1);
 		store.submit(statement1, StatementSource::Network);
 		store.submit(statement2, StatementSource::Network);
 		let posted_clear = store.posted_clear(&[], public.into()).unwrap();
@@ -2251,14 +2289,16 @@ mod tests {
 			.unwrap();
 
 		// A statement that does have dec_key = dest
-		let mut s_with_key = statement(1, 1, None, 0);
+		let mut s_with_key = unsigned_statement(1, 1, None, 0);
 		let plain1 = b"The most valuable secret".to_vec();
 		s_with_key.encrypt(&plain1, &public1).unwrap();
+		sign_with(&mut s_with_key, 1);
 
 		// A statement with a different dec_key
-		let mut s_other_key = statement(2, 2, None, 0);
+		let mut s_other_key = unsigned_statement(2, 2, None, 0);
 		let plain2 = b"The second most valuable secret".to_vec();
 		s_other_key.encrypt(&plain2, &public2).unwrap();
+		sign_with(&mut s_other_key, 2);
 
 		// Submit them all
 		for s in [&s_with_key, &s_other_key] {
@@ -2294,14 +2334,16 @@ mod tests {
 			.unwrap();
 
 		// A statement that does have dec_key = dest
-		let mut s_with_key = statement(1, 1, None, 0);
+		let mut s_with_key = unsigned_statement(1, 1, None, 0);
 		let plain1 = b"The most valuable secret".to_vec();
 		s_with_key.encrypt(&plain1, &public1).unwrap();
+		sign_with(&mut s_with_key, 1);
 
 		// A statement with a different dec_key
-		let mut s_other_key = statement(2, 2, None, 0);
+		let mut s_other_key = unsigned_statement(2, 2, None, 0);
 		let plain2 = b"The second most valuable secret".to_vec();
 		s_other_key.encrypt(&plain2, &public2).unwrap();
+		sign_with(&mut s_other_key, 2);
 
 		// Submit them all
 		for s in [&s_with_key, &s_other_key] {
@@ -2341,20 +2383,23 @@ mod tests {
 			.unwrap();
 
 		// statement that SHOULD be returned (matches dest & topic 42)
-		let mut s_good = statement(1, 1, None, 0);
+		let mut s_good = unsigned_statement(1, 1, None, 0);
 		let plaintext_good = b"The most valuable secret".to_vec();
 		s_good.encrypt(&plaintext_good, &public_dest).unwrap();
 		s_good.set_topic(0, topic(42));
+		sign_with(&mut s_good, 1);
 
 		// statement that should NOT be returned (same dest but different topic)
-		let mut s_wrong_topic = statement(2, 2, None, 0);
+		let mut s_wrong_topic = unsigned_statement(2, 2, None, 0);
 		s_wrong_topic.encrypt(b"Wrong topic", &public_dest).unwrap();
 		s_wrong_topic.set_topic(0, topic(99));
+		sign_with(&mut s_wrong_topic, 2);
 
 		// statement that should NOT be returned (different dest)
-		let mut s_other_dest = statement(3, 3, None, 0);
+		let mut s_other_dest = unsigned_statement(3, 3, None, 0);
 		s_other_dest.encrypt(b"Other dest", &public_other).unwrap();
 		s_other_dest.set_topic(0, topic(42));
+		sign_with(&mut s_other_dest, 3);
 
 		// submit all
 		for s in [&s_good, &s_wrong_topic, &s_other_dest] {
@@ -2377,9 +2422,10 @@ mod tests {
 
 		// Create a statement that has already expired (expiration at 500 seconds, before current
 		// time)
-		let mut expired_statement = statement(1, 1, None, 100);
+		let mut expired_statement = unsigned_statement(1, 1, None, 100);
 		// set_expiry_from_parts: first arg is expiration timestamp in seconds, second is priority
 		expired_statement.set_expiry_from_parts(500, 1);
+		sign_with(&mut expired_statement, 1);
 
 		// Submit should fail with AlreadyExpired
 		assert_eq!(
@@ -2392,8 +2438,9 @@ mod tests {
 
 		// Now create a statement that is not expired (expiration at 2000 seconds, after current
 		// time)
-		let mut valid_statement = statement(1, 1, None, 100);
+		let mut valid_statement = unsigned_statement(1, 1, None, 100);
 		valid_statement.set_expiry_from_parts(2000, 1);
+		sign_with(&mut valid_statement, 1);
 
 		// Submit should succeed
 		assert_eq!(store.submit(valid_statement, StatementSource::Network), SubmitResult::New);
@@ -2414,12 +2461,14 @@ mod tests {
 
 		// Account A = 4 (has per-account limits (4, 1000) in the mock runtime)
 		// - Mix of topic, decryption-key and channel to exercise every index.
-		let mut s_a1 = statement(4, 10, Some(100), 100);
+		let mut s_a1 = unsigned_statement(4, 10, Some(100), 100);
 		s_a1.set_topic(0, t42);
+		sign_with(&mut s_a1, 4);
 		let h_a1 = s_a1.hash();
 
-		let mut s_a2 = statement(4, 20, Some(200), 150);
+		let mut s_a2 = unsigned_statement(4, 20, Some(200), 150);
 		s_a2.set_decryption_key(k7);
+		sign_with(&mut s_a2, 4);
 		let h_a2 = s_a2.hash();
 
 		let s_a3 = statement(4, 30, None, 50);
@@ -2429,9 +2478,10 @@ mod tests {
 		let s_b1 = statement(3, 10, None, 100);
 		let h_b1 = s_b1.hash();
 
-		let mut s_b2 = statement(3, 15, Some(300), 100);
+		let mut s_b2 = unsigned_statement(3, 15, Some(300), 100);
 		s_b2.set_topic(0, t42);
 		s_b2.set_decryption_key(k7);
+		sign_with(&mut s_b2, 3);
 		let h_b2 = s_b2.hash();
 
 		// Submit all statements.
@@ -2558,8 +2608,9 @@ mod tests {
 		store.set_time(100);
 
 		// Create a statement that will expire at timestamp 500
-		let mut expired_stmt = statement(1, 1, None, 100);
+		let mut expired_stmt = unsigned_statement(1, 1, None, 100);
 		expired_stmt.set_expiry_from_parts(500, 1);
+		sign_with(&mut expired_stmt, 1);
 		let expired_hash = expired_stmt.hash();
 		store.submit(expired_stmt, StatementSource::Network);
 
@@ -2607,16 +2658,19 @@ mod tests {
 		store.set_time(100);
 
 		// Create statements with expiry at timestamp 200
-		let mut stmt1 = statement(1, 1, None, 100);
+		let mut stmt1 = unsigned_statement(1, 1, None, 100);
 		stmt1.set_expiry_from_parts(200, 1);
+		sign_with(&mut stmt1, 1);
 		store.submit(stmt1, StatementSource::Network);
 
-		let mut stmt2 = statement(2, 1, None, 100);
+		let mut stmt2 = unsigned_statement(2, 1, None, 100);
 		stmt2.set_expiry_from_parts(200, 1);
+		sign_with(&mut stmt2, 2);
 		store.submit(stmt2, StatementSource::Network);
 
-		let mut stmt3 = statement(3, 1, None, 100);
+		let mut stmt3 = unsigned_statement(3, 1, None, 100);
 		stmt3.set_expiry_from_parts(200, 1);
+		sign_with(&mut stmt3, 3);
 		store.submit(stmt3, StatementSource::Network);
 
 		// First call populates the list
@@ -2683,18 +2737,21 @@ mod tests {
 
 		// Create multiple statements for the same account with different expiry timestamps
 		// Account 42 has limit of 42 statements
-		let mut stmt1 = statement(42, 1, Some(1), 100);
+		let mut stmt1 = unsigned_statement(42, 1, Some(1), 100);
 		stmt1.set_expiry_from_parts(200, 1); // Expires at timestamp 200
+		sign_with(&mut stmt1, 42);
 		let hash1 = stmt1.hash();
 		store.submit(stmt1, StatementSource::Network);
 
-		let mut stmt2 = statement(42, 2, Some(2), 100);
+		let mut stmt2 = unsigned_statement(42, 2, Some(2), 100);
 		stmt2.set_expiry_from_parts(300, 2); // Expires at timestamp 300
+		sign_with(&mut stmt2, 42);
 		let hash2 = stmt2.hash();
 		store.submit(stmt2, StatementSource::Network);
 
-		let mut stmt3 = statement(42, 3, Some(3), 100);
+		let mut stmt3 = unsigned_statement(42, 3, Some(3), 100);
 		stmt3.set_expiry_from_parts(500, 3); // Expires at timestamp 500
+		sign_with(&mut stmt3, 42);
 		let hash3 = stmt3.hash();
 		store.submit(stmt3, StatementSource::Network);
 
@@ -2777,8 +2834,9 @@ mod tests {
 		store.set_time(100);
 
 		// Create a statement with expiry at timestamp 200
-		let mut stmt = statement(1, 1, Some(1), 100);
+		let mut stmt = unsigned_statement(1, 1, Some(1), 100);
 		stmt.set_expiry_from_parts(200, 1);
+		sign_with(&mut stmt, 1);
 		let hash = stmt.hash();
 		store.submit(stmt, StatementSource::Network);
 
@@ -2812,10 +2870,11 @@ mod tests {
 		store.set_time(100);
 
 		// Create a statement with topic and decryption key
-		let mut stmt = statement(1, 1, Some(1), 100);
+		let mut stmt = unsigned_statement(1, 1, Some(1), 100);
 		stmt.set_expiry_from_parts(200, 1);
 		stmt.set_topic(0, topic(42));
 		stmt.set_decryption_key(dec_key(7));
+		sign_with(&mut stmt, 1);
 		let hash = stmt.hash();
 		store.submit(stmt, StatementSource::Network);
 
@@ -2879,8 +2938,9 @@ mod tests {
 		store.set_time(1000);
 
 		// Create a statement with expiration timestamp just 1 second in the future
-		let mut stmt = statement(1, 1, None, 100);
+		let mut stmt = unsigned_statement(1, 1, None, 100);
 		stmt.set_expiry_from_parts(1001, 1); // Expires at timestamp 1001
+		sign_with(&mut stmt, 1);
 		let hash = stmt.hash();
 		store.submit(stmt, StatementSource::Network);
 
@@ -2912,8 +2972,9 @@ mod tests {
 		store.set_time(100);
 
 		// Create a statement with expiry at timestamp 200
-		let mut stmt = statement(1, 1, None, 100);
+		let mut stmt = unsigned_statement(1, 1, None, 100);
 		stmt.set_expiry_from_parts(200, 1);
+		sign_with(&mut stmt, 1);
 		let hash = stmt.hash();
 		store.submit(stmt.clone(), StatementSource::Network);
 

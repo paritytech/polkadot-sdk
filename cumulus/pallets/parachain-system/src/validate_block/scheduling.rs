@@ -10,15 +10,29 @@
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain::{ApprovedPeerId, UMPSignal, UMP_SEPARATOR},
+	relay_chain::{ApprovedPeerId, Header as RelayChainHeader, Slot, UMPSignal, UMP_SEPARATOR},
 	ClaimQueueOffset, CoreSelector, SchedulingProof, SignedSchedulingInfo,
 };
 use frame_support::{traits::Get, BoundedVec};
 use polkadot_parachain_primitives::primitives::ValidationParamsExtension;
+use sp_consensus_babe::digests::CompatibleDigestItem as BabeDigestItem;
 use sp_runtime::traits::Header as HeaderT;
 
 /// Hash type for relay chain.
 pub type RelayHash = sp_core::H256;
+
+/// Extract the relay slot from `header`'s BABE pre-digest.
+///
+/// The relay chain runs BABE, so the slot of a relay header lives in its BABE pre-digest.
+/// Returns `None` when the header carries no BABE pre-digest.
+pub(crate) fn relay_slot_from_header(header: &RelayChainHeader) -> Option<Slot> {
+	header
+		.digest
+		.logs()
+		.iter()
+		.find_map(|log| BabeDigestItem::as_babe_pre_digest(log))
+		.map(|pre_digest| pre_digest.slot())
+}
 
 /// Errors that can occur during scheduling validation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,40 +50,43 @@ pub enum SchedulingValidationError {
 	/// When relay_parent != internal_scheduling_parent, the resubmitting collator must
 	/// sign the core selection to prove slot eligibility.
 	MissingSignedSchedulingInfo,
-	/// `internal_scheduling_parent_header` does not hash to the internal scheduling
-	/// parent derived from the header chain (or `scheduling_parent` when the chain
-	/// is empty). The PVF reads the BABE pre-digest from this header to derive the
-	/// parachain slot used for author lookup; without the linkage check a collator
-	/// could attach an unrelated header pointing the verifier at an arbitrary slot.
+	/// `internal_scheduling_parent_header` does not hash to the derived internal
+	/// scheduling parent. Without this linkage a collator could attach an unrelated
+	/// header, pointing the slot-deriving author lookup at an arbitrary slot.
 	InternalSchedulingParentHeaderMismatch,
 	/// `signed_scheduling_info.payload.internal_scheduling_parent` does not match the
-	/// internal scheduling parent derived from the proof. The signer must have signed
-	/// over the same ISP the proof points to; rejecting the mismatch here prevents a
-	/// signature meant for a different scheduling context from being reused.
+	/// derived ISP, i.e. the signature was made for a different scheduling context.
 	SignedSchedulingInfoIspMismatch,
 	/// Signed `claim_queue_offset` exceeds the runtime-enforced maximum.
 	ClaimQueueOffsetTooLarge { offset: u8, max: u8 },
 }
 
+/// The validated result of a V3 candidate's scheduling proof, as returned by
+/// [`validate_v3_scheduling`].
+pub struct ValidatedScheduling {
+	/// The relay header at the ISP; its hash is already verified against the derived
+	/// ISP (linkage check in [`check_scheduling`]).
+	pub internal_scheduling_parent_header: RelayChainHeader,
+	/// The signed scheduling info, if any. Its shape is already validated; only the
+	/// signature still needs verifying by the caller.
+	pub signed_scheduling_info: Option<SignedSchedulingInfo>,
+}
+
 /// Validate V3 scheduling based on runtime config and candidate extension.
 ///
-/// Returns `None` for V1/V2 candidates, `Some(internal_scheduling_parent)` for valid V3.
+/// Returns `None` for V1/V2 candidates, `Some(ValidatedScheduling)` for valid V3.
 /// Panics on config/extension mismatches or chain-shape validation failures.
 ///
-/// This function only validates the *shape* of the scheduling proof (header chain
-/// linkage, relay-parent position, presence of `signed_scheduling_info` when
-/// required, and that `internal_scheduling_parent_header` hashes to the derived
-/// internal scheduling parent). Signature verification on `signed_scheduling_info`
-/// is the caller's responsibility — see `validate_block` for the call site that
-/// invokes `PSC::SchedulingSignatureVerifier` using the returned
-/// `internal_scheduling_parent`.
+/// Only validates the *shape* of the proof; signature verification on
+/// `signed_scheduling_info` is the caller's responsibility (see `validate_block`,
+/// which invokes `PSC::SchedulingSignatureVerifier`).
 pub fn validate_v3_scheduling(
 	v3_enabled: bool,
 	extension: &Option<ValidationParamsExtension>,
 	scheduling_proof: Option<&SchedulingProof>,
 	expected_header_chain_length: u32,
 	max_claim_queue_offset: u8,
-) -> Option<RelayHash> {
+) -> Option<ValidatedScheduling> {
 	match (v3_enabled, extension) {
 		(false, None) => {
 			// V3 disabled and no extension: normal V1/V2 path
@@ -102,7 +119,12 @@ pub fn validate_v3_scheduling(
 				expected_header_chain_length,
 				max_claim_queue_offset,
 			) {
-				Ok(isp) => Some(isp),
+				Ok(_isp) => Some(ValidatedScheduling {
+					internal_scheduling_parent_header: scheduling_proof
+						.internal_scheduling_parent_header
+						.clone(),
+					signed_scheduling_info: scheduling_proof.signed_scheduling_info.clone(),
+				}),
 				Err(e) => panic!("V3 scheduling validation failed: {:?}", e),
 			}
 		},
@@ -110,19 +132,14 @@ pub fn validate_v3_scheduling(
 }
 
 /// Check the scheduling proof against the relay parent, scheduling parent, and
-/// expected header chain length.
+/// expected header chain length. Returns the derived `internal_scheduling_parent`.
 ///
 /// Two submission shapes are valid:
-/// - **Initial submission** (`relay_parent == internal_scheduling_parent`):
-///   `signed_scheduling_info` is optional. When absent, core selection comes from the block's UMP
-///   signals; when present it is legal but unused here.
-/// - **Resubmission** (`relay_parent` is an ancestor of `internal_scheduling_parent`):
-///   `signed_scheduling_info` is required and its `payload.internal_scheduling_parent` must match
-///   the derived ISP.
+/// - **Initial** (`relay_parent == ISP`): `signed_scheduling_info` is optional.
+/// - **Resubmission** (`relay_parent` is an ancestor of ISP): `signed_scheduling_info` is required
+///   and its `payload.internal_scheduling_parent` must match the derived ISP.
 ///
-/// Returns the derived `internal_scheduling_parent`. Signature verification on
-/// `signed_scheduling_info` is the caller's responsibility — see `validate_block`
-/// for the call site that invokes `PSC::SchedulingSignatureVerifier`.
+/// Signature verification is the caller's responsibility (see `validate_block`).
 pub fn check_scheduling(
 	scheduling_proof: &SchedulingProof,
 	relay_parent: RelayHash,
@@ -158,28 +175,22 @@ pub fn check_scheduling(
 		}
 	}
 
-	// 3. Derive internal_scheduling_parent. It's the parent_hash of the last (oldest)
-	// header in the chain, or `scheduling_parent` itself when the chain is empty
-	// (`RelayParentOffset = 0`).
+	// 3. Derive internal_scheduling_parent: parent_hash of the oldest header, or
+	// `scheduling_parent` when the chain is empty (`RelayParentOffset = 0`).
 	let internal_scheduling_parent = if header_chain.is_empty() {
 		scheduling_parent
 	} else {
 		*header_chain.last().expect("checked non-empty; qed").parent_hash()
 	};
 
-	// 4. The internal_scheduling_parent_header carried in the proof must hash to the
-	// internal_scheduling_parent we just derived. The PVF reads the BABE pre-digest
-	// out of this header to derive the parachain slot used for author lookup; without
-	// the linkage check a collator could attach an unrelated header pointing the
-	// verifier at an arbitrary slot.
+	// 4. The ISP header in the proof must hash to the derived ISP — see
+	// `InternalSchedulingParentHeaderMismatch`.
 	if scheduling_proof.internal_scheduling_parent_header.hash() != internal_scheduling_parent {
 		return Err(SchedulingValidationError::InternalSchedulingParentHeaderMismatch);
 	}
 
-	// 5. Validate relay_parent position. relay_parent must NOT be inside the header
-	// chain — it either equals internal_scheduling_parent (initial submission) or is
-	// an ancestor of it (resubmission), but never between scheduling_parent and
-	// internal_scheduling_parent.
+	// 5. relay_parent must NOT be inside the header chain: it either equals the ISP
+	// (initial) or is an ancestor of it (resubmission), never in between.
 	for header in header_chain.iter() {
 		let header_hash = header.hash();
 		if relay_parent == header_hash {
@@ -187,17 +198,16 @@ pub fn check_scheduling(
 		}
 	}
 
-	// 6. Validate signed_scheduling_info based on relay_parent position.
-	// Resubmission (relay_parent != ISP) requires the resubmitter to sign the core
-	// selection; initial submission (relay_parent == ISP) may carry one optionally.
+	// 6. Resubmission (relay_parent != ISP) requires signed_scheduling_info; initial
+	// submission may carry one optionally.
 	if relay_parent != internal_scheduling_parent &&
 		scheduling_proof.signed_scheduling_info.is_none()
 	{
 		return Err(SchedulingValidationError::MissingSignedSchedulingInfo);
 	}
 
-	// 7. When signed_scheduling_info is present, its payload must commit to the ISP the proof
-	// points to, and its claim_queue_offset must be within the runtime cap.
+	// 7. When present, the signed payload must commit to the derived ISP and its
+	// claim_queue_offset must be within the runtime cap.
 	if let Some(signed_info) = &scheduling_proof.signed_scheduling_info {
 		if signed_info.payload.internal_scheduling_parent != internal_scheduling_parent {
 			return Err(SchedulingValidationError::SignedSchedulingInfoIspMismatch);
@@ -228,11 +238,17 @@ pub struct SchedulingSignals {
 }
 
 impl SchedulingSignals {
-	/// Parse the encoded `UMPSignal`s a PoV's blocks emitted after the in-block `UMP_SEPARATOR`.
+	/// Parse the encoded `UMPSignal`s a PoV's blocks emitted after the in-block `UMP_SEPARATOR`
+	/// and push the canonical scheduling tail into `upward_messages` via [`Self::emit`].
 	///
 	/// Panics on a repeated variant *even when values match*: the relay decoder counts
-	/// occurrences, not distinct values, so a duplicate is a bug regardless.
-	pub fn from_block_signals(raw: &[Vec<u8>]) -> Self {
+	/// occurrences, not distinct values, so a duplicate is a bug regardless. All parsing and
+	/// duplicate-detection panics fire before [`Self::emit`] pushes anything, so a panic never
+	/// leaves `upward_messages` half-written.
+	pub fn from_block_signals<S: Get<u32>>(
+		raw: &[Vec<u8>],
+		upward_messages: &mut BoundedVec<Vec<u8>, S>,
+	) {
 		let mut signals = Self::default();
 		for bytes in raw {
 			// NOTE: this match is intentionally exhaustive (no `_` arm). Adding a new
@@ -255,30 +271,35 @@ impl SchedulingSignals {
 				},
 			}
 		}
-		signals
+		signals.emit(upward_messages);
 	}
 
 	/// Build the tail from a verified `SignedSchedulingInfo`, which wholesale replaces the
-	/// block's emitted signals (the signer signed all three fields).
-	pub fn from_scheduling_info(signed_info: &SignedSchedulingInfo) -> Self {
+	/// block's emitted signals (the signer signed all three fields), and push it into
+	/// `upward_messages` via [`Self::emit`].
+	pub fn from_scheduling_info<S: Get<u32>>(
+		signed_info: &SignedSchedulingInfo,
+		upward_messages: &mut BoundedVec<Vec<u8>, S>,
+	) {
 		let payload = &signed_info.payload;
-		Self {
+		let signals = Self {
 			select_core: Some((
 				payload.core_selector,
 				ClaimQueueOffset(payload.claim_queue_offset),
 			)),
 			approved_peer: Some(payload.peer_id.clone()),
-		}
+		};
+		signals.emit(upward_messages);
 	}
 
-	pub fn is_empty(&self) -> bool {
+	fn is_empty(&self) -> bool {
 		self.select_core.is_none() && self.approved_peer.is_none()
 	}
 
 	/// Order is `SelectCore` then `ApprovedPeer`, matching
 	/// `pallet_parachain_system::send_ump_signals`. Emits nothing — not even a separator — when
 	/// empty, since the relay decoder keys off the first `UMP_SEPARATOR`.
-	pub fn emit<S: Get<u32>>(self, upward_messages: &mut BoundedVec<Vec<u8>, S>) {
+	fn emit<S: Get<u32>>(self, upward_messages: &mut BoundedVec<Vec<u8>, S>) {
 		if self.is_empty() {
 			return;
 		}
@@ -372,6 +393,46 @@ mod tests {
 		// Reverse so newest is first (matches expected ordering).
 		headers.reverse();
 		(headers, isp_header)
+	}
+
+	/// Build a relay header carrying a BABE secondary-plain pre-digest at `slot`.
+	fn header_with_babe_slot(slot: u64) -> RelayHeader {
+		use sp_consensus_babe::digests::{
+			CompatibleDigestItem, PreDigest, SecondaryPlainPreDigest,
+		};
+		let mut digest = sp_runtime::generic::Digest::default();
+		digest.push(<sp_runtime::generic::DigestItem as CompatibleDigestItem>::babe_pre_digest(
+			PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
+				authority_index: 0,
+				slot: slot.into(),
+			}),
+		));
+		RelayHeader::new(0, Default::default(), Default::default(), Default::default(), digest)
+	}
+
+	// =========================================================================
+	// relay_slot_from_header tests
+	// =========================================================================
+
+	#[test]
+	fn relay_slot_from_header_reads_babe_pre_digest() {
+		// The relay slot is read off the header's BABE pre-digest.
+		let header = header_with_babe_slot(7);
+		assert_eq!(relay_slot_from_header(&header), Some(Slot::from(7)));
+	}
+
+	#[test]
+	fn relay_slot_from_header_none_without_pre_digest() {
+		// A header with no BABE pre-digest yields `None`; `validate_block` turns this into a
+		// candidate rejection (the relay chain always produces BABE pre-digests).
+		let header = RelayHeader::new(
+			0,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		);
+		assert_eq!(relay_slot_from_header(&header), None);
 	}
 
 	// =========================================================================
@@ -658,8 +719,9 @@ mod tests {
 	fn v3_enabled_valid_initial_submission(#[case] chain_len: u32) {
 		let (ext, proof, expected) = make_v3_initial_submission(chain_len);
 		let result =
-			validate_v3_scheduling(true, &Some(ext), Some(&proof), chain_len, TEST_MAX_CQ_OFFSET);
-		assert_eq!(result, Some(expected));
+			validate_v3_scheduling(true, &Some(ext), Some(&proof), chain_len, TEST_MAX_CQ_OFFSET)
+				.expect("valid initial submission");
+		assert_eq!(result.internal_scheduling_parent_header.hash(), expected);
 	}
 
 	#[test]
@@ -696,7 +758,8 @@ mod tests {
 
 		let result = validate_v3_scheduling(true, &Some(ext), Some(&proof), 3, TEST_MAX_CQ_OFFSET);
 		let result = result.expect("should succeed");
-		assert_eq!(result, internal_scheduling_parent);
+		assert_eq!(result.internal_scheduling_parent_header.hash(), internal_scheduling_parent);
+		assert!(result.signed_scheduling_info.is_some());
 	}
 
 	#[test]
@@ -916,10 +979,8 @@ mod tests {
 			UMPSignal::SelectCore(CoreSelector(7), ClaimQueueOffset(1)).encode(),
 			UMPSignal::ApprovedPeer(peer(0xAA)).encode(),
 		];
-		let signals = SchedulingSignals::from_block_signals(&raw);
-
 		let mut out = TestUpwardMessages::default();
-		signals.emit(&mut out);
+		SchedulingSignals::from_block_signals(&raw, &mut out);
 		assert_eq!(
 			out.into_inner(),
 			vec![
@@ -934,10 +995,8 @@ mod tests {
 	fn from_block_signals_select_core_only() {
 		// Block emitted only a `SelectCore`: no `ApprovedPeer` field, one signal emitted.
 		let raw = vec![UMPSignal::SelectCore(CoreSelector(3), ClaimQueueOffset(0)).encode()];
-		let signals = SchedulingSignals::from_block_signals(&raw);
-
 		let mut out = TestUpwardMessages::default();
-		signals.emit(&mut out);
+		SchedulingSignals::from_block_signals(&raw, &mut out);
 		assert_eq!(
 			out.into_inner(),
 			vec![
@@ -956,7 +1015,7 @@ mod tests {
 			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode(),
 			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode(),
 		];
-		let _ = SchedulingSignals::from_block_signals(&raw);
+		SchedulingSignals::from_block_signals(&raw, &mut TestUpwardMessages::default());
 	}
 
 	#[test]
@@ -966,7 +1025,7 @@ mod tests {
 			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode(),
 			UMPSignal::SelectCore(CoreSelector(2), ClaimQueueOffset(0)).encode(),
 		];
-		let _ = SchedulingSignals::from_block_signals(&raw);
+		SchedulingSignals::from_block_signals(&raw, &mut TestUpwardMessages::default());
 	}
 
 	#[test]
@@ -976,17 +1035,14 @@ mod tests {
 			UMPSignal::ApprovedPeer(peer(0xAA)).encode(),
 			UMPSignal::ApprovedPeer(peer(0xBB)).encode(),
 		];
-		let _ = SchedulingSignals::from_block_signals(&raw);
+		SchedulingSignals::from_block_signals(&raw, &mut TestUpwardMessages::default());
 	}
 
 	#[test]
 	fn from_block_signals_empty_emits_nothing() {
 		// No signals in, nothing out — not even a separator.
-		let signals = SchedulingSignals::from_block_signals(&[]);
-		assert!(signals.is_empty());
-
 		let mut out = TestUpwardMessages::default();
-		signals.emit(&mut out);
+		SchedulingSignals::from_block_signals(&[], &mut out);
 		assert!(out.is_empty());
 	}
 
@@ -996,10 +1052,8 @@ mod tests {
 		// by the resubmitting collator, so the override sources every field from the signed
 		// payload. Distinct values ensure no field is sourced from the wrong place.
 		let signed = signed_with(CoreSelector(7), 3, peer(0xAA));
-		let signals = SchedulingSignals::from_scheduling_info(&signed);
-
 		let mut out = TestUpwardMessages::default();
-		signals.emit(&mut out);
+		SchedulingSignals::from_scheduling_info(&signed, &mut out);
 		assert_eq!(
 			out.into_inner(),
 			vec![
@@ -1017,10 +1071,8 @@ mod tests {
 		// block's peer. Empty/invalid peers are the resubmitter's own reputation loss and are
 		// handled gracefully downstream; the PVF forwards exactly what was signed.
 		let signed = signed_with(CoreSelector(5), 1, ApprovedPeerId::default());
-		let signals = SchedulingSignals::from_scheduling_info(&signed);
-
 		let mut out = TestUpwardMessages::default();
-		signals.emit(&mut out);
+		SchedulingSignals::from_scheduling_info(&signed, &mut out);
 		assert_eq!(
 			out.into_inner(),
 			vec![
@@ -1037,7 +1089,8 @@ mod tests {
 		// resubmission always produces its tail. (At the call site this is what decouples
 		// the override from the old `!upward_message_signals.is_empty()` guard.)
 		let signed = signed_with(CoreSelector(0), 0, peer(0xCC));
-		let signals = SchedulingSignals::from_scheduling_info(&signed);
-		assert!(!signals.is_empty());
+		let mut out = TestUpwardMessages::default();
+		SchedulingSignals::from_scheduling_info(&signed, &mut out);
+		assert!(!out.is_empty());
 	}
 }

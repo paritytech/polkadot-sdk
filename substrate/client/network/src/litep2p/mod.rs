@@ -93,6 +93,7 @@ use std::{
 };
 
 mod bitswap;
+mod bitswap_metrics;
 mod discovery;
 mod ipfs_dht;
 mod peerstore;
@@ -623,8 +624,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 	/// Create Bitswap server.
 	fn bitswap_server(
 		client: Arc<dyn BlockBackend<B> + Send + Sync>,
+		metrics_registry: Option<Registry>,
 	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Self::BitswapConfig) {
-		BitswapService::new(client)
+		BitswapService::new(client, metrics_registry.as_ref())
 	}
 
 	/// Create notification protocol configuration for `protocol`.

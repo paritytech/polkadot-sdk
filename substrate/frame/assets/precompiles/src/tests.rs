@@ -713,3 +713,192 @@ fn delegatecall_is_rejected() {
 		assert!(!ret.success, "DELEGATECALL to asset precompile must be rejected");
 	});
 }
+
+/// `approve(spender, type(uint256).max)` is the universal "infinite allowance" idiom in EVM
+/// tooling (MetaMask, Uniswap, every DEX router). `U256::MAX` doesn't fit in the runtime
+/// `Balance`, so the precompile must saturate the *stored* allowance at `Balance::MAX`
+/// rather than revert at the conversion. The `Approval` event still carries the raw
+/// `call.value` (`U256::MAX`) so EVM wallets and indexers recognise the canonical
+/// "Unlimited approval" sentinel.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn approve_saturates_on_uint256_max(asset_index: u16) {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let owner = 123456789u64;
+		let spender = 987654321u64;
+		Balances::make_free_balance_be(&owner, 100);
+
+		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+
+		setup_asset_for_prefix(asset_id, asset_index);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+
+		call_approve(owner, asset_addr, spender_addr, U256::MAX);
+
+		// Stored allowance is saturated to `Balance::MAX`.
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u128::MAX);
+
+		// Event carries the raw `call.value`, not the saturated stored amount.
+		assert_contract_event(
+			asset_addr,
+			IERC20Events::Approval(IERC20::Approval {
+				owner: owner_addr.0.into(),
+				spender: spender_addr.0.into(),
+				value: U256::MAX,
+			}),
+		);
+	});
+}
+
+/// Boundary: saturation must trigger for *any* `U256 > Balance::MAX`, not only the exact
+/// `U256::MAX` sentinel. Guards against a regression that would scope saturation to the
+/// `call.value == U256::MAX` literal — routers that compute "infinite allowance" as
+/// `U256::MAX - k` for small `k` would still need to work.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn approve_saturates_above_balance_max(asset_index: u16) {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let owner = 123456789u64;
+		let spender = 987654321u64;
+		Balances::make_free_balance_be(&owner, 100);
+
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+
+		setup_asset_for_prefix(asset_id, asset_index);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+
+		// Smallest `U256` that doesn't fit in the mock's `Balance` (u128).
+		let just_over = U256::from(u128::MAX) + U256::from(1u64);
+		call_approve(owner, asset_addr, spender_addr, just_over);
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u128::MAX);
+	});
+}
+
+/// Asymmetry pin: `transfer` and `transferFrom` move exact amounts, so an overflowing
+/// `value` must revert at the `U256 → Balance` boundary rather than silently
+/// transferring `Balance::MAX`. Only allowance writes (`approve` / `permit`) saturate.
+#[test]
+fn transfer_and_transfer_from_revert_on_overflow() {
+	use alloy::sol_types::{Revert, SolError};
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let from = 123456789u64;
+		let to = 987654321u64;
+		Balances::make_free_balance_be(&from, 100);
+		Balances::make_free_balance_be(&to, 100);
+		let from_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&from);
+		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, from, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(from), asset_id, from, 100));
+
+		// Authorise the spender with a small finite allowance so the `transferFrom`
+		// path reaches the value conversion before any approval check.
+		call_approve(from, asset_addr, to_addr, U256::from(50u64));
+
+		let assert_reverts_with = |caller: u64, data: Vec<u8>, label: &str| {
+			let exec = pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(caller),
+				asset_addr,
+				0u32.into(),
+				TransactionLimits::WeightAndDeposit {
+					weight_limit: Weight::MAX,
+					deposit_limit: u128::MAX,
+				},
+				data,
+				&ExecConfig::new_substrate_tx(),
+			)
+			.result
+			.expect("must not trap");
+			assert!(exec.did_revert(), "{label} must revert on overflow");
+			let decoded = Revert::abi_decode(&exec.data).expect("Error(string) revert");
+			assert_eq!(
+				decoded.reason, "Balance conversion failed",
+				"{label} must revert at the U256 -> Balance boundary",
+			);
+		};
+
+		let transfer_data =
+			IERC20::transferCall { to: to_addr.0.into(), value: U256::MAX }.abi_encode();
+		assert_reverts_with(from, transfer_data, "transfer(uint256.max)");
+
+		let transfer_from_data = IERC20::transferFromCall {
+			from: from_addr.0.into(),
+			to: to_addr.0.into(),
+			value: U256::MAX,
+		}
+		.abi_encode();
+		assert_reverts_with(to, transfer_from_data, "transferFrom(_, _, uint256.max)");
+
+		// Nothing moved.
+		assert_eq!(Assets::balance(asset_id, from), 100);
+		assert_eq!(Assets::balance(asset_id, to), 0);
+	});
+}
+
+/// No on-chain sentinel: after `approve(uint256.max)` (which saturates to `Balance::MAX`),
+/// each `transferFrom` still decrements the stored allowance. This pins the deliberate
+/// departure from OpenZeppelin's `_spendAllowance` skip-on-`type(uint256).max` rule — on
+/// this chain there is no allowance-state inspection that can distinguish a saturated
+/// `uint256.max` approval from a finite `Balance::MAX` approval, so we don't try.
+/// `Balance::MAX` is large enough that this is operationally indistinguishable from
+/// infinite for any realistic transfer cadence.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn transfer_from_decrements_normally_after_max_approve(asset_index: u16) {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let owner = 123456789u64;
+		let spender = 987654321u64;
+		let recipient = 111222333u64;
+		Balances::make_free_balance_be(&owner, 100);
+		Balances::make_free_balance_be(&spender, 100);
+		Balances::make_free_balance_be(&recipient, 100);
+
+		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+		let recipient_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&recipient);
+
+		setup_asset_for_prefix(asset_id, asset_index);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+
+		call_approve(owner, asset_addr, spender_addr, U256::MAX);
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u128::MAX);
+
+		// Each `transferFrom` decrements the saturated allowance by the spent amount.
+		let data = IERC20::transferFromCall {
+			from: owner_addr.0.into(),
+			to: recipient_addr.0.into(),
+			value: U256::from(10u64),
+		}
+		.abi_encode();
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(spender),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		);
+		assert!(!result.result.unwrap().did_revert(), "transferFrom must succeed");
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u128::MAX - 10);
+		assert_eq!(Assets::balance(asset_id, &recipient), 10);
+	});
+}
