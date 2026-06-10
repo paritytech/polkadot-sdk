@@ -129,7 +129,7 @@ impl TryFrom<EncodedBloomFilter> for AffinityFilter {
 	}
 }
 
-/// A bloom filter over a node's statement topics of interest.
+/// A bloom filter over the statement topics a node is interested in.
 ///
 /// It is only a sender-side hint: the node advertises additional topics of interest.
 /// Doesn't gate inbound statements — the node accepts and relays everything.

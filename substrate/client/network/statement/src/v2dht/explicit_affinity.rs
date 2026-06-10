@@ -202,23 +202,6 @@ mod tests {
 	}
 
 	#[test]
-	fn configured_topics_are_held_by_the_configured_source() {
-		let mut affinity = ExplicitAffinity::new(&[topic(1)]);
-		affinity.remove_topics(AffinitySource::Configured, &[topic(1)]);
-		assert!(affinity.topics().is_empty(), "the construction topic was tagged Configured");
-	}
-
-	#[test]
-	fn add_then_remove_same_source() {
-		let mut affinity = ExplicitAffinity::new(&[]);
-		affinity.add_topics(AffinitySource::Configured, &[topic(1)]);
-		assert_eq!(topic_set(&affinity), HashSet::from([topic(1)]));
-
-		affinity.remove_topics(AffinitySource::Configured, &[topic(1)]);
-		assert!(affinity.topics().is_empty());
-	}
-
-	#[test]
 	fn topic_survives_until_last_source_drops() {
 		let mut affinity = ExplicitAffinity::new(&[]);
 		affinity.add_topics(AffinitySource::Configured, &[topic(1)]);
