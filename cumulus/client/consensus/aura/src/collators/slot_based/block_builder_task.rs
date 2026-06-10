@@ -719,9 +719,6 @@ where
 	check_validation_code_or_log(&validation_code_hash, para_id, relay_client, relay_parent_hash)
 		.await;
 
-	// Relay-parent session for every block built against this relay parent, recorded in the
-	// resubmission store so stale-session entries can be pruned later.
-	//
 	// TODO(#12057): route this through `RelayChainDataCache`
 	let relay_parent_session = match relay_client.session_index_for_child(relay_parent_hash).await {
 		Ok(session) => Some(session),

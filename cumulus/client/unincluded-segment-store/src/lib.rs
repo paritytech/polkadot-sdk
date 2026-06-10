@@ -58,10 +58,7 @@ pub struct StoredEntry {
 	pub time_ms: u64,
 	/// The storage proof captured at block import.
 	pub proof: StorageProof,
-	/// Relay-chain session a block on this relay parent is expected to be included in (the relay
-	/// parent's `session_index_for_child`). `Some` when the session was resolvable at the time the
-	/// entry was recorded, otherwise `None`. Drives
-	/// [`ResubmissionStore::prune_old_sessions`].
+	/// Relay parent's `session_index_for_child`.
 	pub relay_parent_session: Option<SessionIndex>,
 }
 
@@ -134,12 +131,9 @@ impl<Block: BlockT, B: AuxStore> ResubmissionStore<Block, B> {
 	/// Delete entries whose relay-parent session is more than `max_session_age` behind
 	/// `current_session`, committing the deletes to aux storage.
 	///
-	/// `hashes` is the live unincluded-segment set supplied by the resubmission engine from its
-	/// segment walk; the relay-parent session for each is read back from the stored
-	/// [`StoredEntry::relay_parent_session`] — so it is not passed in. `current_session` and
-	/// `max_session_age` are relay-chain values the store cannot derive and must be provided.
-	/// Entries with an unknown (or missing) session are left untouched and reclaimed by finality
-	/// cleanup instead.
+	/// `hashes` is the live unincluded-segment set; each entry's session is read back from its
+	/// stored [`StoredEntry::relay_parent_session`]. Entries with an unknown session are left for
+	/// finality cleanup.
 	pub fn prune_old_sessions(
 		&self,
 		hashes: impl IntoIterator<Item = Block::Hash>,

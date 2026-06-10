@@ -22,14 +22,9 @@ use sp_runtime::traits::{Block as BlockT, Header as _};
 
 const LOG_TARGET: &str = "consensus::common::finality";
 
-/// Compute the previously-finalized block hash from a tree route and a fallback parent hash.
-///
-/// This is the parent of the first block in the tree route, or the supplied `fallback_parent`
-/// (typically the parent hash of the just-finalized header) when the tree route is empty or its
-/// first block's header can't be loaded.
-///
-/// Taking the inputs directly rather than a `FinalityNotification` keeps this function unit-
-/// testable from outside `sc-client-api` (which has a private `unpin_handle` field).
+/// Resolve the previously-finalized block hash: the parent of the first block in `tree_route`,
+/// or `fallback_parent` (the just-finalized header's parent) when the route is empty or that
+/// header can't be loaded.
 pub fn old_finalized_hash<C, Block>(
 	client: &C,
 	tree_route: &[Block::Hash],
@@ -73,9 +68,7 @@ mod tests {
 	type Block = substrate_test_runtime::Block;
 	type Hash = <Block as BlockT>::Hash;
 
-	// Minimal `HeaderBackend` mock for the `old_finalized_hash_*` tests.
-	//
-	// `lookup` is `None` ⇒ `header()` returns `Ok(None)` (simulates a missing header).
+	// Minimal `HeaderBackend` mock for the `old_finalized_hash_*` tests; only `header()` is used.
 	struct MockHeaderBackend {
 		lookup: Option<(Hash, substrate_test_runtime::Header)>,
 	}
