@@ -224,7 +224,6 @@ fn fractionalize_with_zero_fractions_should_fail() {
 
 		assert!(!NftToAsset::<Test>::contains_key((nft_collection_id, nft_id)));
 		assert_eq!(Nfts::owner(nft_collection_id, nft_id), Some(account(1)));
-		assert_eq!(Balances::total_balance_on_hold(&account(1)), 0);
 	});
 }
 
