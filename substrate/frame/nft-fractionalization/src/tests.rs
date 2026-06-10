@@ -188,6 +188,47 @@ fn fractionalize_should_work() {
 }
 
 #[test]
+fn fractionalize_with_zero_fractions_should_fail() {
+	new_test_ext().execute_with(|| {
+		let nft_collection_id = 0;
+		let nft_id = 0;
+		let asset_id = 0;
+
+		Balances::set_balance(&account(1), 100);
+		Balances::set_balance(&account(2), 100);
+
+		assert_ok!(Nfts::force_create(
+			RuntimeOrigin::root(),
+			account(1),
+			CollectionConfig::default(),
+		));
+		assert_ok!(Nfts::mint(
+			RuntimeOrigin::signed(account(1)),
+			nft_collection_id,
+			nft_id,
+			account(1),
+			None,
+		));
+
+		assert_noop!(
+			NftFractionalization::fractionalize(
+				RuntimeOrigin::signed(account(1)),
+				nft_collection_id,
+				nft_id,
+				asset_id,
+				account(2),
+				0,
+			),
+			Error::<Test>::ZeroFractions
+		);
+
+		assert!(!NftToAsset::<Test>::contains_key((nft_collection_id, nft_id)));
+		assert_eq!(Nfts::owner(nft_collection_id, nft_id), Some(account(1)));
+		assert_eq!(Balances::total_balance_on_hold(&account(1)), 0);
+	});
+}
+
+#[test]
 fn unify_should_work() {
 	new_test_ext().execute_with(|| {
 		let nft_collection_id = 0;
