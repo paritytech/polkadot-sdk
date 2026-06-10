@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781086949872,
+  "lastUpdate": 1781089500530,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "93065bfb1e54ac7a841142d5f457c50ebac95e1c",
-          "message": "revive-dev-node enforce --dev (#10109)\n\nenforce --dev and default --log in revive-dev-node\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-24T10:09:01Z",
-          "tree_id": "10a06f6303f8b1aca8bdc6ea64e329ba10441ddc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/93065bfb1e54ac7a841142d5f457c50ebac95e1c"
-        },
-        "date": 1761305097415,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007560036966666643,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16129062266000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022806276779999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013393016893333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010158956439999972,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9e89790786eded9f699d273ca8fe29c6190e7cf8",
+          "message": "ci: fix path for cmd-bot (#12322)\n\nsubj",
+          "timestamp": "2026-06-10T08:52:49Z",
+          "tree_id": "f760a717b1acb41d736ba40c5365220eacc20ffc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9e89790786eded9f699d273ca8fe29c6190e7cf8"
+        },
+        "date": 1781089468986,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023596658346666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14306794500666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009854665806666652,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007620644566666668,
             "unit": "seconds"
           }
         ]
