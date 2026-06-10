@@ -11398,7 +11398,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-assets"
-version = "43.0.0"
+version = "43.0.1"
 dependencies = [
  "ethereum-standards",
  "frame-benchmarking",
