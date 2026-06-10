@@ -23,11 +23,11 @@
 
 use super::relay_chain_data_cache::RelayChainDataCache;
 use codec::Encode;
-use cumulus_client_consensus_common::ValidationCodeHashProvider;
-use cumulus_client_unincluded_segment_store::UnincludedSegmentStore;
-use cumulus_primitives_core::{
-	extract_relay_parent, relay_chain::Hash as RelayHash, PersistedValidationData,
+use cumulus_client_consensus_common::{
+	parent_search::extract_relay_parent_or_lookup, ValidationCodeHashProvider,
 };
+use cumulus_client_unincluded_segment_store::UnincludedSegmentStore;
+use cumulus_primitives_core::{relay_chain::Hash as RelayHash, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_primitives::ValidationCodeHash;
 use sc_client_api::{backend::AuxStore, Backend};
@@ -102,7 +102,13 @@ where
 	let block_hash = header.hash();
 	let parent_hash = *header.parent_hash();
 
-	let relay_parent = extract_relay_parent(header.digest())?;
+	let relay_parent: RelayHash = extract_relay_parent_or_lookup::<Block>(
+		header.digest(),
+		relay_chain_data_cache.relay_client(),
+	)
+	.await
+	.ok()
+	.flatten()?;
 
 	let parent_header = para_backend.blockchain().header(parent_hash).ok().flatten()?;
 	let body = para_backend.blockchain().body(block_hash).ok().flatten()?;

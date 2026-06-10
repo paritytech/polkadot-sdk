@@ -66,6 +66,12 @@ where
 		}
 	}
 
+	/// Accessor for the underlying relay client, used by helpers that need to issue
+	/// relay-chain RPC calls (e.g. resolving a relay parent via storage-root digest).
+	pub fn relay_client(&self) -> &RI {
+		&self.relay_client
+	}
+
 	/// Fetch required [`RelayChainData`] from the relay chain.
 	/// If this data has been fetched in the past for the incoming hash, it will reuse
 	/// cached data.

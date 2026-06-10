@@ -509,7 +509,11 @@ async fn process_incoming_peer_message<Sender, B>(
 					"Received an segment advertisement",
 				);
 
-			let Some(segment_fingerprint) = candidates.last() else {
+			// Pick the oldest fingerprint — its candidate is the one closest to expiring
+			// without backing, and getting that one through first improves the chance the
+			// whole unincluded segment lands. Mirrors the collator-side V2/V3 wire fallback
+			// which advertises `core_segment.first()`.
+			let Some(segment_fingerprint) = candidates.first() else {
 				// We should never be here.
 				return;
 			};

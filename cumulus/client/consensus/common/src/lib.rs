@@ -33,7 +33,7 @@ use std::{sync::Arc, time::Duration};
 mod finality;
 mod level_monitor;
 mod parachain_consensus;
-mod parent_search;
+pub mod parent_search;
 #[cfg(test)]
 mod tests;
 

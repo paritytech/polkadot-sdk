@@ -359,13 +359,6 @@ where
 				.saturating_sub(*included_header_at_execution.number());
 			let unincluded_segment_len =
 				initial_parent_header.number().saturating_sub(*included_header.number());
-			// V3 carries the locally-walked unincluded segment to the collation task; V2 sends
-			// don't go through `CollatorResubmitSegment` so the default-empty `unwrap` is just
-			// defensive.
-			let unincluded_segment: Vec<Block::Header> = parent_search_result
-				.unincluded_segment()
-				.map(|s| s.to_vec())
-				.unwrap_or_default();
 
 			let Ok(para_slot_duration) =
 				crate::slot_duration_at(&*para_client, initial_parent_hash)
@@ -568,9 +561,8 @@ where
 			let mut pov_parent_hash = initial_parent_hash;
 			let block_time = relay_chain_slot_duration / number_of_blocks;
 
-			for (core_iter_index, blocks_per_core) in blocks_per_cores.into_iter().enumerate() {
+			for (_core_iter_index, blocks_per_core) in blocks_per_cores.into_iter().enumerate() {
 				let time_for_core = slot_time.time_left() / cores.cores_left();
-				let is_first_core = core_iter_index == 0;
 				let this_core_index = cores.core_index();
 				let core_info = cores.core_info();
 
@@ -635,7 +627,8 @@ where
 					para_slot: para_slot.slot,
 					para_client: &*para_client,
 					scheduling_proof: scheduling_proof.clone(),
-					unincluded_segment: unincluded_segment.clone(),
+					// Resubmission disabled: every core ships only its freshly built bundle.
+					unincluded_segment: Vec::new(),
 				})
 				.await
 				{
@@ -643,27 +636,7 @@ where
 						pov_parent_header = header;
 						pov_parent_hash = pov_parent_header.hash();
 					},
-					Ok(None) => {
-						// First-core failed to build a fresh bundle: still ship the held prior
-						// unincluded segment via `ResubmitOnly`. Reuses the complete per-core
-						// proof we already assembled above.
-						//
-						// TODO: seding to a certain core can apply in a custom way too, and
-						// other strategies for resubmitting a segment should be available - e.g.
-						// split segment between cores equally, or attempt grouping unincluded
-						// blocks based on the core index resulting from their `core_selector`
-						// and `claim_queue_offset` combination, at the `scheduling_parent`).
-						if is_first_core {
-							if let Some(proof) = scheduling_proof {
-								let _ = resubmit_sender.unbounded_send(CollatorResubmitSegment {
-									scheduling_proof: proof,
-									kind: SegmentKind::ResubmitOnly { core_index: this_core_index },
-									unincluded_segment: unincluded_segment.clone(),
-								});
-							}
-						}
-						break;
-					},
+					Ok(None) => break,
 					Err(()) => return,
 				}
 
@@ -1037,6 +1010,16 @@ where
 	// signed proof for this core); routes V3 bundles to `resubmit_sender`, V2 bundles (no
 	// proof) to `collator_sender`.
 	let send_ok = if let Some(scheduling_proof) = scheduling_proof {
+		tracing::info!(
+			target: LOG_TARGET,
+			?core_index,
+			segment_len = unincluded_segment.len(),
+			segment = ?unincluded_segment
+				.iter()
+				.map(|h| (*h.number(), h.hash()))
+				.collect::<Vec<_>>(),
+			"Sending WithBundle segment.",
+		);
 		resubmit_sender
 			.unbounded_send(CollatorResubmitSegment {
 				scheduling_proof,

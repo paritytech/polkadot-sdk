@@ -1312,7 +1312,10 @@ async fn process_incoming_peer_message<Context>(
 				);
 				return;
 			}
-			let Some(segment_fingerprint) = candidates.last() else {
+			// Pick the oldest fingerprint — see the matching change in
+			// `validator_side_experimental` for the rationale (V2/V3 wire fallback on the
+			// collator already picks `.first()`; the V4 receive paths follow suit).
+			let Some(segment_fingerprint) = candidates.first() else {
 				// We should never be here.
 				return;
 			};

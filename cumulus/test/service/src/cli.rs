@@ -390,6 +390,14 @@ impl SubstrateCli for TestCollatorCli {
 					Some(ParaId::from(2800)),
 				)
 			},
+			"elastic-scaling-v3-rpo" => {
+				tracing::info!(
+					"Using elastic scaling V3 + relay-parent-offset-2 chain spec."
+				);
+				Box::new(cumulus_test_service::get_elastic_scaling_v3_rpo_chain_spec(Some(
+					ParaId::from(2900),
+				))) as Box<_>
+			},
 			path => {
 				let chain_spec: sc_chain_spec::GenericChainSpec =
 					sc_chain_spec::GenericChainSpec::from_json_file(path.into())?;
