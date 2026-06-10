@@ -2177,8 +2177,8 @@ to = "0.1.0"
 # substrate/frame/assets
 name = "pallet-assets"
 from = "42.0.0"
-to = "43.0.0"
-bump = "major"
+to = "43.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
