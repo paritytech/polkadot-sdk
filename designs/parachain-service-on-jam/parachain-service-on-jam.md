@@ -222,7 +222,7 @@ struct AccumulateLogEntry {
 
 enum AccumulateLog {
     /// The work result's `validation_code_hash` matches neither
-    /// `ParaInfo.validation_code_hash` nor the pending upgrade's code hash.
+    /// `ParaInfo.validation_code.hash` nor the pending upgrade's code hash.
     /// This is the authoritative validation-code check (Refine does not
     /// perform it). See §5.1 step 3.
     InvalidCodeHash { hash: ValidationCodeHash },
@@ -250,14 +250,22 @@ struct PreimageEntry {
 /// `ParaInfo` contributes to the baseline state-balance reservation (see §6.1).
 type HeadData = BoundedVec<u8, { 4 * 1024 }>;
 
+/// A validation code reference: its hash plus `pinned` — whether the
+/// parachain has *also* solicited it itself, on top of the service's own
+/// code-upgrade solicit. See §5.2.
+struct ValidationCode {
+    hash: ValidationCodeHash,
+    pinned: bool,
+}
+
 struct ParaInfo {
     /// Current head data (output of last included block).
     head_data: HeadData,
-    /// Hash of the currently active validation code.
-    validation_code_hash: ValidationCodeHash,
-    /// Pending code upgrade, if any: the new validation code hash and the
+    /// Currently active validation code.
+    validation_code: ValidationCode,
+    /// Pending code upgrade, if any: the new validation code and the
     /// deadline timeslot after which the upgrade is rejected. See §5.2.
-    pending_upgrade: Option<(ValidationCodeHash, Timeslot)>,
+    pending_upgrade: Option<(ValidationCode, Timeslot)>,
     /// Total state balance allocated to this parachain. Set exclusively by
     /// the Coretime chain via `parachain_set_state_balance`. See §6.1.
     total_state_balance: Balance,
@@ -343,7 +351,8 @@ enum UpwardMessage {
     Solicit { hash: Hash, len: u32 },
     /// From `forget` — release a previously solicited preimage.
     /// Accumulate forwards this to JAM and decrements
-    /// `ParaInfo.used_state_balance`. See §6.1.
+    /// `ParaInfo.used_state_balance`. For the parachain's active or pending
+    /// validation code it only clears `pinned` (§5.2). See §6.1.
     Forget { hash: Hash, len: u32 },
     /// From `transfer_out` — transfer balance to another JAM service.
     TransferOut { dest: ServiceId, amount: Amount, memo: Memo },
@@ -467,8 +476,8 @@ These produce effects carried in the work result and applied by Accumulate:
 | `export(data: Vec<u8>)` | `u32` | Write a segment to the JAM Data Lake (e.g. outbound XCMP payloads). Returns segment index. |
 | `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate. |
 | `request_code_upgrade(hash: ValidationCodeHash, len: u32)` | `()` | Signal a PVF code upgrade request. See §5.2. |
-| `solicit(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `solicit` (see §6.1). Idempotent — no-op if the parachain is already in `preimage_registry[hash].referencers`. May fail with `InsufficientStateBalance`. |
-| `forget(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent — no-op if the parachain is not in `preimage_registry[hash].referencers`. |
+| `solicit(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `solicit` (see §6.1). Idempotent — no-op if the parachain is already in `preimage_registry[hash].referencers`. May fail with `InsufficientStateBalance`. For the parachain's own active/pending validation code it only sets `pinned` to true (§5.2). |
+| `forget(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent — no-op if the parachain is not in `preimage_registry[hash].referencers`. May be called for the parachain's own active/pending validation code, where it only sets `pinned` to false (§5.2). |
 | `transfer_out(dest: ServiceId, amount: Balance, memo: Vec<u8>)` | `()` | Transfer balance to another JAM service (Asset Hub only) |
 | `set_authorizer_queue(core: CoreIndex, queue: Vec<AuthorizerHash>, mode: QueueUpdateMode, new_assigner: Option<ServiceId>)` | `()` | Update the authorizer queue for a core (Coretime chain only). `mode` determines whether the queue is applied immediately or cached in service state until the current 80-slot queue is exhausted. `new_assigner`, when `Some`, hands off `assigners[core]` to another service so that service can manage its own core queue going forward; when `None`, the current assigner (Parachain Service) is retained. |
 | `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Panics if `keys` encodes to more than **10 KiB** or if called more than once per Refine invocation. |
@@ -517,7 +526,7 @@ Performed once for each work package that is being accumulated in this block, in
    before this candidate is considered: release the new code (see §6.1) and clear
    `pending_upgrade`.
 4. **Validation code check**: This is the authoritative check. Verify the work
-   result's `validation_code_hash` matches either `ParaInfo.validation_code_hash` or
+   result's `validation_code_hash` matches either `ParaInfo.validation_code.hash` or
    the pending upgrade's code hash. If it matches
    neither, the candidate is rejected and `AccumulateLog::InvalidCodeHash { hash }`
    is recorded in the parachain's `LogEntry::Accumulate` for this timeslot.
@@ -560,7 +569,29 @@ Runtime (PVF) code upgrades follow a well-defined lifecycle using JAM's preimage
 store (`solicit`/`provide`/`forget`) and the `xtpreimages` block extrinsic.
 
 Validation code — both the active code and any pending upgrade code — lives in
-`preimage_registry` (§3.1) like any other PVF-solicited preimage.
+`preimage_registry` (§3.1) like any other PVF-solicited preimage. The service
+solicits a code only when it isn't already solicited, so a code's referencer
+slot is held for up to two independent reasons: it is the parachain's
+active/pending code (the service's own reason), and/or the parachain solicited
+it itself. The latter is recorded per-code by the `pinned` bit in
+`ParaInfo` (§3.1):
+
+- **Parachain `solicit` of its active/pending code** sets the corresponding
+  `pinned` bit. No extra state balance is charged — the code is already
+  referenced.
+- **Parachain `forget` of its active/pending code** clears that bit but does
+  **not** release the referencer or forward a JAM `forget`: the service still
+  needs the code available, so it stays solicited (§4.3).
+- When a code **ceases to be active/pending** (activation, timeout reap, or a
+  superseding request), this parachain's referencer is released unless its
+  `pinned` bit is set (in which case the slot survives as an ordinary
+  solicited preimage). The JAM `forget` itself is governed by the
+  referencer multiplexing of §6.1, not by one parachain's state: it is
+  forwarded only when the *last* referencer across all parachains is
+  removed, so a code shared by several parachains is never dropped from JAM
+  while any of them still references it.
+- On **activation**, the pending code's `pinned` bit carries over to the
+  now-active code.
 
 ```
 Phase 1: Request
@@ -760,12 +791,12 @@ the parachain's lifetime. Taking `ParaId = u32` (4 B), `Hash = 32 B`,
 ```
 ParaId                                                                    =       4 B
 head_data: BoundedVec<u8, 4096>      = 2 (compact len) + 4096             =   4 098 B
-validation_code_hash: Hash                                                =      32 B
-pending_upgrade: Option<(Hash, Timeslot)> = 1 + 32 + 4                    =      37 B
+validation_code: ValidationCode = 32 (hash) + 1 (pinned)          =      33 B
+pending_upgrade: Option<(ValidationCode, Timeslot)> = 1 + 33 + 4          =      38 B
 total_state_balance: Balance                                              =      16 B
 used_state_balance: Balance                                               =      16 B
                                                                             -------
-                                                                              4 203 B
+                                                                              4 205 B
 ```
 
 `(ParaId, parachain_log[para_id])` entry, with `parachain_log[para_id]` typed as
@@ -788,7 +819,7 @@ ParaId key                                                                =     
                                                                              10 325 B
 ```
 
-**`baseline_footprint = 4 203 + 10 325 = 14 528 B`** per parachain.
+**`baseline_footprint = 4 205 + 10 325 = 14 530 B`** per parachain.
 
 ### 6.2 Registration
 
@@ -837,7 +868,7 @@ upgrade lifecycle:
 
 - `parachain_set_head(para_id, new_head)` overwrites `ParaInfo.head_data`.
 - `parachain_set_validation_code(para_id, new_hash)` overwrites
-  `ParaInfo.validation_code_hash`, swaps the parachain's referencer slot from the
+  `ParaInfo.validation_code.hash`, swaps the parachain's referencer slot from the
   old code's `preimage_registry` entry to the new one's (§6.1), and clears any
   `pending_upgrade`. The Coretime chain must raise `total_state_balance` first
   (in the same batch) if the new code's footprint wouldn't fit.
