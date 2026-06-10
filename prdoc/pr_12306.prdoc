@@ -1,0 +1,49 @@
+title: '[pallet-revive] index pallet-assets transfers as ERC-20 Transfer logs'
+doc:
+- audience: Runtime Dev
+  description: "# eth-rpc: index pallet-assets transfers as ERC-20 logs\n\nCloses\
+    \ paritytech/contract-issues#61.\n\n## What\n\neth-rpc now surfaces `pallet-assets`\
+    \ transfers (in addition to `eth_transact`). Each\n`assets::Transferred` event\
+    \ becomes a canonical ERC-20 `Transfer(address,address,uint256)`\nlog at the asset's\
+    \ precompile address. (Foreign-asset transfers whose `Location \u2192 index`\n\
+    mapping cannot be resolved are skipped \u2014 see below.)\n\nInstances covered\
+    \ (defaults match Asset Hub Westend):\n\n| Instance | Prefix |\n|---|---|\n| `Assets`\
+    \ (trust-backed) | `0x0120` |\n| `PoolAssets` | `0x0320` |\n| `ForeignAssets`\
+    \ | `0x0220` |\n\nNative balance is **not** indexed \u2014 it has no ERC-20 precompile,\
+    \ so there is no callable\ntoken address to attribute transfers to.\n\n## How\n\
+    \n- **Address** (matches `pallet-assets-precompiles`): `addr[0..4]` = asset id\
+    \ (BE `u32`),\n  `addr[16..18]` = instance prefix.\n- **Log**: `topic0 = keccak256(\"\
+    Transfer(address,address,uint256)\")`; `from`/`to` mapped to\n  `H160` via the\
+    \ stateless `AccountId32Mapper` rule; `data` = amount as `uint256`.\n- **Plain\
+    \ transfers** (not `eth_transact`) get a synthesized transaction + receipt, so\n\
+    \  `eth_getTransactionReceipt` / `eth_getLogs` / `eth_getBlock*` all return coherent\
+    \ data.\n  Synthetic tx hash = `keccak256(substrate_block_hash ++ extrinsic_index_be32)`\
+    \ \u2014 deterministic\n  and reproducible (extraction runs at both index- and\
+    \ query-time). For foreign assets this\n  reproducibility holds only while the\
+    \ `Location \u2192 index` mapping still exists (see below).\n- **Transfers inside\
+    \ an `eth_transact`** (contract \u2192 assets precompile) are merged into that\n\
+    \  transaction's receipt.\n- **Foreign assets**: the event carries an XCM `Location`,\
+    \ not the `u32` index the address\n  encodes, so the index is resolved from `AssetsPrecompiles::ForeignAssetIdToAssetIndex`\
+    \ via a\n  cached raw storage read at the latest block. Reading at latest avoids\
+    \ pruned historical state;\n  the trade-off is that a foreign asset destroyed\
+    \ after the transfer (its mapping is removed on\n  destruction) can no longer\
+    \ be resolved, and such transfers are dropped at query time.\n\nEvents are decoded\
+    \ dynamically (by pallet/variant name) because eth-rpc's subxt metadata is\ngenerated\
+    \ from the dev runtime, which has no `pallet-assets`.\n\n## Notes\n\n- Coverage\
+    \ starts at the indexer's `first_evm_block`; transfers in pre-EVM blocks are out\
+    \ of\n  scope (the eth-rpc indexer is EVM-era by construction).\n- No DB/schema\
+    \ change \u2014 synthetic receipts use the existing insert path.\n- Asset extraction\
+    \ is independent of `get_block_extrinsics`, so a failed `eth_receipt_data`\n \
+    \ call cannot drop asset-only blocks.\n- A transient storage error while resolving\
+    \ a foreign index is not cached, so a one-off RPC\n  failure cannot permanently\
+    \ drop an asset's transfers.\n\n## Testing\n\n- Unit tests: address scheme, ERC-20\
+    \ topic/calldata encoding, event decode (u32 + foreign),\n  `Location\u2192index`\
+    \ storage-key layout, synthetic receipt/tx, and foreign-index cache not\n  poisoned\
+    \ by a transient fetch error.\n- **End-to-end** on a local Westend Asset Hub fork:\
+    \ a real `assets.transfer` is returned as a\n  correct ERC-20 `Transfer` log (address,\
+    \ `topic0`, `from`/`to`, amount) via `eth_getLogs`,\n  `eth_getTransactionReceipt`,\
+    \ and `eth_getTransactionByHash`. The foreign `Location\u2192index`\n  storage\
+    \ key was validated against live forked state."
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor
