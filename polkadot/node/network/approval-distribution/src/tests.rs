@@ -36,8 +36,8 @@ use polkadot_node_subsystem::messages::{
 };
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt as _};
 use polkadot_primitives::{
-	ApprovalVoteMultipleCandidates, AuthorityDiscoveryId, BlakeTwo256, CoreIndex, ExecutorParams,
-	HashT, NodeFeatures, SessionInfo, ValidatorId,
+	ApprovalVoteMultipleCandidates, AuthorityDiscoveryId, BlakeTwo256, CoreIndex, HashT,
+	NodeFeatures, SessionInfo, ValidatorId,
 };
 use polkadot_primitives_test_helpers::dummy_signature;
 use rand::SeedableRng;
@@ -154,19 +154,6 @@ async fn provide_session(virtual_overseer: &mut VirtualOverseer, session_info: S
 			si_tx.send(Ok(Some(session_info.clone()))).unwrap();
 		}
 	);
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(
-				_,
-				RuntimeApiRequest::SessionExecutorParams(_, si_tx),
-			)
-		) => {
-			// Make sure all SessionExecutorParams calls are not made for the leaf (but for its relay parent)
-			si_tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-		}
-	);
-
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::RuntimeApi(
@@ -2431,7 +2418,7 @@ fn race_condition_in_local_vs_remote_view_update() {
 
 			for i in 0..candidates_count {
 				// Previously, this has caused out-of-view assignments/approvals
-				//expect_reputation_change(overseer, peer, COST_UNEXPECTED_MESSAGE).await;
+				// expect_reputation_change(overseer, peer, COST_UNEXPECTED_MESSAGE).await;
 
 				assert_matches!(
 					overseer_recv(overseer).await,

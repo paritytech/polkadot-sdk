@@ -33,7 +33,7 @@ use frame_support::{
 		},
 		Get,
 	},
-	DefaultNoBound, RuntimeDebugNoBound,
+	DebugNoBound, DefaultNoBound,
 };
 use sp_runtime::{
 	traits::{Saturating, Zero},
@@ -105,7 +105,7 @@ pub struct Root;
 
 /// State parameter that constitutes a meter that is in its nested state.
 /// Its value indicates whether the nested meter has its own limit.
-#[derive(DefaultNoBound, RuntimeDebugNoBound)]
+#[derive(DefaultNoBound, DebugNoBound)]
 pub enum Nested {
 	#[default]
 	DerivedLimit,
@@ -116,7 +116,7 @@ impl State for Root {}
 impl State for Nested {}
 
 /// A type that allows the metering of consumed or freed storage of a single contract call stack.
-#[derive(DefaultNoBound, RuntimeDebugNoBound)]
+#[derive(DefaultNoBound, DebugNoBound)]
 pub struct RawMeter<T: Config, E, S: State + Default + Debug> {
 	/// The limit of how much balance this meter is allowed to consume.
 	limit: BalanceOf<T>,
@@ -136,7 +136,7 @@ pub struct RawMeter<T: Config, E, S: State + Default + Debug> {
 }
 
 /// This type is used to describe a storage change when charging from the meter.
-#[derive(Default, RuntimeDebugNoBound)]
+#[derive(Default, DebugNoBound)]
 pub struct Diff {
 	/// How many bytes were added to storage.
 	pub bytes_added: u32,
@@ -171,7 +171,7 @@ impl Diff {
 		} else {
 			debug_assert_eq!(self.bytes_removed, 0);
 			debug_assert_eq!(self.items_removed, 0);
-			return bytes_deposit.saturating_add(&items_deposit)
+			return bytes_deposit.saturating_add(&items_deposit);
 		};
 
 		// Refunds are calculated pro rata based on the accumulated storage within the contract
@@ -194,16 +194,20 @@ impl Diff {
 		info.storage_items =
 			info.storage_items.saturating_add(items_added).saturating_sub(items_removed);
 		match &bytes_deposit {
-			Deposit::Charge(amount) =>
-				info.storage_byte_deposit = info.storage_byte_deposit.saturating_add(*amount),
-			Deposit::Refund(amount) =>
-				info.storage_byte_deposit = info.storage_byte_deposit.saturating_sub(*amount),
+			Deposit::Charge(amount) => {
+				info.storage_byte_deposit = info.storage_byte_deposit.saturating_add(*amount)
+			},
+			Deposit::Refund(amount) => {
+				info.storage_byte_deposit = info.storage_byte_deposit.saturating_sub(*amount)
+			},
 		}
 		match &items_deposit {
-			Deposit::Charge(amount) =>
-				info.storage_item_deposit = info.storage_item_deposit.saturating_add(*amount),
-			Deposit::Refund(amount) =>
-				info.storage_item_deposit = info.storage_item_deposit.saturating_sub(*amount),
+			Deposit::Charge(amount) => {
+				info.storage_item_deposit = info.storage_item_deposit.saturating_add(*amount)
+			},
+			Deposit::Refund(amount) => {
+				info.storage_item_deposit = info.storage_item_deposit.saturating_sub(*amount)
+			},
 		}
 
 		bytes_deposit.saturating_add(&items_deposit)
@@ -224,7 +228,7 @@ impl Diff {
 /// The state of a contract.
 ///
 /// In case of termination the beneficiary is indicated.
-#[derive(RuntimeDebugNoBound, Clone, PartialEq, Eq)]
+#[derive(DebugNoBound, Clone, PartialEq, Eq)]
 pub enum ContractState<T: Config> {
 	Alive,
 	Terminated { beneficiary: AccountIdOf<T> },
@@ -239,7 +243,7 @@ pub enum ContractState<T: Config> {
 /// The only exception is when a special (tougher) deposit limit is specified for a cross-contract
 /// call. In that case the limit is enforced once the call is returned, rolling it back if
 /// exhausted.
-#[derive(RuntimeDebugNoBound, Clone)]
+#[derive(DebugNoBound, Clone)]
 struct Charge<T: Config> {
 	contract: T::AccountId,
 	amount: DepositOf<T>,
@@ -247,7 +251,7 @@ struct Charge<T: Config> {
 }
 
 /// Records the storage changes of a storage meter.
-#[derive(RuntimeDebugNoBound)]
+#[derive(DebugNoBound)]
 enum Contribution<T: Config> {
 	/// The contract the meter belongs to is alive and accumulates changes using a [`Diff`].
 	Alive(Diff),
@@ -265,8 +269,9 @@ impl<T: Config> Contribution<T> {
 	fn update_contract(&self, info: Option<&mut ContractInfo<T>>) -> DepositOf<T> {
 		match self {
 			Self::Alive(diff) => diff.update_contract::<T>(info),
-			Self::Terminated { deposit, beneficiary: _ } | Self::Checked(deposit) =>
-				deposit.clone(),
+			Self::Terminated { deposit, beneficiary: _ } | Self::Checked(deposit) => {
+				deposit.clone()
+			},
 		}
 	}
 }
@@ -346,8 +351,9 @@ where
 	/// Returns the state of the currently executed contract.
 	fn contract_state(&self) -> ContractState<T> {
 		match &self.own_contribution {
-			Contribution::Terminated { deposit: _, beneficiary } =>
-				ContractState::Terminated { beneficiary: beneficiary.clone() },
+			Contribution::Terminated { deposit: _, beneficiary } => {
+				ContractState::Terminated { beneficiary: beneficiary.clone() }
+			},
 			_ => ContractState::Alive,
 		}
 	}
@@ -377,7 +383,7 @@ where
 				let limit = E::check_limit(o, limit, min_leftover)?;
 				Ok(Self { limit, ..Default::default() })
 			},
-		}
+		};
 	}
 
 	/// The total amount of deposit that should change hands as result of the execution
@@ -490,7 +496,7 @@ where
 		}
 		if let Deposit::Charge(amount) = total_deposit {
 			if amount > self.limit {
-				return Err(<Error<T>>::StorageDepositLimitExhausted.into())
+				return Err(<Error<T>>::StorageDepositLimitExhausted.into());
 			}
 		}
 		Ok(())

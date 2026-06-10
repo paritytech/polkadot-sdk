@@ -16,9 +16,9 @@
 // limitations under the License.
 
 use crate::{
+	Config,
 	precompiles::{BuiltinAddressMatcher, Error, Ext, PrimitivePrecompile},
 	vm::RuntimeCosts,
-	Config,
 };
 use alloc::vec::Vec;
 use core::{marker::PhantomData, num::NonZero};
@@ -46,7 +46,7 @@ impl<T: Config> PrimitivePrecompile for Blake2F<T> {
 		rounds_buf.copy_from_slice(&input[0..4]);
 		let rounds: u32 = u32::from_be_bytes(rounds_buf);
 
-		env.gas_meter_mut().charge(RuntimeCosts::Blake2F(rounds))?;
+		env.frame_meter_mut().charge_weight_token(RuntimeCosts::Blake2F(rounds))?;
 
 		// we use from_le_bytes below to effectively swap byte order to LE if architecture is BE
 

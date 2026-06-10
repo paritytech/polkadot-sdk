@@ -230,8 +230,9 @@ impl TryFrom<OldError> for Error {
 impl From<SendError> for Error {
 	fn from(e: SendError) -> Self {
 		match e {
-			SendError::NotApplicable | SendError::Unroutable | SendError::MissingArgument =>
-				Error::Unroutable,
+			SendError::NotApplicable | SendError::Unroutable | SendError::MissingArgument => {
+				Error::Unroutable
+			},
 			SendError::Transport(s) => Error::Transport(s),
 			SendError::DestinationUnsupported => Error::DestinationUnsupported,
 			SendError::ExceedsMaxMessageSize => Error::ExceedsMaxMessageSize,
@@ -329,7 +330,6 @@ pub trait ExecuteXcm<Call> {
 		};
 		Self::execute(origin, pre, id, weight_credit)
 	}
-
 	/// Deduct some `fees` to the sovereign account of the given `location` and place them as per
 	/// the convention for fees.
 	fn charge_fees(location: impl Into<Location>, fees: Assets) -> Result;

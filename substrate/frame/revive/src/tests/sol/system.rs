@@ -18,15 +18,16 @@
 //! The pallet-revive shared VM integration test suite.
 
 use crate::{
+	Code, Config, ExecConfig, TransactionLimits, TransactionMeter, U256,
 	evm::fees::InfoT,
-	test_utils::{builder::Contract, ALICE, ALICE_ADDR, GAS_LIMIT},
-	tests::{builder, Contracts, ExtBuilder, Test},
-	Code, Combinator, Config, ExecConfig, U256,
+	test_utils::{ALICE, ALICE_ADDR, WEIGHT_LIMIT, builder::Contract, deposit_limit},
+	tests::{Contracts, ExtBuilder, Test, builder},
 };
+
 use alloy_core::sol_types::{Revert, SolCall, SolConstructor, SolError};
 use frame_support::traits::fungible::{Balanced, Mutate};
 use pallet_revive_fixtures::{
-	compile_module_with_type, Callee, FixtureType, System as SystemFixture,
+	Callee, FixtureType, System as SystemFixture, compile_module_with_type,
 };
 use pretty_assertions::assert_eq;
 use revm::primitives::Bytes;
@@ -222,7 +223,13 @@ fn gas_works(fixture_type: FixtureType) {
 			.build_and_unwrap_contract();
 
 		// enable txhold collection which we expect to be on when using the evm backend
-		let hold_initial = <Test as Config>::FeeInfo::weight_to_fee(&GAS_LIMIT, Combinator::Max);
+		let limits = TransactionLimits::WeightAndDeposit {
+			weight_limit: WEIGHT_LIMIT,
+			deposit_limit: deposit_limit::<Test>(),
+		};
+		let hold_initial =
+			TransactionMeter::<Test>::new(limits.clone()).unwrap().eth_gas_left().unwrap();
+
 		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(hold_initial));
 		let mut exec_config = ExecConfig::new_substrate_tx();
 		exec_config.collect_deposit_from_hold = Some((0u32.into(), Default::default()));
@@ -230,6 +237,7 @@ fn gas_works(fixture_type: FixtureType) {
 		let result = builder::bare_call(addr)
 			.data(SystemFixture::gasCall {}.abi_encode())
 			.exec_config(exec_config)
+			.transaction_limits(limits)
 			.build_and_unwrap_result();
 
 		let gas_left: u64 = SystemFixture::gasCall::abi_decode_returns(&result.data)
@@ -238,7 +246,7 @@ fn gas_works(fixture_type: FixtureType) {
 			.unwrap();
 
 		assert!(gas_left > 0);
-		assert!(gas_left < hold_initial);
+		assert!((gas_left as u128) < hold_initial);
 	});
 }
 

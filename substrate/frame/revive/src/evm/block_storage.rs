@@ -15,7 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	dispatch_result,
+	AccountIdOf, BalanceOf, BalanceWithDust, BlockHash, BlockNumberFor, Config, ContractResult,
+	Error, EthBlockBuilderIR, EthereumBlock, Event, ExecReturnValue, H160, H256, LOG_TARGET,
+	Pallet, ReceiptGasInfo, ReceiptInfoData, StorageDeposit, Weight, dispatch_result,
 	evm::{
 		block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
 		burn_with_dust,
@@ -24,9 +26,6 @@ use crate::{
 	limits,
 	sp_runtime::traits::{One, Zero},
 	weights::WeightInfo,
-	AccountIdOf, BalanceOf, BalanceWithDust, BlockHash, BlockNumberFor, Config, ContractResult,
-	Error, EthBlockBuilderIR, EthereumBlock, Event, ExecReturnValue, Pallet, ReceiptGasInfo,
-	ReceiptInfoData, StorageDeposit, Weight, H160, H256, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use environmental::environmental;
@@ -70,27 +69,29 @@ impl EthereumCallResult {
 	pub(crate) fn new<T: Config>(
 		signer: AccountIdOf<T>,
 		mut output: ContractResult<ExecReturnValue, BalanceOf<T>>,
-		base_call_weight: Weight,
+		mut base_call_weight: Weight,
 		encoded_len: u32,
 		info: &DispatchInfo,
 		effective_gas_price: U256,
 	) -> Self {
 		let effective_gas_price = effective_gas_price.max(Pallet::<T>::evm_base_fee());
 
-		if let Ok(retval) = &output.result {
-			if retval.did_revert() {
-				output.result = Err(<Error<T>>::ContractReverted.into());
-			}
+		if let Ok(retval) = &output.result &&
+			retval.did_revert()
+		{
+			output.result = Err(<Error<T>>::ContractReverted.into());
 		}
 
 		// Refund pre-charged revert event weight if the call succeeds.
 		if output.result.is_ok() {
-			output
-				.gas_consumed
-				.saturating_reduce(T::WeightInfo::deposit_eth_extrinsic_revert_event())
+			base_call_weight.saturating_reduce(T::WeightInfo::deposit_eth_extrinsic_revert_event())
 		}
 
-		let result = dispatch_result(output.result, output.gas_consumed, base_call_weight);
+		crate::if_tracing(|tracer| {
+			tracer.dispatch_result(base_call_weight, output.weight_consumed);
+		});
+
+		let result = dispatch_result(output.result, output.weight_consumed, base_call_weight);
 		let native_fee = T::FeeInfo::compute_actual_fee(encoded_len, &info, &result);
 		let result = T::FeeInfo::ensure_not_overdrawn(native_fee, result);
 
@@ -158,8 +159,9 @@ pub fn with_ethereum_context<T: Config>(
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let EthereumCallResult { receipt_gas_info, result } = call();
 				match result {
-					Ok(post_info) =>
-						TransactionOutcome::Commit(Ok((None, receipt_gas_info, post_info))),
+					Ok(post_info) => {
+						TransactionOutcome::Commit(Ok((None, receipt_gas_info, post_info)))
+					},
 					Err(err) => TransactionOutcome::Rollback(Ok((
 						Some(err.error),
 						receipt_gas_info,

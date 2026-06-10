@@ -21,9 +21,7 @@ use alloc::{vec, vec::Vec};
 
 use crate::Config;
 use codec::{Decode, DecodeWithMemTracking, Encode};
-use frame_support::{
-	dispatch::DispatchInfo, pallet_prelude::TransactionSource, RuntimeDebugNoBound,
-};
+use frame_support::{dispatch::DispatchInfo, pallet_prelude::TransactionSource, DebugNoBound};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
@@ -76,10 +74,10 @@ impl<T: Config> CheckNonce<T> {
 		let account = crate::Account::<T>::get(who);
 		if account.providers.is_zero() && account.sufficients.is_zero() {
 			// Nonce storage not paid for
-			return Err(InvalidTransaction::Payment.into())
+			return Err(InvalidTransaction::Payment.into());
 		}
 		if nonce < account.nonce {
-			return Err(InvalidTransaction::Stale.into())
+			return Err(InvalidTransaction::Stale.into());
 		}
 
 		let provides = vec![Encode::encode(&(who.clone(), nonce))];
@@ -99,7 +97,7 @@ impl<T: Config> CheckNonce<T> {
 	) -> Result<(), TransactionValidityError> {
 		let account = crate::Account::<T>::get(who);
 		if nonce > account.nonce {
-			return Err(InvalidTransaction::Future.into())
+			return Err(InvalidTransaction::Future.into());
 		}
 		nonce = nonce.checked_add(&T::Nonce::one()).unwrap_or(T::Nonce::zero());
 		crate::Account::<T>::mutate(who, |account| account.nonce = nonce);
@@ -120,7 +118,7 @@ impl<T: Config> core::fmt::Debug for CheckNonce<T> {
 }
 
 /// Operation to perform from `validate` to `prepare` in [`CheckNonce`] transaction extension.
-#[derive(RuntimeDebugNoBound)]
+#[derive(DebugNoBound)]
 pub enum Val<T: Config> {
 	/// Account and its nonce to check for.
 	CheckNonce(T::AccountId),
@@ -130,7 +128,7 @@ pub enum Val<T: Config> {
 
 /// Operation to perform from `prepare` to `post_dispatch_details` in [`CheckNonce`] transaction
 /// extension.
-#[derive(RuntimeDebugNoBound)]
+#[derive(DebugNoBound)]
 pub enum Pre {
 	/// The transaction extension weight should not be refunded.
 	NonceChecked,
@@ -163,7 +161,7 @@ where
 		_source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		let Some(who) = origin.as_system_origin_signer() else {
-			return Ok((Default::default(), Val::Refund(self.weight(call)), origin))
+			return Ok((Default::default(), Val::Refund(self.weight(call)), origin));
 		};
 		let ValidNonceInfo { provides, requires } = Self::validate_nonce_for_account(who, self.0)?;
 

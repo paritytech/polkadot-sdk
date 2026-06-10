@@ -106,10 +106,12 @@ pub enum TrieCacheWarmUpStrategy {
 impl From<TrieCacheWarmUpStrategy> for sc_service::config::TrieCacheWarmUpStrategy {
 	fn from(strategy: TrieCacheWarmUpStrategy) -> Self {
 		match strategy {
-			TrieCacheWarmUpStrategy::NonBlocking =>
-				sc_service::config::TrieCacheWarmUpStrategy::NonBlocking,
-			TrieCacheWarmUpStrategy::Blocking =>
-				sc_service::config::TrieCacheWarmUpStrategy::Blocking,
+			TrieCacheWarmUpStrategy::NonBlocking => {
+				sc_service::config::TrieCacheWarmUpStrategy::NonBlocking
+			},
+			TrieCacheWarmUpStrategy::Blocking => {
+				sc_service::config::TrieCacheWarmUpStrategy::Blocking
+			},
 		}
 	}
 }

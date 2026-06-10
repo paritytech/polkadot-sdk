@@ -18,7 +18,6 @@
 //! Offences pallet benchmarking.
 
 use alloc::{vec, vec::Vec};
-use codec::Decode;
 use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
 use frame_system::{Config as SystemConfig, Pallet as System, RawOrigin};
@@ -50,6 +49,7 @@ pub struct Pallet<T: Config>(Offences<T>);
 
 pub trait Config:
 	SessionConfig<ValidatorId = <Self as frame_system::Config>::AccountId>
+	+ pallet_session_benchmarking::Config
 	+ StakingConfig
 	+ OffencesConfig
 	+ HistoricalConfig
@@ -108,10 +108,7 @@ fn create_offender<T: Config>(n: u32, nominators: u32) -> Result<Offender<T>, &'
 	Staking::<T>::validate(RawOrigin::Signed(stash.clone()).into(), validator_prefs)?;
 
 	// set some fake keys for the validators.
-	let keys =
-		<T as SessionConfig>::Keys::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
-			.unwrap();
-	let proof: Vec<u8> = vec![0, 1, 2, 3];
+	let (keys, proof) = T::generate_session_keys_and_proof(stash.clone());
 	Session::<T>::ensure_can_pay_key_deposit(&stash)?;
 	Session::<T>::set_keys(RawOrigin::Signed(stash.clone()).into(), keys, proof)?;
 

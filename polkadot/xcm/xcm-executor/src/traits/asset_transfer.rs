@@ -58,10 +58,10 @@ pub trait XcmAssetTransfers {
 	fn determine_for(asset: &Asset, dest: &Location) -> Result<TransferType, Error> {
 		if Self::IsTeleporter::contains(asset, dest) {
 			// we trust destination for teleporting asset
-			return Ok(TransferType::Teleport)
+			return Ok(TransferType::Teleport);
 		} else if Self::IsReserve::contains(asset, dest) {
 			// we trust destination as asset reserve location
-			return Ok(TransferType::DestinationReserve)
+			return Ok(TransferType::DestinationReserve);
 		}
 
 		// try to determine reserve location based on asset id/location

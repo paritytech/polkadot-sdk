@@ -91,12 +91,13 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 				WithdrawAsset(ref assets) |
 				ReceiveTeleportedAsset(ref assets) |
 				ReserveAssetDeposited(ref assets) |
-				ClaimAsset { ref assets, .. } =>
+				ClaimAsset { ref assets, .. } => {
 					if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION {
 						Ok(())
 					} else {
 						Err(ProcessMessageError::BadFormat)
-					},
+					}
+				},
 				_ => Err(ProcessMessageError::BadFormat),
 			})?
 			.skip_inst_while(|inst| {
@@ -207,7 +208,7 @@ impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPref
 					},
 					DescendOrigin(j) => {
 						let Ok(_) = actual_origin.append_with(j.clone()) else {
-							return Err(ProcessMessageError::Unsupported)
+							return Err(ProcessMessageError::Unsupported);
 						};
 					},
 					_ => return Ok(ControlFlow::Break(())),
@@ -367,12 +368,13 @@ impl<T: Contains<Location>, Aliasers: ContainsPair<Location, Location>> ShouldEx
 							// to know the origin to know if it's allowed unpaid execution.
 							return Err(ProcessMessageError::Unsupported);
 						},
-						AliasOrigin(target) =>
+						AliasOrigin(target) => {
 							if Aliasers::contains(&actual_origin, &target) {
 								actual_origin = target.clone();
 							} else {
 								return Err(ProcessMessageError::Unsupported);
-							},
+							}
+						},
 						DescendOrigin(child) if child != &Here => {
 							let Ok(_) = actual_origin.append_with(child.clone()) else {
 								return Err(ProcessMessageError::Unsupported);
@@ -454,7 +456,9 @@ impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<Res
 			.match_next_inst(|inst| match inst {
 				QueryResponse { query_id, querier, .. }
 					if ResponseHandler::expecting_response(origin, *query_id, querier.as_ref()) =>
-					Ok(()),
+				{
+					Ok(())
+				},
 				_ => Err(ProcessMessageError::BadFormat),
 			})?;
 		Ok(())

@@ -198,7 +198,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(SystemOrigin::Signed(voter), last_hash, index, approve);
 
-		//nothing to verify
+		// nothing to verify
 		Ok(())
 	}
 

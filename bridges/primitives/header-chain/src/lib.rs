@@ -35,7 +35,7 @@ use serde::{Deserialize, Serialize};
 use sp_consensus_grandpa::{
 	AuthorityList, ConsensusLog, ScheduledChange, SetId, GRANDPA_ENGINE_ID,
 };
-use sp_runtime::{traits::Header as HeaderT, Digest, RuntimeDebug, SaturatedConversion};
+use sp_runtime::{traits::Header as HeaderT, Digest, SaturatedConversion};
 use sp_std::{boxed::Box, vec::Vec};
 
 pub use call_info::{BridgeGrandpaCall, BridgeGrandpaCallOf, SubmitFinalityProofInfo};
@@ -60,7 +60,7 @@ pub enum HeaderChainError {
 ///
 /// Even though we may store full header, our applications (XCM) only use couple of header
 /// fields. Extracting those values makes on-chain storage and PoV smaller, which is good.
-#[derive(Clone, Decode, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Decode, Encode, Eq, MaxEncodedLen, PartialEq, Debug, TypeInfo)]
 pub struct StoredHeaderData<Number, Hash> {
 	/// Header number.
 	pub number: Number,
@@ -103,9 +103,7 @@ pub trait Parameter: Codec + EncodeLike + Clone + Eq + Debug + TypeInfo {}
 impl<T> Parameter for T where T: Codec + EncodeLike + Clone + Eq + Debug + TypeInfo {}
 
 /// A GRANDPA Authority List and ID.
-#[derive(
-	Default, Encode, Eq, Decode, DecodeWithMemTracking, RuntimeDebug, PartialEq, Clone, TypeInfo,
-)]
+#[derive(Default, Encode, Eq, Decode, DecodeWithMemTracking, Debug, PartialEq, Clone, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct AuthoritySet {
 	/// List of GRANDPA authorities for the current round.
@@ -129,7 +127,7 @@ impl AuthoritySet {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	PartialEq,
 	Eq,
 	Clone,

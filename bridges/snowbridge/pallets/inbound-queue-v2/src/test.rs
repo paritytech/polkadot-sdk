@@ -5,13 +5,14 @@ use super::*;
 use crate::{mock::*, Error};
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok};
-use snowbridge_inbound_queue_primitives::{v2::XcmPayload, EventProof, Proof};
+use snowbridge_inbound_queue_primitives::{v2::Payload, EventProof, Proof};
 use snowbridge_test_utils::{
 	mock_rewards::{RegisteredRewardAmount, RegisteredRewardsCount},
 	mock_xcm::{set_charge_fees_override, set_sender_override},
 };
 use sp_keyring::sr25519::Keyring;
 use sp_runtime::DispatchError;
+use xcm::prelude::*;
 
 #[test]
 fn test_submit_happy_path() {
@@ -334,7 +335,7 @@ fn zero_reward_does_not_register_reward() {
 			Message {
 				nonce: 0,
 				assets: vec![],
-				xcm: XcmPayload::Raw(vec![]),
+				payload: Payload::Raw(vec![]),
 				claimer: None,
 				execution_fee: 1_000_000_000,
 				relayer_fee: 0,
@@ -408,7 +409,7 @@ fn inbound_tip_is_paid_out_to_relayer() {
 			Message {
 				nonce,
 				assets: vec![],
-				xcm: XcmPayload::Raw(vec![]),
+				payload: Payload::Raw(vec![]),
 				claimer: None,
 				execution_fee: 1_000_000_000,
 				relayer_fee,
@@ -453,7 +454,7 @@ fn relayer_fee_paid_out_when_no_tip_exists() {
 			Message {
 				nonce,
 				assets: vec![],
-				xcm: XcmPayload::Raw(vec![]),
+				payload: Payload::Raw(vec![]),
 				claimer: None,
 				execution_fee: 1_000_000_000,
 				relayer_fee,
@@ -499,7 +500,7 @@ fn tip_paid_out_when_no_relayer_fee() {
 			Message {
 				nonce,
 				assets: vec![],
-				xcm: XcmPayload::Raw(vec![]),
+				payload: Payload::Raw(vec![]),
 				claimer: None,
 				execution_fee: 1_000_000_000,
 				relayer_fee: 0,
@@ -525,5 +526,116 @@ fn tip_paid_out_when_no_relayer_fee() {
 
 		// Tip should be consumed from storage
 		assert_eq!(Tips::<Test>::get(nonce), None);
+	});
+}
+
+#[test]
+fn poc_permissionless_forged_receipt_bypasses_verifier_and_injects_xcm() {
+	use crate::mock::exploit;
+	use alloy_consensus::{Eip658Value, Receipt, ReceiptEnvelope};
+	use alloy_core::sol_types::{SolEvent, SolValue};
+	use alloy_primitives::{Address, Bytes, Log as AlloyLog, B256};
+	use frame_support::{assert_noop, assert_ok};
+	use snowbridge_inbound_queue_primitives::{receipt::verify_receipt_proof, v2::IGatewayV2};
+	use snowbridge_pallet_ethereum_client_fixtures::make_inbound_fixture;
+
+	exploit::new_tester().execute_with(|| {
+		let fixture = make_inbound_fixture();
+
+		let attacker: AccountId = Keyring::Eve.into();
+		let origin = exploit::RuntimeOrigin::signed(attacker.clone());
+
+		// Initialize the Ethereum light client storage with a real finalized header.
+		assert_ok!(exploit::EthereumBeaconClient::store_finalized_header(
+			fixture.finalized_header,
+			fixture.block_roots_root
+		));
+
+		// Unlimited mint ...
+		let token_key: [u8; 20] = [0x42; 20]; // the "token address" that the XCM will try to mint to the attacker
+		let token_value: u128 = 1_000_000_000_000_000_000u128;
+
+		// Minting to the attacker itself
+		let beneficiary: Location =
+			Location::new(0, [AccountId32 { network: None, id: attacker.clone().into() }]);
+
+		// Craft a valid raw XCM payload and ABI-encode a Gateway log carrying it
+		let xcm: Xcm<()> = vec![DepositAsset {
+			assets: Wild(AllCounted(1).into()),
+			beneficiary: beneficiary.clone(),
+		}]
+		.into();
+		let raw_xcm: Vec<u8> = VersionedXcm::V5(xcm).encode();
+
+		let gateway_h160 = crate::mock::GatewayAddress::get();
+		let sig = IGatewayV2::OutboundMessageAccepted::SIGNATURE_HASH;
+		let topics = vec![sp_core::H256::from_slice(sig.as_slice())];
+		let log_data = IGatewayV2::OutboundMessageAccepted {
+			nonce: 1337u64,
+			payload: IGatewayV2::Payload {
+				origin: Address::from_slice(&[0x11; 20]),
+				assets: vec![IGatewayV2::EthereumAsset {
+					kind: 0,
+					data: IGatewayV2::AsNativeTokenERC20 {
+						token_id: Address::from_slice(&token_key),
+						value: token_value,
+					}
+					.abi_encode()
+					.into(),
+				}],
+				xcm: IGatewayV2::Xcm { kind: 0, data: raw_xcm.clone().into() },
+				claimer: Bytes::new(),
+				value: 0,
+				executionFee: 1,
+				relayerFee: 0,
+			},
+		}
+		.encode_data();
+
+		let forged_event_log = snowbridge_inbound_queue_primitives::Log {
+			address: gateway_h160,
+			topics,
+			data: log_data.clone(),
+			tx_index: 0,
+		};
+
+		// Forge an Ethereum receipt containing that exact log.
+		let forged_receipt_log = AlloyLog::new_unchecked(
+			Address::from_slice(forged_event_log.address.as_bytes()),
+			vec![B256::from_slice(sig.as_slice())],
+			Bytes::copy_from_slice(&log_data),
+		);
+		let forged_receipt = ReceiptEnvelope::Legacy(
+			Receipt {
+				status: Eip658Value::success(),
+				cumulative_gas_used: 0,
+				logs: vec![forged_receipt_log],
+			}
+			.with_bloom(),
+		);
+		let forged_receipt_bytes = alloy_rlp::encode(&forged_receipt);
+
+		// Build a malicious receipt proof: a real receipts-trie root node + an extra "proof node"
+		// that is just the forged receipt RLP bytes.
+		let receipts_root = fixture.event.proof.execution_proof.execution_header.receipts_root();
+		let root_node = fixture.event.proof.receipt_proof[0].clone();
+		let exploit_proof_nodes = vec![root_node, forged_receipt_bytes.clone()];
+
+		// With the path check fix, this forged proof must never verify for any tx index.
+		for tx_index in 0u64..10_000u64 {
+			assert!(
+				verify_receipt_proof(receipts_root, tx_index, &exploit_proof_nodes).is_none(),
+				"forged proof unexpectedly verified at tx_index={tx_index}"
+			);
+		}
+
+		let mut forged_proof = fixture.event.proof;
+		forged_proof.receipt_proof = exploit_proof_nodes;
+
+		let forged_event = EventProof { event_log: forged_event_log, proof: forged_proof };
+		assert_noop!(
+			exploit::InboundQueue::submit(origin, Box::new(forged_event)),
+			Error::<exploit::ExploitTest>::Verification(VerificationError::InvalidProof)
+		);
 	});
 }

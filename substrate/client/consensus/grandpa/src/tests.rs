@@ -2351,3 +2351,82 @@ async fn revert_prunes_authority_changes() {
 		.collect();
 	assert_eq!(changes_num, [21, 27]);
 }
+
+#[tokio::test]
+async fn observer_finalizes_through_authority_set_change() {
+	sp_tracing::try_init_simple();
+	let peers_a = &[Ed25519Keyring::Alice, Ed25519Keyring::Bob, Ed25519Keyring::Charlie];
+	let peers_b = &[Ed25519Keyring::Alice, Ed25519Keyring::Bob, Ed25519Keyring::Charlie];
+
+	let mut net = GrandpaTestNet::new(TestApi::new(make_ids(peers_a)), 3, 0);
+	let voters = initialize_grandpa(&mut net, peers_a);
+
+	// Add observer peer without justification import so it can only finalize
+	// via gossiped commit messages, not via justification sync.
+	net.add_full_peer_with_config(FullPeerConfig {
+		notifications_protocols: vec![grandpa_protocol_name::NAME.into()],
+		disable_justification_import: true,
+		..Default::default()
+	});
+
+	// Set up peer #3 as a light observer (no keystore, cannot vote).
+	let notification_service = net.peers[3]
+		.take_notification_service(&grandpa_protocol_name::NAME.into())
+		.unwrap();
+	let observer = observer::run_grandpa_observer(
+		Config {
+			gossip_duration: TEST_GOSSIP_DURATION,
+			justification_generation_period: 32,
+			keystore: None,
+			name: Some("observer".to_string()),
+			local_role: Role::Full,
+			observer_enabled: true,
+			telemetry: None,
+			protocol_name: grandpa_protocol_name::NAME.into(),
+		},
+		net.peers[3].data.lock().take().expect("link initialized at startup; qed"),
+		net.peers[3].network_service().clone(),
+		net.peers[3].sync_service().clone(),
+		notification_service,
+	)
+	.unwrap();
+
+	// Push blocks 1-14.
+	net.peer(0).push_blocks(14, false);
+	// Block 15: schedule authority set change with delay=4 (enacted at block 20).
+	net.peer(0).generate_blocks(1, BlockOrigin::File, |mut builder| {
+		add_scheduled_change(
+			&mut builder,
+			ScheduledChange { next_authorities: make_ids(peers_b), delay: 4 },
+		);
+		builder.build().unwrap().block
+	});
+	// Push blocks 16-30.
+	net.peer(0).push_blocks(15, false);
+	net.run_until_sync().await;
+
+	for i in 0..4 {
+		assert_eq!(net.peer(i).client().info().best_number, 30, "Peer #{} failed to sync", i);
+	}
+
+	let net = Arc::new(Mutex::new(net));
+
+	tokio::spawn(voters);
+	tokio::spawn(observer);
+
+	// Wait for all 4 peers (including the observer) to finalize block 30.
+	// If the commit for the authority-change block is not gossiped, the observer will
+	// get stuck and this will time out.
+	let mut finality_notifications = Vec::new();
+	for peer_id in 0..4 {
+		let client = net.lock().peers[peer_id].client().clone();
+		finality_notifications.push(
+			client
+				.finality_notification_stream()
+				.take_while(|n| future::ready(n.header.number() < &30))
+				.for_each(move |_| future::ready(())),
+		);
+	}
+	let wait_for = futures::future::join_all(finality_notifications);
+	run_until_complete(wait_for, &net).await;
+}

@@ -45,7 +45,9 @@ mod benchmarks {
 
 		#[block]
 		{
-			assert_ok!(Pallet::<T>::validate_unsigned(TransactionSource::Local, &call));
+			#[allow(deprecated)]
+			let result = Pallet::<T>::validate_unsigned(TransactionSource::Local, &call);
+			assert_ok!(result);
 		}
 
 		Ok(())
@@ -77,6 +79,7 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// NOTE: make sure this benchmark is being run with the correct `type Solver` in `MinerConfig`.
 	#[benchmark(extra, pov_mode = Measured)]
 	fn mine_solution(p: Linear<1, { T::Pages::get() }>) -> Result<(), BenchmarkError> {
 		#[cfg(test)]

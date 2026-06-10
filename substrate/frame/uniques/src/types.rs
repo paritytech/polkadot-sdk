@@ -36,7 +36,7 @@ pub type ItemDetailsFor<T, I> = ItemDetails<<T as SystemConfig>::AccountId, Depo
 pub type ItemPrice<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
 
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct CollectionDetails<AccountId, DepositBalance> {
 	/// Can change `owner`, `issuer`, `freezer` and `admin` accounts.
 	pub owner: AccountId,
@@ -70,7 +70,7 @@ pub struct CollectionDetails<AccountId, DepositBalance> {
 	DecodeWithMemTracking,
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -97,7 +97,7 @@ impl<AccountId, DepositBalance> CollectionDetails<AccountId, DepositBalance> {
 }
 
 /// Information concerning the ownership of a single unique item.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct ItemDetails<AccountId, DepositBalance> {
 	/// The owner of this item.
 	pub owner: AccountId,
@@ -110,7 +110,7 @@ pub struct ItemDetails<AccountId, DepositBalance> {
 	pub deposit: DepositBalance,
 }
 
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, Default, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(StringLimit))]
 #[codec(mel_bound(DepositBalance: MaxEncodedLen))]
 pub struct CollectionMetadata<DepositBalance, StringLimit: Get<u32>> {
@@ -126,7 +126,7 @@ pub struct CollectionMetadata<DepositBalance, StringLimit: Get<u32>> {
 	pub is_frozen: bool,
 }
 
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, Default, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(StringLimit))]
 #[codec(mel_bound(DepositBalance: MaxEncodedLen))]
 pub struct ItemMetadata<DepositBalance, StringLimit: Get<u32>> {

@@ -31,15 +31,7 @@ pub mod pallet_custom_origins {
 	pub struct Pallet<T>(_);
 
 	#[derive(
-		PartialEq,
-		Eq,
-		Clone,
-		MaxEncodedLen,
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		TypeInfo,
-		RuntimeDebug,
+		PartialEq, Eq, Clone, MaxEncodedLen, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug,
 	)]
 	#[pallet::origin]
 	pub enum Origin {
@@ -72,6 +64,8 @@ pub mod pallet_custom_origins {
 		BigSpender,
 		/// Origin able to dispatch a whitelisted call.
 		WhitelistedCaller,
+		/// Origin for monetary emergency actions (e.g. PSM circuit breaker).
+		MonetaryGuard,
 	}
 
 	macro_rules! decl_unit_ensures {
@@ -114,6 +108,7 @@ pub mod pallet_custom_origins {
 		ReferendumCanceller,
 		ReferendumKiller,
 		WhitelistedCaller,
+		MonetaryGuard,
 	);
 
 	macro_rules! decl_ensure {

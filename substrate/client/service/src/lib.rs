@@ -48,6 +48,7 @@ use sc_network::{
 };
 use sc_network_sync::SyncingService;
 use sc_network_types::PeerId;
+pub use sc_rpc_server::create_rpc_runtime;
 use sc_rpc_server::Server;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_blockchain::HeaderMetadata;
@@ -83,6 +84,7 @@ pub use sc_chain_spec::{
 	ChainSpec, ChainType, Extension as ChainSpecExtension, GenericChainSpec, NoExtension,
 	Properties,
 };
+pub use sc_client_db::PruningFilter;
 
 use crate::config::RpcConfiguration;
 use prometheus_endpoint::Registry;
@@ -211,7 +213,7 @@ async fn build_network_future<
 					// If this stream is shut down, that means the client has shut down, and the
 					// most appropriate thing to do for the network future is to shut down too.
 					None => {
-						debug!("Block import stream has terminated, shutting down the network future.");
+						warn!("Block import stream has terminated, shutting down the network future. Ignore if the node is stopping.");
 						return
 					},
 				};
@@ -235,7 +237,7 @@ async fn build_network_future<
 
 			// Drive the network. Shut down the network future if `NetworkWorker` has terminated.
 			_ = network_run => {
-				debug!("`NetworkWorker` has terminated, shutting down the network future.");
+				warn!("`NetworkWorker` has terminated, shutting down the network future. Ignore if the node is stopping.");
 				return
 			}
 		}
@@ -269,7 +271,7 @@ pub async fn build_system_rpc_future<
 		// Answer incoming RPC requests.
 		let Some(req) = rpc_rx.next().await else {
 			debug!("RPC requests stream has terminated, shutting down the system RPC future.");
-			return
+			return;
 		};
 
 		match req {
@@ -318,7 +320,7 @@ pub async fn build_system_rpc_future<
 						let _ = sender.send(network_state);
 					}
 				} else {
-					break
+					break;
 				}
 			},
 			sc_rpc::system::Request::NetworkAddReservedPeer(peer_addr, sender) => {
@@ -380,16 +382,14 @@ pub async fn build_system_rpc_future<
 }
 
 /// Starts RPC servers.
-pub fn start_rpc_servers<R>(
+pub fn start_rpc_servers(
 	rpc_configuration: &RpcConfiguration,
 	registry: Option<&Registry>,
 	tokio_handle: &Handle,
-	gen_rpc_module: R,
+	rpc_api: RpcModule<()>,
+	rpc_runtime: tokio::runtime::Runtime,
 	rpc_id_provider: Option<Box<dyn sc_rpc_server::SubscriptionIdProvider>>,
-) -> Result<Server, error::Error>
-where
-	R: Fn() -> Result<RpcModule<()>, Error>,
-{
+) -> Result<Server, error::Error> {
 	let endpoints: Vec<sc_rpc_server::RpcEndpoint> = if let Some(endpoints) =
 		rpc_configuration.addr.as_ref()
 	{
@@ -436,15 +436,14 @@ where
 	};
 
 	let metrics = sc_rpc_server::RpcMetrics::new(registry)?;
-	let rpc_api = gen_rpc_module()?;
 
 	let server_config = sc_rpc_server::Config {
 		endpoints,
-		rpc_api,
 		metrics,
+		rpc_api,
 		id_provider: rpc_id_provider,
-		tokio_handle: tokio_handle.clone(),
 		request_logger_limit: rpc_configuration.request_logger_limit,
+		rpc_runtime,
 	};
 
 	// TODO: https://github.com/paritytech/substrate/issues/13773
@@ -521,7 +520,7 @@ where
 			Ok(uxt) => uxt,
 			Err(e) => {
 				debug!(target: sc_transaction_pool::LOG_TARGET, "Transaction invalid: {:?}", e);
-				return Box::pin(futures::future::ready(TransactionImport::Bad))
+				return Box::pin(futures::future::ready(TransactionImport::Bad));
 			},
 		};
 
@@ -543,8 +542,9 @@ where
 					TransactionImport::NewGood
 				},
 				Err(e) => match e.into_pool_error() {
-					Ok(sc_transaction_pool_api::error::Error::AlreadyImported(_)) =>
-						TransactionImport::KnownGood,
+					Ok(sc_transaction_pool_api::error::Error::AlreadyImported(_)) => {
+						TransactionImport::KnownGood
+					},
 					Ok(_) => TransactionImport::Bad,
 					Err(_) => {
 						// it is not bad at least, just some internal node logic error, so peer is

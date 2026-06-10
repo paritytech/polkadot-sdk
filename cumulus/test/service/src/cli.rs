@@ -290,9 +290,9 @@ impl SubstrateCli for TestCollatorCli {
 			},
 			"elastic-scaling-mvp" => {
 				tracing::info!("Using elastic-scaling mvp chain spec.");
-				Box::new(cumulus_test_service::get_elastic_scaling_mvp_chain_spec(Some(
-					ParaId::from(2100),
-				))) as Box<_>
+				Box::new(cumulus_test_service::get_elastic_scaling_chain_spec(Some(ParaId::from(
+					2100,
+				)))) as Box<_>
 			},
 			"elastic-scaling" => {
 				tracing::info!("Using elastic-scaling chain spec.");
@@ -306,11 +306,11 @@ impl SubstrateCli for TestCollatorCli {
 					ParaId::from(2300),
 				))) as Box<_>
 			},
-			"elastic-scaling-multi-block-slot" => {
-				tracing::info!("Using elastic-scaling multi-block-slot chain spec.");
-				Box::new(cumulus_test_service::get_elastic_scaling_multi_block_slot_chain_spec(
-					Some(ParaId::from(2400)),
-				)) as Box<_>
+			"block-bundling" => {
+				tracing::info!("Using block-bundling chain spec.");
+				Box::new(cumulus_test_service::get_block_bundling_chain_spec(Some(ParaId::from(
+					2400,
+				)))) as Box<_>
 			},
 			"sync-backing" => {
 				tracing::info!("Using sync backing chain spec.");
@@ -327,6 +327,24 @@ impl SubstrateCli for TestCollatorCli {
 			"relay-parent-offset" => Box::new(
 				cumulus_test_service::get_relay_parent_offset_chain_spec(Some(ParaId::from(2600))),
 			) as Box<_>,
+			"async-backing-v3" => {
+				tracing::info!("Using async backing V3 chain spec.");
+				Box::new(cumulus_test_service::get_async_backing_v3_chain_spec(Some(ParaId::from(
+					2700,
+				)))) as Box<_>
+			},
+			"async-backing-v3-rpo" => {
+				tracing::info!("Using async backing V3 with relay parent offset chain spec.");
+				Box::new(cumulus_test_service::get_async_backing_v3_rpo_chain_spec(Some(
+					ParaId::from(2700),
+				))) as Box<_>
+			},
+			"elastic-scaling-v3" => {
+				tracing::info!("Using elastic scaling V3 chain spec.");
+				Box::new(cumulus_test_service::get_elastic_scaling_v3_chain_spec(Some(
+					ParaId::from(2900),
+				))) as Box<_>
+			},
 			path => {
 				let chain_spec: sc_chain_spec::GenericChainSpec =
 					sc_chain_spec::GenericChainSpec::from_json_file(path.into())?;

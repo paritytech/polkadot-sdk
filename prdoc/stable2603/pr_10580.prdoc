@@ -1,0 +1,20 @@
+title: Fix eth-rpc publish
+doc:
+- audience: Runtime Dev
+  description: |-
+    Use the update subxt macro to generate the metadata in OUT_DIR;
+    not doing so generates the following error when we try to publish the package:
+
+
+    ```
+    error: failed to publish to registry at https://crates.io
+
+    Caused by:
+      the remote server responded with an error (status 403 Forbidden): this crate exists but you don't seem to be an owner. If you believe this is a mistake, perhaps you need to accept an invitation to be an owner before publishing.
+
+    ```
+
+    see related subxt changes: https://github.com/paritytech/subxt/pull/2142
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch

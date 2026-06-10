@@ -21,11 +21,11 @@ mod modular;
 use modular::Modular;
 
 use crate::{
-	vm::{
-		evm::{interpreter::Halt, EVMGas, Interpreter},
-		Ext,
-	},
 	Error, U256,
+	vm::{
+		Ext,
+		evm::{EVMGas, Interpreter, interpreter::Halt},
+	},
 };
 use core::ops::ControlFlow;
 use revm::interpreter::gas::{EXP, LOW, MID, VERYLOW};

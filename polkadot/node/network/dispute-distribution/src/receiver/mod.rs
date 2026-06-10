@@ -16,6 +16,10 @@
 
 use std::{
 	pin::Pin,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 	task::{Context, Poll},
 	time::Duration,
 };
@@ -113,6 +117,11 @@ pub struct DisputesReceiver<Sender, AD> {
 
 	/// Log received requests.
 	metrics: Metrics,
+
+	/// Shared monotonic flag for V3 candidate descriptor detection.
+	/// Updated by the main subsystem task on active leaf updates.
+	/// See `CandidateDescriptorV2::version_for_candidate_validation` for the safety argument.
+	v3_ever_seen: Arc<AtomicBool>,
 }
 
 /// Messages as handled by this receiver internally.
@@ -154,6 +163,7 @@ where
 		receiver: IncomingRequestReceiver<DisputeRequest>,
 		authority_discovery: AD,
 		metrics: Metrics,
+		v3_ever_seen: Arc<AtomicBool>,
 	) -> Self {
 		let runtime = RuntimeInfo::new_with_config(runtime::Config {
 			keystore: None,
@@ -168,6 +178,7 @@ where
 			authority_discovery,
 			pending_imports: FuturesUnordered::new(),
 			metrics,
+			v3_ever_seen,
 		}
 	}
 
@@ -184,7 +195,7 @@ where
 						error = ?fatal,
 						"Shutting down"
 					);
-					return
+					return;
 				},
 			}
 		}
@@ -237,7 +248,7 @@ where
 		poll_fn(|ctx| {
 			// In case of Ready(None), we want to wait for pending requests:
 			if let Poll::Ready(Some(v)) = self.pending_imports.poll_next_unpin(ctx) {
-				return Poll::Ready(Ok(MuxedMessage::ConfirmedImport(v?)))
+				return Poll::Ready(Ok(MuxedMessage::ConfirmedImport(v?)));
 			}
 
 			let rate_limited = self.peer_queues.pop_reqs();
@@ -245,13 +256,13 @@ where
 			// We poll rate_limit before batches, so we don't unnecessarily delay importing to
 			// batches.
 			if let Poll::Ready(reqs) = rate_limited.poll(ctx) {
-				return Poll::Ready(Ok(MuxedMessage::WakePeerQueuesPopReqs(reqs)))
+				return Poll::Ready(Ok(MuxedMessage::WakePeerQueuesPopReqs(reqs)));
 			}
 
 			let ready_batches = self.batches.check_batches();
 			pin_mut!(ready_batches);
 			if let Poll::Ready(ready_batches) = ready_batches.poll(ctx) {
-				return Poll::Ready(Ok(MuxedMessage::WakeCheckBatches(ready_batches)))
+				return Poll::Ready(Ok(MuxedMessage::WakeCheckBatches(ready_batches)));
 			}
 
 			let next_req = self.receiver.recv(|| vec![COST_INVALID_REQUEST]);
@@ -260,7 +271,7 @@ where
 				return match r {
 					Err(e) => Poll::Ready(Err(incoming::Error::from(e).into())),
 					Ok(v) => Poll::Ready(Ok(MuxedMessage::NewRequest(v))),
-				}
+				};
 			}
 			Poll::Pending
 		})
@@ -290,7 +301,7 @@ where
 					sent_feedback: None,
 				})
 				.map_err(|_| JfyiError::SendResponses(vec![peer]))?;
-				return Err(JfyiError::NotAValidator(peer).into())
+				return Err(JfyiError::NotAValidator(peer).into());
 			},
 			Some(auth_id) => auth_id,
 		};
@@ -309,7 +320,7 @@ where
 				sent_feedback: None,
 			})
 			.map_err(|_| JfyiError::SendResponses(vec![peer]))?;
-			return Err(JfyiError::AuthorityFlooding(authority_id))
+			return Err(JfyiError::AuthorityFlooding(authority_id));
 		}
 		Ok(())
 	}
@@ -324,13 +335,34 @@ where
 	) -> Result<()> {
 		let IncomingRequest { peer, payload, pending_response } = incoming;
 
+		// For disputes, we need session info from the scheduling context.
+		// Use the transition-safe method to match old backer semantics before V3 is confirmed.
+		let v3_ever_seen = self.v3_ever_seen.load(Ordering::Relaxed);
+		let scheduling_parent = payload
+			.0
+			.candidate_receipt
+			.descriptor
+			.scheduling_parent_for_candidate_validation(v3_ever_seen);
+
+		// The scheduling parent may not be a block we have ever seen (e.g. disputes
+		// about candidates on forks we never imported), so we cannot rely on its state
+		// being available for runtime API queries.
+		//
+		// This is fine because `get_session_info_by_index` has two cache layers:
+		//
+		// 1. A local LRU cache in this subsystem's `RuntimeInfo`, keyed by session index. Once
+		//    populated by a prior call from this receiver, the scheduling parent hash is
+		//    irrelevant. Thus on a dispute storm, the cache will be warm (the actual threat
+		//    scenario).
+		//
+		// 2. More importantly, the runtime API subsystem itself caches session info by session
+		//    index. The dispute coordinator and dispute distribution sender both query session info
+		//    on every active leaf, warming that global cache for all sessions within the dispute
+		//    window. When our local cache misses, the runtime API subsystem can still serve the
+		//    response from its cache even if the scheduling parent block's state is unavailable.
 		let info = self
 			.runtime
-			.get_session_info_by_index(
-				&mut self.sender,
-				payload.0.candidate_receipt.descriptor.relay_parent(),
-				payload.0.session_index,
-			)
+			.get_session_info_by_index(&mut self.sender, scheduling_parent, payload.0.session_index)
 			.await?;
 
 		let votes_result = payload.0.try_into_signed_votes(&info.session_info);
@@ -346,7 +378,7 @@ where
 					})
 					.map_err(|_| JfyiError::SetPeerReputation(peer))?;
 
-				return Err(From::from(JfyiError::InvalidSignature(peer)))
+				return Err(From::from(JfyiError::InvalidSignature(peer)));
 			},
 			Ok(votes) => votes,
 		};
@@ -398,7 +430,7 @@ where
 							sent_feedback: None,
 						})
 						.map_err(|_| JfyiError::SendResponses(vec![peer]))?;
-					return Err(From::from(JfyiError::RedundantMessage(peer)))
+					return Err(From::from(JfyiError::RedundantMessage(peer)));
 				}
 			},
 		}
@@ -423,7 +455,7 @@ where
 					candidate_hash = ?candidate_receipt.hash(),
 					"Not importing empty batch"
 				);
-				return
+				return;
 			},
 			Some(vote) => (vote.0.session_index(), *vote.0.candidate_hash()),
 		};

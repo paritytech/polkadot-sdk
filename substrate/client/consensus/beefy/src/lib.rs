@@ -427,8 +427,7 @@ where
 			header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY).await?;
 		};
 
-		aux_schema::write_current_version(backend.as_ref())?;
-		aux_schema::write_voter_state(backend.as_ref(), &state)?;
+		aux_schema::write_current_version_and_voter_state(backend.as_ref(), &state)?;
 		Ok(state)
 	}
 
@@ -443,7 +442,7 @@ where
 		is_authority: bool,
 	) -> Result<PersistedState<B, AuthorityId>, Error> {
 		// Initialize voter state from AUX DB if compatible.
-		if let Some(mut state) = crate::aux_schema::load_persistent(backend.as_ref())?
+		if let Some(mut state) = crate::aux_schema::load_and_migrate_persistent(backend.as_ref())?
 			// Verify state pallet genesis matches runtime.
 			.filter(|state| state.pallet_genesis() == beefy_genesis)
 		{
@@ -672,7 +671,7 @@ where
 			debug!(target: LOG_TARGET, "🥩 Transforming grandpa notification. #{}({:?})", notification.header.number(), notification.hash);
 			if let Err(err) = tx.unbounded_send(UnpinnedFinalityNotification::from(notification)) {
 				error!(target: LOG_TARGET, "🥩 Unable to send transformed notification. Shutting down. err = {}", err);
-				return
+				return;
 			};
 		}
 	};
@@ -786,10 +785,11 @@ where
 				Some(active) => return Ok(active),
 				// Move up the chain. Ultimately we'll get it from chain genesis state, or error out
 				// there.
-				None =>
+				None => {
 					header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY)
 						.await
-						.map_err(|e| Error::Backend(e.to_string()))?,
+						.map_err(|e| Error::Backend(e.to_string()))?
+				},
 			}
 		}
 	}

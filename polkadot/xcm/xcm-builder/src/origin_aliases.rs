@@ -33,7 +33,7 @@ impl<Prefix: Contains<Location>> ContainsPair<Location, Location>
 			origin.clone().split_last_interior()
 		{
 			return Prefix::contains(&prefix) &&
-				*target == Location { parents: 0, interior: [account_id].into() }
+				*target == Location { parents: 0, interior: [account_id].into() };
 		}
 		false
 	}
@@ -43,7 +43,7 @@ impl<Prefix: Contains<Location>> ContainsPair<Location, Location>
 pub struct AliasChildLocation;
 impl ContainsPair<Location, Location> for AliasChildLocation {
 	fn contains(origin: &Location, target: &Location) -> bool {
-		return target.starts_with(origin)
+		return target.starts_with(origin);
 	}
 }
 
@@ -66,6 +66,6 @@ where
 			_ => return false,
 		};
 		// check that `origin` matches `Origin` and `target` matches `Filter`
-		return Origin::get().eq(origin) && Filter::contains(target)
+		return Origin::get().eq(origin) && Filter::contains(target);
 	}
 }

@@ -17,12 +17,14 @@ exclude-from-umbrella = true
 [dependencies]
 alloy-core = { workspace = true, features = ["sol-types"] }
 codec = { workspace = true }
+impl-trait-for-tuples = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 tracing = { workspace = true }
 
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-core = { workspace = true }
+sp-crypto-hashing = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
@@ -55,6 +57,7 @@ std = [
 	"snowbridge-core/std",
 	"snowbridge-verification-primitives/std",
 	"sp-core/std",
+	"sp-crypto-hashing/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",

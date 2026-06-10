@@ -1,0 +1,18 @@
+title: Add `pallet_multi_asset_bounties` to Westend Asset Hub testnet runtime.
+doc:
+- audience: Runtime User
+  description: |
+    Multi-asset bounties are now available in the Westend Asset Hub runtime.
+    This update also includes refactoring of pallet_multi_asset_bounties and kitchensink-runtime.
+
+crates:
+- name: pallet-multi-asset-bounties
+  bump: major
+- name: parachains-common
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: major
+- name: frame-support
+  bump: minor
+- name: kitchensink-runtime
+  bump: patch

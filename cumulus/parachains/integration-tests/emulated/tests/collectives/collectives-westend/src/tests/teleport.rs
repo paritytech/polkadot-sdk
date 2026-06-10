@@ -17,15 +17,17 @@ use crate::imports::*;
 use emulated_integration_tests_common::{
 	test_parachain_is_trusted_teleporter_for_relay, test_relay_is_trusted_teleporter,
 };
+use frame_support::sp_runtime::traits::BlockNumberProvider;
 
 #[test]
 fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 	let amount = WESTEND_ED * 10;
+	let native_asset: Assets = (Here, amount).into();
 
 	test_relay_is_trusted_teleporter!(
 		Westend,                  // Origin
 		vec![CollectivesWestend], // Destinations
-		amount,
+		(native_asset, amount),
 		limited_teleport_assets
 	);
 
@@ -40,11 +42,12 @@ fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 #[test]
 fn teleport_via_transfer_assets_from_and_to_relay() {
 	let amount = WESTEND_ED * 10;
+	let native_asset: Assets = (Here, amount).into();
 
 	test_relay_is_trusted_teleporter!(
 		Westend,                  // Origin
 		vec![CollectivesWestend], // Destinations
-		amount,
+		(native_asset, amount),
 		transfer_assets
 	);
 
@@ -61,12 +64,10 @@ fn teleport_via_limited_teleport_assets_from_collectives_to_asset_hub() {
 	let amount = ASSET_HUB_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
-	let fee_asset_id: AssetId = Parent.into();
 	test_parachain_is_trusted_teleporter!(
 		CollectivesWestend,    // Origin
 		vec![AssetHubWestend], // Destinations
 		(native_asset, amount),
-		fee_asset_id,
 		limited_teleport_assets
 	);
 }
@@ -76,12 +77,10 @@ fn teleport_via_transfer_assets_from_collectives_to_asset_hub() {
 	let amount = ASSET_HUB_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
-	let fee_asset_id: AssetId = Parent.into();
 	test_parachain_is_trusted_teleporter!(
 		CollectivesWestend,    // Origin
 		vec![AssetHubWestend], // Destinations
 		(native_asset, amount),
-		fee_asset_id,
 		transfer_assets
 	);
 }
@@ -91,12 +90,10 @@ fn teleport_via_limited_teleport_assets_from_asset_hub_to_collectives() {
 	let amount = COLLECTIVES_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
-	let fee_asset_id: AssetId = Parent.into();
 	test_parachain_is_trusted_teleporter!(
 		AssetHubWestend,          // Origin
 		vec![CollectivesWestend], // Destinations
 		(native_asset, amount),
-		fee_asset_id,
 		limited_teleport_assets
 	);
 }
@@ -106,12 +103,25 @@ fn teleport_via_transfer_assets_from_asset_hub_to_collectives() {
 	let amount = COLLECTIVES_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
-	let fee_asset_id: AssetId = Parent.into();
 	test_parachain_is_trusted_teleporter!(
 		AssetHubWestend,          // Origin
 		vec![CollectivesWestend], // Destinations
 		(native_asset, amount),
-		fee_asset_id,
 		transfer_assets
+	);
+}
+
+#[test]
+fn accumulate_forward_collectives_transfers_native_to_asset_hub() {
+	type RelayDataProvider = cumulus_pallet_parachain_system::RelaychainDataProvider<
+		collectives_westend_runtime::Runtime,
+	>;
+	emulated_integration_tests_common::dap_helpers::test_accumulate_forward_transfers_to_asset_hub::<
+		CollectivesWestend,
+		AssetHubWestend,
+	>(
+		|acct, amount| CollectivesWestend::fund_accounts(vec![(acct, amount)]),
+		|| RelayDataProvider::current_block_number(),
+		|n| RelayDataProvider::set_block_number(n),
 	);
 }

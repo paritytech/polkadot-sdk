@@ -185,7 +185,7 @@ impl<C: graph::ChainApi> graph::EventHandler<C> for ViewPoolObserver<C> {
 	}
 
 	fn finality_timeout(&self, tx: ExtrinsicHash<C>, hash: BlockHash<C>) {
-		//todo: do we need this? [related issue: #5482]
+		// todo: do we need this? [related issue: #5482]
 		self.send_to_aggregated_stream_sink(tx, TransactionStatus::FinalityTimeout(hash));
 	}
 }
@@ -429,9 +429,9 @@ where
 		let batch: Vec<_> = validated_pool.ready().collect();
 		let batch_len = batch.len();
 
-		//todo: sort batch by revalidation timestamp | maybe not needed at all? xts will be getting
-		//out of the view...
-		//todo: revalidate future, remove if invalid [#5496]
+		// todo: sort batch by revalidation timestamp | maybe not needed at all? xts will be getting
+		// out of the view...
+		// todo: revalidate future, remove if invalid [#5496]
 
 		let mut invalid_hashes = Vec::new();
 		let mut revalidated = IndexMap::new();
@@ -452,8 +452,10 @@ where
 				_ = async {
 					if let Some(tx) = batch_iter.next() {
 						let validation_result = (
-							api.validate_transaction(self.at.hash,
-								tx.source.clone().into(), tx.data.clone(),
+							api.validate_transaction(
+								self.at.hash,
+								tx.source.clone().into(),
+								tx.data.clone(),
 								ValidateTransactionPriority::Maintained).await,
 							tx.hash,
 							tx
@@ -492,6 +494,12 @@ where
 		for (validation_result, tx_hash, tx) in validation_results {
 			match validation_result {
 				Ok(Err(TransactionValidityError::Invalid(_))) => {
+					trace!(
+						target: LOG_TARGET,
+						?tx_hash,
+						?validation_result,
+						"Removing. Transaction is invalid"
+					);
 					invalid_hashes.push(tx_hash);
 				},
 				Ok(Ok(validity)) => {
@@ -507,20 +515,20 @@ where
 						),
 					);
 				},
-				Ok(Err(TransactionValidityError::Unknown(error))) => {
+				Ok(Err(TransactionValidityError::Unknown(_))) => {
 					trace!(
 						target: LOG_TARGET,
 						?tx_hash,
-						?error,
+						?validation_result,
 						"Removing. Cannot determine transaction validity"
 					);
 					invalid_hashes.push(tx_hash);
 				},
-				Err(error) => {
+				Err(_) => {
 					trace!(
 						target: LOG_TARGET,
 						?tx_hash,
-						%error,
+						?validation_result,
 						"Removing due to error during revalidation"
 					);
 					invalid_hashes.push(tx_hash);
@@ -602,7 +610,7 @@ where
 		let Some(revalidation_worker_channels) = self.revalidation_worker_channels.lock().take()
 		else {
 			trace!(target:LOG_TARGET, "view::finish_revalidation: no finish_revalidation_request_tx");
-			return
+			return;
 		};
 
 		let FinishRevalidationLocalChannels {
