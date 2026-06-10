@@ -19,7 +19,7 @@
 //!    log matches the verifier's expected event log; the log's `data` field is sized so the encoded
 //!    envelope is `s` bytes. To make the proof path cross `n` distinct nodes we add `n - 1` cheap
 //!    sibling leaves, each diverging from the retained key at a successive nibble depth so a branch
-//!    node is forced at every depth `0..n-1` (see [`build_receipts_trie`]).
+//!    node is forced at every depth `0..n-1` (see `build_receipts_trie`).
 //! 2. Construct an `ExecutionPayloadHeader` whose `receipts_root` is the trie root from (1).
 //!    Compute its SSZ `hash_tree_root` — call it `execution_header_root`.
 //! 3. Pick `execution_branch` as `EXECUTION_HEADER_DEPTH` zero hashes. Compute the `body_root` by
@@ -71,7 +71,7 @@ pub const MIN_RECEIPT_SIZE: u32 = 320;
 /// Transaction index of the retained receipt. A receipt-trie proof can have at most
 /// `key_nibbles + 1` nodes, so the key — `rlp(BENCH_TARGET_TX_INDEX)` — must carry at least
 /// `MaxProofNodes - 1` nibbles for the sibling-divergence construction in
-/// [`build_receipts_trie`] to reach the benchmarked worst case. This necessarily makes the
+/// `build_receipts_trie` to reach the benchmarked worst case. This necessarily makes the
 /// index synthetic: a realistic block tops out around a few thousand receipts (a ~2-byte
 /// index, 4-6 nibbles), far too short.
 ///
