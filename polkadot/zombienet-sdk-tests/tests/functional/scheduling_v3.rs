@@ -57,6 +57,7 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 								"max_validators_per_core": 3,
 							},
 							"node_features": node_features_with_v3,
+							"max_relay_parent_session_age": 0,
 						}
 					}
 				}))
