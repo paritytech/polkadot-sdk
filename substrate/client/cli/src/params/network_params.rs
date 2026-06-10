@@ -67,8 +67,10 @@ pub struct NetworkParams {
 	/// If `--validator` is passed: `/ip4/0.0.0.0/tcp/<port>` and `/ip6/[::]/tcp/<port>`.
 	/// Otherwise: `/ip4/0.0.0.0/tcp/<port>/ws` and `/ip6/[::]/tcp/<port>/ws`.
 	///
-	/// Experimental: `/ip4/0.0.0.0/udp/<port>/webrtc-direct` and
-	/// `/ip6/[::]/udp/<port>/webrtc-direct`. Only works on litep2p network backend.
+	/// Experimental: `/ip4/<ip>/udp/<port>/webrtc-direct` and
+	/// `/ip6/<ip>/udp/<port>/webrtc-direct`. Unspecified addresses
+	/// (`0.0.0.0` / `[::]`) are not supported, bind to a specific IP is required.
+	/// Only works on the litep2p network backend.
 	#[arg(long, value_name = "LISTEN_ADDR", num_args = 1..)]
 	pub listen_addr: Vec<Multiaddr>,
 
