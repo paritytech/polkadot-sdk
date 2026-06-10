@@ -1,0 +1,18 @@
+title: Decouple unbonding pool bound from bonding duration
+doc:
+- audience: Runtime Dev
+  description: The with_era map is now bounded by the fixed PostUnbondingPoolsWindow,
+    and the merge cutoff uses an effective window of PostUnbondingPoolsWindow - bonding_duration.
+    This prevents a lowered bonding duration from shrinking the bound and making stored
+    state undecodable.
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: westend-runtime
+  bump: patch
+- name: pallet-delegated-staking
+  bump: patch
+- name: pallet-nomination-pools-benchmarking
+  bump: patch
+- name: pallet-nomination-pools
+  bump: patch
