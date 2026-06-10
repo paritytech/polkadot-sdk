@@ -448,7 +448,6 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		})
 		.flatten();
 
-	// Capture the statement-handler settings before `new_partial` consumes the config.
 	let statement_network_workers = statement_store_config.network_workers;
 	let statement_rate_limit = statement_store_config.rate_limit;
 	let statement_affinity_topics = statement_store_config.affinity_topics.clone();

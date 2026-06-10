@@ -243,44 +243,6 @@ impl Default for Config {
 	}
 }
 
-/// Parse a [`Topic`] from a hex string, with an optional `0x` prefix.
-///
-/// Shared by the node CLIs that accept affinity topics as command-line arguments.
-pub fn parse_topic_hex(input: &str) -> std::result::Result<Topic, String> {
-	let bytes = input.strip_prefix("0x").unwrap_or(input).as_bytes();
-	if bytes.len() != 64 {
-		return Err(format!("expected 64 hex digits (32 bytes), got {}", bytes.len()));
-	}
-	let mut topic = [0u8; 32];
-	for (byte, pair) in topic.iter_mut().zip(bytes.chunks_exact(2)) {
-		let nibble = |c: u8| (c as char).to_digit(16);
-		match (nibble(pair[0]), nibble(pair[1])) {
-			(Some(hi), Some(lo)) => *byte = (hi * 16 + lo) as u8,
-			_ => return Err(format!("invalid hex digit in '{input}'")),
-		}
-	}
-	Ok(topic.into())
-}
-
-#[cfg(test)]
-mod parse_topic_hex_tests {
-	use super::{parse_topic_hex, Topic};
-
-	#[test]
-	fn accepts_hex_with_or_without_prefix() {
-		let expected = Topic([0xAB; 32]);
-		let hex = "ab".repeat(32);
-		assert_eq!(parse_topic_hex(&hex), Ok(expected));
-		assert_eq!(parse_topic_hex(&format!("0x{hex}")), Ok(expected));
-	}
-
-	#[test]
-	fn rejects_wrong_length_and_bad_hex() {
-		assert!(parse_topic_hex("0xdead").is_err());
-		assert!(parse_topic_hex(&"zz".repeat(32)).is_err());
-	}
-}
-
 /// Tracks evicted statement hashes to suppress re-gossip until their purge deadline elapses
 #[derive(Default)]
 struct EvictedIndex {

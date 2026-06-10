@@ -65,7 +65,6 @@ pub(crate) fn build_statement_store<
 	statement_handler_proto: sc_network_statement::StatementHandlerPrototype,
 	config: sc_statement_store::Config,
 ) -> sc_service::error::Result<Arc<Store>> {
-	// Capture the statement-handler settings before `new_shared` consumes the config.
 	let network_workers = config.network_workers;
 	let rate_limit = config.rate_limit;
 	let affinity_topics = config.affinity_topics.clone();

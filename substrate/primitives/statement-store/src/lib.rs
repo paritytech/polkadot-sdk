@@ -22,9 +22,9 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::{format, string::String, vec::Vec};
 use codec::{Compact, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use core::ops::Deref;
+use core::{ops::Deref, str::FromStr};
 use scale_info::{build::Fields, Path, Type, TypeInfo};
 use sp_application_crypto::RuntimeAppPublic;
 #[cfg(feature = "std")]
@@ -105,6 +105,27 @@ impl Deref for Topic {
 
 	fn deref(&self) -> &Self::Target {
 		&self.0
+	}
+}
+
+impl FromStr for Topic {
+	type Err = String;
+
+	/// Parse a topic from a hex string, with an optional `0x` prefix.
+	fn from_str(input: &str) -> core::result::Result<Self, Self::Err> {
+		let bytes = input.strip_prefix("0x").unwrap_or(input).as_bytes();
+		if bytes.len() != 64 {
+			return Err(format!("expected 64 hex digits (32 bytes), got {}", bytes.len()));
+		}
+		let mut topic = [0u8; 32];
+		for (byte, pair) in topic.iter_mut().zip(bytes.chunks_exact(2)) {
+			let nibble = |c: u8| (c as char).to_digit(16);
+			match (nibble(pair[0]), nibble(pair[1])) {
+				(Some(hi), Some(lo)) => *byte = (hi * 16 + lo) as u8,
+				_ => return Err(format!("invalid hex digit in '{input}'")),
+			}
+		}
+		Ok(Topic(topic))
 	}
 }
 
@@ -799,9 +820,24 @@ mod test {
 		hash_encoded, Field, Proof, SignatureVerificationResult, Statement, Topic, MAX_TOPICS,
 	};
 	use codec::{Decode, Encode, MaxEncodedLen};
+	use core::str::FromStr;
 	use scale_info::{MetaType, TypeInfo};
 	use sp_application_crypto::Pair;
 	use sp_core::sr25519;
+
+	#[test]
+	fn topic_from_str_accepts_hex_with_or_without_prefix() {
+		let expected = Topic([0xAB; 32]);
+		let hex = "ab".repeat(32);
+		assert_eq!(Topic::from_str(&hex), Ok(expected));
+		assert_eq!(Topic::from_str(&format!("0x{hex}")), Ok(expected));
+	}
+
+	#[test]
+	fn topic_from_str_rejects_wrong_length_and_bad_hex() {
+		assert!(Topic::from_str("0xdead").is_err());
+		assert!(Topic::from_str(&"zz".repeat(32)).is_err());
+	}
 
 	#[test]
 	fn statement_encoding_matches_vec() {
