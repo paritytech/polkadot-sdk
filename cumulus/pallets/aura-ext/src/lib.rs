@@ -88,7 +88,8 @@ pub mod pallet {
 			// The relay chain <-> parachain slot conversion assumes the parachain slot duration is
 			// a positive multiple of the relay chain's slot duration.
 			assert!(
-				slot_duration != 0 && slot_duration.is_multiple_of(RELAY_CHAIN_SLOT_DURATION_MILLIS),
+				slot_duration != 0 &&
+					slot_duration.is_multiple_of(RELAY_CHAIN_SLOT_DURATION_MILLIS),
 				"Aura slot duration ({slot_duration}ms) must be a positive multiple of the relay \
 				 chain's slot duration ({RELAY_CHAIN_SLOT_DURATION_MILLIS}ms)",
 			);
