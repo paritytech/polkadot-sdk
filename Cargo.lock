@@ -1073,7 +1073,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-rococo-runtime"
-version = "0.26.1"
+version = "0.26.2"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -1206,7 +1206,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.32.1"
+version = "0.32.2"
 dependencies = [
  "alloy-core",
  "asset-test-utils",
@@ -2467,7 +2467,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.20.0"
+version = "0.20.1"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2671,7 +2671,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -3318,7 +3318,7 @@ dependencies = [
 
 [[package]]
 name = "collectives-westend-runtime"
-version = "20.0.1"
+version = "20.0.2"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -3689,7 +3689,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-rococo-runtime"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -3789,7 +3789,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-westend-runtime"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -4672,7 +4672,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-xcmp-queue"
-version = "0.21.1"
+version = "0.21.2"
 dependencies = [
  "approx",
  "bounded-collections 0.2.3",
@@ -14469,7 +14469,7 @@ dependencies = [
 
 [[package]]
 name = "people-rococo-runtime"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -20122,7 +20122,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-sync"
-version = "0.50.0"
+version = "0.50.1"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",

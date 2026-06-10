@@ -41,11 +41,11 @@ static_assertions = { workspace = true }
 
 [dev-dependencies]
 hex-literal = { workspace = true, default-features = true }
-pallet-timestamp = { default-features = true, workspace = true }
+pallet-timestamp = { default-features = true, path = "../../../../substrate/frame/timestamp" }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-snowbridge-pallet-ethereum-client-fixtures = { default-features = true, workspace = true }
-sp-io = { default-features = true, workspace = true }
+snowbridge-pallet-ethereum-client-fixtures = { default-features = true, path = "fixtures" }
+sp-io = { default-features = true, path = "../../../../substrate/primitives/io" }
 
 [features]
 default = ["std"]

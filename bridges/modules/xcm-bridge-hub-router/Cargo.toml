@@ -26,7 +26,7 @@ xcm-builder.workspace = true
 xcm.workspace = true
 
 [dev-dependencies]
-sp-io = { default-features = true, workspace = true }
+sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
 
 [features]
 default = ["std"]

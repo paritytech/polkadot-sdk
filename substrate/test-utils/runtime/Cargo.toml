@@ -60,15 +60,15 @@ tracing = { workspace = true, default-features = false }
 [dev-dependencies]
 futures = { workspace = true }
 pretty_assertions = { workspace = true }
-sc-block-builder = { default-features = true, workspace = true }
-sc-chain-spec = { default-features = true, workspace = true }
-sc-executor = { default-features = true, workspace = true }
-sc-executor-common = { default-features = true, workspace = true }
+sc-block-builder = { default-features = true, path = "../../client/block-builder" }
+sc-chain-spec = { default-features = true, path = "../../client/chain-spec" }
+sc-executor = { default-features = true, path = "../../client/executor" }
+sc-executor-common = { default-features = true, path = "../../client/executor/common" }
 serde = { features = ["alloc", "derive"], workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
-sp-consensus = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
-substrate-test-runtime-client = { workspace = true }
+sp-consensus = { default-features = true, path = "../../primitives/consensus/common" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+substrate-test-runtime-client = { path = "client" }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, features = ["metadata-hash"], workspace = true, default-features = true }
@@ -91,7 +91,6 @@ std = [
 	"pallet-utility/std",
 	"sc-service",
 	"scale-info/std",
-	"serde/std",
 	"serde_json/std",
 	"sp-api/std",
 	"sp-application-crypto/std",
