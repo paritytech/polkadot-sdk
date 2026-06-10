@@ -74,7 +74,7 @@ use codec::Codec;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_proof_size_recording::register_proof_size_recording_cleanup;
-use cumulus_client_unincluded_segment_store::register_resubmission_cleanup;
+use cumulus_client_resubmission_store::register_resubmission_cleanup;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{
 	KeyToIncludeInRelayProof, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,

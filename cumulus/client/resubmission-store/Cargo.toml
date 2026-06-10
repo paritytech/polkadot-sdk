@@ -1,6 +1,6 @@
 [package]
 authors.workspace = true
-name = "cumulus-client-unincluded-segment-store"
+name = "cumulus-client-resubmission-store"
 version = "0.1.0"
 edition.workspace = true
 description = "Per-block proof store for unincluded segment resubmission."
