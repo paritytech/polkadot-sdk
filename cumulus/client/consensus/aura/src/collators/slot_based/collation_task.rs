@@ -17,17 +17,20 @@
 
 use std::{path::PathBuf, sync::Arc};
 
+use codec::Encode;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::ValidationCodeHashProvider;
 use cumulus_client_unincluded_segment_store::UnincludedSegmentStore;
+use cumulus_primitives_core::SignedSchedulingInfo;
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::{
 	MaybeCompressedPoV, SegmentCollation, SubmitCollationParams, SubmitSegmentParams,
+	UpwardMessages,
 };
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{CollatorPair, Id as ParaId};
+use polkadot_primitives::{ClaimQueueOffset, CollatorPair, Id as ParaId, UMPSignal, UMP_SEPARATOR};
 
 use cumulus_primitives_core::relay_chain::BlockId;
 use futures::prelude::*;
@@ -383,12 +386,23 @@ async fn build_segment_collation<Block: BlockT, RClient: RelayChainInterface + C
 	validation_code_hash: polkadot_primitives::ValidationCodeHash,
 	validation_data: cumulus_primitives_core::PersistedValidationData,
 ) -> Option<SegmentCollation> {
-	let (collation, block_data) = collator_service.build_multi_block_collation(
+	let (mut collation, block_data) = collator_service.build_multi_block_collation(
 		&parent_header,
 		blocks,
 		proof,
 		Some(scheduling_proof.clone()),
 	)?;
+
+	// Pre-apply the PVF's UMP-signal override locally. The PVF replaces the block's emitted
+	// `SelectCore`/`ApprovedPeer` signals wholesale with the ones in `signed_scheduling_info`
+	// (see `cumulus_pallet_parachain_system::validate_block::implementation`). Doing the same
+	// rewrite on `collation.upward_messages` here lets collation-generation's
+	// `parse_ump_signals` see the post-override signals, so a historical entry whose body
+	// committed to a different selector than the segment's `core_index` won't trip
+	// `CoreIndexMismatch` at the collator-side pre-check.
+	if let Some(signed_info) = scheduling_proof.signed_scheduling_info.as_ref() {
+		override_ump_scheduling_tail(&mut collation.upward_messages, signed_info);
+	}
 
 	block_data.log_size_info();
 
@@ -451,4 +465,30 @@ async fn build_segment_collation<Block: BlockT, RClient: RelayChainInterface + C
 		session_index,
 		validation_data,
 	})
+}
+
+/// Mirror the PVF's `signed_scheduling_info` override on the collator side: strip the existing
+/// scheduling tail from `upward_messages` (everything from the first `UMP_SEPARATOR` onwards)
+/// and re-emit it from `signed_info.payload`. After this, collation-generation's
+/// `parse_ump_signals` reads the same `SelectCore`/`ApprovedPeer` the PVF would compute.
+fn override_ump_scheduling_tail(
+	upward_messages: &mut UpwardMessages,
+	signed_info: &SignedSchedulingInfo,
+) {
+	// Strip everything from the first `UMP_SEPARATOR` onwards (the existing scheduling tail).
+	if let Some(pos) = upward_messages.iter().position(|m| m == &UMP_SEPARATOR) {
+		upward_messages.truncate(pos);
+	}
+
+	// Re-emit the tail using the signed info's selector/offset/peer.
+	let _ = upward_messages.try_push(UMP_SEPARATOR);
+	let _ = upward_messages.try_push(
+		UMPSignal::SelectCore(
+			signed_info.payload.core_selector,
+			ClaimQueueOffset(signed_info.payload.claim_queue_offset),
+		)
+		.encode(),
+	);
+	let _ = upward_messages
+		.try_push(UMPSignal::ApprovedPeer(signed_info.payload.peer_id.clone()).encode());
 }

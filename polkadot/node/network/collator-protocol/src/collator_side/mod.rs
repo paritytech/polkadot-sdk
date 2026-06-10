@@ -959,26 +959,27 @@ async fn advertise_segment<Context>(
 			))
 		},
 		CollationVersion::V3 => {
-			// Send V3 protocol message with the actual descriptor version
-			let newest_candidate = core_segment.last().expect("Segment is not empty; qed");
+			// Advertise the oldest entry to V3 peers — it's the candidate closest to expiring,
+			// so getting V2/V3 backers on it first maximizes the chance the whole segment lands.
+			let oldest_candidate = core_segment.first().expect("Segment is not empty; qed");
 			CollationProtocols::V3(protocol_v3::CollationProtocol::CollatorProtocol(
 				protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
 					scheduling_parent,
-					candidate_hash: newest_candidate.candidate_hash,
-					parent_head_data_hash: newest_candidate.parent_head_data_hash,
-					candidate_descriptor_version: newest_candidate.candidate_descriptor_version,
-					relay_parent: newest_candidate.relay_parent,
+					candidate_hash: oldest_candidate.candidate_hash,
+					parent_head_data_hash: oldest_candidate.parent_head_data_hash,
+					candidate_descriptor_version: oldest_candidate.candidate_descriptor_version,
+					relay_parent: oldest_candidate.relay_parent,
 				},
 			))
 		},
 		CollationVersion::V2 | CollationVersion::V1 => {
-			// Fall back to V2 protocol for older peers
-			let newest_candidate = core_segment.last().expect("Segment is not empty; qed");
+			// Same rationale as the V3 arm: advertise the oldest entry to older peers.
+			let oldest_candidate = core_segment.first().expect("Segment is not empty; qed");
 			CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(
 				protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 					scheduling_parent,
-					candidate_hash: newest_candidate.candidate_hash,
-					parent_head_data_hash: newest_candidate.parent_head_data_hash,
+					candidate_hash: oldest_candidate.candidate_hash,
+					parent_head_data_hash: oldest_candidate.parent_head_data_hash,
 				},
 			))
 		},

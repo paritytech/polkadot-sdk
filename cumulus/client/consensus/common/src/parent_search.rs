@@ -190,32 +190,42 @@ fn find_deepest_valid_parent_v2<Block: BlockT>(
 	best
 }
 
+/// Extract a parablock's relay parent, falling back to the relay-parent-storage-root digest if
+/// the direct `CumulusDigestItem::RelayParent` is absent.
+///
+/// Returns `Ok(None)` if neither digest yields a relay parent (either both digests are missing,
+/// or the RPSR-pointed relay block is unknown/inconsistent with the encoded storage root).
+pub async fn extract_relay_parent_or_lookup<Block: BlockT>(
+	digest: &sp_runtime::Digest,
+	relay_client: &impl RelayChainInterface,
+) -> RelayChainResult<Option<RelayHash>> {
+	if let Some(relay_parent) = cumulus_primitives_core::extract_relay_parent(digest) {
+		return Ok(Some(relay_parent));
+	}
+
+	let Some((storage_root, number)) =
+		cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(digest)
+	else {
+		return Ok(None);
+	};
+
+	let Some(relay_parent_header) = relay_client.header(RelayBlockId::Number(number)).await? else {
+		return Ok(None);
+	};
+	if relay_parent_header.state_root != storage_root {
+		return Ok(None);
+	}
+	Ok(Some(relay_parent_header.hash()))
+}
+
 async fn has_ancestor_relay_parent_info<Block: BlockT>(
 	relay_client: &impl RelayChainInterface,
 	scheduling_parent: RelayHash,
 	header: &Block::Header,
 ) -> RelayChainResult<bool> {
-	let relay_parent = 'get_relay_parent: {
-		let digest = header.digest();
-
-		if let Some(relay_parent) = cumulus_primitives_core::extract_relay_parent(digest) {
-			break 'get_relay_parent relay_parent;
-		}
-
-		if let Some((storage_root, number)) =
-			cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(digest)
-		{
-			let Some(relay_parent_header) =
-				relay_client.header(RelayBlockId::Number(number)).await?
-			else {
-				return Ok(false);
-			};
-			if relay_parent_header.state_root != storage_root {
-				return Ok(false);
-			}
-			break 'get_relay_parent relay_parent_header.hash();
-		}
-
+	let Some(relay_parent) =
+		extract_relay_parent_or_lookup::<Block>(header.digest(), relay_client).await?
+	else {
 		return Ok(false);
 	};
 
