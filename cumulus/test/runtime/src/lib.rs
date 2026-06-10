@@ -304,7 +304,7 @@ impl VerifySchedulingSignature for NoVerification {
 
 	fn verify(
 		_signed_info: &cumulus_primitives_core::SignedSchedulingInfo,
-		_internal_scheduling_parent_header: &cumulus_primitives_core::relay_chain::Header,
+		_relay_slot: cumulus_primitives_core::relay_chain::Slot,
 	) -> bool {
 		true
 	}
