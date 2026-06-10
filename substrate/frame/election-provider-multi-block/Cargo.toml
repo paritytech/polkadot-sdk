@@ -7,6 +7,7 @@ license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
 description = "PALLET multi phase+block election providers"
+publish = false
 
 [lints]
 workspace = true
