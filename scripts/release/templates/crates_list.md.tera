@@ -1,6 +1,7 @@
 The following crates were updated to the corresponding versions:
 
 - sc-network-sync@0.50.1
+- pallet-assets@43.0.1
 - cumulus-pallet-xcmp-queue@0.21.2
 - collectives-westend-runtime@20.0.2
 - coretime-rococo-runtime@0.16.1
