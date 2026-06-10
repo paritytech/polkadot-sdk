@@ -19,15 +19,6 @@ doc:
 
     This PR adds experimental webrtc-direct transport support to the litep2p network backend. It is fully opt-in: nothing changes for existing nodes unless the operator explicitly passes --experimental-webrtc and supplies a webrtc-direct listen address. Default backend (litep2p) behavior, the libp2p backend, and all existing transports are untouched.
 
-    # Checklist
-
-    * [ ] My PR follows the [labeling requirements](
-    https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process
-    ) of this project (at minimum one label for `T` required)
-        * External contributors: Use `/cmd label <label-name>` to add labels
-        * Maintainers can also add labels manually
-    * [ ] I have made corresponding changes to the documentation (if applicable)
-    * [ ] I have added tests that prove my fix is effective or that my feature works (if applicable)
 crates:
 - name: sc-cli
   bump: patch
