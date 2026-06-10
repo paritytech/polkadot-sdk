@@ -1363,35 +1363,30 @@ fn read_or_generate_webrtc_certificate(file: &std::path::Path) -> Option<DtlsCer
 fn inner_read_or_generate_webrtc_certificate(
 	file: &std::path::Path,
 ) -> Result<Option<DtlsCertificate>, String> {
-	let maybe_bytes = std::fs::read(file);
-
-	// Load from disk if the file already exists.
-	if let Ok(bytes) = maybe_bytes.as_ref() {
-		log::info!(target: LOG_TARGET, "WebRTC certificate found at {file:?}, using existing one");
-		let (certificate, private_key) = Decode::decode(&mut bytes.as_slice())
-			.map_err(|err| format!("Failed to decode WebRTC certificate: {err:?}"))?;
-		return DtlsCertificate::load(certificate, private_key)
-			.map_err(|err| format!("Failed to load WebRTC certificate: {err:?}"))
-			.map(Some);
+	match std::fs::read(file) {
+		Ok(bytes) => {
+			log::info!(target: LOG_TARGET, "WebRTC certificate found at {file:?}, using existing one");
+			let (certificate, private_key) = Decode::decode(&mut bytes.as_slice())
+				.map_err(|err| format!("Failed to decode WebRTC certificate: {err:?}"))?;
+			DtlsCertificate::load(certificate, private_key)
+				.map_err(|err| format!("Failed to load WebRTC certificate: {err:?}"))
+				.map(Some)
+		},
+		Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+			log::info!(target: LOG_TARGET, "No WebRTC certificate found at {file:?}, generating a new one");
+			file.parent()
+				.map_or(Ok(()), fs::create_dir_all)
+				.map_err(|err| format!("Failed to create WebRTC certificate directory: {err:?}"))?;
+			let certificate = DtlsCertificate::new()
+				.map_err(|err| format!("Failed to generate WebRTC certificate: {err:?}"))?;
+			let certificate_bytes = certificate.as_parts().encode();
+			crate::config::write_secret_file(file, &certificate_bytes).map_err(|err| {
+				format!("Failed to persist WebRTC certificate to {file:?}: {err:?}")
+			})?;
+			Ok(Some(certificate))
+		},
+		Err(err) => Err(format!(
+			"Failed to read WebRTC certificate at {file:?}: {err:?}, using an ephemeral one"
+		)),
 	}
-
-	// Generate and store it if the file didn't exist.
-	if maybe_bytes
-		.err()
-		.map_or(false, |err| err.kind() == std::io::ErrorKind::NotFound)
-	{
-		log::info!(target: LOG_TARGET, "No WebRTC certificate found at {file:?}, generating a new one");
-		file.parent()
-			.map_or(Ok(()), fs::create_dir_all)
-			.map_err(|err| format!("Failed to create WebRTC certificate directory: {err:?}"))?;
-		let certificate = DtlsCertificate::new()
-			.map_err(|err| format!("Failed to generate WebRTC certificate: {err:?}"))?;
-		let certificate_bytes = certificate.as_parts().encode();
-		crate::config::write_secret_file(file, &certificate_bytes)
-			.map_err(|err| format!("Failed to persist WebRTC certificate to {file:?}: {err:?}"))?;
-		return Ok(Some(certificate));
-	}
-
-	log::info!(target: LOG_TARGET, "Failed to read WebRTC certificate at {file:?}, using an ephemeral one");
-	Ok(None)
 }
