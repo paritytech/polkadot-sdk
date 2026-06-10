@@ -1,0 +1,16 @@
+title: '[RWF] pallet-scored-pool: fix pool sort logic'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Closes #12259.
+
+    ## Summary
+
+    `score()` used `Reverse(maybe_score.unwrap_or_default())` as its binary-search key, which maps both `None` and `Some(0)` to `Reverse(0)`. Rescoring a candidate to `0` could then insert it after existing `None` entries, violating the documented "descending by score, `None` last" invariant. Same issue existed in the genesis `pool.sort_by_key`.
+
+    **Fix:** key on `Reverse(Option<Score>)` instead (`Reverse(*maybe_score)` / `Reverse(Some(score))`), since `Option`'s `Ord` already places `None` after all `Some(_)`.
+
+    **Test:** added `scoring_to_zero_must_sort_before_none_entries` covering this case.
+crates:
+- name: pallet-scored-pool
+  bump: patch
