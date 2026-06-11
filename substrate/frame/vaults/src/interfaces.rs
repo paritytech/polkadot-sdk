@@ -143,7 +143,10 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 				let weight_per_stake =
 					math::redist_weight_per_stake(redistributed_debt, avg_rate, bs.stakes.total)
 						.ok_or(Error::<T>::RedistributionWouldOverflow)?;
-				let now_fp = FixedU128::saturating_from_integer(T::TimeProvider::now());
+				let now_fp = FixedU128::saturating_from_integer(helpers::millis_diff::<T>(
+					T::TimeProvider::now(),
+					bs.epoch,
+				));
 				bs.redist.debt_per_stake = bs.redist.debt_per_stake.saturating_add(debt_per_stake);
 				bs.redist.collat_per_stake =
 					bs.redist.collat_per_stake.saturating_add(coll_per_stake);

@@ -47,7 +47,7 @@ fn moment_to_millis<T: Config>(m: MomentOf<T>) -> u64 {
 	m.saturated_into::<u64>()
 }
 
-fn millis_diff<T: Config>(now: MomentOf<T>, then: MomentOf<T>) -> u64 {
+pub(crate) fn millis_diff<T: Config>(now: MomentOf<T>, then: MomentOf<T>) -> u64 {
 	moment_to_millis::<T>(now.saturating_sub(then))
 }
 

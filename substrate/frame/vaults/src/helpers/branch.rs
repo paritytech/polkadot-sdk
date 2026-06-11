@@ -51,6 +51,7 @@ pub fn register_branch<T: Config>(
 		Ok(())
 	})?;
 	BranchConfigs::<T>::insert(&collateral_id, config);
+	let now = T::TimeProvider::now();
 	BranchStates::<T>::insert(
 		&collateral_id,
 		BranchState {
@@ -61,7 +62,7 @@ pub fn register_branch<T: Config>(
 				pending_redist_principal: BalanceOf::<T>::zero(),
 				bad_debt: BalanceOf::<T>::zero(),
 				weighted_principal_sum: BalanceOf::<T>::zero(),
-				last_interest_update: T::TimeProvider::now(),
+				last_interest_update: now,
 			},
 			stakes: BranchStakes {
 				total: BalanceOf::<T>::zero(),
@@ -69,6 +70,7 @@ pub fn register_branch<T: Config>(
 			},
 			rounding: crate::types::BranchRounding::default(),
 			redist: RedistSnapshot::default(),
+			epoch: now,
 			next_final_recovery_nonce: 0,
 			last_dormant_vault_owner: None,
 			idle_cursor: None,

@@ -518,3 +518,58 @@ fn full_lifecycle_holds_branch_identities() {
 		assert_identities();
 	});
 }
+
+// Epoch-relative debt-time accounting: interest on a redistributed share
+// accrues from the liquidation moment t1, not from the branch epoch or any
+// absolute origin. Liquidate at t1, touch the recipient at t2, and the
+// redistribution part of the accrued interest must equal
+// `share · rate · (t2 - t1) / year` to within fixed-point flooring.
+#[test]
+fn redistributed_principal_accrues_interest_from_liquidation_moment() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		assert_ok!(open(2, DOT, 2_000, 800, rate_pct(50, 100)));
+		// Age the branch so the epoch and t1 are well separated.
+		advance_time(10 * 24 * 3_600 * 1_000);
+		// Settle vault 2's own interest at t1 so the t2 delta decomposes into
+		// "own principal interest" + "redistribution interest" cleanly.
+		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(9), 2, DOT));
+
+		// Fully redistribute vault 1's debt at t1.
+		set_price(DOT, FixedU128::from_rational(55u128, 100u128));
+		let mut redistributed: Balance = 0;
+		assert_ok!(liquidate_with(DOT, 1, |post_touch| {
+			redistributed = post_touch;
+			LiquidationAllocation {
+				offset: OffsetAllocation { recipient: 9, debt: 0, collateral: 0 },
+				redistribution_collateral: 0,
+				keeper: KeeperCompensation { recipient: 8, collateral: 0 },
+			}
+		}));
+		let v_pre = Vaults::<Test>::get(DOT, 2).expect("vault 2 stored");
+
+		let elapsed: u128 = 30 * 24 * 3_600 * 1_000;
+		advance_time(elapsed as Moment);
+		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(9), 2, DOT));
+		let v_post = Vaults::<Test>::get(DOT, 2).expect("vault 2 stored");
+
+		// Vault 2 is the only recipient: per-stake quantization loses at most
+		// one unit of the redistributed principal.
+		let share = v_post.debt.principal - v_pre.debt.principal;
+		assert!(share > 0);
+		assert!(redistributed.abs_diff(share) <= 1, "share ≈ full redistributed debt");
+
+		// Both expectations follow `floor(P · rate · Δt / year)` with the 50%
+		// rate folded as a halving.
+		let own_expected = v_pre.debt.principal * elapsed / 2 / u128::from(ONE_YEAR_MS);
+		let redist_expected = share * elapsed / 2 / u128::from(ONE_YEAR_MS);
+		let interest_delta = v_post.debt.interest - v_pre.debt.interest;
+		assert!(interest_delta >= own_expected);
+		let redist_part = interest_delta - own_expected;
+		assert!(
+			redist_part.abs_diff(redist_expected) <= 2,
+			"redistribution interest accrues from t1: got {redist_part}, want ≈{redist_expected}"
+		);
+	});
+}

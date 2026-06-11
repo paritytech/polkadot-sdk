@@ -155,8 +155,11 @@ pub(crate) fn pending_touch_for<T: Config>(
 	// `(now - last_redist) * delta_debt_per_stake - delta_debt_time_per_stake`
 	// is the area-under-the-curve giving redistributed-debt × time-since
 	// per stake. Multiply by `rate / year` for the interest accrued on the
-	// redistributed principal since redistribution.
-	let now_fp = FixedU128::saturating_from_integer(moment_to_millis::<T>(now));
+	// redistributed principal since redistribution. Timestamps here are
+	// epoch-relative — the common origin cancels in the subtraction and keeps
+	// the products at branch-age scale; both writers of
+	// `debt_time_per_stake` must use the same origin.
+	let now_fp = FixedU128::saturating_from_integer(millis_diff::<T>(now, bs.epoch));
 	let extra_per_stake =
 		now_fp.saturating_mul(delta_debt_per_stake).saturating_sub(delta_dt_per_stake);
 	let rate_factor = vault
