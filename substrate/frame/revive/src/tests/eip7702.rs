@@ -416,6 +416,58 @@ fn process_multiple_authorizations_from_different_signers() {
 	});
 }
 
+/// Per EIP-7702: "If any step above fails, immediately stop processing the tuple and continue
+/// to the next tuple." Step 8 (set code) is one such step. We engineer a post-validation
+/// failure in `set_delegation` (by deleting the target's `CodeInfoOf` entry, so the refcount
+/// bump fails with `CodeNotFound`) and verify the rest of the authorization list is still
+/// processed and the transaction itself does not revert.
+#[test]
+fn auth_failing_post_validation_skips_without_aborting_list() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+
+		let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+		let target_bad = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+			.build_and_unwrap_contract();
+		let target_good =
+			builder::bare_instantiate(Code::Upload(counter_code)).build_and_unwrap_contract();
+
+		// Stage a post-validation failure: `target_bad`'s account still claims to be a
+		// contract with its original code_hash, but the corresponding `CodeInfoOf` entry
+		// is removed. `set_delegation` reads the snapshot hash from `AccountInfoOf`, then
+		// `increment_refcount` fails with `CodeNotFound` — exactly the kind of post-step-8
+		// failure the spec says we must skip past.
+		let bad_code_hash = get_contract(&target_bad.addr).code_hash;
+		CodeInfoOf::<Test>::remove(bad_code_hash);
+
+		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		let setup = DelegationTestSetup::new([0xAA; 32]);
+		let good_signer = TestSigner::new(&[0xBB; 32]);
+		let good_id = <Test as Config>::AddressMapper::to_account_id(&good_signer.address);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&good_id, 100_000_000);
+
+		let auth_bad = setup.sign_authorization(target_bad.addr);
+		let auth_good = good_signer.sign_authorization(chain_id, target_good.addr, U256::zero());
+
+		// `setup.process` calls `process_authorizations(...).expect(...)`. Without the
+		// per-auth `with_transaction` skip, the bad auth's error propagates out and this
+		// panics; with the skip, it returns Ok and we can inspect the result.
+		let result = setup.process(&[auth_bad, auth_good]);
+
+		// Bad auth: silently dropped — no delegation, no nonce bump for its authority.
+		assert!(!AccountInfo::<Test>::is_delegated(&setup.signer.address));
+		assert_eq!(frame_system::Pallet::<Test>::account_nonce(&setup.authority_id), 0);
+
+		// Good auth: applied.
+		assert!(AccountInfo::<Test>::is_delegated(&good_signer.address));
+		assert_eq!(frame_system::Pallet::<Test>::account_nonce(&good_id), 1);
+
+		// Counters only reflect the auth that committed.
+		assert_eq!(result.new_accounts, 0);
+		assert_eq!(result.existing_accounts, 1);
+	});
+}
+
 /// Runtime test: Set and clear authorization via eth_call.
 /// Verifies delegation state, nonce increment, and deposit lifecycle.
 #[test]

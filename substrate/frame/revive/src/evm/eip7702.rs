@@ -34,6 +34,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use frame_support::{
+	storage::{TransactionOutcome, with_transaction},
 	traits::fungible::{Balanced as _, Inspect},
 	weights::Weight,
 };
@@ -42,6 +43,15 @@ use sp_runtime::{SaturatedConversion, Saturating};
 
 /// EIP-7702: Magic value for authorization signature message
 const EIP7702_MAGIC: u8 = 0x05;
+
+/// Per-authorization storage-change delta, returned from the inner `with_transaction` block so
+/// `result` is only updated when the auth committed.
+#[derive(Default)]
+struct AuthDelta<Balance: Default> {
+	is_new_account: bool,
+	charged: Balance,
+	refunded: Balance,
+}
 
 /// Result of processing EIP-7702 authorization tuples.
 #[derive(Default, Debug, PartialEq, Eq)]
@@ -108,49 +118,75 @@ pub fn process_authorizations<T: Config>(
 			continue;
 		}
 
-		if !account_exists {
-			// ED must stay as free balance, not be held — credit from the tx fee pool.
-			let credit = <T as Config>::FeeInfo::withdraw_txfee(ed)
-				.ok_or(Error::<T>::StorageDepositNotEnoughFunds)?;
-			<T as Config>::Currency::resolve(&account_id, credit)
-				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
+		// EIP-7702 spec: "If any step above fails, immediately stop processing the tuple and
+		// continue to the next tuple." Step 8 (set code) is one such step, so wrap the whole
+		// per-auth state-changing block in a transaction and skip the tuple on any error —
+		// ED transfer, delegation, deposit, and nonce bump all commit together or not at all.
+		let outcome = with_transaction(
+			|| -> TransactionOutcome<Result<AuthDelta<BalanceOf<T>>, sp_runtime::DispatchError>> {
+				let inner = (|| -> Result<AuthDelta<BalanceOf<T>>, sp_runtime::DispatchError> {
+					let mut delta = AuthDelta::<BalanceOf<T>>::default();
+
+					if !account_exists {
+						let credit = <T as Config>::FeeInfo::withdraw_txfee(ed)
+							.ok_or(Error::<T>::StorageDepositNotEnoughFunds)?;
+						<T as Config>::Currency::resolve(&account_id, credit)
+							.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
+						delta.is_new_account = true;
+					}
+
+					let deposit = if auth.address.is_zero() {
+						AccountInfo::<T>::clear_delegation(&authority)?
+					} else {
+						AccountInfo::<T>::set_delegation(&authority, auth.address)?
+					};
+
+					match deposit {
+						StorageDeposit::Charge(amount) => {
+							Pallet::<T>::charge_deposit(
+								HoldReason::StorageDepositReserve,
+								origin,
+								&account_id,
+								amount,
+								exec_config,
+							)?;
+							delta.charged = amount;
+						},
+						StorageDeposit::Refund(amount) => {
+							Pallet::<T>::refund_deposit(
+								HoldReason::StorageDepositReserve,
+								&account_id,
+								exec_config.funds(origin),
+								amount,
+							)?;
+							delta.refunded = amount;
+						},
+					}
+
+					frame_system::Pallet::<T>::inc_account_nonce(&account_id);
+					Ok(delta)
+				})();
+
+				match inner {
+					Ok(d) => TransactionOutcome::Commit(Ok(d)),
+					Err(e) => TransactionOutcome::Rollback(Err(e)),
+				}
+			},
+		);
+
+		let Ok(delta) = outcome else {
+			log::debug!(target: LOG_TARGET, "Authorization for {authority:?} failed post-validation, skipping");
+			continue;
+		};
+
+		if delta.is_new_account {
 			result.deposit.saturating_accrue(ed);
 			result.new_accounts += 1;
 		} else {
 			result.existing_accounts += 1;
 		}
-
-		// Errors here are post-validation invariant violations — propagate (and let the
-		// extrinsic revert) rather than silently committing a partial authorization.
-		let deposit = if auth.address.is_zero() {
-			AccountInfo::<T>::clear_delegation(&authority)?
-		} else {
-			AccountInfo::<T>::set_delegation(&authority, auth.address)?
-		};
-
-		match deposit {
-			StorageDeposit::Charge(amount) => {
-				Pallet::<T>::charge_deposit(
-					HoldReason::StorageDepositReserve,
-					origin,
-					&account_id,
-					amount,
-					exec_config,
-				)?;
-				result.deposit.saturating_accrue(amount);
-			},
-			StorageDeposit::Refund(amount) => {
-				Pallet::<T>::refund_deposit(
-					HoldReason::StorageDepositReserve,
-					&account_id,
-					exec_config.funds(origin),
-					amount,
-				)?;
-				result.deposit = result.deposit.saturating_sub(amount);
-			},
-		}
-
-		frame_system::Pallet::<T>::inc_account_nonce(&account_id);
+		result.deposit.saturating_accrue(delta.charged);
+		result.deposit = result.deposit.saturating_sub(delta.refunded);
 	}
 
 	let worst_case_weight =
