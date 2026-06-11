@@ -22,10 +22,10 @@ use frame::testing_prelude::{assert_ok, assert_storage_noop};
 fn re_insert_unchanged_priority_no_op() {
 	build_and_execute(|| {
 		insert(1, 100, 50);
-		assert!(matches!(
+		assert_eq!(
 			LinkedList::re_insert(1, 100, 50, Position::endpoints_only()),
-			Ok(Outcome::NoOp),
-		));
+			Ok(Outcome::NoOp)
+		);
 		assert_eq!(dump(1), vec![(100, 50)]);
 	});
 }
@@ -38,10 +38,10 @@ fn re_insert_emits_no_lifecycle_events() {
 		insert(1, 30, 10);
 		System::reset_events();
 		// Relocate the tail (30) above the head — forces the splice + re-insert path.
-		assert!(matches!(
+		assert_eq!(
 			LinkedList::re_insert(1, 30, 100, Position::at_head(10)),
-			Ok(Outcome::Relocated { .. }),
-		));
+			Ok(Outcome::Relocated { steps: 0 })
+		);
 		// The item stays in the list: only `ItemReinserted`, never `ListCreated`/`ListRemoved`.
 		assert_eq!(System::events().len(), 1);
 		System::assert_last_event(
@@ -59,10 +59,10 @@ fn re_insert_in_place_when_position_still_valid() {
 		insert(1, 300, 10);
 		// Drop 200 from 50 → 30: still strictly less than 100 (90) and strictly
 		// greater than 300 (10). Position-validity check passes; in-place update.
-		assert!(matches!(
+		assert_eq!(
 			LinkedList::re_insert(1, 200, 30, Position::endpoints_only()),
-			Ok(Outcome::InPlace),
-		));
+			Ok(Outcome::InPlace)
+		);
 		assert_eq!(dump(1), vec![(100, 90), (200, 30), (300, 10)]);
 		System::assert_has_event(
 			Event::ItemReinserted { list_id: 1, item: 200, old_priority: 50, new_priority: 30 }
@@ -79,10 +79,7 @@ fn re_insert_priority_increase_moves_toward_head() {
 		insert(1, 3, 10);
 		let hint =
 			<LinkedList as SortedListInterface<_, _>>::find_re_insert_position(&1, &3, 95).unwrap();
-		assert!(matches!(
-			LinkedList::re_insert(1, 3, 95, hint),
-			Ok(Outcome::Relocated { steps: 0 }),
-		));
+		assert_eq!(LinkedList::re_insert(1, 3, 95, hint), Ok(Outcome::Relocated { steps: 0 }));
 		assert_eq!(dump(1), vec![(3, 95), (1, 90), (2, 50)]);
 	});
 }
