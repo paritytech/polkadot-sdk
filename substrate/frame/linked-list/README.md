@@ -72,10 +72,9 @@ value by simulating expected contention against their list cardinality.
 - `ListNodes[(list_id, item)] -> Node { prev, next, priority }` — the per-item
   record. `prev`/`next` are `None` at endpoints; `priority` is cached so
   position checks do not need to consult the consumer's source of truth.
-- `ListHeads[list_id] -> ItemId` — the highest-priority item per list.
-- `ListTails[list_id] -> ItemId` — the lowest-priority item per list.
-- `ListSizes[list_id] -> u32` — the per-list node count (the row is removed
-  when the list empties).
+- `ListMetas[list_id] -> ListMeta { head, tail, len }` — the per-list head
+  pointer, tail pointer, and node count in one row (the row is removed when
+  the list empties).
 
 ## Public surface
 
@@ -110,12 +109,13 @@ list.
 
 `try_state` (active under `try-runtime`) checks, for each list:
 
-1. Every present node implies `ListSizes[list_id] >= 1`.
-2. `ListHeads`/`ListTails` agree with the node graph at both endpoints.
+1. Every present node implies a `ListMetas` row with `len >= 1`.
+2. The `ListMetas` head/tail pointers agree with the node graph at both
+   endpoints.
 3. The chain from head to tail visits every node exactly once.
 4. Priorities are non-increasing from head to tail (`>=` allows same-priority
    clusters).
-5. No orphan nodes — every `ListNodes` row is reachable from `ListHeads`.
+5. No orphan nodes — every `ListNodes` row is reachable from the head.
 
 See `try_state.rs` for the exact checks.
 
