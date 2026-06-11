@@ -153,7 +153,16 @@ where
 ///
 /// The code and its metadata are stored in [`PristineCode`] and [`CodeInfoOf`] respectively, keyed
 /// by the keccak-256 hash of the bytecode.
+///
+/// EIP-7702: if the code is exactly the 23-byte delegation indicator (`0xef0100 || target`), the
+/// account is set up as a [`AccountType::DelegatedEOA`] pointing at `target` instead of having the
+/// bytes installed as raw code.
 fn apply_code_override<T: Config>(address: &H160, code: Vec<u8>) -> Result<(), EthTransactError> {
+	if let Some(target) = parse_delegation_indicator(&code) {
+		apply_delegation_override::<T>(address, target);
+		return Ok(());
+	}
+
 	let account_id = T::AddressMapper::to_account_id(address);
 	let is_pvm = code.starts_with(&polkavm_common::program::BLOB_MAGIC);
 	let module = if is_pvm {
@@ -198,6 +207,38 @@ fn apply_code_override<T: Config>(address: &H160, code: Vec<u8>) -> Result<(), E
 	.map_err(|err| {
 		EthTransactError::Message(format!("failed to apply code override for {address:?}: {err:?}"))
 	})
+}
+
+/// Parse an EIP-7702 delegation indicator (`0xef0100 || target`, exactly 23 bytes).
+fn parse_delegation_indicator(code: &[u8]) -> Option<H160> {
+	(code.len() == 23 && code[..3] == [0xef, 0x01, 0x00]).then(|| H160::from_slice(&code[3..23]))
+}
+
+/// Install an EIP-7702 delegation indicator on `address` pointing at `target`.
+///
+/// Writes directly to `AccountInfoOf` without going through [`AccountInfo::set_delegation`]: this
+/// runs inside a dry-run transaction that is always rolled back, so the refcount and storage
+/// deposit bookkeeping that `set_delegation` performs would be discarded anyway, and skipping it
+/// also lets us override accounts that are currently contracts (which `set_delegation` rejects).
+fn apply_delegation_override<T: Config>(address: &H160, target: H160) {
+	let target_code_hash =
+		<AccountInfoOf<T>>::get(&target).and_then(|info| match info.account_type {
+			AccountType::Contract(c) => Some(c.code_hash),
+			_ => None,
+		});
+
+	<AccountInfoOf<T>>::mutate(address, |account| {
+		let dust = account.as_ref().map(|a| a.dust).unwrap_or(0);
+		let contract_info =
+			ContractInfo::<T>::new_for_delegation(address, target_code_hash.unwrap_or_default());
+		*account = Some(AccountInfo {
+			account_type: AccountType::DelegatedEOA {
+				delegate_target: Some(target),
+				contract_info,
+			},
+			dust,
+		});
+	});
 }
 
 /// Overrides storage slots of a contract account.

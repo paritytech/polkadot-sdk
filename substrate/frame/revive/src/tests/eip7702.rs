@@ -18,23 +18,29 @@
 //! Tests for EIP-7702: Set EOA Account Code
 
 use crate::{
-	Code, CodeInfoOf, Config, ExecConfig, HoldReason,
-	evm::{AuthorizationListEntry, eip7702::AuthorizationResult, fees::InfoT},
-	storage::AccountInfo,
+	Code, CodeInfoOf, Config, DryRunConfig, ExecConfig, HoldReason,
+	evm::{
+		AuthorizationListEntry, Bytes, StateOverride, StateOverrideSet, StorageOverride,
+		eip7702::AuthorizationResult, fees::InfoT,
+	},
+	storage::{AccountInfo, AccountType},
 	test_utils::builder::Contract,
 	tests::{TestSigner, builder, test_utils::*, *},
+	weights::WeightInfo,
 };
+use alloc::collections::BTreeMap;
+use alloy_core::sol_types::{SolCall, SolConstructor};
 use frame_support::{
 	assert_ok,
 	traits::fungible::{Balanced, Inspect, Mutate},
 	weights::Weight,
 };
+use pallet_revive_fixtures::{Caller, Counter, FixtureType, Terminate, compile_module_with_type};
 use sp_core::{H160, H256, U256};
 
 /// Compute the expected weight refund for a given mix of new/existing processed accounts.
 /// Mirrors the logic in `process_authorizations`.
 fn expected_weight_refund_for(total: u32, new_accounts: u32, existing_accounts: u32) -> Weight {
-	use crate::weights::WeightInfo;
 	let worst = <Test as Config>::WeightInfo::process_new_account_authorization(total)
 		.saturating_add(<Test as Config>::WeightInfo::process_existing_account_authorization(0));
 	let actual = <Test as Config>::WeightInfo::process_new_account_authorization(new_accounts)
@@ -258,7 +264,6 @@ fn contract_account_rejects_authorization() {
 		let contract_info = get_contract(&contract.addr);
 
 		// Overwrite the signer's account info to be a Contract type
-		use crate::storage::AccountType;
 		crate::AccountInfoOf::<Test>::insert(
 			setup.signer.address,
 			crate::storage::AccountInfo {
@@ -475,9 +480,6 @@ fn test_runtime_set_and_clear_authorization() {
 /// call body finds the delegation and executes the target contract's code.
 #[test]
 fn test_runtime_delegation_resolution() {
-	use alloy_core::sol_types::SolCall;
-	use pallet_revive_fixtures::{Counter, FixtureType, compile_module_with_type};
-
 	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -530,9 +532,6 @@ fn test_runtime_delegation_resolution() {
 /// avoid layout collisions.
 #[test]
 fn redelegation_preserves_storage() {
-	use alloy_core::sol_types::SolCall;
-	use pallet_revive_fixtures::{Counter, FixtureType, compile_module_with_type};
-
 	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -596,9 +595,6 @@ fn redelegation_preserves_storage() {
 /// re-delegation, bare_call must not resolve code for a cleared delegation.
 #[test]
 fn cleared_delegation_does_not_execute_code() {
-	use alloy_core::sol_types::SolCall;
-	use pallet_revive_fixtures::{Counter, FixtureType, compile_module_with_type};
-
 	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -688,6 +684,66 @@ fn dry_run_with_authorization_list() {
 	});
 }
 
+/// State-override path: a `code` override of `0xef0100 || target` must install the account as
+/// a `DelegatedEOA` pointing at `target`, not as raw bytecode.
+///
+/// We seed `Eve`'s slot 0 with `42` via a storage override and dry-run `Counter::number()` on
+/// `Eve`. The call only returns `42` if `Counter`'s code executes in `Eve`'s storage namespace —
+/// i.e., the indicator was actually interpreted as a delegation. Without that handling, the
+/// override would attempt to install the 23 indicator bytes as raw code, which fails (the first
+/// byte `0xEF` is a reserved/invalid EVM opcode), and the dry-run returns empty/errors.
+#[test]
+fn state_override_delegation_indicator_routes_to_target() {
+	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000_000);
+		let counter =
+			builder::bare_instantiate(Code::Upload(counter_code)).build_and_unwrap_contract();
+
+		let eve = H160::from([0xEE; 20]);
+
+		// 0xef0100 || counter.addr (23 bytes total)
+		let mut indicator = vec![0xefu8, 0x01, 0x00];
+		indicator.extend_from_slice(counter.addr.as_bytes());
+
+		// Counter::number is uint64 at slot 0.
+		let mut slot_diff = BTreeMap::new();
+		slot_diff.insert(H256::zero(), H256::from_low_u64_be(42));
+
+		let mut overrides_map = BTreeMap::new();
+		overrides_map.insert(
+			eve,
+			StateOverride {
+				code: Some(Bytes(indicator)),
+				storage: Some(StorageOverride::StateDiff(slot_diff)),
+				..Default::default()
+			},
+		);
+		let overrides = StateOverrideSet(overrides_map);
+
+		let result = crate::Pallet::<Test>::dry_run_eth_transact(
+			crate::GenericTransaction {
+				from: Some(ALICE_ADDR),
+				to: Some(eve),
+				input: Counter::numberCall {}.abi_encode().into(),
+				..Default::default()
+			},
+			DryRunConfig::default()
+				.with_perform_balance_checks(false)
+				.with_state_overrides(overrides),
+		);
+
+		let info = result.expect("dry-run with delegation indicator override should succeed");
+		let returned = Counter::numberCall::abi_decode_returns(&info.data)
+			.expect("call should return a valid uint64");
+		assert_eq!(
+			returned, 42u64,
+			"delegation indicator override should route the call to Counter at Eve's storage"
+		);
+	});
+}
+
 /// Test that delegation chains are not followed during execution (EIP-7702 spec)
 ///
 /// Per EIP-7702: "In case a delegation indicator points to another delegation,
@@ -700,9 +756,6 @@ fn dry_run_with_authorization_list() {
 /// 3. Calling Bob (who delegates to Alice) does NOT execute code (chain not followed)
 #[test]
 fn delegation_chain_does_not_execute() {
-	use alloy_core::sol_types::SolCall;
-	use pallet_revive_fixtures::{Caller, Counter, FixtureType, compile_module_with_type};
-
 	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
 	let (caller_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
 
@@ -813,9 +866,6 @@ fn delegation_to_nonexistent_address_is_noop() {
 /// 7. Verify: delegation still functional (echo(42) returns 42)
 #[test]
 fn selfdestruct_on_delegated_account() {
-	use alloy_core::sol_types::{SolCall, SolConstructor};
-	use pallet_revive_fixtures::{FixtureType, Terminate, compile_module_with_type};
-
 	let (code, _) = compile_module_with_type("Terminate", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -1019,7 +1069,6 @@ fn redelegation_updates_refcounts() {
 			.build_and_unwrap_contract();
 
 		// Deploy a different contract so it has a different code hash
-		use pallet_revive_fixtures::{FixtureType, compile_module_with_type};
 		let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
 		let target_b =
 			builder::bare_instantiate(Code::Upload(counter_code)).build_and_unwrap_contract();
@@ -1063,7 +1112,6 @@ fn redelegation_via_eoa_does_not_double_decrement() {
 		let target_a = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
 			.build_and_unwrap_contract();
 
-		use pallet_revive_fixtures::{FixtureType, compile_module_with_type};
 		let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
 		let target_c =
 			builder::bare_instantiate(Code::Upload(counter_code)).build_and_unwrap_contract();
