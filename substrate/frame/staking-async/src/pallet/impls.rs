@@ -747,27 +747,24 @@ impl<T: Config> Pallet<T> {
 		));
 
 		// In liquid mode (VestingBondingPeriods = 0) the start and duration values are not used.
-		// In vesting mode, however, both epoch storage items must be set, otherwise the incentive
-		// is dropped as we do not want it defaulting to liquid mode.
+		// In vesting mode, VestingEpochStart must be set, otherwise the incentive is dropped.
 		let (start_at, duration) = if T::VestingBondingPeriods::get() == 0 {
 			(BlockNumberFor::<T>::zero(), BlockNumberFor::<T>::zero())
 		} else {
-			match (VestingEpochStart::<T>::get(), VestingEpochDuration::<T>::get()) {
-				(Some(start), Some(dur)) => (start, dur),
-				_ => {
-					log!(
-						warn,
-						"Incentive for era {:?} dropped: vesting epoch not yet established",
-						era
-					);
-					Self::deposit_event(Event::<T>::ValidatorIncentiveDropped {
-						era,
-						validator_stash: stash.clone(),
-						amount,
-					});
-					return;
-				},
-			}
+			let Some(start) = VestingEpochStart::<T>::get() else {
+				log!(warn, "Incentive for era {:?} dropped: VestingEpochStart not yet set", era);
+				Self::deposit_event(Event::<T>::ValidatorIncentiveDropped {
+					era,
+					validator_stash: stash.clone(),
+					amount,
+				});
+				return;
+			};
+			let duration = T::BlocksPerSession::get()
+				.saturating_mul(T::SessionsPerEra::get().into())
+				.saturating_mul(T::BondingDuration::get().into())
+				.saturating_mul(T::VestingBondingPeriods::get().into());
+			(start, duration)
 		};
 
 		match T::ValidatorIncentivePayout::pay(

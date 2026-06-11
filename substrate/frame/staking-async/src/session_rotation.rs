@@ -774,23 +774,15 @@ impl<T: Config> Rotator<T> {
 		Self::start_era_inc_active_era(new_era_start_timestamp);
 		Self::start_era_update_bonded_eras(starting_era, starting_session);
 
-		// Snapshot the vesting epoch start block when a new bonding-duration window begins.
+		// Snapshot the vesting epoch start block. Seeded on the first era after the pallet is
+		// configured with vesting enabled, and refreshed at every bonding-duration boundary so
+		// payout merges land in the correct vesting schedule slot.
 		let bonding_duration = T::BondingDuration::get();
-		if bonding_duration != 0 && starting_era % bonding_duration == 0 {
+		if bonding_duration != 0 && T::VestingBondingPeriods::get() > 0 {
 			let now = T::VestingBlockNumberProvider::current_block_number();
-			let windows = T::VestingBondingPeriods::get();
-
-			// Allow `VestingEpochDuration` to self-calibrate.
-			if windows > 0 {
-				if let Some(prev) = VestingEpochStart::<T>::get() {
-					let bonding_window_duration = now.saturating_sub(prev);
-					let total_duration = bonding_window_duration.saturating_mul(windows.into());
-
-					VestingEpochDuration::<T>::put(total_duration);
-				}
+			if VestingEpochStart::<T>::get().is_none() || starting_era % bonding_duration == 0 {
+				VestingEpochStart::<T>::put(now);
 			}
-
-			VestingEpochStart::<T>::put(now);
 		}
 
 		// Snapshot the current nominators slashable setting for this era.

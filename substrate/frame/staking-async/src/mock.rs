@@ -34,7 +34,7 @@ use frame_support::{
 };
 use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot, EnsureSignedBy};
 use pallet_staking_async_rc_client as rc_client;
-use sp_core::{ConstBool, ConstU32, ConstU64};
+use sp_core::{ConstBool, ConstU64};
 use sp_io;
 use sp_npos_elections::BalancingConfig;
 use sp_runtime::{traits::Zero, BuildStorage, Weight};
@@ -98,6 +98,7 @@ parameter_types! {
 	pub static SessionsPerEra: SessionIndex = 3;
 	pub static Period: BlockNumber = 5;
 	pub static Offset: BlockNumber = 0;
+	pub static VestingBondingPeriods: u32 = 0;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -560,7 +561,8 @@ impl Config for Test {
 	type CurrencyToVote = SaturatingCurrencyToVote;
 	type Slash = Dap;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type VestingBondingPeriods = ConstU32<0>;
+	type VestingBondingPeriods = VestingBondingPeriods;
+	type BlocksPerSession = Period;
 	type VestingBlockNumberProvider = frame_system::Pallet<Test>;
 	type ValidatorIncentivePayout = LiquidIncentivePayout<Balances>;
 	type WeightInfo = ();

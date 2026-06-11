@@ -430,6 +430,13 @@ pub mod pallet {
 		#[pallet::no_default]
 		type VestingBondingPeriods: Get<u32>;
 
+		/// The number of blocks in one session.
+		///
+		/// Used for computing the total vesting duration in blocks:
+		/// `BlocksPerSession × SessionsPerEra × BondingDuration × VestingBondingPeriods`.
+		#[pallet::no_default]
+		type BlocksPerSession: Get<BlockNumberFor<Self>>;
+
 		/// Block number provider used to snapshot [`VestingEpochStart`].
 		///
 		/// Must use the **same** block-number space as `pallet_vesting`'s
@@ -611,23 +618,15 @@ pub mod pallet {
 
 	/// The block number at which the current vesting window started.
 	///
-	/// Snapshotted each time a new [`Config::BondingDuration`]-era window begins (i.e.
-	/// `era % BondingDuration == 0`). Used as the `starting_block` merge key in
-	/// [`crate::VestedIncentivePayout`] so all incentive payouts within the same window
-	/// accumulate into one vesting schedule slot rather than consuming a new slot per era.
+	/// Snapshotted on the first era after a runtime upgrade (when `None`) and updated at each
+	/// subsequent [`Config::BondingDuration`]-era boundary. Used as the `starting_block` merge
+	/// key in [`crate::VestedIncentivePayout`] so all incentive payouts within the same window
+	/// accumulate into a single vesting schedule slot.
 	///
-	/// `None` until the first epoch boundary is crossed; `None` forces incentive payouts
-	/// to be delivered as a liquid transfer.
+	/// - Defaults to `None` until the first era rotation after `VestingBondingPeriods` is set
+	/// - If set to `None`, incentive payouts will be dropped.
 	#[pallet::storage]
 	pub type VestingEpochStart<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
-
-	/// The total vesting window duration in blocks.
-	///
-	/// It is computed at the start of each bonding-duration boundary as:
-	/// `elapsed_blocks_since_last_epoch × Config::VestingBondingPeriods`.
-	/// It is `None` until the second epoch boundary is crossed. `None` forces liquid delivery.
-	#[pallet::storage]
-	pub type VestingEpochDuration<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
 
 	/// Whether nominators are slashable or not.
 	///

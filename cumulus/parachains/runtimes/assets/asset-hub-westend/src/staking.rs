@@ -314,6 +314,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxPruningItems = MaxPruningItems;
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 	type VestingBondingPeriods = ValidatorVestingBondingPeriods;
+	type BlocksPerSession = RelaySessionDuration;
 	type VestingBlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type ValidatorIncentivePayout =
 		pallet_staking_async::VestedIncentivePayout<Balances, pallet_vesting::Pallet<Runtime>>;
@@ -650,6 +651,17 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn max_vesting_schedules_exceeds_vesting_bonding_periods() {
+		// Ensure that `MAX_VESTING_SCHEDULES` always exceeds `VestingBondingPeriods`,
+		// so that vested validator payments don't get dropped due to schedule limits.
+		assert!(
+			<Runtime as pallet_vesting::Config>::MAX_VESTING_SCHEDULES >
+				ValidatorVestingBondingPeriods::get(),
+			"MAX_VESTING_SCHEDULES must exceed VestingBondingPeriods to avoid dropped incentives"
+		);
+	}
 
 	#[test]
 	fn all_epmb_weights_sane() {

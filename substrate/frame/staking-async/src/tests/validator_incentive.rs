@@ -611,29 +611,49 @@ fn missing_payee_emits_unexpected_and_skips_payout() {
 // ===== VestingEpochStart snapshot tests =====
 
 #[test]
-fn vesting_epoch_start_none_before_first_boundary() {
+fn vesting_epoch_start_never_set_in_liquid_mode() {
+	// In liquid mode (VestingBondingPeriods = 0), VestingEpochStart must never be set,
+	// regardless of how many eras or bonding boundaries are crossed.
 	ExtBuilder::default().build_and_execute(|| {
-		// GIVEN: chain starts — no epoch boundary has been crossed yet.
-		// THEN: VestingEpochStart is not set.
 		assert!(VestingEpochStart::<Test>::get().is_none());
 
-		// Advance to era 1 and 2 (BondingDuration = 3, so boundary is at era 3).
-		Session::roll_until_active_era(2);
+		Session::roll_until_active_era(1);
+		assert!(VestingEpochStart::<Test>::get().is_none());
+
+		Session::roll_until_active_era(3); // first boundary
+		assert!(VestingEpochStart::<Test>::get().is_none());
+
+		Session::roll_until_active_era(6); // second boundary
 		assert!(VestingEpochStart::<Test>::get().is_none());
 	});
 }
 
 #[test]
-fn vesting_epoch_start_snapshotted_at_bonding_duration_boundary() {
+fn vesting_epoch_start_seeded_on_first_era_in_vesting_mode() {
+	// With VestingBondingPeriods > 0, VestingEpochStart is seeded on the very first era
+	// rotation, well before the first bonding-duration boundary (era 3 in the mock).
 	ExtBuilder::default().build_and_execute(|| {
-		// BondingDuration = 3 in the test mock, so VestingEpochStart is set when
-		// starting_era % 3 == 0, i.e. when era 3 (starting_era=3) begins.
+		VestingBondingPeriods::set(1);
+		assert!(VestingEpochStart::<Test>::get().is_none());
+
+		// Advance one era (BondingDuration = 3, so no boundary yet — the seeding fires because
+		// VestingEpochStart is None, not because of a boundary crossing).
+		Session::roll_until_active_era(2);
+		assert!(VestingEpochStart::<Test>::get().is_some(), "should be seeded on first era");
+	});
+}
+
+#[test]
+fn vesting_epoch_start_snapshotted_at_bonding_duration_boundary() {
+	// VestingEpochStart is refreshed at each bonding-duration boundary (era % 3 == 0).
+	ExtBuilder::default().build_and_execute(|| {
+		VestingBondingPeriods::set(1);
+
 		let block_before = System::block_number();
 		Session::roll_until_active_era(3);
 
 		let snapshot = VestingEpochStart::<Test>::get();
 		assert!(snapshot.is_some(), "VestingEpochStart should be set after first boundary");
-		// The snapshot must be at or after the block we were at before advancing.
 		assert!(snapshot.unwrap() >= block_before);
 	});
 }
@@ -641,15 +661,14 @@ fn vesting_epoch_start_snapshotted_at_bonding_duration_boundary() {
 #[test]
 fn vesting_epoch_start_updated_on_next_boundary() {
 	ExtBuilder::default().build_and_execute(|| {
-		// Advance past the first boundary (era 3).
+		VestingBondingPeriods::set(1);
+
 		Session::roll_until_active_era(3);
 		let first_snapshot = VestingEpochStart::<Test>::get().unwrap();
 
-		// Advance past the second boundary (era 6 = 2 * BondingDuration).
 		Session::roll_until_active_era(6);
 		let second_snapshot = VestingEpochStart::<Test>::get().unwrap();
 
-		// The second snapshot should be strictly later than the first.
 		assert!(
 			second_snapshot > first_snapshot,
 			"second snapshot ({second_snapshot}) should be after first ({first_snapshot})"
@@ -660,7 +679,8 @@ fn vesting_epoch_start_updated_on_next_boundary() {
 #[test]
 fn vesting_epoch_start_unchanged_between_boundaries() {
 	ExtBuilder::default().build_and_execute(|| {
-		// Cross the first boundary.
+		VestingBondingPeriods::set(1);
+
 		Session::roll_until_active_era(3);
 		let snapshot_at_3 = VestingEpochStart::<Test>::get().unwrap();
 
@@ -669,40 +689,6 @@ fn vesting_epoch_start_unchanged_between_boundaries() {
 		assert_eq!(VestingEpochStart::<Test>::get().unwrap(), snapshot_at_3);
 		Session::roll_until_active_era(5);
 		assert_eq!(VestingEpochStart::<Test>::get().unwrap(), snapshot_at_3);
-	});
-}
-
-#[test]
-fn vesting_epoch_duration_none_in_liquid_mode() {
-	// When VestingBondingPeriods = 0 (liquid mode), VestingEpochDuration must never be set,
-	// regardless of how many bonding boundaries are crossed.
-	ExtBuilder::default().build_and_execute(|| {
-		assert!(VestingEpochDuration::<Test>::get().is_none());
-
-		Session::roll_until_active_era(3); // first boundary
-		assert!(VestingEpochDuration::<Test>::get().is_none());
-
-		Session::roll_until_active_era(6); // second boundary
-		assert!(VestingEpochDuration::<Test>::get().is_none());
-	});
-}
-
-#[test]
-fn vesting_epoch_duration_set_on_second_boundary() {
-	// VestingEpochDuration is computed from elapsed blocks on the second boundary.
-	// We seed it directly here (bypassing the config constraint) to verify the storage path.
-	ExtBuilder::default().build_and_execute(|| {
-		// Simulate what session_rotation writes when VestingBondingPeriods > 0:
-		// After the first boundary a prior start exists; on the second boundary it computes
-		// elapsed * windows and stores VestingEpochDuration.
-		let fake_start: BlockNumber = 10;
-		let fake_duration: BlockNumber = 500; // e.g. 50 elapsed blocks × 10 windows
-
-		VestingEpochStart::<Test>::put(fake_start);
-		VestingEpochDuration::<Test>::put(fake_duration);
-
-		assert_eq!(VestingEpochStart::<Test>::get(), Some(fake_start));
-		assert_eq!(VestingEpochDuration::<Test>::get(), Some(fake_duration));
 	});
 }
 

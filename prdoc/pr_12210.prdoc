@@ -1,0 +1,39 @@
+title: Vesting incentive for validator self-stake
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Enable vested incentive payouts for validator self-stake (issue #11876) instead of the
+    previous immediate (liquid) transfers.
+
+    ## Changes to `pallet-vesting`:
+
+    - New `VestedPayout` trait method: `add_to_vesting(source, dest, amount, duration, start_at)`
+      - If a vesting schedule that starts at `start_at` exists, it is merged with this schedule
+      - Otherwise, we attempt to create a new vesting schedule with the given arguments
+    - Two corresponding new `WeightInfo` methods: `add_to_vesting_create` and `add_to_vesting_merge`.
+
+    ## Changes to `pallet-staking-async`:
+
+    - New `#[pallet::no_default]` `Config` items:
+      - `VestingBondingPeriods`: Number of bonding-duration windows to vest over (`0` = liquid).
+      - `BlocksPerSession`: The number of blocks in a session.
+      - `VestingBlockNumberProvider`: Block-number provider matching pallet-vesting's clock.
+      - `ValidatorIncentivePayout`: Payout adapter trait with 2 implementations: `LiquidIncentivePayout`
+          or `VestedIncentivePayout`.
+
+    - The `VestingEpochStart` storage item tracks the start of the current vesting window; it is
+      seeded on the first era after the runtime upgrade, so that vesting can begin immediately.
+      If delivery fails for any reason, the incentive is dropped (no liquid fallback).
+
+crates:
+- name: pallet-staking-async
+  bump: major
+- name: pallet-vesting
+  bump: minor
+- name: frame-support
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor

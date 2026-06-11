@@ -466,6 +466,7 @@ impl pallet_staking_async::Config for Runtime {
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
 	type RcClientInterface = StakingRcClient;
 	type VestingBondingPeriods = ValidatorVestingBondingPeriods;
+	type BlocksPerSession = RelaySessionDuration;
 	type VestingBlockNumberProvider = RelayChainBlockNumberProvider;
 	type ValidatorIncentivePayout =
 		pallet_staking_async::VestedIncentivePayout<Balances, pallet_vesting::Pallet<Runtime>>;
