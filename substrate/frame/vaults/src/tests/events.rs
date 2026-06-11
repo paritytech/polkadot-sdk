@@ -290,19 +290,23 @@ fn set_parameter_emits_parameter_updated() {
 	});
 }
 
-// set_debt_ceiling emits DebtCeilingUpdated with old/new values.
+// set_debt_ceiling goes through the shared parameter machinery and emits
+// ParameterUpdated.
 #[test]
-fn set_debt_ceiling_emits_debt_ceiling_updated() {
+fn set_debt_ceiling_emits_parameter_updated() {
 	build_and_execute(|| {
 		register_default_branch();
 		assert_ok!(
 			crate::Pallet::<Test>::set_debt_ceiling(RuntimeOrigin::root(), DOT, 50_000_000,)
 		);
-		assert_event(crate::Event::DebtCeilingUpdated {
+		assert_event(crate::Event::ParameterUpdated {
 			collateral_id: DOT,
-			old_value: 100_000_000,
-			new_value: 50_000_000,
+			parameter: crate::types::ParameterId::DebtCeiling,
 		});
+		assert_eq!(
+			crate::pallet::BranchConfigs::<Test>::get(DOT).expect("config").debt_ceiling,
+			50_000_000
+		);
 	});
 }
 

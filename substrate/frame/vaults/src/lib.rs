@@ -321,11 +321,6 @@ pub mod pallet {
 			collateral_id: T::AssetId,
 			parameter: types::ParameterId,
 		},
-		DebtCeilingUpdated {
-			collateral_id: T::AssetId,
-			old_value: BalanceOf<T>,
-			new_value: BalanceOf<T>,
-		},
 		BranchRegistered {
 			collateral_id: T::AssetId,
 		},
@@ -749,22 +744,14 @@ pub mod pallet {
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			let cfg = helpers::current_branch_config::<T>(&collateral_id)?;
-			let old = cfg.debt_ceiling;
 			ensure!(
-				matches!(level, VaultsManagerLevel::Full) || value <= old,
+				matches!(level, VaultsManagerLevel::Full) || value <= cfg.debt_ceiling,
 				Error::<T>::DefensiveActionNotDefensive
 			);
-			BranchConfigs::<T>::mutate(&collateral_id, |maybe| {
-				if let Some(c) = maybe {
-					c.debt_ceiling = value;
-				}
-			});
-			Self::deposit_event(Event::DebtCeilingUpdated {
-				collateral_id,
-				old_value: old,
-				new_value: value,
-			});
-			Ok(())
+			helpers::update_branch_config::<T>(
+				&collateral_id,
+				BranchConfigUpdate::DebtCeiling(value),
+			)
 		}
 
 		#[pallet::call_index(15)]
