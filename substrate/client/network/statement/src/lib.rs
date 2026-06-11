@@ -1838,10 +1838,6 @@ mod tests {
 				subscription_topics: Default::default(),
 			}
 		}
-
-		fn set_subscription_topics(&self, topics: Vec<Topic>) {
-			*self.subscription_topics.lock().unwrap() = topics;
-		}
 	}
 
 	impl StatementStore for TestStatementStore {
