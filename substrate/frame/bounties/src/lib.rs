@@ -568,7 +568,7 @@ pub mod pallet {
 				match bounty.status {
 					BountyStatus::Proposed | BountyStatus::Approved | BountyStatus::Funded => {
 						// No curator to unassign at this point.
-						return Err(Error::<T, I>::UnexpectedStatus.into())
+						return Err(Error::<T, I>::UnexpectedStatus.into());
 					},
 					BountyStatus::ApprovedWithCurator { ref curator } => {
 						// Bounty not yet funded, but bounty was approved with curator.
@@ -602,7 +602,7 @@ pub mod pallet {
 									// Continue to change bounty status below...
 									} else {
 										// Curator has more time to give an update.
-										return Err(Error::<T, I>::Premature.into())
+										return Err(Error::<T, I>::Premature.into());
 									}
 								} else {
 									// Else this is the curator, willingly giving up their role.
@@ -830,12 +830,12 @@ pub mod pallet {
 							// Return early, nothing else to do.
 							return Ok(
 								Some(<T as Config<I>>::WeightInfo::close_bounty_proposed()).into()
-							)
+							);
 						},
 						BountyStatus::Approved | BountyStatus::ApprovedWithCurator { .. } => {
 							// For weight reasons, we don't allow a council to cancel in this phase.
 							// We ask for them to wait until it is funded before they can cancel.
-							return Err(Error::<T, I>::UnexpectedStatus.into())
+							return Err(Error::<T, I>::UnexpectedStatus.into());
 						},
 						BountyStatus::Funded | BountyStatus::CuratorProposed { .. } => {
 							// Nothing extra to do besides the removal of the bounty below.
@@ -852,7 +852,7 @@ pub mod pallet {
 							// this bounty, it should mean the curator was acting maliciously.
 							// So the council should first unassign the curator, slashing their
 							// deposit.
-							return Err(Error::<T, I>::PendingPayout.into())
+							return Err(Error::<T, I>::PendingPayout.into());
 						},
 					}
 

@@ -23,7 +23,8 @@ use frame_support::{
 	traits::{GetStorageVersion, PalletInfoAccess},
 	weights::WeightMeter,
 };
-use sp_core::{twox_128, Get};
+use sp_core::Get;
+use sp_crypto_hashing::twox_128;
 use sp_io::{storage::clear_prefix, KillStorageResult};
 use sp_runtime::SaturatedConversion;
 
@@ -93,7 +94,7 @@ where
 		if key_budget == 0 {
 			return Err(SteppedMigrationError::InsufficientWeight {
 				required: T::WeightInfo::reset_pallet_migration(1),
-			})
+			});
 		}
 
 		let (keys_removed, is_done) = match clear_prefix(&P::name_hash(), Some(key_budget)) {

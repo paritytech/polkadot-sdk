@@ -493,7 +493,7 @@ pub mod pallet {
 			if addition == Weight::zero() {
 				// this is most likely because in a test setup we set everything to ()
 				// or to `ConstFeeMultiplier`.
-				return
+				return;
 			}
 
 			// This is the minimum value of the multiplier. Make sure that if we collapse to this
@@ -731,7 +731,7 @@ impl<T: Config> Pallet<T> {
 		<TxPaymentCredit<T>>::mutate(|credit| {
 			let credit = SuppressedDrop::as_mut(credit.as_mut()?);
 			if amount > credit.peek() {
-				return None
+				return None;
 			}
 			Some(credit.extract(amount))
 		})
@@ -1060,7 +1060,7 @@ where
 			Pre::Charge { tip, who, liquidity_info } => (tip, who, liquidity_info),
 			Pre::NoCharge { refund } => {
 				// No-op: Refund everything
-				return Ok(refund)
+				return Ok(refund);
 			},
 		};
 		let actual_fee_with_tip =

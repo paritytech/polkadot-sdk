@@ -32,7 +32,6 @@
 //!
 //! For clarity, the actual implementation in Substrate looks like this:
 #![doc = docify::embed!("../../substrate/primitives/runtime/src/generic/unchecked_extrinsic.rs", unchecked_extrinsic_encode_impl)]
-//!
 //! Let's look at how each of these details is constructed:
 //!
 //! ## compact_encoded_length
@@ -161,7 +160,6 @@
 //!
 //! FRAME `Call` enums are automatically generated, and end up looking something like this:
 #![doc = docify::embed!("./src/reference_docs/extrinsic_encoding.rs", call_data)]
-//!
 //! In pseudo-code, this `Call` enum encodes equivalently to:
 //!
 //! ```text

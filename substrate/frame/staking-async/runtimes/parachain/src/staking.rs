@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-///! Staking, and election related pallet configurations.
+/// ! Staking, and election related pallet configurations.
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
@@ -31,6 +31,7 @@ use sp_runtime::{
 	SaturatedConversion,
 };
 use xcm::latest::prelude::*;
+use xcm_executor::XcmExecutor as XcmExec;
 
 pub(crate) fn enable_dot_preset(fast: bool) {
 	Pages::set(&32);
@@ -159,8 +160,9 @@ parameter_types! {
 	/// Number of nominators per page of the snapshot, and consequently number of backers in the
 	/// solution.
 	///
-	/// 703 in both Polkadot and Kusama.
-	pub VoterSnapshotPerBlock: u32 = MaxElectingVoters::get() / Pages::get();
+	/// 704 in Polkadot (32 pages), 782 in Kusama (16 pages). Uses ceiling division so that
+	/// `VoterSnapshotPerBlock * Pages >= MaxElectingVoters` holds for any configured values.
+	pub VoterSnapshotPerBlock: u32 = MaxElectingVoters::get().div_ceil(Pages::get());
 
 	/// In each page, we may observe up to all of the validators.
 	pub const MaxWinnersPerPage: u32 = MaxValidatorSet::get();
@@ -381,29 +383,27 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type MaxAutoRebagPerBlock = ();
 }
 
-pub struct EraPayout;
-impl pallet_staking_async::EraPayout<Balance> for EraPayout {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		const MILLISECONDS_PER_YEAR: u64 = (1000 * 3600 * 24 * 36525) / 100;
-		// A normal-sized era will have 1 / 365.25 here:
-		let relative_era_len =
-			FixedU128::from_rational(era_duration_millis.into(), MILLISECONDS_PER_YEAR.into());
+parameter_types! {
+	pub const StakingPotsPalletId: frame_support::PalletId = frame_support::PalletId(*b"py/stkng");
+}
 
-		// Fixed total TI that we use as baseline for the issuance.
+/// Polkadot inflation curve for DAP.
+///
+/// Same computation as the previous `EraPayout` but returns total emission
+/// (the staker/treasury split is now handled by DAP budget allocation).
+pub struct PolkadotIssuanceCurve;
+impl sp_staking::budget::IssuanceCurve<Balance> for PolkadotIssuanceCurve {
+	fn issue(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
+		const MILLISECONDS_PER_YEAR: u64 = (1000 * 3600 * 24 * 36525) / 100;
+		let relative_period =
+			FixedU128::from_rational(elapsed_millis.into(), MILLISECONDS_PER_YEAR.into());
+
 		let fixed_total_issuance: i128 = 5_216_342_402_773_185_773;
 		let fixed_inflation_rate = FixedU128::from_rational(8, 100);
 		let yearly_emission = fixed_inflation_rate.saturating_mul_int(fixed_total_issuance);
 
-		let era_emission = relative_era_len.saturating_mul_int(yearly_emission);
-		// 15% to treasury, as per Polkadot ref 1139.
-		let to_treasury = FixedU128::from_rational(15, 100).saturating_mul_int(era_emission);
-		let to_stakers = era_emission.saturating_sub(to_treasury);
-
-		(to_stakers.saturated_into(), to_treasury.saturated_into())
+		let emission = relative_period.saturating_mul_int(yearly_emission);
+		emission.saturated_into()
 	}
 }
 
@@ -423,9 +423,6 @@ parameter_types! {
 	// of nominators.
 	pub const MaxControllersInDeprecationBatch: u32 = 751;
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
-	// Note: In WAH, this should be set closer to the ideal era duration to trigger capping more
-	// frequently. On Kusama and Polkadot, a higher value like 7 × ideal_era_duration is more
-	// appropriate.
 	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
 	pub MaxPruningItems: u32 = 100;
 }
@@ -445,7 +442,7 @@ impl pallet_staking_async::Config for Runtime {
 	type SlashDeferDuration = SlashDeferDuration;
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type EraPayout = EraPayout;
+	type EraPayout = ();
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type ElectionProvider = MultiBlockElection;
 	type VoterList = VoterList;
@@ -458,12 +455,30 @@ impl pallet_staking_async::Config for Runtime {
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = pallet_staking_async::weights::SubstrateWeight<Runtime>;
 	type MaxEraDuration = MaxEraDuration;
+	type DisableMinting = ConstBool<true>;
+	type UnclaimedRewardHandler = Dap;
+	type RewardPots = pallet_staking_async::Seed<StakingPotsPalletId>;
+	type StakerRewardCalculator =
+		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type MaxPruningItems = MaxPruningItems;
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
 	type RcClientInterface = StakingRcClient;
 }
 
+// Relay chain session keys matching Westend configuration.
+sp_runtime::impl_opaque_keys! {
+	pub struct RelayChainSessionKeys {
+		pub grandpa: sp_consensus_grandpa::AuthorityId,
+		pub babe: sp_consensus_babe::AuthorityId,
+		pub para_validator: polkadot_primitives::ValidatorId,
+		pub para_assignment: polkadot_primitives::AssignmentId,
+		pub authority_discovery: sp_authority_discovery::AuthorityId,
+		pub beefy: sp_consensus_beefy::ecdsa_crypto::AuthorityId,
+	}
+}
+
+// Relay chain session keys type for rc-client.
 impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
@@ -471,15 +486,36 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type MaxValidatorSetRetries = ConstU32<5>;
 	// export validator session at end of session 4 within an era.
 	type ValidatorSetExportSession = ConstU32<4>;
+	type RelayChainSessionKeys = RelayChainSessionKeys;
+	type Currency = Balances;
+	type KeyDeposit = ConstU128<{ 10_000 * UNITS }>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
-	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	pub const DapPalletId: frame_support::PalletId = pallet_dap::DAP_PALLET_ID;
+	pub const DapIssuanceCadence: u64 = 60_000;
+	pub const DapMaxElapsedPerDrip: u64 = 600_000;
 }
 
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type IssuanceCurve = PolkadotIssuanceCurve;
+	type BudgetRecipients = (
+		pallet_dap::Pallet<Runtime>,
+		pallet_staking_async::StakerRewardRecipient<
+			pallet_staking_async::Seed<StakingPotsPalletId>,
+		>,
+		pallet_staking_async::ValidatorIncentiveRecipient<
+			pallet_staking_async::Seed<StakingPotsPalletId>,
+		>,
+	);
+	type Time = pallet_timestamp::Pallet<Runtime>;
+	type IssuanceCadence = DapIssuanceCadence;
+	type MaxElapsedPerDrip = DapMaxElapsedPerDrip;
+	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -497,24 +533,35 @@ pub enum RelayChainRuntimePallets {
 pub enum AhClientCalls {
 	#[codec(index = 0)]
 	ValidatorSet(rc_client::ValidatorSetReport<AccountId>),
+	#[codec(index = 3)]
+	SetKeysFromAh { stash: AccountId, keys: Vec<u8> },
+	#[codec(index = 4)]
+	PurgeKeysFromAh { stash: AccountId },
 }
 
 pub struct ValidatorSetToXcm;
 impl Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<()>> for ValidatorSetToXcm {
 	fn convert(report: rc_client::ValidatorSetReport<AccountId>) -> Xcm<()> {
-		Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			Instruction::Transact {
-				origin_kind: OriginKind::Native,
-				fallback_max_weight: None,
-				call: RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report))
+		rc_client::build_transact_xcm(
+			RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report)).encode(),
+		)
+	}
+}
+
+pub struct KeysMessageToXcm;
+impl Convert<rc_client::KeysMessage<AccountId>, Xcm<()>> for KeysMessageToXcm {
+	fn convert(msg: rc_client::KeysMessage<AccountId>) -> Xcm<()> {
+		let encoded_call = match msg {
+			rc_client::KeysMessage::SetKeys { stash, keys } => {
+				RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeysFromAh { stash, keys })
 					.encode()
-					.into(),
 			},
-		])
+			rc_client::KeysMessage::PurgeKeys { stash } => {
+				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeysFromAh { stash })
+					.encode()
+			},
+		};
+		rc_client::build_transact_xcm(encoded_call)
 	}
 }
 
@@ -522,6 +569,8 @@ pub struct StakingXcmToRelayChain;
 
 impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	type AccountId = AccountId;
+	type Balance = Balance;
+
 	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
@@ -529,6 +578,43 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 			rc_client::ValidatorSetReport<Self::AccountId>,
 			ValidatorSetToXcm,
 		>::send(report)
+	}
+
+	fn set_keys(
+		stash: Self::AccountId,
+		keys: Vec<u8>,
+		max_fee: Option<Self::Balance>,
+	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			StakingXcmDestination,
+			rc_client::KeysMessage<Self::AccountId>,
+			KeysMessageToXcm,
+		>::send_with_fees::<
+			XcmExec<xcm_config::XcmConfig>,
+			RuntimeCall,
+			AccountId,
+			rc_client::AccountId32ToLocation,
+			Self::Balance,
+		>(rc_client::KeysMessage::set_keys(stash.clone(), keys), stash, max_fee, 0)
+	}
+
+	fn purge_keys(
+		stash: Self::AccountId,
+		max_fee: Option<Self::Balance>,
+	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			StakingXcmDestination,
+			rc_client::KeysMessage<Self::AccountId>,
+			KeysMessageToXcm,
+		>::send_with_fees::<
+			XcmExec<xcm_config::XcmConfig>,
+			RuntimeCall,
+			AccountId,
+			rc_client::AccountId32ToLocation,
+			Self::Balance,
+		>(rc_client::KeysMessage::purge_keys(stash.clone()), stash, max_fee, 0)
 	}
 }
 
@@ -696,6 +782,32 @@ mod tests {
 			op.proof_size() / WEIGHT_PROOF_SIZE_PER_KB,
 			op.proof_size() as f64 / block.proof_size() as f64
 		);
+	}
+
+	#[test]
+	fn fake_dot_preset_snapshot_capacity_covers_max_electing_voters() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			super::enable_dot_preset(false);
+			assert!(
+				VoterSnapshotPerBlock::get() * Pages::get() >= MaxElectingVoters::get(),
+				"paged snapshot capacity {} < MaxElectingVoters {}",
+				VoterSnapshotPerBlock::get() * Pages::get(),
+				MaxElectingVoters::get(),
+			);
+		});
+	}
+
+	#[test]
+	fn fake_ksm_preset_snapshot_capacity_covers_max_electing_voters() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			super::enable_ksm_preset(false);
+			assert!(
+				VoterSnapshotPerBlock::get() * Pages::get() >= MaxElectingVoters::get(),
+				"paged snapshot capacity {} < MaxElectingVoters {}",
+				VoterSnapshotPerBlock::get() * Pages::get(),
+				MaxElectingVoters::get(),
+			);
+		});
 	}
 
 	#[test]

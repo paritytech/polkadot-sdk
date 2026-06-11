@@ -61,7 +61,7 @@
 //! These guidelines could be summarized in the following example, where `bad_pop` is prone to
 //! panicking, and `good_pop` allows for proper error handling to take place:
 //!
-//!```ignore
+//! ```ignore
 //! // Bad pop always requires that we return something, even if vector/array is empty.
 //! fn bad_pop<T>(v: Vec<T>) -> T {}
 //! // Good pop allows us to return None from the Option if need be.
@@ -139,14 +139,12 @@
 //!
 //! This is an example of a valid operation:
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", checked_add_example)]
-//!
 //! This is an example of an invalid operation. In this case, a simulated integer overflow, which
 //! would simply result in `None`:
 #![doc = docify::embed!(
     "./src/reference_docs/defensive_programming.rs",
     checked_add_handle_error_example
 )]
-//!
 //! Suppose you aren’t sure which operation to use for runtime math. In that case, checked
 //! operations are the safest bet, presenting two predictable (and erroring) outcomes that can be
 //! handled accordingly (Some and None).
@@ -162,10 +160,8 @@
 //! Because wrapped operations return `Option<T>`, you can use a more verbose/explicit form of error
 //! handling via `if` or `if let`:
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance)]
-//!
 //! Optionally, match may also be directly used in a more concise manner:
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance_match)]
-//!
 //! This is generally a useful convention for handling checked types and most types that return
 //! `Option<T>`.
 //!
@@ -175,14 +171,12 @@
 //! a less verbose way of expressing the above. This usage often boils down to the developer’s
 //! preference:
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance_result)]
-//!
 //! ### Saturating Operations
 //!
 //! Saturating a number limits it to the type’s upper or lower bound, even if the integer type
 //! overflowed in runtime. For example, adding to `u32::MAX` would simply limit itself to
 //! `u32::MAX`:
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", saturated_add_example)]
-//!
 //! Saturating calculations can be used if one is very sure that something won't overflow, but wants
 //! to avoid introducing the notion of any potential-panic or wrapping behavior.
 //!
@@ -194,7 +188,6 @@
     "./src/reference_docs/defensive_programming.rs",
     saturated_defensive_example
 )]
-//!
 //! ### Mathematical Operations in Substrate Development - Further Context
 //!
 //! As a recap, we covered the following concepts:

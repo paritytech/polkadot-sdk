@@ -17,17 +17,17 @@
 
 //! The pallet-revive shared VM integration test suite.
 use crate::{
+	Code, Config, Error, H256, Key, System, U256,
 	address::AddressMapper,
 	metering::TransactionLimits,
-	test_utils::{builder::Contract, ALICE, BOB, BOB_ADDR},
-	tests::{builder, test_utils, test_utils::get_contract, ExtBuilder, RuntimeEvent, Test},
-	Code, Config, Error, Key, System, H256, U256,
+	test_utils::{ALICE, BOB, BOB_ADDR, builder::Contract},
+	tests::{ExtBuilder, RuntimeEvent, Test, builder, test_utils, test_utils::get_contract},
 };
 use frame_support::assert_err_ignore_postinfo;
 
 use alloy_core::sol_types::{SolCall, SolInterface};
-use frame_support::traits::{fungible::Mutate, Get};
-use pallet_revive_fixtures::{compile_module_with_type, Caller, FixtureType, Host};
+use frame_support::traits::{Get, fungible::Mutate};
+use pallet_revive_fixtures::{Caller, FixtureType, Host, compile_module_with_type};
 use pretty_assertions::assert_eq;
 use test_case::test_case;
 
@@ -41,8 +41,8 @@ fn convert_to_free_balance(total_balance: u128) -> U256 {
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn balance_works(fixture_type: FixtureType) {
-	let bobs_balance = 123_456_789_000u64;
-	let expected_balance = convert_to_free_balance(bobs_balance as u128);
+	let bobs_balance = 123_456_789_000u128;
+	let expected_balance = convert_to_free_balance(bobs_balance);
 	let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {

@@ -60,8 +60,10 @@ use polkadot_node_subsystem_util::{
 use polkadot_primitives::{
 	BlockNumber, CandidateHash, CandidateIndex, CoreIndex, DisputeStatement, GroupIndex, Hash,
 	SessionIndex, Slot, ValidDisputeStatementKind, ValidatorIndex, ValidatorSignature,
+	MAX_COALESCE_APPROVALS,
 };
 use rand::{CryptoRng, Rng, SeedableRng};
+use sp_core::{bounded::BoundedVec, ConstU32};
 use std::{
 	collections::{hash_map, BTreeMap, HashMap, HashSet, VecDeque},
 	sync::Arc,
@@ -207,10 +209,10 @@ impl ApprovalEntry {
 	pub fn includes_approval_candidates(&self, approval: &IndirectSignedApprovalVoteV2) -> bool {
 		for candidate_index in approval.candidate_indices.iter_ones() {
 			if self.assignment_claimed_candidates.bit_at((candidate_index).as_bit_index()) {
-				return true
+				return true;
 			}
 		}
-		return false
+		return false;
 	}
 
 	// Records a new approval. Returns error if the claimed candidate is not found or we already
@@ -224,16 +226,16 @@ impl ApprovalEntry {
 		// - check claimed candidate
 		// - check for duplicate approval
 		if self.validator_index != approval.validator {
-			return Err(ApprovalEntryError::InvalidValidatorIndex)
+			return Err(ApprovalEntryError::InvalidValidatorIndex);
 		}
 
 		// We need at least one of the candidates in the approval to be in this assignment
 		if !self.includes_approval_candidates(&approval) {
-			return Err(ApprovalEntryError::InvalidCandidateIndex)
+			return Err(ApprovalEntryError::InvalidCandidateIndex);
 		}
 
 		if self.approvals.contains_key(&approval.candidate_indices) {
-			return Err(ApprovalEntryError::DuplicateApproval)
+			return Err(ApprovalEntryError::DuplicateApproval);
 		}
 
 		self.approvals.insert(approval.candidate_indices.clone(), approval.clone());
@@ -301,7 +303,7 @@ impl AggressionConfig {
 		if let Some(t) = self.l1_threshold {
 			age >= t
 		} else if let Some(t) = self.resend_unfinalized_period {
-			age > 0 && age % t == 0
+			age > 0 && age.is_multiple_of(t)
 		} else {
 			false
 		}
@@ -568,7 +570,7 @@ impl BlockEntry {
 		let mut peers_randomly_routed_to = HashSet::new();
 
 		if self.candidates.len() < approval.candidate_indices.len() as usize {
-			return Err(ApprovalEntryError::CandidateIndexOutOfBounds)
+			return Err(ApprovalEntryError::CandidateIndexOutOfBounds);
 		}
 
 		// First determine all assignments bitfields that might be covered by this approval
@@ -690,6 +692,8 @@ enum InvalidVoteError {
 	ValidatorIndexOutOfBounds,
 	// The signature of the vote was invalid.
 	InvalidSignature,
+	// The approval coalesces more candidates than the allowed maximum.
+	TooManyCandidates,
 	// `SessionInfo` was not found for the block hash in the approval.
 	#[allow(dead_code)]
 	SessionInfoNotFound(polkadot_node_subsystem_util::runtime::Error),
@@ -988,7 +992,7 @@ impl State {
 	) {
 		if local_index.is_none() {
 			// this subsystem only matters to validators.
-			return
+			return;
 		}
 
 		self.topologies.insert_topology(session, topology, local_index);
@@ -1047,7 +1051,7 @@ impl State {
 
 				pending.push((peer_id, PendingMessage::Assignment(assignment, claimed_indices)));
 
-				continue
+				continue;
 			}
 
 			self.import_and_circulate_assignment(
@@ -1104,7 +1108,7 @@ impl State {
 
 				pending.push((peer_id, PendingMessage::Approval(approval_vote)));
 
-				continue
+				continue;
 			}
 
 			self.import_and_circulate_approval(
@@ -1350,7 +1354,7 @@ impl State {
 					}
 				}
 				metrics.on_assignment_invalid_block();
-				return
+				return;
 			},
 		};
 
@@ -1402,7 +1406,7 @@ impl State {
 								"We sent the message to the peer while peer was sending it to us. Known race condition.",
 							);
 						}
-						return
+						return;
 					}
 				},
 				hash_map::Entry::Vacant(_) => {
@@ -1437,7 +1441,7 @@ impl State {
 					peer_knowledge.received.insert(message_subject, message_kind);
 				}
 				metrics.on_assignment_good_known();
-				return
+				return;
 			}
 
 			let result = Self::check_assignment_valid(
@@ -1472,7 +1476,7 @@ impl State {
 						.await;
 						metrics.on_assignment_far();
 
-						return
+						return;
 					}
 
 					approval_voting_sender
@@ -1509,7 +1513,7 @@ impl State {
 					)
 					.await;
 					metrics.on_assignment_bad();
-					return
+					return;
 				},
 			}
 		} else {
@@ -1520,7 +1524,7 @@ impl State {
 					?message_subject,
 					"Importing locally an already known assignment",
 				);
-				return
+				return;
 			} else {
 				gum::debug!(
 					target: LOG_TARGET,
@@ -1550,7 +1554,7 @@ impl State {
 
 		for peer in peers_to_route_to {
 			if !entry.known_by.contains_key(&peer) {
-				continue
+				continue;
 			}
 
 			peers.insert(peer);
@@ -1583,15 +1587,15 @@ impl State {
 		// Filter destination peers
 		for peer in peers_to_filter.into_iter() {
 			if Some(peer) == source_peer {
-				continue
+				continue;
 			}
 
 			if peers.contains(&peer) {
-				continue
+				continue;
 			}
 
 			if !topology.map(|topology| topology.is_validator(&peer)).unwrap_or(false) {
-				continue
+				continue;
 			}
 
 			// Note: at this point, we haven't received the message from any peers
@@ -1606,7 +1610,7 @@ impl State {
 			}
 
 			if approval_entry.routing_info().random_routing.is_complete() {
-				break
+				break;
 			}
 		}
 
@@ -1653,7 +1657,7 @@ impl State {
 			.map_err(|err| InvalidAssignmentError::SessionInfoNotFound(err))?;
 
 		if claimed_candidate_indices.len() > session_info.n_cores as usize {
-			return Err(InvalidAssignmentError::OversizedClaimedBitfield)
+			return Err(InvalidAssignmentError::OversizedClaimedBitfield);
 		}
 
 		let claimed_cores: Vec<CoreIndex> = claimed_candidate_indices
@@ -1669,7 +1673,7 @@ impl State {
 			.collect::<Result<Vec<_>, InvalidAssignmentError>>()?;
 
 		let Ok(claimed_cores) = claimed_cores.try_into() else {
-			return Err(InvalidAssignmentError::NoClaimedCandidates)
+			return Err(InvalidAssignmentError::NoClaimedCandidates);
 		};
 
 		let backing_groups = claimed_candidate_indices
@@ -1724,7 +1728,7 @@ impl State {
 				modify_reputation(reputation, network_sender, peer_id, COST_UNEXPECTED_MESSAGE)
 					.await;
 				metrics.on_approval_unknown_assignment();
-				return false
+				return false;
 			}
 		}
 
@@ -1760,7 +1764,7 @@ impl State {
 						}
 						metrics.on_approval_duplicate();
 					}
-					return false
+					return false;
 				}
 			},
 			hash_map::Entry::Vacant(_) => {
@@ -1835,7 +1839,7 @@ impl State {
 						metrics.on_approval_recent_outdated();
 					}
 				}
-				return
+				return;
 			},
 		};
 
@@ -1858,7 +1862,7 @@ impl State {
 			)
 			.await
 			{
-				return
+				return;
 			}
 
 			let result =
@@ -1904,7 +1908,7 @@ impl State {
 						"Got a bad approval from peer",
 					);
 					metrics.on_approval_bad();
-					return
+					return;
 				},
 			}
 		} else {
@@ -1917,7 +1921,7 @@ impl State {
 					target: LOG_TARGET,
 					"Importing locally an already known approval",
 				);
-				return
+				return;
 			} else {
 				gum::debug!(
 					target: LOG_TARGET,
@@ -1938,7 +1942,7 @@ impl State {
 					"Possible bug: Vote import failed",
 				);
 				metrics.on_approval_bug();
-				return
+				return;
 			},
 		};
 
@@ -1953,7 +1957,7 @@ impl State {
 
 		let peer_filter = move |peer| {
 			if Some(peer) == source_peer.as_ref() {
-				return false
+				return false;
 			}
 
 			// Here we're leaning on a few behaviors of assignment propagation:
@@ -2006,7 +2010,7 @@ impl State {
 		runtime_api_sender: &mut RA,
 	) -> Result<CheckedIndirectSignedApprovalVote, InvalidVoteError> {
 		if vote.candidate_indices.len() > entry.candidates_metadata.len() {
-			return Err(InvalidVoteError::CandidateIndexOutOfBounds)
+			return Err(InvalidVoteError::CandidateIndexOutOfBounds);
 		}
 
 		let candidate_hashes = vote
@@ -2020,24 +2024,29 @@ impl State {
 			})
 			.collect::<Vec<_>>();
 
-		let ExtendedSessionInfo { ref session_info, .. } = runtime_info
+		let ExtendedSessionInfo { ref session_info, ref approval_voting_params, .. } = runtime_info
 			.get_session_info_by_index(runtime_api_sender, vote.block_hash, entry.session)
 			.await
 			.map_err(|err| InvalidVoteError::SessionInfoNotFound(err))?;
+
+		// Enforce the runtime's coalescing limit: reject votes coalescing more candidates than
+		// `max_approval_coalesce_count`.
+		if candidate_hashes.len() > approval_voting_params.max_approval_coalesce_count as usize {
+			return Err(InvalidVoteError::TooManyCandidates);
+		}
 
 		let pubkey = session_info
 			.validators
 			.get(vote.validator)
 			.ok_or(InvalidVoteError::ValidatorIndexOutOfBounds)?;
+		let candidate_hashes: BoundedVec<CandidateHash, ConstU32<{ MAX_COALESCE_APPROVALS }>> =
+			candidate_hashes.try_into().map_err(|_| InvalidVoteError::TooManyCandidates)?;
+		let first_candidate =
+			*candidate_hashes.first().ok_or(InvalidVoteError::CandidateHashNotFound)?;
 		DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
-			candidate_hashes.clone(),
+			candidate_hashes,
 		))
-		.check_signature(
-			&pubkey,
-			*candidate_hashes.first().ok_or(InvalidVoteError::CandidateHashNotFound)?,
-			entry.session,
-			&vote.signature,
-		)
+		.check_signature(&pubkey, first_candidate, entry.session, &vote.signature)
 		.map_err(|_| InvalidVoteError::InvalidSignature)
 		.map(|_| CheckedIndirectSignedApprovalVote::from_checked(vote.clone()))
 	}
@@ -2056,7 +2065,7 @@ impl State {
 						?hash,
 						"`get_approval_signatures`: could not find block entry for given hash!"
 					);
-					continue
+					continue;
 				},
 				Some(e) => e,
 			};
@@ -2115,7 +2124,7 @@ impl State {
 				// authority-id mapping we have to retry sending the messages that should be sent
 				// to it for all un-finalized blocks.
 				if entry.known_by.contains_key(&peer_id) && !retry_known_blocks {
-					break
+					break;
 				}
 
 				let peer_knowledge = entry.known_by.entry(peer_id).or_default();
@@ -2139,7 +2148,7 @@ impl State {
 									.map(|topology| topology.is_validator(peer_id))
 									.unwrap_or(false)
 								{
-									return false
+									return false;
 								}
 
 								let route_random =
@@ -2153,7 +2162,7 @@ impl State {
 						};
 
 						if !peer_filter(&peer_id) {
-							continue
+							continue;
 						}
 					}
 
@@ -2252,7 +2261,7 @@ impl State {
 				age,
 				"Aggression not enabled",
 			);
-			return
+			return;
 		}
 		gum::debug!(target: LOG_TARGET, min_age, max_age, "Aggression enabled",);
 
@@ -2329,7 +2338,7 @@ impl State {
 						lag = ?self.approval_checking_lag,
 						"Encountered old block pending gossip topology",
 					);
-					return *required_routing
+					return *required_routing;
 				}
 
 				let mut new_required_routing = *required_routing;
@@ -2372,8 +2381,9 @@ impl State {
 				// We assume `candidate_bitfield` length for the core bitfield and we just check
 				// against `MAX_BITFIELD_SIZE` later.
 				AssignmentCertKindV2::RelayVRFModulo { .. } => candidate_bitfield.len(),
-				AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } =>
-					core_bitfield.len(),
+				AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } => {
+					core_bitfield.len()
+				},
 			};
 
 			let candidate_bitfield_bits = candidate_bitfield.len();
@@ -2476,7 +2486,7 @@ async fn adjust_required_routing_and_propagate<
 	// for each connected peer.
 	for (block_hash, block_entry) in blocks {
 		if !block_filter(block_entry) {
-			continue
+			continue;
 		}
 
 		let topology = match topologies.get_topology(block_entry.session) {
@@ -2496,7 +2506,7 @@ async fn adjust_required_routing_and_propagate<
 			approval_entry.update_required_routing(new_required_routing);
 
 			if approval_entry.routing_info().required_routing.is_empty() {
-				continue
+				continue;
 			}
 
 			let assignment_message = approval_entry.assignment();
@@ -2509,7 +2519,7 @@ async fn adjust_required_routing_and_propagate<
 					.local_grid_neighbors()
 					.route_to_peer(approval_entry.routing_info().required_routing, peer)
 				{
-					continue
+					continue;
 				}
 
 				// Only send stuff a peer doesn't know in the context of a relay chain block.
@@ -2687,7 +2697,7 @@ impl ApprovalDistribution {
 		session_info_provider: &mut RuntimeInfo,
 	) -> bool {
 		match message {
-			FromOrchestra::Communication { msg } =>
+			FromOrchestra::Communication { msg } => {
 				Self::handle_incoming(
 					approval_voting_sender,
 					network_sender,
@@ -2700,7 +2710,8 @@ impl ApprovalDistribution {
 					self.clock.as_ref(),
 					session_info_provider,
 				)
-				.await,
+				.await
+			},
 			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_update)) => {
 				gum::trace!(target: LOG_TARGET, "active leaves signal (ignored)");
 				// the relay chain blocks relevant to the approval subsystems

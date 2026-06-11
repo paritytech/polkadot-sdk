@@ -173,8 +173,8 @@ mod tests {
 		}
 	}
 
+	#[allow(dead_code)]
 	pub enum BridgeReward {
-		#[allow(dead_code)]
 		Snowbridge,
 	}
 

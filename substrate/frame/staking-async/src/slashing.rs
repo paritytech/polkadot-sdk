@@ -69,7 +69,7 @@ pub(crate) struct SlashParams<'a, T: 'a + Config> {
 	/// The exposure of the stash and all nominators.
 	pub(crate) exposure: &'a PagedExposure<T::AccountId, BalanceOf<T>>,
 	/// The era where the offence occurred.
-	pub(crate) slash_era: EraIndex,
+	pub(crate) offence_era: EraIndex,
 	/// The maximum percentage of a slash that ever gets paid out.
 	/// This is f_inf in the paper.
 	pub(crate) reward_proportion: Perbill,
@@ -118,7 +118,7 @@ fn next_offence<T: Config>() -> Option<(EraIndex, T::AccountId, OffenceRecord<T:
 		// If the exposure page is 0, then the offence has been processed.
 		if offence_record.exposure_page == 0 {
 			ProcessingOffence::<T>::kill();
-			return Some((offence_era, offender, offence_record))
+			return Some((offence_era, offender, offence_record));
 		}
 
 		// Update the next page.
@@ -132,7 +132,7 @@ fn next_offence<T: Config>() -> Option<(EraIndex, T::AccountId, OffenceRecord<T:
 			},
 		));
 
-		return Some((offence_era, offender, offence_record))
+		return Some((offence_era, offender, offence_record));
 	}
 
 	// Nothing in processing offence. Try to enqueue the next offence.
@@ -186,7 +186,7 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 
 	add_db_reads_writes(3, 4);
 	let Some((offence_era, offender, offence_record)) = next_offence::<T>() else {
-		return incomplete_consumed_weight
+		return incomplete_consumed_weight;
 	};
 
 	log!(
@@ -206,7 +206,7 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 	else {
 		// this can only happen if the offence was valid at the time of reporting but became too old
 		// at the time of computing and should be discarded.
-		return incomplete_consumed_weight
+		return incomplete_consumed_weight;
 	};
 
 	let slash_page = offence_record.exposure_page;
@@ -219,7 +219,7 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 		slash: offence_record.slash_fraction,
 		prior_slash: offence_record.prior_slash_fraction,
 		exposure: &exposure,
-		slash_era: offence_era,
+		offence_era,
 		reward_proportion,
 	}) else {
 		log!(
@@ -230,7 +230,7 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 			offence_record.reported_era,
 		);
 		// No slash to apply. Discard.
-		return incomplete_consumed_weight
+		return incomplete_consumed_weight;
 	};
 
 	<Pallet<T>>::deposit_event(super::Event::<T>::SlashComputed {
@@ -337,7 +337,7 @@ pub(crate) fn process_offence_validator_only<T: Config>() -> Weight {
 
 	add_db_reads_writes(2, 2);
 	let Some((offence_era, offender, offence_record)) = next_offence_validator_only::<T>() else {
-		return incomplete_consumed_weight
+		return incomplete_consumed_weight;
 	};
 
 	log!(
@@ -355,7 +355,7 @@ pub(crate) fn process_offence_validator_only<T: Config>() -> Weight {
 	let Some(validator_exposure) = <ErasStakersOverview<T>>::get(&offence_era, &offender) else {
 		// this can only happen if the offence was valid at the time of reporting but became too old
 		// at the time of computing and should be discarded.
-		return incomplete_consumed_weight
+		return incomplete_consumed_weight;
 	};
 
 	let slash_defer_duration = T::SlashDeferDuration::get();
@@ -370,7 +370,7 @@ pub(crate) fn process_offence_validator_only<T: Config>() -> Weight {
 		prior_slash: offence_record.prior_slash_fraction,
 		// create exposure only from validator state from the overview
 		exposure: &PagedExposure::from_overview(validator_exposure),
-		slash_era: offence_era,
+		offence_era,
 		reward_proportion,
 	};
 
@@ -392,7 +392,7 @@ pub(crate) fn process_offence_validator_only<T: Config>() -> Weight {
 			offence_record.reported_era,
 		);
 		// No slash to apply. Discard.
-		return incomplete_consumed_weight
+		return incomplete_consumed_weight;
 	};
 
 	<Pallet<T>>::deposit_event(super::Event::<T>::SlashComputed {
@@ -498,7 +498,7 @@ pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>) -> Option<Unappli
 
 	// If nominators are not slashable for this era, the list must be empty
 	// (because we use `from_overview` which creates empty `others`).
-	debug_assert!(Eras::<T>::are_nominators_slashable(params.slash_era));
+	debug_assert!(Eras::<T>::are_nominators_slashable(params.offence_era));
 
 	(nom_slashed + val_slashed > Zero::zero()).then_some(UnappliedSlash {
 		validator: params.stash.clone(),
@@ -529,7 +529,7 @@ fn slash_validator<T: Config>(params: SlashParams<T>) -> (BalanceOf<T>, BalanceO
 		params.stash,
 		own_stake,
 		slash_due,
-		params.slash_era,
+		params.offence_era,
 	);
 
 	(slash_due, reward_due)
@@ -556,7 +556,7 @@ fn slash_nominators<T: Config>(
 
 		if slash_diff == Zero::zero() {
 			// nothing to do
-			continue
+			continue;
 		}
 
 		log!(
@@ -565,7 +565,7 @@ fn slash_nominators<T: Config>(
 			stash,
 			nominator.value,
 			slash_diff,
-			params.slash_era,
+			params.offence_era,
 			params.prior_slash,
 			params.slash,
 		);
@@ -586,7 +586,7 @@ pub fn do_slash<T: Config>(
 	value: BalanceOf<T>,
 	reward_payout: &mut BalanceOf<T>,
 	slashed_imbalance: &mut NegativeImbalanceOf<T>,
-	slash_era: EraIndex,
+	offence_era: EraIndex,
 ) {
 	let mut ledger =
 		match Pallet::<T>::ledger(sp_staking::StakingAccount::Stash(stash.clone())).defensive() {
@@ -594,10 +594,10 @@ pub fn do_slash<T: Config>(
 			Err(_) => return, // nothing to do.
 		};
 
-	let value = ledger.slash(value, asset::existential_deposit::<T>(), slash_era);
+	let value = ledger.slash(value, asset::existential_deposit::<T>(), offence_era);
 	if value.is_zero() {
 		// nothing to do
-		return
+		return;
 	}
 
 	// Skip slashing for virtual stakers. The pallets managing them should handle the slashing.
@@ -620,7 +620,7 @@ pub fn do_slash<T: Config>(
 }
 
 /// Apply a previously-unapplied slash.
-pub(crate) fn apply_slash<T: Config>(unapplied_slash: UnappliedSlash<T>, slash_era: EraIndex) {
+pub(crate) fn apply_slash<T: Config>(unapplied_slash: UnappliedSlash<T>, offence_era: EraIndex) {
 	let mut slashed_imbalance = NegativeImbalanceOf::<T>::zero();
 	let mut reward_payout = unapplied_slash.payout;
 
@@ -630,13 +630,13 @@ pub(crate) fn apply_slash<T: Config>(unapplied_slash: UnappliedSlash<T>, slash_e
 			unapplied_slash.own,
 			&mut reward_payout,
 			&mut slashed_imbalance,
-			slash_era,
+			offence_era,
 		);
 	}
 
 	for &(ref nominator, nominator_slash) in &unapplied_slash.others {
 		if nominator_slash.is_zero() {
-			continue
+			continue;
 		}
 
 		do_slash::<T>(
@@ -644,7 +644,7 @@ pub(crate) fn apply_slash<T: Config>(unapplied_slash: UnappliedSlash<T>, slash_e
 			nominator_slash,
 			&mut reward_payout,
 			&mut slashed_imbalance,
-			slash_era,
+			offence_era,
 		);
 	}
 
@@ -665,7 +665,7 @@ fn pay_reporters<T: Config>(
 		// nobody to pay out to or nothing to pay;
 		// just treat the whole value as slashed.
 		T::Slash::on_unbalanced(slashed_imbalance);
-		return
+		return;
 	}
 
 	// take rewards out of the slashed imbalance.

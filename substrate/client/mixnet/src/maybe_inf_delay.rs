@@ -78,14 +78,15 @@ impl MaybeInfDelay {
 				},
 				Inner::Finite(delay) => delay.reset(duration),
 			},
-			None =>
+			None => {
 				self.0 = match std::mem::replace(
 					&mut self.0,
 					Inner::Infinite { waker: None, delay: None },
 				) {
 					Inner::Finite(delay) => Inner::Infinite { waker: None, delay: Some(delay) },
 					infinite => infinite,
-				},
+				}
+			},
 		}
 	}
 }

@@ -1,0 +1,9 @@
+title: Fix per-ancestor core assignment and add regression test
+doc:
+- audience: Node Dev
+  description: '`get_our_core` was called with the leaf hash instead of the ancestor
+    hash when computing core assignments in update_view. This caused all scheduling
+    parent to get leaf''s core.'
+crates:
+- name: polkadot-collator-protocol
+  bump: minor

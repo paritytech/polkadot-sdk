@@ -60,7 +60,6 @@ pub trait WeightInfo {
 /// Those weights are test only and must never be used in production.
 pub struct BridgeWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
-	///
 	/// Storage: `XcmBridgeHubRouter::DeliveryFeeFactor` (r:1 w:1)
 	///
 	/// Proof: `XcmBridgeHubRouter::DeliveryFeeFactor` (`max_values`: Some(1), `max_size`: Some(16),

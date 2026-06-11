@@ -75,6 +75,11 @@ where
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
+		frame_support::ensure!(
+			!env.is_delegate_call(),
+			pallet_revive::Error::<Self::T>::PrecompileDelegateDenied,
+		);
+
 		let origin = env.caller();
 		let frame_origin = match origin {
 			Origin::Root => RawOrigin::Root.into(),
@@ -82,8 +87,9 @@ where
 		};
 
 		match input {
-			IXcmCalls::send(_) | IXcmCalls::execute(_) if env.is_read_only() =>
-				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into())),
+			IXcmCalls::send(_) | IXcmCalls::execute(_) if env.is_read_only() => {
+				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
+			},
 			IXcmCalls::send(IXcm::sendCall { destination, message }) => {
 				let _ = env.charge(<Runtime as Config>::WeightInfo::send())?;
 

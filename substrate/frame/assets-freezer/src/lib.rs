@@ -39,7 +39,7 @@
 //!
 //! This pallet provides the following functionality:
 //!
-//! - Pallet hooks allowing [`pallet-assets`] to know the frozen balance for an account on a given
+//! - Pallet hooks allowing `pallet-assets` to know the frozen balance for an account on a given
 //!   asset (see [`pallet_assets::FrozenBalance`]).
 //! - An implementation of [`fungibles::freeze::Inspect`](InspectFreeze) and
 //!   [`fungibles::freeze::Mutate`](MutateFreeze), allowing other pallets to manage freezes for the

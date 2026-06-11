@@ -64,7 +64,7 @@
 //!
 //! ## Rewards Algorithm
 //!
-//! The rewards algorithm is based on the Synthetix [StakingRewards.sol](https://github.com/Synthetixio/synthetix/blob/develop/contracts/StakingRewards.sol)
+//! The rewards algorithm is based on the Synthetix [StakingRewards.sol](https://web.archive.org/web/20251223190741/https://github.com/Synthetixio/synthetix/blob/develop/contracts/StakingRewards.sol)
 //! smart contract.
 //!
 //! Rewards are calculated JIT (just-in-time), and all operations are O(1) making the approach
@@ -788,7 +788,7 @@ pub mod pallet {
 			pool_info: &PoolInfoFor<T>,
 		) -> Result<T::Balance, DispatchError> {
 			if pool_info.total_tokens_staked.is_zero() {
-				return Ok(pool_info.reward_per_token_stored)
+				return Ok(pool_info.reward_per_token_stored);
 			}
 
 			let rewardable_blocks_elapsed: u32 =

@@ -41,8 +41,9 @@ pub enum AssetTypes {
 impl From<&Asset> for AssetTypes {
 	fn from(asset: &Asset) -> Self {
 		match asset {
-			Asset { id: AssetId(Location { parents: 0, interior: Here }), .. } =>
-				AssetTypes::Balances,
+			Asset { id: AssetId(Location { parents: 0, interior: Here }), .. } => {
+				AssetTypes::Balances
+			},
 			_ => AssetTypes::Unknown,
 		}
 	}
@@ -70,8 +71,9 @@ impl WeighAssets for AssetFilter {
 			// We don't support any NFTs on Westend, so these two variants will always match
 			// only 1 kind of fungible asset.
 			Self::Wild(AllOf { .. } | AllOfCounted { .. }) => balances_weight,
-			Self::Wild(AllCounted(count)) =>
-				balances_weight.saturating_mul(MAX_ASSETS.min(*count as u64)),
+			Self::Wild(AllCounted(count)) => {
+				balances_weight.saturating_mul(MAX_ASSETS.min(*count as u64))
+			},
 			Self::Wild(All) => balances_weight.saturating_mul(MAX_ASSETS),
 		}
 	}

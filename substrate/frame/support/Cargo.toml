@@ -20,6 +20,7 @@ array-bytes = { workspace = true }
 binary-merkle-tree = { workspace = true }
 bitflags = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
+derive-where = { workspace = true }
 docify = { workspace = true }
 environmental = { workspace = true }
 frame-metadata = { features = ["current", "unstable"], workspace = true }

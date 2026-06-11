@@ -31,7 +31,9 @@ use codec::{Decode, Encode, Error as CodecError};
 use jsonrpsee_core::ClientError as JsonRpcError;
 use sp_api::ApiError;
 
-use cumulus_primitives_core::relay_chain::{BlockId, CandidateEvent, Hash as RelayHash};
+use cumulus_primitives_core::relay_chain::{
+	BlockId, CandidateEvent, Hash as RelayHash, NodeFeatures,
+};
 pub use cumulus_primitives_core::{
 	relay_chain::{
 		BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex,
@@ -42,6 +44,7 @@ pub use cumulus_primitives_core::{
 };
 pub use polkadot_overseer::Handle as OverseerHandle;
 pub use sp_state_machine::StorageValue;
+pub use sp_storage::ChildInfo;
 
 pub type RelayChainResult<T> = Result<T, RelayChainError>;
 
@@ -213,6 +216,14 @@ pub trait RelayChainInterface: Send + Sync {
 		relevant_keys: &Vec<Vec<u8>>,
 	) -> RelayChainResult<StorageProof>;
 
+	/// Generate a child trie storage read proof.
+	async fn prove_child_read(
+		&self,
+		relay_parent: PHash,
+		child_info: &ChildInfo,
+		child_keys: &[Vec<u8>],
+	) -> RelayChainResult<StorageProof>;
+
 	/// Returns the validation code hash for the given `para_id` using the given
 	/// `occupied_core_assumption`.
 	async fn validation_code_hash(
@@ -250,6 +261,10 @@ pub trait RelayChainInterface: Send + Sync {
 	async fn scheduling_lookahead(&self, relay_parent: PHash) -> RelayChainResult<u32>;
 
 	async fn candidate_events(&self, at: RelayHash) -> RelayChainResult<Vec<CandidateEvent>>;
+
+	async fn max_relay_parent_session_age(&self, at: RelayHash) -> RelayChainResult<u32>;
+
+	async fn node_features(&self, at: RelayHash) -> RelayChainResult<NodeFeatures>;
 }
 
 #[async_trait]
@@ -354,6 +369,15 @@ where
 		(**self).prove_read(relay_parent, relevant_keys).await
 	}
 
+	async fn prove_child_read(
+		&self,
+		relay_parent: PHash,
+		child_info: &ChildInfo,
+		child_keys: &[Vec<u8>],
+	) -> RelayChainResult<StorageProof> {
+		(**self).prove_child_read(relay_parent, child_info, child_keys).await
+	}
+
 	async fn wait_for_block(&self, hash: PHash) -> RelayChainResult<()> {
 		(**self).wait_for_block(hash).await
 	}
@@ -411,6 +435,14 @@ where
 
 	async fn candidate_events(&self, at: RelayHash) -> RelayChainResult<Vec<CandidateEvent>> {
 		(**self).candidate_events(at).await
+	}
+
+	async fn max_relay_parent_session_age(&self, at: RelayHash) -> RelayChainResult<u32> {
+		(**self).max_relay_parent_session_age(at).await
+	}
+
+	async fn node_features(&self, at: RelayHash) -> RelayChainResult<NodeFeatures> {
+		(**self).node_features(at).await
 	}
 }
 

@@ -16,16 +16,15 @@
 // limitations under the License.
 
 use crate::{
-	limits,
+	Config, Key, limits,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	storage::WriteOutcome,
 	vm::RuntimeCosts,
-	Config, Key,
 };
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
 use core::{marker::PhantomData, num::NonZero};
-use pallet_revive_uapi::{precompiles::storage::IStorage, StorageFlags};
+use pallet_revive_uapi::{StorageFlags, precompiles::storage::IStorage};
 use sp_core::hexdisplay::AsBytesRef;
 
 pub struct Storage<T>(PhantomData<T>);
@@ -56,7 +55,9 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 		match input {
 			IStorageCalls::clearStorage(_) | IStorageCalls::takeStorage(_)
 				if env.is_read_only() =>
-				Err(Error::Error(crate::Error::<Self::T>::StateChangeDenied.into())),
+			{
+				Err(Error::Error(crate::Error::<Self::T>::StateChangeDenied.into()))
+			},
 
 			IStorageCalls::clearStorage(IStorage::clearStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)

@@ -12,6 +12,7 @@ workspace = true
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde_json = { workspace = true }
+tracing = { workspace = true }
 
 # Substrate
 frame-executive = { workspace = true }
@@ -27,6 +28,7 @@ pallet-session = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
+pallet-utility = { workspace = true }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
@@ -41,12 +43,16 @@ sp-session = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
 
+# Polkadot
+polkadot-primitives = { workspace = true }
+
 # Cumulus
 cumulus-pallet-aura-ext = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-weight-reclaim = { workspace = true }
 cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
+cumulus-primitives-storage-weight-reclaim = { workspace = true }
 parachain-info = { workspace = true }
 
 [build-dependencies]
@@ -61,6 +67,7 @@ std = [
 	"cumulus-pallet-weight-reclaim/std",
 	"cumulus-primitives-aura/std",
 	"cumulus-primitives-core/std",
+	"cumulus-primitives-storage-weight-reclaim/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
@@ -74,7 +81,9 @@ std = [
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
+	"pallet-utility/std",
 	"parachain-info/std",
+	"polkadot-primitives/std",
 	"scale-info/std",
 	"serde_json/std",
 	"sp-api/std",
@@ -91,19 +100,33 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"tracing/std",
 ]
+
 increment-spec-version = []
-# A runtime which expects to build behind the relay chain tip.
-relay-parent-offset = []
-# A runtime with elastic-scaling configuration.
-elastic-scaling = []
-# A runtime with low slot duration of 500ms for low-latency testing with 12 cores.
-elastic-scaling-500ms = []
-# A runtime with a slot duration of 6s but parameters that allow multiple blocks per slot.
-elastic-scaling-multi-block-slot = []
-# A runtime with 12s slot duration which only authors one block per slot.
+
+# The default parachain slot duration is 6s. The following features can be used to change this value:
+# Change the parachain slot duration to 12s
+12s-slot = []
+# Change the parachain slot duration to 18s
+18s-slot = []
+
+# Configure the runtime to use sync backing. More specifically, this leads to:
+# - setting `AllowMultipleBlocksPerSlot` to `false`
+# - setting the unincluded segment capacity to 1
 sync-backing = []
-# A runtime with 6s slot duration which only authors one block per slot.
-async-backing = []
-# An elastic scaling runtime with 12s slots.
-elastic-scaling-12s-slot = []
+
+# The default block processing velocity is 1. The following features can be used to change this value:
+# Change the block processing velocity to 3
+velocity-3 = []
+# Change the block processing velocity to 6
+velocity-6 = []
+# Change the block processing velocity to 12
+velocity-12 = []
+
+# The default relay parent offset is 0. The following features can be used to change this value:
+# Change the relay parent offset to 2
+relay-parent-offset-2 = []
+
+# Configure the runtime to use scheduling V3
+v3-descriptor = []

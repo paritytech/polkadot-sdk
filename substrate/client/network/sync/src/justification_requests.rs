@@ -202,7 +202,7 @@ impl<B: BlockT> ExtraRequests<B> {
 						metrics.importing.inc();
 					}
 				}
-				return Some((who, request.0, request.1, r))
+				return Some((who, request.0, request.1, r));
 			} else {
 				trace!(target: LOG_TARGET,
 					"Empty {} response from {:?} for {:?}",
@@ -237,7 +237,7 @@ impl<B: BlockT> ExtraRequests<B> {
 		let request = (*best_finalized_hash, best_finalized_number);
 
 		if self.try_finalize_root::<()>(request, Ok(request), false) {
-			return Ok(())
+			return Ok(());
 		}
 
 		if best_finalized_number > self.best_seen_finalized_number {
@@ -282,7 +282,7 @@ impl<B: BlockT> ExtraRequests<B> {
 		reschedule_on_failure: bool,
 	) -> bool {
 		if !self.importing_requests.remove(&request) {
-			return false
+			return false;
 		}
 		if let Some(metrics) = &self.metrics {
 			metrics.importing.dec();
@@ -297,7 +297,7 @@ impl<B: BlockT> ExtraRequests<B> {
 						metrics.pending.inc();
 					}
 				}
-				return true
+				return true;
 			},
 		};
 
@@ -306,7 +306,7 @@ impl<B: BlockT> ExtraRequests<B> {
 				"‼️ Imported {:?} {:?} which isn't a root in the tree: {:?}",
 				finalized_hash, finalized_number, self.tree.roots().collect::<Vec<_>>()
 			);
-			return true
+			return true;
 		}
 
 		self.failed_requests.clear();
@@ -369,7 +369,7 @@ impl<'a, B: BlockT> Matcher<'a, B> {
 		peers: &HashMap<PeerId, PeerSync<B>>,
 	) -> Option<(PeerId, ExtraRequest<B>)> {
 		if self.remaining == 0 {
-			return None
+			return None;
 		}
 
 		// clean up previously failed requests so we can retry again
@@ -393,11 +393,11 @@ impl<'a, B: BlockT> Matcher<'a, B> {
 				// only ask peers that have synced at least up to the block number that we're asking
 				// the extra for
 				if sync.best_number < request.1 {
-					continue
+					continue;
 				}
 				// don't request to any peers that already have pending requests
 				if self.extras.active_requests.contains_key(peer) {
-					continue
+					continue;
 				}
 				// only ask if the same request has not failed for this peer before
 				if self
@@ -407,7 +407,7 @@ impl<'a, B: BlockT> Matcher<'a, B> {
 					.map(|rr| rr.iter().any(|i| &i.0 == peer))
 					.unwrap_or(false)
 				{
-					continue
+					continue;
 				}
 				self.extras.active_requests.insert(*peer, request);
 				if let Some(metrics) = &self.extras.metrics {
@@ -419,7 +419,7 @@ impl<'a, B: BlockT> Matcher<'a, B> {
 					self.extras.request_type_name, peer, request,
 				);
 
-				return Some((*peer, request))
+				return Some((*peer, request));
 			}
 
 			self.extras.pending_requests.push_back(request);
@@ -429,7 +429,7 @@ impl<'a, B: BlockT> Matcher<'a, B> {
 			self.remaining -= 1;
 
 			if self.remaining == 0 {
-				break
+				break;
 			}
 		}
 

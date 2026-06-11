@@ -374,7 +374,7 @@ where
 			.into_result(preservation != Expendable)?;
 		Self::can_deposit(asset.clone(), dest, amount, Extant).into_result()?;
 		if source == dest {
-			return Ok(amount)
+			return Ok(amount);
 		}
 
 		Self::decrease_balance(asset.clone(), source, amount, BestEffort, preservation, Polite)?;

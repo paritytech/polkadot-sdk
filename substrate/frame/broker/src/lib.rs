@@ -25,6 +25,8 @@ mod benchmarking;
 mod core_mask;
 mod coretime_interface;
 mod dispatchable_impls;
+pub mod market;
+
 #[cfg(test)]
 mod mock;
 mod nonfungible_impl;
@@ -504,6 +506,13 @@ pub mod pallet {
 		ForceReservationFailed {
 			/// The schedule that could not be assigned.
 			schedule: Schedule,
+		},
+		/// Potential renewal was forcefully removed.
+		PotentialRenewalRemoved {
+			/// The core associated with the potential renewal that was removed.
+			core: CoreIndex,
+			/// The timeslice associated with the potential renewal that was removed.
+			timeslice: Timeslice,
 		},
 	}
 
@@ -1031,6 +1040,43 @@ pub mod pallet {
 		pub fn remove_assignment(origin: OriginFor<T>, region_id: RegionId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_remove_assignment(region_id)
+		}
+
+		/// Forcefully remove a potential renewal record from chain.
+		///
+		/// Note that only the specified potential renewal will be removed while any related auto
+		/// renewals will stay intact and will fail.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `core`: Core which the target potential renewal record refers to.
+		/// - `when`: Timeslice which the target potential renewal record refers to.
+		#[pallet::call_index(27)]
+		pub fn remove_potential_renewal(
+			origin: OriginFor<T>,
+			core: CoreIndex,
+			when: Timeslice,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_remove_potential_renewal(core, when)
+		}
+
+		/// Transfer a Bulk Coretime Region to a new owner, ignoring the previous owner.
+		///
+		/// This can also be used to recover regions that have been "burned" (e.g., from an
+		/// XCM reserve transfer).
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `region_id`: The Region whose ownership should change.
+		/// - `new_owner`: The new owner for the Region.
+		#[pallet::call_index(28)]
+		pub fn force_transfer(
+			origin: OriginFor<T>,
+			region_id: RegionId,
+			new_owner: T::AccountId,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_transfer(region_id, None, new_owner)?;
+			Ok(())
 		}
 
 		#[pallet::call_index(99)]

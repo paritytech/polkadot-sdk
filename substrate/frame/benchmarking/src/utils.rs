@@ -290,16 +290,6 @@ pub trait Benchmarking {
 	/// Commit pending storage changes to the trie database and clear the database cache.
 	fn commit_db(&mut self) {
 		self.commit();
-
-		// Warmup the memory allocator after bulk deallocation.
-		// After draining the overlay with many entries, the first new allocation can trigger memory
-		// defragmentation.
-		const WARMUP_KEY: &[u8] = b":benchmark_warmup:";
-		self.place_storage(WARMUP_KEY.to_vec(), Some(vec![0u8; 32]));
-		self.place_storage(WARMUP_KEY.to_vec(), None);
-
-		// Reset tracking so warmup operations don't appear in benchmark results.
-		self.reset_read_write_count();
 	}
 
 	/// Get the read/write count.
@@ -325,7 +315,10 @@ pub trait Benchmarking {
 	// Add a new item to the DB whitelist.
 	fn add_to_whitelist(&mut self, add: PassFatPointerAndDecode<TrackedStorageKey>) {
 		let mut whitelist = self.get_whitelist();
-		match whitelist.iter_mut().find(|x| x.key == add.key) {
+		match whitelist
+			.iter_mut()
+			.find(|x| x.key == add.key && x.child_trie_key == add.child_trie_key)
+		{
 			// If we already have this key in the whitelist, update to be the most constrained
 			// value.
 			Some(item) => {
@@ -517,4 +510,11 @@ macro_rules! whitelist_account {
 			frame_system::Account::<T>::hashed_key_for(&$acc).into(),
 		);
 	};
+}
+
+/// Helper function to whitelist a child trie storage key.
+pub fn add_to_whitelist_child(child_trie_key: Vec<u8>, key: Vec<u8>) {
+	let mut tracked_key = sp_storage::TrackedStorageKey::new_child(child_trie_key, key);
+	tracked_key.whitelist();
+	self::benchmarking::add_to_whitelist(tracked_key);
 }

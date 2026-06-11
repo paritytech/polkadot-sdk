@@ -187,7 +187,7 @@ where
 			},
 			FuzzAppendItem::RollbackTransaction => {
 				if self.transaction_depth == 0 {
-					return
+					return;
 				}
 				self.transaction_depth -= 1;
 				self.reference.rollback_transaction();
@@ -195,7 +195,7 @@ where
 			},
 			FuzzAppendItem::CommitTransaction => {
 				if self.transaction_depth == 0 {
-					return
+					return;
 				}
 				self.transaction_depth -= 1;
 				self.reference.commit_transaction();

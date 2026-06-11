@@ -49,11 +49,11 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 						}
 					}
 				}))
-				.with_node(|node| node.with_name("honest-0"))
-				.with_node(|node| node.with_name("honest-1"))
-				.with_node(|node| node.with_name("honest-2"))
-				.with_node(|node| node.with_name("honest-3"))
-				.with_node(|node| {
+				.with_validator(|node| node.with_name("honest-0"))
+				.with_validator(|node| node.with_name("honest-1"))
+				.with_validator(|node| node.with_name("honest-2"))
+				.with_validator(|node| node.with_name("honest-3"))
+				.with_validator(|node| {
 					node.with_name("malus")
 						.with_image(
 							std::env::var("MALUS_IMAGE")
@@ -117,6 +117,7 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 		&relay_client,
 		2,
 		[(ParaId::from(2000), 2..3), (ParaId::from(2001), 2..3)],
+		[],
 	)
 	.await?;
 
@@ -135,6 +136,7 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 		&relay_client,
 		10,
 		[(ParaId::from(2000), 9..11), (ParaId::from(2001), 9..11)],
+		[],
 	)
 	.await?;
 

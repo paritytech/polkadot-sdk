@@ -47,7 +47,6 @@ impl Config for XcmConfig {
 	type AssetTrap = ();
 	type AssetLocker = XcmPallet;
 	type AssetExchanger = ();
-	type AssetClaims = ();
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
 	type FeeManager = ();

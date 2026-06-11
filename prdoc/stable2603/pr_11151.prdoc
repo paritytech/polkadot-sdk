@@ -1,0 +1,40 @@
+title: '[pallet-revive] Fix evm_sized and update call stipend'
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+      Fix evm_sized benchmark helper to use proper EVM init code instead of raw runtime bytecode.
+
+      Previously, `evm_sized(size) `created a Vec of size `STOP` opcodes and passed it directly as the contract code. However, in the EVM deployment model the code supplied is init code (constructor), not runtime code. The EVM executes the init code and whatever it `RETURN`s becomes the stored runtime code. Passing raw `STOP` bytes meant the init code would immediately halt and return nothing, resulting in an empty contract, not a contract of the requested size.
+
+     This PR replaces the implementation with proper EVM init code (PUSH3 size, PUSH1 0, RETURN) that returns size bytes from zero-initialized memory, producing a runtime code blob of exactly size bytes (all 0x00 / STOP opcodes). This makes the benchmark helper behave correctly and produce contracts whose `PristineCode` actually matches the requested size.
+
+     # Integration
+      No integration changes required. This only affects test/benchmark code behind `#[cfg(any(test, feature = "runtime-benchmarks"))]`.
+
+      # Review Notes
+      The new init code is 7 bytes:
+    ```
+      PUSH3 <b1> <b2> <b3>   // push the desired runtime code size (up to 16M)
+      PUSH1 0x00              // push memory offset 0
+      RETURN                  // return size bytes from offset 0
+    ```
+
+      EVM memory is zero-initialized, so RETURN(0, size) produces size bytes of 0x00 (STOP opcode). This runtime code is what gets stored in PristineCode and loaded on every subsequent call.
+    The size is encoded as 3 bytes (PUSH3), supporting sizes up to ~16M which is well above any practical benchmark need.
+
+    ## Call stipend
+      Changed `determine_call_stipend()` to `CALL_STIPEND + DepositEvent` weight so the stipend
+      covers emitting a LOG event on top of the base 2300 gas operations. Added reentrancy tests
+      verifying that the stipend prevents a malicious receiver from calling back into the sender.
+
+    ## Regenerated benchmark weights
+      Regenerated pallet-revive weights from CI benchmarks.
+
+    ## Expected test failures
+      12 revert.sol differential tests added to the expectations file. These fail due to CI
+      benchmark noise amplifying `ref_time_per_fuel`, reducing the PVM fuel budget per extrinsic.
+crates:
+- name: pallet-revive
+  bump: patch

@@ -17,7 +17,7 @@
 
 //! # Shared JSON-RPC client related code and abstractions.
 //!
-//! It exposes a `WebSocket JSON-RPC` client that implements the RPC interface in [`sc-rpc-api`]
+//! It exposes a `WebSocket JSON-RPC` client that implements the RPC interface in `sc-rpc-api`
 //! along with some abstractions.
 //!
 //! ## Usage

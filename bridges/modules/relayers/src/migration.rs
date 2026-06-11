@@ -180,7 +180,7 @@ pub mod v1 {
 		use sp_runtime::Saturating;
 
 		if reward_balance.is_zero() {
-			return
+			return;
 		}
 
 		v1::RelayerRewards::<T, I, LaneId>::mutate(

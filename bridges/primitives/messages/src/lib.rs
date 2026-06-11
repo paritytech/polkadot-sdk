@@ -291,8 +291,9 @@ impl<RelayerId> InboundLaneData<RelayerId> {
 	pub fn total_unrewarded_messages(&self) -> MessageNonce {
 		let relayers = &self.relayers;
 		match (relayers.front(), relayers.back()) {
-			(Some(front), Some(back)) =>
-				(front.messages.begin..=back.messages.end).saturating_len(),
+			(Some(front), Some(back)) => {
+				(front.messages.begin..=back.messages.end).saturating_len()
+			},
 			_ => 0,
 		}
 	}

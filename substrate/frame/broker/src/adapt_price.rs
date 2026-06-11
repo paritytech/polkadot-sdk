@@ -121,7 +121,7 @@ impl<Balance: FixedPointOperand> AdaptPrice<Balance> for CenterTargetPrice<Balan
 			return AdaptedPrices {
 				end_price: performance.end_price,
 				target_price: FixedU64::from(10).saturating_mul_int(performance.end_price),
-			}
+			};
 		};
 
 		let price = FixedU64::from_rational(1, 10).saturating_mul_int(sellout_price);
