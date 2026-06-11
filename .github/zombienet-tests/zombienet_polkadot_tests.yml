@@ -194,6 +194,12 @@
     OLD_POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master-187cddde"
     OLD_POLKADOT_COMMAND: "polkadot-old"
 
+- job-name: "zombienet-polkadot-approved-peer-mixed-collators"
+  test-filter: "functional::approved_peer_mixed_collators::approved_peer_mixed_collators_test"
+  cumulus-image: "colander"
+  additional-env:
+    OLD_COL_IMAGE: "docker.io/paritypr/colander:master-fe011353"
+
 - job-name: "zombienet-polkadot-functional-validator-disabling"
   test-filter: "functional::validator_disabling::validator_disabling_test"
 
