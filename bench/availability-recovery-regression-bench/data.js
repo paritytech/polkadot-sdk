@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781169360341,
+  "lastUpdate": 1781210578142,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2c23b906995e452389ca82de989babd0321955fc",
-          "message": "[Release|CI/CD] Fix release draft creation in the Combined build release flow (#10122)\n\nCloses: https://github.com/paritytech/release-engineering/issues/277",
-          "timestamp": "2025-10-27T11:02:34Z",
-          "tree_id": "2e8dd8249b56c2caad9f370f243ef1dcc84aa0b9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2c23b906995e452389ca82de989babd0321955fc"
-        },
-        "date": 1761566984107,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.609738570633334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20351150960000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13601532983333328,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "54316454+sandreim@users.noreply.github.com",
+            "name": "Andrei",
+            "username": "sandreim"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "22be42c9199bb2dabbb445cc28f94467623dd45e",
+          "message": "Cumulus: introduce authority discovery for parachains (#11954)\n\nAdd authority discovery to parachains. Collators now run an\n`authority_discovery` worker for the parachain network, publishing their\naddress to the parachain DHT and resolving each other from it.\nEvery parachain authority connects directly to every other authority,\nforming a full collator-to-collator mesh on the block-announce protocol.\n\n ## Why\n\nThe mesh fixes a real problem on large parachain networks. Without it, a\nfreshly built block needs to go through multiple hops until it reaches\nthe next author. Each hop adds 3x the latency between the two peers\n(block announce, block request, block response).\nWhen blocks arrive too late, next authors are forced to build on stale\nparents, and the chain forks, reducing block confidence and increasing\nparachain block times.\n\n**A followup PR will enable this for AH and PC.**\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-06-11T18:50:57Z",
+          "tree_id": "da29455cf2ddd3059fc4f5e837e311b5f4afc9a5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/22be42c9199bb2dabbb445cc28f94467623dd45e"
+        },
+        "date": 1781210543987,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1418408340333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.880168905799998,
             "unit": "seconds"
           }
         ]
