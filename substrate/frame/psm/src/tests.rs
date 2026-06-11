@@ -3056,8 +3056,8 @@ mod admin {
 			System::assert_has_event(
 				Event::<Test>::PsmCreated {
 					internal_asset: NEW_INTERNAL,
-					full_admin: signed_origin(ALICE),
-					emergency_admin: signed_origin(ALICE),
+					full_admin: Box::new(signed_origin(ALICE)),
+					emergency_admin: Box::new(signed_origin(ALICE)),
 					fee_destination: INSURANCE_FUND,
 					max_debt: DEFAULT_MAX_DEBT,
 				}
@@ -3308,8 +3308,8 @@ mod admin {
 			System::assert_has_event(
 				Event::<Test>::FullAdminChanged {
 					internal_asset: INTERNAL_ASSET_ID,
-					old_admin: root_origin(),
-					new_admin: signed_origin(ALICE),
+					old_admin: Box::new(root_origin()),
+					new_admin: Box::new(signed_origin(ALICE)),
 				}
 				.into(),
 			);
@@ -3377,8 +3377,8 @@ mod admin {
 			System::assert_has_event(
 				Event::<Test>::EmergencyAdminChanged {
 					internal_asset: INTERNAL_ASSET_ID,
-					old_admin: signed_origin(EMERGENCY_ACCOUNT),
-					new_admin: signed_origin(BOB),
+					old_admin: Box::new(signed_origin(EMERGENCY_ACCOUNT)),
+					new_admin: Box::new(signed_origin(BOB)),
 				}
 				.into(),
 			);
