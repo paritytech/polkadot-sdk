@@ -60,37 +60,37 @@ impl<ItemId, Priority> Node<ItemId, Priority> {
 	}
 }
 
-/// Whether `pos` is a valid insert position for `priority` in `list_id`.
+/// Whether `pos` is a valid insert position for `priority`.
 ///
-/// Checks that the link structure is consistent with the list's head/tail
-/// pointers and that `prev.priority >= priority > next.priority` (with endpoints
-/// treated as `+inf` / `-inf`). The `>=`/`>` asymmetry places same-priority
-/// inserts on the tail side of their cluster, yielding LIFO under tail-first
-/// iteration.
-pub fn is_position_valid<T: Config>(
-	list_id: &T::ListId,
-	priority: &T::Priority,
-	pos: &Position<T::ItemId>,
-	meta: Option<&ListMeta<T::ItemId>>,
+/// Valid means the neighbor links are consistent with the gap (endpoints
+/// checked against `meta`) and `prev.priority >= priority > next.priority`,
+/// with endpoints treated as `+inf` / `-inf`. The `>=`/`>` asymmetry places
+/// same-priority inserts on the tail side of their cluster, yielding LIFO
+/// under tail-first iteration.
+///
+/// `prev_node`/`next_node` are the stored nodes for `pos.prev`/`pos.next`,
+/// `None` for an endpoint or a missing row.
+pub fn is_position_valid<ItemId: PartialEq, Priority: Ord>(
+	priority: &Priority,
+	pos: &Position<ItemId>,
+	prev_node: Option<&Node<ItemId, Priority>>,
+	next_node: Option<&Node<ItemId, Priority>>,
+	meta: Option<&ListMeta<ItemId>>,
 ) -> bool {
-	let prev_ok = pos.prev.as_ref().map_or_else(
-		|| meta.and_then(|m| m.head.as_ref()) == pos.next.as_ref(),
-		|p| {
-			ListNodes::<T>::get(list_id, p)
-				.is_some_and(|n| n.next == pos.next && n.priority >= *priority)
-		},
-	);
+	let prev_ok = match (&pos.prev, prev_node) {
+		(None, _) => meta.and_then(|m| m.head.as_ref()) == pos.next.as_ref(),
+		(Some(_), Some(node)) => node.next == pos.next && node.priority >= *priority,
+		(Some(_), None) => false,
+	};
 	if !prev_ok {
 		return false;
 	}
 
-	pos.next.as_ref().map_or_else(
-		|| meta.and_then(|m| m.tail.as_ref()) == pos.prev.as_ref(),
-		|n| {
-			ListNodes::<T>::get(list_id, n)
-				.is_some_and(|node| node.prev == pos.prev && *priority > node.priority)
-		},
-	)
+	match (&pos.next, next_node) {
+		(None, _) => meta.and_then(|m| m.tail.as_ref()) == pos.prev.as_ref(),
+		(Some(_), Some(node)) => node.prev == pos.prev && *priority > node.priority,
+		(Some(_), None) => false,
+	}
 }
 
 /// Priority-only half of [`is_position_valid`]. Skips the link-consistency check
@@ -117,21 +117,20 @@ pub fn neighbor_priorities_admit<T: Config>(
 // returning `false` as a contract violation (the cursor is rejected by
 // [`is_position_valid`] yet no repair step applies).
 
-/// If `current` references a removed node, clear that side. Tries `prev` then
-/// `next`; clears at most one side per call so each clamp counts as a distinct
-/// repair step.
-fn try_clamp_dangling<T: Config>(list_id: &T::ListId, current: &mut Position<T::ItemId>) -> bool {
-	if let Some(p) = &current.prev {
-		if !ListNodes::<T>::contains_key(list_id, p) {
-			current.prev = None;
-			return true;
-		}
+/// If `current` references a removed node, clear that side. Clears at most
+/// one side per call so each clamp counts as a distinct repair step.
+fn try_clamp_dangling<ItemId, Priority>(
+	current: &mut Position<ItemId>,
+	prev_node: Option<&Node<ItemId, Priority>>,
+	next_node: Option<&Node<ItemId, Priority>>,
+) -> bool {
+	if current.prev.is_some() && prev_node.is_none() {
+		current.prev = None;
+		return true;
 	}
-	if let Some(n) = &current.next {
-		if !ListNodes::<T>::contains_key(list_id, n) {
-			current.next = None;
-			return true;
-		}
+	if current.next.is_some() && next_node.is_none() {
+		current.next = None;
+		return true;
 	}
 	false
 }
@@ -140,12 +139,12 @@ fn try_clamp_dangling<T: Config>(list_id: &T::ListId, current: &mut Position<T::
 /// links, re-anchor on whichever side's cached link admits `priority`
 /// (preferring `prev` on ties). Returns `false` when the links are already
 /// consistent.
-fn try_reanchor_inconsistent<T: Config>(
-	priority: &T::Priority,
-	current: &mut Position<T::ItemId>,
-	prev_node: Option<&Node<T::ItemId, T::Priority>>,
-	next_node: Option<&Node<T::ItemId, T::Priority>>,
-	meta: Option<&ListMeta<T::ItemId>>,
+fn try_reanchor_inconsistent<ItemId: Clone + PartialEq, Priority: Ord>(
+	priority: &Priority,
+	current: &mut Position<ItemId>,
+	prev_node: Option<&Node<ItemId, Priority>>,
+	next_node: Option<&Node<ItemId, Priority>>,
+	meta: Option<&ListMeta<ItemId>>,
 ) -> bool {
 	let prev_links_match = prev_node.map_or_else(
 		|| meta.and_then(|m| m.head.as_ref()) == current.next.as_ref(),
@@ -185,11 +184,11 @@ fn try_reanchor_inconsistent<T: Config>(
 /// [`is_position_valid`]. Returns `false` when neither side admits a walk —
 /// only reachable when links are consistent yet the position is rejected,
 /// which the caller treats as a contract violation.
-fn try_walk_priority<T: Config>(
-	priority: &T::Priority,
-	current: &mut Position<T::ItemId>,
-	prev_node: Option<&Node<T::ItemId, T::Priority>>,
-	next_node: Option<&Node<T::ItemId, T::Priority>>,
+fn try_walk_priority<ItemId: Clone, Priority: Ord>(
+	priority: &Priority,
+	current: &mut Position<ItemId>,
+	prev_node: Option<&Node<ItemId, Priority>>,
+	next_node: Option<&Node<ItemId, Priority>>,
 ) -> bool {
 	if let Some(pn) = prev_node.filter(|n| n.priority < *priority) {
 		current.next = current.prev.take();
@@ -205,7 +204,9 @@ fn try_walk_priority<T: Config>(
 }
 
 /// Walk from `hint` toward the correct insert position for `priority`, taking
-/// at most `MaxHintRepairSteps` steps.
+/// at most `MaxHintRepairSteps` steps. Each iteration fetches the two
+/// neighbor rows once; the decoded pair feeds both the validity check and
+/// the repair step.
 ///
 /// Returns the corrected position alongside the number of steps actually
 /// taken, or `InvalidPositionHints` if the budget is exhausted before a valid
@@ -217,19 +218,22 @@ pub fn walk_repair<T: Config>(
 ) -> Result<(Position<T::ItemId>, u32), ListError> {
 	let meta = ListMetas::<T>::get(list_id);
 	let mut current = hint;
-	if is_position_valid::<T>(list_id, priority, &current, meta.as_ref()) {
-		return Ok((current, 0));
-	}
-
 	let budget = T::MaxHintRepairSteps::get();
-	for steps in 1..=budget {
-		let progressed = try_clamp_dangling::<T>(list_id, &mut current) || {
-			let prev_node = current.prev.as_ref().and_then(|p| ListNodes::<T>::get(list_id, p));
-			let next_node = current.next.as_ref().and_then(|n| ListNodes::<T>::get(list_id, n));
-			let (pn, nn) = (prev_node.as_ref(), next_node.as_ref());
-			try_reanchor_inconsistent::<T>(priority, &mut current, pn, nn, meta.as_ref()) ||
-				try_walk_priority::<T>(priority, &mut current, pn, nn)
-		};
+	// `steps` counts mutations applied so far; the range is inclusive so the
+	// `budget`-th mutation still gets its validation pass.
+	for steps in 0..=budget {
+		let prev_node = current.prev.as_ref().and_then(|p| ListNodes::<T>::get(list_id, p));
+		let next_node = current.next.as_ref().and_then(|n| ListNodes::<T>::get(list_id, n));
+		let (pn, nn) = (prev_node.as_ref(), next_node.as_ref());
+		if is_position_valid(priority, &current, pn, nn, meta.as_ref()) {
+			return Ok((current, steps));
+		}
+		if steps == budget {
+			break;
+		}
+		let progressed = try_clamp_dangling(&mut current, pn, nn) ||
+			try_reanchor_inconsistent(priority, &mut current, pn, nn, meta.as_ref()) ||
+			try_walk_priority(priority, &mut current, pn, nn);
 		if !progressed {
 			// Links are consistent and neither side's priority drives a walk,
 			// yet `is_position_valid` rejects us. Reset to the head so the
@@ -237,9 +241,6 @@ pub fn walk_repair<T: Config>(
 			defensive!("walk_repair: no repair step applicable, resetting to head");
 			current.prev = None;
 			current.next = meta.as_ref().and_then(|m| m.head.clone());
-		}
-		if is_position_valid::<T>(list_id, priority, &current, meta.as_ref()) {
-			return Ok((current, steps));
 		}
 	}
 
