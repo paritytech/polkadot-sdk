@@ -879,13 +879,14 @@ where
 		}
 
 		let time_ms = now_unix_ms();
+		let proof = Arc::new(built_block.proof);
 		prepare_resubmission_aux_data::<Block>(
 			parent_hash,
 			time_ms,
 			relay_parent_session,
 			Some(core_index),
 			core_info.selector,
-			&built_block.proof,
+			proof.clone(),
 		)
 		.for_each(|(k, v)| {
 			import_block.auxiliary.push((k, Some(v)));
@@ -900,7 +901,7 @@ where
 		collator.collator_service().announce_block(parent_hash, None);
 
 		blocks.push(built_block.block);
-		proofs.push(built_block.proof);
+		proofs.push(Arc::unwrap_or_clone(proof));
 
 		let full_core_digest = CumulusDigestItem::contains_use_full_core(parent_header.digest());
 		let runtime_upgrade_digest = parent_header

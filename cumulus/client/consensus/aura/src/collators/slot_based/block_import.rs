@@ -321,7 +321,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 			None,
 			None,
 			core_info.selector,
-			&storage_proof,
+			Arc::new(storage_proof),
 		)
 		.for_each(|(k, v)| {
 			params.auxiliary.push((k, Some(v)));

@@ -57,26 +57,13 @@ pub struct StoredEntry {
 	/// Unix millis captured when this entry was recorded during block-import preparation.
 	pub time_ms: u64,
 	/// The storage proof captured at block import.
-	pub proof: StorageProof,
+	pub proof: Arc<StorageProof>,
 	/// Relay parent's `session_index_for_child`.
 	pub relay_parent_session: Option<SessionIndex>,
 	/// The core the block was originally submitted on.
 	pub core_index: Option<CoreIndex>,
 	/// The core selector used to pick the core on the relay chain.
 	pub core_selector: CoreSelector,
-}
-
-/// Borrowed, encode-only twin of [`StoredEntry`] used on the write path to avoid cloning the proof.
-///
-/// Must keep the exact same fields, in the same order, as [`StoredEntry`] so the two encode
-/// byte-for-byte identically (pinned by the `stored_entry_encoding_hex_snapshot` test).
-#[derive(Encode)]
-struct StoredEntryRef<'a> {
-	time_ms: u64,
-	proof: &'a StorageProof,
-	relay_parent_session: Option<SessionIndex>,
-	core_index: Option<CoreIndex>,
-	core_selector: CoreSelector,
 }
 
 fn entry_key<H: Encode>(block_hash: H) -> Vec<u8> {
@@ -112,10 +99,10 @@ pub fn prepare_resubmission_aux_data<Block: BlockT>(
 	relay_parent_session: Option<SessionIndex>,
 	core_index: Option<CoreIndex>,
 	core_selector: CoreSelector,
-	proof: &StorageProof,
+	proof: Arc<StorageProof>,
 ) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> {
 	let encoded_entry =
-		StoredEntryRef { time_ms, proof, relay_parent_session, core_index, core_selector }.encode();
+		StoredEntry { time_ms, proof, relay_parent_session, core_index, core_selector }.encode();
 	let encoded_version = STORE_CURRENT_VERSION.encode();
 
 	[(entry_key(block_hash), encoded_entry), (STORE_VERSION_KEY.to_vec(), encoded_version)]
@@ -259,7 +246,7 @@ mod tests {
 	fn create_test_entry(time_ms: u64) -> StoredEntry {
 		StoredEntry {
 			time_ms,
-			proof: StorageProof::new(vec![vec![1, 2, 3], vec![4, 5, 6]]),
+			proof: Arc::new(StorageProof::new(vec![vec![1, 2, 3], vec![4, 5, 6]])),
 			relay_parent_session: Some(1),
 			core_index: Some(CoreIndex(0)),
 			core_selector: CoreSelector(0),
@@ -279,7 +266,7 @@ mod tests {
 			entry.relay_parent_session,
 			entry.core_index,
 			entry.core_selector,
-			&entry.proof,
+			entry.proof.clone(),
 		)
 		.collect();
 		let insert_pairs: Vec<_> =
@@ -291,7 +278,7 @@ mod tests {
 	fn prepare_produces_expected_key_value_pairs() {
 		let hash = Hash::repeat_byte(0xAB);
 		let time_ms = 1234567890u64;
-		let proof = StorageProof::new(vec![vec![10, 20, 30]]);
+		let proof = Arc::new(StorageProof::new(vec![vec![10, 20, 30]]));
 		let relay_parent_session = Some(42);
 
 		let core_index = Some(CoreIndex(3));
@@ -302,7 +289,7 @@ mod tests {
 			relay_parent_session,
 			core_index,
 			core_selector,
-			&proof,
+			proof.clone(),
 		)
 		.collect();
 
@@ -387,14 +374,14 @@ mod tests {
 		let unknown = Hash::repeat_byte(0x04); // unknown session => kept
 
 		let write = |hash: Hash, session: Option<SessionIndex>| {
-			let proof = StorageProof::new(vec![vec![1, 2, 3]]);
+			let proof = Arc::new(StorageProof::new(vec![vec![1, 2, 3]]));
 			let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
 				hash,
 				1_000,
 				session,
 				None,
 				CoreSelector(0),
-				&proof,
+				proof,
 			)
 			.collect();
 			let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
@@ -428,14 +415,14 @@ mod tests {
 		let (backend, store) = new_store();
 
 		let recent = Hash::repeat_byte(0x09);
-		let proof = StorageProof::new(vec![vec![1, 2, 3]]);
+		let proof = Arc::new(StorageProof::new(vec![vec![1, 2, 3]]));
 		let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
 			recent,
 			1_000,
 			Some(10),
 			None,
 			CoreSelector(0),
-			&proof,
+			proof,
 		)
 		.collect();
 		let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
@@ -458,7 +445,7 @@ mod tests {
 	fn stored_entry_encoding_hex_snapshot() {
 		let entry = StoredEntry {
 			time_ms: 1234567890u64,
-			proof: StorageProof::new(vec![vec![1, 2, 3]]),
+			proof: Arc::new(StorageProof::new(vec![vec![1, 2, 3]])),
 			relay_parent_session: Some(7),
 			core_index: Some(CoreIndex(3)),
 			core_selector: CoreSelector(5),
@@ -592,7 +579,7 @@ mod tests {
 				entry_a.relay_parent_session,
 				entry_a.core_index,
 				entry_a.core_selector,
-				&entry_a.proof,
+				entry_a.proof.clone(),
 			)
 			.chain(prepare_resubmission_aux_data::<Block>(
 				hash_b,
@@ -600,7 +587,7 @@ mod tests {
 				entry_b.relay_parent_session,
 				entry_b.core_index,
 				entry_b.core_selector,
-				&entry_b.proof,
+				entry_b.proof.clone(),
 			))
 			.collect();
 			let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
