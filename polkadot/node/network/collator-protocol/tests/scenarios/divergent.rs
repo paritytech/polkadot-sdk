@@ -1037,7 +1037,7 @@ mod duplicate_fetch {
 	/// Two V2 peers advertise the same candidate (same hash, same offer); one fetch fires.
 	/// Pre-#12004: two fetches, because `Advertisement` keys on `(offer, peer_id)`. Post-
 	/// #12004: dedup keys on the offer alone, with the peer chosen by rep arbitration.
-	#[crate::sim_test(bug_on = "experimental", bug_url = "github:paritytech/polkadot-sdk#12004")]
+	#[crate::sim_test()]
 	fn v2_same_candidate_from_multiple_peers_fetched_once<S: CollatorSut>() {
 		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
 		let leaf = w.leaf();
@@ -1062,7 +1062,7 @@ mod duplicate_fetch {
 	/// V2 peer and V3 peer both carry the same V2-descriptor offer; one fetch fires.
 	/// V3 protocol may legitimately advertise a V2 descriptor — the validator must dedup
 	/// by offer (descriptor) regardless of the carrier's protocol version.
-	#[crate::sim_test(bug_on = "experimental", bug_url = "github:paritytech/polkadot-sdk#12004")]
+	#[crate::sim_test()]
 	fn cross_protocol_version_carriers_fetched_once<S: CollatorSut>() {
 		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
 		let leaf = w.leaf();
