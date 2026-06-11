@@ -982,4 +982,25 @@ mod test {
 			Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
 		);
 	}
+
+	/// An EIP-7702 transaction targeting `RUNTIME_PALLETS_ADDR` should be rejected
+	/// at validation time: that dispatch path resolves to `eth_substrate_call`,
+	/// which has no `authorization_list` field, so the auths would otherwise be
+	/// silently dropped while the user is still charged the worst-case deposit.
+	#[test]
+	fn check_eth_transact_7702_rejects_runtime_pallets_addr() {
+		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		let signer = TestSigner::new(&[0xCC; 32]);
+		let auth = signer.sign_authorization(chain_id, H160::from([1u8; 20]), U256::zero());
+
+		let remark: CallOf<Test> =
+			frame_system::Call::remark { remark: b"Hello, world!".to_vec() }.into();
+
+		assert_eq!(
+			UncheckedExtrinsicBuilder::call_with_authorization(RUNTIME_PALLETS_ADDR, vec![auth])
+				.data(remark.encode())
+				.check(),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+		);
+	}
 }

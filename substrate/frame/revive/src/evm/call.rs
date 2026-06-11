@@ -113,6 +113,14 @@ impl GenericTransaction {
 				log::debug!(target: LOG_TARGET, "EIP-7702 transactions require non-empty authorization list");
 				return Err(InvalidTransaction::Call);
 			}
+
+			// EIP-7702 + `RUNTIME_PALLETS_ADDR` is incoherent: that destination
+			// dispatches as `eth_substrate_call`, which has no authorization_list
+			// field, so the auths would be silently dropped.
+			if self.to == Some(RUNTIME_PALLETS_ADDR) {
+				log::debug!(target: LOG_TARGET, "EIP-7702 transactions cannot target RUNTIME_PALLETS_ADDR");
+				return Err(InvalidTransaction::Call);
+			}
 		}
 
 		// EIP-7702: per-tuple field bounds. `chain_id`, `r`, `s` are `U256` (< 2^256 by
