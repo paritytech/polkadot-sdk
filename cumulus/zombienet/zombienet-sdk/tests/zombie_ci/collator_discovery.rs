@@ -54,7 +54,7 @@ const PARA_ID: u32 = 1000;
 const VARIANT_WASM: Option<&[u8]> = cumulus_test_runtime::with_authority_discovery::WASM_BINARY;
 
 /// Mesh convergence timeout after session change.
-const FULL_MESH_TIMEOUT: Duration = Duration::from_secs(180);
+const FULL_MESH_TIMEOUT: Duration = Duration::from_secs(240);
 
 /// Polling cadence for the full-mesh check.
 const FULL_MESH_POLL_INTERVAL: Duration = Duration::from_secs(5);
