@@ -589,10 +589,10 @@ fn test_runtime_delegation_resolution() {
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(counter.addr));
 
-		// Verify that the delegation resolves correctly: setNumber(42) writes to
-		// the authority's storage through the delegated Counter code.
+		// Overwrite with a distinct value via bare_call so the final read can't be
+		// confused with the eth_call's setNumber(42) write above.
 		let write_result = builder::bare_call(authority)
-			.data(Counter::setNumberCall { newNumber: 42u64 }.abi_encode())
+			.data(Counter::setNumberCall { newNumber: 1337u64 }.abi_encode())
 			.build_and_unwrap_result();
 		assert!(!write_result.did_revert());
 
@@ -600,7 +600,7 @@ fn test_runtime_delegation_resolution() {
 			.data(Counter::numberCall {}.abi_encode())
 			.build_and_unwrap_result();
 		assert!(!read_result.did_revert());
-		assert_eq!(Counter::numberCall::abi_decode_returns(&read_result.data).unwrap(), 42u64);
+		assert_eq!(Counter::numberCall::abi_decode_returns(&read_result.data).unwrap(), 1337u64);
 	});
 }
 
