@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781168244175,
+  "lastUpdate": 1781209500444,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -98603,6 +98603,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3026015852,
             "range": "± 75328688",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "54316454+sandreim@users.noreply.github.com",
+            "name": "Andrei",
+            "username": "sandreim"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "22be42c9199bb2dabbb445cc28f94467623dd45e",
+          "message": "Cumulus: introduce authority discovery for parachains (#11954)\n\nAdd authority discovery to parachains. Collators now run an\n`authority_discovery` worker for the parachain network, publishing their\naddress to the parachain DHT and resolving each other from it.\nEvery parachain authority connects directly to every other authority,\nforming a full collator-to-collator mesh on the block-announce protocol.\n\n ## Why\n\nThe mesh fixes a real problem on large parachain networks. Without it, a\nfreshly built block needs to go through multiple hops until it reaches\nthe next author. Each hop adds 3x the latency between the two peers\n(block announce, block request, block response).\nWhen blocks arrive too late, next authors are forced to build on stale\nparents, and the chain forks, reducing block confidence and increasing\nparachain block times.\n\n**A followup PR will enable this for AH and PC.**\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-06-11T18:50:57Z",
+          "tree_id": "da29455cf2ddd3059fc4f5e837e311b5f4afc9a5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/22be42c9199bb2dabbb445cc28f94467623dd45e"
+        },
+        "date": 1781209465800,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19074268,
+            "range": "± 142810",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19318236,
+            "range": "± 123559",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20924529,
+            "range": "± 201637",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26098652,
+            "range": "± 205729",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61271975,
+            "range": "± 472106",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 383628010,
+            "range": "± 4085943",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2857662705,
+            "range": "± 228065314",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16870565,
+            "range": "± 187763",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17013842,
+            "range": "± 140823",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17511450,
+            "range": "± 153658",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22146036,
+            "range": "± 165259",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61957926,
+            "range": "± 1125709",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 367060652,
+            "range": "± 5560215",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2646884273,
+            "range": "± 31355127",
             "unit": "ns/iter"
           }
         ]
