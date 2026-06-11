@@ -127,6 +127,12 @@ velocity-12 = []
 # The default relay parent offset is 0. The following features can be used to change this value:
 # Change the relay parent offset to 2
 relay-parent-offset-2 = []
+# Change the relay parent offset to 4
+relay-parent-offset-4 = []
+# Change the relay parent offset to 6
+relay-parent-offset-6 = []
+# Change the relay parent offset to 15
+relay-parent-offset-15 = []
 
 # Configure the runtime to use scheduling V3
 v3-descriptor = []

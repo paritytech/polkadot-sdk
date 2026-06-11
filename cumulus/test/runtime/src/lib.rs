@@ -22,11 +22,14 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-pub mod flavors;
+mod features;
+mod flavors;
 mod genesis_config_presets;
 pub mod test_pallet;
 
 extern crate alloc;
+
+use features::*;
 
 use alloc::{vec, vec::Vec};
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
@@ -46,8 +49,9 @@ use sp_version::RuntimeVersion;
 
 use cumulus_primitives_core::{ParaId, RelayProofRequest, VerifySchedulingSignature};
 
+define_flavors!(consts wasm);
+
 // A few exports that help ease life for downstream crates.
-pub use flavors::*;
 pub use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
