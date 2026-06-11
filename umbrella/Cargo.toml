@@ -1334,7 +1334,7 @@ version = "0.6.0"
 default-features = false
 optional = true
 path = "../substrate/frame/assets/precompiles"
-version = "0.2.0"
+version = "0.2.1"
 
 [dependencies.pallet-atomic-swap]
 default-features = false
