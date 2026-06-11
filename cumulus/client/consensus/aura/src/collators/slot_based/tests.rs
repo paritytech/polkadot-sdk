@@ -17,7 +17,7 @@
 
 use super::{
 	block_builder_task::{determine_cores, offset_relay_parent_find_descendants},
-	relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
+	relay_chain_data_cache::{RelayChainData, RelayChainDataCache, SessionData},
 };
 use async_trait::async_trait;
 use codec::Encode;
@@ -38,7 +38,10 @@ use sp_version::RuntimeVersion;
 use std::{
 	collections::{BTreeMap, HashMap, VecDeque},
 	pin::Pin,
-	sync::{Arc, Mutex},
+	sync::{
+		atomic::{AtomicU32, Ordering},
+		Arc, Mutex,
+	},
 };
 
 fn header_numbers(headers: &Vec<RelayHeader>) -> Vec<BlockNumber> {
@@ -286,6 +289,7 @@ pub struct TestRelayClient {
 	headers: HashMap<RelayHash, RelayHeader>,
 	best_hash: Arc<Mutex<Option<RelayHash>>>,
 	best_notifications: Arc<Mutex<Option<Pin<Box<dyn Stream<Item = RelayHeader> + Send + Sync>>>>>,
+	scheduling_lookahead_calls: Arc<AtomicU32>,
 }
 
 impl TestRelayClient {
@@ -294,6 +298,7 @@ impl TestRelayClient {
 			headers,
 			best_hash: Default::default(),
 			best_notifications: Arc::new(Mutex::new(None)),
+			scheduling_lookahead_calls: Arc::new(AtomicU32::new(0)),
 		}
 	}
 
@@ -302,7 +307,12 @@ impl TestRelayClient {
 			headers,
 			best_hash: Arc::new(Mutex::new(Some(best_hash))),
 			best_notifications: Arc::new(Mutex::new(None)),
+			scheduling_lookahead_calls: Arc::new(AtomicU32::new(0)),
 		}
+	}
+
+	pub fn scheduling_lookahead_calls(&self) -> u32 {
+		self.scheduling_lookahead_calls.load(Ordering::Relaxed)
 	}
 
 	pub fn set_best_hash(&mut self, best_hash: Option<RelayHash>) {
@@ -395,7 +405,7 @@ impl RelayChainInterface for TestRelayClient {
 	}
 
 	async fn session_index_for_child(&self, _: RelayHash) -> RelayChainResult<SessionIndex> {
-		unimplemented!("Not needed for test")
+		Ok(0)
 	}
 
 	async fn import_notification_stream(
@@ -495,7 +505,8 @@ impl RelayChainInterface for TestRelayClient {
 	}
 
 	async fn scheduling_lookahead(&self, _: RelayHash) -> RelayChainResult<u32> {
-		unimplemented!("Not needed for test")
+		self.scheduling_lookahead_calls.fetch_add(1, Ordering::Relaxed);
+		Ok(5)
 	}
 
 	async fn candidate_events(&self, _: RelayHash) -> RelayChainResult<Vec<CandidateEvent>> {
@@ -503,7 +514,7 @@ impl RelayChainInterface for TestRelayClient {
 	}
 
 	async fn max_relay_parent_session_age(&self, _at: RelayHash) -> RelayChainResult<u32> {
-		unimplemented!("Not needed for test")
+		Ok(7)
 	}
 
 	async fn node_features(&self, _at: RelayHash) -> RelayChainResult<NodeFeatures> {
@@ -621,6 +632,7 @@ impl RelayChainDataCache<TestRelayClient> {
 			claim_queue: claim_queue_snapshot,
 			max_pov_size: 1024 * 1024,
 			node_features,
+			session_index: 0,
 		};
 
 		self.insert_test_data(relay_parent_hash, data);
@@ -644,4 +656,64 @@ pub fn relay_header_with_slot(number: u32, parent_hash: RelayHash, slot: u64) ->
 		extrinsics_root: Default::default(),
 		digest,
 	}
+}
+
+/// Verify that `get_session_data` returns the correct values and caches per session, so that
+/// `scheduling_lookahead` is only queried once even when called multiple times for relay blocks
+/// belonging to the same session.
+#[tokio::test]
+async fn session_data_is_cached_per_session() {
+	// Build two distinct relay headers that will belong to session 0 (TestRelayClient always
+	// returns session_index == 0 from `session_index_for_child`).
+	let header_a = relay_header_with_slot(10, Default::default(), 10);
+	let header_b = relay_header_with_slot(11, header_a.hash(), 11);
+
+	let mut headers = HashMap::new();
+	headers.insert(header_a.hash(), header_a.clone());
+	headers.insert(header_b.hash(), header_b.clone());
+
+	let client = TestRelayClient::new(headers);
+	let mut cache = RelayChainDataCache::new(client.clone(), 1.into());
+
+	// Pre-seed both headers so that `get_by_hash` is a cache hit and the only relay queries
+	// that happen are the `scheduling_lookahead` / `max_relay_parent_session_age` ones issued
+	// by `get_session_data` itself.
+	cache.set_test_data(header_a.clone(), vec![], Default::default());
+	cache.set_test_data(header_b.clone(), vec![], Default::default());
+
+	// First call: fetches session data for session 0 and caches it.
+	assert_eq!(
+		cache.get_session_data(header_a.hash()).await,
+		Ok(&SessionData { scheduling_lookahead: 5, max_relay_parent_session_age: 7 }),
+		"get_session_data should return values from TestRelayClient"
+	);
+	assert_eq!(
+		client.scheduling_lookahead_calls(),
+		1,
+		"scheduling_lookahead should have been called exactly once after first get_session_data"
+	);
+
+	// Second call for the same session (via header_a again): must reuse the cached entry.
+	let _ = cache.get_session_data(header_a.hash()).await.expect("second call must succeed");
+	assert_eq!(
+		client.scheduling_lookahead_calls(),
+		1,
+		"scheduling_lookahead must not be called again for a cached session"
+	);
+
+	// Third call for header_b which is a different relay block but still session 0: no new query.
+	let _ = cache.get_session_data(header_b.hash()).await.expect("third call must succeed");
+	assert_eq!(
+		client.scheduling_lookahead_calls(),
+		1,
+		"scheduling_lookahead must not be called again for a different block in the same session"
+	);
+
+	// The session_index field on RelayChainData is directly readable via get_by_hash.
+	let session_index = cache
+		.get_by_hash(header_a.hash())
+		.await
+		.expect("get_by_hash must succeed")
+		.session_index;
+	assert_eq!(session_index, 0, "session_index should be 0 as stored in test data");
 }

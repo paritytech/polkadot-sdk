@@ -43,7 +43,9 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
-use polkadot_primitives::{Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId};
+use polkadot_primitives::{
+	Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId, DEFAULT_SCHEDULING_LOOKAHEAD,
+};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
@@ -267,13 +269,15 @@ where
 				.runtime_api()
 				.relay_parent_offset(para_best_hash)
 				.unwrap_or_default();
-			let mut max_relay_parent_session_age = 0;
-			if v3_enabled {
-				max_relay_parent_session_age = relay_client
-					.max_relay_parent_session_age(scheduling_parent_hash)
+			let max_relay_parent_session_age = if v3_enabled {
+				relay_chain_data_cache
+					.get_session_data(scheduling_parent_hash)
 					.await
-					.unwrap_or(0);
-			}
+					.map(|data| data.max_relay_parent_session_age)
+					.unwrap_or(0)
+			} else {
+				0
+			};
 			let Ok(Some(relay_parent_data)) = offset_relay_parent_find_descendants(
 				&mut relay_chain_data_cache,
 				scheduling_parent_header.clone(),
@@ -287,11 +291,18 @@ where
 			let relay_parent_header = relay_parent_data.relay_parent().clone();
 			let relay_parent_hash = relay_parent_header.hash();
 
+			let scheduling_lookahead = relay_chain_data_cache
+				.get_session_data(relay_parent_hash)
+				.await
+				.map(|data| data.scheduling_lookahead)
+				.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD);
+
 			let Some(parent_search_result) = crate::collators::find_parent(
 				relay_parent_hash,
 				para_id,
 				&*para_backend,
 				&relay_client,
+				scheduling_lookahead,
 				|parent| {
 					// We never want to build on any "middle block" that isn't the last block in a
 					// core.

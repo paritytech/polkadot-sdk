@@ -33,7 +33,6 @@ use polkadot_node_subsystem::messages::CollatorProtocolMessage;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	Hash as RelayHash, Id as ParaId, OccupiedCoreAssumption, ValidationCodeHash,
-	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use sc_client_api::HeaderBackend;
 use sc_consensus_aura::{standalone as aura_internal, AuraApi};
@@ -242,16 +241,13 @@ async fn find_parent<Block>(
 	para_id: ParaId,
 	para_backend: &impl sc_client_api::Backend<Block>,
 	relay_client: &impl RelayChainInterface,
+	scheduling_lookahead: u32,
 	filter_parent: impl Fn(&Block::Header) -> bool,
 ) -> Option<consensus_common::ParentSearchResult<Block>>
 where
 	Block: BlockT,
 {
-	let ancestry_lookback = relay_client
-		.scheduling_lookahead(relay_parent)
-		.await
-		.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
-		.saturating_sub(1) as usize;
+	let ancestry_lookback = scheduling_lookahead.saturating_sub(1) as usize;
 	let parent_search_params = ParentSearchParams { relay_parent, para_id, ancestry_lookback };
 
 	let mut result = match cumulus_client_consensus_common::find_parent_for_building::<Block>(
