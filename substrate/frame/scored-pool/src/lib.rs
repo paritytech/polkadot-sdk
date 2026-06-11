@@ -402,9 +402,9 @@ pub mod pallet {
 			pool.remove(index as usize);
 
 			// we binary search the pool (which is sorted descending by score, with `None`
-			// last). `Option`'s `Ord` impl places `None` after `Some(_)` regardless of the
-			// scored value, so wrapping in `Reverse` keeps `None` entries last while sorting
-			// `Some(_)` entries by descending score.
+			// last). `Option`'s `Ord` impl places `None` before `Some(_)` (None < Some(_)) 
+			// regardless of the scored value, so wrapping in `Reverse` keeps `None` entries 
+			// last while sorting `Some(_)` entries by descending score.
 			// if there is already an element with `score`, we insert
 			// right before that. if not, the search returns a location
 			// where we can insert while maintaining order.
