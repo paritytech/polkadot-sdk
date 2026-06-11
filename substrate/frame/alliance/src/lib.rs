@@ -568,8 +568,14 @@ pub mod pallet {
 			}
 
 			fellows.sort();
-			Members::<T, I>::insert(&MemberRole::Fellow, fellows.clone());
 			allies.sort();
+
+			// The Fellow and Ally member sets must be mutually exclusive.
+			for ally in allies.iter() {
+				ensure!(fellows.binary_search(ally).is_err(), Error::<T, I>::AlreadyMember);
+			}
+
+			Members::<T, I>::insert(&MemberRole::Fellow, fellows.clone());
 			Members::<T, I>::insert(&MemberRole::Ally, allies.clone());
 
 			let mut voteable_members = fellows.clone();
