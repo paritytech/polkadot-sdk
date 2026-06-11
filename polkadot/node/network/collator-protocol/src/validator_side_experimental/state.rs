@@ -30,7 +30,9 @@ use crate::{
 };
 use fatality::Split;
 use futures::stream::FusedStream;
-use polkadot_node_network_protocol::{peer_set::CollationVersion, OurView, PeerId};
+use polkadot_node_network_protocol::{
+	peer_set::CollationVersion, v4_collation::SegmentFingerprint, OurView, PeerId,
+};
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
 	messages::{CandidateBackingMessage, IfDisconnected, NetworkBridgeTxMessage},
@@ -300,6 +302,48 @@ impl<B: Backend> State<B> {
 					?para_id,
 					"Advertisement accepted",
 				);
+			},
+		}
+	}
+
+	/// Handle a new segment.
+	pub fn handle_segment<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		_sender: &mut Sender,
+		peer_id: PeerId,
+		scheduling_parent: Hash,
+		segment: Vec<SegmentFingerprint>,
+	) {
+		gum::debug!(target: LOG_TARGET, ?scheduling_parent,?peer_id, ?segment, "Received segment advertisement");
+
+		let Some(PeerInfo { state, .. }) = self.peer_manager.peer_info(&peer_id) else {
+			gum::warn!(target: LOG_TARGET, ?scheduling_parent, ?peer_id, ?segment, "Received an segment advertisement from an unconnected peer");
+			return;
+		};
+
+		// Advertised without being declared. Not a big waste of our time, so ignore it.
+		let PeerState::Collating(para_id) = state else {
+			gum::debug!(target: LOG_TARGET, ?scheduling_parent, ?peer_id, ?segment, "Received an segment advertisement for undeclared peer");
+			return;
+		};
+
+		if segment.is_empty() {
+			gum::warn!(target: LOG_TARGET, ?scheduling_parent, ?peer_id, "Received and empty segment advertisement");
+			return;
+		}
+		let num_fingerprints = segment.len();
+
+		match self.collation_manager.try_accept_segment(
+			peer_id,
+			*para_id,
+			scheduling_parent,
+			segment,
+		) {
+			Err(err) => {
+				gum::debug!(target: LOG_TARGET, ?scheduling_parent, ?peer_id, ?para_id, ?err, "Segment advertisement rejected");
+			},
+			Ok(()) => {
+				gum::debug!(target: LOG_TARGET, ?scheduling_parent, ?num_fingerprints, ?peer_id, ?para_id, "Segment advertisement accepted");
 			},
 		}
 	}
@@ -656,6 +700,16 @@ impl<B: Backend> State<B> {
 	#[cfg(test)]
 	pub fn advertisements(&self) -> std::collections::BTreeSet<super::common::Advertisement> {
 		self.collation_manager.advertisements()
+	}
+
+	#[cfg(test)]
+	pub fn segments(&self) -> Vec<(Hash, PeerId, ParaId, Vec<SegmentFingerprint>)> {
+		self.collation_manager.segments()
+	}
+
+	#[cfg(test)]
+	pub fn collation_manager(&mut self) -> &mut CollationManager {
+		&mut self.collation_manager
 	}
 }
 
