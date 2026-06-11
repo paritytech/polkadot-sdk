@@ -16221,7 +16221,6 @@ dependencies = [
  "frame-benchmarking-cli",
  "futures",
  "log",
- "polkadot-node-core-pvf-common",
  "polkadot-node-metrics",
  "polkadot-node-primitives",
  "polkadot-service",
@@ -16237,6 +16236,7 @@ dependencies = [
  "sp-keyring",
  "sp-runtime 31.0.1",
  "substrate-build-script-utils",
+ "tempfile",
  "thiserror 1.0.65",
 ]
 
@@ -16829,7 +16829,6 @@ dependencies = [
  "polkadot-node-primitives",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
- "rand 0.8.5",
  "sc-executor 0.32.0",
  "sc-executor-common 0.29.0",
  "sc-executor-wasmtime 0.29.0",
