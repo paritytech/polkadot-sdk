@@ -48,14 +48,15 @@
 //!    affinity tick and reconcile them into the `RpcSubscription` source (`set_source_topics`). The
 //!    store owns the subscription set, so the poll cannot drift and the RPC layer stays untouched.
 //!    Needs step 3. Closes "track affinity from active subscriptions" ([#12339]).
-//! 6. [ ] **Local queries.** Over the fed topic set, implement `local_filter()` (advertised
+//! 6. [x] **Local queries.** Over the fed topic set, implement `local_filter()` (advertised
 //!    [`AffinityFilter`] built from the topics) and `local_has_explicit_affinity(stmt)` (does any
 //!    of the statement's topics sit in the set). Configured and subscribed topics start being
 //!    advertised here. Tests: filter contents and membership.
 //! 7. [ ] **Storage obligation.** Add a query that derives this node's store decision for a
-//!    statement from the sources whose topics it matches — a configured topic obliges storage
-//!    differently than a transient subscription. Consumed by store-limitations (#11936), which
-//!    firms up the return shape. Tests: obligation per source mix.
+//!    statement from the sources whose topics it matches: a configured topic obliges permanent
+//!    storage, a transient subscription only retention until the next propagation. The orchestrator
+//!    feeds this into `submit_with_category_mask` (#11937); store-limitations (#11936) firms up the
+//!    return shape. Tests: obligation per source mix.
 //! 8. [ ] **Peer filters.** `update_peer_filter`/`on_peer_disconnected` maintain a `HashMap<PeerId,
 //!    AffinityFilter>`; `peer_has_explicit_affinity(peer, stmt)` reads it for the forward decision.
 //!    Independent of the local side. The overlapping `Peer::topic_affinity` in `lib.rs` stays until
@@ -180,10 +181,9 @@ impl ExplicitAffinity {
 
 	// === Advertise ===
 
+	/// The [`AffinityFilter`] this node advertises, built from its current topics.
 	pub(crate) fn local_filter(&self) -> AffinityFilter {
-		// TODO: build from the tracked local topics; empty for now.
-		log::trace!(target: LOG_TARGET, "explicit_affinity: local_filter (stub)");
-		AffinityFilter::from_topics(core::iter::empty::<&[u8; 32]>(), self.seed)
+		AffinityFilter::from_topics(self.local.keys().map(|topic| topic.as_ref()), self.seed)
 	}
 
 	// === Peer filters ===
@@ -200,10 +200,11 @@ impl ExplicitAffinity {
 
 	// === Queries ===
 
-	pub(crate) fn local_has_explicit_affinity(&self, _stmt: &Statement) -> bool {
-		// TODO: true if any of the statement's topics is in the local topic set.
-		log::trace!(target: LOG_TARGET, "explicit_affinity: local_has_explicit_affinity (stub)");
-		false
+	/// Whether any of the statement's topics sits in the local topic set.
+	///
+	/// Reads the exact set, not [`Self::local_filter`] to skip bloom false positives.
+	pub(crate) fn local_has_explicit_affinity(&self, stmt: &Statement) -> bool {
+		stmt.topics().iter().any(|topic| self.local.contains_key(topic))
 	}
 
 	pub(crate) fn peer_has_explicit_affinity(&self, peer: PeerId, _stmt: &Statement) -> bool {
@@ -349,5 +350,47 @@ mod tests {
 		let topics = affinity.topics();
 		assert_eq!(topics.len(), 3, "no duplicates despite topic(2) held twice");
 		assert_eq!(topic_set(&affinity), HashSet::from([topic(1), topic(2), topic(3)]));
+	}
+
+	/// A statement carrying the single `topic`.
+	fn statement_on(topic: Topic) -> Statement {
+		let mut stmt = Statement::new();
+		stmt.set_plain_data(b"data".to_vec());
+		stmt.set_topic(0, topic);
+		stmt
+	}
+
+	#[test]
+	fn local_filter_advertises_every_followed_topic() {
+		let mut affinity = ExplicitAffinity::new(&[topic(1)]);
+		affinity.add_topics(AffinitySource::RpcSubscription, &[topic(2)]);
+
+		let filter = affinity.local_filter();
+		assert!(filter.contains(&topic(1)));
+		assert!(filter.contains(&topic(2)));
+		assert!(!filter.contains(&topic(3)));
+	}
+
+	#[test]
+	fn local_filter_empty_set_matches_nothing_concrete() {
+		let affinity = ExplicitAffinity::new(&[]);
+		assert!(!affinity.local_filter().matches_statement(&statement_on(topic(1))));
+	}
+
+	#[test]
+	fn local_has_explicit_affinity_tracks_membership() {
+		let affinity = ExplicitAffinity::new(&[topic(1)]);
+
+		assert!(affinity.local_has_explicit_affinity(&statement_on(topic(1))));
+		assert!(!affinity.local_has_explicit_affinity(&statement_on(topic(2))));
+	}
+
+	#[test]
+	fn local_has_explicit_affinity_false_for_topicless_statement() {
+		let affinity = ExplicitAffinity::new(&[topic(1)]);
+
+		let mut broadcast = Statement::new();
+		broadcast.set_plain_data(b"broadcast".to_vec());
+		assert!(!affinity.local_has_explicit_affinity(&broadcast));
 	}
 }
