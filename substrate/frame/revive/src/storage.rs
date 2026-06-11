@@ -274,8 +274,21 @@ impl<T: Config> AccountInfo<T> {
 	///
 	/// Returns the net deposit change.
 	///
-	/// Note: the target's `code_hash` is snapshotted at delegation time. This is fine
-	/// because `set_code` (the only way to change a contract's code) requires root.
+	/// # Spec deviation: code is resolved at delegation time, not at call time
+	///
+	/// The target's `code_hash` (and the resulting `ContractInfo`) is snapshotted from
+	/// `AccountInfoOf::<T>::get(&target)` here, not looked up live on every call. This is
+	/// stable when `target` is already a deployed contract: the only way to change a
+	/// contract's code is via root `set_code`, so the snapshot stays accurate.
+	///
+	/// It is **not** spec-compliant when `target` is **empty** at delegation time and a
+	/// contract is later deployed to that address (e.g., via `CREATE2` or Nick's method,
+	/// possibly even in the same transaction as the delegation). Spec-compliant clients
+	/// resolve code at call time, so a post-delegation deployment would "wake up" the
+	/// delegation. Here, the snapshot stays at zero and the authority continues to
+	/// behave like a no-code EOA. The niche but real case this breaks is a single EIP-7702
+	/// transaction that calls a factory which deploys to the future target *and* delegates
+	/// to it — on revive the delegation never activates.
 	pub(crate) fn set_delegation(
 		address: &H160,
 		target: H160,
