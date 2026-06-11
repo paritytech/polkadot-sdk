@@ -57,11 +57,12 @@ use polkadot_node_subsystem_test_helpers::{
 	make_buffered_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CandidateReceiptV2 as CandidateReceipt, CoreIndex, DisputeStatement, GroupIndex, Hash,
-	HeadData, Header, IndexedVec, MultiDisputeStatementSet, MutateDescriptorV2, NodeFeatures,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, SigningContext, ValidDisputeStatementKind,
-	ValidatorId, ValidatorIndex, ValidatorSignature, ValidityAttestation,
+	ApprovalVote, ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateEvent,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoalescedApprovalCandidateHashes,
+	CoreIndex, DisputeStatement, GroupIndex, Hash, HeadData, Header, IndexedVec,
+	MultiDisputeStatementSet, MutateDescriptorV2, NodeFeatures, ScrapedOnChainVotes, SessionIndex,
+	SessionInfo, SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	ValidatorSignature, ValidityAttestation,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_v2_bad_sig, dummy_digest, dummy_hash,
@@ -343,6 +344,14 @@ impl TestState {
 										NodeFeatures::EMPTY
 									};
 									si_tx.send(Ok(features)).unwrap();
+								}
+							);
+							assert_matches!(
+								overseer_recv(virtual_overseer).await,
+								AllMessages::RuntimeApi(
+									RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, tx), )
+								) => {
+									tx.send(Ok(ApprovalVotingParams::default())).unwrap();
 								}
 							);
 						}
@@ -744,7 +753,7 @@ fn make_candidate_included_event(candidate_receipt: CandidateReceipt) -> Candida
 pub async fn handle_approval_vote_request(
 	ctx_handle: &mut VirtualOverseer,
 	expected_hash: &CandidateHash,
-	votes_to_send: HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>,
+	votes_to_send: HashMap<ValidatorIndex, (CoalescedApprovalCandidateHashes, ValidatorSignature)>,
 ) {
 	assert_matches!(
 		ctx_handle.recv().await,
@@ -953,7 +962,10 @@ fn approval_vote_import_works() {
 
 			let approval_votes = [(
 				ValidatorIndex(4),
-				(vec![candidate_receipt1.hash()], approval_vote.into_validator_signature()),
+				(
+					vec![candidate_receipt1.hash()].try_into().unwrap(),
+					approval_vote.into_validator_signature(),
+				),
 			)]
 			.into_iter()
 			.collect();
@@ -4289,6 +4301,14 @@ fn session_info_is_requested_only_once() {
 					si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 				}
 			);
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, tx), )
+				) => {
+					tx.send(Ok(ApprovalVotingParams::default())).unwrap();
+				}
+			);
 			test_state
 		})
 	});
@@ -4347,6 +4367,14 @@ fn session_info_big_jump_works() {
 						si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 					}
 				);
+				assert_matches!(
+					virtual_overseer.recv().await,
+					AllMessages::RuntimeApi(
+						RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, tx), )
+					) => {
+						tx.send(Ok(ApprovalVotingParams::default())).unwrap();
+					}
+				);
 			}
 			test_state
 		})
@@ -4403,6 +4431,14 @@ fn session_info_small_jump_works() {
 						RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
 					) => {
 						si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+					}
+				);
+				assert_matches!(
+					virtual_overseer.recv().await,
+					AllMessages::RuntimeApi(
+						RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, tx), )
+					) => {
+						tx.send(Ok(ApprovalVotingParams::default())).unwrap();
 					}
 				);
 			}
@@ -4888,6 +4924,14 @@ fn v3_candidate_on_subsequent_leaf_is_detected_correctly() {
 					f.resize(FeatureIndex::CandidateReceiptV3 as usize + 1, false);
 					f.set(FeatureIndex::CandidateReceiptV3 as usize, true);
 					si_tx.send(Ok(f)).unwrap();
+				}
+			);
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, tx), )
+				) => {
+					tx.send(Ok(ApprovalVotingParams::default())).unwrap();
 				}
 			);
 
