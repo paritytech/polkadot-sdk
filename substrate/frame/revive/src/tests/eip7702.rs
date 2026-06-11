@@ -1272,6 +1272,41 @@ fn delegation_to_eoa_has_no_deposit() {
 	});
 }
 
+/// EOA → DelegatedEOA transition must preserve the account's existing `dust` field —
+/// a `set_delegation` should only touch the account_type / contract_info, not silently
+/// drop sub-ratio dust the user had accumulated.
+#[test]
+fn set_delegation_preserves_dust_on_eoa_transition() {
+	ExtBuilder::default().build().execute_with(|| {
+		let authority = H160::from([0x55; 20]);
+		let authority_id = <Test as Config>::AddressMapper::to_address(
+			&<Test as Config>::AddressMapper::to_account_id(&authority),
+		);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(
+			&<Test as Config>::AddressMapper::to_account_id(&authority),
+			100_000_000,
+		);
+
+		// Seed a non-zero `dust` on the EOA's `AccountInfoOf` entry.
+		crate::AccountInfoOf::<Test>::insert(
+			authority,
+			AccountInfo { account_type: crate::storage::AccountType::EOA, dust: 7 },
+		);
+		assert_eq!(crate::AccountInfoOf::<Test>::get(&authority).unwrap().dust, 7);
+
+		AccountInfo::<Test>::set_delegation(&authority, H160::from([0x66; 20])).unwrap();
+
+		// Dust must survive the transition.
+		let after = crate::AccountInfoOf::<Test>::get(&authority).unwrap();
+		assert_eq!(after.dust, 7, "set_delegation must not zero existing dust");
+		assert!(matches!(
+			after.account_type,
+			crate::storage::AccountType::DelegatedEOA { delegate_target: Some(_), .. }
+		));
+		let _ = authority_id; // suppress unused
+	});
+}
+
 /// Multiple delegations from different authorities to the same contract each get their own deposit.
 #[test]
 fn multiple_delegations_each_have_own_deposit() {
