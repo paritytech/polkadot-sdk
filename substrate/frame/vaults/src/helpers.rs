@@ -39,7 +39,7 @@ use frame::{
 	},
 	prelude::*,
 };
-use pallet_linked_list::{Position, SortedListInterface};
+use pallet_linked_list::{ListError, Position, SortedListInterface};
 use pusd_primitives::ProvidePrice;
 
 fn moment_to_millis<T: Config>(m: MomentOf<T>) -> u64 {
@@ -49,6 +49,19 @@ fn moment_to_millis<T: Config>(m: MomentOf<T>) -> u64 {
 
 fn millis_diff<T: Config>(now: MomentOf<T>, then: MomentOf<T>) -> u64 {
 	moment_to_millis::<T>(now.saturating_sub(then))
+}
+
+/// Translate a rate-index insert/re-insert failure. A stale user-supplied
+/// hint surfaces as [`Error::InvalidPositionHints`]; every other kind means
+/// the index and the vault rows disagree.
+pub(crate) fn map_error<T: Config>(e: ListError) -> Error<T> {
+	match e {
+		ListError::InvalidPositionHints => Error::<T>::InvalidPositionHints,
+		ListError::ItemNotFound |
+		ListError::ItemAlreadyExists |
+		ListError::ListTooLong |
+		ListError::CorruptList => Error::<T>::RateIndexInvariantBroken,
+	}
 }
 
 /// Read the branch state, returning `UnknownCollateral` when missing.

@@ -67,7 +67,7 @@ pub fn open_vault<T: Config>(
 		annual_rate,
 		hint,
 	)
-	.map_err(|_| Error::<T>::InvalidPositionHints)?;
+	.map_err(map_error::<T>)?;
 
 	Pallet::<T>::deposit_event(Event::Borrowed {
 		collateral_id: collateral_id.clone(),
@@ -290,7 +290,7 @@ pub fn borrow<T: Config>(
 			new_rate,
 			hint,
 		)
-		.map_err(|_| Error::<T>::InvalidPositionHints)?;
+		.map_err(map_error::<T>)?;
 		Pallet::<T>::deposit_event(Event::VaultStatusChanged {
 			collateral_id: collateral_id.clone(),
 			owner: owner.clone(),
@@ -304,7 +304,7 @@ pub fn borrow<T: Config>(
 			new_rate,
 			hint,
 		)
-		.map_err(|_| Error::<T>::InvalidPositionHints)?;
+		.map_err(map_error::<T>)?;
 	}
 
 	if old_rate != new_rate {
@@ -382,7 +382,7 @@ pub fn repay_for<T: Config>(
 
 	BranchStates::<T>::try_mutate(&collateral_id, |maybe| -> Result<_, DispatchError> {
 		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-		bs.apply_debt_payment(payment, vault.annual_rate);
+		bs.apply_debt_payment(payment, vault.annual_rate, vault.debt.principal);
 		Ok(())
 	})?;
 
@@ -443,7 +443,7 @@ pub fn change_rate<T: Config>(
 		new_rate,
 		hint,
 	)
-	.map_err(|_| Error::<T>::InvalidPositionHints)?;
+	.map_err(map_error::<T>)?;
 	Pallet::<T>::deposit_event(Event::BorrowRateChanged {
 		collateral_id,
 		owner,
@@ -498,7 +498,7 @@ fn close_inner<T: Config>(
 	let bs_before = branch_state_of::<T>(collateral_id)?;
 	let mut bs_after = bs_before.clone();
 	if let Some((payment, rate)) = maybe_payment {
-		bs_after.apply_debt_payment(payment, rate);
+		bs_after.apply_debt_payment(payment, rate, vault.debt.principal);
 	}
 	bs_after.detach_vault(vault);
 	bs_after.remove_collateral(coll);
@@ -672,7 +672,7 @@ pub fn exit_final_recovery<T: Config>(
 			vault.annual_rate,
 			hint,
 		)
-		.map_err(|_| Error::<T>::InvalidPositionHints)?;
+		.map_err(map_error::<T>)?;
 	}
 	Pallet::<T>::deposit_event(Event::VaultStatusChanged {
 		collateral_id,

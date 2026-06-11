@@ -209,20 +209,21 @@ pub fn touch_vault<T: Config>(
 		bs.debt.principal = bs.debt.principal.saturating_add(pending.principal);
 		// Reconcile this vault's share of the avg-rate weighted contribution
 		// that was folded into the branch interest base at liquidation. Subtract
-		// the avg-rate share, add the recipient-rate share.
+		// the avg-rate share, then swap the vault's own full contribution..
 		let delta_weight_per_stake = bs
 			.redist
 			.weight_per_stake
 			.saturating_sub(vault.redist_snapshot.weight_per_stake);
 		let weight_to_remove =
 			delta_weight_per_stake.saturating_mul_int(vault.redistribution_stake);
-		let weight_to_add = vault.annual_rate.saturating_mul_int(pending.principal);
+		let principal_before = vault.debt.principal;
+		vault.debt.principal = vault.debt.principal.saturating_add(pending.principal);
 		bs.debt.weighted_principal_sum = bs
 			.debt
 			.weighted_principal_sum
 			.saturating_sub(weight_to_remove)
-			.saturating_add(weight_to_add);
-		vault.debt.principal = vault.debt.principal.saturating_add(pending.principal);
+			.saturating_sub(vault.annual_rate.saturating_mul_int(principal_before))
+			.saturating_add(vault.annual_rate.saturating_mul_int(vault.debt.principal));
 	}
 	if !pending.collateral.is_zero() {
 		// The collateral was already part of `bs.total_collateral` at

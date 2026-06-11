@@ -61,26 +61,27 @@ pub fn view_redemption_queue_head<T: Config>(
 	out
 }
 
-pub fn view_debt_in_front<T: Config>(collateral_id: &T::AssetId, rate: FixedU128) -> BalanceOf<T> {
-	// Walk tail-first; sum interest_bearing_debt while node.priority < rate.
+/// Walk the rate index tail-first, summing active-vault principal while the
+/// stored priority is strictly below `rate`, visiting at most `max_steps`
+/// vaults. Returns the partial sum when the cap stops the walk early.
+pub fn view_debt_in_front<T: Config>(
+	collateral_id: &T::AssetId,
+	rate: FixedU128,
+	max_steps: u32,
+) -> BalanceOf<T> {
 	let mut total = BalanceOf::<T>::zero();
 	let rate_list = VaultListId::Rate(collateral_id.clone());
 	let mut cursor = T::VaultLists::tail(&rate_list);
-	while let Some(o) = cursor {
-		let priority = match T::VaultLists::priority(&rate_list, &o) {
-			Some(p) => p,
-			None => break,
-		};
+	for _ in 0..max_steps {
+		let Some(o) = cursor else { break };
+		let Some((priority, neighbors)) = T::VaultLists::node(&rate_list, &o) else { break };
 		if priority >= rate {
 			break;
 		}
 		if let Some(v) = Vaults::<T>::get(collateral_id, &o) {
 			total = total.saturating_add(v.debt.principal);
 		}
-		cursor = match T::VaultLists::neighbors(&rate_list, &o) {
-			Some(p) => p.prev,
-			None => break,
-		};
+		cursor = neighbors.prev;
 	}
 	total
 }

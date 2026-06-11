@@ -34,7 +34,7 @@ use frame::deps::{
 		DispatchError, DispatchResult, FixedPointNumber, FixedU128,
 	},
 };
-use pallet_linked_list::SortedListInterface;
+use pallet_linked_list::{ListError, SortedListInterface};
 use pusd_primitives::{
 	LiquidationAllocation, ProvidePrice, RedemptionAllocation, VaultBadDebtInterface,
 	VaultLiquidationInterface, VaultRedemptionInterface,
@@ -77,9 +77,12 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 			bs.detach_vault(&vault);
 			Ok(())
 		})?;
-		// Dormant vaults aren't in the rate index; silently absorbing
-		// `ItemNotFound` is correct here.
-		let _ = T::VaultLists::remove(&VaultListId::Rate(collateral_id), &owner);
+		// Dormant vaults aren't in the rate index, so absorb exactly the
+		// not-found case; any other failure is index corruption.
+		match T::VaultLists::remove(&VaultListId::Rate(collateral_id), &owner) {
+			Ok(()) | Err(ListError::ItemNotFound) => {},
+			Err(_) => return Err(Error::<T>::RateIndexInvariantBroken.into()),
+		}
 
 		Ok(post_touch_debt)
 	}
@@ -316,7 +319,7 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 		let new_stake = old_stake.saturating_sub(allocation.collateral_to_redeemer);
 		BranchStates::<T>::try_mutate(&collateral_id, |maybe| -> Result<_, DispatchError> {
 			let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-			bs.apply_debt_payment(payment, vault.annual_rate);
+			bs.apply_debt_payment(payment, vault.annual_rate, vault.debt.principal);
 			bs.remove_collateral(allocation.collateral_to_redeemer);
 			if stake_changes {
 				bs.refresh_vault_stake(vault.annual_rate, old_stake, new_stake);

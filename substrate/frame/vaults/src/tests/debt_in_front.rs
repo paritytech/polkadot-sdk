@@ -22,17 +22,25 @@ fn debt_in_front_sums_lower_rate_vaults_only() {
 
 		// Query: total debt at rates strictly < 0.7%.
 		// Sum of vaults 1..=4: 500+700+600+800 = 2600.
-		let in_front = crate::Pallet::<Test>::debt_in_front(DOT, rate_pct(7, 1000));
+		let in_front = crate::Pallet::<Test>::debt_in_front(DOT, rate_pct(7, 1000), u32::MAX);
 		assert_eq!(in_front, 2_600);
 
 		// Query: total debt at rates strictly < 0.6%.
 		// Sum of vaults 1..=2: 500+700 = 1200.
-		let in_front = crate::Pallet::<Test>::debt_in_front(DOT, rate_pct(6, 1000));
+		let in_front = crate::Pallet::<Test>::debt_in_front(DOT, rate_pct(6, 1000), u32::MAX);
 		assert_eq!(in_front, 1_200);
 
 		// Query: total debt at rates strictly < 1% (covers everything).
-		let in_front = crate::Pallet::<Test>::debt_in_front(DOT, rate_pct(1, 100));
+		let in_front = crate::Pallet::<Test>::debt_in_front(DOT, rate_pct(1, 100), u32::MAX);
 		assert_eq!(in_front, 500 + 700 + 600 + 800 + 900 + 1_000 + 400 + 500);
+
+		// The step cap bounds the walk: only the two cheapest vaults are
+		// visited, returning the partial sum.
+		let capped = crate::Pallet::<Test>::debt_in_front(DOT, rate_pct(1, 100), 2);
+		assert_eq!(capped, 500 + 700, "cap of 2 visits only the two tail vaults");
+		// A cap at least the list length matches the uncapped result.
+		let exact = crate::Pallet::<Test>::debt_in_front(DOT, rate_pct(1, 100), 8);
+		assert_eq!(exact, 500 + 700 + 600 + 800 + 900 + 1_000 + 400 + 500);
 	});
 }
 

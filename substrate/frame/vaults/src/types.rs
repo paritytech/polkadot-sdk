@@ -301,12 +301,22 @@ impl<AccountId, Balance: FixedPointOperand + Saturating, Moment>
 		self.total_collateral = self.total_collateral.saturating_sub(amount);
 	}
 
-	pub fn apply_debt_payment(&mut self, payment: DebtPayment<Balance>, rate: FixedU128) {
+	/// Apply a debt payment to the branch aggregates. `principal_after` is the
+	/// paying vault's principal *after* `VaultDebt::cancel` ran.
+	pub fn apply_debt_payment(
+		&mut self,
+		payment: DebtPayment<Balance>,
+		rate: FixedU128,
+		principal_after: Balance,
+	) {
 		self.debt.principal = self.debt.principal.saturating_sub(payment.principal);
 		self.debt.minted_interest = self.debt.minted_interest.saturating_sub(payment.interest);
-		let weighted = rate.saturating_mul_int(payment.principal);
-		self.debt.weighted_principal_sum =
-			self.debt.weighted_principal_sum.saturating_sub(weighted);
+		let principal_before = principal_after.saturating_add(payment.principal);
+		self.debt.weighted_principal_sum = self
+			.debt
+			.weighted_principal_sum
+			.saturating_sub(rate.saturating_mul_int(principal_before))
+			.saturating_add(rate.saturating_mul_int(principal_after));
 	}
 
 	pub fn change_vault_rate(
@@ -469,4 +479,51 @@ impl<Balance, Moment> BranchConfigUpdate<Balance, Moment> {
 pub enum VaultsManagerLevel {
 	Full,
 	Defensive,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn branch_state(principal: u128, weighted: u128) -> BranchState<u64, u128, u64> {
+		BranchState {
+			total_collateral: 0,
+			debt: BranchDebt {
+				principal,
+				minted_interest: 0,
+				pending_redist_principal: 0,
+				bad_debt: 0,
+				weighted_principal_sum: weighted,
+				last_interest_update: 0,
+			},
+			stakes: BranchStakes { total: 0, weighted_sum: 0 },
+			rounding: BranchRounding::default(),
+			redist: RedistSnapshot::default(),
+			next_final_recovery_nonce: 0,
+			last_dormant_vault_owner: None,
+			idle_cursor: None,
+			frozen: None,
+		}
+	}
+
+	#[test]
+	fn apply_debt_payment_swaps_full_contribution() {
+		// rate = 0.3: floor(0.3 * 10) = 3 and floor(0.3 * 9) = 2. The naive
+		// `floor(rate * delta)` update would subtract floor(0.3 * 1) = 0 and
+		// strand the weighted sum at 3.
+		let rate = FixedU128::from_rational(3u128, 10u128);
+		let mut bs = branch_state(10, 3);
+		bs.apply_debt_payment(DebtPayment { interest: 0, principal: 1 }, rate, 9);
+		assert_eq!(bs.debt.principal, 9);
+		assert_eq!(bs.debt.weighted_principal_sum, 2);
+	}
+
+	#[test]
+	fn apply_debt_payment_full_payoff_clears_contribution() {
+		let rate = FixedU128::from_rational(3u128, 10u128);
+		let mut bs = branch_state(10, 3);
+		bs.apply_debt_payment(DebtPayment { interest: 0, principal: 10 }, rate, 0);
+		assert_eq!(bs.debt.principal, 0);
+		assert_eq!(bs.debt.weighted_principal_sum, 0);
+	}
 }

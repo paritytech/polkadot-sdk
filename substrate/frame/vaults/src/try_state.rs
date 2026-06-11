@@ -4,15 +4,17 @@
 //! `next_block` and end-to-end by the runtime's pre-upgrade hook.
 
 use crate::{
-	pallet::{BalanceOf, BranchStates, Branches, Config, HoldReason, Pallet, Vaults},
+	pallet::{
+		BalanceOf, BranchConfigs, BranchStates, Branches, Config, HoldReason, Pallet, Vaults,
+	},
 	types::VaultListId,
 };
 use frame::{
 	deps::{
 		frame_support::traits::fungibles::InspectHold,
 		sp_runtime::{
-			traits::{Saturating, UniqueSaturatedInto, Zero},
-			FixedPointNumber,
+			traits::{One, Saturating, UniqueSaturatedInto, Zero},
+			FixedPointNumber, FixedU128,
 		},
 	},
 	try_runtime::TryRuntimeError,
@@ -56,6 +58,9 @@ fn check_branch_identities<T: Config>(
 	let mut sum_owner_held = BalanceOf::<T>::zero();
 	let mut sum_pending_debt_share = BalanceOf::<T>::zero();
 	let mut sum_pending_collat_share = BalanceOf::<T>::zero();
+	let mut sum_principal = BalanceOf::<T>::zero();
+	let mut sum_weighted_principal = BalanceOf::<T>::zero();
+	let mut sum_weighted_stake = BalanceOf::<T>::zero();
 	let mut n_live_vaults: u128 = 0;
 
 	for (owner, vault) in Vaults::<T>::iter_prefix(c) {
@@ -70,6 +75,13 @@ fn check_branch_identities<T: Config>(
 			&owner,
 		);
 		sum_owner_held = sum_owner_held.saturating_add(held);
+		// Every row — FinalRecovery included — keeps its debt attached to the
+		// branch aggregates; only the stake is detached while in the FIFO.
+		sum_principal = sum_principal.saturating_add(vault.debt.principal);
+		sum_weighted_principal = sum_weighted_principal
+			.saturating_add(vault.annual_rate.saturating_mul_int(vault.debt.principal));
+		sum_weighted_stake = sum_weighted_stake
+			.saturating_add(vault.annual_rate.saturating_mul_int(vault.redistribution_stake));
 		if in_recovery {
 			if !vault.redistribution_stake.is_zero() {
 				return Err("FinalRecovery vault has non-zero redistribution_stake".into());
@@ -93,6 +105,24 @@ fn check_branch_identities<T: Config>(
 	if bs.stakes.total != sum_stake {
 		return Err("total_stakes != Σ active+dormant vault.redistribution_stake".into());
 	}
+	// Every writer moves principal on the branch and the vault by the same
+	// amount, so this identity is exact (the prepare→finalize liquidation gap
+	// is intra-extrinsic and invisible at block end).
+	if bs.debt.principal != sum_principal {
+		return Err("branch principal != Σ vault principal".into());
+	}
+	// Every stake mutation swaps full `floor(rate · stake)` contributions, so
+	// this identity is exact as well.
+	if bs.stakes.weighted_sum != sum_weighted_stake {
+		return Err("stakes.weighted_sum != Σ floor(rate · stake)".into());
+	}
+	check_weighted_principal_sum::<T>(
+		c,
+		bs.debt.weighted_principal_sum,
+		bs.debt.pending_redist_principal.saturating_add(bs.rounding.ownerless_pusd_debt),
+		sum_weighted_principal,
+		n_live_vaults,
+	)?;
 
 	let tolerance: BalanceOf<T> = n_live_vaults.unique_saturated_into();
 
@@ -128,6 +158,29 @@ fn check_branch_identities<T: Config>(
 	};
 	if collat_drift > tolerance {
 		return Err("pending collateral share drift exceeds rounding tolerance".into());
+	}
+	Ok(())
+}
+
+fn check_weighted_principal_sum<T: Config>(
+	c: &T::AssetId,
+	weighted_principal_sum: BalanceOf<T>,
+	pending_pool: BalanceOf<T>,
+	sum_weighted_principal: BalanceOf<T>,
+	n_live_vaults: u128,
+) -> Result<(), TryRuntimeError> {
+	if weighted_principal_sum < sum_weighted_principal {
+		return Err("weighted_principal_sum below Σ floor(rate · principal)".into());
+	}
+	let Some(cfg) = BranchConfigs::<T>::get(c) else {
+		return Err("registered branch without config".into());
+	};
+	let rate_bound = cfg.maximum_borrow_rate.max(FixedU128::one());
+	let w_pending = rate_bound.saturating_mul_int(pending_pool);
+	let slack: BalanceOf<T> = n_live_vaults.saturating_add(1).unique_saturated_into();
+	let upper = sum_weighted_principal.saturating_add(w_pending).saturating_add(slack);
+	if weighted_principal_sum > upper {
+		return Err("weighted_principal_sum exceeds Σ floor(rate · principal) + allowance".into());
 	}
 	Ok(())
 }

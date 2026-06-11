@@ -474,9 +474,14 @@ pub mod pallet {
 		}
 
 		/// Total active-vault interest-bearing debt at rates strictly less
-		/// than `rate`.
-		pub fn debt_in_front(collateral_id: T::AssetId, rate: FixedU128) -> BalanceOf<T> {
-			helpers::view_debt_in_front::<T>(&collateral_id, rate)
+		/// than `rate`, walking at most `max_steps` vaults from the tail.
+		/// Returns the partial sum when the cap stops the walk early.
+		pub fn debt_in_front(
+			collateral_id: T::AssetId,
+			rate: FixedU128,
+			max_steps: u32,
+		) -> BalanceOf<T> {
+			helpers::view_debt_in_front::<T>(&collateral_id, rate, max_steps)
 		}
 
 		/// Predict the upfront fee `open_vault` would charge for

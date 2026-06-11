@@ -6,9 +6,8 @@
 //! fix in Phase 1 of the plan.
 //!
 //! Conventions:
-//! - Vaults are opened with `stake == collateral`; `vault.redistribution_stake`
-//!   mirrors the live `VaultCollateral` hold for every Active/Dormant vault, so the two stay equal
-//!   across the test.
+//! - Vaults are opened with `stake == collateral`; `vault.redistribution_stake` mirrors the live
+//!   `VaultCollateral` hold for every Active/Dormant vault, so the two stay equal across the test.
 //! - "Recipient rate" means the recipient vault's `annual_rate`, not the liquidated vault's rate.
 
 use crate::{
@@ -454,5 +453,68 @@ fn redistribution_residue_lands_in_ownerless_pusd_debt() {
 			bs.rounding.ownerless_pusd_debt > pre_owner,
 			"per-stake flooring of an indivisible redistribution must surface in ownerless_pusd_debt",
 		);
+	});
+}
+
+// Full-lifecycle identity soak: open → liquidate with a redistribution split
+// → recipient touches → partial repay → redemption → overpay-close. The
+// `try_state` identities (Σ principal exact, Σ floor(rate·stake) exact,
+// weighted-principal bounds) must hold at every stage, not just at the end.
+#[test]
+fn full_lifecycle_holds_branch_identities() {
+	fn assert_identities() {
+		#[cfg(feature = "try-runtime")]
+		crate::try_state::do_try_state::<Test>().expect("branch identities hold");
+	}
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		assert_ok!(open(2, DOT, 2_000, 800, rate_pct(25, 100)));
+		assert_ok!(open(3, DOT, 3_000, 1_000, rate_pct(50, 100)));
+		assert_identities();
+
+		// A month of accrual so touches materialise real interest.
+		advance_time(30 * 24 * 3_600 * 1_000);
+
+		// Liquidate vault 1 with a genuine three-way split: one third offset,
+		// the rest redistributed, plus keeper compensation.
+		set_price(DOT, FixedU128::from_rational(55u128, 100u128));
+		assert_ok!(liquidate_with(DOT, 1, |post_touch| LiquidationAllocation {
+			offset: OffsetAllocation { recipient: 9, debt: post_touch / 3, collateral: 100 },
+			redistribution_collateral: 500,
+			keeper: KeeperCompensation { recipient: 8, collateral: 10 },
+		}));
+		assert_identities();
+
+		// A recipient touch absorbs its redistribution share.
+		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(9), 2, DOT));
+		assert_identities();
+
+		// Partial repay exercises the full-contribution weighted-sum swap.
+		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(2), 2, DOT, 300));
+		assert_identities();
+
+		// Redemption against the cheapest vault at a healthy price.
+		set_price(DOT, FixedU128::from_rational(10u128, 1u128));
+		assert_ok!(redeem(DOT, 7, 400));
+		assert_identities();
+
+		// Touch the remaining whale, then close it by overpaying.
+		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(9), 3, DOT));
+		assert_identities();
+		let _ = <Pusd as frame::deps::frame_support::traits::fungible::Mutate<u64>>::transfer(
+			&1,
+			&3,
+			pusd_balance(1),
+			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
+		);
+		assert_ok!(crate::Pallet::<Test>::repay_for(
+			RuntimeOrigin::signed(3),
+			3,
+			DOT,
+			pusd_balance(3)
+		));
+		assert!(crate::pallet::Vaults::<Test>::get(DOT, 3).is_none(), "vault 3 closed");
+		assert_identities();
 	});
 }
