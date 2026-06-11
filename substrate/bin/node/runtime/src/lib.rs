@@ -2917,16 +2917,16 @@ mod runtime {
 	pub type MultiAssetBounties = pallet_multi_asset_bounties::Pallet<Runtime>;
 
 	#[runtime::pallet_index(91)]
-	pub type AssetsPrecompilesPermit = pallet_assets_precompiles::permit::pallet::Pallet<Runtime>;
+	pub type AssetsPrecompiles = pallet_assets_precompiles::pallet::Pallet<Runtime>;
 
 	#[runtime::pallet_index(92)]
-	pub type VestingPrecompiles = pallet_vesting_precompiles::pallet::Pallet<Runtime>;
+	pub type AssetsPrecompilesPermit = pallet_assets_precompiles::permit::pallet::Pallet<Runtime>;
 
 	#[runtime::pallet_index(93)]
-	pub type Dap = pallet_dap::Pallet<Runtime>;
+	pub type VestingPrecompiles = pallet_vesting_precompiles::pallet::Pallet<Runtime>;
 
 	#[runtime::pallet_index(94)]
-	pub type AssetsPrecompiles = pallet_assets_precompiles::pallet::Pallet<Runtime>;
+	pub type Dap = pallet_dap::Pallet<Runtime>;
 
 	#[runtime::pallet_index(95)]
 	pub type CustomBenchmarkingConfig = pallet_example_custom_benchmarking_config::Pallet<Runtime>;
