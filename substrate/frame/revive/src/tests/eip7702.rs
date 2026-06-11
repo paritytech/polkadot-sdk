@@ -293,7 +293,7 @@ fn contract_account_rejects_authorization() {
 }
 
 #[test]
-fn multiple_authorizations_from_same_authority_first_wins() {
+fn multiple_authorizations_with_same_nonce_first_wins() {
 	ExtBuilder::default().build().execute_with(|| {
 		let setup = DelegationTestSetup::new([1u8; 32]);
 		let target1 = H160::from([0x11; 20]);
@@ -302,8 +302,9 @@ fn multiple_authorizations_from_same_authority_first_wins() {
 
 		let nonce = setup.nonce();
 
-		// All have the same nonce, but only the first will succeed
-		// (subsequent ones will fail due to nonce mismatch after first increments it)
+		// Duplicate-nonce case: the first auth bumps the nonce, so the rest fail
+		// the nonce check and are skipped. With properly incremented nonces the
+		// spec rule is the opposite — later auths overwrite earlier ones.
 		let auth1 = setup.signer.sign_authorization(setup.chain_id, target1, nonce);
 		let auth2 = setup.signer.sign_authorization(setup.chain_id, target2, nonce);
 		let auth3 = setup.signer.sign_authorization(setup.chain_id, target3, nonce);
@@ -319,7 +320,6 @@ fn multiple_authorizations_from_same_authority_first_wins() {
 		);
 
 		assert!(AccountInfo::<Test>::is_delegated(&setup.signer.address));
-		// First authorization wins since we process blindly
 		assert_eq!(
 			AccountInfo::<Test>::get_delegation_target(&setup.signer.address),
 			Some(target1)
