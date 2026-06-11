@@ -218,7 +218,6 @@ impl<T: Config> AccountInfo<T> {
 				match &mut account.account_type {
 					AccountType::DelegatedEOA { contract_info, .. } => {
 						*contract_info = contract;
-						return;
 					},
 					_ => account.account_type = contract.into(),
 				}
