@@ -116,6 +116,61 @@ fn exit_final_recovery_to_dormant_when_debt_below_minimum() {
 }
 
 #[test]
+fn deposit_into_final_recovery_keeps_stake_zero() {
+	build_and_execute(|| {
+		register_default_branch();
+		enter_recovery(1, rate_pct(5, 100));
+
+		let before = crate::pallet::BranchStates::<Test>::get(DOT).expect("branch state");
+		assert_ok!(crate::Pallet::<Test>::deposit_collateral_for(
+			RuntimeOrigin::signed(2),
+			1,
+			DOT,
+			10_000,
+		));
+
+		// The collateral lands on the hold and in the branch total, but the
+		// vault stays excluded from stake accounting while in the FIFO.
+		let vault = crate::pallet::Vaults::<Test>::get(DOT, 1).expect("vault stored");
+		assert_eq!(vault.redistribution_stake, 0);
+		let after = crate::pallet::BranchStates::<Test>::get(DOT).expect("branch state");
+		assert_eq!(after.stakes.total, before.stakes.total);
+		assert_eq!(after.total_collateral, before.total_collateral + 10_000);
+		assert_eq!(held(DOT, 1), 1_000 + 10_000);
+		assert!(vault_status(DOT, 1).is_final_recovery());
+	});
+}
+
+#[test]
+fn final_recovery_rescue_deposit_then_exit() {
+	build_and_execute(|| {
+		register_default_branch();
+		enter_recovery(1, rate_pct(5, 100));
+
+		// At the crash price the vault is deep underwater; top up enough
+		// collateral that the fully-accrued CR clears the MCR again, then
+		// exit. Stake re-syncs from the hold on the way out.
+		assert_ok!(crate::Pallet::<Test>::deposit_collateral_for(
+			RuntimeOrigin::signed(2),
+			1,
+			DOT,
+			10_000,
+		));
+		assert_ok!(crate::Pallet::<Test>::exit_final_recovery(
+			RuntimeOrigin::signed(99),
+			1,
+			DOT,
+			Position::endpoints_only(),
+		));
+
+		assert!(vault_status(DOT, 1).is_active());
+		let vault = crate::pallet::Vaults::<Test>::get(DOT, 1).expect("vault stored");
+		assert_eq!(vault.redistribution_stake, held(DOT, 1));
+		assert!(crate::Pallet::<Test>::final_recovery_queue_head(DOT, 10).is_empty());
+	});
+}
+
+#[test]
 fn redemption_queue_composes_recovery_dormant_and_rate_index() {
 	build_and_execute(|| {
 		register_default_branch();

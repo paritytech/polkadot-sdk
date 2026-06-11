@@ -97,7 +97,8 @@ pub fn deposit_collateral_for<T: Config>(
 	update_aggregate_interest::<T>(&collateral_id, now)?;
 	let mut vault =
 		touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
-	ensure!(!vault.status::<T>(&collateral_id, &owner).is_dormant(), Error::<T>::DebtBelowMinimum);
+	let status = vault.status::<T>(&collateral_id, &owner);
+	ensure!(!status.is_dormant(), Error::<T>::DebtBelowMinimum);
 
 	T::CollateralAssets::transfer_and_hold(
 		collateral_id.clone(),
@@ -110,17 +111,22 @@ pub fn deposit_collateral_for<T: Config>(
 		Fortitude::Polite,
 	)?;
 
+	let attach_stake = status.is_active();
 	let old_stake = vault.redistribution_stake;
 	let new_stake = old_stake.saturating_add(amount);
-	vault.redistribution_stake = new_stake;
 
 	BranchStates::<T>::try_mutate(&collateral_id, |maybe| -> Result<_, DispatchError> {
 		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-		bs.total_collateral = bs.total_collateral.saturating_add(amount);
-		bs.refresh_vault_stake(vault.annual_rate, old_stake, new_stake);
+		bs.add_collateral(amount);
+		if attach_stake {
+			bs.refresh_vault_stake(vault.annual_rate, old_stake, new_stake);
+		}
 		Ok(())
 	})?;
-	Vaults::<T>::insert(&collateral_id, &owner, &vault);
+	if attach_stake {
+		vault.redistribution_stake = new_stake;
+		Vaults::<T>::insert(&collateral_id, &owner, &vault);
+	}
 
 	Pallet::<T>::deposit_event(Event::CollateralDeposited { collateral_id, owner, from, amount });
 	Ok(())
@@ -211,8 +217,8 @@ pub fn borrow<T: Config>(
 	let now = T::TimeProvider::now();
 	let price = T::Oracle::provide_price(&collateral_id)?.price;
 	update_aggregate_interest::<T>(&collateral_id, now)?;
-	let mut vault = touch_vault::<T>(&collateral_id, &owner, now)?
-		.ok_or(Error::<T>::VaultNotFound)?;
+	let mut vault =
+		touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 	let pre_status = vault.status::<T>(&collateral_id, &owner);
 	ensure!(!pre_status.is_final_recovery(), Error::<T>::VaultInFinalRecovery);
 
@@ -430,8 +436,7 @@ pub fn close_vault<T: Config>(
 	let now = T::TimeProvider::now();
 	let price = T::Oracle::provide_price(&collateral_id)?.price;
 	update_aggregate_interest::<T>(&collateral_id, now)?;
-	let vault =
-		touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
+	let vault = touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 	let status = vault.status::<T>(&collateral_id, &owner);
 	ensure!(vault.debt.total().is_zero(), Error::<T>::InsufficientRepayment);
 
