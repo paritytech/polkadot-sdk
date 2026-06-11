@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{mock::*, Error, Event, Outcome, Position, SortedListInterface};
+use crate::{mock::*, Event, ListError, Outcome, Position, SortedListInterface};
 use frame::testing_prelude::{assert_ok, assert_storage_noop};
 
 #[test]
@@ -103,10 +103,10 @@ fn re_insert_priority_decrease_moves_toward_tail() {
 #[test]
 fn re_insert_unknown_errors() {
 	build_and_execute(|| {
-		assert_storage_noop!(assert!(matches!(
+		assert_storage_noop!(assert_eq!(
 			LinkedList::re_insert(1, 100, 50, Position::endpoints_only()),
-			Err(Error::<Test>::ItemNotFound)
-		)));
+			Err(ListError::ItemNotFound)
+		));
 	});
 }
 
@@ -125,9 +125,9 @@ fn re_insert_slow_path_failure_leaves_storage_untouched() {
 		// Re-insert item 1 at priority 5 (tail-ward) but supply head hints; the
 		// repair walk distance exceeds budget, so re_insert errors. The item
 		// must still be in the list at its old position.
-		assert_storage_noop!(assert!(matches!(
+		assert_storage_noop!(assert_eq!(
 			LinkedList::re_insert(1, 1, 5, Position::at_head(1)),
-			Err(Error::<Test>::InvalidPositionHints)
-		)));
+			Err(ListError::InvalidPositionHints)
+		));
 	});
 }

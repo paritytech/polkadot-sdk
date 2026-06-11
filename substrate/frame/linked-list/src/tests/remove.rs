@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{mock::*, Error, Event, ListMetas, ListNodes, SortedListInterface};
+use crate::{mock::*, Event, ListError, ListMetas, ListNodes, SortedListInterface};
 use frame::testing_prelude::{assert_ok, assert_storage_noop, hypothetically};
 
 #[test]
@@ -79,10 +79,10 @@ fn remove_middle_splices() {
 #[test]
 fn remove_unknown_errors() {
 	build_and_execute(|| {
-		assert_storage_noop!(assert!(matches!(
+		assert_storage_noop!(assert_eq!(
 			LinkedList::remove(&1, &100),
-			Err(Error::<Test>::ItemNotFound)
-		)));
+			Err(ListError::ItemNotFound)
+		));
 	});
 }
 

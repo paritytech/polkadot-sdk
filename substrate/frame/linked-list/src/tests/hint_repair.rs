@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{mock::*, Error, Position, SortedListInterface};
+use crate::{mock::*, ListError, Position, SortedListInterface};
 use frame::testing_prelude::assert_storage_noop;
 
 fn build_chain(priorities: &[(ItemId, Priority)]) {
@@ -56,10 +56,10 @@ fn stale_hint_beyond_budget_returns_invalid_hints() {
 		// Long chain so that priority=5 (correct pos = tail) is unreachable from a
 		// head-region hint within `MaxHintRepairSteps`.
 		build_long_chain();
-		assert_storage_noop!(assert!(matches!(
+		assert_storage_noop!(assert_eq!(
 			LinkedList::insert(1, 99, 5, Position::at_head(1)),
-			Err(Error::<Test>::InvalidPositionHints)
-		)));
+			Err(ListError::InvalidPositionHints)
+		));
 	});
 }
 
@@ -138,10 +138,10 @@ fn strict_mode_zero_budget_accepts_valid_hint_rejects_invalid() {
 		assert_eq!(steps, 0);
 
 		// Any stale hint must fail immediately — no walk loop runs at budget 0.
-		assert_storage_noop!(assert!(matches!(
+		assert_storage_noop!(assert_eq!(
 			LinkedList::insert(1, 300, 70, Position::at_head(100)),
-			Err(Error::<Test>::InvalidPositionHints)
-		)));
+			Err(ListError::InvalidPositionHints)
+		));
 	});
 }
 

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{mock::*, Error, Event, Position};
+use crate::{mock::*, Error, Event, ListError, Position};
 use frame::testing_prelude::{assert_noop, assert_ok};
 
 #[test]
@@ -56,7 +56,7 @@ fn reprioritize_unknown_item_errors() {
 		// No priority in StaticPriorities → PriorityProvider returns None.
 		assert_noop!(
 			LinkedList::reprioritize(RuntimeOrigin::signed(1), 1, 100, Position::endpoints_only()),
-			Error::<Test>::ItemNotFound
+			Error::<Test>::List(ListError::ItemNotFound)
 		);
 	});
 }
@@ -114,7 +114,7 @@ fn reprioritize_with_hint_beyond_budget_errors() {
 				tail,
 				Position::at_tail(tail - 1)
 			),
-			Error::<Test>::InvalidPositionHints
+			Error::<Test>::List(ListError::InvalidPositionHints)
 		);
 	});
 }

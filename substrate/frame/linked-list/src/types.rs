@@ -27,8 +27,10 @@
 //!
 //! [`ListMeta`] bundles the head pointer, tail pointer, and item count of a
 //! single list into one storage row so they can be read/written together.
+//!
+//! [`ListError`] — failure modes of [`crate::SortedListInterface`] operations.
 
-use frame::prelude::*;
+use frame::{deps::frame_support::PalletError, prelude::*};
 
 /// Per-list head/tail/length triple, stored as a single row in
 /// [`crate::ListMetas`]. Absence of the row encodes the empty list.
@@ -135,6 +137,36 @@ impl Side {
 			Self::Tail => Self::Head,
 		}
 	}
+}
+
+/// Failure modes of [`crate::SortedListInterface`] operations.
+///
+/// Standalone so consumer pallets can match on
+/// the failure kind and translate each variant into their own error space.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	PalletError,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Debug,
+)]
+pub enum ListError {
+	/// `(list_id, item)` is not in the list.
+	ItemNotFound,
+	/// `(list_id, item)` is already in the list.
+	ItemAlreadyExists,
+	/// The list's size counter cannot represent one more item.
+	ListTooLong,
+	/// Stored links or counters are internally inconsistent.
+	CorruptList,
+	/// The supplied hint could not be repaired within `MaxHintRepairSteps`.
+	InvalidPositionHints,
 }
 
 /// Outcome of [`crate::SortedListInterface::re_insert`]. Distinguishes the

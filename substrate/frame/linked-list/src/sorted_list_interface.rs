@@ -17,7 +17,7 @@
 
 //! Consumer-facing trait surface for the sorted list.
 
-use crate::{list, pallet::*, view_helpers, Outcome, Position};
+use crate::{list, pallet::*, view_helpers, ListError, Outcome, Position};
 use alloc::vec::Vec;
 use frame::deps::frame_support::{
 	storage::{transactional::with_transaction_opaque_err, TransactionOutcome},
@@ -44,38 +44,36 @@ pub trait PriorityProvider<ListId, ItemId> {
 /// Mutation and query surface for consumer pallets.
 ///
 /// Position hints are [`Position`] values; endpoints are encoded as `None` in
-/// each field. Mutating methods return the number of hint-repair steps
-/// actually walked so callers can refund unused weight via
-/// `PostDispatchInfo::actual_weight`.
+/// each field. Mutating methods fail with [`ListError`] and return the number
+/// of hint-repair steps actually walked so callers can refund unused weight
+/// via `PostDispatchInfo::actual_weight`.
 pub trait SortedListInterface<ListId, ItemId> {
 	/// Priority type used to order items within a list.
 	type Priority;
-
-	/// Error type returned by mutating operations.
-	type Error;
 
 	/// Insert `(list_id, item)` at `priority`, repairing stale hints if needed.
 	///
 	/// # Errors
 	///
-	/// - `ItemAlreadyExists` if `(list_id, item)` is already in the list.
-	/// - `ListTooLong` if the list's size counter would overflow.
-	/// - `InvalidPositionHints` if the hint cannot be repaired within the budget.
-	/// - `CorruptList` if a hinted neighbor row is missing or its links are inconsistent.
+	/// - [`ListError::ItemAlreadyExists`] if `(list_id, item)` is already in the list.
+	/// - [`ListError::ListTooLong`] if the list's size counter would overflow.
+	/// - [`ListError::InvalidPositionHints`] if the hint cannot be repaired within the budget.
+	/// - [`ListError::CorruptList`] if a hinted neighbor row is missing or its links are
+	///   inconsistent.
 	fn insert(
 		list_id: ListId,
 		item: ItemId,
 		priority: Self::Priority,
 		hint: Position<ItemId>,
-	) -> Result<u32, Self::Error>;
+	) -> Result<u32, ListError>;
 
 	/// Remove `(list_id, item)`.
 	///
 	/// # Errors
 	///
-	/// - `ItemNotFound` if `(list_id, item)` is not in the list.
-	/// - `CorruptList` if the node exists but list metadata is inconsistent.
-	fn remove(list_id: &ListId, item: &ItemId) -> Result<(), Self::Error>;
+	/// - [`ListError::ItemNotFound`] if `(list_id, item)` is not in the list.
+	/// - [`ListError::CorruptList`] if the node exists but list metadata is inconsistent.
+	fn remove(list_id: &ListId, item: &ItemId) -> Result<(), ListError>;
 
 	/// Remove and return the current tail item of `list_id`, or `None` if the
 	/// list is empty.
@@ -85,8 +83,8 @@ pub trait SortedListInterface<ListId, ItemId> {
 	///
 	/// # Errors
 	///
-	/// - `CorruptList` if the tail pointer or list metadata is inconsistent.
-	fn pop_tail(list_id: &ListId) -> Result<Option<(ItemId, Self::Priority)>, Self::Error>;
+	/// - [`ListError::CorruptList`] if the tail pointer or list metadata is inconsistent.
+	fn pop_tail(list_id: &ListId) -> Result<Option<(ItemId, Self::Priority)>, ListError>;
 
 	/// Re-insert `(list_id, item)` at `new_priority`. Updates the priority in place
 	/// when the existing neighbors still admit it; otherwise splices the item
@@ -95,16 +93,16 @@ pub trait SortedListInterface<ListId, ItemId> {
 	///
 	/// # Errors
 	///
-	/// - `ItemNotFound` if `(list_id, item)` is not in the list.
-	/// - `ListTooLong` if the list's size counter would overflow.
-	/// - `CorruptList` if the node exists but list metadata is inconsistent.
-	/// - `InvalidPositionHints` if the hint cannot be repaired within the budget.
+	/// - [`ListError::ItemNotFound`] if `(list_id, item)` is not in the list.
+	/// - [`ListError::ListTooLong`] if the list's size counter would overflow.
+	/// - [`ListError::CorruptList`] if the node exists but list metadata is inconsistent.
+	/// - [`ListError::InvalidPositionHints`] if the hint cannot be repaired within the budget.
 	fn re_insert(
 		list_id: ListId,
 		item: ItemId,
 		new_priority: Self::Priority,
 		hint: Position<ItemId>,
-	) -> Result<Outcome, Self::Error>;
+	) -> Result<Outcome, ListError>;
 
 	/// Highest-priority item in `list_id`, or `None` if empty.
 	fn head(list_id: &ListId) -> Option<ItemId>;
@@ -119,10 +117,19 @@ pub trait SortedListInterface<ListId, ItemId> {
 	fn contains(list_id: &ListId, item: &ItemId) -> bool;
 
 	/// Current `(prev, next)` neighbors of `(list_id, item)`, if present.
-	fn neighbors(list_id: &ListId, item: &ItemId) -> Option<Position<ItemId>>;
+	fn neighbors(list_id: &ListId, item: &ItemId) -> Option<Position<ItemId>> {
+		Self::node(list_id, item).map(|(_, position)| position)
+	}
 
 	/// Stored priority cached on `(list_id, item)`'s node, or `None` if absent.
-	fn priority(list_id: &ListId, item: &ItemId) -> Option<Self::Priority>;
+	fn priority(list_id: &ListId, item: &ItemId) -> Option<Self::Priority> {
+		Self::node(list_id, item).map(|(priority, _)| priority)
+	}
+
+	/// Stored priority and `(prev, next)` neighbors of `(list_id, item)` in a
+	/// single read, or `None` if absent. The primitive behind [`Self::priority`]
+	/// and [`Self::neighbors`]; prefer it when walking the list.
+	fn node(list_id: &ListId, item: &ItemId) -> Option<(Self::Priority, Position<ItemId>)>;
 
 	/// First `n` items of `list_id` walking from the tail. Returns fewer than
 	/// `n` if the list has fewer items.
@@ -154,22 +161,21 @@ pub trait SortedListInterface<ListId, ItemId> {
 	) -> u32;
 
 	/// Maximum hint-repair walk length the implementation will accept before
-	/// returning `InvalidPositionHints`.
+	/// returning [`ListError::InvalidPositionHints`].
 	fn repair_budget() -> u32;
 }
 
 impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 	type Priority = T::Priority;
-	type Error = Error<T>;
 
 	fn insert(
 		list_id: T::ListId,
 		item: T::ItemId,
 		priority: T::Priority,
 		hint: Position<T::ItemId>,
-	) -> Result<u32, Error<T>> {
+	) -> Result<u32, ListError> {
 		if ListNodes::<T>::contains_key(&list_id, &item) {
-			return Err(Error::<T>::ItemAlreadyExists);
+			return Err(ListError::ItemAlreadyExists);
 		}
 		let (position, steps) = list::walk_repair::<T>(&list_id, &priority, hint)?;
 		let list_created = list::insert_at::<T>(&list_id, &item, priority, position)?;
@@ -180,7 +186,7 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 		Ok(steps)
 	}
 
-	fn remove(list_id: &T::ListId, item: &T::ItemId) -> Result<(), Error<T>> {
+	fn remove(list_id: &T::ListId, item: &T::ItemId) -> Result<(), ListError> {
 		let list_removed = list::remove_at::<T>(list_id, item)?;
 		Self::deposit_event(Event::ItemRemoved { list_id: list_id.clone(), item: item.clone() });
 		if list_removed {
@@ -189,10 +195,10 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 		Ok(())
 	}
 
-	fn pop_tail(list_id: &T::ListId) -> Result<Option<(T::ItemId, T::Priority)>, Error<T>> {
+	fn pop_tail(list_id: &T::ListId) -> Result<Option<(T::ItemId, T::Priority)>, ListError> {
 		let Some(item) = ListMetas::<T>::get(list_id).and_then(|m| m.tail) else { return Ok(None) };
 		let priority = ListNodes::<T>::get(list_id, &item)
-			.defensive_ok_or(Error::<T>::CorruptList)?
+			.defensive_ok_or(ListError::CorruptList)?
 			.priority;
 		let list_removed = list::remove_at::<T>(list_id, &item)?;
 		Self::deposit_event(Event::ItemRemoved { list_id: list_id.clone(), item: item.clone() });
@@ -207,8 +213,8 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 		item: T::ItemId,
 		new_priority: T::Priority,
 		hint: Position<T::ItemId>,
-	) -> Result<Outcome, Error<T>> {
-		let existing = ListNodes::<T>::get(&list_id, &item).ok_or(Error::<T>::ItemNotFound)?;
+	) -> Result<Outcome, ListError> {
+		let existing = ListNodes::<T>::get(&list_id, &item).ok_or(ListError::ItemNotFound)?;
 		let old_priority = existing.priority;
 
 		// Fast path: same priority. No write, no event.
@@ -217,7 +223,7 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 		}
 
 		// Fast path: existing neighbors still admit the new priority, mutate in place.
-		let existing_position = Position { prev: existing.prev, next: existing.next };
+		let existing_position = existing.into_position();
 		if list::neighbor_priorities_admit::<T>(&list_id, &new_priority, &existing_position) {
 			ListNodes::<T>::mutate(&list_id, &item, |maybe| {
 				if let Some(n) = maybe {
@@ -235,8 +241,8 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 
 		// Slow path: splice + re-insert. Wrapped in a nested storage layer so
 		// that an `InvalidPositionHints` after `remove_at` rolls back cleanly.
-		let outer = with_transaction_opaque_err::<u32, Error<T>, _>(|| {
-			let inner = (|| -> Result<u32, Error<T>> {
+		let outer = with_transaction_opaque_err::<u32, ListError, _>(|| {
+			let inner = (|| -> Result<u32, ListError> {
 				// The item never leaves the list, so the lifecycle flags from
 				// `remove_at`/`insert_at` are intentionally dropped — emitting
 				// `ListRemoved`/`ListCreated` here would churn a single-item relocate.
@@ -252,7 +258,7 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 			}
 		});
 		// `Err(())` only fires on transactional-layer nesting overflow.
-		let steps = outer.map_err(|()| Error::<T>::InvalidPositionHints)??;
+		let steps = outer.map_err(|()| ListError::InvalidPositionHints)??;
 		Self::deposit_event(Event::ItemReinserted { list_id, item, old_priority, new_priority });
 		Ok(Outcome::Relocated { steps })
 	}
@@ -273,12 +279,8 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 		ListNodes::<T>::contains_key(list_id, item)
 	}
 
-	fn neighbors(list_id: &T::ListId, item: &T::ItemId) -> Option<Position<T::ItemId>> {
-		ListNodes::<T>::get(list_id, item).map(|n| Position { prev: n.prev, next: n.next })
-	}
-
-	fn priority(list_id: &T::ListId, item: &T::ItemId) -> Option<T::Priority> {
-		ListNodes::<T>::get(list_id, item).map(|n| n.priority)
+	fn node(list_id: &T::ListId, item: &T::ItemId) -> Option<(T::Priority, Position<T::ItemId>)> {
+		ListNodes::<T>::get(list_id, item).map(|n| (n.priority, n.into_position()))
 	}
 
 	fn iter_from_tail(list_id: &T::ListId, n: u32) -> Vec<T::ItemId> {

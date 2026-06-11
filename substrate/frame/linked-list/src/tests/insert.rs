@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	list, mock::*, Error, Event, ListMeta, ListMetas, ListNodes, Position, SortedListInterface,
+	list, mock::*, Event, ListError, ListMeta, ListMetas, ListNodes, Position, SortedListInterface,
 };
 use frame::testing_prelude::{assert_ok, assert_storage_noop, hypothetically};
 
@@ -35,10 +35,10 @@ fn insert_into_empty_list_sets_head_tail_size() {
 
 		// Re-inserting the same `(list_id, item)` rejects without touching state.
 		hypothetically!({
-			assert_storage_noop!(assert!(matches!(
+			assert_storage_noop!(assert_eq!(
 				LinkedList::insert(1, 100, 50, Position::endpoints_only()),
-				Err(Error::<Test>::ItemAlreadyExists)
-			)));
+				Err(ListError::ItemAlreadyExists)
+			));
 		});
 	});
 }
@@ -110,10 +110,10 @@ fn insert_same_priority_lands_at_tail_side_of_cluster() {
 fn insert_existing_item_errors() {
 	build_and_execute(|| {
 		insert(1, 100, 50);
-		assert_storage_noop!(assert!(matches!(
+		assert_storage_noop!(assert_eq!(
 			LinkedList::insert(1, 100, 50, Position::endpoints_only()),
-			Err(Error::<Test>::ItemAlreadyExists)
-		)));
+			Err(ListError::ItemAlreadyExists)
+		));
 	});
 }
 
@@ -126,10 +126,10 @@ fn insert_existing_item_errors_before_hint_repair() {
 		for i in 1..=chain_len {
 			insert(1, u64::from(i), 100 - 10 * i + 10);
 		}
-		assert_storage_noop!(assert!(matches!(
+		assert_storage_noop!(assert_eq!(
 			LinkedList::insert(1, 1, 5, Position::at_head(1)),
-			Err(Error::<Test>::ItemAlreadyExists)
-		)));
+			Err(ListError::ItemAlreadyExists)
+		));
 	});
 }
 
@@ -139,10 +139,10 @@ fn insert_does_not_saturate_size_counter() {
 	// skip the post-test invariant check.
 	build_and_execute_no_post_check(|| {
 		ListMetas::<Test>::insert(1, ListMeta { len: u32::MAX, ..Default::default() });
-		assert_storage_noop!(assert!(matches!(
+		assert_storage_noop!(assert_eq!(
 			LinkedList::insert(1, 100, 50, Position::endpoints_only()),
-			Err(Error::<Test>::ListTooLong)
-		)));
+			Err(ListError::ListTooLong)
+		));
 		assert!(!ListNodes::<Test>::contains_key(1, 100));
 		assert!(LinkedList::head(1).is_none());
 		assert!(LinkedList::tail(1).is_none());

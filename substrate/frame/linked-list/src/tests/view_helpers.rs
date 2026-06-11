@@ -136,3 +136,32 @@ fn priority_returns_stored_priority_for_known_item() {
 		assert_eq!(<LinkedList as SortedListInterface<_, _>>::priority(&1, &2), Some(50));
 	});
 }
+
+#[test]
+fn node_returns_priority_and_position_for_known_item() {
+	build_and_execute(|| {
+		insert(1, 1, 90);
+		insert(1, 2, 50);
+		insert(1, 3, 10);
+		assert_eq!(
+			<LinkedList as SortedListInterface<_, _>>::node(&1, &1),
+			Some((90, Position::at_head(2)))
+		);
+		assert_eq!(
+			<LinkedList as SortedListInterface<_, _>>::node(&1, &2),
+			Some((50, Position::between(1, 3)))
+		);
+		assert_eq!(
+			<LinkedList as SortedListInterface<_, _>>::node(&1, &3),
+			Some((10, Position::at_tail(2)))
+		);
+	});
+}
+
+#[test]
+fn node_returns_none_for_unknown_item() {
+	build_and_execute(|| {
+		insert(1, 1, 90);
+		assert_eq!(<LinkedList as SortedListInterface<_, _>>::node(&1, &999), None);
+	});
+}

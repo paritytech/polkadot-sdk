@@ -51,7 +51,7 @@ use frame::prelude::*;
 pub use list::Node;
 pub use pallet::*;
 pub use sorted_list_interface::{PriorityProvider, SortedListInterface};
-pub use types::{ListMeta, Outcome, Position, Side};
+pub use types::{ListError, ListMeta, Outcome, Position, Side};
 
 mod dispatchables;
 mod list;
@@ -66,10 +66,10 @@ pub(crate) const LOG_TARGET: &str = "runtime::linked-list";
 // Syntactic sugar for logging.
 #[macro_export]
 macro_rules! log {
-	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+	($level:tt, $pattern:expr $(, $values:expr)* $(,)?) => {
 		frame::log::$level!(
 			target: $crate::LOG_TARGET,
-			concat!("[{:?}] [{}] ", $patter),
+			concat!("[{:?}] [{}] ", $pattern),
 			<frame_system::Pallet<T>>::block_number(),
 			<$crate::Pallet::<T> as frame::deps::frame_support::traits::PalletInfoAccess>::name()
 			$(, $values)*
@@ -121,11 +121,11 @@ pub mod pallet {
 		type WeightInfo: weights::WeightInfo;
 
 		/// Maximum nodes the on-chain hint-repair walk may traverse before
-		/// failing with [`Error::InvalidPositionHints`].
+		/// failing with [`ListError::InvalidPositionHints`].
 		///
 		/// `0` puts the pallet in strict mode: any non-valid hint fails
-		/// immediately with [`Error::InvalidPositionHints`], giving callers a
-		/// hard O(1) insertion guarantee at the cost of needing perfect hints.
+		/// immediately with [`ListError::InvalidPositionHints`], giving callers
+		/// a hard O(1) insertion guarantee at the cost of needing perfect hints.
 		#[pallet::constant]
 		type MaxHintRepairSteps: Get<u32>;
 	}
@@ -188,16 +188,14 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// `(list_id, item)` is not in the list.
-		ItemNotFound,
-		/// `(list_id, item)` is already in the list.
-		ItemAlreadyExists,
-		/// The list's size counter cannot represent one more item.
-		ListTooLong,
-		/// Stored links or counters are internally inconsistent.
-		CorruptList,
-		/// The supplied hint could not be repaired within `MaxHintRepairSteps`.
-		InvalidPositionHints,
+		/// A [`ListError`] surfaced through [`Pallet::reprioritize`].
+		List(ListError),
+	}
+
+	impl<T> From<ListError> for Error<T> {
+		fn from(e: ListError) -> Self {
+			Self::List(e)
+		}
 	}
 
 	#[pallet::hooks]
@@ -239,6 +237,15 @@ pub mod pallet {
 		/// item is not in the list.
 		pub fn priority(list_id: T::ListId, item: T::ItemId) -> Option<T::Priority> {
 			<Self as SortedListInterface<T::ListId, T::ItemId>>::priority(&list_id, &item)
+		}
+
+		/// Stored priority and `(prev, next)` neighbors of `(list_id, item)` in
+		/// a single read, or `None` if the item is not in the list.
+		pub fn node(
+			list_id: T::ListId,
+			item: T::ItemId,
+		) -> Option<(T::Priority, Position<T::ItemId>)> {
+			<Self as SortedListInterface<T::ListId, T::ItemId>>::node(&list_id, &item)
 		}
 
 		/// First `n` items of `list_id` walking from the tail. Returns fewer

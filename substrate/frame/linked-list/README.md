@@ -92,7 +92,13 @@ Consumer pallets use [`SortedListInterface`]:
   so a budget-exhaustion failure rolls back cleanly.
 - **`iter_from_tail`** — bounded tail-first iteration.
 - Read helpers: `head`, `tail`, `count`, `contains`, `neighbors`, `priority`,
-  `find_position`, `find_re_insert_position`, `repair_steps_needed`.
+  `node` (priority + neighbors in one read), `find_position`,
+  `find_re_insert_position`, `repair_steps_needed`.
+
+Mutating operations fail with [`ListError`], a standalone enum consumer
+pallets can match on or nest directly in their own `#[pallet::error]` (it
+derives `PalletError`); this pallet's own `Error<T>` nests it the same way
+for the dispatchable surface.
 
 The single dispatchable, `reprioritize`, is permissionless: anyone can call it
 to refresh `(list_id, item)`'s priority from [`PriorityProvider`] when it has
