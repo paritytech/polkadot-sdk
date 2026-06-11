@@ -2179,8 +2179,8 @@ reason = "changed"
 # substrate/frame/assets/precompiles
 name = "pallet-assets-precompiles"
 from = "0.1.0"
-to = "0.2.0"
-bump = "major"
+to = "0.2.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
