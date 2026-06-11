@@ -28,10 +28,10 @@ pub fn iter_from_tail<T: Config>(list_id: &T::ListId, n: u32) -> Vec<T::ItemId> 
 	if n == 0 {
 		return Vec::new();
 	}
-	let meta = ListMetas::<T>::get(list_id);
-	let mut out = Vec::with_capacity(n.min(meta.as_ref().map_or(0, |m| m.len)) as usize);
+	let (tail, len) = ListMetas::<T>::get(list_id).map_or((None, 0), |m| (m.tail, m.len));
+	let mut out = Vec::with_capacity(n.min(len) as usize);
 	out.extend(
-		core::iter::successors(meta.and_then(|m| m.tail), |item| {
+		core::iter::successors(tail, |item| {
 			ListNodes::<T>::get(list_id, item).and_then(|node| node.prev)
 		})
 		.take(n as usize),
