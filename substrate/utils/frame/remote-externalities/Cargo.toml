@@ -21,24 +21,24 @@ indicatif = { workspace = true }
 jsonrpsee = { features = ["http-client"], workspace = true }
 log = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
-sp-core.default-features = true
 sp-core.workspace = true
-sp-crypto-hashing.default-features = true
+sp-core.default-features = true
 sp-crypto-hashing.workspace = true
-sp-io.default-features = true
+sp-crypto-hashing.default-features = true
 sp-io.workspace = true
-sp-runtime.default-features = true
+sp-io.default-features = true
 sp-runtime.workspace = true
-sp-state-machine.default-features = true
+sp-runtime.default-features = true
 sp-state-machine.workspace = true
+sp-state-machine.default-features = true
 spinners = { workspace = true }
-substrate-rpc-client.default-features = true
 substrate-rpc-client.workspace = true
+substrate-rpc-client.default-features = true
 tokio = { features = ["macros", "rt-multi-thread"], workspace = true, default-features = true }
 tokio-retry = { workspace = true }
 
 [dev-dependencies]
-sp-tracing = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, path = "../../../primitives/tracing" }
 
 [features]
 remote-test = []

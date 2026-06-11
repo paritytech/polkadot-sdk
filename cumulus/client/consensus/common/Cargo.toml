@@ -14,54 +14,54 @@ workspace = true
 [dependencies]
 async-trait = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
-cumulus-client-pov-recovery.default-features = true
 cumulus-client-pov-recovery.workspace = true
-cumulus-primitives-core.default-features = true
+cumulus-client-pov-recovery.default-features = true
 cumulus-primitives-core.workspace = true
-cumulus-relay-chain-interface.default-features = true
+cumulus-primitives-core.default-features = true
 cumulus-relay-chain-interface.workspace = true
-cumulus-relay-chain-streams.default-features = true
+cumulus-relay-chain-interface.default-features = true
 cumulus-relay-chain-streams.workspace = true
+cumulus-relay-chain-streams.default-features = true
 dyn-clone = { workspace = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
-polkadot-primitives.default-features = true
 polkadot-primitives.workspace = true
-prometheus-endpoint.default-features = true
+polkadot-primitives.default-features = true
 prometheus-endpoint.workspace = true
-sc-client-api.default-features = true
+prometheus-endpoint.default-features = true
 sc-client-api.workspace = true
-sc-consensus.default-features = true
+sc-client-api.default-features = true
 sc-consensus.workspace = true
-sc-consensus-babe.default-features = true
+sc-consensus.default-features = true
 sc-consensus-babe.workspace = true
-sc-network.default-features = true
+sc-consensus-babe.default-features = true
 sc-network.workspace = true
+sc-network.default-features = true
 schnellru = { workspace = true }
-sp-blockchain.default-features = true
 sp-blockchain.workspace = true
-sp-consensus.default-features = true
+sp-blockchain.default-features = true
 sp-consensus.workspace = true
-sp-consensus-slots.default-features = true
+sp-consensus.default-features = true
 sp-consensus-slots.workspace = true
-sp-core.default-features = true
+sp-consensus-slots.default-features = true
 sp-core.workspace = true
-sp-runtime.default-features = true
+sp-core.default-features = true
 sp-runtime.workspace = true
-sp-timestamp.default-features = true
+sp-runtime.default-features = true
 sp-timestamp.workspace = true
-sp-trie.default-features = true
+sp-timestamp.default-features = true
 sp-trie.workspace = true
-sp-version.default-features = true
+sp-trie.default-features = true
 sp-version.workspace = true
+sp-version.default-features = true
 tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
 futures-timer = { workspace = true }
 
 # Substrate
-sp-tracing = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, path = "../../../../substrate/primitives/tracing" }
 
 # Cumulus
-cumulus-test-client = { workspace = true }
-cumulus-test-relay-sproof-builder = { default-features = true, workspace = true }
+cumulus-test-client = { path = "../../../test/client" }
+cumulus-test-relay-sproof-builder = { default-features = true, path = "../../../test/relay-sproof-builder" }
