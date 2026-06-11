@@ -1,9 +1,11 @@
 The following crates were updated to the corresponding versions:
 
-<details>
-  <summary>Crates list</summary>
-
-- staging-xcm@19.0.1
-- sc-network-sync@0.52.1
-
-</details>
+- cumulus-pallet-xcmp-queue@0.23.1
+- collectives-westend-runtime@23.0.1
+- coretime-rococo-runtime@0.19.1
+- coretime-westend-runtime@0.19.1
+- people-rococo-runtime@0.19.1
+- asset-hub-rococo-runtime@0.29.1
+- asset-hub-westend-runtime@0.36.4
+- bridge-hub-rococo-runtime@0.23.2
+- bridge-hub-westend-runtime@0.20.2
