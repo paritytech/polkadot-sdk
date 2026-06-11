@@ -824,16 +824,24 @@ fn state_override_delegation_indicator_routes_to_target() {
 	});
 }
 
-/// Test that delegation chains are not followed during execution (EIP-7702 spec)
+/// EIP-7702 delegation chains are followed exactly one hop, after which the
+/// retrieved bytes are executed as raw EVM bytecode.
 ///
-/// Per EIP-7702: "In case a delegation indicator points to another delegation,
-/// creating a potential chain or loop of delegations, clients must retrieve
-/// only the first code and then stop following the delegation chain."
+/// Per spec: "clients must retrieve only the first code and then stop following
+/// the delegation chain." The "first code" is the target's bytecode — which, if
+/// the target is itself a delegated EOA, is the indicator `0xef0100||...`.
+/// `0xef` is a designated invalid opcode (EIP-3541), so executing it traps and
+/// the call reverts.
+///
+/// Reference: ethereum/execution-spec-tests
+/// `test_set_code_address_and_authority_warm_state_call_types` covers this pointer-cycle case
+/// explicitly.
 ///
 /// This test verifies:
-/// 1. Calling Alice (who delegates to Counter) executes the contract code
-/// 2. A contract can delegatecall to Alice and execute the contract code
-/// 3. Calling Bob (who delegates to Alice) does NOT execute code (chain not followed)
+/// 1. Calling Alice (delegated to Counter) executes the Counter code.
+/// 2. A contract can delegatecall to Alice and execute the Counter code.
+/// 3. Calling Bob (delegated to Alice, who is herself delegated) reverts — Alice's "code" is the
+///    indicator bytes and `0xef` traps as invalid opcode.
 #[test]
 fn delegation_chain_does_not_execute() {
 	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
@@ -859,14 +867,22 @@ fn delegation_chain_does_not_execute() {
 			Counter::numberCall::abi_decode_returns(&result.data).unwrap()
 		};
 
-		// Case 1: Calling Alice executes the contract - setNumber(42) should work
+		// Distinct write values per case so each read assertion is unambiguous:
+		// if any case accidentally rewrites Alice's slot, the final read won't
+		// silently match the original value.
+		const ALICE_INITIAL: u64 = 100;
+		const DELEGATECALL_VALUE: u64 = 50;
+		const CHAINED_ATTEMPT: u64 = 7;
+
+		// Case 1: calling Alice executes Counter; the write lands in Alice's storage.
 		let result = builder::bare_call(ALICE_ADDR)
-			.data(Counter::setNumberCall { newNumber: 42u64 }.abi_encode())
+			.data(Counter::setNumberCall { newNumber: ALICE_INITIAL }.abi_encode())
 			.build_and_unwrap_result();
 		assert!(!result.did_revert(), "calling Alice should execute Counter code");
-		assert_eq!(read_number(), 42u64);
+		assert_eq!(read_number(), ALICE_INITIAL);
 
-		// Case 2: A contract can delegatecall to Alice and execute the code
+		// Case 2: delegatecall from caller_contract into Alice — the write lands
+		// in caller_contract's storage, not Alice's.
 		let caller_contract =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 
@@ -874,7 +890,9 @@ fn delegation_chain_does_not_execute() {
 			.data(
 				Caller::delegateCall {
 					_callee: ALICE_ADDR.0.into(),
-					_data: Counter::incrementCall {}.abi_encode().into(),
+					_data: Counter::setNumberCall { newNumber: DELEGATECALL_VALUE }
+						.abi_encode()
+						.into(),
 					_gas: u64::MAX,
 				}
 				.abi_encode(),
@@ -883,21 +901,34 @@ fn delegation_chain_does_not_execute() {
 		assert!(!result.did_revert(), "delegatecall to Alice should work");
 		let decoded = Caller::delegateCall::abi_decode_returns(&result.data).unwrap();
 		assert!(decoded.success, "delegatecall to Alice should succeed");
-		// delegatecall modifies the caller's storage, not Alice's
-		assert_eq!(read_number(), 42u64);
 
-		// Case 3: Bob delegates to Alice (chain: Bob -> Alice -> Counter)
-		// Calling Bob should NOT execute code because chains are not followed
+		// DELEGATECALL_VALUE landed in caller_contract's storage (different slot
+		// space than Alice's). Asserting Alice is still ALICE_INITIAL — not
+		// DELEGATECALL_VALUE — proves the write didn't bleed into Alice's storage.
+		assert_eq!(
+			read_number(),
+			ALICE_INITIAL,
+			"Alice's storage must be untouched by delegatecall"
+		);
+
+		// Case 3: Bob delegates to Alice (chain: Bob -> Alice -> Counter). Per
+		// spec, the call resolves one hop to Alice, retrieves Alice's "code"
+		// (the indicator `0xef0100||counter`), and executes it as raw bytecode.
+		// `0xef` is a designated invalid opcode, so the call reverts.
 		AccountInfo::<Test>::set_delegation(&BOB_ADDR, ALICE_ADDR).unwrap();
 
 		let result = builder::bare_call(BOB_ADDR)
-			.data(Counter::setNumberCall { newNumber: 99u64 }.abi_encode())
+			.data(Counter::setNumberCall { newNumber: CHAINED_ATTEMPT }.abi_encode())
 			.build_and_unwrap_result();
-		// Bob is treated as an EOA (no code), so the call succeeds but does nothing
-		assert!(!result.did_revert(), "call to Bob should not revert (treated as EOA transfer)");
-		assert!(result.data.is_empty(), "call to Bob should return empty (no code executed)");
-		// Alice's number should be unchanged
-		assert_eq!(read_number(), 42u64);
+		assert!(
+			result.did_revert(),
+			"call to chained delegation should revert (0xef invalid opcode)"
+		);
+		assert_eq!(
+			read_number(),
+			ALICE_INITIAL,
+			"Alice's storage must be unchanged after chain attempt"
+		);
 	});
 }
 

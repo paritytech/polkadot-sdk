@@ -856,6 +856,21 @@ where
 		input_data: Vec<u8>,
 		exec_config: &ExecConfig<T>,
 	) -> ExecResult {
+		// EIP-7702: clients follow the delegation indicator exactly one hop. If
+		// the called address is delegated to a target that is itself a delegated
+		// EOA, the spec says the indicator bytes `0xef0100||...` are executed as
+		// raw bytecode and trap on the designated invalid opcode `0xef`. We
+		// surface this as an EVM revert (empty data) instead of synthesizing and
+		// running the bytes.
+		if let Some(target) = AccountInfo::<T>::get_delegation_target(&dest) &&
+			AccountInfo::<T>::is_delegated(&target)
+		{
+			return Ok(ExecReturnValue {
+				flags: pallet_revive_uapi::ReturnFlags::REVERT,
+				data: Vec::new(),
+			});
+		}
+
 		let dest = T::AddressMapper::to_account_id(&dest);
 		if let Some((mut stack, executable)) = Stack::<'_, T, E>::new(
 			FrameArgs::Call { dest: dest.clone(), cached_info: None, delegated_call: None },
