@@ -20,8 +20,9 @@
 use crate::{list, pallet::*, view_helpers, ListError, Outcome, Position};
 use alloc::vec::Vec;
 use frame::deps::frame_support::{
+	defensive,
 	storage::{transactional::with_transaction_opaque_err, TransactionOutcome},
-	traits::{DefensiveOption, Get},
+	traits::Get,
 };
 
 /// Authoritative source of the priority for `(list_id, item)`. Consulted by
@@ -94,7 +95,6 @@ pub trait SortedListInterface<ListId, ItemId> {
 	/// # Errors
 	///
 	/// - [`ListError::ItemNotFound`] if `(list_id, item)` is not in the list.
-	/// - [`ListError::ListTooLong`] if the list's size counter would overflow.
 	/// - [`ListError::CorruptList`] if the node exists but list metadata is inconsistent.
 	/// - [`ListError::InvalidPositionHints`] if the hint cannot be repaired within the budget.
 	fn re_insert(
@@ -187,7 +187,7 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 	}
 
 	fn remove(list_id: &T::ListId, item: &T::ItemId) -> Result<(), ListError> {
-		let list_removed = list::remove_at::<T>(list_id, item)?;
+		let (_, list_removed) = list::remove_at::<T>(list_id, item)?;
 		Self::deposit_event(Event::ItemRemoved { list_id: list_id.clone(), item: item.clone() });
 		if list_removed {
 			Self::deposit_event(Event::ListRemoved { list_id: list_id.clone() });
@@ -197,10 +197,16 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 
 	fn pop_tail(list_id: &T::ListId) -> Result<Option<(T::ItemId, T::Priority)>, ListError> {
 		let Some(item) = ListMetas::<T>::get(list_id).and_then(|m| m.tail) else { return Ok(None) };
-		let priority = ListNodes::<T>::get(list_id, &item)
-			.defensive_ok_or(ListError::CorruptList)?
-			.priority;
-		let list_removed = list::remove_at::<T>(list_id, &item)?;
+		let (priority, list_removed) =
+			list::remove_at::<T>(list_id, &item).map_err(|e| match e {
+				// The item id came from the meta row, so a missing node row is
+				// internal inconsistency, not a caller error.
+				ListError::ItemNotFound => {
+					defensive!("pop_tail: tail pointer names a missing node");
+					ListError::CorruptList
+				},
+				other => other,
+			})?;
 		Self::deposit_event(Event::ItemRemoved { list_id: list_id.clone(), item: item.clone() });
 		if list_removed {
 			Self::deposit_event(Event::ListRemoved { list_id: list_id.clone() });

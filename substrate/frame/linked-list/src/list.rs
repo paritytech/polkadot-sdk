@@ -410,9 +410,13 @@ fn debug_assert_insert_post_condition<T: Config>(list_id: &T::ListId, item: &T::
 /// Remove `item` from `list_id`. Drops the [`ListMetas`] row when the list
 /// becomes empty. Errors if `item` is not in the list.
 ///
-/// Returns `true` if this remove emptied the list (the `ListMetas` row was dropped).
-pub fn remove_at<T: Config>(list_id: &T::ListId, item: &T::ItemId) -> Result<bool, ListError> {
-	let Node { prev: removed_prev, next: removed_next, .. } =
+/// Returns the removed node's priority, plus `true` if this remove emptied
+/// the list (the `ListMetas` row was dropped).
+pub fn remove_at<T: Config>(
+	list_id: &T::ListId,
+	item: &T::ItemId,
+) -> Result<(T::Priority, bool), ListError> {
+	let Node { prev: removed_prev, next: removed_next, priority } =
 		ListNodes::<T>::get(list_id, item).ok_or(ListError::ItemNotFound)?;
 	// Anti-cycle guard: a node's own links must never name itself.
 	if removed_prev.as_ref() == Some(item) || removed_next.as_ref() == Some(item) {
@@ -479,5 +483,5 @@ pub fn remove_at<T: Config>(list_id: &T::ListId, item: &T::ItemId) -> Result<boo
 		ListNodes::<T>::insert(list_id, n, right);
 	}
 
-	Ok(list_removed)
+	Ok((priority, list_removed))
 }
