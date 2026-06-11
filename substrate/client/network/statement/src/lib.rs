@@ -167,7 +167,7 @@ const SYNC_RECOVERY_READD_DELAY: std::time::Duration = std::time::Duration::from
 ///
 /// Hard-coded for now.
 const fn v2dht_enabled() -> bool {
-	false
+	true
 }
 
 struct Metrics {
@@ -780,6 +780,9 @@ where
 		loop {
 			futures::select_biased! {
 				_ = self.propagate_timeout.next() => {
+					if v2dht_enabled() {
+						self.v2dht.maybe_log_topology_status();
+					}
 					self.propagate_statements().await;
 					self.metrics.as_ref().map(|metrics| {
 						metrics.pending_statements.set(self.pending_statements.len() as u64);

@@ -24,6 +24,10 @@ use std::{
 	num::NonZeroUsize,
 };
 
+/// Dedicated log target so topology logs can be enabled alone, with
+/// `-l statement-topology=debug`.
+const LOG_TARGET: &str = "statement-topology";
+
 #[derive(Debug, Clone)]
 pub struct PeersTopologyConfig {
 	/// Number of statement-protocol peers responsible for storing a topic.
@@ -88,10 +92,20 @@ impl PeersTopology {
 	/// `RoutingTableUpdate` is used as the discovery source because litep2p's internal
 	/// Kademlia table is bucket-limited and may discard many discovered peers.
 	pub fn on_peers_discovered(&mut self, peers: impl IntoIterator<Item = PeerId>) {
+		let mut new_peers = 0usize;
 		for peer in peers {
-			self.discovered
-				.entry(peer)
-				.or_insert_with(|| PeerInfo { supports_protocol: false, key: peer_key(&peer) });
+			self.discovered.entry(peer).or_insert_with(|| {
+				new_peers += 1;
+				log::trace!(target: LOG_TARGET, "discovered {peer}");
+				PeerInfo { supports_protocol: false, key: peer_key(&peer) }
+			});
+		}
+		if new_peers > 0 {
+			log::debug!(
+				target: LOG_TARGET,
+				"discovered {new_peers} new peers from routing table; {}",
+				self.status(),
+			);
 		}
 	}
 
@@ -100,7 +114,17 @@ impl PeersTopology {
 	/// Peers that do not support the statement protocol remain known but are excluded from DHT
 	/// storage and forwarding decisions.
 	pub fn on_peer_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
-		self.peer_info_mut(peer).supports_protocol = supports_statement_protocol;
+		let known_before = self.discovered.len();
+		let info = self.peer_info_mut(peer);
+		let support_changed = info.supports_protocol != supports_statement_protocol;
+		info.supports_protocol = supports_statement_protocol;
+		if support_changed || self.discovered.len() > known_before {
+			log::debug!(
+				target: LOG_TARGET,
+				"{peer} identified, statement protocol: {supports_statement_protocol}; {}",
+				self.status(),
+			);
+		}
 	}
 
 	/// Record that the statement notification substream opened.
@@ -108,12 +132,16 @@ impl PeersTopology {
 	/// An open substream implies statement-protocol support.
 	pub fn on_substream_opened(&mut self, peer: PeerId) {
 		self.peer_info_mut(peer).supports_protocol = true;
-		self.connected.insert(peer);
+		if self.connected.insert(peer) {
+			log::debug!(target: LOG_TARGET, "{peer} substream opened; {}", self.status());
+		}
 	}
 
 	/// Record that the statement notification substream closed.
 	pub fn on_substream_closed(&mut self, peer: PeerId) {
-		self.connected.remove(&peer);
+		if self.connected.remove(&peer) {
+			log::debug!(target: LOG_TARGET, "{peer} substream closed; {}", self.status());
+		}
 	}
 
 	fn is_connected(&self, peer: &PeerId) -> bool {
@@ -123,6 +151,26 @@ impl PeersTopology {
 	/// Number of known remote peers, including peers without confirmed statement-protocol support.
 	pub fn known_peers_count(&self) -> usize {
 		self.discovered.len()
+	}
+
+	/// Number of known remote peers with confirmed statement-protocol support.
+	pub fn statement_peers_count(&self) -> usize {
+		self.discovered.values().filter(|info| info.supports_protocol).count()
+	}
+
+	/// One-line summary of the topology size, shared by all topology log lines.
+	fn status(&self) -> String {
+		format!(
+			"known={} statement={} connected={}",
+			self.discovered.len(),
+			self.statement_peers_count(),
+			self.connected.len(),
+		)
+	}
+
+	/// Log the topology summary.
+	pub fn log_status(&self) {
+		log::debug!(target: LOG_TARGET, "topology {}", self.status());
 	}
 
 	/// Closest known statement-protocol peers for `topic`.

@@ -26,6 +26,10 @@ use explicit_affinity::ExplicitAffinity;
 use peers_topology::{PeersTopology, PeersTopologyConfig};
 use sc_network_types::PeerId;
 use sp_statement_store::SubmitResult;
+use std::time::{Duration, Instant};
+
+/// Interval between periodic topology-status log lines.
+const TOPOLOGY_STATUS_INTERVAL: Duration = Duration::from_secs(10);
 
 /// Coordinates the v2 DHT-affinity statement gossip path.
 #[allow(dead_code)]
@@ -34,6 +38,8 @@ pub(crate) struct V2DhtOrchestrator {
 	peers_topology: PeersTopology,
 	/// Tracks the local node's topic affinity and the filters peers advertise.
 	explicit_affinity: ExplicitAffinity,
+	/// When the topology status was last logged.
+	last_topology_status: Instant,
 }
 
 #[allow(dead_code)]
@@ -42,7 +48,19 @@ impl V2DhtOrchestrator {
 		Self {
 			peers_topology: PeersTopology::new(local_peer, peers_topology_config),
 			explicit_affinity: ExplicitAffinity::new(),
+			last_topology_status: Instant::now(),
 		}
+	}
+
+	/// Log the topology summary at most once per [`TOPOLOGY_STATUS_INTERVAL`].
+	///
+	/// Driven by the propagate tick, which fires more often than the interval.
+	pub(crate) fn maybe_log_topology_status(&mut self) {
+		if self.last_topology_status.elapsed() < TOPOLOGY_STATUS_INTERVAL {
+			return;
+		}
+		self.last_topology_status = Instant::now();
+		self.peers_topology.log_status();
 	}
 
 	pub(crate) fn on_peers_discovered(&mut self, peers: impl IntoIterator<Item = PeerId>) {
