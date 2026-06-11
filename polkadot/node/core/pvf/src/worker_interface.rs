@@ -135,7 +135,7 @@ where
 			let mut buf = Vec::with_capacity(prefix.len() + DISCRIMINATOR_LEN);
 			buf.extend(prefix.as_bytes());
 			buf.extend(rand::thread_rng().sample_iter(&Alphanumeric).take(DISCRIMINATOR_LEN));
-			
+
 			let s = std::str::from_utf8(&buf)
 				.expect("the string is collected from a valid utf-8 sequence; qed");
 
