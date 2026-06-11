@@ -22,12 +22,10 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use polkadot_primitives::{Block as RelayBlock, Hash as RelayHash, DEFAULT_SCHEDULING_LOOKAHEAD};
-use std::ops::Add;
-
 use sc_client_api::{Backend, HeaderBackend};
 use sc_consensus_babe::contains_epoch_change;
 use sp_blockchain::Backend as BlockchainBackend;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, One};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 const LOG_TARGET: &str = "consensus::common::parent_search";
 
@@ -156,7 +154,7 @@ fn is_relay_parent_in_ancestry<Block: BlockT>(
 /// The `start` block (pending or included) is always valid by construction.
 /// This function explores its descendants via DFS, returning the deepest block
 /// whose relay-parent is within the allowed ancestry.
-fn find_deepest_valid_parent<Block: BlockT>(
+fn find_deepest_valid_parent_v2<Block: BlockT>(
 	backend: &impl Backend<Block>,
 	start_header: Block::Header,
 	start_hash: Block::Hash,
@@ -230,6 +228,49 @@ async fn has_ancestor_relay_parent_info<Block: BlockT>(
 		.ancestor_relay_parent_info(scheduling_parent, relay_parent_session, relay_parent)
 		.await?;
 	Ok(maybe_info.is_some())
+}
+
+async fn find_deepest_valid_parent_v3<Block: BlockT>(
+	relay_client: &impl RelayChainInterface,
+	backend: &impl Backend<Block>,
+	scheduling_parent: RelayHash,
+	start_header: Block::Header,
+	start_hash: Block::Hash,
+	best_hash: Block::Hash,
+) -> RelayChainResult<Block::Header> {
+	let start_number = *start_header.number();
+	let mut best_parent = start_header;
+
+	let mut route = vec![];
+	let mut current_hash = best_hash;
+	loop {
+		let Some(current_header) = get_para_header(backend, current_hash) else {
+			return Ok(best_parent);
+		};
+
+		if current_hash == start_hash {
+			break;
+		}
+
+		if *current_header.number() <= start_number {
+			return Ok(best_parent);
+		}
+
+		current_hash = *current_header.parent_hash();
+		route.push(current_header);
+	}
+
+	for current_header in route.into_iter().rev() {
+		if has_ancestor_relay_parent_info::<Block>(relay_client, scheduling_parent, &current_header)
+			.await?
+		{
+			best_parent = current_header;
+		} else {
+			break;
+		}
+	}
+
+	Ok(best_parent)
 }
 
 #[derive(Clone, Debug)]
@@ -338,60 +379,18 @@ pub async fn find_parent_for_building<Block: BlockT>(
 				build_relay_parent_ancestry(relay_client, relay_parent, ancestry_lookback).await?;
 
 			// Search for the deepest valid parent starting from the pending/included block.
-			find_deepest_valid_parent(backend, start_header, start_hash, &rp_ancestry)
+			find_deepest_valid_parent_v2(backend, start_header, start_hash, &rp_ancestry)
 		},
-		ParentSearchParams::V3 { scheduling_parent, para_best_hash } => 'v3: {
-			let Some(para_best_header) = get_para_header(backend, para_best_hash) else {
-				break 'v3 start_header;
-			};
-
-			// Ideally we would like to build on top of the `para_best_header`, but we need to
-			// check if it's on the same fork as the `start_header`.
-			let mut current_header = para_best_header.clone();
-			loop {
-				let current_hash = current_header.hash();
-
-				// We know that the start header is part of the allowed ancestry because it
-				// was already checked by the relay chain (being retrieved from the PVD).
-				// We need to make sure that all the other headers on the path to the
-				// `para_best_header` are also part of the allowed ancestry.
-				// If the direct descendant of the start header and the `para_best_header` satisfy
-				// this condition, then all the headers in between will also be valid since their
-				// relay parents have to be monotonically increasing
-				// (this condition is checked by the runtime).
-				if current_hash == para_best_hash ||
-					*current_header.number() == start_header.number().add(One::one())
-				{
-					if !has_ancestor_relay_parent_info::<Block>(
-						relay_client,
-						scheduling_parent,
-						&current_header,
-					)
-					.await?
-					{
-						break start_header;
-					}
-				}
-
-				// The start header and the `para_best_header` are on the same fork.
-				// So we can build on top of the `para_best_header`.
-				if current_hash == start_hash {
-					break para_best_header;
-				}
-
-				// The start header and the `para_best_header` are on different forks.
-				// So we default to building on top of the start header.
-				if current_header.number() <= start_header.number() {
-					break start_header;
-				}
-
-				current_header = match get_para_header(backend, *current_header.parent_hash()) {
-					Some(header) => header,
-					None => {
-						break start_header;
-					},
-				}
-			}
+		ParentSearchParams::V3 { scheduling_parent, para_best_hash } => {
+			find_deepest_valid_parent_v3(
+				relay_client,
+				backend,
+				scheduling_parent,
+				start_header,
+				start_hash,
+				para_best_hash,
+			)
+			.await?
 		},
 	};
 
