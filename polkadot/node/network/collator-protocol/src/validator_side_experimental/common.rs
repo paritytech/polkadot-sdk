@@ -231,13 +231,84 @@ impl Advertisement {
 	pub fn candidate_hash(&self) -> Option<CandidateHash> {
 		self.prospective_candidate.map(|candidate| candidate.candidate_hash)
 	}
+
+	pub fn parent_head_data_hash(&self) -> Option<Hash> {
+		self.prospective_candidate.map(|candidate| candidate.parent_head_data_hash)
+	}
+
+	pub fn fetch_key(&self) -> FetchKey {
+		match self.prospective_candidate {
+			Some(prospective_candidate) => {
+				FetchKey::Candidate(prospective_candidate.candidate_hash)
+			},
+			None => FetchKey::V1(self.scheduling_parent, self.para_id),
+		}
+	}
+}
+
+/// In flight fetch identity. V1 has no candidate hash, its identity is the (SP, para)
+/// pair of which at most one fetch may exist
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+pub enum FetchKey {
+	Candidate(CandidateHash),
+	V1(Hash, ParaId),
+}
+
+/// The identity of the candidate being fetched from the collator
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct FetchTarget {
+	pub peer_id: PeerId,
+	pub para_id: ParaId,
+	pub scheduling_parent: Hash,
+	/// None for V1
+	pub candidate_hash: Option<CandidateHash>,
+	pub parent_head_data_hash: Option<Hash>,
+	pub descriptor_version: Option<CandidateDescriptorVersion>,
+	pub output_head_data_hash: Option<Hash>,
+	pub relay_parent: Option<Hash>,
+}
+
+impl FetchTarget {
+	pub fn to_advertisement(&self) -> Advertisement {
+		let prospective_candidate = self.candidate_hash.zip(self.parent_head_data_hash).map(
+			|(candidate_hash, parent_head_data_hash)| ProspectiveCandidate {
+				candidate_hash,
+				parent_head_data_hash,
+			},
+		);
+		Advertisement {
+			scheduling_parent: self.scheduling_parent,
+			para_id: self.para_id,
+			peer_id: self.peer_id,
+			prospective_candidate,
+			advertised_descriptor_version: self.descriptor_version,
+		}
+	}
+
+	pub fn fetch_key(&self) -> FetchKey {
+		match self.candidate_hash {
+			Some(candidate_hash) => FetchKey::Candidate(candidate_hash),
+			None => FetchKey::V1(self.scheduling_parent, self.para_id),
+		}
+	}
+
+	pub fn from_advertisement(advertisement: &Advertisement) -> FetchTarget {
+		FetchTarget {
+			peer_id: advertisement.peer_id,
+			para_id: advertisement.para_id,
+			scheduling_parent: advertisement.scheduling_parent,
+			candidate_hash: advertisement.candidate_hash(),
+			parent_head_data_hash: advertisement.parent_head_data_hash(),
+			descriptor_version: advertisement.advertised_descriptor_version,
+			output_head_data_hash: None,
+			relay_parent: None,
+		}
+	}
 }
 
 /// Output of a `CollationFetchRequest`, which includes the advertisement identifier.
-pub type CollationFetchResponse = (
-	Advertisement,
-	std::result::Result<request_v2::CollationFetchingResponse, CollationFetchError>,
-);
+pub type CollationFetchResponse =
+	(FetchTarget, std::result::Result<request_v2::CollationFetchingResponse, CollationFetchError>);
 
 /// Any error that can occur when awaiting a collation fetch response.
 #[derive(Debug, thiserror::Error)]
@@ -270,14 +341,14 @@ pub struct SecondingRejectionInfo {
 	pub maybe_candidate_hash: Option<CandidateHash>,
 }
 
-impl From<&Advertisement> for SecondingRejectionInfo {
-	fn from(advertisement: &Advertisement) -> Self {
+impl From<&FetchTarget> for SecondingRejectionInfo {
+	fn from(fetch_target: &FetchTarget) -> Self {
 		SecondingRejectionInfo {
-			scheduling_parent: advertisement.scheduling_parent,
-			peer_id: advertisement.peer_id,
-			para_id: advertisement.para_id,
+			scheduling_parent: fetch_target.scheduling_parent,
+			peer_id: fetch_target.peer_id,
+			para_id: fetch_target.para_id,
 			maybe_output_head_hash: None,
-			maybe_candidate_hash: advertisement.candidate_hash(),
+			maybe_candidate_hash: fetch_target.candidate_hash,
 		}
 	}
 }
@@ -329,5 +400,50 @@ mod tests {
 
 			assert_eq!(0, u16::from(score));
 		}
+	}
+
+	#[test]
+	fn fetch_key_mapping() {
+		let sp = Hash::repeat_byte(1);
+		let para = ParaId::from(100);
+		let hash = CandidateHash(Hash::repeat_byte(2));
+
+		let mut adv = Advertisement {
+			scheduling_parent: sp,
+			para_id: para,
+			peer_id: PeerId::random(),
+			prospective_candidate: None,
+			advertised_descriptor_version: None,
+		};
+		assert_eq!(adv.fetch_key(), FetchKey::V1(sp, para));
+
+		adv.prospective_candidate =
+			Some(ProspectiveCandidate { candidate_hash: hash, parent_head_data_hash: sp });
+		assert_eq!(adv.fetch_key(), FetchKey::Candidate(hash));
+
+		// The target derived from an advertisement keys identically.
+		assert_eq!(FetchTarget::from_advertisement(&adv).fetch_key(), adv.fetch_key());
+	}
+
+	#[test]
+	fn fetch_target_advertisement_round_trip() {
+		let v1 = Advertisement {
+			scheduling_parent: Hash::repeat_byte(1),
+			para_id: ParaId::from(100),
+			peer_id: PeerId::random(),
+			prospective_candidate: None,
+			advertised_descriptor_version: None,
+		};
+		assert_eq!(FetchTarget::from_advertisement(&v1).to_advertisement(), v1);
+
+		let v3 = Advertisement {
+			prospective_candidate: Some(ProspectiveCandidate {
+				candidate_hash: CandidateHash(Hash::repeat_byte(2)),
+				parent_head_data_hash: Hash::repeat_byte(3),
+			}),
+			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+			..v1
+		};
+		assert_eq!(FetchTarget::from_advertisement(&v3).to_advertisement(), v3);
 	}
 }
