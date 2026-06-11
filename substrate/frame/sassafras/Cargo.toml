@@ -32,8 +32,8 @@ sp-runtime.workspace = true
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
-sp-core = { default-features = true, path = "../../primitives/core" }
-sp-crypto-hashing = { default-features = true, path = "../../primitives/crypto/hashing" }
+sp-core = { default-features = true, workspace = true }
+sp-crypto-hashing = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

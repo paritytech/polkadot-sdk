@@ -22,8 +22,8 @@ jsonrpsee = { features = ["server"], workspace = true }
 log = { workspace = true, default-features = true }
 parachain-template-runtime.workspace = true
 polkadot-sdk = { workspace = true, features = ["node"] }
-prometheus-endpoint.workspace = true
 prometheus-endpoint.default-features = true
+prometheus-endpoint.workspace = true
 serde = { features = ["derive"], workspace = true, default-features = true }
 
 [build-dependencies]

@@ -26,9 +26,9 @@ sp-authority-discovery.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-pallet-balances = { default-features = false, path = "../balances" }
-sp-core = { default-features = true, path = "../../primitives/core" }
-sp-io = { default-features = true, path = "../../primitives/io" }
+pallet-balances = { default-features = false, workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]
@@ -36,6 +36,7 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
+	"pallet-balances/std",
 	"pallet-session/std",
 	"scale-info/std",
 	"sp-application-crypto/std",
@@ -45,6 +46,7 @@ std = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
 	"pallet-session/try-runtime",
 	"sp-runtime/try-runtime",
 ]

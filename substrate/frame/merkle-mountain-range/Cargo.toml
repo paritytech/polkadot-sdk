@@ -23,7 +23,7 @@ sp-mmr-primitives.workspace = true
 
 [dev-dependencies]
 itertools = { workspace = true }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+sp-tracing = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]
