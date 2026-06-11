@@ -58,7 +58,10 @@ use sc_network::{
 };
 use sc_network_common::{
 	role::Roles,
-	sync::message::{BlockAnnounce, BlockAnnouncesHandshake, BlockState},
+	sync::{
+		message::{BlockAnnounce, BlockAnnouncesHandshake, BlockState},
+		SyncMode,
+	},
 };
 use sc_network_types::PeerId;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
@@ -102,6 +105,37 @@ mod rep {
 	pub const TIMEOUT: Rep = Rep::new(-(1 << 10), "Request timeout");
 	/// Reputation change when a peer connection failed with IO error.
 	pub const IO: Rep = Rep::new(-(1 << 10), "IO error during request");
+}
+
+/// Error out if warp sync is requested but the configured peer slots (full-node slots plus
+/// reserved nodes) can never reach its peer threshold — otherwise the node hangs waiting for
+/// peers forever, e.g. `--sync=warp --in-peers 0 --out-peers 0` (issue #10222).
+fn ensure_warp_sync_can_start(
+	sync_mode: &SyncMode,
+	num_full_peer_slots: usize,
+	num_reserved_peers: usize,
+	min_peers_to_start_warp_sync: Option<usize>,
+) -> Result<(), ClientError> {
+	if !sync_mode.is_warp() {
+		return Ok(());
+	}
+
+	let min_peers =
+		min_peers_to_start_warp_sync.unwrap_or(crate::strategy::warp::MIN_PEERS_TO_START_WARP_SYNC);
+	let available_peers = num_full_peer_slots + num_reserved_peers;
+
+	if available_peers < min_peers {
+		return Err(ClientError::Application(
+			format!(
+				"Warp sync requires at least {min_peers} full-node peer slots to start, but only \
+				 {available_peers} are configured. Increase --in-peers / --out-peers (or add \
+				 reserved nodes) to at least {min_peers}, or choose a different --sync mode."
+			)
+			.into(),
+		));
+	}
+
+	Ok(())
 }
 
 struct Metrics {
@@ -332,6 +366,14 @@ where
 				net_config.network_config.default_peers_set.in_peers;
 			total.saturating_sub(net_config.network_config.default_peers_set_num_full) as usize
 		};
+
+		// Fail fast instead of hanging forever if warp sync can never reach its peer threshold.
+		ensure_warp_sync_can_start(
+			&net_config.network_config.sync_mode,
+			default_peers_set_num_full,
+			net_config.network_config.default_peers_set.reserved_nodes.len(),
+			net_config.network_config.min_peers_to_start_warp_sync,
+		)?;
 
 		let info = client.info();
 
@@ -1141,5 +1183,56 @@ where
 		}
 
 		self.import_queue.import_justifications(peer_id, hash, number, justifications);
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::strategy::warp::MIN_PEERS_TO_START_WARP_SYNC;
+
+	#[test]
+	fn warp_sync_start_check_ignores_non_warp_modes() {
+		// Even with zero peer slots, non-warp modes must never be rejected.
+		assert!(ensure_warp_sync_can_start(&SyncMode::Full, 0, 0, None).is_ok());
+		assert!(ensure_warp_sync_can_start(
+			&SyncMode::LightState { skip_proofs: false, storage_chain_mode: false },
+			0,
+			0,
+			None
+		)
+		.is_ok());
+	}
+
+	#[test]
+	fn warp_sync_rejected_when_peer_slots_below_threshold() {
+		// `--sync=warp --in-peers 0 --out-peers 0` with no reserved nodes: can never start.
+		assert!(ensure_warp_sync_can_start(&SyncMode::Warp, 0, 0, None).is_err());
+		// Just below the default threshold.
+		assert!(ensure_warp_sync_can_start(
+			&SyncMode::Warp,
+			MIN_PEERS_TO_START_WARP_SYNC - 1,
+			0,
+			None
+		)
+		.is_err());
+	}
+
+	#[test]
+	fn warp_sync_allowed_when_enough_capacity() {
+		// Exactly the threshold via full-node slots.
+		assert!(ensure_warp_sync_can_start(&SyncMode::Warp, MIN_PEERS_TO_START_WARP_SYNC, 0, None)
+			.is_ok());
+		// Reserved nodes count towards the threshold even with zero slots.
+		assert!(ensure_warp_sync_can_start(&SyncMode::Warp, 0, MIN_PEERS_TO_START_WARP_SYNC, None)
+			.is_ok());
+	}
+
+	#[test]
+	fn warp_sync_check_respects_custom_threshold() {
+		// A custom (lower) threshold relaxes the requirement.
+		assert!(ensure_warp_sync_can_start(&SyncMode::Warp, 1, 0, Some(1)).is_ok());
+		// A custom (higher) threshold tightens it.
+		assert!(ensure_warp_sync_can_start(&SyncMode::Warp, 3, 0, Some(5)).is_err());
 	}
 }

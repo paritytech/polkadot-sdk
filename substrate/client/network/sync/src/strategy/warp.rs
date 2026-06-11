@@ -47,7 +47,7 @@ use sp_runtime::{
 use std::{any::Any, collections::HashMap, fmt, sync::Arc};
 
 /// Number of peers that need to be connected before warp sync is started.
-const MIN_PEERS_TO_START_WARP_SYNC: usize = 3;
+pub(crate) const MIN_PEERS_TO_START_WARP_SYNC: usize = 3;
 
 /// Scale-encoded warp sync proof response.
 pub struct EncodedProof(pub Vec<u8>);
