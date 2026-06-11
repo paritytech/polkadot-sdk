@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781169521982,
+  "lastUpdate": 1781210750794,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "22591718+RomarQ@users.noreply.github.com",
-            "name": "Rodrigo Quelhas",
-            "username": "RomarQ"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5b790baaaa05629e10ab05185fefe33e9f5bfb34",
-          "message": "Use `Config::XcmExecutor` inside `dry_run_xcm` instead of creating a new instance of xcm_executor::XcmExecutor (#10102)\n\nCloses #9822\n\nRefactors `pallet-xcm` `dry_run_xcm` implementation to use the runtime\nconfigured `Config::XcmExecutor` type instead of a new instance of\n`xcm_executor::XcmExecutor`. This ensures consistent behavior across\nruntimes that use custom XCM executors.\n\n## Context\n\nThe current `dry_run_xcm` implementation creates a new instance of\n`xcm_executor::XcmExecutor`, which breaks compatibility with runtimes\nusing custom executors. For example, Moonbeam uses a custom\n`XcmExecutor` for handling foreign assets, causing `dry_run_xcm` calls\nto fail.\n\n---------\n\nCo-authored-by: Tarek Mohamed Abdalla <tarekkma@gmail.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2025-10-24T09:36:59Z",
-          "tree_id": "a999a2b74be36aa9f07bbeafcabc7779e0fa5765",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5b790baaaa05629e10ab05185fefe33e9f5bfb34"
-        },
-        "date": 1761302850070,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008632360339999989,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00266004472,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005052251489999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009719770409999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "54316454+sandreim@users.noreply.github.com",
+            "name": "Andrei",
+            "username": "sandreim"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "22be42c9199bb2dabbb445cc28f94467623dd45e",
+          "message": "Cumulus: introduce authority discovery for parachains (#11954)\n\nAdd authority discovery to parachains. Collators now run an\n`authority_discovery` worker for the parachain network, publishing their\naddress to the parachain DHT and resolving each other from it.\nEvery parachain authority connects directly to every other authority,\nforming a full collator-to-collator mesh on the block-announce protocol.\n\n ## Why\n\nThe mesh fixes a real problem on large parachain networks. Without it, a\nfreshly built block needs to go through multiple hops until it reaches\nthe next author. Each hop adds 3x the latency between the two peers\n(block announce, block request, block response).\nWhen blocks arrive too late, next authors are forced to build on stale\nparents, and the chain forks, reducing block confidence and increasing\nparachain block times.\n\n**A followup PR will enable this for AH and PC.**\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-06-11T18:50:57Z",
+          "tree_id": "da29455cf2ddd3059fc4f5e837e311b5f4afc9a5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/22be42c9199bb2dabbb445cc28f94467623dd45e"
+        },
+        "date": 1781210716789,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009254594939999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009758842659999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025928538299999997,
             "unit": "seconds"
           }
         ]
