@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781169401457,
+  "lastUpdate": 1781210621374,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "326b298c22245db223be65b7ced66fbb92f1db5b",
-          "message": "Introduce `unapplied_slashes_v2` Runtime API (#9798)\n\nThis PR deprecates the `unapplied_slashes` Runtime API. It was broken in\nhttps://github.com/paritytech/polkadot-sdk/pull/9443#issuecomment-3326683056.\nWe need do fix it by using the legacy `PendingSlashes` primitive so we\ndon't break older nodes.\n\nAlso introduce the new `unapplied_slashes_v2` API that makes use of the\nnew primitive.\n\nStill TODO:\n- [x] switch `dispute-coordinator` to use `unapplied_slashes_v2`\n- [x] cumulus compatibility fix\n- [x] fix tests\n- [x] locally double check old nodes still work\n- [x] prdoc\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: Overkillus <maciej.zyszkiewicz@parity.io>",
-          "timestamp": "2025-10-24T15:18:37Z",
-          "tree_id": "2159351e1e493a1f18bf58c9cc307de458b3c1cd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/326b298c22245db223be65b7ced66fbb92f1db5b"
-        },
-        "date": 1761326359085,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16043816332000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013055881880000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022652084786666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0073509400933333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1507402135533333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "54316454+sandreim@users.noreply.github.com",
+            "name": "Andrei",
+            "username": "sandreim"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "22be42c9199bb2dabbb445cc28f94467623dd45e",
+          "message": "Cumulus: introduce authority discovery for parachains (#11954)\n\nAdd authority discovery to parachains. Collators now run an\n`authority_discovery` worker for the parachain network, publishing their\naddress to the parachain DHT and resolving each other from it.\nEvery parachain authority connects directly to every other authority,\nforming a full collator-to-collator mesh on the block-announce protocol.\n\n ## Why\n\nThe mesh fixes a real problem on large parachain networks. Without it, a\nfreshly built block needs to go through multiple hops until it reaches\nthe next author. Each hop adds 3x the latency between the two peers\n(block announce, block request, block response).\nWhen blocks arrive too late, next authors are forced to build on stale\nparents, and the chain forks, reducing block confidence and increasing\nparachain block times.\n\n**A followup PR will enable this for AH and PC.**\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-06-11T18:50:57Z",
+          "tree_id": "da29455cf2ddd3059fc4f5e837e311b5f4afc9a5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/22be42c9199bb2dabbb445cc28f94467623dd45e"
+        },
+        "date": 1781210587136,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14968257939333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023825759893333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007801028713333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010118720053333316,
             "unit": "seconds"
           }
         ]
