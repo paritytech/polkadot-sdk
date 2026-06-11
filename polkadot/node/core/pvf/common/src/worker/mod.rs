@@ -34,7 +34,7 @@ use std::{
 		fd::{AsRawFd, FromRawFd, RawFd},
 		unix::net::UnixStream,
 	},
-	path::PathBuf,
+	path::{Path, PathBuf},
 	sync::mpsc::{Receiver, RecvTimeoutError},
 	time::Duration,
 };
@@ -183,24 +183,17 @@ macro_rules! decl_worker_main {
 				}
 				i += 1;
 			}
-			let socket_path = socket_path.expect("the --socket-path argument is required");
 			let worker_dir_path =
 				worker_dir_path.expect("the --worker-dir-path argument is required");
-
-			let socket_path = std::path::Path::new(socket_path).to_owned();
 			let worker_dir_path = std::path::Path::new(worker_dir_path).to_owned();
 
 			if do_security_checks {
-				$crate::worker::do_security_checks(
-					$worker_kind,
-					socket_path.clone(),
-					worker_dir_path.clone(),
-					node_version,
-					None,
-				);
-
-				return;
+				let ok = $crate::worker::check_security_status($worker_kind, &worker_dir_path);
+				std::process::exit(if ok { 0 } else { 1 });
 			}
+
+			let socket_path = socket_path.expect("the --socket-path argument is required");
+			let socket_path = std::path::Path::new(socket_path).to_owned();
 
 			$entrypoint(socket_path, worker_dir_path, node_version, Some($worker_version));
 		}
@@ -312,6 +305,58 @@ pub struct WorkerInfo {
 	pub kind: WorkerKind,
 	pub version: Option<String>,
 	pub worker_dir_path: PathBuf,
+}
+
+/// Performs security checks on a worker binary and its working directory, without requiring a
+/// connection to a PVF host. Used by the `--check-security-features` CLI flag so that the node
+/// can verify its configured workers before starting.
+///
+/// Returns `true` if the worker dir is usable. Issues with optional sandboxing features are
+/// logged but do not affect the result, mirroring the best-effort approach described in
+/// [`crate::SecurityStatus`].
+pub fn check_security_status(worker_kind: WorkerKind, worker_dir_path: &Path) -> bool {
+	gum::debug!(
+		target: LOG_TARGET,
+		?worker_kind,
+		?worker_dir_path,
+		"performing security checks for worker",
+	);
+
+	if let Err(err) = std::fs::read_dir(worker_dir_path) {
+		gum::error!(
+			target: LOG_TARGET,
+			?worker_kind,
+			?worker_dir_path,
+			"could not read worker dir: {}",
+			err,
+		);
+		return false
+	}
+
+	#[cfg(target_os = "linux")]
+	{
+		if let Err(err) = security::landlock::check_can_fully_enable() {
+			gum::warn!(target: LOG_TARGET, ?worker_kind, "cannot fully enable landlock: {}", err);
+		}
+		if let Err(err) = security::change_root::check_can_fully_enable(worker_dir_path) {
+			gum::warn!(
+				target: LOG_TARGET,
+				?worker_kind,
+				"cannot fully unshare and change root: {}",
+				err
+			);
+		}
+		// SAFETY: called from a single-threaded context, as required.
+		if let Err(err) = unsafe { security::clone::check_can_fully_clone() } {
+			gum::warn!(target: LOG_TARGET, ?worker_kind, "cannot fully clone: {}", err);
+		}
+	}
+	#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+	if let Err(err) = security::seccomp::check_can_fully_enable() {
+		gum::warn!(target: LOG_TARGET, ?worker_kind, "cannot fully enable seccomp: {}", err);
+	}
+
+	true
 }
 
 // NOTE: The worker version must be passed in so that we accurately get the version of the worker,
@@ -868,5 +913,17 @@ mod tests {
 		tx.send(()).unwrap();
 		let result = cpu_time_monitor_loop(cpu_time_start, timeout, rx);
 		assert_eq!(result, None);
+	}
+
+	#[test]
+	fn check_security_status_passes_for_existing_worker_dir() {
+		assert!(check_security_status(WorkerKind::Execute, &std::env::temp_dir()));
+		assert!(check_security_status(WorkerKind::Prepare, &std::env::temp_dir()));
+	}
+
+	#[test]
+	fn check_security_status_fails_for_missing_worker_dir() {
+		let missing_dir = std::env::temp_dir().join("pvf-common-tests-nonexistent-worker-dir");
+		assert!(!check_security_status(WorkerKind::Execute, &missing_dir));
 	}
 }

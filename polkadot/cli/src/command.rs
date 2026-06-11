@@ -26,14 +26,13 @@ use polkadot_service::{
 	HeaderBackend, IdentifyVariant,
 };
 
-use polkadot_node_core_pvf_common::tmppath;
 #[cfg(feature = "pyroscope")]
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 use sc_cli::SubstrateCli;
 use sc_network_types::PeerId;
 use sp_core::crypto::Ss58AddressFormatRegistry;
 use sp_keyring::Sr25519Keyring;
-use std::{fs, process::Command};
+use std::{path::Path, process::Command};
 
 pub use crate::error::Error;
 #[cfg(feature = "pyroscope")]
@@ -318,31 +317,40 @@ where
 	})
 }
 
+/// Runs the `execute-worker` binary found in `workers_path` with `--check-security-features` to
+/// verify that the configured workers are runnable and pass their security checks before the
+/// node starts.
+fn verify_workers_security_checks(workers_path: &Path) -> Result<()> {
+	let mut binary_path = workers_path.to_owned();
+	binary_path.push("execute-worker");
+
+	let result = Command::new(&binary_path)
+		.arg("--check-security-features")
+		.arg("--worker-dir-path")
+		.arg(workers_path.as_os_str())
+		.status();
+
+	let exit_status = result.map_err(|err| Error::ExecuteWorkerSpawnFailed {
+		worker_path: binary_path.clone(),
+		source: err,
+	})?;
+
+	if !exit_status.success() {
+		return Err(Error::ExecuteWorkerFailedSecurityChecks {
+			worker_path: binary_path,
+			worker_dir_path: workers_path.to_owned(),
+		});
+	}
+
+	Ok(())
+}
+
 /// Parses polkadot specific CLI arguments and run the service.
 pub fn run() -> Result<()> {
 	let cli: Cli = Cli::from_args();
 
-	if cli.run.workers_path.is_some() {
-		let socket_path = tmppath("pvf-host-").map_err(|_| Error::TmpPath)?;
-		let worker_path = cli.run.workers_path.clone().unwrap();
-		let mut binary_path = worker_path.clone();
-		binary_path.push("execute-worker");
-		let exit_status = Command::new(&binary_path)
-			.arg("--socket-path")
-			.arg(socket_path.as_os_str())
-			.arg("--worker-dir-path")
-			.arg(worker_path.as_os_str())
-			.arg("--check-security-features")
-			.status()
-			.unwrap();
-		let _ = fs::remove_file(socket_path);
-
-		if !exit_status.success() {
-			return Err(Error::ExecuteWorkerFailedSecurityChecks {
-				worker_path: binary_path,
-				worker_dir_path: worker_path,
-			});
-		}
+	if let Some(workers_path) = cli.run.workers_path.as_deref() {
+		verify_workers_security_checks(workers_path)?;
 	}
 
 	#[cfg(feature = "pyroscope")]
@@ -566,4 +574,77 @@ pub fn run() -> Result<()> {
 		agent.shutdown();
 	}
 	Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use std::fs;
+
+	#[cfg(unix)]
+	fn write_stub_execute_worker(dir: &Path, script: &str) -> std::path::PathBuf {
+		use std::os::unix::fs::PermissionsExt;
+
+		let path = dir.join("execute-worker");
+		fs::write(&path, script).unwrap();
+		fs::set_permissions(&path, fs::Permissions::from_mode(0o744)).unwrap();
+		path
+	}
+
+	#[cfg(unix)]
+	#[test]
+	fn verify_workers_security_checks_passes_when_worker_succeeds() {
+		let dir = tempfile::tempdir().unwrap();
+		write_stub_execute_worker(dir.path(), "#!/bin/sh\nexit 0\n");
+
+		assert!(verify_workers_security_checks(dir.path()).is_ok());
+	}
+
+	#[cfg(unix)]
+	#[test]
+	fn verify_workers_security_checks_fails_when_worker_reports_failure() {
+		let dir = tempfile::tempdir().unwrap();
+		let binary_path = write_stub_execute_worker(dir.path(), "#!/bin/sh\nexit 1\n");
+
+		match verify_workers_security_checks(dir.path()) {
+			Err(Error::ExecuteWorkerFailedSecurityChecks { worker_path, worker_dir_path }) => {
+				assert_eq!(worker_path, binary_path);
+				assert_eq!(worker_dir_path, dir.path());
+			},
+			other => panic!("unexpected result: {other:?}"),
+		}
+	}
+
+	#[test]
+	fn verify_workers_security_checks_fails_when_worker_binary_missing() {
+		let dir = tempfile::tempdir().unwrap();
+
+		match verify_workers_security_checks(dir.path()) {
+			Err(Error::ExecuteWorkerSpawnFailed { worker_path, .. }) => {
+				assert_eq!(worker_path, dir.path().join("execute-worker"));
+			},
+			other => panic!("unexpected result: {other:?}"),
+		}
+	}
+
+	// Regression test for the argument order expected by `decl_worker_main!`: the
+	// `--check-security-features` flag must come first, with `--worker-dir-path` following it.
+	#[cfg(unix)]
+	#[test]
+	fn verify_workers_security_checks_invokes_worker_with_expected_arguments() {
+		let dir = tempfile::tempdir().unwrap();
+		let args_file = dir.path().join("args.txt");
+		write_stub_execute_worker(
+			dir.path(),
+			&format!("#!/bin/sh\necho \"$@\" > {}\nexit 0\n", args_file.display()),
+		);
+
+		verify_workers_security_checks(dir.path()).unwrap();
+
+		let recorded_args = fs::read_to_string(&args_file).unwrap();
+		let args: Vec<&str> = recorded_args.trim().split_whitespace().collect();
+		assert_eq!(args[0], "--check-security-features");
+		assert_eq!(args[1], "--worker-dir-path");
+		assert_eq!(args[2], dir.path().to_str().unwrap());
+	}
 }
