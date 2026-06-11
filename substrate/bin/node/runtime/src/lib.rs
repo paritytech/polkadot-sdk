@@ -3101,8 +3101,11 @@ impl pallet_oracle::Config for Runtime {
 parameter_types! {
 	/// PalletId for deriving the PSM system account.
 	pub const PsmPalletId: PalletId = PalletId(*b"py/pegsm");
-	/// Native-currency deposit reserved when permissionlessly creating a PSM.
+	/// Base deposit held for the footprint of a PSM created via `create_psm`.
 	pub const PsmCreationDeposit: Balance = 10 * DOLLARS;
+	/// Per-byte slope of the PSM creation deposit. PSM footprints are fixed-size, so this is zero.
+	pub const PsmDepositSlope: Balance = 0;
+	pub PsmHoldReason: RuntimeHoldReason = RuntimeHoldReason::Psm(pallet_psm::HoldReason::CreationDeposit);
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -3136,14 +3139,18 @@ impl pallet_psm::BenchmarkHelper<u32, AccountId> for PsmBenchmarkHelper {
 /// Configure the PSM (Peg Stability Module) pallet.
 impl pallet_psm::Config for Runtime {
 	type Fungibles = Assets;
-	type Currency = Balances;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		PsmHoldReason,
+		LinearStoragePrice<PsmCreationDeposit, PsmDepositSlope, Balance>,
+	>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type PalletsOrigin = OriginCaller;
 	type AssetId = u32;
 	type WeightInfo = pallet_psm::weights::SubstrateWeight<Runtime>;
 	type PalletId = PsmPalletId;
 	type MaxExternals = ConstU32<10>;
-	type CreationDeposit = PsmCreationDeposit;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PsmBenchmarkHelper;
 }

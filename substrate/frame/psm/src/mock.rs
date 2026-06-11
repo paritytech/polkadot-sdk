@@ -17,7 +17,10 @@
 
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU128, ConstU32, ConstU64},
+	traits::{
+		fungible::HoldConsideration, AsEnsureOriginWithArg, Consideration, ConstU128, ConstU32,
+		ConstU64, Footprint, LinearStoragePrice,
+	},
 	weights::constants::RocksDbWeight,
 	PalletId,
 };
@@ -111,6 +114,8 @@ parameter_types! {
 	pub const MinSwapAmount: u128 = 100 * INTERNAL_UNIT;
 	pub const PsmPalletId: PalletId = PalletId(*b"py/psm!!");
 	pub const PsmCreationDeposit: u128 = 1_000_000;
+	pub const PsmDepositSlope: u128 = 0;
+	pub PsmHoldReason: RuntimeHoldReason = RuntimeHoldReason::Psm(crate::HoldReason::CreationDeposit);
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -139,14 +144,18 @@ impl crate::BenchmarkHelper<u32, u64> for PsmBenchmarkHelper {
 
 impl crate::Config for Test {
 	type Fungibles = Assets;
-	type Currency = Balances;
+	type Consideration = HoldConsideration<
+		u64,
+		Balances,
+		PsmHoldReason,
+		LinearStoragePrice<PsmCreationDeposit, PsmDepositSlope, u128>,
+	>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type PalletsOrigin = OriginCaller;
 	type AssetId = u32;
 	type WeightInfo = ();
 	type PalletId = PsmPalletId;
 	type MaxExternals = ConstU32<10>;
-	type CreationDeposit = PsmCreationDeposit;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PsmBenchmarkHelper;
 }
@@ -227,9 +236,11 @@ fn install_test_psm() {
 			external_count: 2,
 		},
 	);
+	let ticket = <Test as crate::Config>::Consideration::new(&ALICE, Footprint::from_parts(1, 0))
+		.expect("ALICE is funded; consideration succeeds");
 	crate::PsmAdmin::<Test>::insert(
 		INTERNAL_ASSET_ID,
-		crate::PsmAdminInfo::<Test> { full_admin, emergency_admin, depositor: ALICE, deposit: 0 },
+		crate::PsmAdminInfo::<Test> { full_admin, emergency_admin, depositor: ALICE, ticket },
 	);
 	// Acquire provider refs like `create_psm` does, so the test PSM mirrors a real one.
 	frame_system::Pallet::<Test>::inc_providers(&crate::Pallet::<Test>::psm_account(

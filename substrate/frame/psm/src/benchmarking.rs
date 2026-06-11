@@ -25,11 +25,11 @@ use frame_support::traits::{
 		metadata::Inspect as FungiblesMetadataInspect, Create as FungiblesCreate,
 		Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 	},
-	Get,
+	Consideration, Footprint, Get,
 };
 use frame_system::RawOrigin;
 use pallet::BalanceOf;
-use sp_runtime::{traits::Zero, Permill, Saturating};
+use sp_runtime::{Permill, Saturating};
 
 /// Asset-ID indices passed to `BenchmarkHelper::get_asset_id`. Chosen to avoid
 /// collision with typical genesis assets.
@@ -65,13 +65,16 @@ where
 		// Admins set to `Root` so the admin benchmarks (dispatched as `RawOrigin::Root`)
 		// match `full_admin` in `ensure_psm_admin`.
 		let root_origin: T::PalletsOrigin = RawOrigin::Root.into();
+		T::Consideration::ensure_successful(&admin, Footprint::from_parts(1, 0));
+		let ticket = T::Consideration::new(&admin, Footprint::from_parts(1, 0))
+			.expect("consideration established for funded caller");
 		crate::PsmAdmin::<T>::insert(
 			&internal_id,
 			crate::PsmAdminInfo::<T> {
 				full_admin: root_origin.clone(),
 				emergency_admin: root_origin,
 				depositor: admin,
-				deposit: Zero::zero(),
+				ticket,
 			},
 		);
 	}

@@ -126,7 +126,7 @@ pub mod pallet {
 				Mutate as FungiblesMutate,
 			},
 			tokens::{Fortitude, Precision, Preservation},
-			CallerTrait, OriginTrait, ReservableCurrency,
+			CallerTrait, Consideration, Footprint, OriginTrait,
 		},
 		PalletId,
 	};
@@ -237,12 +237,6 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId,
 	>>::Balance;
 
-	/// Native balance (used for PSM creation deposits).
-	pub(crate) type NativeBalanceOf<T> =
-		<<T as Config>::Currency as frame_support::traits::Currency<
-			<T as frame_system::Config>::AccountId,
-		>>::Balance;
-
 	/// Suggested fee of 0.5% for minting and redemption.
 	pub(crate) struct DefaultFee;
 	impl Get<Permill> for DefaultFee {
@@ -277,9 +271,7 @@ pub mod pallet {
 
 	/// Admin origins and creation-deposit bookkeeping for a PSM instance. Always written
 	/// and removed together with the [`Psm`] entry.
-	#[derive(
-		Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
-	)]
+	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug)]
 	#[scale_info(skip_type_params(T))]
 	// Kept separate from `PsmInfo` so the swap path (`mint`/`redeem`) doesn't read the
 	// admin origins, which can be large.
@@ -292,12 +284,12 @@ pub mod pallet {
 		/// `Signed(signer)` on `create_psm` and reassignable to any origin via
 		/// `set_emergency_admin`.
 		pub emergency_admin: T::PalletsOrigin,
-		/// Account that paid (and reserved) the creation deposit. The deposit is always
-		/// returned here on `remove_psm`, independently of any admin reassignment.
+		/// Account that paid the creation deposit. The deposit is always returned here on
+		/// `remove_psm`, independently of any admin reassignment.
 		pub depositor: T::AccountId,
-		/// Native-balance deposit reserved from `depositor` on `create_psm` and returned
-		/// to them on `remove_psm`.
-		pub deposit: NativeBalanceOf<T>,
+		/// The creation-deposit ticket, established from `depositor` on `create_psm` and
+		/// dropped (refunding them) on `remove_psm`.
+		pub ticket: T::Consideration,
 	}
 
 	/// On-chain record of an external asset approved on a PSM instance.
@@ -327,8 +319,9 @@ pub mod pallet {
 			+ FungiblesMetadataInspect<Self::AccountId>
 			+ FungiblesRolesInspect<Self::AccountId>;
 
-		/// Native currency used to reserve PSM creation deposits.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		/// The deposit taken (and returned) for the on-chain footprint of a PSM instance.
+		/// Established on `create_psm` and dropped on `remove_psm`.
+		type Consideration: Consideration<Self::AccountId, Footprint>;
 
 		/// The aggregated origin, tying the runtime origin to [`Config::PalletsOrigin`] so PSM
 		/// admins can be matched against incoming origins.
@@ -357,10 +350,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxExternals: Get<u32>;
 
-		/// Native-currency deposit reserved on `create_psm` and returned on `remove_psm`.
-		#[pallet::constant]
-		type CreationDeposit: Get<NativeBalanceOf<Self>>;
-
 		/// Helper for benchmarks to create an external asset with correct metadata.
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: crate::BenchmarkHelper<Self::AssetId, Self::AccountId>;
@@ -372,6 +361,14 @@ pub mod pallet {
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
+
+	/// A reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The deposit backing a PSM instance created via `create_psm`.
+		#[codec(index = 0)]
+		CreationDeposit,
+	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -1196,10 +1193,10 @@ pub mod pallet {
 
 		/// Permissionlessly create a PSM.
 		///
-		/// Reserves [`Config::CreationDeposit`] from the signer's native balance. Both
-		/// `full_admin` and `emergency_admin` are initialised to the signer's `Signed` origin
-		/// and may later be reassigned via [`Pallet::set_full_admin`] /
-		/// [`Pallet::set_emergency_admin`].
+		/// Takes a [`Config::Consideration`] deposit from the signer for the instance's
+		/// footprint (refunded on `remove_psm`). Both `full_admin` and `emergency_admin` are
+		/// initialised to the signer's `Signed` origin and may later be reassigned via
+		/// [`Pallet::set_full_admin`] / [`Pallet::set_emergency_admin`].
 		///
 		/// The caller must be the owner of `internal_asset`. The PSM mints/burns the internal
 		/// asset through the privileged `fungibles` trait path, so restricting creation to the
@@ -1226,6 +1223,8 @@ pub mod pallet {
 		/// - [`Error::ZeroMinSwapAmount`]: `min_swap_amount` is zero.
 		/// - [`Error::AssetDoesNotExist`]: The internal asset does not exist.
 		/// - [`Error::NotAssetOwner`]: The caller is not the owner of `internal_asset`.
+		/// - Any error from establishing the [`Config::Consideration`] deposit (e.g. the signer
+		///   cannot afford it).
 		///
 		/// ## Events
 		///
@@ -1255,8 +1254,9 @@ pub mod pallet {
 				Error::<T>::NotAssetOwner
 			);
 
-			let deposit = T::CreationDeposit::get();
-			T::Currency::reserve(&who, deposit)?;
+			// Establish the creation-deposit ticket for this instance's footprint, charged to
+			// the signer. A PSM is a single fixed record, hence a footprint of `(1, 0)`.
+			let ticket = T::Consideration::new(&who, Footprint::from_parts(1, 0))?;
 
 			let signer_origin: T::PalletsOrigin =
 				frame_system::RawOrigin::Signed(who.clone()).into();
@@ -1277,7 +1277,7 @@ pub mod pallet {
 					full_admin: signer_origin.clone(),
 					emergency_admin: signer_origin.clone(),
 					depositor: who,
-					deposit,
+					ticket,
 				},
 			);
 			// Acquire a provider reference on the reserve account and the fee destination for the
@@ -1329,10 +1329,10 @@ pub mod pallet {
 			ensure!(info.external_count == 0, Error::<T>::PsmHasApprovedExternals);
 			ensure!(Self::total_psm_debt(&internal_asset).is_zero(), Error::<T>::PsmHasDebt);
 
-			let admin = PsmAdmin::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
-			if !admin.deposit.is_zero() {
-				T::Currency::unreserve(&admin.depositor, admin.deposit);
-			}
+			let PsmAdminInfo { depositor, ticket, .. } =
+				PsmAdmin::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
+			// Drop the creation-deposit ticket, refunding the original depositor.
+			ticket.drop(&depositor)?;
 
 			Psm::<T>::remove(&internal_asset);
 			PsmAdmin::<T>::remove(&internal_asset);

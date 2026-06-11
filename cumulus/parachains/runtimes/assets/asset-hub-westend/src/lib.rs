@@ -1576,8 +1576,11 @@ impl pallet_verify_signature::Config for Runtime {
 
 // PSM configuration.
 parameter_types! {
-	/// Native-currency deposit reserved when permissionlessly creating a PSM.
+	/// Base deposit held for the footprint of a PSM created via `create_psm`.
 	pub const PsmCreationDeposit: Balance = deposit(1, 68);
+	/// Per-byte slope of the PSM creation deposit. PSM footprints are fixed-size, so this is zero.
+	pub const PsmDepositSlope: Balance = 0;
+	pub PsmHoldReason: RuntimeHoldReason = RuntimeHoldReason::Psm(pallet_psm::HoldReason::CreationDeposit);
 	/// PalletId for deriving the PSM system account.
 	pub const PsmPalletId: PalletId = PalletId(*b"py/pegsm");
 }
@@ -1618,14 +1621,18 @@ impl pallet_psm::BenchmarkHelper<xcm::v5::Location, AccountId> for PsmBenchmarkH
 
 impl pallet_psm::Config for Runtime {
 	type Fungibles = LocalAndForeignAssets;
-	type Currency = Balances;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		PsmHoldReason,
+		LinearStoragePrice<PsmCreationDeposit, PsmDepositSlope, Balance>,
+	>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type PalletsOrigin = OriginCaller;
 	type AssetId = xcm::v5::Location;
 	type WeightInfo = weights::pallet_psm::WeightInfo<Runtime>;
 	type PalletId = PsmPalletId;
 	type MaxExternals = ConstU32<3>;
-	type CreationDeposit = PsmCreationDeposit;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PsmBenchmarkHelper;
 }

@@ -3045,14 +3045,13 @@ mod admin {
 			assert_eq!(info.min_swap_amount, DEFAULT_MIN_SWAP);
 			assert_eq!(info.external_count, 0);
 
-			// Admin record: the signer is both admins and the depositor; the deposit is
-			// reserved from the signer.
+			// Admin record: the signer is both admins and the depositor; the creation deposit
+			// is held from the signer (holds are accounted within `reserved`).
 			let admin = crate::PsmAdmin::<Test>::get(NEW_INTERNAL).expect("admin record");
 			assert_eq!(admin.full_admin, signed_origin(ALICE));
 			assert_eq!(admin.emergency_admin, signed_origin(ALICE));
 			assert_eq!(admin.depositor, ALICE);
-			assert!(admin.deposit > 0);
-			assert_eq!(Balances::reserved_balance(&ALICE), reserved_before + admin.deposit);
+			assert!(Balances::reserved_balance(&ALICE) > reserved_before);
 
 			System::assert_has_event(
 				Event::<Test>::PsmCreated {
@@ -3140,10 +3139,10 @@ mod admin {
 	}
 
 	#[test]
-	fn create_psm_fails_if_deposit_cannot_be_reserved() {
+	fn create_psm_fails_if_deposit_cannot_be_taken() {
 		new_test_ext().execute_with(|| {
 			// An account that owns the internal asset but has no native balance to cover the
-			// creation deposit. The deposit gate must reject it.
+			// creation deposit. The consideration must reject it.
 			const POOR: u64 = 7;
 			assert_ok!(Assets::force_create(RuntimeOrigin::root(), NEW_INTERNAL, POOR, true, 1));
 			assert_eq!(Balances::free_balance(POOR), 0);
@@ -3156,7 +3155,7 @@ mod admin {
 					DEFAULT_MAX_DEBT,
 					DEFAULT_MIN_SWAP,
 				),
-				pallet_balances::Error::<Test>::InsufficientBalance
+				TokenError::FundsUnavailable
 			);
 			// Nothing was created.
 			assert!(!crate::Psm::<Test>::contains_key(NEW_INTERNAL));
