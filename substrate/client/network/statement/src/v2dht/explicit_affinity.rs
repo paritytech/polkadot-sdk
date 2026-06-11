@@ -47,7 +47,7 @@
 //! 5. [x] **RPC-subscription source.** Poll the statement store's live subscription topics on the
 //!    affinity tick and reconcile them into the `RpcSubscription` source (`set_source_topics`). The
 //!    store owns the subscription set, so the poll cannot drift and the RPC layer stays untouched.
-//!    Needs step 3. Closes "track affinity from active subscriptions."
+//!    Needs step 3. Closes "track affinity from active subscriptions" ([#12339]).
 //! 6. [ ] **Local queries.** Over the fed topic set, implement `local_filter()` (advertised
 //!    [`AffinityFilter`] built from the topics) and `local_has_explicit_affinity(stmt)` (does any
 //!    of the statement's topics sit in the set). Configured and subscribed topics start being
@@ -69,6 +69,7 @@
 //! [#12276]: https://github.com/paritytech/polkadot-sdk/pull/12276
 //! [#12278]: https://github.com/paritytech/polkadot-sdk/pull/12278
 //! [#12316]: https://github.com/paritytech/polkadot-sdk/pull/12316
+//! [#12339]: https://github.com/paritytech/polkadot-sdk/pull/12339
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
 use sc_network_types::PeerId;
