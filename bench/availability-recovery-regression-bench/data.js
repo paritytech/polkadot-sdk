@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781105670399,
+  "lastUpdate": 1781169360341,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8ab9a68e4f1185685206d581bd018bd7d0d7f051",
-          "message": "Change bahaviour of contract termination in accordance with EIP-6780 (#9699)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/9621\n\nBehavior of `terminate` is changed in accordance with EIP-6780 (and EVM\nin general):\n- `terminate` only deletes the code from storage if it is called in the\nsame transaction the contract was created.\n- `terminate` does not destroy the contract instantly. The contract is\nregistered for destruction, which happens at the end of the transaction.\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nSigned-off-by: Cyrill Leutwiler <bigcyrill@hotmail.com>\nCo-authored-by: Robert van Eerdewijk <robert@Roberts-MacBook-Pro.local>\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: Sebastian Miasojed <sebastian.miasojed@parity.io>\nCo-authored-by: Sebastian Miasojed <s.miasojed@gmail.com>\nCo-authored-by: xermicus <cyrill@parity.io>\nCo-authored-by: Cyrill Leutwiler <bigcyrill@hotmail.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-24T16:48:13Z",
-          "tree_id": "df6ab0114b29c3a8e616dcf9ed2789cff97753fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8ab9a68e4f1185685206d581bd018bd7d0d7f051"
-        },
-        "date": 1761329125544,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20218401813333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.616405769166665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14063490043333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "78ee0b52ad51f9aefe160a983a3626119623a037",
+          "message": "approval-voting: cleanup coalescing logic (#12314)\n\nrefactor approval coalescing logic to get the runtime value through\nExtendedSessionInfo.\n\nChanges are fully backwards compatible with the existing logic, tested\n50-50% split of old nodes and new nodes and new nodes with old runtime\nand new runtime with old nodes.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-06-11T07:30:31Z",
+          "tree_id": "457671524bce28004770ef86d8723b8d22d13df6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/78ee0b52ad51f9aefe160a983a3626119623a037"
+        },
+        "date": 1781169329012,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.964338287066665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13601532983333328,
             "unit": "seconds"
           }
         ]
