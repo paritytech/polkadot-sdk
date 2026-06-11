@@ -1272,6 +1272,38 @@ fn delegation_to_eoa_has_no_deposit() {
 	});
 }
 
+/// Per EIP-7702: delegating to a precompile (which surfaces in `AccountInfoOf` as
+/// `AccountType::Contract` with `code_hash == 0` and no `CodeInfo`) must succeed and
+/// behave as empty code on call. Without filtering zero-hashes, `increment_refcount`
+/// would fail with `CodeNotFound` and the auth would be silently skipped — a spec
+/// deviation since the spec requires the delegation to apply.
+#[test]
+fn set_delegation_to_zero_hash_contract_succeeds() {
+	ExtBuilder::default().build().execute_with(|| {
+		let authority = H160::from([0x77; 20]);
+		let precompile_like = H160::from([0x88; 20]);
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
+
+		// Seed the target as a Contract with zero code_hash (precompile-style).
+		let zero_info = crate::storage::ContractInfo::<Test>::new_for_delegation(
+			&precompile_like,
+			H256::zero(),
+		);
+		crate::AccountInfoOf::<Test>::insert(
+			precompile_like,
+			AccountInfo { account_type: crate::storage::AccountType::Contract(zero_info), dust: 0 },
+		);
+
+		// Delegation must succeed (no `CodeNotFound` propagating out of refcount bump).
+		let deposit = AccountInfo::<Test>::set_delegation(&authority, precompile_like).unwrap();
+
+		assert!(AccountInfo::<Test>::is_delegated(&authority));
+		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(precompile_like));
+		assert!(deposit.is_zero(), "zero-code target should not charge a code-lockup deposit");
+	});
+}
+
 /// EOA → DelegatedEOA transition must preserve the account's existing `dust` field —
 /// a `set_delegation` should only touch the account_type / contract_info, not silently
 /// drop sub-ratio dust the user had accumulated.

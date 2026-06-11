@@ -296,13 +296,17 @@ impl<T: Config> AccountInfo<T> {
 		// Atomic: a failed refcount update below must roll back the account mutation.
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 			let result = (|| -> Result<StorageDeposit<BalanceOf<T>>, DispatchError> {
-				// `Some` iff target is a deployed contract; the corresponding `CodeInfo`
-				// deposit is looked up separately so that a Contract with a missing
-				// `CodeInfoOf` entry still snapshots its hash and surfaces the malformed
-				// state via a failed refcount bump below.
+				// `Some` iff target is a deployed contract with a real (non-zero) code
+				// hash. Precompiles and other special accounts surface as
+				// `AccountType::Contract` with `code_hash == 0` and have no `CodeInfo`;
+				// per EIP-7702 they should be delegated to successfully and behave as
+				// empty code on call, so we filter them out here. The deposit is looked
+				// up separately so a contract with a non-zero hash but missing
+				// `CodeInfo` (malformed state) still snapshots and surfaces via the
+				// refcount bump below.
 				let target_code_hash: Option<sp_core::H256> = <AccountInfoOf<T>>::get(&target)
 					.and_then(|info| match info.account_type {
-						AccountType::Contract(c) => Some(c.code_hash),
+						AccountType::Contract(c) if !c.code_hash.is_zero() => Some(c.code_hash),
 						_ => None,
 					});
 				let target_code_deposit: Option<BalanceOf<T>> =
