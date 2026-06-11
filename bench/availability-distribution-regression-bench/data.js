@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781105711660,
+  "lastUpdate": 1781169401457,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "70446df574b18ad1cddd672f1c2cd86f6408a300",
-          "message": "rpc-v2/archive: Remove unused structs and align with 1.90 rust (#10103)\n\nThis PR removes unused structures from the RPC V2 archive.\n\nWhile at it, remove unnecessary parentheses to make clippy happy. \n\ncc @paritytech/subxt-team\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-24T15:04:22Z",
-          "tree_id": "ed18d345038980d0a6dcdf6e4950815ba8b9c6fa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/70446df574b18ad1cddd672f1c2cd86f6408a300"
-        },
-        "date": 1761323092309,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013417033013333331,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0072588081999999795,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15855575918666676,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022668059339999987,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009952636859999964,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "78ee0b52ad51f9aefe160a983a3626119623a037",
+          "message": "approval-voting: cleanup coalescing logic (#12314)\n\nrefactor approval coalescing logic to get the runtime value through\nExtendedSessionInfo.\n\nChanges are fully backwards compatible with the existing logic, tested\n50-50% split of old nodes and new nodes and new nodes with old runtime\nand new runtime with old nodes.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-06-11T07:30:31Z",
+          "tree_id": "457671524bce28004770ef86d8723b8d22d13df6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/78ee0b52ad51f9aefe160a983a3626119623a037"
+        },
+        "date": 1781169369518,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010167765279999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0077571223733333364,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023971087826666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1507402135533333,
             "unit": "seconds"
           }
         ]
