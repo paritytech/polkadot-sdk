@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781105836492,
+  "lastUpdate": 1781169521982,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "47c4bbc803d6f884ce6cd20e995c0c9a9d2353a4",
-          "message": "revive/rpc: Adjust the RPC to utilize the ETH block from storage (#9512)\n\nThis PR adjusts the RPC layer of pallet-revive to use Ethereum blocks\nfrom storage via runtime APIs and establishes proper Ethereum ↔\nSubstrate block hash mappings.\n\n## Key Changes\n\n### Block Hash Mapping Infrastructure\n- **New database table**: `eth_to_substrate_blocks` maps Ethereum block\nhashes to Substrate block hashes and block numbers\n- **Bidirectional lookups**: Support for both ETH→Substrate and\nSubstrate→ETH hash resolution with backward compatibility fallbacks\n- **Block pruning**: Updated to remove stale mappings alongside\ntransaction and log data\n\n### Pallet Changes\n\n- **Genesis block initialization**: Added\n`block_storage::on_finalize_build_eth_block()` call in\n`BuildGenesisConfig` to properly build and store block 0\n\n## Testing\n\n- Added comprehensive tests for block hash mapping operations\n- Ethereum vs Substrate hash resolution tests\n- Fork handling in block pruning tests\n- Log filtering with Ethereum block hash tests\n- TransactionInfo deserialization from JSON Value tests\n\n## Implementation Details\n\nThe implementation uses a **runtime API approach** where the RPC layer\nqueries the runtime for Ethereum blocks and hashes, which are then\nmapped to Substrate block hashes in the local SQLite database. This\nprovides:\n\n1. **Backward compatibility**: Falls back to treating hashes as\nSubstrate hashes when no mapping exists\n2. **Efficient lookups**: Database indices on both Ethereum and\nSubstrate block hashes\n3. **Automatic cleanup**: Block mappings are pruned alongside\ntransaction and log data\n4. **Genesis block handling**: Block 0 is built during genesis using the\nblock storage infrastructure\n\nBuilds upon: https://github.com/paritytech/polkadot-sdk/pull/9418  \nPart of: https://github.com/paritytech/contract-issues/issues/139\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Lukasz Rubaszewski <117115317+lrubasze@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>",
-          "timestamp": "2025-10-24T07:26:16Z",
-          "tree_id": "2e1ee95f1bd75bb69b1bc401cfafa08871483e5f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/47c4bbc803d6f884ce6cd20e995c0c9a9d2353a4"
-        },
-        "date": 1761295031724,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00263638587,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008634805519999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0051361123299999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010271720909999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "78ee0b52ad51f9aefe160a983a3626119623a037",
+          "message": "approval-voting: cleanup coalescing logic (#12314)\n\nrefactor approval coalescing logic to get the runtime value through\nExtendedSessionInfo.\n\nChanges are fully backwards compatible with the existing logic, tested\n50-50% split of old nodes and new nodes and new nodes with old runtime\nand new runtime with old nodes.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-06-11T07:30:31Z",
+          "tree_id": "457671524bce28004770ef86d8723b8d22d13df6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/78ee0b52ad51f9aefe160a983a3626119623a037"
+        },
+        "date": 1781169490179,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01176522532,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002672928690000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009719770409999995,
             "unit": "seconds"
           }
         ]
