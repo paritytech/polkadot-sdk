@@ -375,22 +375,41 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 	}
 }
 
-impl<T: Config> VaultBadDebtInterface<T::AssetId, StableCreditOf<T>> for Pallet<T> {
+impl<T: Config> VaultBadDebtInterface<T::AssetId, BalanceOf<T>, StableCreditOf<T>> for Pallet<T> {
 	#[transactional]
-	fn heal(collateral_id: T::AssetId, credit: StableCreditOf<T>) -> DispatchResult {
-		let amount = credit.peek();
+	fn record_bad_debt(collateral_id: T::AssetId, amount: BalanceOf<T>) -> DispatchResult {
 		if amount.is_zero() {
-			drop(credit);
 			return Ok(());
 		}
+		BranchStates::<T>::try_mutate(&collateral_id, |maybe| -> Result<_, DispatchError> {
+			let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
+			bs.debt.bad_debt = bs.debt.bad_debt.saturating_add(amount);
+			Ok(())
+		})?;
+		Pallet::<T>::deposit_event(Event::BadDebtRecorded { collateral_id, amount });
+		Ok(())
+	}
+
+	#[transactional]
+	fn heal(
+		collateral_id: T::AssetId,
+		credit: StableCreditOf<T>,
+	) -> Result<StableCreditOf<T>, DispatchError> {
+		let bs = helpers::branch_state_of::<T>(&collateral_id)?;
+		let healable = credit.peek().min(bs.debt.bad_debt);
+		if healable.is_zero() {
+			// Nothing recorded (or an empty credit) — hand everything back.
+			return Ok(credit);
+		}
+		let (to_burn, surplus) = credit.split(healable);
 		// Rescind matching pUSD to net the imbalance to zero.
-		let debt = T::StableAsset::rescind(amount);
+		let debt = T::StableAsset::rescind(healable);
 		// `offset` returns `SameOrOther<credit-side, debt-side>`. With
 		// matching peeks the result is `None`, which is perfect netting.
-		match credit.offset(debt) {
+		match to_burn.offset(debt) {
 			SameOrOther::None => {},
 			SameOrOther::Same(remaining_credit) => {
-				// Defensive: `peek == amount` rescind should fully net.
+				// Defensive: `peek == healable` rescind should fully net.
 				drop(remaining_credit);
 				return Err(Error::<T>::ArithmeticOverflow.into());
 			},
@@ -401,10 +420,10 @@ impl<T: Config> VaultBadDebtInterface<T::AssetId, StableCreditOf<T>> for Pallet<
 		}
 		BranchStates::<T>::try_mutate(&collateral_id, |maybe| -> Result<_, DispatchError> {
 			let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-			bs.debt.bad_debt = bs.debt.bad_debt.saturating_sub(amount);
+			bs.debt.bad_debt = bs.debt.bad_debt.saturating_sub(healable);
 			Ok(())
 		})?;
-		Pallet::<T>::deposit_event(Event::BadDebtHealed { collateral_id, amount });
-		Ok(())
+		Pallet::<T>::deposit_event(Event::BadDebtHealed { collateral_id, amount: healable });
+		Ok(surplus)
 	}
 }

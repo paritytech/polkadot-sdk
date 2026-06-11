@@ -260,7 +260,6 @@ pub mod pallet {
 		},
 		BadDebtRecorded {
 			collateral_id: T::AssetId,
-			owner: T::AccountId,
 			amount: BalanceOf<T>,
 		},
 		BadDebtHealed {
