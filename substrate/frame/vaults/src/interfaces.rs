@@ -91,6 +91,12 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 		allocation: LiquidationAllocation<T::AccountId, BalanceOf<T>>,
 	) -> DispatchResult {
 		let vault = helpers::vault_of::<T>(&collateral_id, &owner)?;
+		// A prepared vault was detached from the aggregates and de-listed, so
+		// its derived status is `Dormant`.
+		ensure!(
+			vault.status::<T>(&collateral_id, &owner).is_dormant(),
+			Error::<T>::LiquidationNotPrepared
+		);
 		let post_touch_debt = vault.debt.total();
 		let held = T::CollateralAssets::balance_on_hold(
 			collateral_id.clone(),
@@ -114,7 +120,12 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 			!redistributed_debt.is_zero() || !allocation.redistribution_collateral.is_zero();
 		BranchStates::<T>::try_mutate(&collateral_id, |maybe_bs| -> Result<_, DispatchError> {
 			let bs = maybe_bs.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-			// Tredistribution collateral stays counted in
+			// The row vanishes below; a parked dormant pointer to this owner
+			// must not survive it.
+			if bs.last_dormant_vault_owner.as_ref() == Some(&owner) {
+				bs.last_dormant_vault_owner = None;
+			}
+			// The redistribution collateral stays counted in
 			// branch collateral until vault touch moves it to the recipient's
 			// hold, so only the SP-offset + keeper portions leave the total.
 			let non_redist_out = held.saturating_sub(allocation.redistribution_collateral);

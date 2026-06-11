@@ -367,6 +367,7 @@ pub mod pallet {
 		InvalidRedemptionAllocation,
 		LastVaultCannotBeLiquidated,
 		RedistributionWouldOverflow,
+		LiquidationNotPrepared,
 	}
 
 	#[pallet::hooks]
