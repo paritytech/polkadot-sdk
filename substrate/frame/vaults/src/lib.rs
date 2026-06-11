@@ -364,7 +364,7 @@ pub mod pallet {
 		FinalRecoverySequenceOverflow,
 		NotLastEligibleVault,
 		InsufficientCollateral,
-		InsufficientRepayment,
+		DebtOutstanding,
 		ArithmeticOverflow,
 		InsufficientPrivilege,
 		DefensiveActionNotDefensive,
@@ -586,7 +586,8 @@ pub mod pallet {
 			helpers::borrow::<T>(who, collateral_id, amount, maybe_new_rate, recipient, hint)
 		}
 
-		/// Permissionless repay-into-vault.
+		/// Permissionless repay-into-vault. `amount` is capped at the
+		/// outstanding debt; repaying it all closes the vault.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::repay_for())]
 		pub fn repay_for(

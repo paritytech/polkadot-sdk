@@ -9,7 +9,7 @@ use frame::deps::frame_support::{assert_noop, assert_ok};
 //
 // Liquity reverts on `closeTrove(last)` with `OnlyOneTroveLeft`. The polkadot
 // `close_vault` path requires zero debt and otherwise returns
-// `InsufficientRepayment`; the actual "system needs at least one vault"
+// `DebtOutstanding`; the actual "system needs at least one vault"
 // guard lives on the liquidation path (`prepare_liquidation` returns
 // `LastVaultCannotBeLiquidated`). Both behaviours are pinned here.
 #[test]
@@ -19,7 +19,7 @@ fn close_last_trove_with_debt_reverts() {
 		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
 		assert_noop!(
 			crate::Pallet::<Test>::close_vault(RuntimeOrigin::signed(1), DOT, None),
-			crate::Error::<Test>::InsufficientRepayment
+			crate::Error::<Test>::DebtOutstanding
 		);
 	});
 }

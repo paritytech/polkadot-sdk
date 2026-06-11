@@ -321,16 +321,20 @@ pub fn repay_for<T: Config>(
 
 	let cfg = branch_cfg_of::<T>(&collateral_id)?;
 
+	// Cap at the outstanding debt: debt accrues per millisecond, so an exact
+	// full repayment cannot be predicted at signing time. `amount >= debt`
+	// burns only the debt and closes the vault below.
+	let repay = amount.min(vault.debt.total());
 	T::StableAsset::burn_from(
 		&from,
-		amount,
+		repay,
 		Preservation::Expendable,
 		Precision::Exact,
 		Fortitude::Polite,
 	)?;
 
-	let payment = vault.debt.cancel(amount);
-	ensure!(payment.total() == amount, Error::<T>::InsufficientRepayment);
+	let payment = vault.debt.cancel(repay);
+	debug_assert_eq!(payment.total(), repay);
 
 	// User repayments must leave `Debt == 0` (and close in
 	// same op) OR `Debt >= MinimumDebt`.
@@ -341,6 +345,12 @@ pub fn repay_for<T: Config>(
 
 	if new_total.is_zero() {
 		let price = T::Oracle::provide_price(&collateral_id)?.price;
+		Pallet::<T>::deposit_event(Event::Repaid {
+			collateral_id: collateral_id.clone(),
+			owner: owner.clone(),
+			from,
+			amount: repay,
+		});
 		close_inner::<T>(
 			&collateral_id,
 			&owner,
@@ -352,7 +362,6 @@ pub fn repay_for<T: Config>(
 			price,
 			Some((payment, vault.annual_rate)),
 		)?;
-		Pallet::<T>::deposit_event(Event::Repaid { collateral_id, owner, from, amount });
 		return Ok(());
 	}
 
@@ -363,7 +372,7 @@ pub fn repay_for<T: Config>(
 	})?;
 
 	Vaults::<T>::insert(&collateral_id, &owner, &vault);
-	Pallet::<T>::deposit_event(Event::Repaid { collateral_id, owner, from, amount });
+	Pallet::<T>::deposit_event(Event::Repaid { collateral_id, owner, from, amount: repay });
 	Ok(())
 }
 
@@ -438,7 +447,7 @@ pub fn close_vault<T: Config>(
 	update_aggregate_interest::<T>(&collateral_id, now)?;
 	let vault = touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
 	let status = vault.status::<T>(&collateral_id, &owner);
-	ensure!(vault.debt.total().is_zero(), Error::<T>::InsufficientRepayment);
+	ensure!(vault.debt.total().is_zero(), Error::<T>::DebtOutstanding);
 
 	let cfg = branch_cfg_of::<T>(&collateral_id)?;
 	close_inner::<T>(&collateral_id, &owner, &recipient, &vault, status, &cfg, now, price, None)

@@ -26,6 +26,7 @@ use frame::{
 };
 use frame_system::RawOrigin;
 use pallet_linked_list::{Position, SortedListInterface};
+use pusd_primitives::{RedemptionAllocation, VaultRedemptionInterface};
 
 const ORACLE_PRICE: u128 = 10;
 const ACCOUNT_FUNDING: u128 = 10_000_000;
@@ -409,33 +410,47 @@ mod benchmarks {
 	#[benchmark]
 	fn close_vault() -> Result<(), BenchmarkError> {
 		let asset = register_default_branch::<T>()?;
-		// Seed worst-case chain BEFORE opening caller, then place caller at a
-		// rate strictly inside the seed range so the close removes a
-		// middle-of-list node (both rate-index neighbors get a node-row write).
-		let _seeds = seed_worst_case_chain::<T>(&asset)?;
-		let bounds = rate_bounds::<T>(&asset)?;
+		// A second vault keeps the branch TCR healthy when the caller's
+		// collateral leaves at close: a last-vault close trips the Safety-mode
+		// gate on residual aggregate-interest drift.
+		let background = funded_account::<T>("background", &asset);
+		Pallet::<T>::open_vault(
+			RawOrigin::Signed(background.clone()).into(),
+			asset.clone(),
+			balance::<T>(SEED_COLL),
+			balance::<T>(SEED_DEBT),
+			rate(5, 100),
+			Position::endpoints_only(),
+		)?;
 		let caller = funded_account::<T>("caller", &asset);
-		let caller_rate = bounds.middle;
-		let caller_hint = T::VaultLists::find_position(&rate_list_id(&asset), caller_rate);
 		Pallet::<T>::open_vault(
 			RawOrigin::Signed(caller.clone()).into(),
 			asset.clone(),
 			balance::<T>(SEED_COLL),
 			balance::<T>(SEED_DEBT),
-			caller_rate,
-			caller_hint,
+			rate(5, 100),
+			Position::endpoints_only(),
 		)?;
 		T::BenchmarkHelper::advance_time(ONE_HOUR_MS);
-		let total_debt = Vaults::<T>::get(&asset, &caller)
-			.ok_or(BenchmarkError::Stop("vault missing after open"))?
-			.debt
-			.total();
-		T::StableAsset::mint_into(&caller, total_debt).expect("mint pUSD to benchmark caller");
-		Pallet::<T>::repay_for(
-			RawOrigin::Signed(caller.clone()).into(),
-			caller.clone(),
+		// `close_vault` requires zero debt and a full repayment auto-closes in
+		// `repay_for`, so the only state this extrinsic can act on is the
+		// Dormant husk a full redemption leaves behind: zero debt, row intact,
+		// collateral still held, out of the rate index.
+		let total_debt = <Pallet<T> as VaultRedemptionInterface<
+			T::AccountId,
+			T::AssetId,
+			BalanceOf<T>,
+		>>::touch_for_redemption(asset.clone(), caller.clone())?;
+		let redeemer: T::AccountId = whitelisted_caller();
+		<Pallet<T> as VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>>::apply_redemption(
 			asset.clone(),
-			total_debt,
+			caller.clone(),
+			redeemer,
+			RedemptionAllocation {
+				debt_to_cancel: total_debt,
+				collateral_to_redeemer: BalanceOf::<T>::zero(),
+				fee_collateral_retained: BalanceOf::<T>::zero(),
+			},
 		)?;
 
 		#[extrinsic_call]

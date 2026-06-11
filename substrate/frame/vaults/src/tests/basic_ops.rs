@@ -133,6 +133,79 @@ fn repay_for_to_zero_closes_active_vault() {
 	});
 }
 
+// `repay_for` caps at the outstanding debt: over-asking burns only what is
+// owed, closes the vault, and `Repaid` (with the actual amount) precedes
+// `VaultClosed`.
+#[test]
+fn repay_overpay_burns_only_debt_and_closes() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(5, 100)));
+		// Acct 2's minted pUSD funds the surplus over acct 1's own balance.
+		let _ = <Pusd as frame::deps::frame_support::traits::fungible::Mutate<u64>>::transfer(
+			&2,
+			&1,
+			400,
+			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
+		);
+		let v = Vaults::<Test>::get(DOT, 1).expect("vault stored");
+		let total = v.debt.principal + v.debt.interest;
+		let balance_before = pusd_balance(1);
+		assert!(balance_before > total, "overpay setup needs a surplus");
+
+		assert_ok!(crate::Pallet::<Test>::repay_for(
+			RuntimeOrigin::signed(1),
+			1,
+			DOT,
+			balance_before
+		));
+
+		assert_eq!(pusd_balance(1), balance_before - total, "only the debt burned");
+		assert!(Vaults::<Test>::get(DOT, 1).is_none(), "vault closed");
+		let events = System::events();
+		let repaid = events.iter().position(|r| {
+			matches!(
+				&r.event,
+				RuntimeEvent::Vaults(crate::Event::Repaid { amount, .. }) if *amount == total
+			)
+		});
+		let closed = events.iter().position(|r| {
+			matches!(&r.event, RuntimeEvent::Vaults(crate::Event::VaultClosed { .. }))
+		});
+		assert!(repaid.expect("Repaid emitted") < closed.expect("VaultClosed emitted"));
+	});
+}
+
+// The cap turns full repayment of a sub-minimum Dormant residual from an
+// exact-amount guessing game into "send at least the dust".
+#[test]
+fn repay_overpay_rescues_subminimum_dormant_vault() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(1, 100)));
+		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(2, 100)));
+		// Push acct 1 to Dormant with a small residual debt.
+		assert_ok!(redeem(DOT, 3, 350));
+		assert!(vault_status(DOT, 1).is_dormant());
+		let v = Vaults::<Test>::get(DOT, 1).expect("dormant vault stored");
+		let residual = v.debt.principal + v.debt.interest;
+		assert!(residual > 0);
+		assert!(residual < 200, "residual sits below MinimumDebt");
+
+		let balance_before = pusd_balance(1);
+		assert_ok!(crate::Pallet::<Test>::repay_for(
+			RuntimeOrigin::signed(1),
+			1,
+			DOT,
+			balance_before
+		));
+
+		assert_eq!(pusd_balance(1), balance_before - residual);
+		assert!(Vaults::<Test>::get(DOT, 1).is_none());
+	});
+}
+
 // A redemption-driven dormant
 // residual that is repaid to zero auto-closes (and clears any matching
 // `last_dormant_vault_owner` pointer).
