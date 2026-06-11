@@ -41,7 +41,11 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
+<<<<<<< HEAD
 	node_features, AuthorityDiscoveryId, Block, ExecutorParams, Hash, HeadData, IndexedVec,
+=======
+	node_features, ApprovalVotingParams, AuthorityDiscoveryId, Block, Hash, HeadData, IndexedVec,
+>>>>>>> 78ee0b5 (approval-voting: cleanup coalescing logic (#12314))
 	MutateDescriptorV2, NodeFeatures, PersistedValidationData, SessionInfo, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
@@ -433,6 +437,19 @@ impl TestState {
 				tx.send(Ok(
 					self.node_features.clone()
 				)).unwrap();
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_relay_parent,
+				RuntimeApiRequest::ApprovalVotingParams(
+					_,
+					tx,
+				)
+			)) => {
+				tx.send(Ok(ApprovalVotingParams::default())).unwrap();
 			}
 		);
 	}

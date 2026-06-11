@@ -49,7 +49,11 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
 use polkadot_primitives::{
+<<<<<<< HEAD
 	AuthorityDiscoveryId, Block, CollatorPair, ExecutorParams, GroupIndex, GroupRotationInfo,
+=======
+	ApprovalVotingParams, AuthorityDiscoveryId, Block, CollatorPair, GroupIndex, GroupRotationInfo,
+>>>>>>> 78ee0b5 (approval-voting: cleanup coalescing logic (#12314))
 	IndexedVec, NodeFeatures, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::TestCandidateBuilder;
@@ -395,6 +399,12 @@ async fn expect_determine_validator_group(
 				RuntimeApiRequest::NodeFeatures(_, si_tx),
 			)) => {
 				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+			},
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::ApprovalVotingParams(_, tx),
+			)) => {
+				tx.send(Ok(ApprovalVotingParams::default())).unwrap();
 			},
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				_relay_parent,

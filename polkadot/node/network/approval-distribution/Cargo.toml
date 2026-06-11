@@ -23,6 +23,7 @@ rand = { workspace = true, default-features = true }
 
 futures = { workspace = true }
 futures-timer = { workspace = true }
+<<<<<<< HEAD
 gum = { default-features = true, workspace = true }
 
 [dev-dependencies]
@@ -30,6 +31,15 @@ sc-keystore = { workspace = true, default-features = false }
 sp-application-crypto = { default-features = true, workspace = true }
 sp-authority-discovery = { default-features = true, workspace = true }
 sp-core = { features = ["std"], default-features = true, workspace = true }
+=======
+gum = { workspace = true, default-features = true }
+sp-core = { features = ["std"], workspace = true, default-features = true }
+
+[dev-dependencies]
+sc-keystore = { workspace = true }
+sp-application-crypto = { workspace = true, default-features = true }
+sp-authority-discovery = { workspace = true, default-features = true }
+>>>>>>> 78ee0b5 (approval-voting: cleanup coalescing logic (#12314))
 
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }

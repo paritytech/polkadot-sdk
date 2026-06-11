@@ -47,7 +47,11 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
+<<<<<<< HEAD
 	CandidateHash, ChunkIndex, CoreIndex, CoreState, ExecutorParams, GroupIndex, Hash,
+=======
+	ApprovalVotingParams, CandidateHash, ChunkIndex, CoreIndex, CoreState, GroupIndex, Hash,
+>>>>>>> 78ee0b5 (approval-voting: cleanup coalescing logic (#12314))
 	Id as ParaId, NodeFeatures, ScheduledCore, SessionInfo, ValidatorIndex,
 };
 use test_helpers::mock::{make_ferdie_keystore, new_leaf};
@@ -331,6 +335,10 @@ impl TestState {
 						},
 						RuntimeApiRequest::NodeFeatures(_, tx) => {
 							tx.send(Ok(self.node_features.clone()))
+								.expect("Receiver should still be alive");
+						},
+						RuntimeApiRequest::ApprovalVotingParams(_, tx) => {
+							tx.send(Ok(ApprovalVotingParams::default()))
 								.expect("Receiver should still be alive");
 						},
 						_ => {

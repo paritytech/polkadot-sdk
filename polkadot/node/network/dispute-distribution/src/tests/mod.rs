@@ -57,8 +57,14 @@ use polkadot_node_subsystem_test_helpers::{
 	subsystem_test_harness, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
+<<<<<<< HEAD
 	AuthorityDiscoveryId, Block, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
 	ExecutorParams, Hash, NodeFeatures, SessionIndex, SessionInfo,
+=======
+	ApprovalVotingParams, AuthorityDiscoveryId, Block, CandidateHash,
+	CandidateReceiptV2 as CandidateReceipt, Hash, NodeFeatures, SessionIndex, SessionInfo,
+	MAX_COALESCE_APPROVALS,
+>>>>>>> 78ee0b5 (approval-voting: cleanup coalescing logic (#12314))
 };
 
 use self::mock::{
@@ -651,6 +657,18 @@ async fn nested_network_dispute_request<'a, F, O>(
 			},
 			unexpected => panic!("Unexpected message {:?}", unexpected),
 		}
+		match handle.recv().await {
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::ApprovalVotingParams(_, tx),
+			)) => {
+				tx.send(Ok(ApprovalVotingParams {
+					max_approval_coalesce_count: MAX_COALESCE_APPROVALS,
+				}))
+				.expect("Receiver should stay alive.");
+			},
+			unexpected => panic!("Unexpected message {:?}", unexpected),
+		}
 	}
 
 	// Import should get initiated:
@@ -796,6 +814,16 @@ async fn activate_leaf(
 				RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
 			) => {
 				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+			}
+		);
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::ApprovalVotingParams(_, tx),
+			)) => {
+				tx.send(Ok(ApprovalVotingParams { max_approval_coalesce_count: MAX_COALESCE_APPROVALS }))
+					.expect("Receiver should stay alive.");
 			}
 		);
 	}

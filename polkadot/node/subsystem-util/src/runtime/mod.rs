@@ -31,8 +31,13 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
+<<<<<<< HEAD
 	node_features::FeatureIndex, slashing, CandidateEvent, CandidateHash, CoreIndex, CoreState,
 	EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec,
+=======
+	node_features::FeatureIndex, slashing, ApprovalVotingParams, CandidateEvent, CandidateHash,
+	CoreIndex, CoreState, EncodeAs, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec,
+>>>>>>> 78ee0b5 (approval-voting: cleanup coalescing logic (#12314))
 	NodeFeatures, OccupiedCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
 	SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
 	ValidatorIndex, DEFAULT_SCHEDULING_LOOKAHEAD,
@@ -41,9 +46,15 @@ use polkadot_primitives::{
 use std::collections::{BTreeMap, VecDeque};
 
 use crate::{
+<<<<<<< HEAD
 	request_availability_cores, request_candidate_events, request_claim_queue,
 	request_disabled_validators, request_from_runtime, request_key_ownership_proof,
 	request_node_features, request_on_chain_votes, request_session_executor_params,
+=======
+	request_approval_voting_params, request_availability_cores, request_candidate_events,
+	request_claim_queue, request_disabled_validators, request_from_runtime,
+	request_key_ownership_proof, request_node_features, request_on_chain_votes,
+>>>>>>> 78ee0b5 (approval-voting: cleanup coalescing logic (#12314))
 	request_session_index_for_child, request_session_info, request_submit_report_dispute_lost,
 	request_unapplied_slashes, request_unapplied_slashes_v2, request_validation_code_by_hash,
 	request_validator_groups,
@@ -104,6 +115,8 @@ pub struct ExtendedSessionInfo {
 	pub executor_params: ExecutorParams,
 	/// Node features
 	pub node_features: NodeFeatures,
+	/// Approval-voting parameters.
+	pub approval_voting_params: ApprovalVotingParams,
 }
 
 /// Information about ourselves, in case we are an `Authority`.
@@ -247,11 +260,22 @@ impl RuntimeInfo {
 				gum::warn!(target: LOG_TARGET, "Runtime requires feature bit {} that node doesn't support, please upgrade node version", last_set_index);
 			}
 
+<<<<<<< HEAD
 			let full_info = ExtendedSessionInfo {
 				session_info,
 				validator_info,
 				executor_params,
 				node_features,
+=======
+			let approval_voting_params =
+				request_approval_voting_params(parent, session_index, sender).await.await??;
+
+			let full_info = ExtendedSessionInfo {
+				session_info,
+				validator_info,
+				node_features,
+				approval_voting_params,
+>>>>>>> 78ee0b5 (approval-voting: cleanup coalescing logic (#12314))
 			};
 
 			self.session_info_cache.insert(session_index, full_info);
