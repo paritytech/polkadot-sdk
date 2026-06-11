@@ -184,9 +184,9 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#34 id=34 data-nosnippet>34</a><span class="kw">use </span>polkadot_node_subsystem::overseer;
 <a href=#35 id=35 data-nosnippet>35</a><span class="kw">use </span>polkadot_node_subsystem_util::{runtime::RuntimeInfo, ControlledValidatorIndices};
 <a href=#36 id=36 data-nosnippet>36</a><span class="kw">use </span>polkadot_primitives::{
-<a href=#37 id=37 data-nosnippet>37</a>	CandidateHash, CandidateReceiptV2 <span class="kw">as </span>CandidateReceipt, DisputeStatement, Hash, IndexedVec,
-<a href=#38 id=38 data-nosnippet>38</a>	SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
-<a href=#39 id=39 data-nosnippet>39</a>	ValidatorSignature,
+<a href=#37 id=37 data-nosnippet>37</a>	CandidateReceiptV2 <span class="kw">as </span>CandidateReceipt, CoalescedApprovalCandidateHashes, DisputeStatement,
+<a href=#38 id=38 data-nosnippet>38</a>	Hash, IndexedVec, SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId,
+<a href=#39 id=39 data-nosnippet>39</a>	ValidatorIndex, ValidatorSignature,
 <a href=#40 id=40 data-nosnippet>40</a>};
 <a href=#41 id=41 data-nosnippet>41</a>
 <a href=#42 id=42 data-nosnippet>42</a><span class="kw">use </span><span class="kw">crate</span>::LOG_TARGET;
@@ -712,95 +712,98 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#562 id=562 data-nosnippet>562</a>	</span><span class="kw">pub fn </span>import_approval_votes(
 <a href=#563 id=563 data-nosnippet>563</a>		<span class="self">self</span>,
 <a href=#564 id=564 data-nosnippet>564</a>		env: <span class="kw-2">&amp;</span>CandidateEnvironment,
-<a href=#565 id=565 data-nosnippet>565</a>		approval_votes: HashMap&lt;ValidatorIndex, (Vec&lt;CandidateHash&gt;, ValidatorSignature)&gt;,
-<a href=#566 id=566 data-nosnippet>566</a>		now: Timestamp,
-<a href=#567 id=567 data-nosnippet>567</a>	) -&gt; <span class="self">Self </span>{
-<a href=#568 id=568 data-nosnippet>568</a>		<span class="kw">let </span><span class="self">Self </span>{
-<a href=#569 id=569 data-nosnippet>569</a>			old_state,
-<a href=#570 id=570 data-nosnippet>570</a>			new_state,
-<a href=#571 id=571 data-nosnippet>571</a>			new_invalid_voters,
-<a href=#572 id=572 data-nosnippet>572</a>			<span class="kw-2">mut </span>imported_valid_votes,
-<a href=#573 id=573 data-nosnippet>573</a>			imported_invalid_votes,
-<a href=#574 id=574 data-nosnippet>574</a>			<span class="kw-2">mut </span>imported_approval_votes,
-<a href=#575 id=575 data-nosnippet>575</a>		} = <span class="self">self</span>;
-<a href=#576 id=576 data-nosnippet>576</a>
-<a href=#577 id=577 data-nosnippet>577</a>		<span class="kw">let </span>(<span class="kw-2">mut </span>votes, <span class="kw">_</span>) = new_state.into_old_state();
-<a href=#578 id=578 data-nosnippet>578</a>
-<a href=#579 id=579 data-nosnippet>579</a>		<span class="kw">for </span>(index, (candidate_hashes, sig)) <span class="kw">in </span>approval_votes.into_iter() {
-<a href=#580 id=580 data-nosnippet>580</a>			<span class="macro">debug_assert!</span>(
-<a href=#581 id=581 data-nosnippet>581</a>				{
-<a href=#582 id=582 data-nosnippet>582</a>					<span class="kw">let </span>pub_key = <span class="kw-2">&amp;</span>env
-<a href=#583 id=583 data-nosnippet>583</a>						.session_info()
-<a href=#584 id=584 data-nosnippet>584</a>						.validators
-<a href=#585 id=585 data-nosnippet>585</a>						.get(index)
-<a href=#586 id=586 data-nosnippet>586</a>						.expect(<span class="string">"indices are validated by approval-voting subsystem; qed"</span>);
-<a href=#587 id=587 data-nosnippet>587</a>					<span class="kw">let </span>session_index = env.scheduling_session();
-<a href=#588 id=588 data-nosnippet>588</a>					candidate_hashes.contains(<span class="kw-2">&amp;</span>votes.candidate_receipt.hash()) &amp;&amp;
-<a href=#589 id=589 data-nosnippet>589</a>						DisputeStatement::Valid(
-<a href=#590 id=590 data-nosnippet>590</a>							ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
-<a href=#591 id=591 data-nosnippet>591</a>								candidate_hashes.clone(),
-<a href=#592 id=592 data-nosnippet>592</a>							),
-<a href=#593 id=593 data-nosnippet>593</a>						)
-<a href=#594 id=594 data-nosnippet>594</a>						.check_signature(
-<a href=#595 id=595 data-nosnippet>595</a>							pub_key,
-<a href=#596 id=596 data-nosnippet>596</a>							<span class="kw-2">*</span>candidate_hashes
-<a href=#597 id=597 data-nosnippet>597</a>								.first()
-<a href=#598 id=598 data-nosnippet>598</a>								.expect(<span class="string">"Valid votes have at least one candidate; qed"</span>),
-<a href=#599 id=599 data-nosnippet>599</a>							session_index,
-<a href=#600 id=600 data-nosnippet>600</a>							<span class="kw-2">&amp;</span>sig,
-<a href=#601 id=601 data-nosnippet>601</a>						)
-<a href=#602 id=602 data-nosnippet>602</a>						.is_ok()
-<a href=#603 id=603 data-nosnippet>603</a>				},
-<a href=#604 id=604 data-nosnippet>604</a>				<span class="string">"Signature check for imported approval votes failed! This is a serious bug. Session: {:?}, candidate hash: {:?}, validator index: {:?}"</span>,
-<a href=#605 id=605 data-nosnippet>605</a>				env.scheduling_session(),
-<a href=#606 id=606 data-nosnippet>606</a>				votes.candidate_receipt.hash(),
-<a href=#607 id=607 data-nosnippet>607</a>				index
-<a href=#608 id=608 data-nosnippet>608</a>			);
-<a href=#609 id=609 data-nosnippet>609</a>			<span class="kw">if </span>votes.valid.insert_vote(
-<a href=#610 id=610 data-nosnippet>610</a>				index,
-<a href=#611 id=611 data-nosnippet>611</a>				<span class="comment">// There is a hidden dependency here between approval-voting and this subsystem.
-<a href=#612 id=612 data-nosnippet>612</a>				// We should be able to start emitting
-<a href=#613 id=613 data-nosnippet>613</a>				// ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates only after:
-<a href=#614 id=614 data-nosnippet>614</a>				// 1. Runtime have been upgraded to know about the new format.
-<a href=#615 id=615 data-nosnippet>615</a>				// 2. All nodes have been upgraded to know about the new format.
-<a href=#616 id=616 data-nosnippet>616</a>				// Once those two requirements have been met we should be able to increase
-<a href=#617 id=617 data-nosnippet>617</a>				// max_approval_coalesce_count to values greater than 1.
-<a href=#618 id=618 data-nosnippet>618</a>				</span><span class="kw">if </span>candidate_hashes.len() &gt; <span class="number">1 </span>{
-<a href=#619 id=619 data-nosnippet>619</a>					ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes)
-<a href=#620 id=620 data-nosnippet>620</a>				} <span class="kw">else </span>{
-<a href=#621 id=621 data-nosnippet>621</a>					ValidDisputeStatementKind::ApprovalChecking
-<a href=#622 id=622 data-nosnippet>622</a>				},
-<a href=#623 id=623 data-nosnippet>623</a>				sig,
-<a href=#624 id=624 data-nosnippet>624</a>			) {
-<a href=#625 id=625 data-nosnippet>625</a>				imported_valid_votes += <span class="number">1</span>;
-<a href=#626 id=626 data-nosnippet>626</a>				imported_approval_votes += <span class="number">1</span>;
-<a href=#627 id=627 data-nosnippet>627</a>			}
-<a href=#628 id=628 data-nosnippet>628</a>		}
-<a href=#629 id=629 data-nosnippet>629</a>
-<a href=#630 id=630 data-nosnippet>630</a>		<span class="kw">let </span>new_state = CandidateVoteState::new(votes, env, now);
-<a href=#631 id=631 data-nosnippet>631</a>
-<a href=#632 id=632 data-nosnippet>632</a>		<span class="self">Self </span>{
-<a href=#633 id=633 data-nosnippet>633</a>			old_state,
-<a href=#634 id=634 data-nosnippet>634</a>			new_state,
-<a href=#635 id=635 data-nosnippet>635</a>			new_invalid_voters,
-<a href=#636 id=636 data-nosnippet>636</a>			imported_valid_votes,
-<a href=#637 id=637 data-nosnippet>637</a>			imported_invalid_votes,
-<a href=#638 id=638 data-nosnippet>638</a>			imported_approval_votes,
-<a href=#639 id=639 data-nosnippet>639</a>		}
-<a href=#640 id=640 data-nosnippet>640</a>	}
-<a href=#641 id=641 data-nosnippet>641</a>
-<a href=#642 id=642 data-nosnippet>642</a>	<span class="doccomment">/// All done, give me those votes.
-<a href=#643 id=643 data-nosnippet>643</a>	///
-<a href=#644 id=644 data-nosnippet>644</a>	/// Returns: `None` in case nothing has changed (import was redundant).
-<a href=#645 id=645 data-nosnippet>645</a>	</span><span class="kw">pub fn </span>into_updated_votes(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;CandidateVotes&gt; {
-<a href=#646 id=646 data-nosnippet>646</a>		<span class="kw">if </span><span class="self">self</span>.votes_changed() {
-<a href=#647 id=647 data-nosnippet>647</a>			<span class="kw">let </span>CandidateVoteState { votes, .. } = <span class="self">self</span>.new_state;
-<a href=#648 id=648 data-nosnippet>648</a>			<span class="prelude-val">Some</span>(votes)
-<a href=#649 id=649 data-nosnippet>649</a>		} <span class="kw">else </span>{
-<a href=#650 id=650 data-nosnippet>650</a>			<span class="prelude-val">None
-<a href=#651 id=651 data-nosnippet>651</a>		</span>}
-<a href=#652 id=652 data-nosnippet>652</a>	}
-<a href=#653 id=653 data-nosnippet>653</a>}
+<a href=#565 id=565 data-nosnippet>565</a>		approval_votes: HashMap&lt;
+<a href=#566 id=566 data-nosnippet>566</a>			ValidatorIndex,
+<a href=#567 id=567 data-nosnippet>567</a>			(CoalescedApprovalCandidateHashes, ValidatorSignature),
+<a href=#568 id=568 data-nosnippet>568</a>		&gt;,
+<a href=#569 id=569 data-nosnippet>569</a>		now: Timestamp,
+<a href=#570 id=570 data-nosnippet>570</a>	) -&gt; <span class="self">Self </span>{
+<a href=#571 id=571 data-nosnippet>571</a>		<span class="kw">let </span><span class="self">Self </span>{
+<a href=#572 id=572 data-nosnippet>572</a>			old_state,
+<a href=#573 id=573 data-nosnippet>573</a>			new_state,
+<a href=#574 id=574 data-nosnippet>574</a>			new_invalid_voters,
+<a href=#575 id=575 data-nosnippet>575</a>			<span class="kw-2">mut </span>imported_valid_votes,
+<a href=#576 id=576 data-nosnippet>576</a>			imported_invalid_votes,
+<a href=#577 id=577 data-nosnippet>577</a>			<span class="kw-2">mut </span>imported_approval_votes,
+<a href=#578 id=578 data-nosnippet>578</a>		} = <span class="self">self</span>;
+<a href=#579 id=579 data-nosnippet>579</a>
+<a href=#580 id=580 data-nosnippet>580</a>		<span class="kw">let </span>(<span class="kw-2">mut </span>votes, <span class="kw">_</span>) = new_state.into_old_state();
+<a href=#581 id=581 data-nosnippet>581</a>
+<a href=#582 id=582 data-nosnippet>582</a>		<span class="kw">for </span>(index, (candidate_hashes, sig)) <span class="kw">in </span>approval_votes.into_iter() {
+<a href=#583 id=583 data-nosnippet>583</a>			<span class="macro">debug_assert!</span>(
+<a href=#584 id=584 data-nosnippet>584</a>				{
+<a href=#585 id=585 data-nosnippet>585</a>					<span class="kw">let </span>pub_key = <span class="kw-2">&amp;</span>env
+<a href=#586 id=586 data-nosnippet>586</a>						.session_info()
+<a href=#587 id=587 data-nosnippet>587</a>						.validators
+<a href=#588 id=588 data-nosnippet>588</a>						.get(index)
+<a href=#589 id=589 data-nosnippet>589</a>						.expect(<span class="string">"indices are validated by approval-voting subsystem; qed"</span>);
+<a href=#590 id=590 data-nosnippet>590</a>					<span class="kw">let </span>session_index = env.scheduling_session();
+<a href=#591 id=591 data-nosnippet>591</a>					candidate_hashes.contains(<span class="kw-2">&amp;</span>votes.candidate_receipt.hash()) &amp;&amp;
+<a href=#592 id=592 data-nosnippet>592</a>						DisputeStatement::Valid(
+<a href=#593 id=593 data-nosnippet>593</a>							ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
+<a href=#594 id=594 data-nosnippet>594</a>								candidate_hashes.clone(),
+<a href=#595 id=595 data-nosnippet>595</a>							),
+<a href=#596 id=596 data-nosnippet>596</a>						)
+<a href=#597 id=597 data-nosnippet>597</a>						.check_signature(
+<a href=#598 id=598 data-nosnippet>598</a>							pub_key,
+<a href=#599 id=599 data-nosnippet>599</a>							<span class="kw-2">*</span>candidate_hashes
+<a href=#600 id=600 data-nosnippet>600</a>								.first()
+<a href=#601 id=601 data-nosnippet>601</a>								.expect(<span class="string">"Valid votes have at least one candidate; qed"</span>),
+<a href=#602 id=602 data-nosnippet>602</a>							session_index,
+<a href=#603 id=603 data-nosnippet>603</a>							<span class="kw-2">&amp;</span>sig,
+<a href=#604 id=604 data-nosnippet>604</a>						)
+<a href=#605 id=605 data-nosnippet>605</a>						.is_ok()
+<a href=#606 id=606 data-nosnippet>606</a>				},
+<a href=#607 id=607 data-nosnippet>607</a>				<span class="string">"Signature check for imported approval votes failed! This is a serious bug. Session: {:?}, candidate hash: {:?}, validator index: {:?}"</span>,
+<a href=#608 id=608 data-nosnippet>608</a>				env.scheduling_session(),
+<a href=#609 id=609 data-nosnippet>609</a>				votes.candidate_receipt.hash(),
+<a href=#610 id=610 data-nosnippet>610</a>				index
+<a href=#611 id=611 data-nosnippet>611</a>			);
+<a href=#612 id=612 data-nosnippet>612</a>			<span class="kw">if </span>votes.valid.insert_vote(
+<a href=#613 id=613 data-nosnippet>613</a>				index,
+<a href=#614 id=614 data-nosnippet>614</a>				<span class="comment">// There is a hidden dependency here between approval-voting and this subsystem.
+<a href=#615 id=615 data-nosnippet>615</a>				// We should be able to start emitting
+<a href=#616 id=616 data-nosnippet>616</a>				// ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates only after:
+<a href=#617 id=617 data-nosnippet>617</a>				// 1. Runtime have been upgraded to know about the new format.
+<a href=#618 id=618 data-nosnippet>618</a>				// 2. All nodes have been upgraded to know about the new format.
+<a href=#619 id=619 data-nosnippet>619</a>				// Once those two requirements have been met we should be able to increase
+<a href=#620 id=620 data-nosnippet>620</a>				// max_approval_coalesce_count to values greater than 1.
+<a href=#621 id=621 data-nosnippet>621</a>				</span><span class="kw">if </span>candidate_hashes.len() &gt; <span class="number">1 </span>{
+<a href=#622 id=622 data-nosnippet>622</a>					ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes)
+<a href=#623 id=623 data-nosnippet>623</a>				} <span class="kw">else </span>{
+<a href=#624 id=624 data-nosnippet>624</a>					ValidDisputeStatementKind::ApprovalChecking
+<a href=#625 id=625 data-nosnippet>625</a>				},
+<a href=#626 id=626 data-nosnippet>626</a>				sig,
+<a href=#627 id=627 data-nosnippet>627</a>			) {
+<a href=#628 id=628 data-nosnippet>628</a>				imported_valid_votes += <span class="number">1</span>;
+<a href=#629 id=629 data-nosnippet>629</a>				imported_approval_votes += <span class="number">1</span>;
+<a href=#630 id=630 data-nosnippet>630</a>			}
+<a href=#631 id=631 data-nosnippet>631</a>		}
+<a href=#632 id=632 data-nosnippet>632</a>
+<a href=#633 id=633 data-nosnippet>633</a>		<span class="kw">let </span>new_state = CandidateVoteState::new(votes, env, now);
+<a href=#634 id=634 data-nosnippet>634</a>
+<a href=#635 id=635 data-nosnippet>635</a>		<span class="self">Self </span>{
+<a href=#636 id=636 data-nosnippet>636</a>			old_state,
+<a href=#637 id=637 data-nosnippet>637</a>			new_state,
+<a href=#638 id=638 data-nosnippet>638</a>			new_invalid_voters,
+<a href=#639 id=639 data-nosnippet>639</a>			imported_valid_votes,
+<a href=#640 id=640 data-nosnippet>640</a>			imported_invalid_votes,
+<a href=#641 id=641 data-nosnippet>641</a>			imported_approval_votes,
+<a href=#642 id=642 data-nosnippet>642</a>		}
+<a href=#643 id=643 data-nosnippet>643</a>	}
+<a href=#644 id=644 data-nosnippet>644</a>
+<a href=#645 id=645 data-nosnippet>645</a>	<span class="doccomment">/// All done, give me those votes.
+<a href=#646 id=646 data-nosnippet>646</a>	///
+<a href=#647 id=647 data-nosnippet>647</a>	/// Returns: `None` in case nothing has changed (import was redundant).
+<a href=#648 id=648 data-nosnippet>648</a>	</span><span class="kw">pub fn </span>into_updated_votes(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;CandidateVotes&gt; {
+<a href=#649 id=649 data-nosnippet>649</a>		<span class="kw">if </span><span class="self">self</span>.votes_changed() {
+<a href=#650 id=650 data-nosnippet>650</a>			<span class="kw">let </span>CandidateVoteState { votes, .. } = <span class="self">self</span>.new_state;
+<a href=#651 id=651 data-nosnippet>651</a>			<span class="prelude-val">Some</span>(votes)
+<a href=#652 id=652 data-nosnippet>652</a>		} <span class="kw">else </span>{
+<a href=#653 id=653 data-nosnippet>653</a>			<span class="prelude-val">None
+<a href=#654 id=654 data-nosnippet>654</a>		</span>}
+<a href=#655 id=655 data-nosnippet>655</a>	}
+<a href=#656 id=656 data-nosnippet>656</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

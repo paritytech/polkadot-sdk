@@ -585,128 +585,125 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#435 id=435 data-nosnippet>435</a>		at: Hash,
 <a href=#436 id=436 data-nosnippet>436</a>		session_index: polkadot_primitives::SessionIndex,
 <a href=#437 id=437 data-nosnippet>437</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;ApprovalVotingParams, ApiError&gt; {
-<a href=#438 id=438 data-nosnippet>438</a>		<span class="prelude-val">Ok</span>(<span class="self">self
-<a href=#439 id=439 data-nosnippet>439</a>			</span>.rpc_client
-<a href=#440 id=440 data-nosnippet>440</a>			.parachain_host_staging_approval_voting_params(at, session_index)
-<a href=#441 id=441 data-nosnippet>441</a>			.<span class="kw">await</span><span class="question-mark">?</span>)
-<a href=#442 id=442 data-nosnippet>442</a>	}
-<a href=#443 id=443 data-nosnippet>443</a>
-<a href=#444 id=444 data-nosnippet>444</a>	<span class="kw">async fn </span>node_features(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;NodeFeatures, ApiError&gt; {
-<a href=#445 id=445 data-nosnippet>445</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_node_features(at).<span class="kw">await</span><span class="question-mark">?</span>)
-<a href=#446 id=446 data-nosnippet>446</a>	}
-<a href=#447 id=447 data-nosnippet>447</a>
-<a href=#448 id=448 data-nosnippet>448</a>	<span class="kw">async fn </span>claim_queue(
-<a href=#449 id=449 data-nosnippet>449</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#450 id=450 data-nosnippet>450</a>		at: Hash,
-<a href=#451 id=451 data-nosnippet>451</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;, ApiError&gt; {
-<a href=#452 id=452 data-nosnippet>452</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_claim_queue(at).<span class="kw">await</span><span class="question-mark">?</span>)
-<a href=#453 id=453 data-nosnippet>453</a>	}
-<a href=#454 id=454 data-nosnippet>454</a>
-<a href=#455 id=455 data-nosnippet>455</a>	<span class="kw">async fn </span>candidates_pending_availability(
-<a href=#456 id=456 data-nosnippet>456</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#457 id=457 data-nosnippet>457</a>		at: Hash,
-<a href=#458 id=458 data-nosnippet>458</a>		para_id: cumulus_primitives_core::ParaId,
-<a href=#459 id=459 data-nosnippet>459</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;polkadot_primitives::CommittedCandidateReceiptV2&lt;Hash&gt;&gt;, sp_api::ApiError&gt; {
-<a href=#460 id=460 data-nosnippet>460</a>		<span class="prelude-val">Ok</span>(<span class="self">self
-<a href=#461 id=461 data-nosnippet>461</a>			</span>.rpc_client
-<a href=#462 id=462 data-nosnippet>462</a>			.parachain_host_candidates_pending_availability(at, para_id)
-<a href=#463 id=463 data-nosnippet>463</a>			.<span class="kw">await</span><span class="question-mark">?</span>)
-<a href=#464 id=464 data-nosnippet>464</a>	}
-<a href=#465 id=465 data-nosnippet>465</a>
-<a href=#466 id=466 data-nosnippet>466</a>	<span class="kw">async fn </span>backing_constraints(
-<a href=#467 id=467 data-nosnippet>467</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#468 id=468 data-nosnippet>468</a>		at: Hash,
-<a href=#469 id=469 data-nosnippet>469</a>		para_id: ParaId,
-<a href=#470 id=470 data-nosnippet>470</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Constraints&gt;, ApiError&gt; {
-<a href=#471 id=471 data-nosnippet>471</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_backing_constraints(at, para_id).<span class="kw">await</span><span class="question-mark">?</span>)
-<a href=#472 id=472 data-nosnippet>472</a>	}
-<a href=#473 id=473 data-nosnippet>473</a>
-<a href=#474 id=474 data-nosnippet>474</a>	<span class="kw">async fn </span>scheduling_lookahead(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;u32, sp_api::ApiError&gt; {
-<a href=#475 id=475 data-nosnippet>475</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_scheduling_lookahead(at).<span class="kw">await</span><span class="question-mark">?</span>)
-<a href=#476 id=476 data-nosnippet>476</a>	}
-<a href=#477 id=477 data-nosnippet>477</a>
-<a href=#478 id=478 data-nosnippet>478</a>	<span class="kw">async fn </span>validation_code_bomb_limit(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;u32, sp_api::ApiError&gt; {
-<a href=#479 id=479 data-nosnippet>479</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_validation_code_bomb_limit(at).<span class="kw">await</span><span class="question-mark">?</span>)
-<a href=#480 id=480 data-nosnippet>480</a>	}
-<a href=#481 id=481 data-nosnippet>481</a>
-<a href=#482 id=482 data-nosnippet>482</a>	<span class="kw">async fn </span>para_ids(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;ParaId&gt;, sp_api::ApiError&gt; {
-<a href=#483 id=483 data-nosnippet>483</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_para_ids(at).<span class="kw">await</span><span class="question-mark">?</span>)
-<a href=#484 id=484 data-nosnippet>484</a>	}
-<a href=#485 id=485 data-nosnippet>485</a>
-<a href=#486 id=486 data-nosnippet>486</a>	<span class="kw">async fn </span>max_relay_parent_session_age(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;u32, sp_api::ApiError&gt; {
-<a href=#487 id=487 data-nosnippet>487</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_max_relay_parent_session_age(at).<span class="kw">await</span><span class="question-mark">?</span>)
-<a href=#488 id=488 data-nosnippet>488</a>	}
-<a href=#489 id=489 data-nosnippet>489</a>
-<a href=#490 id=490 data-nosnippet>490</a>	<span class="kw">async fn </span>ancestor_relay_parent_info(
-<a href=#491 id=491 data-nosnippet>491</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#492 id=492 data-nosnippet>492</a>		at: Hash,
-<a href=#493 id=493 data-nosnippet>493</a>		session_index: polkadot_primitives::SessionIndex,
-<a href=#494 id=494 data-nosnippet>494</a>		relay_parent: Hash,
-<a href=#495 id=495 data-nosnippet>495</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;
-<a href=#496 id=496 data-nosnippet>496</a>		<span class="prelude-ty">Option</span>&lt;polkadot_primitives::vstaging::RelayParentInfo&lt;Hash, BlockNumber&gt;&gt;,
-<a href=#497 id=497 data-nosnippet>497</a>		sp_api::ApiError,
-<a href=#498 id=498 data-nosnippet>498</a>	&gt; {
-<a href=#499 id=499 data-nosnippet>499</a>		<span class="prelude-val">Ok</span>(<span class="self">self
-<a href=#500 id=500 data-nosnippet>500</a>			</span>.rpc_client
-<a href=#501 id=501 data-nosnippet>501</a>			.parachain_host_ancestor_relay_parent_info(at, session_index, relay_parent)
-<a href=#502 id=502 data-nosnippet>502</a>			.<span class="kw">await</span><span class="question-mark">?</span>)
-<a href=#503 id=503 data-nosnippet>503</a>	}
-<a href=#504 id=504 data-nosnippet>504</a>}
-<a href=#505 id=505 data-nosnippet>505</a>
-<a href=#506 id=506 data-nosnippet>506</a><span class="attr">#[async_trait::async_trait]
-<a href=#507 id=507 data-nosnippet>507</a></span><span class="kw">impl </span>AuthorityDiscovery&lt;Block&gt; <span class="kw">for </span>BlockChainRpcClient {
-<a href=#508 id=508 data-nosnippet>508</a>	<span class="kw">async fn </span>authorities(
-<a href=#509 id=509 data-nosnippet>509</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#510 id=510 data-nosnippet>510</a>		at: Hash,
-<a href=#511 id=511 data-nosnippet>511</a>	) -&gt; std::result::Result&lt;Vec&lt;polkadot_primitives::AuthorityDiscoveryId&gt;, sp_api::ApiError&gt; {
-<a href=#512 id=512 data-nosnippet>512</a>		<span class="kw">let </span>result = <span class="self">self</span>.rpc_client.authority_discovery_authorities(at).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#513 id=513 data-nosnippet>513</a>		<span class="prelude-val">Ok</span>(result)
-<a href=#514 id=514 data-nosnippet>514</a>	}
-<a href=#515 id=515 data-nosnippet>515</a>
-<a href=#516 id=516 data-nosnippet>516</a>	<span class="kw">async fn </span>best_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::result::Result&lt;Hash, AuthorityDiscoveryError&gt; {
-<a href=#517 id=517 data-nosnippet>517</a>		<span class="self">self</span>.block_get_hash(<span class="prelude-val">None</span>)
-<a href=#518 id=518 data-nosnippet>518</a>			.<span class="kw">await
-<a href=#519 id=519 data-nosnippet>519</a>			</span>.ok()
-<a href=#520 id=520 data-nosnippet>520</a>			.flatten()
-<a href=#521 id=521 data-nosnippet>521</a>			.ok_or_else(|| AuthorityDiscoveryError::BestBlockFetchingError)
-<a href=#522 id=522 data-nosnippet>522</a>	}
-<a href=#523 id=523 data-nosnippet>523</a>}
-<a href=#524 id=524 data-nosnippet>524</a>
-<a href=#525 id=525 data-nosnippet>525</a><span class="kw">impl </span>BlockChainRpcClient {
-<a href=#526 id=526 data-nosnippet>526</a>	<span class="kw">pub async fn </span>import_notification_stream(
-<a href=#527 id=527 data-nosnippet>527</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#528 id=528 data-nosnippet>528</a>	) -&gt; RelayChainResult&lt;Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Header&gt; + Send&gt;&gt;&gt; {
-<a href=#529 id=529 data-nosnippet>529</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.get_imported_heads_stream()<span class="question-mark">?</span>.boxed())
-<a href=#530 id=530 data-nosnippet>530</a>	}
-<a href=#531 id=531 data-nosnippet>531</a>
-<a href=#532 id=532 data-nosnippet>532</a>	<span class="kw">pub async fn </span>finality_notification_stream(
-<a href=#533 id=533 data-nosnippet>533</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#534 id=534 data-nosnippet>534</a>	) -&gt; RelayChainResult&lt;Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Header&gt; + Send&gt;&gt;&gt; {
-<a href=#535 id=535 data-nosnippet>535</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.get_finalized_heads_stream()<span class="question-mark">?</span>.boxed())
-<a href=#536 id=536 data-nosnippet>536</a>	}
-<a href=#537 id=537 data-nosnippet>537</a>}
-<a href=#538 id=538 data-nosnippet>538</a>
-<a href=#539 id=539 data-nosnippet>539</a><span class="comment">// Implementation required by ChainApiSubsystem
-<a href=#540 id=540 data-nosnippet>540</a>// but never called in our case.
-<a href=#541 id=541 data-nosnippet>541</a></span><span class="kw">impl </span>AuxStore <span class="kw">for </span>BlockChainRpcClient {
-<a href=#542 id=542 data-nosnippet>542</a>	<span class="kw">fn </span>insert_aux&lt;
-<a href=#543 id=543 data-nosnippet>543</a>		<span class="lifetime">'a</span>,
-<a href=#544 id=544 data-nosnippet>544</a>		<span class="lifetime">'b</span>: <span class="lifetime">'a</span>,
-<a href=#545 id=545 data-nosnippet>545</a>		<span class="lifetime">'c</span>: <span class="lifetime">'a</span>,
-<a href=#546 id=546 data-nosnippet>546</a>		I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw-2">&amp;</span><span class="lifetime">'c </span>[u8], <span class="kw-2">&amp;</span><span class="lifetime">'c </span>[u8])&gt;,
-<a href=#547 id=547 data-nosnippet>547</a>		D: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">&amp;</span><span class="lifetime">'b </span>[u8]&gt;,
-<a href=#548 id=548 data-nosnippet>548</a>	&gt;(
-<a href=#549 id=549 data-nosnippet>549</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#550 id=550 data-nosnippet>550</a>		_insert: I,
-<a href=#551 id=551 data-nosnippet>551</a>		_delete: D,
-<a href=#552 id=552 data-nosnippet>552</a>	) -&gt; sp_blockchain::Result&lt;()&gt; {
-<a href=#553 id=553 data-nosnippet>553</a>		<span class="macro">unimplemented!</span>(<span class="string">"Not supported on the RPC collator"</span>)
-<a href=#554 id=554 data-nosnippet>554</a>	}
-<a href=#555 id=555 data-nosnippet>555</a>
-<a href=#556 id=556 data-nosnippet>556</a>	<span class="kw">fn </span>get_aux(<span class="kw-2">&amp;</span><span class="self">self</span>, _key: <span class="kw-2">&amp;</span>[u8]) -&gt; sp_blockchain::Result&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;&gt; {
-<a href=#557 id=557 data-nosnippet>557</a>		<span class="macro">unimplemented!</span>(<span class="string">"Not supported on the RPC collator"</span>)
-<a href=#558 id=558 data-nosnippet>558</a>	}
-<a href=#559 id=559 data-nosnippet>559</a>}
+<a href=#438 id=438 data-nosnippet>438</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_approval_voting_params(at, session_index).<span class="kw">await</span><span class="question-mark">?</span>)
+<a href=#439 id=439 data-nosnippet>439</a>	}
+<a href=#440 id=440 data-nosnippet>440</a>
+<a href=#441 id=441 data-nosnippet>441</a>	<span class="kw">async fn </span>node_features(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;NodeFeatures, ApiError&gt; {
+<a href=#442 id=442 data-nosnippet>442</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_node_features(at).<span class="kw">await</span><span class="question-mark">?</span>)
+<a href=#443 id=443 data-nosnippet>443</a>	}
+<a href=#444 id=444 data-nosnippet>444</a>
+<a href=#445 id=445 data-nosnippet>445</a>	<span class="kw">async fn </span>claim_queue(
+<a href=#446 id=446 data-nosnippet>446</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#447 id=447 data-nosnippet>447</a>		at: Hash,
+<a href=#448 id=448 data-nosnippet>448</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;, ApiError&gt; {
+<a href=#449 id=449 data-nosnippet>449</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_claim_queue(at).<span class="kw">await</span><span class="question-mark">?</span>)
+<a href=#450 id=450 data-nosnippet>450</a>	}
+<a href=#451 id=451 data-nosnippet>451</a>
+<a href=#452 id=452 data-nosnippet>452</a>	<span class="kw">async fn </span>candidates_pending_availability(
+<a href=#453 id=453 data-nosnippet>453</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#454 id=454 data-nosnippet>454</a>		at: Hash,
+<a href=#455 id=455 data-nosnippet>455</a>		para_id: cumulus_primitives_core::ParaId,
+<a href=#456 id=456 data-nosnippet>456</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;polkadot_primitives::CommittedCandidateReceiptV2&lt;Hash&gt;&gt;, sp_api::ApiError&gt; {
+<a href=#457 id=457 data-nosnippet>457</a>		<span class="prelude-val">Ok</span>(<span class="self">self
+<a href=#458 id=458 data-nosnippet>458</a>			</span>.rpc_client
+<a href=#459 id=459 data-nosnippet>459</a>			.parachain_host_candidates_pending_availability(at, para_id)
+<a href=#460 id=460 data-nosnippet>460</a>			.<span class="kw">await</span><span class="question-mark">?</span>)
+<a href=#461 id=461 data-nosnippet>461</a>	}
+<a href=#462 id=462 data-nosnippet>462</a>
+<a href=#463 id=463 data-nosnippet>463</a>	<span class="kw">async fn </span>backing_constraints(
+<a href=#464 id=464 data-nosnippet>464</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#465 id=465 data-nosnippet>465</a>		at: Hash,
+<a href=#466 id=466 data-nosnippet>466</a>		para_id: ParaId,
+<a href=#467 id=467 data-nosnippet>467</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Constraints&gt;, ApiError&gt; {
+<a href=#468 id=468 data-nosnippet>468</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_backing_constraints(at, para_id).<span class="kw">await</span><span class="question-mark">?</span>)
+<a href=#469 id=469 data-nosnippet>469</a>	}
+<a href=#470 id=470 data-nosnippet>470</a>
+<a href=#471 id=471 data-nosnippet>471</a>	<span class="kw">async fn </span>scheduling_lookahead(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;u32, sp_api::ApiError&gt; {
+<a href=#472 id=472 data-nosnippet>472</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_scheduling_lookahead(at).<span class="kw">await</span><span class="question-mark">?</span>)
+<a href=#473 id=473 data-nosnippet>473</a>	}
+<a href=#474 id=474 data-nosnippet>474</a>
+<a href=#475 id=475 data-nosnippet>475</a>	<span class="kw">async fn </span>validation_code_bomb_limit(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;u32, sp_api::ApiError&gt; {
+<a href=#476 id=476 data-nosnippet>476</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_validation_code_bomb_limit(at).<span class="kw">await</span><span class="question-mark">?</span>)
+<a href=#477 id=477 data-nosnippet>477</a>	}
+<a href=#478 id=478 data-nosnippet>478</a>
+<a href=#479 id=479 data-nosnippet>479</a>	<span class="kw">async fn </span>para_ids(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;ParaId&gt;, sp_api::ApiError&gt; {
+<a href=#480 id=480 data-nosnippet>480</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_para_ids(at).<span class="kw">await</span><span class="question-mark">?</span>)
+<a href=#481 id=481 data-nosnippet>481</a>	}
+<a href=#482 id=482 data-nosnippet>482</a>
+<a href=#483 id=483 data-nosnippet>483</a>	<span class="kw">async fn </span>max_relay_parent_session_age(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;u32, sp_api::ApiError&gt; {
+<a href=#484 id=484 data-nosnippet>484</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_max_relay_parent_session_age(at).<span class="kw">await</span><span class="question-mark">?</span>)
+<a href=#485 id=485 data-nosnippet>485</a>	}
+<a href=#486 id=486 data-nosnippet>486</a>
+<a href=#487 id=487 data-nosnippet>487</a>	<span class="kw">async fn </span>ancestor_relay_parent_info(
+<a href=#488 id=488 data-nosnippet>488</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#489 id=489 data-nosnippet>489</a>		at: Hash,
+<a href=#490 id=490 data-nosnippet>490</a>		session_index: polkadot_primitives::SessionIndex,
+<a href=#491 id=491 data-nosnippet>491</a>		relay_parent: Hash,
+<a href=#492 id=492 data-nosnippet>492</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;
+<a href=#493 id=493 data-nosnippet>493</a>		<span class="prelude-ty">Option</span>&lt;polkadot_primitives::vstaging::RelayParentInfo&lt;Hash, BlockNumber&gt;&gt;,
+<a href=#494 id=494 data-nosnippet>494</a>		sp_api::ApiError,
+<a href=#495 id=495 data-nosnippet>495</a>	&gt; {
+<a href=#496 id=496 data-nosnippet>496</a>		<span class="prelude-val">Ok</span>(<span class="self">self
+<a href=#497 id=497 data-nosnippet>497</a>			</span>.rpc_client
+<a href=#498 id=498 data-nosnippet>498</a>			.parachain_host_ancestor_relay_parent_info(at, session_index, relay_parent)
+<a href=#499 id=499 data-nosnippet>499</a>			.<span class="kw">await</span><span class="question-mark">?</span>)
+<a href=#500 id=500 data-nosnippet>500</a>	}
+<a href=#501 id=501 data-nosnippet>501</a>}
+<a href=#502 id=502 data-nosnippet>502</a>
+<a href=#503 id=503 data-nosnippet>503</a><span class="attr">#[async_trait::async_trait]
+<a href=#504 id=504 data-nosnippet>504</a></span><span class="kw">impl </span>AuthorityDiscovery&lt;Block&gt; <span class="kw">for </span>BlockChainRpcClient {
+<a href=#505 id=505 data-nosnippet>505</a>	<span class="kw">async fn </span>authorities(
+<a href=#506 id=506 data-nosnippet>506</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#507 id=507 data-nosnippet>507</a>		at: Hash,
+<a href=#508 id=508 data-nosnippet>508</a>	) -&gt; std::result::Result&lt;Vec&lt;polkadot_primitives::AuthorityDiscoveryId&gt;, sp_api::ApiError&gt; {
+<a href=#509 id=509 data-nosnippet>509</a>		<span class="kw">let </span>result = <span class="self">self</span>.rpc_client.authority_discovery_authorities(at).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#510 id=510 data-nosnippet>510</a>		<span class="prelude-val">Ok</span>(result)
+<a href=#511 id=511 data-nosnippet>511</a>	}
+<a href=#512 id=512 data-nosnippet>512</a>
+<a href=#513 id=513 data-nosnippet>513</a>	<span class="kw">async fn </span>best_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::result::Result&lt;Hash, AuthorityDiscoveryError&gt; {
+<a href=#514 id=514 data-nosnippet>514</a>		<span class="self">self</span>.block_get_hash(<span class="prelude-val">None</span>)
+<a href=#515 id=515 data-nosnippet>515</a>			.<span class="kw">await
+<a href=#516 id=516 data-nosnippet>516</a>			</span>.ok()
+<a href=#517 id=517 data-nosnippet>517</a>			.flatten()
+<a href=#518 id=518 data-nosnippet>518</a>			.ok_or_else(|| AuthorityDiscoveryError::BestBlockFetchingError)
+<a href=#519 id=519 data-nosnippet>519</a>	}
+<a href=#520 id=520 data-nosnippet>520</a>}
+<a href=#521 id=521 data-nosnippet>521</a>
+<a href=#522 id=522 data-nosnippet>522</a><span class="kw">impl </span>BlockChainRpcClient {
+<a href=#523 id=523 data-nosnippet>523</a>	<span class="kw">pub async fn </span>import_notification_stream(
+<a href=#524 id=524 data-nosnippet>524</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#525 id=525 data-nosnippet>525</a>	) -&gt; RelayChainResult&lt;Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Header&gt; + Send&gt;&gt;&gt; {
+<a href=#526 id=526 data-nosnippet>526</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.get_imported_heads_stream()<span class="question-mark">?</span>.boxed())
+<a href=#527 id=527 data-nosnippet>527</a>	}
+<a href=#528 id=528 data-nosnippet>528</a>
+<a href=#529 id=529 data-nosnippet>529</a>	<span class="kw">pub async fn </span>finality_notification_stream(
+<a href=#530 id=530 data-nosnippet>530</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#531 id=531 data-nosnippet>531</a>	) -&gt; RelayChainResult&lt;Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Header&gt; + Send&gt;&gt;&gt; {
+<a href=#532 id=532 data-nosnippet>532</a>		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.get_finalized_heads_stream()<span class="question-mark">?</span>.boxed())
+<a href=#533 id=533 data-nosnippet>533</a>	}
+<a href=#534 id=534 data-nosnippet>534</a>}
+<a href=#535 id=535 data-nosnippet>535</a>
+<a href=#536 id=536 data-nosnippet>536</a><span class="comment">// Implementation required by ChainApiSubsystem
+<a href=#537 id=537 data-nosnippet>537</a>// but never called in our case.
+<a href=#538 id=538 data-nosnippet>538</a></span><span class="kw">impl </span>AuxStore <span class="kw">for </span>BlockChainRpcClient {
+<a href=#539 id=539 data-nosnippet>539</a>	<span class="kw">fn </span>insert_aux&lt;
+<a href=#540 id=540 data-nosnippet>540</a>		<span class="lifetime">'a</span>,
+<a href=#541 id=541 data-nosnippet>541</a>		<span class="lifetime">'b</span>: <span class="lifetime">'a</span>,
+<a href=#542 id=542 data-nosnippet>542</a>		<span class="lifetime">'c</span>: <span class="lifetime">'a</span>,
+<a href=#543 id=543 data-nosnippet>543</a>		I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw-2">&amp;</span><span class="lifetime">'c </span>[u8], <span class="kw-2">&amp;</span><span class="lifetime">'c </span>[u8])&gt;,
+<a href=#544 id=544 data-nosnippet>544</a>		D: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">&amp;</span><span class="lifetime">'b </span>[u8]&gt;,
+<a href=#545 id=545 data-nosnippet>545</a>	&gt;(
+<a href=#546 id=546 data-nosnippet>546</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#547 id=547 data-nosnippet>547</a>		_insert: I,
+<a href=#548 id=548 data-nosnippet>548</a>		_delete: D,
+<a href=#549 id=549 data-nosnippet>549</a>	) -&gt; sp_blockchain::Result&lt;()&gt; {
+<a href=#550 id=550 data-nosnippet>550</a>		<span class="macro">unimplemented!</span>(<span class="string">"Not supported on the RPC collator"</span>)
+<a href=#551 id=551 data-nosnippet>551</a>	}
+<a href=#552 id=552 data-nosnippet>552</a>
+<a href=#553 id=553 data-nosnippet>553</a>	<span class="kw">fn </span>get_aux(<span class="kw-2">&amp;</span><span class="self">self</span>, _key: <span class="kw-2">&amp;</span>[u8]) -&gt; sp_blockchain::Result&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;&gt; {
+<a href=#554 id=554 data-nosnippet>554</a>		<span class="macro">unimplemented!</span>(<span class="string">"Not supported on the RPC collator"</span>)
+<a href=#555 id=555 data-nosnippet>555</a>	}
+<a href=#556 id=556 data-nosnippet>556</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
