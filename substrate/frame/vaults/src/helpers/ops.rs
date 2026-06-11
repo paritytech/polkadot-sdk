@@ -527,11 +527,13 @@ fn close_inner<T: Config>(
 
 	match status {
 		VaultStatus::Active => {
-			// Invariant: Active vaults are in the rate index, so `remove` succeeds.
-			let _ = T::VaultLists::remove(&VaultListId::Rate(collateral_id.clone()), owner);
+			// Active vaults are in the rate index by invariant; a failed
+			// removal is corruption, not a condition to absorb.
+			T::VaultLists::remove(&VaultListId::Rate(collateral_id.clone()), owner)
+				.map_err(|_| Error::<T>::RateIndexInvariantBroken)?;
 		},
 		VaultStatus::FinalRecovery => {
-			let _ = recovery::remove::<T>(collateral_id, owner);
+			recovery::remove::<T>(collateral_id, owner)?;
 		},
 		VaultStatus::Dormant => {},
 	}
@@ -588,12 +590,13 @@ pub fn enter_final_recovery<T: Config>(
 
 	T::VaultLists::remove(&VaultListId::Rate(collateral_id.clone()), &owner)
 		.map_err(|_| Error::<T>::RateIndexInvariantBroken)?;
-	let stake_weighted = vault.annual_rate.saturating_mul_int(vault.redistribution_stake);
-	let detached_stake = vault.redistribution_stake;
 	BranchStates::<T>::try_mutate(&collateral_id, |maybe| -> Result<_, DispatchError> {
 		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-		bs.stakes.total = bs.stakes.total.saturating_sub(detached_stake);
-		bs.stakes.weighted_sum = bs.stakes.weighted_sum.saturating_sub(stake_weighted);
+		bs.refresh_vault_stake(
+			vault.annual_rate,
+			vault.redistribution_stake,
+			BalanceOf::<T>::zero(),
+		);
 		Ok(())
 	})?;
 	vault.redistribution_stake = BalanceOf::<T>::zero();
@@ -651,14 +654,11 @@ pub fn exit_final_recovery<T: Config>(
 	recovery::remove::<T>(&collateral_id, &owner)?;
 	// Stamp the snapshot and set redistribution_stake to the
 	// current held collateral *before* rejoining recipient accounting.
-	let bs_redist = branch_state_of::<T>(&collateral_id)?.redist;
-	vault.redist_snapshot = bs_redist;
 	vault.redistribution_stake = coll;
-	let stake_weighted = vault.annual_rate.saturating_mul_int(coll);
 	BranchStates::<T>::try_mutate(&collateral_id, |maybe| -> Result<_, DispatchError> {
 		let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-		bs.stakes.total = bs.stakes.total.saturating_add(coll);
-		bs.stakes.weighted_sum = bs.stakes.weighted_sum.saturating_add(stake_weighted);
+		vault.redist_snapshot = bs.redist;
+		bs.refresh_vault_stake(vault.annual_rate, BalanceOf::<T>::zero(), coll);
 		if !rejoin_active && !total_debt.is_zero() {
 			bs.last_dormant_vault_owner = Some(owner.clone());
 		}

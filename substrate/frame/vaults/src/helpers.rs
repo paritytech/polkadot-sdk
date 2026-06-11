@@ -75,6 +75,10 @@ pub(crate) fn vault_of<T: Config>(
 
 impl<Balance, Moment> Vault<Balance, Moment> {
 	/// Derive this vault's lifecycle status from queue/index membership.
+	///
+	/// Status is not stored on the row, and the keys must be re-supplied
+	/// because the row does not carry them. The `&self` receiver is a proof
+	/// of existence.
 	pub(crate) fn status<T: Config>(
 		&self,
 		collateral_id: &T::AssetId,

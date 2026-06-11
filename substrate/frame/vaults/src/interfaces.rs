@@ -338,11 +338,13 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 
 		match status {
 			VaultStatus::Active if new_total < cfg.minimum_debt => {
-				// Invariant: Active vaults are in the rate index, so `remove` succeeds.
-				let _ = T::VaultLists::remove(&VaultListId::Rate(collateral_id.clone()), &owner);
+				// Active vaults are in the rate index by invariant; a failed
+				// removal is corruption, not a condition to absorb.
+				T::VaultLists::remove(&VaultListId::Rate(collateral_id.clone()), &owner)
+					.map_err(|_| Error::<T>::RateIndexInvariantBroken)?;
 			},
 			VaultStatus::FinalRecovery if new_total.is_zero() => {
-				let _ = recovery::remove::<T>(&collateral_id, &owner);
+				recovery::remove::<T>(&collateral_id, &owner)?;
 				// Vault leaves FinalRecovery and becomes Dormant. Refresh stake
 				// to current held and rejoin recipient accounting so
 				// `vault.redistribution_stake == held` holds across the new
@@ -356,11 +358,7 @@ impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>>
 					&collateral_id,
 					|maybe| -> Result<_, DispatchError> {
 						let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
-						bs.stakes.total = bs.stakes.total.saturating_add(held_now);
-						bs.stakes.weighted_sum = bs
-							.stakes
-							.weighted_sum
-							.saturating_add(vault.annual_rate.saturating_mul_int(held_now));
+						bs.refresh_vault_stake(vault.annual_rate, BalanceOf::<T>::zero(), held_now);
 						vault.redist_snapshot = bs.redist;
 						Ok(())
 					},
