@@ -53,7 +53,10 @@ pub fn view_redemption_queue_head<T: Config>(
 	}
 	let remaining = n.saturating_sub(out.len() as u32);
 	if remaining > 0 {
-		out.extend(T::VaultLists::iter_from_tail(&rate_list_id(collateral_id), remaining));
+		out.extend(T::VaultLists::iter_from_tail(
+			&VaultListId::Rate(collateral_id.clone()),
+			remaining,
+		));
 	}
 	out
 }
@@ -61,7 +64,7 @@ pub fn view_redemption_queue_head<T: Config>(
 pub fn view_debt_in_front<T: Config>(collateral_id: &T::AssetId, rate: FixedU128) -> BalanceOf<T> {
 	// Walk tail-first; sum interest_bearing_debt while node.priority < rate.
 	let mut total = BalanceOf::<T>::zero();
-	let rate_list = rate_list_id(collateral_id);
+	let rate_list = VaultListId::Rate(collateral_id.clone());
 	let mut cursor = T::VaultLists::tail(&rate_list);
 	while let Some(o) = cursor {
 		let priority = match T::VaultLists::priority(&rate_list, &o) {

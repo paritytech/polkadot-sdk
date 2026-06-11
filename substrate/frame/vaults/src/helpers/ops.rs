@@ -61,8 +61,13 @@ pub fn open_vault<T: Config>(
 	Vaults::<T>::insert(&collateral_id, &owner, &vault);
 	BranchStates::<T>::insert(&collateral_id, &bs_after);
 
-	T::VaultLists::insert(rate_list_id(&collateral_id), owner.clone(), annual_rate, hint)
-		.map_err(|_| Error::<T>::InvalidPositionHints)?;
+	T::VaultLists::insert(
+		VaultListId::Rate(collateral_id.clone()),
+		owner.clone(),
+		annual_rate,
+		hint,
+	)
+	.map_err(|_| Error::<T>::InvalidPositionHints)?;
 
 	Pallet::<T>::deposit_event(Event::Borrowed {
 		collateral_id: collateral_id.clone(),
@@ -279,8 +284,13 @@ pub fn borrow<T: Config>(
 	Vaults::<T>::insert(&collateral_id, &owner, &vault);
 
 	if dormant_to_active {
-		T::VaultLists::insert(rate_list_id(&collateral_id), owner.clone(), new_rate, hint)
-			.map_err(|_| Error::<T>::InvalidPositionHints)?;
+		T::VaultLists::insert(
+			VaultListId::Rate(collateral_id.clone()),
+			owner.clone(),
+			new_rate,
+			hint,
+		)
+		.map_err(|_| Error::<T>::InvalidPositionHints)?;
 		Pallet::<T>::deposit_event(Event::VaultStatusChanged {
 			collateral_id: collateral_id.clone(),
 			owner: owner.clone(),
@@ -288,8 +298,13 @@ pub fn borrow<T: Config>(
 			new_status: VaultStatus::Active,
 		});
 	} else if old_rate != new_rate {
-		T::VaultLists::re_insert(rate_list_id(&collateral_id), owner.clone(), new_rate, hint)
-			.map_err(|_| Error::<T>::InvalidPositionHints)?;
+		T::VaultLists::re_insert(
+			VaultListId::Rate(collateral_id.clone()),
+			owner.clone(),
+			new_rate,
+			hint,
+		)
+		.map_err(|_| Error::<T>::InvalidPositionHints)?;
 	}
 
 	if old_rate != new_rate {
@@ -422,8 +437,13 @@ pub fn change_rate<T: Config>(
 	vault.debt.interest = vault.debt.interest.saturating_add(upfront_fee);
 	Vaults::<T>::insert(&collateral_id, &owner, &vault);
 
-	T::VaultLists::re_insert(rate_list_id(&collateral_id), owner.clone(), new_rate, hint)
-		.map_err(|_| Error::<T>::InvalidPositionHints)?;
+	T::VaultLists::re_insert(
+		VaultListId::Rate(collateral_id.clone()),
+		owner.clone(),
+		new_rate,
+		hint,
+	)
+	.map_err(|_| Error::<T>::InvalidPositionHints)?;
 	Pallet::<T>::deposit_event(Event::BorrowRateChanged {
 		collateral_id,
 		owner,
@@ -508,7 +528,7 @@ fn close_inner<T: Config>(
 	match status {
 		VaultStatus::Active => {
 			// Invariant: Active vaults are in the rate index, so `remove` succeeds.
-			let _ = T::VaultLists::remove(&rate_list_id(collateral_id), owner);
+			let _ = T::VaultLists::remove(&VaultListId::Rate(collateral_id.clone()), owner);
 		},
 		VaultStatus::FinalRecovery => {
 			let _ = recovery::remove::<T>(collateral_id, owner);
@@ -533,7 +553,8 @@ pub fn poke<T: Config>(
 ) -> Result<(), DispatchError> {
 	let now = T::TimeProvider::now();
 	update_aggregate_interest::<T>(&collateral_id, now)?;
-	touch_vault::<T>(&collateral_id, &owner, now).map(|_| ())
+	touch_vault::<T>(&collateral_id, &owner, now)?.ok_or(Error::<T>::VaultNotFound)?;
+	Ok(())
 }
 
 #[require_transactional]
@@ -565,7 +586,7 @@ pub fn enter_final_recovery<T: Config>(
 	let bs_check = branch_state_of::<T>(&collateral_id)?;
 	ensure!(bs_check.stakes.total == vault.redistribution_stake, Error::<T>::NotLastEligibleVault);
 
-	T::VaultLists::remove(&rate_list_id(&collateral_id), &owner)
+	T::VaultLists::remove(&VaultListId::Rate(collateral_id.clone()), &owner)
 		.map_err(|_| Error::<T>::RateIndexInvariantBroken)?;
 	let stake_weighted = vault.annual_rate.saturating_mul_int(vault.redistribution_stake);
 	let detached_stake = vault.redistribution_stake;
@@ -645,8 +666,13 @@ pub fn exit_final_recovery<T: Config>(
 	})?;
 	Vaults::<T>::insert(&collateral_id, &owner, &vault);
 	if rejoin_active {
-		T::VaultLists::insert(rate_list_id(&collateral_id), owner.clone(), vault.annual_rate, hint)
-			.map_err(|_| Error::<T>::InvalidPositionHints)?;
+		T::VaultLists::insert(
+			VaultListId::Rate(collateral_id.clone()),
+			owner.clone(),
+			vault.annual_rate,
+			hint,
+		)
+		.map_err(|_| Error::<T>::InvalidPositionHints)?;
 	}
 	Pallet::<T>::deposit_event(Event::VaultStatusChanged {
 		collateral_id,
@@ -656,6 +682,7 @@ pub fn exit_final_recovery<T: Config>(
 	});
 	Ok(())
 }
+
 /// Refresh the next handful of vaults across each branch using the cursor.
 pub fn on_idle_walk<T: Config>(remaining: Weight) -> Weight {
 	let per_call = T::WeightInfo::on_idle_one_vault();
@@ -686,7 +713,7 @@ pub fn on_idle_walk<T: Config>(remaining: Weight) -> Weight {
 			continue;
 		}
 		let Some(branch) = BranchStates::<T>::get(collateral_id) else { continue };
-		let rate_list = rate_list_id(collateral_id);
+		let rate_list = VaultListId::Rate(collateral_id.clone());
 		let initial_cursor = branch.idle_cursor.or_else(|| T::VaultLists::head(&rate_list));
 		let mut cursor = initial_cursor.clone();
 		let final_recovery_head = recovery::next_target::<T>(collateral_id);

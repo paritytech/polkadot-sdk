@@ -506,16 +506,12 @@ fn poke_full_state_changes() {
 	});
 }
 
-// row 33: testApplyTroveInterestPermissionlessRevertsIfTroveHasZeroDebt.
-//
-// In polkadot the analog is `poke` on a redeemed-to-zero Dormant vault.
-// `poke` here calls `update_aggregate_interest` and `touch_vault`; the
-// existing helper code is permissive — it doesn't error on zero-debt vaults.
-// FINDING: Liquity rejects with `TroveWithZeroDebt`; polkadot's `poke`
-// silently no-ops. Worth raising as a UX gap if surfacing apply-on-empty
-// to the user.
+// In Polkadot the analog is `poke` after a vault is emptied: the full
+// repayment auto-closes the vault, and poking the vanished row reports
+// `VaultNotFound` — the `TroveWithZeroDebt` analog. (A *live* zero-debt
+// Dormant row left behind by a full redemption remains pokeable.)
 #[test]
-fn poke_on_zero_debt_vault_is_silent_no_op() {
+fn poke_after_full_repayment_errors_vault_not_found() {
 	build_and_execute(|| {
 		register_default_branch();
 		assert_ok!(open(1, DOT, 3_000, 2_000, rate_pct(25, 100)));
@@ -527,8 +523,11 @@ fn poke_on_zero_debt_vault_is_silent_no_op() {
 		let total = v.debt.principal + v.debt.interest;
 		top_up_pusd(1, 2, v.debt.interest);
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(1), 1, DOT, total));
-		// Now vault 1 has zero debt — poke succeeds silently.
-		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(3), 1, DOT));
+		// The repay-to-zero auto-closed the vault; poke surfaces that.
+		assert_noop!(
+			crate::Pallet::<Test>::poke(RuntimeOrigin::signed(3), 1, DOT),
+			crate::Error::<Test>::VaultNotFound
+		);
 	});
 }
 

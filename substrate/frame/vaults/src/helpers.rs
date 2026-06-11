@@ -51,16 +51,6 @@ fn millis_diff<T: Config>(now: MomentOf<T>, then: MomentOf<T>) -> u64 {
 	moment_to_millis::<T>(now.saturating_sub(then))
 }
 
-pub(crate) fn rate_list_id<AssetId: Clone>(collateral_id: &AssetId) -> VaultListId<AssetId> {
-	VaultListId::Rate(collateral_id.clone())
-}
-
-pub(crate) fn final_recovery_list_id<AssetId: Clone>(
-	collateral_id: &AssetId,
-) -> VaultListId<AssetId> {
-	VaultListId::FinalRecovery(collateral_id.clone())
-}
-
 /// Read the branch state, returning `UnknownCollateral` when missing.
 pub(crate) fn branch_state_of<T: Config>(
 	collateral_id: &T::AssetId,
@@ -90,10 +80,10 @@ impl<Balance, Moment> Vault<Balance, Moment> {
 		collateral_id: &T::AssetId,
 		owner: &T::AccountId,
 	) -> VaultStatus {
-		if T::VaultLists::contains(&rate_list_id(collateral_id), owner) {
+		if T::VaultLists::contains(&VaultListId::Rate(collateral_id.clone()), owner) {
 			return VaultStatus::Active;
 		}
-		if T::VaultLists::contains(&final_recovery_list_id(collateral_id), owner) {
+		if T::VaultLists::contains(&VaultListId::FinalRecovery(collateral_id.clone()), owner) {
 			return VaultStatus::FinalRecovery;
 		}
 		VaultStatus::Dormant

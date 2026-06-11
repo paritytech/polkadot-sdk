@@ -4,7 +4,6 @@
 //! `next_block` and end-to-end by the runtime's pre-upgrade hook.
 
 use crate::{
-	helpers,
 	pallet::{BalanceOf, BranchStates, Branches, Config, HoldReason, Pallet, Vaults},
 	types::VaultListId,
 };
@@ -23,8 +22,8 @@ use pallet_linked_list::SortedListInterface;
 pub fn do_try_state<T: Config>() -> Result<(), TryRuntimeError> {
 	let branches = Branches::<T>::get();
 	for c in branches.iter() {
-		let rate_list = helpers::rate_list_id(c);
-		let recovery_list = helpers::final_recovery_list_id(c);
+		let rate_list = VaultListId::Rate(c.clone());
+		let recovery_list = VaultListId::FinalRecovery(c.clone());
 		check_branch_identities::<T>(c, &rate_list, &recovery_list)?;
 		// Mirrors `pallet-assets`'s "Σ per-account balances == supply" check:
 		// `last_dormant_vault_owner` must point at a Dormant vault.

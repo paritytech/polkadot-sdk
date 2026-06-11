@@ -215,7 +215,7 @@ fn normal_mode_blocks_premature_rate_change_pulling_into_safety() {
 				rate_pct(50, 100),
 				Position::endpoints_only(),
 			),
-			crate::Error::<Test>::SafetyModeTcrWorsening
+			crate::Error::<Test>::WouldEnterSafetyMode
 		);
 	});
 }
@@ -280,7 +280,7 @@ fn safety_mode_blocks_close_with_collateral() {
 		set_price(DOT, FixedU128::from_rational(63u128, 10u128));
 		assert_noop!(
 			crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(2), 2, DOT, total),
-			crate::Error::<Test>::SafetyModeTcrWorsening
+			crate::Error::<Test>::WouldEnterSafetyMode
 		);
 	});
 }

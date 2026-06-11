@@ -3,7 +3,7 @@ use crate::{
 	pallet::Vaults,
 	tests::{rate_pct, vault_status},
 };
-use frame::deps::frame_support::assert_ok;
+use frame::deps::frame_support::{assert_noop, assert_ok};
 use pallet_linked_list::SortedListInterface;
 
 // tests.md row 2: testOpenTroveFailsWithoutBalance.
@@ -130,6 +130,19 @@ fn repay_for_to_zero_closes_active_vault() {
 			owner: 1,
 			recipient: 1,
 		}));
+	});
+}
+
+// Poking a nonexistent vault is an error, not a silent success — a typo'd
+// owner must not look like a completed refresh.
+#[test]
+fn poke_missing_vault_errors() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_noop!(
+			crate::Pallet::<Test>::poke(RuntimeOrigin::signed(1), 99, DOT),
+			crate::Error::<Test>::VaultNotFound
+		);
 	});
 }
 

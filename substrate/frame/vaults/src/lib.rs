@@ -57,10 +57,10 @@ pub(crate) const LOG_TARGET: &str = "runtime::vaults";
 /// Convenience macro mirroring `pallet-linked-list`'s log helper.
 #[macro_export]
 macro_rules! log {
-	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+	($level:tt, $pattern:expr $(, $values:expr)* $(,)?) => {
 		frame::log::$level!(
 			target: $crate::LOG_TARGET,
-			concat!("[{:?}] [{}] ", $patter),
+			concat!("[{:?}] [{}] ", $pattern),
 			<frame_system::Pallet<T>>::block_number(),
 			<$crate::Pallet::<T> as frame::deps::frame_support::traits::PalletInfoAccess>::name()
 			$(, $values)*
@@ -355,6 +355,7 @@ pub mod pallet {
 		RateOutOfBounds,
 		UnsafeCollateralizationRatio,
 		SafetyModeTcrWorsening,
+		WouldEnterSafetyMode,
 		BranchFrozen,
 		OraclePriceNotAvailable,
 		OracleStale,
@@ -655,7 +656,7 @@ pub mod pallet {
 		/// Permissionless: exit `FinalRecovery` once the fully-accrued vault CR
 		/// is back above `MinimumCollateralizationRatio`. Caller supplies the
 		/// rate-index `hint` used to reinsert in O(1).
-		#[pallet::call_index(22)]
+		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::exit_final_recovery())]
 		pub fn exit_final_recovery(
 			origin: OriginFor<T>,
@@ -877,7 +878,7 @@ pub mod pallet {
 		/// Permissionless: clear an oracle-induced `Frozen` state once the
 		/// oracle is healthy again. No-op when the
 		/// branch is not frozen or is frozen for a non-oracle reason.
-		#[pallet::call_index(24)]
+		#[pallet::call_index(22)]
 		#[pallet::weight(T::WeightInfo::refresh_branch())]
 		pub fn refresh_branch(origin: OriginFor<T>, collateral_id: T::AssetId) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
@@ -887,7 +888,7 @@ pub mod pallet {
 		/// Governance-only: clear a governance-induced `Frozen` state. No-op
 		/// when the branch is not frozen or is frozen for a non-governance
 		/// reason. Oracle-induced freezes must be cleared with `refresh_branch`.
-		#[pallet::call_index(25)]
+		#[pallet::call_index(23)]
 		#[pallet::weight(T::WeightInfo::clear_governance_frozen_mode())]
 		pub fn clear_governance_frozen_mode(
 			origin: OriginFor<T>,

@@ -7,11 +7,13 @@ pub fn current_mode<T: Config>(collateral_id: &T::AssetId) -> Result<BranchMode,
 	if bs.is_frozen() {
 		return Ok(BranchMode::Frozen);
 	}
-	// Try to read price; mode without a price falls back to `Normal`. The
-	// caller is expected to gate state-changing ops on a fresh price first.
+	// A failing oracle is what `refresh_branch` would persist as
+	// `Frozen { OracleFailure }`; report `Frozen` to observers even before
+	// that poke lands, rather than defaulting to the most permissive mode
+	// while prices are unknowable.
 	let price = match T::Oracle::provide_price(collateral_id) {
 		Ok(feed) => feed.price,
-		Err(_) => return Ok(BranchMode::Normal),
+		Err(_) => return Ok(BranchMode::Frozen),
 	};
 	let cfg = branch_cfg_of::<T>(collateral_id)?;
 	let now = T::TimeProvider::now();
@@ -228,7 +230,7 @@ pub fn enforce_mode_rules<T: Config>(
 	} else {
 		// Normal mode.
 		if !is_settlement && post_tcr < cfg.safety_collateralization_ratio {
-			return Err(Error::<T>::SafetyModeTcrWorsening.into());
+			return Err(Error::<T>::WouldEnterSafetyMode.into());
 		}
 	}
 	Ok(())

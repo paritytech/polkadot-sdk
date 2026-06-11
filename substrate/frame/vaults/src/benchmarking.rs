@@ -5,9 +5,9 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::{
-	helpers::{self, rate_list_id},
+	helpers,
 	pallet::{BalanceOf, BranchStates, Branches, Config, HoldReason, MomentOf, Pallet, Vaults},
-	types::{BranchConfig, VaultStatus},
+	types::{BranchConfig, VaultListId, VaultStatus},
 	BenchmarkHelper as _,
 };
 use alloc::vec::Vec;
@@ -156,7 +156,7 @@ fn seed_worst_case_chain<T: Config>(
 		let r = bounds.base.saturating_sub(offset);
 		let who: T::AccountId = account("seed", i, 0);
 		T::BenchmarkHelper::mint_collateral(asset.clone(), &who, balance::<T>(ACCOUNT_FUNDING));
-		let hint = T::VaultLists::find_position(&rate_list_id(asset), r);
+		let hint = T::VaultLists::find_position(&VaultListId::Rate(asset.clone()), r);
 		Pallet::<T>::open_vault(
 			RawOrigin::Signed(who.clone()).into(),
 			asset.clone(),
@@ -331,7 +331,8 @@ mod benchmarks {
 		let bounds = rate_bounds::<T>(&asset)?;
 		let caller = funded_account::<T>("caller", &asset);
 		let caller_rate = bounds.middle;
-		let caller_hint = T::VaultLists::find_position(&rate_list_id(&asset), caller_rate);
+		let caller_hint =
+			T::VaultLists::find_position(&VaultListId::Rate(asset.clone()), caller_rate);
 		Pallet::<T>::open_vault(
 			RawOrigin::Signed(caller.clone()).into(),
 			asset.clone(),
@@ -386,7 +387,8 @@ mod benchmarks {
 		let bounds = rate_bounds::<T>(&asset)?;
 		let caller = funded_account::<T>("caller", &asset);
 		let caller_rate = bounds.middle;
-		let caller_hint = T::VaultLists::find_position(&rate_list_id(&asset), caller_rate);
+		let caller_hint =
+			T::VaultLists::find_position(&VaultListId::Rate(asset.clone()), caller_rate);
 		Pallet::<T>::open_vault(
 			RawOrigin::Signed(caller.clone()).into(),
 			asset.clone(),
@@ -591,7 +593,7 @@ mod benchmarks {
 			if Vaults::<T>::contains_key(&asset, &owner) {
 				let _ = crate::helpers::update_aggregate_interest::<T>(&asset, now);
 				let _ = crate::helpers::touch_vault::<T>(&asset, &owner, now);
-				let _ = T::VaultLists::neighbors(&rate_list_id(&asset), &owner);
+				let _ = T::VaultLists::neighbors(&VaultListId::Rate(asset.clone()), &owner);
 			}
 		}
 

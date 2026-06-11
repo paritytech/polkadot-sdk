@@ -12,7 +12,7 @@ use crate::{
 };
 use frame::deps::frame_support::{assert_err, assert_noop, assert_ok};
 use pallet_linked_list::SortedListInterface;
-use pusd_primitives::VaultRedemptionInterface;
+use pusd_primitives::{BranchModeProvider, VaultRedemptionInterface};
 
 #[test]
 fn register_branch_creates_state() {
@@ -192,6 +192,23 @@ fn refresh_branch_persists_frozen_on_oracle_failure() {
 		let bs = BranchStates::<Test>::get(DOT).expect("bs");
 		let frozen = bs.frozen.expect("frozen persisted");
 		assert!(matches!(frozen.reason, crate::FrozenReason::OracleFailure));
+	});
+}
+
+// External observers must not see the most permissive mode while prices are
+// unknowable: `mode()` reports `Frozen` for a failing oracle even before
+// `refresh_branch` persists the freeze.
+#[test]
+fn mode_reports_frozen_while_oracle_unavailable() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		let mode = <crate::Pallet<Test> as BranchModeProvider<AssetId>>::mode;
+		assert_eq!(mode(&DOT), Some(BranchMode::Normal));
+		set_oracle_available(false);
+		assert_eq!(mode(&DOT), Some(BranchMode::Frozen));
+		set_oracle_available(true);
+		assert_eq!(mode(&DOT), Some(BranchMode::Normal));
 	});
 }
 
