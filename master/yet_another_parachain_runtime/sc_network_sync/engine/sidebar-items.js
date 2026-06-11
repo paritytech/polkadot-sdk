@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["MajorSyncingGauge","Peer","SyncingEngine"]};
+window.SIDEBAR_ITEMS = {"fn":["block_announces_legacy_protocol_name","block_announces_protocol_name"],"struct":["MajorSyncingGauge","Peer","SyncingEngine"]};

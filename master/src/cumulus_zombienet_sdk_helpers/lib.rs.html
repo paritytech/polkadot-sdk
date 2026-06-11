@@ -148,7 +148,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 	}
 </style>
 
-<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">cumulus_zombienet_sdk_helpers/</div>lib.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">cumulus_zombienet_sdk_helpers/</div>lib.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 <a href=#2 id=2 data-nosnippet>2</a>// SPDX-License-Identifier: Apache-2.0
 <a href=#3 id=3 data-nosnippet>3</a>
 <a href=#4 id=4 data-nosnippet>4</a></span><span class="kw">use </span>anyhow::anyhow;
@@ -1130,6 +1130,34 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#980 id=980 data-nosnippet>980</a>
 <a href=#981 id=981 data-nosnippet>981</a>	<span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">"Did not find a runtime upgrade"</span>))
 <a href=#982 id=982 data-nosnippet>982</a>}
+<a href=#983 id=983 data-nosnippet>983</a>
+<a href=#984 id=984 data-nosnippet>984</a><span class="doccomment">/// Poll a node's WebSocket endpoint until its subxt metadata reports the given pallet,
+<a href=#985 id=985 data-nosnippet>985</a>/// returning a fresh `OnlineClient` against that metadata, or fail on timeout.
+<a href=#986 id=986 data-nosnippet>986</a>///
+<a href=#987 id=987 data-nosnippet>987</a>/// After a runtime upgrade that introduces a new pallet, subxt's cached metadata can lag
+<a href=#988 id=988 data-nosnippet>988</a>/// the on-chain state until a new client is constructed against a block executed under the
+<a href=#989 id=989 data-nosnippet>989</a>/// upgraded runtime.
+<a href=#990 id=990 data-nosnippet>990</a></span><span class="kw">pub async fn </span>wait_for_pallet_in_metadata(
+<a href=#991 id=991 data-nosnippet>991</a>	ws_url: <span class="kw-2">&amp;</span>str,
+<a href=#992 id=992 data-nosnippet>992</a>	pallet_name: <span class="kw-2">&amp;</span>str,
+<a href=#993 id=993 data-nosnippet>993</a>	timeout: Duration,
+<a href=#994 id=994 data-nosnippet>994</a>	poll_interval: Duration,
+<a href=#995 id=995 data-nosnippet>995</a>) -&gt; <span class="prelude-ty">Result</span>&lt;OnlineClient&lt;PolkadotConfig&gt;, anyhow::Error&gt; {
+<a href=#996 id=996 data-nosnippet>996</a>	<span class="kw">let </span>deadline = std::time::Instant::now() + timeout;
+<a href=#997 id=997 data-nosnippet>997</a>	<span class="kw">loop </span>{
+<a href=#998 id=998 data-nosnippet>998</a>		<span class="kw">if </span>std::time::Instant::now() &gt;= deadline {
+<a href=#999 id=999 data-nosnippet>999</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
+<a href=#1000 id=1000 data-nosnippet>1000</a>				<span class="string">"metadata at {ws_url} never reflected pallet `{pallet_name}` within {timeout:?}"</span>,
+<a href=#1001 id=1001 data-nosnippet>1001</a>			));
+<a href=#1002 id=1002 data-nosnippet>1002</a>		}
+<a href=#1003 id=1003 data-nosnippet>1003</a>		sleep(poll_interval).<span class="kw">await</span>;
+<a href=#1004 id=1004 data-nosnippet>1004</a>		<span class="kw">let </span>candidate = OnlineClient::&lt;PolkadotConfig&gt;::from_url(ws_url).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#1005 id=1005 data-nosnippet>1005</a>		<span class="kw">if </span>candidate.metadata().pallet_by_name(pallet_name).is_some() {
+<a href=#1006 id=1006 data-nosnippet>1006</a>			<span class="kw">return </span><span class="prelude-val">Ok</span>(candidate);
+<a href=#1007 id=1007 data-nosnippet>1007</a>		}
+<a href=#1008 id=1008 data-nosnippet>1008</a>		<span class="macro">log::debug!</span>(<span class="string">"`{pallet_name}` not in metadata yet, retrying"</span>);
+<a href=#1009 id=1009 data-nosnippet>1009</a>	}
+<a href=#1010 id=1010 data-nosnippet>1010</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
