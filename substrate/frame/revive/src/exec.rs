@@ -2328,7 +2328,9 @@ where
 			return sp_io::hashing::keccak_256(code).into();
 		}
 
-		// EIP-7702: delegated EOAs return keccak256(0xef0100 || target)
+		// EIP-7702: delegated EOAs return keccak256(0xef0100 || target). This is the
+		// EXTCODEHASH path; CODEHASH (self) uses the separate `own_code_hash` host
+		// function and is therefore unaffected.
 		if let Some(target) = <AccountInfo<T>>::get_delegation_target(address) {
 			let indicator = <AccountInfo<T>>::delegation_indicator(&target);
 			return sp_io::hashing::keccak_256(&indicator).into();
@@ -2354,7 +2356,14 @@ where
 			return code.len() as u64;
 		}
 
-		// EIP-7702: delegated EOAs return the delegation indicator size (0xef0100 || target)
+		// EIP-7702: delegated EOAs return the delegation indicator size (23 bytes).
+		//
+		// PVM caveat: on PolkaVM, EXTCODESIZE and CODESIZE both lower to this
+		// host function, so this branch is reached for both. It is spec-correct
+		// for EXTCODESIZE but wrong for CODESIZE inside a delegated EOA's
+		// execution — the executing code there is the target's PVM blob, whose
+		// size is not 23. Spec-correct CODESIZE requires a separate host
+		// function and a matching resolc change; tracked as a follow-up.
 		if <AccountInfo<T>>::is_delegated(address) {
 			return 23;
 		}
@@ -2510,7 +2519,14 @@ where
 			}) {
 			code.to_vec()
 		} else if let Some(target) = <AccountInfo<T>>::get_delegation_target(address) {
-			// EIP-7702: delegated EOAs return 0xef0100 || target as their code
+			// EIP-7702: delegated EOAs return 0xef0100 || target as their code.
+			//
+			// PVM caveat: on PolkaVM, EXTCODECOPY and CODECOPY both lower to this
+			// host function, so this branch is reached for both. It is spec-correct
+			// for EXTCODECOPY but wrong for CODECOPY inside a delegated EOA's
+			// execution — the executing code there is the target's PVM blob, not
+			// the 23-byte indicator. Spec-correct CODECOPY requires a separate
+			// host function and a matching resolc change; tracked as a follow-up.
 			<AccountInfo<T>>::delegation_indicator(&target).to_vec()
 		} else {
 			let code_hash = self.code_hash(address);
