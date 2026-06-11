@@ -1,26 +1,26 @@
 title: 'Polkadot: Verify the workers at startup'
 doc:
-- audience: Node Dev
+- audience:
+  - Node Dev
+  - Node Operator
   description: |-
     Closes #8117
 
-    # Description
-    Call into `prepare_worker` to perform security checks on node start-up.
+    Today, `polkadot` checks that its PVF workers are running the same version at startup, but the
+    workers' other security checks (landlock, seccomp, unshare/change-root, clone, etc.) only run
+    when a worker is actually spawned. If the node is not yet part of the active validator set, an
+    operator running a misconfigured or under-sandboxed worker has no way to find out, until the
+    node starts validating, loses rewards, and degrades the network.
 
-    # Checklist
-
-    * [x] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
-    * [x] My PR follows the [labeling requirements](
-    https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process
-    ) of this project (at minimum one label for `T` required)
+    This PR runs those checks at startup too, the same way the version check already does:
+    `polkadot` invokes `execute-worker --check-security-features --worker-dir-path <workers-path>`
+    once before the node starts, and refuses to start if the worker binary is missing or fails its
+    security checks. This way operators are informed immediately, rather than only once the node
+    is selected as a validator.
 crates:
 - name: polkadot-node-core-pvf-common
-  bump: minor
-- name: polkadot-service
   bump: minor
 - name: polkadot-cli
   bump: minor
 - name: polkadot
-  bump: minor
-- name: polkadot-node-core-pvf
   bump: minor
