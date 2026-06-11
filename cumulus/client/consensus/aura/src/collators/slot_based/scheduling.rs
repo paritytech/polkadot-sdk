@@ -161,11 +161,8 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		Some(best_relay_block_data)
 	}
 
-	pub fn is_v3_enabled(
-		v3_enabled_on_para: bool,
-		relay_chain_data: Option<&RelayChainData>,
-	) -> bool {
-		v3_enabled_on_para && relay_chain_data.map_or(false, |data| data.is_v3_enabled())
+	pub fn is_v3_enabled(v3_enabled_on_para: bool, v3_enabled_on_relay: bool) -> bool {
+		v3_enabled_on_para && v3_enabled_on_relay
 	}
 
 	/// Pick a scheduling parent under the policy described on [`SchedulingInfo`],
@@ -185,7 +182,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		v3_enabled_on_para: bool,
 	) -> Option<(RelayHeader, bool)> {
 		let mut maybe_best_relay_header = self.maybe_best_relay_header.take();
-		let (best_relay_slot, best_relay_header_data) = loop {
+		let (best_relay_slot, best_relay_header) = loop {
 			// Drain buffered notifications.
 			while let Some(Some(header)) = self.best_notifications.next().now_or_never() {
 				maybe_best_relay_header = Some(header);
@@ -198,44 +195,53 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 			self.maybe_best_relay_header = Some(best_relay_header.clone());
 			let best_relay_header_data =
 				relay_chain_data_cache.get_by_header(best_relay_header).await.ok()?;
-			let best_relay_slot = get_relay_slot(&best_relay_header_data.relay_header)?;
+			let best_relay_header = best_relay_header_data.relay_header.clone();
+			let best_relay_slot = get_relay_slot(&best_relay_header)?;
+			let best_relay_hash = best_relay_header.hash();
 
-			let v3_enabled = Self::is_v3_enabled(v3_enabled_on_para, Some(&best_relay_header_data));
+			let v3_enabled_on_relay = relay_chain_data_cache
+				.get_session_data(best_relay_hash)
+				.await
+				.map(|data| data.is_v3_enabled())
+				.unwrap_or(false);
+			let v3_enabled = Self::is_v3_enabled(v3_enabled_on_para, v3_enabled_on_relay);
 			if v3_enabled {
 				// For scheduling v3 we don't need to loop since we need to return a
 				// scheduling parent associated with a finished slot.
-				break (best_relay_slot, best_relay_header_data);
+				break (best_relay_slot, best_relay_header);
 			}
 
 			// For v2, we need to loop until we find a scheduling parent associated with a
 			// current slot.
 			if best_relay_slot >= get_current_relay_slot(self.slot_offset, self.relay_slot_duration)
 			{
-				return Some((best_relay_header_data.relay_header.clone(), false));
+				return Some((best_relay_header, false));
 			}
 		};
 
 		// v3: walk back to the first finished slot
-		let mut scheduling_parent_data = best_relay_header_data;
+		let mut scheduling_parent_header = best_relay_header;
 		let mut scheduling_parent_slot = best_relay_slot;
 		while scheduling_parent_slot >=
 			get_current_relay_slot(Duration::ZERO, self.relay_slot_duration)
 		{
 			// The scheduling parent should be part of the same session as the best
 			// relay block.
-			if sc_consensus_babe::contains_epoch_change::<RelayBlock>(
-				&scheduling_parent_data.relay_header,
-			) {
+			if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&scheduling_parent_header) {
 				return None;
 			}
 
-			let ancestor_hash = *scheduling_parent_data.relay_header.parent_hash();
-			scheduling_parent_data =
-				relay_chain_data_cache.get_by_hash(ancestor_hash).await.ok()?;
-			scheduling_parent_slot = get_relay_slot(&scheduling_parent_data.relay_header)?
+			let ancestor_hash = *scheduling_parent_header.parent_hash();
+			scheduling_parent_header = relay_chain_data_cache
+				.get_by_hash(ancestor_hash)
+				.await
+				.ok()?
+				.relay_header
+				.clone();
+			scheduling_parent_slot = get_relay_slot(&scheduling_parent_header)?
 		}
 
-		Some((scheduling_parent_data.relay_header.clone(), true))
+		Some((scheduling_parent_header, true))
 	}
 }
 

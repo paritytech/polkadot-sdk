@@ -44,7 +44,8 @@ use cumulus_primitives_core::{
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
 use polkadot_primitives::{
-	Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId, DEFAULT_SCHEDULING_LOOKAHEAD,
+	Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId,
+	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
@@ -222,15 +223,23 @@ where
 		);
 
 		let mut scheduling_info = SchedulingInfo::new(relay_chain_slot_duration, slot_offset);
-		let maybe_best_relay_block_data = scheduling_info
+
+		let maybe_best_relay_hash = scheduling_info
 			.ensure_initialized(&relay_client, &mut relay_chain_data_cache)
-			.await;
+			.await
+			.map(|data| data.relay_header.hash());
 
 		let (_para_best_hash, v3_enabled_on_para) = get_best_hash_and_v3_status(&para_client);
-		let v3_enabled = SchedulingInfo::<RelayClient>::is_v3_enabled(
-			v3_enabled_on_para,
-			maybe_best_relay_block_data,
-		);
+		let v3_enabled_on_relay = match maybe_best_relay_hash {
+			Some(best_relay_hash) => relay_chain_data_cache
+				.get_session_data(best_relay_hash)
+				.await
+				.map(|data| data.is_v3_enabled())
+				.unwrap_or(false),
+			None => false,
+		};
+		let v3_enabled =
+			SchedulingInfo::<RelayClient>::is_v3_enabled(v3_enabled_on_para, v3_enabled_on_relay);
 		slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
 
 		loop {

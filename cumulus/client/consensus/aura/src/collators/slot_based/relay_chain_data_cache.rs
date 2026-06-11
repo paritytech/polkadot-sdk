@@ -35,32 +35,31 @@ pub struct RelayChainData {
 	pub claim_queue: ClaimQueueSnapshot,
 	/// Maximum configured PoV size on the relay chain.
 	pub max_pov_size: u32,
-	/// The node features at the relay parent.
-	pub node_features: NodeFeatures,
 	/// The session index this relay block belongs to.
 	pub session_index: SessionIndex,
 }
 
-impl RelayChainData {
-	pub fn is_v3_enabled(&self) -> bool {
-		FeatureIndex::CandidateReceiptV3.is_set(&self.node_features)
-	}
-}
-
 /// Relay chain configuration items that are constant within a session.
-///
-/// These are buffered per-session (keyed by [`SessionIndex`]) so the collator does not
-/// re-query them from the relay chain runtime on every block-building iteration.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SessionData {
 	/// The scheduling lookahead configured on the relay chain.
 	pub scheduling_lookahead: u32,
 	/// The maximum allowed relay parent session age.
 	pub max_relay_parent_session_age: u32,
+	/// The node features for this session.
+	pub node_features: NodeFeatures,
 }
 
-/// Simple helper to fetch relay chain data and cache it based on the current relay chain best block
-/// hash.
+impl SessionData {
+	pub fn is_v3_enabled(&self) -> bool {
+		FeatureIndex::CandidateReceiptV3.is_set(&self.node_features)
+	}
+}
+
+/// Helper to fetch and cache relay chain data.
+///
+/// Per-relay-block data ([`RelayChainData`]) is cached keyed by relay block hash, and
+/// session-constant configuration ([`SessionData`]) is cached keyed by [`SessionIndex`].
 pub struct RelayChainDataCache<RI> {
 	relay_client: RI,
 	para_id: ParaId,
@@ -78,7 +77,7 @@ where
 			para_id,
 			// 50 cached relay chain blocks should be more than enough.
 			cached_data: schnellru::LruMap::new(schnellru::ByLength::new(50)),
-			// 10 sessions is ample for the per-session config cache.
+			// 10 sessions are enough for the per-session config cache.
 			session_cache: schnellru::LruMap::new(schnellru::ByLength::new(10)),
 		}
 	}
@@ -127,10 +126,6 @@ where
 
 	/// Fetch the session-scoped relay chain configuration for the session that `relay_hash`
 	/// belongs to, caching it per session.
-	///
-	/// Subsequent calls for any relay block in the same session reuse the cached value
-	/// instead of re-querying the relay chain runtime. Transient errors are not cached,
-	/// so the next call will retry.
 	pub async fn get_session_data(&mut self, relay_hash: RelayHash) -> Result<&SessionData, ()> {
 		let session_index = self.get_by_hash(relay_hash).await?.session_index;
 
@@ -159,8 +154,11 @@ where
 					"Unable to fetch the scheduling lookahead."
 				);
 			})?;
-		let max_relay_parent_session_age =
-			self.relay_client.max_relay_parent_session_age(relay_hash).await.map_err(|err| {
+		let max_relay_parent_session_age = self
+			.relay_client
+			.max_relay_parent_session_age(relay_hash)
+			.await
+			.map_err(|err| {
 				tracing::error!(
 					target: crate::LOG_TARGET,
 					?relay_hash,
@@ -168,8 +166,16 @@ where
 					"Unable to fetch the max relay parent session age."
 				);
 			})?;
+		let node_features = self.relay_client.node_features(relay_hash).await.map_err(|err| {
+			tracing::error!(
+				target: crate::LOG_TARGET,
+				?relay_hash,
+				?err,
+				"Unable to fetch relay chain node features."
+			);
+		})?;
 
-		Ok(SessionData { scheduling_lookahead, max_relay_parent_session_age })
+		Ok(SessionData { scheduling_lookahead, max_relay_parent_session_age, node_features })
 	}
 
 	/// Fetch fresh data from the relay chain for the given relay parent.
@@ -202,19 +208,6 @@ where
 			},
 		};
 
-		let node_features = match self.relay_client.node_features(relay_hash).await {
-			Ok(node_features) => node_features,
-			Err(err) => {
-				tracing::error!(
-					target: crate::LOG_TARGET,
-					?relay_hash,
-					?err,
-					"Unable to fetch relay chain node features."
-				);
-				return Err(());
-			},
-		};
-
 		let session_index =
 			match self.relay_client.session_index_for_child(*relay_header.parent_hash()).await {
 				Ok(session_index) => session_index,
@@ -229,11 +222,16 @@ where
 				},
 			};
 
-		Ok(RelayChainData { relay_header, claim_queue, max_pov_size, node_features, session_index })
+		Ok(RelayChainData { relay_header, claim_queue, max_pov_size, session_index })
 	}
 
 	#[cfg(test)]
 	pub fn insert_test_data(&mut self, relay_parent_hash: RelayHash, data: RelayChainData) {
 		self.cached_data.insert(relay_parent_hash, data);
+	}
+
+	#[cfg(test)]
+	pub fn insert_test_session_data(&mut self, session_index: SessionIndex, data: SessionData) {
+		self.session_cache.insert(session_index, data);
 	}
 }
