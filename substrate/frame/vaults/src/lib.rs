@@ -240,89 +240,71 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		VaultOpened {
-			collateral_id: T::AssetId,
-			owner: T::AccountId,
-		},
+		/// A new vault was opened on the branch.
+		VaultOpened { collateral_id: T::AssetId, owner: T::AccountId },
+		/// A vault moved between `Active`, `Dormant`, and `FinalRecovery`.
 		VaultStatusChanged {
 			collateral_id: T::AssetId,
 			owner: T::AccountId,
 			old_status: VaultStatus,
 			new_status: VaultStatus,
 		},
-		FinalRecoveryEntered {
-			collateral_id: T::AssetId,
-			owner: T::AccountId,
-		},
-		FinalRecoveryExited {
-			collateral_id: T::AssetId,
-			owner: T::AccountId,
-		},
-		BadDebtRecorded {
-			collateral_id: T::AssetId,
-			amount: BalanceOf<T>,
-		},
-		BadDebtHealed {
-			collateral_id: T::AssetId,
-			amount: BalanceOf<T>,
-		},
+		/// The owner was appended to the branch's `FinalRecovery` FIFO.
+		FinalRecoveryEntered { collateral_id: T::AssetId, owner: T::AccountId },
+		/// The owner left the branch's `FinalRecovery` FIFO.
+		FinalRecoveryExited { collateral_id: T::AssetId, owner: T::AccountId },
+		/// Unbacked circulating debt was recorded against the branch ledger.
+		BadDebtRecorded { collateral_id: T::AssetId, amount: BalanceOf<T> },
+		/// Recorded bad debt was burned away by an insurance credit.
+		BadDebtHealed { collateral_id: T::AssetId, amount: BalanceOf<T> },
+		/// Collateral moved from `from` onto the vault's hold.
 		CollateralDeposited {
 			collateral_id: T::AssetId,
 			owner: T::AccountId,
 			from: T::AccountId,
 			amount: BalanceOf<T>,
 		},
+		/// Collateral left the vault's hold for `recipient`.
 		CollateralWithdrawn {
 			collateral_id: T::AssetId,
 			owner: T::AccountId,
 			recipient: T::AccountId,
 			amount: BalanceOf<T>,
 		},
+		/// New pUSD was minted to `recipient` against the vault.
 		Borrowed {
 			collateral_id: T::AssetId,
 			owner: T::AccountId,
 			recipient: T::AccountId,
 			amount: BalanceOf<T>,
 		},
+		/// `from` burned pUSD against the vault's debt (capped at outstanding).
 		Repaid {
 			collateral_id: T::AssetId,
 			owner: T::AccountId,
 			from: T::AccountId,
 			amount: BalanceOf<T>,
 		},
-		VaultClosed {
-			collateral_id: T::AssetId,
-			owner: T::AccountId,
-			recipient: T::AccountId,
-		},
-		InterestAccrued {
-			collateral_id: T::AssetId,
-			owner: T::AccountId,
-			amount: BalanceOf<T>,
-		},
-		UpfrontFeeCharged {
-			collateral_id: T::AssetId,
-			owner: T::AccountId,
-			amount: BalanceOf<T>,
-		},
+		/// The vault row was removed; remaining collateral went to `recipient`.
+		VaultClosed { collateral_id: T::AssetId, owner: T::AccountId, recipient: T::AccountId },
+		/// A touch folded pending interest into the vault's stored debt.
+		InterestAccrued { collateral_id: T::AssetId, owner: T::AccountId, amount: BalanceOf<T> },
+		/// An open / borrow / rate-change charged its upfront fee.
+		UpfrontFeeCharged { collateral_id: T::AssetId, owner: T::AccountId, amount: BalanceOf<T> },
+		/// The vault's annual borrow rate was re-set (rate index re-sorted).
 		BorrowRateChanged {
 			collateral_id: T::AssetId,
 			owner: T::AccountId,
 			old_rate: FixedU128,
 			new_rate: FixedU128,
 		},
-		ModeChanged {
-			collateral_id: T::AssetId,
-			old_mode: BranchMode,
-			new_mode: BranchMode,
-		},
-		ParameterUpdated {
-			collateral_id: T::AssetId,
-			parameter: types::ParameterId,
-		},
-		BranchRegistered {
-			collateral_id: T::AssetId,
-		},
+		/// The branch entered or left `Frozen` mode.
+		ModeChanged { collateral_id: T::AssetId, old_mode: BranchMode, new_mode: BranchMode },
+		/// Governance updated one branch-config parameter.
+		ParameterUpdated { collateral_id: T::AssetId, parameter: types::ParameterId },
+		/// A new collateral branch was registered.
+		BranchRegistered { collateral_id: T::AssetId },
+		/// A redemption cancelled vault debt in exchange for collateral.
 		VaultRedeemed {
 			collateral_id: T::AssetId,
 			owner: T::AccountId,
@@ -336,37 +318,84 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// No vault row exists for this `(collateral, owner)` pair.
 		VaultNotFound,
+		/// The owner already has a vault on this branch (one per pair).
 		VaultAlreadyExists,
+		/// The vault's lifecycle status does not admit this operation.
 		InvalidVaultStatus,
+		/// The operation is not available while the vault sits in the
+		/// `FinalRecovery` FIFO.
 		VaultInFinalRecovery,
+		/// No branch is registered for this collateral asset.
 		UnknownCollateral,
+		/// A branch for this collateral asset already exists.
 		BranchAlreadyRegistered,
+		/// Registering would exceed `MaxBranches`.
 		TooManyBranches,
+		/// The resulting debt would be non-zero but below `minimum_debt`.
 		DebtBelowMinimum,
+		/// The repayment would leave a non-zero remainder below
+		/// `minimum_debt`; repay less, or enough to close.
 		DebtWouldBecomeDust,
+		/// The borrow would push branch principal above `debt_ceiling`.
 		DebtCeilingExceeded,
+		/// The annual rate is outside the branch's configured bounds.
 		RateOutOfBounds,
+		/// The vault's collateralization ratio fails the gate for this
+		/// operation (ICR on user ops, MCR on liquidation/recovery paths).
 		UnsafeCollateralizationRatio,
+		/// In Safety mode, the operation would lower the branch TCR.
 		SafetyModeTcrWorsening,
+		/// In Normal mode, the operation would drop the branch TCR below the
+		/// safety threshold.
 		WouldEnterSafetyMode,
+		/// The branch is frozen (governance or oracle failure).
 		BranchFrozen,
+		/// The oracle returned no price for this collateral.
 		OraclePriceNotAvailable,
+		/// The oracle price is older than its validity window.
 		OracleStale,
+		/// The supplied rate-index position hint is stale beyond the repair
+		/// budget; fetch a fresh hint and retry.
 		InvalidPositionHints,
+		/// The rate index and the vault rows disagree — storage corruption,
+		/// not a user error.
 		RateIndexInvariantBroken,
+		/// The `FinalRecovery` FIFO and the vault rows disagree — storage
+		/// corruption, not a user error.
 		FinalRecoveryInvariantBroken,
+		/// The `FinalRecovery` insertion sequence overflowed `u128`.
 		FinalRecoverySequenceOverflow,
+		/// `enter_final_recovery` requires the candidate to be the branch's
+		/// only remaining stake-bearer.
 		NotLastEligibleVault,
+		/// The vault holds less collateral than the operation needs.
 		InsufficientCollateral,
+		/// `close_vault` requires fully repaid debt; use `repay` first (an
+		/// overpaying repay closes in the same call).
 		DebtOutstanding,
+		/// A checked arithmetic operation overflowed.
 		ArithmeticOverflow,
+		/// The manager origin's privilege level does not cover this call.
 		InsufficientPrivilege,
+		/// A `Defensive`-level manager tried a parameter change in the
+		/// non-defensive direction.
 		DefensiveActionNotDefensive,
+		/// The liquidation allocation pays out more collateral than held or
+		/// offsets more debt than outstanding.
 		InvalidLiquidationAllocation,
+		/// The redemption allocation cancels more debt than outstanding or
+		/// takes more collateral than held.
 		InvalidRedemptionAllocation,
+		/// Liquidating the branch's last stake-bearing vault would leave no
+		/// redistribution recipients; it must go through `FinalRecovery`.
 		LastVaultCannotBeLiquidated,
+		/// Redistribution per-stake math overflowed; the liquidation cannot
+		/// be finalized with these amounts.
 		RedistributionWouldOverflow,
+		/// `finalize_liquidation` was called for a vault that
+		/// `prepare_liquidation` never detached.
 		LiquidationNotPrepared,
 	}
 

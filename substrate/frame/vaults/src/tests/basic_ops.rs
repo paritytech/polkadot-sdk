@@ -247,3 +247,104 @@ fn repay_for_to_zero_closes_dormant_vault() {
 		assert_eq!(bs.last_dormant_vault_owner, None);
 	});
 }
+
+// Closing the last debt-bearing vault used to dead-end: the branch mints
+// aggregate interest with per-op ceilings while vaults accrue floors, so a
+// drift residual stayed in `minted_interest` forever, read as TCR 0, and
+// `WouldEnterSafetyMode` blocked the close. The close must instead sweep the
+// orphan into `bad_debt` (it is unbacked circulating pUSD) and settle.
+#[test]
+fn closing_last_vault_sweeps_interest_drift_to_bad_debt() {
+	use frame::deps::frame_support::traits::{
+		fungible::{Balanced, Mutate},
+		tokens::Imbalance,
+	};
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		assert_ok!(open(2, DOT, 1_000, 400, rate_pct(7, 100)));
+		// Distinct accrual timestamps make several ceiling mints land while
+		// the vaults only ever accrue floors.
+		advance_time(30 * 24 * 3_600 * 1_000);
+		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(9), 1, DOT));
+		advance_time(24 * 3_600 * 1_000);
+		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(9), 2, DOT));
+		// Top up both owners so overpay-repays can cover accrued interest.
+		assert_ok!(<Pusd as Mutate<u64>>::mint_into(&1, 100));
+		assert_ok!(<Pusd as Mutate<u64>>::mint_into(&2, 100));
+
+		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(2), 2, DOT, 10_000));
+		assert!(Vaults::<Test>::get(DOT, 2).is_none(), "vault 2 closed");
+		let bs = crate::pallet::BranchStates::<Test>::get(DOT).expect("branch state");
+		assert_eq!(bs.debt.bad_debt, 0, "no sweep while a debt-bearing vault remains");
+
+		// The last close: previously rejected with `WouldEnterSafetyMode`.
+		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(1), 1, DOT, 10_000));
+		assert!(Vaults::<Test>::get(DOT, 1).is_none(), "vault 1 closed");
+
+		let bs = crate::pallet::BranchStates::<Test>::get(DOT).expect("branch state");
+		assert_eq!(bs.debt.principal, 0);
+		assert_eq!(bs.stakes.total, 0);
+		assert_eq!(bs.debt.minted_interest, 0, "drift swept out of minted_interest");
+		assert_eq!(bs.rounding.ownerless_pusd_debt, 0);
+		assert!(bs.debt.bad_debt > 0, "drift recorded as bad debt");
+		System::assert_has_event(RuntimeEvent::Vaults(crate::Event::BadDebtRecorded {
+			collateral_id: DOT,
+			amount: bs.debt.bad_debt,
+		}));
+
+		// The insurance flow can now heal the branch clean.
+		let credit = <Pusd as Balanced<AccountId>>::issue(bs.debt.bad_debt);
+		let surplus = <crate::Pallet<Test> as pusd_primitives::VaultBadDebtInterface<
+			AssetId,
+			Balance,
+			_,
+		>>::heal(DOT, credit)
+		.expect("heal succeeds");
+		assert_eq!(surplus.peek(), 0);
+		let bs = crate::pallet::BranchStates::<Test>::get(DOT).expect("branch state");
+		assert_eq!(bs.debt.bad_debt, 0, "branch fully settled");
+	});
+}
+
+#[test]
+fn redemption_slot_overwrites_previous_owner() {
+	use pusd_primitives::{RedemptionAllocation, VaultRedemptionInterface};
+	fn park(owner: AccountId) {
+		let post_touch = <crate::Pallet<Test> as VaultRedemptionInterface<
+			AccountId,
+			AssetId,
+			Balance,
+		>>::touch_for_redemption(DOT, owner)
+		.expect("touch");
+		// Leave 150 — below the 200 minimum debt, above zero — so the vault
+		// goes Dormant and parks.
+		let allocation = RedemptionAllocation {
+			debt_to_cancel: post_touch - 150,
+			collateral_to_redeemer: (post_touch - 150) / 10,
+			fee_collateral_retained: 0,
+		};
+		assert_ok!(<crate::Pallet<Test> as VaultRedemptionInterface<
+			AccountId,
+			AssetId,
+			Balance,
+		>>::apply_redemption(DOT, owner, 7, allocation));
+	}
+	fn parked() -> Option<AccountId> {
+		crate::pallet::BranchStates::<Test>::get(DOT)
+			.expect("branch state")
+			.last_dormant_vault_owner
+	}
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(1, 100)));
+		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(2, 100)));
+		assert_ok!(open(3, DOT, 1_000, 500, rate_pct(3, 100)));
+
+		park(1);
+		assert_eq!(parked(), Some(1));
+		park(2);
+		assert_eq!(parked(), Some(2), "second parking overwrites the first");
+		assert!(vault_status(DOT, 1).is_dormant(), "overwritten owner stays Dormant");
+	});
+}

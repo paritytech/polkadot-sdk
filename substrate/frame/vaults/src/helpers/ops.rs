@@ -506,9 +506,28 @@ fn close_inner<T: Config>(
 		bs_after.last_dormant_vault_owner = None;
 	}
 
+	let branch_empties = bs_after.debt.principal.is_zero() &&
+		bs_after.stakes.total.is_zero() &&
+		bs_after.debt.pending_redist_principal.is_zero();
+	if branch_empties {
+		let orphan = bs_after
+			.debt
+			.minted_interest
+			.saturating_add(bs_after.rounding.ownerless_pusd_debt);
+		if !orphan.is_zero() {
+			bs_after.debt.minted_interest = BalanceOf::<T>::zero();
+			bs_after.rounding.ownerless_pusd_debt = BalanceOf::<T>::zero();
+			bs_after.debt.bad_debt = bs_after.debt.bad_debt.saturating_add(orphan);
+			Pallet::<T>::deposit_event(Event::BadDebtRecorded {
+				collateral_id: collateral_id.clone(),
+				amount: orphan,
+			});
+		}
+	}
+
 	let pre_tcr = compute_tcr::<T>(&bs_before, price, now)?;
 	let post_tcr = compute_tcr::<T>(&bs_after, price, now)?;
-	enforce_mode_rules::<T>(cfg, &bs_before, pre_tcr, post_tcr, false)?;
+	enforce_mode_rules::<T>(cfg, &bs_before, pre_tcr, post_tcr, branch_empties)?;
 
 	if !coll.is_zero() {
 		T::CollateralAssets::transfer_on_hold(
