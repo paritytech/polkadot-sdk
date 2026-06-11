@@ -108,10 +108,17 @@ pub trait MultiFilterSubscriptionApi: Send + Sync {
 
 /// Provides replay snapshots while holding the store index read lock during snapshot collection.
 pub(crate) trait ReplaySnapshotProvider: Send + Sync {
-	fn collect_snapshot_hashes(
+	/// Collect the replay snapshot hashes for `filter` while holding the store index read lock,
+	/// then invoke `enqueue` with those hashes while the lock is still held.
+	///
+	/// Keeping snapshot collection and the `AddFilter` enqueue under the same read lock makes the
+	/// pair atomic with respect to `submit`, which inserts a statement and notifies subscribers
+	/// under the index write lock.
+	fn with_snapshot_hashes(
 		&self,
 		filter: &OptimizedTopicFilter,
-	) -> Result<Vec<sp_statement_store::Hash>>;
+		enqueue: &mut dyn FnMut(Vec<sp_statement_store::Hash>),
+	) -> Result<()>;
 
 	fn statement_by_hash(&self, hash: &sp_statement_store::Hash) -> Result<Option<Vec<u8>>>;
 }
@@ -122,6 +129,7 @@ pub struct SubscriptionHandle {
 	pub(crate) sub_id: SeqID,
 	pub(crate) inner: Arc<Mutex<SubscriptionHandleInner>>,
 	pub(crate) matchers: SubscriptionsMatchersHandlers,
+	pub(crate) snapshot_provider: Arc<dyn ReplaySnapshotProvider>,
 }
 
 pub(crate) struct SubscriptionHandleInner {
@@ -148,9 +156,30 @@ impl SubscriptionHandle {
 
 		let filter_id = FilterId::new(inner.next_filter_id);
 		let sub_id = self.sub_id;
-		self.matchers
-			.try_send_by_seq_id(sub_id, MatcherMessage::AddFilter { sub_id, filter_id, filter })
-			.map_err(|_| AddFilterError::Stopped)?;
+
+		let mut send_result = None;
+		let collect_result = self.snapshot_provider.with_snapshot_hashes(&filter, &mut |hashes| {
+			send_result = Some(
+				self.matchers
+					.try_send_by_seq_id(
+						sub_id,
+						MatcherMessage::AddFilter {
+							sub_id,
+							filter_id,
+							filter: filter.clone(),
+							snapshot_hashes: hashes,
+						},
+					)
+					.map_err(|_| AddFilterError::Stopped),
+			);
+		});
+
+		// A snapshot collection error means the closure never ran and nothing was enqueued; the
+		// filter was not attached. Surface it without tearing down the whole subscription.
+		collect_result.map_err(|_| AddFilterError::Stopped)?;
+		send_result
+			.expect("with_snapshot_hashes invokes enqueue on successful collection; qed")?;
+
 		inner.next_filter_id = inner.next_filter_id.wrapping_add(1);
 		inner.active_filter_ids.insert(filter_id);
 		Ok(filter_id)
@@ -366,8 +395,14 @@ enum MatcherMessage {
 		snapshot_provider: Arc<dyn ReplaySnapshotProvider>,
 		tx: async_channel::Sender<MultiFilterSubscriptionEvent>,
 	},
-	/// Add a filter to an existing multi-filter subscription
-	AddFilter { sub_id: SeqID, filter_id: FilterId, filter: OptimizedTopicFilter },
+	/// Add a filter to an existing multi-filter subscription, with the replay snapshot collected
+	/// on the caller under the store index read lock.
+	AddFilter {
+		sub_id: SeqID,
+		filter_id: FilterId,
+		filter: OptimizedTopicFilter,
+		snapshot_hashes: Vec<sp_statement_store::Hash>,
+	},
 	/// Remove a filter from an existing multi-filter subscription
 	RemoveFilter { sub_id: SeqID, filter_id: FilterId },
 
@@ -421,8 +456,18 @@ impl SubscriptionsHandle {
 							}) => {
 								subscriptions.subscribe_empty(seq_id, snapshot_provider, tx);
 							},
-							Ok(MatcherMessage::AddFilter { sub_id, filter_id, filter }) => {
-								subscriptions.add_filter(sub_id, filter_id, filter);
+							Ok(MatcherMessage::AddFilter {
+								sub_id,
+								filter_id,
+								filter,
+								snapshot_hashes,
+							}) => {
+								subscriptions.add_filter(
+									sub_id,
+									filter_id,
+									filter,
+									snapshot_hashes,
+								);
 							},
 							Ok(MatcherMessage::RemoveFilter { sub_id, filter_id }) => {
 								subscriptions.remove_filter(sub_id, filter_id);
@@ -623,29 +668,26 @@ impl SubscriptionsInfo {
 		);
 	}
 
-	fn add_filter(&mut self, sub_id: SeqID, filter_id: FilterId, filter: OptimizedTopicFilter) {
+	fn add_filter(
+		&mut self,
+		sub_id: SeqID,
+		filter_id: FilterId,
+		filter: OptimizedTopicFilter,
+		snapshot_hashes: Vec<sp_statement_store::Hash>,
+	) {
 		let filter_key = SubscriptionFilterKey::Dynamic(filter_id);
 		{
-			let Some(SubscriptionRecord::MultiFilter { filters, state, tx, snapshot_provider }) =
+			let Some(SubscriptionRecord::MultiFilter { filters, state, .. }) =
 				self.by_sub_id.get_mut(&sub_id)
 			else {
 				return;
-			};
-
-			let snapshot = match snapshot_provider.collect_snapshot_hashes(&filter) {
-				Ok(snapshot) => snapshot,
-				Err(_) => {
-					state.stopped = true;
-					Self::send_stop(tx);
-					return;
-				},
 			};
 
 			let Entry::Vacant(entry) = filters.entry(filter_id) else {
 				return;
 			};
 			entry.insert(filter.clone());
-			state.record_filter_added(filter_id, snapshot);
+			state.record_filter_added(filter_id, snapshot_hashes);
 		}
 		self.index_filter(IndexedSubscription { topic_filter: filter, seq_id: sub_id, filter_key });
 
@@ -1106,11 +1148,13 @@ mod tests {
 	}
 
 	impl ReplaySnapshotProvider for TestReplaySnapshotProvider {
-		fn collect_snapshot_hashes(
+		fn with_snapshot_hashes(
 			&self,
 			_filter: &OptimizedTopicFilter,
-		) -> Result<Vec<sp_statement_store::Hash>> {
-			Ok(self.snapshot_hashes.clone())
+			enqueue: &mut dyn FnMut(Vec<sp_statement_store::Hash>),
+		) -> Result<()> {
+			enqueue(self.snapshot_hashes.clone());
+			Ok(())
 		}
 
 		fn statement_by_hash(&self, hash: &sp_statement_store::Hash) -> Result<Option<Vec<u8>>> {
@@ -1136,7 +1180,7 @@ mod tests {
 		));
 
 		subscriptions.subscribe_empty(sub_id, provider, tx);
-		subscriptions.add_filter(sub_id, filter_id, filter);
+		subscriptions.add_filter(sub_id, filter_id, filter, vec![statement.hash()]);
 
 		assert!(matches!(
 			rx.try_recv(),
@@ -1169,7 +1213,7 @@ mod tests {
 		));
 
 		subscriptions.subscribe_empty(sub_id, provider, tx);
-		subscriptions.add_filter(sub_id, filter_id, filter);
+		subscriptions.add_filter(sub_id, filter_id, filter, vec![]);
 		assert!(matches!(
 			rx.try_recv(),
 			Ok(MultiFilterSubscriptionEvent::ReplayDone { filter_id: done_filter })
@@ -1207,7 +1251,7 @@ mod tests {
 		);
 
 		subscriptions.subscribe_empty(sub_id, provider, tx);
-		subscriptions.add_filter(sub_id, filter_id, filter);
+		subscriptions.add_filter(sub_id, filter_id, filter, vec![]);
 		assert!(matches!(
 			rx.try_recv(),
 			Ok(MultiFilterSubscriptionEvent::ReplayDone { filter_id: done_filter })

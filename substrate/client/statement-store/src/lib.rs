@@ -361,11 +361,15 @@ pub struct Store {
 }
 
 impl ReplaySnapshotProvider for Weak<Store> {
-	fn collect_snapshot_hashes(&self, filter: &OptimizedTopicFilter) -> Result<Vec<Hash>> {
+	fn with_snapshot_hashes(
+		&self,
+		filter: &OptimizedTopicFilter,
+		enqueue: &mut dyn FnMut(Vec<Hash>),
+	) -> Result<()> {
 		let Some(store) = self.upgrade() else {
 			return Err(Error::InvalidConfig("statement store is closed".into()));
 		};
-		store.collect_snapshot_hashes(filter)
+		store.with_snapshot_hashes(filter, enqueue)
 	}
 
 	fn statement_by_hash(&self, hash: &Hash) -> Result<Option<Vec<u8>>> {
@@ -1668,7 +1672,11 @@ impl StatementStoreSubscriptionApi for Store {
 }
 
 impl Store {
-	fn collect_snapshot_hashes(&self, filter: &OptimizedTopicFilter) -> Result<Vec<Hash>> {
+	fn with_snapshot_hashes(
+		&self,
+		filter: &OptimizedTopicFilter,
+		enqueue: &mut dyn FnMut(Vec<Hash>),
+	) -> Result<()> {
 		let mut snapshot_hashes = Vec::new();
 		let mut seen = HashSet::new();
 		let query_index = self.query_index.read();
@@ -1678,7 +1686,8 @@ impl Store {
 			}
 			Ok(())
 		})?;
-		Ok(snapshot_hashes)
+		enqueue(snapshot_hashes);
+		Ok(())
 	}
 
 	fn statement_by_hash(&self, hash: &Hash) -> Result<Option<Vec<u8>>> {
@@ -1691,10 +1700,14 @@ impl MultiFilterSubscriptionApi for Arc<Store> {
 		let inner =
 			Arc::new(parking_lot::Mutex::new(crate::subscription::SubscriptionHandleInner::new()));
 		let snapshot_provider: Arc<dyn ReplaySnapshotProvider> = Arc::new(Arc::downgrade(self));
-		let (sub_id, stream) = self.subscription_manager.subscribe_empty(snapshot_provider);
+		let (sub_id, stream) = self.subscription_manager.subscribe_empty(snapshot_provider.clone());
 
-		let handle =
-			SubscriptionHandle { sub_id, inner, matchers: self.subscription_manager.matchers() };
+		let handle = SubscriptionHandle {
+			sub_id,
+			inner,
+			matchers: self.subscription_manager.matchers(),
+			snapshot_provider,
+		};
 		(handle, stream)
 	}
 }
@@ -3407,11 +3420,7 @@ mod tests {
 		};
 		use futures::StreamExt;
 		use sp_statement_store::OptimizedTopicFilter;
-		use std::{
-			collections::{HashMap, HashSet},
-			sync::Arc,
-			time::Duration,
-		};
+		use std::{collections::HashSet, sync::Arc, time::Duration};
 
 		fn arc_test_store() -> (Arc<Store>, tempfile::TempDir) {
 			let (store, dir) = test_store();
@@ -3427,59 +3436,6 @@ mod tests {
 				events.push(event);
 			}
 			events
-		}
-
-		async fn drain_replays(
-			stream: &mut MultiFilterEventStream,
-			filter_ids: impl IntoIterator<Item = sp_statement_store::FilterId>,
-			timeout: Duration,
-		) -> HashMap<sp_statement_store::FilterId, Vec<Vec<u8>>> {
-			let mut pending: HashSet<_> = filter_ids.into_iter().collect();
-			let mut snapshots: HashMap<_, Vec<_>> =
-				pending.iter().map(|filter_id| (*filter_id, Vec::new())).collect();
-
-			while !pending.is_empty() {
-				match tokio::time::timeout(timeout, stream.next()).await {
-					Ok(Some(MultiFilterSubscriptionEvent::ReplayStatements {
-						filter_id,
-						statements,
-					})) if snapshots.contains_key(&filter_id) => {
-						snapshots.entry(filter_id).or_default().extend(statements);
-					},
-					Ok(Some(MultiFilterSubscriptionEvent::ReplayStatements { .. })) => {},
-					Ok(Some(MultiFilterSubscriptionEvent::ReplayDone { filter_id })) => {
-						pending.remove(&filter_id);
-					},
-					Ok(Some(MultiFilterSubscriptionEvent::NewStatement(_))) => {},
-					Ok(Some(MultiFilterSubscriptionEvent::Stop)) => {
-						panic!("subscription stopped unexpectedly");
-					},
-					Ok(None) => panic!("subscription ended before replay_done"),
-					Err(_) => panic!("timed out waiting for replay_done"),
-				}
-			}
-			snapshots
-		}
-
-		#[tokio::test]
-		async fn add_filter_returns_before_snapshot_collection_finishes() {
-			let (store, _dir) = arc_test_store();
-			let (handle, mut stream) = store.create_subscription();
-			let index_write_guard = store.query_index.write();
-			let (filter_id_tx, filter_id_rx) = std::sync::mpsc::channel();
-
-			std::thread::spawn(move || {
-				let filter_id = handle.add_filter(OptimizedTopicFilter::Any).unwrap();
-				filter_id_tx.send(filter_id).unwrap();
-			});
-
-			let filter_id = filter_id_rx
-				.recv_timeout(Duration::from_secs(1))
-				.expect("add_filter should not wait for snapshot collection");
-			drop(index_write_guard);
-
-			let snapshots = drain_replays(&mut stream, [filter_id], Duration::from_secs(1)).await;
-			assert!(snapshots[&filter_id].is_empty());
 		}
 
 		#[tokio::test]

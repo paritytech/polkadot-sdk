@@ -1020,6 +1020,21 @@ mod test {
 	}
 
 	#[test]
+	fn match_all_with_duplicate_statement_topics() {
+		let topic1: Topic = [0x01; 32].into();
+		let topic2: Topic = [0x02; 32].into();
+
+		let mut statement = Statement::new();
+		statement.set_topic(0, topic1);
+		statement.set_topic(1, topic1);
+		assert_eq!(statement.topics(), &[topic1, topic1]);
+
+		let filter =
+			crate::OptimizedTopicFilter::MatchAll([topic1, topic2].iter().cloned().collect());
+		assert!(!filter.matches(&statement));
+	}
+
+	#[test]
 	fn statement_type_info_matches_encoding() {
 		// Statement has custom Encode/Decode that encodes as Vec<Field>.
 		// Verify that TypeInfo reflects this by containing a reference to Vec<Field>.

@@ -99,8 +99,7 @@ impl OptimizedTopicFilter {
 		match self {
 			OptimizedTopicFilter::Any => true,
 			OptimizedTopicFilter::MatchAll(topics) => {
-				statement.topics().iter().filter(|topic| topics.contains(*topic)).count() ==
-					topics.len()
+				topics.iter().all(|topic| statement.topics().contains(topic))
 			},
 			OptimizedTopicFilter::MatchAny(topics) => {
 				statement.topics().iter().any(|topic| topics.contains(topic))
