@@ -113,10 +113,6 @@ pub fn process_authorizations<T: Config>(
 		}
 
 		let account_exists = frame_system::Account::<T>::contains_key(&account_id);
-		if auth.address.is_zero() && !account_exists {
-			log::debug!(target: LOG_TARGET, "Skipping clear delegation for non-existent account {authority:?}");
-			continue;
-		}
 
 		// EIP-7702 spec: "If any step above fails, immediately stop processing the tuple and
 		// continue to the next tuple." Step 8 (set code) is one such step, so wrap the whole

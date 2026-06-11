@@ -388,6 +388,34 @@ fn clearing_delegation_with_zero_address() {
 	});
 }
 
+/// EIP-7702 spec: an authorization with `address == 0x00…00` on a non-existent authority
+/// satisfies step 5 (code is empty), so the auth must still execute — creating the account,
+/// bumping its nonce, and leaving it as a plain EOA with no delegation.
+#[test]
+fn clear_delegation_on_non_existent_account_bumps_nonce() {
+	ExtBuilder::default().build().execute_with(|| {
+		let setup = DelegationTestSetup::new_unfunded([0xCC; 32]);
+		let authority_id = setup.authority_id.clone();
+
+		// Sanity: authority does not exist in frame_system yet.
+		assert!(!frame_system::Account::<Test>::contains_key(&authority_id));
+		assert_eq!(frame_system::Pallet::<Test>::account_nonce(&authority_id), 0);
+
+		let auth = setup.sign_authorization(H160::zero());
+		let result = setup.process(&[auth]);
+
+		// Step 9 ran: nonce was bumped from 0 → 1, and that materialized the account.
+		assert!(frame_system::Account::<Test>::contains_key(&authority_id));
+		assert_eq!(frame_system::Pallet::<Test>::account_nonce(&authority_id), 1);
+		// Step 8's zero-address branch: no delegation indicator written.
+		assert!(!AccountInfo::<Test>::is_delegated(&setup.signer.address));
+		assert_eq!(AccountInfo::<Test>::get_delegation_target(&setup.signer.address), None);
+		// Counter accounting: a new account was created (the authority itself).
+		assert_eq!(result.new_accounts, 1);
+		assert_eq!(result.existing_accounts, 0);
+	});
+}
+
 #[test]
 fn process_multiple_authorizations_from_different_signers() {
 	ExtBuilder::default().build().execute_with(|| {
