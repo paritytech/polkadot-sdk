@@ -51,7 +51,7 @@
 //! 6. [x] **Local queries.** Over the fed topic set, implement `local_filter()` (advertised
 //!    [`AffinityFilter`] built from the topics) and `local_has_explicit_affinity(stmt)` (does any
 //!    of the statement's topics sit in the set). Configured and subscribed topics start being
-//!    advertised here. Tests: filter contents and membership.
+//!    advertised here. Tests: filter contents and membership ([#12340]).
 //! 7. [ ] **Storage obligation.** Add a query that derives this node's store decision for a
 //!    statement from the sources whose topics it matches: a configured topic obliges permanent
 //!    storage, a transient subscription only retention until the next propagation. The orchestrator
@@ -71,6 +71,7 @@
 //! [#12278]: https://github.com/paritytech/polkadot-sdk/pull/12278
 //! [#12316]: https://github.com/paritytech/polkadot-sdk/pull/12316
 //! [#12339]: https://github.com/paritytech/polkadot-sdk/pull/12339
+//! [#12340]: https://github.com/paritytech/polkadot-sdk/pull/12340
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
 use sc_network_types::PeerId;
