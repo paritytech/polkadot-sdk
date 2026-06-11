@@ -945,4 +945,41 @@ mod test {
 
 		assert_eq!(res, Err(TransactionValidityError::Invalid(InvalidTransaction::Payment)));
 	}
+
+	/// EIP-7702 spec: an authorization with `nonce >= 2**64` invalidates the *entire*
+	/// transaction at validation time (not a per-tuple skip).
+	#[test]
+	fn check_eth_transact_7702_rejects_oversized_nonce() {
+		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		let dest = H160::from([1u8; 20]);
+		let signer = TestSigner::new(&[0xCC; 32]);
+		let auth = signer.sign_authorization(chain_id, dest, U256::zero());
+
+		// nonce = 2^64 — first value that doesn't fit in u64.
+		let oversized_nonce = U256::one() << 64;
+		let bad_auth = crate::evm::AuthorizationListEntry { nonce: oversized_nonce, ..auth };
+
+		assert_eq!(
+			UncheckedExtrinsicBuilder::call_with_authorization(dest, vec![bad_auth]).check(),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+		);
+	}
+
+	/// EIP-7702 spec: an authorization with `y_parity >= 2**8` invalidates the *entire*
+	/// transaction at validation time.
+	#[test]
+	fn check_eth_transact_7702_rejects_oversized_y_parity() {
+		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		let dest = H160::from([1u8; 20]);
+		let signer = TestSigner::new(&[0xCC; 32]);
+		let auth = signer.sign_authorization(chain_id, dest, U256::zero());
+
+		// y_parity = 256 — first value that doesn't fit in u8.
+		let bad_auth = crate::evm::AuthorizationListEntry { y_parity: U256::from(256u32), ..auth };
+
+		assert_eq!(
+			UncheckedExtrinsicBuilder::call_with_authorization(dest, vec![bad_auth]).check(),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+		);
+	}
 }

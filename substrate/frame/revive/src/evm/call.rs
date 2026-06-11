@@ -115,6 +115,30 @@ impl GenericTransaction {
 			}
 		}
 
+		// EIP-7702: per-tuple field bounds. `chain_id`, `r`, `s` are `U256` (< 2^256 by
+		// construction) and `address` is `H160` (always 20 bytes), so we only need to check
+		// `nonce` and `y_parity` here. Out-of-bounds invalidates the *entire* transaction —
+		// distinct from the per-tuple "nonce < 2^64 - 1" check in `process_authorizations`,
+		// which is a processing-step skip.
+		for auth in self.authorization_list.iter() {
+			if auth.nonce.bits() > 64 {
+				log::debug!(
+					target: LOG_TARGET,
+					"EIP-7702 authorization nonce exceeds 2^64: {:?}",
+					auth.nonce,
+				);
+				return Err(InvalidTransaction::Call);
+			}
+			if auth.y_parity.bits() > 8 {
+				log::debug!(
+					target: LOG_TARGET,
+					"EIP-7702 authorization y_parity exceeds 2^8: {:?}",
+					auth.y_parity,
+				);
+				return Err(InvalidTransaction::Call);
+			}
+		}
+
 		// Currently, effective_gas_price will always be the same as base_fee
 		// Because all callers of `into_call` will prepare `tx` that way. Some of the subsequent
 		// logic will not work correctly anymore if we change that assumption.
