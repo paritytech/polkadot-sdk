@@ -419,15 +419,16 @@ impl<T: Config> AccountInfo<T> {
 				address,
 				|account| -> Result<StorageDeposit<BalanceOf<T>>, DispatchError> {
 					let mut refund: BalanceOf<T> = Zero::zero();
-					if let Some(account) = account &&
-						let AccountType::DelegatedEOA { delegate_target, contract_info } =
-							&mut account.account_type
+					if let Some(AccountInfo {
+						account_type: AccountType::DelegatedEOA { delegate_target, contract_info },
+						..
+					}) = account
 					{
 						*delegate_target = None;
 						if !contract_info.code_hash.is_zero() {
 							let _ = CodeInfo::<T>::decrement_refcount(contract_info.code_hash).inspect_err(|e| {
-							log::warn!(target: LOG_TARGET, "decrement_refcount({:?}) failed: {e:?}", contract_info.code_hash);
-						})?;
+								log::warn!(target: LOG_TARGET, "decrement_refcount({:?}) failed: {e:?}", contract_info.code_hash);
+							})?;
 							refund = core::mem::take(&mut contract_info.storage_base_deposit);
 							contract_info.code_hash = Default::default();
 						}
