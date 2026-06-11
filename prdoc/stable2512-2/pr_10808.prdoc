@@ -1,0 +1,22 @@
+title: Update retester CI to check expectations
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    This PR makes a number of changes to the retester CI job that were recommended by @athei and other people at parity.
+
+    One of our main objectives with the changes in this PR is to harden the CI and ensure that the job status that we see in Github is representative of whether we got the results that we expect or not.
+
+    With this PR, we added two versioned controlled JSON files, one for each platform that we run differential tests on, which describe the status that we expect for each one of the tests that we run.
+
+    Part of the retester CI job is to run the differential tests and ensure that the results of running tests match the expectation files we have in the repo for the platform.
+
+    In this case:
+    * CI is green if the test's execution matches the expectations that we've set in the expectations JSON files.
+    * CI is red if the test's execution doesn't match the expectations that we've set in the expectations JSON files.
+
+    The CI job for retester no longer posts a comment with the status of all of the tests.
+
+    If the expectations do not match, then the new expectations file is uploaded to the CI job you would be required to update the expectation file to match.
+crates: []

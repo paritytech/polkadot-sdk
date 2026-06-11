@@ -165,8 +165,9 @@ impl<T: frame_system::Config> Registrar for TestRegistrar<T> {
 		PARATHREADS.with(|x| {
 			let mut parathreads = x.borrow_mut();
 			match parathreads.binary_search(&id) {
-				Ok(_) =>
-					Err(DispatchError::Other("already parathread, so cannot `make_parathread`")),
+				Ok(_) => {
+					Err(DispatchError::Other("already parathread, so cannot `make_parathread`"))
+				},
 				Err(i) => {
 					parathreads.insert(i, id);
 					Ok(())

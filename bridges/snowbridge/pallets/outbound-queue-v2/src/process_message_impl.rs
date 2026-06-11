@@ -22,7 +22,7 @@ impl<T: Config> ProcessMessage for Pallet<T> {
 				payload: message.to_vec(),
 				reason: ProcessMessageError::Overweight(weight),
 			});
-			return Err(ProcessMessageError::Overweight(weight))
+			return Err(ProcessMessageError::Overweight(weight));
 		}
 		Self::do_process_message(origin, message)
 	}

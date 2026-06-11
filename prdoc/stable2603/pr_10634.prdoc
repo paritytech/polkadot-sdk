@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove uses of sp-debug-derive/force-debug feature
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Removes the `force-debug` feature flag from `sp-debug-derive` dependencies across the codebase.
+      This feature has been a no-op since #10582 and can be safely removed without any behavioral change.
+
+crates:
+  - name: kitchensink-runtime
+    bump: none
+  - name: revive-dev-runtime
+    bump: none
+  - name: frame-support
+    bump: none
+  - name: substrate-test-runtime
+    bump: none

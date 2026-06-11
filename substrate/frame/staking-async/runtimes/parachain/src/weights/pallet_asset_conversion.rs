@@ -177,4 +177,9 @@ impl<T: frame_system::Config> pallet_asset_conversion::WeightInfo for WeightInfo
 			.saturating_add(T::DbWeight::get().reads(7_u64))
 			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(n.into())))
 	}
+	fn get_reserves() -> Weight {
+		// Placeholder: will be replaced by running benchmarks.
+		Weight::from_parts(16_000_000, 6566)
+			.saturating_add(T::DbWeight::get().reads(4))
+	}
 }

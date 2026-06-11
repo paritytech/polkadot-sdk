@@ -22,17 +22,6 @@
     "is_relay": true
   },
   {
-    "name": "rococo",
-    "package": "rococo-runtime",
-    "path": "polkadot/runtime/rococo",
-    "header": "polkadot/file_header.txt",
-    "template": "polkadot/xcm/pallet-xcm-benchmarks/template.hbs",
-    "bench_features": "runtime-benchmarks",
-    "bench_flags": "",
-    "uri": "wss://try-runtime-rococo.polkadot.io:443",
-    "is_relay": true
-  },
-  {
     "name": "asset-hub-westend",
     "package": "asset-hub-westend-runtime",
     "path": "cumulus/parachains/runtimes/assets/asset-hub-westend",
@@ -41,28 +30,6 @@
     "bench_features": "runtime-benchmarks",
     "bench_flags": "",
     "uri": "wss://westend-asset-hub-rpc.polkadot.io:443",
-    "is_relay": false
-  },
-  {
-    "name": "asset-hub-rococo",
-    "package": "asset-hub-rococo-runtime",
-    "path": "cumulus/parachains/runtimes/assets/asset-hub-rococo",
-    "header": "cumulus/file_header.txt",
-    "template": "cumulus/templates/xcm-bench-template.hbs",
-    "bench_features": "runtime-benchmarks",
-    "bench_flags": "",
-    "uri": "wss://rococo-asset-hub-rpc.polkadot.io:443",
-    "is_relay": false
-  },
-  {
-    "name": "bridge-hub-rococo",
-    "package": "bridge-hub-rococo-runtime",
-    "path": "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo",
-    "header": "cumulus/file_header.txt",
-    "template": "cumulus/templates/xcm-bench-template.hbs",
-    "bench_features": "runtime-benchmarks",
-    "bench_flags": "",
-    "uri": "wss://rococo-bridge-hub-rpc.polkadot.io:443",
     "is_relay": false
   },
   {

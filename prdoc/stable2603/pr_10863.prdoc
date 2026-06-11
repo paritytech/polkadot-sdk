@@ -1,0 +1,7 @@
+title: 'parachain-system: Ensure left-over message budget fits into the PoV'
+doc:
+- audience: Runtime Dev
+  description: Ensure we check the buget against the remaining proof size in the block.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: patch

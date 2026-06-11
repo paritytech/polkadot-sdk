@@ -15,7 +15,7 @@
 // limitations under the License.
 
 pub(crate) mod imports {
-	pub use cumulus_primitives_core::ParaId;
+	pub use cumulus_primitives_core::{ParaId, RelayProofRequest};
 	pub use parachains_common_types::{AccountId, Balance, Nonce};
 	pub use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 	pub use sp_runtime::{
@@ -61,6 +61,16 @@ macro_rules! impl_node_runtime_apis {
 
 			impl cumulus_primitives_core::RelayParentOffsetApi<$block> for $runtime {
 				fn relay_parent_offset() -> u32 {
+					unimplemented!()
+				}
+
+				fn max_claim_queue_offset() -> u8 {
+					unimplemented!()
+				}
+			}
+
+			impl cumulus_primitives_core::SchedulingV3EnabledApi<$block> for $runtime {
+				fn scheduling_v3_enabled() -> bool {
 					unimplemented!()
 				}
 			}
@@ -175,6 +185,13 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 			}
+
+			impl cumulus_primitives_core::KeyToIncludeInRelayProof<$block> for $runtime {
+				fn keys_to_prove() -> RelayProofRequest {
+					unimplemented!()
+				}
+			}
+
 			#[cfg(feature = "try-runtime")]
 			impl frame_try_runtime::TryRuntime<$block> for $runtime {
 				fn on_runtime_upgrade(
@@ -234,17 +251,20 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
-			impl sp_statement_store::runtime_api::ValidateStatement<$block> for $runtime {
-				fn validate_statement(
-					_source: sp_statement_store::runtime_api::StatementSource,
-					_statement: sp_statement_store::Statement,
-				) -> Result<sp_statement_store::runtime_api::ValidStatement, sp_statement_store::runtime_api::InvalidStatement> {
+			impl cumulus_primitives_core::TargetBlockRate<$block> for $runtime {
+				fn target_block_rate() -> u32 {
 					unimplemented!()
 				}
 			}
 
-			impl cumulus_primitives_core::TargetBlockRate<$block> for $runtime {
-				fn target_block_rate() -> u32 {
+			impl sp_transaction_storage_proof::runtime_api::TransactionStorageApi<$block> for $runtime {
+				fn retention_period() -> sp_runtime::traits::NumberFor<$block> {
+					unimplemented!()
+				}
+
+				fn indexed_transactions(
+					_block: sp_runtime::traits::NumberFor<$block>,
+				) -> Vec<sp_transaction_storage_proof::IndexedTransactionInfo> {
 					unimplemented!()
 				}
 			}

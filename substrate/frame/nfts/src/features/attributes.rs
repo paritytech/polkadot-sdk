@@ -461,19 +461,22 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> Result<bool, DispatchError> {
 		let mut result = false;
 		match namespace {
-			AttributeNamespace::CollectionOwner =>
-				result = Self::has_role(&collection, &origin, CollectionRole::Admin),
-			AttributeNamespace::ItemOwner =>
+			AttributeNamespace::CollectionOwner => {
+				result = Self::has_role(&collection, &origin, CollectionRole::Admin)
+			},
+			AttributeNamespace::ItemOwner => {
 				if let Some(item) = maybe_item {
 					let item_details =
 						Item::<T, I>::get(&collection, &item).ok_or(Error::<T, I>::UnknownItem)?;
 					result = origin == &item_details.owner
-				},
-			AttributeNamespace::Account(account_id) =>
+				}
+			},
+			AttributeNamespace::Account(account_id) => {
 				if let Some(item) = maybe_item {
 					let approvals = ItemAttributesApprovalsOf::<T, I>::get(&collection, &item);
 					result = account_id == origin && approvals.contains(&origin)
-				},
+				}
+			},
 			_ => (),
 		};
 		Ok(result)

@@ -52,13 +52,10 @@
 //!
 //! Entering safe mode with deposit:
 #![doc = docify::embed!("src/tests.rs", can_activate)]
-//!
 //! Entering safe mode via privileged origin:
 #![doc = docify::embed!("src/tests.rs", can_force_activate_with_config_origin)]
-//!
 //! Exiting safe mode via privileged origin:
 #![doc = docify::embed!("src/tests.rs", can_force_deactivate_with_config_origin)]
-//!
 //! ## Low Level / Implementation Details
 //!
 //! ### Use Cost
@@ -451,7 +448,7 @@ pub mod pallet {
 		/// [`EnteredUntil`].
 		fn on_initialize(current: BlockNumberFor<T>) -> Weight {
 			let Some(limit) = EnteredUntil::<T>::get() else {
-				return T::WeightInfo::on_initialize_noop()
+				return T::WeightInfo::on_initialize_noop();
 			};
 
 			if current > limit {
@@ -566,7 +563,7 @@ impl<T: Config> Pallet<T> {
 	fn hold(who: T::AccountId, amount: BalanceOf<T>) -> Result<(), Error<T>> {
 		let block = <frame_system::Pallet<T>>::block_number();
 		if !T::Currency::balance_on_hold(&HoldReason::EnterOrExtend.into(), &who).is_zero() {
-			return Err(Error::<T>::AlreadyDeposited.into())
+			return Err(Error::<T>::AlreadyDeposited.into());
 		}
 
 		T::Currency::hold(&HoldReason::EnterOrExtend.into(), &who, amount)
@@ -590,7 +587,7 @@ impl<T: Config> Pallet<T> {
 		let CallMetadata { pallet_name, .. } = call.get_call_metadata();
 		// SAFETY: The `SafeMode` pallet is always allowed.
 		if pallet_name == <Pallet<T> as PalletInfoAccess>::name() {
-			return true
+			return true;
 		}
 
 		if Self::is_entered() {

@@ -187,17 +187,17 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), QueueDownwardMessageError> {
 		let serialized_len = msg.len() as u32;
 		if serialized_len > config.max_downward_message_size {
-			return Err(QueueDownwardMessageError::ExceedsMaxMessageSize)
+			return Err(QueueDownwardMessageError::ExceedsMaxMessageSize);
 		}
 
 		// Hard limit on Queue size
 		if Self::dmq_length(*para) > Self::dmq_max_length(config.max_downward_message_size) {
-			return Err(QueueDownwardMessageError::ExceedsMaxMessageSize)
+			return Err(QueueDownwardMessageError::ExceedsMaxMessageSize);
 		}
 
 		// If the head exists, we assume the parachain is legit and exists.
 		if !paras::Heads::<T>::contains_key(para) {
-			return Err(QueueDownwardMessageError::Unroutable)
+			return Err(QueueDownwardMessageError::Unroutable);
 		}
 
 		Ok(())
@@ -259,7 +259,7 @@ impl<T: Config> Pallet<T> {
 
 			// sanity: if dmq_length is >0 this should always be 'Some'.
 			if contents.get(0).map_or(false, |msg| msg.sent_at <= relay_parent_number) {
-				return Err(ProcessedDownwardMessagesAcceptanceErr::AdvancementRule)
+				return Err(ProcessedDownwardMessagesAcceptanceErr::AdvancementRule);
 			}
 		}
 
@@ -271,7 +271,7 @@ impl<T: Config> Pallet<T> {
 			return Err(ProcessedDownwardMessagesAcceptanceErr::Underflow {
 				processed_downward_messages,
 				dmq_length,
-			})
+			});
 		}
 
 		Ok(())

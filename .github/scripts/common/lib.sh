@@ -355,6 +355,9 @@ function get_s3_url_base() {
       frame-omni-bencher)
         printf "https://releases.parity.io/frame-omni-bencher"
         ;;
+      eth-rpc)
+        printf "https://releases.parity.io/eth-rpc"
+        ;;
       *)
         printf "UNSUPPORTED BINARY $name"
         exit 1
@@ -372,9 +375,6 @@ function check_sha256() {
 # Import GPG keys of the release team members
 function import_gpg_keys() {
   GPG_KEYSERVER=${GPG_KEYSERVER:-"hkps://keyserver.ubuntu.com"}
-  SEC="9D4B2B6EB8F97156D19669A9FF0812D491B96798"
-  EGOR="E6FC4D4782EB0FA64A4903CCDB7D3555DD3932D3"
-  MORGAN="2E92A9D8B15D7891363D1AE8AF9E6C43F7F8C4CF"
   PARITY_RELEASES="90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE"
   PARITY_RELEASES_SIGN_COMMITS="D8018FBB3F534D866A45998293C5FB5F6A367B51"
 

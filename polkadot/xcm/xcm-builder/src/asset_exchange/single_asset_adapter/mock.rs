@@ -110,6 +110,7 @@ pub type NativeAndAssets =
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
 	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
+	pub LpFee: Permill = Permill::from_rational(3u32, 1_000u32); // 0.3%
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
@@ -142,7 +143,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolSetupFeeAsset = Native;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
-	type LPFee = ConstU32<3>;
+	type LPFee = LpFee;
 	type PalletId = AssetConversionPalletId;
 	type MaxSwapPathLength = ConstU32<3>;
 	type MintMinLiquidity = ConstU128<100>;
@@ -188,7 +189,9 @@ impl MaybeEquivalence<Location, NativeOrWithId<u32>> for LocationToAssetId {
 		match location.unpack() {
 			(0, [PalletInstance(instance), GeneralIndex(index)])
 				if *instance == pallet_instance =>
-				Some(NativeOrWithId::WithId(*index as u32)),
+			{
+				Some(NativeOrWithId::WithId(*index as u32))
+			},
 			(0, []) => Some(NativeOrWithId::Native),
 			_ => None,
 		}
@@ -197,8 +200,9 @@ impl MaybeEquivalence<Location, NativeOrWithId<u32>> for LocationToAssetId {
 	fn convert_back(asset_id: &NativeOrWithId<u32>) -> Option<Location> {
 		let pallet_instance = TrustBackedAssetsPalletIndex::get();
 		Some(match asset_id {
-			NativeOrWithId::WithId(id) =>
-				Location::new(0, [PalletInstance(pallet_instance), GeneralIndex((*id).into())]),
+			NativeOrWithId::WithId(id) => {
+				Location::new(0, [PalletInstance(pallet_instance), GeneralIndex((*id).into())])
+			},
 			NativeOrWithId::Native => Location::new(0, []),
 		})
 	}
@@ -236,7 +240,6 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTrap = ();
 	type AssetLocker = ();
 	type AssetExchanger = PoolAssetsExchanger;
-	type AssetClaims = ();
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
 	type FeeManager = ();
@@ -282,8 +285,9 @@ where
 {
 	fn try_convert(o: RuntimeOrigin) -> Result<Location, RuntimeOrigin> {
 		o.try_with_caller(|caller| match caller.try_into() {
-			Ok(frame_system::RawOrigin::Signed(who)) =>
-				Ok(Junction::AccountIndex64 { network: Network::get(), index: who.into() }.into()),
+			Ok(frame_system::RawOrigin::Signed(who)) => {
+				Ok(Junction::AccountIndex64 { network: Network::get(), index: who.into() }.into())
+			},
 			Ok(other) => Err(other.into()),
 			Err(other) => Err(other),
 		})

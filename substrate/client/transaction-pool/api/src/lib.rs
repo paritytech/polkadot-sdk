@@ -526,7 +526,7 @@ impl<Block: BlockT> sp_core::offchain::TransactionPool for OffchainTransactionPo
 					"Failed to decode extrinsic in `OffchainTransactionPool::submit_transaction`: {e:?}"
 				);
 
-				return Err(())
+				return Err(());
 			},
 		};
 

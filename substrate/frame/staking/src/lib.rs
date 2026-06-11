@@ -331,7 +331,7 @@ use sp_staking::{
 	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
 	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
 };
-pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
+pub use sp_staking::{EraPayout, Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
 
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
@@ -591,7 +591,7 @@ impl<T: Config> StakingLedger<T> {
 		// first we try to remove stake from active
 		if self.active >= to_withdraw {
 			self.active -= to_withdraw;
-			return self
+			return self;
 		} else {
 			withdrawn += self.active;
 			self.active = BalanceOf::<T>::zero();
@@ -609,7 +609,7 @@ impl<T: Config> StakingLedger<T> {
 			}
 
 			if withdrawn >= to_withdraw {
-				break
+				break;
 			}
 		}
 
@@ -636,7 +636,7 @@ impl<T: Config> StakingLedger<T> {
 			}
 
 			if unlocking_balance >= value {
-				break
+				break;
 			}
 		}
 
@@ -673,7 +673,7 @@ impl<T: Config> StakingLedger<T> {
 		slash_era: EraIndex,
 	) -> BalanceOf<T> {
 		if slash_amount.is_zero() {
-			return Zero::zero()
+			return Zero::zero();
 		}
 
 		use sp_runtime::PerThing as _;
@@ -766,7 +766,7 @@ impl<T: Config> StakingLedger<T> {
 		let mut slashed_unlocking = BTreeMap::<_, _>::new();
 		for i in slash_chunks_priority {
 			if remaining_slash.is_zero() {
-				break
+				break;
 			}
 
 			if let Some(chunk) = self.unlocking.get_mut(i).defensive() {
@@ -774,7 +774,7 @@ impl<T: Config> StakingLedger<T> {
 				// write the new slashed value of this chunk to the map.
 				slashed_unlocking.insert(chunk.era, chunk.value);
 			} else {
-				break
+				break;
 			}
 		}
 
@@ -977,33 +977,10 @@ impl<AccountId> SessionInterface<AccountId> for () {
 	}
 }
 
-/// Handler for determining how much of a balance should be paid out on the current era.
-pub trait EraPayout<Balance> {
-	/// Determine the payout for this era.
-	///
-	/// Returns the amount to be paid to stakers in this era, as well as whatever else should be
-	/// paid out ("the rest").
-	fn era_payout(
-		total_staked: Balance,
-		total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> (Balance, Balance);
-}
-
-impl<Balance: Default> EraPayout<Balance> for () {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		_era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		(Default::default(), Default::default())
-	}
-}
-
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
 pub struct ConvertCurve<T>(core::marker::PhantomData<T>);
-impl<Balance, T> EraPayout<Balance> for ConvertCurve<T>
+impl<Balance, T> sp_staking::EraPayout<Balance> for ConvertCurve<T>
 where
 	Balance: AtLeast32BitUnsigned + Clone + Copy,
 	T: Get<&'static PiecewiseLinear<'static>>,
@@ -1176,7 +1153,7 @@ impl<T: Config> EraInfo<T> {
 				1
 			} else {
 				// if no exposure, then no rewards to claim.
-				return false
+				return false;
 			}
 		};
 
@@ -1185,7 +1162,7 @@ impl<T: Config> EraInfo<T> {
 			.map(|l| l.legacy_claimed_rewards.contains(&era))
 			.unwrap_or_default()
 		{
-			return false
+			return false;
 		}
 
 		ClaimedRewards::<T>::get(era, validator).len() < page_count as usize
@@ -1229,12 +1206,12 @@ impl<T: Config> EraInfo<T> {
 		// return clipped exposure if page zero and paged exposure does not exist
 		// exists for backward compatibility and can be removed as part of #13034
 		if overview.is_none() && page == 0 {
-			return Some(PagedExposure::from_clipped(<ErasStakersClipped<T>>::get(era, validator)))
+			return Some(PagedExposure::from_clipped(<ErasStakersClipped<T>>::get(era, validator)));
 		}
 
 		// no exposure for this validator
 		if overview.is_none() {
-			return None
+			return None;
 		}
 
 		let overview = overview.expect("checked above; qed");
@@ -1261,7 +1238,7 @@ impl<T: Config> EraInfo<T> {
 		let overview = <ErasStakersOverview<T>>::get(&era, validator);
 
 		if overview.is_none() {
-			return ErasStakers::<T>::get(era, validator)
+			return ErasStakers::<T>::get(era, validator);
 		}
 
 		let overview = overview.expect("checked above; qed");
@@ -1306,7 +1283,7 @@ impl<T: Config> EraInfo<T> {
 				Ok(_) => None,
 				// Non-paged exposure is considered as a single page
 				Err(_) => Some(0),
-			}
+			};
 		}
 
 		// Find next claimable page of paged exposure.
@@ -1339,7 +1316,7 @@ impl<T: Config> EraInfo<T> {
 		if claimed_pages.contains(&page) {
 			defensive!("Trying to set an already claimed reward");
 			// nevertheless don't do anything since the page already exists in claimed rewards.
-			return
+			return;
 		}
 
 		// add page to claimed entries

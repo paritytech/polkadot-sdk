@@ -153,6 +153,10 @@ pub struct NetworkParams {
 	#[arg(long)]
 	pub ipfs_server: bool,
 
+	/// Specify a list of IPFS bootstrap nodes.
+	#[arg(long, value_name = "ADDR", num_args = 1.., requires = "ipfs_server")]
+	pub ipfs_bootnodes: Vec<MultiaddrWithPeerId>,
+
 	/// Blockchain syncing mode.
 	#[arg(
 		long,
@@ -247,8 +251,9 @@ impl NetworkParams {
 			(true, true) => unreachable!("`*_private_ip` flags are mutually exclusive; qed"),
 			(true, false) => true,
 			(false, true) => false,
-			(false, false) =>
-				is_dev || matches!(chain_type, ChainType::Local | ChainType::Development),
+			(false, false) => {
+				is_dev || matches!(chain_type, ChainType::Local | ChainType::Development)
+			},
 		};
 
 		NetworkConfiguration {
@@ -283,6 +288,7 @@ impl NetworkParams {
 			kademlia_disjoint_query_paths: self.kademlia_disjoint_query_paths,
 			kademlia_replication_factor: self.kademlia_replication_factor,
 			ipfs_server: self.ipfs_server,
+			ipfs_bootnodes: self.ipfs_bootnodes.clone(),
 			sync_mode: self.sync.into(),
 			network_backend: self.network_backend.into(),
 		}

@@ -104,6 +104,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 			config,
 			None,
 			false,
+			Default::default(),
 			|_, _| (),
 		)
 		.expect("Creates node")

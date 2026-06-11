@@ -86,7 +86,7 @@ pub trait WeightInfo {
 	fn set_min_commission() -> Weight;
 	fn restore_ledger() -> Weight;
 	fn migrate_currency() -> Weight;
-	fn apply_slash() -> Weight;
+	fn apply_slash(n: u32, ) -> Weight;
 	fn process_offence_queue() -> Weight;
 	fn rc_on_offence(v: u32, ) -> Weight;
 	fn rc_on_session_report() -> Weight;
@@ -774,7 +774,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Staking::VirtualStakers` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:513 w:513)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(211), added: 2686, mode: `MaxEncodedLen`)
-	fn apply_slash() -> Weight {
+	fn apply_slash(_n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1002216`
 		//  Estimated: `1656954`
@@ -1654,7 +1654,7 @@ impl WeightInfo for () {
 	/// Proof: `Staking::VirtualStakers` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:513 w:513)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(211), added: 2686, mode: `MaxEncodedLen`)
-	fn apply_slash() -> Weight {
+	fn apply_slash(_n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1002216`
 		//  Estimated: `1656954`

@@ -142,10 +142,10 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 			end: latest_delivered_nonce,
 		};
 		if confirmed_messages.total_messages() == 0 {
-			return Ok(None)
+			return Ok(None);
 		}
 		if confirmed_messages.end > data.latest_generated_nonce {
-			return Err(ReceptionConfirmationError::FailedToConfirmFutureMessages)
+			return Err(ReceptionConfirmationError::FailedToConfirmFutureMessages);
 		}
 		if confirmed_messages.total_messages() > max_allowed_messages {
 			// that the relayer has declared correct number of messages that the proof contains (it
@@ -159,7 +159,7 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 				max_allowed=%max_allowed_messages,
 				"Messages delivery proof contains too many messages to confirm"
 			);
-			return Err(ReceptionConfirmationError::TryingToConfirmMoreMessagesThanExpected)
+			return Err(ReceptionConfirmationError::TryingToConfirmMoreMessagesThanExpected);
 		}
 
 		ensure_unrewarded_relayers_are_correct(confirmed_messages.end, relayers)?;
@@ -203,18 +203,18 @@ fn ensure_unrewarded_relayers_are_correct<RelayerId>(
 		// unrewarded relayer entry must have at least 1 unconfirmed message
 		// (guaranteed by the `InboundLane::receive_message()`)
 		if entry.messages.end < entry.messages.begin {
-			return Err(ReceptionConfirmationError::EmptyUnrewardedRelayerEntry)
+			return Err(ReceptionConfirmationError::EmptyUnrewardedRelayerEntry);
 		}
 		// every entry must confirm range of messages that follows previous entry range
 		// (guaranteed by the `InboundLane::receive_message()`)
 		if expected_entry_begin != Some(entry.messages.begin) {
-			return Err(ReceptionConfirmationError::NonConsecutiveUnrewardedRelayerEntries)
+			return Err(ReceptionConfirmationError::NonConsecutiveUnrewardedRelayerEntries);
 		}
 		expected_entry_begin = entry.messages.end.checked_add(1);
 		// entry can't confirm messages larger than `inbound_lane_data.latest_received_nonce()`
 		// (guaranteed by the `InboundLane::receive_message()`)
 		if entry.messages.end > latest_received_nonce {
-			return Err(ReceptionConfirmationError::FailedToConfirmFutureMessages)
+			return Err(ReceptionConfirmationError::FailedToConfirmFutureMessages);
 		}
 	}
 

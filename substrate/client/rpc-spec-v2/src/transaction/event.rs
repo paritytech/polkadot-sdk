@@ -171,18 +171,24 @@ enum TransactionEventIR<Hash> {
 impl<Hash> From<TransactionEvent<Hash>> for TransactionEventIR<Hash> {
 	fn from(value: TransactionEvent<Hash>) -> Self {
 		match value {
-			TransactionEvent::Validated =>
-				TransactionEventIR::NonBlock(TransactionEventNonBlockIR::Validated),
-			TransactionEvent::BestChainBlockIncluded(event) =>
-				TransactionEventIR::Block(TransactionEventBlockIR::BestChainBlockIncluded(event)),
-			TransactionEvent::Finalized(event) =>
-				TransactionEventIR::Block(TransactionEventBlockIR::Finalized(event)),
-			TransactionEvent::Error(event) =>
-				TransactionEventIR::NonBlock(TransactionEventNonBlockIR::Error(event)),
-			TransactionEvent::Invalid(event) =>
-				TransactionEventIR::NonBlock(TransactionEventNonBlockIR::Invalid(event)),
-			TransactionEvent::Dropped(event) =>
-				TransactionEventIR::NonBlock(TransactionEventNonBlockIR::Dropped(event)),
+			TransactionEvent::Validated => {
+				TransactionEventIR::NonBlock(TransactionEventNonBlockIR::Validated)
+			},
+			TransactionEvent::BestChainBlockIncluded(event) => {
+				TransactionEventIR::Block(TransactionEventBlockIR::BestChainBlockIncluded(event))
+			},
+			TransactionEvent::Finalized(event) => {
+				TransactionEventIR::Block(TransactionEventBlockIR::Finalized(event))
+			},
+			TransactionEvent::Error(event) => {
+				TransactionEventIR::NonBlock(TransactionEventNonBlockIR::Error(event))
+			},
+			TransactionEvent::Invalid(event) => {
+				TransactionEventIR::NonBlock(TransactionEventNonBlockIR::Invalid(event))
+			},
+			TransactionEvent::Dropped(event) => {
+				TransactionEventIR::NonBlock(TransactionEventNonBlockIR::Dropped(event))
+			},
 		}
 	}
 }
@@ -198,8 +204,9 @@ impl<Hash> From<TransactionEventIR<Hash>> for TransactionEvent<Hash> {
 			},
 			TransactionEventIR::Block(block) => match block {
 				TransactionEventBlockIR::Finalized(event) => TransactionEvent::Finalized(event),
-				TransactionEventBlockIR::BestChainBlockIncluded(event) =>
-					TransactionEvent::BestChainBlockIncluded(event),
+				TransactionEventBlockIR::BestChainBlockIncluded(event) => {
+					TransactionEvent::BestChainBlockIncluded(event)
+				},
 			},
 		}
 	}

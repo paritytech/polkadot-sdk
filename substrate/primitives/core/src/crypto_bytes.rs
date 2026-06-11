@@ -138,7 +138,7 @@ impl<const N: usize, T> TryFrom<&[u8]> for CryptoBytes<N, T> {
 
 	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
 		if data.len() != N {
-			return Err(())
+			return Err(());
 		}
 		let mut r = [0u8; N];
 		r.copy_from_slice(data);

@@ -1,0 +1,27 @@
+title: Fix auto-renew core tracking on immediate renew
+doc:
+- audience: Runtime User
+  description: |-
+    ## Summary
+    Fix auto-renew tracking when `do_enable_auto_renew` triggers an immediate renewal. The auto-renew record now follows the new core index returned by `do_renew`, preventing a stale core from being
+    renewed in the next sale rotation.
+
+    Discovered by the Darwinia Network team while attempting a renew.
+
+    ## Problem
+    When enabling auto-renew during the renewal window (`PotentialRenewals` at `sale.region_begin`), `do_enable_auto_renew` immediately calls `do_renew`. That call can allocate a *different* core
+    index, but the auto-renew record was stored with the **old** core. On the next rotation, `renew_cores` attempts to renew that stale core and emits `AutoRenewalFailed`, even though the workload has
+    already moved to the new core.
+
+    ## Fix
+    Capture the returned core index from `do_renew` inside `do_enable_auto_renew`, and store that core in `AutoRenewals` (and the enable event).
+
+    ## Tests
+    - Added `enable_auto_renew_immediate_updates_core_and_renews`
+    - `cargo test -p pallet-broker`
+
+
+    Closes: https://github.com/paritytech/polkadot-sdk/issues/10006
+crates:
+- name: pallet-broker
+  bump: patch

@@ -579,12 +579,12 @@ pub mod derive {
 ///
 /// This is already part of the main [`prelude`].
 pub mod hashing {
-	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
+	pub use sp_core::{H160, H256, H512, U256, U512};
+	pub use sp_crypto_hashing::*;
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
 }
 
 // Systems involved in transaction execution in the runtime.
-///
 /// This is already part of the [`prelude`].
 pub mod transaction {
 	pub use frame_support::traits::{CallMetadata, GetCallMetadata};

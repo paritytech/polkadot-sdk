@@ -8,7 +8,9 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
+use cumulus_zombienet_sdk_helpers::{
+	assert_finality_lag, assert_para_throughput, assign_cores, wait_for_pvf_prepare,
+};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
@@ -46,12 +48,13 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 						}
 					}
 				}))
-				// Have to set a `with_node` outside of the loop below, so that `r` has the right
-				// type.
-				.with_node(|node| node.with_name("validator-0"));
+				// Have to set a `with_validator` outside of the loop below, so that `r` has the
+				// right type.
+				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..12)
-				.fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..12).fold(r, |acc, i| {
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			})
 		})
 		.with_parachain(|p| {
 			p.with_id(2300)
@@ -86,13 +89,16 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 	// Assign 11 extra cores to the parachain.
 	assign_cores(&relay_client, 2300, (0..11).collect()).await?;
 
+	// Wait for PVF preparation to complete.
+	wait_for_pvf_prepare(&network, 1).await?;
+
 	// Expect a backed candidate count of at least 170 in 15 relay chain blocks
 	// (11.33 candidates per para per relay chain block).
 	// Note that only blocks after the first session change and blocks that don't contain a session
 	// change will be counted.
 	// Since the calculated backed candidate count is theoretical and the CI tests are observed to
 	// occasionally fail, let's apply 15% tolerance to the expected range: 170 - 15% = 144
-	assert_para_throughput(&relay_client, 15, [(ParaId::from(2300), 153..181)]).await?;
+	assert_para_throughput(&relay_client, 15, [(ParaId::from(2300), 144..181)], []).await?;
 
 	// Expect that `collator-5` claims at least 3 slots during this run.
 	let result = para_node

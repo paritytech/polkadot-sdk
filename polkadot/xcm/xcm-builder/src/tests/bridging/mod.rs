@@ -195,7 +195,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 	) -> SendResult<Xcm<()>> {
 		let expect_dest = Remote::get().relative_to(&Local::get());
 		if destination.as_ref().ok_or(MissingArgument)? != &expect_dest {
-			return Err(NotApplicable)
+			return Err(NotApplicable);
 		}
 		let message = message.take().ok_or(MissingArgument)?;
 		Ok((message, Assets::new()))
@@ -245,7 +245,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 	) -> SendResult<Xcm<()>> {
 		let expect_dest = Remote::get().relative_to(&Local::get());
 		if destination.as_ref().ok_or(MissingArgument)? != &expect_dest {
-			return Err(NotApplicable)
+			return Err(NotApplicable);
 		}
 		let message = message.take().ok_or(MissingArgument)?;
 		Ok((message, Assets::new()))

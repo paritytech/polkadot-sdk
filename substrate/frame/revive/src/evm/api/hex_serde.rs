@@ -41,7 +41,7 @@ macro_rules! impl_hex_codec {
     };
 }
 
-impl_hex_codec!(u8, u32);
+impl_hex_codec!(u8, u32, u64);
 
 impl<const T: usize> HexCodec for [u8; T] {
 	type Error = hex::FromHexError;
@@ -82,4 +82,64 @@ where
 	let s = String::deserialize(deserializer)?;
 	let value = T::from_hex(s).map_err(|e| serde::de::Error::custom(format!("{:?}", e)))?;
 	Ok(value)
+}
+
+pub mod option {
+	use super::*;
+
+	pub fn serialize<S, T>(value: &Option<T>, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+		T: HexCodec,
+	{
+		match value {
+			Some(v) => serializer.serialize_str(&v.to_hex()),
+			None => serializer.serialize_none(),
+		}
+	}
+
+	pub fn deserialize<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+	where
+		D: Deserializer<'de>,
+		T: HexCodec,
+		<T as HexCodec>::Error: core::fmt::Debug,
+	{
+		let opt = Option::<String>::deserialize(deserializer)?;
+		match opt {
+			Some(s) => T::from_hex(s)
+				.map(Some)
+				.map_err(|e| serde::de::Error::custom(format!("{:?}", e))),
+			None => Ok(None),
+		}
+	}
+}
+
+pub mod vec {
+	use super::*;
+	use serde::ser::SerializeSeq;
+
+	pub fn serialize<S, T>(values: &Vec<T>, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+		T: HexCodec,
+	{
+		let mut seq = serializer.serialize_seq(Some(values.len()))?;
+		for v in values {
+			seq.serialize_element(&v.to_hex())?;
+		}
+		seq.end()
+	}
+
+	pub fn deserialize<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+	where
+		D: Deserializer<'de>,
+		T: HexCodec,
+		<T as HexCodec>::Error: core::fmt::Debug,
+	{
+		let strings = Vec::<String>::deserialize(deserializer)?;
+		strings
+			.into_iter()
+			.map(|s| T::from_hex(s).map_err(|e| serde::de::Error::custom(format!("{:?}", e))))
+			.collect()
+	}
 }

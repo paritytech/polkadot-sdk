@@ -23,7 +23,6 @@
 //!
 //! Composite enums are generally convertible to their individual parts as such:
 #![doc = simple_mermaid::mermaid!("../../../mermaid/outer_runtime_types.mmd")]
-//!
 //! In that one can always convert from the inner type into the outer type, but not vice versa. This
 //! is usually expressed by implementing `From`, `TryFrom`, `From<Result<_>>` and similar traits.
 //!
@@ -34,7 +33,6 @@
 //! `GenesisConfig`.
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", pallet_foo)]
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", pallet_bar)]
-//!
 //! Let's explore how each of these affect the [`RuntimeCall`], [`RuntimeOrigin`] and
 //! [`RuntimeGenesisConfig`] generated in [`runtime`] respectively.
 //!
@@ -69,7 +67,6 @@
 //! All that the rust compiler knows about this type is *ONLY* what the trait bounds of
 //! [`frame_system::Config::RuntimeCall`] are specifying:
 #![doc = docify::embed!("../../substrate/frame/system/src/lib.rs", system_runtime_call)]
-//!
 //! So, when at a given pallet, one accesses `<T as frame_system::Config>::RuntimeCall`, the type is
 //! extremely opaque from the perspective of the Rust compiler.
 //!
@@ -83,11 +80,9 @@
 //! In this case, we will want to assert the existence of [`frame::traits::IsSubType`], which is
 //! very similar to [`TryFrom`].
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", custom_runtime_call)]
-//!
 //! And indeed, at the runtime level, this associated type would be the same `RuntimeCall` that is
 //! passed to `frame_system`.
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", pallet_with_specific_runtime_call_impl)]
-//!
 //! > In other words, the degree of specificity that [`frame_system::Config::RuntimeCall`] has is
 //! > not enough for the pallet to work with. Therefore, the pallet has to define its own associated
 //! > type representing `RuntimeCall`.
@@ -101,7 +96,6 @@
 //! Now, within this pallet, this new `RuntimeCall` can be used, and it can use its new trait
 //! bounds, such as being [`frame::traits::IsSubType`]:
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", custom_runtime_call_usages)]
-//!
 //! > Once Rust's "_Associated Type Bounds RFC_" is usable, this syntax can be used to
 //! > simplify the above scenario. See [this](https://github.com/paritytech/polkadot-sdk/issues/3743)
 //! > issue for more information.
@@ -114,7 +108,6 @@
 //! be cool if we had a test to make sure they actually resolve to the same concrete type once the
 //! runtime is constructed? The following snippet exactly does that:
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", assert_equality)]
-//!
 //! We leave it to the reader to further explore what [`frame::traits::Hooks::integrity_test`] is,
 //! and what [`core::any::TypeId`] is. Another way to assert this is using
 //! [`frame::traits::IsType`].

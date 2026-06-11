@@ -162,7 +162,7 @@ mod tests {
 	fn sandboxed_thread_cannot_use_sockets() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
 		if check_can_fully_enable().is_err() {
-			return
+			return;
 		}
 
 		let handle = thread::spawn(|| {

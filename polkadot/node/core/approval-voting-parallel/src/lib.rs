@@ -519,7 +519,7 @@ fn validator_index_for_msg(
 ) {
 	match msg {
 		polkadot_node_network_protocol::ValidationProtocols::V3(ref message) => match message {
-			polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Assignments(msgs) =>
+			polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Assignments(msgs) => {
 				if let Ok(validator) = msgs.iter().map(|(msg, _)| msg.validator).all_equal_value() {
 					(Some((validator, msg)), None)
 				} else {
@@ -537,8 +537,9 @@ fn validator_index_for_msg(
 						})
 						.collect_vec();
 					(None, Some(split))
-				},
-			polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Approvals(msgs) =>
+				}
+			},
+			polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Approvals(msgs) => {
 				if let Ok(validator) = msgs.iter().map(|msg| msg.validator).all_equal_value() {
 					(Some((validator, msg)), None)
 				} else {
@@ -556,7 +557,8 @@ fn validator_index_for_msg(
 						})
 						.collect_vec();
 					(None, Some(split))
-				},
+				}
+			},
 		},
 	}
 }
@@ -674,8 +676,9 @@ impl<T: Send + Sync + 'static + Debug> overseer::SubsystemSender<T> for ToWorker
 			.map_err(|result| {
 				let is_full = result.is_full();
 				let msg = match result.into_inner() {
-					polkadot_overseer::FromOrchestra::Signal(_) =>
-						panic!("Cannot happen variant is never built"),
+					polkadot_overseer::FromOrchestra::Signal(_) => {
+						panic!("Cannot happen variant is never built")
+					},
 					polkadot_overseer::FromOrchestra::Communication { msg } => msg,
 				};
 				if is_full {
@@ -732,8 +735,9 @@ impl<T: Send + Sync + 'static + Debug> overseer::SubsystemSender<T> for ToWorker
 	{
 		match P::priority() {
 			polkadot_overseer::PriorityLevel::Normal => self.send_message(msg),
-			polkadot_overseer::PriorityLevel::High =>
-				async { self.send_unbounded_message(msg) }.boxed(),
+			polkadot_overseer::PriorityLevel::High => {
+				async { self.send_unbounded_message(msg) }.boxed()
+			},
 		}
 	}
 
@@ -820,10 +824,12 @@ impl<S: SubsystemSender<ApprovalVotingParallelMessage>>
 	) -> Result<(), metered::TrySendError<ApprovalDistributionMessage>> {
 		self.0.try_send_message(msg.into()).map_err(|err| match err {
 			// Safe to unwrap because it was built from the same type.
-			metered::TrySendError::Closed(msg) =>
-				metered::TrySendError::Closed(msg.try_into().unwrap()),
-			metered::TrySendError::Full(msg) =>
-				metered::TrySendError::Full(msg.try_into().unwrap()),
+			metered::TrySendError::Closed(msg) => {
+				metered::TrySendError::Closed(msg.try_into().unwrap())
+			},
+			metered::TrySendError::Full(msg) => {
+				metered::TrySendError::Full(msg.try_into().unwrap())
+			},
 		})
 	}
 
@@ -868,10 +874,12 @@ impl<S: SubsystemSender<ApprovalVotingParallelMessage>>
 	) -> Result<(), metered::TrySendError<ApprovalDistributionMessage>> {
 		self.0.try_send_message_with_priority::<P>(msg.into()).map_err(|err| match err {
 			// Safe to unwrap because it was built from the same type.
-			metered::TrySendError::Closed(msg) =>
-				metered::TrySendError::Closed(msg.try_into().unwrap()),
-			metered::TrySendError::Full(msg) =>
-				metered::TrySendError::Full(msg.try_into().unwrap()),
+			metered::TrySendError::Closed(msg) => {
+				metered::TrySendError::Closed(msg.try_into().unwrap())
+			},
+			metered::TrySendError::Full(msg) => {
+				metered::TrySendError::Full(msg.try_into().unwrap())
+			},
 		})
 	}
 }

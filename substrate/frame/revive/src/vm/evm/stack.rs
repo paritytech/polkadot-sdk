@@ -17,7 +17,7 @@
 
 //! Custom EVM stack implementation using sp_core::U256
 
-use crate::{limits::EVM_STACK_LIMIT, vm::evm::interpreter::Halt, Config, Error};
+use crate::{Config, Error, limits::EVM_STACK_LIMIT, vm::evm::interpreter::Halt};
 use alloc::vec::Vec;
 use core::ops::ControlFlow;
 use sp_core::{H160, H256, U256};
@@ -174,6 +174,17 @@ impl<T: Config> Stack<T> {
 
 		self.stack.push(U256::from_big_endian(&word_bytes));
 		return ControlFlow::Continue(());
+	}
+
+	/// Returns a snapshot of the stack as bytes.
+	pub fn snapshot(&self) -> Vec<crate::evm::Bytes> {
+		let mut stack_bytes = Vec::new();
+		for value in self.stack.iter() {
+			let bytes = value.to_big_endian().to_vec();
+			stack_bytes.push(crate::evm::Bytes(bytes));
+		}
+
+		stack_bytes
 	}
 }
 

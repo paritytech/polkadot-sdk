@@ -15,12 +15,7 @@
 // limitations under the License.
 
 use cumulus_primitives_core::ParaId;
-use polkadot_omni_node_lib::{
-	chain_spec::{GenericChainSpec, LoadSpec},
-	runtime::{
-		AuraConsensusId, BlockNumber, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
-	},
-};
+use polkadot_omni_node_lib::chain_spec::{GenericChainSpec, LoadSpec};
 use sc_chain_spec::{ChainSpec, ChainType};
 use yet_another_parachain::yet_another_parachain_config;
 
@@ -88,13 +83,16 @@ impl LoadSpec for ChainSpecLoader {
 			)?),
 
 			// -- Asset Hub Westend
-			"asset-hub-westend-dev" | "westmint-dev" =>
-				Box::new(asset_hubs::asset_hub_westend_development_config()),
-			"asset-hub-westend-local" | "westmint-local" =>
-				Box::new(asset_hubs::asset_hub_westend_local_config()),
+			"asset-hub-westend-dev" | "westmint-dev" => {
+				Box::new(asset_hubs::asset_hub_westend_development_config())
+			},
+			"asset-hub-westend-local" | "westmint-local" => {
+				Box::new(asset_hubs::asset_hub_westend_local_config())
+			},
 			// the chain spec as used for generating the upgrade genesis values
-			"asset-hub-westend-genesis" | "westmint-genesis" =>
-				Box::new(asset_hubs::asset_hub_westend_config()),
+			"asset-hub-westend-genesis" | "westmint-genesis" => {
+				Box::new(asset_hubs::asset_hub_westend_config())
+			},
 			// the shell-based chain spec as used for syncing
 			"asset-hub-westend" | "westmint" => Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/asset-hub-westend.json")[..],
@@ -106,10 +104,12 @@ impl LoadSpec for ChainSpecLoader {
 			)?),
 
 			// -- Westend Collectives
-			"collectives-westend-dev" =>
-				Box::new(collectives::collectives_westend_development_config()),
-			"collectives-westend-local" =>
-				Box::new(collectives::collectives_westend_local_config()),
+			"collectives-westend-dev" => {
+				Box::new(collectives::collectives_westend_development_config())
+			},
+			"collectives-westend-local" => {
+				Box::new(collectives::collectives_westend_local_config())
+			},
 			"collectives-westend" => Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/collectives-westend.json")[..],
 			)?),
@@ -117,18 +117,22 @@ impl LoadSpec for ChainSpecLoader {
 			// -- BridgeHub
 			bridge_like_id
 				if bridge_like_id.starts_with(bridge_hubs::BridgeHubRuntimeType::ID_PREFIX) =>
+			{
 				bridge_like_id
 					.parse::<bridge_hubs::BridgeHubRuntimeType>()
 					.expect("invalid value")
-					.load_config()?,
+					.load_config()?
+			},
 
 			// -- Coretime
 			coretime_like_id
 				if coretime_like_id.starts_with(coretime::CoretimeRuntimeType::ID_PREFIX) =>
+			{
 				coretime_like_id
 					.parse::<coretime::CoretimeRuntimeType>()
 					.expect("invalid value")
-					.load_config()?,
+					.load_config()?
+			},
 
 			// -- Penpal
 			id if id.starts_with("penpal-rococo") => {
@@ -193,11 +197,12 @@ impl LoadSpec for ChainSpecLoader {
 			},
 
 			// -- People
-			people_like_id if people_like_id.starts_with(people::PeopleRuntimeType::ID_PREFIX) =>
+			people_like_id if people_like_id.starts_with(people::PeopleRuntimeType::ID_PREFIX) => {
 				people_like_id
 					.parse::<people::PeopleRuntimeType>()
 					.expect("invalid value")
-					.load_config()?,
+					.load_config()?
+			},
 
 			// -- Fallback (generic chainspec)
 			"" => {
@@ -210,133 +215,5 @@ impl LoadSpec for ChainSpecLoader {
 			// -- Loading a specific spec from disk
 			path => Box::new(GenericChainSpec::from_json_file(path.into())?),
 		})
-	}
-}
-
-/// Helper enum that is used for better distinction of different parachain/runtime configuration
-/// (it is based/calculated on ChainSpec's ID attribute)
-#[derive(Debug, PartialEq)]
-enum LegacyRuntime {
-	Omni,
-	AssetHubPolkadot,
-	AssetHub,
-	Penpal,
-	Collectives,
-	Glutton,
-	BridgeHub(bridge_hubs::BridgeHubRuntimeType),
-	Coretime(coretime::CoretimeRuntimeType),
-	People(people::PeopleRuntimeType),
-}
-
-impl LegacyRuntime {
-	fn from_id(id: &str) -> LegacyRuntime {
-		let id = id.replace('_', "-");
-
-		if id.starts_with("asset-hub-polkadot") | id.starts_with("statemint") {
-			LegacyRuntime::AssetHubPolkadot
-		} else if id.starts_with("asset-hub-kusama") |
-			id.starts_with("statemine") |
-			id.starts_with("asset-hub-rococo") |
-			id.starts_with("rockmine") |
-			id.starts_with("asset-hub-westend") |
-			id.starts_with("westmint")
-		{
-			LegacyRuntime::AssetHub
-		} else if id.starts_with("penpal") {
-			LegacyRuntime::Penpal
-		} else if id.starts_with("collectives-polkadot") || id.starts_with("collectives-westend") {
-			LegacyRuntime::Collectives
-		} else if id.starts_with(bridge_hubs::BridgeHubRuntimeType::ID_PREFIX) {
-			LegacyRuntime::BridgeHub(
-				id.parse::<bridge_hubs::BridgeHubRuntimeType>().expect("Invalid value"),
-			)
-		} else if id.starts_with(coretime::CoretimeRuntimeType::ID_PREFIX) {
-			LegacyRuntime::Coretime(
-				id.parse::<coretime::CoretimeRuntimeType>().expect("Invalid value"),
-			)
-		} else if id.starts_with("glutton") {
-			LegacyRuntime::Glutton
-		} else if id.starts_with(people::PeopleRuntimeType::ID_PREFIX) {
-			LegacyRuntime::People(id.parse::<people::PeopleRuntimeType>().expect("Invalid value"))
-		} else {
-			log::warn!(
-				"No specific runtime was recognized for ChainSpec's id: '{}', \
-				so Runtime::Omni(Consensus::Aura) will be used",
-				id
-			);
-			LegacyRuntime::Omni
-		}
-	}
-}
-
-#[derive(Debug)]
-pub(crate) struct RuntimeResolver;
-
-impl RuntimeResolverT for RuntimeResolver {
-	fn runtime(&self, chain_spec: &dyn ChainSpec) -> sc_cli::Result<Runtime> {
-		let legacy_runtime = LegacyRuntime::from_id(chain_spec.id());
-		Ok(match legacy_runtime {
-			LegacyRuntime::AssetHubPolkadot =>
-				Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Ed25519)),
-			LegacyRuntime::AssetHub |
-			LegacyRuntime::BridgeHub(_) |
-			LegacyRuntime::Collectives |
-			LegacyRuntime::Coretime(_) |
-			LegacyRuntime::People(_) |
-			LegacyRuntime::Glutton |
-			LegacyRuntime::Penpal |
-			LegacyRuntime::Omni =>
-				Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519)),
-		})
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup, ChainType, Extension};
-	use serde::{Deserialize, Serialize};
-
-	#[derive(
-		Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension, Default,
-	)]
-	#[serde(deny_unknown_fields)]
-	pub struct Extensions1 {
-		pub attribute1: String,
-		pub attribute2: u32,
-	}
-
-	#[derive(
-		Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension, Default,
-	)]
-	#[serde(deny_unknown_fields)]
-	pub struct Extensions2 {
-		pub attribute_x: String,
-		pub attribute_y: String,
-		pub attribute_z: u32,
-	}
-
-	pub type DummyChainSpec<E> = sc_service::GenericChainSpec<E>;
-
-	pub fn create_default_with_extensions<E: Extension>(
-		id: &str,
-		extension: E,
-	) -> DummyChainSpec<E> {
-		DummyChainSpec::builder(
-			penpal_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-			extension,
-		)
-		.with_name("Dummy local testnet")
-		.with_id(id)
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
-		.build()
-	}
-
-	#[test]
-	fn test_legacy_runtime_for_different_chain_specs() {
-		let chain_spec =
-			create_default_with_extensions("penpal-rococo-1000", Extensions2::default());
-		assert_eq!(LegacyRuntime::Penpal, LegacyRuntime::from_id(chain_spec.id()));
 	}
 }

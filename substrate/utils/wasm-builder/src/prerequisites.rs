@@ -262,7 +262,7 @@ fn check_wasm_toolchain_installed(
 				return Err(colorize_error_message(
 					&format!("Cannot compile the WASM runtime: no standard library sources found at {}!\n\
 					 You can install them with `rustup component add rust-src --toolchain {toolchain}` if you're using `rustup`.", src_path.display()),
-				))
+				));
 			}
 		}
 	}

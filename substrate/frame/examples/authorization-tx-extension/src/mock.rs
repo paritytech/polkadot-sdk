@@ -99,8 +99,9 @@ mod example_runtime {
 
 		fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
 			match o.clone().into() {
-				Ok(pallet_coownership::Origin::<Runtime>::Coowners(first, second)) =>
-					Ok((first, second)),
+				Ok(pallet_coownership::Origin::<Runtime>::Coowners(first, second)) => {
+					Ok((first, second))
+				},
 				_ => Err(o),
 			}
 		}

@@ -554,10 +554,11 @@ impl HttpApi {
 
 			if let future::MaybeDone::Done(next_body) = next_body {
 				match next_body {
-					Some(Ok(chunk)) =>
+					Some(Ok(chunk)) => {
 						if let Ok(chunk) = chunk.into_data() {
 							response.current_read_chunk = Some(chunk.reader());
-						},
+						}
+					},
 					Some(Err(_)) => return Err(HttpError::IoError),
 					None => return Ok(0), // eof
 				}
@@ -580,8 +581,9 @@ impl fmt::Debug for HttpApi {
 impl fmt::Debug for HttpApiRequest {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			HttpApiRequest::NotDispatched(_, _) =>
-				f.debug_tuple("HttpApiRequest::NotDispatched").finish(),
+			HttpApiRequest::NotDispatched(_, _) => {
+				f.debug_tuple("HttpApiRequest::NotDispatched").finish()
+			},
 			HttpApiRequest::Dispatched(_) => f.debug_tuple("HttpApiRequest::Dispatched").finish(),
 			HttpApiRequest::Response(HttpApiRequestRp { status_code, headers, .. }) => f
 				.debug_tuple("HttpApiRequest::Response")
@@ -761,10 +763,12 @@ impl fmt::Debug for HttpWorker {
 impl fmt::Debug for HttpWorkerRequest {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			HttpWorkerRequest::Dispatched(_) =>
-				f.debug_tuple("HttpWorkerRequest::Dispatched").finish(),
-			HttpWorkerRequest::ReadBody { .. } =>
-				f.debug_tuple("HttpWorkerRequest::Response").finish(),
+			HttpWorkerRequest::Dispatched(_) => {
+				f.debug_tuple("HttpWorkerRequest::Dispatched").finish()
+			},
+			HttpWorkerRequest::ReadBody { .. } => {
+				f.debug_tuple("HttpWorkerRequest::Response").finish()
+			},
 		}
 	}
 }

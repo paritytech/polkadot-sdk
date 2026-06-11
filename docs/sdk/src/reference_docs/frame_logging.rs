@@ -100,7 +100,6 @@
 //! called `disable-logging`, that can be used to disable all logs in the runtime. This is useful
 //! for production chains to reduce the size and overhead of the wasm runtime.
 #![doc = docify::embed!("../../substrate/primitives/api/src/lib.rs", init_runtime_logger)]
-//!
 //! Similar to the above, the proper `RUST_LOG` must also be passed to your compiler flag when
 //! compiling the runtime.
 //!

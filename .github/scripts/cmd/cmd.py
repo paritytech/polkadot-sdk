@@ -11,7 +11,10 @@ import difflib
 
 _HelpAction = _help._HelpAction
 
-f = open('.github/workflows/runtimes-matrix.json', 'r')
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.normpath(os.path.join(_SCRIPT_DIR, '..', '..', '..'))
+
+f = open(os.path.join(_REPO_ROOT, '.github/workflows/runtimes-matrix.json'), 'r')
 runtimesMatrix = json.load(f)
 
 runtimeNames = list(map(lambda x: x['name'], runtimesMatrix))
@@ -153,7 +156,7 @@ bench_example = '''**Examples**:
  %(prog)s --runtime westend --fail-fast
  
  Does not output anything and cleans up the previous bot's & author command triggering comments in PR 
- %(prog)s --runtime westend rococo --pallet pallet_balances pallet_multisig --quiet --clean
+ %(prog)s --runtime westend --pallet pallet_balances pallet_multisig --quiet --clean
 '''
 
 parser_bench = subparsers.add_parser('bench', aliases=['bench-omni'], help='Runs benchmarks (frame omni bencher)', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -184,7 +187,7 @@ for arg, config in common_args.items():
 PRDOC
 """
 # Import generate-prdoc.py dynamically
-spec = importlib.util.spec_from_file_location("generate_prdoc", ".github/scripts/generate-prdoc.py")
+spec = importlib.util.spec_from_file_location("generate_prdoc", os.path.join(_REPO_ROOT, ".github/scripts/generate-prdoc.py"))
 generate_prdoc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(generate_prdoc)
 
@@ -420,6 +423,7 @@ def main():
                     f"--no-storage-info --no-min-squares --no-median-slopes " \
                     f"{config['bench_flags']}"
                 print(f'-- Running: {cmd} \n')
+                os.environ['RUNTIME_LOG'] = 'off' # Turn off annoying logs during benchmarking
                 status = os.system(cmd)
 
                 if status != 0 and args.fail_fast:

@@ -34,7 +34,6 @@
 //! First, let's look at where the `origin` type is encountered in a typical pallet. The `origin:
 //! OriginFor<T>` has to be the first argument of any given callable extrinsic in FRAME:
 #![doc = docify::embed!("./src/reference_docs/frame_origin.rs", call_simple)]
-//!
 //! Typically, the code of an extrinsic starts with an origin check, such as
 //! [`frame_system::ensure_signed`].
 //!
@@ -51,10 +50,8 @@
 //!
 //! For example, given a pallet that defines the following custom origin:
 #![doc = docify::embed!("./src/reference_docs/frame_origin.rs", custom_origin)]
-//!
 //! And a runtime with the following pallets:
 #![doc = docify::embed!("./src/reference_docs/frame_origin.rs", runtime_exp)]
-//!
 //! The type [`crate::reference_docs::frame_origin::runtime_for_origin::RuntimeOrigin`] is expanded.
 //! This `RuntimeOrigin` contains a variant for the [`frame_system::RawOrigin`] and the custom
 //! origin of the pallet.
@@ -78,10 +75,8 @@
 //!
 //! 1. Defining a custom `RuntimeOrigin` with further bounds in the pallet.
 #![doc = docify::embed!("./src/reference_docs/frame_origin.rs", custom_origin_bound)]
-//!
 //! 2. Using it in the pallet.
 #![doc = docify::embed!("./src/reference_docs/frame_origin.rs", custom_origin_usage)]
-//!
 //! ## Asserting on a Custom External Origin
 //!
 //! Very often, a pallet wants to have a parameterized origin that is **NOT** defined within the
@@ -89,13 +84,10 @@
 //! specified later at the runtime level. Like many other parameterizations in FRAME, this implies
 //! adding a new associated type to `trait Config`.
 #![doc = docify::embed!("./src/reference_docs/frame_origin.rs", external_origin_def)]
-//!
 //! Then, within the pallet, we can simply use this "unknown" origin check type:
 #![doc = docify::embed!("./src/reference_docs/frame_origin.rs", external_origin_usage)]
-//!
 //! Finally, at the runtime, any implementation of [`frame::traits::EnsureOrigin`] can be passed.
 #![doc = docify::embed!("./src/reference_docs/frame_origin.rs", external_origin_provide)]
-//!
 //! Indeed, some of these implementations of [`frame::traits::EnsureOrigin`] are similar to the ones
 //! that we know about: [`frame::runtime::prelude::EnsureSigned`],
 //! [`frame::runtime::prelude::EnsureSignedBy`], [`frame::runtime::prelude::EnsureRoot`],

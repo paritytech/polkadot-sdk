@@ -270,16 +270,19 @@ pub fn set_status<T: Config<I>, I: 'static>(
 			.expect("no bounty");
 
 	let new_status = match bounty.3 {
-		BountyStatus::FundingAttempted { curator, .. } =>
-			BountyStatus::FundingAttempted { payment_status: new_payment_status, curator },
-		BountyStatus::RefundAttempted { curator, .. } =>
-			BountyStatus::RefundAttempted { payment_status: new_payment_status, curator },
-		BountyStatus::PayoutAttempted { curator, beneficiary, .. } =>
+		BountyStatus::FundingAttempted { curator, .. } => {
+			BountyStatus::FundingAttempted { payment_status: new_payment_status, curator }
+		},
+		BountyStatus::RefundAttempted { curator, .. } => {
+			BountyStatus::RefundAttempted { payment_status: new_payment_status, curator }
+		},
+		BountyStatus::PayoutAttempted { curator, beneficiary, .. } => {
 			BountyStatus::PayoutAttempted {
 				payment_status: new_payment_status,
 				curator,
 				beneficiary,
-			},
+			}
+		},
 		_ => return Err(BenchmarkError::Stop("unexpected bounty status")),
 	};
 

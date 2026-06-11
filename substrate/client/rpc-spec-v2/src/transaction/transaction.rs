@@ -107,7 +107,7 @@ where
 
 					// The transaction is invalid.
 					let _ = sink.send(&event).await;
-					return
+					return;
 				},
 			};
 
@@ -165,17 +165,21 @@ fn handle_event<Hash: Clone, BlockHash: Clone>(
 	event: TransactionStatus<Hash, BlockHash>,
 ) -> Option<TransactionEvent<BlockHash>> {
 	match event {
-		TransactionStatus::Ready | TransactionStatus::Future =>
-			Some(TransactionEvent::<BlockHash>::Validated),
-		TransactionStatus::InBlock((hash, index)) =>
-			Some(TransactionEvent::BestChainBlockIncluded(Some(TransactionBlock { hash, index }))),
+		TransactionStatus::Ready | TransactionStatus::Future => {
+			Some(TransactionEvent::<BlockHash>::Validated)
+		},
+		TransactionStatus::InBlock((hash, index)) => {
+			Some(TransactionEvent::BestChainBlockIncluded(Some(TransactionBlock { hash, index })))
+		},
 		TransactionStatus::Retracted(_) => Some(TransactionEvent::BestChainBlockIncluded(None)),
-		TransactionStatus::FinalityTimeout(_) =>
+		TransactionStatus::FinalityTimeout(_) => {
 			Some(TransactionEvent::Dropped(TransactionDropped {
 				error: "Maximum number of finality watchers has been reached".into(),
-			})),
-		TransactionStatus::Finalized((hash, index)) =>
-			Some(TransactionEvent::Finalized(TransactionBlock { hash, index })),
+			}))
+		},
+		TransactionStatus::Finalized((hash, index)) => {
+			Some(TransactionEvent::Finalized(TransactionBlock { hash, index }))
+		},
 		TransactionStatus::Usurped(_) => Some(TransactionEvent::Invalid(TransactionError {
 			error: "Extrinsic was rendered invalid by another extrinsic".into(),
 		})),

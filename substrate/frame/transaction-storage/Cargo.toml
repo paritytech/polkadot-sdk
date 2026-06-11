@@ -8,6 +8,7 @@ homepage.workspace = true
 repository.workspace = true
 description = "Storage chain pallet"
 readme = "README.md"
+publish = false
 
 [lints]
 workspace = true
@@ -46,6 +47,7 @@ std = [
 	"sp-inherents/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"sp-transaction-storage-proof/std",
 	"tracing/std",
 ]
 runtime-benchmarks = [
