@@ -653,13 +653,17 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn max_vesting_schedules_exceeds_vesting_bonding_periods() {
-		// Ensure that `MAX_VESTING_SCHEDULES` always exceeds `VestingBondingPeriods`,
-		// so that vested validator payments don't get dropped due to schedule limits.
+	fn vesting_schedule_headroom_exceeds_vesting_bonding_periods() {
+		// The permissionless `vested_transfer` extrinsic may fill target slots up to
+		// `MAX_PUBLIC_VESTING_SCHEDULES`. The rest up to `MAX_VESTING_SCHEDULES` is
+		// reserved for the `VestedPayout` trait used by the validator-incentive payout.
+		// Ensure that this reserved headroom strictly exceeds `VestingBondingPeriods`.
+		let headroom = <Runtime as pallet_vesting::Config>::MAX_VESTING_SCHEDULES -
+			<Runtime as pallet_vesting::Config>::MAX_PUBLIC_VESTING_SCHEDULES;
 		assert!(
-			<Runtime as pallet_vesting::Config>::MAX_VESTING_SCHEDULES >
-				ValidatorVestingBondingPeriods::get(),
-			"MAX_VESTING_SCHEDULES must exceed VestingBondingPeriods to avoid dropped incentives"
+			headroom > ValidatorVestingBondingPeriods::get(),
+			"The vesting schedule headroom must exceed VestingBondingPeriods in order\
+			  to avoid dropped incentives"
 		);
 	}
 

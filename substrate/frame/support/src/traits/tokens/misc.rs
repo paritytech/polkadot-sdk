@@ -448,6 +448,17 @@ pub struct IdAmount<Id, Balance> {
 /// [`fungible::Mutate`](super::fungible::Mutate) trait. The implementor (e.g. `pallet_vesting`)
 /// chooses which currency mechanism to use internally, and callers do not need to provide
 /// `per_block` or `starting_block` — only the total amount and vesting duration.
+///
+/// # Security note:
+///
+/// The `vested_transfer` extrinsic from `pallet_vesting` is permissionless, so an external actor
+/// can fill a target's vesting schedule slots and cause subsequent *create* calls from
+/// [`add_to_vesting`](Self::add_to_vesting) to fail with `AtMaxVestingSchedules`.
+/// To mitigate this, `pallet-vesting` enforces two limits: the permissionless extrinsic is
+/// capped at `MAX_PUBLIC_VESTING_SCHEDULES`, while trait callers (including this one) may fill
+/// schedules up to the higher `MAX_VESTING_SCHEDULES`. Consumers must configure the runtime
+/// so the gap `MAX_VESTING_SCHEDULES − MAX_PUBLIC_VESTING_SCHEDULES` is large enough to absorb
+/// the maximum number of schedules the consumer can create.
 pub trait VestedPayout<AccountId, Balance> {
 	/// The block number type used to express vesting duration.
 	type BlockNumber;
@@ -468,13 +479,10 @@ pub trait VestedPayout<AccountId, Balance> {
 	/// Transfer `amount` from `source` to `dest`, merging with the existing vesting schedule
 	/// whose `starting_block` equals `start_at`, or creating a new schedule if none exists.
 	/// On the merge path `MinVestedTransfer` is not enforced, allowing sub-minimum era payouts
-	/// to accumulate into the epoch's schedule.
-	///
-	/// # Warning — since `vested_transfer` is a permissionless extrinsic, an external actor can
-	/// fill all remaining schedule slots on `dest`. The next schedule creation (not merge) will
-	/// then fail with `AtMaxVestingSchedules`. Solutions to avoid this may be to simply prevent
-	/// permissionless `vested_transfer` or to fall back to a liquid transfer and emit an
-	/// observable event.
+	/// to accumulate into the epoch's schedule. This removes a protection that normally keeps
+	/// every vesting schedule above a meaningful size, and is safe **only** because callers of
+	/// this trait are trusted, internal paths — do not expose `add_to_vesting` to untrusted
+	/// callers.
 	fn add_to_vesting(
 		source: &AccountId,
 		dest: &AccountId,

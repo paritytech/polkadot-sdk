@@ -543,7 +543,8 @@ parameter_types! {
 }
 
 impl pallet_vesting::Config for Runtime {
-	const MAX_VESTING_SCHEDULES: u32 = 100;
+	const MAX_VESTING_SCHEDULES: u32 = 56;
+	const MAX_PUBLIC_VESTING_SCHEDULES: u32 = 28;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type BlockNumberToBalance = ConvertInto;
 	type Currency = Balances;

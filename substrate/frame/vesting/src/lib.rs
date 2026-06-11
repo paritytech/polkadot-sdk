@@ -205,7 +205,19 @@ pub mod pallet {
 		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 
 		/// Maximum number of vesting schedules an account may have at a given moment.
+		///
+		/// This is the total storage cap. Trusted programmatic callers (via the
+		/// [`VestedPayout`](frame_support::traits::tokens::VestedPayout) and
+		/// [`VestedTransfer`](frame_support::traits::tokens::currency::VestedTransfer) traits, and
+		/// the root-only `force_vested_transfer` extrinsic) may fill schedules up to this limit.
 		const MAX_VESTING_SCHEDULES: u32;
+
+		/// Maximum number of vesting schedules an account may have from the permissionless
+		// `vested_transfer` extrinsic. Must not exceed `MAX_VESTING_SCHEDULES`.
+		/// Setting this strictly less than `MAX_VESTING_SCHEDULES` reserves headroom for trusted
+		/// programmatic callers (see above), preventing an external actor from filling all slots
+		/// and DoSing those callers. Defaults to `MAX_VESTING_SCHEDULES` (no separation).
+		const MAX_PUBLIC_VESTING_SCHEDULES: u32 = Self::MAX_VESTING_SCHEDULES;
 	}
 
 	#[pallet::extra_constants]
@@ -220,6 +232,10 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
 			assert!(T::MAX_VESTING_SCHEDULES > 0, "`MaxVestingSchedules` must be greater than 0");
+			assert!(
+				T::MAX_PUBLIC_VESTING_SCHEDULES <= T::MAX_VESTING_SCHEDULES,
+				"`MaxPublicVestingSchedules` must not exceed `MaxVestingSchedules`"
+			);
 		}
 	}
 
@@ -376,7 +392,12 @@ pub mod pallet {
 		) -> DispatchResult {
 			let transactor = ensure_signed(origin)?;
 			let target = T::Lookup::lookup(target)?;
-			Self::do_vested_transfer(&transactor, &target, schedule)
+			Self::do_vested_transfer(
+				&transactor,
+				&target,
+				schedule,
+				T::MAX_PUBLIC_VESTING_SCHEDULES,
+			)
 		}
 
 		/// Force a vested transfer.
@@ -406,7 +427,7 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let target = T::Lookup::lookup(target)?;
 			let source = T::Lookup::lookup(source)?;
-			Self::do_vested_transfer(&source, &target, schedule)
+			Self::do_vested_transfer(&source, &target, schedule, T::MAX_VESTING_SCHEDULES)
 		}
 
 		/// Merge two vesting schedules together, creating a new vesting schedule that unlocks over
@@ -597,6 +618,7 @@ impl<T: Config> Pallet<T> {
 		source: &T::AccountId,
 		target: &T::AccountId,
 		schedule: VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
+		max_schedules: u32,
 	) -> DispatchResult {
 		// Validate user inputs.
 		ensure!(schedule.locked() >= T::MinVestedTransfer::get(), Error::<T>::AmountLow);
@@ -604,13 +626,13 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::InvalidScheduleParams.into());
 		};
 
-		// Check we can add to this account prior to any storage writes.
-		Self::can_add_vesting_schedule(
-			target,
-			schedule.locked(),
-			schedule.per_block(),
-			schedule.starting_block(),
-		)?;
+		// Check there is room for one more schedule on `target` before any storage writes.
+		// Callers pass `T::MAX_PUBLIC_VESTING_SCHEDULES` for the permissionless extrinsic and
+		// `T::MAX_VESTING_SCHEDULES` for trusted/internal paths.
+		ensure!(
+			(Vesting::<T>::decode_len(target).unwrap_or_default() as u32) < max_schedules,
+			Error::<T>::AtMaxVestingSchedules,
+		);
 
 		T::Currency::transfer(source, target, schedule.locked(), ExistenceRequirement::AllowDeath)?;
 
@@ -783,7 +805,8 @@ where
 					duration_as_balance)
 					.max(One::one());
 			let schedule = VestingInfo::new(amount, per_block, starting_block);
-			Self::do_vested_transfer(source, dest, schedule)
+
+			Self::do_vested_transfer(source, dest, schedule, T::MAX_VESTING_SCHEDULES)
 		}
 	}
 
@@ -824,9 +847,8 @@ where
 
 			Ok(())
 		} else {
-			// No schedule exists for "start_at", so we create a new one, enforcing
-			// MinVestedTransfer.
-			Self::do_vested_transfer(source, dest, incoming)
+			// No schedule exists for "start_at", so we create a new one.
+			Self::do_vested_transfer(source, dest, incoming, T::MAX_VESTING_SCHEDULES)
 		}
 	}
 }
@@ -954,7 +976,8 @@ where
 		use frame_support::storage::{with_transaction, TransactionOutcome};
 		let schedule = VestingInfo::new(locked, per_block, starting_block);
 		with_transaction(|| -> TransactionOutcome<DispatchResult> {
-			let result = Self::do_vested_transfer(source, target, schedule);
+			let result =
+				Self::do_vested_transfer(source, target, schedule, T::MAX_VESTING_SCHEDULES);
 
 			match &result {
 				Ok(()) => TransactionOutcome::Commit(result),
