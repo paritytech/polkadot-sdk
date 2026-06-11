@@ -56,7 +56,7 @@
 //!    AffinityFilter>`; `peer_has_explicit_affinity(peer, stmt)` reads it for the forward decision.
 //!    Independent of the local side. The overlapping `Peer::topic_affinity` in `lib.rs` stays until
 //!    the orchestrator cutover (#11937) — v1 still reads it. Tests: store, query, drop on
-//!    disconnect.
+//!    disconnect ([#12342]).
 //!
 //! After step 7 the module is complete. The store and forward decisions live in the orchestrator
 //! (#11937), not here. For storage it stores a statement permanently when affinity holds —
@@ -70,6 +70,7 @@
 //! [#12316]: https://github.com/paritytech/polkadot-sdk/pull/12316
 //! [#12339]: https://github.com/paritytech/polkadot-sdk/pull/12339
 //! [#12340]: https://github.com/paritytech/polkadot-sdk/pull/12340
+//! [#12342]: https://github.com/paritytech/polkadot-sdk/pull/12342
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
 use sc_network_types::PeerId;
