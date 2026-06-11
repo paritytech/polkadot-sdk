@@ -114,7 +114,6 @@ pub trait BenchmarkHelper<AssetId, AccountId> {
 
 #[frame_support::pallet]
 pub mod pallet {
-	pub use frame_support::traits::tokens::stable::PsmInterface;
 
 	use alloc::boxed::Box;
 	use codec::DecodeWithMemTracking;
@@ -265,7 +264,7 @@ pub mod pallet {
 	pub struct PsmInfo<T: Config> {
 		/// Account receiving minting and redemption fees, denominated in the internal asset.
 		pub fee_destination: T::AccountId,
-		/// Absolute internal-asset debt ceiling.
+		/// This PSM instance's debt ceiling, in internal-asset units.
 		pub max_debt: BalanceOf<T>,
 		/// Minimum swap amount for this instance, in internal-asset units. Swaps whose
 		/// internal-equivalent falls below this are rejected with [`Error::BelowMinimumSwap`].
@@ -276,13 +275,14 @@ pub mod pallet {
 		pub external_count: u32,
 	}
 
-	/// Cold, admin-only record for a PSM instance, kept out of [`PsmInfo`] so the swap
-	/// hot path (`mint`/`redeem`) never decodes the (potentially large) `PalletsOrigin`
-	/// admins. Written and removed in lockstep with the [`Psm`] entry.
+	/// Admin origins and creation-deposit bookkeeping for a PSM instance. Always written
+	/// and removed together with the [`Psm`] entry.
 	#[derive(
 		Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
 	)]
 	#[scale_info(skip_type_params(T))]
+	// Kept separate from `PsmInfo` so the swap path (`mint`/`redeem`) doesn't read the
+	// admin origins, which can be large.
 	pub struct PsmAdminInfo<T: Config> {
 		/// Origin with `Full` management privileges over this PSM. Set to
 		/// `Signed(signer)` on `create_psm` and reassignable to any origin via
@@ -355,7 +355,7 @@ pub mod pallet {
 
 		/// Maximum number of approved external assets per PSM instance.
 		#[pallet::constant]
-		type MaxExternalAssetsPerPsm: Get<u32>;
+		type MaxExternals: Get<u32>;
 
 		/// Native-currency deposit reserved on `create_psm` and returned on `remove_psm`.
 		#[pallet::constant]
@@ -462,33 +462,33 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// User swapped external stablecoin for internal.
 		Minted {
-			internal_asset: T::AssetId,
 			who: T::AccountId,
-			asset_id: T::AssetId,
-			external_amount: BalanceOf<T>,
-			received: BalanceOf<T>,
-			fee: BalanceOf<T>,
+			internal_asset: T::AssetId,
+			external_asset: T::AssetId,
+			external_consumed: BalanceOf<T>,
+			internal_received: BalanceOf<T>,
+			internal_fee: BalanceOf<T>,
 		},
 		/// User swapped internal for external stablecoin.
 		Redeemed {
-			internal_asset: T::AssetId,
 			who: T::AccountId,
-			asset_id: T::AssetId,
-			paid: BalanceOf<T>,
+			internal_asset: T::AssetId,
+			external_asset: T::AssetId,
+			internal_consumed: BalanceOf<T>,
 			external_received: BalanceOf<T>,
-			fee: BalanceOf<T>,
+			internal_fee: BalanceOf<T>,
 		},
 		/// Minting fee updated for an asset by governance.
 		MintingFeeUpdated {
 			internal_asset: T::AssetId,
-			asset_id: T::AssetId,
+			external_asset: T::AssetId,
 			old_value: Permill,
 			new_value: Permill,
 		},
 		/// Redemption fee updated for an asset by governance.
 		RedemptionFeeUpdated {
 			internal_asset: T::AssetId,
-			asset_id: T::AssetId,
+			external_asset: T::AssetId,
 			old_value: Permill,
 			new_value: Permill,
 		},
@@ -501,20 +501,20 @@ pub mod pallet {
 		/// Per-asset debt ceiling weight updated by governance.
 		AssetCeilingWeightUpdated {
 			internal_asset: T::AssetId,
-			asset_id: T::AssetId,
+			external_asset: T::AssetId,
 			old_value: Permill,
 			new_value: Permill,
 		},
 		/// Per-asset circuit breaker status updated.
 		AssetStatusUpdated {
 			internal_asset: T::AssetId,
-			asset_id: T::AssetId,
+			external_asset: T::AssetId,
 			status: CircuitBreakerLevel,
 		},
 		/// An external asset was added to the approved list.
-		ExternalAssetAdded { internal_asset: T::AssetId, asset_id: T::AssetId },
+		ExternalAssetAdded { internal_asset: T::AssetId, external_asset: T::AssetId },
 		/// An external asset was removed from the approved list.
-		ExternalAssetRemoved { internal_asset: T::AssetId, asset_id: T::AssetId },
+		ExternalAssetRemoved { internal_asset: T::AssetId, external_asset: T::AssetId },
 		/// A PSM instance was created.
 		PsmCreated {
 			internal_asset: T::AssetId,
@@ -635,7 +635,7 @@ pub mod pallet {
 		///
 		/// - [`Event::Minted`]: Emitted on successful mint.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::mint(T::MaxExternalAssetsPerPsm::get()))]
+		#[pallet::weight(T::WeightInfo::mint(T::MaxExternals::get()))]
 		pub fn mint(
 			origin: OriginFor<T>,
 			internal_asset: T::AssetId,
@@ -691,12 +691,12 @@ pub mod pallet {
 			PsmDebt::<T>::insert(&internal_asset, &asset_id, new_debt);
 
 			Self::deposit_event(Event::Minted {
-				internal_asset,
 				who,
-				asset_id,
-				external_amount: effective_external,
-				received: internal_to_user,
-				fee,
+				internal_asset,
+				external_asset: asset_id,
+				external_consumed: effective_external,
+				internal_received: internal_to_user,
+				internal_fee: fee,
 			});
 			Ok(())
 		}
@@ -815,12 +815,12 @@ pub mod pallet {
 			});
 
 			Self::deposit_event(Event::Redeemed {
-				internal_asset,
 				who,
-				asset_id,
-				paid: effective_internal_net.saturating_add(fee),
+				internal_asset,
+				external_asset: asset_id,
+				internal_consumed: effective_internal_net.saturating_add(fee),
 				external_received: external_out,
-				fee,
+				internal_fee: fee,
 			});
 			Ok(())
 		}
@@ -862,7 +862,7 @@ pub mod pallet {
 			MintingFee::<T>::insert(&internal_asset, &asset_id, fee);
 			Self::deposit_event(Event::MintingFeeUpdated {
 				internal_asset,
-				asset_id,
+				external_asset: asset_id,
 				old_value,
 				new_value: fee,
 			});
@@ -906,7 +906,7 @@ pub mod pallet {
 			RedemptionFee::<T>::insert(&internal_asset, &asset_id, fee);
 			Self::deposit_event(Event::RedemptionFeeUpdated {
 				internal_asset,
-				asset_id,
+				external_asset: asset_id,
 				old_value,
 				new_value: fee,
 			});
@@ -996,7 +996,11 @@ pub mod pallet {
 					Ok(())
 				},
 			)?;
-			Self::deposit_event(Event::AssetStatusUpdated { internal_asset, asset_id, status });
+			Self::deposit_event(Event::AssetStatusUpdated {
+				internal_asset,
+				external_asset: asset_id,
+				status,
+			});
 			Ok(())
 		}
 
@@ -1049,7 +1053,7 @@ pub mod pallet {
 			AssetCeilingWeight::<T>::insert(&internal_asset, &asset_id, weight);
 			Self::deposit_event(Event::AssetCeilingWeightUpdated {
 				internal_asset,
-				asset_id,
+				external_asset: asset_id,
 				old_value,
 				new_value: weight,
 			});
@@ -1074,8 +1078,7 @@ pub mod pallet {
 		///
 		/// - [`Error::InsufficientPrivilege`]: If the origin only has `Emergency` privileges.
 		/// - [`Error::PsmNotFound`]: If no PSM is registered for `internal_asset`.
-		/// - [`Error::TooManyAssets`]: If the PSM is already at
-		///   [`Config::MaxExternalAssetsPerPsm`].
+		/// - [`Error::TooManyAssets`]: If the PSM is already at [`Config::MaxExternals`].
 		/// - [`Error::AssetAlreadyApproved`]: If `asset_id` is already approved on this PSM.
 		/// - [`Error::AssetDoesNotExist`]: If `asset_id` does not exist in the underlying fungibles
 		///   backend.
@@ -1101,10 +1104,7 @@ pub mod pallet {
 					!ExternalAssets::<T>::contains_key(&internal_asset, &asset_id),
 					Error::<T>::AssetAlreadyApproved
 				);
-				ensure!(
-					info.external_count < T::MaxExternalAssetsPerPsm::get(),
-					Error::<T>::TooManyAssets
-				);
+				ensure!(info.external_count < T::MaxExternals::get(), Error::<T>::TooManyAssets);
 				ensure!(
 					T::Fungibles::asset_exists(asset_id.clone()),
 					Error::<T>::AssetDoesNotExist
@@ -1131,7 +1131,7 @@ pub mod pallet {
 				info.external_count = info.external_count.saturating_add(1);
 				Self::deposit_event(Event::ExternalAssetAdded {
 					internal_asset: internal_asset.clone(),
-					asset_id,
+					external_asset: asset_id,
 				});
 				Ok(())
 			})
@@ -1188,7 +1188,7 @@ pub mod pallet {
 				info.external_count = info.external_count.saturating_sub(1);
 				Self::deposit_event(Event::ExternalAssetRemoved {
 					internal_asset: internal_asset.clone(),
-					asset_id,
+					external_asset: asset_id,
 				});
 				Ok(())
 			})
@@ -1739,14 +1739,5 @@ pub mod pallet {
 
 			Ok(())
 		}
-	}
-}
-
-impl<T: pallet::Config> PsmInterface for pallet::Pallet<T> {
-	type AssetId = T::AssetId;
-	type Balance = pallet::BalanceOf<T>;
-
-	fn reserved_capacity(asset: Self::AssetId) -> Self::Balance {
-		pallet::Psm::<T>::get(asset).map(|p| p.max_debt).unwrap_or_default()
 	}
 }

@@ -145,7 +145,7 @@ impl crate::Config for Test {
 	type AssetId = u32;
 	type WeightInfo = ();
 	type PalletId = PsmPalletId;
-	type MaxExternalAssetsPerPsm = ConstU32<10>;
+	type MaxExternals = ConstU32<10>;
 	type CreationDeposit = PsmCreationDeposit;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PsmBenchmarkHelper;

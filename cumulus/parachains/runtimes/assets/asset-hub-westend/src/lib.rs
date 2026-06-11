@@ -1624,7 +1624,7 @@ impl pallet_psm::Config for Runtime {
 	type AssetId = xcm::v5::Location;
 	type WeightInfo = weights::pallet_psm::WeightInfo<Runtime>;
 	type PalletId = PsmPalletId;
-	type MaxExternalAssetsPerPsm = ConstU32<3>;
+	type MaxExternals = ConstU32<3>;
 	type CreationDeposit = PsmCreationDeposit;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PsmBenchmarkHelper;

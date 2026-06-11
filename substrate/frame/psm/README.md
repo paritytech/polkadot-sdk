@@ -77,18 +77,6 @@ max_asset_debt(internal, external) =
 Setting an asset's weight to 0% disables minting for that external and
 redistributes its share to the others within the same instance.
 
-### Reserved Capacity
-
-Capacity reserved by a PSM is exposed via the `PsmInterface` trait:
-
-```rust
-fn reserved_capacity(asset: AssetId) -> Balance
-```
-
-Returns `Psm[asset].max_debt` for the matching PSM, or zero if no PSM is
-registered for that internal asset. Consumers (e.g. the Vaults pallet) read
-this to size their own available capacity without trampling PSM's share.
-
 ## Fee Structure
 
 Fees are stored per `(internal_asset, external_asset)` pair, calculated using
@@ -164,7 +152,7 @@ Before calling `add_external_asset(internal_asset, asset_id)`:
 - The external `asset_id` must already exist in the `Fungibles` implementation
 - The internal asset's live decimals must still match the snapshot in `PsmInfo`
 - `|external_decimals − internal_decimals|` must be within `MAX_DECIMALS_DIFF`
-- The PSM must still be below `MaxExternalAssetsPerPsm`
+- The PSM must still be below `MaxExternals`
 
 After `add_external_asset`, the external starts with an `AssetCeilingWeight` of `0%`, so its
 per-external ceiling is zero and **minting is disabled**. Before the first mint, call
@@ -183,7 +171,7 @@ impl pallet_psm::Config for Runtime {
     type AssetId = u32;
     type WeightInfo = weights::SubstrateWeight<Runtime>;
     type PalletId = PsmPalletId;
-    type MaxExternalAssetsPerPsm = ConstU32<10>;
+    type MaxExternals = ConstU32<10>;
     type CreationDeposit = PsmCreationDeposit;
 }
 ```
@@ -205,7 +193,7 @@ on every swap that live decimals still match.
 ### Required Config Constants
 
 - `PalletId`: Unique identifier; sub-accounts are derived per instance.
-- `MaxExternalAssetsPerPsm`: Maximum number of approved externals per PSM instance.
+- `MaxExternals`: Maximum number of approved externals per PSM instance.
 
 The per-instance minimum swap amount is not a config constant — it is set on `create_psm`
 and stored in `PsmInfo::min_swap_amount`.
@@ -238,7 +226,7 @@ All events carry `internal_asset` so consumers can attribute them to the correct
 - `AssetNotApproved`: External not approved (governance path)
 - `AssetHasDebt`: Cannot remove an external with outstanding debt
 - `InsufficientPrivilege`: Emergency origin attempted a Full-only operation
-- `TooManyAssets`: PSM at `MaxExternalAssetsPerPsm`
+- `TooManyAssets`: PSM at `MaxExternals`
 - `DecimalsMismatch`: Live decimals diverged from the registration snapshot
 - `DecimalsRangeExceeded`: `|external_decimals − internal_decimals|` exceeds `MAX_DECIMALS_DIFF`
 - `ConversionOverflow`: Decimal scaling overflowed

@@ -146,7 +146,7 @@ mod benchmarks {
 	/// `total_psm_debt()` iterates `PsmDebt` and `max_asset_debt()` iterates
 	/// `AssetCeilingWeight`.
 	#[benchmark]
-	fn mint(n: Linear<1, { T::MaxExternalAssetsPerPsm::get() }>) -> Result<(), BenchmarkError> {
+	fn mint(n: Linear<1, { T::MaxExternals::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let (internal_id, asset_id) = setup_assets::<T>(n);
 		let mint_amount = BalanceOf::<T>::from(BENCH_MIN_SWAP).saturating_mul(10u32.into());

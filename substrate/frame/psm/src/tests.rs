@@ -61,12 +61,12 @@ mod mint {
 
 			System::assert_has_event(
 				Event::<Test>::Minted {
-					internal_asset: INTERNAL_ASSET_ID,
 					who: ALICE,
-					asset_id: USDC_ASSET_ID,
-					external_amount: mint_amount,
-					received: internal_to_user,
-					fee,
+					internal_asset: INTERNAL_ASSET_ID,
+					external_asset: USDC_ASSET_ID,
+					external_consumed: mint_amount,
+					internal_received: internal_to_user,
+					internal_fee: fee,
 				}
 				.into(),
 			);
@@ -378,12 +378,12 @@ mod redeem {
 
 			System::assert_has_event(
 				Event::<Test>::Redeemed {
-					internal_asset: INTERNAL_ASSET_ID,
 					who: ALICE,
-					asset_id: USDC_ASSET_ID,
-					paid: redeem_amount,
+					internal_asset: INTERNAL_ASSET_ID,
+					external_asset: USDC_ASSET_ID,
+					internal_consumed: redeem_amount,
 					external_received: external_to_user,
-					fee,
+					internal_fee: fee,
 				}
 				.into(),
 			);
@@ -661,7 +661,7 @@ mod governance {
 			System::assert_has_event(
 				Event::<Test>::MintingFeeUpdated {
 					internal_asset: INTERNAL_ASSET_ID,
-					asset_id: USDC_ASSET_ID,
+					external_asset: USDC_ASSET_ID,
 					old_value: old_fee,
 					new_value: new_fee,
 				}
@@ -707,7 +707,7 @@ mod governance {
 			System::assert_has_event(
 				Event::<Test>::RedemptionFeeUpdated {
 					internal_asset: INTERNAL_ASSET_ID,
-					asset_id: USDC_ASSET_ID,
+					external_asset: USDC_ASSET_ID,
 					old_value: old_fee,
 					new_value: new_fee,
 				}
@@ -861,7 +861,7 @@ mod governance {
 			System::assert_has_event(
 				Event::<Test>::AssetStatusUpdated {
 					internal_asset: INTERNAL_ASSET_ID,
-					asset_id: USDC_ASSET_ID,
+					external_asset: USDC_ASSET_ID,
 					status: new_status,
 				}
 				.into(),
@@ -924,7 +924,7 @@ mod governance {
 			System::assert_has_event(
 				Event::<Test>::AssetCeilingWeightUpdated {
 					internal_asset: INTERNAL_ASSET_ID,
-					asset_id: USDC_ASSET_ID,
+					external_asset: USDC_ASSET_ID,
 					old_value: old_ratio,
 					new_value: new_ratio,
 				}
@@ -973,7 +973,7 @@ mod governance {
 			System::assert_has_event(
 				Event::<Test>::ExternalAssetAdded {
 					internal_asset: INTERNAL_ASSET_ID,
-					asset_id: new_asset,
+					external_asset: new_asset,
 				}
 				.into(),
 			);
@@ -1067,7 +1067,7 @@ mod governance {
 	fn add_external_asset_fails_too_many() {
 		new_test_ext().execute_with(|| {
 			use frame_support::traits::Get;
-			let max: u32 = <Test as crate::Config>::MaxExternalAssetsPerPsm::get();
+			let max: u32 = <Test as crate::Config>::MaxExternals::get();
 			let existing =
 				crate::ExternalAssets::<Test>::iter_prefix(INTERNAL_ASSET_ID).count() as u32;
 			// Fill up to the limit.
@@ -1105,7 +1105,7 @@ mod governance {
 			System::assert_has_event(
 				Event::<Test>::ExternalAssetRemoved {
 					internal_asset: INTERNAL_ASSET_ID,
-					asset_id: USDC_ASSET_ID,
+					external_asset: USDC_ASSET_ID,
 				}
 				.into(),
 			);
@@ -1847,8 +1847,8 @@ mod cycles {
 				));
 
 				let (mint_fee, internal_received) = match last_event() {
-					Event::Minted { fee, received: internal_received, .. } => {
-						(fee, internal_received)
+					Event::Minted { internal_fee, internal_received, .. } => {
+						(internal_fee, internal_received)
 					},
 					_ => panic!("Expected Minted event"),
 				};
@@ -1888,7 +1888,9 @@ mod cycles {
 				));
 
 				let (redeem_fee, external_received) = match last_event() {
-					Event::Redeemed { fee, external_received, .. } => (fee, external_received),
+					Event::Redeemed { internal_fee, external_received, .. } => {
+						(internal_fee, external_received)
+					},
 					_ => panic!("Expected Redeemed event"),
 				};
 				total_redeem_fees += redeem_fee;
@@ -2036,8 +2038,8 @@ mod cycles {
 				));
 
 				let (mint_fee, internal_received) = match last_event() {
-					Event::Minted { fee, received: internal_received, .. } => {
-						(fee, internal_received)
+					Event::Minted { internal_fee, internal_received, .. } => {
+						(internal_fee, internal_received)
 					},
 					_ => panic!("Expected Minted event"),
 				};
@@ -2077,7 +2079,9 @@ mod cycles {
 				));
 
 				let (redeem_fee, external_received) = match last_event() {
-					Event::Redeemed { fee, external_received, .. } => (fee, external_received),
+					Event::Redeemed { internal_fee, external_received, .. } => {
+						(internal_fee, external_received)
+					},
 					_ => panic!("Expected Redeemed event"),
 				};
 				total_redeem_fees += redeem_fee;
@@ -2162,7 +2166,9 @@ mod cycles {
 			));
 
 			let (redeem_fee, _external_received) = match last_event() {
-				Event::Redeemed { fee, external_received, .. } => (fee, external_received),
+				Event::Redeemed { internal_fee, external_received, .. } => {
+					(internal_fee, external_received)
+				},
 				_ => panic!("Expected Redeemed event"),
 			};
 			total_redeem_fees += redeem_fee;
@@ -2399,12 +2405,12 @@ mod decimal_scaling {
 			// entered the reserve), not the raw submission.
 			System::assert_has_event(
 				Event::<Test>::Minted {
-					internal_asset: INTERNAL_ASSET_ID,
 					who: ALICE,
-					asset_id: DAI_MOCK_ASSET_ID,
-					external_amount: effective_external,
-					received: internal_to_user,
-					fee,
+					internal_asset: INTERNAL_ASSET_ID,
+					external_asset: DAI_MOCK_ASSET_ID,
+					external_consumed: effective_external,
+					internal_received: internal_to_user,
+					internal_fee: fee,
 				}
 				.into(),
 			);
@@ -2552,12 +2558,12 @@ mod decimal_scaling {
 			// is the nominal configured fee.
 			System::assert_has_event(
 				Event::<Test>::Redeemed {
-					internal_asset: INTERNAL_ASSET_ID,
 					who: ALICE,
-					asset_id: USDX_ASSET_ID,
-					paid: eff_internal_net + fee,
+					internal_asset: INTERNAL_ASSET_ID,
+					external_asset: USDX_ASSET_ID,
+					internal_consumed: eff_internal_net + fee,
 					external_received: external_out,
-					fee,
+					internal_fee: fee,
 				}
 				.into(),
 			);
