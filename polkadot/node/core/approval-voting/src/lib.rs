@@ -53,9 +53,10 @@ use polkadot_node_subsystem_util::{
 	TimeoutExt,
 };
 use polkadot_primitives::{
-	ApprovalVoteMultipleCandidates, ApprovalVotingParams, BlockNumber, CandidateHash,
-	CandidateIndex, CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex, Hash,
-	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
+	ApprovalVoteMultipleCandidates, BlockNumber, CandidateHash, CandidateIndex,
+	CandidateReceiptV2 as CandidateReceipt, CoalescedApprovalCandidateHashes, CoreIndex,
+	GroupIndex, Hash, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair,
+	ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair;
@@ -1016,51 +1017,6 @@ impl State {
 			Some((approval_entry, status))
 		} else {
 			None
-		}
-	}
-
-	// Returns the approval voting params from the RuntimeApi.
-	async fn get_approval_voting_params_or_default<Sender: SubsystemSender<RuntimeApiMessage>>(
-		&self,
-		sender: &mut Sender,
-		session_index: SessionIndex,
-		block_hash: Hash,
-	) -> Option<ApprovalVotingParams> {
-		let (s_tx, s_rx) = oneshot::channel();
-
-		sender
-			.send_message(RuntimeApiMessage::Request(
-				block_hash,
-				RuntimeApiRequest::ApprovalVotingParams(session_index, s_tx),
-			))
-			.await;
-
-		match s_rx.await {
-			Ok(Ok(params)) => {
-				gum::trace!(
-					target: LOG_TARGET,
-					approval_voting_params = ?params,
-					session = ?session_index,
-					"Using the following subsystem params"
-				);
-				Some(params)
-			},
-			Ok(Err(err)) => {
-				gum::debug!(
-					target: LOG_TARGET,
-					?err,
-					"Could not request approval voting params from runtime"
-				);
-				None
-			},
-			Err(err) => {
-				gum::debug!(
-					target: LOG_TARGET,
-					?err,
-					"Could not request approval voting params from runtime"
-				);
-				None
-			},
 		}
 	}
 
@@ -2156,7 +2112,9 @@ async fn get_approval_signatures_for_candidate<
 	spawn_handle: &Arc<dyn overseer::gen::Spawner + 'static>,
 	db: &OverlayedBackend<'_, impl Backend>,
 	candidate_hash: CandidateHash,
-	tx: oneshot::Sender<HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>>,
+	tx: oneshot::Sender<
+		HashMap<ValidatorIndex, (CoalescedApprovalCandidateHashes, ValidatorSignature)>,
+	>,
 ) -> SubsystemResult<()> {
 	let send_votes = |votes| {
 		if let Err(_) = tx.send(votes) {
@@ -2269,7 +2227,17 @@ async fn get_approval_signatures_for_candidate<
 								})
 								.collect();
 						if num_signed_candidates == signed_candidates_hashes.len() {
-							Some((validator_index, (signed_candidates_hashes, signature)))
+							match signed_candidates_hashes.try_into() {
+								Ok(signed_candidates_hashes) =>
+									Some((validator_index, (signed_candidates_hashes, signature))),
+								Err(_) => {
+									gum::warn!(
+										target: LOG_TARGET,
+										"Skipping approval signature coalescing more than MAX_COALESCE_APPROVALS candidates"
+									);
+									None
+								},
+							}
 						} else {
 							gum::warn!(
 								target: LOG_TARGET,
@@ -3828,9 +3796,10 @@ async fn maybe_create_signature<
 		},
 	};
 
-	let approval_params = state
-		.get_approval_voting_params_or_default(sender, block_entry.session(), block_hash)
+	let approval_params = session_info_provider
+		.get_session_info_by_index(sender, block_hash, block_entry.session())
 		.await
+		.map(|info| info.approval_voting_params)
 		.unwrap_or_default();
 
 	gum::trace!(
