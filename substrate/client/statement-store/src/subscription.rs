@@ -177,8 +177,7 @@ impl SubscriptionHandle {
 		// A snapshot collection error means the closure never ran and nothing was enqueued; the
 		// filter was not attached. Surface it without tearing down the whole subscription.
 		collect_result.map_err(|_| AddFilterError::Stopped)?;
-		send_result
-			.expect("with_snapshot_hashes invokes enqueue on successful collection; qed")?;
+		send_result.expect("with_snapshot_hashes invokes enqueue on successful collection; qed")?;
 
 		inner.next_filter_id = inner.next_filter_id.wrapping_add(1);
 		inner.active_filter_ids.insert(filter_id);
