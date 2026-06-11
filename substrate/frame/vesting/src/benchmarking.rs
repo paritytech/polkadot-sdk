@@ -60,7 +60,12 @@ fn add_vesting_schedules<T: Config>(
 		total_locked += locked;
 
 		let schedule = VestingInfo::new(locked, per_block, starting_block.into());
-		assert_ok!(Pallet::<T>::do_vested_transfer(&source, target, schedule));
+		assert_ok!(Pallet::<T>::do_vested_transfer(
+			&source,
+			target,
+			schedule,
+			T::MAX_VESTING_SCHEDULES,
+		));
 
 		// Top up to guarantee we can always transfer another schedule.
 		T::Currency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
