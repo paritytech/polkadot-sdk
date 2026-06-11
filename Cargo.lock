@@ -11413,7 +11413,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-assets-precompiles"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "ethereum-standards",
  "frame-support",
